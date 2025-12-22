@@ -10,7 +10,7 @@
 <body>
     <article id="bug-20251221-042515"
              data-type="bug"
-             data-status="todo"
+             data-status="done"
              data-priority="high"
              data-created="2025-12-21T04:25:15.015132"
              data-updated="2025-12-21T04:25:15.065789">
@@ -18,7 +18,7 @@
         <header>
             <h1>Fix: Support directory-based tracks in graph loader</h1>
             <div class="metadata">
-                <span class="badge status-todo">Todo</span>
+                <span class="badge status-done">Done</span>
                 <span class="badge priority-high">High Priority</span>
             </div>
         </header>
@@ -34,6 +34,24 @@
         <section data-content>
             <h3>Description</h3>
             The tracks collection should load both single-file tracks (track-xxx.html) and directory-based tracks (track-xxx/index.html). Currently only single files are discovered by the *.html glob pattern.
+
+## Solution
+
+Fixed by updating the TrackCollection class to:
+1. Implement _ensure_graph() method that creates HtmlGraph with multi-pattern support: ["*.html", "*/index.html"]
+2. Add all(), where(), and get() methods to match Collection interface
+3. Properly support querying and filtering both file-based and directory-based tracks
+
+## Tests Added
+
+Created comprehensive test suite in tests/python/test_track_loading.py:
+- test_load_directory_based_track: Verifies directory tracks load correctly
+- test_load_file_based_track: Verifies file tracks still work
+- test_load_mixed_tracks: Verifies both formats coexist
+- test_track_where_query: Verifies filtering works
+- test_track_get_by_id: Verifies get by ID works
+
+All tests pass. The fix is backward compatible and doesn't break any existing functionality.
         </section>
     </article>
 </body>

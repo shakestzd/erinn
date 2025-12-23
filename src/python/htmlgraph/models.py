@@ -155,6 +155,13 @@ class Node(BaseModel):
     plan_task_id: str | None = None  # Which plan task this feature implements
     spec_requirements: list[str] = Field(default_factory=list)  # Which spec requirements this satisfies
 
+    # Handoff context fields for agent-to-agent transitions
+    handoff_required: bool = False  # Whether this node needs to be handed off
+    previous_agent: str | None = None  # Agent who previously worked on this
+    handoff_reason: str | None = None  # Reason for handoff (e.g., blocked, requires different expertise)
+    handoff_notes: str | None = None  # Detailed handoff context/decisions
+    handoff_timestamp: datetime | None = None  # When the handoff was created
+
     def model_post_init(self, __context: Any) -> None:
         """Lightweight validation for required fields."""
         if not self.id or not str(self.id).strip():
@@ -272,6 +279,34 @@ class Node(BaseModel):
             </dl>
         </section>'''
 
+        # Build handoff HTML
+        handoff_html = ""
+        if self.handoff_required or self.previous_agent:
+            handoff_attrs = []
+            if self.previous_agent:
+                handoff_attrs.append(f'data-previous-agent="{self.previous_agent}"')
+            if self.handoff_reason:
+                handoff_attrs.append(f'data-reason="{self.handoff_reason}"')
+            if self.handoff_timestamp:
+                handoff_attrs.append(f'data-timestamp="{self.handoff_timestamp.isoformat()}"')
+
+            attrs_str = " ".join(handoff_attrs)
+            handoff_section = f'''
+        <section data-handoff{f" {attrs_str}" if attrs_str else ""}>
+            <h3>Handoff Context</h3>'''
+
+            if self.previous_agent:
+                handoff_section += f'\n            <p><strong>From:</strong> {self.previous_agent}</p>'
+
+            if self.handoff_reason:
+                handoff_section += f'\n            <p><strong>Reason:</strong> {self.handoff_reason}</p>'
+
+            if self.handoff_notes:
+                handoff_section += f'\n            <p><strong>Notes:</strong> {self.handoff_notes}</p>'
+
+            handoff_section += '\n        </section>'
+            handoff_html = handoff_section
+
         # Build content HTML
         content_html = ""
         if self.content:
@@ -315,7 +350,7 @@ class Node(BaseModel):
                 <span class="badge priority-{self.priority}">{self.priority.title()} Priority</span>
             </div>
         </header>
-{edges_html}{props_html}{steps_html}{content_html}
+{edges_html}{handoff_html}{props_html}{steps_html}{content_html}
     </article>
 </body>
 </html>
@@ -337,6 +372,17 @@ class Node(BaseModel):
 
         if self.agent_assigned:
             lines.append(f"Assigned: {self.agent_assigned}")
+
+        # Handoff context
+        if self.handoff_required or self.previous_agent:
+            handoff_info = "🔄 Handoff:"
+            if self.previous_agent:
+                handoff_info += f" from {self.previous_agent}"
+            if self.handoff_reason:
+                handoff_info += f" ({self.handoff_reason})"
+            lines.append(handoff_info)
+            if self.handoff_notes:
+                lines.append(f"   Notes: {self.handoff_notes}")
 
         if self.steps:
             completed = sum(1 for s in self.steps if s.completed)

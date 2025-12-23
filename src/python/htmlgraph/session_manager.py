@@ -1367,6 +1367,77 @@ class SessionManager:
                     released.append(node.id)
         return released
 
+    def create_handoff(
+        self,
+        feature_id: str,
+        reason: str,
+        notes: str | None = None,
+        collection: str = "features",
+        *,
+        agent: str,
+        next_agent: str | None = None,
+    ) -> Node | None:
+        """
+        Create a handoff context for a feature to transition between agents.
+
+        Sets up handoff metadata and releases the feature for the next agent to claim.
+
+        Args:
+            feature_id: Feature to hand off
+            reason: Reason for handoff (e.g., "blocked", "requires expertise", "completed")
+            notes: Detailed handoff context/decisions
+            collection: Collection name
+            agent: Current agent releasing the feature
+            next_agent: Next agent to claim (optional, for audit trail)
+
+        Returns:
+            Updated Node with handoff metadata or None if not found
+
+        Raises:
+            ValueError: If agent doesn't own the feature
+        """
+        graph = self._get_graph(collection)
+        node = graph.get(feature_id)
+        if not node:
+            return None
+
+        # Verify agent owns the feature
+        if node.agent_assigned and node.agent_assigned != agent:
+            raise ValueError(f"Feature '{feature_id}' is claimed by {node.agent_assigned}, not {agent}")
+
+        # Set handoff fields
+        node.handoff_required = True
+        node.previous_agent = agent
+        node.handoff_reason = reason
+        node.handoff_notes = notes
+        node.handoff_timestamp = datetime.now()
+        node.updated = datetime.now()
+
+        # Release the feature for next agent to claim
+        node.agent_assigned = None
+        node.claimed_at = None
+        node.claimed_by_session = None
+
+        # Update the graph
+        graph.update(node)
+
+        # Log the handoff action
+        self._maybe_log_work_item_action(
+            agent=agent,
+            tool="FeatureHandoff",
+            summary=f"Handed off: {collection}/{feature_id} (reason: {reason})",
+            feature_id=feature_id,
+            payload={
+                "collection": collection,
+                "action": "handoff",
+                "reason": reason,
+                "notes": notes,
+                "next_agent": next_agent,
+            },
+        )
+
+        return node
+
     # =========================================================================
     # Helpers
     # =========================================================================

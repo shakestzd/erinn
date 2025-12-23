@@ -121,6 +121,37 @@ class FeatureBuilder:
         )
         return self
 
+    def complete_and_handoff(
+        self,
+        reason: str,
+        notes: str | None = None,
+        next_agent: str | None = None,
+    ) -> FeatureBuilder:
+        """
+        Mark feature as complete and create a handoff for the next agent.
+
+        Sets handoff metadata and releases the feature for another agent to claim.
+
+        Args:
+            reason: Reason for handoff
+            notes: Detailed handoff context/decisions
+            next_agent: Next agent to claim (optional)
+
+        Returns:
+            Self for method chaining
+
+        Example:
+            feature = sdk.features.create("Review PR").complete_and_handoff(
+                reason="awaiting code review",
+                notes="All tests passing, ready for review"
+            ).save()
+        """
+        self._data["handoff_required"] = True
+        self._data["handoff_reason"] = reason
+        self._data["handoff_notes"] = notes
+        self._data["handoff_timestamp"] = datetime.now()
+        return self
+
     def save(self) -> Node:
         """Save the feature and return the Node."""
         # Generate collision-resistant ID if not provided

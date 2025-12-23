@@ -31,6 +31,46 @@
 
 set -e  # Exit on error
 
+# ============================================================================
+# CONFIGURATION SECTION
+# ============================================================================
+# Project-specific variables - customize for your project
+# ============================================================================
+
+# Package metadata
+PACKAGE_NAME="htmlgraph"
+PROJECT_ROOT_FILE="pyproject.toml"
+VERSION_PYTHON_FILE="src/python/htmlgraph/__init__.py"
+
+# PyPI configuration
+PYPI_PROJECT_URL="https://pypi.org/project/${PACKAGE_NAME}/"
+PYPI_PUBLISH_PATTERN="dist/${PACKAGE_NAME}-\${VERSION}*"
+
+# Plugin configurations (optional)
+CLAUDE_PLUGIN_ENABLED=true
+GEMINI_EXTENSION_ENABLED=true
+CODEX_SKILL_ENABLED=false
+GEMINI_EXTENSION_DIR="packages/gemini-extension"
+GEMINI_CONFIG_FILE="${GEMINI_EXTENSION_DIR}/gemini-extension.json"
+
+# Build configuration
+BUILD_COMMAND="uv build"
+CLEAN_DIST=true
+PUBLISH_COMMAND="uv publish"
+
+# Git configuration
+GIT_REMOTE="origin"
+GIT_BRANCH="main"
+PYPI_WAIT_SECONDS=10
+
+# Installation configuration
+INSTALL_COMMAND="pip install"
+INSTALL_METHOD="--upgrade"  # or "--force-reinstall" for forced updates
+
+# ============================================================================
+# END CONFIGURATION SECTION
+# ============================================================================
+
 # Parse flags
 DOCS_ONLY=false
 BUILD_ONLY=false
@@ -203,8 +243,8 @@ if [ "$SKIP_GIT" != true ]; then
     fi
 
     # Push to remote
-    log_info "Pushing to origin/main..."
-    if run_command git push origin main --tags; then
+    log_info "Pushing to ${GIT_REMOTE}/${GIT_BRANCH}..."
+    if run_command git push ${GIT_REMOTE} ${GIT_BRANCH} --tags; then
         log_success "Pushed to git"
     else
         log_error "Git push failed"

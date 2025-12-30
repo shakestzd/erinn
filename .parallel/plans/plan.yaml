@@ -1,167 +1,123 @@
 metadata:
-  name: Multi-Agent Coordination Enhancements
-  created: 20251223-010000
+  name: Pre-Work Validation Hook with Auto-Spike Integration
+  created: 20251225-050700
   status: ready
-overview: 'Extend HtmlGraph''s multi-agent coordination with three parallel improvements:
+overview: 'Implement PreToolUse hook that enforces HtmlGraph workflow by requiring
 
-  1. Handoff Context & Notes - Enable seamless agent-to-agent task transitions
+  active work items for code changes. Integrates with auto-spike system
 
-  2. Package Deployment Scripts - Make deployment automation reusable for all Python
-  projects
-
-  3. Agent Capabilities & Smart Routing - Intelligent task assignment based on agent
-  skills
-
-
-  All features leverage existing infrastructure (SessionManager, SDK, deploy-all.sh)
-  with
-
-  minimal new code (~20% new, 80% reuse/extend).
+  and applies decision framework to determine when work items are mandatory.
 
   '
 research:
-  approach: Hybrid artifact + structured handoff using HTML as the artifact store
+  approach: PreToolUse hook with JSON permission decisions
   libraries:
-  - name: invoke
-    version: '>=2.2'
-    reason: Optional Python-native alternative to shell scripts for CI/CD automation
-    optional: true
-  - name: tomllib
-    version: Python 3.11+
-    reason: Built-in TOML parser for deploy script metadata updates
-    optional: false
+  - name: Python stdlib
+    reason: No external dependencies needed
   patterns:
-  - file: src/python/htmlgraph/session_manager.py:1-100
-    description: SessionManager lifecycle - reuse claim/release for handoff coordination
-  - file: src/python/htmlgraph/agents.py:1-100
-    description: AgentInterface pattern - extend for capability-based routing
-  - file: src/python/htmlgraph/sdk.py:1-100
-    description: Fluent builder pattern - add .complete_and_handoff() method
-  - file: scripts/deploy-all.sh:1-50
-    description: Deployment workflow - generalize for all Python projects
+  - file: track-event.py:23-71
+    description: Project dir resolution and pythonpath bootstrapping
+  - file: track-event.py:88-122
+    description: Configuration loading pattern
+  - file: session_manager.py:1176-1190
+    description: Active feature detection via status filtering
   specifications:
-  - requirement: Never edit HTML directly - always use SDK/API/CLI
+  - requirement: Must not block auto-spike creation
     status: must_follow
-  - requirement: All data through Pydantic models (validation before HTML)
+  - requirement: Apply decision framework for mandatory work items
     status: must_follow
-  - requirement: ISO 8601 timestamps, semantic HTML format
-    status: must_follow
-  - requirement: Agent attribution on all activities
-    status: must_follow
-  - requirement: Append-only event logging in JSONL
+  - requirement: Use JSON permission decisions
     status: must_follow
   dependencies:
     existing:
-    - justhtml>=0.6.0
-    - pydantic>=2.0.0
-    - watchdog>=3.0.0
-    - rich>=13.0.0
-    new:
-    - invoke>=2.2 (optional dev dependency)
+    - htmlgraph (SessionManager, SDK)
+    - Python 3.10+ stdlib
+    new: []
 features:
-- feature-20251221-211345
-- feat-130780b2
-- feature-20251221-211346
+- bug-60baa800
 tasks:
 - id: task-0
-  name: Handoff Context System
+  name: Create validation configuration schema
   file: tasks/task-0.md
-  priority: high
+  priority: blocker
   dependencies: []
-  estimated_tokens: 3000
 - id: task-1
-  name: Deployment Script Generalization
+  name: Implement get_active_work_item() method
   file: tasks/task-1.md
-  priority: high
+  priority: blocker
   dependencies: []
-  estimated_tokens: 2500
 - id: task-2
-  name: Agent Routing & Capabilities
+  name: Create PreToolUse validation hook script
   file: tasks/task-2.md
   priority: high
-  dependencies: []
-  estimated_tokens: 3500
-- id: task-3
-  name: Integration Tests & Documentation
-  file: tasks/task-3.md
-  priority: medium
   dependencies:
   - task-0
   - task-1
+- id: task-3
+  name: Integrate with auto-spike detection
+  file: tasks/task-3.md
+  priority: high
+  dependencies:
   - task-2
-  estimated_tokens: 2000
+- id: task-4
+  name: Update htmlgraph-tracker skill documentation
+  file: tasks/task-4.md
+  priority: medium
+  dependencies:
+  - task-2
+  - task-3
+- id: task-5
+  name: Add validation to session-start-info
+  file: tasks/task-5.md
+  priority: medium
+  dependencies:
+  - task-1
+- id: task-6
+  name: Create integration tests
+  file: tasks/task-6.md
+  priority: high
+  dependencies:
+  - task-2
+  - task-3
 shared_resources:
   files:
-  - path: src/python/htmlgraph/models.py
-    reason: Task 0 adds handoff fields to Node model; Task 2 adds capability fields
-    mitigation: Task 0 creates handoff fields first (lines 150-160), Task 2 adds capability
-      fields after (lines 200-210)
-  - path: src/python/htmlgraph/sdk.py
-    reason: Task 0 adds .complete_and_handoff(); Task 2 adds .assign_by_capability()
-    mitigation: Different method names, no conflicts. Both extend FeatureBuilder class.
-  - path: pyproject.toml
-    reason: Task 1 adds deployment entry points; Task 2 might add optional deps
-    mitigation: Task 1 adds [project.scripts], Task 2 adds [project.optional-dependencies]
-  databases:
-  - name: .htmlgraph/events/*.jsonl
-    concern: Concurrent writes to event log during parallel development
-    mitigation: Append-only file writes are atomic on POSIX systems; watchdog handles
-      race conditions
+  - path: src/python/htmlgraph/session_manager.py
+    reason: Task 1 adds method, other tasks call it
+    mitigation: Task 1 creates method first, others use it
+  - path: packages/claude-plugin/skills/htmlgraph-tracker/SKILL.md
+    reason: Task 4 updates documentation
+    mitigation: Single task owns this file
 testing:
   unit:
-  - Each task writes tests in tests/python/test_{feature}.py
-  - Must achieve >90% coverage for new code
-  - 'All tests must pass before merge: uv run pytest'
+  - Each task writes unit tests for new methods
+  - Test auto-spike detection logic
+  - Test decision framework thresholds
   integration:
-  - Task 3 creates E2E tests for multi-agent handoff scenarios
-  - Test cross-feature interactions (handoff + routing)
-  - Verify deployment script works on clean install
+  - Test full validation flow with real sessions
+  - Test auto-spike creation bypass
+  - Test multi-file change blocking
   isolation:
-  - Each worktree runs tests independently
-  - No shared test state or fixtures
-  - Mock file I/O where needed to prevent conflicts
+  - Mock SessionManager for hook tests
+  - Use test fixtures for config files
 success_criteria:
-- All 4 tasks complete with tests passing
-- Zero merge conflicts (tasks are truly independent)
-- Documentation updated (AGENTS.md, README.md)
-- Examples added for each feature
-- 'Performance: handoff overhead <50ms, routing <100ms'
-- Code review approved (PR created for each task)
-notes: '**Parallel Execution Strategy:**
+- Hook blocks Write/Edit/Delete when no active work item and 3+ files
+- Hook allows auto-spike creation (session-init, transition)
+- Hook warns but allows single-file changes without work item
+- get_active_work_item() returns correct Node or None
+- All tests passing
+- Documentation updated with workflow guidance
+notes: 'The key challenge is detecting auto-spike file writes to allow them
+
+  while blocking other code changes. We detect via data-auto-generated
+
+  attribute in file content and spike-subtype matching.
 
 
-  Tasks 0, 1, 2 are fully independent:
+  Decision framework thresholds (3+ files, >30min) are conservative
 
-  - Task 0 (Handoff) touches: models.py (lines 150-160), session_manager.py, sdk.py
-
-  - Task 1 (Deployment) touches: scripts/, pyproject.toml ([project.scripts])
-
-  - Task 2 (Routing) touches: models.py (lines 200-210), agents.py, sdk.py
-
-
-  Conflict mitigation:
-
-  - models.py: Task 0 uses lines 150-160, Task 2 uses lines 200-210 (non-overlapping)
-
-  - sdk.py: Different method names (.complete_and_handoff() vs .assign_by_capability())
-
-  - pyproject.toml: Different sections ([project.scripts] vs [project.optional-dependencies])
-
-
-  Task 3 (Integration) runs sequentially after merge to main.
-
-
-  **Execution Timeline:**
-
-  - Parallel: Tasks 0, 1, 2 (3 agents, est. 60-90 min wall time)
-
-  - Sequential: Task 3 after merge (1 agent, est. 30-45 min)
-
-  - Total: ~2 hours wall time vs ~5 hours sequential (2.5x speedup)
+  to prioritize attribution over efficiency.
 
   '
 changelog:
-- timestamp: 20251223-010000
-  event: Plan created via /ctx:plan with parallel research (5 agents)
-- timestamp: 20251223-010000
-  event: Research synthesis completed - identified 80% code reuse opportunity
+- timestamp: 20251225-050700
+  event: Plan created with parallel research synthesis

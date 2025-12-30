@@ -81,9 +81,20 @@
   },
 
   "code_operations": {
-    "description": "Only block direct file modification tools",
+    "description": "Tools and bash commands that modify code",
     "tools": ["Write", "Edit", "Delete", "NotebookEdit"],
-    "bash_patterns": []
+    "bash_patterns": [
+      "^npm install",
+      "^npm run",
+      "^yarn install",
+      "^yarn add",
+      "^git commit",
+      "^git push",
+      "^uv build",
+      "^uv publish",
+      "^pip install(?! htmlgraph)",
+      "^python setup.py"
+    ]
   },
 
   "permission_responses": {

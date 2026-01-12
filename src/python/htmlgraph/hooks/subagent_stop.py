@@ -35,10 +35,59 @@ def get_parent_event_id() -> str | None:
 
     Set by PreToolUse hook when Task() is detected.
 
+    NOTE: This relies on environment variables which DON'T persist between
+    hook invocations (each hook is a new subprocess). This function is kept
+    for backward compatibility but will almost always return None.
+    Use get_parent_event_id_from_database() instead.
+
     Returns:
         Parent event ID (evt-XXXXX) or None if not found
     """
     return os.environ.get("HTMLGRAPH_PARENT_EVENT")
+
+
+def get_parent_event_id_from_database(db_path: str) -> tuple[str | None, str | None]:
+    """
+    Get the parent event ID by querying the database for active task_delegation events.
+
+    This is the reliable method for finding parent events since environment variables
+    don't persist between hook invocations.
+
+    Args:
+        db_path: Path to SQLite database
+
+    Returns:
+        Tuple of (parent_event_id, parent_start_time) or (None, None) if not found
+    """
+    try:
+        conn = sqlite3.connect(db_path)
+        cursor = conn.cursor()
+
+        # Find the most recent task_delegation event that's still 'started'
+        cursor.execute(
+            """
+            SELECT event_id, timestamp
+            FROM agent_events
+            WHERE event_type = 'task_delegation'
+            AND status = 'started'
+            AND timestamp >= datetime('now', '-10 minutes')
+            ORDER BY timestamp DESC
+            LIMIT 1
+            """
+        )
+        row = cursor.fetchone()
+        conn.close()
+
+        if row:
+            logger.debug(f"Found active task_delegation from database: {row[0]}")
+            return row[0], row[1]
+
+        logger.debug("No active task_delegation found in database")
+        return None, None
+
+    except Exception as e:
+        logger.warning(f"Error querying database for parent event: {e}")
+        return None, None
 
 
 def get_session_id() -> str | None:
@@ -222,14 +271,7 @@ def handle_subagent_stop(hook_input: dict[str, Any]) -> dict[str, Any]:
     Returns:
         Response: {"continue": True} with optional context
     """
-    # Get parent event ID from environment
-    parent_event_id = get_parent_event_id()
-
-    if not parent_event_id:
-        logger.debug("No parent event ID found, skipping subagent stop tracking")
-        return {"continue": True}
-
-    # Get project directory and database path
+    # Get project directory and database path first (needed for database-based detection)
     try:
         from htmlgraph.config import get_database_path
 
@@ -244,11 +286,28 @@ def handle_subagent_stop(hook_input: dict[str, Any]) -> dict[str, Any]:
         logger.warning(f"Error resolving database path: {e}")
         return {"continue": True}
 
-    # Get parent event start time
-    parent_start_time = get_parent_event_start_time(db_path, parent_event_id)
-    if not parent_start_time:
-        logger.warning(f"Could not find parent event: {parent_event_id}")
+    # Try environment variable first (unlikely to work, but kept for compatibility)
+    parent_event_id = get_parent_event_id()
+    parent_start_time = None
+
+    # Fall back to database-based detection (the reliable method)
+    if not parent_event_id:
+        parent_event_id, parent_start_time = get_parent_event_id_from_database(db_path)
+
+    if not parent_event_id:
+        logger.debug(
+            "No parent event ID found (env or database), skipping subagent stop tracking"
+        )
         return {"continue": True}
+
+    logger.info(f"SubagentStop: Found parent event {parent_event_id}")
+
+    # Get parent event start time if not already retrieved from database
+    if not parent_start_time:
+        parent_start_time = get_parent_event_start_time(db_path, parent_event_id)
+        if not parent_start_time:
+            logger.warning(f"Could not find parent event start time: {parent_event_id}")
+            return {"continue": True}
 
     # Count child spikes
     child_spike_count = count_child_spikes(db_path, parent_event_id, parent_start_time)

@@ -11,9 +11,8 @@ Bug reference: bug-event-hierarchy-201fcc67
 """
 
 import os
-import sqlite3
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 from uuid import uuid4
 
 import pytest
@@ -74,7 +73,15 @@ class TestPreToolUseEventHierarchy:
             (event_id, agent_id, event_type, timestamp, tool_name, session_id, status)
             VALUES (?, ?, ?, ?, ?, ?, ?)
             """,
-            (task_delegation_event_id, "claude-code", "task_delegation", "2026-01-12T00:00:00", "Task", "test-session-123", "started"),
+            (
+                task_delegation_event_id,
+                "claude-code",
+                "task_delegation",
+                "2026-01-12T00:00:00",
+                "Task",
+                "test-session-123",
+                "started",
+            ),
         )
         mock_db.connection.commit()
 
@@ -112,7 +119,9 @@ class TestPreToolUseEventHierarchy:
             if "HTMLGRAPH_PARENT_EVENT" in os.environ:
                 del os.environ["HTMLGRAPH_PARENT_EVENT"]
 
-    def test_tool_event_falls_back_to_userquery_without_env_parent(self, mock_db, tmp_path):
+    def test_tool_event_falls_back_to_userquery_without_env_parent(
+        self, mock_db, tmp_path
+    ):
         """Test that top-level tool events fall back to UserQuery when no env parent."""
         from htmlgraph.hooks.pretooluse import create_start_event
 
@@ -129,7 +138,15 @@ class TestPreToolUseEventHierarchy:
             (event_id, agent_id, event_type, timestamp, tool_name, session_id, status)
             VALUES (?, ?, ?, ?, ?, ?, ?)
             """,
-            (user_query_id, "user", "tool_call", "2026-01-12T00:00:00", "UserQuery", "test-session-123", "recorded"),
+            (
+                user_query_id,
+                "user",
+                "tool_call",
+                "2026-01-12T00:00:00",
+                "UserQuery",
+                "test-session-123",
+                "recorded",
+            ),
         )
         mock_db.connection.commit()
 
@@ -173,7 +190,15 @@ class TestPreToolUseEventHierarchy:
             (event_id, agent_id, event_type, timestamp, tool_name, session_id, status)
             VALUES (?, ?, ?, ?, ?, ?, ?)
             """,
-            (user_query_id, "user", "tool_call", "2026-01-12T00:00:00", "UserQuery", "test-session-123", "recorded"),
+            (
+                user_query_id,
+                "user",
+                "tool_call",
+                "2026-01-12T00:00:00",
+                "UserQuery",
+                "test-session-123",
+                "recorded",
+            ),
         )
         mock_db.connection.commit()
 
@@ -188,7 +213,10 @@ class TestPreToolUseEventHierarchy:
                 # Execute Task() delegation
                 tool_use_id = create_start_event(
                     tool_name="Task",
-                    tool_input={"prompt": "Do something", "subagent_type": "general-purpose"},
+                    tool_input={
+                        "prompt": "Do something",
+                        "subagent_type": "general-purpose",
+                    },
                     session_id="test-session-123",
                 )
 
@@ -206,7 +234,9 @@ class TestPreToolUseEventHierarchy:
                     "SELECT event_id, event_type FROM agent_events WHERE event_type = 'task_delegation' LIMIT 1"
                 )
                 delegation_row = cursor.fetchone()
-                assert delegation_row is not None, "Task() should create a task_delegation event"
+                assert delegation_row is not None, (
+                    "Task() should create a task_delegation event"
+                )
 
                 # Verify HTMLGRAPH_PARENT_EVENT was set for subagent
                 assert os.environ.get("HTMLGRAPH_PARENT_EVENT") is not None, (
@@ -233,7 +263,11 @@ class TestPreToolUseEventHierarchy:
         from htmlgraph.hooks.pretooluse import create_start_event
 
         # Clear any existing parent context
-        for env_var in ["HTMLGRAPH_PARENT_EVENT", "HTMLGRAPH_PARENT_QUERY_EVENT", "HTMLGRAPH_SUBAGENT_TYPE"]:
+        for env_var in [
+            "HTMLGRAPH_PARENT_EVENT",
+            "HTMLGRAPH_PARENT_QUERY_EVENT",
+            "HTMLGRAPH_SUBAGENT_TYPE",
+        ]:
             if env_var in os.environ:
                 del os.environ[env_var]
 
@@ -246,7 +280,15 @@ class TestPreToolUseEventHierarchy:
             (event_id, agent_id, event_type, timestamp, tool_name, session_id, status)
             VALUES (?, ?, ?, ?, ?, ?, ?)
             """,
-            (user_query_id, "user", "tool_call", "2026-01-12T00:00:00", "UserQuery", "test-session-123", "recorded"),
+            (
+                user_query_id,
+                "user",
+                "tool_call",
+                "2026-01-12T00:00:00",
+                "UserQuery",
+                "test-session-123",
+                "recorded",
+            ),
         )
         mock_db.connection.commit()
 
@@ -257,13 +299,18 @@ class TestPreToolUseEventHierarchy:
                 # Step 2: Create Task() delegation
                 create_start_event(
                     tool_name="Task",
-                    tool_input={"prompt": "Implement feature", "subagent_type": "general-purpose"},
+                    tool_input={
+                        "prompt": "Implement feature",
+                        "subagent_type": "general-purpose",
+                    },
                     session_id="test-session-123",
                 )
 
                 # Get the task delegation event ID (this was set in environment by create_start_event)
                 task_delegation_id = os.environ.get("HTMLGRAPH_PARENT_EVENT")
-                assert task_delegation_id is not None, "Task should set HTMLGRAPH_PARENT_EVENT"
+                assert task_delegation_id is not None, (
+                    "Task should set HTMLGRAPH_PARENT_EVENT"
+                )
 
                 # Step 3: Simulate subagent executing Bash tool
                 # Bash will use task_delegation_id as parent, then set HTMLGRAPH_PARENT_EVENT to its own ID
@@ -276,13 +323,19 @@ class TestPreToolUseEventHierarchy:
                 # After Bash, HTMLGRAPH_PARENT_EVENT is now the Bash event ID (for spawner subprocess tracking)
                 bash_event_id = os.environ.get("HTMLGRAPH_PARENT_EVENT")
                 assert bash_event_id is not None
-                assert bash_event_id != task_delegation_id, "Bash should update HTMLGRAPH_PARENT_EVENT"
+                assert bash_event_id != task_delegation_id, (
+                    "Bash should update HTMLGRAPH_PARENT_EVENT"
+                )
 
                 # Step 4: Simulate Edit and Read - these will use the Bash event as parent
                 # This reflects the actual cascading parent behavior
                 create_start_event(
                     tool_name="Edit",
-                    tool_input={"file_path": "/test/file.py", "old_string": "a", "new_string": "b"},
+                    tool_input={
+                        "file_path": "/test/file.py",
+                        "old_string": "a",
+                        "new_string": "b",
+                    },
                     session_id="test-session-123",
                 )
 
@@ -307,7 +360,10 @@ class TestPreToolUseEventHierarchy:
                 tool_events = {row[0]: row[1] for row in rows}
 
                 # UserQuery has no parent (or self-reference in some implementations)
-                assert tool_events.get("UserQuery") is None or tool_events.get("UserQuery") == user_query_id
+                assert (
+                    tool_events.get("UserQuery") is None
+                    or tool_events.get("UserQuery") == user_query_id
+                )
 
                 # Bash should have task_delegation as parent (set before Bash call)
                 assert tool_events.get("Bash") == task_delegation_id, (
@@ -324,7 +380,11 @@ class TestPreToolUseEventHierarchy:
                 )
 
         finally:
-            for env_var in ["HTMLGRAPH_PARENT_EVENT", "HTMLGRAPH_PARENT_QUERY_EVENT", "HTMLGRAPH_SUBAGENT_TYPE"]:
+            for env_var in [
+                "HTMLGRAPH_PARENT_EVENT",
+                "HTMLGRAPH_PARENT_QUERY_EVENT",
+                "HTMLGRAPH_SUBAGENT_TYPE",
+            ]:
                 if env_var in os.environ:
                     del os.environ[env_var]
 
@@ -384,7 +444,15 @@ class TestEventHierarchyRegression:
             (event_id, agent_id, event_type, timestamp, tool_name, session_id, status)
             VALUES (?, ?, ?, ?, ?, ?, ?)
             """,
-            (task_delegation_id, "claude-code", "task_delegation", "2026-01-12T00:00:00", "Task", "test-session-123", "started"),
+            (
+                task_delegation_id,
+                "claude-code",
+                "task_delegation",
+                "2026-01-12T00:00:00",
+                "Task",
+                "test-session-123",
+                "started",
+            ),
         )
         mock_db.connection.commit()
 
@@ -430,7 +498,11 @@ class TestMultiLevelNesting:
         from htmlgraph.hooks.pretooluse import create_start_event
 
         # Clear environment
-        for env_var in ["HTMLGRAPH_PARENT_EVENT", "HTMLGRAPH_PARENT_QUERY_EVENT", "HTMLGRAPH_SUBAGENT_TYPE"]:
+        for env_var in [
+            "HTMLGRAPH_PARENT_EVENT",
+            "HTMLGRAPH_PARENT_QUERY_EVENT",
+            "HTMLGRAPH_SUBAGENT_TYPE",
+        ]:
             if env_var in os.environ:
                 del os.environ[env_var]
 
@@ -443,7 +515,15 @@ class TestMultiLevelNesting:
             (event_id, agent_id, event_type, timestamp, tool_name, session_id, status)
             VALUES (?, ?, ?, ?, ?, ?, ?)
             """,
-            (user_query_id, "user", "tool_call", "2026-01-12T00:00:00", "UserQuery", "test-session-123", "recorded"),
+            (
+                user_query_id,
+                "user",
+                "tool_call",
+                "2026-01-12T00:00:00",
+                "UserQuery",
+                "test-session-123",
+                "recorded",
+            ),
         )
         mock_db.connection.commit()
 
@@ -454,7 +534,10 @@ class TestMultiLevelNesting:
                 # Level 2: First Task delegation
                 create_start_event(
                     tool_name="Task",
-                    tool_input={"prompt": "Parent task", "subagent_type": "orchestrator"},
+                    tool_input={
+                        "prompt": "Parent task",
+                        "subagent_type": "orchestrator",
+                    },
                     session_id="test-session-123",
                 )
                 level2_parent = os.environ.get("HTMLGRAPH_PARENT_EVENT")
@@ -463,12 +546,17 @@ class TestMultiLevelNesting:
                 # Level 3: Nested Task delegation (subagent spawns another Task)
                 create_start_event(
                     tool_name="Task",
-                    tool_input={"prompt": "Child task", "subagent_type": "general-purpose"},
+                    tool_input={
+                        "prompt": "Child task",
+                        "subagent_type": "general-purpose",
+                    },
                     session_id="test-session-123",
                 )
                 level3_parent = os.environ.get("HTMLGRAPH_PARENT_EVENT")
                 assert level3_parent is not None
-                assert level3_parent != level2_parent, "Nested Task should create new parent"
+                assert level3_parent != level2_parent, (
+                    "Nested Task should create new parent"
+                )
 
                 # Level 4: Tool execution in deepest subagent
                 create_start_event(
@@ -489,6 +577,10 @@ class TestMultiLevelNesting:
                 )
 
         finally:
-            for env_var in ["HTMLGRAPH_PARENT_EVENT", "HTMLGRAPH_PARENT_QUERY_EVENT", "HTMLGRAPH_SUBAGENT_TYPE"]:
+            for env_var in [
+                "HTMLGRAPH_PARENT_EVENT",
+                "HTMLGRAPH_PARENT_QUERY_EVENT",
+                "HTMLGRAPH_SUBAGENT_TYPE",
+            ]:
                 if env_var in os.environ:
                     del os.environ[env_var]

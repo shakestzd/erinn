@@ -295,9 +295,13 @@ class TestDetectAgentFromEnvironment:
         with mock.patch.dict(
             os.environ, {"HTMLGRAPH_SUBAGENT_TYPE": "researcher"}, clear=True
         ):
-            agent_id, model = detect_agent_from_environment()
-            assert agent_id == "researcher"
-            assert model is None
+            with mock.patch(
+                "htmlgraph.hooks.event_tracker.get_model_from_status_cache",
+                return_value=None,
+            ):
+                agent_id, model = detect_agent_from_environment()
+                assert agent_id == "researcher"
+                assert model is None
 
     def test_detect_claude_model(self):
         """Test detection with CLAUDE_MODEL env var returns model separately."""
@@ -323,16 +327,24 @@ class TestDetectAgentFromEnvironment:
         """Test detection with HTMLGRAPH_PARENT_AGENT env var."""
         env = {"HTMLGRAPH_PARENT_AGENT": "parent-agent"}
         with mock.patch.dict(os.environ, env, clear=True):
-            agent_id, model = detect_agent_from_environment()
-            assert agent_id == "parent-agent"
-            assert model is None
+            with mock.patch(
+                "htmlgraph.hooks.event_tracker.get_model_from_status_cache",
+                return_value=None,
+            ):
+                agent_id, model = detect_agent_from_environment()
+                assert agent_id == "parent-agent"
+                assert model is None
 
     def test_detect_fallback_to_claude_code(self):
         """Test fallback to 'claude-code' when no env vars set."""
         with mock.patch.dict(os.environ, {}, clear=True):
-            agent_id, model = detect_agent_from_environment()
-            assert agent_id == "claude-code"
-            assert model is None
+            with mock.patch(
+                "htmlgraph.hooks.event_tracker.get_model_from_status_cache",
+                return_value=None,
+            ):
+                agent_id, model = detect_agent_from_environment()
+                assert agent_id == "claude-code"
+                assert model is None
 
     def test_detect_priority_order(self):
         """Test environment variable priority order."""
@@ -1337,6 +1349,896 @@ class TestIntegration:
         clear_drift_queue_activities(tmp_graph_dir)
         queue = load_drift_queue(tmp_graph_dir)
         assert queue["activities"] == []
+
+
+# ============================================================================
+# TESTS: Subagent Detection from Database
+# ============================================================================
+
+
+class TestSubagentDetectionFromDatabase:
+    """Test cases for detect_subagent_context_from_database() function."""
+
+    def test_detect_active_task_delegation(self, tmp_path):
+        """Test detection of active task_delegation event in database."""
+        from htmlgraph.db.schema import HtmlGraphDB
+        from htmlgraph.hooks.event_tracker import detect_subagent_context_from_database
+
+        # Create a real database for this test
+        db_path = tmp_path / "htmlgraph.db"
+        db = HtmlGraphDB(str(db_path))
+        db.connect()
+
+        # Create parent session
+        parent_session_id = "parent-session-123"
+        db.insert_session(
+            session_id=parent_session_id,
+            agent_assigned="claude-code",
+            is_subagent=False,
+        )
+
+        # Create a task_delegation event with status='started'
+        parent_event_id = "evt-task-delegation-001"
+        cursor = db.connection.cursor()
+        cursor.execute(
+            """
+            INSERT INTO agent_events
+            (event_id, agent_id, event_type, timestamp, tool_name,
+             input_summary, session_id, status, subagent_type)
+            VALUES (?, ?, ?, datetime('now'), ?, ?, ?, ?, ?)
+            """,
+            (
+                parent_event_id,
+                "claude-code",
+                "task_delegation",
+                "Task",
+                "Test task delegation",
+                parent_session_id,
+                "started",  # Not completed yet
+                "Explore",
+            ),
+        )
+        db.connection.commit()
+
+        # Now detect subagent context from a different session_id
+        subagent_session_id = "subagent-session-456"
+        subagent_type, detected_parent_session, detected_parent_event = (
+            detect_subagent_context_from_database(db, subagent_session_id)
+        )
+
+        assert subagent_type == "Explore"
+        assert detected_parent_session == parent_session_id
+        assert detected_parent_event == parent_event_id
+
+        db.disconnect()
+
+    def test_no_detection_for_completed_delegation(self, tmp_path):
+        """Test that completed task_delegation events are not detected."""
+        from htmlgraph.db.schema import HtmlGraphDB
+        from htmlgraph.hooks.event_tracker import detect_subagent_context_from_database
+
+        db_path = tmp_path / "htmlgraph.db"
+        db = HtmlGraphDB(str(db_path))
+        db.connect()
+
+        # Create parent session
+        parent_session_id = "parent-session-completed"
+        db.insert_session(
+            session_id=parent_session_id,
+            agent_assigned="claude-code",
+            is_subagent=False,
+        )
+
+        # Create a completed task_delegation event
+        cursor = db.connection.cursor()
+        cursor.execute(
+            """
+            INSERT INTO agent_events
+            (event_id, agent_id, event_type, timestamp, tool_name,
+             input_summary, session_id, status, subagent_type)
+            VALUES (?, ?, ?, datetime('now'), ?, ?, ?, ?, ?)
+            """,
+            (
+                "evt-completed-001",
+                "claude-code",
+                "task_delegation",
+                "Task",
+                "Completed task",
+                parent_session_id,
+                "completed",  # Already completed - should not be detected
+                "Explore",
+            ),
+        )
+        db.connection.commit()
+
+        # Should NOT detect completed delegation
+        subagent_type, detected_parent, detected_event = (
+            detect_subagent_context_from_database(db, "new-session")
+        )
+
+        assert subagent_type is None
+        assert detected_parent is None
+        assert detected_event is None
+
+        db.disconnect()
+
+    def test_detection_skipped_for_task_tool(self, tmp_path):
+        """Test that Task tool calls do NOT trigger subagent detection.
+
+        When the orchestrator calls Task(), we should NOT think we're in a subagent
+        context. The current_tool_name parameter allows us to skip detection for
+        Task tools specifically.
+
+        NEW BEHAVIOR (2026-01):
+        - Claude Code passes the SAME session_id to both parent and subagent hooks
+        - We CAN'T use session_id to distinguish parent from subagent
+        - Instead, we check current_tool_name: Task = orchestrator, other = subagent
+        """
+        from htmlgraph.db.schema import HtmlGraphDB
+        from htmlgraph.hooks.event_tracker import detect_subagent_context_from_database
+
+        db_path = tmp_path / "htmlgraph.db"
+        db = HtmlGraphDB(str(db_path))
+        db.connect()
+
+        # Create session
+        session_id = "same-session-123"
+        db.insert_session(
+            session_id=session_id,
+            agent_assigned="claude-code",
+            is_subagent=False,
+        )
+
+        # Create a task_delegation event
+        cursor = db.connection.cursor()
+        cursor.execute(
+            """
+            INSERT INTO agent_events
+            (event_id, agent_id, event_type, timestamp, tool_name,
+             input_summary, session_id, status, subagent_type)
+            VALUES (?, ?, ?, datetime('now'), ?, ?, ?, ?, ?)
+            """,
+            (
+                "evt-same-session-001",
+                "claude-code",
+                "task_delegation",
+                "Task",
+                "Task in same session",
+                session_id,
+                "started",
+                "Explore",
+            ),
+        )
+        db.connection.commit()
+
+        # When current_tool is Task, should NOT detect subagent context
+        # (we're the orchestrator delegating, not a subagent)
+        subagent_type, detected_parent, detected_event = (
+            detect_subagent_context_from_database(
+                db, session_id, current_tool_name="Task"
+            )
+        )
+        assert subagent_type is None
+        assert detected_parent is None
+        assert detected_event is None
+
+        # When current_tool is NOT Task (e.g., Read), SHOULD detect subagent context
+        # (we're a subagent running tools)
+        subagent_type, detected_parent, detected_event = (
+            detect_subagent_context_from_database(
+                db, session_id, current_tool_name="Read"
+            )
+        )
+        assert subagent_type == "Explore"
+        assert detected_parent == session_id
+        assert detected_event == "evt-same-session-001"
+
+        db.disconnect()
+
+    def test_no_detection_when_no_db_connection(self):
+        """Test graceful handling when database has no connection."""
+        from htmlgraph.hooks.event_tracker import detect_subagent_context_from_database
+
+        # Mock a DB with no connection
+        mock_db = mock.MagicMock()
+        mock_db.connection = None
+
+        subagent_type, parent_session, parent_event = (
+            detect_subagent_context_from_database(mock_db, "any-session")
+        )
+
+        assert subagent_type is None
+        assert parent_session is None
+        assert parent_event is None
+
+    def test_detection_returns_most_recent_delegation(self, tmp_path):
+        """Test that the most recent active task_delegation is returned."""
+        from htmlgraph.db.schema import HtmlGraphDB
+        from htmlgraph.hooks.event_tracker import detect_subagent_context_from_database
+
+        db_path = tmp_path / "htmlgraph.db"
+        db = HtmlGraphDB(str(db_path))
+        db.connect()
+
+        # Create parent session
+        parent_session_id = "parent-session-multi"
+        db.insert_session(
+            session_id=parent_session_id,
+            agent_assigned="claude-code",
+            is_subagent=False,
+        )
+
+        cursor = db.connection.cursor()
+
+        # Create older task_delegation
+        cursor.execute(
+            """
+            INSERT INTO agent_events
+            (event_id, agent_id, event_type, timestamp, tool_name,
+             input_summary, session_id, status, subagent_type)
+            VALUES (?, ?, ?, datetime('now', '-2 minutes'), ?, ?, ?, ?, ?)
+            """,
+            (
+                "evt-older-001",
+                "claude-code",
+                "task_delegation",
+                "Task",
+                "Older task",
+                parent_session_id,
+                "started",
+                "Researcher",
+            ),
+        )
+
+        # Create newer task_delegation
+        cursor.execute(
+            """
+            INSERT INTO agent_events
+            (event_id, agent_id, event_type, timestamp, tool_name,
+             input_summary, session_id, status, subagent_type)
+            VALUES (?, ?, ?, datetime('now', '-1 minute'), ?, ?, ?, ?, ?)
+            """,
+            (
+                "evt-newer-001",
+                "claude-code",
+                "task_delegation",
+                "Task",
+                "Newer task",
+                parent_session_id,
+                "started",
+                "Explore",
+            ),
+        )
+        db.connection.commit()
+
+        # Should return the most recent (Explore, not Researcher)
+        subagent_type, _, parent_event = detect_subagent_context_from_database(
+            db, "new-subagent-session"
+        )
+
+        assert subagent_type == "Explore"
+        assert parent_event == "evt-newer-001"
+
+        db.disconnect()
+
+
+class TestParallelSubagentDetection:
+    """
+    Test cases for parallel Task() subagent detection.
+
+    These tests verify the fix for the parallel subagent detection bug where
+    multiple Task() calls running simultaneously would incorrectly link to
+    the wrong parent event (the most recent one instead of their actual parent).
+
+    The fix uses environment variables as hints for direct lookup, falling back
+    to the "most recent" heuristic only when no hint is available.
+    """
+
+    def test_parallel_tasks_with_hint_selects_correct_parent(self, tmp_path):
+        """
+        Test that parallel Task() calls correctly link to their own parent
+        when parent_event_id_hint is provided.
+
+        Scenario:
+        - Task 1 (Explore) starts at 11:39:00 -> event-1
+        - Task 2 (Codex) starts at 11:39:05 -> event-2
+        - Task 1 subagent starts at 11:39:02 with hint=event-1
+        - Should correctly find event-1, NOT event-2 (the most recent)
+        """
+        from htmlgraph.db.schema import HtmlGraphDB
+        from htmlgraph.hooks.event_tracker import detect_subagent_context_from_database
+
+        db_path = tmp_path / "htmlgraph.db"
+        db = HtmlGraphDB(str(db_path))
+        db.connect()
+
+        # Create parent session
+        parent_session_id = "parent-session-parallel"
+        db.insert_session(
+            session_id=parent_session_id,
+            agent_assigned="claude-code",
+            is_subagent=False,
+        )
+
+        cursor = db.connection.cursor()
+
+        # Create Task 1 delegation (Explore) - older
+        cursor.execute(
+            """
+            INSERT INTO agent_events
+            (event_id, agent_id, event_type, timestamp, tool_name,
+             input_summary, session_id, status, subagent_type)
+            VALUES (?, ?, ?, datetime('now', '-3 minutes'), ?, ?, ?, ?, ?)
+            """,
+            (
+                "evt-task1-explore",
+                "claude-code",
+                "task_delegation",
+                "Task",
+                "Explore the codebase",
+                parent_session_id,
+                "started",
+                "Explore",
+            ),
+        )
+
+        # Create Task 2 delegation (Codex) - newer (most recent)
+        cursor.execute(
+            """
+            INSERT INTO agent_events
+            (event_id, agent_id, event_type, timestamp, tool_name,
+             input_summary, session_id, status, subagent_type)
+            VALUES (?, ?, ?, datetime('now', '-1 minute'), ?, ?, ?, ?, ?)
+            """,
+            (
+                "evt-task2-codex",
+                "claude-code",
+                "task_delegation",
+                "Task",
+                "Generate code with Codex",
+                parent_session_id,
+                "started",
+                "Codex",
+            ),
+        )
+        db.connection.commit()
+
+        # Subagent from Task 1 queries with hint - should get Explore, not Codex
+        subagent_type, parent_session, parent_event = (
+            detect_subagent_context_from_database(
+                db, "subagent-session-1", parent_event_id_hint="evt-task1-explore"
+            )
+        )
+
+        assert subagent_type == "Explore", f"Expected 'Explore', got '{subagent_type}'"
+        assert parent_event == "evt-task1-explore", (
+            f"Expected 'evt-task1-explore', got '{parent_event}'"
+        )
+        assert parent_session == parent_session_id
+
+        db.disconnect()
+
+    def test_parallel_tasks_without_hint_falls_back_to_most_recent(self, tmp_path):
+        """
+        Test that when no hint is provided, the function falls back to
+        selecting the most recent active task_delegation (legacy behavior).
+
+        This is the fallback for cases where environment variables don't propagate.
+        """
+        from htmlgraph.db.schema import HtmlGraphDB
+        from htmlgraph.hooks.event_tracker import detect_subagent_context_from_database
+
+        db_path = tmp_path / "htmlgraph.db"
+        db = HtmlGraphDB(str(db_path))
+        db.connect()
+
+        parent_session_id = "parent-session-fallback"
+        db.insert_session(
+            session_id=parent_session_id,
+            agent_assigned="claude-code",
+            is_subagent=False,
+        )
+
+        cursor = db.connection.cursor()
+
+        # Create older task
+        cursor.execute(
+            """
+            INSERT INTO agent_events
+            (event_id, agent_id, event_type, timestamp, tool_name,
+             input_summary, session_id, status, subagent_type)
+            VALUES (?, ?, ?, datetime('now', '-3 minutes'), ?, ?, ?, ?, ?)
+            """,
+            (
+                "evt-older-task",
+                "claude-code",
+                "task_delegation",
+                "Task",
+                "Older task",
+                parent_session_id,
+                "started",
+                "Researcher",
+            ),
+        )
+
+        # Create newer task (most recent)
+        cursor.execute(
+            """
+            INSERT INTO agent_events
+            (event_id, agent_id, event_type, timestamp, tool_name,
+             input_summary, session_id, status, subagent_type)
+            VALUES (?, ?, ?, datetime('now', '-1 minute'), ?, ?, ?, ?, ?)
+            """,
+            (
+                "evt-newer-task",
+                "claude-code",
+                "task_delegation",
+                "Task",
+                "Newer task",
+                parent_session_id,
+                "started",
+                "Gemini",
+            ),
+        )
+        db.connection.commit()
+
+        # Query without hint - should fall back to most recent
+        subagent_type, _, parent_event = detect_subagent_context_from_database(
+            db, "subagent-session-no-hint", parent_event_id_hint=None
+        )
+
+        assert subagent_type == "Gemini", (
+            f"Expected 'Gemini' (most recent), got '{subagent_type}'"
+        )
+        assert parent_event == "evt-newer-task"
+
+        db.disconnect()
+
+    def test_hint_with_completed_event_falls_back(self, tmp_path):
+        """
+        Test that if the hinted event is already completed, the function
+        falls back to the most recent active task_delegation.
+        """
+        from htmlgraph.db.schema import HtmlGraphDB
+        from htmlgraph.hooks.event_tracker import detect_subagent_context_from_database
+
+        db_path = tmp_path / "htmlgraph.db"
+        db = HtmlGraphDB(str(db_path))
+        db.connect()
+
+        parent_session_id = "parent-session-completed-hint"
+        db.insert_session(
+            session_id=parent_session_id,
+            agent_assigned="claude-code",
+            is_subagent=False,
+        )
+
+        cursor = db.connection.cursor()
+
+        # Create a completed task (the one we'll hint)
+        cursor.execute(
+            """
+            INSERT INTO agent_events
+            (event_id, agent_id, event_type, timestamp, tool_name,
+             input_summary, session_id, status, subagent_type)
+            VALUES (?, ?, ?, datetime('now', '-2 minutes'), ?, ?, ?, ?, ?)
+            """,
+            (
+                "evt-completed-task",
+                "claude-code",
+                "task_delegation",
+                "Task",
+                "Completed task",
+                parent_session_id,
+                "completed",  # Already completed
+                "Explore",
+            ),
+        )
+
+        # Create an active task
+        cursor.execute(
+            """
+            INSERT INTO agent_events
+            (event_id, agent_id, event_type, timestamp, tool_name,
+             input_summary, session_id, status, subagent_type)
+            VALUES (?, ?, ?, datetime('now', '-1 minute'), ?, ?, ?, ?, ?)
+            """,
+            (
+                "evt-active-task",
+                "claude-code",
+                "task_delegation",
+                "Task",
+                "Active task",
+                parent_session_id,
+                "started",
+                "Codex",
+            ),
+        )
+        db.connection.commit()
+
+        # Hint points to completed event - should fall back to active one
+        subagent_type, _, parent_event = detect_subagent_context_from_database(
+            db, "subagent-session-stale-hint", parent_event_id_hint="evt-completed-task"
+        )
+
+        assert subagent_type == "Codex", (
+            f"Expected 'Codex' (active fallback), got '{subagent_type}'"
+        )
+        assert parent_event == "evt-active-task"
+
+        db.disconnect()
+
+    def test_hint_with_nonexistent_event_falls_back(self, tmp_path):
+        """
+        Test that if the hinted event doesn't exist, the function
+        falls back to the most recent active task_delegation.
+        """
+        from htmlgraph.db.schema import HtmlGraphDB
+        from htmlgraph.hooks.event_tracker import detect_subagent_context_from_database
+
+        db_path = tmp_path / "htmlgraph.db"
+        db = HtmlGraphDB(str(db_path))
+        db.connect()
+
+        parent_session_id = "parent-session-bad-hint"
+        db.insert_session(
+            session_id=parent_session_id,
+            agent_assigned="claude-code",
+            is_subagent=False,
+        )
+
+        cursor = db.connection.cursor()
+
+        # Create an active task
+        cursor.execute(
+            """
+            INSERT INTO agent_events
+            (event_id, agent_id, event_type, timestamp, tool_name,
+             input_summary, session_id, status, subagent_type)
+            VALUES (?, ?, ?, datetime('now', '-1 minute'), ?, ?, ?, ?, ?)
+            """,
+            (
+                "evt-only-active",
+                "claude-code",
+                "task_delegation",
+                "Task",
+                "Only active task",
+                parent_session_id,
+                "started",
+                "Gemini",
+            ),
+        )
+        db.connection.commit()
+
+        # Hint points to non-existent event - should fall back
+        subagent_type, _, parent_event = detect_subagent_context_from_database(
+            db,
+            "subagent-session-invalid-hint",
+            parent_event_id_hint="evt-does-not-exist",
+        )
+
+        assert subagent_type == "Gemini", (
+            f"Expected 'Gemini' (fallback), got '{subagent_type}'"
+        )
+        assert parent_event == "evt-only-active"
+
+        db.disconnect()
+
+    def test_three_parallel_tasks_each_finds_correct_parent(self, tmp_path):
+        """
+        Test with three parallel Task() calls, each subagent correctly
+        identifies its own parent when using hints.
+
+        Scenario:
+        - Task 1 (Explore) -> evt-1
+        - Task 2 (Codex) -> evt-2
+        - Task 3 (Gemini) -> evt-3
+        - Each subagent should find its specific parent, not others
+        """
+        from htmlgraph.db.schema import HtmlGraphDB
+        from htmlgraph.hooks.event_tracker import detect_subagent_context_from_database
+
+        db_path = tmp_path / "htmlgraph.db"
+        db = HtmlGraphDB(str(db_path))
+        db.connect()
+
+        parent_session_id = "parent-session-triple"
+        db.insert_session(
+            session_id=parent_session_id,
+            agent_assigned="claude-code",
+            is_subagent=False,
+        )
+
+        cursor = db.connection.cursor()
+
+        tasks = [
+            ("evt-triple-1", "Explore", "-4 minutes"),
+            ("evt-triple-2", "Codex", "-2 minutes"),
+            ("evt-triple-3", "Gemini", "-1 minute"),
+        ]
+
+        for event_id, subagent_type, time_offset in tasks:
+            cursor.execute(
+                f"""
+                INSERT INTO agent_events
+                (event_id, agent_id, event_type, timestamp, tool_name,
+                 input_summary, session_id, status, subagent_type)
+                VALUES (?, ?, ?, datetime('now', '{time_offset}'), ?, ?, ?, ?, ?)
+                """,
+                (
+                    event_id,
+                    "claude-code",
+                    "task_delegation",
+                    "Task",
+                    f"Task for {subagent_type}",
+                    parent_session_id,
+                    "started",
+                    subagent_type,
+                ),
+            )
+        db.connection.commit()
+
+        # Each subagent with its hint should find its own parent
+        for event_id, expected_type, _ in tasks:
+            subagent_type, _, parent_event = detect_subagent_context_from_database(
+                db, f"subagent-for-{event_id}", parent_event_id_hint=event_id
+            )
+            assert subagent_type == expected_type, (
+                f"For hint {event_id}: Expected '{expected_type}', got '{subagent_type}'"
+            )
+            assert parent_event == event_id, (
+                f"For hint {event_id}: Expected '{event_id}', got '{parent_event}'"
+            )
+
+        db.disconnect()
+
+    def test_mixed_sessions_hint_finds_correct_parent(self, tmp_path):
+        """
+        Test that hints work correctly even when task_delegations
+        come from different parent sessions.
+        """
+        from htmlgraph.db.schema import HtmlGraphDB
+        from htmlgraph.hooks.event_tracker import detect_subagent_context_from_database
+
+        db_path = tmp_path / "htmlgraph.db"
+        db = HtmlGraphDB(str(db_path))
+        db.connect()
+
+        # Create two parent sessions
+        db.insert_session(
+            session_id="parent-A",
+            agent_assigned="claude-code",
+            is_subagent=False,
+        )
+        db.insert_session(
+            session_id="parent-B",
+            agent_assigned="claude-code",
+            is_subagent=False,
+        )
+
+        cursor = db.connection.cursor()
+
+        # Task from session A
+        cursor.execute(
+            """
+            INSERT INTO agent_events
+            (event_id, agent_id, event_type, timestamp, tool_name,
+             input_summary, session_id, status, subagent_type)
+            VALUES (?, ?, ?, datetime('now', '-2 minutes'), ?, ?, ?, ?, ?)
+            """,
+            (
+                "evt-from-A",
+                "claude-code",
+                "task_delegation",
+                "Task",
+                "Task from session A",
+                "parent-A",
+                "started",
+                "Explore",
+            ),
+        )
+
+        # Task from session B (more recent)
+        cursor.execute(
+            """
+            INSERT INTO agent_events
+            (event_id, agent_id, event_type, timestamp, tool_name,
+             input_summary, session_id, status, subagent_type)
+            VALUES (?, ?, ?, datetime('now', '-1 minute'), ?, ?, ?, ?, ?)
+            """,
+            (
+                "evt-from-B",
+                "claude-code",
+                "task_delegation",
+                "Task",
+                "Task from session B",
+                "parent-B",
+                "started",
+                "Codex",
+            ),
+        )
+        db.connection.commit()
+
+        # Subagent with hint for session A's task
+        subagent_type, parent_session, parent_event = (
+            detect_subagent_context_from_database(
+                db, "subagent-for-A", parent_event_id_hint="evt-from-A"
+            )
+        )
+
+        assert subagent_type == "Explore"
+        assert parent_session == "parent-A"
+        assert parent_event == "evt-from-A"
+
+        # Subagent with hint for session B's task
+        subagent_type, parent_session, parent_event = (
+            detect_subagent_context_from_database(
+                db, "subagent-for-B", parent_event_id_hint="evt-from-B"
+            )
+        )
+
+        assert subagent_type == "Codex"
+        assert parent_session == "parent-B"
+        assert parent_event == "evt-from-B"
+
+        db.disconnect()
+
+
+class TestSubagentSessionPersistence:
+    """
+    Test cases for subagent session persistence across multiple tool calls.
+
+    This tests the fix for the issue where subsequent tool calls in the same
+    subagent session would lose the parent_event_id linkage.
+
+    The fix checks the sessions table first to retrieve stored parent_event_id,
+    ensuring persistence across multiple calls in the same subagent context.
+    """
+
+    def test_multiple_tool_calls_maintain_parent_linking(self, tmp_path):
+        """
+        Test that multiple tool calls within the same subagent session
+        all maintain the correct parent_event_id linkage.
+
+        Scenario:
+        1. Task delegation creates task_delegation event with status='started'
+        2. First tool call (TodoWrite) in subagent:
+           - Creates subagent session with is_subagent=True, parent_event_id
+           - Records TodoWrite with parent_event_id
+        3. Second tool call (Read) in subagent:
+           - Sessions table lookup finds existing subagent session
+           - Retrieves parent_event_id from sessions table
+           - Records Read with same parent_event_id
+        4. Third tool call (Bash) in subagent:
+           - Sessions table lookup finds existing subagent session
+           - Retrieves parent_event_id from sessions table
+           - Records Bash with same parent_event_id
+        """
+        from htmlgraph.db.schema import HtmlGraphDB
+        import sqlite3
+
+        db_path = tmp_path / "htmlgraph.db"
+        db = HtmlGraphDB(str(db_path))
+        db.connect()
+
+        # Setup: Create parent and subagent sessions
+        parent_session_id = "sess-parent-123"
+        subagent_session_id = "sess-subagent-456"
+        task_delegation_event_id = "evt-task-delegation-001"
+
+        db.insert_session(
+            session_id=parent_session_id,
+            agent_assigned="claude-code",
+            is_subagent=False,
+        )
+
+        # Create task_delegation event
+        cursor = db.connection.cursor()
+        cursor.execute(
+            """
+            INSERT INTO agent_events
+            (event_id, agent_id, event_type, timestamp, tool_name,
+             input_summary, session_id, status, subagent_type)
+            VALUES (?, ?, ?, datetime('now'), ?, ?, ?, ?, ?)
+            """,
+            (
+                task_delegation_event_id,
+                "claude-code",
+                "task_delegation",
+                "Task",
+                "Task delegation",
+                parent_session_id,
+                "started",
+                "general-purpose",
+            ),
+        )
+        db.connection.commit()
+
+        # Create subagent session with parent_event_id (first tool call would do this)
+        db.insert_session(
+            session_id=subagent_session_id,
+            agent_assigned="general-purpose-spawner",
+            is_subagent=True,
+            parent_session_id=parent_session_id,
+            parent_event_id=task_delegation_event_id,
+        )
+
+        # Simulate multiple tool calls in subagent
+        tool_calls = [
+            ("TodoWrite", {"todos": [{"content": "Task 1"}]}),
+            ("Read", {"file_path": "/path/to/file.py"}),
+            ("Bash", {"command": "ls -la"}),
+        ]
+
+        recorded_events = []
+
+        for tool_name, tool_input in tool_calls:
+            # Create event in database (with parent_event_id)
+            event_id = f"evt-{tool_name.lower()}-001"
+            cursor.execute(
+                """
+                INSERT INTO agent_events
+                (event_id, agent_id, event_type, timestamp, tool_name,
+                 input_summary, session_id, status, parent_event_id)
+                VALUES (?, ?, ?, datetime('now'), ?, ?, ?, ?, ?)
+                """,
+                (
+                    event_id,
+                    "general-purpose-spawner",
+                    "tool_call",
+                    tool_name,
+                    f"{tool_name} call",
+                    subagent_session_id,
+                    "completed",
+                    task_delegation_event_id,  # All should have same parent!
+                ),
+            )
+            db.connection.commit()
+            recorded_events.append((event_id, tool_name, task_delegation_event_id))
+
+        # Verification: Query all events in subagent session and verify parent_event_id
+        cursor.execute(
+            """
+            SELECT event_id, tool_name, parent_event_id
+            FROM agent_events
+            WHERE session_id = ? AND event_type = 'tool_call'
+            ORDER BY timestamp ASC
+            """,
+            (subagent_session_id,),
+        )
+        events = cursor.fetchall()
+
+        # All events should have the same parent_event_id
+        assert len(events) == 3, f"Expected 3 events, got {len(events)}"
+
+        for i, (event_id, tool_name, parent_event_id) in enumerate(events):
+            assert parent_event_id == task_delegation_event_id, (
+                f"Tool call {i} ({tool_name}): expected parent_event_id="
+                f"{task_delegation_event_id}, got {parent_event_id}"
+            )
+
+        # Verify sessions table has correct parent_event_id stored
+        cursor.execute(
+            """
+            SELECT session_id, is_subagent, parent_session_id, parent_event_id
+            FROM sessions
+            WHERE session_id = ?
+            """,
+            (subagent_session_id,),
+        )
+        session_row = cursor.fetchone()
+
+        assert session_row is not None, f"Subagent session {subagent_session_id} not found"
+        _, is_subagent, stored_parent_session, stored_parent_event = session_row
+
+        assert is_subagent == 1, "Session should be marked as subagent"
+        assert stored_parent_session == parent_session_id
+        assert stored_parent_event == task_delegation_event_id, (
+            f"Sessions table: expected parent_event_id={task_delegation_event_id}, "
+            f"got {stored_parent_event}"
+        )
+
+        db.disconnect()
 
 
 if __name__ == "__main__":

@@ -318,3 +318,342 @@ PyPI_API_TOKEN=pypi-YOUR_TOKEN_HERE
 # Or as environment variable:
 export UV_PUBLISH_TOKEN="pypi-YOUR_TOKEN_HERE"
 ```
+
+---
+
+## Python Utility Scripts
+
+### Analysis & Investigation Tools
+
+#### `analyze_features.py`
+**Purpose**: Analyze features in .htmlgraph/ directory for status, completion, and patterns.
+
+```bash
+uv run python scripts/analyze_features.py
+```
+
+**Output**: Statistics on feature states, durations, and completion rates.
+
+#### `analyze_orchestrator_impact.py` & `analyze_orchestrator_impact_v2.py`
+**Purpose**: Measure impact of orchestrator enforcement on delegation patterns and tool usage.
+
+```bash
+uv run python scripts/analyze_orchestrator_impact.py
+uv run python scripts/analyze_orchestrator_impact_v2.py
+```
+
+**Output**: Analysis of delegation rates, tool usage patterns before/after orchestrator enforcement.
+
+#### `delegation_analysis.py`
+**Purpose**: Create HtmlGraph spike documenting delegation enforcement issues and solutions.
+
+```bash
+uv run python scripts/delegation_analysis.py
+```
+
+**Output**: Creates spike HTML file in .htmlgraph/spikes/
+
+#### `verify_htmx_dashboard.py`, `verify_new_dashboard.py`, `verify_spawner_tracking.py`
+**Purpose**: Verification scripts for dashboard functionality and spawner tracking.
+
+```bash
+uv run python scripts/verify_htmx_dashboard.py
+uv run python scripts/verify_new_dashboard.py
+uv run python scripts/verify_spawner_tracking.py
+```
+
+---
+
+### Data Generation & Setup Tools
+
+#### `generate_real_events.py`
+**Purpose**: Generate realistic HtmlGraph events for testing and demonstration.
+
+```bash
+uv run python scripts/generate_real_events.py
+```
+
+**Output**: Populates .htmlgraph/htmlgraph.db with test events.
+
+#### `setup_features.py`
+**Purpose**: Initialize feature tracking for HtmlGraph development phases.
+
+```bash
+uv run python scripts/setup_features.py
+```
+
+**Output**: Creates feature HTML files in .htmlgraph/features/
+
+#### `create_delegation_test_features.py`
+**Purpose**: Create test features for delegation workflow testing.
+
+```bash
+uv run python scripts/create_delegation_test_features.py
+```
+
+---
+
+### Spike & Report Generation
+
+#### `create_spike.py`
+**Purpose**: Create investigation spike from findings and analysis.
+
+```bash
+uv run python scripts/create_spike.py
+```
+
+**Output**: Creates spike HTML in .htmlgraph/spikes/
+
+#### `create_spike_report.py`
+**Purpose**: Generate comprehensive spike report with findings summary.
+
+```bash
+uv run python scripts/create_spike_report.py
+```
+
+#### `create_integrity_spike.py`
+**Purpose**: Create feature integrity analysis spike.
+
+```bash
+uv run python scripts/create_integrity_spike.py
+```
+
+---
+
+### Maintenance & Migration Tools
+
+#### `cleanup_wip.py`
+**Purpose**: Clean up work-in-progress features, remove duplicates, archive test features.
+
+```bash
+uv run python scripts/cleanup_wip.py
+```
+
+**Warning**: Modifies .htmlgraph/ directory. Review changes carefully.
+
+#### `migrate_html_to_sqlite.py`
+**Purpose**: Migrate legacy HTML-based storage to SQLite database.
+
+```bash
+uv run python scripts/migrate_html_to_sqlite.py
+```
+
+#### `migrate_work_types.py`
+**Purpose**: Migrate work item types in database schema.
+
+```bash
+uv run python scripts/migrate_work_types.py
+```
+
+#### `reindex_all.py`
+**Purpose**: Rebuild database indexes for performance.
+
+```bash
+uv run python scripts/reindex_all.py
+```
+
+---
+
+### Linking & Integration Tools
+
+#### `link_features_to_track.py`
+**Purpose**: Link features to parent track for hierarchy management.
+
+```bash
+uv run python scripts/link_features_to_track.py
+```
+
+#### `record_orchestration_verification.py`
+**Purpose**: Record orchestration verification findings to HtmlGraph database.
+
+```bash
+uv run python scripts/record_orchestration_verification.py
+```
+
+#### `update_phase2_feature.py`
+**Purpose**: Update Phase 2 feature status and mark steps completed.
+
+```bash
+uv run python scripts/update_phase2_feature.py
+```
+
+---
+
+### Development Server
+
+#### `start_api_server.py`
+**Purpose**: Start FastAPI server with correct database path for development.
+
+```bash
+uv run python scripts/start_api_server.py
+```
+
+**Default**: Serves on http://localhost:8000
+**Alternative**: Use `uv run htmlgraph serve` (recommended)
+
+---
+
+### Image & Asset Processing
+
+#### `process_images.py`
+**Purpose**: Process and optimize images for documentation.
+
+```bash
+uv run python scripts/process_images.py
+```
+
+#### `generate_branding.py`
+**Purpose**: Generate branding assets (logos, icons, color schemes).
+
+```bash
+uv run python scripts/generate_branding.py
+```
+
+#### `generate_aliases.py`
+**Purpose**: Generate command aliases for CLI.
+
+```bash
+uv run python scripts/generate_aliases.py
+```
+
+---
+
+### Database Utilities
+
+#### `setup-dashboard-db.py`
+**Purpose**: Initialize dashboard database with schema and seed data.
+
+```bash
+uv run python scripts/setup-dashboard-db.py
+```
+
+#### `test-event-tracking.py`
+**Purpose**: Test event tracking functionality in hooks.
+
+```bash
+uv run python scripts/test-event-tracking.py
+```
+
+---
+
+### CIGS (Code Intelligence Graph System) Tools
+
+#### `cigs-wave1-delegation.py`
+**Purpose**: Wave 1 CIGS implementation - delegation pattern analysis.
+
+```bash
+uv run python scripts/cigs-wave1-delegation.py
+```
+
+#### `cigs-wave2-integration.py`
+**Purpose**: Wave 2 CIGS implementation - integration with Claude Code.
+
+```bash
+uv run python scripts/cigs-wave2-integration.py
+```
+
+---
+
+### Memory & Documentation Sync
+
+#### `sync_memory_files.py`
+**Purpose**: Synchronize documentation files across Claude, Gemini, and central AGENTS.md.
+
+```bash
+# Check sync status
+uv run python scripts/sync_memory_files.py --check
+
+# Synchronize all files
+uv run python scripts/sync_memory_files.py
+```
+
+**See also**: `uv run htmlgraph sync-docs` (CLI command)
+
+---
+
+### Shell Scripts
+
+#### `deploy-all.sh`
+Complete deployment automation (see above for full documentation).
+
+#### `git-commit-push.sh`
+Simplified git workflow (see above for full documentation).
+
+#### `install-hooks.sh`
+Install pre-commit hooks for code quality.
+
+#### `statusline.py`
+Generate status line for terminal display.
+
+```bash
+uv run python scripts/statusline.py
+```
+
+---
+
+## Script Categories
+
+**For Development:**
+- start_api_server.py
+- generate_real_events.py
+- setup_features.py
+
+**For Analysis:**
+- analyze_features.py
+- analyze_orchestrator_impact.py
+- delegation_analysis.py
+
+**For Maintenance:**
+- cleanup_wip.py
+- migrate_html_to_sqlite.py
+- reindex_all.py
+
+**For Deployment:**
+- deploy-all.sh
+- git-commit-push.sh
+
+**For Verification:**
+- verify_htmx_dashboard.py
+- verify_new_dashboard.py
+- test-event-tracking.py
+
+---
+
+## Best Practices
+
+1. **Always use `uv run python`** instead of bare `python` or `python3`
+2. **Run from project root** (`/Users/shakes/DevProjects/htmlgraph/`)
+3. **Check --help** if script supports it
+4. **Review output** before committing changes from data-modifying scripts
+5. **Use --dry-run** when available to preview changes
+
+---
+
+## Adding New Scripts
+
+When adding new utility scripts:
+
+1. Place in `scripts/` directory
+2. Add shebang: `#!/usr/bin/env python3`
+3. Include docstring explaining purpose
+4. Support `--help` flag if complex
+5. Use `uv run python` in examples
+6. Document here in appropriate category
+7. Update this README
+
+---
+
+## Deprecated Scripts
+
+Scripts that should not be used (kept for reference):
+
+- None currently deprecated
+
+---
+
+## See Also
+
+- [Python Scripts Reference](../PYTHON_SCRIPTS_REFERENCE.md) - Complete inventory
+- [Documentation Structure](../DOCUMENTATION_STRUCTURE.md) - Where files live
+- [Deployment Rules](../.claude/rules/deployment.md) - Deployment workflow
+- [Contributing Guide](../CONTRIBUTING.md) - Development workflow

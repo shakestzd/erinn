@@ -496,6 +496,154 @@ class TestFallbackPatterns:
 
 
 # ==============================================================================
+# VALIDATION TESTS - Tracker and parent_event_id must be provided together
+# ==============================================================================
+
+
+class TestTrackerParentEventIdValidation:
+    """Test validation that tracker and parent_event_id must be provided together."""
+
+    def test_gemini_tracker_without_parent_event_id_raises(self):
+        """Test that providing tracker without parent_event_id raises ValueError."""
+        spawner = HeadlessSpawner()
+        mock_tracker = Mock()
+
+        with pytest.raises(ValueError) as exc_info:
+            spawner.spawn_gemini(
+                prompt="Test",
+                tracker=mock_tracker,
+                parent_event_id=None,
+            )
+
+        assert "parent_event_id is required when tracker is provided" in str(
+            exc_info.value
+        )
+
+    def test_gemini_parent_event_id_without_tracker_raises(self):
+        """Test that providing parent_event_id without tracker raises ValueError."""
+        spawner = HeadlessSpawner()
+
+        with pytest.raises(ValueError) as exc_info:
+            spawner.spawn_gemini(
+                prompt="Test",
+                tracker=None,
+                parent_event_id="event-12345678",
+            )
+
+        assert "tracker is required when parent_event_id is provided" in str(
+            exc_info.value
+        )
+
+    def test_codex_tracker_without_parent_event_id_raises(self):
+        """Test that providing tracker without parent_event_id raises ValueError."""
+        spawner = HeadlessSpawner()
+        mock_tracker = Mock()
+
+        with pytest.raises(ValueError) as exc_info:
+            spawner.spawn_codex(
+                prompt="Test",
+                tracker=mock_tracker,
+                parent_event_id=None,
+            )
+
+        assert "parent_event_id is required when tracker is provided" in str(
+            exc_info.value
+        )
+
+    def test_codex_parent_event_id_without_tracker_raises(self):
+        """Test that providing parent_event_id without tracker raises ValueError."""
+        spawner = HeadlessSpawner()
+
+        with pytest.raises(ValueError) as exc_info:
+            spawner.spawn_codex(
+                prompt="Test",
+                tracker=None,
+                parent_event_id="event-12345678",
+            )
+
+        assert "tracker is required when parent_event_id is provided" in str(
+            exc_info.value
+        )
+
+    def test_copilot_tracker_without_parent_event_id_raises(self):
+        """Test that providing tracker without parent_event_id raises ValueError."""
+        spawner = HeadlessSpawner()
+        mock_tracker = Mock()
+
+        with pytest.raises(ValueError) as exc_info:
+            spawner.spawn_copilot(
+                prompt="Test",
+                tracker=mock_tracker,
+                parent_event_id=None,
+            )
+
+        assert "parent_event_id is required when tracker is provided" in str(
+            exc_info.value
+        )
+
+    def test_copilot_parent_event_id_without_tracker_raises(self):
+        """Test that providing parent_event_id without tracker raises ValueError."""
+        spawner = HeadlessSpawner()
+
+        with pytest.raises(ValueError) as exc_info:
+            spawner.spawn_copilot(
+                prompt="Test",
+                tracker=None,
+                parent_event_id="event-12345678",
+            )
+
+        assert "tracker is required when parent_event_id is provided" in str(
+            exc_info.value
+        )
+
+    def test_gemini_both_none_succeeds(self):
+        """Test that providing neither tracker nor parent_event_id succeeds."""
+        spawner = HeadlessSpawner()
+
+        mock_output = {
+            "response": "Test response",
+            "stats": {"models": {"gemini-2.0-flash": {"tokens": {"total": 100}}}},
+        }
+
+        with patch("subprocess.run") as mock_run:
+            mock_run.return_value = Mock(returncode=0, stdout=json.dumps(mock_output))
+
+            # Should not raise
+            result = spawner.spawn_gemini(
+                prompt="Test",
+                output_format="json",
+                tracker=None,
+                parent_event_id=None,
+            )
+
+            assert result.success is True
+
+    def test_gemini_both_provided_succeeds(self):
+        """Test that providing both tracker and parent_event_id succeeds."""
+        spawner = HeadlessSpawner()
+        mock_tracker = Mock()
+        mock_tracker.record_tool_call.return_value = {"event_id": "subprocess-123"}
+
+        mock_output = {
+            "response": "Test response",
+            "stats": {"models": {"gemini-2.0-flash": {"tokens": {"total": 100}}}},
+        }
+
+        with patch("subprocess.run") as mock_run:
+            mock_run.return_value = Mock(returncode=0, stdout=json.dumps(mock_output))
+
+            # Should not raise
+            result = spawner.spawn_gemini(
+                prompt="Test",
+                output_format="json",
+                tracker=mock_tracker,
+                parent_event_id="event-12345678",
+            )
+
+            assert result.success is True
+
+
+# ==============================================================================
 # INTEGRATION TESTS - Call real CLIs, skip by default
 # ==============================================================================
 

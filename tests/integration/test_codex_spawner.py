@@ -50,12 +50,10 @@ def test_codex_cli_availability():
     print("=" * 80)
 
     import subprocess
+
     try:
         result = subprocess.run(
-            ["codex", "--version"],
-            capture_output=True,
-            text=True,
-            timeout=5
+            ["codex", "--version"], capture_output=True, text=True, timeout=5
         )
         print(f"✅ Codex CLI found: {result.stdout.strip()}")
         return True
@@ -82,10 +80,10 @@ def test_codex_spawner_simple():
         output_json=True,
         full_auto=True,
         track_in_htmlgraph=False,  # Disable tracking for simple test
-        timeout=30
+        timeout=30,
     )
 
-    print(f"\nResult:")
+    print("\nResult:")
     print(f"  Success: {result.success}")
     print(f"  Response: {result.response[:200] if result.response else 'None'}")
     print(f"  Error: {result.error}")
@@ -116,6 +114,7 @@ def test_database_events():
     print("=" * 80)
 
     import sqlite3
+
     from htmlgraph.config import get_database_path
 
     db_path = get_database_path()
@@ -157,7 +156,9 @@ def test_database_events():
         """)
         linked_count = cursor.fetchone()[0]
 
-        print(f"✅ Parent event linking: {linked_count} subprocess.codex events have parent_event_id")
+        print(
+            f"✅ Parent event linking: {linked_count} subprocess.codex events have parent_event_id"
+        )
 
         conn.close()
         return True
@@ -174,6 +175,7 @@ def test_error_analysis():
     print("=" * 80)
 
     import sqlite3
+
     from htmlgraph.config import get_database_path
 
     try:
@@ -204,17 +206,17 @@ def test_error_analysis():
             "chatgpt_plan": 0,
             "model_not_supported": 0,
             "authentication": 0,
-            "other": 0
+            "other": 0,
         }
 
         for (output,) in errors:
-            print(f"Error output sample:")
+            print("Error output sample:")
             print(f"  {output[:200]}...")
             print()
 
             # Parse JSONL error messages
             try:
-                for line in output.split('\n'):
+                for line in output.split("\n"):
                     if not line.strip():
                         continue
                     try:
@@ -338,9 +340,11 @@ def main():
     print("DIAGNOSTIC SUMMARY")
     print("=" * 80)
     print(f"Codex CLI Available: {'✅ YES' if cli_available else '❌ NO'}")
-    print(f"CodexSpawner Working: {'✅ YES' if spawner_works else '❌ NO (API access blocked)'}")
-    print(f"Event Tracking: ✅ YES (SpawnerEventTracker integration working)")
-    print(f"Root Cause: ❌ ChatGPT account tier limitation")
+    print(
+        f"CodexSpawner Working: {'✅ YES' if spawner_works else '❌ NO (API access blocked)'}"
+    )
+    print("Event Tracking: ✅ YES (SpawnerEventTracker integration working)")
+    print("Root Cause: ❌ ChatGPT account tier limitation")
     print("=" * 80)
 
 

@@ -27,7 +27,7 @@ def test_basic_gemini():
         output_format="json",
         model="gemini-2.0-flash",
         track_in_htmlgraph=False,
-        timeout=30
+        timeout=30,
     )
 
     print(f"Success: {result.success}")
@@ -49,7 +49,7 @@ def test_basic_gemini():
         output_format="stream-json",
         model="gemini-2.0-flash",
         track_in_htmlgraph=False,
-        timeout=30
+        timeout=30,
     )
 
     print(f"Success: {result2.success}")

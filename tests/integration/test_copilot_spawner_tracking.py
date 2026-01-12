@@ -16,10 +16,11 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 # Add plugin agents directory to path for SpawnerEventTracker
-PLUGIN_AGENTS_DIR = Path(__file__).parent / "packages/claude-plugin/.claude-plugin/agents"
+PLUGIN_AGENTS_DIR = (
+    Path(__file__).parent / "packages/claude-plugin/.claude-plugin/agents"
+)
 sys.path.insert(0, str(PLUGIN_AGENTS_DIR))
 
-from htmlgraph import SDK
 from htmlgraph.config import get_database_path
 from htmlgraph.db.schema import HtmlGraphDB
 from htmlgraph.orchestration import CopilotSpawner
@@ -41,9 +42,9 @@ def setup_parent_event_context(db: HtmlGraphDB, session_id: str) -> tuple[str, s
     task_delegation_event_id = f"event-{uuid.uuid4().hex[:8]}"
     start_time = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
 
-    print(f"\n{'='*80}")
+    print(f"\n{'=' * 80}")
     print("SETUP: Creating parent event context")
-    print(f"{'='*80}")
+    print(f"{'=' * 80}")
     print(f"Session ID: {session_id}")
     print(f"UserQuery Event ID: {user_query_event_id}")
     print(f"Task Delegation Event ID: {task_delegation_event_id}")
@@ -87,7 +88,7 @@ def setup_parent_event_context(db: HtmlGraphDB, session_id: str) -> tuple[str, s
     )
     db.connection.commit()
 
-    print(f"\n✅ Parent events created in database")
+    print("\n✅ Parent events created in database")
     return user_query_event_id, task_delegation_event_id
 
 
@@ -99,9 +100,9 @@ def setup_environment(session_id: str, parent_event_id: str) -> None:
         session_id: Session ID
         parent_event_id: Parent event ID (task delegation)
     """
-    print(f"\n{'='*80}")
+    print(f"\n{'=' * 80}")
     print("SETUP: Exporting parent context to environment")
-    print(f"{'='*80}")
+    print(f"{'=' * 80}")
 
     os.environ["HTMLGRAPH_PARENT_EVENT"] = parent_event_id
     os.environ["HTMLGRAPH_PARENT_SESSION"] = session_id
@@ -110,7 +111,7 @@ def setup_environment(session_id: str, parent_event_id: str) -> None:
 
     print(f"HTMLGRAPH_PARENT_EVENT: {parent_event_id}")
     print(f"HTMLGRAPH_PARENT_SESSION: {session_id}")
-    print(f"✅ Environment configured")
+    print("✅ Environment configured")
 
 
 def invoke_copilot_spawner(
@@ -127,9 +128,9 @@ def invoke_copilot_spawner(
     Returns:
         Dict with result and metadata
     """
-    print(f"\n{'='*80}")
+    print(f"\n{'=' * 80}")
     print("INVOCATION: Spawning Copilot with tracking")
-    print(f"{'='*80}")
+    print(f"{'=' * 80}")
 
     spawner = CopilotSpawner()
 
@@ -148,8 +149,8 @@ Please recommend:
     print(f"Prompt: {prompt[:100]}...")
     print(f"Tracker: {tracker}")
     print(f"Parent Event ID: {parent_event_id}")
-    print(f"Track in HtmlGraph: True")
-    print(f"Allow all tools: True")
+    print("Track in HtmlGraph: True")
+    print("Allow all tools: True")
 
     result = spawner.spawn(
         prompt=prompt,
@@ -186,24 +187,26 @@ def validate_results(
     Returns:
         True if validation passed, False otherwise
     """
-    print(f"\n{'='*80}")
+    print(f"\n{'=' * 80}")
     print("VALIDATION: Checking event hierarchy in database")
-    print(f"{'='*80}")
+    print(f"{'=' * 80}")
 
     result = result_data["result"]
-    prompt = result_data["prompt"]
+    _ = result_data["prompt"]  # noqa: F841 - Kept for debugging
 
     # Check AIResult structure
-    print(f"\n1. AIResult Validation:")
+    print("\n1. AIResult Validation:")
     print(f"   Success: {result.success}")
     print(f"   Response length: {len(result.response) if result.response else 0}")
     print(f"   Error: {result.error}")
-    print(f"   Tracked events: {len(result.tracked_events) if result.tracked_events else 0}")
+    print(
+        f"   Tracked events: {len(result.tracked_events) if result.tracked_events else 0}"
+    )
 
     if not result.success:
         print(f"\n⚠️  Copilot execution failed: {result.error}")
-        print(f"   This is expected if Copilot CLI is not installed")
-        print(f"   Continuing validation of event tracking structure...")
+        print("   This is expected if Copilot CLI is not installed")
+        print("   Continuing validation of event tracking structure...")
 
     # Query all events in this session
     cursor = db.connection.cursor()
@@ -245,7 +248,7 @@ def validate_results(
         elif parent_event_id == task_delegation_event_id:
             indent = "      "
 
-        print(f"{indent}[{i+1}] {tool_name} ({event_type})")
+        print(f"{indent}[{i + 1}] {tool_name} ({event_type})")
         print(f"{indent}    Event ID: {event_id}")
         print(f"{indent}    Agent: {agent_id}")
         print(f"{indent}    Parent: {parent_event_id or 'ROOT'}")
@@ -254,34 +257,38 @@ def validate_results(
         print(f"{indent}    Summary: {input_summary[:60]}...")
 
     # Validate hierarchy
-    print(f"\n3. Hierarchy Validation:")
+    print("\n3. Hierarchy Validation:")
 
     # Check UserQuery exists
     user_query = [e for e in events if e[0] == user_query_event_id]
     if user_query:
-        print(f"   ✅ UserQuery event found (root)")
+        print("   ✅ UserQuery event found (root)")
     else:
-        print(f"   ❌ UserQuery event NOT found")
+        print("   ❌ UserQuery event NOT found")
         validation_passed = False
 
     # Check Task delegation exists and is child of UserQuery
     task_delegation = [e for e in events if e[0] == task_delegation_event_id]
     if task_delegation and task_delegation[0][5] == user_query_event_id:
-        print(f"   ✅ Task delegation event found (child of UserQuery)")
+        print("   ✅ Task delegation event found (child of UserQuery)")
     else:
-        print(f"   ❌ Task delegation event NOT properly linked")
+        print("   ❌ Task delegation event NOT properly linked")
         validation_passed = False
 
     # Check subprocess events exist and are children of Task delegation
     subprocess_events = [
-        e for e in events if e[5] == task_delegation_event_id and e[3] == "subprocess.copilot"
+        e
+        for e in events
+        if e[5] == task_delegation_event_id and e[3] == "subprocess.copilot"
     ]
     if subprocess_events:
         print(
             f"   ✅ {len(subprocess_events)} subprocess event(s) found (children of Task delegation)"
         )
     else:
-        print(f"   ⚠️  No subprocess events found (expected if Copilot CLI not available)")
+        print(
+            "   ⚠️  No subprocess events found (expected if Copilot CLI not available)"
+        )
 
     # Check for activity tracking events (copilot_start, copilot_result)
     activity_events = [
@@ -292,15 +299,19 @@ def validate_results(
     if activity_events:
         print(f"   ✅ {len(activity_events)} activity tracking event(s) found")
     else:
-        print(f"   ⚠️  No activity tracking events found")
+        print("   ⚠️  No activity tracking events found")
 
     # Summary
-    print(f"\n{'='*80}")
+    print(f"\n{'=' * 80}")
     print("SUMMARY")
-    print(f"{'='*80}")
+    print(f"{'=' * 80}")
     print(f"Total events in session: {len(events)}")
-    print(f"UserQuery events: {len([e for e in events if e[2] == 'tool_call' and e[3] == 'UserPromptSubmit'])}")
-    print(f"Task delegation events: {len([e for e in events if e[2] == 'task_delegation'])}")
+    print(
+        f"UserQuery events: {len([e for e in events if e[2] == 'tool_call' and e[3] == 'UserPromptSubmit'])}"
+    )
+    print(
+        f"Task delegation events: {len([e for e in events if e[2] == 'task_delegation'])}"
+    )
     print(f"Subprocess events: {len(subprocess_events)}")
     print(f"Activity events: {len(activity_events)}")
     print(f"\nValidation: {'✅ PASSED' if validation_passed else '❌ FAILED'}")
@@ -310,9 +321,9 @@ def validate_results(
 
 def main() -> int:
     """Run the complete test workflow."""
-    print(f"\n{'#'*80}")
+    print(f"\n{'#' * 80}")
     print("# CopilotSpawner Parent Event Context Test")
-    print(f"{'#'*80}")
+    print(f"{'#' * 80}")
 
     try:
         # Initialize database
@@ -321,7 +332,7 @@ def main() -> int:
 
         if not db_path.exists():
             print(f"❌ Database not found at {db_path}")
-            print(f"   Run: htmlgraph init")
+            print("   Run: htmlgraph init")
             return 1
 
         db = HtmlGraphDB(str(db_path))
@@ -339,9 +350,9 @@ def main() -> int:
         setup_environment(session_id, task_delegation_event_id)
 
         # Step 3: Create tracker with parent context
-        print(f"\n{'='*80}")
+        print(f"\n{'=' * 80}")
         print("SETUP: Creating SpawnerEventTracker")
-        print(f"{'='*80}")
+        print(f"{'=' * 80}")
 
         tracker = SpawnerEventTracker(
             delegation_event_id=task_delegation_event_id,
@@ -351,12 +362,12 @@ def main() -> int:
         )
         tracker.db = db  # Ensure tracker uses the same database
 
-        print(f"Tracker created:")
+        print("Tracker created:")
         print(f"  Delegation Event ID: {task_delegation_event_id}")
-        print(f"  Parent Agent: claude")
-        print(f"  Spawner Type: copilot")
+        print("  Parent Agent: claude")
+        print("  Spawner Type: copilot")
         print(f"  Session ID: {session_id}")
-        print(f"✅ Tracker initialized")
+        print("✅ Tracker initialized")
 
         # Step 4: Invoke CopilotSpawner
         result_data = invoke_copilot_spawner(tracker, task_delegation_event_id)
@@ -373,22 +384,22 @@ def main() -> int:
         # Step 6: Display response (if successful)
         result = result_data["result"]
         if result.success and result.response:
-            print(f"\n{'='*80}")
+            print(f"\n{'=' * 80}")
             print("COPILOT RESPONSE")
-            print(f"{'='*80}")
+            print(f"{'=' * 80}")
             print(result.response)
 
-        print(f"\n{'#'*80}")
+        print(f"\n{'#' * 80}")
         print(f"# Test {'PASSED' if validation_passed else 'FAILED'}")
-        print(f"{'#'*80}\n")
+        print(f"{'#' * 80}\n")
 
         return 0 if validation_passed else 1
 
     except KeyboardInterrupt:
-        print(f"\n\n⚠️  Test interrupted by user")
+        print("\n\n⚠️  Test interrupted by user")
         return 130
     except Exception as e:
-        print(f"\n\n❌ Test failed with exception:")
+        print("\n\n❌ Test failed with exception:")
         print(f"   {type(e).__name__}: {e}")
         import traceback
 

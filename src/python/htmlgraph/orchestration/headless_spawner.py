@@ -104,11 +104,17 @@ class HeadlessSpawner:
             include_directories: Directories to include for context. Default: None
             track_in_htmlgraph: Enable HtmlGraph activity tracking. Default: True
             timeout: Max seconds to wait
-            tracker: Optional SpawnerEventTracker for recording subprocess invocation
-            parent_event_id: Optional parent event ID for event hierarchy
+            tracker: SpawnerEventTracker for recording subprocess invocation.
+                     REQUIRED when parent_event_id is provided (enforces event hierarchy).
+            parent_event_id: Parent event ID for event hierarchy.
+                     REQUIRED when tracker is provided (enforces event hierarchy).
 
         Returns:
             AIResult with response, error, and tracked events if tracking enabled
+
+        Raises:
+            ValueError: If tracker is provided without parent_event_id, or vice versa.
+                        Both must be provided together for proper event hierarchy tracking.
         """
         return self._gemini_spawner.spawn(
             prompt=prompt,
@@ -158,11 +164,17 @@ class HeadlessSpawner:
             bypass_approvals: Bypass approval checks. Default: False
             track_in_htmlgraph: Enable HtmlGraph activity tracking. Default: True
             timeout: Max seconds to wait
-            tracker: Optional SpawnerEventTracker for recording subprocess invocation
-            parent_event_id: Optional parent event ID for event hierarchy
+            tracker: SpawnerEventTracker for recording subprocess invocation.
+                     REQUIRED when parent_event_id is provided (enforces event hierarchy).
+            parent_event_id: Parent event ID for event hierarchy.
+                     REQUIRED when tracker is provided (enforces event hierarchy).
 
         Returns:
             AIResult with response, error, and tracked events if tracking enabled
+
+        Raises:
+            ValueError: If tracker is provided without parent_event_id, or vice versa.
+                        Both must be provided together for proper event hierarchy tracking.
         """
         return self._codex_spawner.spawn(
             prompt=prompt,
@@ -204,11 +216,17 @@ class HeadlessSpawner:
             deny_tools: Tools to deny (--deny-tool). Default: None
             track_in_htmlgraph: Enable HtmlGraph activity tracking. Default: True
             timeout: Max seconds to wait
-            tracker: Optional SpawnerEventTracker for recording subprocess invocation
-            parent_event_id: Optional parent event ID for event hierarchy
+            tracker: SpawnerEventTracker for recording subprocess invocation.
+                     REQUIRED when parent_event_id is provided (enforces event hierarchy).
+            parent_event_id: Parent event ID for event hierarchy.
+                     REQUIRED when tracker is provided (enforces event hierarchy).
 
         Returns:
             AIResult with response, error, and tracked events if tracking enabled
+
+        Raises:
+            ValueError: If tracker is provided without parent_event_id, or vice versa.
+                        Both must be provided together for proper event hierarchy tracking.
         """
         return self._copilot_spawner.spawn(
             prompt=prompt,

@@ -1,11 +1,10 @@
 #!/usr/bin/env python3
 import sqlite3
-import os
-from pathlib import Path
-from html.parser import HTMLParser
 from datetime import datetime
+from html.parser import HTMLParser
+from pathlib import Path
 from typing import Any
-import json
+
 
 class HtmlMetadataParser(HTMLParser):
     def __init__(self):
@@ -35,6 +34,7 @@ class HtmlMetadataParser(HTMLParser):
             if not self.title:
                 self.title = data.strip()
 
+
 def parse_html(html_file: Path) -> dict[str, Any] | None:
     try:
         with open(html_file, encoding="utf-8") as f:
@@ -49,6 +49,7 @@ def parse_html(html_file: Path) -> dict[str, Any] | None:
         print(f"Error parsing {html_file}: {e}")
         return None
 
+
 def normalize_status(status: str | None) -> str:
     if not status:
         return "todo"
@@ -61,6 +62,7 @@ def normalize_status(status: str | None) -> str:
         return "done"
     return "todo"
 
+
 def normalize_type(node_type: str | None, default: str) -> str:
     if not node_type:
         return default
@@ -71,20 +73,21 @@ def normalize_type(node_type: str | None, default: str) -> str:
         return "epic"
     return "feature"
 
+
 def reindex():
     graph_dir = Path(".htmlgraph")
     db_path = graph_dir / "index.sqlite"
-    
+
     print(f"Reindexing HTML files into {db_path}...")
-    
+
     conn = sqlite3.connect(db_path)
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
-    
+
     print("Clearing features and tracks tables...")
     cursor.execute("DELETE FROM features")
     cursor.execute("DELETE FROM tracks")
-    
+
     type_map = {
         "features": "feature",
         "bugs": "bug",
@@ -92,44 +95,47 @@ def reindex():
         "chores": "chore",
         "epics": "epic",
     }
-    
+
     feature_count = 0
     for dir_name, node_type in type_map.items():
         dir_path = graph_dir / dir_name
         if not dir_path.exists():
             continue
-        
+
         print(f"Scanning {dir_name}...")
         for html_file in dir_path.glob("*.html"):
             data = parse_html(html_file)
             if not data:
                 continue
-            
+
             data_type = normalize_type(data.get("type"), node_type)
             status = normalize_status(data.get("status"))
-            
+
             try:
-                cursor.execute("""
+                cursor.execute(
+                    """
                     INSERT INTO features (id, type, title, status, priority, assigned_to, track_id, description, created_at, updated_at)
                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """, (
-                    data["id"],
-                    data_type,
-                    data["title"],
-                    status,
-                    data.get("priority", "medium"),
-                    data.get("agent_assigned") or data.get("assigned"),
-                    data.get("track_id"),
-                    data.get("description"),
-                    data.get("created", datetime.now().isoformat()),
-                    data.get("updated", datetime.now().isoformat())
-                ))
+                """,
+                    (
+                        data["id"],
+                        data_type,
+                        data["title"],
+                        status,
+                        data.get("priority", "medium"),
+                        data.get("agent_assigned") or data.get("assigned"),
+                        data.get("track_id"),
+                        data.get("description"),
+                        data.get("created", datetime.now().isoformat()),
+                        data.get("updated", datetime.now().isoformat()),
+                    ),
+                )
                 feature_count += 1
             except sqlite3.Error as e:
                 print(f"Failed to insert {data['id']}: {e}")
 
     print(f"Inserted {feature_count} items into features table.")
-    
+
     tracks_dir = graph_dir / "tracks"
     track_count = 0
     if tracks_dir.exists():
@@ -139,24 +145,27 @@ def reindex():
             if not data:
                 continue
             try:
-                cursor.execute("""
+                cursor.execute(
+                    """
                     INSERT INTO tracks (track_id, title, description, priority, status, created_at, updated_at)
                     VALUES (?, ?, ?, ?, ?, ?, ?)
-                """, (
-                    data["id"],
-                    data["title"],
-                    data.get("description"),
-                    data.get("priority", "medium"),
-                    normalize_status(data.get("status")),
-                    data.get("created", datetime.now().isoformat()),
-                    data.get("updated", datetime.now().isoformat())
-                ))
+                """,
+                    (
+                        data["id"],
+                        data["title"],
+                        data.get("description"),
+                        data.get("priority", "medium"),
+                        normalize_status(data.get("status")),
+                        data.get("created", datetime.now().isoformat()),
+                        data.get("updated", datetime.now().isoformat()),
+                    ),
+                )
                 track_count += 1
             except sqlite3.Error as e:
                 print(f"Failed to insert track {data['id']}: {e}")
-    
+
     print(f"Inserted {track_count} tracks.")
-    
+
     sessions_dir = graph_dir / "sessions"
     session_update_count = 0
     if sessions_dir.exists():
@@ -165,9 +174,10 @@ def reindex():
             data = parse_html(html_file)
             if not data:
                 continue
-            
+
             try:
-                cursor.execute("""
+                cursor.execute(
+                    """
                     INSERT INTO sessions (session_id, agent_assigned, status, created_at, completed_at)
                     VALUES (?, ?, ?, ?, ?)
                     ON CONFLICT(session_id) DO UPDATE SET
@@ -175,22 +185,27 @@ def reindex():
                         status=excluded.status,
                         created_at=excluded.created_at,
                         completed_at=excluded.completed_at
-                """, (
-                    data["id"],
-                    data.get("agent", "unknown"),
-                    data.get("status", "active"),
-                    data.get("started_at") or data.get("created") or datetime.now().isoformat(),
-                    data.get("ended_at") or data.get("completed_at")
-                ))
+                """,
+                    (
+                        data["id"],
+                        data.get("agent", "unknown"),
+                        data.get("status", "active"),
+                        data.get("started_at")
+                        or data.get("created")
+                        or datetime.now().isoformat(),
+                        data.get("ended_at") or data.get("completed_at"),
+                    ),
+                )
                 session_update_count += 1
             except sqlite3.Error as e:
                 print(f"Failed to upsert session {data['id']}: {e}")
-    
+
     print(f"Updated {session_update_count} sessions.")
-    
+
     conn.commit()
     conn.close()
     print("Reindexing complete!")
+
 
 if __name__ == "__main__":
     reindex()

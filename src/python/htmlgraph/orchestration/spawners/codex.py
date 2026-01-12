@@ -138,12 +138,31 @@ class CodexSpawner(BaseSpawner):
             bypass_approvals: Bypass approval checks. Default: False
             track_in_htmlgraph: Enable HtmlGraph activity tracking. Default: True
             timeout: Max seconds to wait
-            tracker: Optional SpawnerEventTracker for recording subprocess invocation
-            parent_event_id: Optional parent event ID for event hierarchy
+            tracker: SpawnerEventTracker for recording subprocess invocation.
+                     REQUIRED when parent_event_id is provided (enforces event hierarchy).
+            parent_event_id: Parent event ID for event hierarchy.
+                     REQUIRED when tracker is provided (enforces event hierarchy).
 
         Returns:
             AIResult with response, error, and tracked events if tracking enabled
+
+        Raises:
+            ValueError: If tracker is provided without parent_event_id, or vice versa.
+                        Both must be provided together for proper event hierarchy tracking.
         """
+        # Validate tracker and parent_event_id are provided together
+        if tracker is not None and parent_event_id is None:
+            raise ValueError(
+                "parent_event_id is required when tracker is provided. "
+                "Spawner events must be linked to a parent in the event hierarchy. "
+                "Pass the parent_event_id from the orchestrator context."
+            )
+        if parent_event_id is not None and tracker is None:
+            raise ValueError(
+                "tracker is required when parent_event_id is provided. "
+                "Both tracker and parent_event_id must be provided together "
+                "to properly record spawner events in the event hierarchy."
+            )
         # Initialize tracking if enabled
         sdk: SDK | None = None
         tracked_events: list[dict] = []

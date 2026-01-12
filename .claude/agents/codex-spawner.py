@@ -265,6 +265,8 @@ Examples:
             bypass_approvals=args.bypass_approvals,
             track_in_htmlgraph=args.track,
             timeout=args.timeout,
+            tracker=tracker,
+            parent_event_id=delegation_event_id,
         )
 
         duration = time.time() - start_time

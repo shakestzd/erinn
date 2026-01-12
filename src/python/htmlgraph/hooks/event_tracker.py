@@ -353,6 +353,7 @@ def detect_model_from_hook_input(hook_input: dict[str, Any]) -> str | None:
     1. Task() model parameter (if tool_name == 'Task')
     2. HTMLGRAPH_MODEL environment variable (set by hooks)
     3. ANTHROPIC_MODEL or CLAUDE_MODEL environment variables
+    4. Status line cache (for orchestrator tool calls)
 
     Args:
         hook_input: Hook input dict containing tool_name and tool_input
@@ -385,6 +386,14 @@ def detect_model_from_hook_input(hook_input: dict[str, Any]) -> str | None:
             model = value.strip()
             if model:
                 return model
+
+    # 3. Fallback to status line cache for orchestrator's own tool calls
+    # This gives regular tool calls (Bash, Read, etc.) the model of the orchestrator
+    session_id = hook_input.get("session_id") or hook_input.get("sessionId")
+    if session_id:
+        model_from_cache = get_model_from_status_cache(session_id)
+        if model_from_cache:
+            return model_from_cache
 
     return None
 
@@ -444,6 +453,179 @@ def detect_agent_from_environment() -> tuple[str, str | None]:
         agent_id = "claude-code"
 
     return agent_id, model_name
+
+
+def detect_subagent_context_from_database(
+    db: HtmlGraphDB,
+    current_session_id: str,
+    parent_event_id_hint: str | None = None,
+    current_tool_name: str | None = None,
+) -> tuple[str | None, str | None, str | None]:
+    """
+    Detect if we're in a subagent context by checking for active task_delegation events.
+
+    This is the DATABASE-BASED approach to subagent detection, which is necessary because
+    environment variables set by PreToolUse hooks in the parent process do NOT propagate
+    to subagent processes spawned by Claude Code's Task() tool.
+
+    IMPORTANT CONTEXT:
+    - Claude Code passes the SAME session_id to both parent and subagent hooks
+    - Environment variables set in hooks don't persist (each hook is a new subprocess)
+    - The only way to detect subagent context is through database state
+
+    DETECTION STRATEGY:
+    - If there's an active task_delegation (status='started') within the time window,
+      AND the current tool is NOT the Task tool itself (to avoid self-detection),
+      then we're likely in a subagent context.
+    - The Task tool check is critical: when PostToolUse fires for the Task tool itself,
+      we should NOT consider ourselves in a subagent context - we're the orchestrator
+      that just finished delegating.
+
+    Strategy (in order of precedence):
+    1. If parent_event_id_hint is provided, look up that specific event directly
+    2. Otherwise, query for task_delegation events with status='started' (fallback)
+    3. If found within the last 5 minutes AND current tool is not Task, we're in subagent context
+    4. Return the subagent_type and parent session info
+
+    Args:
+        db: HtmlGraphDB instance
+        current_session_id: The session_id from hook_input (Claude Code's session ID)
+        parent_event_id_hint: Optional event_id from environment variable for direct lookup.
+                              This is the preferred method when available, as it correctly
+                              handles parallel Task() calls.
+        current_tool_name: The tool being executed. If "Task", we skip subagent detection
+                           to avoid the orchestrator thinking it's a subagent.
+
+    Returns:
+        Tuple of (subagent_type, parent_session_id, parent_event_id)
+        All None if not in subagent context
+    """
+    # Skip detection if the current tool is Task - we're the orchestrator, not a subagent
+    if current_tool_name == "Task":
+        print(
+            "DEBUG detect_subagent_context_from_database: "
+            "Skipping detection for Task tool (we're the orchestrator)",
+            file=sys.stderr,
+        )
+        return None, None, None
+    try:
+        if db.connection is None:
+            return None, None, None
+
+        cursor = db.connection.cursor()
+
+        # Priority 1: Direct lookup using parent_event_id_hint (handles parallel tasks correctly)
+        if parent_event_id_hint:
+            cursor.execute(
+                """
+                SELECT event_id, session_id, subagent_type, timestamp
+                FROM agent_events
+                WHERE event_id = ?
+                AND event_type = 'task_delegation'
+                AND status = 'started'
+                """,
+                (parent_event_id_hint,),
+            )
+            row = cursor.fetchone()
+
+            if row:
+                parent_event_id = row[0]
+                parent_session_id = row[1]
+                subagent_type = row[2] or "general-purpose"
+
+                print(
+                    f"Debug: Detected subagent context via hint: "
+                    f"type={subagent_type}, parent_session={parent_session_id}, "
+                    f"parent_event={parent_event_id}",
+                    file=sys.stderr,
+                )
+
+                return subagent_type, parent_session_id, parent_event_id
+
+            # Hint provided but event not found or not in 'started' status
+            # This can happen if the event was already completed
+            print(
+                f"Debug: Parent event hint '{parent_event_id_hint}' not found or not active",
+                file=sys.stderr,
+            )
+
+        # Priority 2: Fallback to most recent active task_delegation
+        # WARNING: This can pick the wrong parent when multiple Task() calls run in parallel!
+        # This is kept as a fallback for cases where environment variables don't propagate.
+        #
+        # IMPORTANT: We previously had `AND session_id != ?` to exclude the current session,
+        # but this was WRONG. Claude Code passes the SAME session_id to subagent hooks as
+        # to the parent session. So we need to find task_delegation events from the SAME
+        # session that are in 'started' status (not yet completed).
+        #
+        # The key insight: when a subagent runs, the task_delegation event from the parent
+        # is ALREADY in the database with status='started'. We just need to find it.
+        print(
+            f"DEBUG detect_subagent_context_from_database: "
+            f"Querying for task_delegation events in session {current_session_id}",
+            file=sys.stderr,
+        )
+
+        # First, let's see what task_delegation events exist at all (debug)
+        cursor.execute(
+            """
+            SELECT event_id, session_id, subagent_type, status, timestamp
+            FROM agent_events
+            WHERE event_type = 'task_delegation'
+            ORDER BY timestamp DESC
+            LIMIT 5
+            """
+        )
+        debug_rows = cursor.fetchall()
+        print(
+            f"DEBUG detect_subagent_context_from_database: "
+            f"Recent task_delegation events: {debug_rows}",
+            file=sys.stderr,
+        )
+
+        # Query for active task_delegation in the SAME session (or any session within time window)
+        # The subagent may have the same session_id as parent, so we look for ANY active
+        # task_delegation within the time window. The most recent one is likely our parent.
+        cursor.execute(
+            """
+            SELECT event_id, session_id, subagent_type, timestamp
+            FROM agent_events
+            WHERE event_type = 'task_delegation'
+            AND status = 'started'
+            AND timestamp >= datetime('now', '-5 minutes')
+            ORDER BY timestamp DESC
+            LIMIT 1
+            """
+        )
+        row = cursor.fetchone()
+        print(
+            f"DEBUG detect_subagent_context_from_database: "
+            f"Fallback query result: {row}",
+            file=sys.stderr,
+        )
+
+        if row:
+            parent_event_id = row[0]
+            parent_session_id = row[1]
+            subagent_type = row[2] or "general-purpose"
+
+            print(
+                f"Debug: Detected subagent context from database (fallback): "
+                f"type={subagent_type}, parent_session={parent_session_id}, "
+                f"parent_event={parent_event_id}",
+                file=sys.stderr,
+            )
+
+            return subagent_type, parent_session_id, parent_event_id
+
+        return None, None, None
+
+    except Exception as e:
+        print(
+            f"Debug: Error detecting subagent context from database: {e}",
+            file=sys.stderr,
+        )
+        return None, None, None
 
 
 def extract_file_paths(tool_input: dict[str, Any], tool_name: str) -> list[str]:
@@ -680,6 +862,24 @@ def track_event(hook_type: str, hook_input: dict[str, Any]) -> dict[str, Any]:
     Returns:
         Response dict with {"continue": True} and optional hookSpecificOutput
     """
+    # Check for debug mode (set HTMLGRAPH_DEBUG=1 to enable verbose logging)
+    debug_mode = os.environ.get("HTMLGRAPH_DEBUG") == "1"
+
+    if debug_mode:
+        print(
+            f"DEBUG track_event: hook_type={hook_type}, "
+            f"session_id={hook_input.get('session_id')}, "
+            f"tool_name={hook_input.get('tool_name', hook_input.get('name', 'unknown'))}",
+            file=sys.stderr,
+        )
+        print(
+            f"DEBUG track_event: ENV HTMLGRAPH_PARENT_EVENT="
+            f"{os.environ.get('HTMLGRAPH_PARENT_EVENT')}, "
+            f"HTMLGRAPH_SUBAGENT_TYPE={os.environ.get('HTMLGRAPH_SUBAGENT_TYPE')}, "
+            f"HTMLGRAPH_PARENT_SESSION={os.environ.get('HTMLGRAPH_PARENT_SESSION')}",
+            file=sys.stderr,
+        )
+
     cwd = hook_input.get("cwd")
     project_dir = resolve_project_path(cwd if cwd else None)
     graph_dir = Path(project_dir) / ".htmlgraph"
@@ -713,19 +913,156 @@ def track_event(hook_type: str, hook_input: dict[str, Any]) -> dict[str, Any]:
         detected_model = model_from_input
 
     active_session = None
+    is_subagent_session = False
+    parent_event_id_for_session = None
 
-    # Check if we're in a subagent context (environment variables set by spawner router)
-    # This MUST be checked BEFORE using get_active_session() to avoid attributing
-    # subagent events to the parent orchestrator session
-    subagent_type = os.environ.get("HTMLGRAPH_SUBAGENT_TYPE")
-    parent_session_id = os.environ.get("HTMLGRAPH_PARENT_SESSION")
+    # Get session_id from hook_input first (Claude Code provides this)
+    hook_session_id = hook_input.get("session_id") or hook_input.get("sessionId")
+
+    # Check if we're in a subagent context using multiple methods:
+    #
+    # PRECEDENCE ORDER (fixes parallel Task() bug):
+    # 1. Sessions table - if THIS session is already marked as subagent, use stored parent info
+    #    (fixes persistence issue for subsequent tool calls in same subagent)
+    # 2. Environment variables - most reliable when available, correctly identifies
+    #    the specific parent event even with multiple parallel Task() calls
+    # 3. Database with hint - uses env var as hint for direct lookup
+    # 4. Database fallback - picks most recent (WARNING: wrong for parallel tasks!)
+    #
+    # Method 0: Check if current session is already a subagent (CRITICAL for persistence!)
+    # This fixes the issue where subsequent tool calls in the same subagent session
+    # lose the parent_event_id linkage because task_delegation status may have changed.
+    subagent_type = None
+    parent_session_id = None
+    parent_event_id_for_session = None
+
+    if db and hook_session_id:
+        try:
+            cursor = db.connection.cursor()
+            cursor.execute(
+                """
+                SELECT parent_session_id, parent_event_id, agent_assigned
+                FROM sessions
+                WHERE session_id = ? AND is_subagent = 1
+                LIMIT 1
+                """,
+                (hook_session_id,),
+            )
+            row = cursor.fetchone()
+            if row:
+                parent_session_id = row[0]
+                parent_event_id_for_session = row[1]
+                # Extract subagent_type from agent_assigned (e.g., "general-purpose-spawner" -> "general-purpose")
+                agent_assigned = row[2] or ""
+                if agent_assigned and agent_assigned.endswith("-spawner"):
+                    subagent_type = agent_assigned[:-8]  # Remove "-spawner" suffix
+                else:
+                    subagent_type = "general-purpose"  # Default if format unexpected
+
+                print(
+                    f"DEBUG subagent persistence: Found current session as subagent in sessions table: "
+                    f"type={subagent_type}, parent_session={parent_session_id}, "
+                    f"parent_event={parent_event_id_for_session}",
+                    file=sys.stderr,
+                )
+        except Exception as e:
+            print(
+                f"DEBUG: Error checking sessions table for subagent: {e}",
+                file=sys.stderr,
+            )
+
+    # Method 1: Environment variables (works if Task() spawner sets them)
+    if not subagent_type:
+        env_subagent_type = os.environ.get("HTMLGRAPH_SUBAGENT_TYPE")
+        env_parent_session = os.environ.get("HTMLGRAPH_PARENT_SESSION")
+        env_parent_event_id = os.environ.get("HTMLGRAPH_PARENT_EVENT")
+
+        # DEBUG: Log environment variable detection
+        print(
+            f"DEBUG subagent detection (env): "
+            f"subagent_type={env_subagent_type}, "
+            f"parent_session={env_parent_session}, "
+            f"parent_event={env_parent_event_id}",
+            file=sys.stderr,
+        )
+
+        if env_subagent_type:
+            subagent_type = env_subagent_type
+            parent_session_id = env_parent_session
+            parent_event_id_for_session = env_parent_event_id
+            print(
+                f"Debug: Using environment variables for subagent detection: "
+                f"type={subagent_type}, parent={parent_session_id}",
+                file=sys.stderr,
+            )
+
+    # Method 2: Database-based detection (CRITICAL for Claude Code Task() tool)
+    # Environment variables may not propagate to subagent processes, so we check
+    # the database for active task_delegation events.
+    # IMPORTANT: Pass env_parent_event_id as hint to handle parallel Task() correctly
+    # Get the current tool name for subagent detection
+    current_tool_name = hook_input.get("tool_name") or hook_input.get("name")
+
+    if not subagent_type and db and hook_session_id:
+        print(
+            f"DEBUG db detection: will_check=True, "
+            f"current_tool_name={current_tool_name}",
+            file=sys.stderr,
+        )
+        db_subagent_type, db_parent_session_id, db_parent_event_id = (
+            detect_subagent_context_from_database(
+                db,
+                hook_session_id,
+                parent_event_id_hint=parent_event_id_for_session
+                or os.environ.get("HTMLGRAPH_PARENT_EVENT"),
+                current_tool_name=current_tool_name,
+            )
+        )
+        print(
+            f"DEBUG db detection result: "
+            f"db_subagent_type={db_subagent_type}, "
+            f"db_parent_session_id={db_parent_session_id}, "
+            f"db_parent_event_id={db_parent_event_id}",
+            file=sys.stderr,
+        )
+        if db_subagent_type:
+            subagent_type = db_subagent_type
+            parent_session_id = db_parent_session_id
+            # Only update parent_event_id if not already set
+            if not parent_event_id_for_session:
+                parent_event_id_for_session = db_parent_event_id
+            print(
+                f"Debug: Using database-based subagent detection: "
+                f"type={subagent_type}, parent={parent_session_id}, "
+                f"parent_event={parent_event_id_for_session}",
+                file=sys.stderr,
+            )
+
+    # DEBUG: Log subagent context decision
+    print(
+        f"DEBUG subagent context decision: "
+        f"subagent_type={subagent_type}, parent_session_id={parent_session_id}, "
+        f"will_create_subagent_session={bool(subagent_type and parent_session_id)}",
+        file=sys.stderr,
+    )
 
     if subagent_type and parent_session_id:
-        # We're in a subagent - create or get subagent session
-        # Use deterministic session ID based on parent + subagent type
-        subagent_session_id = f"{parent_session_id}-{subagent_type}"
+        # We're in a subagent context
+        is_subagent_session = True
+        print(
+            "DEBUG: SUBAGENT CONTEXT DETECTED! Creating subagent session...",
+            file=sys.stderr,
+        )
 
-        # Check if subagent session already exists
+        # Use Claude's session_id (hook_session_id) as the subagent session ID
+        # This ensures events are properly tracked to this session
+        subagent_session_id = hook_session_id or f"{parent_session_id}-{subagent_type}"
+        print(
+            f"DEBUG: subagent_session_id={subagent_session_id}",
+            file=sys.stderr,
+        )
+
+        # Check if session already exists in our system
         existing = manager.session_converter.load(subagent_session_id)
         if existing:
             active_session = existing
@@ -736,6 +1073,11 @@ def track_event(hook_type: str, hook_input: dict[str, Any]) -> dict[str, Any]:
         else:
             # Create new subagent session with parent link
             try:
+                print(
+                    f"DEBUG: Creating NEW subagent session with is_subagent=True, "
+                    f"parent_session_id={parent_session_id}",
+                    file=sys.stderr,
+                )
                 active_session = manager.start_session(
                     session_id=subagent_session_id,
                     agent=f"{subagent_type}-spawner",
@@ -745,7 +1087,7 @@ def track_event(hook_type: str, hook_input: dict[str, Any]) -> dict[str, Any]:
                 )
                 print(
                     f"Debug: Created subagent session: {subagent_session_id} "
-                    f"(parent: {parent_session_id})",
+                    f"(parent: {parent_session_id}, is_subagent=True)",
                     file=sys.stderr,
                 )
             except Exception as e:
@@ -761,8 +1103,6 @@ def track_event(hook_type: str, hook_input: dict[str, Any]) -> dict[str, Any]:
         # Normal orchestrator/parent context
         # CRITICAL: Use session_id from hook_input (Claude Code provides this)
         # Only fall back to manager.get_active_session() if not in hook_input
-        hook_session_id = hook_input.get("session_id") or hook_input.get("sessionId")
-
         if hook_session_id:
             # Claude Code provided session_id - use it directly
             # Check if session already exists
@@ -811,10 +1151,13 @@ def track_event(hook_type: str, hook_input: dict[str, Any]) -> dict[str, Any]:
                 except Exception:
                     return default
 
+            # Use is_subagent_session flag from our detection, not just from session object
             is_subagent_raw = safe_getattr(active_session, "is_subagent", False)
-            is_subagent = (
+            is_subagent_from_obj = (
                 bool(is_subagent_raw) if isinstance(is_subagent_raw, bool) else False
             )
+            # Prefer our detection (is_subagent_session) over object attribute
+            final_is_subagent = is_subagent_session or is_subagent_from_obj
 
             transcript_id = safe_getattr(active_session, "transcript_id", None)
             transcript_path = safe_getattr(active_session, "transcript_path", None)
@@ -824,14 +1167,35 @@ def track_event(hook_type: str, hook_input: dict[str, Any]) -> dict[str, Any]:
             if transcript_path is not None and not isinstance(transcript_path, str):
                 transcript_path = None
 
+            # Get parent_session_id from our detection or from session object
+            final_parent_session_id = parent_session_id or safe_getattr(
+                active_session, "parent_session_id", None
+            )
+            if final_parent_session_id is not None and not isinstance(
+                final_parent_session_id, str
+            ):
+                final_parent_session_id = None
+
             db.insert_session(
                 session_id=active_session_id,
                 agent_assigned=safe_getattr(active_session, "agent", None)
                 or detected_agent,
-                is_subagent=is_subagent,
+                parent_session_id=final_parent_session_id,
+                parent_event_id=parent_event_id_for_session,
+                is_subagent=final_is_subagent,
                 transcript_id=transcript_id,
                 transcript_path=transcript_path,
             )
+
+            # Log subagent session creation for debugging
+            if final_is_subagent:
+                print(
+                    f"Debug: Inserted subagent session to SQLite: "
+                    f"session_id={active_session_id}, is_subagent=True, "
+                    f"parent_session={final_parent_session_id}, "
+                    f"parent_event={parent_event_id_for_session}",
+                    file=sys.stderr,
+                )
         except Exception as e:
             # Session may already exist, that's OK - continue
             print(
@@ -942,20 +1306,29 @@ def track_event(hook_type: str, hook_input: dict[str, Any]) -> dict[str, Any]:
         warning_threshold = drift_settings.get("warning_threshold") or 0.7
         auto_classify_threshold = drift_settings.get("auto_classify_threshold") or 0.85
 
-        # Determine parent activity context using database-only lookup
+        # Determine parent activity context using multiple sources
         parent_activity_id = None
 
-        # Check environment variable FIRST for cross-process parent linking
+        # Priority 1: If we're in a subagent context, use the parent event from
+        # the task_delegation that spawned us (detected from database)
+        if is_subagent_session and parent_event_id_for_session:
+            parent_activity_id = parent_event_id_for_session
+            print(
+                f"Debug: Using parent_event from subagent detection: {parent_activity_id}",
+                file=sys.stderr,
+            )
+        # Priority 2: Check environment variable for cross-process parent linking
         # This is set by PreToolUse hook when Task() spawns a subagent
-        env_parent = os.environ.get("HTMLGRAPH_PARENT_EVENT") or os.environ.get(
-            "HTMLGRAPH_PARENT_QUERY_EVENT"
-        )
-        if env_parent:
-            parent_activity_id = env_parent
-        # Query database for most recent UserQuery event as parent
-        # Database is the single source of truth for parent-child linking
-        elif db:
-            parent_activity_id = get_parent_user_query(db, active_session_id)
+        else:
+            env_parent = os.environ.get("HTMLGRAPH_PARENT_EVENT") or os.environ.get(
+                "HTMLGRAPH_PARENT_QUERY_EVENT"
+            )
+            if env_parent:
+                parent_activity_id = env_parent
+            # Priority 3: Query database for most recent UserQuery event as parent
+            # Database is the single source of truth for parent-child linking
+            elif db:
+                parent_activity_id = get_parent_user_query(db, active_session_id)
 
         # Track the activity
         nudge = None

@@ -59,7 +59,7 @@ class TestFullLifecycle:
         # Verify session ended
         converter = SessionConverter(graph_dir / "sessions")
         final_session = converter.load(session.id)
-        assert final_session.status == "ended"
+        assert final_session.status == "completed"
         assert final_session.ended_at is not None
 
     def test_multi_feature_lifecycle(self, isolated_graph_dir_full, isolated_db):

@@ -23,6 +23,7 @@ from htmlgraph.converter import (
     SessionConverter,
     dict_to_node,
 )
+from htmlgraph.db.schema import HtmlGraphDB
 from htmlgraph.event_log import EventRecord, JsonlEventLog
 from htmlgraph.exceptions import SessionNotFoundError
 from htmlgraph.graph import HtmlGraph
@@ -109,6 +110,10 @@ class SessionManager:
         self.sessions_dir.mkdir(parents=True, exist_ok=True)
         self.features_dir.mkdir(parents=True, exist_ok=True)
         self.bugs_dir.mkdir(parents=True, exist_ok=True)
+
+        # Initialize database connection for session status updates
+        db_path = str(self.graph_dir / "htmlgraph.db")
+        self._db = HtmlGraphDB(db_path)
 
         # Session converter
         self.session_converter = SessionConverter(self.sessions_dir)
@@ -586,7 +591,9 @@ class SessionManager:
 
     def get_last_ended_session(self, agent: str | None = None) -> Session | None:
         """Get the most recently ended session (optionally filtered by agent)."""
-        sessions = [s for s in self.session_converter.load_all() if s.status == "ended"]
+        sessions = [
+            s for s in self.session_converter.load_all() if s.status == "completed"
+        ]
         if agent:
             sessions = [s for s in sessions if s.agent == agent]
         if not sessions:
@@ -758,6 +765,23 @@ class SessionManager:
 
         self.session_converter.save(session)
         self._sessions_cache_dirty = True
+
+        # Update database with session completion status
+        if self._db:
+            try:
+                if self._db.connection:
+                    cursor = self._db.connection.cursor()
+                    cursor.execute(
+                        "UPDATE sessions SET status = ?, completed_at = ? WHERE session_id = ?",
+                        (
+                            session.status,
+                            session.ended_at.isoformat() if session.ended_at else None,
+                            session_id,
+                        ),
+                    )
+                    self._db.connection.commit()
+            except Exception as e:
+                logger.warning(f"Failed to update session status in database: {e}")
 
         if self._active_session and self._active_session.id == session_id:
             self._active_session = None
@@ -1311,25 +1335,40 @@ class SessionManager:
     # Smart Attribution
     # =========================================================================
 
-    def _get_active_auto_spike(self, active_features: list[Node]) -> Node | None:
+    def _get_active_auto_spike(self) -> Node | None:
         """
         Find an active auto-generated spike (session-init, conversation-init, or transition).
 
-        Auto-spikes take precedence over regular features for attribution
-        since they're specifically designed to catch transitional activities.
+        Uses the in-memory spike index to avoid scanning the features list
+        (spikes are stored separately from features/bugs).
 
         Returns:
-            Active auto-spike or None
+            Active auto-spike Node or None
         """
-        for feature in active_features:
+        from htmlgraph.converter import NodeConverter
+
+        spike_converter = NodeConverter(self.graph_dir / "spikes")
+
+        for spike_id in list(self._active_auto_spikes):
+            spike = spike_converter.load(spike_id)
+            if not spike:
+                self._active_auto_spikes.discard(spike_id)
+                self._spike_index.remove(spike_id)
+                continue
+
             if (
-                feature.type == "spike"
-                and feature.auto_generated
-                and feature.spike_subtype
+                spike.type == "spike"
+                and spike.auto_generated
+                and spike.spike_subtype
                 in ("session-init", "conversation-init", "transition")
-                and feature.status == "in-progress"
+                and spike.status == "in-progress"
             ):
-                return feature
+                return spike
+
+            # Spike no longer qualifies - remove from index
+            self._active_auto_spikes.discard(spike_id)
+            self._spike_index.remove(spike_id)
+
         return None
 
     def attribute_activity(
@@ -1343,30 +1382,73 @@ class SessionManager:
         """
         Score and attribute an activity to the best matching feature or auto-spike.
 
-        Auto-spikes have priority over features for transitional activities.
+        Attribution priority (highest to lowest):
+        1. Real features - scored by the sophisticated matching system
+        2. Auto-spikes - fallback only when no real feature scores >= 0.3
+        3. No attribution - when nothing matches
+
+        This ensures real features get proper attribution instead of being
+        bypassed by auto-generated spikes.
 
         Args:
             tool: Tool name
             summary: Activity summary
             file_paths: Files involved
-            active_features: Features to score against
+            active_features: Features to score against (features and bugs only)
             agent: Agent performing the activity
 
         Returns:
             Dict with feature_id, score, drift_score, reason
         """
-        # Priority 1: Check for active auto-generated spikes (session-init, transition)
-        # These capture transitional activities before features are active
-        active_spike = self._get_active_auto_spike(active_features)
+        # Priority 1: Score REAL features first (these are already non-spike
+        # since get_active_features() only returns features and bugs)
+        if active_features:
+            scores = []
+            for feature in active_features:
+                score, reasons = self._score_feature_match(
+                    feature, tool, summary, file_paths, agent=agent
+                )
+                # Filter out explicitly rejected matches
+                if score < 0:
+                    continue
+                scores.append((feature, score, reasons))
+
+            if scores:
+                # Sort by score descending
+                scores.sort(key=lambda x: x[1], reverse=True)
+                best_feature, best_score, best_reasons = scores[0]
+
+                # Accept if score meets minimum threshold
+                if best_score >= 0.3:
+                    drift_score = 1.0 - min(best_score, 1.0)
+
+                    # When a real feature wins, complete any active auto-spikes
+                    # so they don't compete in future attributions this session
+                    if agent:
+                        self._complete_active_auto_spikes(
+                            agent, to_feature_id=best_feature.id
+                        )
+
+                    return {
+                        "feature_id": best_feature.id,
+                        "score": best_score,
+                        "drift_score": drift_score,
+                        "reason": ", ".join(best_reasons)
+                        if best_reasons
+                        else "default_match",
+                    }
+
+        # Priority 2: Fall back to auto-spike ONLY if no real feature matched
+        active_spike = self._get_active_auto_spike()
         if active_spike:
             return {
                 "feature_id": active_spike.id,
-                "score": 1.0,  # Perfect match - spike is designed for this
-                "drift_score": 0.0,  # No drift - this is expected
-                "reason": f"auto_spike_{active_spike.spike_subtype}",
+                "score": 0.5,  # Lower score - this is a fallback, not a strong match
+                "drift_score": 0.0,
+                "reason": f"auto_spike_fallback_{active_spike.spike_subtype}",
             }
 
-        # Priority 2: Regular feature attribution
+        # Priority 3: No attribution
         if not active_features:
             return {
                 "feature_id": None,
@@ -1375,36 +1457,11 @@ class SessionManager:
                 "reason": "no_active_features",
             }
 
-        scores = []
-        for feature in active_features:
-            score, reasons = self._score_feature_match(
-                feature, tool, summary, file_paths, agent=agent
-            )
-            # Filter out explicitly rejected matches
-            if score < 0:
-                continue
-            scores.append((feature, score, reasons))
-
-        if not scores:
-            return {
-                "feature_id": None,
-                "score": 0,
-                "drift_score": None,
-                "reason": "no_matching_features_authorized",
-            }
-
-        # Sort by score descending
-        scores.sort(key=lambda x: x[1], reverse=True)
-        best_feature, best_score, best_reasons = scores[0]
-
-        # Calculate drift (how well does this align with the feature?)
-        drift_score = 1.0 - min(best_score, 1.0)
-
         return {
-            "feature_id": best_feature.id,
-            "score": best_score,
-            "drift_score": drift_score,
-            "reason": ", ".join(best_reasons) if best_reasons else "default_match",
+            "feature_id": None,
+            "score": 0,
+            "drift_score": None,
+            "reason": "no_matching_features",
         }
 
     def _score_feature_match(

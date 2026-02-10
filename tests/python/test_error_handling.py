@@ -56,7 +56,7 @@ class TestSessionManagement:
         assert retrieved is None
 
     def test_end_session_updates_status(self, session_manager):
-        """Test that end_session changes status to ended."""
+        """Test that end_session changes status to completed."""
         session = session_manager.start_session(
             session_id="sess-003", agent="test-agent"
         )
@@ -64,7 +64,7 @@ class TestSessionManagement:
 
         ended = session_manager.end_session(session.id)
         assert ended is not None
-        assert ended.status == "ended"
+        assert ended.status == "completed"
 
     def test_end_session_with_handoff_notes(self, session_manager):
         """Test end_session with handoff notes."""

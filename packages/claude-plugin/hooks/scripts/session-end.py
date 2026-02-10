@@ -59,6 +59,103 @@ def _get_head_commit(project_dir: str) -> str | None:
     return None
 
 
+def _print_session_summary(
+    manager: "SessionManager", session_id: str, project_dir: str
+) -> None:
+    """Print human-readable session summary to stdout."""
+    from datetime import datetime
+
+    db_path = Path(project_dir) / ".htmlgraph" / "htmlgraph.db"
+    if not db_path.exists():
+        return
+
+    import sqlite3
+
+    conn = sqlite3.connect(str(db_path))
+    cursor = conn.cursor()
+
+    try:
+        # Get session duration
+        cursor.execute(
+            "SELECT created_at FROM sessions WHERE session_id = ?", (session_id,)
+        )
+        result = cursor.fetchone()
+        duration_str = "Unknown"
+        if result:
+            try:
+                created_at = datetime.fromisoformat(result[0])
+                duration = datetime.now() - created_at
+                minutes = int(duration.total_seconds() / 60)
+                if minutes < 60:
+                    duration_str = f"{minutes} minutes"
+                else:
+                    hours = minutes // 60
+                    mins = minutes % 60
+                    duration_str = f"{hours}h {mins}m"
+            except Exception:
+                pass
+
+        # Get features worked on
+        cursor.execute(
+            """
+            SELECT DISTINCT ae.feature_id, f.title
+            FROM agent_events ae
+            LEFT JOIN features f ON ae.feature_id = f.feature_id
+            WHERE ae.session_id = ? AND ae.feature_id IS NOT NULL
+        """,
+            (session_id,),
+        )
+        features = cursor.fetchall()
+        feature_strs = []
+        for feat_id, title in features:
+            if title:
+                feature_strs.append(f"{title} ({feat_id})")
+            else:
+                feature_strs.append(feat_id)
+
+        # Get event counts by tool
+        cursor.execute(
+            """
+            SELECT tool_name, COUNT(*) as count
+            FROM agent_events
+            WHERE session_id = ?
+            GROUP BY tool_name
+            ORDER BY count DESC
+            LIMIT 10
+        """,
+            (session_id,),
+        )
+        tool_counts = cursor.fetchall()
+
+        # Get total events
+        cursor.execute(
+            "SELECT COUNT(*) FROM agent_events WHERE session_id = ?", (session_id,)
+        )
+        total_events = cursor.fetchone()[0]
+
+        # Print summary
+        print("\n--- Session Summary ---", file=sys.stderr)
+        print(f"Duration: {duration_str}", file=sys.stderr)
+
+        if feature_strs:
+            features_line = ", ".join(feature_strs)
+            print(f"Features: {features_line}", file=sys.stderr)
+
+        if tool_counts:
+            tool_parts = [f"{name}: {count}" for name, count in tool_counts[:5]]
+            tools_line = ", ".join(tool_parts)
+            if len(tool_counts) > 5:
+                tools_line += "..."
+            print(f"Events: {total_events} total ({tools_line})", file=sys.stderr)
+        elif total_events > 0:
+            print(f"Events: {total_events} total", file=sys.stderr)
+
+        print("", file=sys.stderr)  # Blank line
+
+    finally:
+        conn.close()
+
+
 def main() -> None:
     try:
         hook_input = json.load(sys.stdin)
@@ -116,22 +213,23 @@ def main() -> None:
         elif isinstance(blockers_raw, list):
             blockers = [str(b).strip() for b in blockers_raw if str(b).strip()]
 
-        # Update session with end_commit and handoff notes
+        # End session properly with handoff notes
         if active:
             try:
-                # Set end_commit if available
-                if end_commit and not active.end_commit:
-                    active.end_commit = end_commit
-                    manager.session_converter.save(active)
+                # Call end_session which handles status update, HTML save, and handoff
+                manager.end_session(
+                    session_id=active.id,
+                    handoff_notes=handoff_notes,
+                    recommended_next=recommended_next,
+                    blockers=blockers,
+                    end_commit=end_commit,
+                )
 
-                # Set handoff notes if provided
-                if handoff_notes or recommended_next or blockers:
-                    manager.set_session_handoff(
-                        session_id=active.id,
-                        handoff_notes=handoff_notes,
-                        recommended_next=recommended_next,
-                        blockers=blockers,
-                    )
+                # Print session summary
+                try:
+                    _print_session_summary(manager, active.id, project_dir)
+                except Exception:
+                    pass  # Don't let summary errors break session-end
             except Exception:
                 pass
         elif sys.stderr.isatty():

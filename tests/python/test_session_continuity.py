@@ -244,7 +244,7 @@ class TestEnhancedSessionSummary:
         # Reload and verify summary
         converter = SessionConverter(graph_dir / "sessions")
         sessions = converter.load_all()
-        ended = [s for s in sessions if s.status == "ended"]
+        ended = [s for s in sessions if s.status == "completed"]
 
         assert len(ended) > 0
         prev_session = ended[0]

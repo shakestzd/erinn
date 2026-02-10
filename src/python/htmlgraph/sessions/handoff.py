@@ -389,7 +389,7 @@ class SessionResume:
         sessions = converter.load_all()
 
         # Filter by ended sessions
-        ended = [s for s in sessions if s.status == "ended"]
+        ended = [s for s in sessions if s.status == "completed"]
 
         # Filter by agent if specified
         if agent:

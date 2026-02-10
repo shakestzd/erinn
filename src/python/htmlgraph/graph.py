@@ -10,6 +10,7 @@ Provides:
 """
 
 import hashlib
+import logging
 import os
 import time
 from collections import defaultdict, deque
@@ -28,6 +29,8 @@ from htmlgraph.find_api import FindAPI
 from htmlgraph.models import Node
 from htmlgraph.parser import HtmlParser
 from htmlgraph.query_builder import QueryBuilder
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -697,6 +700,9 @@ class HtmlGraph:
         # Add node to attribute index
         self._attr_index.add_node(node.id, node)
 
+        # Persist edges to database
+        self._persist_edges_to_db(node)
+
         self._invalidate_cache()
         return filepath
 
@@ -742,6 +748,9 @@ class HtmlGraph:
         # Update file hash
         file_hash = self._compute_file_hash(filepath)
         self._file_hashes[str(filepath)] = file_hash
+
+        # Persist edges to database
+        self._persist_edges_to_db(node)
 
         self._invalidate_cache()
         return filepath
@@ -2080,3 +2089,76 @@ class HtmlGraph:
                     lines.append(f"    {node.id} {arrow} {edge.target_id}")
 
         return "\n".join(lines)
+
+    # =========================================================================
+    # Database Edge Persistence
+    # =========================================================================
+
+    def _get_db(self) -> Any:
+        """
+        Get database connection for edge persistence.
+
+        Returns:
+            HtmlGraphDB instance or None if database unavailable
+        """
+        try:
+            from htmlgraph.db.schema import HtmlGraphDB
+
+            # Use database in .htmlgraph directory relative to graph directory
+            db_dir = self.directory.parent if self.directory.name in ("features", "tracks", "spikes", "sessions") else self.directory
+            db_path = db_dir / "htmlgraph.db"
+            return HtmlGraphDB(str(db_path))
+        except Exception:
+            # Database not available - graceful degradation
+            return None
+
+    def _persist_edges_to_db(self, node: Node) -> None:
+        """
+        Persist node edges to database graph_edges table.
+
+        Uses upsert pattern: DELETE existing edges for node, then INSERT current edges.
+        This keeps the database in sync with in-memory graph state.
+
+        Args:
+            node: Node whose edges to persist
+        """
+        db = self._get_db()
+        if not db or not db.connection:
+            return
+
+        try:
+            import uuid
+            from datetime import datetime, timezone
+
+            cursor = db.connection.cursor()
+
+            # Delete existing edges for this node (both outgoing and incoming)
+            cursor.execute(
+                "DELETE FROM graph_edges WHERE from_node_id = ?",
+                (node.id,)
+            )
+
+            # Insert current edges
+            now = datetime.now(timezone.utc).isoformat()
+            for relationship, edges in node.edges.items():
+                for edge in edges:
+                    edge_id = f"edge-{uuid.uuid4().hex[:8]}"
+
+                    # Determine target node type (default to same type as source)
+                    target_type = edge.properties.get("target_type", node.type) if edge.properties else node.type
+
+                    cursor.execute(
+                        """INSERT INTO graph_edges
+                           (edge_id, from_node_id, from_node_type, to_node_id, to_node_type,
+                            relationship_type, created_at)
+                           VALUES (?, ?, ?, ?, ?, ?, ?)""",
+                        (edge_id, node.id, node.type, edge.target_id, target_type, relationship, now)
+                    )
+
+            db.connection.commit()
+        except Exception as e:
+            # Log error but don't break the save operation
+            logger.debug(f"Failed to persist edges to database: {e}")
+        finally:
+            if db:
+                db.disconnect()

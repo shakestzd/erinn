@@ -91,40 +91,11 @@ def main() -> None:
         if workflow_guidance:
             combined_guidance.append(workflow_guidance)
 
-        # CRITICAL FIX: Record UserQuery event BEFORE printing output
-        # This ensures the query is tracked for dashboard display
-        try:
-            from bootstrap import get_graph_dir, resolve_project_dir
+        # NOTE: UserQuery event tracking is handled by track-event.py hook
+        # (which runs for ALL UserPromptSubmit events via hooks.json routing)
+        # No need to duplicate that logic here - this hook focuses on CIGS guidance
 
-            project_dir = resolve_project_dir()
-            graph_dir = get_graph_dir(project_dir)
-
-            # Use session_id from hook_input if available
-            session_id = hook_input.get("session_id") or hook_input.get("sessionId")
-
-            if session_id and prompt:
-                from htmlgraph.session_manager import SessionManager
-
-                manager = SessionManager(graph_dir=graph_dir)
-
-                # Track UserQuery activity
-                prompt_preview = prompt[:100].replace("\n", " ")
-                if len(prompt) > 100:
-                    prompt_preview += "..."
-
-                manager.track_activity(
-                    session_id=session_id,
-                    tool="UserQuery",
-                    summary=f'"{prompt_preview}"',
-                )
-        except Exception as e:
-            # Don't break the hook if tracking fails
-            import traceback
-
-            print(f"Warning: Failed to track UserQuery event: {e}", file=sys.stderr)
-            traceback.print_exc(file=sys.stderr)
-
-        # Now print the JSON output for Claude Code
+        # Print the JSON output for Claude Code
         if combined_guidance:
             # Return combined guidance as additionalContext
             result = {

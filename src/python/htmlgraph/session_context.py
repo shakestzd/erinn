@@ -636,7 +636,7 @@ class SessionContextBuilder:
             except Exception:
                 return datetime.min.replace(tzinfo=timezone.utc)
 
-        ended = [s for s in sessions if s.get("status") == "ended"]
+        ended = [s for s in sessions if s.get("status") == "completed"]
         if ended:
             ended.sort(
                 key=lambda s: parse_ts(s.get("ended_at") or s.get("last_activity")),

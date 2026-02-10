@@ -401,10 +401,36 @@ def create_start_event(
 
         cursor = db.connection.cursor()  # type: ignore[union-attr]
 
+        # Detect if we're in a subagent session and find parent task_delegation event.
+        # Subagent sessions have IDs like "UUID-general-purpose" or "UUID-Explore".
+        # The parent session is the UUID prefix, which has a task_delegation event
+        # that represents the Task() call. We need to link subagent tool events
+        # back to that task_delegation event so they nest properly in the dashboard.
+        subagent_parent_event_id = None
+        known_suffixes = ["-general-purpose", "-Explore", "-Bash", "-Plan"]
+        for suffix in known_suffixes:
+            if session_id.endswith(suffix):
+                parent_session_id = session_id[: -len(suffix)]
+                # Find the most recent task_delegation event in the parent session
+                try:
+                    cursor.execute(
+                        """SELECT event_id FROM agent_events
+                           WHERE session_id = ? AND event_type = 'task_delegation'
+                           ORDER BY timestamp DESC LIMIT 1""",
+                        (parent_session_id,),
+                    )
+                    row = cursor.fetchone()
+                    if row:
+                        subagent_parent_event_id = row[0]
+                except Exception:
+                    pass
+                break
+
         # Determine parent event ID with proper hierarchy:
-        # 1. FIRST check HTMLGRAPH_PARENT_EVENT env var (set by Task delegation for subagents)
-        # 2. For Task() tool, create a new task_delegation event
-        # 3. Fall back to UserQuery only if no parent context available
+        # 1. Subagent session detection (cross-process; env vars don't propagate)
+        # 2. HTMLGRAPH_PARENT_EVENT env var (set by Task delegation within same process)
+        # 3. For Task() tool, create a new task_delegation event
+        # 4. Fall back to UserQuery only if no parent context available
         #
         # This ensures tool events executed within Task() subagents are properly
         # nested under the Task delegation event, not flattened to UserQuery.
@@ -429,6 +455,10 @@ def create_start_event(
         # Determine parent for this event
         if tool_name == "Task":
             parent_event_id = user_query_event_id  # Task events link to UserQuery
+        elif subagent_parent_event_id:
+            parent_event_id = (
+                subagent_parent_event_id  # Subagent: link to parent's task_delegation
+            )
         elif env_parent_event:
             parent_event_id = env_parent_event  # Use explicit parent from environment
         else:
@@ -439,32 +469,37 @@ def create_start_event(
             os.environ["HTMLGRAPH_PARENT_EVENT_FOR_POST"] = parent_event_id
 
         # Generate event_id for this tool call
-        event_id = f"evt-{generate_tool_use_id()[:8]}"
+        if tool_name == "Task" and task_parent_event_id:
+            # Reuse the task_delegation event created by create_task_parent_event()
+            # to avoid duplicate events that break parent-child nesting in dashboard
+            event_id = task_parent_event_id
+        else:
+            event_id = f"evt-{generate_tool_use_id()[:8]}"
 
-        # Insert preliminary event into agent_events for hierarchy tracking
-        # PostToolUse will update this with complete data (model, output, etc.)
-        try:
-            cursor.execute(
-                """
-                INSERT INTO agent_events
-                (event_id, agent_id, event_type, timestamp, tool_name, session_id,
-                 status, parent_event_id, input_summary)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """,
-                (
-                    event_id,
-                    "claude-code",
-                    "task_delegation" if tool_name == "Task" else "tool_call",
-                    start_time,
-                    tool_name,
-                    session_id,
-                    "started",
-                    parent_event_id,
-                    json.dumps(sanitized_input)[:200],
-                ),
-            )
-        except Exception as e:
-            logger.debug(f"Could not insert into agent_events: {e}")
+            # Insert preliminary event into agent_events for hierarchy tracking
+            # PostToolUse will update this with complete data (model, output, etc.)
+            try:
+                cursor.execute(
+                    """
+                    INSERT INTO agent_events
+                    (event_id, agent_id, event_type, timestamp, tool_name, session_id,
+                     status, parent_event_id, input_summary)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        event_id,
+                        "claude-code",
+                        "tool_call",
+                        start_time,
+                        tool_name,
+                        session_id,
+                        "started",
+                        parent_event_id,
+                        json.dumps(sanitized_input)[:200],
+                    ),
+                )
+            except Exception as e:
+                logger.debug(f"Could not insert into agent_events: {e}")
 
         # For Bash tool, export this event as parent for spawner subprocesses
         if tool_name == "Bash":

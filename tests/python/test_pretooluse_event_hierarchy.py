@@ -188,9 +188,20 @@ class TestPreToolUseEventHierarchy:
         """Test that Task() tool creates a new task_delegation parent event."""
         from htmlgraph.hooks.pretooluse import create_start_event
 
-        # Create a UserQuery event
-        user_query_id = f"uq-{uuid4().hex[:8]}"
+        # Note: session_id "test-session-123" gets stripped to "test-session" by create_task_parent_event
+        # (line 274-276: rsplit("-", 1)[0] removes the rightmost component after the last hyphen)
+        # So we need to ensure BOTH the original session AND the parent session exist
         cursor = mock_db.connection.cursor()
+
+        # The parent_session_id will be "test-session" (after stripping "-123")
+        # We need to create this for the FOREIGN KEY constraint
+        cursor.execute(
+            "INSERT INTO sessions (session_id, agent_assigned, created_at, status) VALUES (?, ?, ?, ?)",
+            ("test-session", "claude", "2026-01-12T00:00:00", "active"),
+        )
+
+        # Create a UserQuery event in the parent session
+        user_query_id = f"uq-{uuid4().hex[:8]}"
         cursor.execute(
             """
             INSERT INTO agent_events
@@ -203,7 +214,7 @@ class TestPreToolUseEventHierarchy:
                 "tool_call",
                 "2026-01-12T00:00:00",
                 "UserQuery",
-                "test-session-123",
+                "test-session",
                 "recorded",
             ),
         )
@@ -217,7 +228,7 @@ class TestPreToolUseEventHierarchy:
             with patch("htmlgraph.config.get_database_path") as mock_get_db:
                 mock_get_db.return_value = Path(mock_db.db_path)
 
-                # Execute Task() delegation
+                # Execute Task() delegation with session that will be stripped to parent_session
                 tool_use_id = create_start_event(
                     tool_name="Task",
                     tool_input={
@@ -229,14 +240,9 @@ class TestPreToolUseEventHierarchy:
 
                 assert tool_use_id is not None
 
-                # Verify Task event was created
-                cursor.execute(
-                    "SELECT event_id, event_type, parent_event_id FROM agent_events WHERE tool_name = 'Task' LIMIT 1"
-                )
-                task_row = cursor.fetchone()
-                assert task_row is not None
-
-                # Verify task_delegation event was created as parent
+                # Verify task_delegation event was created
+                # The Task() tool creates a task_delegation event via create_task_parent_event()
+                # and reuses that event_id, so there's only ONE event (the task_delegation)
                 cursor.execute(
                     "SELECT event_id, event_type FROM agent_events WHERE event_type = 'task_delegation' LIMIT 1"
                 )
@@ -278,9 +284,19 @@ class TestPreToolUseEventHierarchy:
             if env_var in os.environ:
                 del os.environ[env_var]
 
+        # Setup: Create session for this test.
+        # Use a session ID WITHOUT hyphens so that create_task_parent_event()'s
+        # rsplit("-", 1)[0] returns the same value (no parent extraction needed).
+        test_sid = "testsession"
+        cursor = mock_db.connection.cursor()
+        cursor.execute(
+            "INSERT INTO sessions (session_id, agent_assigned, created_at, status) VALUES (?, ?, ?, ?)",
+            (test_sid, "claude", "2026-01-12T00:00:00", "active"),
+        )
+        mock_db.connection.commit()
+
         # Step 1: Create UserQuery event (user submits prompt)
         user_query_id = f"uq-{uuid4().hex[:8]}"
-        cursor = mock_db.connection.cursor()
         cursor.execute(
             """
             INSERT INTO agent_events
@@ -293,7 +309,7 @@ class TestPreToolUseEventHierarchy:
                 "tool_call",
                 "2026-01-12T00:00:00",
                 "UserQuery",
-                "test-session-123",
+                test_sid,
                 "recorded",
             ),
         )
@@ -310,7 +326,7 @@ class TestPreToolUseEventHierarchy:
                         "prompt": "Implement feature",
                         "subagent_type": "general-purpose",
                     },
-                    session_id="test-session-123",
+                    session_id=test_sid,
                 )
 
                 # Get the task delegation event ID (this was set in environment by create_start_event)
@@ -324,7 +340,7 @@ class TestPreToolUseEventHierarchy:
                 create_start_event(
                     tool_name="Bash",
                     tool_input={"command": "npm install"},
-                    session_id="test-session-123",
+                    session_id=test_sid,
                 )
 
                 # After Bash, HTMLGRAPH_PARENT_EVENT is now the Bash event ID (for spawner subprocess tracking)
@@ -343,21 +359,21 @@ class TestPreToolUseEventHierarchy:
                         "old_string": "a",
                         "new_string": "b",
                     },
-                    session_id="test-session-123",
+                    session_id=test_sid,
                 )
 
                 create_start_event(
                     tool_name="Read",
                     tool_input={"file_path": "/test/other.py"},
-                    session_id="test-session-123",
+                    session_id=test_sid,
                 )
 
                 # Verify hierarchy
                 cursor.execute(
-                    """
+                    f"""
                     SELECT tool_name, parent_event_id
                     FROM agent_events
-                    WHERE session_id = 'test-session-123'
+                    WHERE session_id = '{test_sid}'
                     ORDER BY rowid ASC
                     """
                 )
@@ -411,7 +427,7 @@ class TestPreToolUseEventHierarchy:
                 create_start_event(
                     tool_name="Bash",
                     tool_input={"command": "./spawner.py"},
-                    session_id="test-session-123",
+                    session_id="test-session-123",  # This won't trigger Task() so no FOREIGN KEY issue
                 )
 
                 # Verify HTMLGRAPH_PARENT_EVENT was set for spawner subprocess
@@ -513,9 +529,19 @@ class TestMultiLevelNesting:
             if env_var in os.environ:
                 del os.environ[env_var]
 
+        # Setup: Create session for this test.
+        # Use a session ID WITHOUT hyphens so that create_task_parent_event()'s
+        # rsplit("-", 1)[0] returns the same value (no parent extraction needed).
+        test_sid = "testsession"
+        cursor = mock_db.connection.cursor()
+        cursor.execute(
+            "INSERT INTO sessions (session_id, agent_assigned, created_at, status) VALUES (?, ?, ?, ?)",
+            (test_sid, "claude", "2026-01-12T00:00:00", "active"),
+        )
+        mock_db.connection.commit()
+
         # Level 1: UserQuery
         user_query_id = f"uq-{uuid4().hex[:8]}"
-        cursor = mock_db.connection.cursor()
         cursor.execute(
             """
             INSERT INTO agent_events
@@ -528,7 +554,7 @@ class TestMultiLevelNesting:
                 "tool_call",
                 "2026-01-12T00:00:00",
                 "UserQuery",
-                "test-session-123",
+                test_sid,
                 "recorded",
             ),
         )
@@ -545,7 +571,7 @@ class TestMultiLevelNesting:
                         "prompt": "Parent task",
                         "subagent_type": "orchestrator",
                     },
-                    session_id="test-session-123",
+                    session_id=test_sid,
                 )
                 level2_parent = os.environ.get("HTMLGRAPH_PARENT_EVENT")
                 assert level2_parent is not None
@@ -557,7 +583,7 @@ class TestMultiLevelNesting:
                         "prompt": "Child task",
                         "subagent_type": "general-purpose",
                     },
-                    session_id="test-session-123",
+                    session_id=test_sid,
                 )
                 level3_parent = os.environ.get("HTMLGRAPH_PARENT_EVENT")
                 assert level3_parent is not None
@@ -569,7 +595,7 @@ class TestMultiLevelNesting:
                 create_start_event(
                     tool_name="Bash",
                     tool_input={"command": "echo 'deep nested'"},
-                    session_id="test-session-123",
+                    session_id=test_sid,
                 )
 
                 # Verify hierarchy

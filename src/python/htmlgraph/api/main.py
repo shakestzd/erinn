@@ -2381,10 +2381,10 @@ def get_app(db_path: str) -> FastAPI:
                     if rows:
                         has_activity = True
                         rows_list: list[list[Any]] = [list(row) for row in rows]
-                        # Update last timestamp (last row since ORDER BY ts ASC)
-                        last_timestamp = rows_list[-1][3]
+                        # Update last timestamp (first row = newest since ORDER BY DESC)
+                        last_timestamp = rows_list[0][3]
 
-                        # Send events in order (no need to reverse with ASC)
+                        # Send events newest-first (ORDER BY timestamp DESC)
                         for event_row in rows_list:
                             # Parse context JSON if present
                             context_data = {}

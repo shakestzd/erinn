@@ -956,7 +956,7 @@ class Session(BaseModel):
     id: str
     title: str = ""
     agent: str = "claude-code"
-    status: Literal["active", "ended", "stale"] = "active"
+    status: Literal["active", "completed", "paused", "failed", "stale"] = "active"
     is_subagent: bool = False
 
     started_at: datetime = Field(default_factory=datetime.now)
@@ -1068,7 +1068,7 @@ class Session(BaseModel):
 
     def end(self) -> None:
         """Mark session as ended."""
-        self.status = "ended"
+        self.status = "completed"
         self.ended_at = utc_now()
 
     def record_context(

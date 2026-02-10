@@ -317,7 +317,7 @@ class TestSessionManagerHandoff:
             assert updated.handoff_notes == "Completed OAuth integration"
             assert updated.recommended_next == "Implement JWT refresh"
             assert "Waiting for security review" in updated.blockers
-            assert updated.status == "ended"
+            assert updated.status == "completed"
 
     def test_continue_from_last(self, isolated_db):
         """Test continuing from last session."""

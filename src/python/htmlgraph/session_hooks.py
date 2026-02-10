@@ -130,7 +130,7 @@ def initialize_session_from_hook(env_file: str | None = None) -> str:
         raise
 
 
-def finalize_session(session_id: str, status: str = "ended") -> bool:
+def finalize_session(session_id: str, status: str = "completed") -> bool:
     """
     Finalize session (called by SessionEnd hook).
 

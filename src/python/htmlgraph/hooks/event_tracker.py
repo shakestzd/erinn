@@ -243,7 +243,10 @@ def clear_drift_queue_activities(graph_dir: Path) -> None:
     queue_path = graph_dir / DRIFT_QUEUE_FILE
     try:
         # Load existing queue to preserve last_classification timestamp
-        queue = {"activities": [], "last_classification": datetime.now().isoformat()}
+        queue = {
+            "activities": [],
+            "last_classification": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        }
         if queue_path.exists():
             with open(queue_path) as f:
                 existing = json.load(f)
@@ -268,7 +271,7 @@ def add_to_drift_queue(
 
     queue["activities"].append(
         {
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S"),
             "tool": activity.get("tool"),
             "summary": activity.get("summary"),
             "file_paths": activity.get("file_paths", []),
@@ -710,7 +713,9 @@ def record_event_to_sqlite(
                     "success": not is_error,
                     "feature_id": feature_id,
                     "file_paths": file_paths,
-                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                    "timestamp": datetime.now(timezone.utc).strftime(
+                        "%Y-%m-%d %H:%M:%S"
+                    ),
                 }
 
                 db.insert_live_event(
@@ -1436,9 +1441,10 @@ def track_event(hook_type: str, hook_input: dict[str, Any]) -> dict[str, Any]:
             if db_to_use:
                 try:
                     cursor = db_to_use.connection.cursor()  # type: ignore[union-attr]
+                    # First try with the current session_id
                     cursor.execute(
                         """
-                        SELECT event_id
+                        SELECT event_id, subagent_type
                         FROM agent_events
                         WHERE event_type = 'task_delegation'
                           AND status = 'started'
@@ -1449,10 +1455,62 @@ def track_event(hook_type: str, hook_input: dict[str, Any]) -> dict[str, Any]:
                         (active_session_id,),
                     )
                     task_row = cursor.fetchone()
+
+                    # If not found, try stripping subagent suffixes to find the parent session
+                    if not task_row:
+                        known_suffixes = [
+                            "-general-purpose",
+                            "-Explore",
+                            "-Bash",
+                            "-Plan",
+                            "-researcher",
+                            "-debugger",
+                            "-test-runner",
+                        ]
+                        stripped_session_id = active_session_id
+                        for suffix in known_suffixes:
+                            if active_session_id.endswith(suffix):
+                                stripped_session_id = active_session_id[: -len(suffix)]
+                                break
+
+                        if stripped_session_id != active_session_id:
+                            cursor.execute(
+                                """
+                                SELECT event_id, subagent_type
+                                FROM agent_events
+                                WHERE event_type = 'task_delegation'
+                                  AND status = 'started'
+                                  AND session_id = ?
+                                ORDER BY timestamp DESC
+                                LIMIT 1
+                                """,
+                                (stripped_session_id,),
+                            )
+                            task_row = cursor.fetchone()
+
+                    # Last resort: find ANY active task_delegation regardless of session
+                    if not task_row:
+                        cursor.execute(
+                            """
+                            SELECT event_id, subagent_type
+                            FROM agent_events
+                            WHERE event_type = 'task_delegation'
+                              AND status = 'started'
+                            ORDER BY timestamp DESC
+                            LIMIT 1
+                            """,
+                        )
+                        task_row = cursor.fetchone()
+
                     if task_row:
                         parent_activity_id = task_row[0]
+                        # Propagate subagent_type from the resolved task_delegation
+                        # so child events inherit the correct badge/spawner metadata
+                        if not subagent_type and task_row[1]:
+                            subagent_type = task_row[1]
                         logger.warning(
-                            f"DEBUG: Found active task_delegation={parent_activity_id} in parent_activity_id fallback"
+                            f"DEBUG: Found active task_delegation={parent_activity_id} "
+                            f"subagent_type={subagent_type} in parent_activity_id fallback"
                         )
                 except Exception as e:
                     logger.warning(
@@ -1479,12 +1537,18 @@ def track_event(hook_type: str, hook_input: dict[str, Any]) -> dict[str, Any]:
 
             # Record to SQLite if available
             if db:
-                # Extract subagent_type for Task delegations
-                task_subagent_type = None
+                # Determine subagent_type for this event:
+                # - Task delegations: extract from tool_input
+                # - Child events in subagent context: inherit from parent task_delegation
+                event_subagent_type = None
                 if tool_name == "Task":
-                    task_subagent_type = tool_input_data.get(
+                    event_subagent_type = tool_input_data.get(
                         "subagent_type", "general-purpose"
                     )
+                elif subagent_type:
+                    # Propagate subagent_type to child events so dashboard
+                    # shows correct badge (e.g., "GENERAL-PURPOSE-SPAWNER")
+                    event_subagent_type = subagent_type
 
                 event_id = record_event_to_sqlite(
                     db=db,
@@ -1496,7 +1560,7 @@ def track_event(hook_type: str, hook_input: dict[str, Any]) -> dict[str, Any]:
                     file_paths=file_paths if file_paths else None,
                     parent_event_id=parent_activity_id,  # Link to parent event
                     agent_id=detected_agent,
-                    subagent_type=task_subagent_type,
+                    subagent_type=event_subagent_type,
                     model=detected_model,
                     feature_id=result.feature_id if result else None,
                 )
@@ -1613,7 +1677,7 @@ Or manually create a work item in .htmlgraph/ (bug, feature, spike, or chore).""
                         # Mark classification as triggered
                         queue["last_classification"] = datetime.now(
                             timezone.utc
-                        ).isoformat()
+                        ).strftime("%Y-%m-%d %H:%M:%S")
                         save_drift_queue(graph_dir, queue)
                     else:
                         nudge = f"Drift detected ({drift_score:.2f}): Activity queued for classification ({len(queue['activities'])}/{drift_settings.get('min_activities_before_classify', 3)} needed)."

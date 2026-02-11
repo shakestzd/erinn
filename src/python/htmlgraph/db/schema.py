@@ -1439,7 +1439,7 @@ class HtmlGraphDB:
             cursor = self.connection.cursor()  # type: ignore[union-attr]
 
             if start_time is None:
-                start_time = datetime.now(timezone.utc).isoformat()
+                start_time = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
 
             cursor.execute(
                 """
@@ -1495,7 +1495,7 @@ class HtmlGraphDB:
             cursor = self.connection.cursor()  # type: ignore[union-attr]
 
             if end_time is None:
-                end_time = datetime.now(timezone.utc).isoformat()
+                end_time = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
 
             cursor.execute(
                 """
@@ -1629,9 +1629,9 @@ class HtmlGraphDB:
 
         try:
             cursor = self.connection.cursor()  # type: ignore[union-attr]
-            cutoff = (
-                datetime.now(timezone.utc) - timedelta(minutes=minutes)
-            ).isoformat()
+            cutoff = (datetime.now(timezone.utc) - timedelta(minutes=minutes)).strftime(
+                "%Y-%m-%d %H:%M:%S"
+            )
             cursor.execute(
                 """
                 SELECT session_id, agent_assigned, created_at, last_user_query_at,

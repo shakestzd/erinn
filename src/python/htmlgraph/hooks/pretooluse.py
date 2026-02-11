@@ -27,6 +27,7 @@ import asyncio
 import json
 import logging
 import os
+import sqlite3
 import sys
 import uuid
 from datetime import datetime, timezone
@@ -63,6 +64,167 @@ NEVER_BLOCK_TOOLS = {
     "WebSearch",
     "WebFetch",
 }
+
+
+def resolve_parent_task_delegation(
+    cursor: sqlite3.Cursor,
+    parent_session_id: str | None = None,
+    subagent_type: str | None = None,
+    model_hint: str | None = None,
+) -> str | None:
+    """
+    Resolve the correct parent task_delegation event for a child tool call.
+
+    Replaces all ORDER BY timestamp DESC LIMIT 1 queries with smart disambiguation:
+    1. Only 1 active task_delegation → return it
+    2. Multiple with different models + model_hint → match by model
+    3. Multiple same model → pick one with fewest children (self-balancing)
+    4. Tie-break: earliest timestamp (FIFO)
+
+    Args:
+        cursor: SQLite cursor
+        parent_session_id: Session ID to filter by (optional)
+        subagent_type: Subagent type to match (optional)
+        model_hint: Model name hint for disambiguation (optional)
+
+    Returns:
+        event_id of the best matching task_delegation, or None
+    """
+    try:
+        # Build query for active task_delegations
+        conditions = [
+            "event_type = 'task_delegation'",
+            "status = 'started'",
+        ]
+        params: list[str] = []
+
+        if parent_session_id:
+            conditions.append("session_id = ?")
+            params.append(parent_session_id)
+
+        if subagent_type:
+            conditions.append("subagent_type = ?")
+            params.append(subagent_type)
+
+        where_clause = " AND ".join(conditions)
+        query = f"""
+            SELECT event_id, model, subagent_type
+            FROM agent_events
+            WHERE {where_clause}
+            ORDER BY timestamp ASC
+        """
+
+        cursor.execute(query, params)
+        rows = cursor.fetchall()
+
+        if not rows and parent_session_id:
+            # Session-specific search failed. Try broader searches:
+            # 1. Strip known subagent suffixes and search the parent session
+            known_suffixes = [
+                "-general-purpose",
+                "-Explore",
+                "-Bash",
+                "-Plan",
+                "-researcher",
+                "-debugger",
+                "-test-runner",
+            ]
+            stripped_session_id = parent_session_id
+            for suffix in known_suffixes:
+                if parent_session_id.endswith(suffix):
+                    stripped_session_id = parent_session_id[: -len(suffix)]
+                    break
+
+            if stripped_session_id != parent_session_id:
+                # Retry with the stripped (true parent) session ID
+                retry_conditions = [
+                    "event_type = 'task_delegation'",
+                    "status = 'started'",
+                    "session_id = ?",
+                ]
+                retry_params: list[str] = [stripped_session_id]
+                if subagent_type:
+                    retry_conditions.append("subagent_type = ?")
+                    retry_params.append(subagent_type)
+
+                retry_where = " AND ".join(retry_conditions)
+                retry_query = f"""
+                    SELECT event_id, model, subagent_type
+                    FROM agent_events
+                    WHERE {retry_where}
+                    ORDER BY timestamp ASC
+                """
+                cursor.execute(retry_query, retry_params)
+                rows = cursor.fetchall()
+
+            # 2. If still nothing, search across ALL sessions as last resort
+            if not rows:
+                fallback_conditions = [
+                    "event_type = 'task_delegation'",
+                    "status = 'started'",
+                ]
+                fallback_params: list[str] = []
+                if subagent_type:
+                    fallback_conditions.append("subagent_type = ?")
+                    fallback_params.append(subagent_type)
+
+                fallback_where = " AND ".join(fallback_conditions)
+                fallback_query = f"""
+                    SELECT event_id, model, subagent_type
+                    FROM agent_events
+                    WHERE {fallback_where}
+                    ORDER BY timestamp DESC
+                    LIMIT 5
+                """
+                cursor.execute(fallback_query, fallback_params)
+                rows = cursor.fetchall()
+
+        if not rows:
+            return None
+
+        # Case 1: Only one active → return it
+        if len(rows) == 1:
+            return str(rows[0][0])
+
+        # Case 2: Multiple with different models, and we have a model hint
+        if model_hint:
+            model_hint_lower = model_hint.lower()
+            for row in rows:
+                event_id, model, _ = row
+                if model and model.lower() == model_hint_lower:
+                    return str(event_id)
+
+        # Case 3: Pick the one with fewest children (self-balancing)
+        event_ids = [row[0] for row in rows]
+        placeholders = ",".join("?" * len(event_ids))
+
+        cursor.execute(
+            f"""
+            SELECT ae.event_id,
+                   COALESCE(child_counts.cnt, 0) as child_count
+            FROM agent_events ae
+            LEFT JOIN (
+                SELECT parent_event_id, COUNT(*) as cnt
+                FROM agent_events
+                WHERE parent_event_id IN ({placeholders})
+                GROUP BY parent_event_id
+            ) child_counts ON ae.event_id = child_counts.parent_event_id
+            WHERE ae.event_id IN ({placeholders})
+            ORDER BY child_count ASC, ae.timestamp ASC
+            LIMIT 1
+            """,
+            event_ids + event_ids,
+        )
+        result = cursor.fetchone()
+        if result:
+            return str(result[0])
+
+        # Fallback: first by timestamp (FIFO)
+        return str(rows[0][0])
+
+    except Exception as e:
+        logger.warning(f"resolve_parent_task_delegation error: {e}")
+        return None
 
 
 def generate_tool_use_id() -> str:
@@ -398,7 +560,8 @@ def create_start_event(
     """
     tool_use_id = None
     try:
-        tool_use_id = generate_tool_use_id()
+        # Prefer Claude Code's native tool_use_id; fall back to generated UUID
+        tool_use_id = tool_input.get("tool_use_id") or generate_tool_use_id()
         trace_id = os.environ.get("HTMLGRAPH_TRACE_ID", tool_use_id)
         start_time = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
 
@@ -453,16 +616,12 @@ def create_start_event(
             if session_id.endswith(suffix):
                 parent_session_id = session_id[: -len(suffix)]
                 try:
-                    cursor.execute(
-                        """SELECT event_id FROM agent_events
-                           WHERE session_id = ?
-                             AND event_type = 'task_delegation'
-                           ORDER BY timestamp DESC LIMIT 1""",
-                        (parent_session_id,),
+                    resolved = resolve_parent_task_delegation(
+                        cursor,
+                        parent_session_id=parent_session_id,
                     )
-                    row = cursor.fetchone()
-                    if row:
-                        subagent_parent_event_id = row[0]
+                    if resolved:
+                        subagent_parent_event_id = resolved
                 except Exception:
                     pass
                 break
@@ -496,23 +655,14 @@ def create_start_event(
 
         # Insert into tool_traces for correlation (if table exists)
         try:
-            cursor.execute(
-                """
-                INSERT INTO tool_traces
-                (tool_use_id, trace_id, session_id, tool_name, tool_input,
-                 start_time, status, parent_tool_use_id)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-            """,
-                (
-                    tool_use_id,
-                    trace_id,
-                    session_id,
-                    tool_name,
-                    json.dumps(sanitized_input),
-                    start_time,
-                    "started",
-                    None,  # Will be set by SubagentStop hook
-                ),
+            db.insert_tool_trace(
+                tool_use_id=tool_use_id,
+                trace_id=trace_id,
+                session_id=session_id,
+                tool_name=tool_name,
+                tool_input=sanitized_input,
+                start_time=start_time,
+                parent_event_id=parent_event_id,
             )
         except Exception as e:
             logger.debug(f"Could not insert into tool_traces: {e}")

@@ -31,7 +31,7 @@ import json
 import logging
 import os
 import subprocess
-from datetime import datetime, timezone
+from datetime import datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -140,18 +140,20 @@ def handle_session_start(context: HookContext, session: Any | None) -> dict[str,
         session_exists = cursor.fetchone()[0] > 0
 
         if not session_exists:
-            cursor.execute(
-                """
-                INSERT INTO sessions (session_id, agent_assigned, created_at, status)
-                VALUES (?, ?, ?, 'active')
-                """,
-                (
-                    session.id,
-                    context.agent_id,
-                    datetime.now(timezone.utc).isoformat(),
-                ),
+            # Extract model from hook_input or environment
+            model = (
+                context.hook_input.get("model")
+                or os.environ.get("HTMLGRAPH_MODEL")
+                or os.environ.get("CLAUDE_MODEL")
+                or os.environ.get("ANTHROPIC_MODEL")
             )
-            db.connection.commit()
+
+            # Insert session with model parameter
+            db.insert_session(
+                session_id=session.id,
+                agent_assigned=context.agent_id,
+                model=model,
+            )
             context.log("info", f"Created database session: {session.id}")
     except ImportError:
         context.log("debug", "Database not available, skipping session entry")

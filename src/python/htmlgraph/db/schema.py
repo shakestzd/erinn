@@ -107,6 +107,8 @@ class HtmlGraphDB:
             ("model", "TEXT"),
             ("claude_task_id", "TEXT"),
             ("tool_input", "JSON"),
+            ("agent_id", "TEXT"),
+            ("source", "TEXT DEFAULT 'hook'"),
         ]
 
         for col_name, col_type in migrations:
@@ -181,6 +183,7 @@ class HtmlGraphDB:
             ("cost_budget", "REAL"),  # Budget in USD for this session
             ("cost_threshold_breached", "INTEGER DEFAULT 0"),  # Whether budget exceeded
             ("predicted_cost", "REAL DEFAULT 0.0"),  # Predicted final cost
+            ("model", "TEXT"),
         ]
 
         # Refresh columns after potential rename
@@ -196,6 +199,31 @@ class HtmlGraphDB:
                     logger.info(f"Added column sessions.{col_name}")
                 except sqlite3.OperationalError as e:
                     # Column may already exist
+                    logger.debug(f"Could not add {col_name}: {e}")
+
+    def _migrate_tool_traces_table(self, cursor: sqlite3.Cursor) -> None:
+        """Migrate tool_traces table to add parent_event_id for attribution."""
+        cursor.execute(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name='tool_traces'"
+        )
+        if not cursor.fetchone():
+            return
+
+        cursor.execute("PRAGMA table_info(tool_traces)")
+        columns = {row[1] for row in cursor.fetchall()}
+
+        migrations = [
+            ("parent_event_id", "TEXT"),
+        ]
+
+        for col_name, col_type in migrations:
+            if col_name not in columns:
+                try:
+                    cursor.execute(
+                        f"ALTER TABLE tool_traces ADD COLUMN {col_name} {col_type}"
+                    )
+                    logger.info(f"Added column tool_traces.{col_name}")
+                except sqlite3.OperationalError as e:
                     logger.debug(f"Could not add {col_name}: {e}")
 
     def create_tables(self) -> None:
@@ -220,6 +248,7 @@ class HtmlGraphDB:
         # Run migrations for existing tables before creating new ones
         self._migrate_agent_events_table(cursor)
         self._migrate_sessions_table(cursor)
+        self._migrate_tool_traces_table(cursor)
 
         # 1. AGENT_EVENTS TABLE - Core event tracking
         cursor.execute("""
@@ -250,6 +279,7 @@ class HtmlGraphDB:
                 claude_task_id TEXT,
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                 updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                source TEXT DEFAULT 'hook',
                 FOREIGN KEY (session_id) REFERENCES sessions(session_id) ON DELETE CASCADE ON UPDATE CASCADE,
                 FOREIGN KEY (parent_event_id) REFERENCES agent_events(event_id) ON DELETE SET NULL ON UPDATE CASCADE,
                 FOREIGN KEY (feature_id) REFERENCES features(id) ON DELETE SET NULL ON UPDATE CASCADE
@@ -319,6 +349,7 @@ class HtmlGraphDB:
                 cost_budget REAL,
                 cost_threshold_breached INTEGER DEFAULT 0,
                 predicted_cost REAL DEFAULT 0.0,
+                model TEXT,
                 FOREIGN KEY (parent_session_id) REFERENCES sessions(session_id) ON DELETE SET NULL ON UPDATE CASCADE,
                 FOREIGN KEY (parent_event_id) REFERENCES agent_events(event_id) ON DELETE SET NULL ON UPDATE CASCADE,
                 FOREIGN KEY (continued_from) REFERENCES sessions(session_id) ON DELETE SET NULL ON UPDATE CASCADE
@@ -431,6 +462,7 @@ class HtmlGraphDB:
                 ),
                 error_message TEXT,
                 parent_tool_use_id TEXT,
+                parent_event_id TEXT,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY (session_id) REFERENCES sessions(session_id),
                 FOREIGN KEY (parent_tool_use_id) REFERENCES tool_traces(tool_use_id)
@@ -602,6 +634,8 @@ class HtmlGraphDB:
             "CREATE INDEX IF NOT EXISTS idx_agent_events_timestamp ON agent_events(timestamp DESC)",
             # Pattern: WHERE claude_task_id (task attribution queries)
             "CREATE INDEX IF NOT EXISTS idx_agent_events_claude_task_id ON agent_events(claude_task_id)",
+            # Pattern: WHERE agent_id (agent-specific queries)
+            "CREATE INDEX IF NOT EXISTS idx_agent_events_agent_id ON agent_events(agent_id)",
             # features indexes - optimized for kanban/filtering
             # Pattern: WHERE status ORDER BY priority DESC (feature list views)
             "CREATE INDEX IF NOT EXISTS idx_features_status_priority ON features(status, priority DESC, created_at DESC)",
@@ -648,6 +682,8 @@ class HtmlGraphDB:
             "CREATE INDEX IF NOT EXISTS idx_tool_traces_tool_name ON tool_traces(tool_name, status)",
             "CREATE INDEX IF NOT EXISTS idx_tool_traces_status ON tool_traces(status, start_time DESC)",
             "CREATE INDEX IF NOT EXISTS idx_tool_traces_start_time ON tool_traces(start_time DESC)",
+            # Pattern: WHERE parent_event_id (tool trace attribution)
+            "CREATE INDEX IF NOT EXISTS idx_tool_traces_parent_event ON tool_traces(parent_event_id)",
             # live_events indexes - optimized for real-time WebSocket streaming
             "CREATE INDEX IF NOT EXISTS idx_live_events_pending ON live_events(broadcast_at) WHERE broadcast_at IS NULL",
             "CREATE INDEX IF NOT EXISTS idx_live_events_created ON live_events(created_at DESC)",
@@ -723,6 +759,7 @@ class HtmlGraphDB:
         model: str | None = None,
         feature_id: str | None = None,
         claude_task_id: str | None = None,
+        source: str = "hook",
     ) -> bool:
         """
         Insert an agent event into the database.
@@ -749,6 +786,7 @@ class HtmlGraphDB:
             subagent_type: Subagent type for Task delegations (optional)
             model: Claude model name (e.g., claude-haiku, claude-opus, claude-sonnet) (optional)
             claude_task_id: Claude Code's internal task ID for tool attribution (optional)
+            source: Source of the event (hook, sdk, api) (default: 'hook')
 
         Returns:
             True if insert successful, False otherwise
@@ -767,8 +805,8 @@ class HtmlGraphDB:
                 INSERT INTO agent_events
                 (event_id, agent_id, event_type, session_id, feature_id, tool_name,
                  input_summary, tool_input, output_summary, context, parent_agent_id,
-                 parent_event_id, cost_tokens, execution_duration_seconds, subagent_type, model, claude_task_id)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                 parent_event_id, cost_tokens, execution_duration_seconds, subagent_type, model, claude_task_id, source)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
                 (
                     event_id,
@@ -788,6 +826,7 @@ class HtmlGraphDB:
                     subagent_type,
                     model,
                     claude_task_id,
+                    source,
                 ),
             )
             # Re-enable foreign key constraints
@@ -885,6 +924,7 @@ class HtmlGraphDB:
         is_subagent: bool = False,
         transcript_id: str | None = None,
         transcript_path: str | None = None,
+        model: str | None = None,
     ) -> bool:
         """
         Insert a new session record.
@@ -901,6 +941,7 @@ class HtmlGraphDB:
             is_subagent: Whether this is a subagent session
             transcript_id: ID of Claude transcript (optional)
             transcript_path: Path to transcript file (optional)
+            model: Claude model name for this session (optional)
 
         Returns:
             True if insert successful, False otherwise
@@ -914,8 +955,8 @@ class HtmlGraphDB:
                 """
                 INSERT OR IGNORE INTO sessions
                 (session_id, agent_assigned, parent_session_id, parent_event_id,
-                 is_subagent, transcript_id, transcript_path)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
+                 is_subagent, transcript_id, transcript_path, model)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             """,
                 (
                     session_id,
@@ -925,6 +966,7 @@ class HtmlGraphDB:
                     is_subagent,
                     transcript_id,
                     transcript_path,
+                    model,
                 ),
             )
             self.connection.commit()  # type: ignore[union-attr]
@@ -944,8 +986,8 @@ class HtmlGraphDB:
                         """
                         INSERT OR IGNORE INTO sessions
                         (session_id, agent_assigned, parent_session_id, parent_event_id,
-                         is_subagent, transcript_id, transcript_path)
-                        VALUES (?, ?, ?, ?, ?, ?, ?)
+                         is_subagent, transcript_id, transcript_path, model)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                         (
                             session_id,
@@ -955,6 +997,7 @@ class HtmlGraphDB:
                             is_subagent,
                             transcript_id,
                             transcript_path,
+                            model,
                         ),
                     )
                     self.connection.commit()  # type: ignore[union-attr]
@@ -1416,6 +1459,7 @@ class HtmlGraphDB:
         tool_input: dict[str, Any] | None = None,
         start_time: str | None = None,
         parent_tool_use_id: str | None = None,
+        parent_event_id: str | None = None,
     ) -> bool:
         """
         Insert a tool trace start event.
@@ -1428,6 +1472,7 @@ class HtmlGraphDB:
             tool_input: Tool input parameters as dict (optional)
             start_time: Start time ISO8601 UTC (optional, defaults to now)
             parent_tool_use_id: Parent tool use ID if nested (optional)
+            parent_event_id: Parent event ID for attribution (optional)
 
         Returns:
             True if insert successful, False otherwise
@@ -1439,14 +1484,14 @@ class HtmlGraphDB:
             cursor = self.connection.cursor()  # type: ignore[union-attr]
 
             if start_time is None:
-                start_time = datetime.now(timezone.utc).isoformat()
+                start_time = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
 
             cursor.execute(
                 """
                 INSERT INTO tool_traces
                 (tool_use_id, trace_id, session_id, tool_name, tool_input,
-                 start_time, status, parent_tool_use_id)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                 start_time, status, parent_tool_use_id, parent_event_id)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
                 (
                     tool_use_id,
@@ -1457,6 +1502,7 @@ class HtmlGraphDB:
                     start_time,
                     "started",
                     parent_tool_use_id,
+                    parent_event_id,
                 ),
             )
             self.connection.commit()  # type: ignore[union-attr]
@@ -1495,7 +1541,7 @@ class HtmlGraphDB:
             cursor = self.connection.cursor()  # type: ignore[union-attr]
 
             if end_time is None:
-                end_time = datetime.now(timezone.utc).isoformat()
+                end_time = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
 
             cursor.execute(
                 """
@@ -1602,7 +1648,7 @@ class HtmlGraphDB:
                 WHERE session_id = ?
             """,
                 (
-                    datetime.now(timezone.utc).isoformat(),
+                    datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S"),
                     user_query[:200] if user_query else None,
                     session_id,
                 ),
@@ -1629,9 +1675,9 @@ class HtmlGraphDB:
 
         try:
             cursor = self.connection.cursor()  # type: ignore[union-attr]
-            cutoff = (
-                datetime.now(timezone.utc) - timedelta(minutes=minutes)
-            ).isoformat()
+            cutoff = (datetime.now(timezone.utc) - timedelta(minutes=minutes)).strftime(
+                "%Y-%m-%d %H:%M:%S"
+            )
             cursor.execute(
                 """
                 SELECT session_id, agent_assigned, created_at, last_user_query_at,
@@ -1789,7 +1835,7 @@ class HtmlGraphDB:
             cursor = self.connection.cursor()  # type: ignore[union-attr]
             cutoff = (
                 datetime.now(timezone.utc) - timedelta(minutes=max_age_minutes)
-            ).isoformat()
+            ).strftime("%Y-%m-%d %H:%M:%S")
             cursor.execute(
                 """
                 DELETE FROM live_events

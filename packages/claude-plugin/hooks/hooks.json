@@ -73,6 +73,30 @@
         ]
       }
     ],
+    "PostToolUseFailure": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "comment": "Track failed tool calls",
+            "command": "HTMLGRAPH_HOOK_TYPE=PostToolUseFailure uv run \"${CLAUDE_PLUGIN_ROOT}/hooks/scripts/track-event.py\""
+          }
+        ]
+      }
+    ],
+    "SubagentStart": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "comment": "Map agent_id to task_delegation for parallel subagent tracking",
+            "command": "uv run \"${CLAUDE_PLUGIN_ROOT}/hooks/scripts/subagent-start.py\""
+          }
+        ]
+      }
+    ],
     "SubagentStop": [
       {
         "matcher": "",
@@ -102,6 +126,30 @@
           {
             "type": "command",
             "command": "HTMLGRAPH_HOOK_TYPE=TaskCompleted uv run \"${CLAUDE_PLUGIN_ROOT}/hooks/scripts/track-event.py\""
+          }
+        ]
+      }
+    ],
+    "PreCompact": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "comment": "Record context compaction event",
+            "command": "HTMLGRAPH_HOOK_TYPE=PreCompact uv run \"${CLAUDE_PLUGIN_ROOT}/hooks/scripts/track-event.py\""
+          }
+        ]
+      }
+    ],
+    "Notification": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "comment": "Record notification events",
+            "command": "HTMLGRAPH_HOOK_TYPE=Notification uv run \"${CLAUDE_PLUGIN_ROOT}/hooks/scripts/track-event.py\""
           }
         ]
       }

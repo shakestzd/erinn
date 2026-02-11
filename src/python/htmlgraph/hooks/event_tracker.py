@@ -32,6 +32,7 @@ from pathlib import Path
 from typing import Any, cast  # noqa: F401
 
 from htmlgraph.db.schema import HtmlGraphDB
+from htmlgraph.hooks.pretooluse import resolve_parent_task_delegation
 from htmlgraph.ids import generate_id
 from htmlgraph.session_manager import SessionManager
 
@@ -243,7 +244,10 @@ def clear_drift_queue_activities(graph_dir: Path) -> None:
     queue_path = graph_dir / DRIFT_QUEUE_FILE
     try:
         # Load existing queue to preserve last_classification timestamp
-        queue = {"activities": [], "last_classification": datetime.now().isoformat()}
+        queue = {
+            "activities": [],
+            "last_classification": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        }
         if queue_path.exists():
             with open(queue_path) as f:
                 existing = json.load(f)
@@ -268,7 +272,7 @@ def add_to_drift_queue(
 
     queue["activities"].append(
         {
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S"),
             "tool": activity.get("tool"),
             "summary": activity.get("summary"),
             "file_paths": activity.get("file_paths", []),
@@ -710,7 +714,9 @@ def record_event_to_sqlite(
                     "success": not is_error,
                     "feature_id": feature_id,
                     "file_paths": file_paths,
-                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                    "timestamp": datetime.now(timezone.utc).strftime(
+                        "%Y-%m-%d %H:%M:%S"
+                    ),
                 }
 
                 db.insert_live_event(
@@ -871,53 +877,22 @@ def track_event(hook_type: str, hook_input: dict[str, Any]) -> dict[str, Any]:
                 # CRITICAL FIX: When Method 1 succeeds, also find the task_delegation event!
                 # This ensures parent_activity_id will use the task event, not fall back to UserQuery
                 try:
-                    # First try to find task in parent_session_id (if not NULL)
-                    if parent_session_id:
-                        cursor.execute(
-                            """
-                            SELECT event_id
-                            FROM agent_events
-                            WHERE event_type = 'task_delegation'
-                              AND subagent_type = ?
-                              AND status = 'started'
-                              AND session_id = ?
-                            ORDER BY timestamp DESC
-                            LIMIT 1
-                            """,
-                            (subagent_type, parent_session_id),
-                        )
-                        task_row = cursor.fetchone()
-                        if task_row:
-                            task_event_id_from_db = task_row[0]
+                    # Use resolve_parent_task_delegation for exact matching
+                    task_event_id_from_db = resolve_parent_task_delegation(
+                        cursor,
+                        parent_session_id=parent_session_id
+                        if parent_session_id
+                        else None,
+                        subagent_type=subagent_type,
+                    )
 
-                    # If not found (parent_session_id is NULL), fallback to finding most recent task
-                    # This handles Claude Code's session reuse where parent_session_id can be NULL
-                    if not task_event_id_from_db:
-                        cursor.execute(
-                            """
-                            SELECT event_id
-                            FROM agent_events
-                            WHERE event_type = 'task_delegation'
-                              AND subagent_type = ?
-                              AND status = 'started'
-                            ORDER BY timestamp DESC
-                            LIMIT 1
-                            """,
-                            (subagent_type,),
-                        )
-                        task_row = cursor.fetchone()
-                        if task_row:
-                            task_event_id_from_db = task_row[0]
-                            logger.warning(
-                                f"DEBUG Method 1 fallback: Found task_delegation={task_event_id_from_db} for {subagent_type}"
-                            )
-                        else:
-                            logger.warning(
-                                f"DEBUG Method 1: No task_delegation found for subagent_type={subagent_type}"
-                            )
-                    else:
+                    if task_event_id_from_db:
                         logger.warning(
                             f"DEBUG Method 1: Found task_delegation={task_event_id_from_db} for subagent {subagent_type}"
+                        )
+                    else:
+                        logger.warning(
+                            f"DEBUG Method 1: No task_delegation found for subagent_type={subagent_type}"
                         )
                 except Exception as e:
                     logger.warning(
@@ -949,36 +924,33 @@ def track_event(hook_type: str, hook_input: dict[str, Any]) -> dict[str, Any]:
     if not subagent_type and db and db.connection:
         try:
             cursor = db.connection.cursor()
-            # Find the most recent active task_delegation event
-            cursor.execute(
-                """
-                SELECT event_id, subagent_type, session_id
-                FROM agent_events
-                WHERE event_type = 'task_delegation'
-                  AND status = 'started'
-                  AND tool_name = 'Task'
-                ORDER BY timestamp DESC
-                LIMIT 1
-                """,
-            )
-            row = cursor.fetchone()
-            if row:
-                task_event_id, detected_subagent_type, parent_sess = row
-                # If we found an active task_delegation, we're running as a subagent
-                # (Claude Code uses the same session_id for both parent and subagent)
-                subagent_type = detected_subagent_type or "general-purpose"
-                # IMPORTANT: Use the hook_session_id as parent, not parent_sess!
-                # The parent_sess from task_delegation is the same as current session
-                # (Claude Code reuses session_id). The actual parent is hook_session_id.
-                parent_session_id = hook_session_id
-                task_event_id_from_db = (
-                    task_event_id  # Store for later use as parent_event_id
+            # Use resolve_parent_task_delegation for exact matching
+            task_event_id = resolve_parent_task_delegation(cursor)
+
+            if task_event_id:
+                # Get subagent_type and session_id from the resolved event
+                cursor.execute(
+                    "SELECT subagent_type, session_id FROM agent_events WHERE event_id = ? LIMIT 1",
+                    (task_event_id,),
                 )
-                logger.debug(
-                    f"DEBUG subagent detection (database): Detected active task_delegation "
-                    f"type={subagent_type}, parent_session={parent_session_id}, "
-                    f"parent_event={task_event_id}"
-                )
+                row = cursor.fetchone()
+                if row:
+                    detected_subagent_type, parent_sess = row
+                    # If we found an active task_delegation, we're running as a subagent
+                    # (Claude Code uses the same session_id for both parent and subagent)
+                    subagent_type = detected_subagent_type or "general-purpose"
+                    # IMPORTANT: Use the hook_session_id as parent, not parent_sess!
+                    # The parent_sess from task_delegation is the same as current session
+                    # (Claude Code reuses session_id). The actual parent is hook_session_id.
+                    parent_session_id = hook_session_id
+                    task_event_id_from_db = (
+                        task_event_id  # Store for later use as parent_event_id
+                    )
+                    logger.debug(
+                        f"DEBUG subagent detection (database): Detected active task_delegation "
+                        f"type={subagent_type}, parent_session={parent_session_id}, "
+                        f"parent_event={task_event_id}"
+                    )
         except Exception as e:
             logger.warning(f"DEBUG: Error detecting subagent from database: {e}")
 
@@ -1235,7 +1207,8 @@ def track_event(hook_type: str, hook_input: dict[str, Any]) -> dict[str, Any]:
             if db and db.connection:
                 cursor = db.connection.cursor()
 
-                # Find the most recent task_delegation event with status='started'
+                # Find the OLDEST task_delegation event with status='started' (FIFO)
+                # Complete tasks in the order they were started
                 cursor.execute(
                     """
                     SELECT event_id, subagent_type
@@ -1243,7 +1216,7 @@ def track_event(hook_type: str, hook_input: dict[str, Any]) -> dict[str, Any]:
                     WHERE session_id = ?
                       AND event_type = 'task_delegation'
                       AND status = 'started'
-                    ORDER BY timestamp DESC
+                    ORDER BY timestamp ASC
                     LIMIT 1
                     """,
                     (active_session_id,),
@@ -1351,6 +1324,87 @@ def track_event(hook_type: str, hook_input: dict[str, Any]) -> dict[str, Any]:
             logger.warning(f"Warning: Could not track TeammateIdle: {e}")
         return {"continue": True}
 
+    elif hook_type == "PreCompact":
+        # Context compaction is about to happen - record event
+        try:
+            # Extract context info from hook_input
+            reason = hook_input.get("reason", "Context size threshold reached")
+            context_summary = hook_input.get("summary", "")
+
+            # Track the compaction event
+            result = manager.track_activity(
+                session_id=active_session_id,
+                tool="PreCompact",
+                summary=f"Context compaction: {reason}",
+            )
+
+            # Record to SQLite if available
+            if db:
+                output_summary = context_summary if context_summary else reason
+                record_event_to_sqlite(
+                    db=db,
+                    session_id=active_session_id,
+                    tool_name="PreCompact",
+                    tool_input={"reason": reason, "summary": context_summary},
+                    tool_response={"content": output_summary},
+                    is_error=False,
+                    agent_id=detected_agent,
+                    model=detected_model,
+                    feature_id=result.feature_id if result else None,
+                )
+
+            logger.debug(f"PreCompact: Tracked compaction event - {reason}")
+
+        except Exception as e:
+            logger.warning(f"Warning: Could not track PreCompact: {e}")
+        return {"continue": True}
+
+    elif hook_type == "Notification":
+        # Notification event - record for observability
+        try:
+            # Extract notification content from hook_input
+            notification_type = hook_input.get("type", "unknown")
+            notification_content = hook_input.get("content", "")
+            notification_message = hook_input.get("message", "")
+
+            # Build summary from available fields
+            summary = (
+                notification_message
+                or notification_content
+                or f"Notification: {notification_type}"
+            )
+
+            # Track the notification event
+            result = manager.track_activity(
+                session_id=active_session_id,
+                tool="Notification",
+                summary=summary[:200],
+            )
+
+            # Record to SQLite if available
+            if db:
+                record_event_to_sqlite(
+                    db=db,
+                    session_id=active_session_id,
+                    tool_name="Notification",
+                    tool_input={
+                        "type": notification_type,
+                        "content": notification_content,
+                        "message": notification_message,
+                    },
+                    tool_response={"content": summary},
+                    is_error=False,
+                    agent_id=detected_agent,
+                    model=detected_model,
+                    feature_id=result.feature_id if result else None,
+                )
+
+            logger.debug(f"Notification: Tracked notification - {notification_type}")
+
+        except Exception as e:
+            logger.warning(f"Warning: Could not track Notification: {e}")
+        return {"continue": True}
+
     elif hook_type == "PostToolUse":
         # Tool was used - track it
         tool_name = hook_input.get("tool_name", "unknown")
@@ -1363,6 +1417,65 @@ def track_event(hook_type: str, hook_input: dict[str, Any]) -> dict[str, Any]:
         skip_tools = {"AskUserQuestion"}
         if tool_name in skip_tools:
             return {"continue": True}
+
+        # CRITICAL FIX: Don't create duplicate event for Task tool calls
+        # PreToolUse already created a task_delegation event - just update it
+        if tool_name == "Task" and db and db.connection:
+            try:
+                cursor = db.connection.cursor()
+
+                # Find the most recent task_delegation event with status='started'
+                cursor.execute(
+                    """
+                    SELECT event_id FROM agent_events
+                    WHERE session_id = ?
+                      AND tool_name = 'Task'
+                      AND event_type = 'task_delegation'
+                      AND status = 'started'
+                    ORDER BY timestamp DESC
+                    LIMIT 1
+                    """,
+                    (active_session_id,),
+                )
+                row = cursor.fetchone()
+
+                if row:
+                    task_event_id = row[0]
+
+                    # Extract result summary from tool_response
+                    result_summary = "Task completed"
+                    if isinstance(tool_response, dict):
+                        result_summary = str(
+                            tool_response.get("summary", "Task completed")
+                        )
+
+                    # Update the task_delegation event to status='completed'
+                    cursor.execute(
+                        """
+                        UPDATE agent_events
+                        SET status = 'completed',
+                            output_summary = ?,
+                            updated_at = CURRENT_TIMESTAMP
+                        WHERE event_id = ?
+                        """,
+                        (result_summary[:200], task_event_id),
+                    )
+                    db.connection.commit()
+
+                    logger.debug(
+                        f"PostToolUse Task: Updated task_delegation={task_event_id} to completed"
+                    )
+                else:
+                    logger.warning(
+                        "PostToolUse Task: No active task_delegation event found to update"
+                    )
+
+                # Skip normal event insertion - return early
+                return {"continue": True}
+
+            except Exception as e:
+                logger.warning(f"Warning: Could not update Task delegation: {e}")
+                # Fall through to normal event insertion on error
 
         # Extract file paths
         file_paths = extract_file_paths(tool_input_data, tool_name)
@@ -1400,27 +1513,48 @@ def track_event(hook_type: str, hook_input: dict[str, Any]) -> dict[str, Any]:
         # Determine parent activity context using database-only lookup
         parent_activity_id = None
 
-        # Check environment variable FIRST for cross-process parent linking
+        # Priority 0: Read parent from tool_traces (set by PreToolUse)
+        tool_use_id = os.environ.get("HTMLGRAPH_TOOL_USE_ID")
+        if tool_use_id and db and db.connection:
+            try:
+                cursor = db.connection.cursor()
+                cursor.execute(
+                    "SELECT parent_event_id FROM tool_traces WHERE tool_use_id = ?",
+                    (tool_use_id,),
+                )
+                trace_row = cursor.fetchone()
+                if trace_row and trace_row[0]:
+                    # Found parent from tool_traces - exact attribution
+                    parent_activity_id = trace_row[0]
+                    logger.debug(
+                        f"DEBUG: Found parent from tool_traces: {parent_activity_id}"
+                    )
+            except Exception as e:
+                logger.debug(f"DEBUG: Error reading tool_traces: {e}")
+
+        # Priority 1: Check environment variable for cross-process parent linking
         # HTMLGRAPH_PARENT_EVENT_FOR_POST is set by PreToolUse for same-process parent
         # HTMLGRAPH_PARENT_EVENT is set for cross-process (Task delegation)
         # HTMLGRAPH_PARENT_QUERY_EVENT is legacy fallback
-        env_parent = (
-            os.environ.get("HTMLGRAPH_PARENT_EVENT_FOR_POST")
-            or os.environ.get("HTMLGRAPH_PARENT_EVENT")
-            or os.environ.get("HTMLGRAPH_PARENT_QUERY_EVENT")
-        )
-        if env_parent:
-            parent_activity_id = env_parent
-        # If we detected a Task delegation event via database detection (Method 3),
+        if not parent_activity_id:
+            env_parent = (
+                os.environ.get("HTMLGRAPH_PARENT_EVENT_FOR_POST")
+                or os.environ.get("HTMLGRAPH_PARENT_EVENT")
+                or os.environ.get("HTMLGRAPH_PARENT_QUERY_EVENT")
+            )
+            if env_parent:
+                parent_activity_id = env_parent
+
+        # Priority 2: If we detected a Task delegation event via database detection (Method 3),
         # use that as the parent for all tool calls within the subagent
-        elif task_event_id_from_db:
+        if not parent_activity_id and task_event_id_from_db:
             parent_activity_id = task_event_id_from_db
-        # CRITICAL FIX: Check for active task_delegation EVEN IF task_event_id_from_db not set
+
+        # Priority 3: CRITICAL FIX: Check for active task_delegation EVEN IF task_event_id_from_db not set
         # This handles Claude Code's session reuse where parent_session_id is NULL
         # When tool calls come from a subagent, they should be under the task_delegation parent,
         # NOT under UserQuery. So we MUST check for active tasks BEFORE falling back to UserQuery.
-        # IMPORTANT: This must work EVEN IF db is None, so try to get it from htmlgraph_db
-        else:
+        if not parent_activity_id:
             # Ensure we have a db connection (may not have been passed in for parent session)
             db_to_use = db
             if not db_to_use:
@@ -1432,27 +1566,33 @@ def track_event(hook_type: str, hook_input: dict[str, Any]) -> dict[str, Any]:
                 except Exception:
                     db_to_use = None
 
-            # Try to find an active task_delegation event
-            if db_to_use:
+            # Try to find an active task_delegation event using resolve_parent_task_delegation
+            # Pass subagent_type for more precise matching when available
+            if db_to_use and db_to_use.connection:
                 try:
-                    cursor = db_to_use.connection.cursor()  # type: ignore[union-attr]
-                    cursor.execute(
-                        """
-                        SELECT event_id
-                        FROM agent_events
-                        WHERE event_type = 'task_delegation'
-                          AND status = 'started'
-                          AND session_id = ?
-                        ORDER BY timestamp DESC
-                        LIMIT 1
-                        """,
-                        (active_session_id,),
+                    cursor = db_to_use.connection.cursor()
+                    parent_activity_id = resolve_parent_task_delegation(
+                        cursor,
+                        parent_session_id=active_session_id,
+                        subagent_type=subagent_type,
                     )
-                    task_row = cursor.fetchone()
-                    if task_row:
-                        parent_activity_id = task_row[0]
+                    if parent_activity_id:
+                        # Also propagate subagent_type from the resolved task_delegation
+                        # so child events inherit the correct badge/spawner metadata
+                        if not subagent_type:
+                            try:
+                                cursor.execute(
+                                    "SELECT subagent_type FROM agent_events WHERE event_id = ? LIMIT 1",
+                                    (parent_activity_id,),
+                                )
+                                sa_row = cursor.fetchone()
+                                if sa_row and sa_row[0]:
+                                    subagent_type = sa_row[0]
+                            except Exception:
+                                pass
                         logger.warning(
-                            f"DEBUG: Found active task_delegation={parent_activity_id} in parent_activity_id fallback"
+                            f"DEBUG: Found active task_delegation={parent_activity_id} "
+                            f"subagent_type={subagent_type} in parent_activity_id fallback"
                         )
                 except Exception as e:
                     logger.warning(
@@ -1479,12 +1619,18 @@ def track_event(hook_type: str, hook_input: dict[str, Any]) -> dict[str, Any]:
 
             # Record to SQLite if available
             if db:
-                # Extract subagent_type for Task delegations
-                task_subagent_type = None
+                # Determine subagent_type for this event:
+                # - Task delegations: extract from tool_input
+                # - Child events in subagent context: inherit from parent task_delegation
+                event_subagent_type = None
                 if tool_name == "Task":
-                    task_subagent_type = tool_input_data.get(
+                    event_subagent_type = tool_input_data.get(
                         "subagent_type", "general-purpose"
                     )
+                elif subagent_type:
+                    # Propagate subagent_type to child events so dashboard
+                    # shows correct badge (e.g., "GENERAL-PURPOSE-SPAWNER")
+                    event_subagent_type = subagent_type
 
                 event_id = record_event_to_sqlite(
                     db=db,
@@ -1496,7 +1642,7 @@ def track_event(hook_type: str, hook_input: dict[str, Any]) -> dict[str, Any]:
                     file_paths=file_paths if file_paths else None,
                     parent_event_id=parent_activity_id,  # Link to parent event
                     agent_id=detected_agent,
-                    subagent_type=task_subagent_type,
+                    subagent_type=event_subagent_type,
                     model=detected_model,
                     feature_id=result.feature_id if result else None,
                 )
@@ -1613,7 +1759,7 @@ Or manually create a work item in .htmlgraph/ (bug, feature, spike, or chore).""
                         # Mark classification as triggered
                         queue["last_classification"] = datetime.now(
                             timezone.utc
-                        ).isoformat()
+                        ).strftime("%Y-%m-%d %H:%M:%S")
                         save_drift_queue(graph_dir, queue)
                     else:
                         nudge = f"Drift detected ({drift_score:.2f}): Activity queued for classification ({len(queue['activities'])}/{drift_settings.get('min_activities_before_classify', 3)} needed)."
@@ -1633,6 +1779,193 @@ Or manually create a work item in .htmlgraph/ (bug, feature, spike, or chore).""
                 "additionalContext": nudge,
             }
         return response
+
+    elif hook_type == "PostToolUseFailure":
+        # Tool call failed - track the failure
+        tool_name = hook_input.get("tool_name") or hook_input.get("name", "unknown")
+        tool_use_id = hook_input.get("tool_use_id")
+
+        # Extract error information from hook_input
+        error_info = hook_input.get("error") or hook_input.get("output", {})
+        if isinstance(error_info, dict):
+            error_message = error_info.get("message") or error_info.get(
+                "error", "Unknown error"
+            )
+        else:
+            error_message = str(error_info)
+
+        tool_input_data = hook_input.get("tool_input", {})
+
+        # CRITICAL FIX: Don't create duplicate event for failed Task tool calls
+        # PreToolUse already created a task_delegation event - just update it to failed
+        if tool_name == "Task" and db and db.connection:
+            try:
+                cursor = db.connection.cursor()
+
+                # Find the most recent task_delegation event with status='started'
+                cursor.execute(
+                    """
+                    SELECT event_id FROM agent_events
+                    WHERE session_id = ?
+                      AND tool_name = 'Task'
+                      AND event_type = 'task_delegation'
+                      AND status = 'started'
+                    ORDER BY timestamp DESC
+                    LIMIT 1
+                    """,
+                    (active_session_id,),
+                )
+                row = cursor.fetchone()
+
+                if row:
+                    task_event_id = row[0]
+
+                    # Update the task_delegation event to status='failed'
+                    cursor.execute(
+                        """
+                        UPDATE agent_events
+                        SET status = 'failed',
+                            output_summary = ?,
+                            updated_at = CURRENT_TIMESTAMP
+                        WHERE event_id = ?
+                        """,
+                        (error_message[:200], task_event_id),
+                    )
+                    db.connection.commit()
+
+                    logger.debug(
+                        f"PostToolUseFailure Task: Updated task_delegation={task_event_id} to failed"
+                    )
+                else:
+                    logger.warning(
+                        "PostToolUseFailure Task: No active task_delegation event found to update"
+                    )
+
+                # Skip normal event insertion - return early
+                return {"continue": True}
+
+            except Exception as e:
+                logger.warning(f"Warning: Could not update failed Task delegation: {e}")
+                # Fall through to normal event insertion on error
+
+        # Determine parent event using the same resolution chain as PostToolUse
+        parent_activity_id = None
+
+        # Priority 0: Read parent from tool_traces (set by PreToolUse)
+        if tool_use_id and db and db.connection:
+            try:
+                cursor = db.connection.cursor()
+                cursor.execute(
+                    "SELECT parent_event_id FROM tool_traces WHERE tool_use_id = ?",
+                    (tool_use_id,),
+                )
+                trace_row = cursor.fetchone()
+                if trace_row and trace_row[0]:
+                    parent_activity_id = trace_row[0]
+                    logger.debug(
+                        f"PostToolUseFailure: Found parent from tool_traces: {parent_activity_id}"
+                    )
+            except Exception as e:
+                logger.debug(f"PostToolUseFailure: Error reading tool_traces: {e}")
+
+        # Priority 1: Check environment variables
+        if not parent_activity_id:
+            env_parent = (
+                os.environ.get("HTMLGRAPH_PARENT_EVENT_FOR_POST")
+                or os.environ.get("HTMLGRAPH_PARENT_EVENT")
+                or os.environ.get("HTMLGRAPH_PARENT_QUERY_EVENT")
+            )
+            if env_parent:
+                parent_activity_id = env_parent
+
+        # Priority 2: Fall back to database query for active task_delegation or UserQuery
+        if not parent_activity_id:
+            db_to_use = db
+            if not db_to_use:
+                try:
+                    from htmlgraph.config import get_database_path
+                    from htmlgraph.db.schema import HtmlGraphDB
+
+                    db_to_use = HtmlGraphDB(str(get_database_path()))
+                except Exception:
+                    db_to_use = None
+
+            if db_to_use and db_to_use.connection:
+                try:
+                    cursor = db_to_use.connection.cursor()
+                    parent_activity_id = resolve_parent_task_delegation(
+                        cursor,
+                        parent_session_id=active_session_id,
+                    )
+                except Exception as e:
+                    logger.debug(
+                        f"PostToolUseFailure: Error finding task_delegation: {e}"
+                    )
+
+                # Fall back to UserQuery if no task found
+                if not parent_activity_id:
+                    parent_activity_id = get_parent_user_query(
+                        db_to_use, active_session_id
+                    )
+
+        # Record the failure event to database
+        if db:
+            try:
+                # Build error summary for output
+                error_summary = {
+                    "error": error_message,
+                    "tool_name": tool_name,
+                }
+
+                event_id = record_event_to_sqlite(
+                    db=db,
+                    session_id=active_session_id,
+                    tool_name=tool_name,
+                    tool_input=tool_input_data,
+                    tool_response=error_summary,
+                    is_error=True,
+                    parent_event_id=parent_activity_id,
+                    agent_id=detected_agent,
+                    model=detected_model,
+                )
+
+                logger.debug(
+                    f"PostToolUseFailure: Recorded failure event {event_id} for tool {tool_name}"
+                )
+
+                # Update tool_traces to mark as failed if tool_use_id is available
+                if tool_use_id and db.connection:
+                    try:
+                        cursor = db.connection.cursor()
+                        cursor.execute(
+                            """
+                            UPDATE tool_traces
+                            SET status = 'failed',
+                                end_time = ?,
+                                tool_output = ?
+                            WHERE tool_use_id = ?
+                            """,
+                            (
+                                datetime.now(timezone.utc).strftime(
+                                    "%Y-%m-%d %H:%M:%S"
+                                ),
+                                json.dumps(error_summary),
+                                tool_use_id,
+                            ),
+                        )
+                        db.connection.commit()
+                        logger.debug(
+                            f"PostToolUseFailure: Updated tool_traces for {tool_use_id}"
+                        )
+                    except Exception as e:
+                        logger.debug(
+                            f"PostToolUseFailure: Error updating tool_traces: {e}"
+                        )
+
+            except Exception as e:
+                logger.warning(f"PostToolUseFailure: Error recording failure: {e}")
+
+        return {"continue": True}
 
     # Unknown hook type
     return {"continue": True}

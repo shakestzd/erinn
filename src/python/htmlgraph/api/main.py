@@ -708,7 +708,7 @@ def get_app(db_path: str) -> FastAPI:
                     SELECT event_id, agent_id, event_type, timestamp, status
                     FROM agent_events
                     WHERE parent_event_id = ?
-                    ORDER BY timestamp ASC
+                    ORDER BY timestamp DESC
                 """
                 async with db.execute(child_query, (parent_event_id,)) as child_cursor:
                     child_rows = await child_cursor.fetchall()
@@ -1105,7 +1105,7 @@ def get_app(db_path: str) -> FastAPI:
                         feature_id
                     FROM agent_events
                     WHERE parent_event_id = ?
-                    ORDER BY timestamp ASC
+                    ORDER BY timestamp DESC
                 """
 
                 # Recursive helper to fetch children at any depth

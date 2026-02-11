@@ -7,6 +7,7 @@ status and counts child spikes created during the subagent's execution.
 
 Architecture:
 - Reads HTMLGRAPH_PARENT_EVENT from environment (set by PreToolUse hook)
+- Reads agent_id from hook_input for exact parent event lookup
 - Queries database for spikes created since parent event start
 - Updates parent event: status="completed", child_spike_count=N
 - Handles graceful degradation if parent event not found
@@ -27,6 +28,167 @@ from pathlib import Path
 from typing import Any
 
 logger = logging.getLogger(__name__)
+
+
+def _event_exists_near_timestamp(
+    cursor: sqlite3.Cursor,
+    session_id: str,
+    tool_name: str,
+    timestamp_str: str,
+    window_seconds: int = 2,
+) -> bool:
+    """
+    Check if an event with similar timestamp exists (for deduplication).
+
+    Args:
+        cursor: SQLite cursor
+        session_id: Session ID to check
+        tool_name: Tool name to match
+        timestamp_str: ISO8601 timestamp to compare
+        window_seconds: Time window in seconds (default: 2)
+
+    Returns:
+        True if matching event exists, False otherwise
+    """
+    try:
+        cursor.execute(
+            """
+            SELECT 1 FROM agent_events
+            WHERE session_id = ?
+              AND tool_name = ?
+              AND ABS(JULIANDAY(timestamp) - JULIANDAY(?)) * 86400 < ?
+            LIMIT 1
+            """,
+            (session_id, tool_name, timestamp_str, window_seconds),
+        )
+        return cursor.fetchone() is not None
+    except Exception as e:
+        logger.warning(f"Error checking event existence: {e}")
+        return False
+
+
+def backfill_from_transcript(
+    db_path: str,
+    transcript_path: str,
+    parent_event_id: str,
+    session_id: str,
+    model: str | None = None,
+) -> int:
+    """
+    Parse subagent JSONL transcript and backfill missing tool call events.
+
+    Claude Code hooks don't always fire for all subagent tool calls.
+    This function reads the transcript file and inserts any events
+    that weren't captured by hooks.
+
+    Args:
+        db_path: Path to HtmlGraph database
+        transcript_path: Path to JSONL transcript file
+        parent_event_id: Parent task_delegation event ID
+        session_id: Session ID for the events
+        model: Model name for attribution
+
+    Returns:
+        Count of events backfilled from transcript
+    """
+    try:
+        from htmlgraph.transcript import TranscriptEntry
+
+        backfill_count = 0
+
+        # Read and parse JSONL transcript
+        transcript_file = Path(transcript_path)
+        if not transcript_file.exists():
+            logger.warning(f"Transcript file not found: {transcript_path}")
+            return 0
+
+        conn = sqlite3.connect(db_path)
+        cursor = conn.cursor()
+
+        with transcript_file.open("r", encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
+
+                try:
+                    data = json.loads(line)
+                    entry = TranscriptEntry.from_jsonl_line(data)
+
+                    # Only process tool_use entries
+                    if entry.entry_type != "tool_use" or not entry.tool_name:
+                        continue
+
+                    # Check if event already exists (deduplication)
+                    timestamp_str = entry.timestamp.isoformat()
+                    if _event_exists_near_timestamp(
+                        cursor, session_id, entry.tool_name, timestamp_str
+                    ):
+                        continue
+
+                    # Generate event ID for backfilled event
+                    import uuid
+
+                    event_id = f"evt-{uuid.uuid4().hex[:8]}"
+
+                    # Prepare input summary from tool_input
+                    input_summary = None
+                    if entry.tool_input:
+                        try:
+                            # Create a brief summary of tool input
+                            input_summary = json.dumps(entry.tool_input)[:200]
+                        except Exception:
+                            input_summary = str(entry.tool_input)[:200]
+
+                    # Insert backfilled event with source='transcript'
+                    cursor.execute(
+                        """
+                        INSERT INTO agent_events
+                        (event_id, agent_id, event_type, session_id, tool_name,
+                         input_summary, tool_input, parent_event_id, timestamp,
+                         model, source, created_at)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        """,
+                        (
+                            event_id,
+                            "subagent",  # Generic agent ID for backfilled events
+                            "tool_call",
+                            session_id,
+                            entry.tool_name,
+                            input_summary,
+                            json.dumps(entry.tool_input) if entry.tool_input else None,
+                            parent_event_id,
+                            timestamp_str,
+                            model,
+                            "transcript",  # Mark as backfilled from transcript
+                            datetime.now(timezone.utc).isoformat(),
+                        ),
+                    )
+
+                    backfill_count += 1
+                    logger.debug(
+                        f"Backfilled event for {entry.tool_name} at {timestamp_str}"
+                    )
+
+                except json.JSONDecodeError:
+                    continue
+                except Exception as e:
+                    logger.debug(f"Error processing transcript line: {e}")
+                    continue
+
+        conn.commit()
+        conn.close()
+
+        if backfill_count > 0:
+            logger.info(
+                f"Backfilled {backfill_count} events from transcript for session {session_id}"
+            )
+
+        return backfill_count
+
+    except Exception as e:
+        logger.warning(f"Error backfilling from transcript: {e}")
+        return 0
 
 
 def get_parent_event_id() -> str | None:
@@ -204,7 +366,7 @@ def get_parent_event_start_time(db_path: str, parent_event_id: str) -> str | Non
         return None
 
 
-def get_parent_event_from_db(db_path: str) -> str | None:
+def get_parent_event_from_db(db_path: str, agent_id: str | None = None) -> str | None:
     """
     Query database for the most recent task_delegation event.
 
@@ -213,34 +375,41 @@ def get_parent_event_from_db(db_path: str) -> str | None:
 
     Args:
         db_path: Path to SQLite database
+        agent_id: Optional agent ID for exact lookup
 
     Returns:
         Parent event ID (evt-XXXXX) or None if not found
     """
     try:
+        from htmlgraph.hooks.pretooluse import resolve_parent_task_delegation
+
         conn = sqlite3.connect(db_path)
         cursor = conn.cursor()
 
-        # Query for the most recent task_delegation with status='started'
-        # This is the task that spawned the current subagent
-        query = """
-            SELECT event_id FROM agent_events
-            WHERE event_type = 'task_delegation'
-            AND status = 'started'
-            ORDER BY timestamp DESC
-            LIMIT 1
-        """
+        # If agent_id provided, do exact query first
+        if agent_id:
+            cursor.execute(
+                """SELECT event_id FROM agent_events
+                   WHERE event_type = 'task_delegation'
+                     AND agent_id = ?""",
+                (agent_id,),
+            )
+            result = cursor.fetchone()
+            if result:
+                conn.close()
+                parent_event_id: str = result[0]
+                logger.debug(
+                    f"Found parent task_delegation from agent_id: {parent_event_id}"
+                )
+                return parent_event_id
 
-        cursor.execute(query)
-        result = cursor.fetchone()
+        # Otherwise fall back to resolve_parent_task_delegation
+        resolved = resolve_parent_task_delegation(cursor)
         conn.close()
 
-        if result:
-            parent_event_id: str = result[0]
-            logger.debug(
-                f"Found parent task_delegation from database: {parent_event_id}"
-            )
-            return parent_event_id
+        if resolved:
+            logger.debug(f"Found parent task_delegation from database: {resolved}")
+            return resolved
 
         logger.debug("No active task_delegation found in database")
         return None
@@ -271,6 +440,9 @@ def handle_subagent_stop(hook_input: dict[str, Any]) -> dict[str, Any]:
     # Try to get parent event ID from environment (set by PreToolUse hook)
     parent_event_id = get_parent_event_id()
 
+    # Extract agent_id from hook_input for exact lookup
+    agent_id = hook_input.get("agent_id")
+
     # If not available in environment, query database
     # (environment variables may not be inherited across subagent process boundary)
     # Get project directory and database path (reuse for both env and db lookup)
@@ -293,7 +465,7 @@ def handle_subagent_stop(hook_input: dict[str, Any]) -> dict[str, Any]:
     if not parent_event_id:
         logger.debug("Parent event ID not in environment, querying database...")
         try:
-            parent_event_id = get_parent_event_from_db(db_path)
+            parent_event_id = get_parent_event_from_db(db_path, agent_id=agent_id)
         except Exception as e:
             logger.debug(f"Could not query database for parent event: {e}")
 
@@ -322,6 +494,55 @@ def handle_subagent_stop(hook_input: dict[str, Any]) -> dict[str, Any]:
     )
 
     if success:
+        # Backfill missing tool calls from transcript
+        transcript_path = hook_input.get("agent_transcript_path")
+        if transcript_path and Path(transcript_path).exists():
+            try:
+                # Get session_id and model from parent event
+                session_id = None
+                model = hook_input.get("model")
+
+                try:
+                    conn = sqlite3.connect(db_path)
+                    cursor = conn.cursor()
+                    cursor.execute(
+                        "SELECT session_id, model FROM agent_events WHERE event_id = ?",
+                        (parent_event_id,),
+                    )
+                    result = cursor.fetchone()
+                    if result:
+                        session_id = result[0]
+                        if not model and result[1]:
+                            model = result[1]
+                    conn.close()
+                except Exception as e:
+                    logger.debug(
+                        f"Could not fetch session/model from parent event: {e}"
+                    )
+
+                # Fall back to environment session_id if not found in database
+                if not session_id:
+                    session_id = get_session_id()
+
+                if session_id:
+                    backfill_count = backfill_from_transcript(
+                        db_path,
+                        transcript_path,
+                        parent_event_id,
+                        session_id,
+                        model=model,
+                    )
+                    if backfill_count > 0:
+                        logger.info(
+                            f"Backfilled {backfill_count} events from transcript"
+                        )
+                else:
+                    logger.warning(
+                        "Could not determine session_id for transcript backfill"
+                    )
+            except Exception as e:
+                logger.warning(f"Transcript backfill failed: {e}")
+
         # Clear parent event from environment
         os.environ.pop("HTMLGRAPH_PARENT_EVENT", None)
         os.environ.pop("HTMLGRAPH_SUBAGENT_TYPE", None)

@@ -173,6 +173,26 @@
   },
   "spike-init-0dc5adb6": {
     "spike_subtype": "session-init",
-    "session_id": "0dc5adb6-48a4-42e8-b7c3-30e8421ee1cc"
+    "session_id": "0dc5adb6-48a4-42e8-b7c3-30e8421ee1cc-claude-code-guide"
+  },
+  "spike-init-sess-tes": {
+    "spike_subtype": "session-init",
+    "session_id": "sess-test"
+  },
+  "spike-init-sess-com": {
+    "spike_subtype": "session-init",
+    "session_id": "sess-compact-general-purpose"
+  },
+  "spike-init-sess-not": {
+    "spike_subtype": "session-init",
+    "session_id": "sess-notif-general-purpose"
+  },
+  "spike-init-sess-int": {
+    "spike_subtype": "session-init",
+    "session_id": "sess-integration-general-purpose"
+  },
+  "spike-init-c8a4b472": {
+    "spike_subtype": "session-init",
+    "session_id": "c8a4b472-150f-4e3e-b1e5-acd8f11c81a0-general-purpose"
   }
 }

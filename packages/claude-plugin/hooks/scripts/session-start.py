@@ -166,7 +166,7 @@ def _manage_conversation_spike(
         )
 
 
-def _setup_env_vars(active: object, env_file: str | None) -> None:
+def _setup_env_vars(active: object, env_file: str | None, hook_input: dict) -> None:
     """Set environment variables for parent session context propagation."""
     session_id = getattr(active, "id", None)
     if not session_id:
@@ -176,6 +176,14 @@ def _setup_env_vars(active: object, env_file: str | None) -> None:
     os.environ["HTMLGRAPH_PARENT_AGENT"] = "claude-code"
     os.environ["HTMLGRAPH_NESTING_DEPTH"] = "0"
 
+    # Extract model and Claude session ID from hook_input
+    model = (
+        hook_input.get("model")
+        or os.environ.get("CLAUDE_MODEL")
+        or os.environ.get("ANTHROPIC_MODEL")
+    )
+    claude_session_id = hook_input.get("session_id") or hook_input.get("sessionId")
+
     if env_file:
         try:
             with open(env_file, "a") as f:
@@ -183,6 +191,15 @@ def _setup_env_vars(active: object, env_file: str | None) -> None:
                 f.write(f"export HTMLGRAPH_PARENT_SESSION={session_id}\n")
                 f.write("export HTMLGRAPH_PARENT_AGENT=claude-code\n")
                 f.write("export HTMLGRAPH_NESTING_DEPTH=0\n")
+
+                # Write model if available
+                if model:
+                    f.write(f"export HTMLGRAPH_MODEL={model}\n")
+
+                # Write Claude session ID for correlation
+                if claude_session_id:
+                    f.write(f"export CLAUDE_SESSION_ID={claude_session_id}\n")
+
             logger.info(f"Environment variables written to {env_file}")
         except Exception as e:
             logger.warning(f"Could not write to CLAUDE_ENV_FILE: {e}")
@@ -224,7 +241,7 @@ def main() -> None:
             )
 
         # Set environment variables for parent session context
-        _setup_env_vars(active, os.environ.get("CLAUDE_ENV_FILE"))
+        _setup_env_vars(active, os.environ.get("CLAUDE_ENV_FILE"), hook_input)
 
         # Manage conversation-level auto-spikes
         _manage_conversation_spike(manager, active, external_session_id, graph_dir)

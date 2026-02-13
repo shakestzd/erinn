@@ -41,16 +41,7 @@ def get_parent_event_id() -> str | None:
     return os.environ.get("HTMLGRAPH_PARENT_EVENT")
 
 
-def get_session_id() -> str | None:
-    """
-    Get the current session ID from environment.
-
-    Set by SessionStart hook.
-
-    Returns:
-        Session ID or None if not found
-    """
-    return os.environ.get("HTMLGRAPH_SESSION_ID")
+# Import get_current_session_id from db_helpers
 
 
 def count_child_spikes(

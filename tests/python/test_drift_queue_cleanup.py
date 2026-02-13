@@ -10,7 +10,7 @@ import tempfile
 from datetime import datetime, timedelta
 from pathlib import Path
 
-from htmlgraph.hooks.event_tracker import (
+from htmlgraph.hooks.drift import (
     add_to_drift_queue,
     clear_drift_queue_activities,
     load_drift_queue,

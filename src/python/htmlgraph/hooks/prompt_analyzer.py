@@ -568,12 +568,21 @@ def create_user_query_event(context: HookContext, prompt: str) -> str | None:
 
             if not session_exists:
                 # Create session entry if it doesn't exist
+                # Check for parent session ID from environment (subagent context)
+                import os
+
+                parent_session_id = os.getenv("CLAUDE_PARENT_SESSION_ID")
+
                 cursor.execute(
                     """
-                    INSERT INTO sessions (session_id, created_at, status)
-                    VALUES (?, ?, 'active')
+                    INSERT INTO sessions (session_id, created_at, status, parent_session_id)
+                    VALUES (?, ?, 'active', ?)
                     """,
-                    (session_id, datetime.now(timezone.utc).isoformat()),
+                    (
+                        session_id,
+                        datetime.now(timezone.utc).isoformat(),
+                        parent_session_id,
+                    ),
                 )
                 db.connection.commit()
                 logger.debug(f"Created session entry: {session_id}")

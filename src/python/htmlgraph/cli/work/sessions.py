@@ -136,10 +136,24 @@ class SessionStartCommand(BaseCommand):
 
     @classmethod
     def from_args(cls, args: argparse.Namespace) -> SessionStartCommand:
+        from pydantic import ValidationError
+
+        from htmlgraph.cli.models import SessionStartConfig, format_validation_error
+
+        try:
+            # Validate through Pydantic model
+            config = SessionStartConfig(
+                session_id=getattr(args, "id", None),
+                agent=args.agent,
+                title=getattr(args, "title", None),
+            )
+        except ValidationError as e:
+            raise CommandError(format_validation_error(e))
+
         return cls(
-            session_id=getattr(args, "id", None),
-            agent=args.agent,
-            title=getattr(args, "title", None),
+            session_id=config.session_id,
+            agent=config.agent,
+            title=config.title,
         )
 
     def execute(self) -> CommandResult:
@@ -189,11 +203,26 @@ class SessionEndCommand(BaseCommand):
 
     @classmethod
     def from_args(cls, args: argparse.Namespace) -> SessionEndCommand:
+        from pydantic import ValidationError
+
+        from htmlgraph.cli.models import SessionEndConfig, format_validation_error
+
+        try:
+            # Validate through Pydantic model
+            config = SessionEndConfig(
+                session_id=args.id,
+                notes=args.notes,
+                recommend=args.recommend,
+                blockers=args.blocker,
+            )
+        except ValidationError as e:
+            raise CommandError(format_validation_error(e))
+
         return cls(
-            session_id=args.id,
-            notes=args.notes,
-            recommend=args.recommend,
-            blockers=args.blocker,
+            session_id=config.session_id,
+            notes=config.notes,
+            recommend=config.recommend,
+            blockers=config.blockers,
         )
 
     def execute(self) -> CommandResult:
@@ -237,7 +266,9 @@ class SessionListCommand(BaseCommand):
     @classmethod
     def from_args(cls, args: argparse.Namespace) -> SessionListCommand:
         # Validate inputs using SessionFilter model
-        from htmlgraph.cli.models import SessionFilter
+        from pydantic import ValidationError
+
+        from htmlgraph.cli.models import SessionFilter, format_validation_error
 
         # Get optional filter arguments
         status = getattr(args, "status", None)
@@ -245,8 +276,8 @@ class SessionListCommand(BaseCommand):
 
         try:
             filter_model = SessionFilter(status=status, agent=agent)
-        except ValueError as e:
-            raise CommandError(str(e))
+        except ValidationError as e:
+            raise CommandError(format_validation_error(e))
 
         return cls(status=filter_model.status, agent=filter_model.agent)
 

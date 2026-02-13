@@ -17,7 +17,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from pydantic import BaseModel, ConfigDict, Field, field_serializer, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_serializer, field_validator, model_validator
 
 if TYPE_CHECKING:
     pass
@@ -32,6 +32,57 @@ class EventRecord(BaseModel):
     """
 
     model_config = ConfigDict(frozen=True)
+
+    @model_validator(mode="before")
+    @classmethod
+    def _compat_old_kwargs(cls, data: Any) -> Any:
+        """Translate legacy EventRecord kwargs to the current schema.
+
+        Old call sites used:
+            EventRecord(event_type="...", session_id=None, agent=None,
+                        timestamp=..., data={...})
+
+        This validator maps those to the required fields:
+            event_id, tool, summary, success, session_id, agent
+        """
+        if not isinstance(data, dict):
+            return data
+
+        import uuid as _uuid
+
+        # Generate event_id if missing
+        if "event_id" not in data or not data.get("event_id"):
+            data["event_id"] = f"evt-{str(_uuid.uuid4())[:8]}"
+
+        # Map event_type -> tool  (e.g. "FeatureCreated" -> "FeatureCreated")
+        if "tool" not in data and "event_type" in data:
+            data["tool"] = data.pop("event_type")
+
+        # Extract summary from data dict, or synthesize from tool name
+        if "summary" not in data:
+            nested_data = data.get("data", {})
+            if isinstance(nested_data, dict) and "summary" in nested_data:
+                data["summary"] = nested_data["summary"]
+            else:
+                data["summary"] = data.get("tool", "unknown") or "unknown"
+
+        # Default success to True if missing
+        if "success" not in data:
+            data["success"] = True
+
+        # Default session_id to "system" if None or missing
+        if not data.get("session_id"):
+            data["session_id"] = "system"
+
+        # Default agent to "system" if None or missing
+        if not data.get("agent"):
+            data["agent"] = "system"
+
+        # Move legacy "data" dict into "payload" if payload not set
+        if "data" in data and "payload" not in data:
+            data["payload"] = data.pop("data")
+
+        return data
 
     event_id: str = Field(..., min_length=1, description="Unique event identifier")
     timestamp: datetime = Field(..., description="Event timestamp")

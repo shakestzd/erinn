@@ -186,6 +186,28 @@ class TrackFilter(BaseModel):
         return v
 
 
+class TrackNewConfig(BaseModel):
+    """Configuration for creating a new track.
+
+    Attributes:
+        title: Track title
+        description: Track description
+        priority: Track priority (low, medium, high)
+    """
+
+    title: str = Field(..., min_length=1, description="Track title")
+    description: str | None = Field(None, description="Track description")
+    priority: Literal["low", "medium", "high"] = Field(default="medium")
+
+    @field_validator("title")
+    @classmethod
+    def validate_title(cls, v: str) -> str:
+        """Validate title is not empty."""
+        if not v or not v.strip():
+            raise ValueError("Track title cannot be empty")
+        return v.strip()
+
+
 # ============================================================================
 # Configuration Models
 # ============================================================================

@@ -105,7 +105,7 @@ class ActivityService:
                 ORDER BY timestamp DESC
             """
 
-            # First-level children query (includes cross-session lookup)
+            # First-level children query (includes cross-session lookup with temporal filtering)
             first_level_children_sql = """
                 SELECT
                     event_id,
@@ -128,13 +128,18 @@ class ActivityService:
                         AND session_id LIKE ? || '%'
                         AND session_id != ?
                         AND tool_name != 'UserQuery'
+                        AND timestamp >= ?
+                        AND timestamp < ?
                     )
                 )
                 ORDER BY timestamp DESC
             """
 
             # Step 2: For each UserQuery, fetch child events
-            for uq_row in user_query_rows:
+            # Build timestamp boundaries for temporal filtering
+            uq_timestamps = [row[1] for row in user_query_rows]
+
+            for idx, uq_row in enumerate(user_query_rows):
                 uq_event_id = uq_row[0]
                 uq_timestamp = uq_row[1]
                 uq_input = uq_row[2] or ""
@@ -142,6 +147,12 @@ class ActivityService:
                 uq_status = uq_row[4]
                 uq_agent_id = uq_row[5]
                 uq_session_id = uq_row[6]
+
+                # Calculate time window: from this UserQuery to the next one
+                # (or far future if this is the most recent)
+                next_uq_timestamp = (
+                    uq_timestamps[idx - 1] if idx > 0 else "9999-12-31T23:59:59"
+                )
 
                 prompt_text = uq_input
 
@@ -151,17 +162,25 @@ class ActivityService:
                     parent_session_id: str | None = None,
                     depth: int = 0,
                     max_depth: int = 4,
+                    start_time: str | None = None,
+                    end_time: str | None = None,
                 ) -> tuple[list[dict[str, Any]], float, int, int]:
                     """Recursively fetch children up to max_depth levels."""
                     if depth >= max_depth:
                         return [], 0.0, 0, 0
 
-                    # For first level (depth=0), use cross-session query
+                    # For first level (depth=0), use cross-session query with temporal filtering
                     # For deeper levels, use normal parent_event_id query
-                    if depth == 0 and parent_session_id:
+                    if depth == 0 and parent_session_id and start_time and end_time:
                         async with self.db.execute(
                             first_level_children_sql,
-                            [parent_id, parent_session_id, parent_session_id],
+                            [
+                                parent_id,
+                                parent_session_id,
+                                parent_session_id,
+                                start_time,
+                                end_time,
+                            ],
                         ) as cur:
                             rows = await cur.fetchall()
                     else:
@@ -263,14 +282,19 @@ class ActivityService:
                     return children_list, total_dur, success_cnt, error_cnt
 
                 # Step 3: Build child events with recursive nesting
-                # Pass session_id for first level to enable cross-session lookup
+                # Pass session_id and time boundaries for first level to enable cross-session lookup
                 (
                     children,
                     children_duration,
                     children_success,
                     children_error,
                 ) = await fetch_children_recursive(
-                    uq_event_id, uq_session_id, depth=0, max_depth=4
+                    uq_event_id,
+                    uq_session_id,
+                    depth=0,
+                    max_depth=4,
+                    start_time=uq_timestamp,
+                    end_time=next_uq_timestamp,
                 )
 
                 # Step 3.5: Session-based re-parenting - nest subagent events under their Task events

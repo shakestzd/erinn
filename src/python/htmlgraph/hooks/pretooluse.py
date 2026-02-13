@@ -33,6 +33,7 @@ from datetime import datetime, timezone
 from typing import Any
 
 from htmlgraph.db.schema import HtmlGraphDB
+from htmlgraph.hooks.constants import NEVER_BLOCK_TOOLS, SUBAGENT_SUFFIXES
 from htmlgraph.hooks.orchestrator import enforce_orchestrator_mode
 from htmlgraph.hooks.task_enforcer import enforce_task_saving
 from htmlgraph.hooks.validator import (
@@ -45,24 +46,76 @@ from htmlgraph.hooks.validator import (
 
 logger = logging.getLogger(__name__)
 
-# NEVER_BLOCK_TOOLS: Tools that should NEVER be blocked by enforcement
-# These are essential for coordination, orchestration, and exploration
-NEVER_BLOCK_TOOLS = {
-    "Task",
-    "TaskCreate",
-    "TaskUpdate",
-    "TaskList",
-    "TaskGet",
-    "AskUserQuestion",
-    "TodoWrite",
-    "TodoRead",
-    "Skill",
-    "Read",
-    "Grep",
-    "Glob",
-    "WebSearch",
-    "WebFetch",
-}
+
+def resolve_parent_task_delegation(
+    cursor: Any,
+    parent_session_id: str,
+    model_hint: str | None = None,
+) -> str | None:
+    """
+    Resolve which parent task_delegation event a subagent should be attributed to.
+
+    When multiple Task() delegations run in parallel in the same session,
+    this function determines which one a child event belongs to using:
+    1. Model matching (if model_hint provided and models differ)
+    2. Child count balancing (pick the task with fewest children)
+    3. FIFO tiebreak (earliest timestamp wins)
+
+    Args:
+        cursor: SQLite cursor with access to agent_events table
+        parent_session_id: The parent session ID to search in
+        model_hint: Optional model name to match against task_delegation model
+
+    Returns:
+        event_id of the best matching task_delegation, or None if none found
+    """
+    try:
+        # Find all active task_delegation events in this session
+        cursor.execute(
+            """SELECT event_id, model, timestamp FROM agent_events
+               WHERE session_id = ?
+                 AND event_type = 'task_delegation'
+                 AND status = 'started'
+               ORDER BY timestamp ASC""",
+            (parent_session_id,),
+        )
+        rows = cursor.fetchall()
+
+        if not rows:
+            return None
+
+        # If only one, return it
+        if len(rows) == 1:
+            return rows[0][0]  # event_id
+
+        # Extract candidates as list of dicts for easier handling
+        candidates = [
+            {"event_id": row[0], "model": row[1], "timestamp": row[2]}
+            for row in rows
+        ]
+
+        # Step 1: Filter by model_hint if provided and models differ
+        if model_hint:
+            model_matched = [c for c in candidates if c["model"] == model_hint]
+            if model_matched:
+                candidates = model_matched
+
+        # Step 2: Count children for each candidate
+        for candidate in candidates:
+            cursor.execute(
+                """SELECT COUNT(*) FROM agent_events
+                   WHERE parent_event_id = ?""",
+                (candidate["event_id"],),
+            )
+            candidate["child_count"] = cursor.fetchone()[0]
+
+        # Step 3: Sort by child_count ASC (fewest first), then timestamp ASC (FIFO)
+        candidates.sort(key=lambda c: (c["child_count"], c["timestamp"]))
+
+        return candidates[0]["event_id"]
+
+    except Exception:
+        return None
 
 
 def generate_tool_use_id() -> str:
@@ -77,90 +130,7 @@ def generate_tool_use_id() -> str:
     return str(uuid.uuid4())
 
 
-def get_current_session_id() -> str | None:
-    """
-    Query current session_id from environment or session files.
-
-    Reads from:
-    1. Environment variable HTMLGRAPH_SESSION_ID (set by SessionStart hook)
-    2. Latest session HTML file (fallback if env var not set)
-    3. Session registry file (fallback if HTML file not found)
-
-    Returns:
-        Session ID string or None if not found
-    """
-    # First try environment variable
-    session_id = os.environ.get("HTMLGRAPH_SESSION_ID")
-    if session_id:
-        logger.debug(f"Session ID from environment: {session_id}")
-        return session_id
-
-    # Fallback: Read from latest session HTML file
-    try:
-        import re
-        from pathlib import Path
-
-        graph_dir = Path.cwd() / ".htmlgraph"
-        sessions_dir = graph_dir / "sessions"
-
-        logger.debug(f"Looking for session files in: {sessions_dir}")
-
-        if sessions_dir.exists():
-            # Get the most recent session HTML file
-            session_files = sorted(
-                sessions_dir.glob("sess-*.html"),
-                key=lambda p: p.stat().st_mtime,
-                reverse=True,
-            )
-            logger.debug(f"Found {len(session_files)} session files")
-
-            for session_file in session_files:
-                try:
-                    # Extract session_id from filename (sess-XXXXX.html)
-                    match = re.search(r"sess-([a-f0-9]+)", session_file.name)
-                    if match:
-                        session_id = f"sess-{match.group(1)}"
-                        logger.debug(f"Found session ID from file: {session_id}")
-                        return session_id
-                except Exception as e:
-                    logger.debug(f"Error reading session file {session_file}: {e}")
-                    continue
-            logger.debug("No valid session files found")
-        else:
-            logger.debug(f"Sessions directory not found: {sessions_dir}")
-    except Exception as e:
-        logger.debug(f"Could not read from session files: {e}")
-
-    # Fallback: Read from session registry
-    try:
-        import json
-        from pathlib import Path
-
-        graph_dir = Path.cwd() / ".htmlgraph"
-        registry_dir = graph_dir / "sessions" / "registry" / "active"
-
-        if registry_dir.exists():
-            # Get the most recent session file
-            session_files = sorted(
-                registry_dir.glob("*.json"),
-                key=lambda p: p.stat().st_mtime,
-                reverse=True,
-            )
-
-            for session_file in session_files:
-                try:
-                    with open(session_file) as f:
-                        data = json.load(f)
-                        if data.get("status") == "active":
-                            session_id = data.get("session_id")
-                            if isinstance(session_id, str):
-                                return session_id
-                except Exception:
-                    continue
-    except Exception as e:
-        logger.debug(f"Could not read from session registry: {e}")
-
-    return None
+# Import get_current_session_id from db_helpers
 
 
 def sanitize_tool_input(tool_input: dict[str, Any]) -> dict[str, Any]:
@@ -288,9 +258,8 @@ def create_task_parent_event(
 
         # Extract parent session ID (remove subagent suffix if present)
         # Example: "abc123-general-purpose" -> "abc123"
-        known_suffixes = ["-general-purpose", "-Explore", "-Bash", "-Plan"]
         parent_session_id = session_id  # Default: same session (it IS the parent)
-        for suffix in known_suffixes:
+        for suffix in SUBAGENT_SUFFIXES:
             if session_id.endswith(suffix):
                 parent_session_id = session_id[: -len(suffix)]
                 break
@@ -415,10 +384,12 @@ def create_start_event(
         sanitized_input = sanitize_tool_input(tool_input)
 
         # Connect to database (use project's .htmlgraph/htmlgraph.db, not home directory)
-        from htmlgraph.config import get_database_path
+        from htmlgraph.hooks.db_helpers import get_db_from_config
 
-        db_path = str(get_database_path())
-        db = HtmlGraphDB(db_path)
+        db = get_db_from_config()
+        if not db:
+            logger.warning("Could not initialize database")
+            return None
 
         # Ensure session exists (create placeholder if needed)
         if not db._ensure_session_exists(session_id, "system"):
@@ -494,10 +465,47 @@ def create_start_event(
         if tool_name == "Task" and task_parent_event_id:
             event_id = task_parent_event_id
         else:
+            # CRITICAL FIX: Create preliminary event for ALL tools (not just Task)
+            # This allows PostToolUse to UPDATE the event instead of creating duplicates
             event_id = f"evt-{generate_tool_use_id()[:8]}"
-            # Skip preliminary event insertion for non-Task tools.
-            # PostToolUse handler creates the full event with output data.
-            # Only Task() needs PreToolUse event creation (for task_delegation hierarchy).
+
+            # Insert preliminary event with status='started'
+            # PostToolUse will UPDATE this event with output_summary and status='completed'
+            try:
+                from htmlgraph.hooks.event_tracker import format_tool_summary
+
+                input_summary = format_tool_summary(tool_name, sanitized_input, None)
+
+                cursor.execute(
+                    """
+                    INSERT INTO agent_events
+                    (event_id, agent_id, event_type, timestamp, tool_name,
+                     input_summary, session_id, status, parent_event_id, tool_input, claude_task_id)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        event_id,
+                        os.environ.get("HTMLGRAPH_AGENT", "claude-code"),
+                        "tool_call",
+                        start_time,
+                        tool_name,
+                        input_summary,
+                        session_id,
+                        "started",  # PostToolUse will update to 'completed'
+                        parent_event_id,
+                        json.dumps(sanitized_input),
+                        None,  # claude_task_id will be set by PostToolUse if available
+                    ),
+                )
+                logger.debug(
+                    f"Created preliminary event {event_id} with status='started' "
+                    f"(tool={tool_name}, session={session_id})"
+                )
+            except Exception as e:
+                logger.warning(f"Could not create preliminary event: {e}")
+
+        # Export event_id for PostToolUse to UPDATE (instead of INSERT)
+        os.environ["HTMLGRAPH_PRETOOL_EVENT_ID"] = event_id
 
         # For Task delegation, export task_parent_event_id for subagent context
         if tool_name == "Task" and task_parent_event_id:

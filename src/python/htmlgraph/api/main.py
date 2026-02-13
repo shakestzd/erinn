@@ -16,7 +16,6 @@ Architecture:
 
 import logging
 import sqlite3
-import time
 from pathlib import Path
 from typing import Any
 
@@ -25,49 +24,9 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
 
+from htmlgraph.api.cache import QueryCache
+
 logger = logging.getLogger(__name__)
-
-
-class QueryCache:
-    """Simple in-memory cache with TTL support for query results."""
-
-    def __init__(self, ttl_seconds: float = 30.0):
-        """Initialize query cache with TTL."""
-        self.cache: dict[str, tuple[Any, float]] = {}
-        self.ttl_seconds = ttl_seconds
-        self.metrics: dict[str, dict[str, float]] = {}
-
-    def get(self, key: str) -> Any | None:
-        """Get cached value if exists and not expired."""
-        if key not in self.cache:
-            return None
-
-        value, timestamp = self.cache[key]
-        if time.time() - timestamp > self.ttl_seconds:
-            del self.cache[key]
-            return None
-
-        return value
-
-    def set(self, key: str, value: Any) -> None:
-        """Store value with current timestamp."""
-        self.cache[key] = (value, time.time())
-
-    def record_metric(self, key: str, query_time_ms: float, cache_hit: bool) -> None:
-        """Record performance metrics for a query."""
-        if key not in self.metrics:
-            self.metrics[key] = {"count": 0, "total_ms": 0, "avg_ms": 0, "hits": 0}
-
-        metrics = self.metrics[key]
-        metrics["count"] += 1
-        metrics["total_ms"] += query_time_ms
-        metrics["avg_ms"] = metrics["total_ms"] / metrics["count"]
-        if cache_hit:
-            metrics["hits"] += 1
-
-    def get_metrics(self) -> dict[str, dict[str, float]]:
-        """Get all collected metrics."""
-        return self.metrics
 
 
 class EventModel(BaseModel):

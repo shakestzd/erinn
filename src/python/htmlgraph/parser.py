@@ -128,6 +128,14 @@ class HtmlParser:
             "id": article.attrs.get("id"),
         }
 
+        # Classes
+        class_attr = article.attrs.get("class")
+        if class_attr:
+            if isinstance(class_attr, str):
+                metadata["classes"] = class_attr.split()
+            elif isinstance(class_attr, list):
+                metadata["classes"] = class_attr
+
         # Standard attributes
         for attr in [
             "type",

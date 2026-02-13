@@ -142,13 +142,14 @@ def handle_session_start(context: HookContext, session: Any | None) -> dict[str,
         if not session_exists:
             cursor.execute(
                 """
-                INSERT INTO sessions (session_id, agent_assigned, created_at, status)
-                VALUES (?, ?, ?, 'active')
+                INSERT INTO sessions (session_id, agent_assigned, created_at, status, parent_session_id)
+                VALUES (?, ?, ?, 'active', ?)
                 """,
                 (
                     session.id,
                     context.agent_id,
                     datetime.now(timezone.utc).isoformat(),
+                    session.parent_session,
                 ),
             )
             db.connection.commit()

@@ -434,6 +434,7 @@ class McpServer:
                 success=success,
                 feature_id=feature_id,
                 payload=payload,
+                agent=agent,
             )
         except Exception:
             return
@@ -475,6 +476,7 @@ class McpServer:
             success=success,
             feature_id=feature_id,
             payload=payload,
+            agent=agent,
         )
         return {
             "session_id": session_id,

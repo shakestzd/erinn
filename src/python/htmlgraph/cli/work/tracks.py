@@ -107,8 +107,24 @@ class TrackNewCommand(BaseCommand):
 
     @classmethod
     def from_args(cls, args: argparse.Namespace) -> TrackNewCommand:
+        from pydantic import ValidationError
+
+        from htmlgraph.cli.models import TrackNewConfig, format_validation_error
+
+        try:
+            # Validate through Pydantic model
+            config = TrackNewConfig(
+                title=args.title,
+                description=args.description,
+                priority=args.priority,
+            )
+        except ValidationError as e:
+            raise CommandError(format_validation_error(e))
+
         return cls(
-            title=args.title, description=args.description, priority=args.priority
+            title=config.title,
+            description=config.description,
+            priority=config.priority,
         )
 
     def execute(self) -> CommandResult:
@@ -187,7 +203,9 @@ class TrackListCommand(BaseCommand):
     @classmethod
     def from_args(cls, args: argparse.Namespace) -> TrackListCommand:
         # Validate inputs using TrackFilter model
-        from htmlgraph.cli.models import TrackFilter
+        from pydantic import ValidationError
+
+        from htmlgraph.cli.models import TrackFilter, format_validation_error
 
         # Get optional filter arguments
         status = getattr(args, "status", None)
@@ -199,8 +217,8 @@ class TrackListCommand(BaseCommand):
             filter_model = TrackFilter(
                 status=status, priority=priority, has_spec=has_spec, has_plan=has_plan
             )
-        except ValueError as e:
-            raise CommandError(str(e))
+        except ValidationError as e:
+            raise CommandError(format_validation_error(e))
 
         return cls(
             status=filter_model.status,

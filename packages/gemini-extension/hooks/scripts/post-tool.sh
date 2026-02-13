@@ -17,8 +17,18 @@ fi
 # Read hook input from stdin (Gemini passes JSON)
 INPUT=$(cat)
 
-# Extract tool name from JSON (basic parsing)
-TOOL_NAME=$(echo "$INPUT" | grep -o '"tool_name":"[^"]*"' | cut -d'"' -f4)
+# Use jq for robust parsing if available, otherwise fall back to grep
+if command -v jq &> /dev/null; then
+  TOOL_NAME=$(echo "$INPUT" | jq -r '.tool_name // empty')
+  TOOL_INPUT=$(echo "$INPUT" | jq -c '.input // empty')
+  TOOL_OUTPUT=$(echo "$INPUT" | jq -c '.output // empty')
+  SUCCESS=$(echo "$INPUT" | jq -r '.success // true')
+else
+  TOOL_NAME=$(echo "$INPUT" | grep -o '"tool_name":"[^"]*"' | cut -d'"' -f4)
+  TOOL_INPUT=""
+  TOOL_OUTPUT=""
+  SUCCESS="true"
+fi
 
 if [ -z "$TOOL_NAME" ]; then
   exit 0  # No tool name, skip
@@ -36,7 +46,16 @@ fi
 
 export HTMLGRAPH_AGENT=gemini
 
-# Track the tool usage event
-$HTMLGRAPH_CMD activity "$TOOL_NAME" "Tool used: $TOOL_NAME" &> /dev/null &
+# Track the tool usage event with rich payload
+# Use a temporary file for the payload to avoid shell escape issues
+PAYLOAD_FILE=$(mktemp)
+echo "{\"input\": $TOOL_INPUT, \"output\": $TOOL_OUTPUT}" > "$PAYLOAD_FILE"
+
+$HTMLGRAPH_CMD activity "$TOOL_NAME" "Tool used: $TOOL_NAME" \
+  --success "$SUCCESS" \
+  --payload-file "$PAYLOAD_FILE" &> /dev/null &
+
+# Clean up in background
+(sleep 5 && rm -f "$PAYLOAD_FILE") &
 
 exit 0

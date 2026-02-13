@@ -1,11 +1,9 @@
 from __future__ import annotations
 
-"""HtmlGraph CLI - Orchestration commands (Archive, Orchestrator, Claude)."""
+"""HtmlGraph CLI - Orchestration commands (Orchestrator, Claude)."""
 
 
 import argparse
-from datetime import datetime
-from pathlib import Path
 from typing import TYPE_CHECKING
 
 from rich.console import Console
@@ -17,35 +15,6 @@ if TYPE_CHECKING:
     from argparse import _SubParsersAction
 
 console = Console()
-
-
-def register_archive_commands(subparsers: _SubParsersAction) -> None:
-    """Register archive management commands."""
-    archive_parser = subparsers.add_parser("archive", help="Archive management")
-    archive_subparsers = archive_parser.add_subparsers(
-        dest="archive_command", help="Archive command"
-    )
-
-    # archive create
-    archive_create = archive_subparsers.add_parser("create", help="Create archive")
-    archive_create.add_argument("entity_id", help="Entity ID to archive")
-    archive_create.add_argument(
-        "--graph-dir", "-g", default=DEFAULT_GRAPH_DIR, help="Graph directory"
-    )
-    archive_create.add_argument(
-        "--format", choices=["json", "text"], default="text", help="Output format"
-    )
-    archive_create.set_defaults(func=ArchiveCreateCommand.from_args)
-
-    # archive list
-    archive_list = archive_subparsers.add_parser("list", help="List archives")
-    archive_list.add_argument(
-        "--graph-dir", "-g", default=DEFAULT_GRAPH_DIR, help="Graph directory"
-    )
-    archive_list.add_argument(
-        "--format", choices=["json", "text"], default="text", help="Output format"
-    )
-    archive_list.set_defaults(func=ArchiveListCommand.from_args)
 
 
 def register_orchestrator_commands(subparsers: _SubParsersAction) -> None:
@@ -169,141 +138,6 @@ def register_claude_commands(subparsers: _SubParsersAction) -> None:
         help="Launch with local plugin for development",
     )
     claude_parser.set_defaults(func=ClaudeCommand.from_args)
-
-
-# ============================================================================
-# Archive Commands
-# ============================================================================
-
-
-class ArchiveCreateCommand(BaseCommand):
-    """Create an archive."""
-
-    def __init__(self, *, entity_id: str) -> None:
-        super().__init__()
-        self.entity_id = entity_id
-
-    @classmethod
-    def from_args(cls, args: argparse.Namespace) -> ArchiveCreateCommand:
-        return cls(entity_id=args.entity_id)
-
-    def execute(self) -> CommandResult:
-        """Create an archive."""
-        from htmlgraph.archive import ArchiveManager
-
-        if self.graph_dir is None:
-            raise CommandError("Missing graph directory")
-
-        htmlgraph_dir = Path(self.graph_dir).resolve()
-
-        if not htmlgraph_dir.exists():
-            raise CommandError(f"Directory not found: {htmlgraph_dir}")
-
-        with console.status("[blue]Initializing archive manager...", spinner="dots"):
-            manager = ArchiveManager(htmlgraph_dir)
-
-        try:
-            # Archive the entity
-            with console.status(f"[blue]Archiving {self.entity_id}...", spinner="dots"):
-                # For now, we'll use the older_than_days parameter with 0 to archive immediately
-                result = manager.archive_entities(older_than_days=0, dry_run=False)
-
-            from htmlgraph.cli.base import TextOutputBuilder
-
-            output = TextOutputBuilder()
-            output.add_success(f"Archived: {self.entity_id}")
-            output.add_field(
-                "Created", f"{len(result['archive_files'])} archive file(s)"
-            )
-            output.add_field("Total entities archived", result["archived_count"])
-
-            json_data = {
-                "entity_id": self.entity_id,
-                "archived": True,
-                "archive_files": result["archive_files"],
-                "count": result["archived_count"],
-            }
-
-            return CommandResult(
-                text=output.build(),
-                json_data=json_data,
-            )
-        finally:
-            manager.close()
-
-
-class ArchiveListCommand(BaseCommand):
-    """List all archives."""
-
-    @classmethod
-    def from_args(cls, args: argparse.Namespace) -> ArchiveListCommand:
-        return cls()
-
-    def execute(self) -> CommandResult:
-        """List all archives."""
-        if self.graph_dir is None:
-            raise CommandError("Missing graph directory")
-
-        htmlgraph_dir = Path(self.graph_dir).resolve()
-
-        if not htmlgraph_dir.exists():
-            raise CommandError(f"Directory not found: {htmlgraph_dir}")
-
-        archive_dir = htmlgraph_dir / "archives"
-
-        if not archive_dir.exists():
-            from htmlgraph.cli.base import TextOutputBuilder
-
-            output = TextOutputBuilder()
-            output.add_warning("No archives found.")
-            return CommandResult(
-                text=output.build(),
-                json_data={"archives": []},
-            )
-
-        archive_files = sorted(archive_dir.glob("*.html"))
-
-        if not archive_files:
-            from htmlgraph.cli.base import TextOutputBuilder
-
-            output = TextOutputBuilder()
-            output.add_warning("No archives found.")
-            return CommandResult(
-                text=output.build(),
-                json_data={"archives": []},
-            )
-
-        # Create Rich table
-        from htmlgraph.cli.base import TableBuilder
-
-        builder = TableBuilder.create_list_table(
-            f"Archive Files ({len(archive_files)})"
-        )
-        builder.add_column("Filename", style="cyan", no_wrap=False)
-        builder.add_numeric_column("Size (KB)", style="yellow", width=12)
-        builder.add_timestamp_column("Modified", width=16)
-
-        file_list = []
-        for f in archive_files:
-            size_kb = f.stat().st_size / 1024
-            modified = datetime.fromtimestamp(f.stat().st_mtime)
-            modified_str = modified.strftime("%Y-%m-%d %H:%M")
-
-            builder.add_row(f.name, f"{size_kb:.1f}", modified_str)
-
-            file_list.append(
-                {
-                    "filename": f.name,
-                    "size_kb": size_kb,
-                    "modified": modified.isoformat(),
-                }
-            )
-
-        # Return table object directly - TextFormatter will print it properly
-        return CommandResult(
-            data=builder.table,
-            json_data={"archives": file_list},
-        )
 
 
 # ============================================================================

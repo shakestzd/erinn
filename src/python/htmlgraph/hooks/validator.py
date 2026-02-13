@@ -93,6 +93,10 @@ OPTIMAL_PATTERNS = {
 MAX_HISTORY = 20
 
 
+# Import shared db helper
+from htmlgraph.hooks.db_helpers import get_db_from_config
+
+
 def load_tool_history(session_id: str) -> list[dict]:
     """
     Load recent tool history from database (session-isolated).
@@ -104,24 +108,9 @@ def load_tool_history(session_id: str) -> list[dict]:
         List of recent tool calls with tool name and timestamp
     """
     try:
-        from htmlgraph.db.schema import HtmlGraphDB
-
-        # Find database path
-        cwd = Path.cwd()
-        graph_dir = cwd / ".htmlgraph"
-        if not graph_dir.exists():
-            for parent in [cwd.parent, cwd.parent.parent, cwd.parent.parent.parent]:
-                candidate = parent / ".htmlgraph"
-                if candidate.exists():
-                    graph_dir = candidate
-                    break
-
-        db_path = graph_dir / "htmlgraph.db"
-        if not db_path.exists():
-            return []
-
-        db = HtmlGraphDB(str(db_path))
-        if db.connection is None:
+        # Use shared db helper
+        db = get_db_from_config()
+        if not db or db.connection is None:
             return []
 
         cursor = db.connection.cursor()

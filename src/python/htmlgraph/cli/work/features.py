@@ -264,13 +264,31 @@ class FeatureCreateCommand(BaseCommand):
 
     @classmethod
     def from_args(cls, args: argparse.Namespace) -> FeatureCreateCommand:
+        from pydantic import ValidationError
+
+        from htmlgraph.cli.models import FeatureCreateConfig, format_validation_error
+
+        try:
+            # Validate through Pydantic model
+            config = FeatureCreateConfig(
+                title=args.title,
+                description=args.description,
+                priority=args.priority,
+                steps=args.steps,
+                collection=args.collection,
+                track=args.track,
+                agent=getattr(args, "agent", "claude-code"),
+            )
+        except ValidationError as e:
+            raise CommandError(format_validation_error(e))
+
         return cls(
-            title=args.title,
-            description=args.description,
-            priority=args.priority,
-            steps=args.steps,
-            collection=args.collection,
-            track_id=args.track,
+            title=config.title,
+            description=config.description,
+            priority=config.priority,
+            steps=config.steps,
+            collection=config.collection,
+            track_id=config.track,
         )
 
     def execute(self) -> CommandResult:

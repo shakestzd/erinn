@@ -49,6 +49,73 @@ class ClaimingService:
             return self.bugs_graph
         return self.features_graph
 
+    def is_claimed(self, feature_id: str, collection: str = "features") -> bool:
+        """
+        Check if a feature is currently claimed by any agent.
+
+        Args:
+            feature_id: Feature to check
+            collection: Collection name
+
+        Returns:
+            True if the feature is claimed
+        """
+        graph = self._get_graph(collection)
+        node = graph.get(feature_id)
+        if not node:
+            return False
+        return bool(node.agent_assigned)
+
+    def release_claim(self, feature_id: str, agent: str | None = None, collection: str = "features") -> bool:
+        """
+        Release a feature claim (unconditional or agent-specific).
+
+        Args:
+            feature_id: Feature to release
+            agent: If provided, only release if claimed by this agent
+            collection: Collection name
+
+        Returns:
+            True if claim was released
+        """
+        graph = self._get_graph(collection)
+        node = graph.get(feature_id)
+        if not node:
+            return False
+
+        if not node.agent_assigned:
+            return False
+
+        if agent and node.agent_assigned != agent:
+            return False
+
+        node.agent_assigned = None
+        node.claimed_at = None
+        node.claimed_by_session = None
+        node.updated = datetime.now()
+        graph.update(node)
+
+        self._invalidate_features_cache()
+        return True
+
+    def get_claimed_by_agent(self, agent: str) -> list[str]:
+        """
+        Get all feature IDs claimed by a specific agent.
+
+        Args:
+            agent: Agent name
+
+        Returns:
+            List of feature IDs claimed by the agent
+        """
+        claimed = []
+        for collection in ["features", "bugs"]:
+            graph = self._get_graph(collection)
+            for node in graph:
+                if node.agent_assigned == agent:
+                    claimed.append(node.id)
+        return claimed
+
     def _invalidate_features_cache(self) -> None:
         """Invalidate the active features cache in SessionManager."""
         self.session_manager._features_cache_dirty = True

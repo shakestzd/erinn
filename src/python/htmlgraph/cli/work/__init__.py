@@ -6,7 +6,6 @@ Commands for managing work items:
 - Features: Work item tracking
 - Sessions: Session management
 - Tracks: Multi-feature planning
-- Archives: Archival management
 - Orchestrator: Claude Code integration
 - Other work-related operations
 """
@@ -24,10 +23,10 @@ def register_commands(subparsers: _SubParsersAction) -> None:
     Args:
         subparsers: Subparser action from ArgumentParser.add_subparsers()
     """
+    from htmlgraph.cli.work.activity import register_activity_commands
     from htmlgraph.cli.work.browse import BrowseCommand
     from htmlgraph.cli.work.features import register_feature_commands
     from htmlgraph.cli.work.orchestration import (
-        register_archive_commands,
         register_claude_commands,
         register_orchestrator_commands,
     )
@@ -37,10 +36,10 @@ def register_commands(subparsers: _SubParsersAction) -> None:
     from htmlgraph.cli.work.tracks import register_track_commands
 
     # Register all command groups
+    register_activity_commands(subparsers)
     register_session_commands(subparsers)
     register_feature_commands(subparsers)
     register_track_commands(subparsers)
-    register_archive_commands(subparsers)
     register_orchestrator_commands(subparsers)
     register_claude_commands(subparsers)
     register_report_commands(subparsers)
@@ -124,8 +123,6 @@ from htmlgraph.cli.work.features import (
     FeatureStartCommand,
 )
 from htmlgraph.cli.work.orchestration import (
-    ArchiveCreateCommand,
-    ArchiveListCommand,
     ClaudeCommand,
     OrchestratorDisableCommand,
     OrchestratorEnableCommand,
@@ -179,8 +176,6 @@ __all__ = [
     "TrackPlanCommand",
     "TrackDeleteCommand",
     # Orchestration commands
-    "ArchiveCreateCommand",
-    "ArchiveListCommand",
     "OrchestratorStatusCommand",
     "OrchestratorEnableCommand",
     "OrchestratorDisableCommand",

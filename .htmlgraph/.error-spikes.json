@@ -343,5 +343,20 @@
     "spike_id": "spk-ed878d96",
     "created": "2026-02-11T23:27:49.555586",
     "occurrences": 3
+  },
+  "Bash:Exit code 1\nError: in prepare, no such table: spikes": {
+    "spike_id": "spk-49ece9cb",
+    "created": "2026-02-12T20:23:05.463405",
+    "occurrences": 3
+  },
+  "Read:File does not exist.": {
+    "spike_id": "spk-75132dfb",
+    "created": "2026-02-13T14:36:51.115503",
+    "occurrences": 5
+  },
+  "Read:File does not exist. Did you mean services?": {
+    "spike_id": "spk-3043f7dd",
+    "created": "2026-02-13T14:38:17.555584",
+    "occurrences": 3
   }
 }

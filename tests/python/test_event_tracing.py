@@ -25,10 +25,10 @@ from typing import Any
 
 import pytest
 from htmlgraph.db.schema import HtmlGraphDB
+from htmlgraph.hooks.db_helpers import get_current_session_id
 from htmlgraph.hooks.pretooluse import (
     create_start_event,
     generate_tool_use_id,
-    get_current_session_id,
     sanitize_tool_input,
 )
 

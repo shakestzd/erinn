@@ -13,11 +13,13 @@ in parallel using asyncio:
 4. Error tracking - logs errors and auto-creates debug spikes
 5. Debugging suggestions - suggests resources when errors detected
 6. CIGS analysis - cost accounting and reinforcement for delegation
+7. Cost tracking - tracks token usage and costs to database
 
 Architecture:
 - All tasks run simultaneously via asyncio.gather()
 - Error tracking logs to .htmlgraph/errors.jsonl
 - Auto-creates debug spikes after 3+ similar errors
+- Cost tracking uses CostCalculator estimates (Claude Code doesn't provide actual usage)
 - Returns combined response with all feedback
 
 Performance:
@@ -33,7 +35,9 @@ import sys
 from pathlib import Path
 from typing import Any
 
+from htmlgraph.analytics.cost_monitor import CostMonitor
 from htmlgraph.cigs import CIGSPostToolAnalyzer
+from htmlgraph.cigs.cost import CostCalculator
 from htmlgraph.hooks.event_tracker import track_event
 from htmlgraph.hooks.orchestrator_reflector import orchestrator_reflect
 from htmlgraph.hooks.post_tool_use_failure import run as track_error
@@ -277,11 +281,82 @@ async def run_cigs_analysis(hook_input: dict[str, Any]) -> dict[str, Any]:
         return {}
 
 
+async def run_cost_tracking(hook_input: dict[str, Any]) -> dict[str, Any]:
+    """
+    Track token costs using CostMonitor.
+
+    Since Claude Code doesn't provide actual token usage in hook_input,
+    we estimate costs using CostCalculator heuristics.
+
+    Args:
+        hook_input: Hook input with tool execution details
+
+    Returns:
+        Cost tracking response: {"continue": True}
+    """
+    try:
+        loop = asyncio.get_event_loop()
+
+        # Extract tool info
+        tool_name = hook_input.get("name", "") or hook_input.get("tool_name", "")
+        tool_params = hook_input.get("input", {}) or hook_input.get("tool_input", {})
+        session_id = hook_input.get("session_id", "") or hook_input.get("sessionId", "")
+
+        # Skip if no session_id
+        if not session_id:
+            return {"continue": True}
+
+        # Get model from environment or hook_input
+        model = os.environ.get("HTMLGRAPH_MODEL") or "claude-sonnet-4-5-20250929"
+
+        # Get agent info
+        agent_id = os.environ.get("HTMLGRAPH_AGENT") or "claude-code"
+        subagent_type = os.environ.get("HTMLGRAPH_SUBAGENT_TYPE")
+
+        # Estimate token costs using CostCalculator
+        cost_calc = CostCalculator()
+        estimated_tokens = cost_calc.predict_cost(tool_name, tool_params)
+
+        # For simplicity, assume 70% input tokens, 30% output tokens
+        input_tokens = int(estimated_tokens * 0.7)
+        output_tokens = int(estimated_tokens * 0.3)
+
+        # Track costs using CostMonitor
+        def track_cost() -> None:
+            monitor = CostMonitor()
+            try:
+                # Generate event_id for this cost record
+                from htmlgraph.ids import generate_id
+
+                event_id = generate_id("event")
+
+                monitor.track_token_usage(
+                    session_id=session_id,
+                    event_id=event_id,
+                    tool_name=tool_name,
+                    model=model,
+                    input_tokens=input_tokens,
+                    output_tokens=output_tokens,
+                    agent_id=agent_id,
+                    subagent_type=subagent_type,
+                )
+            finally:
+                monitor.disconnect()
+
+        # Run in executor (involves database I/O)
+        await loop.run_in_executor(None, track_cost)
+
+        return {"continue": True}
+    except Exception:
+        # Graceful degradation - allow on error
+        return {"continue": True}
+
+
 async def posttooluse_hook(
     hook_type: str, hook_input: dict[str, Any]
 ) -> dict[str, Any]:
     """
-    Unified PostToolUse hook - runs tracking, reflection, validation, error tracking, debugging suggestions, and CIGS analysis in parallel.
+    Unified PostToolUse hook - runs tracking, reflection, validation, error tracking, debugging suggestions, CIGS analysis, and cost tracking in parallel.
 
     Args:
         hook_type: "PostToolUse" or "Stop"
@@ -298,7 +373,7 @@ async def posttooluse_hook(
             }
         }
     """
-    # Run all six in parallel using asyncio.gather
+    # Run all seven in parallel using asyncio.gather
     (
         event_response,
         reflection_response,
@@ -306,6 +381,7 @@ async def posttooluse_hook(
         error_tracking_response,
         debug_suggestions,
         cigs_response,
+        cost_response,
     ) = await asyncio.gather(
         run_event_tracking(hook_type, hook_input),
         run_orchestrator_reflection(hook_input),
@@ -313,6 +389,7 @@ async def posttooluse_hook(
         run_error_tracking(hook_input),
         suggest_debugging_resources(hook_input),
         run_cigs_analysis(hook_input),
+        run_cost_tracking(hook_input),
     )
 
     # Combine responses (all should return continue=True)

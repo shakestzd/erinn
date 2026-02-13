@@ -537,7 +537,7 @@ Return a summary including:
                     continue
 
                 graph = manager.features_graph
-                manager._link_transcript_to_feature(feature, transcript_id, graph)
+                manager._linking.link_transcript_to_feature(feature, transcript_id, graph)
                 graph.update(feature)
 
                 linked.append(

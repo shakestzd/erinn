@@ -353,5 +353,10 @@
     "spike_id": "spk-f97c50d1",
     "created": "2026-03-05T09:39:50.122664",
     "occurrences": 3
+  },
+  "Read:File does not exist. Note: your current working directory is /Users/shakes/DevProjects/htmlgraph. Di": {
+    "spike_id": "spk-52c08837",
+    "created": "2026-03-06T03:40:45.255931",
+    "occurrences": 3
   }
 }

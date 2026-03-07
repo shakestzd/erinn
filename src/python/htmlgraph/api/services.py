@@ -128,6 +128,7 @@ class ActivityService:
                         AND session_id LIKE ? || '%'
                         AND session_id != ?
                         AND tool_name != 'UserQuery'
+                        AND timestamp >= ?
                     )
                 )
                 ORDER BY timestamp DESC
@@ -161,7 +162,12 @@ class ActivityService:
                     if depth == 0 and parent_session_id:
                         async with self.db.execute(
                             first_level_children_sql,
-                            [parent_id, parent_session_id, parent_session_id],
+                            [
+                                parent_id,
+                                parent_session_id,
+                                parent_session_id,
+                                uq_timestamp,
+                            ],
                         ) as cur:
                             rows = await cur.fetchall()
                     else:

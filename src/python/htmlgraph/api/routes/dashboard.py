@@ -9,14 +9,16 @@ Handles:
 - Events API endpoints
 """
 
+import asyncio
 import json
 import logging
+import sqlite3
 import time
 from datetime import datetime
 from typing import Any, cast
 
 from fastapi import APIRouter, Request
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, StreamingResponse
 from fastapi.templating import Jinja2Templates
 from fastapi_cache.decorator import cache
 from pydantic import BaseModel
@@ -380,6 +382,66 @@ async def activity_feed_children(
         )
     finally:
         await db.close()
+
+
+@router.get("/activity-feed/stream")
+async def activity_feed_stream(request: Request) -> StreamingResponse:
+    """SSE endpoint for live activity feed updates.
+
+    Pushes a ``feed-update`` event whenever new rows appear in agent_events.
+    Clients should replace the HTMX ``every 30s`` polling with an EventSource
+    pointing here and call ``refreshActivityFeed()`` on receipt of the event.
+    """
+
+    db_path: str = request.app.state.db_path
+
+    async def event_generator() -> Any:
+        last_rowid: int | None = None
+
+        # Seed with the current max rowid so we only notify about *new* events.
+        try:
+            conn = sqlite3.connect(db_path)
+            cursor = conn.cursor()
+            cursor.execute("SELECT MAX(rowid) FROM agent_events")
+            row = cursor.fetchone()
+            last_rowid = row[0] if row and row[0] is not None else 0
+            conn.close()
+        except Exception:
+            last_rowid = 0
+
+        while True:
+            if await request.is_disconnected():
+                break
+
+            try:
+                conn = sqlite3.connect(db_path)
+                cursor = conn.cursor()
+                cursor.execute("SELECT MAX(rowid) FROM agent_events")
+                row = cursor.fetchone()
+                conn.close()
+
+                current_max = row[0] if row and row[0] is not None else 0
+                if current_max != last_rowid:
+                    last_rowid = current_max
+                    yield "event: feed-update\ndata: refresh\n\n"
+                else:
+                    # Heartbeat to keep the connection alive through proxies.
+                    yield ": heartbeat\n\n"
+
+            except Exception:
+                yield ": error\n\n"
+
+            await asyncio.sleep(3)
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",
+            "Connection": "keep-alive",
+        },
+    )
 
 
 @router.get("/api/events", response_model=list[EventModel])

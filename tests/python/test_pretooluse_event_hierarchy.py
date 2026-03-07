@@ -508,9 +508,7 @@ class TestEventHierarchyRegression:
                 )
 
                 # PreToolUse should still create a tool trace for correlation
-                assert tool_use_id is not None, (
-                    "PreToolUse should return a tool_use_id"
-                )
+                assert tool_use_id is not None, "PreToolUse should return a tool_use_id"
 
                 # Verify tool_traces was created
                 cursor = mock_db.connection.cursor()

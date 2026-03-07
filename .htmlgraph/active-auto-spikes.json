@@ -2,5 +2,13 @@
   "spike-init-sess-4ba": {
     "spike_subtype": "session-init",
     "session_id": "sess-4ba90551"
+  },
+  "spike-init-03505882": {
+    "spike_subtype": "session-init",
+    "session_id": "03505882-0a3a-4b45-b50d-00f08eb2251b"
+  },
+  "spike-init-dd92ff7c": {
+    "spike_subtype": "session-init",
+    "session_id": "dd92ff7c-512f-460c-b798-e07ac0bd05de"
   }
 }

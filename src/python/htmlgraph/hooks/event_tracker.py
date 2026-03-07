@@ -1764,6 +1764,43 @@ def track_event(hook_type: str, hook_input: dict[str, Any]) -> dict[str, Any]:
                 if not parent_activity_id:
                     parent_activity_id = current_user_query_id
 
+                # Background agent attribution: if hook_input carries a native agentId,
+                # this tool call is from a background agent whose task_delegation was
+                # never claimed (SubagentStart does not fire for background agents).
+                # Find the most recent unclaimed background task_delegation in the same
+                # session and claim it so subsequent calls resolve via agent_id lookup.
+                hook_native_agent_id = hook_input.get("agent_id")
+                if hook_native_agent_id and db_to_use and db_to_use.connection:
+                    try:
+                        _bg_cursor = db_to_use.connection.cursor()
+                        _bg_cursor.execute(
+                            """SELECT event_id FROM agent_events
+                               WHERE event_type = 'task_delegation'
+                                 AND agent_id = 'claude-code'
+                                 AND session_id = ?
+                                 AND json_extract(tool_input, '$.run_in_background') = 1
+                               ORDER BY datetime(REPLACE(SUBSTR(timestamp, 1, 19), 'T', ' ')) DESC
+                               LIMIT 1""",
+                            (active_session_id,),
+                        )
+                        _bg_row = _bg_cursor.fetchone()
+                        if _bg_row:
+                            _bg_event_id = _bg_row[0]
+                            _bg_cursor.execute(
+                                "UPDATE agent_events SET agent_id = ? WHERE event_id = ?",
+                                (hook_native_agent_id, _bg_event_id),
+                            )
+                            parent_activity_id = _bg_event_id
+                            logger.debug(
+                                f"Background agent {hook_native_agent_id}: claimed "
+                                f"task_delegation={_bg_event_id} (PostToolUse path)"
+                            )
+                    except Exception as _bg_e:
+                        logger.debug(
+                            f"Could not find/claim background task_delegation "
+                            f"(PostToolUse): {_bg_e}"
+                        )
+
         # Track the activity
         nudge = None
         try:

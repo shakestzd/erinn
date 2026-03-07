@@ -1,10 +1,5 @@
 <link rel="stylesheet" href="/static/style-redesign.css">
-<div class="view-container activity-feed-view"
-     hx-get="/views/activity-feed"
-     hx-trigger="every 30s, refresh"
-     hx-ext="morph"
-     hx-swap="morph:outerHTML"
-     hx-target="this">
+<div class="view-container activity-feed-view">
     <div class="view-header">
         <h2>Agent Feed <span class="view-subtitle">— Showing last {{ limit }} sessions, most recent first</span></h2>
         <div class="view-filters">
@@ -28,7 +23,7 @@
                         <th class="col-ts">Time</th>
                     </tr>
                 </thead>
-                <tbody id="activity-feed-tbody">
+                <tbody id="activity-feed-body">
                     {% for group in hierarchical_events %}
                         <!-- Parent Event (depth-0): children lazy-loaded via HTMX on click -->
                         <tr class="activity-row parent-row event-{{ group.parent.status }} {% if group.has_children %}has-children{% endif %}"
@@ -105,7 +100,7 @@
     <!-- Auto-refresh indicator -->
     <div class="auto-refresh-indicator">
         <span class="refresh-dot"></span>
-        Live updates enabled (via WebSocket)
+        Live updates enabled (via SSE)
     </div>
 </div>
 

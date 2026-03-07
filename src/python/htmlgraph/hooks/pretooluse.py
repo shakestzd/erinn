@@ -541,6 +541,7 @@ def create_start_event(
         # 3. Native agent_id from hook_input (Claude Code does not send this in PreToolUse,
         #    kept for forward compatibility).
         subagent_parent_event_id = None
+        session_known = True  # Default: assume known (orchestrator). Updated below if session lookup succeeds.
         native_agent_id = tool_input.get("agent_id")
         if native_agent_id:
             # Use the agent_id already mapped to a task_delegation by SubagentStart hook
@@ -630,23 +631,36 @@ def create_start_event(
         # querying the database.  If the event belongs to a different session, discard it.
         is_mcp_tool = "__" in tool_name
 
-        # Validate env_parent_event belongs to the current session AND is not stale
-        # (not predating the current UserQuery).
-        # This handles the restart bug: after Claude Code restarts (resume), the env var
-        # persists with a Task event from the previous turn. The session_id is the same
-        # (it's a resumed session), but the event is stale (created before the current UQ).
+        # Validate env_parent_event belongs to the current session AND is not stale.
+        #
+        # Staleness detection strategy: compare the task_delegation's parent_event_id
+        # against the most recent UserQuery (user_query_event_id, already resolved above).
+        #
+        # A valid in-flight Task() delegation was created in the CURRENT turn, so its
+        # parent_event_id points to the current turn's UserQuery.  If they don't match,
+        # the task_delegation is from a prior turn and the env var is stale.
+        #
+        # This correctly handles the case where:
+        # - Turn N: Task() creates evt-X with parent_event_id=UQ-prev
+        # - Turn N+1: current UQ is UQ-curr (or not yet in DB)
+        #   → evt-X.parent_event_id (UQ-prev) != user_query_event_id (UQ-curr or None)
+        #   → correctly discarded
+        #
+        # The old approach compared created_at timestamps and was broken because the
+        # current turn's UserQuery is often not yet in the DB when PreToolUse fires,
+        # causing max(UserQuery.created_at) to return the previous turn's UQ — which
+        # is older than the stale task_delegation, making the staleness check pass
+        # incorrectly (task_delegation appeared "fresh" when it was not).
         if env_parent_event and not is_mcp_tool:
             try:
                 cursor.execute(
                     """
-                    SELECT ae.session_id, ae.created_at,
-                           (SELECT MAX(created_at) FROM agent_events
-                            WHERE tool_name = 'UserQuery' AND session_id = ?) as latest_uq_time
+                    SELECT ae.session_id, ae.parent_event_id
                     FROM agent_events ae
                     WHERE ae.event_id = ?
                     LIMIT 1
                     """,
-                    (session_id, env_parent_event),
+                    (env_parent_event,),
                 )
                 row = cursor.fetchone()
                 if row is None or row[0] != session_id:
@@ -658,25 +672,25 @@ def create_start_event(
                     )
                     env_parent_event = None
                     os.environ.pop("HTMLGRAPH_PARENT_EVENT", None)
-                elif row[2] is not None and row[1] <= row[2]:
-                    # Event exists in current session but was created before or at the
-                    # same time as the latest UserQuery — it's from a previous turn
+                elif row[1] != user_query_event_id:
+                    # Task delegation's parent UserQuery doesn't match the current
+                    # session's most recent UserQuery — it's from a previous turn.
                     logger.debug(
                         f"Discarding stale HTMLGRAPH_PARENT_EVENT={env_parent_event}: "
-                        f"created at {row[1]}, but latest UserQuery at {row[2]} "
-                        f"(event predates current turn)"
+                        f"parent_event_id={row[1]} does not match current UserQuery "
+                        f"{user_query_event_id} (task_delegation is from a prior turn)"
                     )
                     env_parent_event = None
                     os.environ.pop("HTMLGRAPH_PARENT_EVENT", None)
             except Exception as e:
-                logger.debug(f"Could not validate env_parent_event timestamp: {e}")
+                logger.debug(f"Could not validate env_parent_event: {e}")
 
         if tool_name in ("Task", "Agent") and task_parent_event_id:
             parent_event_id = user_query_event_id  # Task links to UserQuery
         elif subagent_parent_event_id:
             parent_event_id = subagent_parent_event_id  # Subagent links to Task
-        elif env_parent_event and not is_mcp_tool:
-            parent_event_id = env_parent_event  # Explicit parent from env (non-MCP only, current session)
+        elif env_parent_event and not is_mcp_tool and not session_known:
+            parent_event_id = env_parent_event  # Subagent explicit parent (non-MCP, unknown session only)
         else:
             parent_event_id = user_query_event_id  # Fall back to UserQuery
 

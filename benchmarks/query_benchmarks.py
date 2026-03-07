@@ -183,40 +183,42 @@ def run_benchmarks():
 
             result = benchmark(
                 "QueryBuilder with AND",
-                lambda: graph.query_builder()
-                .where("status", "blocked")
-                .and_("priority", "high")
-                .execute(),
+                lambda: (
+                    graph.query_builder()
+                    .where("status", "blocked")
+                    .and_("priority", "high")
+                    .execute()
+                ),
                 iterations=100,
             )
             print(result)
 
             result = benchmark(
                 "QueryBuilder with OR",
-                lambda: graph.query_builder()
-                .where("priority", "high")
-                .or_("priority", "critical")
-                .execute(),
+                lambda: (
+                    graph.query_builder()
+                    .where("priority", "high")
+                    .or_("priority", "critical")
+                    .execute()
+                ),
                 iterations=100,
             )
             print(result)
 
             result = benchmark(
                 "QueryBuilder numeric comparison",
-                lambda: graph.query_builder()
-                .where("properties.effort")
-                .gt(10)
-                .execute(),
+                lambda: (
+                    graph.query_builder().where("properties.effort").gt(10).execute()
+                ),
                 iterations=100,
             )
             print(result)
 
             result = benchmark(
                 "QueryBuilder text contains",
-                lambda: graph.query_builder()
-                .where("title")
-                .contains("Feature")
-                .execute(),
+                lambda: (
+                    graph.query_builder().where("title").contains("Feature").execute()
+                ),
                 iterations=100,
             )
             print(result)

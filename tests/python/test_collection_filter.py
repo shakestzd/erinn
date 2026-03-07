@@ -151,8 +151,10 @@ def test_filter_with_complex_logic(sdk: SDK, test_track):
 
     # Complex filter: (critical OR high) AND (todo OR in-progress)
     important_active = sdk.features.filter(
-        lambda f: (f.priority in ["critical", "high"])
-        and (f.status in ["todo", "in-progress"])
+        lambda f: (
+            (f.priority in ["critical", "high"])
+            and (f.status in ["todo", "in-progress"])
+        )
     )
 
     assert len(important_active) == 2

@@ -2,7 +2,7 @@
 
 **"HTML is All You Need"**
 
-A lightweight graph database framework built entirely on web standards. Use HTML files as nodes, hyperlinks as edges, and CSS selectors as the query language.
+A lightweight graph database framework with document-native storage and database-backed observability. Use HTML files as nodes, hyperlinks as edges, and CSS selectors as the query language, with JSONL + SQLite layers for fast analytics.
 
 ## Why HtmlGraph?
 
@@ -17,6 +17,7 @@ Modern AI agent systems are drowning in complexity:
 - ✅ CSS selectors = Query language
 - ✅ Any browser = Visual interface
 - ✅ Git = Version control (diffs work!)
+- ✅ JSONL + SQLite = fast event analytics and observability
 
 ## Installation
 
@@ -37,7 +38,15 @@ This bootstraps:
 - `index.html` dashboard at the project root
 - `.htmlgraph/events/` append-only JSONL event stream (Git-friendly)
 - `.htmlgraph/index.sqlite` analytics cache (rebuildable; gitignored via `.gitignore`)
+- `.htmlgraph/htmlgraph.db` observability database for dashboard/API queries
 - versioned hook scripts under `.htmlgraph/hooks/` (installed into `.git/hooks/` with `--install-hooks`)
+
+### Storage Model (Browser-Style)
+
+HtmlGraph is intentionally hybrid:
+- **HTML files** are the primary graph documents for work items and relationships.
+- **JSONL events** provide append-only activity history.
+- **SQLite** (`htmlgraph.db` and rebuildable `index.sqlite`) accelerates analytics, dashboard views, and observability queries.
 
 ### Python (SDK - Recommended)
 
@@ -126,7 +135,7 @@ HtmlGraph nodes are standard HTML files:
 
 ## Features
 
-- **Zero dependencies** beyond `justhtml` and `pydantic`
+- **Lightweight core** with document-first storage; API/dashboard features add FastAPI + SQLite runtime dependencies
 - **CSS selector queries** - no new query language to learn
 - **Version control friendly** - git diff works perfectly
 - **Human readable** - open in any browser
@@ -135,7 +144,7 @@ HtmlGraph nodes are standard HTML files:
 - **Agent Handoff** - Context-preserving task transfers between agents
 - **Capability Routing** - Automatic task assignment based on agent skills
 - **Deployment Automation** - One-command releases with version management
-- **Unified Backend** - Operations layer shared by CLI and SDK for consistency
+- **Shared Operations Modules** - Common operations for hooks/events/analytics, with separate server runtime paths where needed
 
 ## Orchestrator Architecture: Flexible Multi-Agent Coordination
 

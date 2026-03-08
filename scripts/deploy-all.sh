@@ -44,6 +44,7 @@ DOCS_ONLY=false
 BUILD_ONLY=false
 SKIP_PYPI=false
 SKIP_PLUGINS=false
+SKIP_TESTS=false
 DRY_RUN=false
 NO_CONFIRM=false
 VERSION=""
@@ -58,6 +59,7 @@ show_help() {
     echo "  --build-only    Only build package (skip git/publish/install)"
     echo "  --skip-pypi     Skip PyPI publishing step"
     echo "  --skip-plugins  Skip plugin update steps"
+    echo "  --skip-tests    Skip running test suite (use when tests were just run)"
     echo "  --no-confirm    Skip all confirmation prompts (non-interactive mode)"
     echo "  --dry-run       Show what would happen without executing"
     echo "  --help          Show this help message"
@@ -85,6 +87,9 @@ for arg in "$@"; do
             ;;
         --skip-plugins)
             SKIP_PLUGINS=true
+            ;;
+        --skip-tests)
+            SKIP_TESTS=true
             ;;
         --no-confirm)
             NO_CONFIRM=true
@@ -384,19 +389,23 @@ if [ "$BUILD_ONLY" != true ] && [ "$DOCS_ONLY" != true ]; then
         fi
 
         # Run pytest
-        log_info "Running tests..."
-        if uv run pytest tests/ -v 2>/dev/null; then
-            log_success "All tests passed"
+        if [[ "$SKIP_TESTS" == "true" ]]; then
+            log_info "Skipping tests (--skip-tests flag)"
         else
-            log_warning "Some tests failed - review before deploying"
-            if [ "$NO_CONFIRM" != true ]; then
-                read -p "Continue deployment anyway? (y/n) " -n 1 -r
-                echo
-                if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-                    exit 1
-                fi
+            log_info "Running tests..."
+            if uv run pytest tests/ -q 2>/dev/null; then
+                log_success "All tests passed"
             else
-                log_info "Continuing despite test failures (--no-confirm mode)"
+                log_warning "Some tests failed - review before deploying"
+                if [ "$NO_CONFIRM" != true ]; then
+                    read -p "Continue deployment anyway? (y/n) " -n 1 -r
+                    echo
+                    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+                        exit 1
+                    fi
+                else
+                    log_info "Continuing despite test failures (--no-confirm mode)"
+                fi
             fi
         fi
     fi

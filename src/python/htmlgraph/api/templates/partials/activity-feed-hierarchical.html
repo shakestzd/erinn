@@ -34,13 +34,12 @@
                         <tr class="activity-row parent-row event-{{ group.parent.status }} {% if group.has_children %}has-children{% endif %}"
                             id="{{ group.parent.event_id }}"
                             data-event-id="{{ group.parent.event_id }}"
-                            data-children-loaded="false"
                             {% if group.has_children %}
                             hx-get="/views/activity-feed/children/{{ group.parent.event_id }}"
-                            hx-trigger="click once"
+                            hx-trigger="click"
                             hx-swap="afterend"
                             hx-target="this"
-                            onclick="handleParentClick(this)"
+                            onclick="handleParentClick(this, event)"
                             {% endif %}>
 
                             <td class="col-activity">
@@ -429,26 +428,30 @@ function toggleChildren(parentRow) {
 }
 
 // Handle click on a depth-0 parent row:
-// - First click: HTMX loads children (hx-trigger="click once" handles the request),
-//   then we mark loaded and expand the icon.
-// - Subsequent clicks: toggle already-loaded children visibility.
-function handleParentClick(row) {
-    const eventId = row.dataset.eventId;
+// - If currently expanded (children visible): collapse without re-fetching.
+// - If currently collapsed: HTMX fires hx-get to re-fetch fresh children,
+//   then we expand the icon once they arrive.
+function handleParentClick(row, evt) {
     const expandIcon = row.querySelector('.expand-icon');
-    const loaded = row.dataset.childrenLoaded === 'true';
+    const isExpanded = expandIcon && expandIcon.classList.contains('expanded');
 
-    if (!loaded) {
-        // Children not yet loaded — HTMX will fire the request (hx-trigger="click once").
-        // Mark as loaded now so the next click goes to the toggle branch.
-        row.dataset.childrenLoaded = 'true';
+    if (isExpanded) {
+        // Row is currently expanded — collapse it, suppress HTMX request.
+        if (evt) evt.preventDefault();
+        htmx.process(row); // ensure HTMX is not mid-flight
+        toggleChildren(row); // collapses descendants and rotates icon back
+    } else {
+        // Row is currently collapsed — let HTMX fire the hx-get to re-fetch children.
+        // Remove any previously-inserted child rows so the fresh response doesn't duplicate.
+        const eventId = row.dataset.eventId;
+        document.querySelectorAll(`[data-parent="${eventId}"]`).forEach(child => child.remove());
+
         // Listen for HTMX afterSwap to expand the icon once children arrive.
         row.addEventListener('htmx:afterSwap', function onSwap() {
             row.removeEventListener('htmx:afterSwap', onSwap);
             if (expandIcon) expandIcon.classList.add('expanded');
         }, { once: true });
-    } else {
-        // Children already loaded — toggle visibility.
-        toggleChildren(row);
+        // HTMX will handle the actual request (hx-trigger="click").
     }
 }
 

@@ -32,6 +32,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from htmlgraph.db.pragmas import apply_sync_pragmas
+
 logger = logging.getLogger(__name__)
 
 
@@ -190,7 +192,7 @@ class CostMonitor:
         if self.connection is None:
             self.connection = sqlite3.connect(self.db_path)
             self.connection.row_factory = sqlite3.Row
-            self.connection.execute("PRAGMA foreign_keys = ON")
+            apply_sync_pragmas(self.connection)
         return self.connection
 
     def disconnect(self) -> None:

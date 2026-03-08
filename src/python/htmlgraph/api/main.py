@@ -14,12 +14,14 @@ Architecture:
 - WebSocket for real-time event streaming
 """
 
+import asyncio
 import logging
 import sqlite3
-import time
+from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any
 
+import aiosqlite
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -27,47 +29,8 @@ from pydantic import BaseModel
 
 logger = logging.getLogger(__name__)
 
-
-class QueryCache:
-    """Simple in-memory cache with TTL support for query results."""
-
-    def __init__(self, ttl_seconds: float = 30.0):
-        """Initialize query cache with TTL."""
-        self.cache: dict[str, tuple[Any, float]] = {}
-        self.ttl_seconds = ttl_seconds
-        self.metrics: dict[str, dict[str, float]] = {}
-
-    def get(self, key: str) -> Any | None:
-        """Get cached value if exists and not expired."""
-        if key not in self.cache:
-            return None
-
-        value, timestamp = self.cache[key]
-        if time.time() - timestamp > self.ttl_seconds:
-            del self.cache[key]
-            return None
-
-        return value
-
-    def set(self, key: str, value: Any) -> None:
-        """Store value with current timestamp."""
-        self.cache[key] = (value, time.time())
-
-    def record_metric(self, key: str, query_time_ms: float, cache_hit: bool) -> None:
-        """Record performance metrics for a query."""
-        if key not in self.metrics:
-            self.metrics[key] = {"count": 0, "total_ms": 0, "avg_ms": 0, "hits": 0}
-
-        metrics = self.metrics[key]
-        metrics["count"] += 1
-        metrics["total_ms"] += query_time_ms
-        metrics["avg_ms"] = metrics["total_ms"] / metrics["count"]
-        if cache_hit:
-            metrics["hits"] += 1
-
-    def get_metrics(self) -> dict[str, dict[str, float]]:
-        """Get all collected metrics."""
-        return self.metrics
+# Import QueryCache from cache module (single source of truth)
+from htmlgraph.api.cache import QueryCache  # noqa: E402
 
 
 class EventModel(BaseModel):
@@ -164,6 +127,18 @@ def _ensure_database_initialized(db_path: str) -> None:
             raise
 
 
+async def _pragma_optimize_loop(db_path: str) -> None:
+    """Run PRAGMA optimize every 6 hours."""
+    while True:
+        await asyncio.sleep(6 * 3600)
+        try:
+            async with aiosqlite.connect(db_path) as conn:
+                await conn.execute("PRAGMA optimize")
+                logger.debug("PRAGMA optimize completed")
+        except Exception:
+            logger.exception("PRAGMA optimize failed")
+
+
 def get_app(db_path: str) -> FastAPI:
     """
     Create and configure FastAPI application.
@@ -177,10 +152,44 @@ def get_app(db_path: str) -> FastAPI:
     # Ensure database is initialized
     _ensure_database_initialized(db_path)
 
+    # ========== LIFESPAN ==========
+
+    @asynccontextmanager
+    async def lifespan(app: FastAPI) -> Any:
+        """Manage application startup and shutdown."""
+        from htmlgraph.api.cache import init_cache_backend
+        from htmlgraph.db.pragmas import check_integrity
+
+        # Startup: initialize cache backend
+        await init_cache_backend()
+        logger.info("FastAPICache initialized")
+
+        # Startup: run integrity check
+        with sqlite3.connect(db_path) as conn:
+            if not check_integrity(conn):
+                logger.critical(
+                    "Database integrity check failed at startup — proceeding with caution"
+                )
+            else:
+                logger.info("Database integrity check passed")
+
+        # Startup: schedule periodic PRAGMA optimize
+        optimize_task = asyncio.create_task(_pragma_optimize_loop(db_path))
+
+        yield
+
+        # Shutdown: cancel optimize task
+        optimize_task.cancel()
+        try:
+            await optimize_task
+        except asyncio.CancelledError:
+            pass
+
     app = FastAPI(
         title="HtmlGraph Dashboard API",
         description="Real-time agent observability dashboard",
         version="0.1.0",
+        lifespan=lifespan,
     )
 
     # Store database path and query cache in app state
@@ -235,16 +244,6 @@ def get_app(db_path: str) -> FastAPI:
     static_dir.mkdir(parents=True, exist_ok=True)
     if static_dir.exists():
         app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
-
-    # ========== STARTUP EVENT ==========
-
-    @app.on_event("startup")
-    async def startup_event() -> None:
-        """Initialize cache backend on application startup."""
-        from htmlgraph.api.cache import init_cache_backend
-
-        await init_cache_backend()
-        logger.info("FastAPICache initialized")
 
     # ========== INITIALIZE ROUTES ==========
 

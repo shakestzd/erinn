@@ -1,6 +1,14 @@
 {
-  "spike-init-sess-4ba": {
+  "spike-init-sess-4bc": {
     "spike_subtype": "session-init",
-    "session_id": "sess-4ba90551"
+    "session_id": "sess-4bc6f07b"
+  },
+  "spk-b9e0888e": {
+    "spike_subtype": "transition",
+    "session_id": "sess-4bc6f07b"
+  },
+  "spk-7456ed90": {
+    "spike_subtype": "transition",
+    "session_id": "sess-6cafaa64"
   }
 }

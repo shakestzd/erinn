@@ -7,11 +7,13 @@ These models define the structure of API responses for:
 - Sessions (agent sessions)
 """
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 
 class EventModel(BaseModel):
-    """Event data model for API responses."""
+    """Event data model for API ingress/responses."""
+
+    model_config = ConfigDict(strict=True)
 
     event_id: str
     agent_id: str
@@ -29,7 +31,9 @@ class EventModel(BaseModel):
 
 
 class FeatureModel(BaseModel):
-    """Feature data model for API responses."""
+    """Feature data model for API ingress/responses."""
+
+    model_config = ConfigDict(strict=True)
 
     id: str
     type: str
@@ -44,7 +48,9 @@ class FeatureModel(BaseModel):
 
 
 class SessionModel(BaseModel):
-    """Session data model for API responses."""
+    """Session data model for API ingress/responses."""
+
+    model_config = ConfigDict(strict=True)
 
     session_id: str
     agent: str | None = None

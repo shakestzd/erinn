@@ -15,6 +15,8 @@ from sqlalchemy import Connection, create_engine
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, create_async_engine
 from sqlalchemy.orm import sessionmaker
 
+from htmlgraph.db.pragmas import apply_async_pragmas
+
 logger = logging.getLogger(__name__)
 
 
@@ -102,9 +104,7 @@ async def get_db(db_path: str) -> AsyncGenerator[aiosqlite.Connection, None]:
     async with aiosqlite.connect(db_path) as db:
         # Configure for named column access
         db.row_factory = aiosqlite.Row
-        # Set busy timeout to prevent "database is locked" errors
-        # during concurrent access (30 seconds)
-        await db.execute("PRAGMA busy_timeout = 30000")
+        await apply_async_pragmas(db)
         yield db
 
 

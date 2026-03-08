@@ -109,6 +109,20 @@ sessions = sdk.get_feature_sessions("feature-001")
 
 ---
 
+## Current Storage Model (Important)
+
+HtmlGraph is document-first, but not document-only:
+
+- **HTML files** in `.htmlgraph/*/*.html` are the primary graph documents for work-item CRUD.
+- **JSONL files** in `.htmlgraph/events/` are append-only event history.
+- **SQLite** supports observability and analytics:
+  - `.htmlgraph/htmlgraph.db` for dashboard/API and hook-driven event tables
+  - `.htmlgraph/index.sqlite` as a rebuildable analytics cache from JSONL events
+
+This is closer to a browser-style architecture: document artifacts plus indexed/queryable databases.
+
+---
+
 ## Core Principle: NEVER Edit HTML Directly
 
 ❌ **FORBIDDEN:**
@@ -127,10 +141,8 @@ Edit("/path/to/.htmlgraph/features/feature-123.html", ...)
 with sdk.features.edit("feature-123") as f:
     f.status = "done"
 
-# API
-curl -X PATCH http://localhost:8080/api/features/feature-123 \
-  -H "Content-Type: application/json" \
-  -d '{"status": "done"}'
+# API (observability/query example)
+curl http://localhost:8080/api/events
 
 # CLI
 uv run htmlgraph feature complete feature-123
@@ -378,50 +390,41 @@ sdk.reload()
 ```bash
 uv run htmlgraph serve
 # Open http://localhost:8080
+
+# Alternative FastAPI entrypoint
+uv run htmlgraph serve-api
+# Open http://localhost:8000
 ```
 
 ### Endpoints
 
-#### Get All Features
+Current REST endpoints are observability/dashboard-focused.
+Use SDK/CLI for feature CRUD.
+
+#### Recent Events
 ```bash
-curl http://localhost:8080/api/query?type=feature
+curl http://localhost:8080/api/events
 ```
 
-#### Get Feature by ID
+#### Initial Dashboard Stats
 ```bash
-curl http://localhost:8080/api/features/feature-001
+curl http://localhost:8080/api/initial-stats
 ```
 
-#### Create Feature
+#### Orchestration Summary
 ```bash
-curl -X POST http://localhost:8080/api/features \
-  -H "Content-Type: application/json" \
-  -d '{
-    "title": "User Authentication",
-    "priority": "high",
-    "status": "todo",
-    "steps": [
-      {"description": "Create login endpoint"},
-      {"description": "Add JWT middleware"}
-    ]
-  }'
+curl http://localhost:8080/api/orchestration/summary
 ```
 
-#### Update Feature
+#### Cost Analytics
 ```bash
-curl -X PATCH http://localhost:8080/api/features/feature-001 \
-  -H "Content-Type: application/json" \
-  -d '{"status": "in-progress"}'
+curl http://localhost:8080/api/analytics/cost-summary
 ```
 
-#### Complete Step
+#### Presence
 ```bash
-curl -X PATCH http://localhost:8080/api/features/feature-001 \
-  -H "Content-Type: application/json" \
-  -d '{"complete_step": 0}'
+curl http://localhost:8080/api/presence
 ```
-
-**Step numbering is 0-based** (first step = 0, second step = 1, etc.)
 
 ---
 
@@ -955,7 +958,7 @@ Task(subagent_type="general-purpose", prompt="Run e2e tests and report failures"
 
 ## Architecture: Operations Layer
 
-HtmlGraph uses a **unified operations layer** that both CLI and SDK call. This eliminates code duplication and ensures consistent behavior.
+HtmlGraph has a shared operations layer for common domains (hooks, events, analytics, server helpers), while some runtime paths remain interface-specific.
 
 ```
 CLI ────┐
@@ -964,8 +967,8 @@ SDK ────┘
 ```
 
 **Benefits:**
-- ✅ No code duplication between CLI and SDK
-- ✅ Consistent results regardless of interface
+- ✅ Shared logic for common backend operations
+- ✅ Consistent behavior for hooks/events/analytics workflows
 - ✅ Single source of truth for business logic
 - ✅ Easier testing and maintenance
 
@@ -988,10 +991,10 @@ def start_server(self, port: int = 8080) -> ServerHandle:
 
 **Example - CLI uses operations:**
 ```python
-# In CLI
+# In CLI (server runtime may use a different operation module)
 def cmd_serve(args):
-    from htmlgraph.operations import server
-    result = server.start_server(port=args.port, ...)
+    from htmlgraph.operations import fastapi_server
+    result = fastapi_server.start_fastapi_server(port=args.port, ...)
     print(f"Server started at {result.handle.url}")
 ```
 
@@ -1006,7 +1009,9 @@ class SDK:
     def __init__(
         self,
         directory: Path | str | None = None,  # Auto-discovered if None
-        agent: str | None = None
+        agent: str | None = None,
+        parent_session: str | None = None,
+        db_path: str | None = None
     )
 
     def reload(self) -> None

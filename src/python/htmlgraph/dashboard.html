@@ -238,170 +238,75 @@
                 return;
             }
 
-            const conversationFeed = activityFeed.querySelector('.conversation-feed');
-            if (!conversationFeed) {
+            // Use the hierarchical table tbody as anchor point
+            const tbody = document.getElementById('activity-feed-tbody');
+            if (!tbody) {
+                // Hierarchical feed not present, nothing to update
                 return;
             }
 
-            // Check if there's an empty state message
-            const emptyState = conversationFeed.querySelector('.empty-state');
-            if (emptyState) {
-                // Replace empty state with conversation turns list
-                emptyState.remove();
-                const turnsList = document.createElement('div');
-                turnsList.className = 'conversation-turns-list';
-                conversationFeed.appendChild(turnsList);
-            }
+            // Handle top-level events (UserQuery / new session rows): prepend a new <tr>
+            if (!eventData.parent_event_id || eventData.tool_name === 'UserQuery') {
+                const timestamp = eventData.timestamp || '';
+                const displayTime = timestamp.length >= 19 ? timestamp.substring(11, 19) : timestamp;
+                const summary = eventData.input_summary || eventData.output_summary || '';
+                const summaryPreview = summary.length > 200 ? summary.substring(0, 200) + '\u2026' : summary;
+                const toolName = eventData.tool_name || '';
+                const eventId = escapeHtml(eventData.event_id || '');
+                const status = escapeHtml(eventData.status || 'pending');
 
-            // Get or create conversation turns list
-            let turnsList = conversationFeed.querySelector('.conversation-turns-list');
-            if (!turnsList) {
-                turnsList = document.createElement('div');
-                turnsList.className = 'conversation-turns-list';
-                conversationFeed.appendChild(turnsList);
-            }
+                const tr = document.createElement('tr');
+                tr.className = `activity-row parent-row event-${status}`;
+                tr.id = eventId;
+                tr.setAttribute('data-event-id', eventId);
+                tr.innerHTML = `
+                    <td class="col-activity">
+                        <div class="activity-cell depth-0">
+                            <span class="expand-placeholder"></span>
+                            <span class="event-dot type-${escapeHtml(eventData.event_type || '')}"></span>
+                            ${toolName && toolName !== 'UserQuery' ? `<code class="tool-chip">${escapeHtml(toolName)}</code>` : ''}
+                            ${summaryPreview ? `<span class="activity-desc" title="${escapeHtml(summary)}">${escapeHtml(summaryPreview)}</span>` : ''}
+                        </div>
+                    </td>
+                    <td class="col-status"><span class="status-badge status-${status}">${status}</span></td>
+                    <td class="col-ts">
+                        <span class="timestamp-text" data-utc-time="${escapeHtml(timestamp)}" title="${escapeHtml(timestamp)}">${escapeHtml(displayTime)}</span>
+                    </td>`;
 
-            // Handle UserQuery events - create new conversation turn
-            if (eventData.tool_name === 'UserQuery') {
-                const turnHTML = createConversationTurnHTML(eventData);
-                // Insert at top (newest first)
-                turnsList.insertAdjacentHTML('afterbegin', turnHTML);
+                // Prepend so newest is at top
+                tbody.insertBefore(tr, tbody.firstChild);
 
-                // Highlight the new turn
-                const newTurn = turnsList.querySelector(`[data-turn-id="${eventData.event_id}"]`);
-                if (newTurn) {
-                    highlightElement(newTurn.querySelector('.userquery-parent'));
-                }
+                highlightElement(tr);
 
-                // Convert timestamps
                 if (typeof convertTimestampsToLocal === 'function') {
                     convertTimestampsToLocal();
                 }
+
+                // Trim to 50 parent rows to prevent memory growth
+                const allParentRows = tbody.querySelectorAll('tr.parent-row');
+                if (allParentRows.length > 50) {
+                    for (let i = 50; i < allParentRows.length; i++) {
+                        allParentRows[i].remove();
+                    }
+                }
                 return;
             }
 
-            // Handle child events - insert into appropriate conversation turn
+            // Handle child events: increment the child-count badge on the parent row.
+            // Do NOT inject children directly — the next expand click will re-fetch them.
             if (eventData.parent_event_id) {
-                // Try to find the parent event's container
-                const parentChildRow = document.querySelector(`[data-event-id="${eventData.parent_event_id}"]`);
-
-                if (parentChildRow) {
-                    // Parent exists - insert as nested child
-                    const childHTML = createChildEventHTML(eventData, 1); // Start at depth 1
-
-                    // Check if parent already has a nested children container
-                    let childrenContainer = document.getElementById(`children-child-${eventData.parent_event_id}`);
-
-                    if (!childrenContainer) {
-                        // Parent doesn't have children container yet - create one
-                        childrenContainer = document.createElement('div');
-                        childrenContainer.className = 'child-children collapsed';
-                        childrenContainer.id = `children-child-${eventData.parent_event_id}`;
-                        childrenContainer.setAttribute('data-parent-event', eventData.parent_event_id);
-                        childrenContainer.setAttribute('data-depth', '1');
-
-                        // Insert after the parent row
-                        parentChildRow.insertAdjacentElement('afterend', childrenContainer);
-
-                        // Update parent row to show it has nested children
-                        parentChildRow.classList.add('has-nested-children');
-                        parentChildRow.setAttribute('onclick', `toggleChildEvent('${eventData.parent_event_id}', event)`);
-
-                        // Add expand toggle if not present
-                        const existingToggle = parentChildRow.querySelector('.expand-toggle-child');
-                        if (!existingToggle) {
-                            const treeConnector = parentChildRow.querySelector('.tree-connector');
-                            if (treeConnector) {
-                                const toggle = document.createElement('span');
-                                toggle.className = 'expand-toggle-child';
-                                toggle.id = `toggle-child-${eventData.parent_event_id}`;
-                                toggle.textContent = '▶';
-                                treeConnector.replaceWith(toggle);
-                            }
-                        }
-
-                        // Add nested count badge
-                        const existingBadge = parentChildRow.querySelector('.nested-count-badge');
-                        if (!existingBadge) {
-                            const badge = document.createElement('span');
-                            badge.className = 'nested-count-badge';
-                            badge.title = '1 nested events';
-                            badge.textContent = '1';
-                            // Insert before duration span
-                            const durationSpan = parentChildRow.querySelector('.child-duration');
-                            if (durationSpan) {
-                                durationSpan.insertAdjacentElement('beforebegin', badge);
-                            }
-                        }
-                    } else {
-                        // Update nested count badge
-                        const badge = parentChildRow.querySelector('.nested-count-badge');
-                        if (badge) {
-                            const currentCount = parseInt(badge.textContent) || 0;
-                            const newCount = currentCount + 1;
-                            badge.textContent = newCount;
-                            badge.title = `${newCount} nested events`;
-                        }
+                const parentRow = document.querySelector(`tr[data-event-id="${eventData.parent_event_id}"]`);
+                if (parentRow) {
+                    const countBadge = parentRow.querySelector('.child-count');
+                    if (countBadge) {
+                        // Parse current "(N)" format
+                        const current = parseInt(countBadge.textContent.replace(/[()]/g, ''), 10) || 0;
+                        countBadge.textContent = `(${current + 1})`;
                     }
-
-                    // Insert child into container (newest first)
-                    childrenContainer.insertAdjacentHTML('afterbegin', childHTML);
-
-                    // Highlight the new child
-                    const newChild = childrenContainer.querySelector(`[data-event-id="${eventData.event_id}"]`);
-                    if (newChild) {
-                        highlightElement(newChild);
-                    }
-
-                    return;
-                }
-
-                // Parent not found - try to find the conversation turn by checking UserQuery parent
-                const turnContainer = findConversationTurnForEvent(eventData.parent_event_id);
-
-                if (turnContainer) {
-                    // Insert into conversation turn's children
-                    const turnChildrenContainer = turnContainer.querySelector('.turn-children');
-                    if (turnChildrenContainer) {
-                        const childHTML = createChildEventHTML(eventData, 0); // Top-level child
-                        turnChildrenContainer.insertAdjacentHTML('afterbegin', childHTML);
-
-                        // Remove "no children" message if present
-                        const noChildrenMsg = turnChildrenContainer.querySelector('.no-children-message');
-                        if (noChildrenMsg) {
-                            noChildrenMsg.remove();
-                        }
-
-                        // Update turn stats
-                        updateTurnStats(turnContainer);
-
-                        // Highlight the new child
-                        const newChild = turnChildrenContainer.querySelector(`[data-event-id="${eventData.event_id}"]`);
-                        if (newChild) {
-                            highlightElement(newChild);
-                        }
-
-                        return;
-                    }
-                }
-
-                // If we still can't find the parent, create an orphaned event placeholder
-                // This will be re-parented when the actual parent arrives
-                console.warn('[Activity Feed] Parent not found for event, creating orphan:', eventData.event_id, 'parent:', eventData.parent_event_id);
-                storeOrphanedEvent(eventData);
-            }
-
-            // Convert timestamps
-            if (typeof convertTimestampsToLocal === 'function') {
-                convertTimestampsToLocal();
-            }
-
-            // Keep only last 50 conversation turns to prevent memory issues
-            const allTurns = turnsList.querySelectorAll('.conversation-turn');
-            if (allTurns.length > 50) {
-                const itemsToRemove = allTurns.length - 50;
-                for (let i = 0; i < itemsToRemove; i++) {
-                    allTurns[allTurns.length - 1 - i].remove();
+                    // Brief highlight on the parent to signal activity
+                    highlightElement(parentRow);
+                } else {
+                    console.warn('[Activity Feed] Parent row not found for child event, skipping:', eventData.event_id, 'parent:', eventData.parent_event_id);
                 }
             }
         }

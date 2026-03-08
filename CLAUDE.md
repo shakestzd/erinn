@@ -8,12 +8,12 @@
 
 ## Project Vision
 
-Lightweight graph database built on web standards (HTML, CSS, JS) for AI agent coordination and human observability.
+Lightweight graph database with document-native graph storage and database-backed observability for AI agent coordination.
 
 - HTML files = Graph nodes
 - Hyperlinks = Graph edges
 - CSS selectors = Query language
-- Zero dependencies, offline-first
+- JSONL + SQLite = event history, analytics, and dashboard queries
 
 ---
 
@@ -63,13 +63,13 @@ uv run pytest                              # Run tests
 
 ## Development Mode
 
-**CRITICAL: Hooks load htmlgraph from PyPI, not local source, even in dev mode.**
+**CRITICAL: Hooks run from the active environment and bootstrap local source when available.**
 
 ### What Dev Mode Does
 
 Dev mode enables local plugin development by loading the plugin directly from the source directory instead of from the Claude Code marketplace. This allows you to:
 - Test changes to commands, agents, skills, and hooks immediately
-- Work with the latest code without deploying to PyPI
+- Work with local source during development
 - Debug plugin functionality in a live Claude Code session
 
 ### Starting Dev Mode
@@ -91,7 +91,9 @@ When dev mode runs, it needs to find all plugin components. The structure must b
 ```
 packages/claude-plugin/              ← PLUGIN ROOT (passed to --plugin-dir)
 ├── .claude-plugin/
-│   └── plugin.json                  ← Only this file in .claude-plugin
+│   ├── plugin.json                  ← Required plugin metadata
+│   ├── marketplace.json             ← Marketplace metadata
+│   └── system-prompt-default.md     ← Default prompt template
 ├── commands/                        ← At plugin root (NOT in .claude-plugin)
 │   ├── deploy.md
 │   ├── init.md
@@ -113,7 +115,7 @@ packages/claude-plugin/              ← PLUGIN ROOT (passed to --plugin-dir)
         └── ...
 ```
 
-**CRITICAL MISTAKE TO AVOID:** Don't put `commands/`, `agents/`, `skills/`, or `hooks/` inside `.claude-plugin/`. According to Claude Code documentation, only `plugin.json` belongs in `.claude-plugin/`. All other directories must be at the plugin root level.
+**CRITICAL MISTAKE TO AVOID:** Don't put `commands/`, `agents/`, `skills/`, or `hooks/` inside `.claude-plugin/`. Keep operational directories at plugin root; `.claude-plugin/` is for plugin metadata files.
 
 ### How Dev Mode Plugin Loading Works
 
@@ -147,36 +149,35 @@ If commands don't appear, verify:
 1. `get_plugin_dir()` returns the correct path (root, not `.claude-plugin`)
 2. Command files exist in `packages/claude-plugin/commands/`
 3. Skill files are named `SKILL.md` (uppercase), not `skill.md`
-4. No files are in `.claude-plugin/` except `plugin.json`
+4. `.claude-plugin/` contains metadata files only (not hooks/skills/commands/agents)
 
 ### How Hooks Load HtmlGraph
 
 **Hook shebangs use:**
 ```python
-#!/usr/bin/env -S uv run --with htmlgraph
+#!/usr/bin/env -S uv run
 ```
 
 **Key behavior:**
-- `--with htmlgraph` always pulls **latest version from PyPI**
-- Even when running from project root, hooks use PyPI package
-- No version pinning (always gets latest)
-- No need to edit hooks when releasing new versions
+- Hooks run with the active `uv`/Python environment.
+- Hook bootstrap adds `src/python` when running in the htmlgraph repo.
+- In project repos, bootstrap resolves `.venv` site-packages when available.
+- Hook execution is not hard-pinned to `uv run --with htmlgraph`.
 
-### Why PyPI in Dev Mode?
+### Why This Helps in Dev Mode?
 
 **Testing in production-like environment:**
-- Ensures changes work the same way for users
-- Catches integration issues before distribution
-- No surprises when hooks run in production
-- Single source of truth (PyPI package)
+- Local source can be validated immediately in-repo.
+- Installed package behavior can still be validated before release.
+- Reduces confusion about which runtime hooks are executing under.
 
 ### Development Workflow
 
 1. **Make changes** to `src/python/htmlgraph/`
 2. **Run tests** locally: `uv run pytest`
-3. **Deploy to PyPI**: `./scripts/deploy-all.sh X.Y.Z --no-confirm`
-4. **Restart Claude**: Hooks automatically load new version from PyPI
-5. **Verify**: Check that changes work correctly
+3. **Restart Claude/dev session** so plugin/hooks reload cleanly
+4. **Verify** behavior end-to-end
+5. **Optional release validation**: deploy package and re-test in a clean environment
 
 ### Session ID Fix (v0.26.3)
 
@@ -214,9 +215,9 @@ ORDER BY COUNT(*) DESC;
 ### Troubleshooting Dev Mode
 
 **Hooks not executing?**
-- Check PyPI package is latest: `pip show htmlgraph`
-- Verify hooks are executable: `ls -la packages/claude-plugin/.claude-plugin/hooks/scripts/`
-- Check hook shebangs: `head -1 packages/claude-plugin/.claude-plugin/hooks/scripts/*.py`
+- Check hook runtime import path: `uv run python -c "import htmlgraph; print(htmlgraph.__file__)"`
+- Verify hooks are executable: `ls -la packages/claude-plugin/hooks/scripts/`
+- Check hook shebangs: `head -1 packages/claude-plugin/hooks/scripts/*.py`
 
 **Session IDs still mismatched?**
 - Query database for UserQuery events: `sqlite3 .htmlgraph/htmlgraph.db "SELECT session_id FROM agent_events WHERE tool_name='UserQuery' ORDER BY timestamp DESC LIMIT 1;"`
@@ -224,9 +225,9 @@ ORDER BY COUNT(*) DESC;
 - Verify fix is deployed: Check that v0.26.3+ is on PyPI
 
 **Local changes not reflected?**
-- Hooks load from PyPI, not local source
-- Must deploy to PyPI for hooks to see changes
-- Use incremental versions (0.26.2 → 0.26.3 → 0.26.4)
+- Restart Claude/session so hooks reload
+- Confirm bootstrap can see `src/python` (repo mode) or `.venv` site-packages (project mode)
+- If validating packaged behavior, deploy a new version and retest in a clean environment
 
 ---
 
@@ -291,27 +292,21 @@ This project uses HtmlGraph to develop HtmlGraph. The `.htmlgraph/` directory co
 
 **CRITICAL: ALL Claude Code integrations (hooks, agents, skills) must be built in the PLUGIN SOURCE.**
 
-**Plugin Source:** `packages/claude-plugin/.claude-plugin/`
+**Plugin Source Root:** `packages/claude-plugin/`
 **Do NOT edit:** `.claude/` directory (auto-synced from plugin)
 
 ### Plugin Components - What Belongs in the Plugin
 
-Everything that extends Claude Code functionality should be in `packages/claude-plugin/.claude-plugin/`:
+Everything that extends Claude Code functionality should be in `packages/claude-plugin/`:
 
 #### 1. **Hooks** (All CloudEvent handlers)
-   - **Location:** `packages/claude-plugin/.claude-plugin/hooks/`
+   - **Location:** `packages/claude-plugin/hooks/`
    - **What:** Python scripts that respond to Claude Code events
-   - **Examples:**
-     - `session-start.py` - Runs when Claude Code session starts
-     - `user-prompt-submit.py` - Runs when user submits a prompt (creates UserQuery events)
-     - `track-event.py` - Records all tool calls and completions to database
-     - `pretooluse-integrator.py` - Track tool use and link to parent activities
-     - `session-end.py` - Cleanup when session ends
-     - `subagent-stop.py` - Handles subagent completion
+   - **Examples:** `hooks/scripts/session-start.py`, `hooks/scripts/user-prompt-submit.py`, `hooks/scripts/track-event.py`
    - **Why plugin:** Hooks are Claude Code infrastructure—must be packaged for distribution
 
 #### 2. **Skills** (User-invocable commands)
-   - **Location:** `packages/claude-plugin/.claude-plugin/skills/`
+   - **Location:** `packages/claude-plugin/skills/`
    - **What:** Markdown skill definitions + embedded Python for orchestration
    - **Current Examples:**
      - `/orchestrator-directives` - Delegation patterns
@@ -324,23 +319,20 @@ Everything that extends Claude Code functionality should be in `packages/claude-
 #### 3. **Plugin Configuration**
    - **Location:** `packages/claude-plugin/.claude-plugin/plugin.json`
    - **What:** Plugin metadata, MCP server configurations
-   - **Includes:**
-     - Plugin name, version, description
-     - MCP server configurations
    - **Why plugin:** Defines how Claude Code loads and runs the plugin
 
-#### 4. **Configuration & Prompts**
-   - **Location:** `packages/claude-plugin/.claude-plugin/config/`
-   - **What:** System prompts, classification rules, drift thresholds
-   - **Examples:**
-     - `classification-prompt.md` - Prompt for work type classification
-     - `drift-config.json` - Context drift detection settings
-   - **Why plugin:** Shared across all users; updates distributed via plugin
+#### 4. **Shared Config & Prompts**
+   - **Location:** `packages/claude-plugin/config/`
+   - **What:** Prompt fragments and runtime configuration used by plugin hooks/skills
 
 ### Directory Structure
 
 ```
-packages/claude-plugin/.claude-plugin/  <-- SOURCE (make changes here)
+packages/claude-plugin/  <-- SOURCE (make changes here)
+├── .claude-plugin/
+│   ├── plugin.json                  ← Plugin metadata
+│   ├── marketplace.json             ← Marketplace metadata
+│   └── system-prompt-default.md     ← Default prompt template
 ├── hooks/
 │   ├── hooks.json                   ← Hook event routing
 │   └── scripts/
@@ -351,16 +343,13 @@ packages/claude-plugin/.claude-plugin/  <-- SOURCE (make changes here)
 │       ├── posttooluse-integrator.py ← Activity linking
 │       ├── session-end.py           ← Session cleanup
 │       └── subagent-stop.py         ← Subagent completion
+├── commands/                        ← Slash command definitions
+├── agents/                          ← Agent definitions
 ├── skills/
-│   ├── orchestrator-directives/     ← Delegation patterns
-│   ├── code-quality/                ← Quality gates
-│   ├── deployment-automation/       ← Release workflow
-│   ├── debugging-workflow/          ← Debug methodology
-│   └── memory-sync/                 ← Doc synchronization
+│   └── ...                          ← Skill folders with SKILL.md
 ├── config/
-│   ├── classification-prompt.md     ← Work classification AI
-│   └── drift-config.json            ← Drift thresholds
-└── plugin.json                      ← Plugin metadata
+│   └── ...                          ← Shared prompt/config files
+└── rules/                           ← Additional plugin rule files
 
 .claude/  <-- AUTO-SYNCED (do not edit)
 ├── hooks/ (synced from plugin)
@@ -379,17 +368,17 @@ packages/claude-plugin/.claude-plugin/  <-- SOURCE (make changes here)
 
 **ALWAYS edit in plugin source:**
 
-- ✅ Edit `packages/claude-plugin/.claude-plugin/hooks/hooks.json`
-- ✅ Edit `packages/claude-plugin/.claude-plugin/hooks/scripts/*.py`
-- ✅ Add agents to `packages/claude-plugin/.claude-plugin/agents/`
-- ✅ Add skills to `packages/claude-plugin/.claude-plugin/skills/`
+- ✅ Edit `packages/claude-plugin/hooks/hooks.json`
+- ✅ Edit `packages/claude-plugin/hooks/scripts/*.py`
+- ✅ Add agents to `packages/claude-plugin/agents/`
+- ✅ Add skills to `packages/claude-plugin/skills/`
 
 ### Workflow: Making Changes to Plugin
 
 1. **Make changes in plugin source:**
    ```bash
-   # Edit files in packages/claude-plugin/.claude-plugin/
-   vim packages/claude-plugin/.claude-plugin/hooks/scripts/user-prompt-submit.py
+   # Edit files in packages/claude-plugin/
+   vim packages/claude-plugin/hooks/scripts/user-prompt-submit.py
    vim packages/claude-plugin/.claude-plugin/plugin.json
    ```
 
@@ -406,7 +395,7 @@ packages/claude-plugin/.claude-plugin/  <-- SOURCE (make changes here)
 
 4. **Commit changes:**
    ```bash
-   git add packages/claude-plugin/.claude-plugin/
+   git add packages/claude-plugin/
    git commit -m "fix: update hook X with Y changes"
    ```
 
@@ -414,6 +403,7 @@ packages/claude-plugin/.claude-plugin/  <-- SOURCE (make changes here)
    ```bash
    ./scripts/deploy-all.sh 0.9.7 --no-confirm
    # This updates version in plugin.json and publishes to distribution
+   ```
 
 ### Never Do This
 
@@ -425,10 +415,10 @@ packages/claude-plugin/.claude-plugin/  <-- SOURCE (make changes here)
 
 ### Always Do This
 
-- Edit `packages/claude-plugin/.claude-plugin/hooks/hooks.json`
-- Edit `packages/claude-plugin/.claude-plugin/hooks/scripts/*.py`
-- Add agents to `packages/claude-plugin/.claude-plugin/agents/`
-- Add skills to `packages/claude-plugin/.claude-plugin/skills/`
+- Edit `packages/claude-plugin/hooks/hooks.json`
+- Edit `packages/claude-plugin/hooks/scripts/*.py`
+- Add agents to `packages/claude-plugin/agents/`
+- Add skills to `packages/claude-plugin/skills/`
 - Commit plugin source files
 - Test in dev mode (hooks run from plugin automatically)
 

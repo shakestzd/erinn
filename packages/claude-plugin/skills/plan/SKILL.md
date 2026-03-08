@@ -219,19 +219,117 @@ To execute: /htmlgraph:execute
 
 ---
 
-## Step 8: Set Up Worktrees
+## Step 8: Parallel Execution Optimization (REQUIRED for all plans)
 
-After plan approval, prepare the execution environment:
+After creating the initial plan, ALWAYS restructure it for parallel execution using git worktrees. This is mandatory — every plan must be optimized for parallelism before presenting to the user.
 
-```bash
-# Set up isolated worktrees for each task
-uv run htmlgraph worktree setup
+### 8a. Dependency Analysis
 
-# Verify worktrees are ready
-git worktree list
+Group tasks by files touched and identify parallelism:
+
+- List all files each task reads or writes
+- Group tasks that share NO file overlap → candidates for parallel streams
+- Group tasks that depend on another task's output → sequential constraint (later stream)
+- Mark long-running or optional work as independent streams (can start anytime)
+
+Example analysis:
+```
+Task A (hooks/pretooluse.py, hooks/event_tracker.py) — no overlap with B
+Task B (api/routes.py, api/templates/) — no overlap with A
+Task C (tests/test_integration.py) — depends on A and B outputs
+→ A and B run in parallel, C is the sequential integration gate
 ```
 
-Each task gets its own worktree branch `feature/<task-id>` so agents work in isolation without conflicts.
+### 8b. Restructure Phases as Streams
+
+Rebuild the track phases to reflect parallel streams. Name each phase so it maps directly to a worktree:
+
+```python
+from htmlgraph import SDK
+import subprocess, os
+
+sdk = SDK(agent="claude-code")
+repo_name = os.path.basename(os.getcwd())
+
+track = sdk.tracks.builder() \
+    .title("[Descriptive Track Title]") \
+    .with_plan_phases([
+        (f"Stream A: [Domain A] (worktree: {repo_name}-stream-a)", [
+            "Task 1 description (Xh)",
+            "Task 2 description (Xh)",
+        ]),
+        (f"Stream B: [Domain B] (worktree: {repo_name}-stream-b)", [
+            "Task 3 description (Xh)",
+        ]),
+        ("Stream C: Integration Tests + Merge (after A AND B complete)", [
+            "Merge Stream A and B branches (0.5h)",
+            "Run full test suite (0.5h)",
+            "Deploy (0.5h)",
+        ]),
+        ("Stream D: Long-term / Independent (anytime)", [
+            "Optional or long-horizon work (Xh)",
+        ]),
+    ]) \
+    .create()
+```
+
+Only include streams that have actual tasks. Omit Stream D if there is no independent work.
+
+### 8c. Create Git Worktrees Automatically
+
+After creating the track, immediately create worktrees for all parallel streams (those NOT gated behind other streams). Do NOT create worktrees for sequential gate streams like Stream C — those are created when their dependencies finish.
+
+```python
+track_short = track.id.replace("trk-", "")[:8]
+created_worktrees = []
+
+# Only parallel streams get worktrees now — sequential gates come later
+parallel_streams = [
+    ("stream-a", f"{repo_name}-stream-a"),
+    ("stream-b", f"{repo_name}-stream-b"),
+]
+
+for stream_id, worktree_dir in parallel_streams:
+    branch = f"{stream_id}-{track_short}"
+    worktree_path = f"../{worktree_dir}"
+    result = subprocess.run(
+        ["git", "worktree", "add", worktree_path, "-b", branch],
+        capture_output=True, text=True, cwd=os.getcwd()
+    )
+    if result.returncode == 0:
+        created_worktrees.append((worktree_path, branch, stream_id))
+    else:
+        print(f"Note: {worktree_path}: {result.stderr.strip()}")
+
+# Verify
+verify = subprocess.run(["git", "worktree", "list"], capture_output=True, text=True)
+print(verify.stdout)
+```
+
+### 8d. Output Execution-Ready Summary
+
+End the plan command with this summary so the user can act immediately:
+
+```
+## Plan Complete — Ready to Execute
+
+Track: {track.id} — {track.title}
+
+Parallel streams (run simultaneously):
+  Stream A: ../{repo}-stream-a  (branch: stream-a-{short_id})
+  Stream B: ../{repo}-stream-b  (branch: stream-b-{short_id})
+
+Sequential gate:
+  Stream C: Integration Tests + Merge — starts after A AND B complete
+
+Say "start it" to launch parallel subagents into these worktrees.
+```
+
+If worktree creation failed for any stream, show the manual git commands instead:
+```bash
+git worktree add ../{repo}-stream-a -b stream-a-{short_id}
+git worktree add ../{repo}-stream-b -b stream-b-{short_id}
+```
 
 ---
 

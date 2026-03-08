@@ -27,6 +27,7 @@ from htmlgraph.db.ddl import (
     run_data_migrations,
 )
 from htmlgraph.db.extensions import ExtensionOps
+from htmlgraph.db.pragmas import apply_sync_pragmas
 
 logger = logging.getLogger(__name__)
 
@@ -83,9 +84,7 @@ class HtmlGraphDB(ExtensionOps):
         """
         self.connection = sqlite3.connect(str(self.db_path))
         self.connection.row_factory = sqlite3.Row
-        self.connection.execute("PRAGMA foreign_keys = ON")
-        self.connection.execute("PRAGMA journal_mode=WAL")
-        self.connection.execute("PRAGMA wal_autocheckpoint=1000")
+        apply_sync_pragmas(self.connection)
         return self.connection
 
     def disconnect(self) -> None:

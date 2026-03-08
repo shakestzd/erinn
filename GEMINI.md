@@ -108,7 +108,7 @@ All HtmlGraph commands are available in Gemini through the extension:
 
 **Both platforms use the same:**
 - Python SDK (`htmlgraph` package)
-- REST API (port 8080)
+- REST API surface (`htmlgraph serve` defaults to `:8080`; `htmlgraph serve-api` defaults to `:8000`)
 - CLI commands (`uv run htmlgraph`)
 - HTML file format
 

@@ -18,6 +18,7 @@ from htmlgraph.api.services import (
     AnalyticsService,
     OrchestrationService,
 )
+from htmlgraph.db.pragmas import apply_async_pragmas
 
 logger = logging.getLogger(__name__)
 
@@ -30,12 +31,10 @@ class Dependencies:
         self.query_cache = query_cache
 
     async def get_db(self) -> aiosqlite.Connection:
-        """Get database connection with busy_timeout to prevent lock errors."""
+        """Get database connection with standard PRAGMAs to prevent lock errors."""
         db = await aiosqlite.connect(self.db_path)
         db.row_factory = aiosqlite.Row
-        # Set busy_timeout to 5 seconds - prevents "database is locked" errors
-        # during concurrent access from spawner scripts and WebSocket polling
-        await db.execute("PRAGMA busy_timeout = 5000")
+        await apply_async_pragmas(db)
         return db
 
     def create_services(

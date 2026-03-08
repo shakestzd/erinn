@@ -363,5 +363,10 @@
     "spike_id": "spk-46c347f4",
     "created": "2026-03-07T03:23:03.153490",
     "occurrences": 3
+  },
+  "Bash:Exit code 1\nwarning: `VIRTUAL_ENV=/Users/shakes/DevProjects/htmlgraph/.venv` does not match the proj": {
+    "spike_id": "spk-6e399eef",
+    "created": "2026-03-08T00:57:33.840645",
+    "occurrences": 3
   }
 }

@@ -561,11 +561,15 @@ async def activity_feed_delta(
             # Return only turns that come before (i.e., newer than) the
             # row with event_id == since in the ordered list.
             new_turns = []
+            anchor_found = False
             for turn in all_turns:
                 if turn["parent"]["event_id"] == since:
+                    anchor_found = True
                     break
                 new_turns.append(turn)
-            hierarchical_events = new_turns
+            # If anchor is missing, return nothing to avoid duplicate prepend
+            # storms after client/server refresh drift.
+            hierarchical_events = new_turns if anchor_found else []
         else:
             # No anchor — return last 5 turns for initial render
             hierarchical_events = all_turns[:5]

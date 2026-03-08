@@ -1,10 +1,5 @@
 <link rel="stylesheet" href="/static/style-redesign.css">
-<div class="view-container activity-feed-view"
-     hx-get="/views/activity-feed"
-     hx-trigger="every 30s, refresh"
-     hx-ext="morph"
-     hx-swap="morph:outerHTML"
-     hx-target="this">
+<div class="view-container activity-feed-view">
     <div class="view-header">
         <h2>Agent Feed <span class="view-subtitle">— Showing last {{ limit }} sessions, most recent first</span></h2>
         <div class="view-filters">
@@ -24,7 +19,6 @@
                 <thead>
                     <tr>
                         <th class="col-activity">Event</th>
-                        <th class="col-status">Status</th>
                         <th class="col-ts">Time</th>
                     </tr>
                 </thead>
@@ -79,10 +73,6 @@
                                 </div>
                             </td>
 
-                            <td class="col-status">
-                                <span class="status-badge status-{{ group.parent.status }}">{{ group.parent.status }}</span>
-                            </td>
-
                             <td class="col-ts">
                                 <span class="timestamp-text"
                                       data-utc-time="{{ group.parent.timestamp }}"
@@ -102,11 +92,6 @@
         {% endif %}
     </div>
 
-    <!-- Auto-refresh indicator -->
-    <div class="auto-refresh-indicator">
-        <span class="refresh-dot"></span>
-        Live updates enabled (via WebSocket)
-    </div>
 </div>
 
 <style>
@@ -117,8 +102,13 @@
 
 /* Fix page margins — use available width */
 .activity-feed-view {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 auto;
+    min-height: 0;
     padding: 0.5rem 0.75rem;
     max-width: 100%;
+    gap: 0.5rem;
 }
 
 .view-header {
@@ -149,7 +139,9 @@
 }
 
 .activity-list.table-view {
-    overflow-x: auto;
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: auto;
     width: 100%;
 }
 
@@ -166,7 +158,6 @@
 
 /* Column widths */
 .activity-table .col-activity { width: auto; }
-.activity-table .col-status   { width: 75px; }
 .activity-table .col-ts       { width: 80px; }
 
 /* Table header */
@@ -181,7 +172,6 @@
 }
 
 .activity-table thead th.col-ts { text-align: right; }
-.activity-table thead th.col-status { text-align: center; }
 
 /* Table rows */
 .activity-table tbody tr {
@@ -366,9 +356,6 @@
     flex-shrink: 0;
     white-space: nowrap;
 }
-
-/* Status cell */
-.activity-table td.col-status { text-align: center; }
 
 /* Timestamp cell */
 .activity-table td.col-ts {

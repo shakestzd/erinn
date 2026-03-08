@@ -30,6 +30,14 @@
                         <span class="stat-label">Sessions</span>
                         <span class="stat-value" id="session-count">0</span>
                     </div>
+                    <div class="stat-badge">
+                        <span class="stat-label">Sync Lag</span>
+                        <span class="stat-value" id="sync-lag">0</span>
+                    </div>
+                    <div class="stat-badge">
+                        <span class="stat-label">Conflicts</span>
+                        <span class="stat-value" id="sync-conflicts">0</span>
+                    </div>
                     <div class="ws-indicator">
                         <div class="ws-dot connected" id="ws-indicator"></div>
                         <span id="ws-status">Connected</span>
@@ -95,6 +103,8 @@
         let wsConnected = false;
         let activeView = 'activity-feed';
         let activityFeedReady = false;
+        let syncLag = 0;
+        let syncConflicts = 0;
 
         // Load initial stats from server
         async function loadInitialStats() {
@@ -139,16 +149,15 @@
                 const tab = this.dataset.tab;
                 // Map tab data-tab attribute to view name used by refreshActivityFeed
                 activeView = (tab === 'activity') ? 'activity-feed' : tab;
-                // Mark feed as not ready when switching away; it becomes ready after HTMX loads
-                if (activeView !== 'activity-feed') {
-                    activityFeedReady = false;
-                } else {
-                    // Switching back to activity feed — mark ready after content loads
-                    htmx.ajax('GET', '/views/activity-feed', {target: '#content-area'}).then(function() {
-                        activityFeedReady = true;
-                    });
-                }
+                // Readiness is updated after HTMX settles the content-area swap.
+                activityFeedReady = false;
             });
+        });
+
+        // Track whether the activity feed is actually mounted in the content area.
+        document.body.addEventListener('htmx:afterSettle', function(evt) {
+            if (!evt.detail.target || evt.detail.target.id !== 'content-area') return;
+            activityFeedReady = !!evt.detail.target.querySelector('.activity-feed-view');
         });
 
         // WebSocket Connection
@@ -186,6 +195,15 @@
 
                         // Feed updates are now handled by SSE (/activity-feed/stream).
                         // WebSocket is kept for presence / cost alerts only.
+                    } else if (data.type === 'spawner_event' && data.spawner_type === 'sync') {
+                        const syncData = data.data || {};
+                        if (data.event_type === 'sync_lag' && typeof syncData.lag === 'number') {
+                            syncLag = Math.max(syncData.lag, 0);
+                            document.getElementById('sync-lag').textContent = syncLag;
+                        } else if (data.event_type === 'sync_conflict') {
+                            syncConflicts += 1;
+                            document.getElementById('sync-conflicts').textContent = syncConflicts;
+                        }
                     }
                 } catch (e) {
                     console.error('WebSocket message error:', e);
@@ -257,7 +275,23 @@
                 const html = await response.text();
                 if (!html.trim()) return;  // no new rows
 
-                tbody.insertAdjacentHTML('afterbegin', html);
+                // Defensive de-duplication: if anchor drifted, avoid re-inserting
+                // rows that are already present in the DOM.
+                const scratch = document.createElement('tbody');
+                scratch.innerHTML = html;
+                const incoming = Array.from(scratch.querySelectorAll('tr[data-event-id]'));
+                const hasEventId = (eventId) => {
+                    if (!eventId) return false;
+                    return !!tbody.querySelector(`tr[data-event-id="${eventId}"]`);
+                };
+                incoming.forEach((row) => {
+                    if (hasEventId(row.dataset.eventId || '')) {
+                        row.remove();
+                    }
+                });
+                if (!scratch.querySelector('tr[data-event-id]')) return;
+
+                tbody.insertAdjacentHTML('afterbegin', scratch.innerHTML);
                 htmx.process(tbody);  // init htmx on new rows only
             } catch (err) {
                 console.error('Delta feed fetch error:', err);
@@ -278,6 +312,17 @@
                 es.addEventListener('feed-update', function() {
                     debouncedFeedRefresh();
                 });
+                es.addEventListener('sync-status', function(evt) {
+                    try {
+                        const payload = JSON.parse(evt.data || '{}');
+                        syncLag = payload.max_consumer_lag || payload.pipeline_lag || 0;
+                        syncConflicts = payload.pending_conflicts || 0;
+                        document.getElementById('sync-lag').textContent = syncLag;
+                        document.getElementById('sync-conflicts').textContent = syncConflicts;
+                    } catch (err) {
+                        console.error('sync-status SSE parse error:', err);
+                    }
+                });
                 es.onerror = function() {
                     es.close();
                     setTimeout(connect, 5000);
@@ -285,49 +330,6 @@
             }
             connect();
         }
-
-        // Preserve expansion state across HTMX feed refreshes
-        document.addEventListener('htmx:beforeSwap', function(evt) {
-            if (evt.detail.target && evt.detail.target.classList.contains('activity-feed-view')) {
-                // toggleChildren() marks the .expand-icon, not the row
-                const expanded = new Set();
-                document.querySelectorAll('.activity-row .expand-icon.expanded').forEach(icon => {
-                    const row = icon.closest('[data-event-id]');
-                    if (!row) return;
-                    const eid = row.dataset.eventId;
-                    if (row.classList.contains('parent-row')) {
-                        expanded.add(eid);
-                    } else if (row.classList.contains('depth-1')) {
-                        expanded.add('child:' + eid);
-                    }
-                });
-                window._htmxFeedExpandedState = Array.from(expanded);
-            }
-        });
-
-        document.addEventListener('htmx:afterSettle', function(evt) {
-            if (!window._htmxFeedExpandedState || !window._htmxFeedExpandedState.length) return;
-
-            const expandedIds = new Set(window._htmxFeedExpandedState);
-            window._htmxFeedExpandedState = null;
-
-            // Use document query because outerHTML swap detaches the original target
-            const feedContainer = document.querySelector('.activity-feed-view');
-            if (!feedContainer) return;
-
-            // Re-expand parent rows
-            feedContainer.querySelectorAll('.parent-row').forEach(row => {
-                if (expandedIds.has(row.dataset.eventId)) {
-                    toggleChildren(row);
-                }
-            });
-            // Re-expand depth-1 child rows
-            feedContainer.querySelectorAll('.child-row.depth-1').forEach(row => {
-                if (expandedIds.has('child:' + row.dataset.eventId)) {
-                    toggleChildren(row);
-                }
-            });
-        });
 
         /**
          * Create and insert a new conversation turn for a UserQuery event
@@ -838,48 +840,6 @@
                 }
             }
         });
-
-        // Toggle child rows visibility (for expandable tracing)
-        function toggleChildren(parentRow) {
-            const eventId = parentRow.dataset.eventId;
-            const children = document.querySelectorAll(`[data-parent="${eventId}"]`);
-            const expandIcon = parentRow.querySelector('.expand-icon');
-
-            children.forEach(child => {
-                child.classList.toggle('hidden');
-            });
-
-            if (expandIcon) {
-                expandIcon.classList.toggle('expanded');
-            }
-        }
-
-        // Expand all parent rows
-        function expandAll() {
-            document.querySelectorAll('.parent-row.has-children').forEach(row => {
-                const eventId = row.dataset.eventId;
-                const children = document.querySelectorAll(`[data-parent="${eventId}"]`);
-                const expandIcon = row.querySelector('.expand-icon');
-
-                children.forEach(child => {
-                    child.classList.remove('hidden');
-                });
-
-                if (expandIcon) {
-                    expandIcon.classList.add('expanded');
-                }
-            });
-        }
-
-        // Collapse all parent rows
-        function collapseAll() {
-            document.querySelectorAll('.child-row').forEach(child => {
-                child.classList.add('hidden');
-            });
-            document.querySelectorAll('.expand-icon').forEach(icon => {
-                icon.classList.remove('expanded');
-            });
-        }
 
         // ============================================
         // Jaeger-Style Trace Interactivity Functions

@@ -33,7 +33,12 @@ class ActivityService:
         self.cache = cache
         self.logger = logger or logging.getLogger(__name__)
 
-    async def get_grouped_events(self, limit: int = 50) -> dict[str, Any]:
+    async def get_grouped_events(
+        self,
+        limit: int = 50,
+        agent_id: str | None = None,
+        session_id: str | None = None,
+    ) -> dict[str, Any]:
         """
         Return activity events grouped by user prompt (conversation turns).
 
@@ -44,6 +49,8 @@ class ActivityService:
 
         Args:
             limit: Maximum number of conversation turns to return (default 50)
+            agent_id: Optional filter by agent ID
+            session_id: Optional filter by session ID
 
         Returns:
             Dictionary with conversation turns and metadata
@@ -51,7 +58,7 @@ class ActivityService:
         query_start_time = time.time()
 
         try:
-            cache_key = f"events_grouped_by_prompt:{limit}"
+            cache_key = f"events_grouped_by_prompt:{limit}:{agent_id or 'all'}:{session_id or 'all'}"
 
             cached_result = self.cache.get(cache_key)
             if cached_result is not None:
@@ -76,7 +83,7 @@ class ActivityService:
                     session_id
                 FROM agent_events
                 WHERE tool_name = 'UserQuery'
-                ORDER BY timestamp DESC
+                ORDER BY datetime(REPLACE(SUBSTR(timestamp, 1, 19), 'T', ' ')) DESC
                 LIMIT ?
             """
 
@@ -102,7 +109,7 @@ class ActivityService:
                     session_id
                 FROM agent_events
                 WHERE parent_event_id = ?
-                ORDER BY timestamp DESC
+                ORDER BY datetime(REPLACE(SUBSTR(timestamp, 1, 19), 'T', ' ')) DESC
             """
 
             # First-level children query (includes cross-session lookup)
@@ -130,7 +137,7 @@ class ActivityService:
                         AND tool_name != 'UserQuery'
                     )
                 )
-                ORDER BY timestamp DESC
+                ORDER BY datetime(REPLACE(SUBSTR(timestamp, 1, 19), 'T', ' ')) DESC
             """
 
             # Step 2: For each UserQuery, fetch child events

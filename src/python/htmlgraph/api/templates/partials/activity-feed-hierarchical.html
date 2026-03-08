@@ -19,7 +19,6 @@
                 <thead>
                     <tr>
                         <th class="col-activity">Event</th>
-                        <th class="col-status">Status</th>
                         <th class="col-ts">Time</th>
                     </tr>
                 </thead>
@@ -74,10 +73,6 @@
                                 </div>
                             </td>
 
-                            <td class="col-status">
-                                <span class="status-badge status-{{ group.parent.status }}">{{ group.parent.status }}</span>
-                            </td>
-
                             <td class="col-ts">
                                 <span class="timestamp-text"
                                       data-utc-time="{{ group.parent.timestamp }}"
@@ -97,11 +92,6 @@
         {% endif %}
     </div>
 
-    <!-- Auto-refresh indicator -->
-    <div class="auto-refresh-indicator">
-        <span class="refresh-dot"></span>
-        Live updates enabled (via WebSocket)
-    </div>
 </div>
 
 <style>
@@ -161,7 +151,6 @@
 
 /* Column widths */
 .activity-table .col-activity { width: auto; }
-.activity-table .col-status   { width: 75px; }
 .activity-table .col-ts       { width: 80px; }
 
 /* Table header */
@@ -176,7 +165,6 @@
 }
 
 .activity-table thead th.col-ts { text-align: right; }
-.activity-table thead th.col-status { text-align: center; }
 
 /* Table rows */
 .activity-table tbody tr {
@@ -361,9 +349,6 @@
     flex-shrink: 0;
     white-space: nowrap;
 }
-
-/* Status cell */
-.activity-table td.col-status { text-align: center; }
 
 /* Timestamp cell */
 .activity-table td.col-ts {

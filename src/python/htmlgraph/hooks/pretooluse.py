@@ -562,6 +562,41 @@ def create_start_event(
                     subagent_parent_event_id = row[0]
             except Exception:
                 pass
+
+            # Background agent fallback: SubagentStart never fires for background agents,
+            # so no task_delegation has been claimed (agent_id still = 'claude-code').
+            # Find the most recent unclaimed background task_delegation in the same session
+            # and claim it by updating its agent_id to native_agent_id.
+            if not subagent_parent_event_id:
+                try:
+                    cursor.execute(
+                        """SELECT event_id FROM agent_events
+                           WHERE event_type = 'task_delegation'
+                             AND agent_id = 'claude-code'
+                             AND session_id = ?
+                             AND json_extract(tool_input, '$.run_in_background') = 1
+                           ORDER BY datetime(REPLACE(SUBSTR(timestamp, 1, 19), 'T', ' ')) DESC
+                           LIMIT 1""",
+                        (session_id,),
+                    )
+                    bg_row = cursor.fetchone()
+                    if bg_row:
+                        bg_event_id = bg_row[0]
+                        # Claim the delegation so subsequent tool calls from this
+                        # agent don't re-match the same row via native_agent_id lookup.
+                        cursor.execute(
+                            "UPDATE agent_events SET agent_id = ? WHERE event_id = ?",
+                            (native_agent_id, bg_event_id),
+                        )
+                        subagent_parent_event_id = bg_event_id
+                        logger.debug(
+                            f"Background agent {native_agent_id}: claimed "
+                            f"task_delegation={bg_event_id} (was unclaimed)"
+                        )
+                except Exception as e:
+                    logger.debug(
+                        f"Could not find/claim background task_delegation: {e}"
+                    )
         else:
             # Primary: check if this session_id exists in the sessions table.
             # If it does NOT exist, we are in a subagent with a brand-new session_id

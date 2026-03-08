@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <meta name="htmx-config" content='{"useTemplateFragments": true}'>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>HtmlGraph Dashboard - Agent Activity & Orchestration</title>
     <script src="/static/htmx.min.js"></script>
@@ -93,6 +94,8 @@
         let sessionCount = 0;
         let processedEventIds = new Set();
         let wsConnected = false;
+        let activeView = 'activity-feed';   // tracks the currently visible tab
+        let activityFeedReady = false;       // true once the first htmx load completes
 
         // Load initial stats from server
         async function loadInitialStats() {
@@ -122,6 +125,7 @@
             loadInitialStats();
             htmx.ajax('GET', '/views/activity-feed', {target: '#content-area'});
             connectWebSocket();
+            initActivityFeedSSE();
         });
 
         // Tab switching
@@ -131,6 +135,12 @@
                     b.classList.remove('active');
                 });
                 this.classList.add('active');
+                const tab = this.dataset.tab;
+                activeView = (tab === 'activity') ? 'activity-feed' : tab;
+                // Immediately refresh the feed when the user returns to it
+                if (activeView === 'activity-feed' && activityFeedReady) {
+                    refreshActivityFeed();
+                }
             });
         });
 
@@ -205,7 +215,7 @@
         }
 
         /**
-         * Debounced feed refresh — prevents rapid-fire HTMX swaps when many
+         * Debounced feed refresh — prevents rapid-fire fetches when many
          * low-signal tool events (Read, Bash, Grep) arrive in quick succession.
          */
         let _feedRefreshTimer = null;
@@ -218,66 +228,90 @@
         }
 
         /**
-         * Refresh the activity feed via HTMX re-fetch.
-         * Called when a WebSocket event arrives — triggers the server to re-render
-         * the hierarchical activity feed partial and swap it into the content area.
+         * Refresh the activity feed via plain fetch + DOM swap.
+         *
+         * Does NOT use htmx.trigger / morph to avoid the idiomorph bugs:
+         * - polling trigger killed after first morph
+         * - tbody rows stripped on re-render
+         * - race conditions between morph and lazy-loaded child rows
+         *
+         * Strategy:
+         * 1. Save expanded parent-row event IDs.
+         * 2. Fetch fresh feed HTML from the server.
+         * 3. Replace only the <tbody> innerHTML (parent rows) in the current DOM.
+         * 4. Re-fetch children for previously expanded rows.
          */
         function refreshActivityFeed() {
-            const feedContainer = document.querySelector('.activity-feed-view')
-                               || document.querySelector('[hx-get*="activity-feed"]');
-            if (feedContainer) {
-                htmx.trigger(feedContainer, 'refresh');
-            } else {
-                // Fallback: re-fetch and swap into the content area directly
-                htmx.ajax('GET', '/views/activity-feed', {
-                    target: document.querySelector('#content-area') || document.body,
-                    swap: 'innerHTML'
-                });
-            }
+            // Guard: only refresh when the activity-feed tab is visible and ready
+            if (activeView !== 'activity-feed' || !activityFeedReady) return;
+
+            // Step 1: Capture expanded children from the DOM before refresh
+            const savedExpansions = {};
+            document.querySelectorAll('.parent-row[data-children-loaded="true"]').forEach(function(row) {
+                var icon = row.querySelector('.expand-icon');
+                if (icon && icon.classList.contains('expanded')) {
+                    var children = [];
+                    var sibling = row.nextElementSibling;
+                    while (sibling && sibling.classList.contains('child-row')) {
+                        children.push(sibling.cloneNode(true));
+                        sibling = sibling.nextElementSibling;
+                    }
+                    if (children.length > 0) {
+                        savedExpansions[row.id] = children;
+                    }
+                }
+            });
+
+            // Step 2: Fetch fresh parent rows from server
+            fetch('/views/activity-feed')
+                .then(function(r) { return r.text(); })
+                .then(function(html) {
+                    var parser = new DOMParser();
+                    var doc = parser.parseFromString(html, 'text/html');
+                    var newTbody = doc.querySelector('#activity-feed-body');
+                    var currentTbody = document.querySelector('#activity-feed-body');
+                    if (!newTbody || !currentTbody) return;
+
+                    // Step 3: Replace parent rows only
+                    currentTbody.innerHTML = newTbody.innerHTML;
+                    // Re-initialize HTMX for newly inserted elements
+                    htmx.process(currentTbody);
+
+                    // Step 4: Re-insert saved children immediately (no server round-trip)
+                    Object.keys(savedExpansions).forEach(function(rowId) {
+                        var row = document.getElementById(rowId);
+                        if (!row) return;
+                        row.dataset.childrenLoaded = 'true';
+                        var icon = row.querySelector('.expand-icon');
+                        if (icon) icon.classList.add('expanded');
+                        // Insert children after the row in order
+                        var insertRef = row;
+                        savedExpansions[rowId].forEach(function(child) {
+                            insertRef.after(child);
+                            insertRef = child;
+                        });
+                    });
+                })
+                .catch(function(e) { console.error('Feed refresh failed:', e); });
         }
 
-        // Preserve expansion state across HTMX feed refreshes
-        document.addEventListener('htmx:beforeSwap', function(evt) {
-            if (evt.detail.target && evt.detail.target.classList.contains('activity-feed-view')) {
-                // toggleChildren() marks the .expand-icon, not the row
-                const expanded = new Set();
-                document.querySelectorAll('.activity-row .expand-icon.expanded').forEach(icon => {
-                    const row = icon.closest('[data-event-id]');
-                    if (!row) return;
-                    const eid = row.dataset.eventId;
-                    if (row.classList.contains('parent-row')) {
-                        expanded.add(eid);
-                    } else if (row.classList.contains('depth-1')) {
-                        expanded.add('child:' + eid);
-                    }
-                });
-                window._htmxFeedExpandedState = Array.from(expanded);
-            }
-        });
+        /**
+         * Open an SSE connection to /activity-feed/stream.
+         * On every ``feed-update`` event the server sends, refresh the feed.
+         * EventSource reconnects automatically on network errors.
+         */
+        function initActivityFeedSSE() {
+            var es = new EventSource('/activity-feed/stream');
 
-        document.addEventListener('htmx:afterSettle', function(evt) {
-            if (!window._htmxFeedExpandedState || !window._htmxFeedExpandedState.length) return;
-
-            const expandedIds = new Set(window._htmxFeedExpandedState);
-            window._htmxFeedExpandedState = null;
-
-            // Use document query because outerHTML swap detaches the original target
-            const feedContainer = document.querySelector('.activity-feed-view');
-            if (!feedContainer) return;
-
-            // Re-expand parent rows
-            feedContainer.querySelectorAll('.parent-row').forEach(row => {
-                if (expandedIds.has(row.dataset.eventId)) {
-                    toggleChildren(row);
-                }
+            es.addEventListener('feed-update', function() {
+                debouncedFeedRefresh();
             });
-            // Re-expand depth-1 child rows
-            feedContainer.querySelectorAll('.child-row.depth-1').forEach(row => {
-                if (expandedIds.has('child:' + row.dataset.eventId)) {
-                    toggleChildren(row);
-                }
-            });
-        });
+
+            es.onerror = function() {
+                // EventSource auto-reconnects — no manual action needed.
+                console.log('SSE connection lost, browser will auto-reconnect...');
+            };
+        }
 
         /**
          * Create and insert a new conversation turn for a UserQuery event
@@ -781,10 +815,15 @@
         }
 
         // Convert timestamps after HTMX loads content
+        // Also mark the activity feed as ready after the initial load completes
         document.body.addEventListener('htmx:afterSettle', function(evt) {
             if (evt.detail.target.id === 'content-area') {
                 if (typeof convertTimestampsToLocal === 'function') {
                     convertTimestampsToLocal();
+                }
+                // If the settled content is the activity-feed view, mark it ready
+                if (evt.detail.target.querySelector('#activity-feed-body')) {
+                    activityFeedReady = true;
                 }
             }
         });

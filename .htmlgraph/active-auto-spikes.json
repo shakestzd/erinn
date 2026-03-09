@@ -2,5 +2,25 @@
   "spike-init-sess-4ba": {
     "spike_subtype": "session-init",
     "session_id": "sess-4ba90551"
+  },
+  "spike-init-148b3eec": {
+    "spike_subtype": "session-init",
+    "session_id": "148b3eec-fc46-4ab9-8405-e5372f162a19"
+  },
+  "spike-init-75050c6d": {
+    "spike_subtype": "session-init",
+    "session_id": "75050c6d-db50-44e5-8aa7-d15db34899f3-htmlgraph:sonnet-coder"
+  },
+  "spike-init-7b8a6507": {
+    "spike_subtype": "session-init",
+    "session_id": "7b8a6507-9f39-4eb7-9456-8391ea311526"
+  },
+  "spike-init-8571f0b9": {
+    "spike_subtype": "session-init",
+    "session_id": "8571f0b9-825b-41ef-8b6d-b18241782f4e"
+  },
+  "spike-init-140bbb48": {
+    "spike_subtype": "session-init",
+    "session_id": "140bbb48-8d51-4b3c-9ee3-6511247278fe"
   }
 }

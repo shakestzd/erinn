@@ -62,10 +62,6 @@
         </div>
     </td>
 
-    <td class="col-status">
-        <span class="status-badge status-{{ child.status }}">{{ child.status }}</span>
-    </td>
-
     <td class="col-ts">
         <span class="timestamp-text"
               data-utc-time="{{ child.timestamp }}"
@@ -142,10 +138,6 @@
             </div>
         </td>
 
-        <td class="col-status">
-            <span class="status-badge status-{{ grandchild.status }}">{{ grandchild.status }}</span>
-        </td>
-
         <td class="col-ts">
             <span class="timestamp-text"
                   data-utc-time="{{ grandchild.timestamp }}"
@@ -184,10 +176,6 @@
                         </span>
                     {% endif %}
                 </div>
-            </td>
-
-            <td class="col-status">
-                <span class="status-badge status-{{ ggchild.status }}">{{ ggchild.status }}</span>
             </td>
 
             <td class="col-ts">

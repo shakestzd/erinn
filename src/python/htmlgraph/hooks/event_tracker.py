@@ -1373,6 +1373,23 @@ def track_event(hook_type: str, hook_input: dict[str, Any]) -> dict[str, Any]:
             # UserQuery event is stored in database - no file-based state needed
             # Subsequent tool calls query database for parent via get_parent_user_query()
             if db:
+                # Ensure session row exists before inserting UserQuery event.
+                # If session-start.py failed silently, the FK constraint on
+                # agent_events.session_id would silently drop the insert.
+                if db.connection:
+                    try:
+                        db.connection.execute(
+                            "INSERT OR IGNORE INTO sessions (session_id, agent_assigned, status, created_at) VALUES (?, ?, 'active', ?)",
+                            (
+                                userquery_session_id,
+                                detected_agent or "unknown",
+                                datetime.now(timezone.utc).isoformat(),
+                            ),
+                        )
+                        db.connection.commit()
+                    except Exception as _upsert_err:
+                        logger.warning(f"Could not upsert session row: {_upsert_err}")
+
                 event_id = record_event_to_sqlite(
                     db=db,
                     session_id=userquery_session_id,  # Use parent session, not subagent

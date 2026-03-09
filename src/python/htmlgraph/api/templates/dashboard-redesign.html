@@ -318,16 +318,16 @@
             const feedContainer = document.querySelector('.activity-feed-view');
             if (!feedContainer) return;
 
-            // Re-expand parent rows
+            // Re-expand parent rows using handleParentClick so HTMX lazy-load is re-triggered
             feedContainer.querySelectorAll('.parent-row').forEach(row => {
                 if (expandedIds.has(row.dataset.eventId)) {
-                    toggleChildren(row);
+                    handleParentClick(row);
                 }
             });
             // Re-expand depth-1 child rows
             feedContainer.querySelectorAll('.child-row.depth-1').forEach(row => {
                 if (expandedIds.has('child:' + row.dataset.eventId)) {
-                    toggleChildren(row);
+                    handleParentClick(row);
                 }
             });
         });

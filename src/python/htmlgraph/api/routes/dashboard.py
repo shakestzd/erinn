@@ -233,7 +233,7 @@ async def activity_feed(
             node: dict = {
                 "event_id": c.get("event_id", ""),
                 "agent_id": c.get("agent", "claude-code"),
-                "event_type": "tool_call",
+                "event_type": c.get("event_type", "tool_call"),
                 "tool_name": c.get("tool_name"),
                 "input_summary": c.get("summary", ""),
                 "output_summary": None,
@@ -243,6 +243,7 @@ async def activity_feed(
                 "execution_duration_seconds": c.get("duration_seconds"),
                 "subagent_type": c.get("subagent_type"),
                 "model": c.get("model"),
+                "feature_id": c.get("feature_id"),
             }
             nested = c.get("children")
             if nested:
@@ -328,7 +329,7 @@ async def activity_feed_children(
             node: dict = {
                 "event_id": c.get("event_id", ""),
                 "agent_id": c.get("agent", "claude-code"),
-                "event_type": "tool_call",
+                "event_type": c.get("event_type", "tool_call"),
                 "tool_name": c.get("tool_name"),
                 "input_summary": c.get("summary", ""),
                 "output_summary": None,
@@ -338,6 +339,7 @@ async def activity_feed_children(
                 "execution_duration_seconds": c.get("duration_seconds"),
                 "subagent_type": c.get("subagent_type"),
                 "model": c.get("model"),
+                "feature_id": c.get("feature_id"),
             }
             nested = c.get("children")
             if nested:
@@ -515,7 +517,7 @@ async def activity_feed_delta(
             node: dict = {
                 "event_id": c.get("event_id", ""),
                 "agent_id": c.get("agent", "claude-code"),
-                "event_type": "tool_call",
+                "event_type": c.get("event_type", "tool_call"),
                 "tool_name": c.get("tool_name"),
                 "input_summary": c.get("summary", ""),
                 "output_summary": None,
@@ -525,6 +527,7 @@ async def activity_feed_delta(
                 "execution_duration_seconds": c.get("duration_seconds"),
                 "subagent_type": c.get("subagent_type"),
                 "model": c.get("model"),
+                "feature_id": c.get("feature_id"),
             }
             nested = c.get("children")
             if nested:

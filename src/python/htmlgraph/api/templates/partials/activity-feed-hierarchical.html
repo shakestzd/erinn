@@ -4,6 +4,7 @@
         <h2>Agent Feed <span class="view-subtitle">— Showing last {{ limit }} sessions, most recent first</span></h2>
         <div class="view-filters">
             <input type="text"
+                   id="agent-type-filter"
                    class="filter-input"
                    placeholder="Filter by agent..."
                    hx-get="/views/activity-feed"
@@ -250,11 +251,13 @@
     flex-shrink: 0;
     background: var(--text-muted, #64748b);
 }
-.event-dot.type-tool_call   { background: #60a5fa; }
-.event-dot.type-delegation  { background: #a78bfa; }
-.event-dot.type-error       { background: #f87171; }
-.event-dot.type-completion  { background: #34d399; }
-.event-dot.type-tool_result { background: #4ade80; }
+.event-dot.type-tool_call        { background: #60a5fa; }
+.event-dot.type-delegation       { background: #a78bfa; }
+.event-dot.type-task_delegation  { background: #a78bfa; }
+.event-dot.type-error            { background: #f87171; }
+.event-dot.type-completion       { background: #34d399; }
+.event-dot.type-tool_result      { background: #4ade80; }
+.event-dot.type-check_point      { background: #fbbf24; }
 
 /* Tool name chip */
 .tool-chip {
@@ -507,62 +510,4 @@ function collapseAll() {
     });
 }
 
-// Save/restore expanded state across HTMX live updates
-document.body.addEventListener('htmx:beforeRequest', function(evt) {
-    const target = evt.detail.target;
-    if (!target || !target.classList.contains('activity-feed-view')) return;
-
-    const expandedTurns = [];
-    document.querySelectorAll('.turn-children:not(.collapsed)').forEach(el => {
-        if (el.id) expandedTurns.push(el.id.replace('children-', ''));
-    });
-
-    const expandedChildContainers = [];
-    document.querySelectorAll('.child-children:not(.collapsed)').forEach(el => {
-        if (el.id) expandedChildContainers.push(el.id.replace('children-child-', ''));
-    });
-
-    const loadedParents = [];
-    document.querySelectorAll('[data-children-loaded="true"]').forEach(el => {
-        if (el.dataset.eventId) loadedParents.push(el.dataset.eventId);
-    });
-
-    const filterValue = document.getElementById('agent-type-filter')?.value || 'all';
-    target._expandedState = { expandedTurns, expandedChildContainers, loadedParents, filterValue };
-});
-
-document.body.addEventListener('htmx:afterSettle', function(evt) {
-    const target = evt.detail.target;
-    if (!target || !target.classList.contains('activity-feed-view')) return;
-
-    const state = target._expandedState;
-    if (!state) return;
-
-    state.expandedTurns.forEach(id => {
-        const container = document.getElementById('children-' + id);
-        const toggle = document.getElementById('toggle-' + id);
-        if (container) container.classList.remove('collapsed');
-        if (toggle) toggle.classList.add('expanded');
-    });
-
-    state.expandedChildContainers.forEach(id => {
-        const container = document.getElementById('children-child-' + id);
-        const toggle = document.getElementById('toggle-child-' + id);
-        if (container) container.classList.remove('collapsed');
-        if (toggle) toggle.classList.add('expanded');
-    });
-
-    state.loadedParents.forEach(id => {
-        const row = document.querySelector('[data-event-id="' + id + '"]');
-        if (row) row.dataset.childrenLoaded = 'true';
-    });
-
-    const filterEl = document.getElementById('agent-type-filter');
-    if (filterEl && state.filterValue && state.filterValue !== 'all') {
-        filterEl.value = state.filterValue;
-        if (typeof filterByAgentType === 'function') filterByAgentType(state.filterValue);
-    }
-
-    delete target._expandedState;
-});
 </script>

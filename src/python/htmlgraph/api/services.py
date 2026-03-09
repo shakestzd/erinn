@@ -77,7 +77,11 @@ class ActivityService:
             filter_params: list[Any] = []
 
             if agent_id is not None:
-                filter_clauses.append("agent_id = ?")
+                filter_clauses.append(
+                    "session_id IN ("
+                    "SELECT session_id FROM sessions "
+                    "WHERE agent_assigned LIKE '%' || ? || '%')"
+                )
                 filter_params.append(agent_id)
 
             if session_id is not None:
@@ -120,7 +124,8 @@ class ActivityService:
                     context,
                     subagent_type,
                     feature_id,
-                    session_id
+                    session_id,
+                    event_type
                 FROM agent_events
                 WHERE parent_event_id = ?
                 ORDER BY timestamp DESC
@@ -140,7 +145,8 @@ class ActivityService:
                     context,
                     subagent_type,
                     feature_id,
-                    session_id
+                    session_id,
+                    event_type
                 FROM agent_events
                 WHERE (
                     parent_event_id = ?
@@ -207,6 +213,7 @@ class ActivityService:
                         subagent_type = row[9]
                         feature_id = row[10]
                         # evt_session_id = row[11]  # Not used currently
+                        event_type = row[12] if len(row) > 12 else "tool_call"
 
                         # Parse context to extract spawner metadata
                         spawner_type = None
@@ -255,6 +262,7 @@ class ActivityService:
                             "model": model,
                             "feature_id": feature_id,
                             "status": status,
+                            "event_type": event_type or "tool_call",
                         }
 
                         if spawner_type:
@@ -619,11 +627,20 @@ class ActivityService:
 
             # Step 5: Batch-fetch feature titles and annotate each turn with
             # the most common work item among its children.
+            def _collect_feature_ids_recursive(
+                nodes: list[dict[str, Any]], result: set[str]
+            ) -> None:
+                """Recursively collect feature_ids from all nested children at any depth."""
+                for node in nodes:
+                    if node.get("feature_id"):
+                        result.add(node["feature_id"])
+                    nested = node.get("children")
+                    if nested:
+                        _collect_feature_ids_recursive(nested, result)
+
             feature_ids: set[str] = set()
             for turn in conversation_turns:
-                for child in turn.get("children", []):
-                    if child.get("feature_id"):
-                        feature_ids.add(child["feature_id"])
+                _collect_feature_ids_recursive(turn.get("children", []), feature_ids)
 
             features_map: dict[str, dict[str, str]] = {}
             if feature_ids:
@@ -638,12 +655,23 @@ class ActivityService:
                     for r in feat_rows
                 }
 
+            def _collect_feature_ids_flat(
+                nodes: list[dict[str, Any]],
+            ) -> list[str]:
+                """Recursively collect all feature_ids (with duplicates) from all depths."""
+                result: list[str] = []
+                stack = list(nodes)
+                while stack:
+                    node = stack.pop()
+                    if node.get("feature_id"):
+                        result.append(node["feature_id"])
+                    nested = node.get("children")
+                    if nested:
+                        stack.extend(nested)
+                return result
+
             for turn in conversation_turns:
-                child_feature_ids = [
-                    c["feature_id"]
-                    for c in turn.get("children", [])
-                    if c.get("feature_id")
-                ]
+                child_feature_ids = _collect_feature_ids_flat(turn.get("children", []))
                 if child_feature_ids:
                     most_common_id = Counter(child_feature_ids).most_common(1)[0][0]
                     feat = features_map.get(most_common_id, {})

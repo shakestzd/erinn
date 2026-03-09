@@ -1,7 +1,7 @@
 [project]
 name = "htmlgraph"
 version = "0.33.40"
-description = "HTML is All You Need - Graph database on web standards"
+description = "Local-first observability and coordination platform for AI-assisted development"
 authors = [{name = "Shakes", email = "shakestzd@gmail.com"}]
 readme = "README.md"
 license = {text = "MIT"}

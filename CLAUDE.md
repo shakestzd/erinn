@@ -1,4 +1,4 @@
-# HtmlGraph - "HTML is All You Need"
+# HtmlGraph
 
 ## For AI Agents
 
@@ -8,12 +8,13 @@
 
 ## Project Vision
 
-Lightweight graph database built on web standards (HTML, CSS, JS) for AI agent coordination and human observability.
+Local-first observability and coordination platform for AI-assisted development.
 
-- HTML files = Graph nodes
-- Hyperlinks = Graph edges
-- CSS selectors = Query language
-- Zero dependencies, offline-first
+- **Work items** (features, bugs, spikes, tracks) stored as HTML files -- durable, human-readable, git-diffable
+- **SQLite** is canonical for operational querying, dashboard views, analytics, and search
+- **JSONL event log** provides append-only history of all agent activity
+- **FastAPI + HTMX + SSE/WebSocket** serves the live dashboard
+- Single-process, local-first stack -- no external database server required
 
 ---
 

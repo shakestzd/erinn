@@ -213,27 +213,6 @@ class HtmlGraphAPIHandler(SimpleHTTPRequestHandler):
 
         return "api", collection, node_id, query_params
 
-    def _serve_packaged_dashboard(self) -> bool:
-        """
-        DEPRECATED: Serve the bundled dashboard HTML if available.
-
-        NOTE: This server is LEGACY. The active server is FastAPI-based.
-        See: src/python/htmlgraph/operations/fastapi_server.py
-
-        The dashboard.html file was archived to .archived-templates/
-        Active templates are in src/python/htmlgraph/api/templates/
-        """
-        dashboard_path = Path(__file__).parent / "dashboard.html"
-        if not dashboard_path.exists():
-            return False
-        body = dashboard_path.read_text(encoding="utf-8").encode("utf-8")
-        self.send_response(200)
-        self.send_header("Content-Type", "text/html; charset=utf-8")
-        self.send_header("Content-Length", str(len(body)))
-        self.end_headers()
-        self.wfile.write(body)
-        return True
-
     def do_OPTIONS(self) -> None:
         """Handle CORS preflight."""
         self.send_response(200)
@@ -253,14 +232,6 @@ class HtmlGraphAPIHandler(SimpleHTTPRequestHandler):
 
         # Not an API request - serve static files
         if api != "api":
-            path = urllib.parse.urlparse(self.path).path
-            if path in ("", "/"):
-                path = "/index.html"
-            if path == "/index.html":
-                index_path = Path(self.static_dir) / "index.html"
-                if not index_path.exists():
-                    if self._serve_packaged_dashboard():
-                        return
             return super().do_GET()
 
         # GET /api/status - Overall status
@@ -1326,50 +1297,6 @@ def check_port_in_use(port: int, host: str = "localhost") -> bool:
     except OSError:
         return True
 
-
-def sync_dashboard_files(
-    static_dir: Path = Path("."),
-) -> bool:
-    """
-    Sync dashboard.html to index.html if they differ.
-
-    Args:
-        static_dir: Directory containing index.html
-
-    Returns:
-        True if sync was performed, False if already in sync
-
-    Raises:
-        PermissionError: If unable to write to index.html
-        OSError: If file operations fail
-    """
-    dashboard_file = Path(__file__).parent / "dashboard.html"
-    index_file = static_dir / "index.html"
-
-    # Dashboard file must exist (packaged with htmlgraph)
-    if not dashboard_file.exists():
-        return False
-
-    # If index.html doesn't exist, or content differs, sync
-    if not index_file.exists():
-        # Create new index.html
-        import shutil
-
-        shutil.copy2(dashboard_file, index_file)
-        return True
-
-    # Check if files differ (compare content, not just timestamps)
-    import filecmp
-
-    if not filecmp.cmp(dashboard_file, index_file, shallow=False):
-        # Files differ, sync them
-        import shutil
-
-        shutil.copy2(dashboard_file, index_file)
-        return True
-
-    # Already in sync
-    return False
 
 
 def serve(

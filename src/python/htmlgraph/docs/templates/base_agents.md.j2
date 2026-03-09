@@ -12,9 +12,9 @@ generated: "{{ generated_at }}"
 {% block introduction %}
 ## Introduction
 
-HtmlGraph is a lightweight graph database framework built entirely on web standards (HTML, CSS, JavaScript) for AI agent coordination and human observability.
+HtmlGraph is a local-first observability and coordination platform for AI-assisted development. Document-backed work items (HTML artifacts) with SQLite-indexed runtime state, append-only JSONL event log, live FastAPI/HTMX dashboard, and multi-agent session tracking. Single-process, local-first stack -- no external database server required.
 
-**Tagline**: "HTML is All You Need"
+**Origin philosophy**: "HTML is All You Need" -- work items are stored as HTML files for durability, human readability, and git compatibility.
 {% endblock %}
 
 {% block quick_start %}

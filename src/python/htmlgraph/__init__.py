@@ -1,8 +1,10 @@
 """
-HtmlGraph - HTML is All You Need
+HtmlGraph - Local-first observability and coordination for AI-assisted development.
 
-A lightweight graph database framework using HTML files as nodes,
-hyperlinks as edges, and CSS selectors as the query language.
+Document-backed work items (HTML artifacts) with SQLite-indexed runtime state,
+append-only JSONL event log, live FastAPI/HTMX dashboard, and multi-agent
+session tracking. Single-process, local-first stack -- no external database
+server required.
 """
 
 import logging

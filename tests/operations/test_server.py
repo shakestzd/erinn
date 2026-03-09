@@ -64,19 +64,16 @@ class TestStartServer:
 
     @patch("http.server.HTTPServer")
     @patch("htmlgraph.file_watcher.GraphWatcher")
-    @patch("htmlgraph.server.sync_dashboard_files")
     @patch("htmlgraph.operations.server._check_port_in_use")
     def test_start_server_basic(
         self,
         mock_check: Mock,
-        mock_sync: Mock,
         mock_watcher: Mock,
         mock_http: Mock,
         temp_dirs: tuple[Path, Path],
     ) -> None:
         """Test basic server start."""
         graph_dir, static_dir = temp_dirs
-        mock_sync.return_value = False
         mock_check.return_value = False  # Port is available
 
         result = start_server(
@@ -95,19 +92,16 @@ class TestStartServer:
 
     @patch("http.server.HTTPServer")
     @patch("htmlgraph.file_watcher.GraphWatcher")
-    @patch("htmlgraph.server.sync_dashboard_files")
     @patch("htmlgraph.operations.server._check_port_in_use")
     def test_start_server_auto_port(
         self,
         mock_check: Mock,
-        mock_sync: Mock,
         mock_watcher: Mock,
         mock_http: Mock,
         temp_dirs: tuple[Path, Path],
     ) -> None:
         """Test server start with auto-port when port is in use."""
         graph_dir, static_dir = temp_dirs
-        mock_sync.return_value = False
         mock_check.side_effect = [True, False]  # First port in use, second available
 
         result = start_server(
@@ -143,45 +137,16 @@ class TestStartServer:
 
     @patch("http.server.HTTPServer")
     @patch("htmlgraph.file_watcher.GraphWatcher")
-    @patch("htmlgraph.server.sync_dashboard_files")
-    @patch("htmlgraph.operations.server._check_port_in_use")
-    def test_start_server_dashboard_sync_warning(
-        self,
-        mock_check: Mock,
-        mock_sync: Mock,
-        mock_watcher: Mock,
-        mock_http: Mock,
-        temp_dirs: tuple[Path, Path],
-    ) -> None:
-        """Test warning when dashboard files are synced."""
-        graph_dir, static_dir = temp_dirs
-        mock_sync.return_value = True  # Files were synced
-        mock_check.return_value = False  # Port is available
-
-        result = start_server(
-            port=8080,
-            graph_dir=graph_dir,
-            static_dir=static_dir,
-            watch=False,
-        )
-
-        assert any("Dashboard files out of sync" in w for w in result.warnings)
-
-    @patch("http.server.HTTPServer")
-    @patch("htmlgraph.file_watcher.GraphWatcher")
-    @patch("htmlgraph.server.sync_dashboard_files")
     @patch("htmlgraph.operations.server._check_port_in_use")
     def test_start_server_with_watcher(
         self,
         mock_check: Mock,
-        mock_sync: Mock,
         mock_watcher_class: Mock,
         mock_http: Mock,
         temp_dirs: tuple[Path, Path],
     ) -> None:
         """Test server start with file watcher enabled."""
         graph_dir, static_dir = temp_dirs
-        mock_sync.return_value = False
         mock_check.return_value = False  # Port is available
         mock_watcher = MagicMock()
         mock_watcher_class.return_value = mock_watcher

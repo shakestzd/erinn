@@ -20,6 +20,26 @@ def utc_now() -> datetime:
     return datetime.now(timezone.utc)
 
 
+def _work_item_subdir(item_id: str) -> str:
+    """Return the subdirectory name for a work item based on its ID prefix."""
+    if item_id.startswith("feat-") or item_id.startswith("feature-"):
+        return "features"
+    elif item_id.startswith("bug-"):
+        return "bugs"
+    elif item_id.startswith("spk-") or item_id.startswith("spike-"):
+        return "spikes"
+    elif item_id.startswith("trk-") or item_id.startswith("track-"):
+        return "tracks"
+    elif item_id.startswith("insi-") or item_id.startswith("insight-"):
+        return "insights"
+    elif item_id.startswith("chore-"):
+        return "chores"
+    elif item_id.startswith("epic-"):
+        return "epics"
+    else:
+        return "features"
+
+
 class WorkType(str, Enum):
     """
     Classification of work/activity type for events and sessions.
@@ -1319,21 +1339,8 @@ class Session(BaseModel):
 
         # Check each work item in worked_on
         for item_id in self.worked_on:
-            # Determine work item type from ID prefix
-            if item_id.startswith("feat-") or item_id.startswith("feature-"):
-                file_path = graph_path / "features" / f"{item_id}.html"
-            elif item_id.startswith("bug-"):
-                file_path = graph_path / "bugs" / f"{item_id}.html"
-            elif item_id.startswith("spk-") or item_id.startswith("spike-"):
-                file_path = graph_path / "spikes" / f"{item_id}.html"
-            elif item_id.startswith("chore-"):
-                file_path = graph_path / "chores" / f"{item_id}.html"
-            elif item_id.startswith("epic-"):
-                file_path = graph_path / "epics" / f"{item_id}.html"
-            else:
-                # Unknown type, keep it
-                kept.append(item_id)
-                continue
+            subdir = _work_item_subdir(item_id)
+            file_path = graph_path / subdir / f"{item_id}.html"
 
             # Check if file exists
             if file_path.exists():
@@ -1360,7 +1367,7 @@ class Session(BaseModel):
 
             if self.worked_on:
                 feature_links = "\n                    ".join(
-                    f'<li><a href="../features/{fid}.html" data-relationship="worked-on">{fid}</a></li>'
+                    f'<li><a href="../{_work_item_subdir(fid)}/{fid}.html" data-relationship="worked-on">{fid}</a></li>'
                     for fid in self.worked_on
                 )
                 edge_sections.append(f"""
@@ -2329,7 +2336,8 @@ class Todo(BaseModel):
             if self.session_id:
                 links_section += f'\n                <li><a href="../sessions/{self.session_id}.html">Session: {self.session_id}</a></li>'
             if self.feature_id:
-                links_section += f'\n                <li><a href="../features/{self.feature_id}.html">Feature: {self.feature_id}</a></li>'
+                subdir = _work_item_subdir(self.feature_id)
+                links_section += f'\n                <li><a href="../{subdir}/{self.feature_id}.html">Feature: {self.feature_id}</a></li>'
             if self.parent_todo_id:
                 links_section += f'\n                <li><a href="{self.parent_todo_id}.html">Parent: {self.parent_todo_id}</a></li>'
             links_section += """

@@ -1,22 +1,20 @@
 # HtmlGraph
 
-**"HTML is All You Need"**
-
-A lightweight graph database framework built entirely on web standards. Use HTML files as nodes, hyperlinks as edges, and CSS selectors as the query language.
+Local-first observability and coordination platform for AI-assisted development. Document-backed work items with SQLite-indexed runtime state, live FastAPI/HTMX dashboard, and multi-agent session tracking.
 
 ## Why HtmlGraph?
 
-Modern AI agent systems are drowning in complexity:
-- Neo4j/Memgraph → Docker, JVM, learn Cypher
-- Redis/PostgreSQL → More infrastructure
-- Custom protocols → More learning curves
+AI agent tooling forces you to choose between observability and simplicity:
+- Heavy graph databases (Neo4j, Memgraph) require Docker, JVM, and proprietary query languages
+- Hosted platforms add latency, cost, and vendor lock-in
+- Custom JSON/YAML schemas lose human readability at scale
 
-**HtmlGraph uses what you already know:**
-- ✅ HTML files = Graph nodes
-- ✅ `<a href>` = Graph edges
-- ✅ CSS selectors = Query language
-- ✅ Any browser = Visual interface
-- ✅ Git = Version control (diffs work!)
+**HtmlGraph is a single-process, local-first stack -- no external database server required:**
+- Work items (features, bugs, spikes, tracks) are **HTML files** -- durable, human-readable, git-diffable artifacts
+- **SQLite** is canonical for operational querying, dashboard views, analytics, and search
+- **JSONL event log** provides append-only history of all agent activity
+- **FastAPI + HTMX + SSE/WebSocket** serves a live dashboard with real-time updates
+- **Git-native** -- plain text diffs, merge-friendly, works offline
 
 ## Installation
 
@@ -126,16 +124,16 @@ HtmlGraph nodes are standard HTML files:
 
 ## Features
 
-- **Zero dependencies** beyond `justhtml` and `pydantic`
-- **CSS selector queries** - no new query language to learn
-- **Version control friendly** - git diff works perfectly
-- **Human readable** - open in any browser
-- **AI agent optimized** - lightweight context generation
-- **Graph algorithms** - BFS, shortest path, cycle detection, topological sort
-- **Agent Handoff** - Context-preserving task transfers between agents
-- **Capability Routing** - Automatic task assignment based on agent skills
-- **Deployment Automation** - One-command releases with version management
-- **Unified Backend** - Operations layer shared by CLI and SDK for consistency
+- **Document-backed work items** -- HTML files you can open in any browser, diff in git, and read without tooling
+- **SQLite runtime index** -- fast queries, dashboard views, analytics, and full-text search without an external database
+- **Append-only event log** -- JSONL history of every agent action, git-friendly and rebuildable
+- **Live dashboard** -- FastAPI + HTMX + SSE/WebSocket with Kanban board, timeline, and graph views
+- **Multi-agent session tracking** -- attribute work across orchestrators, subagents, and parallel worktrees
+- **Graph algorithms** -- BFS, shortest path, cycle detection, topological sort on the work item graph
+- **Agent Handoff** -- context-preserving task transfers between agents
+- **Capability Routing** -- automatic task assignment based on agent skills
+- **Unified Backend** -- operations layer shared by CLI and SDK for consistency
+- **Offline-first** -- everything works locally; copy `.htmlgraph/` anywhere
 
 ## Orchestrator Architecture: Flexible Multi-Agent Coordination
 
@@ -176,14 +174,15 @@ Task(subagent_type="claude-spawner",    # Deep reasoning
 
 ## Comparison
 
-| Feature | Neo4j | JSON | HtmlGraph |
-|---------|-------|------|-----------|
-| Setup | Docker + JVM | None | None |
-| Query Language | Cypher | jq | CSS selectors |
-| Human Readable | ❌ Browser needed | 🟡 Text editor | ✅ Any browser |
-| Version Control | ❌ Binary | ✅ JSON diff | ✅ HTML diff |
-| Visual UI | ❌ Separate tool | ❌ Build it | ✅ Built-in |
-| Graph Native | ✅ | ❌ | ✅ |
+| Feature | Neo4j | JSON files | HtmlGraph |
+|---------|-------|------------|-----------|
+| Setup | Docker + JVM | None | `pip install htmlgraph` |
+| External DB server | Yes | No | No (embedded SQLite) |
+| Human readable artifacts | No | Text editor | Any browser |
+| Version control | Binary dumps | JSON diff | HTML + JSONL diff |
+| Live dashboard | Separate tool | Build it yourself | Built-in (FastAPI/HTMX) |
+| Agent session tracking | No | Build it yourself | Built-in |
+| Offline-first | No | Yes | Yes |
 
 ## Use Cases
 

@@ -17,6 +17,26 @@ from htmlgraph.models.base import Node, utc_now
 from htmlgraph.models.context import ActivityEntry, ContextSnapshot, ErrorEntry
 
 
+def _work_item_subdir(item_id: str) -> str:
+    """Return the subdirectory name for a work item based on its ID prefix."""
+    if item_id.startswith("feat-") or item_id.startswith("feature-"):
+        return "features"
+    elif item_id.startswith("bug-"):
+        return "bugs"
+    elif item_id.startswith("spk-") or item_id.startswith("spike-"):
+        return "spikes"
+    elif item_id.startswith("trk-") or item_id.startswith("track-"):
+        return "tracks"
+    elif item_id.startswith("insi-") or item_id.startswith("insight-"):
+        return "insights"
+    elif item_id.startswith("chore-"):
+        return "chores"
+    elif item_id.startswith("epic-"):
+        return "epics"
+    else:
+        return "features"
+
+
 class Session(BaseModel):
     """
     An agent work session containing an activity log.
@@ -459,21 +479,8 @@ class Session(BaseModel):
 
         # Check each work item in worked_on
         for item_id in self.worked_on:
-            # Determine work item type from ID prefix
-            if item_id.startswith("feat-") or item_id.startswith("feature-"):
-                file_path = graph_path / "features" / f"{item_id}.html"
-            elif item_id.startswith("bug-"):
-                file_path = graph_path / "bugs" / f"{item_id}.html"
-            elif item_id.startswith("spk-") or item_id.startswith("spike-"):
-                file_path = graph_path / "spikes" / f"{item_id}.html"
-            elif item_id.startswith("chore-"):
-                file_path = graph_path / "chores" / f"{item_id}.html"
-            elif item_id.startswith("epic-"):
-                file_path = graph_path / "epics" / f"{item_id}.html"
-            else:
-                # Unknown type, keep it
-                kept.append(item_id)
-                continue
+            subdir = _work_item_subdir(item_id)
+            file_path = graph_path / subdir / f"{item_id}.html"
 
             # Check if file exists
             if file_path.exists():
@@ -500,7 +507,7 @@ class Session(BaseModel):
 
             if self.worked_on:
                 feature_links = "\n                    ".join(
-                    f'<li><a href="../features/{fid}.html" data-relationship="worked-on">{fid}</a></li>'
+                    f'<li><a href="../{_work_item_subdir(fid)}/{fid}.html" data-relationship="worked-on">{fid}</a></li>'
                     for fid in self.worked_on
                 )
                 edge_sections.append(f"""

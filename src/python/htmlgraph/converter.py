@@ -477,10 +477,11 @@ def html_to_session(filepath: Path | str) -> Session:
         "nav[data-graph-edges] section[data-edge-type='worked-on'] a"
     ):
         href = link.attrs.get("href") or ""
-        # Extract feature ID from href
-        feature_id = href.replace("../features/", "").replace(".html", "")
-        if feature_id:
-            worked_on.append(feature_id)
+        # Extract item ID from href - handle any subdirectory (features, bugs, spikes, etc.)
+        # href format: ../subdir/item-id.html or legacy ../features/item-id.html
+        item_id = href.split("/")[-1].replace(".html", "")
+        if item_id:
+            worked_on.append(item_id)
     data["worked_on"] = worked_on
 
     # Parse continued_from edge

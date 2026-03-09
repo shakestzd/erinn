@@ -305,44 +305,6 @@ if [ ! -f "pyproject.toml" ]; then
     exit 1
 fi
 
-# ============================================================================
-# PRE-FLIGHT: Sync Dashboard Files
-# ============================================================================
-log_section "Pre-flight: Syncing Dashboard Files"
-
-log_info "Syncing dashboard.html to index.html..."
-if [ "$DRY_RUN" = true ]; then
-    log_info "[DRY-RUN] Would copy src/python/htmlgraph/dashboard.html → index.html"
-else
-    # Skip if dashboard.html doesn't exist (API-based dashboard now)
-    if [ ! -f "src/python/htmlgraph/dashboard.html" ]; then
-        log_info "⚠️  src/python/htmlgraph/dashboard.html not found (API-based dashboard), skipping sync"
-    elif cp src/python/htmlgraph/dashboard.html index.html; then
-        log_success "Dashboard files synced"
-
-        # Check if there are changes to commit
-        if ! git diff --quiet index.html; then
-            log_info "index.html was out of sync, now updated"
-            git add index.html
-
-            # Only commit if we're not in build-only mode
-            if [ "$BUILD_ONLY" != true ]; then
-                if git diff --cached --quiet; then
-                    log_info "No changes to commit"
-                else
-                    log_info "Committing dashboard sync..."
-                    git commit -m "chore: sync index.html with dashboard.html" --no-verify
-                    log_success "Dashboard sync committed"
-                fi
-            fi
-        else
-            log_success "Dashboard files already in sync"
-        fi
-    else
-        log_error "Failed to sync dashboard files"
-        exit 1
-    fi
-fi
 
 # ============================================================================
 # PRE-FLIGHT: Code Quality Checks

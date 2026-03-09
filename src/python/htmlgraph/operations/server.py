@@ -72,7 +72,7 @@ def start_server(
     from htmlgraph.event_log import JsonlEventLog
     from htmlgraph.file_watcher import GraphWatcher
     from htmlgraph.graph import HtmlGraph
-    from htmlgraph.server import HtmlGraphAPIHandler, sync_dashboard_files
+    from htmlgraph.server import HtmlGraphAPIHandler
 
     warnings: list[str] = []
     original_port = port
@@ -87,17 +87,6 @@ def start_server(
         raise PortInUseError(
             f"Port {port} is already in use. Use auto_port=True or choose a different port."
         )
-
-    # Auto-sync dashboard files
-    try:
-        if sync_dashboard_files(static_dir):
-            warnings.append(
-                "Dashboard files out of sync, synced dashboard.html → index.html"
-            )
-    except PermissionError as e:
-        warnings.append(f"Unable to sync dashboard files: {e}")
-    except Exception as e:
-        warnings.append(f"Error during dashboard sync: {e}")
 
     # Create graph directories
     graph_dir.mkdir(parents=True, exist_ok=True)

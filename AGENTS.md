@@ -121,20 +121,18 @@ with open(".htmlgraph/features/feature-123.html", "w") as f:
 Edit("/path/to/.htmlgraph/features/feature-123.html", ...)
 ```
 
-✅ **REQUIRED - Use SDK/API/CLI:**
+✅ **REQUIRED - Use SDK or CLI:**
 ```python
 # SDK (recommended)
 with sdk.features.edit("feature-123") as f:
     f.status = "done"
 
-# API
-curl -X PATCH http://localhost:8080/api/features/feature-123 \
-  -H "Content-Type: application/json" \
-  -d '{"status": "done"}'
-
 # CLI
 uv run htmlgraph feature complete feature-123
 ```
+
+> **Note:** Feature CRUD via HTTP REST is not currently implemented. Use the SDK or CLI.
+> The REST API surface is observability and sync-oriented (dashboard, queries, events), not general CRUD.
 
 **Why this matters:**
 - Direct edits bypass Pydantic validation
@@ -371,7 +369,9 @@ sdk.reload()
 
 ---
 
-## REST API (Alternative)
+## REST API (Observability / Dashboard)
+
+The REST API serves the live dashboard and provides read-only observability endpoints. **Feature CRUD via HTTP REST is not currently implemented.** Use the SDK or CLI for creating, updating, and deleting work items.
 
 ### Start Server
 
@@ -380,48 +380,38 @@ uv run htmlgraph serve
 # Open http://localhost:8080
 ```
 
-### Endpoints
+### Available Endpoints
 
-#### Get All Features
+The API surface is observability and sync-oriented:
+
 ```bash
+# Dashboard (browser)
+open http://localhost:8080
+
+# Query work items (read-only)
 curl http://localhost:8080/api/query?type=feature
+
+# Health check
+curl http://localhost:8080/api/health
 ```
 
-#### Get Feature by ID
+### Feature CRUD
+
+Use the SDK or CLI instead of HTTP:
+
+```python
+# SDK (recommended for AI agents)
+feature = sdk.features.create("User Authentication").set_priority("high").save()
+with sdk.features.edit(feature.id) as f:
+    f.status = "in-progress"
+```
+
 ```bash
-curl http://localhost:8080/api/features/feature-001
+# CLI (recommended for scripting)
+uv run htmlgraph feature create "User Authentication"
+uv run htmlgraph feature start <feature-id>
+uv run htmlgraph feature complete <feature-id>
 ```
-
-#### Create Feature
-```bash
-curl -X POST http://localhost:8080/api/features \
-  -H "Content-Type: application/json" \
-  -d '{
-    "title": "User Authentication",
-    "priority": "high",
-    "status": "todo",
-    "steps": [
-      {"description": "Create login endpoint"},
-      {"description": "Add JWT middleware"}
-    ]
-  }'
-```
-
-#### Update Feature
-```bash
-curl -X PATCH http://localhost:8080/api/features/feature-001 \
-  -H "Content-Type: application/json" \
-  -d '{"status": "in-progress"}'
-```
-
-#### Complete Step
-```bash
-curl -X PATCH http://localhost:8080/api/features/feature-001 \
-  -H "Content-Type: application/json" \
-  -d '{"complete_step": 0}'
-```
-
-**Step numbering is 0-based** (first step = 0, second step = 1, etc.)
 
 ---
 
@@ -465,7 +455,7 @@ uv run htmlgraph serve
 | AI agent writing code | **SDK** (most ergonomic) |
 | Scripting/automation | SDK or CLI |
 | Manual testing | CLI or Dashboard |
-| External integration | REST API |
+| Live observability | Dashboard (REST API serves read-only views) |
 | Debugging | CLI + Dashboard |
 
 ---

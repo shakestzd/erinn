@@ -198,6 +198,30 @@ async def agents_view(request: Request) -> HTMLResponse:
         await db.close()
 
 
+def _any_event_matches_agent(group: dict, agent_filter: str) -> bool:
+    """Return True if the parent or any descendant event contains agent_filter (case-insensitive substring)."""
+    needle = agent_filter.lower()
+
+    def node_matches(node: dict) -> bool:
+        agent_val = (node.get("agent_id") or "").lower()
+        if needle in agent_val:
+            return True
+        for child in node.get("children") or []:
+            if node_matches(child):
+                return True
+        return False
+
+    # Check the parent event
+    parent = group.get("parent") or {}
+    if needle in (parent.get("agent_id") or "").lower():
+        return True
+    # Check all children recursively
+    for child in group.get("children") or []:
+        if node_matches(child):
+            return True
+    return False
+
+
 @router.get("/views/activity-feed", response_class=HTMLResponse)
 async def activity_feed(
     request: Request,
@@ -214,7 +238,6 @@ async def activity_feed(
         activity_service, _, _ = deps.create_services(db)
         grouped_result = await activity_service.get_grouped_events(
             limit=limit,
-            agent_id=agent_id,
             session_id=session_id,
         )
 
@@ -286,6 +309,12 @@ async def activity_feed(
                     "work_item_type": turn.get("work_item_type") or "feature",
                 }
             )
+
+        # Apply agent filter: keep groups where any event matches (case-insensitive substring).
+        if agent_id:
+            hierarchical_events = [
+                g for g in hierarchical_events if _any_event_matches_agent(g, agent_id)
+            ]
 
         return templates.TemplateResponse(
             "partials/activity-feed-hierarchical.html",
@@ -489,6 +518,7 @@ async def activity_feed_stream(request: Request) -> StreamingResponse:
 async def activity_feed_delta(
     request: Request,
     since: str | None = None,
+    agent_id: str | None = None,
 ) -> HTMLResponse:
     """
     Return only NEW top-level UserQuery rows that appeared after *since*.
@@ -585,6 +615,12 @@ async def activity_feed_delta(
         else:
             # No anchor — return last 5 turns for initial render
             hierarchical_events = all_turns[:5]
+
+        # Apply agent filter: keep groups where any event matches (case-insensitive substring).
+        if agent_id:
+            hierarchical_events = [
+                g for g in hierarchical_events if _any_event_matches_agent(g, agent_id)
+            ]
 
         if not hierarchical_events:
             return HTMLResponse("")

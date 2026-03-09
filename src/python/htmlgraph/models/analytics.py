@@ -18,6 +18,26 @@ def utc_now() -> datetime:
     return datetime.now(timezone.utc)
 
 
+def _work_item_subdir(item_id: str) -> str:
+    """Return the subdirectory name for a work item based on its ID prefix."""
+    if item_id.startswith("feat-") or item_id.startswith("feature-"):
+        return "features"
+    elif item_id.startswith("bug-"):
+        return "bugs"
+    elif item_id.startswith("spk-") or item_id.startswith("spike-"):
+        return "spikes"
+    elif item_id.startswith("trk-") or item_id.startswith("track-"):
+        return "tracks"
+    elif item_id.startswith("insi-") or item_id.startswith("insight-"):
+        return "insights"
+    elif item_id.startswith("chore-"):
+        return "chores"
+    elif item_id.startswith("epic-"):
+        return "epics"
+    else:
+        return "features"
+
+
 from htmlgraph.models.base import Edge, Node
 
 
@@ -551,7 +571,8 @@ class Todo(BaseModel):
             if self.session_id:
                 links_section += f'\n                <li><a href="../sessions/{self.session_id}.html">Session: {self.session_id}</a></li>'
             if self.feature_id:
-                links_section += f'\n                <li><a href="../features/{self.feature_id}.html">Feature: {self.feature_id}</a></li>'
+                subdir = _work_item_subdir(self.feature_id)
+                links_section += f'\n                <li><a href="../{subdir}/{self.feature_id}.html">Feature: {self.feature_id}</a></li>'
             if self.parent_todo_id:
                 links_section += f'\n                <li><a href="{self.parent_todo_id}.html">Parent: {self.parent_todo_id}</a></li>'
             links_section += """

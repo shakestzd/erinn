@@ -1,23 +1,87 @@
 # Core Concepts
 
-HtmlGraph is built on a simple philosophy: **HTML is All You Need**. This guide explains the core concepts and how they work together.
+HtmlGraph is a local-first observability and coordination platform for AI-assisted development. This guide explains the core architecture and how its components work together.
 
-## The Web is a Graph
+## Architecture Overview
 
-Every webpage is a node. Every hyperlink is an edge. HtmlGraph uses this fundamental web structure to create a lightweight graph database.
+HtmlGraph is a hybrid runtime with three storage layers, each canonical for its purpose:
 
 ```
-HTML File = Graph Node
-<a href> = Graph Edge
-data-* attributes = Node Properties
-CSS selectors = Query Language
+Work Items (HTML files)    ← canonical for document CRUD, human-readable artifacts
+Event Log (JSONL)          ← canonical for append-only history
+Runtime Indexes (SQLite)   ← canonical for operational querying, dashboard, analytics, search
 ```
+
+These layers are kept in sync automatically. The HTML files are durable artifacts you can open in any browser; SQLite provides fast indexed access for the dashboard and SDK queries; the JSONL log is the immutable audit trail.
+
+## Storage Layers
+
+### Work Items (HTML Artifacts)
+
+Work items -- features, bugs, spikes, tracks -- are stored as HTML files in the `.htmlgraph/` directory. Each file is a self-contained document with structured metadata in `data-*` attributes and human-readable content in standard HTML.
+
+**Why HTML?**
+- Open in any browser -- no special tooling required
+- Git-native -- plain text diffs, merge-friendly
+- Durable -- the file format will outlast any database engine
+- Self-describing -- metadata and presentation in one file
+
+```html
+<article id="feat-a1b2c3d4"
+         data-type="feature"
+         data-status="in-progress"
+         data-priority="high">
+    <h1>User Authentication</h1>
+    <section data-steps>
+        <ol>
+            <li data-completed="true">Create auth routes</li>
+            <li data-completed="false">Add middleware</li>
+        </ol>
+    </section>
+</article>
+```
+
+**File locations:**
+- `.htmlgraph/features/feat-{hash}.html`
+- `.htmlgraph/bugs/bug-{hash}.html`
+- `.htmlgraph/spikes/spk-{hash}.html`
+- `.htmlgraph/tracks/trk-{hash}.html`
+- `.htmlgraph/sessions/sess-{hash}.html`
+
+### Event Log (JSONL)
+
+Every agent action is recorded as an append-only JSON line. The event log is the immutable history of what happened, when, and by whom.
+
+- **Append-only** -- events are never modified or deleted
+- **Git-friendly** -- JSONL diffs show exactly which events were added
+- **Rebuildable** -- SQLite indexes can be rebuilt from the event log
+
+**File location:** `.htmlgraph/events/{session-id}.jsonl`
+
+Each event contains:
+- **Timestamp** -- when the event occurred
+- **Event type** -- `ToolUse`, `UserPrompt`, `SessionStart`, etc.
+- **Session ID** -- which session generated the event
+- **Feature ID** -- which work item receives attribution
+- **Payload** -- event-specific data
+
+### Runtime Indexes (SQLite)
+
+SQLite is the canonical store for all operational queries. The dashboard, analytics, search, sync state, and cursor tracking all read from SQLite.
+
+- **Fast queries** -- indexed access to work items, sessions, events
+- **Dashboard views** -- Kanban boards, timelines, graphs all query SQLite
+- **Analytics** -- bottleneck detection, velocity tracking, work recommendations
+- **Full-text search** -- FTS5 index across all work items
+- **Rebuildable** -- can be reconstructed from HTML files and JSONL events
+
+**File location:** `.htmlgraph/htmlgraph.db`
 
 ## Key Components
 
 ### Features
 
-**Features** are the atomic units of work in HtmlGraph. Each feature is an HTML file with:
+**Features** are the atomic units of work. Each feature is an HTML file with:
 
 - **Status**: `todo`, `in-progress`, `blocked`, `done`
 - **Priority**: `low`, `medium`, `high`, `critical`
@@ -37,8 +101,6 @@ feature = sdk.features.create(
     steps=["Create endpoint", "Add middleware", "Write tests"]
 )
 ```
-
-**File location**: `.htmlgraph/features/feature-{timestamp}.html`
 
 ### Tracks
 
@@ -61,8 +123,6 @@ track = sdk.tracks.builder() \
     .create()
 ```
 
-**File location**: `.htmlgraph/tracks/track-{timestamp}/`
-
 ### Sessions
 
 **Sessions** track all activity during an agent's work session. Each session is an HTML file with:
@@ -74,19 +134,9 @@ track = sdk.tracks.builder() \
 
 Sessions are automatically created and managed by HtmlGraph hooks.
 
-**File location**: `.htmlgraph/sessions/session-{id}.html`
+### Spikes
 
-### Events
-
-**Events** are the append-only log of all activity. Each event is a JSON line with:
-
-- **Timestamp**: When the event occurred
-- **Event type**: `ToolUse`, `UserPrompt`, `SessionStart`, etc.
-- **Session ID**: Which session generated the event
-- **Feature ID**: Which feature receives attribution
-- **Data**: Event-specific payload
-
-**File location**: `.htmlgraph/events/{session-id}.jsonl`
+**Spikes** are time-boxed investigation tasks. Use them to research a question, prototype an approach, or document findings before committing to a feature.
 
 ## Graph Structure
 
@@ -95,7 +145,7 @@ Sessions are automatically created and managed by HtmlGraph hooks.
 Every HTML file in HtmlGraph is a graph node. Nodes have:
 
 - **ID**: Unique, collision-resistant identifier (e.g., `feat-a1b2c3d4`)
-- **Type**: `feature`, `track`, `session`, or custom
+- **Type**: `feature`, `track`, `session`, `bug`, `spike`, or custom
 - **Properties**: Stored in `data-*` attributes
 - **Content**: Human-readable description in HTML
 
@@ -110,126 +160,56 @@ HtmlGraph uses hash-based IDs for multi-agent collaboration:
 | Track | `trk-` | `trk-abcdef12` |
 | Session | `sess-` | `sess-7890abcd` |
 | Spike | `spk-` | `spk-87654321` |
-| Event | `evt-` | `evt-11223344` |
 
-These IDs are collision-resistant, meaning multiple agents can create nodes simultaneously without conflicts. The 8-character hash is generated from SHA256 of (title + microsecond timestamp + random entropy), providing effectively zero collision probability even with thousands of concurrent agents.
-
-Hierarchical sub-tasks are supported: `feat-a1b2c3d4.1.2`
-
-**Learn more:**
-- [ID Generation API](../api/ids.md) - Usage examples and API reference
-- [Hash-Based IDs Design](../design/hash-based-ids.md) - Architecture and implementation details
-
-Example node structure:
-
-```html
-<article id="feature-001"
-         data-type="feature"
-         data-status="in-progress"
-         data-priority="high">
-    <h1>User Authentication</h1>
-
-    <nav data-graph-edges>
-        <section data-edge-type="blocks">
-            <h3>⚠️ Blocked By:</h3>
-            <ul>
-                <li><a href="feature-005.html">Database Schema</a></li>
-            </ul>
-        </section>
-    </nav>
-</article>
-```
+These IDs are collision-resistant -- multiple agents can create nodes simultaneously without conflicts.
 
 ### Edges
 
 Edges are created using standard HTML hyperlinks. The relationship type is specified using `data-relationship` attributes:
 
 ```html
-<a href="feature-005.html"
+<a href="feat-005.html"
    data-relationship="blocks">Database Schema</a>
 ```
 
-Common relationship types:
-
-- `blocks`: This feature blocks another
-- `blocked_by`: This feature is blocked by another
-- `related`: General relationship
-- `implements`: Session implements a feature
-- `part_of`: Feature is part of a track
-
-### Queries
-
-Query the graph using CSS selectors:
-
-```python
-# All high-priority features
-high = sdk.features.query('[data-priority="high"]')
-
-# Blocked features
-blocked = sdk.features.query('[data-status="blocked"]')
-
-# Features assigned to claude
-claude_features = sdk.features.query('[data-agent-assigned="claude"]')
-```
+Common relationship types: `blocks`, `blocked_by`, `related`, `implements`, `part_of`.
 
 ## Data Flow
 
 ```
-┌─────────────────────────────────────────────────────────┐
-│ 1. Agent creates/updates nodes via SDK                  │
-└────────────────┬────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────┐
+│ 1. Agent creates/updates work items via SDK or CLI       │
+└────────────────┬─────────────────────────────────────────┘
                  │
                  ▼
-┌─────────────────────────────────────────────────────────┐
-│ 2. Pydantic models validate and convert to HTML        │
-└────────────────┬────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────┐
+│ 2. Pydantic models validate data and generate HTML       │
+└────────────────┬─────────────────────────────────────────┘
                  │
                  ▼
-┌─────────────────────────────────────────────────────────┐
-│ 3. HTML files written to .htmlgraph/ directory         │
-└────────────────┬────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────┐
+│ 3. HTML files written to .htmlgraph/ directory           │
+└────────────────┬─────────────────────────────────────────┘
                  │
                  ▼
-┌─────────────────────────────────────────────────────────┐
-│ 4. Hooks log events to JSONL file                      │
-└────────────────┬────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────┐
+│ 4. Hooks log events to JSONL append-only log             │
+└────────────────┬─────────────────────────────────────────┘
                  │
                  ▼
-┌─────────────────────────────────────────────────────────┐
-│ 5. SQLite index updated for fast queries               │
-└────────────────┬────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────┐
+│ 5. SQLite indexes updated for fast queries and search    │
+└────────────────┬─────────────────────────────────────────┘
                  │
                  ▼
-┌─────────────────────────────────────────────────────────┐
-│ 6. Browser/Dashboard displays graph visually           │
-└─────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────┐
+│ 6. FastAPI/HTMX dashboard reflects changes in real time  │
+└──────────────────────────────────────────────────────────┘
 ```
 
-## Why HTML?
+## Design History
 
-### Human Readable
-
-Open any node in a browser and see it beautifully rendered with CSS styling. No special tools required.
-
-### Git Native
-
-HTML is plain text. Git diffs show exactly what changed. Merge conflicts are readable.
-
-### Minimal Infrastructure
-
-No Docker, no JVM, no external database servers. The SDK has minimal Python dependencies (pydantic, justhtml, watchdog) and uses SQLite for indexing and JSONL for event logs. HTML files work everywhere: browsers, Python, JavaScript, any language.
-
-### Standards-Based
-
-CSS selectors are a W3C standard. Everyone knows them. No proprietary query language to learn.
-
-### Offline First
-
-Everything works offline. No server required. Copy the `.htmlgraph/` directory anywhere.
-
-### Presentation Layer Included
-
-Styling, layout, and interactivity are built-in using CSS and JavaScript. No separate UI framework needed.
+HtmlGraph began with the philosophy "HTML is All You Need" -- the idea that web standards (HTML files, hyperlinks, CSS selectors) could serve as a lightweight graph database. That origin still shows in the architecture: work items remain HTML files, and the graph structure uses hyperlinks as edges. Over time, the project evolved into a hybrid runtime where HTML provides durable human-readable artifacts, SQLite provides fast operational access, and JSONL provides immutable history. The "HTML is All You Need" framing is best understood as a design influence, not a literal architecture claim.
 
 ## SDK vs CLI vs Dashboard
 
@@ -249,20 +229,13 @@ For command-line workflows:
 
 ```bash
 htmlgraph feature create "Task"
-htmlgraph feature start feature-001
+htmlgraph feature start feat-a1b2c3d4
 htmlgraph serve
 ```
 
 ### Dashboard (Browser)
 
-For visual exploration:
-
-- Kanban board view
-- Graph visualization
-- Timeline view
-- Session history
-
-Open `index.html` in any browser or run `htmlgraph serve`.
+For visual exploration -- Kanban board view, graph visualization, timeline view, session history. Run `htmlgraph serve` or open `index.html` in any browser.
 
 ## Next Steps
 

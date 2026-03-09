@@ -44,6 +44,9 @@ Thumbs.db
 # Local development
 *.log
 
+# Legacy static dashboard artifact (replaced by FastAPI dashboard)
+index.html
+
 # Dashboard screenshot artifacts
 dashboard-*.png
 

@@ -23,6 +23,7 @@ from htmlgraph.db.ddl import (
     create_all_indexes,
     create_all_tables,
     migrate_agent_events,
+    migrate_event_type_constraint,
     migrate_sessions,
     run_data_migrations,
 )
@@ -108,6 +109,7 @@ class HtmlGraphDB(ExtensionOps):
 
         # Run migrations for existing tables before creating new ones
         migrate_agent_events(cursor)
+        migrate_event_type_constraint(cursor)
         migrate_sessions(cursor)
 
         # Run data migrations to normalize existing data

@@ -63,6 +63,31 @@ def main() -> None:
         # Build HookContext for SDK functions that require it
         context = HookContext.from_input(hook_input)
 
+        # 4. Get active work item FIRST so we can attribute the UserQuery event
+        # This must happen before insert_event so Turn 1 gets feature_id stamped
+        # at creation time (eliminates need for _backfill_turn1_userquery).
+        active_work = get_active_work_item(context)
+        active_feature_id = active_work.get("id") if active_work else None
+
+        # Write UserQuery event to project DB for dashboard tracking
+        try:
+            from htmlgraph.ids import generate_id
+
+            db = context.database
+            prompt_text = prompt[:500] if prompt else ""  # truncate long prompts
+            db.insert_event(
+                event_id=generate_id("event"),
+                session_id=context.session_id,
+                agent_id=context.agent_id,
+                event_type="user_input",
+                tool_name="UserQuery",
+                input_summary=prompt_text,
+                output_summary="",
+                feature_id=active_feature_id,
+            )
+        except Exception:
+            pass  # Never block user prompt on event writing
+
         # 1. Classify the prompt (SDK)
         classification = classify_prompt(prompt)
 
@@ -71,9 +96,6 @@ def main() -> None:
 
         # 3. CIGS: Get violation count (SDK)
         violation_count, waste_tokens = get_session_violation_count(context)
-
-        # 4. Get active work item (SDK)
-        active_work = get_active_work_item(context)
 
         # 4b. Get all open work items for attribution guidance (SDK)
         open_items = get_open_work_items(context)

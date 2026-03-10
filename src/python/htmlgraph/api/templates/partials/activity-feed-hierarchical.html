@@ -49,7 +49,7 @@
                                         <span class="child-count">({{ group.total_count }})</span>
                                     {% endif %}
                                     {% set agent_lower = group.parent.agent_id|lower %}
-                                    {% if agent_lower not in ['claude-code', 'claude_code', 'claude'] %}
+                                    {% if agent_lower not in ['claude-code', 'claude_code', 'claude', 'unknown', ''] %}
                                         {% if agent_lower in ['gemini', 'copilot', 'openai'] %}
                                             <span class="agent-badge agent-{{ agent_lower }}">{{ group.parent.agent_id }}</span>
                                         {% else %}

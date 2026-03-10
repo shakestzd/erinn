@@ -160,11 +160,11 @@ class HookContext:
         # 1. Explicit agent_id in hook input
         # 2. HTMLGRAPH_AGENT_ID environment variable
         # 3. CLAUDE_AGENT_NICKNAME environment variable (Claude Code)
-        # 4. Default to 'unknown'
+        # 4. Default to 'claude-code'
         agent_id = (
             hook_input.get("agent_id")
             or os.environ.get("HTMLGRAPH_AGENT_ID")
-            or os.environ.get("CLAUDE_AGENT_NICKNAME", "unknown")
+            or os.environ.get("CLAUDE_AGENT_NICKNAME", "claude-code")
         )
 
         # Detect model name (priority order)

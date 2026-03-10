@@ -74,7 +74,7 @@ class TestHookContextInitialization:
                     # Without session_id in hook_input or env, defaults to "unknown"
                     # This is intentional - better than cross-window contamination
                     assert context.session_id == "unknown"
-                    assert context.agent_id == "unknown"
+                    assert context.agent_id == "claude-code"
 
     def test_from_input_with_session_id(self, tmp_path):
         """Test HookContext.from_input extracts session_id from hook input."""

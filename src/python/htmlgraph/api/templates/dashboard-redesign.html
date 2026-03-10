@@ -261,11 +261,22 @@
         function refreshActivityFeed() {
             if (activeView !== 'activity-feed' || !activityFeedReady) return;
 
+            // Save expand state BEFORE morph (belt-and-suspenders: also saved
+            // by htmx:beforeMorph handler, but that event may not fire reliably
+            // for programmatic htmx.ajax() calls in all htmx/idiomorph versions).
+            if (typeof saveExpandState === 'function') saveExpandState();
+
             // Morph swap — idiomorph diffs the DOM in-place using stable
-            // id="row-{event_id}" attributes.  Expand state (CSS classes)
-            // is saved before morph and restored after via htmx:beforeMorph
-            // and htmx:afterSettle handlers in activity-feed-hierarchical.html.
+            // id="row-{event_id}" attributes.
             htmx.ajax('GET', '/views/activity-feed', {target: '#content-area', swap: 'morph:innerHTML'});
+
+            // Belt-and-suspenders restore: after morph completes, the server
+            // renders all children with class="hidden".  Idiomorph may overwrite
+            // JS-applied class changes.  Restore after a short delay to ensure
+            // the morph cycle is fully complete.
+            setTimeout(function() {
+                if (typeof restoreExpandState === 'function') restoreExpandState();
+            }, 150);
         }
 
         /**

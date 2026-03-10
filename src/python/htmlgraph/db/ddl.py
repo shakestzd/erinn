@@ -37,7 +37,7 @@ def create_all_tables(cursor: sqlite3.Cursor) -> None:
             event_type TEXT NOT NULL CHECK(
                 event_type IN ('tool_call', 'tool_result', 'error', 'delegation',
                                'completion', 'start', 'end', 'check_point', 'task_delegation',
-                               'teammate_idle', 'task_completed')
+                               'teammate_idle', 'task_completed', 'user_input')
             ),
             timestamp DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
             tool_name TEXT,
@@ -655,6 +655,62 @@ def migrate_sessions(cursor: sqlite3.Cursor) -> None:
                 logger.info(f"Added column sessions.{col_name}")
             except sqlite3.OperationalError as e:
                 logger.debug(f"Could not add {col_name}: {e}")
+
+
+def migrate_event_type_constraint(cursor: sqlite3.Cursor) -> None:
+    """
+    Migrate agent_events CHECK constraint to include 'user_input'.
+
+    SQLite doesn't support ALTER TABLE to modify CHECK constraints,
+    so we use PRAGMA writable_schema to update the SQL in sqlite_master.
+
+    Args:
+        cursor: SQLite cursor for executing queries
+    """
+    cursor.execute(
+        "SELECT sql FROM sqlite_master WHERE type='table' AND name='agent_events'"
+    )
+    row = cursor.fetchone()
+    if not row or not row[0]:
+        return
+
+    current_sql = row[0]
+    if "'user_input'" in current_sql:
+        return  # Already migrated
+
+    if "'task_delegation'" in current_sql and "'teammate_idle'" not in current_sql:
+        # Old schema: ends with 'task_delegation')
+        new_sql = current_sql.replace(
+            "'task_delegation')",
+            "'task_delegation',\n                               'teammate_idle', 'task_completed', 'user_input')",
+        )
+    elif "'task_completed'" in current_sql:
+        # Has teammate_idle/task_completed but not user_input
+        new_sql = current_sql.replace(
+            "'task_completed')",
+            "'task_completed', 'user_input')",
+        )
+    else:
+        return  # Unknown schema shape, skip
+
+    try:
+        cursor.execute("PRAGMA writable_schema = ON")
+        cursor.execute(
+            "UPDATE sqlite_master SET sql = ? WHERE type='table' AND name='agent_events'",
+            (new_sql,),
+        )
+        cursor.execute("PRAGMA writable_schema = OFF")
+        cursor.execute("PRAGMA integrity_check")
+        result = cursor.fetchone()
+        if result and result[0] == "ok":
+            logger.info(
+                "Migrated agent_events CHECK constraint to include 'user_input'"
+            )
+        else:
+            logger.warning(f"Integrity check after migration: {result}")
+    except sqlite3.Error as e:
+        logger.error(f"Failed to migrate event_type constraint: {e}")
+        cursor.execute("PRAGMA writable_schema = OFF")
 
 
 def run_data_migrations(cursor: sqlite3.Cursor) -> None:

@@ -63,6 +63,25 @@ def main() -> None:
         # Build HookContext for SDK functions that require it
         context = HookContext.from_input(hook_input)
 
+        # Write UserQuery event to DB — required for Turn 1 backfill attribution
+        try:
+            import uuid
+
+            from htmlgraph.db.schema import HtmlGraphDB
+
+            db = HtmlGraphDB(str(context.graph_dir / "htmlgraph.db"))
+            db.insert_event(
+                event_id=str(uuid.uuid4()),
+                agent_id=context.agent_id or "claude-code",
+                event_type="user_query",
+                session_id=context.session_id,
+                tool_name="UserQuery",
+                tool_input={"prompt": prompt[:500]},
+            )
+            db.close()
+        except Exception:
+            pass  # Never block on DB write failure
+
         # 1. Classify the prompt (SDK)
         classification = classify_prompt(prompt)
 

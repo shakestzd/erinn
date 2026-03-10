@@ -415,6 +415,20 @@ class FeatureWorkflow:
                 active_session.id,
                 self._m.get_session,
             )
+
+        # Backfill Turn 1 attribution: update the most recent unattributed UserQuery
+        # event in the current session.  The UserPromptSubmit hook writes the UserQuery
+        # before Claude can call sdk.features.start(), so Turn 1's event lands with
+        # feature_id IS NULL.  This retroactively stamps it so it shows up attributed.
+        #
+        # Pass session_id=None when active_session is unknown (e.g. called from a
+        # subprocess) so _backfill_turn1_userquery falls back to the DB-wide
+        # most-recent unattributed UserQuery instead of silently skipping backfill.
+        self._m._backfill_turn1_userquery(
+            active_session.id if active_session else None,
+            feature_id,
+        )
+
         if log_activity and agent:
             self._m._maybe_log_work_item_action(
                 agent=agent,

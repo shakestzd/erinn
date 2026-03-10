@@ -6,12 +6,13 @@ Integrates with aiosqlite for direct SQL queries (non-ORM) with proper connectio
 """
 
 import logging
+import sqlite3
 from collections.abc import AsyncGenerator
 from pathlib import Path
 from typing import Any
 
 import aiosqlite
-from sqlalchemy import Connection, create_engine
+from sqlalchemy import Connection, create_engine, event
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, create_async_engine
 from sqlalchemy.orm import sessionmaker
 
@@ -53,6 +54,20 @@ class DatabaseManager:
             pool_pre_ping=True,
             connect_args={"timeout": 30},
         )
+
+        # Apply WAL mode and concurrency PRAGMAs on every new connection
+        @event.listens_for(self.async_engine.sync_engine, "connect")
+        def _set_wal_pragmas(
+            dbapi_conn: sqlite3.Connection, _connection_record: object
+        ) -> None:
+            cursor = dbapi_conn.cursor()
+            cursor.execute("PRAGMA journal_mode=WAL")
+            cursor.execute("PRAGMA synchronous=NORMAL")
+            cursor.execute("PRAGMA busy_timeout=5000")
+            cursor.execute("PRAGMA cache_size=-64000")
+            cursor.execute("PRAGMA temp_store=MEMORY")
+            cursor.execute("PRAGMA mmap_size=268435456")
+            cursor.close()
 
         # Create session factory
         self.SessionLocal = sessionmaker(  # type: ignore[call-overload]
@@ -138,6 +153,20 @@ class SyncDatabaseManager:
             future=True,
             connect_args={"timeout": 30},
         )
+
+        # Apply WAL mode and concurrency PRAGMAs on every new connection
+        @event.listens_for(self.engine, "connect")
+        def _set_wal_pragmas_sync(
+            dbapi_conn: sqlite3.Connection, _connection_record: object
+        ) -> None:
+            cursor = dbapi_conn.cursor()
+            cursor.execute("PRAGMA journal_mode=WAL")
+            cursor.execute("PRAGMA synchronous=NORMAL")
+            cursor.execute("PRAGMA busy_timeout=5000")
+            cursor.execute("PRAGMA cache_size=-64000")
+            cursor.execute("PRAGMA temp_store=MEMORY")
+            cursor.execute("PRAGMA mmap_size=268435456")
+            cursor.close()
 
         logger.info(f"Sync database manager initialized with {self.db_path}")
 

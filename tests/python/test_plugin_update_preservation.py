@@ -595,6 +595,7 @@ def test_backup_preserves_file_timestamps(v1_project_with_customizations):
     assert abs(original_mtime - backup_mtime) < 1.0
 
 
+@pytest.mark.slow
 def test_multiple_migrations_create_multiple_backups(v1_project_with_customizations):
     """Test running migration multiple times creates separate backups."""
     import time
@@ -609,7 +610,7 @@ def test_multiple_migrations_create_multiple_backups(v1_project_with_customizati
     # First migration
     backup1 = migration.backup_docs(htmlgraph_dir, backup_dir)
 
-    # Wait to ensure different timestamp
+    # Wait to ensure different timestamp in backup filename
     time.sleep(1.1)
 
     # Second migration (simulate)

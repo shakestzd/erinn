@@ -1,5 +1,3 @@
-import time
-
 from htmlgraph.session_manager import SessionManager
 
 
@@ -13,9 +11,8 @@ def test_cross_agent_attribution(tmp_path):
     manager.start_feature(feat_a.id, agent="gemini")
     manager.set_primary_feature(feat_a.id, agent="gemini")
 
-    time.sleep(1.1)  # Avoid ID collision
-
     # Feature B is claimed by "claude"
+    # No sleep needed: generate_id uses random entropy, not timestamp-only
     feat_b = manager.create_feature("Claude Feature")
     manager.claim_feature(feat_b.id, agent="claude")
     manager.start_feature(feat_b.id, agent="claude")

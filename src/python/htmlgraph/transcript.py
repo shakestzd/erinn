@@ -554,16 +554,39 @@ class TranscriptReader:
 
         return session
 
-    def read_session(self, session_id: str) -> TranscriptSession | None:
+    def read_session(
+        self, session_id: str, project_path: str | None = None
+    ) -> TranscriptSession | None:
         """
         Read a session by ID.
 
+        Uses direct path construction as a fast path to avoid scanning all
+        JSONL files (which can be 2,000+ files / 2+ GB on active machines).
+
         Args:
             session_id: Session UUID
+            project_path: Optional project path for a targeted lookup
 
         Returns:
             TranscriptSession or None if not found
         """
+        if self.claude_dir.exists():
+            if project_path:
+                # Single-directory targeted lookup
+                encoded = self.encode_project_path(project_path)
+                candidate = self.claude_dir / encoded / f"{session_id}.jsonl"
+                if candidate.exists():
+                    return self.read_transcript(candidate)
+            else:
+                # Try every project subdirectory with a direct filename lookup
+                # O(number of projects), not O(number of JSONL files)
+                for project_dir in self.claude_dir.iterdir():
+                    if project_dir.is_dir():
+                        candidate = project_dir / f"{session_id}.jsonl"
+                        if candidate.exists():
+                            return self.read_transcript(candidate)
+
+        # Slow fallback: full scan (should rarely be needed)
         for path in self.list_transcript_files():
             if path.stem == session_id:
                 return self.read_transcript(path)

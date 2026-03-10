@@ -1795,9 +1795,54 @@ class SessionManager:
         try:
             conn = sqlite3.connect(str(db_path))
             try:
+                # Fix RC1 + RC2: Upsert the work item into the SQLite `features` table
+                # before running the UPDATE.  Spikes (spk-*) and bugs are tracked in
+                # HTML files but may not exist in the SQLite `features` table, which
+                # causes a FK constraint violation when we try to set
+                # agent_events.feature_id to their ID.  Inserting here (with
+                # INSERT OR IGNORE) satisfies the constraint for any item type.
+                # We also disable FK checks as belt-and-suspenders (the same pattern
+                # used by insert_event() in db/schema.py).
+                try:
+                    # Determine node type from ID prefix (feat/spk/bug/chore/epic)
+                    node_type = (
+                        feature_id.split("-")[0] if "-" in feature_id else "feature"
+                    )
+                    # Try to load the node from the graph to get its title/status
+                    node_title = feature_id
+                    node_status = "in-progress"
+                    try:
+                        # bugs_graph for bug-* IDs, features_graph for everything else
+                        graph = (
+                            self.bugs_graph
+                            if node_type == "bug"
+                            else self.features_graph
+                        )
+                        node = graph.get(feature_id)
+                        if node:
+                            node_title = node.title
+                            node_status = node.status
+                    except Exception:  # noqa: BLE001
+                        pass
+                    conn.execute(
+                        """
+                        INSERT OR IGNORE INTO features
+                        (id, type, title, status, priority)
+                        VALUES (?, ?, ?, ?, ?)
+                        """,
+                        (feature_id, node_type, node_title, node_status, "medium"),
+                    )
+                except Exception as e:  # noqa: BLE001
+                    logger.debug(
+                        f"_backfill_turn1_userquery upsert: non-fatal error: {e}"
+                    )
+
                 updated = 0
                 if session_id:
                     # Fast path: we know the session — only look within it.
+                    # Disable FK checks so spikes/bugs not in the features table
+                    # don't cause a silent failure (same pattern as insert_event()).
+                    conn.execute("PRAGMA foreign_keys=OFF")
                     cursor = conn.execute(
                         """
                         UPDATE agent_events
@@ -1813,6 +1858,7 @@ class SessionManager:
                         """,
                         (feature_id, session_id),
                     )
+                    conn.execute("PRAGMA foreign_keys=ON")
                     updated = cursor.rowcount
 
                 if not session_id or updated == 0:
@@ -1821,6 +1867,7 @@ class SessionManager:
                     # Find the most-recent unattributed UserQuery across all sessions —
                     # this is always Turn 1 of the current conversation.
                     try:
+                        conn.execute("PRAGMA foreign_keys=OFF")
                         conn.execute(
                             """
                             UPDATE agent_events
@@ -1835,6 +1882,7 @@ class SessionManager:
                             """,
                             (feature_id,),
                         )
+                        conn.execute("PRAGMA foreign_keys=ON")
                     except Exception as e:  # noqa: BLE001
                         logger.debug(
                             f"_backfill_turn1_userquery fallback: non-fatal error: {e}"

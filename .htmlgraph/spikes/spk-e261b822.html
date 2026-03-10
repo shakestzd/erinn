@@ -13,9 +13,7 @@
              data-status="in-progress"
              data-priority="high"
              data-created="2026-01-04T05:03:21.520104"
-             data-updated="2026-01-04T05:15:00.000000"
-             data-spike-type="architecture"
-             data-timebox-hours="4">
+             data-updated="2026-01-04T05:15:00" data-spike-type="general">
 
         <header>
             <h1>Parent-Child Session Context Design for Nested Task() Tracking</h1>
@@ -26,71 +24,30 @@
         </header>
 
         <section data-content>
-            <h2>Problem Statement</h2>
-            <p>HeadlessSpawner tracks external AI activities (Gemini, Codex, Copilot) in real-time by collecting events and calling <code>sdk.track_activity()</code>. This works when called directly, but <strong>fails when called from within a Task()</strong> because:</p>
-
-            <pre><code>
+            <h3>Description</h3>
+            Problem Statement
+HeadlessSpawner tracks external AI activities (Gemini, Codex, Copilot) in real-time by collecting events and calling sdk.track_activity() . This works when called directly, but fails when called from within a Task() because:
 # Inside HeadlessSpawner._get_sdk()
 try:
     from htmlgraph.sdk import SDK
     return SDK(agent="spawner")  # FAILS: no active session in Task context
 except Exception:
     return None  # Silent failure
-            </code></pre>
-
-            <p>The spawner is called from agent scaffolds which run in Task() contexts:</p>
-            <pre><code>
+The spawner is called from agent scaffolds which run in Task() contexts:
 Task(
     prompt="Research dashboard UI...",
     subagent_type="htmlgraph:gemini-spawner"  # Runs in isolated context
 )
-            </code></pre>
-
-            <h2>Research Findings</h2>
-
-            <h3>1. How HtmlGraph Sessions Currently Work</h3>
-            <p>Key findings from analyzing <code>session_manager.py</code> and <code>sdk.py</code>:</p>
-            <ul>
-                <li><strong>Session Creation:</strong> Sessions are created via <code>SessionManager.start_session()</code> which generates a unique ID like <code>sess-{hash}</code></li>
-                <li><strong>Session Storage:</strong> Sessions are stored as HTML files in <code>.htmlgraph/sessions/sess-{id}.html</code> with corresponding JSONL event logs</li>
-                <li><strong>Active Session Detection:</strong> <code>get_active_session()</code> scans all session files for status="active", then chooses the "canonical" one based on event count and last activity</li>
-                <li><strong>Git Commit Binding:</strong> Sessions are bound to git commits via <code>start_commit</code> field - sessions with the same agent AND same commit are deduplicated</li>
-                <li><strong>Session Deduplication:</strong> <code>start_session()</code> reuses existing active sessions for the same agent+commit combination, preventing session explosion</li>
-            </ul>
-
-            <h3>2. Why SDK Fails in Task() Context</h3>
-            <p>When <code>SDK(agent="spawner")</code> is called in a Task() context:</p>
-            <ol>
-                <li><code>SDK.__init__()</code> calls <code>_discover_htmlgraph()</code> which searches for <code>.htmlgraph/</code> from cwd upward - this usually works</li>
-                <li><code>SessionManager</code> is initialized with the graph directory - this works</li>
-                <li>When <code>track_activity()</code> is called, it needs an active session</li>
-                <li><code>get_active_session(agent="spawner")</code> is called - <strong>this fails because there's no active session for agent "spawner"</strong></li>
-                <li>The exception is caught and SDK returns None, causing silent tracking failure</li>
-            </ol>
-
-            <h3>3. Environment Variables Already in Use</h3>
-            <p>HtmlGraph already uses several environment variables:</p>
-            <ul>
-                <li><code>HTMLGRAPH_AGENT</code> - Explicit agent name override</li>
-                <li><code>HTMLGRAPH_DISABLE_TRACKING</code> - Disables all tracking (used in nested claude calls)</li>
-                <li><code>HTMLGRAPH_ORCHESTRATOR_DISABLED</code> - Disables orchestrator enforcement</li>
-                <li><code>HTMLGRAPH_PROJECT_DIR</code> / <code>HTMLGRAPH_DIR</code> - Project/graph directory</li>
-                <li><code>CLAUDE_CODE_VERSION</code> - Claude Code detection</li>
-            </ul>
-
-            <h3>4. Parent Activity Tracking Already Exists</h3>
-            <p>In <code>event_tracker.py</code>, there's already a parent-child activity mechanism:</p>
-            <ul>
-                <li><code>parent-activity.json</code> file tracks active parent context</li>
-                <li>When Skill/Task invocations start, their activity ID is saved</li>
-                <li>Subsequent activities get <code>parent_activity_id</code> set</li>
-                <li>This provides a model for session inheritance</li>
-            </ul>
-
-            <h2>Implementation Approaches Comparison</h2>
-
-            <h3>Option A: Auto-Discovery Enhancement</h3>
-            <pre><code>
+Research Findings
+Key findings from analyzing session_manager.py and sdk.py :
+Session Creation: Sessions are created via SessionManager.start_session() which generates a unique ID like sess-{hash} Session Storage: Sessions are stored as HTML files in .htmlgraph/sessions/sess-{id}.html with corresponding JSONL event logs Active Session Detection: get_active_session() scans all session files for status="active", then chooses the "canonical" one based on event count and last activity Git Commit Binding: Sessions are bound to git commits via start_commit field - sessions with the same agent AND same commit are deduplicated Session Deduplication: start_session() reuses existing active sessions for the same agent+commit combination, preventing session explosion
+When SDK(agent="spawner") is called in a Task() context:
+SDK.__init__() calls _discover_htmlgraph() which searches for .htmlgraph/ from cwd upward - this usually works SessionManager is initialized with the graph directory - this works When track_activity() is called, it needs an active session get_active_session(agent="spawner") is called - this fails because there's no active session for agent "spawner" The exception is caught and SDK returns None, causing silent tracking failure
+HtmlGraph already uses several environment variables:
+HTMLGRAPH_AGENT - Explicit agent name override HTMLGRAPH_DISABLE_TRACKING - Disables all tracking (used in nested claude calls) HTMLGRAPH_ORCHESTRATOR_DISABLED - Disables orchestrator enforcement HTMLGRAPH_PROJECT_DIR / HTMLGRAPH_DIR - Project/graph directory CLAUDE_CODE_VERSION - Claude Code detection
+In event_tracker.py , there's already a parent-child activity mechanism:
+parent-activity.json file tracks active parent context When Skill/Task invocations start, their activity ID is saved Subsequent activities get parent_activity_id set This provides a model for session inheritance
+Implementation Approaches Comparison
 def _get_sdk() -> SDK | None:
     try:
         session_id = (
@@ -101,12 +58,8 @@ def _get_sdk() -> SDK | None:
         return SDK(agent="spawner", session_id=session_id)
     except Exception:
         return None
-            </code></pre>
-            <p><strong>Pros:</strong> No changes to callers needed, works transparently</p>
-            <p><strong>Cons:</strong> Fragile discovery logic, race conditions possible, may pick wrong session</p>
-
-            <h3>Option B: Environment Variable Passing (RECOMMENDED)</h3>
-            <pre><code>
+Pros: No changes to callers needed, works transparently
+Cons: Fragile discovery logic, race conditions possible, may pick wrong session
 # In orchestrator before spawning Task:
 os.environ["HTMLGRAPH_PARENT_SESSION"] = sdk.session_manager.get_active_session().id
 os.environ["HTMLGRAPH_PARENT_AGENT"] = sdk.agent
@@ -118,12 +71,8 @@ def _get_sdk() -> SDK | None:
     if parent_session:
         return SDK(agent="spawner", parent_session=parent_session)
     return None
-            </code></pre>
-            <p><strong>Pros:</strong> Explicit, no guessing, works across process boundaries, supports deep nesting</p>
-            <p><strong>Cons:</strong> Requires hook/caller changes, env vars may be inherited unexpectedly</p>
-
-            <h3>Option C: Active Session Marker File</h3>
-            <pre><code>
+Pros: Explicit, no guessing, works across process boundaries, supports deep nesting
+Cons: Requires hook/caller changes, env vars may be inherited unexpectedly
 # Parent writes marker before spawning
 .htmlgraph/active-session.json:
 {
@@ -138,32 +87,13 @@ def _find_active_session():
     marker = Path(".htmlgraph/active-session.json")
     if marker.exists():
         return json.loads(marker.read_text())["session_id"]
-            </code></pre>
-            <p><strong>Pros:</strong> Persistent across calls, debuggable (visible file)</p>
-            <p><strong>Cons:</strong> File I/O overhead, potential stale data, race conditions with parallel agents</p>
-
-            <h3>Option D: Hybrid Approach (RECOMMENDED)</h3>
-            <p>Combine environment variables with marker file fallback:</p>
-            <ol>
-                <li><strong>Primary:</strong> Check <code>HTMLGRAPH_PARENT_SESSION</code> env var</li>
-                <li><strong>Fallback:</strong> Read <code>.htmlgraph/active-session.json</code> marker</li>
-                <li><strong>Last resort:</strong> Use existing <code>get_active_session()</code> logic</li>
-            </ol>
-
-            <h2>Recommended Design</h2>
-
-            <h3>Core Concept: Session Context Inheritance</h3>
-            <p>Subagents inherit session context from their parent through environment variables. Activities are logged to the parent session with a <code>parent_activity_id</code> linking them to the Task() invocation.</p>
-
-            <h3>New Environment Variables</h3>
-            <ul>
-                <li><code>HTMLGRAPH_PARENT_SESSION</code> - Parent session ID to log activities to</li>
-                <li><code>HTMLGRAPH_PARENT_AGENT</code> - Parent agent name for attribution</li>
-                <li><code>HTMLGRAPH_PARENT_ACTIVITY</code> - Parent activity ID (the Task() call itself)</li>
-            </ul>
-
-            <h3>SDK Changes</h3>
-            <pre><code>
+Pros: Persistent across calls, debuggable (visible file)
+Cons: File I/O overhead, potential stale data, race conditions with parallel agents
+Combine environment variables with marker file fallback:
+Primary: Check HTMLGRAPH_PARENT_SESSION env var Fallback: Read .htmlgraph/active-session.json marker Last resort: Use existing get_active_session() logic
+Recommended Design
+Subagents inherit session context from their parent through environment variables. Activities are logged to the parent session with a parent_activity_id linking them to the Task() invocation.
+HTMLGRAPH_PARENT_SESSION - Parent session ID to log activities to HTMLGRAPH_PARENT_AGENT - Parent agent name for attribution HTMLGRAPH_PARENT_ACTIVITY - Parent activity ID (the Task() call itself)
 class SDK:
     def __init__(
         self,
@@ -185,20 +115,12 @@ class SDK:
             parent_activity_id = self._parent_activity
         else:
             # ... existing logic ...
-            </code></pre>
-
-            <h3>Hook Changes (SessionStart)</h3>
-            <p>The SessionStart hook should set environment variables before any Task() calls:</p>
-            <pre><code>
+The SessionStart hook should set environment variables before any Task() calls:
 # In session-start.py after starting session:
 active_session = manager.get_active_session()
 if active_session:
     os.environ["HTMLGRAPH_PARENT_SESSION"] = active_session.id
     os.environ["HTMLGRAPH_PARENT_AGENT"] = active_session.agent
-            </code></pre>
-
-            <h3>HeadlessSpawner Changes</h3>
-            <pre><code>
 def _get_sdk(self) -> "SDK | None":
     """Get SDK instance for HtmlGraph tracking."""
     try:
@@ -213,52 +135,14 @@ def _get_sdk(self) -> "SDK | None":
         return SDK(agent="spawner")
     except Exception:
         return None
-            </code></pre>
-
-            <h3>Graph Relationships</h3>
-            <p>Activities tracked by subagents will have:</p>
-            <ul>
-                <li><code>session_id</code> - Points to parent session</li>
-                <li><code>parent_activity_id</code> - Points to Task() invocation activity</li>
-                <li><code>agent</code> - Set to "spawner" or specific spawner type</li>
-                <li><code>payload.spawner_type</code> - "gemini", "codex", "copilot", etc.</li>
-            </ul>
-
-            <h2>Implementation Plan</h2>
-
-            <h3>Phase 1: Core Infrastructure (2-3 hours)</h3>
-            <ol>
-                <li>Add <code>parent_session</code> parameter to SDK.__init__()</li>
-                <li>Modify <code>track_activity()</code> to use parent session when available</li>
-                <li>Add environment variable reading in SDK initialization</li>
-                <li>Write unit tests for parent session inheritance</li>
-            </ol>
-
-            <h3>Phase 2: Hook Integration (1-2 hours)</h3>
-            <ol>
-                <li>Update <code>session-start.py</code> hook to set HTMLGRAPH_PARENT_SESSION</li>
-                <li>Update <code>track-event.py</code> to propagate parent context</li>
-                <li>Ensure environment variables are set before Task() calls</li>
-            </ol>
-
-            <h3>Phase 3: HeadlessSpawner Update (1 hour)</h3>
-            <ol>
-                <li>Update <code>_get_sdk()</code> to use parent session</li>
-                <li>Test Gemini, Codex, Copilot spawners with parent context</li>
-                <li>Verify events appear in parent session's activity log</li>
-            </ol>
-
-            <h3>Phase 4: Testing & Documentation (1-2 hours)</h3>
-            <ol>
-                <li>Integration tests for nested Task() tracking</li>
-                <li>Test deep nesting (Task -> Task -> Task)</li>
-                <li>Update documentation</li>
-            </ol>
-
-            <h2>Testing Strategy</h2>
-
-            <h3>Unit Tests</h3>
-            <pre><code>
+Activities tracked by subagents will have:
+session_id - Points to parent session parent_activity_id - Points to Task() invocation activity agent - Set to "spawner" or specific spawner type payload.spawner_type - "gemini", "codex", "copilot", etc.
+Implementation Plan
+Add parent_session parameter to SDK.__init__() Modify track_activity() to use parent session when available Add environment variable reading in SDK initialization Write unit tests for parent session inheritance
+Update session-start.py hook to set HTMLGRAPH_PARENT_SESSION Update track-event.py to propagate parent context Ensure environment variables are set before Task() calls
+Update _get_sdk() to use parent session Test Gemini, Codex, Copilot spawners with parent context Verify events appear in parent session's activity log
+Integration tests for nested Task() tracking Test deep nesting (Task -> Task -> Task) Update documentation
+Testing Strategy
 def test_sdk_inherits_parent_session():
     """Test SDK uses parent session from env var."""
     os.environ["HTMLGRAPH_PARENT_SESSION"] = "sess-test123"
@@ -273,10 +157,6 @@ def test_spawner_tracks_to_parent_session():
     sdk = spawner._get_sdk()
     assert sdk is not None
     assert sdk._parent_session == "sess-parent"
-            </code></pre>
-
-            <h3>Integration Tests</h3>
-            <pre><code>
 def test_nested_task_tracking_e2e():
     """Test activities from Task() subagent appear in parent session."""
     # 1. Start parent session
@@ -293,53 +173,155 @@ def test_nested_task_tracking_e2e():
     # 4. Verify activity appears in parent session
     session = sdk.session_manager.get_session(session.id)
     assert any(a.tool == "gemini_spawn" for a in session.activity_log)
-            </code></pre>
-
-            <h2>Migration Path</h2>
-            <ol>
-                <li><strong>Backward Compatible:</strong> If HTMLGRAPH_PARENT_SESSION is not set, existing behavior continues</li>
-                <li><strong>Gradual Rollout:</strong> Update hooks first, then spawners</li>
-                <li><strong>No Breaking Changes:</strong> All new functionality is additive</li>
-            </ol>
-
-            <h2>Risk Assessment</h2>
-            <ul>
-                <li><strong>Low Risk:</strong> Environment variable approach is well-tested pattern</li>
-                <li><strong>Medium Risk:</strong> Hook order matters - SessionStart must run before PreToolUse</li>
-                <li><strong>Low Risk:</strong> Fallback to existing behavior if env var not set</li>
-            </ul>
+Migration Path
+Backward Compatible: If HTMLGRAPH_PARENT_SESSION is not set, existing behavior continues Gradual Rollout: Update hooks first, then spawners No Breaking Changes: All new functionality is additive
+Risk Assessment
+Low Risk: Environment variable approach is well-tested pattern Medium Risk: Hook order matters - SessionStart must run before PreToolUse Low Risk: Fallback to existing behavior if env var not set
         </section>
-
+    
         <section data-spike-metadata>
             <h3>Spike Metadata</h3>
             <dl>
                 <dt>Type</dt>
-                <dd>Architecture</dd>
-                <dt>Timebox</dt>
-                <dd>4 hours</dd>
-                <dt>Investigator</dt>
-                <dd>Claude (Opus 4.5)</dd>
+                <dd>General</dd>
             </dl>
         </section>
-
         <section data-findings>
-            <h3>Key Findings</h3>
-            <ol>
-                <li>SDK session detection relies on scanning files - works but not Task()-aware</li>
-                <li>Parent-child activity tracking already exists via parent-activity.json</li>
-                <li>Environment variables are the cleanest approach for cross-process context</li>
-                <li>Hybrid approach (env var + marker file fallback) provides best reliability</li>
-            </ol>
-        </section>
+            <h3>Findings</h3>
+            <div class="findings-content">
+                ## Problem
 
-        <section data-recommendations>
-            <h3>Recommendations</h3>
-            <ol>
-                <li><strong>Use Environment Variables:</strong> HTMLGRAPH_PARENT_SESSION, HTMLGRAPH_PARENT_AGENT, HTMLGRAPH_PARENT_ACTIVITY</li>
-                <li><strong>Modify SDK:</strong> Add parent_session parameter and env var reading</li>
-                <li><strong>Update Hooks:</strong> Set parent context in SessionStart hook</li>
-                <li><strong>Update HeadlessSpawner:</strong> Use parent session in _get_sdk()</li>
-            </ol>
+Subagent tool calls (Bash, Read, Grep, etc.) appear as direct children of the orchestrator UserQuery event instead of being nested under their Task node in the activity feed.
+
+## Data Model for Session Hierarchy
+
+### Tables involved
+
+**sessions** table (ddl.py lines 99-135):
+- session_id TEXT PRIMARY KEY
+- parent_session_id TEXT (FK → sessions)  ← links child session to parent
+- parent_event_id TEXT (FK → agent_events) ← links child session to the Task event that spawned it
+- is_subagent BOOLEAN DEFAULT FALSE
+
+**agent_events** table (ddl.py lines 33-66):
+- event_id TEXT PRIMARY KEY
+- event_type TEXT — can be "task_delegation", "tool_call", "task_completed", etc.
+- parent_event_id TEXT (FK → agent_events) ← links an event to its parent event
+- session_id TEXT — which session this event belongs to
+- status TEXT — "started" / "completed" for task_delegation events
+- subagent_type TEXT — e.g. "general-purpose", "researcher"
+- claude_task_id TEXT — Claude Code internal task id
+
+**tool_traces** table (ddl.py lines 226-247):
+- tool_use_id TEXT PRIMARY KEY — UUID from PreToolUse hook
+- session_id TEXT
+- parent_tool_use_id TEXT (FK → tool_traces) ← tool-level nesting
+- status TEXT
+
+### Intended hierarchy
+
+UserQuery (agent_events, event_type=UserQuery, session=PARENT)
+  └── task_delegation (agent_events, event_type=task_delegation, session=PARENT, status=started)
+        └── Bash (agent_events, event_type=tool_call, session=SUBAGENT, parent_event_id=task_delegation.event_id)
+        └── Read (agent_events, event_type=tool_call, session=SUBAGENT, parent_event_id=task_delegation.event_id)
+
+### Actual (broken) hierarchy
+
+UserQuery (agent_events, session=PARENT)
+  └── Bash (session=SUBAGENT, parent_event_id=UserQuery.event_id)  ← WRONG
+  └── Read (session=SUBAGENT, parent_event_id=UserQuery.event_id)  ← WRONG
+  task_delegation (session=PARENT, status=started or completed) ← orphaned or wrong parent
+
+## Where Attribution Breaks Down
+
+### Root cause: hook processes are isolated — env vars do not carry over
+
+The attribution chain relies on env vars (HTMLGRAPH_PARENT_EVENT, HTMLGRAPH_PARENT_EVENT_FOR_POST) set in pretooluse.py. These ARE set when the orchestrator's PreToolUse hook fires for Task(). However:
+
+**Critical fact** (pretooluse.py line 709, comment):
+> NOTE: env vars don't propagate between hook processes, so this branch is effectively dead code in the real system.
+
+Each hook invocation is a separate subprocess. The env vars set by PreToolUse are gone by the time PostToolUse runs, and are never available to the subagent's hooks at all.
+
+### The four attribution methods in track_event (event_tracker.py)
+
+**Method 0 — JSONL parentToolUseID** (event_tracker.py lines 1576-1595):
+Reads ~/.claude/projects/{hash}/{session_id}.jsonl and looks for agent_progress records with a parentToolUseID field. This field appears ONLY when a tool call executes inside a subagent and Claude Code writes it to the transcript. This is the correct method — but it has a critical weakness: it passes hook_session_id (the subagent's Claude Code session_id) to _find_parent_via_jsonl, then looks that session_id's transcript. The transcript found is the SUBAGENT's transcript, not the PARENT's. The parentToolUseID in an agent_progress record in the subagent transcript refers to the Task tool_use_id in the PARENT session's transcript. The DB join in _find_parent_via_jsonl (event_tracker.py lines 900-919) looks up tool_traces JOIN agent_events WHERE event_type='task_delegation' AND status='started'. This join fails if: (a) there is no tool_traces row for the Task tool_use_id, or (b) the task_delegation status has already been set to 'completed' by commit 644ff738's fix.
+
+**Method 1 — sessions table lookup** (event_tracker.py lines 1011-1093):
+Checks if hook_session_id is already in sessions table with is_subagent=1. If so, finds the task_delegation via subagent_type match. This works for subsequent tool calls in the same subagent session after the first call has registered the session. Fails on the FIRST tool call from a subagent because the session has not been registered yet.
+
+**Method 3 — unknown session_id** (event_tracker.py lines 1110-1146):
+If hook_session_id is not in sessions table, assumes it is a subagent and grabs the most recent started task_delegation globally. This is a heuristic — it is not session-specific. With multiple concurrent subagents or when the task_delegation has already been marked completed by 644ff738, it picks wrong or nothing.
+
+**Final fallback — UserQuery** (event_tracker.py lines 1902-1904):
+If no parent_activity_id found, fall back to the most recent UserQuery in the session. This is the broken path — it flattens subagent tool calls to UserQuery level.
+
+### What commit 644ff738 tried to fix and why it made things worse
+
+644ff738 added this logic in the PostToolUse handler for Task/Agent tools (event_tracker.py lines 1969-1999):
+
+After recording the Task tool call event, it immediately marks the task_delegation as status='completed'. The intent was to prevent subsequent orchestrator tool calls (Bash, Read after Task() returns) from being mis-attributed to the now-finished task.
+
+**Why this breaks Method 0**: When the subagent runs its tool calls, Method 0 looks for a task_delegation with status='started'. But 644ff738 already set the status to 'completed' at PostToolUse time for the Task tool. The Task() PostToolUse fires when the Task CALL is dispatched (before the subagent finishes), but the subagent's tool calls happen AFTER. So by the time the subagent's Bash runs, the task_delegation has status='completed', Method 0's DB join finds nothing, and it falls through to UserQuery.
+
+**Why this breaks Method 3**: Same reason — Method 3 also filters AND status='started'. After 644ff738, no started task_delegation exists.
+
+## What Information IS Available in Hooks
+
+The following data IS reliably available:
+
+1. **hook_input["session_id"]** — Claude Code provides this in PostToolUse. This is the subagent's unique session_id (a fresh UUID per Task invocation).
+
+2. **The JSONL transcript** — The subagent's transcript at ~/.claude/projects/{hash}/{session_id}.jsonl contains agent_progress records with parentToolUseID that points to the Task tool_use_id in the parent session.
+
+3. **tool_traces.tool_use_id** — The parent Task's tool_use_id is stored in tool_traces during PreToolUse. This is the correct key to correlate parent and child.
+
+4. **sessions.parent_session_id** — After subagent_start.py registers the subagent session, this column correctly links child session → parent session.
+
+5. **The task_delegation event_id** — Stored in agent_events and can be looked up from tool_traces via tool_use_id.
+
+## Proposed Fix Design
+
+### Fix 1: Do not mark task_delegation completed at Task PostToolUse time
+
+The 644ff738 fix fires too early. The task_delegation should remain status='started' until the TaskCompleted hook fires (which already handles marking it completed). Remove or guard the early completion at event_tracker.py lines 1972-1999.
+
+Risk: orchestrator's own tool calls after Task() might get mis-attributed to the task. Mitigate with the staleness timestamp check already present (task_delegation timestamp must be > current UserQuery timestamp).
+
+### Fix 2: Make Method 0 (JSONL) work even when task_delegation is completed
+
+In _find_parent_via_jsonl, change the DB query to remove the AND status='started' filter. Instead, also accept status='completed'. The task_delegation is still the correct parent regardless of status.
+
+SQL change in event_tracker.py around line 906:
+Remove: AND ae.status = 'started'
+
+### Fix 3: Ensure subagent session registration happens before first tool call
+
+The session-start hook (session-start.py) should write the subagent's session to the sessions table with parent_session_id populated. If this runs reliably before the first PostToolUse hook, Method 1 will work for all tool calls including the first.
+
+This requires the traceparent queue mechanism (write_traceparent_queue in pretooluse.py, lines 84-132) to be reliably consumed by session-start.py.
+
+### Recommended approach
+
+Apply Fix 2 (remove status filter in JSONL join) as the primary fix — it is the smallest, most targeted change and does not depend on timing. Also apply Fix 1 (delay task_delegation completion) as defence-in-depth so that Method 3 also works as a fallback.
+
+Together: Method 0 finds the task_delegation via parentToolUseID regardless of status. Method 3 finds it via unknown session heuristic while it is still 'started'. Both converge on the correct task_delegation event_id as parent_activity_id.
+
+## Files and Line References
+
+- event_tracker.py  status filter: lines 906-909
+- event_tracker.py early task_delegation completion: lines 1969-1999
+- event_tracker.py Method 0 JSONL attribution: lines 1576-1595
+- event_tracker.py Method 1 sessions table: lines 1011-1093
+- event_tracker.py Method 3 unknown session: lines 1110-1146
+- event_tracker.py final UserQuery fallback: lines 1902-1904
+- pretooluse.py create_task_parent_event: lines 292-444
+- pretooluse.py write_traceparent_queue: lines 84-132
+- ddl.py sessions table: lines 99-135
+- ddl.py agent_events table: lines 33-66
+
+            </div>
         </section>
     </article>
 </body>

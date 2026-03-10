@@ -13,6 +13,8 @@ import sys
 import tempfile
 from pathlib import Path
 
+import pytest
+
 # Handle Python 3.10 compatibility for TOML parsing
 if sys.version_info >= (3, 11):
     import tomllib
@@ -146,6 +148,7 @@ class TestMypyConfiguration:
             "disallow_untyped_defs must be True"
         )
 
+    @pytest.mark.slow
     def test_mypy_check_passes(self) -> None:
         """Test that mypy type checking passes."""
         result = subprocess.run(
@@ -158,6 +161,7 @@ class TestMypyConfiguration:
             f"Mypy check failed:\n{result.stdout}\n{result.stderr}"
         )
 
+    @pytest.mark.slow
     def test_untyped_function_fails_mypy(self) -> None:
         """Test that untyped functions are caught by mypy."""
         # Create a temporary file with untyped function
@@ -188,6 +192,7 @@ def untyped_function(x):
         finally:
             Path(temp_file).unlink(missing_ok=True)
 
+    @pytest.mark.slow
     def test_typed_function_passes_mypy(self) -> None:
         """Test that properly typed functions pass mypy."""
         # Create a temporary file with properly typed function
@@ -229,6 +234,7 @@ class TestPytestConfiguration:
 
         assert "pytest" in config["tool"], "Missing [tool.pytest.ini_options] section"
 
+    @pytest.mark.slow
     def test_pytest_runs_successfully(self) -> None:
         """Test that pytest runs without errors."""
         result = subprocess.run(

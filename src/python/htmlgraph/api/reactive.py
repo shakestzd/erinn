@@ -31,6 +31,8 @@ from typing import Any
 
 import aiosqlite
 
+from htmlgraph.db.pragmas import apply_async_pragmas
+
 logger = logging.getLogger(__name__)
 
 
@@ -96,6 +98,7 @@ class ReactiveQuery:
         try:
             async with aiosqlite.connect(self.db_path) as db:
                 db.row_factory = aiosqlite.Row
+                await apply_async_pragmas(db)
                 cursor = await db.execute(self.definition.sql)
                 rows = await cursor.fetchall()
 

@@ -43,6 +43,7 @@ def run_hook(prompt: str) -> dict:
         input=input_json,
         capture_output=True,
         text=True,
+        timeout=25,
     )
 
     if result.returncode != 0:

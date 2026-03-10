@@ -65,9 +65,6 @@ def main() -> None:
     except json.JSONDecodeError:
         hook_input = {}
 
-    external_session_id = hook_input.get("session_id") or os.environ.get(
-        "CLAUDE_SESSION_ID"
-    )
     cwd = hook_input.get("cwd")
     project_dir = resolve_project_dir(cwd if cwd else None)
     graph_dir = Path(project_dir) / ".htmlgraph"
@@ -81,24 +78,6 @@ def main() -> None:
 
         # Capture current git commit for end_commit tracking
         end_commit = _get_head_commit(project_dir)
-
-        # Link transcript to session (but don't import events yet)
-        if active and external_session_id:
-            try:
-                from htmlgraph.transcript import TranscriptReader
-
-                reader = TranscriptReader()
-                transcript = reader.read_session(external_session_id)
-                if transcript:
-                    # Just link, don't import - import happens on commit/completion
-                    manager.link_transcript(
-                        session_id=active.id,
-                        transcript_id=external_session_id,
-                        transcript_path=str(transcript.path),
-                        git_branch=transcript.git_branch,
-                    )
-            except Exception:
-                pass
 
         # Optional handoff context capture (non-interactive)
         handoff_notes = hook_input.get("handoff_notes") or os.environ.get(

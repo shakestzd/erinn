@@ -43,6 +43,7 @@ def run_cli(cmd, graph_dir=None):
         full_cmd,
         capture_output=True,
         text=True,
+        timeout=25,
     )
     return result
 

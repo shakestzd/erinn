@@ -29,6 +29,8 @@ from typing import Any
 
 import aiosqlite
 
+from htmlgraph.db.pragmas import apply_async_pragmas
+
 logger = logging.getLogger(__name__)
 
 
@@ -144,6 +146,7 @@ class OfflineEventLog:
         """
         try:
             async with aiosqlite.connect(self.db_path) as db:
+                await apply_async_pragmas(db)
                 await db.execute(
                     """
                     INSERT INTO offline_events
@@ -177,6 +180,7 @@ class OfflineEventLog:
         """
         try:
             async with aiosqlite.connect(self.db_path) as db:
+                await apply_async_pragmas(db)
                 cursor = await db.execute(
                     """
                     SELECT event_id, agent_id, resource_id, resource_type,
@@ -227,6 +231,7 @@ class OfflineEventLog:
 
             # Update database
             async with aiosqlite.connect(self.db_path) as db:
+                await apply_async_pragmas(db)
                 await db.execute(
                     """
                     UPDATE offline_events SET status = ?
@@ -259,6 +264,7 @@ class OfflineEventLog:
 
             # Update database
             async with aiosqlite.connect(self.db_path) as db:
+                await apply_async_pragmas(db)
                 await db.execute(
                     """
                     UPDATE offline_events SET status = ?
@@ -451,6 +457,7 @@ class EventMerger:
         """
         try:
             async with aiosqlite.connect(self.db_path) as db:
+                await apply_async_pragmas(db)
                 cursor = await db.execute(
                     """
                     SELECT priority FROM features WHERE id = ?
@@ -499,6 +506,7 @@ class ConflictTracker:
 
         try:
             async with aiosqlite.connect(self.db_path) as db:
+                await apply_async_pragmas(db)
                 conflict_id = f"conf-{uuid.uuid4().hex[:8]}"
                 await db.execute(
                     """
@@ -556,6 +564,7 @@ class ConflictTracker:
 
             # Update database
             async with aiosqlite.connect(self.db_path) as db:
+                await apply_async_pragmas(db)
                 await db.execute(
                     """
                     UPDATE conflict_log
@@ -718,6 +727,7 @@ class ReconnectionManager:
 
             # Apply to appropriate table based on resource_type
             async with aiosqlite.connect(self.offline_log.db_path) as db:
+                await apply_async_pragmas(db)
                 if resource_type == "feature":
                     if operation == "update":
                         # Update feature

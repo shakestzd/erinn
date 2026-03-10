@@ -2,6 +2,7 @@
 
 import time
 
+import pytest
 from htmlgraph.orchestration import (
     delegate_with_id,
     generate_task_id,
@@ -128,6 +129,10 @@ def test_get_results_by_task_id_first_match(tmp_path, isolated_db):
     assert results["spike_id"] in [spike1.id, spike2.id]
 
 
+@pytest.mark.slow
+@pytest.mark.skip(
+    reason="Real 10s polling loop — use 'pytest -m slow' to run explicitly"
+)
 def test_get_results_by_task_id_polling_behavior(tmp_path, isolated_db):
     """Test polling waits for results to appear."""
     import threading

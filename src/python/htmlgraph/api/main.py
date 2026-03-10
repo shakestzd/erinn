@@ -328,9 +328,20 @@ def get_app(db_path: str) -> FastAPI:
 def create_app(db_path: str | None = None) -> FastAPI:
     """Create FastAPI app with default database path."""
     if db_path is None:
-        # Use htmlgraph.db - this is the main database with all events
-        # Note: Changed from index.sqlite which was empty analytics cache
-        db_path = str(Path.home() / ".htmlgraph" / "htmlgraph.db")
+        # Prefer project-local .htmlgraph/ (cwd / git root) over home dir.
+        # This ensures `htmlgraph serve` uses the current project's database
+        # rather than ~/.htmlgraph/htmlgraph.db when uvicorn imports this module.
+        try:
+            from htmlgraph.mcp_server import _resolve_project_dir
+
+            project_dir = _resolve_project_dir()
+            project_db = project_dir / ".htmlgraph" / "htmlgraph.db"
+            if project_db.exists():
+                db_path = str(project_db)
+            else:
+                db_path = str(project_dir / ".htmlgraph" / "htmlgraph.db")
+        except Exception:
+            db_path = str(Path.home() / ".htmlgraph" / "htmlgraph.db")
 
     return get_app(db_path)
 

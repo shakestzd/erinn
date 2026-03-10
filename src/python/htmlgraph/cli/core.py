@@ -312,10 +312,14 @@ class ServeCommand(BaseCommand):
         console = Console()
 
         try:
-            # Default to database in graph dir if not specified
-            db_path = str(
-                Path(self.graph_dir or DEFAULT_GRAPH_DIR) / DEFAULT_DATABASE_NAME
-            )
+            # Resolve db_path to an absolute path anchored at CWD so that
+            # uvicorn / subprocess changes to working directory don't cause
+            # the relative ".htmlgraph/htmlgraph.db" to resolve against the
+            # home directory instead of the project directory.
+            _graph_dir = Path(self.graph_dir or DEFAULT_GRAPH_DIR)
+            if not _graph_dir.is_absolute():
+                _graph_dir = Path.cwd() / _graph_dir
+            db_path = str(_graph_dir / DEFAULT_DATABASE_NAME)
 
             result = start_fastapi_server(
                 port=self.port,

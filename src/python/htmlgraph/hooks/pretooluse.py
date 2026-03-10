@@ -408,7 +408,7 @@ def create_task_parent_event(
         """,
             (
                 parent_event_id,
-                "claude-code",  # Main orchestrator agent
+                "",  # agent_id='' so SubagentStart hook can match it (queries agent_id IS NULL OR agent_id = '')
                 "task_delegation",
                 start_time,
                 "Task",
@@ -769,7 +769,7 @@ def create_start_event(
             parent_event_id = user_query_event_id  # Task links to UserQuery
         elif subagent_parent_event_id:
             parent_event_id = subagent_parent_event_id  # Subagent links to Task
-        elif env_parent_event and not is_mcp_tool and not session_known:
+        elif env_parent_event and not is_mcp_tool:
             parent_event_id = env_parent_event  # Explicit parent from env (non-MCP only; staleness validated above)
         else:
             parent_event_id = user_query_event_id  # Fall back to UserQuery

@@ -1142,6 +1142,28 @@ class SessionManager:
 
         # Attribute to feature if not explicitly set
         attributed_feature = feature_id
+
+        # If no explicit feature_id, check the most recent UserQuery in this
+        # session — it carries the correct attribution from backfill.
+        if not attributed_feature:
+            try:
+                from htmlgraph.db import HtmlGraphDB  # noqa: PLC0415
+
+                db = HtmlGraphDB()
+                conn = db.connect()
+                cursor = conn.cursor()
+                cursor.execute(
+                    """SELECT feature_id FROM agent_events
+                       WHERE session_id = ? AND tool_name = 'UserQuery' AND feature_id IS NOT NULL
+                       ORDER BY timestamp DESC LIMIT 1""",
+                    (session_id,),
+                )
+                row = cursor.fetchone()
+                if row and row[0]:
+                    attributed_feature = row[0]
+            except Exception:  # noqa: BLE001
+                pass
+
         drift_score = None
         attribution_reason = None
 

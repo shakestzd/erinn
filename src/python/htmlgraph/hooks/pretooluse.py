@@ -767,7 +767,7 @@ def create_start_event(
 
         if tool_name in ("Task", "Agent") and task_parent_event_id:
             parent_event_id = user_query_event_id  # Task links to UserQuery
-        elif subagent_parent_event_id:
+        elif subagent_parent_event_id and not session_known:
             parent_event_id = subagent_parent_event_id  # Subagent links to Task
         elif env_parent_event and not is_mcp_tool and not session_known:
             parent_event_id = env_parent_event  # Explicit parent from env (non-MCP only; staleness validated above)

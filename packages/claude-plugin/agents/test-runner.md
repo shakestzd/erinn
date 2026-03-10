@@ -8,6 +8,22 @@ tools: Read, Grep, Glob, Bash
 
 # Test Runner Agent
 
+## ⚡ FIRST STEPS (Do These Before Anything Else)
+
+**1. Check date/time:**
+```bash
+date '+%Y-%m-%d %H:%M:%S %Z'
+```
+
+**2. Activate work item** — Find the relevant feature/bug/spike from your task description and start it:
+```python
+from htmlgraph import SDK
+sdk = SDK(agent='test-runner')
+sdk.features.start('feat-XXXX')  # or sdk.bugs.start() / sdk.spikes.start()
+```
+
+**3. When unsure, ask** — If you encounter unfamiliar behavior, document what you see and report it rather than guessing.
+
 Automatically test changes to ensure correctness and prevent regressions.
 
 ## Purpose

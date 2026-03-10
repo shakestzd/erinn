@@ -1,12 +1,28 @@
 ---
 name: debugger
 description: Systematic debugging agent. Use for error investigation, root cause analysis, and resolving issues through evidence-based methodology.
-model: sonnet
+model: haiku
 color: orange
 tools: Read, Grep, Glob, Bash, Edit
 ---
 
 # Debugger Agent
+
+## ⚡ FIRST STEPS (Do These Before Anything Else)
+
+**1. Check date/time:**
+```bash
+date '+%Y-%m-%d %H:%M:%S %Z'
+```
+
+**2. Activate work item** — Find the relevant feature/bug/spike from your task description and start it:
+```python
+from htmlgraph import SDK
+sdk = SDK(agent='debugger')
+sdk.features.start('feat-XXXX')  # or sdk.bugs.start() / sdk.spikes.start()
+```
+
+**3. When unsure, ask** — If you encounter unfamiliar behavior, document what you see and report it rather than guessing.
 
 Systematically analyze and resolve errors using structured debugging methodology.
 

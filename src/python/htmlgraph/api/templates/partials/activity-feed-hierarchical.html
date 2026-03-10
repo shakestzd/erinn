@@ -157,7 +157,16 @@
                                         </div>
                                     </td>
                                     <td class="work-item-cell">
-                                        <span class="work-item-empty">&mdash;</span>
+                                        {% if group.work_item_id %}
+                                        <a href="/work-items/{{ group.work_item_id }}"
+                                           class="work-item-badge work-item-type-{{ group.work_item_type }}"
+                                           title="{{ group.work_item_title }}">
+                                            <span class="work-item-type-label">{{ group.work_item_type | upper }}</span>
+                                            <span class="work-item-name">{{ group.work_item_title if group.work_item_title else group.work_item_id[-8:] }}</span>
+                                        </a>
+                                        {% else %}
+                                        <span class="work-item-empty">—</span>
+                                        {% endif %}
                                     </td>
                                     <td class="col-ts">
                                         <span class="timestamp-text"
@@ -233,7 +242,16 @@
                                                 </div>
                                             </td>
                                             <td class="work-item-cell">
-                                                <span class="work-item-empty">&mdash;</span>
+                                                {% if group.work_item_id %}
+                                                <a href="/work-items/{{ group.work_item_id }}"
+                                                   class="work-item-badge work-item-type-{{ group.work_item_type }}"
+                                                   title="{{ group.work_item_title }}">
+                                                    <span class="work-item-type-label">{{ group.work_item_type | upper }}</span>
+                                                    <span class="work-item-name">{{ group.work_item_title if group.work_item_title else group.work_item_id[-8:] }}</span>
+                                                </a>
+                                                {% else %}
+                                                <span class="work-item-empty">—</span>
+                                                {% endif %}
                                             </td>
                                             <td class="col-ts">
                                                 <span class="timestamp-text"
@@ -273,7 +291,16 @@
                                                         </div>
                                                     </td>
                                                     <td class="work-item-cell">
-                                                        <span class="work-item-empty">&mdash;</span>
+                                                        {% if group.work_item_id %}
+                                                        <a href="/work-items/{{ group.work_item_id }}"
+                                                           class="work-item-badge work-item-type-{{ group.work_item_type }}"
+                                                           title="{{ group.work_item_title }}">
+                                                            <span class="work-item-type-label">{{ group.work_item_type | upper }}</span>
+                                                            <span class="work-item-name">{{ group.work_item_title if group.work_item_title else group.work_item_id[-8:] }}</span>
+                                                        </a>
+                                                        {% else %}
+                                                        <span class="work-item-empty">—</span>
+                                                        {% endif %}
                                                     </td>
                                                     <td class="col-ts">
                                                         <span class="timestamp-text"
@@ -660,7 +687,7 @@ function handleParentClick(row) {
 // Before a morph, we save which event IDs are expanded to both memory and sessionStorage.
 // After the morph, we restore visibility so the user's expand state is preserved.
 // On page reload, sessionStorage is restored to preserve expand state in the same tab.
-window._expandedEventIds = new Set();
+window._expandedEventIds = window._expandedEventIds || new Set();
 
 function saveExpandState() {
     window._expandedEventIds = new Set();
@@ -674,7 +701,18 @@ function saveExpandState() {
 }
 
 function restoreExpandState() {
-    const expanded = window._expandedEventIds;
+    let expanded = window._expandedEventIds;
+    // Fallback: if in-memory state was cleared (e.g. script re-injection during
+    // morph), recover from sessionStorage which saveExpandState always updates.
+    if (!expanded || expanded.size === 0) {
+        const saved = sessionStorage.getItem('activity-feed-expanded-rows');
+        if (saved) {
+            try {
+                expanded = new Set(JSON.parse(saved));
+                window._expandedEventIds = expanded;
+            } catch (e) { /* ignore parse errors */ }
+        }
+    }
     if (!expanded || expanded.size === 0) return;
 
     // Process rows in DOM order (top to bottom) so that a parent row is made
@@ -698,24 +736,44 @@ function restoreExpandState() {
     });
 }
 
-// Listen for idiomorph morph events on the content area
-document.addEventListener('htmx:beforeMorph', function() {
-    saveExpandState();
-});
-document.addEventListener('htmx:afterSettle', function() {
-    restoreExpandState();
-});
+// Guard: only register morph listeners once (script re-executes on every morph)
+if (!window._activityFeedListenersReady) {
+    window._activityFeedListenersReady = true;
 
-// Restore expand state from sessionStorage on page load / HTMX injection
-// Runs immediately when script is executed (at HTMX injection time, rows ARE in DOM)
+    document.addEventListener('htmx:beforeSwap', function() {
+        saveExpandState();
+        window._morphingActivityFeed = true;
+    });
+
+    document.addEventListener('htmx:afterSettle', function() {
+        if (window._morphingActivityFeed) {
+            window._morphingActivityFeed = false;
+            restoreExpandState();
+        }
+    });
+}
+
+// Handle initial load vs morph re-injection
 (function() {
+    // During a morph cycle, afterSettle handles restore — don't interfere
+    if (window._morphingActivityFeed) return;
+
+    // If we already have in-memory expand state (from a previous morph cycle
+    // where the script re-injected after afterSettle already restored),
+    // just re-apply it to the current DOM.
+    if (window._expandedEventIds && window._expandedEventIds.size > 0) {
+        restoreExpandState();
+        return;
+    }
+
+    // True first load: check sessionStorage for state from previous page load
     const savedExpandedJson = sessionStorage.getItem('activity-feed-expanded-rows');
     if (savedExpandedJson) {
         try {
             const savedExpanded = JSON.parse(savedExpandedJson);
             window._expandedEventIds = new Set(savedExpanded);
             restoreExpandState();
-            return; // Don't auto-expand if we restored from sessionStorage
+            return;
         } catch (e) {
             console.warn('Failed to restore expand state from sessionStorage:', e);
         }

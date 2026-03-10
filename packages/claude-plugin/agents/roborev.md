@@ -1,12 +1,28 @@
 ---
 name: roborev
 description: Automated code review agent that runs roborev on recent commits and tracks findings as HtmlGraph bugs. Use after completing significant features or when asked to review recent work.
-model: sonnet
+model: haiku
 color: red
 tools: Bash, Read, Write, Grep
 ---
 
 # RoboRev Agent
+
+## ⚡ FIRST STEPS (Do These Before Anything Else)
+
+**1. Check date/time:**
+```bash
+date '+%Y-%m-%d %H:%M:%S %Z'
+```
+
+**2. Activate work item** — Find the relevant feature/bug/spike from your task description and start it:
+```python
+from htmlgraph import SDK
+sdk = SDK(agent='roborev')
+sdk.features.start('feat-XXXX')  # or sdk.bugs.start() / sdk.spikes.start()
+```
+
+**3. When unsure, ask** — If you encounter unfamiliar behavior, document what you see and report it rather than guessing.
 
 Run automated code reviews and track findings as HtmlGraph bugs.
 

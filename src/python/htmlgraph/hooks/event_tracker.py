@@ -1376,6 +1376,54 @@ def track_event(hook_type: str, hook_input: dict[str, Any]) -> dict[str, Any]:
             # UserQuery event is stored in database - no file-based state needed
             # Subsequent tool calls query database for parent via get_parent_user_query()
             if db:
+                # Determine feature_id for this UserQuery event.
+                # Priority order:
+                # 1. Active in-progress work item from the SDK (most authoritative)
+                # 2. Most recent non-NULL feature_id from any prior event in this session
+                #    (propagates attribution across turns 2, 3, 4, ...)
+                # 3. feature_id from track_activity result (keyword/file matching)
+                # This ensures subsequent UserQuery events inherit the session's active
+                # feature even when sdk.features.start() was only called on turn 1.
+                userquery_feature_id: str | None = None
+
+                # Priority 1: Check for an active in-progress work item via SDK
+                try:
+                    from htmlgraph import SDK as _SDK  # noqa: PLC0415
+
+                    _sdk = _SDK()
+                    _active = _sdk.get_active_work_item()
+                    if _active:
+                        userquery_feature_id = (
+                            _active.get("id") if hasattr(_active, "get") else None
+                        )
+                except Exception:  # noqa: BLE001
+                    pass
+
+                # Priority 2: Inherit from the most recent attributed event in session
+                if not userquery_feature_id and db.connection:
+                    try:
+                        _cursor = db.connection.cursor()
+                        _cursor.execute(
+                            """
+                            SELECT feature_id FROM agent_events
+                            WHERE session_id = ?
+                              AND feature_id IS NOT NULL
+                              AND feature_id != ''
+                            ORDER BY timestamp DESC
+                            LIMIT 1
+                            """,
+                            (userquery_session_id,),
+                        )
+                        _row = _cursor.fetchone()
+                        if _row and _row[0]:
+                            userquery_feature_id = _row[0]
+                    except Exception:  # noqa: BLE001
+                        pass
+
+                # Priority 3: Fall back to track_activity attribution result
+                if not userquery_feature_id and result:
+                    userquery_feature_id = result.feature_id
+
                 event_id = record_event_to_sqlite(
                     db=db,
                     session_id=userquery_session_id,  # Use parent session, not subagent
@@ -1385,7 +1433,7 @@ def track_event(hook_type: str, hook_input: dict[str, Any]) -> dict[str, Any]:
                     is_error=False,
                     agent_id=detected_agent,
                     model=detected_model,
-                    feature_id=result.feature_id if result else None,
+                    feature_id=userquery_feature_id,
                 )
 
                 # Update presence
@@ -1396,7 +1444,7 @@ def track_event(hook_type: str, hook_input: dict[str, Any]) -> dict[str, Any]:
                         event={
                             "tool_name": "UserQuery",
                             "session_id": userquery_session_id,  # Use parent session
-                            "feature_id": result.feature_id if result else None,
+                            "feature_id": userquery_feature_id,
                             "event_id": event_id,
                         },
                     )

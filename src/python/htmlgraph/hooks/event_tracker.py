@@ -915,30 +915,66 @@ def _find_parent_via_jsonl(
                         )
                         row = cursor.fetchone()
                         if row:
+                            task_event_id = str(row[0])
+                            # Don't parent orchestrator calls to completed Tasks.
+                            # After a Task finishes, its agent_progress records
+                            # persist in the JSONL.  Subsequent orchestrator tool
+                            # calls must NOT nest under the finished Task — they
+                            # should fall through to the UserQuery parent instead.
+                            cursor.execute(
+                                "SELECT status FROM agent_events WHERE event_id = ?",
+                                (task_event_id,),
+                            )
+                            status_row = cursor.fetchone()
+                            if status_row and status_row[0] != "started":
+                                logger.debug(
+                                    f"_find_parent_via_jsonl: task_delegation="
+                                    f"{task_event_id} already {status_row[0]}, "
+                                    f"skipping stale parent"
+                                )
+                                return None
                             logger.debug(
                                 f"_find_parent_via_jsonl: parent task_delegation="
-                                f"{row[0]} via parentToolUseID={parent_tuid}"
+                                f"{task_event_id} via parentToolUseID={parent_tuid}"
                             )
-                            return str(row[0])
+                            return task_event_id
 
                         # Fallback: find the most recent task_delegation whose
                         # tool_use_id matches the parentToolUseID directly.
                         # NOTE: No status filter — see note above.
+                        # FIX (bug-acfb2b69): filter by tool_use_id = parent_tuid
+                        # so we don't grab an unrelated task_delegation.
                         cursor.execute(
                             """
                             SELECT event_id FROM agent_events
                             WHERE event_type = 'task_delegation'
+                              AND tool_use_id = ?
                             ORDER BY datetime(REPLACE(SUBSTR(timestamp,1,19),'T',' ')) DESC
                             LIMIT 1
                             """,
+                            (parent_tuid,),
                         )
                         row2 = cursor.fetchone()
                         if row2:
+                            task_event_id2 = str(row2[0])
+                            # Same guard: don't nest under completed Tasks.
+                            cursor.execute(
+                                "SELECT status FROM agent_events WHERE event_id = ?",
+                                (task_event_id2,),
+                            )
+                            status_row2 = cursor.fetchone()
+                            if status_row2 and status_row2[0] != "started":
+                                logger.debug(
+                                    f"_find_parent_via_jsonl: fallback task_delegation="
+                                    f"{task_event_id2} already {status_row2[0]}, "
+                                    f"skipping stale parent"
+                                )
+                                return None
                             logger.debug(
                                 f"_find_parent_via_jsonl: parent task_delegation="
-                                f"{row2[0]} (fallback, parentToolUseID={parent_tuid})"
+                                f"{task_event_id2} (fallback, parentToolUseID={parent_tuid})"
                             )
-                            return str(row2[0])
+                            return task_event_id2
                     except Exception as _e:
                         logger.debug(f"_find_parent_via_jsonl: DB lookup failed: {_e}")
 
@@ -1620,6 +1656,52 @@ def track_event(hook_type: str, hook_input: dict[str, Any]) -> dict[str, Any]:
                     or os.environ.get("HTMLGRAPH_PARENT_EVENT")
                     or os.environ.get("HTMLGRAPH_PARENT_QUERY_EVENT")
                 )
+            # Validate env_parent: if it points to a completed task_delegation,
+            # skip it so the next tool call after a Task() return is NOT nested
+            # under the already-finished Task node.
+            # FIX (bug-acfb2b69): also check for task_completed child event as
+            # a secondary signal that doesn't depend on the status UPDATE having
+            # committed (races with the Task's own PostToolUse UPDATE).
+            if env_parent and db and db.connection:
+                try:
+                    _val_cursor = db.connection.cursor()
+                    _val_cursor.execute(
+                        "SELECT status FROM agent_events "
+                        "WHERE event_id = ? AND tool_name IN ('Task', 'Agent') LIMIT 1",
+                        (env_parent,),
+                    )
+                    _val_row = _val_cursor.fetchone()
+                    _env_is_stale = False
+                    if _val_row and _val_row[0] == "completed":
+                        _env_is_stale = True
+                    elif _val_row:
+                        # Secondary check: look for a task_completed child event.
+                        # This catches the race where the status UPDATE hasn't
+                        # committed yet but the task_completed child row exists.
+                        _val_cursor.execute(
+                            "SELECT COUNT(*) FROM agent_events "
+                            "WHERE parent_event_id = ? AND event_type = 'task_completed'",
+                            (env_parent,),
+                        )
+                        _tc_row = _val_cursor.fetchone()
+                        if _tc_row and _tc_row[0] > 0:
+                            _env_is_stale = True
+                    if _env_is_stale:
+                        # Stale: task_delegation is done — clear env var so it
+                        # doesn't affect future tool calls either.
+                        logger.debug(
+                            "PostToolUse: skipped stale completed task_delegation "
+                            "env_parent=%s for tool=%s",
+                            env_parent,
+                            tool_name,
+                        )
+                        os.environ.pop("HTMLGRAPH_PARENT_EVENT", None)
+                        os.environ.pop("HTMLGRAPH_PARENT_EVENT_FOR_POST", None)
+                        env_parent = None
+                except Exception as _ve:
+                    logger.debug(
+                        f"PostToolUse: task_delegation staleness check failed: {_ve}"
+                    )
             if env_parent:
                 parent_activity_id = env_parent
         # If we detected a Task delegation event via database detection (Method 1/3),
@@ -1674,10 +1756,12 @@ def track_event(hook_type: str, hook_input: dict[str, Any]) -> dict[str, Any]:
                         if _uq_row:
                             _uq_ts = _uq_row[0]
                     if _task_row and _uq_ts:
+                        # FIX (bug-acfb2b69): use full timestamp precision instead
+                        # of [:19] truncation which loses sub-second ordering.
                         _task_ts_norm = (
-                            _task_row[0].replace("T", " ")[:19] if _task_row[0] else ""
+                            _task_row[0].replace("T", " ") if _task_row[0] else ""
                         )
-                        _uq_ts_norm = _uq_ts.replace("T", " ")[:19]
+                        _uq_ts_norm = _uq_ts.replace("T", " ")
                         if _task_ts_norm <= _uq_ts_norm:
                             task_is_stale = True
                             logger.debug(
@@ -1798,13 +1882,12 @@ def track_event(hook_type: str, hook_input: dict[str, Any]) -> dict[str, Any]:
                         if not _already_completed:
                             # Staleness check: task must have been created AFTER the
                             # current UserQuery.  Compare normalized timestamps.
+                            # FIX (bug-acfb2b69): use full timestamp precision.
                             task_ts_norm = (
-                                task_evt_ts.replace("T", " ")[:19]
-                                if task_evt_ts
-                                else ""
+                                task_evt_ts.replace("T", " ") if task_evt_ts else ""
                             )
                             uq_ts_norm = (
-                                current_user_query_ts.replace("T", " ")[:19]
+                                current_user_query_ts.replace("T", " ")
                                 if current_user_query_ts
                                 else ""
                             )
@@ -1873,13 +1956,12 @@ def track_event(hook_type: str, hook_input: dict[str, Any]) -> dict[str, Any]:
                             if task_row:
                                 task_evt_id, task_evt_ts = task_row[0], task_row[1]
                                 # Staleness check for parent session using timestamps
+                                # FIX (bug-acfb2b69): use full timestamp precision.
                                 task_ts_norm = (
-                                    task_evt_ts.replace("T", " ")[:19]
-                                    if task_evt_ts
-                                    else ""
+                                    task_evt_ts.replace("T", " ") if task_evt_ts else ""
                                 )
                                 puq_ts_norm = (
-                                    parent_uq_ts.replace("T", " ")[:19]
+                                    parent_uq_ts.replace("T", " ")
                                     if parent_uq_ts
                                     else ""
                                 )
@@ -1974,6 +2056,18 @@ def track_event(hook_type: str, hook_input: dict[str, Any]) -> dict[str, Any]:
                 # actually finishes.  Marking it completed here causes subagent tool
                 # calls to miss their parent (Method 0's JOIN finds no 'started' row)
                 # and fall back to the orchestrator's UserQuery instead.
+
+                # Defense-in-depth: clear HTMLGRAPH_PARENT_EVENT when the
+                # orchestrator's Task()/Agent() PostToolUse fires (i.e. when the
+                # subagent has returned).  The next tool call the orchestrator makes
+                # should NOT be nested under this Task node.
+                os.environ.pop("HTMLGRAPH_PARENT_EVENT", None)
+                os.environ.pop("HTMLGRAPH_PARENT_EVENT_FOR_POST", None)
+                logger.debug(
+                    "PostToolUse: cleared HTMLGRAPH_PARENT_EVENT after Task/Agent "
+                    "delegation return (tool=%s)",
+                    tool_name,
+                )
 
             # Check for drift and handle accordingly
             # Skip drift detection for child activities (they inherit parent's context)

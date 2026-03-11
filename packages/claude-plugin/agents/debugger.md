@@ -2,11 +2,26 @@
 name: debugger
 description: Systematic debugging agent. Use for error investigation, root cause analysis, and resolving issues through evidence-based methodology.
 model: sonnet
-color: orange
+color: red
 tools: Read, Grep, Glob, Bash, Edit
 ---
 
 # Debugger Agent
+
+## MANDATORY: Work Item Activation
+
+**BEFORE doing anything else, if a Work Item ID was provided in your task prompt:**
+
+```python
+from htmlgraph import SDK
+sdk = SDK(agent="debugger")
+# For features: sdk.features.start("<work-item-id>")
+# For bugs: sdk.bugs.start("<work-item-id>")
+# For spikes: sdk.spikes.start("<work-item-id>")
+```
+
+This ensures ALL your tool calls are attributed to the correct work item in the dashboard.
+**Never skip this step.**
 
 Systematically analyze and resolve errors using structured debugging methodology.
 

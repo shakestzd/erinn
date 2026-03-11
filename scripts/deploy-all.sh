@@ -317,58 +317,107 @@ if [ "$BUILD_ONLY" != true ] && [ "$DOCS_ONLY" != true ]; then
     log_section "Pre-flight: Code Quality Checks"
 
     if [ "$DRY_RUN" = true ]; then
-        log_info "[DRY-RUN] Would run quality checks (ruff, mypy)"
+        log_info "[DRY-RUN] Would run quality checks in parallel (ruff, mypy, pytest)"
     else
-        # Run ruff linting
-        log_info "Running ruff check..."
-        if uv run ruff check src/ packages/ 2>/dev/null; then
-            log_success "ruff check passed"
-        else
-            log_error "ruff check failed!"
-            log_info "Fix errors before deploying"
-            exit 1
-        fi
+        QUALITY_TMPDIR=$(mktemp -d)
+        RUFF_LOG="$QUALITY_TMPDIR/ruff.log"
+        MYPY_LOG="$QUALITY_TMPDIR/mypy.log"
+        PYTEST_LOG="$QUALITY_TMPDIR/pytest.log"
 
-        # Run ruff format check
-        log_info "Running ruff format check..."
-        if uv run ruff format --check src/ packages/ 2>/dev/null; then
-            log_success "ruff format check passed"
-        else
-            log_error "ruff format check failed!"
-            log_info "Run: uv run ruff format src/ packages/"
-            exit 1
-        fi
+        log_info "Running quality gates in parallel (ruff, mypy, pytest)..."
 
-        # Run mypy type checks
-        log_info "Running mypy type checks..."
-        if uv run mypy src/python/htmlgraph/ --ignore-missing-imports 2>/dev/null; then
-            log_success "mypy type checks passed"
-        else
-            log_error "mypy type checks failed!"
-            log_info "Fix type errors before deploying"
-            exit 1
-        fi
+        # Ruff chain: check then format-check (sequential within, parallel with others)
+        ( uv run ruff check src/ packages/ && uv run ruff format --check src/ packages/ ) \
+            > "$RUFF_LOG" 2>&1 &
+        RUFF_PID=$!
 
-        # Run pytest (unless --skip-tests is set)
+        # Mypy type checks
+        uv run mypy src/python/htmlgraph/ --ignore-missing-imports \
+            > "$MYPY_LOG" 2>&1 &
+        MYPY_PID=$!
+
+        # Pytest (unless --skip-tests is set)
         if [ "$SKIP_TESTS" = true ]; then
+            PYTEST_PID=""
             log_info "Skipping pytest (--skip-tests)"
         else
-            log_info "Running tests..."
-            if uv run pytest tests/ -v 2>/dev/null; then
-                log_success "All tests passed"
+            uv run pytest tests/ -v -x \
+                > "$PYTEST_LOG" 2>&1 &
+            PYTEST_PID=$!
+        fi
+
+        # Collect results
+        QUALITY_FAILED=0
+        PYTEST_FAILED=0
+
+        # Wait for ruff (hard failure)
+        wait $RUFF_PID || true  # Don't exit on failure, capture exit code
+        RUFF_EXIT=$?
+        if [ $RUFF_EXIT -eq 0 ]; then
+            log_success "ruff passed"
+        else
+            log_error "ruff failed!"
+            cat "$RUFF_LOG"
+            QUALITY_FAILED=1
+        fi
+
+        # Wait for mypy (hard failure)
+        wait $MYPY_PID || true
+        MYPY_EXIT=$?
+        if [ $MYPY_EXIT -eq 0 ]; then
+            log_success "mypy passed"
+        else
+            log_error "mypy failed!"
+            cat "$MYPY_LOG"
+            QUALITY_FAILED=1
+        fi
+
+        # Wait for pytest (soft failure - allow with confirmation)
+        if [ -n "$PYTEST_PID" ]; then
+            wait $PYTEST_PID || true
+            PYTEST_EXIT=$?
+            if [ $PYTEST_EXIT -eq 0 ]; then
+                log_success "pytest passed"
             else
-                log_warning "Some tests failed - review before deploying"
-                if [ "$NO_CONFIRM" != true ]; then
-                    read -p "Continue deployment anyway? (y/n) " -n 1 -r
-                    echo
-                    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-                        exit 1
-                    fi
+                # Pytest failed - check if it's a partial failure (some tests passed)
+                if grep -q " passed" "$PYTEST_LOG"; then
+                    # Partial failure: some tests passed, some failed
+                    log_warning "Some tests failed (partial failure) - review before deploying"
+                    cat "$PYTEST_LOG"
+                    PYTEST_FAILED=1
                 else
-                    log_info "Continuing despite test failures (--no-confirm mode)"
+                    # Hard failure: no tests passed or critical error
+                    log_error "pytest failed completely!"
+                    cat "$PYTEST_LOG"
+                    QUALITY_FAILED=1
                 fi
             fi
         fi
+
+        # Handle pytest partial failure
+        if [ $PYTEST_FAILED -ne 0 ]; then
+            if [ "$NO_CONFIRM" != true ]; then
+                read -p "Continue deployment anyway? (y/n) " -n 1 -r
+                echo
+                if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+                    rm -rf "$QUALITY_TMPDIR"
+                    exit 1
+                fi
+            else
+                log_info "Continuing despite test failures (--no-confirm mode)"
+            fi
+        fi
+
+        # Clean up temp dir only after showing all output
+        rm -rf "$QUALITY_TMPDIR"
+
+        # Hard failures (ruff, mypy) always block deployment
+        if [ $QUALITY_FAILED -ne 0 ]; then
+            log_error "Quality gates failed. Fix errors before deploying."
+            exit 1
+        fi
+
+        log_success "All quality gates passed"
     fi
 fi
 
@@ -578,7 +627,7 @@ if [ "$SKIP_PYPI" != true ]; then
         fi
 
         # Go back to project root
-        cd "$SCRIPT_DIR"
+        cd - > /dev/null
 
         # Wait a bit for npm to process
         if [ "$DRY_RUN" != true ]; then

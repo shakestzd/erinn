@@ -838,7 +838,7 @@ def record_delegation_to_sqlite(
 
 
 def _find_parent_via_jsonl(
-    session_id: str, tool_use_id: str, cursor: Any
+    session_id: str, tool_use_id: str, cursor: Any, is_orchestrator: bool = False
 ) -> str | None:
     """
     Use the JSONL parentToolUseID chain to find the parent task_delegation event_id.
@@ -848,22 +848,41 @@ def _find_parent_via_jsonl(
     it works correctly for any number of simultaneous background agents.
 
     Algorithm:
-    1. Open ~/.claude/projects/{hash}/{session_id}.jsonl via get_transcript_path.
-    2. Scan for agent_progress records that carry a parentToolUseID field — these
+    1. If is_orchestrator is True, return None immediately — orchestrator tool calls
+       are never inside a subagent, so agent_progress records in the JSONL that were
+       left by a prior Task delegation must not be used as the parent.
+    2. Open ~/.claude/projects/{hash}/{session_id}.jsonl via get_transcript_path.
+    3. Scan for agent_progress records that carry a parentToolUseID field — these
        appear when a tool call is executing inside a subagent spawned by Task/Agent.
-    3. Use that parentToolUseID to look up the matching task_delegation event_id
-       in the tool_traces / agent_events tables.
-    4. Return the task_delegation event_id, or None if not in a subagent.
+    4. Use that parentToolUseID to look up the matching task_delegation event_id
+       in the tool_traces / agent_events tables.  Only match task_delegations whose
+       status is NOT 'completed' so that post-delegation orchestrator tool calls
+       (e.g. a Bash after a Task finishes) are never re-attached to a finished Task.
+    5. Return the task_delegation event_id, or None if not in a subagent.
 
     Args:
         session_id: Claude Code session ID for this hook invocation.
         tool_use_id: The tool_use id from the PostToolUse hook input.
         cursor: Open SQLite cursor on the HtmlGraph database.
+        is_orchestrator: True when the hook was fired for the orchestrator process
+            (agent_id == 'claude-code').  Orchestrator tool calls are never nested
+            inside a subagent, so the JSONL agent_progress scan must be skipped to
+            avoid stale post-delegation parentage.
 
     Returns:
         event_id of the parent task_delegation, or None if not found / not in subagent.
     """
     import os as _os
+
+    # Part 1: orchestrator tool calls are NEVER inside a subagent.
+    # agent_progress records from a prior Task delegation persist in the JSONL and
+    # would incorrectly return the completed Task as parent for subsequent orchestrator
+    # tool calls (e.g. a Bash run after a Task finishes).  Skip the scan entirely.
+    if is_orchestrator:
+        logger.debug(
+            "_find_parent_via_jsonl: skipping JSONL scan for orchestrator tool call"
+        )
+        return None
 
     try:
         from htmlgraph.hooks.transcript import get_transcript_path
@@ -895,10 +914,12 @@ def _find_parent_via_jsonl(
                         continue
 
                     # Look up the task_delegation event that owns this tool_use_id.
-                    # NOTE: Do NOT filter on status='started' — the task_delegation
-                    # may already be marked 'completed' by the PostToolUse handler
-                    # before the subagent's tool calls arrive.  The structural parent
-                    # relationship is correct regardless of completion status.
+                    # Part 2: filter out completed task_delegations so that a
+                    # finished Task does not attract new orchestrator siblings.
+                    # Subagent tool calls that arrive *after* the TaskCompleted
+                    # PostToolUse handler runs still have status='started' at the
+                    # time those tool calls fire, so this filter is safe for the
+                    # genuine subagent case.
                     try:
                         cursor.execute(
                             """
@@ -908,6 +929,7 @@ def _find_parent_via_jsonl(
                               ON tt.tool_use_id = ?
                              AND tt.session_id = ae.session_id
                             WHERE ae.event_type = 'task_delegation'
+                              AND ae.status != 'completed'
                             ORDER BY ae.timestamp DESC
                             LIMIT 1
                             """,
@@ -920,25 +942,6 @@ def _find_parent_via_jsonl(
                                 f"{row[0]} via parentToolUseID={parent_tuid}"
                             )
                             return str(row[0])
-
-                        # Fallback: find the most recent task_delegation whose
-                        # tool_use_id matches the parentToolUseID directly.
-                        # NOTE: No status filter — see note above.
-                        cursor.execute(
-                            """
-                            SELECT event_id FROM agent_events
-                            WHERE event_type = 'task_delegation'
-                            ORDER BY datetime(REPLACE(SUBSTR(timestamp,1,19),'T',' ')) DESC
-                            LIMIT 1
-                            """,
-                        )
-                        row2 = cursor.fetchone()
-                        if row2:
-                            logger.debug(
-                                f"_find_parent_via_jsonl: parent task_delegation="
-                                f"{row2[0]} (fallback, parentToolUseID={parent_tuid})"
-                            )
-                            return str(row2[0])
                     except Exception as _e:
                         logger.debug(f"_find_parent_via_jsonl: DB lookup failed: {_e}")
 
@@ -1580,12 +1583,17 @@ def track_event(hook_type: str, hook_input: dict[str, Any]) -> dict[str, Any]:
         # Uses the exact Claude Code transcript for this session_id — no mtime
         # heuristic, no env vars, works for any number of simultaneous background agents.
         _post_tool_use_id = hook_input.get("tool_use_id") or hook_input.get("toolUseId")
+        # Determine whether this PostToolUse hook fired in the orchestrator process.
+        # detected_agent is 'claude-code' for the main orchestrator and a subagent
+        # identifier (e.g. 'general-purpose-spawner') for delegated subagents.
+        _hook_is_orchestrator = detected_agent == "claude-code"
         if _post_tool_use_id and hook_session_id and db and db.connection:
             try:
                 _jsonl_parent = _find_parent_via_jsonl(
                     session_id=hook_session_id,
                     tool_use_id=_post_tool_use_id,
                     cursor=db.connection.cursor(),
+                    is_orchestrator=_hook_is_orchestrator,
                 )
                 if _jsonl_parent:
                     parent_activity_id = _jsonl_parent

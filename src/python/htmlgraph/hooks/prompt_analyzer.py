@@ -374,8 +374,19 @@ def get_open_work_items(context: HookContext) -> list[dict]:
                 }
             )
 
-        # Get in-progress spikes
-        for spike in sdk.spikes.where(status="in-progress"):
+        # Get todo bugs (top 5 by priority)
+        for bug in sdk.bugs.where(status="todo")[:5]:
+            items.append(
+                {
+                    "id": bug.id,
+                    "title": bug.title or bug.id,
+                    "type": "bug",
+                    "status": "todo",
+                }
+            )
+
+        # Get in-progress spikes (cap at 5 to avoid noise)
+        for spike in sdk.spikes.where(status="in-progress")[:5]:
             items.append(
                 {
                     "id": spike.id,

@@ -47,10 +47,7 @@
             {% if group.work_item_id %}
             <a href="/work-items/{{ group.work_item_id }}"
                class="work-item-badge work-item-type-{{ group.work_item_type }}"
-               title="{{ group.work_item_title }}">
-                <span class="work-item-type-label">{{ group.work_item_type | upper }}</span>
-                <span class="work-item-short-id">{{ group.work_item_id[-8:] }}</span>
-            </a>
+               title="{{ group.work_item_title }}">{{ (group.work_item_title if group.work_item_title else group.work_item_id[-8:])[:30] }}{% if group.work_item_title and group.work_item_title|length > 30 %}&#8230;{% endif %}</a>
             {% else %}
             <span class="work-item-empty">&mdash;</span>
             {% endif %}
@@ -129,7 +126,13 @@
                     </div>
                 </td>
                 <td class="work-item-cell">
+                    {% if group.work_item_id %}
+                    <a href="/work-items/{{ group.work_item_id }}"
+                       class="work-item-badge work-item-type-{{ group.work_item_type }}"
+                       title="{{ group.work_item_title }}">{{ (group.work_item_title if group.work_item_title else group.work_item_id[-8:])[:30] }}{% if group.work_item_title and group.work_item_title|length > 30 %}&#8230;{% endif %}</a>
+                    {% else %}
                     <span class="work-item-empty">&mdash;</span>
+                    {% endif %}
                 </td>
                 <td class="col-ts">
                     <span class="timestamp-text"
@@ -205,7 +208,13 @@
                             </div>
                         </td>
                         <td class="work-item-cell">
+                            {% if group.work_item_id %}
+                            <a href="/work-items/{{ group.work_item_id }}"
+                               class="work-item-badge work-item-type-{{ group.work_item_type }}"
+                               title="{{ group.work_item_title }}">{{ (group.work_item_title if group.work_item_title else group.work_item_id[-8:])[:30] }}{% if group.work_item_title and group.work_item_title|length > 30 %}&#8230;{% endif %}</a>
+                            {% else %}
                             <span class="work-item-empty">&mdash;</span>
+                            {% endif %}
                         </td>
                         <td class="col-ts">
                             <span class="timestamp-text"
@@ -245,7 +254,13 @@
                                     </div>
                                 </td>
                                 <td class="work-item-cell">
+                                    {% if group.work_item_id %}
+                                    <a href="/work-items/{{ group.work_item_id }}"
+                                       class="work-item-badge work-item-type-{{ group.work_item_type }}"
+                                       title="{{ group.work_item_title }}">{{ (group.work_item_title if group.work_item_title else group.work_item_id[-8:])[:30] }}{% if group.work_item_title and group.work_item_title|length > 30 %}&#8230;{% endif %}</a>
+                                    {% else %}
                                     <span class="work-item-empty">&mdash;</span>
+                                    {% endif %}
                                 </td>
                                 <td class="col-ts">
                                     <span class="timestamp-text"

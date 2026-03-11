@@ -921,24 +921,26 @@ def _find_parent_via_jsonl(
                             )
                             return str(row[0])
 
-                        # Fallback: find the most recent task_delegation whose
-                        # tool_use_id matches the parentToolUseID directly.
-                        # NOTE: No status filter — see note above.
-                        cursor.execute(
-                            """
-                            SELECT event_id FROM agent_events
-                            WHERE event_type = 'task_delegation'
-                            ORDER BY datetime(REPLACE(SUBSTR(timestamp,1,19),'T',' ')) DESC
-                            LIMIT 1
-                            """,
+                        # NOTE: No fallback to "most recent task_delegation" here.
+                        # The orchestrator JSONL accumulates agent_progress records
+                        # from every subagent it has ever spawned.  After a Task
+                        # completes, those stale records remain.  When the
+                        # orchestrator fires the next Bash call, the scan finds
+                        # those old agent_progress records, the tool_traces JOIN
+                        # fails (session mismatch / missing entry), and an
+                        # unconstrained fallback query returns the most recently
+                        # created task_delegation — the just-completed Task.
+                        # This incorrectly nests orchestrator Bash calls under the
+                        # Task instead of the UserQuery.
+                        #
+                        # If the JOIN fails, return None so the outer fallback
+                        # chain (env var → final scan with staleness check) can
+                        # correctly resolve to user_query_event_id for orchestrator
+                        # calls.
+                        logger.debug(
+                            f"_find_parent_via_jsonl: tool_traces JOIN missed for "
+                            f"parentToolUseID={parent_tuid}, returning None"
                         )
-                        row2 = cursor.fetchone()
-                        if row2:
-                            logger.debug(
-                                f"_find_parent_via_jsonl: parent task_delegation="
-                                f"{row2[0]} (fallback, parentToolUseID={parent_tuid})"
-                            )
-                            return str(row2[0])
                     except Exception as _e:
                         logger.debug(f"_find_parent_via_jsonl: DB lookup failed: {_e}")
 
@@ -1376,6 +1378,28 @@ def track_event(hook_type: str, hook_input: dict[str, Any]) -> dict[str, Any]:
             # UserQuery event is stored in database - no file-based state needed
             # Subsequent tool calls query database for parent via get_parent_user_query()
             if db:
+                # Determine feature_id: prefer result attribution, then inherit
+                # from the most recent attributed event in this session (so that
+                # turns 2, 3, ... carry the same feature_id that was set on
+                # turn 1 via sdk.features.start() backfill).
+                resolved_feature_id = result.feature_id if result else None
+                if not resolved_feature_id and db.connection:
+                    try:
+                        cursor = db.connection.cursor()
+                        cursor.execute(
+                            """
+                            SELECT feature_id FROM agent_events
+                            WHERE session_id = ? AND feature_id IS NOT NULL AND feature_id != ''
+                            ORDER BY timestamp DESC LIMIT 1
+                            """,
+                            (userquery_session_id,),
+                        )
+                        row = cursor.fetchone()
+                        if row:
+                            resolved_feature_id = row[0]
+                    except Exception:
+                        pass  # Graceful degradation
+
                 event_id = record_event_to_sqlite(
                     db=db,
                     session_id=userquery_session_id,  # Use parent session, not subagent
@@ -1385,7 +1409,7 @@ def track_event(hook_type: str, hook_input: dict[str, Any]) -> dict[str, Any]:
                     is_error=False,
                     agent_id=detected_agent,
                     model=detected_model,
-                    feature_id=result.feature_id if result else None,
+                    feature_id=resolved_feature_id,
                 )
 
                 # Update presence
@@ -1396,7 +1420,7 @@ def track_event(hook_type: str, hook_input: dict[str, Any]) -> dict[str, Any]:
                         event={
                             "tool_name": "UserQuery",
                             "session_id": userquery_session_id,  # Use parent session
-                            "feature_id": result.feature_id if result else None,
+                            "feature_id": resolved_feature_id,
                             "event_id": event_id,
                         },
                     )

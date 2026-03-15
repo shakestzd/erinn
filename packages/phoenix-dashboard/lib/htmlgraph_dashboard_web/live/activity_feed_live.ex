@@ -26,6 +26,7 @@ defmodule HtmlgraphDashboardWeb.ActivityFeedLive do
       |> assign(:session_filter, session_id)
       |> assign(:expanded, MapSet.new())
       |> assign(:reload_timer, nil)
+      |> assign(:selected_work_item, nil)
       |> load_feed()
 
     {:ok, socket}
@@ -69,6 +70,15 @@ defmodule HtmlgraphDashboardWeb.ActivityFeedLive do
       end
 
     {:noreply, assign(socket, :expanded, expanded)}
+  end
+
+  def handle_event("show_work_item", %{"id" => feature_id}, socket) do
+    work_item = Activity.fetch_work_item_detail(feature_id)
+    {:noreply, assign(socket, :selected_work_item, work_item)}
+  end
+
+  def handle_event("close_work_item", _params, socket) do
+    {:noreply, assign(socket, :selected_work_item, nil)}
   end
 
   @impl true
@@ -395,7 +405,11 @@ defmodule HtmlgraphDashboardWeb.ActivityFeedLive do
                         </span>
                       <% end %>
                       <%= if turn.work_item do %>
-                        <span class="badge badge-feature">
+                        <span
+                          class={"badge badge-workitem badge-workitem-#{turn.work_item["type"]}"}
+                          phx-click="show_work_item"
+                          phx-value-id={turn.work_item["id"]}
+                        >
                           <%= truncate(turn.work_item["title"], 30) %>
                         </span>
                       <% end %>
@@ -426,6 +440,68 @@ defmodule HtmlgraphDashboardWeb.ActivityFeedLive do
           </div>
         <% end %>
       <% end %>
+    </div>
+
+    <!-- Work Item Detail Panel (slide-out) -->
+    <div :if={@selected_work_item} class="work-item-overlay" phx-click="close_work_item">
+    </div>
+    <div :if={@selected_work_item} class="work-item-panel">
+      <div class="panel-header">
+        <h3><%= @selected_work_item["title"] %></h3>
+        <button phx-click="close_work_item" class="close-btn">&times;</button>
+      </div>
+      <div class="panel-body">
+        <div class="detail-row">
+          <span class="label">Type</span>
+          <span class={"badge badge-workitem badge-workitem-#{@selected_work_item["type"]}"}>
+            <%= @selected_work_item["type"] %>
+          </span>
+        </div>
+        <div class="detail-row">
+          <span class="label">Status</span>
+          <span class={"badge badge-status-#{@selected_work_item["status"] || "unknown"}"}>
+            <%= @selected_work_item["status"] || "unknown" %>
+          </span>
+        </div>
+        <div class="detail-row">
+          <span class="label">Priority</span>
+          <span class={"badge badge-priority-#{@selected_work_item["priority"] || "medium"}"}>
+            <%= @selected_work_item["priority"] || "medium" %>
+          </span>
+        </div>
+        <div class="detail-row">
+          <span class="label">ID</span>
+          <code class="detail-code"><%= @selected_work_item["id"] %></code>
+        </div>
+        <%= if @selected_work_item["track_id"] do %>
+          <div class="detail-row">
+            <span class="label">Track</span>
+            <code class="detail-code"><%= @selected_work_item["track_id"] %></code>
+          </div>
+        <% end %>
+        <%= if @selected_work_item["created_at"] do %>
+          <div class="detail-row">
+            <span class="label">Created</span>
+            <span class="detail-value"><%= format_relative_time(@selected_work_item["created_at"]) %></span>
+          </div>
+        <% end %>
+        <%= if @selected_work_item["description"] do %>
+          <div class="detail-row">
+            <span class="label">Description</span>
+            <p class="detail-description"><%= @selected_work_item["description"] %></p>
+          </div>
+        <% end %>
+        <%= if @selected_work_item["steps"] != [] do %>
+          <div class="detail-row">
+            <span class="label">Steps</span>
+            <ul class="detail-steps">
+              <%= for step <- @selected_work_item["steps"] || [] do %>
+                <li><%= step %></li>
+              <% end %>
+            </ul>
+          </div>
+        <% end %>
+      </div>
     </div>
     """
   end

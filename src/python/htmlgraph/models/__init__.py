@@ -14,6 +14,7 @@ from htmlgraph.models.base import (
     Edge,
     MaintenanceType,
     Node,
+    RelationshipType,
     SpikeType,
     Step,
     WorkType,
@@ -34,6 +35,7 @@ __all__ = [
     "WorkType",
     "SpikeType",
     "MaintenanceType",
+    "RelationshipType",
     # Base models
     "Step",
     "Edge",

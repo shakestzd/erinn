@@ -10,6 +10,177 @@ defmodule HtmlgraphDashboard.Activity do
 
   @max_depth 4
 
+  # --- Work Item Resolution ---
+
+  @doc """
+  Resolve the .htmlgraph directory path (sibling to the database file).
+  """
+  def htmlgraph_dir do
+    Repo.db_path() |> Path.dirname()
+  end
+
+  @doc """
+  Batch-fetch work item metadata for a list of feature_ids.
+  Returns %{feature_id => %{"id" => ..., "title" => ..., "type" => ...}}.
+
+  Tries the SQLite features table first, then falls back to HTML file parsing.
+  """
+  def fetch_work_item_titles(feature_ids) when is_list(feature_ids) do
+    ids = feature_ids |> Enum.reject(&is_nil/1) |> Enum.uniq()
+    if ids == [], do: %{}, else: do_fetch_work_item_titles(ids)
+  end
+
+  defp do_fetch_work_item_titles(ids) do
+    # Try SQLite features table first
+    placeholders = ids |> Enum.map(fn _ -> "?" end) |> Enum.join(", ")
+
+    sql = """
+    SELECT id, title, type, status FROM features WHERE id IN (#{placeholders})
+    """
+
+    db_results =
+      case Repo.query_maps(sql, ids) do
+        {:ok, rows} -> Map.new(rows, fn r -> {r["id"], r} end)
+        {:error, _} -> %{}
+      end
+
+    # For any IDs not found in DB, fall back to HTML file parsing
+    missing = Enum.reject(ids, fn id -> Map.has_key?(db_results, id) end)
+
+    html_results = Map.new(missing, fn id -> {id, parse_work_item_html(id)} end)
+
+    Map.merge(db_results, html_results)
+  end
+
+  @doc """
+  Fetch full work item details by ID, including steps parsed from HTML.
+  Returns a map with id, title, type, status, priority, created_at, steps.
+  """
+  def fetch_work_item_detail(feature_id) when is_binary(feature_id) do
+    parse_work_item_html(feature_id)
+  end
+
+  def fetch_work_item_detail(_), do: nil
+
+  defp parse_work_item_html(feature_id) do
+    features_dir = Path.join(htmlgraph_dir(), "features")
+    path = Path.join(features_dir, "#{feature_id}.html")
+
+    if File.exists?(path) do
+      case File.read(path) do
+        {:ok, content} -> extract_work_item_from_html(feature_id, content)
+        {:error, _} -> fallback_work_item(feature_id)
+      end
+    else
+      fallback_work_item(feature_id)
+    end
+  end
+
+  defp extract_work_item_from_html(feature_id, html) do
+    title =
+      case Regex.run(~r/<title>([^<]+)<\/title>/i, html) do
+        [_, t] -> String.trim(t)
+        _ -> feature_id
+      end
+
+    type =
+      case Regex.run(~r/data-type="([^"]+)"/, html) do
+        [_, t] -> t
+        _ -> infer_type_from_id(feature_id)
+      end
+
+    status =
+      case Regex.run(~r/data-status="([^"]+)"/, html) do
+        [_, s] -> s
+        _ -> "unknown"
+      end
+
+    priority =
+      case Regex.run(~r/data-priority="([^"]+)"/, html) do
+        [_, p] -> p
+        _ -> "medium"
+      end
+
+    created_at =
+      case Regex.run(~r/data-created="([^"]+)"/, html) do
+        [_, c] -> c
+        _ -> nil
+      end
+
+    track_id =
+      case Regex.run(~r/data-track-id="([^"]+)"/, html) do
+        [_, t] -> t
+        _ -> nil
+      end
+
+    # Extract steps from <li> elements inside the steps section
+    steps = extract_steps(html)
+
+    # Extract description from the first <p> in <section class="description">
+    description =
+      case Regex.run(~r/<section[^>]*class="description"[^>]*>[\s\S]*?<p>([^<]+)<\/p>/i, html) do
+        [_, d] -> String.trim(d)
+        _ -> nil
+      end
+
+    %{
+      "id" => feature_id,
+      "title" => title,
+      "type" => type,
+      "status" => status,
+      "priority" => priority,
+      "created_at" => created_at,
+      "track_id" => track_id,
+      "steps" => steps,
+      "description" => description
+    }
+  end
+
+  defp extract_steps(html) do
+    # Look for steps section and extract list items
+    case Regex.run(~r/<section[^>]*data-steps[^>]*>([\s\S]*?)<\/section>/i, html) do
+      [_, steps_html] ->
+        Regex.scan(~r/<li[^>]*>([^<]+)<\/li>/i, steps_html)
+        |> Enum.map(fn [_, text] -> String.trim(text) end)
+
+      _ ->
+        # Try alternate pattern: <ol> or <ul> with steps
+        case Regex.run(~r/<(?:ol|ul)[^>]*class="[^"]*steps[^"]*"[^>]*>([\s\S]*?)<\/(?:ol|ul)>/i, html) do
+          [_, steps_html] ->
+            Regex.scan(~r/<li[^>]*>([^<]+)<\/li>/i, steps_html)
+            |> Enum.map(fn [_, text] -> String.trim(text) end)
+
+          _ ->
+            []
+        end
+    end
+  end
+
+  defp infer_type_from_id(id) do
+    cond do
+      String.starts_with?(id, "feat-") -> "feature"
+      String.starts_with?(id, "bug-") -> "bug"
+      String.starts_with?(id, "spk-") -> "spike"
+      String.starts_with?(id, "trk-") -> "track"
+      true -> "feature"
+    end
+  end
+
+  defp fallback_work_item(feature_id) do
+    # No HTML file found -- create a minimal entry from the ID prefix
+    %{
+      "id" => feature_id,
+      "title" => feature_id,
+      "type" => infer_type_from_id(feature_id),
+      "status" => "unknown",
+      "priority" => "medium",
+      "created_at" => nil,
+      "track_id" => nil,
+      "steps" => [],
+      "description" => nil
+    }
+  end
+
   @doc """
   Fetch recent conversation turns with nested children, grouped by session.
   Returns a list of session groups, each containing conversation turns.
@@ -22,15 +193,13 @@ defmodule HtmlgraphDashboard.Activity do
     user_queries = fetch_user_queries(limit, session_id)
 
     # For each UserQuery, recursively fetch children + adopt orphans
-    turns =
+    raw_turns =
       Enum.map(user_queries, fn uq ->
         children = fetch_children_with_subagents(uq["event_id"], uq["session_id"], 0)
 
         # Adopt orphan events that belong to this UserQuery's time window
         orphans = fetch_orphan_events(uq, user_queries)
         all_children = merge_children_by_timestamp(children, orphans)
-
-        work_item = if uq["feature_id"], do: fetch_feature(uq["feature_id"]), else: nil
 
         displayed_children =
           all_children
@@ -43,8 +212,45 @@ defmodule HtmlgraphDashboard.Activity do
           user_query: sanitize_event(uq),
           children: displayed_children,
           stats: stats,
-          work_item: work_item
+          raw_feature_id: uq["feature_id"]
         }
+      end)
+
+    # Collect all unique feature_ids from turns and their children, then batch-fetch
+    all_feature_ids =
+      raw_turns
+      |> Enum.flat_map(fn turn ->
+        turn_id = turn.raw_feature_id
+        child_ids = collect_feature_ids(turn.children)
+        [turn_id | child_ids]
+      end)
+      |> Enum.reject(&is_nil/1)
+      |> Enum.uniq()
+
+    work_items = fetch_work_item_titles(all_feature_ids)
+
+    # Attach work_item to each turn, with fallback to most common child feature_id
+    turns =
+      Enum.map(raw_turns, fn turn ->
+        work_item =
+          cond do
+            # Turn has its own feature_id
+            turn.raw_feature_id && Map.has_key?(work_items, turn.raw_feature_id) ->
+              Map.get(work_items, turn.raw_feature_id)
+
+            # Infer from children: use the most common feature_id
+            true ->
+              child_ids = collect_feature_ids(turn.children)
+
+              case most_common(child_ids) do
+                nil -> nil
+                id -> Map.get(work_items, id)
+              end
+          end
+
+        turn
+        |> Map.put(:work_item, work_item)
+        |> Map.delete(:raw_feature_id)
       end)
 
     # Group by session
@@ -68,6 +274,27 @@ defmodule HtmlgraphDashboard.Activity do
       end,
       :desc
     )
+  end
+
+  # Recursively collect all feature_ids from a nested children tree
+  defp collect_feature_ids(children) when is_list(children) do
+    Enum.flat_map(children, fn child ->
+      id = child["feature_id"]
+      grandchild_ids = collect_feature_ids(child["children"] || [])
+      if id, do: [id | grandchild_ids], else: grandchild_ids
+    end)
+  end
+
+  defp collect_feature_ids(_), do: []
+
+  # Return the most frequently occurring element in a list, or nil if empty
+  defp most_common([]), do: nil
+
+  defp most_common(list) do
+    list
+    |> Enum.frequencies()
+    |> Enum.max_by(fn {_id, count} -> count end)
+    |> elem(0)
   end
 
   @doc """
@@ -518,18 +745,4 @@ defmodule HtmlgraphDashboard.Activity do
     end
   end
 
-  defp fetch_feature(nil), do: nil
-
-  defp fetch_feature(feature_id) do
-    sql = """
-    SELECT id, type, title, status, priority
-    FROM features
-    WHERE id = ?
-    """
-
-    case Repo.query_maps(sql, [feature_id]) do
-      {:ok, [feature]} -> feature
-      _ -> nil
-    end
-  end
 end

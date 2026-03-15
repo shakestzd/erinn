@@ -19,6 +19,23 @@ def utc_now() -> datetime:
     return datetime.now(timezone.utc)
 
 
+class RelationshipType(str, Enum):
+    """
+    Typed relationships between graph nodes.
+
+    Used for declaring dependencies, provenance, and associations
+    between features, bugs, spikes, and other work items.
+    """
+
+    BLOCKS = "blocks"
+    BLOCKED_BY = "blocked_by"
+    RELATES_TO = "relates_to"
+    IMPLEMENTS = "implements"
+    CAUSED_BY = "caused_by"
+    SPAWNED_FROM = "spawned_from"
+    IMPLEMENTED_IN = "implemented-in"
+
+
 class WorkType(str, Enum):
     """
     Classification of work/activity type for events and sessions.
@@ -75,18 +92,22 @@ class Step(BaseModel):
     completed: bool = False
     agent: str | None = None
     timestamp: datetime | None = None
+    step_id: str | None = None
+    depends_on: list[str] = []
 
     def to_html(self) -> str:
         """Convert step to HTML list item."""
         status = "✅" if self.completed else "⏳"
         agent_attr = f' data-agent="{self.agent}"' if self.agent else ""
         completed_attr = f' data-completed="{str(self.completed).lower()}"'
-        return f"<li{completed_attr}{agent_attr}>{status} {self.description}</li>"
+        step_id_attr = f' data-step-id="{self.step_id}"' if self.step_id else ""
+        return f"<li{completed_attr}{agent_attr}{step_id_attr}>{status} {self.description}</li>"
 
     def to_context(self) -> str:
         """Lightweight context for AI agents."""
         status = "[x]" if self.completed else "[ ]"
-        return f"{status} {self.description}"
+        step_id_prefix = f"[{self.step_id}] " if self.step_id else ""
+        return f"{step_id_prefix}{status} {self.description}"
 
     def __getitem__(self, key: str) -> Any:
         """
@@ -305,6 +326,46 @@ class Node(BaseModel):
             self.edges[edge.relationship] = []
         self.edges[edge.relationship].append(edge)
         self.updated = utc_now()
+
+    def relates_to(self, other_id: str, title: str | None = None) -> None:
+        """Add a 'relates_to' edge to another node."""
+        self.add_edge(
+            Edge(
+                target_id=other_id,
+                relationship=RelationshipType.RELATES_TO,
+                title=title,
+            )
+        )
+
+    def spawned_from(self, other_id: str, title: str | None = None) -> None:
+        """Add a 'spawned_from' edge indicating provenance."""
+        self.add_edge(
+            Edge(
+                target_id=other_id,
+                relationship=RelationshipType.SPAWNED_FROM,
+                title=title,
+            )
+        )
+
+    def caused_by(self, other_id: str, title: str | None = None) -> None:
+        """Add a 'caused_by' edge indicating causation."""
+        self.add_edge(
+            Edge(
+                target_id=other_id,
+                relationship=RelationshipType.CAUSED_BY,
+                title=title,
+            )
+        )
+
+    def implements(self, other_id: str, title: str | None = None) -> None:
+        """Add an 'implements' edge linking implementation to spec/requirement."""
+        self.add_edge(
+            Edge(
+                target_id=other_id,
+                relationship=RelationshipType.IMPLEMENTS,
+                title=title,
+            )
+        )
 
     def complete_step(self, index: int, agent: str | None = None) -> bool:
         """Mark a step as completed."""

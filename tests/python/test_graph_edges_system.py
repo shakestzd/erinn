@@ -446,16 +446,8 @@ class TestCollectionEdgeMethods:
             track = sdk.tracks.create("Test Track").save()
 
             # Create features
-            feat_a = (
-                sdk.features.create("Feature A")
-                .set_track(track.id)
-                .save()
-            )
-            feat_b = (
-                sdk.features.create("Feature B")
-                .set_track(track.id)
-                .save()
-            )
+            feat_a = sdk.features.create("Feature A").set_track(track.id).save()
+            feat_b = sdk.features.create("Feature B").set_track(track.id).save()
 
             yield sdk, feat_a, feat_b
 
@@ -562,9 +554,7 @@ class TestEdgeSync:
                 title="Sync Test Feature",
                 type="feature",
                 edges={
-                    "blocks": [
-                        Edge(target_id="feat-sync002", relationship="blocks")
-                    ],
+                    "blocks": [Edge(target_id="feat-sync002", relationship="blocks")],
                     "relates_to": [
                         Edge(target_id="feat-sync003", relationship="relates_to")
                     ],
@@ -604,9 +594,7 @@ class TestEdgeSync:
                 title="Idempotent Test",
                 type="feature",
                 edges={
-                    "blocks": [
-                        Edge(target_id="feat-idem002", relationship="blocks")
-                    ],
+                    "blocks": [Edge(target_id="feat-idem002", relationship="blocks")],
                 },
             )
             html_path = features_dir / "feat-idem001.html"
@@ -740,9 +728,7 @@ class TestBackwardCompatibility:
             type="feature",
             edges={
                 "blocks": [Edge(target_id="feat-002", relationship="blocks")],
-                "blocked_by": [
-                    Edge(target_id="feat-003", relationship="blocked_by")
-                ],
+                "blocked_by": [Edge(target_id="feat-003", relationship="blocked_by")],
             },
         )
 

@@ -125,9 +125,20 @@ class BaseBuilder(Generic[BuilderT]):
         """Add blocked-by relationship (this node is blocked by another)."""
         return self._add_edge("blocked_by", node_id)  # type: ignore
 
-    def relates_to(self, node_id: str) -> BuilderT:
-        """Add relates-to relationship."""
-        return self._add_edge("relates_to", node_id)  # type: ignore
+    def relates_to(self, other_id: str, rel_type: str | None = None) -> BuilderT:
+        """Add a typed relationship edge to another node.
+
+        Args:
+            other_id: Target node ID
+            rel_type: Relationship type string (e.g., 'depends_on', 'related_to').
+                     Defaults to 'relates_to' if not specified.
+
+        Returns:
+            Self for method chaining
+        """
+        if rel_type is None:
+            rel_type = "relates_to"
+        return self._add_edge(rel_type, other_id)  # type: ignore
 
     def spawned_from(self, node_id: str) -> BuilderT:
         """Add spawned-from relationship (provenance)."""

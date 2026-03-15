@@ -158,8 +158,13 @@ def test_spawned_from_edge_in_html(workflow, manager, temp_graph):
 # ---------------------------------------------------------------------------
 
 
-def _classification(is_implementation=False, is_investigation=False,
-                    is_bug_report=False, is_continuation=False, confidence=0.8):
+def _classification(
+    is_implementation=False,
+    is_investigation=False,
+    is_bug_report=False,
+    is_continuation=False,
+    confidence=0.8,
+):
     return {
         "is_implementation": is_implementation,
         "is_investigation": is_investigation,
@@ -234,7 +239,9 @@ def test_generate_guidance_all_steps_complete():
 
 def test_generate_guidance_continuation_with_step():
     """Continuation prompts still surface the active step when present."""
-    steps = [{"description": "Step 2: Implement graph edge queries", "completed": False}]
+    steps = [
+        {"description": "Step 2: Implement graph edge queries", "completed": False}
+    ]
     active = _active_work(steps=steps)
     cls = _classification(is_continuation=True, confidence=0.9)
     guidance = generate_guidance(cls, active, "continue")
@@ -329,5 +336,7 @@ def test_divergence_hint_empty_task_summary():
     """Empty task summary does not trigger divergence (no keywords)."""
     task_keywords = extract_keywords("")
     step_keywords = extract_keywords("implement core functionality")
-    divergence_detected = bool(task_keywords and step_keywords and not (task_keywords & step_keywords))
+    divergence_detected = bool(
+        task_keywords and step_keywords and not (task_keywords & step_keywords)
+    )
     assert not divergence_detected

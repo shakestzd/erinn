@@ -159,7 +159,9 @@ class TestFindCriticalPath:
 
         path = find_critical_path(track_id="trk-001", db_path=str(db))
 
-        assert set(path) <= {"T1", "T2"}, f"Path should only contain trk-001 features: {path}"
+        assert set(path) <= {"T1", "T2"}, (
+            f"Path should only contain trk-001 features: {path}"
+        )
         assert path == ["T1", "T2"], f"Expected [T1,T2], got {path}"
 
     def test_find_critical_path_blocked_by_relationship(self, tmp_path: Path) -> None:
@@ -175,7 +177,9 @@ class TestFindCriticalPath:
 
         path = find_critical_path(db_path=str(db))
 
-        assert path == ["A", "B", "C"], f"blocked_by edges should produce A->B->C, got {path}"
+        assert path == ["A", "B", "C"], (
+            f"blocked_by edges should produce A->B->C, got {path}"
+        )
 
     def test_cycle_detection(self, tmp_path: Path) -> None:
         """A -> B -> A cycle must not crash; cyclic nodes are excluded."""
@@ -185,7 +189,9 @@ class TestFindCriticalPath:
         _add_feature(db, "C", "Feature C")
         _add_edge(db, "A", "B", "blocks")
         _add_edge(db, "B", "A", "blocks")  # cycle
-        _add_edge(db, "C", "B", "blocks")  # C -> B (B is cyclic, but edge still recorded)
+        _add_edge(
+            db, "C", "B", "blocks"
+        )  # C -> B (B is cyclic, but edge still recorded)
 
         # Must not raise; may return [] or a path excluding cyclic nodes
         path = find_critical_path(db_path=str(db))
@@ -207,7 +213,12 @@ class TestFindBottlenecks:
         db = _make_db(tmp_path)
         # A -> B, A -> C, A -> D  (A blocks 3)
         # B -> D                  (B blocks 1)
-        for fid, title in [("A", "Auth"), ("B", "Login"), ("C", "Signup"), ("D", "Dashboard")]:
+        for fid, title in [
+            ("A", "Auth"),
+            ("B", "Login"),
+            ("C", "Signup"),
+            ("D", "Dashboard"),
+        ]:
             _add_feature(db, fid, title)
         _add_edge(db, "A", "B", "blocks")
         _add_edge(db, "A", "C", "blocks")

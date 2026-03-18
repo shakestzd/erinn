@@ -91,6 +91,9 @@ class ClaudeLauncher:
         # Install plugin
         PluginManager.install_or_update(verbose=self.interactive)
 
+        # Auto-configure status line if plugin script is available
+        self._setup_statusline()
+
         # Load prompt
         prompt = get_orchestrator_prompt(include_dev_mode=False)
 
@@ -204,6 +207,48 @@ class ClaudeLauncher:
 
         # Execute
         SubprocessRunner.run_claude_command(cmd)
+
+    def _setup_statusline(self) -> None:
+        """Configure status line to use the plugin-provided statusline.sh script.
+
+        Only updates the setting if it is unset or already points to an htmlgraph
+        or omp-claude-wrapper script, so user customisations are not overwritten.
+        Silently skips on any error.
+        """
+        plugin_dir = PluginManager.get_plugin_dir()
+        script = plugin_dir / "scripts" / "statusline.sh"
+        if not script.exists():
+            return
+
+        # Ensure the script is executable
+        try:
+            script.chmod(script.stat().st_mode | 0o111)
+        except Exception:
+            pass
+
+        settings_path = Path(".claude") / "settings.json"
+        try:
+            settings: dict = (
+                json.loads(settings_path.read_text()) if settings_path.exists() else {}
+            )
+            current_cmd = settings.get("statusLine", {}).get("command", "")
+            # Only replace if unset or pointing to a previous htmlgraph/omp script
+            if (
+                not current_cmd
+                or "htmlgraph" in current_cmd
+                or "omp-claude-wrapper" in current_cmd
+            ):
+                settings["statusLine"] = {
+                    "type": "command",
+                    "command": str(script.resolve()),
+                    "padding": 0,
+                }
+                settings_path.parent.mkdir(parents=True, exist_ok=True)
+                settings_path.write_text(json.dumps(settings, indent=2) + "\n")
+                if self.interactive:
+                    logger.info(f"  ✓ Status line configured: {script.resolve()}")
+        except Exception:
+            pass  # Non-critical: don't block launch on settings write failure
 
     def _print_orchestrator_banner(self) -> None:
         """Print orchestrator mode banner."""

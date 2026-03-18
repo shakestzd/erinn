@@ -71,6 +71,9 @@ CODEX.md
 .htmlgraph/parent-activity.json
 .htmlgraph/logs/errors/
 
+# HtmlGraph launch mode marker (written by CLI, read by SessionStart hook)
+.htmlgraph/.launch-mode
+
 # HtmlGraph runtime logs (contain sensitive paths/prompts)
 .htmlgraph/hook-debug.jsonl
 .htmlgraph/errors.jsonl

@@ -31,9 +31,11 @@ RUN mix compile
 RUN mix release
 
 # Runtime stage
-FROM alpine:3.20 AS runtime
+FROM alpine:3.23 AS runtime
 
-RUN apk add --no-cache libstdc++ openssl ncurses-libs
+RUN apk add --no-cache libstdc++ openssl ncurses-libs python3 && \
+    wget -qO- https://astral.sh/uv/install.sh | sh && \
+    ln -s /root/.local/bin/uv /usr/local/bin/uv
 
 WORKDIR /app
 

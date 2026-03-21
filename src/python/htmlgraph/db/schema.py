@@ -293,6 +293,71 @@ class HtmlGraphDB(ExtensionOps):
         except sqlite3.Error as e:
             logger.error(f"Error updating session activity: {e}")
 
+    def set_active_work_item(self, session_id: str, feature_id: str) -> None:
+        """
+        Set the active work item for a session.
+
+        Args:
+            session_id: Session ID to update
+            feature_id: Feature/bug/spike ID to set as active
+        """
+        if not self.connection:
+            self.connect()
+
+        try:
+            cursor = self.connection.cursor()  # type: ignore[union-attr]
+            cursor.execute(
+                "UPDATE sessions SET active_feature_id = ? WHERE session_id = ?",
+                (feature_id, session_id),
+            )
+            self.connection.commit()  # type: ignore[union-attr]
+        except sqlite3.Error as e:
+            logger.error(f"Error setting active work item: {e}")
+
+    def get_active_work_item_for_session(self, session_id: str) -> str | None:
+        """
+        Get the active work item ID for a specific session.
+
+        Args:
+            session_id: Session ID to query
+
+        Returns:
+            Feature ID string if set, None otherwise
+        """
+        if not self.connection:
+            self.connect()
+
+        try:
+            cursor = self.connection.cursor()  # type: ignore[union-attr]
+            row = cursor.execute(
+                "SELECT active_feature_id FROM sessions WHERE session_id = ?",
+                (session_id,),
+            ).fetchone()
+            return row[0] if row and row[0] else None
+        except sqlite3.Error as e:
+            logger.error(f"Error getting active work item: {e}")
+            return None
+
+    def clear_active_work_item(self, session_id: str) -> None:
+        """
+        Clear the active work item for a session (e.g., on complete).
+
+        Args:
+            session_id: Session ID to clear active work item for
+        """
+        if not self.connection:
+            self.connect()
+
+        try:
+            cursor = self.connection.cursor()  # type: ignore[union-attr]
+            cursor.execute(
+                "UPDATE sessions SET active_feature_id = NULL WHERE session_id = ?",
+                (session_id,),
+            )
+            self.connection.commit()  # type: ignore[union-attr]
+        except sqlite3.Error as e:
+            logger.error(f"Error clearing active work item: {e}")
+
     def get_concurrent_sessions(
         self, current_session_id: str, minutes: int = 30
     ) -> list[dict[str, Any]]:

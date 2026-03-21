@@ -463,6 +463,12 @@ body {
   white-space: nowrap;
 }
 
+/* Right drawer slide-in animation */
+@keyframes slideInRight {
+  from { transform: translateX(100%); }
+  to { transform: translateX(0); }
+}
+
 /* New event flash animation */
 @keyframes flash-new {
   0% { background: rgba(63, 185, 80, 0.2); }

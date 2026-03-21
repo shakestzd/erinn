@@ -18,4 +18,4 @@ if config_env() == :prod do
 end
 
 config :htmlgraph_dashboard,
-  db_path: System.get_env("HTMLGRAPH_DB_PATH") || "../../.htmlgraph/htmlgraph.db"
+  db_path: System.get_env("HTMLGRAPH_DB_PATH")

@@ -10,7 +10,7 @@ config :htmlgraph_dashboard, HtmlgraphDashboardWeb.Endpoint,
   live_view: [signing_salt: "htmlgraph_lv"]
 
 config :htmlgraph_dashboard,
-  db_path: System.get_env("HTMLGRAPH_DB_PATH") || "../../.htmlgraph/htmlgraph.db"
+  db_path: System.get_env("HTMLGRAPH_DB_PATH")
 
 config :logger, :console,
   format: "$time $metadata[$level] $message\n",

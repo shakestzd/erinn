@@ -10,13 +10,26 @@ defmodule HtmlgraphDashboard.Repo do
   Returns the configured database path, resolved relative to the app root.
   """
   def db_path do
-    path = Application.get_env(:htmlgraph_dashboard, :db_path, "../../.htmlgraph/htmlgraph.db")
+    case Application.get_env(:htmlgraph_dashboard, :db_path) do
+      nil -> find_project_db()
+      path when is_binary(path) -> path
+    end
+  end
 
-    if Path.type(path) == :relative do
-      Path.join(File.cwd!(), path)
-      |> Path.expand()
+  defp find_project_db do
+    # Walk up from CWD to find the nearest .htmlgraph/htmlgraph.db
+    find_project_db_from(File.cwd!())
+  end
+
+  defp find_project_db_from("/"), do: Path.expand("~/.htmlgraph/htmlgraph.db")
+
+  defp find_project_db_from(dir) do
+    candidate = Path.join([dir, ".htmlgraph", "htmlgraph.db"])
+
+    if File.exists?(candidate) do
+      candidate
     else
-      path
+      find_project_db_from(Path.dirname(dir))
     end
   end
 

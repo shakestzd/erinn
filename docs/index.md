@@ -53,9 +53,9 @@ track = sdk.tracks.builder() \
 
 <div class="feature-card">
 <span class="feature-icon">&lt;/&gt;</span>
-<div class="feature-title">Pure Web Standards</div>
+<div class="feature-title">Web Standards Foundation</div>
 <div class="feature-desc">
-HTML files as nodes, hyperlinks as edges, CSS selectors as queries. No Docker, no JVM, no external databases.
+HTML files as nodes, hyperlinks as edges. No external database servers, no JVM. Canonical state is always plain text on disk.
 </div>
 </div>
 
@@ -71,7 +71,7 @@ Open any node in a browser. View relationships visually. Git diffs work perfectl
 <span class="feature-icon">&#9889;</span>
 <div class="feature-title">Minimal Infrastructure</div>
 <div class="feature-desc">
-No Docker, JVM, or external database servers. HTML files work in any browser. SDK uses pydantic, justhtml, SQLite. Offline-first.
+No external database servers or JVM. HTML and JSONL files are fully offline. SQLite provides fast local queries. Live dashboard via <code>htmlgraph serve</code>.
 </div>
 </div>
 
@@ -120,7 +120,7 @@ Modern AI agent systems are drowning in complexity:
 ## Core Philosophy
 
 !!! quote "The Web is the Graph"
-    Every webpage is a node. Every hyperlink is an edge. Every browser is a graph viewer. Every CSS selector is a query. Version control works. Humans can read it. Agents can navigate it. **HTML is all you need.**
+    Every webpage is a node. Every hyperlink is an edge. Every browser is a graph viewer. Version control works. Humans can read it. Agents can navigate it. SQLite indexes it. **HTML is where it all starts.**
 
 ---
 
@@ -133,7 +133,7 @@ Modern AI agent systems are drowning in complexity:
 | Setup | Docker, JVM, learn Cypher | `pip install htmlgraph` |
 | Human readable | ❌ Browser required | ✅ Any web browser |
 | Version control | ❌ Binary dumps | ✅ Git diff works |
-| Query language | Cypher (learn it) | CSS selectors (know it) |
+| Query language | Cypher (learn it) | SQLite SQL / Python SDK |
 | Cost | $$$ Enterprise | Free, MIT license |
 
 ### vs JSON/YAML
@@ -142,7 +142,7 @@ Modern AI agent systems are drowning in complexity:
 |---------|------|-----------|
 | Human readable | 🟡 Text editor | ✅ Browser with styling |
 | Graph structure | ❌ Manual references | ✅ Native hyperlinks |
-| Query | ❌ jq or custom | ✅ CSS selectors |
+| Query | ❌ jq or custom | ✅ SQLite SQL / Python SDK |
 | Presentation | ❌ Needs UI | ✅ Built-in rendering |
 
 ---

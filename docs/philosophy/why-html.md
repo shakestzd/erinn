@@ -30,7 +30,7 @@ Every HTML document has:
 - **Nodes**: HTML files
 - **Edges**: Hyperlinks (`<a href>`)
 - **Properties**: `data-*` attributes
-- **Query language**: CSS selectors
+- **Query language**: SQLite SQL (via SDK) — HTML structure provides the schema
 - **Presentation**: Built-in rendering with CSS
 - **Portability**: Works everywhere
 - **Version control**: Git-friendly text format
@@ -45,7 +45,7 @@ Use existing web standards instead of creating new ones:
 - **CSS** for styling and presentation
 - **JavaScript** for interactivity
 - **HTTP** for serving
-- **CSS Selectors** for querying
+- **SQLite** for fast local queries (via the SDK)
 
 These standards are:
 
@@ -71,31 +71,35 @@ Optimizing for human readability has unexpected benefits:
 - A file system
 - A web browser
 
-**The SDK** requires minimal Python dependencies:
+**The SDK** has 10 runtime dependencies:
 
-- `pydantic` - Data validation and models
+- `pydantic`, `pydantic-settings` - Data validation and models
 - `justhtml` - HTML parsing
 - `watchdog` - File watching for live updates
-- `sqlite3` - Indexing (Python standard library)
+- `rich` - Terminal output formatting
+- `jinja2` - Template rendering
+- `pyyaml` - YAML configuration
+- `tenacity` - Retry logic
+- `networkx` - Graph algorithms
+- `sqlite3` - Operational queries (Python standard library)
 
 **What you don't need:**
 
-- Docker containers
 - External database servers (Neo4j, Redis, PostgreSQL)
 - Build tools or compilation
 - Cloud services or API keys
 - Daemon processes
+- Docker (optional: only needed for the live Phoenix dashboard)
 
 ### 4. Offline First
 
-HtmlGraph works completely offline:
+HtmlGraph's core storage is fully offline:
 
-- No network required
-- No authentication
-- No cloud sync
-- No external services
+- HTML and JSONL files require no network, no authentication, and no external services
+- The Python SDK works entirely on local files
+- Copy the `.htmlgraph/` directory anywhere and it just works
 
-Copy the `.htmlgraph/` directory anywhere and it just works.
+The live dashboard (`htmlgraph serve`) requires running a local server process. The Phoenix LiveView dashboard uses Docker for the Elixir runtime, but this is optional — the HTML files themselves are always readable in any browser without it.
 
 ### 5. Git Native
 
@@ -113,7 +117,7 @@ HTML is ideal for AI agents:
 - **Structured but flexible**: Easy to parse and generate
 - **Self-documenting**: Content and metadata together
 - **Hyperlinks are native**: Relationships are first-class
-- **CSS selectors**: Powerful query language agents already know
+- **Python SDK**: Typed, fluent API for querying and mutating the graph
 
 ## Benefits
 
@@ -152,18 +156,18 @@ HTML is ideal for AI agents:
 - Simplicity
 - Portability
 - Human readability
-- Minimal infrastructure (no Docker, databases, or daemons)
+- No external database servers or cloud services
 - Git integration
 - Universal compatibility
 
 ### What You Give Up
 
-- Sub-millisecond queries (add SQLite index if needed)
-- Complex graph algorithms (implement in Python/JS)
-- Concurrent writes (use file locking or optimistic concurrency)
-- Database GUI tools (use the HTML dashboard instead)
+- Sub-millisecond queries at very large scale (SQLite handles most workloads well)
+- Complex graph algorithms out of the box (networkx is included; extend as needed)
+- Concurrent writes without coordination (use the SDK's session model)
+- Database GUI tools (use the HTML dashboard or `htmlgraph serve` instead)
 
-**The trade-off is worth it** for most use cases. When you need advanced graph features, add them incrementally.
+**The trade-off is worth it** for most use cases. HtmlGraph uses a three-tier storage model — HTML files for canonical, human-readable state; JSONL for append-only event history; SQLite for fast operational queries and dashboard state — giving you the benefits of each without the infrastructure overhead of a standalone database server.
 
 ## Philosophy in Practice
 
@@ -178,26 +182,24 @@ feature = sdk.features.create("Add login")
 # That's it
 ```
 
-### Add Complexity Only When Needed
+### Query and Analyze When Needed
 
 ```python
-# Need better query performance?
-# Add SQLite index (optional)
-sdk.rebuild_index()
+# Query with SQLite (built-in, always available)
+in_progress = sdk.features.where(status="in-progress")
 
-# Need complex graph analysis?
-# Use the graph algorithms
+# Complex graph analysis via networkx
 path = sdk.graph.shortest_path(start, end)
 ```
 
 ### Trust Web Standards
 
-Don't reinvent what browsers already do:
+Don't reinvent what already exists:
 
 - **Styling**: Use CSS, not custom renderers
-- **Queries**: Use CSS selectors, not custom query language
-- **Storage**: Use HTML files, not custom formats
+- **Storage**: Use HTML files, not custom binary formats
 - **Serving**: Use HTTP, not custom protocols
+- **Queries**: Use SQLite SQL for programmatic access, the Python SDK for typed queries
 
 ## Comparisons
 
@@ -206,7 +208,7 @@ Don't reinvent what browsers already do:
 | Feature | Neo4j | HtmlGraph |
 |---------|-------|-----------|
 | Setup | Docker + JVM + Cypher | `pip install` |
-| Query | Learn Cypher | CSS selectors |
+| Query | Learn Cypher | SQLite SQL / Python SDK |
 | View data | Neo4j Browser | Any web browser |
 | Version control | Binary exports | Git diff |
 | Portability | Requires runtime | Just files |
@@ -217,7 +219,7 @@ Don't reinvent what browsers already do:
 |---------|-----------|-----------|
 | Structure | Manual references | Native hyperlinks |
 | Presentation | Needs separate UI | Built-in rendering |
-| Querying | jq or custom | CSS selectors |
+| Querying | jq or custom | SQLite SQL / Python SDK |
 | Validation | JSON Schema | HTML + Pydantic |
 
 ### vs Notion/Roam

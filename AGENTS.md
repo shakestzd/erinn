@@ -374,24 +374,25 @@ sdk.reload()
 
 ```bash
 uv run htmlgraph serve
-# Open http://localhost:8080
+# Opens Phoenix LiveView dashboard at http://localhost:4000
+# Requires Docker (starts automatically)
 ```
 
 ### Endpoints
 
 #### Get All Features
 ```bash
-curl http://localhost:8080/api/query?type=feature
+curl http://localhost:4000/api/query?type=feature
 ```
 
 #### Get Feature by ID
 ```bash
-curl http://localhost:8080/api/features/feature-001
+curl http://localhost:4000/api/features/feature-001
 ```
 
 #### Create Feature
 ```bash
-curl -X POST http://localhost:8080/api/features \
+curl -X POST http://localhost:4000/api/features \
   -H "Content-Type: application/json" \
   -d '{
     "title": "User Authentication",
@@ -406,14 +407,14 @@ curl -X POST http://localhost:8080/api/features \
 
 #### Update Feature
 ```bash
-curl -X PATCH http://localhost:8080/api/features/feature-001 \
+curl -X PATCH http://localhost:4000/api/features/feature-001 \
   -H "Content-Type: application/json" \
   -d '{"status": "in-progress"}'
 ```
 
 #### Complete Step
 ```bash
-curl -X PATCH http://localhost:8080/api/features/feature-001 \
+curl -X PATCH http://localhost:4000/api/features/feature-001 \
   -H "Content-Type: application/json" \
   -d '{"complete_step": 0}'
 ```
@@ -451,6 +452,7 @@ uv run htmlgraph feature complete <feature-id>
 ### Server
 ```bash
 uv run htmlgraph serve
+# Launches Phoenix LiveView dashboard at http://localhost:4000 via Docker
 ```
 
 ---
@@ -977,7 +979,7 @@ SDK ────┘
 **Example - SDK uses operations:**
 ```python
 # In SDK
-def start_server(self, port: int = 8080) -> ServerHandle:
+def start_server(self, port: int = 4000) -> ServerHandle:
     from htmlgraph.operations import server
     result = server.start_server(port=port, ...)
     return result.handle
@@ -1372,7 +1374,7 @@ sdk._graph.update(feature)  # Manual save
 - **API Reference**: [docs/API_REFERENCE.md](docs/API_REFERENCE.md) - Complete SDK API reference with all methods, parameters, and examples
 - **SDK Guide**: `docs/SDK_FOR_AI_AGENTS.md`
 - **Quickstart**: `docs/quickstart.md`
-- **Dashboard**: Run `uv run htmlgraph serve` and open http://localhost:8080
+- **Dashboard**: Run `uv run htmlgraph serve` and open http://localhost:4000 (Phoenix LiveView, requires Docker)
 
 ---
 

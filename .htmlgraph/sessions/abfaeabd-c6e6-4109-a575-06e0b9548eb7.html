@@ -10,18 +10,18 @@
 <body>
     <article id="abfaeabd-c6e6-4109-a575-06e0b9548eb7"
              data-type="session"
-             data-status="active"
+             data-status="stale"
              data-agent="claude-code"
              data-started-at="2026-03-14T04:13:55.379271"
-             data-last-activity="2026-03-18T15:30:49.422735+00:00"
-             data-event-count="714" data-is-subagent="false" data-start-commit="516c5ff9">
+             data-last-activity="2026-03-18T20:21:57.050321+00:00"
+             data-event-count="754" data-is-subagent="false" data-start-commit="516c5ff9" data-ended-at="2026-03-18T20:21:57.050321+00:00">
 
         <header>
             <h1>Session 2026-03-14 04:13</h1>
             <div class="metadata">
-                <span class="badge status-active">Active</span>
+                <span class="badge status-stale">Stale</span>
                 <span class="badge">claude-code</span>
-                <span class="badge">714 events</span>
+                <span class="badge">754 events</span>
             </div>
         </header>
 
@@ -54,11 +54,14 @@
                     <li><a href="../features/bug-9cc49622.html" data-relationship="worked-on">bug-9cc49622</a></li>
                     <li><a href="../features/spk-66f9a6cc.html" data-relationship="worked-on">spk-66f9a6cc</a></li>
                     <li><a href="../features/bug-63423134.html" data-relationship="worked-on">bug-63423134</a></li>
+                    <li><a href="../features/bug-55df45f6.html" data-relationship="worked-on">bug-55df45f6</a></li>
+                    <li><a href="../features/feat-0b21fd89.html" data-relationship="worked-on">feat-0b21fd89</a></li>
+                    <li><a href="../features/bug-e999ab44.html" data-relationship="worked-on">bug-e999ab44</a></li>
                 </ul>
             </section>
         </nav>
         <section data-detected-patterns>
-            <h3>Detected Patterns (124)</h3>
+            <h3>Detected Patterns (212)</h3>
             <table class="patterns-table">
                 <thead>
                     <tr>
@@ -73,49 +76,49 @@
                         <td class="sequence">UserQuery → Stop → UserQuery</td>
                         <td><span class="badge pattern-neutral">neutral</span></td>
                         <td>2</td>
-                        <td>2026-03-15T14:21:49.760964 / 2026-03-18T11:30:29.556844</td>
+                        <td>2026-03-15T14:21:49.760964 / 2026-03-21T05:14:19.349244</td>
                     </tr>
                     <tr data-pattern-type="neutral">
                         <td class="sequence">Stop → UserQuery → Bash</td>
                         <td><span class="badge pattern-neutral">neutral</span></td>
-                        <td>9</td>
-                        <td>2026-03-15T14:21:49.760969 / 2026-03-18T11:30:29.557028</td>
+                        <td>10</td>
+                        <td>2026-03-15T14:21:49.760969 / 2026-03-21T05:14:19.349429</td>
                     </tr>
                     <tr data-pattern-type="neutral">
                         <td class="sequence">UserQuery → Bash → Bash</td>
                         <td><span class="badge pattern-neutral">neutral</span></td>
                         <td>6</td>
-                        <td>2026-03-15T14:21:49.760972 / 2026-03-18T11:30:29.557111</td>
+                        <td>2026-03-15T14:21:49.760972 / 2026-03-21T05:14:19.349514</td>
                     </tr>
                     <tr data-pattern-type="anti-pattern">
                         <td class="sequence">Bash → Bash → Bash</td>
                         <td><span class="badge pattern-anti-pattern">anti-pattern</span></td>
                         <td>56</td>
-                        <td>2026-03-15T14:21:49.760975 / 2026-03-18T11:30:29.556827</td>
+                        <td>2026-03-15T14:21:49.760975 / 2026-03-21T05:14:19.349225</td>
                     </tr>
                     <tr data-pattern-type="neutral">
                         <td class="sequence">Bash → Bash → Stop</td>
                         <td><span class="badge pattern-neutral">neutral</span></td>
                         <td>6</td>
-                        <td>2026-03-15T14:21:49.760978 / 2026-03-18T11:30:29.556943</td>
+                        <td>2026-03-15T14:21:49.760978 / 2026-03-21T05:14:19.349351</td>
                     </tr>
                     <tr data-pattern-type="neutral">
                         <td class="sequence">Bash → Stop → UserQuery</td>
                         <td><span class="badge pattern-neutral">neutral</span></td>
-                        <td>20</td>
-                        <td>2026-03-15T14:21:49.760981 / 2026-03-18T11:30:29.556743</td>
+                        <td>22</td>
+                        <td>2026-03-15T14:21:49.760981 / 2026-03-21T05:14:19.349137</td>
                     </tr>
                     <tr data-pattern-type="neutral">
                         <td class="sequence">UserQuery → Bash → Stop</td>
                         <td><span class="badge pattern-neutral">neutral</span></td>
-                        <td>4</td>
-                        <td>2026-03-15T14:21:49.760985 / 2026-03-18T11:30:29.557030</td>
+                        <td>5</td>
+                        <td>2026-03-15T14:21:49.760985 / 2026-03-21T05:14:19.349432</td>
                     </tr>
                     <tr data-pattern-type="neutral">
                         <td class="sequence">Stop → UserQuery → Stop</td>
                         <td><span class="badge pattern-neutral">neutral</span></td>
-                        <td>2</td>
-                        <td>2026-03-15T14:21:49.760988 / 2026-03-18T11:30:29.556843</td>
+                        <td>3</td>
+                        <td>2026-03-15T14:21:49.760988 / 2026-03-21T05:14:19.349242</td>
                     </tr>
                     <tr data-pattern-type="neutral">
                         <td class="sequence">Bash → Bash</td>
@@ -126,8 +129,8 @@
                     <tr data-pattern-type="neutral">
                         <td class="sequence">Agent → Stop → UserQuery</td>
                         <td><span class="badge pattern-neutral">neutral</span></td>
-                        <td>3</td>
-                        <td>2026-03-15T16:47:47.355936 / 2026-03-18T11:30:29.557138</td>
+                        <td>5</td>
+                        <td>2026-03-15T16:47:47.355936 / 2026-03-21T05:14:19.349567</td>
                     </tr>
                     <tr data-pattern-type="neutral">
                         <td class="sequence">Bash → Agent → Stop</td>
@@ -138,8 +141,8 @@
                     <tr data-pattern-type="neutral">
                         <td class="sequence">Bash → Bash → Read</td>
                         <td><span class="badge pattern-neutral">neutral</span></td>
-                        <td>16</td>
-                        <td>2026-03-15T16:47:47.355946 / 2026-03-18T11:30:29.556829</td>
+                        <td>17</td>
+                        <td>2026-03-15T16:47:47.355946 / 2026-03-21T05:14:19.349228</td>
                     </tr>
                     <tr data-pattern-type="neutral">
                         <td class="sequence">Write → Bash → Bash</td>
@@ -151,25 +154,25 @@
                         <td class="sequence">Bash → Read → Edit</td>
                         <td><span class="badge pattern-neutral">neutral</span></td>
                         <td>7</td>
-                        <td>2026-03-15T16:47:47.355954 / 2026-03-18T11:30:29.556832</td>
+                        <td>2026-03-15T16:47:47.355954 / 2026-03-21T05:14:19.349231</td>
                     </tr>
                     <tr data-pattern-type="neutral">
                         <td class="sequence">Read → Edit → Edit</td>
                         <td><span class="badge pattern-neutral">neutral</span></td>
                         <td>8</td>
-                        <td>2026-03-15T16:47:47.355958 / 2026-03-18T11:30:29.556760</td>
+                        <td>2026-03-15T16:47:47.355958 / 2026-03-21T05:14:19.349157</td>
                     </tr>
                     <tr data-pattern-type="neutral">
                         <td class="sequence">Edit → Edit → Bash</td>
                         <td><span class="badge pattern-neutral">neutral</span></td>
                         <td>6</td>
-                        <td>2026-03-15T16:47:47.355962 / 2026-03-18T11:30:29.556767</td>
+                        <td>2026-03-15T16:47:47.355962 / 2026-03-21T05:14:19.349164</td>
                     </tr>
                     <tr data-pattern-type="neutral">
                         <td class="sequence">Edit → Bash → Bash</td>
                         <td><span class="badge pattern-neutral">neutral</span></td>
                         <td>10</td>
-                        <td>2026-03-15T16:47:47.355966 / 2026-03-18T11:30:29.556836</td>
+                        <td>2026-03-15T16:47:47.355966 / 2026-03-21T05:14:19.349234</td>
                     </tr>
                     <tr data-pattern-type="neutral">
                         <td class="sequence">Bash → Edit → Edit</td>
@@ -181,19 +184,19 @@
                         <td class="sequence">Bash → Bash → Agent</td>
                         <td><span class="badge pattern-neutral">neutral</span></td>
                         <td>5</td>
-                        <td>2026-03-15T16:47:47.355976 / 2026-03-18T11:30:29.557162</td>
+                        <td>2026-03-15T16:47:47.355976 / 2026-03-21T05:14:19.349592</td>
                     </tr>
                     <tr data-pattern-type="neutral">
                         <td class="sequence">Bash → Agent → Bash</td>
                         <td><span class="badge pattern-neutral">neutral</span></td>
-                        <td>11</td>
-                        <td>2026-03-15T16:47:47.355981 / 2026-03-18T11:30:29.556723</td>
+                        <td>12</td>
+                        <td>2026-03-15T16:47:47.355981 / 2026-03-21T05:14:19.349106</td>
                     </tr>
                     <tr data-pattern-type="anti-pattern">
                         <td class="sequence">Edit → Edit → Edit</td>
                         <td><span class="badge pattern-anti-pattern">anti-pattern</span></td>
                         <td>11</td>
-                        <td>2026-03-15T16:47:47.355987 / 2026-03-18T11:30:29.556764</td>
+                        <td>2026-03-15T16:47:47.355987 / 2026-03-21T05:14:19.349161</td>
                     </tr>
                     <tr data-pattern-type="neutral">
                         <td class="sequence">Bash → Bash</td>
@@ -216,20 +219,20 @@
                     <tr data-pattern-type="neutral">
                         <td class="sequence">Stop → UserQuery → FeatureCreate</td>
                         <td><span class="badge pattern-neutral">neutral</span></td>
-                        <td>3</td>
-                        <td>2026-03-15T17:41:30.491053 / 2026-03-18T11:30:29.557034</td>
+                        <td>4</td>
+                        <td>2026-03-15T17:41:30.491053 / 2026-03-21T05:14:19.349436</td>
                     </tr>
                     <tr data-pattern-type="neutral">
                         <td class="sequence">UserQuery → FeatureCreate → FeatureStart</td>
                         <td><span class="badge pattern-neutral">neutral</span></td>
-                        <td>3</td>
-                        <td>2026-03-15T17:41:30.491058 / 2026-03-18T11:30:29.557038</td>
+                        <td>4</td>
+                        <td>2026-03-15T17:41:30.491058 / 2026-03-21T05:14:19.349440</td>
                     </tr>
                     <tr data-pattern-type="neutral">
                         <td class="sequence">FeatureCreate → FeatureStart → Bash</td>
                         <td><span class="badge pattern-neutral">neutral</span></td>
-                        <td>4</td>
-                        <td>2026-03-15T17:41:30.491064 / 2026-03-18T11:30:29.557043</td>
+                        <td>5</td>
+                        <td>2026-03-15T17:41:30.491064 / 2026-03-21T05:14:19.349444</td>
                     </tr>
                     <tr data-pattern-type="neutral">
                         <td class="sequence">Bash → Bash</td>
@@ -241,13 +244,13 @@
                         <td class="sequence">Stop → Bash → Bash</td>
                         <td><span class="badge pattern-neutral">neutral</span></td>
                         <td>2</td>
-                        <td>2026-03-17T21:38:19.482265 / 2026-03-18T11:30:29.557047</td>
+                        <td>2026-03-17T21:38:19.482265 / 2026-03-21T05:14:19.349449</td>
                     </tr>
                     <tr data-pattern-type="neutral">
                         <td class="sequence">Bash → Read → Bash</td>
                         <td><span class="badge pattern-neutral">neutral</span></td>
-                        <td>15</td>
-                        <td>2026-03-17T21:38:19.482270 / 2026-03-18T11:30:29.556840</td>
+                        <td>22</td>
+                        <td>2026-03-17T21:38:19.482270 / 2026-03-21T05:14:19.349240</td>
                     </tr>
                     <tr data-pattern-type="neutral">
                         <td class="sequence">Stop → FeatureComplete → Stop</td>
@@ -270,8 +273,8 @@
                     <tr data-pattern-type="neutral">
                         <td class="sequence">Read → Bash → Read</td>
                         <td><span class="badge pattern-neutral">neutral</span></td>
-                        <td>10</td>
-                        <td>2026-03-17T21:38:19.482338 / 2026-03-18T11:30:29.557117</td>
+                        <td>16</td>
+                        <td>2026-03-17T21:38:19.482338 / 2026-03-21T05:14:19.349530</td>
                     </tr>
                     <tr data-pattern-type="neutral">
                         <td class="sequence">Bash → Bash</td>
@@ -283,163 +286,163 @@
                         <td class="sequence">Edit → Read → Bash</td>
                         <td><span class="badge pattern-neutral">neutral</span></td>
                         <td>5</td>
-                        <td>2026-03-18T00:19:56.718254 / 2026-03-18T11:30:29.556671</td>
+                        <td>2026-03-18T00:19:56.718254 / 2026-03-21T05:14:19.348879</td>
                     </tr>
                     <tr data-pattern-type="neutral">
                         <td class="sequence">Read → Bash → Bash</td>
                         <td><span class="badge pattern-neutral">neutral</span></td>
                         <td>8</td>
-                        <td>2026-03-18T00:19:56.718261 / 2026-03-18T11:30:29.556680</td>
+                        <td>2026-03-18T00:19:56.718261 / 2026-03-21T05:14:19.348892</td>
                     </tr>
                     <tr data-pattern-type="neutral">
                         <td class="sequence">Bash → Grep → Read</td>
                         <td><span class="badge pattern-neutral">neutral</span></td>
                         <td>4</td>
-                        <td>2026-03-18T00:19:56.718267 / 2026-03-18T11:30:29.556686</td>
+                        <td>2026-03-18T00:19:56.718267 / 2026-03-21T05:14:19.348899</td>
                     </tr>
                     <tr data-pattern-type="neutral">
                         <td class="sequence">Bash → mcp__plugin_htmlgraph_chrome-devtools__navigate_page → mcp__plugin_htmlgraph_chrome-devtools__take_screenshot</td>
                         <td><span class="badge pattern-neutral">neutral</span></td>
                         <td>10</td>
-                        <td>2026-03-18T00:19:56.718272 / 2026-03-18T11:30:29.556707</td>
+                        <td>2026-03-18T00:19:56.718272 / 2026-03-21T05:14:19.349072</td>
                     </tr>
                     <tr data-pattern-type="neutral">
                         <td class="sequence">mcp__plugin_htmlgraph_chrome-devtools__navigate_page → mcp__plugin_htmlgraph_chrome-devtools__take_screenshot → Read</td>
                         <td><span class="badge pattern-neutral">neutral</span></td>
                         <td>2</td>
-                        <td>2026-03-18T00:19:56.718277 / 2026-03-18T11:30:29.556713</td>
+                        <td>2026-03-18T00:19:56.718277 / 2026-03-21T05:14:19.349078</td>
                     </tr>
                     <tr data-pattern-type="neutral">
                         <td class="sequence">Read → Bash → Agent</td>
                         <td><span class="badge pattern-neutral">neutral</span></td>
                         <td>4</td>
-                        <td>2026-03-18T00:19:56.718283 / 2026-03-18T11:30:29.556719</td>
+                        <td>2026-03-18T00:19:56.718283 / 2026-03-21T05:14:19.349085</td>
                     </tr>
                     <tr data-pattern-type="neutral">
                         <td class="sequence">Agent → Bash → mcp__plugin_htmlgraph_chrome-devtools__navigate_page</td>
                         <td><span class="badge pattern-neutral">neutral</span></td>
                         <td>5</td>
-                        <td>2026-03-18T00:19:56.718292 / 2026-03-18T11:30:29.556729</td>
+                        <td>2026-03-18T00:19:56.718292 / 2026-03-21T05:14:19.349122</td>
                     </tr>
                     <tr data-pattern-type="neutral">
                         <td class="sequence">mcp__plugin_htmlgraph_chrome-devtools__navigate_page → mcp__plugin_htmlgraph_chrome-devtools__take_screenshot → Bash</td>
                         <td><span class="badge pattern-neutral">neutral</span></td>
                         <td>7</td>
-                        <td>2026-03-18T00:19:56.718297 / 2026-03-18T11:30:29.556735</td>
+                        <td>2026-03-18T00:19:56.718297 / 2026-03-21T05:14:19.349129</td>
                     </tr>
                     <tr data-pattern-type="neutral">
                         <td class="sequence">mcp__plugin_htmlgraph_chrome-devtools__take_screenshot → Bash → Stop</td>
                         <td><span class="badge pattern-neutral">neutral</span></td>
                         <td>5</td>
-                        <td>2026-03-18T00:19:56.718302 / 2026-03-18T11:30:29.556740</td>
+                        <td>2026-03-18T00:19:56.718302 / 2026-03-21T05:14:19.349135</td>
                     </tr>
                     <tr data-pattern-type="neutral">
                         <td class="sequence">Stop → UserQuery → Read</td>
                         <td><span class="badge pattern-neutral">neutral</span></td>
-                        <td>8</td>
-                        <td>2026-03-18T00:19:56.718310 / 2026-03-18T11:30:29.556749</td>
+                        <td>9</td>
+                        <td>2026-03-18T00:19:56.718310 / 2026-03-21T05:14:19.349144</td>
                     </tr>
                     <tr data-pattern-type="neutral">
                         <td class="sequence">Edit → Bash → Read</td>
                         <td><span class="badge pattern-neutral">neutral</span></td>
                         <td>3</td>
-                        <td>2026-03-18T00:19:56.718321 / 2026-03-18T11:30:29.556773</td>
+                        <td>2026-03-18T00:19:56.718321 / 2026-03-21T05:14:19.349170</td>
                     </tr>
                     <tr data-pattern-type="neutral">
                         <td class="sequence">Agent → Bash → Bash</td>
                         <td><span class="badge pattern-neutral">neutral</span></td>
-                        <td>7</td>
-                        <td>2026-03-18T00:19:56.718327 / 2026-03-18T11:30:29.556797</td>
+                        <td>8</td>
+                        <td>2026-03-18T00:19:56.718327 / 2026-03-21T05:14:19.349195</td>
                     </tr>
                     <tr data-pattern-type="neutral">
                         <td class="sequence">Bash → Bash → mcp__plugin_htmlgraph_chrome-devtools__navigate_page</td>
                         <td><span class="badge pattern-neutral">neutral</span></td>
                         <td>4</td>
-                        <td>2026-03-18T00:19:56.718333 / 2026-03-18T11:30:29.556804</td>
+                        <td>2026-03-18T00:19:56.718333 / 2026-03-21T05:14:19.349202</td>
                     </tr>
                     <tr data-pattern-type="optimal">
                         <td class="sequence">Read → Edit → Bash</td>
                         <td><span class="badge pattern-optimal">optimal</span></td>
                         <td>8</td>
-                        <td>2026-03-18T00:19:56.718339 / 2026-03-18T11:30:29.556811</td>
+                        <td>2026-03-18T00:19:56.718339 / 2026-03-21T05:14:19.349209</td>
                     </tr>
                     <tr data-pattern-type="neutral">
                         <td class="sequence">Edit → Bash → Agent</td>
                         <td><span class="badge pattern-neutral">neutral</span></td>
                         <td>2</td>
-                        <td>2026-03-18T00:19:56.718346 / 2026-03-18T11:30:29.556818</td>
+                        <td>2026-03-18T00:19:56.718346 / 2026-03-21T05:14:19.349216</td>
                     </tr>
                     <tr data-pattern-type="neutral">
                         <td class="sequence">mcp__plugin_htmlgraph_chrome-devtools__take_screenshot → Bash → Bash</td>
                         <td><span class="badge pattern-neutral">neutral</span></td>
                         <td>3</td>
-                        <td>2026-03-18T00:19:56.718352 / 2026-03-18T11:30:29.556825</td>
+                        <td>2026-03-18T00:19:56.718352 / 2026-03-21T05:14:19.349223</td>
                     </tr>
                     <tr data-pattern-type="neutral">
                         <td class="sequence">UserQuery → Read → Bash</td>
                         <td><span class="badge pattern-neutral">neutral</span></td>
                         <td>3</td>
-                        <td>2026-03-18T00:19:56.718371 / 2026-03-18T11:30:29.556851</td>
+                        <td>2026-03-18T00:19:56.718371 / 2026-03-21T05:14:19.349251</td>
                     </tr>
                     <tr data-pattern-type="neutral">
                         <td class="sequence">Grep → Bash → Bash</td>
                         <td><span class="badge pattern-neutral">neutral</span></td>
                         <td>3</td>
-                        <td>2026-03-18T00:19:56.718377 / 2026-03-18T11:30:29.556901</td>
+                        <td>2026-03-18T00:19:56.718377 / 2026-03-21T05:14:19.349309</td>
                     </tr>
                     <tr data-pattern-type="neutral">
                         <td class="sequence">Bash → Grep → Bash</td>
                         <td><span class="badge pattern-neutral">neutral</span></td>
                         <td>4</td>
-                        <td>2026-03-18T00:19:56.718384 / 2026-03-18T11:30:29.556922</td>
+                        <td>2026-03-18T00:19:56.718384 / 2026-03-21T05:14:19.349329</td>
                     </tr>
                     <tr data-pattern-type="neutral">
                         <td class="sequence">Read → Bash → Grep</td>
                         <td><span class="badge pattern-neutral">neutral</span></td>
-                        <td>3</td>
-                        <td>2026-03-18T00:19:56.718391 / 2026-03-18T11:30:29.556950</td>
+                        <td>4</td>
+                        <td>2026-03-18T00:19:56.718391 / 2026-03-21T05:14:19.349359</td>
                     </tr>
                     <tr data-pattern-type="optimal">
                         <td class="sequence">Grep → Read → Edit</td>
                         <td><span class="badge pattern-optimal">optimal</span></td>
                         <td>5</td>
-                        <td>2026-03-18T00:19:56.718400 / 2026-03-18T11:30:29.556957</td>
+                        <td>2026-03-18T00:19:56.718400 / 2026-03-21T05:14:19.349366</td>
                     </tr>
                     <tr data-pattern-type="neutral">
                         <td class="sequence">Read → Edit → Read</td>
                         <td><span class="badge pattern-neutral">neutral</span></td>
                         <td>3</td>
-                        <td>2026-03-18T00:19:56.718407 / 2026-03-18T11:30:29.556965</td>
+                        <td>2026-03-18T00:19:56.718407 / 2026-03-21T05:14:19.349374</td>
                     </tr>
                     <tr data-pattern-type="neutral">
                         <td class="sequence">Bash → Edit → Bash</td>
                         <td><span class="badge pattern-neutral">neutral</span></td>
                         <td>3</td>
-                        <td>2026-03-18T00:19:56.718414 / 2026-03-18T11:30:29.556973</td>
+                        <td>2026-03-18T00:19:56.718414 / 2026-03-21T05:14:19.349382</td>
                     </tr>
                     <tr data-pattern-type="neutral">
                         <td class="sequence">Edit → Read → Edit</td>
                         <td><span class="badge pattern-neutral">neutral</span></td>
                         <td>2</td>
-                        <td>2026-03-18T00:19:56.718422 / 2026-03-18T11:30:29.556990</td>
+                        <td>2026-03-18T00:19:56.718422 / 2026-03-21T05:14:19.349400</td>
                     </tr>
                     <tr data-pattern-type="neutral">
                         <td class="sequence">mcp__plugin_htmlgraph_chrome-devtools__navigate_page → mcp__plugin_htmlgraph_chrome-devtools__take_screenshot → mcp__plugin_htmlgraph_chrome-devtools__navigate_page</td>
                         <td><span class="badge pattern-neutral">neutral</span></td>
                         <td>2</td>
-                        <td>2026-03-18T00:19:56.718429 / 2026-03-18T11:30:29.556998</td>
+                        <td>2026-03-18T00:19:56.718429 / 2026-03-21T05:14:19.349407</td>
                     </tr>
                     <tr data-pattern-type="neutral">
                         <td class="sequence">mcp__plugin_htmlgraph_chrome-devtools__take_screenshot → mcp__plugin_htmlgraph_chrome-devtools__navigate_page → mcp__plugin_htmlgraph_chrome-devtools__take_screenshot</td>
                         <td><span class="badge pattern-neutral">neutral</span></td>
                         <td>2</td>
-                        <td>2026-03-18T00:19:56.718436 / 2026-03-18T11:30:29.557005</td>
+                        <td>2026-03-18T00:19:56.718436 / 2026-03-21T05:14:19.349415</td>
                     </tr>
                     <tr data-pattern-type="neutral">
                         <td class="sequence">Bash → Read → Read</td>
                         <td><span class="badge pattern-neutral">neutral</span></td>
                         <td>6</td>
-                        <td>2026-03-18T00:19:56.718444 / 2026-03-18T11:30:29.557056</td>
+                        <td>2026-03-18T00:19:56.718444 / 2026-03-21T05:14:19.349458</td>
                     </tr>
                     <tr data-pattern-type="neutral">
                         <td class="sequence">Read → Edit → Bash</td>
@@ -450,80 +453,80 @@
                     <tr data-pattern-type="neutral">
                         <td class="sequence">UserQuery → Read → Edit</td>
                         <td><span class="badge pattern-neutral">neutral</span></td>
-                        <td>2</td>
-                        <td>2026-03-18T09:12:58.560413 / 2026-03-18T11:30:29.556757</td>
+                        <td>3</td>
+                        <td>2026-03-18T09:12:58.560413 / 2026-03-21T05:14:19.349154</td>
                     </tr>
                     <tr data-pattern-type="neutral">
                         <td class="sequence">Bash → Read → Agent</td>
                         <td><span class="badge pattern-neutral">neutral</span></td>
                         <td>2</td>
-                        <td>2026-03-18T09:12:58.560441 / 2026-03-18T11:30:29.556782</td>
+                        <td>2026-03-18T09:12:58.560441 / 2026-03-21T05:14:19.349179</td>
                     </tr>
                     <tr data-pattern-type="neutral">
                         <td class="sequence">Read → Agent → Bash</td>
                         <td><span class="badge pattern-neutral">neutral</span></td>
                         <td>5</td>
-                        <td>2026-03-18T09:12:58.560451 / 2026-03-18T11:30:29.556791</td>
+                        <td>2026-03-18T09:12:58.560451 / 2026-03-21T05:14:19.349188</td>
                     </tr>
                     <tr data-pattern-type="neutral">
                         <td class="sequence">Read → Grep → Grep</td>
                         <td><span class="badge pattern-neutral">neutral</span></td>
                         <td>2</td>
-                        <td>2026-03-18T09:12:58.560519 / 2026-03-18T11:30:29.556881</td>
+                        <td>2026-03-18T09:12:58.560519 / 2026-03-21T05:14:19.349283</td>
                     </tr>
                     <tr data-pattern-type="neutral">
                         <td class="sequence">Read → Glob → Read</td>
                         <td><span class="badge pattern-neutral">neutral</span></td>
                         <td>4</td>
-                        <td>2026-03-18T09:12:58.560544 / 2026-03-18T11:30:29.556931</td>
+                        <td>2026-03-18T09:12:58.560544 / 2026-03-21T05:14:19.349339</td>
                     </tr>
                     <tr data-pattern-type="neutral">
                         <td class="sequence">Edit → Edit → Read</td>
                         <td><span class="badge pattern-neutral">neutral</span></td>
                         <td>3</td>
-                        <td>2026-03-18T09:12:58.560587 / 2026-03-18T11:30:29.556982</td>
+                        <td>2026-03-18T09:12:58.560587 / 2026-03-21T05:14:19.349392</td>
                     </tr>
                     <tr data-pattern-type="anti-pattern">
                         <td class="sequence">Read → Read → Read</td>
                         <td><span class="badge pattern-anti-pattern">anti-pattern</span></td>
                         <td>4</td>
-                        <td>2026-03-18T09:12:58.560642 / 2026-03-18T11:30:29.557091</td>
+                        <td>2026-03-18T09:12:58.560642 / 2026-03-21T05:14:19.349493</td>
                     </tr>
                     <tr data-pattern-type="neutral">
                         <td class="sequence">Bash → Stop → Bash</td>
                         <td><span class="badge pattern-neutral">neutral</span></td>
-                        <td>4</td>
-                        <td>2026-03-18T09:12:58.560653 / 2026-03-18T11:30:29.557100</td>
+                        <td>5</td>
+                        <td>2026-03-18T09:12:58.560653 / 2026-03-21T05:14:19.349503</td>
                     </tr>
                     <tr data-pattern-type="neutral">
                         <td class="sequence">Stop → Bash → Stop</td>
                         <td><span class="badge pattern-neutral">neutral</span></td>
                         <td>4</td>
-                        <td>2026-03-18T09:12:58.560663 / 2026-03-18T11:30:29.557110</td>
+                        <td>2026-03-18T09:12:58.560663 / 2026-03-21T05:14:19.349512</td>
                     </tr>
                     <tr data-pattern-type="neutral">
                         <td class="sequence">Read → Read → Agent</td>
                         <td><span class="badge pattern-neutral">neutral</span></td>
                         <td>3</td>
-                        <td>2026-03-18T09:12:58.560681 / 2026-03-18T11:30:29.557126</td>
+                        <td>2026-03-18T09:12:58.560681 / 2026-03-21T05:14:19.349554</td>
                     </tr>
                     <tr data-pattern-type="neutral">
                         <td class="sequence">Read → Agent → Stop</td>
                         <td><span class="badge pattern-neutral">neutral</span></td>
                         <td>3</td>
-                        <td>2026-03-18T09:12:58.560692 / 2026-03-18T11:30:29.557136</td>
+                        <td>2026-03-18T09:12:58.560692 / 2026-03-21T05:14:19.349564</td>
                     </tr>
                     <tr data-pattern-type="neutral">
                         <td class="sequence">UserQuery → Read → Glob</td>
                         <td><span class="badge pattern-neutral">neutral</span></td>
                         <td>2</td>
-                        <td>2026-03-18T09:12:58.560705 / 2026-03-18T11:30:29.557147</td>
+                        <td>2026-03-18T09:12:58.560705 / 2026-03-21T05:14:19.349577</td>
                     </tr>
                     <tr data-pattern-type="neutral">
                         <td class="sequence">Grep → Grep → Grep</td>
                         <td><span class="badge pattern-neutral">neutral</span></td>
                         <td>2</td>
-                        <td>2026-03-18T09:12:58.560716 / 2026-03-18T11:30:29.557171</td>
+                        <td>2026-03-18T09:12:58.560716 / 2026-03-21T05:14:19.349602</td>
                     </tr>
                     <tr data-pattern-type="neutral">
                         <td class="sequence">Agent → Bash → Bash</td>
@@ -547,25 +550,25 @@
                         <td class="sequence">Read → Bash → Glob</td>
                         <td><span class="badge pattern-neutral">neutral</span></td>
                         <td>2</td>
-                        <td>2026-03-18T09:25:58.313998 / 2026-03-18T11:30:29.556861</td>
+                        <td>2026-03-18T09:25:58.313998 / 2026-03-21T05:14:19.349263</td>
                     </tr>
                     <tr data-pattern-type="neutral">
                         <td class="sequence">Bash → Glob → Read</td>
                         <td><span class="badge pattern-neutral">neutral</span></td>
                         <td>3</td>
-                        <td>2026-03-18T09:25:58.314011 / 2026-03-18T11:30:29.556872</td>
+                        <td>2026-03-18T09:25:58.314011 / 2026-03-21T05:14:19.349274</td>
                     </tr>
                     <tr data-pattern-type="neutral">
                         <td class="sequence">Glob → Read → Bash</td>
                         <td><span class="badge pattern-neutral">neutral</span></td>
                         <td>2</td>
-                        <td>2026-03-18T09:25:58.314055 / 2026-03-18T11:30:29.556941</td>
+                        <td>2026-03-18T09:25:58.314055 / 2026-03-21T05:14:19.349349</td>
                     </tr>
                     <tr data-pattern-type="optimal">
                         <td class="sequence">Glob → Read → Edit</td>
                         <td><span class="badge pattern-optimal">optimal</span></td>
                         <td>2</td>
-                        <td>2026-03-18T09:25:58.314218 / 2026-03-18T11:30:29.557158</td>
+                        <td>2026-03-18T09:25:58.314218 / 2026-03-21T05:14:19.349588</td>
                     </tr>
                     <tr data-pattern-type="neutral">
                         <td class="sequence">Agent → Bash → Bash</td>
@@ -643,7 +646,7 @@
                         <td class="sequence">Read → Bash → Edit</td>
                         <td><span class="badge pattern-neutral">neutral</span></td>
                         <td>2</td>
-                        <td>2026-03-18T09:56:15.327238 / 2026-03-18T11:30:29.557026</td>
+                        <td>2026-03-18T09:56:15.327238 / 2026-03-21T05:14:19.349427</td>
                     </tr>
                     <tr data-pattern-type="neutral">
                         <td class="sequence">Agent → Bash → Bash</td>
@@ -667,37 +670,37 @@
                         <td class="sequence">Bash → Bash → Grep</td>
                         <td><span class="badge pattern-neutral">neutral</span></td>
                         <td>4</td>
-                        <td>2026-03-18T10:10:39.278379 / 2026-03-18T11:30:29.556914</td>
+                        <td>2026-03-18T10:10:39.278379 / 2026-03-21T05:14:19.349322</td>
                     </tr>
                     <tr data-pattern-type="neutral">
                         <td class="sequence">Read → Read → Grep</td>
                         <td><span class="badge pattern-neutral">neutral</span></td>
                         <td>2</td>
-                        <td>2026-03-18T10:10:39.278528 / 2026-03-18T11:30:29.557069</td>
+                        <td>2026-03-18T10:10:39.278528 / 2026-03-21T05:14:19.349471</td>
                     </tr>
                     <tr data-pattern-type="neutral">
                         <td class="sequence">Read → Grep → Read</td>
                         <td><span class="badge pattern-neutral">neutral</span></td>
                         <td>3</td>
-                        <td>2026-03-18T10:10:39.278542 / 2026-03-18T11:30:29.557082</td>
+                        <td>2026-03-18T10:10:39.278542 / 2026-03-21T05:14:19.349484</td>
                     </tr>
                     <tr data-pattern-type="neutral">
                         <td class="sequence">FeatureComplete → Bash → Stop</td>
                         <td><span class="badge pattern-neutral">neutral</span></td>
-                        <td>2</td>
-                        <td>2026-03-18T10:10:39.278645 / 2026-03-18T11:30:29.557184</td>
+                        <td>4</td>
+                        <td>2026-03-18T10:10:39.278645 / 2026-03-21T05:14:19.349615</td>
                     </tr>
                     <tr data-pattern-type="neutral">
                         <td class="sequence">FeatureStart → Bash → Read</td>
                         <td><span class="badge pattern-neutral">neutral</span></td>
                         <td>2</td>
-                        <td>2026-03-18T10:10:39.278658 / 2026-03-18T11:30:29.557196</td>
+                        <td>2026-03-18T10:10:39.278658 / 2026-03-21T05:14:19.349628</td>
                     </tr>
                     <tr data-pattern-type="neutral">
                         <td class="sequence">Agent → Bash → Stop</td>
                         <td><span class="badge pattern-neutral">neutral</span></td>
                         <td>2</td>
-                        <td>2026-03-18T10:10:39.278671 / 2026-03-18T11:30:29.557208</td>
+                        <td>2026-03-18T10:10:39.278671 / 2026-03-21T05:14:19.349641</td>
                     </tr>
                     <tr data-pattern-type="neutral">
                         <td class="sequence">Agent → Bash → Bash</td>
@@ -751,13 +754,13 @@
                         <td class="sequence">Grep → Read → Bash</td>
                         <td><span class="badge pattern-neutral">neutral</span></td>
                         <td>2</td>
-                        <td>2026-03-18T11:28:45.302517 / 2026-03-18T11:30:29.556701</td>
+                        <td>2026-03-18T11:28:45.302517 / 2026-03-21T05:14:19.349060</td>
                     </tr>
                     <tr data-pattern-type="neutral">
                         <td class="sequence">Grep → Grep → Bash</td>
                         <td><span class="badge pattern-neutral">neutral</span></td>
                         <td>2</td>
-                        <td>2026-03-18T11:28:45.302714 / 2026-03-18T11:30:29.556894</td>
+                        <td>2026-03-18T11:28:45.302714 / 2026-03-21T05:14:19.349301</td>
                     </tr>
                     <tr data-pattern-type="neutral">
                         <td class="sequence">Agent → Bash → Bash</td>
@@ -813,12 +816,580 @@
                         <td>2</td>
                         <td>2026-03-18T11:30:32.661631 / 2026-03-18T11:30:32.661631</td>
                     </tr>
+                    <tr data-pattern-type="neutral">
+                        <td class="sequence">Bash → Bash → FeatureComplete</td>
+                        <td><span class="badge pattern-neutral">neutral</span></td>
+                        <td>2</td>
+                        <td>2026-03-18T15:38:17.999070 / 2026-03-21T05:14:19.349658</td>
+                    </tr>
+                    <tr data-pattern-type="neutral">
+                        <td class="sequence">Bash → FeatureComplete → Bash</td>
+                        <td><span class="badge pattern-neutral">neutral</span></td>
+                        <td>3</td>
+                        <td>2026-03-18T15:38:17.999088 / 2026-03-21T05:14:19.349674</td>
+                    </tr>
+                    <tr data-pattern-type="neutral">
+                        <td class="sequence">Agent → Bash → Bash</td>
+                        <td><span class="badge pattern-neutral">neutral</span></td>
+                        <td>3</td>
+                        <td>2026-03-18T15:38:21.174331 / 2026-03-18T15:38:21.174331</td>
+                    </tr>
+                    <tr data-pattern-type="neutral">
+                        <td class="sequence">Read → Edit → Bash</td>
+                        <td><span class="badge pattern-neutral">neutral</span></td>
+                        <td>2</td>
+                        <td>2026-03-18T15:38:21.174344 / 2026-03-18T15:38:21.174344</td>
+                    </tr>
+                    <tr data-pattern-type="neutral">
+                        <td class="sequence">Bash → Bash</td>
+                        <td><span class="badge pattern-neutral">neutral</span></td>
+                        <td>4</td>
+                        <td>2026-03-18T15:38:21.174354 / 2026-03-18T15:38:21.174354</td>
+                    </tr>
+                    <tr data-pattern-type="neutral">
+                        <td class="sequence">Bash → Agent → Bash</td>
+                        <td><span class="badge pattern-neutral">neutral</span></td>
+                        <td>2</td>
+                        <td>2026-03-18T15:38:21.174366 / 2026-03-18T15:38:21.174366</td>
+                    </tr>
+                    <tr data-pattern-type="neutral">
+                        <td class="sequence">FeatureStart → Bash → Bash</td>
+                        <td><span class="badge pattern-neutral">neutral</span></td>
+                        <td>2</td>
+                        <td>2026-03-19T14:19:54.605558 / 2026-03-21T05:14:19.349690</td>
+                    </tr>
+                    <tr data-pattern-type="neutral">
+                        <td class="sequence">Bash → Grep → Grep</td>
+                        <td><span class="badge pattern-neutral">neutral</span></td>
+                        <td>2</td>
+                        <td>2026-03-19T14:19:54.605581 / 2026-03-21T05:14:19.349706</td>
+                    </tr>
+                    <tr data-pattern-type="neutral">
+                        <td class="sequence">Agent → Bash → Bash</td>
+                        <td><span class="badge pattern-neutral">neutral</span></td>
+                        <td>3</td>
+                        <td>2026-03-19T14:19:57.840239 / 2026-03-19T14:19:57.840239</td>
+                    </tr>
+                    <tr data-pattern-type="neutral">
+                        <td class="sequence">Read → Edit → Bash</td>
+                        <td><span class="badge pattern-neutral">neutral</span></td>
+                        <td>2</td>
+                        <td>2026-03-19T14:19:57.840255 / 2026-03-19T14:19:57.840255</td>
+                    </tr>
+                    <tr data-pattern-type="neutral">
+                        <td class="sequence">Bash → Bash</td>
+                        <td><span class="badge pattern-neutral">neutral</span></td>
+                        <td>4</td>
+                        <td>2026-03-19T14:19:57.840265 / 2026-03-19T14:19:57.840265</td>
+                    </tr>
+                    <tr data-pattern-type="neutral">
+                        <td class="sequence">Bash → Agent</td>
+                        <td><span class="badge pattern-neutral">neutral</span></td>
+                        <td>2</td>
+                        <td>2026-03-19T14:19:57.840275 / 2026-03-19T14:19:57.840275</td>
+                    </tr>
+                    <tr data-pattern-type="neutral">
+                        <td class="sequence">Bash → Agent → Bash</td>
+                        <td><span class="badge pattern-neutral">neutral</span></td>
+                        <td>2</td>
+                        <td>2026-03-19T14:19:57.840287 / 2026-03-19T14:19:57.840287</td>
+                    </tr>
+                    <tr data-pattern-type="neutral">
+                        <td class="sequence">Agent → Bash → Bash</td>
+                        <td><span class="badge pattern-neutral">neutral</span></td>
+                        <td>3</td>
+                        <td>2026-03-19T14:38:06.117850 / 2026-03-19T14:38:06.117850</td>
+                    </tr>
+                    <tr data-pattern-type="neutral">
+                        <td class="sequence">Read → Edit → Bash</td>
+                        <td><span class="badge pattern-neutral">neutral</span></td>
+                        <td>2</td>
+                        <td>2026-03-19T14:38:06.117869 / 2026-03-19T14:38:06.117869</td>
+                    </tr>
+                    <tr data-pattern-type="neutral">
+                        <td class="sequence">Bash → Bash</td>
+                        <td><span class="badge pattern-neutral">neutral</span></td>
+                        <td>4</td>
+                        <td>2026-03-19T14:38:06.117880 / 2026-03-19T14:38:06.117880</td>
+                    </tr>
+                    <tr data-pattern-type="neutral">
+                        <td class="sequence">Bash → Agent</td>
+                        <td><span class="badge pattern-neutral">neutral</span></td>
+                        <td>2</td>
+                        <td>2026-03-19T14:38:06.117891 / 2026-03-19T14:38:06.117891</td>
+                    </tr>
+                    <tr data-pattern-type="neutral">
+                        <td class="sequence">Bash → Agent → Bash</td>
+                        <td><span class="badge pattern-neutral">neutral</span></td>
+                        <td>2</td>
+                        <td>2026-03-19T14:38:06.117903 / 2026-03-19T14:38:06.117903</td>
+                    </tr>
+                    <tr data-pattern-type="neutral">
+                        <td class="sequence">Agent → Bash → Bash</td>
+                        <td><span class="badge pattern-neutral">neutral</span></td>
+                        <td>3</td>
+                        <td>2026-03-19T14:38:12.691712 / 2026-03-19T14:38:12.691712</td>
+                    </tr>
+                    <tr data-pattern-type="neutral">
+                        <td class="sequence">Read → Edit → Bash</td>
+                        <td><span class="badge pattern-neutral">neutral</span></td>
+                        <td>2</td>
+                        <td>2026-03-19T14:38:12.691732 / 2026-03-19T14:38:12.691732</td>
+                    </tr>
+                    <tr data-pattern-type="neutral">
+                        <td class="sequence">Bash → Bash</td>
+                        <td><span class="badge pattern-neutral">neutral</span></td>
+                        <td>4</td>
+                        <td>2026-03-19T14:38:12.691744 / 2026-03-19T14:38:12.691744</td>
+                    </tr>
+                    <tr data-pattern-type="neutral">
+                        <td class="sequence">Bash → Agent</td>
+                        <td><span class="badge pattern-neutral">neutral</span></td>
+                        <td>2</td>
+                        <td>2026-03-19T14:38:12.691754 / 2026-03-19T14:38:12.691754</td>
+                    </tr>
+                    <tr data-pattern-type="neutral">
+                        <td class="sequence">Bash → Agent → Bash</td>
+                        <td><span class="badge pattern-neutral">neutral</span></td>
+                        <td>2</td>
+                        <td>2026-03-19T14:38:12.691767 / 2026-03-19T14:38:12.691767</td>
+                    </tr>
+                    <tr data-pattern-type="neutral">
+                        <td class="sequence">Agent → Bash → Bash</td>
+                        <td><span class="badge pattern-neutral">neutral</span></td>
+                        <td>3</td>
+                        <td>2026-03-19T14:52:27.632853 / 2026-03-19T14:52:27.632853</td>
+                    </tr>
+                    <tr data-pattern-type="neutral">
+                        <td class="sequence">Read → Edit → Bash</td>
+                        <td><span class="badge pattern-neutral">neutral</span></td>
+                        <td>2</td>
+                        <td>2026-03-19T14:52:27.632871 / 2026-03-19T14:52:27.632871</td>
+                    </tr>
+                    <tr data-pattern-type="neutral">
+                        <td class="sequence">Bash → Bash</td>
+                        <td><span class="badge pattern-neutral">neutral</span></td>
+                        <td>4</td>
+                        <td>2026-03-19T14:52:27.632883 / 2026-03-19T14:52:27.632883</td>
+                    </tr>
+                    <tr data-pattern-type="neutral">
+                        <td class="sequence">Bash → Agent</td>
+                        <td><span class="badge pattern-neutral">neutral</span></td>
+                        <td>2</td>
+                        <td>2026-03-19T14:52:27.632894 / 2026-03-19T14:52:27.632894</td>
+                    </tr>
+                    <tr data-pattern-type="neutral">
+                        <td class="sequence">Bash → Agent → Bash</td>
+                        <td><span class="badge pattern-neutral">neutral</span></td>
+                        <td>2</td>
+                        <td>2026-03-19T14:52:27.632911 / 2026-03-19T14:52:27.632911</td>
+                    </tr>
+                    <tr data-pattern-type="neutral">
+                        <td class="sequence">Agent → Bash → Bash</td>
+                        <td><span class="badge pattern-neutral">neutral</span></td>
+                        <td>3</td>
+                        <td>2026-03-19T14:52:34.324273 / 2026-03-19T14:52:34.324273</td>
+                    </tr>
+                    <tr data-pattern-type="neutral">
+                        <td class="sequence">Read → Edit → Bash</td>
+                        <td><span class="badge pattern-neutral">neutral</span></td>
+                        <td>2</td>
+                        <td>2026-03-19T14:52:34.324291 / 2026-03-19T14:52:34.324291</td>
+                    </tr>
+                    <tr data-pattern-type="neutral">
+                        <td class="sequence">Bash → Bash</td>
+                        <td><span class="badge pattern-neutral">neutral</span></td>
+                        <td>4</td>
+                        <td>2026-03-19T14:52:34.324304 / 2026-03-19T14:52:34.324304</td>
+                    </tr>
+                    <tr data-pattern-type="neutral">
+                        <td class="sequence">Bash → Agent</td>
+                        <td><span class="badge pattern-neutral">neutral</span></td>
+                        <td>2</td>
+                        <td>2026-03-19T14:52:34.324315 / 2026-03-19T14:52:34.324315</td>
+                    </tr>
+                    <tr data-pattern-type="neutral">
+                        <td class="sequence">Bash → Agent → Bash</td>
+                        <td><span class="badge pattern-neutral">neutral</span></td>
+                        <td>2</td>
+                        <td>2026-03-19T14:52:34.324330 / 2026-03-19T14:52:34.324330</td>
+                    </tr>
+                    <tr data-pattern-type="neutral">
+                        <td class="sequence">Agent → Bash → Bash</td>
+                        <td><span class="badge pattern-neutral">neutral</span></td>
+                        <td>3</td>
+                        <td>2026-03-20T21:28:07.977617 / 2026-03-20T21:28:07.977617</td>
+                    </tr>
+                    <tr data-pattern-type="neutral">
+                        <td class="sequence">Read → Edit → Bash</td>
+                        <td><span class="badge pattern-neutral">neutral</span></td>
+                        <td>2</td>
+                        <td>2026-03-20T21:28:07.977634 / 2026-03-20T21:28:07.977634</td>
+                    </tr>
+                    <tr data-pattern-type="neutral">
+                        <td class="sequence">Bash → Bash</td>
+                        <td><span class="badge pattern-neutral">neutral</span></td>
+                        <td>4</td>
+                        <td>2026-03-20T21:28:07.977647 / 2026-03-20T21:28:07.977647</td>
+                    </tr>
+                    <tr data-pattern-type="neutral">
+                        <td class="sequence">Bash → Agent</td>
+                        <td><span class="badge pattern-neutral">neutral</span></td>
+                        <td>2</td>
+                        <td>2026-03-20T21:28:07.977659 / 2026-03-20T21:28:07.977659</td>
+                    </tr>
+                    <tr data-pattern-type="neutral">
+                        <td class="sequence">Bash → Agent → Bash</td>
+                        <td><span class="badge pattern-neutral">neutral</span></td>
+                        <td>2</td>
+                        <td>2026-03-20T21:28:07.977674 / 2026-03-20T21:28:07.977674</td>
+                    </tr>
+                    <tr data-pattern-type="neutral">
+                        <td class="sequence">Agent → Bash → Bash</td>
+                        <td><span class="badge pattern-neutral">neutral</span></td>
+                        <td>3</td>
+                        <td>2026-03-21T04:57:06.916552 / 2026-03-21T04:57:06.916552</td>
+                    </tr>
+                    <tr data-pattern-type="neutral">
+                        <td class="sequence">Read → Edit → Bash</td>
+                        <td><span class="badge pattern-neutral">neutral</span></td>
+                        <td>2</td>
+                        <td>2026-03-21T04:57:06.916571 / 2026-03-21T04:57:06.916571</td>
+                    </tr>
+                    <tr data-pattern-type="neutral">
+                        <td class="sequence">Bash → Bash</td>
+                        <td><span class="badge pattern-neutral">neutral</span></td>
+                        <td>4</td>
+                        <td>2026-03-21T04:57:06.916586 / 2026-03-21T04:57:06.916586</td>
+                    </tr>
+                    <tr data-pattern-type="neutral">
+                        <td class="sequence">Bash → Agent</td>
+                        <td><span class="badge pattern-neutral">neutral</span></td>
+                        <td>2</td>
+                        <td>2026-03-21T04:57:06.916599 / 2026-03-21T04:57:06.916599</td>
+                    </tr>
+                    <tr data-pattern-type="neutral">
+                        <td class="sequence">Bash → Agent → Bash</td>
+                        <td><span class="badge pattern-neutral">neutral</span></td>
+                        <td>2</td>
+                        <td>2026-03-21T04:57:06.916617 / 2026-03-21T04:57:06.916617</td>
+                    </tr>
+                    <tr data-pattern-type="neutral">
+                        <td class="sequence">Agent → Bash → Bash</td>
+                        <td><span class="badge pattern-neutral">neutral</span></td>
+                        <td>3</td>
+                        <td>2026-03-21T04:57:13.487943 / 2026-03-21T04:57:13.487943</td>
+                    </tr>
+                    <tr data-pattern-type="neutral">
+                        <td class="sequence">Read → Edit → Bash</td>
+                        <td><span class="badge pattern-neutral">neutral</span></td>
+                        <td>2</td>
+                        <td>2026-03-21T04:57:13.487961 / 2026-03-21T04:57:13.487961</td>
+                    </tr>
+                    <tr data-pattern-type="neutral">
+                        <td class="sequence">Bash → Bash</td>
+                        <td><span class="badge pattern-neutral">neutral</span></td>
+                        <td>4</td>
+                        <td>2026-03-21T04:57:13.487975 / 2026-03-21T04:57:13.487975</td>
+                    </tr>
+                    <tr data-pattern-type="neutral">
+                        <td class="sequence">Bash → Agent</td>
+                        <td><span class="badge pattern-neutral">neutral</span></td>
+                        <td>2</td>
+                        <td>2026-03-21T04:57:13.487988 / 2026-03-21T04:57:13.487988</td>
+                    </tr>
+                    <tr data-pattern-type="neutral">
+                        <td class="sequence">Bash → Agent → Bash</td>
+                        <td><span class="badge pattern-neutral">neutral</span></td>
+                        <td>2</td>
+                        <td>2026-03-21T04:57:13.488004 / 2026-03-21T04:57:13.488004</td>
+                    </tr>
+                    <tr data-pattern-type="neutral">
+                        <td class="sequence">Agent → Bash → Bash</td>
+                        <td><span class="badge pattern-neutral">neutral</span></td>
+                        <td>3</td>
+                        <td>2026-03-21T04:57:20.044945 / 2026-03-21T04:57:20.044945</td>
+                    </tr>
+                    <tr data-pattern-type="neutral">
+                        <td class="sequence">Read → Edit → Bash</td>
+                        <td><span class="badge pattern-neutral">neutral</span></td>
+                        <td>2</td>
+                        <td>2026-03-21T04:57:20.044967 / 2026-03-21T04:57:20.044967</td>
+                    </tr>
+                    <tr data-pattern-type="neutral">
+                        <td class="sequence">Bash → Bash</td>
+                        <td><span class="badge pattern-neutral">neutral</span></td>
+                        <td>4</td>
+                        <td>2026-03-21T04:57:20.044982 / 2026-03-21T04:57:20.044982</td>
+                    </tr>
+                    <tr data-pattern-type="neutral">
+                        <td class="sequence">Bash → Agent</td>
+                        <td><span class="badge pattern-neutral">neutral</span></td>
+                        <td>2</td>
+                        <td>2026-03-21T04:57:20.044995 / 2026-03-21T04:57:20.044995</td>
+                    </tr>
+                    <tr data-pattern-type="neutral">
+                        <td class="sequence">Bash → Agent → Bash</td>
+                        <td><span class="badge pattern-neutral">neutral</span></td>
+                        <td>2</td>
+                        <td>2026-03-21T04:57:20.045013 / 2026-03-21T04:57:20.045013</td>
+                    </tr>
+                    <tr data-pattern-type="neutral">
+                        <td class="sequence">Agent → Bash → Bash</td>
+                        <td><span class="badge pattern-neutral">neutral</span></td>
+                        <td>3</td>
+                        <td>2026-03-21T04:57:26.716853 / 2026-03-21T04:57:26.716853</td>
+                    </tr>
+                    <tr data-pattern-type="neutral">
+                        <td class="sequence">Read → Edit → Bash</td>
+                        <td><span class="badge pattern-neutral">neutral</span></td>
+                        <td>2</td>
+                        <td>2026-03-21T04:57:26.716874 / 2026-03-21T04:57:26.716874</td>
+                    </tr>
+                    <tr data-pattern-type="neutral">
+                        <td class="sequence">Bash → Bash</td>
+                        <td><span class="badge pattern-neutral">neutral</span></td>
+                        <td>4</td>
+                        <td>2026-03-21T04:57:26.716890 / 2026-03-21T04:57:26.716890</td>
+                    </tr>
+                    <tr data-pattern-type="neutral">
+                        <td class="sequence">Bash → Agent</td>
+                        <td><span class="badge pattern-neutral">neutral</span></td>
+                        <td>2</td>
+                        <td>2026-03-21T04:57:26.716904 / 2026-03-21T04:57:26.716904</td>
+                    </tr>
+                    <tr data-pattern-type="neutral">
+                        <td class="sequence">Bash → Agent → Bash</td>
+                        <td><span class="badge pattern-neutral">neutral</span></td>
+                        <td>2</td>
+                        <td>2026-03-21T04:57:26.716973 / 2026-03-21T04:57:26.716973</td>
+                    </tr>
+                    <tr data-pattern-type="neutral">
+                        <td class="sequence">Agent → Bash → Bash</td>
+                        <td><span class="badge pattern-neutral">neutral</span></td>
+                        <td>3</td>
+                        <td>2026-03-21T05:12:35.056171 / 2026-03-21T05:12:35.056171</td>
+                    </tr>
+                    <tr data-pattern-type="neutral">
+                        <td class="sequence">Read → Edit → Bash</td>
+                        <td><span class="badge pattern-neutral">neutral</span></td>
+                        <td>2</td>
+                        <td>2026-03-21T05:12:35.056190 / 2026-03-21T05:12:35.056190</td>
+                    </tr>
+                    <tr data-pattern-type="neutral">
+                        <td class="sequence">Bash → Bash</td>
+                        <td><span class="badge pattern-neutral">neutral</span></td>
+                        <td>4</td>
+                        <td>2026-03-21T05:12:35.056204 / 2026-03-21T05:12:35.056204</td>
+                    </tr>
+                    <tr data-pattern-type="neutral">
+                        <td class="sequence">Bash → Agent</td>
+                        <td><span class="badge pattern-neutral">neutral</span></td>
+                        <td>2</td>
+                        <td>2026-03-21T05:12:35.056217 / 2026-03-21T05:12:35.056217</td>
+                    </tr>
+                    <tr data-pattern-type="neutral">
+                        <td class="sequence">Bash → Agent → Bash</td>
+                        <td><span class="badge pattern-neutral">neutral</span></td>
+                        <td>2</td>
+                        <td>2026-03-21T05:12:35.056235 / 2026-03-21T05:12:35.056235</td>
+                    </tr>
+                    <tr data-pattern-type="neutral">
+                        <td class="sequence">Agent → Bash → Bash</td>
+                        <td><span class="badge pattern-neutral">neutral</span></td>
+                        <td>3</td>
+                        <td>2026-03-21T05:13:54.248809 / 2026-03-21T05:13:54.248809</td>
+                    </tr>
+                    <tr data-pattern-type="neutral">
+                        <td class="sequence">Read → Edit → Bash</td>
+                        <td><span class="badge pattern-neutral">neutral</span></td>
+                        <td>2</td>
+                        <td>2026-03-21T05:13:54.248830 / 2026-03-21T05:13:54.248830</td>
+                    </tr>
+                    <tr data-pattern-type="neutral">
+                        <td class="sequence">Bash → Bash</td>
+                        <td><span class="badge pattern-neutral">neutral</span></td>
+                        <td>4</td>
+                        <td>2026-03-21T05:13:54.248847 / 2026-03-21T05:13:54.248847</td>
+                    </tr>
+                    <tr data-pattern-type="neutral">
+                        <td class="sequence">Bash → Agent</td>
+                        <td><span class="badge pattern-neutral">neutral</span></td>
+                        <td>2</td>
+                        <td>2026-03-21T05:13:54.248861 / 2026-03-21T05:13:54.248861</td>
+                    </tr>
+                    <tr data-pattern-type="neutral">
+                        <td class="sequence">Bash → Agent → Bash</td>
+                        <td><span class="badge pattern-neutral">neutral</span></td>
+                        <td>2</td>
+                        <td>2026-03-21T05:13:54.248879 / 2026-03-21T05:13:54.248879</td>
+                    </tr>
+                    <tr data-pattern-type="neutral">
+                        <td class="sequence">Agent → Bash → Bash</td>
+                        <td><span class="badge pattern-neutral">neutral</span></td>
+                        <td>3</td>
+                        <td>2026-03-21T05:14:01.886564 / 2026-03-21T05:14:01.886564</td>
+                    </tr>
+                    <tr data-pattern-type="neutral">
+                        <td class="sequence">Read → Edit → Bash</td>
+                        <td><span class="badge pattern-neutral">neutral</span></td>
+                        <td>2</td>
+                        <td>2026-03-21T05:14:01.886586 / 2026-03-21T05:14:01.886586</td>
+                    </tr>
+                    <tr data-pattern-type="neutral">
+                        <td class="sequence">Bash → Bash</td>
+                        <td><span class="badge pattern-neutral">neutral</span></td>
+                        <td>4</td>
+                        <td>2026-03-21T05:14:01.886603 / 2026-03-21T05:14:01.886603</td>
+                    </tr>
+                    <tr data-pattern-type="neutral">
+                        <td class="sequence">Bash → Agent</td>
+                        <td><span class="badge pattern-neutral">neutral</span></td>
+                        <td>2</td>
+                        <td>2026-03-21T05:14:01.886618 / 2026-03-21T05:14:01.886618</td>
+                    </tr>
+                    <tr data-pattern-type="neutral">
+                        <td class="sequence">Bash → Agent → Bash</td>
+                        <td><span class="badge pattern-neutral">neutral</span></td>
+                        <td>2</td>
+                        <td>2026-03-21T05:14:01.886636 / 2026-03-21T05:14:01.886636</td>
+                    </tr>
+                    <tr data-pattern-type="neutral">
+                        <td class="sequence">Agent → Bash → Bash</td>
+                        <td><span class="badge pattern-neutral">neutral</span></td>
+                        <td>3</td>
+                        <td>2026-03-21T05:14:09.039422 / 2026-03-21T05:14:09.039422</td>
+                    </tr>
+                    <tr data-pattern-type="neutral">
+                        <td class="sequence">Read → Edit → Bash</td>
+                        <td><span class="badge pattern-neutral">neutral</span></td>
+                        <td>2</td>
+                        <td>2026-03-21T05:14:09.039448 / 2026-03-21T05:14:09.039448</td>
+                    </tr>
+                    <tr data-pattern-type="neutral">
+                        <td class="sequence">Bash → Bash</td>
+                        <td><span class="badge pattern-neutral">neutral</span></td>
+                        <td>4</td>
+                        <td>2026-03-21T05:14:09.039465 / 2026-03-21T05:14:09.039465</td>
+                    </tr>
+                    <tr data-pattern-type="neutral">
+                        <td class="sequence">Bash → Agent</td>
+                        <td><span class="badge pattern-neutral">neutral</span></td>
+                        <td>2</td>
+                        <td>2026-03-21T05:14:09.039480 / 2026-03-21T05:14:09.039480</td>
+                    </tr>
+                    <tr data-pattern-type="neutral">
+                        <td class="sequence">Bash → Agent → Bash</td>
+                        <td><span class="badge pattern-neutral">neutral</span></td>
+                        <td>2</td>
+                        <td>2026-03-21T05:14:09.039498 / 2026-03-21T05:14:09.039498</td>
+                    </tr>
+                    <tr data-pattern-type="neutral">
+                        <td class="sequence">Agent → Bash → Bash</td>
+                        <td><span class="badge pattern-neutral">neutral</span></td>
+                        <td>3</td>
+                        <td>2026-03-21T05:14:15.930370 / 2026-03-21T05:14:15.930370</td>
+                    </tr>
+                    <tr data-pattern-type="neutral">
+                        <td class="sequence">Read → Edit → Bash</td>
+                        <td><span class="badge pattern-neutral">neutral</span></td>
+                        <td>2</td>
+                        <td>2026-03-21T05:14:15.930395 / 2026-03-21T05:14:15.930395</td>
+                    </tr>
+                    <tr data-pattern-type="neutral">
+                        <td class="sequence">Bash → Bash</td>
+                        <td><span class="badge pattern-neutral">neutral</span></td>
+                        <td>4</td>
+                        <td>2026-03-21T05:14:15.930414 / 2026-03-21T05:14:15.930414</td>
+                    </tr>
+                    <tr data-pattern-type="neutral">
+                        <td class="sequence">Bash → Agent</td>
+                        <td><span class="badge pattern-neutral">neutral</span></td>
+                        <td>2</td>
+                        <td>2026-03-21T05:14:15.930430 / 2026-03-21T05:14:15.930430</td>
+                    </tr>
+                    <tr data-pattern-type="neutral">
+                        <td class="sequence">Bash → Agent → Bash</td>
+                        <td><span class="badge pattern-neutral">neutral</span></td>
+                        <td>2</td>
+                        <td>2026-03-21T05:14:15.930450 / 2026-03-21T05:14:15.930450</td>
+                    </tr>
+                    <tr data-pattern-type="neutral">
+                        <td class="sequence">Agent → Bash → Bash</td>
+                        <td><span class="badge pattern-neutral">neutral</span></td>
+                        <td>3</td>
+                        <td>2026-03-21T05:14:22.687991 / 2026-03-21T05:14:22.687991</td>
+                    </tr>
+                    <tr data-pattern-type="neutral">
+                        <td class="sequence">Read → Edit → Bash</td>
+                        <td><span class="badge pattern-neutral">neutral</span></td>
+                        <td>2</td>
+                        <td>2026-03-21T05:14:22.688011 / 2026-03-21T05:14:22.688011</td>
+                    </tr>
+                    <tr data-pattern-type="neutral">
+                        <td class="sequence">Bash → Bash</td>
+                        <td><span class="badge pattern-neutral">neutral</span></td>
+                        <td>4</td>
+                        <td>2026-03-21T05:14:22.688028 / 2026-03-21T05:14:22.688028</td>
+                    </tr>
+                    <tr data-pattern-type="neutral">
+                        <td class="sequence">Bash → Agent</td>
+                        <td><span class="badge pattern-neutral">neutral</span></td>
+                        <td>2</td>
+                        <td>2026-03-21T05:14:22.688044 / 2026-03-21T05:14:22.688044</td>
+                    </tr>
+                    <tr data-pattern-type="neutral">
+                        <td class="sequence">Bash → Agent → Bash</td>
+                        <td><span class="badge pattern-neutral">neutral</span></td>
+                        <td>2</td>
+                        <td>2026-03-21T05:14:22.688062 / 2026-03-21T05:14:22.688062</td>
+                    </tr>
                 </tbody>
             </table>
         </section>
         <section data-activity-log>
-            <h3>Activity Log (714 events)</h3>
+            <h3>Activity Log (754 events)</h3>
             <ol reversed>
+                <li data-ts="2026-03-18T16:21:13.236802" data-tool="Stop" data-success="true" data-event-id="evt-2adb85bf" data-feature="bug-55df45f6" data-drift="0.00">Agent stopped</li>
+                <li data-ts="2026-03-18T16:20:26.381338" data-tool="UserQuery" data-success="true" data-event-id="evt-8da78d47" data-feature="bug-55df45f6" data-drift="0.00">"give me the promt to use to kick this off in a new session"</li>
+                <li data-ts="2026-03-18T16:19:50.229357" data-tool="Stop" data-success="true" data-event-id="evt-41af67ce" data-feature="bug-55df45f6" data-drift="0.00">Agent stopped</li>
+                <li data-ts="2026-03-18T16:19:33.822448" data-tool="Bash" data-success="true" data-event-id="evt-d52ca328" data-feature="bug-55df45f6" data-parent="uq-a0686563">Create session-scoped active item track</li>
+                <li data-ts="2026-03-18T16:18:25.542617" data-tool="UserQuery" data-success="true" data-event-id="evt-814f6685" data-feature="bug-55df45f6" data-drift="0.00">"yes create a detailed track with a plan that can be executed by parallel subagents"</li>
+                <li data-ts="2026-03-18T15:58:54.950583" data-tool="Stop" data-success="true" data-event-id="evt-74c4f157" data-feature="bug-55df45f6" data-drift="0.00">Agent stopped</li>
+                <li data-ts="2026-03-18T15:58:30.741883" data-tool="Agent" data-success="true" data-event-id="evt-96a5a943" data-feature="bug-55df45f6" data-parent="uq-dc04d46d">(htmlgraph:researcher): Research active work item state management</li>
+                <li data-ts="2026-03-18T15:57:15.938524" data-tool="Grep" data-success="true" data-event-id="evt-c54a0ab7" data-feature="bug-55df45f6" data-parent="evt-eeb77d4f">_backfill_turn1_userquery</li>
+                <li data-ts="2026-03-18T15:57:00.726491" data-tool="Grep" data-success="true" data-event-id="evt-12fbe38e" data-feature="bug-55df45f6" data-parent="evt-eeb77d4f">status.*in-progress|in-progress.*status|get_active_work_item|active_work</li>
+                <li data-ts="2026-03-18T15:56:48.819744" data-tool="Bash" data-success="true" data-event-id="evt-e972a907" data-feature="bug-55df45f6" data-parent="evt-eeb77d4f">Check status line and session-start for active resolution</li>
+                <li data-ts="2026-03-18T15:56:40.084774" data-tool="Read" data-success="true" data-event-id="evt-4ff077dc" data-feature="bug-55df45f6" data-parent="evt-eeb77d4f">/Users/shakes/DevProjects/htmlgraph/src/python/htmlgraph/hooks/session_handler.py</li>
+                <li data-ts="2026-03-18T15:56:29.507610" data-tool="Bash" data-success="true" data-event-id="evt-7211cde7" data-feature="bug-55df45f6" data-parent="evt-eeb77d4f">Check status line CLI for in-progress queries</li>
+                <li data-ts="2026-03-18T15:56:20.793870" data-tool="Read" data-success="true" data-event-id="evt-7c89f08e" data-feature="bug-55df45f6" data-parent="evt-eeb77d4f">/Users/shakes/DevProjects/htmlgraph/src/python/htmlgraph/hooks/session_handler.py</li>
+                <li data-ts="2026-03-18T15:56:05.010645" data-tool="Bash" data-success="true" data-event-id="evt-03adc54d" data-feature="bug-55df45f6" data-parent="evt-eeb77d4f">Find session_handler status queries</li>
+                <li data-ts="2026-03-18T15:55:57.034116" data-tool="Read" data-success="true" data-event-id="evt-7e724153" data-feature="bug-55df45f6" data-parent="evt-eeb77d4f">/Users/shakes/DevProjects/htmlgraph/src/python/htmlgraph/hooks/validator.py</li>
+                <li data-ts="2026-03-18T15:55:25.292057" data-tool="Bash" data-success="true" data-event-id="evt-556c4b35" data-feature="bug-55df45f6" data-parent="evt-eeb77d4f">Find status line / API queries for in-progress</li>
+                <li data-ts="2026-03-18T15:55:16.891293" data-tool="Read" data-success="true" data-event-id="evt-53d51479" data-feature="bug-55df45f6" data-parent="evt-eeb77d4f">/Users/shakes/DevProjects/htmlgraph/src/python/htmlgraph/hooks/prompt_analyzer.py</li>
+                <li data-ts="2026-03-18T15:55:06.360200" data-tool="Bash" data-success="true" data-event-id="evt-d8a13fe1" data-feature="bug-55df45f6" data-parent="evt-eeb77d4f">Find status/in-progress queries in hooks</li>
+                <li data-ts="2026-03-18T15:54:58.049183" data-tool="Read" data-success="true" data-event-id="evt-efd36b41" data-feature="bug-55df45f6" data-parent="evt-eeb77d4f">/Users/shakes/DevProjects/htmlgraph/packages/claude-plugin/hooks/scripts/user-prompt-submit.py</li>
+                <li data-ts="2026-03-18T15:54:48.188325" data-tool="Bash" data-success="true" data-event-id="evt-5ce79c94" data-feature="bug-55df45f6" data-parent="evt-eeb77d4f">Check user-prompt-submit hook for active work item</li>
+                <li data-ts="2026-03-18T15:54:40.638848" data-tool="Read" data-success="true" data-event-id="evt-737aefbd" data-feature="bug-55df45f6" data-parent="evt-eeb77d4f">/Users/shakes/DevProjects/htmlgraph/src/python/htmlgraph/sessions/features.py</li>
+                <li data-ts="2026-03-18T15:54:27.427234" data-tool="Bash" data-success="true" data-event-id="evt-39c8232e" data-feature="bug-55df45f6" data-parent="evt-eeb77d4f">Search session_manager.py for active work item patterns</li>
+                <li data-ts="2026-03-18T15:54:19.363648" data-tool="Read" data-success="true" data-event-id="evt-d6fef01f" data-feature="bug-55df45f6" data-parent="evt-eeb77d4f">/Users/shakes/DevProjects/htmlgraph/src/python/htmlgraph/sdk/session/info.py</li>
+                <li data-ts="2026-03-18T15:54:09.582640" data-tool="Bash" data-success="true" data-event-id="evt-41b43fb0" data-feature="bug-55df45f6" data-parent="evt-eeb77d4f">Search SDK level for active work item patterns</li>
+                <li data-ts="2026-03-18T15:53:17.583511" data-tool="Bash" data-success="true" data-event-id="evt-a3ffa320" data-feature="bug-55df45f6" data-parent="uq-dc04d46d">Create bug for active work item state</li>
+                <li data-ts="2026-03-18T15:53:12.292505" data-tool="FeatureStart" data-success="true" data-event-id="evt-0d87ef75" data-feature="bug-e999ab44">Started: bugs/bug-e999ab44</li>
+                <li data-ts="2026-03-18T15:53:12.276146" data-tool="FeatureCreate" data-success="true" data-event-id="evt-667e0c82" data-feature="bug-e999ab44">Created: bugs/bug-e999ab44</li>
+                <li data-ts="2026-03-18T15:52:32.161568" data-tool="UserQuery" data-success="true" data-event-id="evt-ab824903" data-feature="bug-55df45f6" data-drift="0.00">"it seems to me there is a fundamental disconnect in the determination of the active work item in htm..."</li>
+                <li data-ts="2026-03-18T15:46:34.717438" data-tool="Stop" data-success="true" data-event-id="evt-77964a9f" data-feature="bug-55df45f6" data-drift="0.00">Agent stopped</li>
+                <li data-ts="2026-03-18T15:46:19.889977" data-tool="Agent" data-success="true" data-event-id="evt-d7f77d3b" data-feature="bug-55df45f6" data-parent="uq-0be9be94">(statusline-setup): Configure statusline in settings.json</li>
+                <li data-ts="2026-03-18T15:45:58.954220" data-tool="Edit" data-success="true" data-event-id="evt-bed49cb3" data-feature="bug-55df45f6" data-parent="evt-3b22876d">/Users/shakes/DevProjects/htmlgraph/.claude/settings.json (    "command": "/Users/shakes/...)</li>
+                <li data-ts="2026-03-18T15:42:51.142259" data-tool="Read" data-success="true" data-event-id="evt-5a6129c7" data-feature="bug-55df45f6" data-parent="evt-3b22876d">/Users/shakes/DevProjects/htmlgraph/packages/claude-plugin/scripts/statusline.sh</li>
+                <li data-ts="2026-03-18T15:41:52.494939" data-tool="UserQuery" data-success="true" data-event-id="evt-0a043767" data-feature="bug-55df45f6" data-drift="0.00">"configure it now"</li>
+                <li data-ts="2026-03-18T15:38:38.516680" data-tool="Stop" data-success="true" data-event-id="evt-0d60c0dc" data-feature="bug-55df45f6" data-drift="0.00">Agent stopped</li>
+                <li data-ts="2026-03-18T15:38:26.384384" data-tool="Bash" data-success="true" data-event-id="evt-edeb7532" data-feature="bug-55df45f6" data-parent="uq-74667f5f">Complete feature</li>
+                <li data-ts="2026-03-18T15:38:14.731577" data-tool="FeatureComplete" data-success="true" data-event-id="evt-0556d2de" data-feature="feat-0b21fd89">Completed: features/feat-0b21fd89</li>
+                <li data-ts="2026-03-18T15:37:54.163227" data-tool="Bash" data-success="true" data-event-id="evt-5b5918d1" data-feature="bug-55df45f6" data-parent="uq-74667f5f">Commit and push</li>
+                <li data-ts="2026-03-18T15:37:23.693363" data-tool="Bash" data-success="true" data-event-id="evt-242fb88c" data-feature="bug-55df45f6" data-parent="uq-74667f5f">Verify statusline script</li>
+                <li data-ts="2026-03-18T15:37:02.428614" data-tool="Agent" data-success="true" data-event-id="evt-8c3d056a" data-feature="bug-55df45f6" data-parent="uq-74667f5f">(htmlgraph:sonnet-coder): Implement plugin status line with SQLite</li>
+                <li data-ts="2026-03-18T15:36:40.161161" data-tool="Bash" data-success="true" data-event-id="evt-a5fd4cc6" data-feature="bug-55df45f6" data-parent="uq-74667f5f">git stash && uv run pytest tests/hooks/test_prompt_analyzer.</li>
                 <li data-ts="2026-03-18T11:30:49.416106" data-tool="Stop" data-success="true" data-event-id="evt-7e679b16">Agent stopped</li>
                 <li data-ts="2026-03-18T11:30:37.721999" data-tool="Bash" data-success="true" data-event-id="evt-a70bbff5" data-parent="uq-e5511142">Complete the bug</li>
                 <li data-ts="2026-03-18T11:30:26.363408" data-tool="FeatureComplete" data-success="true" data-event-id="evt-bb3e0a14" data-feature="bug-63423134">Completed: bugs/bug-63423134</li>

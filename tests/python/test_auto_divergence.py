@@ -185,7 +185,7 @@ def _active_work(steps: list[dict] | None = None) -> dict[str, Any]:
 
 
 def test_generate_guidance_includes_step():
-    """CIGS guidance includes the current active step when present."""
+    """CIGS guidance includes step progress summary when steps are present."""
     steps = [
         {"description": "Implement graph edge queries", "completed": False},
         {"description": "Write tests", "completed": False},
@@ -194,12 +194,12 @@ def test_generate_guidance_includes_step():
     cls = _classification(is_implementation=True)
     guidance = generate_guidance(cls, active, "implement something")
     assert guidance is not None
-    assert "Active step:" in guidance
+    assert "Steps (" in guidance
     assert "Implement graph edge queries" in guidance
 
 
 def test_generate_guidance_skips_completed_steps():
-    """CIGS guidance shows the FIRST incomplete step, skipping completed ones."""
+    """CIGS guidance shows step progress including completed steps with [x] marker."""
     steps = [
         {"description": "Already done", "completed": True},
         {"description": "Next work item", "completed": False},
@@ -209,7 +209,8 @@ def test_generate_guidance_skips_completed_steps():
     guidance = generate_guidance(cls, active, "implement something")
     assert guidance is not None
     assert "Next work item" in guidance
-    assert "Already done" not in guidance
+    # Completed steps appear with [x] marker; count shows progress
+    assert "Steps (1/2)" in guidance
 
 
 def test_generate_guidance_no_steps():
@@ -265,7 +266,8 @@ def test_get_active_step_line_returns_first_incomplete():
     line = _get_active_step_line(active)
     assert line is not None
     assert "Second" in line
-    assert "Step 2" in line
+    # New format: "Steps (done/total): [x] First | [ ] Second"
+    assert "Steps (1/2)" in line
 
 
 def test_get_active_step_line_none_when_no_steps():

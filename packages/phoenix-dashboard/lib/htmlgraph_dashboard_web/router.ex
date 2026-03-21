@@ -13,6 +13,11 @@ defmodule HtmlgraphDashboardWeb.Router do
     plug :put_secure_browser_headers
   end
 
+  # Healthcheck endpoint — no session or CSRF needed
+  scope "/" do
+    get "/up", HtmlgraphDashboardWeb.HealthController, :index
+  end
+
   scope "/", HtmlgraphDashboardWeb do
     pipe_through :browser
 

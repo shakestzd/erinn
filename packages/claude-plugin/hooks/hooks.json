@@ -47,6 +47,11 @@
             "type": "command",
             "comment": "Route Task() calls to spawner agents (gemini, codex, copilot)",
             "command": "uv run \"${CLAUDE_PLUGIN_ROOT}/hooks/scripts/pretooluse-integrator.py\""
+          },
+          {
+            "type": "command",
+            "comment": "Warn when tools are called without verifying active work item attribution",
+            "command": "uv run \"${CLAUDE_PLUGIN_ROOT}/hooks/scripts/pretooluse-attribution-check.py\""
           }
         ]
       }

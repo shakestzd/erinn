@@ -424,13 +424,6 @@ defmodule HtmlgraphDashboardWeb.ActivityFeedLive do
       </div>
     </div>
 
-    <%= if @selected_work_item do %>
-      <.work_item_detail_panel
-        selected_work_item={@selected_work_item}
-        graph_stats={@graph_stats}
-      />
-    <% end %>
-
     <div class="feed-container">
       <%= if @feed == [] do %>
         <div class="empty-state">
@@ -575,6 +568,14 @@ defmodule HtmlgraphDashboardWeb.ActivityFeedLive do
         <% end %>
       <% end %>
     </div>
+
+    <%= if @selected_work_item do %>
+      <div phx-click="close_work_item_detail" style="position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 199; cursor: pointer;"></div>
+      <.work_item_detail_panel
+        selected_work_item={@selected_work_item}
+        graph_stats={@graph_stats}
+      />
+    <% end %>
     """
   end
 
@@ -679,7 +680,7 @@ defmodule HtmlgraphDashboardWeb.ActivityFeedLive do
 
     ~H"""
     <div
-      style="background: var(--bg-secondary); border: 1px solid var(--border); border-radius: var(--radius); margin: 12px 24px; padding: 16px;"
+      style="position: fixed; right: 0; top: 0; height: 100vh; width: 380px; background: var(--bg-secondary); border-left: 1px solid var(--border); z-index: 200; padding: 20px; overflow-y: auto; animation: slideInRight 0.2s ease-out;"
     >
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
         <span style="font-weight: 600; font-size: 15px;">

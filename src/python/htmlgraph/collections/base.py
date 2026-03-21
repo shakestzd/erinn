@@ -639,7 +639,7 @@ class BaseCollection(Generic[CollectionT]):
 
         # Use SessionManager if available (smart tracking)
         if hasattr(self._sdk, "session_manager"):
-            return cast(
+            result = cast(
                 "Node | None",
                 self._sdk.session_manager.start_feature(
                     feature_id=node_id,
@@ -648,6 +648,106 @@ class BaseCollection(Generic[CollectionT]):
                     log_activity=True,
                 ),
             )
+            # Write session-scoped active work item (Phase 2: fast lookup).
+            # We write to two session ID namespaces so both hook-created rows
+            # (keyed by Claude Code UUID via HTMLGRAPH_SESSION_ID) and SDK-created
+            # rows (keyed by the internal sess-xxx ID from session_manager) are
+            # updated. This handles parallel sessions correctly: each window has
+            # its own HTMLGRAPH_SESSION_ID, so the correct row is always updated.
+            if hasattr(self._sdk, "_db") and self._sdk._db:
+                import json as _json
+                import os
+                import time as _time
+
+                # Primary: Claude Code session UUID (set by session-start.py hook).
+                # This is the key used by hooks (user-prompt-submit, event_tracker).
+                claude_session_id = os.environ.get("HTMLGRAPH_SESSION_ID")
+
+                # Fallback 1: read .active-session marker written by session-start.py
+                # hook.  Needed when CLAUDE_ENV_FILE is unavailable so the env var
+                # was never propagated into this Bash subprocess.
+                if not claude_session_id:
+                    try:
+                        marker_path = self._sdk._directory / ".active-session"
+                        if marker_path.exists():
+                            marker = _json.loads(marker_path.read_text())
+                            marker_session = marker.get("session_id")
+                            marker_ts = marker.get("timestamp", 0)
+                            # Only use if marker is fresh (< 24 hours old)
+                            if marker_session and (_time.time() - marker_ts) < 86400:
+                                claude_session_id = marker_session
+                    except Exception:
+                        pass
+
+                # Fallback 2: most recent active session in SQLite
+                if not claude_session_id:
+                    try:
+                        conn = self._sdk._db.connection
+                        if conn:
+                            row = conn.execute(
+                                "SELECT session_id FROM sessions"
+                                " WHERE status = 'active'"
+                                " ORDER BY created_at DESC LIMIT 1"
+                            ).fetchone()
+                            if row:
+                                claude_session_id = row[0]
+                    except Exception:
+                        pass
+
+                if claude_session_id:
+                    try:
+                        self._sdk._db.set_active_work_item(claude_session_id, node_id)
+                    except Exception as e:
+                        logger.debug(
+                            f"set_active_work_item (claude_session) failed (non-fatal): {e}"
+                        )
+                # Secondary: internal sess-xxx ID from session_manager (used by tests
+                # and SDK-only code paths that don't go through hooks).
+                active_session = self._sdk.session_manager.get_active_session()
+                if active_session and active_session.id != claude_session_id:
+                    try:
+                        self._sdk._db.set_active_work_item(active_session.id, node_id)
+                    except Exception as e:
+                        logger.debug(
+                            f"set_active_work_item (active_session) failed (non-fatal): {e}"
+                        )
+
+                # Ensure feature exists in SQLite features table (for statusline title lookup)
+                try:
+                    node = self.get(node_id)
+                    if node:
+                        conn = self._sdk._db.connection
+                        if conn:
+                            conn.execute(
+                                """INSERT INTO features
+                                   (id, type, title, status, priority)
+                                   VALUES (?, ?, ?, ?, ?)
+                                   ON CONFLICT(id) DO UPDATE SET
+                                   title=excluded.title, status=excluded.status""",
+                                (
+                                    node_id,
+                                    node.type,
+                                    node.title,
+                                    node.status,
+                                    node.priority,
+                                ),
+                            )
+                            conn.commit()
+                        # Log step count so it's visible in the terminal
+                        if node.steps:
+                            done = sum(1 for s in node.steps if s.completed)
+                            total = len(node.steps)
+                            logger.info(
+                                f"Feature {node_id}: {done}/{total} steps complete"
+                            )
+                            remaining = [
+                                s.description for s in node.steps if not s.completed
+                            ]
+                            if remaining:
+                                logger.info(f"  Next: {remaining[0][:60]}")
+                except Exception as e:
+                    logger.debug(f"Feature upsert failed (non-fatal): {e}")
+            return result
 
         # Fallback to simple update (no session/events)
         node = self.get(node_id)
@@ -698,7 +798,7 @@ class BaseCollection(Generic[CollectionT]):
 
         # Use SessionManager if available
         if hasattr(self._sdk, "session_manager"):
-            return cast(
+            result = cast(
                 "Node | None",
                 self._sdk.session_manager.complete_feature(
                     feature_id=node_id,
@@ -708,6 +808,96 @@ class BaseCollection(Generic[CollectionT]):
                     transcript_id=transcript_id,
                 ),
             )
+            # Clear session-scoped active work item if this was the active one.
+            # Mirror the dual-write pattern from start(): clear from both the
+            # Claude Code UUID row and the internal sess-xxx row.
+            if hasattr(self._sdk, "_db") and self._sdk._db:
+                import json as _json
+                import os
+                import time as _time
+
+                claude_session_id = os.environ.get("HTMLGRAPH_SESSION_ID")
+
+                # Fallback 1: read .active-session marker written by session-start.py
+                if not claude_session_id:
+                    try:
+                        marker_path = self._sdk._directory / ".active-session"
+                        if marker_path.exists():
+                            marker = _json.loads(marker_path.read_text())
+                            marker_session = marker.get("session_id")
+                            marker_ts = marker.get("timestamp", 0)
+                            if marker_session and (_time.time() - marker_ts) < 86400:
+                                claude_session_id = marker_session
+                    except Exception:
+                        pass
+
+                # Fallback 2: most recent active session in SQLite
+                if not claude_session_id:
+                    try:
+                        conn = self._sdk._db.connection
+                        if conn:
+                            row = conn.execute(
+                                "SELECT session_id FROM sessions"
+                                " WHERE status = 'active'"
+                                " ORDER BY created_at DESC LIMIT 1"
+                            ).fetchone()
+                            if row:
+                                claude_session_id = row[0]
+                    except Exception:
+                        pass
+
+                active_session = self._sdk.session_manager.get_active_session()
+                session_ids_to_check = []
+                if claude_session_id:
+                    session_ids_to_check.append(claude_session_id)
+                if active_session and active_session.id != claude_session_id:
+                    session_ids_to_check.append(active_session.id)
+                for sid in session_ids_to_check:
+                    try:
+                        current_active = self._sdk._db.get_active_work_item_for_session(
+                            sid
+                        )
+                        if current_active == node_id:
+                            self._sdk._db.clear_active_work_item(sid)
+                    except Exception as e:
+                        logger.debug(f"clear_active_work_item failed (non-fatal): {e}")
+
+            # Update features table in SQLite so get_open_work_items() no longer
+            # returns this item as 'in-progress'.  Mirror the upsert in start().
+            try:
+                node = result or self.get(node_id)
+                if node:
+                    conn = self._sdk._db.connection
+                    if conn:
+                        conn.execute(
+                            """INSERT INTO features
+                               (id, type, title, status, priority)
+                               VALUES (?, ?, ?, ?, ?)
+                               ON CONFLICT(id) DO UPDATE SET
+                               title=excluded.title, status=excluded.status""",
+                            (
+                                node_id,
+                                node.type,
+                                node.title,
+                                node.status,
+                                node.priority,
+                            ),
+                        )
+                        conn.commit()
+                # Invalidate the prompt_analyzer work-items cache so the next
+                # prompt submission does not show this item as 'in-progress'.
+                try:
+                    from htmlgraph.hooks.prompt_analyzer import (
+                        invalidate_work_items_cache,
+                    )
+
+                    invalidate_work_items_cache(self._sdk._directory / "htmlgraph.db")
+                except Exception:  # noqa: BLE001
+                    pass
+            except Exception as e:
+                logger.debug(f"Feature status sync to SQLite failed (non-fatal): {e}")
+
+            return result
 
         # Fallback
         node = self.get(node_id)

@@ -20,12 +20,12 @@ Detailed comparisons with alternative approaches.
 - Complex deployment
 
 **HtmlGraph Approach:**
-- Minimal dependencies (`pip install htmlgraph`)
-- No infrastructure (no Docker, JVM, or database servers)
-- CSS selectors (already know them)
-- Plain text HTML files
+- `pip install htmlgraph` with ~10 focused runtime dependencies
+- No external infrastructure (no JVM, no database servers)
+- SQLite SQL and Python SDK for queries
+- Plain text HTML files for canonical state
 - Free, MIT license
-- Just files on disk
+- Local files + local SQLite, no cloud required
 
 **When to use Neo4j:** Large-scale production systems with complex graph queries, enterprise support requirements.
 
@@ -131,8 +131,8 @@ Similar to Notion but with better graph features. Still cloud-based with same li
 **HtmlGraph Approach:**
 
 - Adopted hash-based IDs (inspired by Beads)
-- Minimal Python dependencies (pydantic, justhtml, watchdog)
-- Uses SQLite for indexing, JSONL for event logs
+- ~10 focused runtime dependencies (pydantic, justhtml, watchdog, rich, jinja2, networkx, and others)
+- Three-tier storage: HTML for canonical state, JSONL for event history, SQLite for operational queries
 - No daemon process required
 - HTML renders in any browser
 - Web standards-based
@@ -187,9 +187,9 @@ Both projects aim to give AI agents persistent, structured memory beyond a singl
 | Feature | Neo4j | JSON | Notion | Obsidian | HtmlGraph |
 |---------|-------|------|--------|----------|-----------|
 | Setup complexity | High | Low | None (cloud) | Low | Low |
-| Query language | Cypher | jq/custom | UI only | Search | CSS selectors |
+| Query language | Cypher | jq/custom | UI only | Search | SQLite SQL / SDK API |
 | Version control | ❌ | ✅ | ❌ | ✅ | ✅ |
-| Offline-first | ✅ | ✅ | ❌ | ✅ | ✅ |
+| Offline-first | ✅ | ✅ | ❌ | ✅ | ✅ (live dashboard optional) |
 | AI agent API | REST | File I/O | Rate-limited | File I/O | SDK + File I/O |
 | Human readable | ❌ | 🟡 | ✅ | ✅ | ✅ |
 | Graph native | ✅ | ❌ | 🟡 | 🟡 | ✅ |
@@ -223,10 +223,11 @@ Both projects aim to give AI agents persistent, structured memory beyond a singl
 ### Use HtmlGraph when:
 - AI agent coordination
 - Git-based workflows
-- Offline-first required
+- Offline-first required (HTML and JSONL files work without any server)
 - Simplicity is priority
 - Own your data
-- Minimal infrastructure (no Docker, databases, or daemons)
+- No external database servers or cloud services required
+- Live dashboard is optional (Docker needed only for the Phoenix LiveView dashboard)
 
 ## Next Steps
 

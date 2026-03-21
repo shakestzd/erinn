@@ -354,6 +354,20 @@ def main() -> None:
         env_file = os.environ.get("CLAUDE_ENV_FILE")
         _setup_env_vars(active, external_session_id, env_file, project_dir)
 
+        # Write .active-session marker as fallback when CLAUDE_ENV_FILE is
+        # unavailable (e.g., direct `claude` invocation without htmlgraph CLI).
+        # The SDK reads this file to find the correct session_id when the env
+        # var is stale or missing.
+        if external_session_id and external_session_id != "unknown":
+            try:
+                marker_path = graph_dir / ".active-session"
+                with open(marker_path, "w") as f:
+                    json.dump(
+                        {"session_id": external_session_id, "timestamp": time.time()}, f
+                    )
+            except Exception:
+                pass
+
         # Propagate htmlgraph launch mode to downstream hooks
         if launched and env_file:
             try:
@@ -373,11 +387,18 @@ def main() -> None:
         getattr(active, "id", external_session_id) if active else external_session_id
     )
     builder = SessionContextBuilder(graph_dir, project_dir)
-    context = builder.build(
-        session_id=session_id,
-        compute_async=True,
-        launched_by_htmlgraph=launched,
-    )
+    try:
+        context = builder.build(
+            session_id=session_id,
+            compute_async=True,
+            launched_by_htmlgraph=launched,
+        )
+    except TypeError:
+        # Fallback for older htmlgraph versions that lack launched_by_htmlgraph
+        context = builder.build(
+            session_id=session_id,
+            compute_async=True,
+        )
 
     # Build status summary for terminal
     try:

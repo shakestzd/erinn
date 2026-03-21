@@ -8,12 +8,13 @@
 
 ## Project Vision
 
-Lightweight graph database built on web standards (HTML, CSS, JS) for AI agent coordination and human observability.
+Local-first observability and coordination platform for AI-assisted development.
 
-- HTML files = Graph nodes
-- Hyperlinks = Graph edges
-- CSS selectors = Query language
-- Zero dependencies, offline-first
+- HTML files = Persistent work items (human-readable, git-diffable)
+- SQLite = Operational queries (dashboard, analytics, session tracking)
+- JSONL = Append-only event history
+- Phoenix LiveView = Real-time dashboard (via Docker)
+- 10 core dependencies, no external database server
 
 ---
 
@@ -56,7 +57,7 @@ uv run pytest                              # Run tests
 | Lint | `uv run ruff check --fix` |
 | Type check | `uv run mypy src/` |
 | Deploy | `./scripts/deploy-all.sh VERSION --no-confirm` |
-| Serve dashboard | `uv run htmlgraph serve` |
+| Serve dashboard | `uv run htmlgraph serve` (launches Docker, port 4000) |
 | Status | `uv run htmlgraph status` |
 
 ---

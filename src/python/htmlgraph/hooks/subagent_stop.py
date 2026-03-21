@@ -420,12 +420,26 @@ def handle_subagent_stop(hook_input: dict[str, Any]) -> dict[str, Any]:
         try:
             _marker_conn = sqlite3.connect(db_path)
             _marker_cursor = _marker_conn.cursor()
+
+            # Resolve feature_id from the session row so TaskCompleted events
+            # carry the same attribution as the task_delegation that spawned them.
+            feature_id = None
+            try:
+                row = _marker_cursor.execute(
+                    "SELECT active_feature_id FROM sessions WHERE session_id = ?",
+                    (session_id,),
+                ).fetchone()
+                if row and row[0]:
+                    feature_id = row[0]
+            except Exception:
+                pass
+
             _marker_cursor.execute(
                 """
                 INSERT INTO agent_events (
                     event_id, session_id, event_type, tool_name,
-                    parent_event_id, agent_id, timestamp, status
-                ) VALUES (?, ?, 'task_completed', 'TaskCompleted', ?, ?, ?, 'completed')
+                    parent_event_id, agent_id, timestamp, status, feature_id
+                ) VALUES (?, ?, 'task_completed', 'TaskCompleted', ?, ?, ?, 'completed', ?)
                 """,
                 (
                     f"evt-tc-{uuid4().hex[:8]}",
@@ -433,6 +447,7 @@ def handle_subagent_stop(hook_input: dict[str, Any]) -> dict[str, Any]:
                     parent_event_id,
                     agent_id,
                     completion_time,
+                    feature_id,
                 ),
             )
             _marker_conn.commit()

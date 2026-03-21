@@ -44,7 +44,8 @@ def get_presence_manager() -> Any:
     global _presence_manager
     if _presence_manager is None:
         try:
-            from htmlgraph.api.presence import PresenceManager
+            # htmlgraph.api is archived; presence manager is a no-op without it
+            from htmlgraph.api.presence import PresenceManager  # type: ignore[import]
             from htmlgraph.config import get_database_path
 
             _presence_manager = PresenceManager(db_path=str(get_database_path()))
@@ -2218,17 +2219,46 @@ def track_event(hook_type: str, hook_input: dict[str, Any]) -> dict[str, Any]:
                         "subagent_type", "general-purpose"
                     )
 
-                # Resolve step-level attribution
-                resolved_feature_id = result.feature_id if result else None
+                # Resolve step-level attribution.
+                #
+                # Priority order (highest → lowest authority):
+                # 1. Session-scoped SQLite lookup — authoritative; set by sdk.*.start()
+                #    and never polluted by stale HTML files on disk.
+                # 2. track_activity result.feature_id — from HTML-glob scan inside
+                #    SessionManager; may find stale/deleted in-progress HTML files,
+                #    so it is only used when the session row has no active item.
+                # 3. Legacy glob fallback — direct scan of .htmlgraph/**/*.html;
+                #    last resort when session_id is unavailable or session row is NULL.
+                resolved_feature_id: str | None = None
 
-                # Fallback: if no feature, check for in-progress bugs then spikes
+                # Step 1 (primary): session-scoped lookup from sessions table.
+                if active_session_id and db:
+                    try:
+                        resolved_feature_id = db.get_active_work_item_for_session(
+                            active_session_id
+                        )
+                        if resolved_feature_id:
+                            logger.debug(
+                                f"Resolved feature_id={resolved_feature_id} "
+                                f"from session row for {active_session_id}"
+                            )
+                    except Exception:
+                        pass
+
+                # Step 2: fall back to track_activity attribution when session row
+                # has no active item (active_feature_id IS NULL).
+                if not resolved_feature_id:
+                    resolved_feature_id = result.feature_id if result else None
+
+                # Step 3 (legacy): direct HTML glob — only when session_id is
+                # unavailable or the session row has no active_feature_id set.
                 if not resolved_feature_id and graph_dir:
                     try:
                         gd = Path(str(graph_dir))
                         for subdir, prefix in [
                             ("bugs", "bug-"),
                             ("spikes", "spk-"),
-                            ("features", "spk-"),
+                            ("features", "feat-"),
                         ]:
                             search = gd / subdir
                             if not search.exists():

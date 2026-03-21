@@ -24,6 +24,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from htmlgraph import SDK  # noqa: F401 (used in tests for mocking)
 from htmlgraph.hooks.context import HookContext
 
 logger = logging.getLogger(__name__)
@@ -298,8 +299,9 @@ def get_active_work_item(context: HookContext) -> dict[str, Any] | None:
     """
     Query HtmlGraph for active feature/spike.
 
-    Attempts to load the active work item from the session manager.
-    Returns None if no active work item or if SDK is unavailable.
+    Attempts session-scoped lookup first (fast SQLite point-read using
+    active_feature_id from the sessions table), then falls back to the
+    global SDK scan for backward compatibility.
 
     Args:
         context: HookContext with session and graph directory info
@@ -312,9 +314,40 @@ def get_active_work_item(context: HookContext) -> dict[str, Any] | None:
         >>> if active and active['type'] == 'feature':
         ...     logger.info(f"Active feature: {active['title']}")
     """
-    try:
-        from htmlgraph import SDK
+    # Try session-scoped lookup first (primary path)
+    active_id = get_session_active_item_id(context)
+    if active_id:
+        # Look up title/type from features table via DB
+        try:
+            db = context.database
+            row = (
+                db.connection.cursor()
+                .execute(
+                    "SELECT id, title, status, type FROM features WHERE id = ?",
+                    (active_id,),
+                )
+                .fetchone()
+            )
+            if row:
+                return {
+                    "id": row[0],
+                    "title": row[1],
+                    "status": row[2],
+                    "type": row[3],
+                }
+        except Exception as e:
+            logger.debug(f"features table lookup failed for {active_id}: {e}")
+        # Return minimal dict if features table lookup fails
+        return {
+            "id": active_id,
+            "title": active_id,
+            "type": "unknown",
+            "status": "in-progress",
+        }
 
+    # Fallback: global SDK scan (backward compat when session_id unavailable
+    # or active_feature_id not yet set in sessions table)
+    try:
         sdk = SDK()
         work_item = sdk.get_active_work_item()
         if work_item is None:
@@ -326,10 +359,67 @@ def get_active_work_item(context: HookContext) -> dict[str, Any] | None:
         return None
 
 
+def get_session_active_item_id(context: HookContext) -> str | None:
+    """Get the active work item ID for the current session from sessions.active_feature_id.
+
+    Queries SQLite directly using the session-scoped column set by
+    ``db.set_active_work_item()``.  This is the authoritative source for
+    per-session active item state — it reflects the last ``sdk.*.start()``
+    call made in this session, not the global in-progress scan.
+
+    Args:
+        context: HookContext with session_id and graph directory info
+
+    Returns:
+        Feature/bug/spike ID string if one is active for this session,
+        or None if no session-scoped item is set or on any error.
+
+    Example:
+        >>> active_id = get_session_active_item_id(context)
+        >>> if active_id:
+        ...     logger.info(f"Session active item: {active_id}")
+    """
+    session_id = getattr(context, "session_id", None)
+    if not session_id or session_id == "unknown":
+        return None
+
+    # Primary path: use context.database if available (avoids WAL issues)
+    try:
+        db = getattr(context, "database", None)
+        if db is not None:
+            result = db.get_active_work_item_for_session(session_id)
+            return result if isinstance(result, str) or result is None else None
+    except Exception as exc:  # noqa: BLE001
+        logger.debug(f"get_session_active_item_id failed (db path): {exc}")
+
+    # Fallback: open new connection to DB file
+    db_path = Path(context.graph_dir) / "htmlgraph.db"
+    if not db_path.exists():
+        return None
+
+    try:
+        conn = sqlite3.connect(str(db_path), timeout=2.0)
+        try:
+            row = conn.execute(
+                "SELECT active_feature_id FROM sessions WHERE session_id = ?",
+                (session_id,),
+            ).fetchone()
+            return row[0] if row and row[0] else None
+        finally:
+            conn.close()
+    except Exception as exc:  # noqa: BLE001
+        logger.debug(f"get_session_active_item_id failed: {exc}")
+        return None
+
+
 def get_open_work_items(context: HookContext) -> list[dict]:
     """Get todo and in-progress work items for attribution guidance.
 
-    Queries SQLite directly (not via SDK file scanning) for performance.
+    Reads HTML files directly from ``.htmlgraph/{features,bugs,spikes}/`` as the
+    source of truth.  HTML is the write layer; SQLite is the read layer.  When
+    SQLite is stale, this function still returns correct results because it
+    parses the canonical HTML files.
+
     Results are capped at 10 items (in-progress first, then todo, sorted by
     priority desc then recency) and cached in-process for 30 seconds.
 
@@ -338,7 +428,7 @@ def get_open_work_items(context: HookContext) -> list[dict]:
 
     Returns:
         List of dicts with keys: id, title, type, status (max 10 items).
-        Returns empty list if database is unavailable or no items exist.
+        Returns empty list if graph directory is unavailable or no items exist.
 
     Example:
         >>> items = get_open_work_items(context)
@@ -346,63 +436,98 @@ def get_open_work_items(context: HookContext) -> list[dict]:
         ...     logger.info(f"Open item: {item['type']} {item['id']}: {item['title']}")
     """
     t_start = time.monotonic()
-    db_path = Path(context.graph_dir) / "htmlgraph.db"
-    cache_key = str(db_path)
+    graph_dir = Path(context.graph_dir)
+    cache_key = str(graph_dir)
 
     # --- cache check ---
     cached = _WORK_ITEMS_CACHE.get(cache_key)
     if cached is not None:
-        items, ts = cached
+        cached_items, ts = cached
         if time.monotonic() - ts < _CACHE_TTL_SECONDS:
             elapsed_ms = (time.monotonic() - t_start) * 1000
             logger.debug(f"CIGS work items query took {elapsed_ms:.1f}ms (cache hit)")
-            return items
+            return cached_items
 
-    # --- SQLite query ---
-    items = []
-    try:
-        if not db_path.exists():
-            return []
+    # --- HTML file scan (source of truth) ---
+    # Regex patterns to extract article attributes from the first <article> tag.
+    article_re = re.compile(
+        r'<article\s[^>]*'
+        r'id="(?P<id>[^"]+)"[^>]*'
+        r'data-type="(?P<type>[^"]+)"[^>]*'
+        r'data-status="(?P<status>[^"]+)"[^>]*'
+        r'data-priority="(?P<priority>[^"]*)"[^>]*',
+        re.DOTALL,
+    )
+    title_re = re.compile(r"<h1>([^<]+)</h1>")
+    updated_re = re.compile(r'data-updated="([^"]+)"')
 
-        conn = sqlite3.connect(str(db_path), timeout=2.0)
-        conn.row_factory = sqlite3.Row
-        try:
-            cursor = conn.cursor()
-            # Fetch in-progress first, then todo; sorted by priority + recency.
-            # CASE expression maps priority strings to sort weight.
-            cursor.execute(
-                """
-                SELECT id, title, status, type
-                FROM features
-                WHERE status IN ('in-progress', 'todo')
-                ORDER BY
-                    CASE status WHEN 'in-progress' THEN 0 ELSE 1 END ASC,
-                    CASE priority
-                        WHEN 'critical' THEN 0
-                        WHEN 'high'     THEN 1
-                        WHEN 'medium'   THEN 2
-                        WHEN 'low'      THEN 3
-                        ELSE 4
-                    END ASC,
-                    updated_at DESC
-                LIMIT 10
-                """
-            )
-            rows = cursor.fetchall()
-            for row in rows:
+    priority_weight = {
+        "critical": 0,
+        "high": 1,
+        "medium": 2,
+        "low": 3,
+    }
+
+    items: list[dict] = []
+    subdirs = {"features": "features", "bugs": "bugs", "spikes": "spikes"}
+
+    for subdir_name in subdirs.values():
+        subdir_path = graph_dir / subdir_name
+        if not subdir_path.is_dir():
+            continue
+        for html_path in subdir_path.glob("*.html"):
+            try:
+                # Read only first 2KB — all metadata is in <article> + <h1>
+                with open(html_path, encoding="utf-8", errors="replace") as f:
+                    head = f.read(2048)
+
+                m = article_re.search(head)
+                if not m:
+                    continue
+
+                status = m.group("status")
+                if status not in ("in-progress", "todo"):
+                    continue
+
+                item_id = m.group("id")
+                item_type = m.group("type")
+                priority = m.group("priority") or "medium"
+
+                # Extract title from <h1>
+                tm = title_re.search(head)
+                title = tm.group(1).strip() if tm else item_id
+
+                # Extract updated timestamp for recency sorting
+                um = updated_re.search(head)
+                updated = um.group(1) if um else ""
+
                 items.append(
                     {
-                        "id": row["id"],
-                        "title": row["title"] or row["id"],
-                        "type": row["type"],
-                        "status": row["status"],
+                        "id": item_id,
+                        "title": title,
+                        "type": item_type,
+                        "status": status,
+                        "priority": priority,
+                        "updated": updated,
                     }
                 )
-        finally:
-            conn.close()
-    except Exception as exc:  # noqa: BLE001
-        logger.debug(f"CIGS SQLite query failed: {exc}")
-        return []
+            except Exception:  # noqa: BLE001
+                continue  # Skip unparseable files
+
+    # --- sort: in-progress first, then priority, then recency ---
+    items.sort(
+        key=lambda it: (
+            0 if it.get("status") == "in-progress" else 1,
+            priority_weight.get(it.get("priority", "medium"), 4),
+            -(hash(it.get("updated", ""))),  # rough recency tiebreaker
+        )
+    )
+
+    # Cap at 10 items; strip sort-helper fields from output
+    items = [
+        {"id": it["id"], "title": it["title"], "type": it["type"], "status": it["status"]}
+        for it in items[:10]
+    ]
 
     # --- populate cache ---
     _WORK_ITEMS_CACHE[cache_key] = (items, time.monotonic())
@@ -427,9 +552,60 @@ def invalidate_work_items_cache(db_path: str | Path | None = None) -> None:
         _WORK_ITEMS_CACHE.pop(str(db_path), None)
 
 
+def _get_active_feature_steps(feature_id: str, graph_dir: str | Path | None = None) -> list[Any]:
+    """Get steps for the active feature/bug/spike by reading HTML directly.
+
+    Reads the canonical HTML file from ``.htmlgraph/{features,bugs,spikes}/``
+    and parses steps from the ``<section data-steps>`` block.  HTML is the
+    write layer and source of truth — this avoids routing through SDK
+    collection classes which may only search one collection type.
+
+    Args:
+        feature_id: Feature/bug/spike ID to fetch steps for
+        graph_dir: Path to .htmlgraph directory.  When None, attempts to
+            find the project root via SDK (backward compat).
+
+    Returns:
+        List of step dicts with ``description`` and ``completed`` keys.
+        Empty list on any failure.
+    """
+    try:
+        # Resolve graph directory
+        if graph_dir is None:
+            try:
+                sdk = SDK()
+                graph_dir = Path(sdk._directory)
+            except Exception:
+                return []
+        else:
+            graph_dir = Path(graph_dir)
+
+        # Determine subdirectory from ID prefix
+        if feature_id.startswith("bug-"):
+            subdir = "bugs"
+        elif feature_id.startswith("spk-"):
+            subdir = "spikes"
+        else:
+            subdir = "features"
+
+        html_path = graph_dir / subdir / f"{feature_id}.html"
+        if not html_path.exists():
+            return []
+
+        # Use the HtmlParser to extract steps from the HTML file
+        from htmlgraph.parser import HtmlParser
+
+        parser = HtmlParser.from_file(html_path)
+        return parser.get_steps()  # Returns list[dict] with description, completed keys
+    except Exception:  # noqa: BLE001
+        return []
+
+
 def _build_attribution_block(
     active_work: dict[str, Any] | None,
     open_work_items: list[dict] | None,
+    session_active_id: str | None = None,
+    graph_dir: str | Path | None = None,
 ) -> str | None:
     """Build a compact Work Item Attribution block for per-turn injection.
 
@@ -439,6 +615,11 @@ def _build_attribution_block(
     Args:
         active_work: Currently active work item dict (id, title, type) or None
         open_work_items: List of open work item dicts from get_open_work_items()
+        session_active_id: Session-scoped active item ID from
+            ``sessions.active_feature_id``.  When provided, it takes precedence
+            over ``active_work`` for the ACTIVE line so the status reflects the
+            last ``sdk.*.start()`` call in this specific session rather than
+            any globally in-progress item.
 
     Returns:
         Compact attribution string, or None if no open items and no active work
@@ -449,13 +630,50 @@ def _build_attribution_block(
             "sdk.features.create('title').save() then sdk.features.start(id)"
         )
 
-    # Active item line
-    if active_work:
+    # Determine the active feature ID for step lookup
+    resolved_active_id = session_active_id or (
+        active_work.get("id") if active_work else None
+    )
+
+    # Active item line — prefer session-scoped ID when available
+    if session_active_id:
+        # Try to resolve title from open_work_items list (already fetched)
+        session_title = next(
+            (
+                item.get("title", "")
+                for item in (open_work_items or [])
+                if item.get("id") == session_active_id
+            ),
+            "",
+        )
+        active_str = f"{session_active_id}: {(session_title or '')[:40]}"
+    elif active_work:
         active_id = active_work.get("id", "unknown")
         active_title = (active_work.get("title", "") or "")[:40]
         active_str = f"{active_id}: {active_title}"
     else:
         active_str = "None"
+
+    # Append step progress to active line if steps exist
+    steps_line: str | None = None
+    if resolved_active_id:
+        try:
+            active_steps = _get_active_feature_steps(
+                resolved_active_id, graph_dir=graph_dir
+            )
+            if active_steps:
+                done = sum(
+                    1 for s in active_steps if _step_attr(s, "completed", False)
+                )
+                total = len(active_steps)
+                active_str += f" ({done}/{total} steps done)"
+                steps_line = "  Steps: " + " | ".join(
+                    f"[{'x' if _step_attr(s, 'completed', False) else ' '}] "
+                    f"{str(_step_attr(s, 'description', ''))[:40]}"
+                    for s in active_steps[:5]
+                )
+        except Exception:
+            pass
 
     # Compact open items list (max 5)
     items = []
@@ -466,18 +684,23 @@ def _build_attribution_block(
             else (item.get("status", "?") or "?")[:4]
         )
         type_short = (item.get("type", "feat") or "feat")[:4]
-        items.append(f"{type_short} {item['id']}({status_short})")
+        # Mark the session-active item with a star for clarity
+        marker = "*" if item.get("id") == session_active_id else ""
+        items.append(f"{type_short} {marker}{item['id']}({status_short})")
 
     remaining = len(open_work_items) - 5
     items_str = " | ".join(items)
     if remaining > 0:
         items_str += f" +{remaining} more"
 
-    return (
+    result = (
         f"ACTIVE: {active_str}\n"
         f"OPEN: {items_str}\n"
         "Call sdk.*.start(id) before any tool calls."
     )
+    if steps_line:
+        result = f"ACTIVE: {active_str}\n{steps_line}\nOPEN: {items_str}\nCall sdk.*.start(id) before any tool calls."
+    return result
 
 
 def generate_guidance(
@@ -486,6 +709,8 @@ def generate_guidance(
     prompt: str,
     open_work_items: list[dict] | None = None,
     active_wisps: list[dict] | None = None,
+    session_active_id: str | None = None,
+    graph_dir: str | Path | None = None,
 ) -> str | None:
     """
     Generate workflow guidance based on classification and context.
@@ -503,6 +728,14 @@ def generate_guidance(
         open_work_items: Optional list from get_open_work_items(). When non-empty,
             an attribution block is appended to the returned guidance.
         active_wisps: Deprecated, ignored. Kept for backward compatibility.
+        session_active_id: Session-scoped active item ID from
+            ``sessions.active_feature_id`` (via ``get_session_active_item_id()``).
+            When provided, it overrides ``active_work`` for the ACTIVE line in
+            the attribution block, giving a per-session view rather than a
+            global in-progress scan.
+        graph_dir: Path to ``.htmlgraph/`` directory.  When provided, step
+            lookups read HTML files directly (source of truth) instead of
+            routing through SDK collection classes.
 
     Returns:
         Guidance string to display to user, or None if no guidance needed
@@ -516,14 +749,16 @@ def generate_guidance(
     """
 
     # Compute the active step line once for use throughout this function
-    active_step_line = _get_active_step_line(active_work)
+    active_step_line = _get_active_step_line(active_work, graph_dir=graph_dir)
 
     # Helper to optionally append active step + attribution block to guidance
     def _with_attribution(guidance: str) -> str:
         parts = [guidance]
         if active_step_line:
             parts.append(active_step_line)
-        block = _build_attribution_block(active_work, open_work_items)
+        block = _build_attribution_block(
+            active_work, open_work_items, session_active_id, graph_dir=graph_dir
+        )
         if block:
             parts.append(block)
         return "\n\n".join(parts) if len(parts) > 1 else parts[0]
@@ -533,7 +768,9 @@ def generate_guidance(
         parts: list[str] = []
         if active_step_line:
             parts.append(active_step_line)
-        block = _build_attribution_block(active_work, open_work_items)
+        block = _build_attribution_block(
+            active_work, open_work_items, session_active_id, graph_dir=graph_dir
+        )
         if block:
             parts.append(block)
         return "\n\n".join(parts) if parts else None
@@ -599,7 +836,9 @@ def generate_guidance(
         step_block_parts: list[str] = []
         if active_step_line:
             step_block_parts.append(active_step_line)
-        block = _build_attribution_block(active_work, open_work_items)
+        block = _build_attribution_block(
+            active_work, open_work_items, session_active_id, graph_dir=graph_dir
+        )
         if block:
             step_block_parts.append(block)
         return "\n\n".join(step_block_parts) if step_block_parts else None
@@ -653,13 +892,17 @@ def generate_guidance(
             "- Bug: sdk.bugs.create('Title').save()\n"
             "- Spike: sdk.spikes.create('Title').save()\n"
         )
-        attribution_block = _build_attribution_block(active_work, open_work_items)
+        attribution_block = _build_attribution_block(
+            active_work, open_work_items, session_active_id, graph_dir=graph_dir
+        )
         if attribution_block:
             return f"{base_guidance}\n\n{attribution_block}"
         return base_guidance
 
     # No specific guidance — but still inject attribution block if present
-    return _build_attribution_block(active_work, open_work_items)
+    return _build_attribution_block(
+        active_work, open_work_items, session_active_id, graph_dir=graph_dir
+    )
 
 
 def detect_wip_limit_hit(prompt: str) -> bool:
@@ -777,34 +1020,71 @@ def generate_cigs_guidance(
     return "\n".join(guidance_parts)
 
 
-def _get_active_step_line(active_work: dict[str, Any] | None) -> str | None:
+def _step_attr(step: Any, key: str, default: Any = None) -> Any:
+    """Get an attribute from a step that may be a dict or an object."""
+    if isinstance(step, dict):
+        return step.get(key, default)
+    return getattr(step, key, default)
+
+
+def _get_active_step_line(
+    active_work: "dict[str, Any] | object | None",
+    graph_dir: "str | Path | None" = None,
+) -> str | None:
     """Return a formatted active step line for CIGS guidance injection.
 
-    Finds the first incomplete step in ``active_work['steps']`` (a list of
-    dicts with ``description`` and ``completed`` keys).  Returns a string like
-    ``Active step: "Step N: <description>"`` where N is the 1-based step index,
-    or ``None`` when there are no steps or all are complete.
+    Finds the first incomplete step in the work item's steps list and returns
+    a summary like ``Steps (0/3): [ ] Research | [ ] Implement | [x] Review``.
+    Returns ``None`` when there are no steps or all are complete.
+
+    Accepts both dict-style active_work (from ``get_active_work_item()``) and
+    object-style (e.g. SDK Node objects passed directly in tests).  When the
+    dict has no ``steps`` key, fetches steps by reading the HTML file directly.
 
     Args:
-        active_work: dict with at least a ``steps`` key (list of step dicts),
-            or ``None``.
+        active_work: dict with work item fields, or an object with a ``steps``
+            attribute, or ``None``.
+        graph_dir: Path to ``.htmlgraph/`` directory.  When provided, step
+            lookups read HTML files directly (source of truth).
 
     Returns:
-        Formatted active step string, or ``None``.
+        Formatted step summary string, or ``None``.
     """
     if not active_work:
         return None
-    steps = active_work.get("steps")
+
+    if isinstance(active_work, dict):
+        steps = active_work.get("steps")
+        resolved_id = active_work.get("id", "")
+    else:
+        steps = getattr(active_work, "steps", None)
+        resolved_id = getattr(active_work, "id", "")
+
+    # When the dict has no steps key, read steps from HTML file directly
+    if not steps and resolved_id:
+        try:
+            steps = _get_active_feature_steps(resolved_id, graph_dir=graph_dir)
+        except Exception:  # noqa: BLE001
+            pass
+
     if not steps:
         return None
-    for idx, step in enumerate(steps, start=1):
-        if not step.get("completed", False):
-            desc = step.get("description", "")
-            return f'Active step: "Step {idx}: {desc}"'
-    return None
+
+    completed_count = sum(1 for s in steps if _step_attr(s, "completed", False))
+    total_count = len(steps)
+
+    if completed_count == total_count:
+        return None  # All done — no step line needed
+
+    step_tokens = " | ".join(
+        f"[{'x' if _step_attr(s, 'completed', False) else ' '}] "
+        f"{str(_step_attr(s, 'description', ''))[:40]}"
+        for s in steps[:5]
+    )
+    return f"Steps ({completed_count}/{total_count}): {step_tokens}"
 
 
-def _get_active_feature_id() -> str | None:
+def _get_active_feature_id(context: "HookContext | None" = None) -> str | None:
     """
     Query HtmlGraph for the currently active (in-progress) work item ID.
 
@@ -813,12 +1093,25 @@ def _get_active_feature_id() -> str | None:
     dependency on Claude calling ``sdk.features.start()`` during the
     conversation -- the hook already knows what is active.
 
+    Uses session-scoped lookup when ``context`` is provided (primary path),
+    falling back to global SDK scan for backward compatibility.
+
+    Args:
+        context: Optional HookContext. When provided, uses session-scoped
+                 active_feature_id from the sessions table for a precise,
+                 per-session result. When None, falls back to global scan.
+
     Returns:
         The feature/bug/spike ID if one is in-progress, else None.
     """
-    try:
-        from htmlgraph import SDK  # noqa: PLC0415
+    # Primary path: session-scoped lookup
+    if context is not None:
+        active_id = get_session_active_item_id(context)
+        if active_id:
+            return active_id
 
+    # Fallback: global SDK scan (backward compat / no context available)
+    try:
         sdk = SDK()
         work_item = sdk.get_active_work_item()
         if work_item is not None:
@@ -899,7 +1192,7 @@ def create_user_query_event(context: HookContext, prompt: str) -> str | None:
             # Look up active work item for automatic attribution.
             # Claude handles attribution via sdk.features.start(); the hook
             # only reads the current in-progress item — no keyword matching.
-            active_feature_id = _get_active_feature_id()
+            active_feature_id = _get_active_feature_id(context)
 
             if active_feature_id:
                 logger.debug(
@@ -947,6 +1240,7 @@ __all__ = [
     "get_session_violation_count",
     "get_active_work_item",
     "get_open_work_items",
+    "get_session_active_item_id",
     "invalidate_work_items_cache",
     "generate_guidance",
     "generate_cigs_guidance",
@@ -954,6 +1248,7 @@ __all__ = [
     "create_user_query_event",
     "_get_active_feature_id",
     "_get_active_step_line",
+    "_get_active_feature_steps",
     # Pattern constants for testing/extension
     "IMPLEMENTATION_PATTERNS",
     "INVESTIGATION_PATTERNS",

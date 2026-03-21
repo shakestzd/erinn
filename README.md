@@ -2,7 +2,9 @@
 
 **"HTML is All You Need"**
 
-A lightweight graph database framework built entirely on web standards. Use HTML files as nodes, hyperlinks as edges, and CSS selectors as the query language.
+A local-first observability and coordination platform for AI-assisted development. HTML files as persistent work items, SQLite for fast querying, and a Phoenix LiveView dashboard via Docker.
+
+"HTML is All You Need" is HtmlGraph's origin philosophy — HTML files are the canonical, human-readable, git-diffable storage format. SQLite accelerates queries. The Phoenix LiveView dashboard brings it to life.
 
 ## Why HtmlGraph?
 
@@ -14,9 +16,9 @@ Modern AI agent systems are drowning in complexity:
 **HtmlGraph uses what you already know:**
 - ✅ HTML files = Graph nodes
 - ✅ `<a href>` = Graph edges
-- ✅ CSS selectors = Query language
-- ✅ Any browser = Visual interface
+- ✅ SQLite = Operational queries
 - ✅ Git = Version control (diffs work!)
+- ✅ Any browser = Open HTML files directly
 
 ## Installation
 
@@ -36,7 +38,7 @@ htmlgraph serve
 This bootstraps:
 - `index.html` dashboard at the project root
 - `.htmlgraph/events/` append-only JSONL event stream (Git-friendly)
-- `.htmlgraph/index.sqlite` analytics cache (rebuildable; gitignored via `.gitignore`)
+- `.htmlgraph/htmlgraph.db` canonical operational store (SQLite, gitignored via `.gitignore`)
 - versioned hook scripts under `.htmlgraph/hooks/` (installed into `.git/hooks/` with `--install-hooks`)
 
 ### Python (SDK - Recommended)
@@ -126,11 +128,11 @@ HtmlGraph nodes are standard HTML files:
 
 ## Features
 
-- **Zero dependencies** beyond `justhtml` and `pydantic`
-- **CSS selector queries** - no new query language to learn
-- **Version control friendly** - git diff works perfectly
-- **Human readable** - open in any browser
-- **AI agent optimized** - lightweight context generation
+- **Lightweight dependencies** - Core: justhtml, pydantic, rich, networkx, watchdog, and others (10 total). No external database server — SQLite is embedded.
+- **Python SDK queries** - Fluent API for features, bugs, spikes, tracks; no new query language to learn
+- **Version control friendly** - HTML work items are git-diffable; SQLite is gitignored
+- **Human readable** - open any `.html` work item in any browser
+- **AI agent optimized** - lightweight context generation with session tracking
 - **Graph algorithms** - BFS, shortest path, cycle detection, topological sort
 - **Agent Handoff** - Context-preserving task transfers between agents
 - **Capability Routing** - Automatic task assignment based on agent skills
@@ -178,12 +180,26 @@ Task(subagent_type="claude-spawner",    # Deep reasoning
 
 | Feature | Neo4j | JSON | HtmlGraph |
 |---------|-------|------|-----------|
-| Setup | Docker + JVM | None | None |
-| Query Language | Cypher | jq | CSS selectors |
+| Setup | Docker + JVM | None | `pip install htmlgraph` |
+| Query Language | Cypher | jq | SQLite SQL / Python SDK |
 | Human Readable | ❌ Browser needed | 🟡 Text editor | ✅ Any browser |
 | Version Control | ❌ Binary | ✅ JSON diff | ✅ HTML diff |
-| Visual UI | ❌ Separate tool | ❌ Build it | ✅ Built-in |
+| Visual UI | ❌ Separate tool | ❌ Build it | `htmlgraph serve` (Docker) or open HTML files directly |
 | Graph Native | ✅ | ❌ | ✅ |
+
+## Dashboard
+
+HtmlGraph includes a real-time Phoenix LiveView dashboard served via Docker:
+
+```bash
+htmlgraph serve  # Launches Docker dashboard at http://localhost:4000
+```
+
+The dashboard provides:
+- Real-time activity feed with nested event trees
+- Kanban board for work items
+- Graph visualization of dependencies
+- Session analytics and metrics
 
 ## Use Cases
 

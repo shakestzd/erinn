@@ -50,16 +50,8 @@ defmodule HtmlgraphDashboard.PythonSDK do
 
   @impl true
   def init(_opts) do
-    # Get DB path from application config
-    db_path = Application.get_env(:htmlgraph_dashboard, :db_path, "../../.htmlgraph/htmlgraph.db")
-
-    # Resolve to absolute path
-    abs_path =
-      if String.starts_with?(db_path, "/") do
-        db_path
-      else
-        Path.join(File.cwd!(), db_path)
-      end
+    # Reuse the same project-root discovery logic as Repo
+    abs_path = HtmlgraphDashboard.Repo.db_path()
 
     graph_dir = abs_path |> Path.dirname() |> Path.dirname()
 

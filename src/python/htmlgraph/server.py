@@ -1309,123 +1309,59 @@ def serve(
     quiet: bool = False,
 ) -> None:
     """
-    Start the HtmlGraph server (FastAPI-based with WebSocket support).
-
-    This function launches the FastAPI server which provides:
-    - REST API for CRUD operations on graph nodes
-    - WebSocket endpoint at /ws/events for real-time event streaming
-    - HTMX-powered dashboard for agent observability
+    Start the HtmlGraph dashboard via Docker (Phoenix LiveView).
 
     Args:
         port: Port to listen on (default: 8080)
         graph_dir: Directory containing graph data (.htmlgraph/)
-        static_dir: Directory for static files (index.html, etc.) - preserved for compatibility
+        static_dir: Unused, kept for API compatibility
         host: Host to bind to (default: localhost)
-        watch: Enable file watching for auto-reload (default: True) - maps to reload in FastAPI
-        auto_port: Automatically find available port if specified port is in use
-        show_progress: Show Rich progress during startup (not used with FastAPI)
-        quiet: Suppress progress output when true
+        watch: Unused, kept for API compatibility
+        auto_port: Unused, kept for API compatibility
+        show_progress: Unused, kept for API compatibility
+        quiet: Suppress output when true
     """
-    import asyncio
-
-    from htmlgraph.operations.fastapi_server import (
-        FastAPIServerError,
-        PortInUseError,
-        run_fastapi_server,
-        start_fastapi_server,
-    )
+    import os
+    import shutil
+    import subprocess
 
     graph_dir = Path(graph_dir)
-
-    # Ensure graph directory exists
     graph_dir.mkdir(parents=True, exist_ok=True)
-    for collection in HtmlGraphAPIHandler.COLLECTIONS:
-        (graph_dir / collection).mkdir(exist_ok=True)
-
-    # Copy default stylesheet if not present
-    styles_dest = graph_dir / "styles.css"
-    if not styles_dest.exists():
-        styles_src = Path(__file__).parent / "styles.css"
-        if styles_src.exists():
-            styles_dest.write_text(styles_src.read_text())
-
-    # Database path - use htmlgraph.db in the graph directory
     db_path = str(graph_dir / "htmlgraph.db")
 
-    try:
-        result = start_fastapi_server(
-            port=port,
-            host=host,
-            db_path=db_path,
-            auto_port=auto_port,
-            reload=watch,  # Map watch to reload for FastAPI
+    if not shutil.which("docker"):
+        logger.error("Docker is required for the HtmlGraph dashboard.")
+        logger.error(
+            "Install Docker Desktop: https://docker.com/products/docker-desktop"
         )
+        sys.exit(1)
 
-        # Print warnings if any
-        for warning in result.warnings:
-            if not quiet:
-                logger.info(f"⚠️  {warning}")
-
-        # Print server info
-        if not quiet:
-            actual_port = result.config_used["port"]
-            print(f"""
-╔══════════════════════════════════════════════════════════════╗
-║              HtmlGraph Server (FastAPI)                      ║
-╠══════════════════════════════════════════════════════════════╣
-║  Dashboard:   http://{host}:{actual_port}/
-║  API:         http://{host}:{actual_port}/api/
-║  WebSocket:   ws://{host}:{actual_port}/ws/events
-║  Graph Dir:   {graph_dir}
-║  Database:    {db_path}
-║  Auto-reload: {"Enabled" if watch else "Disabled"}
-╚══════════════════════════════════════════════════════════════╝
-
-Features:
-  • Real-time agent activity feed (HTMX + WebSocket)
-  • Orchestration chains visualization
-  • Feature tracker with Kanban view
-  • Session metrics & performance analytics
-
-API Endpoints:
-  GET    /api/events              - List events
-  GET    /api/sessions            - List sessions
-  GET    /api/orchestration       - Orchestration data
-  GET    /api/initial-stats       - Dashboard statistics
-  WS     /ws/events               - Real-time event stream
-
-Collections: {", ".join(HtmlGraphAPIHandler.COLLECTIONS)}
+    if not quiet:
+        print(f"""
+HtmlGraph Dashboard
+  URL:      http://{host}:{port}
+  Database: {db_path}
 
 Press Ctrl+C to stop.
 """)
 
-        # Run the server
-        asyncio.run(run_fastapi_server(result.handle))
-
-    except PortInUseError:
-        logger.info(f"\n❌ Port {port} is already in use\n")
-        logger.info("Solutions:")
-        logger.info("  1. Use a different port:")
-        logger.info(f"     htmlgraph serve --port {port + 1}\n")
-        logger.info("  2. Let htmlgraph automatically find an available port:")
-        logger.info("     htmlgraph serve --auto-port\n")
-        logger.info(f"  3. Find and kill the process using port {port}:")
-        logger.info(f"     lsof -ti:{port} | xargs kill -9\n")
-
-        # Try to find and suggest an available port
-        try:
-            alt_port = find_available_port(port + 1)
-            logger.info(f"💡 Found available port: {alt_port}")
-            logger.info(f"   Run: htmlgraph serve --port {alt_port}\n")
-        except OSError:
-            pass
-
-        sys.exit(1)
-
-    except FastAPIServerError as e:
-        logger.info(f"\n❌ Server error: {e}\n")
-        sys.exit(1)
-
+    secret = os.urandom(16).hex()
+    try:
+        subprocess.run(
+            [
+                "docker",
+                "run",
+                "--rm",
+                "-p",
+                f"{port}:4000",
+                "-v",
+                f"{db_path}:/storage/htmlgraph.db:ro",
+                "-e",
+                f"SECRET_KEY_BASE=htmlgraph-local-{secret}",
+                "ghcr.io/shakestzd/htmlgraph-dashboard:latest",
+            ],
+            check=False,
+        )
     except KeyboardInterrupt:
         logger.info("\nShutting down...")
 

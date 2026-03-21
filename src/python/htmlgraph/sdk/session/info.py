@@ -178,6 +178,62 @@ class SessionInfoMixin:
         if work_types is None:
             work_types = ["features", "bugs", "spikes", "chores", "epics"]
 
+        # Session-scoped fast path: query the sessions table directly
+        # This avoids scanning all HTML files when we know the active session
+        if hasattr(self, "_db") and self._db and hasattr(self, "session_manager"):
+            active_session = self.session_manager.get_active_session()  # type: ignore[attr-defined]
+            if active_session:
+                try:
+                    active_id = self._db.get_active_work_item_for_session(
+                        active_session.id
+                    )
+                    if active_id:
+                        for work_type in work_types:
+                            collection = getattr(self, work_type, None)
+                            if collection is None:
+                                continue
+                            try:
+                                node = collection.get(active_id)
+                                if node:
+                                    active_item_dict: dict[str, Any] = {
+                                        "id": active_id,
+                                        "title": getattr(node, "title", active_id),
+                                        "type": getattr(
+                                            node, "type", work_type.rstrip("s")
+                                        ),
+                                        "status": getattr(
+                                            node, "status", "in-progress"
+                                        ),
+                                        "agent": getattr(node, "agent_assigned", None),
+                                        "steps_total": len(node.steps)
+                                        if hasattr(node, "steps")
+                                        else 0,
+                                        "steps_completed": sum(
+                                            1 for s in node.steps if s.completed
+                                        )
+                                        if hasattr(node, "steps")
+                                        else 0,
+                                    }
+                                    if getattr(node, "type", None) == "spike":
+                                        active_item_dict["auto_generated"] = getattr(
+                                            node, "auto_generated", False
+                                        )
+                                        active_item_dict["spike_subtype"] = getattr(
+                                            node, "spike_subtype", None
+                                        )
+                                    return active_item_dict  # type: ignore[return-value]
+                            except Exception:
+                                continue
+                        # ID set in session row but item not found in any collection
+                        return {  # type: ignore[return-value]
+                            "id": active_id,
+                            "title": active_id,
+                            "type": "unknown",
+                            "status": "in-progress",
+                        }
+                except Exception:
+                    pass  # Fall through to global scan
+
         # Search across all work item types
         # Separate real work items from auto-generated spikes
         real_work_items: list[dict[str, Any]] = []

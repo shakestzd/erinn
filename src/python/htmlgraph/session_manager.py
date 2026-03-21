@@ -670,6 +670,26 @@ class SessionManager:
             return canonical
         return None
 
+    def ensure_session(self, agent: str | None = None) -> Session:
+        """
+        Ensure an active session exists for the given agent.
+
+        Returns existing active session if one exists, otherwise creates a new one.
+
+        Args:
+            agent: Agent name (auto-detected if None)
+
+        Returns:
+            Active Session instance
+        """
+        # Check if active session exists
+        active = self.get_active_session(agent=agent)
+        if active:
+            return active
+
+        # Create new session if none exists
+        return self.start_session(agent=agent)
+
     def dedupe_orphan_sessions(
         self,
         max_events: int = 1,

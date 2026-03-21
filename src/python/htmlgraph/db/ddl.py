@@ -131,6 +131,7 @@ def create_all_tables(cursor: sqlite3.Cursor) -> None:
             cost_threshold_breached INTEGER DEFAULT 0,
             predicted_cost REAL DEFAULT 0.0,
             model TEXT,
+            active_feature_id TEXT,
             FOREIGN KEY (parent_session_id) REFERENCES sessions(session_id) ON DELETE SET NULL ON UPDATE CASCADE,
             FOREIGN KEY (parent_event_id) REFERENCES agent_events(event_id) ON DELETE SET NULL ON UPDATE CASCADE,
             FOREIGN KEY (continued_from) REFERENCES sessions(session_id) ON DELETE SET NULL ON UPDATE CASCADE
@@ -425,6 +426,7 @@ def migrate_sessions(cursor: sqlite3.Cursor) -> None:
         ("cost_threshold_breached", "INTEGER DEFAULT 0"),
         ("predicted_cost", "REAL DEFAULT 0.0"),
         ("model", "TEXT"),
+        ("active_feature_id", "TEXT"),
     ]
 
     # Refresh columns after potential rename

@@ -297,83 +297,61 @@ class ServeCommand(BaseCommand):
         )
 
     def execute(self) -> CommandResult:
-        """Start the FastAPI server."""
-        import asyncio
+        """Start the HtmlGraph Phoenix LiveView dashboard via Docker."""
+        import os
+        import shutil
+        import subprocess
         from pathlib import Path
 
         from rich.console import Console
         from rich.panel import Panel
 
-        from htmlgraph.operations.fastapi_server import (
-            run_fastapi_server,
-            start_fastapi_server,
-        )
-
         console = Console()
 
-        try:
-            # Default to database in graph dir if not specified
-            db_path = str(
-                Path(self.graph_dir or DEFAULT_GRAPH_DIR) / DEFAULT_DATABASE_NAME
-            )
-
-            result = start_fastapi_server(
-                port=self.port,
-                host=self.host,
-                db_path=db_path,
-                auto_port=self.auto_port,
-                reload=False,  # Not supported for cmd_serve
-            )
-
-            # Display server info using Rich
-            console.print()
+        if not shutil.which("docker"):
+            console.print("[red]Docker is required for the HtmlGraph dashboard.[/red]")
             console.print(
-                Panel.fit(
-                    f"[bold blue]{result.handle.url}[/bold blue]",
-                    title="[bold cyan]HtmlGraph Server (FastAPI)[/bold cyan]",
-                    border_style="cyan",
-                )
+                "Install Docker Desktop: https://docker.com/products/docker-desktop"
             )
-
-            console.print(
-                f"[dim]Graph directory:[/dim] {self.graph_dir or DEFAULT_GRAPH_DIR}"
-            )
-            console.print(f"[dim]Database:[/dim] {result.config_used['db_path']}")
-
-            # Show warnings if any
-            if result.warnings:
-                console.print()
-                for warning in result.warnings:
-                    console.print(f"[yellow]⚠️  {warning}[/yellow]")
-
-            # Show available features
-            console.print()
-            console.print("[cyan]Features:[/cyan]")
-            console.print("  • Real-time agent activity feed (HTMX)")
-            console.print("  • Orchestration chains visualization")
-            console.print("  • Feature tracker with Kanban view")
-            console.print("  • Session metrics & performance analytics")
-
-            console.print()
-            console.print("[cyan]Press Ctrl+C to stop.[/cyan]")
-            console.print()
-
-            # Run server (blocking)
-            asyncio.run(run_fastapi_server(result.handle))
-
-        except KeyboardInterrupt:
-            console.print("\n[yellow]Shutting down...[/yellow]")
-        except Exception as e:
-            from htmlgraph.cli.base import save_traceback
-
-            log_file = save_traceback(
-                e, context={"command": "serve", "port": self.port}
-            )
-            console.print(f"\n[red]Error:[/red] {e}")
-            console.print(f"[dim]Full traceback saved to:[/dim] {log_file}")
             sys.exit(1)
 
-        return CommandResult(text="Server stopped")
+        graph_dir = Path(self.graph_dir or DEFAULT_GRAPH_DIR)
+        db_path = graph_dir / DEFAULT_DATABASE_NAME
+
+        console.print()
+        console.print(
+            Panel.fit(
+                f"[bold blue]http://{self.host}:{self.port}[/bold blue]",
+                title="[bold cyan]HtmlGraph Dashboard[/bold cyan]",
+                border_style="cyan",
+            )
+        )
+        console.print(f"[dim]Database:[/dim] {db_path}")
+        console.print()
+        console.print("[cyan]Press Ctrl+C to stop.[/cyan]")
+        console.print()
+
+        secret = os.urandom(16).hex()
+        try:
+            subprocess.run(
+                [
+                    "docker",
+                    "run",
+                    "--rm",
+                    "-p",
+                    f"{self.port}:4000",
+                    "-v",
+                    f"{db_path}:/storage/htmlgraph.db:ro",
+                    "-e",
+                    f"SECRET_KEY_BASE=htmlgraph-local-{secret}",
+                    "ghcr.io/shakestzd/htmlgraph-dashboard:latest",
+                ],
+                check=False,
+            )
+        except KeyboardInterrupt:
+            console.print("\n[yellow]Dashboard stopped.[/yellow]")
+
+        return CommandResult(text="Dashboard stopped")
 
 
 class ServeApiCommand(BaseCommand):
@@ -422,72 +400,62 @@ class ServeApiCommand(BaseCommand):
         )
 
     def execute(self) -> CommandResult:
-        """Start the FastAPI dashboard server."""
-        import asyncio
+        """Start the HtmlGraph Phoenix LiveView dashboard via Docker."""
+        import os
+        import shutil
+        import subprocess
+        from pathlib import Path
 
         from rich.console import Console
         from rich.panel import Panel
 
-        from htmlgraph.operations.fastapi_server import (
-            run_fastapi_server,
-            start_fastapi_server,
-        )
-
         console = Console()
 
-        try:
-            result = start_fastapi_server(
-                port=self.port,
-                host=self.host,
-                db_path=self.db,
-                auto_port=self.auto_port,
-                reload=self.reload,
-            )
-
-            # Display server info using Rich
-            console.print()
+        if not shutil.which("docker"):
+            console.print("[red]Docker is required for the HtmlGraph dashboard.[/red]")
             console.print(
-                Panel.fit(
-                    f"[bold blue]{result.handle.url}[/bold blue]",
-                    title="[bold cyan]HtmlGraph FastAPI Dashboard[/bold cyan]",
-                    border_style="green",
-                )
+                "Install Docker Desktop: https://docker.com/products/docker-desktop"
             )
-
-            console.print("[bold green]✓[/bold green] Started observability dashboard")
-            console.print(f"[dim]Database:[/dim] {result.config_used['db_path']}")
-
-            # Show warnings if any
-            if result.warnings:
-                console.print()
-                for warning in result.warnings:
-                    console.print(f"[yellow]⚠️  {warning}[/yellow]")
-
-            # Show available features
-            console.print()
-            console.print("[cyan]Features:[/cyan]")
-            console.print("  • Real-time agent activity feed")
-            console.print("  • Orchestration chains visualization")
-            console.print("  • Feature tracker with Kanban view")
-            console.print("  • Session metrics & performance analytics")
-            console.print("  • WebSocket live event streaming")
-
-            console.print()
-            console.print("[cyan]Press Ctrl+C to stop.[/cyan]")
-            console.print()
-
-            # Run server (blocking)
-            asyncio.run(run_fastapi_server(result.handle))
-
-        except KeyboardInterrupt:
-            console.print("\n[yellow]Shutting down...[/yellow]")
-        except Exception as e:
-            from htmlgraph.cli.base import save_traceback
-
-            log_file = save_traceback(e, context={"command": "serve-api"})
-            console.print(f"\n[red]Error:[/red] {e}")
-            console.print(f"[dim]Full traceback saved to:[/dim] {log_file}")
             sys.exit(1)
+
+        db_path = (
+            Path(self.db)
+            if self.db
+            else Path(DEFAULT_GRAPH_DIR) / DEFAULT_DATABASE_NAME
+        )
+
+        console.print()
+        console.print(
+            Panel.fit(
+                f"[bold blue]http://{self.host}:{self.port}[/bold blue]",
+                title="[bold cyan]HtmlGraph Dashboard[/bold cyan]",
+                border_style="green",
+            )
+        )
+        console.print(f"[dim]Database:[/dim] {db_path}")
+        console.print()
+        console.print("[cyan]Press Ctrl+C to stop.[/cyan]")
+        console.print()
+
+        secret = os.urandom(16).hex()
+        try:
+            subprocess.run(
+                [
+                    "docker",
+                    "run",
+                    "--rm",
+                    "-p",
+                    f"{self.port}:4000",
+                    "-v",
+                    f"{db_path}:/storage/htmlgraph.db:ro",
+                    "-e",
+                    f"SECRET_KEY_BASE=htmlgraph-local-{secret}",
+                    "ghcr.io/shakestzd/htmlgraph-dashboard:latest",
+                ],
+                check=False,
+            )
+        except KeyboardInterrupt:
+            console.print("\n[yellow]Dashboard stopped.[/yellow]")
 
         return CommandResult(text="Dashboard stopped")
 
@@ -677,7 +645,6 @@ class DebugCommand(BaseCommand):
     def execute(self) -> CommandResult:
         """Show debugging resources and diagnostics."""
         import os
-        import sys
         from pathlib import Path
 
         from rich.console import Console

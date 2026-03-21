@@ -341,19 +341,11 @@ def create_task_parent_event(
                 if model and not model.startswith("claude-"):
                     model = f"claude-{model}"
 
-        # Extract parent session ID using native agent_id when available,
-        # falling back to suffix-stripping heuristics.
-        # When agent_id is present in hook_input, it means we ARE the subagent —
-        # the session_id passed here is the PARENT session (Claude Code behavior),
-        # so no stripping is needed. Suffix heuristics are only needed when
-        # agent_id is absent and the session_id still carries the subagent suffix.
-        parent_session_id = session_id  # Default: same session (it IS the parent)
-        if not tool_input.get("agent_id"):
-            known_suffixes = ["-general-purpose", "-Explore", "-Bash", "-Plan"]
-            for suffix in known_suffixes:
-                if session_id.endswith(suffix):
-                    parent_session_id = session_id[: -len(suffix)]
-                    break
+        # Extract parent session ID using native agent_id/agent_type fields.
+        # When agent_id is present in hook_input, Claude Code tells us we ARE in
+        # a subagent context — session_id is the parent session, no stripping needed.
+        # When agent_id is absent (orchestrator context), session_id IS the parent.
+        parent_session_id = session_id  # Default: this session is the parent
 
         # Load UserQuery event ID for parent-child linking from database
         # Use parent_session_id to ensure we find UserQuery in the main session
@@ -398,6 +390,9 @@ def create_task_parent_event(
 
         # Insert parent event in the PARENT session (not subagent session)
         # This ensures task_delegation events are in the same session as UserQuery
+        # Use native agent_id from hook input if present, else fall back to "claude-code"
+        orchestrator_agent_id = str(tool_input.get("agent_id") or "claude-code")
+
         cursor.execute(
             """
             INSERT INTO agent_events
@@ -408,7 +403,7 @@ def create_task_parent_event(
         """,
             (
                 parent_event_id,
-                "claude-code",  # Main orchestrator agent
+                orchestrator_agent_id,  # Native agent_id from hook input
                 "task_delegation",
                 start_time,
                 "Task",
@@ -591,13 +586,12 @@ def create_start_event(
         # Detect if we're in a subagent session and find parent task_delegation.
         #
         # Strategy:
-        # 1. If session_id is NOT present in the sessions table, this is a subagent
-        #    running in a new session that was never registered as a main session.
-        #    In that case, find the most recent task_delegation with status='started'
-        #    across ALL sessions — that delegation spawned us.
-        # 2. Fallback: suffix-stripping heuristics for session IDs with known suffixes.
-        # 3. Native agent_id from hook_input (Claude Code does not send this in PreToolUse,
-        #    kept for forward compatibility).
+        # 1. Native agent_id from hook_input (Claude Code provides this when the hook
+        #    fires inside a subagent). SubagentStart already mapped this agent_id to
+        #    a task_delegation row, so we can do an exact lookup.
+        # 2. If agent_id is absent: check if session_id exists in the sessions table.
+        #    If it does NOT exist, this is a subagent with a brand-new session_id that
+        #    Claude Code assigned. Find the most recent task_delegation with status='started'.
         subagent_parent_event_id = None
         session_known = True  # Default: assume known (orchestrator). Updated below if session lookup succeeds.
         native_agent_id = tool_input.get("agent_id")

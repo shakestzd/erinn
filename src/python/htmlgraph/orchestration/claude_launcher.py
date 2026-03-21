@@ -104,6 +104,10 @@ class ClaudeLauncher:
         # Write launch marker before handing off to Claude
         self._write_launch_marker("init")
 
+        # Set env var so hooks can detect htmlgraph launch without PID check.
+        # env vars survive exec/subprocess and are inherited by Claude.
+        os.environ["HTMLGRAPH_LAUNCHED"] = "1"
+
         # Execute
         SubprocessRunner.run_claude_command(cmd)
 
@@ -131,6 +135,9 @@ class ClaudeLauncher:
 
         # Write launch marker before handing off to Claude
         self._write_launch_marker("continue")
+
+        # Set env var so hooks can detect htmlgraph launch without PID check.
+        os.environ["HTMLGRAPH_LAUNCHED"] = "1"
 
         # Execute
         SubprocessRunner.run_claude_command(cmd)
@@ -181,6 +188,9 @@ class ClaudeLauncher:
         # Write launch marker before handing off to Claude
         self._write_launch_marker("dev")
 
+        # Set env var so hooks can detect htmlgraph launch without PID check.
+        os.environ["HTMLGRAPH_LAUNCHED"] = "1"
+
         # Execute
         SubprocessRunner.run_claude_command(cmd)
 
@@ -201,6 +211,9 @@ class ClaudeLauncher:
 
         # Write launch marker before handing off to Claude
         self._write_launch_marker("default")
+
+        # Set env var so hooks can detect htmlgraph launch without PID check.
+        os.environ["HTMLGRAPH_LAUNCHED"] = "1"
 
         # Execute
         SubprocessRunner.run_claude_command(cmd)

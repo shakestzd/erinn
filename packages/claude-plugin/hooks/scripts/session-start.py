@@ -60,37 +60,42 @@ except Exception as e:
 
 
 def _is_htmlgraph_launched(graph_dir: str) -> bool:
-    """Check if Claude was launched via htmlgraph CLI (marker file exists and is valid).
+    """Check if Claude was launched via htmlgraph CLI.
 
-    The marker file is written by ClaudeLauncher._write_launch_marker() just
-    before exec'ing ``claude``.  It contains the launcher PID so we can detect
-    stale markers left over from a previous (now-dead) process.
+    Primary signal: HTMLGRAPH_LAUNCHED env var set by ClaudeLauncher before
+    calling subprocess.run(["claude", ...]).  env vars are inherited by child
+    processes, so this is reliable even though the launcher process may have
+    already exited (subprocess.run waits; exec would replace it, but we use
+    subprocess.run so the var is in the env block passed to the child).
+
+    Fallback: .htmlgraph/.launch-mode marker file, checked by timestamp only
+    (within 5 minutes).  The old PID liveness check is removed because
+    subprocess.run() keeps the launcher alive while Claude runs, but exec()
+    (if ever used) would kill the PID immediately.
 
     Args:
         graph_dir: Path to the .htmlgraph/ directory
 
     Returns:
-        True if a fresh, valid marker exists; False otherwise
+        True if Claude was launched via htmlgraph CLI; False otherwise
     """
+    # Primary: env var set by launcher before subprocess.run(["claude", ...])
+    if os.environ.get("HTMLGRAPH_LAUNCHED") == "1":
+        return True
+
+    # Fallback: marker file with recent timestamp (within 5 minutes)
     marker_path = os.path.join(graph_dir, ".launch-mode")
     if not os.path.exists(marker_path):
         return False
     try:
         with open(marker_path) as f:
             marker = json.load(f)
-        # Check PID is still alive (os.kill(pid, 0) raises if dead)
-        pid = marker.get("pid", 0)
-        try:
-            os.kill(pid, 0)
-        except (OSError, ProcessLookupError):
-            return False  # PID is dead — marker is stale
-        # Check timestamp is within 24 hours
         ts = marker.get("timestamp", 0)
-        if time.time() - ts > 86400:
-            return False  # Older than 24 h, stale
-        return True
+        if time.time() - ts < 300:
+            return True
     except Exception:
-        return False
+        pass
+    return False
 
 
 def claim_traceparent() -> dict | None:
@@ -354,7 +359,11 @@ def main() -> None:
         env_file = os.environ.get("CLAUDE_ENV_FILE")
         _setup_env_vars(active, external_session_id, env_file, project_dir)
 
-        # Propagate htmlgraph launch mode to downstream hooks
+        # Propagate htmlgraph launch mode to downstream hooks via CLAUDE_ENV_FILE.
+        # The launcher already sets HTMLGRAPH_LAUNCHED=1 in the process env before
+        # calling subprocess.run(["claude", ...]), so this write is a belt-and-
+        # suspenders backup for hooks that source env vars from the file rather
+        # than inheriting them from the process environment.
         if launched and env_file:
             try:
                 with open(env_file, "a") as f:

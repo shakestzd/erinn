@@ -41,7 +41,6 @@ from htmlgraph.hooks.prompt_analyzer import (
     classify_cigs_intent,
     classify_prompt,
     create_user_query_event,
-    generate_cigs_guidance,
     generate_guidance,
     get_active_work_item,
     get_open_work_items,

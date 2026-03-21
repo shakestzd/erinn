@@ -199,6 +199,7 @@ class SessionInfoMixin:
                         if item.agent_assigned != agent_id:
                             continue
 
+                props: dict[str, Any] = getattr(item, "properties", {}) or {}
                 item_dict: dict[str, Any] = {
                     "id": item.id,
                     "title": item.title,
@@ -209,6 +210,7 @@ class SessionInfoMixin:
                     "steps_completed": sum(1 for s in item.steps if s.completed)
                     if hasattr(item, "steps")
                     else 0,
+                    "last_started_at": props.get("last_started_at"),
                 }
 
                 # Add spike-specific fields for auto-spike detection
@@ -234,6 +236,11 @@ class SessionInfoMixin:
         # Prioritize real work items over auto-spikes
         # Auto-spikes should only show if there's NO other active work item
         if real_work_items:
+            if len(real_work_items) > 1:
+                real_work_items.sort(
+                    key=lambda x: x.get("last_started_at") or "",
+                    reverse=True,
+                )
             return real_work_items[0]  # type: ignore[return-value]
 
         if auto_spikes:

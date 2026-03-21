@@ -1,6 +1,6 @@
 #!/bin/bash
 # HtmlGraph Status Line for Claude Code + Oh My Posh
-# Fast: uses sqlite3 directly (~5ms vs ~1500ms for uv run python)
+# Active work item: reads HTML files via SDK (source of truth, 2s timeout)
 
 # Read input from stdin (Claude Code sends JSON with model info)
 INPUT=$(cat)
@@ -26,22 +26,12 @@ if [ -n "$INPUT" ]; then
     ) &
 fi
 
-# Fast active work item query via sqlite3 (~5ms)
-DB_PATH="$(pwd)/.htmlgraph/htmlgraph.db"
-if [ -f "$DB_PATH" ]; then
-    ACTIVE_WORK=$(sqlite3 "$DB_PATH" "
-        SELECT substr(title, 1, 25) FROM features
-        WHERE status = 'in-progress'
-        ORDER BY CASE type
-            WHEN 'bug' THEN 0
-            WHEN 'feature' THEN 1
-            ELSE 2
-        END, rowid DESC
-        LIMIT 1
-    " 2>/dev/null)
-else
-    ACTIVE_WORK=""
-fi
+# Get active work item from HTML (source of truth)
+ACTIVE_WORK=$(timeout 2 uv run python -c "
+from htmlgraph import SDK
+w = SDK().get_active_work_item()
+print(w.get('title', '')[:25] if w else '')
+" 2>/dev/null || echo "")
 
 export HTMLGRAPH_ACTIVE="$ACTIVE_WORK"
 

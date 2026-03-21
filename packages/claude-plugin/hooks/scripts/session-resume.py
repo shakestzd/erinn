@@ -29,27 +29,32 @@ if is_tracking_disabled():
     print(json.dumps({"continue": True}))
     sys.exit(0)
 
-project_dir_for_import = resolve_project_dir()
-bootstrap_pythonpath(project_dir_for_import)
-
-try:
-    from htmlgraph.hooks.session_resume import run as handle_session_resume
-except Exception as e:
-    print(
-        f"Warning: HtmlGraph not available ({e}). Install with: pip install htmlgraph",
-        file=sys.stderr,
-    )
-    print(json.dumps({"continue": True}))
-    sys.exit(0)
-
 
 def main() -> None:
     """Main entry point - delegate to SDK handler."""
+    # 1. Read hook input from stdin FIRST so we have cwd
     try:
         hook_input = json.load(sys.stdin)
     except json.JSONDecodeError:
         hook_input = {}
 
+    # 2. Resolve project dir using cwd from hook input
+    cwd = hook_input.get("cwd", os.getcwd())
+    project_dir = resolve_project_dir(cwd)
+    bootstrap_pythonpath(project_dir)
+
+    # 3. Import handler now that pythonpath is set
+    try:
+        from htmlgraph.hooks.session_resume import run as handle_session_resume
+    except Exception as e:
+        print(
+            f"Warning: HtmlGraph not available ({e}). Install with: pip install htmlgraph",
+            file=sys.stderr,
+        )
+        print(json.dumps({"continue": True}))
+        return
+
+    # 4. Delegate to SDK handler
     try:
         response = handle_session_resume(hook_input)
         print(json.dumps(response))

@@ -17,7 +17,6 @@ with graceful degradation if dependencies are unavailable.
 
 import logging
 import re
-import sqlite3
 import time
 import uuid
 from datetime import datetime, timezone
@@ -326,7 +325,7 @@ def get_active_work_item(context: HookContext) -> dict[str, Any] | None:
         return None
 
 
-def get_open_work_items(context: HookContext) -> list[dict]:
+def get_open_work_items(context: HookContext | None) -> list[dict]:
     """Get todo and in-progress work items for attribution guidance.
 
     Queries SQLite directly (not via SDK file scanning) for performance.
@@ -334,7 +333,7 @@ def get_open_work_items(context: HookContext) -> list[dict]:
     priority desc then recency) and cached in-process for 30 seconds.
 
     Args:
-        context: HookContext with session and graph directory info
+        context: HookContext with session and graph directory info, or None
 
     Returns:
         List of dicts with keys: id, title, type, status (max 10 items).
@@ -346,62 +345,72 @@ def get_open_work_items(context: HookContext) -> list[dict]:
         ...     logger.info(f"Open item: {item['type']} {item['id']}: {item['title']}")
     """
     t_start = time.monotonic()
-    db_path = Path(context.graph_dir) / "htmlgraph.db"
-    cache_key = str(db_path)
+
+    # Fallback when context is None: use SDK's default project discovery
+    if context is None:
+        from htmlgraph import SDK  # noqa: PLC0415
+
+        sdk = SDK()
+        graph_dir = sdk._directory
+    else:
+        graph_dir = Path(context.graph_dir)
+    cache_key = str(graph_dir)
 
     # --- cache check ---
     cached = _WORK_ITEMS_CACHE.get(cache_key)
     if cached is not None:
-        items, ts = cached
+        cached_items, ts = cached
         if time.monotonic() - ts < _CACHE_TTL_SECONDS:
             elapsed_ms = (time.monotonic() - t_start) * 1000
             logger.debug(f"CIGS work items query took {elapsed_ms:.1f}ms (cache hit)")
-            return items
+            return cached_items
 
-    # --- SQLite query ---
-    items = []
+    # --- Read from HTML files (canonical source of truth) ---
+    # HTML files are the write layer; SQLite is a derived read cache that can
+    # lag.  Reading collections directly avoids showing completed items as
+    # in-progress.
+    items: list[dict] = []
     try:
-        if not db_path.exists():
-            return []
+        from htmlgraph import SDK  # noqa: PLC0415
 
-        conn = sqlite3.connect(str(db_path), timeout=2.0)
-        conn.row_factory = sqlite3.Row
-        try:
-            cursor = conn.cursor()
-            # Fetch in-progress first, then todo; sorted by priority + recency.
-            # CASE expression maps priority strings to sort weight.
-            cursor.execute(
-                """
-                SELECT id, title, status, type
-                FROM features
-                WHERE status IN ('in-progress', 'todo')
-                ORDER BY
-                    CASE status WHEN 'in-progress' THEN 0 ELSE 1 END ASC,
-                    CASE priority
-                        WHEN 'critical' THEN 0
-                        WHEN 'high'     THEN 1
-                        WHEN 'medium'   THEN 2
-                        WHEN 'low'      THEN 3
-                        ELSE 4
-                    END ASC,
-                    updated_at DESC
-                LIMIT 10
-                """
+        sdk = SDK()
+
+        priority_weight: dict[str, int] = {
+            "critical": 0,
+            "high": 1,
+            "medium": 2,
+            "low": 3,
+        }
+
+        raw: list[Any] = []
+        for collection in (sdk.features, sdk.bugs, sdk.spikes):
+            for status in ("in-progress", "todo"):
+                raw.extend(collection.where(status=status))
+
+        # Sort: in-progress first, then by priority weight, then by updated_at
+        # descending (so most recently touched items surface first).
+        def _sort_key(node: Any) -> tuple[int, int, str]:
+            status_order = 0 if getattr(node, "status", "") == "in-progress" else 1
+            priority = getattr(node, "priority", None) or ""
+            priority_order = priority_weight.get(priority, 4)
+            # Negate updated_at lexicographically by prepending a sentinel that
+            # sorts earlier for later dates (ISO strings sort lexicographically).
+            updated = str(getattr(node, "updated_at", "") or "")
+            return (status_order, priority_order, updated)
+
+        raw.sort(key=_sort_key)
+
+        for node in raw[:10]:
+            items.append(
+                {
+                    "id": node.id,
+                    "title": getattr(node, "title", None) or node.id,
+                    "type": getattr(node, "type", "feature"),
+                    "status": getattr(node, "status", "todo"),
+                }
             )
-            rows = cursor.fetchall()
-            for row in rows:
-                items.append(
-                    {
-                        "id": row["id"],
-                        "title": row["title"] or row["id"],
-                        "type": row["type"],
-                        "status": row["status"],
-                    }
-                )
-        finally:
-            conn.close()
     except Exception as exc:  # noqa: BLE001
-        logger.debug(f"CIGS SQLite query failed: {exc}")
+        logger.debug(f"CIGS HTML work items scan failed: {exc}")
         return []
 
     # --- populate cache ---
@@ -785,9 +794,14 @@ def _get_active_step_line(active_work: dict[str, Any] | None) -> str | None:
     ``Active step: "Step N: <description>"`` where N is the 1-based step index,
     or ``None`` when there are no steps or all are complete.
 
+    When ``active_work`` has no ``steps`` key (as returned by
+    ``get_active_work_item()`` which only provides id/title/type), the steps
+    are fetched via SDK, dispatching to the correct collection based on ID
+    prefix: ``bug-*`` → sdk.bugs, ``spk-*`` → sdk.spikes, else sdk.features.
+
     Args:
-        active_work: dict with at least a ``steps`` key (list of step dicts),
-            or ``None``.
+        active_work: dict with work item fields (id, title, type, optionally
+            steps), or ``None``.
 
     Returns:
         Formatted active step string, or ``None``.
@@ -795,11 +809,42 @@ def _get_active_step_line(active_work: dict[str, Any] | None) -> str | None:
     if not active_work:
         return None
     steps = active_work.get("steps")
+    # When steps are absent from the dict (e.g. from get_active_work_item()),
+    # fetch them via SDK using the correct collection for the item type.
+    if not steps:
+        item_id = active_work.get("id", "")
+        if item_id:
+            try:
+                from htmlgraph import SDK  # noqa: PLC0415
+
+                sdk = SDK()
+                if item_id.startswith("bug-"):
+                    node = sdk.bugs.get(item_id)
+                elif item_id.startswith("spk-"):
+                    node = sdk.spikes.get(item_id)
+                else:
+                    node = sdk.features.get(item_id)
+                if node and node.steps:
+                    steps = [
+                        {"description": s.description, "completed": s.completed}
+                        for s in node.steps
+                    ]
+            except Exception:  # noqa: BLE001
+                pass
     if not steps:
         return None
     for idx, step in enumerate(steps, start=1):
-        if not step.get("completed", False):
-            desc = step.get("description", "")
+        completed = (
+            step.get("completed", False)
+            if isinstance(step, dict)
+            else getattr(step, "completed", False)
+        )
+        if not completed:
+            desc = (
+                step.get("description", "")
+                if isinstance(step, dict)
+                else getattr(step, "description", "")
+            )
             return f'Active step: "Step {idx}: {desc}"'
     return None
 

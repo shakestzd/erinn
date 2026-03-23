@@ -68,6 +68,34 @@ from htmlgraph.session_warning import check_and_show_warning
 from htmlgraph.system_prompts import SystemPromptManager
 from htmlgraph.track_builder import TrackCollection
 
+# Agent name aliases — map common variations to canonical names
+AGENT_ALIASES: dict[str, str] = {
+    # Model-based names
+    "opus": "claude-opus",
+    "sonnet": "claude-sonnet",
+    "haiku": "claude-haiku",
+    "claude": "claude-code",
+    "claude-code": "claude-code",
+    # Platform names
+    "gemini": "gemini-cli",
+    "codex": "openai-codex",
+    "copilot": "github-copilot",
+    # Dashboard/internal
+    "phoenix": "phoenix-dashboard",
+    "phoenix-dashboard": "phoenix-dashboard",
+    "dashboard": "phoenix-dashboard",
+}
+
+
+def normalize_agent_name(agent: str) -> str:
+    """Normalize agent name to canonical form.
+
+    Accepts model names (opus, sonnet, haiku), platform names (gemini, codex),
+    or full names (claude-code, phoenix-dashboard). Returns canonical name.
+    Unknown names are passed through unchanged for backward compatibility.
+    """
+    return AGENT_ALIASES.get(agent.lower(), agent)
+
 
 class SDK(
     AnalyticsRegistry,
@@ -176,7 +204,7 @@ class SDK(
                 )
 
         self._directory = Path(directory)
-        self._agent_id = agent
+        self._agent_id = normalize_agent_name(agent)
         self._parent_session = parent_session or os.getenv("HTMLGRAPH_PARENT_SESSION")
 
         # Initialize SQLite database (Phase 2)
@@ -262,8 +290,8 @@ class SDK(
         return discover_htmlgraph_dir()
 
     @property
-    def agent(self) -> str | None:
-        """Get current agent ID."""
+    def agent(self) -> str:
+        """The normalized agent name."""
         return self._agent_id
 
     @property
@@ -351,11 +379,35 @@ class SDK(
             return self._session_warning.get_status()
         return {"dismissed": True, "show_count": 0}
 
+    def query(self) -> SemanticQueryBuilder:  # noqa: F821
+        """
+        Create a semantic query builder for expressive work item queries.
+
+        Returns a fluent builder that supports chained filters, sorting,
+        and pagination across features, bugs, and spikes.
+
+        Example:
+            >>> results = (sdk.query()
+            ...     .features()
+            ...     .where_status("in-progress")
+            ...     .where_priority("high")
+            ...     .with_tag("backend")
+            ...     .sort_by("updated", "desc")
+            ...     .limit(10)
+            ...     .execute())
+        """
+        from htmlgraph.sdk.query_builder import SemanticQueryBuilder
+
+        return SemanticQueryBuilder(self)
+
 
 __all__ = [
     # Core SDK class
     "SDK",
     "BaseSDK",
+    # Agent normalization
+    "AGENT_ALIASES",
+    "normalize_agent_name",
     # Discovery utilities
     "find_project_root",
     "discover_htmlgraph_dir",

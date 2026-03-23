@@ -857,6 +857,49 @@ def _get_active_feature_id() -> str | None:
         return None
 
 
+def _sanitize_prompt_for_display(prompt: str, max_len: int = 200) -> str:
+    """Sanitize a raw prompt for storage as input_summary.
+
+    Strips noise that would pollute the dashboard display:
+    - ``<task-notification>`` blocks (complete or truncated/unclosed)
+    - ``<system-reminder>`` blocks
+    - Residual /private/tmp/... file paths left after tag stripping
+    - Other XML-like tags
+
+    Falls back to the raw prompt truncated to *max_len* if sanitization
+    leaves nothing useful.
+    """
+    text = prompt.strip()
+
+    # Strip complete XML blocks first (matched pairs)
+    text = re.sub(
+        r"<task-notification>[\s\S]*?</task-notification>",
+        "",
+        text,
+        flags=re.IGNORECASE,
+    )
+    text = re.sub(
+        r"<system-reminder>[\s\S]*?</system-reminder>", "", text, flags=re.IGNORECASE
+    )
+
+    # Strip unclosed / truncated task-notification blocks that start but have no closing tag
+    # e.g. "<task-notification>\n<task-id>...\n<output-file>/private/tmp/..."
+    text = re.sub(r"<task-notification>[\s\S]*", "", text, flags=re.IGNORECASE)
+
+    # Strip any remaining /private/tmp/... or /tmp/... file path lines
+    text = re.sub(r"/private/tmp/[^\s\n]*", "", text)
+    text = re.sub(r"/tmp/[^\s\n]*", "", text)
+
+    # Strip remaining XML-like tags
+    text = re.sub(r"</?[a-zA-Z_-]+>", "", text)
+
+    text = text.strip()
+
+    # If sanitization leaves nothing (entire prompt was noise like <task-notification>),
+    # return empty string — an empty summary is better than showing a raw file path.
+    return text[:max_len]
+
+
 def create_user_query_event(context: HookContext, prompt: str) -> str | None:
     """
     Create UserQuery event in HtmlGraph database.
@@ -922,8 +965,9 @@ def create_user_query_event(context: HookContext, prompt: str) -> str | None:
             # Generate event ID
             user_query_event_id = f"uq-{uuid.uuid4().hex[:8]}"
 
-            # Prepare event details
-            input_summary = prompt[:200]
+            # Prepare event details — sanitize before storing so the dashboard
+            # never shows raw <task-notification> XML or /private/tmp/... paths.
+            input_summary = _sanitize_prompt_for_display(prompt)
 
             # Look up active work item for automatic attribution.
             # Claude handles attribution via sdk.features.start(); the hook

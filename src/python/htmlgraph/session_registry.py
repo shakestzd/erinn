@@ -69,6 +69,12 @@ from typing import Any, cast
 
 logger = logging.getLogger(__name__)
 
+# Module-level cache: maps PID -> integer start timestamp (seconds).
+# Populated on first call to get_instance_id() for a given PID so that the
+# instance ID string is identical across all calls within the same process,
+# regardless of wall-clock seconds ticking over.
+_INSTANCE_START_TIMES: dict[int, int] = {}
+
 
 class SessionRegistry:
     """
@@ -142,12 +148,16 @@ class SessionRegistry:
         Generates a stable instance ID based on:
         - Process ID (PID)
         - Hostname
-        - Start timestamp (seconds since epoch)
+        - Start timestamp (seconds since epoch, captured once per process)
 
         Format: inst-{pid}-{hostname}-{timestamp}
 
         The ID is stable for the lifetime of this process (same PID always
         generates the same ID). Different processes always get different IDs.
+
+        The timestamp is cached at first call so that repeated calls within
+        the same process always return the identical string, even if wall-clock
+        seconds tick over between the registration and a later heartbeat call.
 
         Returns:
             Unique instance identifier string.
@@ -159,10 +169,15 @@ class SessionRegistry:
             'inst-12345-hostname-1234567890'
         """
         pid = os.getpid()
-        hostname = socket.gethostname()
-        # Use integer seconds for stability - always same for same process
-        start_time = int(time.time())
+        # Use the per-process cached timestamp so the ID is truly stable
+        # across multiple calls within the same process (prevents flaky
+        # heartbeat failures when a wall-clock second ticks over between
+        # register_session() and update_activity()).
+        if pid not in _INSTANCE_START_TIMES:
+            _INSTANCE_START_TIMES[pid] = int(time.time())
+        start_time = _INSTANCE_START_TIMES[pid]
 
+        hostname = socket.gethostname()
         return f"inst-{pid}-{hostname}-{start_time}"
 
     def register_session(

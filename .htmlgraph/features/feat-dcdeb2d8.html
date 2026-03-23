@@ -10,15 +10,15 @@
 <body>
     <article id="feat-dcdeb2d8"
              data-type="feature"
-             data-status="todo"
+             data-status="done"
              data-priority="critical"
              data-created="2026-01-03T12:06:50.633630"
-             data-updated="2026-01-03T12:06:50.985816">
+             data-updated="2026-03-21T20:13:00.509219+00:00">
 
         <header>
             <h1>Pre-commit Hook: Detect Incomplete Systematic Changes</h1>
             <div class="metadata">
-                <span class="badge status-todo">Todo</span>
+                <span class="badge status-done">Done</span>
                 <span class="badge priority-critical">Critical Priority</span>
             </div>
         </header>
@@ -28,9 +28,19 @@
                 <h3>Implemented-In:</h3>
                 <ul>
                     <li><a href="sess-529faa2c.html" data-relationship="implemented-in" data-since="2026-01-03T12:06:50.985800">sess-529faa2c</a></li>
+                    <li><a href="sess-877db31a.html" data-relationship="implemented-in" data-since="2026-03-21T16:13:00.509200">sess-877db31a</a></li>
                 </ul>
             </section>
         </nav>
+        <section data-properties>
+            <h3>Properties</h3>
+            <dl>
+                <dt>Completed At</dt>
+                <dd data-key="completed_at" data-value="2026-03-21T16:13:00.495491">2026-03-21T16:13:00.495491</dd>
+<dt>Completion Analysis</dt>
+                <dd data-key="completion_analysis" data-value="{'session_id': 'sess-877db31a', 'anti_patterns': [], 'errors': [], 'error_count': 0, 'efficiency': 0.11111111111111116, 'issues': ['High retry rate: 89%'], 'recommendations': ['Consider reading more context before acting'], 'test_runs': [], 'test_summary': None, 'summary': '⚠️ Issues: low efficiency (11%)'}">{'session_id': 'sess-877db31a', 'anti_patterns': [], 'errors': [], 'error_count': 0, 'efficiency': 0.11111111111111116, 'issues': ['High retry rate: 89%'], 'recommendations': ['Consider reading more context before acting'], 'test_runs': [], 'test_summary': None, 'summary': '⚠️ Issues: low efficiency (11%)'}</dd>
+            </dl>
+        </section>
         <section data-steps>
             <h3>Implementation Steps</h3>
             <ol>
@@ -44,7 +54,7 @@
         </section>
         <section data-content>
             <h3>Description</h3>
-            <p>Add pre-commit validation that detects when a commit claims to do a systematic change but hasn't completed it.
+            Add pre-commit validation that detects when a commit claims to do a systematic change but hasn't completed it.
 
 **Detection Heuristics**:
 - Commit message contains keywords: "replace", "rename", "migrate", "refactor all"
@@ -55,7 +65,7 @@
 - Git hook script that analyzes commit messages and diffs
 - Pattern detection for common refactoring operations
 - Automated grep/ripgrep verification
-- Fail commit if incomplete, show remaining instances</p>
+- Fail commit if incomplete, show remaining instances
         </section>
     </article>
 </body>

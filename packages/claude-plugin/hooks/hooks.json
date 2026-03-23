@@ -59,6 +59,16 @@
             "command": "uv run \"${CLAUDE_PLUGIN_ROOT}/hooks/scripts/pretooluse-htmlgraph-guard.py\""
           }
         ]
+      },
+      {
+        "matcher": "Agent|Task",
+        "hooks": [
+          {
+            "type": "command",
+            "comment": "Enforce work item attribution before delegating to subagents",
+            "command": "uv run \"${CLAUDE_PLUGIN_ROOT}/hooks/scripts/pretooluse-attribution-check.py\""
+          }
+        ]
       }
     ],
     "PostToolUse": [

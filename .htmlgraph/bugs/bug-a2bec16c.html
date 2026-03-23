@@ -10,15 +10,15 @@
 <body>
     <article id="bug-a2bec16c"
              data-type="bug"
-             data-status="todo"
+             data-status="done"
              data-priority="critical"
              data-created="2026-01-09T00:19:51.754363"
-             data-updated="2026-01-09T05:19:52.311468+00:00" data-agent-assigned="claude">
+             data-updated="2026-03-21T20:09:15.067884+00:00" data-agent-assigned="claude">
 
         <header>
             <h1>SessionStart hook failing - sessions not being tracked</h1>
             <div class="metadata">
-                <span class="badge status-todo">Todo</span>
+                <span class="badge status-done">Done</span>
                 <span class="badge priority-critical">Critical Priority</span>
             </div>
         </header>
@@ -28,13 +28,22 @@
                 <h3>Implemented-In:</h3>
                 <ul>
                     <li><a href="sess-529faa2c.html" data-relationship="implemented-in" data-since="2026-01-09T00:19:52.311452">sess-529faa2c</a></li>
+                    <li><a href="sess-877db31a.html" data-relationship="implemented-in" data-since="2026-03-21T16:09:15.067865">sess-877db31a</a></li>
                 </ul>
             </section>
         </nav>
+        <section data-properties>
+            <h3>Properties</h3>
+            <dl>
+                <dt>Completed At</dt>
+                <dd data-key="completed_at" data-value="2026-03-21T16:09:15.055278">2026-03-21T16:09:15.055278</dd>
+<dt>Completion Analysis</dt>
+                <dd data-key="completion_analysis" data-value="{'session_id': 'sess-877db31a', 'anti_patterns': [], 'errors': [], 'error_count': 0, 'efficiency': 0.5, 'issues': ['High retry rate: 50%'], 'recommendations': ['Consider reading more context before acting'], 'test_runs': [], 'test_summary': None, 'summary': '⚠️ Issues: low efficiency (50%)'}">{'session_id': 'sess-877db31a', 'anti_patterns': [], 'errors': [], 'error_count': 0, 'efficiency': 0.5, 'issues': ['High retry rate: 50%'], 'recommendations': ['Consider reading more context before acting'], 'test_runs': [], 'test_summary': None, 'summary': '⚠️ Issues: low efficiency (50%)'}</dd>
+            </dl>
+        </section>
         <section data-content>
             <h3>Description</h3>
-            <p>
-## Issue
+            ## Issue
 SessionStart hook is not creating session records in the database, causing:
 - Current session not tracked
 - Zero event capture
@@ -51,7 +60,6 @@ SessionStart hook is not creating session records in the database, causing:
 - Current session invisible to dashboard
 - No event tracking for current session
 - Development workflow broken
-</p>
         </section>
     </article>
 </body>

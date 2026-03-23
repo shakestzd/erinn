@@ -174,9 +174,42 @@ class GraphManager:
         """
         return list(nx.simple_cycles(self.G))
 
+    def detect_cycles(self) -> list[list[str]]:
+        """Detect all cycles in the dependency graph.
+
+        Returns list of cycles, where each cycle is a list of node IDs.
+        """
+        try:
+            return list(nx.simple_cycles(self.G))
+        except Exception:
+            return []
+
     def has_cycles(self) -> bool:
         """Quick boolean check for cycles."""
         return not nx.is_directed_acyclic_graph(self.G)
+
+    def get_cycle_info(self) -> dict[str, Any]:
+        """Get cycle information for dashboard display.
+
+        Returns a dict with ``has_cycles``, ``cycle_count``, and ``cycles``
+        (capped at 10 entries for display purposes).
+        """
+        cycles = self.detect_cycles()
+        return {
+            "has_cycles": len(cycles) > 0,
+            "cycle_count": len(cycles),
+            "cycles": [
+                {
+                    "nodes": cycle,
+                    "titles": [
+                        self.G.nodes[n].get("title", n)
+                        for n in cycle
+                        if n in self.G.nodes
+                    ],
+                }
+                for cycle in cycles[:10]
+            ],
+        }
 
     # ------------------------------------------------------------------
     # Critical path
@@ -334,6 +367,47 @@ class GraphManager:
             return list(nx.shortest_path(self.G, from_id, to_id))
         except (nx.NetworkXNoPath, nx.NodeNotFound):
             return None
+
+    def find_path(
+        self, source: str, target: str, max_depth: int = 10
+    ) -> list[str] | None:
+        """Find shortest path between two nodes with bounded depth.
+
+        Returns list of node IDs in path, or None if no path exists or
+        the path exceeds *max_depth* hops.
+
+        Args:
+            source:    Starting node ID.
+            target:    Destination node ID.
+            max_depth: Maximum number of hops allowed (inclusive path length).
+        """
+        try:
+            path = nx.shortest_path(self.G, source, target)
+            if len(path) > max_depth:
+                return None
+            return list(path)
+        except (nx.NetworkXNoPath, nx.NodeNotFound):
+            return None
+
+    def find_all_paths(
+        self, source: str, target: str, max_depth: int = 10
+    ) -> list[list[str]]:
+        """Find all simple paths between two nodes with bounded depth.
+
+        Uses ``nx.all_simple_paths`` with *cutoff=max_depth* to cap search.
+
+        Args:
+            source:    Starting node ID.
+            target:    Destination node ID.
+            max_depth: Maximum path length cutoff passed to NetworkX.
+        """
+        try:
+            return [
+                list(p)
+                for p in nx.all_simple_paths(self.G, source, target, cutoff=max_depth)
+            ]
+        except (nx.NetworkXNoPath, nx.NodeNotFound):
+            return []
 
     def connected_components(self) -> list[set[str]]:
         """Return weakly connected components of the graph."""

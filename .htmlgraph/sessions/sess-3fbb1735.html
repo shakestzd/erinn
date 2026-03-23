@@ -13,15 +13,15 @@
              data-status="active"
              data-agent="researcher"
              data-started-at="2026-03-11T13:42:39.948264"
-             data-last-activity="2026-03-13T15:12:01.946739+00:00"
-             data-event-count="3" data-is-subagent="false" data-start-commit="75870e09">
+             data-last-activity="2026-03-22T18:12:27.329215+00:00"
+             data-event-count="5" data-is-subagent="false" data-start-commit="75870e09">
 
         <header>
             <h1>Auto session (researcher)</h1>
             <div class="metadata">
                 <span class="badge status-active">Active</span>
                 <span class="badge">researcher</span>
-                <span class="badge">3 events</span>
+                <span class="badge">5 events</span>
             </div>
         </header>
 
@@ -29,14 +29,37 @@
             <section data-edge-type="worked-on">
                 <h3>Worked On:</h3>
                 <ul>
-                    <li><a href="../features/spike-init-sess-3fb.html" data-relationship="worked-on">spike-init-sess-3fb</a></li>
                     <li><a href="../features/bug-acfb2b69.html" data-relationship="worked-on">bug-acfb2b69</a></li>
+                    <li><a href="../features/spk-7df27e4d.html" data-relationship="worked-on">spk-7df27e4d</a></li>
                 </ul>
             </section>
         </nav>
+        <section data-detected-patterns>
+            <h3>Detected Patterns (1)</h3>
+            <table class="patterns-table">
+                <thead>
+                    <tr>
+                        <th>Sequence</th>
+                        <th>Type</th>
+                        <th>Count</th>
+                        <th>First/Last Detected</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr data-pattern-type="neutral">
+                        <td class="sequence">FeatureStart → FeatureStart → FeatureStart</td>
+                        <td><span class="badge pattern-neutral">neutral</span></td>
+                        <td>2</td>
+                        <td>2026-03-22T14:23:59.670882 / 2026-03-23T03:49:07.595415</td>
+                    </tr>
+                </tbody>
+            </table>
+        </section>
         <section data-activity-log>
-            <h3>Activity Log (3 events)</h3>
+            <h3>Activity Log (5 events)</h3>
             <ol reversed>
+                <li data-ts="2026-03-22T14:12:27.321901" data-tool="FeatureStart" data-success="true" data-event-id="evt-b905ec1d" data-feature="spk-7df27e4d">Started: spikes/spk-7df27e4d</li>
+                <li data-ts="2026-03-22T14:10:10.345481" data-tool="FeatureStart" data-success="true" data-event-id="evt-e4f7f504" data-feature="spk-7df27e4d">Started: spikes/spk-7df27e4d</li>
                 <li data-ts="2026-03-13T11:12:01.934060" data-tool="FeatureStart" data-success="true" data-event-id="evt-d387d20e" data-feature="bug-acfb2b69">Started: bugs/bug-acfb2b69</li>
                 <li data-ts="2026-03-11T13:42:39.975658" data-tool="FeatureStart" data-success="true" data-event-id="evt-4480544b" data-feature="bug-acfb2b69">Started: bugs/bug-acfb2b69</li>
                 <li data-ts="2026-03-11T13:42:39.948264" data-tool="SessionStart" data-success="true">Session started</li>

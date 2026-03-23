@@ -10,15 +10,15 @@
 <body>
     <article id="bug-f26916de"
              data-type="bug"
-             data-status="todo"
+             data-status="done"
              data-priority="medium"
              data-created="2026-01-01T22:40:21.203637"
-             data-updated="2026-01-01T22:40:21.724985">
+             data-updated="2026-03-21T20:10:02.273395+00:00">
 
         <header>
             <h1>SessionStart hook still activating tracker instead of orchestrator</h1>
             <div class="metadata">
-                <span class="badge status-todo">Todo</span>
+                <span class="badge status-done">Done</span>
                 <span class="badge priority-medium">Medium Priority</span>
             </div>
         </header>
@@ -28,13 +28,22 @@
                 <h3>Implemented-In:</h3>
                 <ul>
                     <li><a href="sess-529faa2c.html" data-relationship="implemented-in" data-since="2026-01-01T22:40:21.724970">sess-529faa2c</a></li>
+                    <li><a href="sess-877db31a.html" data-relationship="implemented-in" data-since="2026-03-21T16:10:02.273374">sess-877db31a</a></li>
                 </ul>
             </section>
         </nav>
+        <section data-properties>
+            <h3>Properties</h3>
+            <dl>
+                <dt>Completed At</dt>
+                <dd data-key="completed_at" data-value="2026-03-21T16:10:02.258869">2026-03-21T16:10:02.258869</dd>
+<dt>Completion Analysis</dt>
+                <dd data-key="completion_analysis" data-value="{'session_id': 'sess-877db31a', 'anti_patterns': [], 'errors': [], 'error_count': 0, 'efficiency': 0.2857142857142857, 'issues': ['High retry rate: 71%'], 'recommendations': ['Consider reading more context before acting'], 'test_runs': [], 'test_summary': None, 'summary': '⚠️ Issues: low efficiency (29%)'}">{'session_id': 'sess-877db31a', 'anti_patterns': [], 'errors': [], 'error_count': 0, 'efficiency': 0.2857142857142857, 'issues': ['High retry rate: 71%'], 'recommendations': ['Consider reading more context before acting'], 'test_runs': [], 'test_summary': None, 'summary': '⚠️ Issues: low efficiency (29%)'}</dd>
+            </dl>
+        </section>
         <section data-content>
             <h3>Description</h3>
-            <p>
-Despite fixing bug-795cfe1e in v0.20.5, the SessionStart hook is still trying to activate htmlgraph-tracker skill instead of htmlgraph-orchestrator.
+            Despite fixing bug-795cfe1e in v0.20.5, the SessionStart hook is still trying to activate htmlgraph-tracker skill instead of htmlgraph-orchestrator.
 
 **Observed behavior:**
 In a different project (causal-compass), user sees:
@@ -56,7 +65,6 @@ In a different project (causal-compass), user sees:
 2. Verify SessionStart fix is in deployed version
 3. Check hook precedence (project vs plugin)
 4. Test in fresh project to reproduce
-    </p>
         </section>
     </article>
 </body>

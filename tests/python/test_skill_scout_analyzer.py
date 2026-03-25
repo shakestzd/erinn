@@ -4,18 +4,14 @@ from __future__ import annotations
 
 import json
 import sqlite3
-import tempfile
 from pathlib import Path
 
 import pytest
-
-from htmlgraph.skill_scout.project_analyzer import ProjectAnalysis, ProjectAnalyzer
+from htmlgraph.skill_scout.project_analyzer import ProjectAnalyzer
 from htmlgraph.skill_scout.work_patterns import (
     ToolUsage,
     WorkPatternAnalyzer,
-    WorkPatternSummary,
 )
-
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -144,9 +140,7 @@ def _make_db(path: Path, rows: list[tuple[str, int | None]]) -> None:
             )
             """
         )
-        conn.executemany(
-            "INSERT INTO events (tool_name, is_error) VALUES (?, ?)", rows
-        )
+        conn.executemany("INSERT INTO events (tool_name, is_error) VALUES (?, ?)", rows)
         conn.commit()
 
 

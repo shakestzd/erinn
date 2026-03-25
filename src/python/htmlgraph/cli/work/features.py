@@ -304,13 +304,29 @@ class FeatureCreateCommand(BaseCommand):
 
     @classmethod
     def from_args(cls, args: argparse.Namespace) -> FeatureCreateCommand:
+        from pydantic import ValidationError
+
+        from htmlgraph.cli.models import FeatureCreateArgs, format_validation_error
+
+        try:
+            model = FeatureCreateArgs(
+                title=args.title,
+                description=getattr(args, "description", None),
+                priority=getattr(args, "priority", "medium"),
+                steps=getattr(args, "steps", None),
+                collection=getattr(args, "collection", "features"),
+                track_id=getattr(args, "track", None),
+                agent=getattr(args, "agent", "claude-code"),
+            )
+        except ValidationError as e:
+            raise CommandError(format_validation_error(e))
         return cls(
-            title=args.title,
-            description=args.description,
-            priority=args.priority,
-            steps=args.steps,
-            collection=args.collection,
-            track_id=args.track,
+            title=model.title,
+            description=model.description,
+            priority=model.priority,
+            steps=model.steps,
+            collection=model.collection,
+            track_id=model.track_id,
         )
 
     def execute(self) -> CommandResult:
@@ -412,7 +428,18 @@ class FeatureStartCommand(BaseCommand):
 
     @classmethod
     def from_args(cls, args: argparse.Namespace) -> FeatureStartCommand:
-        return cls(feature_id=args.id, collection=args.collection)
+        from pydantic import ValidationError
+
+        from htmlgraph.cli.models import FeatureIdArgs, format_validation_error
+
+        try:
+            model = FeatureIdArgs(
+                feature_id=args.id,
+                collection=getattr(args, "collection", "features"),
+            )
+        except ValidationError as e:
+            raise CommandError(format_validation_error(e))
+        return cls(feature_id=model.feature_id, collection=model.collection)
 
     def execute(self) -> CommandResult:
         """Start working on a feature."""
@@ -459,7 +486,18 @@ class FeatureCompleteCommand(BaseCommand):
 
     @classmethod
     def from_args(cls, args: argparse.Namespace) -> FeatureCompleteCommand:
-        return cls(feature_id=args.id, collection=args.collection)
+        from pydantic import ValidationError
+
+        from htmlgraph.cli.models import FeatureIdArgs, format_validation_error
+
+        try:
+            model = FeatureIdArgs(
+                feature_id=args.id,
+                collection=getattr(args, "collection", "features"),
+            )
+        except ValidationError as e:
+            raise CommandError(format_validation_error(e))
+        return cls(feature_id=model.feature_id, collection=model.collection)
 
     def execute(self) -> CommandResult:
         """Mark feature as completed."""

@@ -11,11 +11,8 @@ import json
 from pathlib import Path
 from unittest.mock import MagicMock
 
-import pytest
-
 from htmlgraph.cli.skill_scout import dismiss_plugin
 from htmlgraph.hooks.prompt_analyzer import get_plugin_recommendations
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -28,7 +25,9 @@ def _make_context(graph_dir: Path) -> MagicMock:
     return ctx
 
 
-def _write_cache(cache_file: Path, recs: list[dict], dismissed: list[str] | None = None) -> None:
+def _write_cache(
+    cache_file: Path, recs: list[dict], dismissed: list[str] | None = None
+) -> None:
     data = {
         "timestamp": "2026-03-24T12:00:00+00:00",
         "project_signals": {"languages": ["python"], "frameworks": []},
@@ -119,7 +118,9 @@ def test_dismiss_plugin(tmp_path: Path) -> None:
     graph_dir = tmp_path / ".htmlgraph"
     graph_dir.mkdir()
     cache_file = graph_dir / "plugin-recommendations.json"
-    _write_cache(cache_file, [{"plugin_name": "pyright-lsp", "score": 10, "reasons": []}])
+    _write_cache(
+        cache_file, [{"plugin_name": "pyright-lsp", "score": 10, "reasons": []}]
+    )
 
     dismiss_plugin("pyright-lsp", project_root=tmp_path)
 

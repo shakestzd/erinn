@@ -7,15 +7,12 @@ import subprocess
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-import pytest
-
 from htmlgraph.skill_scout.installer import (
     InstallResult,
     get_install_history,
     install_plugin,
     verify_plugin,
 )
-
 
 # ============================================================================
 # InstallResult

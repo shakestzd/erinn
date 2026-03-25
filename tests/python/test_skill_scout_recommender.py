@@ -4,12 +4,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import pytest
-
 from htmlgraph.skill_scout.github_search import PluginInfo
 from htmlgraph.skill_scout.project_analyzer import ProjectAnalysis
 from htmlgraph.skill_scout.recommender import Recommendation, _check_signal, recommend
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -33,7 +30,9 @@ def _make_signals(**kwargs) -> ProjectAnalysis:  # type: ignore[type-arg]
 
 
 def _make_plugin(name: str, description: str = "", category: str = "") -> PluginInfo:
-    return PluginInfo(name=name, repo="owner/repo", description=description, category=category)
+    return PluginInfo(
+        name=name, repo="owner/repo", description=description, category=category
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -79,7 +78,9 @@ class TestRecommendBasic:
 
     def test_recommend_enriches_descriptions(self) -> None:
         signals = _make_signals(languages=["python"])
-        available = [_make_plugin("pyright-lsp", description="Python LSP", category="lsp")]
+        available = [
+            _make_plugin("pyright-lsp", description="Python LSP", category="lsp")
+        ]
         recs = recommend(signals, available_plugins=available)
         pyright = next((r for r in recs if r.plugin_name == "pyright-lsp"), None)
         assert pyright is not None

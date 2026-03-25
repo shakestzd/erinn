@@ -23,8 +23,6 @@ import json
 import os
 from datetime import datetime, timezone
 
-import pytest
-
 from htmlgraph.atomic_ops import AtomicFileWriter
 from htmlgraph.repo_hash import RepoHash
 from htmlgraph.session_registry import SessionRegistry

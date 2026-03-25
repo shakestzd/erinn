@@ -49,6 +49,18 @@ def register_orchestrator_commands(subparsers: _SubParsersAction) -> None:
     orch_disable.add_argument(
         "--graph-dir", "-g", default=DEFAULT_GRAPH_DIR, help="Graph directory"
     )
+    orch_disable.add_argument(
+        "--for-next-task",
+        action="store_true",
+        help="Re-enable after the next user prompt (task scope)",
+    )
+    orch_disable.add_argument(
+        "--minutes",
+        type=int,
+        default=None,
+        metavar="N",
+        help="Auto-re-enable after N minutes (timed scope)",
+    )
     orch_disable.set_defaults(func=OrchestratorDisableCommand.from_args)
 
     # orchestrator status
@@ -154,7 +166,15 @@ class OrchestratorEnableCommand(BaseCommand):
 
     @classmethod
     def from_args(cls, args: argparse.Namespace) -> OrchestratorEnableCommand:
-        return cls(level=getattr(args, "level", "strict"))
+        from pydantic import ValidationError
+
+        from htmlgraph.cli.models import OrchestratorEnableArgs, format_validation_error
+
+        try:
+            model = OrchestratorEnableArgs(level=getattr(args, "level", "strict"))
+        except ValidationError as e:
+            raise CommandError(format_validation_error(e))
+        return cls(level=model.level)
 
     def execute(self) -> CommandResult:
         """Enable orchestrator mode."""
@@ -188,9 +208,33 @@ class OrchestratorEnableCommand(BaseCommand):
 class OrchestratorDisableCommand(BaseCommand):
     """Disable orchestrator mode."""
 
+    def __init__(
+        self,
+        *,
+        for_next_task: bool = False,
+        minutes: int | None = None,
+    ) -> None:
+        super().__init__()
+        self.for_next_task = for_next_task
+        self.minutes = minutes
+
     @classmethod
     def from_args(cls, args: argparse.Namespace) -> OrchestratorDisableCommand:
-        return cls()
+        from pydantic import ValidationError
+
+        from htmlgraph.cli.models import (
+            OrchestratorDisableArgs,
+            format_validation_error,
+        )
+
+        try:
+            model = OrchestratorDisableArgs(
+                for_next_task=getattr(args, "for_next_task", False),
+                minutes=getattr(args, "minutes", None),
+            )
+        except ValidationError as e:
+            raise CommandError(format_validation_error(e))
+        return cls(for_next_task=model.for_next_task, minutes=model.minutes)
 
     def execute(self) -> CommandResult:
         """Disable orchestrator mode."""
@@ -200,14 +244,42 @@ class OrchestratorDisableCommand(BaseCommand):
             raise CommandError("Missing graph directory")
 
         manager = OrchestratorModeManager(self.graph_dir)
-        manager.disable(by_user=True)
+
+        if self.for_next_task:
+            scope = "task"
+            auto_minutes = 10
+        elif self.minutes is not None:
+            scope = "timed"
+            auto_minutes = self.minutes
+        else:
+            scope = "session"
+            auto_minutes = 10
+
+        manager.disable(
+            by_user=True, scope=scope, auto_re_enable_after_minutes=auto_minutes
+        )
         status = manager.status()
 
         from htmlgraph.cli.base import TextOutputBuilder
 
         output = TextOutputBuilder()
         output.add_success("Orchestrator mode disabled")
-        output.add_field("Status", "Disabled by user (auto-activation prevented)")
+
+        if scope == "task":
+            output.add_field(
+                "Auto-re-enable",
+                "After the next user prompt (task scope)",
+            )
+        elif scope == "timed":
+            output.add_field(
+                "Auto-re-enable",
+                f"After {auto_minutes} minutes",
+            )
+        else:
+            output.add_field(
+                "Auto-re-enable",
+                f"After {auto_minutes} minutes of inactivity",
+            )
 
         return CommandResult(
             text=output.build(),

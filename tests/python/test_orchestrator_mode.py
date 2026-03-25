@@ -283,3 +283,153 @@ class TestOrchestratorModeManager:
 
         manager.enable()
         assert manager.load().disabled_by_user is False
+
+    def test_disable_records_disabled_at(self, tmp_path):
+        """Test disable records disabled_at timestamp."""
+        import time as _time
+
+        manager = OrchestratorModeManager(tmp_path / ".htmlgraph")
+        manager.enable()
+
+        before = _time.time()
+        manager.disable(by_user=True)
+        after = _time.time()
+
+        mode = manager.load()
+        assert mode.disabled_at is not None
+        assert before <= mode.disabled_at <= after
+
+    def test_disable_default_scope(self, tmp_path):
+        """Test disable with no options uses session scope."""
+        manager = OrchestratorModeManager(tmp_path / ".htmlgraph")
+        manager.enable()
+        manager.disable(by_user=True)
+
+        mode = manager.load()
+        assert mode.disable_scope == "session"
+        assert mode.auto_re_enable_after_minutes == 10
+        assert mode.disable_prompt_count == 0
+
+    def test_disable_task_scope(self, tmp_path):
+        """Test disable with task scope."""
+        manager = OrchestratorModeManager(tmp_path / ".htmlgraph")
+        manager.enable()
+        manager.disable(by_user=True, scope="task")
+
+        mode = manager.load()
+        assert mode.disable_scope == "task"
+
+    def test_disable_timed_scope(self, tmp_path):
+        """Test disable with timed scope and custom minutes."""
+        manager = OrchestratorModeManager(tmp_path / ".htmlgraph")
+        manager.enable()
+        manager.disable(by_user=True, scope="timed", auto_re_enable_after_minutes=5)
+
+        mode = manager.load()
+        assert mode.disable_scope == "timed"
+        assert mode.auto_re_enable_after_minutes == 5
+
+    def test_enable_clears_disable_tracking_fields(self, tmp_path):
+        """Test enable clears disabled_at and related fields."""
+        manager = OrchestratorModeManager(tmp_path / ".htmlgraph")
+        manager.enable()
+        manager.disable(by_user=True, scope="timed", auto_re_enable_after_minutes=5)
+
+        manager.enable()
+        mode = manager.load()
+        assert mode.disabled_at is None
+        assert mode.disable_scope == "session"
+        assert mode.disable_prompt_count == 0
+
+    def test_increment_prompt_count_when_disabled(self, tmp_path):
+        """Test increment_prompt_count increments when disabled by user."""
+        manager = OrchestratorModeManager(tmp_path / ".htmlgraph")
+        manager.enable()
+        manager.disable(by_user=True)
+
+        manager.increment_prompt_count()
+        manager.increment_prompt_count()
+
+        mode = manager.load()
+        assert mode.disable_prompt_count == 2
+
+    def test_increment_prompt_count_no_op_when_enabled(self, tmp_path):
+        """Test increment_prompt_count is no-op when orchestrator is enabled."""
+        manager = OrchestratorModeManager(tmp_path / ".htmlgraph")
+        manager.enable()
+
+        manager.increment_prompt_count()
+
+        mode = manager.load()
+        assert mode.disable_prompt_count == 0
+
+    def test_check_auto_re_enable_already_enabled(self, tmp_path):
+        """Test check_auto_re_enable returns False when already enabled."""
+        manager = OrchestratorModeManager(tmp_path / ".htmlgraph")
+        manager.enable()
+
+        re_enabled, reason = manager.check_auto_re_enable()
+        assert re_enabled is False
+        assert reason == "already_enabled"
+
+    def test_check_auto_re_enable_task_scope(self, tmp_path):
+        """Test task scope re-enables after 1 prompt."""
+        manager = OrchestratorModeManager(tmp_path / ".htmlgraph")
+        manager.enable()
+        manager.disable(by_user=True, scope="task")
+
+        # Not yet — prompt count is 0
+        re_enabled, reason = manager.check_auto_re_enable()
+        assert re_enabled is False
+        assert reason == "still_disabled"
+
+        # Increment to 1
+        manager.increment_prompt_count()
+        re_enabled, reason = manager.check_auto_re_enable()
+        assert re_enabled is True
+        assert reason == "task_scope_complete"
+        assert manager.load().enabled is True
+
+    def test_check_auto_re_enable_timeout(self, tmp_path):
+        """Test timed scope re-enables after timeout."""
+        import time as _time
+
+        manager = OrchestratorModeManager(tmp_path / ".htmlgraph")
+        manager.enable()
+        manager.disable(by_user=True, scope="timed", auto_re_enable_after_minutes=0)
+
+        # Simulate time passing by setting disabled_at to past
+        mode = manager.load()
+        mode.disabled_at = _time.time() - 61  # 61 seconds ago (>0 minutes)
+        manager.save(mode)
+
+        re_enabled, reason = manager.check_auto_re_enable()
+        assert re_enabled is True
+        assert "timeout" in reason
+        assert manager.load().enabled is True
+
+    def test_check_auto_re_enable_still_disabled_within_timeout(self, tmp_path):
+        """Test timed scope does not re-enable before timeout."""
+        manager = OrchestratorModeManager(tmp_path / ".htmlgraph")
+        manager.enable()
+        manager.disable(by_user=True, scope="timed", auto_re_enable_after_minutes=60)
+
+        re_enabled, reason = manager.check_auto_re_enable()
+        assert re_enabled is False
+        assert reason == "still_disabled"
+
+    def test_from_dict_backward_compat_missing_new_fields(self):
+        """Test from_dict deserializes old JSON files without new fields."""
+        # Old JSON without new disable-tracking fields
+        old_data = {
+            "enabled": False,
+            "disabled_by_user": True,
+            "violations": 0,
+            "circuit_breaker_triggered": False,
+            "violation_history": [],
+        }
+        mode = OrchestratorMode.from_dict(old_data)
+        assert mode.disabled_at is None
+        assert mode.disable_scope == "session"
+        assert mode.disable_prompt_count == 0
+        assert mode.auto_re_enable_after_minutes == 10

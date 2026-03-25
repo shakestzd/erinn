@@ -12,7 +12,6 @@ import re
 import sqlite3
 from pathlib import Path
 
-
 DB_PATH = Path(".htmlgraph/htmlgraph.db")
 
 # Matches a UUID anywhere in a string
@@ -30,8 +29,12 @@ def sanitize_summary(text: str, max_len: int = 200) -> str:
     t = text.strip()
 
     # Strip complete XML blocks
-    t = re.sub(r"<task-notification>[\s\S]*?</task-notification>", "", t, flags=re.IGNORECASE)
-    t = re.sub(r"<system-reminder>[\s\S]*?</system-reminder>", "", t, flags=re.IGNORECASE)
+    t = re.sub(
+        r"<task-notification>[\s\S]*?</task-notification>", "", t, flags=re.IGNORECASE
+    )
+    t = re.sub(
+        r"<system-reminder>[\s\S]*?</system-reminder>", "", t, flags=re.IGNORECASE
+    )
     t = re.sub(r"<[a-zA-Z_-]+>[\s\S]*?</[a-zA-Z_-]+>", "", t, flags=re.IGNORECASE)
 
     # Strip unclosed/truncated <task-notification> blocks
@@ -55,7 +58,9 @@ def normalize_session_ids(conn: sqlite3.Connection) -> int:
     cursor = conn.cursor()
 
     for table in ("agent_events", "sessions"):
-        cursor.execute(f"SELECT DISTINCT session_id FROM {table} WHERE session_id LIKE '%/%'")
+        cursor.execute(
+            f"SELECT DISTINCT session_id FROM {table} WHERE session_id LIKE '%/%'"
+        )
         path_ids = cursor.fetchall()
         if path_ids:
             print(f"Found {len(path_ids)} path-format session_ids in {table}")
@@ -120,7 +125,9 @@ def main() -> None:
         summary_fixed = normalize_user_query_summaries(conn)
 
         conn.commit()
-        print(f"\nDone! Fixed {sid_fixed} session_id rows, {summary_fixed} input_summary rows.")
+        print(
+            f"\nDone! Fixed {sid_fixed} session_id rows, {summary_fixed} input_summary rows."
+        )
 
     finally:
         conn.close()

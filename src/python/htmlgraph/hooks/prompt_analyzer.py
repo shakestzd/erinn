@@ -455,6 +455,7 @@ def invalidate_work_items_cache(db_path: str | Path | None = None) -> None:
 def _build_attribution_block(
     active_work: dict[str, Any] | None,
     open_work_items: list[dict] | None,
+    graph_dir: Path | None = None,
 ) -> str | None:
     """Build a compact Work Item Attribution block for per-turn injection.
 
@@ -464,6 +465,7 @@ def _build_attribution_block(
     Args:
         active_work: Currently active work item dict (id, title, type) or None
         open_work_items: List of open work item dicts from get_open_work_items()
+        graph_dir: Path to .htmlgraph directory (for orchestrator status check)
 
     Returns:
         Compact attribution string, or None if no open items and no active work
@@ -502,11 +504,38 @@ def _build_attribution_block(
     if remaining > 0:
         items_str += f" +{remaining} more"
 
-    return (
+    # Check orchestrator disabled status for inline warning
+    orch_status = _get_orchestrator_status_line(graph_dir)
+
+    block = (
         f"ACTIVE: {active_str}\n"
         f"OPEN: {items_str}\n"
         "Call sdk.*.start(id) before any tool calls."
     )
+    if orch_status:
+        block = f"{orch_status}\n{block}"
+    return block
+
+
+def _get_orchestrator_status_line(graph_dir: Path | None) -> str | None:
+    """Return a one-line warning if orchestrator mode is disabled, else None."""
+    try:
+        from htmlgraph.orchestrator_mode import OrchestratorModeManager
+
+        manager = OrchestratorModeManager(graph_dir)
+        mode = manager.load()
+        if not mode.enabled and mode.disabled_by_user:
+            elapsed = ""
+            if mode.disabled_at is not None:
+                mins = int((time.time() - mode.disabled_at) / 60)
+                elapsed = f" ({mins}m ago)"
+            return (
+                f"WARNING: ORCHESTRATOR disabled{elapsed}"
+                " — re-enable: `uv run htmlgraph orchestrator enable`"
+            )
+    except Exception:
+        pass
+    return None
 
 
 def generate_guidance(
@@ -515,6 +544,7 @@ def generate_guidance(
     prompt: str,
     open_work_items: list[dict] | None = None,
     active_wisps: list[dict] | None = None,
+    graph_dir: Path | None = None,
 ) -> str | None:
     """
     Generate workflow guidance based on classification and context.
@@ -552,7 +582,7 @@ def generate_guidance(
         parts = [guidance]
         if active_step_line:
             parts.append(active_step_line)
-        block = _build_attribution_block(active_work, open_work_items)
+        block = _build_attribution_block(active_work, open_work_items, graph_dir)
         if block:
             parts.append(block)
         return "\n\n".join(parts) if len(parts) > 1 else parts[0]
@@ -562,7 +592,7 @@ def generate_guidance(
         parts: list[str] = []
         if active_step_line:
             parts.append(active_step_line)
-        block = _build_attribution_block(active_work, open_work_items)
+        block = _build_attribution_block(active_work, open_work_items, graph_dir)
         if block:
             parts.append(block)
         return "\n\n".join(parts) if parts else None
@@ -628,7 +658,7 @@ def generate_guidance(
         step_block_parts: list[str] = []
         if active_step_line:
             step_block_parts.append(active_step_line)
-        block = _build_attribution_block(active_work, open_work_items)
+        block = _build_attribution_block(active_work, open_work_items, graph_dir)
         if block:
             step_block_parts.append(block)
         return "\n\n".join(step_block_parts) if step_block_parts else None
@@ -682,13 +712,15 @@ def generate_guidance(
             "- Bug: sdk.bugs.create('Title').save()\n"
             "- Spike: sdk.spikes.create('Title').save()\n"
         )
-        attribution_block = _build_attribution_block(active_work, open_work_items)
+        attribution_block = _build_attribution_block(
+            active_work, open_work_items, graph_dir
+        )
         if attribution_block:
             return f"{base_guidance}\n\n{attribution_block}"
         return base_guidance
 
     # No specific guidance — but still inject attribution block if present
-    return _build_attribution_block(active_work, open_work_items)
+    return _build_attribution_block(active_work, open_work_items, graph_dir)
 
 
 def detect_wip_limit_hit(prompt: str) -> bool:

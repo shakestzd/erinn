@@ -1,5 +1,5 @@
 """Tests for agent name normalization."""
-import pytest
+
 from htmlgraph.sdk import normalize_agent_name
 
 

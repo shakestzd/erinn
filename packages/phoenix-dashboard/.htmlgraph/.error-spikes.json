@@ -8,5 +8,15 @@
     "spike_id": "spk-6cd9eab2",
     "created": "2026-03-20T21:29:30.231168",
     "occurrences": 3
+  },
+  "Bash:Exit code 128\nwarning: could not open directory 'packages/phoenix-dashboard/packages/phoenix-dashboa": {
+    "spike_id": "spk-11375aa4",
+    "created": "2026-03-23T19:39:57.252891",
+    "occurrences": 3
+  },
+  "Bash:Exit code 128": {
+    "spike_id": "spk-3d5bf373",
+    "created": "2026-03-24T09:10:49.468210",
+    "occurrences": 6
   }
 }

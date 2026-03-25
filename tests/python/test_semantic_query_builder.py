@@ -2,9 +2,7 @@
 
 from __future__ import annotations
 
-import pytest
-
-from htmlgraph.sdk.query_builder import QueryFilter, SemanticQuery, SemanticQueryBuilder
+from htmlgraph.sdk.query_builder import SemanticQuery, SemanticQueryBuilder
 
 
 class MockSDK:
@@ -36,7 +34,9 @@ class TestQueryBuilderFluent:
     def test_with_tag_filter(self) -> None:
         qb = SemanticQueryBuilder(MockSDK())
         query = qb.features().with_tag("backend").build()
-        assert any(f.field == "tags" and f.operator == "contains" for f in query.filters)
+        assert any(
+            f.field == "tags" and f.operator == "contains" for f in query.filters
+        )
 
     def test_created_before_filter(self) -> None:
         qb = SemanticQueryBuilder(MockSDK())
@@ -46,20 +46,30 @@ class TestQueryBuilderFluent:
     def test_where_track_filter(self) -> None:
         qb = SemanticQueryBuilder(MockSDK())
         query = qb.features().where_track("trk-abc123").build()
-        assert any(f.field == "track_id" and f.operator == "eq" and f.value == "trk-abc123" for f in query.filters)
+        assert any(
+            f.field == "track_id" and f.operator == "eq" and f.value == "trk-abc123"
+            for f in query.filters
+        )
 
     def test_where_generic_filter(self) -> None:
         qb = SemanticQueryBuilder(MockSDK())
         query = qb.features().where("agent_assigned", "eq", "claude").build()
-        assert any(f.field == "agent_assigned" and f.operator == "eq" for f in query.filters)
+        assert any(
+            f.field == "agent_assigned" and f.operator == "eq" for f in query.filters
+        )
 
     def test_status_shorthands(self) -> None:
-        for method, expected_status in [("active", "in-progress"), ("todo", "todo"), ("done", "done")]:
+        for method, expected_status in [
+            ("active", "in-progress"),
+            ("todo", "todo"),
+            ("done", "done"),
+        ]:
             qb = SemanticQueryBuilder(MockSDK())
             query = getattr(qb.features(), method)().build()
-            assert any(f.field == "status" and f.value == expected_status for f in query.filters), (
-                f"{method}() should produce status={expected_status!r}"
-            )
+            assert any(
+                f.field == "status" and f.value == expected_status
+                for f in query.filters
+            ), f"{method}() should produce status={expected_status!r}"
 
     def test_build_returns_semantic_query(self) -> None:
         qb = SemanticQueryBuilder(MockSDK())
@@ -164,7 +174,9 @@ class TestQueryBuilderExecution:
             self._make_node(created="2026-02-01"),
         ]
         sdk = self._make_sdk(nodes)
-        results = SemanticQueryBuilder(sdk).features().created_after("2026-03-01").execute()
+        results = (
+            SemanticQueryBuilder(sdk).features().created_after("2026-03-01").execute()
+        )
         assert len(results) == 1
         assert results[0].created == "2026-03-10"
 
@@ -174,7 +186,9 @@ class TestQueryBuilderExecution:
             self._make_node(created="2026-06-01"),
         ]
         sdk = self._make_sdk(nodes)
-        results = SemanticQueryBuilder(sdk).features().created_before("2026-03-01").execute()
+        results = (
+            SemanticQueryBuilder(sdk).features().created_before("2026-03-01").execute()
+        )
         assert len(results) == 1
         assert results[0].created == "2026-01-01"
 
@@ -194,13 +208,17 @@ class TestQueryBuilderExecution:
     def test_execute_sort_desc(self) -> None:
         nodes = [self._make_node(created="2026-01-0" + str(i)) for i in range(1, 4)]
         sdk = self._make_sdk(nodes)
-        results = SemanticQueryBuilder(sdk).features().sort_by("created", "desc").execute()
+        results = (
+            SemanticQueryBuilder(sdk).features().sort_by("created", "desc").execute()
+        )
         assert results[0].created > results[-1].created
 
     def test_execute_sort_asc(self) -> None:
         nodes = [self._make_node(created="2026-01-0" + str(i)) for i in [3, 1, 2]]
         sdk = self._make_sdk(nodes)
-        results = SemanticQueryBuilder(sdk).features().sort_by("created", "asc").execute()
+        results = (
+            SemanticQueryBuilder(sdk).features().sort_by("created", "asc").execute()
+        )
         assert results[0].created < results[-1].created
 
     def test_count(self) -> None:

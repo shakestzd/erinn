@@ -708,6 +708,57 @@ class SnapshotArgs(BaseModel):
     my_work: bool = Field(default=False, description="Show items for current agent")
 
 
+class FeatureIdArgs(BaseModel):
+    """Pydantic model for feature commands that take an ID argument.
+
+    Used by: feature start, feature complete, feature claim, feature release,
+    feature atomic-claim, feature atomic-unclaim, feature primary.
+
+    Attributes:
+        feature_id: Feature ID (required, non-empty)
+        collection: Collection name (default: features)
+    """
+
+    feature_id: str = Field(..., min_length=1, description="Feature ID")
+    collection: str = Field(default="features", description="Collection name")
+
+    @field_validator("feature_id")
+    @classmethod
+    def validate_feature_id(cls, v: str) -> str:
+        """Validate feature ID is not empty or whitespace only."""
+        if not v.strip():
+            raise ValueError("Feature ID cannot be empty or whitespace only")
+        return v.strip()
+
+
+class OrchestratorEnableArgs(BaseModel):
+    """Pydantic model for 'orchestrator enable' CLI arguments.
+
+    Attributes:
+        level: Enforcement level (strict or guidance)
+    """
+
+    level: Literal["strict", "guidance"] = Field(
+        default="strict", description="Enforcement level"
+    )
+
+
+class OrchestratorDisableArgs(BaseModel):
+    """Pydantic model for 'orchestrator disable' CLI arguments.
+
+    Attributes:
+        for_next_task: Re-enable after the next user prompt
+        minutes: Auto-re-enable after N minutes
+    """
+
+    for_next_task: bool = Field(
+        default=False, description="Re-enable after the next user prompt (task scope)"
+    )
+    minutes: int | None = Field(
+        default=None, ge=1, description="Auto-re-enable after N minutes"
+    )
+
+
 def validate_args(model: type[T], args: Any) -> T:
     """Convert argparse Namespace to validated Pydantic model.
 

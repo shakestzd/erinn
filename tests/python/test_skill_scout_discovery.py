@@ -12,15 +12,12 @@ import time
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-import pytest
-
 from htmlgraph.skill_scout.github_search import (
     PluginInfo,
     _normalize_gh_cli_result,
     discover_plugins,
 )
 from htmlgraph.skill_scout.plugin_index import PluginIndex, _score_plugin
-
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -168,6 +165,7 @@ def test_plugin_index_cache_stale_after_ttl(tmp_path: Path) -> None:
     # Back-date the file by TTL + 1 second
     old_time = time.time() - 86401
     import os
+
     os.utime(cache_file, (old_time, old_time))
 
     idx = PluginIndex(cache_dir=tmp_path)
@@ -208,10 +206,12 @@ def test_plugin_index_load_returns_empty_when_missing(tmp_path: Path) -> None:
 def test_plugin_index_search_matches_name(tmp_path: Path) -> None:
     """Search matches on plugin name."""
     idx = PluginIndex(cache_dir=tmp_path)
-    idx._save([
-        _make_plugin(name="git-helper", repo="o/git-helper", description=""),
-        _make_plugin(name="unrelated", repo="o/unrelated", description=""),
-    ])
+    idx._save(
+        [
+            _make_plugin(name="git-helper", repo="o/git-helper", description=""),
+            _make_plugin(name="unrelated", repo="o/unrelated", description=""),
+        ]
+    )
     results = idx.search("git")
     assert len(results) == 1
     assert results[0].name == "git-helper"
@@ -220,10 +220,12 @@ def test_plugin_index_search_matches_name(tmp_path: Path) -> None:
 def test_plugin_index_search_matches_description(tmp_path: Path) -> None:
     """Search matches on plugin description."""
     idx = PluginIndex(cache_dir=tmp_path)
-    idx._save([
-        _make_plugin(name="x", repo="o/x", description="automates deployment"),
-        _make_plugin(name="y", repo="o/y", description="something else"),
-    ])
+    idx._save(
+        [
+            _make_plugin(name="x", repo="o/x", description="automates deployment"),
+            _make_plugin(name="y", repo="o/y", description="something else"),
+        ]
+    )
     results = idx.search("deploy")
     assert len(results) == 1
     assert results[0].name == "x"
@@ -232,10 +234,12 @@ def test_plugin_index_search_matches_description(tmp_path: Path) -> None:
 def test_plugin_index_search_matches_keywords(tmp_path: Path) -> None:
     """Search matches on plugin keywords."""
     idx = PluginIndex(cache_dir=tmp_path)
-    idx._save([
-        _make_plugin(name="a", repo="o/a", keywords=["testing", "jest"]),
-        _make_plugin(name="b", repo="o/b", keywords=["linting"]),
-    ])
+    idx._save(
+        [
+            _make_plugin(name="a", repo="o/a", keywords=["testing", "jest"]),
+            _make_plugin(name="b", repo="o/b", keywords=["linting"]),
+        ]
+    )
     results = idx.search("jest")
     assert len(results) == 1
     assert results[0].name == "a"
@@ -244,10 +248,14 @@ def test_plugin_index_search_matches_keywords(tmp_path: Path) -> None:
 def test_plugin_index_search_ranks_name_highest(tmp_path: Path) -> None:
     """Name matches score higher than description matches."""
     idx = PluginIndex(cache_dir=tmp_path)
-    idx._save([
-        _make_plugin(name="other", repo="o/other", description="has deploy in desc"),
-        _make_plugin(name="deploy-tool", repo="o/deploy-tool", description=""),
-    ])
+    idx._save(
+        [
+            _make_plugin(
+                name="other", repo="o/other", description="has deploy in desc"
+            ),
+            _make_plugin(name="deploy-tool", repo="o/deploy-tool", description=""),
+        ]
+    )
     results = idx.search("deploy")
     # deploy-tool (name match, score 10) should come before other (desc match, score 5)
     assert results[0].name == "deploy-tool"

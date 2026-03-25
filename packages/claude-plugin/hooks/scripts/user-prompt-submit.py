@@ -79,6 +79,23 @@ def main() -> None:
         # to the currently active feature/bug/spike (via fallback logic in _get_active_feature_id)
         create_user_query_event(context, prompt)
 
+        # 0b. Auto-re-enable orchestrator if timeout/scope has expired
+        auto_re_enable_note = None
+        try:
+            from pathlib import Path
+
+            from htmlgraph.orchestrator_mode import OrchestratorModeManager
+
+            _orch_manager = OrchestratorModeManager(Path(context.graph_dir))
+            _orch_manager.increment_prompt_count()
+            _re_enabled, _reason = _orch_manager.check_auto_re_enable()
+            if _re_enabled:
+                auto_re_enable_note = (
+                    f"INFO: Orchestrator mode auto-re-enabled (reason: {_reason})"
+                )
+        except Exception:
+            pass
+
         # 1. Classify the prompt (SDK)
         classification = classify_prompt(prompt)
 
@@ -97,8 +114,14 @@ def main() -> None:
         # 5. Generate workflow guidance (SDK) — compact attribution block only.
         # Static delegation imperatives live in the system prompt; per-turn
         # injection is the compact attribution block (~60 tokens) only.
+        from pathlib import Path as _Path
+
         workflow_guidance = generate_guidance(
-            classification, active_work, prompt, open_work_items=open_items
+            classification,
+            active_work,
+            prompt,
+            open_work_items=open_items,
+            graph_dir=_Path(context.graph_dir),
         )
 
         # 6. CIGS imperative guidance suppressed per-turn: static rules are now
@@ -108,6 +131,9 @@ def main() -> None:
 
         # 7. Assemble combined guidance (attribution block only)
         combined_guidance = []
+
+        if auto_re_enable_note:
+            combined_guidance.append(auto_re_enable_note)
 
         if workflow_guidance:
             combined_guidance.append(workflow_guidance)

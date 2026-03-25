@@ -6,6 +6,7 @@ State is persisted in .htmlgraph/orchestrator-mode.json
 """
 
 import json
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Literal
@@ -51,6 +52,18 @@ class OrchestratorMode(BaseModel):
     violation_history: list[dict[str, Any]] = []
     """Full history of violations with timestamps for time-based decay."""
 
+    disabled_at: float | None = None
+    """Unix timestamp when orchestrator was disabled (for auto-re-enable timeout)."""
+
+    disable_scope: str = "session"
+    """Scope of the disable: 'session', 'task', or 'timed'."""
+
+    disable_prompt_count: int = 0
+    """Number of prompts received since disable (used for task-scoped re-enable)."""
+
+    auto_re_enable_after_minutes: int = 10
+    """Minutes of inactivity before auto-re-enable (for timed/session scopes)."""
+
     def to_dict(self) -> dict[str, Any]:
         """Convert to dict for JSON serialization."""
         return {
@@ -68,6 +81,10 @@ class OrchestratorMode(BaseModel):
             ),
             "circuit_breaker_triggered": self.circuit_breaker_triggered,
             "violation_history": self.violation_history,
+            "disabled_at": self.disabled_at,
+            "disable_scope": self.disable_scope,
+            "disable_prompt_count": self.disable_prompt_count,
+            "auto_re_enable_after_minutes": self.auto_re_enable_after_minutes,
         }
 
     @classmethod
@@ -98,6 +115,10 @@ class OrchestratorMode(BaseModel):
             last_violation_at=last_violation_at,
             circuit_breaker_triggered=data.get("circuit_breaker_triggered", False),
             violation_history=data.get("violation_history", []),
+            disabled_at=data.get("disabled_at"),
+            disable_scope=data.get("disable_scope", "session"),
+            disable_prompt_count=data.get("disable_prompt_count", 0),
+            auto_re_enable_after_minutes=data.get("auto_re_enable_after_minutes", 10),
         )
 
 
@@ -183,15 +204,26 @@ class OrchestratorModeManager:
         mode.enforcement_level = level
         mode.auto_activated = auto
         mode.disabled_by_user = False
+        mode.disabled_at = None
+        mode.disable_scope = "session"
+        mode.disable_prompt_count = 0
         self.save(mode)
         return mode
 
-    def disable(self, by_user: bool = False) -> OrchestratorMode:
+    def disable(
+        self,
+        by_user: bool = False,
+        scope: str = "session",
+        auto_re_enable_after_minutes: int = 10,
+    ) -> OrchestratorMode:
         """
         Disable orchestrator mode.
 
         Args:
             by_user: Whether user explicitly disabled (prevents auto-reactivation)
+            scope: Disable scope — 'session', 'task', or 'timed'
+            auto_re_enable_after_minutes: Minutes before auto-re-enable (for
+                'timed' and 'session' scopes)
 
         Returns:
             Updated OrchestratorMode
@@ -200,6 +232,10 @@ class OrchestratorModeManager:
         mode.enabled = False
         if by_user:
             mode.disabled_by_user = True
+        mode.disabled_at = time.time()
+        mode.disable_scope = scope
+        mode.disable_prompt_count = 0
+        mode.auto_re_enable_after_minutes = auto_re_enable_after_minutes
         self.save(mode)
         return mode
 
@@ -303,6 +339,37 @@ class OrchestratorModeManager:
         mode.violation_history = []
         self.save(mode)
         return mode
+
+    def increment_prompt_count(self) -> None:
+        """Increment the prompt counter since orchestrator was disabled."""
+        mode = self.load()
+        if not mode.enabled and mode.disabled_by_user:
+            mode.disable_prompt_count += 1
+            self.save(mode)
+
+    def check_auto_re_enable(self) -> tuple[bool, str]:
+        """Check if orchestrator should auto-re-enable.
+
+        Returns:
+            Tuple of (re_enabled, reason) where re_enabled is True if the
+            orchestrator was re-enabled, and reason describes why.
+        """
+        mode = self.load()
+        if mode.enabled or not mode.disabled_by_user:
+            return False, "already_enabled"
+
+        if mode.disable_scope == "task":
+            if mode.disable_prompt_count >= 1:
+                self.enable(auto=True)
+                return True, "task_scope_complete"
+
+        if mode.disabled_at is not None:
+            elapsed_minutes = (time.time() - mode.disabled_at) / 60
+            if elapsed_minutes >= mode.auto_re_enable_after_minutes:
+                self.enable(auto=True)
+                return True, f"timeout_{int(elapsed_minutes)}m"
+
+        return False, "still_disabled"
 
     def is_circuit_breaker_triggered(self) -> bool:
         """

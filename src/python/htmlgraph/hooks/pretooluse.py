@@ -1140,6 +1140,30 @@ async def pretooluse_hook(tool_input: dict[str, Any]) -> dict[str, Any]:
     """
     # SAFETY NET: Never block essential tools or MCP tools
     tool_name = tool_input.get("name", "") or tool_input.get("tool_name", "")
+
+    # Recovery escape hatch: always allow orchestrator management commands
+    if tool_name == "Bash":
+        _cmd = (tool_input.get("input", {}) or tool_input.get("tool_input", {})).get(
+            "command", ""
+        )
+        if "htmlgraph orchestrator" in _cmd:
+            event_tracing_response = await run_event_tracing(tool_input)
+            _recovery_response: dict[str, Any] = {
+                "hookSpecificOutput": {
+                    "hookEventName": "PreToolUse",
+                    "permissionDecision": "allow",
+                }
+            }
+            if "hookSpecificOutput" in event_tracing_response:
+                _tool_use_id = event_tracing_response["hookSpecificOutput"].get(
+                    "tool_use_id"
+                )
+                if _tool_use_id:
+                    _recovery_response["hookSpecificOutput"]["tool_use_id"] = (
+                        _tool_use_id
+                    )
+            return _recovery_response
+
     if tool_name in NEVER_BLOCK_TOOLS or "__" in tool_name:  # "__" indicates MCP tools
         # Still run event tracing for hierarchy tracking (especially Task delegation)
         # but skip orchestrator/validator checks
@@ -1258,13 +1282,42 @@ async def pretooluse_hook(tool_input: dict[str, Any]) -> dict[str, Any]:
                 combined_guidance
             )
 
-    # FINAL SAFETY NET: Strip any "deny" decisions and convert to guidance
-    # This ensures no tool calls are ever blocked, only guided
+    # SAFETY NET: Only strip "deny" in non-strict orchestrator mode.
+    # In strict mode, targeted deny decisions are preserved so that git-write
+    # and implementation tools can actually be blocked with actionable guidance.
     if response.get("hookSpecificOutput", {}).get("permissionDecision") == "deny":
-        reason = response["hookSpecificOutput"].get("permissionDecisionReason", "")
-        response["hookSpecificOutput"]["permissionDecision"] = "allow"
-        if reason:
-            response["hookSpecificOutput"]["additionalContext"] = f"[Guidance] {reason}"
+        _should_strip_deny = True
+        try:
+            from htmlgraph.orchestrator_mode import OrchestratorModeManager
+
+            _cwd = Path.cwd()
+            _graph_dir = _cwd / ".htmlgraph"
+            if not _graph_dir.exists():
+                for _parent in [
+                    _cwd.parent,
+                    _cwd.parent.parent,
+                    _cwd.parent.parent.parent,
+                ]:
+                    _candidate = _parent / ".htmlgraph"
+                    if _candidate.exists():
+                        _graph_dir = _candidate
+                        break
+            _mgr = OrchestratorModeManager(_graph_dir)
+            _mode = _mgr.load()
+            if _mode.enabled and _mode.enforcement_level == "strict":
+                # Strict mode — honour the deny so targeted blocking works
+                _should_strip_deny = False
+        except Exception:
+            # Cannot determine mode — be safe and allow
+            pass
+
+        if _should_strip_deny:
+            reason = response["hookSpecificOutput"].get("permissionDecisionReason", "")
+            response["hookSpecificOutput"]["permissionDecision"] = "allow"
+            if reason:
+                response["hookSpecificOutput"]["additionalContext"] = (
+                    f"[Guidance] {reason}"
+                )
 
     return response
 

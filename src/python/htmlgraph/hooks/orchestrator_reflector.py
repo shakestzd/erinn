@@ -54,7 +54,7 @@ PYTHON_EXECUTION_PATTERNS = [
 ]
 
 # Commands to exclude from detection
-EXCLUDED_COMMAND_PREFIXES = ("git ", " git ", "ls ", "cat ", "grep ", "find ")
+EXCLUDED_COMMAND_PREFIXES = ("ls ", "cat ", "grep ", "find ")
 
 
 def is_python_execution(command: str) -> bool:
@@ -69,7 +69,7 @@ def is_python_execution(command: str) -> bool:
     - python -m <module>
 
     Excludes:
-    - git commands (even if they mention python)
+    - simple file operations (ls, cat, grep, find)
     - simple tool calls that happen to have "python" in path
 
     Args:
@@ -80,10 +80,6 @@ def is_python_execution(command: str) -> bool:
     """
     # Normalize command
     cmd = command.strip().lower()
-
-    # Exclude git commands entirely
-    if cmd.startswith("git ") or " git " in cmd:
-        return False
 
     # Exclude simple file operations
     if cmd.startswith(EXCLUDED_COMMAND_PREFIXES):

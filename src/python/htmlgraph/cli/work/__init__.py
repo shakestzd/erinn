@@ -24,6 +24,7 @@ def register_commands(subparsers: _SubParsersAction) -> None:
         subparsers: Subparser action from ArgumentParser.add_subparsers()
     """
     from htmlgraph.cli.work.browse import BrowseCommand
+    from htmlgraph.cli.work.diagnose import register_diagnose_commands
     from htmlgraph.cli.work.features import register_feature_commands
     from htmlgraph.cli.work.graph import register_graph_commands
     from htmlgraph.cli.work.ingest import register_ingest_commands
@@ -47,6 +48,7 @@ def register_commands(subparsers: _SubParsersAction) -> None:
     register_report_commands(subparsers)
     register_wip_commands(subparsers)
     register_ingest_commands(subparsers)
+    register_diagnose_commands(subparsers)
 
     # Snapshot command
     snapshot_parser = subparsers.add_parser(
@@ -161,10 +163,13 @@ from htmlgraph.cli.work.tracks import (
     TrackPlanCommand,
     TrackSpecCommand,
 )
+from htmlgraph.cli.work.diagnose import DiagnoseCommand
 from htmlgraph.cli.work.wip import WipResetCommand, WipShowCommand
 
 __all__ = [
     "register_commands",
+    # Diagnose command
+    "DiagnoseCommand",
     # Ingest commands
     "IngestSessionCommand",
     "IngestClaudeCodeCommand",

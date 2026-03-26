@@ -216,12 +216,23 @@ def is_allowed_orchestrator_operation(
         if command.startswith("uv run htmlgraph ") or command.startswith("htmlgraph "):
             return True, "", "sdk-command"
 
-        # Allow git read-only commands using shared classification
+        # Allow git read-only commands; deny git write with delegation guidance
         if command.strip().startswith("git"):
-            from htmlgraph.hooks.git_commands import should_allow_git_command
+            from htmlgraph.hooks.git_commands import (
+                get_git_delegation_reason,
+                should_allow_git_command,
+            )
 
             if should_allow_git_command(command):
                 return True, "", "git-readonly"
+            else:
+                reason = get_git_delegation_reason(command)
+                return (
+                    False,
+                    f"{reason}. Use Skill('htmlgraph:copilot') or "
+                    "Agent(subagent_type='htmlgraph:sonnet-coder') instead.",
+                    "git-write-violation",
+                )
 
         # Allow SDK inline usage (Python inline with htmlgraph import)
         if "from htmlgraph import" in command or "import htmlgraph" in command:

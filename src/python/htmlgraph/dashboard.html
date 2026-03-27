@@ -740,6 +740,7 @@ class HgEventTree extends HTMLElement {
   constructor() {
     super();
     this.turns = [];
+    this.featureTitles = {}; // {id: title} cache
     this.expanded = new Set(JSON.parse(localStorage.getItem('hg-expanded') || '[]'));
   }
 
@@ -780,8 +781,36 @@ class HgEventTree extends HTMLElement {
     } catch(e) {
       this.turns = [];
     }
+    // Batch-fetch feature titles for all feature_ids in the tree
+    await this.loadFeatureTitles();
     this.updateCount();
     this.render();
+  }
+
+  async loadFeatureTitles() {
+    var ids = new Set();
+    this.turns.forEach(function collectIds(t) {
+      if (t.user_query && t.user_query.feature_id) ids.add(t.user_query.feature_id);
+      (t.children || []).forEach(function walk(c) {
+        if (c.feature_id) ids.add(c.feature_id);
+        (c.children || []).forEach(walk);
+      });
+    });
+    if (ids.size === 0) return;
+    try {
+      var resp = await fetch('/api/features');
+      if (!resp.ok) return;
+      var features = await resp.json();
+      var self = this;
+      features.forEach(function(f) { if (ids.has(f.id)) self.featureTitles[f.id] = f.title; });
+    } catch(e) { /* non-fatal */ }
+  }
+
+  featureBadge(featureId) {
+    if (!featureId) return '';
+    var title = this.featureTitles[featureId];
+    var label = title ? (title.length > 25 ? title.substring(0, 22) + '...' : title) : featureId;
+    return '<span class="badge badge-feature" title="' + esc(featureId) + '">' + esc(label) + '</span>';
   }
 
   updateCount() {
@@ -836,16 +865,14 @@ class HgEventTree extends HTMLElement {
     var s = turn.stats || {};
     var statsHtml = '<span class="turn-stats">' + (s.tool_count || 0) + ' tools' + (s.error_count ? ', ' + s.error_count + ' errors' : '') + '</span>';
 
-    var featureBadge = uq.feature_id
-      ? '<span class="badge badge-feature">' + esc(uq.feature_id) + '</span>'
-      : '';
+    var featureBdg = this.featureBadge(uq.feature_id);
 
     var html = '<div class="turn-group">'
       + '<div class="event-row depth-0 user-query-row" data-event-id="' + esc(uq.event_id) + '">'
       + expandIcon
       + '<span class="event-time">' + formatTime(uq.timestamp) + '</span>'
       + '<span class="event-summary">' + esc(uq.input_summary || '') + '</span>'
-      + featureBadge
+      + featureBdg
       + statsHtml
       + '</div>';
 
@@ -889,6 +916,7 @@ class HgEventTree extends HTMLElement {
       + '<span class="tool-chip tool-' + esc(evt.tool_name) + '">' + esc(evt.tool_name) + '</span>'
       + subagentBadge
       + '<span class="event-summary">' + esc(evt.input_summary || evt.output_summary || '') + '</span>'
+      + this.featureBadge(evt.feature_id)
       + statusBdg
       + '</div>';
 

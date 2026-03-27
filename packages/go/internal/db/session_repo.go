@@ -77,6 +77,67 @@ func UpdateSessionStatus(db *sql.DB, sessionID, status string) error {
 	return err
 }
 
+// ListSessions returns sessions ordered by created_at DESC with an optional
+// active-only filter and row limit.
+func ListSessions(db *sql.DB, activeOnly bool, limit int) ([]*models.Session, error) {
+	if limit <= 0 {
+		limit = 10
+	}
+
+	query := `
+		SELECT session_id, agent_assigned, created_at, completed_at, status, model
+		FROM sessions`
+	if activeOnly {
+		query += " WHERE status = 'active'"
+	}
+	query += " ORDER BY created_at DESC LIMIT ?"
+
+	rows, err := db.Query(query, limit)
+	if err != nil {
+		return nil, fmt.Errorf("list sessions: %w", err)
+	}
+	defer rows.Close()
+
+	var sessions []*models.Session
+	for rows.Next() {
+		s := &models.Session{}
+		var completedAt, model sql.NullString
+		var createdStr string
+
+		if err := rows.Scan(
+			&s.SessionID, &s.AgentAssigned, &createdStr,
+			&completedAt, &s.Status, &model,
+		); err != nil {
+			return nil, fmt.Errorf("scan session row: %w", err)
+		}
+		s.CreatedAt, _ = time.Parse(time.RFC3339, createdStr)
+		s.Model = model.String
+		if completedAt.Valid {
+			t, _ := time.Parse(time.RFC3339, completedAt.String)
+			s.CompletedAt = &t
+		}
+		sessions = append(sessions, s)
+	}
+	return sessions, rows.Err()
+}
+
+// MostRecentActiveSession returns the session_id of the latest active session,
+// or ("", nil) if none exists.
+func MostRecentActiveSession(db *sql.DB) (string, error) {
+	row := db.QueryRow(`
+		SELECT session_id FROM sessions
+		WHERE status = 'active'
+		ORDER BY created_at DESC LIMIT 1`)
+	var id string
+	if err := row.Scan(&id); err != nil {
+		if err == sql.ErrNoRows {
+			return "", nil
+		}
+		return "", fmt.Errorf("most recent active session: %w", err)
+	}
+	return id, nil
+}
+
 // nullStr converts an empty string to sql.NullString.
 func nullStr(s string) sql.NullString {
 	if s == "" {

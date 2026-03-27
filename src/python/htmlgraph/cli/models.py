@@ -612,6 +612,26 @@ class FeatureListArgs(BaseModel):
     quiet: bool = Field(default=False, description="Suppress empty output")
 
 
+class FeatureIdArgs(BaseModel):
+    """Pydantic model for feature ID validation arguments.
+
+    Attributes:
+        feature_id: Feature ID (required, non-empty, whitespace stripped)
+        collection: Collection name (default: features)
+    """
+
+    feature_id: str = Field(..., min_length=1, description="Feature ID")
+    collection: str = Field(default="features", description="Collection name")
+
+    @field_validator("feature_id")
+    @classmethod
+    def validate_feature_id(cls, v: str) -> str:
+        """Validate feature_id is not empty or whitespace only."""
+        if not v.strip():
+            raise ValueError("Feature ID cannot be empty or whitespace only")
+        return v.strip()
+
+
 class FeatureStartArgs(BaseModel):
     """Pydantic model for 'feature start' CLI arguments.
 
@@ -667,8 +687,15 @@ class OrchestratorEnableArgs(BaseModel):
 class OrchestratorDisableArgs(BaseModel):
     """Pydantic model for 'orchestrator disable' CLI arguments.
 
-    No required arguments — disable always operates on current state.
+    Attributes:
+        for_next_task: Disable only for the next task (default: False)
+        minutes: Disable for N minutes (optional)
     """
+
+    for_next_task: bool = Field(default=False, description="Disable only for next task")
+    minutes: int | None = Field(
+        None, gt=0, description="Disable for N minutes (positive only)"
+    )
 
 
 class OrchestratorStatusArgs(BaseModel):

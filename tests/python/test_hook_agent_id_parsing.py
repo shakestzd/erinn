@@ -17,7 +17,7 @@ from unittest.mock import patch
 # ---------------------------------------------------------------------------
 
 
-def _make_hook_context(hook_input: dict) -> "HookContext":  # type: ignore[name-defined]
+def _make_hook_context(hook_input: dict):
     """Build a HookContext without hitting filesystem/database."""
     from htmlgraph.hooks.context import HookContext
 

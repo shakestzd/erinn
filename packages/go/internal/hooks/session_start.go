@@ -23,27 +23,33 @@ func SessionStart(event *CloudEvent, database *sql.DB, projectDir string) (*Hook
 	}
 
 	now := time.Now().UTC()
-	startCommit := headCommit(projectDir)
+
+	// Launch headCommit in a goroutine — I/O-bound, no data dependency with writeEnvVars.
+	commitCh := make(chan string, 1)
+	go func() {
+		commitCh <- headCommit(projectDir)
+	}()
+
+	// Propagate session ID to downstream hooks while git is running.
+	writeEnvVars(sessionID, projectDir)
+
+	// Wait for git result — upsertSession needs the commit hash.
+	startCommit := <-commitCh
 
 	// Upsert: insert or ignore on conflict (session may already exist on resume).
 	s := &models.Session{
-		SessionID:     sessionID,
-		AgentAssigned: agentName(),
-		Status:        "active",
-		CreatedAt:     now,
-		StartCommit:   startCommit,
-		IsSubagent:    isSubagent(),
-		Model:         os.Getenv("CLAUDE_MODEL"),
+		SessionID:       sessionID,
+		AgentAssigned:   agentName(),
+		Status:          "active",
+		CreatedAt:       now,
+		StartCommit:     startCommit,
+		IsSubagent:      isSubagent(),
+		Model:           os.Getenv("CLAUDE_MODEL"),
+		ParentSessionID: os.Getenv("HTMLGRAPH_PARENT_SESSION"),
+		ParentEventID:   os.Getenv("HTMLGRAPH_PARENT_EVENT"),
 	}
 
-	// Link to parent if provided via env vars (set by parent session-start).
-	s.ParentSessionID = os.Getenv("HTMLGRAPH_PARENT_SESSION")
-	s.ParentEventID = os.Getenv("HTMLGRAPH_PARENT_EVENT")
-
 	_ = upsertSession(database, s) // Non-fatal: never block Claude
-
-	// Propagate session ID to downstream hooks via CLAUDE_ENV_FILE.
-	writeEnvVars(sessionID, projectDir)
 
 	return &HookResult{
 		Continue: true,

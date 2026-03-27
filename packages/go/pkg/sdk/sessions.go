@@ -92,7 +92,7 @@ func (sc *SessionCollection) GetHandoffNotes(sessionID string) (string, error) {
 // sessionHTMLPath resolves the HTML file path for a session ID.
 // Tries both <id>.html and sess-<id>.html naming conventions.
 func (sc *SessionCollection) sessionHTMLPath(sessionID string) (string, error) {
-	dir := filepath.Join(sc.sdk.ProjectDir, "sessions")
+	dir := filepath.Join(sc.base.ProjectDir, "sessions")
 	direct := filepath.Join(dir, sessionID+".html")
 	if _, err := os.Stat(direct); err == nil {
 		return direct, nil

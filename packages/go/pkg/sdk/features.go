@@ -104,35 +104,33 @@ func (fc *FeatureCollection) Create(title string, opts ...FeatureOption) (*model
 		Priority:      models.Priority(cfg.priority),
 		CreatedAt:     now,
 		UpdatedAt:     now,
-		AgentAssigned: fc.sdk.Agent,
+		AgentAssigned: fc.base.Agent,
 		TrackID:       cfg.trackID,
 		Steps:         steps,
 		Content:       cfg.content,
 		Edges:         cfg.edges,
 	}
 
-	if _, err := fc.writeNode(node); err != nil {
-		return nil, fmt.Errorf("create feature: %w", err)
+	dbFeat := &dbpkg.Feature{
+		ID:             id,
+		Type:           "feature",
+		Title:          title,
+		Description:    cfg.content,
+		Status:         cfg.status,
+		Priority:       cfg.priority,
+		AssignedTo:     fc.base.Agent,
+		TrackID:        cfg.trackID,
+		CreatedAt:      now,
+		UpdatedAt:      now,
+		StepsTotal:     len(steps),
+		StepsCompleted: 0,
 	}
 
-	// Dual-write: insert into SQLite if DB available
-	if fc.sdk.db != nil {
-		dbFeat := &dbpkg.Feature{
-			ID:             id,
-			Type:           "feature",
-			Title:          title,
-			Description:    cfg.content,
-			Status:         cfg.status,
-			Priority:       cfg.priority,
-			AssignedTo:     fc.sdk.Agent,
-			TrackID:        cfg.trackID,
-			CreatedAt:      now,
-			UpdatedAt:      now,
-			StepsTotal:     len(steps),
-			StepsCompleted: 0,
-		}
-		// Best-effort; HTML is canonical.
-		_ = dbpkg.InsertFeature(fc.sdk.db, dbFeat)
+	if _, err := fc.base.DualWriteNode(
+		func() (string, error) { return fc.writeNode(node) },
+		dbFeat,
+	); err != nil {
+		return nil, fmt.Errorf("create feature: %w", err)
 	}
 
 	return node, nil
@@ -144,9 +142,7 @@ func (fc *FeatureCollection) Start(id string) (*models.Node, error) {
 	if err != nil {
 		return nil, err
 	}
-	if fc.sdk.db != nil {
-		_ = dbpkg.UpdateFeatureStatus(fc.sdk.db, id, "in-progress")
-	}
+	fc.base.DualWriteStatus(id, "in-progress")
 	return node, nil
 }
 
@@ -156,8 +152,6 @@ func (fc *FeatureCollection) Complete(id string) (*models.Node, error) {
 	if err != nil {
 		return nil, err
 	}
-	if fc.sdk.db != nil {
-		_ = dbpkg.UpdateFeatureStatus(fc.sdk.db, id, "done")
-	}
+	fc.base.DualWriteStatus(id, "done")
 	return node, nil
 }

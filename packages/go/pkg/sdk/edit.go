@@ -133,7 +133,7 @@ func (e *EditBuilder) applyNotes() {
 		b.WriteString(content)
 	}
 	now := time.Now().UTC().Format("2006-01-02 15:04")
-	agent := e.collection.sdk.Agent
+	agent := e.collection.base.Agent
 	for _, note := range e.pendingNotes {
 		b.WriteString(fmt.Sprintf(
 			"\n<p><strong>[%s %s]</strong> %s</p>", now, agent, note,

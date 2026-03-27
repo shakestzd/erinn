@@ -14,7 +14,7 @@ func (c *Collection) Claim(id, sessionID string) error {
 	}
 
 	now := time.Now().UTC()
-	node.AgentAssigned = c.sdk.Agent
+	node.AgentAssigned = c.base.Agent
 	node.ClaimedAt = fmtTime(now)
 	node.ClaimedBySession = sessionID
 	node.UpdatedAt = now
@@ -58,7 +58,7 @@ func (c *Collection) AtomicClaim(id, sessionID string) error {
 			c.collectionName, id, node.ClaimedBySession,
 		)
 	}
-	if node.AgentAssigned != "" && node.AgentAssigned != c.sdk.Agent {
+	if node.AgentAssigned != "" && node.AgentAssigned != c.base.Agent {
 		return fmt.Errorf(
 			"atomic claim %s/%s: already claimed by agent %s",
 			c.collectionName, id, node.AgentAssigned,
@@ -66,7 +66,7 @@ func (c *Collection) AtomicClaim(id, sessionID string) error {
 	}
 
 	now := time.Now().UTC()
-	node.AgentAssigned = c.sdk.Agent
+	node.AgentAssigned = c.base.Agent
 	node.ClaimedAt = fmtTime(now)
 	node.ClaimedBySession = sessionID
 	node.UpdatedAt = now

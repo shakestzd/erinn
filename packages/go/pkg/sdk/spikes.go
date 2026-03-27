@@ -108,34 +108,33 @@ func (sc *SpikeCollection) Create(title string, opts ...SpikeOption) (*models.No
 		Priority:      models.Priority(cfg.priority),
 		CreatedAt:     now,
 		UpdatedAt:     now,
-		AgentAssigned: sc.sdk.Agent,
+		AgentAssigned: sc.base.Agent,
 		TrackID:       cfg.trackID,
 		SpikeSubtype:  cfg.spikeType,
 		Steps:         steps,
 		Content:       content,
 	}
 
-	if _, err := sc.writeNode(node); err != nil {
-		return nil, fmt.Errorf("create spike: %w", err)
+	dbFeat := &dbpkg.Feature{
+		ID:             id,
+		Type:           "spike",
+		Title:          title,
+		Description:    content,
+		Status:         cfg.status,
+		Priority:       cfg.priority,
+		AssignedTo:     sc.base.Agent,
+		TrackID:        cfg.trackID,
+		CreatedAt:      now,
+		UpdatedAt:      now,
+		StepsTotal:     len(steps),
+		StepsCompleted: 0,
 	}
 
-	// Dual-write to SQLite
-	if sc.sdk.db != nil {
-		dbFeat := &dbpkg.Feature{
-			ID:             id,
-			Type:           "spike",
-			Title:          title,
-			Description:    content,
-			Status:         cfg.status,
-			Priority:       cfg.priority,
-			AssignedTo:     sc.sdk.Agent,
-			TrackID:        cfg.trackID,
-			CreatedAt:      now,
-			UpdatedAt:      now,
-			StepsTotal:     len(steps),
-			StepsCompleted: 0,
-		}
-		_ = dbpkg.InsertFeature(sc.sdk.db, dbFeat)
+	if _, err := sc.base.DualWriteNode(
+		func() (string, error) { return sc.writeNode(node) },
+		dbFeat,
+	); err != nil {
+		return nil, fmt.Errorf("create spike: %w", err)
 	}
 
 	return node, nil

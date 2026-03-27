@@ -113,33 +113,32 @@ func (bc *BugCollection) Create(title string, opts ...BugOption) (*models.Node, 
 		Priority:      models.Priority(cfg.priority),
 		CreatedAt:     now,
 		UpdatedAt:     now,
-		AgentAssigned: bc.sdk.Agent,
+		AgentAssigned: bc.base.Agent,
 		TrackID:       cfg.trackID,
 		Steps:         steps,
 		Content:       content,
 	}
 
-	if _, err := bc.writeNode(node); err != nil {
-		return nil, fmt.Errorf("create bug: %w", err)
+	dbFeat := &dbpkg.Feature{
+		ID:             id,
+		Type:           "bug",
+		Title:          title,
+		Description:    content,
+		Status:         cfg.status,
+		Priority:       cfg.priority,
+		AssignedTo:     bc.base.Agent,
+		TrackID:        cfg.trackID,
+		CreatedAt:      now,
+		UpdatedAt:      now,
+		StepsTotal:     len(steps),
+		StepsCompleted: 0,
 	}
 
-	// Dual-write to SQLite
-	if bc.sdk.db != nil {
-		dbFeat := &dbpkg.Feature{
-			ID:             id,
-			Type:           "bug",
-			Title:          title,
-			Description:    content,
-			Status:         cfg.status,
-			Priority:       cfg.priority,
-			AssignedTo:     bc.sdk.Agent,
-			TrackID:        cfg.trackID,
-			CreatedAt:      now,
-			UpdatedAt:      now,
-			StepsTotal:     len(steps),
-			StepsCompleted: 0,
-		}
-		_ = dbpkg.InsertFeature(bc.sdk.db, dbFeat)
+	if _, err := bc.base.DualWriteNode(
+		func() (string, error) { return bc.writeNode(node) },
+		dbFeat,
+	); err != nil {
+		return nil, fmt.Errorf("create bug: %w", err)
 	}
 
 	return node, nil

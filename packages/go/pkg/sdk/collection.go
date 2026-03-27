@@ -48,18 +48,18 @@ func WithAgent(a string) FilterOption {
 // It manages a single subdirectory of .htmlgraph/ (features, bugs, spikes,
 // tracks, or sessions) and provides CRUD, filtering, and lifecycle methods.
 type Collection struct {
-	sdk            *SDK
+	base           *Base
 	collectionName string // e.g. "features"
 	nodeType       string // e.g. "feature"
 }
 
 func newCollection(s *SDK, name, nodeType string) *Collection {
-	return &Collection{sdk: s, collectionName: name, nodeType: nodeType}
+	return &Collection{base: s.Base, collectionName: name, nodeType: nodeType}
 }
 
 // Dir returns the absolute path to this collection's directory.
 func (c *Collection) Dir() string {
-	return filepath.Join(c.sdk.ProjectDir, c.collectionName)
+	return filepath.Join(c.base.ProjectDir, c.collectionName)
 }
 
 // Get retrieves a single node by ID from the HTML file on disk.
@@ -153,7 +153,7 @@ func (c *Collection) Start(id string) (*models.Node, error) {
 		return nil, err
 	}
 	node.Status = models.StatusInProgress
-	node.AgentAssigned = c.sdk.Agent
+	node.AgentAssigned = c.base.Agent
 	node.UpdatedAt = time.Now().UTC()
 	if _, err := c.writeNode(node); err != nil {
 		return nil, err
@@ -170,7 +170,7 @@ func (c *Collection) Complete(id string) (*models.Node, error) {
 	for i := range node.Steps {
 		if !node.Steps[i].Completed {
 			node.Steps[i].Completed = true
-			node.Steps[i].Agent = c.sdk.Agent
+			node.Steps[i].Agent = c.base.Agent
 			node.Steps[i].Timestamp = time.Now().UTC()
 		}
 	}

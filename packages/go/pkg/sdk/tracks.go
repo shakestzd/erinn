@@ -93,7 +93,7 @@ func (tc *TrackCollection) Create(title string, opts ...TrackOption) (*models.No
 		Priority:      models.Priority(cfg.priority),
 		CreatedAt:     now,
 		UpdatedAt:     now,
-		AgentAssigned: tc.sdk.Agent,
+		AgentAssigned: tc.base.Agent,
 		Steps:         steps,
 		Content:       content,
 	}

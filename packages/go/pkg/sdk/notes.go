@@ -16,7 +16,7 @@ func (c *Collection) AddNote(id, note string) error {
 	}
 
 	now := time.Now().UTC().Format("2006-01-02 15:04")
-	agent := c.sdk.Agent
+	agent := c.base.Agent
 
 	var b strings.Builder
 	if node.Content != "" {

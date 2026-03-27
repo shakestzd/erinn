@@ -19,7 +19,6 @@
 package sdk
 
 import (
-	"database/sql"
 	"fmt"
 	"path/filepath"
 
@@ -27,15 +26,10 @@ import (
 )
 
 // SDK is the main entry point for interacting with an HtmlGraph project.
+// It embeds *Base for shared infrastructure (directory paths, agent identity,
+// database connection) and exposes typed collection accessors.
 type SDK struct {
-	// ProjectDir is the path to the .htmlgraph/ directory.
-	ProjectDir string
-
-	// Agent is the identifier of the agent using this SDK.
-	Agent string
-
-	// db is the optional SQLite database (read index).
-	db *sql.DB
+	*Base
 
 	// Collection accessors
 	Features *FeatureCollection
@@ -64,10 +58,10 @@ func New(projectDir, agent string) (*SDK, error) {
 		return nil, fmt.Errorf("open database: %w", err)
 	}
 
+	base := NewBase(projectDir, agent, &sqliteIndex{db: database})
+
 	s := &SDK{
-		ProjectDir: projectDir,
-		Agent:      agent,
-		db:         database,
+		Base: base,
 	}
 
 	s.Features = NewFeatureCollection(s)
@@ -77,32 +71,4 @@ func New(projectDir, agent string) (*SDK, error) {
 	s.Sessions = NewSessionCollection(s)
 
 	return s, nil
-}
-
-// Close releases the SQLite database connection.
-func (s *SDK) Close() error {
-	if s.db != nil {
-		return s.db.Close()
-	}
-	return nil
-}
-
-// FeaturesDir returns the path to the features subdirectory.
-func (s *SDK) FeaturesDir() string {
-	return filepath.Join(s.ProjectDir, "features")
-}
-
-// BugsDir returns the path to the bugs subdirectory.
-func (s *SDK) BugsDir() string {
-	return filepath.Join(s.ProjectDir, "bugs")
-}
-
-// SpikesDir returns the path to the spikes subdirectory.
-func (s *SDK) SpikesDir() string {
-	return filepath.Join(s.ProjectDir, "spikes")
-}
-
-// TracksDir returns the path to the tracks subdirectory.
-func (s *SDK) TracksDir() string {
-	return filepath.Join(s.ProjectDir, "tracks")
 }

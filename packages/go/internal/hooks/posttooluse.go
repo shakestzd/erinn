@@ -2,8 +2,6 @@ package hooks
 
 import (
 	"database/sql"
-	"fmt"
-	"os"
 	"regexp"
 	"strings"
 	"time"
@@ -49,12 +47,6 @@ func PostToolUse(event *CloudEvent, database *sql.DB) (*HookResult, error) {
 	}
 
 	_ = db.UpdateEventFields(database, eventID, status, outputSummary)
-
-	// Record orchestrator direct-tool usage for analytics.
-	// Subagents are excluded — only direct orchestrator use is interesting here.
-	if !ctx.IsSubagent {
-		recordOrchestratorToolUse(database, ctx.SessionID, event.ToolName, success)
-	}
 
 	// Capture git commits and link to the active work item.
 	if event.ToolName == "Bash" {
@@ -131,24 +123,6 @@ func summarizeToolOutput(result map[string]any) string {
 		}
 	}
 	return ""
-}
-
-// recordOrchestratorToolUse emits a structured log line to stderr when the
-// orchestrator uses a delegatable tool directly. This is picked up by
-// Claude Code's hook debug output and serves as lightweight analytics
-// without requiring a dedicated DB table.
-func recordOrchestratorToolUse(_ *sql.DB, sessionID, toolName string, success bool) {
-	if _, ok := delegateToolAgents[toolName]; !ok {
-		return // only track tools that should be delegated
-	}
-	status := "completed"
-	if !success {
-		status = "failed"
-	}
-	fmt.Fprintf(os.Stderr,
-		"[htmlgraph] orchestrator_direct_tool session=%s tool=%s status=%s ts=%s\n",
-		sessionID, toolName, status, time.Now().UTC().Format(time.RFC3339),
-	)
 }
 
 // isSuccess returns false when the tool result contains an explicit error flag.

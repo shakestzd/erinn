@@ -50,7 +50,7 @@ func PreToolUse(event *CloudEvent, database *sql.DB) (*HookResult, error) {
 	}
 
 	if yolo {
-		if warn := checkYoloWorktreeGuard(event.ToolName, currentBranch(), yolo); warn != "" {
+		if warn := checkYoloWorktreeGuard(event.ToolName, currentBranchIn(event.CWD), yolo); warn != "" {
 			return &HookResult{Decision: "block", Reason: warn}, nil
 		}
 		if warn := checkYoloResearchGuard(event.ToolName, yolo, hasRecentResearch(database, ctx.SessionID)); warn != "" {

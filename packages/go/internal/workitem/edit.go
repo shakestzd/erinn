@@ -141,6 +141,22 @@ func (e *EditBuilder) UpdateStep(index int, description string) *EditBuilder {
 	return e
 }
 
+// CompleteStep marks the step at the given 1-based index as completed.
+func (e *EditBuilder) CompleteStep(index int) *EditBuilder {
+	if e.err != nil {
+		return e
+	}
+	i := index - 1 // convert to 0-based
+	if i < 0 || i >= len(e.node.Steps) {
+		e.err = fmt.Errorf("step index %d out of range (1-%d)", index, len(e.node.Steps))
+		return e
+	}
+	e.node.Steps[i].Completed = true
+	e.node.Steps[i].Agent = e.collection.base.Agent
+	e.node.Steps[i].Timestamp = time.Now().UTC()
+	return e
+}
+
 // Save applies all buffered changes and writes the node to disk.
 // Returns an error if the initial load or the write fails.
 func (e *EditBuilder) Save() error {

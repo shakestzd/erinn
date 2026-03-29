@@ -278,6 +278,11 @@ class HgEventTree extends HTMLElement {
     var subagentBadge = (isTask && evt.subagent_type)
       ? '<span class="badge badge-subagent">' + esc(evt.subagent_type) + '</span>'
       : '';
+    var agentId = evt.agent_id || '';
+    var agentLabel = agentId.replace(/^htmlgraph:/, '');
+    var agentBadge = (agentId && agentId !== 'claude-code')
+      ? '<span class="agent-badge agent-' + esc(agentClass(agentId)) + '" title="' + esc(agentId) + '">' + esc(agentLabel) + '</span>'
+      : '';
     var statusBdg = '<span class="badge badge-status-' + (evt.status || 'unknown') + '">' + esc(evt.status || 'unknown') + '</span>';
 
     var padLeft = (depth + 1) * 1.25;
@@ -295,6 +300,7 @@ class HgEventTree extends HTMLElement {
       + '<span class="event-time">' + formatTime(evt.timestamp) + '</span>'
       + '<span class="tool-chip tool-' + esc(evt.tool_name) + '">' + esc(evt.tool_name) + toolChipRange(evt) + '</span>'
       + subagentBadge
+      + agentBadge
       + '<span class="event-summary">' + esc(evt.input_summary || evt.output_summary || '') + '</span>'
       + this.featureBadge(evt.feature_id)
       + statusBdg

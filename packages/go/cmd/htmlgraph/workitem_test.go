@@ -464,3 +464,65 @@ func TestEditDescriptionOverwrite(t *testing.T) {
 		t.Errorf("content = %q, want it to contain %q", node.Content, "Updated")
 	}
 }
+
+func TestBatchAddStepMultiple(t *testing.T) {
+	_, hgDir := setupHgDir(t)
+
+	if err := testCreate("feature", "Batch Step Feature", "", "medium", false, false); err != nil {
+		t.Fatalf("create feature: %v", err)
+	}
+	featID := findFeatureID(t, hgDir)
+
+	steps := []string{"Step A", "Step B", "Step C"}
+	if err := runWiAddStep("feature", featID, steps, false); err != nil {
+		t.Fatalf("batch add-step: %v", err)
+	}
+
+	node := readFeatureNode(t, hgDir)
+	if len(node.Steps) != 3 {
+		t.Fatalf("expected 3 steps, got %d", len(node.Steps))
+	}
+	for i, want := range steps {
+		if node.Steps[i].Description != want {
+			t.Errorf("step[%d] description = %q, want %q", i, node.Steps[i].Description, want)
+		}
+	}
+}
+
+func TestBatchAddStepSingle(t *testing.T) {
+	_, hgDir := setupHgDir(t)
+
+	if err := testCreate("feature", "Single Step Feature", "", "medium", false, false); err != nil {
+		t.Fatalf("create feature: %v", err)
+	}
+	featID := findFeatureID(t, hgDir)
+
+	if err := runWiAddStep("feature", featID, []string{"Only step"}, false); err != nil {
+		t.Fatalf("add single step: %v", err)
+	}
+
+	node := readFeatureNode(t, hgDir)
+	if len(node.Steps) != 1 {
+		t.Fatalf("expected 1 step, got %d", len(node.Steps))
+	}
+	if node.Steps[0].Description != "Only step" {
+		t.Errorf("step[0] description = %q, want %q", node.Steps[0].Description, "Only step")
+	}
+}
+
+func TestBatchAddStepEmpty(t *testing.T) {
+	_, hgDir := setupHgDir(t)
+
+	if err := testCreate("feature", "Empty Step Feature", "", "medium", false, false); err != nil {
+		t.Fatalf("create feature: %v", err)
+	}
+	featID := findFeatureID(t, hgDir)
+
+	err := runWiAddStep("feature", featID, []string{}, false)
+	if err == nil {
+		t.Fatal("expected error when no step descriptions provided, got nil")
+	}
+	if !strings.Contains(err.Error(), "no step descriptions") {
+		t.Errorf("error = %q, want it to contain %q", err.Error(), "no step descriptions")
+	}
+}

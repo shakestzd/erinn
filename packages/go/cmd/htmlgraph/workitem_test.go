@@ -3,9 +3,11 @@ package main
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/shakestzd/htmlgraph/internal/htmlparse"
+	"github.com/shakestzd/htmlgraph/internal/models"
 )
 
 // testCreate is a test helper that wraps runWiCreate with the opts struct.
@@ -264,5 +266,201 @@ func TestBugCreateNoLinkSkipsCausedBy(t *testing.T) {
 	// Should have no caused_by edge
 	if len(bugNode.Edges["caused_by"]) > 0 {
 		t.Errorf("--no-link should skip caused_by edge, got %v", bugNode.Edges)
+	}
+}
+
+func setupHgDir(t *testing.T) (tmpDir, hgDir string) {
+	t.Helper()
+	tmpDir = t.TempDir()
+	hgDir = filepath.Join(tmpDir, ".htmlgraph")
+	for _, sub := range []string{"features", "bugs", "spikes", "tracks", "plans", "specs"} {
+		if err := os.MkdirAll(filepath.Join(hgDir, sub), 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	projectDirFlag = tmpDir
+	t.Cleanup(func() { projectDirFlag = "" })
+	return tmpDir, hgDir
+}
+
+func findFeatureID(t *testing.T, hgDir string) string {
+	t.Helper()
+	featFiles, _ := filepath.Glob(filepath.Join(hgDir, "features", "feat-*.html"))
+	if len(featFiles) != 1 {
+		t.Fatalf("expected 1 feature file, got %d", len(featFiles))
+	}
+	node, err := htmlparse.ParseFile(featFiles[0])
+	if err != nil {
+		t.Fatalf("parse feature: %v", err)
+	}
+	return node.ID
+}
+
+func readFeatureNode(t *testing.T, hgDir string) *models.Node {
+	t.Helper()
+	featFiles, _ := filepath.Glob(filepath.Join(hgDir, "features", "feat-*.html"))
+	if len(featFiles) != 1 {
+		t.Fatalf("expected 1 feature file, got %d", len(featFiles))
+	}
+	node, err := htmlparse.ParseFile(featFiles[0])
+	if err != nil {
+		t.Fatalf("re-parse feature: %v", err)
+	}
+	return node
+}
+
+func TestRemoveStep(t *testing.T) {
+	_, hgDir := setupHgDir(t)
+
+	if err := testCreate("feature", "Step Feature", "", "medium", false, false); err != nil {
+		t.Fatalf("create feature: %v", err)
+	}
+	featID := findFeatureID(t, hgDir)
+
+	// Add 3 steps
+	for _, desc := range []string{"step one", "step two", "step three"} {
+		if err := runWiAddStep("feature", featID, []string{desc}, false); err != nil {
+			t.Fatalf("add step %q: %v", desc, err)
+		}
+	}
+
+	// Remove step 2 (middle)
+	if err := runWiRemoveStep("feature", featID, "2"); err != nil {
+		t.Fatalf("remove step 2: %v", err)
+	}
+
+	node := readFeatureNode(t, hgDir)
+	if len(node.Steps) != 2 {
+		t.Fatalf("expected 2 steps after removal, got %d", len(node.Steps))
+	}
+	if node.Steps[0].Description != "step one" {
+		t.Errorf("step[0] description = %q, want %q", node.Steps[0].Description, "step one")
+	}
+	if node.Steps[1].Description != "step three" {
+		t.Errorf("step[1] description = %q, want %q", node.Steps[1].Description, "step three")
+	}
+}
+
+func TestRemoveStepOutOfRange(t *testing.T) {
+	_, hgDir := setupHgDir(t)
+
+	if err := testCreate("feature", "Step Feature", "", "medium", false, false); err != nil {
+		t.Fatalf("create feature: %v", err)
+	}
+	featID := findFeatureID(t, hgDir)
+
+	if err := runWiAddStep("feature", featID, []string{"only step"}, false); err != nil {
+		t.Fatalf("add step: %v", err)
+	}
+
+	if err := runWiRemoveStep("feature", featID, "0"); err == nil {
+		t.Error("expected error when removing step 0, got nil")
+	}
+	if err := runWiRemoveStep("feature", featID, "5"); err == nil {
+		t.Error("expected error when removing step 5 (out of range), got nil")
+	}
+}
+
+func TestCompleteStep(t *testing.T) {
+	_, hgDir := setupHgDir(t)
+
+	if err := testCreate("feature", "Complete Step Feature", "", "medium", false, false); err != nil {
+		t.Fatalf("create feature: %v", err)
+	}
+	featID := findFeatureID(t, hgDir)
+
+	for _, desc := range []string{"first step", "second step"} {
+		if err := runWiAddStep("feature", featID, []string{desc}, false); err != nil {
+			t.Fatalf("add step %q: %v", desc, err)
+		}
+	}
+
+	if err := runWiCompleteStep("feature", featID, "1"); err != nil {
+		t.Fatalf("complete step 1: %v", err)
+	}
+
+	node := readFeatureNode(t, hgDir)
+	if len(node.Steps) != 2 {
+		t.Fatalf("expected 2 steps, got %d", len(node.Steps))
+	}
+	if !node.Steps[0].Completed {
+		t.Errorf("step[0] should be completed")
+	}
+	if node.Steps[1].Completed {
+		t.Errorf("step[1] should not be completed")
+	}
+}
+
+func TestUpdateStep(t *testing.T) {
+	_, hgDir := setupHgDir(t)
+
+	if err := testCreate("feature", "Update Step Feature", "", "medium", false, false); err != nil {
+		t.Fatalf("create feature: %v", err)
+	}
+	featID := findFeatureID(t, hgDir)
+
+	for _, desc := range []string{"original step one", "original step two"} {
+		if err := runWiAddStep("feature", featID, []string{desc}, false); err != nil {
+			t.Fatalf("add step %q: %v", desc, err)
+		}
+	}
+
+	if err := runWiUpdateStep("feature", featID, "1", "updated step one"); err != nil {
+		t.Fatalf("update step 1: %v", err)
+	}
+
+	node := readFeatureNode(t, hgDir)
+	if len(node.Steps) != 2 {
+		t.Fatalf("expected 2 steps, got %d", len(node.Steps))
+	}
+	if node.Steps[0].Description != "updated step one" {
+		t.Errorf("step[0] description = %q, want %q", node.Steps[0].Description, "updated step one")
+	}
+	if node.Steps[1].Description != "original step two" {
+		t.Errorf("step[1] description = %q, want %q", node.Steps[1].Description, "original step two")
+	}
+}
+
+func TestEditDescription(t *testing.T) {
+	_, hgDir := setupHgDir(t)
+
+	if err := testCreate("feature", "Desc Feature", "", "medium", false, false); err != nil {
+		t.Fatalf("create feature: %v", err)
+	}
+	featID := findFeatureID(t, hgDir)
+
+	// Content must be wrapped in an element (e.g. <p>) to survive the HTML
+	// round-trip, because the parser reads child elements, not raw text nodes.
+	if err := runWiEditDescription("feature", featID, "<p>New description text</p>"); err != nil {
+		t.Fatalf("edit description: %v", err)
+	}
+
+	node := readFeatureNode(t, hgDir)
+	if !strings.Contains(node.Content, "New description text") {
+		t.Errorf("content = %q, want it to contain %q", node.Content, "New description text")
+	}
+}
+
+func TestEditDescriptionOverwrite(t *testing.T) {
+	_, hgDir := setupHgDir(t)
+
+	if err := testCreate("feature", "Overwrite Feature", "", "medium", false, false); err != nil {
+		t.Fatalf("create feature: %v", err)
+	}
+	featID := findFeatureID(t, hgDir)
+
+	if err := runWiEditDescription("feature", featID, "<p>Original</p>"); err != nil {
+		t.Fatalf("set original description: %v", err)
+	}
+	if err := runWiEditDescription("feature", featID, "<p>Updated</p>"); err != nil {
+		t.Fatalf("overwrite description: %v", err)
+	}
+
+	node := readFeatureNode(t, hgDir)
+	if strings.Contains(node.Content, "Original") {
+		t.Errorf("content should not contain %q after overwrite, got %q", "Original", node.Content)
+	}
+	if !strings.Contains(node.Content, "Updated") {
+		t.Errorf("content = %q, want it to contain %q", node.Content, "Updated")
 	}
 }

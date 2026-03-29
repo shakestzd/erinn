@@ -5,7 +5,6 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
-	"strconv"
 	"strings"
 
 	"github.com/shakestzd/htmlgraph/internal/graph"
@@ -19,10 +18,7 @@ import (
 // workitemCmd builds a standard CRUD command group for any work item type.
 // Usage: workitemCmd("feature", "features"), workitemCmd("bug", "bugs"), etc.
 func workitemCmd(typeName, dirName string) *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   typeName,
-		Short: "Manage " + dirName,
-	}
+	cmd := &cobra.Command{Use: typeName, Short: "Manage " + dirName}
 	cmd.AddCommand(wiCreateCmd(typeName, dirName))
 	cmd.AddCommand(wiListCmd(typeName, dirName))
 	cmd.AddCommand(wiShowCmd(typeName))
@@ -30,6 +26,8 @@ func workitemCmd(typeName, dirName string) *cobra.Command {
 	cmd.AddCommand(wiCompleteCmd(typeName))
 	cmd.AddCommand(wiDeleteCmd(typeName))
 	cmd.AddCommand(wiAddStepCmd(typeName))
+	cmd.AddCommand(wiRemoveStepCmd(typeName))
+	cmd.AddCommand(wiUpdateStepCmd(typeName))
 	cmd.AddCommand(wiEditDescriptionCmd(typeName))
 	return cmd
 }
@@ -45,7 +43,6 @@ type wiCreateOpts struct {
 
 func wiCreateCmd(typeName, dirName string) *cobra.Command {
 	var opts wiCreateOpts
-
 	cmd := &cobra.Command{
 		Use:   "create <title>",
 		Short: "Create a new " + typeName,
@@ -107,61 +104,6 @@ func runWiCreate(typeName, title string, o *wiCreateOpts) error {
 	return nil
 }
 
-func createNode(p *workitem.Project, typeName, title string, o *wiCreateOpts) (*models.Node, error) {
-	switch typeName {
-	case "feature":
-		opts := []workitem.FeatureOption{workitem.FeatWithPriority(o.priority)}
-		if o.trackID != "" {
-			opts = append(opts, workitem.FeatWithTrack(o.trackID))
-		}
-		if o.description != "" {
-			opts = append(opts, workitem.FeatWithContent(o.description))
-		}
-		return p.Features.Create(title, opts...)
-	case "bug":
-		opts := []workitem.BugOption{workitem.BugWithPriority(o.priority)}
-		if o.trackID != "" {
-			opts = append(opts, workitem.BugWithTrack(o.trackID))
-		}
-		if o.description != "" {
-			opts = append(opts, workitem.BugWithContent(o.description))
-		}
-		return p.Bugs.Create(title, opts...)
-	case "spike":
-		opts := []workitem.SpikeOption{workitem.SpikeWithPriority(o.priority)}
-		if o.trackID != "" {
-			opts = append(opts, workitem.SpikeWithTrack(o.trackID))
-		}
-		return p.Spikes.Create(title, opts...)
-	case "track":
-		opts := []workitem.TrackOption{workitem.TrackWithPriority(o.priority)}
-		if o.description != "" {
-			opts = append(opts, workitem.TrackWithContent(o.description))
-		}
-		return p.Tracks.Create(title, opts...)
-	case "plan":
-		opts := []workitem.PlanOption{workitem.PlanWithPriority(o.priority)}
-		if o.trackID != "" {
-			opts = append(opts, workitem.PlanWithTrack(o.trackID))
-		}
-		if o.description != "" {
-			opts = append(opts, workitem.PlanWithContent(o.description))
-		}
-		return p.Plans.Create(title, opts...)
-	case "spec":
-		opts := []workitem.SpecOption{workitem.SpecWithPriority(o.priority)}
-		if o.trackID != "" {
-			opts = append(opts, workitem.SpecWithTrack(o.trackID))
-		}
-		if o.description != "" {
-			opts = append(opts, workitem.SpecWithContent(o.description))
-		}
-		return p.Specs.Create(title, opts...)
-	default:
-		return nil, fmt.Errorf("unknown type: %s", typeName)
-	}
-}
-
 func wiListCmd(typeName, dirName string) *cobra.Command {
 	var statusFilter string
 	cmd := &cobra.Command{
@@ -194,9 +136,7 @@ func runWiList(dirName, statusFilter string) error {
 		filtered = append(filtered, n)
 	}
 
-	sort.Slice(filtered, func(i, j int) bool {
-		return filtered[i].ID < filtered[j].ID
-	})
+	sort.Slice(filtered, func(i, j int) bool { return filtered[i].ID < filtered[j].ID })
 
 	if len(filtered) == 0 {
 		fmt.Printf("No %s found.\n", dirName)
@@ -222,9 +162,7 @@ func wiShowCmd(typeName string) *cobra.Command {
 		Use:   "show <id>",
 		Short: "Show " + typeName + " details",
 		Args:  cobra.ExactArgs(1),
-		RunE: func(_ *cobra.Command, args []string) error {
-			return runWiShow(args[0])
-		},
+		RunE:  func(_ *cobra.Command, args []string) error { return runWiShow(args[0]) },
 	}
 }
 
@@ -332,9 +270,7 @@ func wiDeleteCmd(typeName string) *cobra.Command {
 		Use:   "delete <id>",
 		Short: "Delete a " + typeName,
 		Args:  cobra.ExactArgs(1),
-		RunE: func(_ *cobra.Command, args []string) error {
-			return runWiDelete(args[0])
-		},
+		RunE:  func(_ *cobra.Command, args []string) error { return runWiDelete(args[0]) },
 	}
 }
 
@@ -352,161 +288,4 @@ func runWiDelete(id string) error {
 	}
 	fmt.Printf("Deleted: %s\n", id)
 	return nil
-}
-
-func wiAddStepCmd(typeName string) *cobra.Command {
-	return &cobra.Command{
-		Use:   "add-step <id> <description>",
-		Short: "Add an implementation step to a " + typeName,
-		Args:  cobra.ExactArgs(2),
-		RunE: func(_ *cobra.Command, args []string) error {
-			return runWiAddStep(typeName, args[0], args[1])
-		},
-	}
-}
-
-func runWiAddStep(typeName, id, description string) error {
-	dir, err := findHtmlgraphDir()
-	if err != nil {
-		return err
-	}
-	p, err := workitem.Open(dir, "claude-code")
-	if err != nil {
-		return fmt.Errorf("open project: %w", err)
-	}
-	defer p.Close()
-
-	col := collectionFor(p, typeName)
-	if err := col.Edit(id).AddStep(description).Save(); err != nil {
-		return fmt.Errorf("add step: %w", err)
-	}
-	fmt.Printf("Added step to %s: %s\n", id, description)
-	return nil
-}
-
-func wiRemoveStepCmd(typeName string) *cobra.Command {
-	return &cobra.Command{
-		Use:   "remove-step <id> <step-number>",
-		Short: "Remove a step from a " + typeName,
-		Args:  cobra.ExactArgs(2),
-		RunE: func(_ *cobra.Command, args []string) error {
-			return runWiRemoveStep(typeName, args[0], args[1])
-		},
-	}
-}
-
-func runWiRemoveStep(typeName, id, indexStr string) error {
-	index, err := strconv.Atoi(indexStr)
-	if err != nil {
-		return fmt.Errorf("invalid step number %q: %w", indexStr, err)
-	}
-
-	dir, err := findHtmlgraphDir()
-	if err != nil {
-		return err
-	}
-	p, err := workitem.Open(dir, "claude-code")
-	if err != nil {
-		return fmt.Errorf("open project: %w", err)
-	}
-	defer p.Close()
-
-	col := collectionFor(p, typeName)
-	if err := col.Edit(id).RemoveStep(index).Save(); err != nil {
-		return fmt.Errorf("remove step: %w", err)
-	}
-	fmt.Printf("Removed step %d from %s\n", index, id)
-	return nil
-}
-
-func wiEditDescriptionCmd(typeName string) *cobra.Command {
-	return &cobra.Command{
-		Use:   "edit-description <id> <description>",
-		Short: "Set or update the description of a " + typeName,
-		Args:  cobra.ExactArgs(2),
-		RunE: func(_ *cobra.Command, args []string) error {
-			return runWiEditDescription(typeName, args[0], args[1])
-		},
-	}
-}
-
-func runWiEditDescription(typeName, id, description string) error {
-	dir, err := findHtmlgraphDir()
-	if err != nil {
-		return err
-	}
-	p, err := workitem.Open(dir, "claude-code")
-	if err != nil {
-		return fmt.Errorf("open project: %w", err)
-	}
-	defer p.Close()
-
-	col := collectionFor(p, typeName)
-	if err := col.Edit(id).SetDescription(description).Save(); err != nil {
-		return fmt.Errorf("edit description: %w", err)
-	}
-	fmt.Printf("Updated description for %s\n", id)
-	return nil
-}
-
-// resolveNodePath searches all subdirectories for a file matching id.
-func resolveNodePath(htmlgraphDir, id string) string {
-	subdirs := []string{"features", "bugs", "spikes", "tracks", "plans", "specs"}
-	for _, sub := range subdirs {
-		p := filepath.Join(htmlgraphDir, sub, id+".html")
-		if _, err := os.Stat(p); err == nil {
-			return p
-		}
-	}
-	return ""
-}
-
-func printNodeDetail(n *models.Node) {
-	sep := strings.Repeat("─", 60)
-	fmt.Println(sep)
-	fmt.Printf("  %s\n", n.Title)
-	fmt.Println(sep)
-	fmt.Printf("  ID        %s\n", n.ID)
-	fmt.Printf("  Type      %s\n", n.Type)
-	fmt.Printf("  Status    %s\n", n.Status)
-	fmt.Printf("  Priority  %s\n", n.Priority)
-	if n.TrackID != "" {
-		fmt.Printf("  Track     %s\n", n.TrackID)
-	}
-	if !n.CreatedAt.IsZero() {
-		fmt.Printf("  Created   %s\n", n.CreatedAt.Format("2006-01-02"))
-	}
-
-	if len(n.Steps) > 0 {
-		done := 0
-		for _, s := range n.Steps {
-			if s.Completed {
-				done++
-			}
-		}
-		fmt.Printf("\nSteps: %d/%d complete\n", done, len(n.Steps))
-		for _, s := range n.Steps {
-			tick := "[ ]"
-			if s.Completed {
-				tick = "[x]"
-			}
-			fmt.Printf("  %s  %s\n", tick, s.Description)
-		}
-	}
-
-	if len(n.Edges) > 0 {
-		fmt.Println("\nEdges:")
-		for rel, edges := range n.Edges {
-			for _, e := range edges {
-				fmt.Printf("  %-15s → %s\n", rel, e.TargetID)
-			}
-		}
-	}
-
-	if n.Content != "" {
-		fmt.Println("\nContent:")
-		for _, line := range strings.Split(n.Content, "\n") {
-			fmt.Printf("  %s\n", line)
-		}
-	}
 }

@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/shakestzd/htmlgraph/internal/graph"
@@ -29,6 +30,7 @@ func workitemCmd(typeName, dirName string) *cobra.Command {
 	cmd.AddCommand(wiCompleteCmd(typeName))
 	cmd.AddCommand(wiDeleteCmd(typeName))
 	cmd.AddCommand(wiAddStepCmd(typeName))
+	cmd.AddCommand(wiEditDescriptionCmd(typeName))
 	return cmd
 }
 
@@ -379,6 +381,71 @@ func runWiAddStep(typeName, id, description string) error {
 		return fmt.Errorf("add step: %w", err)
 	}
 	fmt.Printf("Added step to %s: %s\n", id, description)
+	return nil
+}
+
+func wiRemoveStepCmd(typeName string) *cobra.Command {
+	return &cobra.Command{
+		Use:   "remove-step <id> <step-number>",
+		Short: "Remove a step from a " + typeName,
+		Args:  cobra.ExactArgs(2),
+		RunE: func(_ *cobra.Command, args []string) error {
+			return runWiRemoveStep(typeName, args[0], args[1])
+		},
+	}
+}
+
+func runWiRemoveStep(typeName, id, indexStr string) error {
+	index, err := strconv.Atoi(indexStr)
+	if err != nil {
+		return fmt.Errorf("invalid step number %q: %w", indexStr, err)
+	}
+
+	dir, err := findHtmlgraphDir()
+	if err != nil {
+		return err
+	}
+	p, err := workitem.Open(dir, "claude-code")
+	if err != nil {
+		return fmt.Errorf("open project: %w", err)
+	}
+	defer p.Close()
+
+	col := collectionFor(p, typeName)
+	if err := col.Edit(id).RemoveStep(index).Save(); err != nil {
+		return fmt.Errorf("remove step: %w", err)
+	}
+	fmt.Printf("Removed step %d from %s\n", index, id)
+	return nil
+}
+
+func wiEditDescriptionCmd(typeName string) *cobra.Command {
+	return &cobra.Command{
+		Use:   "edit-description <id> <description>",
+		Short: "Set or update the description of a " + typeName,
+		Args:  cobra.ExactArgs(2),
+		RunE: func(_ *cobra.Command, args []string) error {
+			return runWiEditDescription(typeName, args[0], args[1])
+		},
+	}
+}
+
+func runWiEditDescription(typeName, id, description string) error {
+	dir, err := findHtmlgraphDir()
+	if err != nil {
+		return err
+	}
+	p, err := workitem.Open(dir, "claude-code")
+	if err != nil {
+		return fmt.Errorf("open project: %w", err)
+	}
+	defer p.Close()
+
+	col := collectionFor(p, typeName)
+	if err := col.Edit(id).SetDescription(description).Save(); err != nil {
+		return fmt.Errorf("edit description: %w", err)
+	}
+	fmt.Printf("Updated description for %s\n", id)
 	return nil
 }
 

@@ -1,25 +1,49 @@
 package main
 
 import (
+	"bufio"
 	"fmt"
+	"os"
 	"strconv"
+	"strings"
 
 	"github.com/shakestzd/htmlgraph/internal/workitem"
 	"github.com/spf13/cobra"
 )
 
 func wiAddStepCmd(typeName string) *cobra.Command {
-	return &cobra.Command{
-		Use:   "add-step <id> <description>",
-		Short: "Add an implementation step to a " + typeName,
-		Args:  cobra.ExactArgs(2),
+	var fromStdin bool
+	cmd := &cobra.Command{
+		Use:   "add-step <id> [descriptions...]",
+		Short: "Add implementation steps to a " + typeName,
+		Long:  "Add one or more steps. Pass descriptions as arguments or use --stdin for newline-separated input.",
+		Args:  cobra.MinimumNArgs(1),
 		RunE: func(_ *cobra.Command, args []string) error {
-			return runWiAddStep(typeName, args[0], args[1])
+			return runWiAddStep(typeName, args[0], args[1:], fromStdin)
 		},
 	}
+	cmd.Flags().BoolVar(&fromStdin, "stdin", false, "read step descriptions from stdin (one per line)")
+	return cmd
 }
 
-func runWiAddStep(typeName, id, description string) error {
+func runWiAddStep(typeName, id string, descriptions []string, fromStdin bool) error {
+	if fromStdin {
+		scanner := bufio.NewScanner(os.Stdin)
+		for scanner.Scan() {
+			line := strings.TrimSpace(scanner.Text())
+			if line != "" {
+				descriptions = append(descriptions, line)
+			}
+		}
+		if err := scanner.Err(); err != nil {
+			return fmt.Errorf("read stdin: %w", err)
+		}
+	}
+
+	if len(descriptions) == 0 {
+		return fmt.Errorf("no step descriptions provided")
+	}
+
 	dir, err := findHtmlgraphDir()
 	if err != nil {
 		return err
@@ -31,10 +55,19 @@ func runWiAddStep(typeName, id, description string) error {
 	defer p.Close()
 
 	col := collectionFor(p, typeName)
-	if err := col.Edit(id).AddStep(description).Save(); err != nil {
+	eb := col.Edit(id)
+	for _, desc := range descriptions {
+		eb = eb.AddStep(desc)
+	}
+	if err := eb.Save(); err != nil {
 		return fmt.Errorf("add step: %w", err)
 	}
-	fmt.Printf("Added step to %s: %s\n", id, description)
+
+	if len(descriptions) == 1 {
+		fmt.Printf("Added step to %s: %s\n", id, descriptions[0])
+	} else {
+		fmt.Printf("Added %d steps to %s\n", len(descriptions), id)
+	}
 	return nil
 }
 

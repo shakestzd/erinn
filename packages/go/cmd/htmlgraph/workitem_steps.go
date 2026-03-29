@@ -108,6 +108,41 @@ func runWiUpdateStep(typeName, id, indexStr, description string) error {
 	return nil
 }
 
+func wiCompleteStepCmd(typeName string) *cobra.Command {
+	return &cobra.Command{
+		Use:   "complete-step <id> <step-number>",
+		Short: "Mark a step as done in a " + typeName,
+		Args:  cobra.ExactArgs(2),
+		RunE: func(_ *cobra.Command, args []string) error {
+			return runWiCompleteStep(typeName, args[0], args[1])
+		},
+	}
+}
+
+func runWiCompleteStep(typeName, id, indexStr string) error {
+	index, err := strconv.Atoi(indexStr)
+	if err != nil {
+		return fmt.Errorf("invalid step number %q: %w", indexStr, err)
+	}
+
+	dir, err := findHtmlgraphDir()
+	if err != nil {
+		return err
+	}
+	p, err := workitem.Open(dir, "claude-code")
+	if err != nil {
+		return fmt.Errorf("open project: %w", err)
+	}
+	defer p.Close()
+
+	col := collectionFor(p, typeName)
+	if err := col.Edit(id).CompleteStep(index).Save(); err != nil {
+		return fmt.Errorf("complete step: %w", err)
+	}
+	fmt.Printf("Completed step %d in %s\n", index, id)
+	return nil
+}
+
 func wiEditDescriptionCmd(typeName string) *cobra.Command {
 	return &cobra.Command{
 		Use:   "edit-description <id> <description>",

@@ -28,6 +28,7 @@ func workitemCmd(typeName, dirName string) *cobra.Command {
 	cmd.AddCommand(wiAddStepCmd(typeName))
 	cmd.AddCommand(wiRemoveStepCmd(typeName))
 	cmd.AddCommand(wiUpdateStepCmd(typeName))
+	cmd.AddCommand(wiCompleteStepCmd(typeName))
 	cmd.AddCommand(wiEditDescriptionCmd(typeName))
 	return cmd
 }

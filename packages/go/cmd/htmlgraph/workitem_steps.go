@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"fmt"
 	"os"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -73,20 +74,27 @@ func runWiAddStep(typeName, id string, descriptions []string, fromStdin bool) er
 
 func wiRemoveStepCmd(typeName string) *cobra.Command {
 	return &cobra.Command{
-		Use:   "remove-step <id> <step-number>",
-		Short: "Remove a step from a " + typeName,
-		Args:  cobra.ExactArgs(2),
+		Use:   "remove-step <id> <step-numbers...>",
+		Short: "Remove steps from a " + typeName,
+		Args:  cobra.MinimumNArgs(2),
 		RunE: func(_ *cobra.Command, args []string) error {
-			return runWiRemoveStep(typeName, args[0], args[1])
+			return runWiRemoveStep(typeName, args[0], args[1:])
 		},
 	}
 }
 
-func runWiRemoveStep(typeName, id, indexStr string) error {
-	index, err := strconv.Atoi(indexStr)
-	if err != nil {
-		return fmt.Errorf("invalid step number %q: %w", indexStr, err)
+func runWiRemoveStep(typeName, id string, indexStrs []string) error {
+	indices := make([]int, 0, len(indexStrs))
+	for _, s := range indexStrs {
+		idx, err := strconv.Atoi(s)
+		if err != nil {
+			return fmt.Errorf("invalid step number %q: %w", s, err)
+		}
+		indices = append(indices, idx)
 	}
+
+	// Sort descending to avoid index shifting during removal
+	sort.Sort(sort.Reverse(sort.IntSlice(indices)))
 
 	dir, err := findHtmlgraphDir()
 	if err != nil {
@@ -99,10 +107,19 @@ func runWiRemoveStep(typeName, id, indexStr string) error {
 	defer p.Close()
 
 	col := collectionFor(p, typeName)
-	if err := col.Edit(id).RemoveStep(index).Save(); err != nil {
+	eb := col.Edit(id)
+	for _, idx := range indices {
+		eb = eb.RemoveStep(idx)
+	}
+	if err := eb.Save(); err != nil {
 		return fmt.Errorf("remove step: %w", err)
 	}
-	fmt.Printf("Removed step %d from %s\n", index, id)
+
+	if len(indices) == 1 {
+		fmt.Printf("Removed step %d from %s\n", indices[0], id)
+	} else {
+		fmt.Printf("Removed %d steps from %s\n", len(indices), id)
+	}
 	return nil
 }
 
@@ -143,21 +160,16 @@ func runWiUpdateStep(typeName, id, indexStr, description string) error {
 
 func wiCompleteStepCmd(typeName string) *cobra.Command {
 	return &cobra.Command{
-		Use:   "complete-step <id> <step-number>",
-		Short: "Mark a step as done in a " + typeName,
-		Args:  cobra.ExactArgs(2),
+		Use:   "complete-step <id> <step-numbers...>",
+		Short: "Mark steps as done in a " + typeName,
+		Args:  cobra.MinimumNArgs(2),
 		RunE: func(_ *cobra.Command, args []string) error {
-			return runWiCompleteStep(typeName, args[0], args[1])
+			return runWiCompleteStep(typeName, args[0], args[1:])
 		},
 	}
 }
 
-func runWiCompleteStep(typeName, id, indexStr string) error {
-	index, err := strconv.Atoi(indexStr)
-	if err != nil {
-		return fmt.Errorf("invalid step number %q: %w", indexStr, err)
-	}
-
+func runWiCompleteStep(typeName, id string, indexStrs []string) error {
 	dir, err := findHtmlgraphDir()
 	if err != nil {
 		return err
@@ -169,10 +181,23 @@ func runWiCompleteStep(typeName, id, indexStr string) error {
 	defer p.Close()
 
 	col := collectionFor(p, typeName)
-	if err := col.Edit(id).CompleteStep(index).Save(); err != nil {
+	eb := col.Edit(id)
+	for _, s := range indexStrs {
+		idx, err := strconv.Atoi(s)
+		if err != nil {
+			return fmt.Errorf("invalid step number %q: %w", s, err)
+		}
+		eb = eb.CompleteStep(idx)
+	}
+	if err := eb.Save(); err != nil {
 		return fmt.Errorf("complete step: %w", err)
 	}
-	fmt.Printf("Completed step %d in %s\n", index, id)
+
+	if len(indexStrs) == 1 {
+		fmt.Printf("Completed step %s in %s\n", indexStrs[0], id)
+	} else {
+		fmt.Printf("Completed %d steps in %s\n", len(indexStrs), id)
+	}
 	return nil
 }
 

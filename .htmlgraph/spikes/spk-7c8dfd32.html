@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="htmlgraph-version" content="1.0">
+    <title>Sonnet-coder: Implemented ingest project filter by git remote URL (feat-3c25d1f1). Files changed: packages/go/internal/ingest/discover.go (added GitRemoteURL field to SessionFile, decodeProjectPath(), FilterByGitRemote()), packages/go/cmd/htmlgraph/ingest.go (use git remote filter instead of name filter), packages/go/internal/ingest/discover_test.go (new test file). Approach: decodeProjectPath() reconstructs full filesystem path from Claude&#39;s dash-encoded project dir name by replacing leading dash with &#39;/&#39; and remaining dashes with &#39;/&#39;, then GetGitRemoteURL() queries that path. FilterByGitRemote() filters session files by exact remote URL match. ingest.go resolves remote from the parent of .htmlgraph dir and applies filter when neither --all nor --project is set.</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="spk-7c8dfd32"
+             data-type="spike"
+             data-status="done"
+             data-priority="medium"
+             data-created="2026-03-28T22:10:15.721575"
+             data-updated="2026-03-28T22:22:13.876345" data-agent-assigned="claude-code">
+
+        <header>
+            <h1>Sonnet-coder: Implemented ingest project filter by git remote URL (feat-3c25d1f1). Files changed: packages/go/internal/ingest/discover.go (added GitRemoteURL field to SessionFile, decodeProjectPath(), FilterByGitRemote()), packages/go/cmd/htmlgraph/ingest.go (use git remote filter instead of name filter), packages/go/internal/ingest/discover_test.go (new test file). Approach: decodeProjectPath() reconstructs full filesystem path from Claude&#39;s dash-encoded project dir name by replacing leading dash with &#39;/&#39; and remaining dashes with &#39;/&#39;, then GetGitRemoteURL() queries that path. FilterByGitRemote() filters session files by exact remote URL match. ingest.go resolves remote from the parent of .htmlgraph dir and applies filter when neither --all nor --project is set.</h1>
+            <div class="metadata">
+                <span class="badge status-done">Done</span>
+                <span class="badge priority-medium">Medium Priority</span>
+            </div>
+        </header>
+    </article>
+</body>
+</html>

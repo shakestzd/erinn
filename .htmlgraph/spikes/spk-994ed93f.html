@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="htmlgraph-version" content="1.0">
+    <title>bug-e999ab44: Fix step tracking and complete() SQLite sync</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="spk-994ed93f"
+             data-type="spike"
+             data-status="done"
+             data-priority="medium"
+             data-created="2026-03-21T05:37:47.718265"
+             data-updated="2026-03-21T05:37:47.718268" data-spike-type="general" data-timebox-hours="4" data-agent-assigned="sonnet-coder">
+
+        <header>
+            <h1>bug-e999ab44: Fix step tracking and complete() SQLite sync</h1>
+            <div class="metadata">
+                <span class="badge status-done">Done</span>
+                <span class="badge priority-medium">Medium Priority</span>
+            </div>
+        </header>
+
+    
+        <section data-spike-metadata>
+            <h3>Spike Metadata</h3>
+            <dl>
+                <dt>Type</dt>
+                <dd>General</dd>
+                <dt>Timebox</dt>
+                <dd>4 hours</dd>
+            </dl>
+        </section>
+        <section data-findings>
+            <h3>Findings</h3>
+            <div class="findings-content">
+                sonnet-coder: Fixed two bugs in step tracking enforcement (v0.34.2).
+
+Files changed:
+- src/python/htmlgraph/hooks/prompt_analyzer.py
+- src/python/htmlgraph/collections/base.py
+- tests/python/test_auto_divergence.py
+
+Bug 1 (_get_active_step_line): Rewrote to handle both dict and object access patterns via new _step_attr() helper. Added SDK fallback to fetch steps when dict lacks steps key. Changed output format from "Active step: Step N: desc" to "Steps (done/total): [x] done | [ ] todo" showing all steps at a glance.
+
+Bug 2 (complete() missing SQLite sync): Added upsert to features table after complete_feature() call, mirroring the existing upsert in start(). Also added invalidate_work_items_cache() call to expire the 30s prompt_analyzer cache immediately so the next prompt sees the correct done status.
+
+3 tests updated to match new step format. All 2259 tests pass.
+            </div>
+        </section>
+    </article>
+</body>
+</html>

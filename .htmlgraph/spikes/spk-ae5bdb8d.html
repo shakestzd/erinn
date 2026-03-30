@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="htmlgraph-version" content="1.0">
+    <title>Sonnet-coder: Implemented git remote URL as project identity (feat-8d2566d0). Files changed: packages/go/internal/paths/resolve.go (added GetGitRemoteURL), packages/go/internal/paths/resolve_test.go (4 new tests), packages/go/internal/models/session.go (GitRemoteURL field), packages/go/internal/db/schema.go (migration), packages/go/internal/hooks/session_start.go (activeSessionData &#43; SessionStart &#43; upsertSession wiring), packages/go/internal/db/session_repo.go (InsertSession column). Approach: GetGitRemoteURL runs git -C &lt;dir&gt; remote get-url origin, returns empty on error. All 8 paths tests pass, go build/vet/test all clean.</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="spk-ae5bdb8d"
+             data-type="spike"
+             data-status="done"
+             data-priority="medium"
+             data-created="2026-03-28T22:04:48.633202"
+             data-updated="2026-03-28T22:22:13.898388" data-agent-assigned="claude-code">
+
+        <header>
+            <h1>Sonnet-coder: Implemented git remote URL as project identity (feat-8d2566d0). Files changed: packages/go/internal/paths/resolve.go (added GetGitRemoteURL), packages/go/internal/paths/resolve_test.go (4 new tests), packages/go/internal/models/session.go (GitRemoteURL field), packages/go/internal/db/schema.go (migration), packages/go/internal/hooks/session_start.go (activeSessionData &#43; SessionStart &#43; upsertSession wiring), packages/go/internal/db/session_repo.go (InsertSession column). Approach: GetGitRemoteURL runs git -C &lt;dir&gt; remote get-url origin, returns empty on error. All 8 paths tests pass, go build/vet/test all clean.</h1>
+            <div class="metadata">
+                <span class="badge status-done">Done</span>
+                <span class="badge priority-medium">Medium Priority</span>
+            </div>
+        </header>
+    </article>
+</body>
+</html>

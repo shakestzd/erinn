@@ -10,15 +10,15 @@
 <body>
     <article id="feat-717bd042"
              data-type="feature"
-             data-status="in-progress"
+             data-status="done"
              data-priority="high"
              data-created="2026-03-05T09:49:31.101004"
-             data-updated="2026-03-28T17:58:46.011147" data-agent-assigned="claude-code" data-track-id="trk-97f85b3b">
+             data-updated="2026-03-29T23:38:48.209747" data-track-id="trk-97f85b3b">
 
         <header>
             <h1>Claude Code Native Session Ingester</h1>
             <div class="metadata">
-                <span class="badge status-in-progress">In Progress</span>
+                <span class="badge status-done">Done</span>
                 <span class="badge priority-high">High Priority</span>
             </div>
         </header>
@@ -35,16 +35,16 @@
         <section data-steps>
             <h3>Implementation Steps</h3>
             <ol>
-                <li data-completed="false">⏳ Build base Ingester class with tool-agnostic interface</li>
-                <li data-completed="false">⏳ Implement Claude Code JSONL parser using sessions-index.json for discovery</li>
-                <li data-completed="false">⏳ Parse parentUuid chains into event hierarchy</li>
-                <li data-completed="false">⏳ Parse isSidechain/agentId for subagent attribution</li>
-                <li data-completed="false">⏳ Extract token usage from assistant.message.usage</li>
-                <li data-completed="false">⏳ Handle compact_boundary records for session continuity</li>
-                <li data-completed="false">⏳ Parse subagent transcripts from session subdirectories</li>
-                <li data-completed="false">⏳ Add CLI command: htmlgraph ingest --tool claude</li>
-                <li data-completed="false">⏳ Incremental ingestion tracking (skip already-ingested files)</li>
-                <li data-completed="false">⏳ Run tests</li>
+                <li data-completed="true" data-agent="claude-code">✅ Build base Ingester class with tool-agnostic interface</li>
+                <li data-completed="true" data-agent="claude-code">✅ Implement Claude Code JSONL parser using sessions-index.json for discovery</li>
+                <li data-completed="true" data-agent="claude-code">✅ Parse parentUuid chains into event hierarchy</li>
+                <li data-completed="true" data-agent="claude-code">✅ Parse isSidechain/agentId for subagent attribution</li>
+                <li data-completed="true" data-agent="claude-code">✅ Extract token usage from assistant.message.usage</li>
+                <li data-completed="true" data-agent="claude-code">✅ Handle compact_boundary records for session continuity</li>
+                <li data-completed="true" data-agent="claude-code">✅ Parse subagent transcripts from session subdirectories</li>
+                <li data-completed="true" data-agent="claude-code">✅ Add CLI command: htmlgraph ingest --tool claude</li>
+                <li data-completed="true" data-agent="claude-code">✅ Incremental ingestion tracking (skip already-ingested files)</li>
+                <li data-completed="true" data-agent="claude-code">✅ Run tests</li>
             </ol>
         </section>
     </article>

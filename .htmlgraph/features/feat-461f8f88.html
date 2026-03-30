@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="htmlgraph-version" content="1.0">
+    <title>Work item CLI: add remove-step, update-step, complete-step, and edit-description commands</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="feat-461f8f88"
+             data-type="feature"
+             data-status="todo"
+             data-priority="high"
+             data-created="2026-03-29T16:15:20.103742"
+             data-updated="2026-03-29T18:16:57.283513" data-track-id="trk-fbe18084">
+
+        <header>
+            <h1>Work item CLI: add remove-step, update-step, complete-step, and edit-description commands</h1>
+            <div class="metadata">
+                <span class="badge status-todo">Todo</span>
+                <span class="badge priority-high">High Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="implemented_in">
+                <h3>Implemented In:</h3>
+                <ul>
+                    <li><a href="365c8b8b-c8e0-4fec-9e68-221f4348a9ac.html" data-relationship="implemented_in" data-since="2026-03-29T16:19:47.575193">session 365c8b8b-c8e0-4fec-9e68-221f4348a9ac</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="trk-fbe18084.html" data-relationship="part_of" data-since="2026-03-29T16:15:20.104272">trk-fbe18084</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-steps>
+            <h3>Implementation Steps</h3>
+            <ol>
+                <li data-completed="false" data-step-id="step-feat-461f8f88-0">⏳ Add remove-step subcommand to feature, bug, spike, and track — removes a step by index or text match</li>
+                <li data-completed="false" data-step-id="step-feat-461f8f88-1">⏳ Add complete-step subcommand — marks a step as done by index (currently steps only toggle via HTML data-status)</li>
+                <li data-completed="false" data-step-id="step-feat-461f8f88-2">⏳ Add update-step subcommand — replaces step text by index</li>
+                <li data-completed="false" data-step-id="step-feat-461f8f88-3">⏳ Add edit-description subcommand — sets or updates the description/overview section of a work item</li>
+                <li data-completed="false" data-step-id="step-feat-461f8f88-4">⏳ Implement in workitem.go shared runner so all types (feature, bug, spike, track) get these commands</li>
+                <li data-completed="false" data-step-id="step-feat-461f8f88-5">⏳ Add tests for step removal, completion, update, and description editing</li>
+                <li data-completed="false" data-step-id="step-feat-461f8f88-6">⏳ Add CompleteStep method to EditBuilder in packages/go/internal/workitem/edit.go</li>
+                <li data-completed="false" data-step-id="step-feat-461f8f88-7">⏳ Add wiCompleteStepCmd and runWiCompleteStep functions to packages/go/cmd/htmlgraph/workitem.go</li>
+                <li data-completed="false" data-step-id="step-feat-461f8f88-8">⏳ Register wiCompleteStepCmd in workitemCmd factory</li>
+                <li data-completed="false" data-step-id="step-feat-461f8f88-9">⏳ Run quality gate: go build, go vet, go test</li>
+            </ol>
+        </section>
+    </article>
+</body>
+</html>

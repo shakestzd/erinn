@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="htmlgraph-version" content="1.0">
+    <title>Phase 1 DB layer: session-scoped active work item</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="spk-9c5a9df1"
+             data-type="spike"
+             data-status="done"
+             data-priority="medium"
+             data-created="2026-03-18T16:31:42.335236"
+             data-updated="2026-03-18T16:31:42.335238" data-spike-type="general" data-timebox-hours="4" data-agent-assigned="sonnet-coder">
+
+        <header>
+            <h1>Phase 1 DB layer: session-scoped active work item</h1>
+            <div class="metadata">
+                <span class="badge status-done">Done</span>
+                <span class="badge priority-medium">Medium Priority</span>
+            </div>
+        </header>
+
+    
+        <section data-spike-metadata>
+            <h3>Spike Metadata</h3>
+            <dl>
+                <dt>Type</dt>
+                <dd>General</dd>
+                <dt>Timebox</dt>
+                <dd>4 hours</dd>
+            </dl>
+        </section>
+        <section data-findings>
+            <h3>Findings</h3>
+            <div class="findings-content">
+                Task complete: Implemented Phase 1 DB layer for session-scoped active work item (feat-c0e9782b).
+
+Files changed:
+- src/python/htmlgraph/db/ddl.py: added active_feature_id TEXT column to sessions CREATE TABLE; migration entry in migrate_sessions() for existing DBs
+- src/python/htmlgraph/db/schema.py: added set_active_work_item, get_active_work_item_for_session, clear_active_work_item to HtmlGraphDB
+
+Tests: tests/python/test_session_active_item.py — 10 tests, all passing
+Quality: ruff + mypy clean
+            </div>
+        </section>
+    </article>
+</body>
+</html>

@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="htmlgraph-version" content="1.0">
+    <title>Reindex glob misses subdirectory-format tracks (trk-xxx/index.html)</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="feat-9a49eaff"
+             data-type="feature"
+             data-status="done"
+             data-priority="low"
+             data-created="2026-03-29T12:53:16.342558"
+             data-updated="2026-03-29T14:14:30.890527" data-agent-assigned="claude-code" data-track-id="trk-aeb4ae73">
+
+        <header>
+            <h1>Reindex glob misses subdirectory-format tracks (trk-xxx/index.html)</h1>
+            <div class="metadata">
+                <span class="badge status-done">Done</span>
+                <span class="badge priority-low">Low Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="blocked_by">
+                <h3>Blocked By:</h3>
+                <ul>
+                    <li><a href="bug-45791652.html" data-relationship="blocked_by" data-since="2026-03-29T12:55:52.079445">Reindex FK constraint: tracks table never populated, 865 features silently fail</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="trk-aeb4ae73.html" data-relationship="part_of" data-since="2026-03-29T12:53:16.343011">trk-aeb4ae73</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="implemented_in">
+                <h3>Implemented In:</h3>
+                <ul>
+                    <li><a href="71b37498-d72f-4205-b8a6-70e4386e2575.html" data-relationship="implemented_in" data-since="2026-03-29T13:34:25.369076">session 71b37498-d72f-4205-b8a6-70e4386e2575</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-steps>
+            <h3>Implementation Steps</h3>
+            <ol>
+                <li data-completed="true" data-step-id="step-feat-9a49eaff-0" data-agent="claude-code">✅ Update reindex glob to include tracks/**/index.html alongside tracks/*.html</li>
+                <li data-completed="true" data-step-id="step-feat-9a49eaff-1" data-agent="claude-code">✅ Verify trk-b775f859 and trk-3030989f are now indexed after reindex</li>
+            </ol>
+        </section>
+    </article>
+</body>
+</html>

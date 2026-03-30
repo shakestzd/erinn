@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="htmlgraph-version" content="1.0">
+    <title>Hooks cross-contaminate active_feature_id across sessions via shared model_cache</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="bug-3264e51f"
+             data-type="bug"
+             data-status="todo"
+             data-priority="medium"
+             data-created="2026-03-29T12:51:27.200019"
+             data-updated="2026-03-29T12:56:04.591546" data-agent-assigned="claude-code">
+
+        <header>
+            <h1>Hooks cross-contaminate active_feature_id across sessions via shared model_cache</h1>
+            <div class="metadata">
+                <span class="badge status-todo">Todo</span>
+                <span class="badge priority-medium">Medium Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="trk-aeb4ae73.html" data-relationship="part_of" data-since="2026-03-29T12:55:47.776221">Session isolation and reindex reliability</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-steps>
+            <h3>Implementation Steps</h3>
+            <ol>
+                <li data-completed="false" data-step-id="step-bug-3264e51f-0">⏳ Audit all hook scripts that call UpdateActiveFeature — identify where they get session_id</li>
+                <li data-completed="false" data-step-id="step-bug-3264e51f-1">⏳ Ensure hooks use CloudEvent session_id from their own event payload, never model_cache</li>
+                <li data-completed="false" data-step-id="step-bug-3264e51f-2">⏳ Test: two concurrent sessions in same project each show their own active work item</li>
+            </ol>
+        </section>
+    </article>
+</body>
+</html>

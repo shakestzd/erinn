@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="htmlgraph-version" content="1.0">
+    <title>Sonnet-coder: Implemented transaction batching for session_start DB queries (feat-8b6fdf86). Files changed: packages/go/internal/hooks/session_start.go, packages/go/internal/db/lineage_repo.go. Approach: Added db.Execer interface (satisfied by both *sql.DB and *sql.Tx) with InsertLineageTraceExecer helper. Refactored SessionStart to run all DB writes (session upsert &#43; lineage inserts) inside a single BEGIN/COMMIT transaction via runSessionTransaction(). Read-only queries (GetActiveFeatureID, GetLineageBySession) run outside the transaction to keep write-lock duration minimal. Before: 3-4 auto-committed operations for subagent sessions, 1 for non-subagent. After: 1 transaction containing all writes per session start event.</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="spk-d9ff208f"
+             data-type="spike"
+             data-status="todo"
+             data-priority="medium"
+             data-created="2026-03-29T20:37:39.898519"
+             data-updated="2026-03-29T20:37:39.898519" data-agent-assigned="claude-code">
+
+        <header>
+            <h1>Sonnet-coder: Implemented transaction batching for session_start DB queries (feat-8b6fdf86). Files changed: packages/go/internal/hooks/session_start.go, packages/go/internal/db/lineage_repo.go. Approach: Added db.Execer interface (satisfied by both *sql.DB and *sql.Tx) with InsertLineageTraceExecer helper. Refactored SessionStart to run all DB writes (session upsert &#43; lineage inserts) inside a single BEGIN/COMMIT transaction via runSessionTransaction(). Read-only queries (GetActiveFeatureID, GetLineageBySession) run outside the transaction to keep write-lock duration minimal. Before: 3-4 auto-committed operations for subagent sessions, 1 for non-subagent. After: 1 transaction containing all writes per session start event.</h1>
+            <div class="metadata">
+                <span class="badge status-todo">Todo</span>
+                <span class="badge priority-medium">Medium Priority</span>
+            </div>
+        </header>
+    </article>
+</body>
+</html>

@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="htmlgraph-version" content="1.0">
+    <title>Research: ClawBot and MoltBot — competitive/complementary tool analysis</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="spk-7df27e4d"
+             data-type="spike"
+             data-status="done"
+             data-priority="medium"
+             data-created="2026-03-22T14:09:59.225057"
+             data-updated="2026-03-22T14:28:40.057315" data-spike-type="general" data-agent-assigned="researcher">
+
+        <header>
+            <h1>Research: ClawBot and MoltBot — competitive/complementary tool analysis</h1>
+            <div class="metadata">
+                <span class="badge status-done">Done</span>
+                <span class="badge priority-medium">Medium Priority</span>
+            </div>
+        </header>
+
+        <section data-properties>
+            <h3>Properties</h3>
+            <dl>
+                <dt>Completed At</dt>
+                <dd data-key="completed_at" data-value="2026-03-22T14:28:40.057329">2026-03-22T14:28:40.057329</dd>
+<dt>Completion Analysis</dt>
+                <dd data-key="completion_analysis" data-value="{'session_id': 'd076bee5-46c0-4718-a3cc-3f97b9b2645d', 'anti_patterns': [{'sequence': ['Bash', 'Bash', 'Bash'], 'count': 111, 'description': 'Command spam - plan commands before executing'}, {'sequence': ['Edit', 'Edit', 'Edit'], 'count': 35, 'description': 'Multiple edits without testing - run tests between changes'}, {'sequence': ['Read', 'Read', 'Read'], 'count': 2, 'description': 'Excessive reading - take notes or use grep to find specific content'}], 'errors': [], 'error_count': 0, 'efficiency': 0.46590909090909094, 'issues': ['High retry rate: 50%', 'Excessive context rebuilds: 13'], 'recommendations': ['Consider reading more context before acting', 'Cache file contents or take notes'], 'test_runs': [{'command': 'Run full pytest test suite', 'success': True, 'passed': None, 'failed': None, 'skipped': None, 'errors': None}, {'command': 'Run full pytest test suite', 'success': True, 'passed': None, 'failed': None, 'skipped': None, 'errors': None}, {'command': 'Read pytest test results from background task', 'success': True, 'passed': None, 'failed': None, 'skipped': None, 'errors': None}, {'command': 'Read pytest summary from end of results', 'success': True, 'passed': None, 'failed': None, 'skipped': None, 'errors': None}], 'test_summary': '✓ 4 test runs', 'summary': '⚠️ Issues: 148 anti-pattern occurrences, low efficiency (47%), ✓ 4 test runs'}">{'session_id': 'd076bee5-46c0-4718-a3cc-3f97b9b2645d', 'anti_patterns': [{'sequence': ['Bash', 'Bash', 'Bash'], 'count': 111, 'description': 'Command spam - plan commands before executing'}, {'sequence': ['Edit', 'Edit', 'Edit'], 'count': 35, 'description': 'Multiple edits without testing - run tests between changes'}, {'sequence': ['Read', 'Read', 'Read'], 'count': 2, 'description': 'Excessive reading - take notes or use grep to find specific content'}], 'errors': [], 'error_count': 0, 'efficiency': 0.46590909090909094, 'issues': ['High retry rate: 50%', 'Excessive context rebuilds: 13'], 'recommendations': ['Consider reading more context before acting', 'Cache file contents or take notes'], 'test_runs': [{'command': 'Run full pytest test suite', 'success': True, 'passed': None, 'failed': None, 'skipped': None, 'errors': None}, {'command': 'Run full pytest test suite', 'success': True, 'passed': None, 'failed': None, 'skipped': None, 'errors': None}, {'command': 'Read pytest test results from background task', 'success': True, 'passed': None, 'failed': None, 'skipped': None, 'errors': None}, {'command': 'Read pytest summary from end of results', 'success': True, 'passed': None, 'failed': None, 'skipped': None, 'errors': None}], 'test_summary': '✓ 4 test runs', 'summary': '⚠️ Issues: 148 anti-pattern occurrences, low efficiency (47%), ✓ 4 test runs'}</dd>
+            </dl>
+        </section>
+    
+        <section data-spike-metadata>
+            <h3>Spike Metadata</h3>
+            <dl>
+                <dt>Type</dt>
+                <dd>General</dd>
+            </dl>
+        </section>
+        <section data-findings>
+            <h3>Findings</h3>
+            <div class="findings-content">
+                Research complete: ClawBot/Moltbot/OpenClaw are all the same project by Peter Steinberger. Architecture: Gateway daemon hub-and-spoke, Skills system (SKILL.md dirs). Observability ecosystem: ClawMetry local dashboard, openclaw-telemetry JSONL+hash chains, Opik plugin. Key HtmlGraph learnings: local-first positioning (already aligned), memory file tracking as first-class events, behavioral drift detection, cost attribution at feature granularity, skills registry as community asset.
+            </div>
+        </section>
+    </article>
+</body>
+</html>

@@ -10,15 +10,15 @@
 <body>
     <article id="feat-58fb91ef"
              data-type="feature"
-             data-status="todo"
+             data-status="done"
              data-priority="high"
              data-created="2026-03-28T21:56:43.420179"
-             data-updated="2026-03-28T21:56:43.421287" data-agent-assigned="claude-code" data-track-id="trk-06a29a51">
+             data-updated="2026-03-29T23:24:44.929204" data-agent-assigned="claude-code" data-track-id="trk-06a29a51">
 
         <header>
             <h1>Hook CWD validation — warn when project diverges</h1>
             <div class="metadata">
-                <span class="badge status-todo">Todo</span>
+                <span class="badge status-done">Done</span>
                 <span class="badge priority-high">High Priority</span>
             </div>
         </header>
@@ -30,16 +30,22 @@
                     <li><a href="feat-b2201971.html" data-relationship="blocked_by" data-since="2026-03-28T21:56:43.420891">Store project_dir in session DB row and .active-session</a></li>
                 </ul>
             </section>
+            <section data-edge-type="implemented_in">
+                <h3>Implemented In:</h3>
+                <ul>
+                    <li><a href="bc48f1c9-1458-49c5-bcfb-10809f8ec4b9.html" data-relationship="implemented_in" data-since="2026-03-29T23:23:50.27843">session bc48f1c9-1458-49c5-bcfb-10809f8ec4b9</a></li>
+                </ul>
+            </section>
         </nav>
 
         <section data-steps>
             <h3>Implementation Steps</h3>
             <ol>
-                <li data-completed="false" data-step-id="step-feat-58fb91ef-0">⏳ In pretooluse.go, after resolving projectDir, compare event.CWD against the session&#39;s stored project_dir</li>
-                <li data-completed="false" data-step-id="step-feat-58fb91ef-1">⏳ If event.CWD resolves to a DIFFERENT .htmlgraph/ than the session&#39;s project_dir, log a warning via debugLog</li>
-                <li data-completed="false" data-step-id="step-feat-58fb91ef-2">⏳ For Write/Edit tools, block and return error: &#39;CWD has changed to a different project. Start a new session in that project.&#39;</li>
-                <li data-completed="false" data-step-id="step-feat-58fb91ef-3">⏳ For read-only tools (Read, Grep, Glob), allow silently — reading across projects is fine</li>
-                <li data-completed="false" data-step-id="step-feat-58fb91ef-4">⏳ Write test: PreToolUse with CWD pointing to different project -&gt; blocks Write, allows Read</li>
+                <li data-completed="true" data-step-id="step-feat-58fb91ef-0" data-agent="claude-code">✅ In pretooluse.go, after resolving projectDir, compare event.CWD against the session&#39;s stored project_dir</li>
+                <li data-completed="true" data-step-id="step-feat-58fb91ef-1" data-agent="claude-code">✅ If event.CWD resolves to a DIFFERENT .htmlgraph/ than the session&#39;s project_dir, log a warning via debugLog</li>
+                <li data-completed="true" data-step-id="step-feat-58fb91ef-2" data-agent="claude-code">✅ For Write/Edit tools, block and return error: &#39;CWD has changed to a different project. Start a new session in that project.&#39;</li>
+                <li data-completed="true" data-step-id="step-feat-58fb91ef-3" data-agent="claude-code">✅ For read-only tools (Read, Grep, Glob), allow silently — reading across projects is fine</li>
+                <li data-completed="true" data-step-id="step-feat-58fb91ef-4" data-agent="claude-code">✅ Write test: PreToolUse with CWD pointing to different project -&gt; blocks Write, allows Read</li>
             </ol>
         </section>
     </article>

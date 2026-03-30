@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="htmlgraph-version" content="1.0">
+    <title>feat-60fabe3b verification: pretooluse-attribution-check.py already fully implemented</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="spk-d2921e92"
+             data-type="spike"
+             data-status="done"
+             data-priority="medium"
+             data-created="2026-03-22T21:30:02.353534"
+             data-updated="2026-03-22T21:30:02.353535" data-spike-type="general" data-timebox-hours="4" data-agent-assigned="sonnet-coder">
+
+        <header>
+            <h1>feat-60fabe3b verification: pretooluse-attribution-check.py already fully implemented</h1>
+            <div class="metadata">
+                <span class="badge status-done">Done</span>
+                <span class="badge priority-medium">Medium Priority</span>
+            </div>
+        </header>
+
+    
+        <section data-spike-metadata>
+            <h3>Spike Metadata</h3>
+            <dl>
+                <dt>Type</dt>
+                <dd>General</dd>
+                <dt>Timebox</dt>
+                <dd>4 hours</dd>
+            </dl>
+        </section>
+        <section data-findings>
+            <h3>Findings</h3>
+            <div class="findings-content">
+                Verification of feat-60fabe3b: Enforce work item attribution via PreToolUse hook.
+
+All spec requirements already implemented in:
+  packages/claude-plugin/hooks/scripts/pretooluse-attribution-check.py
+
+Requirements met:
+- Parse hook input from stdin (JSON): json.load(sys.stdin)
+- Resolve .htmlgraph/htmlgraph.db path: _resolve_project_dir() + _db_path()
+- Query SQLite features table for in-progress items
+- Print warning message when no active work item (with SDK create/start instructions)
+- Print confirmation Working on: {id} ({title}) when active item found
+- Always exit 0 via decision:allow in all branches
+- Handle DB errors gracefully via except (sqlite3.Error, OSError)
+
+hooks.json already registers it:
+  matcher: Agent|Task, event: PreToolUse (line 64)
+
+Beyond spec:
+- SDK fallback when DB unavailable
+- Filters auto-generated spikes to prefer real work items
+- updated_at DESC ordering
+
+Linting: ruff check/format both pass clean.
+No code changes were needed.
+            </div>
+        </section>
+    </article>
+</body>
+</html>

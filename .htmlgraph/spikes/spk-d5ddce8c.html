@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="htmlgraph-version" content="1.0">
+    <title>feat-470eec2b: PostToolUse quality gate implementation</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="spk-d5ddce8c"
+             data-type="spike"
+             data-status="done"
+             data-priority="medium"
+             data-created="2026-03-26T19:57:54.418691"
+             data-updated="2026-03-26T19:57:54.418693" data-spike-type="general" data-timebox-hours="4" data-agent-assigned="sonnet-coder">
+
+        <header>
+            <h1>feat-470eec2b: PostToolUse quality gate implementation</h1>
+            <div class="metadata">
+                <span class="badge status-done">Done</span>
+                <span class="badge priority-medium">Medium Priority</span>
+            </div>
+        </header>
+
+    
+        <section data-spike-metadata>
+            <h3>Spike Metadata</h3>
+            <dl>
+                <dt>Type</dt>
+                <dd>General</dd>
+                <dt>Timebox</dt>
+                <dd>4 hours</dd>
+            </dl>
+        </section>
+        <section data-findings>
+            <h3>Findings</h3>
+            <div class="findings-content">
+                Implemented PostToolUse quality gate for Go hook system.
+
+Files changed:
+- packages/go/internal/hooks/quality_gate.go (new, 289 lines)
+- packages/go/internal/hooks/quality_gate_test.go (new, 264 lines, 21 tests all passing)
+- packages/go/internal/hooks/posttooluse.go (wired quality gate, +15 lines)
+
+Approach:
+- CheckFileQuality() reads the written file and checks: module size (warn>300, limit>500), function length by extension-aware prefix scan (warn>30, limit>50), copy-paste duplication via sliding-window with allSameLine filter
+- extractFilePath() helper reused from pretooluse guard (already existed there)
+- All checks advisory only via AdditionalContext, never blocking
+- Binary extensions (.png, .wasm, etc.) and .htmlgraph/ paths skipped
+
+Key design decisions:
+- Duplication detection uses sliding window but skips blocks where all lines are identical (avoids false positives on boilerplate files)
+- Function length for Python uses indent-based termination; Go/JS/TS uses brace-counting
+- No regex, only strings.HasPrefix / strings.TrimLeft for <5ms performance
+            </div>
+        </section>
+    </article>
+</body>
+</html>

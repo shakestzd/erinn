@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="htmlgraph-version" content="1.0">
+    <title>Sonnet-coder: Fixed test isolation bug for worktree parent session ID (bug-8198f5ee). Root cause: CloudEvent.CWD was empty in tests, causing resolveWorktreeParentSession to fall back to os.Getwd() (the real git worktree CWD), read the live .active-session file, and attempt to INSERT a session with a parent_session_id that didn&#39;t exist in the isolated test DB. The FK constraint caused INSERT OR IGNORE to silently drop the row, making GetSession return no rows. Fix: set event.CWD=projectDir in existing tests &#43; add TestSessionStartWorktreeParentSessionIDPopulated to cover the full upsert-with-parent path. Files changed: packages/go/internal/hooks/session_start_test.go. The production code (resolveWorktreeParentSession, upsertSession) was already correct.</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="spk-c0d2a63b"
+             data-type="spike"
+             data-status="todo"
+             data-priority="medium"
+             data-created="2026-03-29T12:50:45.36186"
+             data-updated="2026-03-29T12:50:45.36186" data-agent-assigned="claude-code">
+
+        <header>
+            <h1>Sonnet-coder: Fixed test isolation bug for worktree parent session ID (bug-8198f5ee). Root cause: CloudEvent.CWD was empty in tests, causing resolveWorktreeParentSession to fall back to os.Getwd() (the real git worktree CWD), read the live .active-session file, and attempt to INSERT a session with a parent_session_id that didn&#39;t exist in the isolated test DB. The FK constraint caused INSERT OR IGNORE to silently drop the row, making GetSession return no rows. Fix: set event.CWD=projectDir in existing tests &#43; add TestSessionStartWorktreeParentSessionIDPopulated to cover the full upsert-with-parent path. Files changed: packages/go/internal/hooks/session_start_test.go. The production code (resolveWorktreeParentSession, upsertSession) was already correct.</h1>
+            <div class="metadata">
+                <span class="badge status-todo">Todo</span>
+                <span class="badge priority-medium">Medium Priority</span>
+            </div>
+        </header>
+    </article>
+</body>
+</html>

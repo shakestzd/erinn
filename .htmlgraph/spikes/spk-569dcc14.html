@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="htmlgraph-version" content="1.0">
+    <title>Sonnet-coder: Implemented expandable subagent activity in session transcript view. Files changed: packages/go/cmd/htmlgraph/api_transcript.go (added subagentEventsHandler &#43; subagent_session_id in tool call map), packages/go/cmd/htmlgraph/serve.go (registered /api/events/subagent route), packages/go/cmd/htmlgraph/dashboard/components/transcript-view.js (renderAgentBlock, renderToolChip, fetchSubagentEvents helpers), packages/go/cmd/htmlgraph/dashboard/css/components.css (subagent-block, subagent-event-row styles). Approach: Agent tool calls detected by tool_name===&#39;Agent&#39;, rendered as expandable blocks with lazy fetch of child events via parent_event_id. Non-Agent tools use refactored renderToolChip helper. Branch: feat-subagent-inline-transcript.</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="spk-569dcc14"
+             data-type="spike"
+             data-status="todo"
+             data-priority="medium"
+             data-created="2026-03-29T11:55:07.408477"
+             data-updated="2026-03-29T11:55:07.408477" data-agent-assigned="claude-code">
+
+        <header>
+            <h1>Sonnet-coder: Implemented expandable subagent activity in session transcript view. Files changed: packages/go/cmd/htmlgraph/api_transcript.go (added subagentEventsHandler &#43; subagent_session_id in tool call map), packages/go/cmd/htmlgraph/serve.go (registered /api/events/subagent route), packages/go/cmd/htmlgraph/dashboard/components/transcript-view.js (renderAgentBlock, renderToolChip, fetchSubagentEvents helpers), packages/go/cmd/htmlgraph/dashboard/css/components.css (subagent-block, subagent-event-row styles). Approach: Agent tool calls detected by tool_name===&#39;Agent&#39;, rendered as expandable blocks with lazy fetch of child events via parent_event_id. Non-Agent tools use refactored renderToolChip helper. Branch: feat-subagent-inline-transcript.</h1>
+            <div class="metadata">
+                <span class="badge status-todo">Todo</span>
+                <span class="badge priority-medium">Medium Priority</span>
+            </div>
+        </header>
+    </article>
+</body>
+</html>

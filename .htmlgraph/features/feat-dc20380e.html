@@ -10,36 +10,37 @@
 <body>
     <article id="feat-dc20380e"
              data-type="feature"
-             data-status="todo"
+             data-status="done"
              data-priority="high"
              data-created="2026-01-15T22:31:41.301479"
-             data-updated="2026-01-16T03:31:42.486912+00:00" data-agent-assigned="claude-code" data-track-id="trk-16bea22d">
+             data-updated="2026-03-29T22:16:37.976009" data-agent-assigned="claude-code" data-track-id="trk-16bea22d">
 
         <header>
             <h1>Fix UserQuery Event Persistence in Dashboard</h1>
             <div class="metadata">
-                <span class="badge status-todo">Todo</span>
+                <span class="badge status-done">Done</span>
                 <span class="badge priority-high">High Priority</span>
             </div>
         </header>
 
         <nav data-graph-edges>
             <section data-edge-type="implemented-in">
-                <h3>Implemented-In:</h3>
+                <h3>Implemented-in:</h3>
                 <ul>
                     <li><a href="519c5f43-07f4-4829-9868-587c93e15811.html" data-relationship="implemented-in" data-since="2026-01-15T22:31:42.486894">519c5f43-07f4-4829-9868-587c93e15811</a></li>
                 </ul>
             </section>
         </nav>
+
         <section data-steps>
             <h3>Implementation Steps</h3>
             <ol>
-                <li data-completed="false">⏳ Create missing 'events' table in SQLite schema</li>
-                <li data-completed="false">⏳ Run database schema migration</li>
-                <li data-completed="false">⏳ Verify AnalyticsIndex.upsert_event() writes to events table</li>
-                <li data-completed="false">⏳ Test UserQuery events now appear in SQLite</li>
-                <li data-completed="false">⏳ Verify dashboard /api/events endpoint works</li>
-                <li data-completed="false">⏳ Run full test suite for regressions</li>
+                <li data-completed="true" data-agent="claude-code">✅ Create missing &#39;events&#39; table in SQLite schema</li>
+                <li data-completed="true" data-agent="claude-code">✅ Run database schema migration</li>
+                <li data-completed="true" data-agent="claude-code">✅ Verify AnalyticsIndex.upsert_event() writes to events table</li>
+                <li data-completed="true" data-agent="claude-code">✅ Test UserQuery events now appear in SQLite</li>
+                <li data-completed="true" data-agent="claude-code">✅ Verify dashboard /api/events endpoint works</li>
+                <li data-completed="true" data-agent="claude-code">✅ Run full test suite for regressions</li>
             </ol>
         </section>
     </article>

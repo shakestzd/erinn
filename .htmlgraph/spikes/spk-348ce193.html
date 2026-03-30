@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="htmlgraph-version" content="1.0">
+    <title>YOLO Mode Enforcement Gap Analysis (spk-b8ad2175): Investigated yolo-prompt.md (9 steps) vs hook enforcement in yolo_guard.go/pretooluse.go. Findings: 6 of 9 steps have hook enforcement (Steps 0,1,4,5,7,8 partially); Steps 2,3,6 have zero hook enforcement. Critical gaps: (1) UI validation (Step 6) - no hook checks for HTML/CSS/JS changes or screenshot tool usage; (2) TDD/test-first (Step 3) - checkYoloCommitGuard only checks tests ran before commit, not before implementation; (3) Work item completion (Step 8 mark-done) - no hook enforces htmlgraph feature done; (4) Orchestrator delegation drop - no hook detects or blocks orchestrator doing direct work after Wave 2; (5) Spec step (Step 2) - entirely text-only. Bug gap confirmed: hasRecentTestRun() now checks parent session (fixed in current code) but diffRan only checks current session, not parent. The .launch-mode file detection via isYoloMode() is sound.</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="spk-348ce193"
+             data-type="spike"
+             data-status="todo"
+             data-priority="medium"
+             data-created="2026-03-29T12:38:15.992694"
+             data-updated="2026-03-29T12:38:15.992694" data-agent-assigned="claude-code">
+
+        <header>
+            <h1>YOLO Mode Enforcement Gap Analysis (spk-b8ad2175): Investigated yolo-prompt.md (9 steps) vs hook enforcement in yolo_guard.go/pretooluse.go. Findings: 6 of 9 steps have hook enforcement (Steps 0,1,4,5,7,8 partially); Steps 2,3,6 have zero hook enforcement. Critical gaps: (1) UI validation (Step 6) - no hook checks for HTML/CSS/JS changes or screenshot tool usage; (2) TDD/test-first (Step 3) - checkYoloCommitGuard only checks tests ran before commit, not before implementation; (3) Work item completion (Step 8 mark-done) - no hook enforces htmlgraph feature done; (4) Orchestrator delegation drop - no hook detects or blocks orchestrator doing direct work after Wave 2; (5) Spec step (Step 2) - entirely text-only. Bug gap confirmed: hasRecentTestRun() now checks parent session (fixed in current code) but diffRan only checks current session, not parent. The .launch-mode file detection via isYoloMode() is sound.</h1>
+            <div class="metadata">
+                <span class="badge status-todo">Todo</span>
+                <span class="badge priority-medium">Medium Priority</span>
+            </div>
+        </header>
+    </article>
+</body>
+</html>

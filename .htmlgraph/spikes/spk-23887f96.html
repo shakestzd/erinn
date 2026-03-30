@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="htmlgraph-version" content="1.0">
+    <title>Researcher: Investigated sub-agent Tool call nesting issue. Root cause: Claude Code architectural limit — subagents CANNOT spawn other subagents (Agent/Task tool is not available inside a subagent). This is documented at code.claude.com/docs/en/sub-agents and tracked in GitHub issues #4182 and #19077. All 12 HtmlGraph agents are subagents when invoked by the orchestrator, so NONE of them can use Agent/Task. The coder agents (haiku/sonnet/opus) have NO tools: field, meaning they inherit ALL tools — but the Agent tool is blocked by platform architecture regardless. The researcher, debugger, test-runner, roborev, codex-operator, copilot-operator, gemini-operator agents have explicit tools: lists that do NOT include Agent — consistent and correct. Bonus bug: debugger.md has color: orange which is an invalid Claude Code color value (valid: blue, cyan, green, yellow, magenta, red). Recommended fix: (1) coder agents should add explicit tools: lists excluding Agent to be self-documenting and prevent confusion; (2) fix debugger color: orange to color: red; (3) consider adding a comment in agent files noting Agent tool nesting is a platform limitation.</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="spk-23887f96"
+             data-type="spike"
+             data-status="todo"
+             data-priority="medium"
+             data-created="2026-03-29T16:06:36.955839"
+             data-updated="2026-03-29T16:06:36.955839" data-agent-assigned="claude-code">
+
+        <header>
+            <h1>Researcher: Investigated sub-agent Tool call nesting issue. Root cause: Claude Code architectural limit — subagents CANNOT spawn other subagents (Agent/Task tool is not available inside a subagent). This is documented at code.claude.com/docs/en/sub-agents and tracked in GitHub issues #4182 and #19077. All 12 HtmlGraph agents are subagents when invoked by the orchestrator, so NONE of them can use Agent/Task. The coder agents (haiku/sonnet/opus) have NO tools: field, meaning they inherit ALL tools — but the Agent tool is blocked by platform architecture regardless. The researcher, debugger, test-runner, roborev, codex-operator, copilot-operator, gemini-operator agents have explicit tools: lists that do NOT include Agent — consistent and correct. Bonus bug: debugger.md has color: orange which is an invalid Claude Code color value (valid: blue, cyan, green, yellow, magenta, red). Recommended fix: (1) coder agents should add explicit tools: lists excluding Agent to be self-documenting and prevent confusion; (2) fix debugger color: orange to color: red; (3) consider adding a comment in agent files noting Agent tool nesting is a platform limitation.</h1>
+            <div class="metadata">
+                <span class="badge status-todo">Todo</span>
+                <span class="badge priority-medium">Medium Priority</span>
+            </div>
+        </header>
+    </article>
+</body>
+</html>

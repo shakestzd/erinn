@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="htmlgraph-version" content="1.0">
+    <title>Sonnet-coder: Implemented dashboard detail panel improvements (feat-0bc892f3). Files changed: packages/go/internal/htmlparse/parser.go, packages/go/cmd/htmlgraph/dashboard/js/app.js, packages/go/cmd/htmlgraph/dashboard/css/components.css. Approach: (1) Extended parseContent() in parser.go to fall back to section[data-findings] .findings-content when data-content is absent — covers spike HTML files. (2) Added content/findings rendering block in renderWorkDetail() in app.js that shows node.content under a Findings section header. (3) Refactored Related section to defer DOM insertion until the fetch resolves with results, eliminating the empty-state &#39;None&#39; display. (4) Added .work-detail-content CSS rule for scrollable pre-wrap text block.</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="spk-b1330b89"
+             data-type="spike"
+             data-status="todo"
+             data-priority="medium"
+             data-created="2026-03-29T03:36:58.314133"
+             data-updated="2026-03-29T03:36:58.314133" data-agent-assigned="claude-code">
+
+        <header>
+            <h1>Sonnet-coder: Implemented dashboard detail panel improvements (feat-0bc892f3). Files changed: packages/go/internal/htmlparse/parser.go, packages/go/cmd/htmlgraph/dashboard/js/app.js, packages/go/cmd/htmlgraph/dashboard/css/components.css. Approach: (1) Extended parseContent() in parser.go to fall back to section[data-findings] .findings-content when data-content is absent — covers spike HTML files. (2) Added content/findings rendering block in renderWorkDetail() in app.js that shows node.content under a Findings section header. (3) Refactored Related section to defer DOM insertion until the fetch resolves with results, eliminating the empty-state &#39;None&#39; display. (4) Added .work-detail-content CSS rule for scrollable pre-wrap text block.</h1>
+            <div class="metadata">
+                <span class="badge status-todo">Todo</span>
+                <span class="badge priority-medium">Medium Priority</span>
+            </div>
+        </header>
+    </article>
+</body>
+</html>

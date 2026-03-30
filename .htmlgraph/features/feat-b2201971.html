@@ -10,26 +10,35 @@
 <body>
     <article id="feat-b2201971"
              data-type="feature"
-             data-status="todo"
+             data-status="done"
              data-priority="high"
              data-created="2026-03-28T21:56:43.419452"
-             data-updated="2026-03-28T21:56:43.419452" data-agent-assigned="claude-code" data-track-id="trk-06a29a51">
+             data-updated="2026-03-29T23:24:44.945958" data-agent-assigned="claude-code" data-track-id="trk-06a29a51">
 
         <header>
             <h1>Store project_dir in session DB row and .active-session</h1>
             <div class="metadata">
-                <span class="badge status-todo">Todo</span>
+                <span class="badge status-done">Done</span>
                 <span class="badge priority-high">High Priority</span>
             </div>
         </header>
 
+        <nav data-graph-edges>
+            <section data-edge-type="implemented_in">
+                <h3>Implemented In:</h3>
+                <ul>
+                    <li><a href="bc48f1c9-1458-49c5-bcfb-10809f8ec4b9.html" data-relationship="implemented_in" data-since="2026-03-29T22:27:42.111908">session bc48f1c9-1458-49c5-bcfb-10809f8ec4b9</a></li>
+                </ul>
+            </section>
+        </nav>
+
         <section data-steps>
             <h3>Implementation Steps</h3>
             <ol>
-                <li data-completed="false" data-step-id="step-feat-b2201971-0">⏳ Add project_dir TEXT column to sessions table schema in packages/go/internal/db/schema.go</li>
-                <li data-completed="false" data-step-id="step-feat-b2201971-1">⏳ In SessionStart handler, resolve project_dir and store it in the session row via upsertSession</li>
-                <li data-completed="false" data-step-id="step-feat-b2201971-2">⏳ Include project_dir in .active-session JSON (already has ProjectDir field but verify it&#39;s populated)</li>
-                <li data-completed="false" data-step-id="step-feat-b2201971-3">⏳ Write test: session start -&gt; session row has project_dir matching the resolved project root</li>
+                <li data-completed="true" data-step-id="step-feat-b2201971-0" data-agent="claude-code">✅ Add project_dir TEXT column to sessions table schema in packages/go/internal/db/schema.go</li>
+                <li data-completed="true" data-step-id="step-feat-b2201971-1" data-agent="claude-code">✅ In SessionStart handler, resolve project_dir and store it in the session row via upsertSession</li>
+                <li data-completed="true" data-step-id="step-feat-b2201971-2" data-agent="claude-code">✅ Include project_dir in .active-session JSON (already has ProjectDir field but verify it&#39;s populated)</li>
+                <li data-completed="true" data-step-id="step-feat-b2201971-3" data-agent="claude-code">✅ Write test: session start -&gt; session row has project_dir matching the resolved project root</li>
             </ol>
         </section>
     </article>

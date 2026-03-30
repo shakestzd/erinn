@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="htmlgraph-version" content="1.0">
+    <title>Phase 1: Package split — lightweight core + optional dashboard</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="spk-c9009574"
+             data-type="spike"
+             data-status="done"
+             data-priority="medium"
+             data-created="2026-03-21T03:51:44.464588"
+             data-updated="2026-03-21T03:51:44.464592" data-spike-type="general" data-timebox-hours="4" data-agent-assigned="sonnet-coder">
+
+        <header>
+            <h1>Phase 1: Package split — lightweight core + optional dashboard</h1>
+            <div class="metadata">
+                <span class="badge status-done">Done</span>
+                <span class="badge priority-medium">Medium Priority</span>
+            </div>
+        </header>
+
+    
+        <section data-spike-metadata>
+            <h3>Spike Metadata</h3>
+            <dl>
+                <dt>Type</dt>
+                <dd>General</dd>
+                <dt>Timebox</dt>
+                <dd>4 hours</dd>
+            </dl>
+        </section>
+        <section data-findings>
+            <h3>Findings</h3>
+            <div class="findings-content">
+                Phase 1 complete (feat-7dc46322).
+
+## What was done
+
+### pyproject.toml
+- Moved 12 dashboard-only deps from [project.dependencies] to [project.optional-dependencies] dashboard extra:
+  fastapi, uvicorn[standard], aiosqlite, fastapi-cache2, orjson,
+  opentelemetry-sdk, opentelemetry-instrumentation-fastapi,
+  opentelemetry-instrumentation-sqlite3, opentelemetry-exporter-otlp-proto-grpc,
+  prometheus-fastapi-instrumentator, asgi-correlation-id, structlog
+- Removed dead alembic and fastapi-sqla declarations (zero Python imports found)
+- Removed stale sqlite extra (aiosqlite is now in dashboard)
+- Updated observability extra to explicitly list dashboard deps + sentry-sdk
+
+### Core deps kept
+justhtml, pydantic, pydantic-settings, watchdog, rich, jinja2 (used by docs/template_engine.py for sync-docs), typing_extensions, pyyaml, tenacity, networkx
+
+### src/python/htmlgraph/cli/core.py
+- Added lazy ImportError guard to ServeCommand.execute()
+- Added lazy ImportError guard to ServeApiCommand.execute()
+- Both print helpful: pip install htmlgraph[dashboard] + Docker alternative
+
+## Verification
+- Core import: OK (from htmlgraph import SDK)
+- Dashboard import: OK (from htmlgraph.api.main import create_app)
+- No core module outside api/ imports dashboard deps at top level
+- 2311 tests pass, 36 skipped
+            </div>
+        </section>
+    </article>
+</body>
+</html>

@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="htmlgraph-version" content="1.0">
+    <title>Fix bug-1b5fd5ae: stronger Task delegation warning</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="spk-c1c00d39"
+             data-type="spike"
+             data-status="done"
+             data-priority="medium"
+             data-created="2026-03-21T15:53:35.052363"
+             data-updated="2026-03-21T15:53:35.052366" data-spike-type="general" data-timebox-hours="4" data-agent-assigned="sonnet-coder">
+
+        <header>
+            <h1>Fix bug-1b5fd5ae: stronger Task delegation warning</h1>
+            <div class="metadata">
+                <span class="badge status-done">Done</span>
+                <span class="badge priority-medium">Medium Priority</span>
+            </div>
+        </header>
+
+    
+        <section data-spike-metadata>
+            <h3>Spike Metadata</h3>
+            <dl>
+                <dt>Type</dt>
+                <dd>General</dd>
+                <dt>Timebox</dt>
+                <dd>4 hours</dd>
+            </dl>
+        </section>
+        <section data-findings>
+            <h3>Findings</h3>
+            <div class="findings-content">
+                Fixed bug-1b5fd5ae: Add stronger attribution warning when Agent/Task is called without active work item.
+
+Files changed:
+- packages/claude-plugin/hooks/scripts/pretooluse-attribution-check.py
+
+Changes:
+1. Added _AGENT_DELEGATION_WARNING constant with STOP-level messaging explaining orphaned subagent attribution.
+2. is_delegation flag (tool_name == "Task") set early in main().
+3. Task calls bypass the UserQuery-gated _attribution_verified() and call sdk.get_active_work_item() directly — warns even on first tool call of a session before any UserQuery exists.
+4. No-session-id fast path also warns for Task calls if no active work item.
+5. Final emit replaced with if/else: Task gets _AGENT_DELEGATION_WARNING, all other tools get existing _WARNING_MESSAGE.
+            </div>
+        </section>
+    </article>
+</body>
+</html>

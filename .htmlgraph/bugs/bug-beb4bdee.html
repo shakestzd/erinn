@@ -10,52 +10,33 @@
 <body>
     <article id="bug-beb4bdee"
              data-type="bug"
-             data-status="todo"
+             data-status="done"
              data-priority="critical"
              data-created="2026-01-09T03:10:00.113148"
-             data-updated="2026-01-09T08:10:00.696386+00:00" data-agent-assigned="orchestrator">
+             data-updated="2026-03-29T18:50:46.943792" data-agent-assigned="orchestrator">
 
         <header>
             <h1>Spawner agents (Gemini, Copilot, Codex) return immediately without executing</h1>
             <div class="metadata">
-                <span class="badge status-todo">Todo</span>
+                <span class="badge status-done">Done</span>
                 <span class="badge priority-critical">Critical Priority</span>
             </div>
         </header>
 
         <nav data-graph-edges>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="trk-ad011e17.html" data-relationship="part_of" data-since="2026-03-29T18:19:28.129488">Critical Bug Sweep — SDK, Spawners, Reindex</a></li>
+                </ul>
+            </section>
             <section data-edge-type="implemented-in">
-                <h3>Implemented-In:</h3>
+                <h3>Implemented-in:</h3>
                 <ul>
                     <li><a href="sess-422f9b54.html" data-relationship="implemented-in" data-since="2026-01-09T03:10:00.696366">sess-422f9b54</a></li>
                 </ul>
             </section>
         </nav>
-        <section data-content>
-            <h3>Description</h3>
-            <p>When using Task() with spawner subagent types, they return immediately without executing:
-- htmlgraph:gemini-spawner
-- htmlgraph:copilot-spawner  
-- htmlgraph:codex-spawner
-
-## Observed behavior:
-- Task() returns agentId immediately (within 1 second)
-- No actual work is performed
-- No spike files created
-- No research/code changes made
-
-## Expected behavior:
-- Spawner should execute the prompt
-- Results should be returned or saved to HtmlGraph
-- Work should actually be performed
-
-## Files to investigate:
-- packages/claude-plugin/agents/gemini-spawner.md
-- packages/claude-plugin/agents/copilot-spawner.md
-- packages/claude-plugin/agents/codex-spawner.md
-- How Claude Code loads and executes plugin agents
-</p>
-        </section>
     </article>
 </body>
 </html>

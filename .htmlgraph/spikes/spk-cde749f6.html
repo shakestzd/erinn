@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="htmlgraph-version" content="1.0">
+    <title>Researcher: Investigated agentsview (github.com/wesm/agentsview) session tracking approach. Key findings: (1) NO hooks/CloudEvents system — agentsview is a PASSIVE file reader, not an event-driven hook subscriber. It monitors ~/.claude/projects/&lt;project&gt;/&lt;session&gt;.jsonl files via fsnotify filesystem watching. (2) Session ID = filename stem: sessionID := strings.TrimSuffix(filepath.Base(path), &#39;.jsonl&#39;) — the UUID in the filename IS the session ID. No CLAUDE_ENV_FILE, no env vars for session identity. (3) The &#39;sessionId&#39; field inside JSONL entries is treated as parentSessionID (for detecting subagent/branched sessions), NOT the primary session identifier. Primary identity comes from filename. (4) JSONL files are read directly and incrementally from byte offsets. The sync engine uses incremental parsing (ParseClaudeSessionFrom) for append-only files, resuming from last read offset. (5) Session discovery: scans ~/.claude/projects/&lt;project&gt;/*.jsonl (skipping agent-*.jsonl) plus ~/.claude/projects/&lt;project&gt;/&lt;session&gt;/subagents/agent-*.jsonl for subagents. (6) For CLAUDE_ENV_FILE/hook-based session resolution: agentsview does NOT use this pattern at all — it has no hook system. For HtmlGraph hooks that need reliable session ID, the pattern from agentsview suggests reading CLAUDE_ENV_FILE to get the session file path, then extracting the filename stem as the canonical session ID. The session file path in CLAUDE_ENV_FILE should point to the active .jsonl file, giving us both the session ID and the project directory. Sources: github.com/wesm/agentsview internal/parser/claude.go, internal/parser/discovery.go, internal/sync/engine.go, internal/config/config.go</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="spk-cde749f6"
+             data-type="spike"
+             data-status="done"
+             data-priority="medium"
+             data-created="2026-03-29T01:07:12.297959"
+             data-updated="2026-03-29T01:07:12.297959" data-agent-assigned="claude-code">
+
+        <header>
+            <h1>Researcher: Investigated agentsview (github.com/wesm/agentsview) session tracking approach. Key findings: (1) NO hooks/CloudEvents system — agentsview is a PASSIVE file reader, not an event-driven hook subscriber. It monitors ~/.claude/projects/&lt;project&gt;/&lt;session&gt;.jsonl files via fsnotify filesystem watching. (2) Session ID = filename stem: sessionID := strings.TrimSuffix(filepath.Base(path), &#39;.jsonl&#39;) — the UUID in the filename IS the session ID. No CLAUDE_ENV_FILE, no env vars for session identity. (3) The &#39;sessionId&#39; field inside JSONL entries is treated as parentSessionID (for detecting subagent/branched sessions), NOT the primary session identifier. Primary identity comes from filename. (4) JSONL files are read directly and incrementally from byte offsets. The sync engine uses incremental parsing (ParseClaudeSessionFrom) for append-only files, resuming from last read offset. (5) Session discovery: scans ~/.claude/projects/&lt;project&gt;/*.jsonl (skipping agent-*.jsonl) plus ~/.claude/projects/&lt;project&gt;/&lt;session&gt;/subagents/agent-*.jsonl for subagents. (6) For CLAUDE_ENV_FILE/hook-based session resolution: agentsview does NOT use this pattern at all — it has no hook system. For HtmlGraph hooks that need reliable session ID, the pattern from agentsview suggests reading CLAUDE_ENV_FILE to get the session file path, then extracting the filename stem as the canonical session ID. The session file path in CLAUDE_ENV_FILE should point to the active .jsonl file, giving us both the session ID and the project directory. Sources: github.com/wesm/agentsview internal/parser/claude.go, internal/parser/discovery.go, internal/sync/engine.go, internal/config/config.go</h1>
+            <div class="metadata">
+                <span class="badge status-done">Done</span>
+                <span class="badge priority-medium">Medium Priority</span>
+            </div>
+        </header>
+    </article>
+</body>
+</html>

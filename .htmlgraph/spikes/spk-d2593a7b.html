@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="htmlgraph-version" content="1.0">
+    <title>Researcher: Investigated modern developer observability dashboard UX patterns for AI-assisted development tools. Reviewed: agentsview (wesm/agentsview), AgentPrism, Langfuse, LangSmith, Vercel dashboard, Linear redesign, Datadog/Grafana trace views, LogRocket session replay, Smashing Magazine real-time dashboard UX, getstream.io activity feed patterns. Current HtmlGraph dashboard screenshots reviewed (all 5 views). Key findings: (1) ACTIVITY FEED needs expandable session rows showing tool call timeline, not just session list - sessions should expand to show turn-by-turn waterfall; (2) TRACE/SPAN WATERFALL is the gold standard for AI agent visualization - horizontal bars on timeline, color-coded by type (LLM call=blue, tool=green, agent spawn=purple, error=red), with tree-view/timeline toggle; (3) KANBAN status columns pattern is solid but needs swimlanes by track/project and WIP limit indicators; (4) GRAPH VIEW needs force-directed layout with zoom &#43; minimap; the current grid layout loses dependency edges; (5) METRICS CARDS use bento-style modular grid with sparklines, delta indicators with trend arrows; (6) DARK-FIRST design with LCH color space, semi-bold typography, 3 accent colors max; (7) PROGRESSIVE DISCLOSURE - collapsed rows expand inline, not full-page navigation; (8) STATUS INDICATORS use icon&#43;label pairs never color alone; (9) REAL-TIME UPDATES use SSE/WebSocket with 200-400ms micro-animations, skeleton states not spinners; (10) KEYBOARD NAVIGATION vim-style (j/k, [/], cmd&#43;k search). Recommended approach: Add session drill-down with waterfall span view, add cmd&#43;k search, add sparklines to stat cards, add swimlanes to kanban, replace graph grid with force-directed layout that preserves edges. Sources: github.com/wesm/agentsview, evilmartians.com/chronicles/debug-ai-fast-agent-prism, langfuse.com/changelog/2025-03-19-new-trace-view, linear.app/now/how-we-redesigned-the-linear-ui, smashingmagazine.com/2025/09/ux-strategies-real-time-dashboards, getstream.io/blog/activity-feed-design, vercel.com/blog/dashboard-redesign.</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="spk-d2593a7b"
+             data-type="spike"
+             data-status="done"
+             data-priority="medium"
+             data-created="2026-03-29T01:24:04.318571"
+             data-updated="2026-03-29T01:24:04.318571" data-agent-assigned="claude-code">
+
+        <header>
+            <h1>Researcher: Investigated modern developer observability dashboard UX patterns for AI-assisted development tools. Reviewed: agentsview (wesm/agentsview), AgentPrism, Langfuse, LangSmith, Vercel dashboard, Linear redesign, Datadog/Grafana trace views, LogRocket session replay, Smashing Magazine real-time dashboard UX, getstream.io activity feed patterns. Current HtmlGraph dashboard screenshots reviewed (all 5 views). Key findings: (1) ACTIVITY FEED needs expandable session rows showing tool call timeline, not just session list - sessions should expand to show turn-by-turn waterfall; (2) TRACE/SPAN WATERFALL is the gold standard for AI agent visualization - horizontal bars on timeline, color-coded by type (LLM call=blue, tool=green, agent spawn=purple, error=red), with tree-view/timeline toggle; (3) KANBAN status columns pattern is solid but needs swimlanes by track/project and WIP limit indicators; (4) GRAPH VIEW needs force-directed layout with zoom &#43; minimap; the current grid layout loses dependency edges; (5) METRICS CARDS use bento-style modular grid with sparklines, delta indicators with trend arrows; (6) DARK-FIRST design with LCH color space, semi-bold typography, 3 accent colors max; (7) PROGRESSIVE DISCLOSURE - collapsed rows expand inline, not full-page navigation; (8) STATUS INDICATORS use icon&#43;label pairs never color alone; (9) REAL-TIME UPDATES use SSE/WebSocket with 200-400ms micro-animations, skeleton states not spinners; (10) KEYBOARD NAVIGATION vim-style (j/k, [/], cmd&#43;k search). Recommended approach: Add session drill-down with waterfall span view, add cmd&#43;k search, add sparklines to stat cards, add swimlanes to kanban, replace graph grid with force-directed layout that preserves edges. Sources: github.com/wesm/agentsview, evilmartians.com/chronicles/debug-ai-fast-agent-prism, langfuse.com/changelog/2025-03-19-new-trace-view, linear.app/now/how-we-redesigned-the-linear-ui, smashingmagazine.com/2025/09/ux-strategies-real-time-dashboards, getstream.io/blog/activity-feed-design, vercel.com/blog/dashboard-redesign.</h1>
+            <div class="metadata">
+                <span class="badge status-done">Done</span>
+                <span class="badge priority-medium">Medium Priority</span>
+            </div>
+        </header>
+    </article>
+</body>
+</html>

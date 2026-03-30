@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="htmlgraph-version" content="1.0">
+    <title>Implementation notes: feat-c0e9782b session-scoped attribution</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="spk-f3035bd4"
+             data-type="spike"
+             data-status="done"
+             data-priority="medium"
+             data-created="2026-03-18T18:20:22.990368"
+             data-updated="2026-03-18T18:20:22.990370" data-spike-type="general" data-timebox-hours="4" data-agent-assigned="sonnet-coder">
+
+        <header>
+            <h1>Implementation notes: feat-c0e9782b session-scoped attribution</h1>
+            <div class="metadata">
+                <span class="badge status-done">Done</span>
+                <span class="badge priority-medium">Medium Priority</span>
+            </div>
+        </header>
+
+    
+        <section data-spike-metadata>
+            <h3>Spike Metadata</h3>
+            <dl>
+                <dt>Type</dt>
+                <dd>General</dd>
+                <dt>Timebox</dt>
+                <dd>4 hours</dd>
+            </dl>
+        </section>
+        <section data-findings>
+            <h3>Findings</h3>
+            <div class="findings-content">
+                sonnet-coder: Implemented session-scoped active work item attribution fix (feat-c0e9782b).
+
+Files changed:
+- packages/claude-plugin/hooks/scripts/user-prompt-submit.py
+- src/python/htmlgraph/collections/base.py
+
+Approach:
+1. user-prompt-submit.py: After create_user_query_event(), calls _get_active_feature_id(context) and writes result to sessions table via set_active_work_item(context.session_id, active_feature_id). Seeds the session row on every prompt so event_tracker can use fast point-lookup instead of global HTML scan.
+
+2. collections/base.py start(): Dual-write pattern — writes to both HTMLGRAPH_SESSION_ID (Claude Code UUID, used by hooks) and get_active_session().id (HtmlGraph sess-xxx, used by tests/SDK-only paths). complete() mirrors same dual-clear pattern.
+
+3. event_tracker.py: Session-scoped fallback (Fallback 1) was already correctly wired in from prior Phase 3 work — no changes needed.
+
+Key insight: Two separate session ID namespaces exist. Hooks use Claude Code UUIDs; SDK internals use sess-xxx IDs. Dual-write bridges both.
+
+All 2284 tests pass. Ruff + mypy clean.
+            </div>
+        </section>
+    </article>
+</body>
+</html>

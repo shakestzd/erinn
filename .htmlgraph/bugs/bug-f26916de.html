@@ -10,31 +10,31 @@
 <body>
     <article id="bug-f26916de"
              data-type="bug"
-             data-status="todo"
+             data-status="done"
              data-priority="medium"
              data-created="2026-01-01T22:40:21.203637"
-             data-updated="2026-01-01T22:40:21.724985">
+             data-updated="2026-03-29T23:23:16.81594">
 
         <header>
             <h1>SessionStart hook still activating tracker instead of orchestrator</h1>
             <div class="metadata">
-                <span class="badge status-todo">Todo</span>
+                <span class="badge status-done">Done</span>
                 <span class="badge priority-medium">Medium Priority</span>
             </div>
         </header>
 
         <nav data-graph-edges>
             <section data-edge-type="implemented-in">
-                <h3>Implemented-In:</h3>
+                <h3>Implemented-in:</h3>
                 <ul>
-                    <li><a href="sess-529faa2c.html" data-relationship="implemented-in" data-since="2026-01-01T22:40:21.724970">sess-529faa2c</a></li>
+                    <li><a href="sess-529faa2c.html" data-relationship="implemented-in" data-since="2026-01-01T22:40:21.72497">sess-529faa2c</a></li>
                 </ul>
             </section>
         </nav>
+
         <section data-content>
             <h3>Description</h3>
-            <p>
-Despite fixing bug-795cfe1e in v0.20.5, the SessionStart hook is still trying to activate htmlgraph-tracker skill instead of htmlgraph-orchestrator.
+            Despite fixing bug-795cfe1e in v0.20.5, the SessionStart hook is still trying to activate htmlgraph-tracker skill instead of htmlgraph-orchestrator.
 
 **Observed behavior:**
 In a different project (causal-compass), user sees:
@@ -56,7 +56,6 @@ In a different project (causal-compass), user sees:
 2. Verify SessionStart fix is in deployed version
 3. Check hook precedence (project vs plugin)
 4. Test in fresh project to reproduce
-    </p>
         </section>
     </article>
 </body>

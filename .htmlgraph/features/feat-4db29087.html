@@ -10,32 +10,39 @@
 <body>
     <article id="feat-4db29087"
              data-type="feature"
-             data-status="todo"
+             data-status="in-progress"
              data-priority="high"
              data-created="2026-03-08T05:42:33.275815"
-             data-updated="2026-03-08T09:42:35.862946+00:00" data-agent-assigned="claude" data-track-id="trk-48c1fd38">
+             data-updated="2026-03-29T23:40:01.359694" data-agent-assigned="claude-code" data-track-id="trk-48c1fd38">
 
         <header>
             <h1>Link agent events to work items in activity feed</h1>
             <div class="metadata">
-                <span class="badge status-todo">Todo</span>
+                <span class="badge status-in-progress">In Progress</span>
                 <span class="badge priority-high">High Priority</span>
             </div>
         </header>
 
         <nav data-graph-edges>
+            <section data-edge-type="implemented_in">
+                <h3>Implemented In:</h3>
+                <ul>
+                    <li><a href="bc48f1c9-1458-49c5-bcfb-10809f8ec4b9.html" data-relationship="implemented_in" data-since="2026-03-29T23:40:01.359604">session bc48f1c9-1458-49c5-bcfb-10809f8ec4b9</a></li>
+                </ul>
+            </section>
             <section data-edge-type="implemented-in">
-                <h3>Implemented-In:</h3>
+                <h3>Implemented-in:</h3>
                 <ul>
                     <li><a href="sess-6c56e756.html" data-relationship="implemented-in" data-since="2026-03-08T05:42:35.862932">sess-6c56e756</a></li>
                 </ul>
             </section>
         </nav>
+
         <section data-steps>
             <h3>Implementation Steps</h3>
             <ol>
                 <li data-completed="false">⏳ Audit DB schema: how are sessions linked to work items (features/bugs)</li>
-                <li data-completed="false">⏳ Backend: JOIN work item title+type+id in get_grouped_events() query</li>
+                <li data-completed="false">⏳ Backend: JOIN work item title&#43;type&#43;id in get_grouped_events() query</li>
                 <li data-completed="false">⏳ Add work_item badge data to conversation turn response</li>
                 <li data-completed="false">⏳ Frontend: add WORK ITEM column/badge to activity feed table rows</li>
                 <li data-completed="false">⏳ Fix AGENTS header stat to show unique agent types not agent_id count</li>

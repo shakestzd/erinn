@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="htmlgraph-version" content="1.0">
+    <title>Automatic Work Item Relationship Enforcement</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="trk-fbe18084"
+             data-type="track"
+             data-status="in-progress"
+             data-priority="medium"
+             data-created="2026-03-28T18:27:51.220256"
+             data-updated="2026-03-29T16:15:20.10471" data-agent-assigned="claude-code">
+
+        <header>
+            <h1>Automatic Work Item Relationship Enforcement</h1>
+            <div class="metadata">
+                <span class="badge status-in-progress">In Progress</span>
+                <span class="badge priority-medium">Medium Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="contains">
+                <h3>Contains:</h3>
+                <ul>
+                    <li><a href="feat-373410a8.html" data-relationship="contains" data-since="2026-03-28T22:41:23.846043">Populate agent_events.tool_input JSON in PreToolUse hook</a></li>
+                    <li><a href="feat-75399b91.html" data-relationship="contains" data-since="2026-03-28T22:41:25.191936">Add feature_id to tool_calls during transcript ingest</a></li>
+                    <li><a href="feat-e7478f7a.html" data-relationship="contains" data-since="2026-03-28T22:41:28.053569">Extract file paths into feature_files relationship table</a></li>
+                    <li><a href="feat-61f97659.html" data-relationship="contains" data-since="2026-03-28T22:41:29.808497">Related features API: find features sharing files</a></li>
+                    <li><a href="feat-7a28ea9d.html" data-relationship="contains" data-since="2026-03-29T01:41:23.098187">Add htmlgraph reindex command to sync HTML work items to SQLite</a></li>
+                    <li><a href="bug-db533267.html" data-relationship="contains" data-since="2026-03-29T13:15:07.22514">Git-to-feature linking produces 0 rows — Bash tool_result key mismatch in summarizeToolOutput</a></li>
+                    <li><a href="feat-767e79f9.html" data-relationship="contains" data-since="2026-03-29T13:15:07.733114">CLI command for reverse file lookup — which features touched a given file</a></li>
+                    <li><a href="feat-6e16f9c3.html" data-relationship="contains" data-since="2026-03-29T13:26:02.17455">Auto-complete tracks when all linked items are done</a></li>
+                    <li><a href="feat-461f8f88.html" data-relationship="contains" data-since="2026-03-29T16:15:20.104272">Work item CLI: add remove-step, update-step, complete-step, and edit-description commands</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-steps>
+            <h3>Implementation Steps</h3>
+            <ol>
+                <li data-completed="false" data-step-id="step-trk-fbe18084-0">⏳ ARCHITECTURE: Work items form a hierarchy — Track &gt; Feature/Bug/Plan/Spec &gt; Spike(independent). Only spikes can be orphans.</li>
+                <li data-completed="false" data-step-id="step-trk-fbe18084-1">⏳ ARCHITECTURE: Canonical relationship strings use underscores (blocked_by not blocked-by). Normalize on write, validate on link add.</li>
+                <li data-completed="false" data-step-id="step-trk-fbe18084-2">⏳ ARCHITECTURE: Dual-write — every AddEdge writes to both HTML (canonical) and graph_edges SQLite (queryable index).</li>
+                <li data-completed="false" data-step-id="step-trk-fbe18084-3">⏳ ARCHITECTURE: Auto edges — implemented_in on start, part_of/contains on --track, caused_by on bug create with active feature.</li>
+                <li data-completed="false" data-step-id="step-trk-fbe18084-4">⏳ ARCHITECTURE: Enforcement is warn-not-block. Never prevent work item creation, only warn about missing relationships.</li>
+            </ol>
+        </section>
+    </article>
+</body>
+</html>

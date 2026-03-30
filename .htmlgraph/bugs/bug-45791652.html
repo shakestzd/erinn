@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="htmlgraph-version" content="1.0">
+    <title>Reindex FK constraint: tracks table never populated, 865 features silently fail</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="bug-45791652"
+             data-type="bug"
+             data-status="done"
+             data-priority="high"
+             data-created="2026-03-29T12:53:13.555621"
+             data-updated="2026-03-29T13:32:27.025766" data-agent-assigned="claude-code" data-track-id="trk-aeb4ae73">
+
+        <header>
+            <h1>Reindex FK constraint: tracks table never populated, 865 features silently fail</h1>
+            <div class="metadata">
+                <span class="badge status-done">Done</span>
+                <span class="badge priority-high">High Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="caused_by">
+                <h3>Caused By:</h3>
+                <ul>
+                    <li><a href="bug-4813374c.html" data-relationship="caused_by" data-since="2026-03-29T12:53:13.564966">bug-4813374c</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="implemented_in">
+                <h3>Implemented In:</h3>
+                <ul>
+                    <li><a href="dab58ae7-ef27-40b3-8e3f-aefb40bd1233.html" data-relationship="implemented_in" data-since="2026-03-29T13:06:48.176467">session dab58ae7-ef27-40b3-8e3f-aefb40bd1233</a></li>
+                    <li><a href="71b37498-d72f-4205-b8a6-70e4386e2575.html" data-relationship="implemented_in" data-since="2026-03-29T13:18:14.4143">session 71b37498-d72f-4205-b8a6-70e4386e2575</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="trk-aeb4ae73.html" data-relationship="part_of" data-since="2026-03-29T12:53:13.565625">trk-aeb4ae73</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-steps>
+            <h3>Implementation Steps</h3>
+            <ol>
+                <li data-completed="true" data-step-id="step-bug-45791652-0" data-agent="claude-code">✅ Add UpsertTrack() to packages/go/internal/db/ that inserts into the tracks table</li>
+                <li data-completed="true" data-step-id="step-bug-45791652-1" data-agent="claude-code">✅ In reindex.go, process tracks/ dir FIRST and route track nodes to UpsertTrack instead of UpsertFeature</li>
+                <li data-completed="true" data-step-id="step-bug-45791652-2" data-agent="claude-code">✅ Verify reindex completes with 0 FK errors — all 865 previously-failing items now index</li>
+                <li data-completed="true" data-step-id="step-bug-45791652-3" data-agent="claude-code">✅ Add test: UpsertTrack populates tracks table, features with track_id pass FK check</li>
+            </ol>
+        </section>
+    </article>
+</body>
+</html>

@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="htmlgraph-version" content="1.0">
+    <title>Sonnet-coder: Implemented tool_input JSON population in PreToolUse hook (feat-373410a8). Files changed: packages/go/internal/hooks/pretooluse.go, packages/go/internal/db/event_repo.go, packages/go/internal/db/lineage_repo.go (new). Approach: serialize CloudEvent.ToolInput via json.Marshal before constructing AgentEvent; add tool_input to INSERT/SELECT in InsertEvent, UpsertEvent, GetEvent; refactored event_repo.go from 530-&gt;330 lines by extracting lineage trace and git commit functions to lineage_repo.go to satisfy YOLO code-health guard.</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="spk-75c40143"
+             data-type="spike"
+             data-status="done"
+             data-priority="medium"
+             data-created="2026-03-28T22:49:12.917788"
+             data-updated="2026-03-28T23:09:44.550814" data-agent-assigned="claude-code">
+
+        <header>
+            <h1>Sonnet-coder: Implemented tool_input JSON population in PreToolUse hook (feat-373410a8). Files changed: packages/go/internal/hooks/pretooluse.go, packages/go/internal/db/event_repo.go, packages/go/internal/db/lineage_repo.go (new). Approach: serialize CloudEvent.ToolInput via json.Marshal before constructing AgentEvent; add tool_input to INSERT/SELECT in InsertEvent, UpsertEvent, GetEvent; refactored event_repo.go from 530-&gt;330 lines by extracting lineage trace and git commit functions to lineage_repo.go to satisfy YOLO code-health guard.</h1>
+            <div class="metadata">
+                <span class="badge status-done">Done</span>
+                <span class="badge priority-medium">Medium Priority</span>
+            </div>
+        </header>
+    </article>
+</body>
+</html>

@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="htmlgraph-version" content="1.0">
+    <title>Sonnet-coder: Implemented feature_files relationship table (feat-e7478f7a). Files changed: models/feature_file.go (new), db/schema.go (table&#43;indexes), db/feature_files_repo.go (new — Upsert/ListByFeature/ListByFile), hooks/pretooluse.go (track file touches when feature active), cmd/htmlgraph/ingest.go (back-fill from transcript tool_calls). Approach: UNIQUE(feature_id, file_path) with ON CONFLICT upsert for idempotency; fileToolOperation/ingestFileOp helpers map tool names to operation labels; worktree feat-e7478f7a used.</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="spk-83b167a0"
+             data-type="spike"
+             data-status="done"
+             data-priority="medium"
+             data-created="2026-03-28T22:49:12.314426"
+             data-updated="2026-03-28T23:09:44.52898" data-agent-assigned="claude-code">
+
+        <header>
+            <h1>Sonnet-coder: Implemented feature_files relationship table (feat-e7478f7a). Files changed: models/feature_file.go (new), db/schema.go (table&#43;indexes), db/feature_files_repo.go (new — Upsert/ListByFeature/ListByFile), hooks/pretooluse.go (track file touches when feature active), cmd/htmlgraph/ingest.go (back-fill from transcript tool_calls). Approach: UNIQUE(feature_id, file_path) with ON CONFLICT upsert for idempotency; fileToolOperation/ingestFileOp helpers map tool names to operation labels; worktree feat-e7478f7a used.</h1>
+            <div class="metadata">
+                <span class="badge status-done">Done</span>
+                <span class="badge priority-medium">Medium Priority</span>
+            </div>
+        </header>
+    </article>
+</body>
+</html>

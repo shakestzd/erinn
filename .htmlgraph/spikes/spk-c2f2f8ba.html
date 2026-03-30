@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="htmlgraph-version" content="1.0">
+    <title>Phase 1 DB layer: session-scoped active work item</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="spk-c2f2f8ba"
+             data-type="spike"
+             data-status="done"
+             data-priority="medium"
+             data-created="2026-03-18T16:31:07.086346"
+             data-updated="2026-03-18T16:31:07.086348" data-spike-type="general" data-timebox-hours="4" data-agent-assigned="sonnet-coder">
+
+        <header>
+            <h1>Phase 1 DB layer: session-scoped active work item</h1>
+            <div class="metadata">
+                <span class="badge status-done">Done</span>
+                <span class="badge priority-medium">Medium Priority</span>
+            </div>
+        </header>
+
+    
+        <section data-spike-metadata>
+            <h3>Spike Metadata</h3>
+            <dl>
+                <dt>Type</dt>
+                <dd>General</dd>
+                <dt>Timebox</dt>
+                <dd>4 hours</dd>
+            </dl>
+        </section>
+        <section data-findings>
+            <h3>Findings</h3>
+            <div class="findings-content">
+                Task complete: Implemented Phase 1 DB layer for session-scoped active work item (feat-c0e9782b).
+
+Files changed:
+- src/python/htmlgraph/db/ddl.py: added active_feature_id TEXT column to sessions CREATE TABLE statement; added migration entry in migrate_sessions() so existing DBs get the column via ALTER TABLE
+- src/python/htmlgraph/db/schema.py: added three methods to HtmlGraphDB — set_active_work_item(session_id, feature_id), get_active_work_item_for_session(session_id) -> str|None, clear_active_work_item(session_id)
+
+Tests: tests/python/test_session_active_item.py — 10 tests, all passing
+Quality: ruff + mypy clean
+
+Approach: nullable TEXT column with backwards-compatible ALTER TABLE migration. Three methods follow existing update_session_activity pattern.
+            </div>
+        </section>
+    </article>
+</body>
+</html>

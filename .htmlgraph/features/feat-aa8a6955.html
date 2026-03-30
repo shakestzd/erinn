@@ -10,47 +10,42 @@
 <body>
     <article id="feat-aa8a6955"
              data-type="feature"
-             data-status="todo"
+             data-status="done"
              data-priority="high"
              data-created="2026-01-13T19:55:34.664097"
-             data-updated="2026-01-13T19:55:34.674021+00:00" data-agent-assigned="claude" data-track-id="trk-991c5af1">
+             data-updated="2026-03-29T23:38:48.165847" data-agent-assigned="claude" data-track-id="trk-991c5af1">
 
         <header>
             <h1>Design semantic query DSL</h1>
             <div class="metadata">
-                <span class="badge status-todo">Todo</span>
+                <span class="badge status-done">Done</span>
                 <span class="badge priority-high">High Priority</span>
             </div>
         </header>
 
         <nav data-graph-edges>
             <section data-edge-type="implemented-in">
-                <h3>Implemented-In:</h3>
+                <h3>Implemented-in:</h3>
                 <ul>
                     <li><a href="sess-6c56e756.html" data-relationship="implemented-in" data-since="2026-01-13T19:55:34.674012">sess-6c56e756</a></li>
                 </ul>
             </section>
         </nav>
-        <section data-required-capabilities>
-            <h3>Required Capabilities</h3>
-            <ul>
-                <li data-tag="design" class="tag">design</li>
-<li data-tag="core" class="tag">core</li>
-            </ul>
-        </section>
+
         <section data-steps>
             <h3>Implementation Steps</h3>
             <ol>
-                <li data-completed="false">⏳ Research existing query DSL patterns (Prisma, LINQ, etc)</li>
-                <li data-completed="false">⏳ Define syntax for find/where/order/limit</li>
-                <li data-completed="false">⏳ Support complex filters (and, or, not)</li>
-                <li data-completed="false">⏳ Design CLI syntax: htmlgraph find features --status blocked</li>
-                <li data-completed="false">⏳ Document DSL in docs/QUERY_DSL.md</li>
+                <li data-completed="true" data-agent="claude-code">✅ Research existing query DSL patterns (Prisma, LINQ, etc)</li>
+                <li data-completed="true" data-agent="claude-code">✅ Define syntax for find/where/order/limit</li>
+                <li data-completed="true" data-agent="claude-code">✅ Support complex filters (and, or, not)</li>
+                <li data-completed="true" data-agent="claude-code">✅ Design CLI syntax: htmlgraph find features --status blocked</li>
+                <li data-completed="true" data-agent="claude-code">✅ Document DSL in docs/QUERY_DSL.md</li>
             </ol>
         </section>
+
         <section data-content>
             <h3>Description</h3>
-            <p>Design a semantic query language inspired by agent-browser's 'find role button --name Submit' pattern. For HtmlGraph: sdk.find('features').where(status='blocked').execute(). Document the DSL syntax and semantics.</p>
+            Design a semantic query language inspired by agent-browser's 'find role button --name Submit' pattern. For HtmlGraph: sdk.find('features').where(status='blocked').execute(). Document the DSL syntax and semantics.
         </section>
     </article>
 </body>

@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="htmlgraph-version" content="1.0">
+    <title>Sonnet-coder: Removed stale Agent event filter from fetchChildren() in api_tree.go. The condition AND NOT (tool_name = &#39;Agent&#39; AND event_type \!= &#39;task_delegation&#39;) silently dropped all Agent/subagent tool_call events because they carry event_type=&#39;tool_call&#39;, not &#39;task_delegation&#39;. One-line deletion restores subagent visibility in the activity tree. Files changed: packages/go/cmd/htmlgraph/api_tree.go (line 98 deleted). Track: trk-8815c896.</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="spk-9db7c0b9"
+             data-type="spike"
+             data-status="todo"
+             data-priority="medium"
+             data-created="2026-03-29T03:45:14.599614"
+             data-updated="2026-03-29T03:45:14.599614" data-agent-assigned="claude-code">
+
+        <header>
+            <h1>Sonnet-coder: Removed stale Agent event filter from fetchChildren() in api_tree.go. The condition AND NOT (tool_name = &#39;Agent&#39; AND event_type \!= &#39;task_delegation&#39;) silently dropped all Agent/subagent tool_call events because they carry event_type=&#39;tool_call&#39;, not &#39;task_delegation&#39;. One-line deletion restores subagent visibility in the activity tree. Files changed: packages/go/cmd/htmlgraph/api_tree.go (line 98 deleted). Track: trk-8815c896.</h1>
+            <div class="metadata">
+                <span class="badge status-todo">Todo</span>
+                <span class="badge priority-medium">Medium Priority</span>
+            </div>
+        </header>
+    </article>
+</body>
+</html>

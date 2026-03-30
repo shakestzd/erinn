@@ -54,12 +54,12 @@ else
     chmod +x "${BIN_DIR}/htmlgraph-dev"
     echo "Built: packages/go-plugin/hooks/bin/htmlgraph-dev"
 
-    # Install to ~/.local/bin so the binary is on PATH
+    # Install to ~/.local/bin via symlink so resolvePluginDir() can walk back
     INSTALL_DIR="${HOME}/.local/bin"
     META_DIR="${HOME}/.local/share/htmlgraph"
     mkdir -p "${INSTALL_DIR}" "${META_DIR}"
-    cp "${BIN_DIR}/htmlgraph-dev" "${INSTALL_DIR}/htmlgraph"
-    chmod +x "${INSTALL_DIR}/htmlgraph"
+    rm -f "${INSTALL_DIR}/htmlgraph"
+    ln -s "${BIN_DIR}/htmlgraph-dev" "${INSTALL_DIR}/htmlgraph"
     echo "${VERSION}" > "${META_DIR}/.binary-version"
-    echo "Installed: ${INSTALL_DIR}/htmlgraph (v${VERSION})"
+    echo "Installed: ${INSTALL_DIR}/htmlgraph -> ${BIN_DIR}/htmlgraph-dev (v${VERSION})"
 fi

@@ -1,0 +1,5 @@
+CompileFlags:
+  Add:
+    - "--include-directory=/Users/jonatanklosko/.local/share/mise/installs/erlang/28.3.1/erts-16.2/include/"
+    - "--include-directory=/Users/jonatanklosko/git/fine/c_include/"
+    - "-std=c++17"

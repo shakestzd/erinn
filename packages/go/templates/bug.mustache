@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="htmlgraph-version" content="1.0">
+    <title>{{title}}</title>
+    <link rel="stylesheet" href="{{stylesheet_path}}">
+</head>
+<body>
+    <article id="{{id}}"
+             data-type="bug"
+             data-status="{{status}}"
+             data-priority="{{priority}}"
+             data-created="{{created_at}}"
+             data-updated="{{updated_at}}"{{#agent_assigned}} data-agent-assigned="{{agent_assigned}}"{{/agent_assigned}}{{#track_id}} data-track-id="{{track_id}}"{{/track_id}}>
+
+        <header>
+            <h1>{{title}}</h1>
+            <div class="metadata">
+                <span class="badge status-{{status}}">{{status_display}}</span>
+                <span class="badge priority-{{priority}}">{{priority_display}} Priority</span>
+            </div>
+        </header>
+{{#has_edges}}
+
+        <nav data-graph-edges>
+{{#edge_groups}}
+            <section data-edge-type="{{relationship}}">
+                <h3>{{relationship_display}}:</h3>
+                <ul>
+{{#edges}}
+                    <li><a href="{{href}}" data-relationship="{{relationship}}"{{#since}} data-since="{{since}}"{{/since}}>{{title}}</a></li>
+{{/edges}}
+                </ul>
+            </section>
+{{/edge_groups}}
+        </nav>
+{{/has_edges}}
+{{#has_properties}}
+        <section data-properties>
+            <h3>Properties</h3>
+            <dl>
+{{#properties}}
+                <dt>{{display_key}}</dt>
+                <dd data-key="{{key}}" data-value="{{value}}">{{display_value}}</dd>
+{{/properties}}
+            </dl>
+        </section>
+{{/has_properties}}
+{{#has_steps}}
+        <section data-steps>
+            <h3>Implementation Steps</h3>
+            <ol>
+{{#steps}}
+                <li data-completed="{{completed}}"{{#step_id}} data-step-id="{{step_id}}"{{/step_id}}{{#agent}} data-agent="{{agent}}"{{/agent}}{{#depends_on}} data-depends-on="{{depends_on}}"{{/depends_on}}>{{icon}} {{description}}</li>
+{{/steps}}
+            </ol>
+        </section>
+{{/has_steps}}
+{{#has_content}}
+        <section data-content>
+            <h3>Description</h3>
+            <p>{{content}}</p>
+        </section>
+{{/has_content}}
+    </article>
+</body>
+</html>

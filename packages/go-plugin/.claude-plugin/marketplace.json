@@ -1,0 +1,48 @@
+{
+  "name": "HtmlGraph",
+  "owner": {
+    "name": "Shakes Dlamini",
+    "email": "shakestzd@gmail.com",
+    "url": "https://github.com/shakestzd"
+  },
+  "description": "HTML-based agent observability + workflow analytics. Git-first JSONL event tracking with rebuildable SQLite index. Zero external dependencies, works offline, version control friendly.",
+  "version": "0.35.0",
+  "plugins": [
+    {
+      "name": "htmlgraph",
+      "version": "0.35.0",
+      "source": "../",
+      "description": "HTML-based agent observability + workflow analytics (Git-first JSONL + rebuildable SQLite index)",
+      "category": "Development Tools",
+      "tags": [
+        "observability",
+        "analytics",
+        "workflow",
+        "git",
+        "session-tracking",
+        "agent-coordination",
+        "html",
+        "offline-first"
+      ],
+      "author": {
+        "name": "Shakes Dlamini",
+        "email": "shakestzd@gmail.com",
+        "url": "https://github.com/shakestzd"
+      },
+      "repository": "https://github.com/shakestzd/htmlgraph",
+      "homepage": "https://github.com/shakestzd/htmlgraph#readme",
+      "license": "MIT",
+      "keywords": [
+        "observability",
+        "analytics",
+        "workflow",
+        "session-tracking",
+        "agent-coordination",
+        "html-graph",
+        "git-based",
+        "offline-first"
+      ],
+      "strict": false
+    }
+  ]
+}

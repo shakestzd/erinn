@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="htmlgraph-version" content="1.0">
+    <title>Bug: {{TITLE}}</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="{{ID}}"
+             data-type="bug"
+             data-status="todo"
+             data-priority="{{PRIORITY}}"
+             data-created="{{CREATED}}"
+             data-updated="{{UPDATED}}"
+             data-agent-assigned="">
+
+        <header>
+            <h1>{{TITLE}}</h1>
+            <div class="metadata">
+                <span class="badge status-todo">Todo</span>
+                <span class="badge priority-{{PRIORITY}}">{{PRIORITY_LABEL}} Priority</span>
+                <span class="badge type-bug">Bug</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="related">
+                <h3>Related:</h3>
+                <ul>
+                    {{RELATED_LINKS}}
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>{{DESCRIPTION}}</p>
+
+            <h4>Reproduction Steps</h4>
+            <ol>
+                <li>Step 1</li>
+                <li>Step 2</li>
+                <li>Step 3</li>
+            </ol>
+
+            <h4>Expected Behavior</h4>
+            <p>Describe what should happen</p>
+
+            <h4>Actual Behavior</h4>
+            <p>Describe what actually happens</p>
+        </section>
+
+        <section data-steps>
+            <h3>Fix Steps</h3>
+            <ol>
+                <li data-completed="false">Investigate root cause</li>
+                <li data-completed="false">Implement fix</li>
+                <li data-completed="false">Add regression test</li>
+                <li data-completed="false">Verify fix</li>
+            </ol>
+        </section>
+
+        <section data-activity-log>
+            <h3>Activity Log</h3>
+            <ol reversed>
+                <li data-timestamp="{{CREATED}}" data-agent="{{AGENT}}">Bug created from drift classification</li>
+            </ol>
+        </section>
+    </article>
+</body>
+</html>

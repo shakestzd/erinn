@@ -1,0 +1,203 @@
+- generic [active] [ref=e1]:
+  - banner [ref=e2]:
+    - navigation [ref=e3]:
+      - generic [ref=e4]:
+        - link "Wes McKinney" [ref=e6] [cursor=pointer]:
+          - /url: https://wesmckinney.com/
+        - generic "Search" [ref=e7]:
+          - combobox "Search" [ref=e8]:
+            - button "Search" [ref=e9] [cursor=pointer]:
+              - img [ref=e11]
+        - list [ref=e14]:
+          - listitem [ref=e15]:
+            - link "Home" [ref=e16] [cursor=pointer]:
+              - /url: https://wesmckinney.com/
+          - listitem [ref=e17]:
+            - link "Software" [ref=e18] [cursor=pointer]:
+              - /url: https://wesmckinney.com/software.html
+          - listitem [ref=e19]:
+            - link "Book" [ref=e20] [cursor=pointer]:
+              - /url: https://wesmckinney.com/book/
+          - listitem [ref=e21]:
+            - link "Spicy Takes" [ref=e22] [cursor=pointer]:
+              - /url: https://spicytakes.org/
+          - listitem [ref=e23]:
+            - link "Blog" [ref=e24] [cursor=pointer]:
+              - /url: https://wesmckinney.com/archives.html
+          - listitem [ref=e25]:
+            - link "Talks & Media" [ref=e26] [cursor=pointer]:
+              - /url: https://wesmckinney.com/presentations.html
+          - listitem [ref=e27]:
+            - link "RSS Feed" [ref=e28] [cursor=pointer]:
+              - /url: https://wesmckinney.com/archives.xml
+              - img "RSS Feed" [ref=e29]: 
+        - link "Toggle dark mode" [ref=e31] [cursor=pointer]:
+          - /url: https://wesmckinney.com/
+  - main [ref=e34]:
+    - generic [ref=e36]:
+      - link "Wes McKinney" [ref=e37] [cursor=pointer]:
+        - /url: https://wesmckinney.com/images/wes-2017-01-12-small.png
+        - img "Wes McKinney" [ref=e38]
+      - heading "Wes McKinney" [level=1] [ref=e39]
+      - paragraph [ref=e41]:
+        - link "LinkedIn" [ref=e42] [cursor=pointer]:
+          - /url: https://linkedin.com/in/wesmckinn
+          - img [ref=e43]
+        - link "Twitter" [ref=e45] [cursor=pointer]:
+          - /url: https://twitter.com/wesmckinn
+          - img [ref=e46]
+        - link "GitHub" [ref=e48] [cursor=pointer]:
+          - /url: https://github.com/wesm
+          - img [ref=e49]
+        - link "Email" [ref=e51] [cursor=pointer]:
+          - /url: mailto:info@wesmckinney.com
+          - img [ref=e52]
+    - generic [ref=e55]:
+      - generic [ref=e56]:
+        - paragraph [ref=e57]:
+          - text: I’m an entrepreneur and software developer focusing on analytical computing. I’m currently a Principal Architect at
+          - link "Posit" [ref=e58] [cursor=pointer]:
+            - /url: https://posit.co/
+          - text: . I was a founder of
+          - link "Voltron Data" [ref=e59] [cursor=pointer]:
+            - /url: https://voltrondata.com/
+          - text: ","
+          - link "Ursa Labs" [ref=e60] [cursor=pointer]:
+            - /url: https://ursalabs.org/
+          - text: (with
+          - link "Posit" [ref=e61] [cursor=pointer]:
+            - /url: https://posit.co/
+          - text: ), and DataPad. I wrote
+          - link "Python for Data Analysis" [ref=e62] [cursor=pointer]:
+            - /url: https://wesmckinney.com/book
+          - text: which you can read for free here or buy a copy to support me. I am a Member of
+          - link "The ASF" [ref=e63] [cursor=pointer]:
+            - /url: https://apache.org/
+          - text: .
+        - paragraph [ref=e64]:
+          - text: I’ve been
+          - link "building software projects" [ref=e65] [cursor=pointer]:
+            - /url: https://wesmckinney.com/software.html
+          - text: since 2008, and building even more now with agentic engineering. My latest projects are
+          - link "msgvault" [ref=e66] [cursor=pointer]:
+            - /url: https://github.com/wesm/msgvault
+          - text: ", a tool to archive and search a lifetime of email and chat,"
+          - link "roborev" [ref=e67] [cursor=pointer]:
+            - /url: https://github.com/wesm/roborev
+          - text: ", autonomous continuous code review by background agents, and"
+          - link "agentsview" [ref=e68] [cursor=pointer]:
+            - /url: https://github.com/wesm/agentsview
+          - text: ", a fast local session viewer for Claude, Codex, and Gemini."
+          - link "I speak often at conferences and on podcasts" [ref=e69] [cursor=pointer]:
+            - /url: https://wesmckinney.com/presentations.html
+          - text: .
+        - paragraph [ref=e70]:
+          - text: I am an active angel investor and advisor with my fund
+          - link "Composed Ventures" [ref=e71] [cursor=pointer]:
+            - /url: https://composed.vc/
+          - text: .
+      - generic [ref=e72]: Recent Talks & Media
+      - generic [ref=e73]:
+        - generic [ref=e74]:
+          - generic [ref=e75]: "#121"
+          - generic [ref=e76]:
+            - generic [ref=e77]:
+              - generic [ref=e78]: Podcast
+              - link "The Test Set (Posit)" [ref=e80] [cursor=pointer]:
+                - /url: https://wesmckinney.com/transcripts/2026-03-10-test-set-phillip-cloud.html
+              - generic [ref=e81]: (Co-host)
+            - generic [ref=e82]: Remote · Mar 2026
+          - 'link "Phillip Cloud: Sleeping Rats and Sociopathic Agents" [ref=e84] [cursor=pointer]':
+            - /url: https://wesmckinney.com/transcripts/2026-03-10-test-set-phillip-cloud.html
+          - paragraph [ref=e86]:
+            - link "Transcript" [ref=e87] [cursor=pointer]:
+              - /url: https://wesmckinney.com/transcripts/2026-03-10-test-set-phillip-cloud.html
+            - link "Video" [ref=e88] [cursor=pointer]:
+              - /url: https://www.youtube.com/watch?v=CPnUZZY0JJE
+        - generic [ref=e89]:
+          - generic [ref=e90]: "#120"
+          - generic [ref=e91]:
+            - generic [ref=e92]:
+              - generic [ref=e93]: Podcast
+              - link "Data Renegades (Heavybit)" [ref=e95] [cursor=pointer]:
+                - /url: https://wesmckinney.com/transcripts/2026-03-03-data-renegades-radical-accountability.html
+            - generic [ref=e96]: Remote · Mar 2026
+          - link "Radical Accountability in Software" [ref=e98] [cursor=pointer]:
+            - /url: https://wesmckinney.com/transcripts/2026-03-03-data-renegades-radical-accountability.html
+          - paragraph [ref=e100]:
+            - link "Transcript" [ref=e101] [cursor=pointer]:
+              - /url: https://wesmckinney.com/transcripts/2026-03-03-data-renegades-radical-accountability.html
+            - link "Video" [ref=e102] [cursor=pointer]:
+              - /url: https://www.youtube.com/watch?v=neeROOdM39w
+            - link "Episode" [ref=e103] [cursor=pointer]:
+              - /url: https://www.heavybit.com/library/podcasts/data-renegades/ep-9-radical-accountability-in-software-with-wes-mckinney
+        - generic [ref=e104]:
+          - generic [ref=e105]: "#119"
+          - generic [ref=e106]:
+            - generic [ref=e107]:
+              - generic [ref=e108]: Podcast
+              - link "The Test Set (Posit)" [ref=e110] [cursor=pointer]:
+                - /url: https://wesmckinney.com/transcripts/2026-02-24-test-set-charlie-marsh.html
+              - generic [ref=e111]: (Co-host)
+            - generic [ref=e112]: Remote · Feb 2026
+          - link "More productive but a lot less fun — with Charlie Marsh" [ref=e114] [cursor=pointer]:
+            - /url: https://wesmckinney.com/transcripts/2026-02-24-test-set-charlie-marsh.html
+          - paragraph [ref=e116]:
+            - link "Transcript" [ref=e117] [cursor=pointer]:
+              - /url: https://wesmckinney.com/transcripts/2026-02-24-test-set-charlie-marsh.html
+            - link "Video" [ref=e118] [cursor=pointer]:
+              - /url: https://www.youtube.com/watch?v=NoxoQHhrkoc
+        - generic [ref=e119]:
+          - generic [ref=e120]: "#118"
+          - generic [ref=e121]:
+            - generic [ref=e122]:
+              - generic [ref=e123]: Podcast
+              - link "Data Talks on the Rocks" [ref=e125] [cursor=pointer]:
+                - /url: https://wesmckinney.com/transcripts/2026-02-10-rill-data-podcast.html
+            - generic [ref=e126]: Remote · Feb 2026
+          - link "Python Was Built for Humans. AI Just Changed Everything." [ref=e128] [cursor=pointer]:
+            - /url: https://wesmckinney.com/transcripts/2026-02-10-rill-data-podcast.html
+          - paragraph [ref=e130]:
+            - link "Transcript" [ref=e131] [cursor=pointer]:
+              - /url: https://wesmckinney.com/transcripts/2026-02-10-rill-data-podcast.html
+            - link "Video" [ref=e132] [cursor=pointer]:
+              - /url: https://www.youtube.com/watch?v=1VfzDXeQRhU
+        - generic [ref=e133]:
+          - generic [ref=e134]: "#117"
+          - generic [ref=e135]:
+            - generic [ref=e136]:
+              - generic [ref=e137]: Podcast
+              - link "The Test Set (Posit)" [ref=e139] [cursor=pointer]:
+                - /url: https://wesmckinney.com/transcripts/2026-02-09-test-set-alenka-frim.html
+              - generic [ref=e140]: (Co-host)
+            - generic [ref=e141]: Remote · Feb 2026
+          - 'link "Alenka Frim: What yoga teaches us about discipline and collaboration in data science" [ref=e143] [cursor=pointer]':
+            - /url: https://wesmckinney.com/transcripts/2026-02-09-test-set-alenka-frim.html
+          - paragraph [ref=e145]:
+            - link "Transcript" [ref=e146] [cursor=pointer]:
+              - /url: https://wesmckinney.com/transcripts/2026-02-09-test-set-alenka-frim.html
+            - link "Episode" [ref=e147] [cursor=pointer]:
+              - /url: https://posit.co/thetestset/episode/alenka-frim-what-yoga-teaches-us-about-discipline-and-collaboration-in-data-science/
+        - generic [ref=e148]:
+          - generic [ref=e149]: "#116"
+          - generic [ref=e150]:
+            - generic [ref=e151]:
+              - generic [ref=e152]: Podcast
+              - link "The Test Set (Posit)" [ref=e154] [cursor=pointer]:
+                - /url: https://wesmckinney.com/transcripts/2026-01-27-test-set-emily-riederer.html
+              - generic [ref=e155]: (Co-host)
+            - generic [ref=e156]: Remote · Jan 2026
+          - 'link "Emily Riederer: Column selectors, data quality, and learning in public" [ref=e158] [cursor=pointer]':
+            - /url: https://wesmckinney.com/transcripts/2026-01-27-test-set-emily-riederer.html
+          - paragraph [ref=e160]:
+            - link "Transcript" [ref=e161] [cursor=pointer]:
+              - /url: https://wesmckinney.com/transcripts/2026-01-27-test-set-emily-riederer.html
+            - link "Video" [ref=e162] [cursor=pointer]:
+              - /url: https://www.youtube.com/watch?v=Yjmu18r_j64
+            - link "Episode" [ref=e163] [cursor=pointer]:
+              - /url: https://posit.co/thetestset/episode/emily-riederer-column-selectors-data-quality-and-learning-in-public/
+      - paragraph [ref=e164]:
+        - link "View all talks & podcasts →" [ref=e165] [cursor=pointer]:
+          - /url: https://wesmckinney.com/presentations.html
+  - contentinfo [ref=e166]:
+    - paragraph [ref=e170]: © Copyright 2026 Wes McKinney. Except where otherwise noted, all rights reserved. The views and opinions on this website are my own and do not represent my current or former employers.

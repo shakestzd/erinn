@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="htmlgraph-version" content="1.0">
+    <title>{{title}}</title>
+    <link rel="stylesheet" href="{{stylesheet_path}}">
+</head>
+<body>
+    <article id="{{id}}"
+             data-type="session"
+             data-status="{{status}}"
+             data-agent="{{agent}}"
+             data-started-at="{{started_at}}"
+             data-last-activity="{{last_activity}}"
+             data-event-count="{{event_count}}" data-is-subagent="{{is_subagent}}"{{#start_commit}} data-start-commit="{{start_commit}}"{{/start_commit}}{{#ended_at}} data-ended-at="{{ended_at}}"{{/ended_at}}{{#primary_work_type}} data-primary-work-type="{{primary_work_type}}"{{/primary_work_type}}{{#parent_session}} data-parent-session="{{parent_session}}"{{/parent_session}}{{#parent_activity}} data-parent-activity="{{parent_activity}}"{{/parent_activity}}>
+
+        <header>
+            <h1>{{title}}</h1>
+            <div class="metadata">
+                <span class="badge status-{{status}}">{{status_display}}</span>
+                <span class="badge">{{agent}}</span>
+                <span class="badge">{{event_count}} events</span>
+            </div>
+        </header>
+{{#has_edges}}
+
+        <nav data-graph-edges>
+{{#edge_groups}}
+            <section data-edge-type="{{relationship}}">
+                <h3>{{relationship_display}}:</h3>
+                <ul>
+{{#edges}}
+                    <li><a href="{{href}}" data-relationship="{{relationship}}"{{#since}} data-since="{{since}}"{{/since}}>{{title}}</a></li>
+{{/edges}}
+                </ul>
+            </section>
+{{/edge_groups}}
+        </nav>
+{{/has_edges}}
+{{#has_handoff}}
+        <section data-handoff>
+            <h3>Handoff Context</h3>
+{{#handoff_notes}}
+            <p data-handoff-notes><strong>Notes:</strong> {{handoff_notes}}</p>
+{{/handoff_notes}}
+{{#recommended_next}}
+            <p data-recommended-next><strong>Recommended Next:</strong> {{recommended_next}}</p>
+{{/recommended_next}}
+{{#has_blockers}}
+            <div data-blockers>
+                <strong>Blockers:</strong>
+                <ul>
+{{#blockers}}
+                    <li>{{.}}</li>
+{{/blockers}}
+                </ul>
+            </div>
+{{/has_blockers}}
+        </section>
+{{/has_handoff}}
+    </article>
+</body>
+</html>

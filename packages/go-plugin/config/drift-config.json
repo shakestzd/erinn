@@ -1,0 +1,41 @@
+{
+  "drift_detection": {
+    "enabled": true,
+    "warning_threshold": 0.7,
+    "auto_classify_threshold": 0.85,
+    "min_activities_before_classify": 3,
+    "cooldown_minutes": 10
+  },
+  "classification": {
+    "enabled": false,
+    "use_haiku_agent": true,
+    "use_headless": false,
+    "work_item_types": {
+      "bug": {
+        "keywords": ["fix", "error", "broken", "crash", "fail", "issue", "wrong", "incorrect"],
+        "description": "Fix incorrect behavior - must include repro steps"
+      },
+      "feature": {
+        "keywords": ["add", "implement", "create", "new", "build", "develop"],
+        "description": "Deliver user value - normal flow item"
+      },
+      "spike": {
+        "keywords": ["research", "explore", "investigate", "understand", "analyze", "learn"],
+        "description": "Reduce uncertainty - time-boxed, ends in decision"
+      },
+      "chore": {
+        "keywords": ["refactor", "cleanup", "update", "upgrade", "maintain", "organize"],
+        "description": "Maintenance / tech debt - first-class work"
+      },
+      "hotfix": {
+        "keywords": ["urgent", "critical", "production", "emergency", "asap"],
+        "description": "Emergency production fix - expedite lane only"
+      }
+    }
+  },
+  "queue": {
+    "max_pending_classifications": 5,
+    "process_on_stop": true,
+    "process_on_threshold": true
+  }
+}

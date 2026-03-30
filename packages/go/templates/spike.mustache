@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="htmlgraph-version" content="1.0">
+    <title>{{title}}</title>
+    <link rel="stylesheet" href="{{stylesheet_path}}">
+</head>
+<body>
+    <article id="{{id}}"
+             data-type="spike"
+             data-status="{{status}}"
+             data-priority="{{priority}}"
+             data-created="{{created_at}}"
+             data-updated="{{updated_at}}"{{#spike_type}} data-spike-type="{{spike_type}}"{{/spike_type}}{{#timebox_hours}} data-timebox-hours="{{timebox_hours}}"{{/timebox_hours}}{{#agent_assigned}} data-agent-assigned="{{agent_assigned}}"{{/agent_assigned}}{{#track_id}} data-track-id="{{track_id}}"{{/track_id}}{{#spike_subtype}} data-spike-subtype="{{spike_subtype}}"{{/spike_subtype}}{{#auto_generated}} data-auto-generated="{{auto_generated}}"{{/auto_generated}}{{#session_id}} data-session-id="{{session_id}}"{{/session_id}}{{#from_feature_id}} data-from-feature-id="{{from_feature_id}}"{{/from_feature_id}}{{#to_feature_id}} data-to-feature-id="{{to_feature_id}}"{{/to_feature_id}}{{#model_name}} data-model-name="{{model_name}}"{{/model_name}}>
+
+        <header>
+            <h1>{{title}}</h1>
+            <div class="metadata">
+                <span class="badge status-{{status}}">{{status_display}}</span>
+                <span class="badge priority-{{priority}}">{{priority_display}} Priority</span>
+            </div>
+        </header>
+{{#has_edges}}
+
+        <nav data-graph-edges>
+{{#edge_groups}}
+            <section data-edge-type="{{relationship}}">
+                <h3>{{relationship_display}}:</h3>
+                <ul>
+{{#edges}}
+                    <li><a href="{{href}}" data-relationship="{{relationship}}"{{#since}} data-since="{{since}}"{{/since}}>{{title}}</a></li>
+{{/edges}}
+                </ul>
+            </section>
+{{/edge_groups}}
+        </nav>
+{{/has_edges}}
+{{#has_steps}}
+        <section data-steps>
+            <h3>Implementation Steps</h3>
+            <ol>
+{{#steps}}
+                <li data-completed="{{completed}}"{{#step_id}} data-step-id="{{step_id}}"{{/step_id}}{{#agent}} data-agent="{{agent}}"{{/agent}}{{#depends_on}} data-depends-on="{{depends_on}}"{{/depends_on}}>{{icon}} {{description}}</li>
+{{/steps}}
+            </ol>
+        </section>
+{{/has_steps}}
+        <section data-spike-metadata>
+            <h3>Spike Metadata</h3>
+            <dl>
+                <dt>Type</dt>
+                <dd>{{spike_type_display}}</dd>
+{{#timebox_hours}}
+                <dt>Timebox</dt>
+                <dd>{{timebox_hours}} hours</dd>
+{{/timebox_hours}}
+            </dl>
+        </section>
+{{#has_findings}}
+        <section data-findings>
+            <h3>Findings</h3>
+            <div class="findings-content">
+                {{findings}}
+            </div>
+        </section>
+{{/has_findings}}
+{{#has_decision}}
+        <section data-decision>
+            <h3>Decision</h3>
+            <p>{{decision}}</p>
+        </section>
+{{/has_decision}}
+{{#has_content}}
+        <section data-content>
+            <h3>Description</h3>
+            <p>{{content}}</p>
+        </section>
+{{/has_content}}
+    </article>
+</body>
+</html>

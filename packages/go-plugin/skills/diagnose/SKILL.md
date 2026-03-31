@@ -25,17 +25,25 @@ Trigger on:
 - "why isn't X working", "what's wrong with", "figure out why"
 - "delegation audit", "delegation score" (routes to delegation mode)
 
+## Work Item Attribution
+
+All diagnostic work must be attributed:
+- Bug investigation: `htmlgraph bug start <bug-id>` before investigating
+- New errors: `htmlgraph bug create "Error: description"` then start it
+- Run `htmlgraph help` for available commands
+
 ## Instructions for Claude
 
 ### Route by Input
 
 **If given a bug ID** (matches `bug-*`):
-1. Fetch bug details: `htmlgraph bug show <bug-id>`
-2. Dispatch the debugger agent with the bug context
-3. Present findings and suggested fix
+1. Start attribution: `htmlgraph bug start <bug-id>`
+2. Fetch bug details: `htmlgraph bug show <bug-id>`
+3. Dispatch the debugger agent with the bug context
+4. Present findings and suggested fix
 
 **If given an error message or symptom**:
-1. Create a bug to track: `htmlgraph bug create "<summary>"`
+1. Create and start a bug: `htmlgraph bug create "<summary>"` then `htmlgraph bug start <id>`
 2. Dispatch the debugger agent with the error context
 3. Present findings and suggested fix
 

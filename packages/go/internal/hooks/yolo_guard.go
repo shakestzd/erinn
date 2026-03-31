@@ -42,12 +42,13 @@ func isYoloMode(htmlgraphDir string) bool {
 // checkYoloWorkItemGuard blocks Write/Edit tools when no active work item
 // exists in YOLO mode. Returns a non-empty reason to block, or "" to allow.
 //
-// featureID is the session's active_feature_id column (set at session-start).
-// hasInProgressItem is true when a feature or bug with status="in-progress"
-// exists in the DB — this covers items started mid-session via
-// `htmlgraph feature start` / `htmlgraph bug start` which update the features
-// table but do NOT update sessions.active_feature_id.
-func checkYoloWorkItemGuard(toolName, featureID string, yolo, hasInProgressItem bool) string {
+// featureID is the session's active_feature_id column (set at session-start
+// or inherited from a parent session via lineage).
+// sessionID is used for the fallback check: when featureID is empty, we check
+// whether a feature was started mid-session and linked to THIS session — not
+// whether any feature is globally in-progress (which causes false passes when
+// unrelated features exist).
+func checkYoloWorkItemGuard(toolName, featureID string, yolo bool, sessionID string, db *sql.DB) string {
 	if !yolo {
 		return ""
 	}
@@ -56,22 +57,30 @@ func checkYoloWorkItemGuard(toolName, featureID string, yolo, hasInProgressItem 
 	default:
 		return ""
 	}
-	if featureID != "" || hasInProgressItem {
+	if featureID != "" {
+		return ""
+	}
+	// Fallback: check if a feature was started mid-session and linked to this
+	// session via the sessions table or a recent feature start command.
+	if sessionID != "" && db != nil && sessionHasLinkedFeature(db, sessionID) {
 		return ""
 	}
 	return "YOLO mode requires an active work item before writing code. " +
-		"Create or start a feature first: htmlgraph feature create \"title\""
+		"Run: htmlgraph feature start <id>  or  htmlgraph feature create \"title\""
 }
 
-// hasAnyInProgressWorkItem returns true when any feature or bug with
-// status="in-progress" exists in the features table. Used as a fallback when
-// sessions.active_feature_id is empty (e.g. item started mid-session via CLI).
-func hasAnyInProgressWorkItem(database *sql.DB) bool {
-	var count int
-	database.QueryRow(
-		`SELECT COUNT(*) FROM features WHERE status = 'in-progress' LIMIT 1`,
-	).Scan(&count)
-	return count > 0
+// sessionHasLinkedFeature returns true when the given session has a feature
+// linked via sessions.active_feature_id OR when a recent feature-start command
+// updated the session's feature association. This replaces the old global
+// hasAnyInProgressWorkItem check which false-passed when unrelated features
+// were in-progress elsewhere in the project.
+func sessionHasLinkedFeature(db *sql.DB, sessionID string) bool {
+	var featureID sql.NullString
+	db.QueryRow(
+		`SELECT active_feature_id FROM sessions WHERE session_id = ? LIMIT 1`,
+		sessionID,
+	).Scan(&featureID)
+	return featureID.Valid && featureID.String != ""
 }
 
 // featureStartPattern matches htmlgraph feature/bug start commands.

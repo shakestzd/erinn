@@ -41,6 +41,22 @@ The root AGENTS.md file contains:
 
 ---
 
+## Work Item Attribution (MANDATORY — before ALL other work)
+
+Every session MUST have an active work item before any code changes:
+
+1. **Check current state:** `htmlgraph status` — shows in-progress features
+2. **Start a feature:** `htmlgraph feature start <id>` — attributes all activity to this feature
+3. **Complete when done:** `htmlgraph feature complete <id>` — marks feature done
+4. **Create if needed:** `htmlgraph feature create "Title"` — creates and returns an ID
+5. **Subagents inherit attribution** only if the prompt includes `htmlgraph feature start <id>`
+
+**The YOLO mode hook will BLOCK Write/Edit tools if no feature is active for the current session.**
+
+Run `htmlgraph help` for the full command reference.
+
+---
+
 ## Core Responsibilities
 
 ### 1. **MANDATORY DELEGATION RULES** (NON-NEGOTIABLE)

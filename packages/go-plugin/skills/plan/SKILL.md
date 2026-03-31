@@ -11,6 +11,20 @@ Use this skill when asked to plan development work, create a parallel execution 
 
 ---
 
+## Work Item Attribution (MANDATORY)
+
+Before creating any plan, ensure work items exist:
+
+1. **Verify or create a track:** `htmlgraph track create "Track Title"` for the body of work
+2. **Create features under the track:** `htmlgraph feature create "Feature Title" --track <track-id>`
+3. **Start the track:** `htmlgraph track start <track-id>`
+4. **Each task in the plan MUST reference a feature ID** in its metadata
+5. **Need help?** Run `htmlgraph help` for available commands
+
+Plans without attributed features produce untracked work.
+
+---
+
 ## Core Principle: Maximum Parallelism via Dependency Graph
 
 Do NOT manually assign tasks to waves. Instead:
@@ -120,7 +134,8 @@ TaskUpdate(taskId="4", addBlockedBy=["1"])  # feat-004 needs feat-001
 
 ### Task Description Template
 
-Each task description must be self-contained (agents have no shared context):
+Each task description must be self-contained (agents have no shared context).
+**TDD is mandatory** — every task includes test specifications that the agent writes BEFORE implementation.
 
 ```
 ## Goal
@@ -134,8 +149,26 @@ Each task description must be self-contained (agents have no shared context):
 - main.go: Add `rootCmd.AddCommand(yourCmd())` — orchestrator resolves conflicts
 
 ## Acceptance Criteria
-1. [Specific, testable criterion]
-2. [Specific, testable criterion]
+1. [Specific, measurable pass/fail condition]
+2. [Specific, measurable pass/fail condition]
+
+## Test Plan (TDD — mandatory)
+
+### Test Strategy
+[What kind of testing: "unit test the parser", "integration test the CLI command",
+"table-driven tests for edge cases". Match the strategy to the task's risk profile.]
+
+### Expected Behavior
+[Concrete input/output examples that tests must verify:]
+- Given [input/state], expect [output/behavior]
+- Given [edge case], expect [error/fallback]
+- Given [invalid input], expect [specific error message]
+
+### Tests to Write FIRST
+Write these tests BEFORE any implementation. They must compile and FAIL.
+- Test: [TestFunctionName] — verifies [acceptance criterion 1]
+- Test: [TestFunctionName] — verifies [acceptance criterion 2]
+- Test: [TestEdgeCase] — verifies [boundary/error condition]
 
 ## Quality Gate
 (cd packages/go && go build ./... && go vet ./... && go test ./...)

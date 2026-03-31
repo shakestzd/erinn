@@ -9,6 +9,13 @@ Use this skill for code hygiene, quality gates, and pre-commit workflows.
 
 **Trigger keywords:** code quality, lint, go vet, type checking, go test, pre-commit, build, fix errors
 
+## Work Item Attribution
+
+Quality gate runs should be attributed. Before fixing errors:
+1. Ensure a feature or bug is active: `htmlgraph status`
+2. If fixing a bug: `htmlgraph bug create "Fix: description"` then `htmlgraph bug start <id>`
+3. Run `htmlgraph help` for available commands
+
 ---
 
 ## Quick Workflow

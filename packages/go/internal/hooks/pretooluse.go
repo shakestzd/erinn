@@ -46,8 +46,7 @@ func PreToolUse(event *CloudEvent, database *sql.DB) (*HookResult, error) {
 	}
 
 	// YOLO mode enforcement: check launch mode and apply guards.
-	hasWorkItem := ctx.FeatureID != "" || hasAnyInProgressWorkItem(database)
-	if warn := checkYoloWorkItemGuard(event.ToolName, ctx.FeatureID, ctx.IsYoloMode, hasWorkItem); warn != "" {
+	if warn := checkYoloWorkItemGuard(event.ToolName, ctx.FeatureID, ctx.IsYoloMode, ctx.SessionID, database); warn != "" {
 		return &HookResult{
 			Decision: "block",
 			Reason:   warn,

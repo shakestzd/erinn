@@ -19,6 +19,11 @@ description: Use HtmlGraph analytics to make smart work prioritization decisions
 - Progress seems slow (what's blocking us?)
 - Planning major changes (what's the impact?)
 
+**CLI reference:** Run `htmlgraph help` for available commands. Key commands:
+- `htmlgraph status` — project overview
+- `htmlgraph find features --status in-progress` — active work
+- `htmlgraph recommend` — AI-recommended next work
+
 ---
 
 ## Core Principle: Data-Driven Decisions

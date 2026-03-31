@@ -2,6 +2,13 @@
 
 Automatically run code reviews with roborev after completing significant features and track findings as HtmlGraph bugs.
 
+## Work Item Attribution
+
+Review findings must be tracked. When creating bugs from findings:
+- Use `htmlgraph bug create "Finding: description"` for each medium+ finding
+- Link bugs to the originating feature via `htmlgraph link add <bug-id> <feature-id> --rel caused_by`
+- Run `htmlgraph help` for available commands
+
 ## What This Skill Does
 
 The RoboRev skill integrates automated code reviews into your HtmlGraph workflow:

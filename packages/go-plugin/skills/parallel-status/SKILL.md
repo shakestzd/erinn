@@ -9,6 +9,8 @@ Use this skill to monitor parallel execution progress across tasks and worktrees
 
 **Trigger keywords:** parallel status, task status, worktree status, execution progress, monitor tasks, check progress
 
+**CLI reference:** Run `htmlgraph help` for available commands.
+
 ---
 
 ## Quick Status

@@ -38,36 +38,34 @@ func TestIsYoloMode(t *testing.T) {
 
 func TestCheckYoloWorkItemGuard(t *testing.T) {
 	tests := []struct {
-		name             string
-		tool             string
-		featureID        string
-		yolo             bool
-		hasInProgressItem bool
-		blocked          bool
+		name      string
+		tool      string
+		featureID string
+		yolo      bool
+		blocked   bool
 	}{
-		{"write without feature in yolo blocks", "Write", "", true, false, true},
-		{"edit without feature in yolo blocks", "Edit", "", true, false, true},
-		{"multiedit without feature in yolo blocks", "MultiEdit", "", true, false, true},
-		{"write with feature in yolo allows", "Write", "feat-123", true, false, false},
-		{"write without feature outside yolo allows", "Write", "", false, false, false},
-		{"read without feature in yolo allows", "Read", "", true, false, false},
-		{"bash without feature in yolo allows", "Bash", "", true, false, false},
-		// Bug/feature started mid-session via CLI sets in-progress in features
-		// table but does NOT update sessions.active_feature_id.
-		{"write with in-progress bug allows (no feature_id)", "Write", "", true, true, false},
-		{"edit with in-progress feature allows (no feature_id)", "Edit", "", true, true, false},
+		{"write without feature in yolo blocks", "Write", "", true, true},
+		{"edit without feature in yolo blocks", "Edit", "", true, true},
+		{"multiedit without feature in yolo blocks", "MultiEdit", "", true, true},
+		{"write with feature in yolo allows", "Write", "feat-123", true, false},
+		{"write without feature outside yolo allows", "Write", "", false, false},
+		{"read without feature in yolo allows", "Read", "", true, false},
+		{"bash without feature in yolo allows", "Bash", "", true, false},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := checkYoloWorkItemGuard(tt.tool, tt.featureID, tt.yolo, tt.hasInProgressItem)
+			// Pass nil db and empty sessionID — tests without DB fallback.
+			// The featureID check is the primary path; sessionHasLinkedFeature
+			// is the fallback tested separately.
+			result := checkYoloWorkItemGuard(tt.tool, tt.featureID, tt.yolo, "", nil)
 			if tt.blocked && result == "" {
-				t.Errorf("expected block for tool=%s feature=%q yolo=%v hasItem=%v",
-					tt.tool, tt.featureID, tt.yolo, tt.hasInProgressItem)
+				t.Errorf("expected block for tool=%s feature=%q yolo=%v",
+					tt.tool, tt.featureID, tt.yolo)
 			}
 			if !tt.blocked && result != "" {
-				t.Errorf("expected allow for tool=%s feature=%q yolo=%v hasItem=%v, got: %s",
-					tt.tool, tt.featureID, tt.yolo, tt.hasInProgressItem, result)
+				t.Errorf("expected allow for tool=%s feature=%q yolo=%v, got: %s",
+					tt.tool, tt.featureID, tt.yolo, result)
 			}
 		})
 	}

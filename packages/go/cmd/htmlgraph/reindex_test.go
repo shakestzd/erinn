@@ -229,8 +229,8 @@ func TestReindex_DeletedHTMLPurgesDBEntry(t *testing.T) {
 	defer database.Close()
 
 	validIDs := map[string]bool{}
-	reindexTracks(database, hgDir, validIDs)
-	reindexFeatureDir(database, hgDir, "features", validIDs)
+	reindexTracks(database, hgDir, "", validIDs)
+	reindexFeatureDir(database, hgDir, "", "features", validIDs)
 
 	// Confirm both rows exist.
 	var tc, fc int
@@ -246,8 +246,8 @@ func TestReindex_DeletedHTMLPurgesDBEntry(t *testing.T) {
 
 	// Reindex again with fresh validIDs — deleted files produce empty set.
 	validIDs2 := map[string]bool{}
-	reindexTracks(database, hgDir, validIDs2)
-	reindexFeatureDir(database, hgDir, "features", validIDs2)
+	reindexTracks(database, hgDir, "", validIDs2)
+	reindexFeatureDir(database, hgDir, "", "features", validIDs2)
 	purged, _ := purgeStaleEntries(database, validIDs2)
 
 	if purged != 2 {

@@ -1,0 +1,22 @@
+name: CI
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+jobs:
+  quality-gates:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: packages/go/go.mod
+          cache-dependency-path: packages/go/go.sum
+      - name: Build
+        run: cd packages/go && go build ./...
+      - name: Vet
+        run: cd packages/go && go vet ./...
+      - name: Test
+        run: cd packages/go && go test ./...

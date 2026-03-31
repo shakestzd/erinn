@@ -312,6 +312,13 @@ func CreateAllTables(db *sql.DB) error {
 			FOREIGN KEY (current_feature_id) REFERENCES features(id) ON DELETE SET NULL,
 			FOREIGN KEY (session_id) REFERENCES sessions(session_id) ON DELETE SET NULL
 		)`,
+
+		// 14. metadata — key-value store for operational state (e.g. last_indexed_commit)
+		`CREATE TABLE IF NOT EXISTS metadata (
+			key TEXT PRIMARY KEY,
+			value TEXT NOT NULL,
+			updated_at TEXT DEFAULT (datetime('now'))
+		)`,
 	}
 
 	for _, stmt := range stmts {

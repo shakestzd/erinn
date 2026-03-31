@@ -10,16 +10,35 @@ import (
 	"github.com/google/uuid"
 )
 
-// traceparentEntry is the JSON structure written to the temp queue so
-// subagent sessions can claim their parent linkage at session-start time.
-type traceparentEntry struct {
-	TraceID      string  `json:"trace_id"`
-	ParentSpanID string  `json:"parent_span_id"`
-	Timestamp    float64 `json:"timestamp"`
-	Claimed      bool    `json:"claimed"`
+// agentTraceFormatVersion is the pinned Agent Trace RFC version.
+// Increment when breaking changes are made to the record format.
+const agentTraceFormatVersion = "0.1.0"
+
+// agentTraceRecord represents an Agent Trace contributor record written to the
+// temp queue so subagent sessions can claim their parent linkage at session-start.
+// Aligned with the Agent Trace RFC for cross-tool interoperability (Cursor,
+// Cloudflare, Vercel, Google Jules, Git AI). format_version is included for
+// forward compatibility as the RFC evolves.
+type agentTraceRecord struct {
+	FormatVersion   string    `json:"format_version"`           // "0.1.0" — pinned RFC version
+	TraceID         string    `json:"trace_id"`                 // Session/trace identifier
+	SpanID          string    `json:"span_id,omitempty"`        // This contribution's span ID
+	ParentSpanID    string    `json:"parent_span_id,omitempty"` // Parent span (delegation chain)
+	ContributorID   string    `json:"contributor_id,omitempty"` // Agent identifier (e.g. "claude-code")
+	ContributorType string    `json:"contributor_type,omitempty"` // "ai_agent" | "human" | "tool"
+	ToolName        string    `json:"tool_name,omitempty"`      // Tool used (e.g. "Write", "Edit")
+	SessionID       string    `json:"session_id,omitempty"`     // HtmlGraph session ID
+	Timestamp       time.Time `json:"timestamp"`                // When the contribution occurred
+	Claimed         bool      `json:"claimed"`                  // Whether this entry has been claimed
 }
 
-// writeTraceparent writes a traceparent entry to the temp queue directory.
+// timestampUnix returns the record's timestamp as a Unix epoch float for
+// age comparisons, matching the format previously stored as float64.
+func (r *agentTraceRecord) timestampUnix() float64 {
+	return float64(r.Timestamp.UnixNano()) / 1e9
+}
+
+// writeTraceparent writes an Agent Trace record to the temp queue directory.
 // Mirrors the Python write_traceparent_queue() helper in pretooluse.py.
 func writeTraceparent(parentSessionID, parentEventID string) {
 	queueDir := filepath.Join(os.TempDir(), "htmlgraph-traceparent")
@@ -27,14 +46,15 @@ func writeTraceparent(parentSessionID, parentEventID string) {
 		return
 	}
 
-	entry := traceparentEntry{
-		TraceID:      parentSessionID,
-		ParentSpanID: parentEventID,
-		Timestamp:    float64(time.Now().UnixNano()) / 1e9,
-		Claimed:      false,
+	record := agentTraceRecord{
+		FormatVersion: agentTraceFormatVersion,
+		TraceID:       parentSessionID,
+		ParentSpanID:  parentEventID,
+		Timestamp:     time.Now().UTC(),
+		Claimed:       false,
 	}
 
-	data, err := json.Marshal(entry)
+	data, err := json.Marshal(record)
 	if err != nil {
 		return
 	}
@@ -44,10 +64,41 @@ func writeTraceparent(parentSessionID, parentEventID string) {
 	_ = os.WriteFile(path, data, 0o644)
 }
 
+// legacyTraceparent is the old format used before Agent Trace adoption.
+// Used for backward-compatible reading of pre-existing queue files.
+type legacyTraceparent struct {
+	TraceID      string  `json:"trace_id"`
+	ParentSpanID string  `json:"parent_span_id"`
+	Timestamp    float64 `json:"timestamp"`
+	Claimed      bool    `json:"claimed"`
+}
+
+// parseTraceparentFile reads a queue file, handling both the new Agent Trace
+// format and the legacy format for backward compatibility.
+func parseTraceparentFile(data []byte) (*agentTraceRecord, bool) {
+	// Try new format first (presence of format_version distinguishes it).
+	var rec agentTraceRecord
+	if err := json.Unmarshal(data, &rec); err == nil && rec.FormatVersion != "" {
+		return &rec, true
+	}
+	// Fall back to legacy format.
+	var legacy legacyTraceparent
+	if err := json.Unmarshal(data, &legacy); err != nil {
+		return nil, false
+	}
+	return &agentTraceRecord{
+		FormatVersion: "",
+		TraceID:       legacy.TraceID,
+		ParentSpanID:  legacy.ParentSpanID,
+		Timestamp:     time.Unix(0, int64(legacy.Timestamp*1e9)).UTC(),
+		Claimed:       legacy.Claimed,
+	}, true
+}
+
 // claimTraceparent reads and claims the most recent unclaimed traceparent
 // from the temp queue. Returns nil if nothing is available or entries are stale.
 // Mirrors claim_traceparent() in session-start.py.
-func claimTraceparent() *traceparentEntry {
+func claimTraceparent() *agentTraceRecord {
 	queueDir := filepath.Join(os.TempDir(), "htmlgraph-traceparent")
 	entries, err := filepath.Glob(filepath.Join(queueDir, "tp-*.json"))
 	if err != nil || len(entries) == 0 {
@@ -55,7 +106,7 @@ func claimTraceparent() *traceparentEntry {
 	}
 
 	now := float64(time.Now().UnixNano()) / 1e9
-	var best *traceparentEntry
+	var best *agentTraceRecord
 	var bestPath string
 
 	for _, path := range entries {
@@ -63,12 +114,12 @@ func claimTraceparent() *traceparentEntry {
 		if err != nil {
 			continue
 		}
-		var entry traceparentEntry
-		if err := json.Unmarshal(data, &entry); err != nil {
+		record, ok := parseTraceparentFile(data)
+		if !ok {
 			continue
 		}
-		age := now - entry.Timestamp
-		if entry.Claimed || age > 30 {
+		age := now - record.timestampUnix()
+		if record.Claimed || age > 30 {
 			if age > 300 {
 				// Clean up stale entries older than 5 minutes.
 				_ = os.Remove(path)
@@ -76,8 +127,8 @@ func claimTraceparent() *traceparentEntry {
 			continue
 		}
 		// Prefer the most recent unclaimed entry.
-		if best == nil || entry.Timestamp > best.Timestamp {
-			best = &entry
+		if best == nil || record.timestampUnix() > best.timestampUnix() {
+			best = record
 			bestPath = path
 		}
 	}
@@ -95,10 +146,11 @@ func claimTraceparent() *traceparentEntry {
 }
 
 // writeSubagentEnvVars writes HTMLGRAPH_PARENT_EVENT, HTMLGRAPH_AGENT_ID,
-// and HTMLGRAPH_AGENT_TYPE to CLAUDE_ENV_FILE so the subagent's hooks know
-// their parent delegation and agent identity.
-// When CLAUDE_ENV_FILE is unset (worktree subagents), falls back to updating
-// the .htmlgraph/.active-session file with the subagent context.
+// HTMLGRAPH_AGENT_TYPE, and HTMLGRAPH_CONTRIBUTOR_TYPE to CLAUDE_ENV_FILE so
+// the subagent's hooks know their parent delegation, agent identity, and
+// Agent Trace contributor classification.
+// When CLAUDE_ENV_FILE is unset (worktree subagents), falls back gracefully:
+// the traceparent queue covers parent linkage.
 func writeSubagentEnvVars(parentEventID, agentID, agentType, projectDir string) {
 	envFile := os.Getenv("CLAUDE_ENV_FILE")
 	if envFile == "" {
@@ -117,7 +169,7 @@ func writeSubagentEnvVars(parentEventID, agentID, agentType, projectDir string) 
 	defer f.Close()
 
 	lines := fmt.Sprintf(
-		"export HTMLGRAPH_PARENT_EVENT=%s\nexport HTMLGRAPH_AGENT_ID=%s\nexport HTMLGRAPH_AGENT_TYPE=%s\n",
+		"export HTMLGRAPH_PARENT_EVENT=%s\nexport HTMLGRAPH_AGENT_ID=%s\nexport HTMLGRAPH_AGENT_TYPE=%s\nexport HTMLGRAPH_CONTRIBUTOR_TYPE=ai_agent\n",
 		parentEventID, agentID, agentType,
 	)
 	f.WriteString(lines)

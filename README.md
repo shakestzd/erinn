@@ -158,6 +158,7 @@ Task(subagent_type="claude-spawner",    # Deep reasoning
 - **Claude Spawner** - Deep reasoning, analysis, strategic planning (any Claude model)
 
 → [Complete Orchestrator Architecture Guide](docs/architecture/orchestrator-architecture.md) - Detailed patterns, cost optimization, decision framework, and advanced examples
+→ [Multi-Session Coordination Spec](docs/architecture/multi-session-coordination-spec.md) - Roles, claim leasing, handoffs, and integration authority across branches and worktrees
 
 ## Comparison
 

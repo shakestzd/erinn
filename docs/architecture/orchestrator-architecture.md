@@ -4,6 +4,8 @@
 
 Use this document to understand HtmlGraph's orchestrator pattern. MUST coordinate multiple AI agents in parallel. MUST preserve context efficiency while maximizing model flexibility.
 
+For coordination across multiple terminal sessions, worktrees, and parallel subagents, see [Multi-Session Coordination Spec](./multi-session-coordination-spec.md).
+
 ---
 
 ## Core Principle: Flexibility Over Rigidity

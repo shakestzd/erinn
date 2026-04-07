@@ -113,6 +113,20 @@ func PostToolUse(event *CloudEvent, database *sql.DB) (*HookResult, error) {
 		}
 	}
 
+	// Merge completeness check: warn when merging a worktree branch that has
+	// in-progress work items (feature, bug, spike, or features on a track).
+	if event.ToolName == "Bash" && isSuccess(event.ToolResult) {
+		if cmd := extractBashCommand(event.ToolInput); looksLikeGitMerge(cmd) {
+			if warning := checkMergeCompleteness(cmd, database); warning != "" {
+				if result.AdditionalContext != "" {
+					result.AdditionalContext += "\n" + warning
+				} else {
+					result.AdditionalContext = warning
+				}
+			}
+		}
+	}
+
 	return result, nil
 }
 

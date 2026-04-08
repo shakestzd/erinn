@@ -341,7 +341,9 @@
       "WebFetch(domain:jules.google)",
       "WebFetch(domain:www.atlassian.com)",
       "WebFetch(domain:www.anthropic.com)",
-      "WebFetch(domain:claudefa.st)"
+      "WebFetch(domain:claudefa.st)",
+      "Bash(export HTMLGRAPH_AGENT_ID=\"opus-coder\")",
+      "Bash(export HTMLGRAPH_SKIP_HOOKS=1)"
     ]
   },
   "enabledPlugins": {

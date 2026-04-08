@@ -56599,3 +56599,695 @@
 2026-04-07T21:06:06 handler=runHook duration=4.29125ms hook=posttooluse session=76cfb779 completed
 2026-04-07T21:06:13 handler=pretooluse duration=167.25µs phase=resolve-context session=76cfb779 tool=Bash context resolved
 2026-04-07T21:06:13 handler=runHook duration=5.490958ms hook=pretooluse session=76cfb779 completed
+2026-04-07T21:06:18 handler=pretooluse duration=314.792µs phase=resolve-context session=event-fl tool=Read context resolved
+2026-04-07T21:06:18 handler=pretooluse duration=97.042µs phase=resolve-context session=event-fl tool=Read context resolved
+2026-04-07T21:06:18 handler=pretooluse duration=131.792µs phase=resolve-context session=yolo-gua tool=Write context resolved
+2026-04-07T21:06:18 handler=pretooluse duration=80µs phase=resolve-context session=yolo-gua tool=Write context resolved
+2026-04-07T21:07:22 handler=pretooluse duration=2.852833ms phase=resolve-context session=76cfb779 tool=Bash context resolved
+2026-04-07T21:07:22 handler=runHook duration=25.957833ms hook=posttooluse session=76cfb779 completed
+2026-04-07T21:07:26 handler=pretooluse duration=179.792µs phase=resolve-context session=76cfb779 tool=Bash context resolved
+2026-04-07T21:07:26 handler=runHook duration=9.037083ms hook=pretooluse session=76cfb779 completed
+2026-04-07T21:07:30 handler=pretooluse duration=150.167µs phase=resolve-context session=76cfb779 tool=Bash context resolved
+2026-04-07T21:07:30 handler=runHook duration=3.348209ms hook=posttooluse session=76cfb779 completed
+2026-04-07T21:07:38 handler=runHook duration=5.042792ms hook=stop session=76cfb779 completed
+2026-04-07T21:09:51 handler=runHook duration=118.488125ms hook=session-end session=90f35b01 completed
+2026-04-07T21:10:45 handler=session-start duration=3.760875ms phase=db-tx session=ccb33ab9 transaction complete
+2026-04-07T21:10:45 handler=session-start duration=39.725542ms session=ccb33ab9 handler complete
+2026-04-07T21:10:46 [session-start] version mismatch detected: HtmlGraph version mismatch: CLI v0.49.0-1-g1ca529e4 != plugin v0.49.0
+Run `htmlgraph build` to sync, or update the plugin.
+2026-04-07T21:10:46 handler=runHook duration=67.702333ms hook=session-start session=ccb33ab9 completed
+2026-04-07T21:10:46 handler=runHook duration=3.863958ms hook=instructions-loaded session=ccb33ab9 completed
+2026-04-07T21:10:46 handler=runHook duration=3.918333ms hook=instructions-loaded session=ccb33ab9 completed
+2026-04-07T21:10:46 handler=runHook duration=9.103417ms hook=instructions-loaded session=ccb33ab9 completed
+2026-04-07T21:10:46 handler=runHook duration=4.802125ms hook=instructions-loaded session=ccb33ab9 completed
+2026-04-07T21:10:46 handler=runHook duration=20.445875ms hook=instructions-loaded session=ccb33ab9 completed
+2026-04-07T21:10:46 handler=runHook duration=25.029292ms hook=instructions-loaded session=ccb33ab9 completed
+2026-04-07T21:11:11 handler=runHook duration=8.281542ms hook=user-prompt session=ccb33ab9 completed
+2026-04-07T21:11:17 handler=pretooluse duration=136.584µs phase=resolve-context session=ccb33ab9 tool=Bash context resolved
+2026-04-07T21:11:17 handler=runHook duration=16.15025ms hook=pretooluse session=ccb33ab9 completed
+2026-04-07T21:11:20 handler=pretooluse duration=210.541µs phase=resolve-context session=ccb33ab9 tool=Bash context resolved
+2026-04-07T21:11:20 handler=runHook duration=4.154916ms hook=posttooluse session=ccb33ab9 completed
+2026-04-07T21:11:20 handler=pretooluse duration=171.875µs phase=resolve-context session=ccb33ab9 tool=Bash context resolved
+2026-04-07T21:11:20 handler=runHook duration=16.20525ms hook=pretooluse session=ccb33ab9 completed
+2026-04-07T21:11:20 handler=pretooluse duration=171.958µs phase=resolve-context session=ccb33ab9 tool=Bash context resolved
+2026-04-07T21:11:20 handler=runHook duration=4.056208ms hook=posttooluse session=ccb33ab9 completed
+2026-04-07T21:11:20 handler=pretooluse duration=200.166µs phase=resolve-context session=ccb33ab9 tool=ToolSearch context resolved
+2026-04-07T21:11:20 handler=runHook duration=14.551209ms hook=pretooluse session=ccb33ab9 completed
+2026-04-07T21:11:20 handler=pretooluse duration=128.875µs phase=resolve-context session=ccb33ab9 tool=ToolSearch context resolved
+2026-04-07T21:11:20 handler=runHook duration=3.343875ms hook=posttooluse session=ccb33ab9 completed
+2026-04-07T21:11:30 handler=pretooluse duration=133.166µs phase=resolve-context session=ccb33ab9 tool=Bash context resolved
+2026-04-07T21:11:30 handler=runHook duration=14.969542ms hook=pretooluse session=ccb33ab9 completed
+2026-04-07T21:11:30 handler=pretooluse duration=127.125µs phase=resolve-context session=ccb33ab9 tool=Bash context resolved
+2026-04-07T21:11:30 handler=runHook duration=3.284792ms hook=posttooluse session=ccb33ab9 completed
+2026-04-07T21:11:31 handler=pretooluse duration=125.875µs phase=resolve-context session=ccb33ab9 tool=Bash context resolved
+2026-04-07T21:11:31 handler=runHook duration=15.553458ms hook=pretooluse session=ccb33ab9 completed
+2026-04-07T21:11:31 handler=pretooluse duration=189.916µs phase=resolve-context session=ccb33ab9 tool=Bash context resolved
+2026-04-07T21:11:31 handler=runHook duration=3.8775ms hook=posttooluse session=ccb33ab9 completed
+2026-04-07T21:11:31 handler=pretooluse duration=182.542µs phase=resolve-context session=ccb33ab9 tool=Bash context resolved
+2026-04-07T21:11:31 handler=runHook duration=17.659834ms hook=pretooluse session=ccb33ab9 completed
+2026-04-07T21:11:31 handler=pretooluse duration=176.083µs phase=resolve-context session=ccb33ab9 tool=Bash context resolved
+2026-04-07T21:11:31 handler=runHook duration=7.84775ms hook=posttooluse session=ccb33ab9 completed
+2026-04-07T21:11:31 handler=pretooluse duration=150.458µs phase=resolve-context session=ccb33ab9 tool=Bash context resolved
+2026-04-07T21:11:31 handler=runHook duration=14.669458ms hook=pretooluse session=ccb33ab9 completed
+2026-04-07T21:11:31 handler=pretooluse duration=146µs phase=resolve-context session=ccb33ab9 tool=Bash context resolved
+2026-04-07T21:11:31 handler=runHook duration=3.545834ms hook=posttooluse session=ccb33ab9 completed
+2026-04-07T21:11:32 handler=pretooluse duration=141.541µs phase=resolve-context session=ccb33ab9 tool=Bash context resolved
+2026-04-07T21:11:32 handler=runHook duration=13.957542ms hook=pretooluse session=ccb33ab9 completed
+2026-04-07T21:11:32 handler=pretooluse duration=141.833µs phase=resolve-context session=ccb33ab9 tool=Bash context resolved
+2026-04-07T21:11:32 handler=runHook duration=3.941084ms hook=posttooluse session=ccb33ab9 completed
+2026-04-07T21:11:33 handler=pretooluse duration=203.208µs phase=resolve-context session=ccb33ab9 tool=Bash context resolved
+2026-04-07T21:11:33 handler=runHook duration=14.944834ms hook=pretooluse session=ccb33ab9 completed
+2026-04-07T21:11:33 handler=pretooluse duration=140.916µs phase=resolve-context session=ccb33ab9 tool=Bash context resolved
+2026-04-07T21:11:33 handler=runHook duration=3.55875ms hook=posttooluse session=ccb33ab9 completed
+2026-04-07T21:11:40 handler=pretooluse duration=191.792µs phase=resolve-context session=ccb33ab9 tool=Bash context resolved
+2026-04-07T21:11:40 handler=runHook duration=16.31925ms hook=pretooluse session=ccb33ab9 completed
+2026-04-07T21:11:40 handler=pretooluse duration=171.25µs phase=resolve-context session=ccb33ab9 tool=Bash context resolved
+2026-04-07T21:11:40 handler=runHook duration=4.242958ms hook=posttooluse session=ccb33ab9 completed
+2026-04-07T21:11:41 handler=pretooluse duration=131.459µs phase=resolve-context session=ccb33ab9 tool=Bash context resolved
+2026-04-07T21:11:41 [htmlgraph] YOLO steps warning: Warning: feat-57196d42 has no implementation steps. Add steps first: htmlgraph feature add-step feat-57196d42 "description"
+2026-04-07T21:11:41 handler=runHook duration=21.670542ms hook=pretooluse session=ccb33ab9 completed
+2026-04-07T21:11:41 handler=pretooluse duration=367.916µs phase=resolve-context session=ccb33ab9 tool=Bash context resolved
+2026-04-07T21:11:41 handler=runHook duration=4.075792ms hook=posttooluse session=ccb33ab9 completed
+2026-04-07T21:11:46 handler=pretooluse duration=158.291µs phase=resolve-context session=ccb33ab9 tool=Read context resolved
+2026-04-07T21:11:46 handler=runHook duration=26.346625ms hook=pretooluse session=ccb33ab9 completed
+2026-04-07T21:11:46 handler=pretooluse duration=241.584µs phase=resolve-context session=ccb33ab9 tool=Read context resolved
+2026-04-07T21:11:46 handler=runHook duration=5.769666ms hook=posttooluse session=ccb33ab9 completed
+2026-04-07T21:12:18 handler=pretooluse duration=1.274542ms phase=resolve-context session=ccb33ab9 tool=Agent context resolved
+2026-04-07T21:12:18 handler=runHook duration=21.527625ms hook=pretooluse session=ccb33ab9 completed
+2026-04-07T21:12:18 [htmlgraph] CLAUDE_ENV_FILE unset — writing session-scoped project dir hint (agent=Explore session=ccb33ab9-895b-42f0-83c1-bcd1d53d0463)
+2026-04-07T21:12:18 handler=runHook duration=5.969875ms hook=subagent-start session=ccb33ab9 completed
+2026-04-07T21:12:20 handler=pretooluse duration=125.25µs phase=resolve-context session=ccb33ab9 tool=Read context resolved
+2026-04-07T21:12:20 handler=runHook duration=27.408667ms hook=pretooluse session=ccb33ab9 completed
+2026-04-07T21:12:21 handler=pretooluse duration=142.167µs phase=resolve-context session=ccb33ab9 tool=Read context resolved
+2026-04-07T21:12:21 handler=pretooluse duration=131.125µs phase=resolve-context session=ccb33ab9 tool=Read context resolved
+2026-04-07T21:12:21 handler=runHook duration=3.230834ms hook=posttooluse session=ccb33ab9 completed
+2026-04-07T21:12:21 handler=runHook duration=26.57475ms hook=pretooluse session=ccb33ab9 completed
+2026-04-07T21:12:21 handler=pretooluse duration=135.041µs phase=resolve-context session=ccb33ab9 tool=Read context resolved
+2026-04-07T21:12:21 handler=pretooluse duration=116.667µs phase=resolve-context session=ccb33ab9 tool=Read context resolved
+2026-04-07T21:12:21 handler=runHook duration=3.403958ms hook=posttooluse session=ccb33ab9 completed
+2026-04-07T21:12:21 handler=runHook duration=24.992833ms hook=pretooluse session=ccb33ab9 completed
+2026-04-07T21:12:21 handler=pretooluse duration=142.917µs phase=resolve-context session=ccb33ab9 tool=Read context resolved
+2026-04-07T21:12:21 handler=runHook duration=4.076541ms hook=posttooluse session=ccb33ab9 completed
+2026-04-07T21:12:21 handler=pretooluse duration=148.417µs phase=resolve-context session=ccb33ab9 tool=Read context resolved
+2026-04-07T21:12:21 handler=runHook duration=21.46825ms hook=pretooluse session=ccb33ab9 completed
+2026-04-07T21:12:21 handler=pretooluse duration=147.25µs phase=resolve-context session=ccb33ab9 tool=Read context resolved
+2026-04-07T21:12:21 handler=runHook duration=23.7185ms hook=pretooluse session=ccb33ab9 completed
+2026-04-07T21:12:21 handler=pretooluse duration=140.666µs phase=resolve-context session=ccb33ab9 tool=Read context resolved
+2026-04-07T21:12:21 handler=runHook duration=6.748542ms hook=posttooluse session=ccb33ab9 completed
+2026-04-07T21:12:21 handler=pretooluse duration=133µs phase=resolve-context session=ccb33ab9 tool=Read context resolved
+2026-04-07T21:12:21 handler=runHook duration=4.003459ms hook=posttooluse session=ccb33ab9 completed
+2026-04-07T21:12:21 handler=runHook duration=6.878042ms hook=instructions-loaded session=ccb33ab9 completed
+2026-04-07T21:12:21 handler=runHook duration=614.083µs hook=instructions-loaded session=ccb33ab9 completed
+2026-04-07T21:12:21 handler=runHook duration=665.333µs hook=instructions-loaded session=ccb33ab9 completed
+2026-04-07T21:12:21 handler=runHook duration=8.601084ms hook=instructions-loaded session=ccb33ab9 completed
+2026-04-07T21:12:25 handler=pretooluse duration=148.625µs phase=resolve-context session=ccb33ab9 tool=Read context resolved
+2026-04-07T21:12:25 handler=runHook duration=25.990125ms hook=pretooluse session=ccb33ab9 completed
+2026-04-07T21:12:25 handler=pretooluse duration=138.333µs phase=resolve-context session=ccb33ab9 tool=Read context resolved
+2026-04-07T21:12:25 handler=runHook duration=22.450458ms hook=pretooluse session=ccb33ab9 completed
+2026-04-07T21:12:25 handler=pretooluse duration=151.959µs phase=resolve-context session=ccb33ab9 tool=Read context resolved
+2026-04-07T21:12:25 handler=runHook duration=3.865667ms hook=posttooluse session=ccb33ab9 completed
+2026-04-07T21:12:25 handler=runHook duration=4.883542ms hook=posttooluse-failure session=ccb33ab9 completed
+2026-04-07T21:12:25 handler=pretooluse duration=199.334µs phase=resolve-context session=ccb33ab9 tool=Read context resolved
+2026-04-07T21:12:25 handler=runHook duration=26.098459ms hook=pretooluse session=ccb33ab9 completed
+2026-04-07T21:12:26 handler=pretooluse duration=152.542µs phase=resolve-context session=ccb33ab9 tool=Read context resolved
+2026-04-07T21:12:26 handler=runHook duration=4.576292ms hook=posttooluse session=ccb33ab9 completed
+2026-04-07T21:12:29 handler=pretooluse duration=141.5µs phase=resolve-context session=ccb33ab9 tool=Read context resolved
+2026-04-07T21:12:29 handler=runHook duration=23.423083ms hook=pretooluse session=ccb33ab9 completed
+2026-04-07T21:12:29 handler=pretooluse duration=159.75µs phase=resolve-context session=ccb33ab9 tool=Read context resolved
+2026-04-07T21:12:29 handler=runHook duration=5.293625ms hook=posttooluse session=ccb33ab9 completed
+2026-04-07T21:12:31 handler=pretooluse duration=172.458µs phase=resolve-context session=ccb33ab9 tool=Read context resolved
+2026-04-07T21:12:31 handler=pretooluse duration=130.083µs phase=resolve-context session=ccb33ab9 tool=Bash context resolved
+2026-04-07T21:12:31 handler=runHook duration=15.335542ms hook=pretooluse session=ccb33ab9 completed
+2026-04-07T21:12:31 handler=runHook duration=30.13225ms hook=pretooluse session=ccb33ab9 completed
+2026-04-07T21:12:31 handler=pretooluse duration=176.917µs phase=resolve-context session=ccb33ab9 tool=Bash context resolved
+2026-04-07T21:12:31 handler=runHook duration=4.939291ms hook=posttooluse session=ccb33ab9 completed
+2026-04-07T21:12:31 handler=pretooluse duration=141.333µs phase=resolve-context session=ccb33ab9 tool=Read context resolved
+2026-04-07T21:12:31 handler=runHook duration=3.906042ms hook=posttooluse session=ccb33ab9 completed
+2026-04-07T21:12:33 handler=pretooluse duration=163.083µs phase=resolve-context session=ccb33ab9 tool=Read context resolved
+2026-04-07T21:12:33 handler=runHook duration=25.030875ms hook=pretooluse session=ccb33ab9 completed
+2026-04-07T21:12:33 handler=pretooluse duration=136.833µs phase=resolve-context session=ccb33ab9 tool=Read context resolved
+2026-04-07T21:12:33 handler=runHook duration=4.178208ms hook=posttooluse session=ccb33ab9 completed
+2026-04-07T21:12:33 handler=pretooluse duration=145.333µs phase=resolve-context session=ccb33ab9 tool=Read context resolved
+2026-04-07T21:12:33 handler=runHook duration=26.904708ms hook=pretooluse session=ccb33ab9 completed
+2026-04-07T21:12:33 handler=pretooluse duration=128.417µs phase=resolve-context session=ccb33ab9 tool=Read context resolved
+2026-04-07T21:12:33 handler=runHook duration=3.89325ms hook=posttooluse session=ccb33ab9 completed
+2026-04-07T21:12:35 handler=pretooluse duration=151.167µs phase=resolve-context session=ccb33ab9 tool=Bash context resolved
+2026-04-07T21:12:35 handler=runHook duration=16.088959ms hook=pretooluse session=ccb33ab9 completed
+2026-04-07T21:12:35 handler=pretooluse duration=120.5µs phase=resolve-context session=ccb33ab9 tool=Bash context resolved
+2026-04-07T21:12:35 handler=runHook duration=3.210291ms hook=posttooluse session=ccb33ab9 completed
+2026-04-07T21:12:37 handler=pretooluse duration=126.25µs phase=resolve-context session=ccb33ab9 tool=Bash context resolved
+2026-04-07T21:12:37 handler=runHook duration=14.447792ms hook=pretooluse session=ccb33ab9 completed
+2026-04-07T21:12:37 handler=pretooluse duration=142µs phase=resolve-context session=ccb33ab9 tool=Bash context resolved
+2026-04-07T21:12:37 handler=runHook duration=3.369666ms hook=posttooluse session=ccb33ab9 completed
+2026-04-07T21:12:37 handler=pretooluse duration=127.166µs phase=resolve-context session=ccb33ab9 tool=Bash context resolved
+2026-04-07T21:12:37 handler=runHook duration=16.413167ms hook=pretooluse session=ccb33ab9 completed
+2026-04-07T21:12:37 handler=pretooluse duration=147.292µs phase=resolve-context session=ccb33ab9 tool=Bash context resolved
+2026-04-07T21:12:37 handler=runHook duration=3.7715ms hook=posttooluse session=ccb33ab9 completed
+2026-04-07T21:12:38 handler=pretooluse duration=264.25µs phase=resolve-context session=ccb33ab9 tool=Bash context resolved
+2026-04-07T21:12:38 handler=runHook duration=21.238375ms hook=pretooluse session=ccb33ab9 completed
+2026-04-07T21:12:38 handler=pretooluse duration=156.459µs phase=resolve-context session=ccb33ab9 tool=Bash context resolved
+2026-04-07T21:12:38 handler=runHook duration=3.610334ms hook=posttooluse session=ccb33ab9 completed
+2026-04-07T21:13:43 handler=runHook duration=12.871042ms hook=subagent-stop session=ccb33ab9 completed
+2026-04-07T21:13:43 handler=pretooluse duration=1.322708ms phase=resolve-context session=ccb33ab9 tool=Agent context resolved
+2026-04-07T21:13:43 handler=runHook duration=7.034125ms hook=posttooluse session=ccb33ab9 completed
+2026-04-07T21:14:07 handler=pretooluse duration=1.480334ms phase=resolve-context session=ccb33ab9 tool=TaskCreate context resolved
+2026-04-07T21:14:07 handler=runHook duration=25.803125ms hook=pretooluse session=ccb33ab9 completed
+2026-04-07T21:14:07 handler=runHook duration=49.6175ms hook=task-created session=ccb33ab9 completed
+2026-04-07T21:14:07 handler=pretooluse duration=177.584µs phase=resolve-context session=ccb33ab9 tool=TaskCreate context resolved
+2026-04-07T21:14:07 handler=runHook duration=3.956541ms hook=posttooluse session=ccb33ab9 completed
+2026-04-07T21:14:09 handler=pretooluse duration=159.625µs phase=resolve-context session=ccb33ab9 tool=TaskCreate context resolved
+2026-04-07T21:14:09 handler=runHook duration=24.213917ms hook=pretooluse session=ccb33ab9 completed
+2026-04-07T21:14:09 handler=runHook duration=31.385333ms hook=task-created session=ccb33ab9 completed
+2026-04-07T21:14:09 handler=pretooluse duration=260.75µs phase=resolve-context session=ccb33ab9 tool=TaskCreate context resolved
+2026-04-07T21:14:09 handler=runHook duration=4.535875ms hook=posttooluse session=ccb33ab9 completed
+2026-04-07T21:14:11 handler=pretooluse duration=130.25µs phase=resolve-context session=ccb33ab9 tool=TaskCreate context resolved
+2026-04-07T21:14:11 handler=runHook duration=23.614875ms hook=pretooluse session=ccb33ab9 completed
+2026-04-07T21:14:11 handler=runHook duration=31.204292ms hook=task-created session=ccb33ab9 completed
+2026-04-07T21:14:11 handler=pretooluse duration=156.25µs phase=resolve-context session=ccb33ab9 tool=TaskCreate context resolved
+2026-04-07T21:14:11 handler=runHook duration=3.681667ms hook=posttooluse session=ccb33ab9 completed
+2026-04-07T21:14:13 handler=pretooluse duration=127µs phase=resolve-context session=ccb33ab9 tool=TaskCreate context resolved
+2026-04-07T21:14:13 handler=runHook duration=14.696666ms hook=pretooluse session=ccb33ab9 completed
+2026-04-07T21:14:13 handler=runHook duration=24.095042ms hook=task-created session=ccb33ab9 completed
+2026-04-07T21:14:13 handler=pretooluse duration=187.833µs phase=resolve-context session=ccb33ab9 tool=TaskCreate context resolved
+2026-04-07T21:14:13 handler=runHook duration=3.843417ms hook=posttooluse session=ccb33ab9 completed
+2026-04-07T21:14:15 handler=pretooluse duration=133.833µs phase=resolve-context session=ccb33ab9 tool=TaskCreate context resolved
+2026-04-07T21:14:15 handler=runHook duration=14.905875ms hook=pretooluse session=ccb33ab9 completed
+2026-04-07T21:14:15 handler=runHook duration=20.423667ms hook=task-created session=ccb33ab9 completed
+2026-04-07T21:14:15 handler=pretooluse duration=145.916µs phase=resolve-context session=ccb33ab9 tool=TaskCreate context resolved
+2026-04-07T21:14:15 handler=runHook duration=4.578083ms hook=posttooluse session=ccb33ab9 completed
+2026-04-07T21:14:21 handler=pretooluse duration=135.333µs phase=resolve-context session=ccb33ab9 tool=TaskUpdate context resolved
+2026-04-07T21:14:21 handler=runHook duration=13.625792ms hook=pretooluse session=ccb33ab9 completed
+2026-04-07T21:14:21 handler=pretooluse duration=176.25µs phase=resolve-context session=ccb33ab9 tool=TaskUpdate context resolved
+2026-04-07T21:14:21 handler=runHook duration=3.620459ms hook=posttooluse session=ccb33ab9 completed
+2026-04-07T21:14:21 handler=pretooluse duration=125.041µs phase=resolve-context session=ccb33ab9 tool=TaskUpdate context resolved
+2026-04-07T21:14:21 handler=runHook duration=13.912875ms hook=pretooluse session=ccb33ab9 completed
+2026-04-07T21:14:21 handler=pretooluse duration=225.125µs phase=resolve-context session=ccb33ab9 tool=TaskUpdate context resolved
+2026-04-07T21:14:21 handler=runHook duration=4.145417ms hook=posttooluse session=ccb33ab9 completed
+2026-04-07T21:14:22 handler=pretooluse duration=165.791µs phase=resolve-context session=ccb33ab9 tool=TaskUpdate context resolved
+2026-04-07T21:14:22 handler=runHook duration=14.531292ms hook=pretooluse session=ccb33ab9 completed
+2026-04-07T21:14:22 handler=pretooluse duration=128.166µs phase=resolve-context session=ccb33ab9 tool=TaskUpdate context resolved
+2026-04-07T21:14:22 handler=runHook duration=3.683042ms hook=posttooluse session=ccb33ab9 completed
+2026-04-07T21:14:22 handler=pretooluse duration=174.125µs phase=resolve-context session=ccb33ab9 tool=TaskUpdate context resolved
+2026-04-07T21:14:22 handler=runHook duration=14.618375ms hook=pretooluse session=ccb33ab9 completed
+2026-04-07T21:14:22 handler=pretooluse duration=150.167µs phase=resolve-context session=ccb33ab9 tool=TaskUpdate context resolved
+2026-04-07T21:14:22 handler=runHook duration=3.519042ms hook=posttooluse session=ccb33ab9 completed
+2026-04-07T21:14:32 handler=pretooluse duration=150.083µs phase=resolve-context session=ccb33ab9 tool=Read context resolved
+2026-04-07T21:14:32 handler=runHook duration=24.264375ms hook=pretooluse session=ccb33ab9 completed
+2026-04-07T21:14:32 handler=pretooluse duration=203.417µs phase=resolve-context session=ccb33ab9 tool=Read context resolved
+2026-04-07T21:14:32 handler=runHook duration=4.013125ms hook=posttooluse session=ccb33ab9 completed
+2026-04-07T21:14:32 handler=pretooluse duration=138.5µs phase=resolve-context session=ccb33ab9 tool=Read context resolved
+2026-04-07T21:14:32 handler=runHook duration=27.312958ms hook=pretooluse session=ccb33ab9 completed
+2026-04-07T21:14:32 handler=pretooluse duration=132µs phase=resolve-context session=ccb33ab9 tool=Read context resolved
+2026-04-07T21:14:32 handler=runHook duration=3.332333ms hook=posttooluse session=ccb33ab9 completed
+2026-04-07T21:14:33 handler=pretooluse duration=162.875µs phase=resolve-context session=ccb33ab9 tool=Read context resolved
+2026-04-07T21:14:33 handler=runHook duration=24.9625ms hook=pretooluse session=ccb33ab9 completed
+2026-04-07T21:14:33 handler=pretooluse duration=137.583µs phase=resolve-context session=ccb33ab9 tool=Read context resolved
+2026-04-07T21:14:33 handler=runHook duration=4.545875ms hook=posttooluse session=ccb33ab9 completed
+2026-04-07T21:14:35 handler=pretooluse duration=132.459µs phase=resolve-context session=ccb33ab9 tool=Grep context resolved
+2026-04-07T21:14:35 handler=runHook duration=23.423958ms hook=pretooluse session=ccb33ab9 completed
+2026-04-07T21:14:35 handler=pretooluse duration=127.75µs phase=resolve-context session=ccb33ab9 tool=Grep context resolved
+2026-04-07T21:14:35 handler=runHook duration=3.788542ms hook=posttooluse session=ccb33ab9 completed
+2026-04-07T21:14:35 handler=pretooluse duration=149.709µs phase=resolve-context session=ccb33ab9 tool=Read context resolved
+2026-04-07T21:14:36 handler=runHook duration=24.755875ms hook=pretooluse session=ccb33ab9 completed
+2026-04-07T21:14:36 handler=pretooluse duration=177.167µs phase=resolve-context session=ccb33ab9 tool=Read context resolved
+2026-04-07T21:14:36 handler=runHook duration=3.560917ms hook=posttooluse session=ccb33ab9 completed
+2026-04-07T21:14:36 handler=runHook duration=7.327708ms hook=instructions-loaded session=ccb33ab9 completed
+2026-04-07T21:14:36 handler=runHook duration=6.816166ms hook=instructions-loaded session=ccb33ab9 completed
+2026-04-07T21:14:36 handler=runHook duration=3.904042ms hook=instructions-loaded session=ccb33ab9 completed
+2026-04-07T21:14:36 handler=runHook duration=17.575583ms hook=instructions-loaded session=ccb33ab9 completed
+2026-04-07T21:14:39 handler=pretooluse duration=148.375µs phase=resolve-context session=ccb33ab9 tool=Read context resolved
+2026-04-07T21:14:39 handler=runHook duration=23.455458ms hook=pretooluse session=ccb33ab9 completed
+2026-04-07T21:14:39 handler=pretooluse duration=156.375µs phase=resolve-context session=ccb33ab9 tool=Read context resolved
+2026-04-07T21:14:40 handler=runHook duration=3.605292ms hook=posttooluse session=ccb33ab9 completed
+2026-04-07T21:14:40 handler=pretooluse duration=142.833µs phase=resolve-context session=ccb33ab9 tool=Read context resolved
+2026-04-07T21:14:40 handler=runHook duration=23.301916ms hook=pretooluse session=ccb33ab9 completed
+2026-04-07T21:14:40 handler=pretooluse duration=135.834µs phase=resolve-context session=ccb33ab9 tool=Read context resolved
+2026-04-07T21:14:40 handler=runHook duration=3.720875ms hook=posttooluse session=ccb33ab9 completed
+2026-04-07T21:14:41 handler=pretooluse duration=147.875µs phase=resolve-context session=ccb33ab9 tool=Read context resolved
+2026-04-07T21:14:41 handler=runHook duration=23.515208ms hook=pretooluse session=ccb33ab9 completed
+2026-04-07T21:14:41 handler=pretooluse duration=138.583µs phase=resolve-context session=ccb33ab9 tool=Read context resolved
+2026-04-07T21:14:41 handler=runHook duration=3.50675ms hook=posttooluse session=ccb33ab9 completed
+2026-04-07T21:14:46 handler=pretooluse duration=192.167µs phase=resolve-context session=ccb33ab9 tool=Read context resolved
+2026-04-07T21:14:46 handler=runHook duration=30.657833ms hook=pretooluse session=ccb33ab9 completed
+2026-04-07T21:14:46 handler=pretooluse duration=151µs phase=resolve-context session=ccb33ab9 tool=Read context resolved
+2026-04-07T21:14:46 handler=runHook duration=3.419833ms hook=posttooluse session=ccb33ab9 completed
+2026-04-07T21:14:54 handler=pretooluse duration=126.125µs phase=resolve-context session=ccb33ab9 tool=Grep context resolved
+2026-04-07T21:14:54 handler=runHook duration=28.004167ms hook=pretooluse session=ccb33ab9 completed
+2026-04-07T21:14:54 handler=pretooluse duration=198.208µs phase=resolve-context session=ccb33ab9 tool=Grep context resolved
+2026-04-07T21:14:54 handler=runHook duration=4.300625ms hook=posttooluse session=ccb33ab9 completed
+2026-04-07T21:14:54 handler=pretooluse duration=305µs phase=resolve-context session=ccb33ab9 tool=Grep context resolved
+2026-04-07T21:14:54 handler=runHook duration=32.830417ms hook=pretooluse session=ccb33ab9 completed
+2026-04-07T21:14:54 handler=pretooluse duration=134.625µs phase=resolve-context session=ccb33ab9 tool=Grep context resolved
+2026-04-07T21:14:54 handler=runHook duration=3.530458ms hook=posttooluse session=ccb33ab9 completed
+2026-04-07T21:15:00 handler=pretooluse duration=238.791µs phase=resolve-context session=ccb33ab9 tool=Read context resolved
+2026-04-07T21:15:00 handler=runHook duration=43.868083ms hook=pretooluse session=ccb33ab9 completed
+2026-04-07T21:15:00 handler=pretooluse duration=132.333µs phase=resolve-context session=ccb33ab9 tool=Read context resolved
+2026-04-07T21:15:00 handler=runHook duration=3.638833ms hook=posttooluse session=ccb33ab9 completed
+2026-04-07T21:15:00 handler=pretooluse duration=175.208µs phase=resolve-context session=ccb33ab9 tool=Grep context resolved
+2026-04-07T21:15:00 handler=runHook duration=21.835791ms hook=pretooluse session=ccb33ab9 completed
+2026-04-07T21:15:00 handler=pretooluse duration=175.25µs phase=resolve-context session=ccb33ab9 tool=Grep context resolved
+2026-04-07T21:15:00 handler=runHook duration=3.870292ms hook=posttooluse session=ccb33ab9 completed
+2026-04-07T21:15:15 handler=pretooluse duration=143.666µs phase=resolve-context session=ccb33ab9 tool=TaskUpdate context resolved
+2026-04-07T21:15:15 handler=runHook duration=14.661958ms hook=pretooluse session=ccb33ab9 completed
+2026-04-07T21:15:15 handler=pretooluse duration=206.916µs phase=resolve-context session=ccb33ab9 tool=TaskUpdate context resolved
+2026-04-07T21:15:15 handler=runHook duration=3.696959ms hook=posttooluse session=ccb33ab9 completed
+2026-04-07T21:16:39 handler=pretooluse duration=1.620167ms phase=resolve-context session=ccb33ab9 tool=Agent context resolved
+2026-04-07T21:16:39 handler=runHook duration=34.362042ms hook=pretooluse session=ccb33ab9 completed
+2026-04-07T21:16:39 handler=runHook duration=4.959167ms hook=worktree-create session=ccb33ab9 completed
+2026-04-07T21:16:39 [htmlgraph] CLAUDE_ENV_FILE unset — writing session-scoped project dir hint (agent=htmlgraph:opus-coder session=ccb33ab9-895b-42f0-83c1-bcd1d53d0463)
+2026-04-07T21:16:39 handler=runHook duration=6.2445ms hook=subagent-start session=ccb33ab9 completed
+2026-04-07T21:16:43 handler=pretooluse duration=146.958µs phase=resolve-context session=ccb33ab9 tool=Bash context resolved
+2026-04-07T21:16:43 handler=runHook duration=3.813084ms hook=pretooluse session=ccb33ab9 completed
+2026-04-07T21:16:47 handler=pretooluse duration=128.541µs phase=resolve-context session=ccb33ab9 tool=Bash context resolved
+2026-04-07T21:16:47 handler=runHook duration=16.144958ms hook=pretooluse session=ccb33ab9 completed
+2026-04-07T21:16:47 handler=pretooluse duration=165.167µs phase=resolve-context session=ccb33ab9 tool=Bash context resolved
+2026-04-07T21:16:47 [posttooluse] tagged claim for feat-57196d42) with agent a4a7fe70788027435
+2026-04-07T21:16:47 handler=runHook duration=3.876292ms hook=posttooluse session=ccb33ab9 completed
+2026-04-07T21:16:52 handler=pretooluse duration=128.125µs phase=resolve-context session=ccb33ab9 tool=Read context resolved
+2026-04-07T21:16:52 handler=runHook duration=27.5715ms hook=pretooluse session=ccb33ab9 completed
+2026-04-07T21:16:52 handler=pretooluse duration=135.125µs phase=resolve-context session=ccb33ab9 tool=Read context resolved
+2026-04-07T21:16:52 handler=runHook duration=3.860375ms hook=posttooluse session=ccb33ab9 completed
+2026-04-07T21:16:53 handler=pretooluse duration=120µs phase=resolve-context session=ccb33ab9 tool=Read context resolved
+2026-04-07T21:16:53 handler=runHook duration=23.2615ms hook=pretooluse session=ccb33ab9 completed
+2026-04-07T21:16:53 handler=pretooluse duration=140.583µs phase=resolve-context session=ccb33ab9 tool=Read context resolved
+2026-04-07T21:16:53 handler=runHook duration=4.181917ms hook=posttooluse session=ccb33ab9 completed
+2026-04-07T21:16:53 handler=pretooluse duration=132.083µs phase=resolve-context session=ccb33ab9 tool=Read context resolved
+2026-04-07T21:16:53 handler=runHook duration=24.988583ms hook=pretooluse session=ccb33ab9 completed
+2026-04-07T21:16:53 handler=pretooluse duration=245.084µs phase=resolve-context session=ccb33ab9 tool=Read context resolved
+2026-04-07T21:16:53 handler=runHook duration=8.420791ms hook=posttooluse session=ccb33ab9 completed
+2026-04-07T21:16:53 handler=pretooluse duration=171.125µs phase=resolve-context session=ccb33ab9 tool=Read context resolved
+2026-04-07T21:16:53 handler=runHook duration=27.465666ms hook=pretooluse session=ccb33ab9 completed
+2026-04-07T21:16:53 handler=pretooluse duration=140.041µs phase=resolve-context session=ccb33ab9 tool=Read context resolved
+2026-04-07T21:16:53 handler=runHook duration=3.67475ms hook=posttooluse session=ccb33ab9 completed
+2026-04-07T21:17:00 handler=pretooluse duration=178.875µs phase=resolve-context session=ccb33ab9 tool=Grep context resolved
+2026-04-07T21:17:00 handler=runHook duration=30.789041ms hook=pretooluse session=ccb33ab9 completed
+2026-04-07T21:17:00 handler=pretooluse duration=172.084µs phase=resolve-context session=ccb33ab9 tool=Grep context resolved
+2026-04-07T21:17:00 handler=runHook duration=4.855167ms hook=posttooluse session=ccb33ab9 completed
+2026-04-07T21:17:01 handler=pretooluse duration=121.583µs phase=resolve-context session=ccb33ab9 tool=Grep context resolved
+2026-04-07T21:17:01 handler=runHook duration=24.106916ms hook=pretooluse session=ccb33ab9 completed
+2026-04-07T21:17:01 handler=pretooluse duration=191.458µs phase=resolve-context session=ccb33ab9 tool=Grep context resolved
+2026-04-07T21:17:01 handler=runHook duration=3.905875ms hook=posttooluse session=ccb33ab9 completed
+2026-04-07T21:17:01 handler=pretooluse duration=147µs phase=resolve-context session=ccb33ab9 tool=Bash context resolved
+2026-04-07T21:17:01 handler=runHook duration=14.474875ms hook=pretooluse session=ccb33ab9 completed
+2026-04-07T21:17:01 handler=pretooluse duration=128.083µs phase=resolve-context session=ccb33ab9 tool=Bash context resolved
+2026-04-07T21:17:01 handler=runHook duration=3.503958ms hook=posttooluse session=ccb33ab9 completed
+2026-04-07T21:17:05 handler=pretooluse duration=145.208µs phase=resolve-context session=ccb33ab9 tool=Read context resolved
+2026-04-07T21:17:05 handler=runHook duration=22.832875ms hook=pretooluse session=ccb33ab9 completed
+2026-04-07T21:17:05 handler=pretooluse duration=123.25µs phase=resolve-context session=ccb33ab9 tool=Read context resolved
+2026-04-07T21:17:05 handler=runHook duration=3.601292ms hook=posttooluse session=ccb33ab9 completed
+2026-04-07T21:17:06 handler=pretooluse duration=121.333µs phase=resolve-context session=ccb33ab9 tool=Read context resolved
+2026-04-07T21:17:06 handler=runHook duration=23.889125ms hook=pretooluse session=ccb33ab9 completed
+2026-04-07T21:17:06 handler=pretooluse duration=145.209µs phase=resolve-context session=ccb33ab9 tool=Read context resolved
+2026-04-07T21:17:06 handler=runHook duration=3.720167ms hook=posttooluse session=ccb33ab9 completed
+2026-04-07T21:17:07 handler=pretooluse duration=143.167µs phase=resolve-context session=ccb33ab9 tool=Bash context resolved
+2026-04-07T21:17:07 handler=runHook duration=14.127667ms hook=pretooluse session=ccb33ab9 completed
+2026-04-07T21:17:07 handler=pretooluse duration=134.834µs phase=resolve-context session=ccb33ab9 tool=Bash context resolved
+2026-04-07T21:17:07 handler=runHook duration=3.847042ms hook=posttooluse session=ccb33ab9 completed
+2026-04-07T21:17:12 handler=pretooluse duration=145.917µs phase=resolve-context session=ccb33ab9 tool=Read context resolved
+2026-04-07T21:17:12 handler=runHook duration=27.177292ms hook=pretooluse session=ccb33ab9 completed
+2026-04-07T21:17:12 handler=pretooluse duration=182.25µs phase=resolve-context session=ccb33ab9 tool=Read context resolved
+2026-04-07T21:17:12 handler=runHook duration=3.74375ms hook=posttooluse session=ccb33ab9 completed
+2026-04-07T21:17:13 handler=pretooluse duration=154.958µs phase=resolve-context session=ccb33ab9 tool=Grep context resolved
+2026-04-07T21:17:13 handler=runHook duration=25.017ms hook=pretooluse session=ccb33ab9 completed
+2026-04-07T21:17:13 handler=pretooluse duration=192.333µs phase=resolve-context session=ccb33ab9 tool=Grep context resolved
+2026-04-07T21:17:13 handler=runHook duration=3.804875ms hook=posttooluse session=ccb33ab9 completed
+2026-04-07T21:17:14 handler=pretooluse duration=156.958µs phase=resolve-context session=ccb33ab9 tool=Glob context resolved
+2026-04-07T21:17:14 handler=runHook duration=23.767458ms hook=pretooluse session=ccb33ab9 completed
+2026-04-07T21:17:14 handler=pretooluse duration=128.542µs phase=resolve-context session=ccb33ab9 tool=Glob context resolved
+2026-04-07T21:17:14 handler=runHook duration=3.781291ms hook=posttooluse session=ccb33ab9 completed
+2026-04-07T21:17:21 handler=pretooluse duration=134.875µs phase=resolve-context session=ccb33ab9 tool=Read context resolved
+2026-04-07T21:17:21 handler=runHook duration=26.750666ms hook=pretooluse session=ccb33ab9 completed
+2026-04-07T21:17:21 handler=pretooluse duration=163.375µs phase=resolve-context session=ccb33ab9 tool=Read context resolved
+2026-04-07T21:17:21 handler=runHook duration=4.770542ms hook=posttooluse session=ccb33ab9 completed
+2026-04-07T21:17:22 handler=pretooluse duration=147.5µs phase=resolve-context session=ccb33ab9 tool=Grep context resolved
+2026-04-07T21:17:22 handler=runHook duration=25.549208ms hook=pretooluse session=ccb33ab9 completed
+2026-04-07T21:17:22 handler=pretooluse duration=150.625µs phase=resolve-context session=ccb33ab9 tool=Grep context resolved
+2026-04-07T21:17:22 handler=runHook duration=3.750375ms hook=posttooluse session=ccb33ab9 completed
+2026-04-07T21:17:22 handler=pretooluse duration=219.583µs phase=resolve-context session=ccb33ab9 tool=Read context resolved
+2026-04-07T21:17:22 handler=runHook duration=27.215291ms hook=pretooluse session=ccb33ab9 completed
+2026-04-07T21:17:22 handler=pretooluse duration=131.791µs phase=resolve-context session=ccb33ab9 tool=Read context resolved
+2026-04-07T21:17:22 handler=runHook duration=5.036375ms hook=posttooluse session=ccb33ab9 completed
+2026-04-07T21:17:29 handler=pretooluse duration=149.041µs phase=resolve-context session=ccb33ab9 tool=Grep context resolved
+2026-04-07T21:17:29 handler=pretooluse duration=151.292µs phase=resolve-context session=ccb33ab9 tool=Bash context resolved
+2026-04-07T21:17:29 handler=runHook duration=12.448459ms hook=pretooluse session=ccb33ab9 completed
+2026-04-07T21:17:29 handler=runHook duration=25.142667ms hook=pretooluse session=ccb33ab9 completed
+2026-04-07T21:17:29 handler=pretooluse duration=376.792µs phase=resolve-context session=ccb33ab9 tool=Grep context resolved
+2026-04-07T21:17:29 handler=runHook duration=6.250708ms hook=posttooluse session=ccb33ab9 completed
+2026-04-07T21:17:29 handler=pretooluse duration=165.042µs phase=resolve-context session=ccb33ab9 tool=Bash context resolved
+2026-04-07T21:17:29 handler=runHook duration=3.661084ms hook=posttooluse session=ccb33ab9 completed
+2026-04-07T21:17:35 handler=pretooluse duration=159.542µs phase=resolve-context session=ccb33ab9 tool=Read context resolved
+2026-04-07T21:17:35 handler=runHook duration=25.032125ms hook=pretooluse session=ccb33ab9 completed
+2026-04-07T21:17:35 handler=pretooluse duration=180.792µs phase=resolve-context session=ccb33ab9 tool=Read context resolved
+2026-04-07T21:17:35 handler=runHook duration=3.946458ms hook=posttooluse session=ccb33ab9 completed
+2026-04-07T21:17:41 handler=pretooluse duration=133.583µs phase=resolve-context session=ccb33ab9 tool=Bash context resolved
+2026-04-07T21:17:41 handler=runHook duration=15.891542ms hook=pretooluse session=ccb33ab9 completed
+2026-04-07T21:17:41 handler=pretooluse duration=137.042µs phase=resolve-context session=ccb33ab9 tool=Bash context resolved
+2026-04-07T21:17:41 handler=runHook duration=3.465791ms hook=posttooluse session=ccb33ab9 completed
+2026-04-07T21:18:24 handler=pretooluse duration=755.291µs phase=resolve-context session=ccb33ab9 tool=Write context resolved
+2026-04-07T21:18:24 handler=runHook duration=8.186791ms hook=pretooluse session=ccb33ab9 completed
+2026-04-07T21:18:30 handler=pretooluse duration=135.792µs phase=resolve-context session=ccb33ab9 tool=Bash context resolved
+2026-04-07T21:18:30 handler=runHook duration=22.649125ms hook=pretooluse session=ccb33ab9 completed
+2026-04-07T21:18:30 handler=pretooluse duration=141.583µs phase=resolve-context session=ccb33ab9 tool=Bash context resolved
+2026-04-07T21:18:30 [posttooluse] tagged claim for feat-57196d42) with agent a4a7fe70788027435
+2026-04-07T21:18:30 handler=runHook duration=3.583417ms hook=posttooluse session=ccb33ab9 completed
+2026-04-07T21:18:56 handler=pretooluse duration=1.987625ms phase=resolve-context session=ccb33ab9 tool=Write context resolved
+2026-04-07T21:18:56 handler=runHook duration=8.980541ms hook=pretooluse session=ccb33ab9 completed
+2026-04-07T21:19:01 handler=pretooluse duration=156.333µs phase=resolve-context session=ccb33ab9 tool=Bash context resolved
+2026-04-07T21:19:01 handler=runHook duration=27.015334ms hook=pretooluse session=ccb33ab9 completed
+2026-04-07T21:19:01 handler=pretooluse duration=126.167µs phase=resolve-context session=ccb33ab9 tool=Bash context resolved
+2026-04-07T21:19:01 handler=runHook duration=3.074792ms hook=posttooluse session=ccb33ab9 completed
+2026-04-07T21:19:08 handler=pretooluse duration=126.833µs phase=resolve-context session=ccb33ab9 tool=Bash context resolved
+2026-04-07T21:19:08 handler=runHook duration=16.351166ms hook=pretooluse session=ccb33ab9 completed
+2026-04-07T21:19:08 handler=pretooluse duration=155.75µs phase=resolve-context session=ccb33ab9 tool=Bash context resolved
+2026-04-07T21:19:08 handler=runHook duration=3.486125ms hook=posttooluse session=ccb33ab9 completed
+2026-04-07T21:19:12 handler=pretooluse duration=187.667µs phase=resolve-context session=ccb33ab9 tool=Bash context resolved
+2026-04-07T21:19:12 handler=runHook duration=23.188459ms hook=pretooluse session=ccb33ab9 completed
+2026-04-07T21:19:12 handler=pretooluse duration=136.5µs phase=resolve-context session=ccb33ab9 tool=Bash context resolved
+2026-04-07T21:19:12 [posttooluse] tagged claim for feat-57196d42 with agent a4a7fe70788027435
+2026-04-07T21:19:12 handler=runHook duration=4.546542ms hook=posttooluse session=ccb33ab9 completed
+2026-04-07T21:19:19 handler=pretooluse duration=134.375µs phase=resolve-context session=ccb33ab9 tool=Bash context resolved
+2026-04-07T21:19:19 handler=runHook duration=16.746125ms hook=pretooluse session=ccb33ab9 completed
+2026-04-07T21:19:19 handler=pretooluse duration=139.833µs phase=resolve-context session=ccb33ab9 tool=Bash context resolved
+2026-04-07T21:19:19 [posttooluse] tagged claim for feat-57196d42) with agent a4a7fe70788027435
+2026-04-07T21:19:19 handler=runHook duration=5.108875ms hook=posttooluse session=ccb33ab9 completed
+2026-04-07T21:19:44 handler=pretooluse duration=1.186333ms phase=resolve-context session=ccb33ab9 tool=Write context resolved
+2026-04-07T21:19:44 handler=runHook duration=33.635959ms hook=pretooluse session=ccb33ab9 completed
+2026-04-07T21:19:44 handler=pretooluse duration=175.417µs phase=resolve-context session=ccb33ab9 tool=Write context resolved
+2026-04-07T21:19:44 handler=runHook duration=4.62775ms hook=posttooluse session=ccb33ab9 completed
+2026-04-07T21:20:27 handler=pretooluse duration=1.485125ms phase=resolve-context session=ccb33ab9 tool=Write context resolved
+2026-04-07T21:20:27 handler=runHook duration=35.705625ms hook=pretooluse session=ccb33ab9 completed
+2026-04-07T21:20:27 handler=pretooluse duration=188.167µs phase=resolve-context session=ccb33ab9 tool=Write context resolved
+2026-04-07T21:20:27 handler=runHook duration=4.231959ms hook=posttooluse session=ccb33ab9 completed
+2026-04-07T21:20:33 handler=pretooluse duration=151.875µs phase=resolve-context session=ccb33ab9 tool=Bash context resolved
+2026-04-07T21:20:33 handler=runHook duration=14.9615ms hook=pretooluse session=ccb33ab9 completed
+2026-04-07T21:20:33 handler=pretooluse duration=149µs phase=resolve-context session=ccb33ab9 tool=Bash context resolved
+2026-04-07T21:20:33 handler=runHook duration=4.989ms hook=posttooluse session=ccb33ab9 completed
+2026-04-07T21:20:39 handler=pretooluse duration=140.583µs phase=resolve-context session=ccb33ab9 tool=Bash context resolved
+2026-04-07T21:20:39 handler=runHook duration=19.145542ms hook=pretooluse session=ccb33ab9 completed
+2026-04-07T21:20:40 handler=pretooluse duration=153.125µs phase=resolve-context session=ccb33ab9 tool=Bash context resolved
+2026-04-07T21:20:40 handler=runHook duration=3.787375ms hook=posttooluse session=ccb33ab9 completed
+2026-04-07T21:20:47 handler=pretooluse duration=151.375µs phase=resolve-context session=ccb33ab9 tool=Read context resolved
+2026-04-07T21:20:47 handler=runHook duration=30.675792ms hook=pretooluse session=ccb33ab9 completed
+2026-04-07T21:20:47 handler=pretooluse duration=153.667µs phase=resolve-context session=ccb33ab9 tool=Read context resolved
+2026-04-07T21:20:47 handler=runHook duration=4.515375ms hook=posttooluse session=ccb33ab9 completed
+2026-04-07T21:20:56 handler=pretooluse duration=159.083µs phase=resolve-context session=ccb33ab9 tool=Edit context resolved
+2026-04-07T21:20:56 [htmlgraph] YOLO code health warning: Code health: api_plans.go has 606 lines (limit 500). Consider refactoring into smaller modules.
+2026-04-07T21:20:56 handler=runHook duration=29.462667ms hook=pretooluse session=ccb33ab9 completed
+2026-04-07T21:20:56 handler=pretooluse duration=237.791µs phase=resolve-context session=ccb33ab9 tool=Edit context resolved
+2026-04-07T21:20:56 handler=runHook duration=4.926291ms hook=posttooluse session=ccb33ab9 completed
+2026-04-07T21:21:04 handler=pretooluse duration=143.583µs phase=resolve-context session=ccb33ab9 tool=Edit context resolved
+2026-04-07T21:21:04 [htmlgraph] YOLO code health warning: Code health: api_plans.go has 608 lines (limit 500). Consider refactoring into smaller modules.
+2026-04-07T21:21:04 handler=runHook duration=29.369917ms hook=pretooluse session=ccb33ab9 completed
+2026-04-07T21:21:04 handler=pretooluse duration=232.875µs phase=resolve-context session=ccb33ab9 tool=Edit context resolved
+2026-04-07T21:21:04 handler=runHook duration=5.562541ms hook=posttooluse session=ccb33ab9 completed
+2026-04-07T21:21:16 handler=pretooluse duration=1.567625ms phase=resolve-context session=ccb33ab9 tool=Edit context resolved
+2026-04-07T21:21:16 [htmlgraph] YOLO code health warning: Code health: api_plans.go has 616 lines (limit 500). Consider refactoring into smaller modules.
+2026-04-07T21:21:16 handler=runHook duration=43.651291ms hook=pretooluse session=ccb33ab9 completed
+2026-04-07T21:21:16 handler=pretooluse duration=174.542µs phase=resolve-context session=ccb33ab9 tool=Edit context resolved
+2026-04-07T21:21:16 handler=runHook duration=6.33325ms hook=posttooluse session=ccb33ab9 completed
+2026-04-07T21:21:32 handler=pretooluse duration=1.12175ms phase=resolve-context session=ccb33ab9 tool=Edit context resolved
+2026-04-07T21:21:32 [htmlgraph] YOLO code health warning: Code health: api_plans.go has 619 lines (limit 500). Consider refactoring into smaller modules.
+2026-04-07T21:21:32 handler=runHook duration=32.489167ms hook=pretooluse session=ccb33ab9 completed
+2026-04-07T21:21:32 handler=pretooluse duration=187.667µs phase=resolve-context session=ccb33ab9 tool=Edit context resolved
+2026-04-07T21:21:32 handler=runHook duration=4.93475ms hook=posttooluse session=ccb33ab9 completed
+2026-04-07T21:21:52 handler=pretooluse duration=1.086667ms phase=resolve-context session=ccb33ab9 tool=Edit context resolved
+2026-04-07T21:21:52 [htmlgraph] YOLO code health warning: Code health: api_plans.go has 633 lines (limit 500). Consider refactoring into smaller modules.
+2026-04-07T21:21:52 handler=runHook duration=34.913875ms hook=pretooluse session=ccb33ab9 completed
+2026-04-07T21:21:52 handler=pretooluse duration=153.5µs phase=resolve-context session=ccb33ab9 tool=Edit context resolved
+2026-04-07T21:21:52 handler=runHook duration=4.671416ms hook=posttooluse session=ccb33ab9 completed
+2026-04-07T21:21:59 handler=pretooluse duration=141.333µs phase=resolve-context session=ccb33ab9 tool=Bash context resolved
+2026-04-07T21:21:59 handler=runHook duration=16.3975ms hook=pretooluse session=ccb33ab9 completed
+2026-04-07T21:22:01 handler=pretooluse duration=239.334µs phase=resolve-context session=ccb33ab9 tool=Bash context resolved
+2026-04-07T21:22:01 handler=runHook duration=4.275125ms hook=posttooluse session=ccb33ab9 completed
+2026-04-07T21:22:08 handler=pretooluse duration=147.584µs phase=resolve-context session=ccb33ab9 tool=Read context resolved
+2026-04-07T21:22:08 handler=runHook duration=29.028209ms hook=pretooluse session=ccb33ab9 completed
+2026-04-07T21:22:08 handler=pretooluse duration=179.042µs phase=resolve-context session=ccb33ab9 tool=Read context resolved
+2026-04-07T21:22:08 handler=runHook duration=4.432792ms hook=posttooluse session=ccb33ab9 completed
+2026-04-07T21:22:36 handler=pretooluse duration=1.457541ms phase=resolve-context session=ccb33ab9 tool=Edit context resolved
+2026-04-07T21:22:36 handler=runHook duration=36.451ms hook=pretooluse session=ccb33ab9 completed
+2026-04-07T21:22:36 handler=pretooluse duration=176.541µs phase=resolve-context session=ccb33ab9 tool=Edit context resolved
+2026-04-07T21:22:36 handler=runHook duration=4.577ms hook=posttooluse session=ccb33ab9 completed
+2026-04-07T21:22:40 handler=pretooluse duration=197.708µs phase=resolve-context session=ccb33ab9 tool=Bash context resolved
+2026-04-07T21:22:40 handler=runHook duration=17.702209ms hook=pretooluse session=ccb33ab9 completed
+2026-04-07T21:22:41 handler=runHook duration=21.603875ms hook=user-prompt session=8498c268 completed
+2026-04-07T21:22:42 handler=pretooluse duration=139.917µs phase=resolve-context session=ccb33ab9 tool=Bash context resolved
+2026-04-07T21:22:42 handler=runHook duration=4.48425ms hook=posttooluse session=ccb33ab9 completed
+2026-04-07T21:22:47 handler=pretooluse duration=169.083µs phase=resolve-context session=ccb33ab9 tool=Bash context resolved
+2026-04-07T21:22:47 handler=runHook duration=25.153834ms hook=pretooluse session=ccb33ab9 completed
+2026-04-07T21:22:47 handler=pretooluse duration=181.041µs phase=resolve-context session=8498c268 tool=Bash context resolved
+2026-04-07T21:22:47 handler=runHook duration=7.0935ms hook=pretooluse session=8498c268 completed
+2026-04-07T21:22:48 handler=pretooluse duration=195.125µs phase=resolve-context session=8498c268 tool=Bash context resolved
+2026-04-07T21:22:48 handler=runHook duration=4.137167ms hook=posttooluse session=8498c268 completed
+2026-04-07T21:22:48 handler=pretooluse duration=156.5µs phase=resolve-context session=8498c268 tool=Bash context resolved
+2026-04-07T21:22:48 handler=runHook duration=5.514584ms hook=pretooluse session=8498c268 completed
+2026-04-07T21:22:48 handler=runHook duration=6.37325ms hook=permission-request session=8498c268 completed
+2026-04-07T21:22:49 handler=pretooluse duration=153.417µs phase=resolve-context session=ccb33ab9 tool=Bash context resolved
+2026-04-07T21:22:49 handler=runHook duration=4.0275ms hook=posttooluse session=ccb33ab9 completed
+2026-04-07T21:22:52 handler=pretooluse duration=143.083µs phase=resolve-context session=8498c268 tool=Bash context resolved
+2026-04-07T21:22:52 handler=runHook duration=4.869583ms hook=posttooluse session=8498c268 completed
+2026-04-07T21:22:56 handler=pretooluse duration=192.125µs phase=resolve-context session=ccb33ab9 tool=Read context resolved
+2026-04-07T21:22:56 handler=runHook duration=28.861875ms hook=pretooluse session=ccb33ab9 completed
+2026-04-07T21:22:56 handler=pretooluse duration=229.833µs phase=resolve-context session=ccb33ab9 tool=Read context resolved
+2026-04-07T21:22:56 handler=runHook duration=4.262416ms hook=posttooluse session=ccb33ab9 completed
+2026-04-07T21:23:02 handler=pretooluse duration=157.125µs phase=resolve-context session=ccb33ab9 tool=Edit context resolved
+2026-04-07T21:23:02 handler=runHook duration=23.640916ms hook=pretooluse session=ccb33ab9 completed
+2026-04-07T21:23:02 handler=pretooluse duration=208.916µs phase=resolve-context session=ccb33ab9 tool=Edit context resolved
+2026-04-07T21:23:02 handler=runHook duration=4.987833ms hook=posttooluse session=ccb33ab9 completed
+2026-04-07T21:23:22 handler=pretooluse duration=1.385708ms phase=resolve-context session=ccb33ab9 tool=Edit context resolved
+2026-04-07T21:23:22 handler=runHook duration=34.59925ms hook=pretooluse session=ccb33ab9 completed
+2026-04-07T21:23:22 handler=pretooluse duration=162.083µs phase=resolve-context session=ccb33ab9 tool=Edit context resolved
+2026-04-07T21:23:22 handler=runHook duration=5.245834ms hook=posttooluse session=ccb33ab9 completed
+2026-04-07T21:23:33 handler=pretooluse duration=154.625µs phase=resolve-context session=ccb33ab9 tool=Edit context resolved
+2026-04-07T21:23:33 handler=runHook duration=28.168875ms hook=pretooluse session=ccb33ab9 completed
+2026-04-07T21:23:33 handler=pretooluse duration=180.917µs phase=resolve-context session=ccb33ab9 tool=Edit context resolved
+2026-04-07T21:23:33 handler=runHook duration=4.438958ms hook=posttooluse session=ccb33ab9 completed
+2026-04-07T21:23:40 handler=pretooluse duration=214.25µs phase=resolve-context session=ccb33ab9 tool=Read context resolved
+2026-04-07T21:23:40 handler=runHook duration=27.848375ms hook=pretooluse session=ccb33ab9 completed
+2026-04-07T21:23:40 handler=pretooluse duration=229.958µs phase=resolve-context session=ccb33ab9 tool=Read context resolved
+2026-04-07T21:23:40 handler=runHook duration=4.034708ms hook=posttooluse session=ccb33ab9 completed
+2026-04-07T21:23:42 handler=runHook duration=6.150292ms hook=stop session=8498c268 completed
+2026-04-07T21:23:59 handler=pretooluse duration=1.824ms phase=resolve-context session=ccb33ab9 tool=Edit context resolved
+2026-04-07T21:23:59 handler=runHook duration=36.854167ms hook=pretooluse session=ccb33ab9 completed
+2026-04-07T21:23:59 handler=pretooluse duration=186.625µs phase=resolve-context session=ccb33ab9 tool=Edit context resolved
+2026-04-07T21:23:59 handler=runHook duration=4.741625ms hook=posttooluse session=ccb33ab9 completed
+2026-04-07T21:24:05 handler=pretooluse duration=259.75µs phase=resolve-context session=ccb33ab9 tool=Bash context resolved
+2026-04-07T21:24:05 handler=runHook duration=15.871042ms hook=pretooluse session=ccb33ab9 completed
+2026-04-07T21:24:08 handler=pretooluse duration=173.75µs phase=resolve-context session=ccb33ab9 tool=Bash context resolved
+2026-04-07T21:24:08 handler=runHook duration=4.000333ms hook=posttooluse session=ccb33ab9 completed
+2026-04-07T21:24:13 handler=pretooluse duration=202.166µs phase=resolve-context session=ccb33ab9 tool=Bash context resolved
+2026-04-07T21:24:13 handler=runHook duration=15.394334ms hook=pretooluse session=ccb33ab9 completed
+2026-04-07T21:24:13 handler=pretooluse duration=163.292µs phase=resolve-context session=ccb33ab9 tool=Bash context resolved
+2026-04-07T21:24:13 handler=runHook duration=3.727416ms hook=posttooluse session=ccb33ab9 completed
+2026-04-07T21:24:13 handler=pretooluse duration=364.708µs phase=resolve-context session=ccb33ab9 tool=Agent context resolved
+2026-04-07T21:24:13 handler=runHook duration=5.434542ms hook=posttooluse session=ccb33ab9 completed
+2026-04-07T21:24:24 handler=pretooluse duration=133µs phase=resolve-context session=ccb33ab9 tool=Bash context resolved
+2026-04-07T21:24:24 handler=runHook duration=18.368417ms hook=pretooluse session=ccb33ab9 completed
+2026-04-07T21:24:24 handler=pretooluse duration=316.584µs phase=resolve-context session=ccb33ab9 tool=Bash context resolved
+2026-04-07T21:24:24 handler=runHook duration=4.07375ms hook=posttooluse session=ccb33ab9 completed
+2026-04-07T21:24:25 handler=pretooluse duration=125.458µs phase=resolve-context session=ccb33ab9 tool=Bash context resolved
+2026-04-07T21:24:25 handler=runHook duration=19.602541ms hook=pretooluse session=ccb33ab9 completed
+2026-04-07T21:24:25 handler=pretooluse duration=154.75µs phase=resolve-context session=ccb33ab9 tool=Bash context resolved
+2026-04-07T21:24:25 handler=runHook duration=3.913166ms hook=posttooluse session=ccb33ab9 completed
+2026-04-07T21:24:25 handler=pretooluse duration=142.875µs phase=resolve-context session=ccb33ab9 tool=Bash context resolved
+2026-04-07T21:24:25 handler=runHook duration=16.479042ms hook=pretooluse session=ccb33ab9 completed
+2026-04-07T21:24:25 handler=pretooluse duration=124.375µs phase=resolve-context session=ccb33ab9 tool=Bash context resolved
+2026-04-07T21:24:25 handler=runHook duration=3.95325ms hook=posttooluse session=ccb33ab9 completed
+2026-04-07T21:26:09 handler=pretooluse duration=1.404375ms phase=resolve-context session=ccb33ab9 tool=Agent context resolved
+2026-04-07T21:26:09 handler=runHook duration=35.874041ms hook=pretooluse session=ccb33ab9 completed
+2026-04-07T21:26:09 handler=runHook duration=5.729542ms hook=worktree-create session=ccb33ab9 completed
+2026-04-07T21:26:09 [htmlgraph] CLAUDE_ENV_FILE unset — writing session-scoped project dir hint (agent=htmlgraph:sonnet-coder session=ccb33ab9-895b-42f0-83c1-bcd1d53d0463)
+2026-04-07T21:26:09 handler=runHook duration=6.74575ms hook=subagent-start session=ccb33ab9 completed
+2026-04-07T21:26:12 handler=pretooluse duration=138.625µs phase=resolve-context session=ccb33ab9 tool=Bash context resolved
+2026-04-07T21:26:12 handler=runHook duration=3.656375ms hook=pretooluse session=ccb33ab9 completed
+2026-04-07T21:26:15 handler=pretooluse duration=157.708µs phase=resolve-context session=ccb33ab9 tool=Bash context resolved
+2026-04-07T21:26:15 handler=runHook duration=17.958ms hook=pretooluse session=ccb33ab9 completed
+2026-04-07T21:26:15 handler=pretooluse duration=152.875µs phase=resolve-context session=ccb33ab9 tool=Bash context resolved
+2026-04-07T21:26:15 [posttooluse] tagged claim for feat-57196d42) with agent a7ab3ccd6abf83d87
+2026-04-07T21:26:15 handler=runHook duration=3.672583ms hook=posttooluse session=ccb33ab9 completed
+2026-04-07T21:26:15 handler=pretooluse duration=121.417µs phase=resolve-context session=ccb33ab9 tool=Read context resolved
+2026-04-07T21:26:15 handler=runHook duration=25.613625ms hook=pretooluse session=ccb33ab9 completed
+2026-04-07T21:26:15 handler=pretooluse duration=131.958µs phase=resolve-context session=ccb33ab9 tool=Read context resolved
+2026-04-07T21:26:15 handler=runHook duration=8.157208ms hook=posttooluse session=ccb33ab9 completed
+2026-04-07T21:26:19 handler=pretooluse duration=156.958µs phase=resolve-context session=ccb33ab9 tool=Read context resolved
+2026-04-07T21:26:19 handler=runHook duration=25.645291ms hook=pretooluse session=ccb33ab9 completed
+2026-04-07T21:26:19 handler=runHook duration=7.347ms hook=posttooluse-failure session=ccb33ab9 completed
+2026-04-07T21:26:19 handler=pretooluse duration=140.167µs phase=resolve-context session=ccb33ab9 tool=Glob context resolved
+2026-04-07T21:26:19 handler=runHook duration=16.159667ms hook=pretooluse session=ccb33ab9 completed
+2026-04-07T21:26:19 handler=pretooluse duration=153.292µs phase=resolve-context session=ccb33ab9 tool=Glob context resolved
+2026-04-07T21:26:19 handler=runHook duration=3.708334ms hook=posttooluse session=ccb33ab9 completed
+2026-04-07T21:26:22 handler=pretooluse duration=124.542µs phase=resolve-context session=ccb33ab9 tool=Read context resolved
+2026-04-07T21:26:22 handler=runHook duration=23.630334ms hook=pretooluse session=ccb33ab9 completed
+2026-04-07T21:26:22 handler=pretooluse duration=161.667µs phase=resolve-context session=ccb33ab9 tool=Read context resolved
+2026-04-07T21:26:22 handler=runHook duration=3.709833ms hook=posttooluse session=ccb33ab9 completed
+2026-04-07T21:26:22 handler=pretooluse duration=115.834µs phase=resolve-context session=ccb33ab9 tool=Read context resolved
+2026-04-07T21:26:22 handler=runHook duration=25.693667ms hook=pretooluse session=ccb33ab9 completed
+2026-04-07T21:26:22 handler=pretooluse duration=186.25µs phase=resolve-context session=ccb33ab9 tool=Read context resolved
+2026-04-07T21:26:22 handler=runHook duration=3.94825ms hook=posttooluse session=ccb33ab9 completed
+2026-04-07T21:26:23 handler=pretooluse duration=183.292µs phase=resolve-context session=ccb33ab9 tool=Read context resolved
+2026-04-07T21:26:23 handler=runHook duration=24.068958ms hook=pretooluse session=ccb33ab9 completed
+2026-04-07T21:26:23 handler=pretooluse duration=131.041µs phase=resolve-context session=ccb33ab9 tool=Read context resolved
+2026-04-07T21:26:23 handler=runHook duration=3.911667ms hook=posttooluse session=ccb33ab9 completed
+2026-04-07T21:26:26 handler=pretooluse duration=119.958µs phase=resolve-context session=ccb33ab9 tool=Read context resolved
+2026-04-07T21:26:26 handler=runHook duration=22.472458ms hook=pretooluse session=ccb33ab9 completed
+2026-04-07T21:26:26 handler=pretooluse duration=183.292µs phase=resolve-context session=ccb33ab9 tool=Read context resolved
+2026-04-07T21:26:26 handler=runHook duration=4.693584ms hook=posttooluse session=ccb33ab9 completed
+2026-04-07T21:26:31 handler=pretooluse duration=128.708µs phase=resolve-context session=ccb33ab9 tool=Read context resolved
+2026-04-07T21:26:31 handler=runHook duration=27.738875ms hook=pretooluse session=ccb33ab9 completed
+2026-04-07T21:26:31 handler=pretooluse duration=132.917µs phase=resolve-context session=ccb33ab9 tool=Read context resolved
+2026-04-07T21:26:31 handler=runHook duration=3.762084ms hook=posttooluse session=ccb33ab9 completed
+2026-04-07T21:26:34 handler=pretooluse duration=168.375µs phase=resolve-context session=ccb33ab9 tool=Read context resolved
+2026-04-07T21:26:34 handler=runHook duration=28.965958ms hook=pretooluse session=ccb33ab9 completed
+2026-04-07T21:26:34 handler=pretooluse duration=135.416µs phase=resolve-context session=ccb33ab9 tool=Read context resolved
+2026-04-07T21:26:34 handler=runHook duration=3.478125ms hook=posttooluse session=ccb33ab9 completed
+2026-04-07T21:26:36 handler=pretooluse duration=192.292µs phase=resolve-context session=ccb33ab9 tool=Read context resolved
+2026-04-07T21:26:36 handler=runHook duration=25.357958ms hook=pretooluse session=ccb33ab9 completed
+2026-04-07T21:26:36 handler=pretooluse duration=179.125µs phase=resolve-context session=ccb33ab9 tool=Read context resolved
+2026-04-07T21:26:36 handler=runHook duration=4.035208ms hook=posttooluse session=ccb33ab9 completed
+2026-04-07T21:26:42 handler=pretooluse duration=219.375µs phase=resolve-context session=ccb33ab9 tool=Bash context resolved
+2026-04-07T21:26:42 handler=runHook duration=18.584208ms hook=pretooluse session=ccb33ab9 completed
+2026-04-07T21:26:42 handler=pretooluse duration=162.791µs phase=resolve-context session=ccb33ab9 tool=Bash context resolved
+2026-04-07T21:26:42 handler=runHook duration=4.338375ms hook=posttooluse session=ccb33ab9 completed
+2026-04-07T21:26:45 handler=pretooluse duration=193.333µs phase=resolve-context session=ccb33ab9 tool=Bash context resolved
+2026-04-07T21:26:45 handler=runHook duration=18.047042ms hook=pretooluse session=ccb33ab9 completed
+2026-04-07T21:26:46 handler=pretooluse duration=130.958µs phase=resolve-context session=ccb33ab9 tool=Bash context resolved
+2026-04-07T21:26:46 handler=runHook duration=3.272959ms hook=posttooluse session=ccb33ab9 completed
+2026-04-07T21:26:46 handler=pretooluse duration=169.625µs phase=resolve-context session=ccb33ab9 tool=Bash context resolved
+2026-04-07T21:26:46 handler=runHook duration=15.242917ms hook=pretooluse session=ccb33ab9 completed
+2026-04-07T21:26:47 handler=pretooluse duration=211.417µs phase=resolve-context session=ccb33ab9 tool=Bash context resolved
+2026-04-07T21:26:47 handler=runHook duration=4.163958ms hook=posttooluse session=ccb33ab9 completed
+2026-04-07T21:26:50 handler=pretooluse duration=216.542µs phase=resolve-context session=ccb33ab9 tool=Bash context resolved
+2026-04-07T21:26:50 handler=runHook duration=16.893542ms hook=pretooluse session=ccb33ab9 completed
+2026-04-07T21:26:52 handler=pretooluse duration=250.5µs phase=resolve-context session=event-fl tool=Read context resolved
+2026-04-07T21:26:52 handler=pretooluse duration=88µs phase=resolve-context session=event-fl tool=Read context resolved
+2026-04-07T21:26:52 handler=pretooluse duration=176.792µs phase=resolve-context session=yolo-gua tool=Write context resolved
+2026-04-07T21:26:52 handler=pretooluse duration=93.292µs phase=resolve-context session=yolo-gua tool=Write context resolved
+2026-04-07T21:27:56 handler=pretooluse duration=3.543875ms phase=resolve-context session=ccb33ab9 tool=Bash context resolved
+2026-04-07T21:27:56 handler=runHook duration=24.365042ms hook=posttooluse session=ccb33ab9 completed
+2026-04-07T21:28:04 handler=pretooluse duration=143.083µs phase=resolve-context session=ccb33ab9 tool=Bash context resolved
+2026-04-07T21:28:04 handler=runHook duration=17.70375ms hook=pretooluse session=ccb33ab9 completed
+2026-04-07T21:28:04 handler=pretooluse duration=149.584µs phase=resolve-context session=ccb33ab9 tool=Bash context resolved
+2026-04-07T21:28:04 handler=runHook duration=3.800584ms hook=posttooluse session=ccb33ab9 completed
+2026-04-07T21:28:07 handler=pretooluse duration=162.834µs phase=resolve-context session=ccb33ab9 tool=Bash context resolved
+2026-04-07T21:28:07 handler=runHook duration=14.932916ms hook=pretooluse session=ccb33ab9 completed
+2026-04-07T21:28:07 handler=pretooluse duration=186.125µs phase=resolve-context session=ccb33ab9 tool=Bash context resolved
+2026-04-07T21:28:07 handler=runHook duration=3.690125ms hook=posttooluse session=ccb33ab9 completed
+2026-04-07T21:28:13 handler=pretooluse duration=153.041µs phase=resolve-context session=ccb33ab9 tool=Bash context resolved
+2026-04-07T21:28:13 handler=runHook duration=41.733417ms hook=pretooluse session=ccb33ab9 completed
+2026-04-07T21:28:16 handler=pretooluse duration=173.125µs phase=resolve-context session=event-fl tool=Read context resolved
+2026-04-07T21:28:16 handler=pretooluse duration=94.333µs phase=resolve-context session=event-fl tool=Read context resolved
+2026-04-07T21:28:16 handler=pretooluse duration=123.584µs phase=resolve-context session=yolo-gua tool=Write context resolved
+2026-04-07T21:28:16 handler=pretooluse duration=75.125µs phase=resolve-context session=yolo-gua tool=Write context resolved
+2026-04-07T21:29:20 handler=pretooluse duration=2.801625ms phase=resolve-context session=ccb33ab9 tool=Bash context resolved
+2026-04-07T21:29:20 handler=runHook duration=19.275583ms hook=posttooluse session=ccb33ab9 completed
+2026-04-07T21:29:22 handler=pretooluse duration=145.791µs phase=resolve-context session=ccb33ab9 tool=Bash context resolved
+2026-04-07T21:29:22 handler=runHook duration=22.423334ms hook=pretooluse session=ccb33ab9 completed
+2026-04-07T21:29:22 handler=pretooluse duration=248.708µs phase=resolve-context session=ccb33ab9 tool=Bash context resolved
+2026-04-07T21:29:22 handler=runHook duration=4.787792ms hook=posttooluse session=ccb33ab9 completed
+2026-04-07T21:29:33 handler=runHook duration=3.423333ms hook=subagent-stop session=ccb33ab9 completed
+2026-04-07T21:29:33 handler=pretooluse duration=281.292µs phase=resolve-context session=ccb33ab9 tool=Agent context resolved
+2026-04-07T21:29:33 handler=runHook duration=5.25325ms hook=posttooluse session=ccb33ab9 completed
+2026-04-07T21:29:42 handler=pretooluse duration=164.583µs phase=resolve-context session=ccb33ab9 tool=Bash context resolved
+2026-04-07T21:29:42 handler=runHook duration=17.822917ms hook=pretooluse session=ccb33ab9 completed
+2026-04-07T21:29:42 handler=pretooluse duration=153.25µs phase=resolve-context session=ccb33ab9 tool=Bash context resolved
+2026-04-07T21:29:42 handler=runHook duration=3.49075ms hook=posttooluse session=ccb33ab9 completed
+2026-04-07T21:29:43 handler=pretooluse duration=140.125µs phase=resolve-context session=ccb33ab9 tool=Bash context resolved
+2026-04-07T21:29:43 handler=runHook duration=19.415791ms hook=pretooluse session=ccb33ab9 completed
+2026-04-07T21:29:43 handler=pretooluse duration=149.084µs phase=resolve-context session=ccb33ab9 tool=Bash context resolved
+2026-04-07T21:29:43 handler=runHook duration=5.226208ms hook=posttooluse session=ccb33ab9 completed
+2026-04-07T21:29:48 handler=pretooluse duration=136.125µs phase=resolve-context session=ccb33ab9 tool=Bash context resolved
+2026-04-07T21:29:48 handler=runHook duration=15.476416ms hook=pretooluse session=ccb33ab9 completed
+2026-04-07T21:29:48 handler=pretooluse duration=182.917µs phase=resolve-context session=ccb33ab9 tool=Bash context resolved
+2026-04-07T21:29:48 handler=runHook duration=3.950041ms hook=posttooluse session=ccb33ab9 completed
+2026-04-07T21:29:49 handler=pretooluse duration=123.083µs phase=resolve-context session=ccb33ab9 tool=Bash context resolved
+2026-04-07T21:29:49 handler=runHook duration=19.499458ms hook=pretooluse session=ccb33ab9 completed
+2026-04-07T21:29:49 handler=pretooluse duration=215.542µs phase=resolve-context session=ccb33ab9 tool=Bash context resolved
+2026-04-07T21:29:49 handler=runHook duration=3.819708ms hook=posttooluse session=ccb33ab9 completed
+2026-04-07T21:30:00 handler=pretooluse duration=186.458µs phase=resolve-context session=ccb33ab9 tool=Bash context resolved
+2026-04-07T21:30:00 handler=runHook duration=15.87725ms hook=pretooluse session=ccb33ab9 completed
+2026-04-07T21:30:00 handler=pretooluse duration=195.167µs phase=resolve-context session=ccb33ab9 tool=Bash context resolved
+2026-04-07T21:30:00 handler=runHook duration=3.799708ms hook=posttooluse session=ccb33ab9 completed
+2026-04-07T21:30:00 handler=pretooluse duration=131.792µs phase=resolve-context session=ccb33ab9 tool=Bash context resolved
+2026-04-07T21:30:00 handler=runHook duration=17.724209ms hook=pretooluse session=ccb33ab9 completed
+2026-04-07T21:30:00 handler=pretooluse duration=144.959µs phase=resolve-context session=ccb33ab9 tool=Bash context resolved
+2026-04-07T21:30:00 handler=runHook duration=3.624791ms hook=posttooluse session=ccb33ab9 completed
+2026-04-07T21:30:06 handler=pretooluse duration=126.875µs phase=resolve-context session=ccb33ab9 tool=Bash context resolved
+2026-04-07T21:30:06 handler=runHook duration=15.613542ms hook=pretooluse session=ccb33ab9 completed
+2026-04-07T21:30:06 handler=pretooluse duration=161.167µs phase=resolve-context session=ccb33ab9 tool=Bash context resolved
+2026-04-07T21:30:06 handler=runHook duration=3.789542ms hook=posttooluse session=ccb33ab9 completed
+2026-04-07T21:30:17 handler=pretooluse duration=239.916µs phase=resolve-context session=ccb33ab9 tool=Bash context resolved
+2026-04-07T21:30:17 handler=runHook duration=24.000625ms hook=pretooluse session=ccb33ab9 completed
+2026-04-07T21:30:18 handler=pretooluse duration=130.708µs phase=resolve-context session=ccb33ab9 tool=Bash context resolved
+2026-04-07T21:30:18 handler=runHook duration=3.697666ms hook=posttooluse session=ccb33ab9 completed
+2026-04-07T21:30:23 handler=pretooluse duration=140.75µs phase=resolve-context session=ccb33ab9 tool=Bash context resolved
+2026-04-07T21:30:23 handler=runHook duration=17.50525ms hook=pretooluse session=ccb33ab9 completed
+2026-04-07T21:30:26 handler=pretooluse duration=151.709µs phase=resolve-context session=ccb33ab9 tool=Bash context resolved
+2026-04-07T21:30:26 handler=runHook duration=3.830875ms hook=posttooluse session=ccb33ab9 completed
+2026-04-07T21:30:31 handler=pretooluse duration=130.125µs phase=resolve-context session=ccb33ab9 tool=Bash context resolved
+2026-04-07T21:30:31 handler=runHook duration=15.776542ms hook=pretooluse session=ccb33ab9 completed
+2026-04-07T21:30:31 handler=pretooluse duration=157.375µs phase=resolve-context session=ccb33ab9 tool=Bash context resolved
+2026-04-07T21:30:31 handler=runHook duration=3.954916ms hook=posttooluse session=ccb33ab9 completed
+2026-04-07T21:30:31 handler=pretooluse duration=144.833µs phase=resolve-context session=ccb33ab9 tool=Bash context resolved
+2026-04-07T21:30:31 handler=runHook duration=15.872334ms hook=pretooluse session=ccb33ab9 completed
+2026-04-07T21:30:34 handler=pretooluse duration=313.875µs phase=resolve-context session=event-fl tool=Read context resolved
+2026-04-07T21:30:34 handler=pretooluse duration=86.75µs phase=resolve-context session=event-fl tool=Read context resolved
+2026-04-07T21:30:35 handler=pretooluse duration=167µs phase=resolve-context session=yolo-gua tool=Write context resolved
+2026-04-07T21:30:35 handler=pretooluse duration=106.042µs phase=resolve-context session=yolo-gua tool=Write context resolved
+2026-04-07T21:31:22 handler=runHook duration=33.404833ms hook=user-prompt session=8498c268 completed
+2026-04-07T21:31:35 handler=pretooluse duration=1.773167ms phase=resolve-context session=8498c268 tool=Bash context resolved
+2026-04-07T21:31:35 handler=runHook duration=13.793334ms hook=pretooluse session=8498c268 completed
+2026-04-07T21:31:35 handler=runHook duration=7.409ms hook=posttooluse-failure session=8498c268 completed
+2026-04-07T21:31:38 handler=pretooluse duration=632.291µs phase=resolve-context session=ccb33ab9 tool=Bash context resolved
+2026-04-07T21:31:38 handler=runHook duration=6.602584ms hook=posttooluse session=ccb33ab9 completed
+2026-04-07T21:31:40 handler=pretooluse duration=152.083µs phase=resolve-context session=8498c268 tool=Bash context resolved
+2026-04-07T21:31:40 handler=runHook duration=6.044917ms hook=pretooluse session=8498c268 completed
+2026-04-07T21:31:40 handler=pretooluse duration=129.25µs phase=resolve-context session=8498c268 tool=Bash context resolved
+2026-04-07T21:31:40 handler=runHook duration=3.543792ms hook=posttooluse session=8498c268 completed
+2026-04-07T21:31:44 handler=pretooluse duration=313.667µs phase=resolve-context session=ccb33ab9 tool=TaskUpdate context resolved
+2026-04-07T21:31:44 handler=runHook duration=23.896792ms hook=pretooluse session=ccb33ab9 completed
+2026-04-07T21:31:44 handler=runHook duration=5.909417ms hook=task-completed session=ccb33ab9 completed
+2026-04-07T21:31:44 handler=pretooluse duration=134.083µs phase=resolve-context session=ccb33ab9 tool=TaskUpdate context resolved
+2026-04-07T21:31:44 handler=runHook duration=4.046792ms hook=posttooluse session=ccb33ab9 completed
+2026-04-07T21:31:45 handler=pretooluse duration=182.875µs phase=resolve-context session=8498c268 tool=Bash context resolved
+2026-04-07T21:31:45 handler=runHook duration=5.304667ms hook=pretooluse session=8498c268 completed
+2026-04-07T21:31:46 handler=pretooluse duration=233.292µs phase=resolve-context session=8498c268 tool=Bash context resolved
+2026-04-07T21:31:46 handler=runHook duration=5.301583ms hook=posttooluse session=8498c268 completed
+2026-04-07T21:31:49 handler=pretooluse duration=129.209µs phase=resolve-context session=8498c268 tool=Bash context resolved
+2026-04-07T21:31:49 handler=runHook duration=4.591334ms hook=pretooluse session=8498c268 completed
+2026-04-07T21:31:49 handler=pretooluse duration=187.958µs phase=resolve-context session=8498c268 tool=Bash context resolved
+2026-04-07T21:31:49 handler=runHook duration=3.751417ms hook=posttooluse session=8498c268 completed
+2026-04-07T21:31:51 handler=pretooluse duration=122.791µs phase=resolve-context session=ccb33ab9 tool=TaskUpdate context resolved
+2026-04-07T21:31:51 handler=runHook duration=14.842667ms hook=pretooluse session=ccb33ab9 completed
+2026-04-07T21:31:51 handler=pretooluse duration=135µs phase=resolve-context session=ccb33ab9 tool=TaskUpdate context resolved
+2026-04-07T21:31:51 handler=runHook duration=3.791208ms hook=posttooluse session=ccb33ab9 completed
+2026-04-07T21:31:51 handler=pretooluse duration=138.833µs phase=resolve-context session=ccb33ab9 tool=TaskUpdate context resolved
+2026-04-07T21:31:51 handler=runHook duration=15.015709ms hook=pretooluse session=ccb33ab9 completed
+2026-04-07T21:31:51 handler=pretooluse duration=163.375µs phase=resolve-context session=ccb33ab9 tool=TaskUpdate context resolved
+2026-04-07T21:31:51 handler=runHook duration=3.921ms hook=posttooluse session=ccb33ab9 completed
+2026-04-07T21:31:53 handler=pretooluse duration=144.708µs phase=resolve-context session=8498c268 tool=Bash context resolved
+2026-04-07T21:31:53 handler=runHook duration=4.912458ms hook=pretooluse session=8498c268 completed
+2026-04-07T21:31:53 handler=pretooluse duration=127.083µs phase=resolve-context session=8498c268 tool=Bash context resolved
+2026-04-07T21:31:53 handler=runHook duration=3.513958ms hook=posttooluse session=8498c268 completed
+2026-04-07T21:32:27 handler=pretooluse duration=3.660584ms phase=resolve-context session=8498c268 tool=Agent context resolved
+2026-04-07T21:32:27 handler=runHook duration=30.133041ms hook=pretooluse session=8498c268 completed
+2026-04-07T21:32:27 [htmlgraph] CLAUDE_ENV_FILE unset — writing session-scoped project dir hint (agent=htmlgraph:opus-coder session=8498c268-b706-4581-9dd9-1d7d415b0c47)
+2026-04-07T21:32:27 handler=runHook duration=8.905792ms hook=subagent-start session=8498c268 completed
+2026-04-07T21:32:31 handler=pretooluse duration=137.917µs phase=resolve-context session=8498c268 tool=Bash context resolved
+2026-04-07T21:32:31 handler=runHook duration=5.432583ms hook=pretooluse session=8498c268 completed
+2026-04-07T21:32:31 handler=runHook duration=5.238083ms hook=posttooluse-failure session=8498c268 completed
+2026-04-07T21:32:32 handler=pretooluse duration=142.25µs phase=resolve-context session=8498c268 tool=Agent context resolved
+2026-04-07T21:32:32 handler=runHook duration=3.793ms hook=posttooluse session=8498c268 completed
+2026-04-07T21:32:33 [htmlgraph] CLAUDE_ENV_FILE unset — writing session-scoped project dir hint (agent=htmlgraph:opus-coder session=8498c268-b706-4581-9dd9-1d7d415b0c47)
+2026-04-07T21:32:33 handler=runHook duration=7.798834ms hook=subagent-start session=8498c268 completed
+2026-04-07T21:32:37 handler=runHook duration=7.066875ms hook=stop session=8498c268 completed
+2026-04-07T21:32:37 handler=pretooluse duration=610.625µs phase=resolve-context session=ccb33ab9 tool=Agent context resolved
+2026-04-07T21:32:37 handler=runHook duration=19.5965ms hook=pretooluse session=ccb33ab9 completed
+2026-04-07T21:32:37 handler=runHook duration=5.717333ms hook=worktree-create session=ccb33ab9 completed
+2026-04-07T21:32:37 [htmlgraph] CLAUDE_ENV_FILE unset — writing session-scoped project dir hint (agent=htmlgraph:sonnet-coder session=ccb33ab9-895b-42f0-83c1-bcd1d53d0463)
+2026-04-07T21:32:37 handler=runHook duration=5.3885ms hook=subagent-start session=ccb33ab9 completed
+2026-04-07T21:32:38 handler=pretooluse duration=139.75µs phase=resolve-context session=8498c268 tool=Bash context resolved
+2026-04-07T21:32:38 handler=runHook duration=6.208166ms hook=pretooluse session=8498c268 completed
+2026-04-07T21:32:38 handler=runHook duration=4.227291ms hook=posttooluse-failure session=8498c268 completed
+2026-04-07T21:32:40 handler=pretooluse duration=121.667µs phase=resolve-context session=ccb33ab9 tool=Bash context resolved
+2026-04-07T21:32:40 handler=runHook duration=2.981375ms hook=pretooluse session=ccb33ab9 completed
+2026-04-07T21:32:42 handler=pretooluse duration=150.917µs phase=resolve-context session=8498c268 tool=Bash context resolved
+2026-04-07T21:32:42 handler=runHook duration=5.610542ms hook=pretooluse session=8498c268 completed

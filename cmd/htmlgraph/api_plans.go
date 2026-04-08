@@ -13,6 +13,7 @@ import (
 
 	"github.com/PuerkitoBio/goquery"
 	dbpkg "github.com/shakestzd/htmlgraph/internal/db"
+	"github.com/shakestzd/htmlgraph/internal/planamend"
 )
 
 // planListItem is a single entry in the GET /api/plans response.
@@ -410,6 +411,7 @@ func planRouter(database *sql.DB, htmlgraphDir string) http.HandlerFunc {
 	feedbackH := planFeedbackHandler(database)
 	finalizeH := planFinalizeHandler(database, htmlgraphDir)
 	deleteH := planDeleteHandler(database, htmlgraphDir)
+	amendmentsH := planAmendmentsHandler(database)
 	return func(w http.ResponseWriter, r *http.Request) {
 		path := r.URL.Path
 		switch {
@@ -421,9 +423,66 @@ func planRouter(database *sql.DB, htmlgraphDir string) http.HandlerFunc {
 			finalizeH(w, r)
 		case strings.HasSuffix(path, "/delete"):
 			deleteH(w, r)
+		case strings.HasSuffix(path, "/amendments"):
+			amendmentsH(w, r)
 		default:
 			http.Error(w, "not found", http.StatusNotFound)
 		}
+	}
+}
+
+// planAmendmentsHandler returns amendments parsed from plan feedback entries.
+// GET /api/plans/{id}/amendments
+func planAmendmentsHandler(database *sql.DB) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+		planID, err := extractPlanID(r.URL.Path, "/amendments")
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		entries, err := dbpkg.GetPlanFeedback(database, planID)
+		if err != nil {
+			http.Error(w, fmt.Sprintf("reading feedback: %v", err), http.StatusInternalServerError)
+			return
+		}
+
+		type amendmentEntry struct {
+			planamend.Amendment
+			Status string `json:"status"` // pending, accepted, rejected
+		}
+
+		// Build a map from question_id -> status for amendment_status entries.
+		statusMap := make(map[string]string)
+		for _, e := range entries {
+			if e.Action == "amendment_status" && e.QuestionID != "" {
+				statusMap[e.QuestionID] = e.Value
+			}
+		}
+
+		var amendments []amendmentEntry
+		for _, e := range entries {
+			if e.Action != "amendment" {
+				continue
+			}
+			var a planamend.Amendment
+			if err := json.Unmarshal([]byte(e.Value), &a); err != nil {
+				continue
+			}
+			status := "pending"
+			if s, ok := statusMap[e.QuestionID]; ok {
+				status = s
+			}
+			amendments = append(amendments, amendmentEntry{Amendment: a, Status: status})
+		}
+
+		if amendments == nil {
+			amendments = []amendmentEntry{}
+		}
+		respondJSON(w, amendments)
 	}
 }
 

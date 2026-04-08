@@ -114,6 +114,15 @@ textarea::placeholder{color:var(--text-muted)}
 .q-table th{text-align:left;padding:6px 8px;border-bottom:1px solid var(--border);color:var(--text-muted);font-size:.7rem;text-transform:uppercase;letter-spacing:.05em}
 .q-table td{padding:6px 8px;border-bottom:1px solid rgba(51,51,56,.5)}
 @media print{body{background:#fff;color:#111;max-width:100%}.section-card,.dep-graph,.progress-zone,.slice-card{border-color:#ccc;background:#fafafa}details[open] summary~*{display:block}.btn-finalize{display:none}}
+.amendments-panel{margin-top:1.5rem;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:1rem}
+.amendments-panel h3{margin:0 0 .75rem;font-size:.95rem;color:var(--text)}
+.amendment-item{display:flex;align-items:center;gap:.75rem;padding:.5rem 0;border-bottom:1px solid var(--border)}
+.amendment-item:last-child{border-bottom:none}
+.amendment-desc{flex:1;font-size:.85rem;color:var(--text)}
+.amendment-desc .op{color:var(--accent);font-weight:600}
+.amendment-desc .field{color:var(--text-dim)}
+.amendment-select{background:var(--bg-input);color:var(--text);border:1px solid var(--border);border-radius:var(--radius);padding:.25rem .5rem;font-size:.8rem}
+.amendments-summary{font-size:.85rem;color:var(--text-dim);margin-top:.75rem}
 {{range .Assets.CSS}}{{.}}
 {{end}}
 </style>
@@ -234,6 +243,13 @@ textarea::placeholder{color:var(--text-muted)}
     <p style="font-size:.75rem;color:var(--text-muted);margin-top:6px">All sections must be approved before finalizing.</p>
   </div>
 </section>
+
+<!-- Amendments Panel -->
+<div id="amendments-panel" class="amendments-panel" style="display:none">
+  <h3>Amendments</h3>
+  <div id="amendments-list"></div>
+  <div id="amendments-summary" class="amendments-summary"></div>
+</div>
 
 </article>
 
@@ -573,6 +589,73 @@ textarea::placeholder{color:var(--text-muted)}
 })();
 {{range .Assets.JS}}{{.}}
 {{end}}
+
+// Amendments panel
+(function(){
+  var panel=document.getElementById('amendments-panel');
+  var list=document.getElementById('amendments-list');
+  var summary=document.getElementById('amendments-summary');
+  if(!panel||!list)return;
+
+  var article=document.querySelector('article[id]');
+  var planId=article?article.id:null;
+  if(!planId)return;
+
+  function escapeHtml(s){var d=document.createElement('div');d.textContent=s;return d.innerHTML;}
+
+  function updateSummary(){
+    var selects=list.querySelectorAll('select');
+    var accepted=0,pending=0;
+    selects.forEach(function(s){
+      if(s.value==='accepted')accepted++;
+      else if(s.value==='pending')pending++;
+    });
+    summary.textContent=selects.length+' amendments — '+accepted+' accepted, '+pending+' pending';
+  }
+
+  fetch('/api/plans/'+planId+'/amendments')
+    .then(function(r){return r.json();})
+    .then(function(amendments){
+      if(!amendments||!amendments.length)return;
+      panel.style.display='';
+      amendments.forEach(function(a,i){
+        var item=document.createElement('div');
+        item.className='amendment-item';
+        var desc=document.createElement('div');
+        desc.className='amendment-desc';
+        desc.innerHTML='<span class="op">'+escapeHtml(a.operation)+'</span> '+
+          '<span class="field">'+escapeHtml(a.field)+'</span> on slice-'+a.slice_num+': '+
+          escapeHtml(a.content);
+        var sel=document.createElement('select');
+        sel.className='amendment-select';
+        ['pending','accepted','rejected'].forEach(function(s){
+          var opt=document.createElement('option');
+          opt.value=s;
+          opt.textContent=s.charAt(0).toUpperCase()+s.slice(1);
+          if(s===a.status)opt.selected=true;
+          sel.appendChild(opt);
+        });
+        sel.addEventListener('change',function(){
+          fetch('/api/plans/'+planId+'/feedback',{
+            method:'POST',
+            headers:{'Content-Type':'application/json'},
+            body:JSON.stringify({
+              section:'amendment',
+              action:'amendment_status',
+              value:sel.value,
+              question_id:'amend-'+i
+            })
+          });
+          updateSummary();
+        });
+        item.appendChild(desc);
+        item.appendChild(sel);
+        list.appendChild(item);
+      });
+      updateSummary();
+    })
+    .catch(function(){});
+})();
 </script>
 </div><!-- .plan-content -->
 </body>

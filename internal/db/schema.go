@@ -71,11 +71,8 @@ func Open(dbPath string) (*sql.DB, error) {
 		SELECT 1 FROM agent_events WHERE agent_events.session_id = sessions.session_id
 	)`)
 
-	// FTS5 semantic index for full-text search across features.
-	if err := CreateSemanticIndex(db); err != nil {
-		// Non-fatal: FTS5 may not be available in all SQLite builds.
-		_ = err
-	}
+	// FTS5 semantic index — non-fatal if FTS5 unavailable.
+	_ = CreateSemanticIndex(db)
 
 	return db, nil
 }

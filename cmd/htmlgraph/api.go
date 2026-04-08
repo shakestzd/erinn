@@ -72,7 +72,7 @@ func recentEventsHandler(database *sql.DB) http.HandlerFunc {
 			ORDER BY timestamp DESC
 			LIMIT ?`, limit)
 		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
+			http.Error(w, "internal server error", http.StatusInternalServerError)
 			return
 		}
 		defer rows.Close()
@@ -134,7 +134,7 @@ func sessionsHandler(database *sql.DB) http.HandlerFunc {
 			ORDER BY s.created_at DESC
 			LIMIT 20`)
 		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
+			http.Error(w, "internal server error", http.StatusInternalServerError)
 			return
 		}
 		defer rows.Close()
@@ -412,7 +412,7 @@ func relatedFeaturesHandler(database *sql.DB) http.HandlerFunc {
 		}
 		related, err := dbpkg.FindRelatedFeatures(database, featureID)
 		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
+			http.Error(w, "internal server error", http.StatusInternalServerError)
 			return
 		}
 		if related == nil {
@@ -431,6 +431,9 @@ func semanticSearchHandler(database *sql.DB) http.HandlerFunc {
 			http.Error(w, "q query parameter required", http.StatusBadRequest)
 			return
 		}
+		if len(query) > 500 {
+			query = query[:500]
+		}
 		limit := 20
 		if l := r.URL.Query().Get("limit"); l != "" {
 			if n, err := strconv.Atoi(l); err == nil && n > 0 && n <= 100 {
@@ -439,7 +442,7 @@ func semanticSearchHandler(database *sql.DB) http.HandlerFunc {
 		}
 		results, err := dbpkg.SemanticSearch(database, query, limit)
 		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
+			http.Error(w, "internal server error", http.StatusInternalServerError)
 			return
 		}
 		if results == nil {
@@ -466,7 +469,7 @@ func semanticRelatedHandler(database *sql.DB) http.HandlerFunc {
 		}
 		results, err := dbpkg.SemanticRelated(database, featureID, limit)
 		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
+			http.Error(w, "internal server error", http.StatusInternalServerError)
 			return
 		}
 		if results == nil {

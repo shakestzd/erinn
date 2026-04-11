@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="htmlgraph-version" content="1.0">
+    <title>Prefer CLAUDE_PROJECT_DIR env var over CWD in SessionStart</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="feat-dcf6827f"
+             data-type="feature"
+             data-status="done"
+             data-priority="high"
+             data-created="2026-04-11T01:08:35.922387"
+             data-updated="2026-04-11T01:13:53.153559" data-agent-assigned="claude-code" data-track-id="trk-97f85b3b">
+
+        <header>
+            <h1>Prefer CLAUDE_PROJECT_DIR env var over CWD in SessionStart</h1>
+            <div class="metadata">
+                <span class="badge status-done">Done</span>
+                <span class="badge priority-high">High Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="trk-97f85b3b.html" data-relationship="part_of" data-since="2026-04-11T01:08:35.923722">trk-97f85b3b</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="implemented_in">
+                <h3>Implemented In:</h3>
+                <ul>
+                    <li><a href="8d53982f-66f2-415b-a645-1886eb8ae438.html" data-relationship="implemented_in" data-since="2026-04-11T01:09:37.174379">session 8d53982f-66f2-415b-a645-1886eb8ae438</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>Fixes bug-71fc095f. In internal/hooks/session_start.go SessionStart path, the current resolution prefers ResolveProjectDir's CWD walk-up. This causes a split-brain when the user cd's between projects during a single Claude Code session: each cd writes the session HTML to a different project's .htmlgraph/sessions/, and each project's reindex then pulls those events into its own SQLite, creating phantom session rows in the wrong project's DB.
+
+Fix: after computing projectDir via paths.ResolveProjectDir, check if CLAUDE_PROJECT_DIR env var is set AND points at a directory containing .htmlgraph/. If yes, use CLAUDE_PROJECT_DIR instead — it's set by Claude Code at session launch and stays stable across cd inside the session. CWD-based walk-up becomes the fallback only when CLAUDE_PROJECT_DIR is unset (e.g., direct htmlgraph CLI invocation outside a Claude Code session).
+
+Guardrail: only prefer CLAUDE_PROJECT_DIR when HTMLGRAPH_SESSION_ID is also set in the same env, which indicates the env was populated by a current Claude Code process rather than inherited from a parent shell (could be stale across sessions).
+
+Investigation evidence (2026-04-11):
+- session 8d53982f exists as a 104 KB HTML in shakestzd/.htmlgraph/sessions/ AND a 167 KB HTML in htmlgraph/.htmlgraph/sessions/
+- same session_id, both files physically on disk, both reindex targets
+- shakestzd DB has 451 tool_call events all with source=reindex (parsed from the stray HTML)
+- htmlgraph DB has 428 reindex + 1319 hook + 71 ingest events for the same session_id
+- root cause: CWD at hook-fire time was shakestzd during doorway testing
+- existing data is historical and accurate at moment of write — the fix is forward-looking only, do not revise history
+
+Do NOT delete or move the existing stray HTML file. Leave historical data as-is. The fix prevents future occurrences only.</p>
+        </section>
+    </article>
+</body>
+</html>

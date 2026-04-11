@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="htmlgraph-version" content="1.0">
+    <title>Graph view: better session node labels</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="feat-e0553d90"
+             data-type="feature"
+             data-status="done"
+             data-priority="medium"
+             data-created="2026-04-11T11:07:49.873634"
+             data-updated="2026-04-11T11:20:52.852518" data-agent-assigned="claude-code" data-track-id="trk-d8aef97a">
+
+        <header>
+            <h1>Graph view: better session node labels</h1>
+            <div class="metadata">
+                <span class="badge status-done">Done</span>
+                <span class="badge priority-medium">Medium Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="trk-d8aef97a.html" data-relationship="part_of" data-since="2026-04-11T11:07:49.875126">trk-d8aef97a</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="implemented_in">
+                <h3>Implemented In:</h3>
+                <ul>
+                    <li><a href="807386a4-d227-448c-91a8-fac7688e09af.html" data-relationship="implemented_in" data-since="2026-04-11T11:08:04.824826">session 807386a4-d227-448c-91a8-fac7688e09af</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>Session nodes currently display 'human · 8d53982f' — agent type + short id, unreadable at a glance. Replace with: sessions.title → first user message (truncated) → time fallback. Reuses existing sessions.title column. Changes to the graph API (Go) that builds node.title for sessions.</p>
+        </section>
+    </article>
+</body>
+</html>

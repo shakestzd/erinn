@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="htmlgraph-version" content="1.0">
+    <title>Reindex round-trip acceptance test</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="feat-81e6f866"
+             data-type="feature"
+             data-status="done"
+             data-priority="medium"
+             data-created="2026-04-10T10:01:26.018379"
+             data-updated="2026-04-10T14:35:18.48503" data-agent-assigned="claude-code" data-track-id="trk-97f85b3b">
+
+        <header>
+            <h1>Reindex round-trip acceptance test</h1>
+            <div class="metadata">
+                <span class="badge status-done">Done</span>
+                <span class="badge priority-medium">Medium Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="implemented_in">
+                <h3>Implemented In:</h3>
+                <ul>
+                    <li><a href="6206b18b-775e-4c99-8f0c-c6c61c8c954d.html" data-relationship="implemented_in" data-since="2026-04-10T14:29:11.307875">session 6206b18b-775e-4c99-8f0c-c6c61c8c954d</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="planned_in">
+                <h3>Planned In:</h3>
+                <ul>
+                    <li><a href="plan-43659c92.html" data-relationship="planned_in" data-since="2026-04-10T10:01:26.018668">plan-43659c92</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="blocked_by">
+                <h3>Blocked By:</h3>
+                <ul>
+                    <li><a href="feat-e6b599dd.html" data-relationship="blocked_by">feat-e6b599dd</a></li>
+                    <li><a href="feat-03d28fc3.html" data-relationship="blocked_by">feat-03d28fc3</a></li>
+                    <li><a href="feat-b637726b.html" data-relationship="blocked_by">feat-b637726b</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>End-to-end integration test that proves HTML is truly canonical for all session types after slices 1-3 land. The test verifies:
+
+**(a) Ingest produces reindex-compatible HTML.** Ingest a fixture JSONL transcript via `htmlgraph ingest`, verify SQLite row exists, verify HTML file exists, nuke the SQLite DB, run `htmlgraph reindex`, verify the session row is rebuilt with identical agent_events count and metadata.
+
+**(b) Live hook HTML round-trips.** Simulate a SessionStart → PreToolUse → PostToolUse → SessionEnd sequence via the hook CLI commands, verify the resulting HTML file, nuke SQLite, reindex, verify the rebuilt row matches.
+
+**(c) Orphaned events are recovered.** Simulate a PreToolUse without a matching PostToolUse (direct insert into agent_events with `status='started'`), advance time past the threshold, run `htmlgraph sweep orphaned-events`, verify the HTML file has a new synthetic `
+` entry, nuke SQLite, reindex, verify the rebuilt row shows `status='aborted'`.
+
+**(d) Migration handles orphans.** Create a tmpdir project with SQLite rows and NO HTML files (simulating legacy state), run `htmlgraph migrate sessions`, verify HTML files are created, nuke SQLite, reindex, verify all sessions rebuild.
+
+**(e) Concurrent writers.** Spawn N goroutines simulating concurrent hook subprocesses calling `appendEventToSessionHTML` on the same session file. Assert the resulting file is (1) well-formed and parseable by goquery AND (2) contains ALL N events — not just 'no crash' or a subset. This is the load-bearing acceptance criterion for R1 (concurrent flock writers landing all events). Spawn 20+ goroutines across three writer types — ingest render, live PostToolUse append, and sweep append — all targeting the same session HTML file. Verify every single event's `data-event-id` is present in the final file. This verifies the existing flock path still works after any refactoring in slices 1-3.
+
+All tests under `//go:build integration` build tag so they don't slow the default `go test ./...` run. CI runs them in a separate job.</p>
+        </section>
+    </article>
+</body>
+</html>

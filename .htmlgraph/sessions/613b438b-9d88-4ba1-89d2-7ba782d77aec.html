@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="htmlgraph-version" content="1.0">
+    <title>Session 2026-04-07T04:01:03Z</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="613b438b-9d88-4ba1-89d2-7ba782d77aec"
+             data-type="session"
+             data-status="completed"
+             data-ended-at="2026-04-07T04:37:47Z"
+             data-agent="claude-code"
+             data-started-at="2026-04-07T04:01:03Z"
+             data-event-count="226"
+             data-is-subagent="false"
+             data-start-commit="">
+
+        <header>
+            <h1>Session 2026-04-07T04:01:03Z</h1>
+            <div class="metadata">
+                <span class="badge status-completed">Completed</span>
+                <span class="badge">claude-code</span>
+                <span class="badge">226 events</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+        </nav>
+
+        <section data-activity-log>
+            <ol reversed>
+                            <li data-ts="2026-04-07T04:01:09Z" data-tool="ToolSearch" data-success="true" data-event-id="evt-9bc6cb2e">select:TaskList,TaskCreate,TaskUpdate,TaskGet</li>
+                            <li data-ts="2026-04-07T04:01:12Z" data-tool="TaskList" data-success="true" data-event-id="evt-4c667da3">{}</li>
+                            <li data-ts="2026-04-07T04:01:12Z" data-tool="Bash" data-success="true" data-event-id="evt-267582b8">cd /Users/shakes/DevProjects/htmlgraph &amp;&amp; htmlgraph track show trk-c26a29ab 2&gt;/dev/null</li>
+                            <li data-ts="2026-04-07T04:01:13Z" data-tool="Bash" data-success="true" data-event-id="evt-fce9c610">cd /Users/shakes/DevProjects/htmlgraph &amp;&amp; htmlgraph find --status in-progress 2&gt;/dev/null</li>
+                            <li data-ts="2026-04-07T04:01:14Z" data-tool="Bash" data-success="true" data-event-id="evt-094704c1">cd /Users/shakes/DevProjects/htmlgraph &amp;&amp; htmlgraph status 2&gt;/dev/null</li>
+                            <li data-ts="2026-04-07T04:01:17Z" data-tool="Bash" data-success="true" data-event-id="evt-efd1d1f4">(cd /Users/shakes/DevProjects/htmlgraph &amp;&amp; htmlgraph track show trk-c26a29ab 2&gt;/dev/null)</li>
+                            <li data-ts="2026-04-07T04:01:17Z" data-tool="Bash" data-success="true" data-event-id="evt-684148dd">(cd /Users/shakes/DevProjects/htmlgraph &amp;&amp; htmlgraph find --status in-progress 2&gt;/dev/null)</li>
+                            <li data-ts="2026-04-07T04:01:18Z" data-tool="Bash" data-success="true" data-event-id="evt-8467c0b1">(cd /Users/shakes/DevProjects/htmlgraph &amp;&amp; htmlgraph status 2&gt;/dev/null)</li>
+                            <li data-ts="2026-04-07T04:01:22Z" data-tool="Bash" data-success="true" data-event-id="evt-fd98af62">(cd /Users/shakes/DevProjects/htmlgraph &amp;&amp; htmlgraph status 2&gt;/dev/null)</li>
+                            <li data-ts="2026-04-07T04:01:33Z" data-tool="Bash" data-success="true" data-event-id="evt-fcb29659">(cd /Users/shakes/DevProjects/htmlgraph &amp;&amp; htmlgraph track start trk-c26a29ab 2&gt;/dev/null)</li>
+                            <li data-ts="2026-04-07T04:01:43Z" data-tool="Agent" data-success="true" data-event-id="evt-fb4a9321">I need to understand the HtmlGraph codebase structure to prepare agent prompts for 4 features. The project root is /User…</li>
+                            <li data-ts="2026-04-07T04:03:41Z" data-tool="Read" data-success="true" data-event-id="evt-f3f866bf">/Users/shakes/DevProjects/htmlgraph/cmd/htmlgraph/main.go</li>
+                            <li data-ts="2026-04-07T04:03:41Z" data-tool="Read" data-success="true" data-event-id="evt-fa3be1b9">/Users/shakes/DevProjects/htmlgraph/cmd/htmlgraph/session.go</li>
+                            <li data-ts="2026-04-07T04:03:42Z" data-tool="Read" data-success="true" data-event-id="evt-21301a2c">/Users/shakes/DevProjects/htmlgraph/internal/hooks/session_end.go</li>
+                            <li data-ts="2026-04-07T04:03:42Z" data-tool="Read" data-success="true" data-event-id="evt-983db40f">/Users/shakes/DevProjects/htmlgraph/internal/hooks/posttooluse.go</li>
+                            <li data-ts="2026-04-07T04:03:46Z" data-tool="Read" data-success="true" data-event-id="evt-14dd4a5e">/Users/shakes/DevProjects/htmlgraph/internal/db/edge_repo.go</li>
+                            <li data-ts="2026-04-07T04:03:47Z" data-tool="Read" data-success="true" data-event-id="evt-544f75a6">/Users/shakes/DevProjects/htmlgraph/internal/db/session_repo.go</li>
+                            <li data-ts="2026-04-07T04:03:47Z" data-tool="Read" data-success="true" data-event-id="evt-9d5717ec">/Users/shakes/DevProjects/htmlgraph/internal/db/lineage_repo.go</li>
+                            <li data-ts="2026-04-07T04:03:48Z" data-tool="Read" data-success="true" data-event-id="evt-a4a95bd4">/Users/shakes/DevProjects/htmlgraph/internal/db/event_repo.go</li>
+                            <li data-ts="2026-04-07T04:03:52Z" data-tool="Read" data-success="true" data-event-id="evt-45a209b2">/Users/shakes/DevProjects/htmlgraph/cmd/htmlgraph/workitem.go</li>
+                            <li data-ts="2026-04-07T04:03:53Z" data-tool="Read" data-success="true" data-event-id="evt-3dd66622">/Users/shakes/DevProjects/htmlgraph/internal/hooks/runner.go</li>
+                            <li data-ts="2026-04-07T04:03:53Z" data-tool="Read" data-success="true" data-event-id="evt-f34d51ca">/Users/shakes/DevProjects/htmlgraph/internal/models/session.go</li>
+                            <li data-ts="2026-04-07T04:03:59Z" data-tool="Grep" data-success="true" data-event-id="evt-da47e773">{&#34;-n&#34;:true,&#34;output_mode&#34;:&#34;content&#34;,&#34;pattern&#34;:&#34;autoImplementedInEdge&#34;}</li>
+                            <li data-ts="2026-04-07T04:04:00Z" data-tool="Grep" data-success="true" data-event-id="evt-91006141">{&#34;-n&#34;:true,&#34;output_mode&#34;:&#34;content&#34;,&#34;pattern&#34;:&#34;UpdateActiveFeature&#34;}</li>
+                            <li data-ts="2026-04-07T04:04:01Z" data-tool="Read" data-success="true" data-event-id="evt-1b93f26b">/Users/shakes/DevProjects/htmlgraph/internal/db/schema.go [:80]</li>
+                            <li data-ts="2026-04-07T04:04:04Z" data-tool="Grep" data-success="true" data-event-id="evt-5cf192d4">{&#34;-n&#34;:true,&#34;output_mode&#34;:&#34;content&#34;,&#34;pattern&#34;:&#34;autoImplementedIn&#34;}</li>
+                            <li data-ts="2026-04-07T04:04:04Z" data-tool="Read" data-success="true" data-event-id="evt-d4801161">/Users/shakes/DevProjects/htmlgraph/cmd/htmlgraph/related.go</li>
+                            <li data-ts="2026-04-07T04:04:08Z" data-tool="Grep" data-success="true" data-event-id="evt-adf3bf6e">{&#34;-n&#34;:true,&#34;output_mode&#34;:&#34;content&#34;,&#34;pattern&#34;:&#34;func autoImplemented&#34;}</li>
+                            <li data-ts="2026-04-07T04:04:09Z" data-tool="Bash" data-success="true" data-event-id="evt-3763e76a">(cd /Users/shakes/DevProjects/htmlgraph &amp;&amp; go build ./... 2&gt;&amp;1 | head -30)</li>
+                            <li data-ts="2026-04-07T04:04:14Z" data-tool="Grep" data-success="true" data-event-id="evt-426c11f3">/Users/shakes/DevProjects/htmlgraph/cmd</li>
+                            <li data-ts="2026-04-07T04:04:20Z" data-tool="Grep" data-success="true" data-event-id="evt-7979ead9">/Users/shakes/DevProjects/htmlgraph/.claude/worktrees/trk-c26a29ab</li>
+                            <li data-ts="2026-04-07T04:04:23Z" data-tool="Read" data-success="true" data-event-id="evt-c47670aa">/Users/shakes/DevProjects/htmlgraph/.claude/worktrees/trk-c26a29ab/cmd/htmlgraph/workitem.go [150:210]</li>
+                            <li data-ts="2026-04-07T04:04:27Z" data-tool="Grep" data-success="true" data-event-id="evt-00ef5495">/Users/shakes/DevProjects/htmlgraph/.claude/worktrees/trk-c26a29ab/cmd/htmlgraph</li>
+                            <li data-ts="2026-04-07T04:04:27Z" data-tool="Grep" data-success="true" data-event-id="evt-519c895c">/Users/shakes/DevProjects/htmlgraph/.claude/worktrees/trk-c26a29ab/cmd/htmlgraph</li>
+                            <li data-ts="2026-04-07T04:04:30Z" data-tool="Read" data-success="true" data-event-id="evt-74201ca9">/Users/shakes/DevProjects/htmlgraph/.claude/worktrees/trk-c26a29ab/cmd/htmlgraph/workitem_edges.go</li>
+                            <li data-ts="2026-04-07T04:04:54Z" data-tool="Bash" data-success="true" data-event-id="evt-c9f1d75b">(go build ./... 2&gt;&amp;1 | head -20)</li>
+                            <li data-ts="2026-04-07T04:04:55Z" data-tool="Bash" data-success="true" data-event-id="evt-dd99972a">(go test ./... 2&gt;&amp;1 | tail -30)</li>
+                            <li data-ts="2026-04-07T04:06:08Z" data-tool="TaskCreate" data-success="true" data-event-id="evt-b8e77c36">{&#34;activeForm&#34;:&#34;Wiring session-to-work-item graph edges&#34;,&#34;description&#34;:&#34;When `feature start` runs during a session, create a graph_edges row linking session → work item. The HTML edge (implemented_in…</li>
+                            <li data-ts="2026-04-07T04:06:10Z" data-tool="TaskCreate" data-success="true" data-event-id="evt-26466db4">{&#34;activeForm&#34;:&#34;Building git commit ingestion pipeline&#34;,&#34;description&#34;:&#34;Add a git post-commit hook that calls htmlgraph to ingest every commit. Currently only 11/1819 commits captured. Also add a backfi…</li>
+                            <li data-ts="2026-04-07T04:06:11Z" data-tool="TaskCreate" data-success="true" data-event-id="evt-62ec5942">{&#34;activeForm&#34;:&#34;Implementing session show command&#34;,&#34;description&#34;:&#34;Add `htmlgraph session show \u003cid\u003e` displaying: active feature, features worked on, event summary by tool, start/end commits, d…</li>
+                            <li data-ts="2026-04-07T04:06:12Z" data-tool="TaskCreate" data-success="true" data-event-id="evt-216941ea">{&#34;activeForm&#34;:&#34;Fixing total_events counter&#34;,&#34;description&#34;:&#34;60/67 sessions show total_events=0 despite hundreds of events. Add SQLite trigger or inline counter increment in InsertEvent to keep sessions…</li>
+                            <li data-ts="2026-04-07T04:06:16Z" data-tool="TaskUpdate" data-success="true" data-event-id="evt-35b32c17">{&#34;status&#34;:&#34;in_progress&#34;,&#34;taskId&#34;:&#34;1&#34;}</li>
+                            <li data-ts="2026-04-07T04:06:16Z" data-tool="TaskUpdate" data-success="true" data-event-id="evt-33159c8f">{&#34;status&#34;:&#34;in_progress&#34;,&#34;taskId&#34;:&#34;2&#34;}</li>
+                            <li data-ts="2026-04-07T04:06:16Z" data-tool="TaskUpdate" data-success="true" data-event-id="evt-6fbb5f03">{&#34;status&#34;:&#34;in_progress&#34;,&#34;taskId&#34;:&#34;3&#34;}</li>
+                            <li data-ts="2026-04-07T04:06:17Z" data-tool="TaskUpdate" data-success="true" data-event-id="evt-4e3f8c96">{&#34;status&#34;:&#34;in_progress&#34;,&#34;taskId&#34;:&#34;4&#34;}</li>
+                            <li data-ts="2026-04-07T04:06:45Z" data-tool="Agent" data-success="true" data-event-id="evt-61858f0c">## Task: Wire session-to-work-item graph edges in SQLite
+**Feature:** feat-32b4d4fc
+**Track:** trk-c26a29ab (Attribution…</li>
+                            <li data-ts="2026-04-07T04:07:12Z" data-tool="Agent" data-success="true" data-event-id="evt-fe726030">## Task: Live git commit ingestion via improved PostToolUse capture + backfill
+**Feature:** feat-4939067a
+**Track:** trk…</li>
+                            <li data-ts="2026-04-07T04:07:41Z" data-tool="Agent" data-success="true" data-event-id="evt-b82c6d55">## Task: Implement `htmlgraph session show &lt;id&gt;` CLI command
+**Feature:** feat-7d67a682
+**Track:** trk-c26a29ab (Attribu…</li>
+                            <li data-ts="2026-04-07T04:08:04Z" data-tool="Agent" data-success="true" data-event-id="evt-1a48c373">## Task: Fix total_events counter — increment on each agent_event insert
+**Feature:** feat-b1fd2979
+**Track:** trk-c26…</li>
+                            <li data-ts="2026-04-07T04:13:04Z" data-tool="Bash" data-success="true" data-event-id="evt-49f652f0">git worktree list 2&gt;/dev/null</li>
+                            <li data-ts="2026-04-07T04:13:05Z" data-tool="Bash" data-success="true" data-event-id="evt-6cd51afe">git for-each-ref --sort=-committerdate refs/heads/ --format=&#39;%(refname:short) %(committerdate:relative) %(subject)&#39; 2&gt;/d…</li>
+                            <li data-ts="2026-04-07T04:13:14Z" data-tool="Bash" data-success="true" data-event-id="evt-d3946305">(cd /Users/shakes/DevProjects/htmlgraph &amp;&amp; htmlgraph feature start feat-b1fd2979)</li>
+                            <li data-ts="2026-04-07T04:13:15Z" data-tool="Read" data-success="true" data-event-id="evt-5105707f">/Users/shakes/DevProjects/htmlgraph/.claude/worktrees/trk-c26a29ab/internal/db/schema.go</li>
+                            <li data-ts="2026-04-07T04:13:20Z" data-tool="Grep" data-success="true" data-event-id="evt-461cb43b">/Users/shakes/DevProjects/htmlgraph/.claude/worktrees/trk-c26a29ab/internal/db</li>
+                            <li data-ts="2026-04-07T04:13:24Z" data-tool="Bash" data-success="true" data-event-id="evt-b6e42ad7">git -C /Users/shakes/DevProjects/htmlgraph/.claude/worktrees/trk-c26a29ab status --short 2&gt;/dev/null</li>
+                            <li data-ts="2026-04-07T04:13:35Z" data-tool="Bash" data-success="true" data-event-id="evt-0b4e6449">git -C /Users/shakes/DevProjects/htmlgraph/.claude/worktrees/trk-c26a29ab diff cmd/htmlgraph/ingest.go 2&gt;/dev/null</li>
+                            <li data-ts="2026-04-07T04:13:36Z" data-tool="Bash" data-success="true" data-event-id="evt-6ff41ccb">git -C /Users/shakes/DevProjects/htmlgraph/.claude/worktrees/trk-c26a29ab diff internal/db/event_repo.go 2&gt;/dev/null</li>
+                            <li data-ts="2026-04-07T04:13:37Z" data-tool="Bash" data-success="true" data-event-id="evt-22b92c0f">git -C /Users/shakes/DevProjects/htmlgraph/.claude/worktrees/trk-c26a29ab diff internal/db/lineage_repo.go 2&gt;/dev/null</li>
+                            <li data-ts="2026-04-07T04:13:40Z" data-tool="Read" data-success="true" data-event-id="evt-fd163e72">/Users/shakes/DevProjects/htmlgraph/.claude/worktrees/trk-c26a29ab/internal/db/session_show_test.go</li>
+                            <li data-ts="2026-04-07T04:13:45Z" data-tool="Bash" data-success="true" data-event-id="evt-a0330186">(go build ./... 2&gt;&amp;1 | head -20)</li>
+                            <li data-ts="2026-04-07T04:13:49Z" data-tool="Bash" data-success="true" data-event-id="evt-102e8f5e">(go test ./internal/db/... 2&gt;&amp;1 | tail -20)</li>
+                            <li data-ts="2026-04-07T04:13:56Z" data-tool="Grep" data-success="true" data-event-id="evt-40514b10">/Users/shakes/DevProjects/htmlgraph/.claude/worktrees/trk-c26a29ab/internal/db</li>
+                            <li data-ts="2026-04-07T04:14:04Z" data-tool="Grep" data-success="true" data-event-id="evt-c0f6325c">/Users/shakes/DevProjects/htmlgraph/.claude/worktrees/trk-c26a29ab/internal/db</li>
+                            <li data-ts="2026-04-07T04:14:13Z" data-tool="Edit" data-success="true" data-event-id="evt-bf935752">/Users/shakes/DevProjects/htmlgraph/.claude/worktrees/trk-c26a29ab/internal/db/session_show_test.go</li>
+                            <li data-ts="2026-04-07T04:14:19Z" data-tool="Edit" data-success="true" data-event-id="evt-ec36b710">/Users/shakes/DevProjects/htmlgraph/.claude/worktrees/trk-c26a29ab/internal/db/session_show_test.go</li>
+                            <li data-ts="2026-04-07T04:14:23Z" data-tool="Edit" data-success="true" data-event-id="evt-220550f5">/Users/shakes/DevProjects/htmlgraph/.claude/worktrees/trk-c26a29ab/internal/db/session_show_test.go</li>
+                            <li data-ts="2026-04-07T04:14:26Z" data-tool="Bash" data-success="true" data-event-id="evt-93d99662">(go test ./internal/db/... 2&gt;&amp;1 | tail -15)</li>
+                            <li data-ts="2026-04-07T04:14:37Z" data-tool="Edit" data-success="true" data-event-id="evt-ae3617d2">/Users/shakes/DevProjects/htmlgraph/.claude/worktrees/trk-c26a29ab/internal/db/schema.go</li>
+                            <li data-ts="2026-04-07T04:14:40Z" data-tool="Read" data-success="true" data-event-id="evt-605d6ab6">/Users/shakes/DevProjects/htmlgraph/.claude/worktrees/trk-c26a29ab/internal/db/schema_test.go</li>
+                            <li data-ts="2026-04-07T04:14:55Z" data-tool="Edit" data-success="true" data-event-id="evt-48daaad6">/Users/shakes/DevProjects/htmlgraph/.claude/worktrees/trk-c26a29ab/internal/db/schema_test.go</li>
+                            <li data-ts="2026-04-07T04:14:59Z" data-tool="Edit" data-success="true" data-event-id="evt-fee60541">/Users/shakes/DevProjects/htmlgraph/.claude/worktrees/trk-c26a29ab/internal/db/schema_test.go</li>
+                            <li data-ts="2026-04-07T04:15:02Z" data-tool="Bash" data-success="true" data-event-id="evt-a7d1ee3e">(go test ./internal/db/... -run TestTotalEvents -v 2&gt;&amp;1)</li>
+                            <li data-ts="2026-04-07T04:15:07Z" data-tool="TaskUpdate" data-success="true" data-event-id="evt-13609e1c">{&#34;status&#34;:&#34;completed&#34;,&#34;taskId&#34;:&#34;4&#34;}</li>
+                            <li data-ts="2026-04-07T04:15:10Z" data-tool="Bash" data-success="true" data-event-id="evt-b05e9b46">(cd /Users/shakes/DevProjects/htmlgraph &amp;&amp; htmlgraph feature complete feat-b1fd2979)</li>
+                            <li data-ts="2026-04-07T04:15:10Z" data-tool="Bash" data-success="true" data-event-id="evt-f22ad070">(cd /Users/shakes/DevProjects/htmlgraph &amp;&amp; htmlgraph feature start feat-32b4d4fc)</li>
+                            <li data-ts="2026-04-07T04:15:14Z" data-tool="Read" data-success="true" data-event-id="evt-e4d3106e">/Users/shakes/DevProjects/htmlgraph/.claude/worktrees/trk-c26a29ab/cmd/htmlgraph/workitem.go [183:208]</li>
+                            <li data-ts="2026-04-07T04:15:20Z" data-tool="Edit" data-success="true" data-event-id="evt-8a7f526b">/Users/shakes/DevProjects/htmlgraph/.claude/worktrees/trk-c26a29ab/cmd/htmlgraph/workitem.go</li>
+                            <li data-ts="2026-04-07T04:15:23Z" data-tool="Read" data-success="true" data-event-id="evt-5c82b5b5">/Users/shakes/DevProjects/htmlgraph/.claude/worktrees/trk-c26a29ab/internal/db/edge_repo_test.go</li>
+                            <li data-ts="2026-04-07T04:15:32Z" data-tool="Edit" data-success="true" data-event-id="evt-f8c541f8">/Users/shakes/DevProjects/htmlgraph/.claude/worktrees/trk-c26a29ab/internal/db/edge_repo_test.go</li>
+                            <li data-ts="2026-04-07T04:15:35Z" data-tool="Bash" data-success="true" data-event-id="evt-e1251d76">(go test ./internal/db/... -run TestInsertEdge_SessionToWorkItem -v 2&gt;&amp;1)</li>
+                            <li data-ts="2026-04-07T04:15:39Z" data-tool="TaskUpdate" data-success="true" data-event-id="evt-583e12d9">{&#34;status&#34;:&#34;completed&#34;,&#34;taskId&#34;:&#34;1&#34;}</li>
+                            <li data-ts="2026-04-07T04:15:40Z" data-tool="Bash" data-success="true" data-event-id="evt-582f5c61">(cd /Users/shakes/DevProjects/htmlgraph &amp;&amp; htmlgraph feature complete feat-32b4d4fc)</li>
+                            <li data-ts="2026-04-07T04:15:43Z" data-tool="Bash" data-success="true" data-event-id="evt-4f4389fd">(cd /Users/shakes/DevProjects/htmlgraph &amp;&amp; htmlgraph feature start feat-7d67a682)</li>
+                            <li data-ts="2026-04-07T04:15:47Z" data-tool="Read" data-success="true" data-event-id="evt-93b1e5bd">/Users/shakes/DevProjects/htmlgraph/.claude/worktrees/trk-c26a29ab/cmd/htmlgraph/session.go</li>
+                            <li data-ts="2026-04-07T04:15:52Z" data-tool="Edit" data-success="true" data-event-id="evt-b96ed06b">/Users/shakes/DevProjects/htmlgraph/.claude/worktrees/trk-c26a29ab/cmd/htmlgraph/session.go</li>
+                            <li data-ts="2026-04-07T04:16:10Z" data-tool="Edit" data-success="true" data-event-id="evt-f58728d7">/Users/shakes/DevProjects/htmlgraph/.claude/worktrees/trk-c26a29ab/cmd/htmlgraph/session.go</li>
+                            <li data-ts="2026-04-07T04:16:13Z" data-tool="Bash" data-success="true" data-event-id="evt-6305b78b">(go build ./... 2&gt;&amp;1 | head -20)</li>
+                            <li data-ts="2026-04-07T04:16:20Z" data-tool="Bash" data-success="true" data-event-id="evt-4de972de">(go test ./internal/db/... -run &#34;TestCountEventsByTool|TestDistinctFeatureIDs|TestGetCommitsBySession&#34; -v 2&gt;&amp;1)</li>
+                            <li data-ts="2026-04-07T04:16:23Z" data-tool="TaskUpdate" data-success="true" data-event-id="evt-2ab2b6b1">{&#34;status&#34;:&#34;completed&#34;,&#34;taskId&#34;:&#34;3&#34;}</li>
+                            <li data-ts="2026-04-07T04:16:24Z" data-tool="Bash" data-success="true" data-event-id="evt-3f699e70">(cd /Users/shakes/DevProjects/htmlgraph &amp;&amp; htmlgraph feature complete feat-7d67a682)</li>
+                            <li data-ts="2026-04-07T04:16:30Z" data-tool="Bash" data-success="true" data-event-id="evt-58d8bac6">(cd /Users/shakes/DevProjects/htmlgraph &amp;&amp; htmlgraph feature start feat-4939067a)</li>
+                            <li data-ts="2026-04-07T04:16:34Z" data-tool="Read" data-success="true" data-event-id="evt-2016d069">/Users/shakes/DevProjects/htmlgraph/.claude/worktrees/trk-c26a29ab/cmd/htmlgraph/ingest.go [355:505]</li>
+                            <li data-ts="2026-04-07T04:16:38Z" data-tool="Grep" data-success="true" data-event-id="evt-f56c040b">/Users/shakes/DevProjects/htmlgraph/.claude/worktrees/trk-c26a29ab/cmd/htmlgraph</li>
+                            <li data-ts="2026-04-07T04:16:41Z" data-tool="Bash" data-success="true" data-event-id="evt-274dba1d">(go test ./cmd/htmlgraph/... -run &#34;TestIngest|TestExtractFeature&#34; -v 2&gt;&amp;1 | tail -40)</li>
+                            <li data-ts="2026-04-07T04:16:47Z" data-tool="TaskUpdate" data-success="true" data-event-id="evt-c1f67e99">{&#34;status&#34;:&#34;completed&#34;,&#34;taskId&#34;:&#34;2&#34;}</li>
+                            <li data-ts="2026-04-07T04:16:47Z" data-tool="Bash" data-success="true" data-event-id="evt-8f29e260">(cd /Users/shakes/DevProjects/htmlgraph &amp;&amp; htmlgraph feature complete feat-4939067a)</li>
+                            <li data-ts="2026-04-07T04:16:51Z" data-tool="Bash" data-success="true" data-event-id="evt-9640095c">(go build ./... 2&gt;&amp;1) &amp;&amp; echo &#34;BUILD OK&#34; || echo &#34;BUILD FAILED&#34;</li>
+                            <li data-ts="2026-04-07T04:16:51Z" data-tool="Bash" data-success="true" data-event-id="evt-c48ce205">(go vet ./... 2&gt;&amp;1) &amp;&amp; echo &#34;VET OK&#34; || echo &#34;VET FAILED&#34;</li>
+                            <li data-ts="2026-04-07T04:16:56Z" data-tool="Bash" data-success="true" data-event-id="evt-ae320329">(go test ./... 2&gt;&amp;1 | tail -20)</li>
+                            <li data-ts="2026-04-07T04:18:04Z" data-tool="Bash" data-success="true" data-event-id="evt-6858ee0d">(go test ./cmd/htmlgraph/... 2&gt;&amp;1 | grep -E &#34;^---&#34; | head -20)</li>
+                            <li data-ts="2026-04-07T04:19:14Z" data-tool="Grep" data-success="true" data-event-id="evt-4d0de57f">/Users/shakes/DevProjects/htmlgraph/.claude/worktrees/trk-c26a29ab/cmd/htmlgraph</li>
+                            <li data-ts="2026-04-07T04:19:17Z" data-tool="Read" data-success="true" data-event-id="evt-4814fc9a">/Users/shakes/DevProjects/htmlgraph/.claude/worktrees/trk-c26a29ab/cmd/htmlgraph/workitem_edges_test.go</li>
+                            <li data-ts="2026-04-07T04:19:21Z" data-tool="Bash" data-success="true" data-event-id="evt-3e30a3bb">(go test ./cmd/htmlgraph/... -run TestSessionEdge_SQLiteEdgeOnFeatureStart -v 2&gt;&amp;1 | tail -30)</li>
+                            <li data-ts="2026-04-07T04:19:32Z" data-tool="Grep" data-success="true" data-event-id="evt-62420480">/Users/shakes/DevProjects/htmlgraph/.claude/worktrees/trk-c26a29ab/internal</li>
+                            <li data-ts="2026-04-07T04:19:35Z" data-tool="Grep" data-success="true" data-event-id="evt-649e91ff">/Users/shakes/DevProjects/htmlgraph/.claude/worktrees/trk-c26a29ab/internal</li>
+                            <li data-ts="2026-04-07T04:19:40Z" data-tool="Read" data-success="true" data-event-id="evt-6864bcb0">/Users/shakes/DevProjects/htmlgraph/.claude/worktrees/trk-c26a29ab/internal/workitem/collection.go [200:240]</li>
+                            <li data-ts="2026-04-07T04:19:48Z" data-tool="Edit" data-success="true" data-event-id="evt-0afb8253">/Users/shakes/DevProjects/htmlgraph/.claude/worktrees/trk-c26a29ab/cmd/htmlgraph/workitem.go</li>
+                            <li data-ts="2026-04-07T04:19:52Z" data-tool="Bash" data-success="true" data-event-id="evt-43d43b21">(go test ./cmd/htmlgraph/... -run &#34;TestSessionEdge&#34; -v 2&gt;&amp;1 | tail -20)</li>
+                            <li data-ts="2026-04-07T04:20:03Z" data-tool="Read" data-success="true" data-event-id="evt-0f86ca0c">/Users/shakes/DevProjects/htmlgraph/.claude/worktrees/trk-c26a29ab/cmd/htmlgraph/workitem_edges.go [40:65]</li>
+                            <li data-ts="2026-04-07T04:20:08Z" data-tool="Grep" data-success="true" data-event-id="evt-37fe9c85">/Users/shakes/DevProjects/htmlgraph/.claude/worktrees/trk-c26a29ab/internal/models</li>
+                            <li data-ts="2026-04-07T04:20:11Z" data-tool="Grep" data-success="true" data-event-id="evt-e3860774">{&#34;-n&#34;:true,&#34;output_mode&#34;:&#34;content&#34;,&#34;pattern&#34;:&#34;RelImplement\&#34;&#34;}</li>
+                            <li data-ts="2026-04-07T04:20:14Z" data-tool="Grep" data-success="true" data-event-id="evt-1dd1e6c7">/Users/shakes/DevProjects/htmlgraph/.claude/worktrees/trk-c26a29ab/internal/models</li>
+                            <li data-ts="2026-04-07T04:20:18Z" data-tool="Grep" data-success="true" data-event-id="evt-bcde7807">{&#34;-i&#34;:true,&#34;-n&#34;:true,&#34;output_mode&#34;:&#34;content&#34;,&#34;pattern&#34;:&#34;RelImplement\&#34;&#34;}</li>
+                            <li data-ts="2026-04-07T04:20:23Z" data-tool="Grep" data-success="true" data-event-id="evt-feb1a594">{&#34;-n&#34;:true,&#34;output_mode&#34;:&#34;content&#34;,&#34;pattern&#34;:&#34;RelImplement&#34;}</li>
+                            <li data-ts="2026-04-07T04:20:34Z" data-tool="Edit" data-success="true" data-event-id="evt-fcccf290">/Users/shakes/DevProjects/htmlgraph/.claude/worktrees/trk-c26a29ab/cmd/htmlgraph/workitem_edges.go</li>
+                            <li data-ts="2026-04-07T04:20:38Z" data-tool="Grep" data-success="true" data-event-id="evt-09a84b10">/Users/shakes/DevProjects/htmlgraph/.claude/worktrees/trk-c26a29ab/internal/workitem</li>
+                            <li data-ts="2026-04-07T04:20:38Z" data-tool="Grep" data-success="true" data-event-id="evt-47207d8c">/Users/shakes/DevProjects/htmlgraph/.claude/worktrees/trk-c26a29ab/internal/workitem</li>
+                            <li data-ts="2026-04-07T04:20:42Z" data-tool="Grep" data-success="true" data-event-id="evt-716a5795">/Users/shakes/DevProjects/htmlgraph/.claude/worktrees/trk-c26a29ab/internal/workitem</li>
+                            <li data-ts="2026-04-07T04:20:52Z" data-tool="Edit" data-success="true" data-event-id="evt-8e581f2f">/Users/shakes/DevProjects/htmlgraph/.claude/worktrees/trk-c26a29ab/cmd/htmlgraph/workitem_edges.go</li>
+                            <li data-ts="2026-04-07T04:20:56Z" data-tool="Edit" data-success="true" data-event-id="evt-87a31ba2">/Users/shakes/DevProjects/htmlgraph/.claude/worktrees/trk-c26a29ab/cmd/htmlgraph/workitem.go</li>
+                            <li data-ts="2026-04-07T04:20:59Z" data-tool="Read" data-success="true" data-event-id="evt-2327eee8">/Users/shakes/DevProjects/htmlgraph/.claude/worktrees/trk-c26a29ab/cmd/htmlgraph/workitem_edges.go [:16]</li>
+                            <li data-ts="2026-04-07T04:21:08Z" data-tool="Edit" data-success="true" data-event-id="evt-01fbdf81">/Users/shakes/DevProjects/htmlgraph/.claude/worktrees/trk-c26a29ab/cmd/htmlgraph/workitem_edges.go</li>
+                            <li data-ts="2026-04-07T04:21:11Z" data-tool="Bash" data-success="true" data-event-id="evt-e2502dc5">(go build ./... 2&gt;&amp;1 | head -10)</li>
+                            <li data-ts="2026-04-07T04:21:16Z" data-tool="Bash" data-success="true" data-event-id="evt-cf30b6cf">(go test ./cmd/htmlgraph/... -run &#34;TestSessionEdge&#34; -v 2&gt;&amp;1 | tail -25)</li>
+                            <li data-ts="2026-04-07T04:21:22Z" data-tool="Bash" data-success="true" data-event-id="evt-f044d055">(go build ./... &amp;&amp; go vet ./... 2&gt;&amp;1) &amp;&amp; echo &#34;BUILD+VET OK&#34;</li>
+                            <li data-ts="2026-04-07T04:21:26Z" data-tool="Bash" data-success="true" data-event-id="evt-2a354da7">(go test ./... 2&gt;&amp;1 | tail -20)</li>
+                            <li data-ts="2026-04-07T04:22:35Z" data-tool="Bash" data-success="true" data-event-id="evt-3387e8be">git -C /Users/shakes/DevProjects/htmlgraph/.claude/worktrees/trk-c26a29ab diff --stat 2&gt;/dev/null</li>
+                            <li data-ts="2026-04-07T04:22:39Z" data-tool="Bash" data-success="true" data-event-id="evt-524f79c2">git -C /Users/shakes/DevProjects/htmlgraph/.claude/worktrees/trk-c26a29ab status --short -- &#39;*.go&#39; 2&gt;/dev/null</li>
+                            <li data-ts="2026-04-07T04:22:43Z" data-tool="Bash" data-success="true" data-event-id="evt-a03c6b6d">git -C /Users/shakes/DevProjects/htmlgraph/.claude/worktrees/trk-c26a29ab status --short -- &#39;*.go&#39; &#39;:!plugin/&#39; 2&gt;/dev/nu…</li>
+                            <li data-ts="2026-04-07T04:22:46Z" data-tool="Bash" data-success="true" data-event-id="evt-42bec5af">git -C /Users/shakes/DevProjects/htmlgraph/.claude/worktrees/trk-c26a29ab status --short 2&gt;/dev/null | grep &#34;^??&#34;</li>
+                            <li data-ts="2026-04-07T04:22:51Z" data-tool="Bash" data-success="true" data-event-id="evt-e0d8ca50">git -C /Users/shakes/DevProjects/htmlgraph/.claude/worktrees/trk-c26a29ab status --short -- &#39;cmd/htmlgraph/*test*&#39; 2&gt;/de…</li>
+                            <li data-ts="2026-04-07T04:22:55Z" data-tool="Bash" data-success="true" data-event-id="evt-e0f64aec">git -C /Users/shakes/DevProjects/htmlgraph/.claude/worktrees/trk-c26a29ab diff --name-status HEAD -- &#39;cmd/htmlgraph/*tes…</li>
+                            <li data-ts="2026-04-07T04:22:58Z" data-tool="Bash" data-success="true" data-event-id="evt-20cce14c">ls /Users/shakes/DevProjects/htmlgraph/.claude/worktrees/trk-c26a29ab/cmd/htmlgraph/*_test.go 2&gt;/dev/null | head -10</li>
+                            <li data-ts="2026-04-07T04:23:02Z" data-tool="Bash" data-success="true" data-event-id="evt-616ab4ea">git -C /Users/shakes/DevProjects/htmlgraph/.claude/worktrees/trk-c26a29ab status --short -- &#39;cmd/htmlgraph/ingest_commit…</li>
+                            <li data-ts="2026-04-07T04:23:05Z" data-tool="Bash" data-success="true" data-event-id="evt-f330393c">git -C /Users/shakes/DevProjects/htmlgraph/.claude/worktrees/trk-c26a29ab diff --name-only 2&gt;/dev/null | sort</li>
+                            <li data-ts="2026-04-07T04:23:12Z" data-tool="Bash" data-success="true" data-event-id="evt-4d591e3f">(cd /Users/shakes/DevProjects/htmlgraph &amp;&amp; htmlgraph build 2&gt;&amp;1)</li>
+                            <li data-ts="2026-04-07T04:23:16Z" data-tool="Bash" data-success="true" data-event-id="evt-ae9ca6b0">git -C /Users/shakes/DevProjects/htmlgraph/.claude/worktrees/trk-c26a29ab log --oneline -5 2&gt;/dev/null</li>
+                            <li data-ts="2026-04-07T04:23:21Z" data-tool="Bash" data-success="true" data-event-id="evt-f273621d">git -C /Users/shakes/DevProjects/htmlgraph/.claude/worktrees/trk-c26a29ab add \
+  cmd/htmlgraph/ingest.go \
+  cmd/htmlgr…</li>
+                            <li data-ts="2026-04-07T04:23:25Z" data-tool="Bash" data-success="true" data-event-id="evt-d0ecc20f">(git add \
+  cmd/htmlgraph/ingest.go \
+  cmd/htmlgraph/session.go \
+  cmd/htmlgraph/workitem.go \
+  cmd/htmlgraph/workit…</li>
+                            <li data-ts="2026-04-07T04:23:31Z" data-tool="Bash" data-success="true" data-event-id="evt-79ecabd4">(git add -f \
+  cmd/htmlgraph/ingest.go \
+  cmd/htmlgraph/session.go \
+  cmd/htmlgraph/workitem.go \
+  cmd/htmlgraph/wor…</li>
+                            <li data-ts="2026-04-07T04:23:34Z" data-tool="Bash" data-success="true" data-event-id="evt-d33004df">(git diff --cached --stat 2&gt;&amp;1)</li>
+                            <li data-ts="2026-04-07T04:23:43Z" data-tool="Bash" data-success="true" data-event-id="evt-38c9928f">(git commit -m &#34;$(cat &lt;&lt;&#39;EOF&#39;
+feat(attribution): Wave 1 — close session-to-commit attribution gaps (trk-c26a29ab)
+
+Fou…</li>
+                            <li data-ts="2026-04-07T04:23:47Z" data-tool="Bash" data-success="true" data-event-id="evt-24f3e1e1">(git reset HEAD 2&gt;&amp;1)</li>
+                            <li data-ts="2026-04-07T04:23:51Z" data-tool="Bash" data-success="true" data-event-id="evt-a9c01013">(git add -f internal/db/schema.go internal/db/schema_test.go 2&gt;&amp;1)</li>
+                            <li data-ts="2026-04-07T04:23:54Z" data-tool="Bash" data-success="true" data-event-id="evt-01175d86">(git diff --cached --stat 2&gt;&amp;1)</li>
+                            <li data-ts="2026-04-07T04:23:58Z" data-tool="Bash" data-success="true" data-event-id="evt-0113ac67">(git commit -m &#34;$(cat &lt;&lt;&#39;EOF&#39;
+fix(session): auto-increment total_events via SQLite trigger (feat-b1fd2979)
+
+Adds a trigg…</li>
+                            <li data-ts="2026-04-07T04:25:15Z" data-tool="Bash" data-success="true" data-event-id="evt-f21dd5a5">(git add -f cmd/htmlgraph/workitem.go cmd/htmlgraph/workitem_edges.go internal/db/edge_repo_test.go 2&gt;&amp;1)</li>
+                            <li data-ts="2026-04-07T04:25:18Z" data-tool="Bash" data-success="true" data-event-id="evt-28829b8a">(git diff --cached --stat 2&gt;&amp;1)</li>
+                            <li data-ts="2026-04-07T04:25:26Z" data-tool="Bash" data-success="true" data-event-id="evt-b9f8702b">(git commit -m &#34;$(cat &lt;&lt;&#39;EOF&#39;
+feat(attribution): bidirectional session-to-work-item graph edges (feat-32b4d4fc)
+
+When fe…</li>
+                            <li data-ts="2026-04-07T04:25:38Z" data-tool="Bash" data-success="true" data-event-id="evt-9da465b5">(git add -f cmd/htmlgraph/session.go internal/db/event_repo.go internal/db/session_show_test.go 2&gt;&amp;1)</li>
+                            <li data-ts="2026-04-07T04:25:40Z" data-tool="Bash" data-success="true" data-event-id="evt-f0744cc0">(git diff --cached --stat 2&gt;&amp;1)</li>
+                            <li data-ts="2026-04-07T04:25:45Z" data-tool="Bash" data-success="true" data-event-id="evt-331ffe96">(git commit -m &#34;$(cat &lt;&lt;&#39;EOF&#39;
+feat(session): implement session show CLI command (feat-7d67a682)
+
+Adds `htmlgraph session…</li>
+                            <li data-ts="2026-04-07T04:25:56Z" data-tool="Bash" data-success="true" data-event-id="evt-aed5f335">(git add -f cmd/htmlgraph/ingest.go internal/db/lineage_repo.go plugin/hooks/bin/htmlgraph 2&gt;&amp;1)</li>
+                            <li data-ts="2026-04-07T04:26:00Z" data-tool="Bash" data-success="true" data-event-id="evt-35f018e3">(git diff --cached --stat 2&gt;&amp;1)</li>
+                            <li data-ts="2026-04-07T04:26:05Z" data-tool="Bash" data-success="true" data-event-id="evt-e132d057">(git commit -m &#34;$(cat &lt;&lt;&#39;EOF&#39;
+feat(ingest): bulk git commit history import with attribution (feat-4939067a)
+
+Adds `htmlg…</li>
+                            <li data-ts="2026-04-07T04:26:19Z" data-tool="Bash" data-success="true" data-event-id="evt-c2da9b4a">(cd /Users/shakes/DevProjects/htmlgraph &amp;&amp; htmlgraph track show trk-c26a29ab 2&gt;/dev/null)</li>
+                            <li data-ts="2026-04-07T04:26:19Z" data-tool="Bash" data-success="true" data-event-id="evt-eb397163">git log --oneline -6 2&gt;/dev/null</li>
+                            <li data-ts="2026-04-07T04:26:27Z" data-tool="TaskCreate" data-success="true" data-event-id="evt-e151c869">{&#34;activeForm&#34;:&#34;Populating features_worked_on on session end&#34;,&#34;description&#34;:&#34;On session end (Stop hook), aggregate distinct feature_ids from agent_events and write JSON array to sessions.features_worke…</li>
+                            <li data-ts="2026-04-07T04:26:28Z" data-tool="TaskCreate" data-success="true" data-event-id="evt-4438c899">{&#34;activeForm&#34;:&#34;Adding attribution rate metric&#34;,&#34;description&#34;:&#34;Surface % of commits with work item IDs in htmlgraph status and dashboard.&#34;,&#34;metadata&#34;:{&#34;feature_id&#34;:&#34;feat-6afe0b82&#34;},&#34;subject&#34;:&#34;feat-6afe…</li>
+                            <li data-ts="2026-04-07T04:26:30Z" data-tool="TaskCreate" data-success="true" data-event-id="evt-247a7da0">{&#34;activeForm&#34;:&#34;Implementing trace command&#34;,&#34;description&#34;:&#34;Takes a commit SHA and returns: the session that produced it, the feature(s) active during that session, and the parent track.&#34;,&#34;metadata&#34;:{&#34;f…</li>
+                            <li data-ts="2026-04-07T04:26:34Z" data-tool="TaskUpdate" data-success="true" data-event-id="evt-19bf8acf">{&#34;status&#34;:&#34;in_progress&#34;,&#34;taskId&#34;:&#34;5&#34;}</li>
+                            <li data-ts="2026-04-07T04:26:34Z" data-tool="Bash" data-success="true" data-event-id="evt-182c6153">(cd /Users/shakes/DevProjects/htmlgraph &amp;&amp; htmlgraph feature start feat-470d7405)</li>
+                            <li data-ts="2026-04-07T04:26:39Z" data-tool="Read" data-success="true" data-event-id="evt-44d62ac4">/Users/shakes/DevProjects/htmlgraph/.claude/worktrees/trk-c26a29ab/internal/hooks/session_end.go</li>
+                            <li data-ts="2026-04-07T04:26:43Z" data-tool="Edit" data-success="true" data-event-id="evt-f7b4dde8">/Users/shakes/DevProjects/htmlgraph/.claude/worktrees/trk-c26a29ab/internal/hooks/session_end.go</li>
+                            <li data-ts="2026-04-07T04:26:51Z" data-tool="Edit" data-success="true" data-event-id="evt-b171f21b">/Users/shakes/DevProjects/htmlgraph/.claude/worktrees/trk-c26a29ab/internal/hooks/session_end.go</li>
+                            <li data-ts="2026-04-07T04:26:53Z" data-tool="Read" data-success="true" data-event-id="evt-01af016c">/Users/shakes/DevProjects/htmlgraph/.claude/worktrees/trk-c26a29ab/internal/hooks/session_end_test.go</li>
+                            <li data-ts="2026-04-07T04:26:57Z" data-tool="Grep" data-success="true" data-event-id="evt-0ba9de1a">/Users/shakes/DevProjects/htmlgraph/.claude/worktrees/trk-c26a29ab/internal/hooks</li>
+                            <li data-ts="2026-04-07T04:27:01Z" data-tool="Grep" data-success="true" data-event-id="evt-2a153b63">/Users/shakes/DevProjects/htmlgraph/.claude/worktrees/trk-c26a29ab/internal/hooks</li>
+                            <li data-ts="2026-04-07T04:27:04Z" data-tool="Grep" data-success="true" data-event-id="evt-4671ef55">/Users/shakes/DevProjects/htmlgraph/.claude/worktrees/trk-c26a29ab/internal/hooks</li>
+                            <li data-ts="2026-04-07T04:27:09Z" data-tool="Glob" data-success="true" data-event-id="evt-bcece6ad">{&#34;pattern&#34;:&#34;internal/hooks/*_test.go&#34;}</li>
+                            <li data-ts="2026-04-07T04:27:12Z" data-tool="Read" data-success="true" data-event-id="evt-45f84304">/Users/shakes/DevProjects/htmlgraph/.claude/worktrees/trk-c26a29ab/internal/hooks/lifecycle_test.go [:60]</li>
+                            <li data-ts="2026-04-07T04:27:15Z" data-tool="Read" data-success="true" data-event-id="evt-152b0531">/Users/shakes/DevProjects/htmlgraph/.claude/worktrees/trk-c26a29ab/internal/hooks/lifecycle_test.go [100:]</li>
+                            <li data-ts="2026-04-07T04:27:29Z" data-tool="Edit" data-success="true" data-event-id="evt-aa6dfc1d">/Users/shakes/DevProjects/htmlgraph/.claude/worktrees/trk-c26a29ab/internal/hooks/lifecycle_test.go</li>
+                            <li data-ts="2026-04-07T04:27:34Z" data-tool="Read" data-success="true" data-event-id="evt-21586c72">/Users/shakes/DevProjects/htmlgraph/.claude/worktrees/trk-c26a29ab/internal/hooks/lifecycle_test.go [:12]</li>
+                            <li data-ts="2026-04-07T04:27:39Z" data-tool="Edit" data-success="true" data-event-id="evt-cf25c59c">/Users/shakes/DevProjects/htmlgraph/.claude/worktrees/trk-c26a29ab/internal/hooks/lifecycle_test.go</li>
+                            <li data-ts="2026-04-07T04:27:42Z" data-tool="Bash" data-success="true" data-event-id="evt-0994bfe5">(go test ./internal/hooks/... -run TestSessionEndPopulates -v 2&gt;&amp;1 | tail -15)</li>
+                            <li data-ts="2026-04-07T04:27:47Z" data-tool="Bash" data-success="true" data-event-id="evt-690b49b3">(git add -f internal/hooks/session_end.go internal/hooks/lifecycle_test.go &amp;&amp; git diff --cached --stat 2&gt;&amp;1)</li>
+                            <li data-ts="2026-04-07T04:27:51Z" data-tool="Bash" data-success="true" data-event-id="evt-7b8013b3">(git commit -m &#34;$(cat &lt;&lt;&#39;EOF&#39;
+feat(session): populate features_worked_on on session end (feat-470d7405)
+
+SessionEnd hand…</li>
+                            <li data-ts="2026-04-07T04:28:07Z" data-tool="TaskUpdate" data-success="true" data-event-id="evt-4a9c37c4">{&#34;status&#34;:&#34;completed&#34;,&#34;taskId&#34;:&#34;5&#34;}</li>
+                            <li data-ts="2026-04-07T04:28:07Z" data-tool="Bash" data-success="true" data-event-id="evt-0cb83fcf">(cd /Users/shakes/DevProjects/htmlgraph &amp;&amp; htmlgraph feature complete feat-470d7405)</li>
+                            <li data-ts="2026-04-07T04:28:10Z" data-tool="TaskUpdate" data-success="true" data-event-id="evt-6e9b8162">{&#34;status&#34;:&#34;in_progress&#34;,&#34;taskId&#34;:&#34;6&#34;}</li>
+                            <li data-ts="2026-04-07T04:28:11Z" data-tool="Bash" data-success="true" data-event-id="evt-1e98583d">(cd /Users/shakes/DevProjects/htmlgraph &amp;&amp; htmlgraph feature start feat-6afe0b82)</li>
+                            <li data-ts="2026-04-07T04:28:15Z" data-tool="Grep" data-success="true" data-event-id="evt-81105d9f">/Users/shakes/DevProjects/htmlgraph/.claude/worktrees/trk-c26a29ab/cmd/htmlgraph</li>
+                            <li data-ts="2026-04-07T04:28:17Z" data-tool="Grep" data-success="true" data-event-id="evt-5b0e4fca">{&#34;output_mode&#34;:&#34;files_with_matches&#34;,&#34;pattern&#34;:&#34;func statusCmd\&#34;&#34;}</li>
+                            <li data-ts="2026-04-07T04:28:20Z" data-tool="Grep" data-success="true" data-event-id="evt-46dad5e6">{&#34;output_mode&#34;:&#34;files_with_matches&#34;,&#34;pattern&#34;:&#34;func statusCmd\\(\\)\&#34;&#34;}</li>
+                            <li data-ts="2026-04-07T04:28:23Z" data-tool="Grep" data-success="true" data-event-id="evt-e82f9b4d">{&#34;-n&#34;:true,&#34;output_mode&#34;:&#34;content&#34;,&#34;pattern&#34;:&#34;func statusCmd\&#34;&#34;}</li>
+                            <li data-ts="2026-04-07T04:28:26Z" data-tool="Grep" data-success="true" data-event-id="evt-f1c8ab77">{&#34;-n&#34;:true,&#34;output_mode&#34;:&#34;content&#34;,&#34;pattern&#34;:&#34;func statusCmd&#34;}</li>
+                            <li data-ts="2026-04-07T04:28:30Z" data-tool="Grep" data-success="true" data-event-id="evt-b02a3e44">{&#34;-n&#34;:true,&#34;output_mode&#34;:&#34;content&#34;,&#34;pattern&#34;:&#34;statusCmd\&#34;&#34;}</li>
+                            <li data-ts="2026-04-07T04:28:33Z" data-tool="Grep" data-success="true" data-event-id="evt-b6bbbfa3">{&#34;-n&#34;:true,&#34;output_mode&#34;:&#34;content&#34;,&#34;pattern&#34;:&#34;statusCmd\\(\\)\&#34;&#34;}</li>
+                            <li data-ts="2026-04-07T04:28:36Z" data-tool="Grep" data-success="true" data-event-id="evt-0e9fbb5f">/Users/shakes/DevProjects/htmlgraph/.claude/worktrees/trk-c26a29ab</li>
+                            <li data-ts="2026-04-07T04:28:39Z" data-tool="Grep" data-success="true" data-event-id="evt-9e93c42c">/Users/shakes/DevProjects/htmlgraph/.claude/worktrees/trk-c26a29ab/cmd/htmlgraph</li>
+                            <li data-ts="2026-04-07T04:28:42Z" data-tool="Read" data-success="true" data-event-id="evt-38142725">/Users/shakes/DevProjects/htmlgraph/.claude/worktrees/trk-c26a29ab/cmd/htmlgraph/status.go</li>
+                            <li data-ts="2026-04-07T04:28:47Z" data-tool="Edit" data-success="true" data-event-id="evt-f1aeeef7">/Users/shakes/DevProjects/htmlgraph/.claude/worktrees/trk-c26a29ab/cmd/htmlgraph/status.go</li>
+                            <li data-ts="2026-04-07T04:28:53Z" data-tool="Edit" data-success="true" data-event-id="evt-b81f0d9e">/Users/shakes/DevProjects/htmlgraph/.claude/worktrees/trk-c26a29ab/cmd/htmlgraph/status.go</li>
+                            <li data-ts="2026-04-07T04:29:00Z" data-tool="Edit" data-success="true" data-event-id="evt-f2820142">/Users/shakes/DevProjects/htmlgraph/.claude/worktrees/trk-c26a29ab/internal/db/lineage_repo.go</li>
+                            <li data-ts="2026-04-07T04:29:03Z" data-tool="Read" data-success="true" data-event-id="evt-8a93b530">/Users/shakes/DevProjects/htmlgraph/.claude/worktrees/trk-c26a29ab/internal/db/lineage_repo.go [215:255]</li>
+                            <li data-ts="2026-04-07T04:29:07Z" data-tool="Edit" data-success="true" data-event-id="evt-bcf94992">/Users/shakes/DevProjects/htmlgraph/.claude/worktrees/trk-c26a29ab/internal/db/lineage_repo.go</li>
+                            <li data-ts="2026-04-07T04:29:11Z" data-tool="Bash" data-success="true" data-event-id="evt-77bcdfeb">(go build ./... &amp;&amp; go vet ./... 2&gt;&amp;1) &amp;&amp; echo &#34;OK&#34;</li>
+                            <li data-ts="2026-04-07T04:29:17Z" data-tool="Bash" data-success="true" data-event-id="evt-f3e6da56">(git add -f cmd/htmlgraph/status.go internal/db/lineage_repo.go &amp;&amp; git diff --cached --stat 2&gt;&amp;1)</li>
+                            <li data-ts="2026-04-07T04:29:21Z" data-tool="Bash" data-success="true" data-event-id="evt-7ba4dafe">(git commit -m &#34;$(cat &lt;&lt;&#39;EOF&#39;
+feat(status): surface commit attribution rate in htmlgraph status (feat-6afe0b82)
+
+Shows &#34;…</li>
+                            <li data-ts="2026-04-07T04:30:39Z" data-tool="TaskUpdate" data-success="true" data-event-id="evt-e8da0598">{&#34;status&#34;:&#34;completed&#34;,&#34;taskId&#34;:&#34;6&#34;}</li>
+                            <li data-ts="2026-04-07T04:30:39Z" data-tool="Bash" data-success="true" data-event-id="evt-7ffd979c">(cd /Users/shakes/DevProjects/htmlgraph &amp;&amp; htmlgraph feature complete feat-6afe0b82)</li>
+                            <li data-ts="2026-04-07T04:30:42Z" data-tool="TaskUpdate" data-success="true" data-event-id="evt-a4caa7a2">{&#34;status&#34;:&#34;in_progress&#34;,&#34;taskId&#34;:&#34;7&#34;}</li>
+                            <li data-ts="2026-04-07T04:30:43Z" data-tool="Bash" data-success="true" data-event-id="evt-137dda54">(cd /Users/shakes/DevProjects/htmlgraph &amp;&amp; htmlgraph feature start feat-934717fb)</li>
+                            <li data-ts="2026-04-07T04:30:54Z" data-tool="Write" data-success="true" data-event-id="evt-101d1691">/Users/shakes/DevProjects/htmlgraph/.claude/worktrees/trk-c26a29ab/cmd/htmlgraph/trace.go</li>
+                            <li data-ts="2026-04-07T04:30:57Z" data-tool="Read" data-success="true" data-event-id="evt-ed24ee72">/Users/shakes/DevProjects/htmlgraph/.claude/worktrees/trk-c26a29ab/internal/db/lineage_repo.go [218:228]</li>
+                            <li data-ts="2026-04-07T04:31:05Z" data-tool="Edit" data-success="true" data-event-id="evt-bcf0ad9d">/Users/shakes/DevProjects/htmlgraph/.claude/worktrees/trk-c26a29ab/internal/db/lineage_repo.go</li>
+                            <li data-ts="2026-04-07T04:31:09Z" data-tool="Edit" data-success="true" data-event-id="evt-f5a21649">/Users/shakes/DevProjects/htmlgraph/.claude/worktrees/trk-c26a29ab/cmd/htmlgraph/main.go</li>
+                            <li data-ts="2026-04-07T04:31:12Z" data-tool="Read" data-success="true" data-event-id="evt-cbae8c92">/Users/shakes/DevProjects/htmlgraph/.claude/worktrees/trk-c26a29ab/cmd/htmlgraph/main.go [75:85]</li>
+                            <li data-ts="2026-04-07T04:31:16Z" data-tool="Edit" data-success="true" data-event-id="evt-095fa68e">/Users/shakes/DevProjects/htmlgraph/.claude/worktrees/trk-c26a29ab/cmd/htmlgraph/main.go</li>
+                            <li data-ts="2026-04-07T04:31:19Z" data-tool="Bash" data-success="true" data-event-id="evt-33173a9f">(go build ./... &amp;&amp; go vet ./... 2&gt;&amp;1) &amp;&amp; echo &#34;OK&#34;</li>
+                            <li data-ts="2026-04-07T04:33:26Z" data-tool="Read" data-success="true" data-event-id="evt-f66bf96d">/Users/shakes/DevProjects/htmlgraph/.claude/worktrees/trk-c26a29ab/internal/db/session_show_test.go [195:210]</li>
+                            <li data-ts="2026-04-07T04:33:29Z" data-tool="Read" data-success="true" data-event-id="evt-0c07b184">/Users/shakes/DevProjects/htmlgraph/.claude/worktrees/trk-c26a29ab/internal/db/session_show_test.go [205:]</li>
+                            <li data-ts="2026-04-07T04:33:44Z" data-tool="Edit" data-success="true" data-event-id="evt-4d0b12d1">/Users/shakes/DevProjects/htmlgraph/.claude/worktrees/trk-c26a29ab/internal/db/session_show_test.go</li>
+                            <li data-ts="2026-04-07T04:33:47Z" data-tool="Bash" data-success="true" data-event-id="evt-f55567ab">(go test ./internal/db/... -run TestTraceCommit -v 2&gt;&amp;1)</li>
+                            <li data-ts="2026-04-07T04:33:52Z" data-tool="Bash" data-success="true" data-event-id="evt-8230ac7f">(git add -f cmd/htmlgraph/trace.go cmd/htmlgraph/main.go internal/db/lineage_repo.go internal/db/session_show_test.go &amp;&amp;…</li>
+                            <li data-ts="2026-04-07T04:33:57Z" data-tool="Bash" data-success="true" data-event-id="evt-111a33cf">(git commit -m &#34;$(cat &lt;&lt;&#39;EOF&#39;
+feat(trace): commit-to-work-item reverse lookup command (feat-934717fb)
+
+Adds `htmlgraph t…</li>
+                            <li data-ts="2026-04-07T04:35:15Z" data-tool="TaskUpdate" data-success="true" data-event-id="evt-6e89c974">{&#34;status&#34;:&#34;completed&#34;,&#34;taskId&#34;:&#34;7&#34;}</li>
+                            <li data-ts="2026-04-07T04:35:16Z" data-tool="Bash" data-success="true" data-event-id="evt-24e15435">(cd /Users/shakes/DevProjects/htmlgraph &amp;&amp; htmlgraph feature complete feat-934717fb)</li>
+                            <li data-ts="2026-04-07T04:35:19Z" data-tool="Bash" data-success="true" data-event-id="evt-479f95a5">(cd /Users/shakes/DevProjects/htmlgraph &amp;&amp; htmlgraph build 2&gt;&amp;1)</li>
+                            <li data-ts="2026-04-07T04:35:20Z" data-tool="Bash" data-success="true" data-event-id="evt-ff737d3b">(cd /Users/shakes/DevProjects/htmlgraph &amp;&amp; htmlgraph track show trk-c26a29ab 2&gt;/dev/null)</li>
+                            <li data-ts="2026-04-07T04:35:24Z" data-tool="Bash" data-success="true" data-event-id="evt-6a472d6a">git log --oneline -10 2&gt;/dev/null</li>
+                            <li data-ts="2026-04-07T04:35:27Z" data-tool="Bash" data-success="true" data-event-id="evt-be784395">(cd /Users/shakes/DevProjects/htmlgraph &amp;&amp; htmlgraph track complete trk-c26a29ab 2&gt;/dev/null)</li>
+                            <li data-ts="2026-04-07T04:37:46Z" data-tool="Bash" data-success="true" data-event-id="evt-f6dbea14">git log --oneline main..HEAD 2&gt;/dev/null</li>
+                            <li data-ts="2026-04-07T04:37:47Z" data-tool="Bash" data-success="true" data-event-id="evt-d432ee12">git log --oneline HEAD..main 2&gt;/dev/null</li>
+                            <li data-ts="2026-04-07T04:37:47Z" data-tool="Bash" data-success="true" data-event-id="evt-b6929a54">git merge-base --is-ancestor main HEAD &amp;&amp; echo &#34;main is ancestor of HEAD (clean fast-forward possible)&#34; || echo &#34;diverge…</li>
+            </ol>
+        </section>
+    </article>
+</body>
+</html>

@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="htmlgraph-version" content="1.0">
+    <title>Graph labels overflow session circles — label radius out of sync with visual radius</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="bug-b61f91d9"
+             data-type="bug"
+             data-status="done"
+             data-priority="medium"
+             data-created="2026-04-11T11:20:57.869945"
+             data-updated="2026-04-11T11:21:24.477167" data-agent-assigned="claude-code" data-track-id="trk-d8aef97a">
+
+        <header>
+            <h1>Graph labels overflow session circles — label radius out of sync with visual radius</h1>
+            <div class="metadata">
+                <span class="badge status-done">Done</span>
+                <span class="badge priority-medium">Medium Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="implemented_in">
+                <h3>Implemented In:</h3>
+                <ul>
+                    <li><a href="807386a4-d227-448c-91a8-fac7688e09af.html" data-relationship="implemented_in" data-since="2026-04-11T11:21:02.208385">session 807386a4-d227-448c-91a8-fac7688e09af</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="caused_by">
+                <h3>Caused By:</h3>
+                <ul>
+                    <li><a href="feat-7af2dda7.html" data-relationship="caused_by" data-since="2026-04-11T11:20:57.871132">feat-7af2dda7</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="trk-d8aef97a.html" data-relationship="part_of" data-since="2026-04-11T11:20:57.871688">trk-d8aef97a</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>Session nodes render at 60% of nodeRadius (d.type === 'session' ? nodeRadius(d) * 0.6 : nodeRadius(d)) but the label wrapping and hub filter use the full nodeRadius. Labels think they have more room than the circle actually provides and spill onto the background. Fix: unified visualRadius(d) helper used by circle render, collision force, hub filter, and wrapTextInCircle calls — single source of truth.</p>
+        </section>
+    </article>
+</body>
+</html>

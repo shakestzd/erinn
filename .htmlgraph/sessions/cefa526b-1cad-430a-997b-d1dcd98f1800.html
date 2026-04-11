@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="htmlgraph-version" content="1.0">
+    <title>Session 2026-03-28T18:47:01Z</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="cefa526b-1cad-430a-997b-d1dcd98f1800"
+             data-type="session"
+             data-status="completed"
+             data-ended-at="2026-03-28T19:30:20Z"
+             data-agent="claude-code"
+             data-started-at="2026-03-28T18:47:01Z"
+             data-event-count="39"
+             data-is-subagent="false"
+             data-start-commit="">
+
+        <header>
+            <h1>Session 2026-03-28T18:47:01Z</h1>
+            <div class="metadata">
+                <span class="badge status-completed">Completed</span>
+                <span class="badge">claude-code</span>
+                <span class="badge">39 events</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+        </nav>
+
+        <section data-activity-log>
+            <ol reversed>
+                            <li data-ts="2026-03-28T18:47:08Z" data-tool="ToolSearch" data-success="true" data-event-id="evt-3ff45e73">select:TaskList</li>
+                            <li data-ts="2026-03-28T18:47:08Z" data-tool="Read" data-success="true" data-event-id="evt-4a25012b">/Users/shakes/DevProjects/htmlgraph/.htmlgraph/tracks/trk-fbe18084.html</li>
+                            <li data-ts="2026-03-28T18:47:11Z" data-tool="TaskList" data-success="true" data-event-id="evt-6dce1ffb">{}</li>
+                            <li data-ts="2026-03-28T18:47:24Z" data-tool="Agent" data-success="true" data-event-id="evt-c42253b5">Thoroughly explore the HtmlGraph Go codebase to understand how work item relationships and edges work. I need to underst…</li>
+                            <li data-ts="2026-03-28T18:48:49Z" data-tool="ToolSearch" data-success="true" data-event-id="evt-a72db4f7">select:TaskCreate,TaskUpdate</li>
+                            <li data-ts="2026-03-28T18:48:58Z" data-tool="TaskCreate" data-success="true" data-event-id="evt-36773ee9">{&#34;activeForm&#34;:&#34;Normalizing relationship strings&#34;,&#34;description&#34;:&#34;Step 2 of trk-fbe18084. All RelationshipType constants must use underscores (blocked_by not blocked-by). Add NormalizeRelationship() fun…</li>
+                            <li data-ts="2026-03-28T18:49:02Z" data-tool="TaskCreate" data-success="true" data-event-id="evt-e3bea077">{&#34;activeForm&#34;:&#34;Implementing dual-write for edges&#34;,&#34;description&#34;:&#34;Step 3 of trk-fbe18084. Every Collection.AddEdge() call must write to both HTML (canonical) and graph_edges SQLite table (queryable ind…</li>
+                            <li data-ts="2026-03-28T18:49:06Z" data-tool="TaskCreate" data-success="true" data-event-id="evt-43c3f50b">{&#34;activeForm&#34;:&#34;Adding auto-edge on feature start&#34;,&#34;description&#34;:&#34;Step 4a of trk-fbe18084. When `htmlgraph feature start \u003cid\u003e` is called, auto-create an `implemented_in` edge from the feature…</li>
+                            <li data-ts="2026-03-28T18:49:10Z" data-tool="TaskCreate" data-success="true" data-event-id="evt-28de0208">{&#34;activeForm&#34;:&#34;Adding auto-edges for track and bug relationships&#34;,&#34;description&#34;:&#34;Step 4b of trk-fbe18084. Two auto-edge scenarios:\n\n1. When --track flag is used during feature/bug creation, auto-cre…</li>
+                            <li data-ts="2026-03-28T18:49:15Z" data-tool="TaskCreate" data-success="true" data-event-id="evt-9d6ac0e6">{&#34;activeForm&#34;:&#34;Adding orphan detection warnings&#34;,&#34;description&#34;:&#34;Steps 1+5 of trk-fbe18084. After creating any non-spike work item, check if it has a parent relationship (track association or part_of e…</li>
+                            <li data-ts="2026-03-28T18:49:19Z" data-tool="TaskUpdate" data-success="true" data-event-id="evt-ead00b75">{&#34;addBlockedBy&#34;:[&#34;1&#34;,&#34;2&#34;],&#34;taskId&#34;:&#34;3&#34;}</li>
+                            <li data-ts="2026-03-28T18:49:20Z" data-tool="TaskUpdate" data-success="true" data-event-id="evt-5b3f1f79">{&#34;addBlockedBy&#34;:[&#34;1&#34;,&#34;2&#34;],&#34;taskId&#34;:&#34;4&#34;}</li>
+                            <li data-ts="2026-03-28T18:49:20Z" data-tool="TaskUpdate" data-success="true" data-event-id="evt-8e86011d">{&#34;addBlockedBy&#34;:[&#34;1&#34;],&#34;taskId&#34;:&#34;5&#34;}</li>
+                            <li data-ts="2026-03-28T18:49:27Z" data-tool="Read" data-success="true" data-event-id="evt-01a3521a">/Users/shakes/DevProjects/htmlgraph/packages/go/internal/models/enums.go</li>
+                            <li data-ts="2026-03-28T18:49:27Z" data-tool="Read" data-success="true" data-event-id="evt-0de9b301">/Users/shakes/DevProjects/htmlgraph/packages/go/internal/workitem/collection.go</li>
+                            <li data-ts="2026-03-28T18:49:28Z" data-tool="Read" data-success="true" data-event-id="evt-d13b6466">/Users/shakes/DevProjects/htmlgraph/packages/go/cmd/htmlgraph/workitem.go</li>
+                            <li data-ts="2026-03-28T18:49:34Z" data-tool="Read" data-success="true" data-event-id="evt-31783af4">/Users/shakes/DevProjects/htmlgraph/packages/go/cmd/htmlgraph/link.go</li>
+                            <li data-ts="2026-03-28T18:49:34Z" data-tool="Read" data-success="true" data-event-id="evt-3087719f">/Users/shakes/DevProjects/htmlgraph/packages/go/internal/models/node.go</li>
+                            <li data-ts="2026-03-28T18:49:34Z" data-tool="Read" data-success="true" data-event-id="evt-466fe125">/Users/shakes/DevProjects/htmlgraph/packages/go/internal/workitem/features.go</li>
+                            <li data-ts="2026-03-28T18:49:39Z" data-tool="Read" data-success="true" data-event-id="evt-e44142c5">/Users/shakes/DevProjects/htmlgraph/packages/go/internal/workitem/base.go</li>
+                            <li data-ts="2026-03-28T18:49:40Z" data-tool="Grep" data-success="true" data-event-id="evt-2b30f8ae">/Users/shakes/DevProjects/htmlgraph/packages/go/internal/db</li>
+                            <li data-ts="2026-03-28T18:49:44Z" data-tool="Grep" data-success="true" data-event-id="evt-1b038893">/Users/shakes/DevProjects/htmlgraph/packages/go/internal/workitem</li>
+                            <li data-ts="2026-03-28T18:49:51Z" data-tool="TaskUpdate" data-success="true" data-event-id="evt-da67b2d1">{&#34;status&#34;:&#34;in_progress&#34;,&#34;taskId&#34;:&#34;1&#34;}</li>
+                            <li data-ts="2026-03-28T18:49:52Z" data-tool="TaskUpdate" data-success="true" data-event-id="evt-25cf5f5e">{&#34;status&#34;:&#34;in_progress&#34;,&#34;taskId&#34;:&#34;2&#34;}</li>
+                            <li data-ts="2026-03-28T18:50:13Z" data-tool="Agent" data-success="true" data-event-id="evt-9e4bfa9b">## Task: Normalize relationship strings to underscores
+**Track:** trk-fbe18084 — Automatic Work Item Relationship Enfo…</li>
+                            <li data-ts="2026-03-28T18:50:33Z" data-tool="Agent" data-success="true" data-event-id="evt-c095f333">## Task: Dual-write AddEdge to HTML + SQLite graph_edges
+**Track:** trk-fbe18084 — Automatic Work Item Relationship En…</li>
+                            <li data-ts="2026-03-28T19:24:46Z" data-tool="Bash" data-success="true" data-event-id="evt-70eb7afd">git branch --list &#39;feat-normalize*&#39; &#39;feat-dual*&#39; &#39;worktree-*&#39; --sort=-committerdate 2&gt;/dev/null; echo &#34;---&#34;; git worktre…</li>
+                            <li data-ts="2026-03-28T19:24:54Z" data-tool="Bash" data-success="true" data-event-id="evt-c0188e20">git log --oneline -10 feat-normalize-relationships 2&gt;/dev/null; echo &#34;===&#34;; git log --oneline -5 main 2&gt;/dev/null; echo …</li>
+                            <li data-ts="2026-03-28T19:26:50Z" data-tool="Bash" data-success="true" data-event-id="evt-e94ed9ca">(cd packages/go &amp;&amp; go build ./... &amp;&amp; go vet ./... &amp;&amp; go test ./... 2&gt;&amp;1)</li>
+                            <li data-ts="2026-03-28T19:27:06Z" data-tool="Bash" data-success="true" data-event-id="evt-957151be">git checkout main &amp;&amp; git merge --no-ff feat-normalize-relationships -m &#34;feat: merge Wave 1 — normalize relationships +…</li>
+                            <li data-ts="2026-03-28T19:27:11Z" data-tool="Bash" data-success="true" data-event-id="evt-f40ba72c">(cd packages/go &amp;&amp; go build ./... &amp;&amp; go vet ./... &amp;&amp; go test ./... 2&gt;&amp;1)</li>
+                            <li data-ts="2026-03-28T19:29:59Z" data-tool="TaskUpdate" data-success="true" data-event-id="evt-f1c7f976">{&#34;status&#34;:&#34;completed&#34;,&#34;taskId&#34;:&#34;1&#34;}</li>
+                            <li data-ts="2026-03-28T19:29:59Z" data-tool="TaskUpdate" data-success="true" data-event-id="evt-b4df5c4b">{&#34;status&#34;:&#34;completed&#34;,&#34;taskId&#34;:&#34;2&#34;}</li>
+                            <li data-ts="2026-03-28T19:30:03Z" data-tool="Read" data-success="true" data-event-id="evt-dfc332f9">/Users/shakes/DevProjects/htmlgraph/packages/go/internal/models/enums.go</li>
+                            <li data-ts="2026-03-28T19:30:04Z" data-tool="Read" data-success="true" data-event-id="evt-91306edb">/Users/shakes/DevProjects/htmlgraph/packages/go/internal/workitem/collection.go [185:235]</li>
+                            <li data-ts="2026-03-28T19:30:04Z" data-tool="Read" data-success="true" data-event-id="evt-014b3baa">/Users/shakes/DevProjects/htmlgraph/packages/go/cmd/htmlgraph/workitem.go</li>
+                            <li data-ts="2026-03-28T19:30:19Z" data-tool="TaskUpdate" data-success="true" data-event-id="evt-5760c041">{&#34;status&#34;:&#34;in_progress&#34;,&#34;taskId&#34;:&#34;3&#34;}</li>
+                            <li data-ts="2026-03-28T19:30:20Z" data-tool="TaskUpdate" data-success="true" data-event-id="evt-65225270">{&#34;status&#34;:&#34;in_progress&#34;,&#34;taskId&#34;:&#34;4&#34;}</li>
+                            <li data-ts="2026-03-28T19:30:20Z" data-tool="TaskUpdate" data-success="true" data-event-id="evt-a8a6043a">{&#34;status&#34;:&#34;in_progress&#34;,&#34;taskId&#34;:&#34;5&#34;}</li>
+            </ol>
+        </section>
+    </article>
+</body>
+</html>

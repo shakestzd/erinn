@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="htmlgraph-version" content="1.0">
+    <title>Transcript view: markdown rendering &#43; chat bubble layout &#43; work item badges</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="feat-58214d69"
+             data-type="feature"
+             data-status="done"
+             data-priority="medium"
+             data-created="2026-04-11T10:22:18.866424"
+             data-updated="2026-04-11T11:02:23.721351" data-agent-assigned="claude-code" data-track-id="trk-d8aef97a">
+
+        <header>
+            <h1>Transcript view: markdown rendering &#43; chat bubble layout &#43; work item badges</h1>
+            <div class="metadata">
+                <span class="badge status-done">Done</span>
+                <span class="badge priority-medium">Medium Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="implemented_in">
+                <h3>Implemented In:</h3>
+                <ul>
+                    <li><a href="807386a4-d227-448c-91a8-fac7688e09af.html" data-relationship="implemented_in" data-since="2026-04-11T10:35:41.675915">session 807386a4-d227-448c-91a8-fac7688e09af</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="trk-d8aef97a.html" data-relationship="part_of" data-since="2026-04-11T10:22:18.876343">trk-d8aef97a</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>Three coupled improvements to cmd/htmlgraph/dashboard/components/transcript-view.js and components.css:
+
+1. Markdown rendering for assistant and user messages. Currently transcript-view.js:183 uses content.textContent = text which renders raw markdown literally (## headers, ** bold **, table pipes, code fences all visible as text). Add marked.js v13 from CDN at index.html:217 (consistent with the existing d3.js CDN pattern), pipe message content through marked.parse() into innerHTML, add CSS for h1-h6, table, code, pre, blockquote, ul, ol, li styled to match the existing dashboard typography. Trust model: local transcript data, no DOMPurify needed (htmlgraph runs on the user's own machine, the data is from Claude or the user).
+
+2. Chat bubble layout for user vs assistant differentiation. Update components.css:411-426:
+   - .msg-bubble max-width 92% -> 78% (narrower so chat shape is visible)
+   - .msg-user: align-self: flex-end, margin-left: 22%, border-right (not border-left) 3px solid #58a6ff, background rgba(88,166,255,0.08)
+   - .msg-assistant: align-self: flex-start, margin-right: 22%, keep existing border-left
+   The container at .transcript-messages is already display:flex flex-direction:column so align-self works without wrapping. Meta row stays left-aligned inside the bubble (more transcript-like, easier to scan timestamps in a vertical column).
+
+3. Session-level work item badges in the transcript stats area. Extend api_transcript.go to return a feature_ids array populated from SELECT DISTINCT feature_id FROM agent_events WHERE session_id = ? AND feature_id != ''. transcript-view.js renders each as a clickable badge in renderTranscriptStats next to the existing Plan badge. Reuses existing badge classes (badge, badge-feature, badge-bug, badge-spike, badge-track) for visual consistency.
+
+Per-message work item attribution (mapping each message to the work item active at its timestamp) is deferred to a separate feature — it requires a fiddly timestamp join against agent_events and adds per-bubble visual clutter that needs its own UX consideration.</p>
+        </section>
+    </article>
+</body>
+</html>

@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="htmlgraph-version" content="1.0">
+    <title>Activity feed feature badges show raw IDs instead of titles</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="bug-129042a4"
+             data-type="bug"
+             data-status="done"
+             data-priority="medium"
+             data-created="2026-04-10T07:52:46.970676"
+             data-updated="2026-04-10T07:55:45.622346" data-agent-assigned="claude-code" data-track-id="trk-cb36e595">
+
+        <header>
+            <h1>Activity feed feature badges show raw IDs instead of titles</h1>
+            <div class="metadata">
+                <span class="badge status-done">Done</span>
+                <span class="badge priority-medium">Medium Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="trk-cb36e595.html" data-relationship="part_of" data-since="2026-04-10T07:52:46.971436">trk-cb36e595</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="implemented_in">
+                <h3>Implemented In:</h3>
+                <ul>
+                    <li><a href="8d53982f-66f2-415b-a645-1886eb8ae438.html" data-relationship="implemented_in" data-since="2026-04-10T07:52:52.199525">session 8d53982f-66f2-415b-a645-1886eb8ae438</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>Observed 2026-04-10 in the planbook dashboard: activity feed rows show feature badges rendered as raw IDs like FEAT-C33FD418, FEAT-9AE3F59B, FEAT-3090AE68. Should show the feature title (truncated if needed), matching the execute-log fix from bug-d3afa0e8 but for the dashboard Activity Feed rather than the TaskCreate pipeline.
+
+Likely fix location: cmd/htmlgraph/dashboard/js/app.js or cmd/htmlgraph/dashboard/components/event-tree.js — wherever the activity feed renders feature references. Needs to either resolve the ID to a title client-side from an already-loaded features list, or fetch on demand.</p>
+        </section>
+    </article>
+</body>
+</html>

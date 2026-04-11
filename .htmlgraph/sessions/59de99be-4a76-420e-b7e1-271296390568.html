@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="htmlgraph-version" content="1.0">
+    <title>Session 2026-04-10T08:02:19Z</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="59de99be-4a76-420e-b7e1-271296390568"
+             data-type="session"
+             data-status="completed"
+             data-ended-at="2026-04-10T08:02:42Z"
+             data-agent="human"
+             data-started-at="2026-04-10T08:02:19Z"
+             data-event-count="9"
+             data-is-subagent="false"
+             data-start-commit="87f1df10">
+
+        <header>
+            <h1>Session 2026-04-10T08:02:19Z</h1>
+            <div class="metadata">
+                <span class="badge status-completed">Completed</span>
+                <span class="badge">human</span>
+                <span class="badge">9 events</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+        </nav>
+
+        <section data-activity-log>
+            <ol reversed>
+                            <li data-ts="2026-04-10T08:02:27Z" data-tool="Skill" data-success="true" data-event-id="d5d78385-0aab-477d-b8c0-9d62922ad536">{&#34;args&#34;:&#34;Approved slices → new features (all todo):\n\n  #: 1\n  Feature ID: feat-366e3ee9\n  Ti&#34;,&#34;skill&#34;:&#34;htmlgraph:execute&#34;}</li>
+                            <li data-ts="2026-04-10T08:02:35Z" data-tool="Bash" data-success="true" data-event-id="621b1777-984b-4d8f-ac80-dc3e966e1707">htmlgraph find --status todo --format json | head -50</li>
+                            <li data-ts="2026-04-10T08:02:35Z" data-tool="Bash" data-success="true" data-event-id="b95853df-878a-498b-981f-2cfe193df77b">htmlgraph feature show feat-366e3ee9 --format json 2&gt;/dev/null || echo &#34;Feature not found&#34;</li>
+                            <li data-ts="2026-04-10T08:02:37Z" data-tool="Bash" data-success="true" data-event-id="b35557f8-fdde-40ae-bc71-bf3834303c9e">htmlgraph status 2&gt;&amp;1 | head -30</li>
+                            <li data-ts="2026-04-10T08:02:37Z" data-tool="Bash" data-success="true" data-event-id="b94c0685-24c8-49f6-bd83-b6e3148cb0cd">htmlgraph help --compact 2&gt;&amp;1 | grep -A 5 &#34;feature\|find&#34;</li>
+                            <li data-ts="2026-04-10T08:02:35Z" data-tool="Bash" data-success="false" data-event-id="548bc5fc-33e7-4574-88c8-e23092d47a66" data-status="aborted" data-reason="no-post-hook">[aborted] Bash never completed</li>
+            </ol>
+        </section>
+    </article>
+</body>
+</html>

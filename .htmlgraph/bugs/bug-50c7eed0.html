@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="htmlgraph-version" content="1.0">
+    <title>Execute skill sub-agent attribution guard blocks legitimate dispatch</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="bug-50c7eed0"
+             data-type="bug"
+             data-status="done"
+             data-priority="medium"
+             data-created="2026-04-10T03:23:31.680777"
+             data-updated="2026-04-10T03:42:29.065631" data-agent-assigned="claude-code" data-track-id="trk-cb36e595">
+
+        <header>
+            <h1>Execute skill sub-agent attribution guard blocks legitimate dispatch</h1>
+            <div class="metadata">
+                <span class="badge status-done">Done</span>
+                <span class="badge priority-medium">Medium Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="trk-cb36e595.html" data-relationship="part_of" data-since="2026-04-10T03:23:31.683159">trk-cb36e595</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="implemented_in">
+                <h3>Implemented In:</h3>
+                <ul>
+                    <li><a href="8d53982f-66f2-415b-a645-1886eb8ae438.html" data-relationship="implemented_in" data-since="2026-04-10T03:35:50.88662">session 8d53982f-66f2-415b-a645-1886eb8ae438</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="caused_by">
+                <h3>Caused By:</h3>
+                <ul>
+                    <li><a href="feat-79fd74ba.html" data-relationship="caused_by" data-since="2026-04-10T03:23:31.682008">feat-79fd74ba</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>During autonomous execution of plan-237fb251 via the execute skill on 2026-04-09, sub-agent dispatch hit a policy-level attribution guard that prevented sub-agents from starting features they did not create in their own session. Workaround: ran the dispatch directly in the orchestrator session, which was acceptable only because the 6 hardening slices formed a strictly linear blocked_by chain (no parallel dispatch needed).
+
+This is distinct from bug-d2d3fb3f (the SQLite contention bug fixed by feat-ab67561e / commit a1bca118). The per-(session_id, agent_id) attribution we landed addresses the DB-write race, but there is a separate, earlier guard somewhere in the execute skill or its feature-start call path that checks 'was this feature created in the current session' before allowing the claim. That check is what blocked the sub-agent path today.
+
+Investigation needs: (1) locate the guard — likely in plugin/skills/execute/SKILL.md or in the CLI's feature start permission logic; (2) decide whether the guard is still necessary now that (session_id, agent_id) attribution is the key; (3) if not, remove it so parallel dispatch works end-to-end. If still necessary, document when it fires and surface a clearer error message so the workaround (orchestrator-session execution) is discoverable.
+
+Priority: low. The workaround is fine for strictly-sequential chains like the hardening track. This only matters when a future track has independent parallel slices and we want multi-agent dispatch.</p>
+        </section>
+    </article>
+</body>
+</html>

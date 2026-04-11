@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="htmlgraph-version" content="1.0">
+    <title>One-time backfill migration for legacy SQLite-only sessions</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="feat-b637726b"
+             data-type="feature"
+             data-status="done"
+             data-priority="medium"
+             data-created="2026-04-10T10:01:26.0178"
+             data-updated="2026-04-10T14:28:57.846967" data-agent-assigned="claude-code" data-track-id="trk-97f85b3b">
+
+        <header>
+            <h1>One-time backfill migration for legacy SQLite-only sessions</h1>
+            <div class="metadata">
+                <span class="badge status-done">Done</span>
+                <span class="badge priority-medium">Medium Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="blocked_by">
+                <h3>Blocked By:</h3>
+                <ul>
+                    <li><a href="feat-e6b599dd.html" data-relationship="blocked_by">feat-e6b599dd</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="planned_in">
+                <h3>Planned In:</h3>
+                <ul>
+                    <li><a href="plan-43659c92.html" data-relationship="planned_in" data-since="2026-04-10T10:01:26.018143">plan-43659c92</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="implemented_in">
+                <h3>Implemented In:</h3>
+                <ul>
+                    <li><a href="6206b18b-775e-4c99-8f0c-c6c61c8c954d.html" data-relationship="implemented_in" data-since="2026-04-10T14:22:43.832202">session 6206b18b-775e-4c99-8f0c-c6c61c8c954d</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>Add a migration subcommand that finds every session row with no corresponding HTML file and renders one using slice 1's `renderIngestedSessionHTML` helper. The migration runs once and is not invoked automatically on every CLI call.
+
+**(a) New CLI subcommand.** `htmlgraph migrate sessions [--project-dir
+] [--dry-run]`. Scans `.htmlgraph/sessions/*.html` to build the set of session IDs that already have HTML, then queries the `sessions` table for rows NOT in that set. For each orphan, loads its messages and tool_calls from SQLite and constructs a `ParseResult`-like struct that can be passed to `renderIngestedSessionHTML`.
+
+**(b) Data sources.** The rendered HTML is built from what SQLite has. If the original JSONL transcript is still available via `~/.claude/projects/`, prefer parsing it fresh via the ingest path (higher fidelity). Otherwise, fall back to rendering from the SQLite rows (lower fidelity — missing some event context that was never stored). Report which sessions used which source in the output.
+
+**(c) Dry-run mode.** `--dry-run` prints the list of orphan sessions and their data source without writing any files. Lets the user inspect before committing.
+
+**(d) Progress output.** For each orphan, print `session-id: source= events=N -> .htmlgraph/sessions/.html`. Summary at the end: `Migrated N sessions (M from JSONL, K from SQLite fallback, L errors)`.
+
+**(e) Error handling.** If a single session fails to render (e.g., malformed SQLite row, missing messages), log the error and continue with the next. Do not abort the whole migration. Final report shows errors at the end.
+
+**(f) Idempotency.** Running the migration twice is a no-op on the second run — the skip-if-exists check from slice 1 means already-migrated sessions are left alone. Useful for users who want to safely re-run.
+
+This closes Gap 3.</p>
+        </section>
+    </article>
+</body>
+</html>

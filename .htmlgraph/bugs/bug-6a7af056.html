@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="htmlgraph-version" content="1.0">
+    <title>Flaky: TestGetOrSpawnHandshake times out at 2s under full-suite parallel load</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="bug-6a7af056"
+             data-type="bug"
+             data-status="done"
+             data-priority="medium"
+             data-created="2026-04-11T02:52:36.059537"
+             data-updated="2026-04-11T03:03:49.307438" data-agent-assigned="claude-code" data-track-id="trk-0677c709">
+
+        <header>
+            <h1>Flaky: TestGetOrSpawnHandshake times out at 2s under full-suite parallel load</h1>
+            <div class="metadata">
+                <span class="badge status-done">Done</span>
+                <span class="badge priority-medium">Medium Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="caused_by">
+                <h3>Caused By:</h3>
+                <ul>
+                    <li><a href="feat-c57c9b9c.html" data-relationship="caused_by" data-since="2026-04-11T02:52:36.061111">feat-c57c9b9c</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="trk-0677c709.html" data-relationship="part_of" data-since="2026-04-11T02:52:36.062009">trk-0677c709</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="implemented_in">
+                <h3>Implemented In:</h3>
+                <ul>
+                    <li><a href="8d53982f-66f2-415b-a645-1886eb8ae438.html" data-relationship="implemented_in" data-since="2026-04-11T02:58:32.434904">session 8d53982f-66f2-415b-a645-1886eb8ae438</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>TestGetOrSpawnHandshake in internal/childproc passes in 0.19s when run in isolation but times out at 2s when go test ./... runs the full suite in parallel. The 2s handshake budget is too tight for the childproc supervisor under I/O pressure from parallel packages. Observed on 2026-04-11 while running post-commit quality gates for feat-c57c9b9c (devcontainer rewrite). Not caused by any Go code changes. Fix: bump the handshake timeout in childproc_test.go:68 or skip under -short, or make the test tolerate one retry before failing.</p>
+        </section>
+    </article>
+</body>
+</html>

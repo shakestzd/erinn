@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="htmlgraph-version" content="1.0">
+    <title>Session 2026-04-02T06:38:56Z</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="7501d3c9-9b0c-411d-9940-f0a8121141ab"
+             data-type="session"
+             data-status="completed"
+             data-ended-at="2026-04-02T06:47:08Z"
+             data-agent="claude-code"
+             data-started-at="2026-04-02T06:38:56Z"
+             data-event-count="61"
+             data-is-subagent="false"
+             data-start-commit="">
+
+        <header>
+            <h1>Session 2026-04-02T06:38:56Z</h1>
+            <div class="metadata">
+                <span class="badge status-completed">Completed</span>
+                <span class="badge">claude-code</span>
+                <span class="badge">61 events</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+        </nav>
+
+        <section data-activity-log>
+            <ol reversed>
+                            <li data-ts="2026-04-02T06:39:03Z" data-tool="Bash" data-success="true" data-event-id="evt-e20736db">git branch --list &#39;parallel-*&#39; &#39;task-*&#39; &#39;worktree-*&#39; 2&gt;/dev/null; echo &#34;---&#34;; git worktree list 2&gt;/dev/null</li>
+                            <li data-ts="2026-04-02T06:39:04Z" data-tool="Bash" data-success="true" data-event-id="evt-92585a27">git status --short | head -40</li>
+                            <li data-ts="2026-04-02T06:39:04Z" data-tool="Bash" data-success="true" data-event-id="evt-fd9f6d15">git log --oneline -15</li>
+                            <li data-ts="2026-04-02T06:39:15Z" data-tool="Bash" data-success="true" data-event-id="evt-cdac4892">for branch in $(git branch --list &#39;worktree-agent-*&#39; | tr -d &#39; &#39;); do echo &#34;=== $branch ===&#34;; git log --oneline main..$b…</li>
+                            <li data-ts="2026-04-02T06:39:15Z" data-tool="Bash" data-success="true" data-event-id="evt-4105895a">git diff --stat HEAD 2&gt;/dev/null | tail -5</li>
+                            <li data-ts="2026-04-02T06:39:25Z" data-tool="Bash" data-success="true" data-event-id="evt-4cc4b7ac">go build ./... 2&gt;&amp;1</li>
+                            <li data-ts="2026-04-02T06:39:25Z" data-tool="Bash" data-success="true" data-event-id="evt-140b61bb">go vet ./... 2&gt;&amp;1</li>
+                            <li data-ts="2026-04-02T06:39:29Z" data-tool="Bash" data-success="true" data-event-id="evt-2014570c">go test ./... 2&gt;&amp;1</li>
+                            <li data-ts="2026-04-02T06:39:37Z" data-tool="Read" data-success="true" data-event-id="evt-af1be4d4">/Users/shakes/DevProjects/htmlgraph/.htmlgraph/features/feat-180ab53f.html</li>
+                            <li data-ts="2026-04-02T06:39:37Z" data-tool="Read" data-success="true" data-event-id="evt-507c3106">/Users/shakes/DevProjects/htmlgraph/.htmlgraph/features/feat-33c853ef.html</li>
+                            <li data-ts="2026-04-02T06:39:41Z" data-tool="Read" data-success="true" data-event-id="evt-9b91f183">/Users/shakes/DevProjects/htmlgraph/.htmlgraph/tracks/trk-36f636eb.html</li>
+                            <li data-ts="2026-04-02T06:39:46Z" data-tool="Read" data-success="true" data-event-id="evt-e55e0ea1">/Users/shakes/DevProjects/htmlgraph/.htmlgraph/plans/plan-cli-error-message-quality-agent-friendly.html</li>
+                            <li data-ts="2026-04-02T06:39:49Z" data-tool="Read" data-success="true" data-event-id="evt-faa63f8b">/Users/shakes/DevProjects/htmlgraph/.htmlgraph/plans/plan-cli-error-message-quality-agent-friendly.html [:100]</li>
+                            <li data-ts="2026-04-02T06:39:56Z" data-tool="Grep" data-success="true" data-event-id="evt-7aa0e0ac">/Users/shakes/DevProjects/htmlgraph/.htmlgraph/plans/plan-cli-error-message-quality-agent-friendly.html</li>
+                            <li data-ts="2026-04-02T06:39:59Z" data-tool="Grep" data-success="true" data-event-id="evt-8b789528">/Users/shakes/DevProjects/htmlgraph/.htmlgraph/plans/plan-cli-error-message-quality-agent-friendly.html</li>
+                            <li data-ts="2026-04-02T06:40:08Z" data-tool="Read" data-success="true" data-event-id="evt-afc3e18d">/Users/shakes/DevProjects/htmlgraph/internal/workitem/errors.go</li>
+                            <li data-ts="2026-04-02T06:40:09Z" data-tool="Read" data-success="true" data-event-id="evt-b39c64b3">/Users/shakes/DevProjects/htmlgraph/internal/workitem/resolve.go</li>
+                            <li data-ts="2026-04-02T06:40:13Z" data-tool="Bash" data-success="true" data-event-id="evt-eaab592c">ls /Users/shakes/DevProjects/htmlgraph/cmd/htmlgraph/yolo.go /Users/shakes/DevProjects/htmlgraph/cmd/htmlgraph/track_pr.…</li>
+                            <li data-ts="2026-04-02T06:40:18Z" data-tool="Grep" data-success="true" data-event-id="evt-a01aed4f">/Users/shakes/DevProjects/htmlgraph/cmd/htmlgraph/yolo.go</li>
+                            <li data-ts="2026-04-02T06:40:19Z" data-tool="Grep" data-success="true" data-event-id="evt-7f4d19b9">/Users/shakes/DevProjects/htmlgraph/cmd/htmlgraph/track_pr.go</li>
+                            <li data-ts="2026-04-02T06:40:20Z" data-tool="Grep" data-success="true" data-event-id="evt-77054ac8">/Users/shakes/DevProjects/htmlgraph/cmd/htmlgraph/track_status.go</li>
+                            <li data-ts="2026-04-02T06:41:32Z" data-tool="Grep" data-success="true" data-event-id="evt-650ee608">/Users/shakes/DevProjects/htmlgraph/cmd/htmlgraph</li>
+                            <li data-ts="2026-04-02T06:41:35Z" data-tool="Read" data-success="true" data-event-id="evt-9d7a4458">/Users/shakes/DevProjects/htmlgraph/cmd/htmlgraph/claude.go</li>
+                            <li data-ts="2026-04-02T06:41:57Z" data-tool="Bash" data-success="true" data-event-id="evt-ee6a5066">cat /Users/shakes/DevProjects/htmlgraph/.htmlgraph/.dev-mode-backup 2&gt;&amp;1 || echo &#34;NO BACKUP FILE&#34;</li>
+                            <li data-ts="2026-04-02T06:41:57Z" data-tool="Bash" data-success="true" data-event-id="evt-969bc28e">ls -la ~/.claude/plugins/cache/htmlgraph/htmlgraph/ 2&gt;/dev/null || echo &#34;NO CACHE DIR&#34;; echo &#34;---&#34;; ls -la ~/.claude/plu…</li>
+                            <li data-ts="2026-04-02T06:41:59Z" data-tool="Bash" data-success="true" data-event-id="evt-b7cb1ca0">python3 -c &#34;import json; d=json.load(open(&#39;$HOME/.claude/plugins/installed_plugins.json&#39;)); p=d.get(&#39;plugins&#39;,{}); hg=p.…</li>
+                            <li data-ts="2026-04-02T06:42:03Z" data-tool="Bash" data-success="true" data-event-id="evt-17e1b504">ls -la ~/.claude/plugins/cache/htmlgraph/htmlgraph/0.42.2/ 2&gt;/dev/null; echo &#34;---&#34;; ls -la ~/.claude/plugins/cache/htmlg…</li>
+                            <li data-ts="2026-04-02T06:42:03Z" data-tool="Bash" data-success="true" data-event-id="evt-1aadc093">file ~/.claude/plugins/cache/htmlgraph/htmlgraph/0.42.2 2&gt;&amp;1</li>
+                            <li data-ts="2026-04-02T06:42:10Z" data-tool="Bash" data-success="true" data-event-id="evt-39fb366f">which htmlgraph 2&gt;&amp;1; echo &#34;---&#34;; htmlgraph claude --dev 2&gt;&amp;1 &amp;; PID=$!; sleep 3; kill -0 $PID 2&gt;/dev/null &amp;&amp; echo &#34;STIL…</li>
+                            <li data-ts="2026-04-02T06:42:18Z" data-tool="Bash" data-success="true" data-event-id="evt-3af3d79b">htmlgraph claude --dev 2&gt;&amp;1; echo &#34;EXIT: $?&#34;</li>
+                            <li data-ts="2026-04-02T06:42:27Z" data-tool="Bash" data-success="true" data-event-id="evt-d33beaac">file ~/.local/bin/htmlgraph 2&gt;&amp;1; echo &#34;---&#34;; ls -la ~/.local/bin/htmlgraph 2&gt;&amp;1</li>
+                            <li data-ts="2026-04-02T06:42:27Z" data-tool="Bash" data-success="true" data-event-id="evt-400d333d">codesign -vvv ~/.local/bin/htmlgraph 2&gt;&amp;1 || true</li>
+                            <li data-ts="2026-04-02T06:42:38Z" data-tool="Bash" data-success="true" data-event-id="evt-d3797a88">htmlgraph version 2&gt;&amp;1; echo &#34;EXIT: $?&#34;</li>
+                            <li data-ts="2026-04-02T06:42:39Z" data-tool="Bash" data-success="true" data-event-id="evt-73e3caa6">htmlgraph status 2&gt;&amp;1 | head -5; echo &#34;EXIT: $?&#34;</li>
+                            <li data-ts="2026-04-02T06:42:45Z" data-tool="Bash" data-success="true" data-event-id="evt-8faa6b59">htmlgraph help 2&gt;&amp;1 | head -3; echo &#34;EXIT: $?&#34;</li>
+                            <li data-ts="2026-04-02T06:42:45Z" data-tool="Bash" data-success="true" data-event-id="evt-ba9a39d1">htmlgraph snapshot --summary 2&gt;&amp;1 | head -5; echo &#34;EXIT: $?&#34;</li>
+                            <li data-ts="2026-04-02T06:42:52Z" data-tool="Bash" data-success="true" data-event-id="evt-b7b8de88">file /Users/shakes/DevProjects/htmlgraph/htmlgraph 2&gt;&amp;1; ls -la /Users/shakes/DevProjects/htmlgraph/htmlgraph 2&gt;&amp;1</li>
+                            <li data-ts="2026-04-02T06:43:10Z" data-tool="Bash" data-success="true" data-event-id="evt-a9eea952">/Users/shakes/.local/bin/htmlgraph version 2&gt;&amp;1; echo &#34;EXIT: $?&#34;</li>
+                            <li data-ts="2026-04-02T06:43:11Z" data-tool="Bash" data-success="true" data-event-id="evt-6d3af72c">/Users/shakes/DevProjects/htmlgraph/htmlgraph version 2&gt;&amp;1; echo &#34;EXIT: $?&#34;</li>
+                            <li data-ts="2026-04-02T06:43:31Z" data-tool="Bash" data-success="true" data-event-id="evt-704266ba">/Users/shakes/DevProjects/htmlgraph/htmlgraph claude --dev 2&gt;&amp;1 | head -5; echo &#34;EXIT: $?&#34;</li>
+                            <li data-ts="2026-04-02T06:43:47Z" data-tool="Read" data-success="true" data-event-id="evt-cd5b3151">/Users/shakes/DevProjects/htmlgraph/plugin/build.sh</li>
+                            <li data-ts="2026-04-02T06:43:51Z" data-tool="Bash" data-success="true" data-event-id="evt-352bab1c">(plugin/build.sh) 2&gt;&amp;1</li>
+                            <li data-ts="2026-04-02T06:44:02Z" data-tool="Bash" data-success="true" data-event-id="evt-e98d193c">htmlgraph version 2&gt;&amp;1; echo &#34;EXIT: $?&#34;</li>
+                            <li data-ts="2026-04-02T06:44:10Z" data-tool="Bash" data-success="true" data-event-id="evt-e0ec2718">dmesg 2&gt;&amp;1 | grep -i htmlgraph | tail -5 || true; echo &#34;---&#34;; log show --predicate &#39;process == &#34;htmlgraph&#34;&#39; --last 1m --…</li>
+                            <li data-ts="2026-04-02T06:44:17Z" data-tool="Bash" data-success="true" data-event-id="evt-c96b1b6c">log show --predicate &#39;process == &#34;htmlgraph&#34;&#39; --last 1m --style compact 2&gt;&amp;1 | head -10</li>
+                            <li data-ts="2026-04-02T06:44:18Z" data-tool="Grep" data-success="true" data-event-id="evt-5f4103b3">/Users/shakes/DevProjects/htmlgraph/cmd/htmlgraph</li>
+                            <li data-ts="2026-04-02T06:44:22Z" data-tool="Bash" data-success="true" data-event-id="evt-cc8d57b3">/bin/bash -c &#39;log show --predicate &#34;process == \&#34;htmlgraph\&#34;&#34; --last 1m --style compact&#39; 2&gt;&amp;1 | head -10</li>
+                            <li data-ts="2026-04-02T06:44:23Z" data-tool="Grep" data-success="true" data-event-id="evt-68ee5a37">/Users/shakes/DevProjects/htmlgraph/cmd/htmlgraph/main.go</li>
+                            <li data-ts="2026-04-02T06:44:36Z" data-tool="Bash" data-success="true" data-event-id="evt-8c7b575c">ls -la ~/.local/bin/htmlgraph 2&gt;&amp;1; echo &#34;---&#34;; ls -la /Users/shakes/DevProjects/htmlgraph/plugin/hooks/bin/htmlgraph 2&gt;…</li>
+                            <li data-ts="2026-04-02T06:44:36Z" data-tool="Bash" data-success="true" data-event-id="evt-a09d6f10">md5 ~/.local/bin/htmlgraph /Users/shakes/DevProjects/htmlgraph/plugin/hooks/bin/htmlgraph 2&gt;&amp;1</li>
+                            <li data-ts="2026-04-02T06:44:40Z" data-tool="Bash" data-success="true" data-event-id="evt-f6fcc8b1">/Users/shakes/DevProjects/htmlgraph/plugin/hooks/bin/htmlgraph version 2&gt;&amp;1; echo &#34;EXIT: $?&#34;</li>
+                            <li data-ts="2026-04-02T06:44:45Z" data-tool="Bash" data-success="true" data-event-id="evt-f0b0ca75">cp ~/.local/bin/htmlgraph /tmp/htmlgraph-test &amp;&amp; /tmp/htmlgraph-test version 2&gt;&amp;1; echo &#34;EXIT: $?&#34;</li>
+                            <li data-ts="2026-04-02T06:44:53Z" data-tool="Bash" data-success="true" data-event-id="evt-d4696c9a">xattr -l ~/.local/bin/htmlgraph 2&gt;&amp;1; echo &#34;---&#34;; xattr -l /tmp/htmlgraph-test 2&gt;&amp;1</li>
+                            <li data-ts="2026-04-02T06:44:53Z" data-tool="Bash" data-success="true" data-event-id="evt-defc95e7">ls -la@e ~/.local/bin/htmlgraph 2&gt;&amp;1</li>
+                            <li data-ts="2026-04-02T06:45:04Z" data-tool="Bash" data-success="true" data-event-id="evt-8b473b7d">ls ~/.local/bin/ | head -10; echo &#34;---&#34;; /usr/bin/env htmlgraph version 2&gt;&amp;1; echo &#34;EXIT: $?&#34;</li>
+                            <li data-ts="2026-04-02T06:45:09Z" data-tool="Bash" data-success="true" data-event-id="evt-346a35b6"># Test if the sandbox allows executing other binaries from ~/.local/bin/
+~/.local/bin/ruff version 2&gt;&amp;1; echo &#34;EXIT: $?&#34;</li>
+                            <li data-ts="2026-04-02T06:45:25Z" data-tool="Bash" data-success="true" data-event-id="evt-c6e60908">rm ~/.local/bin/htmlgraph &amp;&amp; cp /Users/shakes/DevProjects/htmlgraph/plugin/hooks/bin/htmlgraph ~/.local/bin/htmlgraph &amp;&amp;…</li>
+                            <li data-ts="2026-04-02T06:45:39Z" data-tool="Bash" data-success="true" data-event-id="evt-8104cdff">htmlgraph claude --dev 2&gt;&amp;1 | head -5; echo &#34;EXIT: $?&#34;</li>
+                            <li data-ts="2026-04-02T06:46:48Z" data-tool="Read" data-success="true" data-event-id="evt-712f6e6c">/Users/shakes/DevProjects/htmlgraph/plugin/build.sh [56:69]</li>
+                            <li data-ts="2026-04-02T06:46:52Z" data-tool="Edit" data-success="true" data-event-id="evt-bad465b1">/Users/shakes/DevProjects/htmlgraph/plugin/build.sh</li>
+                            <li data-ts="2026-04-02T06:47:08Z" data-tool="Edit" data-success="true" data-event-id="evt-7f8f523c">/Users/shakes/DevProjects/htmlgraph/plugin/build.sh</li>
+            </ol>
+        </section>
+    </article>
+</body>
+</html>

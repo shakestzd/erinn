@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="htmlgraph-version" content="1.0">
+    <title>Session 2026-04-08T11:51:56Z</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="fc553141-26ab-4a3d-bd94-60d8e520d4c1"
+             data-type="session"
+             data-status="completed"
+             data-ended-at="2026-04-08T11:56:55Z"
+             data-agent="claude-code"
+             data-started-at="2026-04-08T11:51:56Z"
+             data-event-count="52"
+             data-is-subagent="false"
+             data-start-commit="">
+
+        <header>
+            <h1>Session 2026-04-08T11:51:56Z</h1>
+            <div class="metadata">
+                <span class="badge status-completed">Completed</span>
+                <span class="badge">claude-code</span>
+                <span class="badge">52 events</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+        </nav>
+
+        <section data-activity-log>
+            <ol reversed>
+                            <li data-ts="2026-04-08T11:52:02Z" data-tool="Bash" data-success="true" data-event-id="evt-b24f0ff1">git status --short &amp;&amp; echo &#34;---&#34; &amp;&amp; htmlgraph find --status in-progress 2&gt;&amp;1 | head -20</li>
+                            <li data-ts="2026-04-08T11:52:03Z" data-tool="Grep" data-success="true" data-event-id="evt-16d1ffe8">/Users/shakes/DevProjects/htmlgraph/.claude/worktrees/trk-b0377def</li>
+                            <li data-ts="2026-04-08T11:52:04Z" data-tool="Grep" data-success="true" data-event-id="evt-c7a725f6">/Users/shakes/DevProjects/htmlgraph/.claude/worktrees/trk-b0377def</li>
+                            <li data-ts="2026-04-08T11:52:05Z" data-tool="Grep" data-success="true" data-event-id="evt-bac234d2">/Users/shakes/DevProjects/htmlgraph/.claude/worktrees/trk-b0377def</li>
+                            <li data-ts="2026-04-08T11:52:09Z" data-tool="Read" data-success="true" data-event-id="evt-c89d5c57">/Users/shakes/DevProjects/htmlgraph/.claude/worktrees/trk-b0377def/cmd/htmlgraph/find.go [:40]</li>
+                            <li data-ts="2026-04-08T11:52:10Z" data-tool="Read" data-success="true" data-event-id="evt-d4c94038">/Users/shakes/DevProjects/htmlgraph/.claude/worktrees/trk-b0377def/cmd/htmlgraph/plan_create.go [140:190]</li>
+                            <li data-ts="2026-04-08T11:52:11Z" data-tool="Grep" data-success="true" data-event-id="evt-c88750de">/Users/shakes/DevProjects/htmlgraph/.claude/worktrees/trk-b0377def</li>
+                            <li data-ts="2026-04-08T11:52:12Z" data-tool="Grep" data-success="true" data-event-id="evt-f1632eee">/Users/shakes/DevProjects/htmlgraph/.claude/worktrees/trk-b0377def/cmd/htmlgraph</li>
+                            <li data-ts="2026-04-08T11:52:15Z" data-tool="Read" data-success="true" data-event-id="evt-2a2a8a64">/Users/shakes/DevProjects/htmlgraph/.claude/worktrees/trk-b0377def/cmd/htmlgraph/plan_yaml_extras.go</li>
+                            <li data-ts="2026-04-08T11:52:16Z" data-tool="Read" data-success="true" data-event-id="evt-49fd8834">/Users/shakes/DevProjects/htmlgraph/.claude/worktrees/trk-b0377def/cmd/htmlgraph/serve.go</li>
+                            <li data-ts="2026-04-08T11:52:16Z" data-tool="Glob" data-success="true" data-event-id="evt-bee64542">/Users/shakes/DevProjects/htmlgraph/.claude/worktrees/trk-b0377def</li>
+                            <li data-ts="2026-04-08T11:52:22Z" data-tool="Glob" data-success="true" data-event-id="evt-2a8329a8">/Users/shakes/DevProjects/htmlgraph/.claude/worktrees/trk-b0377def</li>
+                            <li data-ts="2026-04-08T11:52:23Z" data-tool="Read" data-success="true" data-event-id="evt-2077b454">/Users/shakes/DevProjects/htmlgraph/.claude/worktrees/trk-b0377def/internal/ingest/discover.go</li>
+                            <li data-ts="2026-04-08T11:52:24Z" data-tool="Bash" data-success="true" data-event-id="evt-36485e51">(head -5 .htmlgraph/plans/plan-32c7b8fb.yaml)</li>
+                            <li data-ts="2026-04-08T11:52:47Z" data-tool="ToolSearch" data-success="true" data-event-id="evt-0a77f9c7">select:TaskCreate,TaskUpdate</li>
+                            <li data-ts="2026-04-08T11:52:51Z" data-tool="TaskCreate" data-success="true" data-event-id="evt-8c4f2671">{&#34;activeForm&#34;:&#34;Fixing find command plan ID lookup&#34;,&#34;description&#34;:&#34;Add `plan|` to workItemIDPattern regex and add `plans`/`specs` to knownCollections in find.go&#34;,&#34;subject&#34;:&#34;Fix `htmlgraph find` plan ID…</li>
+                            <li data-ts="2026-04-08T11:52:52Z" data-tool="TaskCreate" data-success="true" data-event-id="evt-628d783f">{&#34;activeForm&#34;:&#34;Fixing rewrite-yaml ID sync&#34;,&#34;description&#34;:&#34;Force meta.id to match planID arg instead of erroring, preventing drift between YAML and HTML&#34;,&#34;subject&#34;:&#34;Fix `plan rewrite-yaml` HTML/YAML I…</li>
+                            <li data-ts="2026-04-08T11:52:54Z" data-tool="TaskCreate" data-success="true" data-event-id="evt-27269906">{&#34;activeForm&#34;:&#34;Fixing orphaned plan files&#34;,&#34;description&#34;:&#34;Rename plan-32c7b8fb.yaml to plan-368a5cd2.yaml, update meta.id, and prevent future mismatches in enrichPageFromYAML&#34;,&#34;subject&#34;:&#34;Fix orphaned …</li>
+                            <li data-ts="2026-04-08T11:52:55Z" data-tool="TaskCreate" data-success="true" data-event-id="evt-084ff08d">{&#34;activeForm&#34;:&#34;Fixing session ingestion filter&#34;,&#34;description&#34;:&#34;Fix autoIngestOnce project filter logic in serve.go — current exact-match filter misses worktree sessions&#34;,&#34;subject&#34;:&#34;Fix dashboard act…</li>
+                            <li data-ts="2026-04-08T11:52:58Z" data-tool="TaskCreate" data-success="true" data-event-id="evt-88a589c5">{&#34;activeForm&#34;:&#34;Implementing plan render command&#34;,&#34;description&#34;:&#34;Add `plan render` command that produces full dashboard-identical HTML from YAML using plan_page.gohtml. Minimal HTML from plan create, f…</li>
+                            <li data-ts="2026-04-08T11:53:01Z" data-tool="TaskUpdate" data-success="true" data-event-id="evt-978a8e7c">{&#34;addBlockedBy&#34;:[&#34;1&#34;,&#34;2&#34;,&#34;3&#34;,&#34;4&#34;],&#34;taskId&#34;:&#34;5&#34;}</li>
+                            <li data-ts="2026-04-08T11:53:07Z" data-tool="Read" data-success="true" data-event-id="evt-e57c2f86">/Users/shakes/DevProjects/htmlgraph/.claude/worktrees/trk-b0377def/cmd/htmlgraph/plan_create.go</li>
+                            <li data-ts="2026-04-08T11:53:08Z" data-tool="Grep" data-success="true" data-event-id="evt-5bc04fbf">/Users/shakes/DevProjects/htmlgraph/.claude/worktrees/trk-b0377def/cmd/htmlgraph</li>
+                            <li data-ts="2026-04-08T11:53:08Z" data-tool="Bash" data-success="true" data-event-id="evt-610421d4">pwd</li>
+                            <li data-ts="2026-04-08T11:53:15Z" data-tool="Read" data-success="true" data-event-id="evt-475aeb67">/Users/shakes/DevProjects/htmlgraph/.claude/worktrees/trk-b0377def/cmd/htmlgraph/plan_cmds.go [65:185]</li>
+                            <li data-ts="2026-04-08T11:53:16Z" data-tool="Bash" data-success="true" data-event-id="evt-26874d4f">(head -5 .htmlgraph/plans/plan-368a5cd2.yaml 2&gt;/dev/null || echo &#34;plan-368a5cd2.yaml does not exist&#34;)</li>
+                            <li data-ts="2026-04-08T11:53:16Z" data-tool="Bash" data-success="true" data-event-id="evt-0eed9bc2">(grep -l &#34;plan-368a5cd2\|plan-32c7b8fb&#34; .htmlgraph/plans/*.html 2&gt;/dev/null)</li>
+                            <li data-ts="2026-04-08T11:53:23Z" data-tool="Bash" data-success="true" data-event-id="evt-6b18c11f">ls ~/.claude/projects/ | grep -i htmlgraph</li>
+                            <li data-ts="2026-04-08T11:53:24Z" data-tool="Read" data-success="true" data-event-id="evt-8a49f495">/Users/shakes/DevProjects/htmlgraph/.claude/worktrees/trk-b0377def/cmd/htmlgraph/plan_cmds.go [180:250]</li>
+                            <li data-ts="2026-04-08T11:54:48Z" data-tool="TaskUpdate" data-success="true" data-event-id="evt-c46f8053">{&#34;status&#34;:&#34;in_progress&#34;,&#34;taskId&#34;:&#34;1&#34;}</li>
+                            <li data-ts="2026-04-08T11:54:54Z" data-tool="Edit" data-success="true" data-event-id="evt-95a142a6">/Users/shakes/DevProjects/htmlgraph/.claude/worktrees/trk-b0377def/cmd/htmlgraph/find.go</li>
+                            <li data-ts="2026-04-08T11:54:56Z" data-tool="Edit" data-success="true" data-event-id="evt-9fe55251">/Users/shakes/DevProjects/htmlgraph/.claude/worktrees/trk-b0377def/cmd/htmlgraph/find.go</li>
+                            <li data-ts="2026-04-08T11:55:00Z" data-tool="Bash" data-success="true" data-event-id="evt-946ed7ae">htmlgraph bug start bug-d7c80546 2&gt;&amp;1</li>
+                            <li data-ts="2026-04-08T11:55:05Z" data-tool="Edit" data-success="true" data-event-id="evt-2bb25048">/Users/shakes/DevProjects/htmlgraph/.claude/worktrees/trk-b0377def/cmd/htmlgraph/find.go</li>
+                            <li data-ts="2026-04-08T11:55:07Z" data-tool="Edit" data-success="true" data-event-id="evt-d9256904">/Users/shakes/DevProjects/htmlgraph/.claude/worktrees/trk-b0377def/cmd/htmlgraph/find.go</li>
+                            <li data-ts="2026-04-08T11:55:11Z" data-tool="Bash" data-success="true" data-event-id="evt-740c9154">htmlgraph wip show 2&gt;&amp;1</li>
+                            <li data-ts="2026-04-08T11:55:15Z" data-tool="Bash" data-success="true" data-event-id="evt-7d32faaf">htmlgraph status 2&gt;&amp;1</li>
+                            <li data-ts="2026-04-08T11:55:22Z" data-tool="Bash" data-success="true" data-event-id="evt-2fded6a0">htmlgraph find bug-d7c80546 2&gt;&amp;1</li>
+                            <li data-ts="2026-04-08T11:55:26Z" data-tool="Grep" data-success="true" data-event-id="evt-9c08284b">/Users/shakes/DevProjects/htmlgraph/.claude/worktrees/trk-b0377def</li>
+                            <li data-ts="2026-04-08T11:55:31Z" data-tool="Read" data-success="true" data-event-id="evt-dcb4cc19">/Users/shakes/DevProjects/htmlgraph/.claude/worktrees/trk-b0377def/internal/hooks/yolo_guard.go [:110]</li>
+                            <li data-ts="2026-04-08T11:55:45Z" data-tool="Grep" data-success="true" data-event-id="evt-2fe2fd9e">/Users/shakes/DevProjects/htmlgraph/.claude/worktrees/trk-b0377def</li>
+                            <li data-ts="2026-04-08T11:56:01Z" data-tool="Grep" data-success="true" data-event-id="evt-1356528c">/Users/shakes/DevProjects/htmlgraph/.claude/worktrees/trk-b0377def/internal/hooks</li>
+                            <li data-ts="2026-04-08T11:56:04Z" data-tool="Grep" data-success="true" data-event-id="evt-fe5e188d">/Users/shakes/DevProjects/htmlgraph/.claude/worktrees/trk-b0377def</li>
+                            <li data-ts="2026-04-08T11:56:08Z" data-tool="Read" data-success="true" data-event-id="evt-0c9ec921">/Users/shakes/DevProjects/htmlgraph/.claude/worktrees/trk-b0377def/cmd/htmlgraph/workitem.go [180:210]</li>
+                            <li data-ts="2026-04-08T11:56:14Z" data-tool="Bash" data-success="true" data-event-id="evt-a80f632f">echo $CLAUDE_SESSION_ID</li>
+                            <li data-ts="2026-04-08T11:56:17Z" data-tool="Bash" data-success="true" data-event-id="evt-b6497713">sqlite3 .htmlgraph/htmlgraph.db &#34;SELECT session_id, COALESCE(active_feature_id,&#39;(none)&#39;) FROM sessions ORDER BY created_…</li>
+                            <li data-ts="2026-04-08T11:56:26Z" data-tool="Bash" data-success="true" data-event-id="evt-0b4d2514">cat .htmlgraph/.launch-mode 2&gt;/dev/null || echo &#34;no launch-mode file&#34;</li>
+                            <li data-ts="2026-04-08T11:56:37Z" data-tool="Grep" data-success="true" data-event-id="evt-679aa9b0">/Users/shakes/DevProjects/htmlgraph/.claude/worktrees/trk-b0377def/internal/hooks</li>
+                            <li data-ts="2026-04-08T11:56:41Z" data-tool="Read" data-success="true" data-event-id="evt-c2805691">/Users/shakes/DevProjects/htmlgraph/.claude/worktrees/trk-b0377def/internal/hooks/pretooluse.go [60:110]</li>
+                            <li data-ts="2026-04-08T11:56:45Z" data-tool="Grep" data-success="true" data-event-id="evt-e291c6a9">/Users/shakes/DevProjects/htmlgraph/.claude/worktrees/trk-b0377def/internal/hooks</li>
+                            <li data-ts="2026-04-08T11:56:49Z" data-tool="Grep" data-success="true" data-event-id="evt-d6cbe715">/Users/shakes/DevProjects/htmlgraph/.claude/worktrees/trk-b0377def/internal/hooks</li>
+                            <li data-ts="2026-04-08T11:56:55Z" data-tool="Read" data-success="true" data-event-id="evt-5f38ad53">/Users/shakes/DevProjects/htmlgraph/.claude/worktrees/trk-b0377def/internal/hooks/tooluse_shared.go [:45]</li>
+            </ol>
+        </section>
+    </article>
+</body>
+</html>

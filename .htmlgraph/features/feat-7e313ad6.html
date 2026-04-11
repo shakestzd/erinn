@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="htmlgraph-version" content="1.0">
+    <title>Graph view startup performance — sub-second load &#43; no-bounce render</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="feat-7e313ad6"
+             data-type="feature"
+             data-status="done"
+             data-priority="medium"
+             data-created="2026-04-11T03:35:44.679857"
+             data-updated="2026-04-11T04:12:57.432851" data-agent-assigned="claude-code" data-track-id="trk-0677c709">
+
+        <header>
+            <h1>Graph view startup performance — sub-second load &#43; no-bounce render</h1>
+            <div class="metadata">
+                <span class="badge status-done">Done</span>
+                <span class="badge priority-medium">Medium Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="implemented_in">
+                <h3>Implemented In:</h3>
+                <ul>
+                    <li><a href="8d53982f-66f2-415b-a645-1886eb8ae438.html" data-relationship="implemented_in" data-since="2026-04-11T03:35:47.682883">session 8d53982f-66f2-415b-a645-1886eb8ae438</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="trk-0677c709.html" data-relationship="part_of" data-since="2026-04-11T03:35:44.681375">trk-0677c709</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>The /api/graph endpoint currently takes ~7.2s to respond for 505 sessions + 436 features + 176 edges + 43,597 agent_events on the htmlgraph project, and the dashboard waits for the full payload before rendering. Users see a multi-second blank screen followed by a D3 force simulation bouncing nodes into place from random positions.
+
+Scope (three stacked fixes):
+
+1. Query optimization (Approach A — biggest lever). Profile the five queries in cmd/htmlgraph/api_graph.go. Primary suspect: the sessions-with-activity filter at lines 196-209 uses correlated EXISTS + GROUP BY HAVING COUNT(*) > 5 over 43k events. Replace with a single aggregated query. Add indexes on agent_events(session_id, feature_id) if missing. Target: /api/graph responds in under 500ms.
+
+2. Bounce fix (Approach C — cheap win). Seed D3 node positions from a stable hash of the node ID before running the force simulation, and start the simulation at alpha(0.3) instead of alpha(1). Nodes appear in roughly stable positions and settle with a small shiver instead of bouncing from random.
+
+3. Optional NDJSON streaming (Approach B) — only if (1) and (2) together still feel slow. Stream nodes and edges as chunked NDJSON lines so the client can render incrementally. Deferred unless needed.
+
+Out of scope: adding new graph features, changing the visual design, or touching the SSE stream infrastructure.</p>
+        </section>
+    </article>
+</body>
+</html>

@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="htmlgraph-version" content="1.0">
+    <title>Session 2026-04-07T01:05:46Z</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="7232ed51-36e0-47e6-b5dc-f6c2e5d534cb"
+             data-type="session"
+             data-status="completed"
+             data-ended-at="2026-04-07T01:20:00Z"
+             data-agent="claude-code"
+             data-started-at="2026-04-07T01:05:46Z"
+             data-event-count="29"
+             data-is-subagent="false"
+             data-start-commit="">
+
+        <header>
+            <h1>Session 2026-04-07T01:05:46Z</h1>
+            <div class="metadata">
+                <span class="badge status-completed">Completed</span>
+                <span class="badge">claude-code</span>
+                <span class="badge">29 events</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+        </nav>
+
+        <section data-activity-log>
+            <ol reversed>
+                            <li data-ts="2026-04-07T01:07:36Z" data-tool="Bash" data-success="true" data-event-id="evt-c628cff9">defaults read NSGlobalDomain AppleMenuBarVisibleInFullscreen 2&gt;/dev/null; defaults read NSGlobalDomain _HIHideMenuBar 2&gt;…</li>
+                            <li data-ts="2026-04-07T01:07:36Z" data-tool="Bash" data-success="true" data-event-id="evt-be684e4d">system_profiler SPDisplaysDataType 2&gt;/dev/null | head -30</li>
+                            <li data-ts="2026-04-07T01:07:45Z" data-tool="Bash" data-success="true" data-event-id="evt-dbb83c7d">defaults write NSGlobalDomain _HIHideMenuBar -bool false &amp;&amp; killall Finder</li>
+                            <li data-ts="2026-04-07T01:07:54Z" data-tool="Bash" data-success="true" data-event-id="evt-8820c922">killall SystemUIServer</li>
+                            <li data-ts="2026-04-07T01:11:12Z" data-tool="Bash" data-success="true" data-event-id="evt-aa48f0cc">type tmux</li>
+                            <li data-ts="2026-04-07T01:11:15Z" data-tool="Bash" data-success="true" data-event-id="evt-41163d93">alias tmux 2&gt;/dev/null; declare -f tmux 2&gt;/dev/null; grep -rn &#39;tmux&#39; ~/.zshrc ~/.zprofile ~/.zshenv ~/.config/zsh/ 2&gt;/de…</li>
+                            <li data-ts="2026-04-07T01:11:19Z" data-tool="Bash" data-success="true" data-event-id="evt-36945386">grep -rn &#39;tmux\|Prefix\|New window\|Navigate panes&#39; ~/.zshrc ~/.zprofile ~/.zshenv ~/.tmux.conf ~/.config/tmux/ ~/.*rc 2…</li>
+                            <li data-ts="2026-04-07T01:11:26Z" data-tool="Bash" data-success="true" data-event-id="evt-003decf4">grep -rn &#39;Prefix\|Navigate panes\|Horizontal split\|New window&#39; ~/.zshrc ~/.zprofile ~/.zshenv 2&gt;/dev/null; grep -rn &#39;tm…</li>
+                            <li data-ts="2026-04-07T01:11:29Z" data-tool="Bash" data-success="true" data-event-id="evt-b8ac6a04">cat ~/.tmux.conf 2&gt;/dev/null | head -80</li>
+                            <li data-ts="2026-04-07T01:11:34Z" data-tool="Bash" data-success="true" data-event-id="evt-609f8ecd">cat ~/.tmux.conf.local 2&gt;/dev/null | grep -n &#39;Prefix\|cheat\|display\|message\|run.*echo\|new-window.*echo&#39; | head -20</li>
+                            <li data-ts="2026-04-07T01:11:37Z" data-tool="Bash" data-success="true" data-event-id="evt-386d52fd">grep -rn &#39;Prefix\|Navigate panes\|cheat\|Horizontal split&#39; ~/.config/ ~/bin/ /usr/local/bin/ /opt/homebrew/bin/ 2&gt;/dev/n…</li>
+                            <li data-ts="2026-04-07T01:11:43Z" data-tool="Bash" data-success="true" data-event-id="evt-7b3da394">grep -rn &#39;cheatsheet\|cheat-sheet\|cheat_sheet&#39; ~/.zshrc ~/.zprofile ~/.zshenv ~/.oh-my-zsh/custom/*.zsh 2&gt;/dev/null</li>
+                            <li data-ts="2026-04-07T01:11:46Z" data-tool="Bash" data-success="true" data-event-id="evt-570fb9d1">grep -rn &#39;cheatsheet\|cheat&#39; ~/.zshrc 2&gt;/dev/null; grep -rn &#39;function tmux\|alias tmux&#39; ~/.zshrc ~/.zprofile ~/.zshenv ~…</li>
+                            <li data-ts="2026-04-07T01:11:49Z" data-tool="Bash" data-success="true" data-event-id="evt-ffc8b53e">grep -rn &#39;cheat&#39; ~/.zshrc 2&gt;/dev/null; grep -rn &#39;tmux&#39; ~/.zshrc 2&gt;/dev/null</li>
+                            <li data-ts="2026-04-07T01:11:53Z" data-tool="Read" data-success="true" data-event-id="evt-5572c0c8">/Users/shakes/.zshrc</li>
+                            <li data-ts="2026-04-07T01:11:58Z" data-tool="Bash" data-success="true" data-event-id="evt-67ee9de7">grep -n &#39;cheat\|display-message\|run.*cat\|new-session.*run\|set-hook.*session-created&#39; ~/.tmux.conf ~/.tmux.conf.local …</li>
+                            <li data-ts="2026-04-07T01:12:01Z" data-tool="Read" data-success="true" data-event-id="evt-3d5fa31b">/Users/shakes/.tmux.conf.local [270:320]</li>
+                            <li data-ts="2026-04-07T01:12:04Z" data-tool="Bash" data-success="true" data-event-id="evt-e46a416f">wc -l ~/.tmux.conf.local 2&gt;/dev/null</li>
+                            <li data-ts="2026-04-07T01:12:06Z" data-tool="Read" data-success="true" data-event-id="evt-48bce7b8">/Users/shakes/.tmux.conf.local [350:450]</li>
+                            <li data-ts="2026-04-07T01:12:10Z" data-tool="Bash" data-success="true" data-event-id="evt-9f5d06c3">which -a tmux 2&gt;/dev/null; whence -v tmux 2&gt;/dev/null; command -v tmux 2&gt;/dev/null</li>
+                            <li data-ts="2026-04-07T01:17:58Z" data-tool="Bash" data-success="true" data-event-id="evt-1ff9d70e">defaults read NSGlobalDomain _HIHideMenuBar 2&gt;/dev/null; echo &#34;---&#34;; defaults read NSGlobalDomain AppleMenuBarVisibleInF…</li>
+                            <li data-ts="2026-04-07T01:18:14Z" data-tool="Bash" data-success="true" data-event-id="evt-ef75f244">defaults read com.apple.dock autohide-menubar-in-fullscreen 2&gt;/dev/null; echo &#34;---&#34;; defaults read com.apple.dock 2&gt;/dev…</li>
+                            <li data-ts="2026-04-07T01:18:17Z" data-tool="Bash" data-success="true" data-event-id="evt-7d030589">defaults read com.apple.controlcenter 2&gt;/dev/null | grep -i -A1 &#34;menu\|hide\|auto&#34;</li>
+                            <li data-ts="2026-04-07T01:18:19Z" data-tool="Bash" data-success="true" data-event-id="evt-edb659b5">defaults read com.apple.WindowManager 2&gt;/dev/null | grep -i -A1 &#34;menu\|hide\|auto\|bar&#34;</li>
+                            <li data-ts="2026-04-07T01:18:27Z" data-tool="Bash" data-success="true" data-event-id="evt-b5f4a09e">defaults write NSGlobalDomain AppleMenuBarVisibleInFullscreen -bool true &amp;&amp; killall Finder &amp;&amp; killall SystemUIServer</li>
+                            <li data-ts="2026-04-07T01:18:56Z" data-tool="Bash" data-success="true" data-event-id="evt-9d75eb37">ps aux | grep -i -E &#39;bartender|hiddenbar|vanilla|dozer|ice|menubar|topnotch&#39; | grep -v grep</li>
+                            <li data-ts="2026-04-07T01:19:01Z" data-tool="Bash" data-success="true" data-event-id="evt-49bc1e54">defaults read com.apple.dock autohide 2&gt;/dev/null; echo &#34;---&#34;; defaults read &#34;Apple Global Domain&#34; 2&gt;/dev/null | grep -i…</li>
+                            <li data-ts="2026-04-07T01:19:05Z" data-tool="Bash" data-success="true" data-event-id="evt-2718a61b">killall SystemUIServer &amp;&amp; killall ControlCenter &amp;&amp; killall Finder</li>
+                            <li data-ts="2026-04-07T01:20:00Z" data-tool="Bash" data-success="true" data-event-id="evt-29e4d0bd">defaults write NSGlobalDomain _HIHideMenuBar -int 0 &amp;&amp; defaults write com.apple.controlcenter &#34;NSStatusItem Visible Menu…</li>
+            </ol>
+        </section>
+    </article>
+</body>
+</html>

@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="htmlgraph-version" content="1.0">
+    <title>Session 2026-03-30T04:03:15Z</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="8ad9a0f2-b630-4b09-8170-98bd3e375df8"
+             data-type="session"
+             data-status="completed"
+             data-ended-at="2026-03-30T04:31:18Z"
+             data-agent="claude-code"
+             data-started-at="2026-03-30T04:03:15Z"
+             data-event-count="40"
+             data-is-subagent="false"
+             data-start-commit="">
+
+        <header>
+            <h1>Session 2026-03-30T04:03:15Z</h1>
+            <div class="metadata">
+                <span class="badge status-completed">Completed</span>
+                <span class="badge">claude-code</span>
+                <span class="badge">40 events</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+        </nav>
+
+        <section data-activity-log>
+            <ol reversed>
+                            <li data-ts="2026-03-30T04:03:24Z" data-tool="Bash" data-success="true" data-event-id="evt-4b9758d5">echo &#34;=== Features ===&#34; &amp;&amp; ls .htmlgraph/features/ 2&gt;/dev/null | wc -l &amp;&amp; echo &#34;=== Features by status ===&#34; &amp;&amp; grep -l &#39;…</li>
+                            <li data-ts="2026-03-30T04:03:28Z" data-tool="Bash" data-success="true" data-event-id="evt-f5a5759b">echo &#34;=== Phoenix/Python references in open items ===&#34; &amp;&amp; grep -ril &#39;phoenix\|python\|fastapi\|dashboard&#39; .htmlgraph/fea…</li>
+                            <li data-ts="2026-03-30T04:03:36Z" data-tool="Bash" data-success="true" data-event-id="evt-251dc115">echo &#34;=== Total items ===&#34; &amp;&amp; echo $(( $(ls .htmlgraph/features/ 2&gt;/dev/null | wc -l) + $(ls .htmlgraph/tracks/ 2&gt;/dev/n…</li>
+                            <li data-ts="2026-03-30T04:03:39Z" data-tool="Bash" data-success="true" data-event-id="evt-6df523f0">echo &#34;=== Phoenix/Python refs in TODO features ===&#34; &amp;&amp; for f in $(grep -l &#39;status.*todo&#39; .htmlgraph/features/*.html 2&gt;/d…</li>
+                            <li data-ts="2026-03-30T04:03:51Z" data-tool="Bash" data-success="true" data-event-id="evt-02c844f8">echo &#34;=== The 1 todo track with Phoenix/Python ref ===&#34; &amp;&amp; for f in $(grep -l &#39;status.*todo&#39; .htmlgraph/tracks/*.html 2&gt;…</li>
+                            <li data-ts="2026-03-30T04:03:54Z" data-tool="Bash" data-success="true" data-event-id="evt-d36caaef">echo &#34;=== Spike artifact breakdown (todo only) ===&#34; &amp;&amp; echo &#34;Count Python files:&#34; &amp;&amp; for f in $(grep -l &#39;status.*todo&#39; .…</li>
+                            <li data-ts="2026-03-30T04:03:59Z" data-tool="Bash" data-success="true" data-event-id="evt-8972a581">echo &#34;=== Spike artifact breakdown (todo only) ===&#34; &amp;&amp; echo -n &#34;Count Python files: &#34; &amp;&amp; for f in $(grep -l &#39;status.*tod…</li>
+                            <li data-ts="2026-03-30T04:04:00Z" data-tool="Bash" data-success="true" data-event-id="evt-03e531c4">grep -i &#39;phoenix\|python\|fastapi\|dashboard&#39; .htmlgraph/tracks/trk-9d44f0c3.html | head -5</li>
+                            <li data-ts="2026-03-30T04:05:10Z" data-tool="Bash" data-success="true" data-event-id="evt-a1c4b19d">echo &#34;=== Count Python files spikes (todo) ===&#34; &amp;&amp; for f in $(grep -l &#39;status.*todo&#39; .htmlgraph/spikes/*.html 2&gt;/dev/nul…</li>
+                            <li data-ts="2026-03-30T04:05:11Z" data-tool="Bash" data-success="true" data-event-id="evt-67d11979">echo &#34;=== Results: task- spikes (todo) ===&#34; &amp;&amp; for f in $(grep -l &#39;status.*todo&#39; .htmlgraph/spikes/*.html 2&gt;/dev/null); …</li>
+                            <li data-ts="2026-03-30T04:05:12Z" data-tool="Bash" data-success="true" data-event-id="evt-14185f8f">echo &#34;=== Recurring Error spikes (todo) ===&#34; &amp;&amp; for f in $(grep -l &#39;status.*todo&#39; .htmlgraph/spikes/*.html 2&gt;/dev/null);…</li>
+                            <li data-ts="2026-03-30T04:06:47Z" data-tool="Bash" data-success="true" data-event-id="evt-de901877">htmlgraph track create &#34;Cleanup Residual Test Artifacts&#34; --description &#34;Remove remaining test/artifact work items missed…</li>
+                            <li data-ts="2026-03-30T04:06:54Z" data-tool="Bash" data-success="true" data-event-id="evt-fe19b57d">htmlgraph feature create &#34;Delete 9 remaining &#39;Count Python files&#39; spikes&#34; --track trk-a0d2a5ad &amp;&amp; htmlgraph feature crea…</li>
+                            <li data-ts="2026-03-30T04:25:22Z" data-tool="Bash" data-success="true" data-event-id="evt-9c8b00aa">which htmlgraph &amp;&amp; ls -la $(which htmlgraph)</li>
+                            <li data-ts="2026-03-30T04:25:23Z" data-tool="Bash" data-success="true" data-event-id="evt-98fa666f">ls -la packages/go-plugin/hooks/bin/htmlgraph 2&gt;/dev/null; echo &#34;---&#34;; ls -la ~/.local/bin/htmlgraph 2&gt;/dev/null</li>
+                            <li data-ts="2026-03-30T04:25:31Z" data-tool="Bash" data-success="true" data-event-id="evt-542f5e94">file /Users/shakes/.local/bin/htmlgraph &amp;&amp; echo &#34;---&#34; &amp;&amp; file packages/go-plugin/hooks/bin/htmlgraph</li>
+                            <li data-ts="2026-03-30T04:25:39Z" data-tool="Grep" data-success="true" data-event-id="evt-8fefd650">packages/go</li>
+                            <li data-ts="2026-03-30T04:25:43Z" data-tool="Read" data-success="true" data-event-id="evt-0cfb0aae">/Users/shakes/DevProjects/htmlgraph/packages/go/cmd/htmlgraph/claude.go [:85]</li>
+                            <li data-ts="2026-03-30T04:25:47Z" data-tool="Grep" data-success="true" data-event-id="evt-380709cd">packages/go</li>
+                            <li data-ts="2026-03-30T04:25:54Z" data-tool="Bash" data-success="true" data-event-id="evt-97cc5986">htmlgraph build</li>
+                            <li data-ts="2026-03-30T04:25:58Z" data-tool="Bash" data-success="true" data-event-id="evt-50f61ad5">ls packages/go-plugin/build.sh 2&gt;/dev/null &amp;&amp; (packages/go-plugin/build.sh)</li>
+                            <li data-ts="2026-03-30T04:27:17Z" data-tool="Bash" data-success="true" data-event-id="evt-6db209e3">ls -la ~/.local/bin/htmlgraph</li>
+                            <li data-ts="2026-03-30T04:27:23Z" data-tool="Read" data-success="true" data-event-id="evt-20239b1f">/Users/shakes/DevProjects/htmlgraph/packages/go-plugin/build.sh</li>
+                            <li data-ts="2026-03-30T04:27:30Z" data-tool="Edit" data-success="true" data-event-id="evt-1dd1d828">/Users/shakes/DevProjects/htmlgraph/packages/go-plugin/build.sh</li>
+                            <li data-ts="2026-03-30T04:27:36Z" data-tool="Bash" data-success="true" data-event-id="evt-6466f5aa">git checkout -b fix/build-symlink-for-dev-mode</li>
+                            <li data-ts="2026-03-30T04:27:42Z" data-tool="Edit" data-success="true" data-event-id="evt-6c1bc477">/Users/shakes/DevProjects/htmlgraph/packages/go-plugin/build.sh</li>
+                            <li data-ts="2026-03-30T04:27:59Z" data-tool="Bash" data-success="true" data-event-id="evt-f2ce0268">packages/go-plugin/build.sh</li>
+                            <li data-ts="2026-03-30T04:28:04Z" data-tool="Bash" data-success="true" data-event-id="evt-b502b996">ls -la ~/.local/bin/htmlgraph</li>
+                            <li data-ts="2026-03-30T04:28:09Z" data-tool="Bash" data-success="true" data-event-id="evt-e384e4c0">file ~/.local/bin/htmlgraph &amp;&amp; readlink ~/.local/bin/htmlgraph 2&gt;/dev/null || echo &#34;not a symlink&#34;</li>
+                            <li data-ts="2026-03-30T04:28:16Z" data-tool="Edit" data-success="true" data-event-id="evt-6c43c985">/Users/shakes/DevProjects/htmlgraph/packages/go-plugin/build.sh</li>
+                            <li data-ts="2026-03-30T04:28:20Z" data-tool="Bash" data-success="true" data-event-id="evt-37e0ef01">packages/go-plugin/build.sh</li>
+                            <li data-ts="2026-03-30T04:28:24Z" data-tool="Bash" data-success="true" data-event-id="evt-24f784ef">readlink ~/.local/bin/htmlgraph &amp;&amp; file ~/.local/bin/htmlgraph</li>
+                            <li data-ts="2026-03-30T04:28:29Z" data-tool="Bash" data-success="true" data-event-id="evt-b991d50e">ls -lah ~/.local/bin/htmlgraph &amp;&amp; readlink ~/.local/bin/htmlgraph; echo &#34;exit: $?&#34;</li>
+                            <li data-ts="2026-03-30T04:28:34Z" data-tool="Bash" data-success="true" data-event-id="evt-9439c0e7">rm -f ~/.local/bin/htmlgraph &amp;&amp; ln -s /Users/shakes/DevProjects/htmlgraph/packages/go-plugin/hooks/bin/htmlgraph-dev ~/.…</li>
+                            <li data-ts="2026-03-30T04:28:47Z" data-tool="Bash" data-success="true" data-event-id="evt-30b2dd63">htmlgraph claude --dev -- --help 2&gt;&amp;1 | head -5</li>
+                            <li data-ts="2026-03-30T04:28:53Z" data-tool="Read" data-success="true" data-event-id="evt-30f56b2d">/Users/shakes/DevProjects/htmlgraph/packages/go-plugin/build.sh</li>
+                            <li data-ts="2026-03-30T04:28:58Z" data-tool="Bash" data-success="true" data-event-id="evt-09da2c67">(cd packages/go &amp;&amp; go build ./... &amp;&amp; go vet ./... &amp;&amp; go test ./... 2&gt;&amp;1 | tail -5)</li>
+                            <li data-ts="2026-03-30T04:31:07Z" data-tool="Bash" data-success="true" data-event-id="evt-bfb0dc0f">git diff --stat HEAD &amp;&amp; echo &#34;---&#34; &amp;&amp; git status --short | grep -v &#39;\.htmlgraph/&#39;</li>
+                            <li data-ts="2026-03-30T04:31:12Z" data-tool="Bash" data-success="true" data-event-id="evt-877a9dfc">git status --short -- packages/go-plugin/build.sh</li>
+                            <li data-ts="2026-03-30T04:31:18Z" data-tool="Agent" data-success="true" data-event-id="evt-d9fbc593">Stage this file: packages/go-plugin/build.sh
+
+Commit with this message:
+
+fix: use symlink in dev build so resolvePluginD…</li>
+            </ol>
+        </section>
+    </article>
+</body>
+</html>

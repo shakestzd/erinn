@@ -350,7 +350,12 @@
       "Bash(go list:*)",
       "Bash(CLAUDE_SESSION_ID=\"2e606e4c-030e-486f-a351-3f7aeb8ea9bd\" htmlgraph feature:*)",
       "Bash(mkdir -p /Users/shakes/DevProjects/shakestzd/private/htmlgraph-blog)",
-      "Bash(mv /Users/shakes/DevProjects/htmlgraph/docs/blog/linkedin-posts.md /Users/shakes/DevProjects/shakestzd/private/htmlgraph-blog/linkedin-posts.md)"
+      "Bash(mv /Users/shakes/DevProjects/htmlgraph/docs/blog/linkedin-posts.md /Users/shakes/DevProjects/shakestzd/private/htmlgraph-blog/linkedin-posts.md)",
+      "Bash(kill %b3rklmhte)",
+      "Bash(kill 78070)",
+      "Bash(docker --version)",
+      "Bash(./plugin/build.sh)",
+      "Bash(node:*)"
     ]
   },
   "enabledPlugins": {

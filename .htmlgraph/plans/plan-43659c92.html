@@ -1,0 +1,1654 @@
+<!DOCTYPE html><html lang="en"><head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<meta name="htmlgraph-version" content="1.0"/>
+<title>Plan: Close session HTML canonical gaps</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin=""/>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&amp;family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&amp;display=swap" rel="stylesheet"/>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/styles/github-dark.min.css" id="hljs-dark"/>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/styles/github.min.css" id="hljs-light" disabled=""/>
+<script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/highlight.min.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/languages/go.min.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/languages/yaml.min.js"></script>
+<style>
+:root {
+  --bg:#0f0f13; --bg-card:#18181c; --bg-input:#222228; --bg-hover:#2c2c32;
+  --text:#f0f0ed; --text-dim:#d0d0cc; --text-muted:#9898a0; --border:#3a3a42;
+  --accent:#cdff00; --accent-dim:rgba(205,255,0,.1); --accent-glow:rgba(205,255,0,.25);
+  --approved:#22c55e; --revision:#f59e0b; --discuss:#a78bfa; --pending:#6b7280; --blocked:#ef4444;
+  --radius:8px; --radius-sm:5px;
+  --mono:'JetBrains Mono',ui-monospace,'SF Mono','Cascadia Code',monospace;
+  --sans:'DM Sans','Inter',system-ui,-apple-system,sans-serif;
+  --shadow-card:0 2px 8px rgba(0,0,0,.5), 0 0 0 1px var(--border);
+  --shadow-elevated:0 8px 32px rgba(0,0,0,.6), 0 0 0 1px var(--border);
+  --transition:150ms cubic-bezier(.4,0,.2,1);
+}
+[data-theme="light"] {
+  --bg:#f4f3ef; --bg-card:#ffffff; --bg-input:#eeeee8; --bg-hover:#e4e4de;
+  --text:#1a1a1e; --text-dim:#4a4a50; --text-muted:#8a8a90; --border:#d4d4cc;
+  --accent:#4a6e00; --accent-dim:rgba(74,110,0,.08); --accent-glow:rgba(74,110,0,.2);
+  --shadow-card:0 1px 3px rgba(0,0,0,.06), 0 0 0 1px var(--border);
+  --shadow-elevated:0 4px 24px rgba(0,0,0,.1), 0 0 0 1px var(--border);
+}
+[data-theme="light"] .badge-approved{background:rgba(34,197,94,.08);color:#16a34a;border-color:rgba(34,197,94,.2)}
+[data-theme="light"] .badge-revision{background:rgba(245,158,11,.08);color:#d97706;border-color:rgba(245,158,11,.2)}
+[data-theme="light"] .badge-discuss{background:rgba(167,139,250,.08);color:#7c3aed;border-color:rgba(167,139,250,.2)}
+[data-theme="light"] .badge-pending{background:rgba(107,114,128,.08);color:#4b5563;border-color:rgba(107,114,128,.2)}
+[data-theme="light"] .badge-blocked{background:rgba(239,68,68,.08);color:#dc2626;border-color:rgba(239,68,68,.2)}
+[data-theme="light"] .btn-finalize{background:#4a6e00;color:#fff}
+[data-theme="light"] .section-card{--shadow-card:0 1px 2px rgba(0,0,0,.04),0 0 0 1px var(--border)}
+
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{font-size:15px;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale}
+body{font-family:var(--sans);background:var(--bg);color:var(--text);line-height:1.6;margin:0;padding:0;display:grid;grid-template-columns:200px 1fr;min-height:100vh}
+
+/* ── Sidebar ── */
+.plan-sidebar{background:var(--bg-card);border-right:1px solid var(--border);padding:20px 0;display:flex;flex-direction:column;gap:1px;position:sticky;top:0;height:100vh;overflow-y:auto}
+.plan-sidebar .brand{padding:16px 20px 20px;font-weight:700;font-size:1rem;color:var(--accent);text-decoration:none;display:block;border-bottom:1px solid var(--border);margin-bottom:8px;font-family:var(--mono);letter-spacing:-.02em}
+.plan-sidebar a.nav-link{display:flex;align-items:center;gap:10px;padding:9px 20px;color:var(--text-muted);text-decoration:none;font-size:.82rem;font-weight:500;border-right:2px solid transparent;transition:all var(--transition)}
+.plan-sidebar a.nav-link:hover{color:var(--text);background:var(--bg-hover)}
+.plan-sidebar a.nav-link.active{color:var(--accent);background:var(--accent-dim);border-right-color:var(--accent);font-weight:600}
+
+/* ── Plan layout (content + chat sidebar) ── */
+.plan-layout{display:flex;flex:1;min-width:0;overflow:hidden;height:100vh}
+.plan-content{flex:1;min-width:0;padding:32px 40px 80px;overflow-y:auto;max-width:960px}
+
+/* ── Chat sidebar ── */
+.chat-sidebar{width:360px;min-width:280px;max-width:600px;border-left:1px solid var(--border);display:flex;flex-direction:column;background:var(--bg-card);overflow:hidden;height:100%}
+.chat-resize-handle{width:4px;cursor:col-resize;background:transparent;transition:background .15s;flex-shrink:0;position:relative}
+.chat-resize-handle:hover,.chat-resize-handle.dragging{background:var(--accent);opacity:.5}
+.chat-resize-handle::after{content:'';position:absolute;top:50%;left:-4px;width:12px;height:32px;transform:translateY(-50%);border-radius:4px}
+
+/* ── Typography ── */
+h1{font-family:var(--sans);font-size:1.65rem;font-weight:700;color:var(--text);margin-bottom:6px;letter-spacing:-.03em;line-height:1.3}
+h1::first-letter{color:var(--accent)}
+h2{font-family:var(--sans);font-size:1.15rem;font-weight:600;letter-spacing:-.01em}
+h3{font-family:var(--mono);font-size:.72rem;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:10px}
+h4{font-family:var(--sans);font-size:.88rem;font-weight:600;margin-bottom:8px;color:var(--text)}
+p,li{color:var(--text-dim);line-height:1.7;font-size:.95rem}
+ul,ol{padding-left:1.5em;margin:8px 0}
+ul{list-style:disc}
+ol{list-style:decimal}
+li{padding:3px 0}
+li::marker{color:var(--text-muted)}
+code{font-family:var(--mono);font-size:.82em;background:var(--bg-input);padding:2px 6px;border-radius:var(--radius-sm);border:1px solid var(--border)}
+pre{font-family:var(--mono);font-size:.78rem;background:var(--bg-input);border:1px solid var(--border);border-radius:var(--radius);padding:14px 16px;overflow-x:auto;line-height:1.6;color:var(--text);margin:10px 0}
+a{color:var(--accent);text-decoration:none;transition:opacity var(--transition)}
+a:hover{opacity:.8}
+
+/* ── Plan header ── */
+.plan-header{margin-bottom:36px;padding-bottom:20px;border-bottom:1px solid var(--border);position:relative}
+.plan-header::after{content:'';position:absolute;bottom:-1px;left:0;width:120px;height:1px;background:var(--accent);opacity:.5}
+.plan-header .meta{display:flex;gap:12px;flex-wrap:wrap;margin-top:10px;align-items:center}
+
+/* ── Related Work ── */
+.related-work{margin-bottom:24px;padding:16px 20px;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);display:flex;flex-direction:column;gap:12px}
+.related-track{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.related-label{font-family:var(--mono);font-size:.72rem;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.06em;min-width:70px}
+.related-link{color:var(--accent);font-weight:600;font-size:.9rem;text-decoration:none}
+.related-link:hover{text-decoration:underline}
+.related-features{display:flex;flex-direction:column;gap:6px}
+.related-feature-list{display:flex;flex-direction:column;gap:4px}
+.related-feature{display:flex;align-items:center;gap:10px;padding:6px 10px;background:var(--bg-input);border:1px solid var(--border);border-radius:var(--radius-sm);text-decoration:none;transition:border-color var(--transition)}
+.related-feature:hover{border-color:var(--accent)}
+.related-feature-id{font-family:var(--mono);font-size:.75rem;color:var(--text-muted);min-width:110px}
+.related-feature-title{flex:1;font-size:.85rem;color:var(--text-dim)}
+.related-feature .badge{flex-shrink:0}
+
+/* ── Badges ── */
+.badge{display:inline-flex;align-items:center;gap:6px;font-family:var(--mono);font-size:.75rem;font-weight:600;text-transform:uppercase;letter-spacing:.05em;padding:4px 12px;border-radius:9999px;border:1px solid transparent;transition:all var(--transition)}
+.badge::before{content:'';width:5px;height:5px;border-radius:50%;flex-shrink:0}
+.badge-approved{background:rgba(34,197,94,.1);color:var(--approved);border-color:rgba(34,197,94,.25)}.badge-approved::before{background:var(--approved);box-shadow:0 0 6px var(--approved)}
+.badge-revision{background:rgba(245,158,11,.1);color:var(--revision);border-color:rgba(245,158,11,.25)}.badge-revision::before{background:var(--revision)}
+.badge-discuss{background:rgba(167,139,250,.1);color:var(--discuss);border-color:rgba(167,139,250,.25)}.badge-discuss::before{background:var(--discuss)}
+.badge-pending{background:rgba(107,114,128,.1);color:var(--pending);border-color:rgba(107,114,128,.2)}.badge-pending::before{background:var(--pending)}
+.badge-blocked{background:rgba(239,68,68,.1);color:var(--blocked);border-color:rgba(239,68,68,.25)}.badge-blocked::before{background:var(--blocked)}
+
+/* ── Dependency graph ── */
+.dep-graph{background:var(--bg-card);border-radius:var(--radius);padding:28px;margin-bottom:28px;box-shadow:var(--shadow-card);overflow-x:auto}
+.dep-graph h2{margin-bottom:20px;padding-bottom:12px;border-bottom:1px solid var(--border)}
+.dep-graph svg{display:block;height:auto}
+#dep-graph-svg .node rect{rx:8;ry:8;fill:var(--bg-input);stroke:var(--border);stroke-width:2px}
+#dep-graph-svg .node text{fill:var(--text) !important;font-family:var(--sans);font-size:13px}
+#dep-graph-svg .edgePath path{stroke:var(--text-muted);stroke-dasharray:5 4;fill:none;stroke-width:1.5}
+#dep-graph-svg .edgePath marker path{fill:var(--text-muted)}
+
+/* ── Section cards ── */
+.section-card{background:var(--bg-card);border-radius:var(--radius);margin-bottom:14px;box-shadow:var(--shadow-card);overflow:hidden;transition:box-shadow var(--transition)}
+.section-card:hover{box-shadow:var(--shadow-elevated)}
+.section-card summary{display:flex;align-items:center;gap:12px;padding:16px 24px;cursor:pointer;font-weight:600;font-size:1rem;list-style:none;user-select:none;color:var(--text);font-family:var(--sans);transition:background var(--transition)}
+.section-card summary:hover{background:var(--bg-hover)}
+.section-card summary::-webkit-details-marker{display:none}
+.section-card summary::before{content:'';width:6px;height:6px;border-right:2px solid var(--text-muted);border-bottom:2px solid var(--text-muted);transform:rotate(-45deg);transition:transform .2s ease;flex-shrink:0}
+.section-card[open] summary::before{transform:rotate(45deg)}
+.section-card summary .badge{margin-left:auto}
+.section-body{padding:16px 24px 24px;animation:slideDown .2s ease}
+@keyframes slideDown{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:translateY(0)}}
+.sub-section{margin-bottom:20px}.sub-section:last-child{margin-bottom:0}
+
+/* ── Approval row ── */
+.approval-row{display:flex;align-items:center;gap:16px;margin-top:20px;padding-top:16px;border-top:1px solid var(--border)}
+.approval-row label{font-size:.9rem;color:var(--text);cursor:pointer;display:flex;align-items:center;gap:8px;font-weight:500;white-space:nowrap;transition:color var(--transition)}
+.approval-row label:hover{color:var(--accent)}
+.approval-row input[type="checkbox"]{accent-color:var(--approved);width:18px;height:18px;cursor:pointer;border-radius:4px;flex-shrink:0}
+
+/* ── Textarea ── */
+textarea{width:100%;min-height:52px;resize:vertical;background:var(--bg-input);color:var(--text);border:1px solid var(--border);border-radius:var(--radius);padding:10px 12px;font-family:var(--sans);font-size:.84rem;line-height:1.5;transition:border-color var(--transition),box-shadow var(--transition)}
+textarea:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-dim)}
+textarea::placeholder{color:var(--text-muted)}
+
+/* ── Question blocks ── */
+.question-block{margin-bottom:16px;padding:14px 16px;background:var(--bg-input);border-radius:var(--radius);border-left:3px solid var(--discuss)}
+.question-block p{font-size:.88rem;color:var(--text);margin-bottom:8px;font-weight:500}
+.question-block label{display:block;font-size:.84rem;color:var(--text-dim);padding:5px 8px;cursor:pointer;transition:color var(--transition);border-radius:var(--radius-sm)}
+.question-block label:hover{color:var(--text);background:var(--bg-hover)}
+.question-block label.recommended{border-left:2px solid var(--accent);padding-left:10px;background:var(--accent-dim)}
+.question-block input[type="radio"]{accent-color:var(--accent);margin-right:8px;cursor:pointer}
+.rec-tag{font-family:var(--mono);font-size:.65rem;color:var(--accent);text-transform:uppercase;letter-spacing:.05em;margin-left:6px;opacity:.8}
+
+/* ── Slice cards ── */
+.slice-card{background:var(--bg-input);border:1px solid var(--border);border-radius:var(--radius);padding:24px;margin-bottom:16px;transition:border-color var(--transition)}
+.slice-card:hover{border-color:rgba(205,255,0,.2)}
+.slice-header{display:flex;align-items:center;gap:10px;margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid var(--border);flex-wrap:wrap}
+.slice-num{font-family:var(--mono);font-size:.8rem;color:var(--bg);background:var(--accent);padding:3px 9px;border-radius:4px;font-weight:700;min-width:26px;text-align:center}
+.slice-name{font-weight:600;font-size:1rem;font-family:var(--sans);flex:1}
+.slice-meta{font-size:.85rem;color:var(--text-muted);margin-bottom:8px;font-family:var(--mono)}
+.slice-meta span{margin-right:14px}
+.slice-field{margin-bottom:14px;padding-bottom:12px;border-bottom:1px solid rgba(51,51,56,.4)}
+.slice-field:last-of-type{border-bottom:none}
+.slice-field-label{font-family:var(--mono);font-size:.75rem;font-weight:600;color:var(--accent);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px}
+.slice-field-value{font-size:.92rem;color:var(--text-dim);line-height:1.7}
+.slice-field-value code{font-size:.82rem;word-break:break-all}
+.slice-tests{white-space:pre-line}
+.slice-done-list{list-style:none;padding-left:0;margin:0}
+.slice-done-list li{font-size:.9rem;color:var(--text-dim);padding:4px 0;padding-left:20px;position:relative}
+.slice-done-list li::before{content:'\2713';position:absolute;left:0;color:var(--approved);font-weight:700}
+.slice-deps{font-size:.85rem;color:var(--text-muted);margin-top:8px;font-family:var(--mono)}
+.slice-card .approval-row{margin-top:16px}
+
+/* ── Progress zone ── */
+.progress-zone{background:var(--bg-card);border-radius:var(--radius);padding:24px;margin-top:28px;box-shadow:var(--shadow-card)}
+.progress-bar-track{height:6px;background:var(--bg-input);border-radius:3px;overflow:hidden;margin:12px 0 20px;position:relative}
+.progress-bar-fill{height:100%;background:linear-gradient(90deg,var(--accent),var(--approved));border-radius:3px;transition:width .4s cubic-bezier(.4,0,.2,1);position:relative}
+.progress-bar-fill::after{content:'';position:absolute;right:0;top:-1px;width:8px;height:8px;background:var(--approved);border-radius:50%;box-shadow:0 0 8px var(--approved);opacity:0;transition:opacity .3s}
+.progress-bar-fill[style*="width:100"]::after,.progress-bar-fill[style*="width: 100"]::after{opacity:1}
+.progress-stats{display:flex;gap:24px;flex-wrap:wrap;margin-bottom:16px}
+.progress-stat{font-size:.82rem;color:var(--text-dim);font-family:var(--sans)}.progress-stat strong{color:var(--text);font-size:1.2rem;margin-right:4px;font-weight:700}
+.comments-summary{border-top:1px solid var(--border);padding-top:16px;margin-top:4px}.comments-summary h3{margin-bottom:10px}
+.comment-entry{font-size:.82rem;color:var(--text-dim);padding:6px 0;border-bottom:1px solid var(--border)}
+.comment-entry:last-child{border-bottom:none}
+.comment-entry .comment-source{font-family:var(--mono);color:var(--accent);font-weight:600;margin-right:8px;font-size:.75rem}
+.finalize-area{margin-top:20px;text-align:center}
+.btn-finalize{background:var(--accent);color:#0a0a0a;border:none;border-radius:var(--radius);padding:12px 36px;font-weight:700;font-size:.88rem;cursor:pointer;font-family:var(--sans);letter-spacing:.01em;transition:all var(--transition);box-shadow:0 0 0 0 var(--accent-glow)}
+.btn-finalize:hover:not(:disabled){filter:brightness(.92);box-shadow:0 0 20px var(--accent-glow)}
+.btn-finalize:disabled{opacity:.3;cursor:not-allowed}
+
+/* ── Critique zone lists (badge-aligned, no bullets) ── */
+#critique ul{list-style:none;padding-left:0;margin:0}
+#critique ul li{display:flex;align-items:flex-start;gap:10px;padding:6px 0;border-bottom:1px solid var(--border)}
+#critique ul li:last-child{border-bottom:none}
+#critique ul li .badge{flex-shrink:0;margin-top:2px}
+
+/* ── Questions table ── */
+.q-table{width:100%;font-size:.84rem;border-collapse:collapse}
+.q-table th{text-align:left;padding:8px 10px;border-bottom:1px solid var(--border);color:var(--text-muted);font-family:var(--mono);font-size:.68rem;text-transform:uppercase;letter-spacing:.06em}
+.q-table td{padding:8px 10px;border-bottom:1px solid var(--border)}
+
+/* ── Chat panel (inside sidebar) ── */
+.chat-panel{display:flex;flex-direction:column;flex:1;overflow:hidden;border-radius:0;box-shadow:none;background:transparent}
+.chat-panel h2{padding:16px 20px 12px;margin-bottom:0;font-size:.95rem;border-bottom:1px solid var(--border);flex-shrink:0}
+.chat-messages{flex:1;overflow-y:auto;padding:16px 20px;display:flex;flex-direction:column;gap:8px}
+.chat-bubble{padding:14px 18px;border-radius:12px;max-width:88%;word-wrap:break-word;font-size:.88rem;line-height:1.65;white-space:normal;animation:bubbleIn .2s ease;overflow:visible}
+@keyframes bubbleIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+.chat-bubble[data-role="user"]{background:var(--accent-dim);border:1px solid rgba(205,255,0,.12);margin-left:auto;color:var(--text);border-bottom-right-radius:4px}
+.chat-bubble[data-role="assistant"]{background:var(--bg-input);border:1px solid var(--border);color:var(--text-dim);border-bottom-left-radius:4px}
+.chat-bubble h3,.chat-bubble h4{font-size:.92rem;margin:16px 0 6px;color:var(--text);font-family:var(--sans)}
+.chat-bubble h3:first-child,.chat-bubble h4:first-child,.chat-bubble p:first-child{margin-top:0}
+.chat-bubble p{margin:8px 0;font-size:inherit;color:inherit;line-height:1.65}
+.chat-bubble p:last-child{margin-bottom:0}
+.chat-bubble strong{color:var(--text);font-weight:600}
+.chat-bubble em{font-style:italic}
+.chat-bubble code{font-size:.82em;padding:2px 5px;background:rgba(255,255,255,.06);border-radius:3px}
+.chat-bubble pre{margin:10px 0;padding:12px 14px;font-size:.8rem;border-radius:var(--radius-sm);background:rgba(0,0,0,.2);overflow-x:auto;white-space:pre;line-height:1.5}
+.chat-bubble pre code{background:none;padding:0;font-size:inherit}
+.chat-bubble ul,.chat-bubble ol{margin:8px 0;padding-left:1.4em}
+.chat-bubble li{padding:3px 0;font-size:inherit;line-height:1.6}
+.chat-bubble table{margin:10px 0;font-size:.82rem;border-collapse:collapse;width:100%;display:block;overflow-x:auto}
+.chat-bubble table th{text-align:left;padding:6px 10px;border-bottom:2px solid var(--border);color:var(--text-muted);font-family:var(--mono);font-size:.75rem;text-transform:uppercase;letter-spacing:.04em;white-space:nowrap}
+.chat-bubble table td{padding:8px 10px;border-bottom:1px solid var(--border);vertical-align:top}
+.chat-input-area{display:flex;gap:8px;padding:14px 20px;border-top:1px solid var(--border);background:var(--bg-input);flex-shrink:0}
+#chat-input{flex:1;background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:var(--radius);padding:10px 12px;resize:none;font-family:var(--sans);font-size:.84rem;line-height:1.5;transition:border-color var(--transition),box-shadow var(--transition)}
+#chat-input:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-dim)}
+#chat-input::placeholder{color:var(--text-muted)}
+#chat-send{background:var(--accent);color:#0a0a0a;border:none;border-radius:var(--radius);padding:10px 18px;cursor:pointer;font-weight:600;font-family:var(--sans);font-size:.84rem;transition:all var(--transition)}
+#chat-send:hover:not(:disabled){box-shadow:0 0 16px var(--accent-glow)}
+#chat-send:disabled{opacity:.3;cursor:not-allowed}
+.chat-notice{font-size:.82rem;color:var(--text-muted);padding:20px;text-align:center;line-height:1.6}
+
+/* ── Amendments ── */
+.amendments-panel{margin-top:28px;background:var(--bg-card);border-radius:var(--radius);padding:20px;box-shadow:var(--shadow-card)}
+.amendments-panel h3{margin:0 0 14px;font-size:.92rem;color:var(--text);font-family:var(--sans);font-weight:600}
+.amendment-item{display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--border);transition:background var(--transition)}
+.amendment-item:last-child{border-bottom:none}
+.amendment-item:hover{background:var(--bg-hover);margin:0 -8px;padding-left:8px;padding-right:8px;border-radius:var(--radius-sm)}
+.amendment-desc{flex:1;font-size:.84rem;color:var(--text-dim)}
+.amendment-desc .op{color:var(--accent);font-weight:600;font-family:var(--mono);font-size:.78rem}
+.amendment-desc .field{color:var(--text-muted);font-family:var(--mono);font-size:.78rem}
+.amendment-select{background:var(--bg-input);color:var(--text);border:1px solid var(--border);border-radius:var(--radius-sm);padding:5px 10px;font-size:.8rem;font-family:var(--sans);cursor:pointer;transition:border-color var(--transition)}
+.amendment-select:focus{border-color:var(--accent);outline:none}
+.amendments-summary{font-size:.82rem;color:var(--text-muted);margin-top:14px;font-family:var(--mono);padding-top:10px;border-top:1px solid var(--border)}
+
+/* ── YAML viewer ── */
+.yaml-viewer{margin:20px 0}
+.yaml-viewer summary{cursor:pointer;color:var(--accent);font-weight:600;font-size:.84rem;padding:8px 0;font-family:var(--mono);transition:opacity var(--transition)}
+.yaml-viewer summary:hover{opacity:.7}
+.yaml-viewer pre{background:var(--bg-input);border:1px solid var(--border);border-radius:var(--radius);padding:16px;overflow-x:auto;max-height:500px;overflow-y:auto;font-size:.78rem;line-height:1.5;margin-top:8px}
+.yaml-viewer code{font-family:var(--mono);color:var(--text)}
+
+
+/* ── Print ── */
+@media print{body{background:#fff;color:#111;max-width:100%;display:block}.plan-sidebar{display:none}.section-card,.dep-graph,.progress-zone,.slice-card{border-color:#ccc;background:#fafafa;box-shadow:none}details[open] summary~*{display:block}.btn-finalize,.chat-panel,.amendments-panel{display:none}}
+
+/* ── Responsive ── */
+@media(max-width:1024px){.chat-sidebar{width:300px;min-width:240px}}
+@media(max-width:768px){
+  body{grid-template-columns:1fr}
+  .plan-sidebar{display:none}
+  .plan-layout{flex-direction:column;height:auto}
+  .plan-content{padding:20px 16px 40px;max-width:none}
+  .chat-resize-handle{display:none}
+  .chat-sidebar{width:100% !important;min-width:0;max-width:none;border-left:none;border-top:1px solid var(--border);height:400px;flex-shrink:0}
+}
+
+</style>
+</head>
+<body>
+
+<nav class="plan-sidebar">
+  <a href="/" class="brand">HtmlGraph</a>
+  <a href="#design" class="nav-link active" data-spy="design">Design</a>
+  <a href="#slices" class="nav-link" data-spy="slices">Slices</a>
+  <a href="#questions" class="nav-link" data-spy="questions">Decisions</a>
+  <a href="#critique" class="nav-link" data-spy="critique">Critique</a>
+  <a href="#feedback-summary" class="nav-link" data-spy="feedback-summary">Progress</a>
+  <a href="#chat-panel" class="nav-link" data-spy="chat-panel">Chat</a>
+</nav>
+<div class="plan-layout">
+<div class="plan-content">
+<article id="plan-43659c92" data-plan-id="plan-43659c92" data-feature-id="trk-97f85b3b" data-status="finalized">
+
+<!-- Plan Header -->
+<header class="plan-header">
+  <h1>Plan: Close session HTML canonical gaps</h1>
+  <p style="color:var(--text-dim)">Close the three remaining gaps in the existing session HTML canonical implementation. Sessions already use HTML as canonical storage per feat-029affaa (createSessionHTML at SessionStart, appendEventToSessionHTML at PostToolUse via flock + read-modify-rewrite, finalizeSessionHTML at SessionEnd, reindex round-trip via goquery). This plan does NOT introduce the pattern — it fills the three gaps the pattern left open: (1) ingest path writes SQLite but never creates session HTML files, (2) tool calls where PostToolUse never fires stay as orphaned SQLite rows forever with no HTML entry, (3) legacy sessions created before feat-029affaa shipped have no HTML files and can&#39;t round-trip through reindex. Performance optimization (swapping flock for O_APPEND) and mid-session header refresh are deliberately out of scope — filed for separate benchmark-driven evaluation.</p>
+  <div class="meta">
+    <span class="badge badge-pending">Draft</span>
+    <span style="font-size:.75rem;color:var(--text-muted)">v4 · 4 slices · Created 2026-04-10</span>
+  </div>
+</header>
+<button id="themeToggle" style="position:fixed;top:16px;right:16px;z-index:100;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:6px 12px;color:var(--text);font-family:var(--mono);font-size:0.75rem;cursor:pointer;">
+  ☀ Light
+</button>
+
+<!-- Related Work -->
+
+
+<!-- Plan YAML source (collapsible) -->
+<details class="yaml-viewer" id="yaml-viewer">
+    <summary>View Plan YAML</summary>
+    <pre><code class="language-yaml" id="yaml-content">Loading…</code></pre>
+</details>
+
+<!-- ZONE 1: Dependency Graph -->
+<section class="dep-graph" data-zone="dependency-graph">
+  <h2>Dependency Graph</h2>
+  <div id="graph-data" style="display:none">
+    <div data-node="1" data-name="Ingest path renders session HTML alongside SQLite writes" data-status="pending" data-deps="" data-files="8"></div>
+    <div data-node="2" data-name="Orphan sweep for crashed tool calls" data-status="pending" data-deps="1" data-files="10"></div>
+    <div data-node="3" data-name="One-time backfill migration for legacy SQLite-only sessions" data-status="pending" data-deps="1" data-files="3"></div>
+    <div data-node="4" data-name="Reindex round-trip acceptance test" data-status="pending" data-deps="1,2,3" data-files="2"></div>
+    
+    <!--PLAN_GRAPH_NODES-->
+  </div>
+  <svg id="dep-graph-svg" width="100%"></svg>
+</section>
+
+<!-- ZONE 2: Interactive Sections -->
+
+<!-- Design -->
+<details id="design" class="section-card" open="" data-phase="design" data-status="pending">
+  <summary><span>Design</span><span class="badge badge-pending" data-badge-for="design">Pending</span></summary>
+  <div class="section-body">
+    <h4>Problem</h4>
+<div data-markdown="">The existing session HTML canonical implementation (feat-029affaa, shipped on trk-97f85b3b) has three gaps that became visible during multi-project hardening smoke-testing on 2026-04-10.
+
+**Gap 1 — Ingest path skips HTML.** `cmd/htmlgraph/ingest.go:storeParseResult` writes ingested Claude Code transcripts to the `messages`, `tool_calls`, and `agent_events` tables, but never calls `createSessionHTML`. When `DiscoverSessions` scans `~/.claude/projects/&lt;slug&gt;/*.jsonl` and processes historical transcripts, the resulting session rows exist only in SQLite. This is the root cause surfaced by bug-a52d5bf9: planbook had 15 session rows in its database but only 3 HTML files, and the 12 orphaned rows came from ingested transcripts that bypassed the canonical HTML path. The display-side fix added a `WHERE project_dir = ?` clause to `sessionsHandler` and the ingest-side fix corrected an inverted prefix filter, but neither addressed the architectural gap: ingested sessions are still SQLite-only, which means `htmlgraph reindex` (which reads HTML files to rebuild SQLite) cannot recover them if the DB is lost.
+
+**Gap 2 — No orphan sweep for crashed tool calls.** `internal/hooks/pretooluse.go` writes an `agent_events` row with `status=&#39;started&#39;`; `PostToolUse` later looks it up via `FindStartedEvent` to get the event_id and calls `appendEventToSessionHTML` to write the `&lt;li&gt;` entry. If PostToolUse never fires — tool crash, Claude Code kill, system shutdown mid-tool-call — the row stays in `status=&#39;started&#39;` forever and the HTML file never gets the `&lt;li&gt;`. The session history has permanent silent holes. No sweep, no recovery, no synthetic aborted entry.
+
+**Gap 3 — Legacy SQLite-only sessions.** htmlgraph has 485 session rows in its SQLite index but only 325 HTML files in `.htmlgraph/sessions/`. The 160-row gap is sessions that were created before feat-029affaa shipped (via hook paths that only wrote SQLite) or via the ingest path (Gap 1). These sessions cannot be reindexed via `reindexSessions` because there is no HTML to parse. They show up correctly in the dashboard (SQLite-backed views) but break the invariant that HTML is canonical and SQLite is derivable. A one-time backfill would render HTML files from their SQLite data so the invariant holds going forward.
+
+All three gaps share a root cause: **the session HTML canonical pattern was shipped incrementally and the ingest + recovery + migration corners were never closed.** This plan closes them without introducing new architecture.</div>
+<h4>Goals</h4>
+<ol>
+<li data-markdown="">**Ingest parity with live hooks** — `htmlgraph ingest` and the auto-ingest loop in `autoIngestOnce` render a complete session HTML file for every ingested transcript, using the same `createSessionHTML` + event-append path as live SessionStart/PostToolUse hooks. Ingested sessions become round-trippable via `htmlgraph reindex`.</li>
+<li data-markdown="">**Crash recovery for orphaned tool calls** — tool calls where `agent_events.status=&#39;started&#39;` has been set but no PostToolUse ever completed get a synthetic `&lt;li data-status=&#34;aborted&#34; data-reason=&#34;no-post-hook&#34;&gt;` entry written to the session HTML file after a configurable timeout. The SQLite row transitions to `status=&#39;aborted&#39;`. Sessions that end mid-tool-call recover gracefully — no missing events, no permanent holes.</li>
+<li data-markdown="">**Legacy session backfill** — one-time migration that finds every session row with no corresponding HTML file, renders it via the same template path from Goal 1, and writes the resulting HTML to `.htmlgraph/sessions/&lt;id&gt;.html`. After the migration, every session row has a canonical HTML counterpart and the reindex round-trip works for every session.</li>
+<li data-markdown="">**No regressions in the happy path** — existing SessionStart/PostToolUse/SessionEnd hook behavior is unchanged. The flock + read-modify-rewrite pattern for live appends stays. Existing session HTML files continue to parse correctly via the reindex path.</li>
+<li data-markdown="">**Acceptance via reindex round-trip** — an integration test that (a) creates a session via the ingest path, (b) nukes the SQLite DB, (c) runs `htmlgraph reindex`, and (d) asserts the rebuilt session row matches what ingest originally wrote. This proves the HTML is genuinely canonical for ingested sessions, not just a mirror.</li>
+</ol>
+<h4>Constraints</h4>
+<ul>
+<li data-markdown="">**Do NOT change the existing live-hook write path.** `createSessionHTML`, `appendEventToSessionHTML`, and `finalizeSessionHTML` in `internal/hooks/session_html.go` stay as-is. The flock-based read-modify-rewrite pattern is not being replaced. This plan extends, never rewrites, the existing canonical implementation.</li>
+<li data-markdown="">**Performance optimization is OUT OF SCOPE.** The O(N) full-file rewrite per tool call under the flock pattern is a known tradeoff but not the problem being solved here. Swapping to `O_APPEND` with structurally-open documents is a separate piece of work that should be gated on benchmarks showing a measurable impact on real sessions. File it independently if you want it.</li>
+<li data-markdown="">**Mid-session header refresh is OUT OF SCOPE.** The stale `data-event-count` and status badge during a running session are cosmetic for an infrequently-read artifact (HTML files are not what the dashboard queries — SQLite is). `finalizeSessionHTML` at SessionEnd updates the header correctly; mid-session is never visibly wrong in any consumer that matters today. Ignore unless a specific consumer demands it.</li>
+<li data-markdown="">**Reuse `createSessionHTML` and `appendEventToSessionHTML` verbatim for ingest rendering.** The template, escaping discipline (`html.EscapeString`), attribute schema (`data-ts`, `data-tool`, `data-success`, `data-event-id`, optional `data-feature`), and `&lt;ol reversed&gt;` convention must match exactly so reindex_sessions.go&#39;s goquery parser keeps working without modification.</li>
+<li data-markdown="">**Orphan sweep runs lazily, not via a daemon.** No long-running background process. The sweep is triggered by (a) the next hook event for the session or (b) SessionStart of a new session in the same project or (c) on demand via a CLI subcommand. This matches the existing per-event subprocess model where `env vars don&#39;t persist between hook processes` and there is nowhere for a daemon to live.</li>
+<li data-markdown="">**Orphan sweep must be idempotent.** Running it multiple times on the same orphaned event must produce exactly one synthetic `&lt;li&gt;` entry, not duplicates. Use the event_id as the dedup key.</li>
+<li data-markdown="">**Backfill migration is one-shot.** Not called on every invocation; only runs when `htmlgraph migrate sessions` (or similar explicit subcommand) is invoked. Reports count of rendered files and any errors.</li>
+<li data-markdown="">**goquery round-trip must continue to work.** `cmd/htmlgraph/reindex_sessions.go` parses session HTML files via goquery and extracts session metadata + event list. Any HTML rendered by the ingest path or the backfill migration must parse identically to a live-hook-written file.</li>
+<li data-markdown="">**No new dependencies.** All work uses existing packages: `internal/hooks/session_html.go` for rendering, `cmd/htmlgraph/ingest.go` for ingest plumbing, `internal/ingest` for transcript parsing, `goquery` (already a dep via reindex_sessions.go) for parsing existing files if needed.</li>
+<li data-markdown="">**Cross-package reuse requires exports.** `createSessionHTML`, `appendEventToSessionHTML`, `finalizeSessionHTML`, the `sessionEvent` struct, and `summariseInput` are all currently unexported in `internal/hooks/` (session_html.go:31, session_html.go:112, session_html.go:193, session_html.go:19, pretooluse.go:368). `cmd/htmlgraph/` cannot call them directly without first exporting them — this is a hard compile-time barrier that slice 1 must address before any reuse is possible. The exports are a one-time renaming refactor (4 symbols + any test file updates), not a rewrite.</li>
+<li data-markdown="">**Live and ingest HTML files are structurally identical.** Both `createSessionHTML` (live) and the new `renderIngestedSessionHTML` (ingest) produce complete self-contained HTML files with opening AND closing tags. The difference is NOT the structure but the write mechanism: live appends events one at a time via `appendEventToSessionHTML`&#39;s flock + read-modify-rewrite (scanning for the last `&lt;/ol&gt;` marker and inserting before it), while ingest writes all events at once. Both file shapes are parsed identically by `reindexSessions` via goquery.</li>
+<li data-markdown="">**agent_events schema migration required.** Slice 2&#39;s sweep needs a `reason TEXT` column on `agent_events` to distinguish swept-aborted events from completed ones. The column does NOT exist today (verified against `internal/db/schema.go:96-130`). It must be added via an idempotent `ALTER TABLE agent_events ADD COLUMN reason TEXT` in `schema.go:Open()`, matching the existing migration pattern at `schema.go:41`. This is one line but is non-optional.</li>
+</ul>
+
+    <div class="approval-row">
+      <label><input type="checkbox" data-section="design" data-action="approve" checked="checked"/> Approve design</label>
+      <textarea data-section="design" data-comment-for="design" placeholder="Comments on design decisions..."></textarea>
+    </div>
+  </div>
+</details>
+
+
+<!-- Structure Outline (hidden when empty) -->
+
+
+<!-- Slices -->
+<details id="slices" class="section-card" open="" data-phase="slices" data-status="pending">
+  <summary><span>Slices</span><span class="badge badge-pending" data-badge-for="slices">Pending</span></summary>
+  <div class="section-body">
+    <div class="slice-card" data-slice="1" data-slice-name="feat-af06c41a" data-status="pending">
+  <div class="slice-header">
+    <span class="slice-num">#1</span>
+    <span class="slice-name">Ingest path renders session HTML alongside SQLite writes</span>
+    <span class="badge badge-revision">M</span>
+    <span class="badge badge-revision">Med</span>
+    <span class="badge badge-pending" data-badge-for="slice-1">Pending</span>
+  </div>
+  
+  <div class="slice-field"><div class="slice-field-label">What</div><div class="slice-field-value">Extend the ingest path so that every ingested transcript produces a complete session HTML file in `.htmlgraph/sessions/&lt;session-id&gt;.html` alongside the existing SQLite writes. This slice has a mandatory **export pre-step** because the reusable symbols live in a different package.
+
+**(0) Export pre-step — COMPLETED before plan finalization (see commit log).** In `internal/hooks/session_html.go` and `internal/hooks/pretooluse.go`, rename the following symbols to be exported so `cmd/htmlgraph/` can call them:
+  - `createSessionHTML` → `CreateSessionHTML`
+  - `appendEventToSessionHTML` → `AppendEventToSessionHTML`
+  - `finalizeSessionHTML` → `FinalizeSessionHTML`
+  - `sessionEvent` struct → `SessionEvent`
+  - `summariseInput` → `SummariseInput`
+Update all existing callers in `session_start.go`, `posttooluse.go`, `session_end.go`, and any `_test.go` files that reference the old names. Landed in a pre-finalization commit (pure rename, zero behavioral change, quality gates green across all 19 packages). The existing flock path for live appends is untouched.
+
+**(1) New function `RenderIngestedSessionHTML` in `internal/hooks/session_html.go`.** Signature: `RenderIngestedSessionHTML(htmlgraphDir, sessionID, projectDir string, result *ingest.ParseResult) error`. Because it lives in `internal/hooks`, it can reuse the existing template constants and helpers without cross-package gymnastics. It constructs a `models.Session` from `result` and calls `CreateSessionHTML` to write the initial scaffolded file (header, empty `&lt;ol reversed&gt;`, closing tags). Then for each tool call in `result.ToolCalls`, it constructs a `SessionEvent` and calls `AppendEventToSessionHTML` to insert the `&lt;li&gt;` via the existing flock path. This reuses the entire live-hook write stack verbatim — no template duplication, no divergence risk.
+
+**(2) Ingest call site update in `cmd/htmlgraph/ingest.go:ingestFileWithAgent`.** After `ensureSession` succeeds, add a call to `hooks.RenderIngestedSessionHTML(htmlgraphDir, sf.SessionID, decodeProjectDirFromSessionFile(sf), result)`. If the call returns an error, log it via `debugLog` and continue — HTML render failure does NOT abort the ingest (the SQLite row still gets written, consistent with the existing HTML-is-best-effort stance in live hooks). `cmd/htmlgraph/` already imports `internal/hooks` for session-start logic, so no new import is required.
+
+**(3) Skip-if-exists guard.** `CreateSessionHTML` already skips when the target file exists (verify this via inspection — if not, add the guard). Live hook writes are authoritative because the hook saw the session in real time; ingest should never overwrite a live-hook-written file. The `--force` flag on `htmlgraph ingest` is the only path that bypasses the skip.
+
+**(4) No framing correction needed for &#39;structurally-open&#39; — that was an error in v1 of this plan.** Both live and ingest HTML files are self-contained with closing tags. The append mechanism (flock + `&lt;/ol&gt;` marker insertion) is what handles incremental writes for live sessions; ingest just calls it in a loop for all events at once. The file shape is identical in both cases and parses identically via goquery in `reindexSessions`.</div></div>
+  <div class="slice-field"><div class="slice-field-label">Why</div><div class="slice-field-value">bug-a52d5bf9 surfaced the root cause: the ingest path has been writing SQLite rows without HTML files since feat-029affaa shipped. Every ingested session is a violation of the HTML-canonical invariant. This slice restores the invariant for all new ingests. Combined with slice 3&#39;s backfill it also fixes the existing 160-row gap in htmlgraph and 12-row gap in planbook.</div></div>
+  <div class="slice-field"><div class="slice-field-label">Files</div><div class="slice-field-value"><code>internal/hooks/session_html.go, internal/hooks/pretooluse.go, internal/hooks/session_start.go, internal/hooks/posttooluse.go, internal/hooks/session_end.go, internal/hooks/session_html_test.go, cmd/htmlgraph/ingest.go, cmd/htmlgraph/ingest_test.go</code></div></div>
+  <div class="slice-field"><div class="slice-field-label">Done when</div><ul class="slice-done-list"><li>Export pre-step LANDED pre-finalization: CreateSessionHTML, AppendEventToSessionHTML, FinalizeSessionHTML, SessionEvent, SummariseInput all exported and all callers updated</li><li>The export pre-step is complete: `CreateSessionHTML`, `AppendEventToSessionHTML`, `FinalizeSessionHTML`, `SessionEvent`, and `SummariseInput` are exported and all existing callers updated</li><li>`RenderIngestedSessionHTML` function exists in `internal/hooks/session_html.go` with the signature `(htmlgraphDir, sessionID, projectDir string, result *ingest.ParseResult) error`</li><li>`ingestFileWithAgent` calls `RenderIngestedSessionHTML` after `ensureSession` and logs any error via `debugLog` without aborting the SQLite write</li><li>Running `htmlgraph ingest` on a fresh project now produces both a SQLite row AND an HTML file per session</li><li>Ingested session HTML files use the identical attribute schema (`data-ts`, `data-tool`, `data-success`, `data-event-id`, optional `data-feature`) and DOM shape (`&lt;article data-type=&#34;session&#34;&gt;` + `&lt;section data-activity-log&gt;` + `&lt;ol reversed&gt;`) as live-hook-written files — verified by parsing both via goquery</li><li>If the session HTML file already exists, ingest skips writing unless `--force` is passed</li><li>`reindexSessions` successfully round-trips an ingested session: parse HTML → rebuild SQLite row → match original ingest output event count and metadata</li><li>Existing live-hook session tests (`internal/hooks/session_html_test.go`) still pass unchanged — the rename is the only change to that file</li><li>New test: ingest a synthetic JSONL fixture, verify HTML file is created, parse it via goquery, assert structure matches live hook output</li><li>`go build ./... &amp;&amp; go vet ./... &amp;&amp; go test ./...` all pass</li></ul></div>
+  
+  <div class="slice-field"><div class="slice-field-label">Test Strategy</div><div class="slice-field-value slice-tests">Unit:
+  - TestRenderIngestedSessionHTML_Shape — given a ParseResult with 3 tool calls, assert the rendered HTML has 3 `&lt;li&gt;` elements, all with the expected attributes
+  - TestRenderIngestedSessionHTML_Idempotent — running twice produces the same output
+  - TestRenderIngestedSessionHTML_SkipExisting — if the target file exists, skip write
+  - TestRenderIngestedSessionHTML_ForceOverwrite — force=true overwrites existing
+  - TestSummariseInput_Shared — verify summariseInput is reachable from ingest path
+Integration:
+  - Ingest a fixture JSONL with 5 tool calls into a tmpdir project; assert the HTML file exists; parse it via goquery; assert the article attributes and `&lt;li&gt;` count match the ParseResult
+  - Round-trip: ingest a JSONL, delete the DB, run reindex, query the rebuilt session row, assert it matches what ingest originally wrote
+Regression:
+  - Existing ingest tests must pass unchanged
+  - Live hook `createSessionHTML` + `appendEventToSessionHTML` tests must pass unchanged (no behavioral change to the live path)
+</div></div>
+  <div class="slice-deps">Dependencies: none</div>
+  <div class="approval-row">
+    <label><input type="checkbox" data-section="slice-1" data-action="approve" checked="checked"/> Approve slice</label>
+    <textarea data-section="slice-1" data-comment-for="slice-1" placeholder="Comments on slice 1..."></textarea>
+  </div>
+</div>
+<div class="slice-card" data-slice="2" data-slice-name="feat-d060054b" data-status="pending">
+  <div class="slice-header">
+    <span class="slice-num">#2</span>
+    <span class="slice-name">Orphan sweep for crashed tool calls</span>
+    <span class="badge badge-revision">M</span>
+    <span class="badge badge-revision">Med</span>
+    <span class="badge badge-pending" data-badge-for="slice-2">Pending</span>
+  </div>
+  
+  <div class="slice-field"><div class="slice-field-label">What</div><div class="slice-field-value">Add a sweep function that detects `agent_events` rows with `status=&#39;started&#39;` where no PostToolUse ever fired, emits a synthetic aborted `&lt;li&gt;` entry to the session HTML file, and transitions the SQLite row to `status=&#39;aborted&#39;` with a `reason=&#39;swept&#39;` marker. The sweep is lazy — triggered by existing hook events, not by a daemon.
+
+**(0) Schema migration — COMPLETED before plan finalization (see commit log).** Add `db.Exec(&#34;ALTER TABLE agent_events ADD COLUMN reason TEXT&#34;)` to the idempotent migration block in `internal/db/schema.go:Open()`, following the existing pattern at line 41 (`ALTER TABLE sessions ADD COLUMN title TEXT`). Landed in a pre-finalization commit as a one-line addition to the existing idempotent migration block — the sweep logic writes to this column and will error at runtime if the column is missing. The migration is idempotent (SQLite&#39;s `ALTER TABLE ADD COLUMN` fails harmlessly if the column already exists, and the existing migration pattern wraps the Exec in a swallowed error).
+
+**(1) Detection query.** New function `FindOrphanedEvents(db *sql.DB, olderThan time.Duration) ([]OrphanEvent, error)` in `internal/db/event_repo.go` (alongside `FindStartedEvent` at line 261). Returns rows where `status=&#39;started&#39;` AND `created_at &lt; now - olderThan`. Default threshold: 5 minutes, stored as a constant `internal/hooks/orphanThreshold = 5 * time.Minute`. The query uses the existing `idx_agent_events_session_ts_desc` index — no new index required.
+
+**(2) Synthetic append.** New function `AppendOrphanedEvent(htmlgraphDir, sessionID string, orphan OrphanEvent) error` in `internal/hooks/session_html.go`. Constructs a `SessionEvent` with tool name from the orphan, timestamp from its `created_at`, `data-status=&#34;aborted&#34;`, and `data-reason=&#34;no-post-hook&#34;`, then calls `AppendEventToSessionHTML` via the existing flock path. No new write mechanism — just a specialized event wrapper. On success, updates the agent_events row to `status=&#39;aborted&#39;, reason=&#39;swept&#39;`.
+
+**(3) Idempotency via goquery dedup check.** Before appending, the sweep reads the session HTML file and checks whether an `&lt;li data-event-id=&#34;&lt;id&gt;&#34;&gt;` already exists. If yes, skip the append and just update the SQLite status to keep the row consistent. Reading the file via goquery is acceptable — the sweep is a rare path and goquery is already a dependency via `reindex_sessions.go`.
+
+**(4) Lazy trigger — all three paths (from Q1, recommended default).** Invoke `SweepOrphanedEventsForSession(sessionID)` from: (a) the end of every PostToolUse after the normal append, scoped to the current session; (b) the end of SessionStart, scoped to all sessions in the current project; (c) a new CLI subcommand `htmlgraph sweep orphaned-events [--session &lt;id&gt;] [--project-dir &lt;dir&gt;]` for explicit user-triggered sweeps. Default scope for the CLI: all sessions in the current project. Reports count of swept events.
+
+**(5) Hard cutoff at 24 hours.** Orphans older than 24h are still processed (synthetic entry + SQLite update) but logged with a warning so users know about the gap. Prevents silently sweeping ancient orphans as if they were recent crashes.
+
+**(6) SessionEnd race guard.** `FinalizeSessionHTML` (previously `finalizeSessionHTML`) does NOT use flock — it&#39;s a simple read-modify-write of header attributes. If a sweep runs during SessionEnd, the sweep&#39;s flocked append could race with the finalize&#39;s non-flocked header update. Mitigation: wrap `FinalizeSessionHTML` in the same flock acquisition as `AppendEventToSessionHTML` (open the file with `O_RDWR`, `syscall.Flock LOCK_EX`, read, modify, write, release). This is a one-line addition to an existing function and it preserves the existing semantics.
+
+This closes Gap 2.</div></div>
+  <div class="slice-field"><div class="slice-field-label">Why</div><div class="slice-field-value">Sessions that crash mid-tool-call leave silent holes in both SQLite and HTML. Without a sweep, those holes are permanent — the session history becomes gradually less accurate over time. This slice guarantees eventual consistency: every `status=&#39;started&#39;` row either gets a PostToolUse completion or a synthetic aborted entry within a bounded time window.</div></div>
+  <div class="slice-field"><div class="slice-field-label">Files</div><div class="slice-field-value"><code>internal/db/schema.go, internal/db/event_repo.go, internal/db/event_repo_test.go, internal/hooks/session_html.go, internal/hooks/session_html_test.go, internal/hooks/posttooluse.go, internal/hooks/session_start.go, cmd/htmlgraph/sweep.go, cmd/htmlgraph/sweep_test.go, cmd/htmlgraph/main.go</code></div></div>
+  <div class="slice-field"><div class="slice-field-label">Done when</div><ul class="slice-done-list"><li>Schema migration LANDED pre-finalization: ALTER TABLE agent_events ADD COLUMN reason TEXT added to schema.go:Open()</li><li>Schema migration: `ALTER TABLE agent_events ADD COLUMN reason TEXT` added to `schema.go:Open()` and runs idempotently on existing databases</li><li>`FindOrphanedEvents(db, olderThan)` returns rows with `status=&#39;started&#39;` older than the threshold</li><li>`AppendOrphanedEvent` writes a synthetic `&lt;li data-status=&#34;aborted&#34; data-reason=&#34;no-post-hook&#34;&gt;` to the session HTML file via the existing flock path</li><li>After append, the agent_events row transitions to `status=&#39;aborted&#39;, reason=&#39;swept&#39;`</li><li>Sweep is idempotent — running it twice on the same orphan produces exactly one `&lt;li&gt;` entry (verified by parsing the file via goquery between runs)</li><li>Lazy triggers: `PostToolUse`, `SessionStart`, and a new `htmlgraph sweep orphaned-events` CLI subcommand</li><li>Hard cutoff at 24 hours — older orphans are still swept but logged with a warning</li><li>Threshold is a constant `orphanThreshold = 5 * time.Minute` in `internal/hooks/` — not a user flag</li><li>`FinalizeSessionHTML` now acquires the same flock as `AppendEventToSessionHTML` to prevent sweep races during SessionEnd</li><li>Concurrent-writer integration test (in slice 4) verifies the sweep, the live PostToolUse append, and the finalize path can all run concurrently without corruption</li><li>`go build ./... &amp;&amp; go vet ./... &amp;&amp; go test ./...` all pass</li></ul></div>
+  
+  <div class="slice-field"><div class="slice-field-label">Test Strategy</div><div class="slice-field-value slice-tests">Unit:
+  - TestFindOrphanedEvents_OlderThan — insert 3 rows with different timestamps, assert the query returns only those older than the threshold
+  - TestAppendOrphanedEvent_SyntheticLi — assert the rendered `&lt;li&gt;` has `data-status=&#34;aborted&#34;` and the original event_id
+  - TestSweepIdempotent — running the sweep twice produces one `&lt;li&gt;` entry
+  - TestSweepHardCutoff_Logs — an orphan older than 24h still swept but logged
+Integration:
+  - Simulate a PreToolUse that writes `status=&#39;started&#39;`, wait past the threshold, run sweep, assert the session HTML file now has the synthetic entry and the SQLite row is `status=&#39;aborted&#39;`
+  - Run sweep twice in sequence, assert no duplicate entries
+Regression:
+  - Existing PostToolUse tests still pass unchanged
+  - Happy-path hooks still work normally when no orphans exist
+</div></div>
+  <div class="slice-deps">Dependencies: slices 1</div>
+  <div class="approval-row">
+    <label><input type="checkbox" data-section="slice-2" data-action="approve" checked="checked"/> Approve slice</label>
+    <textarea data-section="slice-2" data-comment-for="slice-2" placeholder="Comments on slice 2..."></textarea>
+  </div>
+</div>
+<div class="slice-card" data-slice="3" data-slice-name="feat-15e6e1d8" data-status="pending">
+  <div class="slice-header">
+    <span class="slice-num">#3</span>
+    <span class="slice-name">One-time backfill migration for legacy SQLite-only sessions</span>
+    <span class="badge badge-revision">M</span>
+    <span class="badge badge-pending">Low</span>
+    <span class="badge badge-pending" data-badge-for="slice-3">Pending</span>
+  </div>
+  
+  <div class="slice-field"><div class="slice-field-label">What</div><div class="slice-field-value">Add a migration subcommand that finds every session row with no corresponding HTML file and renders one using slice 1&#39;s `renderIngestedSessionHTML` helper. The migration runs once and is not invoked automatically on every CLI call.
+
+**(a) New CLI subcommand.** `htmlgraph migrate sessions [--project-dir &lt;dir&gt;] [--dry-run]`. Scans `.htmlgraph/sessions/*.html` to build the set of session IDs that already have HTML, then queries the `sessions` table for rows NOT in that set. For each orphan, loads its messages and tool_calls from SQLite and constructs a `ParseResult`-like struct that can be passed to `renderIngestedSessionHTML`.
+
+**(b) Data sources.** The rendered HTML is built from what SQLite has. If the original JSONL transcript is still available via `~/.claude/projects/`, prefer parsing it fresh via the ingest path (higher fidelity). Otherwise, fall back to rendering from the SQLite rows (lower fidelity — missing some event context that was never stored). Report which sessions used which source in the output.
+
+**(c) Dry-run mode.** `--dry-run` prints the list of orphan sessions and their data source without writing any files. Lets the user inspect before committing.
+
+**(d) Progress output.** For each orphan, print `session-id: source=&lt;ingest|sqlite&gt; events=N -&gt; .htmlgraph/sessions/&lt;id&gt;.html`. Summary at the end: `Migrated N sessions (M from JSONL, K from SQLite fallback, L errors)`.
+
+**(e) Error handling.** If a single session fails to render (e.g., malformed SQLite row, missing messages), log the error and continue with the next. Do not abort the whole migration. Final report shows errors at the end.
+
+**(f) Idempotency.** Running the migration twice is a no-op on the second run — the skip-if-exists check from slice 1 means already-migrated sessions are left alone. Useful for users who want to safely re-run.
+
+This closes Gap 3.</div></div>
+  <div class="slice-field"><div class="slice-field-label">Why</div><div class="slice-field-value">htmlgraph has 485 SQLite session rows but only 325 HTML files — 160 orphans that cannot round-trip through reindex. planbook has the same pattern at smaller scale. Every htmlgraph project on the user&#39;s machine accumulates these orphans over time. A one-shot backfill restores the HTML-canonical invariant for the existing corpus so reindex becomes a reliable recovery path.</div></div>
+  <div class="slice-field"><div class="slice-field-label">Files</div><div class="slice-field-value"><code>cmd/htmlgraph/migrate.go, cmd/htmlgraph/migrate_test.go, cmd/htmlgraph/main.go</code></div></div>
+  <div class="slice-field"><div class="slice-field-label">Done when</div><ul class="slice-done-list"><li>`htmlgraph migrate sessions` subcommand exists and is registered in main.go</li><li>Finds sessions with no HTML file by comparing SQLite session_ids against the files in `.htmlgraph/sessions/`</li><li>For each orphan, attempts to render from fresh JSONL transcript first, falls back to SQLite rows if transcript missing</li><li>`--dry-run` prints the plan without writing files</li><li>Progress output shows per-session source and target path</li><li>Summary report shows total migrated, by-source counts, and error count</li><li>Idempotent: running twice produces no additional writes on the second run</li><li>Errors on individual sessions don&#39;t abort the migration — reported at the end</li><li>After running the migration on htmlgraph, the sessions directory file count matches the SQLite row count (within the sweep-orphaned difference from slice 2)</li><li>`go build ./... &amp;&amp; go vet ./... &amp;&amp; go test ./...` all pass</li><li>Uses the exported `RenderIngestedSessionHTML` from slice 1 — no new template or render code, no duplication of the live-hook write path</li></ul></div>
+  
+  <div class="slice-field"><div class="slice-field-label">Test Strategy</div><div class="slice-field-value slice-tests">Unit:
+  - TestMigrate_FindsOrphans — seed a tmpdir project with SQLite rows but no HTML files; assert the migration reports the correct orphan count
+  - TestMigrate_DryRun — runs in dry-run mode, prints plan, writes zero files
+  - TestMigrate_Idempotent — run twice, assert second run is a no-op
+  - TestMigrate_Fallback — orphan with no JSONL transcript falls back to SQLite-only rendering
+  - TestMigrate_ErrorContinues — one orphan with a malformed row; migration reports the error and continues with the others
+Integration:
+  - Create a tmpdir with 5 orphan sessions (SQLite only), run `htmlgraph migrate sessions`, assert 5 HTML files created and goquery-parseable
+  - Round-trip: after migration, delete SQLite, run reindex, assert all 5 sessions rebuilt with matching row counts
+Regression:
+  - Sessions that already have HTML files are untouched — no overwrite
+</div></div>
+  <div class="slice-deps">Dependencies: slices 1</div>
+  <div class="approval-row">
+    <label><input type="checkbox" data-section="slice-3" data-action="approve" checked="checked"/> Approve slice</label>
+    <textarea data-section="slice-3" data-comment-for="slice-3" placeholder="Comments on slice 3..."></textarea>
+  </div>
+</div>
+<div class="slice-card" data-slice="4" data-slice-name="feat-9307112b" data-status="pending">
+  <div class="slice-header">
+    <span class="slice-num">#4</span>
+    <span class="slice-name">Reindex round-trip acceptance test</span>
+    <span class="badge badge-revision">M</span>
+    <span class="badge badge-pending">Low</span>
+    <span class="badge badge-pending" data-badge-for="slice-4">Pending</span>
+  </div>
+  
+  <div class="slice-field"><div class="slice-field-label">What</div><div class="slice-field-value">End-to-end integration test that proves HTML is truly canonical for all session types after slices 1-3 land. The test verifies:
+
+**(a) Ingest produces reindex-compatible HTML.** Ingest a fixture JSONL transcript via `htmlgraph ingest`, verify SQLite row exists, verify HTML file exists, nuke the SQLite DB, run `htmlgraph reindex`, verify the session row is rebuilt with identical agent_events count and metadata.
+
+**(b) Live hook HTML round-trips.** Simulate a SessionStart → PreToolUse → PostToolUse → SessionEnd sequence via the hook CLI commands, verify the resulting HTML file, nuke SQLite, reindex, verify the rebuilt row matches.
+
+**(c) Orphaned events are recovered.** Simulate a PreToolUse without a matching PostToolUse (direct insert into agent_events with `status=&#39;started&#39;`), advance time past the threshold, run `htmlgraph sweep orphaned-events`, verify the HTML file has a new synthetic `&lt;li data-status=&#34;aborted&#34;&gt;` entry, nuke SQLite, reindex, verify the rebuilt row shows `status=&#39;aborted&#39;`.
+
+**(d) Migration handles orphans.** Create a tmpdir project with SQLite rows and NO HTML files (simulating legacy state), run `htmlgraph migrate sessions`, verify HTML files are created, nuke SQLite, reindex, verify all sessions rebuild.
+
+**(e) Concurrent writers.** Spawn N goroutines simulating concurrent hook subprocesses calling `appendEventToSessionHTML` on the same session file. Assert the resulting file is (1) well-formed and parseable by goquery AND (2) contains ALL N events — not just &#39;no crash&#39; or a subset. This is the load-bearing acceptance criterion for R1 (concurrent flock writers landing all events). Spawn 20+ goroutines across three writer types — ingest render, live PostToolUse append, and sweep append — all targeting the same session HTML file. Verify every single event&#39;s `data-event-id` is present in the final file. This verifies the existing flock path still works after any refactoring in slices 1-3.
+
+All tests under `//go:build integration` build tag so they don&#39;t slow the default `go test ./...` run. CI runs them in a separate job.</div></div>
+  <div class="slice-field"><div class="slice-field-label">Why</div><div class="slice-field-value">Without this test, slices 1-3 could ship while subtly breaking the round-trip invariant. The entire point of the HTML-canonical story is `reindex` can rebuild SQLite from HTML. This test is the acceptance criterion that proves it holds for every session type: ingested, live-hook, aborted, backfilled.</div></div>
+  <div class="slice-field"><div class="slice-field-label">Files</div><div class="slice-field-value"><code>cmd/htmlgraph/session_roundtrip_test.go, internal/hooks/session_html_roundtrip_test.go</code></div></div>
+  <div class="slice-field"><div class="slice-field-label">Done when</div><ul class="slice-done-list"><li>`go test -tags=integration ./cmd/htmlgraph/... -run TestSessionRoundTrip` passes</li><li>Test covers ingest, live hook, orphan sweep, and migration paths</li><li>Test verifies HTML is parseable by goquery AND that reindexed SQLite matches pre-reindex state</li><li>Concurrent-writer subtest spawns N goroutines and verifies the output file is well-formed</li><li>Default `go test ./...` (without `-tags=integration`) does not run these tests and completes in the same time as before</li><li>CI adds a separate job that runs `go test -tags=integration ./...` and blocks the merge if any round-trip test fails</li><li>`go build ./... &amp;&amp; go vet ./... &amp;&amp; go test ./...` all pass</li><li>Concurrent-writer test verifies ALL N events land in the final file (parsed via goquery, matched by data-event-id) — not just that the writes completed without error</li><li>Round-trip test proves ingest + reindex produces identical event counts and metadata — verified via goquery parsing of the rendered HTML and SQL comparison of the rebuilt rows</li></ul></div>
+  
+  <div class="slice-field"><div class="slice-field-label">Test Strategy</div><div class="slice-field-value slice-tests">This slice IS the acceptance test — no further test requirements beyond the ones described in the `what` section.
+Default `go test ./...` run time must not increase (the new tests are under a build tag).
+</div></div>
+  <div class="slice-deps">Dependencies: slices 1,2,3</div>
+  <div class="approval-row">
+    <label><input type="checkbox" data-section="slice-4" data-action="approve" checked="checked"/> Approve slice</label>
+    <textarea data-section="slice-4" data-comment-for="slice-4" placeholder="Comments on slice 4..."></textarea>
+  </div>
+</div>
+
+    <!--PLAN_SLICE_CARDS-->
+  </div>
+</details>
+
+<!-- Design Decisions -->
+<details id="questions" class="section-card" data-phase="questions" data-status="pending">
+  <summary><span>Design Decisions</span><span class="badge badge-pending" data-badge-for="questions">Pending</span></summary>
+  <div class="section-body">
+    
+    <div class="question-block" id="q-orphan-sweep-trigger">
+      <p>When does the orphan sweep run?</p>
+      
+      
+      <label><input type="radio" name="q-orphan-sweep-trigger" data-question="q-orphan-sweep-trigger" value="A: On every PostToolUse only — cheapest, fewest code paths, misses crashed sessions"/> A: On every PostToolUse only — cheapest, fewest code paths, misses crashed sessions</label>
+      
+      <label><input type="radio" name="q-orphan-sweep-trigger" data-question="q-orphan-sweep-trigger" value="B: On every SessionStart only — project-scoped, bounded, only runs on new sessions"/> B: On every SessionStart only — project-scoped, bounded, only runs on new sessions</label>
+      
+      <label><input type="radio" name="q-orphan-sweep-trigger" data-question="q-orphan-sweep-trigger" value="C: Explicit `htmlgraph sweep` command only — user-controlled, orphans accumulate until run"/> C: Explicit `htmlgraph sweep` command only — user-controlled, orphans accumulate until run</label>
+      
+      <label class="recommended"><input type="radio" name="q-orphan-sweep-trigger" data-question="q-orphan-sweep-trigger" value="D: Combine all three (PostToolUse + SessionStart + CLI) — covers every realistic case, slightly more code"/> D: Combine all three (PostToolUse + SessionStart + CLI) — covers every realistic case, slightly more code <span class="rec-tag">recommended</span></label>
+      
+      <textarea data-section="questions" data-question-rationale="q-orphan-sweep-trigger" placeholder="Rationale for q-orphan-sweep-trigger..."></textarea>
+    </div>
+    
+    <div class="question-block" id="q-orphan-threshold">
+      <p>What is the default orphan threshold — how old must a `status=&#39;started&#39;` row be before it&#39;s considered orphaned?</p>
+      
+      
+      <label><input type="radio" name="q-orphan-threshold" data-question="q-orphan-threshold" value="A: 1 minute — aggressive, risks false positives on slow tools like WebFetch"/> A: 1 minute — aggressive, risks false positives on slow tools like WebFetch</label>
+      
+      <label class="recommended"><input type="radio" name="q-orphan-threshold" data-question="q-orphan-threshold" value="B: 5 minutes — balanced default, almost never produces false positives in practice"/> B: 5 minutes — balanced default, almost never produces false positives in practice <span class="rec-tag">recommended</span></label>
+      
+      <label><input type="radio" name="q-orphan-threshold" data-question="q-orphan-threshold" value="C: 30 minutes — conservative, zero false positives but long holes after crashes"/> C: 30 minutes — conservative, zero false positives but long holes after crashes</label>
+      
+      <textarea data-section="questions" data-question-rationale="q-orphan-threshold" placeholder="Rationale for q-orphan-threshold..."></textarea>
+    </div>
+    
+    <div class="question-block" id="q-backfill-data-source">
+      <p>When backfilling HTML for legacy SQLite-only sessions, which data source is authoritative when both are available?</p>
+      
+      
+      <label class="recommended"><input type="radio" name="q-backfill-data-source" data-question="q-backfill-data-source" value="A: Hybrid — re-parse JSONL when present, fall back to SQLite only when transcript is missing"/> A: Hybrid — re-parse JSONL when present, fall back to SQLite only when transcript is missing <span class="rec-tag">recommended</span></label>
+      
+      <label><input type="radio" name="q-backfill-data-source" data-question="q-backfill-data-source" value="B: Always use SQLite — fast, simple, but locks in any existing corruption"/> B: Always use SQLite — fast, simple, but locks in any existing corruption</label>
+      
+      <label><input type="radio" name="q-backfill-data-source" data-question="q-backfill-data-source" value="C: JSONL only — if the transcript is missing, skip the session and report it; don&#39;t render from SQLite"/> C: JSONL only — if the transcript is missing, skip the session and report it; don&#39;t render from SQLite</label>
+      
+      <textarea data-section="questions" data-question-rationale="q-backfill-data-source" placeholder="Rationale for q-backfill-data-source..."></textarea>
+    </div>
+    
+    <div class="question-block" id="q-migration-invocation">
+      <p>Is the backfill migration an explicit user-invoked command, or does it auto-run once on first upgrade?</p>
+      
+      
+      <label><input type="radio" name="q-migration-invocation" data-question="q-migration-invocation" value="A: Explicit `htmlgraph migrate sessions` only — user must run it, gap persists by default"/> A: Explicit `htmlgraph migrate sessions` only — user must run it, gap persists by default</label>
+      
+      <label><input type="radio" name="q-migration-invocation" data-question="q-migration-invocation" value="B: Auto-run on first post-upgrade invocation — every user gets the fix, but surprise latency"/> B: Auto-run on first post-upgrade invocation — every user gets the fix, but surprise latency</label>
+      
+      <label class="recommended"><input type="radio" name="q-migration-invocation" data-question="q-migration-invocation" value="C: Detect and prompt on first post-upgrade invocation, user runs the command explicitly"/> C: Detect and prompt on first post-upgrade invocation, user runs the command explicitly <span class="rec-tag">recommended</span></label>
+      
+      <textarea data-section="questions" data-question-rationale="q-migration-invocation" placeholder="Rationale for q-migration-invocation..."></textarea>
+    </div>
+    
+    <div class="question-block" id="q-ingest-live-conflict">
+      <p>When an ingested session and a live-hook session have the same session_id, which one wins?</p>
+      
+      
+      <label class="recommended"><input type="radio" name="q-ingest-live-conflict" data-question="q-ingest-live-conflict" value="A: Live hook wins, ingest skips when HTML file exists — simple, preserves live context"/> A: Live hook wins, ingest skips when HTML file exists — simple, preserves live context <span class="rec-tag">recommended</span></label>
+      
+      <label><input type="radio" name="q-ingest-live-conflict" data-question="q-ingest-live-conflict" value="B: Ingest wins via force=true — higher fidelity from transcript re-parse, loses hook-only data"/> B: Ingest wins via force=true — higher fidelity from transcript re-parse, loses hook-only data</label>
+      
+      <label><input type="radio" name="q-ingest-live-conflict" data-question="q-ingest-live-conflict" value="C: Merge live metadata with ingest event list — most accurate, most complex"/> C: Merge live metadata with ingest event list — most accurate, most complex</label>
+      
+      <textarea data-section="questions" data-question-rationale="q-ingest-live-conflict" placeholder="Rationale for q-ingest-live-conflict..."></textarea>
+    </div>
+    
+    <table class="q-table">
+      <thead><tr><th>Question</th><th>Selected</th><th>Status</th></tr></thead>
+      <tbody id="questionsRecap">
+        
+        <tr data-recap-for="q-orphan-sweep-trigger">
+          <td>When does the orphan sweep run?</td>
+          <td class="recap-answer">—</td>
+          <td><span class="badge badge-pending">Pending</span></td>
+        </tr>
+        
+        <tr data-recap-for="q-orphan-threshold">
+          <td>What is the default orphan threshold — how old must a `status=&#39;started&#39;` row be before it&#39;s considered orphaned?</td>
+          <td class="recap-answer">—</td>
+          <td><span class="badge badge-pending">Pending</span></td>
+        </tr>
+        
+        <tr data-recap-for="q-backfill-data-source">
+          <td>When backfilling HTML for legacy SQLite-only sessions, which data source is authoritative when both are available?</td>
+          <td class="recap-answer">—</td>
+          <td><span class="badge badge-pending">Pending</span></td>
+        </tr>
+        
+        <tr data-recap-for="q-migration-invocation">
+          <td>Is the backfill migration an explicit user-invoked command, or does it auto-run once on first upgrade?</td>
+          <td class="recap-answer">—</td>
+          <td><span class="badge badge-pending">Pending</span></td>
+        </tr>
+        
+        <tr data-recap-for="q-ingest-live-conflict">
+          <td>When an ingested session and a live-hook session have the same session_id, which one wins?</td>
+          <td class="recap-answer">—</td>
+          <td><span class="badge badge-pending">Pending</span></td>
+        </tr>
+        
+      </tbody>
+    </table>
+  </div>
+</details>
+
+
+
+<details id="critique" class="section-card" data-phase="critique" data-status="pending">
+  <summary><span>Critique</span><span class="badge badge-pending" data-badge-for="critique">Review</span></summary>
+  <div class="section-body">
+
+    
+    <div class="sub-section">
+      <h4>Assumption Verification</h4>
+      
+      <div style="display:flex;align-items:flex-start;gap:10px;margin-bottom:8px;padding:8px;background:var(--bg-input);border-radius:var(--radius)">
+        <span class="badge badge-approved">verified</span>
+        <div>
+          <p style="margin:0;font-size:.9rem">Sessions already use HTML as canonical storage via feat-029affaa on trk-97f85b3b</p>
+          <p style="margin:4px 0 0;font-size:.8rem;color:var(--text-muted)">internal/hooks/session_html.go:31-238 — createSessionHTML / appendEventToSessionHTML / finalizeSessionHTML all present and wired to hooks</p>
+        </div>
+      </div>
+      
+      <div style="display:flex;align-items:flex-start;gap:10px;margin-bottom:8px;padding:8px;background:var(--bg-input);border-radius:var(--radius)">
+        <span class="badge badge-approved">verified</span>
+        <div>
+          <p style="margin:0;font-size:.9rem">The ingest path (cmd/htmlgraph/ingest.go:182-187) calls ensureSession + storeParseResult but never calls createSessionHTML</p>
+          <p style="margin:4px 0 0;font-size:.8rem;color:var(--text-muted)">ingest.go:ingestFileWithAgent — no render call; root cause of bug-a52d5bf9</p>
+        </div>
+      </div>
+      
+      <div style="display:flex;align-items:flex-start;gap:10px;margin-bottom:8px;padding:8px;background:var(--bg-input);border-radius:var(--radius)">
+        <span class="badge badge-approved">verified</span>
+        <div>
+          <p style="margin:0;font-size:.9rem">The reindex round-trip uses goquery to parse HTML files and upsert AgentEvent rows</p>
+          <p style="margin:4px 0 0;font-size:.8rem;color:var(--text-muted)">reindex_sessions.go:21-142 — expects &lt;li&gt; with data-ts, data-tool, data-success, data-event-id, optional data-feature</p>
+        </div>
+      </div>
+      
+      <div style="display:flex;align-items:flex-start;gap:10px;margin-bottom:8px;padding:8px;background:var(--bg-input);border-radius:var(--radius)">
+        <span class="badge badge-approved">verified</span>
+        <div>
+          <p style="margin:0;font-size:.9rem">PostToolUse calls appendEventToSessionHTML after FindStartedEvent; if PostToolUse never fires the status=&#39;started&#39; row stays forever</p>
+          <p style="margin:4px 0 0;font-size:.8rem;color:var(--text-muted)">posttooluse.go:55 (call) and line 43 (FindStartedEvent)</p>
+        </div>
+      </div>
+      
+      <div style="display:flex;align-items:flex-start;gap:10px;margin-bottom:8px;padding:8px;background:var(--bg-input);border-radius:var(--radius)">
+        <span class="badge badge-blocked">falsified</span>
+        <div>
+          <p style="margin:0;font-size:.9rem">Live sessions use structurally-open HTML (no closing tags) during their lifetime, while ingested sessions use closed HTML</p>
+          <p style="margin:4px 0 0;font-size:.8rem;color:var(--text-muted)">session_html.go:94-100 — createSessionHTML writes CLOSED HTML with all closing tags from the start. appendEventToSessionHTML:137-140 scans for &lt;/ol&gt; marker to insert before it. Live and ingest files are structurally identical. Plan framing corrected.</p>
+        </div>
+      </div>
+      
+      <div style="display:flex;align-items:flex-start;gap:10px;margin-bottom:8px;padding:8px;background:var(--bg-input);border-radius:var(--radius)">
+        <span class="badge badge-blocked">falsified</span>
+        <div>
+          <p style="margin:0;font-size:.9rem">createSessionHTML and summariseInput can be reused by cmd/htmlgraph/ingest.go without refactoring</p>
+          <p style="margin:4px 0 0;font-size:.8rem;color:var(--text-muted)">Both functions are unexported (session_html.go:31, pretooluse.go:368). cmd/htmlgraph/ cannot call unexported symbols across the internal/hooks/ package boundary. Slice 1 now includes an explicit export pre-step.</p>
+        </div>
+      </div>
+      
+      <div style="display:flex;align-items:flex-start;gap:10px;margin-bottom:8px;padding:8px;background:var(--bg-input);border-radius:var(--radius)">
+        <span class="badge badge-blocked">falsified</span>
+        <div>
+          <p style="margin:0;font-size:.9rem">agent_events table has a reason column that slice 2 can use for sweep markers</p>
+          <p style="margin:4px 0 0;font-size:.8rem;color:var(--text-muted)">schema.go:96-130 — agent_events CREATE TABLE has no reason column. No ALTER TABLE for it exists in the migration block. Slice 2 now includes an explicit schema migration adding the column.</p>
+        </div>
+      </div>
+      
+      <div style="display:flex;align-items:flex-start;gap:10px;margin-bottom:8px;padding:8px;background:var(--bg-input);border-radius:var(--radius)">
+        <span class="badge badge-approved">verified</span>
+        <div>
+          <p style="margin:0;font-size:.9rem">SQLite has enough data to reconstruct session HTML for the backfill fallback case</p>
+          <p style="margin:4px 0 0;font-size:.8rem;color:var(--text-muted)">messages (role, content, timestamp), tool_calls (tool_name, input_json), agent_events (status, source) collectively provide all fields needed for &lt;li&gt; attributes, at lower fidelity than fresh JSONL re-parse</p>
+        </div>
+      </div>
+      
+      <div style="display:flex;align-items:flex-start;gap:10px;margin-bottom:8px;padding:8px;background:var(--bg-input);border-radius:var(--radius)">
+        <span class="badge badge-approved">verified</span>
+        <div>
+          <p style="margin:0;font-size:.9rem">Adding new cobra subcommands (sweep, migrate) is a simple addition with no plumbing required</p>
+          <p style="margin:4px 0 0;font-size:.8rem;color:var(--text-muted)">Pattern from main.go: define fooCmd() *cobra.Command + rootCmd.AddCommand(fooCmd()). Nested subcommands via AddCommand on the parent. No plumbing.</p>
+        </div>
+      </div>
+      
+      <div style="display:flex;align-items:flex-start;gap:10px;margin-bottom:8px;padding:8px;background:var(--bg-input);border-radius:var(--radius)">
+        <span class="badge badge-approved">verified</span>
+        <div>
+          <p style="margin:0;font-size:.9rem">Test helpers exist for session HTML write tests (tmpdir, in-memory DB)</p>
+          <p style="margin:4px 0 0;font-size:.8rem;color:var(--text-muted)">reindex_sessions_test.go:16,75 — writeSessionHTML and setupSessionTestDB helpers are reusable patterns for slice 1 and slice 4 tests</p>
+        </div>
+      </div>
+      
+    </div>
+    
+
+    
+    <div class="sub-section" style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+      
+      <div>
+        <h4>Haiku (design review)</h4>
+        <div style="font-size:.85rem;color:var(--text-dim)"><h5>Slice Assessment</h5>
+<ul>
+  <li><span class="badge badge-success">S1</span> Ingest renders HTML — sound approach, reuses createSessionHTML + appendEventToSessionHTML. Needs error-handling decision documented (HTML render failure is non-fatal, SQLite write proceeds).</li>
+  <li><span class="badge badge-warn">S2</span> Orphan sweep feasible but adds complexity. Schema migration for reason column must be enforced (not &#39;add if missing&#39;). Three concurrent writers (ingest + live PostToolUse + sweep) now all use AppendEventToSessionHTML — concurrent-writer test matrix in S4 is load-bearing.</li>
+  <li><span class="badge badge-success">S3</span> Legacy session backfill is solid. Explicit subcommand + dry-run + hybrid JSONL-first fallback + per-session error handling are all right choices.</li>
+  <li><span class="badge badge-success">S4</span> Round-trip test is the critical acceptance criterion and the plan recognizes it. Explicitly make the concurrent-writer test verify ALL N events land, not just &#39;no crash&#39;.</li>
+</ul>
+<h5>Gaps &amp; Missing Considerations</h5>
+<ul>
+  <li><span class="badge badge-warn">Gap</span> Schema migration for the reason column needs explicit enforcement, not &#39;add if not present&#39;. Addressed by making it a mandatory pre-step (0) in slice 2.</li>
+  <li><span class="badge badge-warn">Gap</span> summariseInput helper export path — slice 1 now includes the full 4-symbol export pre-step explicitly.</li>
+  <li><span class="badge badge-warn">Gap</span> SessionEnd&#39;s finalizeSessionHTML doesn&#39;t acquire flock; if a sweep runs during finalize, the two can race. Addressed by wrapping FinalizeSessionHTML in the same flock acquisition as AppendEventToSessionHTML.</li>
+</ul>
+<h5>Alternative Approaches</h5>
+<ul>
+  <li><span class="badge badge-info">Alt</span> Delete SQLite-only orphan rows instead of rendering HTML for them. Rejected — would lose data and violate the HTML-is-canonical invariant.</li>
+  <li><span class="badge badge-info">Alt</span> Replace flock with O_APPEND for the append path. Out of scope for this plan — it&#39;s a performance optimization that should be gated on benchmarks and filed separately.</li>
+  <li><span class="badge badge-info">Alt</span> Background daemon for orphan sweep. Rejected — breaks the per-event subprocess model. Lazy trigger from PostToolUse + SessionStart + explicit CLI is the right balance.</li>
+</ul>
+</div>
+      </div>
+      
+      
+      <div>
+        <h4>Sonnet (feasibility)</h4>
+        <div style="font-size:.85rem;color:var(--text-dim)"><h5>What Exists to Leverage</h5>
+<ul>
+  <li><span class="badge badge-success">Prior</span> reindex_sessions_test.go helpers (setupSessionTestDB, writeSessionHTML) are directly reusable for slice 1 and slice 4 tests</li>
+  <li><span class="badge badge-success">Prior</span> Existing idempotent ALTER TABLE pattern in schema.go:Open() (line 41) is the template for slice 2&#39;s reason-column migration</li>
+  <li><span class="badge badge-success">Prior</span> FindStartedEvent (event_repo.go:261) demonstrates the exact query shape FindOrphanedEvents needs — no new index required, idx_agent_events_session_ts_desc already covers it</li>
+  <li><span class="badge badge-success">Prior</span> goquery already a dependency via reindex_sessions.go — no new imports needed for the dedup check in slice 2</li>
+</ul>
+<h5>What the Plan Gets Wrong</h5>
+<ul>
+  <li><span class="badge badge-danger">Bug</span> A6 FALSIFIED: createSessionHTML et al. are unexported. Slice 1 cannot reuse them without first exporting 4 symbols (CreateSessionHTML, AppendEventToSessionHTML, SessionEvent, SummariseInput). Plan corrected with explicit export pre-step.</li>
+  <li><span class="badge badge-danger">Bug</span> A7 FALSIFIED: reason TEXT column does not exist on agent_events. Slice 2 needs an explicit ALTER TABLE migration in schema.go:Open(). Plan corrected with mandatory pre-step (0) in slice 2.</li>
+  <li><span class="badge badge-warn">Bug</span> A5 FALSIFIED: &#39;live sessions are structurally open, ingest sessions are closed&#39; framing is wrong. Both live and ingest write complete HTML with closing tags. The real difference is the append mechanism (flock + &lt;/ol&gt; marker insertion for live, batch write for ingest). Plan constraint and slice 1 description corrected.</li>
+</ul>
+<h5>Prior Art &amp; Examples</h5>
+<ul>
+  <li><span class="badge badge-info">Ref</span> internal/db/schema.go:41 — idempotent ALTER TABLE pattern for slice 2&#39;s reason column migration</li>
+  <li><span class="badge badge-info">Ref</span> reindex_sessions_test.go:16 writeSessionHTML + :75 setupSessionTestDB — reusable test helpers</li>
+  <li><span class="badge badge-info">Ref</span> internal/hooks/session_html.go:94-100 createSessionHTML — the template structure slice 1 will reuse via exported wrappers</li>
+</ul>
+</div>
+      </div>
+      
+    </div>
+    
+
+    
+    <div class="sub-section">
+      <h4>Synthesis</h4>
+      <div style="font-size:.85rem;color:var(--text-dim)">Plan is BUILDABLE WITH MINOR CHANGES. Two assumptions were falsified by the feasibility critic and required concrete corrections:
+
+1. (A6) `createSessionHTML`, `appendEventToSessionHTML`, `sessionEvent`, and `summariseInput` are unexported — cross-package reuse from `cmd/htmlgraph/` needs an explicit export pre-step. Slice 1 now includes this as step (0) with the full symbol list.
+
+2. (A7) The `reason` column on `agent_events` does not exist — slice 2 needs an explicit `ALTER TABLE` migration in `schema.go:Open()`. Slice 2 now includes this as step (0).
+
+One framing error (A5) was corrected: the original plan said live sessions use structurally-open HTML while ingest sessions use closed HTML. Both actually use structurally-complete files with closing tags — the difference is the append mechanism (flock + `&lt;/ol&gt;` marker insertion for live, batch write for ingest).
+
+High-severity risk R1 (concurrent flock writers) is covered by slice 4&#39;s explicit concurrent-writer test that verifies ALL N events land in the final file, not just &#39;no crash&#39;. Medium-severity risks R2 (migration enforcement) and R6 (SessionEnd race) are addressed by additions to slices 2 and the FinalizeSessionHTML flock wrap. Low risks are documented in constraints or accepted.
+
+Verdict: BUILDABLE AS WRITTEN at v2. All 5 questions answered pending human review. Scope correctly excludes performance optimization and mid-session header refresh per the user&#39;s direction. Ready to open for human review.
+
+**v3 UPDATE (2026-04-10):** Both load-bearing pre-steps have been resolved in code BEFORE finalization, not deferred to slice execution. Commit landed the 5-symbol export (internal/hooks) and the reason-column ALTER TABLE migration (internal/db/schema.go). All 19 Go packages build, vet, and test clean. Slice 1 step (0) and slice 2 step (0) are now confirmations of a completed state rather than TODO work. This de-risks the plan execution by proving the refactor holds before committing to any slice implementation.</div>
+    </div>
+    
+
+    
+    <div class="sub-section">
+      <h4>Risk Assessment</h4>
+      <table class="q-table">
+        <thead><tr><th>Risk</th><th>Severity</th><th>Mitigation</th></tr></thead>
+        <tbody>
+          
+          <tr>
+            <td>Concurrent flock writers (ingest render + live PostToolUse append + sweep append) may not all land events in the final file. The existing flock path is proven for single-writer sequences but the three-writer scenario introduces new contention. Could manifest as lost events or torn writes.</td>
+            <td><span class="badge badge-blocked">High</span></td>
+            <td>Slice 4&#39;s integration test MUST verify all N events land in the file (parsed via goquery, matched by data-event-id), not just that the writes completed without error. Spawn 20+ concurrent goroutines across all three writer types targeting the same session file.</td>
+          </tr>
+          
+          <tr>
+            <td>Schema migration for agent_events.reason column doesn&#39;t run on upgraded databases, causing sweep logic to fail at runtime when setting reason=&#39;swept&#39;</td>
+            <td><span class="badge badge-revision">Medium</span></td>
+            <td>Add the ALTER TABLE in the idempotent migration block at schema.go:Open() which runs on every database open. Test against a pre-migration schema snapshot to verify the migration succeeds.</td>
+          </tr>
+          
+          <tr>
+            <td>Ingest silently ignores HTML render errors via debugLog, re-creating Gap 1 for individual failed sessions</td>
+            <td><span class="badge badge-pending">Low</span></td>
+            <td>Document the decision in the constraint — HTML render failure is non-fatal because SQLite still writes and the session can be recovered via the backfill migration. Add a debug-log line indicating render completion so users can verify the path ran.</td>
+          </tr>
+          
+          <tr>
+            <td>5-minute orphan threshold is a constant (not a flag) and may be wrong for unusual environments (slow tools, long-running WebFetch)</td>
+            <td><span class="badge badge-pending">Low</span></td>
+            <td>Start with 5 minutes as a constant in internal/hooks/. If tuning becomes necessary based on user reports, the constant can be changed in a follow-up release without a CLI migration.</td>
+          </tr>
+          
+          <tr>
+            <td>JSONL-first backfill could render incorrect HTML if the transcript file is corrupted or partially written</td>
+            <td><span class="badge badge-pending">Low</span></td>
+            <td>Fallback to SQLite if JSONL parse fails. Report parse failures in the migration output so users can investigate. This is a one-shot migration and failures are recoverable by re-running.</td>
+          </tr>
+          
+          <tr>
+            <td>FinalizeSessionHTML races with an in-flight sweep&#39;s append because finalize currently does not use flock</td>
+            <td><span class="badge badge-revision">Medium</span></td>
+            <td>Slice 2 wraps FinalizeSessionHTML in the same flock acquisition as AppendEventToSessionHTML. One-line change to an existing function.</td>
+          </tr>
+          
+        </tbody>
+      </table>
+    </div>
+    
+
+    
+
+  </div>
+</details>
+
+
+
+
+
+<!-- ZONE 3: Feedback Summary -->
+<section id="feedback-summary" class="progress-zone" data-zone="feedback-summary">
+  <h2>Feedback Summary</h2>
+  <div class="progress-stats">
+    <div class="progress-stat"><strong id="approvedCount">0</strong> approved</div>
+    <div class="progress-stat"><strong id="totalSections">5</strong> sections</div>
+    <div class="progress-stat"><strong id="pendingCount">5</strong> pending</div>
+  </div>
+  <div class="progress-bar-track"><div class="progress-bar-fill" id="progressFill" style="width:0%"></div></div>
+  <div class="comments-summary">
+    <h3>Decisions &amp; Comments</h3>
+    <div id="commentsFeed"><p style="font-size:.8rem;color:var(--text-muted);font-style:italic">No comments yet.</p></div>
+  </div>
+  <div class="finalize-area">
+    <button class="btn-finalize" id="finalizeBtn" disabled="">Finalize Plan</button>
+    <p style="font-size:.75rem;color:var(--text-muted);margin-top:6px">All sections must be approved before finalizing.</p>
+  </div>
+</section>
+
+</article>
+</div><!-- /.plan-content -->
+
+<!-- Drag handle for resizing chat sidebar -->
+<div class="chat-resize-handle" id="chat-resize-handle"></div>
+
+<!-- Chat sidebar -->
+<aside class="chat-sidebar" id="chat-sidebar">
+  <section id="chat-panel" class="chat-panel" data-zone="chat">
+    <h2>Plan Discussion</h2>
+    <div id="chat-messages" class="chat-messages">
+      <p class="chat-notice" id="chat-empty">Ask about the plan design, slices, risks, or tradeoffs.</p>
+    </div>
+    <div class="chat-input-area">
+      <textarea id="chat-input" placeholder="Ask about the plan..." rows="2"></textarea>
+      <button id="chat-send">Send</button>
+    </div>
+  </section>
+
+  <!-- Amendments Panel -->
+  <div id="amendments-panel" class="amendments-panel" style="display:none">
+    <h3>Amendments</h3>
+    <div id="amendments-list"></div>
+    <div id="amendments-summary" class="amendments-summary"></div>
+  </div>
+</aside>
+</div><!-- /.plan-layout -->
+
+<script src="https://d3js.org/d3.v7.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/dagre-d3@0.6.4/dist/dagre-d3.min.js"></script>
+<script>
+// Plan base path — derived from window.location.pathname so the same
+// rendered HTML works whether the file is served at the legacy
+// /plans/<id>.html path (single-project server) or at /p/<id>/plans/<id>.html
+// (via the parent-doorway reverse proxy). Every fetch() on this page
+// prefixes window.htmlgraphPlanBase, which is '' at the root and
+// '/p/<id>' under the proxy. This is the per-project routing fix for
+// the multi-project hardening re-architecture (plan-237fb251).
+window.htmlgraphPlanBase = (function() {
+  var p = window.location.pathname || '';
+  if (p.indexOf('/p/') !== 0) return '';
+  var segs = p.split('/').filter(function(s) { return s !== ''; });
+  if (segs.length >= 2 && segs[0] === 'p') return '/p/' + segs[1];
+  return '';
+})();
+</script>
+<script>
+// Theme toggle (skip when embedded — dashboard manages its own theme)
+(function(){
+  var themeBtn = document.getElementById('themeToggle');
+  if (!themeBtn) return;
+  var html = document.documentElement;
+
+  var saved = localStorage.getItem('crispi-theme');
+  function syncHljsTheme(theme) {
+    var dark = document.getElementById('hljs-dark');
+    var light = document.getElementById('hljs-light');
+    if (theme === 'light') {
+      dark.disabled = true; light.disabled = false;
+    } else {
+      dark.disabled = false; light.disabled = true;
+    }
+  }
+
+  if (saved) {
+    html.dataset.theme = saved;
+    themeBtn.textContent = saved === 'light' ? '\u263E Dark' : '\u2600 Light';
+    syncHljsTheme(saved);
+  } else if (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches) {
+    html.dataset.theme = 'light';
+    themeBtn.textContent = '\u263E Dark';
+    syncHljsTheme('light');
+  }
+
+  themeBtn.addEventListener('click', function() {
+    var current = html.dataset.theme || 'dark';
+    var next = current === 'dark' ? 'light' : 'dark';
+    html.dataset.theme = next;
+    localStorage.setItem('crispi-theme', next);
+    themeBtn.textContent = next === 'light' ? '\u263E Dark' : '\u2600 Light';
+    syncHljsTheme(next);
+  });
+
+  hljs.highlightAll();
+})();
+
+// Global plan ID — accessible to all script blocks when embedded
+var planId=(function(){var a=document.querySelector('article[id]');return a?a.id:null;})();
+
+(function(){
+  'use strict';
+  var SECTIONS=/*PLAN_SECTIONS_JSON*/["design","slice-1","slice-2","slice-3","slice-4"]/*END_PLAN_SECTIONS_JSON*/;
+
+  function setBadge(el,ok){
+    el.className='badge badge-'+(ok?'approved':'pending');
+    el.textContent=ok?'Approved':'Pending';
+  }
+
+  function escHtml(s){var d=document.createElement('div');d.textContent=s;return d.innerHTML}
+
+  document.querySelectorAll('input[data-action="approve"]').forEach(function(cb){
+    cb.addEventListener('change',function(){
+      var sec=this.dataset.section;
+      var badge=document.querySelector('[data-badge-for="'+sec+'"]');
+      if(badge) setBadge(badge,this.checked);
+      var details=this.closest('details[data-phase]');
+      if(details) details.dataset.status=this.checked?'approved':'pending';
+      if(sec.startsWith('slice-')){
+        var n=sec.split('-')[1];
+        var node=document.getElementById('node-'+n);
+        if(node) node.dataset.status=this.checked?'approved':'pending';
+        var all=document.querySelectorAll('input[data-section^="slice-"][data-action="approve"]');
+        var allOk=Array.prototype.every.call(all,function(c){return c.checked});
+        var sb=document.querySelector('[data-badge-for="slices"]');
+        if(sb) setBadge(sb,allOk);
+        var sd=document.querySelector('[data-phase="slices"]');
+        if(sd) sd.dataset.status=allOk?'approved':'pending';
+      }
+      updateProgress();
+      if(planId){
+        fetch((window.htmlgraphPlanBase||'')+'/api/plans/'+planId+'/feedback',{
+          method:'POST',
+          headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({section:sec,action:'approve',value:String(this.checked),question_id:''})
+        });
+      }
+    });
+  });
+
+  document.querySelectorAll('input[type="radio"][data-question]').forEach(function(r){
+    r.addEventListener('change',function(){
+      var row=document.querySelector('[data-recap-for="'+this.dataset.question+'"]');
+      if(row){
+        var c=row.querySelector('.recap-answer');
+        if(c) c.textContent=this.value.charAt(0).toUpperCase()+this.value.slice(1);
+        var badge=row.querySelector('.badge');
+        if(badge) setBadge(badge,true);
+      }
+      var allRows=document.querySelectorAll('[data-recap-for]');
+      var allAnswered=Array.prototype.every.call(allRows,function(r){
+        var b=r.querySelector('.badge');
+        return b&&b.className.indexOf('badge-approved')>=0;
+      });
+      var headerBadge=document.querySelector('[data-badge-for="questions"]');
+      if(headerBadge) setBadge(headerBadge,allAnswered);
+      var details=document.querySelector('[data-phase="questions"]');
+      if(details) details.dataset.status=allAnswered?'approved':'pending';
+      if(planId){
+        fetch((window.htmlgraphPlanBase||'')+'/api/plans/'+planId+'/feedback',{
+          method:'POST',
+          headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({section:'questions',action:'answer',value:this.value,question_id:this.dataset.question})
+        });
+      }
+    });
+  });
+
+  document.querySelectorAll('input[type="radio"][data-question]:checked').forEach(function(r){
+    var row=document.querySelector('[data-recap-for="'+r.dataset.question+'"]');
+    if(row){
+      var badge=row.querySelector('.badge');
+      if(badge) setBadge(badge,true);
+    }
+  });
+  var allRows=document.querySelectorAll('[data-recap-for]');
+  var allAnswered=Array.prototype.every.call(allRows,function(r){
+    var b=r.querySelector('.badge');
+    return b&&b.className.indexOf('badge-approved')>=0;
+  });
+  var qBadge=document.querySelector('[data-badge-for="questions"]');
+  if(qBadge) setBadge(qBadge,allAnswered);
+  var qDetails=document.querySelector('[data-phase="questions"]');
+  if(qDetails) qDetails.dataset.status=allAnswered?'approved':'pending';
+
+  function updateProgress(){
+    var approved=0;
+    SECTIONS.forEach(function(sec){
+      var cb=document.querySelector('input[data-section="'+sec+'"][data-action="approve"]');
+      if(cb&&cb.checked) approved++;
+    });
+    document.getElementById('approvedCount').textContent=approved;
+    document.getElementById('pendingCount').textContent=SECTIONS.length-approved;
+    document.getElementById('progressFill').style.width=Math.round(approved/SECTIONS.length*100)+'%';
+    document.getElementById('finalizeBtn').disabled=(approved<SECTIONS.length);
+    updateComments();
+  }
+
+  function updateComments(){
+    var feed=document.getElementById('commentsFeed'),html='';
+    SECTIONS.forEach(function(sec){
+      var ta=document.querySelector('textarea[data-section="'+sec+'"]');
+      if(ta&&ta.value.trim()) html+='<div class="comment-entry"><span class="comment-source">'+sec+'</span>'+escHtml(ta.value.trim())+'</div>';
+    });
+    feed.innerHTML=html||'<p style="font-size:.8rem;color:var(--text-muted);font-style:italic">No comments yet.</p>';
+  }
+
+  var timer;
+  document.querySelectorAll('textarea[data-section]').forEach(function(ta){
+    ta.addEventListener('input',function(){clearTimeout(timer);timer=setTimeout(updateComments,400)});
+    ta.addEventListener('blur',function(){
+      if(planId&&this.value.trim()){
+        fetch((window.htmlgraphPlanBase||'')+'/api/plans/'+planId+'/feedback',{
+          method:'POST',
+          headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({section:this.dataset.section,action:'comment',value:this.value.trim(),question_id:''})
+        });
+      }
+    });
+  });
+
+  var finalizeMsg=document.createElement('p');
+  finalizeMsg.style.cssText='font-size:.85rem;margin-top:8px;text-align:center;display:none';
+  var finalizeBtn=document.getElementById('finalizeBtn');
+  if(finalizeBtn){
+    finalizeBtn.parentNode.insertBefore(finalizeMsg,finalizeBtn.nextSibling);
+    finalizeBtn.addEventListener('click',function(){
+      if(!planId){return;}
+      var btn=this;
+      btn.disabled=true;
+      btn.textContent='Finalizing...';
+      finalizeMsg.style.display='none';
+      fetch((window.htmlgraphPlanBase||'')+'/api/plans/'+planId+'/finalize',{
+        method:'POST',
+        headers:{'Content-Type':'application/json'}
+      })
+      .then(function(r){
+        if(r.ok){
+          r.json().then(function(data){
+            var art=document.querySelector('article[id]');if(art)art.dataset.status='finalized';
+            btn.textContent='Plan Finalized';
+            btn.style.background='var(--approved)';
+            btn.style.color='#fff';
+            if(data&&data.next_steps){
+              var pre=document.createElement('pre');
+              pre.style.cssText='margin-top:12px;padding:10px 14px;background:var(--bg-input);border:1px solid var(--border);border-radius:var(--radius);font-family:var(--mono);font-size:.78rem;text-align:left;white-space:pre-wrap;word-break:break-all;color:var(--text)';
+              pre.textContent=data.next_steps;
+              finalizeMsg.innerHTML='';
+              finalizeMsg.appendChild(pre);
+            } else {
+              finalizeMsg.textContent='Plan finalized successfully.';
+            }
+            finalizeMsg.style.color='var(--approved)';
+            finalizeMsg.style.display='block';
+          });
+        } else {
+          return r.json().then(function(data){
+            btn.textContent='Finalize Plan';
+            btn.disabled=false;
+            finalizeMsg.textContent=data.error||'Not all sections approved.';
+            finalizeMsg.style.color='var(--blocked)';
+            finalizeMsg.style.display='block';
+          });
+        }
+      })
+      .catch(function(){
+        btn.textContent='Finalize Plan';
+        btn.disabled=false;
+        finalizeMsg.textContent='Could not reach server. Is htmlgraph serve running?';
+        finalizeMsg.style.color='var(--revision)';
+        finalizeMsg.style.display='block';
+      });
+    });
+  }
+
+  function loadExistingFeedback(){
+    if(!planId){return;}
+    fetch((window.htmlgraphPlanBase||'')+'/api/plans/'+planId+'/feedback')
+      .then(function(r){return r.ok?r.json():null;})
+      .then(function(data){
+        if(!data){return;}
+        if(data.sections){
+          Object.keys(data.sections).forEach(function(sec){
+            var info=data.sections[sec];
+            if(info.approved){
+              var cb=document.querySelector('input[data-section="'+sec+'"][data-action="approve"]');
+              if(cb&&!cb.checked){cb.checked=true;cb.dispatchEvent(new Event('change'));}
+            }
+            if(info.comment){
+              var ta=document.querySelector('textarea[data-section="'+sec+'"]');
+              if(ta) ta.value=info.comment;
+            }
+          });
+        }
+        if(data.questions){
+          Object.keys(data.questions).forEach(function(qid){
+            var val=data.questions[qid];
+            var radio=document.querySelector('input[type="radio"][data-question="'+qid+'"][value="'+val+'"]');
+            if(radio&&!radio.checked){radio.checked=true;radio.dispatchEvent(new Event('change'));}
+          });
+        }
+        updateProgress();
+      })
+      .catch(function(){});
+  }
+
+  loadExistingFeedback();
+
+  document.querySelectorAll('input[data-action="approve"]').forEach(function(cb){
+    cb.addEventListener('change',function(){
+      var sec=this.dataset.section;
+      if(sec.startsWith('slice-')){
+        var n=sec.split('-')[1];
+        var nodeRect=d3.select('#dep-graph-svg .node[id="'+n+'"] rect');
+        if(!nodeRect.empty()){
+          var color=this.checked?'#16a34a':'#6b7280';
+          var cs=getComputedStyle(document.querySelector('.dep-graph')||document.documentElement);
+          nodeRect.style('stroke',color).style('fill',cs.getPropertyValue('--bg-input').trim()||'#222228');
+        }
+      }
+    });
+  });
+})();
+
+// Render dagre-d3 dependency graph
+(function(){
+  'use strict';
+
+  var STATUS_COLORS={pending:'#6b7280',approved:'#16a34a',revision:'#f59e0b',discuss:'#8b5cf6',blocked:'#dc2626'};
+
+  function renderGraph(){
+    var container=document.getElementById('graph-data');
+    if(!container) return;
+
+    var g=new dagreD3.graphlib.Graph().setGraph({rankdir:'TB',marginx:24,marginy:24,ranksep:48,nodesep:32});
+    g.setDefaultEdgeLabel(function(){return{};});
+
+    var nodes=container.querySelectorAll('[data-node]');
+    nodes.forEach(function(el){
+      var id=el.dataset.node;
+      var name=el.dataset.name;
+      var files=el.dataset.files;
+      var status=el.dataset.status||'pending';
+      g.setNode(id,{
+        label: name+'\n'+files+' files',
+        rx: 6,
+        ry: 6,
+        paddingX: 36,
+        paddingY: 16,
+        status: status
+      });
+    });
+
+    nodes.forEach(function(el){
+      var id=el.dataset.node;
+      var deps=el.dataset.deps?el.dataset.deps.split(',').map(function(d){return d.trim();}).filter(Boolean):[];
+      deps.forEach(function(dep){g.setEdge(dep,id);});
+    });
+
+    var svg=d3.select('#dep-graph-svg');
+    var inner=svg.append('g');
+    var render=new dagreD3.render();
+    render(inner,g);
+
+    // Read CSS vars from the plan container so graph respects light/dark theme
+    var cs=getComputedStyle(document.querySelector('.dep-graph')||document.documentElement);
+    var nodeFill=cs.getPropertyValue('--bg-input').trim()||'#222228';
+    var nodeText=cs.getPropertyValue('--text').trim()||'#ededea';
+    var edgeColor=cs.getPropertyValue('--text-muted').trim()||'#707070';
+
+    inner.selectAll('g.node').each(function(id){
+      var nodeData=g.node(id);
+      var status=nodeData?nodeData.status:'pending';
+      var color=STATUS_COLORS[status]||STATUS_COLORS.pending;
+      d3.select(this).select('rect')
+        .style('fill',nodeFill)
+        .style('stroke',color)
+        .style('stroke-width','2px');
+      d3.select(this).select('text').style('fill',nodeText).style('font-size','13px');
+    });
+
+    inner.selectAll('g.edgePath path')
+      .style('stroke',edgeColor)
+      .style('stroke-dasharray','4 3')
+      .style('fill','none');
+    inner.selectAll('g.edgePath marker path')
+      .style('fill','#707070');
+
+    var svgEl=document.getElementById('dep-graph-svg');
+    var graphWidth=g.graph().width;
+    var graphHeight=g.graph().height;
+    var pad=24;
+    inner.attr('transform','translate('+pad+','+pad+')');
+    svgEl.setAttribute('width',graphWidth+pad*2);
+    svgEl.setAttribute('height',graphHeight+pad*2);
+    svgEl.removeAttribute('viewBox');
+  }
+
+  if(document.readyState==='loading'){
+    document.addEventListener('DOMContentLoaded',renderGraph);
+  } else {
+    renderGraph();
+  }
+})();
+
+// Chat panel
+// Global markdown renderer — shared by chat bubbles and data-markdown elements
+function escHtml(s){var d=document.createElement('div');d.textContent=s;return d.innerHTML;}
+function renderMd(text){
+  var s=escHtml(text);
+  s=s.replace(/```(\w*)\n([\s\S]*?)```/g,function(_,lang,code){
+    return '<pre><code'+(lang?' class="language-'+lang+'"':'')+'>'+code.trim()+'</code></pre>';
+  });
+  s=s.replace(/`([^`]+)`/g,'<code>$1</code>');
+  s=s.replace(/\*\*([^*]+)\*\*/g,'<strong>$1</strong>');
+  s=s.replace(/\*([^*]+)\*/g,'<em>$1</em>');
+  s=s.replace(/^### (.+)$/gm,'<h4>$1</h4>');
+  s=s.replace(/^## (.+)$/gm,'<h3>$1</h3>');
+  s=s.replace(/^(\|.+\|)\n(\|[-| :]+\|)\n((?:\|.+\|\n?)+)/gm,function(_,hdr,sep,body){
+    var ths=hdr.split('|').filter(Boolean).map(function(c){return '<th>'+c.trim()+'</th>';}).join('');
+    var rows=body.trim().split('\n').map(function(row){
+      var tds=row.split('|').filter(Boolean).map(function(c){return '<td>'+c.trim()+'</td>';}).join('');
+      return '<tr>'+tds+'</tr>';
+    }).join('');
+    return '<table class="q-table"><thead><tr>'+ths+'</tr></thead><tbody>'+rows+'</tbody></table>';
+  });
+  s=s.replace(/^[*-] (.+)$/gm,'<li>$1</li>');
+  s=s.replace(/(<li>.*<\/li>\n?)+/g,'<ul>$&</ul>');
+  s=s.replace(/^\d+\. (.+)$/gm,'<li>$1</li>');
+  s=s.replace(/\n\n/g,'</p><p>');
+  s=s.replace(/\n/g,'<br>');
+  return '<p>'+s+'</p>';
+}
+// Render inline markdown for elements with data-markdown attribute.
+// For block elements (div/p) replaces innerHTML; for inline (li/span)
+// renders without wrapping <p> tags.
+(function(){
+  document.querySelectorAll('[data-markdown]').forEach(function(el){
+    var raw=el.textContent;
+    if(!raw.trim()) return;
+    var tag=el.tagName.toLowerCase();
+    if(tag==='li'||tag==='span'||tag==='td'){
+      // Inline context — just apply bold/italic/code, no block transforms
+      var s=escHtml(raw);
+      s=s.replace(/`([^`]+)`/g,'<code>$1</code>');
+      s=s.replace(/\*\*([^*]+)\*\*/g,'<strong>$1</strong>');
+      s=s.replace(/\*([^*]+)\*/g,'<em>$1</em>');
+      el.innerHTML=s;
+    } else {
+      el.innerHTML=renderMd(raw);
+    }
+    el.removeAttribute('data-markdown');
+  });
+})();
+
+(function(){
+  'use strict';
+  var chatMessages=document.getElementById('chat-messages');
+  var chatInput=document.getElementById('chat-input');
+  var chatSend=document.getElementById('chat-send');
+  var chatEmpty=document.getElementById('chat-empty');
+  if(!chatMessages||!chatInput||!chatSend) return;
+
+  function addBubble(role,content){
+    if(!content||!content.trim()) return null; // skip empty messages
+    if(chatEmpty) chatEmpty.style.display='none';
+    var div=document.createElement('div');
+    div.className='chat-bubble';
+    div.dataset.role=role;
+    if(role==='assistant'){
+      div.innerHTML=renderMd(content);
+    } else {
+      div.textContent=content;
+    }
+    chatMessages.appendChild(div);
+    chatMessages.scrollTop=chatMessages.scrollHeight;
+    return div;
+  }
+
+  function setInputEnabled(enabled){
+    chatInput.disabled=!enabled;
+    chatSend.disabled=!enabled;
+    if(enabled) chatInput.focus();
+  }
+
+  // Load previous messages directly into the chat thread.
+  if(planId){
+    fetch((window.htmlgraphPlanBase||'')+'/api/plans/'+planId+'/feedback')
+      .then(function(r){return r.ok?r.json():null;})
+      .then(function(data){
+        if(!data||!data.chat_messages||!data.chat_messages.length) return;
+        if(chatEmpty) chatEmpty.style.display='none';
+        data.chat_messages.forEach(function(m){
+          addBubble(m.role,m.content);
+        });
+      })
+      .catch(function(){});
+  }
+
+  function sendMessage(){
+    var text=chatInput.value.trim();
+    if(!text||!planId) return;
+    chatInput.value='';
+    setInputEnabled(false);
+
+    addBubble('user',text);
+    // Create streaming bubble directly (addBubble skips empty content)
+    if(chatEmpty) chatEmpty.style.display='none';
+    var assistantBubble=document.createElement('div');
+    assistantBubble.className='chat-bubble';
+    assistantBubble.dataset.role='assistant';
+    chatMessages.appendChild(assistantBubble);
+    var rawResponse='';
+
+    fetch((window.htmlgraphPlanBase||'')+'/api/plans/'+planId+'/chat',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({message:text})
+    }).then(function(response){
+      if(response.status===503){
+        assistantBubble.textContent='Chat unavailable \u2014 Claude CLI not found and no API key configured.';
+        assistantBubble.style.color='var(--text-muted)';
+        assistantBubble.style.fontStyle='italic';
+        setInputEnabled(true);
+        return;
+      }
+      if(!response.ok){
+        assistantBubble.textContent='Error: '+response.statusText;
+        setInputEnabled(true);
+        return;
+      }
+      var reader=response.body.getReader();
+      var decoder=new TextDecoder();
+      var buffer='';
+
+      function processStream(){
+        reader.read().then(function(result){
+          if(result.done){
+            // Stream complete — render accumulated text as markdown
+            if(rawResponse) assistantBubble.innerHTML=renderMd(rawResponse);
+            setInputEnabled(true);
+            return;
+          }
+          buffer+=decoder.decode(result.value,{stream:true});
+          var lines=buffer.split('\n');
+          buffer=lines.pop()||'';
+          lines.forEach(function(line){
+            line=line.trim();
+            if(!line.startsWith('data: ')) return;
+            var jsonStr=line.substring(6);
+            try{
+              var evt=JSON.parse(jsonStr);
+              if(evt.type==='chunk'&&evt.text){
+                rawResponse+=evt.text;
+                assistantBubble.textContent=rawResponse; // show raw while streaming
+                chatMessages.scrollTop=chatMessages.scrollHeight;
+              } else if(evt.type==='error'){
+                assistantBubble.textContent+=' [Error: '+evt.error+']';
+              } else if(evt.type==='done'){
+                if(rawResponse) assistantBubble.innerHTML=renderMd(rawResponse);
+                setInputEnabled(true);
+              }
+            }catch(e){}
+          });
+          processStream();
+        }).catch(function(){
+          setInputEnabled(true);
+        });
+      }
+      processStream();
+    }).catch(function(err){
+      assistantBubble.textContent='Network error: '+err.message;
+      setInputEnabled(true);
+    });
+  }
+
+  chatSend.addEventListener('click',sendMessage);
+  chatInput.addEventListener('keydown',function(e){
+    if(e.key==='Enter'&&!e.shiftKey){
+      e.preventDefault();
+      sendMessage();
+    }
+  });
+})();
+
+// Scroll-spy (uses plan-content scroll, not window)
+(function(){
+  'use strict';
+  var links=document.querySelectorAll('.plan-sidebar a[data-spy]');
+  if(!links.length) return;
+  var ids=Array.prototype.map.call(links,function(a){return a.dataset.spy;});
+  var scrollContainer=document.querySelector('.plan-content')||window;
+  function update(){
+    var current='';
+    ids.forEach(function(id){
+      var el=document.getElementById(id);
+      if(el&&el.getBoundingClientRect().top<=80) current=id;
+    });
+    links.forEach(function(a){
+      a.classList.toggle('active',a.dataset.spy===current);
+    });
+  }
+  scrollContainer.addEventListener('scroll',update,{passive:true});
+  window.addEventListener('scroll',update,{passive:true});
+  update();
+})();
+
+// Chat sidebar drag-resize
+(function(){
+  var handle=document.getElementById('chat-resize-handle');
+  var sidebar=document.getElementById('chat-sidebar');
+  if(!handle||!sidebar) return;
+  var startX,startW;
+  handle.addEventListener('mousedown',function(e){
+    e.preventDefault();
+    startX=e.clientX;
+    startW=sidebar.offsetWidth;
+    handle.classList.add('dragging');
+    document.body.style.cursor='col-resize';
+    document.body.style.userSelect='none';
+    function onMove(e){
+      var delta=startX-e.clientX;
+      var newW=Math.max(280,Math.min(600,startW+delta));
+      sidebar.style.width=newW+'px';
+    }
+    function onUp(){
+      handle.classList.remove('dragging');
+      document.body.style.cursor='';
+      document.body.style.userSelect='';
+      document.removeEventListener('mousemove',onMove);
+      document.removeEventListener('mouseup',onUp);
+    }
+    document.addEventListener('mousemove',onMove);
+    document.addEventListener('mouseup',onUp);
+  });
+})();
+
+
+// Sync highlight.js theme with current dark/light mode
+function syncHljsTheme(){
+  var isLight=document.documentElement.dataset.theme==='light';
+  var dark=document.getElementById('hljs-dark');
+  var light=document.getElementById('hljs-light');
+  if(dark) dark.disabled=isLight;
+  if(light) light.disabled=!isLight;
+}
+syncHljsTheme();
+
+// YAML viewer — lazy-loads plan YAML on first open or re-highlights on reopen
+(function(){
+  var viewer=document.getElementById('yaml-viewer');
+  var codeEl=document.getElementById('yaml-content');
+  if(!viewer||!codeEl)return;
+
+  function loadAndHighlight(){
+    var planEl=document.querySelector('[data-plan-id]');
+    if(!planEl)return;
+    var id=planEl.getAttribute('data-plan-id');
+    fetch((window.htmlgraphPlanBase||'')+'/api/plans/'+id+'/yaml')
+      .then(function(r){if(!r.ok)throw new Error('err');return r.text();})
+      .then(function(t){
+        codeEl.textContent=t;
+        delete codeEl.dataset.highlighted; // allow re-highlighting
+        syncHljsTheme();
+        function tryHighlight(){
+          if(window.hljs&&hljs.getLanguage&&hljs.getLanguage('yaml')){
+            hljs.highlightElement(codeEl);
+          } else {
+            setTimeout(tryHighlight,200);
+          }
+        }
+        tryHighlight();
+      })
+      .catch(function(){codeEl.textContent='YAML not available';});
+  }
+
+  var loaded=false;
+  viewer.addEventListener('toggle',function(){
+    if(!viewer.open||loaded)return;
+    loaded=true;
+    loadAndHighlight();
+  });
+  // If already open (e.g. re-rendered in embedded view), load immediately
+  if(viewer.open){loaded=true;loadAndHighlight();}
+})();
+
+// Amendments panel
+(function(){
+  var panel=document.getElementById('amendments-panel');
+  var list=document.getElementById('amendments-list');
+  var summary=document.getElementById('amendments-summary');
+  if(!panel||!list)return;
+
+  var article=document.querySelector('article[id]');
+  var planId=article?article.id:null;
+  if(!planId)return;
+
+  function escapeHtml(s){var d=document.createElement('div');d.textContent=s;return d.innerHTML;}
+
+  function updateSummary(){
+    var selects=list.querySelectorAll('select');
+    var accepted=0,pending=0;
+    selects.forEach(function(s){
+      if(s.value==='accepted')accepted++;
+      else if(s.value==='pending')pending++;
+    });
+    summary.textContent=selects.length+' amendments — '+accepted+' accepted, '+pending+' pending';
+  }
+
+  fetch((window.htmlgraphPlanBase||'')+'/api/plans/'+planId+'/amendments')
+    .then(function(r){return r.json();})
+    .then(function(amendments){
+      if(!amendments||!amendments.length)return;
+      panel.style.display='';
+      amendments.forEach(function(a,i){
+        var item=document.createElement('div');
+        item.className='amendment-item';
+        var desc=document.createElement('div');
+        desc.className='amendment-desc';
+        desc.innerHTML='<span class="op">'+escapeHtml(a.operation)+'</span> '+
+          '<span class="field">'+escapeHtml(a.field)+'</span> on slice-'+a.slice_num+': '+
+          escapeHtml(a.content);
+        var sel=document.createElement('select');
+        sel.className='amendment-select';
+        ['pending','accepted','rejected'].forEach(function(s){
+          var opt=document.createElement('option');
+          opt.value=s;
+          opt.textContent=s.charAt(0).toUpperCase()+s.slice(1);
+          if(s===a.status)opt.selected=true;
+          sel.appendChild(opt);
+        });
+        sel.addEventListener('change',function(){
+          fetch((window.htmlgraphPlanBase||'')+'/api/plans/'+planId+'/feedback',{
+            method:'POST',
+            headers:{'Content-Type':'application/json'},
+            body:JSON.stringify({
+              section:'amendment',
+              action:'amendment_status',
+              value:sel.value,
+              question_id:'amend-'+i
+            })
+          });
+          updateSummary();
+        });
+        item.appendChild(desc);
+        item.appendChild(sel);
+        list.appendChild(item);
+      });
+      updateSummary();
+    })
+    .catch(function(){});
+})();
+</script>
+<!-- .plan-content -->
+
+
+</body></html>

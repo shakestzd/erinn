@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="htmlgraph-version" content="1.0">
+    <title>Parallel agents collide on attribution, worktrees cleaned up on stall</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="bug-d2d3fb3f"
+             data-type="bug"
+             data-status="done"
+             data-priority="medium"
+             data-created="2026-04-09T18:45:46.807652"
+             data-updated="2026-04-10T03:31:20.761745" data-agent-assigned="claude-code" data-track-id="trk-00ee0cd0">
+
+        <header>
+            <h1>Parallel agents collide on attribution, worktrees cleaned up on stall</h1>
+            <div class="metadata">
+                <span class="badge status-done">Done</span>
+                <span class="badge priority-medium">Medium Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="implemented_in">
+                <h3>Implemented In:</h3>
+                <ul>
+                    <li><a href="8d53982f-66f2-415b-a645-1886eb8ae438.html" data-relationship="implemented_in" data-since="2026-04-09T18:45:49.805827">session 8d53982f-66f2-415b-a645-1886eb8ae438</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="trk-00ee0cd0.html" data-relationship="part_of" data-since="2026-04-09T18:45:46.808478">trk-00ee0cd0</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>During /htmlgraph:execute trk-8cf41009 parallel dispatch, multiple sonnet-coder agents running in worktree isolation stalled when calling 'htmlgraph feature start '. Symptoms: (1) agents hung on what appeared to be attribution race — likely contention over .htmlgraph/.active-session and/or the sessions table in SQLite when N parallel subagents in the same parent session all try to claim different active work items; (2) because the agents never made progress, the 'worktree auto-cleanup if agent makes no changes' behavior removed their worktrees, destroying in-progress work. The user's revised strategy is to (a) skip sub-worktree isolation and work in the main worktree directly, (b) have agents SKIP 'htmlgraph feature start' to avoid the collision. This unblocks work but loses attribution entirely — we need a real fix. Suspected root cause: single active_work_item per session model, with subagents inheriting the parent session_id, so parallel subagent dispatch forces serialization on attribution state.</p>
+        </section>
+    </article>
+</body>
+</html>

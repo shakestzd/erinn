@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="htmlgraph-version" content="1.0">
+    <title>Session 2026-03-29T11:53:43Z</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="4cad085b-9aa5-4dc4-9fc5-ddb11f0caf4c"
+             data-type="session"
+             data-status="completed"
+             data-ended-at="2026-03-29T16:15:31Z"
+             data-agent="claude-code"
+             data-started-at="2026-03-29T11:53:43Z"
+             data-event-count="162"
+             data-is-subagent="false"
+             data-start-commit="">
+
+        <header>
+            <h1>Session 2026-03-29T11:53:43Z</h1>
+            <div class="metadata">
+                <span class="badge status-completed">Completed</span>
+                <span class="badge">claude-code</span>
+                <span class="badge">162 events</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+        </nav>
+
+        <section data-activity-log>
+            <ol reversed>
+                            <li data-ts="2026-03-29T11:53:51Z" data-tool="Bash" data-success="true" data-event-id="evt-d81f88cc">packages/go-plugin/hooks/bin/htmlgraph feature list 2&gt;/dev/null | grep -i -E &#34;status.?line|active.?work|statusline&#34; || e…</li>
+                            <li data-ts="2026-03-29T11:53:51Z" data-tool="Bash" data-success="true" data-event-id="evt-bf82227b">packages/go-plugin/hooks/bin/htmlgraph spike list 2&gt;/dev/null | grep -i -E &#34;status.?line|active.?work|statusline&#34; || ech…</li>
+                            <li data-ts="2026-03-29T11:53:58Z" data-tool="Bash" data-success="true" data-event-id="evt-a5e93a92">packages/go-plugin/hooks/bin/htmlgraph feature show feat-0b21fd89 2&gt;/dev/null | head -30</li>
+                            <li data-ts="2026-03-29T11:53:59Z" data-tool="Bash" data-success="true" data-event-id="evt-63a205de">packages/go-plugin/hooks/bin/htmlgraph feature show feat-c0e9782b 2&gt;/dev/null | head -30</li>
+                            <li data-ts="2026-03-29T11:54:04Z" data-tool="Bash" data-success="true" data-event-id="evt-d9718a00">git log --oneline --all --grep=&#34;status.line&#34; --grep=&#34;statusline&#34; --grep=&#34;status line&#34; --since=&#34;2026-03-01&#34; 2&gt;/dev/null |…</li>
+                            <li data-ts="2026-03-29T11:54:06Z" data-tool="Bash" data-success="true" data-event-id="evt-adf2e37a">ls packages/go-plugin/hooks/bin/ 2&gt;/dev/null &amp;&amp; ls packages/claude-plugin/hooks/scripts/*status* 2&gt;/dev/null; echo &#34;---&#34;…</li>
+                            <li data-ts="2026-03-29T12:01:23Z" data-tool="Bash" data-success="true" data-event-id="evt-49a23b99">packages/go-plugin/hooks/bin/htmlgraph statusline 2&gt;/dev/null; echo &#34;EXIT: $?&#34;</li>
+                            <li data-ts="2026-03-29T12:01:23Z" data-tool="Bash" data-success="true" data-event-id="evt-a6301bfd">packages/go-plugin/hooks/bin/htmlgraph help 2&gt;/dev/null | grep -i status</li>
+                            <li data-ts="2026-03-29T12:10:10Z" data-tool="Agent" data-success="true" data-event-id="evt-59cbf5ca">The user wants to configure their Claude Code status line to run a custom command. The command is:
+
+```
+packages/go-plug…</li>
+                            <li data-ts="2026-03-29T12:15:00Z" data-tool="Bash" data-success="true" data-event-id="evt-5c0088dd">cat ~/.claude/omp-claude-wrapper.sh 2&gt;/dev/null</li>
+                            <li data-ts="2026-03-29T12:15:00Z" data-tool="Bash" data-success="true" data-event-id="evt-75be0c3f">cat ~/.claude/settings.json 2&gt;/dev/null</li>
+                            <li data-ts="2026-03-29T12:15:01Z" data-tool="Bash" data-success="true" data-event-id="evt-e004c289">cat /Users/shakes/DevProjects/htmlgraph/.claude/settings.json 2&gt;/dev/null</li>
+                            <li data-ts="2026-03-29T12:15:08Z" data-tool="Read" data-success="true" data-event-id="evt-60fec08f">/Users/shakes/.claude/omp-claude-wrapper.sh</li>
+                            <li data-ts="2026-03-29T12:15:08Z" data-tool="Bash" data-success="true" data-event-id="evt-69361a64">cat ~/.claude.omp.json 2&gt;/dev/null | head -80</li>
+                            <li data-ts="2026-03-29T12:15:19Z" data-tool="Edit" data-success="true" data-event-id="evt-3b81c4a4">/Users/shakes/.claude/omp-claude-wrapper.sh</li>
+                            <li data-ts="2026-03-29T12:15:23Z" data-tool="Edit" data-success="true" data-event-id="evt-c3a34169">/Users/shakes/.claude/settings.json</li>
+                            <li data-ts="2026-03-29T12:15:24Z" data-tool="Edit" data-success="true" data-event-id="evt-f201eea4">/Users/shakes/DevProjects/htmlgraph/.claude/settings.json</li>
+                            <li data-ts="2026-03-29T12:15:28Z" data-tool="Read" data-success="true" data-event-id="evt-01d8aac9">/Users/shakes/.claude/settings.json</li>
+                            <li data-ts="2026-03-29T12:15:28Z" data-tool="Read" data-success="true" data-event-id="evt-e1268415">/Users/shakes/DevProjects/htmlgraph/.claude/settings.json</li>
+                            <li data-ts="2026-03-29T12:15:33Z" data-tool="Edit" data-success="true" data-event-id="evt-240cea3b">/Users/shakes/.claude/settings.json</li>
+                            <li data-ts="2026-03-29T12:15:34Z" data-tool="Edit" data-success="true" data-event-id="evt-fcfca24e">/Users/shakes/DevProjects/htmlgraph/.claude/settings.json</li>
+                            <li data-ts="2026-03-29T12:16:59Z" data-tool="Read" data-success="true" data-event-id="evt-ef61eadf">/Users/shakes/DevProjects/htmlgraph/packages/go/cmd/htmlgraph/statusline.go</li>
+                            <li data-ts="2026-03-29T12:17:06Z" data-tool="Edit" data-success="true" data-event-id="evt-8986b0f5">/Users/shakes/DevProjects/htmlgraph/packages/go/cmd/htmlgraph/statusline.go</li>
+                            <li data-ts="2026-03-29T12:17:10Z" data-tool="Bash" data-success="true" data-event-id="evt-1fcada70">packages/go-plugin/build.sh 2&gt;&amp;1 | tail -5</li>
+                            <li data-ts="2026-03-29T12:17:16Z" data-tool="Bash" data-success="true" data-event-id="evt-913f1f92">packages/go-plugin/hooks/bin/htmlgraph statusline 2&gt;/dev/null</li>
+                            <li data-ts="2026-03-29T12:18:53Z" data-tool="Read" data-success="true" data-event-id="evt-bbbc1cf9">/Users/shakes/.claude.omp.json</li>
+                            <li data-ts="2026-03-29T12:18:58Z" data-tool="Edit" data-success="true" data-event-id="evt-9fcb2cc0">/Users/shakes/.claude.omp.json</li>
+                            <li data-ts="2026-03-29T12:21:18Z" data-tool="Agent" data-success="true" data-event-id="evt-fc17b6e8">I need to understand how HtmlGraph tracks which work item is active in a specific Claude Code session. The statusline co…</li>
+                            <li data-ts="2026-03-29T12:24:22Z" data-tool="Read" data-success="true" data-event-id="evt-019a9f9c">/Users/shakes/DevProjects/htmlgraph/packages/go/cmd/htmlgraph/statusline.go</li>
+                            <li data-ts="2026-03-29T12:24:29Z" data-tool="Bash" data-success="true" data-event-id="evt-b3c6bec5">sqlite3 .htmlgraph/htmlgraph.db &#34;SELECT session_id FROM model_cache WHERE id = 1;&#34; 2&gt;/dev/null</li>
+                            <li data-ts="2026-03-29T12:24:30Z" data-tool="Bash" data-success="true" data-event-id="evt-80e0395b">sqlite3 .htmlgraph/htmlgraph.db &#34;SELECT session_id, active_feature_id, status FROM sessions ORDER BY created_at DESC LIM…</li>
+                            <li data-ts="2026-03-29T12:24:31Z" data-tool="Bash" data-success="true" data-event-id="evt-404686fc">sqlite3 .htmlgraph/htmlgraph.db &#34;.schema features&#34; 2&gt;/dev/null</li>
+                            <li data-ts="2026-03-29T12:24:44Z" data-tool="Edit" data-success="true" data-event-id="evt-4dbbac5b">/Users/shakes/DevProjects/htmlgraph/packages/go/cmd/htmlgraph/statusline.go</li>
+                            <li data-ts="2026-03-29T12:24:48Z" data-tool="Bash" data-success="true" data-event-id="evt-03b1891a">packages/go-plugin/build.sh 2&gt;&amp;1 | tail -5</li>
+                            <li data-ts="2026-03-29T12:24:54Z" data-tool="Bash" data-success="true" data-event-id="evt-598bf1d4">packages/go-plugin/hooks/bin/htmlgraph statusline 2&gt;/dev/null</li>
+                            <li data-ts="2026-03-29T12:25:36Z" data-tool="Bash" data-success="true" data-event-id="evt-e526d04c">sqlite3 .htmlgraph/htmlgraph.db &#34;SELECT mc.session_id, s.active_feature_id, f.type, f.title FROM model_cache mc JOIN ses…</li>
+                            <li data-ts="2026-03-29T12:25:43Z" data-tool="Bash" data-success="true" data-event-id="evt-f7603680">sqlite3 .htmlgraph/htmlgraph.db &#34;SELECT session_id FROM model_cache WHERE id = 1;&#34; 2&gt;/dev/null &amp;&amp; echo &#34;---&#34; &amp;&amp; sqlite3 …</li>
+                            <li data-ts="2026-03-29T12:25:47Z" data-tool="Bash" data-success="true" data-event-id="evt-6c4d4804">sqlite3 .htmlgraph/htmlgraph.db &#34;SELECT type, title, status FROM features WHERE id = &#39;feat-8e88743b&#39;;&#34; 2&gt;/dev/null</li>
+                            <li data-ts="2026-03-29T12:25:52Z" data-tool="Bash" data-success="true" data-event-id="evt-47e9896c">packages/go-plugin/hooks/bin/htmlgraph feature show feat-8e88743b 2&gt;/dev/null || echo &#34;NOT FOUND&#34;</li>
+                            <li data-ts="2026-03-29T12:26:27Z" data-tool="Bash" data-success="true" data-event-id="evt-26e2c09e">sqlite3 .htmlgraph/htmlgraph.db &#34;SELECT count(*) FROM features;&#34; 2&gt;/dev/null &amp;&amp; echo &#34;---&#34; &amp;&amp; sqlite3 .htmlgraph/htmlgra…</li>
+                            <li data-ts="2026-03-29T12:26:30Z" data-tool="Bash" data-success="true" data-event-id="evt-be2eccac">packages/go-plugin/hooks/bin/htmlgraph reindex 2&gt;&amp;1 | tail -3</li>
+                            <li data-ts="2026-03-29T12:26:47Z" data-tool="Bash" data-success="true" data-event-id="evt-8c1b570d">sqlite3 .htmlgraph/htmlgraph.db &#34;SELECT id, type, title FROM features WHERE id = &#39;feat-8e88743b&#39;;&#34; 2&gt;/dev/null</li>
+                            <li data-ts="2026-03-29T12:26:52Z" data-tool="Bash" data-success="true" data-event-id="evt-84430105">ls .htmlgraph/features/feat-8e88743b.html 2&gt;/dev/null &amp;&amp; head -20 .htmlgraph/features/feat-8e88743b.html 2&gt;/dev/null</li>
+                            <li data-ts="2026-03-29T12:26:57Z" data-tool="Read" data-success="true" data-event-id="evt-fcba4283">/Users/shakes/DevProjects/htmlgraph/packages/go/cmd/htmlgraph/statusline.go</li>
+                            <li data-ts="2026-03-29T12:27:11Z" data-tool="Edit" data-success="true" data-event-id="evt-009fea9e">/Users/shakes/DevProjects/htmlgraph/packages/go/cmd/htmlgraph/statusline.go</li>
+                            <li data-ts="2026-03-29T12:27:14Z" data-tool="Bash" data-success="true" data-event-id="evt-bf3fa8af">packages/go-plugin/build.sh 2&gt;&amp;1 | tail -5</li>
+                            <li data-ts="2026-03-29T12:27:18Z" data-tool="Bash" data-success="true" data-event-id="evt-ac15b1e4">packages/go-plugin/hooks/bin/htmlgraph statusline 2&gt;/dev/null</li>
+                            <li data-ts="2026-03-29T12:29:50Z" data-tool="Agent" data-success="true" data-event-id="evt-3a49bd19">Research two gaps identified in the HtmlGraph project:
+
+**Gap 1: Reindex parse failures — 862 of 4622 HTML files fail …</li>
+                            <li data-ts="2026-03-29T12:47:56Z" data-tool="Read" data-success="true" data-event-id="evt-36f4823f">/Users/shakes/.claude/omp-claude-wrapper.sh</li>
+                            <li data-ts="2026-03-29T12:47:56Z" data-tool="Read" data-success="true" data-event-id="evt-0d78e914">/Users/shakes/DevProjects/htmlgraph/packages/go/cmd/htmlgraph/statusline.go</li>
+                            <li data-ts="2026-03-29T12:48:03Z" data-tool="Edit" data-success="true" data-event-id="evt-a9569c21">/Users/shakes/.claude/omp-claude-wrapper.sh</li>
+                            <li data-ts="2026-03-29T12:48:10Z" data-tool="Edit" data-success="true" data-event-id="evt-a5b66532">/Users/shakes/DevProjects/htmlgraph/packages/go/cmd/htmlgraph/statusline.go</li>
+                            <li data-ts="2026-03-29T12:48:15Z" data-tool="Edit" data-success="true" data-event-id="evt-b7297dbb">/Users/shakes/DevProjects/htmlgraph/packages/go/cmd/htmlgraph/statusline.go</li>
+                            <li data-ts="2026-03-29T12:48:18Z" data-tool="Bash" data-success="true" data-event-id="evt-0f17d59b">packages/go-plugin/build.sh 2&gt;&amp;1 | tail -5</li>
+                            <li data-ts="2026-03-29T12:48:26Z" data-tool="Bash" data-success="true" data-event-id="evt-53c53ed2"># Test with explicit session ID (this session)
+packages/go-plugin/hooks/bin/htmlgraph statusline --session &#34;4cad085b-9aa…</li>
+                            <li data-ts="2026-03-29T12:49:33Z" data-tool="Bash" data-success="true" data-event-id="evt-2bcd2b26">sqlite3 .htmlgraph/htmlgraph.db &#34;SELECT session_id, active_feature_id FROM sessions WHERE session_id = &#39;4cad085b-9aa5-4d…</li>
+                            <li data-ts="2026-03-29T12:49:34Z" data-tool="Bash" data-success="true" data-event-id="evt-4ae4f4da">sqlite3 .htmlgraph/htmlgraph.db &#34;SELECT id, type, title FROM features WHERE title LIKE &#39;%Worktree subagent parent%&#39;;&#34; 2&gt;…</li>
+                            <li data-ts="2026-03-29T12:49:38Z" data-tool="Bash" data-success="true" data-event-id="evt-6d9938e0"># The active_feature_id changed from feat-8e88743b to bug-8198f5ee during this session
+# Let&#39;s see what bug-8198f5ee is
+…</li>
+                            <li data-ts="2026-03-29T12:49:49Z" data-tool="Bash" data-success="true" data-event-id="evt-55bf39ad"># Check which sessions bug-8198f5ee should actually belong to
+sqlite3 .htmlgraph/htmlgraph.db &#34;SELECT session_id, active…</li>
+                            <li data-ts="2026-03-29T12:50:50Z" data-tool="Bash" data-success="true" data-event-id="evt-059638bf">sqlite3 .htmlgraph/htmlgraph.db &#34;UPDATE sessions SET active_feature_id = NULL WHERE session_id = &#39;4cad085b-9aa5-4dc4-9fc…</li>
+                            <li data-ts="2026-03-29T12:51:27Z" data-tool="Bash" data-success="true" data-event-id="evt-ceba383d">packages/go-plugin/hooks/bin/htmlgraph bug create &#34;Hooks cross-contaminate active_feature_id across sessions via shared …</li>
+                            <li data-ts="2026-03-29T12:51:29Z" data-tool="Bash" data-success="true" data-event-id="evt-180dcb4d">packages/go-plugin/hooks/bin/htmlgraph bug show bug-3264e51f 2&gt;/dev/null</li>
+                            <li data-ts="2026-03-29T12:52:39Z" data-tool="Bash" data-success="true" data-event-id="evt-900b7754">cat /private/tmp/claude-501/-Users-shakes-DevProjects-htmlgraph/4cad085b-9aa5-4dc4-9fc5-ddb11f0caf4c/tasks/a6a0b24f6b21b…</li>
+                            <li data-ts="2026-03-29T12:52:44Z" data-tool="Bash" data-success="true" data-event-id="evt-e25b2580">cat /Users/shakes/.claude/projects/-Users-shakes-DevProjects-htmlgraph/4cad085b-9aa5-4dc4-9fc5-ddb11f0caf4c/tool-results…</li>
+                            <li data-ts="2026-03-29T12:53:06Z" data-tool="Bash" data-success="true" data-event-id="evt-b7e3f07c">packages/go-plugin/hooks/bin/htmlgraph track new &#34;Session isolation &amp; reindex reliability&#34; 2&gt;&amp;1</li>
+                            <li data-ts="2026-03-29T12:53:08Z" data-tool="Bash" data-success="true" data-event-id="evt-f6ebac4d">packages/go-plugin/hooks/bin/htmlgraph track create &#34;Session isolation and reindex reliability&#34; 2&gt;&amp;1</li>
+                            <li data-ts="2026-03-29T12:53:13Z" data-tool="Bash" data-success="true" data-event-id="evt-da042eec">packages/go-plugin/hooks/bin/htmlgraph bug create &#34;Reindex FK constraint: tracks table never populated, 865 features sil…</li>
+                            <li data-ts="2026-03-29T12:53:15Z" data-tool="Bash" data-success="true" data-event-id="evt-c76f24db">packages/go-plugin/hooks/bin/htmlgraph feature create &#34;Statusline uses session ID from OMP stdin, not model_cache single…</li>
+                            <li data-ts="2026-03-29T12:53:16Z" data-tool="Bash" data-success="true" data-event-id="evt-0636f57b">packages/go-plugin/hooks/bin/htmlgraph feature create &#34;Reindex glob misses subdirectory-format tracks (trk-xxx/index.htm…</li>
+                            <li data-ts="2026-03-29T12:53:20Z" data-tool="Bash" data-success="true" data-event-id="evt-5df7e434">packages/go-plugin/hooks/bin/htmlgraph track show trk-aeb4ae73 2&gt;&amp;1</li>
+                            <li data-ts="2026-03-29T12:53:23Z" data-tool="Bash" data-success="true" data-event-id="evt-7bbdab47"># The bug doesn&#39;t show linked — let me check if it was linked
+packages/go-plugin/hooks/bin/htmlgraph bug show bug-4579…</li>
+                            <li data-ts="2026-03-29T12:54:43Z" data-tool="Bash" data-success="true" data-event-id="evt-fa23c3c6">packages/go-plugin/hooks/bin/htmlgraph track show trk-aeb4ae73 2&gt;&amp;1</li>
+                            <li data-ts="2026-03-29T12:54:44Z" data-tool="Bash" data-success="true" data-event-id="evt-c33bed31">packages/go-plugin/hooks/bin/htmlgraph bug show bug-3264e51f 2&gt;&amp;1 | head -15</li>
+                            <li data-ts="2026-03-29T12:54:45Z" data-tool="Bash" data-success="true" data-event-id="evt-9ef5cc60">packages/go-plugin/hooks/bin/htmlgraph bug show bug-45791652 2&gt;&amp;1</li>
+                            <li data-ts="2026-03-29T12:54:50Z" data-tool="Bash" data-success="true" data-event-id="evt-9b969c7e"># Check available commands for linking and dependencies
+packages/go-plugin/hooks/bin/htmlgraph bug --help 2&gt;&amp;1 | head -2…</li>
+                            <li data-ts="2026-03-29T12:54:51Z" data-tool="Bash" data-success="true" data-event-id="evt-62b3ad23">packages/go-plugin/hooks/bin/htmlgraph feature --help 2&gt;&amp;1 | head -20</li>
+                            <li data-ts="2026-03-29T12:54:51Z" data-tool="Bash" data-success="true" data-event-id="evt-ef31c1a6">packages/go-plugin/hooks/bin/htmlgraph track --help 2&gt;&amp;1</li>
+                            <li data-ts="2026-03-29T12:55:39Z" data-tool="Bash" data-success="true" data-event-id="evt-bac154f9">packages/go-plugin/hooks/bin/htmlgraph edge --help 2&gt;&amp;1 || packages/go-plugin/hooks/bin/htmlgraph link --help 2&gt;&amp;1 || pa…</li>
+                            <li data-ts="2026-03-29T12:55:46Z" data-tool="Bash" data-success="true" data-event-id="evt-c572f969"># 1. Link bug-3264e51f to the track
+packages/go-plugin/hooks/bin/htmlgraph link add bug-3264e51f trk-aeb4ae73 --rel part…</li>
+                            <li data-ts="2026-03-29T12:55:48Z" data-tool="Bash" data-success="true" data-event-id="evt-934fe91e"># 2. Mark feat-2bee4b44 (statusline --session flag) as done — already implemented
+packages/go-plugin/hooks/bin/htmlgra…</li>
+                            <li data-ts="2026-03-29T12:55:50Z" data-tool="Bash" data-success="true" data-event-id="evt-944389cb"># 3. feat-9a49eaff (glob fix) blocked by bug-45791652 (FK fix — no point finding tracks if they can&#39;t be inserted)
+pac…</li>
+                            <li data-ts="2026-03-29T12:55:59Z" data-tool="Bash" data-success="true" data-event-id="evt-d8b1609e"># Steps for bug-45791652 (FK constraint fix)
+packages/go-plugin/hooks/bin/htmlgraph bug add-step bug-45791652 &#34;Add Upser…</li>
+                            <li data-ts="2026-03-29T12:56:02Z" data-tool="Bash" data-success="true" data-event-id="evt-04b81718"># Steps for bug-3264e51f (hooks cross-contamination)
+packages/go-plugin/hooks/bin/htmlgraph bug add-step bug-3264e51f &#34;A…</li>
+                            <li data-ts="2026-03-29T12:56:05Z" data-tool="Bash" data-success="true" data-event-id="evt-5c77604e"># Steps for feat-9a49eaff (glob subdirectory)
+packages/go-plugin/hooks/bin/htmlgraph feature add-step feat-9a49eaff &#34;Upd…</li>
+                            <li data-ts="2026-03-29T12:56:11Z" data-tool="Bash" data-success="true" data-event-id="evt-8cf11c61">packages/go-plugin/hooks/bin/htmlgraph track show trk-aeb4ae73 2&gt;&amp;1</li>
+                            <li data-ts="2026-03-29T12:56:12Z" data-tool="Bash" data-success="true" data-event-id="evt-7cc148c2">packages/go-plugin/hooks/bin/htmlgraph bug show bug-45791652 2&gt;&amp;1</li>
+                            <li data-ts="2026-03-29T12:56:12Z" data-tool="Bash" data-success="true" data-event-id="evt-f0405c72">packages/go-plugin/hooks/bin/htmlgraph bug show bug-3264e51f 2&gt;&amp;1</li>
+                            <li data-ts="2026-03-29T12:56:13Z" data-tool="Bash" data-success="true" data-event-id="evt-bc43cd3b">packages/go-plugin/hooks/bin/htmlgraph feature show feat-9a49eaff 2&gt;&amp;1</li>
+                            <li data-ts="2026-03-29T13:00:57Z" data-tool="Bash" data-success="true" data-event-id="evt-fea88a97"># Create the two new features and link them to the track
+packages/go-plugin/hooks/bin/htmlgraph feature create &#34;track sh…</li>
+                            <li data-ts="2026-03-29T13:01:12Z" data-tool="Bash" data-success="true" data-event-id="evt-60493c21"># Add steps to track show --deep
+packages/go-plugin/hooks/bin/htmlgraph feature add-step feat-4a4abb71 &#34;track show --dee…</li>
+                            <li data-ts="2026-03-29T13:01:26Z" data-tool="Bash" data-success="true" data-event-id="evt-71fd9f37"># Verify the full track now
+packages/go-plugin/hooks/bin/htmlgraph track show trk-aeb4ae73 2&gt;&amp;1
+echo &#34;=== BUGS ===&#34;
+pack…</li>
+                            <li data-ts="2026-03-29T13:07:02Z" data-tool="Agent" data-success="true" data-event-id="evt-345e16c8">Research whether HtmlGraph has implemented file-to-feature and git-to-feature linking. I need to validate if these featu…</li>
+                            <li data-ts="2026-03-29T13:09:44Z" data-tool="Bash" data-success="true" data-event-id="evt-990a3e75">packages/go-plugin/hooks/bin/htmlgraph serve --help 2&gt;&amp;1</li>
+                            <li data-ts="2026-03-29T13:09:57Z" data-tool="Bash" data-success="true" data-event-id="evt-89b9049e"># Kill any existing serve process
+pkill -f &#34;htmlgraph serve&#34; 2&gt;/dev/null; sleep 1
+# Restart in background
+packages/go-pl…</li>
+                            <li data-ts="2026-03-29T13:10:09Z" data-tool="Bash" data-success="true" data-event-id="evt-125d7476">open http://localhost:8080/</li>
+                            <li data-ts="2026-03-29T13:14:10Z" data-tool="Bash" data-success="true" data-event-id="evt-a21cdbae"># Find the original track for file-to-feature linking
+packages/go-plugin/hooks/bin/htmlgraph feature show feat-e7478f7a …</li>
+                            <li data-ts="2026-03-29T13:14:50Z" data-tool="Bash" data-success="true" data-event-id="evt-099b416a">packages/go-plugin/hooks/bin/htmlgraph track show trk-fbe18084 2&gt;&amp;1
+echo &#34;===&#34;
+packages/go-plugin/hooks/bin/htmlgraph tr…</li>
+                            <li data-ts="2026-03-29T13:15:00Z" data-tool="Bash" data-success="true" data-event-id="evt-c2ccfd40"># Create bug for broken git commit linking
+packages/go-plugin/hooks/bin/htmlgraph bug create &#34;Git commit-to-feature link…</li>
+                            <li data-ts="2026-03-29T13:15:07Z" data-tool="Bash" data-success="true" data-event-id="evt-032663a8">packages/go-plugin/hooks/bin/htmlgraph bug create &#34;Git-to-feature linking produces 0 rows — Bash tool_result key misma…</li>
+                            <li data-ts="2026-03-29T13:15:07Z" data-tool="Bash" data-success="true" data-event-id="evt-5ef5eff8">packages/go-plugin/hooks/bin/htmlgraph feature create &#34;CLI command for reverse file lookup — which features touched a …</li>
+                            <li data-ts="2026-03-29T13:15:17Z" data-tool="Bash" data-success="true" data-event-id="evt-af223e2d"># Steps for the git linking bug
+packages/go-plugin/hooks/bin/htmlgraph bug add-step bug-db533267 &#34;Identify what key Clau…</li>
+                            <li data-ts="2026-03-29T13:16:19Z" data-tool="Bash" data-success="true" data-event-id="evt-1084880c"># The YOLO hook false positive on &#34;commit&#34; keyword — belongs in the YOLO mode track (trk-3719d8f3)
+packages/go-plugin/…</li>
+                            <li data-ts="2026-03-29T13:16:26Z" data-tool="Bash" data-success="true" data-event-id="evt-9cd64afa">packages/go-plugin/hooks/bin/htmlgraph bug add-step bug-28d5f697 &#34;Fix pattern matching in pretooluse hook — distinguis…</li>
+                            <li data-ts="2026-03-29T13:17:08Z" data-tool="Bash" data-success="true" data-event-id="evt-301e15ee">packages/go-plugin/hooks/bin/htmlgraph bug start bug-28d5f697 2&gt;&amp;1</li>
+                            <li data-ts="2026-03-29T13:17:25Z" data-tool="Agent" data-success="true" data-event-id="evt-eb6c4fa7">Fix bug-28d5f697: The YOLO pretooluse hook false-positives on the word &#34;commit&#34; appearing in work item titles.
+
+**What h…</li>
+                            <li data-ts="2026-03-29T13:20:50Z" data-tool="Bash" data-success="true" data-event-id="evt-b978e606">ls .claude/worktrees/bug-28d5f697/ 2&gt;/dev/null &amp;&amp; echo &#34;EXISTS&#34; || echo &#34;NO WORKTREE&#34;</li>
+                            <li data-ts="2026-03-29T13:20:55Z" data-tool="Bash" data-success="true" data-event-id="evt-683480f2">(cd .claude/worktrees/bug-28d5f697/packages/go &amp;&amp; go build ./... &amp;&amp; go vet ./... &amp;&amp; go test ./internal/hooks/... -v -run…</li>
+                            <li data-ts="2026-03-29T13:21:05Z" data-tool="Bash" data-success="true" data-event-id="evt-2f1dcaec"># Check what the strip function actually produces vs expected
+(cd .claude/worktrees/bug-28d5f697/packages/go &amp;&amp; grep -A …</li>
+                            <li data-ts="2026-03-29T13:21:20Z" data-tool="Read" data-success="true" data-event-id="evt-7b759f66">/Users/shakes/DevProjects/htmlgraph/.claude/worktrees/bug-28d5f697/packages/go/internal/hooks/yolo_guard_test.go [145:17…</li>
+                            <li data-ts="2026-03-29T13:21:27Z" data-tool="Read" data-success="true" data-event-id="evt-22eaa83a">/Users/shakes/DevProjects/htmlgraph/.claude/worktrees/bug-28d5f697/packages/go/internal/hooks/yolo_guard.go [1:31]</li>
+                            <li data-ts="2026-03-29T13:21:32Z" data-tool="Bash" data-success="true" data-event-id="evt-31ed9b33">(cd .claude/worktrees/bug-28d5f697/packages/go &amp;&amp; grep -n &#34;stripQuotedStrings&#34; internal/hooks/yolo_guard.go)</li>
+                            <li data-ts="2026-03-29T13:21:40Z" data-tool="Read" data-success="true" data-event-id="evt-f3ed3c2b">/Users/shakes/DevProjects/htmlgraph/.claude/worktrees/bug-28d5f697/packages/go/internal/hooks/yolo_guard.go [116:131]</li>
+                            <li data-ts="2026-03-29T13:21:44Z" data-tool="Read" data-success="true" data-event-id="evt-cf5db90b">/Users/shakes/DevProjects/htmlgraph/.claude/worktrees/bug-28d5f697/packages/go/internal/hooks/yolo_guard.go [130:145]</li>
+                            <li data-ts="2026-03-29T13:21:55Z" data-tool="Edit" data-success="true" data-event-id="evt-02647f04">/Users/shakes/DevProjects/htmlgraph/.claude/worktrees/bug-28d5f697/packages/go/internal/hooks/yolo_guard_test.go</li>
+                            <li data-ts="2026-03-29T13:22:04Z" data-tool="Bash" data-success="true" data-event-id="evt-62c0f119">(cd .claude/worktrees/bug-28d5f697/packages/go &amp;&amp; go test ./internal/hooks/... -v -run &#34;TestIsGitCommitCommand|TestStrip…</li>
+                            <li data-ts="2026-03-29T13:22:11Z" data-tool="Bash" data-success="true" data-event-id="evt-1b43ee78">(cd .claude/worktrees/bug-28d5f697/packages/go &amp;&amp; go test ./... 2&gt;&amp;1) | tail -15</li>
+                            <li data-ts="2026-03-29T13:22:20Z" data-tool="Bash" data-success="true" data-event-id="evt-4068a25e"># Check what files were changed in the worktree
+(cd .claude/worktrees/bug-28d5f697 &amp;&amp; git diff --name-only HEAD 2&gt;/dev/n…</li>
+                            <li data-ts="2026-03-29T13:22:27Z" data-tool="Bash" data-success="true" data-event-id="evt-9d37f394"># Copy the changed files from worktree to main
+cp .claude/worktrees/bug-28d5f697/packages/go/internal/hooks/yolo_guard.g…</li>
+                            <li data-ts="2026-03-29T13:22:37Z" data-tool="Bash" data-success="true" data-event-id="evt-3df9bf98"># Verify tests pass on main and rebuild
+(cd packages/go &amp;&amp; go test ./internal/hooks/... -run &#34;TestIsGitCommitCommand|Tes…</li>
+                            <li data-ts="2026-03-29T13:22:54Z" data-tool="Bash" data-success="true" data-event-id="evt-91601395"># This should now work without being blocked
+packages/go-plugin/hooks/bin/htmlgraph bug create &#34;Test: git commit attribu…</li>
+                            <li data-ts="2026-03-29T13:23:00Z" data-tool="Bash" data-success="true" data-event-id="evt-a99dc554">packages/go-plugin/hooks/bin/htmlgraph bug delete bug-71676993 2&gt;&amp;1
+packages/go-plugin/hooks/bin/htmlgraph bug complete …</li>
+                            <li data-ts="2026-03-29T13:23:11Z" data-tool="Bash" data-success="true" data-event-id="evt-75a9b2df"># Find the right track for dashboard/attribution work
+packages/go-plugin/hooks/bin/htmlgraph track list 2&gt;&amp;1 | grep -i -…</li>
+                            <li data-ts="2026-03-29T13:23:17Z" data-tool="Bash" data-success="true" data-event-id="evt-87735044">packages/go-plugin/hooks/bin/htmlgraph feature create &#34;Sub-agent attribution in dashboard — classify events by HtmlGra…</li>
+                            <li data-ts="2026-03-29T13:23:33Z" data-tool="Bash" data-success="true" data-event-id="evt-370eb74d">packages/go-plugin/hooks/bin/htmlgraph feature add-step feat-47dd2e4f &#34;Parse subagent_type from Agent tool calls to iden…</li>
+                            <li data-ts="2026-03-29T13:23:58Z" data-tool="Bash" data-success="true" data-event-id="evt-c622c067">packages/go-plugin/hooks/bin/htmlgraph track list 2&gt;&amp;1 | grep -c &#34;done&#34; &amp;&amp; echo &#34;---&#34; &amp;&amp; packages/go-plugin/hooks/bin/ht…</li>
+                            <li data-ts="2026-03-29T13:24:02Z" data-tool="Bash" data-success="true" data-event-id="evt-e67ff356">packages/go-plugin/hooks/bin/htmlgraph track list 2&gt;&amp;1 | grep -E &#34;done|in-progress|todo&#34; | awk &#39;{print $3}&#39; | sort | uni…</li>
+                            <li data-ts="2026-03-29T13:24:09Z" data-tool="Bash" data-success="true" data-event-id="evt-6ac1d79e">packages/go-plugin/hooks/bin/htmlgraph track list 2&gt;&amp;1 | awk &#39;{print $2}&#39; | sort | uniq -c | sort -rn</li>
+                            <li data-ts="2026-03-29T13:25:16Z" data-tool="Agent" data-success="true" data-event-id="evt-8a58e183">Find all tracks that are stale — meaning all their linked features and bugs are completed but the track itself is stil…</li>
+                            <li data-ts="2026-03-29T13:26:02Z" data-tool="Bash" data-success="true" data-event-id="evt-642545a1">packages/go-plugin/hooks/bin/htmlgraph feature create &#34;Auto-complete tracks when all linked items are done&#34; --track trk-…</li>
+                            <li data-ts="2026-03-29T13:26:09Z" data-tool="Bash" data-success="true" data-event-id="evt-e92eec6f">packages/go-plugin/hooks/bin/htmlgraph feature add-step feat-6e16f9c3 &#34;When feature/bug complete runs, check if all sibl…</li>
+                            <li data-ts="2026-03-29T13:26:32Z" data-tool="Agent" data-success="true" data-event-id="evt-1c590ae8">Implement feat-6e16f9c3: Auto-complete tracks when all linked items are done.
+
+Two changes needed:
+
+### 1. Auto-complete…</li>
+                            <li data-ts="2026-03-29T13:29:33Z" data-tool="Bash" data-success="true" data-event-id="evt-a5a55e4d"># Close all 16 fully-done tracks
+for trk in trk-763ca773 trk-f6a51c92 trk-06a29a51 trk-5639dde8 trk-1b04eec2 trk-a8de602…</li>
+                            <li data-ts="2026-03-29T13:29:44Z" data-tool="Bash" data-success="true" data-event-id="evt-e4a25c26"># Delete the 4 duplicate Portfolio Site Redesign tracks with zero items
+for trk in trk-175f01b9 trk-6ec55d6e trk-e2493ed…</li>
+                            <li data-ts="2026-03-29T13:30:18Z" data-tool="Bash" data-success="true" data-event-id="evt-0d3fe368">packages/go-plugin/hooks/bin/htmlgraph track list 2&gt;&amp;1 | grep -v &#34;done&#34;</li>
+                            <li data-ts="2026-03-29T13:31:00Z" data-tool="Bash" data-success="true" data-event-id="evt-5ff3e31c"># Find Python-related tracks
+packages/go-plugin/hooks/bin/htmlgraph track list 2&gt;&amp;1 | grep -i -E &#34;python|PyPI|FastAPI|SD…</li>
+                            <li data-ts="2026-03-29T13:31:09Z" data-tool="Bash" data-success="true" data-event-id="evt-cbde2eb8"># Check if any have linked items with real work remaining
+for trk in trk-363ef420 trk-6afbfeba trk-7037c5cc trk-92f36021…</li>
+                            <li data-ts="2026-03-29T13:31:27Z" data-tool="Bash" data-success="true" data-event-id="evt-a693734e">for trk in trk-363ef420 trk-6afbfeba trk-7037c5cc trk-92f36021 trk-9a8fcf27 trk-9e86dce9 trk-a50eb374; do
+  packages/go-…</li>
+                            <li data-ts="2026-03-29T13:31:45Z" data-tool="Bash" data-success="true" data-event-id="evt-77ee6a76">(cd .claude/worktrees/feat-6e16f9c3/packages/go &amp;&amp; go build ./... &amp;&amp; go vet ./... &amp;&amp; go test ./... 2&gt;&amp;1) | tail -15</li>
+                            <li data-ts="2026-03-29T13:31:59Z" data-tool="Bash" data-success="true" data-event-id="evt-8035adfc"># Check what files changed
+(cd .claude/worktrees/feat-6e16f9c3 &amp;&amp; git diff --name-only HEAD 2&gt;/dev/null)</li>
+                            <li data-ts="2026-03-29T13:32:07Z" data-tool="Bash" data-success="true" data-event-id="evt-2b15ccc1">cp .claude/worktrees/feat-6e16f9c3/packages/go/cmd/htmlgraph/track.go packages/go/cmd/htmlgraph/track.go
+cp .claude/work…</li>
+                            <li data-ts="2026-03-29T13:32:13Z" data-tool="Bash" data-success="true" data-event-id="evt-6b8b3af8">(cd packages/go &amp;&amp; go build ./... &amp;&amp; go test ./... 2&gt;&amp;1) | tail -12 &amp;&amp; packages/go-plugin/build.sh 2&gt;&amp;1 | tail -3</li>
+                            <li data-ts="2026-03-29T13:32:23Z" data-tool="Bash" data-success="true" data-event-id="evt-13e23f3a"># Test track gc
+packages/go-plugin/hooks/bin/htmlgraph track gc 2&gt;&amp;1</li>
+                            <li data-ts="2026-03-29T13:34:35Z" data-tool="Bash" data-success="true" data-event-id="evt-c0bc160d">packages/go-plugin/hooks/bin/htmlgraph feature complete feat-6e16f9c3 2&gt;&amp;1</li>
+                            <li data-ts="2026-03-29T13:34:40Z" data-tool="Bash" data-success="true" data-event-id="evt-d6b5e101"># How many open tracks remain?
+packages/go-plugin/hooks/bin/htmlgraph track list 2&gt;&amp;1 | grep -v &#34;done&#34; | grep -v &#34;STATUS…</li>
+                            <li data-ts="2026-03-29T13:35:43Z" data-tool="Bash" data-success="true" data-event-id="evt-bd5dd911">packages/go-plugin/hooks/bin/htmlgraph track list 2&gt;&amp;1 | grep -v &#34;done&#34; | grep &#34;critical&#34;</li>
+                            <li data-ts="2026-03-29T13:35:48Z" data-tool="Bash" data-success="true" data-event-id="evt-6ae9964f">packages/go-plugin/hooks/bin/htmlgraph track show trk-17ffea69 2&gt;&amp;1</li>
+                            <li data-ts="2026-03-29T13:35:54Z" data-tool="Bash" data-success="true" data-event-id="evt-0eb9aa31">packages/go-plugin/hooks/bin/htmlgraph feature show feat-4dadb15f 2&gt;&amp;1</li>
+                            <li data-ts="2026-03-29T13:37:12Z" data-tool="Bash" data-success="true" data-event-id="evt-967930e0">cat .htmlgraph/tracks/trk-17ffea69.html 2&gt;/dev/null</li>
+                            <li data-ts="2026-03-29T13:38:23Z" data-tool="Agent" data-success="true" data-event-id="evt-5a5068a5">Audit the HtmlGraph Simplification track (trk-17ffea69) to determine which of its 25 tasks are still relevant given the …</li>
+                            <li data-ts="2026-03-29T16:05:10Z" data-tool="Agent" data-success="true" data-event-id="evt-b5c5156b">Update the HtmlGraph Simplification track HTML file at `.htmlgraph/tracks/trk-17ffea69.html` to reflect the results of a…</li>
+                            <li data-ts="2026-03-29T16:12:14Z" data-tool="Bash" data-success="true" data-event-id="evt-5104c2df"># Check what track subcommands exist
+packages/go-plugin/hooks/bin/htmlgraph track --help 2&gt;&amp;1</li>
+                            <li data-ts="2026-03-29T16:13:00Z" data-tool="Bash" data-success="true" data-event-id="evt-91d0e4c3"># Delete old track and recreate with updated plan
+packages/go-plugin/hooks/bin/htmlgraph track delete trk-17ffea69 2&gt;&amp;1</li>
+                            <li data-ts="2026-03-29T16:13:10Z" data-tool="Bash" data-success="true" data-event-id="evt-51117d70">packages/go-plugin/hooks/bin/htmlgraph track create &#34;HtmlGraph Simplification — Filesystem &amp; DB Hygiene&#34; --priority cr…</li>
+                            <li data-ts="2026-03-29T16:13:23Z" data-tool="Bash" data-success="true" data-event-id="evt-db67381c"># Phase 1: Filesystem Cleanup
+packages/go-plugin/hooks/bin/htmlgraph track add-step trk-87113463 &#34;Delete .htmlgraph/.htm…</li>
+                            <li data-ts="2026-03-29T16:13:38Z" data-tool="Bash" data-success="true" data-event-id="evt-ef314d8d"># Link the existing Phase 2 feature to the new track
+packages/go-plugin/hooks/bin/htmlgraph link add feat-4dadb15f trk-8…</li>
+                            <li data-ts="2026-03-29T16:13:45Z" data-tool="Bash" data-success="true" data-event-id="evt-1244887a">packages/go-plugin/hooks/bin/htmlgraph track show trk-87113463 2&gt;&amp;1</li>
+                            <li data-ts="2026-03-29T16:15:02Z" data-tool="Bash" data-success="true" data-event-id="evt-4588c1b3">packages/go-plugin/hooks/bin/htmlgraph feature show feat-75493c10 2&gt;&amp;1</li>
+                            <li data-ts="2026-03-29T16:15:09Z" data-tool="Bash" data-success="true" data-event-id="evt-f63710b3"># Delete and recreate with correct scope — this affects all work item types, not just tracks
+packages/go-plugin/hooks/…</li>
+                            <li data-ts="2026-03-29T16:15:14Z" data-tool="Bash" data-success="true" data-event-id="evt-22c9bbdc">packages/go-plugin/hooks/bin/htmlgraph track show trk-8e271797 2&gt;&amp;1</li>
+                            <li data-ts="2026-03-29T16:15:20Z" data-tool="Bash" data-success="true" data-event-id="evt-d918d40c">packages/go-plugin/hooks/bin/htmlgraph feature create &#34;Work item CLI: add remove-step, update-step, complete-step, and e…</li>
+                            <li data-ts="2026-03-29T16:15:27Z" data-tool="Bash" data-success="true" data-event-id="evt-5d5ac5a5">packages/go-plugin/hooks/bin/htmlgraph feature add-step feat-461f8f88 &#34;Add remove-step subcommand to feature, bug, spike…</li>
+                            <li data-ts="2026-03-29T16:15:31Z" data-tool="Bash" data-success="true" data-event-id="evt-4247996e">packages/go-plugin/hooks/bin/htmlgraph feature show feat-461f8f88 2&gt;&amp;1</li>
+            </ol>
+        </section>
+    </article>
+</body>
+</html>

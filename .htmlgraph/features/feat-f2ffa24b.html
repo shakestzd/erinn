@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="htmlgraph-version" content="1.0">
+    <title>Run migration &#43; cleanup across all registered projects</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="feat-f2ffa24b"
+             data-type="feature"
+             data-status="todo"
+             data-priority="medium"
+             data-created="2026-04-10T22:31:11.579776"
+             data-updated="2026-04-10T22:31:11.604113" data-agent-assigned="claude-code" data-track-id="trk-0677c709">
+
+        <header>
+            <h1>Run migration &#43; cleanup across all registered projects</h1>
+            <div class="metadata">
+                <span class="badge status-todo">Todo</span>
+                <span class="badge priority-medium">Medium Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="trk-0677c709.html" data-relationship="part_of" data-since="2026-04-10T22:31:11.604033">trk-0677c709</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>Systematic verification pass. For each entry in ~/.local/share/htmlgraph/projects.json run: htmlgraph migrate sessions --dry-run, then without --dry-run if orphans found, then htmlgraph cleanup ghost-sessions --dry-run. Confirms the HTML-canonical invariant holds everywhere, not just htmlgraph/planbook/shakestzd. Reports any projects where SQLite and HTML disagree after the pass. ~10 min per project.</p>
+        </section>
+    </article>
+</body>
+</html>

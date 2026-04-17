@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="htmlgraph-version" content="1.0">
+    <title>Session 2026-03-30T18:46:21Z</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="e8457e05-1cad-43e5-aa22-d5a980632229"
+             data-type="session"
+             data-status="completed"
+             data-ended-at="2026-03-30T21:11:13Z"
+             data-agent="claude-code"
+             data-started-at="2026-03-30T18:46:21Z"
+             data-event-count="39"
+             data-is-subagent="false"
+             data-start-commit="">
+
+        <header>
+            <h1>Session 2026-03-30T18:46:21Z</h1>
+            <div class="metadata">
+                <span class="badge status-completed">Completed</span>
+                <span class="badge">claude-code</span>
+                <span class="badge">39 events</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+        </nav>
+
+        <section data-activity-log>
+            <ol reversed>
+                            <li data-ts="2026-03-30T18:46:36Z" data-tool="ToolSearch" data-success="true" data-event-id="evt-1f7d8e1b">select:TaskCreate,TaskUpdate,TaskList</li>
+                            <li data-ts="2026-03-30T18:46:43Z" data-tool="TaskCreate" data-success="true" data-event-id="evt-e192fc6f">{&#34;activeForm&#34;:&#34;Auditing spike-creating hooks&#34;,&#34;description&#34;:&#34;feat-4c2810e1: Grep the Go source for all spike creation calls in hook handlers. For each, document: which hook event triggers it, what dat…</li>
+                            <li data-ts="2026-03-30T18:46:46Z" data-tool="TaskCreate" data-success="true" data-event-id="evt-76526bff">{&#34;activeForm&#34;:&#34;Purging spike backlog&#34;,&#34;description&#34;:&#34;feat-e8b4d667: Inventory all spikes in .htmlgraph/spikes/. Categorize by type (error, status-change, task-result, research, investigation). Keep on…</li>
+                            <li data-ts="2026-03-30T18:46:48Z" data-tool="TaskCreate" data-success="true" data-event-id="evt-501539f6">{&#34;activeForm&#34;:&#34;Removing spike auto-creation from hooks&#34;,&#34;description&#34;:&#34;feat-0e281729: Based on audit findings, remove spike creation from hook handlers for: error events, task result events, status ch…</li>
+                            <li data-ts="2026-03-30T18:46:51Z" data-tool="TaskCreate" data-success="true" data-event-id="evt-80dc4b37">{&#34;activeForm&#34;:&#34;Adding spike creation policy guard&#34;,&#34;description&#34;:&#34;feat-84052b5e: After removing hook-based spike creation, add a policy guard. Spike creation should only be allowed from CLI commands a…</li>
+                            <li data-ts="2026-03-30T18:46:55Z" data-tool="TaskUpdate" data-success="true" data-event-id="evt-d05ccd6f">{&#34;addBlockedBy&#34;:[&#34;1&#34;],&#34;taskId&#34;:&#34;3&#34;}</li>
+                            <li data-ts="2026-03-30T18:46:56Z" data-tool="TaskUpdate" data-success="true" data-event-id="evt-c54b4c98">{&#34;addBlockedBy&#34;:[&#34;3&#34;],&#34;taskId&#34;:&#34;4&#34;}</li>
+                            <li data-ts="2026-03-30T18:46:59Z" data-tool="TaskUpdate" data-success="true" data-event-id="evt-a1155e0f">{&#34;status&#34;:&#34;in_progress&#34;,&#34;taskId&#34;:&#34;1&#34;}</li>
+                            <li data-ts="2026-03-30T18:46:59Z" data-tool="TaskUpdate" data-success="true" data-event-id="evt-184f8757">{&#34;status&#34;:&#34;in_progress&#34;,&#34;taskId&#34;:&#34;2&#34;}</li>
+                            <li data-ts="2026-03-30T18:47:13Z" data-tool="Agent" data-success="true" data-event-id="evt-8b7a7e5e">## Task: Audit — map every hook that auto-creates spikes
+**Feature:** feat-4c2810e1
+
+## Goal
+Search the entire Go code…</li>
+                            <li data-ts="2026-03-30T18:47:30Z" data-tool="Agent" data-success="true" data-event-id="evt-5686c92f">## Task: Purge — triage the 644 spike backlog, keep ~20 valuable ones, delete rest
+**Feature:** feat-e8b4d667
+
+## Goal…</li>
+                            <li data-ts="2026-03-30T20:53:40Z" data-tool="TaskUpdate" data-success="true" data-event-id="evt-07a68a97">{&#34;status&#34;:&#34;completed&#34;,&#34;taskId&#34;:&#34;1&#34;}</li>
+                            <li data-ts="2026-03-30T20:53:41Z" data-tool="TaskUpdate" data-success="true" data-event-id="evt-a1b72522">{&#34;status&#34;:&#34;completed&#34;,&#34;taskId&#34;:&#34;2&#34;}</li>
+                            <li data-ts="2026-03-30T20:53:53Z" data-tool="TaskUpdate" data-success="true" data-event-id="evt-be55cbd7">{&#34;description&#34;:&#34;feat-0e281729: Audit confirmed NO hooks currently auto-create spikes — the Python auto-spike system was never ported to Go. This task now focuses on: (1) Remove dead spike subtype en…</li>
+                            <li data-ts="2026-03-30T20:53:57Z" data-tool="TaskUpdate" data-success="true" data-event-id="evt-fe1bc560">{&#34;description&#34;:&#34;feat-84052b5e: Add a source-origin guard on spike creation. Since the only creation path is CLI (workitem.go), add a SpikeSource enum (CLI, Orchestrator) and validate that spikes can o…</li>
+                            <li data-ts="2026-03-30T20:54:14Z" data-tool="Agent" data-success="true" data-event-id="evt-ace0edd4">## Task: Remove dead auto-spike artifacts from Go codebase
+**Feature:** feat-0e281729
+
+## Context
+An audit confirmed tha…</li>
+                            <li data-ts="2026-03-30T20:54:28Z" data-tool="Agent" data-success="true" data-event-id="evt-9b13ca84">## Task: Add spike creation policy guard
+**Feature:** feat-84052b5e
+
+## Context
+An audit confirmed that the ONLY spike c…</li>
+                            <li data-ts="2026-03-30T21:03:10Z" data-tool="TaskUpdate" data-success="true" data-event-id="evt-a38ebe00">{&#34;status&#34;:&#34;completed&#34;,&#34;taskId&#34;:&#34;3&#34;}</li>
+                            <li data-ts="2026-03-30T21:03:12Z" data-tool="TaskUpdate" data-success="true" data-event-id="evt-1efeaa6c">{&#34;status&#34;:&#34;completed&#34;,&#34;taskId&#34;:&#34;4&#34;}</li>
+                            <li data-ts="2026-03-30T21:03:18Z" data-tool="Bash" data-success="true" data-event-id="evt-e4d70ef6">git worktree list</li>
+                            <li data-ts="2026-03-30T21:03:18Z" data-tool="Bash" data-success="true" data-event-id="evt-c0c8c316">git branch --list &#39;worktree-*&#39;</li>
+                            <li data-ts="2026-03-30T21:03:23Z" data-tool="Bash" data-success="true" data-event-id="evt-648b0dc7">git log main..feat-0e281729-dead-auto-spike --oneline</li>
+                            <li data-ts="2026-03-30T21:03:24Z" data-tool="Bash" data-success="true" data-event-id="evt-7fd8bc19">git log main..feat-84052b5e --oneline</li>
+                            <li data-ts="2026-03-30T21:03:29Z" data-tool="Bash" data-success="true" data-event-id="evt-effc7f85">git log --oneline -5 feat-0e281729-dead-auto-spike</li>
+                            <li data-ts="2026-03-30T21:03:29Z" data-tool="Bash" data-success="true" data-event-id="evt-890d01ce">git log --oneline -5 main</li>
+                            <li data-ts="2026-03-30T21:03:35Z" data-tool="Bash" data-success="true" data-event-id="evt-447d876f">git merge --no-ff feat-84052b5e -m &#34;feat: merge feat-84052b5e — spike creation policy guard&#34;</li>
+                            <li data-ts="2026-03-30T21:03:39Z" data-tool="Bash" data-success="true" data-event-id="evt-241d2e3d">git diff --name-only --diff-filter=U</li>
+                            <li data-ts="2026-03-30T21:03:43Z" data-tool="Read" data-success="true" data-event-id="evt-dd035469">/Users/shakes/DevProjects/htmlgraph/packages/go/cmd/htmlgraph/recommend.go</li>
+                            <li data-ts="2026-03-30T21:03:51Z" data-tool="Edit" data-success="true" data-event-id="evt-a3c3a1e0">/Users/shakes/DevProjects/htmlgraph/packages/go/cmd/htmlgraph/recommend.go</li>
+                            <li data-ts="2026-03-30T21:04:02Z" data-tool="Bash" data-success="true" data-event-id="evt-2920a664">cat &gt; /tmp/resolve_conflict.py &lt;&lt; &#39;PYEOF&#39;
+import re
+
+with open(&#34;packages/go/cmd/htmlgraph/recommend.go&#34;, &#34;r&#34;) as f:
+    …</li>
+                            <li data-ts="2026-03-30T21:04:09Z" data-tool="Bash" data-success="true" data-event-id="evt-515ebde0">(cd packages/go &amp;&amp; go build ./...)</li>
+                            <li data-ts="2026-03-30T21:04:15Z" data-tool="Bash" data-success="true" data-event-id="evt-9843e486">git add packages/go/cmd/htmlgraph/recommend.go &amp;&amp; git commit -m &#34;$(cat &lt;&lt;&#39;EOF&#39;
+feat: merge feat-84052b5e — spike creat…</li>
+                            <li data-ts="2026-03-30T21:04:26Z" data-tool="Bash" data-success="true" data-event-id="evt-dffbe5ce">git worktree remove .claude/worktrees/feat-0e281729 --force &amp;&amp; git worktree remove .claude/worktrees/feat-84052b5e --for…</li>
+                            <li data-ts="2026-03-30T21:04:26Z" data-tool="Bash" data-success="true" data-event-id="evt-42254692">git branch -D feat-0e281729-dead-auto-spike feat-84052b5e 2&gt;/dev/null; echo &#34;branches cleaned&#34;</li>
+                            <li data-ts="2026-03-30T21:04:31Z" data-tool="Bash" data-success="true" data-event-id="evt-5a7d5105">git log --oneline -6 main</li>
+                            <li data-ts="2026-03-30T21:04:31Z" data-tool="TaskList" data-success="true" data-event-id="evt-badcfc2f">{}</li>
+                            <li data-ts="2026-03-30T21:11:03Z" data-tool="Bash" data-success="true" data-event-id="evt-642abd5a">ls -la /Users/shakes/DevProjects/htmlgraph/.venv/bin/htmlgraph 2&gt;/dev/null &amp;&amp; echo &#34;--- shadow exists ---&#34; &amp;&amp; which -a h…</li>
+                            <li data-ts="2026-03-30T21:11:08Z" data-tool="Bash" data-success="true" data-event-id="evt-300560e6">rm -rf /Users/shakes/DevProjects/htmlgraph/.venv &amp;&amp; echo &#34;removed .venv&#34;</li>
+                            <li data-ts="2026-03-30T21:11:13Z" data-tool="Bash" data-success="true" data-event-id="evt-c97929e9">htmlgraph --version 2&gt;/dev/null || htmlgraph status 2&gt;/dev/null || echo &#34;htmlgraph binary works: $(which htmlgraph)&#34;</li>
+            </ol>
+        </section>
+    </article>
+</body>
+</html>

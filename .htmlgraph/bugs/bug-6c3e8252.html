@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="htmlgraph-version" content="1.0">
+    <title>9 stale status=active sessions from March pollute active count</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="bug-6c3e8252"
+             data-type="bug"
+             data-status="todo"
+             data-priority="medium"
+             data-created="2026-04-11T09:56:30.258872"
+             data-updated="2026-04-11T09:56:30.259875" data-agent-assigned="claude-code" data-track-id="trk-0677c709">
+
+        <header>
+            <h1>9 stale status=active sessions from March pollute active count</h1>
+            <div class="metadata">
+                <span class="badge status-todo">Todo</span>
+                <span class="badge priority-medium">Medium Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="caused_by">
+                <h3>Caused By:</h3>
+                <ul>
+                    <li><a href="bug-f616c2a8.html" data-relationship="caused_by" data-since="2026-04-11T09:56:30.259597">bug-f616c2a8</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="trk-0677c709.html" data-relationship="part_of" data-since="2026-04-11T09:56:30.259815">trk-0677c709</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>Discovered while investigating Bug A. SQLite has 9 sessions with status='active' from 2026-03-17 and 2026-03-18 (sess-* legacy ID format), e.g. sess-191b813d, sess-4d136dad, sess-73f58d23. These are old sessions whose JSONL files presumably no longer exist or are no longer in autoIngest's discovery scope, so the 60s sweep never re-checks them and they stay 'active' forever. They inflate the dashboard 'active sessions' stat. Fix: add a one-shot cleanup that flips status='active' to 'completed' for any session whose JSONL file is missing or whose mtime is older than (say) 24 hours. Run on serve startup and via 'htmlgraph cleanup stale-active'. Idempotent.</p>
+        </section>
+    </article>
+</body>
+</html>

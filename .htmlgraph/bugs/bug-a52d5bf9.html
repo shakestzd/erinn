@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="htmlgraph-version" content="1.0">
+    <title>Session ingest writes rows with empty project_dir, pollutes every project DB</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="bug-a52d5bf9"
+             data-type="bug"
+             data-status="done"
+             data-priority="medium"
+             data-created="2026-04-10T08:14:54.731821"
+             data-updated="2026-04-11T03:25:55.100912" data-agent-assigned="claude-code" data-track-id="trk-cb36e595">
+
+        <header>
+            <h1>Session ingest writes rows with empty project_dir, pollutes every project DB</h1>
+            <div class="metadata">
+                <span class="badge status-done">Done</span>
+                <span class="badge priority-medium">Medium Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="trk-cb36e595.html" data-relationship="part_of" data-since="2026-04-10T08:14:54.784918">trk-cb36e595</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="implemented_in">
+                <h3>Implemented In:</h3>
+                <ul>
+                    <li><a href="8d53982f-66f2-415b-a645-1886eb8ae438.html" data-relationship="implemented_in" data-since="2026-04-10T08:41:26.785557">session 8d53982f-66f2-415b-a645-1886eb8ae438</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>Verified 2026-04-10: planbook's htmlgraph.db has 15 session rows, only 4 of which have project_dir set. The other 11 have empty project_dir and dates predating planbook's directory creation (Apr 8). The display-side fix (bug filed same day) adds a WHERE s.project_dir = ? filter to sessionsHandler which hides these rows from the per-project dashboard. But the underlying data bug remains: some ingest path writes session rows to the current project's .htmlgraph/htmlgraph.db with project_dir='', and that happens on every project that ever runs htmlgraph.
+
+Likely source: passive session ingestion from Claude Code's ~/.claude/projects//*.jsonl transcripts. When htmlgraph first runs in a project, it may scan the transcript directory and populate its local sessions table. If it can't determine which project a given transcript belongs to, it writes empty project_dir and the row becomes cross-project pollution.
+
+Needs investigation:
+1. Find the ingest path (grep cmd/htmlgraph/ for 'claude/projects' or 'jsonl' parsing)
+2. Determine whether the ingest should (a) attribute transcripts to their real source project, (b) skip unattributed transcripts, (c) write them to a dedicated 'claude-code' bucket, or (d) not run at all when no attribution is possible
+3. Add a cleanup migration that removes or fixes existing polluted rows
+
+Priority: medium. Display-side fix hides the symptom. Every htmlgraph project is accumulating this pollution silently.</p>
+        </section>
+    </article>
+</body>
+</html>

@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="htmlgraph-version" content="1.0">
+    <title>CLI commands don&#39;t show resolved project dir when env vars override CWD</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="bug-69aa6ba9"
+             data-type="bug"
+             data-status="done"
+             data-priority="medium"
+             data-created="2026-04-10T16:16:00.420557"
+             data-updated="2026-04-10T16:21:20.248697" data-agent-assigned="claude-code" data-track-id="trk-97f85b3b">
+
+        <header>
+            <h1>CLI commands don&#39;t show resolved project dir when env vars override CWD</h1>
+            <div class="metadata">
+                <span class="badge status-done">Done</span>
+                <span class="badge priority-medium">Medium Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="trk-97f85b3b.html" data-relationship="part_of" data-since="2026-04-10T16:16:00.422108">trk-97f85b3b</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="implemented_in">
+                <h3>Implemented In:</h3>
+                <ul>
+                    <li><a href="6206b18b-775e-4c99-8f0c-c6c61c8c954d.html" data-relationship="implemented_in" data-since="2026-04-10T16:16:12.140351">session 6206b18b-775e-4c99-8f0c-c6c61c8c954d</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>When HTMLGRAPH_PROJECT_DIR or CLAUDE_PROJECT_DIR is set (normal state inside a Claude Code session), htmlgraph CLI commands silently operate on that project regardless of CWD. If the user cd's into a different project and runs a command, the output is about the env-var project without any indication. Surfaced during plan-43659c92 execution: ran 'htmlgraph migrate sessions --dry-run' from planbook expecting it to check planbook, but it silently checked htmlgraph and reported 'No orphan sessions'. Fix: project-level mutation commands (migrate, sweep) should print a one-line header showing the resolved project dir when it differs from CWD.</p>
+        </section>
+    </article>
+</body>
+</html>

@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="htmlgraph-version" content="1.0">
+    <title>Replace runServer body with parent&#43;proxy; drop --global flag; current-project auto-detect</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="feat-5e32f20a"
+             data-type="feature"
+             data-status="done"
+             data-priority="medium"
+             data-created="2026-04-09T22:02:45.97047"
+             data-updated="2026-04-09T22:42:07.625649" data-agent-assigned="claude-code" data-track-id="trk-cb36e595">
+
+        <header>
+            <h1>Replace runServer body with parent&#43;proxy; drop --global flag; current-project auto-detect</h1>
+            <div class="metadata">
+                <span class="badge status-done">Done</span>
+                <span class="badge priority-medium">Medium Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="planned_in">
+                <h3>Planned In:</h3>
+                <ul>
+                    <li><a href="plan-237fb251.html" data-relationship="planned_in" data-since="2026-04-09T22:02:45.970633">plan-237fb251</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="blocked_by">
+                <h3>Blocked By:</h3>
+                <ul>
+                    <li><a href="feat-90af35a0.html" data-relationship="blocked_by">feat-90af35a0</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="implemented_in">
+                <h3>Implemented In:</h3>
+                <ul>
+                    <li><a href="a1cd7ef9-6b27-4fe7-92d2-b1d0f47a1a8e.html" data-relationship="implemented_in" data-since="2026-04-09T22:36:25.267771">session a1cd7ef9-6b27-4fe7-92d2-b1d0f47a1a8e</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>This is the slice where `htmlgraph serve` transitions from 'single-project server' to 'parent with reverse proxy and projects-landing'. Multi-part change:
+
+**(1) Drop the `--global` flag entirely.** Delete the flag definition from the serve cobra command. `htmlgraph serve --global` becomes an unknown-flag error (cobra default). Users who typed `--global` get a clear cobra error and can re-run without the flag.
+
+**(2) Merge `runGlobalServer` body into `runServer`.** `runServer` now always starts the parent process: builds the global mux (landing SPA + `/api/mode` + `/api/projects` + `/p//*` proxy), instantiates the `childproc.Supervisor` from slice 2, starts the idle reaper goroutine, and calls `http.ListenAndServe(addr, mux)` on the configured `--port` (default 8087). The old single-project behavior is gone from `runServer` — it moved to the hidden `_serve-child` command in slice 1. Delete the now-dead `runGlobalServer` function.
+
+**(3) Proxy handler registration.** Register `mux.Handle("/p/", corsMiddleware(http.HandlerFunc(proxyHandler)))` where `proxyHandler` parses `/p//`, validates the project ID (reject empty, `.`, `..`, `/`, null bytes, non-alphanumeric+underscore+hyphen — returns 400 on validation failure), looks up the project in the registry to get `ProjectDir` (returns 404 if unknown), calls `supervisor.GetOrSpawn(r.Context(), projectID, projectDir)` (returns 502 on spawn failure), strips the `/p/` prefix from `r.URL.Path` via `path.Clean("/" + rest)` not string manipulation, calls `child.LastRequest.Store(time.Now().Unix())`, and forwards via the pre-built `child.proxy` (already has `FlushInterval = 100 * time.Millisecond` for SSE from slice 2). The proxy's `ErrorHandler` (set at construction time in slice 2) returns 502 on child unreachable.
+
+**(4) Current-project auto-detection (Option B).** Before starting the HTTP server, call `findHtmlgraphDir()` to check if CWD contains a `.htmlgraph/` directory. If yes, derive the project ID via `SHA256(absPath)[:8]`, auto-register it in the registry if not already present (same `registry.Upsert` call the `PersistentPreRunE` uses), and extend the startup banner to print BOTH URLs: `http://localhost:/` (doorway) and `http://localhost:/p//` (current project deep link). If CWD has no `.htmlgraph/` or the registration fails, silently print only the doorway URL. The detection code is ~10 lines at the top of `runServer` before the mux is built. Do NOT auto-open the browser — just print the URL for the user to click.
+
+**(5) Graceful shutdown.** Plumb `supervisor.Shutdown(ctx)` through `http.Server.RegisterOnShutdown` so when the parent receives SIGINT/SIGTERM, it cleanly kills all children before exiting.</p>
+        </section>
+    </article>
+</body>
+</html>

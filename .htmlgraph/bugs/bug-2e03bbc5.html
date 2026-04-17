@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="htmlgraph-version" content="1.0">
+    <title>Named volumes mask git-tracked .htmlgraph and .claude in devcontainer</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="bug-2e03bbc5"
+             data-type="bug"
+             data-status="done"
+             data-priority="medium"
+             data-created="2026-04-11T22:26:25.749093"
+             data-updated="2026-04-11T22:26:54.429265" data-agent-assigned="claude-code" data-track-id="trk-0677c709">
+
+        <header>
+            <h1>Named volumes mask git-tracked .htmlgraph and .claude in devcontainer</h1>
+            <div class="metadata">
+                <span class="badge status-done">Done</span>
+                <span class="badge priority-medium">Medium Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="implemented_in">
+                <h3>Implemented In:</h3>
+                <ul>
+                    <li><a href="c9817bff-5e33-4137-b542-f5130d079f3c.html" data-relationship="implemented_in" data-since="2026-04-11T22:26:43.741753">session c9817bff-5e33-4137-b542-f5130d079f3c</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="trk-0677c709.html" data-relationship="part_of" data-since="2026-04-11T22:26:25.751572">trk-0677c709</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>devcontainer.json declares Docker named volumes over .htmlgraph/ and .claude/, which are git-tracked directories containing canonical work items and plugin config. The named volumes replace the git-cloned content with empty volume state, so htmlgraph find/status report 0 items and the wrong directory tree. Named volumes are for non-git-tracked artifacts (node_modules, .venv); git-tracked trees should come from the clone. Removes the mounts entirely in v0.54.8.</p>
+        </section>
+    </article>
+</body>
+</html>

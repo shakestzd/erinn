@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="htmlgraph-version" content="1.0">
+    <title>Attribution leak: current session_id appears in wrong project&#39;s DB with 902 events and 0 messages</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="bug-71fc095f"
+             data-type="bug"
+             data-status="done"
+             data-priority="high"
+             data-created="2026-04-11T01:02:56.576408"
+             data-updated="2026-04-11T01:13:53.207824" data-agent-assigned="claude-code" data-track-id="trk-97f85b3b">
+
+        <header>
+            <h1>Attribution leak: current session_id appears in wrong project&#39;s DB with 902 events and 0 messages</h1>
+            <div class="metadata">
+                <span class="badge status-done">Done</span>
+                <span class="badge priority-high">High Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="trk-97f85b3b.html" data-relationship="part_of" data-since="2026-04-11T01:02:56.577129">trk-97f85b3b</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="implemented_in">
+                <h3>Implemented In:</h3>
+                <ul>
+                    <li><a href="8d53982f-66f2-415b-a645-1886eb8ae438.html" data-relationship="implemented_in" data-since="2026-04-11T01:03:41.887884">session 8d53982f-66f2-415b-a645-1886eb8ae438</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>Discovered during the parallel-sessions investigation on 2026-04-11. The current htmlgraph session_id (8d53982f-66f2-415b-a645-1886eb8ae438) appears in /Users/shakes/DevProjects/shakestzd/.htmlgraph/htmlgraph.db with 902 events but 0 messages, when it should only exist in /Users/shakes/DevProjects/htmlgraph/.htmlgraph/htmlgraph.db.
+
+Evidence from shakestzd DB query:
+  8d53982f|/Users/shakes/DevProjects/shakestzd|902|0|2026-04-10T17:14:56Z
+
+The row has project_dir correctly set to shakestzd, created_at is 2026-04-10T17:14:56Z (several hours into this session), 902 events but ZERO messages. That pattern (events without messages) suggests hook-driven event inserts without any JSONL ingest or live-hook SessionStart to seed the messages table.
+
+Suspected causes (not yet verified):
+1. .htmlgraph/.active-session file race from the pre-v0.53.0 architecture (supposed to be fixed but may still leak in some code path)
+2. CWD-resolution bug where an htmlgraph CLI command run from shakestzd's directory during doorway testing picked up the 8d53982f session_id from env/active-session and wrote hook events against shakestzd's DB
+3. Cross-project env var leak — HTMLGRAPH_SESSION_ID env var set by a subagent or hook spawn bleeding across project boundaries
+4. autoIngestLoop attributing transcripts from the wrong source (checked earlier but worth re-verifying for this specific case)
+
+Investigation needs:
+- Inspect shakestzd's agent_events rows for session_id=8d53982f-66f2-415b-a645-1886eb8ae438 to see the source, tool_name, and timestamps — what kind of events are these 902 rows?
+- Check the source column (hook/ingest/reindex) to narrow down the write path
+- Check cwd field on those events to see if they were written with shakestzd as the target
+- Grep the Go source for places that read session_id from env/file without project-dir scoping
+- Verify whether this happens to all cross-project work or only when the user explicitly cd'd between projects during a single htmlgraph invocation chain
+
+Fix must ensure session attribution follows the strict invariant: a session row may only be written to project P's DB if the event originated from a process whose effective project_dir is P. No cross-project leakage via env vars, .active-session, or implicit CWD inheritance.
+
+Priority: high — it undermines the core observability claim even though it's invisible in the dashboard (rows with 0 messages filtered out of the sessions list). If the pattern compounds, projects accumulate phantom attribution that's hard to clean up.</p>
+        </section>
+    </article>
+</body>
+</html>

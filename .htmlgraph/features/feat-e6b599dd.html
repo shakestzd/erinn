@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="htmlgraph-version" content="1.0">
+    <title>Ingest path renders session HTML alongside SQLite writes</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="feat-e6b599dd"
+             data-type="feature"
+             data-status="done"
+             data-priority="medium"
+             data-created="2026-04-10T10:01:26.015191"
+             data-updated="2026-04-10T14:14:03.598751" data-agent-assigned="claude-code" data-track-id="trk-97f85b3b">
+
+        <header>
+            <h1>Ingest path renders session HTML alongside SQLite writes</h1>
+            <div class="metadata">
+                <span class="badge status-done">Done</span>
+                <span class="badge priority-medium">Medium Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="planned_in">
+                <h3>Planned In:</h3>
+                <ul>
+                    <li><a href="plan-43659c92.html" data-relationship="planned_in" data-since="2026-04-10T10:01:26.016405">plan-43659c92</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="implemented_in">
+                <h3>Implemented In:</h3>
+                <ul>
+                    <li><a href="6206b18b-775e-4c99-8f0c-c6c61c8c954d.html" data-relationship="implemented_in" data-since="2026-04-10T14:06:57.64776">session 6206b18b-775e-4c99-8f0c-c6c61c8c954d</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>Extend the ingest path so that every ingested transcript produces a complete session HTML file in `.htmlgraph/sessions/.html` alongside the existing SQLite writes. This slice has a mandatory **export pre-step** because the reusable symbols live in a different package.
+
+**(0) Export pre-step — COMPLETED before plan finalization (see commit log).** In `internal/hooks/session_html.go` and `internal/hooks/pretooluse.go`, rename the following symbols to be exported so `cmd/htmlgraph/` can call them:
+  - `createSessionHTML` → `CreateSessionHTML`
+  - `appendEventToSessionHTML` → `AppendEventToSessionHTML`
+  - `finalizeSessionHTML` → `FinalizeSessionHTML`
+  - `sessionEvent` struct → `SessionEvent`
+  - `summariseInput` → `SummariseInput`
+Update all existing callers in `session_start.go`, `posttooluse.go`, `session_end.go`, and any `_test.go` files that reference the old names. Landed in a pre-finalization commit (pure rename, zero behavioral change, quality gates green across all 19 packages). The existing flock path for live appends is untouched.
+
+**(1) New function `RenderIngestedSessionHTML` in `internal/hooks/session_html.go`.** Signature: `RenderIngestedSessionHTML(htmlgraphDir, sessionID, projectDir string, result *ingest.ParseResult) error`. Because it lives in `internal/hooks`, it can reuse the existing template constants and helpers without cross-package gymnastics. It constructs a `models.Session` from `result` and calls `CreateSessionHTML` to write the initial scaffolded file (header, empty `
+`, closing tags). Then for each tool call in `result.ToolCalls`, it constructs a `SessionEvent` and calls `AppendEventToSessionHTML` to insert the `` via the existing flock path. This reuses the entire live-hook write stack verbatim — no template duplication, no divergence risk.
+
+**(2) Ingest call site update in `cmd/htmlgraph/ingest.go:ingestFileWithAgent`.** After `ensureSession` succeeds, add a call to `hooks.RenderIngestedSessionHTML(htmlgraphDir, sf.SessionID, decodeProjectDirFromSessionFile(sf), result)`. If the call returns an error, log it via `debugLog` and continue — HTML render failure does NOT abort the ingest (the SQLite row still gets written, consistent with the existing HTML-is-best-effort stance in live hooks). `cmd/htmlgraph/` already imports `internal/hooks` for session-start logic, so no new import is required.
+
+**(3) Skip-if-exists guard.** `CreateSessionHTML` already skips when the target file exists (verify this via inspection — if not, add the guard). Live hook writes are authoritative because the hook saw the session in real time; ingest should never overwrite a live-hook-written file. The `--force` flag on `htmlgraph ingest` is the only path that bypasses the skip.
+
+**(4) No framing correction needed for 'structurally-open' — that was an error in v1 of this plan.** Both live and ingest HTML files are self-contained with closing tags. The append mechanism (flock + `</p>
+        </section>
+    </article>
+</body>
+</html>

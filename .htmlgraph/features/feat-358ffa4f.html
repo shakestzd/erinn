@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="htmlgraph-version" content="1.0">
+    <title>Hook-based session liveness — replace JSONL mtime heuristic</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="feat-358ffa4f"
+             data-type="feature"
+             data-status="todo"
+             data-priority="medium"
+             data-created="2026-04-11T09:56:30.212818"
+             data-updated="2026-04-11T09:56:30.21364" data-agent-assigned="claude-code" data-track-id="trk-0677c709">
+
+        <header>
+            <h1>Hook-based session liveness — replace JSONL mtime heuristic</h1>
+            <div class="metadata">
+                <span class="badge status-todo">Todo</span>
+                <span class="badge priority-medium">Medium Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="trk-0677c709.html" data-relationship="part_of" data-since="2026-04-11T09:56:30.213519">trk-0677c709</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>The current 'active vs completed' classification (cmd/htmlgraph/serve.go:333-342, autoIngestOnce) is based solely on JSONL file mtime within a 5-minute window, evaluated every 60 seconds by autoIngestLoop. This is the wrong signal in two ways:
+
+1. A user reading a long Claude response, or waiting for a long-running agent/Bash task to finish, has a session that is actively in use but the JSONL is idle. After 5 minutes the dashboard incorrectly says 'completed' even though the user is staring at it.
+
+2. The 60s polling cadence means there is always a 0-60s window where a freshly-written session still shows 'completed' (or vice versa) until the next sweep.
+
+The right signal is the hook stream itself: PreToolUse, PostToolUse, UserPromptSubmit, and Stop all fire in real time on the active session. SessionStart already writes status='active' directly but nothing in the hook layer ever touches the status column again — it is all dependent on autoIngest.
+
+Proposed approach: add a 'last_activity_at' column to sessions, write to it from every hook handler that fires for the session, and base the LIVE/COMPLETED determination on that column instead of (or in addition to) JSONL mtime. The autoIngest sweep can then become a fallback for sessions that pre-date the hook layer. Threshold for 'active' becomes a configurable setting.
+
+Out of scope for the initial implementation: cleaning up the existing 9 stale 'active' rows from 2026-03-17/18 (separate bug).</p>
+        </section>
+    </article>
+</body>
+</html>

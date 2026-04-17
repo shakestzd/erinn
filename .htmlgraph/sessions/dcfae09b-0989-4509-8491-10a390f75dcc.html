@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="htmlgraph-version" content="1.0">
+    <title>Session 2026-04-07T02:45:18Z</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="dcfae09b-0989-4509-8491-10a390f75dcc"
+             data-type="session"
+             data-status="completed"
+             data-ended-at="2026-04-07T03:15:43Z"
+             data-agent="claude-code"
+             data-started-at="2026-04-07T02:45:18Z"
+             data-event-count="94"
+             data-is-subagent="false"
+             data-start-commit="">
+
+        <header>
+            <h1>Session 2026-04-07T02:45:18Z</h1>
+            <div class="metadata">
+                <span class="badge status-completed">Completed</span>
+                <span class="badge">claude-code</span>
+                <span class="badge">94 events</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+        </nav>
+
+        <section data-activity-log>
+            <ol reversed>
+                            <li data-ts="2026-04-07T02:45:24Z" data-tool="Bash" data-success="true" data-event-id="evt-55c37b75">htmlgraph bug show bug-6b9d363a</li>
+                            <li data-ts="2026-04-07T02:45:25Z" data-tool="Bash" data-success="true" data-event-id="evt-1e8d1e7c">htmlgraph status</li>
+                            <li data-ts="2026-04-07T02:45:25Z" data-tool="ToolSearch" data-success="true" data-event-id="evt-0558fb73">select:TaskList,TaskCreate,TaskUpdate,TaskGet</li>
+                            <li data-ts="2026-04-07T02:45:31Z" data-tool="Bash" data-success="true" data-event-id="evt-0feb5961">htmlgraph track show trk-97f85b3b</li>
+                            <li data-ts="2026-04-07T02:45:31Z" data-tool="Bash" data-success="true" data-event-id="evt-58fc2291">htmlgraph status</li>
+                            <li data-ts="2026-04-07T02:45:31Z" data-tool="Bash" data-success="true" data-event-id="evt-16b6787d">htmlgraph find bug-6b9d363a</li>
+                            <li data-ts="2026-04-07T02:45:36Z" data-tool="Bash" data-success="true" data-event-id="evt-ed10a199">htmlgraph find &#34;bug-6b9d363a&#34;</li>
+                            <li data-ts="2026-04-07T02:45:36Z" data-tool="Bash" data-success="true" data-event-id="evt-16db8160">htmlgraph bug list --status todo</li>
+                            <li data-ts="2026-04-07T02:45:38Z" data-tool="Bash" data-success="true" data-event-id="evt-cef7f9f7">htmlgraph bug list --status todo</li>
+                            <li data-ts="2026-04-07T02:53:36Z" data-tool="Bash" data-success="true" data-event-id="evt-80b5d99d">htmlgraph bug show bug-6b9d363a</li>
+                            <li data-ts="2026-04-07T02:53:41Z" data-tool="Bash" data-success="true" data-event-id="evt-e44dcdcd">htmlgraph bug start bug-6b9d363a</li>
+                            <li data-ts="2026-04-07T02:53:42Z" data-tool="ToolSearch" data-success="true" data-event-id="evt-0285845b">select:TaskCreate,TaskList,TaskUpdate,TaskGet</li>
+                            <li data-ts="2026-04-07T02:53:49Z" data-tool="TaskCreate" data-success="true" data-event-id="evt-d761e23a">{&#34;activeForm&#34;:&#34;Researching worktree lifecycle&#34;,&#34;description&#34;:&#34;Understand how worktrees are created/merged, what hooks fire, and where auto-close logic should live&#34;,&#34;subject&#34;:&#34;Research worktree lifecyc…</li>
+                            <li data-ts="2026-04-07T02:53:50Z" data-tool="TaskCreate" data-success="true" data-event-id="evt-5436ca68">{&#34;activeForm&#34;:&#34;Writing failing tests&#34;,&#34;description&#34;:&#34;TDD: write tests that verify features are auto-closed when worktree work completes&#34;,&#34;subject&#34;:&#34;Write failing tests for worktree auto-close&#34;}</li>
+                            <li data-ts="2026-04-07T02:53:50Z" data-tool="TaskCreate" data-success="true" data-event-id="evt-f002a5b3">{&#34;activeForm&#34;:&#34;Implementing auto-close&#34;,&#34;description&#34;:&#34;Add logic to detect completed worktree work and close associated features&#34;,&#34;subject&#34;:&#34;Implement worktree auto-close mechanism&#34;}</li>
+                            <li data-ts="2026-04-07T02:53:52Z" data-tool="TaskCreate" data-success="true" data-event-id="evt-fe423919">{&#34;activeForm&#34;:&#34;Running quality gates&#34;,&#34;description&#34;:&#34;Run go build/vet/test, commit if passing&#34;,&#34;subject&#34;:&#34;Quality gates and commit&#34;}</li>
+                            <li data-ts="2026-04-07T02:53:55Z" data-tool="TaskUpdate" data-success="true" data-event-id="evt-c275d74d">{&#34;addBlockedBy&#34;:[&#34;1&#34;,&#34;2&#34;],&#34;taskId&#34;:&#34;3&#34;}</li>
+                            <li data-ts="2026-04-07T02:53:55Z" data-tool="TaskUpdate" data-success="true" data-event-id="evt-d9f774b0">{&#34;addBlockedBy&#34;:[&#34;3&#34;],&#34;taskId&#34;:&#34;4&#34;}</li>
+                            <li data-ts="2026-04-07T02:53:55Z" data-tool="TaskUpdate" data-success="true" data-event-id="evt-fd53ef80">{&#34;status&#34;:&#34;in_progress&#34;,&#34;taskId&#34;:&#34;1&#34;}</li>
+                            <li data-ts="2026-04-07T02:54:03Z" data-tool="Agent" data-success="true" data-event-id="evt-50509ba5">I&#39;m investigating a bug where features worked on in git worktrees stay in-progress after all code is committed. I need t…</li>
+                            <li data-ts="2026-04-07T02:55:31Z" data-tool="Read" data-success="true" data-event-id="evt-d95f9133">/Users/shakes/DevProjects/htmlgraph/.claude/worktrees/trk-97f85b3b/internal/hooks/missing_events.go</li>
+                            <li data-ts="2026-04-07T02:55:32Z" data-tool="Read" data-success="true" data-event-id="evt-d9f18b7e">/Users/shakes/DevProjects/htmlgraph/.claude/worktrees/trk-97f85b3b/internal/hooks/posttooluse.go</li>
+                            <li data-ts="2026-04-07T02:55:32Z" data-tool="Read" data-success="true" data-event-id="evt-d223d60d">/Users/shakes/DevProjects/htmlgraph/.claude/worktrees/trk-97f85b3b/internal/hooks/runner.go</li>
+                            <li data-ts="2026-04-07T02:55:37Z" data-tool="Grep" data-success="true" data-event-id="evt-f01a92b2">/Users/shakes/DevProjects/htmlgraph/.claude/worktrees/trk-97f85b3b/internal/hooks</li>
+                            <li data-ts="2026-04-07T02:55:38Z" data-tool="Grep" data-success="true" data-event-id="evt-ba883e1e">/Users/shakes/DevProjects/htmlgraph/.claude/worktrees/trk-97f85b3b/internal/hooks</li>
+                            <li data-ts="2026-04-07T02:55:39Z" data-tool="Grep" data-success="true" data-event-id="evt-36cf79fa">/Users/shakes/DevProjects/htmlgraph/.claude/worktrees/trk-97f85b3b/internal</li>
+                            <li data-ts="2026-04-07T02:55:42Z" data-tool="Read" data-success="true" data-event-id="evt-1ef634aa">/Users/shakes/DevProjects/htmlgraph/.claude/worktrees/trk-97f85b3b/internal/hooks/session_end.go</li>
+                            <li data-ts="2026-04-07T02:55:42Z" data-tool="Read" data-success="true" data-event-id="evt-84288c25">/Users/shakes/DevProjects/htmlgraph/.claude/worktrees/trk-97f85b3b/internal/hooks/tooluse_shared.go</li>
+                            <li data-ts="2026-04-07T02:56:05Z" data-tool="Read" data-success="true" data-event-id="evt-5f049bb5">/Users/shakes/DevProjects/htmlgraph/.claude/worktrees/trk-97f85b3b/cmd/htmlgraph/yolo.go [120:180]</li>
+                            <li data-ts="2026-04-07T02:56:06Z" data-tool="Read" data-success="true" data-event-id="evt-bbbae4bc">/Users/shakes/DevProjects/htmlgraph/.claude/worktrees/trk-97f85b3b/cmd/htmlgraph/agent_worktree_test.go</li>
+                            <li data-ts="2026-04-07T02:56:07Z" data-tool="Grep" data-success="true" data-event-id="evt-c2b1882f">/Users/shakes/DevProjects/htmlgraph/.claude/worktrees/trk-97f85b3b/internal</li>
+                            <li data-ts="2026-04-07T02:56:48Z" data-tool="Glob" data-success="true" data-event-id="evt-b4400d02">/Users/shakes/DevProjects/htmlgraph/.claude/worktrees/trk-97f85b3b</li>
+                            <li data-ts="2026-04-07T02:56:51Z" data-tool="Read" data-success="true" data-event-id="evt-20f9bb3f">/Users/shakes/DevProjects/htmlgraph/.claude/worktrees/trk-97f85b3b/internal/hooks/posttooluse_test.go</li>
+                            <li data-ts="2026-04-07T02:56:56Z" data-tool="Grep" data-success="true" data-event-id="evt-90aaa332">/Users/shakes/DevProjects/htmlgraph/.claude/worktrees/trk-97f85b3b/internal</li>
+                            <li data-ts="2026-04-07T02:56:57Z" data-tool="Grep" data-success="true" data-event-id="evt-aa35f386">/Users/shakes/DevProjects/htmlgraph/.claude/worktrees/trk-97f85b3b/internal</li>
+                            <li data-ts="2026-04-07T02:57:01Z" data-tool="Read" data-success="true" data-event-id="evt-1f4da7d1">/Users/shakes/DevProjects/htmlgraph/.claude/worktrees/trk-97f85b3b/internal/hooks/task_tracking.go [10:80]</li>
+                            <li data-ts="2026-04-07T02:57:05Z" data-tool="Read" data-success="true" data-event-id="evt-fa9fb3b0">/Users/shakes/DevProjects/htmlgraph/.claude/worktrees/trk-97f85b3b/cmd/htmlgraph/hook.go</li>
+                            <li data-ts="2026-04-07T02:57:07Z" data-tool="TaskUpdate" data-success="true" data-event-id="evt-b4f063ac">{&#34;status&#34;:&#34;completed&#34;,&#34;taskId&#34;:&#34;1&#34;}</li>
+                            <li data-ts="2026-04-07T02:57:13Z" data-tool="TaskUpdate" data-success="true" data-event-id="evt-500700f6">{&#34;status&#34;:&#34;in_progress&#34;,&#34;taskId&#34;:&#34;2&#34;}</li>
+                            <li data-ts="2026-04-07T02:57:19Z" data-tool="Read" data-success="true" data-event-id="evt-d61eb693">/Users/shakes/DevProjects/htmlgraph/.claude/worktrees/trk-97f85b3b/internal/hooks/missing_events.go [218:248]</li>
+                            <li data-ts="2026-04-07T02:57:28Z" data-tool="Write" data-success="true" data-event-id="evt-d29c7447">/Users/shakes/DevProjects/htmlgraph/.claude/worktrees/trk-97f85b3b/internal/hooks/worktree_autoclose_test.go</li>
+                            <li data-ts="2026-04-07T02:57:32Z" data-tool="Bash" data-success="true" data-event-id="evt-fdee26b6">(go test ./internal/hooks/ -run TestExtractWorktreeItemID -count=1 2&gt;&amp;1 | head -20)</li>
+                            <li data-ts="2026-04-07T02:57:36Z" data-tool="TaskUpdate" data-success="true" data-event-id="evt-b8a653c4">{&#34;status&#34;:&#34;completed&#34;,&#34;taskId&#34;:&#34;2&#34;}</li>
+                            <li data-ts="2026-04-07T02:57:36Z" data-tool="TaskUpdate" data-success="true" data-event-id="evt-e01b14a4">{&#34;status&#34;:&#34;in_progress&#34;,&#34;taskId&#34;:&#34;3&#34;}</li>
+                            <li data-ts="2026-04-07T02:57:42Z" data-tool="Edit" data-success="true" data-event-id="evt-a1962cc0">/Users/shakes/DevProjects/htmlgraph/.claude/worktrees/trk-97f85b3b/internal/hooks/missing_events.go</li>
+                            <li data-ts="2026-04-07T02:57:57Z" data-tool="Edit" data-success="true" data-event-id="evt-8b746b55">/Users/shakes/DevProjects/htmlgraph/.claude/worktrees/trk-97f85b3b/internal/hooks/missing_events.go</li>
+                            <li data-ts="2026-04-07T02:58:02Z" data-tool="Bash" data-success="true" data-event-id="evt-fc5df7f7">(go test ./internal/hooks/ -run TestExtractWorktreeItemID -v -count=1 2&gt;&amp;1)</li>
+                            <li data-ts="2026-04-07T02:58:07Z" data-tool="TaskUpdate" data-success="true" data-event-id="evt-36ac1dcb">{&#34;status&#34;:&#34;completed&#34;,&#34;taskId&#34;:&#34;3&#34;}</li>
+                            <li data-ts="2026-04-07T02:58:07Z" data-tool="TaskUpdate" data-success="true" data-event-id="evt-f1ee4805">{&#34;status&#34;:&#34;in_progress&#34;,&#34;taskId&#34;:&#34;4&#34;}</li>
+                            <li data-ts="2026-04-07T02:58:10Z" data-tool="Bash" data-success="true" data-event-id="evt-523d82d7">(go build ./... 2&gt;&amp;1)</li>
+                            <li data-ts="2026-04-07T02:58:10Z" data-tool="Bash" data-success="true" data-event-id="evt-8a7d3936">(go vet ./... 2&gt;&amp;1)</li>
+                            <li data-ts="2026-04-07T02:58:16Z" data-tool="Bash" data-success="true" data-event-id="evt-9b15173a">(go test ./... 2&gt;&amp;1)</li>
+                            <li data-ts="2026-04-07T02:59:27Z" data-tool="Bash" data-success="true" data-event-id="evt-ea997668">git diff --stat</li>
+                            <li data-ts="2026-04-07T02:59:31Z" data-tool="Bash" data-success="true" data-event-id="evt-64829a85">git diff --stat -- internal/</li>
+                            <li data-ts="2026-04-07T02:59:37Z" data-tool="Bash" data-success="true" data-event-id="evt-b01f3b26">git diff -- internal/hooks/missing_events.go</li>
+                            <li data-ts="2026-04-07T02:59:44Z" data-tool="Bash" data-success="true" data-event-id="evt-a4f202d8">git status -- internal/ &#39;*.go&#39;</li>
+                            <li data-ts="2026-04-07T02:59:47Z" data-tool="Bash" data-success="true" data-event-id="evt-0a1e44a0">git log --oneline -5</li>
+                            <li data-ts="2026-04-07T02:59:53Z" data-tool="Bash" data-success="true" data-event-id="evt-690dd32b">git add internal/hooks/missing_events.go internal/hooks/worktree_autoclose_test.go &amp;&amp; git commit -m &#34;$(cat &lt;&lt;&#39;EOF&#39;
+fix(h…</li>
+                            <li data-ts="2026-04-07T03:01:07Z" data-tool="TaskUpdate" data-success="true" data-event-id="evt-d47498fd">{&#34;status&#34;:&#34;completed&#34;,&#34;taskId&#34;:&#34;4&#34;}</li>
+                            <li data-ts="2026-04-07T03:01:11Z" data-tool="Bash" data-success="true" data-event-id="evt-67a2b3f4">htmlgraph bug complete bug-6b9d363a</li>
+                            <li data-ts="2026-04-07T03:05:22Z" data-tool="Bash" data-success="true" data-event-id="evt-62883f95">htmlgraph bug start bug-6b9d363a 2&gt;/dev/null; htmlgraph find --status in-progress 2&gt;&amp;1 | head -20</li>
+                            <li data-ts="2026-04-07T03:05:26Z" data-tool="Bash" data-success="true" data-event-id="evt-64ea347b">htmlgraph bug show bug-6b9d363a</li>
+                            <li data-ts="2026-04-07T03:05:37Z" data-tool="Agent" data-success="true" data-event-id="evt-aafe1300">I need to understand how git merge commands are intercepted in the HtmlGraph codebase and how worktree branch names map …</li>
+                            <li data-ts="2026-04-07T03:07:40Z" data-tool="Grep" data-success="true" data-event-id="evt-477700e4">/Users/shakes/DevProjects/htmlgraph/.claude/worktrees/trk-97f85b3b/internal/db</li>
+                            <li data-ts="2026-04-07T03:07:41Z" data-tool="Grep" data-success="true" data-event-id="evt-435699dd">/Users/shakes/DevProjects/htmlgraph/.claude/worktrees/trk-97f85b3b/internal/db</li>
+                            <li data-ts="2026-04-07T03:07:45Z" data-tool="Grep" data-success="true" data-event-id="evt-1d784c56">/Users/shakes/DevProjects/htmlgraph/.claude/worktrees/trk-97f85b3b/internal/db/feature_repo.go</li>
+                            <li data-ts="2026-04-07T03:07:48Z" data-tool="Read" data-success="true" data-event-id="evt-19560ee9">/Users/shakes/DevProjects/htmlgraph/.claude/worktrees/trk-97f85b3b/internal/db/feature_repo.go [125:175]</li>
+                            <li data-ts="2026-04-07T03:07:52Z" data-tool="Read" data-success="true" data-event-id="evt-832ed4db">/Users/shakes/DevProjects/htmlgraph/.claude/worktrees/trk-97f85b3b/internal/db/feature_repo.go [1:31]</li>
+                            <li data-ts="2026-04-07T03:07:56Z" data-tool="Read" data-success="true" data-event-id="evt-64a37707">/Users/shakes/DevProjects/htmlgraph/.claude/worktrees/trk-97f85b3b/internal/hooks/posttooluse.go [85:120]</li>
+                            <li data-ts="2026-04-07T03:08:02Z" data-tool="TaskCreate" data-success="true" data-event-id="evt-6ce1ac36">{&#34;activeForm&#34;:&#34;Writing merge check tests&#34;,&#34;description&#34;:&#34;TDD: test extractMergeBranch, extractBranchItemIDs, and the DB query for in-progress items on a track&#34;,&#34;subject&#34;:&#34;Write tests for merge complet…</li>
+                            <li data-ts="2026-04-07T03:08:03Z" data-tool="TaskCreate" data-success="true" data-event-id="evt-2bd410fb">{&#34;activeForm&#34;:&#34;Implementing merge completeness check&#34;,&#34;description&#34;:&#34;Add git merge detection, branch parsing, DB check, and warning injection to PostToolUse&#34;,&#34;subject&#34;:&#34;Implement merge completeness ch…</li>
+                            <li data-ts="2026-04-07T03:08:04Z" data-tool="TaskCreate" data-success="true" data-event-id="evt-c2ca6d13">{&#34;activeForm&#34;:&#34;Running quality gates&#34;,&#34;description&#34;:&#34;Run go build/vet/test, commit&#34;,&#34;subject&#34;:&#34;Quality gates and commit merge safeguard&#34;}</li>
+                            <li data-ts="2026-04-07T03:08:07Z" data-tool="TaskUpdate" data-success="true" data-event-id="evt-34bda572">{&#34;addBlockedBy&#34;:[&#34;6&#34;],&#34;taskId&#34;:&#34;7&#34;}</li>
+                            <li data-ts="2026-04-07T03:08:08Z" data-tool="TaskUpdate" data-success="true" data-event-id="evt-5853caa5">{&#34;addBlockedBy&#34;:[&#34;5&#34;],&#34;taskId&#34;:&#34;6&#34;}</li>
+                            <li data-ts="2026-04-07T03:08:08Z" data-tool="TaskUpdate" data-success="true" data-event-id="evt-df214651">{&#34;status&#34;:&#34;in_progress&#34;,&#34;taskId&#34;:&#34;5&#34;}</li>
+                            <li data-ts="2026-04-07T03:08:26Z" data-tool="Write" data-success="true" data-event-id="evt-3ba0f950">/Users/shakes/DevProjects/htmlgraph/.claude/worktrees/trk-97f85b3b/internal/hooks/merge_check_test.go</li>
+                            <li data-ts="2026-04-07T03:08:30Z" data-tool="Bash" data-success="true" data-event-id="evt-e332b97e">(go test ./internal/hooks/ -run &#34;TestLooksLikeGitMerge|TestExtractMergeBranch|TestExtractBranchItemIDs&#34; -count=1 2&gt;&amp;1 | …</li>
+                            <li data-ts="2026-04-07T03:08:33Z" data-tool="TaskUpdate" data-success="true" data-event-id="evt-6dc7708b">{&#34;status&#34;:&#34;completed&#34;,&#34;taskId&#34;:&#34;5&#34;}</li>
+                            <li data-ts="2026-04-07T03:08:33Z" data-tool="TaskUpdate" data-success="true" data-event-id="evt-d519f06f">{&#34;status&#34;:&#34;in_progress&#34;,&#34;taskId&#34;:&#34;6&#34;}</li>
+                            <li data-ts="2026-04-07T03:08:56Z" data-tool="Write" data-success="true" data-event-id="evt-63d3956a">/Users/shakes/DevProjects/htmlgraph/.claude/worktrees/trk-97f85b3b/internal/hooks/merge_check.go</li>
+                            <li data-ts="2026-04-07T03:09:06Z" data-tool="Edit" data-success="true" data-event-id="evt-2da6afa1">/Users/shakes/DevProjects/htmlgraph/.claude/worktrees/trk-97f85b3b/internal/hooks/posttooluse.go</li>
+                            <li data-ts="2026-04-07T03:09:10Z" data-tool="Bash" data-success="true" data-event-id="evt-e6fdbfd5">(go test ./internal/hooks/ -run &#34;TestLooksLikeGitMerge|TestExtractMergeBranch|TestExtractBranchItemIDs&#34; -v -count=1 2&gt;&amp;1…</li>
+                            <li data-ts="2026-04-07T03:09:17Z" data-tool="TaskUpdate" data-success="true" data-event-id="evt-b7fc50b0">{&#34;status&#34;:&#34;completed&#34;,&#34;taskId&#34;:&#34;6&#34;}</li>
+                            <li data-ts="2026-04-07T03:09:17Z" data-tool="TaskUpdate" data-success="true" data-event-id="evt-a666738d">{&#34;status&#34;:&#34;in_progress&#34;,&#34;taskId&#34;:&#34;7&#34;}</li>
+                            <li data-ts="2026-04-07T03:09:20Z" data-tool="Bash" data-success="true" data-event-id="evt-8c3e5f7b">(go build ./... 2&gt;&amp;1)</li>
+                            <li data-ts="2026-04-07T03:09:20Z" data-tool="Bash" data-success="true" data-event-id="evt-b41c4637">(go vet ./... 2&gt;&amp;1)</li>
+                            <li data-ts="2026-04-07T03:09:27Z" data-tool="Bash" data-success="true" data-event-id="evt-6a4730ab">(go test ./... 2&gt;&amp;1)</li>
+                            <li data-ts="2026-04-07T03:10:36Z" data-tool="Bash" data-success="true" data-event-id="evt-9c87a8cd">git diff --stat -- internal/</li>
+                            <li data-ts="2026-04-07T03:10:42Z" data-tool="Bash" data-success="true" data-event-id="evt-db96b4fc">git status -- internal/ &#39;*.go&#39;</li>
+                            <li data-ts="2026-04-07T03:10:50Z" data-tool="Bash" data-success="true" data-event-id="evt-2ebcc539">git add internal/hooks/merge_check.go internal/hooks/merge_check_test.go internal/hooks/posttooluse.go &amp;&amp; git commit -m …</li>
+                            <li data-ts="2026-04-07T03:12:04Z" data-tool="TaskUpdate" data-success="true" data-event-id="evt-acfcbea7">{&#34;status&#34;:&#34;completed&#34;,&#34;taskId&#34;:&#34;7&#34;}</li>
+                            <li data-ts="2026-04-07T03:12:08Z" data-tool="Bash" data-success="true" data-event-id="evt-c0f463ca">htmlgraph bug complete bug-6b9d363a</li>
+                            <li data-ts="2026-04-07T03:15:43Z" data-tool="Bash" data-success="true" data-event-id="evt-71613a00">git diff --stat HEAD</li>
+                            <li data-ts="2026-04-07T03:15:43Z" data-tool="Bash" data-success="true" data-event-id="evt-f44ab43d">git status --short</li>
+            </ol>
+        </section>
+    </article>
+</body>
+</html>

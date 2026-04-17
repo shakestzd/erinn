@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="htmlgraph-version" content="1.0">
+    <title>Session 2026-03-29T21:48:34Z</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="bc48f1c9-1458-49c5-bcfb-10809f8ec4b9"
+             data-type="session"
+             data-status="completed"
+             data-ended-at="2026-03-29T23:40:05Z"
+             data-agent="claude-code"
+             data-started-at="2026-03-29T21:48:34Z"
+             data-event-count="139"
+             data-is-subagent="false"
+             data-start-commit="">
+
+        <header>
+            <h1>Session 2026-03-29T21:48:34Z</h1>
+            <div class="metadata">
+                <span class="badge status-completed">Completed</span>
+                <span class="badge">claude-code</span>
+                <span class="badge">139 events</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+        </nav>
+
+        <section data-activity-log>
+            <ol reversed>
+                            <li data-ts="2026-03-29T21:48:39Z" data-tool="Bash" data-success="true" data-event-id="evt-e9cd90f7">htmlgraph recommend --top 5</li>
+                            <li data-ts="2026-03-29T21:49:24Z" data-tool="ToolSearch" data-success="true" data-event-id="evt-d9a692ff">select:TaskList</li>
+                            <li data-ts="2026-03-29T21:49:26Z" data-tool="TaskList" data-success="true" data-event-id="evt-22ca2402">{}</li>
+                            <li data-ts="2026-03-29T21:49:43Z" data-tool="Bash" data-success="true" data-event-id="evt-ea3a79be">htmlgraph feature show feat-c08cdb8e 2&gt;/dev/null || echo &#34;---&#34; ; htmlgraph feature show feat-13526b89 2&gt;/dev/null || ech…</li>
+                            <li data-ts="2026-03-29T21:49:44Z" data-tool="Bash" data-success="true" data-event-id="evt-bf111ff8">htmlgraph track show trk-9ae9e043 2&gt;/dev/null</li>
+                            <li data-ts="2026-03-29T21:50:00Z" data-tool="Bash" data-success="true" data-event-id="evt-e71a41ca">htmlgraph snapshot --summary 2&gt;&amp;1 | head -30</li>
+                            <li data-ts="2026-03-29T21:50:02Z" data-tool="Bash" data-success="true" data-event-id="evt-f18366d4">htmlgraph feature show feat-57af98f5 2&gt;/dev/null ; echo &#34;---&#34; ; htmlgraph feature show feat-a8fc7a4b 2&gt;/dev/null</li>
+                            <li data-ts="2026-03-29T21:50:03Z" data-tool="Grep" data-success="true" data-event-id="evt-99d1ad03">/Users/shakes/DevProjects/htmlgraph/packages/go</li>
+                            <li data-ts="2026-03-29T21:50:15Z" data-tool="Bash" data-success="true" data-event-id="evt-a15ce24b">wc -l /Users/shakes/DevProjects/htmlgraph/packages/go/cmd/htmlgraph/*.go | sort -rn | head -20</li>
+                            <li data-ts="2026-03-29T21:50:16Z" data-tool="Bash" data-success="true" data-event-id="evt-b4063d95">wc -l /Users/shakes/DevProjects/htmlgraph/packages/go/internal/*/*.go 2&gt;/dev/null | sort -rn | head -20</li>
+                            <li data-ts="2026-03-29T21:50:17Z" data-tool="Bash" data-success="true" data-event-id="evt-a4732a4a">ls /Users/shakes/DevProjects/htmlgraph/packages/go/cmd/htmlgraph/recommend.go 2&gt;/dev/null &amp;&amp; wc -l /Users/shakes/DevProj…</li>
+                            <li data-ts="2026-03-29T21:50:29Z" data-tool="Bash" data-success="true" data-event-id="evt-427ebbf6">htmlgraph track show trk-7037c5cc 2&gt;/dev/null</li>
+                            <li data-ts="2026-03-29T21:50:29Z" data-tool="Read" data-success="true" data-event-id="evt-3ee08ff6">/Users/shakes/DevProjects/htmlgraph/packages/go/cmd/htmlgraph/recommend.go</li>
+                            <li data-ts="2026-03-29T21:50:52Z" data-tool="ToolSearch" data-success="true" data-event-id="evt-704d2103">select:TaskCreate</li>
+                            <li data-ts="2026-03-29T21:51:21Z" data-tool="ToolSearch" data-success="true" data-event-id="evt-4654a4c8">select:TaskUpdate</li>
+                            <li data-ts="2026-03-29T21:51:29Z" data-tool="TaskCreate" data-success="true" data-event-id="evt-d3eef428">{&#34;activeForm&#34;:&#34;Splitting project_test.go&#34;,&#34;description&#34;:&#34;packages/go/internal/workitem/project_test.go is 1153 lines — over the 500-line hard limit. Split into logical test files (e.g., analytics_te…</li>
+                            <li data-ts="2026-03-29T21:51:34Z" data-tool="TaskCreate" data-success="true" data-event-id="evt-1cbfd17d">{&#34;activeForm&#34;:&#34;Auditing stale features&#34;,&#34;description&#34;:&#34;Multiple high-priority features reference Python files that no longer exist (constants.py, context.py, asyncio, SUBAGENT_SUFFIXES). Research: (1)…</li>
+                            <li data-ts="2026-03-29T21:51:37Z" data-tool="TaskCreate" data-success="true" data-event-id="evt-f5507cf6">{&#34;activeForm&#34;:&#34;Closing stale spike&#34;,&#34;description&#34;:&#34;spike-tracking-investigation has been in-progress for 2494 hours (104 days) without update. It&#39;s blocking the bottleneck report. Investigate what it …</li>
+                            <li data-ts="2026-03-29T21:51:42Z" data-tool="TaskUpdate" data-success="true" data-event-id="evt-1f7f0831">{&#34;status&#34;:&#34;in_progress&#34;,&#34;taskId&#34;:&#34;1&#34;}</li>
+                            <li data-ts="2026-03-29T21:51:42Z" data-tool="TaskUpdate" data-success="true" data-event-id="evt-ddc91ee7">{&#34;status&#34;:&#34;in_progress&#34;,&#34;taskId&#34;:&#34;2&#34;}</li>
+                            <li data-ts="2026-03-29T21:51:42Z" data-tool="TaskUpdate" data-success="true" data-event-id="evt-29a3ea36">{&#34;status&#34;:&#34;in_progress&#34;,&#34;taskId&#34;:&#34;3&#34;}</li>
+                            <li data-ts="2026-03-29T21:51:52Z" data-tool="Agent" data-success="true" data-event-id="evt-b7e4f385">## Task: Split project_test.go (1153 lines → ≤500 per file)
+**Work Item:** trk-9ae9e043 (Hooks System Optimization)
+…</li>
+                            <li data-ts="2026-03-29T21:52:05Z" data-tool="Agent" data-success="true" data-event-id="evt-c599efef">## Task: Audit stale Python-era features and report on Go reality
+
+## Goal
+Multiple high-priority HtmlGraph features ref…</li>
+                            <li data-ts="2026-03-29T21:52:10Z" data-tool="Agent" data-success="true" data-event-id="evt-9c51f970">## Task: Close stale spike bottleneck
+
+## Goal
+`spike-tracking-investigation` has been in-progress for 2494 hours (104 d…</li>
+                            <li data-ts="2026-03-29T21:56:49Z" data-tool="TaskUpdate" data-success="true" data-event-id="evt-6fba78dd">{&#34;status&#34;:&#34;completed&#34;,&#34;taskId&#34;:&#34;1&#34;}</li>
+                            <li data-ts="2026-03-29T21:56:50Z" data-tool="TaskUpdate" data-success="true" data-event-id="evt-1f463575">{&#34;status&#34;:&#34;completed&#34;,&#34;taskId&#34;:&#34;2&#34;}</li>
+                            <li data-ts="2026-03-29T21:56:50Z" data-tool="TaskUpdate" data-success="true" data-event-id="evt-5bc56962">{&#34;status&#34;:&#34;completed&#34;,&#34;taskId&#34;:&#34;3&#34;}</li>
+                            <li data-ts="2026-03-29T21:56:50Z" data-tool="Bash" data-success="true" data-event-id="evt-eea2aaaa">git worktree list</li>
+                            <li data-ts="2026-03-29T21:56:57Z" data-tool="Bash" data-success="true" data-event-id="evt-43115d8d">git log --oneline -6</li>
+                            <li data-ts="2026-03-29T21:56:57Z" data-tool="Bash" data-success="true" data-event-id="evt-1783dd13">git branch --show-current</li>
+                            <li data-ts="2026-03-29T21:57:03Z" data-tool="Bash" data-success="true" data-event-id="evt-28b22a74">git checkout main &amp;&amp; git merge --no-ff refactor/split-project-test -m &#34;refactor(workitem): split project_test.go into sm…</li>
+                            <li data-ts="2026-03-29T21:57:08Z" data-tool="Bash" data-success="true" data-event-id="evt-fc3f4765">(cd /Users/shakes/DevProjects/htmlgraph/packages/go &amp;&amp; go build ./... &amp;&amp; go vet ./... &amp;&amp; go test ./...)</li>
+                            <li data-ts="2026-03-29T21:57:12Z" data-tool="Bash" data-success="true" data-event-id="evt-7171583c">htmlgraph feature complete feat-c08cdb8e 2&gt;&amp;1 &amp;&amp; htmlgraph feature complete feat-57af98f5 2&gt;&amp;1 &amp;&amp; htmlgraph feature comp…</li>
+                            <li data-ts="2026-03-29T21:57:19Z" data-tool="Bash" data-success="true" data-event-id="evt-4ed77f6a">htmlgraph feature complete feat-06495e6f 2&gt;&amp;1 &amp;&amp; htmlgraph feature complete feat-60439354 2&gt;&amp;1 &amp;&amp; htmlgraph feature comp…</li>
+                            <li data-ts="2026-03-29T21:57:22Z" data-tool="Bash" data-success="true" data-event-id="evt-4ca0e6d2">git branch -d refactor/split-project-test</li>
+                            <li data-ts="2026-03-29T22:04:59Z" data-tool="Bash" data-success="true" data-event-id="evt-b1e46a64">htmlgraph recommend --top 5</li>
+                            <li data-ts="2026-03-29T22:15:01Z" data-tool="Bash" data-success="true" data-event-id="evt-2fd19709">htmlgraph feature show feat-27e4ecf1 2&gt;/dev/null</li>
+                            <li data-ts="2026-03-29T22:15:02Z" data-tool="Bash" data-success="true" data-event-id="evt-ca9b6c13">htmlgraph feature show feat-edf2b663 2&gt;/dev/null</li>
+                            <li data-ts="2026-03-29T22:15:02Z" data-tool="Bash" data-success="true" data-event-id="evt-5b4f6a12">htmlgraph feature show feat-dc20380e 2&gt;/dev/null</li>
+                            <li data-ts="2026-03-29T22:15:02Z" data-tool="Bash" data-success="true" data-event-id="evt-985e99c5">htmlgraph feature show feat-cd25295b 2&gt;/dev/null</li>
+                            <li data-ts="2026-03-29T22:15:03Z" data-tool="Bash" data-success="true" data-event-id="evt-c6fce9d5">htmlgraph feature show feat-c522745a 2&gt;/dev/null</li>
+                            <li data-ts="2026-03-29T22:15:16Z" data-tool="Bash" data-success="true" data-event-id="evt-c3f1c963">ls /Users/shakes/DevProjects/htmlgraph/packages/go/internal/graph/</li>
+                            <li data-ts="2026-03-29T22:15:17Z" data-tool="Bash" data-success="true" data-event-id="evt-a07e6d4e">ls /Users/shakes/DevProjects/htmlgraph/packages/go/internal/ingest/</li>
+                            <li data-ts="2026-03-29T22:15:19Z" data-tool="Grep" data-success="true" data-event-id="evt-ce48dd7d">/Users/shakes/DevProjects/htmlgraph/packages/go/internal/db</li>
+                            <li data-ts="2026-03-29T22:15:20Z" data-tool="Grep" data-success="true" data-event-id="evt-a43df3a7">/Users/shakes/DevProjects/htmlgraph/packages/go/internal/ingest</li>
+                            <li data-ts="2026-03-29T22:15:21Z" data-tool="Grep" data-success="true" data-event-id="evt-9162116f">/Users/shakes/DevProjects/htmlgraph/packages/go</li>
+                            <li data-ts="2026-03-29T22:15:38Z" data-tool="Read" data-success="true" data-event-id="evt-10d3f1e3">/Users/shakes/DevProjects/htmlgraph/packages/go/internal/ingest/discover.go</li>
+                            <li data-ts="2026-03-29T22:15:38Z" data-tool="Read" data-success="true" data-event-id="evt-b4d5a54f">/Users/shakes/DevProjects/htmlgraph/packages/go/internal/graph/query.go</li>
+                            <li data-ts="2026-03-29T22:15:47Z" data-tool="Grep" data-success="true" data-event-id="evt-9c70deb2">/Users/shakes/DevProjects/htmlgraph/packages/go/cmd/htmlgraph/ingest.go</li>
+                            <li data-ts="2026-03-29T22:15:48Z" data-tool="Read" data-success="true" data-event-id="evt-14b74143">/Users/shakes/DevProjects/htmlgraph/packages/go/cmd/htmlgraph/api_transcript.go [:50]</li>
+                            <li data-ts="2026-03-29T22:15:49Z" data-tool="Bash" data-success="true" data-event-id="evt-1c7e6d69">htmlgraph track show trk-de8e6a3a 2&gt;/dev/null</li>
+                            <li data-ts="2026-03-29T22:16:09Z" data-tool="Read" data-success="true" data-event-id="evt-1ad24366">/Users/shakes/DevProjects/htmlgraph/packages/go/cmd/htmlgraph/ingest.go</li>
+                            <li data-ts="2026-03-29T22:16:19Z" data-tool="Grep" data-success="true" data-event-id="evt-861a622f">/Users/shakes/DevProjects/htmlgraph/packages/go/internal/hooks</li>
+                            <li data-ts="2026-03-29T22:16:37Z" data-tool="Bash" data-success="true" data-event-id="evt-479711dc">htmlgraph feature complete feat-dc20380e 2&gt;&amp;1 &amp;&amp; htmlgraph feature complete feat-c522745a 2&gt;&amp;1</li>
+                            <li data-ts="2026-03-29T22:16:38Z" data-tool="Bash" data-success="true" data-event-id="evt-2a84d5dc">htmlgraph feature show feat-19bc1225 2&gt;/dev/null</li>
+                            <li data-ts="2026-03-29T22:16:53Z" data-tool="TaskCreate" data-success="true" data-event-id="evt-dece0619">{&#34;activeForm&#34;:&#34;Implementing cycle detection&#34;,&#34;description&#34;:&#34;Add cycle detection and bounded path-finding to packages/go/internal/graph/query.go. The graph package currently only has basic filter funct…</li>
+                            <li data-ts="2026-03-29T22:16:57Z" data-tool="TaskCreate" data-success="true" data-event-id="evt-26e0586b">{&#34;activeForm&#34;:&#34;Wiring subagent ingestion&#34;,&#34;description&#34;:&#34;DiscoverSubagents() exists in packages/go/internal/ingest/discover.go but is NOT called from the ingest command. Wire it in: after ingesting ea…</li>
+                            <li data-ts="2026-03-29T22:17:01Z" data-tool="TaskUpdate" data-success="true" data-event-id="evt-7aec6b88">{&#34;status&#34;:&#34;in_progress&#34;,&#34;taskId&#34;:&#34;4&#34;}</li>
+                            <li data-ts="2026-03-29T22:17:01Z" data-tool="TaskUpdate" data-success="true" data-event-id="evt-3a3ca4ef">{&#34;status&#34;:&#34;in_progress&#34;,&#34;taskId&#34;:&#34;5&#34;}</li>
+                            <li data-ts="2026-03-29T22:17:15Z" data-tool="Agent" data-success="true" data-event-id="evt-ec1f2f40">## Task: Implement cycle detection and bounded path-finding
+**Feature:** feat-27e4ecf1
+**Track:** trk-3030989f (Cross-Se…</li>
+                            <li data-ts="2026-03-29T22:17:30Z" data-tool="Agent" data-success="true" data-event-id="evt-f4b15dfe">## Task: Wire subagent JSONL discovery and ingestion into ingest pipeline
+**Feature:** feat-edf2b663 + feat-19bc1225
+**T…</li>
+                            <li data-ts="2026-03-29T22:20:22Z" data-tool="Bash" data-success="true" data-event-id="evt-c3d549c0">git branch -a --list &#39;*feat-27*&#39; &#39;*feat-edf*&#39; &#39;*cycle*&#39; &#39;*subagent*&#39; &#39;*ingest*&#39; 2&gt;/dev/null | head -10</li>
+                            <li data-ts="2026-03-29T22:20:23Z" data-tool="Bash" data-success="true" data-event-id="evt-e902f0f7">git for-each-ref --sort=-committerdate refs/heads/ --format=&#39;%(refname:short) %(committerdate:relative) %(subject)&#39; | he…</li>
+                            <li data-ts="2026-03-29T22:20:26Z" data-tool="Bash" data-success="true" data-event-id="evt-194d69bc">git checkout main &amp;&amp; git merge --no-ff feat-27e4ecf1 -m &#34;feat(graph): add cycle detection and bounded path-finding (feat…</li>
+                            <li data-ts="2026-03-29T22:20:29Z" data-tool="Bash" data-success="true" data-event-id="evt-5a4abf25">git merge --no-ff feat-subagent-ingest -m &#34;feat(ingest): wire subagent JSONL discovery into ingest pipeline (feat-edf2b6…</li>
+                            <li data-ts="2026-03-29T22:20:34Z" data-tool="Bash" data-success="true" data-event-id="evt-1bb45061">(cd /Users/shakes/DevProjects/htmlgraph/packages/go &amp;&amp; go build ./... &amp;&amp; go vet ./... &amp;&amp; go test ./...)</li>
+                            <li data-ts="2026-03-29T22:20:40Z" data-tool="TaskUpdate" data-success="true" data-event-id="evt-e2c3b7ab">{&#34;status&#34;:&#34;completed&#34;,&#34;taskId&#34;:&#34;4&#34;}</li>
+                            <li data-ts="2026-03-29T22:20:41Z" data-tool="TaskUpdate" data-success="true" data-event-id="evt-cc929ee1">{&#34;status&#34;:&#34;completed&#34;,&#34;taskId&#34;:&#34;5&#34;}</li>
+                            <li data-ts="2026-03-29T22:20:42Z" data-tool="Bash" data-success="true" data-event-id="evt-01e76b59">htmlgraph feature complete feat-27e4ecf1 2&gt;&amp;1 &amp;&amp; htmlgraph feature complete feat-edf2b663 2&gt;&amp;1 &amp;&amp; htmlgraph feature comp…</li>
+                            <li data-ts="2026-03-29T22:20:46Z" data-tool="Bash" data-success="true" data-event-id="evt-7aef37af">git branch -d feat-27e4ecf1 feat-subagent-ingest</li>
+                            <li data-ts="2026-03-29T22:20:49Z" data-tool="Bash" data-success="true" data-event-id="evt-1fc5ed75">git worktree remove /Users/shakes/DevProjects/htmlgraph/.claude/worktrees/feat-27e4ecf1 --force 2&gt;&amp;1 &amp;&amp; git branch -d fe…</li>
+                            <li data-ts="2026-03-29T22:21:32Z" data-tool="Bash" data-success="true" data-event-id="evt-766fa39e">htmlgraph analytics summary 2&gt;&amp;1</li>
+                            <li data-ts="2026-03-29T22:21:32Z" data-tool="Bash" data-success="true" data-event-id="evt-54f2835a">htmlgraph snapshot --summary 2&gt;&amp;1</li>
+                            <li data-ts="2026-03-29T22:21:37Z" data-tool="Bash" data-success="true" data-event-id="evt-13155d2b">htmlgraph recommend --top 10 2&gt;&amp;1</li>
+                            <li data-ts="2026-03-29T22:21:37Z" data-tool="Bash" data-success="true" data-event-id="evt-045821bd">htmlgraph find features --status in-progress 2&gt;&amp;1 | head -20</li>
+                            <li data-ts="2026-03-29T22:21:38Z" data-tool="Bash" data-success="true" data-event-id="evt-a5580e6c">htmlgraph find bugs --status todo 2&gt;&amp;1 | head -30</li>
+                            <li data-ts="2026-03-29T22:23:29Z" data-tool="Bash" data-success="true" data-event-id="evt-a5e93b2d">htmlgraph feature show feat-195fcccc 2&gt;/dev/null</li>
+                            <li data-ts="2026-03-29T22:23:30Z" data-tool="Bash" data-success="true" data-event-id="evt-f021ddc1">htmlgraph feature show feat-58fb91ef 2&gt;/dev/null</li>
+                            <li data-ts="2026-03-29T22:23:36Z" data-tool="Bash" data-success="true" data-event-id="evt-f335438a">htmlgraph feature show feat-b2201971 2&gt;/dev/null</li>
+                            <li data-ts="2026-03-29T22:23:37Z" data-tool="Grep" data-success="true" data-event-id="evt-74620fdf">/Users/shakes/DevProjects/htmlgraph/packages/go-plugin/hooks/hooks.json</li>
+                            <li data-ts="2026-03-29T22:23:37Z" data-tool="Read" data-success="true" data-event-id="evt-62e2b097">/Users/shakes/DevProjects/htmlgraph/packages/go-plugin/hooks/hooks.json</li>
+                            <li data-ts="2026-03-29T22:23:44Z" data-tool="Grep" data-success="true" data-event-id="evt-36fde9d5">/Users/shakes/DevProjects/htmlgraph/packages/go/cmd/htmlgraph/main.go</li>
+                            <li data-ts="2026-03-29T22:23:44Z" data-tool="Grep" data-success="true" data-event-id="evt-e5de095f">/Users/shakes/DevProjects/htmlgraph/packages/go/internal/hooks</li>
+                            <li data-ts="2026-03-29T22:23:47Z" data-tool="Read" data-success="true" data-event-id="evt-3938b28e">/Users/shakes/DevProjects/htmlgraph/packages/go/internal/hooks/missing_events.go</li>
+                            <li data-ts="2026-03-29T22:23:48Z" data-tool="Grep" data-success="true" data-event-id="evt-c3a846ee">/Users/shakes/DevProjects/htmlgraph/packages/go/cmd/htmlgraph</li>
+                            <li data-ts="2026-03-29T22:23:54Z" data-tool="Grep" data-success="true" data-event-id="evt-53ef4e77">/Users/shakes/DevProjects/htmlgraph/packages/go/cmd/htmlgraph/main.go</li>
+                            <li data-ts="2026-03-29T22:23:58Z" data-tool="Grep" data-success="true" data-event-id="evt-1d48b444">/Users/shakes/DevProjects/htmlgraph/packages/go/cmd/htmlgraph</li>
+                            <li data-ts="2026-03-29T22:24:01Z" data-tool="Read" data-success="true" data-event-id="evt-dfb0d8ed">/Users/shakes/DevProjects/htmlgraph/packages/go/cmd/htmlgraph/hook.go</li>
+                            <li data-ts="2026-03-29T22:24:19Z" data-tool="Grep" data-success="true" data-event-id="evt-5da70f5f">/Users/shakes/DevProjects/htmlgraph/packages/go</li>
+                            <li data-ts="2026-03-29T22:24:20Z" data-tool="Grep" data-success="true" data-event-id="evt-eeae0f4b">/Users/shakes/DevProjects/htmlgraph/packages/go-plugin</li>
+                            <li data-ts="2026-03-29T22:24:35Z" data-tool="Bash" data-success="true" data-event-id="evt-5ff20cc8">htmlgraph feature complete feat-195fcccc 2&gt;&amp;1</li>
+                            <li data-ts="2026-03-29T22:24:46Z" data-tool="TaskCreate" data-success="true" data-event-id="evt-4d37f062">{&#34;activeForm&#34;:&#34;Auditing stale bugs&#34;,&#34;description&#34;:&#34;59 open bugs exist, many referencing Python code (PostToolUse NoneType, ElementNode, BaseCollection.complete(), etc). Audit each bug: grep the Go cod…</li>
+                            <li data-ts="2026-03-29T22:24:51Z" data-tool="TaskCreate" data-success="true" data-event-id="evt-641af8f0">{&#34;activeForm&#34;:&#34;Adding project_dir to sessions&#34;,&#34;description&#34;:&#34;Add project_dir storage to sessions so CWD validation can compare against it later. Steps: (1) Add project_dir TEXT column to sessions tab…</li>
+                            <li data-ts="2026-03-29T22:24:56Z" data-tool="TaskCreate" data-success="true" data-event-id="evt-e63de42d">{&#34;activeForm&#34;:&#34;Implementing CWD validation&#34;,&#34;description&#34;:&#34;In pretooluse.go, after resolving projectDir, compare event.CWD against the session&#39;s stored project_dir. If CWD resolves to a DIFFERENT .htm…</li>
+                            <li data-ts="2026-03-29T22:25:47Z" data-tool="TaskUpdate" data-success="true" data-event-id="evt-323bf553">{&#34;addBlockedBy&#34;:[&#34;7&#34;],&#34;taskId&#34;:&#34;8&#34;}</li>
+                            <li data-ts="2026-03-29T22:27:14Z" data-tool="TaskUpdate" data-success="true" data-event-id="evt-ad93548e">{&#34;status&#34;:&#34;in_progress&#34;,&#34;taskId&#34;:&#34;6&#34;}</li>
+                            <li data-ts="2026-03-29T22:27:15Z" data-tool="TaskUpdate" data-success="true" data-event-id="evt-44e4004f">{&#34;status&#34;:&#34;in_progress&#34;,&#34;taskId&#34;:&#34;7&#34;}</li>
+                            <li data-ts="2026-03-29T22:27:26Z" data-tool="Agent" data-success="true" data-event-id="evt-2f7dee6f">## Task: Audit all 59 open bugs for Python-era staleness
+
+## Goal
+The project migrated from Python to Go. Many of the 59…</li>
+                            <li data-ts="2026-03-29T22:27:38Z" data-tool="Agent" data-success="true" data-event-id="evt-fd1e3ffa">## Task: Store project_dir in session DB row
+**Feature:** feat-b2201971
+**Track:** trk-06a29a51 (Hook Robustness)
+
+## Go…</li>
+                            <li data-ts="2026-03-29T23:22:55Z" data-tool="TaskUpdate" data-success="true" data-event-id="evt-64f1cd2c">{&#34;status&#34;:&#34;completed&#34;,&#34;taskId&#34;:&#34;6&#34;}</li>
+                            <li data-ts="2026-03-29T23:22:55Z" data-tool="TaskUpdate" data-success="true" data-event-id="evt-27212683">{&#34;status&#34;:&#34;completed&#34;,&#34;taskId&#34;:&#34;7&#34;}</li>
+                            <li data-ts="2026-03-29T23:22:56Z" data-tool="Bash" data-success="true" data-event-id="evt-6b7a7a7c">git checkout main &amp;&amp; git merge --no-ff feat-b2201971-project-dir -m &#34;feat(hooks): store project_dir in session DB row (f…</li>
+                            <li data-ts="2026-03-29T23:23:03Z" data-tool="Bash" data-success="true" data-event-id="evt-c27693f0">(cd /Users/shakes/DevProjects/htmlgraph/packages/go &amp;&amp; go build ./... &amp;&amp; go vet ./... &amp;&amp; go test ./...)</li>
+                            <li data-ts="2026-03-29T23:23:04Z" data-tool="Bash" data-success="true" data-event-id="evt-49cbcf09">htmlgraph feature complete feat-b2201971 2&gt;&amp;1</li>
+                            <li data-ts="2026-03-29T23:23:16Z" data-tool="Bash" data-success="true" data-event-id="evt-2ecff33f">for bug in bug-31d49b9a bug-3a2bf73c bug-557793ad bug-8b6e9736 bug-ba4cedc6 bug-0f602375 bug-64b39491 bug-8dcab25c bug-c…</li>
+                            <li data-ts="2026-03-29T23:23:21Z" data-tool="TaskUpdate" data-success="true" data-event-id="evt-8144918b">{&#34;status&#34;:&#34;in_progress&#34;,&#34;taskId&#34;:&#34;8&#34;}</li>
+                            <li data-ts="2026-03-29T23:23:41Z" data-tool="Agent" data-success="true" data-event-id="evt-d2e4e9c3">## Task: Hook CWD validation — warn when project diverges
+**Feature:** feat-58fb91ef
+**Track:** trk-06a29a51 (Hook Rob…</li>
+                            <li data-ts="2026-03-29T23:24:43Z" data-tool="TaskUpdate" data-success="true" data-event-id="evt-c7c8a263">{&#34;status&#34;:&#34;completed&#34;,&#34;taskId&#34;:&#34;8&#34;}</li>
+                            <li data-ts="2026-03-29T23:24:44Z" data-tool="Bash" data-success="true" data-event-id="evt-6abb7509">htmlgraph feature complete feat-58fb91ef 2&gt;&amp;1 &amp;&amp; htmlgraph feature complete feat-b2201971 2&gt;/dev/null; echo &#34;---&#34;; git b…</li>
+                            <li data-ts="2026-03-29T23:24:48Z" data-tool="TaskList" data-success="true" data-event-id="evt-9c2b0a86">{}</li>
+                            <li data-ts="2026-03-29T23:25:09Z" data-tool="Read" data-success="true" data-event-id="evt-4190452a">/private/tmp/claude-501/-Users-shakes-DevProjects-htmlgraph/bc48f1c9-1458-49c5-bcfb-10809f8ec4b9/tasks/bvi2um7d2.output</li>
+                            <li data-ts="2026-03-29T23:36:44Z" data-tool="Bash" data-success="true" data-event-id="evt-c975f3d9">htmlgraph recommend --top 10</li>
+                            <li data-ts="2026-03-29T23:37:32Z" data-tool="Bash" data-success="true" data-event-id="evt-05e11eed">htmlgraph feature show feat-aa8a6955 2&gt;/dev/null</li>
+                            <li data-ts="2026-03-29T23:37:33Z" data-tool="Bash" data-success="true" data-event-id="evt-eb63a436">htmlgraph feature show feat-4db29087 2&gt;/dev/null</li>
+                            <li data-ts="2026-03-29T23:37:33Z" data-tool="Bash" data-success="true" data-event-id="evt-3cf52ba3">htmlgraph feature show feat-47dd2e4f 2&gt;/dev/null</li>
+                            <li data-ts="2026-03-29T23:37:34Z" data-tool="Bash" data-success="true" data-event-id="evt-84d2f44a">htmlgraph feature show feat-02aadd01 2&gt;/dev/null</li>
+                            <li data-ts="2026-03-29T23:37:34Z" data-tool="Bash" data-success="true" data-event-id="evt-52130e51">htmlgraph feature show feat-717bd042 2&gt;/dev/null</li>
+                            <li data-ts="2026-03-29T23:37:49Z" data-tool="Bash" data-success="true" data-event-id="evt-0039114e">htmlgraph find features --status todo 2&gt;&amp;1 | head -5</li>
+                            <li data-ts="2026-03-29T23:37:50Z" data-tool="Bash" data-success="true" data-event-id="evt-84aa2b54">htmlgraph ingest --help 2&gt;&amp;1 | head -15</li>
+                            <li data-ts="2026-03-29T23:37:51Z" data-tool="Grep" data-success="true" data-event-id="evt-e7a601c5">/Users/shakes/DevProjects/htmlgraph/packages/go/internal/ingest</li>
+                            <li data-ts="2026-03-29T23:37:53Z" data-tool="Grep" data-success="true" data-event-id="evt-c4a36a0a">/Users/shakes/DevProjects/htmlgraph/packages/go</li>
+                            <li data-ts="2026-03-29T23:38:09Z" data-tool="Grep" data-success="true" data-event-id="evt-869c699f">/Users/shakes/DevProjects/htmlgraph/packages/go/internal/ingest/parser.go</li>
+                            <li data-ts="2026-03-29T23:38:10Z" data-tool="Grep" data-success="true" data-event-id="evt-9f34caf7">/Users/shakes/DevProjects/htmlgraph/packages/go</li>
+                            <li data-ts="2026-03-29T23:38:14Z" data-tool="Grep" data-success="true" data-event-id="evt-0eede4c0">/Users/shakes/DevProjects/htmlgraph/packages/go</li>
+                            <li data-ts="2026-03-29T23:38:48Z" data-tool="Bash" data-success="true" data-event-id="evt-e0b332c3">htmlgraph feature complete feat-aa8a6955 2&gt;&amp;1 &amp;&amp; htmlgraph feature complete feat-02aadd01 2&gt;&amp;1 &amp;&amp; htmlgraph feature comp…</li>
+                            <li data-ts="2026-03-29T23:38:53Z" data-tool="Grep" data-success="true" data-event-id="evt-cd5059e4">/Users/shakes/DevProjects/htmlgraph/packages/go/cmd/htmlgraph/api_transcript.go</li>
+                            <li data-ts="2026-03-29T23:38:53Z" data-tool="Bash" data-success="true" data-event-id="evt-0e5a53d2">htmlgraph track show trk-48c1fd38 2&gt;/dev/null</li>
+                            <li data-ts="2026-03-29T23:38:54Z" data-tool="Bash" data-success="true" data-event-id="evt-17d0787c">htmlgraph track show trk-b5ceb449 2&gt;/dev/null</li>
+                            <li data-ts="2026-03-29T23:38:58Z" data-tool="Read" data-success="true" data-event-id="evt-3a64ba28">/Users/shakes/DevProjects/htmlgraph/packages/go/cmd/htmlgraph/api_transcript.go [260:325]</li>
+                            <li data-ts="2026-03-29T23:38:59Z" data-tool="Bash" data-success="true" data-event-id="evt-898802fe">ls /Users/shakes/DevProjects/htmlgraph/packages/go/cmd/htmlgraph/api*.go</li>
+                            <li data-ts="2026-03-29T23:39:14Z" data-tool="Bash" data-success="true" data-event-id="evt-201e42db">ls /Users/shakes/DevProjects/htmlgraph/packages/go/cmd/htmlgraph/dashboard/ 2&gt;/dev/null | head -20</li>
+                            <li data-ts="2026-03-29T23:39:15Z" data-tool="Bash" data-success="true" data-event-id="evt-be212da2">wc -l /Users/shakes/DevProjects/htmlgraph/packages/go/cmd/htmlgraph/api_tree.go</li>
+                            <li data-ts="2026-03-29T23:39:18Z" data-tool="Bash" data-success="true" data-event-id="evt-5b1230ae">ls /Users/shakes/DevProjects/htmlgraph/packages/go/cmd/htmlgraph/dashboard/js/ /Users/shakes/DevProjects/htmlgraph/packa…</li>
+                            <li data-ts="2026-03-29T23:39:28Z" data-tool="TaskCreate" data-success="true" data-event-id="evt-3c93e817">{&#34;activeForm&#34;:&#34;Linking events to work items&#34;,&#34;description&#34;:&#34;Add work item title+type to activity feed events. The SSE stream and API already include feature_id, but the dashboard doesn&#39;t resolve it to…</li>
+                            <li data-ts="2026-03-29T23:39:33Z" data-tool="TaskCreate" data-success="true" data-event-id="evt-aebd8f98">{&#34;activeForm&#34;:&#34;Adding sub-agent attribution&#34;,&#34;description&#34;:&#34;Enhance the dashboard to show which sub-agent (researcher, sonnet-coder, haiku-coder, etc.) produced each event, instead of just showing &#39;cl…</li>
+                            <li data-ts="2026-03-29T23:39:36Z" data-tool="TaskUpdate" data-success="true" data-event-id="evt-c7f3d453">{&#34;status&#34;:&#34;in_progress&#34;,&#34;taskId&#34;:&#34;9&#34;}</li>
+                            <li data-ts="2026-03-29T23:39:37Z" data-tool="TaskUpdate" data-success="true" data-event-id="evt-10634c41">{&#34;status&#34;:&#34;in_progress&#34;,&#34;taskId&#34;:&#34;10&#34;}</li>
+                            <li data-ts="2026-03-29T23:39:53Z" data-tool="Agent" data-success="true" data-event-id="evt-7ee6bfa5">## Task: Link agent events to work items in activity feed
+**Feature:** feat-4db29087
+**Track:** trk-48c1fd38 (Activity F…</li>
+                            <li data-ts="2026-03-29T23:40:05Z" data-tool="Agent" data-success="true" data-event-id="evt-a422eb91">## Task: Sub-agent attribution in dashboard
+**Feature:** feat-47dd2e4f
+**Track:** trk-b5ceb449 (Dashboard UX: Attributio…</li>
+            </ol>
+        </section>
+    </article>
+</body>
+</html>

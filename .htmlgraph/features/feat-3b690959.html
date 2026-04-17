@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="htmlgraph-version" content="1.0">
+    <title>Cross-project isolation acceptance test &#43; crash recovery &#43; idle reap integration</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="feat-3b690959"
+             data-type="feature"
+             data-status="done"
+             data-priority="medium"
+             data-created="2026-04-09T22:02:45.971778"
+             data-updated="2026-04-09T23:05:23.159523" data-agent-assigned="claude-code" data-track-id="trk-cb36e595">
+
+        <header>
+            <h1>Cross-project isolation acceptance test &#43; crash recovery &#43; idle reap integration</h1>
+            <div class="metadata">
+                <span class="badge status-done">Done</span>
+                <span class="badge priority-medium">Medium Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="planned_in">
+                <h3>Planned In:</h3>
+                <ul>
+                    <li><a href="plan-237fb251.html" data-relationship="planned_in" data-since="2026-04-09T22:02:45.971936">plan-237fb251</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="blocked_by">
+                <h3>Blocked By:</h3>
+                <ul>
+                    <li><a href="feat-b16ab0e9.html" data-relationship="blocked_by">feat-b16ab0e9</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="implemented_in">
+                <h3>Implemented In:</h3>
+                <ul>
+                    <li><a href="a1cd7ef9-6b27-4fe7-92d2-b1d0f47a1a8e.html" data-relationship="implemented_in" data-since="2026-04-09T23:00:16.136771">session a1cd7ef9-6b27-4fe7-92d2-b1d0f47a1a8e</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>New test file `cmd/htmlgraph/serve_global_proxy_test.go` (under `//go:build integration`) with three integration tests and a shared `TestMain`. **`TestMain`** builds the htmlgraph binary once at test startup via `exec.Command("go", "build", "-o", filepath.Join(tempDir, "htmlgraph"), "./cmd/htmlgraph")` and stores the path in a package-level variable. All three tests reuse this binary — no second go build. This is REQUIRED (not optional per feasibility critic A10/C8) to keep CI under 60s; a per-test go build would cost 5-15s each. The same `TestMain` pattern applies to `internal/childproc/childproc_integration_test.go`.
+
+**Test A (cross-project contamination proof):** create tmpdir projectA and projectB each with initialized `.htmlgraph/`; register both in a temp `~/.local/share/htmlgraph/projects.json`; start the server with `supervisor.binPath` pointing at the test-built binary; via the proxy, POST `/p//api/workitem/create` to create feature X in projectA; open projectB's SQLite file DIRECTLY from disk (not via any proxy) via `dbpkg.OpenReadOnly` and assert no `work_items` row for feature X; open projectA's file and assert feature X IS there. **Test B (crash recovery):** spawn a child via the supervisor; kill the child with `cmd.Process.Signal(syscall.SIGKILL)` from the test; send the next request through the proxy; assert a fresh child is spawned (new PID) and the request succeeds. **Test C (idle reap):** create a supervisor with `idleTimeout = 200ms`; spawn a child; wait 300ms without sending any requests; assert the reaper killed the child and the map entry is gone. Default `go test ./...` (without `-tags=integration`) does NOT run these — CI adds a separate job with `-tags=integration`.</p>
+        </section>
+    </article>
+</body>
+</html>

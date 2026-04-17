@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="htmlgraph-version" content="1.0">
+    <title>Session 2026-04-08T03:48:26Z</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="67d42f9f-a254-4e2f-8a95-5248e44910dd"
+             data-type="session"
+             data-status="completed"
+             data-ended-at="2026-04-08T04:07:32Z"
+             data-agent="claude-code"
+             data-started-at="2026-04-08T03:48:26Z"
+             data-event-count="21"
+             data-is-subagent="false"
+             data-start-commit="">
+
+        <header>
+            <h1>Session 2026-04-08T03:48:26Z</h1>
+            <div class="metadata">
+                <span class="badge status-completed">Completed</span>
+                <span class="badge">claude-code</span>
+                <span class="badge">21 events</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+        </nav>
+
+        <section data-activity-log>
+            <ol reversed>
+                            <li data-ts="2026-04-08T03:48:30Z" data-tool="Bash" data-success="true" data-event-id="evt-2cfca5b4">htmlgraph track list --status in-progress 2&gt;/dev/null || htmlgraph track list 2&gt;/dev/null</li>
+                            <li data-ts="2026-04-08T03:48:31Z" data-tool="Bash" data-success="true" data-event-id="evt-c5542819">ls -la .claude/worktrees/ 2&gt;/dev/null; echo &#34;---&#34;; git worktree list 2&gt;/dev/null</li>
+                            <li data-ts="2026-04-08T03:48:35Z" data-tool="Bash" data-success="true" data-event-id="evt-c6fdf714">htmlgraph track list 2&gt;/dev/null</li>
+                            <li data-ts="2026-04-08T03:49:24Z" data-tool="Bash" data-success="true" data-event-id="evt-33600130">git checkout main</li>
+                            <li data-ts="2026-04-08T03:49:44Z" data-tool="Bash" data-success="true" data-event-id="evt-6ecbf5e0">git status</li>
+                            <li data-ts="2026-04-08T03:49:44Z" data-tool="Bash" data-success="true" data-event-id="evt-411eb55f">git diff</li>
+                            <li data-ts="2026-04-08T03:49:45Z" data-tool="Bash" data-success="true" data-event-id="evt-d176688c">git log --oneline -5</li>
+                            <li data-ts="2026-04-08T03:49:48Z" data-tool="Bash" data-success="true" data-event-id="evt-2063bac0">git diff -- cmd/htmlgraph/api.go internal/db/schema.go internal/db/semantic_index.go internal/db/semantic_search.go</li>
+                            <li data-ts="2026-04-08T03:49:57Z" data-tool="Bash" data-success="true" data-event-id="evt-1dcac293">git add cmd/htmlgraph/api.go internal/db/schema.go internal/db/semantic_repo.go internal/db/semantic_index.go internal/d…</li>
+                            <li data-ts="2026-04-08T03:50:02Z" data-tool="Bash" data-success="true" data-event-id="evt-eedd2531">git commit -m &#34;$(cat &lt;&lt;&#39;EOF&#39;
+refactor: split semantic_repo into index/search modules, harden API error responses
+
+Split …</li>
+                            <li data-ts="2026-04-08T03:51:19Z" data-tool="Agent" data-success="true" data-event-id="evt-47fba399">A test is failing in internal/db/semantic_repo_test.go:
+
+```
+--- FAIL: TestRebuildSemanticIndex_WithFeatures (0.01s)
+   …</li>
+                            <li data-ts="2026-04-08T03:55:32Z" data-tool="Bash" data-success="true" data-event-id="evt-136a52b4">git add internal/db/semantic_index.go internal/db/semantic_repo_test.go</li>
+                            <li data-ts="2026-04-08T03:55:38Z" data-tool="Bash" data-success="true" data-event-id="evt-9baada27">git commit -m &#34;$(cat &lt;&lt;&#39;EOF&#39;
+refactor: split semantic_repo into index/search modules, harden API error responses
+
+Split …</li>
+                            <li data-ts="2026-04-08T03:56:49Z" data-tool="Bash" data-success="true" data-event-id="evt-88c01cb7">git checkout main</li>
+                            <li data-ts="2026-04-08T03:56:55Z" data-tool="Bash" data-success="true" data-event-id="evt-9e05e76a">git stash push -- .htmlgraph/htmlgraph.db .htmlgraph/htmlgraph.db-shm .htmlgraph/htmlgraph.db-wal &amp;&amp; git checkout main</li>
+                            <li data-ts="2026-04-08T04:00:25Z" data-tool="Bash" data-success="true" data-event-id="evt-767518ec">htmlgraph find &#34;plan review&#34; 2&gt;/dev/null; echo &#34;---&#34;; htmlgraph find &#34;plan&#34; 2&gt;/dev/null</li>
+                            <li data-ts="2026-04-08T04:02:08Z" data-tool="Agent" data-success="true" data-event-id="evt-1ca48dd6">The user recently had a worktree/branch for a track related to &#34;improving Go plan-review systems&#34; but can&#39;t find it now.…</li>
+                            <li data-ts="2026-04-08T04:05:17Z" data-tool="Bash" data-success="true" data-event-id="evt-7e5a2a07">ls .htmlgraph/tracks/trk-b0377def.html 2&gt;&amp;1; echo &#34;---&#34;; ls .claude/worktrees/trk-b0377def/.htmlgraph/tracks/trk-b0377de…</li>
+                            <li data-ts="2026-04-08T04:05:22Z" data-tool="Bash" data-success="true" data-event-id="evt-8d3e5766">cp .claude/worktrees/trk-b0377def/.htmlgraph/tracks/trk-b0377def.html .htmlgraph/tracks/ &amp;&amp; htmlgraph reindex 2&gt;/dev/nul…</li>
+                            <li data-ts="2026-04-08T04:07:28Z" data-tool="Bash" data-success="true" data-event-id="evt-5c488bc8">cat /private/tmp/claude-501/-Users-shakes-DevProjects-htmlgraph/67d42f9f-a254-4e2f-8a95-5248e44910dd/tasks/bbo6uwdvn.out…</li>
+                            <li data-ts="2026-04-08T04:07:32Z" data-tool="Bash" data-success="true" data-event-id="evt-cbc2d8a2">htmlgraph find trk-b0377def</li>
+            </ol>
+        </section>
+    </article>
+</body>
+</html>

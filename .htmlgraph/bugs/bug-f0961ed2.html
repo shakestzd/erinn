@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="htmlgraph-version" content="1.0">
+    <title>agent_events.parent_agent_id column exists but is never populated</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="bug-f0961ed2"
+             data-type="bug"
+             data-status="done"
+             data-priority="medium"
+             data-created="2026-04-09T19:12:49.80376"
+             data-updated="2026-04-10T03:35:50.844217" data-agent-assigned="claude-code" data-track-id="trk-00ee0cd0">
+
+        <header>
+            <h1>agent_events.parent_agent_id column exists but is never populated</h1>
+            <div class="metadata">
+                <span class="badge status-done">Done</span>
+                <span class="badge priority-medium">Medium Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="relates_to">
+                <h3>Relates To:</h3>
+                <ul>
+                    <li><a href="bug-d2d3fb3f.html" data-relationship="relates_to" data-since="2026-04-09T19:12:54.924767">Parallel agents collide on attribution, worktrees cleaned up on stall</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="caused_by">
+                <h3>Caused By:</h3>
+                <ul>
+                    <li><a href="feat-30c8bd7a.html" data-relationship="caused_by" data-since="2026-04-09T19:12:49.804922">feat-30c8bd7a</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="trk-00ee0cd0.html" data-relationship="part_of" data-since="2026-04-09T19:12:49.805322">trk-00ee0cd0</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="implemented_in">
+                <h3>Implemented In:</h3>
+                <ul>
+                    <li><a href="8d53982f-66f2-415b-a645-1886eb8ae438.html" data-relationship="implemented_in" data-since="2026-04-10T03:34:05.538691">session 8d53982f-66f2-415b-a645-1886eb8ae438</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>Latent gap discovered during bug-d2d3fb3f verification (2026-04-09). The agent_events table schema declares a parent_agent_id TEXT column (internal/db/schema.go) intended to capture agent-to-agent spawning relationships, but nothing in the hook pipeline writes to it. Empirical evidence: queried all 6 events from a parallel probe dispatch — every row has parent_agent_id NULL, even the tool_calls inside subagents whose spawning task_delegation event was clearly identifiable.
+
+Impact: for multi-level subagent nesting (top-level → A → B), the graph cannot materialize the A→B edge. You can reconstruct it by walking parent_event_id chains back through task_delegation events, but it's not materialized as a direct agent-to-agent edge. Lineage tracking via lineage_traces and sessions.parent_session_id works at session-to-session level but cannot represent intra-session agent nesting because all subagents share a session_id.
+
+Fix: in internal/hooks/subagent_start.go and the tool-use event path, when recording an event fired inside a subagent, look up the spawning agent_id by walking parent_event_id back to the nearest task_delegation row and populating parent_agent_id with its agent_id. Alternative: populate parent_agent_id at write time if HTMLGRAPH_PARENT_AGENT_ID env var is available from the subagent's env.
+
+Not a blocker for bug-d2d3fb3f; filed as separate follow-up. Low priority for now — the parent_event_id chain is sufficient for most queries.</p>
+        </section>
+    </article>
+</body>
+</html>

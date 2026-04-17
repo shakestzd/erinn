@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="htmlgraph-version" content="1.0">
+    <title>roborev findings on merged dashboard work (job 886)</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="bug-d3019398"
+             data-type="bug"
+             data-status="done"
+             data-priority="medium"
+             data-created="2026-04-11T11:28:22.179803"
+             data-updated="2026-04-11T11:33:11.157837" data-agent-assigned="claude-code" data-track-id="trk-d8aef97a">
+
+        <header>
+            <h1>roborev findings on merged dashboard work (job 886)</h1>
+            <div class="metadata">
+                <span class="badge status-done">Done</span>
+                <span class="badge priority-medium">Medium Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="trk-d8aef97a.html" data-relationship="part_of" data-since="2026-04-11T11:28:22.18234">trk-d8aef97a</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="implemented_in">
+                <h3>Implemented In:</h3>
+                <ul>
+                    <li><a href="807386a4-d227-448c-91a8-fac7688e09af.html" data-relationship="implemented_in" data-since="2026-04-11T11:28:27.542219">session 807386a4-d227-448c-91a8-fac7688e09af</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>Three findings from roborev job 886 against branch trk-d8aef97a: (1) HIGH — transcript-view.js renderMarkdownInto assigns marked.parse output to innerHTML without sanitization (stored XSS from user/model-authored HTML). (2) HIGH — graph tooltip uses d3 .html(d.title), and now that session titles come from user prompts this is an injection sink. (3) MEDIUM — work-item badge click on transcript stats opens work detail inside a hidden tab because currentView is not switched. Fix all three as a single bundled patch.</p>
+        </section>
+    </article>
+</body>
+</html>

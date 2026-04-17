@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="htmlgraph-version" content="1.0">
+    <title>Feature create stores id as title in some code path</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="bug-7f4a1a9c"
+             data-type="bug"
+             data-status="done"
+             data-priority="medium"
+             data-created="2026-04-10T07:55:33.770208"
+             data-updated="2026-04-10T08:14:23.96605" data-agent-assigned="claude-code" data-track-id="trk-cb36e595">
+
+        <header>
+            <h1>Feature create stores id as title in some code path</h1>
+            <div class="metadata">
+                <span class="badge status-done">Done</span>
+                <span class="badge priority-medium">Medium Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="caused_by">
+                <h3>Caused By:</h3>
+                <ul>
+                    <li><a href="bug-129042a4.html" data-relationship="caused_by" data-since="2026-04-10T07:55:33.771001">bug-129042a4</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="trk-cb36e595.html" data-relationship="part_of" data-since="2026-04-10T07:55:33.771674">trk-cb36e595</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="implemented_in">
+                <h3>Implemented In:</h3>
+                <ul>
+                    <li><a href="8d53982f-66f2-415b-a645-1886eb8ae438.html" data-relationship="implemented_in" data-since="2026-04-10T07:56:40.805952">session 8d53982f-66f2-415b-a645-1886eb8ae438</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>Observed 2026-04-10 in planbook DB: feature row feat-c3392410 has title='feat-c3392410' (title == id). The agent_events log shows a proper 'htmlgraph feature create "End-to-end install smoke..."' Bash command was run, so the title SHOULD be 'End-to-end install smoke...' not the ID. Something rewrote or never wrote the title.
+
+Possible causes:
+1. htmlgraph feature create CLI has a code path that stores id as title when parsing fails
+2. A hook auto-creates features on tool calls and uses id as placeholder title
+3. An import/migration path populated features without real titles
+4. A later UPDATE rewrote the title to the id
+
+Investigation needs:
+- grep for feature creation sites that write to the features table
+- check if there's a default title=id branch
+- inspect the agent_events to find the exact tool call that created feat-c3392410 and see what args were passed</p>
+        </section>
+    </article>
+</body>
+</html>

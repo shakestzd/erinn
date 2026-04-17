@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="htmlgraph-version" content="1.0">
+    <title>Orphan sweep for crashed tool calls</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="feat-03d28fc3"
+             data-type="feature"
+             data-status="done"
+             data-priority="medium"
+             data-created="2026-04-10T10:01:26.017125"
+             data-updated="2026-04-10T14:22:29.933626" data-agent-assigned="claude-code" data-track-id="trk-97f85b3b">
+
+        <header>
+            <h1>Orphan sweep for crashed tool calls</h1>
+            <div class="metadata">
+                <span class="badge status-done">Done</span>
+                <span class="badge priority-medium">Medium Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="implemented_in">
+                <h3>Implemented In:</h3>
+                <ul>
+                    <li><a href="6206b18b-775e-4c99-8f0c-c6c61c8c954d.html" data-relationship="implemented_in" data-since="2026-04-10T14:14:19.843679">session 6206b18b-775e-4c99-8f0c-c6c61c8c954d</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="blocked_by">
+                <h3>Blocked By:</h3>
+                <ul>
+                    <li><a href="feat-e6b599dd.html" data-relationship="blocked_by">feat-e6b599dd</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="planned_in">
+                <h3>Planned In:</h3>
+                <ul>
+                    <li><a href="plan-43659c92.html" data-relationship="planned_in" data-since="2026-04-10T10:01:26.017475">plan-43659c92</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>Add a sweep function that detects `agent_events` rows with `status='started'` where no PostToolUse ever fired, emits a synthetic aborted `
+` entry to the session HTML file, and transitions the SQLite row to `status='aborted'` with a `reason='swept'` marker. The sweep is lazy — triggered by existing hook events, not by a daemon.
+
+**(0) Schema migration — COMPLETED before plan finalization (see commit log).** Add `db.Exec("ALTER TABLE agent_events ADD COLUMN reason TEXT")` to the idempotent migration block in `internal/db/schema.go:Open()`, following the existing pattern at line 41 (`ALTER TABLE sessions ADD COLUMN title TEXT`). Landed in a pre-finalization commit as a one-line addition to the existing idempotent migration block — the sweep logic writes to this column and will error at runtime if the column is missing. The migration is idempotent (SQLite's `ALTER TABLE ADD COLUMN` fails harmlessly if the column already exists, and the existing migration pattern wraps the Exec in a swallowed error).
+
+**(1) Detection query.** New function `FindOrphanedEvents(db *sql.DB, olderThan time.Duration) ([]OrphanEvent, error)` in `internal/db/event_repo.go` (alongside `FindStartedEvent` at line 261). Returns rows where `status='started'` AND `created_at < now - olderThan`. Default threshold: 5 minutes, stored as a constant `internal/hooks/orphanThreshold = 5 * time.Minute`. The query uses the existing `idx_agent_events_session_ts_desc` index — no new index required.
+
+**(2) Synthetic append.** New function `AppendOrphanedEvent(htmlgraphDir, sessionID string, orphan OrphanEvent) error` in `internal/hooks/session_html.go`. Constructs a `SessionEvent` with tool name from the orphan, timestamp from its `created_at`, `data-status="aborted"`, and `data-reason="no-post-hook"`, then calls `AppendEventToSessionHTML` via the existing flock path. No new write mechanism — just a specialized event wrapper. On success, updates the agent_events row to `status='aborted', reason='swept'`.
+
+**(3) Idempotency via goquery dedup check.** Before appending, the sweep reads the session HTML file and checks whether an `
+` already exists. If yes, skip the append and just update the SQLite status to keep the row consistent. Reading the file via goquery is acceptable — the sweep is a rare path and goquery is already a dependency via `reindex_sessions.go`.
+
+**(4) Lazy trigger — all three paths (from Q1, recommended default).** Invoke `SweepOrphanedEventsForSession(sessionID)` from: (a) the end of every PostToolUse after the normal append, scoped to the current session; (b) the end of SessionStart, scoped to all sessions in the current project; (c) a new CLI subcommand `htmlgraph sweep orphaned-events [--session ] [--project-dir ]` for explicit user-triggered sweeps. Default scope for the CLI: all sessions in the current project. Reports count of swept events.
+
+**(5) Hard cutoff at 24 hours.** Orphans older than 24h are still processed (synthetic entry + SQLite update) but logged with a warning so users know about the gap. Prevents silently sweeping ancient orphans as if they were recent crashes.
+
+**(6) SessionEnd race guard.** `FinalizeSessionHTML` (previously `finalizeSessionHTML`) does NOT use flock — it's a simple read-modify-write of header attributes. If a sweep runs during SessionEnd, the sweep's flocked append could race with the finalize's non-flocked header update. Mitigation: wrap `FinalizeSessionHTML` in the same flock acquisition as `AppendEventToSessionHTML` (open the file with `O_RDWR`, `syscall.Flock LOCK_EX`, read, modify, write, release). This is a one-line addition to an existing function and it preserves the existing semantics.
+
+This closes Gap 2.</p>
+        </section>
+    </article>
+</body>
+</html>

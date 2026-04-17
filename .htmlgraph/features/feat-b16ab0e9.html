@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="htmlgraph-version" content="1.0">
+    <title>Frontend — /p/&lt;id&gt;/ base path navigation &#43; helper cleanup</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="feat-b16ab0e9"
+             data-type="feature"
+             data-status="done"
+             data-priority="medium"
+             data-created="2026-04-09T22:02:45.971272"
+             data-updated="2026-04-09T23:00:16.09853" data-agent-assigned="claude-code" data-track-id="trk-cb36e595">
+
+        <header>
+            <h1>Frontend — /p/&lt;id&gt;/ base path navigation &#43; helper cleanup</h1>
+            <div class="metadata">
+                <span class="badge status-done">Done</span>
+                <span class="badge priority-medium">Medium Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="implemented_in">
+                <h3>Implemented In:</h3>
+                <ul>
+                    <li><a href="a1cd7ef9-6b27-4fe7-92d2-b1d0f47a1a8e.html" data-relationship="implemented_in" data-since="2026-04-09T22:48:07.264207">session a1cd7ef9-6b27-4fe7-92d2-b1d0f47a1a8e</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="blocked_by">
+                <h3>Blocked By:</h3>
+                <ul>
+                    <li><a href="feat-e6db3d1a.html" data-relationship="blocked_by">feat-e6db3d1a</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="planned_in">
+                <h3>Planned In:</h3>
+                <ul>
+                    <li><a href="plan-237fb251.html" data-relationship="planned_in" data-since="2026-04-09T22:02:45.971498">plan-237fb251</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>**Critical correction from feasibility critic A5/C5**: the original plan's claim that `fetch('/api/plans//chat')` 'naturally resolves as a relative URL' under `/p//` is FALSE. All 10 fetch calls in `internal/plantmpl/templates/plan_page.gohtml` use absolute-path URLs (leading slash) that resolve against the origin, ignoring the page path. Affected lines: 515, 543, 596, 616, 661, 871, 898, 1043, 1094, 1117. Endpoints: `/feedback` (×4), `/finalize`, `/chat`, `/yaml`, `/amendments`. Every interactive plan action breaks without an explicit fix.
+
+**Required changes:**
+1. **Plan template variable injection** — in the Go template render path (`cmd/htmlgraph/api_plans.go` or wherever the template is executed), inject a `BasePath` field into the template context. Set it to `/p/` when serving under the per-project proxy, empty otherwise. Rename the template to emit `window.htmlgraphPlanBase = {{.BasePath | printf "%q"}};` in the head.
+2. **Template fetch rewrite** — change all 10 fetch calls from `fetch('/api/plans/'+planId+'/chat')` to `fetch((window.htmlgraphPlanBase||'')+'/api/plans/'+planId+'/chat')`. Single regex rewrite.
+3. **Plan HTML static file path** — the template is currently served at `/plans/.html` via the FileServer at `serve.go:80` (not through the API router). Under the new architecture this path becomes `/p//plans/.html` through the child proxy. Slice 1's factory already registers the route inside `buildSingleProjectMux`, so no new registration is needed — but confirm the file path resolution works from the child's CWD.
+4. **`dashboard/js/helpers.js:buildProjectUrl` rewrite** — detect project-scoped mode via `window.location.pathname.startsWith('/p/')`; if yes, return `/p//api/`; if no, return `/api/`. Delete the `?project=` append logic entirely. 18 call sites verified (feasibility critic A4). Leave `fetch('/api/mode')` at `app.js:1114` alone — it's intentionally global-scope.
+5. **`dashboard/js/app.js` navigation** — projects-landing card clicks set `window.location.href = '/p/' + project.id + '/'` for full page navigation. Delete `enterProject` and `showProjectsLanding` SPA functions. When loading under `/p//`, skip landing and run single-project startup.
+6. **Back button** — becomes `` in the project context header. No JS state management.
+
+**Landing card simplification (from doorway decision)**: update the projects-landing card renderer in `app.js`'s `renderProjectsLanding()` to show ONLY registry fields — name, path (cleaned or truncated), git remote (cleaned to `owner/repo`), and last-seen relative time. Delete the stat tiles that displayed feature/bug/spike counts. The card body becomes a simple metadata block with a visible 'Open →' affordance. CSS for `.project-card .stat-tile` can be deleted as unused.</p>
+        </section>
+    </article>
+</body>
+</html>

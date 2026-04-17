@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="htmlgraph-version" content="1.0">
+    <title>internal/childproc package — spawn, handshake, lifecycle, reap</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="feat-90af35a0"
+             data-type="feature"
+             data-status="done"
+             data-priority="medium"
+             data-created="2026-04-09T22:02:45.970082"
+             data-updated="2026-04-09T22:36:25.247321" data-agent-assigned="claude-code" data-track-id="trk-cb36e595">
+
+        <header>
+            <h1>internal/childproc package — spawn, handshake, lifecycle, reap</h1>
+            <div class="metadata">
+                <span class="badge status-done">Done</span>
+                <span class="badge priority-medium">Medium Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="planned_in">
+                <h3>Planned In:</h3>
+                <ul>
+                    <li><a href="plan-237fb251.html" data-relationship="planned_in" data-since="2026-04-09T22:02:45.970257">plan-237fb251</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="blocked_by">
+                <h3>Blocked By:</h3>
+                <ul>
+                    <li><a href="feat-79fd74ba.html" data-relationship="blocked_by">feat-79fd74ba</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="implemented_in">
+                <h3>Implemented In:</h3>
+                <ul>
+                    <li><a href="a1cd7ef9-6b27-4fe7-92d2-b1d0f47a1a8e.html" data-relationship="implemented_in" data-since="2026-04-09T22:31:45.913111">session a1cd7ef9-6b27-4fe7-92d2-b1d0f47a1a8e</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>New package `internal/childproc/` with `childproc.go` + `childproc_test.go`. Define `type Child struct { ID string; ProjectDir string; Port int; PID int; cmd *exec.Cmd; LastRequest atomic.Int64; cancel context.CancelFunc; exitC chan struct{}; proxy *httputil.ReverseProxy }`. Define `type Supervisor struct { mu sync.Mutex; children map[string]*Child; spawnGroups map[string]*sync.Once; binPath string; idleTimeout time.Duration; spawnTimeout time.Duration }` with per-project `sync.Once` to handle concurrent cold-spawn requests without herd contention on the main mutex. Implement `NewSupervisor(opts Options) *Supervisor` with `binPath = os.Executable()` by default. Implement `(*Supervisor) GetOrSpawn(ctx context.Context, projectID, projectDir string) (*Child, error)` which spawns via `exec.CommandContext(cancelCtx, s.binPath, "--project-dir", projectDir, "_serve-child", "--port", "0")`. **The arg order is load-bearing**: `--project-dir` is a persistent flag on the root cobra command (main.go:37) and must appear BEFORE the `serve` subcommand, not after, or cobra rejects it (feasibility critic A8). Capture stdout via `cmd.StdoutPipe()`, call `cmd.Start()`, launch a goroutine that scans stdout with `bufio.Scanner` for exactly one line matching `htmlgraph-serve-ready port= pid=` with a 5s deadline. After the handshake, the scanner goroutine drains the pipe into `io.Discard` forever so the child doesn't block — though the child should have already redirected its own stdout to a log file per slice 1's requirement. Populate `Child.Port` and `Child.proxy` (pre-built `httputil.NewSingleHostReverseProxy` pointed at `http://127.0.0.1:` with `FlushInterval = 100 * time.Millisecond` for SSE), and return. Second goroutine per child calls `cmd.Wait()`, closes `exitC`, removes from the map under the mutex. Implement `Shutdown(ctx)` which SIGTERMs all children in parallel, waits with deadline, SIGKILLs survivors. Implement `RunIdleReaper(ctx)` ticking every 60s. The closest prior-art pattern is `internal/planchat/backend.go:174` (exec.CommandContext + StdoutPipe + Start + scan + Wait) — model the scanner goroutine after it. Use `os.Executable()` not `os.Args[0]` (plan_cmds.go:268 uses os.Args[0] which is wrong for moved binaries / symlinks).</p>
+        </section>
+    </article>
+</body>
+</html>

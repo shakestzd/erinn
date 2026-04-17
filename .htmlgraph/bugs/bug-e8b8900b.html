@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="htmlgraph-version" content="1.0">
+    <title>Parallel Claude Code sessions in same project merge into one session after ingest</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="bug-e8b8900b"
+             data-type="bug"
+             data-status="done"
+             data-priority="high"
+             data-created="2026-04-11T00:35:16.301587"
+             data-updated="2026-04-11T01:02:56.529537" data-agent-assigned="claude-code" data-track-id="trk-97f85b3b">
+
+        <header>
+            <h1>Parallel Claude Code sessions in same project merge into one session after ingest</h1>
+            <div class="metadata">
+                <span class="badge status-done">Done</span>
+                <span class="badge priority-high">High Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="trk-97f85b3b.html" data-relationship="part_of" data-since="2026-04-11T00:35:16.303112">trk-97f85b3b</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="implemented_in">
+                <h3>Implemented In:</h3>
+                <ul>
+                    <li><a href="8d53982f-66f2-415b-a645-1886eb8ae438.html" data-relationship="implemented_in" data-since="2026-04-11T00:35:24.383587">session 8d53982f-66f2-415b-a645-1886eb8ae438</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>Symptom: running two parallel Claude Code sessions in two terminal windows in the same project directory produces one combined session in the htmlgraph dashboard after ingest. Messages from both conversations appear interleaved in a single session_id entry.
+
+Two possible root causes:
+1. Claude Code writes both transcripts to the same JSONL file in ~/.claude/projects// — this would be a Claude Code behavior (shared session_id across parallel terminals in the same project) that htmlgraph faithfully mirrors
+2. Claude Code writes two separate JSONL files but htmlgraph's ingest merges them under a shared session_id — this would be a real htmlgraph ingestion bug
+
+Investigation needed:
+- Enumerate recent *.jsonl files in ~/.claude/projects/-Users-shakes-DevProjects-htmlgraph/ to see if there are 1 or 2 files for the parallel sessions
+- Query the sessions table for recent session_ids and their source (hook vs ingest) and message counts
+- Inspect a suspected merged session to see which session_ids its messages carry at the storage layer
+- If there are 2 JSONL files but 1 session row: ingest bug (dedup/merge logic)
+- If there's 1 JSONL file with both conversations: Claude Code behavior that htmlgraph needs a workaround for (e.g. split by user_query/turn detection)
+
+Impact: violates the core observability guarantee. If parallel sessions can't be distinguished, the 'see what your agents do' value prop is compromised for any user who runs multiple terminals.</p>
+        </section>
+    </article>
+</body>
+</html>

@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="htmlgraph-version" content="1.0">
+    <title>Dashboard UX redesign — graph palette &#43; transcript view</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="trk-d8aef97a"
+             data-type="track"
+             data-status="todo"
+             data-priority="medium"
+             data-created="2026-04-11T10:21:44.995631"
+             data-updated="2026-04-11T11:28:22.183368" data-agent-assigned="claude-code">
+
+        <header>
+            <h1>Dashboard UX redesign — graph palette &#43; transcript view</h1>
+            <div class="metadata">
+                <span class="badge status-todo">Todo</span>
+                <span class="badge priority-medium">Medium Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="contains">
+                <h3>Contains:</h3>
+                <ul>
+                    <li><a href="feat-7af2dda7.html" data-relationship="contains" data-since="2026-04-11T10:22:18.817607">Graph view: accent-first palette aligned with htmlgraph design system</a></li>
+                    <li><a href="feat-58214d69.html" data-relationship="contains" data-since="2026-04-11T10:22:18.876343">Transcript view: markdown rendering &#43; chat bubble layout &#43; work item badges</a></li>
+                    <li><a href="bug-9739bebf.html" data-relationship="contains" data-since="2026-04-11T11:04:46.140481">Chat bubbles should have consistent fixed width</a></li>
+                    <li><a href="feat-e0553d90.html" data-relationship="contains" data-since="2026-04-11T11:07:49.875126">Graph view: better session node labels</a></li>
+                    <li><a href="bug-b61f91d9.html" data-relationship="contains" data-since="2026-04-11T11:20:57.871688">Graph labels overflow session circles — label radius out of sync with visual radius</a></li>
+                    <li><a href="bug-d3019398.html" data-relationship="contains" data-since="2026-04-11T11:28:22.18234">roborev findings on merged dashboard work (job 886)</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>Two coupled redesigns of dashboard views that have drifted from the htmlgraph design system. Track exists so the work can be planned and committed as a coherent set instead of two unrelated patches.
+
+Scope:
+1. Graph view: replace the current 6-color Tailwind-500 palette with an accent-first palette anchored to var(--accent), contrast-aware text labels, theme-aware legend pill, and verified data-theme detection. Direction 1 from the design proposal in this session.
+2. Transcript view: render assistant message markdown via marked.js from CDN, restyle user messages as right-anchored chat bubbles with right-edge highlight, and surface session-level work item badges in the transcript stats area.
+
+Both features share the same target file area (cmd/htmlgraph/dashboard/{js,css,components,index.html}) and the same trust model (local data only, no external sanitization required). Bundling them prevents two stomping commits on the same files.</p>
+        </section>
+    </article>
+</body>
+</html>

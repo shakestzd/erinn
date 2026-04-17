@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="htmlgraph-version" content="1.0">
+    <title>Multi-Project Hardening — per-project process isolation</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="trk-cb36e595"
+             data-type="track"
+             data-status="todo"
+             data-priority="high"
+             data-created="2026-04-09T20:45:55.987414"
+             data-updated="2026-04-10T09:17:12.930707" data-agent-assigned="claude-code">
+
+        <header>
+            <h1>Multi-Project Hardening — per-project process isolation</h1>
+            <div class="metadata">
+                <span class="badge status-todo">Todo</span>
+                <span class="badge priority-high">High Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="contains">
+                <h3>Contains:</h3>
+                <ul>
+                    <li><a href="feat-ee2db473.html" data-relationship="contains" data-since="2026-04-09T20:47:03.312484">Plan: Multi-Project Hardening</a></li>
+                    <li><a href="bug-50c7eed0.html" data-relationship="contains" data-since="2026-04-10T03:23:31.683159">Execute skill sub-agent attribution guard blocks legitimate dispatch</a></li>
+                    <li><a href="bug-31ff6dca.html" data-relationship="contains" data-since="2026-04-10T07:15:23.988985">Sessions list pollutes per-project view with ambient CWD-attributed sessions</a></li>
+                    <li><a href="bug-129042a4.html" data-relationship="contains" data-since="2026-04-10T07:52:46.971436">Activity feed feature badges show raw IDs instead of titles</a></li>
+                    <li><a href="bug-7f4a1a9c.html" data-relationship="contains" data-since="2026-04-10T07:55:33.771674">Feature create stores id as title in some code path</a></li>
+                    <li><a href="bug-a52d5bf9.html" data-relationship="contains" data-since="2026-04-10T08:14:54.784918">Session ingest writes rows with empty project_dir, pollutes every project DB</a></li>
+                    <li><a href="feat-e7670adb.html" data-relationship="contains" data-since="2026-04-10T09:17:12.930051">Plan: Session HTML canonical store via live-append</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>Re-architect htmlgraph serve --global from shared-process-with-query-param dispatch to child-process-with-reverse-proxy isolation. Addresses the core architectural flaw surfaced during MVP smoke testing (2026-04-09): the current global server opens read-only DB handles to every project and dispatches project-scoped requests via ?project= — which conflates read aggregation with project-scoped mutation and makes cross-project contamination possible by construction. The hardened design runs one child htmlgraph-serve process per active project on a dynamic port, with the global server serving only aggregate reads and reverse-proxying /p//* to the matching child. OS-level process isolation, correct-by-construction env/CWD/hook context, crash isolation, smaller routing attack surface, composes correctly with the (session_id, agent_id) attribution model. Also solves parallel attribution collisions as a side-effect because each project gets its own sessions table writer queue.</p>
+        </section>
+    </article>
+</body>
+</html>

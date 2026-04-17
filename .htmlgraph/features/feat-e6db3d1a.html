@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="htmlgraph-version" content="1.0">
+    <title>Remove dispatchByProject &#43; aggregate handlers &#43; projectCache (true doorway)</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="feat-e6db3d1a"
+             data-type="feature"
+             data-status="done"
+             data-priority="medium"
+             data-created="2026-04-09T22:02:45.97088"
+             data-updated="2026-04-09T22:48:07.230393" data-agent-assigned="claude-code" data-track-id="trk-cb36e595">
+
+        <header>
+            <h1>Remove dispatchByProject &#43; aggregate handlers &#43; projectCache (true doorway)</h1>
+            <div class="metadata">
+                <span class="badge status-done">Done</span>
+                <span class="badge priority-medium">Medium Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="blocked_by">
+                <h3>Blocked By:</h3>
+                <ul>
+                    <li><a href="feat-5e32f20a.html" data-relationship="blocked_by">feat-5e32f20a</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="implemented_in">
+                <h3>Implemented In:</h3>
+                <ul>
+                    <li><a href="a1cd7ef9-6b27-4fe7-92d2-b1d0f47a1a8e.html" data-relationship="implemented_in" data-since="2026-04-09T22:42:07.644401">session a1cd7ef9-6b27-4fe7-92d2-b1d0f47a1a8e</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="planned_in">
+                <h3>Planned In:</h3>
+                <ul>
+                    <li><a href="plan-237fb251.html" data-relationship="planned_in" data-since="2026-04-09T22:02:45.971033">plan-237fb251</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>In `cmd/htmlgraph/serve_global.go`, delete every project-scoped and cross-project-aggregate route. This is the architectural cleanup slice: after it lands, the global server holds zero SQLite handles and serves only the projects landing SPA, the reverse proxy, and a tiny `/api/mode` endpoint.
+
+**Delete entirely** (function + registrations):
+- `dispatchByProject` function
+- `projectCache` type, instance, and all its methods
+- `loadProjectSummaries` (counts-from-DB logic) — replace with a simpler `listRegisteredProjects()` that iterates the registry and returns `{id, name, dir, gitRemoteURL, lastSeen}` for each — no DB opens, no counts
+- `countByType` / any helper that runs COUNT queries against project DBs
+- `aggregateStats` and the `/api/projects/all/stats` route
+- `globalSSEHandler` and the `/api/events/stream` route (stream moves inside each child via proxy)
+- `globalRecentEventsHandler` and the `/api/events/recent` route (same)
+- All project-scoped routes previously dispatched via `dispatchByProject`: `/api/sessions`, `/api/features`, `/api/features/detail`, `/api/features/related`, `/api/features/`, `/api/graph`, `/api/events/tree`, `/api/events/subagent`, `/api/plans`, `/api/plans/`, `/api/transcript`, `/api/sessions/`, `/api/stats`, `/api/events/recent`, `/api/events/stream` — all handled by the child via `/p//api/*` proxy now
+
+**Keep** (narrowed global API surface):
+- `/api/mode` — returns `{"mode":"global"}`, no other fields
+- `/api/projects` — returns the registry list WITHOUT counts; fields are exactly `{id, name, dir, gitRemoteURL, lastSeen}`. Add a doc comment on the handler: `// No DB access. Registry JSON only. Counts and per-project data come from the child via /p//api/*.`
+- `/p//*` — the reverse proxy from slice 3
+- `/` — the landing SPA (embedded dashboard files)
+
+Since the global server no longer opens any SQLite connection, there is NO WAL audit needed on the global side (the original plan's concern evaporates when the handles evaporate). The child-side WAL pragma is still required for normal single-project operation but that's unchanged from today's single-project server — not a new constraint introduced by this slice.</p>
+        </section>
+    </article>
+</body>
+</html>

@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="htmlgraph-version" content="1.0">
+    <title>Session 2026-03-31T13:06:02Z</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="c347ae93-a322-4f81-914a-e4c9c880a476"
+             data-type="session"
+             data-status="completed"
+             data-ended-at="2026-03-31T15:19:31Z"
+             data-agent="claude-code"
+             data-started-at="2026-03-31T13:06:02Z"
+             data-event-count="113"
+             data-is-subagent="false"
+             data-start-commit="">
+
+        <header>
+            <h1>Session 2026-03-31T13:06:02Z</h1>
+            <div class="metadata">
+                <span class="badge status-completed">Completed</span>
+                <span class="badge">claude-code</span>
+                <span class="badge">113 events</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+        </nav>
+
+        <section data-activity-log>
+            <ol reversed>
+                            <li data-ts="2026-03-31T13:06:08Z" data-tool="Bash" data-success="true" data-event-id="evt-80b40f75">htmlgraph track show trk-e7e7b4c2 2&gt;/dev/null || echo &#34;Track not found via CLI&#34;</li>
+                            <li data-ts="2026-03-31T13:06:09Z" data-tool="ToolSearch" data-success="true" data-event-id="evt-a96ebe01">select:TaskList</li>
+                            <li data-ts="2026-03-31T13:06:09Z" data-tool="Bash" data-success="true" data-event-id="evt-9d94727c">git worktree list</li>
+                            <li data-ts="2026-03-31T13:06:21Z" data-tool="TaskList" data-success="true" data-event-id="evt-8ae65dfb">{}</li>
+                            <li data-ts="2026-03-31T13:06:22Z" data-tool="Bash" data-success="true" data-event-id="evt-774c7073">for f in feat-0fb2ee87 feat-450a814b feat-4f13a6ee feat-78081efd feat-ab2721d1 feat-eace1f9d; do echo &#34;=== $f ===&#34;; html…</li>
+                            <li data-ts="2026-03-31T13:06:33Z" data-tool="ToolSearch" data-success="true" data-event-id="evt-f546643f">select:TaskCreate,TaskUpdate,EnterWorktree</li>
+                            <li data-ts="2026-03-31T13:06:40Z" data-tool="Agent" data-success="true" data-event-id="evt-cc057a87">I need to understand the codebase structure for building task prompts. Find and summarize:
+
+1. `packages/go/internal/yol…</li>
+                            <li data-ts="2026-03-31T13:07:53Z" data-tool="Bash" data-success="true" data-event-id="evt-0e824613">htmlgraph track start trk-e7e7b4c2 2&gt;/dev/null; echo &#34;Track started&#34;</li>
+                            <li data-ts="2026-03-31T13:07:56Z" data-tool="TaskCreate" data-success="true" data-event-id="evt-96e08018">{&#34;activeForm&#34;:&#34;Implementing track worktree&#34;,&#34;description&#34;:&#34;Implement createTrackWorktree in yolo.go. Branch naming: trk-{trackID}, path: .claude/worktrees/trk-{trackID}. Update launchYoloDefault: --tr…</li>
+                            <li data-ts="2026-03-31T13:07:59Z" data-tool="TaskCreate" data-success="true" data-event-id="evt-b8fe47c4">{&#34;activeForm&#34;:&#34;Updating YOLO guards&#34;,&#34;description&#34;:&#34;Update checkYoloWorktreeGuard in yolo_guard.go to recognize trk-* and trk-*/agent-* branch prefixes. Update error message to suggest htmlgraph yolo …</li>
+                            <li data-ts="2026-03-31T13:08:01Z" data-tool="TaskCreate" data-success="true" data-event-id="evt-a258cdf5">{&#34;activeForm&#34;:&#34;Adding set-description command&#34;,&#34;description&#34;:&#34;Add &#39;htmlgraph feature set-description \u003cid\u003e \u003cmarkdown\u003e&#39; command. Writes description section to HTML. Support --accepta…</li>
+                            <li data-ts="2026-03-31T13:08:03Z" data-tool="TaskCreate" data-success="true" data-event-id="evt-249731bc">{&#34;activeForm&#34;:&#34;Implementing commit prefix parsing&#34;,&#34;description&#34;:&#34;Implement groupByPrefix — parse feat-xxx: prefixes from git log. Add htmlgraph track status command deriving feature breakdown from …</li>
+                            <li data-ts="2026-03-31T13:08:06Z" data-tool="TaskCreate" data-success="true" data-event-id="evt-8aab61c5">{&#34;activeForm&#34;:&#34;Implementing agent branches&#34;,&#34;description&#34;:&#34;Implement createAgentWorktree in yolo.go — branches from track branch (not main). Naming: trk-{id}/agent-{task}. Cleanup merges back to tra…</li>
+                            <li data-ts="2026-03-31T13:08:08Z" data-tool="TaskCreate" data-success="true" data-event-id="evt-0025b59e">{&#34;activeForm&#34;:&#34;Implementing track PR command&#34;,&#34;description&#34;:&#34;Add htmlgraph track pr command — creates PR from trk-{id} to main with feature summary from git log --grep and diff stat.&#34;,&#34;metadata&#34;:{&#34;a…</li>
+                            <li data-ts="2026-03-31T13:08:10Z" data-tool="TaskUpdate" data-success="true" data-event-id="evt-87c22198">{&#34;addBlockedBy&#34;:[&#34;1&#34;],&#34;taskId&#34;:&#34;4&#34;}</li>
+                            <li data-ts="2026-03-31T13:08:11Z" data-tool="TaskUpdate" data-success="true" data-event-id="evt-203d81ba">{&#34;addBlockedBy&#34;:[&#34;1&#34;],&#34;taskId&#34;:&#34;5&#34;}</li>
+                            <li data-ts="2026-03-31T13:08:11Z" data-tool="TaskUpdate" data-success="true" data-event-id="evt-6189ec67">{&#34;addBlockedBy&#34;:[&#34;4&#34;],&#34;taskId&#34;:&#34;6&#34;}</li>
+                            <li data-ts="2026-03-31T13:08:16Z" data-tool="Read" data-success="true" data-event-id="evt-f155cc2d">/Users/shakes/DevProjects/htmlgraph/packages/go/cmd/htmlgraph/yolo.go</li>
+                            <li data-ts="2026-03-31T13:08:16Z" data-tool="Read" data-success="true" data-event-id="evt-717bb800">/Users/shakes/DevProjects/htmlgraph/packages/go/internal/hooks/yolo_guard.go</li>
+                            <li data-ts="2026-03-31T13:08:17Z" data-tool="Read" data-success="true" data-event-id="evt-309ee1a6">/Users/shakes/DevProjects/htmlgraph/packages/go/cmd/htmlgraph/main.go</li>
+                            <li data-ts="2026-03-31T13:08:23Z" data-tool="Read" data-success="true" data-event-id="evt-9288a786">/Users/shakes/DevProjects/htmlgraph/packages/go/cmd/htmlgraph/feature.go</li>
+                            <li data-ts="2026-03-31T13:08:23Z" data-tool="Read" data-success="true" data-event-id="evt-dd6b088b">/Users/shakes/DevProjects/htmlgraph/packages/go/cmd/htmlgraph/track.go</li>
+                            <li data-ts="2026-03-31T13:08:24Z" data-tool="Read" data-success="true" data-event-id="evt-3cb71454">/Users/shakes/DevProjects/htmlgraph/packages/go/internal/workitem/edit.go</li>
+                            <li data-ts="2026-03-31T13:08:25Z" data-tool="Grep" data-success="true" data-event-id="evt-53d4741b">/Users/shakes/DevProjects/htmlgraph/packages/go</li>
+                            <li data-ts="2026-03-31T13:08:30Z" data-tool="Read" data-success="true" data-event-id="evt-76bcd68b">/Users/shakes/DevProjects/htmlgraph/packages/go/internal/hooks/yolo_guard_test.go [140:200]</li>
+                            <li data-ts="2026-03-31T13:08:30Z" data-tool="Read" data-success="true" data-event-id="evt-836387b6">/Users/shakes/DevProjects/htmlgraph/packages/go/cmd/htmlgraph/workitem.go</li>
+                            <li data-ts="2026-03-31T13:08:31Z" data-tool="Grep" data-success="true" data-event-id="evt-5d71e2ac">/Users/shakes/DevProjects/htmlgraph/packages/go/cmd/htmlgraph</li>
+                            <li data-ts="2026-03-31T13:08:34Z" data-tool="Read" data-success="true" data-event-id="evt-ef3b67d5">/Users/shakes/DevProjects/htmlgraph/packages/go/cmd/htmlgraph/related.go</li>
+                            <li data-ts="2026-03-31T13:08:47Z" data-tool="TaskUpdate" data-success="true" data-event-id="evt-aa3900a2">{&#34;status&#34;:&#34;in_progress&#34;,&#34;taskId&#34;:&#34;1&#34;}</li>
+                            <li data-ts="2026-03-31T13:08:48Z" data-tool="TaskUpdate" data-success="true" data-event-id="evt-4f7fadd4">{&#34;status&#34;:&#34;in_progress&#34;,&#34;taskId&#34;:&#34;2&#34;}</li>
+                            <li data-ts="2026-03-31T13:08:48Z" data-tool="TaskUpdate" data-success="true" data-event-id="evt-0737ead9">{&#34;status&#34;:&#34;in_progress&#34;,&#34;taskId&#34;:&#34;3&#34;}</li>
+                            <li data-ts="2026-03-31T13:09:18Z" data-tool="Agent" data-success="true" data-event-id="evt-61d67d70">## Task: Track worktree — createTrackWorktree replacing createFeatureWorktree
+**Feature:** feat-78081efd
+**Track:** tr…</li>
+                            <li data-ts="2026-03-31T13:09:39Z" data-tool="Agent" data-success="true" data-event-id="evt-cac0a2b0">## Task: Yolo guard updates for track branches
+**Feature:** feat-0fb2ee87
+**Track:** trk-e7e7b4c2
+
+## Step 0: Attributio…</li>
+                            <li data-ts="2026-03-31T13:10:06Z" data-tool="Agent" data-success="true" data-event-id="evt-eb1101df">## Task: CLI: add feature set-description command
+**Feature:** feat-eace1f9d
+**Track:** trk-e7e7b4c2
+
+## Step 0: Attribu…</li>
+                            <li data-ts="2026-03-31T13:11:19Z" data-tool="Bash" data-success="true" data-event-id="evt-70cfc2fd">git worktree list | grep -E &#34;feat-78081efd|feat-0fb2ee87|feat-eace1f9d&#34;</li>
+                            <li data-ts="2026-03-31T13:11:21Z" data-tool="Bash" data-success="true" data-event-id="evt-ad2f2845">git worktree list | tail -10</li>
+                            <li data-ts="2026-03-31T13:11:25Z" data-tool="Bash" data-success="true" data-event-id="evt-f7ea587e">git branch --sort=-committerdate | head -10</li>
+                            <li data-ts="2026-03-31T13:11:29Z" data-tool="Bash" data-success="true" data-event-id="evt-fca6f446">git branch --sort=-committerdate --all | head -20</li>
+                            <li data-ts="2026-03-31T13:11:32Z" data-tool="Bash" data-success="true" data-event-id="evt-e648eee7">git log --all --oneline --since=&#34;30 minutes ago&#34; --format=&#34;%h %D %s&#34;</li>
+                            <li data-ts="2026-03-31T13:11:45Z" data-tool="Bash" data-success="true" data-event-id="evt-7f439a87">git log --oneline -5</li>
+                            <li data-ts="2026-03-31T13:11:54Z" data-tool="Bash" data-success="true" data-event-id="evt-dc712686">git branch --all | grep -i &#34;worktree\|agent&#34; 2&gt;/dev/null; echo &#34;---&#34;; git worktree list | grep -i agent 2&gt;/dev/null; ech…</li>
+                            <li data-ts="2026-03-31T13:11:58Z" data-tool="Bash" data-success="true" data-event-id="evt-6302fc8d">for branch in worktree-agent-a07fdd38 worktree-agent-a08f0932 worktree-agent-a512fadf; do echo &#34;=== $branch ===&#34;; git lo…</li>
+                            <li data-ts="2026-03-31T13:12:01Z" data-tool="Bash" data-success="true" data-event-id="evt-71866140">git branch --sort=-committerdate | grep worktree | head -5</li>
+                            <li data-ts="2026-03-31T13:12:05Z" data-tool="Bash" data-success="true" data-event-id="evt-581537b1">git log worktree-agent-af2fa501 --oneline -3 2&gt;/dev/null; echo &#34;---&#34;; git log worktree-agent-ab9a1c6d --oneline -3 2&gt;/de…</li>
+                            <li data-ts="2026-03-31T13:12:10Z" data-tool="Bash" data-success="true" data-event-id="evt-f8b6b7a4">git log --all --oneline --grep=&#34;feat-78081&#34; 2&gt;/dev/null; echo &#34;---&#34;; git log --all --oneline --grep=&#34;createTrackWorktree…</li>
+                            <li data-ts="2026-03-31T13:12:19Z" data-tool="Bash" data-success="true" data-event-id="evt-7ff3d70d">ls packages/go/cmd/htmlgraph/yolo_test.go 2&gt;/dev/null &amp;&amp; echo &#34;EXISTS&#34; || echo &#34;NOT FOUND&#34;</li>
+                            <li data-ts="2026-03-31T13:12:24Z" data-tool="Bash" data-success="true" data-event-id="evt-4976e43f">git log --oneline -1 -- packages/go/cmd/htmlgraph/yolo_test.go; echo &#34;---&#34;; git log --oneline -1 -- packages/go/cmd/html…</li>
+                            <li data-ts="2026-03-31T13:12:30Z" data-tool="Grep" data-success="true" data-event-id="evt-e70c4480">/Users/shakes/DevProjects/htmlgraph/packages/go/cmd/htmlgraph/yolo.go</li>
+                            <li data-ts="2026-03-31T13:12:33Z" data-tool="Grep" data-success="true" data-event-id="evt-3135fc4c">/Users/shakes/DevProjects/htmlgraph/packages/go/cmd/htmlgraph/yolo.go</li>
+                            <li data-ts="2026-03-31T13:12:38Z" data-tool="Bash" data-success="true" data-event-id="evt-f30aa530">(cd packages/go &amp;&amp; go build ./... &amp;&amp; go vet ./... &amp;&amp; go test ./...)</li>
+                            <li data-ts="2026-03-31T13:12:48Z" data-tool="TaskUpdate" data-success="true" data-event-id="evt-5c306452">{&#34;status&#34;:&#34;completed&#34;,&#34;taskId&#34;:&#34;1&#34;}</li>
+                            <li data-ts="2026-03-31T13:12:49Z" data-tool="TaskUpdate" data-success="true" data-event-id="evt-8e1f9a0a">{&#34;status&#34;:&#34;completed&#34;,&#34;taskId&#34;:&#34;2&#34;}</li>
+                            <li data-ts="2026-03-31T13:12:49Z" data-tool="TaskUpdate" data-success="true" data-event-id="evt-a29bae9e">{&#34;status&#34;:&#34;completed&#34;,&#34;taskId&#34;:&#34;3&#34;}</li>
+                            <li data-ts="2026-03-31T13:12:52Z" data-tool="TaskUpdate" data-success="true" data-event-id="evt-512f44fd">{&#34;status&#34;:&#34;in_progress&#34;,&#34;taskId&#34;:&#34;4&#34;}</li>
+                            <li data-ts="2026-03-31T13:12:52Z" data-tool="TaskUpdate" data-success="true" data-event-id="evt-0a97780b">{&#34;status&#34;:&#34;in_progress&#34;,&#34;taskId&#34;:&#34;5&#34;}</li>
+                            <li data-ts="2026-03-31T13:13:32Z" data-tool="Agent" data-success="true" data-event-id="evt-f84753bd">## Task: Feature identity via commit prefixes and git tags
+**Feature:** feat-450a814b
+**Track:** trk-e7e7b4c2
+
+## Step 0…</li>
+                            <li data-ts="2026-03-31T13:14:18Z" data-tool="Agent" data-success="true" data-event-id="evt-4f1f37b8">## Task: Ephemeral agent branches for parallel work
+**Feature:** feat-4f13a6ee
+**Track:** trk-e7e7b4c2
+
+## Step 0: Attri…</li>
+                            <li data-ts="2026-03-31T13:17:20Z" data-tool="Bash" data-success="true" data-event-id="evt-a06ec7a2">git log --oneline -8</li>
+                            <li data-ts="2026-03-31T13:17:21Z" data-tool="Bash" data-success="true" data-event-id="evt-9d3f0ee9">(cd packages/go &amp;&amp; go build ./... &amp;&amp; go vet ./... &amp;&amp; go test ./...)</li>
+                            <li data-ts="2026-03-31T13:17:36Z" data-tool="TaskUpdate" data-success="true" data-event-id="evt-2bbed77f">{&#34;status&#34;:&#34;completed&#34;,&#34;taskId&#34;:&#34;4&#34;}</li>
+                            <li data-ts="2026-03-31T13:17:37Z" data-tool="TaskUpdate" data-success="true" data-event-id="evt-ee052fe5">{&#34;status&#34;:&#34;completed&#34;,&#34;taskId&#34;:&#34;5&#34;}</li>
+                            <li data-ts="2026-03-31T13:17:37Z" data-tool="TaskUpdate" data-success="true" data-event-id="evt-24fdd607">{&#34;status&#34;:&#34;in_progress&#34;,&#34;taskId&#34;:&#34;6&#34;}</li>
+                            <li data-ts="2026-03-31T13:18:22Z" data-tool="Agent" data-success="true" data-event-id="evt-ea68ff12">## Task: Single PR per track workflow
+**Feature:** feat-ab2721d1
+**Track:** trk-e7e7b4c2
+
+## Step 0: Attribution
+```bash…</li>
+                            <li data-ts="2026-03-31T13:19:37Z" data-tool="Bash" data-success="true" data-event-id="evt-933256cc">(cd packages/go &amp;&amp; go build ./... &amp;&amp; go vet ./... &amp;&amp; go test ./...)</li>
+                            <li data-ts="2026-03-31T13:19:38Z" data-tool="Bash" data-success="true" data-event-id="evt-5ae09695">git log --oneline -8</li>
+                            <li data-ts="2026-03-31T13:19:54Z" data-tool="TaskUpdate" data-success="true" data-event-id="evt-7c923424">{&#34;status&#34;:&#34;completed&#34;,&#34;taskId&#34;:&#34;6&#34;}</li>
+                            <li data-ts="2026-03-31T14:33:09Z" data-tool="Bash" data-success="true" data-event-id="evt-20f9f1ff">grep &#39;&#34;version&#34;&#39; packages/go-plugin/.claude-plugin/plugin.json</li>
+                            <li data-ts="2026-03-31T14:33:10Z" data-tool="Bash" data-success="true" data-event-id="evt-d182643f">gh release view --json tagName -q .tagName 2&gt;/dev/null || echo &#34;No releases&#34;</li>
+                            <li data-ts="2026-03-31T14:33:11Z" data-tool="Bash" data-success="true" data-event-id="evt-d2145333">(cd packages/go &amp;&amp; go test ./...)</li>
+                            <li data-ts="2026-03-31T14:33:17Z" data-tool="Bash" data-success="true" data-event-id="evt-fe9e2e07">./scripts/deploy-all.sh 0.38.0 --no-confirm</li>
+                            <li data-ts="2026-03-31T14:33:20Z" data-tool="Bash" data-success="true" data-event-id="evt-204c6615">ls scripts/deploy-all.sh 2&gt;/dev/null; ls scripts/*.sh 2&gt;/dev/null; ls scripts/ 2&gt;/dev/null</li>
+                            <li data-ts="2026-03-31T14:33:23Z" data-tool="Glob" data-success="true" data-event-id="evt-ca583eb3">{&#34;pattern&#34;:&#34;**/deploy*.sh&#34;}</li>
+                            <li data-ts="2026-03-31T14:33:31Z" data-tool="Read" data-success="true" data-event-id="evt-8c87a4a0">/Users/shakes/DevProjects/htmlgraph/scripts/templates/deploy-template.sh</li>
+                            <li data-ts="2026-03-31T14:33:41Z" data-tool="Bash" data-success="true" data-event-id="evt-7e7508c5">ls scripts/git-commit-push.sh &amp;&amp; head -30 scripts/git-commit-push.sh</li>
+                            <li data-ts="2026-03-31T14:33:42Z" data-tool="Grep" data-success="true" data-event-id="evt-dd133628">/Users/shakes/DevProjects/htmlgraph/.github</li>
+                            <li data-ts="2026-03-31T14:33:47Z" data-tool="Read" data-success="true" data-event-id="evt-f9a913a4">/Users/shakes/DevProjects/htmlgraph/.github/workflows/release-go.yml</li>
+                            <li data-ts="2026-03-31T14:33:51Z" data-tool="Read" data-success="true" data-event-id="evt-e067a4ef">/Users/shakes/DevProjects/htmlgraph/packages/go-plugin/.claude-plugin/plugin.json</li>
+                            <li data-ts="2026-03-31T14:33:51Z" data-tool="Bash" data-success="true" data-event-id="evt-12265704">cat packages/gemini-extension/gemini-extension.json 2&gt;/dev/null | grep version || echo &#34;No gemini extension&#34;</li>
+                            <li data-ts="2026-03-31T14:33:57Z" data-tool="Edit" data-success="true" data-event-id="evt-0ae95bca">/Users/shakes/DevProjects/htmlgraph/packages/go-plugin/.claude-plugin/plugin.json</li>
+                            <li data-ts="2026-03-31T14:34:01Z" data-tool="Bash" data-success="true" data-event-id="evt-96c2e8aa">git add packages/go-plugin/.claude-plugin/plugin.json &amp;&amp; git commit -m &#34;$(cat &lt;&lt;&#39;EOF&#39;
+chore: bump version to 0.38.0
+
+Co-…</li>
+                            <li data-ts="2026-03-31T14:34:13Z" data-tool="Bash" data-success="true" data-event-id="evt-4112fdbe">git tag v0.38.0 &amp;&amp; git push origin main --tags</li>
+                            <li data-ts="2026-03-31T14:34:27Z" data-tool="Bash" data-success="true" data-event-id="evt-b9f96eef">gh run list --workflow=release-go.yml --limit 3</li>
+                            <li data-ts="2026-03-31T14:34:34Z" data-tool="Bash" data-success="true" data-event-id="evt-5ef3c50e">claude plugin update htmlgraph 2&gt;/dev/null; echo &#34;Plugin update triggered&#34;</li>
+                            <li data-ts="2026-03-31T14:35:42Z" data-tool="Bash" data-success="true" data-event-id="evt-1612319b">htmlgraph version</li>
+                            <li data-ts="2026-03-31T14:35:47Z" data-tool="Bash" data-success="true" data-event-id="evt-0a4e7efb">htmlgraph build</li>
+                            <li data-ts="2026-03-31T14:35:54Z" data-tool="Bash" data-success="true" data-event-id="evt-a9a7aa22">packages/go-plugin/build.sh</li>
+                            <li data-ts="2026-03-31T14:36:01Z" data-tool="Bash" data-success="true" data-event-id="evt-0785124a">which htmlgraph &amp;&amp; ls -la $(which htmlgraph)</li>
+                            <li data-ts="2026-03-31T14:36:04Z" data-tool="Read" data-success="true" data-event-id="evt-83115a25">/Users/shakes/DevProjects/htmlgraph/packages/go-plugin/build.sh</li>
+                            <li data-ts="2026-03-31T14:36:10Z" data-tool="Bash" data-success="true" data-event-id="evt-38fb4be9">rm /Users/shakes/.local/bin/htmlgraph &amp;&amp; packages/go-plugin/build.sh</li>
+                            <li data-ts="2026-03-31T14:36:14Z" data-tool="Bash" data-success="true" data-event-id="evt-72c5f693">htmlgraph version</li>
+                            <li data-ts="2026-03-31T14:40:28Z" data-tool="Grep" data-success="true" data-event-id="evt-0b6eaa17">/Users/shakes/DevProjects/htmlgraph/packages/go/cmd/htmlgraph</li>
+                            <li data-ts="2026-03-31T14:40:30Z" data-tool="Read" data-success="true" data-event-id="evt-de6c16bd">/Users/shakes/DevProjects/htmlgraph/packages/go/cmd/htmlgraph/setup_cli.go</li>
+                            <li data-ts="2026-03-31T14:42:38Z" data-tool="Bash" data-success="true" data-event-id="evt-60acb525">htmlgraph snapshot --summary 2&gt;/dev/null | head -20</li>
+                            <li data-ts="2026-03-31T14:42:39Z" data-tool="Bash" data-success="true" data-event-id="evt-2eb98819">htmlgraph wip 2&gt;/dev/null | head -15</li>
+                            <li data-ts="2026-03-31T14:42:49Z" data-tool="Agent" data-success="true" data-event-id="evt-c110bbd5">Research the current htmlgraph distribution and installation architecture. I need to understand:
+
+1. **Bootstrap script*…</li>
+                            <li data-ts="2026-03-31T14:43:58Z" data-tool="Bash" data-success="true" data-event-id="evt-235a4e7b">htmlgraph track create &#34;CLI-First Distribution Model&#34; --description &#34;Reorient distribution so CLI install is primary ent…</li>
+                            <li data-ts="2026-03-31T14:44:05Z" data-tool="Bash" data-success="true" data-event-id="evt-c38f3f1e">htmlgraph feature create &#34;Homebrew formula for htmlgraph&#34; --track trk-10b078bd --steps &#34;TDD: test formula install/upgrad…</li>
+                            <li data-ts="2026-03-31T14:44:08Z" data-tool="Bash" data-success="true" data-event-id="evt-9924e322">htmlgraph feature create &#34;Standalone install script for Linux/CI&#34; --track trk-10b078bd --steps &#34;TDD: test install script…</li>
+                            <li data-ts="2026-03-31T14:44:12Z" data-tool="Bash" data-success="true" data-event-id="evt-8c5ef86e">htmlgraph feature create &#34;Bootstrap script: prefer PATH binary over download&#34; --track trk-10b078bd --steps &#34;TDD: test bo…</li>
+                            <li data-ts="2026-03-31T14:44:15Z" data-tool="Bash" data-success="true" data-event-id="evt-f709d523">htmlgraph feature create &#34;htmlgraph plugin install command&#34; --track trk-10b078bd --steps &#34;TDD: test plugin install regis…</li>
+                            <li data-ts="2026-03-31T14:44:19Z" data-tool="Bash" data-success="true" data-event-id="evt-147bb619">htmlgraph feature create &#34;README and docs: CLI-first installation flow&#34; --track trk-10b078bd --steps &#34;Rewrite README ins…</li>
+                            <li data-ts="2026-03-31T14:44:22Z" data-tool="Bash" data-success="true" data-event-id="evt-9dabedc0">htmlgraph feature create &#34;go install support via vanity import path&#34; --track trk-10b078bd --steps &#34;Verify go install git…</li>
+                            <li data-ts="2026-03-31T14:44:28Z" data-tool="Bash" data-success="true" data-event-id="evt-05005892"># Docs depend on all install methods being ready
+htmlgraph link add feat-636343eb feat-c041e95c --rel blocked_by 2&gt;/dev/…</li>
+                            <li data-ts="2026-03-31T14:44:31Z" data-tool="Bash" data-success="true" data-event-id="evt-ec5e2047">htmlgraph track show trk-10b078bd</li>
+                            <li data-ts="2026-03-31T15:17:41Z" data-tool="Read" data-success="true" data-event-id="evt-689a369f">/Users/shakes/DevProjects/htmlgraph/packages/go/cmd/htmlgraph/claude.go [:50]</li>
+                            <li data-ts="2026-03-31T15:17:42Z" data-tool="Grep" data-success="true" data-event-id="evt-b4e83a0c">/Users/shakes/DevProjects/htmlgraph/packages/go/cmd/htmlgraph</li>
+                            <li data-ts="2026-03-31T15:17:48Z" data-tool="Bash" data-success="true" data-event-id="evt-cd5f32e5">ls -la /Users/shakes/.local/bin/htmlgraph</li>
+                            <li data-ts="2026-03-31T15:17:56Z" data-tool="Bash" data-success="true" data-event-id="evt-82b29e84">rm /Users/shakes/.local/bin/htmlgraph &amp;&amp; ln -s /Users/shakes/DevProjects/htmlgraph/packages/go-plugin/hooks/bin/htmlgrap…</li>
+                            <li data-ts="2026-03-31T15:18:00Z" data-tool="Bash" data-success="true" data-event-id="evt-174759d7">htmlgraph version</li>
+                            <li data-ts="2026-03-31T15:19:05Z" data-tool="Bash" data-success="true" data-event-id="evt-62ecadeb">htmlgraph feature show feat-ee81dde3</li>
+                            <li data-ts="2026-03-31T15:19:20Z" data-tool="Bash" data-success="true" data-event-id="evt-3ce58030">htmlgraph feature create &#34;resolvePluginDir: decouple from binary filesystem location&#34; --track trk-10b078bd --steps &#34;TDD:…</li>
+                            <li data-ts="2026-03-31T15:19:26Z" data-tool="Bash" data-success="true" data-event-id="evt-88930a11"># Docs depend on this too
+htmlgraph link add feat-636343eb feat-b912190d --rel blocked_by 2&gt;/dev/null
+echo &#34;Linked&#34;</li>
+                            <li data-ts="2026-03-31T15:19:31Z" data-tool="Bash" data-success="true" data-event-id="evt-7324370e">htmlgraph track show trk-10b078bd</li>
+            </ol>
+        </section>
+    </article>
+</body>
+</html>

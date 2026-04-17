@@ -352,7 +352,12 @@
       "Bash(mkdir -p /Users/shakes/DevProjects/shakestzd/private/htmlgraph-blog)",
       "Bash(mv /Users/shakes/DevProjects/htmlgraph/docs/blog/linkedin-posts.md /Users/shakes/DevProjects/shakestzd/private/htmlgraph-blog/linkedin-posts.md)",
       "Read(//usr/local/lib/**)",
-      "Read(//usr/local/bin/**)"
+      "Read(//usr/local/bin/**)",
+      "Bash(kill %b3rklmhte)",
+      "Bash(kill 78070)",
+      "Bash(docker --version)",
+      "Bash(./plugin/build.sh)",
+      "Bash(node:*)"
     ]
   },
   "enabledPlugins": {

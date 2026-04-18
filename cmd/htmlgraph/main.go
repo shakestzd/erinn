@@ -221,6 +221,7 @@ func buildRoot() *cobra.Command {
 	root.AddCommand(serveChildCmd())
 	root.AddCommand(hookCmd())
 	root.AddCommand(claudeCmd())
+	root.AddCommand(geminiCmd())
 	root.AddCommand(orchestratorCmd())
 	root.AddCommand(installHooksCmd())
 	root.AddCommand(reportCmd())

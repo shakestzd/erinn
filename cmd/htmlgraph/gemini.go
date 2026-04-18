@@ -27,7 +27,7 @@ func isGeminiExtensionInstalled() bool {
 // resolveGeminiExtensionRef returns the --ref value to use when installing the
 // extension. When the binary version is known (non-"dev"), it returns
 // "gemini-extension-v<version>". In dev mode it falls back to the latest
-// matching tag on origin, and errors if that also fails.
+// matching tag on origin (using semver sort), and errors if that also fails.
 func resolveGeminiExtensionRef(override string) (string, error) {
 	if override != "" {
 		return override, nil
@@ -36,14 +36,16 @@ func resolveGeminiExtensionRef(override string) (string, error) {
 		return "gemini-extension-v" + version, nil
 	}
 	// Dev binary: ask git for the latest gemini-extension-v* tag on origin.
-	out, err := exec.Command("git", "ls-remote", "--tags", "origin", "gemini-extension-v*").Output()
+	// Use git's own semver sort (--sort=-version:refname) to ensure v0.10.0
+	// sorts after v0.9.0 (lexicographic tail -1 would pick incorrectly).
+	out, err := exec.Command("git", "ls-remote", "--sort=-version:refname", "--tags", "origin", "gemini-extension-v*").Output()
 	if err != nil {
 		return "", fmt.Errorf(
 			"binary built in dev mode and git ls-remote failed: %w\n"+
 				"Either build with a real version (htmlgraph build) or pass --ref <ref>", err)
 	}
 	// Each line: "<sha>\trefs/tags/<tag>"
-	var latest string
+	// git's --sort=-version:refname puts highest semver first, so we take the first.
 	for _, line := range strings.Split(strings.TrimSpace(string(out)), "\n") {
 		parts := strings.Fields(line)
 		if len(parts) < 2 {
@@ -54,30 +56,31 @@ func resolveGeminiExtensionRef(override string) (string, error) {
 		if strings.HasSuffix(tag, "^{}") {
 			continue
 		}
-		latest = tag
+		// First non-deref tag is the highest semver.
+		return tag, nil
 	}
-	if latest == "" {
-		return "", fmt.Errorf(
-			"binary built in dev mode: no gemini-extension-v* tags found on origin\n" +
-				"Pass --ref <ref> to specify the extension version explicitly")
-	}
-	return latest, nil
+	return "", fmt.Errorf(
+		"binary built in dev mode: no gemini-extension-v* tags found on origin\n" +
+			"Pass --ref <ref> to specify the extension version explicitly")
 }
 
 // runGeminiInit installs the htmlgraph Gemini extension, idempotently.
 // Corresponds to: htmlgraph gemini --init [--ref <ref>] [--force] [--dry-run]
 func runGeminiInit(ref string, force, dryRun bool) error {
-	resolvedRef, err := resolveGeminiExtensionRef(ref)
-	if err != nil {
-		return err
-	}
-
 	installDir := geminiExtensionInstallDir()
+
+	// Check idempotency BEFORE resolving ref. For dev builds (version == "dev"),
+	// skipping ref resolution avoids a network call when already installed.
 	if isGeminiExtensionInstalled() && !force {
 		fmt.Printf("HtmlGraph Gemini extension is already installed at %s\n", installDir)
 		fmt.Println("To reinstall: htmlgraph gemini --init --force")
 		fmt.Println("To launch:    htmlgraph gemini")
 		return nil
+	}
+
+	resolvedRef, err := resolveGeminiExtensionRef(ref)
+	if err != nil {
+		return err
 	}
 
 	installArgs := []string{
@@ -128,10 +131,13 @@ type geminiLaunchOpts struct {
 	// ProjectRoot is the absolute path to the project root.
 	// When set, gemini is started in this directory and HTMLGRAPH_PROJECT_DIR is injected.
 	ProjectRoot string
+	// DryRun, when true, prints the command that would be executed without running it.
+	DryRun bool
 }
 
 // execGemini builds the gemini argv and runs it, replacing the current process
-// (or returning an error if exec fails).
+// (or returning an error if exec fails). If opts.DryRun is true, prints the
+// intended command and returns without executing.
 func execGemini(opts geminiLaunchOpts) error {
 	geminiPath, err := exec.LookPath("gemini")
 	if err != nil {
@@ -153,6 +159,14 @@ func execGemini(opts geminiLaunchOpts) error {
 	}
 
 	geminiArgs = append(geminiArgs, opts.ExtraArgs...)
+
+	if opts.DryRun {
+		fmt.Printf("[dry-run] gemini %s\n", strings.Join(geminiArgs, " "))
+		if opts.ProjectRoot != "" {
+			fmt.Printf("[dry-run] in directory: %s\n", opts.ProjectRoot)
+		}
+		return nil
+	}
 
 	c := exec.Command(geminiPath, geminiArgs...)
 	c.Stdin = os.Stdin
@@ -180,36 +194,39 @@ func execGemini(opts geminiLaunchOpts) error {
 
 // launchGeminiDefault launches Gemini interactively with HtmlGraph env injection.
 // Corresponds to: htmlgraph gemini
-func launchGeminiDefault(extraArgs []string) error {
+func launchGeminiDefault(extraArgs []string, dryRun bool) error {
 	projectRoot, _ := resolveProjectRoot()
 	fmt.Println("Launching Gemini CLI with HtmlGraph context...")
 	return execGemini(geminiLaunchOpts{
 		ExtraArgs:   extraArgs,
 		ProjectRoot: projectRoot,
+		DryRun:      dryRun,
 	})
 }
 
 // launchGeminiContinue resumes the latest Gemini session.
 // Corresponds to: htmlgraph gemini --continue
-func launchGeminiContinue(extraArgs []string) error {
+func launchGeminiContinue(extraArgs []string, dryRun bool) error {
 	projectRoot, _ := resolveProjectRoot()
 	fmt.Println("Resuming latest Gemini session...")
 	return execGemini(geminiLaunchOpts{
 		ResumeLast:  true,
 		ExtraArgs:   extraArgs,
 		ProjectRoot: projectRoot,
+		DryRun:      dryRun,
 	})
 }
 
 // launchGeminiResume resumes a specific Gemini session by index.
 // Corresponds to: htmlgraph gemini --resume <N>
-func launchGeminiResume(index string, extraArgs []string) error {
+func launchGeminiResume(index string, extraArgs []string, dryRun bool) error {
 	projectRoot, _ := resolveProjectRoot()
 	fmt.Printf("Resuming Gemini session %s...\n", index)
 	return execGemini(geminiLaunchOpts{
 		ResumeIndex: index,
 		ExtraArgs:   extraArgs,
 		ProjectRoot: projectRoot,
+		DryRun:      dryRun,
 	})
 }
 
@@ -317,15 +334,15 @@ Installation:
 			case init_:
 				return runGeminiInit(ref, force, dryRun)
 			case listSessions:
-				return execGemini(geminiLaunchOpts{ListSessions: true})
+				return execGemini(geminiLaunchOpts{ListSessions: true, DryRun: dryRun})
 			case dev:
 				return launchGeminiDev(isolate, dryRun, args)
 			case continue_:
-				return launchGeminiContinue(args)
+				return launchGeminiContinue(args, dryRun)
 			case resumeIndex != "":
-				return launchGeminiResume(resumeIndex, args)
+				return launchGeminiResume(resumeIndex, args, dryRun)
 			default:
-				return launchGeminiDefault(args)
+				return launchGeminiDefault(args, dryRun)
 			}
 		},
 	}

@@ -25,6 +25,26 @@ codex exec "<prompt>" --full-auto --json -m gpt-4.1-mini -C . 2>&1
 - `-C <dir>` — working directory
 - `--dangerously-bypass-approvals-and-sandbox` — skip all sandboxing (use in already-sandboxed envs)
 
+**Session resume (researched 2026-04-18):**
+- `codex resume [SESSION_ID] [PROMPT]` — resumes by UUID or thread name; shows picker if ID omitted
+- `codex resume --last` — continues the most recent session without picker (equivalent to Claude Code's `--continue`)
+- No `--continue` flag on the root command; the dedicated `codex resume` subcommand handles all resume cases
+- Session ID is NOT emitted to the terminal on exit; get it from `~/.codex/session_index.jsonl` (each line: `{"id":"<uuid>","thread_name":"<name>","updated_at":"<iso8601>"}`)
+- Session state: JSONL files at `~/.codex/sessions/YYYY/MM/DD/rollout-<datetime>-<uuid>.jsonl`; first line is `session_meta` with the ID
+- `codex fork [SESSION_ID]` — forks a prior session (new branch from same state); `--last` variant available
+- `htmlgraph codex --resume <id>` feasibility: feasible — pass through as `codex resume <id>`; `--continue` maps to `codex resume --last`
+
+**Marketplace add (researched 2026-04-18):**
+- `codex marketplace add <SOURCE>` — SOURCE accepts: `owner/repo[@ref]`, HTTP(S) Git URL, SSH URL, or local dir
+- `--sparse <PATH>` flag (repeatable) — sparse-checkout path when cloning; this IS the monorepo subpath mechanism
+- `--ref <REF>` — override git ref (alternative to `@ref` suffix in SOURCE)
+- Codex looks for `.agents/plugins/marketplace.json` at the (sparse-checked-out) root
+- marketplace.json schema: `{name, interface:{displayName}, plugins:[{name, source:{source:"local", path:"./relative"}, policy, category}]}`
+- `openai/plugins` uses `--sparse` implicitly: its marketplace.json lives at `.agents/plugins/marketplace.json`, plugins at `plugins/<name>/`
+- For htmlgraph monorepo: `codex marketplace add shakestzd/htmlgraph --sparse packages/codex-marketplace` where `packages/codex-marketplace/` contains `.agents/plugins/marketplace.json` with plugin source paths relative to that root
+- No tarball URL support documented; no evidence Codex accepts tarballs
+- Issue #18115: repo-scoped marketplace config (`.codex/config.toml` declaring remote marketplaces) — open enhancement, not yet implemented
+
 **JSON output format:** NDJSON stream with `type` field:
 - `thread.started`, `turn.started`, `item.completed` (agent_message or command_execution), `turn.completed`
 - `turn.completed` includes token usage stats

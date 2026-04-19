@@ -249,6 +249,21 @@ func emitGeminiResponse(w io.Writer, result *HookResult) error {
 	return json.NewEncoder(w).Encode(resp)
 }
 
+// AllowForHarness returns a harness-appropriate "allow" response that can be
+// written to stdout via WriteResultForHarness. For Claude, this is an empty
+// HookResult{}. For Codex/Gemini, this is a HookResult{Continue: true} which
+// will be emitted as their respective wire formats ({"continue": true}).
+func AllowForHarness(harness Harness) *HookResult {
+	switch harness {
+	case HarnessCodex, HarnessGemini:
+		// Codex/Gemini expect {"continue": true} on allow
+		return &HookResult{Continue: true}
+	default:
+		// Claude expects {} (empty object) on allow
+		return &HookResult{}
+	}
+}
+
 // WriteResultForHarness encodes result as JSON to stdout using the wire format
 // appropriate for the detected harness. This replaces the harness-agnostic
 // WriteResult call in runHookNamed.

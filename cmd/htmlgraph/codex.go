@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
@@ -282,6 +283,55 @@ func launchCodexContinue(resumeID string, extraArgs []string) error {
 	})
 }
 
+// devBackupPath returns the path where we store the prior marketplace registration
+// before replacing it with the dev path. Only used with --dev --cleanup.
+func devBackupPath() string {
+	home, _ := os.UserHomeDir()
+	return filepath.Join(home, ".codex", ".htmlgraph-dev-backup.json")
+}
+
+// saveDevBackup records the prior marketplace registration (if any) to a backup file.
+// Used before replacing the registration with the local dev path.
+func saveDevBackup(priorPath string) error {
+	if priorPath == "" {
+		return nil // no prior registration; nothing to backup
+	}
+	backupPath := devBackupPath()
+	backupDir := filepath.Dir(backupPath)
+	if err := os.MkdirAll(backupDir, 0755); err != nil {
+		return fmt.Errorf("creating backup directory: %w", err)
+	}
+	data, err := json.Marshal(map[string]string{"path": priorPath})
+	if err != nil {
+		return fmt.Errorf("marshaling backup: %w", err)
+	}
+	if err := os.WriteFile(backupPath, data, 0644); err != nil {
+		return fmt.Errorf("writing backup file: %w", err)
+	}
+	return nil
+}
+
+// restoreDevBackup reads the backup file and returns the prior marketplace path,
+// or empty string if no backup exists. Removes the backup file after reading.
+func restoreDevBackup() (string, error) {
+	backupPath := devBackupPath()
+	data, err := os.ReadFile(backupPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return "", nil // no backup
+		}
+		return "", fmt.Errorf("reading backup file: %w", err)
+	}
+	var backup map[string]string
+	if err := json.Unmarshal(data, &backup); err != nil {
+		return "", fmt.Errorf("parsing backup file: %w", err)
+	}
+	priorPath := backup["path"]
+	// Remove the backup file after restoring
+	_ = os.Remove(backupPath)
+	return priorPath, nil
+}
+
 // launchCodexDev registers the local packages/codex-marketplace/ and launches Codex.
 // Corresponds to: htmlgraph codex --dev [--cleanup]
 // If a mismatched marketplace is already registered (e.g., from a prior --init),
@@ -305,12 +355,17 @@ func launchCodexDev(resumeID string, cleanup, dryRun bool, extraArgs []string) e
 	registeredAbs, _ := filepath.Abs(registeredPath)
 
 	if registeredAbs != "" && registeredAbs != localAbs {
-		// Mismatched registration: remove the old one
+		// Mismatched registration: back up the prior registration before replacing
 		fmt.Printf("Replacing mismatched marketplace registration (%s)\n", registeredPath)
-		removeArgs := []string{"marketplace", "remove", registeredPath}
 		if dryRun {
-			fmt.Printf("[dry-run] codex %s\n", strings.Join(removeArgs, " "))
+			fmt.Printf("[dry-run] would back up and remove HtmlGraph registrations\n")
 		} else {
+			// Save the prior registration before we delete it
+			if err := saveDevBackup(registeredPath); err != nil {
+				fmt.Fprintf(os.Stderr, "warning: could not back up prior marketplace registration: %v\n", err)
+			}
+			// Now remove the old marketplace
+			removeArgs := []string{"marketplace", "remove", registeredPath}
 			if out, err := exec.Command("codex", removeArgs...).CombinedOutput(); err != nil {
 				return fmt.Errorf("removing mismatched marketplace failed: %w\n%s", err, strings.TrimSpace(string(out)))
 			}
@@ -346,13 +401,30 @@ func launchCodexDev(resumeID string, cleanup, dryRun bool, extraArgs []string) e
 		ProjectRoot: projectRoot,
 	})
 
-	// --cleanup: unregister the local marketplace after session ends.
+	// --cleanup: unregister the local marketplace after session ends, and restore prior if backed up.
 	if cleanup && !dryRun {
 		fmt.Println("Cleaning up local marketplace registration...")
+		// Check if we have a backup from --dev setup
+		priorPath, restoreErr := restoreDevBackup()
+		if restoreErr != nil {
+			fmt.Fprintf(os.Stderr, "warning: could not check for prior marketplace backup: %v\n", restoreErr)
+		}
+
+		// Remove the dev marketplace
 		removeArgs := []string{"marketplace", "remove", localMarketplace}
 		if out, rmErr := exec.Command("codex", removeArgs...).CombinedOutput(); rmErr != nil {
 			fmt.Fprintf(os.Stderr, "warning: marketplace remove failed: %v (%s)\n",
 				rmErr, strings.TrimSpace(string(out)))
+		}
+
+		// Restore the prior marketplace if we had a backup
+		if priorPath != "" {
+			fmt.Printf("Restoring prior marketplace registration (%s)\n", priorPath)
+			restoreArgs := []string{"marketplace", "add", priorPath}
+			if out, restoreErr := exec.Command("codex", restoreArgs...).CombinedOutput(); restoreErr != nil {
+				fmt.Fprintf(os.Stderr, "warning: could not restore prior marketplace: %v (%s)\n",
+					restoreErr, strings.TrimSpace(string(out)))
+			}
 		}
 	}
 

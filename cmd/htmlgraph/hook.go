@@ -174,7 +174,8 @@ func runHookNamed(subcommand string, handler func(*hooks.CloudEvent) (*hooks.Hoo
 	rawPayload, err := hooks.ReadRawStdin()
 	if err != nil {
 		hooks.LogError("runHook", "", fmt.Sprintf("read stdin: %v", err))
-		return hooks.Allow()
+		// Detect harness fails gracefully to Claude when payload is unreadable.
+		return hooks.WriteResultForHarness(hooks.HarnessClaude, hooks.AllowForHarness(hooks.HarnessClaude))
 	}
 
 	// Detect the harness from the raw payload shape.
@@ -184,7 +185,7 @@ func runHookNamed(subcommand string, handler func(*hooks.CloudEvent) (*hooks.Hoo
 	event, err := hooks.ParseEventForHarness(harness, rawPayload)
 	if err != nil {
 		hooks.LogError("runHook", "", fmt.Sprintf("parse event (%s): %v", harness, err))
-		return hooks.Allow()
+		return hooks.WriteResultForHarness(harness, hooks.AllowForHarness(harness))
 	}
 
 	hooks.TraceInvocation(subcommand, rawPayload, event)
@@ -197,11 +198,11 @@ func runHookNamed(subcommand string, handler func(*hooks.CloudEvent) (*hooks.Hoo
 			os.Exit(2)
 		}
 		hooks.LogError("runHook", event.SessionID, fmt.Sprintf("handler error: %v", err))
-		return hooks.Allow()
+		return hooks.WriteResultForHarness(harness, hooks.AllowForHarness(harness))
 	}
 	if result == nil {
 		hooks.LogError("runHook", event.SessionID, "handler returned nil result")
-		return hooks.Allow()
+		return hooks.WriteResultForHarness(harness, hooks.AllowForHarness(harness))
 	}
 
 	projectDir := hooks.ResolveProjectDir(event.CWD, event.SessionID)

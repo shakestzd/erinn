@@ -87,6 +87,8 @@ func UserPrompt(event *CloudEvent, database *sql.DB) (*HookResult, error) {
 // ensureSessionExists creates a minimal session row if one doesn't exist.
 // This backfills sessions that started before the plugin was loaded or when
 // the SessionStart hook failed. The INSERT OR IGNORE is idempotent.
+// agent_assigned is set from the incoming event so that Codex/Gemini sessions
+// are correctly attributed (not hardcoded to 'claude-code').
 func ensureSessionExists(database *sql.DB, sessionID string, event *CloudEvent) {
 	if sessionID == "" || database == nil {
 		return
@@ -97,10 +99,11 @@ func ensureSessionExists(database *sql.DB, sessionID string, event *CloudEvent) 
 		return
 	}
 	now := time.Now().UTC().Format(time.RFC3339)
+	agentID := resolveEventAgentID(event)
 	_, _ = database.Exec(`
 		INSERT OR IGNORE INTO sessions (session_id, agent_assigned, status, created_at, project_dir)
-		VALUES (?, 'claude-code', 'active', ?, ?)`,
-		sessionID, now, ResolveProjectDir(event.CWD, event.SessionID))
+		VALUES (?, ?, 'active', ?, ?)`,
+		sessionID, agentID, now, ResolveProjectDir(event.CWD, event.SessionID))
 }
 
 // updateLastQuery refreshes last_user_query_at and last_user_query on the session.

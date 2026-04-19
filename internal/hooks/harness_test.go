@@ -453,3 +453,84 @@ func TestHarnessStringMethod(t *testing.T) {
 		}
 	}
 }
+
+// --- AllowForHarness tests ---
+
+// TestAllowForHarnessEmitsClaudeEmpty verifies that AllowForHarness(HarnessClaude)
+// returns an empty HookResult that emits as {} when written via emitClaudeResponse.
+func TestAllowForHarnessEmitsClaudeEmpty(t *testing.T) {
+	result := AllowForHarness(HarnessClaude)
+
+	// Result should be an empty HookResult.
+	if result.Continue != false || result.Decision != "" {
+		t.Errorf("AllowForHarness(HarnessClaude) = %+v, want empty HookResult", result)
+	}
+
+	// When emitted via Claude's emitter, it should produce {}.
+	var buf bytes.Buffer
+	if err := emitClaudeResponse(&buf, result); err != nil {
+		t.Fatalf("emitClaudeResponse: %v", err)
+	}
+
+	var got map[string]any
+	if err := json.Unmarshal(buf.Bytes(), &got); err != nil {
+		t.Fatalf("json unmarshal: %v", err)
+	}
+
+	// Empty object: should have no keys or only omitted optional fields.
+	if len(got) > 0 {
+		t.Errorf("Claude allow response = %+v, want empty object", got)
+	}
+}
+
+// TestAllowForHarnessEmitsCodexContinue verifies that AllowForHarness(HarnessCodex)
+// returns a HookResult{Continue: true} that emits as {"continue": true}.
+func TestAllowForHarnessEmitsCodexContinue(t *testing.T) {
+	result := AllowForHarness(HarnessCodex)
+
+	// Result should have Continue: true.
+	if !result.Continue {
+		t.Errorf("AllowForHarness(HarnessCodex).Continue = %v, want true", result.Continue)
+	}
+
+	// When emitted via Codex's emitter, it should produce {"continue": true}.
+	var buf bytes.Buffer
+	if err := emitCodexResponse(&buf, result); err != nil {
+		t.Fatalf("emitCodexResponse: %v", err)
+	}
+
+	var got map[string]any
+	if err := json.Unmarshal(buf.Bytes(), &got); err != nil {
+		t.Fatalf("json unmarshal: %v", err)
+	}
+
+	if got["continue"] != true {
+		t.Errorf("Codex allow response continue = %v, want true", got["continue"])
+	}
+}
+
+// TestAllowForHarnessEmitsGeminiContinue verifies that AllowForHarness(HarnessGemini)
+// returns a HookResult{Continue: true} that emits as {"continue": true}.
+func TestAllowForHarnessEmitsGeminiContinue(t *testing.T) {
+	result := AllowForHarness(HarnessGemini)
+
+	// Result should have Continue: true.
+	if !result.Continue {
+		t.Errorf("AllowForHarness(HarnessGemini).Continue = %v, want true", result.Continue)
+	}
+
+	// When emitted via Gemini's emitter, it should produce {"continue": true}.
+	var buf bytes.Buffer
+	if err := emitGeminiResponse(&buf, result); err != nil {
+		t.Fatalf("emitGeminiResponse: %v", err)
+	}
+
+	var got map[string]any
+	if err := json.Unmarshal(buf.Bytes(), &got); err != nil {
+		t.Fatalf("json unmarshal: %v", err)
+	}
+
+	if got["continue"] != true {
+		t.Errorf("Gemini allow response continue = %v, want true", got["continue"])
+	}
+}

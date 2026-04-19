@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
@@ -108,9 +109,9 @@ func getCodexMarketplacePathAt(configPath string) string {
 	return ""
 }
 
-// removeCodexHtmlgraphRegistrations removes any HtmlGraph marketplace or plugin
-// registrations from the given config.toml file. It is idempotent — if the file
-// does not exist or contains no htmlgraph entries, it is a no-op.
+// removeCodexHtmlgraphRegistrations removes only the specific HtmlGraph marketplace
+// and plugin entries that --dev creates, from the given config.toml file.
+// It is idempotent — if the file does not exist or contains no htmlgraph entries, it is a no-op.
 // Returns (removed bool, error). removed=true indicates at least one entry was deleted.
 func removeCodexHtmlgraphRegistrations(configPath string) (bool, error) {
 	// Read existing config, if any
@@ -132,13 +133,11 @@ func removeCodexHtmlgraphRegistrations(configPath string) (bool, error) {
 
 	removed := false
 
-	// Remove from [plugins] — any "htmlgraph@..." entry
+	// Remove from [plugins] — only the exact "htmlgraph@htmlgraph" entry
 	if plugins, ok := tree["plugins"].(map[string]interface{}); ok {
-		for key := range plugins {
-			if strings.HasPrefix(key, "htmlgraph@") || key == "htmlgraph" {
-				delete(plugins, key)
-				removed = true
-			}
+		if _, exists := plugins["htmlgraph@htmlgraph"]; exists {
+			delete(plugins, "htmlgraph@htmlgraph")
+			removed = true
 		}
 		// If [plugins] is now empty, remove the whole section
 		if len(plugins) == 0 {
@@ -146,7 +145,7 @@ func removeCodexHtmlgraphRegistrations(configPath string) (bool, error) {
 		}
 	}
 
-	// Remove from [marketplaces] — the "htmlgraph" entry
+	// Remove from [marketplaces] — only the specific "htmlgraph" entry
 	if mkts, ok := tree["marketplaces"].(map[string]interface{}); ok {
 		if _, exists := mkts["htmlgraph"]; exists {
 			delete(mkts, "htmlgraph")
@@ -350,10 +349,72 @@ func launchCodexContinue(resumeID string, extraArgs []string) error {
 	})
 }
 
+// devBackupPath returns the path where we store the prior marketplace registration
+// before replacing it with the dev path. Only used with --dev --cleanup.
+func devBackupPath() string {
+	home, _ := os.UserHomeDir()
+	return filepath.Join(home, ".codex", ".htmlgraph-dev-backup.json")
+}
+
+// saveDevBackup records the prior marketplace registration (if any) to a backup file.
+// Used before replacing the registration with the local dev path.
+func saveDevBackup(priorPath string) error {
+	if priorPath == "" {
+		return nil // no prior registration; nothing to backup
+	}
+	backupPath := devBackupPath()
+	backupDir := filepath.Dir(backupPath)
+	if err := os.MkdirAll(backupDir, 0755); err != nil {
+		return fmt.Errorf("creating backup directory: %w", err)
+	}
+	data, err := json.Marshal(map[string]string{"path": priorPath})
+	if err != nil {
+		return fmt.Errorf("marshaling backup: %w", err)
+	}
+	if err := os.WriteFile(backupPath, data, 0644); err != nil {
+		return fmt.Errorf("writing backup file: %w", err)
+	}
+	return nil
+}
+
+// restoreDevBackup reads the backup file and returns the prior marketplace path,
+// or empty string if no backup exists. Removes the backup file after reading.
+func restoreDevBackup() (string, error) {
+	backupPath := devBackupPath()
+	data, err := os.ReadFile(backupPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return "", nil // no backup
+		}
+		return "", fmt.Errorf("reading backup file: %w", err)
+	}
+	var backup map[string]string
+	if err := json.Unmarshal(data, &backup); err != nil {
+		return "", fmt.Errorf("parsing backup file: %w", err)
+	}
+	priorPath := backup["path"]
+	// Remove the backup file after restoring
+	_ = os.Remove(backupPath)
+	return priorPath, nil
+}
+
+// restoreCodexHtmlgraphRegistration re-adds the htmlgraph marketplace registration
+// with the given path. Used when restoring a prior install after --cleanup.
+func restoreCodexHtmlgraphRegistration(path string) error {
+	if path == "" {
+		return nil // nothing to restore
+	}
+	addArgs := []string{"marketplace", "add", path}
+	if out, err := exec.Command("codex", addArgs...).CombinedOutput(); err != nil {
+		return fmt.Errorf("restoring marketplace registration: %w\n%s", err, strings.TrimSpace(string(out)))
+	}
+	return nil
+}
+
 // launchCodexDev registers the local packages/codex-marketplace/ and launches Codex.
 // Corresponds to: htmlgraph codex --dev [--cleanup]
 // If a mismatched marketplace is already registered (e.g., from a prior --init),
-// it is removed and replaced with the local path.
+// it is backed up, removed, and replaced with the local path.
 func launchCodexDev(resumeID string, cleanup, dryRun bool, extraArgs []string) error {
 	// Resolve the local marketplace path relative to the project root.
 	localMarketplace, err := resolveLocalCodexMarketplace()

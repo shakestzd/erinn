@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
@@ -132,13 +133,11 @@ func removeCodexHtmlgraphRegistrations(configPath string) (bool, error) {
 
 	removed := false
 
-	// Remove from [plugins] — any "htmlgraph@..." entry
+	// Remove from [plugins] — only the specific "htmlgraph@htmlgraph" entry
 	if plugins, ok := tree["plugins"].(map[string]interface{}); ok {
-		for key := range plugins {
-			if strings.HasPrefix(key, "htmlgraph@") || key == "htmlgraph" {
-				delete(plugins, key)
-				removed = true
-			}
+		if _, exists := plugins["htmlgraph@htmlgraph"]; exists {
+			delete(plugins, "htmlgraph@htmlgraph")
+			removed = true
 		}
 		// If [plugins] is now empty, remove the whole section
 		if len(plugins) == 0 {
@@ -350,6 +349,55 @@ func launchCodexContinue(resumeID string, extraArgs []string) error {
 	})
 }
 
+// devBackupPath returns the path where we store the prior marketplace registration
+// before replacing it with the dev path. Only used with --dev --cleanup.
+func devBackupPath() string {
+	home, _ := os.UserHomeDir()
+	return filepath.Join(home, ".codex", ".htmlgraph-dev-backup.json")
+}
+
+// saveDevBackup records the prior marketplace registration (if any) to a backup file.
+// Used before replacing the registration with the local dev path.
+func saveDevBackup(priorPath string) error {
+	if priorPath == "" {
+		return nil // no prior registration; nothing to backup
+	}
+	backupPath := devBackupPath()
+	backupDir := filepath.Dir(backupPath)
+	if err := os.MkdirAll(backupDir, 0755); err != nil {
+		return fmt.Errorf("creating backup directory: %w", err)
+	}
+	data, err := json.Marshal(map[string]string{"path": priorPath})
+	if err != nil {
+		return fmt.Errorf("marshaling backup: %w", err)
+	}
+	if err := os.WriteFile(backupPath, data, 0644); err != nil {
+		return fmt.Errorf("writing backup file: %w", err)
+	}
+	return nil
+}
+
+// restoreDevBackup reads the backup file and returns the prior marketplace path,
+// or empty string if no backup exists. Removes the backup file after reading.
+func restoreDevBackup() (string, error) {
+	backupPath := devBackupPath()
+	data, err := os.ReadFile(backupPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return "", nil // no backup
+		}
+		return "", fmt.Errorf("reading backup file: %w", err)
+	}
+	var backup map[string]string
+	if err := json.Unmarshal(data, &backup); err != nil {
+		return "", fmt.Errorf("parsing backup file: %w", err)
+	}
+	priorPath := backup["path"]
+	// Remove the backup file after restoring
+	_ = os.Remove(backupPath)
+	return priorPath, nil
+}
+
 // launchCodexDev registers the local packages/codex-marketplace/ and launches Codex.
 // Corresponds to: htmlgraph codex --dev [--cleanup]
 // If a mismatched marketplace is already registered (e.g., from a prior --init),
@@ -373,15 +421,20 @@ func launchCodexDev(resumeID string, cleanup, dryRun bool, extraArgs []string) e
 	registeredAbs, _ := filepath.Abs(registeredPath)
 
 	if registeredAbs != "" && registeredAbs != localAbs {
-		// Mismatched registration: remove the old one via direct TOML editing
+		// Mismatched registration: back up the prior registration before replacing
 		oldPathDisplay := registeredPath
 		if oldPathDisplay == "" {
 			oldPathDisplay = "(unknown previous path)"
 		}
 		fmt.Printf("Replacing mismatched marketplace registration (%s)\n", oldPathDisplay)
 		if dryRun {
-			fmt.Printf("[dry-run] would remove HtmlGraph registrations from %s\n", configPath)
+			fmt.Printf("[dry-run] would back up and remove HtmlGraph registrations from %s\n", configPath)
 		} else {
+			// Save the prior registration before we delete it
+			if err := saveDevBackup(registeredPath); err != nil {
+				fmt.Fprintf(os.Stderr, "warning: could not back up prior marketplace registration: %v\n", err)
+			}
+			// Now remove the old registration
 			removed, rmErr := removeCodexHtmlgraphRegistrations(configPath)
 			if rmErr != nil {
 				return fmt.Errorf("removing mismatched marketplace from %s: %w", configPath, rmErr)

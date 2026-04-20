@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="htmlgraph-version" content="1.0">
+    <title>Slash commands /htmlgraph:* do not autocomplete in Codex interactive TUI</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="bug-06e6eca3"
+             data-type="bug"
+             data-status="in-progress"
+             data-priority="high"
+             data-created="2026-04-19T17:02:57.327166"
+             data-updated="2026-04-19T17:02:57.330605" data-agent-assigned="claude-code" data-track-id="trk-a7ee6791">
+
+        <header>
+            <h1>Slash commands /htmlgraph:* do not autocomplete in Codex interactive TUI</h1>
+            <div class="metadata">
+                <span class="badge status-in-progress">In Progress</span>
+                <span class="badge priority-high">High Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="caused_by">
+                <h3>Caused By:</h3>
+                <ul>
+                    <li><a href="bug-e5da99dd.html" data-relationship="caused_by" data-since="2026-04-19T17:02:57.329411">bug-e5da99dd</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="trk-a7ee6791.html" data-relationship="part_of" data-since="2026-04-19T17:02:57.330157">trk-a7ee6791</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>User types /htmlgraph: in Codex's interactive chat (after launching via 'htmlgraph codex --dev'). No autocomplete appears. Previously we verified that 'codex exec /htmlgraph:help' works programmatically — the command files ARE shipped — but interactive slash command discovery inside the TUI fails.
+
+Marketplace registered correctly (codex marketplace add succeeded). Plugin is installed. Commands exist in the codex-marketplace tree at .agents/plugins/htmlgraph/commands/ as markdown files. But Codex's TUI doesn't discover them for autocomplete.
+
+Hypotheses:
+1. Codex expects slash commands in a different path within the plugin tree (e.g., .codex-plugin/commands/ instead of commands/).
+2. Codex expects a different file format (JSON manifest, TOML, or specific markdown frontmatter) for plugin-scoped slash commands.
+3. The plugin is registered as a marketplace entry but must also be explicitly 'installed' via Codex TUI (marketplace add ≠ plugin install).
+4. codex_hooks feature flag is on but a separate slash_commands-equivalent flag is needed.
+5. Autocomplete discovery only fires for plugins marked as 'active' in the marketplace manifest.
+
+Repro:
+1. htmlgraph codex --dev
+2. Inside Codex, type /htmlgraph:
+3. Observed: no autocomplete
+4. Expected: list of deploy, end, error-analysis, feature-add, feature-complete, feature-primary, feature-start, git-commit, help, init, plan-list, plan-review, recommend, report-issue, research
+
+Investigation: inspect developers.openai.com/codex/plugins docs for slash command authoring, compare our command tree to openai/plugins reference repo's github plugin structure (especially if they expose slash commands).</p>
+        </section>
+    </article>
+</body>
+</html>

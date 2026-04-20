@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="htmlgraph-version" content="1.0">
+    <title>End users can&#39;t auto-discover htmlgraph marketplace without codex marketplace add</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="bug-fc60b4a0"
+             data-type="bug"
+             data-status="todo"
+             data-priority="medium"
+             data-created="2026-04-19T21:01:03.224319"
+             data-updated="2026-04-19T21:01:03.226576" data-agent-assigned="claude-code" data-track-id="trk-a7ee6791">
+
+        <header>
+            <h1>End users can&#39;t auto-discover htmlgraph marketplace without codex marketplace add</h1>
+            <div class="metadata">
+                <span class="badge status-todo">Todo</span>
+                <span class="badge priority-medium">Medium Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="caused_by">
+                <h3>Caused By:</h3>
+                <ul>
+                    <li><a href="bug-b5b3c3ef.html" data-relationship="caused_by" data-since="2026-04-19T21:01:03.225596">bug-b5b3c3ef</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="trk-a7ee6791.html" data-relationship="part_of" data-since="2026-04-19T21:01:03.226483">trk-a7ee6791</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>Per CodexPlugins.md (lines 266-270): Codex auto-reads marketplaces from:
+- repo marketplace at $REPO_ROOT/.agents/plugins/marketplace.json
+- personal marketplace at ~/.agents/plugins/marketplace.json
+
+Currently users must explicitly run 'codex marketplace add ' to register our marketplace. That's friction:
+1. For repo contributors: no $REPO_ROOT/.agents/plugins/marketplace.json exists (ours is nested under packages/codex-marketplace/.agents/plugins/).
+2. For end users of the htmlgraph CLI: 'htmlgraph codex --init' runs the add for them, but it's registered as a local-source marketplace rooted at ~/shakes's specific dev path — not portable across machines.
+
+Two improvements:
+
+A. Add an auto-discoverable repo marketplace at the htmlgraph REPO ROOT:
+    .agents/plugins/marketplace.json
+   Pointing at the plugin tree under packages/codex-marketplace/plugins/htmlgraph/ (after bug-b5b3c3ef restructures the tree).
+   Any developer who clones the htmlgraph repo and runs codex from within it will auto-discover htmlgraph plugin without any setup commands.
+
+B. For end users without the repo: 'htmlgraph codex --init' should install the plugin tree to the user's personal marketplace location:
+    Copy plugin to ~/.codex/plugins/htmlgraph-local/
+    Add entry to ~/.agents/plugins/marketplace.json with source.path './.codex/plugins/htmlgraph-local' (relative to /Users/shakes).
+   This makes codex auto-discover without requiring 'codex marketplace add'. User can uninstall by removing those two files.
+
+Depends on bug-b5b3c3ef (restructure Codex plugin tree) landing first so A and B have a clean layout to point at.</p>
+        </section>
+    </article>
+</body>
+</html>

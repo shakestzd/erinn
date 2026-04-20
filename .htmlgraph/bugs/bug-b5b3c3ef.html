@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="htmlgraph-version" content="1.0">
+    <title>Codex plugin tree wrongly nested under .agents/plugins/ — source.path resolves to non-existent directory</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="bug-b5b3c3ef"
+             data-type="bug"
+             data-status="in-progress"
+             data-priority="high"
+             data-created="2026-04-19T21:00:49.022827"
+             data-updated="2026-04-19T21:00:49.025873" data-agent-assigned="claude-code" data-track-id="trk-a7ee6791">
+
+        <header>
+            <h1>Codex plugin tree wrongly nested under .agents/plugins/ — source.path resolves to non-existent directory</h1>
+            <div class="metadata">
+                <span class="badge status-in-progress">In Progress</span>
+                <span class="badge priority-high">High Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="trk-a7ee6791.html" data-relationship="part_of" data-since="2026-04-19T21:00:49.025152">trk-a7ee6791</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>Per CodexPlugins.md (lines 186-188): 'Codex resolves source.path relative to the marketplace root, not relative to the .agents/plugins/ folder.'
+
+Our generator produces:
+
+    packages/codex-marketplace/
+    ├── .agents/plugins/
+    │   ├── marketplace.json  ← source.path: "./htmlgraph"
+    │   └── htmlgraph/        ← plugin actually lives here
+    │       ├── .codex-plugin/plugin.json
+    │       ├── skills/
+    │       ...
+
+source.path './htmlgraph' resolves relative to marketplace root (packages/codex-marketplace/) to packages/codex-marketplace/htmlgraph/ — which DOES NOT EXIST. The plugin lives at packages/codex-marketplace/.agents/plugins/htmlgraph/. 'codex marketplace add' succeeds at parsing marketplace.json but silently fails at the plugin install step because source.path points nowhere. Confirmed by absence of ~/.codex/plugins/cache/htmlgraph/ despite successful 'marketplace add' output.
+
+Fix (Option A, matches openai-curated style): restructure the emitted Codex tree so plugin content lives at marketplace_root/plugins// and source.path reflects it:
+
+    packages/codex-marketplace/
+    ├── .agents/plugins/
+    │   └── marketplace.json        ← source.path: "./plugins/htmlgraph"
+    └── plugins/
+        └── htmlgraph/
+            ├── .codex-plugin/plugin.json
+            ├── skills/
+            ├── .mcp.json
+            └── README.md
+
+Changes needed:
+- internal/pluginbuild/codex.go — emit to packages/codex-marketplace/plugins/htmlgraph/ (not .agents/plugins/htmlgraph/)
+- Update marketplace.json emission: source.path = './plugins/htmlgraph'
+- Update cleanOwnedSubtrees owned paths ([.agents/plugins] — wait, still owns marketplace.json — and [plugins] — owns the plugin content)
+- Regenerate packages/codex-marketplace
+- Remove now-empty .agents/plugins/htmlgraph from the regen
+
+Reference: openai-curated marketplace structure at ~/.codex/plugins/cache/openai-curated/github/ and its marketplace.json has source.path './plugins/github' matching this layout.</p>
+        </section>
+    </article>
+</body>
+</html>

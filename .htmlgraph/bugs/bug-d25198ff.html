@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="htmlgraph-version" content="1.0">
+    <title>htmlgraph codex --init should auto-install plugin to cache; avoid manual /plugin picker step</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="bug-d25198ff"
+             data-type="bug"
+             data-status="done"
+             data-priority="high"
+             data-created="2026-04-19T23:39:14.995914"
+             data-updated="2026-04-19T23:44:48.670333" data-agent-assigned="claude-code" data-track-id="trk-a7ee6791">
+
+        <header>
+            <h1>htmlgraph codex --init should auto-install plugin to cache; avoid manual /plugin picker step</h1>
+            <div class="metadata">
+                <span class="badge status-done">Done</span>
+                <span class="badge priority-high">High Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="trk-a7ee6791.html" data-relationship="part_of" data-since="2026-04-19T23:39:14.998788">trk-a7ee6791</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="caused_by">
+                <h3>Caused By:</h3>
+                <ul>
+                    <li><a href="bug-b5b3c3ef.html" data-relationship="caused_by" data-since="2026-04-19T23:39:14.997906">bug-b5b3c3ef</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>Confirmed empirical behavior on codex-cli 0.121.0: 'codex marketplace add ' only registers the marketplace source in ~/.codex/config.toml. The plugin isn't installed to ~/.codex/plugins/cache//// until the user opens Codex's TUI, runs /plugin, finds the plugin in the list, and clicks install. Only THEN does Codex copy the plugin tree to its cache and make skills discoverable via $skill autocomplete.
+
+This is a UX wart for our 'htmlgraph codex --init' flow — users expect 'init → launch → skills work'. Currently: 'init → launch → /plugin → find → install → now skills work'.
+
+Fix: in runCodexInit, after 'codex marketplace add' succeeds, also copy the plugin tree directly to the cache path Codex expects:
+
+    ~/.codex/plugins/cache///local/
+
+For us: ~/.codex/plugins/cache/htmlgraph/htmlgraph/local/ with the contents of packages/codex-marketplace/plugins/htmlgraph/ copied in.
+
+Empirically verified: after manually running 'cp -R packages/codex-marketplace/plugins/htmlgraph/. ~/.codex/plugins/cache/htmlgraph/htmlgraph/local/', restarting Codex, our skills appeared in $autocomplete.
+
+Implementation:
+- Add a helper installCodexPluginToCache(marketplaceRoot, marketplaceName, pluginName) that:
+  1. Resolves source: // (per marketplace.json's source.path)
+  2. Resolves dest: ~/.codex/plugins/cache///local/
+  3. Removes dest if it exists (idempotent install)
+  4. Recursively copies source → dest
+- Call it from runCodexInit after 'codex marketplace add' returns success
+- Also call from launchCodexDev so --dev gets the same treatment
+
+Detect the marketplace.json shape to find the right paths rather than hardcoding — lets future plugin renames work without changing this helper.
+
+Parse ~/.codex/config.toml to read the marketplace's registered name (we write [marketplaces.] so we know), use that as . Parse marketplace.json to get plugins[0].name as  and source.path as plugin source subdir.
+
+Tests:
+- TestInstallCodexPluginToCacheCreatesExpectedLayout — given a fake marketplace tree, assert cache dir has the plugin content at the right path.
+- TestInstallCodexPluginToCacheIdempotent — running twice doesn't duplicate or error.
+
+Docs: update docs/INSTALL.md noting that 'htmlgraph codex --init' fully automates the install; users don't need to run /plugin.</p>
+        </section>
+    </article>
+</body>
+</html>

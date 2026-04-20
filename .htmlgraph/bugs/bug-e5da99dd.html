@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="htmlgraph-version" content="1.0">
+    <title>UserPromptSubmit dumps full attribution block on every turn — should be SessionStart-only</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="bug-e5da99dd"
+             data-type="bug"
+             data-status="done"
+             data-priority="high"
+             data-created="2026-04-19T15:32:57.063606"
+             data-updated="2026-04-19T17:05:53.559257" data-agent-assigned="claude-code" data-track-id="trk-a7ee6791">
+
+        <header>
+            <h1>UserPromptSubmit dumps full attribution block on every turn — should be SessionStart-only</h1>
+            <div class="metadata">
+                <span class="badge status-done">Done</span>
+                <span class="badge priority-high">High Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="caused_by">
+                <h3>Caused By:</h3>
+                <ul>
+                    <li><a href="bug-a87c8c04.html" data-relationship="caused_by" data-since="2026-04-19T15:32:57.065466">bug-a87c8c04</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="trk-a7ee6791.html" data-relationship="part_of" data-since="2026-04-19T15:32:57.06652">trk-a7ee6791</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>internal/hooks/user_prompt.go's buildAttributionGuidance emits the full block (open work items roster, CLI quick reference, required flags) as additionalContext on EVERY UserPromptSubmit. Claude Code displays additionalContext verbatim as a banner under each user message, so the orchestrator's chat gets flooded with ~20 lines per turn of mostly-static reference material.
+
+Fix: split the content by cadence.
+
+SessionStart (once per session):
+- Open work items roster
+- htmlgraph CLI quick reference
+- Required flags reminder
+- General orchestrator intro (already present)
+
+UserPromptSubmit (every turn, goal: terse):
+- Turn-specific classification signals (Exploration detected, CodeChanges detected, Git detected) — keep
+- ACTIVE work item one-liner: 'ACTIVE:  — ' when a work item is active, omit when none
+- Nothing else
+
+Implementation:
+- In user_prompt.go, stop calling buildAttributionGuidance; replace with a shorter 'active work item only' formatter
+- In session_start.go, inject the full attribution block (reuse buildAttributionGuidance)
+- Move compactCLIRef const into session_start.go (or a shared prompts helper)
+
+Test: run a Codex/Claude session, confirm the first turn's additionalContext is ~1-2 lines (ACTIVE + any classification signal), not the full 20-line block.</p>
+        </section>
+    </article>
+</body>
+</html>

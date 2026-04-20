@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="htmlgraph-version" content="1.0">
+    <title>Codex plugin.json missing &#39;skills&#39; field — SKILL.md files never discovered by TUI</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="bug-11c09d46"
+             data-type="bug"
+             data-status="done"
+             data-priority="high"
+             data-created="2026-04-19T17:05:59.596148"
+             data-updated="2026-04-19T20:50:18.950762" data-agent-assigned="claude-code" data-track-id="trk-a7ee6791">
+
+        <header>
+            <h1>Codex plugin.json missing &#39;skills&#39; field — SKILL.md files never discovered by TUI</h1>
+            <div class="metadata">
+                <span class="badge status-done">Done</span>
+                <span class="badge priority-high">High Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="trk-a7ee6791.html" data-relationship="part_of" data-since="2026-04-19T17:05:59.597772">trk-a7ee6791</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="caused_by">
+                <h3>Caused By:</h3>
+                <ul>
+                    <li><a href="bug-06e6eca3.html" data-relationship="caused_by" data-since="2026-04-19T17:05:59.596984">bug-06e6eca3</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>Root cause of bug-06e6eca3 (slash commands don't autocomplete in Codex TUI).
+
+Codex does not use slash commands — its interactive plugin capability is skill mentions via $skill-name. Discovery happens via .codex-plugin/plugin.json's 'skills' field pointing at a skills/ directory of SKILL.md files. Our generator writes plugin.json without the 'skills' field, so Codex never sees our 8 skills (deploy, plan, execute, diagnose, code-quality-skill, agent-context, orchestrator-directives-skill, strategic-planning) even though they're correctly structured and shipped.
+
+Verified by inspecting ~/.codex/plugins/cache/openai-curated/github/.../.codex-plugin/plugin.json (line 22: `"skills": "./skills/"`). Our equivalent file lacks that field entirely.
+
+Fix:
+1. Add 'skills: ./skills/' to the codex target's plugin.json emission in packages/plugin-core/manifest.json (source of truth) so internal/pluginbuild/codex.go writes the field into the generated plugin.json.
+2. Optionally: add [plugins.'htmlgraph@htmlgraph'] enabled = true to ~/.codex/config.toml during htmlgraph codex --init / --dev (mirror how openai-curated github gets enabled).
+3. Document in README: Codex users type $htmlgraph or $ in the TUI, not /htmlgraph:command. The commands/ dir is inert for Codex (Claude Code-only).
+
+Open question per researcher: may need to verify skills-only declaration is sufficient to trigger discovery, or if enabled=true is also required. Test empirically.</p>
+        </section>
+    </article>
+</body>
+</html>

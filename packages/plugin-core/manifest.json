@@ -39,7 +39,7 @@
       "marketplaceName": "htmlgraph",
       "marketplaceDisplayName": "HtmlGraph",
       "marketplaceCategory": "Development Tools",
-      "pluginSubdir": ".agents/plugins/htmlgraph"
+      "pluginSubdir": "plugins/htmlgraph"
     },
     "gemini": {
       "outDir": "packages/gemini-extension",

@@ -1,8 +1,10 @@
 package terminal
 
 import (
+	"os/exec"
 	"strings"
 	"testing"
+	"time"
 )
 
 // TestBuildShellCmd covers the full matrix from the slice-1 spec.
@@ -124,7 +126,7 @@ func TestStartRequestZeroValue(t *testing.T) {
 	}
 
 	// CWD falls back to defaultDir when req.CWD is empty.
-	defaultDir := "/tmp/test-project"
+	defaultDir := "/mock/test-project"
 	cwd := req.CWD
 	if cwd == "" {
 		cwd = defaultDir
@@ -137,5 +139,107 @@ func TestStartRequestZeroValue(t *testing.T) {
 	want := "htmlgraph claude --dev"
 	if got != want {
 		t.Errorf("zero StartRequest should produce %q, got %q", want, got)
+	}
+}
+
+// TestParallelLaunch4 spawns 4 concurrent Manager.Start calls and asserts:
+//  1. All 4 return distinct live ports within 5s.
+//  2. All 4 sessions have distinct UUID session IDs.
+//  3. StopAll reaps all 4 cleanly (all sessions exited or removed).
+//
+// Note on SQLITE_BUSY criterion: Manager does not touch SQLite directly.
+// The "zero SQLITE_BUSY entries in debug.log during the launch window"
+// criterion from the plan applies to the `htmlgraph serve` parallel paths
+// (guarded by checkServeLock in claude_serve_autostart.go). At the Manager
+// level there is no SQLite access, so that assertion is out-of-scope for this
+// test. The parallel-launch guard (checkServeLock/writeServeLock) lives at the
+// serve layer and is not duplicated here — per plan constraint, no mutex or
+// serialization is added in the terminal-handler layer.
+func TestParallelLaunch4(t *testing.T) {
+	if _, err := exec.LookPath("ttyd"); err != nil {
+		t.Skip("ttyd not installed; skipping parallel-launch test")
+	}
+
+	tmp := t.TempDir()
+	m := NewManager()
+	defer m.StopAll()
+
+	const N = 4
+	type result struct {
+		id   string
+		port int
+		pid  int
+		err  error
+	}
+	results := make(chan result, N)
+
+	for i := 0; i < N; i++ {
+		go func() {
+			id, port, pid, err := m.Start(StartRequest{}, tmp)
+			results <- result{id, port, pid, err}
+		}()
+	}
+
+	seenIDs := map[string]bool{}
+	seenPorts := map[int]bool{}
+	deadline := time.After(5 * time.Second)
+	for i := 0; i < N; i++ {
+		select {
+		case r := <-results:
+			if r.err != nil {
+				t.Fatalf("Start %d: %v", i, r.err)
+			}
+			if r.id == "" {
+				t.Fatalf("Start %d: empty id", i)
+			}
+			if seenIDs[r.id] {
+				t.Fatalf("duplicate session id %s", r.id)
+			}
+			if seenPorts[r.port] {
+				t.Fatalf("duplicate port %d", r.port)
+			}
+			seenIDs[r.id] = true
+			seenPorts[r.port] = true
+		case <-deadline:
+			t.Fatalf("only %d/%d sessions returned within 5s", i, N)
+		}
+	}
+
+	// Poll Sessions() until all N are "live" or timeout.
+	// The background goroutine in Start flips state from "pending" to "live"
+	// once ttyd binds the port (via waitForPort).
+	liveDeadline := time.After(5 * time.Second)
+	for {
+		sessions := m.Sessions()
+		live := 0
+		for _, s := range sessions {
+			if s.State == "live" {
+				live++
+			}
+		}
+		if live == N {
+			break
+		}
+		select {
+		case <-liveDeadline:
+			t.Fatalf("only %d/%d sessions reached live within 5s: %+v", live, N, sessions)
+		case <-time.After(100 * time.Millisecond):
+		}
+	}
+
+	// Stop-all reaps cleanly.
+	m.StopAll()
+
+	// After StopAll, Sessions() should be empty or all exited.
+	// Allow a brief window for goroutines to update state.
+	time.Sleep(200 * time.Millisecond)
+	remaining := 0
+	for _, s := range m.Sessions() {
+		if s.State != "exited" {
+			remaining++
+		}
+	}
+	if remaining > 0 {
+		t.Fatalf("StopAll left %d non-exited sessions", remaining)
 	}
 }

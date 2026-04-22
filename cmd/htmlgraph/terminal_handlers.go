@@ -8,16 +8,19 @@ import (
 	"github.com/shakestzd/htmlgraph/internal/terminal"
 )
 
-// terminalStarter is the interface used by handleTerminalStart.
+// terminalManager is the interface used by terminal HTTP handlers.
 // Defined as an interface to allow mocking in tests.
-type terminalStarter interface {
-	Start(req terminal.StartRequest, defaultDir string) (port, pid int, err error)
-	Stop(pid int) error
+type terminalManager interface {
+	Start(req terminal.StartRequest, defaultDir string) (id string, port, pid int, err error)
+	StopByID(id string) error
+	StopByPID(pid int) error
+	StopAll()
+	Sessions() []terminal.SessionView
 }
 
 // terminalMgr is the package-level manager for ttyd sidecar processes.
 // It is initialised once and shared across all requests.
-var terminalMgr terminalStarter = terminal.NewManager()
+var terminalMgr terminalManager = terminal.NewManager()
 
 // terminalStartRequest is the JSON body for POST /api/terminal/start.
 // All fields are optional; zero values fall back to MVP defaults.
@@ -30,8 +33,10 @@ type terminalStartRequest struct {
 
 // terminalStartResponse is the JSON body returned on success.
 type terminalStartResponse struct {
+	ID       string `json:"id"`
 	Port     int    `json:"port"`
 	Pid      int    `json:"pid"`
+	State    string `json:"state"`
 	URL      string `json:"url"`
 	Agent    string `json:"agent,omitempty"`
 	Mode     string `json:"mode,omitempty"`
@@ -39,18 +44,25 @@ type terminalStartResponse struct {
 }
 
 // terminalStopRequest is the JSON body for POST /api/terminal/stop.
+// Accepts id (preferred) or pid (back-compat).
 type terminalStopRequest struct {
-	Pid int `json:"pid"`
+	ID  string `json:"id"`
+	Pid int    `json:"pid"`
+}
+
+// resolveManager returns the injected mock manager if provided, else the global.
+func resolveManager(mgr []terminalManager) terminalManager {
+	if len(mgr) > 0 && mgr[0] != nil {
+		return mgr[0]
+	}
+	return terminalMgr
 }
 
 // handleTerminalStart handles POST /api/terminal/start.
-// It spawns a ttyd sidecar on a free port and returns the access URL.
-// The starter parameter allows injection of a mock for testing.
-func handleTerminalStart(projectDir string, starter ...terminalStarter) http.HandlerFunc {
-	mgr := terminalMgr
-	if len(starter) > 0 && starter[0] != nil {
-		mgr = starter[0]
-	}
+// It spawns a ttyd sidecar on a free port and returns {id, port, pid, state:"pending"}.
+// The optional mgr parameter allows injection of a mock for testing.
+func handleTerminalStart(projectDir string, mgr ...terminalManager) http.HandlerFunc {
+	m := resolveManager(mgr)
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
 			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
@@ -69,7 +81,7 @@ func handleTerminalStart(projectDir string, starter ...terminalStarter) http.Han
 			CWD:      req.CWD,
 			WorkItem: req.WorkItem,
 		}
-		port, pid, err := mgr.Start(startReq, projectDir)
+		id, port, pid, err := m.Start(startReq, projectDir)
 		if err != nil {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusServiceUnavailable)
@@ -88,8 +100,10 @@ func handleTerminalStart(projectDir string, starter ...terminalStarter) http.Han
 		}
 
 		respondJSON(w, terminalStartResponse{
+			ID:       id,
 			Port:     port,
 			Pid:      pid,
+			State:    "pending",
 			URL:      fmt.Sprintf("http://127.0.0.1:%d", port),
 			Agent:    agent,
 			Mode:     mode,
@@ -98,13 +112,27 @@ func handleTerminalStart(projectDir string, starter ...terminalStarter) http.Han
 	}
 }
 
-// handleTerminalStop handles POST /api/terminal/stop.
-// It signals the ttyd process identified by pid to terminate.
-func handleTerminalStop(starter ...terminalStarter) http.HandlerFunc {
-	mgr := terminalMgr
-	if len(starter) > 0 && starter[0] != nil {
-		mgr = starter[0]
+// handleTerminalSessions handles GET /api/terminal/sessions.
+// Returns a JSON array of all current sessions with their state.
+func handleTerminalSessions(mgr ...terminalManager) http.HandlerFunc {
+	m := resolveManager(mgr)
+	return func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+		sessions := m.Sessions()
+		if sessions == nil {
+			sessions = []terminal.SessionView{}
+		}
+		respondJSON(w, sessions)
 	}
+}
+
+// handleTerminalStop handles POST /api/terminal/stop.
+// Accepts {id:"<uuid>"} (preferred) or {pid:<int>} (back-compat).
+func handleTerminalStop(mgr ...terminalManager) http.HandlerFunc {
+	m := resolveManager(mgr)
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
 			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
@@ -112,22 +140,42 @@ func handleTerminalStop(starter ...terminalStarter) http.HandlerFunc {
 		}
 
 		var req terminalStopRequest
-		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil && err.Error() != "EOF" {
 			http.Error(w, "invalid JSON body", http.StatusBadRequest)
 			return
 		}
-		if req.Pid == 0 {
-			http.Error(w, "pid required", http.StatusBadRequest)
+
+		var stopErr error
+		if req.ID != "" {
+			stopErr = m.StopByID(req.ID)
+		} else if req.Pid != 0 {
+			stopErr = m.StopByPID(req.Pid)
+		} else {
+			http.Error(w, "id or pid required", http.StatusBadRequest)
 			return
 		}
 
-		if err := mgr.Stop(req.Pid); err != nil {
+		if stopErr != nil {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusNotFound)
-			json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+			json.NewEncoder(w).Encode(map[string]string{"error": stopErr.Error()})
 			return
 		}
 
+		respondJSON(w, map[string]bool{"ok": true})
+	}
+}
+
+// handleTerminalStopAll handles POST /api/terminal/stop-all.
+// Terminates all live sessions. Accepts an empty body for navigator.sendBeacon compat.
+func handleTerminalStopAll(mgr ...terminalManager) http.HandlerFunc {
+	m := resolveManager(mgr)
+	return func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+		m.StopAll()
 		respondJSON(w, map[string]bool{"ok": true})
 	}
 }

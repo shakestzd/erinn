@@ -1979,6 +1979,19 @@ p.numbered-step { padding-left: 1.5em; text-indent: -1.5em; }
   display: block;
 }
 
+.pane-placeholder {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #111;
+  color: #8a8a8a;
+  font-size: 13px;
+  letter-spacing: 0.5px;
+  pointer-events: none;
+}
+
 .pane-ended-overlay {
   position: absolute;
   inset: 0;

@@ -2806,6 +2806,12 @@ function openLauncherModal() {
   modal.classList.remove('hidden');
   backdrop.setAttribute('aria-hidden', 'false');
 
+  // Sync pane-cap state (Create button disabled + warning when ≥ PANE_MAX).
+  // Inlined here instead of via a late-assignment wrapper so the logic fires
+  // even when the modal opens via openTerminalBtn's listener that captured
+  // the original function reference.
+  updateLauncherCapState();
+
   // Focus the first focusable element (agent select)
   if (agentSelect) agentSelect.focus();
 }
@@ -3169,16 +3175,45 @@ function buildPaneElement(session) {
   body.className = 'pane-body';
 
   var iframe = document.createElement('iframe');
-  iframe.src = 'http://127.0.0.1:' + session.port;
+  // Defer setting iframe.src until the session reaches state="live". ttyd
+  // binds its port asynchronously; pointing the iframe at an un-bound port
+  // causes the browser to cache ERR_CONNECTION_REFUSED for that URL, which
+  // prevents later reloads of the same port from working.
+  if (session.state === 'live') {
+    iframe.src = 'http://127.0.0.1:' + session.port;
+  }
   iframe.setAttribute('allowfullscreen', '');
   body.appendChild(iframe);
+
+  // Placeholder shown while the session is still pending.
+  var placeholder = null;
+  if (session.state !== 'live') {
+    placeholder = document.createElement('div');
+    placeholder.className = 'pane-placeholder';
+    placeholder.textContent = 'Starting…';
+    body.appendChild(placeholder);
+  }
 
   pane.appendChild(body);
 
   // Drag via titlebar mouse events
   attachPaneDragHandlers(pane, titlebar);
 
-  return { el: pane, sessionId: session.id, iframe: iframe, ended: false };
+  return { el: pane, sessionId: session.id, iframe: iframe, ended: false, port: session.port };
+}
+
+// syncPaneIframes flips iframe.src to the live ttyd URL once the session
+// reports state="live". Called after renderAllPanes on every inventory poll.
+function syncPaneIframes(sessionsArray) {
+  var arr = sessionsArray || [];
+  arr.forEach(function(session) {
+    if (session.state !== 'live') return;
+    var record = paneRegistry.get(session.id);
+    if (!record || record.iframe.src) return;
+    record.iframe.src = 'http://127.0.0.1:' + (session.port || record.port);
+    var placeholder = record.el.querySelector('.pane-placeholder');
+    if (placeholder) placeholder.remove();
+  });
 }
 
 // attachPaneDragHandlers wires mousedown on titlebar to drag the pane.
@@ -3230,16 +3265,16 @@ function renderPane(sessionData) {
 }
 
 // renderAllPanes syncs the registry with a sessions array from the API.
-// Adds new panes, removes panes for sessions that are gone.
+// Adds new panes (up to PANE_MAX), removes panes for sessions that are gone.
 function renderAllPanes(sessionsArray) {
   var arr = sessionsArray || [];
   var liveIds = new Set(arr.map(function(s) { return s.id; }));
 
-  // Add new panes for sessions not yet rendered.
+  // Add new panes for sessions not yet rendered, respecting PANE_MAX.
   arr.forEach(function(session) {
-    if (!paneRegistry.has(session.id)) {
-      renderPane(session);
-    }
+    if (paneRegistry.has(session.id)) return;
+    if (paneRegistry.size >= PANE_MAX) return;
+    renderPane(session);
   });
 
   // Remove panes whose session has disappeared from the API response.
@@ -3258,7 +3293,9 @@ function markExitedPanes(sessionsArray) {
 
   paneRegistry.forEach(function(record, id) {
     var state = stateById[id];
-    if ((state === 'exited' || !stateById.hasOwnProperty(id)) && !record.ended) {
+    // Note: renderAllPanes already dropped panes whose id is absent from the
+    // response, so here we only need to handle the exited state.
+    if (state === 'exited' && !record.ended) {
       record.ended = true;
       record.el.classList.add('ended');
 
@@ -3331,6 +3368,7 @@ setInterval(function() {
     .then(function(r) { return r.json(); })
     .then(function(data) {
       renderAllPanes(data);
+      syncPaneIframes(data);
       markExitedPanes(data);
     })
     .catch(function() {});
@@ -3342,14 +3380,9 @@ document.addEventListener('DOMContentLoaded', function() {
     .then(function(r) { return r.json(); })
     .then(function(data) {
       renderAllPanes(data);
+      syncPaneIframes(data);
       markExitedPanes(data);
     })
     .catch(function() {});
 });
 
-// Also update cap state when the launcher modal opens.
-var _origOpenLauncherModal = openLauncherModal;
-openLauncherModal = function() {
-  _origOpenLauncherModal();
-  updateLauncherCapState();
-};

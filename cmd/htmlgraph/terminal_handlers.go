@@ -2,12 +2,21 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
 
 	"github.com/shakestzd/htmlgraph/internal/terminal"
 )
+
+// validCwdKinds is the set of accepted values for terminalStartRequest.CwdKind.
+var validCwdKinds = map[string]bool{
+	"":                 true,
+	"main":             true,
+	"feature-worktree": true,
+	"track-worktree":   true,
+}
 
 // terminalManager is the interface used by terminal HTTP handlers.
 // Defined as an interface to allow mocking in tests.
@@ -77,37 +86,29 @@ func handleTerminalStart(projectDir string, mgr ...terminalManager) http.Handler
 		}
 
 		var req terminalStartRequest
-		if err := json.NewDecoder(r.Body).Decode(&req); err != nil && err.Error() != "EOF" {
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil && !errors.Is(err, io.EOF) {
 			http.Error(w, "invalid JSON body", http.StatusBadRequest)
+			return
+		}
+
+		// Validate cwd_kind unconditionally — do not skip when an explicit cwd is set.
+		if !validCwdKinds[req.CwdKind] {
+			http.Error(w, "invalid cwd_kind: must be 'main', 'feature-worktree', or 'track-worktree'", http.StatusBadRequest)
 			return
 		}
 
 		// Resolve CWD from cwd_kind + work_item when an explicit CWD is not provided.
 		cwd := req.CWD
-		if cwd == "" && req.CwdKind != "" && req.WorkItem != "" {
+		if cwd == "" && req.WorkItem != "" {
 			var resolveErr error
 			switch req.CwdKind {
 			case "feature-worktree":
 				cwd, resolveErr = EnsureForFeature(req.WorkItem, projectDir, io.Discard)
 			case "track-worktree":
 				cwd, resolveErr = EnsureForTrack(req.WorkItem, projectDir, io.Discard)
-			case "main", "":
-				// no resolution needed
-			default:
-				http.Error(w, "invalid cwd_kind: must be 'main', 'feature-worktree', or 'track-worktree'", http.StatusBadRequest)
-				return
 			}
 			if resolveErr != nil {
 				http.Error(w, "worktree resolution failed: "+resolveErr.Error(), http.StatusInternalServerError)
-				return
-			}
-		} else if cwd == "" && req.CwdKind != "" && req.WorkItem == "" {
-			// cwd_kind provided but no work_item — validate kind is known, then ignore.
-			switch req.CwdKind {
-			case "feature-worktree", "track-worktree", "main", "":
-				// valid kind; fall through (no resolution without work_item)
-			default:
-				http.Error(w, "invalid cwd_kind: must be 'main', 'feature-worktree', or 'track-worktree'", http.StatusBadRequest)
 				return
 			}
 		}
@@ -177,7 +178,7 @@ func handleTerminalStop(mgr ...terminalManager) http.HandlerFunc {
 		}
 
 		var req terminalStopRequest
-		if err := json.NewDecoder(r.Body).Decode(&req); err != nil && err.Error() != "EOF" {
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil && !errors.Is(err, io.EOF) {
 			http.Error(w, "invalid JSON body", http.StatusBadRequest)
 			return
 		}

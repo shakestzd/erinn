@@ -9,11 +9,28 @@ import (
 	"fmt"
 	"net"
 	"os/exec"
+	"regexp"
 	"strconv"
 	"sync"
 	"syscall"
 	"time"
 )
+
+// validAgents enumerates the agents buildShellCmd knows how to launch.
+// Any other value is rejected upstream in Manager.Start to prevent shell
+// injection via the bash -lc argument.
+var validAgents = map[string]bool{
+	"":       true, // empty → claude default
+	"claude": true,
+	"codex":  true,
+	"gemini": true,
+	"yolo":   true,
+}
+
+// workItemIDPattern restricts work_item values to safe identifier characters.
+// The value is interpolated into a bash -lc string, so anything outside this
+// set could allow command injection.
+var workItemIDPattern = regexp.MustCompile(`^[a-zA-Z0-9_-]+$`)
 
 // StartRequest holds the parameters for starting a terminal session.
 // Zero-valued fields fall back to MVP defaults: agent=claude, mode=dev,
@@ -172,6 +189,16 @@ func (m *Manager) markExited(id string) {
 // cwd=defaultDir). Returns id, port, and pid immediately with state="pending";
 // a background goroutine waits for the port to bind and flips state to "live".
 func (m *Manager) Start(req StartRequest, defaultDir string) (id string, port int, pid int, err error) {
+	// Validate agent and workItem before applying defaults — both are
+	// interpolated into the bash -lc command string, so anything outside
+	// a safe whitelist could allow shell injection.
+	if !validAgents[req.Agent] {
+		return "", 0, 0, fmt.Errorf("invalid agent %q: must be one of claude, codex, gemini, yolo", req.Agent)
+	}
+	if req.WorkItem != "" && !workItemIDPattern.MatchString(req.WorkItem) {
+		return "", 0, 0, fmt.Errorf("invalid work_item %q: must match [a-zA-Z0-9_-]+", req.WorkItem)
+	}
+
 	// Apply defaults for zero-valued fields.
 	if req.Agent == "" {
 		req.Agent = "claude"

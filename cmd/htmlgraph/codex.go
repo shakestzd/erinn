@@ -229,8 +229,8 @@ func promptYesNo(question string, yes bool) bool {
 
 // codexCmd returns the cobra command for `htmlgraph codex`.
 func codexCmd() *cobra.Command {
-	var init_, continue_, dev, cleanup, dryRun, yes bool
-	var resumeID string
+	var init_, continue_, dev, cleanup, dryRun, yes, noWorktree bool
+	var resumeID, trackID, featureID, worktreePath, workItem string
 
 	cmd := &cobra.Command{
 		Use:   "codex",
@@ -243,6 +243,8 @@ Modes:
   htmlgraph codex --continue        Resume the last Codex session (codex resume --last).
   htmlgraph codex --resume <id>     Resume a specific Codex session by ID.
   htmlgraph codex --dev             Register local packages/codex-marketplace/ and launch.
+  htmlgraph codex --feature <id>    Launch in the feature's git worktree.
+  htmlgraph codex --track <id>      Launch in the track's git worktree.
 
 Session IDs come from ~/.codex/session_index.jsonl.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -254,7 +256,7 @@ Session IDs come from ~/.codex/session_index.jsonl.`,
 			case continue_:
 				return launchCodexContinue(resumeID, args)
 			default:
-				return launchCodexDefault(resumeID, args)
+				return launchCodexDefault(resumeID, trackID, featureID, worktreePath, workItem, noWorktree, args)
 			}
 		},
 	}
@@ -265,7 +267,12 @@ Session IDs come from ~/.codex/session_index.jsonl.`,
 	cmd.Flags().BoolVar(&cleanup, "cleanup", false, "With --dev: unregister the local marketplace on exit")
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Print what would happen without executing")
 	cmd.Flags().BoolVar(&yes, "yes", false, "Answer yes to all prompts (non-interactive)")
+	cmd.Flags().BoolVar(&noWorktree, "no-worktree", false, "Skip worktree creation (run in project root)")
 	cmd.Flags().StringVar(&resumeID, "resume", "", "Resume a specific Codex session by ID")
+	cmd.Flags().StringVar(&trackID, "track", "", "Track ID to work on (e.g., trk-3719d8f3)")
+	cmd.Flags().StringVar(&featureID, "feature", "", "Feature ID to work on (e.g., feat-15c458aa)")
+	cmd.Flags().StringVar(&worktreePath, "worktree", "", "Explicit worktree path (overrides --track/--feature resolution)")
+	cmd.Flags().StringVar(&workItem, "work-item", "", "Work item ID for attribution prefix (e.g., feat-15c458aa)")
 
 	return cmd
 }
@@ -325,14 +332,60 @@ func runCodexInit(yes, dryRun bool) error {
 
 // launchCodexDefault launches Codex interactively with HtmlGraph env injection.
 // Corresponds to: htmlgraph codex
-func launchCodexDefault(resumeID string, extraArgs []string) error {
+func launchCodexDefault(resumeID, trackID, featureID, worktreePath, workItem string, noWorktree bool, extraArgs []string) error {
 	projectRoot, _ := resolveProjectRoot()
+
+	// Work item attribution: emit `htmlgraph feature start <id>` before launching.
+	if workItem != "" {
+		if err := runFeatureStart(workItem); err != nil {
+			fmt.Fprintf(os.Stderr, "warning: could not start work item %s: %v\n", workItem, err)
+		}
+	}
+
+	// Resolve worktree path.
+	workDir := projectRoot
+	htmlgraphRoot := ""
+	switch {
+	case worktreePath != "":
+		// Explicit path — use as-is; set HTMLGRAPH_PROJECT_DIR to canonical root.
+		workDir = worktreePath
+		htmlgraphRoot = projectRoot
+	case !noWorktree && trackID != "":
+		wt, err := EnsureForTrack(trackID, projectRoot, os.Stdout)
+		if err != nil {
+			return err
+		}
+		workDir = wt
+		htmlgraphRoot = projectRoot
+	case !noWorktree && featureID != "":
+		wt, err := EnsureForFeature(featureID, projectRoot, os.Stdout)
+		if err != nil {
+			return err
+		}
+		workDir = wt
+		htmlgraphRoot = projectRoot
+	}
+
 	fmt.Println("Launching Codex CLI with HtmlGraph context...")
 	return execCodex(codexLaunchOpts{
-		ResumeID:    resumeID,
-		ExtraArgs:   extraArgs,
-		ProjectRoot: projectRoot,
+		ResumeID:      resumeID,
+		ExtraArgs:     extraArgs,
+		ProjectRoot:   workDir,
+		WorktreeRoot:  workDir,
+		HtmlgraphRoot: htmlgraphRoot,
 	})
+}
+
+// runFeatureStart runs `htmlgraph feature start <id>` for work item attribution.
+func runFeatureStart(id string) error {
+	exe, err := os.Executable()
+	if err != nil {
+		return fmt.Errorf("could not determine executable: %w", err)
+	}
+	cmd := exec.Command(exe, "feature", "start", id)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	return cmd.Run()
 }
 
 // launchCodexContinue resumes the last Codex session.
@@ -465,10 +518,17 @@ type codexLaunchOpts struct {
 	ResumeID string
 	// ExtraArgs are forwarded to the codex process.
 	ExtraArgs []string
-	// ProjectRoot is the absolute path to the project root.
+	// ProjectRoot is the absolute path to the project root (or worktree path).
 	// When set, Codex is started with this as the working directory, and
 	// HTMLGRAPH_PROJECT_DIR env var is injected.
 	ProjectRoot string
+	// WorktreeRoot, when non-empty, overrides the working directory for the
+	// Codex process. The process runs in WorktreeRoot but HTMLGRAPH_PROJECT_DIR
+	// is set to HtmlgraphRoot (the canonical project root with .htmlgraph/).
+	WorktreeRoot string
+	// HtmlgraphRoot is the canonical project root containing .htmlgraph/.
+	// Used to set HTMLGRAPH_PROJECT_DIR when running in a worktree.
+	HtmlgraphRoot string
 }
 
 // execCodex builds the codex argv and execs it, replacing the current process.
@@ -497,7 +557,19 @@ func execCodex(opts codexLaunchOpts) error {
 
 	// Inject HTMLGRAPH_PROJECT_DIR so htmlgraph CLI and hooks resolve to the
 	// correct project root regardless of CWD.
-	if opts.ProjectRoot != "" {
+	// When WorktreeRoot is set, the process runs in the worktree but
+	// HTMLGRAPH_PROJECT_DIR points to the canonical project root (HtmlgraphRoot).
+	switch {
+	case opts.WorktreeRoot != "":
+		env := os.Environ()
+		projectDir := opts.HtmlgraphRoot
+		if projectDir == "" {
+			projectDir = opts.ProjectRoot
+		}
+		env = setOrReplaceEnv(env, "HTMLGRAPH_PROJECT_DIR", projectDir)
+		c.Env = env
+		c.Dir = opts.WorktreeRoot
+	case opts.ProjectRoot != "":
 		c.Env = append(os.Environ(), "HTMLGRAPH_PROJECT_DIR="+opts.ProjectRoot)
 		c.Dir = opts.ProjectRoot
 	}

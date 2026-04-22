@@ -249,6 +249,90 @@ func TestHandleTerminalStopAll(t *testing.T) {
 	}
 }
 
+// TestHandleTerminalStart_CwdKindMainIgnored verifies that cwd_kind="main" with a work_item
+// does NOT attempt worktree resolution; it uses the projectDir as-is.
+func TestHandleTerminalStart_CwdKindMainIgnored(t *testing.T) {
+	mock := &mockTerminalManager{returnID: "uuid-main", returnPort: 7777, returnPid: 7001}
+	handler := handleTerminalStart("/srv/project", mock)
+
+	body := `{"agent":"codex","work_item":"feat-abc","cwd_kind":"main"}`
+	req := httptest.NewRequest(http.MethodPost, "/api/terminal/start", strings.NewReader(body))
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status: got %d, want 200 — body: %s", rec.Code, rec.Body)
+	}
+
+	// For cwd_kind="main", the CWD in the StartRequest should be empty (no resolution).
+	if mock.lastReq.CWD != "" {
+		t.Errorf("expected empty CWD for cwd_kind=main, got %q", mock.lastReq.CWD)
+	}
+}
+
+// TestHandleTerminalStart_CwdKindInvalid verifies that an invalid cwd_kind returns 400.
+func TestHandleTerminalStart_CwdKindInvalid(t *testing.T) {
+	mock := &mockTerminalManager{}
+	handler := handleTerminalStart("/srv/project", mock)
+
+	body := `{"agent":"codex","work_item":"feat-abc","cwd_kind":"invalid-kind"}`
+	req := httptest.NewRequest(http.MethodPost, "/api/terminal/start", strings.NewReader(body))
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusBadRequest {
+		t.Errorf("status: got %d, want 400 for invalid cwd_kind", rec.Code)
+	}
+}
+
+// TestHandleTerminalStart_CwdKindFeatureWorktreeNoWorkItem verifies that cwd_kind="feature-worktree"
+// without a work_item is treated as "main" (no worktree resolution attempt).
+func TestHandleTerminalStart_CwdKindFeatureWorktreeNoWorkItem(t *testing.T) {
+	mock := &mockTerminalManager{returnID: "uuid-nowi", returnPort: 6666, returnPid: 6001}
+	handler := handleTerminalStart("/srv/project", mock)
+
+	body := `{"agent":"codex","cwd_kind":"feature-worktree"}`
+	req := httptest.NewRequest(http.MethodPost, "/api/terminal/start", strings.NewReader(body))
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+
+	// Without work_item, should fall through and call Manager.Start normally.
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status: got %d, want 200 — body: %s", rec.Code, rec.Body)
+	}
+	// CWD should be empty (no resolution attempted when work_item is absent).
+	if mock.lastReq.CWD != "" {
+		t.Errorf("expected empty CWD without work_item, got %q", mock.lastReq.CWD)
+	}
+}
+
+// TestHandleTerminalStart_CwdKindFieldInStruct verifies the terminalStartRequest struct
+// has CwdKind field and that it's decoded from JSON "cwd_kind".
+func TestHandleTerminalStart_CwdKindFieldInStruct(t *testing.T) {
+	// The JSON decoder should pick up cwd_kind into the CwdKind field.
+	// We verify this by sending a request with cwd_kind and verifying the handler
+	// does not error on decoding.
+	mock := &mockTerminalManager{returnID: "uuid-ck", returnPort: 5555, returnPid: 5001}
+	handler := handleTerminalStart("/srv/project", mock)
+
+	body := `{"agent":"gemini","work_item":"feat-xyz","cwd_kind":"main"}`
+	req := httptest.NewRequest(http.MethodPost, "/api/terminal/start", strings.NewReader(body))
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status: got %d, want 200 — body: %s", rec.Code, rec.Body)
+	}
+
+	var resp terminalStartResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if resp.WorkItem != "feat-xyz" {
+		t.Errorf("work_item: got %q, want feat-xyz", resp.WorkItem)
+	}
+}
+
 // TestHandleTerminalStopAll_EmptyBody verifies stop-all works with empty body (sendBeacon compat).
 func TestHandleTerminalStopAll_EmptyBody(t *testing.T) {
 	mock := &mockTerminalManager{}

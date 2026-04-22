@@ -129,9 +129,15 @@ type geminiLaunchOpts struct {
 	ListSessions bool
 	// ExtraArgs are forwarded to the gemini process.
 	ExtraArgs []string
-	// ProjectRoot is the absolute path to the project root.
+	// ProjectRoot is the absolute path to the project root (or worktree path).
 	// When set, gemini is started in this directory and HTMLGRAPH_PROJECT_DIR is injected.
 	ProjectRoot string
+	// WorktreeRoot, when non-empty, overrides the working directory for the
+	// Gemini process. HTMLGRAPH_PROJECT_DIR is set to HtmlgraphRoot instead.
+	WorktreeRoot string
+	// HtmlgraphRoot is the canonical project root containing .htmlgraph/.
+	// Used to set HTMLGRAPH_PROJECT_DIR when running in a worktree.
+	HtmlgraphRoot string
 	// DryRun, when true, prints the command that would be executed without running it.
 	DryRun bool
 }
@@ -235,9 +241,19 @@ func execGemini(opts geminiLaunchOpts) error {
 
 	// Inject HTMLGRAPH_PROJECT_DIR, HTMLGRAPH_AGENT, and GEMINI_SYSTEM_MD so hooks,
 	// skills, and the orchestrator prompt all resolve correctly regardless of CWD.
+	// When WorktreeRoot is set, the process runs in the worktree but
+	// HTMLGRAPH_PROJECT_DIR points to the canonical project root (HtmlgraphRoot).
 	env := os.Environ()
-	if opts.ProjectRoot != "" {
-		env = append(env, "HTMLGRAPH_PROJECT_DIR="+opts.ProjectRoot)
+	switch {
+	case opts.WorktreeRoot != "":
+		projectDir := opts.HtmlgraphRoot
+		if projectDir == "" {
+			projectDir = opts.ProjectRoot
+		}
+		env = setOrReplaceEnv(env, "HTMLGRAPH_PROJECT_DIR", projectDir)
+		c.Dir = opts.WorktreeRoot
+	case opts.ProjectRoot != "":
+		env = setOrReplaceEnv(env, "HTMLGRAPH_PROJECT_DIR", opts.ProjectRoot)
 		c.Dir = opts.ProjectRoot
 	}
 	env = append(env, "HTMLGRAPH_AGENT=gemini")
@@ -255,13 +271,46 @@ func execGemini(opts geminiLaunchOpts) error {
 
 // launchGeminiDefault launches Gemini interactively with HtmlGraph env injection.
 // Corresponds to: htmlgraph gemini
-func launchGeminiDefault(extraArgs []string, dryRun bool) error {
+func launchGeminiDefault(trackID, featureID, worktreePath, workItem string, noWorktree bool, extraArgs []string, dryRun bool) error {
 	projectRoot, _ := resolveProjectRoot()
+
+	// Work item attribution: emit `htmlgraph feature start <id>` before launching.
+	if workItem != "" && !dryRun {
+		if err := runFeatureStart(workItem); err != nil {
+			fmt.Fprintf(os.Stderr, "warning: could not start work item %s: %v\n", workItem, err)
+		}
+	}
+
+	// Resolve worktree path.
+	workDir := projectRoot
+	htmlgraphRoot := ""
+	switch {
+	case worktreePath != "":
+		workDir = worktreePath
+		htmlgraphRoot = projectRoot
+	case !noWorktree && trackID != "":
+		wt, err := EnsureForTrack(trackID, projectRoot, os.Stdout)
+		if err != nil {
+			return err
+		}
+		workDir = wt
+		htmlgraphRoot = projectRoot
+	case !noWorktree && featureID != "":
+		wt, err := EnsureForFeature(featureID, projectRoot, os.Stdout)
+		if err != nil {
+			return err
+		}
+		workDir = wt
+		htmlgraphRoot = projectRoot
+	}
+
 	fmt.Println("Launching Gemini CLI with HtmlGraph context...")
 	return execGemini(geminiLaunchOpts{
-		ExtraArgs:   extraArgs,
-		ProjectRoot: projectRoot,
-		DryRun:      dryRun,
+		ExtraArgs:     extraArgs,
+		ProjectRoot:   workDir,
+		WorktreeRoot:  workDir,
+		HtmlgraphRoot: htmlgraphRoot,
+		DryRun:        dryRun,
 	})
 }
 
@@ -445,8 +494,8 @@ func resolveLocalGeminiExtension() (string, error) {
 
 // geminiCmd returns the cobra command for `htmlgraph gemini`.
 func geminiCmd() *cobra.Command {
-	var init_, continue_, dev, force, isolate, listSessions, dryRun bool
-	var resumeIndex, ref string
+	var init_, continue_, dev, force, isolate, listSessions, dryRun, noWorktree bool
+	var resumeIndex, ref, trackID, featureID, worktreePath, workItem string
 
 	cmd := &cobra.Command{
 		Use:   "gemini",
@@ -460,6 +509,8 @@ Modes:
   htmlgraph gemini --resume <N>         Resume a specific Gemini session by index.
   htmlgraph gemini --dev                Link packages/gemini-extension/ and launch Gemini.
   htmlgraph gemini --list-sessions      Pass-through: gemini --list-sessions.
+  htmlgraph gemini --feature <id>       Launch in the feature's git worktree.
+  htmlgraph gemini --track <id>         Launch in the track's git worktree.
 
 Session indices come from: gemini --list-sessions.
 
@@ -479,7 +530,7 @@ Installation:
 			case resumeIndex != "":
 				return launchGeminiResume(resumeIndex, args, dryRun)
 			default:
-				return launchGeminiDefault(args, dryRun)
+				return launchGeminiDefault(trackID, featureID, worktreePath, workItem, noWorktree, args, dryRun)
 			}
 		},
 	}
@@ -491,8 +542,13 @@ Installation:
 	cmd.Flags().BoolVar(&isolate, "isolate", false, "With --dev: pass -e htmlgraph to suppress other extensions")
 	cmd.Flags().BoolVar(&listSessions, "list-sessions", false, "Pass-through to gemini --list-sessions")
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Print what would happen without executing")
+	cmd.Flags().BoolVar(&noWorktree, "no-worktree", false, "Skip worktree creation (run in project root)")
 	cmd.Flags().StringVar(&resumeIndex, "resume", "", "Resume a specific Gemini session by index (e.g. --resume 3)")
 	cmd.Flags().StringVar(&ref, "ref", "", "With --init: override the extension ref (default: gemini-extension-v<version>)")
+	cmd.Flags().StringVar(&trackID, "track", "", "Track ID to work on (e.g., trk-3719d8f3)")
+	cmd.Flags().StringVar(&featureID, "feature", "", "Feature ID to work on (e.g., feat-15c458aa)")
+	cmd.Flags().StringVar(&worktreePath, "worktree", "", "Explicit worktree path (overrides --track/--feature resolution)")
+	cmd.Flags().StringVar(&workItem, "work-item", "", "Work item ID for attribution prefix (e.g., feat-15c458aa)")
 
 	return cmd
 }

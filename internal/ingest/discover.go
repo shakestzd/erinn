@@ -147,7 +147,7 @@ func decodeProjectName(encoded string) string {
 // dash-encoded project directory name.
 // Claude encodes paths by replacing "/" with "-", so the leading "-" represents
 // the root separator.
-// e.g. "-Users-shakes-DevProjects-htmlgraph" → "/Users/shakes/DevProjects/htmlgraph"
+// e.g. "-Users-alice-DevProjects-htmlgraph" → "/Users/alice/DevProjects/htmlgraph"
 func decodeProjectPath(encoded string) string {
 	if encoded == "" {
 		return ""
@@ -155,7 +155,7 @@ func decodeProjectPath(encoded string) string {
 	// Strip a leading dash (represents the root "/") then replace remaining dashes.
 	// We replace "-" with "/" which reconstructs the path from the encoding.
 	// Claude encodes absolute paths starting with "/" as "-..." so:
-	// "-Users-shakes-DevProjects-htmlgraph" → "/Users/shakes/DevProjects/htmlgraph"
+	// "-Users-alice-DevProjects-htmlgraph" → "/Users/alice/DevProjects/htmlgraph"
 	if strings.HasPrefix(encoded, "-") {
 		return "/" + strings.ReplaceAll(encoded[1:], "-", "/")
 	}

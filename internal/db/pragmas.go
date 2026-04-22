@@ -11,13 +11,13 @@ import (
 
 // Pragmas mirrors the Python PRAGMA_SETTINGS from pragmas.py.
 var Pragmas = map[string]string{
-	"journal_mode": "WAL",
+	"journal_mode": "DELETE",
 	"synchronous":  "NORMAL",
 	"foreign_keys": "1",
 	"busy_timeout": "5000",
 	"cache_size":   "-64000",
 	"temp_store":   "MEMORY",
-	"mmap_size":    "268435456",
+	"mmap_size":    "0",
 }
 
 // ApplyPragmas sets all performance PRAGMAs on a database connection.

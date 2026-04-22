@@ -184,19 +184,32 @@ The default theme:
 
 ### Step 4: Configure Claude Code Settings
 
+#### Clear any stale override
+
+Before writing the new `statusLine` block, check `.claude/settings.local.json`. `settings.local.json` has higher precedence than `settings.json`, so a leftover absolute path there (from another machine, typically) will silently mask the portable config.
+
+Check with:
+```bash
+python3 -c "import json,sys; d=json.load(open('.claude/settings.local.json')); print('WARNING: statusLine found in settings.local.json — remove it before continuing' if 'statusLine' in d else 'OK: no statusLine in settings.local.json')" 2>/dev/null || echo "OK: settings.local.json not present"
+```
+
+If a `statusLine` key is present in `.claude/settings.local.json`, remove it before proceeding (edit the file to delete that key, or remove the entire file if it only contains the stale `statusLine` entry).
+
+#### Write the settings
+
 Read the current `.claude/settings.json` (create if missing), set:
 
 ```json
 {
   "statusLine": {
     "type": "command",
-    "command": "/Users/<username>/.claude/omp-claude-wrapper.sh",
+    "command": "~/.claude/omp-claude-wrapper.sh",
     "padding": 0
   }
 }
 ```
 
-Use the actual expanded `$HOME` path, not `~`.
+Use `~/.claude/omp-claude-wrapper.sh` — Claude Code supports tilde expansion in the `statusLine.command` field, making the path portable across macOS and Linux without embedding a machine-specific `$HOME`.
 
 ### Step 5: Verify
 

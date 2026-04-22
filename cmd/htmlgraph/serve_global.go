@@ -4,8 +4,8 @@
 // the parent server holds ZERO SQLite handles. It serves only three things:
 //
 //   - the landing SPA (embedded dashboard files)
-//   - a tiny JSON API (/api/mode, /api/projects) that reads the registry
-//     file only — no DB access
+//   - a tiny JSON API (/api/mode, /api/projects, /api/health) that reads
+//     the registry file only — no DB access
 //   - the /p/<id>/* reverse proxy to per-project child processes
 //     (registered in serve_parent.go)
 //
@@ -21,12 +21,46 @@ package main
 
 import (
 	"net/http"
+	"os"
 	"path/filepath"
 	"strings"
+	"sync/atomic"
+	"time"
 
 	"github.com/shakestzd/htmlgraph/internal/paths"
 	"github.com/shakestzd/htmlgraph/internal/registry"
 )
+
+// serveHealthState holds in-memory state for /api/health. Written once at
+// server startup; read on every health request — no locks needed after init.
+// Uses an atomic pointer so the handler sees a consistent snapshot even if
+// initServeHealthState is called concurrently (it shouldn't be, but defensive).
+type serveHealthState struct {
+	PID        int       `json:"pid"`
+	StartedAt  time.Time `json:"started_at"`
+	ProjectDir string    `json:"project_dir"`
+	HTTPPort   int       `json:"ports_http"`
+	OtelPort   int       `json:"ports_otel"`
+	Version    string    `json:"version"`
+}
+
+// serveHealthPtr holds *serveHealthState atomically.
+var serveHealthPtr atomic.Pointer[serveHealthState]
+
+// initServeHealthState sets the health snapshot. Called once from
+// runParentServer before ListenAndServe so the health endpoint is
+// immediately accurate.
+func initServeHealthState(projectDir string, httpPort, otelPort int) {
+	s := &serveHealthState{
+		PID:        os.Getpid(),
+		StartedAt:  time.Now(),
+		ProjectDir: projectDir,
+		HTTPPort:   httpPort,
+		OtelPort:   otelPort,
+		Version:    version,
+	}
+	serveHealthPtr.Store(s)
+}
 
 // projectSummary is the JSON shape returned by /api/projects entries.
 // Fields are sourced exclusively from the registry — no DB access,
@@ -55,6 +89,32 @@ func buildGlobalMux() *http.ServeMux {
 	// per-project data come from the child via /p/<id>/api/*.
 	mux.Handle("/api/projects", http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		respondJSON(w, listRegisteredProjects())
+	}))
+
+	// /api/health — lightweight liveness + identity endpoint. No DB
+	// access. Returns in-memory state set at startup so callers can
+	// verify which project this serve instance owns and which OTel port
+	// it listens on. Used by the autostart discovery logic in
+	// ensureServeForOtel to avoid false "serve not ready" warnings when
+	// a healthy serve is already running.
+	mux.Handle("/api/health", http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		h := serveHealthPtr.Load()
+		if h == nil {
+			http.Error(w, "starting", http.StatusServiceUnavailable)
+			return
+		}
+		now := time.Now()
+		respondJSON(w, map[string]any{
+			"pid":            h.PID,
+			"started_at":     h.StartedAt.Format(time.RFC3339),
+			"uptime_seconds": int(now.Sub(h.StartedAt).Seconds()),
+			"version":        h.Version,
+			"project_dir":    h.ProjectDir,
+			"ports": map[string]int{
+				"http": h.HTTPPort,
+				"otel": h.OtelPort,
+			},
+		})
 	}))
 
 	// Serve the embedded dashboard SPA (index.html, css/, js/,

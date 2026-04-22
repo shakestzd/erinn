@@ -216,3 +216,82 @@ func TestEnsureForFeatureWriterReceivesProgress(t *testing.T) {
 		t.Errorf("expected writer to receive progress containing feat-progress; got: %q", output)
 	}
 }
+
+// TestRepairGitdirStalePath verifies that RepairGitdir rewrites a stale cross-machine
+// gitdir path to the correct absolute path based on the current repo root.
+func TestRepairGitdirStalePath(t *testing.T) {
+	dir := setupGitRepo(t)
+
+	// Create a real worktree so the gitdir target exists.
+	worktreePath, err := worktree.EnsureForTrack("trk-repair111", dir, io.Discard)
+	if err != nil {
+		t.Fatalf("EnsureForTrack: %v", err)
+	}
+
+	// Determine the correct gitdir before corrupting the .git file.
+	gitFile := filepath.Join(worktreePath, ".git")
+	correctContent, err := os.ReadFile(gitFile)
+	if err != nil {
+		t.Fatalf("read .git file: %v", err)
+	}
+	correctGitdir := strings.TrimPrefix(strings.TrimSpace(string(correctContent)), "gitdir: ")
+
+	// Overwrite .git with a bogus cross-machine path.
+	bogusContent := "gitdir: /nonexistent/cross-machine/path/.git/worktrees/trk-repair111\n"
+	if err := os.WriteFile(gitFile, []byte(bogusContent), 0644); err != nil {
+		t.Fatalf("write bogus .git: %v", err)
+	}
+
+	// Call RepairGitdir — it should detect the stale path and rewrite it.
+	repaired, err := worktree.RepairGitdir(worktreePath, dir)
+	if err != nil {
+		t.Fatalf("RepairGitdir: %v", err)
+	}
+	if !repaired {
+		t.Error("RepairGitdir: expected repaired=true for bogus path, got false")
+	}
+
+	// Verify the .git file now contains the correct gitdir.
+	got, err := os.ReadFile(gitFile)
+	if err != nil {
+		t.Fatalf("read .git after repair: %v", err)
+	}
+	gotGitdir := strings.TrimPrefix(strings.TrimSpace(string(got)), "gitdir: ")
+	if gotGitdir != correctGitdir {
+		t.Errorf("gitdir after repair: got %q, want %q", gotGitdir, correctGitdir)
+	}
+}
+
+// TestRepairGitdirValidPath verifies that RepairGitdir returns repaired=false
+// when the existing gitdir is already valid (no-op case).
+func TestRepairGitdirValidPath(t *testing.T) {
+	dir := setupGitRepo(t)
+
+	worktreePath, err := worktree.EnsureForTrack("trk-valid111", dir, io.Discard)
+	if err != nil {
+		t.Fatalf("EnsureForTrack: %v", err)
+	}
+
+	// The gitdir written by git worktree add should already be valid.
+	repaired, err := worktree.RepairGitdir(worktreePath, dir)
+	if err != nil {
+		t.Fatalf("RepairGitdir: %v", err)
+	}
+	if repaired {
+		t.Error("RepairGitdir: expected repaired=false for valid path, got true")
+	}
+}
+
+// TestRepairGitdirNotAWorktree verifies that RepairGitdir handles a plain directory
+// (no .git file) gracefully — no error, no repair.
+func TestRepairGitdirNotAWorktree(t *testing.T) {
+	dir := t.TempDir() // plain directory, no .git file
+
+	repaired, err := worktree.RepairGitdir(dir, dir)
+	if err != nil {
+		t.Fatalf("RepairGitdir on plain dir: %v", err)
+	}
+	if repaired {
+		t.Error("RepairGitdir: expected repaired=false for non-worktree dir, got true")
+	}
+}

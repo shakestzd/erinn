@@ -88,7 +88,9 @@ fi
 chmod +x "$HOME/.claude/omp-claude-wrapper.sh"
 
 echo "==> Installing Claude Code Oh My Posh theme..."
-[ -f "$HOME/.claude.omp.json" ] || cp "$(dirname "$0")/claude.omp.json" "$HOME/.claude.omp.json"
+if [ ! -f "$HOME/.claude.omp.json" ] && [ -f "$(dirname "$0")/claude.omp.json" ]; then
+  cp "$(dirname "$0")/claude.omp.json" "$HOME/.claude.omp.json"
+fi
 
 echo "==> Installing oh-my-zsh..."
 if [ ! -d "$HOME/.oh-my-zsh" ]; then

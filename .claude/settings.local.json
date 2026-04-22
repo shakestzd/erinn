@@ -398,15 +398,29 @@
       "Bash(ps -p 30084 -o pid,ppid,command)",
       "Bash(ps -p 30160 -o pid,state,wchan,pcpu,etime,command)",
       "Bash(ps -p 30160 -o pid,state)",
-      "Bash(ps -p 39529 -o pid,command)"
+      "Bash(ps -p 39529 -o pid,command)",
+      "Bash(ps eww *)",
+      "Bash(ps -p 12268 -o pid,etime,command)",
+      "Bash(kill -0 54067)",
+      "Bash(devcontainer --version)",
+      "Bash(/home/vscode/.claude/omp-claude-wrapper.sh *)",
+      "Bash(kill bgb23xtjr *)",
+      "Bash(GOTOOLCHAIN=auto go build *)",
+      "Bash(/tmp/htmlgraph-fixed --version)",
+      "Bash(/tmp/htmlgraph-fixed status *)",
+      "Bash(cp /tmp/htmlgraph-fixed /home/vscode/.local/bin/htmlgraph)",
+      "Bash(/home/vscode/.local/bin/htmlgraph help *)",
+      "Bash(/tmp/htmlgraph-fixed help *)",
+      "Bash(/tmp/htmlgraph-fixed2 status *)",
+      "Bash(rm /home/vscode/.local/bin/htmlgraph)",
+      "Bash(cp /tmp/htmlgraph-fixed2 /home/vscode/.local/bin/htmlgraph)",
+      "Bash(apt-get update *)",
+      "Bash(apt-get install *)",
+      "Bash(ttyd --help)"
     ]
   },
-  "statusLine": {
-    "type": "command",
-    "command": "/Users/shakes/.claude/omp-claude-wrapper.sh",
-    "padding": 0
-  },
   "enabledPlugins": {
-    "playwright@claude-plugins-official": true
+    "playwright@claude-plugins-official": true,
+    "skill-creator@claude-plugins-official": true
   }
 }

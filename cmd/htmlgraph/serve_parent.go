@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/shakestzd/htmlgraph/internal/childproc"
+	otelreceiver "github.com/shakestzd/htmlgraph/internal/otel/receiver"
 	"github.com/shakestzd/htmlgraph/internal/registry"
 )
 
@@ -169,11 +170,16 @@ func runParentServer(port int) error {
 	// Write the per-project serve lockfile so concurrent launcher invocations
 	// (from a second terminal opening another Claude session) detect a live
 	// serve process and skip spawning a duplicate that would collide on :8080.
+	// Also initialise the /api/health snapshot so autostart discovery can
+	// verify this serve belongs to the correct project before polling OTel.
 	// Best-effort: missing .htmlgraph/ or write errors are silently ignored.
 	if htmlgraphDir, err := findHtmlgraphDir(); err == nil {
 		projectDir := filepath.Dir(htmlgraphDir)
 		writeServeLock(projectDir)
 		defer removeServeLock(projectDir)
+		// Derive the OTel port using the same hash the receiver and launcher use.
+		otelCfg := otelreceiver.LoadConfigFromEnv("", projectDir)
+		initServeHealthState(projectDir, port, otelCfg.HTTPPort)
 	}
 
 	server := &http.Server{

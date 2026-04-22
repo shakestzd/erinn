@@ -1,9 +1,10 @@
 package main
 
 import (
-	"context"
+	"encoding/json"
 	"fmt"
 	"net"
+	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -21,80 +22,103 @@ func serveLockPath(projectDir string) string {
 	return filepath.Join(projectDir, ".htmlgraph", ".serve.lock")
 }
 
-// ensureServeForOtel checks whether the OTLP HTTP receiver is already
-// listening, and spawns a detached `htmlgraph serve` if not. Called from
-// launchClaude before exec'ing claude so that OTel signals from the
-// child process have somewhere to land.
+// defaultParentHTTPPort is the parent server's default HTTP port.
+// Must match the default in serveCmd's --port flag.
+const defaultParentHTTPPort = 8080
+
+// serveHealthResponse is the subset of /api/health we care about for
+// autostart discovery. We only decode the fields we act on.
+type serveHealthResponse struct {
+	ProjectDir string `json:"project_dir"`
+	Ports      struct {
+		HTTP int `json:"http"`
+		OTel int `json:"otel"`
+	} `json:"ports"`
+}
+
+// probeHealth issues a GET /api/health against 127.0.0.1:<httpPort> and
+// returns the parsed response on success. Returns (nil, false) when the
+// server is unreachable, slow, or returns a non-200 status.
+func probeHealth(httpPort int, timeout time.Duration) (*serveHealthResponse, bool) {
+	url := fmt.Sprintf("http://127.0.0.1:%d/api/health", httpPort)
+	client := &http.Client{Timeout: timeout}
+	resp, err := client.Get(url)
+	if err != nil {
+		return nil, false
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return nil, false
+	}
+	var h serveHealthResponse
+	if err := json.NewDecoder(resp.Body).Decode(&h); err != nil {
+		return nil, false
+	}
+	return &h, true
+}
+
+// ensureServeForOtel uses discovery-first logic to ensure an OTel receiver
+// is running for this project before exec'ing claude. Called from launchClaude
+// so that OTel signals from the child process have somewhere to land.
 //
-// Gating:
-//   - When HTMLGRAPH_OTEL_ENABLED is explicitly disabled (0/false/no/off),
-//     return immediately — user opted out.
-//   - When the configured OTLP port already accepts a TCP connection,
-//     assume a receiver is live (either htmlgraph serve or a user-run
-//     collector) — return nil. We don't probe further because there's
-//     no portable way to tell "ours" from "theirs" without sending a
-//     real request, and duplicating a running server would be worse
-//     than leaving an external one in charge.
-//   - Otherwise spawn `htmlgraph serve` detached, wait up to 3 seconds
-//     for it to bind, and log a warning if it never does. Never return
-//     an error — a missing receiver is degraded operation, not a fatal
-//     launcher failure.
+// Flow:
+//  1. If HTMLGRAPH_OTEL_ENABLED is explicitly disabled, return immediately.
+//  2. Query /api/health on the parent HTTP port (127.0.0.1:8080). If a healthy
+//     serve is running for THIS project, use its OTel port and return — no
+//     warning, no spawn. This is the common case.
+//  3. If a serve is running for a DIFFERENT project, log clearly and spawn
+//     our own alongside it (different projects get different ports).
+//  4. If nothing is running: check lockfile, spawn detached serve, then poll
+//     /api/health for up to 8 s (generous: DB migrations can take several
+//     seconds). Log a warning only if readiness never arrives.
 //
-// The spawned process inherits the parent env so the serve child's
-// receiver wiring picks up HTMLGRAPH_OTEL_* config. Stdout/stderr go to
-// a log file under .htmlgraph/logs so the orphaned server doesn't
-// pollute the user's terminal.
+// Never returns an error — a missing receiver is degraded, not fatal.
 func ensureServeForOtel(projectDir string) {
 	if isExplicitlyDisabled(os.Getenv("HTMLGRAPH_OTEL_ENABLED")) {
 		return
 	}
-	cfg := otelreceiver.LoadConfigFromEnv("", projectDir)
-	host := cfg.BindHost
-	if host == "" || host == "0.0.0.0" {
-		host = "127.0.0.1"
-	}
-	port := cfg.HTTPPort
-	if port == 0 {
-		port = 4318
+
+	// Step 1: discover an existing serve via /api/health.
+	if h, ok := probeHealth(defaultParentHTTPPort, 500*time.Millisecond); ok {
+		if h.ProjectDir == projectDir {
+			// Healthy serve for this project already running — nothing to do.
+			debugLog(fmt.Sprintf("ensureServeForOtel: existing serve healthy for %s (otel :%d)", projectDir, h.Ports.OTel))
+			return
+		}
+		// Wrong project. Log and fall through to spawn our own.
+		fmt.Fprintf(os.Stderr,
+			"htmlgraph: existing serve on :%d is scoped to %s (ours is %s); starting separate instance\n",
+			defaultParentHTTPPort, h.ProjectDir, projectDir)
 	}
 
-	if probePort(host, port, 200*time.Millisecond) {
-		return // something is already bound — leave it alone
-	}
-
-	// Check the lockfile before spawning. If a serve process is already
-	// running (lock file contains a live PID), skip the spawn to prevent
-	// a second htmlgraph serve from racing to bind port 8080.
+	// Step 2: check the lockfile as a secondary guard against dual-spawn.
 	if skipSpawn, stale := checkServeLock(projectDir); skipSpawn {
 		debugLog("ensureServeForOtel: skipping spawn, serve already running (lockfile)")
 		return
 	} else if stale {
-		// Stale lockfile (process gone) — remove it so future spawns work.
 		_ = os.Remove(serveLockPath(projectDir))
 	}
 
+	// Step 3: nothing found — spawn.
 	if err := spawnDetachedServe(projectDir); err != nil {
 		fmt.Fprintf(os.Stderr, "htmlgraph: auto-start serve failed: %v\n", err)
 		return
 	}
 
-	// Poll the port for up to 3 seconds. If it binds within that window,
-	// OTel signals from the spawned claude will land correctly. Anything
-	// longer suggests the server hit a problem — warn but continue.
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
-	defer cancel()
-	for {
-		if probePort(host, port, 200*time.Millisecond) {
-			fmt.Fprintf(os.Stderr, "htmlgraph: started serve for OTel receiver on %s:%d\n", host, port)
+	// Step 4: wait for OUR spawned serve to become ready, polling /api/health.
+	// 8 s is generous; DB migrations on a large htmlgraph.db can take a few seconds.
+	deadline := time.Now().Add(8 * time.Second)
+	for time.Now().Before(deadline) {
+		if h, ok := probeHealth(defaultParentHTTPPort, 200*time.Millisecond); ok && h.ProjectDir == projectDir {
+			fmt.Fprintf(os.Stderr, "htmlgraph: started serve for OTel receiver (otel :%d)\n", h.Ports.OTel)
 			return
 		}
-		select {
-		case <-ctx.Done():
-			fmt.Fprintf(os.Stderr, "htmlgraph: serve did not bind %s:%d within 3s; OTel signals may drop until it comes up\n", host, port)
-			return
-		case <-time.After(150 * time.Millisecond):
-		}
+		time.Sleep(150 * time.Millisecond)
 	}
+	cfg := otelreceiver.LoadConfigFromEnv("", projectDir)
+	fmt.Fprintf(os.Stderr,
+		"htmlgraph: serve did not become ready within 8s for project %s; OTel signals may drop (otel :%d)\n",
+		projectDir, cfg.HTTPPort)
 }
 
 // probePort returns true when host:port accepts a TCP connection within

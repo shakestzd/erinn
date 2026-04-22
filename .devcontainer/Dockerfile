@@ -1,9 +1,11 @@
 # syntax=docker/dockerfile:1.7
 
-FROM mcr.microsoft.com/devcontainers/go:1-1.23-bookworm
+FROM mcr.microsoft.com/devcontainers/go:1-1.24-bookworm
 
 ENV DEBIAN_FRONTEND=noninteractive
 ENV PATH="/home/vscode/.local/bin:${PATH}"
+ENV TERM=xterm-256color
+ENV COLORTERM=truecolor
 
 RUN rm -f /etc/apt/sources.list.d/yarn.list \
     && apt-get update \

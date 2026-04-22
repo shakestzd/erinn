@@ -60,8 +60,8 @@ func TestSessionRoundTrip_IngestThenReindex(t *testing.T) {
 			{Ordinal: 1, Role: "assistant", Timestamp: msgTs.Add(2 * time.Second)},
 		},
 		ToolCalls: []models.ToolCall{
-			{MessageOrdinal: 1, ToolName: "Read", ToolUseID: "tu-a", InputJSON: `{"file_path":"/tmp/a.go"}`},
-			{MessageOrdinal: 1, ToolName: "Edit", ToolUseID: "tu-b", InputJSON: `{"file_path":"/tmp/a.go"}`},
+			{MessageOrdinal: 1, ToolName: "Read", ToolUseID: "tu-a", InputJSON: `{"file_path":"/mock/a.go"}`},
+			{MessageOrdinal: 1, ToolName: "Edit", ToolUseID: "tu-b", InputJSON: `{"file_path":"/mock/a.go"}`},
 			{MessageOrdinal: 1, ToolName: "Bash", ToolUseID: "tu-c", InputJSON: `{"command":"go test"}`},
 		},
 	}
@@ -200,7 +200,7 @@ func TestSessionRoundTrip_MigrationBackfill(t *testing.T) {
 		}
 		tc := &models.ToolCall{
 			MessageID: int(msgID), SessionID: id, ToolName: "Read",
-			ToolUseID: "tu-" + id, InputJSON: `{"file_path":"/tmp/a.go"}`,
+			ToolUseID: "tu-" + id, InputJSON: `{"file_path":"/mock/a.go"}`,
 			Category: "Read", MessageOrdinal: 0,
 		}
 		if err := dbpkg.InsertToolCall(database, tc); err != nil {

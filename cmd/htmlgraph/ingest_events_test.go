@@ -37,13 +37,13 @@ func TestStoreParseResult_CreatesAgentEvents(t *testing.T) {
 				MessageOrdinal: 1,
 				ToolName:       "Read",
 				ToolUseID:      "tu-abc123",
-				InputJSON:      `{"file_path":"/tmp/test.go"}`,
+				InputJSON:      `{"file_path":"/mock/test.go"}`,
 			},
 			{
 				MessageOrdinal: 1,
 				ToolName:       "Edit",
 				ToolUseID:      "tu-def456",
-				InputJSON:      `{"file_path":"/tmp/test.go","old_string":"foo","new_string":"bar"}`,
+				InputJSON:      `{"file_path":"/mock/test.go","old_string":"foo","new_string":"bar"}`,
 			},
 		},
 	}
@@ -141,7 +141,7 @@ func TestStoreParseResult_IdempotentReingestion(t *testing.T) {
 				MessageOrdinal: 0,
 				ToolName:       "Read",
 				ToolUseID:      "tu-idem-001",
-				InputJSON:      `{"file_path":"/tmp/test.go"}`,
+				InputJSON:      `{"file_path":"/mock/test.go"}`,
 			},
 		},
 	}

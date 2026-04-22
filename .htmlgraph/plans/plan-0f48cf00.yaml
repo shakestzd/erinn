@@ -5,9 +5,9 @@ meta:
     description: |
         The local cockpit extends feat-52d15f78 (the ttyd embed MVP that shipped a single hardcoded `htmlgraph claude --dev` iframe) into a full multi-pane session manager embedded in the HtmlGraph dashboard. Users can spawn N concurrent PTY sessions — Claude, Codex, Gemini, or yolo — each scoped to its own CWD or worktree and tied to a specific work item, all from a launcher modal without leaving the browser. The backend remains a thin generic PTY spawner: one endpoint accepts {agent, mode, cwd, work_item} and computes the shell command; no agent-specific logic leaks into internal/terminal. The frontend, staying vanilla JS, owns all launcher UX, pane layout, and inventory reload. Because every spawned session writes its own session_id + project_dir row through the existing observability pipe, the lineage graph gains a natural record of which pane produced which artifacts — making parallel multi-agent work traceable at the session level.
     created_at: "2026-04-21"
-    status: draft
+    status: finalized
     created_by: claude-opus
-    version: 2
+    version: 3
 design:
     problem: |
         The MVP shipped in feat-52d15f78 puts one iframe in the dashboard that hardcodes `htmlgraph claude --dev` as the shell command. There is no way to open a second session, no way to pick Codex or Gemini as the agent, no way to scope a pane to a feature worktree, and no way to recover live panes after reloading the dashboard tab. The backend endpoint POST /api/terminal/start only accepts {work_item} and closes over the server-start projectDir — meaning all sessions run in the same directory regardless of what the user wants. A user running three parallel yolo agents on different features must leave the dashboard and manage tmux sessions manually, losing the observability lineage that HtmlGraph is designed to provide.

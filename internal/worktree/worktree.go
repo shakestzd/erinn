@@ -115,6 +115,55 @@ func EnsureForAgent(trackID, taskName, repoRoot string, w io.Writer) (string, er
 	return worktreePath, nil
 }
 
+// RepairGitdir checks whether a linked worktree's .git file points to a valid
+// gitdir path. If the path is missing (e.g. after cloning or opening the repo on
+// a different machine with a different filesystem layout), it rewrites the file
+// with the correct absolute path derived from the current repoRoot.
+//
+// Returns (true, nil) when a repair was performed, (false, nil) when the path is
+// already valid or the directory is not a linked worktree, and (false, err) on
+// any unexpected I/O error.
+func RepairGitdir(worktreePath, repoRoot string) (bool, error) {
+	gitFile := filepath.Join(worktreePath, ".git")
+	raw, err := os.ReadFile(gitFile)
+	if os.IsNotExist(err) {
+		// Not a linked worktree — nothing to repair.
+		return false, nil
+	}
+	if err != nil {
+		return false, fmt.Errorf("read %s: %w", gitFile, err)
+	}
+
+	line := strings.TrimSpace(string(raw))
+	if !strings.HasPrefix(line, "gitdir: ") {
+		// Not a worktree gitdir file (could be the main repo's .git directory).
+		return false, nil
+	}
+	gitdir := strings.TrimPrefix(line, "gitdir: ")
+
+	// If the gitdir already exists, no repair needed.
+	if _, err := os.Stat(gitdir); err == nil {
+		return false, nil
+	}
+
+	// Compute the correct gitdir: <repoRoot>/.git/worktrees/<worktreeName>
+	// The worktree name is the base of the worktree path (e.g. "trk-abc12345").
+	worktreeName := filepath.Base(worktreePath)
+	correctGitdir := filepath.Join(repoRoot, ".git", "worktrees", worktreeName)
+
+	// Verify the computed path actually exists before writing.
+	if _, err := os.Stat(correctGitdir); err != nil {
+		// Can't find a valid gitdir; bail without corrupting the file further.
+		return false, fmt.Errorf("computed gitdir %q does not exist (worktree may not be registered in main repo): %w", correctGitdir, err)
+	}
+
+	newContent := "gitdir: " + correctGitdir + "\n"
+	if err := os.WriteFile(gitFile, []byte(newContent), 0644); err != nil {
+		return false, fmt.Errorf("rewrite %s: %w", gitFile, err)
+	}
+	return true, nil
+}
+
 // resolveTrackForFeature reads a feature HTML file and returns its data-track-id attribute.
 // If the feature file doesn't exist or has no track ID, returns empty string.
 func resolveTrackForFeature(featureID, projectRoot string) string {

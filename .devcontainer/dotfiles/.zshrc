@@ -2,6 +2,10 @@
 # ZSH CONFIGURATION - Container-adapted (devcontainer)
 # =============================================================================
 
+# Export truecolor environment for shell tools (Oh My Posh, Powerlevel10k)
+export TERM=xterm-256color
+export COLORTERM=truecolor
+
 # Official direnv + Powerlevel10k integration (prevents instant prompt warnings)
 (( ${+commands[direnv]} )) && emulate zsh -c "$(direnv export zsh)"
 

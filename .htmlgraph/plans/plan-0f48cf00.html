@@ -1,15 +1,13 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="htmlgraph-version" content="1.0">
+<!DOCTYPE html><html lang="en"><head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<meta name="htmlgraph-version" content="1.0"/>
 <title>Plan: Local cockpit — parallel AI sessions in the dashboard</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/styles/github-dark.min.css" id="hljs-dark">
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/styles/github.min.css" id="hljs-light" disabled>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin=""/>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&amp;family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&amp;display=swap" rel="stylesheet"/>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/styles/github-dark.min.css" id="hljs-dark"/>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/styles/github.min.css" id="hljs-light" disabled=""/>
 <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/highlight.min.js"></script>
 <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/languages/go.min.js"></script>
 <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/languages/yaml.min.js"></script>
@@ -278,7 +276,7 @@ textarea::placeholder{color:var(--text-muted)}
 </nav>
 <div class="plan-layout">
 <div class="plan-content">
-<article id="plan-0f48cf00" data-plan-id="plan-0f48cf00" data-feature-id="trk-cd61bbae" data-status="draft">
+<article id="plan-0f48cf00" data-plan-id="plan-0f48cf00" data-feature-id="trk-cd61bbae" data-status="finalized">
 
 <!-- Plan Header -->
 <header class="plan-header">
@@ -291,7 +289,7 @@ textarea::placeholder{color:var(--text-muted)}
   </div>
 </header>
 <button id="themeToggle" style="position:fixed;top:16px;right:16px;z-index:100;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:6px 12px;color:var(--text);font-family:var(--mono);font-size:0.75rem;cursor:pointer;">
-  &#9728; Light
+  ☀ Light
 </button>
 
 <!-- Related Work -->
@@ -300,7 +298,7 @@ textarea::placeholder{color:var(--text-muted)}
 <!-- Plan YAML source (collapsible) -->
 <details class="yaml-viewer" id="yaml-viewer">
     <summary>View Plan YAML</summary>
-    <pre><code class="language-yaml" id="yaml-content">Loading&#x2026;</code></pre>
+    <pre><code class="language-yaml" id="yaml-content">Loading…</code></pre>
 </details>
 
 <!-- ZONE 1: Dependency Graph -->
@@ -323,34 +321,34 @@ textarea::placeholder{color:var(--text-muted)}
 <!-- ZONE 2: Interactive Sections -->
 
 <!-- Design -->
-<details id="design" class="section-card" open data-phase="design" data-status="pending">
+<details id="design" class="section-card" open="" data-phase="design" data-status="pending">
   <summary><span>Design</span><span class="badge badge-pending" data-badge-for="design">Pending</span></summary>
   <div class="section-body">
     <h4>Problem</h4>
-<div data-markdown>The MVP shipped in feat-52d15f78 puts one iframe in the dashboard that hardcodes `htmlgraph claude --dev` as the shell command. There is no way to open a second session, no way to pick Codex or Gemini as the agent, no way to scope a pane to a feature worktree, and no way to recover live panes after reloading the dashboard tab. The backend endpoint POST /api/terminal/start only accepts {work_item} and closes over the server-start projectDir — meaning all sessions run in the same directory regardless of what the user wants. A user running three parallel yolo agents on different features must leave the dashboard and manage tmux sessions manually, losing the observability lineage that HtmlGraph is designed to provide.
+<div data-markdown="">The MVP shipped in feat-52d15f78 puts one iframe in the dashboard that hardcodes `htmlgraph claude --dev` as the shell command. There is no way to open a second session, no way to pick Codex or Gemini as the agent, no way to scope a pane to a feature worktree, and no way to recover live panes after reloading the dashboard tab. The backend endpoint POST /api/terminal/start only accepts {work_item} and closes over the server-start projectDir — meaning all sessions run in the same directory regardless of what the user wants. A user running three parallel yolo agents on different features must leave the dashboard and manage tmux sessions manually, losing the observability lineage that HtmlGraph is designed to provide.
 </div>
 <h4>Goals</h4>
 <ol>
-<li data-markdown>**N concurrent panes** — dashboard can host ≥4 simultaneous live PTY sessions without collision</li>
-<li data-markdown>**Agent-agnostic spawn** — same backend endpoint launches claude, codex, gemini, or htmlgraph yolo by parameter, not by new route</li>
-<li data-markdown>**Per-pane scope** — each pane can run in the main repo, a feature worktree, or a track worktree with HTMLGRAPH_PROJECT_DIR routed correctly</li>
-<li data-markdown>**Persistent pane inventory** — reloading the dashboard restores visible panes; ttyd processes outlive the browser tab</li>
-<li data-markdown>**Work-item attribution preserved** — every spawned session writes distinct session_id + project_dir rows, visible in the lineage graph</li>
+<li data-markdown="">**N concurrent panes** — dashboard can host ≥4 simultaneous live PTY sessions without collision</li>
+<li data-markdown="">**Agent-agnostic spawn** — same backend endpoint launches claude, codex, gemini, or htmlgraph yolo by parameter, not by new route</li>
+<li data-markdown="">**Per-pane scope** — each pane can run in the main repo, a feature worktree, or a track worktree with HTMLGRAPH_PROJECT_DIR routed correctly</li>
+<li data-markdown="">**Persistent pane inventory** — reloading the dashboard restores visible panes; ttyd processes outlive the browser tab</li>
+<li data-markdown="">**Work-item attribution preserved** — every spawned session writes distinct session_id + project_dir rows, visible in the lineage graph</li>
 </ol>
 <h4>Constraints</h4>
 <ul>
-<li data-markdown>Backend stays generic PTY spawner — no agent-specific logic in internal/terminal</li>
-<li data-markdown>Frontend stays vanilla JS — no new framework/bundler introduced for cockpit alone</li>
-<li data-markdown>Dev mode launchers must use --plugin-dir via removeMarketplaceHtmlgraph() (already enforced) — cockpit must not drop that guard</li>
-<li data-markdown>bug-6ab963d3 and bug-d2d3fb3f are resolved via the checkServeLock PID-file pattern in claude_serve_autostart.go:173–215; do NOT add duplicate serialization at the terminal-handler layer.</li>
-<li data-markdown>feat-af47836b (logical session splitting) must land before multi-pane attribution is clean; cockpit ships alongside but leans on it for correctness</li>
-<li data-markdown>Cockpit endpoints are localhost-bound; any remote-exposure story is deferred (ttyd --credential is available when we need it)</li>
-<li data-markdown>Multi-project / global-serve mode (parent/child architecture in serve.go + serve_parent.go) is out of scope for v1; cockpit targets single-project mode only. Verify after landing that terminal routes propagate correctly through buildSingleProjectMux on the child side.</li>
-<li data-markdown>Backend session-reaper goroutine in internal/terminal/terminal.go:108–113 removes entries on ttyd exit; frontend must have a liveness signal (see q-liveness-signal) to avoid dead-iframe UX.</li>
+<li data-markdown="">Backend stays generic PTY spawner — no agent-specific logic in internal/terminal</li>
+<li data-markdown="">Frontend stays vanilla JS — no new framework/bundler introduced for cockpit alone</li>
+<li data-markdown="">Dev mode launchers must use --plugin-dir via removeMarketplaceHtmlgraph() (already enforced) — cockpit must not drop that guard</li>
+<li data-markdown="">bug-6ab963d3 and bug-d2d3fb3f are resolved via the checkServeLock PID-file pattern in claude_serve_autostart.go:173–215; do NOT add duplicate serialization at the terminal-handler layer.</li>
+<li data-markdown="">feat-af47836b (logical session splitting) must land before multi-pane attribution is clean; cockpit ships alongside but leans on it for correctness</li>
+<li data-markdown="">Cockpit endpoints are localhost-bound; any remote-exposure story is deferred (ttyd --credential is available when we need it)</li>
+<li data-markdown="">Multi-project / global-serve mode (parent/child architecture in serve.go + serve_parent.go) is out of scope for v1; cockpit targets single-project mode only. Verify after landing that terminal routes propagate correctly through buildSingleProjectMux on the child side.</li>
+<li data-markdown="">Backend session-reaper goroutine in internal/terminal/terminal.go:108–113 removes entries on ttyd exit; frontend must have a liveness signal (see q-liveness-signal) to avoid dead-iframe UX.</li>
 </ul>
 
     <div class="approval-row">
-      <label><input type="checkbox" data-section="design" data-action="approve"> Approve design</label>
+      <label><input type="checkbox" data-section="design" data-action="approve" checked="checked"/> Approve design</label>
       <textarea data-section="design" data-comment-for="design" placeholder="Comments on design decisions..."></textarea>
     </div>
   </div>
@@ -361,7 +359,7 @@ textarea::placeholder{color:var(--text-muted)}
 
 
 <!-- Slices -->
-<details id="slices" class="section-card" open data-phase="slices" data-status="pending">
+<details id="slices" class="section-card" open="" data-phase="slices" data-status="pending">
   <summary><span>Slices</span><span class="badge badge-pending" data-badge-for="slices">Pending</span></summary>
   <div class="section-body">
     <div class="slice-card" data-slice="1" data-slice-name="slice-1" data-status="pending">
@@ -392,14 +390,14 @@ Regression: Existing MVP POST /api/terminal/start {work_item} flow still returns
 </div></div>
   <div class="slice-deps">Dependencies: none</div>
   <div class="approval-row">
-    <label><input type="checkbox" data-section="slice-1" data-action="approve"> Approve slice</label>
+    <label><input type="checkbox" data-section="slice-1" data-action="approve" checked="checked"/> Approve slice</label>
     <textarea data-section="slice-1" data-comment-for="slice-1" placeholder="Comments on slice 1..."></textarea>
   </div>
 </div>
 <div class="slice-card" data-slice="2" data-slice-name="slice-2" data-status="pending">
   <div class="slice-header">
     <span class="slice-num">#2</span>
-    <span class="slice-name">UUID-keyed sessions &#43; inventory endpoints</span>
+    <span class="slice-name">UUID-keyed sessions + inventory endpoints</span>
     <span class="badge badge-revision">M</span>
     <span class="badge badge-pending">Low</span>
     <span class="badge badge-pending" data-badge-for="slice-2">Pending</span>
@@ -422,7 +420,7 @@ Regression: Existing stop-by-pid callers continue to function after UUID migrati
 </div></div>
   <div class="slice-deps">Dependencies: slices 1</div>
   <div class="approval-row">
-    <label><input type="checkbox" data-section="slice-2" data-action="approve"> Approve slice</label>
+    <label><input type="checkbox" data-section="slice-2" data-action="approve" checked="checked"/> Approve slice</label>
     <textarea data-section="slice-2" data-comment-for="slice-2" placeholder="Comments on slice 2..."></textarea>
   </div>
 </div>
@@ -467,7 +465,7 @@ Regression: htmlgraph yolo --feature &lt;id&gt; still creates worktrees via the 
 </div></div>
   <div class="slice-deps">Dependencies: none</div>
   <div class="approval-row">
-    <label><input type="checkbox" data-section="slice-3" data-action="approve"> Approve slice</label>
+    <label><input type="checkbox" data-section="slice-3" data-action="approve" checked="checked"/> Approve slice</label>
     <textarea data-section="slice-3" data-comment-for="slice-3" placeholder="Comments on slice 3..."></textarea>
   </div>
 </div>
@@ -493,7 +491,7 @@ Regression: Existing bare-click path is fully replaced; no orphaned event listen
 </div></div>
   <div class="slice-deps">Dependencies: slices 1</div>
   <div class="approval-row">
-    <label><input type="checkbox" data-section="slice-4" data-action="approve"> Approve slice</label>
+    <label><input type="checkbox" data-section="slice-4" data-action="approve" checked="checked"/> Approve slice</label>
     <textarea data-section="slice-4" data-comment-for="slice-4" placeholder="Comments on slice 4..."></textarea>
   </div>
 </div>
@@ -530,14 +528,14 @@ Regression: Single-pane flow from pre-cockpit MVP still works end-to-end via the
 </div></div>
   <div class="slice-deps">Dependencies: slices 1,2,4</div>
   <div class="approval-row">
-    <label><input type="checkbox" data-section="slice-5" data-action="approve"> Approve slice</label>
+    <label><input type="checkbox" data-section="slice-5" data-action="approve" checked="checked"/> Approve slice</label>
     <textarea data-section="slice-5" data-comment-for="slice-5" placeholder="Comments on slice 5..."></textarea>
   </div>
 </div>
 <div class="slice-card" data-slice="6" data-slice-name="slice-6" data-status="pending">
   <div class="slice-header">
     <span class="slice-num">#6</span>
-    <span class="slice-name">Parallel-launch integration test &#43; stress harness</span>
+    <span class="slice-name">Parallel-launch integration test + stress harness</span>
     <span class="badge badge-revision">M</span>
     <span class="badge badge-revision">Med</span>
     <span class="badge badge-pending" data-badge-for="slice-6">Pending</span>
@@ -550,7 +548,7 @@ Test harness components:
 2. Each of the 4 sessions must show a distinct session_id in the sessions table after running one hook event.
 3. Smoke shell script (scripts/stress-launch.sh) that drives the same scenario against a running htmlgraph serve and prints a pass/fail summary — useful for manual regression.
 </div></div>
-  <div class="slice-field"><div class="slice-field-label">Why</div><div class="slice-field-value" data-markdown="">The cockpit amplifies the parallel-launch surface area (4&#43; sessions spawned in rapid succession). The bugs that caused SQLITE_BUSY and feature-start writer contention are resolved, but without a regression test the fix could silently regress. This slice locks in the correct behavior and provides a stress harness for future cockpit development.
+  <div class="slice-field"><div class="slice-field-label">Why</div><div class="slice-field-value" data-markdown="">The cockpit amplifies the parallel-launch surface area (4+ sessions spawned in rapid succession). The bugs that caused SQLITE_BUSY and feature-start writer contention are resolved, but without a regression test the fix could silently regress. This slice locks in the correct behavior and provides a stress harness for future cockpit development.
 </div></div>
   <div class="slice-field"><div class="slice-field-label">Files</div><div class="slice-field-value"><code>internal/terminal/terminal_test.go, scripts/stress-launch.sh (new)</code></div></div>
   <div class="slice-field"><div class="slice-field-label">Done when</div><ul class="slice-done-list"><li data-markdown="">4 concurrent POST /api/terminal/start requests each return a distinct live port within 5s</li><li data-markdown="">debug.log contains zero SQLITE_BUSY entries during the 4-session launch window</li><li data-markdown="">All 4 sessions show distinct session_id values in the sessions table after each runs one hook event</li><li data-markdown="">All 4 ttyd processes are reaped cleanly when POST /api/terminal/stop-all is called</li><li data-markdown="">scripts/stress-launch.sh exits 0 on a healthy server</li></ul></div>
@@ -560,14 +558,14 @@ Shell: scripts/stress-launch.sh — smoke-test against a running server, prints 
 </div></div>
   <div class="slice-deps">Dependencies: slices 1,2</div>
   <div class="approval-row">
-    <label><input type="checkbox" data-section="slice-6" data-action="approve"> Approve slice</label>
+    <label><input type="checkbox" data-section="slice-6" data-action="approve" checked="checked"/> Approve slice</label>
     <textarea data-section="slice-6" data-comment-for="slice-6" placeholder="Comments on slice 6..."></textarea>
   </div>
 </div>
 <div class="slice-card" data-slice="7" data-slice-name="slice-7" data-status="pending">
   <div class="slice-header">
     <span class="slice-num">#7</span>
-    <span class="slice-name">Agent-matrix parity for worktree &#43; work-item</span>
+    <span class="slice-name">Agent-matrix parity for worktree + work-item</span>
     <span class="badge badge-revision">M</span>
     <span class="badge badge-pending">Low</span>
     <span class="badge badge-pending" data-badge-for="slice-7">Pending</span>
@@ -584,17 +582,17 @@ Implementation notes:
   <div class="slice-field"><div class="slice-field-label">Why</div><div class="slice-field-value" data-markdown="">Today only the Claude/yolo launchers support worktrees and work-item attribution. Without this slice, a Codex or Gemini pane launched from the cockpit runs in the main repo with no attribution — a second-class experience that defeats the observability goal. Parity means every agent can participate in the lineage graph on equal footing.
 </div></div>
   <div class="slice-field"><div class="slice-field-label">Files</div><div class="slice-field-value"><code>cmd/htmlgraph/codex.go, cmd/htmlgraph/gemini.go, cmd/htmlgraph/terminal_handlers.go, internal/worktree/worktree.go</code></div></div>
-  <div class="slice-field"><div class="slice-field-label">Done when</div><ul class="slice-done-list"><li data-markdown="">htmlgraph codex --feature feat-abc spawns in .claude/worktrees/feat-abc with HTMLGRAPH_PROJECT_DIR set</li><li data-markdown="">htmlgraph gemini --track trk-xyz spawns in the track worktree with HTMLGRAPH_PROJECT_DIR set</li><li data-markdown="">Cockpit POST /api/terminal/start with agent=codex &#43; cwd_kind=feature-worktree emits correct htmlgraph codex command (not raw codex)</li><li data-markdown="">Cockpit POST /api/terminal/start with agent=gemini emits htmlgraph gemini so HTMLGRAPH_AGENT env injection flows</li><li data-markdown="">buildShellCmd prepends htmlgraph feature start &lt;id&gt; for codex and gemini when work_item is set</li><li data-markdown="">Help output for codex and gemini lists the new flags</li></ul></div>
+  <div class="slice-field"><div class="slice-field-label">Done when</div><ul class="slice-done-list"><li data-markdown="">htmlgraph codex --feature feat-abc spawns in .claude/worktrees/feat-abc with HTMLGRAPH_PROJECT_DIR set</li><li data-markdown="">htmlgraph gemini --track trk-xyz spawns in the track worktree with HTMLGRAPH_PROJECT_DIR set</li><li data-markdown="">Cockpit POST /api/terminal/start with agent=codex + cwd_kind=feature-worktree emits correct htmlgraph codex command (not raw codex)</li><li data-markdown="">Cockpit POST /api/terminal/start with agent=gemini emits htmlgraph gemini so HTMLGRAPH_AGENT env injection flows</li><li data-markdown="">buildShellCmd prepends htmlgraph feature start &lt;id&gt; for codex and gemini when work_item is set</li><li data-markdown="">Help output for codex and gemini lists the new flags</li></ul></div>
   
   <div class="slice-field"><div class="slice-field-label">Test Strategy</div><div class="slice-field-value slice-tests" data-markdown="">Unit: TestCodexWorktreeFlag verifies --feature flag sets correct cmd.Dir and env
 Unit: TestGeminiWorktreeFlag same for gemini
 Unit: TestBuildShellCmdGeminiEnvInjection verifies shell builder emits htmlgraph gemini not raw gemini
-Integration: TestCockpitCodexWorktree posts agent=codex &#43; cwd_kind=feature-worktree and asserts spawned process is in the worktree path
+Integration: TestCockpitCodexWorktree posts agent=codex + cwd_kind=feature-worktree and asserts spawned process is in the worktree path
 Regression: htmlgraph codex and htmlgraph gemini invocations without new flags retain existing behavior exactly
 </div></div>
   <div class="slice-deps">Dependencies: slices 1,3</div>
   <div class="approval-row">
-    <label><input type="checkbox" data-section="slice-7" data-action="approve"> Approve slice</label>
+    <label><input type="checkbox" data-section="slice-7" data-action="approve" checked="checked"/> Approve slice</label>
     <textarea data-section="slice-7" data-comment-for="slice-7" placeholder="Comments on slice 7..."></textarea>
   </div>
 </div>
@@ -612,11 +610,11 @@ Regression: htmlgraph codex and htmlgraph gemini invocations without new flags r
       <p>Floating windows vs tiled/split layout for v1 panes?</p>
       
       
-      <label class="recommended"><input type="radio" name="q-pane-layout" data-question="q-pane-layout" value="Floating windows — freely-positionable overlay divs draggable by titlebar, no new library, matches current pattern"> Floating windows — freely-positionable overlay divs draggable by titlebar, no new library, matches current pattern <span class="rec-tag">recommended</span></label>
+      <label class="recommended"><input type="radio" name="q-pane-layout" data-question="q-pane-layout" value="Floating windows — freely-positionable overlay divs draggable by titlebar, no new library, matches current pattern"/> Floating windows — freely-positionable overlay divs draggable by titlebar, no new library, matches current pattern <span class="rec-tag">recommended</span></label>
       
-      <label><input type="radio" name="q-pane-layout" data-question="q-pane-layout" value="Tiled layout — grid or split-pane filling the viewport, IDE-like feel, requires split library or custom resize handles"> Tiled layout — grid or split-pane filling the viewport, IDE-like feel, requires split library or custom resize handles</label>
+      <label><input type="radio" name="q-pane-layout" data-question="q-pane-layout" value="Tiled layout — grid or split-pane filling the viewport, IDE-like feel, requires split library or custom resize handles"/> Tiled layout — grid or split-pane filling the viewport, IDE-like feel, requires split library or custom resize handles</label>
       
-      <label><input type="radio" name="q-pane-layout" data-question="q-pane-layout" value="User-toggleable between floating and tiled modes — maximum flexibility, maximum frontend complexity"> User-toggleable between floating and tiled modes — maximum flexibility, maximum frontend complexity</label>
+      <label><input type="radio" name="q-pane-layout" data-question="q-pane-layout" value="User-toggleable between floating and tiled modes — maximum flexibility, maximum frontend complexity"/> User-toggleable between floating and tiled modes — maximum flexibility, maximum frontend complexity</label>
       
       <textarea data-section="questions" data-question-rationale="q-pane-layout" placeholder="Rationale for q-pane-layout..."></textarea>
     </div>
@@ -625,11 +623,11 @@ Regression: htmlgraph codex and htmlgraph gemini invocations without new flags r
       <p>Should the launcher default to creating a worktree or running in the main repo?</p>
       
       
-      <label><input type="radio" name="q-worktree-default" data-question="q-worktree-default" value="Default on — launcher always creates/attaches a worktree, safest for parallel agents, highest friction for simple use"> Default on — launcher always creates/attaches a worktree, safest for parallel agents, highest friction for simple use</label>
+      <label><input type="radio" name="q-worktree-default" data-question="q-worktree-default" value="Default on — launcher always creates/attaches a worktree, safest for parallel agents, highest friction for simple use"/> Default on — launcher always creates/attaches a worktree, safest for parallel agents, highest friction for simple use</label>
       
-      <label><input type="radio" name="q-worktree-default" data-question="q-worktree-default" value="Default off — launcher defaults to main repo, zero friction but parallel agents can collide on the same working tree"> Default off — launcher defaults to main repo, zero friction but parallel agents can collide on the same working tree</label>
+      <label><input type="radio" name="q-worktree-default" data-question="q-worktree-default" value="Default off — launcher defaults to main repo, zero friction but parallel agents can collide on the same working tree"/> Default off — launcher defaults to main repo, zero friction but parallel agents can collide on the same working tree</label>
       
-      <label class="recommended"><input type="radio" name="q-worktree-default" data-question="q-worktree-default" value="CWD toggle visible but defaults to main repo — user must opt in to worktree, no hidden magic"> CWD toggle visible but defaults to main repo — user must opt in to worktree, no hidden magic <span class="rec-tag">recommended</span></label>
+      <label class="recommended"><input type="radio" name="q-worktree-default" data-question="q-worktree-default" value="CWD toggle visible but defaults to main repo — user must opt in to worktree, no hidden magic"/> CWD toggle visible but defaults to main repo — user must opt in to worktree, no hidden magic <span class="rec-tag">recommended</span></label>
       
       <textarea data-section="questions" data-question-rationale="q-worktree-default" placeholder="Rationale for q-worktree-default..."></textarea>
     </div>
@@ -638,11 +636,11 @@ Regression: htmlgraph codex and htmlgraph gemini invocations without new flags r
       <p>Block on prerequisite bugs landing, or ship alongside with mitigations?</p>
       
       
-      <label><input type="radio" name="q-prereq-strategy" data-question="q-prereq-strategy" value="Block — gate cockpit on bug-6ab963d3 and bug-d2d3fb3f being closed, clean integration but unknown delay"> Block — gate cockpit on bug-6ab963d3 and bug-d2d3fb3f being closed, clean integration but unknown delay</label>
+      <label><input type="radio" name="q-prereq-strategy" data-question="q-prereq-strategy" value="Block — gate cockpit on bug-6ab963d3 and bug-d2d3fb3f being closed, clean integration but unknown delay"/> Block — gate cockpit on bug-6ab963d3 and bug-d2d3fb3f being closed, clean integration but unknown delay</label>
       
-      <label class="recommended"><input type="radio" name="q-prereq-strategy" data-question="q-prereq-strategy" value="Ship alongside — cockpit with mutex and debounce mitigations in slice-6 and TODO markers, earlier value, accepted risk"> Ship alongside — cockpit with mutex and debounce mitigations in slice-6 and TODO markers, earlier value, accepted risk <span class="rec-tag">recommended</span></label>
+      <label class="recommended"><input type="radio" name="q-prereq-strategy" data-question="q-prereq-strategy" value="Ship alongside — cockpit with mutex and debounce mitigations in slice-6 and TODO markers, earlier value, accepted risk"/> Ship alongside — cockpit with mutex and debounce mitigations in slice-6 and TODO markers, earlier value, accepted risk <span class="rec-tag">recommended</span></label>
       
-      <label><input type="radio" name="q-prereq-strategy" data-question="q-prereq-strategy" value="Ship now — no mitigations, accept flaky behavior, let root-cause bugs carry the fix, fastest to ship, worst user experience"> Ship now — no mitigations, accept flaky behavior, let root-cause bugs carry the fix, fastest to ship, worst user experience</label>
+      <label><input type="radio" name="q-prereq-strategy" data-question="q-prereq-strategy" value="Ship now — no mitigations, accept flaky behavior, let root-cause bugs carry the fix, fastest to ship, worst user experience"/> Ship now — no mitigations, accept flaky behavior, let root-cause bugs carry the fix, fastest to ship, worst user experience</label>
       
       <textarea data-section="questions" data-question-rationale="q-prereq-strategy" placeholder="Rationale for q-prereq-strategy..."></textarea>
     </div>
@@ -651,11 +649,11 @@ Regression: htmlgraph codex and htmlgraph gemini invocations without new flags r
       <p>Stay localhost-only, or introduce ttyd credentials now?</p>
       
       
-      <label class="recommended"><input type="radio" name="q-auth-model" data-question="q-auth-model" value="Localhost only — no auth added, localhost bind is the security boundary, document remote story as a future track"> Localhost only — no auth added, localhost bind is the security boundary, document remote story as a future track <span class="rec-tag">recommended</span></label>
+      <label class="recommended"><input type="radio" name="q-auth-model" data-question="q-auth-model" value="Localhost only — no auth added, localhost bind is the security boundary, document remote story as a future track"/> Localhost only — no auth added, localhost bind is the security boundary, document remote story as a future track <span class="rec-tag">recommended</span></label>
       
-      <label><input type="radio" name="q-auth-model" data-question="q-auth-model" value="Bearer token — add Authorization header support to /api/terminal/* endpoints and pass credentials to ttyd, future-proofs remote access"> Bearer token — add Authorization header support to /api/terminal/* endpoints and pass credentials to ttyd, future-proofs remote access</label>
+      <label><input type="radio" name="q-auth-model" data-question="q-auth-model" value="Bearer token — add Authorization header support to /api/terminal/* endpoints and pass credentials to ttyd, future-proofs remote access"/> Bearer token — add Authorization header support to /api/terminal/* endpoints and pass credentials to ttyd, future-proofs remote access</label>
       
-      <label><input type="radio" name="q-auth-model" data-question="q-auth-model" value="ttyd credential — use ttyd --credential user:pass per session, simpler than bearer tokens but per-session credential management is awkward"> ttyd credential — use ttyd --credential user:pass per session, simpler than bearer tokens but per-session credential management is awkward</label>
+      <label><input type="radio" name="q-auth-model" data-question="q-auth-model" value="ttyd credential — use ttyd --credential user:pass per session, simpler than bearer tokens but per-session credential management is awkward"/> ttyd credential — use ttyd --credential user:pass per session, simpler than bearer tokens but per-session credential management is awkward</label>
       
       <textarea data-section="questions" data-question-rationale="q-auth-model" placeholder="Rationale for q-auth-model..."></textarea>
     </div>
@@ -664,11 +662,11 @@ Regression: htmlgraph codex and htmlgraph gemini invocations without new flags r
       <p>Should live panes persist across dashboard reloads or die on tab close?</p>
       
       
-      <label class="recommended"><input type="radio" name="q-pane-persistence" data-question="q-pane-persistence" value="Persist — ttyd processes outlive the browser tab, GET /api/terminal/sessions &#43; pane re-render on reload restores the cockpit state"> Persist — ttyd processes outlive the browser tab, GET /api/terminal/sessions &#43; pane re-render on reload restores the cockpit state <span class="rec-tag">recommended</span></label>
+      <label class="recommended"><input type="radio" name="q-pane-persistence" data-question="q-pane-persistence" value="Persist — ttyd processes outlive the browser tab, GET /api/terminal/sessions + pane re-render on reload restores the cockpit state"/> Persist — ttyd processes outlive the browser tab, GET /api/terminal/sessions + pane re-render on reload restores the cockpit state <span class="rec-tag">recommended</span></label>
       
-      <label><input type="radio" name="q-pane-persistence" data-question="q-pane-persistence" value="Kill on close — beforeunload fires POST /api/terminal/stop for all panes, clean process hygiene but breaks long-running agent workflows"> Kill on close — beforeunload fires POST /api/terminal/stop for all panes, clean process hygiene but breaks long-running agent workflows</label>
+      <label><input type="radio" name="q-pane-persistence" data-question="q-pane-persistence" value="Kill on close — beforeunload fires POST /api/terminal/stop for all panes, clean process hygiene but breaks long-running agent workflows"/> Kill on close — beforeunload fires POST /api/terminal/stop for all panes, clean process hygiene but breaks long-running agent workflows</label>
       
-      <label><input type="radio" name="q-pane-persistence" data-question="q-pane-persistence" value="Configurable — user preference in dashboard settings for persist vs kill, maximum flexibility, adds settings UI surface"> Configurable — user preference in dashboard settings for persist vs kill, maximum flexibility, adds settings UI surface</label>
+      <label><input type="radio" name="q-pane-persistence" data-question="q-pane-persistence" value="Configurable — user preference in dashboard settings for persist vs kill, maximum flexibility, adds settings UI surface"/> Configurable — user preference in dashboard settings for persist vs kill, maximum flexibility, adds settings UI surface</label>
       
       <textarea data-section="questions" data-question-rationale="q-pane-persistence" placeholder="Rationale for q-pane-persistence..."></textarea>
     </div>
@@ -677,11 +675,11 @@ Regression: htmlgraph codex and htmlgraph gemini invocations without new flags r
       <p>Should worktree creation logic live in internal/worktree package or as a cmd/htmlgraph sibling file?</p>
       
       
-      <label><input type="radio" name="q-worktree-package-boundary" data-question="q-worktree-package-boundary" value="internal/worktree package — accessible to any future internal consumer, adds import path, correct if cross-package use arrives"> internal/worktree package — accessible to any future internal consumer, adds import path, correct if cross-package use arrives</label>
+      <label><input type="radio" name="q-worktree-package-boundary" data-question="q-worktree-package-boundary" value="internal/worktree package — accessible to any future internal consumer, adds import path, correct if cross-package use arrives"/> internal/worktree package — accessible to any future internal consumer, adds import path, correct if cross-package use arrives</label>
       
-      <label class="recommended"><input type="radio" name="q-worktree-package-boundary" data-question="q-worktree-package-boundary" value="cmd/htmlgraph/worktree_helpers.go — sibling file, no new package overhead, promote when a non-cmd caller appears (YAGNI)"> cmd/htmlgraph/worktree_helpers.go — sibling file, no new package overhead, promote when a non-cmd caller appears (YAGNI) <span class="rec-tag">recommended</span></label>
+      <label class="recommended"><input type="radio" name="q-worktree-package-boundary" data-question="q-worktree-package-boundary" value="cmd/htmlgraph/worktree_helpers.go — sibling file, no new package overhead, promote when a non-cmd caller appears (YAGNI)"/> cmd/htmlgraph/worktree_helpers.go — sibling file, no new package overhead, promote when a non-cmd caller appears (YAGNI) <span class="rec-tag">recommended</span></label>
       
-      <label><input type="radio" name="q-worktree-package-boundary" data-question="q-worktree-package-boundary" value="Stay inline in yolo.go — no extraction, duplicate in terminal_handlers.go when needed, maximum duplication"> Stay inline in yolo.go — no extraction, duplicate in terminal_handlers.go when needed, maximum duplication</label>
+      <label><input type="radio" name="q-worktree-package-boundary" data-question="q-worktree-package-boundary" value="Stay inline in yolo.go — no extraction, duplicate in terminal_handlers.go when needed, maximum duplication"/> Stay inline in yolo.go — no extraction, duplicate in terminal_handlers.go when needed, maximum duplication</label>
       
       <textarea data-section="questions" data-question-rationale="q-worktree-package-boundary" placeholder="Rationale for q-worktree-package-boundary..."></textarea>
     </div>
@@ -690,11 +688,11 @@ Regression: htmlgraph codex and htmlgraph gemini invocations without new flags r
       <p>Should the Start handler block until ttyd binds its port, or return immediately with state=pending?</p>
       
       
-      <label><input type="radio" name="q-spawn-sync-model" data-question="q-spawn-sync-model" value="Block until bound — waitForPort stays in handler, simple response contract, degrades under concurrent launches"> Block until bound — waitForPort stays in handler, simple response contract, degrades under concurrent launches</label>
+      <label><input type="radio" name="q-spawn-sync-model" data-question="q-spawn-sync-model" value="Block until bound — waitForPort stays in handler, simple response contract, degrades under concurrent launches"/> Block until bound — waitForPort stays in handler, simple response contract, degrades under concurrent launches</label>
       
-      <label class="recommended"><input type="radio" name="q-spawn-sync-model" data-question="q-spawn-sync-model" value="Return pending — handler returns {id, state:&#34;pending&#34;} immediately, frontend polls /sessions for state=live, better concurrency"> Return pending — handler returns {id, state:&#34;pending&#34;} immediately, frontend polls /sessions for state=live, better concurrency <span class="rec-tag">recommended</span></label>
+      <label class="recommended"><input type="radio" name="q-spawn-sync-model" data-question="q-spawn-sync-model" value="Return pending — handler returns {id, state:&#34;pending&#34;} immediately, frontend polls /sessions for state=live, better concurrency"/> Return pending — handler returns {id, state:&#34;pending&#34;} immediately, frontend polls /sessions for state=live, better concurrency <span class="rec-tag">recommended</span></label>
       
-      <label><input type="radio" name="q-spawn-sync-model" data-question="q-spawn-sync-model" value="SSE event — handler returns immediately, pushes state-change via SSE endpoint when port binds, lowest frontend polling overhead"> SSE event — handler returns immediately, pushes state-change via SSE endpoint when port binds, lowest frontend polling overhead</label>
+      <label><input type="radio" name="q-spawn-sync-model" data-question="q-spawn-sync-model" value="SSE event — handler returns immediately, pushes state-change via SSE endpoint when port binds, lowest frontend polling overhead"/> SSE event — handler returns immediately, pushes state-change via SSE endpoint when port binds, lowest frontend polling overhead</label>
       
       <textarea data-section="questions" data-question-rationale="q-spawn-sync-model" placeholder="Rationale for q-spawn-sync-model..."></textarea>
     </div>
@@ -703,9 +701,9 @@ Regression: htmlgraph codex and htmlgraph gemini invocations without new flags r
       <p>Should agent=yolo in the cockpit invoke the htmlgraph yolo wrapper or build the equivalent command directly?</p>
       
       
-      <label class="recommended"><input type="radio" name="q-yolo-mode-shape" data-question="q-yolo-mode-shape" value="Same as claude — buildShellCmd emits claude &#43; --permission-mode bypassPermissions &#43; yolo system-prompt, skips wrapper, no nested processes"> Same as claude — buildShellCmd emits claude &#43; --permission-mode bypassPermissions &#43; yolo system-prompt, skips wrapper, no nested processes <span class="rec-tag">recommended</span></label>
+      <label class="recommended"><input type="radio" name="q-yolo-mode-shape" data-question="q-yolo-mode-shape" value="Same as claude — buildShellCmd emits claude + --permission-mode bypassPermissions + yolo system-prompt, skips wrapper, no nested processes"/> Same as claude — buildShellCmd emits claude + --permission-mode bypassPermissions + yolo system-prompt, skips wrapper, no nested processes <span class="rec-tag">recommended</span></label>
       
-      <label><input type="radio" name="q-yolo-mode-shape" data-question="q-yolo-mode-shape" value="Use htmlgraph yolo wrapper — nested process chain, all existing yolo side effects preserved, wrapper changes automatically included"> Use htmlgraph yolo wrapper — nested process chain, all existing yolo side effects preserved, wrapper changes automatically included</label>
+      <label><input type="radio" name="q-yolo-mode-shape" data-question="q-yolo-mode-shape" value="Use htmlgraph yolo wrapper — nested process chain, all existing yolo side effects preserved, wrapper changes automatically included"/> Use htmlgraph yolo wrapper — nested process chain, all existing yolo side effects preserved, wrapper changes automatically included</label>
       
       <textarea data-section="questions" data-question-rationale="q-yolo-mode-shape" placeholder="Rationale for q-yolo-mode-shape..."></textarea>
     </div>
@@ -714,11 +712,11 @@ Regression: htmlgraph codex and htmlgraph gemini invocations without new flags r
       <p>How should the frontend learn that a ttyd pane has exited unexpectedly?</p>
       
       
-      <label class="recommended"><input type="radio" name="q-liveness-signal" data-question="q-liveness-signal" value="Poll inventory — frontend polls GET /api/terminal/sessions every 3–5s, marks panes Ended when session_id disappears, simplest implementation"> Poll inventory — frontend polls GET /api/terminal/sessions every 3–5s, marks panes Ended when session_id disappears, simplest implementation <span class="rec-tag">recommended</span></label>
+      <label class="recommended"><input type="radio" name="q-liveness-signal" data-question="q-liveness-signal" value="Poll inventory — frontend polls GET /api/terminal/sessions every 3–5s, marks panes Ended when session_id disappears, simplest implementation"/> Poll inventory — frontend polls GET /api/terminal/sessions every 3–5s, marks panes Ended when session_id disappears, simplest implementation <span class="rec-tag">recommended</span></label>
       
-      <label><input type="radio" name="q-liveness-signal" data-question="q-liveness-signal" value="SSE stream — server pushes state-change events to frontend, lower polling overhead, requires SSE endpoint &#43; EventSource client"> SSE stream — server pushes state-change events to frontend, lower polling overhead, requires SSE endpoint &#43; EventSource client</label>
+      <label><input type="radio" name="q-liveness-signal" data-question="q-liveness-signal" value="SSE stream — server pushes state-change events to frontend, lower polling overhead, requires SSE endpoint + EventSource client"/> SSE stream — server pushes state-change events to frontend, lower polling overhead, requires SSE endpoint + EventSource client</label>
       
-      <label><input type="radio" name="q-liveness-signal" data-question="q-liveness-signal" value="WebSocket push — full duplex, lowest latency, highest infrastructure cost, overkill for pane-exit notification"> WebSocket push — full duplex, lowest latency, highest infrastructure cost, overkill for pane-exit notification</label>
+      <label><input type="radio" name="q-liveness-signal" data-question="q-liveness-signal" value="WebSocket push — full duplex, lowest latency, highest infrastructure cost, overkill for pane-exit notification"/> WebSocket push — full duplex, lowest latency, highest infrastructure cost, overkill for pane-exit notification</label>
       
       <textarea data-section="questions" data-question-rationale="q-liveness-signal" placeholder="Rationale for q-liveness-signal..."></textarea>
     </div>
@@ -729,55 +727,55 @@ Regression: htmlgraph codex and htmlgraph gemini invocations without new flags r
         
         <tr data-recap-for="q-pane-layout">
           <td>Floating windows vs tiled/split layout for v1 panes?</td>
-          <td class="recap-answer">&mdash;</td>
+          <td class="recap-answer">—</td>
           <td><span class="badge badge-pending">Pending</span></td>
         </tr>
         
         <tr data-recap-for="q-worktree-default">
           <td>Should the launcher default to creating a worktree or running in the main repo?</td>
-          <td class="recap-answer">&mdash;</td>
+          <td class="recap-answer">—</td>
           <td><span class="badge badge-pending">Pending</span></td>
         </tr>
         
         <tr data-recap-for="q-prereq-strategy">
           <td>Block on prerequisite bugs landing, or ship alongside with mitigations?</td>
-          <td class="recap-answer">&mdash;</td>
+          <td class="recap-answer">—</td>
           <td><span class="badge badge-pending">Pending</span></td>
         </tr>
         
         <tr data-recap-for="q-auth-model">
           <td>Stay localhost-only, or introduce ttyd credentials now?</td>
-          <td class="recap-answer">&mdash;</td>
+          <td class="recap-answer">—</td>
           <td><span class="badge badge-pending">Pending</span></td>
         </tr>
         
         <tr data-recap-for="q-pane-persistence">
           <td>Should live panes persist across dashboard reloads or die on tab close?</td>
-          <td class="recap-answer">&mdash;</td>
+          <td class="recap-answer">—</td>
           <td><span class="badge badge-pending">Pending</span></td>
         </tr>
         
         <tr data-recap-for="q-worktree-package-boundary">
           <td>Should worktree creation logic live in internal/worktree package or as a cmd/htmlgraph sibling file?</td>
-          <td class="recap-answer">&mdash;</td>
+          <td class="recap-answer">—</td>
           <td><span class="badge badge-pending">Pending</span></td>
         </tr>
         
         <tr data-recap-for="q-spawn-sync-model">
           <td>Should the Start handler block until ttyd binds its port, or return immediately with state=pending?</td>
-          <td class="recap-answer">&mdash;</td>
+          <td class="recap-answer">—</td>
           <td><span class="badge badge-pending">Pending</span></td>
         </tr>
         
         <tr data-recap-for="q-yolo-mode-shape">
           <td>Should agent=yolo in the cockpit invoke the htmlgraph yolo wrapper or build the equivalent command directly?</td>
-          <td class="recap-answer">&mdash;</td>
+          <td class="recap-answer">—</td>
           <td><span class="badge badge-pending">Pending</span></td>
         </tr>
         
         <tr data-recap-for="q-liveness-signal">
           <td>How should the frontend learn that a ttyd pane has exited unexpectedly?</td>
-          <td class="recap-answer">&mdash;</td>
+          <td class="recap-answer">—</td>
           <td><span class="badge badge-pending">Pending</span></td>
         </tr>
         
@@ -831,7 +829,7 @@ Regression: htmlgraph codex and htmlgraph gemini invocations without new flags r
       <div style="display:flex;align-items:flex-start;gap:10px;margin-bottom:8px;padding:8px;background:var(--bg-input);border-radius:var(--radius)">
         <span class="badge badge-blocked">falsified</span>
         <div>
-          <p style="margin:0;font-size:.9rem">bug-6ab963d3 (OTel SQLITE_BUSY &#43; parallel launch races) is an open prerequisite.</p>
+          <p style="margin:0;font-size:.9rem">bug-6ab963d3 (OTel SQLITE_BUSY + parallel launch races) is an open prerequisite.</p>
           <p style="margin:4px 0 0;font-size:.8rem;color:var(--text-muted)">FALSIFIED: bug-6ab963d3 has data-status=done. The mitigation is already in place via checkServeLock/writeServeLock in claude_serve_autostart.go:173–215. Slice-6 was revised: mutex proposal dropped, rewritten as integration-test harness that tests the existing guard.</p>
         </div>
       </div>
@@ -1003,7 +1001,7 @@ Added 4 new questions (total now 9): q-worktree-package-boundary, q-spawn-sync-m
     <div id="commentsFeed"><p style="font-size:.8rem;color:var(--text-muted);font-style:italic">No comments yet.</p></div>
   </div>
   <div class="finalize-area">
-    <button class="btn-finalize" id="finalizeBtn" disabled>Finalize Plan</button>
+    <button class="btn-finalize" id="finalizeBtn" disabled="">Finalize Plan</button>
     <p style="font-size:.75rem;color:var(--text-muted);margin-top:6px">All sections must be approved before finalizing.</p>
   </div>
 </section>
@@ -1757,6 +1755,7 @@ syncHljsTheme();
     .catch(function(){});
 })();
 </script>
-</div><!-- .plan-content -->
-</body>
-</html>
+<!-- .plan-content -->
+
+
+</body></html>

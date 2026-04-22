@@ -1,7 +1,9 @@
 {
   "name": "htmlgraph-dev",
   "containerEnv": {
-    "TZ": "America/New_York"
+    "TZ": "America/New_York",
+    "TERM": "xterm-256color",
+    "COLORTERM": "truecolor"
   },
   "build": {
     "dockerfile": "Dockerfile",

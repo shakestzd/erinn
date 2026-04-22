@@ -11,8 +11,33 @@ import (
 	"github.com/shakestzd/htmlgraph/internal/paths"
 	"github.com/shakestzd/htmlgraph/internal/registry"
 	versionpkg "github.com/shakestzd/htmlgraph/internal/version"
+	"github.com/shakestzd/htmlgraph/internal/worktree"
 	"github.com/spf13/cobra"
 )
+
+// selfHealGitdirIfStale runs a best-effort repair on the current directory's
+// linked-worktree gitdir pointer. Git worktrees created on one host (macOS
+// /Users/<user>/…) and reopened on another (Linux Codespace /workspaces/…)
+// leave stale absolute paths that break every subsequent git command. If
+// HTMLGRAPH_PROJECT_DIR points at the main repo, we can rewrite the .git
+// pointer in place so the user doesn't hit cryptic "not a git repository"
+// errors before htmlgraph even starts.
+func selfHealGitdirIfStale() {
+	cwd, err := os.Getwd()
+	if err != nil {
+		return
+	}
+	mainRoot := os.Getenv("HTMLGRAPH_PROJECT_DIR")
+	if mainRoot == "" {
+		return // no reliable anchor; skip silently
+	}
+	if cwd == mainRoot {
+		return // not a linked worktree
+	}
+	if repaired, err := worktree.RepairGitdirIfStale(cwd, mainRoot); err == nil && repaired {
+		fmt.Fprintf(os.Stderr, "htmlgraph: repaired stale worktree gitdir at %s\n", filepath.Join(cwd, ".git"))
+	}
+}
 
 // version is set at build time via ldflags.
 var version = "dev"
@@ -26,6 +51,7 @@ var projectDirFlag string
 var getGitRemoteURLFn = paths.GetGitRemoteURL
 
 func main() {
+	selfHealGitdirIfStale()
 	root := buildRoot()
 	if err := root.Execute(); err != nil {
 		msg := err.Error()

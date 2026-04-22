@@ -3363,7 +3363,10 @@ function updateLauncherCapState() {
 }
 
 // Liveness poll: fetch /api/terminal/sessions every 4s, sync pane state.
+// Skip at the doorway landing (/) — the terminal routes only exist under
+// /p/<id>/ in multi-project serve, and polling the doorway would 404-spam.
 setInterval(function() {
+  if (isDoorwayLanding()) return;
   fetch(buildProjectUrl('terminal/sessions'))
     .then(function(r) { return r.json(); })
     .then(function(data) {
@@ -3376,6 +3379,7 @@ setInterval(function() {
 
 // Reload restore: on DOMContentLoaded fetch sessions and render all existing panes.
 document.addEventListener('DOMContentLoaded', function() {
+  if (isDoorwayLanding()) return;
   fetch(buildProjectUrl('terminal/sessions'))
     .then(function(r) { return r.json(); })
     .then(function(data) {

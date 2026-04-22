@@ -121,8 +121,15 @@ func handleTerminalStart(projectDir string, mgr ...terminalManager) http.Handler
 		}
 		id, port, pid, err := m.Start(startReq, projectDir)
 		if err != nil {
+			// Validation failures come through as wrapped ErrInvalidRequest
+			// and must map to 400 Bad Request; runtime failures (ttyd
+			// missing, fork failure) stay on 503 Service Unavailable.
+			status := http.StatusServiceUnavailable
+			if errors.Is(err, terminal.ErrInvalidRequest) {
+				status = http.StatusBadRequest
+			}
 			w.Header().Set("Content-Type", "application/json")
-			w.WriteHeader(http.StatusServiceUnavailable)
+			w.WriteHeader(status)
 			json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
 			return
 		}

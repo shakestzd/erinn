@@ -6,6 +6,7 @@ package terminal
 
 import (
 	"crypto/rand"
+	"errors"
 	"fmt"
 	"net"
 	"os/exec"
@@ -15,6 +16,11 @@ import (
 	"syscall"
 	"time"
 )
+
+// ErrInvalidRequest wraps validation failures produced by Manager.Start so
+// HTTP callers can map them to 400 Bad Request (runtime errors like
+// ttyd-missing continue to map to 503 Service Unavailable).
+var ErrInvalidRequest = errors.New("invalid terminal request")
 
 // validAgents enumerates the agents buildShellCmd knows how to launch.
 // Any other value is rejected upstream in Manager.Start to prevent shell
@@ -193,10 +199,10 @@ func (m *Manager) Start(req StartRequest, defaultDir string) (id string, port in
 	// interpolated into the bash -lc command string, so anything outside
 	// a safe whitelist could allow shell injection.
 	if !validAgents[req.Agent] {
-		return "", 0, 0, fmt.Errorf("invalid agent %q: must be one of claude, codex, gemini, yolo", req.Agent)
+		return "", 0, 0, fmt.Errorf("%w: agent %q must be one of claude, codex, gemini, yolo", ErrInvalidRequest, req.Agent)
 	}
 	if req.WorkItem != "" && !workItemIDPattern.MatchString(req.WorkItem) {
-		return "", 0, 0, fmt.Errorf("invalid work_item %q: must match [a-zA-Z0-9_-]+", req.WorkItem)
+		return "", 0, 0, fmt.Errorf("%w: work_item %q must match [a-zA-Z0-9_-]+", ErrInvalidRequest, req.WorkItem)
 	}
 
 	// Apply defaults for zero-valued fields.

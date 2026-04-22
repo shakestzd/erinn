@@ -2696,10 +2696,10 @@ function closeTerminal() {
   }
 }
 
-// Wire the Terminal nav button.
+// Wire the Terminal nav button — opens launcher modal instead of posting directly.
 var openTerminalBtn = document.getElementById('open-terminal-btn');
 if (openTerminalBtn) {
-  openTerminalBtn.addEventListener('click', openTerminal);
+  openTerminalBtn.addEventListener('click', openLauncherModal);
 }
 
 // Wire the close button inside the overlay.
@@ -2717,3 +2717,397 @@ window.addEventListener('beforeunload', function() {
     );
   }
 });
+
+/* ── Launcher modal ────────────────────────────────────────── */
+
+// Launcher modal state
+var launcherWorkItemId = '';
+var launcherWorkItemTitle = '';
+var launcherSearchTimer = null;
+var launcherAllWorkItems = null; // cached feature list for client-side filtering
+
+// debounce returns a function that delays invoking fn until after ms milliseconds
+// have elapsed since the last call. Simple closure, no external dependencies.
+function debounce(fn, ms) {
+  var timer = null;
+  return function() {
+    var ctx = this;
+    var args = arguments;
+    clearTimeout(timer);
+    timer = setTimeout(function() { fn.apply(ctx, args); }, ms);
+  };
+}
+
+// buildLaunchPayload is a pure function that assembles the JSON body for
+// POST /api/terminal/start from a plain form-state object.
+// It omits work_item and cwd_kind when empty/default.
+function buildLaunchPayload(formState) {
+  var payload = {
+    agent: formState.agent || 'claude',
+    mode: formState.mode || 'dev'
+  };
+  if (formState.work_item) {
+    payload.work_item = formState.work_item;
+  }
+  if (formState.cwd_kind && formState.cwd_kind !== 'main') {
+    payload.cwd_kind = formState.cwd_kind;
+  }
+  return payload;
+}
+// Expose for testability
+window.buildLaunchPayload = buildLaunchPayload;
+
+// openLauncherModal shows the launcher modal and traps focus inside it.
+function openLauncherModal() {
+  var modal = document.getElementById('launcher-modal');
+  var backdrop = document.getElementById('launcher-backdrop');
+  if (!modal || !backdrop) return;
+
+  // Pre-populate work item from the currently active work detail view.
+  var activeId = window.htmlgraphActiveWorkItem || '';
+  launcherWorkItemId = '';
+  launcherWorkItemTitle = '';
+
+  var searchInput = document.getElementById('launcher-work-item-search');
+  var hiddenInput = document.getElementById('launcher-work-item');
+  var cwdSelect = document.getElementById('launcher-cwd-kind');
+  var cwdHint = document.getElementById('launcher-cwd-hint');
+  var errorEl = document.getElementById('launcher-error');
+  var agentSelect = document.getElementById('launcher-agent');
+  var modeSelect = document.getElementById('launcher-mode');
+
+  // Reset form state
+  if (agentSelect) agentSelect.value = 'claude';
+  if (modeSelect) modeSelect.value = 'dev';
+  if (searchInput) searchInput.value = '';
+  if (hiddenInput) hiddenInput.value = '';
+  if (cwdSelect) { cwdSelect.value = 'main'; cwdSelect.disabled = true; }
+  if (cwdHint) cwdHint.style.display = '';
+  if (errorEl) { errorEl.textContent = ''; errorEl.classList.add('hidden'); }
+  hideLauncherDropdown();
+
+  // If there's an active work item, pre-populate the search
+  if (activeId) {
+    launcherWorkItemId = activeId;
+    if (hiddenInput) hiddenInput.value = activeId;
+    if (searchInput) searchInput.value = activeId;
+    if (cwdSelect) cwdSelect.disabled = false;
+    if (cwdHint) cwdHint.style.display = 'none';
+  }
+
+  setLauncherSubmitSpinner(false);
+
+  backdrop.classList.remove('hidden');
+  modal.classList.remove('hidden');
+  backdrop.setAttribute('aria-hidden', 'false');
+
+  // Focus the first focusable element (agent select)
+  if (agentSelect) agentSelect.focus();
+}
+
+// closeLauncherModal hides the modal and returns focus to the trigger button.
+function closeLauncherModal() {
+  var modal = document.getElementById('launcher-modal');
+  var backdrop = document.getElementById('launcher-backdrop');
+  if (!modal || !backdrop) return;
+
+  hideLauncherDropdown();
+  modal.classList.add('hidden');
+  backdrop.classList.add('hidden');
+  backdrop.setAttribute('aria-hidden', 'true');
+
+  // Return focus to the open terminal button
+  var btn = document.getElementById('open-terminal-btn');
+  if (btn) btn.focus();
+}
+
+// setLauncherSubmitSpinner toggles the spinner and disabled state on the submit btn.
+function setLauncherSubmitSpinner(loading) {
+  var btn = document.getElementById('launcher-submit');
+  var label = document.getElementById('launcher-submit-label');
+  var spinner = document.getElementById('launcher-submit-spinner');
+  if (!btn) return;
+  btn.disabled = loading;
+  if (label) label.textContent = loading ? 'Launching…' : 'Launch';
+  if (spinner) spinner.classList.toggle('hidden', !loading);
+}
+
+// hideLauncherDropdown hides the work-item dropdown list.
+function hideLauncherDropdown() {
+  var dd = document.getElementById('launcher-work-item-dropdown');
+  if (dd) dd.classList.add('hidden');
+}
+
+// renderLauncherDropdown populates and shows the dropdown with items.
+function renderLauncherDropdown(items) {
+  var dd = document.getElementById('launcher-work-item-dropdown');
+  if (!dd) return;
+  dd.innerHTML = '';
+
+  if (!items || items.length === 0) {
+    var empty = document.createElement('div');
+    empty.className = 'launcher-dropdown-empty';
+    empty.textContent = 'No matching work items';
+    dd.appendChild(empty);
+    dd.classList.remove('hidden');
+    return;
+  }
+
+  items.slice(0, 10).forEach(function(item) {
+    var el = document.createElement('div');
+    el.className = 'launcher-dropdown-item';
+    el.setAttribute('role', 'option');
+    el.setAttribute('data-id', item.id || '');
+    el.setAttribute('data-title', item.title || '');
+    el.tabIndex = 0;
+
+    var title = document.createElement('span');
+    title.className = 'item-title';
+    title.textContent = item.title || item.id || '';
+    el.appendChild(title);
+
+    var meta = document.createElement('span');
+    meta.className = 'item-meta';
+    meta.textContent = (item.id || '') + (item.type ? ' · ' + item.type : '') + (item.status ? ' · ' + item.status : '');
+    el.appendChild(meta);
+
+    el.addEventListener('click', function() { selectLauncherWorkItem(item); });
+    el.addEventListener('keydown', function(e) {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        selectLauncherWorkItem(item);
+      }
+    });
+    dd.appendChild(el);
+  });
+
+  dd.classList.remove('hidden');
+}
+
+// selectLauncherWorkItem handles selecting a work item from the dropdown.
+function selectLauncherWorkItem(item) {
+  launcherWorkItemId = item.id || '';
+  launcherWorkItemTitle = item.title || '';
+
+  var searchInput = document.getElementById('launcher-work-item-search');
+  var hiddenInput = document.getElementById('launcher-work-item');
+  var cwdSelect = document.getElementById('launcher-cwd-kind');
+  var cwdHint = document.getElementById('launcher-cwd-hint');
+
+  if (searchInput) searchInput.value = item.title ? (item.id + ' — ' + item.title) : item.id;
+  if (hiddenInput) hiddenInput.value = launcherWorkItemId;
+  if (cwdSelect) cwdSelect.disabled = false;
+  if (cwdHint) cwdHint.style.display = 'none';
+
+  hideLauncherDropdown();
+  if (searchInput) searchInput.focus();
+}
+
+// searchWorkItems fetches the feature list (cached after first call) and
+// filters client-side since /api/features does not support ?q=.
+// Gracefully shows "search unavailable" if the endpoint fails.
+function searchWorkItems(query) {
+  var q = (query || '').trim().toLowerCase();
+
+  function filterAndRender(items) {
+    if (!q) { hideLauncherDropdown(); return; }
+    var filtered = items.filter(function(item) {
+      return (item.title && item.title.toLowerCase().indexOf(q) !== -1) ||
+             (item.id && item.id.toLowerCase().indexOf(q) !== -1);
+    });
+    renderLauncherDropdown(filtered);
+  }
+
+  if (launcherAllWorkItems !== null) {
+    filterAndRender(launcherAllWorkItems);
+    return;
+  }
+
+  fetch(buildProjectUrl('features'))
+    .then(function(r) {
+      if (!r.ok) throw new Error('features unavailable');
+      return r.json();
+    })
+    .then(function(data) {
+      launcherAllWorkItems = data || [];
+      filterAndRender(launcherAllWorkItems);
+    })
+    .catch(function() {
+      var dd = document.getElementById('launcher-work-item-dropdown');
+      if (!dd) return;
+      dd.innerHTML = '';
+      var msg = document.createElement('div');
+      msg.className = 'launcher-dropdown-empty';
+      msg.textContent = 'Work item search unavailable';
+      dd.appendChild(msg);
+      dd.classList.remove('hidden');
+    });
+}
+
+// debouncedSearchWorkItems is the debounced version used by the search input.
+var debouncedSearchWorkItems = debounce(searchWorkItems, 250);
+
+// submitLauncher reads the form and posts to /api/terminal/start.
+function submitLauncher() {
+  var agentSelect = document.getElementById('launcher-agent');
+  var modeSelect = document.getElementById('launcher-mode');
+  var hiddenInput = document.getElementById('launcher-work-item');
+  var cwdSelect = document.getElementById('launcher-cwd-kind');
+  var errorEl = document.getElementById('launcher-error');
+
+  if (errorEl) { errorEl.textContent = ''; errorEl.classList.add('hidden'); }
+
+  var formState = {
+    agent: agentSelect ? agentSelect.value : 'claude',
+    mode: modeSelect ? modeSelect.value : 'dev',
+    work_item: hiddenInput ? hiddenInput.value : '',
+    cwd_kind: cwdSelect ? cwdSelect.value : 'main'
+  };
+
+  var payload = buildLaunchPayload(formState);
+
+  setLauncherSubmitSpinner(true);
+
+  fetch(buildProjectUrl('terminal/start'), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  })
+  .then(function(r) {
+    if (!r.ok) {
+      return r.json().then(function(data) {
+        throw new Error(data.error || ('HTTP ' + r.status));
+      }).catch(function(e) {
+        if (e.message) throw e;
+        throw new Error('HTTP ' + r.status);
+      });
+    }
+    return r.json();
+  })
+  .then(function(data) {
+    setLauncherSubmitSpinner(false);
+    if (data.error) {
+      showLauncherError(data.error);
+      return;
+    }
+    // Update legacy pid for back-compat stop handler
+    if (data.pid) terminalPid = data.pid;
+    // Update terminal overlay
+    var frame = document.getElementById('terminal-frame');
+    var title = document.getElementById('terminal-title');
+    var overlay = document.getElementById('terminal-overlay');
+    if (frame && data.url) frame.src = data.url;
+    if (title) {
+      var wid = payload.work_item || '';
+      title.textContent = wid ? ('Terminal — ' + wid) : 'Claude Terminal';
+    }
+    if (overlay) overlay.classList.remove('hidden');
+    closeLauncherModal();
+  })
+  .catch(function(err) {
+    setLauncherSubmitSpinner(false);
+    showLauncherError(err.message || 'Could not start terminal');
+  });
+}
+
+// showLauncherError displays an error message in the modal.
+function showLauncherError(msg) {
+  var el = document.getElementById('launcher-error');
+  if (!el) return;
+  el.textContent = msg;
+  el.classList.remove('hidden');
+}
+
+// Focus trap: keep Tab cycling within the modal while it's open.
+function launcherFocusTrap(e) {
+  var modal = document.getElementById('launcher-modal');
+  if (!modal || modal.classList.contains('hidden')) return;
+
+  var focusable = modal.querySelectorAll(
+    'select, input:not([type="hidden"]), button:not(:disabled), [tabindex="0"]'
+  );
+  if (!focusable.length) return;
+
+  var first = focusable[0];
+  var last = focusable[focusable.length - 1];
+
+  if (e.key === 'Tab') {
+    if (e.shiftKey) {
+      if (document.activeElement === first) {
+        e.preventDefault();
+        last.focus();
+      }
+    } else {
+      if (document.activeElement === last) {
+        e.preventDefault();
+        first.focus();
+      }
+    }
+  } else if (e.key === 'Escape') {
+    e.preventDefault();
+    closeLauncherModal();
+  }
+}
+
+// Wire keyboard events for the modal.
+document.addEventListener('keydown', launcherFocusTrap);
+
+// Wire the close, cancel, submit buttons.
+var launcherCloseBtn = document.getElementById('launcher-close');
+if (launcherCloseBtn) launcherCloseBtn.addEventListener('click', closeLauncherModal);
+
+var launcherCancelBtn = document.getElementById('launcher-cancel');
+if (launcherCancelBtn) launcherCancelBtn.addEventListener('click', closeLauncherModal);
+
+var launcherSubmitBtn = document.getElementById('launcher-submit');
+if (launcherSubmitBtn) {
+  launcherSubmitBtn.addEventListener('click', submitLauncher);
+  launcherSubmitBtn.addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') { e.preventDefault(); submitLauncher(); }
+  });
+}
+
+// Close modal when clicking the backdrop.
+var launcherBackdrop = document.getElementById('launcher-backdrop');
+if (launcherBackdrop) launcherBackdrop.addEventListener('click', closeLauncherModal);
+
+// Wire the work-item search input for debounced search.
+var launcherSearchInput = document.getElementById('launcher-work-item-search');
+if (launcherSearchInput) {
+  launcherSearchInput.addEventListener('input', function() {
+    var val = this.value.trim();
+    // Clear selection if user edits the field after a pick
+    var hiddenInput = document.getElementById('launcher-work-item');
+    var cwdSelect = document.getElementById('launcher-cwd-kind');
+    var cwdHint = document.getElementById('launcher-cwd-hint');
+    launcherWorkItemId = '';
+    if (hiddenInput) hiddenInput.value = '';
+    if (cwdSelect) { cwdSelect.value = 'main'; cwdSelect.disabled = true; }
+    if (cwdHint) cwdHint.style.display = '';
+    debouncedSearchWorkItems(val);
+  });
+  launcherSearchInput.addEventListener('keydown', function(e) {
+    var dd = document.getElementById('launcher-work-item-dropdown');
+    if (!dd || dd.classList.contains('hidden')) return;
+    var items = dd.querySelectorAll('.launcher-dropdown-item');
+    var active = dd.querySelector('.launcher-dropdown-item[aria-selected="true"]');
+    var idx = active ? Array.prototype.indexOf.call(items, active) : -1;
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      var next = items[idx + 1] || items[0];
+      if (active) active.removeAttribute('aria-selected');
+      if (next) { next.setAttribute('aria-selected', 'true'); next.focus(); }
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      var prev = items[idx - 1] || items[items.length - 1];
+      if (active) active.removeAttribute('aria-selected');
+      if (prev) { prev.setAttribute('aria-selected', 'true'); prev.focus(); }
+    } else if (e.key === 'Escape') {
+      hideLauncherDropdown();
+    }
+  });
+  // Hide dropdown on blur (delayed to allow click on item to fire first)
+  launcherSearchInput.addEventListener('blur', function() {
+    setTimeout(hideLauncherDropdown, 200);
+  });
+}

@@ -304,6 +304,68 @@
   </main>
 </div>
 
+<!-- Launcher modal — form for selecting agent/mode/work-item before spawning a terminal -->
+<div id="launcher-backdrop" class="launcher-backdrop hidden" aria-hidden="true"></div>
+<div id="launcher-modal" class="launcher-modal hidden" role="dialog" aria-modal="true" aria-labelledby="launcher-modal-title" tabindex="-1">
+  <div class="launcher-modal-header">
+    <h2 id="launcher-modal-title" class="launcher-modal-title">Launch Terminal Session</h2>
+    <button class="launcher-close" id="launcher-close" aria-label="Close launcher">&times;</button>
+  </div>
+  <div class="launcher-modal-body">
+    <div class="launcher-field">
+      <label class="launcher-label" for="launcher-agent">Agent</label>
+      <select class="launcher-select" id="launcher-agent" name="agent">
+        <option value="claude">claude</option>
+        <option value="codex">codex</option>
+        <option value="gemini">gemini</option>
+        <option value="yolo">yolo</option>
+      </select>
+    </div>
+    <div class="launcher-field">
+      <label class="launcher-label" for="launcher-mode">Mode</label>
+      <select class="launcher-select" id="launcher-mode" name="mode">
+        <option value="dev" selected>dev</option>
+        <option value="normal">normal</option>
+        <option value="auto">auto</option>
+      </select>
+    </div>
+    <div class="launcher-field launcher-field-search">
+      <label class="launcher-label" for="launcher-work-item-search">Work Item</label>
+      <div class="launcher-search-wrapper">
+        <input
+          class="launcher-input"
+          id="launcher-work-item-search"
+          name="work_item_search"
+          type="text"
+          placeholder="Search features, bugs, spikes..."
+          autocomplete="off"
+          aria-autocomplete="list"
+          aria-controls="launcher-work-item-dropdown"
+        >
+        <div class="launcher-work-item-dropdown hidden" id="launcher-work-item-dropdown" role="listbox"></div>
+      </div>
+      <input type="hidden" id="launcher-work-item" name="work_item" value="">
+    </div>
+    <div class="launcher-field">
+      <label class="launcher-label" for="launcher-cwd-kind">Working Directory</label>
+      <select class="launcher-select" id="launcher-cwd-kind" name="cwd_kind" disabled>
+        <option value="main" selected>main repo</option>
+        <option value="feature-worktree">feature worktree</option>
+        <option value="track-worktree">track worktree</option>
+      </select>
+      <span class="launcher-hint" id="launcher-cwd-hint">Select a work item to enable worktree options</span>
+    </div>
+    <div class="launcher-error hidden" id="launcher-error" role="alert"></div>
+  </div>
+  <div class="launcher-modal-footer">
+    <button class="launcher-btn launcher-btn-cancel" id="launcher-cancel">Cancel</button>
+    <button class="launcher-btn launcher-btn-submit" id="launcher-submit">
+      <span id="launcher-submit-label">Launch</span>
+      <span id="launcher-submit-spinner" class="launcher-spinner hidden" aria-hidden="true"></span>
+    </button>
+  </div>
+</div>
+
 <!-- Terminal overlay — full-screen iframe wrapper for the ttyd sidecar -->
 <div id="terminal-overlay" class="terminal-overlay hidden">
   <div class="terminal-header">

@@ -2989,8 +2989,13 @@ function submitLauncher() {
       return r.json().then(function(data) {
         throw new Error(data.error || ('HTTP ' + r.status));
       }).catch(function(e) {
-        if (e.message) throw e;
-        throw new Error('HTTP ' + r.status);
+        // JSON parse failure on a non-JSON error body produces a SyntaxError;
+        // surface the HTTP status instead. Real inner throws (Error from the
+        // .then above) are rethrown as-is so the user sees the server's error.
+        if (e instanceof SyntaxError) {
+          throw new Error('HTTP ' + r.status);
+        }
+        throw e;
       });
     }
     return r.json();
@@ -3134,6 +3139,12 @@ if (launcherSearchInput) {
 // paneRegistry maps session UUID → {el, sessionId, iframe, ended}
 var paneRegistry = new Map();
 
+// closedByUser tracks session IDs that were explicitly closed by the user.
+// The backend keeps exited sessions in Sessions() for ~10s after stop; without
+// this guard, the 4s liveness poll re-renders them as "Ended" panes for ~6s.
+// IDs are removed from the set once the backend drops them from the inventory.
+var closedByUser = new Set();
+
 // PANE_MAX caps the number of simultaneous live panes.
 var PANE_MAX = 6;
 
@@ -3270,8 +3281,14 @@ function renderAllPanes(sessionsArray) {
   var arr = sessionsArray || [];
   var liveIds = new Set(arr.map(function(s) { return s.id; }));
 
+  // GC closedByUser: once the backend has dropped the id, stop suppressing it.
+  closedByUser.forEach(function(id) {
+    if (!liveIds.has(id)) closedByUser.delete(id);
+  });
+
   // Add new panes for sessions not yet rendered, respecting PANE_MAX.
   arr.forEach(function(session) {
+    if (closedByUser.has(session.id)) return;
     if (paneRegistry.has(session.id)) return;
     if (paneRegistry.size >= PANE_MAX) return;
     renderPane(session);
@@ -3322,6 +3339,7 @@ function markExitedPanes(sessionsArray) {
 
 // closePane stops the session and removes the pane from DOM and registry.
 function closePane(sessionId) {
+  closedByUser.add(sessionId);
   fetch(buildProjectUrl('terminal/stop'), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },

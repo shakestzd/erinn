@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 
 	"github.com/shakestzd/htmlgraph/internal/terminal"
 )
@@ -103,8 +104,16 @@ func handleTerminalStart(projectDir string, mgr ...terminalManager) http.Handler
 			var resolveErr error
 			switch req.CwdKind {
 			case "feature-worktree":
+				if !strings.HasPrefix(req.WorkItem, "feat-") {
+					http.Error(w, fmt.Sprintf("cwd_kind='feature-worktree' requires a work_item beginning with 'feat-' (got %q)", req.WorkItem), http.StatusBadRequest)
+					return
+				}
 				cwd, resolveErr = EnsureForFeature(req.WorkItem, projectDir, io.Discard)
 			case "track-worktree":
+				if !strings.HasPrefix(req.WorkItem, "trk-") {
+					http.Error(w, fmt.Sprintf("cwd_kind='track-worktree' requires a work_item beginning with 'trk-' (got %q)", req.WorkItem), http.StatusBadRequest)
+					return
+				}
 				cwd, resolveErr = EnsureForTrack(req.WorkItem, projectDir, io.Discard)
 			}
 			if resolveErr != nil {

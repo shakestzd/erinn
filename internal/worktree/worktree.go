@@ -14,7 +14,6 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
-	"testing"
 	"time"
 
 	"github.com/shakestzd/htmlgraph/internal/htmlparse"
@@ -220,15 +219,19 @@ func excludeHtmlgraphFromWorktree(worktreePath string, w io.Writer) {
 	}
 }
 
+// reindexWorktreeFn is the function called by reindexWorktree. Swap to a
+// no-op in tests to skip the subprocess fork. Defaults to the real impl.
+var reindexWorktreeFn = runReindexSubprocess
+
 // reindexWorktree runs `htmlgraph reindex` in the given worktree directory so
 // the worktree's SQLite cache is current before Claude launches. Best-effort:
 // failures are written to w but do not abort.
-// Skipped when running under `go test` to avoid subprocess forks in unit tests.
 func reindexWorktree(worktreeDir string, w io.Writer) {
-	if testing.Testing() {
-		return
-	}
+	reindexWorktreeFn(worktreeDir, w)
+}
 
+// runReindexSubprocess is the real implementation of reindexWorktree.
+func runReindexSubprocess(worktreeDir string, w io.Writer) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 

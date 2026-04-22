@@ -27,12 +27,11 @@ if git diff --cached --name-only | grep -q '\.go$' || [ -f "$REPO_ROOT/go.mod" ]
         fi
 
         echo "  -> go test..."
-        # Scope tests to packages containing staged Go files + their direct
-        # reverse dependencies inside this module. The full `go test ./...`
-        # suite runs ~5-8 min in ARM64 Codespaces and routinely stalls
-        # parallel commits (bug-85675e04). CI still runs the full suite.
-        #
-        # Set HTMLGRAPH_HOOK_FULL_TESTS=1 to force the legacy full run.
+        # Scope tests to the packages containing staged Go files (reverse deps
+        # are NOT expanded — CI runs the full suite). The full 'go test ./...'
+        # run takes 5-8 min in ARM64 Codespaces and routinely stalls parallel
+        # commits (bug-85675e04). Set HTMLGRAPH_HOOK_FULL_TESTS=1 to force the
+        # legacy full run.
         # Unset GIT_DIR/GIT_INDEX_FILE so tests that create real git repos
         # (e.g. TestBranchForFilePath) are not polluted by the pre-commit env.
         if [ -n "${HTMLGRAPH_HOOK_FULL_TESTS:-}" ]; then

@@ -2708,7 +2708,7 @@ if (terminalCloseBtn) {
   terminalCloseBtn.addEventListener('click', closeTerminal);
 }
 
-// Best-effort stop on page unload so the ttyd process does not linger.
+// Best-effort stop on page unload — stop individual legacy pid and all panes.
 window.addEventListener('beforeunload', function() {
   if (terminalPid) {
     navigator.sendBeacon(
@@ -2716,6 +2716,11 @@ window.addEventListener('beforeunload', function() {
       JSON.stringify({ pid: terminalPid })
     );
   }
+  // Stop all multi-pane sessions via /api/terminal/stop-all beacon.
+  navigator.sendBeacon(
+    buildProjectUrl('terminal/stop-all'),
+    new Blob([JSON.stringify({})], { type: 'application/json' })
+  );
 });
 
 /* ── Launcher modal ────────────────────────────────────────── */
@@ -2990,9 +2995,15 @@ function submitLauncher() {
       showLauncherError(data.error);
       return;
     }
-    // Update legacy pid for back-compat stop handler
+    // Render a floating pane if we have a session id and port.
+    if (data.id && data.port) {
+      renderPane(data);
+      closeLauncherModal();
+      updateLauncherCapState();
+      return;
+    }
+    // Fallback: legacy overlay for old API shape (pid+url).
     if (data.pid) terminalPid = data.pid;
-    // Update terminal overlay
     var frame = document.getElementById('terminal-frame');
     var title = document.getElementById('terminal-title');
     var overlay = document.getElementById('terminal-overlay');
@@ -3111,3 +3122,234 @@ if (launcherSearchInput) {
     setTimeout(hideLauncherDropdown, 200);
   });
 }
+
+/* ── Multi-pane floating terminal windows ───────────────────── */
+
+// paneRegistry maps session UUID → {el, sessionId, iframe, ended}
+var paneRegistry = new Map();
+
+// PANE_MAX caps the number of simultaneous live panes.
+var PANE_MAX = 6;
+
+// buildPaneElement creates a draggable floating pane DOM element for session.
+function buildPaneElement(session) {
+  // Cascade position so panes don't perfectly overlap.
+  var idx = paneRegistry.size;
+  var left = 48 + idx * 32;
+  var top = 48 + idx * 32;
+
+  var pane = document.createElement('div');
+  pane.className = 'terminal-pane';
+  pane.style.left = left + 'px';
+  pane.style.top = top + 'px';
+  pane.setAttribute('data-session-id', session.id);
+
+  // Titlebar
+  var titlebar = document.createElement('div');
+  titlebar.className = 'pane-titlebar';
+
+  var label = document.createElement('span');
+  label.className = 'pane-titlebar-label';
+  var agentText = session.agent || 'terminal';
+  var workText = session.work_item ? ' — ' + session.work_item : '';
+  label.innerHTML = '<strong>' + escapeHtml(agentText) + '</strong>' + escapeHtml(workText);
+  titlebar.appendChild(label);
+
+  var closeBtn = document.createElement('button');
+  closeBtn.className = 'pane-close';
+  closeBtn.setAttribute('aria-label', 'Close terminal pane');
+  closeBtn.textContent = '×'; // ×
+  closeBtn.addEventListener('click', function() { closePane(session.id); });
+  titlebar.appendChild(closeBtn);
+
+  pane.appendChild(titlebar);
+
+  // Body + iframe
+  var body = document.createElement('div');
+  body.className = 'pane-body';
+
+  var iframe = document.createElement('iframe');
+  iframe.src = 'http://127.0.0.1:' + session.port;
+  iframe.setAttribute('allowfullscreen', '');
+  body.appendChild(iframe);
+
+  pane.appendChild(body);
+
+  // Drag via titlebar mouse events
+  attachPaneDragHandlers(pane, titlebar);
+
+  return { el: pane, sessionId: session.id, iframe: iframe, ended: false };
+}
+
+// attachPaneDragHandlers wires mousedown on titlebar to drag the pane.
+function attachPaneDragHandlers(pane, titlebar) {
+  var dragging = false;
+  var startX = 0;
+  var startY = 0;
+  var origLeft = 0;
+  var origTop = 0;
+
+  titlebar.addEventListener('mousedown', function(e) {
+    // Only drag on left-button; ignore clicks on the close button.
+    if (e.button !== 0 || e.target.closest('.pane-close')) return;
+    dragging = true;
+    startX = e.clientX;
+    startY = e.clientY;
+    origLeft = parseInt(pane.style.left, 10) || 0;
+    origTop = parseInt(pane.style.top, 10) || 0;
+    e.preventDefault();
+  });
+
+  document.addEventListener('mousemove', function(e) {
+    if (!dragging) return;
+    pane.style.left = (origLeft + e.clientX - startX) + 'px';
+    pane.style.top = (origTop + e.clientY - startY) + 'px';
+  });
+
+  document.addEventListener('mouseup', function() {
+    dragging = false;
+  });
+}
+
+// escapeHtml escapes < > & " characters for safe insertion into innerHTML.
+function escapeHtml(str) {
+  return (str || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+// renderPane adds a new pane for session if not already in registry.
+function renderPane(sessionData) {
+  if (!sessionData || !sessionData.id) return;
+  if (paneRegistry.has(sessionData.id)) return;
+
+  var layer = document.getElementById('pane-layer');
+  if (!layer) return;
+
+  var record = buildPaneElement(sessionData);
+  paneRegistry.set(sessionData.id, record);
+  layer.appendChild(record.el);
+}
+
+// renderAllPanes syncs the registry with a sessions array from the API.
+// Adds new panes, removes panes for sessions that are gone.
+function renderAllPanes(sessionsArray) {
+  var arr = sessionsArray || [];
+  var liveIds = new Set(arr.map(function(s) { return s.id; }));
+
+  // Add new panes for sessions not yet rendered.
+  arr.forEach(function(session) {
+    if (!paneRegistry.has(session.id)) {
+      renderPane(session);
+    }
+  });
+
+  // Remove panes whose session has disappeared from the API response.
+  paneRegistry.forEach(function(record, id) {
+    if (!liveIds.has(id)) {
+      removePaneFromDOM(id);
+    }
+  });
+}
+
+// markExitedPanes adds the 'ended' visual state to panes whose session is exited.
+function markExitedPanes(sessionsArray) {
+  var arr = sessionsArray || [];
+  var stateById = {};
+  arr.forEach(function(s) { stateById[s.id] = s.state; });
+
+  paneRegistry.forEach(function(record, id) {
+    var state = stateById[id];
+    if ((state === 'exited' || !stateById.hasOwnProperty(id)) && !record.ended) {
+      record.ended = true;
+      record.el.classList.add('ended');
+
+      // Add ended badge to titlebar if not already there.
+      var titlebar = record.el.querySelector('.pane-titlebar');
+      if (titlebar && !titlebar.querySelector('.pane-ended-badge')) {
+        var badge = document.createElement('span');
+        badge.className = 'pane-ended-badge';
+        badge.textContent = 'Ended';
+        titlebar.insertBefore(badge, titlebar.querySelector('.pane-close'));
+      }
+
+      // Add ended overlay over the iframe body.
+      var body = record.el.querySelector('.pane-body');
+      if (body && !body.querySelector('.pane-ended-overlay')) {
+        var overlay = document.createElement('div');
+        overlay.className = 'pane-ended-overlay';
+        overlay.textContent = 'Session ended';
+        body.appendChild(overlay);
+      }
+    }
+  });
+}
+
+// closePane stops the session and removes the pane from DOM and registry.
+function closePane(sessionId) {
+  fetch(buildProjectUrl('terminal/stop'), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ id: sessionId })
+  }).catch(function() {});
+  removePaneFromDOM(sessionId);
+  updateLauncherCapState();
+}
+
+// removePaneFromDOM removes the pane element from the DOM and the registry.
+function removePaneFromDOM(sessionId) {
+  var record = paneRegistry.get(sessionId);
+  if (!record) return;
+  if (record.el && record.el.parentNode) {
+    record.el.parentNode.removeChild(record.el);
+  }
+  paneRegistry.delete(sessionId);
+}
+
+// updateLauncherCapState disables the launcher submit button when at pane cap.
+function updateLauncherCapState() {
+  var btn = document.getElementById('launcher-submit');
+  var label = document.getElementById('launcher-submit-label');
+  var errorEl = document.getElementById('launcher-error');
+  if (!btn) return;
+
+  var atCap = paneRegistry.size >= PANE_MAX;
+  btn.disabled = atCap;
+  if (label) label.textContent = atCap ? 'Max panes open' : 'Launch';
+  if (errorEl) {
+    if (atCap) {
+      errorEl.textContent = 'Maximum of ' + PANE_MAX + ' terminal panes are already open. Close one to launch a new session.';
+      errorEl.classList.remove('hidden');
+    } else {
+      errorEl.textContent = '';
+      errorEl.classList.add('hidden');
+    }
+  }
+}
+
+// Liveness poll: fetch /api/terminal/sessions every 4s, sync pane state.
+setInterval(function() {
+  fetch(buildProjectUrl('terminal/sessions'))
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      renderAllPanes(data);
+      markExitedPanes(data);
+    })
+    .catch(function() {});
+}, 4000);
+
+// Reload restore: on DOMContentLoaded fetch sessions and render all existing panes.
+document.addEventListener('DOMContentLoaded', function() {
+  fetch(buildProjectUrl('terminal/sessions'))
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      renderAllPanes(data);
+      markExitedPanes(data);
+    })
+    .catch(function() {});
+});
+
+// Also update cap state when the launcher modal opens.
+var _origOpenLauncherModal = openLauncherModal;
+openLauncherModal = function() {
+  _origOpenLauncherModal();
+  updateLauncherCapState();
+};

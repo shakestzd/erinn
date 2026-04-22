@@ -366,6 +366,9 @@
   </div>
 </div>
 
+<!-- Pane layer — hosts all floating terminal panes; sits above content but below launcher modal -->
+<div id="pane-layer" style="position:fixed;inset:0;pointer-events:none;z-index:8000;"></div>
+
 <!-- Terminal overlay — full-screen iframe wrapper for the ttyd sidecar -->
 <div id="terminal-overlay" class="terminal-overlay hidden">
   <div class="terminal-header">

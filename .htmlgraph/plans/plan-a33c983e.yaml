@@ -7,7 +7,7 @@ meta:
     created_at: "2026-04-22"
     status: draft
     created_by: claude-opus
-    version: 1
+    version: 2
 design:
     problem: |
         HtmlGraph's observability spine (causal lineage, OTel receiver, session ingestion) is a genuine strength, but two gaps limit its "agentic engineering" claim. (1) Retrieval is ripgrep-based keyword matching with no tokenization beyond whitespace split (cmd/htmlgraph/relevant.go:231-247). No FTS index, no ranking beyond additive hit counts plus status bonuses, no way to find "the prior feature about X" when X is not a literal substring. Zero embedding infrastructure exists in the Go binary today. (2) Handoff analytics: state transitions on features, bugs, and plans are not recorded — only the current status and a single overwritten updated_at timestamp survive (internal/workitem/collection.go:154,173; internal/db/feature_repo.go:126). Existing `analytics velocity` buckets by updated_at and conflates completion with any later re-touch. Dwell time per transition cannot be computed from current data. (3) Notifications: no outbound integration of any kind — no webhook emitters, no event bus, no Slack/Teams/Discord adapter. Writes are point-to-point through writeNode. The article's bottleneck insight (agents accelerate coding; humans at handoff points become the new bottleneck) is invisible because there is neither measurement nor notification.
@@ -23,6 +23,8 @@ design:
         - 'Secrets handling: the project has no keyring or encrypted-file pattern today; env-var interpolation in config is the minimum viable approach'
         - 'Backward compatibility: `htmlgraph relevant` is called by skills and cannot change its CLI contract; new behavior must be drop-in'
         - Work-item writes all funnel through `internal/workitem/writeNode` — this is the single hook point for index-update and event emission
+        - Transition logging must cover PlanCollection override paths (internal/workitem/plans.go:153 Start, :171 Complete) and the draft->review transition site (internal/workitem/plan_yaml_extras.go:293), not just base Collection.Start/Complete — plans bypass the base methods and will be missed if only the base is wired
+        - FTS index updates should be hooked at WriteNodeHTML (internal/workitem/htmlwriter.go:74), the single terminal write function shared by all work-item types, rather than at per-type writeNode overrides — this avoids the plans.go override path missing the hook
     approved: false
     comment: ""
 slices:
@@ -30,7 +32,7 @@ slices:
       num: 1
       title: FTS5 index over work-graph content (features, messages, tracks, plans)
       what: |
-        Add a SQLite FTS5 virtual table `content_fts` with columns (source_table, source_id, title, body) and triggers/helpers that keep it in sync with: `features` (title + description), `messages` (content; chunked if larger than 8KB), `tracks` (title + description), plus a Go-side indexer for plan YAML content (since plans are a composite of YAML + HTML + DB rows). Touches: internal/db/schema.go (new migration), internal/db/content_fts.go (new — indexer/upsert/delete helpers), internal/planyaml/io.go (post-Save FTS update), internal/workitem/htmlwriter.go (post-WriteNodeHTML FTS update for features/bugs/spikes), internal/ingest/parser.go (insert into FTS when writing messages rows). Verify `modernc.org/sqlite` FTS5 support at migration-apply time — if FTS5 is unavailable, the migration must surface a clear error and the critique must confirm availability before this slice is accepted.
+        Add a SQLite FTS5 virtual table `content_fts` with columns (source_table, source_id, title, body) and triggers/helpers that keep it in sync with: `features` (title + description), `messages` (content; chunked if larger than 8KB), `tracks` (title + description), plus a Go-side indexer for plan YAML content (since plans are a composite of YAML + HTML + DB rows). Touches: internal/db/schema.go (new migration), internal/db/content_fts.go (new — indexer/upsert/delete helpers), internal/planyaml/io.go (post-Save FTS update), internal/workitem/htmlwriter.go — hook post-WriteNodeHTML at its single terminal write point (line 74), which covers all work-item types including the plans.go override path, internal/ingest/parser.go (insert into FTS when writing messages rows). Verify `modernc.org/sqlite` FTS5 support at migration-apply time — if FTS5 is unavailable, the migration must surface a clear error and the critique must confirm availability before this slice is accepted.
       why: |
         Semantic-lite retrieval requires an indexed content substrate. Today the substrate is the filesystem (ripgrep over `.htmlgraph/*.html`), which precludes ranking beyond hit-counting and does not cover session transcripts at all. FTS5 is the minimum-viable index that preserves local-first operation (no network, no ONNX runtime, no external API).
       files:
@@ -39,8 +41,10 @@ slices:
         - internal/planyaml/io.go
         - internal/workitem/htmlwriter.go
         - internal/ingest/parser.go
+        - internal/workitem/plans.go
       deps: []
       done_when:
+        - A startup/migration probe runs SELECT fts5_version() before any DDL; if FTS5 is unavailable the migration fails with a clear error naming the modernc.org/sqlite version constraint
         - Running the migration on a fresh DB creates `content_fts` and a smoke test confirms FTS5 tokenization works (stemming and phrase search)
         - Editing a feature's description via `htmlgraph feature edit` causes the new text to be findable via `SELECT ... FROM content_fts WHERE content_fts MATCH ?` within the same process lifetime
         - Running `htmlgraph ingest` on a JSONL transcript populates `content_fts` rows for every `messages` row written
@@ -85,6 +89,8 @@ slices:
       title: Work-item transition log (schema + write path)
       what: |
         Add a `work_item_transitions` table with columns (id INTEGER PK, work_item_id TEXT, work_item_type TEXT, from_status TEXT, to_status TEXT, at DATETIME, actor TEXT, session_id TEXT, metadata JSON). Wire inserts from every status-change site: internal/workitem/collection.go Start/Complete; internal/workitem/edit.go SetStatus+Save; cmd/htmlgraph/plan_finalize_yaml.go status = finalized; internal/planyaml/ wherever draft -> review is set; cmd/htmlgraph/workitem.go runWiSetStatus (covers features/bugs/spikes). `actor` is sourced from HTMLGRAPH_AGENT_ID / HTMLGRAPH_SESSION_ID when present; `cli-user` otherwise. Insertion happens in the same DB transaction as the status update to guarantee atomicity — if the table is absent or the insert fails, the status change still completes and the failure is logged (new behavior is non-blocking).
+
+        CRITICAL: PlanCollection.Start (plans.go:153) and PlanCollection.Complete (plans.go:171) OVERRIDE Collection.Start/Complete and bypass the base. The override path must also write transitions. Similarly, the draft->review transition is set at plan_yaml_extras.go:293 via a direct call that does not go through Start/Complete — it must also emit a transition row. Alternative hook point worth considering: wire transitions inside internal/db/feature_repo.go:126 UpdateFeatureStatus so every status write is captured regardless of caller, passing actor/session_id as explicit parameters from each call site.
       why: |
         Without a durable transition log, handoff-dwell-time is not computable. updated_at is overwritten on every mutation; completed_at exists in the DDL but is not written today (internal/db/feature_repo.go:126). Adding this is the one piece of infrastructure every downstream handoff analytic requires.
       files:
@@ -94,6 +100,8 @@ slices:
         - internal/workitem/edit.go
         - internal/planyaml/io.go
         - cmd/htmlgraph/plan_finalize_yaml.go
+        - internal/workitem/plans.go
+        - internal/workitem/plan_yaml_extras.go
       deps: []
       done_when:
         - Starting a feature creates a transitions row with from=todo, to=in_progress, at=now, actor=<env>
@@ -101,6 +109,8 @@ slices:
         - Plan finalize creates a transitions row for from=<draft|review>, to=finalized
         - Migration is forward-only; existing DBs without the table have the table created without backfill (documented limitation)
         - A status-change is never rolled back due to a transitions-insert failure — failures are logged but non-fatal
+        - 'Plan lifecycle transitions are captured via ALL paths: PlanCollection.Start/Complete overrides (plans.go:153,171), draft->review (plan_yaml_extras.go:293), draft->finalized / review->finalized (plan_finalize_yaml.go)'
+        - A fuzz test or coverage assertion confirms no UpdateFeatureStatus call site is missing a transition emission
       effort: M
       risk: Med
       tests: |
@@ -129,6 +139,8 @@ slices:
         - Stale-work detector lists items exceeding p95 of their own type's in_progress dwell
         - Dashboard Handoffs tab renders a chart; empty-state shows when no transitions exist in window
         - Output handles the partial-history caveat (items existing before slice 3 lack transition rows) with a clear note
+        - 'Empty-state handling: when the transitions table has fewer than 10 rows for the requested window/type, the command and dashboard pane print/render an ''insufficient data'' notice instead of misleading p50/p95 numbers; the threshold is configurable'
+        - Output clearly notes the backfill cutoff date — work items that existed before slice 3 shipped are excluded from dwell calculations with a footnote
       effort: M
       risk: Low
       tests: |
@@ -166,9 +178,9 @@ slices:
       comment: ""
     - id: slice-6
       num: 6
-      title: Outbound webhook adapter + config surface + Slack formatter
+      title: Outbound webhook adapter + config surface (native format only; Slack formatter gated by q-slack-priority)
       what: |
-        New `.htmlgraph/config.json` (mode 0600) with a `notifications` schema containing a list of webhooks: each entry has name, url, format (native or slack), events (list of topics), and an optional filter object (e.g. to_status: [in_progress, done]). URL values support ${ENV_VAR} interpolation at load time (secret indirection without storing tokens in the file). Config loader at internal/config/config.go with strict schema validation. Webhook adapter at internal/events/webhook.go subscribes to workitem.transition via the slice-5 bus and POSTs the configured payload. Two formatters: `native` (htmlgraph JSON schema, documented) and `slack` (text: "feat-XXXXX — Title: <from> -> <to> (actor)"). Retry once on 5xx with exponential backoff, drop on 4xx. Startup registers webhook subscribers based on config; missing config means no subscribers (no-op). `htmlgraph notify test <name>` sends a synthetic test event to the named webhook for smoke-testing.
+        New `.htmlgraph/config.json` (mode 0600) with a `notifications` schema containing a list of webhooks: each entry has name, url, format (native or slack), events (list of topics), and an optional filter object (e.g. to_status: [in_progress, done]). URL values support ${ENV_VAR} interpolation at load time (secret indirection without storing tokens in the file). Config loader at internal/config/config.go with strict schema validation. Webhook adapter at internal/events/webhook.go subscribes to workitem.transition via the slice-5 bus and POSTs the configured payload. Two formatters: `native` (htmlgraph JSON schema, documented) and `slack` (text: "feat-XXXXX — Title: <from> -> <to> (actor)"). The Slack formatter is included in this slice only if q-slack-priority is answered 'include-slack-now'. Default answer defers Slack to a follow-up plan, shipping just the native formatter in this plan — reduces scope for a solo-dev-first release and validates the event surface before building adapter variants. Retry once on 5xx with exponential backoff, drop on 4xx. Startup registers webhook subscribers based on config; missing config means no subscribers (no-op). `htmlgraph notify test <name>` sends a synthetic test event to the named webhook for smoke-testing.
       why: |
         Completes the notification loop: transitions -> bus -> webhook -> Slack. Without a formatter, the event bus is dark. Slack is the most common team chat target; the `native` format gives users a stable schema to build custom adapters against. Local-first is preserved: no webhooks configured equals no network traffic.
       files:
@@ -256,4 +268,28 @@ questions:
           label: CloudEvents 1.0 envelope — industry standard, more verbose
         - key: slack-native
           label: Slack block kit only — simplest for Slack, useless for Teams/Discord/custom
+      answer: null
+    - id: q-slack-priority
+      text: Ship the Slack formatter (slice 6) now, or defer to a follow-up plan once slice 4 measures actual bottlenecks?
+      description: |
+        Design critique flagged that this is a solo-developer project (primary committer: shakestzd) with no evident team channel consuming notifications. Slack integration may be aspirational rather than load-bearing. The native JSON webhook format is cheap to ship and gives users a stable schema to build custom adapters against. Deferring Slack lets us validate the event surface and measure handoff bottlenecks (slice 4) before investing in a specific chat-platform formatter. The chat-platform adapters can land in a follow-up plan once the problem is demonstrated.
+      recommended: defer-slack
+      options:
+        - key: defer-slack
+          label: Defer Slack — ship only the native JSON formatter in this plan; Slack lands in a follow-up once slice 4 demonstrates measurable handoff problems
+        - key: include-slack-now
+          label: Include Slack now — adds ~30 LOC; low cost; useful if the project becomes team-used
+        - key: drop-all-notifications
+          label: Drop slices 5+6 entirely — defer all notification infra until the bottleneck is measured; focus this plan on retrieval + analytics only
+      answer: null
+    - id: q-slice-1-2-framing
+      text: Keep slices 1 and 2 separate, or collapse into one 'FTS5 retrieval' deliverable?
+      description: |
+        Slice 1 (FTS5 index) has no user-facing value until slice 2 (relevant upgrade) ships — the index is dark infrastructure. Design critique flagged that the current split hides this dependency. Keeping them split enables independent review/rollback but means slice 1 must ship with no observable outcome. Collapsing them simplifies review and makes user-value atomic.
+      recommended: keep-split
+      options:
+        - key: keep-split
+          label: Keep split — slice 1 ships as acknowledged infrastructure; slice 2 activates it; enables independent rollback if FTS indexing causes write-path regressions
+        - key: collapse
+          label: Collapse into one slice — single 'FTS5 retrieval' deliverable; atomic user-value; simpler review
       answer: null

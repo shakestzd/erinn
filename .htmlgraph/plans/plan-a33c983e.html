@@ -287,7 +287,7 @@ textarea::placeholder{color:var(--text-muted)}
 </p>
   <div class="meta">
     <span class="badge badge-pending">Draft</span>
-    <span style="font-size:.75rem;color:var(--text-muted)">v1 · 6 slices · Created 2026-04-22</span>
+    <span style="font-size:.75rem;color:var(--text-muted)">v2 · 6 slices · Created 2026-04-22</span>
   </div>
 </header>
 <button id="themeToggle" style="position:fixed;top:16px;right:16px;z-index:100;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:6px 12px;color:var(--text);font-family:var(--mono);font-size:0.75rem;cursor:pointer;">
@@ -307,12 +307,12 @@ textarea::placeholder{color:var(--text-muted)}
 <section class="dep-graph" data-zone="dependency-graph">
   <h2>Dependency Graph</h2>
   <div id="graph-data" style="display:none">
-    <div data-node="1" data-name="FTS5 index over work-graph content (features, messages, tracks, plans)" data-status="pending" data-deps="" data-files="5"></div>
+    <div data-node="1" data-name="FTS5 index over work-graph content (features, messages, tracks, plans)" data-status="pending" data-deps="" data-files="6"></div>
     <div data-node="2" data-name="Upgrade `htmlgraph relevant` to FTS5-ranked with ripgrep fallback" data-status="pending" data-deps="1" data-files="2"></div>
-    <div data-node="3" data-name="Work-item transition log (schema + write path)" data-status="pending" data-deps="" data-files="6"></div>
+    <div data-node="3" data-name="Work-item transition log (schema + write path)" data-status="pending" data-deps="" data-files="8"></div>
     <div data-node="4" data-name="Handoff dwell-time analytics (CLI + dashboard pane)" data-status="pending" data-deps="3" data-files="5"></div>
     <div data-node="5" data-name="In-process event bus with transition events as first publisher" data-status="pending" data-deps="3" data-files="4"></div>
-    <div data-node="6" data-name="Outbound webhook adapter + config surface + Slack formatter" data-status="pending" data-deps="5" data-files="4"></div>
+    <div data-node="6" data-name="Outbound webhook adapter + config surface (native format only; Slack formatter gated by q-slack-priority)" data-status="pending" data-deps="5" data-files="4"></div>
     
     <!--PLAN_GRAPH_NODES-->
   </div>
@@ -343,6 +343,8 @@ textarea::placeholder{color:var(--text-muted)}
 <li data-markdown>Secrets handling: the project has no keyring or encrypted-file pattern today; env-var interpolation in config is the minimum viable approach</li>
 <li data-markdown>Backward compatibility: `htmlgraph relevant` is called by skills and cannot change its CLI contract; new behavior must be drop-in</li>
 <li data-markdown>Work-item writes all funnel through `internal/workitem/writeNode` — this is the single hook point for index-update and event emission</li>
+<li data-markdown>Transition logging must cover PlanCollection override paths (internal/workitem/plans.go:153 Start, :171 Complete) and the draft-&gt;review transition site (internal/workitem/plan_yaml_extras.go:293), not just base Collection.Start/Complete — plans bypass the base methods and will be missed if only the base is wired</li>
+<li data-markdown>FTS index updates should be hooked at WriteNodeHTML (internal/workitem/htmlwriter.go:74), the single terminal write function shared by all work-item types, rather than at per-type writeNode overrides — this avoids the plans.go override path missing the hook</li>
 </ul>
 
     <div class="approval-row">
@@ -369,12 +371,12 @@ textarea::placeholder{color:var(--text-muted)}
     <span class="badge badge-pending" data-badge-for="slice-1">Pending</span>
   </div>
   
-  <div class="slice-field"><div class="slice-field-label">What</div><div class="slice-field-value" data-markdown="">Add a SQLite FTS5 virtual table `content_fts` with columns (source_table, source_id, title, body) and triggers/helpers that keep it in sync with: `features` (title &#43; description), `messages` (content; chunked if larger than 8KB), `tracks` (title &#43; description), plus a Go-side indexer for plan YAML content (since plans are a composite of YAML &#43; HTML &#43; DB rows). Touches: internal/db/schema.go (new migration), internal/db/content_fts.go (new — indexer/upsert/delete helpers), internal/planyaml/io.go (post-Save FTS update), internal/workitem/htmlwriter.go (post-WriteNodeHTML FTS update for features/bugs/spikes), internal/ingest/parser.go (insert into FTS when writing messages rows). Verify `modernc.org/sqlite` FTS5 support at migration-apply time — if FTS5 is unavailable, the migration must surface a clear error and the critique must confirm availability before this slice is accepted.
+  <div class="slice-field"><div class="slice-field-label">What</div><div class="slice-field-value" data-markdown="">Add a SQLite FTS5 virtual table `content_fts` with columns (source_table, source_id, title, body) and triggers/helpers that keep it in sync with: `features` (title &#43; description), `messages` (content; chunked if larger than 8KB), `tracks` (title &#43; description), plus a Go-side indexer for plan YAML content (since plans are a composite of YAML &#43; HTML &#43; DB rows). Touches: internal/db/schema.go (new migration), internal/db/content_fts.go (new — indexer/upsert/delete helpers), internal/planyaml/io.go (post-Save FTS update), internal/workitem/htmlwriter.go — hook post-WriteNodeHTML at its single terminal write point (line 74), which covers all work-item types including the plans.go override path, internal/ingest/parser.go (insert into FTS when writing messages rows). Verify `modernc.org/sqlite` FTS5 support at migration-apply time — if FTS5 is unavailable, the migration must surface a clear error and the critique must confirm availability before this slice is accepted.
 </div></div>
   <div class="slice-field"><div class="slice-field-label">Why</div><div class="slice-field-value" data-markdown="">Semantic-lite retrieval requires an indexed content substrate. Today the substrate is the filesystem (ripgrep over `.htmlgraph/*.html`), which precludes ranking beyond hit-counting and does not cover session transcripts at all. FTS5 is the minimum-viable index that preserves local-first operation (no network, no ONNX runtime, no external API).
 </div></div>
-  <div class="slice-field"><div class="slice-field-label">Files</div><div class="slice-field-value"><code>internal/db/schema.go, internal/db/content_fts.go, internal/planyaml/io.go, internal/workitem/htmlwriter.go, internal/ingest/parser.go</code></div></div>
-  <div class="slice-field"><div class="slice-field-label">Done when</div><ul class="slice-done-list"><li data-markdown="">Running the migration on a fresh DB creates `content_fts` and a smoke test confirms FTS5 tokenization works (stemming and phrase search)</li><li data-markdown="">Editing a feature&#39;s description via `htmlgraph feature edit` causes the new text to be findable via `SELECT ... FROM content_fts WHERE content_fts MATCH ?` within the same process lifetime</li><li data-markdown="">Running `htmlgraph ingest` on a JSONL transcript populates `content_fts` rows for every `messages` row written</li><li data-markdown="">A reindex helper `htmlgraph reindex --fts` rebuilds the index from canonical sources without duplicating rows</li><li data-markdown="">FTS5 unavailability is detected at migration time with an error that names the workaround</li></ul></div>
+  <div class="slice-field"><div class="slice-field-label">Files</div><div class="slice-field-value"><code>internal/db/schema.go, internal/db/content_fts.go, internal/planyaml/io.go, internal/workitem/htmlwriter.go, internal/ingest/parser.go, internal/workitem/plans.go</code></div></div>
+  <div class="slice-field"><div class="slice-field-label">Done when</div><ul class="slice-done-list"><li data-markdown="">A startup/migration probe runs SELECT fts5_version() before any DDL; if FTS5 is unavailable the migration fails with a clear error naming the modernc.org/sqlite version constraint</li><li data-markdown="">Running the migration on a fresh DB creates `content_fts` and a smoke test confirms FTS5 tokenization works (stemming and phrase search)</li><li data-markdown="">Editing a feature&#39;s description via `htmlgraph feature edit` causes the new text to be findable via `SELECT ... FROM content_fts WHERE content_fts MATCH ?` within the same process lifetime</li><li data-markdown="">Running `htmlgraph ingest` on a JSONL transcript populates `content_fts` rows for every `messages` row written</li><li data-markdown="">A reindex helper `htmlgraph reindex --fts` rebuilds the index from canonical sources without duplicating rows</li><li data-markdown="">FTS5 unavailability is detected at migration time with an error that names the workaround</li></ul></div>
   
   <div class="slice-field"><div class="slice-field-label">Test Strategy</div><div class="slice-field-value slice-tests" data-markdown="">Unit: internal/db/content_fts_test.go — insert, update, delete across all source tables; phrase match; stem match; empty/nil body handling
 Integration: cmd/htmlgraph/ingest_events_test.go extended to assert FTS row presence after ingest
@@ -422,11 +424,13 @@ Regression: existing relevant_test.go cases for file/SHA path must pass unchange
   </div>
   
   <div class="slice-field"><div class="slice-field-label">What</div><div class="slice-field-value" data-markdown="">Add a `work_item_transitions` table with columns (id INTEGER PK, work_item_id TEXT, work_item_type TEXT, from_status TEXT, to_status TEXT, at DATETIME, actor TEXT, session_id TEXT, metadata JSON). Wire inserts from every status-change site: internal/workitem/collection.go Start/Complete; internal/workitem/edit.go SetStatus&#43;Save; cmd/htmlgraph/plan_finalize_yaml.go status = finalized; internal/planyaml/ wherever draft -&gt; review is set; cmd/htmlgraph/workitem.go runWiSetStatus (covers features/bugs/spikes). `actor` is sourced from HTMLGRAPH_AGENT_ID / HTMLGRAPH_SESSION_ID when present; `cli-user` otherwise. Insertion happens in the same DB transaction as the status update to guarantee atomicity — if the table is absent or the insert fails, the status change still completes and the failure is logged (new behavior is non-blocking).
+
+CRITICAL: PlanCollection.Start (plans.go:153) and PlanCollection.Complete (plans.go:171) OVERRIDE Collection.Start/Complete and bypass the base. The override path must also write transitions. Similarly, the draft-&gt;review transition is set at plan_yaml_extras.go:293 via a direct call that does not go through Start/Complete — it must also emit a transition row. Alternative hook point worth considering: wire transitions inside internal/db/feature_repo.go:126 UpdateFeatureStatus so every status write is captured regardless of caller, passing actor/session_id as explicit parameters from each call site.
 </div></div>
   <div class="slice-field"><div class="slice-field-label">Why</div><div class="slice-field-value" data-markdown="">Without a durable transition log, handoff-dwell-time is not computable. updated_at is overwritten on every mutation; completed_at exists in the DDL but is not written today (internal/db/feature_repo.go:126). Adding this is the one piece of infrastructure every downstream handoff analytic requires.
 </div></div>
-  <div class="slice-field"><div class="slice-field-label">Files</div><div class="slice-field-value"><code>internal/db/schema.go, internal/db/transitions_repo.go, internal/workitem/collection.go, internal/workitem/edit.go, internal/planyaml/io.go, cmd/htmlgraph/plan_finalize_yaml.go</code></div></div>
-  <div class="slice-field"><div class="slice-field-label">Done when</div><ul class="slice-done-list"><li data-markdown="">Starting a feature creates a transitions row with from=todo, to=in_progress, at=now, actor=&lt;env&gt;</li><li data-markdown="">Completing a feature creates a transitions row with from=in_progress, to=done</li><li data-markdown="">Plan finalize creates a transitions row for from=&lt;draft|review&gt;, to=finalized</li><li data-markdown="">Migration is forward-only; existing DBs without the table have the table created without backfill (documented limitation)</li><li data-markdown="">A status-change is never rolled back due to a transitions-insert failure — failures are logged but non-fatal</li></ul></div>
+  <div class="slice-field"><div class="slice-field-label">Files</div><div class="slice-field-value"><code>internal/db/schema.go, internal/db/transitions_repo.go, internal/workitem/collection.go, internal/workitem/edit.go, internal/planyaml/io.go, cmd/htmlgraph/plan_finalize_yaml.go, internal/workitem/plans.go, internal/workitem/plan_yaml_extras.go</code></div></div>
+  <div class="slice-field"><div class="slice-field-label">Done when</div><ul class="slice-done-list"><li data-markdown="">Starting a feature creates a transitions row with from=todo, to=in_progress, at=now, actor=&lt;env&gt;</li><li data-markdown="">Completing a feature creates a transitions row with from=in_progress, to=done</li><li data-markdown="">Plan finalize creates a transitions row for from=&lt;draft|review&gt;, to=finalized</li><li data-markdown="">Migration is forward-only; existing DBs without the table have the table created without backfill (documented limitation)</li><li data-markdown="">A status-change is never rolled back due to a transitions-insert failure — failures are logged but non-fatal</li><li data-markdown="">Plan lifecycle transitions are captured via ALL paths: PlanCollection.Start/Complete overrides (plans.go:153,171), draft-&gt;review (plan_yaml_extras.go:293), draft-&gt;finalized / review-&gt;finalized (plan_finalize_yaml.go)</li><li data-markdown="">A fuzz test or coverage assertion confirms no UpdateFeatureStatus call site is missing a transition emission</li></ul></div>
   
   <div class="slice-field"><div class="slice-field-label">Test Strategy</div><div class="slice-field-value slice-tests" data-markdown="">Unit: transitions_repo_test.go for insert/query/round-trip
 Integration: feature lifecycle test (create -&gt; start -&gt; complete) asserts 3 transitions rows with correct from/to; plan finalize test asserts finalize transition
@@ -452,7 +456,7 @@ Regression: existing collection_test.go, feature_repo_test.go must pass
   <div class="slice-field"><div class="slice-field-label">Why</div><div class="slice-field-value" data-markdown="">The LangChain article&#39;s sharpest diagnostic is that agent acceleration exposes handoff bottlenecks. Measurement is prerequisite to surface that signal. Without this slice, the transition log from slice 3 is dark data.
 </div></div>
   <div class="slice-field"><div class="slice-field-label">Files</div><div class="slice-field-value"><code>cmd/htmlgraph/analytics.go, cmd/htmlgraph/analytics_handoff.go, cmd/htmlgraph/dashboard/js/app.js, cmd/htmlgraph/dashboard/dashboard.html, cmd/htmlgraph/api.go</code></div></div>
-  <div class="slice-field"><div class="slice-field-label">Done when</div><ul class="slice-done-list"><li data-markdown="">`htmlgraph analytics handoff --type feature --since 30d` prints a table of edges with count/p50/p95; values are plausible (non-negative, p95 &gt;= p50) on a seeded corpus</li><li data-markdown="">Stale-work detector lists items exceeding p95 of their own type&#39;s in_progress dwell</li><li data-markdown="">Dashboard Handoffs tab renders a chart; empty-state shows when no transitions exist in window</li><li data-markdown="">Output handles the partial-history caveat (items existing before slice 3 lack transition rows) with a clear note</li></ul></div>
+  <div class="slice-field"><div class="slice-field-label">Done when</div><ul class="slice-done-list"><li data-markdown="">`htmlgraph analytics handoff --type feature --since 30d` prints a table of edges with count/p50/p95; values are plausible (non-negative, p95 &gt;= p50) on a seeded corpus</li><li data-markdown="">Stale-work detector lists items exceeding p95 of their own type&#39;s in_progress dwell</li><li data-markdown="">Dashboard Handoffs tab renders a chart; empty-state shows when no transitions exist in window</li><li data-markdown="">Output handles the partial-history caveat (items existing before slice 3 lack transition rows) with a clear note</li><li data-markdown="">Empty-state handling: when the transitions table has fewer than 10 rows for the requested window/type, the command and dashboard pane print/render an &#39;insufficient data&#39; notice instead of misleading p50/p95 numbers; the threshold is configurable</li><li data-markdown="">Output clearly notes the backfill cutoff date — work items that existed before slice 3 shipped are excluded from dwell calculations with a footnote</li></ul></div>
   
   <div class="slice-field"><div class="slice-field-label">Test Strategy</div><div class="slice-field-value slice-tests" data-markdown="">Unit: analytics_handoff_test.go for dwell aggregation SQL against a seeded transitions set
 Integration: dashboard API test for /api/analytics/handoff returns expected JSON shape
@@ -493,13 +497,13 @@ Regression: collection_test.go, edit_test.go still pass with bus injected
 <div class="slice-card" data-slice="6" data-slice-name="slice-6" data-status="pending">
   <div class="slice-header">
     <span class="slice-num">#6</span>
-    <span class="slice-name">Outbound webhook adapter &#43; config surface &#43; Slack formatter</span>
+    <span class="slice-name">Outbound webhook adapter &#43; config surface (native format only; Slack formatter gated by q-slack-priority)</span>
     <span class="badge badge-revision">M</span>
     <span class="badge badge-revision">Med</span>
     <span class="badge badge-pending" data-badge-for="slice-6">Pending</span>
   </div>
   
-  <div class="slice-field"><div class="slice-field-label">What</div><div class="slice-field-value" data-markdown="">New `.htmlgraph/config.json` (mode 0600) with a `notifications` schema containing a list of webhooks: each entry has name, url, format (native or slack), events (list of topics), and an optional filter object (e.g. to_status: [in_progress, done]). URL values support ${ENV_VAR} interpolation at load time (secret indirection without storing tokens in the file). Config loader at internal/config/config.go with strict schema validation. Webhook adapter at internal/events/webhook.go subscribes to workitem.transition via the slice-5 bus and POSTs the configured payload. Two formatters: `native` (htmlgraph JSON schema, documented) and `slack` (text: &#34;feat-XXXXX — Title: &lt;from&gt; -&gt; &lt;to&gt; (actor)&#34;). Retry once on 5xx with exponential backoff, drop on 4xx. Startup registers webhook subscribers based on config; missing config means no subscribers (no-op). `htmlgraph notify test &lt;name&gt;` sends a synthetic test event to the named webhook for smoke-testing.
+  <div class="slice-field"><div class="slice-field-label">What</div><div class="slice-field-value" data-markdown="">New `.htmlgraph/config.json` (mode 0600) with a `notifications` schema containing a list of webhooks: each entry has name, url, format (native or slack), events (list of topics), and an optional filter object (e.g. to_status: [in_progress, done]). URL values support ${ENV_VAR} interpolation at load time (secret indirection without storing tokens in the file). Config loader at internal/config/config.go with strict schema validation. Webhook adapter at internal/events/webhook.go subscribes to workitem.transition via the slice-5 bus and POSTs the configured payload. Two formatters: `native` (htmlgraph JSON schema, documented) and `slack` (text: &#34;feat-XXXXX — Title: &lt;from&gt; -&gt; &lt;to&gt; (actor)&#34;). The Slack formatter is included in this slice only if q-slack-priority is answered &#39;include-slack-now&#39;. Default answer defers Slack to a follow-up plan, shipping just the native formatter in this plan — reduces scope for a solo-dev-first release and validates the event surface before building adapter variants. Retry once on 5xx with exponential backoff, drop on 4xx. Startup registers webhook subscribers based on config; missing config means no subscribers (no-op). `htmlgraph notify test &lt;name&gt;` sends a synthetic test event to the named webhook for smoke-testing.
 </div></div>
   <div class="slice-field"><div class="slice-field-label">Why</div><div class="slice-field-value" data-markdown="">Completes the notification loop: transitions -&gt; bus -&gt; webhook -&gt; Slack. Without a formatter, the event bus is dark. Slack is the most common team chat target; the `native` format gives users a stable schema to build custom adapters against. Local-first is preserved: no webhooks configured equals no network traffic.
 </div></div>
@@ -589,6 +593,30 @@ Regression: running htmlgraph without config.json behaves identically to today
       <textarea data-section="questions" data-question-rationale="q-webhook-payload-schema" placeholder="Rationale for q-webhook-payload-schema..."></textarea>
     </div>
     
+    <div class="question-block" id="q-slack-priority">
+      <p>Ship the Slack formatter (slice 6) now, or defer to a follow-up plan once slice 4 measures actual bottlenecks?</p>
+      
+      
+      <label class="recommended"><input type="radio" name="q-slack-priority" data-question="q-slack-priority" value="Defer Slack — ship only the native JSON formatter in this plan; Slack lands in a follow-up once slice 4 demonstrates measurable handoff problems"> Defer Slack — ship only the native JSON formatter in this plan; Slack lands in a follow-up once slice 4 demonstrates measurable handoff problems <span class="rec-tag">recommended</span></label>
+      
+      <label><input type="radio" name="q-slack-priority" data-question="q-slack-priority" value="Include Slack now — adds ~30 LOC; low cost; useful if the project becomes team-used"> Include Slack now — adds ~30 LOC; low cost; useful if the project becomes team-used</label>
+      
+      <label><input type="radio" name="q-slack-priority" data-question="q-slack-priority" value="Drop slices 5&#43;6 entirely — defer all notification infra until the bottleneck is measured; focus this plan on retrieval &#43; analytics only"> Drop slices 5&#43;6 entirely — defer all notification infra until the bottleneck is measured; focus this plan on retrieval &#43; analytics only</label>
+      
+      <textarea data-section="questions" data-question-rationale="q-slack-priority" placeholder="Rationale for q-slack-priority..."></textarea>
+    </div>
+    
+    <div class="question-block" id="q-slice-1-2-framing">
+      <p>Keep slices 1 and 2 separate, or collapse into one &#39;FTS5 retrieval&#39; deliverable?</p>
+      
+      
+      <label class="recommended"><input type="radio" name="q-slice-1-2-framing" data-question="q-slice-1-2-framing" value="Keep split — slice 1 ships as acknowledged infrastructure; slice 2 activates it; enables independent rollback if FTS indexing causes write-path regressions"> Keep split — slice 1 ships as acknowledged infrastructure; slice 2 activates it; enables independent rollback if FTS indexing causes write-path regressions <span class="rec-tag">recommended</span></label>
+      
+      <label><input type="radio" name="q-slice-1-2-framing" data-question="q-slice-1-2-framing" value="Collapse into one slice — single &#39;FTS5 retrieval&#39; deliverable; atomic user-value; simpler review"> Collapse into one slice — single &#39;FTS5 retrieval&#39; deliverable; atomic user-value; simpler review</label>
+      
+      <textarea data-section="questions" data-question-rationale="q-slice-1-2-framing" placeholder="Rationale for q-slice-1-2-framing..."></textarea>
+    </div>
+    
     <table class="q-table">
       <thead><tr><th>Question</th><th>Selected</th><th>Status</th></tr></thead>
       <tbody id="questionsRecap">
@@ -619,6 +647,18 @@ Regression: running htmlgraph without config.json behaves identically to today
         
         <tr data-recap-for="q-webhook-payload-schema">
           <td>What payload schema do outbound webhooks use?</td>
+          <td class="recap-answer">&mdash;</td>
+          <td><span class="badge badge-pending">Pending</span></td>
+        </tr>
+        
+        <tr data-recap-for="q-slack-priority">
+          <td>Ship the Slack formatter (slice 6) now, or defer to a follow-up plan once slice 4 measures actual bottlenecks?</td>
+          <td class="recap-answer">&mdash;</td>
+          <td><span class="badge badge-pending">Pending</span></td>
+        </tr>
+        
+        <tr data-recap-for="q-slice-1-2-framing">
+          <td>Keep slices 1 and 2 separate, or collapse into one &#39;FTS5 retrieval&#39; deliverable?</td>
           <td class="recap-answer">&mdash;</td>
           <td><span class="badge badge-pending">Pending</span></td>
         </tr>

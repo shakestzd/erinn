@@ -1,0 +1,259 @@
+meta:
+    id: plan-a33c983e
+    track_id: trk-a30e8df4
+    title: 'Agentic-eng gaps: retrieval + handoff analytics + notifications'
+    description: |
+        Plan for the top-2 gap cluster identified in the LangChain agentic-engineering review: (1) upgrade HtmlGraph's retrieval layer from ripgrep keyword matching to SQLite FTS5 full-text search over plans, specs, sessions, and features, giving the work graph a real query surface; and (2) add a durable work-item transition log plus handoff-dwell-time analytics plus outbound webhook notifications, so the coordination bottlenecks the article warns about become measurable and actionable.
+    created_at: "2026-04-22"
+    status: draft
+    created_by: claude-opus
+    version: 1
+design:
+    problem: |
+        HtmlGraph's observability spine (causal lineage, OTel receiver, session ingestion) is a genuine strength, but two gaps limit its "agentic engineering" claim. (1) Retrieval is ripgrep-based keyword matching with no tokenization beyond whitespace split (cmd/htmlgraph/relevant.go:231-247). No FTS index, no ranking beyond additive hit counts plus status bonuses, no way to find "the prior feature about X" when X is not a literal substring. Zero embedding infrastructure exists in the Go binary today. (2) Handoff analytics: state transitions on features, bugs, and plans are not recorded — only the current status and a single overwritten updated_at timestamp survive (internal/workitem/collection.go:154,173; internal/db/feature_repo.go:126). Existing `analytics velocity` buckets by updated_at and conflates completion with any later re-touch. Dwell time per transition cannot be computed from current data. (3) Notifications: no outbound integration of any kind — no webhook emitters, no event bus, no Slack/Teams/Discord adapter. Writes are point-to-point through writeNode. The article's bottleneck insight (agents accelerate coding; humans at handoff points become the new bottleneck) is invisible because there is neither measurement nor notification.
+    goals:
+        - '**Semantic-lite retrieval** — `htmlgraph relevant <query>` returns ranked results for queries that are not literal substring matches, using SQLite FTS5 over features, messages, plans'
+        - '**Durable transition log** — every work-item status transition writes a row to a new `work_item_transitions` table with from/to/at/actor; backfill not required but forward-coverage is complete'
+        - '**Handoff dwell-time analytics** — `htmlgraph analytics handoff` and a dashboard pane report p50/p95 dwell per transition per work-item type'
+        - '**Outbound notifications** — configurable webhook-out on transition events, with a Slack formatter as the first concrete adapter'
+        - '**No regression to local-first posture** — no mandatory network dependency; FTS5 is embedded, webhooks are opt-in'
+    constraints:
+        - SQLite driver is `modernc.org/sqlite` — FTS5 support must be verified (critique will check this)
+        - No existing event bus or observer pattern in the app — emission path must be added without breaking the point-to-point write path
+        - 'Secrets handling: the project has no keyring or encrypted-file pattern today; env-var interpolation in config is the minimum viable approach'
+        - 'Backward compatibility: `htmlgraph relevant` is called by skills and cannot change its CLI contract; new behavior must be drop-in'
+        - Work-item writes all funnel through `internal/workitem/writeNode` — this is the single hook point for index-update and event emission
+    approved: false
+    comment: ""
+slices:
+    - id: slice-1
+      num: 1
+      title: FTS5 index over work-graph content (features, messages, tracks, plans)
+      what: |
+        Add a SQLite FTS5 virtual table `content_fts` with columns (source_table, source_id, title, body) and triggers/helpers that keep it in sync with: `features` (title + description), `messages` (content; chunked if larger than 8KB), `tracks` (title + description), plus a Go-side indexer for plan YAML content (since plans are a composite of YAML + HTML + DB rows). Touches: internal/db/schema.go (new migration), internal/db/content_fts.go (new — indexer/upsert/delete helpers), internal/planyaml/io.go (post-Save FTS update), internal/workitem/htmlwriter.go (post-WriteNodeHTML FTS update for features/bugs/spikes), internal/ingest/parser.go (insert into FTS when writing messages rows). Verify `modernc.org/sqlite` FTS5 support at migration-apply time — if FTS5 is unavailable, the migration must surface a clear error and the critique must confirm availability before this slice is accepted.
+      why: |
+        Semantic-lite retrieval requires an indexed content substrate. Today the substrate is the filesystem (ripgrep over `.htmlgraph/*.html`), which precludes ranking beyond hit-counting and does not cover session transcripts at all. FTS5 is the minimum-viable index that preserves local-first operation (no network, no ONNX runtime, no external API).
+      files:
+        - internal/db/schema.go
+        - internal/db/content_fts.go
+        - internal/planyaml/io.go
+        - internal/workitem/htmlwriter.go
+        - internal/ingest/parser.go
+      deps: []
+      done_when:
+        - Running the migration on a fresh DB creates `content_fts` and a smoke test confirms FTS5 tokenization works (stemming and phrase search)
+        - Editing a feature's description via `htmlgraph feature edit` causes the new text to be findable via `SELECT ... FROM content_fts WHERE content_fts MATCH ?` within the same process lifetime
+        - Running `htmlgraph ingest` on a JSONL transcript populates `content_fts` rows for every `messages` row written
+        - A reindex helper `htmlgraph reindex --fts` rebuilds the index from canonical sources without duplicating rows
+        - FTS5 unavailability is detected at migration time with an error that names the workaround
+      effort: M
+      risk: Med
+      tests: |
+        Unit: internal/db/content_fts_test.go — insert, update, delete across all source tables; phrase match; stem match; empty/nil body handling
+        Integration: cmd/htmlgraph/ingest_events_test.go extended to assert FTS row presence after ingest
+        Regression: existing internal/workitem/htmlwriter_test.go continues to pass; htmlgraph feature create/edit flows untouched
+      approved: false
+      comment: ""
+    - id: slice-2
+      num: 2
+      title: Upgrade `htmlgraph relevant` to FTS5-ranked with ripgrep fallback
+      what: |
+        Replace the ripgrep-over-HTML backend in cmd/htmlgraph/relevant.go with an FTS5 `SELECT ... ORDER BY bm25(content_fts)` query. Preserve the existing status-bonus and commit-trailer-score layers: query FTS5 to get candidate IDs and base score, then apply the same weightCommitItem, in-progress, and done-penalty adjustments that exist today. Keep ripgrep as a fallback path only for file-path and SHA queries (which already skip tokenization). For natural-language queries, FTS5 is primary. CLI contract unchanged: `htmlgraph relevant <query>` prints the same output format (stable for plugin skills). Add `--explain` flag that exposes per-result score breakdown for debugging.
+      why: |
+        Slice 1 gives us an index; slice 2 makes it useful. Without this, the FTS table is dark infrastructure. The kept scoring layers preserve causal signal (commits attributing an item, in-progress boost) that pure content similarity would lose.
+      files:
+        - cmd/htmlgraph/relevant.go
+        - cmd/htmlgraph/relevant_test.go
+      deps:
+        - 1
+      done_when:
+        - '`htmlgraph relevant ''authentication failure''` returns ranked features/bugs even when none contain both words as a substring (stemming on)'
+        - A feature whose description contains `auth` ranks above one that only appears in a commit trailer, unless commit-trailer count is high enough to overcome the BM25 gap (scoring hierarchy documented)
+        - '`htmlgraph relevant <sha>` and `htmlgraph relevant <file-path>` still use the existing code paths (no regression)'
+        - '`htmlgraph relevant --explain <q>` prints the score decomposition'
+        - Output format for non-explain mode is byte-identical to today's when the same top-N items would have been returned
+      effort: M
+      risk: Med
+      tests: |
+        Unit: relevant_test.go table tests for each query shape (natural language, file, SHA); ranking assertions against a seeded corpus
+        Integration: create 5 features with varied descriptions and synthetic commit trailers, verify ranking matches expectations
+        Regression: existing relevant_test.go cases for file/SHA path must pass unchanged
+      approved: false
+      comment: ""
+    - id: slice-3
+      num: 3
+      title: Work-item transition log (schema + write path)
+      what: |
+        Add a `work_item_transitions` table with columns (id INTEGER PK, work_item_id TEXT, work_item_type TEXT, from_status TEXT, to_status TEXT, at DATETIME, actor TEXT, session_id TEXT, metadata JSON). Wire inserts from every status-change site: internal/workitem/collection.go Start/Complete; internal/workitem/edit.go SetStatus+Save; cmd/htmlgraph/plan_finalize_yaml.go status = finalized; internal/planyaml/ wherever draft -> review is set; cmd/htmlgraph/workitem.go runWiSetStatus (covers features/bugs/spikes). `actor` is sourced from HTMLGRAPH_AGENT_ID / HTMLGRAPH_SESSION_ID when present; `cli-user` otherwise. Insertion happens in the same DB transaction as the status update to guarantee atomicity — if the table is absent or the insert fails, the status change still completes and the failure is logged (new behavior is non-blocking).
+      why: |
+        Without a durable transition log, handoff-dwell-time is not computable. updated_at is overwritten on every mutation; completed_at exists in the DDL but is not written today (internal/db/feature_repo.go:126). Adding this is the one piece of infrastructure every downstream handoff analytic requires.
+      files:
+        - internal/db/schema.go
+        - internal/db/transitions_repo.go
+        - internal/workitem/collection.go
+        - internal/workitem/edit.go
+        - internal/planyaml/io.go
+        - cmd/htmlgraph/plan_finalize_yaml.go
+      deps: []
+      done_when:
+        - Starting a feature creates a transitions row with from=todo, to=in_progress, at=now, actor=<env>
+        - Completing a feature creates a transitions row with from=in_progress, to=done
+        - Plan finalize creates a transitions row for from=<draft|review>, to=finalized
+        - Migration is forward-only; existing DBs without the table have the table created without backfill (documented limitation)
+        - A status-change is never rolled back due to a transitions-insert failure — failures are logged but non-fatal
+      effort: M
+      risk: Med
+      tests: |
+        Unit: transitions_repo_test.go for insert/query/round-trip
+        Integration: feature lifecycle test (create -> start -> complete) asserts 3 transitions rows with correct from/to; plan finalize test asserts finalize transition
+        Regression: existing collection_test.go, feature_repo_test.go must pass
+      approved: false
+      comment: ""
+    - id: slice-4
+      num: 4
+      title: Handoff dwell-time analytics (CLI + dashboard pane)
+      what: |
+        Add `htmlgraph analytics handoff [--type feature|bug|plan|all] [--since 30d]` that queries work_item_transitions joined with features (for type) and reports: (a) per transition edge (e.g. todo->in_progress), count + p50 + p95 dwell duration over the window; (b) per work-item type, aggregate backlog age (time since latest transition for items currently in a given state); (c) stale-work detector: items in in_progress longer than p95 for their type. Dashboard: add a "Handoffs" tab (sibling to the existing Metrics tab in cmd/htmlgraph/dashboard/js/app.js:746) that renders a timeseries of dwell p50/p95 per edge. Read data via a new /api/analytics/handoff endpoint.
+      why: |
+        The LangChain article's sharpest diagnostic is that agent acceleration exposes handoff bottlenecks. Measurement is prerequisite to surface that signal. Without this slice, the transition log from slice 3 is dark data.
+      files:
+        - cmd/htmlgraph/analytics.go
+        - cmd/htmlgraph/analytics_handoff.go
+        - cmd/htmlgraph/dashboard/js/app.js
+        - cmd/htmlgraph/dashboard/dashboard.html
+        - cmd/htmlgraph/api.go
+      deps:
+        - 3
+      done_when:
+        - '`htmlgraph analytics handoff --type feature --since 30d` prints a table of edges with count/p50/p95; values are plausible (non-negative, p95 >= p50) on a seeded corpus'
+        - Stale-work detector lists items exceeding p95 of their own type's in_progress dwell
+        - Dashboard Handoffs tab renders a chart; empty-state shows when no transitions exist in window
+        - Output handles the partial-history caveat (items existing before slice 3 lack transition rows) with a clear note
+      effort: M
+      risk: Low
+      tests: |
+        Unit: analytics_handoff_test.go for dwell aggregation SQL against a seeded transitions set
+        Integration: dashboard API test for /api/analytics/handoff returns expected JSON shape
+        Regression: existing analytics summary/velocity commands unchanged
+      approved: false
+      comment: ""
+    - id: slice-5
+      num: 5
+      title: In-process event bus with transition events as first publisher
+      what: |
+        Add a minimal in-process pub/sub at internal/events/bus.go: a `Bus` interface with Publish(event Event) and Subscribe(topic string, handler func(Event)), backed by an in-memory goroutine pool. Events have (topic, payload any, at time.Time, actor, session_id). First event type: `workitem.transition`, published from the same code sites that write the transitions row in slice 3. Transitions-row insert is synchronous and atomic; event publish is async and fire-and-forget. No built-in subscribers yet — slice 6 (webhook adapter) is the first.
+      why: |
+        Notifications require an emission surface. Writes today are point-to-point (research confirmed zero event bus). Hooking notifications directly into writeNode would tangle concerns; a bus lets us add/remove adapters without touching write paths. Kept minimal (no persistent queue, no at-least-once delivery) — this is local coordination, not a message broker.
+      files:
+        - internal/events/bus.go
+        - internal/events/bus_test.go
+        - internal/workitem/collection.go
+        - internal/workitem/edit.go
+      deps:
+        - 3
+      done_when:
+        - A subscriber registered on topic=workitem.transition receives an event when a feature is started or completed
+        - Subscriber failures/panics are isolated (logged, do not affect other subscribers or the publishing code path)
+        - Bus is constructed once and accessible to both cmd/ and internal/ packages without circular imports
+        - Event publish latency is less than 1ms on the write-path p95 (fire-and-forget)
+      effort: S
+      risk: Low
+      tests: |
+        Unit: bus_test.go for subscribe/publish/unsubscribe, panic isolation, ordering-per-topic
+        Integration: workitem test confirms transition publishes event
+        Regression: collection_test.go, edit_test.go still pass with bus injected
+      approved: false
+      comment: ""
+    - id: slice-6
+      num: 6
+      title: Outbound webhook adapter + config surface + Slack formatter
+      what: |
+        New `.htmlgraph/config.json` (mode 0600) with a `notifications` schema containing a list of webhooks: each entry has name, url, format (native or slack), events (list of topics), and an optional filter object (e.g. to_status: [in_progress, done]). URL values support ${ENV_VAR} interpolation at load time (secret indirection without storing tokens in the file). Config loader at internal/config/config.go with strict schema validation. Webhook adapter at internal/events/webhook.go subscribes to workitem.transition via the slice-5 bus and POSTs the configured payload. Two formatters: `native` (htmlgraph JSON schema, documented) and `slack` (text: "feat-XXXXX — Title: <from> -> <to> (actor)"). Retry once on 5xx with exponential backoff, drop on 4xx. Startup registers webhook subscribers based on config; missing config means no subscribers (no-op). `htmlgraph notify test <name>` sends a synthetic test event to the named webhook for smoke-testing.
+      why: |
+        Completes the notification loop: transitions -> bus -> webhook -> Slack. Without a formatter, the event bus is dark. Slack is the most common team chat target; the `native` format gives users a stable schema to build custom adapters against. Local-first is preserved: no webhooks configured equals no network traffic.
+      files:
+        - internal/config/config.go
+        - internal/events/webhook.go
+        - cmd/htmlgraph/notify.go
+        - docs/notifications.md
+      deps:
+        - 5
+      done_when:
+        - '`htmlgraph notify test slack-dev` posts a synthetic event and prints the response status/body'
+        - A real feature start triggers a Slack message matching the formatter spec
+        - ${ENV_VAR} interpolation expands at load time; missing env vars produce a startup error naming the unresolved var
+        - 5xx response triggers one retry; 4xx drops without retry; both log with webhook name and status
+        - Absent config.json is not an error — startup proceeds with zero webhook subscribers
+        - File permissions on config.json are checked (warn on >0600)
+      effort: M
+      risk: Med
+      tests: |
+        Unit: config_test.go for schema + env interpolation + permission check; webhook_test.go with httptest.Server for success/5xx/4xx/timeout
+        Integration: end-to-end test — start a feature, assert httptest.Server received a POST with expected body
+        Regression: running htmlgraph without config.json behaves identically to today
+      approved: false
+      comment: ""
+questions:
+    - id: q-retrieval-backend
+      text: What retrieval substrate for Pillar A — FTS5 now, or FTS5 + local embeddings, or defer embeddings entirely?
+      description: |
+        FTS5 gives stemming, phrase search, and BM25 ranking with no external dependencies and is embedded in modernc.org/sqlite. Local embeddings (e.g. ONNX all-MiniLM) add true semantic similarity but pull in a ~100MB runtime plus model weights. External embedding API (OpenAI/Anthropic) is cheapest to integrate but introduces a mandatory network dependency and a secret. The local-first philosophy in CLAUDE.md argues against external. FTS5 delivers roughly 80 percent of the value at 5 percent of the cost; embeddings can be a follow-up plan if FTS5 ranking proves insufficient in practice.
+      recommended: fts5-only
+      options:
+        - key: fts5-only
+          label: FTS5 only — ship this plan with FTS5 as the retrieval backend; embeddings become a follow-up plan if needed
+        - key: fts5-plus-local-embeddings
+          label: FTS5 + local ONNX embeddings — add a 7th slice for a local-embedding layer; significantly more scope and dependency surface
+        - key: fts5-plus-external-embeddings
+          label: FTS5 + external API embeddings — adds mandatory network + secret; conflicts with local-first posture
+      answer: null
+    - id: q-transition-granularity
+      text: What gets logged in the transitions table — status changes only, or every edit?
+      description: |
+        Status transitions (todo -> in_progress -> done, draft -> finalized) are the minimum viable surface for dwell-time analytics. Logging every edit (title changes, description edits, step additions) gives finer audit trail but balloons row count and dilutes handoff semantics. Git history already captures edit-level history for HTML files; logging it again in SQLite duplicates that store.
+      recommended: status-only
+      options:
+        - key: status-only
+          label: Status transitions only — smallest surface, cleanest analytics, no duplication with git
+        - key: status-plus-assignment
+          label: Status + assignment/actor changes — adds handoff-to-human vs handoff-to-agent distinction
+        - key: all-edits
+          label: Every edit — maximum audit trail; duplicates git history in SQLite; larger table
+      answer: null
+    - id: q-notifications-config-surface
+      text: Where do notification configs live — env vars, new `.htmlgraph/config.json`, or hybrid?
+      description: |
+        Current htmlgraph config is env-var-only; there is no config file reader today (research confirmed: cmd/htmlgraph/main.go:30 and env-var surface only). Multi-endpoint notifications with per-endpoint filters do not fit cleanly in env vars. A new `.htmlgraph/config.json` (mode 0600) introduces a durable config surface that can host other future settings too. Env-var interpolation inside the config file keeps tokens out of the file.
+      recommended: config-file-with-env-interp
+      options:
+        - key: config-file-with-env-interp
+          label: New .htmlgraph/config.json with ${ENV_VAR} interpolation — clean extension surface, establishes pattern for future config
+        - key: env-vars-only
+          label: Env vars only (e.g. HTMLGRAPH_NOTIFY_SLACK_URL) — consistent with current pattern but awkward for multi-endpoint configs with filters
+        - key: hybrid
+          label: Env vars for tokens, config file for routing — cleanest security boundary; more moving parts
+      answer: null
+    - id: q-bus-persistence
+      text: Is the event bus ephemeral (in-memory) or durable (SQLite-backed queue)?
+      description: |
+        In-memory bus is roughly 50 lines of code and sufficient for local tooling where missed events during a crash are acceptable (work-item state is the source of truth; a missed Slack ping is recoverable). Durable bus (append to an events table, workers drain) survives crashes and enables replay but adds schema, worker goroutines, and delivery-guarantee semantics. Given that htmlgraph is a dev-time tool and Slack pings are already best-effort, in-memory seems right-sized.
+      recommended: in-memory
+      options:
+        - key: in-memory
+          label: In-memory, fire-and-forget — minimal complexity, acceptable loss on crash
+        - key: sqlite-backed
+          label: SQLite-backed queue with at-least-once delivery — survives crashes, enables replay, much more code
+      answer: null
+    - id: q-webhook-payload-schema
+      text: What payload schema do outbound webhooks use?
+      description: |
+        HtmlGraph-native JSON gives us full control of the schema and lets us version it. CloudEvents is an industry standard but adds envelope bloat for a local tool. Slack-native is convenient for Slack but useless for other consumers. Recommended: native JSON as the canonical schema, with per-endpoint formatters (e.g. `slack` formatter produces Slack-shaped blocks from the native event).
+      recommended: native-with-formatters
+      options:
+        - key: native-with-formatters
+          label: HtmlGraph-native JSON + per-endpoint formatters — stable schema, flexible adapters
+        - key: cloudevents
+          label: CloudEvents 1.0 envelope — industry standard, more verbose
+        - key: slack-native
+          label: Slack block kit only — simplest for Slack, useless for Teams/Discord/custom
+      answer: null

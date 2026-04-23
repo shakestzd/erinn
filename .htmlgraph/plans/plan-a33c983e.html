@@ -1,0 +1,1406 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="htmlgraph-version" content="1.0">
+<title>Plan: Agentic-eng gaps: retrieval + handoff analytics + notifications</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/styles/github-dark.min.css" id="hljs-dark">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/styles/github.min.css" id="hljs-light" disabled>
+<script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/highlight.min.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/languages/go.min.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/languages/yaml.min.js"></script>
+<style>
+:root {
+  --bg:#0f0f13; --bg-card:#18181c; --bg-input:#222228; --bg-hover:#2c2c32;
+  --text:#f0f0ed; --text-dim:#d0d0cc; --text-muted:#9898a0; --border:#3a3a42;
+  --accent:#cdff00; --accent-dim:rgba(205,255,0,.1); --accent-glow:rgba(205,255,0,.25);
+  --approved:#22c55e; --revision:#f59e0b; --discuss:#a78bfa; --pending:#6b7280; --blocked:#ef4444;
+  --radius:8px; --radius-sm:5px;
+  --mono:'JetBrains Mono',ui-monospace,'SF Mono','Cascadia Code',monospace;
+  --sans:'DM Sans','Inter',system-ui,-apple-system,sans-serif;
+  --shadow-card:0 2px 8px rgba(0,0,0,.5), 0 0 0 1px var(--border);
+  --shadow-elevated:0 8px 32px rgba(0,0,0,.6), 0 0 0 1px var(--border);
+  --transition:150ms cubic-bezier(.4,0,.2,1);
+}
+[data-theme="light"] {
+  --bg:#f4f3ef; --bg-card:#ffffff; --bg-input:#eeeee8; --bg-hover:#e4e4de;
+  --text:#1a1a1e; --text-dim:#4a4a50; --text-muted:#8a8a90; --border:#d4d4cc;
+  --accent:#4a6e00; --accent-dim:rgba(74,110,0,.08); --accent-glow:rgba(74,110,0,.2);
+  --shadow-card:0 1px 3px rgba(0,0,0,.06), 0 0 0 1px var(--border);
+  --shadow-elevated:0 4px 24px rgba(0,0,0,.1), 0 0 0 1px var(--border);
+}
+[data-theme="light"] .badge-approved{background:rgba(34,197,94,.08);color:#16a34a;border-color:rgba(34,197,94,.2)}
+[data-theme="light"] .badge-revision{background:rgba(245,158,11,.08);color:#d97706;border-color:rgba(245,158,11,.2)}
+[data-theme="light"] .badge-discuss{background:rgba(167,139,250,.08);color:#7c3aed;border-color:rgba(167,139,250,.2)}
+[data-theme="light"] .badge-pending{background:rgba(107,114,128,.08);color:#4b5563;border-color:rgba(107,114,128,.2)}
+[data-theme="light"] .badge-blocked{background:rgba(239,68,68,.08);color:#dc2626;border-color:rgba(239,68,68,.2)}
+[data-theme="light"] .btn-finalize{background:#4a6e00;color:#fff}
+[data-theme="light"] .section-card{--shadow-card:0 1px 2px rgba(0,0,0,.04),0 0 0 1px var(--border)}
+
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{font-size:15px;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale}
+body{font-family:var(--sans);background:var(--bg);color:var(--text);line-height:1.6;margin:0;padding:0;display:grid;grid-template-columns:200px 1fr;min-height:100vh}
+
+/* ── Sidebar ── */
+.plan-sidebar{background:var(--bg-card);border-right:1px solid var(--border);padding:20px 0;display:flex;flex-direction:column;gap:1px;position:sticky;top:0;height:100vh;overflow-y:auto}
+.plan-sidebar .brand{padding:16px 20px 20px;font-weight:700;font-size:1rem;color:var(--accent);text-decoration:none;display:block;border-bottom:1px solid var(--border);margin-bottom:8px;font-family:var(--mono);letter-spacing:-.02em}
+.plan-sidebar a.nav-link{display:flex;align-items:center;gap:10px;padding:9px 20px;color:var(--text-muted);text-decoration:none;font-size:.82rem;font-weight:500;border-right:2px solid transparent;transition:all var(--transition)}
+.plan-sidebar a.nav-link:hover{color:var(--text);background:var(--bg-hover)}
+.plan-sidebar a.nav-link.active{color:var(--accent);background:var(--accent-dim);border-right-color:var(--accent);font-weight:600}
+
+/* ── Plan layout (content + chat sidebar) ── */
+.plan-layout{display:flex;flex:1;min-width:0;overflow:hidden;height:100vh}
+.plan-content{flex:1;min-width:0;padding:32px 40px 80px;overflow-y:auto;max-width:960px}
+
+/* ── Chat sidebar ── */
+.chat-sidebar{width:360px;min-width:280px;max-width:600px;border-left:1px solid var(--border);display:flex;flex-direction:column;background:var(--bg-card);overflow:hidden;height:100%}
+.chat-resize-handle{width:4px;cursor:col-resize;background:transparent;transition:background .15s;flex-shrink:0;position:relative}
+.chat-resize-handle:hover,.chat-resize-handle.dragging{background:var(--accent);opacity:.5}
+.chat-resize-handle::after{content:'';position:absolute;top:50%;left:-4px;width:12px;height:32px;transform:translateY(-50%);border-radius:4px}
+
+/* ── Typography ── */
+h1{font-family:var(--sans);font-size:1.65rem;font-weight:700;color:var(--text);margin-bottom:6px;letter-spacing:-.03em;line-height:1.3}
+h1::first-letter{color:var(--accent)}
+h2{font-family:var(--sans);font-size:1.15rem;font-weight:600;letter-spacing:-.01em}
+h3{font-family:var(--mono);font-size:.72rem;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:10px}
+h4{font-family:var(--sans);font-size:.88rem;font-weight:600;margin-bottom:8px;color:var(--text)}
+p,li{color:var(--text-dim);line-height:1.7;font-size:.95rem}
+ul,ol{padding-left:1.5em;margin:8px 0}
+ul{list-style:disc}
+ol{list-style:decimal}
+li{padding:3px 0}
+li::marker{color:var(--text-muted)}
+code{font-family:var(--mono);font-size:.82em;background:var(--bg-input);padding:2px 6px;border-radius:var(--radius-sm);border:1px solid var(--border)}
+pre{font-family:var(--mono);font-size:.78rem;background:var(--bg-input);border:1px solid var(--border);border-radius:var(--radius);padding:14px 16px;overflow-x:auto;line-height:1.6;color:var(--text);margin:10px 0}
+a{color:var(--accent);text-decoration:none;transition:opacity var(--transition)}
+a:hover{opacity:.8}
+
+/* ── Plan header ── */
+.plan-header{margin-bottom:36px;padding-bottom:20px;border-bottom:1px solid var(--border);position:relative}
+.plan-header::after{content:'';position:absolute;bottom:-1px;left:0;width:120px;height:1px;background:var(--accent);opacity:.5}
+.plan-header .meta{display:flex;gap:12px;flex-wrap:wrap;margin-top:10px;align-items:center}
+
+/* ── Related Work ── */
+.related-work{margin-bottom:24px;padding:16px 20px;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);display:flex;flex-direction:column;gap:12px}
+.related-track{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.related-label{font-family:var(--mono);font-size:.72rem;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.06em;min-width:70px}
+.related-link{color:var(--accent);font-weight:600;font-size:.9rem;text-decoration:none}
+.related-link:hover{text-decoration:underline}
+.related-features{display:flex;flex-direction:column;gap:6px}
+.related-feature-list{display:flex;flex-direction:column;gap:4px}
+.related-feature{display:flex;align-items:center;gap:10px;padding:6px 10px;background:var(--bg-input);border:1px solid var(--border);border-radius:var(--radius-sm);text-decoration:none;transition:border-color var(--transition)}
+.related-feature:hover{border-color:var(--accent)}
+.related-feature-id{font-family:var(--mono);font-size:.75rem;color:var(--text-muted);min-width:110px}
+.related-feature-title{flex:1;font-size:.85rem;color:var(--text-dim)}
+.related-feature .badge{flex-shrink:0}
+
+/* ── Badges ── */
+.badge{display:inline-flex;align-items:center;gap:6px;font-family:var(--mono);font-size:.75rem;font-weight:600;text-transform:uppercase;letter-spacing:.05em;padding:4px 12px;border-radius:9999px;border:1px solid transparent;transition:all var(--transition)}
+.badge::before{content:'';width:5px;height:5px;border-radius:50%;flex-shrink:0}
+.badge-approved{background:rgba(34,197,94,.1);color:var(--approved);border-color:rgba(34,197,94,.25)}.badge-approved::before{background:var(--approved);box-shadow:0 0 6px var(--approved)}
+.badge-revision{background:rgba(245,158,11,.1);color:var(--revision);border-color:rgba(245,158,11,.25)}.badge-revision::before{background:var(--revision)}
+.badge-discuss{background:rgba(167,139,250,.1);color:var(--discuss);border-color:rgba(167,139,250,.25)}.badge-discuss::before{background:var(--discuss)}
+.badge-pending{background:rgba(107,114,128,.1);color:var(--pending);border-color:rgba(107,114,128,.2)}.badge-pending::before{background:var(--pending)}
+.badge-blocked{background:rgba(239,68,68,.1);color:var(--blocked);border-color:rgba(239,68,68,.25)}.badge-blocked::before{background:var(--blocked)}
+
+/* ── Dependency graph ── */
+.dep-graph{background:var(--bg-card);border-radius:var(--radius);padding:28px;margin-bottom:28px;box-shadow:var(--shadow-card);overflow-x:auto}
+.dep-graph h2{margin-bottom:20px;padding-bottom:12px;border-bottom:1px solid var(--border)}
+.dep-graph svg{display:block;height:auto}
+#dep-graph-svg .node rect{rx:8;ry:8;fill:var(--bg-input);stroke:var(--border);stroke-width:2px}
+#dep-graph-svg .node text{fill:var(--text) !important;font-family:var(--sans);font-size:13px}
+#dep-graph-svg .edgePath path{stroke:var(--text-muted);stroke-dasharray:5 4;fill:none;stroke-width:1.5}
+#dep-graph-svg .edgePath marker path{fill:var(--text-muted)}
+
+/* ── Section cards ── */
+.section-card{background:var(--bg-card);border-radius:var(--radius);margin-bottom:14px;box-shadow:var(--shadow-card);overflow:hidden;transition:box-shadow var(--transition)}
+.section-card:hover{box-shadow:var(--shadow-elevated)}
+.section-card summary{display:flex;align-items:center;gap:12px;padding:16px 24px;cursor:pointer;font-weight:600;font-size:1rem;list-style:none;user-select:none;color:var(--text);font-family:var(--sans);transition:background var(--transition)}
+.section-card summary:hover{background:var(--bg-hover)}
+.section-card summary::-webkit-details-marker{display:none}
+.section-card summary::before{content:'';width:6px;height:6px;border-right:2px solid var(--text-muted);border-bottom:2px solid var(--text-muted);transform:rotate(-45deg);transition:transform .2s ease;flex-shrink:0}
+.section-card[open] summary::before{transform:rotate(45deg)}
+.section-card summary .badge{margin-left:auto}
+.section-body{padding:16px 24px 24px;animation:slideDown .2s ease}
+@keyframes slideDown{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:translateY(0)}}
+.sub-section{margin-bottom:20px}.sub-section:last-child{margin-bottom:0}
+
+/* ── Approval row ── */
+.approval-row{display:flex;align-items:center;gap:16px;margin-top:20px;padding-top:16px;border-top:1px solid var(--border)}
+.approval-row label{font-size:.9rem;color:var(--text);cursor:pointer;display:flex;align-items:center;gap:8px;font-weight:500;white-space:nowrap;transition:color var(--transition)}
+.approval-row label:hover{color:var(--accent)}
+.approval-row input[type="checkbox"]{accent-color:var(--approved);width:18px;height:18px;cursor:pointer;border-radius:4px;flex-shrink:0}
+
+/* ── Textarea ── */
+textarea{width:100%;min-height:52px;resize:vertical;background:var(--bg-input);color:var(--text);border:1px solid var(--border);border-radius:var(--radius);padding:10px 12px;font-family:var(--sans);font-size:.84rem;line-height:1.5;transition:border-color var(--transition),box-shadow var(--transition)}
+textarea:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-dim)}
+textarea::placeholder{color:var(--text-muted)}
+
+/* ── Question blocks ── */
+.question-block{margin-bottom:16px;padding:14px 16px;background:var(--bg-input);border-radius:var(--radius);border-left:3px solid var(--discuss)}
+.question-block p{font-size:.88rem;color:var(--text);margin-bottom:8px;font-weight:500}
+.question-block label{display:block;font-size:.84rem;color:var(--text-dim);padding:5px 8px;cursor:pointer;transition:color var(--transition);border-radius:var(--radius-sm)}
+.question-block label:hover{color:var(--text);background:var(--bg-hover)}
+.question-block label.recommended{border-left:2px solid var(--accent);padding-left:10px;background:var(--accent-dim)}
+.question-block input[type="radio"]{accent-color:var(--accent);margin-right:8px;cursor:pointer}
+.rec-tag{font-family:var(--mono);font-size:.65rem;color:var(--accent);text-transform:uppercase;letter-spacing:.05em;margin-left:6px;opacity:.8}
+
+/* ── Slice cards ── */
+.slice-card{background:var(--bg-input);border:1px solid var(--border);border-radius:var(--radius);padding:24px;margin-bottom:16px;transition:border-color var(--transition)}
+.slice-card:hover{border-color:rgba(205,255,0,.2)}
+.slice-header{display:flex;align-items:center;gap:10px;margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid var(--border);flex-wrap:wrap}
+.slice-num{font-family:var(--mono);font-size:.8rem;color:var(--bg);background:var(--accent);padding:3px 9px;border-radius:4px;font-weight:700;min-width:26px;text-align:center}
+.slice-name{font-weight:600;font-size:1rem;font-family:var(--sans);flex:1}
+.slice-meta{font-size:.85rem;color:var(--text-muted);margin-bottom:8px;font-family:var(--mono)}
+.slice-meta span{margin-right:14px}
+.slice-field{margin-bottom:14px;padding-bottom:12px;border-bottom:1px solid rgba(51,51,56,.4)}
+.slice-field:last-of-type{border-bottom:none}
+.slice-field-label{font-family:var(--mono);font-size:.75rem;font-weight:600;color:var(--accent);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px}
+.slice-field-value{font-size:.92rem;color:var(--text-dim);line-height:1.7}
+.slice-field-value code{font-size:.82rem;word-break:break-all}
+.slice-tests{white-space:pre-line}
+.slice-done-list{list-style:none;padding-left:0;margin:0}
+.slice-done-list li{font-size:.9rem;color:var(--text-dim);padding:4px 0;padding-left:20px;position:relative}
+.slice-done-list li::before{content:'\2713';position:absolute;left:0;color:var(--approved);font-weight:700}
+.slice-deps{font-size:.85rem;color:var(--text-muted);margin-top:8px;font-family:var(--mono)}
+.slice-card .approval-row{margin-top:16px}
+
+/* ── Progress zone ── */
+.progress-zone{background:var(--bg-card);border-radius:var(--radius);padding:24px;margin-top:28px;box-shadow:var(--shadow-card)}
+.progress-bar-track{height:6px;background:var(--bg-input);border-radius:3px;overflow:hidden;margin:12px 0 20px;position:relative}
+.progress-bar-fill{height:100%;background:linear-gradient(90deg,var(--accent),var(--approved));border-radius:3px;transition:width .4s cubic-bezier(.4,0,.2,1);position:relative}
+.progress-bar-fill::after{content:'';position:absolute;right:0;top:-1px;width:8px;height:8px;background:var(--approved);border-radius:50%;box-shadow:0 0 8px var(--approved);opacity:0;transition:opacity .3s}
+.progress-bar-fill[style*="width:100"]::after,.progress-bar-fill[style*="width: 100"]::after{opacity:1}
+.progress-stats{display:flex;gap:24px;flex-wrap:wrap;margin-bottom:16px}
+.progress-stat{font-size:.82rem;color:var(--text-dim);font-family:var(--sans)}.progress-stat strong{color:var(--text);font-size:1.2rem;margin-right:4px;font-weight:700}
+.comments-summary{border-top:1px solid var(--border);padding-top:16px;margin-top:4px}.comments-summary h3{margin-bottom:10px}
+.comment-entry{font-size:.82rem;color:var(--text-dim);padding:6px 0;border-bottom:1px solid var(--border)}
+.comment-entry:last-child{border-bottom:none}
+.comment-entry .comment-source{font-family:var(--mono);color:var(--accent);font-weight:600;margin-right:8px;font-size:.75rem}
+.finalize-area{margin-top:20px;text-align:center}
+.btn-finalize{background:var(--accent);color:#0a0a0a;border:none;border-radius:var(--radius);padding:12px 36px;font-weight:700;font-size:.88rem;cursor:pointer;font-family:var(--sans);letter-spacing:.01em;transition:all var(--transition);box-shadow:0 0 0 0 var(--accent-glow)}
+.btn-finalize:hover:not(:disabled){filter:brightness(.92);box-shadow:0 0 20px var(--accent-glow)}
+.btn-finalize:disabled{opacity:.3;cursor:not-allowed}
+
+/* ── Critique zone lists (badge-aligned, no bullets) ── */
+#critique ul{list-style:none;padding-left:0;margin:0}
+#critique ul li{display:flex;align-items:flex-start;gap:10px;padding:6px 0;border-bottom:1px solid var(--border)}
+#critique ul li:last-child{border-bottom:none}
+#critique ul li .badge{flex-shrink:0;margin-top:2px}
+
+/* ── Questions table ── */
+.q-table{width:100%;font-size:.84rem;border-collapse:collapse}
+.q-table th{text-align:left;padding:8px 10px;border-bottom:1px solid var(--border);color:var(--text-muted);font-family:var(--mono);font-size:.68rem;text-transform:uppercase;letter-spacing:.06em}
+.q-table td{padding:8px 10px;border-bottom:1px solid var(--border)}
+
+/* ── Chat panel (inside sidebar) ── */
+.chat-panel{display:flex;flex-direction:column;flex:1;overflow:hidden;border-radius:0;box-shadow:none;background:transparent}
+.chat-panel h2{padding:16px 20px 12px;margin-bottom:0;font-size:.95rem;border-bottom:1px solid var(--border);flex-shrink:0}
+.chat-messages{flex:1;overflow-y:auto;padding:16px 20px;display:flex;flex-direction:column;gap:8px}
+.chat-bubble{padding:14px 18px;border-radius:12px;max-width:88%;word-wrap:break-word;font-size:.88rem;line-height:1.65;white-space:normal;animation:bubbleIn .2s ease;overflow:visible}
+@keyframes bubbleIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+.chat-bubble[data-role="user"]{background:var(--accent-dim);border:1px solid rgba(205,255,0,.12);margin-left:auto;color:var(--text);border-bottom-right-radius:4px}
+.chat-bubble[data-role="assistant"]{background:var(--bg-input);border:1px solid var(--border);color:var(--text-dim);border-bottom-left-radius:4px}
+.chat-bubble h3,.chat-bubble h4{font-size:.92rem;margin:16px 0 6px;color:var(--text);font-family:var(--sans)}
+.chat-bubble h3:first-child,.chat-bubble h4:first-child,.chat-bubble p:first-child{margin-top:0}
+.chat-bubble p{margin:8px 0;font-size:inherit;color:inherit;line-height:1.65}
+.chat-bubble p:last-child{margin-bottom:0}
+.chat-bubble strong{color:var(--text);font-weight:600}
+.chat-bubble em{font-style:italic}
+.chat-bubble code{font-size:.82em;padding:2px 5px;background:rgba(255,255,255,.06);border-radius:3px}
+.chat-bubble pre{margin:10px 0;padding:12px 14px;font-size:.8rem;border-radius:var(--radius-sm);background:rgba(0,0,0,.2);overflow-x:auto;white-space:pre;line-height:1.5}
+.chat-bubble pre code{background:none;padding:0;font-size:inherit}
+.chat-bubble ul,.chat-bubble ol{margin:8px 0;padding-left:1.4em}
+.chat-bubble li{padding:3px 0;font-size:inherit;line-height:1.6}
+.chat-bubble table{margin:10px 0;font-size:.82rem;border-collapse:collapse;width:100%;display:block;overflow-x:auto}
+.chat-bubble table th{text-align:left;padding:6px 10px;border-bottom:2px solid var(--border);color:var(--text-muted);font-family:var(--mono);font-size:.75rem;text-transform:uppercase;letter-spacing:.04em;white-space:nowrap}
+.chat-bubble table td{padding:8px 10px;border-bottom:1px solid var(--border);vertical-align:top}
+.chat-input-area{display:flex;gap:8px;padding:14px 20px;border-top:1px solid var(--border);background:var(--bg-input);flex-shrink:0}
+#chat-input{flex:1;background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:var(--radius);padding:10px 12px;resize:none;font-family:var(--sans);font-size:.84rem;line-height:1.5;transition:border-color var(--transition),box-shadow var(--transition)}
+#chat-input:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-dim)}
+#chat-input::placeholder{color:var(--text-muted)}
+#chat-send{background:var(--accent);color:#0a0a0a;border:none;border-radius:var(--radius);padding:10px 18px;cursor:pointer;font-weight:600;font-family:var(--sans);font-size:.84rem;transition:all var(--transition)}
+#chat-send:hover:not(:disabled){box-shadow:0 0 16px var(--accent-glow)}
+#chat-send:disabled{opacity:.3;cursor:not-allowed}
+.chat-notice{font-size:.82rem;color:var(--text-muted);padding:20px;text-align:center;line-height:1.6}
+
+/* ── Amendments ── */
+.amendments-panel{margin-top:28px;background:var(--bg-card);border-radius:var(--radius);padding:20px;box-shadow:var(--shadow-card)}
+.amendments-panel h3{margin:0 0 14px;font-size:.92rem;color:var(--text);font-family:var(--sans);font-weight:600}
+.amendment-item{display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--border);transition:background var(--transition)}
+.amendment-item:last-child{border-bottom:none}
+.amendment-item:hover{background:var(--bg-hover);margin:0 -8px;padding-left:8px;padding-right:8px;border-radius:var(--radius-sm)}
+.amendment-desc{flex:1;font-size:.84rem;color:var(--text-dim)}
+.amendment-desc .op{color:var(--accent);font-weight:600;font-family:var(--mono);font-size:.78rem}
+.amendment-desc .field{color:var(--text-muted);font-family:var(--mono);font-size:.78rem}
+.amendment-select{background:var(--bg-input);color:var(--text);border:1px solid var(--border);border-radius:var(--radius-sm);padding:5px 10px;font-size:.8rem;font-family:var(--sans);cursor:pointer;transition:border-color var(--transition)}
+.amendment-select:focus{border-color:var(--accent);outline:none}
+.amendments-summary{font-size:.82rem;color:var(--text-muted);margin-top:14px;font-family:var(--mono);padding-top:10px;border-top:1px solid var(--border)}
+
+/* ── YAML viewer ── */
+.yaml-viewer{margin:20px 0}
+.yaml-viewer summary{cursor:pointer;color:var(--accent);font-weight:600;font-size:.84rem;padding:8px 0;font-family:var(--mono);transition:opacity var(--transition)}
+.yaml-viewer summary:hover{opacity:.7}
+.yaml-viewer pre{background:var(--bg-input);border:1px solid var(--border);border-radius:var(--radius);padding:16px;overflow-x:auto;max-height:500px;overflow-y:auto;font-size:.78rem;line-height:1.5;margin-top:8px}
+.yaml-viewer code{font-family:var(--mono);color:var(--text)}
+
+
+/* ── Print ── */
+@media print{body{background:#fff;color:#111;max-width:100%;display:block}.plan-sidebar{display:none}.section-card,.dep-graph,.progress-zone,.slice-card{border-color:#ccc;background:#fafafa;box-shadow:none}details[open] summary~*{display:block}.btn-finalize,.chat-panel,.amendments-panel{display:none}}
+
+/* ── Responsive ── */
+@media(max-width:1024px){.chat-sidebar{width:300px;min-width:240px}}
+@media(max-width:768px){
+  body{grid-template-columns:1fr}
+  .plan-sidebar{display:none}
+  .plan-layout{flex-direction:column;height:auto}
+  .plan-content{padding:20px 16px 40px;max-width:none}
+  .chat-resize-handle{display:none}
+  .chat-sidebar{width:100% !important;min-width:0;max-width:none;border-left:none;border-top:1px solid var(--border);height:400px;flex-shrink:0}
+}
+
+</style>
+</head>
+<body>
+
+<nav class="plan-sidebar">
+  <a href="/" class="brand">HtmlGraph</a>
+  <a href="#design" class="nav-link active" data-spy="design">Design</a>
+  <a href="#slices" class="nav-link" data-spy="slices">Slices</a>
+  <a href="#questions" class="nav-link" data-spy="questions">Decisions</a>
+  <a href="#critique" class="nav-link" data-spy="critique">Critique</a>
+  <a href="#feedback-summary" class="nav-link" data-spy="feedback-summary">Progress</a>
+  <a href="#chat-panel" class="nav-link" data-spy="chat-panel">Chat</a>
+</nav>
+<div class="plan-layout">
+<div class="plan-content">
+<article id="plan-a33c983e" data-plan-id="plan-a33c983e" data-feature-id="trk-a30e8df4" data-status="draft">
+
+<!-- Plan Header -->
+<header class="plan-header">
+  <h1>Plan: Agentic-eng gaps: retrieval + handoff analytics + notifications</h1>
+  <p style="color:var(--text-dim)">Plan for the top-2 gap cluster identified in the LangChain agentic-engineering review: (1) upgrade HtmlGraph's retrieval layer from ripgrep keyword matching to SQLite FTS5 full-text search over plans, specs, sessions, and features, giving the work graph a real query surface; and (2) add a durable work-item transition log plus handoff-dwell-time analytics plus outbound webhook notifications, so the coordination bottlenecks the article warns about become measurable and actionable.
+</p>
+  <div class="meta">
+    <span class="badge badge-pending">Draft</span>
+    <span style="font-size:.75rem;color:var(--text-muted)">v1 · 6 slices · Created 2026-04-22</span>
+  </div>
+</header>
+<button id="themeToggle" style="position:fixed;top:16px;right:16px;z-index:100;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:6px 12px;color:var(--text);font-family:var(--mono);font-size:0.75rem;cursor:pointer;">
+  &#9728; Light
+</button>
+
+<!-- Related Work -->
+
+
+<!-- Plan YAML source (collapsible) -->
+<details class="yaml-viewer" id="yaml-viewer">
+    <summary>View Plan YAML</summary>
+    <pre><code class="language-yaml" id="yaml-content">Loading&#x2026;</code></pre>
+</details>
+
+<!-- ZONE 1: Dependency Graph -->
+<section class="dep-graph" data-zone="dependency-graph">
+  <h2>Dependency Graph</h2>
+  <div id="graph-data" style="display:none">
+    <div data-node="1" data-name="FTS5 index over work-graph content (features, messages, tracks, plans)" data-status="pending" data-deps="" data-files="5"></div>
+    <div data-node="2" data-name="Upgrade `htmlgraph relevant` to FTS5-ranked with ripgrep fallback" data-status="pending" data-deps="1" data-files="2"></div>
+    <div data-node="3" data-name="Work-item transition log (schema + write path)" data-status="pending" data-deps="" data-files="6"></div>
+    <div data-node="4" data-name="Handoff dwell-time analytics (CLI + dashboard pane)" data-status="pending" data-deps="3" data-files="5"></div>
+    <div data-node="5" data-name="In-process event bus with transition events as first publisher" data-status="pending" data-deps="3" data-files="4"></div>
+    <div data-node="6" data-name="Outbound webhook adapter + config surface + Slack formatter" data-status="pending" data-deps="5" data-files="4"></div>
+    
+    <!--PLAN_GRAPH_NODES-->
+  </div>
+  <svg id="dep-graph-svg" width="100%"></svg>
+</section>
+
+<!-- ZONE 2: Interactive Sections -->
+
+<!-- Design -->
+<details id="design" class="section-card" open data-phase="design" data-status="pending">
+  <summary><span>Design</span><span class="badge badge-pending" data-badge-for="design">Pending</span></summary>
+  <div class="section-body">
+    <h4>Problem</h4>
+<div data-markdown>HtmlGraph&#39;s observability spine (causal lineage, OTel receiver, session ingestion) is a genuine strength, but two gaps limit its &#34;agentic engineering&#34; claim. (1) Retrieval is ripgrep-based keyword matching with no tokenization beyond whitespace split (cmd/htmlgraph/relevant.go:231-247). No FTS index, no ranking beyond additive hit counts plus status bonuses, no way to find &#34;the prior feature about X&#34; when X is not a literal substring. Zero embedding infrastructure exists in the Go binary today. (2) Handoff analytics: state transitions on features, bugs, and plans are not recorded — only the current status and a single overwritten updated_at timestamp survive (internal/workitem/collection.go:154,173; internal/db/feature_repo.go:126). Existing `analytics velocity` buckets by updated_at and conflates completion with any later re-touch. Dwell time per transition cannot be computed from current data. (3) Notifications: no outbound integration of any kind — no webhook emitters, no event bus, no Slack/Teams/Discord adapter. Writes are point-to-point through writeNode. The article&#39;s bottleneck insight (agents accelerate coding; humans at handoff points become the new bottleneck) is invisible because there is neither measurement nor notification.
+</div>
+<h4>Goals</h4>
+<ol>
+<li data-markdown>**Semantic-lite retrieval** — `htmlgraph relevant &lt;query&gt;` returns ranked results for queries that are not literal substring matches, using SQLite FTS5 over features, messages, plans</li>
+<li data-markdown>**Durable transition log** — every work-item status transition writes a row to a new `work_item_transitions` table with from/to/at/actor; backfill not required but forward-coverage is complete</li>
+<li data-markdown>**Handoff dwell-time analytics** — `htmlgraph analytics handoff` and a dashboard pane report p50/p95 dwell per transition per work-item type</li>
+<li data-markdown>**Outbound notifications** — configurable webhook-out on transition events, with a Slack formatter as the first concrete adapter</li>
+<li data-markdown>**No regression to local-first posture** — no mandatory network dependency; FTS5 is embedded, webhooks are opt-in</li>
+</ol>
+<h4>Constraints</h4>
+<ul>
+<li data-markdown>SQLite driver is `modernc.org/sqlite` — FTS5 support must be verified (critique will check this)</li>
+<li data-markdown>No existing event bus or observer pattern in the app — emission path must be added without breaking the point-to-point write path</li>
+<li data-markdown>Secrets handling: the project has no keyring or encrypted-file pattern today; env-var interpolation in config is the minimum viable approach</li>
+<li data-markdown>Backward compatibility: `htmlgraph relevant` is called by skills and cannot change its CLI contract; new behavior must be drop-in</li>
+<li data-markdown>Work-item writes all funnel through `internal/workitem/writeNode` — this is the single hook point for index-update and event emission</li>
+</ul>
+
+    <div class="approval-row">
+      <label><input type="checkbox" data-section="design" data-action="approve"> Approve design</label>
+      <textarea data-section="design" data-comment-for="design" placeholder="Comments on design decisions..."></textarea>
+    </div>
+  </div>
+</details>
+
+
+<!-- Structure Outline (hidden when empty) -->
+
+
+<!-- Slices -->
+<details id="slices" class="section-card" open data-phase="slices" data-status="pending">
+  <summary><span>Slices</span><span class="badge badge-pending" data-badge-for="slices">Pending</span></summary>
+  <div class="section-body">
+    <div class="slice-card" data-slice="1" data-slice-name="slice-1" data-status="pending">
+  <div class="slice-header">
+    <span class="slice-num">#1</span>
+    <span class="slice-name">FTS5 index over work-graph content (features, messages, tracks, plans)</span>
+    <span class="badge badge-revision">M</span>
+    <span class="badge badge-revision">Med</span>
+    <span class="badge badge-pending" data-badge-for="slice-1">Pending</span>
+  </div>
+  
+  <div class="slice-field"><div class="slice-field-label">What</div><div class="slice-field-value" data-markdown="">Add a SQLite FTS5 virtual table `content_fts` with columns (source_table, source_id, title, body) and triggers/helpers that keep it in sync with: `features` (title &#43; description), `messages` (content; chunked if larger than 8KB), `tracks` (title &#43; description), plus a Go-side indexer for plan YAML content (since plans are a composite of YAML &#43; HTML &#43; DB rows). Touches: internal/db/schema.go (new migration), internal/db/content_fts.go (new — indexer/upsert/delete helpers), internal/planyaml/io.go (post-Save FTS update), internal/workitem/htmlwriter.go (post-WriteNodeHTML FTS update for features/bugs/spikes), internal/ingest/parser.go (insert into FTS when writing messages rows). Verify `modernc.org/sqlite` FTS5 support at migration-apply time — if FTS5 is unavailable, the migration must surface a clear error and the critique must confirm availability before this slice is accepted.
+</div></div>
+  <div class="slice-field"><div class="slice-field-label">Why</div><div class="slice-field-value" data-markdown="">Semantic-lite retrieval requires an indexed content substrate. Today the substrate is the filesystem (ripgrep over `.htmlgraph/*.html`), which precludes ranking beyond hit-counting and does not cover session transcripts at all. FTS5 is the minimum-viable index that preserves local-first operation (no network, no ONNX runtime, no external API).
+</div></div>
+  <div class="slice-field"><div class="slice-field-label">Files</div><div class="slice-field-value"><code>internal/db/schema.go, internal/db/content_fts.go, internal/planyaml/io.go, internal/workitem/htmlwriter.go, internal/ingest/parser.go</code></div></div>
+  <div class="slice-field"><div class="slice-field-label">Done when</div><ul class="slice-done-list"><li data-markdown="">Running the migration on a fresh DB creates `content_fts` and a smoke test confirms FTS5 tokenization works (stemming and phrase search)</li><li data-markdown="">Editing a feature&#39;s description via `htmlgraph feature edit` causes the new text to be findable via `SELECT ... FROM content_fts WHERE content_fts MATCH ?` within the same process lifetime</li><li data-markdown="">Running `htmlgraph ingest` on a JSONL transcript populates `content_fts` rows for every `messages` row written</li><li data-markdown="">A reindex helper `htmlgraph reindex --fts` rebuilds the index from canonical sources without duplicating rows</li><li data-markdown="">FTS5 unavailability is detected at migration time with an error that names the workaround</li></ul></div>
+  
+  <div class="slice-field"><div class="slice-field-label">Test Strategy</div><div class="slice-field-value slice-tests" data-markdown="">Unit: internal/db/content_fts_test.go — insert, update, delete across all source tables; phrase match; stem match; empty/nil body handling
+Integration: cmd/htmlgraph/ingest_events_test.go extended to assert FTS row presence after ingest
+Regression: existing internal/workitem/htmlwriter_test.go continues to pass; htmlgraph feature create/edit flows untouched
+</div></div>
+  <div class="slice-deps">Dependencies: none</div>
+  <div class="approval-row">
+    <label><input type="checkbox" data-section="slice-1" data-action="approve"> Approve slice</label>
+    <textarea data-section="slice-1" data-comment-for="slice-1" placeholder="Comments on slice 1..."></textarea>
+  </div>
+</div>
+<div class="slice-card" data-slice="2" data-slice-name="slice-2" data-status="pending">
+  <div class="slice-header">
+    <span class="slice-num">#2</span>
+    <span class="slice-name">Upgrade `htmlgraph relevant` to FTS5-ranked with ripgrep fallback</span>
+    <span class="badge badge-revision">M</span>
+    <span class="badge badge-revision">Med</span>
+    <span class="badge badge-pending" data-badge-for="slice-2">Pending</span>
+  </div>
+  
+  <div class="slice-field"><div class="slice-field-label">What</div><div class="slice-field-value" data-markdown="">Replace the ripgrep-over-HTML backend in cmd/htmlgraph/relevant.go with an FTS5 `SELECT ... ORDER BY bm25(content_fts)` query. Preserve the existing status-bonus and commit-trailer-score layers: query FTS5 to get candidate IDs and base score, then apply the same weightCommitItem, in-progress, and done-penalty adjustments that exist today. Keep ripgrep as a fallback path only for file-path and SHA queries (which already skip tokenization). For natural-language queries, FTS5 is primary. CLI contract unchanged: `htmlgraph relevant &lt;query&gt;` prints the same output format (stable for plugin skills). Add `--explain` flag that exposes per-result score breakdown for debugging.
+</div></div>
+  <div class="slice-field"><div class="slice-field-label">Why</div><div class="slice-field-value" data-markdown="">Slice 1 gives us an index; slice 2 makes it useful. Without this, the FTS table is dark infrastructure. The kept scoring layers preserve causal signal (commits attributing an item, in-progress boost) that pure content similarity would lose.
+</div></div>
+  <div class="slice-field"><div class="slice-field-label">Files</div><div class="slice-field-value"><code>cmd/htmlgraph/relevant.go, cmd/htmlgraph/relevant_test.go</code></div></div>
+  <div class="slice-field"><div class="slice-field-label">Done when</div><ul class="slice-done-list"><li data-markdown="">`htmlgraph relevant &#39;authentication failure&#39;` returns ranked features/bugs even when none contain both words as a substring (stemming on)</li><li data-markdown="">A feature whose description contains `auth` ranks above one that only appears in a commit trailer, unless commit-trailer count is high enough to overcome the BM25 gap (scoring hierarchy documented)</li><li data-markdown="">`htmlgraph relevant &lt;sha&gt;` and `htmlgraph relevant &lt;file-path&gt;` still use the existing code paths (no regression)</li><li data-markdown="">`htmlgraph relevant --explain &lt;q&gt;` prints the score decomposition</li><li data-markdown="">Output format for non-explain mode is byte-identical to today&#39;s when the same top-N items would have been returned</li></ul></div>
+  
+  <div class="slice-field"><div class="slice-field-label">Test Strategy</div><div class="slice-field-value slice-tests" data-markdown="">Unit: relevant_test.go table tests for each query shape (natural language, file, SHA); ranking assertions against a seeded corpus
+Integration: create 5 features with varied descriptions and synthetic commit trailers, verify ranking matches expectations
+Regression: existing relevant_test.go cases for file/SHA path must pass unchanged
+</div></div>
+  <div class="slice-deps">Dependencies: slices 1</div>
+  <div class="approval-row">
+    <label><input type="checkbox" data-section="slice-2" data-action="approve"> Approve slice</label>
+    <textarea data-section="slice-2" data-comment-for="slice-2" placeholder="Comments on slice 2..."></textarea>
+  </div>
+</div>
+<div class="slice-card" data-slice="3" data-slice-name="slice-3" data-status="pending">
+  <div class="slice-header">
+    <span class="slice-num">#3</span>
+    <span class="slice-name">Work-item transition log (schema &#43; write path)</span>
+    <span class="badge badge-revision">M</span>
+    <span class="badge badge-revision">Med</span>
+    <span class="badge badge-pending" data-badge-for="slice-3">Pending</span>
+  </div>
+  
+  <div class="slice-field"><div class="slice-field-label">What</div><div class="slice-field-value" data-markdown="">Add a `work_item_transitions` table with columns (id INTEGER PK, work_item_id TEXT, work_item_type TEXT, from_status TEXT, to_status TEXT, at DATETIME, actor TEXT, session_id TEXT, metadata JSON). Wire inserts from every status-change site: internal/workitem/collection.go Start/Complete; internal/workitem/edit.go SetStatus&#43;Save; cmd/htmlgraph/plan_finalize_yaml.go status = finalized; internal/planyaml/ wherever draft -&gt; review is set; cmd/htmlgraph/workitem.go runWiSetStatus (covers features/bugs/spikes). `actor` is sourced from HTMLGRAPH_AGENT_ID / HTMLGRAPH_SESSION_ID when present; `cli-user` otherwise. Insertion happens in the same DB transaction as the status update to guarantee atomicity — if the table is absent or the insert fails, the status change still completes and the failure is logged (new behavior is non-blocking).
+</div></div>
+  <div class="slice-field"><div class="slice-field-label">Why</div><div class="slice-field-value" data-markdown="">Without a durable transition log, handoff-dwell-time is not computable. updated_at is overwritten on every mutation; completed_at exists in the DDL but is not written today (internal/db/feature_repo.go:126). Adding this is the one piece of infrastructure every downstream handoff analytic requires.
+</div></div>
+  <div class="slice-field"><div class="slice-field-label">Files</div><div class="slice-field-value"><code>internal/db/schema.go, internal/db/transitions_repo.go, internal/workitem/collection.go, internal/workitem/edit.go, internal/planyaml/io.go, cmd/htmlgraph/plan_finalize_yaml.go</code></div></div>
+  <div class="slice-field"><div class="slice-field-label">Done when</div><ul class="slice-done-list"><li data-markdown="">Starting a feature creates a transitions row with from=todo, to=in_progress, at=now, actor=&lt;env&gt;</li><li data-markdown="">Completing a feature creates a transitions row with from=in_progress, to=done</li><li data-markdown="">Plan finalize creates a transitions row for from=&lt;draft|review&gt;, to=finalized</li><li data-markdown="">Migration is forward-only; existing DBs without the table have the table created without backfill (documented limitation)</li><li data-markdown="">A status-change is never rolled back due to a transitions-insert failure — failures are logged but non-fatal</li></ul></div>
+  
+  <div class="slice-field"><div class="slice-field-label">Test Strategy</div><div class="slice-field-value slice-tests" data-markdown="">Unit: transitions_repo_test.go for insert/query/round-trip
+Integration: feature lifecycle test (create -&gt; start -&gt; complete) asserts 3 transitions rows with correct from/to; plan finalize test asserts finalize transition
+Regression: existing collection_test.go, feature_repo_test.go must pass
+</div></div>
+  <div class="slice-deps">Dependencies: none</div>
+  <div class="approval-row">
+    <label><input type="checkbox" data-section="slice-3" data-action="approve"> Approve slice</label>
+    <textarea data-section="slice-3" data-comment-for="slice-3" placeholder="Comments on slice 3..."></textarea>
+  </div>
+</div>
+<div class="slice-card" data-slice="4" data-slice-name="slice-4" data-status="pending">
+  <div class="slice-header">
+    <span class="slice-num">#4</span>
+    <span class="slice-name">Handoff dwell-time analytics (CLI &#43; dashboard pane)</span>
+    <span class="badge badge-revision">M</span>
+    <span class="badge badge-pending">Low</span>
+    <span class="badge badge-pending" data-badge-for="slice-4">Pending</span>
+  </div>
+  
+  <div class="slice-field"><div class="slice-field-label">What</div><div class="slice-field-value" data-markdown="">Add `htmlgraph analytics handoff [--type feature|bug|plan|all] [--since 30d]` that queries work_item_transitions joined with features (for type) and reports: (a) per transition edge (e.g. todo-&gt;in_progress), count &#43; p50 &#43; p95 dwell duration over the window; (b) per work-item type, aggregate backlog age (time since latest transition for items currently in a given state); (c) stale-work detector: items in in_progress longer than p95 for their type. Dashboard: add a &#34;Handoffs&#34; tab (sibling to the existing Metrics tab in cmd/htmlgraph/dashboard/js/app.js:746) that renders a timeseries of dwell p50/p95 per edge. Read data via a new /api/analytics/handoff endpoint.
+</div></div>
+  <div class="slice-field"><div class="slice-field-label">Why</div><div class="slice-field-value" data-markdown="">The LangChain article&#39;s sharpest diagnostic is that agent acceleration exposes handoff bottlenecks. Measurement is prerequisite to surface that signal. Without this slice, the transition log from slice 3 is dark data.
+</div></div>
+  <div class="slice-field"><div class="slice-field-label">Files</div><div class="slice-field-value"><code>cmd/htmlgraph/analytics.go, cmd/htmlgraph/analytics_handoff.go, cmd/htmlgraph/dashboard/js/app.js, cmd/htmlgraph/dashboard/dashboard.html, cmd/htmlgraph/api.go</code></div></div>
+  <div class="slice-field"><div class="slice-field-label">Done when</div><ul class="slice-done-list"><li data-markdown="">`htmlgraph analytics handoff --type feature --since 30d` prints a table of edges with count/p50/p95; values are plausible (non-negative, p95 &gt;= p50) on a seeded corpus</li><li data-markdown="">Stale-work detector lists items exceeding p95 of their own type&#39;s in_progress dwell</li><li data-markdown="">Dashboard Handoffs tab renders a chart; empty-state shows when no transitions exist in window</li><li data-markdown="">Output handles the partial-history caveat (items existing before slice 3 lack transition rows) with a clear note</li></ul></div>
+  
+  <div class="slice-field"><div class="slice-field-label">Test Strategy</div><div class="slice-field-value slice-tests" data-markdown="">Unit: analytics_handoff_test.go for dwell aggregation SQL against a seeded transitions set
+Integration: dashboard API test for /api/analytics/handoff returns expected JSON shape
+Regression: existing analytics summary/velocity commands unchanged
+</div></div>
+  <div class="slice-deps">Dependencies: slices 3</div>
+  <div class="approval-row">
+    <label><input type="checkbox" data-section="slice-4" data-action="approve"> Approve slice</label>
+    <textarea data-section="slice-4" data-comment-for="slice-4" placeholder="Comments on slice 4..."></textarea>
+  </div>
+</div>
+<div class="slice-card" data-slice="5" data-slice-name="slice-5" data-status="pending">
+  <div class="slice-header">
+    <span class="slice-num">#5</span>
+    <span class="slice-name">In-process event bus with transition events as first publisher</span>
+    <span class="badge badge-pending">S</span>
+    <span class="badge badge-pending">Low</span>
+    <span class="badge badge-pending" data-badge-for="slice-5">Pending</span>
+  </div>
+  
+  <div class="slice-field"><div class="slice-field-label">What</div><div class="slice-field-value" data-markdown="">Add a minimal in-process pub/sub at internal/events/bus.go: a `Bus` interface with Publish(event Event) and Subscribe(topic string, handler func(Event)), backed by an in-memory goroutine pool. Events have (topic, payload any, at time.Time, actor, session_id). First event type: `workitem.transition`, published from the same code sites that write the transitions row in slice 3. Transitions-row insert is synchronous and atomic; event publish is async and fire-and-forget. No built-in subscribers yet — slice 6 (webhook adapter) is the first.
+</div></div>
+  <div class="slice-field"><div class="slice-field-label">Why</div><div class="slice-field-value" data-markdown="">Notifications require an emission surface. Writes today are point-to-point (research confirmed zero event bus). Hooking notifications directly into writeNode would tangle concerns; a bus lets us add/remove adapters without touching write paths. Kept minimal (no persistent queue, no at-least-once delivery) — this is local coordination, not a message broker.
+</div></div>
+  <div class="slice-field"><div class="slice-field-label">Files</div><div class="slice-field-value"><code>internal/events/bus.go, internal/events/bus_test.go, internal/workitem/collection.go, internal/workitem/edit.go</code></div></div>
+  <div class="slice-field"><div class="slice-field-label">Done when</div><ul class="slice-done-list"><li data-markdown="">A subscriber registered on topic=workitem.transition receives an event when a feature is started or completed</li><li data-markdown="">Subscriber failures/panics are isolated (logged, do not affect other subscribers or the publishing code path)</li><li data-markdown="">Bus is constructed once and accessible to both cmd/ and internal/ packages without circular imports</li><li data-markdown="">Event publish latency is less than 1ms on the write-path p95 (fire-and-forget)</li></ul></div>
+  
+  <div class="slice-field"><div class="slice-field-label">Test Strategy</div><div class="slice-field-value slice-tests" data-markdown="">Unit: bus_test.go for subscribe/publish/unsubscribe, panic isolation, ordering-per-topic
+Integration: workitem test confirms transition publishes event
+Regression: collection_test.go, edit_test.go still pass with bus injected
+</div></div>
+  <div class="slice-deps">Dependencies: slices 3</div>
+  <div class="approval-row">
+    <label><input type="checkbox" data-section="slice-5" data-action="approve"> Approve slice</label>
+    <textarea data-section="slice-5" data-comment-for="slice-5" placeholder="Comments on slice 5..."></textarea>
+  </div>
+</div>
+<div class="slice-card" data-slice="6" data-slice-name="slice-6" data-status="pending">
+  <div class="slice-header">
+    <span class="slice-num">#6</span>
+    <span class="slice-name">Outbound webhook adapter &#43; config surface &#43; Slack formatter</span>
+    <span class="badge badge-revision">M</span>
+    <span class="badge badge-revision">Med</span>
+    <span class="badge badge-pending" data-badge-for="slice-6">Pending</span>
+  </div>
+  
+  <div class="slice-field"><div class="slice-field-label">What</div><div class="slice-field-value" data-markdown="">New `.htmlgraph/config.json` (mode 0600) with a `notifications` schema containing a list of webhooks: each entry has name, url, format (native or slack), events (list of topics), and an optional filter object (e.g. to_status: [in_progress, done]). URL values support ${ENV_VAR} interpolation at load time (secret indirection without storing tokens in the file). Config loader at internal/config/config.go with strict schema validation. Webhook adapter at internal/events/webhook.go subscribes to workitem.transition via the slice-5 bus and POSTs the configured payload. Two formatters: `native` (htmlgraph JSON schema, documented) and `slack` (text: &#34;feat-XXXXX — Title: &lt;from&gt; -&gt; &lt;to&gt; (actor)&#34;). Retry once on 5xx with exponential backoff, drop on 4xx. Startup registers webhook subscribers based on config; missing config means no subscribers (no-op). `htmlgraph notify test &lt;name&gt;` sends a synthetic test event to the named webhook for smoke-testing.
+</div></div>
+  <div class="slice-field"><div class="slice-field-label">Why</div><div class="slice-field-value" data-markdown="">Completes the notification loop: transitions -&gt; bus -&gt; webhook -&gt; Slack. Without a formatter, the event bus is dark. Slack is the most common team chat target; the `native` format gives users a stable schema to build custom adapters against. Local-first is preserved: no webhooks configured equals no network traffic.
+</div></div>
+  <div class="slice-field"><div class="slice-field-label">Files</div><div class="slice-field-value"><code>internal/config/config.go, internal/events/webhook.go, cmd/htmlgraph/notify.go, docs/notifications.md</code></div></div>
+  <div class="slice-field"><div class="slice-field-label">Done when</div><ul class="slice-done-list"><li data-markdown="">`htmlgraph notify test slack-dev` posts a synthetic event and prints the response status/body</li><li data-markdown="">A real feature start triggers a Slack message matching the formatter spec</li><li data-markdown="">${ENV_VAR} interpolation expands at load time; missing env vars produce a startup error naming the unresolved var</li><li data-markdown="">5xx response triggers one retry; 4xx drops without retry; both log with webhook name and status</li><li data-markdown="">Absent config.json is not an error — startup proceeds with zero webhook subscribers</li><li data-markdown="">File permissions on config.json are checked (warn on &gt;0600)</li></ul></div>
+  
+  <div class="slice-field"><div class="slice-field-label">Test Strategy</div><div class="slice-field-value slice-tests" data-markdown="">Unit: config_test.go for schema &#43; env interpolation &#43; permission check; webhook_test.go with httptest.Server for success/5xx/4xx/timeout
+Integration: end-to-end test — start a feature, assert httptest.Server received a POST with expected body
+Regression: running htmlgraph without config.json behaves identically to today
+</div></div>
+  <div class="slice-deps">Dependencies: slices 5</div>
+  <div class="approval-row">
+    <label><input type="checkbox" data-section="slice-6" data-action="approve"> Approve slice</label>
+    <textarea data-section="slice-6" data-comment-for="slice-6" placeholder="Comments on slice 6..."></textarea>
+  </div>
+</div>
+
+    <!--PLAN_SLICE_CARDS-->
+  </div>
+</details>
+
+<!-- Design Decisions -->
+<details id="questions" class="section-card" data-phase="questions" data-status="pending">
+  <summary><span>Design Decisions</span><span class="badge badge-pending" data-badge-for="questions">Pending</span></summary>
+  <div class="section-body">
+    
+    <div class="question-block" id="q-retrieval-backend">
+      <p>What retrieval substrate for Pillar A — FTS5 now, or FTS5 &#43; local embeddings, or defer embeddings entirely?</p>
+      
+      
+      <label class="recommended"><input type="radio" name="q-retrieval-backend" data-question="q-retrieval-backend" value="FTS5 only — ship this plan with FTS5 as the retrieval backend; embeddings become a follow-up plan if needed"> FTS5 only — ship this plan with FTS5 as the retrieval backend; embeddings become a follow-up plan if needed <span class="rec-tag">recommended</span></label>
+      
+      <label><input type="radio" name="q-retrieval-backend" data-question="q-retrieval-backend" value="FTS5 &#43; local ONNX embeddings — add a 7th slice for a local-embedding layer; significantly more scope and dependency surface"> FTS5 &#43; local ONNX embeddings — add a 7th slice for a local-embedding layer; significantly more scope and dependency surface</label>
+      
+      <label><input type="radio" name="q-retrieval-backend" data-question="q-retrieval-backend" value="FTS5 &#43; external API embeddings — adds mandatory network &#43; secret; conflicts with local-first posture"> FTS5 &#43; external API embeddings — adds mandatory network &#43; secret; conflicts with local-first posture</label>
+      
+      <textarea data-section="questions" data-question-rationale="q-retrieval-backend" placeholder="Rationale for q-retrieval-backend..."></textarea>
+    </div>
+    
+    <div class="question-block" id="q-transition-granularity">
+      <p>What gets logged in the transitions table — status changes only, or every edit?</p>
+      
+      
+      <label class="recommended"><input type="radio" name="q-transition-granularity" data-question="q-transition-granularity" value="Status transitions only — smallest surface, cleanest analytics, no duplication with git"> Status transitions only — smallest surface, cleanest analytics, no duplication with git <span class="rec-tag">recommended</span></label>
+      
+      <label><input type="radio" name="q-transition-granularity" data-question="q-transition-granularity" value="Status &#43; assignment/actor changes — adds handoff-to-human vs handoff-to-agent distinction"> Status &#43; assignment/actor changes — adds handoff-to-human vs handoff-to-agent distinction</label>
+      
+      <label><input type="radio" name="q-transition-granularity" data-question="q-transition-granularity" value="Every edit — maximum audit trail; duplicates git history in SQLite; larger table"> Every edit — maximum audit trail; duplicates git history in SQLite; larger table</label>
+      
+      <textarea data-section="questions" data-question-rationale="q-transition-granularity" placeholder="Rationale for q-transition-granularity..."></textarea>
+    </div>
+    
+    <div class="question-block" id="q-notifications-config-surface">
+      <p>Where do notification configs live — env vars, new `.htmlgraph/config.json`, or hybrid?</p>
+      
+      
+      <label class="recommended"><input type="radio" name="q-notifications-config-surface" data-question="q-notifications-config-surface" value="New .htmlgraph/config.json with ${ENV_VAR} interpolation — clean extension surface, establishes pattern for future config"> New .htmlgraph/config.json with ${ENV_VAR} interpolation — clean extension surface, establishes pattern for future config <span class="rec-tag">recommended</span></label>
+      
+      <label><input type="radio" name="q-notifications-config-surface" data-question="q-notifications-config-surface" value="Env vars only (e.g. HTMLGRAPH_NOTIFY_SLACK_URL) — consistent with current pattern but awkward for multi-endpoint configs with filters"> Env vars only (e.g. HTMLGRAPH_NOTIFY_SLACK_URL) — consistent with current pattern but awkward for multi-endpoint configs with filters</label>
+      
+      <label><input type="radio" name="q-notifications-config-surface" data-question="q-notifications-config-surface" value="Env vars for tokens, config file for routing — cleanest security boundary; more moving parts"> Env vars for tokens, config file for routing — cleanest security boundary; more moving parts</label>
+      
+      <textarea data-section="questions" data-question-rationale="q-notifications-config-surface" placeholder="Rationale for q-notifications-config-surface..."></textarea>
+    </div>
+    
+    <div class="question-block" id="q-bus-persistence">
+      <p>Is the event bus ephemeral (in-memory) or durable (SQLite-backed queue)?</p>
+      
+      
+      <label class="recommended"><input type="radio" name="q-bus-persistence" data-question="q-bus-persistence" value="In-memory, fire-and-forget — minimal complexity, acceptable loss on crash"> In-memory, fire-and-forget — minimal complexity, acceptable loss on crash <span class="rec-tag">recommended</span></label>
+      
+      <label><input type="radio" name="q-bus-persistence" data-question="q-bus-persistence" value="SQLite-backed queue with at-least-once delivery — survives crashes, enables replay, much more code"> SQLite-backed queue with at-least-once delivery — survives crashes, enables replay, much more code</label>
+      
+      <textarea data-section="questions" data-question-rationale="q-bus-persistence" placeholder="Rationale for q-bus-persistence..."></textarea>
+    </div>
+    
+    <div class="question-block" id="q-webhook-payload-schema">
+      <p>What payload schema do outbound webhooks use?</p>
+      
+      
+      <label class="recommended"><input type="radio" name="q-webhook-payload-schema" data-question="q-webhook-payload-schema" value="HtmlGraph-native JSON &#43; per-endpoint formatters — stable schema, flexible adapters"> HtmlGraph-native JSON &#43; per-endpoint formatters — stable schema, flexible adapters <span class="rec-tag">recommended</span></label>
+      
+      <label><input type="radio" name="q-webhook-payload-schema" data-question="q-webhook-payload-schema" value="CloudEvents 1.0 envelope — industry standard, more verbose"> CloudEvents 1.0 envelope — industry standard, more verbose</label>
+      
+      <label><input type="radio" name="q-webhook-payload-schema" data-question="q-webhook-payload-schema" value="Slack block kit only — simplest for Slack, useless for Teams/Discord/custom"> Slack block kit only — simplest for Slack, useless for Teams/Discord/custom</label>
+      
+      <textarea data-section="questions" data-question-rationale="q-webhook-payload-schema" placeholder="Rationale for q-webhook-payload-schema..."></textarea>
+    </div>
+    
+    <table class="q-table">
+      <thead><tr><th>Question</th><th>Selected</th><th>Status</th></tr></thead>
+      <tbody id="questionsRecap">
+        
+        <tr data-recap-for="q-retrieval-backend">
+          <td>What retrieval substrate for Pillar A — FTS5 now, or FTS5 &#43; local embeddings, or defer embeddings entirely?</td>
+          <td class="recap-answer">&mdash;</td>
+          <td><span class="badge badge-pending">Pending</span></td>
+        </tr>
+        
+        <tr data-recap-for="q-transition-granularity">
+          <td>What gets logged in the transitions table — status changes only, or every edit?</td>
+          <td class="recap-answer">&mdash;</td>
+          <td><span class="badge badge-pending">Pending</span></td>
+        </tr>
+        
+        <tr data-recap-for="q-notifications-config-surface">
+          <td>Where do notification configs live — env vars, new `.htmlgraph/config.json`, or hybrid?</td>
+          <td class="recap-answer">&mdash;</td>
+          <td><span class="badge badge-pending">Pending</span></td>
+        </tr>
+        
+        <tr data-recap-for="q-bus-persistence">
+          <td>Is the event bus ephemeral (in-memory) or durable (SQLite-backed queue)?</td>
+          <td class="recap-answer">&mdash;</td>
+          <td><span class="badge badge-pending">Pending</span></td>
+        </tr>
+        
+        <tr data-recap-for="q-webhook-payload-schema">
+          <td>What payload schema do outbound webhooks use?</td>
+          <td class="recap-answer">&mdash;</td>
+          <td><span class="badge badge-pending">Pending</span></td>
+        </tr>
+        
+      </tbody>
+    </table>
+  </div>
+</details>
+
+
+
+
+
+
+<!-- ZONE 3: Feedback Summary -->
+<section id="feedback-summary" class="progress-zone" data-zone="feedback-summary">
+  <h2>Feedback Summary</h2>
+  <div class="progress-stats">
+    <div class="progress-stat"><strong id="approvedCount">0</strong> approved</div>
+    <div class="progress-stat"><strong id="totalSections">7</strong> sections</div>
+    <div class="progress-stat"><strong id="pendingCount">7</strong> pending</div>
+  </div>
+  <div class="progress-bar-track"><div class="progress-bar-fill" id="progressFill" style="width:0%"></div></div>
+  <div class="comments-summary">
+    <h3>Decisions &amp; Comments</h3>
+    <div id="commentsFeed"><p style="font-size:.8rem;color:var(--text-muted);font-style:italic">No comments yet.</p></div>
+  </div>
+  <div class="finalize-area">
+    <button class="btn-finalize" id="finalizeBtn" disabled>Finalize Plan</button>
+    <p style="font-size:.75rem;color:var(--text-muted);margin-top:6px">All sections must be approved before finalizing.</p>
+  </div>
+</section>
+
+</article>
+</div><!-- /.plan-content -->
+
+<!-- Drag handle for resizing chat sidebar -->
+<div class="chat-resize-handle" id="chat-resize-handle"></div>
+
+<!-- Chat sidebar -->
+<aside class="chat-sidebar" id="chat-sidebar">
+  <section id="chat-panel" class="chat-panel" data-zone="chat">
+    <h2>Plan Discussion</h2>
+    <div id="chat-messages" class="chat-messages">
+      <p class="chat-notice" id="chat-empty">Ask about the plan design, slices, risks, or tradeoffs.</p>
+    </div>
+    <div class="chat-input-area">
+      <textarea id="chat-input" placeholder="Ask about the plan..." rows="2"></textarea>
+      <button id="chat-send">Send</button>
+    </div>
+  </section>
+
+  <!-- Amendments Panel -->
+  <div id="amendments-panel" class="amendments-panel" style="display:none">
+    <h3>Amendments</h3>
+    <div id="amendments-list"></div>
+    <div id="amendments-summary" class="amendments-summary"></div>
+  </div>
+</aside>
+</div><!-- /.plan-layout -->
+
+<script src="https://d3js.org/d3.v7.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/dagre-d3@0.6.4/dist/dagre-d3.min.js"></script>
+<script>
+// Plan base path — derived from window.location.pathname so the same
+// rendered HTML works whether the file is served at the legacy
+// /plans/<id>.html path (single-project server) or at /p/<id>/plans/<id>.html
+// (via the parent-doorway reverse proxy). Every fetch() on this page
+// prefixes window.htmlgraphPlanBase, which is '' at the root and
+// '/p/<id>' under the proxy. This is the per-project routing fix for
+// the multi-project hardening re-architecture (plan-237fb251).
+window.htmlgraphPlanBase = (function() {
+  var p = window.location.pathname || '';
+  if (p.indexOf('/p/') !== 0) return '';
+  var segs = p.split('/').filter(function(s) { return s !== ''; });
+  if (segs.length >= 2 && segs[0] === 'p') return '/p/' + segs[1];
+  return '';
+})();
+</script>
+<script>
+// Theme toggle (skip when embedded — dashboard manages its own theme)
+(function(){
+  var themeBtn = document.getElementById('themeToggle');
+  if (!themeBtn) return;
+  var html = document.documentElement;
+
+  var saved = localStorage.getItem('crispi-theme');
+  function syncHljsTheme(theme) {
+    var dark = document.getElementById('hljs-dark');
+    var light = document.getElementById('hljs-light');
+    if (theme === 'light') {
+      dark.disabled = true; light.disabled = false;
+    } else {
+      dark.disabled = false; light.disabled = true;
+    }
+  }
+
+  if (saved) {
+    html.dataset.theme = saved;
+    themeBtn.textContent = saved === 'light' ? '\u263E Dark' : '\u2600 Light';
+    syncHljsTheme(saved);
+  } else if (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches) {
+    html.dataset.theme = 'light';
+    themeBtn.textContent = '\u263E Dark';
+    syncHljsTheme('light');
+  }
+
+  themeBtn.addEventListener('click', function() {
+    var current = html.dataset.theme || 'dark';
+    var next = current === 'dark' ? 'light' : 'dark';
+    html.dataset.theme = next;
+    localStorage.setItem('crispi-theme', next);
+    themeBtn.textContent = next === 'light' ? '\u263E Dark' : '\u2600 Light';
+    syncHljsTheme(next);
+  });
+
+  hljs.highlightAll();
+})();
+
+// Global plan ID — accessible to all script blocks when embedded
+var planId=(function(){var a=document.querySelector('article[id]');return a?a.id:null;})();
+
+(function(){
+  'use strict';
+  var SECTIONS=/*PLAN_SECTIONS_JSON*/["design","slice-1","slice-2","slice-3","slice-4","slice-5","slice-6"]/*END_PLAN_SECTIONS_JSON*/;
+
+  function setBadge(el,ok){
+    el.className='badge badge-'+(ok?'approved':'pending');
+    el.textContent=ok?'Approved':'Pending';
+  }
+
+  function escHtml(s){var d=document.createElement('div');d.textContent=s;return d.innerHTML}
+
+  document.querySelectorAll('input[data-action="approve"]').forEach(function(cb){
+    cb.addEventListener('change',function(){
+      var sec=this.dataset.section;
+      var badge=document.querySelector('[data-badge-for="'+sec+'"]');
+      if(badge) setBadge(badge,this.checked);
+      var details=this.closest('details[data-phase]');
+      if(details) details.dataset.status=this.checked?'approved':'pending';
+      if(sec.startsWith('slice-')){
+        var n=sec.split('-')[1];
+        var node=document.getElementById('node-'+n);
+        if(node) node.dataset.status=this.checked?'approved':'pending';
+        var all=document.querySelectorAll('input[data-section^="slice-"][data-action="approve"]');
+        var allOk=Array.prototype.every.call(all,function(c){return c.checked});
+        var sb=document.querySelector('[data-badge-for="slices"]');
+        if(sb) setBadge(sb,allOk);
+        var sd=document.querySelector('[data-phase="slices"]');
+        if(sd) sd.dataset.status=allOk?'approved':'pending';
+      }
+      updateProgress();
+      if(planId){
+        fetch((window.htmlgraphPlanBase||'')+'/api/plans/'+planId+'/feedback',{
+          method:'POST',
+          headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({section:sec,action:'approve',value:String(this.checked),question_id:''})
+        });
+      }
+    });
+  });
+
+  document.querySelectorAll('input[type="radio"][data-question]').forEach(function(r){
+    r.addEventListener('change',function(){
+      var row=document.querySelector('[data-recap-for="'+this.dataset.question+'"]');
+      if(row){
+        var c=row.querySelector('.recap-answer');
+        if(c) c.textContent=this.value.charAt(0).toUpperCase()+this.value.slice(1);
+        var badge=row.querySelector('.badge');
+        if(badge) setBadge(badge,true);
+      }
+      var allRows=document.querySelectorAll('[data-recap-for]');
+      var allAnswered=Array.prototype.every.call(allRows,function(r){
+        var b=r.querySelector('.badge');
+        return b&&b.className.indexOf('badge-approved')>=0;
+      });
+      var headerBadge=document.querySelector('[data-badge-for="questions"]');
+      if(headerBadge) setBadge(headerBadge,allAnswered);
+      var details=document.querySelector('[data-phase="questions"]');
+      if(details) details.dataset.status=allAnswered?'approved':'pending';
+      if(planId){
+        fetch((window.htmlgraphPlanBase||'')+'/api/plans/'+planId+'/feedback',{
+          method:'POST',
+          headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({section:'questions',action:'answer',value:this.value,question_id:this.dataset.question})
+        });
+      }
+    });
+  });
+
+  document.querySelectorAll('input[type="radio"][data-question]:checked').forEach(function(r){
+    var row=document.querySelector('[data-recap-for="'+r.dataset.question+'"]');
+    if(row){
+      var badge=row.querySelector('.badge');
+      if(badge) setBadge(badge,true);
+    }
+  });
+  var allRows=document.querySelectorAll('[data-recap-for]');
+  var allAnswered=Array.prototype.every.call(allRows,function(r){
+    var b=r.querySelector('.badge');
+    return b&&b.className.indexOf('badge-approved')>=0;
+  });
+  var qBadge=document.querySelector('[data-badge-for="questions"]');
+  if(qBadge) setBadge(qBadge,allAnswered);
+  var qDetails=document.querySelector('[data-phase="questions"]');
+  if(qDetails) qDetails.dataset.status=allAnswered?'approved':'pending';
+
+  function updateProgress(){
+    var approved=0;
+    SECTIONS.forEach(function(sec){
+      var cb=document.querySelector('input[data-section="'+sec+'"][data-action="approve"]');
+      if(cb&&cb.checked) approved++;
+    });
+    document.getElementById('approvedCount').textContent=approved;
+    document.getElementById('pendingCount').textContent=SECTIONS.length-approved;
+    document.getElementById('progressFill').style.width=Math.round(approved/SECTIONS.length*100)+'%';
+    document.getElementById('finalizeBtn').disabled=(approved<SECTIONS.length);
+    updateComments();
+  }
+
+  function updateComments(){
+    var feed=document.getElementById('commentsFeed'),html='';
+    SECTIONS.forEach(function(sec){
+      var ta=document.querySelector('textarea[data-section="'+sec+'"]');
+      if(ta&&ta.value.trim()) html+='<div class="comment-entry"><span class="comment-source">'+sec+'</span>'+escHtml(ta.value.trim())+'</div>';
+    });
+    feed.innerHTML=html||'<p style="font-size:.8rem;color:var(--text-muted);font-style:italic">No comments yet.</p>';
+  }
+
+  var timer;
+  document.querySelectorAll('textarea[data-section]').forEach(function(ta){
+    ta.addEventListener('input',function(){clearTimeout(timer);timer=setTimeout(updateComments,400)});
+    ta.addEventListener('blur',function(){
+      if(planId&&this.value.trim()){
+        fetch((window.htmlgraphPlanBase||'')+'/api/plans/'+planId+'/feedback',{
+          method:'POST',
+          headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({section:this.dataset.section,action:'comment',value:this.value.trim(),question_id:''})
+        });
+      }
+    });
+  });
+
+  var finalizeMsg=document.createElement('p');
+  finalizeMsg.style.cssText='font-size:.85rem;margin-top:8px;text-align:center;display:none';
+  var finalizeBtn=document.getElementById('finalizeBtn');
+  if(finalizeBtn){
+    finalizeBtn.parentNode.insertBefore(finalizeMsg,finalizeBtn.nextSibling);
+    finalizeBtn.addEventListener('click',function(){
+      if(!planId){return;}
+      var btn=this;
+      btn.disabled=true;
+      btn.textContent='Finalizing...';
+      finalizeMsg.style.display='none';
+      fetch((window.htmlgraphPlanBase||'')+'/api/plans/'+planId+'/finalize',{
+        method:'POST',
+        headers:{'Content-Type':'application/json'}
+      })
+      .then(function(r){
+        if(r.ok){
+          r.json().then(function(data){
+            var art=document.querySelector('article[id]');if(art)art.dataset.status='finalized';
+            btn.textContent='Plan Finalized';
+            btn.style.background='var(--approved)';
+            btn.style.color='#fff';
+            if(data&&data.next_steps){
+              var pre=document.createElement('pre');
+              pre.style.cssText='margin-top:12px;padding:10px 14px;background:var(--bg-input);border:1px solid var(--border);border-radius:var(--radius);font-family:var(--mono);font-size:.78rem;text-align:left;white-space:pre-wrap;word-break:break-all;color:var(--text)';
+              pre.textContent=data.next_steps;
+              finalizeMsg.innerHTML='';
+              finalizeMsg.appendChild(pre);
+            } else {
+              finalizeMsg.textContent='Plan finalized successfully.';
+            }
+            finalizeMsg.style.color='var(--approved)';
+            finalizeMsg.style.display='block';
+          });
+        } else {
+          return r.json().then(function(data){
+            btn.textContent='Finalize Plan';
+            btn.disabled=false;
+            finalizeMsg.textContent=data.error||'Not all sections approved.';
+            finalizeMsg.style.color='var(--blocked)';
+            finalizeMsg.style.display='block';
+          });
+        }
+      })
+      .catch(function(){
+        btn.textContent='Finalize Plan';
+        btn.disabled=false;
+        finalizeMsg.textContent='Could not reach server. Is htmlgraph serve running?';
+        finalizeMsg.style.color='var(--revision)';
+        finalizeMsg.style.display='block';
+      });
+    });
+  }
+
+  function loadExistingFeedback(){
+    if(!planId){return;}
+    fetch((window.htmlgraphPlanBase||'')+'/api/plans/'+planId+'/feedback')
+      .then(function(r){return r.ok?r.json():null;})
+      .then(function(data){
+        if(!data){return;}
+        if(data.sections){
+          Object.keys(data.sections).forEach(function(sec){
+            var info=data.sections[sec];
+            if(info.approved){
+              var cb=document.querySelector('input[data-section="'+sec+'"][data-action="approve"]');
+              if(cb&&!cb.checked){cb.checked=true;cb.dispatchEvent(new Event('change'));}
+            }
+            if(info.comment){
+              var ta=document.querySelector('textarea[data-section="'+sec+'"]');
+              if(ta) ta.value=info.comment;
+            }
+          });
+        }
+        if(data.questions){
+          Object.keys(data.questions).forEach(function(qid){
+            var val=data.questions[qid];
+            var radio=document.querySelector('input[type="radio"][data-question="'+qid+'"][value="'+val+'"]');
+            if(radio&&!radio.checked){radio.checked=true;radio.dispatchEvent(new Event('change'));}
+          });
+        }
+        updateProgress();
+      })
+      .catch(function(){});
+  }
+
+  loadExistingFeedback();
+
+  document.querySelectorAll('input[data-action="approve"]').forEach(function(cb){
+    cb.addEventListener('change',function(){
+      var sec=this.dataset.section;
+      if(sec.startsWith('slice-')){
+        var n=sec.split('-')[1];
+        var nodeRect=d3.select('#dep-graph-svg .node[id="'+n+'"] rect');
+        if(!nodeRect.empty()){
+          var color=this.checked?'#16a34a':'#6b7280';
+          var cs=getComputedStyle(document.querySelector('.dep-graph')||document.documentElement);
+          nodeRect.style('stroke',color).style('fill',cs.getPropertyValue('--bg-input').trim()||'#222228');
+        }
+      }
+    });
+  });
+})();
+
+// Render dagre-d3 dependency graph
+(function(){
+  'use strict';
+
+  var STATUS_COLORS={pending:'#6b7280',approved:'#16a34a',revision:'#f59e0b',discuss:'#8b5cf6',blocked:'#dc2626'};
+
+  function renderGraph(){
+    var container=document.getElementById('graph-data');
+    if(!container) return;
+
+    var g=new dagreD3.graphlib.Graph().setGraph({rankdir:'TB',marginx:24,marginy:24,ranksep:48,nodesep:32});
+    g.setDefaultEdgeLabel(function(){return{};});
+
+    var nodes=container.querySelectorAll('[data-node]');
+    nodes.forEach(function(el){
+      var id=el.dataset.node;
+      var name=el.dataset.name;
+      var files=el.dataset.files;
+      var status=el.dataset.status||'pending';
+      g.setNode(id,{
+        label: name+'\n'+files+' files',
+        rx: 6,
+        ry: 6,
+        paddingX: 36,
+        paddingY: 16,
+        status: status
+      });
+    });
+
+    nodes.forEach(function(el){
+      var id=el.dataset.node;
+      var deps=el.dataset.deps?el.dataset.deps.split(',').map(function(d){return d.trim();}).filter(Boolean):[];
+      deps.forEach(function(dep){g.setEdge(dep,id);});
+    });
+
+    var svg=d3.select('#dep-graph-svg');
+    var inner=svg.append('g');
+    var render=new dagreD3.render();
+    render(inner,g);
+
+    // Read CSS vars from the plan container so graph respects light/dark theme
+    var cs=getComputedStyle(document.querySelector('.dep-graph')||document.documentElement);
+    var nodeFill=cs.getPropertyValue('--bg-input').trim()||'#222228';
+    var nodeText=cs.getPropertyValue('--text').trim()||'#ededea';
+    var edgeColor=cs.getPropertyValue('--text-muted').trim()||'#707070';
+
+    inner.selectAll('g.node').each(function(id){
+      var nodeData=g.node(id);
+      var status=nodeData?nodeData.status:'pending';
+      var color=STATUS_COLORS[status]||STATUS_COLORS.pending;
+      d3.select(this).select('rect')
+        .style('fill',nodeFill)
+        .style('stroke',color)
+        .style('stroke-width','2px');
+      d3.select(this).select('text').style('fill',nodeText).style('font-size','13px');
+    });
+
+    inner.selectAll('g.edgePath path')
+      .style('stroke',edgeColor)
+      .style('stroke-dasharray','4 3')
+      .style('fill','none');
+    inner.selectAll('g.edgePath marker path')
+      .style('fill','#707070');
+
+    var svgEl=document.getElementById('dep-graph-svg');
+    var graphWidth=g.graph().width;
+    var graphHeight=g.graph().height;
+    var pad=24;
+    inner.attr('transform','translate('+pad+','+pad+')');
+    svgEl.setAttribute('width',graphWidth+pad*2);
+    svgEl.setAttribute('height',graphHeight+pad*2);
+    svgEl.removeAttribute('viewBox');
+  }
+
+  if(document.readyState==='loading'){
+    document.addEventListener('DOMContentLoaded',renderGraph);
+  } else {
+    renderGraph();
+  }
+})();
+
+// Chat panel
+// Global markdown renderer — shared by chat bubbles and data-markdown elements
+function escHtml(s){var d=document.createElement('div');d.textContent=s;return d.innerHTML;}
+function renderMd(text){
+  var s=escHtml(text);
+  s=s.replace(/```(\w*)\n([\s\S]*?)```/g,function(_,lang,code){
+    return '<pre><code'+(lang?' class="language-'+lang+'"':'')+'>'+code.trim()+'</code></pre>';
+  });
+  s=s.replace(/`([^`]+)`/g,'<code>$1</code>');
+  s=s.replace(/\*\*([^*]+)\*\*/g,'<strong>$1</strong>');
+  s=s.replace(/\*([^*]+)\*/g,'<em>$1</em>');
+  s=s.replace(/^### (.+)$/gm,'<h4>$1</h4>');
+  s=s.replace(/^## (.+)$/gm,'<h3>$1</h3>');
+  s=s.replace(/^(\|.+\|)\n(\|[-| :]+\|)\n((?:\|.+\|\n?)+)/gm,function(_,hdr,sep,body){
+    var ths=hdr.split('|').filter(Boolean).map(function(c){return '<th>'+c.trim()+'</th>';}).join('');
+    var rows=body.trim().split('\n').map(function(row){
+      var tds=row.split('|').filter(Boolean).map(function(c){return '<td>'+c.trim()+'</td>';}).join('');
+      return '<tr>'+tds+'</tr>';
+    }).join('');
+    return '<table class="q-table"><thead><tr>'+ths+'</tr></thead><tbody>'+rows+'</tbody></table>';
+  });
+  s=s.replace(/^[*-] (.+)$/gm,'<li>$1</li>');
+  s=s.replace(/(<li>.*<\/li>\n?)+/g,'<ul>$&</ul>');
+  s=s.replace(/^\d+\. (.+)$/gm,'<li data-ol>$1</li>');
+  s=s.replace(/(<li data-ol>.*<\/li>\n?)+/g,'<ol>$&</ol>');
+  s=s.replace(/ data-ol/g,'');
+  // Split on paragraph boundaries and wrap each block.
+  var blocks=s.split(/\n\n/);
+  var html=blocks.map(function(block){
+    var trimmed=block.trim();
+    if(!trimmed) return '';
+    return '<p>'+trimmed.replace(/\n/g,'<br>')+'</p>';
+  }).filter(Boolean).join('');
+  return html||'<p></p>';
+}
+// Render inline markdown for elements with data-markdown attribute.
+// For block elements (div/p) replaces innerHTML; for inline (li/span)
+// renders without wrapping <p> tags.
+(function(){
+  document.querySelectorAll('[data-markdown]').forEach(function(el){
+    var raw=el.textContent;
+    if(!raw.trim()) return;
+    var tag=el.tagName.toLowerCase();
+    if(tag==='li'||tag==='span'||tag==='td'){
+      // Inline context — just apply bold/italic/code, no block transforms
+      var s=escHtml(raw);
+      s=s.replace(/`([^`]+)`/g,'<code>$1</code>');
+      s=s.replace(/\*\*([^*]+)\*\*/g,'<strong>$1</strong>');
+      s=s.replace(/\*([^*]+)\*/g,'<em>$1</em>');
+      el.innerHTML=s;
+    } else {
+      el.innerHTML=renderMd(raw);
+    }
+    el.removeAttribute('data-markdown');
+  });
+})();
+
+(function(){
+  'use strict';
+  var chatMessages=document.getElementById('chat-messages');
+  var chatInput=document.getElementById('chat-input');
+  var chatSend=document.getElementById('chat-send');
+  var chatEmpty=document.getElementById('chat-empty');
+  if(!chatMessages||!chatInput||!chatSend) return;
+
+  function addBubble(role,content){
+    if(!content||!content.trim()) return null; // skip empty messages
+    if(chatEmpty) chatEmpty.style.display='none';
+    var div=document.createElement('div');
+    div.className='chat-bubble';
+    div.dataset.role=role;
+    if(role==='assistant'){
+      div.innerHTML=renderMd(content);
+    } else {
+      div.textContent=content;
+    }
+    chatMessages.appendChild(div);
+    chatMessages.scrollTop=chatMessages.scrollHeight;
+    return div;
+  }
+
+  function setInputEnabled(enabled){
+    chatInput.disabled=!enabled;
+    chatSend.disabled=!enabled;
+    if(enabled) chatInput.focus();
+  }
+
+  // Load previous messages directly into the chat thread.
+  if(planId){
+    fetch((window.htmlgraphPlanBase||'')+'/api/plans/'+planId+'/feedback')
+      .then(function(r){return r.ok?r.json():null;})
+      .then(function(data){
+        if(!data||!data.chat_messages||!data.chat_messages.length) return;
+        if(chatEmpty) chatEmpty.style.display='none';
+        data.chat_messages.forEach(function(m){
+          addBubble(m.role,m.content);
+        });
+      })
+      .catch(function(){});
+  }
+
+  function sendMessage(){
+    var text=chatInput.value.trim();
+    if(!text||!planId) return;
+    chatInput.value='';
+    setInputEnabled(false);
+
+    addBubble('user',text);
+    // Create streaming bubble directly (addBubble skips empty content)
+    if(chatEmpty) chatEmpty.style.display='none';
+    var assistantBubble=document.createElement('div');
+    assistantBubble.className='chat-bubble';
+    assistantBubble.dataset.role='assistant';
+    chatMessages.appendChild(assistantBubble);
+    var rawResponse='';
+
+    fetch((window.htmlgraphPlanBase||'')+'/api/plans/'+planId+'/chat',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({message:text})
+    }).then(function(response){
+      if(response.status===503){
+        assistantBubble.textContent='Chat unavailable \u2014 Claude CLI not found and no API key configured.';
+        assistantBubble.style.color='var(--text-muted)';
+        assistantBubble.style.fontStyle='italic';
+        setInputEnabled(true);
+        return;
+      }
+      if(!response.ok){
+        assistantBubble.textContent='Error: '+response.statusText;
+        setInputEnabled(true);
+        return;
+      }
+      var reader=response.body.getReader();
+      var decoder=new TextDecoder();
+      var buffer='';
+
+      function processStream(){
+        reader.read().then(function(result){
+          if(result.done){
+            // Stream complete — render accumulated text as markdown
+            if(rawResponse) assistantBubble.innerHTML=renderMd(rawResponse);
+            setInputEnabled(true);
+            return;
+          }
+          buffer+=decoder.decode(result.value,{stream:true});
+          var lines=buffer.split('\n');
+          buffer=lines.pop()||'';
+          lines.forEach(function(line){
+            line=line.trim();
+            if(!line.startsWith('data: ')) return;
+            var jsonStr=line.substring(6);
+            try{
+              var evt=JSON.parse(jsonStr);
+              if(evt.type==='chunk'&&evt.text){
+                rawResponse+=evt.text;
+                assistantBubble.textContent=rawResponse; // show raw while streaming
+                chatMessages.scrollTop=chatMessages.scrollHeight;
+              } else if(evt.type==='error'){
+                assistantBubble.textContent+=' [Error: '+evt.error+']';
+              } else if(evt.type==='done'){
+                if(rawResponse) assistantBubble.innerHTML=renderMd(rawResponse);
+                setInputEnabled(true);
+              }
+            }catch(e){}
+          });
+          processStream();
+        }).catch(function(){
+          setInputEnabled(true);
+        });
+      }
+      processStream();
+    }).catch(function(err){
+      assistantBubble.textContent='Network error: '+err.message;
+      setInputEnabled(true);
+    });
+  }
+
+  chatSend.addEventListener('click',sendMessage);
+  chatInput.addEventListener('keydown',function(e){
+    if(e.key==='Enter'&&!e.shiftKey){
+      e.preventDefault();
+      sendMessage();
+    }
+  });
+})();
+
+// Scroll-spy (uses plan-content scroll, not window)
+(function(){
+  'use strict';
+  var links=document.querySelectorAll('.plan-sidebar a[data-spy]');
+  if(!links.length) return;
+  var ids=Array.prototype.map.call(links,function(a){return a.dataset.spy;});
+  var scrollContainer=document.querySelector('.plan-content')||window;
+  function update(){
+    var current='';
+    ids.forEach(function(id){
+      var el=document.getElementById(id);
+      if(el&&el.getBoundingClientRect().top<=80) current=id;
+    });
+    links.forEach(function(a){
+      a.classList.toggle('active',a.dataset.spy===current);
+    });
+  }
+  scrollContainer.addEventListener('scroll',update,{passive:true});
+  window.addEventListener('scroll',update,{passive:true});
+  update();
+})();
+
+// Chat sidebar drag-resize
+(function(){
+  var handle=document.getElementById('chat-resize-handle');
+  var sidebar=document.getElementById('chat-sidebar');
+  if(!handle||!sidebar) return;
+  var startX,startW;
+  handle.addEventListener('mousedown',function(e){
+    e.preventDefault();
+    startX=e.clientX;
+    startW=sidebar.offsetWidth;
+    handle.classList.add('dragging');
+    document.body.style.cursor='col-resize';
+    document.body.style.userSelect='none';
+    function onMove(e){
+      var delta=startX-e.clientX;
+      var newW=Math.max(280,Math.min(600,startW+delta));
+      sidebar.style.width=newW+'px';
+    }
+    function onUp(){
+      handle.classList.remove('dragging');
+      document.body.style.cursor='';
+      document.body.style.userSelect='';
+      document.removeEventListener('mousemove',onMove);
+      document.removeEventListener('mouseup',onUp);
+    }
+    document.addEventListener('mousemove',onMove);
+    document.addEventListener('mouseup',onUp);
+  });
+})();
+
+
+// Sync highlight.js theme with current dark/light mode
+function syncHljsTheme(){
+  var isLight=document.documentElement.dataset.theme==='light';
+  var dark=document.getElementById('hljs-dark');
+  var light=document.getElementById('hljs-light');
+  if(dark) dark.disabled=isLight;
+  if(light) light.disabled=!isLight;
+}
+syncHljsTheme();
+
+// YAML viewer — lazy-loads plan YAML on first open or re-highlights on reopen
+(function(){
+  var viewer=document.getElementById('yaml-viewer');
+  var codeEl=document.getElementById('yaml-content');
+  if(!viewer||!codeEl)return;
+
+  function loadAndHighlight(){
+    var planEl=document.querySelector('[data-plan-id]');
+    if(!planEl)return;
+    var id=planEl.getAttribute('data-plan-id');
+    fetch((window.htmlgraphPlanBase||'')+'/api/plans/'+id+'/yaml')
+      .then(function(r){if(!r.ok)throw new Error('err');return r.text();})
+      .then(function(t){
+        codeEl.textContent=t;
+        delete codeEl.dataset.highlighted; // allow re-highlighting
+        syncHljsTheme();
+        function tryHighlight(){
+          if(window.hljs&&hljs.getLanguage&&hljs.getLanguage('yaml')){
+            hljs.highlightElement(codeEl);
+          } else {
+            setTimeout(tryHighlight,200);
+          }
+        }
+        tryHighlight();
+      })
+      .catch(function(){codeEl.textContent='YAML not available';});
+  }
+
+  var loaded=false;
+  viewer.addEventListener('toggle',function(){
+    if(!viewer.open||loaded)return;
+    loaded=true;
+    loadAndHighlight();
+  });
+  // If already open (e.g. re-rendered in embedded view), load immediately
+  if(viewer.open){loaded=true;loadAndHighlight();}
+})();
+
+// Amendments panel
+(function(){
+  var panel=document.getElementById('amendments-panel');
+  var list=document.getElementById('amendments-list');
+  var summary=document.getElementById('amendments-summary');
+  if(!panel||!list)return;
+
+  var article=document.querySelector('article[id]');
+  var planId=article?article.id:null;
+  if(!planId)return;
+
+  function escapeHtml(s){var d=document.createElement('div');d.textContent=s;return d.innerHTML;}
+
+  function updateSummary(){
+    var selects=list.querySelectorAll('select');
+    var accepted=0,pending=0;
+    selects.forEach(function(s){
+      if(s.value==='accepted')accepted++;
+      else if(s.value==='pending')pending++;
+    });
+    summary.textContent=selects.length+' amendments — '+accepted+' accepted, '+pending+' pending';
+  }
+
+  fetch((window.htmlgraphPlanBase||'')+'/api/plans/'+planId+'/amendments')
+    .then(function(r){return r.json();})
+    .then(function(amendments){
+      if(!amendments||!amendments.length)return;
+      panel.style.display='';
+      amendments.forEach(function(a,i){
+        var item=document.createElement('div');
+        item.className='amendment-item';
+        var desc=document.createElement('div');
+        desc.className='amendment-desc';
+        desc.innerHTML='<span class="op">'+escapeHtml(a.operation)+'</span> '+
+          '<span class="field">'+escapeHtml(a.field)+'</span> on slice-'+a.slice_num+': '+
+          escapeHtml(a.content);
+        var sel=document.createElement('select');
+        sel.className='amendment-select';
+        ['pending','accepted','rejected'].forEach(function(s){
+          var opt=document.createElement('option');
+          opt.value=s;
+          opt.textContent=s.charAt(0).toUpperCase()+s.slice(1);
+          if(s===a.status)opt.selected=true;
+          sel.appendChild(opt);
+        });
+        sel.addEventListener('change',function(){
+          fetch((window.htmlgraphPlanBase||'')+'/api/plans/'+planId+'/feedback',{
+            method:'POST',
+            headers:{'Content-Type':'application/json'},
+            body:JSON.stringify({
+              section:'amendment',
+              action:'amendment_status',
+              value:sel.value,
+              question_id:'amend-'+i
+            })
+          });
+          updateSummary();
+        });
+        item.appendChild(desc);
+        item.appendChild(sel);
+        list.appendChild(item);
+      });
+      updateSummary();
+    })
+    .catch(function(){});
+})();
+</script>
+</div><!-- .plan-content -->
+</body>
+</html>

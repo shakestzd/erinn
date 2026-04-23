@@ -7,7 +7,7 @@ meta:
     created_at: "2026-04-22"
     status: draft
     created_by: claude-opus
-    version: 2
+    version: 3
 design:
     problem: |
         HtmlGraph's observability spine (causal lineage, OTel receiver, session ingestion) is a genuine strength, but two gaps limit its "agentic engineering" claim. (1) Retrieval is ripgrep-based keyword matching with no tokenization beyond whitespace split (cmd/htmlgraph/relevant.go:231-247). No FTS index, no ranking beyond additive hit counts plus status bonuses, no way to find "the prior feature about X" when X is not a literal substring. Zero embedding infrastructure exists in the Go binary today. (2) Handoff analytics: state transitions on features, bugs, and plans are not recorded — only the current status and a single overwritten updated_at timestamp survive (internal/workitem/collection.go:154,173; internal/db/feature_repo.go:126). Existing `analytics velocity` buckets by updated_at and conflates completion with any later re-touch. Dwell time per transition cannot be computed from current data. (3) Notifications: no outbound integration of any kind — no webhook emitters, no event bus, no Slack/Teams/Discord adapter. Writes are point-to-point through writeNode. The article's bottleneck insight (agents accelerate coding; humans at handoff points become the new bottleneck) is invisible because there is neither measurement nor notification.
@@ -293,3 +293,115 @@ questions:
         - key: collapse
           label: Collapse into one slice — single 'FTS5 retrieval' deliverable; atomic user-value; simpler review
       answer: null
+critique:
+    reviewed_at: "2026-04-22"
+    reviewers:
+        - Haiku (design critic)
+        - Sonnet (feasibility critic)
+    assumptions:
+        - id: A1
+          status: plausible
+          text: modernc.org/sqlite supports FTS5
+          evidence: go.mod pins v1.37.1; modernc.org/sqlite has FTS5 enabled by default since v1.18+. Not empirically confirmed — slice 1 done_when requires SELECT fts5_version() probe at migration time.
+        - id: A2
+          status: questionable
+          text: HtmlGraph actually has handoff bottlenecks worth measuring
+          evidence: 'Solo-developer project (primary committer: shakestzd), 71 features over project lifetime, no baseline dwell-time data. The article''s ''agents accelerate, humans bottleneck'' diagnosis may be aspirational for this context.'
+        - id: A3
+          status: falsified
+          text: Slack notifications are load-bearing for this project today
+          evidence: No evidence of a team channel consuming notifications. Mitigated by gating slice 6 Slack formatter behind q-slack-priority with 'defer-slack' as the recommended answer.
+        - id: A4
+          status: verified
+          text: All file:line references in the plan are accurate
+          evidence: relevant.go:231 (tokenizeQuery), collection.go:154/173 (Start/Complete), feature_repo.go:126 (UpdateFeatureStatus), app.js:746 (renderMetrics), main.go:30 (env-var config), planyaml/io.go:51 (Save) — all verified.
+        - id: A5
+          status: falsified
+          text: internal/workitem/writeNode is a single hook point for all work-item writes
+          evidence: PlanCollection.writeNode (plans.go:119) overrides Collection.writeNode at collection.go:149. The correct single terminal hook is WriteNodeHTML (htmlwriter.go:74). Addressed in revised slice 1 and new constraint.
+    critics:
+        - title: DESIGN CRITIC
+          sections:
+            - heading: Scope Assessment
+              items:
+                - badge: Top-2
+                  kind: warn
+                  text: Top-2 gap choice is defensible but assumes a bottleneck not yet measured. Eval harness (9th gap) may be prerequisite — without it, we ship retrieval changes with no way to verify they improved anything.
+                - badge: S1+S2
+                  kind: warn
+                  text: Slice 1 has zero user value until slice 2 ships. Added q-slice-1-2-framing to force an explicit decision.
+                - badge: S6
+                  kind: warn
+                  text: Slice 6 bundled webhook + config + Slack. Slack now gated by q-slack-priority; native format ships regardless.
+            - heading: Missing Considerations
+              items:
+                - badge: Gap
+                  kind: warn
+                  text: Decision memory write-side — plan adds read-retrieval but no mechanism for agents to record decision rationale. Candidate for a follow-up plan.
+                - badge: Gap
+                  kind: warn
+                  text: Eval harness is absent — a precondition for measuring whether retrieval improvements actually help.
+                - badge: Gap
+                  kind: info
+                  text: 'Index scope: slice 1 indexes features/messages/tracks/plans. Work-item steps, bug comments, link-edge reasons are excluded — may be intentional but should be explicit.'
+            - heading: Alternatives Considered
+              items:
+                - badge: Alt
+                  kind: info
+                  text: Defer slice 6 entirely; ship 1-5, measure with slice 4, then design notifications based on observed need. q-slack-priority option 'drop-all-notifications' captures this path.
+                - badge: Alt
+                  kind: info
+                  text: Use git history as a cheap proxy for transition timing — no new table required. Loses actor/session_id metadata.
+        - title: FEASIBILITY CRITIC
+          sections:
+            - heading: Verified Claims
+              items:
+                - badge: OK
+                  kind: success
+                  text: All file:line references verified against current code.
+                - badge: OK
+                  kind: success
+                  text: Cobra 'htmlgraph notify test <name>' nesting validated against analytics subcommand pattern (analytics.go:19-20).
+                - badge: OK
+                  kind: success
+                  text: internal/events/ and internal/config/ are greenfield; no import-cycle risk given both have no upstream dependencies on cmd/ or internal/workitem/.
+                - badge: OK
+                  kind: success
+                  text: serve.go endpoint registration pattern accommodates /api/analytics/handoff as proposed in slice 4.
+            - heading: Plan Defects (Now Addressed)
+              items:
+                - badge: S3
+                  kind: danger
+                  text: 'HIGH: Original slice 3 file list missed PlanCollection.Start/Complete overrides at plans.go:153,171 and the draft->review site at plan_yaml_extras.go:293. Revised slice 3 explicitly covers these, and notes UpdateFeatureStatus (feature_repo.go:126) as a single-point alternative hook.'
+                - badge: S1
+                  kind: danger
+                  text: 'MEDIUM: writeNode is overridden per-type; WriteNodeHTML (htmlwriter.go:74) is the correct terminal hook. Revised slice 1 uses this, new constraint codifies it.'
+            - heading: Prior Art to Leverage
+              items:
+                - badge: Prior
+                  kind: info
+                  text: internal/db/feature_repo.go:126 UpdateFeatureStatus — existing post-write DB sync; transition insert should follow the existing 'if c.base.DB != nil { _ = ... }' guard pattern.
+                - badge: Prior
+                  kind: info
+                  text: analytics.go:19-20 cmd.AddCommand pattern — canonical for notify and analytics-handoff subcommand trees.
+    risks:
+        - risk: FTS5 availability in modernc.org/sqlite not empirically confirmed
+          severity: High
+          mitigation: Slice 1 done_when prepends SELECT fts5_version() probe before any DDL; fail-fast with a clear error.
+        - risk: PlanCollection override paths bypass transition wiring
+          severity: High
+          mitigation: Slice 3 revised to cover plans.go:153/171 and plan_yaml_extras.go:293; UpdateFeatureStatus single-point alternative noted.
+        - risk: Bottleneck may not exist in solo-dev context — building dashboard for hypothetical problem
+          severity: Medium
+          mitigation: q-slack-priority offers 'drop-all-notifications' to skip slices 5+6; slice 4 done_when requires empty-state handling so analytics fail gracefully with sparse data.
+        - risk: Pre-slice-3 items report no dwell time (forward-only coverage)
+          severity: Low
+          mitigation: Slice 4 done_when requires backfill-cutoff footnote excluding pre-ship items from p95.
+        - risk: Scope creep in slice 6 (config infrastructure + webhook + chat formatter)
+          severity: Medium
+          mitigation: Slack gated via q-slack-priority; config.json loader is the actual dependency; native format is the minimum deliverable.
+    synthesis: |
+        Plan is directionally sound. HIGH-severity feasibility defects were found and addressed before review: (1) slice 3 was missing PlanCollection override paths, now explicitly covered; (2) FTS hook point was wrong (writeNode vs. WriteNodeHTML), now corrected. FTS5 availability is the highest remaining risk, mitigated by a fail-fast probe in slice 1 done_when.
+        Seven open design questions for the human reviewer. Three are critical (the rest are defaults likely to be accepted):
+        1. q-retrieval-backend — FTS5 only (recommended) vs. local embeddings vs. external API 2. q-slack-priority — defer Slack (recommended) vs. include now vs. drop all notifications 3. q-slice-1-2-framing — keep slices split (recommended) vs. collapse into one
+        If reviewer answers q-slack-priority = 'drop-all-notifications', slices 5+6 drop and the plan becomes retrieval (1-2) + observability (3-4) only — a cleaner scope given the solo-dev context.

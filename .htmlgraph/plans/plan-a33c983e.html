@@ -287,7 +287,7 @@ textarea::placeholder{color:var(--text-muted)}
 </p>
   <div class="meta">
     <span class="badge badge-pending">Draft</span>
-    <span style="font-size:.75rem;color:var(--text-muted)">v2 · 6 slices · Created 2026-04-22</span>
+    <span style="font-size:.75rem;color:var(--text-muted)">v3 · 6 slices · Created 2026-04-22</span>
   </div>
 </header>
 <button id="themeToggle" style="position:fixed;top:16px;right:16px;z-index:100;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:6px 12px;color:var(--text);font-family:var(--mono);font-size:0.75rem;cursor:pointer;">
@@ -668,6 +668,167 @@ Regression: running htmlgraph without config.json behaves identically to today
   </div>
 </details>
 
+
+
+<details id="critique" class="section-card" data-phase="critique" data-status="pending">
+  <summary><span>Critique</span><span class="badge badge-pending" data-badge-for="critique">Review</span></summary>
+  <div class="section-body">
+
+    
+    <div class="sub-section">
+      <h4>Assumption Verification</h4>
+      
+      <div style="display:flex;align-items:flex-start;gap:10px;margin-bottom:8px;padding:8px;background:var(--bg-input);border-radius:var(--radius)">
+        <span class="badge badge-pending">plausible</span>
+        <div>
+          <p style="margin:0;font-size:.9rem">modernc.org/sqlite supports FTS5</p>
+          <p style="margin:4px 0 0;font-size:.8rem;color:var(--text-muted)">go.mod pins v1.37.1; modernc.org/sqlite has FTS5 enabled by default since v1.18&#43;. Not empirically confirmed — slice 1 done_when requires SELECT fts5_version() probe at migration time.</p>
+        </div>
+      </div>
+      
+      <div style="display:flex;align-items:flex-start;gap:10px;margin-bottom:8px;padding:8px;background:var(--bg-input);border-radius:var(--radius)">
+        <span class="badge badge-pending">questionable</span>
+        <div>
+          <p style="margin:0;font-size:.9rem">HtmlGraph actually has handoff bottlenecks worth measuring</p>
+          <p style="margin:4px 0 0;font-size:.8rem;color:var(--text-muted)">Solo-developer project (primary committer: shakestzd), 71 features over project lifetime, no baseline dwell-time data. The article&#39;s &#39;agents accelerate, humans bottleneck&#39; diagnosis may be aspirational for this context.</p>
+        </div>
+      </div>
+      
+      <div style="display:flex;align-items:flex-start;gap:10px;margin-bottom:8px;padding:8px;background:var(--bg-input);border-radius:var(--radius)">
+        <span class="badge badge-blocked">falsified</span>
+        <div>
+          <p style="margin:0;font-size:.9rem">Slack notifications are load-bearing for this project today</p>
+          <p style="margin:4px 0 0;font-size:.8rem;color:var(--text-muted)">No evidence of a team channel consuming notifications. Mitigated by gating slice 6 Slack formatter behind q-slack-priority with &#39;defer-slack&#39; as the recommended answer.</p>
+        </div>
+      </div>
+      
+      <div style="display:flex;align-items:flex-start;gap:10px;margin-bottom:8px;padding:8px;background:var(--bg-input);border-radius:var(--radius)">
+        <span class="badge badge-approved">verified</span>
+        <div>
+          <p style="margin:0;font-size:.9rem">All file:line references in the plan are accurate</p>
+          <p style="margin:4px 0 0;font-size:.8rem;color:var(--text-muted)">relevant.go:231 (tokenizeQuery), collection.go:154/173 (Start/Complete), feature_repo.go:126 (UpdateFeatureStatus), app.js:746 (renderMetrics), main.go:30 (env-var config), planyaml/io.go:51 (Save) — all verified.</p>
+        </div>
+      </div>
+      
+      <div style="display:flex;align-items:flex-start;gap:10px;margin-bottom:8px;padding:8px;background:var(--bg-input);border-radius:var(--radius)">
+        <span class="badge badge-blocked">falsified</span>
+        <div>
+          <p style="margin:0;font-size:.9rem">internal/workitem/writeNode is a single hook point for all work-item writes</p>
+          <p style="margin:4px 0 0;font-size:.8rem;color:var(--text-muted)">PlanCollection.writeNode (plans.go:119) overrides Collection.writeNode at collection.go:149. The correct single terminal hook is WriteNodeHTML (htmlwriter.go:74). Addressed in revised slice 1 and new constraint.</p>
+        </div>
+      </div>
+      
+    </div>
+    
+
+    
+    <div class="sub-section" style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+      
+      <div>
+        <h4>Haiku (design critic)</h4>
+        <div style="font-size:.85rem;color:var(--text-dim)"><h5>Scope Assessment</h5>
+<ul>
+  <li><span class="badge badge-warn">Top-2</span> Top-2 gap choice is defensible but assumes a bottleneck not yet measured. Eval harness (9th gap) may be prerequisite — without it, we ship retrieval changes with no way to verify they improved anything.</li>
+  <li><span class="badge badge-warn">S1+S2</span> Slice 1 has zero user value until slice 2 ships. Added q-slice-1-2-framing to force an explicit decision.</li>
+  <li><span class="badge badge-warn">S6</span> Slice 6 bundled webhook + config + Slack. Slack now gated by q-slack-priority; native format ships regardless.</li>
+</ul>
+<h5>Missing Considerations</h5>
+<ul>
+  <li><span class="badge badge-warn">Gap</span> Decision memory write-side — plan adds read-retrieval but no mechanism for agents to record decision rationale. Candidate for a follow-up plan.</li>
+  <li><span class="badge badge-warn">Gap</span> Eval harness is absent — a precondition for measuring whether retrieval improvements actually help.</li>
+  <li><span class="badge badge-info">Gap</span> Index scope: slice 1 indexes features/messages/tracks/plans. Work-item steps, bug comments, link-edge reasons are excluded — may be intentional but should be explicit.</li>
+</ul>
+<h5>Alternatives Considered</h5>
+<ul>
+  <li><span class="badge badge-info">Alt</span> Defer slice 6 entirely; ship 1-5, measure with slice 4, then design notifications based on observed need. q-slack-priority option &#39;drop-all-notifications&#39; captures this path.</li>
+  <li><span class="badge badge-info">Alt</span> Use git history as a cheap proxy for transition timing — no new table required. Loses actor/session_id metadata.</li>
+</ul>
+</div>
+      </div>
+      
+      
+      <div>
+        <h4>Sonnet (feasibility critic)</h4>
+        <div style="font-size:.85rem;color:var(--text-dim)"><h5>Verified Claims</h5>
+<ul>
+  <li><span class="badge badge-success">OK</span> All file:line references verified against current code.</li>
+  <li><span class="badge badge-success">OK</span> Cobra &#39;htmlgraph notify test &lt;name&gt;&#39; nesting validated against analytics subcommand pattern (analytics.go:19-20).</li>
+  <li><span class="badge badge-success">OK</span> internal/events/ and internal/config/ are greenfield; no import-cycle risk given both have no upstream dependencies on cmd/ or internal/workitem/.</li>
+  <li><span class="badge badge-success">OK</span> serve.go endpoint registration pattern accommodates /api/analytics/handoff as proposed in slice 4.</li>
+</ul>
+<h5>Plan Defects (Now Addressed)</h5>
+<ul>
+  <li><span class="badge badge-danger">S3</span> HIGH: Original slice 3 file list missed PlanCollection.Start/Complete overrides at plans.go:153,171 and the draft-&gt;review site at plan_yaml_extras.go:293. Revised slice 3 explicitly covers these, and notes UpdateFeatureStatus (feature_repo.go:126) as a single-point alternative hook.</li>
+  <li><span class="badge badge-danger">S1</span> MEDIUM: writeNode is overridden per-type; WriteNodeHTML (htmlwriter.go:74) is the correct terminal hook. Revised slice 1 uses this, new constraint codifies it.</li>
+</ul>
+<h5>Prior Art to Leverage</h5>
+<ul>
+  <li><span class="badge badge-info">Prior</span> internal/db/feature_repo.go:126 UpdateFeatureStatus — existing post-write DB sync; transition insert should follow the existing &#39;if c.base.DB != nil { _ = ... }&#39; guard pattern.</li>
+  <li><span class="badge badge-info">Prior</span> analytics.go:19-20 cmd.AddCommand pattern — canonical for notify and analytics-handoff subcommand trees.</li>
+</ul>
+</div>
+      </div>
+      
+    </div>
+    
+
+    
+    <div class="sub-section">
+      <h4>Synthesis</h4>
+      <div style="font-size:.85rem;color:var(--text-dim)">Plan is directionally sound. HIGH-severity feasibility defects were found and addressed before review: (1) slice 3 was missing PlanCollection override paths, now explicitly covered; (2) FTS hook point was wrong (writeNode vs. WriteNodeHTML), now corrected. FTS5 availability is the highest remaining risk, mitigated by a fail-fast probe in slice 1 done_when.
+Seven open design questions for the human reviewer. Three are critical (the rest are defaults likely to be accepted):
+1. q-retrieval-backend — FTS5 only (recommended) vs. local embeddings vs. external API 2. q-slack-priority — defer Slack (recommended) vs. include now vs. drop all notifications 3. q-slice-1-2-framing — keep slices split (recommended) vs. collapse into one
+If reviewer answers q-slack-priority = &#39;drop-all-notifications&#39;, slices 5+6 drop and the plan becomes retrieval (1-2) + observability (3-4) only — a cleaner scope given the solo-dev context.
+</div>
+    </div>
+    
+
+    
+    <div class="sub-section">
+      <h4>Risk Assessment</h4>
+      <table class="q-table">
+        <thead><tr><th>Risk</th><th>Severity</th><th>Mitigation</th></tr></thead>
+        <tbody>
+          
+          <tr>
+            <td>FTS5 availability in modernc.org/sqlite not empirically confirmed</td>
+            <td><span class="badge badge-blocked">High</span></td>
+            <td>Slice 1 done_when prepends SELECT fts5_version() probe before any DDL; fail-fast with a clear error.</td>
+          </tr>
+          
+          <tr>
+            <td>PlanCollection override paths bypass transition wiring</td>
+            <td><span class="badge badge-blocked">High</span></td>
+            <td>Slice 3 revised to cover plans.go:153/171 and plan_yaml_extras.go:293; UpdateFeatureStatus single-point alternative noted.</td>
+          </tr>
+          
+          <tr>
+            <td>Bottleneck may not exist in solo-dev context — building dashboard for hypothetical problem</td>
+            <td><span class="badge badge-revision">Medium</span></td>
+            <td>q-slack-priority offers &#39;drop-all-notifications&#39; to skip slices 5&#43;6; slice 4 done_when requires empty-state handling so analytics fail gracefully with sparse data.</td>
+          </tr>
+          
+          <tr>
+            <td>Pre-slice-3 items report no dwell time (forward-only coverage)</td>
+            <td><span class="badge badge-pending">Low</span></td>
+            <td>Slice 4 done_when requires backfill-cutoff footnote excluding pre-ship items from p95.</td>
+          </tr>
+          
+          <tr>
+            <td>Scope creep in slice 6 (config infrastructure &#43; webhook &#43; chat formatter)</td>
+            <td><span class="badge badge-revision">Medium</span></td>
+            <td>Slack gated via q-slack-priority; config.json loader is the actual dependency; native format is the minimum deliverable.</td>
+          </tr>
+          
+        </tbody>
+      </table>
+    </div>
+    
+
+    
+
+  </div>
+</details>
 
 
 

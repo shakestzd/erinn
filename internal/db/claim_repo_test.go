@@ -734,6 +734,7 @@ func TestClaimItemOrRenewParallel(t *testing.T) {
 	defer database.Close()
 
 	const N = 8
+	errCh := make(chan error, N)
 	var wg sync.WaitGroup
 	wg.Add(N)
 	for i := 0; i < N; i++ {
@@ -746,10 +747,17 @@ func TestClaimItemOrRenewParallel(t *testing.T) {
 				OwnerSessionID:   fmt.Sprintf("sess-%d", i),
 				OwnerAgent:       "claude-code",
 			}
-			_ = db.ClaimItemOrRenew(database, c, 30*time.Second)
+			if err := db.ClaimItemOrRenew(database, c, 30*time.Second); err != nil {
+				errCh <- fmt.Errorf("goroutine %d: %w", i, err)
+			}
 		}(i)
 	}
 	wg.Wait()
+	close(errCh)
+
+	for err := range errCh {
+		t.Error(err)
+	}
 
 	var count int
 	if err := database.QueryRow(

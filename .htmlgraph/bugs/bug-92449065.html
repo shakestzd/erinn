@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="htmlgraph-version" content="1.0">
+    <title>[P1] PreToolUse block message is unactionable</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="bug-92449065"
+             data-type="bug"
+             data-status="done"
+             data-priority="medium"
+             data-created="2026-04-21T21:38:35.488715"
+             data-updated="2026-04-21T22:44:00.976985" data-agent-assigned="claude-code" data-track-id="trk-cd61bbae">
+
+        <header>
+            <h1>[P1] PreToolUse block message is unactionable</h1>
+            <div class="metadata">
+                <span class="badge status-done">Done</span>
+                <span class="badge priority-medium">Medium Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="trk-cd61bbae.html" data-relationship="part_of" data-since="2026-04-21T21:38:35.495486">trk-cd61bbae</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="implemented_in">
+                <h3>Implemented In:</h3>
+                <ul>
+                    <li><a href="7de63636-e24e-4803-81e3-ec75a911a974.html" data-relationship="implemented_in" data-since="2026-04-21T22:39:12.144616">session 7de63636-e24e-4803-81e3-ec75a911a974</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="relates_to">
+                <h3>Relates To:</h3>
+                <ul>
+                    <li><a href="bug-33476dbf.html" data-relationship="relates_to" data-since="2026-04-21T21:38:51.698504">[P1] Active work item has three disagreeing data paths</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>Guard block prints: No active work item. Run: htmlgraph feature start . User runs exactly that, retries Write, gets blocked again. Message lacks the context fields that caused the block. Acceptance: include SessionID, IsYoloMode, IsSubagent, FeatureID, ClaimedItem values in block output so user can self-diagnose without reading Go source. Code: internal/hooks/pretooluse.go:514</p>
+        </section>
+    </article>
+</body>
+</html>

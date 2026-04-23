@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="htmlgraph-version" content="1.0">
+    <title>[P2] No escape hatch for orchestrator direct writes during subagent rescue</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="bug-c8ac6a11"
+             data-type="bug"
+             data-status="done"
+             data-priority="medium"
+             data-created="2026-04-21T21:38:36.474991"
+             data-updated="2026-04-21T22:52:51.075679" data-agent-assigned="claude-code" data-track-id="trk-cd61bbae">
+
+        <header>
+            <h1>[P2] No escape hatch for orchestrator direct writes during subagent rescue</h1>
+            <div class="metadata">
+                <span class="badge status-done">Done</span>
+                <span class="badge priority-medium">Medium Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="trk-cd61bbae.html" data-relationship="part_of" data-since="2026-04-21T21:38:36.553406">trk-cd61bbae</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="caused_by">
+                <h3>Caused By:</h3>
+                <ul>
+                    <li><a href="bug-357e1e82.html" data-relationship="caused_by" data-since="2026-04-21T21:38:47.036259">[P2] Isolated worktree cleanup on stream-idle timeout destroys uncommitted work</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>YOLO directive says delegate ALL ops except Task/AskUserQuestion/TodoWrite/SDK. When subagents fail (P2 worktree timeout bug), orchestrator must take over. Guard assumes every write comes from a subagent with a claim, so there is no recognized orchestrator-rescue path. Acceptance: (a) implement orchestrator-write path satisfying guard (e.g. orchestrator-direct claim type created when nesting_depth=0), or (b) document that orchestrators must stop and report when subagents fail rather than fall back to direct writes.</p>
+        </section>
+    </article>
+</body>
+</html>

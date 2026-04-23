@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="htmlgraph-version" content="1.0">
+    <title>Execute workflow efficiency and cross-environment tooling</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="trk-787f57d3"
+             data-type="track"
+             data-status="done"
+             data-priority="medium"
+             data-created="2026-04-21T23:32:18.169595"
+             data-updated="2026-04-23T02:09:08.518233" data-agent-assigned="claude-code">
+
+        <header>
+            <h1>Execute workflow efficiency and cross-environment tooling</h1>
+            <div class="metadata">
+                <span class="badge status-done">Done</span>
+                <span class="badge priority-medium">Medium Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="contains">
+                <h3>Contains:</h3>
+                <ul>
+                    <li><a href="bug-cf929f1a.html" data-relationship="contains" data-since="2026-04-21T23:32:55.633312">[P1] /htmlgraph:execute burns 20&#43; tool calls on pre-dispatch discovery</a></li>
+                    <li><a href="bug-0403e704.html" data-relationship="contains" data-since="2026-04-21T23:32:58.981532">[P1] Add htmlgraph execute-preview for one-call execute context</a></li>
+                    <li><a href="bug-e1c968fe.html" data-relationship="contains" data-since="2026-04-21T23:33:02.379256">[P1] Worktree .git file carries cross-machine absolute paths — breaks in devcontainer</a></li>
+                    <li><a href="bug-5150e42a.html" data-relationship="contains" data-since="2026-04-21T23:33:05.287244">[P2] Cross-environment absolute-path drift — class audit</a></li>
+                    <li><a href="bug-32c47098.html" data-relationship="contains" data-since="2026-04-21T23:33:07.426228">[P2] --format json missing on show commands</a></li>
+                    <li><a href="bug-7ca3638b.html" data-relationship="contains" data-since="2026-04-21T23:38:24.079114">[P0] /htmlgraph:execute skill prescribes non-existent --format json flag on track show</a></li>
+                    <li><a href="bug-4b6d8369.html" data-relationship="contains" data-since="2026-04-21T23:38:26.882818">[P1] Pre-commit guardrail: scan .htmlgraph/ and .claude/ for host-local absolute paths</a></li>
+                    <li><a href="bug-61dc9267.html" data-relationship="contains" data-since="2026-04-21T23:38:28.786825">[P1] Skill-flag smoke test: validate every flag prescribed in skills against CLI registration</a></li>
+                    <li><a href="bug-eb3e50f6.html" data-relationship="contains" data-since="2026-04-21T23:38:30.294706">[P2] Non-hermetic test fixtures: hardcoded /tmp/ paths and macOS developer username</a></li>
+                    <li><a href="bug-f07a612e.html" data-relationship="contains" data-since="2026-04-21T23:38:32.644327">[P2] Skills prescribe redundant sequential git/htmlgraph commands that can be chained</a></li>
+                    <li><a href="bug-f4760452.html" data-relationship="contains" data-since="2026-04-21T23:38:34.947378">[P3] Scrub host-local absolute paths from already-committed .htmlgraph artifacts</a></li>
+                    <li><a href="bug-1300cace.html" data-relationship="contains" data-since="2026-04-22T03:44:31.41389">roborev fixes for execute-preview &#43; git-commit</a></li>
+                    <li><a href="bug-4ece3fc0.html" data-relationship="contains" data-since="2026-04-23T01:49:05.856618">PR #54 review fixes: repair basename, host-path scan, testing import, debugLog</a></li>
+                    <li><a href="bug-28efeb25.html" data-relationship="contains" data-since="2026-04-23T02:09:08.51677">roborev job 13: centralize worktree test-skip</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="implemented_in">
+                <h3>Implemented In:</h3>
+                <ul>
+                    <li><a href="dd55ede3-a636-4605-a3b1-06f1c5954e66.html" data-relationship="implemented_in" data-since="2026-04-22T01:34:11.785515">session dd55ede3-a636-4605-a3b1-06f1c5954e66</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>Meta-track for bugs surfaced during trk-cd61bbae YOLO execute run. Focus: (1) /htmlgraph:execute should dispatch work fast, not burn 20+ tool calls on discovery; (2) cross-environment absolute-path drift (macOS host ↔ Linux devcontainer) breaks worktrees, settings, and anything carrying a machine-local path. Parent incident: trk-cd61bbae.</p>
+        </section>
+    </article>
+</body>
+</html>

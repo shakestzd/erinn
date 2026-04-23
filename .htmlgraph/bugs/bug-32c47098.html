@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="htmlgraph-version" content="1.0">
+    <title>[P2] --format json missing on show commands</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="bug-32c47098"
+             data-type="bug"
+             data-status="done"
+             data-priority="medium"
+             data-created="2026-04-21T23:33:07.020651"
+             data-updated="2026-04-22T03:01:24.810163" data-agent-assigned="claude-code" data-track-id="trk-787f57d3">
+
+        <header>
+            <h1>[P2] --format json missing on show commands</h1>
+            <div class="metadata">
+                <span class="badge status-done">Done</span>
+                <span class="badge priority-medium">Medium Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="implemented_in">
+                <h3>Implemented In:</h3>
+                <ul>
+                    <li><a href="dd55ede3-a636-4605-a3b1-06f1c5954e66.html" data-relationship="implemented_in" data-since="2026-04-22T02:19:57.411942">session dd55ede3-a636-4605-a3b1-06f1c5954e66</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="trk-787f57d3.html" data-relationship="part_of" data-since="2026-04-21T23:33:07.426228">trk-787f57d3</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>htmlgraph track show, feature show, plan show, bug show — none accept --format json. Orchestrators consume their output as human-formatted text which requires follow-up calls to cross-reference fields. Structured JSON output would collapse multi-call lookups into single jq-parseable calls. Acceptance: all show commands accept --format json|text (default: text for humans). Tests cover both output modes. Related to bug for execute-preview command.</p>
+        </section>
+    </article>
+</body>
+</html>

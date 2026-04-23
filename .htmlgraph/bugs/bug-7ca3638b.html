@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="htmlgraph-version" content="1.0">
+    <title>[P0] /htmlgraph:execute skill prescribes non-existent --format json flag on track show</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="bug-7ca3638b"
+             data-type="bug"
+             data-status="done"
+             data-priority="medium"
+             data-created="2026-04-21T23:38:23.828735"
+             data-updated="2026-04-22T03:01:34.406944" data-agent-assigned="claude-code" data-track-id="trk-787f57d3">
+
+        <header>
+            <h1>[P0] /htmlgraph:execute skill prescribes non-existent --format json flag on track show</h1>
+            <div class="metadata">
+                <span class="badge status-done">Done</span>
+                <span class="badge priority-medium">Medium Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="relates_to">
+                <h3>Relates To:</h3>
+                <ul>
+                    <li><a href="bug-cf929f1a.html" data-relationship="relates_to" data-since="2026-04-21T23:38:50.697135">[P1] /htmlgraph:execute burns 20&#43; tool calls on pre-dispatch discovery</a></li>
+                    <li><a href="bug-0403e704.html" data-relationship="relates_to" data-since="2026-04-21T23:38:52.226455">[P1] Add htmlgraph execute-preview for one-call execute context</a></li>
+                    <li><a href="bug-32c47098.html" data-relationship="relates_to" data-since="2026-04-21T23:38:53.346908">[P2] --format json missing on show commands</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="trk-787f57d3.html" data-relationship="part_of" data-since="2026-04-21T23:38:24.079114">trk-787f57d3</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="implemented_in">
+                <h3>Implemented In:</h3>
+                <ul>
+                    <li><a href="dd55ede3-a636-4605-a3b1-06f1c5954e66.html" data-relationship="implemented_in" data-since="2026-04-22T02:04:27.288083">session dd55ede3-a636-4605-a3b1-06f1c5954e66</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>plugin/skills/execute/SKILL.md:79 prescribes 'htmlgraph track show  --format json'. trackShowCmd in cmd/htmlgraph/track.go registers only --deep; --format is only on 'relevant' and 'spec' subcommands. This is the exact instruction that kicked off the 27-tool-call waste in the trk-cd61bbae incident. Fix (pick one): (a) add --format json|text to trackShowCmd, (b) rewrite the skill step to parse text output, (c) better: use the upcoming execute-preview command (bug-0403e704) and remove the broken step. Acceptance: no skill step prescribes a flag the CLI does not register. Covered by Finding 1 of codebase audit.</p>
+        </section>
+    </article>
+</body>
+</html>

@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="htmlgraph-version" content="1.0">
+    <title>[P1] /htmlgraph:execute burns 20&#43; tool calls on pre-dispatch discovery</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="bug-cf929f1a"
+             data-type="bug"
+             data-status="done"
+             data-priority="medium"
+             data-created="2026-04-21T23:32:55.337927"
+             data-updated="2026-04-22T03:33:09.234126" data-agent-assigned="claude-code" data-track-id="trk-787f57d3">
+
+        <header>
+            <h1>[P1] /htmlgraph:execute burns 20&#43; tool calls on pre-dispatch discovery</h1>
+            <div class="metadata">
+                <span class="badge status-done">Done</span>
+                <span class="badge priority-medium">Medium Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="trk-787f57d3.html" data-relationship="part_of" data-since="2026-04-21T23:32:55.633312">trk-787f57d3</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="relates_to">
+                <h3>Relates To:</h3>
+                <ul>
+                    <li><a href="bug-0403e704.html" data-relationship="relates_to" data-since="2026-04-21T23:33:21.34811">[P1] Add htmlgraph execute-preview for one-call execute context</a></li>
+                    <li><a href="bug-32c47098.html" data-relationship="relates_to" data-since="2026-04-21T23:33:22.751637">[P2] --format json missing on show commands</a></li>
+                    <li><a href="bug-0403e704.html" data-relationship="relates_to" data-since="2026-04-21T23:38:36.41178">[P1] Add htmlgraph execute-preview for one-call execute context</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>Symptom: /htmlgraph:execute trk-cd61bbae spent ~27 tool calls on reconnaissance before any work was dispatched. Breakdown: 8 per-feature 'htmlgraph feature show' calls (should have been one batched chain or relied on 'track show' output which already includes summaries), 1 wasted 'htmlgraph status' (already had track id), plan show queried 9th instead of 1st, flag trial-and-error on --format json, 7 overlapping git log/diff probes to understand branch state. System prompt already warns 'Batch htmlgraph CLI calls with && — each Bash tool call spends a turn' but the skill ignored it. Fix: rewrite /htmlgraph:execute skill prompt with explicit rules — (1) track show first, (2) plan show second, (3) batch all git-state probes into ONE chained command, (4) never feature show more than twice in a row, (5) don't retry flag variants. Acceptance: a fresh /htmlgraph:execute run on a finalized plan dispatches first subagent within <= 5 tool calls.</p>
+        </section>
+    </article>
+</body>
+</html>

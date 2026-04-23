@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="htmlgraph-version" content="1.0">
+    <title>[P2] Isolated worktree cleanup on stream-idle timeout destroys uncommitted work</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="bug-357e1e82"
+             data-type="bug"
+             data-status="todo"
+             data-priority="medium"
+             data-created="2026-04-21T21:38:35.8231"
+             data-updated="2026-04-21T21:38:36.02469" data-agent-assigned="claude-code" data-track-id="trk-cd61bbae">
+
+        <header>
+            <h1>[P2] Isolated worktree cleanup on stream-idle timeout destroys uncommitted work</h1>
+            <div class="metadata">
+                <span class="badge status-todo">Todo</span>
+                <span class="badge priority-medium">Medium Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="trk-cd61bbae.html" data-relationship="part_of" data-since="2026-04-21T21:38:36.003139">trk-cd61bbae</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>Agent(isolation=worktree, subagent_type=htmlgraph:sonnet-coder) sessions hit 13-45 min stream-idle timeouts during /htmlgraph:execute slice-1 and slice-3 dispatch. On timeout the isolated worktree is auto-cleaned, destroying uncommitted work. One agent reported 'All tests pass. Now commit and complete' in its final turn before stream closed. Also: sonnet-coder taking 20+ min for ~150-line TDD slice suggests tool-call ping-pong loops in TDD prompt. Acceptance: (a) auto-WIP-commit on timeout before teardown, or (b) defer worktree cleanup until orchestrator consumes result. Investigate TDD prompt for looping behavior.</p>
+        </section>
+    </article>
+</body>
+</html>

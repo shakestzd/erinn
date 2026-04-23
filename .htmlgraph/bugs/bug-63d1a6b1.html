@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="htmlgraph-version" content="1.0">
+    <title>Root dashboard fetches /api/terminal/sessions which 404s in multi-project serve</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="bug-63d1a6b1"
+             data-type="bug"
+             data-status="done"
+             data-priority="medium"
+             data-created="2026-04-22T03:46:30.836274"
+             data-updated="2026-04-22T04:04:42.616249" data-agent-assigned="claude-code" data-track-id="trk-cd61bbae">
+
+        <header>
+            <h1>Root dashboard fetches /api/terminal/sessions which 404s in multi-project serve</h1>
+            <div class="metadata">
+                <span class="badge status-done">Done</span>
+                <span class="badge priority-medium">Medium Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="trk-cd61bbae.html" data-relationship="part_of" data-since="2026-04-22T03:46:30.843583">trk-cd61bbae</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>When htmlgraph serve runs in multi-project (parent/child) mode, the root dashboard at / loads the same app.js that the per-project dashboard at /p// does. app.js polls /api/terminal/sessions every 4s and on DOMContentLoaded, but the terminal routes are only registered inside the per-project mux (serve.go:113-116). At /, each poll spams the console with 'Failed to load resource: 404 Not Found @ /api/terminal/sessions' and the multi-pane UI silently renders nothing. Either the root dashboard should not attempt terminal fetches when the per-project prefix is absent (detect via buildProjectUrl context), or serve should register a /api/terminal/* stub at the parent that 501s cleanly so the console isn't noisy. Surfaced during /roborev-fix Playwright validation.</p>
+        </section>
+    </article>
+</body>
+</html>

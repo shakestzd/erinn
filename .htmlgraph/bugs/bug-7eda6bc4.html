@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="htmlgraph-version" content="1.0">
+    <title>slice-5 commit c9d43f80 missed dashboard_launcher_test.go (left untracked)</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="bug-7eda6bc4"
+             data-type="bug"
+             data-status="done"
+             data-priority="low"
+             data-created="2026-04-22T03:46:43.320594"
+             data-updated="2026-04-22T04:04:43.32864" data-agent-assigned="claude-code" data-track-id="trk-cd61bbae">
+
+        <header>
+            <h1>slice-5 commit c9d43f80 missed dashboard_launcher_test.go (left untracked)</h1>
+            <div class="metadata">
+                <span class="badge status-done">Done</span>
+                <span class="badge priority-low">Low Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="caused_by">
+                <h3>Caused By:</h3>
+                <ul>
+                    <li><a href="feat-ad78f52b.html" data-relationship="caused_by" data-since="2026-04-22T03:46:43.362692">feat-ad78f52b</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="trk-cd61bbae.html" data-relationship="part_of" data-since="2026-04-22T03:46:43.395503">trk-cd61bbae</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>The slice-5 subagent (feat-ad78f52b, commit c9d43f80) created cmd/htmlgraph/dashboard_launcher_test.go with presence/contract tests but never staged or committed it. The file is still untracked on main. Effect: the multi-pane test coverage the commit message implies (3 new presence tests: TestPaneRegistryExposed, TestPaneContainerInHTML, TestPaneStyles) does not actually run in CI. Fix: git add the file and commit as a test-only follow-up, or rebase-fix c9d43f80. Root cause: the agent worked in /workspaces/htmlgraph (main) instead of an isolated worktree, and the commit bash call did not include this new file in git add.</p>
+        </section>
+    </article>
+</body>
+</html>

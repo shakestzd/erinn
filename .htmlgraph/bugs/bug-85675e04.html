@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="htmlgraph-version" content="1.0">
+    <title>Pre-commit hook runs full go test ./... (~8 min in Codespaces) and stalls parallel subagents</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="bug-85675e04"
+             data-type="bug"
+             data-status="done"
+             data-priority="medium"
+             data-created="2026-04-22T03:46:49.456008"
+             data-updated="2026-04-22T04:04:43.717605" data-agent-assigned="claude-code" data-track-id="trk-cd61bbae">
+
+        <header>
+            <h1>Pre-commit hook runs full go test ./... (~8 min in Codespaces) and stalls parallel subagents</h1>
+            <div class="metadata">
+                <span class="badge status-done">Done</span>
+                <span class="badge priority-medium">Medium Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="trk-cd61bbae.html" data-relationship="part_of" data-since="2026-04-22T03:46:49.509398">trk-cd61bbae</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>The pre-commit hook at .githooks/pre-commit runs go build + go vet + go test ./... on every commit. In the ARM64 Codespace, the cmd/htmlgraph package alone takes ~67s; the full suite is 5-8 minutes. During /htmlgraph:execute three dispatched subagents hung on their final git commit waiting for this hook, and the agent output truncated before completion — leaving uncommitted work on main that I had to commit manually. Fix options: (1) scope test run to packages with staged Go files via git diff --cached; (2) run tests in -short mode for commit hooks and reserve full suite for CI; (3) offload test run to a background CI job and only block on build+vet. Surfaced during /htmlgraph:execute trk-cd61bbae.</p>
+        </section>
+    </article>
+</body>
+</html>

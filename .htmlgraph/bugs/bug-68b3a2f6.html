@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="htmlgraph-version" content="1.0">
+    <title>cmd/htmlgraph/main.go has uncommitted reference to undefined executePreviewCmd()</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="bug-68b3a2f6"
+             data-type="bug"
+             data-status="done"
+             data-priority="high"
+             data-created="2026-04-22T03:47:23.544284"
+             data-updated="2026-04-22T04:04:43.990944" data-agent-assigned="claude-code" data-track-id="trk-cd61bbae">
+
+        <header>
+            <h1>cmd/htmlgraph/main.go has uncommitted reference to undefined executePreviewCmd()</h1>
+            <div class="metadata">
+                <span class="badge status-done">Done</span>
+                <span class="badge priority-high">High Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="trk-cd61bbae.html" data-relationship="part_of" data-since="2026-04-22T03:47:23.638194">trk-cd61bbae</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>main.go at line ~143 has 'executePreview := executePreviewCmd()' followed by AddCommand(executePreview). executePreviewCmd is not defined anywhere in the cmd/htmlgraph package or elsewhere in the module. The change is uncommitted (currently preserved as stash@{0} 'uncommitted executePreviewCmd ref in main.go — orphaned, stashed during roborev-fix'). Anyone who pops that stash or otherwise resurfaces the change gets a compile break: 'cmd/htmlgraph/main.go:143:20: undefined: executePreviewCmd'. Fix: either add the missing command implementation (likely a plan-execute-preview feature that was partially scaffolded), or drop the three lines from main.go and the stash. Root: an earlier session drafted an Execute Preview command scaffold without finishing the constructor.</p>
+        </section>
+    </article>
+</body>
+</html>

@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="htmlgraph-version" content="1.0">
+    <title>[P2] Cross-environment absolute-path drift — class audit</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="bug-5150e42a"
+             data-type="bug"
+             data-status="done"
+             data-priority="medium"
+             data-created="2026-04-21T23:33:04.988735"
+             data-updated="2026-04-22T03:33:05.864596" data-agent-assigned="claude-code" data-track-id="trk-787f57d3">
+
+        <header>
+            <h1>[P2] Cross-environment absolute-path drift — class audit</h1>
+            <div class="metadata">
+                <span class="badge status-done">Done</span>
+                <span class="badge priority-medium">Medium Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="trk-787f57d3.html" data-relationship="part_of" data-since="2026-04-21T23:33:05.287244">trk-787f57d3</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="implemented_in">
+                <h3>Implemented In:</h3>
+                <ul>
+                    <li><a href="dd55ede3-a636-4605-a3b1-06f1c5954e66.html" data-relationship="implemented_in" data-since="2026-04-22T03:05:34.787519">session dd55ede3-a636-4605-a3b1-06f1c5954e66</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>Systemic concern: HtmlGraph currently carries machine-specific absolute paths in at least two places that break cross-environment sessions (macOS host <-> Linux devcontainer): (a) .claude/settings.local.json (existing memory entry documents this), (b) worktree .git files (bug above). Likely more: .htmlgraph/sessions rows may carry absolute project_dir paths; plugin installed-path references; Go binary paths cached in settings. Task: audit every on-disk artifact under .htmlgraph/, .claude/, and ~/.claude that could carry a local absolute path, classify each as (1) ephemeral — regenerate on session_start, (2) relative-rewriteable, (3) must-stay-absolute — document limitations. Acceptance: written audit listing every artifact, classification, and remediation plan.</p>
+        </section>
+    </article>
+</body>
+</html>

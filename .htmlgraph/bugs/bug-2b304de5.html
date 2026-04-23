@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="htmlgraph-version" content="1.0">
+    <title>htmlgraph hook SIGBUS on SQLite WAL mmap (ARM64)</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="bug-2b304de5"
+             data-type="bug"
+             data-status="done"
+             data-priority="medium"
+             data-created="2026-04-21T18:42:29.93536"
+             data-updated="2026-04-21T18:45:27.487798" data-agent-assigned="claude-code" data-track-id="trk-0677c709">
+
+        <header>
+            <h1>htmlgraph hook SIGBUS on SQLite WAL mmap (ARM64)</h1>
+            <div class="metadata">
+                <span class="badge status-done">Done</span>
+                <span class="badge priority-medium">Medium Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="trk-0677c709.html" data-relationship="part_of" data-since="2026-04-21T18:42:30.026816">trk-0677c709</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>htmlgraph hook pretooluse and posttooluse crash with SIGBUS inside modernc.org/sqlite/lib._walFindFrame on ARM64 (Codespaces devcontainer). Stack: libc.AtomicLoadNUint16 → _walFindFrame → _getPageMMap. Reliably reproducible after prolonged session / concurrent htmlgraph serve. Candidates: (1) switch DB to journal_mode=DELETE or TRUNCATE to bypass WAL mmap; (2) bump modernc.org/sqlite past v1.37.1 — ARM64 atomic-load codegen has churned; (3) swap to mattn/go-sqlite3 (CGo) to drop the libc.a_load_16 path entirely. Blocks /htmlgraph:plan (PostToolUse blocking errors on every write) and every htmlgraph CLI command that opens the DB. See plan-251676c5 draft.</p>
+        </section>
+    </article>
+</body>
+</html>

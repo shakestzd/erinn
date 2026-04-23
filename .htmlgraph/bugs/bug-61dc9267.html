@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="htmlgraph-version" content="1.0">
+    <title>[P1] Skill-flag smoke test: validate every flag prescribed in skills against CLI registration</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="bug-61dc9267"
+             data-type="bug"
+             data-status="done"
+             data-priority="medium"
+             data-created="2026-04-21T23:38:28.515909"
+             data-updated="2026-04-22T03:33:08.211808" data-agent-assigned="claude-code" data-track-id="trk-787f57d3">
+
+        <header>
+            <h1>[P1] Skill-flag smoke test: validate every flag prescribed in skills against CLI registration</h1>
+            <div class="metadata">
+                <span class="badge status-done">Done</span>
+                <span class="badge priority-medium">Medium Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="relates_to">
+                <h3>Relates To:</h3>
+                <ul>
+                    <li><a href="bug-cf929f1a.html" data-relationship="relates_to" data-since="2026-04-21T23:38:56.991253">[P1] /htmlgraph:execute burns 20&#43; tool calls on pre-dispatch discovery</a></li>
+                    <li><a href="bug-7ca3638b.html" data-relationship="relates_to" data-since="2026-04-21T23:38:58.272898">[P0] /htmlgraph:execute skill prescribes non-existent --format json flag on track show</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="implemented_in">
+                <h3>Implemented In:</h3>
+                <ul>
+                    <li><a href="dd55ede3-a636-4605-a3b1-06f1c5954e66.html" data-relationship="implemented_in" data-since="2026-04-22T03:05:19.017815">session dd55ede3-a636-4605-a3b1-06f1c5954e66</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="trk-787f57d3.html" data-relationship="part_of" data-since="2026-04-21T23:38:28.786825">trk-787f57d3</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>Missing systemic guardrail. The --format json bug (bug-cf929f1a's Finding 1) was latent in the skill corpus for an unknown time because skills are markdown with no automated validation. Build-time check: parse every plugin/skills/**/*.md, plugin/commands/**/*.md, plugin/agents/**/*.md for htmlgraph CLI invocations; extract flags; cross-reference against cobra command registrations in cmd/htmlgraph/. Fail build on any flag that is not registered on the target subcommand. Implementation option: Go test in cmd/htmlgraph that uses cobra's command walk + regex over skill markdown. Acceptance: adding 'htmlgraph feature --no-such-flag' to any skill breaks 'go test ./...'. Covered by synthesis of audit.</p>
+        </section>
+    </article>
+</body>
+</html>

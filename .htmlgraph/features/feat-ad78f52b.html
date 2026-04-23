@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="htmlgraph-version" content="1.0">
+    <title>Multi-pane shell (floating windows)</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="feat-ad78f52b"
+             data-type="feature"
+             data-status="done"
+             data-priority="medium"
+             data-created="2026-04-21T12:09:03.472804"
+             data-updated="2026-04-22T02:46:25.392769" data-agent-assigned="claude-code" data-track-id="trk-cd61bbae">
+
+        <header>
+            <h1>Multi-pane shell (floating windows)</h1>
+            <div class="metadata">
+                <span class="badge status-done">Done</span>
+                <span class="badge priority-medium">Medium Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="planned_in">
+                <h3>Planned In:</h3>
+                <ul>
+                    <li><a href="plan-0f48cf00.html" data-relationship="planned_in" data-since="2026-04-21T12:09:03.473588">plan-0f48cf00</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="trk-cd61bbae.html" data-relationship="part_of" data-since="2026-04-21T12:09:03.474595">trk-cd61bbae</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="implemented_in">
+                <h3>Implemented In:</h3>
+                <ul>
+                    <li><a href="4e04aad5-1543-452a-b0e8-47ebbce98427.html" data-relationship="implemented_in" data-since="2026-04-22T02:26:22.18712">session 4e04aad5-1543-452a-b0e8-47ebbce98427</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>Extend single-overlay to N simultaneous floating pane windows. Each pane is a draggable div with titlebar and iframe pointing at live ttyd port. On dashboard load, GET /api/terminal/sessions re-renders all live panes. Global pane registry keyed by UUID. Pane cap at 6; beforeunload fires stop-all beacon; dead panes show Ended state within 5s.</p>
+        </section>
+    </article>
+</body>
+</html>

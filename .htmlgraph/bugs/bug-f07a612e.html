@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="htmlgraph-version" content="1.0">
+    <title>[P2] Skills prescribe redundant sequential git/htmlgraph commands that can be chained</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="bug-f07a612e"
+             data-type="bug"
+             data-status="done"
+             data-priority="medium"
+             data-created="2026-04-21T23:38:32.289658"
+             data-updated="2026-04-22T03:33:10.079019" data-agent-assigned="claude-code" data-track-id="trk-787f57d3">
+
+        <header>
+            <h1>[P2] Skills prescribe redundant sequential git/htmlgraph commands that can be chained</h1>
+            <div class="metadata">
+                <span class="badge status-done">Done</span>
+                <span class="badge priority-medium">Medium Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="relates_to">
+                <h3>Relates To:</h3>
+                <ul>
+                    <li><a href="bug-cf929f1a.html" data-relationship="relates_to" data-since="2026-04-21T23:39:01.309353">[P1] /htmlgraph:execute burns 20&#43; tool calls on pre-dispatch discovery</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="trk-787f57d3.html" data-relationship="part_of" data-since="2026-04-21T23:38:32.644327">trk-787f57d3</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>Audit findings F5 + F6: (a) plugin/skills/execute/SKILL.md calls 'git worktree list' four separate times (lines 325-326, 409, 431, 446-455) for the same information; the cleanup section at 446 has 'git worktree prune' but only after a separate list call — should be 'git worktree prune && git worktree list' chained; (b) plugin/commands/git-commit.md:32-33 prescribes 'git diff --stat HEAD' then 'git status --short' as two separate steps — should be chained. Fix: audit all plugin skills and commands for consecutive related commands, chain with && where no output-parsing dependency exists. Acceptance: no two consecutive git or htmlgraph commands in a single numbered step without a justifying comment.</p>
+        </section>
+    </article>
+</body>
+</html>

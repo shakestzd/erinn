@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="htmlgraph-version" content="1.0">
+    <title>UUID-keyed sessions &#43; inventory endpoints</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="feat-a56428d0"
+             data-type="feature"
+             data-status="done"
+             data-priority="medium"
+             data-created="2026-04-21T12:08:39.01974"
+             data-updated="2026-04-22T02:23:43.593088" data-agent-assigned="claude-code" data-track-id="trk-cd61bbae">
+
+        <header>
+            <h1>UUID-keyed sessions &#43; inventory endpoints</h1>
+            <div class="metadata">
+                <span class="badge status-done">Done</span>
+                <span class="badge priority-medium">Medium Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="trk-cd61bbae.html" data-relationship="part_of" data-since="2026-04-21T12:08:39.020786">trk-cd61bbae</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="implemented_in">
+                <h3>Implemented In:</h3>
+                <ul>
+                    <li><a href="4e04aad5-1543-452a-b0e8-47ebbce98427.html" data-relationship="implemented_in" data-since="2026-04-22T01:29:24.910473">session 4e04aad5-1543-452a-b0e8-47ebbce98427</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="planned_in">
+                <h3>Planned In:</h3>
+                <ul>
+                    <li><a href="plan-0f48cf00.html" data-relationship="planned_in" data-since="2026-04-21T12:08:39.020531">plan-0f48cf00</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>Add UUID v4 id field to session struct; rekey in-memory map from pid to UUID. Add GET /api/terminal/sessions returning array with state (pending/live/exited). Add POST /api/terminal/stop accepting id or pid. Add POST /api/terminal/stop-all for beforeunload beacon.</p>
+        </section>
+    </article>
+</body>
+</html>

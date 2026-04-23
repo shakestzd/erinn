@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="htmlgraph-version" content="1.0">
+    <title>[P0] feature start does not write claim row</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="bug-0d55d8e4"
+             data-type="bug"
+             data-status="done"
+             data-priority="medium"
+             data-created="2026-04-21T21:38:34.743191"
+             data-updated="2026-04-21T22:23:56.885241" data-agent-assigned="claude-code" data-track-id="trk-cd61bbae">
+
+        <header>
+            <h1>[P0] feature start does not write claim row</h1>
+            <div class="metadata">
+                <span class="badge status-done">Done</span>
+                <span class="badge priority-medium">Medium Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="blocks">
+                <h3>Blocks:</h3>
+                <ul>
+                    <li><a href="feat-69e27f1a.html" data-relationship="blocks" data-since="2026-04-21T21:38:43.988656">Generalize Manager.Start request surface</a></li>
+                    <li><a href="feat-e69b4c92.html" data-relationship="blocks" data-since="2026-04-21T21:38:44.753483">Extract worktree creation primitive</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="implemented_in">
+                <h3>Implemented In:</h3>
+                <ul>
+                    <li><a href="7de63636-e24e-4803-81e3-ec75a911a974.html" data-relationship="implemented_in" data-since="2026-04-21T22:14:06.465096">session 7de63636-e24e-4803-81e3-ec75a911a974</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="trk-cd61bbae.html" data-relationship="part_of" data-since="2026-04-21T21:38:34.778447">trk-cd61bbae</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>feature start  reports 'Started: ...' but does not write a new row to claims table. All claims remain expired while sessions.active_feature_id updates correctly. Because PreToolUse guard reads claims.claimed_by_agent_id (not sessions.active_feature_id), orchestrator cannot satisfy guard after misclassification. Acceptance: feature start must idempotently create/renew a live claim for current session as part of its write path. If it refuses, it must report why. Code: internal/hooks/pretooluse.go:502-516</p>
+        </section>
+    </article>
+</body>
+</html>

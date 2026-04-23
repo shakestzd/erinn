@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="htmlgraph-version" content="1.0">
+    <title>devcontainer post-create.sh fails: .devcontainer/claude.omp.json missing</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="bug-6abdc10e"
+             data-type="bug"
+             data-status="done"
+             data-priority="medium"
+             data-created="2026-04-21T21:08:18.986392"
+             data-updated="2026-04-21T21:15:29.195005" data-agent-assigned="claude-code" data-track-id="trk-0677c709">
+
+        <header>
+            <h1>devcontainer post-create.sh fails: .devcontainer/claude.omp.json missing</h1>
+            <div class="metadata">
+                <span class="badge status-done">Done</span>
+                <span class="badge priority-medium">Medium Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="trk-0677c709.html" data-relationship="part_of" data-since="2026-04-21T21:08:18.990662">trk-0677c709</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="implemented_in">
+                <h3>Implemented In:</h3>
+                <ul>
+                    <li><a href="7bbe5f83-6c50-46d7-b257-54682e1c875b.html" data-relationship="implemented_in" data-since="2026-04-21T21:08:44.166871">session 7bbe5f83-6c50-46d7-b257-54682e1c875b</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>devcontainer build succeeds but post-create.sh exits 1 at 'Installing Claude Code Oh My Posh theme' step. Error: cp: cannot stat '.devcontainer/claude.omp.json': No such file or directory. File is referenced by post-create.sh but not present in .devcontainer/. Either file was never committed, was moved/renamed, or step should be gated. Affects devcontainer bring-up for codespaces/devcontainer users.</p>
+        </section>
+    </article>
+</body>
+</html>

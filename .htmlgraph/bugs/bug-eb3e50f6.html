@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="htmlgraph-version" content="1.0">
+    <title>[P2] Non-hermetic test fixtures: hardcoded /tmp/ paths and macOS developer username</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="bug-eb3e50f6"
+             data-type="bug"
+             data-status="done"
+             data-priority="medium"
+             data-created="2026-04-21T23:38:30.083949"
+             data-updated="2026-04-22T03:01:32.360274" data-agent-assigned="claude-code" data-track-id="trk-787f57d3">
+
+        <header>
+            <h1>[P2] Non-hermetic test fixtures: hardcoded /tmp/ paths and macOS developer username</h1>
+            <div class="metadata">
+                <span class="badge status-done">Done</span>
+                <span class="badge priority-medium">Medium Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="relates_to">
+                <h3>Relates To:</h3>
+                <ul>
+                    <li><a href="bug-5150e42a.html" data-relationship="relates_to" data-since="2026-04-21T23:38:59.895228">[P2] Cross-environment absolute-path drift — class audit</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="implemented_in">
+                <h3>Implemented In:</h3>
+                <ul>
+                    <li><a href="dd55ede3-a636-4605-a3b1-06f1c5954e66.html" data-relationship="implemented_in" data-since="2026-04-22T02:20:31.069462">session dd55ede3-a636-4605-a3b1-06f1c5954e66</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="trk-787f57d3.html" data-relationship="part_of" data-since="2026-04-21T23:38:30.294706">trk-787f57d3</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>Audit findings F4, F8, F9: (a) cmd/htmlgraph/statusline_test.go:178,195,275-276 — mixes t.TempDir() with literal '/tmp/test-clear/.htmlgraph' and '/tmp/project-a' as fixture paths, causing cross-test pollution under parallel runs; (b) cmd/htmlgraph/ingest_events_test.go:40,46,144 and session_roundtrip_test.go:63,64,203 — JSON fixture data embeds '/tmp/test.go' and '/tmp/a.go' paths (inert today but encodes Linux TMPDIR assumption); (c) internal/agent/detect_test.go:81,145 — hardcodes '/private/tmp/claude-501/-Users-shakes-/' with the original developer's username in a t.Setenv call. Fix: replace all with t.TempDir() (for real files) or synthetic placeholders like /mock/a.go and -Users-testuser- (for fixture strings). Acceptance: no test file contains literal /tmp/, /Users//, or /home//. go test ./... -race still passes.</p>
+        </section>
+    </article>
+</body>
+</html>

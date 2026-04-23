@@ -57,7 +57,7 @@ func setupMigrateEnv(t *testing.T, orphanIDs ...string) string {
 			SessionID:      id,
 			ToolName:       "Read",
 			ToolUseID:      "tu-" + id,
-			InputJSON:      `{"file_path":"/tmp/a.go"}`,
+			InputJSON:      `{"file_path":"/mock/a.go"}`,
 			Category:       "Read",
 			MessageOrdinal: 0,
 		}

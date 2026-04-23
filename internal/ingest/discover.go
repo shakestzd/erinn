@@ -49,7 +49,7 @@ func DiscoverSessions(projectFilter string) ([]SessionFile, error) {
 			// the project (worktrees like .claude/worktrees/trk-xxx).  Do NOT
 			// accept ancestors of the project — that match direction caused
 			// every project's DB to ingest sessions from ~/.claude/projects/
-			// -Users-shakes/ (the home-directory entry), because every project
+			// -Users-alice/ (the home-directory entry), because every project
 			// lives under the home directory (bug-a52d5bf9).
 			decodedPath := decodeProjectPath(entry.Name())
 			pathMatch := strings.EqualFold(decodedPath, projectFilter) ||
@@ -117,7 +117,7 @@ func DiscoverSubagents(sessionDir string) ([]SessionFile, error) {
 }
 
 // decodeProjectName converts Claude's dash-encoded path to a human-friendly name.
-// e.g. "-Users-shakes-DevProjects-htmlgraph" → "htmlgraph"
+// e.g. "-Users-alice-DevProjects-htmlgraph" → "htmlgraph"
 func decodeProjectName(encoded string) string {
 	parts := strings.Split(encoded, "-")
 	if len(parts) == 0 {
@@ -147,7 +147,7 @@ func decodeProjectName(encoded string) string {
 // dash-encoded project directory name.
 // Claude encodes paths by replacing "/" with "-", so the leading "-" represents
 // the root separator.
-// e.g. "-Users-shakes-DevProjects-htmlgraph" → "/Users/shakes/DevProjects/htmlgraph"
+// e.g. "-Users-<user>-DevProjects-htmlgraph" → "/Users/<user>/DevProjects/htmlgraph"
 func decodeProjectPath(encoded string) string {
 	if encoded == "" {
 		return ""
@@ -155,7 +155,7 @@ func decodeProjectPath(encoded string) string {
 	// Strip a leading dash (represents the root "/") then replace remaining dashes.
 	// We replace "-" with "/" which reconstructs the path from the encoding.
 	// Claude encodes absolute paths starting with "/" as "-..." so:
-	// "-Users-shakes-DevProjects-htmlgraph" → "/Users/shakes/DevProjects/htmlgraph"
+	// "-Users-<user>-DevProjects-htmlgraph" → "/Users/<user>/DevProjects/htmlgraph"
 	if strings.HasPrefix(encoded, "-") {
 		return "/" + strings.ReplaceAll(encoded[1:], "-", "/")
 	}

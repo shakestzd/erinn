@@ -398,7 +398,12 @@
       "Bash(ps -p 30084 -o pid,ppid,command)",
       "Bash(ps -p 30160 -o pid,state,wchan,pcpu,etime,command)",
       "Bash(ps -p 30160 -o pid,state)",
-      "Bash(ps -p 39529 -o pid,command)"
+      "Bash(ps -p 39529 -o pid,command)",
+      "WebFetch(domain:www.langchain.com)",
+      "Bash(command -v socat)",
+      "Bash(command -v ncat)",
+      "Bash(ip -4 addr show)",
+      "Bash(ip route *)"
     ]
   },
   "statusLine": {

@@ -175,7 +175,7 @@ func TestWriteStatuslineCache_ClearsOnComplete(t *testing.T) {
 	cacheDir := t.TempDir()
 	t.Setenv("HTMLGRAPH_CACHE_DIR", cacheDir)
 
-	hgDir := "/tmp/test-clear/.htmlgraph"
+	hgDir := filepath.Join(t.TempDir(), ".htmlgraph")
 	cachePath := statuslineCachePath(hgDir)
 	os.WriteFile(cachePath, []byte("old data"), 0o644)
 
@@ -192,7 +192,7 @@ func TestReadStatuslineCache_ReadsFile(t *testing.T) {
 	cacheDir := t.TempDir()
 	t.Setenv("HTMLGRAPH_CACHE_DIR", cacheDir)
 
-	hgDir := "/tmp/test-project/.htmlgraph"
+	hgDir := filepath.Join(t.TempDir(), ".htmlgraph")
 	// Write to the project-scoped path.
 	cachePath := statuslineCachePath(hgDir)
 	os.WriteFile(cachePath, []byte("test content"), 0o644)
@@ -206,7 +206,7 @@ func TestReadStatuslineCache_ReadsFile(t *testing.T) {
 func TestReadStatuslineCache_EmptyOnMissing(t *testing.T) {
 	t.Setenv("HTMLGRAPH_CACHE_DIR", t.TempDir())
 
-	got := ReadStatuslineCache("/tmp/nonexistent/.htmlgraph")
+	got := ReadStatuslineCache(filepath.Join(t.TempDir(), "nonexistent", ".htmlgraph"))
 	if got != "" {
 		t.Errorf("expected empty for missing cache, got %q", got)
 	}
@@ -272,8 +272,8 @@ func TestStatuslineCacheProjectIsolation(t *testing.T) {
 	cacheDir := t.TempDir()
 	t.Setenv("HTMLGRAPH_CACHE_DIR", cacheDir)
 
-	dirA := "/tmp/project-a/.htmlgraph"
-	dirB := "/tmp/project-b/.htmlgraph"
+	dirA := filepath.Join(t.TempDir(), ".htmlgraph")
+	dirB := filepath.Join(t.TempDir(), ".htmlgraph")
 
 	// Write cache for project A.
 	pathA := statuslineCachePath(dirA)

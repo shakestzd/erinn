@@ -53,7 +53,7 @@ func TestParse_UserAndAssistant(t *testing.T) {
 }
 
 func TestParse_ToolUse(t *testing.T) {
-	jsonl := `{"type":"assistant","uuid":"a1","parentUuid":"u1","message":{"model":"claude-sonnet-4-6","role":"assistant","content":[{"type":"tool_use","id":"toolu_123","name":"Read","input":{"file_path":"/tmp/test.go"}},{"type":"tool_use","id":"toolu_456","name":"Bash","input":{"command":"go test"}}],"usage":{"input_tokens":10,"output_tokens":20}},"timestamp":"2026-03-27T20:00:00.000Z","sessionId":"sess-2"}`
+	jsonl := `{"type":"assistant","uuid":"a1","parentUuid":"u1","message":{"model":"claude-sonnet-4-6","role":"assistant","content":[{"type":"tool_use","id":"toolu_123","name":"Read","input":{"file_path":"/mock/test.go"}},{"type":"tool_use","id":"toolu_456","name":"Bash","input":{"command":"go test"}}],"usage":{"input_tokens":10,"output_tokens":20}},"timestamp":"2026-03-27T20:00:00.000Z","sessionId":"sess-2"}`
 
 	result, err := parse(strings.NewReader(jsonl))
 	if err != nil {

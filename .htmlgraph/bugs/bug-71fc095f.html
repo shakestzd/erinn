@@ -40,23 +40,23 @@
 
         <section data-content>
             <h3>Description</h3>
-            <p>Discovered during the parallel-sessions investigation on 2026-04-11. The current htmlgraph session_id (8d53982f-66f2-415b-a645-1886eb8ae438) appears in /Users/shakes/DevProjects/shakestzd/.htmlgraph/htmlgraph.db with 902 events but 0 messages, when it should only exist in /Users/shakes/DevProjects/htmlgraph/.htmlgraph/htmlgraph.db.
+            <p>Discovered during the parallel-sessions investigation on 2026-04-11. The current htmlgraph session_id (8d53982f-66f2-415b-a645-1886eb8ae438) appears in <repo-root>/.htmlgraph/htmlgraph.db with 902 events but 0 messages, when it should only exist in <repo-root>/.htmlgraph/htmlgraph.db.
 
-Evidence from shakestzd DB query:
-  8d53982f|/Users/shakes/DevProjects/shakestzd|902|0|2026-04-10T17:14:56Z
+Evidence from separate-project DB query:
+  8d53982f|<repo-root>|902|0|2026-04-10T17:14:56Z
 
-The row has project_dir correctly set to shakestzd, created_at is 2026-04-10T17:14:56Z (several hours into this session), 902 events but ZERO messages. That pattern (events without messages) suggests hook-driven event inserts without any JSONL ingest or live-hook SessionStart to seed the messages table.
+The row has project_dir correctly set to the separate project, created_at is 2026-04-10T17:14:56Z (several hours into this session), 902 events but ZERO messages. That pattern (events without messages) suggests hook-driven event inserts without any JSONL ingest or live-hook SessionStart to seed the messages table.
 
 Suspected causes (not yet verified):
 1. .htmlgraph/.active-session file race from the pre-v0.53.0 architecture (supposed to be fixed but may still leak in some code path)
-2. CWD-resolution bug where an htmlgraph CLI command run from shakestzd's directory during doorway testing picked up the 8d53982f session_id from env/active-session and wrote hook events against shakestzd's DB
+2. CWD-resolution bug where an htmlgraph CLI command run from a separate project's directory during doorway testing picked up the 8d53982f session_id from env/active-session and wrote hook events against the separate project's DB
 3. Cross-project env var leak — HTMLGRAPH_SESSION_ID env var set by a subagent or hook spawn bleeding across project boundaries
 4. autoIngestLoop attributing transcripts from the wrong source (checked earlier but worth re-verifying for this specific case)
 
 Investigation needs:
-- Inspect shakestzd's agent_events rows for session_id=8d53982f-66f2-415b-a645-1886eb8ae438 to see the source, tool_name, and timestamps — what kind of events are these 902 rows?
+- Inspect the separate project's agent_events rows for session_id=8d53982f-66f2-415b-a645-1886eb8ae438 to see the source, tool_name, and timestamps — what kind of events are these 902 rows?
 - Check the source column (hook/ingest/reindex) to narrow down the write path
-- Check cwd field on those events to see if they were written with shakestzd as the target
+- Check cwd field on those events to see if they were written with the separate project as the target
 - Grep the Go source for places that read session_id from env/file without project-dir scoping
 - Verify whether this happens to all cross-project work or only when the user explicitly cd'd between projects during a single htmlgraph invocation chain
 

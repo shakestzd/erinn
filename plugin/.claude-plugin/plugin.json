@@ -1,6 +1,6 @@
 {
   "name": "htmlgraph",
-  "version": "0.55.6",
+  "version": "0.55.5",
   "description": "Local-first observability and coordination platform for AI-assisted development. Go binary hooks for near-zero cold start.",
   "author": {
     "name": "Shakes Dlamini"

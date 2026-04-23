@@ -76,10 +76,10 @@ When executing features that originated from a plan, you must first resolve the 
 
 Before creating any tasks, resolve the track's human title by running:
 ```
-Bash("htmlgraph track show <trk-id> --format json")
+Bash("htmlgraph track show <trk-id>")
 ```
 
-Extract the `.title` field. Use it (not the raw track ID) as the outer `Agent()` description when spawning the top-level coordinator:
+Parse the `title` field from the text output. Use it (not the raw track ID) as the outer `Agent()` description when spawning the top-level coordinator:
 
 ```
 Agent(description="Multi-Project MVP: execute plan", ...)  # ✓ GOOD

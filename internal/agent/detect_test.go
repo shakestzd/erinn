@@ -78,7 +78,7 @@ func TestResolveSessionID_ExplicitEnv(t *testing.T) {
 func TestResolveSessionID_ClaudeSessionID(t *testing.T) {
 	testUUID := "550e8400-e29b-41d4-a716-446655440000"
 	t.Setenv("HTMLGRAPH_SESSION_ID", "")
-	t.Setenv("CLAUDE_SESSION_ID", "/private/tmp/claude-501/-Users-shakes-/"+testUUID)
+	t.Setenv("CLAUDE_SESSION_ID", "/mock/claude-session/-Users-testuser-/"+testUUID)
 	result := agent.ResolveSessionID(t.TempDir())
 	if result != testUUID {
 		t.Errorf("got %q, want %q", result, testUUID)
@@ -142,7 +142,7 @@ func TestNormaliseSessionID_PlainUUID(t *testing.T) {
 
 func TestNormaliseSessionID_PathStyle(t *testing.T) {
 	uuid := "550e8400-e29b-41d4-a716-446655440000"
-	path := "/private/tmp/claude-501/-Users-shakes-DevProjects/" + uuid
+	path := "/mock/claude-session/-Users-testuser-DevProjects/" + uuid
 	result := agent.NormaliseSessionID(path)
 	if result != uuid {
 		t.Errorf("should extract UUID from path: got %q, want %q", result, uuid)

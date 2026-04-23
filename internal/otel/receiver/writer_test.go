@@ -255,7 +255,7 @@ func TestWriter_OrphanSpanCreatePlaceholder(t *testing.T) {
 		AgentID:   agentID,
 		AgentType: "haiku-coder",
 		SessionID: sessionID,
-		CWD:       "/tmp/test",
+		CWD:       "/mock/test",
 		CreatedAt: time.Now().UnixMicro(),
 	}
 	if err := db.UpsertPendingSubagentStart(readDB, pending); err != nil {

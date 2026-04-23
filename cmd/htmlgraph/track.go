@@ -40,19 +40,26 @@ func trackCmdWithExtras() *cobra.Command {
 // trackShowCmd shows a single track by ID.
 func trackShowCmd() *cobra.Command {
 	var deep bool
+	var format string
 	cmd := &cobra.Command{
 		Use:   "show <id>",
 		Short: "Show track details",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(_ *cobra.Command, args []string) error {
-			return runTrackShow(args[0], deep)
+			return runTrackShowFormat(args[0], deep, format)
 		},
 	}
 	cmd.Flags().BoolVar(&deep, "deep", false, "Show all linked items with steps and edges")
+	cmd.Flags().StringVar(&format, "format", "text", "Output format: json or text")
 	return cmd
 }
 
 func runTrackShow(id string, deep bool) error {
+	return runTrackShowFormat(id, deep, "text")
+}
+
+// runTrackShowFormat shows a track in the given format ("json" or "text").
+func runTrackShowFormat(id string, deep bool, format string) error {
 	dir, err := findHtmlgraphDir()
 	if err != nil {
 		return err
@@ -71,6 +78,10 @@ func runTrackShow(id string, deep bool) error {
 	node, err := htmlparse.ParseFile(path)
 	if err != nil {
 		return fmt.Errorf("parse %s: %w", path, err)
+	}
+
+	if format == "json" {
+		return printNodeJSON(node)
 	}
 
 	if deep {

@@ -175,7 +175,7 @@ slices:
       deps:
         - 1
       done_when:
-        - 'PRECONDITION: at least one real Copilot session captured locally and committed under internal/ingest/testdata/copilot/ (redacted). The fixture in /home/vscode/.copilot/session-state/869d1f67.../ from the user''s working session is the seed candidate'
+        - 'PRECONDITION: at least one real Copilot session captured locally and committed under internal/ingest/testdata/copilot/ (redacted). The fixture in <user-home>/.copilot/session-state/<session-id>/ from the user''s working session is the seed candidate'
         - 'PRECONDITION: Copilot session-state format documented — files present, JSON shape, message ordering. The plan asserts ''likely JSON files including plan.md, messages, tool calls'' but this is unverified'
         - DiscoverCopilotSessions() returns sessions from ~/.copilot/session-state/
         - Parser handles real Copilot session-state with format-version sniff and warning on unknown formats

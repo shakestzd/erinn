@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -96,17 +97,26 @@ func runWiList(dirName, statusFilter string) error {
 }
 
 func wiShowCmd(typeName string) *cobra.Command {
-	return &cobra.Command{
+	var format string
+	cmd := &cobra.Command{
 		Use:   "show <id>",
 		Short: "Show " + typeName + " details",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(_ *cobra.Command, args []string) error {
-			return runWiShow(args[0])
+			return runWiShowFormat(args[0], format)
 		},
 	}
+	cmd.Flags().StringVar(&format, "format", "text", "Output format: json or text")
+	return cmd
 }
 
 func runWiShow(id string) error {
+	return runWiShowFormat(id, "text")
+}
+
+// runWiShowFormat shows a work item in the given format ("json" or "text").
+// It is the testable core used by wiShowCmd and plan/track show commands.
+func runWiShowFormat(id, format string) error {
 	dir, err := findHtmlgraphDir()
 	if err != nil {
 		return err
@@ -124,7 +134,20 @@ func runWiShow(id string) error {
 	if err != nil {
 		return fmt.Errorf("parse %s: %w", path, err)
 	}
+	if format == "json" {
+		return printNodeJSON(node)
+	}
 	printNodeDetail(node)
+	return nil
+}
+
+// printNodeJSON serialises a Node to indented JSON on stdout.
+func printNodeJSON(n *models.Node) error {
+	data, err := json.MarshalIndent(n, "", "  ")
+	if err != nil {
+		return fmt.Errorf("marshal json: %w", err)
+	}
+	fmt.Println(string(data))
 	return nil
 }
 

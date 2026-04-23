@@ -6,24 +6,23 @@ import (
 	"testing"
 )
 
-// Codex session-start payload — matches the real captured payload shape from
-// /tmp/htmlgraph-codex-hook-payloads/session-start-86946.json.
+// Codex session-start payload — representative captured payload shape.
 const codexSessionStartJSON = `{
 	"session_id": "019da445-8036-73c2-a8fc-dacdb57417a8",
-	"transcript_path": "/Users/shakes/.codex/sessions/2026/04/19/rollout-2026-04-19T01-45-11-019da445-8036-73c2-a8fc-dacdb57417a8.jsonl",
-	"cwd": "/Users/shakes/DevProjects/htmlgraph",
+	"transcript_path": "/mock/.codex/sessions/2026/04/19/rollout-2026-04-19T01-45-11-019da445-8036-73c2-a8fc-dacdb57417a8.jsonl",
+	"cwd": "/mock/DevProjects/htmlgraph",
 	"hook_event_name": "SessionStart",
 	"model": "gpt-5.4",
 	"permission_mode": "default",
 	"source": "startup"
 }`
 
-// Codex user-prompt payload — matches /tmp/htmlgraph-codex-hook-payloads/user-prompt-86954.json.
+// Codex user-prompt payload.
 const codexUserPromptJSON = `{
 	"session_id": "019da445-8036-73c2-a8fc-dacdb57417a8",
 	"turn_id": "019da445-a255-77e1-98c4-9d456711f47b",
-	"transcript_path": "/Users/shakes/.codex/sessions/2026/04/19/rollout-2026-04-19T01-45-11-019da445-8036-73c2-a8fc-dacdb57417a8.jsonl",
-	"cwd": "/Users/shakes/DevProjects/htmlgraph",
+	"transcript_path": "/mock/.codex/sessions/2026/04/19/rollout-2026-04-19T01-45-11-019da445-8036-73c2-a8fc-dacdb57417a8.jsonl",
+	"cwd": "/mock/DevProjects/htmlgraph",
 	"hook_event_name": "UserPromptSubmit",
 	"model": "gpt-5.4",
 	"permission_mode": "default",
@@ -33,10 +32,10 @@ const codexUserPromptJSON = `{
 // Claude CloudEvent payload — typical SessionStart shape sent by Claude Code.
 const claudeSessionStartJSON = `{
 	"session_id": "sess-abc123",
-	"cwd": "/Users/shakes/DevProjects/htmlgraph",
+	"cwd": "/mock/DevProjects/htmlgraph",
 	"permission_mode": "default",
 	"model": "claude-opus-4-5",
-	"transcript_path": "/tmp/session.jsonl",
+	"transcript_path": "/mock/session.jsonl",
 	"source": "startup"
 }`
 
@@ -45,7 +44,7 @@ const claudeSessionStartJSON = `{
 const geminiSessionStartJSON = `{
 	"invocation_id": "gemini-inv-abc123",
 	"session_id": "gemini-sess-xyz789",
-	"cwd": "/Users/shakes/DevProjects/htmlgraph",
+	"cwd": "/mock/DevProjects/htmlgraph",
 	"model": "gemini-2.5-pro"
 }`
 
@@ -104,8 +103,8 @@ func TestParseCodexSessionStart(t *testing.T) {
 	if ev.SessionID != "019da445-8036-73c2-a8fc-dacdb57417a8" {
 		t.Errorf("SessionID = %q, want 019da445-8036-73c2-a8fc-dacdb57417a8", ev.SessionID)
 	}
-	if ev.CWD != "/Users/shakes/DevProjects/htmlgraph" {
-		t.Errorf("CWD = %q, want /Users/shakes/DevProjects/htmlgraph", ev.CWD)
+	if ev.CWD != "/mock/DevProjects/htmlgraph" {
+		t.Errorf("CWD = %q, want /mock/DevProjects/htmlgraph", ev.CWD)
 	}
 	if ev.Model != "gpt-5.4" {
 		t.Errorf("Model = %q, want gpt-5.4", ev.Model)
@@ -211,8 +210,8 @@ func TestParseGeminiSessionStart(t *testing.T) {
 	if ev.SessionID != "gemini-sess-xyz789" {
 		t.Errorf("SessionID = %q, want gemini-sess-xyz789", ev.SessionID)
 	}
-	if ev.CWD != "/Users/shakes/DevProjects/htmlgraph" {
-		t.Errorf("CWD = %q, want /Users/shakes/DevProjects/htmlgraph", ev.CWD)
+	if ev.CWD != "/mock/DevProjects/htmlgraph" {
+		t.Errorf("CWD = %q, want /mock/DevProjects/htmlgraph", ev.CWD)
 	}
 }
 

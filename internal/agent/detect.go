@@ -75,7 +75,7 @@ func ResolveSessionID(projectDir string) string {
 // NormaliseSessionID extracts a UUID from a path-style session_id that Claude
 // Code sometimes provides for subagent sessions, e.g.:
 //
-//	/private/tmp/claude-501/-Users-shakes-.../550e8400-e29b-41d4-a716-446655440000
+//	/tmp/claude-<uid>/-Users-<user>-.../550e8400-e29b-41d4-a716-446655440000
 //
 // If no UUID is found, or the input has no slash, the original string is
 // returned unchanged.

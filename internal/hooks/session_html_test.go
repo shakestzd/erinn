@@ -360,8 +360,8 @@ func TestRenderIngestedSessionHTML_Shape(t *testing.T) {
 			{Ordinal: 1, Role: "assistant", Timestamp: msgTs.Add(5 * time.Second)},
 		},
 		ToolCalls: []models.ToolCall{
-			{MessageOrdinal: 1, ToolName: "Read", ToolUseID: "tu-1", InputJSON: `{"file_path":"/tmp/a.go"}`},
-			{MessageOrdinal: 1, ToolName: "Edit", ToolUseID: "tu-2", InputJSON: `{"file_path":"/tmp/a.go"}`},
+			{MessageOrdinal: 1, ToolName: "Read", ToolUseID: "tu-1", InputJSON: `{"file_path":"/mock/a.go"}`},
+			{MessageOrdinal: 1, ToolName: "Edit", ToolUseID: "tu-2", InputJSON: `{"file_path":"/mock/a.go"}`},
 			{MessageOrdinal: 1, ToolName: "Bash", ToolUseID: "tu-3", InputJSON: `{"command":"echo hi"}`},
 		},
 		Model: "claude-sonnet-4-5",

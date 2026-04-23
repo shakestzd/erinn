@@ -3,6 +3,7 @@ package terminal
 import (
 	"os/exec"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 )
@@ -140,6 +141,30 @@ func TestStartRequestZeroValue(t *testing.T) {
 	if got != want {
 		t.Errorf("zero StartRequest should produce %q, got %q", want, got)
 	}
+}
+
+// TestStopDuringReap verifies that stopping a session concurrently with its
+// reaper does not race on cmd.Wait(). Run with -race. Regression test for
+// the double-Wait bug on PR #55.
+func TestStopDuringReap(t *testing.T) {
+	if _, err := exec.LookPath("ttyd"); err != nil {
+		t.Skip("ttyd not installed")
+	}
+	m := NewManager()
+	defer m.StopAll()
+
+	id, _, _, err := m.Start(StartRequest{}, t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Race stop against whatever the reaper is doing.
+	var wg sync.WaitGroup
+	wg.Add(2)
+	go func() { defer wg.Done(); _ = m.StopByID(id) }()
+	go func() { defer wg.Done(); _ = m.StopByID(id) }()
+	wg.Wait()
+	// If -race is clean and we didn't panic, the fix holds.
 }
 
 // TestParallelLaunch4 spawns 4 concurrent Manager.Start calls and asserts:

@@ -3,6 +3,7 @@ package db_test
 import (
 	"database/sql"
 	"fmt"
+	"sync"
 	"testing"
 	"time"
 
@@ -723,4 +724,41 @@ func TestListClaims(t *testing.T) {
 			t.Errorf("limit 1: got %d, want 1", len(limited))
 		}
 	})
+}
+
+// TestClaimItemOrRenewParallel verifies that N concurrent callers cannot
+// produce duplicate active claim rows for the same (work_item, agent_id).
+// Regression test for the non-atomic UPDATE→INSERT race on PR #55.
+func TestClaimItemOrRenewParallel(t *testing.T) {
+	database := setupClaimDB(t)
+	defer database.Close()
+
+	const N = 8
+	var wg sync.WaitGroup
+	wg.Add(N)
+	for i := 0; i < N; i++ {
+		go func(i int) {
+			defer wg.Done()
+			c := &models.Claim{
+				ClaimID:          fmt.Sprintf("claim-par-%d", i),
+				WorkItemID:       "feat-parallel-x",
+				ClaimedByAgentID: "agent-A",
+				OwnerSessionID:   fmt.Sprintf("sess-%d", i),
+				OwnerAgent:       "claude-code",
+			}
+			_ = db.ClaimItemOrRenew(database, c, 30*time.Second)
+		}(i)
+	}
+	wg.Wait()
+
+	var count int
+	if err := database.QueryRow(
+		`SELECT COUNT(*) FROM claims WHERE work_item_id = ? AND claimed_by_agent_id = ? AND status IN ('proposed','claimed','in_progress','blocked','handoff_pending')`,
+		"feat-parallel-x", "agent-A",
+	).Scan(&count); err != nil {
+		t.Fatal(err)
+	}
+	if count != 1 {
+		t.Fatalf("expected exactly 1 active claim, got %d", count)
+	}
 }

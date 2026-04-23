@@ -28,6 +28,8 @@ go build ./... && go vet ./... && go test ./...
 
 Use `/htmlgraph:code-quality-skill` for the complete pre-commit workflow.
 
+Pre-commit hook scopes `go test` to packages containing staged `.go` files. Set `HTMLGRAPH_HOOK_FULL_TESTS=1` to force the full suite locally; CI always runs the full suite.
+
 ---
 
 ## Deploy

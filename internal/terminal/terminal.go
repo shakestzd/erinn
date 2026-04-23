@@ -78,7 +78,8 @@ type session struct {
 	mode      string
 	cwd       string
 	startedAt time.Time
-	state     string // "pending" | "live" | "exited"
+	state     string      // "pending" | "live" | "exited"
+	done      chan struct{} // closed by the reaper goroutine after cmd.Wait returns
 }
 
 // Manager owns the lifecycle of ttyd sidecar processes.
@@ -258,6 +259,7 @@ func (m *Manager) Start(req StartRequest, defaultDir string) (id string, port in
 		cwd:       workDir,
 		startedAt: time.Now(),
 		state:     "pending",
+		done:      make(chan struct{}),
 	}
 
 	m.mu.Lock()
@@ -275,13 +277,16 @@ func (m *Manager) Start(req StartRequest, defaultDir string) (id string, port in
 		m.setLive(id)
 	}()
 
-	// Reap the process: flip to exited, keep entry for 10s for visibility, then remove.
+	// Reap the process: flip to exited, signal done, keep entry for 10s for
+	// visibility, then remove. s is the sole owner of cmd.Wait() — stopSession
+	// must never call cmd.Wait() directly; it selects on s.done instead.
 	go func() {
-		_ = cmd.Wait()
-		m.markExited(id)
+		_ = s.cmd.Wait()
+		m.markExited(s.id)
+		close(s.done)
 		time.Sleep(10 * time.Second)
 		m.mu.Lock()
-		delete(m.sessions, id)
+		delete(m.sessions, s.id)
 		m.mu.Unlock()
 	}()
 
@@ -337,21 +342,22 @@ func (m *Manager) StopByPID(pid int) error {
 	return m.stopSession(found)
 }
 
-// stopSession sends SIGTERM and waits up to 3s, then SIGKILL.
+// stopSession sends SIGTERM and waits for the reaper goroutine to observe exit
+// via s.done. cmd.Wait() is called exclusively by the reaper — never here —
+// so there is no double-Wait race.
 func (m *Manager) stopSession(s *session) error {
 	if err := s.cmd.Process.Signal(syscall.SIGTERM); err != nil {
 		_ = s.cmd.Process.Kill()
 	}
-
-	done := make(chan struct{})
-	go func() {
-		_ = s.cmd.Wait()
-		close(done)
-	}()
 	select {
-	case <-done:
+	case <-s.done:
+		// reaper already observed process exit
 	case <-time.After(3 * time.Second):
 		_ = s.cmd.Process.Kill()
+		// Wait for the reaper to complete its Wait() call — otherwise
+		// StopAll can return before processes are actually reaped, and
+		// concurrent tests see dangling goroutines.
+		<-s.done
 	}
 	return nil
 }

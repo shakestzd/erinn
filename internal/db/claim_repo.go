@@ -1,6 +1,7 @@
 package db
 
 import (
+	"context"
 	"database/sql"
 	"encoding/json"
 	"fmt"
@@ -106,14 +107,52 @@ func ClaimItem(db *sql.DB, claim *models.Claim, leaseDuration time.Duration) err
 // the lease is refreshed in-place (no duplicate row). Otherwise a new claim is inserted.
 // This is idempotent: calling it N times on the same item/agent is safe and always
 // results in exactly one live claim row with a fresh lease.
+//
+// Concurrency: the UPDATE+INSERT critical section runs under a BEGIN IMMEDIATE
+// transaction so SQLite serializes concurrent callers. Without this, two callers
+// can both observe RowsAffected==0 from the UPDATE and both INSERT — producing
+// duplicate active claim rows for the same (work_item_id, claimed_by_agent_id).
+// We use a raw *sql.Conn + explicit "BEGIN IMMEDIATE" because modernc.org/sqlite
+// does not map sql.LevelSerializable to BEGIN IMMEDIATE (it falls through to
+// BEGIN DEFERRED, which is a read lock first and still permits the race).
 func ClaimItemOrRenew(db *sql.DB, claim *models.Claim, leaseDuration time.Duration) error {
 	if _, err := ReapExpiredClaims(db); err != nil {
 		return fmt.Errorf("reap before claim: %w", err)
 	}
 
+	// ensureFeatureRow / ensureSessionRow are idempotent upserts on separate
+	// tables. Keep them outside the IMMEDIATE transaction to avoid potential
+	// deadlocks with their own writers.
+	if claim.Status == "" {
+		claim.Status = models.ClaimProposed
+	}
+	if claim.OwnerAgent == "" {
+		claim.OwnerAgent = "claude-code"
+	}
+	ensureFeatureRow(db, claim.WorkItemID)
+	ensureSessionRow(db, claim.OwnerSessionID, claim.OwnerAgent)
+
 	now := time.Now().UTC()
 	newExpiry := now.Add(leaseDuration)
 	activeList := activeStatusList()
+
+	// Acquire a dedicated connection so that BEGIN IMMEDIATE applies to a
+	// single connection (not spread across the pool).
+	conn, err := db.Conn(context.Background())
+	if err != nil {
+		return fmt.Errorf("acquire conn for claim tx: %w", err)
+	}
+	defer conn.Close()
+
+	if _, err := conn.ExecContext(context.Background(), "BEGIN IMMEDIATE"); err != nil {
+		return fmt.Errorf("begin immediate claim tx: %w", err)
+	}
+	committed := false
+	defer func() {
+		if !committed {
+			_, _ = conn.ExecContext(context.Background(), "ROLLBACK")
+		}
+	}()
 
 	// Try to renew an existing active claim first.
 	renewQuery := fmt.Sprintf(`
@@ -123,7 +162,7 @@ func ClaimItemOrRenew(db *sql.DB, claim *models.Claim, leaseDuration time.Durati
 		  AND claimed_by_agent_id = ?
 		  AND status IN (%s)`, activeList)
 
-	result, err := db.Exec(renewQuery,
+	result, err := conn.ExecContext(context.Background(), renewQuery,
 		now.Format(time.RFC3339), newExpiry.Format(time.RFC3339),
 		now.Format(time.RFC3339),
 		claim.WorkItemID, claim.ClaimedByAgentID,
@@ -132,7 +171,11 @@ func ClaimItemOrRenew(db *sql.DB, claim *models.Claim, leaseDuration time.Durati
 		return fmt.Errorf("renew claim for %s/%s: %w", claim.WorkItemID, claim.ClaimedByAgentID, err)
 	}
 	if rows, _ := result.RowsAffected(); rows > 0 {
-		// Existing live claim refreshed — done.
+		// Existing live claim refreshed — commit and done.
+		if _, err := conn.ExecContext(context.Background(), "COMMIT"); err != nil {
+			return fmt.Errorf("commit renew claim: %w", err)
+		}
+		committed = true
 		return nil
 	}
 
@@ -143,17 +186,7 @@ func ClaimItemOrRenew(db *sql.DB, claim *models.Claim, leaseDuration time.Durati
 	claim.CreatedAt = now
 	claim.UpdatedAt = now
 
-	if claim.Status == "" {
-		claim.Status = models.ClaimProposed
-	}
-	if claim.OwnerAgent == "" {
-		claim.OwnerAgent = "claude-code"
-	}
-
-	ensureFeatureRow(db, claim.WorkItemID)
-	ensureSessionRow(db, claim.OwnerSessionID, claim.OwnerAgent)
-
-	_, err = db.Exec(`
+	_, err = conn.ExecContext(context.Background(), `
 		INSERT INTO claims (
 			claim_id, work_item_id, track_id, owner_session_id, owner_agent,
 			claimed_by_agent_id,
@@ -176,6 +209,10 @@ func ClaimItemOrRenew(db *sql.DB, claim *models.Claim, leaseDuration time.Durati
 	if err != nil {
 		return fmt.Errorf("insert claim %s: %w", claim.ClaimID, err)
 	}
+	if _, err := conn.ExecContext(context.Background(), "COMMIT"); err != nil {
+		return fmt.Errorf("commit insert claim: %w", err)
+	}
+	committed = true
 	return nil
 }
 

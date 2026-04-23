@@ -2708,15 +2708,9 @@ if (terminalCloseBtn) {
   terminalCloseBtn.addEventListener('click', closeTerminal);
 }
 
-// Best-effort stop on page unload — stop individual legacy pid and all panes.
+// Best-effort stop on page unload — stop-all beacon covers all live panes including any legacy session.
+// Sends to /api/terminal/stop-all
 window.addEventListener('beforeunload', function() {
-  if (terminalPid) {
-    navigator.sendBeacon(
-      buildProjectUrl('terminal/stop'),
-      JSON.stringify({ pid: terminalPid })
-    );
-  }
-  // Stop all multi-pane sessions via /api/terminal/stop-all beacon.
   navigator.sendBeacon(
     buildProjectUrl('terminal/stop-all'),
     new Blob([JSON.stringify({})], { type: 'application/json' })
@@ -3210,7 +3204,7 @@ function buildPaneElement(session) {
   // Drag via titlebar mouse events
   attachPaneDragHandlers(pane, titlebar);
 
-  return { el: pane, sessionId: session.id, iframe: iframe, ended: false, port: session.port };
+  return { el: pane, sessionId: session.id, iframe: iframe, ended: false, port: session.port, iframeLoaded: (session.state === 'live') };
 }
 
 // syncPaneIframes flips iframe.src to the live ttyd URL once the session
@@ -3220,8 +3214,9 @@ function syncPaneIframes(sessionsArray) {
   arr.forEach(function(session) {
     if (session.state !== 'live') return;
     var record = paneRegistry.get(session.id);
-    if (!record || record.iframe.src) return;
+    if (!record || record.iframeLoaded) return;
     record.iframe.src = 'http://127.0.0.1:' + (session.port || record.port);
+    record.iframeLoaded = true;
     var placeholder = record.el.querySelector('.pane-placeholder');
     if (placeholder) placeholder.remove();
   });
@@ -3229,31 +3224,22 @@ function syncPaneIframes(sessionsArray) {
 
 // attachPaneDragHandlers wires mousedown on titlebar to drag the pane.
 function attachPaneDragHandlers(pane, titlebar) {
-  var dragging = false;
-  var startX = 0;
-  var startY = 0;
-  var origLeft = 0;
-  var origTop = 0;
-
   titlebar.addEventListener('mousedown', function(e) {
-    // Only drag on left-button; ignore clicks on the close button.
     if (e.button !== 0 || e.target.closest('.pane-close')) return;
-    dragging = true;
-    startX = e.clientX;
-    startY = e.clientY;
-    origLeft = parseInt(pane.style.left, 10) || 0;
-    origTop = parseInt(pane.style.top, 10) || 0;
+    var startX = e.clientX, startY = e.clientY;
+    var origLeft = parseInt(pane.style.left, 10) || 0;
+    var origTop = parseInt(pane.style.top, 10) || 0;
+    function onMove(ev) {
+      pane.style.left = (origLeft + ev.clientX - startX) + 'px';
+      pane.style.top = (origTop + ev.clientY - startY) + 'px';
+    }
+    function onUp() {
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+    }
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
     e.preventDefault();
-  });
-
-  document.addEventListener('mousemove', function(e) {
-    if (!dragging) return;
-    pane.style.left = (origLeft + e.clientX - startX) + 'px';
-    pane.style.top = (origTop + e.clientY - startY) + 'px';
-  });
-
-  document.addEventListener('mouseup', function() {
-    dragging = false;
   });
 }
 

@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	dbpkg "github.com/shakestzd/htmlgraph/internal/db"
+	"github.com/shakestzd/htmlgraph/internal/storage"
 	"github.com/spf13/cobra"
 )
 
@@ -69,7 +70,10 @@ func runPlanFeedback(planID string) error {
 
 // planFeedback is the testable inner implementation.
 func planFeedback(htmlgraphDir, planID string) error {
-	dbPath := filepath.Join(htmlgraphDir, ".db", "htmlgraph.db")
+	dbPath, err := storage.CanonicalDBPath(filepath.Dir(htmlgraphDir))
+	if err != nil {
+		return fmt.Errorf("resolve db path: %w", err)
+	}
 	db, err := dbpkg.Open(dbPath)
 	if err != nil {
 		return fmt.Errorf("open db: %w", err)

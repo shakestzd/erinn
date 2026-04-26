@@ -161,6 +161,9 @@ func PreToolUse(event *CloudEvent, database *sql.DB) (*HookResult, error) {
 		if warn := checkYoloBudgetGuard(event, ctx.IsYoloMode); warn != "" {
 			return &HookResult{Decision: "block", Reason: warn}, nil
 		}
+		if warn := checkYoloRoborevGuard(event, ctx.IsYoloMode); warn != "" {
+			return &HookResult{Decision: "block", Reason: warn}, nil
+		}
 
 		// Warn (not block) when the orchestrator writes directly instead of
 		// delegating to a subagent (bug-06627817).
@@ -214,7 +217,41 @@ func recordEventAndAllow(event *CloudEvent, ctx *toolUseContext, database *sql.D
 
 	os.Setenv("HTMLGRAPH_CURRENT_EVENT_ID", ev.EventID)
 
+	// Capture the parent UserQuery event ID at PreToolUse time (before the tool
+	// executes) and persist it to CLAUDE_ENV_FILE so PostToolUse reads the same
+	// parent even when a new UserQuery has been inserted while the tool ran.
+	// This eliminates the race in resolveParentEventID's LatestEventByTool fallback.
+	if ctx.ParentEventID != "" {
+		writeParentPromptEvent(ctx.ParentEventID)
+	}
+
 	return &HookResult{}, nil
+}
+
+// writeParentPromptEvent persists parentEventID as HTMLGRAPH_PARENT_PROMPT_EVENT
+// to CLAUDE_ENV_FILE so PostToolUse hook processes can read the correct parent
+// without querying the DB (which would return the wrong UserQuery when a new
+// prompt has arrived since the tool started).
+//
+// Falls back to os.Setenv only (no-op for PostToolUse) when CLAUDE_ENV_FILE is
+// unset — the existing LatestEventByTool DB fallback remains correct in that case.
+func writeParentPromptEvent(parentEventID string) {
+	// Keep the in-process env var current so any same-process callers see it.
+	os.Setenv("HTMLGRAPH_PARENT_PROMPT_EVENT", parentEventID)
+
+	envFile := os.Getenv("CLAUDE_ENV_FILE")
+	if envFile == "" {
+		// CLAUDE_ENV_FILE unset (YOLO mode, worktree subagents, or plugin-dir
+		// launches). The in-process os.Setenv above covers same-process callers;
+		// PostToolUse will fall through to the existing DB fallback chain.
+		return
+	}
+	f, err := os.OpenFile(envFile, os.O_APPEND|os.O_WRONLY, 0o644)
+	if err != nil {
+		return
+	}
+	defer f.Close()
+	fmt.Fprintf(f, "export HTMLGRAPH_PARENT_PROMPT_EVENT=%s\n", parentEventID)
 }
 
 // checkBashCwdGuard detects Bash commands that would permanently change the

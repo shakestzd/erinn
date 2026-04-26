@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/shakestzd/htmlgraph/internal/slug"
 	"github.com/spf13/cobra"
 )
 
@@ -59,7 +60,7 @@ type LaunchOpts struct {
 
 func claudeCmd() *cobra.Command {
 	var dev, init_, continue_, auto, tmux bool
-	var resumeID string
+	var resumeID, name string
 
 	cmd := &cobra.Command{
 		Use:   "claude",
@@ -76,15 +77,15 @@ func claudeCmd() *cobra.Command {
 			}
 			switch {
 			case dev:
-				return launchClaudeDev(args, auto, resumeID)
+				return launchClaudeDev(args, auto, resumeID, name)
 			case auto:
-				return launchClaudeAuto(args, resumeID)
+				return launchClaudeAuto(args, resumeID, name)
 			case init_:
-				return launchClaudeInit(args, resumeID)
+				return launchClaudeInit(args, resumeID, name)
 			case continue_:
 				return launchClaudeContinue(args, resumeID)
 			default:
-				return launchClaudeDefault(args, resumeID)
+				return launchClaudeDefault(args, resumeID, name)
 			}
 		},
 	}
@@ -94,8 +95,23 @@ func claudeCmd() *cobra.Command {
 	cmd.Flags().BoolVar(&continue_, "continue", false, "Resume last session with marketplace plugin")
 	cmd.Flags().BoolVar(&tmux, "tmux", false, "Wrap in a tmux session named 'htmlgraph-dev' (survives disconnects; reattaches on re-run)")
 	cmd.Flags().StringVar(&resumeID, "resume", "", "Resume a specific Claude Code session by ID")
+	cmd.Flags().StringVar(&name, "name", "", "Session label shown in Claude TUI (default: <project>-<timestamp>)")
 	cmd.AddCommand(yoloCmd())
 	return cmd
+}
+
+// defaultSessionName builds a default session label: <project-slug>-<timestamp>.
+// projectRoot may be empty, in which case the label is just the timestamp.
+func defaultSessionName(projectRoot string) string {
+	ts := time.Now().UTC().Format("20060102-150405")
+	if projectRoot == "" {
+		return ts
+	}
+	projectSlug := slug.Make(filepath.Base(projectRoot), 30)
+	if projectSlug == "" {
+		return ts
+	}
+	return projectSlug + "-" + ts
 }
 
 // removeMarketplaceHtmlgraph fully removes the htmlgraph marketplace plugin so it
@@ -132,7 +148,7 @@ func removeMarketplaceHtmlgraph() {
 	fmt.Println("Marketplace htmlgraph removed (uninstalled, disabled, cache wiped).")
 }
 
-func launchClaudeDev(extraArgs []string, auto bool, resumeID string) error {
+func launchClaudeDev(extraArgs []string, auto bool, resumeID, name string) error {
 	// Dev mode resolves the plugin from local source, NOT the marketplace.
 	// resolveProjectPluginDir walks up from CWD to find plugin/.claude-plugin/plugin.json.
 	pluginDir := resolveProjectPluginDir()
@@ -160,6 +176,10 @@ func launchClaudeDev(extraArgs []string, auto bool, resumeID string) error {
 	// Nuke marketplace plugin so it can't shadow the --plugin-dir agents/skills.
 	removeMarketplaceHtmlgraph()
 
+	sessionName := name
+	if sessionName == "" {
+		sessionName = defaultSessionName(projectRoot)
+	}
 
 	if auto {
 		fmt.Printf("Launching Claude Code with local plugin (--plugin-dir mode) + auto mode\n")
@@ -167,6 +187,7 @@ func launchClaudeDev(extraArgs []string, auto bool, resumeID string) error {
 		fmt.Printf("Launching Claude Code with local plugin (--plugin-dir mode)\n")
 	}
 	fmt.Printf("  Plugin source: %s\n", pluginDir)
+	fmt.Printf("  Session: %s\n", sessionName)
 
 	return launchClaude(LaunchOpts{
 		Mode:               "go",
@@ -175,6 +196,7 @@ func launchClaudeDev(extraArgs []string, auto bool, resumeID string) error {
 		InjectSystemPrompt: true,
 		EnableAutoMode:     auto,
 		PermissionMode:     autoPermissionMode(auto),
+		Name:               sessionName,
 		ExtraArgs:          extraArgs,
 		ProjectRoot:        projectRoot,
 	})
@@ -192,18 +214,24 @@ func autoPermissionMode(enabled bool) string {
 // launchClaudeAuto launches Claude Code with auto mode enabled for autonomous operation.
 // It uses the marketplace plugin (like normal mode) but adds --enable-auto-mode and
 // --permission-mode auto so Claude starts in autonomous operation immediately.
-func launchClaudeAuto(extraArgs []string, resumeID string) error {
+func launchClaudeAuto(extraArgs []string, resumeID, name string) error {
 	projectRoot, _ := resolveProjectRoot()
 	cleanupStaleDev(projectRoot)
 	ensurePluginOnLaunch()
+	sessionName := name
+	if sessionName == "" {
+		sessionName = defaultSessionName(projectRoot)
+	}
 	fmt.Println("Launching Claude Code in auto mode (autonomous operation)...")
 	fmt.Println("  Actions will be approved by the background classifier, not prompted.")
+	fmt.Printf("  Session: %s\n", sessionName)
 	return launchClaude(LaunchOpts{
 		Mode:               "auto",
 		ResumeID:           resumeID,
 		InjectSystemPrompt: true,
 		EnableAutoMode:     true,
 		PermissionMode:     "auto",
+		Name:               sessionName,
 		ExtraArgs:          extraArgs,
 		ProjectRoot:        projectRoot,
 	})
@@ -315,18 +343,24 @@ func cleanupStaleDev(projectRoot string) {
 	restoreFromSymlink(backup.InstallPath, backup.BackupPath, backup.PluginKey, backup.WasEnabled, backupStateFile)
 }
 
-func launchClaudeInit(extraArgs []string, resumeID string) error {
+func launchClaudeInit(extraArgs []string, resumeID, name string) error {
 	// --init always uses CWD — never walk up to a parent with .htmlgraph/.
 	// The user explicitly wants to work in THIS directory, which may not
 	// have .htmlgraph/ yet. Walk-up would anchor to the wrong project.
 	projectRoot, _ := os.Getwd()
 	cleanupStaleDev(projectRoot)
 	ensurePluginOnLaunch()
+	sessionName := name
+	if sessionName == "" {
+		sessionName = defaultSessionName(projectRoot)
+	}
 	fmt.Println("Launching Claude Code with marketplace plugin (init mode)...")
+	fmt.Printf("  Session: %s\n", sessionName)
 	return launchClaude(LaunchOpts{
 		Mode:               "init",
 		ResumeID:           resumeID,
 		InjectSystemPrompt: true,
+		Name:               sessionName,
 		ExtraArgs:          extraArgs,
 		ProjectRoot:        projectRoot,
 	})
@@ -346,15 +380,21 @@ func launchClaudeContinue(extraArgs []string, resumeID string) error {
 	})
 }
 
-func launchClaudeDefault(extraArgs []string, resumeID string) error {
+func launchClaudeDefault(extraArgs []string, resumeID, name string) error {
 	projectRoot, _ := resolveProjectRoot()
 	cleanupStaleDev(projectRoot)
 	ensurePluginOnLaunch()
+	sessionName := name
+	if sessionName == "" {
+		sessionName = defaultSessionName(projectRoot)
+	}
 	fmt.Println("Launching Claude Code (default mode)...")
+	fmt.Printf("  Session: %s\n", sessionName)
 	return launchClaude(LaunchOpts{
 		Mode:               "default",
 		ResumeID:           resumeID,
 		InjectSystemPrompt: true,
+		Name:               sessionName,
 		ExtraArgs:          extraArgs,
 		ProjectRoot:        projectRoot,
 	})

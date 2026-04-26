@@ -699,8 +699,18 @@ func testHgDirWithDB(t *testing.T, sessionID string) (tmpDir, hgDir string) {
 		}
 	}
 
+	// Pin the DB path inside the test temp dir via HTMLGRAPH_DB_PATH so the
+	// production code (storage.CanonicalDBPath) and the test (which opens the
+	// same path directly) agree. Without this, production would write to the
+	// real user cache dir and the test would read from the unused tmp path.
+	dbPath := filepath.Join(hgDir, ".db", "htmlgraph.db")
+	if err := os.MkdirAll(filepath.Dir(dbPath), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("HTMLGRAPH_DB_PATH", dbPath)
+
 	// Open (and migrate) the DB so tables exist, then insert a session row.
-	database, err := dbpkg.Open(filepath.Join(hgDir, ".db", "htmlgraph.db"))
+	database, err := dbpkg.Open(dbPath)
 	if err != nil {
 		t.Fatalf("open db: %v", err)
 	}

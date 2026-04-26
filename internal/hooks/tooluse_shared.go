@@ -179,11 +179,30 @@ func resolveEventAgentType(event *CloudEvent) string {
 
 // resolveParentEventID finds the parent event using a multi-step fallback that
 // mirrors the Python event_tracker.py logic:
-//  1. Env var HTMLGRAPH_PARENT_EVENT (written by SubagentStart when CLAUDE_ENV_FILE set)
-//  2. Per-subagent hint file parent_event_id (written when CLAUDE_ENV_FILE unset)
-//  3. For subagents: task_delegation row matching our agent_id (Method 0.5)
-//  4. Most recent UserQuery in this session (orchestrator default)
+//  1. Env var HTMLGRAPH_PARENT_PROMPT_EVENT (written by PreToolUse at tool-call time)
+//  2. Env var HTMLGRAPH_PARENT_EVENT (written by SubagentStart when CLAUDE_ENV_FILE set)
+//  3. Per-subagent hint file parent_event_id (written when CLAUDE_ENV_FILE unset)
+//  4. For subagents: task_delegation row matching our agent_id (Method 0.5)
+//  5. Most recent UserQuery in this session (orchestrator default)
 func resolveParentEventID(database *sql.DB, sessionID, agentID string, isSubagent bool) string {
+	// HTMLGRAPH_PARENT_PROMPT_EVENT is written to CLAUDE_ENV_FILE by PreToolUse at
+	// the moment the tool starts (before the tool executes). Reading it here — in
+	// both PreToolUse and PostToolUse — eliminates the race where a new UserQuery
+	// arrives while a long-running tool is executing. Without this, the
+	// LatestEventByTool("UserQuery") fallback at the bottom of this chain would
+	// return the *newer* UserQuery (wrong parent) when PostToolUse fires.
+	//
+	// Validate that the env-var event ID actually exists in the current DB before
+	// returning it. In tests, multiple hook invocations share a process and an
+	// earlier PreToolUse may have set this env var for a different DB instance —
+	// using a stale ID that doesn't exist in the current DB causes FK violations
+	// and silent InsertEvent failures.
+	if v := os.Getenv("HTMLGRAPH_PARENT_PROMPT_EVENT"); v != "" {
+		if db.EventExists(database, v) {
+			return v
+		}
+	}
+
 	// TODO(bug-cb4918d8): remove HTMLGRAPH_PARENT_EVENT read after lineage
 	// wiring verified end-to-end — this env var is never set in subagent
 	// hook contexts; the subagent-hint file and DB fallback carry the load.

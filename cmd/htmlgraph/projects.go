@@ -9,6 +9,7 @@ import (
 	"text/tabwriter"
 
 	"github.com/shakestzd/htmlgraph/internal/registry"
+	"github.com/shakestzd/htmlgraph/internal/storage"
 	"github.com/spf13/cobra"
 )
 
@@ -49,10 +50,11 @@ func projectsListCmd() *cobra.Command {
 				hgDir := filepath.Join(e.ProjectDir, ".htmlgraph")
 				if _, statErr := os.Stat(hgDir); statErr == nil {
 					status = "exists"
-					dbPath := filepath.Join(hgDir, ".db", "htmlgraph.db")
-					if db, openErr := registry.OpenReadOnly(dbPath); openErr == nil {
-						items = countItems(db)
-						db.Close()
+					if dbPath, pathErr := storage.CanonicalDBPath(e.ProjectDir); pathErr == nil {
+						if db, openErr := registry.OpenReadOnly(dbPath); openErr == nil {
+							items = countItems(db)
+							db.Close()
+						}
 					}
 				}
 				fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\n", e.Name, e.ProjectDir, e.LastSeen, status, items)

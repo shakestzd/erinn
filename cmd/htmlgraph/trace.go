@@ -13,6 +13,7 @@ import (
 
 	dbpkg "github.com/shakestzd/htmlgraph/internal/db"
 	"github.com/shakestzd/htmlgraph/internal/models"
+	"github.com/shakestzd/htmlgraph/internal/storage"
 	"github.com/spf13/cobra"
 )
 
@@ -70,7 +71,11 @@ func runTrace(arg string, jsonOut bool) error {
 		if err != nil {
 			return err
 		}
-		database, err := dbpkg.Open(filepath.Join(dir, ".db", "htmlgraph.db"))
+		dbPath, err := storage.CanonicalDBPath(filepath.Dir(dir))
+		if err != nil {
+			return fmt.Errorf("resolve db path: %w", err)
+		}
+		database, err := dbpkg.Open(dbPath)
 		if err != nil {
 			return fmt.Errorf("open database: %w", err)
 		}
@@ -106,7 +111,11 @@ func runTraceCommit(sha string, jsonOut bool) error {
 		return err
 	}
 
-	database, err := dbpkg.Open(filepath.Join(dir, ".db", "htmlgraph.db"))
+	dbPath, err := storage.CanonicalDBPath(filepath.Dir(dir))
+	if err != nil {
+		return fmt.Errorf("resolve db path: %w", err)
+	}
+	database, err := dbpkg.Open(dbPath)
 	if err != nil {
 		return fmt.Errorf("open database: %w", err)
 	}
@@ -183,7 +192,11 @@ func runTraceFile(filePath string, jsonOut bool) error {
 		return err
 	}
 
-	database, err := dbpkg.Open(filepath.Join(dir, ".db", "htmlgraph.db"))
+	dbPath, err := storage.CanonicalDBPath(filepath.Dir(dir))
+	if err != nil {
+		return fmt.Errorf("resolve db path: %w", err)
+	}
+	database, err := dbpkg.Open(dbPath)
 	if err != nil {
 		return fmt.Errorf("open database: %w", err)
 	}

@@ -7,7 +7,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	dbpkg "github.com/shakestzd/htmlgraph/internal/db"
 	"github.com/spf13/cobra"
 )
 
@@ -49,7 +48,7 @@ func runCleanupGhostSessions(dryRun bool) error {
 	}
 	printProjectHeaderIfDifferent(htmlgraphDir)
 
-	database, err := dbpkg.Open(filepath.Join(htmlgraphDir, ".db", "htmlgraph.db"))
+	database, err := openDB(htmlgraphDir)
 	if err != nil {
 		return fmt.Errorf("open database: %w", err)
 	}

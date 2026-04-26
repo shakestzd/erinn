@@ -91,6 +91,8 @@ func buildClaudeLaunchEnv(htmlgraphProjectDir string, overrides *otelEnvOverride
 	// Tool details include bash commands, skill names, MCP tool names —
 	// non-sensitive by default. Turn off by setting to "0" before launch.
 	env = addIfUnset(env, "OTEL_LOG_TOOL_DETAILS", "1")
+	env = addIfUnset(env, "OTEL_LOG_USER_PROMPTS", "1")
+	env = addIfUnset(env, "OTEL_LOG_TOOL_CONTENT", "1")
 
 	// Probe receiver reachability — print a warning if unreachable. Does not block launch.
 	probeReceiverReachability(endpoint)

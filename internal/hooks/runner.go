@@ -14,6 +14,7 @@ import (
 
 	"github.com/shakestzd/htmlgraph/internal/agent"
 	"github.com/shakestzd/htmlgraph/internal/paths"
+	"github.com/shakestzd/htmlgraph/internal/storage"
 )
 
 // CloudEvent is the JSON payload Claude Code sends to every hook via stdin.
@@ -157,12 +158,18 @@ func IsHtmlGraphProject(projectDir string) bool {
 }
 
 // DBPath returns the canonical SQLite path for the given project directory.
-// The database lives at .htmlgraph/.db/htmlgraph.db so that in Devcontainer
-// environments the file can be mounted on an ext4-backed Docker named volume
-// (enabling WAL mode) while the canonical HTML store stays on the virtiofs
-// bind mount.
+// Delegates to storage.CanonicalDBPath so the DB always lives in the host
+// OS cache dir (never inside the project tree), ensuring WAL/SHM mmap
+// works regardless of the project filesystem (virtiofs, NFS, FUSE, etc.).
+// Falls back to the legacy project-local path only if the cache dir lookup
+// fails (which should not happen in practice).
 func DBPath(projectDir string) string {
-	return filepath.Join(projectDir, ".htmlgraph", ".db", "htmlgraph.db")
+	p, err := storage.CanonicalDBPath(projectDir)
+	if err != nil {
+		// Degrade: return legacy path so hooks keep working even if UserCacheDir fails.
+		return filepath.Join(projectDir, ".htmlgraph", ".db", storage.DBFileName)
+	}
+	return p
 }
 
 // NormaliseSessionID extracts a UUID from a path-style session_id that Claude

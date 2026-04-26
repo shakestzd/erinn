@@ -49,6 +49,7 @@ func TestHookLifecycle(t *testing.T) {
 	t.Setenv("HTMLGRAPH_AGENT_ID", "claude-code")
 	t.Setenv("HTMLGRAPH_AGENT_TYPE", "")
 	t.Setenv("HTMLGRAPH_PARENT_EVENT", "")
+	t.Setenv("HTMLGRAPH_PARENT_PROMPT_EVENT", "")
 
 	// --- Step 1: SessionStart ---
 	startEvent := &CloudEvent{SessionID: sessionID, CWD: projectDir}
@@ -186,6 +187,7 @@ func TestEventRecordingFlow(t *testing.T) {
 	t.Setenv("HTMLGRAPH_AGENT_ID", "claude-code")
 	t.Setenv("HTMLGRAPH_AGENT_TYPE", "")
 	t.Setenv("HTMLGRAPH_PARENT_EVENT", "")
+	t.Setenv("HTMLGRAPH_PARENT_PROMPT_EVENT", "")
 
 	// Insert the session so FK constraints pass.
 	if err := db.InsertSession(database, &models.Session{
@@ -292,6 +294,7 @@ func TestSessionEndPopulatesFeaturesWorkedOn(t *testing.T) {
 	t.Setenv("HTMLGRAPH_AGENT_ID", "claude-code")
 	t.Setenv("HTMLGRAPH_AGENT_TYPE", "")
 	t.Setenv("HTMLGRAPH_PARENT_EVENT", "")
+	t.Setenv("HTMLGRAPH_PARENT_PROMPT_EVENT", "")
 	t.Setenv("CLAUDE_ENV_FILE", "")
 	t.Setenv("CLAUDE_PROJECT_DIR", "")
 	t.Setenv("HTMLGRAPH_PROJECT_DIR", projectDir)
@@ -366,6 +369,7 @@ func TestYoloModeGuards(t *testing.T) {
 	t.Setenv("HTMLGRAPH_AGENT_ID", "claude-code")
 	t.Setenv("HTMLGRAPH_AGENT_TYPE", "")
 	t.Setenv("HTMLGRAPH_PARENT_EVENT", "")
+	t.Setenv("HTMLGRAPH_PARENT_PROMPT_EVENT", "")
 
 	// Insert session without any active feature.
 	if err := db.InsertSession(database, &models.Session{

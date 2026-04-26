@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 
 	dbpkg "github.com/shakestzd/htmlgraph/internal/db"
+	"github.com/shakestzd/htmlgraph/internal/storage"
 )
 
 // --- Base types --------------------------------------------------------------
@@ -62,7 +63,15 @@ func Open(projectDir, agent string) (*Project, error) {
 		return nil, fmt.Errorf("agent must not be empty")
 	}
 
-	dbPath := filepath.Join(projectDir, ".db", "htmlgraph.db")
+	// Note: ProjectDir field is the .htmlgraph directory (caller convention),
+	// but storage.CanonicalDBPath wants the actual project root.
+	dbPath, err := storage.CanonicalDBPath(filepath.Dir(projectDir))
+	if err != nil {
+		return nil, fmt.Errorf("resolve db path: %w", err)
+	}
+	if err := storage.EnsureDBDir(dbPath); err != nil {
+		return nil, fmt.Errorf("create db dir: %w", err)
+	}
 	database, err := dbpkg.Open(dbPath)
 	if err != nil {
 		return nil, fmt.Errorf("open database: %w", err)

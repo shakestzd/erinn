@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"path/filepath"
 
 	"github.com/google/uuid"
 	dbpkg "github.com/shakestzd/htmlgraph/internal/db"
@@ -46,7 +45,7 @@ func runBackfillFeatureFiles(_ *cobra.Command, _ []string) error {
 		return err
 	}
 
-	database, err := dbpkg.Open(filepath.Join(htmlgraphDir, ".db", "htmlgraph.db"))
+	database, err := openDB(htmlgraphDir)
 	if err != nil {
 		return fmt.Errorf("open database: %w", err)
 	}
@@ -109,7 +108,7 @@ func runBackfillToolCallsFeature(_ *cobra.Command, _ []string) error {
 		return err
 	}
 
-	database, err := dbpkg.Open(filepath.Join(htmlgraphDir, ".db", "htmlgraph.db"))
+	database, err := openDB(htmlgraphDir)
 	if err != nil {
 		return fmt.Errorf("open database: %w", err)
 	}

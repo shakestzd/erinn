@@ -11,6 +11,7 @@ import (
 
 	dbpkg "github.com/shakestzd/htmlgraph/internal/db"
 	"github.com/shakestzd/htmlgraph/internal/models"
+	"github.com/shakestzd/htmlgraph/internal/storage"
 	"github.com/spf13/cobra"
 )
 
@@ -193,8 +194,18 @@ func runSessionEnd(sessionID string) error {
 }
 
 // openDB is a shared helper to open the SQLite DB from the .htmlgraph dir.
+// The DB lives in the OS cache dir (keyed by project-path hash) — never
+// inside the project tree. See storage.CanonicalDBPath for details.
 func openDB(htmlgraphDir string) (*sql.DB, error) {
-	db, err := dbpkg.Open(filepath.Join(htmlgraphDir, ".db", "htmlgraph.db"))
+	projectDir := filepath.Dir(htmlgraphDir)
+	dbPath, err := storage.CanonicalDBPath(projectDir)
+	if err != nil {
+		return nil, fmt.Errorf("resolve db path: %w", err)
+	}
+	if err := storage.EnsureDBDir(dbPath); err != nil {
+		return nil, fmt.Errorf("ensure db dir: %w", err)
+	}
+	db, err := dbpkg.Open(dbPath)
 	if err != nil {
 		return nil, fmt.Errorf("open database: %w", err)
 	}

@@ -65,21 +65,30 @@ class HgActivityFeed extends HTMLElement {
 
   async refresh() {
     try {
-      const resp = await fetch('/api/events/recent?limit=20');
+      const resp = await fetch('/api/events/feed?limit=20');
       if (!resp.ok) return;
-      const events = await resp.json();
+      const data = await resp.json();
+      const events = data.events || [];
       const feed = this.querySelector('.hg-feed');
       if (!events.length) {
         feed.innerHTML = '<p class="hg-feed-empty">No recent activity</p>';
         return;
       }
-      feed.innerHTML = events.map(e => `
-        <div class="hg-feed-item" data-event-type="${e.event_type || ''}">
-          <span class="hg-feed-time">${new Date(e.timestamp).toLocaleTimeString()}</span>
-          <span class="hg-feed-tool">${e.tool_name || e.event_type || 'event'}</span>
-          <span class="hg-feed-summary">${e.output_summary || e.input_summary || ''}</span>
-        </div>
-      `).join('');
+      feed.innerHTML = events.map(e => {
+        const label = e.tool_name || e.type || 'event';
+        const summary = e.summary || '';
+        const durBadge = e.duration_ms > 0
+          ? `<span class="hg-feed-badge hg-feed-badge-dur">${e.duration_ms}ms</span>` : '';
+        const costBadge = e.cost_usd > 0
+          ? `<span class="hg-feed-badge hg-feed-badge-cost">$${e.cost_usd.toFixed(3)}</span>` : '';
+        return `
+          <div class="hg-feed-item" data-event-type="${e.type || ''}" data-source="${e.source || ''}">
+            <span class="hg-feed-time">${new Date(e.timestamp).toLocaleTimeString()}</span>
+            <span class="hg-feed-tool">${label}</span>
+            ${durBadge}${costBadge}
+            <span class="hg-feed-summary">${summary}</span>
+          </div>`;
+      }).join('');
     } catch (_) { /* server not available */ }
   }
 }

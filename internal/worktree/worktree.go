@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"github.com/shakestzd/htmlgraph/internal/htmlparse"
+	"github.com/shakestzd/htmlgraph/internal/slug"
 )
 
 // RepairGitdirIfStale checks whether the current directory is a linked git
@@ -120,6 +121,60 @@ func EnsureForTrack(trackID, repoRoot string, w io.Writer) (string, error) {
 	branchName := trackID // Track worktrees use the track ID as the branch name.
 
 	// Reuse existing worktree.
+	if _, err := os.Stat(worktreePath); err == nil {
+		fmt.Fprintf(w, "  Worktree: %s (reusing existing)\n", worktreePath)
+		return worktreePath, nil
+	}
+
+	if err := os.MkdirAll(filepath.Dir(worktreePath), 0755); err != nil {
+		return "", fmt.Errorf("could not create worktrees directory: %w", err)
+	}
+
+	cmd := exec.Command("git", "-C", repoRoot, "worktree", "add", worktreePath, "-b", branchName)
+	if out, err := cmd.CombinedOutput(); err != nil {
+		return "", fmt.Errorf("git worktree add failed: %w\n%s", err, out)
+	}
+
+	fmt.Fprintf(w, "  Worktree: %s (branch: %s)\n", worktreePath, branchName)
+	excludeHtmlgraphFromWorktree(worktreePath, w)
+	reindexWorktree(worktreePath, w)
+
+	return worktreePath, nil
+}
+
+// TrackWorktreeDirName returns the directory name to use for a track worktree.
+// When trackTitle is non-empty, returns "<title-slug>-<trackID>" (slug capped at 30 chars).
+// Falls back to bare trackID when the title produces an empty slug.
+func TrackWorktreeDirName(trackTitle, trackID string) string {
+	if trackTitle != "" {
+		s := slug.Make(trackTitle, 30)
+		if s != "" {
+			return s + "-" + trackID
+		}
+	}
+	return trackID
+}
+
+// EnsureForTrackTitled ensures a git worktree exists for the given track, using a
+// human-readable directory name "<title-slug>-<trackID>" when trackTitle is provided.
+// Only new worktrees use the titled path; if an existing worktree at the legacy bare-ID
+// path is found it is reused unchanged to avoid orphaning running sessions.
+// Progress is written to w; pass io.Discard to suppress output.
+func EnsureForTrackTitled(trackTitle, trackID, repoRoot string, w io.Writer) (string, error) {
+	// Check the legacy bare-ID path first — reuse without rename to avoid
+	// orphaning any running yolo session that has the old path as its CWD.
+	legacyPath := filepath.Join(repoRoot, ".claude", "worktrees", trackID)
+	if _, err := os.Stat(legacyPath); err == nil {
+		fmt.Fprintf(w, "  Worktree: %s (reusing existing)\n", legacyPath)
+		return legacyPath, nil
+	}
+
+	// New worktree: use titled path.
+	dirName := TrackWorktreeDirName(trackTitle, trackID)
+	worktreePath := filepath.Join(repoRoot, ".claude", "worktrees", dirName)
+	branchName := trackID // Branch name remains the bare track ID.
+
+	// Check if the titled path already exists (idempotent on second call with title).
 	if _, err := os.Stat(worktreePath); err == nil {
 		fmt.Fprintf(w, "  Worktree: %s (reusing existing)\n", worktreePath)
 		return worktreePath, nil

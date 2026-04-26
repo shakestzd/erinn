@@ -59,9 +59,9 @@ func runIngest(sessionID, project string, all, force bool) error {
 	}
 	printProjectHeaderIfDifferent(htmlgraphDir)
 
-	database, err := dbpkg.Open(filepath.Join(htmlgraphDir, ".db", "htmlgraph.db"))
+	database, err := openDB(htmlgraphDir)
 	if err != nil {
-		return fmt.Errorf("open database: %w", err)
+		return err
 	}
 	defer database.Close()
 
@@ -495,9 +495,9 @@ func runIngestCommits(since string, limit int) error {
 		return err
 	}
 
-	database, err := dbpkg.Open(filepath.Join(htmlgraphDir, ".db", "htmlgraph.db"))
+	database, err := openDB(htmlgraphDir)
 	if err != nil {
-		return fmt.Errorf("open database: %w", err)
+		return err
 	}
 	defer database.Close()
 

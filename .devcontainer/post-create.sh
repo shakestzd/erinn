@@ -5,7 +5,6 @@ set -euo pipefail
 # Fix ownership of named-volume mount points (Docker creates these as root:root)
 sudo chown -R vscode:vscode \
     /workspaces/htmlgraph/.htmlgraph \
-    /workspaces/htmlgraph/.htmlgraph/.db \
     /workspaces/htmlgraph/.claude \
     /home/vscode/.codex \
     /home/vscode/.gemini \

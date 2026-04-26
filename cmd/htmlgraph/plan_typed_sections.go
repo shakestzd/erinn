@@ -1,6 +1,7 @@
 package main
 
 import (
+	"database/sql"
 	"fmt"
 	"path/filepath"
 	"strings"
@@ -8,6 +9,7 @@ import (
 	dbpkg "github.com/shakestzd/htmlgraph/internal/db"
 	"github.com/shakestzd/htmlgraph/internal/htmlparse"
 	"github.com/shakestzd/htmlgraph/internal/plantmpl"
+	"github.com/shakestzd/htmlgraph/internal/storage"
 )
 
 // buildTypedPlanSections builds typed plantmpl.SliceCard and DependencyGraph
@@ -45,9 +47,12 @@ func buildTypedPlanSections(nodePath, htmlgraphDir string) ([]plantmpl.SliceCard
 		features = append(features, featureInfo{num: num, id: edge.TargetID, title: title})
 	}
 
-	database, dbErr := dbpkg.Open(filepath.Join(htmlgraphDir, ".db", "htmlgraph.db"))
-	if dbErr == nil {
-		defer database.Close()
+	var database *sql.DB
+	if dbPath, pathErr := storage.CanonicalDBPath(filepath.Dir(htmlgraphDir)); pathErr == nil {
+		if db, dbErr := dbpkg.Open(dbPath); dbErr == nil {
+			database = db
+			defer database.Close()
+		}
 	}
 
 	var slices []plantmpl.SliceCard

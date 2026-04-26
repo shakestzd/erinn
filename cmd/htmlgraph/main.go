@@ -10,6 +10,7 @@ import (
 	"github.com/shakestzd/htmlgraph/internal/agent"
 	"github.com/shakestzd/htmlgraph/internal/paths"
 	"github.com/shakestzd/htmlgraph/internal/registry"
+	"github.com/shakestzd/htmlgraph/internal/storage"
 	versionpkg "github.com/shakestzd/htmlgraph/internal/version"
 	"github.com/shakestzd/htmlgraph/internal/worktree"
 	"github.com/spf13/cobra"
@@ -318,6 +319,7 @@ func persistentPreRunE(cmd *cobra.Command, _ []string) error {
 		return nil
 	}
 	projectDir := filepath.Dir(hgDir)
+	storage.WarnIfLegacyDBPresent(projectDir, os.Stderr)
 	if database, dberr := openDB(hgDir); dberr == nil {
 		_, _ = agent.EnsureSession(database, projectDir)
 		database.Close()

@@ -254,7 +254,9 @@ func setupHTMLGraphDir(t *testing.T) (string, *sql.DB) {
 	if err := os.MkdirAll(filepath.Join(hgDir, ".db"), 0o755); err != nil {
 		t.Fatalf("mkdir .db: %v", err)
 	}
-	database, err := dbpkg.Open(filepath.Join(hgDir, ".db", "htmlgraph.db"))
+	dbPath := filepath.Join(hgDir, ".db", "htmlgraph.db")
+	t.Setenv("HTMLGRAPH_DB_PATH", dbPath)
+	database, err := dbpkg.Open(dbPath)
 	if err != nil {
 		t.Fatalf("open db: %v", err)
 	}

@@ -23,6 +23,7 @@ func makeProjectDBWithSchema(t *testing.T, numFeatures, numBugs, numSpikes int) 
 		t.Fatal(err)
 	}
 	dbPath := filepath.Join(hgDir, ".db", "htmlgraph.db")
+	t.Setenv("HTMLGRAPH_DB_PATH", dbPath)
 
 	// Use modernc.org/sqlite driver registered as "sqlite".
 	db, err := sql.Open("sqlite", dbPath)

@@ -6,6 +6,7 @@ import (
 
 	dbpkg "github.com/shakestzd/htmlgraph/internal/db"
 	"github.com/shakestzd/htmlgraph/internal/hooks"
+	"github.com/shakestzd/htmlgraph/internal/storage"
 	"github.com/spf13/cobra"
 )
 
@@ -36,7 +37,11 @@ limit the sweep to a single session.`,
 				return err
 			}
 			printProjectHeaderIfDifferent(htmlgraphDir)
-			database, err := dbpkg.Open(filepath.Join(htmlgraphDir, ".db", "htmlgraph.db"))
+			dbPath, err := storage.CanonicalDBPath(filepath.Dir(htmlgraphDir))
+			if err != nil {
+				return fmt.Errorf("resolve db path: %w", err)
+			}
+			database, err := dbpkg.Open(dbPath)
 			if err != nil {
 				return fmt.Errorf("open database: %w", err)
 			}

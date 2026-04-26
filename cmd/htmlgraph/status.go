@@ -8,6 +8,7 @@ import (
 	dbpkg "github.com/shakestzd/htmlgraph/internal/db"
 	"github.com/shakestzd/htmlgraph/internal/graph"
 	"github.com/shakestzd/htmlgraph/internal/models"
+	"github.com/shakestzd/htmlgraph/internal/storage"
 	versionpkg "github.com/shakestzd/htmlgraph/internal/version"
 	"github.com/spf13/cobra"
 )
@@ -82,12 +83,15 @@ func runStatus(_ *cobra.Command, _ []string) error {
 	}
 
 	// Attribution rate from git_commits table.
-	if database, dbErr := dbpkg.Open(filepath.Join(dir, ".db", "htmlgraph.db")); dbErr == nil {
-		defer database.Close()
-		total, attributed := dbpkg.CommitAttributionRate(database)
-		if total > 0 {
-			pct := float64(attributed) / float64(total) * 100
-			fmt.Printf("\nAttribution: %d/%d commits (%.1f%%)\n", attributed, total, pct)
+	if dbPath, pathErr := storage.CanonicalDBPath(filepath.Dir(dir)); pathErr == nil {
+		fmt.Printf("\nDB: %s\n", dbPath)
+		if database, dbErr := dbpkg.Open(dbPath); dbErr == nil {
+			defer database.Close()
+			total, attributed := dbpkg.CommitAttributionRate(database)
+			if total > 0 {
+				pct := float64(attributed) / float64(total) * 100
+				fmt.Printf("Attribution: %d/%d commits (%.1f%%)\n", attributed, total, pct)
+			}
 		}
 	}
 

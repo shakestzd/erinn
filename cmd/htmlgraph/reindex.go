@@ -9,6 +9,7 @@ import (
 
 	dbpkg "github.com/shakestzd/htmlgraph/internal/db"
 	"github.com/shakestzd/htmlgraph/internal/htmlparse"
+	"github.com/shakestzd/htmlgraph/internal/storage"
 	"github.com/spf13/cobra"
 )
 
@@ -38,13 +39,19 @@ func runReindex(cmd *cobra.Command, _ []string) error {
 		return err
 	}
 
-	database, err := dbpkg.Open(filepath.Join(htmlgraphDir, ".db", "htmlgraph.db"))
+	projectDir := filepath.Dir(htmlgraphDir)
+	dbPath, err := storage.CanonicalDBPath(projectDir)
+	if err != nil {
+		return fmt.Errorf("resolve db path: %w", err)
+	}
+	if err := storage.EnsureDBDir(dbPath); err != nil {
+		return fmt.Errorf("ensure db dir: %w", err)
+	}
+	database, err := dbpkg.Open(dbPath)
 	if err != nil {
 		return fmt.Errorf("open database: %w", err)
 	}
 	defer database.Close()
-
-	projectDir := filepath.Dir(htmlgraphDir)
 	currentCommit := gitHeadCommit(projectDir)
 
 	lastCommit, _ := dbpkg.GetMetadata(database, metaKeyLastIndexedCommit)

@@ -1,7 +1,9 @@
 package hooks
 
 import (
+	"context"
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
@@ -13,6 +15,7 @@ import (
 
 	"github.com/shakestzd/htmlgraph/internal/db"
 	"github.com/shakestzd/htmlgraph/internal/paths"
+	"github.com/shakestzd/htmlgraph/internal/storage"
 )
 
 // mergeInProgressFn is injected for testing. In production, it checks the real
@@ -42,7 +45,11 @@ func isYoloFromDB(htmlgraphDir, sessionID string) bool {
 	if sessionID == "" {
 		return false
 	}
-	dbPath := filepath.Join(htmlgraphDir, ".db", "htmlgraph.db")
+	projectDir := filepath.Dir(htmlgraphDir)
+	dbPath, err := storage.CanonicalDBPath(projectDir)
+	if err != nil {
+		return false
+	}
 	// Use lightweight read-only open — no pragmas, no migrations.
 	database, err := sql.Open("sqlite", dbPath+"?mode=ro&_busy_timeout=5000")
 	if err != nil {
@@ -408,6 +415,61 @@ func checkYoloOrchestratorWriteGuard(event *CloudEvent, isSubagent bool) string 
 			"Consider using a coder agent for implementation work."
 	}
 	return ""
+}
+
+// checkYoloRoborevGuard blocks git commit when there are completed roborev
+// reviews with findings (verdict == "F") from prior commits in this session.
+// This is a "review gate, not a review wall": it only fires when roborev has
+// already finished reviewing a prior commit and found issues. Entries with no
+// verdict (still running) are not blocking. Any error (roborev not installed,
+// daemon down, timeout) causes a fail-open return of "" to avoid blocking
+// unrelated work.
+func checkYoloRoborevGuard(event *CloudEvent, yolo bool) string {
+	if !yolo || event.ToolName != "Bash" {
+		return ""
+	}
+	cmd, _ := event.ToolInput["command"].(string)
+	if !gitCommitPattern.MatchString(cmd) {
+		return ""
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+
+	roborevCmd := exec.CommandContext(ctx, "roborev", "list", "--open", "--json")
+	if event.CWD != "" {
+		roborevCmd.Dir = event.CWD
+	}
+	out, err := roborevCmd.Output()
+	if err != nil {
+		return "" // fail-open: not installed, daemon down, timeout, etc.
+	}
+
+	type roborevEntry struct {
+		ID            string `json:"id"`
+		Verdict       string `json:"verdict"`
+		CommitSubject string `json:"commit_subject"`
+	}
+
+	var entries []roborevEntry
+	if err := json.Unmarshal(out, &entries); err != nil {
+		return "" // fail-open: unexpected output format
+	}
+
+	var failedIDs []string
+	for _, e := range entries {
+		if e.Verdict == "F" {
+			failedIDs = append(failedIDs, e.ID)
+		}
+	}
+	if len(failedIDs) == 0 {
+		return ""
+	}
+
+	return fmt.Sprintf(
+		"roborev: %d open review(s) with findings — fix before committing (job IDs: %s). "+
+			"Run /roborev-fix to address them.",
+		len(failedIDs), strings.Join(failedIDs, ", "))
 }
 
 // checkYoloDiffReviewGuard blocks git commit when no git diff has been

@@ -26,8 +26,7 @@
     "source=htmlgraph-codex-home,target=/home/vscode/.codex,type=volume",
     "source=htmlgraph-gemini-home,target=/home/vscode/.gemini,type=volume",
     "source=htmlgraph-copilot-home,target=/home/vscode/.copilot,type=volume",
-    "source=htmlgraph-local-bin,target=/home/vscode/.local,type=volume",
-    "source=htmlgraph-db,target=/workspaces/htmlgraph/.htmlgraph/.db,type=volume"
+    "source=htmlgraph-local-bin,target=/home/vscode/.local,type=volume"
   ],
   "appPort": ["8088:8088", "2222:2222"],
   "forwardPorts": [

@@ -3,6 +3,7 @@ package indexer
 import (
 	"bufio"
 	"context"
+	"database/sql"
 	"io"
 	"log"
 	"os"
@@ -10,6 +11,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/shakestzd/htmlgraph/internal/db"
 	"github.com/shakestzd/htmlgraph/internal/otel"
 	"github.com/shakestzd/htmlgraph/internal/otel/sink"
 )
@@ -30,6 +32,7 @@ type FileInfo struct {
 type Indexer struct {
 	htmlgraphDir string
 	snk          sink.SignalSink
+	database     *sql.DB // optional; enables prompt_id bridging when set
 
 	mu     sync.RWMutex
 	status map[string]FileInfo
@@ -43,6 +46,14 @@ func New(htmlgraphDir string, snk sink.SignalSink) *Indexer {
 		snk:          snk,
 		status:       make(map[string]FileInfo),
 	}
+}
+
+// WithDB attaches a *sql.DB to the indexer so it can bridge OTel prompt_id
+// values back to the corresponding UserQuery rows in agent_events. This is
+// optional: when not set, prompt_id bridging is silently skipped.
+func (idx *Indexer) WithDB(database *sql.DB) *Indexer {
+	idx.database = database
+	return idx
 }
 
 // Start runs the poll loop until ctx is cancelled. Intended to be called as a goroutine.
@@ -206,7 +217,9 @@ func (idx *Indexer) readNewSignals(ndjsonPath string, offset int64) ([]parsedSig
 
 // writeParsedBatch writes parsed signals to the sink, passing through
 // each signal's resource attributes so placeholder/re-attribution logic
-// in the SQLite writer functions correctly.
+// in the SQLite writer functions correctly. After persisting each signal it
+// attempts to bridge prompt_id from user_prompt log records back to the
+// matching UserQuery row in agent_events (best-effort, silently skipped on failure).
 func (idx *Indexer) writeParsedBatch(ctx context.Context, parsed []parsedSignal) error {
 	for _, p := range parsed {
 		h := p.Signal.Harness
@@ -217,8 +230,32 @@ func (idx *Indexer) writeParsedBatch(ctx context.Context, parsed []parsedSignal)
 		if err := idx.snk.WriteBatch(ctx, h, p.ResourceAttrs, signals); err != nil {
 			return err
 		}
+		idx.maybeSetPromptID(p.Signal)
 	}
 	return nil
+}
+
+// maybeSetPromptID correlates a user_prompt OTel signal back to the closest
+// UserQuery event in agent_events by session_id + timestamp. It is a no-op
+// when the indexer has no database attached, the signal is not a user_prompt,
+// or the signal carries no prompt_id.
+func (idx *Indexer) maybeSetPromptID(sig otel.UnifiedSignal) {
+	if idx.database == nil {
+		return
+	}
+	if sig.Kind != otel.KindLog {
+		return
+	}
+	if sig.CanonicalName != otel.CanonicalUserPrompt {
+		return
+	}
+	if sig.PromptID == "" || sig.SessionID == "" {
+		return
+	}
+	if err := db.SetPromptID(idx.database, sig.SessionID, sig.PromptID, sig.Timestamp); err != nil {
+		log.Printf("indexer: set prompt_id (session=%s, prompt=%s): %v",
+			sig.SessionID, sig.PromptID, err)
+	}
 }
 
 const maxLineSize = 4 * 1024 * 1024

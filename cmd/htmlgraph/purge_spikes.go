@@ -9,6 +9,7 @@ import (
 	dbpkg "github.com/shakestzd/htmlgraph/internal/db"
 	"github.com/shakestzd/htmlgraph/internal/htmlparse"
 	"github.com/shakestzd/htmlgraph/internal/models"
+	"github.com/shakestzd/htmlgraph/internal/storage"
 	"github.com/spf13/cobra"
 )
 
@@ -118,7 +119,11 @@ func runPurgeSpikes(cmd *cobra.Command, dryRun bool) error {
 // runFullReindex opens the SQLite db and performs a full reindex of all HTML
 // files in the given htmlgraphDir.
 func runFullReindex(htmlgraphDir string, cmd *cobra.Command) error {
-	database, err := dbpkg.Open(filepath.Join(htmlgraphDir, ".db", "htmlgraph.db"))
+	dbPath, err := storage.CanonicalDBPath(filepath.Dir(htmlgraphDir))
+	if err != nil {
+		return fmt.Errorf("resolve db path: %w", err)
+	}
+	database, err := dbpkg.Open(dbPath)
 	if err != nil {
 		return fmt.Errorf("open database: %w", err)
 	}

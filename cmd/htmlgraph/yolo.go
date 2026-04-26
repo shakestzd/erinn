@@ -8,14 +8,15 @@ import (
 	"strings"
 	"time"
 
-	"github.com/spf13/cobra"
 	"github.com/shakestzd/htmlgraph/internal/htmlparse"
+	"github.com/shakestzd/htmlgraph/internal/slug"
 	"github.com/shakestzd/htmlgraph/internal/workitem"
+	"github.com/spf13/cobra"
 )
 
 func yoloCmd() *cobra.Command {
 	var dev, initMode, continueMode, noWorktree, tmux bool
-	var permMode, trackID, featureID, resumeID string
+	var permMode, trackID, featureID, resumeID, name string
 
 	cmd := &cobra.Command{
 		Use:   "yolo",
@@ -44,13 +45,13 @@ Without either flag, launches in planning mode to help you create one first.`,
 			}
 			switch {
 			case dev:
-				return launchYoloDev(trackID, featureID, noWorktree, resumeID, args)
+				return launchYoloDev(trackID, featureID, noWorktree, resumeID, name, args)
 			case initMode:
-				return launchYoloInit(trackID, featureID, resumeID, args)
+				return launchYoloInit(trackID, featureID, resumeID, name, args)
 			case continueMode:
 				return launchYoloContinue(args, resumeID)
 			default:
-				return launchYoloDefault(permMode, trackID, featureID, noWorktree, resumeID, args)
+				return launchYoloDefault(permMode, trackID, featureID, noWorktree, resumeID, name, args)
 			}
 		},
 	}
@@ -65,12 +66,57 @@ Without either flag, launches in planning mode to help you create one first.`,
 	cmd.Flags().StringVar(&trackID, "track", "", "Track ID to work on (e.g., trk-3719d8f3)")
 	cmd.Flags().StringVar(&featureID, "feature", "", "Feature ID to work on (e.g., feat-15c458aa)")
 	cmd.Flags().StringVar(&resumeID, "resume", "", "Resume a specific Claude Code session by ID")
+	cmd.Flags().StringVar(&name, "name", "", "Session label shown in Claude TUI (default: <track-title>-yolo-<timestamp>)")
 	return cmd
 }
 
 // yoloSessionName returns a unique session name for YOLO mode.
 func yoloSessionName() string {
 	return fmt.Sprintf("yolo-%s", time.Now().UTC().Format("20060102-150405"))
+}
+
+// yoloDefaultName builds the default session label for YOLO mode.
+// When a trackID or featureID is provided, it resolves the track title and
+// builds "<track-slug>-yolo-<timestamp>". Falls back to "<project-slug>-yolo-<timestamp>".
+func yoloDefaultName(trackID, featureID, projectRoot string) string {
+	ts := time.Now().UTC().Format("20060102-150405")
+	trackTitle := resolveTrackTitle(trackID, featureID, projectRoot)
+	if trackTitle != "" {
+		s := slug.Make(trackTitle, 30)
+		if s != "" {
+			return s + "-yolo-" + ts
+		}
+	}
+	// Fallback: use project basename.
+	if projectRoot != "" {
+		s := slug.Make(filepath.Base(projectRoot), 30)
+		if s != "" {
+			return s + "-yolo-" + ts
+		}
+	}
+	return "yolo-" + ts
+}
+
+// resolveTrackTitle returns the title of the track associated with the given
+// trackID or featureID. Returns empty string if not resolvable.
+func resolveTrackTitle(trackID, featureID, projectRoot string) string {
+	if projectRoot == "" {
+		return ""
+	}
+	// Resolve the track ID: either direct or via feature's parent track.
+	tid := trackID
+	if tid == "" && featureID != "" {
+		tid = resolveTrackForFeature(featureID, projectRoot)
+	}
+	if tid == "" {
+		return ""
+	}
+	trackFile := filepath.Join(projectRoot, ".htmlgraph", "tracks", tid+".html")
+	node, err := htmlparse.ParseFile(trackFile)
+	if err != nil {
+		return ""
+	}
+	return node.Title
 }
 
 // validateWorkItem checks that a track or feature HTML file exists in .htmlgraph/.
@@ -175,7 +221,7 @@ func launchYoloPlanningMode(projectRoot string, extraArgs []string) error {
 	})
 }
 
-func launchYoloDefault(permMode, trackID, featureID string, noWorktree bool, resumeID string, extraArgs []string) error {
+func launchYoloDefault(permMode, trackID, featureID string, noWorktree bool, resumeID, name string, extraArgs []string) error {
 	projectRoot := ""
 	if htmlgraphDir, err := findHtmlgraphDir(); err == nil {
 		projectRoot = filepath.Dir(htmlgraphDir)
@@ -194,11 +240,14 @@ func launchYoloDefault(permMode, trackID, featureID string, noWorktree bool, res
 		return err
 	}
 
+	// Resolve track title once — used for both the session name and the worktree directory.
+	trackTitle := resolveTrackTitle(trackID, featureID, projectRoot)
+
 	// Create a worktree for isolation (skip for --no-worktree).
 	workDir := projectRoot
 	if !noWorktree && projectRoot != "" {
 		if trackID != "" {
-			worktreePath, wtErr := EnsureForTrack(trackID, projectRoot, os.Stdout)
+			worktreePath, wtErr := EnsureForTrackWithTitle(trackTitle, trackID, projectRoot, os.Stdout)
 			if wtErr != nil {
 				return wtErr
 			}
@@ -212,7 +261,10 @@ func launchYoloDefault(permMode, trackID, featureID string, noWorktree bool, res
 		}
 	}
 
-	sessionName := yoloSessionName()
+	sessionName := name
+	if sessionName == "" {
+		sessionName = yoloDefaultName(trackID, featureID, projectRoot)
+	}
 	yoloPrompt := buildYoloSystemPrompt(id, kind)
 
 	fmt.Printf("Launching Claude Code in YOLO mode (%s)...\n", permMode)
@@ -243,7 +295,7 @@ func launchYoloDefault(permMode, trackID, featureID string, noWorktree bool, res
 	})
 }
 
-func launchYoloDev(trackID, featureID string, noWorktree bool, resumeID string, extraArgs []string) error {
+func launchYoloDev(trackID, featureID string, noWorktree bool, resumeID, name string, extraArgs []string) error {
 	// Dev mode resolves the plugin from local source, NOT the marketplace.
 	pluginDir := resolveProjectPluginDir()
 	if pluginDir == "" {
@@ -273,11 +325,14 @@ func launchYoloDev(trackID, featureID string, noWorktree bool, resumeID string, 
 		return err
 	}
 
+	// Resolve track title once — used for both the session name and the worktree directory.
+	trackTitle := resolveTrackTitle(trackID, featureID, projectRoot)
+
 	// Create a worktree for isolation (skip for --no-worktree).
 	workDir := projectRoot
 	if !noWorktree && projectRoot != "" {
 		if trackID != "" {
-			worktreePath, wtErr := EnsureForTrack(trackID, projectRoot, os.Stdout)
+			worktreePath, wtErr := EnsureForTrackWithTitle(trackTitle, trackID, projectRoot, os.Stdout)
 			if wtErr != nil {
 				return wtErr
 			}
@@ -294,7 +349,10 @@ func launchYoloDev(trackID, featureID string, noWorktree bool, resumeID string, 
 	// Nuke marketplace plugin so it can't shadow the --plugin-dir agents/skills.
 	removeMarketplaceHtmlgraph()
 
-	sessionName := yoloSessionName()
+	sessionName := name
+	if sessionName == "" {
+		sessionName = yoloDefaultName(trackID, featureID, projectRoot)
+	}
 	yoloPrompt := buildYoloSystemPrompt(id, kind)
 
 	fmt.Printf("Launching Claude Code in YOLO dev mode...\n")
@@ -325,13 +383,13 @@ func launchYoloDev(trackID, featureID string, noWorktree bool, resumeID string, 
 	})
 }
 
-func launchYoloInit(trackID, featureID string, resumeID string, extraArgs []string) error {
+func launchYoloInit(trackID, featureID, resumeID, name string, extraArgs []string) error {
 	// Initialize .htmlgraph/ first.
 	if err := runInit(nil, nil); err != nil {
 		return fmt.Errorf("init failed: %w", err)
 	}
 	fmt.Println()
-	return launchYoloDefault("bypassPermissions", trackID, featureID, false, resumeID, extraArgs)
+	return launchYoloDefault("bypassPermissions", trackID, featureID, false, resumeID, name, extraArgs)
 }
 
 func launchYoloContinue(extraArgs []string, resumeID string) error {

@@ -26,6 +26,7 @@ func TestIsYoloFromDB(t *testing.T) {
 	hgDir := filepath.Join(tmpDir, ".htmlgraph")
 	os.MkdirAll(filepath.Join(hgDir, ".db"), 0o755)
 	dbPath := filepath.Join(hgDir, ".db", "htmlgraph.db")
+	t.Setenv("HTMLGRAPH_DB_PATH", dbPath)
 
 	// Open and initialise the DB via the project's Open helper.
 	database, err := db.Open(dbPath)
@@ -108,6 +109,7 @@ func TestIsYoloFromEvent(t *testing.T) {
 	// Empty permission_mode + DB with bypassPermissions → yolo.
 	os.MkdirAll(filepath.Join(hgDir, ".db"), 0o755)
 	dbPath := filepath.Join(hgDir, ".db", "htmlgraph.db")
+	t.Setenv("HTMLGRAPH_DB_PATH", dbPath)
 	database, err := db.Open(dbPath)
 	if err != nil {
 		t.Fatalf("db.Open: %v", err)

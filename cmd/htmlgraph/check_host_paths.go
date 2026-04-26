@@ -9,6 +9,7 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/shakestzd/htmlgraph/internal/storage"
 	"github.com/spf13/cobra"
 )
 
@@ -180,7 +181,7 @@ func fullScopeFiles(repoRoot string) ([]string, error) {
 				return nil
 			}
 			base := filepath.Base(path)
-			if base == "htmlgraph.db" || base == "settings.local.json" {
+			if base == storage.DBFileName || base == "settings.local.json" {
 				return nil
 			}
 			files = append(files, path)
@@ -209,7 +210,7 @@ func stagedScopeFiles(repoRoot string) ([]string, error) {
 			continue
 		}
 		base := filepath.Base(rel)
-		if base == "htmlgraph.db" || base == "settings.local.json" {
+		if base == storage.DBFileName || base == "settings.local.json" {
 			continue
 		}
 		abs := filepath.Join(repoRoot, rel)

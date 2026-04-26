@@ -131,6 +131,13 @@ func Open(dbPath string) (*sql.DB, error) {
 		}
 	}
 
+	// OTel correlation: stable per-turn identifier bridged from OTel user_prompt signals.
+	if _, err := db.Exec(`ALTER TABLE agent_events ADD COLUMN prompt_id TEXT`); err != nil {
+		if !strings.Contains(err.Error(), "duplicate column name") {
+			log.Printf("schema migrate (non-fatal): %v", err)
+		}
+	}
+
 	return db, nil
 }
 

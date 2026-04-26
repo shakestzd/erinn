@@ -12,6 +12,7 @@ import (
 	dbpkg "github.com/shakestzd/htmlgraph/internal/db"
 	"github.com/shakestzd/htmlgraph/internal/models"
 	"github.com/shakestzd/htmlgraph/internal/planyaml"
+	"github.com/shakestzd/htmlgraph/internal/storage"
 	"github.com/shakestzd/htmlgraph/internal/workitem"
 	"github.com/spf13/cobra"
 )
@@ -61,7 +62,10 @@ func runFinalizeYAML(planID string) error {
 // It takes an explicit htmlgraphDir rather than resolving it from the environment.
 func finalizeYAML(htmlgraphDir, planID string) error {
 	// Read approvals from SQLite.
-	dbPath := filepath.Join(htmlgraphDir, ".db", "htmlgraph.db")
+	dbPath, err := storage.CanonicalDBPath(filepath.Dir(htmlgraphDir))
+	if err != nil {
+		return fmt.Errorf("resolve db path: %w", err)
+	}
 	db, err := dbpkg.Open(dbPath)
 	if err != nil {
 		return fmt.Errorf("open db: %w", err)

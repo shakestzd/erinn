@@ -12,6 +12,7 @@ import (
 	"github.com/shakestzd/htmlgraph/internal/graph"
 	"github.com/shakestzd/htmlgraph/internal/htmlparse"
 	"github.com/shakestzd/htmlgraph/internal/models"
+	"github.com/shakestzd/htmlgraph/internal/storage"
 	"github.com/shakestzd/htmlgraph/internal/workitem"
 	"github.com/spf13/cobra"
 )
@@ -185,7 +186,10 @@ func isActionable(f *models.Node, nodeMap map[string]*models.Node) bool {
 // openTrackDB opens the SQLite DB if it exists; returns nil without error when
 // the file is absent (file counts are optional).
 func openTrackDB(htmlgraphDir string) *sql.DB {
-	dbPath := filepath.Join(htmlgraphDir, ".db", "htmlgraph.db")
+	dbPath, err := storage.CanonicalDBPath(filepath.Dir(htmlgraphDir))
+	if err != nil {
+		return nil
+	}
 	if _, err := os.Stat(dbPath); err != nil {
 		return nil
 	}

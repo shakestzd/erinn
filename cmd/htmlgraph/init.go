@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 
 	"github.com/shakestzd/htmlgraph/internal/db"
+	"github.com/shakestzd/htmlgraph/internal/storage"
 	"github.com/spf13/cobra"
 )
 
@@ -33,7 +34,13 @@ func runInit(_ *cobra.Command, _ []string) error {
 		return err
 	}
 
-	dbPath := filepath.Join(graphDir, ".db", "htmlgraph.db")
+	dbPath, err := storage.CanonicalDBPath(cwd)
+	if err != nil {
+		return fmt.Errorf("resolve db path: %w", err)
+	}
+	if err := storage.EnsureDBDir(dbPath); err != nil {
+		return fmt.Errorf("create db dir: %w", err)
+	}
 	if err := initDatabase(dbPath); err != nil {
 		return err
 	}
@@ -53,7 +60,7 @@ func runInit(_ *cobra.Command, _ []string) error {
 	fmt.Println("  .htmlgraph/spikes/")
 	fmt.Println("  .htmlgraph/tracks/")
 	fmt.Println("  .htmlgraph/sessions/")
-	fmt.Println("  .htmlgraph/.db/htmlgraph.db")
+	fmt.Printf("  %s\n", dbPath)
 	fmt.Println("  .htmlgraph/refs.json")
 	fmt.Println("  .htmlgraph/styles.css")
 	fmt.Println()

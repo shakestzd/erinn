@@ -22,6 +22,7 @@ func TestPlanFeedback_OutputStructure(t *testing.T) {
 		t.Fatalf("mkdir .db: %v", err)
 	}
 	dbPath := filepath.Join(dir, ".db", "htmlgraph.db")
+	t.Setenv("HTMLGRAPH_DB_PATH", dbPath)
 	db, err := dbpkg.Open(dbPath)
 	if err != nil {
 		t.Fatalf("open db: %v", err)

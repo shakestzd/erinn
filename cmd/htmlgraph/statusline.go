@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	dbpkg "github.com/shakestzd/htmlgraph/internal/db"
+	"github.com/shakestzd/htmlgraph/internal/storage"
 	"github.com/shakestzd/htmlgraph/internal/workitem"
 	"github.com/spf13/cobra"
 )
@@ -46,7 +47,11 @@ func runStatusline(sessionID string) error {
 }
 
 func statuslineFromSession(dir, sessionID string) error {
-	database, err := dbpkg.Open(filepath.Join(dir, ".db", "htmlgraph.db"))
+	dbPath, err := storage.CanonicalDBPath(filepath.Dir(dir))
+	if err != nil {
+		return nil
+	}
+	database, err := dbpkg.Open(dbPath)
 	if err != nil {
 		return nil
 	}
@@ -239,7 +244,10 @@ func buildCacheLine(htmlgraphDir, featureID string) string {
 	}
 
 	// Attempt track context via DB.
-	dbPath := filepath.Join(htmlgraphDir, ".db", "htmlgraph.db")
+	dbPath, err := storage.CanonicalDBPath(filepath.Dir(htmlgraphDir))
+	if err != nil {
+		return fmt.Sprintf("%s %s", iconFor(featureType), truncate(featureTitle, 30))
+	}
 	database, err := dbpkg.Open(dbPath)
 	if err != nil {
 		return fmt.Sprintf("%s %s", iconFor(featureType), truncate(featureTitle, 30))

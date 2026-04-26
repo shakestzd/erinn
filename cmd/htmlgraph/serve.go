@@ -79,6 +79,7 @@ func buildSingleProjectMux(database *sql.DB, htmlgraphDir string) *http.ServeMux
 	// /api/graph/{commits,files,sessions} routes are registered
 	// WITHOUT the wrapper to stay consistent with that hardening.
 	mux.Handle("/api/events/recent", recentEventsHandler(database))
+	mux.Handle("/api/events/feed", eventsFeedHandler(database))
 	mux.Handle("/api/events/tree", treeHandler(database))
 	mux.Handle("/api/events/stream", sseHandler(database))
 	mux.Handle("/api/events/subagent", subagentEventsHandler(database))

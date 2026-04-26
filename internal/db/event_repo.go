@@ -62,6 +62,17 @@ func InsertEvent(db *sql.DB, e *models.AgentEvent) error {
 	return nil
 }
 
+// EventExists returns true when an agent_event row with the given ID exists in
+// the database. It is cheaper than GetEvent when the caller only needs to
+// validate existence (e.g. to guard against using a stale env-var ID).
+func EventExists(database *sql.DB, eventID string) bool {
+	var count int
+	err := database.QueryRow(
+		`SELECT COUNT(1) FROM agent_events WHERE event_id = ?`, eventID,
+	).Scan(&count)
+	return err == nil && count > 0
+}
+
 // GetEvent retrieves a single agent event by ID.
 func GetEvent(db *sql.DB, eventID string) (*models.AgentEvent, error) {
 	row := db.QueryRow(`
@@ -494,6 +505,46 @@ func DeleteSessionIngestEvents(db *sql.DB, sessionID string) error {
 	)
 	if err != nil {
 		return fmt.Errorf("delete ingest events for %s: %w", sessionID, err)
+	}
+	return nil
+}
+
+// SetPromptID finds the closest UserQuery event in the given session within ±5 s
+// of ts and sets its prompt_id column to promptID. It is idempotent: only rows
+// with a NULL prompt_id are updated, so re-indexing a session never overwrites an
+// existing correlation. If no matching row is found the call is a no-op (returns nil).
+func SetPromptID(database *sql.DB, sessionID, promptID string, ts time.Time) error {
+	if sessionID == "" || promptID == "" {
+		return nil
+	}
+	lo := ts.UTC().Add(-5 * time.Second).Format(time.RFC3339)
+	hi := ts.UTC().Add(5 * time.Second).Format(time.RFC3339)
+
+	var eventID string
+	err := database.QueryRow(`
+		SELECT event_id FROM agent_events
+		WHERE session_id = ?
+		  AND tool_name = 'UserQuery'
+		  AND timestamp >= ?
+		  AND timestamp <= ?
+		  AND prompt_id IS NULL
+		ORDER BY ABS(CAST(strftime('%s', timestamp) AS INTEGER) - CAST(strftime('%s', ?) AS INTEGER)) ASC
+		LIMIT 1`,
+		sessionID, lo, hi, ts.UTC().Format(time.RFC3339),
+	).Scan(&eventID)
+	if err == sql.ErrNoRows {
+		return nil
+	}
+	if err != nil {
+		return fmt.Errorf("set prompt_id lookup: %w", err)
+	}
+
+	_, err = database.Exec(
+		`UPDATE agent_events SET prompt_id = ? WHERE event_id = ? AND prompt_id IS NULL`,
+		promptID, eventID,
+	)
+	if err != nil {
+		return fmt.Errorf("set prompt_id update: %w", err)
 	}
 	return nil
 }

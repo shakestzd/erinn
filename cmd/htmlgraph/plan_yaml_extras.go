@@ -11,6 +11,7 @@ import (
 
 	dbpkg "github.com/shakestzd/htmlgraph/internal/db"
 	"github.com/shakestzd/htmlgraph/internal/planyaml"
+	"github.com/shakestzd/htmlgraph/internal/storage"
 	"github.com/spf13/cobra"
 )
 
@@ -475,7 +476,10 @@ type amendmentValue struct {
 // applyAcceptedAmendments queries accepted amendments for planID, applies them
 // to the in-memory plan, marks them applied in the DB, and returns the count.
 func applyAcceptedAmendments(htmlgraphDir, planID string, plan *planyaml.PlanYAML) (int, error) {
-	dbPath := filepath.Join(htmlgraphDir, ".db", "htmlgraph.db")
+	dbPath, err := storage.CanonicalDBPath(filepath.Dir(htmlgraphDir))
+	if err != nil {
+		return 0, fmt.Errorf("resolve db path: %w", err)
+	}
 	db, err := dbpkg.Open(dbPath)
 	if err != nil {
 		return 0, fmt.Errorf("open db: %w", err)
@@ -612,7 +616,10 @@ func runReadFeedbackYAML(planID string) error {
 		return fmt.Errorf("load plan: %w", err)
 	}
 	// Query SQLite.
-	dbPath := filepath.Join(htmlgraphDir, ".db", "htmlgraph.db")
+	dbPath, err := storage.CanonicalDBPath(filepath.Dir(htmlgraphDir))
+	if err != nil {
+		return fmt.Errorf("resolve db path: %w", err)
+	}
 	db, err := dbpkg.Open(dbPath)
 	if err != nil {
 		return fmt.Errorf("open db: %w", err)

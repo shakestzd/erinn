@@ -15,6 +15,7 @@ import (
 	"github.com/shakestzd/htmlgraph/internal/hooks"
 	"github.com/shakestzd/htmlgraph/internal/htmlparse"
 	"github.com/shakestzd/htmlgraph/internal/models"
+	"github.com/shakestzd/htmlgraph/internal/slug"
 	"github.com/shakestzd/htmlgraph/internal/workitem"
 	"github.com/spf13/cobra"
 )
@@ -285,6 +286,16 @@ func wiSetStatusWithAgent(typeName, id, status, sessionID, agentID string) error
 		verb = "Blocked"
 	}
 	fmt.Printf("%s: %s  %s\n", verb, node.ID, node.Title)
+
+	// On start, print a hint so the user can sync the Claude session label.
+	if status == "in-progress" {
+		titleSlug := slug.Make(node.Title, 30)
+		color := slug.WorkItemColor(typeName)
+		fmt.Printf("\nTip: sync your Claude session label to this item:\n")
+		fmt.Printf("  /rename %s\n", titleSlug)
+		fmt.Printf("  /color %s\n", color)
+	}
+
 	return nil
 }
 

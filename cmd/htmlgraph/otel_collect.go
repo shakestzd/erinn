@@ -9,13 +9,19 @@ import (
 	"os/signal"
 	"path/filepath"
 	"strconv"
+	"sync"
 	"sync/atomic"
 	"syscall"
 	"time"
 
+	"github.com/shakestzd/htmlgraph/internal/db"
 	"github.com/shakestzd/htmlgraph/internal/otel"
 	"github.com/shakestzd/htmlgraph/internal/otel/adapter"
+	"github.com/shakestzd/htmlgraph/internal/otel/indexer"
+	"github.com/shakestzd/htmlgraph/internal/otel/receiver"
 	"github.com/shakestzd/htmlgraph/internal/otel/sink/ndjson"
+	sqlsink "github.com/shakestzd/htmlgraph/internal/otel/sink/sqlite"
+	"github.com/shakestzd/htmlgraph/internal/storage"
 	"github.com/spf13/cobra"
 )
 
@@ -44,7 +50,8 @@ func otelCollectCmd() *cobra.Command {
 }
 
 func runOtelCollect(sessionID, projectDir, listenAddr string) error {
-	sessDir := filepath.Join(projectDir, ".htmlgraph", "sessions", sessionID)
+	htmlgraphDir := filepath.Join(projectDir, ".htmlgraph")
+	sessDir := filepath.Join(htmlgraphDir, "sessions", sessionID)
 	if err := os.MkdirAll(sessDir, 0o755); err != nil {
 		return fmt.Errorf("create session dir: %w", err)
 	}
@@ -54,6 +61,29 @@ func runOtelCollect(sessionID, projectDir, listenAddr string) error {
 		return fmt.Errorf("create ndjson sink: %w", err)
 	}
 	defer snk.Close()
+
+	// Mount the NDJSON→SQLite indexer goroutine so dashboard reads see
+	// live span data within ~one tick of OTLP receive. Two SQLite handles
+	// share the canonical DB file: receiver.NewWriter is the dedicated
+	// single-conn writer for signal inserts; db.Open opens the canonical
+	// pool used by indexer.WithDB for prompt_id bridging.
+	dbPath, err := storage.CanonicalDBPath(projectDir)
+	if err != nil {
+		return fmt.Errorf("resolve canonical db path: %w", err)
+	}
+	database, err := db.Open(dbPath)
+	if err != nil {
+		return fmt.Errorf("open canonical db: %w", err)
+	}
+	defer database.Close()
+
+	writer, err := receiver.NewWriter(dbPath)
+	if err != nil {
+		return fmt.Errorf("open otel writer: %w", err)
+	}
+	defer writer.Close()
+
+	idx := indexer.New(htmlgraphDir, sqlsink.New(writer)).WithDB(database)
 
 	ln, err := net.Listen("tcp", listenAddr)
 	if err != nil {
@@ -88,7 +118,14 @@ func runOtelCollect(sessionID, projectDir, listenAddr string) error {
 		}
 	}()
 
-	return awaitShutdown(ctx, cancel, srv, snk, lastActivity)
+	var indexerWG sync.WaitGroup
+	indexerWG.Add(1)
+	go func() {
+		defer indexerWG.Done()
+		idx.Start(ctx)
+	}()
+
+	return awaitShutdown(ctx, cancel, srv, snk, lastActivity, &indexerWG)
 }
 
 // buildCollectorMux creates the OTLP HTTP mux with activity tracking.
@@ -131,7 +168,10 @@ func writeCollectorStartEvent(snk *ndjson.Sink, sessionID string, port int) erro
 }
 
 // awaitShutdown blocks until SIGTERM or idle timeout, then gracefully shuts down.
-func awaitShutdown(ctx context.Context, cancel context.CancelFunc, srv *http.Server, snk *ndjson.Sink, lastActivity *atomic.Int64) error {
+// indexerWG must be Add'd for each indexer goroutine the caller spawned;
+// gracefulShutdown waits on it so signals already in NDJSON drain to SQLite
+// before the process exits.
+func awaitShutdown(ctx context.Context, cancel context.CancelFunc, srv *http.Server, snk *ndjson.Sink, lastActivity *atomic.Int64, indexerWG *sync.WaitGroup) error {
 	idleTimeout := parseIdleTimeout()
 
 	sigCh := make(chan os.Signal, 1)
@@ -144,23 +184,30 @@ func awaitShutdown(ctx context.Context, cancel context.CancelFunc, srv *http.Ser
 		select {
 		case <-sigCh:
 			cancel()
-			return gracefulShutdown(srv, snk)
+			return gracefulShutdown(srv, snk, indexerWG)
 		case <-ticker.C:
 			elapsed := time.Since(time.UnixMilli(lastActivity.Load()))
 			if elapsed >= idleTimeout {
 				cancel()
-				return gracefulShutdown(srv, snk)
+				return gracefulShutdown(srv, snk, indexerWG)
 			}
 		case <-ctx.Done():
-			return gracefulShutdown(srv, snk)
+			return gracefulShutdown(srv, snk, indexerWG)
 		}
 	}
 }
 
-func gracefulShutdown(srv *http.Server, snk *ndjson.Sink) error {
+// gracefulShutdown stops the HTTP server, waits for the indexer goroutine to
+// drain (caller must have cancelled the indexer ctx before calling), then
+// closes the NDJSON sink. Slice 2 will widen the drain budget and add
+// HTMLGRAPH_OTEL_DRAIN_SECS overrides; for now the deadline is fixed at 3s.
+func gracefulShutdown(srv *http.Server, snk *ndjson.Sink, indexerWG *sync.WaitGroup) error {
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 	_ = srv.Shutdown(shutdownCtx)
+	if indexerWG != nil {
+		indexerWG.Wait()
+	}
 	return snk.Close()
 }
 

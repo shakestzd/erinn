@@ -2,8 +2,11 @@ package main
 
 import (
 	"bufio"
+	"bytes"
+	"database/sql"
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -11,6 +14,14 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"google.golang.org/protobuf/proto"
+
+	commonpb "go.opentelemetry.io/proto/otlp/common/v1"
+	resourcepb "go.opentelemetry.io/proto/otlp/resource/v1"
+	tracepb "go.opentelemetry.io/proto/otlp/trace/v1"
+
+	_ "modernc.org/sqlite"
 )
 
 // otelCollectTestBinary holds the path to the binary built for otel-collect tests.
@@ -246,5 +257,113 @@ func TestOtelCollect_CollectorStartEvent(t *testing.T) {
 	}
 	if _, hasPID := attrs["pid"]; !hasPID {
 		t.Error("attrs.pid missing from collector_start event")
+	}
+}
+
+// TestOtelCollect_OTLPToSQLite is the slice-1 trip-wire: an OTLP span POSTed
+// to the per-session collector must surface in the canonical SQLite
+// otel_signals table within ~one indexer tick. Removing the indexer goroutine
+// from runOtelCollect makes this test fail.
+func TestOtelCollect_OTLPToSQLite(t *testing.T) {
+	bin := buildOtelCollectTestBinary(t)
+	projectDir := mkOtelCollectProject(t)
+	dbPath := filepath.Join(projectDir, ".htmlgraph", "htmlgraph.db")
+	sid := "test-sid-otlp-sqlite"
+	const traceIDByte = 0xab
+	const spanIDByte = 0xcd
+
+	cmd := exec.Command(bin, "otel-collect",
+		"--session-id", sid,
+		"--project-dir", projectDir,
+		"--listen", "127.0.0.1:0",
+	)
+	cmd.Env = append(os.Environ(),
+		"HTMLGRAPH_OTEL_IDLE_TIMEOUT=15s",
+		"HTMLGRAPH_PROJECT_DIR="+projectDir,
+		"HTMLGRAPH_DB_PATH="+dbPath,
+	)
+	stdout, err := cmd.StdoutPipe()
+	if err != nil {
+		t.Fatalf("stdout pipe: %v", err)
+	}
+	if err := cmd.Start(); err != nil {
+		t.Fatalf("start otel-collect: %v", err)
+	}
+	t.Cleanup(func() { _ = cmd.Process.Kill() })
+
+	scanner := bufio.NewScanner(stdout)
+	line, ok := readHandshakeLine(t, scanner, 5*time.Second)
+	if !ok {
+		t.Fatal("no handshake within 5s")
+	}
+	var port int
+	if _, err := fmt.Sscanf(line, "htmlgraph-otel-ready port=%d", &port); err != nil {
+		t.Fatalf("parse port: %v", err)
+	}
+	go func() {
+		for scanner.Scan() {
+		}
+	}()
+
+	now := time.Now().UnixNano()
+	traces := &tracepb.TracesData{
+		ResourceSpans: []*tracepb.ResourceSpans{{
+			Resource: &resourcepb.Resource{Attributes: []*commonpb.KeyValue{{
+				Key:   "service.name",
+				Value: &commonpb.AnyValue{Value: &commonpb.AnyValue_StringValue{StringValue: "claude-code"}},
+			}}},
+			ScopeSpans: []*tracepb.ScopeSpans{{
+				Scope: &commonpb.InstrumentationScope{Name: "com.anthropic.claude_code"},
+				Spans: []*tracepb.Span{{
+					TraceId:           bytes.Repeat([]byte{traceIDByte}, 16),
+					SpanId:            bytes.Repeat([]byte{spanIDByte}, 8),
+					Name:              "claude_code.interaction",
+					StartTimeUnixNano: uint64(now),
+					EndTimeUnixNano:   uint64(now + 1_000_000_000),
+					Attributes: []*commonpb.KeyValue{{
+						Key:   "session.id",
+						Value: &commonpb.AnyValue{Value: &commonpb.AnyValue_StringValue{StringValue: sid}},
+					}},
+				}},
+			}},
+		}},
+	}
+	body, err := proto.Marshal(traces)
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+	url := fmt.Sprintf("http://127.0.0.1:%d/v1/traces", port)
+	req, _ := http.NewRequest(http.MethodPost, url, bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/x-protobuf")
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatalf("POST /v1/traces: %v", err)
+	}
+	resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("status = %d", resp.StatusCode)
+	}
+
+	// Poll otel_signals for up to 5s — one indexer tick is 500ms but the
+	// child process opens its own DB pool and the canonical schema is
+	// applied lazily. Open a read-only handle to avoid contending with
+	// the child's writer.
+	deadline := time.Now().Add(5 * time.Second)
+	var count int
+	for time.Now().Before(deadline) {
+		ro, err := sql.Open("sqlite", "file:"+dbPath+"?mode=ro&_pragma=busy_timeout(5000)")
+		if err == nil {
+			err = ro.QueryRow(
+				`SELECT COUNT(*) FROM otel_signals WHERE session_id = ? AND kind='span'`, sid,
+			).Scan(&count)
+			ro.Close()
+		}
+		if err == nil && count > 0 {
+			break
+		}
+		time.Sleep(150 * time.Millisecond)
+	}
+	if count == 0 {
+		t.Fatalf("otel_signals row for session=%s did not appear within 5s — indexer not draining NDJSON to SQLite", sid)
 	}
 }

@@ -1,6 +1,7 @@
 package storage_test
 
 import (
+	"fmt"
 	"go/build"
 	"os"
 	"path/filepath"
@@ -11,10 +12,27 @@ import (
 )
 
 // TestNoInlineDBPathConstruction walks cmd/ and internal/ (skipping the
-// storage package and _test.go files) and fails if any .go file contains
-// the literal "htmlgraph.db" outside the storage package.  This enforces
-// that every future caller goes through storage.CanonicalDBPath /
-// storage.DBFileName rather than constructing the path inline.
+// storage package and _test.go files) and fails when any .go file
+// constructs a DB path outside storage.CanonicalDBPath. Three patterns
+// are forbidden in production code outside internal/storage:
+//
+//  1. Lines containing the literal "htmlgraph.db" string. Production
+//     code must reference storage.DBFileName, and even then only outside
+//     a filepath.Join (rule 2).
+//  2. Lines that contain BOTH filepath.Join and storage.DBFileName.
+//     This catches the regression class fixed by bug-62f14f8c, where
+//     internal/hooks/runner.go silently fell back to constructing
+//     .htmlgraph/.db/htmlgraph.db whenever os.UserCacheDir() errored.
+//     Comparison sites (e.g. `if base == storage.DBFileName`) remain
+//     allowed because they do not synthesize a path.
+//  3. Lines containing ".htmlgraph/.db" or ".db/htmlgraph" — the legacy
+//     in-tree DB locations should never appear in callers; only
+//     storage.LegacyProjectDBPaths (inside internal/storage) may
+//     reference them, for the orphan-detection warning.
+//
+// LIMITATION: rule 2 is line-based, so a multi-line filepath.Join that
+// places storage.DBFileName on its own line slips through. Keep
+// filepath.Join calls single-line in production code.
 func TestNoInlineDBPathConstruction(t *testing.T) {
 	// Resolve module root from GOPATH or the source location.
 	root := filepath.Join(build.Default.GOPATH, "src", "github.com", "shakestzd", "htmlgraph")
@@ -44,7 +62,22 @@ func TestNoInlineDBPathConstruction(t *testing.T) {
 	// The storage package itself is the one place allowed to define DBFileName.
 	storagePkg := filepath.Join(root, "internal", "storage")
 
-	var violations []string
+	type violation struct {
+		path    string
+		line    int
+		pattern string
+	}
+	// linePatterns flag a single line whenever it contains the substring.
+	// filepathJoinDBFileName is checked separately because it requires both
+	// substrings on the same line (legitimate comparison sites use only
+	// storage.DBFileName, which is allowed).
+	linePatterns := []string{
+		`"htmlgraph.db"`,   // literal filename
+		`".htmlgraph/.db"`, // legacy ext4-volume path segment
+		`".db/htmlgraph"`,  // partial path hinting at legacy layout
+	}
+
+	var violations []violation
 	for _, dir := range scanDirs {
 		err := filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
 			if err != nil {
@@ -69,9 +102,23 @@ func TestNoInlineDBPathConstruction(t *testing.T) {
 			if err != nil {
 				return err
 			}
-			if strings.Contains(string(data), `"htmlgraph.db"`) {
-				rel, _ := filepath.Rel(root, path)
-				violations = append(violations, rel)
+			rel, _ := filepath.Rel(root, path)
+			for i, line := range strings.Split(string(data), "\n") {
+				for _, pat := range linePatterns {
+					if strings.Contains(line, pat) {
+						violations = append(violations, violation{path: rel, line: i + 1, pattern: pat})
+					}
+				}
+				// filepath.Join + storage.DBFileName on one line = path synthesis.
+				// Comparison sites (line contains storage.DBFileName but no
+				// filepath.Join) are allowed.
+				if strings.Contains(line, "filepath.Join") && strings.Contains(line, "storage.DBFileName") {
+					violations = append(violations, violation{
+						path:    rel,
+						line:    i + 1,
+						pattern: "filepath.Join(...storage.DBFileName...)",
+					})
+				}
 			}
 			return nil
 		})
@@ -81,8 +128,12 @@ func TestNoInlineDBPathConstruction(t *testing.T) {
 	}
 
 	if len(violations) > 0 {
-		t.Errorf("files contain inline %q (use storage.DBFileName or storage.CanonicalDBPath):\n  %s",
-			"htmlgraph.db", strings.Join(violations, "\n  "))
+		var lines []string
+		for _, v := range violations {
+			lines = append(lines, fmt.Sprintf("%s:%d contains forbidden pattern %s", v.path, v.line, v.pattern))
+		}
+		t.Errorf("non-canonical DB-path construction outside internal/storage "+
+			"(use storage.CanonicalDBPath):\n  %s", strings.Join(lines, "\n  "))
 	}
 }
 

@@ -161,15 +161,15 @@ func IsHtmlGraphProject(projectDir string) bool {
 // Delegates to storage.CanonicalDBPath so the DB always lives in the host
 // OS cache dir (never inside the project tree), ensuring WAL/SHM mmap
 // works regardless of the project filesystem (virtiofs, NFS, FUSE, etc.).
-// Falls back to the legacy project-local path only if the cache dir lookup
-// fails (which should not happen in practice).
-func DBPath(projectDir string) string {
-	p, err := storage.CanonicalDBPath(projectDir)
-	if err != nil {
-		// Degrade: return legacy path so hooks keep working even if UserCacheDir fails.
-		return filepath.Join(projectDir, ".htmlgraph", ".db", storage.DBFileName)
-	}
-	return p
+//
+// Returns an error when os.UserCacheDir() fails. There is intentionally no
+// silent fallback to a project-local path: a fallback caused bug-62f14f8c
+// where the indexer wrote to ~/.cache/htmlgraph/<hash>/htmlgraph.db while
+// the YOLO PreToolUse gate read .htmlgraph/.db/htmlgraph.db, leaving the
+// gate's view of agent_events permanently stale. Callers must propagate
+// the error (typically by skipping the hook with the configured fallback).
+func DBPath(projectDir string) (string, error) {
+	return storage.CanonicalDBPath(projectDir)
 }
 
 // NormaliseSessionID extracts a UUID from a path-style session_id that Claude

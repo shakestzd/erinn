@@ -92,7 +92,13 @@ func hookSubcmd(
 				if !hooks.IsHtmlGraphProject(projectDir) {
 					return fallback, nil
 				}
-				database, err := db.Open(hooks.DBPath(projectDir))
+				dbPath, err := hooks.DBPath(projectDir)
+				if err != nil {
+					hooks.LogError(use, event.SessionID,
+						fmt.Sprintf("DBPath failed: %v", err))
+					return fallback, nil
+				}
+				database, err := db.Open(dbPath)
 				if err != nil {
 					hooks.LogError(use, event.SessionID,
 						fmt.Sprintf("db.Open failed: %v", err))
@@ -125,7 +131,13 @@ func hookSubcmdWithProject(
 				if !hooks.IsHtmlGraphProject(projectDir) {
 					return fallback, nil
 				}
-				database, err := db.Open(hooks.DBPath(projectDir))
+				dbPath, err := hooks.DBPath(projectDir)
+				if err != nil {
+					hooks.LogError(use, event.SessionID,
+						fmt.Sprintf("DBPath failed: %v", err))
+					return fallback, nil
+				}
+				database, err := db.Open(dbPath)
 				if err != nil {
 					hooks.LogError(use, event.SessionID,
 						fmt.Sprintf("db.Open failed: %v", err))
@@ -155,7 +167,13 @@ func hookTrackEventCmd(fallback *hooks.HookResult) *cobra.Command {
 				if !hooks.IsHtmlGraphProject(projectDir) {
 					return fallback, nil
 				}
-				database, err := db.Open(hooks.DBPath(projectDir))
+				dbPath, err := hooks.DBPath(projectDir)
+				if err != nil {
+					hooks.LogError("track-event", event.SessionID,
+						fmt.Sprintf("DBPath failed: %v", err))
+					return fallback, nil
+				}
+				database, err := db.Open(dbPath)
 				if err != nil {
 					hooks.LogError("track-event", event.SessionID,
 						fmt.Sprintf("db.Open failed: %v", err))

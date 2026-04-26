@@ -177,7 +177,11 @@ func launchClaudeDev(extraArgs []string, auto bool, resumeID, name string) error
 	removeMarketplaceHtmlgraph()
 
 	sessionName := name
-	if sessionName == "" {
+	// Synthesize a default session name only for fresh launches. When --resume
+	// is passed, leaving sessionName empty preserves the existing session's
+	// label (passing a synthesized --name during resume can relabel or
+	// collide with the running session).
+	if sessionName == "" && resumeID == "" {
 		sessionName = defaultSessionName(projectRoot)
 	}
 
@@ -187,7 +191,9 @@ func launchClaudeDev(extraArgs []string, auto bool, resumeID, name string) error
 		fmt.Printf("Launching Claude Code with local plugin (--plugin-dir mode)\n")
 	}
 	fmt.Printf("  Plugin source: %s\n", pluginDir)
-	fmt.Printf("  Session: %s\n", sessionName)
+	if sessionName != "" {
+		fmt.Printf("  Session: %s\n", sessionName)
+	}
 
 	return launchClaude(LaunchOpts{
 		Mode:               "go",
@@ -219,12 +225,14 @@ func launchClaudeAuto(extraArgs []string, resumeID, name string) error {
 	cleanupStaleDev(projectRoot)
 	ensurePluginOnLaunch()
 	sessionName := name
-	if sessionName == "" {
+	if sessionName == "" && resumeID == "" {
 		sessionName = defaultSessionName(projectRoot)
 	}
 	fmt.Println("Launching Claude Code in auto mode (autonomous operation)...")
 	fmt.Println("  Actions will be approved by the background classifier, not prompted.")
-	fmt.Printf("  Session: %s\n", sessionName)
+	if sessionName != "" {
+		fmt.Printf("  Session: %s\n", sessionName)
+	}
 	return launchClaude(LaunchOpts{
 		Mode:               "auto",
 		ResumeID:           resumeID,
@@ -351,11 +359,13 @@ func launchClaudeInit(extraArgs []string, resumeID, name string) error {
 	cleanupStaleDev(projectRoot)
 	ensurePluginOnLaunch()
 	sessionName := name
-	if sessionName == "" {
+	if sessionName == "" && resumeID == "" {
 		sessionName = defaultSessionName(projectRoot)
 	}
 	fmt.Println("Launching Claude Code with marketplace plugin (init mode)...")
-	fmt.Printf("  Session: %s\n", sessionName)
+	if sessionName != "" {
+		fmt.Printf("  Session: %s\n", sessionName)
+	}
 	return launchClaude(LaunchOpts{
 		Mode:               "init",
 		ResumeID:           resumeID,
@@ -385,11 +395,13 @@ func launchClaudeDefault(extraArgs []string, resumeID, name string) error {
 	cleanupStaleDev(projectRoot)
 	ensurePluginOnLaunch()
 	sessionName := name
-	if sessionName == "" {
+	if sessionName == "" && resumeID == "" {
 		sessionName = defaultSessionName(projectRoot)
 	}
 	fmt.Println("Launching Claude Code (default mode)...")
-	fmt.Printf("  Session: %s\n", sessionName)
+	if sessionName != "" {
+		fmt.Printf("  Session: %s\n", sessionName)
+	}
 	return launchClaude(LaunchOpts{
 		Mode:               "default",
 		ResumeID:           resumeID,

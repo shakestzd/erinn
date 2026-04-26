@@ -85,6 +85,36 @@ func TestMake(t *testing.T) {
 			maxLen: 30,
 			want:   "htmlgraph",
 		},
+		{
+			// Regression: non-ASCII letters used to be retained via
+			// unicode.IsLetter and could be split across rune boundaries
+			// by byte-level truncation, producing invalid UTF-8.
+			name:   "non-ASCII letters dropped",
+			input:  "Café Résumé",
+			maxLen: 0,
+			want:   "caf-r-sum",
+		},
+		{
+			name:   "non-ASCII digits dropped",
+			input:  "version ٢ release", // Arabic-Indic digit ٢
+			maxLen: 0,
+			want:   "version-release",
+		},
+		{
+			name:   "cjk dropped without invalid utf8",
+			input:  "feat 日本語 ship",
+			maxLen: 0,
+			want:   "feat-ship",
+		},
+		{
+			// Truncation lands inside what used to be a multi-byte rune;
+			// the new implementation guarantees ASCII-only output, so the
+			// byte slice is always valid UTF-8.
+			name:   "truncate stays utf8 valid",
+			input:  "alpha beta café delta",
+			maxLen: 12,
+			want:   "alpha-beta",
+		},
 	}
 
 	for _, tt := range tests {

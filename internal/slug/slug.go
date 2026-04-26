@@ -4,7 +4,6 @@ package slug
 
 import (
 	"strings"
-	"unicode"
 )
 
 // WorkItemColor returns the Claude session color for a given work item type.
@@ -28,10 +27,14 @@ func WorkItemColor(typeName string) string {
 
 // Make converts a string to a URL/TUI-safe slug:
 //   - Lowercase
-//   - Alphanumerics and hyphens only
+//   - ASCII alphanumerics and hyphens only — non-ASCII characters
+//     (accented letters, CJK, emoji, etc.) are treated as separators so
+//     byte-level truncation cannot split a multi-byte rune and produce
+//     invalid UTF-8. Slugs feed filenames and URLs, where non-ASCII is
+//     a portability hazard regardless.
 //   - Runs of non-alphanumeric characters collapsed to a single hyphen
 //   - Leading and trailing hyphens stripped
-//   - Capped at maxLen characters with word-boundary truncation
+//   - Capped at maxLen bytes with word-boundary truncation
 //
 // Pass maxLen == 0 to skip truncation.
 func Make(s string, maxLen int) string {
@@ -39,29 +42,29 @@ func Make(s string, maxLen int) string {
 		return ""
 	}
 
-	// Build slug character by character.
 	var b strings.Builder
 	prevHyphen := false
 	for _, r := range strings.ToLower(s) {
-		if unicode.IsLetter(r) || unicode.IsDigit(r) {
+		if (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') {
 			b.WriteRune(r)
 			prevHyphen = false
-		} else {
-			// Collapse any run of separators (spaces, punctuation, etc.) to one hyphen.
-			if !prevHyphen && b.Len() > 0 {
-				b.WriteRune('-')
-				prevHyphen = true
-			}
+			continue
+		}
+		// Collapse any run of separators (spaces, punctuation, non-ASCII
+		// runes, etc.) to a single hyphen.
+		if !prevHyphen && b.Len() > 0 {
+			b.WriteRune('-')
+			prevHyphen = true
 		}
 	}
 
 	slug := strings.TrimRight(b.String(), "-")
 
+	// All retained characters are single-byte ASCII, so byte slicing is
+	// rune-safe; len(slug) and maxLen compare in bytes == characters.
 	if maxLen <= 0 || len(slug) <= maxLen {
 		return slug
 	}
-
-	// Truncate at a word boundary (hyphen) within maxLen.
 	truncated := slug[:maxLen]
 	if idx := strings.LastIndex(truncated, "-"); idx > 0 {
 		truncated = truncated[:idx]

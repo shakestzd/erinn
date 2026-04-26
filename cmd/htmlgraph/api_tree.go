@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"net/http"
+	"sort"
 	"strconv"
 	"time"
 )
@@ -47,15 +48,32 @@ func treeHandler(database *sql.DB) http.HandlerFunc {
 	}
 }
 
-// buildEventTree tries OTel interaction spans as turn anchors first.
-// When no interaction spans exist, it falls back to hook-based UserQuery
-// rows so older sessions without OTel data continue to render correctly.
+// buildEventTree merges OTel interaction-span turns with hook-based UserQuery
+// turns that have no OTel anchor, then returns the most recent `limit` by
+// timestamp. Mixed databases (sessions partially anchored in OTel, older
+// sessions purely hook-driven) are rendered together rather than the
+// older sessions being silently dropped once any OTel span is present.
 func buildEventTree(database *sql.DB, limit int) []turn {
-	turns := buildEventTreeOtel(database, limit)
-	if len(turns) > 0 {
-		return turns
+	otelTurns := buildEventTreeOtel(database, limit)
+	hookTurns := buildEventTreeHookUnanchored(database, limit)
+
+	merged := append(otelTurns, hookTurns...)
+	if len(merged) == 0 {
+		return []turn{}
 	}
-	return buildEventTreeHook(database, limit)
+
+	// Sort DESC by timestamp (RFC3339 strings are lexicographically sortable
+	// in ascending chronological order; reverse for newest-first).
+	sort.SliceStable(merged, func(i, j int) bool {
+		ti, _ := merged[i].UserQuery["timestamp"].(string)
+		tj, _ := merged[j].UserQuery["timestamp"].(string)
+		return ti > tj
+	})
+
+	if len(merged) > limit {
+		merged = merged[:limit]
+	}
+	return merged
 }
 
 // buildEventTreeOtel builds the turn list using OTel interaction spans as
@@ -149,13 +167,24 @@ func buildEventTreeOtel(database *sql.DB, limit int) []turn {
 	return turns
 }
 
-// buildEventTreeHook is the original hook-based implementation, kept as a
-// fallback for sessions that predate OTel instrumentation.
-func buildEventTreeHook(database *sql.DB, limit int) []turn {
+// buildEventTreeHookUnanchored returns hook-based UserQuery turns whose
+// step_id does NOT match an OTel interaction span. New sessions that emit
+// both an OTel anchor AND a hook UserQuery are surfaced through
+// buildEventTreeOtel; this function captures the older / hook-only
+// sessions so they are not dropped when mixed with OTel data.
+func buildEventTreeHookUnanchored(database *sql.DB, limit int) []turn {
 	rows, err := database.Query(`
 		SELECT `+eventColumns+`
 		FROM agent_events e
 		WHERE e.tool_name = 'UserQuery'
+		  AND (
+		    e.step_id IS NULL OR e.step_id = ''
+		    OR NOT EXISTS (
+		      SELECT 1 FROM otel_signals s
+		      WHERE s.kind = 'span' AND s.canonical = 'interaction'
+		        AND s.trace_id = e.step_id
+		    )
+		  )
 		ORDER BY e.timestamp DESC
 		LIMIT ?`, limit)
 	if err != nil {

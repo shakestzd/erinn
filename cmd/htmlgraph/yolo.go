@@ -184,6 +184,30 @@ func resolveTrackForFeature(featureID, projectRoot string) string {
 	return node.TrackID
 }
 
+// ensureWorktreeForLaunch chooses the right Ensure* helper for a yolo launch.
+//
+// When a track ID is supplied (or the feature has a parent track), the titled
+// track worktree at .claude/worktrees/<title-slug>-<trackID> is used. Without
+// it, feature launches that belong to a track previously fell through to
+// internal/worktree.EnsureForFeature, which delegates to the legacy bare
+// EnsureForTrack and produced .claude/worktrees/<trackID> instead of the
+// titled directory used elsewhere.
+//
+// Returns ("", nil) when there is no track or feature to anchor on.
+func ensureWorktreeForLaunch(trackID, featureID, trackTitle, projectRoot string) (string, error) {
+	tid := trackID
+	if tid == "" && featureID != "" {
+		tid = resolveTrackForFeature(featureID, projectRoot)
+	}
+	if tid != "" {
+		return EnsureForTrackWithTitle(trackTitle, tid, projectRoot, os.Stdout)
+	}
+	if featureID != "" {
+		return EnsureForFeature(featureID, projectRoot, os.Stdout)
+	}
+	return "", nil
+}
+
 // buildWorkItemPromptPrefix returns the work item header to prepend to the yolo prompt.
 func buildWorkItemPromptPrefix(id, _ string) string {
 	return strings.Join([]string{
@@ -246,29 +270,25 @@ func launchYoloDefault(permMode, trackID, featureID string, noWorktree bool, res
 	// Create a worktree for isolation (skip for --no-worktree).
 	workDir := projectRoot
 	if !noWorktree && projectRoot != "" {
-		if trackID != "" {
-			worktreePath, wtErr := EnsureForTrackWithTitle(trackTitle, trackID, projectRoot, os.Stdout)
-			if wtErr != nil {
-				return wtErr
-			}
-			workDir = worktreePath
-		} else if featureID != "" {
-			worktreePath, wtErr := EnsureForFeature(featureID, projectRoot, os.Stdout)
-			if wtErr != nil {
-				return wtErr
-			}
+		worktreePath, wtErr := ensureWorktreeForLaunch(trackID, featureID, trackTitle, projectRoot)
+		if wtErr != nil {
+			return wtErr
+		}
+		if worktreePath != "" {
 			workDir = worktreePath
 		}
 	}
 
 	sessionName := name
-	if sessionName == "" {
+	if sessionName == "" && resumeID == "" {
 		sessionName = yoloDefaultName(trackID, featureID, projectRoot)
 	}
 	yoloPrompt := buildYoloSystemPrompt(id, kind)
 
 	fmt.Printf("Launching Claude Code in YOLO mode (%s)...\n", permMode)
-	fmt.Printf("  Session: %s\n", sessionName)
+	if sessionName != "" {
+		fmt.Printf("  Session: %s\n", sessionName)
+	}
 	fmt.Printf("  Work item: %s\n", id)
 
 	// Write the combined prompt to a temp file so launchClaude can pass it via
@@ -331,17 +351,11 @@ func launchYoloDev(trackID, featureID string, noWorktree bool, resumeID, name st
 	// Create a worktree for isolation (skip for --no-worktree).
 	workDir := projectRoot
 	if !noWorktree && projectRoot != "" {
-		if trackID != "" {
-			worktreePath, wtErr := EnsureForTrackWithTitle(trackTitle, trackID, projectRoot, os.Stdout)
-			if wtErr != nil {
-				return wtErr
-			}
-			workDir = worktreePath
-		} else if featureID != "" {
-			worktreePath, wtErr := EnsureForFeature(featureID, projectRoot, os.Stdout)
-			if wtErr != nil {
-				return wtErr
-			}
+		worktreePath, wtErr := ensureWorktreeForLaunch(trackID, featureID, trackTitle, projectRoot)
+		if wtErr != nil {
+			return wtErr
+		}
+		if worktreePath != "" {
 			workDir = worktreePath
 		}
 	}
@@ -350,14 +364,16 @@ func launchYoloDev(trackID, featureID string, noWorktree bool, resumeID, name st
 	removeMarketplaceHtmlgraph()
 
 	sessionName := name
-	if sessionName == "" {
+	if sessionName == "" && resumeID == "" {
 		sessionName = yoloDefaultName(trackID, featureID, projectRoot)
 	}
 	yoloPrompt := buildYoloSystemPrompt(id, kind)
 
 	fmt.Printf("Launching Claude Code in YOLO dev mode...\n")
 	fmt.Printf("  Plugin: %s\n", pluginDir)
-	fmt.Printf("  Session: %s\n", sessionName)
+	if sessionName != "" {
+		fmt.Printf("  Session: %s\n", sessionName)
+	}
 	fmt.Printf("  Work item: %s\n", id)
 
 	tmpFile, err := os.CreateTemp("", "yolo-prompt-*.md")

@@ -2,6 +2,7 @@ package hooks
 
 import (
 	"bufio"
+	"context"
 	"crypto/sha256"
 	"database/sql"
 	"encoding/json"
@@ -9,6 +10,9 @@ import (
 	"os"
 	"strings"
 	"time"
+
+	"github.com/shakestzd/htmlgraph/internal/otel"
+	"github.com/shakestzd/htmlgraph/internal/otel/sink/ndjson"
 )
 
 // transcriptRecord is the minimal shape of one JSONL line in the Claude Code
@@ -226,7 +230,7 @@ func assistantTextSignalID(uuid string) string {
 //	parent_span   = transcript record's parentUuid (links to user prompt UUID)
 //	attrs_json    = {"text": "...", "stop_reason": "...", "request_id": "...", "sidechain": false}
 func insertAssistantTextSignal(
-	database *sql.DB,
+	_ *sql.DB,
 	projectDir string,
 	sessionID string,
 	transcriptPath string,
@@ -251,40 +255,22 @@ func insertAssistantTextSignal(
 		return
 	}
 
-	// Parse the record timestamp; fall back to now on parse failure.
-	var tsMicros int64
+	ts := time.Now().UTC()
 	if rec.Timestamp != "" {
 		if t, err := time.Parse(time.RFC3339Nano, rec.Timestamp); err == nil {
-			tsMicros = t.UnixMicro()
+			ts = t
 		}
 	}
-	if tsMicros == 0 {
-		tsMicros = time.Now().UnixMicro()
-	}
 
-	signalID := assistantTextSignalID(rec.UUID)
-
-	attrsMap := map[string]any{
+	attrs := map[string]any{
 		"text":        text,
 		"stop_reason": rec.Message.StopReason,
 		"request_id":  rec.RequestID,
 		"sidechain":   false,
 	}
 	if rec.Message.StopReason != "" && rec.Message.StopReason != "end_turn" {
-		attrsMap["interrupted"] = true
+		attrs["interrupted"] = true
 	}
-	attrsJSON, err := json.Marshal(attrsMap)
-	if err != nil {
-		debugLog(projectDir, "[assistant-text] marshal attrs: %v", err)
-		return
-	}
-
-	// Look up active feature for attribution.
-	var featureID sql.NullString
-	_ = database.QueryRow(
-		`SELECT work_item_id FROM active_work_items WHERE session_id = ? AND agent_id = ?`,
-		sessionID, "__root__",
-	).Scan(&featureID)
 
 	// Walk the parent chain to find the ancestor human text prompt.
 	// This handles the case where assistant text follows a tool call chain:
@@ -292,23 +278,32 @@ func insertAssistantTextSignal(
 	// We want parent_span to be the user_prompt UUID, not user_tool_result.
 	sigParentSpan := resolveUserPromptAncestor(uuidToRecord, rec.ParentUUID)
 
-	// INSERT OR IGNORE ensures idempotency on hook retries — if the same
-	// Stop hook fires twice for the same session, the second insert is a no-op.
-	_, dbErr := database.Exec(`
-		INSERT OR IGNORE INTO otel_signals (
-			signal_id, harness, session_id,
-			span_id, parent_span,
-			kind, canonical, native, ts_micros,
-			attrs_json, feature_id
-		) VALUES (?, 'claude', ?, ?, ?, 'log', 'assistant_text', 'assistant_turn', ?, ?, ?)`,
-		signalID, sessionID,
-		nullableStr(rec.UUID), nullableStr(sigParentSpan),
-		tsMicros,
-		string(attrsJSON),
-		featureID,
-	)
-	if dbErr != nil {
-		debugLog(projectDir, "[assistant-text] insert signal: %v", dbErr)
+	sig := otel.UnifiedSignal{
+		Harness:       otel.HarnessClaude,
+		SignalID:      assistantTextSignalID(rec.UUID),
+		Kind:          otel.KindLog,
+		CanonicalName: "assistant_text",
+		NativeName:    "assistant_turn",
+		Timestamp:     ts,
+		SessionID:     sessionID,
+		SpanID:        rec.UUID,
+		ParentSpan:    sigParentSpan,
+		RawAttrs:      attrs,
+	}
+
+	if err := ensureSessionDir(projectDir, sessionID); err != nil {
+		debugLog(projectDir, "[assistant-text] mkdir session: %v", err)
+		return
+	}
+	snk, err := ndjson.New(projectDir, sessionID)
+	if err != nil {
+		debugLog(projectDir, "[assistant-text] open ndjson: %v", err)
+		return
+	}
+	defer snk.Close()
+
+	if err := snk.WriteBatch(context.Background(), otel.HarnessClaude, nil, []otel.UnifiedSignal{sig}); err != nil {
+		debugLog(projectDir, "[assistant-text] ndjson write: %v", err)
 	}
 }
 

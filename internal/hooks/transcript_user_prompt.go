@@ -2,14 +2,28 @@ package hooks
 
 import (
 	"bufio"
+	"context"
 	"crypto/sha256"
 	"database/sql"
 	"encoding/json"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
+
+	"github.com/shakestzd/htmlgraph/internal/otel"
+	"github.com/shakestzd/htmlgraph/internal/otel/sink/ndjson"
 )
+
+// ensureSessionDir creates the per-session NDJSON directory. ndjson.New's
+// contract requires the directory to exist before WriteBatch — when no
+// per-session collector is running (cold backfill, session-end after
+// collector exit), the hook must create it.
+func ensureSessionDir(projectDir, sessionID string) error {
+	dir := filepath.Join(projectDir, ".htmlgraph", "sessions", sessionID)
+	return os.MkdirAll(dir, 0o755)
+}
 
 // userTranscriptRecord is the minimal shape of a user JSONL line in the Claude
 // Code transcript. Content is kept as raw JSON because it can be either a plain
@@ -101,16 +115,25 @@ func userPromptSignalID(uuid string) string {
 	return fmt.Sprintf("%x", h.Sum(nil))[:32]
 }
 
-// backfillMissedUserPrompts scans the transcript JSONL file and inserts
-// otel_signals rows for user prompts that were missed by the live hook path.
+// backfillMissedUserPrompts scans the transcript JSONL file and emits
+// UnifiedSignal rows to the session's events.ndjson for user prompts
+// missed by the live hook path. The per-session otel-collect indexer
+// drains NDJSON into otel_signals on its next tick.
 //
-// It is idempotent: records already captured (span_id = uuid exists with
-// canonical='user_prompt') are skipped. Running backfill multiple times
-// produces no duplicates.
+// Idempotent at the otel_signals layer: signal_id is derived from rec.UUID
+// via userPromptSignalID, so the indexer's INSERT OR IGNORE deduplicates
+// across replays. Within this single backfill pass, the same UUID would
+// produce duplicate NDJSON lines if the transcript repeats them — accepted
+// because the SQLite layer dedups and re-running backfill is rare.
 //
-// Returns the count of newly inserted rows. Errors are non-fatal by convention —
-// callers should log and continue.
-func backfillMissedUserPrompts(database *sql.DB, projectDir, sessionID, transcriptPath string) (int, error) {
+// The database parameter is retained for caller-side context but is no
+// longer queried; feature_id is derived by the indexer's writer at INSERT
+// time from active_work_items, so attribution stays correct without the
+// hook duplicating that lookup.
+//
+// Returns the count of NDJSON lines emitted. Errors are non-fatal by
+// convention — callers should log and continue.
+func backfillMissedUserPrompts(_ *sql.DB, projectDir, sessionID, transcriptPath string) (int, error) {
 	if transcriptPath == "" {
 		return 0, nil
 	}
@@ -124,14 +147,7 @@ func backfillMissedUserPrompts(database *sql.DB, projectDir, sessionID, transcri
 	}
 	defer f.Close()
 
-	// Look up active feature for attribution (best-effort).
-	var featureID sql.NullString
-	_ = database.QueryRow(
-		`SELECT work_item_id FROM active_work_items WHERE session_id = ? AND agent_id = ?`,
-		sessionID, "__root__",
-	).Scan(&featureID)
-
-	inserted := 0
+	var signals []otel.UnifiedSignal
 	scanner := bufio.NewScanner(f)
 	// Increase buffer for very long lines (large prompts in transcript).
 	scanner.Buffer(make([]byte, 1024*1024), 10*1024*1024)
@@ -161,56 +177,62 @@ func backfillMissedUserPrompts(database *sql.DB, projectDir, sessionID, transcri
 			continue // tool_result, image-only, or empty
 		}
 
-		// Parse the record timestamp; fall back to now on parse failure.
-		var tsMicros int64
-		if rec.Timestamp != "" {
-			if t, err := time.Parse(time.RFC3339Nano, rec.Timestamp); err == nil {
-				tsMicros = t.UnixMicro()
-			}
-		}
-		if tsMicros == 0 {
-			tsMicros = time.Now().UnixMicro()
-		}
+		ts := parseTranscriptTimestamp(rec.Timestamp)
 
-		signalID := userPromptSignalID(rec.UUID)
-
-		attrsMap := map[string]any{
+		attrs := map[string]any{
 			"text":   text,
 			"source": "transcript_backfill",
 		}
 		if rec.RequestID != "" {
-			attrsMap["request_id"] = rec.RequestID
-		}
-		attrsJSON, err := json.Marshal(attrsMap)
-		if err != nil {
-			continue
+			attrs["request_id"] = rec.RequestID
 		}
 
-		// INSERT OR IGNORE keyed on signal_id for idempotency.
-		res, dbErr := database.Exec(`
-			INSERT OR IGNORE INTO otel_signals (
-				signal_id, harness, session_id,
-				span_id, parent_span,
-				kind, canonical, native, ts_micros,
-				attrs_json, feature_id
-			) VALUES (?, 'claude', ?, ?, ?, 'log', 'user_prompt', 'user_turn', ?, ?, ?)`,
-			signalID, sessionID,
-			nullableStr(rec.UUID), nullableStr(rec.ParentUUID),
-			tsMicros,
-			string(attrsJSON),
-			featureID,
-		)
-		if dbErr != nil {
-			debugLog(projectDir, "[user-prompt-backfill] insert signal: %v", dbErr)
-			continue
-		}
-		if n, _ := res.RowsAffected(); n > 0 {
-			inserted++
-		}
+		signals = append(signals, otel.UnifiedSignal{
+			Harness:       otel.HarnessClaude,
+			SignalID:      userPromptSignalID(rec.UUID),
+			Kind:          otel.KindLog,
+			CanonicalName: otel.CanonicalUserPrompt,
+			NativeName:    "user_turn",
+			Timestamp:     ts,
+			SessionID:     sessionID,
+			SpanID:        rec.UUID,
+			ParentSpan:    rec.ParentUUID,
+			RawAttrs:      attrs,
+		})
 	}
 	if err := scanner.Err(); err != nil {
-		return inserted, fmt.Errorf("scan transcript: %w", err)
+		return 0, fmt.Errorf("scan transcript: %w", err)
 	}
 
-	return inserted, nil
+	if len(signals) == 0 {
+		return 0, nil
+	}
+
+	if err := ensureSessionDir(projectDir, sessionID); err != nil {
+		debugLog(projectDir, "[user-prompt-backfill] mkdir session: %v", err)
+		return 0, fmt.Errorf("mkdir session: %w", err)
+	}
+	snk, err := ndjson.New(projectDir, sessionID)
+	if err != nil {
+		debugLog(projectDir, "[user-prompt-backfill] open ndjson: %v", err)
+		return 0, fmt.Errorf("open ndjson: %w", err)
+	}
+	defer snk.Close()
+
+	if err := snk.WriteBatch(context.Background(), otel.HarnessClaude, nil, signals); err != nil {
+		debugLog(projectDir, "[user-prompt-backfill] WriteBatch: %v", err)
+		return 0, fmt.Errorf("ndjson write: %w", err)
+	}
+	return len(signals), nil
+}
+
+// parseTranscriptTimestamp parses an RFC3339Nano timestamp string.
+// Falls back to time.Now().UTC() on parse failure or empty input.
+func parseTranscriptTimestamp(s string) time.Time {
+	if s != "" {
+		if t, err := time.Parse(time.RFC3339Nano, s); err == nil {
+			return t
+		}
+	}
+	return time.Now().UTC()
 }

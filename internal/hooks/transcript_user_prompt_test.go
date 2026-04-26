@@ -5,8 +5,47 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
+
+// readNDJSONSignals reads .htmlgraph/sessions/<sid>/events.ndjson and
+// returns each line parsed as a map. Used by hook tests to assert
+// what NDJSON signals the hook emitted (replacing the old direct-INSERT
+// SQLite assertion path).
+func readNDJSONSignals(t *testing.T, projectDir, sessionID string) []map[string]any {
+	t.Helper()
+	path := filepath.Join(projectDir, ".htmlgraph", "sessions", sessionID, "events.ndjson")
+	data, err := os.ReadFile(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
+		t.Fatalf("read events.ndjson: %v", err)
+	}
+	var out []map[string]any
+	for _, line := range strings.Split(strings.TrimSpace(string(data)), "\n") {
+		if line == "" {
+			continue
+		}
+		var m map[string]any
+		if err := json.Unmarshal([]byte(line), &m); err != nil {
+			t.Fatalf("parse line %q: %v", line, err)
+		}
+		out = append(out, m)
+	}
+	return out
+}
+
+// findSignal returns the first NDJSON entry matching the predicate, or nil.
+func findSignal(signals []map[string]any, pred func(map[string]any) bool) map[string]any {
+	for _, s := range signals {
+		if pred(s) {
+			return s
+		}
+	}
+	return nil
+}
 
 // makeUserPromptLine returns a JSONL line for a user record with legacy string content.
 func makeUserPromptLine(uuid, parentUUID, sessionID, text string, isSidechain bool) string {
@@ -112,7 +151,8 @@ func writeUserTranscript(t *testing.T, lines []string) string {
 // --- backfillMissedUserPrompts tests ---
 
 // TestBackfillMissedUserPrompts_LegacyStringFormat verifies the happy path with
-// legacy string content: a plain text prompt is correctly extracted and inserted.
+// legacy string content: a plain text prompt is correctly extracted and emitted
+// as a UnifiedSignal NDJSON line.
 func TestBackfillMissedUserPrompts_LegacyStringFormat(t *testing.T) {
 	td := setupTestDB(t)
 	sessionID := "test-sess"
@@ -127,40 +167,31 @@ func TestBackfillMissedUserPrompts_LegacyStringFormat(t *testing.T) {
 		t.Fatalf("backfillMissedUserPrompts: %v", err)
 	}
 	if n != 1 {
-		t.Errorf("expected 1 inserted row, got %d", n)
+		t.Errorf("expected 1 emitted signal, got %d", n)
 	}
 
-	var canonical, spanID, attrsRaw string
-	err = td.DB.QueryRow(`
-		SELECT canonical, COALESCE(span_id,''), attrs_json
-		FROM otel_signals
-		WHERE session_id = ? AND canonical = 'user_prompt'`,
-		sessionID,
-	).Scan(&canonical, &spanID, &attrsRaw)
-	if err != nil {
-		t.Fatalf("query otel_signals: %v", err)
+	signals := readNDJSONSignals(t, projectDir, sessionID)
+	if len(signals) != 1 {
+		t.Fatalf("want 1 NDJSON line, got %d", len(signals))
 	}
-	if canonical != "user_prompt" {
-		t.Errorf("canonical = %q, want %q", canonical, "user_prompt")
+	s := signals[0]
+	if s["canonical"] != "user_prompt" {
+		t.Errorf("canonical = %v, want user_prompt", s["canonical"])
 	}
-	if spanID != "u1" {
-		t.Errorf("span_id = %q, want %q", spanID, "u1")
+	if s["span_id"] != "u1" {
+		t.Errorf("span_id = %v, want u1", s["span_id"])
 	}
-
-	var attrs map[string]any
-	if err := json.Unmarshal([]byte(attrsRaw), &attrs); err != nil {
-		t.Fatalf("unmarshal attrs: %v", err)
-	}
+	attrs, _ := s["attrs"].(map[string]any)
 	if attrs["text"] != "what's the plan?" {
-		t.Errorf("attrs[text] = %q, want %q", attrs["text"], "what's the plan?")
+		t.Errorf("attrs.text = %v, want %q", attrs["text"], "what's the plan?")
 	}
 	if attrs["source"] != "transcript_backfill" {
-		t.Errorf("attrs[source] = %q, want %q", attrs["source"], "transcript_backfill")
+		t.Errorf("attrs.source = %v, want transcript_backfill", attrs["source"])
 	}
 }
 
 // TestBackfillMissedUserPrompts_ModernTextBlockFormat verifies the happy path with
-// modern array content: the first text block is extracted and inserted.
+// modern array content: the first text block is extracted and emitted.
 func TestBackfillMissedUserPrompts_ModernTextBlockFormat(t *testing.T) {
 	td := setupTestDB(t)
 	sessionID := "test-sess"
@@ -175,29 +206,22 @@ func TestBackfillMissedUserPrompts_ModernTextBlockFormat(t *testing.T) {
 		t.Fatalf("backfillMissedUserPrompts: %v", err)
 	}
 	if n != 1 {
-		t.Errorf("expected 1 inserted row, got %d", n)
+		t.Errorf("expected 1 emitted signal, got %d", n)
 	}
 
-	var attrsRaw, parentSpan string
-	err = td.DB.QueryRow(`
-		SELECT attrs_json, COALESCE(parent_span,'')
-		FROM otel_signals
-		WHERE session_id = ? AND canonical = 'user_prompt' AND span_id = 'u2'`,
-		sessionID,
-	).Scan(&attrsRaw, &parentSpan)
-	if err != nil {
-		t.Fatalf("query otel_signals: %v", err)
+	signals := readNDJSONSignals(t, projectDir, sessionID)
+	s := findSignal(signals, func(m map[string]any) bool {
+		return m["canonical"] == "user_prompt" && m["span_id"] == "u2"
+	})
+	if s == nil {
+		t.Fatalf("user_prompt signal with span_id=u2 not found in NDJSON; got %d signals", len(signals))
 	}
-
-	var attrs map[string]any
-	if err := json.Unmarshal([]byte(attrsRaw), &attrs); err != nil {
-		t.Fatalf("unmarshal attrs: %v", err)
+	if s["parent_span"] != "parent-u2" {
+		t.Errorf("parent_span = %v, want parent-u2", s["parent_span"])
 	}
+	attrs, _ := s["attrs"].(map[string]any)
 	if attrs["text"] != "next step?" {
-		t.Errorf("attrs[text] = %q, want %q", attrs["text"], "next step?")
-	}
-	if parentSpan != "parent-u2" {
-		t.Errorf("parent_span = %q, want %q", parentSpan, "parent-u2")
+		t.Errorf("attrs.text = %v, want %q", attrs["text"], "next step?")
 	}
 }
 
@@ -217,15 +241,10 @@ func TestBackfillMissedUserPrompts_SkipToolResult(t *testing.T) {
 		t.Fatalf("backfillMissedUserPrompts: %v", err)
 	}
 	if n != 0 {
-		t.Errorf("expected 0 inserted rows for tool_result, got %d", n)
+		t.Errorf("expected 0 emitted rows for tool_result, got %d", n)
 	}
-
-	var count int
-	if err := td.DB.QueryRow(`SELECT COUNT(*) FROM otel_signals WHERE session_id = ?`, sessionID).Scan(&count); err != nil {
-		t.Fatalf("count query: %v", err)
-	}
-	if count != 0 {
-		t.Errorf("expected 0 rows in otel_signals for tool_result record, got %d", count)
+	if got := readNDJSONSignals(t, projectDir, sessionID); len(got) != 0 {
+		t.Errorf("expected 0 NDJSON lines for tool_result, got %d", len(got))
 	}
 }
 
@@ -269,8 +288,12 @@ func TestBackfillMissedUserPrompts_SkipImageOnly(t *testing.T) {
 	}
 }
 
-// TestBackfillMissedUserPrompts_Idempotent verifies that running backfill twice
-// on the same transcript produces exactly one row per uuid (INSERT OR IGNORE).
+// TestBackfillMissedUserPrompts_Idempotent verifies that the hook emits the
+// same signal_id on every backfill pass. End-to-end idempotency at the
+// otel_signals layer is provided by the indexer's INSERT OR IGNORE
+// (covered by TestIndexer_IdempotentReplay in internal/otel/indexer/);
+// here we only verify the hook side: signal_id is stable per uuid, and
+// running twice does not produce diverging signal_ids.
 func TestBackfillMissedUserPrompts_Idempotent(t *testing.T) {
 	td := setupTestDB(t)
 	sessionID := "test-sess"
@@ -286,23 +309,34 @@ func TestBackfillMissedUserPrompts_Idempotent(t *testing.T) {
 		t.Fatalf("first backfill: %v", err)
 	}
 	if n1 != 2 {
-		t.Errorf("first run: expected 2 inserted, got %d", n1)
+		t.Errorf("first run: expected 2 emitted, got %d", n1)
 	}
 
 	n2, err := backfillMissedUserPrompts(td.DB, projectDir, sessionID, path)
 	if err != nil {
 		t.Fatalf("second backfill: %v", err)
 	}
-	if n2 != 0 {
-		t.Errorf("second run: expected 0 new inserts (idempotent), got %d", n2)
+	if n2 != 2 {
+		t.Errorf("second run: expected 2 emitted (indexer dedups by signal_id), got %d", n2)
 	}
 
-	var count int
-	if err := td.DB.QueryRow(`SELECT COUNT(*) FROM otel_signals WHERE session_id = ? AND canonical = 'user_prompt'`, sessionID).Scan(&count); err != nil {
-		t.Fatalf("count query: %v", err)
+	signals := readNDJSONSignals(t, projectDir, sessionID)
+	if len(signals) != 4 {
+		t.Fatalf("expected 4 NDJSON lines after two runs, got %d", len(signals))
 	}
-	if count != 2 {
-		t.Errorf("expected exactly 2 rows after two runs, got %d", count)
+	wantID1 := userPromptSignalID("idem-uuid-1")
+	wantID2 := userPromptSignalID("idem-uuid-2")
+	id1Count, id2Count := 0, 0
+	for _, s := range signals {
+		switch s["signal_id"] {
+		case wantID1:
+			id1Count++
+		case wantID2:
+			id2Count++
+		}
+	}
+	if id1Count != 2 || id2Count != 2 {
+		t.Errorf("signal_id stability: id1=%d, id2=%d (want 2 each)", id1Count, id2Count)
 	}
 }
 
@@ -318,14 +352,9 @@ func TestBackfillMissedUserPrompts_MissingTranscriptFile(t *testing.T) {
 		t.Fatalf("expected nil error for missing file, got: %v", err)
 	}
 	if n != 0 {
-		t.Errorf("expected 0 rows for missing file, got %d", n)
+		t.Errorf("expected 0 emitted rows for missing file, got %d", n)
 	}
-
-	var count int
-	if err := td.DB.QueryRow(`SELECT COUNT(*) FROM otel_signals WHERE session_id = ?`, sessionID).Scan(&count); err != nil {
-		t.Fatalf("count query: %v", err)
-	}
-	if count != 0 {
-		t.Errorf("expected 0 rows in DB for missing transcript, got %d", count)
+	if got := readNDJSONSignals(t, projectDir, sessionID); len(got) != 0 {
+		t.Errorf("expected 0 NDJSON lines for missing transcript, got %d", len(got))
 	}
 }

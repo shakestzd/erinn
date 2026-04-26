@@ -246,8 +246,8 @@ func TestReadLastAssistantRecord_MissingFile(t *testing.T) {
 // --- insertAssistantTextSignal tests ---
 
 // TestInsertAssistantTextSignal_HappyPath verifies the full happy path:
-// transcript is written, Stop hook reads it, and an otel_signals row is
-// inserted with the correct canonical and attrs.
+// transcript is written, Stop hook reads it, and a UnifiedSignal NDJSON
+// line is emitted with the correct canonical and attrs.
 func TestInsertAssistantTextSignal_HappyPath(t *testing.T) {
 	td := setupTestDB(t)
 	sessionID := "test-sess"
@@ -259,43 +259,36 @@ func TestInsertAssistantTextSignal_HappyPath(t *testing.T) {
 
 	insertAssistantTextSignal(td.DB, projectDir, sessionID, path)
 
-	var canonical, kindVal, spanID, parentSpan, attrsRaw string
-	err := td.DB.QueryRow(`
-		SELECT canonical, kind, COALESCE(span_id,''), COALESCE(parent_span,''), attrs_json
-		FROM otel_signals
-		WHERE session_id = ? AND canonical = 'assistant_text'`,
-		sessionID,
-	).Scan(&canonical, &kindVal, &spanID, &parentSpan, &attrsRaw)
-	if err != nil {
-		t.Fatalf("query otel_signals: %v", err)
+	signals := readNDJSONSignals(t, projectDir, sessionID)
+	if len(signals) != 1 {
+		t.Fatalf("want 1 NDJSON line, got %d", len(signals))
 	}
-	if canonical != "assistant_text" {
-		t.Errorf("canonical = %q, want %q", canonical, "assistant_text")
+	s := signals[0]
+	if s["canonical"] != "assistant_text" {
+		t.Errorf("canonical = %v, want assistant_text", s["canonical"])
 	}
-	if kindVal != "log" {
-		t.Errorf("kind = %q, want %q", kindVal, "log")
+	if s["kind"] != "log" {
+		t.Errorf("kind = %v, want log", s["kind"])
 	}
-	if spanID != "asst-uuid-1" {
-		t.Errorf("span_id = %q, want %q", spanID, "asst-uuid-1")
+	if s["span_id"] != "asst-uuid-1" {
+		t.Errorf("span_id = %v, want asst-uuid-1", s["span_id"])
 	}
-	if parentSpan != "user-uuid-1" {
-		t.Errorf("parent_span = %q, want %q", parentSpan, "user-uuid-1")
+	if s["parent_span"] != "user-uuid-1" {
+		t.Errorf("parent_span = %v, want user-uuid-1", s["parent_span"])
 	}
-
-	var attrs map[string]any
-	if err := json.Unmarshal([]byte(attrsRaw), &attrs); err != nil {
-		t.Fatalf("unmarshal attrs: %v", err)
-	}
+	attrs, _ := s["attrs"].(map[string]any)
 	if attrs["text"] != "Hello world!" {
-		t.Errorf("attrs[text] = %q, want %q", attrs["text"], "Hello world!")
+		t.Errorf("attrs.text = %v, want %q", attrs["text"], "Hello world!")
 	}
 	if attrs["stop_reason"] != "end_turn" {
-		t.Errorf("attrs[stop_reason] = %q, want %q", attrs["stop_reason"], "end_turn")
+		t.Errorf("attrs.stop_reason = %v, want end_turn", attrs["stop_reason"])
 	}
 }
 
-// TestInsertAssistantTextSignal_Idempotent verifies that calling the function
-// twice on the same transcript produces exactly one otel_signals row (INSERT OR IGNORE).
+// TestInsertAssistantTextSignal_Idempotent verifies hook-side signal_id
+// stability — calling twice produces two NDJSON lines with the same
+// signal_id, which the indexer's INSERT OR IGNORE collapses to one
+// otel_signals row (covered by TestIndexer_IdempotentReplay).
 func TestInsertAssistantTextSignal_Idempotent(t *testing.T) {
 	td := setupTestDB(t)
 	sessionID := "test-sess"
@@ -308,15 +301,13 @@ func TestInsertAssistantTextSignal_Idempotent(t *testing.T) {
 	insertAssistantTextSignal(td.DB, projectDir, sessionID, path)
 	insertAssistantTextSignal(td.DB, projectDir, sessionID, path)
 
-	var count int
-	if err := td.DB.QueryRow(`
-		SELECT COUNT(*) FROM otel_signals WHERE session_id = ? AND canonical = 'assistant_text'`,
-		sessionID,
-	).Scan(&count); err != nil {
-		t.Fatalf("query count: %v", err)
+	signals := readNDJSONSignals(t, projectDir, sessionID)
+	if len(signals) != 2 {
+		t.Fatalf("want 2 NDJSON lines, got %d", len(signals))
 	}
-	if count != 1 {
-		t.Errorf("expected exactly 1 row after two calls, got %d", count)
+	if signals[0]["signal_id"] != signals[1]["signal_id"] {
+		t.Errorf("signal_id stability: line0=%v, line1=%v (want equal — indexer dedups)",
+			signals[0]["signal_id"], signals[1]["signal_id"])
 	}
 }
 
@@ -329,12 +320,8 @@ func TestInsertAssistantTextSignal_MissingFile(t *testing.T) {
 
 	insertAssistantTextSignal(td.DB, projectDir, sessionID, filepath.Join(t.TempDir(), "no-such.jsonl"))
 
-	var count int
-	if err := td.DB.QueryRow(`SELECT COUNT(*) FROM otel_signals WHERE session_id = ?`, sessionID).Scan(&count); err != nil {
-		t.Fatalf("query: %v", err)
-	}
-	if count != 0 {
-		t.Errorf("expected 0 rows for missing transcript, got %d", count)
+	if got := readNDJSONSignals(t, projectDir, sessionID); len(got) != 0 {
+		t.Errorf("expected 0 NDJSON lines for missing transcript, got %d", len(got))
 	}
 }
 
@@ -351,21 +338,16 @@ func TestInsertAssistantTextSignal_Interrupted(t *testing.T) {
 
 	insertAssistantTextSignal(td.DB, projectDir, sessionID, path)
 
-	var attrsRaw string
-	err := td.DB.QueryRow(`SELECT attrs_json FROM otel_signals WHERE session_id = ? AND canonical = 'assistant_text'`, sessionID).Scan(&attrsRaw)
-	if err != nil {
-		t.Fatalf("query: %v", err)
+	signals := readNDJSONSignals(t, projectDir, sessionID)
+	if len(signals) != 1 {
+		t.Fatalf("want 1 NDJSON line, got %d", len(signals))
 	}
-
-	var attrs map[string]any
-	if err := json.Unmarshal([]byte(attrsRaw), &attrs); err != nil {
-		t.Fatalf("unmarshal: %v", err)
-	}
+	attrs, _ := signals[0]["attrs"].(map[string]any)
 	if attrs["interrupted"] != true {
-		t.Errorf("expected attrs[interrupted]=true for max_tokens turn, got %v", attrs["interrupted"])
+		t.Errorf("expected attrs.interrupted=true for max_tokens turn, got %v", attrs["interrupted"])
 	}
 	if attrs["stop_reason"] != "max_tokens" {
-		t.Errorf("attrs[stop_reason] = %v, want max_tokens", attrs["stop_reason"])
+		t.Errorf("attrs.stop_reason = %v, want max_tokens", attrs["stop_reason"])
 	}
 }
 
@@ -374,16 +356,12 @@ func TestInsertAssistantTextSignal_Interrupted(t *testing.T) {
 func TestInsertAssistantTextSignal_NoTranscriptPath(t *testing.T) {
 	td := setupTestDB(t)
 	sessionID := "test-sess"
+	projectDir := t.TempDir()
 
-	// Should not panic or return an error — just a silent skip.
-	insertAssistantTextSignal(td.DB, t.TempDir(), sessionID, "")
+	insertAssistantTextSignal(td.DB, projectDir, sessionID, "")
 
-	var count int
-	if err := td.DB.QueryRow(`SELECT COUNT(*) FROM otel_signals WHERE session_id = ?`, sessionID).Scan(&count); err != nil {
-		t.Fatalf("query: %v", err)
-	}
-	if count != 0 {
-		t.Errorf("expected 0 rows when transcript_path is empty, got %d", count)
+	if got := readNDJSONSignals(t, projectDir, sessionID); len(got) != 0 {
+		t.Errorf("expected 0 NDJSON lines when transcript_path empty, got %d", len(got))
 	}
 }
 
@@ -398,7 +376,6 @@ func TestAssistantText_ParentSpanWalksPastToolResult(t *testing.T) {
 	sessionID := "test-sess"
 	projectDir := t.TempDir()
 
-	// Build the 4-record chain.
 	userPromptUUID := "user-1"
 	assistantToolUseUUID := "asst-2"
 	userToolResultUUID := "user-3"
@@ -413,18 +390,15 @@ func TestAssistantText_ParentSpanWalksPastToolResult(t *testing.T) {
 
 	insertAssistantTextSignal(td.DB, projectDir, sessionID, path)
 
-	var parentSpan string
-	err := td.DB.QueryRow(`
-		SELECT COALESCE(parent_span, '') FROM otel_signals
-		WHERE session_id = ? AND canonical = 'assistant_text'`,
-		sessionID,
-	).Scan(&parentSpan)
-	if err != nil {
-		t.Fatalf("query otel_signals: %v", err)
+	signals := readNDJSONSignals(t, projectDir, sessionID)
+	s := findSignal(signals, func(m map[string]any) bool {
+		return m["canonical"] == "assistant_text" && m["span_id"] == assistantTextUUID
+	})
+	if s == nil {
+		t.Fatalf("assistant_text signal not found in NDJSON; got %d signals", len(signals))
 	}
-
-	if parentSpan != userPromptUUID {
-		t.Errorf("parent_span = %q, want %q (should walk past tool_result)", parentSpan, userPromptUUID)
+	if s["parent_span"] != userPromptUUID {
+		t.Errorf("parent_span = %v, want %q (should walk past tool_result)", s["parent_span"], userPromptUUID)
 	}
 }
 

@@ -4,10 +4,12 @@ import (
 	"bufio"
 	"context"
 	"database/sql"
+	"encoding/json"
 	"io"
 	"log"
 	"os"
 	"path/filepath"
+	"strconv"
 	"sync"
 	"time"
 
@@ -16,7 +18,10 @@ import (
 	"github.com/shakestzd/htmlgraph/internal/otel/sink"
 )
 
-const pollInterval = 500 * time.Millisecond
+const (
+	pollInterval     = 500 * time.Millisecond
+	defaultBatchSize = 500
+)
 
 // FileInfo holds per-file health metrics for the /api/indexer/status endpoint.
 type FileInfo struct {
@@ -224,24 +229,99 @@ func (idx *Indexer) readNewSignals(ndjsonPath string, offset int64) ([]parsedSig
 	return result, committedOffset, nil
 }
 
-// writeParsedBatch writes parsed signals to the sink, passing through
-// each signal's resource attributes so placeholder/re-attribution logic
-// in the SQLite writer functions correctly. After persisting each signal it
-// attempts to bridge prompt_id from user_prompt log records back to the
-// matching UserQuery row in agent_events (best-effort, silently skipped on failure).
+// writeParsedBatch persists parsed signals through the sink, grouping
+// consecutive entries that share the same harness + resourceAttrs into a
+// single WriteBatch call. The receiver.Writer wraps each WriteBatch in
+// one BEGIN IMMEDIATE transaction (writer.go:20-22), so each group becomes
+// one txn — this turns N sequential INSERTs into ⌈N/batchSize⌉ batched
+// txns and clears the throughput floor for the slice-1 indexer mount.
+//
+// Group flushes whenever (a) the next signal's harness or resourceAttrs
+// differ, or (b) the accumulator hits the batch-size cap (defaults to
+// defaultBatchSize, override via HTMLGRAPH_INDEXER_BATCH_SIZE). Capping
+// bounds rollback cost on partial failure and keeps any single
+// transaction short enough not to starve the work-item HTML hooks that
+// share the canonical DB.
+//
+// On any WriteBatch error the function returns immediately — the caller
+// (processSession) will skip the writeCheckpoint call so the failed
+// span and everything after it replays on the next poll tick.
+//
+// maybeSetPromptID still runs per signal after each successful flush so
+// the user_prompt → UserQuery bridge stays correct.
 func (idx *Indexer) writeParsedBatch(ctx context.Context, parsed []parsedSignal) error {
+	if len(parsed) == 0 {
+		return nil
+	}
+	batchCap := batchSizeCap()
+
+	var (
+		curHarness  otel.Harness
+		curResAttrs map[string]any
+		curResKey   string
+		acc         []otel.UnifiedSignal
+	)
+
+	flush := func() error {
+		if len(acc) == 0 {
+			return nil
+		}
+		if err := idx.snk.WriteBatch(ctx, curHarness, curResAttrs, acc); err != nil {
+			return err
+		}
+		for i := range acc {
+			idx.maybeSetPromptID(acc[i])
+		}
+		acc = acc[:0]
+		return nil
+	}
+
 	for _, p := range parsed {
 		h := p.Signal.Harness
 		if h == "" {
 			h = otel.HarnessClaude
 		}
-		signals := []otel.UnifiedSignal{p.Signal}
-		if err := idx.snk.WriteBatch(ctx, h, p.ResourceAttrs, signals); err != nil {
-			return err
+		resKey := resourceAttrsKey(p.ResourceAttrs)
+
+		if len(acc) > 0 && (h != curHarness || resKey != curResKey || len(acc) >= batchCap) {
+			if err := flush(); err != nil {
+				return err
+			}
 		}
-		idx.maybeSetPromptID(p.Signal)
+		if len(acc) == 0 {
+			curHarness = h
+			curResAttrs = p.ResourceAttrs
+			curResKey = resKey
+		}
+		acc = append(acc, p.Signal)
 	}
-	return nil
+	return flush()
+}
+
+// resourceAttrsKey returns a stable string key for a resourceAttrs map
+// so writeParsedBatch can detect when consecutive signals' resource
+// attributes diverge and flush before merging them. encoding/json sorts
+// map keys when marshaling, giving a deterministic byte sequence.
+func resourceAttrsKey(m map[string]any) string {
+	if len(m) == 0 {
+		return ""
+	}
+	b, err := json.Marshal(m)
+	if err != nil {
+		return ""
+	}
+	return string(b)
+}
+
+// batchSizeCap reads HTMLGRAPH_INDEXER_BATCH_SIZE; returns defaultBatchSize
+// when unset, unparseable, or non-positive.
+func batchSizeCap() int {
+	if s := os.Getenv("HTMLGRAPH_INDEXER_BATCH_SIZE"); s != "" {
+		if n, err := strconv.Atoi(s); err == nil && n > 0 {
+			return n
+		}
+	}
+	return defaultBatchSize
 }
 
 // maybeSetPromptID correlates a user_prompt OTel signal back to the closest

@@ -3,6 +3,8 @@ package indexer
 import (
 	"context"
 	"database/sql"
+	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
@@ -260,9 +262,21 @@ func TestIndexer_Start_ContextCancel(t *testing.T) {
 }
 
 // fakeWriter satisfies sqls.WriterCloser for tests that don't need real DB.
-type fakeWriter struct{}
+type fakeWriter struct {
+	calls          int
+	batches        [][]otel.UnifiedSignal
+	failOnCallNum  int // 1-based; 0 disables forced failure
+	forcedErr      error
+}
 
 func (f *fakeWriter) WriteBatch(_ context.Context, _ otel.Harness, _ map[string]any, signals []otel.UnifiedSignal) (int, error) {
+	f.calls++
+	if f.failOnCallNum > 0 && f.calls == f.failOnCallNum {
+		return 0, f.forcedErr
+	}
+	cp := make([]otel.UnifiedSignal, len(signals))
+	copy(cp, signals)
+	f.batches = append(f.batches, cp)
 	return len(signals), nil
 }
 func (f *fakeWriter) Close() error { return nil }
@@ -307,3 +321,131 @@ func TestIndexer_DiscoverSessions(t *testing.T) {
 
 // Ensure sql package is referenced so import is valid.
 var _ = sql.ErrNoRows
+
+// TestIndexer_WriteParsedBatchGroupsByResourceAttrs verifies that
+// consecutive signals sharing harness + resourceAttrs flush as one
+// WriteBatch call, while a resourceAttrs change forces a new batch.
+func TestIndexer_WriteParsedBatchGroupsByResourceAttrs(t *testing.T) {
+	fw := &fakeWriter{}
+	snk := sqls.New(fw)
+	idxr := New(t.TempDir(), snk)
+
+	parsed := []parsedSignal{
+		{Signal: otel.UnifiedSignal{SignalID: "a", Harness: otel.HarnessClaude, SessionID: "s1"}, ResourceAttrs: map[string]any{"k": "v1"}},
+		{Signal: otel.UnifiedSignal{SignalID: "b", Harness: otel.HarnessClaude, SessionID: "s1"}, ResourceAttrs: map[string]any{"k": "v1"}},
+		{Signal: otel.UnifiedSignal{SignalID: "c", Harness: otel.HarnessClaude, SessionID: "s1"}, ResourceAttrs: map[string]any{"k": "v2"}},
+	}
+	if err := idxr.writeParsedBatch(context.Background(), parsed); err != nil {
+		t.Fatalf("writeParsedBatch: %v", err)
+	}
+	if fw.calls != 2 {
+		t.Errorf("WriteBatch calls = %d, want 2 (one per resourceAttrs group)", fw.calls)
+	}
+	if len(fw.batches[0]) != 2 || len(fw.batches[1]) != 1 {
+		t.Errorf("batch sizes = [%d, %d], want [2, 1]", len(fw.batches[0]), len(fw.batches[1]))
+	}
+}
+
+// TestIndexer_WriteParsedBatchRespectsCap verifies that
+// HTMLGRAPH_INDEXER_BATCH_SIZE caps signals per WriteBatch call.
+func TestIndexer_WriteParsedBatchRespectsCap(t *testing.T) {
+	t.Setenv("HTMLGRAPH_INDEXER_BATCH_SIZE", "3")
+	fw := &fakeWriter{}
+	snk := sqls.New(fw)
+	idxr := New(t.TempDir(), snk)
+
+	parsed := make([]parsedSignal, 7)
+	for i := range parsed {
+		parsed[i] = parsedSignal{
+			Signal:        otel.UnifiedSignal{SignalID: "s", Harness: otel.HarnessClaude, SessionID: "sx"},
+			ResourceAttrs: map[string]any{"k": "v"},
+		}
+	}
+	if err := idxr.writeParsedBatch(context.Background(), parsed); err != nil {
+		t.Fatalf("writeParsedBatch: %v", err)
+	}
+	// 7 signals capped at 3 per group → 3 + 3 + 1 = 3 batches.
+	if fw.calls != 3 {
+		t.Errorf("WriteBatch calls = %d, want 3 (cap=3, 7 signals)", fw.calls)
+	}
+}
+
+// TestIndexer_BatchPartialFailure_RollsBackAndPreservesCheckpoint verifies
+// that when WriteBatch fails mid-session, processSession returns the error
+// and never advances the .index-offset checkpoint — replay covers the
+// failure on the next poll tick.
+func TestIndexer_BatchPartialFailure_RollsBackAndPreservesCheckpoint(t *testing.T) {
+	htmlgraphDir := t.TempDir()
+	sessionID := "partial-fail"
+
+	lines := []string{
+		`{"kind":"span","harness":"claude_code","ts":"2026-04-24T19:00:00Z","signal_id":"f1","session_id":"partial-fail","canonical":"api_request","native":"x"}`,
+		`{"kind":"span","harness":"claude_code","ts":"2026-04-24T19:00:01Z","signal_id":"f2","session_id":"partial-fail","canonical":"api_request","native":"x"}`,
+	}
+	writeNDJSONFixture(t, htmlgraphDir, sessionID, lines)
+
+	fw := &fakeWriter{failOnCallNum: 1, forcedErr: errors.New("forced WriteBatch error")}
+	snk := sqls.New(fw)
+	idxr := New(htmlgraphDir, snk)
+
+	err := idxr.processSession(context.Background(), sessionID)
+	if err == nil {
+		t.Fatal("expected processSession error from forced WriteBatch failure, got nil")
+	}
+
+	// Checkpoint must NOT exist (offset=0 stays implicit).
+	checkpointPath := filepath.Join(htmlgraphDir, "sessions", sessionID, ".index-offset")
+	if _, err := os.Stat(checkpointPath); !os.IsNotExist(err) {
+		t.Errorf("checkpoint advanced despite WriteBatch error — Stat returned err=%v", err)
+	}
+}
+
+// BenchmarkIndexer_BatchApply_1k measures end-to-end throughput of
+// applying a 1000-signal NDJSON file to the SQLite sink. The slice-4
+// throughput floor is 1000 signals/sec on a 4-core dev container.
+func BenchmarkIndexer_BatchApply_1k(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		dbPath := filepath.Join(b.TempDir(), "otel.db")
+		readDB, err := db.Open(dbPath)
+		if err != nil {
+			b.Fatalf("db.Open: %v", err)
+		}
+		readDB.Close()
+		w, err := receiver.NewWriter(dbPath)
+		if err != nil {
+			b.Fatalf("NewWriter: %v", err)
+		}
+
+		htmlgraphDir := b.TempDir()
+		sessionID := "bench-1k"
+		lines := make([]string, 1000)
+		for j := range lines {
+			lines[j] = fmt.Sprintf(
+				`{"kind":"span","harness":"claude_code","ts":"2026-04-24T19:00:00.000Z","signal_id":"b%d","session_id":"%s","canonical":"api_request","native":"x"}`,
+				j, sessionID)
+		}
+		sessDir := filepath.Join(htmlgraphDir, "sessions", sessionID)
+		if err := os.MkdirAll(sessDir, 0o755); err != nil {
+			b.Fatalf("MkdirAll: %v", err)
+		}
+		var buf []byte
+		for _, l := range lines {
+			buf = append(buf, []byte(l+"\n")...)
+		}
+		if err := os.WriteFile(filepath.Join(sessDir, "events.ndjson"), buf, 0o644); err != nil {
+			b.Fatalf("WriteFile: %v", err)
+		}
+
+		snk := sqls.New(w)
+		idxr := New(htmlgraphDir, snk)
+
+		start := time.Now()
+		if err := idxr.processSession(context.Background(), sessionID); err != nil {
+			w.Close()
+			b.Fatalf("processSession: %v", err)
+		}
+		dur := time.Since(start)
+		b.ReportMetric(1000.0/dur.Seconds(), "signals/s")
+		w.Close()
+	}
+}

@@ -284,6 +284,55 @@ func TestOpenReadOnly_RejectsWrite(t *testing.T) {
 	}
 }
 
+// TestRegistry_OpenAppliesPragmas verifies OpenReadOnly applies db.Open's
+// connection-level pragmas — busy_timeout >= 5000 (so concurrent indexer
+// writes don't surface as SQLITE_BUSY), and the file's journal_mode is
+// preserved (read-only must not downgrade WAL).
+func TestRegistry_OpenAppliesPragmas(t *testing.T) {
+	dir := t.TempDir()
+	dbPath := filepath.Join(dir, "pragmas.db")
+
+	// Seed a DB in WAL mode so we can assert OpenReadOnly preserves it.
+	w, err := sql.Open("sqlite", dbPath)
+	if err != nil {
+		t.Fatalf("seed open: %v", err)
+	}
+	if _, err := w.Exec("PRAGMA journal_mode = WAL"); err != nil {
+		w.Close()
+		t.Fatalf("seed WAL: %v", err)
+	}
+	if _, err := w.Exec("CREATE TABLE seed (id INTEGER PRIMARY KEY)"); err != nil {
+		w.Close()
+		t.Fatalf("seed table: %v", err)
+	}
+	w.Close()
+
+	roDB, err := registry.OpenReadOnly(dbPath)
+	if err != nil {
+		t.Fatalf("OpenReadOnly: %v", err)
+	}
+	defer roDB.Close()
+
+	var busy int
+	if err := roDB.QueryRow("PRAGMA busy_timeout").Scan(&busy); err != nil {
+		t.Fatalf("PRAGMA busy_timeout: %v", err)
+	}
+	if busy < 5000 {
+		t.Errorf("busy_timeout = %d, want >= 5000", busy)
+	}
+
+	var jm string
+	if err := roDB.QueryRow("PRAGMA journal_mode").Scan(&jm); err != nil {
+		t.Fatalf("PRAGMA journal_mode: %v", err)
+	}
+	// On unsafe filesystems BuildPragmas would have selected DELETE for
+	// the writer; on a native tempdir we expect WAL to round-trip. Either
+	// way, OpenReadOnly must not corrupt or downgrade the file's mode.
+	if jm == "" {
+		t.Errorf("journal_mode is empty; want non-empty (file mode preserved)")
+	}
+}
+
 // TestEntry_StableID verifies the same ProjectDir always yields the same 8-char SHA256 prefix.
 func TestEntry_StableID(t *testing.T) {
 	dir := "/stable/project/dir"

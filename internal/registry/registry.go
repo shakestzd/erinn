@@ -32,6 +32,7 @@ import (
 	"path/filepath"
 	"time"
 
+	dbpkg "github.com/shakestzd/htmlgraph/internal/db"
 	_ "modernc.org/sqlite"
 )
 
@@ -203,8 +204,14 @@ func DefaultPath() string {
 }
 
 // OpenReadOnly opens the SQLite database at dbPath in read-only mode using the
-// ?mode=ro URI flag.  No migrations or PRAGMAs are applied — the caller gets a
-// raw *sql.DB suitable for SELECT queries only.
+// ?mode=ro URI flag, then applies the same connection-level pragmas as db.Open
+// (synchronous, temp_store, mmap_size, cache_size) so reads coexist with the
+// per-session otel-collect indexer's writer without hitting SQLITE_BUSY.
+//
+// busy_timeout is embedded in the DSN so it takes effect on the very first
+// connection, before any query runs — mirroring db.Open. journal_mode and
+// foreign_keys are intentionally skipped: both are file/writer-owned concerns
+// and would error on a mode=ro connection.
 //
 // The caller is responsible for closing the returned *sql.DB.
 func OpenReadOnly(dbPath string) (*sql.DB, error) {
@@ -212,10 +219,18 @@ func OpenReadOnly(dbPath string) (*sql.DB, error) {
 	if err != nil {
 		return nil, fmt.Errorf("registry.OpenReadOnly: resolve path: %w", err)
 	}
-	dsn := fmt.Sprintf("file:%s?mode=ro&_busy_timeout=5000", abs)
+	dsn := fmt.Sprintf("file:%s?mode=ro&_pragma=busy_timeout(5000)", abs)
 	db, err := sql.Open("sqlite", dsn)
 	if err != nil {
 		return nil, fmt.Errorf("registry.OpenReadOnly: open: %w", err)
+	}
+
+	pragmas := dbpkg.BuildPragmas(dbPath)
+	delete(pragmas, "journal_mode")
+	delete(pragmas, "foreign_keys")
+	if err := dbpkg.ApplyPragmas(db, pragmas); err != nil {
+		db.Close()
+		return nil, fmt.Errorf("registry.OpenReadOnly: apply pragmas: %w", err)
 	}
 	return db, nil
 }

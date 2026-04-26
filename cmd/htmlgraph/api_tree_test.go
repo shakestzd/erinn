@@ -256,6 +256,103 @@ func TestBuildEventTree_OtelPromptFromTrace(t *testing.T) {
 	}
 }
 
+// TestBuildEventTree_MixedOtelAndHook verifies the merge logic: OTel-anchored
+// sessions, hook-only sessions, and the regression case where a session emits
+// both an OTel interaction span AND a hook UserQuery row with empty step_id
+// (which used to surface the hook row as a duplicate prompt).
+func TestBuildEventTree_MixedOtelAndHook(t *testing.T) {
+	database := openTreeTestDB(t)
+	defer database.Close()
+
+	// Second session for the hook-only case.
+	now := time.Now().UTC()
+	hookOnlySess := &models.Session{
+		SessionID:     "sess-hook-only",
+		AgentAssigned: "claude-code",
+		CreatedAt:     now,
+		Status:        "active",
+	}
+	if err := db.InsertSession(database, hookOnlySess); err != nil {
+		t.Fatalf("InsertSession: %v", err)
+	}
+
+	// Three turns at distinct timestamps so DESC sort is unambiguous.
+	otelTs := now.Add(-30 * time.Second)
+	hookOnlyTs := now.Add(-20 * time.Second)
+	dupHookTs := now.Add(-10 * time.Second)
+
+	// 1. OTel interaction span with a paired hook UserQuery whose step_id
+	//    matches the trace_id (the well-formed case).
+	mustExec(t, database,
+		`INSERT INTO otel_signals
+		 (signal_id, harness, session_id, kind, canonical, native, ts_micros, trace_id, span_id, attrs_json)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		"sig-i1", "claude-code", "sess-test",
+		"span", "interaction", "interaction",
+		otelTs.UnixMicro(), "trace-otel-1", "span-i1",
+		`{"user_prompt":"first prompt"}`)
+	mustExec(t, database,
+		`INSERT INTO agent_events (event_id, agent_id, event_type, timestamp, tool_name, session_id, status, step_id)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+		"uq-otel-1", "claude-code", "tool_call", otelTs.Format(time.RFC3339),
+		"UserQuery", "sess-test", "recorded", "trace-otel-1")
+
+	// 2. Hook-only session — no OTel anywhere. Must be retained.
+	mustExec(t, database,
+		`INSERT INTO agent_events (event_id, agent_id, event_type, timestamp, tool_name, session_id, status)
+		 VALUES (?, ?, ?, ?, ?, ?, ?)`,
+		"uq-hook-only", "claude-code", "tool_call", hookOnlyTs.Format(time.RFC3339),
+		"UserQuery", "sess-hook-only", "recorded")
+
+	// 3. Regression: a session that has an OTel interaction span AND a hook
+	//    UserQuery row with EMPTY step_id near the same timestamp. The
+	//    session+timestamp window check must dedup it.
+	mustExec(t, database,
+		`INSERT INTO otel_signals
+		 (signal_id, harness, session_id, kind, canonical, native, ts_micros, trace_id, span_id, attrs_json)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		"sig-i2", "claude-code", "sess-test",
+		"span", "interaction", "interaction",
+		dupHookTs.UnixMicro(), "trace-otel-2", "span-i2",
+		`{"user_prompt":"third prompt"}`)
+	mustExec(t, database,
+		`INSERT INTO agent_events (event_id, agent_id, event_type, timestamp, tool_name, session_id, status, step_id)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+		"uq-dup-empty-step", "claude-code", "tool_call", dupHookTs.Format(time.RFC3339),
+		"UserQuery", "sess-test", "recorded", "")
+
+	turns := buildEventTree(database, 50)
+
+	// Expected: two OTel turns (sig-i1, sig-i2) + one hook-only turn (uq-hook-only).
+	// The empty-step hook row (uq-dup-empty-step) must be deduped.
+	if len(turns) != 3 {
+		var ids []string
+		for _, t := range turns {
+			if id, ok := t.UserQuery["event_id"].(string); ok {
+				ids = append(ids, id)
+			}
+		}
+		t.Fatalf("got %d turns, want 3 (event_ids=%v)", len(turns), ids)
+	}
+
+	for _, tn := range turns {
+		if id, _ := tn.UserQuery["event_id"].(string); id == "uq-dup-empty-step" {
+			t.Errorf("hook UserQuery with empty step_id was not deduped against the same-session OTel interaction span")
+		}
+	}
+
+	// Sanity: hook-only session's turn is present.
+	foundHookOnly := false
+	for _, tn := range turns {
+		if id, _ := tn.UserQuery["event_id"].(string); id == "uq-hook-only" {
+			foundHookOnly = true
+		}
+	}
+	if !foundHookOnly {
+		t.Error("hook-only session's UserQuery turn missing — merge dropped unanchored hook turns")
+	}
+}
+
 func TestComputeStats_CountsNestedChildren(t *testing.T) {
 	children := []map[string]any{
 		{

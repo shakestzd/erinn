@@ -24,6 +24,12 @@ type turn struct {
 	Stats     turnStats        `json:"stats"`
 }
 
+// hookOtelDedupWindowMicros is the timestamp window used to consider a
+// hook UserQuery row "anchored" by an OTel interaction span when the hook
+// row has no step_id to match exactly. Five seconds is generous compared
+// to the actual sub-second offset between matching events.
+const hookOtelDedupWindowMicros int64 = 5_000_000
+
 // eventColumns is the shared SELECT column list for agent_events (aliased as e).
 const eventColumns = `e.event_id, e.agent_id, e.event_type, e.timestamp, e.tool_name,
 	COALESCE(e.input_summary, ''), COALESCE(e.output_summary, ''),
@@ -167,26 +173,35 @@ func buildEventTreeOtel(database *sql.DB, limit int) []turn {
 	return turns
 }
 
-// buildEventTreeHookUnanchored returns hook-based UserQuery turns whose
-// step_id does NOT match an OTel interaction span. New sessions that emit
-// both an OTel anchor AND a hook UserQuery are surfaced through
-// buildEventTreeOtel; this function captures the older / hook-only
-// sessions so they are not dropped when mixed with OTel data.
+// buildEventTreeHookUnanchored returns hook-based UserQuery turns that do
+// NOT correspond to an OTel interaction span. Anchoring is detected with
+// two complementary checks so deduplication holds even when hook events
+// arrive without a step_id:
+//
+//  1. step_id match — when the hook UserQuery carries the OTel trace_id,
+//     skip if any interaction span shares it.
+//  2. session+timestamp window — when step_id is empty, skip if any
+//     interaction span exists in the same session within
+//     hookOtelDedupWindowMicros of the hook event's timestamp.
+//
+// Buildings before OTel emission and pure hook-only sessions still pass
+// both checks and remain visible in /api/events/tree.
 func buildEventTreeHookUnanchored(database *sql.DB, limit int) []turn {
 	rows, err := database.Query(`
 		SELECT `+eventColumns+`
 		FROM agent_events e
 		WHERE e.tool_name = 'UserQuery'
-		  AND (
-		    e.step_id IS NULL OR e.step_id = ''
-		    OR NOT EXISTS (
-		      SELECT 1 FROM otel_signals s
-		      WHERE s.kind = 'span' AND s.canonical = 'interaction'
-		        AND s.trace_id = e.step_id
-		    )
+		  AND NOT EXISTS (
+		    SELECT 1 FROM otel_signals s
+		    WHERE s.kind = 'span' AND s.canonical = 'interaction'
+		      AND s.session_id = e.session_id
+		      AND (
+		        (e.step_id IS NOT NULL AND e.step_id != '' AND s.trace_id = e.step_id)
+		        OR ABS(s.ts_micros - CAST(strftime('%s', e.timestamp) AS INTEGER) * 1000000) < ?
+		      )
 		  )
 		ORDER BY e.timestamp DESC
-		LIMIT ?`, limit)
+		LIMIT ?`, hookOtelDedupWindowMicros, limit)
 	if err != nil {
 		return []turn{}
 	}

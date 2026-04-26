@@ -12,6 +12,8 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"sync"
+	"syscall"
 	"testing"
 	"time"
 
@@ -257,6 +259,204 @@ func TestOtelCollect_CollectorStartEvent(t *testing.T) {
 	}
 	if _, hasPID := attrs["pid"]; !hasPID {
 		t.Error("attrs.pid missing from collector_start event")
+	}
+}
+
+// TestParseDrainBudget verifies HTMLGRAPH_OTEL_DRAIN_SECS overrides the
+// default budget, accepts Go durations + bare seconds, and falls back on
+// invalid input.
+func TestParseDrainBudget(t *testing.T) {
+	cases := []struct {
+		env  string
+		want time.Duration
+	}{
+		{"", defaultDrainBudget},
+		{"5s", 5 * time.Second},
+		{"750ms", 750 * time.Millisecond},
+		{"3", 3 * time.Second},
+		{"garbage", defaultDrainBudget},
+		{"-1", defaultDrainBudget},
+	}
+	for _, tc := range cases {
+		t.Setenv("HTMLGRAPH_OTEL_DRAIN_SECS", tc.env)
+		got := parseDrainBudget()
+		if got != tc.want {
+			t.Errorf("parseDrainBudget env=%q: got %v, want %v", tc.env, got, tc.want)
+		}
+	}
+}
+
+// TestCountUnindexedSignals verifies the helper counts NDJSON lines past
+// the checkpoint offset, used in the over-budget log line.
+func TestCountUnindexedSignals(t *testing.T) {
+	htmlgraphDir := t.TempDir()
+	sessionID := "drain-count"
+	sessDir := filepath.Join(htmlgraphDir, "sessions", sessionID)
+	if err := os.MkdirAll(sessDir, 0o755); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+
+	contents := "line-1\nline-2\nline-3\n"
+	if err := os.WriteFile(filepath.Join(sessDir, "events.ndjson"), []byte(contents), 0o644); err != nil {
+		t.Fatalf("write events: %v", err)
+	}
+
+	// No checkpoint → all 3 lines unindexed.
+	if got := countUnindexedSignals(htmlgraphDir, sessionID); got != 3 {
+		t.Errorf("no checkpoint: got %d, want 3", got)
+	}
+
+	// Checkpoint past line-1 (offset = len("line-1\n")) → 2 unindexed.
+	off := int64(len("line-1\n"))
+	if err := os.WriteFile(filepath.Join(sessDir, ".index-offset"), []byte(fmt.Sprintf("%d", off)), 0o644); err != nil {
+		t.Fatalf("write checkpoint: %v", err)
+	}
+	if got := countUnindexedSignals(htmlgraphDir, sessionID); got != 2 {
+		t.Errorf("after checkpoint: got %d, want 2", got)
+	}
+}
+
+// TestGracefulShutdown_RespectsDrainBudget verifies that when the indexer
+// goroutine refuses to exit, gracefulShutdown returns within the configured
+// budget and reports drain failure rather than blocking forever.
+func TestGracefulShutdown_RespectsDrainBudget(t *testing.T) {
+	t.Setenv("HTMLGRAPH_OTEL_DRAIN_SECS", "300ms")
+
+	// A WaitGroup that never completes — simulates a wedged indexer.
+	var wg sync.WaitGroup
+	wg.Add(1)
+	t.Cleanup(func() { wg.Done() })
+
+	start := time.Now()
+	drained := waitWithBudget(&wg, parseDrainBudget())
+	elapsed := time.Since(start)
+
+	if drained {
+		t.Error("waitWithBudget returned true on wedged WaitGroup")
+	}
+	if elapsed < 250*time.Millisecond || elapsed > 800*time.Millisecond {
+		t.Errorf("wait duration %v outside [250ms, 800ms]", elapsed)
+	}
+}
+
+// TestOtelCollect_GracefulShutdown_DrainsIndexer is the slice-2 integration
+// proof: emit 100 OTLP spans, immediately SIGTERM the collector, await its
+// exit, then assert all 100 rows landed in otel_signals — the drain window
+// must cover the indexer tick.
+func TestOtelCollect_GracefulShutdown_DrainsIndexer(t *testing.T) {
+	bin := buildOtelCollectTestBinary(t)
+	projectDir := mkOtelCollectProject(t)
+	dbPath := filepath.Join(projectDir, ".htmlgraph", "htmlgraph.db")
+	sid := "test-sid-drain"
+
+	cmd := exec.Command(bin, "otel-collect",
+		"--session-id", sid,
+		"--project-dir", projectDir,
+		"--listen", "127.0.0.1:0",
+	)
+	cmd.Env = append(os.Environ(),
+		"HTMLGRAPH_OTEL_IDLE_TIMEOUT=30s",
+		"HTMLGRAPH_OTEL_DRAIN_SECS=10s",
+		"HTMLGRAPH_PROJECT_DIR="+projectDir,
+		"HTMLGRAPH_DB_PATH="+dbPath,
+	)
+	stdout, err := cmd.StdoutPipe()
+	if err != nil {
+		t.Fatalf("stdout pipe: %v", err)
+	}
+	if err := cmd.Start(); err != nil {
+		t.Fatalf("start: %v", err)
+	}
+	t.Cleanup(func() { _ = cmd.Process.Kill() })
+
+	scanner := bufio.NewScanner(stdout)
+	line, ok := readHandshakeLine(t, scanner, 5*time.Second)
+	if !ok {
+		t.Fatal("no handshake within 5s")
+	}
+	var port int
+	if _, err := fmt.Sscanf(line, "htmlgraph-otel-ready port=%d", &port); err != nil {
+		t.Fatalf("parse port: %v", err)
+	}
+	go func() {
+		for scanner.Scan() {
+		}
+	}()
+
+	// Emit 100 spans across one POST.
+	now := time.Now().UnixNano()
+	const spanCount = 100
+	spans := make([]*tracepb.Span, 0, spanCount)
+	for i := 0; i < spanCount; i++ {
+		spans = append(spans, &tracepb.Span{
+			TraceId:           bytes.Repeat([]byte{byte(i + 1)}, 16),
+			SpanId:            bytes.Repeat([]byte{byte(i + 1)}, 8),
+			Name:              "claude_code.interaction",
+			StartTimeUnixNano: uint64(now + int64(i)),
+			EndTimeUnixNano:   uint64(now + int64(i) + 1_000_000),
+			Attributes: []*commonpb.KeyValue{{
+				Key:   "session.id",
+				Value: &commonpb.AnyValue{Value: &commonpb.AnyValue_StringValue{StringValue: sid}},
+			}},
+		})
+	}
+	traces := &tracepb.TracesData{
+		ResourceSpans: []*tracepb.ResourceSpans{{
+			Resource: &resourcepb.Resource{Attributes: []*commonpb.KeyValue{{
+				Key:   "service.name",
+				Value: &commonpb.AnyValue{Value: &commonpb.AnyValue_StringValue{StringValue: "claude-code"}},
+			}}},
+			ScopeSpans: []*tracepb.ScopeSpans{{
+				Scope: &commonpb.InstrumentationScope{Name: "com.anthropic.claude_code"},
+				Spans: spans,
+			}},
+		}},
+	}
+	body, err := proto.Marshal(traces)
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+	url := fmt.Sprintf("http://127.0.0.1:%d/v1/traces", port)
+	req, _ := http.NewRequest(http.MethodPost, url, bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/x-protobuf")
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatalf("POST: %v", err)
+	}
+	resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("status = %d", resp.StatusCode)
+	}
+
+	// SIGTERM immediately — drain must persist signals to SQLite.
+	if err := cmd.Process.Signal(syscall.SIGTERM); err != nil {
+		t.Fatalf("SIGTERM: %v", err)
+	}
+	exit := make(chan error, 1)
+	go func() { exit <- cmd.Wait() }()
+	select {
+	case err := <-exit:
+		if err != nil {
+			t.Fatalf("collector exited non-zero: %v", err)
+		}
+	case <-time.After(15 * time.Second):
+		t.Fatal("collector did not exit within 15s of SIGTERM")
+	}
+
+	// All 100 spans must be in SQLite.
+	ro, err := sql.Open("sqlite", "file:"+dbPath+"?mode=ro&_pragma=busy_timeout(5000)")
+	if err != nil {
+		t.Fatalf("open sqlite: %v", err)
+	}
+	defer ro.Close()
+	var got int
+	if err := ro.QueryRow(
+		`SELECT COUNT(*) FROM otel_signals WHERE session_id = ? AND kind='span'`, sid,
+	).Scan(&got); err != nil {
+		t.Fatalf("query: %v", err)
+	}
+	if got != spanCount {
+		t.Errorf("after drain: got %d span rows, want %d — drain did not flush all NDJSON", got, spanCount)
 	}
 }
 

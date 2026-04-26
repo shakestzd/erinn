@@ -71,6 +71,15 @@ func (idx *Indexer) Start(ctx context.Context) {
 	}
 }
 
+// RunOnce performs a single discover-and-apply pass. Exported so the
+// per-session collector can drive a final drain after Start has returned
+// (e.g. on SIGTERM): pass a fresh non-cancelled context with the remaining
+// shutdown budget so the cancelled poll-loop ctx does not short-circuit
+// the drain.
+func (idx *Indexer) RunOnce(ctx context.Context) {
+	idx.runOnce(ctx)
+}
+
 // Status returns a snapshot of per-session file health.
 func (idx *Indexer) Status() map[string]FileInfo {
 	idx.mu.RLock()

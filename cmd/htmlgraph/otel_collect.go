@@ -1,14 +1,18 @@
 package main
 
 import (
+	"bufio"
 	"context"
 	"fmt"
+	"io"
+	"log"
 	"net"
 	"net/http"
 	"os"
 	"os/signal"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"syscall"
@@ -25,7 +29,10 @@ import (
 	"github.com/spf13/cobra"
 )
 
-const defaultIdleTimeout = 5 * time.Minute
+const (
+	defaultIdleTimeout = 5 * time.Minute
+	defaultDrainBudget = 10 * time.Second
+)
 
 func otelCollectCmd() *cobra.Command {
 	var (
@@ -123,9 +130,15 @@ func runOtelCollect(sessionID, projectDir, listenAddr string) error {
 	go func() {
 		defer indexerWG.Done()
 		idx.Start(ctx)
+		// Final drain pass after main ctx cancels — gives signals already
+		// in NDJSON one more chance to land in SQLite. Uses a fresh context
+		// so the cancelled poll-loop ctx does not short-circuit runOnce.
+		drainCtx, drainCancel := context.WithTimeout(context.Background(), parseDrainBudget())
+		defer drainCancel()
+		idx.RunOnce(drainCtx)
 	}()
 
-	return awaitShutdown(ctx, cancel, srv, snk, lastActivity, &indexerWG)
+	return awaitShutdown(ctx, cancel, srv, snk, lastActivity, &indexerWG, htmlgraphDir, sessionID)
 }
 
 // buildCollectorMux creates the OTLP HTTP mux with activity tracking.
@@ -171,7 +184,7 @@ func writeCollectorStartEvent(snk *ndjson.Sink, sessionID string, port int) erro
 // indexerWG must be Add'd for each indexer goroutine the caller spawned;
 // gracefulShutdown waits on it so signals already in NDJSON drain to SQLite
 // before the process exits.
-func awaitShutdown(ctx context.Context, cancel context.CancelFunc, srv *http.Server, snk *ndjson.Sink, lastActivity *atomic.Int64, indexerWG *sync.WaitGroup) error {
+func awaitShutdown(ctx context.Context, cancel context.CancelFunc, srv *http.Server, snk *ndjson.Sink, lastActivity *atomic.Int64, indexerWG *sync.WaitGroup, htmlgraphDir, sessionID string) error {
 	idleTimeout := parseIdleTimeout()
 
 	sigCh := make(chan os.Signal, 1)
@@ -184,31 +197,99 @@ func awaitShutdown(ctx context.Context, cancel context.CancelFunc, srv *http.Ser
 		select {
 		case <-sigCh:
 			cancel()
-			return gracefulShutdown(srv, snk, indexerWG)
+			return gracefulShutdown(srv, snk, indexerWG, htmlgraphDir, sessionID)
 		case <-ticker.C:
 			elapsed := time.Since(time.UnixMilli(lastActivity.Load()))
 			if elapsed >= idleTimeout {
 				cancel()
-				return gracefulShutdown(srv, snk, indexerWG)
+				return gracefulShutdown(srv, snk, indexerWG, htmlgraphDir, sessionID)
 			}
 		case <-ctx.Done():
-			return gracefulShutdown(srv, snk, indexerWG)
+			return gracefulShutdown(srv, snk, indexerWG, htmlgraphDir, sessionID)
 		}
 	}
 }
 
 // gracefulShutdown stops the HTTP server, waits for the indexer goroutine to
 // drain (caller must have cancelled the indexer ctx before calling), then
-// closes the NDJSON sink. Slice 2 will widen the drain budget and add
-// HTMLGRAPH_OTEL_DRAIN_SECS overrides; for now the deadline is fixed at 3s.
-func gracefulShutdown(srv *http.Server, snk *ndjson.Sink, indexerWG *sync.WaitGroup) error {
-	shutdownCtx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
-	defer cancel()
-	_ = srv.Shutdown(shutdownCtx)
-	if indexerWG != nil {
-		indexerWG.Wait()
+// closes the NDJSON sink.
+//
+// Drain budget defaults to defaultDrainBudget and is overridable via
+// HTMLGRAPH_OTEL_DRAIN_SECS. If drain exceeds the budget, the count of
+// unindexed NDJSON lines is logged and a non-zero error is returned —
+// orphaned signals recover via checkpoint replay on next collector launch.
+func gracefulShutdown(srv *http.Server, snk *ndjson.Sink, indexerWG *sync.WaitGroup, htmlgraphDir, sessionID string) error {
+	httpCtx, httpCancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer httpCancel()
+	_ = srv.Shutdown(httpCtx)
+
+	budget := parseDrainBudget()
+	drained := waitWithBudget(indexerWG, budget)
+
+	closeErr := snk.Close()
+	if !drained {
+		leftover := countUnindexedSignals(htmlgraphDir, sessionID)
+		log.Printf("otel-collect: indexer drain exceeded %s budget — %d signals unindexed in session %s NDJSON",
+			budget, leftover, sessionID)
+		return fmt.Errorf("indexer drain exceeded %s: %d signals unindexed", budget, leftover)
 	}
-	return snk.Close()
+	return closeErr
+}
+
+// waitWithBudget blocks on wg up to budget, returning true when the
+// WaitGroup completed within budget and false on timeout. nil wg returns true.
+func waitWithBudget(wg *sync.WaitGroup, budget time.Duration) bool {
+	if wg == nil {
+		return true
+	}
+	done := make(chan struct{})
+	go func() {
+		wg.Wait()
+		close(done)
+	}()
+	select {
+	case <-done:
+		return true
+	case <-time.After(budget):
+		return false
+	}
+}
+
+// countUnindexedSignals reads the indexer checkpoint and the events.ndjson
+// file for sessionID, returning the number of newline-terminated lines
+// past the checkpoint offset. Best-effort: returns -1 on read error.
+func countUnindexedSignals(htmlgraphDir, sessionID string) int {
+	sessDir := filepath.Join(htmlgraphDir, "sessions", sessionID)
+	checkpointPath := filepath.Join(sessDir, ".index-offset")
+	ndjsonPath := filepath.Join(sessDir, "events.ndjson")
+
+	var offset int64
+	if data, err := os.ReadFile(checkpointPath); err == nil {
+		if v, err := strconv.ParseInt(strings.TrimSpace(string(data)), 10, 64); err == nil {
+			offset = v
+		}
+	}
+
+	f, err := os.Open(ndjsonPath)
+	if err != nil {
+		return -1
+	}
+	defer f.Close()
+	if offset > 0 {
+		if _, err := f.Seek(offset, io.SeekStart); err != nil {
+			return -1
+		}
+	}
+	r := bufio.NewReaderSize(f, 64*1024)
+	count := 0
+	for {
+		_, err := r.ReadString('\n')
+		if err != nil {
+			break
+		}
+		count++
+	}
+	return count
 }
 
 func parseIdleTimeout() time.Duration {
@@ -221,4 +302,19 @@ func parseIdleTimeout() time.Duration {
 		}
 	}
 	return defaultIdleTimeout
+}
+
+// parseDrainBudget reads HTMLGRAPH_OTEL_DRAIN_SECS as either a Go
+// duration string ("750ms", "5s") or a bare integer second count.
+// Falls back to defaultDrainBudget when unset or unparseable.
+func parseDrainBudget() time.Duration {
+	if s := os.Getenv("HTMLGRAPH_OTEL_DRAIN_SECS"); s != "" {
+		if d, err := time.ParseDuration(s); err == nil && d > 0 {
+			return d
+		}
+		if secs, err := strconv.Atoi(s); err == nil && secs > 0 {
+			return time.Duration(secs) * time.Second
+		}
+	}
+	return defaultDrainBudget
 }

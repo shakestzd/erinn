@@ -86,6 +86,47 @@ func parseGitTimestamp(s string) (time.Time, error) {
 	return time.Parse(time.RFC3339, s)
 }
 
+// gitCommitInfo carries a single commit's author timestamp and subject line.
+type gitCommitInfo struct {
+	Timestamp time.Time
+	Subject   string
+}
+
+// gitCommitsReferencing returns commits across all refs whose message
+// references workItemID, newest first. Uses --grep with -F (fixed-string)
+// so IDs containing regex metacharacters are handled literally. Returns
+// nil + nil when git is unavailable or no commits match.
+func gitCommitsReferencing(projectDir, workItemID string) ([]gitCommitInfo, error) {
+	if workItemID == "" {
+		return nil, nil
+	}
+	out, err := exec.Command(
+		"git", "-C", projectDir,
+		"log", "--all", "-F", "--grep="+workItemID,
+		"--format=%aI%x09%s",
+	).Output()
+	if err != nil {
+		return nil, err
+	}
+	raw := strings.TrimSpace(string(out))
+	if raw == "" {
+		return nil, nil
+	}
+	var commits []gitCommitInfo
+	for _, line := range strings.Split(raw, "\n") {
+		parts := strings.SplitN(line, "\t", 2)
+		if len(parts) != 2 {
+			continue
+		}
+		ts, err := parseGitTimestamp(parts[0])
+		if err != nil {
+			continue
+		}
+		commits = append(commits, gitCommitInfo{Timestamp: ts, Subject: parts[1]})
+	}
+	return commits, nil
+}
+
 // applyGitTimestamps overrides node timestamps with git history when available.
 // If git has no record of the file (untracked/not committed), the provided
 // htmlCreated and htmlUpdated values are returned unchanged.

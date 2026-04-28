@@ -71,25 +71,58 @@ func EnsureDBDir(dbPath string) error {
 	return os.MkdirAll(filepath.Dir(dbPath), 0o755)
 }
 
-// WarnIfLegacyDBPresent checks whether any legacy project-local SQLite
-// files are still present and writes a human-readable warning to w for
-// each one found. It never deletes files or blocks startup.
+// CleanLegacyDBIfSafe checks for legacy project-local SQLite files and
+// handles them based on whether the canonical cache DB exists and is non-empty:
+//
+//   - If the canonical DB exists and has Size() > 0 (migration is complete):
+//     silently os.Remove each legacy file found. Also removes the empty
+//     .htmlgraph/.db/ directory if present and empty (using os.Remove, which
+//     will not remove a non-empty directory). Removal errors are silently
+//     swallowed — if a file cannot be removed, the warn branch fires instead
+//     for that specific file.
+//
+//   - Otherwise (canonical DB missing or empty): writes a human-readable
+//     warning to w for each legacy file found, so the user doesn't
+//     inadvertently delete their only copy. The size is formatted as %.1f MB
+//     so a 430 KB file shows as "0.4 MB" rather than "0 MB".
 //
 // Wire from one place that runs early in every binary path — the root
 // cobra command's PersistentPreRun is the right location.
-func WarnIfLegacyDBPresent(projectDir string, w io.Writer) {
+func CleanLegacyDBIfSafe(projectDir string, w io.Writer) {
+	canonicalPath, err := CanonicalDBPath(projectDir)
+	canonicalReady := false
+	if err == nil {
+		if ci, statErr := os.Stat(canonicalPath); statErr == nil && ci.Size() > 0 {
+			canonicalReady = true
+		}
+	}
+
+	dbDir := filepath.Join(projectDir, ".htmlgraph", ".db")
+
 	for _, p := range LegacyProjectDBPaths(projectDir) {
-		info, err := os.Stat(p)
-		if err != nil {
+		info, statErr := os.Stat(p)
+		if statErr != nil {
 			continue
 		}
-		rel, err := filepath.Rel(projectDir, p)
-		if err != nil {
+		if canonicalReady {
+			if removeErr := os.Remove(p); removeErr == nil {
+				continue
+			}
+			// Fall through to warn if removal fails.
+		}
+		rel, relErr := filepath.Rel(projectDir, p)
+		if relErr != nil {
 			rel = p
 		}
 		mb := float64(info.Size()) / (1024 * 1024)
 		fmt.Fprintf(w,
-			"[htmlgraph] WARNING: legacy SQLite file at %s (%.0f MB) is unused — DB now lives in the user cache dir. You can delete: %s\n",
+			"[htmlgraph] WARNING: legacy SQLite file at %s (%.1f MB) is unused — DB now lives in the user cache dir. You can delete: %s\n",
 			rel, mb, p)
+	}
+
+	// Remove the empty .db/ subdirectory if the canonical DB is ready.
+	if canonicalReady {
+		// os.Remove succeeds only on empty directories; non-empty ones are left alone.
+		_ = os.Remove(dbDir)
 	}
 }

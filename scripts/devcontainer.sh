@@ -29,7 +29,10 @@ case "$SUBCOMMAND" in
     ;;
   shell)
     need_devcontainer
-    devcontainer exec --workspace-folder . zsh
+    devcontainer exec --workspace-folder . \
+      --remote-env "TERM=xterm-256color" \
+      --remote-env "COLORTERM=${COLORTERM:-truecolor}" \
+      zsh
     ;;
   stop)
     CID="$(find_container)"

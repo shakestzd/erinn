@@ -439,21 +439,17 @@ I will wait until you finalize the plan before writing any code.
 
 ### Monitoring Review Progress
 
-Poll SQLite to check if the human has finalized:
+Poll the dashboard's feedback state to check if the human has finalized:
 
 ```bash
-# Check approval progress
-sqlite3 .htmlgraph/htmlgraph.db \
-  "SELECT section, value FROM plan_feedback WHERE plan_id='<plan-id>' AND action='approve'"
-
-# Check if all slices approved
-sqlite3 .htmlgraph/htmlgraph.db \
-  "SELECT COUNT(*) as approved FROM plan_feedback WHERE plan_id='<plan-id>' AND action='approve' AND value='True'"
-
-# Check question answers
-sqlite3 .htmlgraph/htmlgraph.db \
-  "SELECT question_id, value FROM plan_feedback WHERE plan_id='<plan-id>' AND action='answer'"
+# Read all feedback as JSON — approvals, answers, amendments, chat.
+# Resolves the canonical DB path internally (lives in the OS user
+# cache dir, never the project tree). Don't shell out to sqlite3
+# directly; the path is per-user and you'd hit the wrong DB.
+htmlgraph plan feedback <plan-id>
 ```
+
+Parse the JSON to count approvals, list answered questions, etc.
 
 ---
 

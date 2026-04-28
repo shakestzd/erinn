@@ -315,7 +315,7 @@ func persistentPreRunE(cmd *cobra.Command, _ []string) error {
 		return nil
 	}
 	projectDir := filepath.Dir(hgDir)
-	storage.WarnIfLegacyDBPresent(projectDir, os.Stderr)
+	storage.CleanLegacyDBIfSafe(projectDir, os.Stderr)
 	if database, dberr := openDB(hgDir); dberr == nil {
 		_, _ = agent.EnsureSession(database, projectDir)
 		database.Close()

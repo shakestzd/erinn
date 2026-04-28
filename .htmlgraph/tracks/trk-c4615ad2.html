@@ -13,7 +13,7 @@
              data-status="todo"
              data-priority="high"
              data-created="2026-04-21T00:01:38.30447"
-             data-updated="2026-04-21T11:35:28.877572" data-agent-assigned="claude-code">
+             data-updated="2026-04-27T10:19:07.991087" data-agent-assigned="claude-code">
 
         <header>
             <h1>OTel Integration — telemetry capture, span hierarchy, cost attribution</h1>
@@ -48,6 +48,33 @@
                     <li><a href="feat-28b62b51.html" data-relationship="contains" data-since="2026-04-21T11:12:45.225773">Assistant text: render at top of turn &#43; apply markdown</a></li>
                     <li><a href="bug-dda7cc2b.html" data-relationship="contains" data-since="2026-04-21T11:35:28.771645">Receiver gate in serve-child uses isTruthy while launcher defaults on — receiver skipped when HTMLGRAPH_OTEL_ENABLED is unset</a></li>
                     <li><a href="bug-d2ba2a82.html" data-relationship="contains" data-since="2026-04-21T11:35:28.877055">Hardcoded :4318 causes cross-project OTel data leakage when multiple projects are open</a></li>
+                    <li><a href="feat-3a65c5ca.html" data-relationship="contains" data-since="2026-04-24T22:29:21.247387">Extract SignalSink interface; add NDJSONSink implementation</a></li>
+                    <li><a href="feat-56aa1d48.html" data-relationship="contains" data-since="2026-04-24T22:29:21.254105">htmlgraph otel-collect subcommand</a></li>
+                    <li><a href="feat-4d3a2b5d.html" data-relationship="contains" data-since="2026-04-24T22:29:21.259987">Launcher spawns per-session collector child</a></li>
+                    <li><a href="feat-f0f893a3.html" data-relationship="contains" data-since="2026-04-24T22:29:21.267266">Session-start Rosetta event &#43; env-leak fix</a></li>
+                    <li><a href="feat-b6479241.html" data-relationship="contains" data-since="2026-04-24T22:29:21.274687">NDJSON to SQLite indexer loop inside serve</a></li>
+                    <li><a href="feat-2377191e.html" data-relationship="contains" data-since="2026-04-24T22:29:21.282222">Strip OTLP receiver from serve; rename ensureServeForOtel</a></li>
+                    <li><a href="feat-ed1a1f2c.html" data-relationship="contains" data-since="2026-04-24T22:29:21.28781">Session cleanup: graceful drain &#43; retention hygiene</a></li>
+                    <li><a href="bug-7d105494.html" data-relationship="contains" data-since="2026-04-25T04:04:29.81638">Activity feed misattributes tool calls to wrong user prompt</a></li>
+                    <li><a href="feat-17ed3fd7.html" data-relationship="contains" data-since="2026-04-25T04:11:38.641604">Fix PreToolUse parent event ID race in resolveParentEventID</a></li>
+                    <li><a href="feat-e25b40a0.html" data-relationship="contains" data-since="2026-04-25T04:11:39.068895">Bridge OTel prompt_id into agent_events for stable turn attribution</a></li>
+                    <li><a href="feat-56cddb0f.html" data-relationship="contains" data-since="2026-04-25T04:34:44.52333">Switch activity feed to OTel-primary with hook fallback</a></li>
+                    <li><a href="feat-c87a1fd8.html" data-relationship="contains" data-since="2026-04-25T05:00:04.426933">Migrate app.js main activity feed to OTel-primary /api/events/feed endpoint</a></li>
+                    <li><a href="bug-a312db4d.html" data-relationship="contains" data-since="2026-04-25T21:30:18.740073">Dual SQLite DB paths: serve writes .db/htmlgraph.db, CLI hits htmlgraph.db</a></li>
+                    <li><a href="bug-d035a6c3.html" data-relationship="contains" data-since="2026-04-26T01:34:27.045244">Stale work items accumulate — no auto-stale detection or enforced WIP cleanup</a></li>
+                    <li><a href="bug-62f14f8c.html" data-relationship="contains" data-since="2026-04-26T07:53:36.463707">Yolo PreToolUse gate reads stale DB after cache-dir migration (commit 809336a7)</a></li>
+                    <li><a href="bug-c58ab226.html" data-relationship="contains" data-since="2026-04-26T08:21:46.975142">roborev job 4 fixes</a></li>
+                    <li><a href="bug-1ebcad6b.html" data-relationship="contains" data-since="2026-04-26T12:03:23.907943">Subagent tool calls not nested under parent Agent span in activity feed</a></li>
+                    <li><a href="bug-28a9d7a7.html" data-relationship="contains" data-since="2026-04-26T12:39:31.292788">Session OTel collector dies mid-session and is duplicated by _serve-child receiver</a></li>
+                    <li><a href="feat-65432141.html" data-relationship="contains" data-since="2026-04-26T20:02:40.81234">Mount indexer goroutine inside otel-collect</a></li>
+                    <li><a href="feat-03deaa60.html" data-relationship="contains" data-since="2026-04-26T20:02:40.82467">Extend gracefulShutdown to drain the indexer</a></li>
+                    <li><a href="feat-0fe674d9.html" data-relationship="contains" data-since="2026-04-26T20:02:40.83296">Migrate hook direct-writes to NDJSON</a></li>
+                    <li><a href="feat-7837411f.html" data-relationship="contains" data-since="2026-04-26T20:02:40.843874">Batch indexer WriteBatch calls</a></li>
+                    <li><a href="feat-5144acc8.html" data-relationship="contains" data-since="2026-04-26T20:02:40.8539">Apply WAL pragma to registry.OpenReadOnly path</a></li>
+                    <li><a href="feat-d1f3b2a6.html" data-relationship="contains" data-since="2026-04-26T20:02:40.864522">Document NDJSON-canonical, SQLite-derived contract</a></li>
+                    <li><a href="feat-9772ba80.html" data-relationship="contains" data-since="2026-04-26T20:02:40.874593">End-to-end smoke test for live span visibility</a></li>
+                    <li><a href="feat-605aaaac.html" data-relationship="contains" data-since="2026-04-26T20:02:40.88437">PREREQ: Fix stale internal/otel/receiver import in indexer_test</a></li>
+                    <li><a href="bug-f9de355d.html" data-relationship="contains" data-since="2026-04-27T10:19:07.987876">OTel collect test leaks /tmp/otel-collect-test-* dirs</a></li>
                 </ul>
             </section>
         </nav>

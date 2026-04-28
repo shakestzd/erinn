@@ -82,8 +82,10 @@ func Load(path string) (*Registry, error) {
 }
 
 // Save persists the registry to disk using a tempfile + os.Rename so the
-// write is atomic from the reader's perspective.
+// write is atomic from the reader's perspective. It calls Prune before
+// writing so stale entries are automatically removed on every save.
 func (r *Registry) Save() error {
+	r.Prune()
 	dir := filepath.Dir(r.path)
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return fmt.Errorf("registry.Save: mkdir %s: %w", dir, err)
@@ -107,12 +109,42 @@ func (r *Registry) Save() error {
 	return nil
 }
 
+// looksLikeRealProject returns true only when dir contains a .htmlgraph/
+// subdirectory AND has a .git directory somewhere in its ancestor chain.
+// Temporary test directories (e.g. os.MkdirTemp paths) are typically not
+// inside a git repository, so they fail this check and are silently skipped
+// by Upsert — preventing registry pollution from test runs.
+func looksLikeRealProject(dir string) bool {
+	if _, err := os.Stat(filepath.Join(dir, ".htmlgraph")); err != nil {
+		return false
+	}
+	// Walk up looking for a .git directory.
+	for d := dir; ; {
+		if _, err := os.Stat(filepath.Join(d, ".git")); err == nil {
+			return true
+		}
+		parent := filepath.Dir(d)
+		if parent == d {
+			// Reached filesystem root without finding .git.
+			return false
+		}
+		d = parent
+	}
+}
+
 // Upsert inserts or updates the entry for dir.  If an entry with the same
 // cleaned absolute path already exists, its LastSeen (and optionally Name /
 // GitRemoteURL) is updated and the original ID is preserved.  Otherwise a new
 // entry is appended with a freshly computed ID.
+//
+// Upsert silently skips directories that do not look like real projects (no
+// .htmlgraph/ subdirectory or no .git ancestor). This prevents test tempdirs
+// from polluting the registry. Before saving, callers should also call Prune.
 func (r *Registry) Upsert(dir, name, remoteURL string) {
 	dir = filepath.Clean(dir)
+	if !looksLikeRealProject(dir) {
+		return
+	}
 	now := time.Now().UTC().Format(time.RFC3339)
 
 	for i := range r.entries {
@@ -191,9 +223,13 @@ func (r *Registry) DropLinkedWorktrees(resolveMain func(dir string) string) []st
 	return dropped
 }
 
-// DefaultPath returns the canonical registry file path:
-// ~/.local/share/htmlgraph/projects.json
+// DefaultPath returns the canonical registry file path.
+// It honors XDG_DATA_HOME if set, otherwise falls back to
+// ~/.local/share/htmlgraph/projects.json.
 func DefaultPath() string {
+	if xdg := os.Getenv("XDG_DATA_HOME"); xdg != "" {
+		return filepath.Join(xdg, "htmlgraph", "projects.json")
+	}
 	home, err := os.UserHomeDir()
 	if err != nil {
 		// Fallback that will be visible to the caller.

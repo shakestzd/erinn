@@ -20,7 +20,11 @@
     "command": "sh -c '$HOME/.claude/omp-claude-wrapper.sh'",
     "padding": 0
   },
+  "enabledPlugins": {
+    "frontend-design@claude-plugins-official": true
+  },
   "plansDirectory": ".htmlgraph/plans/",
-  "enabledPlugins": {},
-  "claudeMdExcludes": ["AGENTS.md"]
+  "claudeMdExcludes": [
+    "AGENTS.md"
+  ]
 }

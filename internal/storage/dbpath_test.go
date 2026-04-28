@@ -228,3 +228,207 @@ func TestLegacyProjectDBPaths(t *testing.T) {
 		t.Errorf("path[1]: got %s, want %s", paths[1], want1)
 	}
 }
+
+// TestCleanLegacyDBIfSafe_DeletesWhenCanonicalReady verifies that when the
+// canonical DB exists and is non-empty, the legacy file is silently deleted
+// and no output is written.
+func TestCleanLegacyDBIfSafe_DeletesWhenCanonicalReady(t *testing.T) {
+	projectDir := t.TempDir()
+
+	// Set up canonical DB (non-empty).
+	canonicalPath := filepath.Join(projectDir, "canonical.db")
+	if err := os.WriteFile(canonicalPath, []byte("data"), 0o600); err != nil {
+		t.Fatalf("write canonical db: %v", err)
+	}
+	t.Setenv("HTMLGRAPH_DB_PATH", canonicalPath)
+
+	// Set up legacy file.
+	legacyDir := filepath.Join(projectDir, ".htmlgraph")
+	if err := os.MkdirAll(legacyDir, 0o755); err != nil {
+		t.Fatalf("mkdir .htmlgraph: %v", err)
+	}
+	legacyFile := filepath.Join(legacyDir, "htmlgraph.db")
+	if err := os.WriteFile(legacyFile, []byte("stale"), 0o600); err != nil {
+		t.Fatalf("write legacy db: %v", err)
+	}
+
+	var buf strings.Builder
+	storage.CleanLegacyDBIfSafe(projectDir, &buf)
+
+	// No output expected.
+	if buf.Len() != 0 {
+		t.Errorf("expected no output, got: %q", buf.String())
+	}
+
+	// Legacy file must be gone.
+	if _, err := os.Stat(legacyFile); !os.IsNotExist(err) {
+		t.Errorf("expected legacy file to be removed, but it still exists")
+	}
+}
+
+// TestCleanLegacyDBIfSafe_WarnsWhenCanonicalMissing verifies that when the
+// canonical DB does not exist, the legacy file is NOT deleted and a warning
+// with %.1f MB formatting is written.
+func TestCleanLegacyDBIfSafe_WarnsWhenCanonicalMissing(t *testing.T) {
+	projectDir := t.TempDir()
+
+	// Point canonical DB to a path that does not exist.
+	canonicalPath := filepath.Join(projectDir, "nonexistent-canonical.db")
+	t.Setenv("HTMLGRAPH_DB_PATH", canonicalPath)
+
+	// Set up legacy file (~430 KB so it shows as 0.4 MB, not 0 MB).
+	legacyDir := filepath.Join(projectDir, ".htmlgraph")
+	if err := os.MkdirAll(legacyDir, 0o755); err != nil {
+		t.Fatalf("mkdir .htmlgraph: %v", err)
+	}
+	legacyFile := filepath.Join(legacyDir, "htmlgraph.db")
+	content := make([]byte, 440*1024) // 440 KB
+	if err := os.WriteFile(legacyFile, content, 0o600); err != nil {
+		t.Fatalf("write legacy db: %v", err)
+	}
+
+	var buf strings.Builder
+	storage.CleanLegacyDBIfSafe(projectDir, &buf)
+
+	output := buf.String()
+	if output == "" {
+		t.Error("expected warning output, got nothing")
+	}
+	// Must contain the decimal MB format — "0.4" not "0 MB".
+	if !strings.Contains(output, "0.4") {
+		t.Errorf("expected '0.4' in MB display, got: %q", output)
+	}
+	if strings.Contains(output, "0 MB") {
+		t.Errorf("must not display '0 MB' for a non-zero file; got: %q", output)
+	}
+
+	// Legacy file must still be present.
+	if _, err := os.Stat(legacyFile); err != nil {
+		t.Errorf("expected legacy file to remain, but got: %v", err)
+	}
+}
+
+// TestCleanLegacyDBIfSafe_WarnsWhenCanonicalEmpty verifies that when the
+// canonical DB file exists but is empty (Size() == 0), the legacy file is
+// NOT deleted and a warning is written.
+func TestCleanLegacyDBIfSafe_WarnsWhenCanonicalEmpty(t *testing.T) {
+	projectDir := t.TempDir()
+
+	// Set up canonical DB that is empty (size 0).
+	canonicalPath := filepath.Join(projectDir, "canonical.db")
+	if err := os.WriteFile(canonicalPath, []byte{}, 0o600); err != nil {
+		t.Fatalf("write empty canonical db: %v", err)
+	}
+	t.Setenv("HTMLGRAPH_DB_PATH", canonicalPath)
+
+	// Set up legacy file.
+	legacyDir := filepath.Join(projectDir, ".htmlgraph")
+	if err := os.MkdirAll(legacyDir, 0o755); err != nil {
+		t.Fatalf("mkdir .htmlgraph: %v", err)
+	}
+	legacyFile := filepath.Join(legacyDir, "htmlgraph.db")
+	if err := os.WriteFile(legacyFile, []byte("stale data"), 0o600); err != nil {
+		t.Fatalf("write legacy db: %v", err)
+	}
+
+	var buf strings.Builder
+	storage.CleanLegacyDBIfSafe(projectDir, &buf)
+
+	output := buf.String()
+	if output == "" {
+		t.Error("expected warning output when canonical DB is empty, got nothing")
+	}
+
+	// Legacy file must still be present.
+	if _, err := os.Stat(legacyFile); err != nil {
+		t.Errorf("expected legacy file to remain, but got: %v", err)
+	}
+}
+
+// TestCleanLegacyDBIfSafe_RemovesEmptyDBDir verifies that the empty
+// .htmlgraph/.db/ directory is removed when the canonical DB is non-empty.
+func TestCleanLegacyDBIfSafe_RemovesEmptyDBDir(t *testing.T) {
+	projectDir := t.TempDir()
+
+	// Set up canonical DB (non-empty).
+	canonicalPath := filepath.Join(projectDir, "canonical.db")
+	if err := os.WriteFile(canonicalPath, []byte("data"), 0o600); err != nil {
+		t.Fatalf("write canonical db: %v", err)
+	}
+	t.Setenv("HTMLGRAPH_DB_PATH", canonicalPath)
+
+	// Create empty .htmlgraph/.db/ directory (no legacy DB file inside).
+	dbDir := filepath.Join(projectDir, ".htmlgraph", ".db")
+	if err := os.MkdirAll(dbDir, 0o755); err != nil {
+		t.Fatalf("mkdir .htmlgraph/.db: %v", err)
+	}
+
+	var buf strings.Builder
+	storage.CleanLegacyDBIfSafe(projectDir, &buf)
+
+	// No output expected.
+	if buf.Len() != 0 {
+		t.Errorf("expected no output, got: %q", buf.String())
+	}
+
+	// Empty .db/ directory must be removed.
+	if _, err := os.Stat(dbDir); !os.IsNotExist(err) {
+		t.Errorf("expected empty .db/ dir to be removed, but it still exists")
+	}
+}
+
+// TestCleanLegacyDBIfSafe_LeavesNonEmptyDBDir verifies that a non-empty
+// .htmlgraph/.db/ directory (containing unrelated files) is NOT removed.
+func TestCleanLegacyDBIfSafe_LeavesNonEmptyDBDir(t *testing.T) {
+	projectDir := t.TempDir()
+
+	// Set up canonical DB (non-empty).
+	canonicalPath := filepath.Join(projectDir, "canonical.db")
+	if err := os.WriteFile(canonicalPath, []byte("data"), 0o600); err != nil {
+		t.Fatalf("write canonical db: %v", err)
+	}
+	t.Setenv("HTMLGRAPH_DB_PATH", canonicalPath)
+
+	// Create .htmlgraph/.db/ with an unrelated file inside.
+	dbDir := filepath.Join(projectDir, ".htmlgraph", ".db")
+	if err := os.MkdirAll(dbDir, 0o755); err != nil {
+		t.Fatalf("mkdir .htmlgraph/.db: %v", err)
+	}
+	unrelated := filepath.Join(dbDir, "unrelated.txt")
+	if err := os.WriteFile(unrelated, []byte("keep me"), 0o600); err != nil {
+		t.Fatalf("write unrelated file: %v", err)
+	}
+
+	var buf strings.Builder
+	storage.CleanLegacyDBIfSafe(projectDir, &buf)
+
+	// Non-empty .db/ directory must still be present.
+	if _, err := os.Stat(dbDir); err != nil {
+		t.Errorf("expected non-empty .db/ dir to remain, but got: %v", err)
+	}
+	if _, err := os.Stat(unrelated); err != nil {
+		t.Errorf("expected unrelated file to remain, but got: %v", err)
+	}
+}
+
+// TestCleanLegacyDBIfSafe_NoLegacyFiles verifies that no-op behavior
+// (no output, no errors) when no legacy files are present.
+func TestCleanLegacyDBIfSafe_NoLegacyFiles(t *testing.T) {
+	projectDir := t.TempDir()
+
+	// Set up canonical DB (non-empty).
+	canonicalPath := filepath.Join(projectDir, "canonical.db")
+	if err := os.WriteFile(canonicalPath, []byte("data"), 0o600); err != nil {
+		t.Fatalf("write canonical db: %v", err)
+	}
+	t.Setenv("HTMLGRAPH_DB_PATH", canonicalPath)
+
+	// No .htmlgraph/ directory or legacy files created.
+
+	var buf strings.Builder
+	storage.CleanLegacyDBIfSafe(projectDir, &buf)
+
+	if buf.Len() != 0 {
+		t.Errorf("expected no output when no legacy files exist, got: %q", buf.String())
+	}
+}

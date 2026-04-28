@@ -159,7 +159,7 @@ Next steps:
     htmlgraph claude --dev
 - Start the dashboard:
     htmlgraph serve
-    # http://localhost:8080
+    # http://localhost:8088 (container serves on 8080)
 - Run the full test suite on demand:
     bash scripts/devcontainer-verify.sh
 

@@ -10,58 +10,37 @@
 <body>
     <article id="bug-08681166"
              data-type="bug"
-             data-status="in-progress"
+             data-status="done"
              data-priority="high"
              data-created="2026-04-21T15:25:34.977916"
-             data-updated="2026-04-21T15:26:26.381507" data-agent-assigned="claude-code" data-track-id="trk-c4615ad2">
+             data-updated="2026-04-25T23:09:01.540891" data-agent-assigned="claude-code" data-track-id="trk-c4615ad2">
 
         <header>
             <h1>Main serve DB pool loses busy_timeout on pooled connections — cascades into OTel ingestion outage</h1>
             <div class="metadata">
-                <span class="badge status-in-progress">In Progress</span>
+                <span class="badge status-done">Done</span>
                 <span class="badge priority-high">High Priority</span>
             </div>
         </header>
 
         <nav data-graph-edges>
-            <section data-edge-type="part_of">
-                <h3>Part Of:</h3>
-                <ul>
-                    <li><a href="trk-c4615ad2.html" data-relationship="part_of" data-since="2026-04-21T15:25:34.981072">trk-c4615ad2</a></li>
-                </ul>
-            </section>
             <section data-edge-type="implemented_in">
                 <h3>Implemented In:</h3>
                 <ul>
                     <li><a href="6df464e9-ddf2-412f-a6d2-d7c45ed69c29.html" data-relationship="implemented_in" data-since="2026-04-21T15:26:26.381433">session 6df464e9-ddf2-412f-a6d2-d7c45ed69c29</a></li>
                 </ul>
             </section>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="trk-c4615ad2.html" data-relationship="part_of" data-since="2026-04-21T15:25:34.981072">trk-c4615ad2</a></li>
+                </ul>
+            </section>
         </nav>
 
         <section data-content>
             <h3>Description</h3>
-            <p>Distinct from bug-6ab963d3 (writer retry path, already fixed in 5421ab54). This is the serve-main-DB path.
-
-## Symptom
-OTel emission silently stops mid-session. All turn-level cost/token badges and per-row work-item attribution disappear for turns after the crash. Example today: last otel_signals row at 2026-04-21 10:30:31 EDT; serve-64968b38.log had accumulated 12,003 database-is-locked errors before serve exited.
-
-## Root cause
-internal/db/schema.go:38 calls ApplyPragmas(db) which runs db.Exec("PRAGMA busy_timeout = 5000") against a *pool*. database/sql Exec uses one connection; connections opened later by the pool get busy_timeout=0. Live verification: sqlite3 on the running DB reports PRAGMA busy_timeout = 0.
-
-The OTel writer is unaffected because internal/otel/.../writer.go uses db.SetMaxOpenConns(1) + DSN _pragma=busy_timeout(5000). The contending path is the serve main DB handle opened in cmd/htmlgraph/serve_child.go:51 — it does neither. Hook-handler writes (tool_call/message inserts) routed through that pool collide with the OTel writer, and the pooled connection with busy_timeout=0 fails instantly. 12k cascading SQLITE_BUSY errors later, serve exits.
-
-## Fix options (preferred → fallback)
-A. Embed _pragma=busy_timeout(5000) in the DSN in schema.go:31 so every pooled connection inherits it. Verify modernc.org/sqlite honors _pragma per-conn.
-B. Register a custom driver that runs 'PRAGMA busy_timeout = 5000' in a ConnInitFunc, so every new conn in the pool gets it regardless of DSN handling.
-C. db.SetMaxOpenConns(1) on the serve main DB. Serializes reads — dashboard responsiveness may regress. Avoid unless A and B fail.
-
-## Files
-- internal/db/schema.go:31,38 — ApplyPragmas called against pool, pragma not inherited
-- cmd/htmlgraph/serve_child.go:51 — main serve DB handle opened without MaxOpenConns=1 or connector pragma
-- Reference (correct pattern): internal/otel/.../writer.go
-
-## Test
-After fix, sqlite3 .htmlgraph/htmlgraph.db "PRAGMA busy_timeout" from a second connection should report 5000, not 0. Regression test: open the serve DB handle, hit it with ≥N concurrent writers where N > 1, confirm no SQLITE_BUSY failures within busy_timeout window.</p>
+            <p>Resolved by bug-a312db4d. The SQLite read-index now lives in the host's OS user cache directory (resolved via storage.CanonicalDBPath, keyed by sha256(projectDir)) — always on a filesystem that supports WAL/SHM mmap (ext4, APFS, etc). The busy_timeout fragility was a symptom of running WAL on virtiofs; with the canonical DB outside the project tree, that class of failure is gone for every user, not just our devcontainer.</p>
         </section>
     </article>
 </body>

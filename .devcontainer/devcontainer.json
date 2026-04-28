@@ -26,18 +26,10 @@
     "source=htmlgraph-codex-home,target=/home/vscode/.codex,type=volume",
     "source=htmlgraph-gemini-home,target=/home/vscode/.gemini,type=volume",
     "source=htmlgraph-copilot-home,target=/home/vscode/.copilot,type=volume",
-    "source=htmlgraph-local-bin,target=/home/vscode/.local,type=volume"
+    "source=htmlgraph-local-bin,target=/home/vscode/.local,type=volume",
+    "type=tmpfs,destination=/tmp,tmpfs-size=4294967296"
   ],
-  "appPort": ["8088:8088", "2222:2222"],
-  "forwardPorts": [
-    8080
-  ],
-  "portsAttributes": {
-    "8080": {
-      "label": "HtmlGraph dashboard",
-      "onAutoForward": "notify"
-    }
-  },
+  "appPort": ["8088:8080", "2222:2222"],
   "postCreateCommand": "bash .devcontainer/post-create.sh",
   "customizations": {
     "vscode": {

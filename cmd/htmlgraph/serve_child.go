@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"net"
 	"net/http"
@@ -10,10 +9,7 @@ import (
 	"path/filepath"
 
 	dbpkg "github.com/shakestzd/htmlgraph/internal/db"
-	"github.com/shakestzd/htmlgraph/internal/otel/indexer"
-	otelreceiver "github.com/shakestzd/htmlgraph/internal/otel/receiver"
 	"github.com/shakestzd/htmlgraph/internal/otel/retention"
-	sqls "github.com/shakestzd/htmlgraph/internal/otel/sink/sqlite"
 	"github.com/shakestzd/htmlgraph/internal/registry"
 	"github.com/shakestzd/htmlgraph/internal/storage"
 	"github.com/spf13/cobra"
@@ -67,18 +63,15 @@ func runServeChild(port int) error {
 
 	mux := buildSingleProjectMux(database, htmlgraphDir)
 
-	// NDJSON→SQLite indexer (unconditional per Q5 cutover decision).
-	// A dedicated Writer is opened for the indexer so it does not contend
-	// with the OTLP receiver's Writer (each has MaxOpenConns=1).
-	if idxWriter, err := otelreceiver.NewWriter(dbPath); err != nil {
-		fmt.Fprintf(os.Stderr, "indexer writer init: %v\n", err)
-	} else {
-		idxr := indexer.New(htmlgraphDir, sqls.New(idxWriter)).WithDB(database)
-		ctx := context.Background()
-		go idxr.Start(ctx)
-		// /api/indexer/status — per-file health for observability (Q7).
-		mux.Handle("/api/indexer/status", indexerStatusHandler(idxr))
-	}
+	// NOTE(bug-28a9d7a7 Part B): The NDJSON→SQLite indexer and its dedicated
+	// otelreceiver.NewWriter have been removed. Opening a second sql.DB writer
+	// (MaxOpenConns=1) against the same WAL SQLite file contended with the
+	// read-pool handle used by the API handlers, causing SQLITE_BUSY errors.
+	// The per-session otel-collect process is now the sole writer to otel_signals.
+	// serve-child is read-only with respect to otel_signals.
+	// TODO(bug-28a9d7a7): If NDJSON→SQLite replay is needed for pre-existing
+	// sessions, run the indexer inside the otel-collect process so only one
+	// writer DB handle exists across the entire project.
 
 	ln, err := net.Listen("tcp", fmt.Sprintf("127.0.0.1:%d", port))
 	if err != nil {
@@ -127,14 +120,3 @@ func runServeChild(port int) error {
 	return (&http.Server{Handler: mux}).Serve(ln)
 }
 
-// indexerStatusHandler returns an HTTP handler for GET /api/indexer/status.
-// The response body is a JSON object with per-session file health metrics.
-func indexerStatusHandler(idxr *indexer.Indexer) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		status := idxr.Status()
-		w.Header().Set("Content-Type", "application/json")
-		if err := json.NewEncoder(w).Encode(map[string]any{"files": status}); err != nil {
-			http.Error(w, "encode error", http.StatusInternalServerError)
-		}
-	})
-}

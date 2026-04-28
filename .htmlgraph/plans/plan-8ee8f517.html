@@ -1,0 +1,1613 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="htmlgraph-version" content="1.0">
+<title>Plan: Mount NDJSON to SQLite indexer inside per-session otel-collect; close contention holes</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/styles/github-dark.min.css" id="hljs-dark">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/styles/github.min.css" id="hljs-light" disabled>
+<script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/highlight.min.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/languages/go.min.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/languages/yaml.min.js"></script>
+<style>
+:root {
+  --bg:#0f0f13; --bg-card:#18181c; --bg-input:#222228; --bg-hover:#2c2c32;
+  --text:#f0f0ed; --text-dim:#d0d0cc; --text-muted:#9898a0; --border:#3a3a42;
+  --accent:#cdff00; --accent-dim:rgba(205,255,0,.1); --accent-glow:rgba(205,255,0,.25);
+  --approved:#22c55e; --revision:#f59e0b; --discuss:#a78bfa; --pending:#6b7280; --blocked:#ef4444;
+  --radius:8px; --radius-sm:5px;
+  --mono:'JetBrains Mono',ui-monospace,'SF Mono','Cascadia Code',monospace;
+  --sans:'DM Sans','Inter',system-ui,-apple-system,sans-serif;
+  --shadow-card:0 2px 8px rgba(0,0,0,.5), 0 0 0 1px var(--border);
+  --shadow-elevated:0 8px 32px rgba(0,0,0,.6), 0 0 0 1px var(--border);
+  --transition:150ms cubic-bezier(.4,0,.2,1);
+}
+[data-theme="light"] {
+  --bg:#f4f3ef; --bg-card:#ffffff; --bg-input:#eeeee8; --bg-hover:#e4e4de;
+  --text:#1a1a1e; --text-dim:#4a4a50; --text-muted:#8a8a90; --border:#d4d4cc;
+  --accent:#4a6e00; --accent-dim:rgba(74,110,0,.08); --accent-glow:rgba(74,110,0,.2);
+  --shadow-card:0 1px 3px rgba(0,0,0,.06), 0 0 0 1px var(--border);
+  --shadow-elevated:0 4px 24px rgba(0,0,0,.1), 0 0 0 1px var(--border);
+}
+[data-theme="light"] .badge-approved{background:rgba(34,197,94,.08);color:#16a34a;border-color:rgba(34,197,94,.2)}
+[data-theme="light"] .badge-revision{background:rgba(245,158,11,.08);color:#d97706;border-color:rgba(245,158,11,.2)}
+[data-theme="light"] .badge-discuss{background:rgba(167,139,250,.08);color:#7c3aed;border-color:rgba(167,139,250,.2)}
+[data-theme="light"] .badge-pending{background:rgba(107,114,128,.08);color:#4b5563;border-color:rgba(107,114,128,.2)}
+[data-theme="light"] .badge-blocked{background:rgba(239,68,68,.08);color:#dc2626;border-color:rgba(239,68,68,.2)}
+[data-theme="light"] .btn-finalize{background:#4a6e00;color:#fff}
+[data-theme="light"] .section-card{--shadow-card:0 1px 2px rgba(0,0,0,.04),0 0 0 1px var(--border)}
+
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{font-size:15px;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale}
+body{font-family:var(--sans);background:var(--bg);color:var(--text);line-height:1.6;margin:0;padding:0;display:grid;grid-template-columns:200px 1fr;min-height:100vh}
+
+/* ── Sidebar ── */
+.plan-sidebar{background:var(--bg-card);border-right:1px solid var(--border);padding:20px 0;display:flex;flex-direction:column;gap:1px;position:sticky;top:0;height:100vh;overflow-y:auto}
+.plan-sidebar .brand{padding:16px 20px 20px;font-weight:700;font-size:1rem;color:var(--accent);text-decoration:none;display:block;border-bottom:1px solid var(--border);margin-bottom:8px;font-family:var(--mono);letter-spacing:-.02em}
+.plan-sidebar a.nav-link{display:flex;align-items:center;gap:10px;padding:9px 20px;color:var(--text-muted);text-decoration:none;font-size:.82rem;font-weight:500;border-right:2px solid transparent;transition:all var(--transition)}
+.plan-sidebar a.nav-link:hover{color:var(--text);background:var(--bg-hover)}
+.plan-sidebar a.nav-link.active{color:var(--accent);background:var(--accent-dim);border-right-color:var(--accent);font-weight:600}
+
+/* ── Plan layout (content + chat sidebar) ── */
+.plan-layout{display:flex;flex:1;min-width:0;overflow:hidden;height:100vh}
+.plan-content{flex:1;min-width:0;padding:32px 40px 80px;overflow-y:auto;max-width:960px}
+
+/* ── Chat sidebar ── */
+.chat-sidebar{width:360px;min-width:280px;max-width:600px;border-left:1px solid var(--border);display:flex;flex-direction:column;background:var(--bg-card);overflow:hidden;height:100%}
+.chat-resize-handle{width:4px;cursor:col-resize;background:transparent;transition:background .15s;flex-shrink:0;position:relative}
+.chat-resize-handle:hover,.chat-resize-handle.dragging{background:var(--accent);opacity:.5}
+.chat-resize-handle::after{content:'';position:absolute;top:50%;left:-4px;width:12px;height:32px;transform:translateY(-50%);border-radius:4px}
+
+/* ── Typography ── */
+h1{font-family:var(--sans);font-size:1.65rem;font-weight:700;color:var(--text);margin-bottom:6px;letter-spacing:-.03em;line-height:1.3}
+h1::first-letter{color:var(--accent)}
+h2{font-family:var(--sans);font-size:1.15rem;font-weight:600;letter-spacing:-.01em}
+h3{font-family:var(--mono);font-size:.72rem;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:10px}
+h4{font-family:var(--sans);font-size:.88rem;font-weight:600;margin-bottom:8px;color:var(--text)}
+p,li{color:var(--text-dim);line-height:1.7;font-size:.95rem}
+ul,ol{padding-left:1.5em;margin:8px 0}
+ul{list-style:disc}
+ol{list-style:decimal}
+li{padding:3px 0}
+li::marker{color:var(--text-muted)}
+code{font-family:var(--mono);font-size:.82em;background:var(--bg-input);padding:2px 6px;border-radius:var(--radius-sm);border:1px solid var(--border)}
+pre{font-family:var(--mono);font-size:.78rem;background:var(--bg-input);border:1px solid var(--border);border-radius:var(--radius);padding:14px 16px;overflow-x:auto;line-height:1.6;color:var(--text);margin:10px 0}
+a{color:var(--accent);text-decoration:none;transition:opacity var(--transition)}
+a:hover{opacity:.8}
+
+/* ── Plan header ── */
+.plan-header{margin-bottom:36px;padding-bottom:20px;border-bottom:1px solid var(--border);position:relative}
+.plan-header::after{content:'';position:absolute;bottom:-1px;left:0;width:120px;height:1px;background:var(--accent);opacity:.5}
+.plan-header .meta{display:flex;gap:12px;flex-wrap:wrap;margin-top:10px;align-items:center}
+
+/* ── Related Work ── */
+.related-work{margin-bottom:24px;padding:16px 20px;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);display:flex;flex-direction:column;gap:12px}
+.related-track{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.related-label{font-family:var(--mono);font-size:.72rem;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.06em;min-width:70px}
+.related-link{color:var(--accent);font-weight:600;font-size:.9rem;text-decoration:none}
+.related-link:hover{text-decoration:underline}
+.related-features{display:flex;flex-direction:column;gap:6px}
+.related-feature-list{display:flex;flex-direction:column;gap:4px}
+.related-feature{display:flex;align-items:center;gap:10px;padding:6px 10px;background:var(--bg-input);border:1px solid var(--border);border-radius:var(--radius-sm);text-decoration:none;transition:border-color var(--transition)}
+.related-feature:hover{border-color:var(--accent)}
+.related-feature-id{font-family:var(--mono);font-size:.75rem;color:var(--text-muted);min-width:110px}
+.related-feature-title{flex:1;font-size:.85rem;color:var(--text-dim)}
+.related-feature .badge{flex-shrink:0}
+
+/* ── Badges ── */
+.badge{display:inline-flex;align-items:center;gap:6px;font-family:var(--mono);font-size:.75rem;font-weight:600;text-transform:uppercase;letter-spacing:.05em;padding:4px 12px;border-radius:9999px;border:1px solid transparent;transition:all var(--transition)}
+.badge::before{content:'';width:5px;height:5px;border-radius:50%;flex-shrink:0}
+.badge-approved{background:rgba(34,197,94,.1);color:var(--approved);border-color:rgba(34,197,94,.25)}.badge-approved::before{background:var(--approved);box-shadow:0 0 6px var(--approved)}
+.badge-revision{background:rgba(245,158,11,.1);color:var(--revision);border-color:rgba(245,158,11,.25)}.badge-revision::before{background:var(--revision)}
+.badge-discuss{background:rgba(167,139,250,.1);color:var(--discuss);border-color:rgba(167,139,250,.25)}.badge-discuss::before{background:var(--discuss)}
+.badge-pending{background:rgba(107,114,128,.1);color:var(--pending);border-color:rgba(107,114,128,.2)}.badge-pending::before{background:var(--pending)}
+.badge-blocked{background:rgba(239,68,68,.1);color:var(--blocked);border-color:rgba(239,68,68,.25)}.badge-blocked::before{background:var(--blocked)}
+
+/* ── Dependency graph ── */
+.dep-graph{background:var(--bg-card);border-radius:var(--radius);padding:28px;margin-bottom:28px;box-shadow:var(--shadow-card);overflow-x:auto}
+.dep-graph h2{margin-bottom:20px;padding-bottom:12px;border-bottom:1px solid var(--border)}
+.dep-graph svg{display:block;height:auto}
+#dep-graph-svg .node rect{rx:8;ry:8;fill:var(--bg-input);stroke:var(--border);stroke-width:2px}
+#dep-graph-svg .node text{fill:var(--text) !important;font-family:var(--sans);font-size:13px}
+#dep-graph-svg .edgePath path{stroke:var(--text-muted);stroke-dasharray:5 4;fill:none;stroke-width:1.5}
+#dep-graph-svg .edgePath marker path{fill:var(--text-muted)}
+
+/* ── Section cards ── */
+.section-card{background:var(--bg-card);border-radius:var(--radius);margin-bottom:14px;box-shadow:var(--shadow-card);overflow:hidden;transition:box-shadow var(--transition)}
+.section-card:hover{box-shadow:var(--shadow-elevated)}
+.section-card summary{display:flex;align-items:center;gap:12px;padding:16px 24px;cursor:pointer;font-weight:600;font-size:1rem;list-style:none;user-select:none;color:var(--text);font-family:var(--sans);transition:background var(--transition)}
+.section-card summary:hover{background:var(--bg-hover)}
+.section-card summary::-webkit-details-marker{display:none}
+.section-card summary::before{content:'';width:6px;height:6px;border-right:2px solid var(--text-muted);border-bottom:2px solid var(--text-muted);transform:rotate(-45deg);transition:transform .2s ease;flex-shrink:0}
+.section-card[open] summary::before{transform:rotate(45deg)}
+.section-card summary .badge{margin-left:auto}
+.section-body{padding:16px 24px 24px;animation:slideDown .2s ease}
+@keyframes slideDown{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:translateY(0)}}
+.sub-section{margin-bottom:20px}.sub-section:last-child{margin-bottom:0}
+
+/* ── Approval row ── */
+.approval-row{display:flex;align-items:center;gap:16px;margin-top:20px;padding-top:16px;border-top:1px solid var(--border)}
+.approval-row label{font-size:.9rem;color:var(--text);cursor:pointer;display:flex;align-items:center;gap:8px;font-weight:500;white-space:nowrap;transition:color var(--transition)}
+.approval-row label:hover{color:var(--accent)}
+.approval-row input[type="checkbox"]{accent-color:var(--approved);width:18px;height:18px;cursor:pointer;border-radius:4px;flex-shrink:0}
+
+/* ── Textarea ── */
+textarea{width:100%;min-height:52px;resize:vertical;background:var(--bg-input);color:var(--text);border:1px solid var(--border);border-radius:var(--radius);padding:10px 12px;font-family:var(--sans);font-size:.84rem;line-height:1.5;transition:border-color var(--transition),box-shadow var(--transition)}
+textarea:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-dim)}
+textarea::placeholder{color:var(--text-muted)}
+
+/* ── Question blocks ── */
+.question-block{margin-bottom:16px;padding:14px 16px;background:var(--bg-input);border-radius:var(--radius);border-left:3px solid var(--discuss)}
+.question-block p{font-size:.88rem;color:var(--text);margin-bottom:8px;font-weight:500}
+.question-block label{display:block;font-size:.84rem;color:var(--text-dim);padding:5px 8px;cursor:pointer;transition:color var(--transition);border-radius:var(--radius-sm)}
+.question-block label:hover{color:var(--text);background:var(--bg-hover)}
+.question-block label.recommended{border-left:2px solid var(--accent);padding-left:10px;background:var(--accent-dim)}
+.question-block input[type="radio"]{accent-color:var(--accent);margin-right:8px;cursor:pointer}
+.rec-tag{font-family:var(--mono);font-size:.65rem;color:var(--accent);text-transform:uppercase;letter-spacing:.05em;margin-left:6px;opacity:.8}
+
+/* ── Slice cards ── */
+.slice-card{background:var(--bg-input);border:1px solid var(--border);border-radius:var(--radius);padding:24px;margin-bottom:16px;transition:border-color var(--transition)}
+.slice-card:hover{border-color:rgba(205,255,0,.2)}
+.slice-header{display:flex;align-items:center;gap:10px;margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid var(--border);flex-wrap:wrap}
+.slice-num{font-family:var(--mono);font-size:.8rem;color:var(--bg);background:var(--accent);padding:3px 9px;border-radius:4px;font-weight:700;min-width:26px;text-align:center}
+.slice-name{font-weight:600;font-size:1rem;font-family:var(--sans);flex:1}
+.slice-meta{font-size:.85rem;color:var(--text-muted);margin-bottom:8px;font-family:var(--mono)}
+.slice-meta span{margin-right:14px}
+.slice-field{margin-bottom:14px;padding-bottom:12px;border-bottom:1px solid rgba(51,51,56,.4)}
+.slice-field:last-of-type{border-bottom:none}
+.slice-field-label{font-family:var(--mono);font-size:.75rem;font-weight:600;color:var(--accent);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px}
+.slice-field-value{font-size:.92rem;color:var(--text-dim);line-height:1.7}
+.slice-field-value code{font-size:.82rem;word-break:break-all}
+.slice-tests{white-space:pre-line}
+.slice-done-list{list-style:none;padding-left:0;margin:0}
+.slice-done-list li{font-size:.9rem;color:var(--text-dim);padding:4px 0;padding-left:20px;position:relative}
+.slice-done-list li::before{content:'\2713';position:absolute;left:0;color:var(--approved);font-weight:700}
+.slice-deps{font-size:.85rem;color:var(--text-muted);margin-top:8px;font-family:var(--mono)}
+.slice-card .approval-row{margin-top:16px}
+
+/* ── Progress zone ── */
+.progress-zone{background:var(--bg-card);border-radius:var(--radius);padding:24px;margin-top:28px;box-shadow:var(--shadow-card)}
+.progress-bar-track{height:6px;background:var(--bg-input);border-radius:3px;overflow:hidden;margin:12px 0 20px;position:relative}
+.progress-bar-fill{height:100%;background:linear-gradient(90deg,var(--accent),var(--approved));border-radius:3px;transition:width .4s cubic-bezier(.4,0,.2,1);position:relative}
+.progress-bar-fill::after{content:'';position:absolute;right:0;top:-1px;width:8px;height:8px;background:var(--approved);border-radius:50%;box-shadow:0 0 8px var(--approved);opacity:0;transition:opacity .3s}
+.progress-bar-fill[style*="width:100"]::after,.progress-bar-fill[style*="width: 100"]::after{opacity:1}
+.progress-stats{display:flex;gap:24px;flex-wrap:wrap;margin-bottom:16px}
+.progress-stat{font-size:.82rem;color:var(--text-dim);font-family:var(--sans)}.progress-stat strong{color:var(--text);font-size:1.2rem;margin-right:4px;font-weight:700}
+.comments-summary{border-top:1px solid var(--border);padding-top:16px;margin-top:4px}.comments-summary h3{margin-bottom:10px}
+.comment-entry{font-size:.82rem;color:var(--text-dim);padding:6px 0;border-bottom:1px solid var(--border)}
+.comment-entry:last-child{border-bottom:none}
+.comment-entry .comment-source{font-family:var(--mono);color:var(--accent);font-weight:600;margin-right:8px;font-size:.75rem}
+.finalize-area{margin-top:20px;text-align:center}
+.btn-finalize{background:var(--accent);color:#0a0a0a;border:none;border-radius:var(--radius);padding:12px 36px;font-weight:700;font-size:.88rem;cursor:pointer;font-family:var(--sans);letter-spacing:.01em;transition:all var(--transition);box-shadow:0 0 0 0 var(--accent-glow)}
+.btn-finalize:hover:not(:disabled){filter:brightness(.92);box-shadow:0 0 20px var(--accent-glow)}
+.btn-finalize:disabled{opacity:.3;cursor:not-allowed}
+
+/* ── Critique zone lists (badge-aligned, no bullets) ── */
+#critique ul{list-style:none;padding-left:0;margin:0}
+#critique ul li{display:flex;align-items:flex-start;gap:10px;padding:6px 0;border-bottom:1px solid var(--border)}
+#critique ul li:last-child{border-bottom:none}
+#critique ul li .badge{flex-shrink:0;margin-top:2px}
+
+/* ── Questions table ── */
+.q-table{width:100%;font-size:.84rem;border-collapse:collapse}
+.q-table th{text-align:left;padding:8px 10px;border-bottom:1px solid var(--border);color:var(--text-muted);font-family:var(--mono);font-size:.68rem;text-transform:uppercase;letter-spacing:.06em}
+.q-table td{padding:8px 10px;border-bottom:1px solid var(--border)}
+
+/* ── Chat panel (inside sidebar) ── */
+.chat-panel{display:flex;flex-direction:column;flex:1;overflow:hidden;border-radius:0;box-shadow:none;background:transparent}
+.chat-panel h2{padding:16px 20px 12px;margin-bottom:0;font-size:.95rem;border-bottom:1px solid var(--border);flex-shrink:0}
+.chat-messages{flex:1;overflow-y:auto;padding:16px 20px;display:flex;flex-direction:column;gap:8px}
+.chat-bubble{padding:14px 18px;border-radius:12px;max-width:88%;word-wrap:break-word;font-size:.88rem;line-height:1.65;white-space:normal;animation:bubbleIn .2s ease;overflow:visible}
+@keyframes bubbleIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+.chat-bubble[data-role="user"]{background:var(--accent-dim);border:1px solid rgba(205,255,0,.12);margin-left:auto;color:var(--text);border-bottom-right-radius:4px}
+.chat-bubble[data-role="assistant"]{background:var(--bg-input);border:1px solid var(--border);color:var(--text-dim);border-bottom-left-radius:4px}
+.chat-bubble h3,.chat-bubble h4{font-size:.92rem;margin:16px 0 6px;color:var(--text);font-family:var(--sans)}
+.chat-bubble h3:first-child,.chat-bubble h4:first-child,.chat-bubble p:first-child{margin-top:0}
+.chat-bubble p{margin:8px 0;font-size:inherit;color:inherit;line-height:1.65}
+.chat-bubble p:last-child{margin-bottom:0}
+.chat-bubble strong{color:var(--text);font-weight:600}
+.chat-bubble em{font-style:italic}
+.chat-bubble code{font-size:.82em;padding:2px 5px;background:rgba(255,255,255,.06);border-radius:3px}
+.chat-bubble pre{margin:10px 0;padding:12px 14px;font-size:.8rem;border-radius:var(--radius-sm);background:rgba(0,0,0,.2);overflow-x:auto;white-space:pre;line-height:1.5}
+.chat-bubble pre code{background:none;padding:0;font-size:inherit}
+.chat-bubble ul,.chat-bubble ol{margin:8px 0;padding-left:1.4em}
+.chat-bubble li{padding:3px 0;font-size:inherit;line-height:1.6}
+.chat-bubble table{margin:10px 0;font-size:.82rem;border-collapse:collapse;width:100%;display:block;overflow-x:auto}
+.chat-bubble table th{text-align:left;padding:6px 10px;border-bottom:2px solid var(--border);color:var(--text-muted);font-family:var(--mono);font-size:.75rem;text-transform:uppercase;letter-spacing:.04em;white-space:nowrap}
+.chat-bubble table td{padding:8px 10px;border-bottom:1px solid var(--border);vertical-align:top}
+.chat-input-area{display:flex;gap:8px;padding:14px 20px;border-top:1px solid var(--border);background:var(--bg-input);flex-shrink:0}
+#chat-input{flex:1;background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:var(--radius);padding:10px 12px;resize:none;font-family:var(--sans);font-size:.84rem;line-height:1.5;transition:border-color var(--transition),box-shadow var(--transition)}
+#chat-input:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-dim)}
+#chat-input::placeholder{color:var(--text-muted)}
+#chat-send{background:var(--accent);color:#0a0a0a;border:none;border-radius:var(--radius);padding:10px 18px;cursor:pointer;font-weight:600;font-family:var(--sans);font-size:.84rem;transition:all var(--transition)}
+#chat-send:hover:not(:disabled){box-shadow:0 0 16px var(--accent-glow)}
+#chat-send:disabled{opacity:.3;cursor:not-allowed}
+.chat-notice{font-size:.82rem;color:var(--text-muted);padding:20px;text-align:center;line-height:1.6}
+
+/* ── Amendments ── */
+.amendments-panel{margin-top:28px;background:var(--bg-card);border-radius:var(--radius);padding:20px;box-shadow:var(--shadow-card)}
+.amendments-panel h3{margin:0 0 14px;font-size:.92rem;color:var(--text);font-family:var(--sans);font-weight:600}
+.amendment-item{display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--border);transition:background var(--transition)}
+.amendment-item:last-child{border-bottom:none}
+.amendment-item:hover{background:var(--bg-hover);margin:0 -8px;padding-left:8px;padding-right:8px;border-radius:var(--radius-sm)}
+.amendment-desc{flex:1;font-size:.84rem;color:var(--text-dim)}
+.amendment-desc .op{color:var(--accent);font-weight:600;font-family:var(--mono);font-size:.78rem}
+.amendment-desc .field{color:var(--text-muted);font-family:var(--mono);font-size:.78rem}
+.amendment-select{background:var(--bg-input);color:var(--text);border:1px solid var(--border);border-radius:var(--radius-sm);padding:5px 10px;font-size:.8rem;font-family:var(--sans);cursor:pointer;transition:border-color var(--transition)}
+.amendment-select:focus{border-color:var(--accent);outline:none}
+.amendments-summary{font-size:.82rem;color:var(--text-muted);margin-top:14px;font-family:var(--mono);padding-top:10px;border-top:1px solid var(--border)}
+
+/* ── YAML viewer ── */
+.yaml-viewer{margin:20px 0}
+.yaml-viewer summary{cursor:pointer;color:var(--accent);font-weight:600;font-size:.84rem;padding:8px 0;font-family:var(--mono);transition:opacity var(--transition)}
+.yaml-viewer summary:hover{opacity:.7}
+.yaml-viewer pre{background:var(--bg-input);border:1px solid var(--border);border-radius:var(--radius);padding:16px;overflow-x:auto;max-height:500px;overflow-y:auto;font-size:.78rem;line-height:1.5;margin-top:8px}
+.yaml-viewer code{font-family:var(--mono);color:var(--text)}
+
+
+/* ── Print ── */
+@media print{body{background:#fff;color:#111;max-width:100%;display:block}.plan-sidebar{display:none}.section-card,.dep-graph,.progress-zone,.slice-card{border-color:#ccc;background:#fafafa;box-shadow:none}details[open] summary~*{display:block}.btn-finalize,.chat-panel,.amendments-panel{display:none}}
+
+/* ── Responsive ── */
+@media(max-width:1024px){.chat-sidebar{width:300px;min-width:240px}}
+@media(max-width:768px){
+  body{grid-template-columns:1fr}
+  .plan-sidebar{display:none}
+  .plan-layout{flex-direction:column;height:auto}
+  .plan-content{padding:20px 16px 40px;max-width:none}
+  .chat-resize-handle{display:none}
+  .chat-sidebar{width:100% !important;min-width:0;max-width:none;border-left:none;border-top:1px solid var(--border);height:400px;flex-shrink:0}
+}
+
+</style>
+</head>
+<body>
+
+<nav class="plan-sidebar">
+  <a href="/" class="brand">HtmlGraph</a>
+  <a href="#design" class="nav-link active" data-spy="design">Design</a>
+  <a href="#slices" class="nav-link" data-spy="slices">Slices</a>
+  <a href="#questions" class="nav-link" data-spy="questions">Decisions</a>
+  <a href="#critique" class="nav-link" data-spy="critique">Critique</a>
+  <a href="#feedback-summary" class="nav-link" data-spy="feedback-summary">Progress</a>
+  <a href="#chat-panel" class="nav-link" data-spy="chat-panel">Chat</a>
+</nav>
+<div class="plan-layout">
+<div class="plan-content">
+<article id="plan-8ee8f517" data-plan-id="plan-8ee8f517" data-feature-id="trk-c4615ad2" data-status="finalized">
+
+<!-- Plan Header -->
+<header class="plan-header">
+  <h1>Plan: Mount NDJSON to SQLite indexer inside per-session otel-collect; close contention holes</h1>
+  <p style="color:var(--text-dim)">Make the documented "NDJSON canonical, SQLite derived" contract operational by mounting the existing internal/otel/indexer as a goroutine inside the per-session otel-collect subprocess. Address four contention/throughput issues the researcher surfaced: (1) hooks bypass the indexer with direct INSERTs into otel_signals, (2) indexer WriteBatch is O(N) per signal, (3) gracefulShutdown has no indexer drain inside its 3s window, (4) internal/registry/registry.go bypasses db.Open and inherits no busy_timeout. End state: dashboard read paths see live span data again, single writer per session, NDJSON remains source of truth, SQLite is a rebuildable derived index.
+</p>
+  <div class="meta">
+    <span class="badge badge-pending">Draft</span>
+    <span style="font-size:.75rem;color:var(--text-muted)">v5 · 8 slices · Created 2026-04-26</span>
+  </div>
+</header>
+<button id="themeToggle" style="position:fixed;top:16px;right:16px;z-index:100;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:6px 12px;color:var(--text);font-family:var(--mono);font-size:0.75rem;cursor:pointer;">
+  &#9728; Light
+</button>
+
+<!-- Related Work -->
+
+
+<!-- Plan YAML source (collapsible) -->
+<details class="yaml-viewer" id="yaml-viewer">
+    <summary>View Plan YAML</summary>
+    <pre><code class="language-yaml" id="yaml-content">Loading&#x2026;</code></pre>
+</details>
+
+<!-- ZONE 1: Dependency Graph -->
+<section class="dep-graph" data-zone="dependency-graph">
+  <h2>Dependency Graph</h2>
+  <div id="graph-data" style="display:none">
+    <div data-node="1" data-name="Mount indexer goroutine inside otel-collect" data-status="pending" data-deps="8" data-files="2"></div>
+    <div data-node="2" data-name="Extend gracefulShutdown to drain the indexer" data-status="pending" data-deps="1,8" data-files="2"></div>
+    <div data-node="3" data-name="Migrate hook direct-writes to NDJSON" data-status="pending" data-deps="1" data-files="2"></div>
+    <div data-node="4" data-name="Batch indexer WriteBatch calls" data-status="pending" data-deps="1,8" data-files="3"></div>
+    <div data-node="5" data-name="Apply WAL pragma to registry.OpenReadOnly path" data-status="pending" data-deps="" data-files="2"></div>
+    <div data-node="6" data-name="Document NDJSON-canonical, SQLite-derived contract" data-status="pending" data-deps="1,2,3,4" data-files="1"></div>
+    <div data-node="7" data-name="End-to-end smoke test for live span visibility" data-status="pending" data-deps="1,2" data-files="1"></div>
+    <div data-node="8" data-name="PREREQ: Fix stale internal/otel/receiver import in indexer_test" data-status="pending" data-deps="" data-files="1"></div>
+    
+    <!--PLAN_GRAPH_NODES-->
+  </div>
+  <svg id="dep-graph-svg" width="100%"></svg>
+</section>
+
+<!-- ZONE 2: Interactive Sections -->
+
+<!-- Design -->
+<details id="design" class="section-card" open data-phase="design" data-status="pending">
+  <summary><span>Design</span><span class="badge badge-pending" data-badge-for="design">Pending</span></summary>
+  <div class="section-body">
+    <h4>Problem</h4>
+<div data-markdown>The per-session otel-collect subprocess writes spans only to NDJSON files at .htmlgraph/sessions/&lt;id&gt;/events.ndjson. The indexer that bridges NDJSON to SQLite (internal/otel/indexer) has zero production callers — it was pulled out of _serve-child to fix SQLITE_BUSY contention (bug-4697c62c) and never re-mounted. Consequence: every read path against otel_signals (dashboard /api/otel/* endpoints, htmlgraph session list, the internal/otel/materialize layer) sees stale or empty data because nothing writes live spans into SQLite. The documented contract from feat-b6479241 is technically intact but operationally broken. Compounding: hooks at internal/hooks/transcript_user_prompt.go:191 and transcript_assistant.go:298 write directly to otel_signals via raw SQL, bypassing the indexer; indexer.go:228-231 calls WriteBatch once per signal; otel_collect.go:168-172 gracefulShutdown has a hard 3s deadline with no indexer drain; internal/registry/registry.go:216 bypasses the canonical db.Open helper and never inherits busy_timeout=5000.
+</div>
+<h4>Goals</h4>
+<ol>
+<li data-markdown>**Live span visibility** — dashboard and CLI reads against otel_signals return current data within one indexer tick (~500ms) of OTLP receive</li>
+<li data-markdown>**Single writer per session** — exactly one process holds a SQLite write handle for a given session&#39;s OTel data</li>
+<li data-markdown>**Documented contract operational** — NDJSON files are source of truth; SQLite is rebuildable via the indexer or htmlgraph reindex</li>
+<li data-markdown>**Throughput floor** — indexer sustains 1000 signals/sec on a 4-core dev container without becoming the bottleneck</li>
+<li data-markdown>**Shutdown safety** — SIGTERM drains the indexer cleanly within an extended budget; orphaned signals recover via checkpoint replay on next collector launch</li>
+</ol>
+<h4>Constraints</h4>
+<ul>
+<li data-markdown>Must not change OTLP wire format or the WriterCloser / SignalSink interfaces beyond widening WriteBatch to accept a batch</li>
+<li data-markdown>Must preserve idempotent replay — checkpoint reset → full replay → INSERT OR IGNORE keeps DB consistent</li>
+<li data-markdown>Must coexist with work-item HTML hooks that also write to the canonical DB</li>
+<li data-markdown>Per-session collector remains the only OTLP receiver — no central daemon</li>
+<li data-markdown>Cannot break in-flight OTel sessions on rollout — handshake protocol stays the same</li>
+<li data-markdown>Build break in internal/otel/indexer/indexer_test.go (stale internal/otel/receiver import) must be fixed before any indexer-touching slice can be tested — addressed by slice-8</li>
+<li data-markdown>errgroup is not allowed: golang.org/x/sync is not in go.mod requires; use sync.WaitGroup + error channel</li>
+</ul>
+
+    <div class="approval-row">
+      <label><input type="checkbox" data-section="design" data-action="approve"> Approve design</label>
+      <textarea data-section="design" data-comment-for="design" placeholder="Comments on design decisions..."></textarea>
+    </div>
+  </div>
+</details>
+
+
+<!-- Structure Outline (hidden when empty) -->
+
+
+<!-- Slices -->
+<details id="slices" class="section-card" open data-phase="slices" data-status="pending">
+  <summary><span>Slices</span><span class="badge badge-pending" data-badge-for="slices">Pending</span></summary>
+  <div class="section-body">
+    <div class="slice-card" data-slice="1" data-slice-name="slice-1" data-status="pending">
+  <div class="slice-header">
+    <span class="slice-num">#1</span>
+    <span class="slice-name">Mount indexer goroutine inside otel-collect</span>
+    <span class="badge badge-revision">M</span>
+    <span class="badge badge-revision">Med</span>
+    <span class="badge badge-pending" data-badge-for="slice-1">Pending</span>
+  </div>
+  
+  <div class="slice-field"><div class="slice-field-label">What</div><div class="slice-field-value" data-markdown="">In cmd/htmlgraph/otel_collect.go runOtelCollect, spawn internal/otel/indexer.New(...).Start(ctx) as a goroutine after the HTTP server starts and before awaitShutdown blocks. Coordinate goroutine lifecycle via a `sync.WaitGroup` plus an error channel (stdlib only — `golang.org/x/sync/errgroup` is not in `go.mod` requires) so server &#43; indexer share lifecycle and a cancellation propagates to both. The indexer&#39;s *sql.DB injection is decided in q-db-handle-injection (recommended: collector opens via db.Open and injects via WithDB). Pass the indexer the `.htmlgraph/` subdirectory path: `htmlgraphDir := filepath.Join(projectDir, &#34;.htmlgraph&#34;)` — `indexer.New` does NOT accept the project root. DB handle injection follows q-db-handle-injection (recommended option-b): collector calls `db.Open(&lt;canonical-db-path&gt;)` and passes the handle to `indexer.New(...).WithDB(db)`. The collector also adds `internal/db` to its imports for the first time.
+</div></div>
+  <div class="slice-field"><div class="slice-field-label">Why</div><div class="slice-field-value" data-markdown="">The indexer code in internal/otel/indexer exists and is unmounted; this is the missing wiring that makes spans visible in SQLite. Without it, every /api/otel/* endpoint and the dashboard return empty.
+</div></div>
+  <div class="slice-field"><div class="slice-field-label">Files</div><div class="slice-field-value"><code>cmd/htmlgraph/otel_collect.go, cmd/htmlgraph/otel_collect_test.go</code></div></div>
+  <div class="slice-field"><div class="slice-field-label">Done when</div><ul class="slice-done-list"><li data-markdown="">runOtelCollect launches an indexer goroutine when the collector starts</li><li data-markdown="">SIGTERM cancels the indexer ctx and the goroutine returns from Start within the shutdown window (covered fully by slice-2)</li><li data-markdown="">An OTLP span POSTed to the collector appears in SQLite otel_signals within one indexer tick (~500ms)</li></ul></div>
+  
+  <div class="slice-field"><div class="slice-field-label">Test Strategy</div><div class="slice-field-value slice-tests" data-markdown="">Unit: TestRunOtelCollect_LaunchesIndexer — verify indexer constructed with the project dir resolved from --project-dir flag.
+Integration: TestOtelCollect_OTLPToSQLite — start collector with a tmp .htmlgraph/, POST OTLP /v1/traces, sleep 1s, query otel_signals for the inserted signal_id, assert row exists.
+Regression: existing TestOtelCollect_* in cmd/htmlgraph/otel_collect_test.go must still pass at -count=3.
+</div></div>
+  <div class="slice-deps">Dependencies: slices 8</div>
+  <div class="approval-row">
+    <label><input type="checkbox" data-section="slice-1" data-action="approve"> Approve slice</label>
+    <textarea data-section="slice-1" data-comment-for="slice-1" placeholder="Comments on slice 1..."></textarea>
+  </div>
+</div>
+<div class="slice-card" data-slice="2" data-slice-name="slice-2" data-status="pending">
+  <div class="slice-header">
+    <span class="slice-num">#2</span>
+    <span class="slice-name">Extend gracefulShutdown to drain the indexer</span>
+    <span class="badge badge-pending">S</span>
+    <span class="badge badge-pending">Low</span>
+    <span class="badge badge-pending" data-badge-for="slice-2">Pending</span>
+  </div>
+  
+  <div class="slice-field"><div class="slice-field-label">What</div><div class="slice-field-value" data-markdown="">In gracefulShutdown at cmd/htmlgraph/otel_collect.go:168, wait on the indexer goroutine via the WaitGroup before returning. Lift the hard 3s deadline to a configurable budget — default 10s, overridable via HTMLGRAPH_OTEL_DRAIN_SECS — since drain may flush a backlog of NDJSON. Order of teardown: HTTP server Shutdown → cancel indexer ctx → wait WaitGroup → snk.Close().
+</div></div>
+  <div class="slice-field"><div class="slice-field-label">Why</div><div class="slice-field-value" data-markdown="">Without this, SIGTERM during active OTLP traffic orphans signals that have landed in NDJSON but not yet been indexed. Checkpoint replay covers the gap only if the same session is re-launched; for short-lived test sessions or ephemeral CI runs, that does not happen.
+</div></div>
+  <div class="slice-field"><div class="slice-field-label">Files</div><div class="slice-field-value"><code>cmd/htmlgraph/otel_collect.go, cmd/htmlgraph/otel_collect_test.go</code></div></div>
+  <div class="slice-field"><div class="slice-field-label">Done when</div><ul class="slice-done-list"><li data-markdown="">SIGTERM during a 100-signal burst results in zero unindexed signals after the drain window</li><li data-markdown="">HTMLGRAPH_OTEL_DRAIN_SECS env var overrides the default budget</li><li data-markdown="">If drain exceeds budget, the collector logs the count of signals left in NDJSON and exits non-zero</li><li data-markdown="">Load test TestOtelCollect_GracefulShutdown_Under10kSignals confirms 10s drain is sufficient on a 4-core dev container</li></ul></div>
+  
+  <div class="slice-field"><div class="slice-field-label">Test Strategy</div><div class="slice-field-value slice-tests" data-markdown="">Integration: TestOtelCollect_GracefulShutdown_DrainsIndexer — emit 100 OTLP spans, send SIGTERM immediately, await process exit, query otel_signals, assert all 100 present.
+Unit: TestGracefulShutdown_RespectsDrainBudget — set HTMLGRAPH_OTEL_DRAIN_SECS=1 and verify the timeout fires.
+</div></div>
+  <div class="slice-deps">Dependencies: slices 1,8</div>
+  <div class="approval-row">
+    <label><input type="checkbox" data-section="slice-2" data-action="approve"> Approve slice</label>
+    <textarea data-section="slice-2" data-comment-for="slice-2" placeholder="Comments on slice 2..."></textarea>
+  </div>
+</div>
+<div class="slice-card" data-slice="3" data-slice-name="slice-3" data-status="pending">
+  <div class="slice-header">
+    <span class="slice-num">#3</span>
+    <span class="slice-name">Migrate hook direct-writes to NDJSON</span>
+    <span class="badge badge-revision">M</span>
+    <span class="badge badge-blocked">High</span>
+    <span class="badge badge-pending" data-badge-for="slice-3">Pending</span>
+  </div>
+  
+  <div class="slice-field"><div class="slice-field-label">What</div><div class="slice-field-value" data-markdown="">Remove the direct INSERT OR IGNORE into otel_signals from internal/hooks/transcript_user_prompt.go:191 and internal/hooks/transcript_assistant.go:298. Replace with NDJSON append to the session&#39;s events.ndjson — Verified by the feasibility critic that hooks have `sessionID` and `projectDir` in scope at the INSERT call sites (transcript_user_prompt.go:191 and transcript_assistant.go:298 receive both via the hook event payload and ResolveProjectDir helper). Implementation per q-write-coordination (recommended option-a): hooks call `ndjson.New(projectDir, sessionID).WriteBatch(...)`. The per-session collector&#39;s indexer picks them up on next tick. Hidden work flagged by the feasibility critic: the current INSERT writes raw column values (signal_id, span_id, ts_micros, etc.); the NDJSON line format is a full `otel.UnifiedSignal` struct. The mapping from raw transcript record fields to UnifiedSignal must be worked out explicitly during implementation — this is not a one-line replacement.
+</div></div>
+  <div class="slice-field"><div class="slice-field-label">Why</div><div class="slice-field-value" data-markdown="">Eliminates the dual-writer contention that started this whole story (bug-4697c62c). Hooks become NDJSON producers, indexer becomes the sole SQLite writer. Without this slice, the indexer goroutine and the hook processes will fight for the canonical DB write lock under load.
+</div></div>
+  <div class="slice-field"><div class="slice-field-label">Files</div><div class="slice-field-value"><code>internal/hooks/transcript_user_prompt.go, internal/hooks/transcript_assistant.go</code></div></div>
+  <div class="slice-field"><div class="slice-field-label">Done when</div><ul class="slice-done-list"><li data-markdown="">grep -rn &#39;INSERT.*otel_signals&#39; internal/hooks/ returns zero matches</li><li data-markdown="">A transcript hook invocation in a fresh session produces a row in otel_signals within one indexer tick after the hook returns</li><li data-markdown="">Hook latency under load (1k invocations) regresses by less than 5% versus the direct-SQLite baseline</li></ul></div>
+  
+  <div class="slice-field"><div class="slice-field-label">Test Strategy</div><div class="slice-field-value slice-tests" data-markdown="">Integration: TestTranscriptHook_NDJSONEmission — invoke hook with a fixture transcript chunk, verify NDJSON line appended, run indexer once, verify otel_signals row.
+Bench: BenchmarkTranscriptHook_NDJSONvsSQLite — measure hook hot path before/after; document delta.
+</div></div>
+  <div class="slice-deps">Dependencies: slices 1</div>
+  <div class="approval-row">
+    <label><input type="checkbox" data-section="slice-3" data-action="approve"> Approve slice</label>
+    <textarea data-section="slice-3" data-comment-for="slice-3" placeholder="Comments on slice 3..."></textarea>
+  </div>
+</div>
+<div class="slice-card" data-slice="4" data-slice-name="slice-4" data-status="pending">
+  <div class="slice-header">
+    <span class="slice-num">#4</span>
+    <span class="slice-name">Batch indexer WriteBatch calls</span>
+    <span class="badge badge-pending">S</span>
+    <span class="badge badge-revision">Med</span>
+    <span class="badge badge-pending" data-badge-for="slice-4">Pending</span>
+  </div>
+  
+  <div class="slice-field"><div class="slice-field-label">What</div><div class="slice-field-value" data-markdown="">Change internal/otel/indexer/indexer.go:223-235&#39;s `writeParsedBatch` — accumulate signals into a slice and call WriteBatch once per tick per session. Apply the granularity decided in q-batch-granularity (recommended: cap at N=500 signals per txn, configurable via env). Verify before changing the SQLite sink: read `internal/otel/sink/sqlite/sqlite.go` WriteBatch and confirm whether it executes the slice in a single transaction or loops per signal. If it loops, the sink fix is in scope; if it already batches, only the indexer changes.
+</div></div>
+  <div class="slice-field"><div class="slice-field-label">Why</div><div class="slice-field-value" data-markdown="">A 200-signal NDJSON tick currently produces 200 sequential SQLite INSERTs. With batching it is one transaction. Without this, the indexer becomes the new throughput bottleneck once it is mounted.
+</div></div>
+  <div class="slice-field"><div class="slice-field-label">Files</div><div class="slice-field-value"><code>internal/otel/indexer/indexer.go, internal/otel/sink/sqlite/sqlite.go, internal/otel/indexer/indexer_test.go</code></div></div>
+  <div class="slice-field"><div class="slice-field-label">Done when</div><ul class="slice-done-list"><li data-markdown="">BenchmarkIndexer_BatchApply_1k sustains 1000 signals/sec on a 4-core dev container</li><li data-markdown="">Existing indexer tests pass at -count=3</li><li data-markdown="">Partial-batch failure rolls back the txn and does NOT advance the checkpoint, so replay covers the failure</li></ul></div>
+  
+  <div class="slice-field"><div class="slice-field-label">Test Strategy</div><div class="slice-field-value slice-tests" data-markdown="">Bench: BenchmarkIndexer_BatchApply_1k — 1k-signal NDJSON file, measure end-to-end apply throughput.
+Unit: TestIndexer_BatchPartialFailure_RollsBackAndPreservesCheckpoint — inject a duplicate-signal-id error mid-batch, assert no rows committed and checkpoint unchanged.
+Regression: TestIndexer_IdempotentReplay must still pass.
+</div></div>
+  <div class="slice-deps">Dependencies: slices 1,8</div>
+  <div class="approval-row">
+    <label><input type="checkbox" data-section="slice-4" data-action="approve"> Approve slice</label>
+    <textarea data-section="slice-4" data-comment-for="slice-4" placeholder="Comments on slice 4..."></textarea>
+  </div>
+</div>
+<div class="slice-card" data-slice="5" data-slice-name="slice-5" data-status="pending">
+  <div class="slice-header">
+    <span class="slice-num">#5</span>
+    <span class="slice-name">Apply WAL pragma to registry.OpenReadOnly path</span>
+    <span class="badge badge-pending">S</span>
+    <span class="badge badge-pending">Low</span>
+    <span class="badge badge-pending" data-badge-for="slice-5">Pending</span>
+  </div>
+  
+  <div class="slice-field"><div class="slice-field-label">What</div><div class="slice-field-value" data-markdown="">internal/registry/registry.go:215-220 (`OpenReadOnly`) already sets `_busy_timeout=5000` in its DSN string — busy_timeout is NOT the gap (feasibility critic A4 falsified the original plan&#39;s framing). The actual gap is that this path skips the WAL mode pragma and other journal-mode logic in `internal/db/pragmas.go`. Refactor `OpenReadOnly` to either route through `db.Open(...)` (which applies all pragmas including WAL selection) or to explicitly invoke `BuildPragmas` from `internal/db/pragmas.go` after opening.
+</div></div>
+  <div class="slice-field"><div class="slice-field-label">Why</div><div class="slice-field-value" data-markdown="">Silent contention hole — with the indexer goroutine now holding writes, any registry read during high write traffic can hit SQLITE_BUSY instantly because this caller did not inherit the standard busy_timeout DSN pragma.
+</div></div>
+  <div class="slice-field"><div class="slice-field-label">Files</div><div class="slice-field-value"><code>internal/registry/registry.go, internal/registry/registry_test.go</code></div></div>
+  <div class="slice-field"><div class="slice-field-label">Done when</div><ul class="slice-done-list"><li data-markdown="">OpenReadOnly applies the same WAL/journal-mode logic as db.Open (verified by querying PRAGMA journal_mode after open)</li><li data-markdown="">Existing registry tests pass at -count=3</li></ul></div>
+  
+  <div class="slice-field"><div class="slice-field-label">Test Strategy</div><div class="slice-field-value slice-tests" data-markdown="">Unit: TestRegistry_OpenAppliesPragmas — open a registry handle, query PRAGMA busy_timeout, assert &gt;= 5000.
+Regression: existing internal/registry tests must still pass.
+</div></div>
+  <div class="slice-deps">Dependencies: none</div>
+  <div class="approval-row">
+    <label><input type="checkbox" data-section="slice-5" data-action="approve"> Approve slice</label>
+    <textarea data-section="slice-5" data-comment-for="slice-5" placeholder="Comments on slice 5..."></textarea>
+  </div>
+</div>
+<div class="slice-card" data-slice="6" data-slice-name="slice-6" data-status="pending">
+  <div class="slice-header">
+    <span class="slice-num">#6</span>
+    <span class="slice-name">Document NDJSON-canonical, SQLite-derived contract</span>
+    <span class="badge badge-pending">S</span>
+    <span class="badge badge-pending">Low</span>
+    <span class="badge badge-pending" data-badge-for="slice-6">Pending</span>
+  </div>
+  
+  <div class="slice-field"><div class="slice-field-label">What</div><div class="slice-field-value" data-markdown="">Add internal/otel/README.md documenting: NDJSON at .htmlgraph/sessions/&lt;id&gt;/events.ndjson is source of truth; the per-session otel-collect process owns both the NDJSON sink and the indexer goroutine; SQLite otel_signals is a derived index with bounded staleness (one indexer tick); htmlgraph reindex rebuilds SQLite from NDJSON. Include a numbered flow showing OTLP receive → NDJSON write → indexer tick → SQLite row → dashboard read.
+</div></div>
+  <div class="slice-field"><div class="slice-field-label">Why</div><div class="slice-field-value" data-markdown="">The last drift cycle (indexer mounted, then unmounted, then no one remembered) was 6 months and ended with bug-4697c62c. Future contributors need the contract written down so it does not drift again.
+</div></div>
+  <div class="slice-field"><div class="slice-field-label">Files</div><div class="slice-field-value"><code>internal/otel/README.md</code></div></div>
+  <div class="slice-field"><div class="slice-field-label">Done when</div><ul class="slice-done-list"><li data-markdown="">internal/otel/README.md exists and references current file paths (no stale paths)</li><li data-markdown="">Includes a numbered flow diagram (ASCII or mermaid)</li><li data-markdown="">Linked from the top-level README.md or AGENTS.md OTel section</li></ul></div>
+  
+  <div class="slice-field"><div class="slice-field-label">Test Strategy</div><div class="slice-field-value slice-tests" data-markdown="">Manual: read the README cold and confirm a new contributor could mount the indexer themselves.
+</div></div>
+  <div class="slice-deps">Dependencies: slices 1,2,3,4</div>
+  <div class="approval-row">
+    <label><input type="checkbox" data-section="slice-6" data-action="approve"> Approve slice</label>
+    <textarea data-section="slice-6" data-comment-for="slice-6" placeholder="Comments on slice 6..."></textarea>
+  </div>
+</div>
+<div class="slice-card" data-slice="7" data-slice-name="slice-7" data-status="pending">
+  <div class="slice-header">
+    <span class="slice-num">#7</span>
+    <span class="slice-name">End-to-end smoke test for live span visibility</span>
+    <span class="badge badge-pending">S</span>
+    <span class="badge badge-pending">Low</span>
+    <span class="badge badge-pending" data-badge-for="slice-7">Pending</span>
+  </div>
+  
+  <div class="slice-field"><div class="slice-field-label">What</div><div class="slice-field-value" data-markdown="">Add cmd/htmlgraph/integration_otel_visibility_test.go that launches the collector subprocess, emits a known OTLP span via raw HTTP POST, sleeps 1.5 ticks, then hits each /api/otel/* HTTP endpoint and asserts non-empty results for the known span ID. Designed as a trip-wire: deliberately removing the indexer goroutine from slice-1 must make this test fail.
+</div></div>
+  <div class="slice-field"><div class="slice-field-label">Why</div><div class="slice-field-value" data-markdown="">Regression guard against the next &#34;indexer got unhooked&#34; event. One trip-wire that goes red if dashboard goes dark.
+</div></div>
+  <div class="slice-field"><div class="slice-field-label">Files</div><div class="slice-field-value"><code>cmd/htmlgraph/integration_otel_visibility_test.go</code></div></div>
+  <div class="slice-field"><div class="slice-field-label">Done when</div><ul class="slice-done-list"><li data-markdown="">Test passes locally and in CI</li><li data-markdown="">Removing the indexer launch from slice-1 makes the test fail (verified by reverting slice-1 in a worktree)</li></ul></div>
+  
+  <div class="slice-field"><div class="slice-field-label">Test Strategy</div><div class="slice-field-value slice-tests" data-markdown="">Self.
+</div></div>
+  <div class="slice-deps">Dependencies: slices 1,2</div>
+  <div class="approval-row">
+    <label><input type="checkbox" data-section="slice-7" data-action="approve"> Approve slice</label>
+    <textarea data-section="slice-7" data-comment-for="slice-7" placeholder="Comments on slice 7..."></textarea>
+  </div>
+</div>
+<div class="slice-card" data-slice="8" data-slice-name="slice-8" data-status="pending">
+  <div class="slice-header">
+    <span class="slice-num">#8</span>
+    <span class="slice-name">PREREQ: Fix stale internal/otel/receiver import in indexer_test</span>
+    <span class="badge badge-pending">S</span>
+    <span class="badge badge-pending">Low</span>
+    <span class="badge badge-pending" data-badge-for="slice-8">Pending</span>
+  </div>
+  
+  <div class="slice-field"><div class="slice-field-label">What</div><div class="slice-field-value" data-markdown="">internal/otel/indexer/indexer_test.go:13 imports the deleted internal/otel/receiver package; the test file does not build today (verified: `go build ./internal/otel/indexer/...` fails). Replace setupIndexerDB to use db.Open from internal/db plus an inline minimal WriterCloser implementation (or reuse the existing fakeWriter at indexer_test.go:262 where DB writes aren&#39;t required). This must land before any other indexer-touching slice can be tested.
+</div></div>
+  <div class="slice-field"><div class="slice-field-label">Why</div><div class="slice-field-value" data-markdown="">Hard precondition. Until this builds, slices 1, 2, 4, and 7 cannot have their tests written or run. Caught by the feasibility critic after the orchestrator wrote the original plan.
+</div></div>
+  <div class="slice-field"><div class="slice-field-label">Files</div><div class="slice-field-value"><code>internal/otel/indexer/indexer_test.go</code></div></div>
+  <div class="slice-field"><div class="slice-field-label">Done when</div><ul class="slice-done-list"><li data-markdown="">`go build ./internal/otel/indexer/...` exits 0</li><li data-markdown="">`go vet ./internal/otel/indexer/...` exits 0</li><li data-markdown="">`go test ./internal/otel/indexer/...` passes for any tests not requiring downstream slices</li></ul></div>
+  
+  <div class="slice-field"><div class="slice-field-label">Test Strategy</div><div class="slice-field-value slice-tests" data-markdown="">Self — the slice is itself a build/test fix.
+</div></div>
+  <div class="slice-deps">Dependencies: none</div>
+  <div class="approval-row">
+    <label><input type="checkbox" data-section="slice-8" data-action="approve"> Approve slice</label>
+    <textarea data-section="slice-8" data-comment-for="slice-8" placeholder="Comments on slice 8..."></textarea>
+  </div>
+</div>
+
+    <!--PLAN_SLICE_CARDS-->
+  </div>
+</details>
+
+<!-- Design Decisions -->
+<details id="questions" class="section-card" data-phase="questions" data-status="pending">
+  <summary><span>Design Decisions</span><span class="badge badge-pending" data-badge-for="questions">Pending</span></summary>
+  <div class="section-body">
+    
+    <div class="question-block" id="q-write-coordination">
+      <p>How should hook processes deliver signals after we remove their direct otel_signals writes — write NDJSON directly, or POST to the collector&#39;s OTLP endpoint?</p>
+      
+      
+      <label class="recommended"><input type="radio" name="q-write-coordination" data-question="q-write-coordination" value="A: Hooks write NDJSON directly — Hooks open events.ndjson with O_APPEND&#43;flock, write a JSON line, close. Indexer picks up on next tick. Lowest latency, no extra wire format, requires hooks to know session ID &#43; project dir."> A: Hooks write NDJSON directly — Hooks open events.ndjson with O_APPEND&#43;flock, write a JSON line, close. Indexer picks up on next tick. Lowest latency, no extra wire format, requires hooks to know session ID &#43; project dir. <span class="rec-tag">recommended</span></label>
+      
+      <label><input type="radio" name="q-write-coordination" data-question="q-write-coordination" value="B: Hooks POST OTLP to the collector — Hooks discover the collector port via handshake file and POST OTLP HTTP. Cleanest separation, adds HTTP roundtrip cost per invocation, requires collector-not-running fallback."> B: Hooks POST OTLP to the collector — Hooks discover the collector port via handshake file and POST OTLP HTTP. Cleanest separation, adds HTTP roundtrip cost per invocation, requires collector-not-running fallback.</label>
+      
+      <textarea data-section="questions" data-question-rationale="q-write-coordination" placeholder="Rationale for q-write-coordination..."></textarea>
+    </div>
+    
+    <div class="question-block" id="q-db-handle-injection">
+      <p>Where does the indexer&#39;s *sql.DB write handle come from when mounted inside otel-collect?</p>
+      
+      
+      <label><input type="radio" name="q-db-handle-injection" data-question="q-db-handle-injection" value="A: Indexer self-opens — Calls db.Open in Start. Self-contained but harder to mock; hides handle lifecycle."> A: Indexer self-opens — Calls db.Open in Start. Self-contained but harder to mock; hides handle lifecycle.</label>
+      
+      <label class="recommended"><input type="radio" name="q-db-handle-injection" data-question="q-db-handle-injection" value="B: Collector opens, injects via WithDB — runOtelCollect calls db.Open and passes to indexer. Clear ownership, mockable, single close site."> B: Collector opens, injects via WithDB — runOtelCollect calls db.Open and passes to indexer. Clear ownership, mockable, single close site. <span class="rec-tag">recommended</span></label>
+      
+      <label><input type="radio" name="q-db-handle-injection" data-question="q-db-handle-injection" value="C: Lazy on first signal — Indexer opens on first WriteBatch. Idle collectors hold no handle but adds branch in hot path."> C: Lazy on first signal — Indexer opens on first WriteBatch. Idle collectors hold no handle but adds branch in hot path.</label>
+      
+      <textarea data-section="questions" data-question-rationale="q-db-handle-injection" placeholder="Rationale for q-db-handle-injection..."></textarea>
+    </div>
+    
+    <div class="question-block" id="q-batch-granularity">
+      <p>What batch granularity should the indexer use when applying NDJSON to SQLite?</p>
+      
+      
+      <label><input type="radio" name="q-batch-granularity" data-question="q-batch-granularity" value="A: One txn per session per tick — Simplest. A 10k-signal burst becomes one giant txn, blocks readers."> A: One txn per session per tick — Simplest. A 10k-signal burst becomes one giant txn, blocks readers.</label>
+      
+      <label><input type="radio" name="q-batch-granularity" data-question="q-batch-granularity" value="B: One txn per file read — Equivalent to A given current per-session file layout."> B: One txn per file read — Equivalent to A given current per-session file layout.</label>
+      
+      <label class="recommended"><input type="radio" name="q-batch-granularity" data-question="q-batch-granularity" value="C: Capped at N signals per txn (default 500) — Splits large bursts. Bounded blast radius. N tunable via env."> C: Capped at N signals per txn (default 500) — Splits large bursts. Bounded blast radius. N tunable via env. <span class="rec-tag">recommended</span></label>
+      
+      <textarea data-section="questions" data-question-rationale="q-batch-granularity" placeholder="Rationale for q-batch-granularity..."></textarea>
+    </div>
+    
+    <div class="question-block" id="q-ndjson-retention">
+      <p>Should NDJSON files be retained after the session ends?</p>
+      
+      
+      <label class="recommended"><input type="radio" name="q-ndjson-retention" data-question="q-ndjson-retention" value="A: Retain NDJSON forever — Always rebuildable. Disk grows linearly with session count. Best fit for the documented phase-2 direction (NDJSON as durable store)."> A: Retain NDJSON forever — Always rebuildable. Disk grows linearly with session count. Best fit for the documented phase-2 direction (NDJSON as durable store). <span class="rec-tag">recommended</span></label>
+      
+      <label><input type="radio" name="q-ndjson-retention" data-question="q-ndjson-retention" value="B: Prune after N days (default 30) — Bounded disk growth; reindex window limited to the retention period."> B: Prune after N days (default 30) — Bounded disk growth; reindex window limited to the retention period.</label>
+      
+      <label><input type="radio" name="q-ndjson-retention" data-question="q-ndjson-retention" value="C: Prune on session end if checkpoint = EOF — Smallest disk footprint, but reindex requires re-emitting OTLP from somewhere."> C: Prune on session end if checkpoint = EOF — Smallest disk footprint, but reindex requires re-emitting OTLP from somewhere.</label>
+      
+      <textarea data-section="questions" data-question-rationale="q-ndjson-retention" placeholder="Rationale for q-ndjson-retention..."></textarea>
+    </div>
+    
+    <table class="q-table">
+      <thead><tr><th>Question</th><th>Selected</th><th>Status</th></tr></thead>
+      <tbody id="questionsRecap">
+        
+        <tr data-recap-for="q-write-coordination">
+          <td>How should hook processes deliver signals after we remove their direct otel_signals writes — write NDJSON directly, or POST to the collector&#39;s OTLP endpoint?</td>
+          <td class="recap-answer">&mdash;</td>
+          <td><span class="badge badge-pending">Pending</span></td>
+        </tr>
+        
+        <tr data-recap-for="q-db-handle-injection">
+          <td>Where does the indexer&#39;s *sql.DB write handle come from when mounted inside otel-collect?</td>
+          <td class="recap-answer">&mdash;</td>
+          <td><span class="badge badge-pending">Pending</span></td>
+        </tr>
+        
+        <tr data-recap-for="q-batch-granularity">
+          <td>What batch granularity should the indexer use when applying NDJSON to SQLite?</td>
+          <td class="recap-answer">&mdash;</td>
+          <td><span class="badge badge-pending">Pending</span></td>
+        </tr>
+        
+        <tr data-recap-for="q-ndjson-retention">
+          <td>Should NDJSON files be retained after the session ends?</td>
+          <td class="recap-answer">&mdash;</td>
+          <td><span class="badge badge-pending">Pending</span></td>
+        </tr>
+        
+      </tbody>
+    </table>
+  </div>
+</details>
+
+
+
+<details id="critique" class="section-card" data-phase="critique" data-status="pending">
+  <summary><span>Critique</span><span class="badge badge-pending" data-badge-for="critique">Review</span></summary>
+  <div class="section-body">
+
+    
+    <div class="sub-section">
+      <h4>Assumption Verification</h4>
+      
+      <div style="display:flex;align-items:flex-start;gap:10px;margin-bottom:8px;padding:8px;background:var(--bg-input);border-radius:var(--radius)">
+        <span class="badge badge-approved">verified</span>
+        <div>
+          <p style="margin:0;font-size:.9rem">Indexer code at internal/otel/indexer exists and has zero production callers</p>
+          <p style="margin:4px 0 0;font-size:.8rem;color:var(--text-muted)">internal/otel/indexer/indexer.go:1-72; no caller in cmd/htmlgraph/</p>
+        </div>
+      </div>
+      
+      <div style="display:flex;align-items:flex-start;gap:10px;margin-bottom:8px;padding:8px;background:var(--bg-input);border-radius:var(--radius)">
+        <span class="badge badge-blocked">falsified</span>
+        <div>
+          <p style="margin:0;font-size:.9rem">Plan claimed slice-4 needs to widen WriterCloser.WriteBatch to accept a slice</p>
+          <p style="margin:4px 0 0;font-size:.8rem;color:var(--text-muted)">internal/otel/sink/sqlite/sqlite.go:19-22 — WriteBatch already accepts []otel.UnifiedSignal. Real fix is in indexer.go:223-235 writeParsedBatch loop</p>
+        </div>
+      </div>
+      
+      <div style="display:flex;align-items:flex-start;gap:10px;margin-bottom:8px;padding:8px;background:var(--bg-input);border-radius:var(--radius)">
+        <span class="badge badge-approved">verified</span>
+        <div>
+          <p style="margin:0;font-size:.9rem">gracefulShutdown at otel_collect.go:168 has 3s deadline and no indexer drain</p>
+          <p style="margin:4px 0 0;font-size:.8rem;color:var(--text-muted)">cmd/htmlgraph/otel_collect.go:168-173</p>
+        </div>
+      </div>
+      
+      <div style="display:flex;align-items:flex-start;gap:10px;margin-bottom:8px;padding:8px;background:var(--bg-input);border-radius:var(--radius)">
+        <span class="badge badge-blocked">falsified</span>
+        <div>
+          <p style="margin:0;font-size:.9rem">Plan framed registry.go:216 as bypassing busy_timeout</p>
+          <p style="margin:4px 0 0;font-size:.8rem;color:var(--text-muted)">internal/registry/registry.go:215-220 — OpenReadOnly already sets _busy_timeout=5000 in DSN. Real gap is missing WAL pragma</p>
+        </div>
+      </div>
+      
+      <div style="display:flex;align-items:flex-start;gap:10px;margin-bottom:8px;padding:8px;background:var(--bg-input);border-radius:var(--radius)">
+        <span class="badge badge-approved">verified</span>
+        <div>
+          <p style="margin:0;font-size:.9rem">Hooks have sessionID and projectDir in scope at the otel_signals INSERT call sites</p>
+          <p style="margin:4px 0 0;font-size:.8rem;color:var(--text-muted)">internal/hooks/transcript_user_prompt.go:191 (event payload) and ResolveProjectDir; transcript_assistant.go:297-312</p>
+        </div>
+      </div>
+      
+      <div style="display:flex;align-items:flex-start;gap:10px;margin-bottom:8px;padding:8px;background:var(--bg-input);border-radius:var(--radius)">
+        <span class="badge badge-pending">questionable</span>
+        <div>
+          <p style="margin:0;font-size:.9rem">Plan listed internal/otel/sink/ndjson/standalone.go as a file to modify in slice-3</p>
+          <p style="margin:4px 0 0;font-size:.8rem;color:var(--text-muted)">File does not exist; ndjson.New(projectDir, sessionID) in ndjson.go is already standalone-usable</p>
+        </div>
+      </div>
+      
+      <div style="display:flex;align-items:flex-start;gap:10px;margin-bottom:8px;padding:8px;background:var(--bg-input);border-radius:var(--radius)">
+        <span class="badge badge-approved">verified</span>
+        <div>
+          <p style="margin:0;font-size:.9rem">internal/otel/indexer/indexer_test.go imports the deleted internal/otel/receiver package; build fails</p>
+          <p style="margin:4px 0 0;font-size:.8rem;color:var(--text-muted)">indexer_test.go:13 &#43; go build ./internal/otel/indexer/... reports `setup failed`</p>
+        </div>
+      </div>
+      
+    </div>
+    
+
+    
+    <div class="sub-section" style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+      
+      <div>
+        <h4>Haiku (design review)</h4>
+        <div style="font-size:.85rem;color:var(--text-dim)"><h5>Slice Assessment</h5>
+<ul>
+  <li><span class="badge badge-success">S1</span> Architecturally correct mounting of the indexer; deps blank but should reference slice-8 prereq</li>
+  <li><span class="badge badge-warn">S3</span> Originally under-scoped on hook-discovery mechanism; clarified by feasibility critic — sessionID and projectDir already in scope</li>
+  <li><span class="badge badge-warn">S4</span> Plan misstated need to widen WriteBatch interface; real work is per-tick accumulation in writeParsedBatch</li>
+</ul>
+<h5>Gaps &amp; Missing Considerations</h5>
+<ul>
+  <li><span class="badge badge-warn">Gap</span> Plan does not define when a session is marked &#39;ended&#39; — affects q-ndjson-retention semantics</li>
+  <li><span class="badge badge-warn">Gap</span> Plan does not validate the 10s gracefulShutdown drain budget under load</li>
+</ul>
+<h5>Alternative Approaches</h5>
+<ul>
+  <li><span class="badge badge-info">Alt</span> Hybrid: hooks write to in-process queue drained by collector — between option-a and option-b of q-write-coordination, avoids file lock contention without HTTP cost</li>
+  <li><span class="badge badge-info">Alt</span> Async drain on SIGTERM: flush pending signals to a side file rather than waiting on indexer; replay on next collector launch</li>
+</ul>
+</div>
+      </div>
+      
+      
+      <div>
+        <h4>Sonnet (feasibility review)</h4>
+        <div style="font-size:.85rem;color:var(--text-dim)"><h5>What Exists to Leverage</h5>
+<ul>
+  <li><span class="badge badge-success">Reuse</span> buildOtelCollectTestBinary + mkOtelCollectProject in cmd/htmlgraph/otel_collect_test.go — integration tests for slices 1, 2, 7 should call directly</li>
+  <li><span class="badge badge-success">Reuse</span> writeNDJSONFixture + setupIndexerDB in internal/otel/indexer/indexer_test.go — slice 4 bench/unit tests should reuse</li>
+  <li><span class="badge badge-success">Reuse</span> WithDB pattern at indexer.go:54 — already supports DB injection (q-db-handle-injection option-b)</li>
+</ul>
+<h5>What the Plan Gets Wrong</h5>
+<ul>
+  <li><span class="badge badge-danger">Wrong</span> Slice 3 cites internal/otel/sink/ndjson/standalone.go which does not exist; ndjson.New is already standalone-usable</li>
+  <li><span class="badge badge-danger">Wrong</span> Slice 4 says &#39;widen WriteBatch to accept a slice&#39; — already accepts a slice; only writeParsedBatch needs accumulation</li>
+  <li><span class="badge badge-danger">Wrong</span> Slice 5 framing of registry.go bypassing busy_timeout — busy_timeout is set; real gap is WAL mode</li>
+</ul>
+<h5>Hidden Work</h5>
+<ul>
+  <li><span class="badge badge-warn">Hidden</span> Slice 3: hook code currently writes raw INSERT columns; full UnifiedSignal struct mapping must be worked out</li>
+  <li><span class="badge badge-warn">Hidden</span> Slice 1: otel_collect.go must compute filepath.Join(projectDir, &#39;.htmlgraph&#39;) — indexer expects the .htmlgraph/ subdir, not the project root</li>
+  <li><span class="badge badge-warn">Hidden</span> errgroup not in go.mod requires — use sync.WaitGroup or run go get golang.org/x/sync first</li>
+</ul>
+<h5>Prior Art</h5>
+<ul>
+  <li><span class="badge badge-info">Prior</span> syscall.Flock pattern at ndjson.go:63-66 — slice 3 hooks reuse via ndjson.New, no new mechanism needed</li>
+  <li><span class="badge badge-info">Prior</span> db.Open at internal/db/schema.go:16 — single canonical write-handle helper applying busy_timeout + WAL</li>
+</ul>
+</div>
+      </div>
+      
+    </div>
+    
+
+    
+    <div class="sub-section">
+      <h4>Synthesis</h4>
+      <div style="font-size:.85rem;color:var(--text-dim)">Plan is architecturally sound but had four factual errors and missed a hard build-break precondition. Revisions: (1) added slice-8 to fix the indexer test build break, (2) corrected slice-4 scope (no interface widening), (3) corrected slice-5 framing (WAL gap not busy_timeout gap), (4) removed non-existent file from slice-3 and added UnifiedSignal mapping note, (5) switched slices 1+2 from errgroup to sync.WaitGroup, (6) added load-test requirement to slice-2 and polling to slice-7. After these fixes the plan is ready for human review.
+</div>
+    </div>
+    
+
+    
+    <div class="sub-section">
+      <h4>Risk Assessment</h4>
+      <table class="q-table">
+        <thead><tr><th>Risk</th><th>Severity</th><th>Mitigation</th></tr></thead>
+        <tbody>
+          
+          <tr>
+            <td>Stale internal/otel/receiver import in indexer_test.go blocks slice 4 entirely until resolved</td>
+            <td><span class="badge badge-blocked">High</span></td>
+            <td>Slice 8 (added) addresses this as a hard prereq before any indexer-touching work</td>
+          </tr>
+          
+          <tr>
+            <td>Slice 3 hook NDJSON path — flock contention under 1k concurrent invocations could exceed hook latency budget</td>
+            <td><span class="badge badge-revision">Medium</span></td>
+            <td>BenchmarkTranscriptHook_NDJSONvsSQLite gates the slice; if regression &gt; 5%, revisit q-write-coordination option-b</td>
+          </tr>
+          
+          <tr>
+            <td>Slice 4 partial-batch rollback requires explicit txn handling in SQLite sink WriteBatch — current behavior unverified</td>
+            <td><span class="badge badge-revision">Medium</span></td>
+            <td>Read sink/sqlite/sqlite.go WriteBatch first; if it does not wrap in BEGIN/COMMIT, expand slice 4 scope</td>
+          </tr>
+          
+          <tr>
+            <td>10s gracefulShutdown drain budget unvalidated under high-throughput load (10k signals)</td>
+            <td><span class="badge badge-revision">Medium</span></td>
+            <td>Slice 2 done_when now requires TestOtelCollect_GracefulShutdown_Under10kSignals load test</td>
+          </tr>
+          
+          <tr>
+            <td>1.5-tick (750ms) sleep in slice 7 smoke test may flake on slow CI runners</td>
+            <td><span class="badge badge-pending">Low</span></td>
+            <td>Use poll-with-timeout (10x100ms) instead of fixed sleep</td>
+          </tr>
+          
+        </tbody>
+      </table>
+    </div>
+    
+
+    
+
+  </div>
+</details>
+
+
+
+
+
+<!-- ZONE 3: Feedback Summary -->
+<section id="feedback-summary" class="progress-zone" data-zone="feedback-summary">
+  <h2>Feedback Summary</h2>
+  <div class="progress-stats">
+    <div class="progress-stat"><strong id="approvedCount">0</strong> approved</div>
+    <div class="progress-stat"><strong id="totalSections">9</strong> sections</div>
+    <div class="progress-stat"><strong id="pendingCount">9</strong> pending</div>
+  </div>
+  <div class="progress-bar-track"><div class="progress-bar-fill" id="progressFill" style="width:0%"></div></div>
+  <div class="comments-summary">
+    <h3>Decisions &amp; Comments</h3>
+    <div id="commentsFeed"><p style="font-size:.8rem;color:var(--text-muted);font-style:italic">No comments yet.</p></div>
+  </div>
+  <div class="finalize-area">
+    <button class="btn-finalize" id="finalizeBtn" disabled>Finalize Plan</button>
+    <p style="font-size:.75rem;color:var(--text-muted);margin-top:6px">All sections must be approved before finalizing.</p>
+  </div>
+</section>
+
+</article>
+</div><!-- /.plan-content -->
+
+<!-- Drag handle for resizing chat sidebar -->
+<div class="chat-resize-handle" id="chat-resize-handle"></div>
+
+<!-- Chat sidebar -->
+<aside class="chat-sidebar" id="chat-sidebar">
+  <section id="chat-panel" class="chat-panel" data-zone="chat">
+    <h2>Plan Discussion</h2>
+    <div id="chat-messages" class="chat-messages">
+      <p class="chat-notice" id="chat-empty">Ask about the plan design, slices, risks, or tradeoffs.</p>
+    </div>
+    <div class="chat-input-area">
+      <textarea id="chat-input" placeholder="Ask about the plan..." rows="2"></textarea>
+      <button id="chat-send">Send</button>
+    </div>
+  </section>
+
+  <!-- Amendments Panel -->
+  <div id="amendments-panel" class="amendments-panel" style="display:none">
+    <h3>Amendments</h3>
+    <div id="amendments-list"></div>
+    <div id="amendments-summary" class="amendments-summary"></div>
+  </div>
+</aside>
+</div><!-- /.plan-layout -->
+
+<script src="https://d3js.org/d3.v7.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/dagre-d3@0.6.4/dist/dagre-d3.min.js"></script>
+<script>
+// Plan base path — derived from window.location.pathname so the same
+// rendered HTML works whether the file is served at the legacy
+// /plans/<id>.html path (single-project server) or at /p/<id>/plans/<id>.html
+// (via the parent-doorway reverse proxy). Every fetch() on this page
+// prefixes window.htmlgraphPlanBase, which is '' at the root and
+// '/p/<id>' under the proxy. This is the per-project routing fix for
+// the multi-project hardening re-architecture (plan-237fb251).
+window.htmlgraphPlanBase = (function() {
+  var p = window.location.pathname || '';
+  if (p.indexOf('/p/') !== 0) return '';
+  var segs = p.split('/').filter(function(s) { return s !== ''; });
+  if (segs.length >= 2 && segs[0] === 'p') return '/p/' + segs[1];
+  return '';
+})();
+</script>
+<script>
+// Theme toggle (skip when embedded — dashboard manages its own theme)
+(function(){
+  var themeBtn = document.getElementById('themeToggle');
+  if (!themeBtn) return;
+  var html = document.documentElement;
+
+  var saved = localStorage.getItem('crispi-theme');
+  function syncHljsTheme(theme) {
+    var dark = document.getElementById('hljs-dark');
+    var light = document.getElementById('hljs-light');
+    if (theme === 'light') {
+      dark.disabled = true; light.disabled = false;
+    } else {
+      dark.disabled = false; light.disabled = true;
+    }
+  }
+
+  if (saved) {
+    html.dataset.theme = saved;
+    themeBtn.textContent = saved === 'light' ? '\u263E Dark' : '\u2600 Light';
+    syncHljsTheme(saved);
+  } else if (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches) {
+    html.dataset.theme = 'light';
+    themeBtn.textContent = '\u263E Dark';
+    syncHljsTheme('light');
+  }
+
+  themeBtn.addEventListener('click', function() {
+    var current = html.dataset.theme || 'dark';
+    var next = current === 'dark' ? 'light' : 'dark';
+    html.dataset.theme = next;
+    localStorage.setItem('crispi-theme', next);
+    themeBtn.textContent = next === 'light' ? '\u263E Dark' : '\u2600 Light';
+    syncHljsTheme(next);
+  });
+
+  hljs.highlightAll();
+})();
+
+// Global plan ID — accessible to all script blocks when embedded
+var planId=(function(){var a=document.querySelector('article[id]');return a?a.id:null;})();
+
+(function(){
+  'use strict';
+  var SECTIONS=/*PLAN_SECTIONS_JSON*/["design","slice-1","slice-2","slice-3","slice-4","slice-5","slice-6","slice-7","slice-8"]/*END_PLAN_SECTIONS_JSON*/;
+
+  function setBadge(el,ok){
+    el.className='badge badge-'+(ok?'approved':'pending');
+    el.textContent=ok?'Approved':'Pending';
+  }
+
+  function escHtml(s){var d=document.createElement('div');d.textContent=s;return d.innerHTML}
+
+  document.querySelectorAll('input[data-action="approve"]').forEach(function(cb){
+    cb.addEventListener('change',function(){
+      var sec=this.dataset.section;
+      var badge=document.querySelector('[data-badge-for="'+sec+'"]');
+      if(badge) setBadge(badge,this.checked);
+      var details=this.closest('details[data-phase]');
+      if(details) details.dataset.status=this.checked?'approved':'pending';
+      if(sec.startsWith('slice-')){
+        var n=sec.split('-')[1];
+        var node=document.getElementById('node-'+n);
+        if(node) node.dataset.status=this.checked?'approved':'pending';
+        var all=document.querySelectorAll('input[data-section^="slice-"][data-action="approve"]');
+        var allOk=Array.prototype.every.call(all,function(c){return c.checked});
+        var sb=document.querySelector('[data-badge-for="slices"]');
+        if(sb) setBadge(sb,allOk);
+        var sd=document.querySelector('[data-phase="slices"]');
+        if(sd) sd.dataset.status=allOk?'approved':'pending';
+      }
+      updateProgress();
+      if(planId){
+        fetch((window.htmlgraphPlanBase||'')+'/api/plans/'+planId+'/feedback',{
+          method:'POST',
+          headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({section:sec,action:'approve',value:String(this.checked),question_id:''})
+        });
+      }
+    });
+  });
+
+  document.querySelectorAll('input[type="radio"][data-question]').forEach(function(r){
+    r.addEventListener('change',function(){
+      var row=document.querySelector('[data-recap-for="'+this.dataset.question+'"]');
+      if(row){
+        var c=row.querySelector('.recap-answer');
+        if(c) c.textContent=this.value.charAt(0).toUpperCase()+this.value.slice(1);
+        var badge=row.querySelector('.badge');
+        if(badge) setBadge(badge,true);
+      }
+      var allRows=document.querySelectorAll('[data-recap-for]');
+      var allAnswered=Array.prototype.every.call(allRows,function(r){
+        var b=r.querySelector('.badge');
+        return b&&b.className.indexOf('badge-approved')>=0;
+      });
+      var headerBadge=document.querySelector('[data-badge-for="questions"]');
+      if(headerBadge) setBadge(headerBadge,allAnswered);
+      var details=document.querySelector('[data-phase="questions"]');
+      if(details) details.dataset.status=allAnswered?'approved':'pending';
+      if(planId){
+        fetch((window.htmlgraphPlanBase||'')+'/api/plans/'+planId+'/feedback',{
+          method:'POST',
+          headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({section:'questions',action:'answer',value:this.value,question_id:this.dataset.question})
+        });
+      }
+    });
+  });
+
+  document.querySelectorAll('input[type="radio"][data-question]:checked').forEach(function(r){
+    var row=document.querySelector('[data-recap-for="'+r.dataset.question+'"]');
+    if(row){
+      var badge=row.querySelector('.badge');
+      if(badge) setBadge(badge,true);
+    }
+  });
+  var allRows=document.querySelectorAll('[data-recap-for]');
+  var allAnswered=Array.prototype.every.call(allRows,function(r){
+    var b=r.querySelector('.badge');
+    return b&&b.className.indexOf('badge-approved')>=0;
+  });
+  var qBadge=document.querySelector('[data-badge-for="questions"]');
+  if(qBadge) setBadge(qBadge,allAnswered);
+  var qDetails=document.querySelector('[data-phase="questions"]');
+  if(qDetails) qDetails.dataset.status=allAnswered?'approved':'pending';
+
+  function updateProgress(){
+    var approved=0;
+    SECTIONS.forEach(function(sec){
+      var cb=document.querySelector('input[data-section="'+sec+'"][data-action="approve"]');
+      if(cb&&cb.checked) approved++;
+    });
+    document.getElementById('approvedCount').textContent=approved;
+    document.getElementById('pendingCount').textContent=SECTIONS.length-approved;
+    document.getElementById('progressFill').style.width=Math.round(approved/SECTIONS.length*100)+'%';
+    document.getElementById('finalizeBtn').disabled=(approved<SECTIONS.length);
+    updateComments();
+  }
+
+  function updateComments(){
+    var feed=document.getElementById('commentsFeed'),html='';
+    SECTIONS.forEach(function(sec){
+      var ta=document.querySelector('textarea[data-section="'+sec+'"]');
+      if(ta&&ta.value.trim()) html+='<div class="comment-entry"><span class="comment-source">'+sec+'</span>'+escHtml(ta.value.trim())+'</div>';
+    });
+    feed.innerHTML=html||'<p style="font-size:.8rem;color:var(--text-muted);font-style:italic">No comments yet.</p>';
+  }
+
+  var timer;
+  document.querySelectorAll('textarea[data-section]').forEach(function(ta){
+    ta.addEventListener('input',function(){clearTimeout(timer);timer=setTimeout(updateComments,400)});
+    ta.addEventListener('blur',function(){
+      if(planId&&this.value.trim()){
+        fetch((window.htmlgraphPlanBase||'')+'/api/plans/'+planId+'/feedback',{
+          method:'POST',
+          headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({section:this.dataset.section,action:'comment',value:this.value.trim(),question_id:''})
+        });
+      }
+    });
+  });
+
+  var finalizeMsg=document.createElement('p');
+  finalizeMsg.style.cssText='font-size:.85rem;margin-top:8px;text-align:center;display:none';
+  var finalizeBtn=document.getElementById('finalizeBtn');
+  if(finalizeBtn){
+    finalizeBtn.parentNode.insertBefore(finalizeMsg,finalizeBtn.nextSibling);
+    finalizeBtn.addEventListener('click',function(){
+      if(!planId){return;}
+      var btn=this;
+      btn.disabled=true;
+      btn.textContent='Finalizing...';
+      finalizeMsg.style.display='none';
+      fetch((window.htmlgraphPlanBase||'')+'/api/plans/'+planId+'/finalize',{
+        method:'POST',
+        headers:{'Content-Type':'application/json'}
+      })
+      .then(function(r){
+        if(r.ok){
+          r.json().then(function(data){
+            var art=document.querySelector('article[id]');if(art)art.dataset.status='finalized';
+            btn.textContent='Plan Finalized';
+            btn.style.background='var(--approved)';
+            btn.style.color='#fff';
+            if(data&&data.next_steps){
+              var pre=document.createElement('pre');
+              pre.style.cssText='margin-top:12px;padding:10px 14px;background:var(--bg-input);border:1px solid var(--border);border-radius:var(--radius);font-family:var(--mono);font-size:.78rem;text-align:left;white-space:pre-wrap;word-break:break-all;color:var(--text)';
+              pre.textContent=data.next_steps;
+              finalizeMsg.innerHTML='';
+              finalizeMsg.appendChild(pre);
+            } else {
+              finalizeMsg.textContent='Plan finalized successfully.';
+            }
+            finalizeMsg.style.color='var(--approved)';
+            finalizeMsg.style.display='block';
+          });
+        } else {
+          return r.json().then(function(data){
+            btn.textContent='Finalize Plan';
+            btn.disabled=false;
+            finalizeMsg.textContent=data.error||'Not all sections approved.';
+            finalizeMsg.style.color='var(--blocked)';
+            finalizeMsg.style.display='block';
+          });
+        }
+      })
+      .catch(function(){
+        btn.textContent='Finalize Plan';
+        btn.disabled=false;
+        finalizeMsg.textContent='Could not reach server. Is htmlgraph serve running?';
+        finalizeMsg.style.color='var(--revision)';
+        finalizeMsg.style.display='block';
+      });
+    });
+  }
+
+  function loadExistingFeedback(){
+    if(!planId){return;}
+    fetch((window.htmlgraphPlanBase||'')+'/api/plans/'+planId+'/feedback')
+      .then(function(r){return r.ok?r.json():null;})
+      .then(function(data){
+        if(!data){return;}
+        if(data.sections){
+          Object.keys(data.sections).forEach(function(sec){
+            var info=data.sections[sec];
+            if(info.approved){
+              var cb=document.querySelector('input[data-section="'+sec+'"][data-action="approve"]');
+              if(cb&&!cb.checked){cb.checked=true;cb.dispatchEvent(new Event('change'));}
+            }
+            if(info.comment){
+              var ta=document.querySelector('textarea[data-section="'+sec+'"]');
+              if(ta) ta.value=info.comment;
+            }
+          });
+        }
+        if(data.questions){
+          Object.keys(data.questions).forEach(function(qid){
+            var val=data.questions[qid];
+            var radio=document.querySelector('input[type="radio"][data-question="'+qid+'"][value="'+val+'"]');
+            if(radio&&!radio.checked){radio.checked=true;radio.dispatchEvent(new Event('change'));}
+          });
+        }
+        updateProgress();
+      })
+      .catch(function(){});
+  }
+
+  loadExistingFeedback();
+
+  document.querySelectorAll('input[data-action="approve"]').forEach(function(cb){
+    cb.addEventListener('change',function(){
+      var sec=this.dataset.section;
+      if(sec.startsWith('slice-')){
+        var n=sec.split('-')[1];
+        var nodeRect=d3.select('#dep-graph-svg .node[id="'+n+'"] rect');
+        if(!nodeRect.empty()){
+          var color=this.checked?'#16a34a':'#6b7280';
+          var cs=getComputedStyle(document.querySelector('.dep-graph')||document.documentElement);
+          nodeRect.style('stroke',color).style('fill',cs.getPropertyValue('--bg-input').trim()||'#222228');
+        }
+      }
+    });
+  });
+})();
+
+// Render dagre-d3 dependency graph
+(function(){
+  'use strict';
+
+  var STATUS_COLORS={pending:'#6b7280',approved:'#16a34a',revision:'#f59e0b',discuss:'#8b5cf6',blocked:'#dc2626'};
+
+  function renderGraph(){
+    var container=document.getElementById('graph-data');
+    if(!container) return;
+
+    var g=new dagreD3.graphlib.Graph().setGraph({rankdir:'TB',marginx:24,marginy:24,ranksep:48,nodesep:32});
+    g.setDefaultEdgeLabel(function(){return{};});
+
+    var nodes=container.querySelectorAll('[data-node]');
+    nodes.forEach(function(el){
+      var id=el.dataset.node;
+      var name=el.dataset.name;
+      var files=el.dataset.files;
+      var status=el.dataset.status||'pending';
+      g.setNode(id,{
+        label: name+'\n'+files+' files',
+        rx: 6,
+        ry: 6,
+        paddingX: 36,
+        paddingY: 16,
+        status: status
+      });
+    });
+
+    nodes.forEach(function(el){
+      var id=el.dataset.node;
+      var deps=el.dataset.deps?el.dataset.deps.split(',').map(function(d){return d.trim();}).filter(Boolean):[];
+      deps.forEach(function(dep){g.setEdge(dep,id);});
+    });
+
+    var svg=d3.select('#dep-graph-svg');
+    var inner=svg.append('g');
+    var render=new dagreD3.render();
+    render(inner,g);
+
+    // Read CSS vars from the plan container so graph respects light/dark theme
+    var cs=getComputedStyle(document.querySelector('.dep-graph')||document.documentElement);
+    var nodeFill=cs.getPropertyValue('--bg-input').trim()||'#222228';
+    var nodeText=cs.getPropertyValue('--text').trim()||'#ededea';
+    var edgeColor=cs.getPropertyValue('--text-muted').trim()||'#707070';
+
+    inner.selectAll('g.node').each(function(id){
+      var nodeData=g.node(id);
+      var status=nodeData?nodeData.status:'pending';
+      var color=STATUS_COLORS[status]||STATUS_COLORS.pending;
+      d3.select(this).select('rect')
+        .style('fill',nodeFill)
+        .style('stroke',color)
+        .style('stroke-width','2px');
+      d3.select(this).select('text').style('fill',nodeText).style('font-size','13px');
+    });
+
+    inner.selectAll('g.edgePath path')
+      .style('stroke',edgeColor)
+      .style('stroke-dasharray','4 3')
+      .style('fill','none');
+    inner.selectAll('g.edgePath marker path')
+      .style('fill','#707070');
+
+    var svgEl=document.getElementById('dep-graph-svg');
+    var graphWidth=g.graph().width;
+    var graphHeight=g.graph().height;
+    var pad=24;
+    inner.attr('transform','translate('+pad+','+pad+')');
+    svgEl.setAttribute('width',graphWidth+pad*2);
+    svgEl.setAttribute('height',graphHeight+pad*2);
+    svgEl.removeAttribute('viewBox');
+  }
+
+  if(document.readyState==='loading'){
+    document.addEventListener('DOMContentLoaded',renderGraph);
+  } else {
+    renderGraph();
+  }
+})();
+
+// Chat panel
+// Global markdown renderer — shared by chat bubbles and data-markdown elements
+function escHtml(s){var d=document.createElement('div');d.textContent=s;return d.innerHTML;}
+function renderMd(text){
+  var s=escHtml(text);
+  s=s.replace(/```(\w*)\n([\s\S]*?)```/g,function(_,lang,code){
+    return '<pre><code'+(lang?' class="language-'+lang+'"':'')+'>'+code.trim()+'</code></pre>';
+  });
+  s=s.replace(/`([^`]+)`/g,'<code>$1</code>');
+  s=s.replace(/\*\*([^*]+)\*\*/g,'<strong>$1</strong>');
+  s=s.replace(/\*([^*]+)\*/g,'<em>$1</em>');
+  s=s.replace(/^### (.+)$/gm,'<h4>$1</h4>');
+  s=s.replace(/^## (.+)$/gm,'<h3>$1</h3>');
+  s=s.replace(/^(\|.+\|)\n(\|[-| :]+\|)\n((?:\|.+\|\n?)+)/gm,function(_,hdr,sep,body){
+    var ths=hdr.split('|').filter(Boolean).map(function(c){return '<th>'+c.trim()+'</th>';}).join('');
+    var rows=body.trim().split('\n').map(function(row){
+      var tds=row.split('|').filter(Boolean).map(function(c){return '<td>'+c.trim()+'</td>';}).join('');
+      return '<tr>'+tds+'</tr>';
+    }).join('');
+    return '<table class="q-table"><thead><tr>'+ths+'</tr></thead><tbody>'+rows+'</tbody></table>';
+  });
+  s=s.replace(/^[*-] (.+)$/gm,'<li>$1</li>');
+  s=s.replace(/(<li>.*<\/li>\n?)+/g,'<ul>$&</ul>');
+  s=s.replace(/^\d+\. (.+)$/gm,'<li data-ol>$1</li>');
+  s=s.replace(/(<li data-ol>.*<\/li>\n?)+/g,'<ol>$&</ol>');
+  s=s.replace(/ data-ol/g,'');
+  // Split on paragraph boundaries and wrap each block.
+  var blocks=s.split(/\n\n/);
+  var html=blocks.map(function(block){
+    var trimmed=block.trim();
+    if(!trimmed) return '';
+    return '<p>'+trimmed.replace(/\n/g,'<br>')+'</p>';
+  }).filter(Boolean).join('');
+  return html||'<p></p>';
+}
+// Render inline markdown for elements with data-markdown attribute.
+// For block elements (div/p) replaces innerHTML; for inline (li/span)
+// renders without wrapping <p> tags.
+(function(){
+  document.querySelectorAll('[data-markdown]').forEach(function(el){
+    var raw=el.textContent;
+    if(!raw.trim()) return;
+    var tag=el.tagName.toLowerCase();
+    if(tag==='li'||tag==='span'||tag==='td'){
+      // Inline context — just apply bold/italic/code, no block transforms
+      var s=escHtml(raw);
+      s=s.replace(/`([^`]+)`/g,'<code>$1</code>');
+      s=s.replace(/\*\*([^*]+)\*\*/g,'<strong>$1</strong>');
+      s=s.replace(/\*([^*]+)\*/g,'<em>$1</em>');
+      el.innerHTML=s;
+    } else {
+      el.innerHTML=renderMd(raw);
+    }
+    el.removeAttribute('data-markdown');
+  });
+})();
+
+(function(){
+  'use strict';
+  var chatMessages=document.getElementById('chat-messages');
+  var chatInput=document.getElementById('chat-input');
+  var chatSend=document.getElementById('chat-send');
+  var chatEmpty=document.getElementById('chat-empty');
+  if(!chatMessages||!chatInput||!chatSend) return;
+
+  function addBubble(role,content){
+    if(!content||!content.trim()) return null; // skip empty messages
+    if(chatEmpty) chatEmpty.style.display='none';
+    var div=document.createElement('div');
+    div.className='chat-bubble';
+    div.dataset.role=role;
+    if(role==='assistant'){
+      div.innerHTML=renderMd(content);
+    } else {
+      div.textContent=content;
+    }
+    chatMessages.appendChild(div);
+    chatMessages.scrollTop=chatMessages.scrollHeight;
+    return div;
+  }
+
+  function setInputEnabled(enabled){
+    chatInput.disabled=!enabled;
+    chatSend.disabled=!enabled;
+    if(enabled) chatInput.focus();
+  }
+
+  // Load previous messages directly into the chat thread.
+  if(planId){
+    fetch((window.htmlgraphPlanBase||'')+'/api/plans/'+planId+'/feedback')
+      .then(function(r){return r.ok?r.json():null;})
+      .then(function(data){
+        if(!data||!data.chat_messages||!data.chat_messages.length) return;
+        if(chatEmpty) chatEmpty.style.display='none';
+        data.chat_messages.forEach(function(m){
+          addBubble(m.role,m.content);
+        });
+      })
+      .catch(function(){});
+  }
+
+  function sendMessage(){
+    var text=chatInput.value.trim();
+    if(!text||!planId) return;
+    chatInput.value='';
+    setInputEnabled(false);
+
+    addBubble('user',text);
+    // Create streaming bubble directly (addBubble skips empty content)
+    if(chatEmpty) chatEmpty.style.display='none';
+    var assistantBubble=document.createElement('div');
+    assistantBubble.className='chat-bubble';
+    assistantBubble.dataset.role='assistant';
+    chatMessages.appendChild(assistantBubble);
+    var rawResponse='';
+
+    fetch((window.htmlgraphPlanBase||'')+'/api/plans/'+planId+'/chat',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({message:text})
+    }).then(function(response){
+      if(response.status===503){
+        assistantBubble.textContent='Chat unavailable \u2014 Claude CLI not found and no API key configured.';
+        assistantBubble.style.color='var(--text-muted)';
+        assistantBubble.style.fontStyle='italic';
+        setInputEnabled(true);
+        return;
+      }
+      if(!response.ok){
+        assistantBubble.textContent='Error: '+response.statusText;
+        setInputEnabled(true);
+        return;
+      }
+      var reader=response.body.getReader();
+      var decoder=new TextDecoder();
+      var buffer='';
+
+      function processStream(){
+        reader.read().then(function(result){
+          if(result.done){
+            // Stream complete — render accumulated text as markdown
+            if(rawResponse) assistantBubble.innerHTML=renderMd(rawResponse);
+            setInputEnabled(true);
+            return;
+          }
+          buffer+=decoder.decode(result.value,{stream:true});
+          var lines=buffer.split('\n');
+          buffer=lines.pop()||'';
+          lines.forEach(function(line){
+            line=line.trim();
+            if(!line.startsWith('data: ')) return;
+            var jsonStr=line.substring(6);
+            try{
+              var evt=JSON.parse(jsonStr);
+              if(evt.type==='chunk'&&evt.text){
+                rawResponse+=evt.text;
+                assistantBubble.textContent=rawResponse; // show raw while streaming
+                chatMessages.scrollTop=chatMessages.scrollHeight;
+              } else if(evt.type==='error'){
+                assistantBubble.textContent+=' [Error: '+evt.error+']';
+              } else if(evt.type==='done'){
+                if(rawResponse) assistantBubble.innerHTML=renderMd(rawResponse);
+                setInputEnabled(true);
+              }
+            }catch(e){}
+          });
+          processStream();
+        }).catch(function(){
+          setInputEnabled(true);
+        });
+      }
+      processStream();
+    }).catch(function(err){
+      assistantBubble.textContent='Network error: '+err.message;
+      setInputEnabled(true);
+    });
+  }
+
+  chatSend.addEventListener('click',sendMessage);
+  chatInput.addEventListener('keydown',function(e){
+    if(e.key==='Enter'&&!e.shiftKey){
+      e.preventDefault();
+      sendMessage();
+    }
+  });
+})();
+
+// Scroll-spy (uses plan-content scroll, not window)
+(function(){
+  'use strict';
+  var links=document.querySelectorAll('.plan-sidebar a[data-spy]');
+  if(!links.length) return;
+  var ids=Array.prototype.map.call(links,function(a){return a.dataset.spy;});
+  var scrollContainer=document.querySelector('.plan-content')||window;
+  function update(){
+    var current='';
+    ids.forEach(function(id){
+      var el=document.getElementById(id);
+      if(el&&el.getBoundingClientRect().top<=80) current=id;
+    });
+    links.forEach(function(a){
+      a.classList.toggle('active',a.dataset.spy===current);
+    });
+  }
+  scrollContainer.addEventListener('scroll',update,{passive:true});
+  window.addEventListener('scroll',update,{passive:true});
+  update();
+})();
+
+// Chat sidebar drag-resize
+(function(){
+  var handle=document.getElementById('chat-resize-handle');
+  var sidebar=document.getElementById('chat-sidebar');
+  if(!handle||!sidebar) return;
+  var startX,startW;
+  handle.addEventListener('mousedown',function(e){
+    e.preventDefault();
+    startX=e.clientX;
+    startW=sidebar.offsetWidth;
+    handle.classList.add('dragging');
+    document.body.style.cursor='col-resize';
+    document.body.style.userSelect='none';
+    function onMove(e){
+      var delta=startX-e.clientX;
+      var newW=Math.max(280,Math.min(600,startW+delta));
+      sidebar.style.width=newW+'px';
+    }
+    function onUp(){
+      handle.classList.remove('dragging');
+      document.body.style.cursor='';
+      document.body.style.userSelect='';
+      document.removeEventListener('mousemove',onMove);
+      document.removeEventListener('mouseup',onUp);
+    }
+    document.addEventListener('mousemove',onMove);
+    document.addEventListener('mouseup',onUp);
+  });
+})();
+
+
+// Sync highlight.js theme with current dark/light mode
+function syncHljsTheme(){
+  var isLight=document.documentElement.dataset.theme==='light';
+  var dark=document.getElementById('hljs-dark');
+  var light=document.getElementById('hljs-light');
+  if(dark) dark.disabled=isLight;
+  if(light) light.disabled=!isLight;
+}
+syncHljsTheme();
+
+// YAML viewer — lazy-loads plan YAML on first open or re-highlights on reopen
+(function(){
+  var viewer=document.getElementById('yaml-viewer');
+  var codeEl=document.getElementById('yaml-content');
+  if(!viewer||!codeEl)return;
+
+  function loadAndHighlight(){
+    var planEl=document.querySelector('[data-plan-id]');
+    if(!planEl)return;
+    var id=planEl.getAttribute('data-plan-id');
+    fetch((window.htmlgraphPlanBase||'')+'/api/plans/'+id+'/yaml')
+      .then(function(r){if(!r.ok)throw new Error('err');return r.text();})
+      .then(function(t){
+        codeEl.textContent=t;
+        delete codeEl.dataset.highlighted; // allow re-highlighting
+        syncHljsTheme();
+        function tryHighlight(){
+          if(window.hljs&&hljs.getLanguage&&hljs.getLanguage('yaml')){
+            hljs.highlightElement(codeEl);
+          } else {
+            setTimeout(tryHighlight,200);
+          }
+        }
+        tryHighlight();
+      })
+      .catch(function(){codeEl.textContent='YAML not available';});
+  }
+
+  var loaded=false;
+  viewer.addEventListener('toggle',function(){
+    if(!viewer.open||loaded)return;
+    loaded=true;
+    loadAndHighlight();
+  });
+  // If already open (e.g. re-rendered in embedded view), load immediately
+  if(viewer.open){loaded=true;loadAndHighlight();}
+})();
+
+// Amendments panel
+(function(){
+  var panel=document.getElementById('amendments-panel');
+  var list=document.getElementById('amendments-list');
+  var summary=document.getElementById('amendments-summary');
+  if(!panel||!list)return;
+
+  var article=document.querySelector('article[id]');
+  var planId=article?article.id:null;
+  if(!planId)return;
+
+  function escapeHtml(s){var d=document.createElement('div');d.textContent=s;return d.innerHTML;}
+
+  function updateSummary(){
+    var selects=list.querySelectorAll('select');
+    var accepted=0,pending=0;
+    selects.forEach(function(s){
+      if(s.value==='accepted')accepted++;
+      else if(s.value==='pending')pending++;
+    });
+    summary.textContent=selects.length+' amendments — '+accepted+' accepted, '+pending+' pending';
+  }
+
+  fetch((window.htmlgraphPlanBase||'')+'/api/plans/'+planId+'/amendments')
+    .then(function(r){return r.json();})
+    .then(function(amendments){
+      if(!amendments||!amendments.length)return;
+      panel.style.display='';
+      amendments.forEach(function(a,i){
+        var item=document.createElement('div');
+        item.className='amendment-item';
+        var desc=document.createElement('div');
+        desc.className='amendment-desc';
+        desc.innerHTML='<span class="op">'+escapeHtml(a.operation)+'</span> '+
+          '<span class="field">'+escapeHtml(a.field)+'</span> on slice-'+a.slice_num+': '+
+          escapeHtml(a.content);
+        var sel=document.createElement('select');
+        sel.className='amendment-select';
+        ['pending','accepted','rejected'].forEach(function(s){
+          var opt=document.createElement('option');
+          opt.value=s;
+          opt.textContent=s.charAt(0).toUpperCase()+s.slice(1);
+          if(s===a.status)opt.selected=true;
+          sel.appendChild(opt);
+        });
+        sel.addEventListener('change',function(){
+          fetch((window.htmlgraphPlanBase||'')+'/api/plans/'+planId+'/feedback',{
+            method:'POST',
+            headers:{'Content-Type':'application/json'},
+            body:JSON.stringify({
+              section:'amendment',
+              action:'amendment_status',
+              value:sel.value,
+              question_id:'amend-'+i
+            })
+          });
+          updateSummary();
+        });
+        item.appendChild(desc);
+        item.appendChild(sel);
+        list.appendChild(item);
+      });
+      updateSummary();
+    })
+    .catch(function(){});
+})();
+</script>
+</div><!-- .plan-content -->
+</body>
+</html>

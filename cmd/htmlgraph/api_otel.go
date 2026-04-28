@@ -301,6 +301,15 @@ type spanDetail struct {
 // and linking parent_span → span_id. Typical payload is small (~100
 // spans for a busy session); no pagination.
 //
+// Subagent nesting (bug-1ebcad6b): when a session spawns subagents via the
+// Agent/Task tool, the subagent's tool spans live under the SUBAGENT's
+// session_id but their parent_span chain links back to the Agent span in
+// the parent session. To preserve causal lineage in the activity feed,
+// the response transitively includes any span (in any session) reachable
+// via parent_span from a span in the requested session. The frontend's
+// existing parent_span → span_id linkage in event-tree.js then nests the
+// subagent's Bash/Read/etc. under the parent session's Agent row.
+//
 // GET /api/otel/spans?session_id=<id>
 //   200 { "spans": [...] } — empty array if none exist
 //   400 when session_id is missing
@@ -315,11 +324,22 @@ func otelSpansHandler(database *sql.DB) http.HandlerFunc {
 			http.Error(w, "session_id required", http.StatusBadRequest)
 			return
 		}
+		// Recursive CTE walks parent_span downward from every span in the
+		// requested session, gathering the span_ids of all transitive
+		// descendants (potentially across sessions when subagents spawn).
 		// LEFT JOIN features so work-item attribution populated at ingest
 		// time (writer.go) picks up the human title. Pre-attribution
 		// rows (signals captured before feat-82e11bbb landed) have
 		// feature_id IS NULL and the join drops out cleanly.
 		rows, err := database.Query(`
+			WITH RECURSIVE span_tree(span_id) AS (
+				SELECT span_id FROM otel_signals
+				 WHERE session_id = ? AND kind = 'span' AND span_id IS NOT NULL
+				UNION
+				SELECT s.span_id FROM otel_signals s
+				  JOIN span_tree t ON s.parent_span = t.span_id
+				 WHERE s.kind = 'span' AND s.span_id IS NOT NULL
+			)
 			SELECT s.signal_id,
 				COALESCE(s.trace_id, ''), COALESCE(s.span_id, ''), COALESCE(s.parent_span, ''),
 				s.native, s.canonical,
@@ -332,22 +352,32 @@ func otelSpansHandler(database *sql.DB) http.HandlerFunc {
 				s.success,
 				COALESCE(s.attrs_json, '{}'),
 				COALESCE(s.feature_id, ''),
-				COALESCE(f.title, '')
+				COALESCE(f.title, ''),
+				s.session_id
 			FROM otel_signals s
 			LEFT JOIN features f ON f.id = s.feature_id
-			WHERE s.session_id = ? AND s.kind = 'span'
-			ORDER BY s.ts_micros ASC`, sessionID)
+			WHERE s.kind = 'span' AND (
+				s.session_id = ?
+				OR s.span_id IN (SELECT span_id FROM span_tree)
+			)
+			ORDER BY s.ts_micros ASC`, sessionID, sessionID)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
 		defer rows.Close()
 
+		// sessionIDs tracks each span's owning session_id in lock-step with
+		// out. enrichToolSpansFromLogs uses it to scope (tool_name, ordinality)
+		// pairing per session — without it, subagent tool spans would absorb
+		// parent-session tool_result logs by ordinal position.
 		out := []spanJSON{}
+		sessionIDs := []string{}
+		childSessions := map[string]bool{}
 		for rows.Next() {
 			var s spanJSON
 			var successVal sql.NullInt64
-			var attrsRaw string
+			var attrsRaw, rowSessionID string
 			if err := rows.Scan(
 				&s.SignalID, &s.TraceID, &s.SpanID, &s.ParentSpan,
 				&s.NativeName, &s.Canonical, &s.ToolName, &s.Model,
@@ -355,6 +385,7 @@ func otelSpansHandler(database *sql.DB) http.HandlerFunc {
 				&s.TokensIn, &s.TokensOut, &s.CostUSD,
 				&s.Decision, &successVal, &attrsRaw,
 				&s.FeatureID, &s.FeatureTitle,
+				&rowSessionID,
 			); err != nil {
 				http.Error(w, err.Error(), http.StatusInternalServerError)
 				return
@@ -365,6 +396,10 @@ func otelSpansHandler(database *sql.DB) http.HandlerFunc {
 			}
 			s.Details = extractSpanDetails(attrsRaw)
 			out = append(out, s)
+			sessionIDs = append(sessionIDs, rowSessionID)
+			if rowSessionID != "" && rowSessionID != sessionID {
+				childSessions[rowSessionID] = true
+			}
 		}
 
 		// Second pass: enrich tool spans with context from their matching
@@ -374,18 +409,29 @@ func otelSpansHandler(database *sql.DB) http.HandlerFunc {
 		// by (tool_name, ordinality) within the session; tool spans and
 		// tool_result logs are emitted 1:1 per tool call, so this gives
 		// deterministic pairing without fuzzy timestamp matching.
-		enrichToolSpansFromLogs(database, sessionID, out)
+		// Subagent sessions are enriched independently so their per-session
+		// (tool_name, ordinality) pairing stays correct.
+		enrichToolSpansFromLogs(database, sessionID, out, sessionIDs)
+		for sid := range childSessions {
+			enrichToolSpansFromLogs(database, sid, out, sessionIDs)
+		}
 
 		respondJSON(w, map[string]any{"spans": out})
 	}
 }
 
-// enrichToolSpansFromLogs fetches tool_result logs for the session and
-// merges the nested tool_input attrs into the matching tool span's
-// Details. Mutates the out slice in place. Failures (DB error, bad JSON)
-// are logged at debug-level elsewhere; one missing enrichment shouldn't
-// poison the whole endpoint.
-func enrichToolSpansFromLogs(database *sql.DB, sessionID string, out []spanJSON) {
+// enrichToolSpansFromLogs fetches tool_result logs for sessionID and merges
+// the nested tool_input attrs into the matching tool span's Details. Only
+// spans whose owning session_id (passed in spanSessions, parallel to out)
+// equals sessionID are eligible — this scoping is required because the
+// handler may pass spans drawn from multiple sessions (parent plus
+// subagents) but each session's (tool_name, ordinality) pairing must be
+// computed against its own logs.
+//
+// Mutates the out slice in place. Failures (DB error, bad JSON) are logged
+// at debug-level elsewhere; one missing enrichment shouldn't poison the
+// whole endpoint.
+func enrichToolSpansFromLogs(database *sql.DB, sessionID string, out []spanJSON, spanSessions []string) {
 	rows, err := database.Query(`
 		SELECT COALESCE(tool_name, ''), COALESCE(attrs_json, '{}')
 		FROM otel_signals
@@ -409,16 +455,19 @@ func enrichToolSpansFromLogs(database *sql.DB, sessionID string, out []spanJSON)
 		logsByTool[tool] = append(logsByTool[tool], attrs)
 	}
 
-	// Per tool, walk the spans in order and pair with logs in order.
-	// Eligible spans: any span that carries a tool_name and is a logical
-	// tool invocation. Claude's adapter canonicalizes ordinary tool spans
-	// as "tool_result" and Agent/Task subagent tool spans as
+	// Per tool, walk the spans (in this session) in order and pair with
+	// logs in order. Eligible spans: any span that carries a tool_name and
+	// is a logical tool invocation. Claude's adapter canonicalizes ordinary
+	// tool spans as "tool_result" and Agent/Task subagent tool spans as
 	// "subagent_invocation" — both need enrichment from their matching
 	// tool_result log. Infrastructure spans (interaction, llm_request,
 	// tool.execution, tool.blocked_on_user) have no corresponding log.
 	spanIdxByTool := map[string]int{}
 	for i := range out {
 		s := &out[i]
+		if i < len(spanSessions) && spanSessions[i] != sessionID {
+			continue
+		}
 		if s.ToolName == "" {
 			continue
 		}

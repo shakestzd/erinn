@@ -86,7 +86,7 @@ htmlgraph claude --dev
 
 # Start the dashboard to inspect the container-local .htmlgraph/:
 htmlgraph serve
-# Dashboard forwarded to http://localhost:8080 on your host.
+# Dashboard forwarded to http://localhost:8088 on your host (container port 8080).
 ```
 
 ## What changed from the previous devcontainer

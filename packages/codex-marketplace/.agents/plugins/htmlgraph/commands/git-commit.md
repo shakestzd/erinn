@@ -29,8 +29,7 @@ Commit changes using Bash-copilot first, haiku-coder as fallback.
 ### Step 1: Analyze what to commit
 
 ```bash
-git diff --stat HEAD
-git status --short
+git diff --stat HEAD; git status --short
 ```
 
 Select source files to stage. Exclude `.htmlgraph/` directory unless explicitly requested.

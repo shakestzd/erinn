@@ -19,6 +19,17 @@ When running in a worktree, `HTMLGRAPH_PROJECT_DIR` is set automatically. All `h
 
 ---
 
+## Efficiency Rules (read before dispatching)
+
+Every tool call spends a turn. The goal is to dispatch the first subagent within **≤5 tool calls**. To hit that budget:
+
+1. **One call, not ten.** Use `htmlgraph execute-preview <trk-id> --format json` to get the track, linked features/bugs/plans, and current git state in a single invocation. Do not call `htmlgraph track show`, `htmlgraph feature show`, `htmlgraph plan show`, and `git status` separately before the first dispatch.
+2. **Batch git-state probes.** If execute-preview doesn't cover a probe you need, chain with `&&` in one Bash call — never one tool call per git subcommand.
+3. **Don't feature-show more than twice in a row.** If you find yourself calling `htmlgraph feature show` for every linked feature, stop and re-read the preview JSON — the status you need is already there.
+4. **Don't retry flag variants.** If a flag fails, check the skill for the real flag name before trying a second guess. This skill is validated by a build-time smoke test — prescribed flags are real.
+
+---
+
 ## Work Item Attribution (MANDATORY)
 
 Before dispatching any agents, verify attribution is set:
@@ -72,14 +83,11 @@ If no tasks exist yet, create them from the plan (see `/htmlgraph:plan`).
 
 When executing features that originated from a plan, you must first resolve the track title, then create tasks with readable subject fields.
 
-**Resolve track title before dispatching:**
+**Resolve the track title in the same call that fetched everything else:**
 
-Before creating any tasks, resolve the track's human title by running:
-```
-Bash("htmlgraph track show <trk-id> --format json")
-```
+You already called `htmlgraph execute-preview <trk-id> --format json` in the first discovery step. The track's human title is `.track.title` in that payload — reuse it. Do not issue a second `htmlgraph track show` call just for the title.
 
-Extract the `.title` field. Use it (not the raw track ID) as the outer `Agent()` description when spawning the top-level coordinator:
+Use the title (not the raw track ID) as the outer `Agent()` description when spawning the top-level coordinator:
 
 ```
 Agent(description="Multi-Project MVP: execute plan", ...)  # ✓ GOOD
@@ -442,17 +450,13 @@ Status categories: **ready** (pending, no blockedBy) | **in_progress** | **block
 ## Cleanup After Completion
 
 ```bash
-# Prune all merged worktrees
-git worktree prune
+# Prune merged worktrees and confirm clean state in one call
+git worktree prune && git worktree list
 
-# Remove a specific worktree
-git worktree remove <path>
+# Remove a specific worktree and its branch (chain to avoid leaving orphans)
+git worktree remove <path> && git branch -D worktree-agent-XXXX
 
-# Remove stale branches
-git branch -D worktree-agent-XXXX
-
-# Confirm clean state + run quality gates
-git worktree list
+# Final quality gates
 go build ./... && go vet ./... && go test ./...
 ```
 

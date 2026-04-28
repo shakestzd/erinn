@@ -3,10 +3,12 @@ package main
 import (
 	"bytes"
 	"database/sql"
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/shakestzd/htmlgraph/internal/registry"
 )
@@ -20,6 +22,10 @@ func makeProjectDBWithSchema(t *testing.T, numFeatures, numBugs, numSpikes int) 
 	tmp := t.TempDir()
 	hgDir := filepath.Join(tmp, ".htmlgraph")
 	if err := os.MkdirAll(filepath.Join(hgDir, ".db"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	// Create .git directory so project passes looksLikeRealProject check
+	if err := os.MkdirAll(filepath.Join(tmp, ".git"), 0o755); err != nil {
 		t.Fatal(err)
 	}
 	dbPath := filepath.Join(hgDir, ".db", "htmlgraph.db")
@@ -54,19 +60,37 @@ func makeProjectDBWithSchema(t *testing.T, numFeatures, numBugs, numSpikes int) 
 	return tmp
 }
 
-// withRegistryAt points the package-level defaultRegistryPath at a tmpdir
-// path and seeds it with the given entries. Returns the registry file path.
-func withRegistryAt(t *testing.T, entries []registry.Entry) string {
+// withRegistryAtAndStale sets up a registry with entries that were previously registered
+// but whose .htmlgraph directories may have been deleted (stale). It writes entries directly
+// to bypass Upsert's looksLikeRealProject guard, allowing the tests to verify prune behavior.
+func withRegistryAtAndStale(t *testing.T, entries []registry.Entry) string {
 	t.Helper()
 	tmpHome := t.TempDir()
 	regPath := filepath.Join(tmpHome, "projects.json")
-	reg, _ := registry.Load(regPath)
-	for _, e := range entries {
-		reg.Upsert(e.ProjectDir, e.Name, e.GitRemoteURL)
+
+	// Manually construct entries with valid timestamps so they can be saved
+	for i := range entries {
+		if entries[i].LastSeen == "" {
+			entries[i].LastSeen = time.Now().UTC().Format(time.RFC3339)
+		}
+		if entries[i].ID == "" {
+			entries[i].ID = registry.ComputeID(entries[i].ProjectDir)
+		}
 	}
-	if err := reg.Save(); err != nil {
+
+	// Write entries directly to bypass Upsert guard
+	data, err := json.MarshalIndent(entries, "", "  ")
+	if err != nil {
 		t.Fatal(err)
 	}
+	data = append(data, '\n')
+	if err := os.MkdirAll(filepath.Dir(regPath), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(regPath, data, 0o644); err != nil {
+		t.Fatal(err)
+	}
+
 	orig := defaultRegistryPath
 	defaultRegistryPath = func() string { return regPath }
 	t.Cleanup(func() { defaultRegistryPath = orig })
@@ -77,11 +101,21 @@ func withRegistryAt(t *testing.T, entries []registry.Entry) string {
 // registry entry with correct STATUS and ITEMS columns.
 func TestProjectsList_Output(t *testing.T) {
 	realProject := makeProjectDBWithSchema(t, 3, 2, 1)
-	fakeProject := filepath.Join(t.TempDir(), "does-not-exist")
+	staleProjectDir := filepath.Join(t.TempDir(), "stale-project")
+	if err := os.MkdirAll(filepath.Join(staleProjectDir, ".htmlgraph"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Join(staleProjectDir, ".git"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	// Remove .htmlgraph to make it stale
+	if err := os.RemoveAll(filepath.Join(staleProjectDir, ".htmlgraph")); err != nil {
+		t.Fatal(err)
+	}
 
-	withRegistryAt(t, []registry.Entry{
+	withRegistryAtAndStale(t, []registry.Entry{
 		{ProjectDir: realProject, Name: "real"},
-		{ProjectDir: fakeProject, Name: "fake"},
+		{ProjectDir: staleProjectDir, Name: "stale"},
 	})
 
 	cmd := projectsCmd()
@@ -95,14 +129,14 @@ func TestProjectsList_Output(t *testing.T) {
 	if !strings.Contains(out, "real") {
 		t.Errorf("expected 'real' in output, got: %s", out)
 	}
-	if !strings.Contains(out, "fake") {
-		t.Errorf("expected 'fake' in output, got: %s", out)
+	if !strings.Contains(out, "stale") {
+		t.Errorf("expected 'stale' in output, got: %s", out)
 	}
 	if !strings.Contains(out, "exists") {
 		t.Errorf("expected STATUS=exists for real project, got: %s", out)
 	}
 	if !strings.Contains(out, "missing") {
-		t.Errorf("expected STATUS=missing for fake project, got: %s", out)
+		t.Errorf("expected STATUS=missing for stale project, got: %s", out)
 	}
 	if !strings.Contains(out, "3f 2b 1s") {
 		t.Errorf("expected ITEMS '3f 2b 1s' for real project, got: %s", out)
@@ -113,11 +147,21 @@ func TestProjectsList_Output(t *testing.T) {
 // and persists the result.
 func TestProjectsPrune_RemovesAndSaves(t *testing.T) {
 	realProject := makeProjectDBWithSchema(t, 0, 0, 0)
-	fakeProject := filepath.Join(t.TempDir(), "does-not-exist")
+	staleProjectDir := filepath.Join(t.TempDir(), "stale-project")
+	if err := os.MkdirAll(filepath.Join(staleProjectDir, ".htmlgraph"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Join(staleProjectDir, ".git"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	// Remove .htmlgraph to make it stale
+	if err := os.RemoveAll(filepath.Join(staleProjectDir, ".htmlgraph")); err != nil {
+		t.Fatal(err)
+	}
 
-	regPath := withRegistryAt(t, []registry.Entry{
+	regPath := withRegistryAtAndStale(t, []registry.Entry{
 		{ProjectDir: realProject, Name: "real"},
-		{ProjectDir: fakeProject, Name: "fake"},
+		{ProjectDir: staleProjectDir, Name: "stale"},
 	})
 
 	cmd := projectsCmd()
@@ -128,7 +172,7 @@ func TestProjectsPrune_RemovesAndSaves(t *testing.T) {
 		t.Fatalf("execute: %v", err)
 	}
 
-	// Reload the registry and check the fake project is gone.
+	// Reload the registry and check the stale project is gone.
 	reloaded, err := registry.Load(regPath)
 	if err != nil {
 		t.Fatal(err)
@@ -140,8 +184,12 @@ func TestProjectsPrune_RemovesAndSaves(t *testing.T) {
 	if entries[0].ProjectDir != realProject {
 		t.Errorf("wrong entry remaining: %s", entries[0].ProjectDir)
 	}
-	if !strings.Contains(buf.String(), "pruned:") {
-		t.Errorf("expected 'pruned:' in output, got: %s", buf.String())
+	out := buf.String()
+	if !strings.Contains(out, "pruned:") {
+		t.Errorf("expected 'pruned:' in output, got: %s", out)
+	}
+	if !strings.Contains(out, "pruned 1 stale projects, kept 1") {
+		t.Errorf("expected summary line in output, got: %s", out)
 	}
 }
 
@@ -149,7 +197,7 @@ func TestProjectsPrune_RemovesAndSaves(t *testing.T) {
 // new tables in foreign project DBs — it must use registry.OpenReadOnly.
 func TestProjectsList_NoMigrations(t *testing.T) {
 	realProject := makeProjectDBWithSchema(t, 1, 1, 1)
-	withRegistryAt(t, []registry.Entry{{ProjectDir: realProject, Name: "real"}})
+	withRegistryAtAndStale(t, []registry.Entry{{ProjectDir: realProject, Name: "real"}})
 
 	// Snapshot table set before.
 	dbPath := filepath.Join(realProject, ".htmlgraph", ".db", "htmlgraph.db")

@@ -15,11 +15,16 @@ import (
 
 // otelCollectTestBinary holds the path to the binary built for otel-collect tests.
 // Built once by buildOtelCollectTestBinary and reused across tests.
-var otelCollectTestBinary string
+// The containing temp dir is tracked in otelCollectTestBinaryTmpDir and removed
+// by TestMain (testmain_test.go) after the suite completes.
+var (
+	otelCollectTestBinary       string
+	otelCollectTestBinaryTmpDir string
+)
 
 // buildOtelCollectTestBinary builds the htmlgraph binary into a temp dir and
 // returns the path. It is safe to call multiple times — subsequent calls
-// reuse the first binary. Callers must call t.Helper() and check the error.
+// reuse the first binary. The temp dir is cleaned up by TestMain (testmain_test.go).
 func buildOtelCollectTestBinary(t *testing.T) string {
 	t.Helper()
 	if otelCollectTestBinary != "" {
@@ -27,10 +32,8 @@ func buildOtelCollectTestBinary(t *testing.T) string {
 			return otelCollectTestBinary
 		}
 	}
-	tmp, err := os.MkdirTemp("", "otel-collect-test-*")
-	if err != nil {
-		t.Fatalf("mkdirtemp: %v", err)
-	}
+	tmp := t.TempDir()
+	otelCollectTestBinaryTmpDir = tmp // tracked for cleanup in TestMain
 	bin := filepath.Join(tmp, "htmlgraph-test")
 	cmd := exec.Command("go", "build", "-o", bin, ".")
 	_, thisFile, _, ok := runtime.Caller(0)

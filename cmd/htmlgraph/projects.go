@@ -33,9 +33,13 @@ see all known projects and ` + "`projects prune`" + ` to remove stale entries.`,
 }
 
 func projectsListCmd() *cobra.Command {
-	return &cobra.Command{
+	var goneOnly bool
+	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "List all known projects in the registry",
+		Long: `List all known projects in the registry.
+
+With --gone, show only orphan entries whose .htmlgraph directory no longer exists.`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			reg, err := registry.Load(defaultRegistryPath())
 			if err != nil {
@@ -44,12 +48,13 @@ func projectsListCmd() *cobra.Command {
 			entries := reg.List()
 			w := tabwriter.NewWriter(cmd.OutOrStdout(), 0, 0, 2, ' ', 0)
 			fmt.Fprintln(w, "NAME\tDIR\tLAST_SEEN\tSTATUS\tITEMS")
+			printed := 0
 			for _, e := range entries {
-				status := "missing"
+				alive := false
 				items := "-"
 				hgDir := filepath.Join(e.ProjectDir, ".htmlgraph")
 				if _, statErr := os.Stat(hgDir); statErr == nil {
-					status = "exists"
+					alive = true
 					if dbPath, pathErr := storage.CanonicalDBPath(e.ProjectDir); pathErr == nil {
 						if db, openErr := registry.OpenReadOnly(dbPath); openErr == nil {
 							items = countItems(db)
@@ -57,14 +62,28 @@ func projectsListCmd() *cobra.Command {
 						}
 					}
 				}
+				if goneOnly && alive {
+					continue
+				}
+				status := "missing"
+				if alive {
+					status = "exists"
+				}
 				fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\n", e.Name, e.ProjectDir, e.LastSeen, status, items)
+				printed++
 			}
-			if len(entries) == 0 {
-				fmt.Fprintln(w, "(no projects registered)")
+			if printed == 0 {
+				if goneOnly {
+					fmt.Fprintln(w, "(no orphan projects)")
+				} else {
+					fmt.Fprintln(w, "(no projects registered)")
+				}
 			}
 			return w.Flush()
 		},
 	}
+	cmd.Flags().BoolVar(&goneOnly, "gone", false, "show only orphan entries whose .htmlgraph directory no longer exists")
+	return cmd
 }
 
 func projectsPruneCmd() *cobra.Command {
@@ -76,12 +95,14 @@ func projectsPruneCmd() *cobra.Command {
 			if err != nil {
 				return fmt.Errorf("load registry: %w", err)
 			}
+			before := len(reg.List())
 			pruned := reg.Prune()
+			kept := before - len(pruned)
 			for _, p := range pruned {
 				fmt.Fprintln(cmd.OutOrStdout(), "pruned:", p)
 			}
+			fmt.Fprintf(cmd.OutOrStdout(), "pruned %d stale projects, kept %d\n", len(pruned), kept)
 			if len(pruned) == 0 {
-				fmt.Fprintln(cmd.OutOrStdout(), "(nothing to prune)")
 				return nil
 			}
 			return reg.Save()

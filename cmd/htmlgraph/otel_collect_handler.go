@@ -8,8 +8,8 @@ import (
 	"time"
 
 	"github.com/shakestzd/htmlgraph/internal/otel/adapter"
+	"github.com/shakestzd/htmlgraph/internal/otel/convert"
 	"github.com/shakestzd/htmlgraph/internal/otel/otlp"
-	"github.com/shakestzd/htmlgraph/internal/otel/receiver"
 	"github.com/shakestzd/htmlgraph/internal/otel/sink/ndjson"
 
 	"google.golang.org/protobuf/encoding/protojson"
@@ -79,7 +79,7 @@ func (h *collectorHandler) persist(r *http.Request, decoded []otlp.Decoded) erro
 		if a == nil {
 			continue
 		}
-		signals := receiver.ConvertAll(a, d)
+		signals := convert.ConvertAll(a, d)
 		if len(signals) == 0 {
 			continue
 		}

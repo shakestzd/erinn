@@ -13,7 +13,7 @@
              data-status="in-progress"
              data-priority="high"
              data-created="2026-04-10T22:30:29.647944"
-             data-updated="2026-04-23T21:40:45.197408" data-agent-assigned="claude-code">
+             data-updated="2026-04-28T17:23:05.690141" data-agent-assigned="claude-code">
 
         <header>
             <h1>Launch Readiness — close pitch/reality gaps before LinkedIn launch</h1>
@@ -68,6 +68,28 @@
                     <li><a href="bug-b58a330e.html" data-relationship="contains" data-since="2026-04-23T21:34:23.447784">OTel receiver NewWriter hardcodes journal_mode=WAL in DSN, bypassing fstype-aware BuildPragmas</a></li>
                     <li><a href="bug-ec4d3d8f.html" data-relationship="contains" data-since="2026-04-23T21:34:23.500433">Hook runner silently swallows db.Open errors, hiding telemetry-loss incidents</a></li>
                     <li><a href="bug-1b095c09.html" data-relationship="contains" data-since="2026-04-23T21:40:45.170887">Subagent resolver clobbers agent_id to &#39;codex&#39; and agent_type defaults to general-purpose</a></li>
+                    <li><a href="bug-59b98285.html" data-relationship="contains" data-since="2026-04-24T01:05:46.956438">DELETE-mode writer contention drops tool_call / message inserts under concurrent hook &#43; OTel &#43; auto-ingest load</a></li>
+                    <li><a href="bug-2138cbea.html" data-relationship="contains" data-since="2026-04-24T02:13:53.871117">Activity Feed: TOOL_USE badge re-uses the old heavy-pill pattern — apply the same demote-to-quiet-label treatment as the ASSISTANT fix</a></li>
+                    <li><a href="bug-6a4cc391.html" data-relationship="contains" data-since="2026-04-24T02:13:53.894868">Activity Feed does not render end-of-turn Stop events as final assistant message</a></li>
+                    <li><a href="bug-633b2c6d.html" data-relationship="contains" data-since="2026-04-24T02:34:52.268655">Activity Feed renders subagent tool calls as flat siblings of Task/Agent instead of nested children</a></li>
+                    <li><a href="bug-5d7220f3.html" data-relationship="contains" data-since="2026-04-24T03:43:36.354151">Activity Feed: Agent tool_use row mislabels orchestrator model as Haiku when dispatching sonnet-coder from Opus</a></li>
+                    <li><a href="bug-1e5166ea.html" data-relationship="contains" data-since="2026-04-24T04:38:03.063532">Activity Feed: Task rows lose model/cost pill when orchestrator dispatches multiple Tasks in one LLM turn</a></li>
+                    <li><a href="bug-92690d5b.html" data-relationship="contains" data-since="2026-04-24T06:05:28.34757">htmlgraph yolo --track fails when branch already exists: &#39;git worktree add failed: exit status 255 / fatal: a branch named trk-xxx already exists&#39;</a></li>
+                    <li><a href="spk-a25964fa.html" data-relationship="contains" data-since="2026-04-24T06:23:46.142285">Audit codebase for host-path leaks beyond the check-host-paths staged scan</a></li>
+                    <li><a href="bug-e24934e4.html" data-relationship="contains" data-since="2026-04-24T14:13:47.521654">Host-path leak: /Users/shakes path in dashboard app.js comment ships inside Go binary via go:embed</a></li>
+                    <li><a href="bug-5f02971e.html" data-relationship="contains" data-since="2026-04-24T14:13:47.550672">Host-path leak: /Users/shakes paths in agent-memory reference file</a></li>
+                    <li><a href="bug-051fcdc0.html" data-relationship="contains" data-since="2026-04-24T16:56:18.812307">Address roborev job 11 findings on 14c3ea74: strict env-var match &#43; probe before doorway early return</a></li>
+                    <li><a href="bug-d0c8b1e2.html" data-relationship="contains" data-since="2026-04-26T08:05:48.706973">Yolo PreToolUse research-first guard misfires on read-only filesystem inspection</a></li>
+                    <li><a href="bug-905779c3.html" data-relationship="contains" data-since="2026-04-26T10:40:05.091661">Devcontainer dashboard port collides with host</a></li>
+                    <li><a href="bug-4697c62c.html" data-relationship="contains" data-since="2026-04-26T12:03:23.865333">API handlers silently swallow SQLITE_BUSY and return empty results</a></li>
+                    <li><a href="spk-dfb051a3.html" data-relationship="contains" data-since="2026-04-27T10:32:30.779739">Investigate ~/.cache/htmlgraph layout &#43; design eviction policy</a></li>
+                    <li><a href="feat-9b767422.html" data-relationship="contains" data-since="2026-04-27T10:50:56.828513">Implement htmlgraph cache eviction &#43; cache subcommands</a></li>
+                    <li><a href="bug-d56492ae.html" data-relationship="contains" data-since="2026-04-27T14:31:03.69619">Tests write to user cache instead of isolated test cache root</a></li>
+                    <li><a href="bug-03f13aa6.html" data-relationship="contains" data-since="2026-04-27T14:31:04.660584">OTel collector loses in-flight events on host sleep or abrupt shutdown</a></li>
+                    <li><a href="bug-8c34e1f5.html" data-relationship="contains" data-since="2026-04-27T23:30:07.357887">Tests pollute real ~/.cache/htmlgraph instead of an isolated cache root</a></li>
+                    <li><a href="bug-0ac5ad08.html" data-relationship="contains" data-since="2026-04-27T23:30:20.176827">OTel collector loses in-flight events on host sleep / abrupt shutdown</a></li>
+                    <li><a href="bug-cc41e3d2.html" data-relationship="contains" data-since="2026-04-28T03:16:12.379373">Cache eviction must also prune entries whose project path no longer exists</a></li>
+                    <li><a href="bug-727e4901.html" data-relationship="contains" data-since="2026-04-28T17:23:05.686394">Auto-clean legacy SQLite DB instead of warning forever</a></li>
                 </ul>
             </section>
             <section data-edge-type="implemented_in">

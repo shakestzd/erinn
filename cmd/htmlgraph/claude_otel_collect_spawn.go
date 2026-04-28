@@ -33,10 +33,15 @@ func generateOtelSessionID() string {
 // callers should pass the result of os.Executable(); tests pass a
 // pre-built test binary.
 func spawnCollector(binPath, sessionID, projectDir string) (int, *os.Process, error) {
+	// --no-idle-timeout keeps the collector alive for the full interactive
+	// session. Without this flag the collector would exit after 5 min of no
+	// OTLP traffic, causing Claude Code to POST to a dead port for the
+	// remainder of the session (bug-28a9d7a7 Part A).
 	cmd := exec.Command(binPath, "otel-collect",
 		"--session-id", sessionID,
 		"--project-dir", projectDir,
 		"--listen", "127.0.0.1:0",
+		"--no-idle-timeout",
 	)
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 	cmd.Stderr = os.Stderr

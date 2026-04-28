@@ -114,7 +114,12 @@ When `--delegation` is specified, audit the current session's delegation complia
 1. **Collect data**:
 ```bash
 htmlgraph status
-sqlite3 .htmlgraph/htmlgraph.db "
+
+# Resolve the canonical DB path from `htmlgraph status` (it lives in the
+# host OS user cache dir, not the project tree — sqlite3 against the old
+# in-tree path will return no rows).
+DB="$(htmlgraph status 2>/dev/null | awk -F': ' '/^DB:/ {print $2}')"
+sqlite3 "$DB" "
 SELECT tool_name, COUNT(*) as count
 FROM agent_events
 WHERE session_id = (SELECT session_id FROM agent_events ORDER BY timestamp DESC LIMIT 1)

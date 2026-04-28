@@ -21,29 +21,35 @@ import (
 
 const defaultIdleTimeout = 5 * time.Minute
 
+// noIdleTimeoutDuration is used when --no-idle-timeout is passed. 24h is
+// effectively "never" for an interactive Claude Code session.
+const noIdleTimeoutDuration = 24 * time.Hour
+
 func otelCollectCmd() *cobra.Command {
 	var (
-		sessionID  string
-		projectDir string
-		listen     string
+		sessionID    string
+		projectDir   string
+		listen       string
+		noIdleTimeout bool
 	)
 	cmd := &cobra.Command{
 		Use:    "otel-collect",
 		Hidden: true,
 		Short:  "Internal: per-session OTel collector (do not invoke directly)",
 		RunE: func(_ *cobra.Command, _ []string) error {
-			return runOtelCollect(sessionID, projectDir, listen)
+			return runOtelCollect(sessionID, projectDir, listen, noIdleTimeout)
 		},
 	}
 	cmd.Flags().StringVar(&sessionID, "session-id", "", "Session ULID (required)")
 	cmd.Flags().StringVar(&projectDir, "project-dir", "", "Project root (required)")
 	cmd.Flags().StringVar(&listen, "listen", "127.0.0.1:0", "Listen address (default ephemeral)")
+	cmd.Flags().BoolVar(&noIdleTimeout, "no-idle-timeout", false, "Disable idle timeout (keep collector alive for the session lifetime)")
 	_ = cmd.MarkFlagRequired("session-id")
 	_ = cmd.MarkFlagRequired("project-dir")
 	return cmd
 }
 
-func runOtelCollect(sessionID, projectDir, listenAddr string) error {
+func runOtelCollect(sessionID, projectDir, listenAddr string, noIdleTimeout bool) error {
 	sessDir := filepath.Join(projectDir, ".htmlgraph", "sessions", sessionID)
 	if err := os.MkdirAll(sessDir, 0o755); err != nil {
 		return fmt.Errorf("create session dir: %w", err)
@@ -88,7 +94,7 @@ func runOtelCollect(sessionID, projectDir, listenAddr string) error {
 		}
 	}()
 
-	return awaitShutdown(ctx, cancel, srv, snk, lastActivity)
+	return awaitShutdown(ctx, cancel, srv, snk, lastActivity, noIdleTimeout)
 }
 
 // buildCollectorMux creates the OTLP HTTP mux with activity tracking.
@@ -131,8 +137,10 @@ func writeCollectorStartEvent(snk *ndjson.Sink, sessionID string, port int) erro
 }
 
 // awaitShutdown blocks until SIGTERM or idle timeout, then gracefully shuts down.
-func awaitShutdown(ctx context.Context, cancel context.CancelFunc, srv *http.Server, snk *ndjson.Sink, lastActivity *atomic.Int64) error {
-	idleTimeout := parseIdleTimeout()
+// When noIdleTimeout is true the idle-timeout check is effectively disabled
+// (ceiling set to 24 h) so the collector stays alive for the full session.
+func awaitShutdown(ctx context.Context, cancel context.CancelFunc, srv *http.Server, snk *ndjson.Sink, lastActivity *atomic.Int64, noIdleTimeout bool) error {
+	idleTimeout := parseIdleTimeout(noIdleTimeout)
 
 	sigCh := make(chan os.Signal, 1)
 	signal.Notify(sigCh, syscall.SIGTERM, syscall.SIGINT)
@@ -164,8 +172,18 @@ func gracefulShutdown(srv *http.Server, snk *ndjson.Sink) error {
 	return snk.Close()
 }
 
-func parseIdleTimeout() time.Duration {
+// parseIdleTimeout returns the idle timeout to use. When noIdleTimeout is
+// true or HTMLGRAPH_OTEL_IDLE_TIMEOUT env var is "0" or "never", returns
+// noIdleTimeoutDuration (24 h) so the collector outlives any real session.
+// Otherwise respects the env var, then falls back to defaultIdleTimeout.
+func parseIdleTimeout(noIdleTimeout bool) time.Duration {
+	if noIdleTimeout {
+		return noIdleTimeoutDuration
+	}
 	if s := os.Getenv("HTMLGRAPH_OTEL_IDLE_TIMEOUT"); s != "" {
+		if s == "0" || s == "never" {
+			return noIdleTimeoutDuration
+		}
 		if d, err := time.ParseDuration(s); err == nil && d > 0 {
 			return d
 		}

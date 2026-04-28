@@ -156,6 +156,15 @@ func runParentServer(bind string, port int) error {
 
 	mux := buildParentMux(sup)
 
+	// One-time startup prune: self-heal a corrupted registry by removing
+	// entries whose .htmlgraph/ directory no longer exists, then save.
+	// This runs once at server startup so stale entries from previous test
+	// runs or deleted projects don't accumulate indefinitely. Best-effort:
+	// errors are silently ignored so a broken registry never blocks startup.
+	if reg, err := registry.Load(registry.DefaultPath()); err == nil {
+		_ = reg.Save() // Save calls Prune internally before writing.
+	}
+
 	addr := fmt.Sprintf("%s:%d", bind, port)
 
 	// Auto-detect & print URLs.

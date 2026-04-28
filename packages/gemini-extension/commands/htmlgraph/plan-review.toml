@@ -57,8 +57,9 @@ Open the Codex Interoperability plan for review
 
 4. Wait for the user to finalize. Check progress with:
    ```bash
-   sqlite3 .htmlgraph/htmlgraph.db \
-     "SELECT COUNT(*) FROM plan_feedback WHERE plan_id='<plan-id>' AND action='approve' AND value='True'"
+   # JSON output — count approvals[*].approved == true entries to gauge progress.
+   # Don't use sqlite3 directly; the canonical DB lives in the OS user cache dir.
+   htmlgraph plan feedback <plan-id>
    ```
 
 '''

@@ -24,9 +24,6 @@ func codexConfigPath() string {
 	return filepath.Join(home, ".codex", "config.toml")
 }
 
-// codexMarketplaceSection is the TOML key that indicates our marketplace is registered.
-const codexMarketplaceSection = `[marketplaces.erinn]`
-
 // isCodexMarketplaceInstalledAt is the testable core that reads the given path.
 func isCodexMarketplaceInstalledAt(configPath string) bool {
 	data, err := os.ReadFile(configPath)
@@ -35,6 +32,7 @@ func isCodexMarketplaceInstalledAt(configPath string) bool {
 	}
 	content := string(data)
 	return strings.Contains(content, "[marketplaces.erinn]") ||
+		strings.Contains(content, `[plugins."erinn@erinn"]`) ||
 		strings.Contains(content, `[plugins."htmlgraph@htmlgraph"]`)
 }
 
@@ -56,7 +54,7 @@ func isCodexHooksEnabledAt(configPath string) bool {
 	return false
 }
 
-// getCodexMarketplacePathAt parses config.toml and returns the registered htmlgraph
+// getCodexMarketplacePathAt parses config.toml and returns the registered erinn
 // marketplace path, or empty string if not found.
 func getCodexMarketplacePathAt(configPath string) string {
 	data, err := os.ReadFile(configPath)
@@ -81,14 +79,16 @@ func getCodexMarketplacePathAt(configPath string) string {
 		}
 	}
 
-	// Check [plugins."htmlgraph@htmlgraph"]
+	// Check plugin entries for both current and legacy names.
 	if plugins, ok := tree["plugins"].(map[string]any); ok {
-		if hg, ok := plugins["htmlgraph@htmlgraph"].(map[string]any); ok {
-			if source, ok := hg["source"].(string); ok {
-				return source
-			}
-			if path, ok := hg["path"].(string); ok {
-				return path
+		for _, key := range []string{"erinn@erinn", "htmlgraph@htmlgraph"} {
+			if hg, ok := plugins[key].(map[string]any); ok {
+				if source, ok := hg["source"].(string); ok {
+					return source
+				}
+				if path, ok := hg["path"].(string); ok {
+					return path
+				}
 			}
 		}
 	}
@@ -96,9 +96,9 @@ func getCodexMarketplacePathAt(configPath string) string {
 	return ""
 }
 
-// removeCodexHtmlgraphRegistrations removes any HtmlGraph marketplace or plugin
+// removeCodexHtmlgraphRegistrations removes any Erinn/HtmlGraph marketplace or plugin
 // registrations from the given config.toml file. It is idempotent — if the file
-// does not exist or contains no htmlgraph entries, it is a no-op.
+// does not exist or contains no matching entries, it is a no-op.
 // Returns (removed bool, error). removed=true indicates at least one entry was deleted.
 func removeCodexHtmlgraphRegistrations(configPath string) (bool, error) {
 	// Read existing config, if any
@@ -120,11 +120,13 @@ func removeCodexHtmlgraphRegistrations(configPath string) (bool, error) {
 
 	removed := false
 
-	// Remove from [plugins] — only the exact "htmlgraph@htmlgraph" entry
+	// Remove from [plugins] — current and legacy exact entries only.
 	if plugins, ok := tree["plugins"].(map[string]any); ok {
-		if _, exists := plugins["htmlgraph@htmlgraph"]; exists {
-			delete(plugins, "htmlgraph@htmlgraph")
-			removed = true
+		for _, key := range []string{"erinn@erinn", "htmlgraph@htmlgraph"} {
+			if _, exists := plugins[key]; exists {
+				delete(plugins, key)
+				removed = true
+			}
 		}
 		// If [plugins] is now empty, remove the whole section
 		if len(plugins) == 0 {
@@ -132,11 +134,13 @@ func removeCodexHtmlgraphRegistrations(configPath string) (bool, error) {
 		}
 	}
 
-	// Remove from [marketplaces] — the "htmlgraph" entry
+	// Remove from [marketplaces] — current and legacy entries.
 	if mkts, ok := tree["marketplaces"].(map[string]any); ok {
-		if _, exists := mkts["htmlgraph"]; exists {
-			delete(mkts, "htmlgraph")
-			removed = true
+		for _, key := range []string{"erinn", "htmlgraph"} {
+			if _, exists := mkts[key]; exists {
+				delete(mkts, key)
+				removed = true
+			}
 		}
 		// If [marketplaces] is now empty, remove the whole section
 		if len(mkts) == 0 {
@@ -227,7 +231,8 @@ func codexCmd() *cobra.Command {
 
 Modes:
   htmlgraph codex                   Launch Codex interactively with HtmlGraph env.
-  htmlgraph codex --init            Install the HtmlGraph Codex marketplace (idempotent).
+  htmlgraph codex install           Install the Erinn Codex plugin (idempotent).
+  htmlgraph codex --init            Alias for htmlgraph codex install --remote.
   htmlgraph codex --continue        Resume the last Codex session (codex resume --last).
   htmlgraph codex --resume <id>     Resume a specific Codex session by ID.
   htmlgraph codex --dev             Register local packages/codex-marketplace/ and launch.
@@ -262,44 +267,115 @@ Session IDs come from ~/.codex/session_index.jsonl.`,
 	cmd.Flags().StringVar(&worktreePath, "worktree", "", "Explicit worktree path (overrides --track/--feature resolution)")
 	cmd.Flags().StringVar(&workItem, "work-item", "", "Work item ID for attribution prefix (e.g., feat-15c458aa)")
 
+	cmd.AddCommand(codexInstallCmd())
+
 	return cmd
 }
 
-// runCodexInit installs the HtmlGraph Codex marketplace plugin, idempotently.
-// Corresponds to: htmlgraph codex --init
+type codexInstallOpts struct {
+	Yes    bool
+	DryRun bool
+	Local  bool
+	Remote bool
+	Source string
+}
+
+func codexInstallCmd() *cobra.Command {
+	var opts codexInstallOpts
+	cmd := &cobra.Command{
+		Use:   "install",
+		Short: "Install the Erinn Codex plugin",
+		Long: `Install the Erinn Codex plugin by registering a Codex plugin marketplace
+and enabling Codex hook support.
+
+By default, this installs from the local generated marketplace at
+packages/codex-marketplace/ when run inside the Erinn repo. Use --remote to
+register the GitHub marketplace instead.`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runCodexInstall(opts)
+		},
+	}
+	cmd.Flags().BoolVar(&opts.Local, "local", false, "Install from local packages/codex-marketplace/ (default inside this repo)")
+	cmd.Flags().BoolVar(&opts.Remote, "remote", false, "Install from the GitHub marketplace")
+	cmd.Flags().StringVar(&opts.Source, "source", "", "Explicit Codex marketplace source path or repo")
+	cmd.Flags().BoolVar(&opts.DryRun, "dry-run", false, "Print what would happen without executing")
+	cmd.Flags().BoolVar(&opts.Yes, "yes", false, "Answer yes to all prompts (non-interactive)")
+	return cmd
+}
+
+// runCodexInit installs the Erinn Codex marketplace plugin, idempotently.
+// Corresponds to legacy: htmlgraph codex --init
+// Kept as a remote alias so existing automation keeps working.
+func runCodexInit(yes, dryRun bool) error {
+	return runCodexInstall(codexInstallOpts{Yes: yes, DryRun: dryRun, Remote: true})
+}
+
+func codexMarketplaceAddArgs(source string, sparse string) []string {
+	args := []string{"plugin", "marketplace", "add", source}
+	if sparse != "" {
+		args = append(args, "--sparse", sparse)
+	}
+	return args
+}
+
+// runCodexInstall installs the Erinn Codex marketplace plugin, idempotently.
 // Phase 1: Install / verify marketplace (idempotent).
 // Phase 2: Check codex_hooks — prompt user if not set.
-func runCodexInit(yes, dryRun bool) error {
+func runCodexInstall(opts codexInstallOpts) error {
+	if opts.Local && opts.Remote {
+		return fmt.Errorf("choose only one of --local or --remote")
+	}
+
 	configPath := codexConfigPath()
+	source := opts.Source
+	sparse := ""
+
+	switch {
+	case source != "":
+		// Explicit source is passed straight through.
+	case opts.Remote:
+		source = codexMarketplaceRepo
+		sparse = codexMarketplaceSparse
+	default:
+		localMarketplace, err := resolveLocalCodexMarketplace()
+		if err != nil {
+			if opts.Local {
+				return err
+			}
+			source = codexMarketplaceRepo
+			sparse = codexMarketplaceSparse
+		} else {
+			source = localMarketplace
+		}
+	}
 
 	// Phase 1: Install or verify marketplace.
 	marketplaceInstalled := isCodexMarketplaceInstalledAt(configPath)
 	if !marketplaceInstalled {
-		addArgs := []string{
-			"marketplace", "add",
-			codexMarketplaceRepo,
-			"--sparse", codexMarketplaceSparse,
+		addArgs := codexMarketplaceAddArgs(source, sparse)
+		fmt.Printf("Installing Erinn Codex marketplace...\n")
+		fmt.Printf("  source: %s\n", source)
+		if sparse != "" {
+			fmt.Printf("  sparse: %s\n", sparse)
 		}
-		fmt.Printf("Installing HtmlGraph Codex marketplace...\n")
-		fmt.Printf("  repo: %s  sparse: %s\n", codexMarketplaceRepo, codexMarketplaceSparse)
 
-		if dryRun {
+		if opts.DryRun {
 			fmt.Printf("[dry-run] codex %s\n", strings.Join(addArgs, " "))
 		} else {
 			if out, err := exec.Command("codex", addArgs...).CombinedOutput(); err != nil {
 				return fmt.Errorf("codex marketplace add failed: %w\n%s", err, strings.TrimSpace(string(out)))
 			}
-			fmt.Println("HtmlGraph Codex marketplace installed.")
+			fmt.Println("Erinn Codex marketplace installed.")
 		}
 	} else {
-		fmt.Println("HtmlGraph Codex marketplace is already installed.")
+		fmt.Println("Erinn Codex marketplace is already installed.")
 	}
 
 	// Phase 2: Check and optionally enable codex_hooks feature flag.
 	// This runs on every --init so partial setups can be repaired.
 	if !isCodexHooksEnabledAt(configPath) {
-		if promptYesNo("Enable the codex_hooks feature flag in ~/.codex/config.toml?", yes) {
-			if dryRun {
+		if promptYesNo("Enable the codex_hooks feature flag in ~/.codex/config.toml?", opts.Yes) {
+			if opts.DryRun {
 				fmt.Println("[dry-run] would enable codex_hooks = true in ~/.codex/config.toml")
 			} else {
 				if err := ensureCodexHooksEnabled(configPath); err != nil {
@@ -314,7 +390,7 @@ func runCodexInit(yes, dryRun bool) error {
 	}
 
 	fmt.Println()
-	fmt.Println("Setup complete. Run: htmlgraph codex")
+	fmt.Println("Setup complete. Run: erinn codex")
 	return nil
 }
 
@@ -434,7 +510,7 @@ func launchCodexDev(resumeID string, cleanup, dryRun bool, extraArgs []string) e
 
 	// Add the local marketplace if not already registered at the correct path
 	if registeredAbs != localAbs {
-		addArgs := []string{"marketplace", "add", localMarketplace}
+		addArgs := codexMarketplaceAddArgs(localMarketplace, "")
 		if dryRun {
 			fmt.Printf("[dry-run] codex %s\n", strings.Join(addArgs, " "))
 		} else {

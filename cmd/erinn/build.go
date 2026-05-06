@@ -14,8 +14,8 @@ func buildCmd() *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "build",
-		Short: "Rebuild the htmlgraph binary",
-		Long:  "Rebuild the htmlgraph Go binary using the build script in the plugin directory.",
+		Short: "Rebuild the erinn binary",
+		Long:  "Rebuild the erinn Go binary using the build script in the plugin directory.",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			buildScript, err := resolveBuildScript()
 			if err != nil {

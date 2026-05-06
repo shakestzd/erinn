@@ -160,8 +160,8 @@ func launchClaudeDev(extraArgs []string, auto bool, resumeID, name string) error
 		return fmt.Errorf("plugin.json not found at %s",
 			filepath.Join(pluginDir, ".claude-plugin", "plugin.json"))
 	}
-	if _, err := exec.LookPath("htmlgraph"); err != nil {
-		return fmt.Errorf("htmlgraph binary not found on PATH\nBuild with: htmlgraph build (or plugin/build.sh)")
+	if _, err := exec.LookPath("erinn"); err != nil {
+		return fmt.Errorf("erinn binary not found on PATH\nBuild with: erinn build (or plugin/build.sh)")
 	}
 
 	// Resolve project root so paths are anchored correctly regardless of CWD.

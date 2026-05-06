@@ -314,8 +314,8 @@ func launchYoloDev(trackID, featureID string, noWorktree bool, resumeID, name st
 		return fmt.Errorf("plugin.json not found at %s",
 			filepath.Join(pluginDir, ".claude-plugin", "plugin.json"))
 	}
-	if _, err := exec.LookPath("htmlgraph"); err != nil {
-		return fmt.Errorf("htmlgraph binary not found on PATH\nBuild with: htmlgraph build (or plugin/build.sh)")
+	if _, err := exec.LookPath("erinn"); err != nil {
+		return fmt.Errorf("erinn binary not found on PATH\nBuild with: erinn build (or plugin/build.sh)")
 	}
 
 	projectRoot := ""

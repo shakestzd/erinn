@@ -69,6 +69,11 @@ else
     go build -ldflags "-s -w -X main.version=${VERSION}" \
         -o "${INSTALL_DIR}/erinn" ./cmd/erinn/
     chmod +x "${INSTALL_DIR}/erinn"
+    if [ ! -e "${INSTALL_DIR}/htmlgraph" ] || [ -L "${INSTALL_DIR}/htmlgraph" ]; then
+        ln -sfn "${INSTALL_DIR}/erinn" "${INSTALL_DIR}/htmlgraph"
+    else
+        echo "Note: ${INSTALL_DIR}/htmlgraph already exists; leaving it untouched."
+    fi
     echo "${VERSION}" > "${META_DIR}/.binary-version"
     echo "Installed: ${INSTALL_DIR}/erinn (v${VERSION})"
 fi

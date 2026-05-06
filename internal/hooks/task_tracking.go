@@ -9,22 +9,26 @@ import (
 	"time"
 )
 
-// selfBinary returns the path to the htmlgraph binary for self-invocation.
+// selfBinary returns the path to the erinn binary for self-invocation.
 // Resolution order:
 //  1. CLAUDE_PLUGIN_ROOT env var (always correct in hook context)
 //  2. os.Executable() (correct when called from the binary itself)
-//  3. "htmlgraph" on PATH (fallback)
+//  3. "erinn" on PATH (fallback)
 func selfBinary() string {
 	if root := os.Getenv("CLAUDE_PLUGIN_ROOT"); root != "" {
-		candidate := filepath.Join(root, "hooks", "bin", "htmlgraph")
+		candidate := filepath.Join(root, "hooks", "bin", "erinn")
 		if _, err := os.Stat(candidate); err == nil {
 			return candidate
+		}
+		legacyCandidate := filepath.Join(root, "hooks", "bin", "htmlgraph")
+		if _, err := os.Stat(legacyCandidate); err == nil {
+			return legacyCandidate
 		}
 	}
 	if exe, err := os.Executable(); err == nil {
 		return exe
 	}
-	return "htmlgraph"
+	return "erinn"
 }
 
 // addTaskStep shells out to the htmlgraph CLI to add a step to the active
@@ -72,4 +76,3 @@ func inferTypeName(id string) string {
 		return "feature"
 	}
 }
-

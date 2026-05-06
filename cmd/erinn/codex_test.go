@@ -43,6 +43,11 @@ func TestCodexParsingFlags(t *testing.T) {
 			wantInit: true,
 		},
 		{
+			name:     "install with --dry-run",
+			args:     []string{"install", "--dry-run", "--yes"},
+			wantInit: false,
+		},
+		{
 			name:     "--help",
 			args:     []string{"--help"},
 			wantInit: false,
@@ -106,6 +111,29 @@ func TestIsCodexMarketplaceInstalledAt(t *testing.T) {
 	if !isCodexMarketplaceInstalledAt(configPath) {
 		t.Errorf("expected true when plugin section exists")
 	}
+
+	// Test 5: File contains the current plugin section variant
+	err = os.WriteFile(configPath, []byte(`[plugins."erinn@erinn"]`+"\n"), 0644)
+	if err != nil {
+		t.Fatalf("WriteFile: %v", err)
+	}
+	if !isCodexMarketplaceInstalledAt(configPath) {
+		t.Errorf("expected true when erinn plugin section exists")
+	}
+}
+
+func TestCodexMarketplaceAddArgs(t *testing.T) {
+	got := codexMarketplaceAddArgs("shakestzd/erinn", "packages/codex-marketplace")
+	want := []string{"plugin", "marketplace", "add", "shakestzd/erinn", "--sparse", "packages/codex-marketplace"}
+	if strings.Join(got, "\x00") != strings.Join(want, "\x00") {
+		t.Fatalf("codexMarketplaceAddArgs remote:\n got %#v\nwant %#v", got, want)
+	}
+
+	got = codexMarketplaceAddArgs("/repo/packages/codex-marketplace", "")
+	want = []string{"plugin", "marketplace", "add", "/repo/packages/codex-marketplace"}
+	if strings.Join(got, "\x00") != strings.Join(want, "\x00") {
+		t.Fatalf("codexMarketplaceAddArgs local:\n got %#v\nwant %#v", got, want)
+	}
 }
 
 // TestIsCodexHooksEnabledAt verifies the hooks feature flag detection logic.
@@ -158,10 +186,10 @@ func TestIsCodexHooksEnabledAt(t *testing.T) {
 // TestPromptYesNo verifies the yes/no prompt logic.
 func TestPromptYesNo(t *testing.T) {
 	tests := []struct {
-		name      string
-		autoYes   bool
-		wantResp  bool
-		question  string
+		name     string
+		autoYes  bool
+		wantResp bool
+		question string
 	}{
 		{
 			name:     "auto-yes returns true immediately",
@@ -327,6 +355,12 @@ func TestGetCodexMarketplacePathAt(t *testing.T) {
 				"\"htmlgraph@htmlgraph\" = {source = \"/plugin/path\"}\n",
 			want: "/plugin/path",
 		},
+		{
+			name: "current plugins variant",
+			content: "[plugins]\n" +
+				"\"erinn@erinn\" = {source = \"/erinn/plugin/path\"}\n",
+			want: "/erinn/plugin/path",
+		},
 	}
 
 	for _, tt := range tests {
@@ -352,12 +386,14 @@ func TestRemoveCodexHtmlgraphRegistrations(t *testing.T) {
 	tmpdir := t.TempDir()
 	configPath := filepath.Join(tmpdir, "config.toml")
 
-	// Create a realistic config with htmlgraph entries plus other unrelated config
+	// Create a realistic config with erinn/htmlgraph entries plus other unrelated config
 	initialContent := `[plugins]
+"erinn@erinn" = {source = "/new/path"}
 "htmlgraph@htmlgraph" = {source = "/old/path"}
 "github@openai-curated" = {source = "https://github.com/openai/curated"}
 
 [marketplaces]
+erinn = {source = "/new/marketplace/path"}
 htmlgraph = {source = "/also/old/path"}
 other_marketplace = {source = "https://other.com"}
 
@@ -388,8 +424,14 @@ some_feature = true
 	if strings.Contains(content, `"htmlgraph@htmlgraph"`) {
 		t.Errorf("htmlgraph@htmlgraph should be removed but is still present")
 	}
+	if strings.Contains(content, `"erinn@erinn"`) {
+		t.Errorf("erinn@erinn should be removed but is still present")
+	}
 	if strings.Contains(content, "htmlgraph = ") {
-		t.Errorf("[marketplaces.erinn] should be removed but is still present")
+		t.Errorf("legacy htmlgraph marketplace should be removed but is still present")
+	}
+	if strings.Contains(content, "erinn = ") {
+		t.Errorf("erinn marketplace should be removed but is still present")
 	}
 
 	// Other entries must be preserved
@@ -480,4 +522,3 @@ func TestCodexFlagsParseWorktree(t *testing.T) {
 		t.Fatal("codexCmd missing --work-item flag")
 	}
 }
-

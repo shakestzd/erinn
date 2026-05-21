@@ -10,15 +10,15 @@
 <body>
     <article id="bug-900f6655"
              data-type="bug"
-             data-status="in-progress"
+             data-status="done"
              data-priority="high"
              data-created="2026-05-21T22:53:01.206987"
-             data-updated="2026-05-21T22:56:18.022605" data-agent-assigned="claude-code" data-track-id="trk-0677c709" data-created-by-agent="claude-code" data-created-by-model="claude-opus-4-7[1m]" data-created-by-cli-version="0.60.8">
+             data-updated="2026-05-21T23:10:33.087382" data-agent-assigned="claude-code" data-track-id="trk-0677c709" data-created-by-agent="claude-code" data-created-by-model="claude-opus-4-7[1m]" data-created-by-cli-version="0.60.8">
 
         <header>
             <h1>feature complete unbypassable in non-Python projects: gate hardcodes pytest, --allow-dirty &#43; --accepted-advisory don&#39;t compose (issue #114)</h1>
             <div class="metadata">
-                <span class="badge status-in-progress">In Progress</span>
+                <span class="badge status-done">Done</span>
                 <span class="badge priority-high">High Priority</span>
             </div>
         </header>
@@ -40,7 +40,8 @@
 
         <section data-content>
             <h3>Description</h3>
-            <p>Two coupled root causes. (1) check --gate spawns pytest even with no pyproject.toml/requirements.txt; should detect project type by manifest like Go/JS and treat 'no applicable test runner' as pass. (2) The three completion guards (dirty-tree, no-commit advisory, passing-gate record) chain instead of compose; --accepted-advisory and --allow-dirty don't bypass the gate guard, leaving no legitimate close path.</p>
+            <p>Two coupled root causes. (1) check --gate spawns pytest even with no pyproject.toml/requirements.txt; should detect project type by manifest like Go/JS and treat 'no applicable test runner' as pass. (2) The three completion guards (dirty-tree, no-commit advisory, passing-gate record) chain instead of compose; --accepted-advisory and --allow-dirty don't bypass the gate guard, leaving no legitimate close path.
+[2026-05-21 23:10 claude-code] accepted-advisory (provenance override): orchestrator handles commit/PR; implementation verified by full quality gate pass</p>
         </section>
     </article>
 </body>

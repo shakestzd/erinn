@@ -286,3 +286,83 @@ func TestLoadGateAllowlist_MissingFileReturnsEmpty(t *testing.T) {
 		t.Fatalf("expected nil or empty allowlist, got %d entries", len(entries))
 	}
 }
+
+// TestDetectGatePlan_NoManifest_IsNoOp verifies that a directory with no
+// recognised project manifest resolves to a zero-command passing plan rather
+// than a hard error (Fix 1).
+func TestDetectGatePlan_NoManifest_IsNoOp(t *testing.T) {
+	projectRoot := t.TempDir() // empty dir — no go.mod, package.json, etc.
+	plan, err := detectGatePlan(projectRoot)
+	if err != nil {
+		t.Fatalf("detectGatePlan on manifest-less dir returned error: %v", err)
+	}
+	if len(plan.Commands) != 0 {
+		t.Fatalf("expected zero commands for no-op plan, got %d", len(plan.Commands))
+	}
+}
+
+// TestRunSessionGate_NoManifest_PassAndPersist verifies that runSessionGate on a
+// manifest-less directory: (a) returns no error, (b) returns a passing result,
+// and (c) writes a valid passing gate record to the DB (Fix 1).
+func TestRunSessionGate_NoManifest_PassAndPersist(t *testing.T) {
+	// Set up a project root that has .wipnote/ structure but NO go.mod /
+	// package.json / pyproject.toml / Cargo.toml.
+	projectRoot := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(projectRoot, ".wipnote", "features"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	result, err := runSessionGate(projectRoot, "sess-noop-manifest", "feat-noop", "check", os.Stdout, os.Stderr)
+	if err != nil {
+		t.Fatalf("runSessionGate on manifest-less root: %v", err)
+	}
+	if !result.Passed {
+		t.Fatal("expected no-op plan to pass")
+	}
+
+	database := openGateTestDB(t, projectRoot)
+	defer database.Close()
+
+	record, err := dbpkg.LatestGateRecordForSession(database, "sess-noop-manifest")
+	if err != nil {
+		t.Fatalf("LatestGateRecordForSession: %v", err)
+	}
+	if record == nil {
+		t.Fatal("expected gate record to be persisted")
+	}
+	if record.Status != "pass" {
+		t.Fatalf("gate record status = %q, want pass", record.Status)
+	}
+	if !record.SignatureValid() {
+		t.Fatal("gate record signature invalid")
+	}
+	if !strings.Contains(record.OutputSummary, "no-op") {
+		t.Fatalf("output summary should indicate no-op, got %q", record.OutputSummary)
+	}
+}
+
+// TestRunSessionGate_GoProject_StillRuns verifies the regression case: a real Go
+// project still runs go build / go vet / go test (Fix 1 must not regress the
+// happy path).
+func TestRunSessionGate_GoProject_StillRuns(t *testing.T) {
+	projectRoot := setupGateTestProject(t) // creates go.mod + main.go
+	result, err := runSessionGate(projectRoot, "sess-go-regression", "", "check", os.Stdout, os.Stderr)
+	if err != nil {
+		t.Fatalf("runSessionGate on Go project: %v", err)
+	}
+	if !result.Passed {
+		t.Fatalf("expected Go project gate to pass, summary: %s", result.OutputSummary)
+	}
+	if len(result.Commands) == 0 {
+		t.Fatal("expected Go gate to run commands")
+	}
+	hasGoTest := false
+	for _, cmd := range result.Commands {
+		if strings.Contains(cmd, "go test") {
+			hasGoTest = true
+		}
+	}
+	if !hasGoTest {
+		t.Fatalf("expected go test in gate commands, got %v", result.Commands)
+	}
+}

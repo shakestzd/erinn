@@ -291,7 +291,15 @@ func wiSetStatusWithAgent(typeName, id, status, sessionID, agentID string) error
 		}
 	}
 	if status == "done" && shouldAutocommitWorkitemArtifact(typeName) {
-		if err := checkCompletionGateRecord(p.DB, filepath.Dir(dir), sessionID, id); err != nil {
+		if strings.TrimSpace(wiAcceptedAdvisory) != "" {
+			// --accepted-advisory is an audited override that composes past the
+			// gate-record guard in the same way it already overrides the
+			// provenance gate above. The rationale is already being recorded on
+			// the artifact by checkProvenanceCompleteGate; we simply skip guard 4
+			// here so the operator is not double-blocked when the gate cannot
+			// produce a passing record (e.g. manifest-less or broken runner).
+			fmt.Fprintln(os.Stderr, "gate-record check bypassed via --accepted-advisory")
+		} else if err := checkCompletionGateRecord(p.DB, filepath.Dir(dir), sessionID, id); err != nil {
 			return err
 		}
 	}

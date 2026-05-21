@@ -55,7 +55,15 @@ type gateRunResult struct {
 func detectGatePlan(projectRoot string) (gatePlan, error) {
 	manifestDir, manifestName, projectType := detectManifest(projectRoot)
 	if projectType == paths.ProjectTypeUnknown {
-		return gatePlan{}, fmt.Errorf("no supported project manifest found under %s", projectRoot)
+		// No supported manifest detected — resolve to a zero-command no-op plan
+		// that passes trivially. This covers pure-documentation repos and any
+		// project layout we do not yet recognise. A DETECTED type (Go/JS/Python/
+		// Rust) whose runner is unavailable must still run and may fail; that
+		// case is covered by --accepted-advisory, not by this no-op path.
+		return gatePlan{
+			ProjectType: paths.ProjectTypeUnknown,
+			ManifestDir: projectRoot,
+		}, nil
 	}
 	plan := gatePlan{
 		ProjectType: projectType,
@@ -130,6 +138,24 @@ func runSessionGate(projectRoot, sessionID, workItemID, source string, stdout, s
 	if err != nil {
 		return nil, err
 	}
+
+	// No-op path: unknown project type has zero commands and passes trivially.
+	if plan.ProjectType == paths.ProjectTypeUnknown {
+		fmt.Fprintln(stdout, "no supported project manifest detected — treating quality gate as a no-op pass")
+		result := &gateRunResult{
+			Plan:          plan,
+			Passed:        true,
+			Commands:      []string{},
+			OutputSummary: "no-op: no supported project manifest",
+		}
+		record, err := persistGateRecord(projectRoot, sessionID, workItemID, source, result)
+		if err != nil {
+			return nil, err
+		}
+		result.Record = record
+		return result, nil
+	}
+
 	allowlist, err := loadGateAllowlist(projectRoot)
 	if err != nil {
 		return nil, err

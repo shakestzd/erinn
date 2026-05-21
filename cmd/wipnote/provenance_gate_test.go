@@ -298,6 +298,43 @@ func TestCodeBearingPaths_ExcludesTmpScratch(t *testing.T) {
 	}
 }
 
+// TestGateRecordGuard_AdvisoryBypassesGateRecord verifies Fix 2: when
+// --accepted-advisory is set, the gate-record guard (guard 4) is skipped so
+// `feature/bug/spike complete --allow-dirty --accepted-advisory "<reason>"` can
+// succeed even when no passing gate record exists in the DB.
+func TestGateRecordGuard_AdvisoryBypassesGateRecord(t *testing.T) {
+	for _, tc := range []string{"feature", "bug", "spike"} {
+		t.Run(tc, func(t *testing.T) {
+			_, hgDir := prepProject(t)
+			trackID := testSetupTrack(t, hgDir)
+			id := createItem(t, hgDir, tc, "Advisory Bypass "+tc, trackID)
+			// Make the item code-bearing so the gate-record guard fires at all.
+			seedFeatureFile(t, hgDir, id, "internal/foo/bar.go")
+			// Seed a linked commit so the provenance gate (guard 3) also passes.
+			seedProvCommit(t, hgDir, id, "cafebabe00000001")
+
+			// Do NOT call seedPassingGateRecord — gate-record guard must be
+			// bypassed by --accepted-advisory alone.
+			const reason = "no gate record available; accepted-advisory bypasses guard 4"
+			wiAcceptedAdvisory = reason
+			wiAllowDirtyComplete = true
+			t.Cleanup(func() {
+				wiAcceptedAdvisory = ""
+				wiAllowDirtyComplete = false
+			})
+
+			if err := runWiSetStatus(tc, id, "done"); err != nil {
+				t.Fatalf("expected complete to succeed with --accepted-advisory, got: %v", err)
+			}
+			dirName := tc + "s"
+			node, _ := htmlparse.ParseFile(filepath.Join(hgDir, dirName, id+".html"))
+			if node.Status != models.StatusDone {
+				t.Errorf("%s should be done after advisory bypass, status=%s", tc, node.Status)
+			}
+		})
+	}
+}
+
 // TestCodeBearingPaths_ExcludesUnresolvedPrefix verifies that paths with the
 // "unresolved:" sentinel prefix are not counted as code-bearing.
 func TestCodeBearingPaths_ExcludesUnresolvedPrefix(t *testing.T) {

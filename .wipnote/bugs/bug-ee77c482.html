@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>wipnote codex: marketplace registration fails — &#39;local marketplace source must be a directory, not a file&#39; (v0.60.9)</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="bug-ee77c482"
+             data-type="bug"
+             data-status="todo"
+             data-priority="high"
+             data-created="2026-05-22T03:17:54.561707"
+             data-updated="2026-05-22T03:17:54.570935" data-agent-assigned="claude-code" data-track-id="trk-0677c709" data-created-by-agent="claude-code" data-created-by-model="claude-opus-4-7[1m]" data-created-by-cli-version="0.60.8-20-g71829244c">
+
+        <header>
+            <h1>wipnote codex: marketplace registration fails — &#39;local marketplace source must be a directory, not a file&#39; (v0.60.9)</h1>
+            <div class="metadata">
+                <span class="badge status-todo">Todo</span>
+                <span class="badge priority-high">High Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="trk-0677c709.html" data-relationship="part_of" data-since="2026-05-22T03:17:54.570695">trk-0677c709</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>After 'wipnote upgrade' to v0.60.9 on darwin/arm64, 'wipnote codex' fails to register the wipnote marketplace with Codex CLI: exit status 1, Output: 'Error: local marketplace source must be a directory, not a file'. Result: Codex session runs WITHOUT wipnote agents. wipnote is passing a file path as the Codex marketplace source where Codex expects a directory. Hint in error mentions stale [plugins."wipnote@wipnote"] entry in ~/.codex/config.toml and 'wipnote codex --init'.</p>
+        </section>
+    </article>
+</body>
+</html>

@@ -114,7 +114,7 @@ func claudeCmd() *cobra.Command {
 // defaultSessionName builds a default session label: <project-slug>-<timestamp>.
 // projectRoot may be empty, in which case the label is just the timestamp.
 func defaultSessionName(projectRoot string) string {
-	ts := time.Now().UTC().Format("20060102-150405")
+	ts := time.Now().Format("20060102-150405")
 	if projectRoot == "" {
 		return ts
 	}

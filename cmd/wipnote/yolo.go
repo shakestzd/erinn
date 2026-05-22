@@ -77,7 +77,7 @@ Without either flag, launches in planning mode to help you create one first.`,
 // When a trackID or featureID is provided, it resolves the track title and
 // builds "<track-slug>-yolo-<timestamp>". Falls back to "<project-slug>-yolo-<timestamp>".
 func yoloDefaultName(trackID, featureID, projectRoot string) string {
-	ts := time.Now().Format("20060102-150405")
+	ts := time.Now().Format("20060102-15.04.05")
 	trackTitle := resolveTrackTitle(trackID, featureID, projectRoot)
 	if trackTitle != "" {
 		s := slug.Make(trackTitle, 30)

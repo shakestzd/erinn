@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>Session-name timestamp uses UTC instead of local machine timezone</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="bug-9d07208b"
+             data-type="bug"
+             data-status="todo"
+             data-priority="low"
+             data-created="2026-05-22T01:39:49.354422"
+             data-updated="2026-05-22T01:39:49.362163" data-agent-assigned="claude-code" data-track-id="trk-0677c709" data-created-by-agent="claude-code" data-created-by-model="claude-opus-4-7[1m]" data-created-by-cli-version="0.60.8">
+
+        <header>
+            <h1>Session-name timestamp uses UTC instead of local machine timezone</h1>
+            <div class="metadata">
+                <span class="badge status-todo">Todo</span>
+                <span class="badge priority-low">Low Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="trk-0677c709.html" data-relationship="part_of" data-since="2026-05-22T01:39:49.361976">trk-0677c709</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>defaultSessionName (cmd/wipnote/claude.go) and yoloDefaultName (cmd/wipnote/yolo.go) format the session-label timestamp with time.Now().UTC().Format(20060102-150405), producing a confusing future/offset time (e.g. ...013719 at 21:37 local). Should use local time (time.Now()) so the session name reflects the user's clock.</p>
+        </section>
+    </article>
+</body>
+</html>

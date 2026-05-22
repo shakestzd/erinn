@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>Add readable time separators to session-name timestamp (use periods)</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="bug-7dffa39e"
+             data-type="bug"
+             data-status="in-progress"
+             data-priority="low"
+             data-created="2026-05-22T02:02:30.10005"
+             data-updated="2026-05-22T02:03:11.559187" data-agent-assigned="claude-code" data-track-id="trk-0677c709" data-created-by-agent="claude-code" data-created-by-model="claude-opus-4-7[1m]" data-created-by-cli-version="0.60.8-17-g795e8a7c1">
+
+        <header>
+            <h1>Add readable time separators to session-name timestamp (use periods)</h1>
+            <div class="metadata">
+                <span class="badge status-in-progress">In Progress</span>
+                <span class="badge priority-low">Low Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="trk-0677c709.html" data-relationship="part_of" data-since="2026-05-22T02:02:30.106711">trk-0677c709</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="implemented_in">
+                <h3>Implemented In:</h3>
+                <ul>
+                    <li><a href="3295369c-1a98-48bc-b0f8-911f331cef0f.html" data-relationship="implemented_in" data-since="2026-05-22T02:03:11.559009">session 3295369c-1a98-48bc-b0f8-911f331cef0f</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>Follow-up to the local-tz session-name fix: the time portion 150405 runs together (e.g. 220138). Use period separators in the time so it reads as a clock: format 20060102-15.04.05. Periods are filesystem- and git-ref-safe (colons are not). Same two sites: defaultSessionName (claude.go) and yoloDefaultName (yolo.go).</p>
+        </section>
+    </article>
+</body>
+</html>

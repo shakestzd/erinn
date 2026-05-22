@@ -588,8 +588,9 @@ func ingestCommitsFromRepo(database *sql.DB, repoDir, since string, limit int) (
 // ingestCommitClosingRe matches closing keywords followed by a work item ID.
 var ingestCommitClosingRe = regexp.MustCompile(`(?:completes?|closes?|fix(?:es)?|resolves?)\s+((?:feat|bug|spk)-[0-9a-f]{8})`)
 
-// ingestCommitParenRe matches parenthetical work item references, e.g. "(feat-abc12345)".
-var ingestCommitParenRe = regexp.MustCompile(`\(\s*((?:feat|bug|spk)-[0-9a-f]{8})\s*\)`)
+// ingestCommitParenRe matches parenthetical work item references, e.g. "(feat-abc12345)" or "(bug-900f6655, #114)".
+// Allows trailing tokens (e.g. issue numbers) inside the parens via [^)]*.
+var ingestCommitParenRe = regexp.MustCompile(`\(\s*((?:feat|bug|spk)-[0-9a-f]{8})\b[^)]*\)`)
 
 // extractFeatureIDFromCommitMsg returns the first work-item ID found in a
 // commit message. Checks closing-keyword pattern first, then parenthetical.

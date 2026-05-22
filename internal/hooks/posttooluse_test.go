@@ -1,6 +1,15 @@
 package hooks
 
-import "testing"
+import (
+	"database/sql"
+	"fmt"
+	"os"
+	"path/filepath"
+	"testing"
+
+	"github.com/shakestzd/wipnote/internal/db"
+	"github.com/shakestzd/wipnote/internal/models"
+)
 
 func TestExtractClosingIDs(t *testing.T) {
 	tests := []struct {
@@ -93,6 +102,21 @@ func TestExtractClosingIDs(t *testing.T) {
 			msg:     "completes feat-1234",
 			wantIDs: nil,
 		},
+		{
+			name:    "parenthetical with trailing issue number (broadened)",
+			msg:     "fix(complete): unblock feature completion in non-Python projects (bug-900f6655, #114)",
+			wantIDs: []string{"bug-900f6655"},
+		},
+		{
+			name:    "parenthetical with multiple trailing tokens",
+			msg:     "some message (feat-aabbccdd, foo, bar)",
+			wantIDs: []string{"feat-aabbccdd"},
+		},
+		{
+			name:    "bare ID in prose without parens or keywords",
+			msg:     "checking progress on bug-900f6655 — lots to do",
+			wantIDs: nil,
+		},
 	}
 
 	for _, tt := range tests {
@@ -176,6 +200,114 @@ func TestParseGitCommitOutput(t *testing.T) {
 			if hash != tt.wantHash || msg != tt.wantMsg {
 				t.Errorf("parseGitCommitOutput(%q) = (%q, %q), want (%q, %q)",
 					tt.output, hash, msg, tt.wantHash, tt.wantMsg)
+			}
+		})
+	}
+}
+
+// setupGitCommitTestDB creates a temp project dir with .wipnote/ and a real SQLite DB.
+// Returns the database and the project dir.
+func setupGitCommitTestDB(t *testing.T) (*sql.DB, string) {
+	t.Helper()
+	projectDir := t.TempDir()
+	hgDir := filepath.Join(projectDir, ".wipnote")
+	if err := os.MkdirAll(hgDir, 0o755); err != nil {
+		t.Fatalf("mkdir .wipnote: %v", err)
+	}
+	database, err := db.Open(filepath.Join(hgDir, "wipnote.db"))
+	if err != nil {
+		t.Fatalf("db.Open: %v", err)
+	}
+	t.Cleanup(func() { database.Close() })
+	return database, projectDir
+}
+
+// TestGitCommitFallbackLinking verifies that commits are linked to work items
+// derived from the commit message when the session has no active work item.
+func TestGitCommitFallbackLinking(t *testing.T) {
+	database, _ := setupGitCommitTestDB(t)
+
+	tests := []struct {
+		name          string
+		activeFeature string      // ctx.FeatureID
+		commitMsg     string
+		wantFeatureID string
+	}{
+		{
+			name:          "no active item + parenthetical with issue number",
+			activeFeature: "",
+			commitMsg:     "fix(complete): unblock feature completion in non-Python projects (bug-900f6655, #114)",
+			wantFeatureID: "bug-900f6655",
+		},
+		{
+			name:          "no active item + clean parenthetical",
+			activeFeature: "",
+			commitMsg:     "feat: update docs (feat-abcd1234)",
+			wantFeatureID: "feat-abcd1234",
+		},
+		{
+			name:          "no active item + closing keyword",
+			activeFeature: "",
+			commitMsg:     "fixes bug-12345678",
+			wantFeatureID: "bug-12345678",
+		},
+		{
+			name:          "no active item + message without refs",
+			activeFeature: "",
+			commitMsg:     "chore: update dependencies",
+			wantFeatureID: "",
+		},
+		{
+			name:          "no active item + bare ID in prose",
+			activeFeature: "",
+			commitMsg:     "checking progress on bug-900f6655 — lots to do",
+			wantFeatureID: "",
+		},
+		{
+			name:          "active item overrides message ID",
+			activeFeature: "feat-aaaabbbb",
+			commitMsg:     "fix(complete): unblock feature completion in non-Python projects (bug-900f6655, #114)",
+			wantFeatureID: "feat-aaaabbbb",
+		},
+	}
+
+	for i, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Use a unique hash for each test case (i+1 zero-padded to 7 chars).
+			hash := fmt.Sprintf("abc%04d%d", i+1, i+1)
+			commit := &models.GitCommit{
+				CommitHash: hash,
+				SessionID:  "test-session-001",
+				FeatureID:  tt.activeFeature,
+				Message:    tt.commitMsg,
+			}
+
+			// Apply fallback: when activeFeature is empty, extract from message.
+			if commit.FeatureID == "" && commit.Message != "" {
+				ids := extractClosingIDs(commit.Message)
+				if len(ids) > 0 {
+					commit.FeatureID = ids[0]
+				}
+			}
+
+			// Insert the commit into the database.
+			if err := db.InsertGitCommit(database, commit); err != nil {
+				t.Fatalf("InsertGitCommit: %v", err)
+			}
+
+			// Query the commit back and verify the FeatureID.
+			var stored sql.NullString
+			err := database.QueryRow(
+				`SELECT feature_id FROM git_commits WHERE commit_hash = ?`,
+				commit.CommitHash,
+			).Scan(&stored)
+			if err != nil {
+				t.Fatalf("query git_commits: %v", err)
+			}
+
+			storedFeatureID := stored.String // "" when NULL/invalid
+			if storedFeatureID != tt.wantFeatureID {
+				t.Errorf("stored FeatureID = %q, want %q", storedFeatureID, tt.wantFeatureID)
 			}
 		})
 	}

@@ -78,10 +78,20 @@ func PostToolUse(event *CloudEvent, database *sql.DB) (*HookResult, error) {
 	if event.ToolName == "Bash" {
 		if cmd := extractBashCommand(event.ToolInput); looksLikeGitCommit(cmd) {
 			if hash, msg := parseGitCommitOutput(summarizeToolOutput(event.ToolResult)); hash != "" {
+				featureID := ctx.FeatureID
+				// Fallback: when session has no active work item, derive the ID from commit message.
+				// Extract the first work-item ID from the commit message if present.
+				// Only use this when ctx.FeatureID is empty (never override an active session attribution).
+				if featureID == "" && msg != "" {
+					ids := extractClosingIDs(msg)
+					if len(ids) > 0 {
+						featureID = ids[0]
+					}
+				}
 				commit := &models.GitCommit{
 					CommitHash:  hash,
 					SessionID:   ctx.SessionID,
-					FeatureID:   ctx.FeatureID,
+					FeatureID:   featureID,
 					ToolEventID: eventID,
 					Message:     msg,
 					Timestamp:   time.Now().UTC(),
@@ -189,8 +199,9 @@ func PostToolUse(event *CloudEvent, database *sql.DB) (*HookResult, error) {
 var commitClosingRe = regexp.MustCompile(`(?:completes?|closes?|fix(?:es)?|resolves?)\s+((?:feat|bug|spk)-[0-9a-f]{8})`)
 
 // commitParenRe matches parenthetical work item references at the end of commit
-// messages, e.g. "(feat-abc12345)". This is the existing wipnote convention.
-var commitParenRe = regexp.MustCompile(`\(\s*((?:feat|bug|spk)-[0-9a-f]{8})\s*\)`)
+// messages, e.g. "(feat-abc12345)" or "(bug-900f6655, #114)".
+// Allows trailing tokens (e.g. issue numbers) inside the parens via [^)]*.
+var commitParenRe = regexp.MustCompile(`\(\s*((?:feat|bug|spk)-[0-9a-f]{8})\b[^)]*\)`)
 
 // extractClosingIDs parses a commit message for work item IDs that should be
 // auto-completed. It recognises two patterns:

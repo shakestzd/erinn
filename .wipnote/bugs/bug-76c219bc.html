@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>gemini-extension release archive uses **/* glob — latent dotdir-dropping repeat of codex marketplace archive bug</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="bug-76c219bc"
+             data-type="bug"
+             data-status="todo"
+             data-priority="low"
+             data-created="2026-05-23T08:10:14.006588"
+             data-updated="2026-05-23T08:10:14.015777" data-agent-assigned="claude-code" data-track-id="trk-0677c709" data-created-by-agent="claude-code" data-created-by-model="claude-opus-4-7[1m]" data-created-by-cli-version="0.60.8-20-g71829244c">
+
+        <header>
+            <h1>gemini-extension release archive uses **/* glob — latent dotdir-dropping repeat of codex marketplace archive bug</h1>
+            <div class="metadata">
+                <span class="badge status-todo">Todo</span>
+                <span class="badge priority-low">Low Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="trk-0677c709.html" data-relationship="part_of" data-since="2026-05-23T08:10:14.015253">trk-0677c709</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>Mirror of bug-ee77c482: .goreleaser.yml gemini-extension archive likely uses a **/* glob that drops hidden dotdirs. Harmless today (no dotdirs) but a latent repeat. Defensive: switch to whole-directory copy like the codex-marketplace fix.</p>
+        </section>
+    </article>
+</body>
+</html>

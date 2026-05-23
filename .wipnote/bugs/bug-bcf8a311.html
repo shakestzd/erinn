@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>yolo worktree branches from HEAD, leaving uncommitted main work behind (session not built on latest working state)</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="bug-bcf8a311"
+             data-type="bug"
+             data-status="todo"
+             data-priority="high"
+             data-created="2026-05-23T08:10:13.701172"
+             data-updated="2026-05-23T08:10:13.709956" data-agent-assigned="claude-code" data-track-id="trk-be293476" data-created-by-agent="claude-code" data-created-by-model="claude-opus-4-7[1m]" data-created-by-cli-version="0.60.8-20-g71829244c">
+
+        <header>
+            <h1>yolo worktree branches from HEAD, leaving uncommitted main work behind (session not built on latest working state)</h1>
+            <div class="metadata">
+                <span class="badge status-todo">Todo</span>
+                <span class="badge priority-high">High Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="trk-be293476.html" data-relationship="part_of" data-since="2026-05-23T08:10:13.709454">trk-be293476</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>wipnote yolo creates the worktree from current HEAD, so uncommitted/unstaged changes on main are not carried into the worktree. User expects to build on latest working state. Options: carry over tracked changes via patch-apply (leaving main untouched), or warn clearly. Data-safety sensitive.</p>
+        </section>
+    </article>
+</body>
+</html>

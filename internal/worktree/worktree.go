@@ -83,10 +83,20 @@ func RepairGitdirIfStale(worktreeDir, mainRepoRoot string) (bool, error) {
 // When the feature belongs to a parent track, the track worktree is created/reused instead.
 // Progress is written to w; pass io.Discard to suppress output.
 func EnsureForFeature(featureID, repoRoot string, w io.Writer) (string, error) {
+	path, _, err := EnsureForFeatureStatus(featureID, repoRoot, w)
+	return path, err
+}
+
+// EnsureForFeatureStatus is EnsureForFeature plus a "created vs reused" signal.
+// created is true only when this call created a NEW worktree on disk; it is
+// false when an existing worktree was reused. Callers that mutate the new
+// worktree (e.g. carrying over uncommitted changes) must gate on created to
+// avoid double-applying into a reused worktree (bug-bcf8a311 guardrail).
+func EnsureForFeatureStatus(featureID, repoRoot string, w io.Writer) (string, bool, error) {
 	// If the feature has a parent track, delegate to the track worktree.
 	trackID := resolveTrackForFeature(featureID, repoRoot)
 	if trackID != "" {
-		return EnsureForTrack(trackID, repoRoot, w)
+		return EnsureForTrackStatus(trackID, repoRoot, w)
 	}
 
 	worktreePath := filepath.Join(repoRoot, ".claude", "worktrees", featureID)
@@ -95,51 +105,58 @@ func EnsureForFeature(featureID, repoRoot string, w io.Writer) (string, error) {
 	// Reuse existing worktree.
 	if _, err := os.Stat(worktreePath); err == nil {
 		fmt.Fprintf(w, "  Worktree: %s (reusing existing)\n", worktreePath)
-		return worktreePath, nil
+		return worktreePath, false, nil
 	}
 
 	resolved, created, err := addOrAttachWorktree(repoRoot, worktreePath, branchName)
 	if err != nil {
-		return "", err
+		return "", false, err
 	}
 	if !created {
 		fmt.Fprintf(w, "  Worktree: %s (reusing existing)\n", resolved)
-		return resolved, nil
+		return resolved, false, nil
 	}
 
 	fmt.Fprintf(w, "  Worktree: %s (branch: %s)\n", resolved, branchName)
 	excludeWipnoteFromWorktree(resolved, w)
 	reindexWorktree(resolved, w)
 
-	return resolved, nil
+	return resolved, true, nil
 }
 
 // EnsureForTrack ensures a git worktree exists for the given track and returns its path.
 // Progress is written to w; pass io.Discard to suppress output.
 func EnsureForTrack(trackID, repoRoot string, w io.Writer) (string, error) {
+	path, _, err := EnsureForTrackStatus(trackID, repoRoot, w)
+	return path, err
+}
+
+// EnsureForTrackStatus is EnsureForTrack plus a "created vs reused" signal.
+// See EnsureForFeatureStatus for the contract on the created return value.
+func EnsureForTrackStatus(trackID, repoRoot string, w io.Writer) (string, bool, error) {
 	worktreePath := filepath.Join(repoRoot, ".claude", "worktrees", trackID)
 	branchName := trackID // Track worktrees use the track ID as the branch name.
 
 	// Reuse existing worktree.
 	if _, err := os.Stat(worktreePath); err == nil {
 		fmt.Fprintf(w, "  Worktree: %s (reusing existing)\n", worktreePath)
-		return worktreePath, nil
+		return worktreePath, false, nil
 	}
 
 	resolved, created, err := addOrAttachWorktree(repoRoot, worktreePath, branchName)
 	if err != nil {
-		return "", err
+		return "", false, err
 	}
 	if !created {
 		fmt.Fprintf(w, "  Worktree: %s (reusing existing)\n", resolved)
-		return resolved, nil
+		return resolved, false, nil
 	}
 
 	fmt.Fprintf(w, "  Worktree: %s (branch: %s)\n", resolved, branchName)
 	excludeWipnoteFromWorktree(resolved, w)
 	reindexWorktree(resolved, w)
 
-	return resolved, nil
+	return resolved, true, nil
 }
 
 // TrackWorktreeDirName returns the directory name to use for a track worktree.
@@ -163,12 +180,19 @@ func TrackWorktreeDirName(trackTitle, trackID string) string {
 // checked out.
 // Progress is written to w; pass io.Discard to suppress output.
 func EnsureForTrackTitled(trackTitle, trackID, repoRoot string, w io.Writer) (string, error) {
+	path, _, err := EnsureForTrackTitledStatus(trackTitle, trackID, repoRoot, w)
+	return path, err
+}
+
+// EnsureForTrackTitledStatus is EnsureForTrackTitled plus a "created vs reused"
+// signal. See EnsureForFeatureStatus for the contract on the created return value.
+func EnsureForTrackTitledStatus(trackTitle, trackID, repoRoot string, w io.Writer) (string, bool, error) {
 	// Check the legacy bare-ID path first — reuse without rename to avoid
 	// orphaning any running yolo session that has the old path as its CWD.
 	legacyPath := filepath.Join(repoRoot, ".claude", "worktrees", trackID)
 	if _, err := os.Stat(legacyPath); err == nil {
 		fmt.Fprintf(w, "  Worktree: %s (reusing existing)\n", legacyPath)
-		return legacyPath, nil
+		return legacyPath, false, nil
 	}
 
 	// Scan for any existing worktree already checked out on this track's branch.
@@ -179,7 +203,7 @@ func EnsureForTrackTitled(trackTitle, trackID, repoRoot string, w io.Writer) (st
 	// equal to any titled variant that git already knows about.
 	if existing := findExistingWorktreeForBranch(repoRoot, trackID, w); existing != "" {
 		fmt.Fprintf(w, "  Worktree: %s (reusing existing)\n", existing)
-		return existing, nil
+		return existing, false, nil
 	}
 
 	// New worktree: use titled path.
@@ -190,23 +214,23 @@ func EnsureForTrackTitled(trackTitle, trackID, repoRoot string, w io.Writer) (st
 	// Check if the titled path already exists (idempotent on second call with same title).
 	if _, err := os.Stat(worktreePath); err == nil {
 		fmt.Fprintf(w, "  Worktree: %s (reusing existing)\n", worktreePath)
-		return worktreePath, nil
+		return worktreePath, false, nil
 	}
 
 	resolved, created, err := addOrAttachWorktree(repoRoot, worktreePath, branchName)
 	if err != nil {
-		return "", err
+		return "", false, err
 	}
 	if !created {
 		fmt.Fprintf(w, "  Worktree: %s (reusing existing)\n", resolved)
-		return resolved, nil
+		return resolved, false, nil
 	}
 
 	fmt.Fprintf(w, "  Worktree: %s (branch: %s)\n", resolved, branchName)
 	excludeWipnoteFromWorktree(resolved, w)
 	reindexWorktree(resolved, w)
 
-	return resolved, nil
+	return resolved, true, nil
 }
 
 // addOrAttachWorktree creates a git worktree at worktreePath for branchName, or

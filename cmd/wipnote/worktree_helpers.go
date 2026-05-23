@@ -27,6 +27,18 @@ func EnsureForTrackWithTitle(trackTitle, trackID, repoRoot string, w io.Writer) 
 	return worktree.EnsureForTrackTitled(trackTitle, trackID, repoRoot, w)
 }
 
+// EnsureForTrackWithTitleStatus is EnsureForTrackWithTitle plus a "created vs
+// reused" signal. created is true only when a NEW worktree was created on disk.
+// Used by the yolo launch path to gate uncommitted-change carryover (bug-bcf8a311).
+func EnsureForTrackWithTitleStatus(trackTitle, trackID, repoRoot string, w io.Writer) (string, bool, error) {
+	return worktree.EnsureForTrackTitledStatus(trackTitle, trackID, repoRoot, w)
+}
+
+// EnsureForFeatureStatus is EnsureForFeature plus a "created vs reused" signal.
+func EnsureForFeatureStatus(featureID, repoRoot string, w io.Writer) (string, bool, error) {
+	return worktree.EnsureForFeatureStatus(featureID, repoRoot, w)
+}
+
 // EnsureForAgent ensures a git worktree exists for the given agent task and returns its path.
 // The worktree branches from the track branch and is placed at
 // .claude/worktrees/<trackID>/agent-<taskName>.

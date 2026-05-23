@@ -42,6 +42,17 @@ func computeLauncherMode(worktreePath string, devPlugin, generatedPort bool) Lau
 //   - Devcontainer → managed-worktree when a workItemID is provided.
 //   - inPlace=true → IsolationExplicitInPlace; no warning.
 func applyLaunchPlan(repoRoot, workItemID string, inPlace bool, w io.Writer) plan.LaunchPlan {
+	return applyLaunchPlanOpts(repoRoot, workItemID, inPlace, false, w)
+}
+
+// applyLaunchPlanOpts is applyLaunchPlan with control over whether the
+// plan's generic DirtyMainWarning is printed. When suppressDirtyWarning is true
+// (yolo will create a managed worktree this launch), the generic
+// "use a managed worktree (--work-item <id>)" advisory is NOT printed — the
+// caller emits an accurate message reflecting the worktree+carryover behavior
+// instead (bug-7d4b6c63). The returned plan still carries DirtyMainWarning so
+// enforceLaunchPlan can use it.
+func applyLaunchPlanOpts(repoRoot, workItemID string, inPlace, suppressDirtyWarning bool, w io.Writer) plan.LaunchPlan {
 	m := mode.Compute("", false, false, false)
 	p, err := plan.PlanLaunch(plan.Input{
 		RepoRoot:    repoRoot,
@@ -53,7 +64,7 @@ func applyLaunchPlan(repoRoot, workItemID string, inPlace bool, w io.Writer) pla
 	if err != nil {
 		return p
 	}
-	if p.DirtyMainWarning != "" {
+	if p.DirtyMainWarning != "" && !suppressDirtyWarning {
 		fmt.Fprintln(w, p.DirtyMainWarning)
 	}
 	if os.Getenv("WIPNOTE_DEBUG") != "" {

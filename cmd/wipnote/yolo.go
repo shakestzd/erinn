@@ -8,9 +8,13 @@ import (
 	"strings"
 	"time"
 
+	"io"
+
 	"github.com/shakestzd/wipnote/internal/htmlparse"
+	"github.com/shakestzd/wipnote/internal/launcher/plan"
 	"github.com/shakestzd/wipnote/internal/slug"
 	"github.com/shakestzd/wipnote/internal/workitem"
+	"github.com/shakestzd/wipnote/internal/worktree"
 	"github.com/spf13/cobra"
 )
 
@@ -219,6 +223,52 @@ func launchYoloPlanningMode(projectRoot string, extraArgs []string) error {
 	})
 }
 
+// emitYoloDirtyMainMessage carries the canonical main repo's uncommitted tracked
+// changes into a freshly-created worktree and prints an accurate dirty-main
+// advisory (bug-bcf8a311 + bug-7d4b6c63).
+//
+//   - Carryover runs ONLY when created is true (a NEW worktree was made this
+//     launch). A reused worktree is skipped to avoid double-applying.
+//   - Main's working tree is never mutated; failure is non-fatal (warning only).
+//   - The advisory is emitted only when main was actually dirty (the plan carries
+//     a DirtyMainWarning). It deliberately does NOT mention "--work-item" — the
+//     worktree already exists.
+func emitYoloDirtyMainMessage(p plan.LaunchPlan, canonicalRoot, worktreePath string, created bool, w io.Writer) {
+	if !created {
+		// Reused worktree: skip carryover (guardrail) and skip the dirty-main
+		// advisory (the prior session already isolated the work).
+		return
+	}
+
+	res, _ := worktree.CarryUncommittedChanges(canonicalRoot, worktreePath, w)
+
+	// Only emit the dirty-main advisory when main actually had uncommitted
+	// changes. PlanLaunch records that in DirtyMainWarning.
+	if p.DirtyMainWarning == "" {
+		return
+	}
+
+	untracked := "none"
+	if len(res.UntrackedFiles) > 0 {
+		untracked = strings.Join(res.UntrackedFiles, ", ")
+	}
+
+	switch {
+	case res.ApplyError != nil:
+		fmt.Fprintf(w,
+			"Dirty main detected — isolating in managed worktree %s; "+
+				"could not auto-carry your uncommitted changes (%v) — they remain on main, apply manually. "+
+				"Untracked files not carried: %s\n",
+			worktreePath, res.ApplyError, untracked)
+	default:
+		fmt.Fprintf(w,
+			"Dirty main detected — isolating in managed worktree %s; "+
+				"copied your uncommitted changes into the worktree (main left unchanged). "+
+				"Untracked files not carried: %s\n",
+			worktreePath, untracked)
+	}
+}
+
 func launchYoloDefault(permMode, trackID, featureID string, noWorktree bool, resumeID, name string, extraArgs []string) error {
 	projectRoot := ""
 	if wipnoteDir, err := findWipnoteDir(); err == nil {
@@ -251,9 +301,17 @@ func launchYoloDefault(permMode, trackID, featureID string, noWorktree bool, res
 		return err
 	}
 
+	// A managed worktree is created for isolation unless --in-place/--no-worktree
+	// was passed (noWorktree) or we could not resolve a canonical root. When a
+	// worktree WILL be created, suppress the plan's generic dirty-main advisory
+	// (which wrongly tells the user to "use a managed worktree (--work-item <id>)"
+	// — that's already happening) and emit an accurate message after carryover
+	// instead (bug-7d4b6c63).
+	willCreateWorktree := !noWorktree && canonicalRoot != ""
+
 	// Honor the isolation plan (slice-9): a RefuseLaunch plan aborts before the
 	// harness starts. The validated work item id drives the dirty-main/enforce guard.
-	launchPlan := applyLaunchPlan(canonicalRoot, id, noWorktree, os.Stderr)
+	launchPlan := applyLaunchPlanOpts(canonicalRoot, id, noWorktree, willCreateWorktree, os.Stderr)
 	if err := enforceLaunchPlan(launchPlan, os.Stderr); err != nil {
 		return err
 	}
@@ -264,31 +322,43 @@ func launchYoloDefault(permMode, trackID, featureID string, noWorktree bool, res
 	// Create a worktree for isolation (skip for --no-worktree). Worktrees are
 	// always created under the canonical main root, never a linked worktree copy.
 	workDir := projectRoot
-	if !noWorktree && canonicalRoot != "" {
+	worktreeCreated := false
+	if willCreateWorktree {
 		if trackID != "" {
-			worktreePath, wtErr := EnsureForTrackWithTitle(trackTitle, trackID, canonicalRoot, os.Stdout)
+			worktreePath, created, wtErr := EnsureForTrackWithTitleStatus(trackTitle, trackID, canonicalRoot, os.Stdout)
 			if wtErr != nil {
 				return wtErr
 			}
 			workDir = worktreePath
+			worktreeCreated = created
 		} else if featureID != "" {
 			// Resolve the parent track so features use the titled track worktree.
 			parentTrackID := resolveTrackForFeature(featureID, canonicalRoot)
 			if parentTrackID != "" {
 				parentTitle := resolveTrackTitle(parentTrackID, "", canonicalRoot)
-				worktreePath, wtErr := EnsureForTrackWithTitle(parentTitle, parentTrackID, canonicalRoot, os.Stdout)
+				worktreePath, created, wtErr := EnsureForTrackWithTitleStatus(parentTitle, parentTrackID, canonicalRoot, os.Stdout)
 				if wtErr != nil {
 					return wtErr
 				}
 				workDir = worktreePath
+				worktreeCreated = created
 			} else {
-				worktreePath, wtErr := EnsureForFeature(featureID, canonicalRoot, os.Stdout)
+				worktreePath, created, wtErr := EnsureForFeatureStatus(featureID, canonicalRoot, os.Stdout)
 				if wtErr != nil {
 					return wtErr
 				}
 				workDir = worktreePath
+				worktreeCreated = created
 			}
 		}
+
+		// Carry the canonical main repo's uncommitted TRACKED changes into the
+		// freshly-created worktree so the session builds on the user's latest
+		// WORKING state (bug-bcf8a311). Only for NEWLY-created worktrees: a reused
+		// worktree may already contain (committed or carried) work and re-applying
+		// would double-apply or fail. Main is never mutated. Carryover failure is
+		// non-fatal: the launch proceeds and the changes remain on main.
+		emitYoloDirtyMainMessage(launchPlan, canonicalRoot, workDir, worktreeCreated, os.Stdout)
 	}
 
 	// Compute launcher mode for preflight logging AFTER the effective worktree
@@ -372,33 +442,42 @@ func launchYoloDev(trackID, featureID string, noWorktree bool, resumeID, name st
 	// Resolve track title once — used for both the session name and the worktree directory.
 	trackTitle := resolveTrackTitle(trackID, featureID, projectRoot)
 
-	// Create a worktree for isolation (skip for --no-worktree).
+	// Create a worktree for isolation (skip for --no-worktree). Mirror the
+	// default path: carry uncommitted tracked changes into a newly-created
+	// worktree and emit the accurate dirty-main advisory (bug-bcf8a311 / 7d4b6c63).
+	willCreateWorktree := !noWorktree && projectRoot != ""
+	devPlan := applyLaunchPlanOpts(projectRoot, id, noWorktree, willCreateWorktree, os.Stderr)
 	workDir := projectRoot
-	if !noWorktree && projectRoot != "" {
+	worktreeCreated := false
+	if willCreateWorktree {
 		if trackID != "" {
-			worktreePath, wtErr := EnsureForTrackWithTitle(trackTitle, trackID, projectRoot, os.Stdout)
+			worktreePath, created, wtErr := EnsureForTrackWithTitleStatus(trackTitle, trackID, projectRoot, os.Stdout)
 			if wtErr != nil {
 				return wtErr
 			}
 			workDir = worktreePath
+			worktreeCreated = created
 		} else if featureID != "" {
 			// Resolve the parent track so features use the titled track worktree.
 			parentTrackID := resolveTrackForFeature(featureID, projectRoot)
 			if parentTrackID != "" {
 				parentTitle := resolveTrackTitle(parentTrackID, "", projectRoot)
-				worktreePath, wtErr := EnsureForTrackWithTitle(parentTitle, parentTrackID, projectRoot, os.Stdout)
+				worktreePath, created, wtErr := EnsureForTrackWithTitleStatus(parentTitle, parentTrackID, projectRoot, os.Stdout)
 				if wtErr != nil {
 					return wtErr
 				}
 				workDir = worktreePath
+				worktreeCreated = created
 			} else {
-				worktreePath, wtErr := EnsureForFeature(featureID, projectRoot, os.Stdout)
+				worktreePath, created, wtErr := EnsureForFeatureStatus(featureID, projectRoot, os.Stdout)
 				if wtErr != nil {
 					return wtErr
 				}
 				workDir = worktreePath
+				worktreeCreated = created
 			}
 		}
+		emitYoloDirtyMainMessage(devPlan, projectRoot, workDir, worktreeCreated, os.Stdout)
 	}
 
 	// Nuke marketplace plugin so it can't shadow the --plugin-dir agents/skills.

@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>yolo: subagent source-code edits leak to canonical main instead of staying in the managed worktree</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="bug-0ed4e469"
+             data-type="bug"
+             data-status="todo"
+             data-priority="critical"
+             data-created="2026-05-23T07:04:47.048016"
+             data-updated="2026-05-23T07:04:47.060303" data-agent-assigned="claude-code" data-track-id="trk-be293476" data-created-by-agent="claude-code" data-created-by-model="claude-opus-4-7[1m]" data-created-by-cli-version="0.60.8-20-g71829244c">
+
+        <header>
+            <h1>yolo: subagent source-code edits leak to canonical main instead of staying in the managed worktree</h1>
+            <div class="metadata">
+                <span class="badge status-todo">Todo</span>
+                <span class="badge priority-critical">Critical Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="trk-be293476.html" data-relationship="part_of" data-since="2026-05-23T07:04:47.059823">trk-be293476</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>User confirms that in 'wipnote yolo --track ' runs, actual SOURCE/code file changes (not just .wipnote artifacts) end up on canonical main rather than the created worktree. Expected: code edits stay in the worktree (CWD=workDir); only .wipnote/*.html artifacts go to main (WIPNOTE_PROJECT_DIR=canonicalRoot, by design). Hypothesis: spawned subagents resolve edit targets via WIPNOTE_PROJECT_DIR (=main) or otherwise do not inherit the worktree CWD, breaking isolation. Investigate subagent CWD inheritance + how agents/hooks/system-prompt resolve the project/edit root under yolo.</p>
+        </section>
+    </article>
+</body>
+</html>

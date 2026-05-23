@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>wipnote claude worktree launch should carry uncommitted main changes into the worktree (parity with yolo)</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="bug-c3483435"
+             data-type="bug"
+             data-status="todo"
+             data-priority="medium"
+             data-created="2026-05-23T17:20:59.046806"
+             data-updated="2026-05-23T17:20:59.054119" data-agent-assigned="claude-code" data-track-id="trk-0677c709" data-created-by-agent="claude-code" data-created-by-model="claude-opus-4-7[1m]" data-created-by-cli-version="0.60.8-20-g71829244c">
+
+        <header>
+            <h1>wipnote claude worktree launch should carry uncommitted main changes into the worktree (parity with yolo)</h1>
+            <div class="metadata">
+                <span class="badge status-todo">Todo</span>
+                <span class="badge priority-medium">Medium Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="trk-0677c709.html" data-relationship="part_of" data-since="2026-05-23T17:20:59.053781">trk-0677c709</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>The yolo fix (bug-bcf8a311) added internal/worktree.CarryUncommittedChanges + EnsureFor*Status created-vs-reused signal + accurate dirty-main messaging, but scoped it to the yolo launch path. wipnote claude worktree launches branch from HEAD and leave uncommitted main work behind. Apply the same carryover + messaging to the claude launcher; extract the shared carryover+message logic so yolo and claude share it (DRY). Main untouched, fail-safe, untracked reported, only on newly-created worktrees.</p>
+        </section>
+    </article>
+</body>
+</html>

@@ -53,15 +53,9 @@ archives:
         dst: codex-marketplace
         info:
           mode: 0644
-      - src: "packages/gemini-extension/**/*"
-        dst: gemini-extension
-        info:
-          mode: 0644
-      - src: "packages/gemini-extension/*.json"
-        dst: gemini-extension
-        info:
-          mode: 0644
-      - src: "packages/gemini-extension/*.md"
+      # Copy the whole gemini-extension directory (not a `**/*` glob) to preserve
+      # hidden dotdirs such as `.archived` and ensure the full tree integrity.
+      - src: "packages/gemini-extension"
         dst: gemini-extension
         info:
           mode: 0644

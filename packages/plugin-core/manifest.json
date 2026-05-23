@@ -3,7 +3,7 @@
   "_comment": "Single source of truth for the wipnote CLI companion plugin. Both the Claude Code plugin (plugin/) and the Codex CLI marketplace (packages/codex-marketplace/) are generated from this file by `wipnote plugin build-ports`. Assets (commands, agents, skills, templates, static, config) are sourced from plugin/ verbatim — same markdown format works for both Claude and Codex.",
 
   "name": "wipnote",
-  "version": "0.60.14",
+  "version": "0.60.15",
   "description": "Local-first observability and coordination platform for AI-assisted development. Go binary hooks for near-zero cold start.",
   "author": {
     "name": "Shakes Dlamini",

@@ -1614,3 +1614,50 @@ func TestPathIsOutsideProject(t *testing.T) {
 		})
 	}
 }
+
+// TestIsYoloFromEventWIPNOTEYOLOEnv verifies that WIPNOTE_YOLO=1 causes
+// isYoloFromEvent to return true even when event.PermissionMode is empty/non-bypass
+// (simulating a Codex --yolo session where Codex does not emit bypassPermissions).
+func TestIsYoloFromEventWIPNOTEYOLOEnv(t *testing.T) {
+	tmpDir := t.TempDir()
+	hgDir := filepath.Join(tmpDir, ".wipnote")
+	os.MkdirAll(hgDir, 0o755)
+
+	// WIPNOTE_YOLO=1 + empty PermissionMode → yolo (Codex --yolo path).
+	t.Setenv("WIPNOTE_YOLO", "1")
+	event := &CloudEvent{PermissionMode: "", SessionID: "codex-yolo-sess"}
+	if !isYoloFromEvent(event, hgDir) {
+		t.Error("expected yolo=true when WIPNOTE_YOLO=1 and PermissionMode is empty")
+	}
+
+	// WIPNOTE_YOLO=1 + non-bypass PermissionMode → yolo (env wins as fast-path).
+	event = &CloudEvent{PermissionMode: "default", SessionID: "codex-yolo-sess"}
+	if !isYoloFromEvent(event, hgDir) {
+		t.Error("expected yolo=true when WIPNOTE_YOLO=1 even with non-bypass PermissionMode")
+	}
+
+	// WIPNOTE_YOLO unset + empty PermissionMode → not yolo (no false positive).
+	t.Setenv("WIPNOTE_YOLO", "")
+	event = &CloudEvent{PermissionMode: "", SessionID: "codex-normal-sess"}
+	if isYoloFromEvent(event, hgDir) {
+		t.Error("expected yolo=false when WIPNOTE_YOLO is unset and PermissionMode is empty")
+	}
+}
+
+// TestCheckYoloWorktreeGuardWIPNOTEYOLO verifies that checkYoloWorktreeGuard
+// blocks edits on main when WIPNOTE_YOLO=1 is set (Codex --yolo session).
+func TestCheckYoloWorktreeGuardWIPNOTEYOLO(t *testing.T) {
+	t.Setenv("WIPNOTE_YOLO", "1")
+
+	// Edit on main branch → blocked under WIPNOTE_YOLO=1.
+	reason := checkYoloWorktreeGuard("Edit", "main", true)
+	if reason == "" {
+		t.Error("expected checkYoloWorktreeGuard to block Edit on main when WIPNOTE_YOLO=1")
+	}
+
+	// Edit on a feature branch → allowed.
+	reason = checkYoloWorktreeGuard("Edit", "feat-abc", true)
+	if reason != "" {
+		t.Errorf("expected checkYoloWorktreeGuard to allow Edit on feature branch, got: %s", reason)
+	}
+}

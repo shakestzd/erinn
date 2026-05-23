@@ -26,7 +26,13 @@ var mergeInProgressFn = isMergeInProgress
 
 // isYoloFromEvent checks the CloudEvent permission_mode field first (live
 // state from Claude Code), falling back to a SQLite DB lookup.
+// Fast-path: WIPNOTE_YOLO=1 is set only by the wipnote launcher on an explicit
+// --yolo launch (e.g. `wipnote codex --yolo`). It is harness-agnostic and has
+// no false-positive path because nothing else sets this variable.
 func isYoloFromEvent(event *CloudEvent, wipnoteDir string) bool {
+	if os.Getenv("WIPNOTE_YOLO") == "1" {
+		return true
+	}
 	if event.PermissionMode == "bypassPermissions" {
 		return true
 	}

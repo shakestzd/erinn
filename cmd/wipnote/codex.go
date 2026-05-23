@@ -1384,6 +1384,13 @@ func execCodex(opts codexLaunchOpts) error {
 		persistLauncherSessionFamily(effectiveProjDir, otelSessionID, "codex", familyID)
 	}
 
+	// Signal YOLO mode to hook subprocesses. WIPNOTE_YOLO=1 is set only on an
+	// explicit --yolo launch so the worktree source-isolation guard fires under
+	// Codex just as it does under Claude Code's bypassPermissions path.
+	if opts.Yolo {
+		env = setOrReplaceEnv(env, "WIPNOTE_YOLO", "1")
+	}
+
 	c.Env = env
 	if workDir != "" {
 		c.Dir = workDir

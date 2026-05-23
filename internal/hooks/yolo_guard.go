@@ -40,25 +40,35 @@ func isYoloFromEvent(event *CloudEvent, wipnoteDir string) bool {
 }
 
 // isYoloWithInheritance checks YOLO mode for the current session and, when the
-// current session has no YOLO marker, walks the parent-session chain to check
-// whether any ancestor session is in YOLO posture.
+// current session has no YOLO marker of its own, walks the parent-session chain
+// to check whether any ancestor session is in YOLO posture.
 //
-// Conservative scope: only walks when the current session has no YOLO tag of
-// its own (i.e. isYoloFromEvent returns false and event.PermissionMode is empty).
-// An explicit non-YOLO permission_mode on the current session is never overridden.
+// Top-level vs subagent semantics (bug-0ed4e469):
+//   - isYoloFromEvent's bypassPermissions fast-path always wins for both.
+//   - For a TOP-LEVEL session (isSubagent=false), an explicit non-empty,
+//     non-bypass permission_mode is a deliberate user declaration of non-YOLO
+//     posture and is honored: the chain walk is skipped and we return false.
+//   - For a SUBAGENT (isSubagent=true), its own reported permission_mode is NOT
+//     a deliberate non-YOLO declaration — Claude Code often reports a non-empty,
+//     non-bypass mode (e.g. "default"/"acceptEdits") for coder subagents inside
+//     a YOLO run. So for subagents we ALWAYS fall through to the parent-chain
+//     inheritance walk regardless of the subagent's own permission_mode.
 //
 // When YOLO is inherited from an ancestor, a debug log line is emitted for
 // auditability.
-func isYoloWithInheritance(event *CloudEvent, wipnoteDir string, database *sql.DB, sessionID, projectDir string) bool {
+func isYoloWithInheritance(event *CloudEvent, wipnoteDir string, database *sql.DB, sessionID, projectDir string, isSubagent bool) bool {
 	if isYoloFromEvent(event, wipnoteDir) {
 		return true
 	}
-	// An explicit non-empty, non-bypass permission_mode means the current session
-	// has declared itself non-YOLO — do not override with an ancestor's posture.
-	if event.PermissionMode != "" {
+	// An explicit non-empty, non-bypass permission_mode on a TOP-LEVEL session
+	// is a deliberate non-YOLO declaration — do not override with an ancestor's
+	// posture. Subagents do NOT get this short-circuit: their reported mode is
+	// not a deliberate declaration, so they fall through to the parent walk.
+	if !isSubagent && event.PermissionMode != "" {
 		return false
 	}
-	// Current session has no declared mode. Walk the parent chain.
+	// Walk the parent chain (subagents always reach here; top-level sessions
+	// reach here only when they have no declared mode).
 	if database == nil || sessionID == "" {
 		return false
 	}
@@ -70,6 +80,28 @@ func isYoloWithInheritance(event *CloudEvent, wipnoteDir string, database *sql.D
 		if isYoloFromDB(wipnoteDir, parentID) {
 			debugLog(projectDir, "[wipnote] yolo inherited: session=%s parent=%s",
 				sessionID, parentID)
+			return true
+		}
+	}
+	return false
+}
+
+// anyParentSessionYolo returns true when any ancestor session in the immediate
+// parent chain of sessionID is in YOLO posture per isYoloFromDB. Used as a
+// resilient defense-in-depth signal for the worktree-isolation guard so that a
+// yolo-context subagent is still blocked from editing main/master even if the
+// primary IsYoloMode detection resolved false. Returns false on nil DB / empty
+// session / no parent.
+func anyParentSessionYolo(database *sql.DB, wipnoteDir, sessionID string) bool {
+	if database == nil || sessionID == "" {
+		return false
+	}
+	sessionIDs := getSessionAndParent(database, sessionID)
+	if len(sessionIDs) < 2 {
+		return false
+	}
+	for _, parentID := range sessionIDs[1:] {
+		if isYoloFromDB(wipnoteDir, parentID) {
 			return true
 		}
 	}

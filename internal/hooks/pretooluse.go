@@ -151,23 +151,37 @@ func PreToolUse(event *CloudEvent, database *sql.DB) (*HookResult, error) {
 		}
 	}
 
+	// Worktree-isolation guard runs under a RESILIENT yolo-context signal —
+	// not just ctx.IsYoloMode (bug-0ed4e469). A coder subagent in a yolo run can
+	// have its own IsYoloMode resolve false (Claude reports a non-bypass
+	// permission_mode), yet a main/master-targeted edit must still be blocked.
+	// The resilient signal is true when EITHER primary detection says yolo, OR
+	// this is a subagent whose parent-session chain is yolo per isYoloFromDB.
+	// This is deliberately narrow: it does NOT block main edits in genuinely
+	// non-yolo sessions (plain `wipnote claude`, normal dev, or a top-level
+	// session deliberately running on main) because those have no yolo ancestor.
+	yoloContext := ctx.IsYoloMode ||
+		(ctx.IsSubagent && anyParentSessionYolo(database, ctx.HgDir, ctx.SessionID))
+	if yoloContext {
+		// Resolve branch from the target file's worktree, not the session CWD.
+		targetFile := extractFilePath(event.ToolInput)
+		cwdBranch := currentBranchIn(event.CWD)
+		branch := branchForFilePath(targetFile, cwdBranch)
+		if warn := checkYoloWorktreeGuard(event.ToolName, branch, yoloContext); warn != "" {
+			return &HookResult{Decision: "block", Reason: warn}, nil
+		}
+		// Extend worktree guard to Bash file-write commands.
+		if warn := checkYoloBashWorktreeGuard(event, branch, yoloContext); warn != "" {
+			return &HookResult{Decision: "block", Reason: warn}, nil
+		}
+	}
+
 	if ctx.IsYoloMode {
 		// Warn (not block) when starting a work item without steps.
 		if warn := checkYoloStepsGuard(event, ctx.IsYoloMode, ctx.HgDir); warn != "" {
 			debugLog(ctx.ProjectDir, "[wipnote] YOLO steps warning: %s", warn)
 		}
 
-		// Resolve branch from the target file's worktree, not the session CWD.
-		targetFile := extractFilePath(event.ToolInput)
-		cwdBranch := currentBranchIn(event.CWD)
-		branch := branchForFilePath(targetFile, cwdBranch)
-		if warn := checkYoloWorktreeGuard(event.ToolName, branch, ctx.IsYoloMode); warn != "" {
-			return &HookResult{Decision: "block", Reason: warn}, nil
-		}
-		// Extend worktree guard to Bash file-write commands.
-		if warn := checkYoloBashWorktreeGuard(event, branch, ctx.IsYoloMode); warn != "" {
-			return &HookResult{Decision: "block", Reason: warn}, nil
-		}
 		// Warn (not block) about code health — files already oversized should be
 		// allowed to be edited so they can be refactored smaller.
 		if warn := checkYoloCodeHealthGuard(event, ctx.IsYoloMode); warn != "" {

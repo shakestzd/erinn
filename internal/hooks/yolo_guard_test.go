@@ -1268,7 +1268,8 @@ func TestIsYoloWithInheritance(t *testing.T) {
 	}
 
 	// isYoloWithInheritance must return true because the parent is YOLO.
-	if !isYoloWithInheritance(childEvent, hgDir, database, childSessID, tmpDir) {
+	// (isSubagent=true: child has a parent and no YOLO marker of its own.)
+	if !isYoloWithInheritance(childEvent, hgDir, database, childSessID, tmpDir, true) {
 		t.Error("expected isYoloWithInheritance=true: child should inherit parent YOLO posture")
 	}
 
@@ -1290,17 +1291,174 @@ func TestIsYoloWithInheritance(t *testing.T) {
 	// The important thing is the guard runs (does not short-circuit on yolo=false).
 	_ = checkYoloBudgetGuard(budgetEvent, true) // guard is active; result depends on staged diff
 
-	// Verify that a child session with explicit non-YOLO mode is NOT overridden.
+	// Verify that a TOP-LEVEL session with explicit non-YOLO mode is NOT
+	// overridden by an ancestor's posture (isSubagent=false). A top-level
+	// session's explicit permission_mode is a deliberate user declaration.
 	explicitDefaultEvent := &CloudEvent{
 		PermissionMode: "default",
 		SessionID:      childSessID,
 	}
-	if isYoloWithInheritance(explicitDefaultEvent, hgDir, database, childSessID, tmpDir) {
-		t.Error("expected isYoloWithInheritance=false: explicit non-YOLO mode must not be overridden by parent")
+	if isYoloWithInheritance(explicitDefaultEvent, hgDir, database, childSessID, tmpDir, false) {
+		t.Error("expected isYoloWithInheritance=false: explicit non-YOLO mode on a top-level session must not be overridden by parent")
 	}
 
 	// nil database → returns false, no panic.
-	if isYoloWithInheritance(childEvent, hgDir, nil, childSessID, tmpDir) {
+	if isYoloWithInheritance(childEvent, hgDir, nil, childSessID, tmpDir, true) {
 		t.Error("expected isYoloWithInheritance=false with nil database")
+	}
+}
+
+// TestIsYoloWithInheritance_SubagentNonBypassModeInherits is the core bug-0ed4e469
+// regression: a SUBAGENT that reports its own non-empty, non-bypass
+// permission_mode ("default"/"acceptEdits") but whose parent session is in YOLO
+// posture must still resolve YOLO=true. Before the fix, the early
+// `if event.PermissionMode != "" { return false }` bailed before the parent walk,
+// so subagent yolo-detection broke and the worktree guard was skipped.
+func TestIsYoloWithInheritance_SubagentNonBypassModeInherits(t *testing.T) {
+	tmpDir := t.TempDir()
+	hgDir := filepath.Join(tmpDir, ".wipnote")
+	os.MkdirAll(filepath.Join(hgDir, ".db"), 0o755)
+	dbPath := filepath.Join(hgDir, ".db", "wipnote.db")
+	t.Setenv("WIPNOTE_DB_PATH", dbPath)
+
+	database, err := db.Open(dbPath)
+	if err != nil {
+		t.Fatalf("db.Open: %v", err)
+	}
+	defer database.Close()
+
+	now := time.Now().UTC()
+	parentSessID := "parent-yolo-sess"
+	if err := db.InsertSession(database, &models.Session{
+		SessionID: parentSessID, AgentAssigned: "claude-code", Status: "active", CreatedAt: now,
+	}); err != nil {
+		t.Fatalf("InsertSession(parent): %v", err)
+	}
+	if _, err := database.Exec(
+		`UPDATE sessions SET metadata = json_set(COALESCE(metadata,'{}'),'$.permission_mode',?) WHERE session_id = ?`,
+		"bypassPermissions", parentSessID,
+	); err != nil {
+		t.Fatalf("set parent YOLO metadata: %v", err)
+	}
+
+	childSessID := "child-subagent-sess"
+	if err := db.InsertSession(database, &models.Session{
+		SessionID: childSessID, AgentAssigned: "claude-code", Status: "active",
+		CreatedAt: now, ParentSessionID: parentSessID,
+	}); err != nil {
+		t.Fatalf("InsertSession(child): %v", err)
+	}
+
+	for _, mode := range []string{"default", "acceptEdits"} {
+		ev := &CloudEvent{PermissionMode: mode, SessionID: childSessID}
+		// Subagent → falls through to parent walk regardless of its own mode.
+		if !isYoloWithInheritance(ev, hgDir, database, childSessID, tmpDir, true) {
+			t.Errorf("expected YOLO=true for subagent with mode=%q and YOLO parent", mode)
+		}
+		// Same event treated as a TOP-LEVEL session → explicit mode respected → false.
+		if isYoloWithInheritance(ev, hgDir, database, childSessID, tmpDir, false) {
+			t.Errorf("expected YOLO=false for top-level session with explicit mode=%q", mode)
+		}
+	}
+}
+
+// TestIsYoloWithInheritance_SubagentBypassFastPath verifies the bypassPermissions
+// fast-path still wins for a subagent regardless of inheritance.
+func TestIsYoloWithInheritance_SubagentBypassFastPath(t *testing.T) {
+	ev := &CloudEvent{PermissionMode: "bypassPermissions", SessionID: "sub-sess"}
+	if !isYoloWithInheritance(ev, t.TempDir(), nil, "sub-sess", t.TempDir(), true) {
+		t.Error("expected YOLO=true for subagent with bypassPermissions event")
+	}
+}
+
+// setupYoloParentDB creates an isolated DB with a YOLO parent session and a
+// child session (no YOLO marker of its own) parented to it. Returns the wipnote
+// dir, the child session ID, and the open DB.
+func setupYoloParentDB(t *testing.T, parentIsYolo bool) (string, string, *sql.DB) {
+	t.Helper()
+	tmpDir := t.TempDir()
+	hgDir := filepath.Join(tmpDir, ".wipnote")
+	os.MkdirAll(filepath.Join(hgDir, ".db"), 0o755)
+	dbPath := filepath.Join(hgDir, ".db", "wipnote.db")
+	t.Setenv("WIPNOTE_DB_PATH", dbPath)
+
+	database, err := db.Open(dbPath)
+	if err != nil {
+		t.Fatalf("db.Open: %v", err)
+	}
+	t.Cleanup(func() { database.Close() })
+
+	now := time.Now().UTC()
+	parentSessID := "parent-sess"
+	if err := db.InsertSession(database, &models.Session{
+		SessionID: parentSessID, AgentAssigned: "claude-code", Status: "active", CreatedAt: now,
+	}); err != nil {
+		t.Fatalf("InsertSession(parent): %v", err)
+	}
+	if parentIsYolo {
+		if _, err := database.Exec(
+			`UPDATE sessions SET metadata = json_set(COALESCE(metadata,'{}'),'$.permission_mode',?) WHERE session_id = ?`,
+			"bypassPermissions", parentSessID,
+		); err != nil {
+			t.Fatalf("set parent YOLO metadata: %v", err)
+		}
+	}
+	childSessID := "child-sess"
+	if err := db.InsertSession(database, &models.Session{
+		SessionID: childSessID, AgentAssigned: "claude-code", Status: "active",
+		CreatedAt: now, ParentSessionID: parentSessID,
+	}); err != nil {
+		t.Fatalf("InsertSession(child): %v", err)
+	}
+	return hgDir, childSessID, database
+}
+
+// TestWorktreeGuardDefenseInDepth_SubagentYoloParent is the defense-in-depth
+// case (bug-0ed4e469, fix 2): a subagent whose own IsYoloMode resolved false but
+// whose parent session is YOLO must still be blocked from a main-targeted edit.
+// The resilient signal is anyParentSessionYolo, which the pretooluse worktree
+// guard ORs with ctx.IsYoloMode.
+func TestWorktreeGuardDefenseInDepth_SubagentYoloParent(t *testing.T) {
+	hgDir, childSessID, database := setupYoloParentDB(t, true /*parentIsYolo*/)
+
+	// Simulate ctx.IsYoloMode resolving false for this subagent.
+	isYoloMode := false
+	isSubagent := true
+	yoloContext := isYoloMode || (isSubagent && anyParentSessionYolo(database, hgDir, childSessID))
+	if !yoloContext {
+		t.Fatal("expected resilient yoloContext=true via parent-chain inheritance")
+	}
+	// Editing a file on branch "main" under the resilient context → BLOCKED.
+	if checkYoloWorktreeGuard("Edit", "main", yoloContext) == "" {
+		t.Error("expected main-targeted edit to be BLOCKED for yolo-context subagent")
+	}
+}
+
+// TestWorktreeGuardRegression_NonYoloMainEditAllowed is the most important
+// regression guard (bug-0ed4e469): a genuinely non-YOLO top-level session (no
+// YOLO parent in the chain) editing a file on branch "main" must NOT be blocked.
+// Also verifies a yolo subagent editing on a feature/worktree branch is allowed.
+func TestWorktreeGuardRegression_NonYoloMainEditAllowed(t *testing.T) {
+	// Non-yolo: parent session is NOT yolo.
+	hgDir, childSessID, database := setupYoloParentDB(t, false /*parentIsYolo*/)
+
+	// Top-level non-yolo session: IsYoloMode=false, not a subagent.
+	yoloContext := false || (false && anyParentSessionYolo(database, hgDir, childSessID))
+	if yoloContext {
+		t.Fatal("expected yoloContext=false for non-yolo top-level session")
+	}
+	// Even a subagent here has a non-yolo parent → resilient signal stays false.
+	subYoloContext := false || (true && anyParentSessionYolo(database, hgDir, childSessID))
+	if subYoloContext {
+		t.Fatal("expected yoloContext=false for subagent with non-yolo parent")
+	}
+	// With yoloContext=false the worktree guard is a no-op even on main.
+	if msg := checkYoloWorktreeGuard("Edit", "main", subYoloContext); msg != "" {
+		t.Errorf("non-yolo session must NOT be blocked editing main, got: %s", msg)
+	}
+
+	// A yolo subagent editing on a feature/worktree branch → NOT blocked.
+	if msg := checkYoloWorktreeGuard("Edit", "yolo-feat-abc", true); msg != "" {
+		t.Errorf("yolo subagent editing feature branch must NOT be blocked, got: %s", msg)
 	}
 }

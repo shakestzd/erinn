@@ -113,7 +113,7 @@ func resolveToolUseContext(event *CloudEvent, database *sql.DB, trustParentEnvVa
 
 	projectDir := ResolveProjectDir(event.CWD, event.SessionID)
 	hgDir := filepath.Join(projectDir, ".wipnote")
-	yolo := isYoloWithInheritance(event, hgDir, database, sessionID, projectDir)
+	yolo := isYoloWithInheritance(event, hgDir, database, sessionID, projectDir, isSubagent)
 	parentEventID := resolveParentEventID(database, sessionID, agentID, isSubagent, trustParentEnvVar)
 
 	LogTimed(projectDir, "pretooluse", map[string]string{

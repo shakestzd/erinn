@@ -8,6 +8,7 @@ import (
 	"github.com/shakestzd/wipnote/internal/launcher/mode"
 	"github.com/shakestzd/wipnote/internal/launcher/plan"
 	"github.com/shakestzd/wipnote/internal/paths"
+	"github.com/shakestzd/wipnote/internal/worktree"
 )
 
 // LauncherModeResult is the computed mode object exposed to preflight paths.
@@ -109,18 +110,31 @@ func enforceLaunchPlan(p plan.LaunchPlan, w io.Writer) error {
 // is known (e.g. a bug- id) it is treated as a feature-style worktree so the
 // enforced-host path still isolates mutations.
 func resolveManagedWorktree(p plan.LaunchPlan, projectRoot, trackID, featureID, workItemID, fallbackDir string, alreadyResolved bool, w io.Writer) (string, error) {
+	path, _, err := resolveManagedWorktreeStatus(p, projectRoot, trackID, featureID, workItemID, fallbackDir, alreadyResolved, w)
+	return path, err
+}
+
+// resolveManagedWorktreeStatus is resolveManagedWorktree plus a "created vs
+// reused" signal. created is true only when a NEW worktree was created on disk
+// this call. Callers that need to gate carryover on new-worktree creation (e.g.
+// launchClaudeDefault) use this variant; callers that only need the path use
+// resolveManagedWorktree.
+func resolveManagedWorktreeStatus(p plan.LaunchPlan, projectRoot, trackID, featureID, workItemID, fallbackDir string, alreadyResolved bool, w io.Writer) (string, bool, error) {
 	if p.IsolationMode != plan.IsolationManagedWorktree || alreadyResolved {
-		return fallbackDir, nil
+		return fallbackDir, false, nil
 	}
 	switch {
 	case trackID != "":
-		return EnsureForTrack(trackID, projectRoot, w)
+		path, created, err := worktree.EnsureForTrackStatus(trackID, projectRoot, w)
+		return path, created, err
 	case featureID != "":
-		return EnsureForFeature(featureID, projectRoot, w)
+		path, created, err := worktree.EnsureForFeatureStatus(featureID, projectRoot, w)
+		return path, created, err
 	case workItemID != "":
-		return EnsureForFeature(workItemID, projectRoot, w)
+		path, created, err := worktree.EnsureForFeatureStatus(workItemID, projectRoot, w)
+		return path, created, err
 	}
-	return fallbackDir, nil
+	return fallbackDir, false, nil
 }
 
 // canonicalProjectRoot returns the canonical main repo root when projectRoot is

@@ -14,7 +14,6 @@ import (
 	"github.com/shakestzd/wipnote/internal/launcher/plan"
 	"github.com/shakestzd/wipnote/internal/slug"
 	"github.com/shakestzd/wipnote/internal/workitem"
-	"github.com/shakestzd/wipnote/internal/worktree"
 	"github.com/spf13/cobra"
 )
 
@@ -227,46 +226,10 @@ func launchYoloPlanningMode(projectRoot string, extraArgs []string) error {
 // changes into a freshly-created worktree and prints an accurate dirty-main
 // advisory (bug-bcf8a311 + bug-7d4b6c63).
 //
-//   - Carryover runs ONLY when created is true (a NEW worktree was made this
-//     launch). A reused worktree is skipped to avoid double-applying.
-//   - Main's working tree is never mutated; failure is non-fatal (warning only).
-//   - The advisory is emitted only when main was actually dirty (the plan carries
-//     a DirtyMainWarning). It deliberately does NOT mention "--work-item" — the
-//     worktree already exists.
+// Delegates to the shared emitWorktreeCarryoverMessage helper in worktree_helpers.go
+// so that yolo and claude launch paths share identical carryover semantics.
 func emitYoloDirtyMainMessage(p plan.LaunchPlan, canonicalRoot, worktreePath string, created bool, w io.Writer) {
-	if !created {
-		// Reused worktree: skip carryover (guardrail) and skip the dirty-main
-		// advisory (the prior session already isolated the work).
-		return
-	}
-
-	res, _ := worktree.CarryUncommittedChanges(canonicalRoot, worktreePath, w)
-
-	// Only emit the dirty-main advisory when main actually had uncommitted
-	// changes. PlanLaunch records that in DirtyMainWarning.
-	if p.DirtyMainWarning == "" {
-		return
-	}
-
-	untracked := "none"
-	if len(res.UntrackedFiles) > 0 {
-		untracked = strings.Join(res.UntrackedFiles, ", ")
-	}
-
-	switch {
-	case res.ApplyError != nil:
-		fmt.Fprintf(w,
-			"Dirty main detected — isolating in managed worktree %s; "+
-				"could not auto-carry your uncommitted changes (%v) — they remain on main, apply manually. "+
-				"Untracked files not carried: %s\n",
-			worktreePath, res.ApplyError, untracked)
-	default:
-		fmt.Fprintf(w,
-			"Dirty main detected — isolating in managed worktree %s; "+
-				"copied your uncommitted changes into the worktree (main left unchanged). "+
-				"Untracked files not carried: %s\n",
-			worktreePath, untracked)
-	}
+	emitWorktreeCarryoverMessage(p, canonicalRoot, worktreePath, created, w)
 }
 
 func launchYoloDefault(permMode, trackID, featureID string, noWorktree bool, resumeID, name string, extraArgs []string) error {

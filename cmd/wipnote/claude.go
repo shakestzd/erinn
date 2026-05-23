@@ -442,7 +442,12 @@ func launchClaudeDefault(extraArgs []string, resumeID, name, workItem string, in
 	// is printed, and the plan is now HONORED (slice-9): a RefuseLaunch plan
 	// aborts before the harness starts, and an IsolationManagedWorktree plan
 	// routes the child into a managed worktree.
-	launchPlan := applyLaunchPlan(projectRoot, workItem, inPlace, os.Stderr)
+	//
+	// When the plan will create a managed worktree (IsolationManagedWorktree),
+	// suppress the generic dirty-main advisory — we emit an accurate message
+	// after carryover instead (mirrors yolo's approach, bug-c3483435).
+	willCreateWorktree := !inPlace && workItem != ""
+	launchPlan := applyLaunchPlanOpts(projectRoot, workItem, inPlace, willCreateWorktree, os.Stderr)
 	if err := enforceLaunchPlan(launchPlan, os.Stderr); err != nil {
 		return err
 	}
@@ -455,13 +460,28 @@ func launchClaudeDefault(extraArgs []string, resumeID, name, workItem string, in
 	// or enforced host with a work item) create/reuse the managed worktree and
 	// run the child there, while WIPNOTE_PROJECT_DIR stays the canonical root.
 	childDir := projectRoot
-	if wt, werr := resolveManagedWorktree(launchPlan, projectRoot, "", "", workItem, projectRoot, false, os.Stdout); werr != nil {
+	worktreeCreated := false
+	if wt, created, werr := resolveManagedWorktreeStatus(launchPlan, projectRoot, "", "", workItem, projectRoot, false, os.Stdout); werr != nil {
 		return werr
 	} else if wt != "" && wt != projectRoot {
 		childDir = wt
+		worktreeCreated = created
 		if wipnoteRoot == "" {
 			wipnoteRoot = projectRoot
 		}
+	}
+
+	// Carry the canonical main repo's uncommitted tracked changes into the
+	// freshly-created worktree so the session builds on the user's latest
+	// working state (bug-c3483435). Only for newly-created worktrees: a reused
+	// worktree may already contain prior work and re-applying would double-apply
+	// or fail. Main is never mutated. Carryover failure is non-fatal.
+	if childDir != projectRoot {
+		effectiveRoot := projectRoot
+		if wipnoteRoot != "" {
+			effectiveRoot = wipnoteRoot
+		}
+		emitWorktreeCarryoverMessage(launchPlan, effectiveRoot, childDir, worktreeCreated, os.Stdout)
 	}
 
 	pluginDir, err := resolveBundledPluginDir()

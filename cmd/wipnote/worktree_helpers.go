@@ -1,10 +1,59 @@
 package main
 
 import (
+	"fmt"
 	"io"
+	"strings"
 
+	"github.com/shakestzd/wipnote/internal/launcher/plan"
 	"github.com/shakestzd/wipnote/internal/worktree"
 )
+
+// emitWorktreeCarryoverMessage carries canonical main-repo uncommitted tracked
+// changes into a freshly-created worktree and prints an accurate dirty-main
+// advisory. It is shared by both the yolo and claude launch paths.
+//
+//   - Carryover runs ONLY when created is true (a NEW worktree was made this
+//     launch). A reused worktree is skipped to avoid double-applying.
+//   - Main's working tree is never mutated; failure is non-fatal (warning only).
+//   - The advisory is emitted only when main was actually dirty (the plan carries
+//     a DirtyMainWarning). It deliberately does NOT mention "--work-item" — the
+//     worktree already exists.
+func emitWorktreeCarryoverMessage(p plan.LaunchPlan, canonicalRoot, worktreePath string, created bool, w io.Writer) {
+	if !created {
+		// Reused worktree: skip carryover (guardrail) and skip the dirty-main
+		// advisory (the prior session already isolated the work).
+		return
+	}
+
+	res, _ := worktree.CarryUncommittedChanges(canonicalRoot, worktreePath, w)
+
+	// Only emit the dirty-main advisory when main actually had uncommitted
+	// changes. PlanLaunch records that in DirtyMainWarning.
+	if p.DirtyMainWarning == "" {
+		return
+	}
+
+	untracked := "none"
+	if len(res.UntrackedFiles) > 0 {
+		untracked = strings.Join(res.UntrackedFiles, ", ")
+	}
+
+	switch {
+	case res.ApplyError != nil:
+		fmt.Fprintf(w,
+			"Dirty main detected — isolating in managed worktree %s; "+
+				"could not auto-carry your uncommitted changes (%v) — they remain on main, apply manually. "+
+				"Untracked files not carried: %s\n",
+			worktreePath, res.ApplyError, untracked)
+	default:
+		fmt.Fprintf(w,
+			"Dirty main detected — isolating in managed worktree %s; "+
+				"copied your uncommitted changes into the worktree (main left unchanged). "+
+				"Untracked files not carried: %s\n",
+			worktreePath, untracked)
+	}
+}
 
 // EnsureForFeature ensures a git worktree exists for the given feature and returns its path.
 // When the feature belongs to a parent track, the track worktree is created/reused instead.

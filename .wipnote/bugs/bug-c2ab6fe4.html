@@ -10,15 +10,15 @@
 <body>
     <article id="bug-c2ab6fe4"
              data-type="bug"
-             data-status="in-progress"
+             data-status="done"
              data-priority="high"
              data-created="2026-05-23T17:28:55.334016"
-             data-updated="2026-05-23T19:28:32.274973" data-agent-assigned="claude-code" data-track-id="trk-0677c709" data-created-by-agent="claude-code" data-created-by-model="claude-opus-4-7[1m]" data-created-by-cli-version="0.60.8-20-g71829244c">
+             data-updated="2026-05-23T19:32:28.61152" data-agent-assigned="claude-code" data-track-id="trk-0677c709" data-created-by-agent="claude-code" data-created-by-model="claude-opus-4-7[1m]" data-created-by-cli-version="0.60.8-20-g71829244c">
 
         <header>
             <h1>codex --yolo does not trigger the worktree source-isolation guard (bypassPermissions detection is Claude-specific)</h1>
             <div class="metadata">
-                <span class="badge status-in-progress">In Progress</span>
+                <span class="badge status-done">Done</span>
                 <span class="badge priority-high">High Priority</span>
             </div>
         </header>
@@ -46,7 +46,8 @@
 
         <section data-content>
             <h3>Description</h3>
-            <p>The PreToolUse worktree-isolation guard keys off event.PermissionMode == bypassPermissions (Claude Code value). codex --yolo uses --dangerously-bypass-approvals-and-sandbox and does not report that, so the source-leak guard (bug-0ed4e469) does not fire under Codex yolo. The isolation RISK exists on codex --yolo but is uncovered. Needs codex-specific yolo detection in isYoloFromEvent/isYoloWithInheritance so the worktree guard applies. Gemini has no yolo mode.</p>
+            <p>The PreToolUse worktree-isolation guard keys off event.PermissionMode == bypassPermissions (Claude Code value). codex --yolo uses --dangerously-bypass-approvals-and-sandbox and does not report that, so the source-leak guard (bug-0ed4e469) does not fire under Codex yolo. The isolation RISK exists on codex --yolo but is uncovered. Needs codex-specific yolo detection in isYoloFromEvent/isYoloWithInheritance so the worktree guard applies. Gemini has no yolo mode.
+[2026-05-23 19:32 claude-code] accepted-advisory (provenance override): implementation complete; commit deferred per task instructions (Do NOT git commit/push)</p>
         </section>
     </article>
 </body>

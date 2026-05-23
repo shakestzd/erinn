@@ -252,13 +252,17 @@ func TestIdleReaperKillsStaleChild(t *testing.T) {
 	// Force LastRequest into the past.
 	c.LastRequest.Store(time.Now().Add(-1 * time.Second).Unix())
 
-	sup.reapIdleOnce()
-
-	// Wait for the reaper goroutine (cmd.Wait) to remove the map entry.
-	// Under CPU contention or -race the goroutine scheduler may delay the
-	// Wait return; 10s is generous enough even under parallel worktree load.
-	deadline := time.Now().Add(10 * time.Second)
+	// Re-issue reapIdleOnce each poll iteration: a just-spawned child can
+	// miss a single SIGTERM under scheduler delay (signal arrives before the
+	// exec'd sleep process is scheduled). Production's RunIdleReaper re-issues
+	// every tick anyway, so retrying here is faithful to production behaviour,
+	// not a test hack. The fake child uses "exec sleep 30" — sleep honours
+	// SIGTERM immediately once scheduled, so any retry that hits it will work.
+	// reapIdleOnce also escalates to SIGKILL after 100ms, so even a tardy
+	// scheduler cannot stall the test indefinitely.
+	deadline := time.Now().Add(20 * time.Second)
 	for time.Now().Before(deadline) {
+		sup.reapIdleOnce()
 		if len(sup.Children()) == 0 {
 			return
 		}

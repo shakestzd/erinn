@@ -132,7 +132,7 @@ fi
 step "Quality gates"
 
 if $DRY_RUN; then
-    ok "[dry-run] Would run: go build, go vet, go test, plugin check-ports"
+    ok "[dry-run] Would run: go build, go vet, go test -short, SQLite contention stress gate, plugin check-ports"
 else
     echo "  Running go build..."
     (cd "$GO_DIR" && go build ./...) || fail "go build failed"
@@ -142,9 +142,20 @@ else
     (cd "$GO_DIR" && go vet ./...) || fail "go vet failed"
     ok "go vet"
 
-    echo "  Running go test..."
-    (cd "$GO_DIR" && go test ./...) || fail "go test failed"
-    ok "go test"
+    # Broad test gate: mirrors ci.yml's proven strategy (go test -short ./...)
+    # to avoid SQLITE_BUSY flakes from TestSQLiteContentionStress running
+    # concurrently with the full suite. The stress test is run isolated below.
+    echo "  Running go test -short..."
+    (cd "$GO_DIR" && go test -short ./...) || fail "go test -short failed"
+    ok "go test -short"
+
+    # Isolated SQLite contention stress gate (the documented release gate;
+    # run alone so it owns the DB file without interference from the broad suite).
+    # See docs/runbook/launcher-isolation.md for rationale.
+    echo "  Running SQLite contention stress gate (isolated)..."
+    (cd "$GO_DIR" && go test -run TestSQLiteContentionStress -count=3 ./cmd/wipnote/) \
+        || fail "SQLite contention stress gate failed"
+    ok "SQLite contention stress gate"
 
     # Plugin port drift gate: regenerate every target tree into a tempdir and
     # diff against the committed trees. Shipping stale generated ports would

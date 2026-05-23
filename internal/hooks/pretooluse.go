@@ -135,7 +135,9 @@ func PreToolUse(event *CloudEvent, database *sql.DB) (*HookResult, error) {
 		if activeWorkItem == "" {
 			activeWorkItem = claimedItem
 		}
-		if warn := checkYoloWorkItemGuard(event.ToolName, activeWorkItem, ctx.IsYoloMode, ctx.SessionID, database); warn != "" {
+		// Extract the target file path once and reuse for both guards below.
+		targetFile := extractFilePath(event.ToolInput)
+		if warn := checkYoloWorkItemGuard(event.ToolName, activeWorkItem, ctx.IsYoloMode, ctx.SessionID, database, targetFile, ctx.ProjectDir); warn != "" {
 			return &HookResult{
 				Decision: "block",
 				Reason:   warn,
@@ -143,7 +145,7 @@ func PreToolUse(event *CloudEvent, database *sql.DB) (*HookResult, error) {
 		}
 		// Research-first: require at least one Read/Grep/Glob before writing.
 		hasResearch := hasRecentResearch(database, ctx.SessionID, ctx.AgentID, ctx.ProjectDir)
-		if warn := checkYoloResearchGuard(event.ToolName, ctx.IsYoloMode, hasResearch); warn != "" {
+		if warn := checkYoloResearchGuard(event.ToolName, ctx.IsYoloMode, hasResearch, targetFile, ctx.ProjectDir); warn != "" {
 			return &HookResult{Decision: "block", Reason: warn}, nil
 		}
 		if warn := checkYoloBashResearchGuard(event, ctx.IsYoloMode, hasResearch); warn != "" {

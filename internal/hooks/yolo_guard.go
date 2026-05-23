@@ -146,10 +146,20 @@ func isYoloFromDB(wipnoteDir, sessionID string) bool {
 // whether a feature was started mid-session and linked to THIS session — not
 // whether any feature is globally in-progress (which causes false passes when
 // unrelated features exist).
-func checkYoloWorkItemGuard(toolName, featureID string, _ bool, sessionID string, db *sql.DB) string {
+// targetFile is the Write/Edit target path extracted from the tool input.
+// When the target is outside the project root (home config, /tmp, sibling repos,
+// etc.) the guard is skipped — project-code discipline must not constrain
+// writes to external locations like ~/.claude/ memory files.
+// projectRoot is the resolved project directory (ctx.ProjectDir); when empty
+// the guard applies unconditionally (conservative).
+func checkYoloWorkItemGuard(toolName, featureID string, _ bool, sessionID string, db *sql.DB, targetFile, projectRoot string) string {
 	switch toolName {
 	case "Write", "Edit", "MultiEdit", "apply_patch":
 	default:
+		return ""
+	}
+	// Skip for writes targeting paths outside the project root.
+	if targetFile != "" && pathIsOutsideProject(targetFile, projectRoot) {
 		return ""
 	}
 	if featureID != "" {
@@ -405,10 +415,21 @@ func checkYoloBashWorktreeGuard(event *CloudEvent, branch string, yolo bool) str
 
 // checkYoloResearchGuard blocks Write/Edit when no Read/Grep/Glob has
 // occurred in the session (research-first principle). Always enforced.
-func checkYoloResearchGuard(toolName string, _ bool, hasResearch bool) string {
+//
+// targetFile is the Write/Edit target path extracted from the tool input.
+// When the target is outside the project root (home config, /tmp, sibling repos,
+// etc.) the guard is skipped — research-first discipline applies to project code,
+// not to external config or memory files.
+// projectRoot is the resolved project directory (ctx.ProjectDir); when empty
+// the guard applies unconditionally (conservative).
+func checkYoloResearchGuard(toolName string, _ bool, hasResearch bool, targetFile, projectRoot string) string {
 	switch toolName {
 	case "Write", "Edit", "MultiEdit", "apply_patch":
 	default:
+		return ""
+	}
+	// Skip for writes targeting paths outside the project root.
+	if targetFile != "" && pathIsOutsideProject(targetFile, projectRoot) {
 		return ""
 	}
 	if hasResearch {
@@ -444,6 +465,50 @@ func checkYoloBashResearchGuard(event *CloudEvent, _ bool, hasResearch bool) str
 		"Read existing code first: use Read, Grep, or Glob tools."
 }
 
+// pathIsOutsideProject returns true when path refers to a location outside the
+// project root. It is the shared classification heuristic used by both the
+// Bash research guard and the Write/Edit work-item and research guards.
+//
+// Rules (applied in order):
+//  1. Empty path → false (cannot classify, treat as in-project).
+//  2. ~/- or ~\-prefixed home paths are external, EXCEPT allow-listed dirs
+//     (~/.gotest, ~/.tmp, ~/.cache) which are test/temp scratch space.
+//  3. Absolute paths inside the project root (via filepath.Rel) → internal.
+//  4. Absolute paths in /workspaces/ siblings when the project is also under
+//     /workspaces/ → internal (Codespaces convention).
+//  5. All other absolute paths → external.
+//  6. Relative paths → false (treated as in-project; caller is responsible for
+//     resolving against CWD if needed).
+func pathIsOutsideProject(path, projectRoot string) bool {
+	if path == "" {
+		return false
+	}
+	if strings.HasPrefix(path, "~/") || strings.HasPrefix(path, "~\\") {
+		// Allow common test/temp directories in home.
+		if strings.HasPrefix(path, "~/.gotest") || strings.HasPrefix(path, "~/.tmp") || strings.HasPrefix(path, "~/.cache") {
+			return false
+		}
+		return true
+	}
+	if strings.HasPrefix(path, "/") {
+		// Allow siblings in /workspaces/ if the project itself is in /workspaces/.
+		if strings.HasPrefix(projectRoot, "/workspaces/") && strings.HasPrefix(path, "/workspaces/") {
+			return false
+		}
+		// Resolve against project root: if the path is inside the project,
+		// it is internal — not an external write.
+		if projectRoot != "" {
+			rel, err := filepath.Rel(projectRoot, path)
+			if err == nil && !strings.HasPrefix(rel, "..") {
+				return false // in-repo absolute path
+			}
+		}
+		return true
+	}
+	// Relative path — treat as in-project.
+	return false
+}
+
 // bashCommandTargetsExternalPath returns true when the Bash command's first
 // path-like argument starts with a home-directory shorthand (~) or is an absolute
 // path that falls outside the project root. This is a best-effort heuristic used
@@ -463,27 +528,14 @@ func bashCommandTargetsExternalPath(cmd, projectRoot string) bool {
 
 	// Look for the first argument that looks like a path (starts with ~ or /).
 	for _, field := range strings.Fields(cmd) {
-		if strings.HasPrefix(field, "~/") || strings.HasPrefix(field, "~\\") {
-			// Allow common test/temp directories in home
-			if strings.HasPrefix(field, "~/.gotest") || strings.HasPrefix(field, "~/.tmp") || strings.HasPrefix(field, "~/.cache") {
-				return false
-			}
+		if pathIsOutsideProject(field, projectRoot) {
 			return true
 		}
-		if strings.HasPrefix(field, "/") {
-			// Allow siblings in /workspaces/ if the project itself is in /workspaces/
-			if strings.HasPrefix(projectRoot, "/workspaces/") && strings.HasPrefix(field, "/workspaces/") {
-				return false
-			}
-			// Resolve against project root: if the path is inside the project,
-			// it is internal — not an external write.
-			if projectRoot != "" {
-				rel, err := filepath.Rel(projectRoot, field)
-				if err == nil && !strings.HasPrefix(rel, "..") {
-					return false // in-repo absolute path
-				}
-			}
-			return true
+		// pathIsOutsideProject returns false for relative paths AND for in-project
+		// absolute paths. For the Bash heuristic we must stop at the first
+		// path-like token (~ or /), so only continue scanning for non-path tokens.
+		if strings.HasPrefix(field, "~/") || strings.HasPrefix(field, "~\\") || strings.HasPrefix(field, "/") {
+			return false
 		}
 	}
 	return false

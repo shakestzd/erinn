@@ -175,7 +175,8 @@ func TestCheckYoloWorkItemGuard(t *testing.T) {
 			// Pass nil db and empty sessionID — tests without DB fallback.
 			// The featureID check is the primary path; sessionHasLinkedFeature
 			// is the fallback tested separately.
-			result := checkYoloWorkItemGuard(tt.tool, tt.featureID, tt.yolo, "", nil)
+			// Empty targetFile and projectRoot → in-project path assumed (conservative).
+			result := checkYoloWorkItemGuard(tt.tool, tt.featureID, tt.yolo, "", nil, "", "")
 			if tt.blocked && result == "" {
 				t.Errorf("expected block for tool=%s feature=%q yolo=%v",
 					tt.tool, tt.featureID, tt.yolo)
@@ -224,14 +225,14 @@ func TestCheckYoloWorkItemGuard_RejectsUnlinkedActiveWorkItem(t *testing.T) {
 	defer tdb.DB.Close()
 
 	// No active work items → blocked
-	result := checkYoloWorkItemGuard("Write", "", true, "some-session", tdb.DB)
+	result := checkYoloWorkItemGuard("Write", "", true, "some-session", tdb.DB, "", "")
 	if result == "" {
 		t.Error("expected block when no active work item and session unlinked")
 	}
 
 	// Add an in-progress spike in the project. It must not satisfy this session.
 	tdb.addFeature("spike-active", "spike", "Active spike", "in-progress")
-	result = checkYoloWorkItemGuard("Write", "", true, "some-session", tdb.DB)
+	result = checkYoloWorkItemGuard("Write", "", true, "some-session", tdb.DB, "", "")
 	if result == "" {
 		t.Error("expected block when only an unrelated work item is active")
 	}
@@ -246,13 +247,13 @@ func TestBashWorkItemGuardRemoved_RegressionBug(t *testing.T) {
 	defer tdb.DB.Close()
 
 	// Bash with write-intent command and no active work item: must not be blocked.
-	bashResult := checkYoloWorkItemGuard("Bash", "", true, "sess-regression", tdb.DB)
+	bashResult := checkYoloWorkItemGuard("Bash", "", true, "sess-regression", tdb.DB, "", "")
 	if bashResult != "" {
 		t.Errorf("Bash should not be blocked by work-item guard (guard removed), got: %s", bashResult)
 	}
 
 	// Write with no active work item: must still be blocked by checkYoloWorkItemGuard.
-	writeResult := checkYoloWorkItemGuard("Write", "", true, "sess-regression", tdb.DB)
+	writeResult := checkYoloWorkItemGuard("Write", "", true, "sess-regression", tdb.DB, "", "")
 	if writeResult == "" {
 		t.Error("Write should still be blocked by checkYoloWorkItemGuard when no active work item")
 	}
@@ -436,7 +437,8 @@ func TestCheckYoloResearchGuard(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := checkYoloResearchGuard(tt.tool, tt.yolo, tt.hasResearch)
+			// Empty targetFile and projectRoot → in-project path assumed (conservative).
+			result := checkYoloResearchGuard(tt.tool, tt.yolo, tt.hasResearch, "", "")
 			if tt.blocked && result == "" {
 				t.Errorf("expected block")
 			}
@@ -1460,5 +1462,152 @@ func TestWorktreeGuardRegression_NonYoloMainEditAllowed(t *testing.T) {
 	// A yolo subagent editing on a feature/worktree branch → NOT blocked.
 	if msg := checkYoloWorktreeGuard("Edit", "yolo-feat-abc", true); msg != "" {
 		t.Errorf("yolo subagent editing feature branch must NOT be blocked, got: %s", msg)
+	}
+}
+
+// TestCheckYoloWorkItemGuard_ExternalPathSkipped verifies that the work-item guard
+// does NOT fire when the Write/Edit target is outside the project root (bug-624e85ac).
+// Writes to ~/.claude memory files, /tmp, or other home config must not require a
+// wipnote work item — that discipline applies only to project-code writes.
+func TestCheckYoloWorkItemGuard_ExternalPathSkipped(t *testing.T) {
+	projectRoot := "/workspaces/wipnote"
+
+	externalPaths := []struct {
+		name string
+		path string
+	}{
+		{"home .claude memory file", "/home/vscode/.claude/projects/foo/memory/bar.md"},
+		{"tilde home path", "~/some-config/file.txt"},
+		{"absolute /tmp path", "/tmp/scratch.txt"},
+		{"absolute /etc path", "/etc/hosts"},
+	}
+
+	for _, tc := range externalPaths {
+		t.Run(tc.name, func(t *testing.T) {
+			// No feature, no DB — guard must skip (return "") for external paths.
+			result := checkYoloWorkItemGuard("Write", "", true, "", nil, tc.path, projectRoot)
+			if result != "" {
+				t.Errorf("work-item guard should NOT fire for external path %q, got: %s", tc.path, result)
+			}
+		})
+	}
+}
+
+// TestCheckYoloWorkItemGuard_InProjectPathStillBlocked is the regression test:
+// a Write to an in-project file with no active work item must still be blocked.
+func TestCheckYoloWorkItemGuard_InProjectPathStillBlocked(t *testing.T) {
+	projectRoot := "/workspaces/wipnote"
+
+	inProjectPaths := []struct {
+		name string
+		path string
+	}{
+		{"relative path", "internal/hooks/foo.go"},
+		{"absolute in-project path", "/workspaces/wipnote/internal/hooks/foo.go"},
+		{"empty target path (conservative)", ""},
+	}
+
+	for _, tc := range inProjectPaths {
+		t.Run(tc.name, func(t *testing.T) {
+			// No feature, no DB — guard must BLOCK for in-project paths.
+			result := checkYoloWorkItemGuard("Write", "", true, "", nil, tc.path, projectRoot)
+			if result == "" {
+				t.Errorf("work-item guard should BLOCK Write to in-project path %q with no work item", tc.path)
+			}
+		})
+	}
+}
+
+// TestCheckYoloResearchGuard_ExternalPathSkipped verifies that the research guard
+// does NOT fire when the Write/Edit target is outside the project root (bug-624e85ac).
+// Research-first discipline applies to project-code writes, not external config files.
+func TestCheckYoloResearchGuard_ExternalPathSkipped(t *testing.T) {
+	projectRoot := "/workspaces/wipnote"
+
+	externalPaths := []struct {
+		name string
+		path string
+	}{
+		{"home .claude memory file", "/home/vscode/.claude/projects/foo/memory/bar.md"},
+		{"tilde home path", "~/some-config/file.txt"},
+		{"absolute /tmp path", "/tmp/scratch.txt"},
+	}
+
+	for _, tc := range externalPaths {
+		t.Run(tc.name, func(t *testing.T) {
+			// hasResearch=false — guard must skip (return "") for external paths.
+			result := checkYoloResearchGuard("Write", true, false, tc.path, projectRoot)
+			if result != "" {
+				t.Errorf("research guard should NOT fire for external path %q, got: %s", tc.path, result)
+			}
+		})
+	}
+}
+
+// TestCheckYoloResearchGuard_InProjectPathStillBlocked is the regression test:
+// a Write to an in-project file with no prior research must still be blocked.
+func TestCheckYoloResearchGuard_InProjectPathStillBlocked(t *testing.T) {
+	projectRoot := "/workspaces/wipnote"
+
+	inProjectPaths := []struct {
+		name string
+		path string
+	}{
+		{"relative path", "internal/hooks/foo.go"},
+		{"absolute in-project path", "/workspaces/wipnote/internal/hooks/foo.go"},
+		{"empty target path (conservative)", ""},
+	}
+
+	for _, tc := range inProjectPaths {
+		t.Run(tc.name, func(t *testing.T) {
+			// hasResearch=false — guard must BLOCK for in-project paths.
+			result := checkYoloResearchGuard("Write", true, false, tc.path, projectRoot)
+			if result == "" {
+				t.Errorf("research guard should BLOCK Write to in-project path %q with no research", tc.path)
+			}
+		})
+	}
+}
+
+// TestPathIsOutsideProject covers the shared helper extracted for both guards.
+func TestPathIsOutsideProject(t *testing.T) {
+	projectRoot := "/workspaces/wipnote"
+
+	tests := []struct {
+		name    string
+		path    string
+		want    bool
+	}{
+		// Empty path → in-project (conservative, cannot classify).
+		{"empty path", "", false},
+		// Relative paths → in-project.
+		{"relative path", "internal/foo.go", false},
+		{"relative with subdir", "cmd/wipnote/main.go", false},
+		// In-project absolute paths.
+		{"absolute in-project root", "/workspaces/wipnote/foo.go", false},
+		{"absolute in-project subdir", "/workspaces/wipnote/internal/hooks/foo.go", false},
+		// Workspaces siblings (Codespaces convention) → in-project (allowed).
+		{"workspaces sibling", "/workspaces/other-repo/foo.go", false},
+		// Home directory paths — external (except allow-listed).
+		{"tilde home", "~/backup/file.txt", true},
+		{"home .claude", "~/.claude/memory/foo.md", true},
+		{"home absolute", "/home/vscode/.claude/projects/foo/memory/bar.md", true},
+		// Allow-listed home dirs — internal (scratch/test).
+		{"home .gotest", "~/.gotest/tmp.txt", false},
+		{"home .tmp", "~/.tmp/scratch", false},
+		{"home .cache", "~/.cache/go/foo", false},
+		// Other absolute paths outside project — external.
+		{"tmp", "/tmp/scratch.txt", true},
+		{"etc", "/etc/hosts", true},
+		{"usr local", "/usr/local/bin/something", true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := pathIsOutsideProject(tt.path, projectRoot)
+			if got != tt.want {
+				t.Errorf("pathIsOutsideProject(%q, %q) = %v, want %v", tt.path, projectRoot, got, tt.want)
+			}
+		})
 	}
 }

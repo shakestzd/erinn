@@ -176,6 +176,66 @@ func TestCarryUncommittedChanges_ApplyFailureFailSafe(t *testing.T) {
 	}
 }
 
+// TestCarryUncommittedChanges_WipnotePathsFilteredFromUntracked verifies that
+// any untracked files under .wipnote/ are excluded from UntrackedFiles while
+// genuine source untracked files outside .wipnote/ are still reported.
+// This is the defensive carryover filter for projects with stale gitignores.
+func TestCarryUncommittedChanges_WipnotePathsFilteredFromUntracked(t *testing.T) {
+	dir := setupGitRepo(t)
+
+	// Place wipnote runtime artifacts as untracked files (simulates stale gitignore).
+	wipnoteDir := filepath.Join(dir, ".wipnote")
+	if err := os.MkdirAll(wipnoteDir, 0o755); err != nil {
+		t.Fatalf("mkdir .wipnote: %v", err)
+	}
+	wipnoteFiles := []string{
+		".wipnote/.active-session",
+		".wipnote/session-families.json",
+		".wipnote/.serve.lock",
+		".wipnote/drift-queue.json",
+	}
+	for _, f := range wipnoteFiles {
+		if err := os.WriteFile(filepath.Join(dir, f), []byte("runtime data"), 0o644); err != nil {
+			t.Fatalf("write %s: %v", f, err)
+		}
+	}
+
+	// Place a genuine source file outside .wipnote/ (should appear in UntrackedFiles).
+	srcFile := filepath.Join(dir, "new_source.go")
+	if err := os.WriteFile(srcFile, []byte("package main\n"), 0o644); err != nil {
+		t.Fatalf("write new_source.go: %v", err)
+	}
+
+	path, _, err := worktree.EnsureForTrackStatus("trk-wipnote-filter01", dir, io.Discard)
+	if err != nil {
+		t.Fatalf("EnsureForTrackStatus: %v", err)
+	}
+
+	var buf bytes.Buffer
+	res, err := worktree.CarryUncommittedChanges(dir, path, &buf)
+	if err != nil {
+		t.Fatalf("CarryUncommittedChanges: %v", err)
+	}
+
+	// No .wipnote/ path should appear in UntrackedFiles.
+	for _, f := range res.UntrackedFiles {
+		if strings.HasPrefix(f, ".wipnote/") || f == ".wipnote" {
+			t.Errorf("UntrackedFiles must not include wipnote path %q; full list: %v", f, res.UntrackedFiles)
+		}
+	}
+
+	// The genuine source file must appear in UntrackedFiles.
+	found := false
+	for _, f := range res.UntrackedFiles {
+		if f == "new_source.go" {
+			found = true
+		}
+	}
+	if !found {
+		t.Errorf("expected new_source.go in UntrackedFiles; got %v", res.UntrackedFiles)
+	}
+}
+
 // TestCarryUncommittedChanges_StagedAndUnstagedBothCarried verifies that staged
 // (index) edits as well as unstaged edits are carried — `git diff HEAD` covers both.
 func TestCarryUncommittedChanges_StagedAndUnstagedBothCarried(t *testing.T) {

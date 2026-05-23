@@ -133,6 +133,12 @@ func bareLaunchNudge(projectDir string) string {
 func SessionStart(event *CloudEvent, database *sql.DB, projectDir string) (*HookResult, error) {
 	handlerStart := time.Now()
 
+	// Install .wipnote/.gitignore on every session start (harness-neutral, idempotent).
+	// This ensures adopter projects receive the runtime-artifact gitignore policy on
+	// their first launch after wipnote is installed or upgraded, without requiring any
+	// manual step. The call is a no-op when the file already exists.
+	worktree.EnsureWipnoteGitignore(projectDir)
+
 	sessionID := resolveSessionIDWithHarness(event)
 	if sessionID == "" {
 		sessionID = uuid.New().String()

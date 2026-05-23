@@ -86,8 +86,14 @@ func CarryUncommittedChanges(canonicalRoot, worktreePath string, w io.Writer) (C
 	return res, nil
 }
 
-// listUntracked returns untracked, non-ignored files in repoRoot. Best-effort:
-// returns nil on error.
+// listUntracked returns untracked, non-ignored files in repoRoot, excluding
+// any paths under .wipnote/. Best-effort: returns nil on error.
+//
+// .wipnote/ paths are filtered out defensively because a stale or missing
+// .wipnote/.gitignore on an adopter project would otherwise dump wipnote's
+// own session/telemetry/lock artifacts into the "Untracked files NOT carried"
+// message, polluting the yolo carryover output with internal noise.
+// Genuine source files outside .wipnote/ are always included.
 func listUntracked(repoRoot string) []string {
 	out, err := exec.Command("git", "-C", repoRoot, "ls-files", "--others", "--exclude-standard").Output()
 	if err != nil {
@@ -95,9 +101,16 @@ func listUntracked(repoRoot string) []string {
 	}
 	var files []string
 	for line := range strings.SplitSeq(strings.TrimSpace(string(out)), "\n") {
-		if s := strings.TrimSpace(line); s != "" {
-			files = append(files, s)
+		s := strings.TrimSpace(line)
+		if s == "" {
+			continue
 		}
+		// Skip any path that is inside .wipnote/ — these are wipnote runtime
+		// artifacts, not user source files.
+		if strings.HasPrefix(s, ".wipnote/") || s == ".wipnote" {
+			continue
+		}
+		files = append(files, s)
 	}
 	return files
 }

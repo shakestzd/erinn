@@ -83,13 +83,21 @@ CODEX.md
 .wipnote/**/*.lock
 .wipnote/.active-session
 .wipnote/.launch-mode
+.wipnote/.otel-notice-shown
 .wipnote/.session-warning-state.json
+.wipnote/.session-families.lock
+.wipnote/session-families.json
 .wipnote/parent-activity.json
 .wipnote/.error-spikes.json
 .wipnote/active-auto-spikes.json
 .wipnote/drift-queue.json
 .wipnote/.otlp-port
 .wipnote/.serve.lock
+.wipnote/migrations/*.done
+.wipnote/**/*.pid
+.wipnote/**/.index-offset
+.wipnote/**/.collector-pid
+.wipnote/**/state.json
 
 # wipnote obsolete/generated analytics artifacts from older builds
 .wipnote/cigs/

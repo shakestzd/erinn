@@ -143,15 +143,42 @@ func codexInstalledPluginDirAt(cachePath string) string {
 
 // codexManifestPath resolves the path to marketplace.json inside a
 // codex-marketplace tree, transparently handling both the flat layout
-// produced by the GoReleaser archive (marketplace.json at the tree root)
-// and the deep layout used by the dev source and `wipnote build`
+// produced by the legacy GoReleaser archive (marketplace.json at the tree
+// root) and the deep layout used by the dev source and `wipnote build`
 // install (.agents/plugins/marketplace.json).
+//
+// This is used to LOCATE and parse the manifest (e.g. to derive the local
+// plugin directory). It must NOT be passed to `codex plugin marketplace add`,
+// which requires a marketplace ROOT DIRECTORY — see codexMarketplaceAddArg.
 func codexManifestPath(treeRoot string) string {
 	flat := filepath.Join(treeRoot, "marketplace.json")
 	if _, err := os.Stat(flat); err == nil {
 		return flat
 	}
 	return filepath.Join(treeRoot, ".agents", "plugins", "marketplace.json")
+}
+
+// codexMarketplaceAddArg resolves the directory to pass to
+// `codex plugin marketplace add`. Codex CLI requires a local marketplace
+// ROOT DIRECTORY whose layout is `<root>/.agents/plugins/marketplace.json`;
+// passing the marketplace.json file directly fails with
+// "local marketplace source must be a directory, not a file".
+//
+// The dev source, `wipnote build` install, and (after the v0.60.10 archive
+// fix) the release tarball all keep the manifest nested under
+// `<root>/.agents/plugins/marketplace.json`, so the bundled tree root IS the
+// directory to register. For backward compatibility with an older flattened
+// tarball that placed marketplace.json directly at the tree root, we fall
+// back to the tree root itself (which is still a directory, satisfying
+// Codex's directory requirement).
+func codexMarketplaceAddArg(treeRoot string) string {
+	nested := filepath.Join(treeRoot, ".agents", "plugins", "marketplace.json")
+	if _, err := os.Stat(nested); err == nil {
+		return treeRoot
+	}
+	// Legacy flat layout: marketplace.json at the tree root. The directory is
+	// still treeRoot; Codex accepts the directory and resolves the manifest.
+	return treeRoot
 }
 
 // getCodexMarketplacePathAt parses config.toml and returns the registered wipnote
@@ -767,17 +794,19 @@ func runCodexInit(yes, dryRun bool) error {
 	if bundleErr != nil {
 		return fmt.Errorf("resolving bundled Codex marketplace: %w", bundleErr)
 	}
-	// Codex CLI expects the marketplace.json file path (or its containing dir
-	// with marketplace.json at root). The bundled tree keeps the manifest one
-	// level deep under .agents/plugins/ — pass that exact file to Codex.
-	bundledManifest := codexManifestPath(bundledMarketplace)
+	// Codex CLI requires a marketplace ROOT DIRECTORY (layout
+	// <root>/.agents/plugins/marketplace.json), NOT the manifest file path —
+	// passing the file fails with "local marketplace source must be a
+	// directory, not a file". Register the directory and compare detection
+	// against the SAME directory value to avoid re-registering every launch.
+	bundledDir := codexMarketplaceAddArg(bundledMarketplace)
 
 	// Phase 1: Install or verify marketplace. If a different marketplace is
 	// already registered (e.g. from a previous GitHub-clone-based --init), we
 	// rewrite the registration to point at the bundled local path.
 	registeredPath := getCodexMarketplacePathAt(configPath)
 	registeredAbs, _ := filepath.Abs(registeredPath)
-	bundledAbs, _ := filepath.Abs(bundledManifest)
+	bundledAbs, _ := filepath.Abs(bundledDir)
 
 	if registeredAbs != "" && registeredAbs != bundledAbs {
 		fmt.Printf("Replacing existing Codex marketplace registration (%s)\n", registeredPath)
@@ -791,9 +820,9 @@ func runCodexInit(yes, dryRun bool) error {
 	}
 
 	if registeredAbs != bundledAbs {
-		addArgs := []string{"plugin", "marketplace", "add", bundledManifest}
+		addArgs := []string{"plugin", "marketplace", "add", bundledDir}
 		fmt.Printf("Installing wipnote Codex marketplace (bundled)...\n")
-		fmt.Printf("  path: %s\n", bundledManifest)
+		fmt.Printf("  path: %s\n", bundledDir)
 		if dryRun {
 			fmt.Printf("[dry-run] codex %s\n", strings.Join(addArgs, " "))
 		} else {
@@ -903,12 +932,12 @@ func launchCodexDefault(resumeID, trackID, featureID, worktreePath, workItem str
 		if err != nil {
 			return fmt.Errorf("resolving bundled Codex marketplace: %w", err)
 		}
-		bundledManifest := codexManifestPath(bundled)
-		if out, addErr := exec.Command("codex", "plugin", "marketplace", "add", bundledManifest).CombinedOutput(); addErr != nil {
+		bundledDir := codexMarketplaceAddArg(bundled)
+		if out, addErr := exec.Command("codex", "plugin", "marketplace", "add", bundledDir).CombinedOutput(); addErr != nil {
 			outStr := strings.TrimSpace(string(out))
 			return fmt.Errorf("WIPNOTE AGENTS NOT LOADED\n─────────────────────────\nFailed to register the wipnote marketplace with Codex CLI:\n  %v\n\nThe Codex session will run WITHOUT wipnote agents (researcher, feature-coder, etc.).\n\nTry:\n  - Run `wipnote codex --init` manually to retry the setup\n  - Check ~/.codex/config.toml for a stale marketplace entry under [plugins.\"wipnote@wipnote\"]\n  - Report this at https://github.com/shakestzd/wipnote/issues\n\nOutput:\n%s", addErr, outStr)
 		}
-		fmt.Printf("wipnote Codex marketplace registered (bundled): %s\n", bundledManifest)
+		fmt.Printf("wipnote Codex marketplace registered (bundled): %s\n", bundledDir)
 	}
 
 	if isCodexMarketplaceInstalledAt(configPath) && !isCodexHooksEnabledAt(configPath) {
@@ -1095,11 +1124,12 @@ func launchCodexDev(resumeID string, cleanup, dryRun, yolo bool, extraArgs []str
 		registeredPath = "" // Force re-add
 	}
 
-	// Add the local marketplace if not already registered at the correct path
-	localManifest := codexManifestPath(localMarketplace)
-	localManifestAbs, _ := filepath.Abs(localManifest)
-	if registeredAbs != localManifestAbs {
-		addArgs := []string{"plugin", "marketplace", "add", localManifest}
+	// Add the local marketplace if not already registered at the correct path.
+	// Codex requires the marketplace ROOT DIRECTORY, not the manifest file.
+	localDir := codexMarketplaceAddArg(localMarketplace)
+	localDirAbs, _ := filepath.Abs(localDir)
+	if registeredAbs != localDirAbs {
+		addArgs := []string{"plugin", "marketplace", "add", localDir}
 		if dryRun {
 			fmt.Printf("[dry-run] codex %s\n", strings.Join(addArgs, " "))
 		} else {

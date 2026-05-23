@@ -1117,3 +1117,84 @@ func TestCodexManifestPath(t *testing.T) {
 		}
 	})
 }
+
+// TestCodexMarketplaceAddArgIsDirectory verifies the regression fix for
+// bug-ee77c482: `codex plugin marketplace add` requires a marketplace ROOT
+// DIRECTORY (layout <root>/.agents/plugins/marketplace.json), not the
+// manifest FILE path. Passing the file fails with "local marketplace source
+// must be a directory, not a file".
+func TestCodexMarketplaceAddArgIsDirectory(t *testing.T) {
+	dir := t.TempDir()
+	deepDir := filepath.Join(dir, ".agents", "plugins")
+	if err := os.MkdirAll(deepDir, 0755); err != nil {
+		t.Fatalf("MkdirAll: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(deepDir, "marketplace.json"), []byte(`{}`), 0644); err != nil {
+		t.Fatalf("WriteFile: %v", err)
+	}
+
+	got := codexMarketplaceAddArg(dir)
+
+	// Must be the tree root directory, not the manifest file.
+	if got != dir {
+		t.Errorf("codexMarketplaceAddArg = %q, want tree root %q", got, dir)
+	}
+	info, err := os.Stat(got)
+	if err != nil {
+		t.Fatalf("returned path does not exist: %v", err)
+	}
+	if !info.IsDir() {
+		t.Errorf("returned path %q is not a directory; Codex rejects file paths", got)
+	}
+	if strings.HasSuffix(got, "marketplace.json") {
+		t.Errorf("returned path %q is a manifest FILE; Codex requires a directory", got)
+	}
+	// The returned directory must contain the nested manifest Codex looks for.
+	nested := filepath.Join(got, ".agents", "plugins", "marketplace.json")
+	if _, err := os.Stat(nested); err != nil {
+		t.Errorf("expected %q to exist under returned dir: %v", nested, err)
+	}
+}
+
+// TestCodexMarketplaceAddArgRoundTrip verifies that registering the directory
+// returned by codexMarketplaceAddArg and then reading it back via
+// getCodexMarketplacePathAt / isCodexMarketplaceInstalledAt reports the
+// marketplace as installed at the SAME directory value — so a subsequent
+// launch does not spuriously re-register (registeredAbs == bundledAbs).
+func TestCodexMarketplaceAddArgRoundTrip(t *testing.T) {
+	tmpdir := t.TempDir()
+	configPath := filepath.Join(tmpdir, "config.toml")
+	marketplaceRoot := filepath.Join(tmpdir, "codex-marketplace")
+	deepDir := filepath.Join(marketplaceRoot, ".agents", "plugins")
+	if err := os.MkdirAll(deepDir, 0755); err != nil {
+		t.Fatalf("MkdirAll: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(deepDir, "marketplace.json"), []byte(`{}`), 0644); err != nil {
+		t.Fatalf("WriteFile: %v", err)
+	}
+
+	// The value we would pass to `codex plugin marketplace add`.
+	addArg := codexMarketplaceAddArg(marketplaceRoot)
+
+	// Simulate Codex persisting the registered source as that directory value.
+	config := "[marketplaces.wipnote]\nsource = \"" + filepath.ToSlash(addArg) + "\"\n"
+	if err := os.WriteFile(configPath, []byte(config), 0644); err != nil {
+		t.Fatalf("WriteFile config: %v", err)
+	}
+
+	// Detection must report installed.
+	if !isCodexMarketplaceInstalledAt(configPath) {
+		t.Errorf("expected marketplace to be detected as installed after registering %q", addArg)
+	}
+
+	// getCodexMarketplacePathAt must round-trip the same directory value, so
+	// the launch-path comparison (registeredAbs vs bundledAbs) is an equality
+	// and does NOT trigger a re-register.
+	registered := getCodexMarketplacePathAt(configPath)
+	registeredAbs, _ := filepath.Abs(registered)
+	bundledAbs, _ := filepath.Abs(addArg)
+	if registeredAbs != bundledAbs {
+		t.Errorf("round-trip mismatch: registered %q (abs %q) != add arg %q (abs %q); would re-register every launch",
+			registered, registeredAbs, addArg, bundledAbs)
+	}
+}

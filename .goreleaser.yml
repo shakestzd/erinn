@@ -43,7 +43,13 @@ archives:
       # all three harnesses ship in lockstep with the binary. Phase B will
       # flip the `wipnote codex` and `wipnote gemini` launchers to load from
       # these bundled trees; until then this is purely additive.
-      - src: "packages/codex-marketplace/**/*"
+      # Copy the whole codex-marketplace directory (not a `**/*` glob) so the
+      # hidden `.agents/` dir and the nested `.agents/plugins/marketplace.json`
+      # survive into the archive. Codex CLI requires a marketplace ROOT
+      # DIRECTORY whose layout is `<root>/.agents/plugins/marketplace.json`; a
+      # `**/*` glob silently drops dotdirs and flattens the tree, leaving
+      # tarball-installed users with an unusable flat marketplace.json.
+      - src: "packages/codex-marketplace"
         dst: codex-marketplace
         info:
           mode: 0644

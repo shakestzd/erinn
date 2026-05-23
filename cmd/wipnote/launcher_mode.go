@@ -34,18 +34,6 @@ func computeLauncherMode(worktreePath string, devPlugin, generatedPort bool) Lau
 	return m
 }
 
-// applyLaunchPlan computes the isolation plan for a mutating launcher invocation
-// and prints any dirty-main warning to w. It does NOT create the worktree —
-// that will happen when the managed-worktree path is executed (slice-3+).
-//
-// Rollout rules (HIGH critique honored):
-//   - Host runtime → warn-only; RefuseLaunch is always false by default.
-//   - Devcontainer → managed-worktree when a workItemID is provided.
-//   - inPlace=true → IsolationExplicitInPlace; no warning.
-func applyLaunchPlan(repoRoot, workItemID string, inPlace bool, w io.Writer) plan.LaunchPlan {
-	return applyLaunchPlanOpts(repoRoot, workItemID, inPlace, false, w)
-}
-
 // applyLaunchPlanOpts is applyLaunchPlan with control over whether the
 // plan's generic DirtyMainWarning is printed. When suppressDirtyWarning is true
 // (yolo will create a managed worktree this launch), the generic

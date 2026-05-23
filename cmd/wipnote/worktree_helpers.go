@@ -83,6 +83,13 @@ func EnsureForTrackWithTitleStatus(trackTitle, trackID, repoRoot string, w io.Wr
 	return worktree.EnsureForTrackTitledStatus(trackTitle, trackID, repoRoot, w)
 }
 
+// EnsureForTrackStatus is EnsureForTrack plus a "created vs reused" signal.
+// created is true only when a NEW worktree was created on disk.
+// Used by the codex/gemini launch paths to gate uncommitted-change carryover (bug-938e56ae).
+func EnsureForTrackStatus(trackID, repoRoot string, w io.Writer) (string, bool, error) {
+	return worktree.EnsureForTrackStatus(trackID, repoRoot, w)
+}
+
 // EnsureForFeatureStatus is EnsureForFeature plus a "created vs reused" signal.
 func EnsureForFeatureStatus(featureID, repoRoot string, w io.Writer) (string, bool, error) {
 	return worktree.EnsureForFeatureStatus(featureID, repoRoot, w)

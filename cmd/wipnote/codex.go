@@ -920,7 +920,10 @@ func launchCodexDefault(resumeID, trackID, featureID, worktreePath, workItem str
 	projectRoot, _ := resolveProjectRoot()
 	// Apply isolation plan and HONOR it (slice-9): a RefuseLaunch plan aborts
 	// before Codex starts. noWorktree here is effectiveInPlace (--in-place || --no-worktree).
-	launchPlan := applyLaunchPlan(projectRoot, workItem, noWorktree, os.Stderr)
+	// When the plan will create a managed worktree, suppress the generic dirty-main
+	// advisory — we emit an accurate message after carryover instead (bug-938e56ae).
+	willCreateWorktree := !noWorktree && (trackID != "" || featureID != "" || workItem != "")
+	launchPlan := applyLaunchPlanOpts(projectRoot, workItem, noWorktree, willCreateWorktree, os.Stderr)
 	if err := enforceLaunchPlan(launchPlan, os.Stderr); err != nil {
 		return err
 	}
@@ -994,6 +997,7 @@ func launchCodexDefault(resumeID, trackID, featureID, worktreePath, workItem str
 	workDir := projectRoot
 	wipnoteRoot := canonicalProjectRoot(projectRoot)
 	resolved := false
+	worktreeCreated := false
 	switch {
 	case worktreePath != "":
 		// Explicit path — use as-is; set WIPNOTE_PROJECT_DIR to canonical root.
@@ -1001,30 +1005,43 @@ func launchCodexDefault(resumeID, trackID, featureID, worktreePath, workItem str
 		wipnoteRoot = canonicalRoot
 		resolved = true
 	case !noWorktree && trackID != "":
-		wt, err := EnsureForTrack(trackID, canonicalRoot, os.Stdout)
+		wt, created, err := EnsureForTrackStatus(trackID, canonicalRoot, os.Stdout)
 		if err != nil {
 			return err
 		}
 		workDir = wt
 		wipnoteRoot = canonicalRoot
+		worktreeCreated = created
 		resolved = true
 	case !noWorktree && featureID != "":
-		wt, err := EnsureForFeature(featureID, canonicalRoot, os.Stdout)
+		wt, created, err := EnsureForFeatureStatus(featureID, canonicalRoot, os.Stdout)
 		if err != nil {
 			return err
 		}
 		workDir = wt
 		wipnoteRoot = canonicalRoot
+		worktreeCreated = created
 		resolved = true
 	}
 
 	// Honor a managed-worktree plan (slice-9) when no explicit/track/feature
 	// worktree was resolved above. WIPNOTE_PROJECT_DIR stays the canonical root.
-	if wt, werr := resolveManagedWorktree(launchPlan, canonicalRoot, trackID, featureID, workItem, workDir, resolved, os.Stdout); werr != nil {
+	if wt, created, werr := resolveManagedWorktreeStatus(launchPlan, canonicalRoot, trackID, featureID, workItem, workDir, resolved, os.Stdout); werr != nil {
 		return werr
 	} else if wt != "" && wt != workDir {
 		workDir = wt
 		wipnoteRoot = canonicalRoot
+		worktreeCreated = created
+	}
+
+	// Carry the canonical main repo's uncommitted tracked changes into the
+	// freshly-created worktree so the session builds on the user's latest
+	// working state (bug-938e56ae). Only for newly-created worktrees: a reused
+	// worktree may already contain prior work and re-applying would double-apply
+	// or fail. Main is never mutated. Carryover failure is non-fatal.
+	if workDir != projectRoot {
+		effectiveRoot := canonicalRoot
+		emitWorktreeCarryoverMessage(launchPlan, effectiveRoot, workDir, worktreeCreated, os.Stdout)
 	}
 
 	fmt.Println("Launching Codex CLI with wipnote context...")

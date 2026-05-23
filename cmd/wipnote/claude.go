@@ -561,6 +561,12 @@ func launchClaude(opts LaunchOpts) error {
 	} else if opts.InjectSystemPrompt {
 		systemPrompt = systemPromptContent
 	}
+	// Append the shared research-routing disposition exactly once. Source of
+	// truth: cmd/wipnote/prompts/research-routing.md (mirrored for subagents in
+	// the agent-context skill).
+	if systemPrompt != "" {
+		systemPrompt = strings.TrimSpace(systemPrompt) + "\n\n" + strings.TrimSpace(researchRoutingContent) + "\n"
+	}
 
 	var claudeArgs []string
 	if opts.ResumeID != "" {

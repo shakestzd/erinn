@@ -153,6 +153,13 @@ func buildCodexInstructionConfigArgs(codexPath string, extraArgs []string, mode 
 	}
 
 	addendum := codexInstructionAddendum(mode)
+	// Append the shared research-routing disposition exactly once to the final
+	// composed instruction string (not per switch branch, so combined
+	// system+yolo modes don't double-append). Source of truth:
+	// cmd/wipnote/prompts/research-routing.md.
+	if addendum != "" {
+		addendum = strings.TrimSpace(addendum) + "\n\n" + strings.TrimSpace(researchRoutingContent)
+	}
 	path, err := writeCodexInstructionsFile(base, addendum, mode)
 	if err != nil {
 		return nil, err

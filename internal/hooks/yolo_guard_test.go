@@ -1083,8 +1083,11 @@ func TestCheckYoloBashResearchGuard_ProjectPathMessage(t *testing.T) {
 	if result == "" {
 		t.Fatal("expected block for sed -i on project file")
 	}
-	if !strings.Contains(result, "Read, Grep, or Glob") {
+	if !strings.Contains(result, "Read/Grep/Glob") {
 		t.Errorf("message for project-file write should suggest Read/Grep/Glob, got: %s", result)
+	}
+	if !strings.Contains(result, "WebSearch/WebFetch") {
+		t.Errorf("message should also legitimize docs/web/GitHub research, got: %s", result)
 	}
 }
 

@@ -211,6 +211,36 @@ func TestHasRecentResearch_BlocksWhenNoResearchButOtherToolsRan(t *testing.T) {
 	}
 }
 
+// TestHasRecentResearch_WebToolsSatisfyResearch verifies that Claude Code's
+// web research tools (WebSearch / WebFetch) count as research — consulting
+// official docs, GitHub issues, or the web is first-class research and must not
+// be penalized by the guard. See cmd/wipnote/prompts/research-routing.md.
+func TestHasRecentResearch_WebToolsSatisfyResearch(t *testing.T) {
+	cases := []struct {
+		name    string
+		sessID  string
+		agentID string
+		evtID   string
+		tool    string
+	}{
+		{"WebSearch", "websearch-session-0001", "websearch-agent", "evt-websearch", "WebSearch"},
+		{"WebFetch", "webfetch-session-0001", "webfetch-agent", "evt-webfetch", "WebFetch"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			tdb := setupTestDB(t)
+			defer tdb.DB.Close()
+
+			insertResearchTestSessionWithProject(t, tdb, tc.sessID, "", ".")
+			insertAgentEventFull(t, tdb, tc.evtID, tc.sessID, tc.agentID, "tool_call", tc.tool, "https://example.com")
+
+			if !hasRecentResearch(tdb.DB, tc.sessID, tc.agentID, "") {
+				t.Errorf("expected hasRecentResearch=true: %s should count as research", tc.tool)
+			}
+		})
+	}
+}
+
 // TestHasRecentResearch_GenericAgentIDNotCrossSession verifies that a generic
 // harness-level agentID (e.g. "claude-code") does not bridge unrelated sessions.
 func TestHasRecentResearch_GenericAgentIDNotCrossSession(t *testing.T) {

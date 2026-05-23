@@ -436,7 +436,9 @@ func checkYoloResearchGuard(toolName string, _ bool, hasResearch bool, targetFil
 		return ""
 	}
 	return "Research is required before writing code. " +
-		"Read existing code first: use Read, Grep, or Glob tools."
+		"Read the relevant code (Read/Grep/Glob) and/or consult official docs, " +
+		"GitHub issues, or the web (WebSearch/WebFetch, `gh search`) — especially " +
+		"for external libraries, upstream tools, or unfamiliar error messages."
 }
 
 // checkYoloBashResearchGuard extends the research guard to Bash file-write commands.
@@ -462,7 +464,9 @@ func checkYoloBashResearchGuard(event *CloudEvent, _ bool, hasResearch bool) str
 			"Review the target files with Bash (cat, head, stat) before making changes."
 	}
 	return "Research is required before writing code via Bash. " +
-		"Read existing code first: use Read, Grep, or Glob tools."
+		"Read the relevant code (Read/Grep/Glob) and/or consult official docs, " +
+		"GitHub issues, or the web (WebSearch/WebFetch, `gh search`) — especially " +
+		"for external libraries, upstream tools, or unfamiliar error messages."
 }
 
 // pathIsOutsideProject returns true when path refers to a location outside the
@@ -829,8 +833,15 @@ func buildInClause(ids []string) (string, []any) {
 }
 
 // buildResearchQuery builds the research detection SQL and its argument slice.
-// It matches Read/Grep/Glob (and equivalents) under any of the related session
-// IDs, and optionally also by agentID when useAgentID is true.
+// It matches Read/Grep/Glob (and equivalents) plus web/docs/GitHub research
+// (WebSearch/WebFetch and `gh ...`) under any of the related session IDs, and
+// optionally also by agentID when useAgentID is true.
+//
+// The research-disposition source of truth lives in
+// cmd/wipnote/prompts/research-routing.md and the agent-context skill
+// (plugin/skills/agent-context/SKILL.md). Keep the qualifying-tool list here in
+// sync so the guard does not penalize the web/docs/GitHub-first research those
+// prompts encourage.
 // When agentID is used, the query is scoped to events from the same project
 // and from the last 24 hours to prevent cross-project and stale event leakage.
 func buildResearchQuery(inClause string, inArgs []any, useAgentID bool, agentID, projectDir string) (string, []any) {
@@ -841,6 +852,7 @@ func buildResearchQuery(inClause string, inArgs []any, useAgentID bool, agentID,
 		  AND (
 			tool_name IN (
 				'Read', 'Grep', 'Glob',
+				'WebSearch', 'WebFetch',
 				'read_file', 'grep_search', 'glob', 'list_directory',
 				'web_fetch', 'web_search', 'google_web_search'
 			) OR (
@@ -852,6 +864,7 @@ func buildResearchQuery(inClause string, inArgs []any, useAgentID bool, agentID,
 					OR input_summary LIKE 'head %%'
 					OR input_summary LIKE 'tail %%'
 					OR input_summary LIKE 'stat %%'
+					OR input_summary LIKE 'gh %%'
 				)
 			)
 		  )

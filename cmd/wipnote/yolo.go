@@ -202,6 +202,11 @@ func buildYoloSystemPrompt(id, kind string) string {
 		sb.WriteString(buildWorkItemPromptPrefix(id, kind))
 	}
 	sb.WriteString(yoloPromptContent)
+	// Append the shared research-routing disposition exactly once. Source of
+	// truth: cmd/wipnote/prompts/research-routing.md.
+	sb.WriteString("\n\n")
+	sb.WriteString(strings.TrimSpace(researchRoutingContent))
+	sb.WriteString("\n")
 	return sb.String()
 }
 

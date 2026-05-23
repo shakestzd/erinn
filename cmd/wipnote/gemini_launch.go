@@ -122,6 +122,10 @@ func renderGeminiSystemPrompt(content string, mode geminiLaunchMode) string {
 		result += "\n\n# wipnote " + geminiInstructionModeTitle(mode) + " Addendum\n\n" + addendum
 	}
 
+	// Append the shared research-routing disposition exactly once. Source of
+	// truth: cmd/wipnote/prompts/research-routing.md.
+	result = strings.TrimSpace(result) + "\n\n" + strings.TrimSpace(researchRoutingContent) + "\n"
+
 	return result
 }
 

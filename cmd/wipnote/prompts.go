@@ -10,3 +10,6 @@ var yoloPromptContent string
 
 //go:embed prompts/gemini-system.md
 var geminiSystemPrompt string
+
+//go:embed prompts/research-routing.md
+var researchRoutingContent string

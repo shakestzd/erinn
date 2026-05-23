@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>Stabilize flaky timing-sensitive tests: TestSQLiteContentionStress &amp; TestIdleReaperKillsStaleChild cause spurious CI/deploy failures</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="bug-92ef522c"
+             data-type="bug"
+             data-status="todo"
+             data-priority="medium"
+             data-created="2026-05-23T20:41:55.490862"
+             data-updated="2026-05-23T20:41:55.523192" data-agent-assigned="claude-code" data-track-id="trk-43648254" data-created-by-agent="claude-code" data-created-by-model="claude-opus-4-7[1m]" data-created-by-cli-version="0.60.8-20-g71829244c">
+
+        <header>
+            <h1>Stabilize flaky timing-sensitive tests: TestSQLiteContentionStress &amp; TestIdleReaperKillsStaleChild cause spurious CI/deploy failures</h1>
+            <div class="metadata">
+                <span class="badge status-todo">Todo</span>
+                <span class="badge priority-medium">Medium Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="trk-43648254.html" data-relationship="part_of" data-since="2026-05-23T20:41:55.522568">trk-43648254</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>Two timing-sensitive Go tests intermittently fail under CI-runner / concurrent load and produce spurious red CI and deploy failures (observed repeatedly across the 0.60.9-0.60.15 release run): (1) TestSQLiteContentionStress (cmd/wipnote) fails with first-party SQLITE_BUSY under concurrent load (e.g. parallel goreleaser snapshot or two go test runs); passes isolated with -count=3. (2) TestIdleReaperKillsStaleChild (internal/childproc) fails 'child was not reaped after idle; children=1' under runner load (idle-reaper timeout race); passes on re-run. Neither is a real regression. Goal: make them deterministic/robust under load — e.g. inject/relax timeouts via a test clock or generous CI-tunable deadlines, reduce shared-resource contention, or gate the stress test behind a serial/-tagged lane so it never races other packages. Acceptance: 3 consecutive full 'go test ./...' runs under load with zero first-party flakes.</p>
+        </section>
+    </article>
+</body>
+</html>

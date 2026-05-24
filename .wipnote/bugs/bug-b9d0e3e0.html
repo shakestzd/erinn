@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>YOLO mode worktree/branch isolation surface is ambiguous — orchestrator confuses worktree vs main checkout</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="bug-b9d0e3e0"
+             data-type="bug"
+             data-status="todo"
+             data-priority="medium"
+             data-created="2026-05-24T23:10:45.807023"
+             data-updated="2026-05-24T23:10:45.829388" data-agent-assigned="claude-code" data-track-id="trk-0677c709" data-created-by-agent="claude-code" data-created-by-model="claude-opus-4-7[1m]" data-created-by-cli-version="0.60.18">
+
+        <header>
+            <h1>YOLO mode worktree/branch isolation surface is ambiguous — orchestrator confuses worktree vs main checkout</h1>
+            <div class="metadata">
+                <span class="badge status-todo">Todo</span>
+                <span class="badge priority-medium">Medium Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="trk-0677c709.html" data-relationship="part_of" data-since="2026-05-24T23:10:45.829031">trk-0677c709</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="caused_by">
+                <h3>Caused By:</h3>
+                <ul>
+                    <li><a href="feat-801f2273.html" data-relationship="caused_by" data-since="2026-05-24T23:10:45.823496">feat-801f2273</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>Real-user feedback from an external project running wipnote in YOLO mode (multi-slice plan execution). A subagent (Build qbank manifest, feat-ac3c1dfd) did its work inside the YOLO worktree, but the orchestrator expected the main checkout and hit 'Path confusion — the agent worked in this worktree, not the main checkout', then had to manually locate the correct path to run quality gates. Then wipnote feature complete refused with 'Commit the implementation first' even though the slice was committed (7d7b3bf), because uncommitted files existed in the worktree — suggesting gate/complete logic and the orchestrator disagree about which checkout is authoritative. User expectation: YOLO mode should isolate each unit of work on a dedicated per-track branch plus a corresponding worktree, and the surface where subagents operate should be explicit and consistent so the orchestrator, the gate/test runner, and feature-complete all target the SAME checkout. Symptoms to address: (1) ambiguity about whether subagents work in the track-branch worktree vs the main checkout; (2) gates/tests executed against the wrong directory; (3) feature complete's uncommitted-source check evaluating the wrong checkout or conflating worktree state. Likely needs a spike first to define the intended YOLO isolation model (per-track branch + worktree, working-dir contract surfaced to subagents) before implementing enforcement. Note: paths in the source transcript were host-absolute and are intentionally omitted here.</p>
+        </section>
+    </article>
+</body>
+</html>

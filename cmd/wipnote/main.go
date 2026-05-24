@@ -266,6 +266,10 @@ func buildRoot() *cobra.Command {
 	sync.GroupID = "data"
 	root.AddCommand(sync)
 
+	prune := pruneCmd()
+	prune.GroupID = "data"
+	root.AddCommand(prune)
+
 	// dev group
 	yolo := yoloCmd()
 	yolo.GroupID = "dev"

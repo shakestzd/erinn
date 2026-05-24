@@ -163,6 +163,15 @@ func SessionStart(event *CloudEvent, database *sql.DB, projectDir string) (*Hook
 		commitCh <- headCommit(projectDir)
 	}()
 
+	// Fire-and-forget disk-retention sweep: rotate oversized logs and
+	// archive+prune raw events.ndjson for OLD, inactive, fully-ingested
+	// sessions. This is the natural session-start cleanup point so reclamation
+	// happens even when `wipnote serve` is not running. The current session is
+	// passed as active so its own ndjson is never touched; the sweep is
+	// idempotent and fail-safe (no-op on any error). Backgrounded so it never
+	// blocks the hot hook path.
+	go runRetentionSweep(projectDir, sessionID)
+
 	// Propagate session ID to downstream hooks while git is running.
 	writeEnvVars(sessionID, projectDir)
 

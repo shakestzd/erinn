@@ -66,13 +66,42 @@ func Run(database *sql.DB, wipnoteDir string, dryRun bool) error {
 	return rows.Err()
 }
 
+// Sweep runs a full disk-retention pass over a project's .wipnote/ dir:
+//  1. log rotation/cap for serve-auto.log, serve-<id>.log, and debug.log,
+//  2. the DB-status='completed' archive pass (Run), and
+//  3. the ndjson coverage sweep for inactive+ingested sessions that never
+//     reached completed_at (crashed / disconnected / stale-active).
+//
+// It is cheap, idempotent, and fail-safe — every step degrades to a no-op on
+// error and never deletes un-ingested or active-session data. activeSessionID
+// may be "" when no live session is known (e.g. manual `wipnote prune`).
+// Returns the SweepResult from the ndjson pass for caller reporting.
+func Sweep(database *sql.DB, wipnoteDir, activeSessionID string, dryRun bool) (SweepResult, error) {
+	projectDir := filepath.Dir(wipnoteDir)
+	cfg := LoadConfig(projectDir)
+
+	if n, err := rotateProjectLogs(wipnoteDir, cfg); err != nil {
+		fmt.Fprintf(os.Stderr, "retention: log rotation: %v\n", err)
+	} else if n > 0 {
+		fmt.Fprintf(os.Stderr, "retention: reclaimed %d bytes from oversized logs\n", n)
+	}
+
+	if database != nil {
+		if err := Run(database, wipnoteDir, dryRun); err != nil {
+			fmt.Fprintf(os.Stderr, "retention: completed-session archive: %v\n", err)
+		}
+	}
+
+	return SweepNDJSON(wipnoteDir, activeSessionID, cfg, dryRun)
+}
+
 // StartLoop runs an initial retention pass at startup, then repeats every 24h.
 // It returns immediately and runs in the background until ctx is cancelled.
 func StartLoop(ctx context.Context, database *sql.DB, wipnoteDir string) {
 	dryRun := os.Getenv("WIPNOTE_RETENTION_DRYRUN") == "1"
 	go func() {
 		// Run once at startup.
-		if err := Run(database, wipnoteDir, dryRun); err != nil {
+		if _, err := Sweep(database, wipnoteDir, "", dryRun); err != nil {
 			fmt.Fprintf(os.Stderr, "retention: startup pass: %v\n", err)
 		}
 		ticker := time.NewTicker(runInterval)
@@ -82,7 +111,7 @@ func StartLoop(ctx context.Context, database *sql.DB, wipnoteDir string) {
 			case <-ctx.Done():
 				return
 			case <-ticker.C:
-				if err := Run(database, wipnoteDir, dryRun); err != nil {
+				if _, err := Sweep(database, wipnoteDir, "", dryRun); err != nil {
 					fmt.Fprintf(os.Stderr, "retention: periodic pass: %v\n", err)
 				}
 			}

@@ -242,7 +242,7 @@ var approvedWriteSites = []writeSite{
 	},
 	{
 		File:           "cmd/wipnote/session.go",
-		Line:           213,
+		Line:           215,
 		Function:       "openDB",
 		OpenExpr:       "dbpkg.Open",
 		Classification: intentionalCLIMutation,

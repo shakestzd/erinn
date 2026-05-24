@@ -241,6 +241,42 @@ func indexerCaughtUp(sessDir, eventsFile string) bool {
 	return offset >= info.Size()
 }
 
+// ArchiveSession is the exported entry-point for archiving a single session on
+// demand (e.g. `wipnote session archive <id>`). It delegates to archiveSession
+// using the session's mtime as the timestamp for the archive subdirectory, and
+// honours dryRun. Returns an error when the session dir does not exist, when the
+// indexer has not yet caught up (un-ingested data would be lost), or when the
+// underlying tar/remove operations fail.
+//
+// The caller is responsible for ensuring the session is not the active session
+// before calling this function — ArchiveSession does not check.
+func ArchiveSession(wipnoteDir, sessionID string, dryRun bool) error {
+	sessDir := filepath.Join(wipnoteDir, "sessions", sessionID)
+	eventsFile := filepath.Join(sessDir, "events.ndjson")
+
+	// Determine the timestamp to use for the archive subdirectory. Prefer the
+	// mtime of events.ndjson; fall back to now when the file is absent (empty
+	// session dir case — archiveSession will handle clean-up).
+	ts := time.Now()
+	if info, err := os.Stat(eventsFile); err == nil {
+		ts = info.ModTime()
+	}
+
+	return archiveSession(wipnoteDir, sessionID, ts, dryRun)
+}
+
+// IndexerCaughtUp reports whether the indexer has fully consumed events.ndjson
+// for the given session directory (i.e. the .index-offset marker equals the
+// file size). Exported for use by `wipnote session prune`.
+func IndexerCaughtUp(sessDir, eventsFile string) bool {
+	return indexerCaughtUp(sessDir, eventsFile)
+}
+
+// SessionDir returns the absolute path of the live session directory for sid.
+func SessionDir(wipnoteDir, sid string) string {
+	return filepath.Join(wipnoteDir, "sessions", sid)
+}
+
 // retainDaysFromEnv reads WIPNOTE_SESSION_RETAIN_DAYS, defaulting to 30.
 func retainDaysFromEnv() int {
 	if v := os.Getenv("WIPNOTE_SESSION_RETAIN_DAYS"); v != "" {

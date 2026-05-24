@@ -261,6 +261,42 @@ func TestValidateSessionID_AcceptsValidIDs(t *testing.T) {
 	}
 }
 
+// TestRun_SkipsTraversalSessionIDs verifies that when the DB contains rows with
+// path-traversal session IDs, Run skips them safely without touching any
+// directory outside .wipnote/sessions/.
+func TestRun_SkipsTraversalSessionIDs(t *testing.T) {
+	dir := t.TempDir()
+	wipnoteDir := filepath.Join(dir, ".wipnote")
+	if err := os.MkdirAll(filepath.Join(wipnoteDir, "sessions"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	db := openTestDB(t)
+
+	old := time.Now().UTC().Add(-40 * 24 * time.Hour)
+	traversalIDs := []string{"../escape", "..", "/abs/path", "sub/dir"}
+	for _, id := range traversalIDs {
+		insertSession(t, db, id, "completed", &old)
+	}
+
+	// Create a real directory at the escape target; Run must NOT remove it.
+	escapeTarget := filepath.Join(dir, "escape")
+	if err := os.MkdirAll(escapeTarget, 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	t.Setenv("WIPNOTE_SESSION_RETAIN_DAYS", "30")
+	// Run should complete without error (bad rows are skipped, not fatal).
+	if err := retention.Run(db, wipnoteDir, false); err != nil {
+		t.Fatalf("Run: unexpected error: %v", err)
+	}
+
+	// The escape target must still exist — nothing was removed outside sessions/.
+	if _, err := os.Stat(escapeTarget); os.IsNotExist(err) {
+		t.Error("Run: traversal-ID row caused escape target directory to be removed")
+	}
+}
+
 // TestArchiveSession_RejectsTraversal verifies that ArchiveSession returns an
 // error for path-traversal IDs and does not touch the filesystem outside the
 // sessions directory.

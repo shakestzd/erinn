@@ -121,7 +121,13 @@ func StartLoop(ctx context.Context, database *sql.DB, wipnoteDir string) {
 
 // archiveSession archives events.ndjson for the given session into
 // .wipnote/archive/<yyyy-mm>/<sid>.tar.gz, then removes the session dir.
+// It validates the session ID before joining it into any filesystem path,
+// making this the enforcement choke point for all callers (Run, ArchiveSession,
+// and any future caller of this helper).
 func archiveSession(wipnoteDir, sessionID string, completedAt time.Time, dryRun bool) error {
+	if err := ValidateSessionID(sessionID); err != nil {
+		return fmt.Errorf("invalid session ID: %w", err)
+	}
 	sessDir := filepath.Join(wipnoteDir, "sessions", sessionID)
 	eventsFile := filepath.Join(sessDir, "events.ndjson")
 
@@ -299,7 +305,11 @@ func IndexerCaughtUp(sessDir, eventsFile string) bool {
 }
 
 // SessionDir returns the absolute path of the live session directory for sid.
+// Returns an empty string if sid fails ValidateSessionID.
 func SessionDir(wipnoteDir, sid string) string {
+	if ValidateSessionID(sid) != nil {
+		return ""
+	}
 	return filepath.Join(wipnoteDir, "sessions", sid)
 }
 

@@ -92,7 +92,7 @@ func commitWipnoteArtifact(wipnoteDir, typeName, id, action string) error {
 	absPath := filepath.Join(wipnoteDir, subDir, id+".html")
 
 	// Stage the file. Use an explicit path to avoid sweeping unrelated changes.
-	addOut, err := exec.Command("git", "-C", repoRoot, "add", "--", absPath).CombinedOutput()
+	addOut, err := runGitWithLockRetry(repoRoot, "add", "--", absPath)
 	if err != nil {
 		return fmt.Errorf("autocommit: git add %s: %s: %w", relPath, strings.TrimSpace(string(addOut)), err)
 	}
@@ -111,9 +111,7 @@ func commitWipnoteArtifact(wipnoteDir, typeName, id, action string) error {
 		action = "update"
 	}
 	msg := "wipnote: " + action + " " + id
-	commitOut, err := exec.Command(
-		"git", "-C", repoRoot, "commit", "-m", msg, "--", absPath,
-	).CombinedOutput()
+	commitOut, err := runGitWithLockRetry(repoRoot, "commit", "-m", msg, "--", absPath)
 	if err != nil {
 		outStr := string(commitOut)
 		if strings.Contains(outStr, "nothing to commit") || strings.Contains(outStr, "no changes added") {
@@ -166,7 +164,7 @@ func commitWipnoteArtifactStrict(wipnoteDir, typeName, id, action string) (commi
 	absPath := filepath.Join(wipnoteDir, subDir, id+".html")
 
 	// Stage the file. Use an explicit path to avoid sweeping unrelated changes.
-	addOut, err := exec.Command("git", "-C", repoRoot, "add", "--", absPath).CombinedOutput()
+	addOut, err := runGitWithLockRetry(repoRoot, "add", "--", absPath)
 	if err != nil {
 		return false, fmt.Errorf("strict autocommit: git add %s: %s: %w", relPath, strings.TrimSpace(string(addOut)), err)
 	}
@@ -180,9 +178,7 @@ func commitWipnoteArtifactStrict(wipnoteDir, typeName, id, action string) (commi
 		action = "update"
 	}
 	msg := "wipnote: " + action + " " + id
-	commitOut, err := exec.Command(
-		"git", "-C", repoRoot, "commit", "-m", msg, "--", absPath,
-	).CombinedOutput()
+	commitOut, err := runGitWithLockRetry(repoRoot, "commit", "-m", msg, "--", absPath)
 	if err != nil {
 		outStr := string(commitOut)
 		if strings.Contains(outStr, "nothing to commit") || strings.Contains(outStr, "no changes added") {

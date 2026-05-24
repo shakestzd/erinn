@@ -33,8 +33,13 @@ func notifyMigration(name string) {
 // It applies connection-level pragmas (busy_timeout, cache_size, etc.) but
 // does NOT run any DDL, migrations, or normalisation writes.
 //
-// SQLite enforces read-only access at the engine level via mode=ro in the DSN;
-// any attempt to execute DDL or DML will return SQLITE_READONLY.
+// Read-only enforcement is achieved via PRAGMA query_only=ON rather than the
+// SQLite URI mode=ro parameter. mode=ro requires the -shm sidecar to exist for
+// WAL databases; when it is absent (routine state after a clean checkpoint or
+// on a fresh install) mode=ro returns SQLITE_CANTOPEN before the connection is
+// usable. mode=rw allows SQLite to create the -shm coordination file when
+// needed while query_only=ON blocks all DML/DDL at the engine level, giving us
+// the same read-only safety without the WAL sidecar requirement.
 //
 // IMPORTANT — prompt close contract: read-only paths MUST close all sql.Rows,
 // sql.Stmt, and sql.Tx values promptly after use. In DELETE journal mode a
@@ -43,25 +48,25 @@ func notifyMigration(name string) {
 // writer side. In WAL mode readers and writers do not block each other, but the
 // prompt-close discipline must still be observed for portability.
 //
-// Returns an error if the database file does not exist (mode=ro never creates a
-// new file).
+// Returns an error if the database file does not exist.
 func OpenReadOnly(dbPath string) (*sql.DB, error) {
-	// Fail fast if the file doesn't exist — mode=ro should not create files.
+	// Fail fast if the file doesn't exist — we never create a new file here.
 	if _, err := os.Stat(dbPath); err != nil {
 		return nil, fmt.Errorf("OpenReadOnly: database file not found: %w", err)
 	}
 
-	// Build a read-only DSN.
-	// mode=ro: SQLite engine-level read-only enforcement (no DDL, no DML).
-	// _pragma=busy_timeout(5000): wait up to 5s for shared-lock acquisition.
+	// Build a read-only DSN using mode=rw so WAL -shm sidecars can be created
+	// when absent. query_only=ON (applied below) blocks all writes at the engine
+	// level, providing the same read-only safety without the sidecar requirement.
 	dsn := buildReadOnlyDSN(dbPath)
 	database, err := sql.Open("sqlite", dsn)
 	if err != nil {
 		return nil, fmt.Errorf("OpenReadOnly: sql.Open: %w", err)
 	}
 
-	// Apply read-compatible pragmas best-effort (read-only connections reject
-	// write-requiring pragmas like journal_mode SET and foreign_keys SET).
+	// Apply read-compatible pragmas. query_only=ON is the critical one — it
+	// prevents all DML/DDL on this connection while still allowing WAL sidecar
+	// creation (which is an OS-level file operation, not SQL).
 	pragmas := buildReadOnlyPragmas()
 	if err := applyReadOnlyPragmas(database, pragmas); err != nil {
 		database.Close()
@@ -98,6 +103,19 @@ func OpenReadOnly(dbPath string) (*sql.DB, error) {
 // MUST route writes through the slice-6 writer service (feat-f3bcbcef);
 // do not add new direct OpenWritable callers in those locations.
 func OpenWritable(dbPath string) (*sql.DB, error) {
+	// Fail fast if the database file does not exist. OpenWritable is intended
+	// for an already-initialised, schema-current database. Auto-creating an
+	// empty SQLite file here would silently produce a zero-schema DB that looks
+	// open but fails on the first real query. Callers that need to create a new
+	// database must use Open instead (which runs CreateAllTables + migrations).
+	// In-memory databases (":memory:") are exempt — they are always "new."
+	isInMemory := strings.Contains(dbPath, ":memory:")
+	if !isInMemory {
+		if _, err := os.Stat(dbPath); err != nil {
+			return nil, fmt.Errorf("OpenWritable: database file not found (use Open to create a new database): %w", err)
+		}
+	}
+
 	dir := filepath.Dir(dbPath)
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return nil, fmt.Errorf("OpenWritable: creating db directory: %w", err)
@@ -105,7 +123,6 @@ func OpenWritable(dbPath string) (*sql.DB, error) {
 
 	// Use the same busy_timeout DSN embedding as Open to prevent SQLITE_BUSY
 	// on the very first connection before pragmas have been applied.
-	isInMemory := strings.Contains(dbPath, ":memory:")
 	dsn := dbPath
 	if !isInMemory {
 		dsn = dsn + "?_pragma=busy_timeout(5000)"
@@ -152,34 +169,50 @@ func OpenReadOnlyMigrated(dbPath string) (*sql.DB, error) {
 	return OpenReadOnly(dbPath)
 }
 
-// buildReadOnlyDSN builds a URI DSN for SQLite read-only access.
+// buildReadOnlyDSN builds a URI DSN for the read-only connection.
+// We use mode=rw (not mode=ro) so that SQLite can create the WAL -shm
+// coordination file when it is absent — a routine state after a clean
+// checkpoint. The connection is then locked read-only by query_only=ON
+// (applied in applyReadOnlyPragmas), which blocks all DML/DDL at the
+// engine level without restricting OS-level sidecar creation.
 func buildReadOnlyDSN(dbPath string) string {
 	if strings.Contains(dbPath, ":memory:") {
 		// In-memory databases cannot use file URI mode; keep as-is.
 		return dbPath
 	}
-	// Use file: URI with mode=ro. The _pragma parameter applies busy_timeout
-	// at first connection open so the first shared-lock acquisition is protected.
-	return "file:" + dbPath + "?mode=ro&_pragma=busy_timeout(5000)"
+	// mode=rw: allow WAL sidecar creation; query_only=ON (applied via pragma)
+	// prevents any writes. The _pragma parameter applies busy_timeout at first
+	// connection open so the first lock acquisition is protected.
+	return "file:" + dbPath + "?mode=rw&_pragma=busy_timeout(5000)"
 }
 
-// buildReadOnlyPragmas returns the pragma subset appropriate for a read-only
-// connection. journal_mode SET and foreign_keys are excluded — read-only
-// connections cannot change those and the attempt returns SQLITE_READONLY.
+// buildReadOnlyPragmas returns the pragma set appropriate for a query-only
+// connection. query_only=ON is the critical setting: it blocks all DML/DDL
+// while allowing the connection to open in mode=rw so WAL sidecars can be
+// created when absent.
 func buildReadOnlyPragmas() map[string]string {
 	return map[string]string{
+		"query_only": "1",
 		"cache_size": "-64000",
 		"temp_store": "MEMORY",
 	}
 }
 
-// applyReadOnlyPragmas sets a restricted set of pragmas on a read-only
-// connection. All pragmas are applied best-effort; failures are silently
-// ignored because read-only connections may reject certain PRAGMA writes.
+// applyReadOnlyPragmas sets the query_only and performance pragmas on the
+// connection. query_only is applied first and is required — if it fails the
+// open is aborted to prevent accidental writes. The remaining pragmas are
+// best-effort.
 func applyReadOnlyPragmas(database *sql.DB, pragmas map[string]string) error {
+	// query_only MUST succeed — it is the write-guard for this connection.
+	if _, err := database.Exec("PRAGMA query_only = 1"); err != nil {
+		return fmt.Errorf("set query_only: %w", err)
+	}
 	for pragma, value := range pragmas {
+		if pragma == "query_only" {
+			continue // already applied above
+		}
 		if _, err := database.Exec(fmt.Sprintf("PRAGMA %s = %s", pragma, value)); err != nil {
-			// Best-effort: skip. Read-only connections may reject PRAGMA writes.
+			// Best-effort: skip non-critical pragmas.
 			_ = err
 		}
 	}

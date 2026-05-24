@@ -171,6 +171,74 @@ func TestOpenMigrated_RunsMigrations(t *testing.T) {
 	}
 }
 
+// TestOpenReadOnly_NoWALSidecars verifies that OpenReadOnly succeeds on a WAL
+// database whose -wal and -shm sidecar files are absent (the normal state after
+// a clean checkpoint or on a fresh install). mode=ro fails in this scenario
+// because SQLite cannot create the -shm coordination file; mode=rw +
+// query_only=ON is the correct approach.
+func TestOpenReadOnly_NoWALSidecars(t *testing.T) {
+	dir := t.TempDir()
+	dbPath := filepath.Join(dir, "test.db")
+
+	// Seed: create a fully-committed WAL database (Open sets journal_mode=WAL
+	// when the filesystem is safe for mmap, but we force WAL explicitly and
+	// checkpoint+close so the -wal/-shm files are gone at the start of the test).
+	seed, err := db.Open(dbPath)
+	if err != nil {
+		t.Fatalf("seed Open: %v", err)
+	}
+	// Checkpoint to consolidate the WAL into the main db file.
+	if _, execErr := seed.Exec("PRAGMA wal_checkpoint(TRUNCATE)"); execErr != nil {
+		t.Logf("wal_checkpoint: %v (non-fatal)", execErr)
+	}
+	seed.Close()
+
+	// Remove WAL sidecar files to simulate the post-checkpoint state.
+	for _, suffix := range []string{"-wal", "-shm"} {
+		path := dbPath + suffix
+		if removeErr := os.Remove(path); removeErr != nil && !os.IsNotExist(removeErr) {
+			t.Fatalf("remove %s: %v", suffix, removeErr)
+		}
+	}
+
+	// OpenReadOnly must succeed even without sidecars.
+	rodb, err := db.OpenReadOnly(dbPath)
+	if err != nil {
+		t.Fatalf("OpenReadOnly on WAL db without sidecars: %v", err)
+	}
+	defer rodb.Close()
+
+	// Read must succeed.
+	var n int
+	if err := rodb.QueryRow("SELECT COUNT(*) FROM sqlite_master").Scan(&n); err != nil {
+		t.Fatalf("SELECT after OpenReadOnly: %v", err)
+	}
+
+	// Write must be rejected.
+	_, writeErr := rodb.Exec(`INSERT OR IGNORE INTO metadata (key, value) VALUES ('probe', '1')`)
+	if writeErr == nil {
+		t.Error("expected write to fail on query_only connection; got nil error")
+	}
+}
+
+// TestOpenWritable_MissingFileFails verifies that OpenWritable returns an error
+// when the database file does not exist, rather than auto-creating an empty
+// SQLite file that would pass opens but fail on real queries.
+func TestOpenWritable_MissingFileFails(t *testing.T) {
+	dir := t.TempDir()
+	dbPath := filepath.Join(dir, "nonexistent.db")
+
+	_, err := db.OpenWritable(dbPath)
+	if err == nil {
+		t.Fatal("expected OpenWritable to fail on non-existent file; got nil error")
+	}
+
+	// Confirm the file was NOT created.
+	if _, statErr := os.Stat(dbPath); statErr == nil {
+		t.Error("OpenWritable must not create a new database file when the path does not exist")
+	}
+}
+
 // TestOpenReadOnly_PromptClose verifies that read-only paths close rows
 // promptly and do not hold long-lived read transactions that block writers.
 func TestOpenReadOnly_PromptClose(t *testing.T) {

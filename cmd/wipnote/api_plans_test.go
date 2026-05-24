@@ -569,6 +569,115 @@ func TestPlanYAMLEndpoint_MethodNotAllowed(t *testing.T) {
 	}
 }
 
+// ---- planRenderHandler full-fidelity embed (feat-801f2273) ---------------------
+
+// writeFullPlanYAML writes a YAML plan with slices carrying deps, a critic
+// revision (issue) and an open question so the rendered page exercises the full
+// review surface: triage badges, question-count pill, dep graph, slice controls.
+func writeFullPlanYAML(t *testing.T, planID string) string {
+	t.Helper()
+	dir := t.TempDir()
+	plansDir := filepath.Join(dir, "plans")
+	if err := os.MkdirAll(plansDir, 0o755); err != nil {
+		t.Fatalf("mkdir plans: %v", err)
+	}
+	yaml := `meta:
+  id: ` + planID + `
+  title: Full Fidelity Plan
+  status: in-progress
+  version: 2
+design:
+  problem: Ship the embed at full fidelity.
+  goals:
+    - Render scoped CSS.
+slices:
+  - num: 1
+    title: First slice
+    approval_status: approved
+    files:
+      - a.go
+    critic_revisions:
+      - source: opus
+        severity: HIGH
+        summary: Watch the brace matcher.
+  - num: 2
+    title: Second slice
+    approval_status: pending
+    deps:
+      - 1
+    questions:
+      - id: q1
+        text: Which scope container?
+`
+	if err := os.WriteFile(filepath.Join(plansDir, planID+".yaml"), []byte(yaml), 0o644); err != nil {
+		t.Fatalf("write yaml: %v", err)
+	}
+	return dir
+}
+
+func TestPlanRenderHandler_FullFidelityEmbed(t *testing.T) {
+	database, _ := setupPlanTestDB(t)
+	planID := "plan-render-full"
+	wipnoteDir := writeFullPlanYAML(t, planID)
+
+	handler := planRenderHandler(database, wipnoteDir)
+	req := httptest.NewRequest(http.MethodGet, "/api/plans/"+planID+"/render", nil)
+	w := httptest.NewRecorder()
+	handler(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("status: got %d, want 200", w.Code)
+	}
+	out := w.Body.String()
+
+	// 1. CSS must be SCOPED, not stripped. The prior lossy handler deleted
+	//    :root, [data-theme, body, html and .plan-sidebar rules entirely.
+	//    They must now be present, re-anchored under the embed scope.
+	scopedMarkers := []string{
+		planEmbedScope + "{",              // :root mapped onto the container
+		planEmbedScope + " .plan-sidebar", // sidebar CSS scoped, not stripped
+		planEmbedScope + " .slice-card",   // slice-card component CSS present
+	}
+	for _, m := range scopedMarkers {
+		if !strings.Contains(out, m) {
+			t.Errorf("expected scoped CSS marker %q in render output (full-fidelity); missing", m)
+		}
+	}
+	// The plan's --accent custom property must survive (it was stripped before
+	// because the whole :root block was deleted). It now lives under the scope.
+	if !strings.Contains(out, "--accent:") {
+		t.Error("expected --accent custom property in scoped CSS (was stripped before)")
+	}
+	// The raw unscoped :root / body resets must NOT leak into the dashboard.
+	if strings.Contains(out, ">:root") || strings.Contains(out, "\n:root") || strings.Contains(out, "<style>:root") {
+		t.Errorf("unscoped :root leaked into embed output")
+	}
+
+	// 2. The FULL left-nav (with triage badges) must be present, not dropped.
+	if !strings.Contains(out, `class="plan-sidebar"`) {
+		t.Error("expected left-nav .plan-sidebar in embed (was dropped before)")
+	}
+	if !strings.Contains(out, "nav-triage-issue") {
+		t.Error("expected issue triage badge in left-nav (slice 1 has a critic revision)")
+	}
+	if !strings.Contains(out, "nav-triage-question") {
+		t.Error("expected question-count triage badge in left-nav (slice 2 has a question)")
+	}
+
+	// 3. The slice cards and dependency graph must render.
+	if !strings.Contains(out, "slice-card") {
+		t.Error("expected slice cards in embed")
+	}
+	if !strings.Contains(out, "dep-graph") {
+		t.Error("expected dependency graph in embed")
+	}
+
+	// 4. Interactivity scripts (D3/dagre/plan JS) must still be emitted.
+	if !strings.Contains(out, "<script") {
+		t.Error("expected scripts (dep-graph/plan JS) preserved in embed")
+	}
+}
+
 // ---- validSectionRe regex coverage (slice-4) -----------------------------------
 
 func TestValidSectionRe_AcceptsSliceLevel(t *testing.T) {

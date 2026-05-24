@@ -750,6 +750,12 @@ func planRouter(database, writeDB *sql.DB, wipnoteDir string) http.HandlerFunc {
 	}
 }
 
+// planEmbedScope is the CSS selector of the SPA container that the rendered
+// plan is injected into (#plan-detail-body, which also carries this class).
+// The plan's full stylesheet is re-scoped under this selector by scopePlanCSS
+// so it applies to the embedded plan only and matches the standalone page.
+const planEmbedScope = ".plan-detail-body"
+
 // planRenderHandler dynamically renders plan HTML from the YAML source.
 // Returns just the plan content (no outer HTML shell/sidebar) for embedding
 // in the dashboard detail panel.
@@ -801,44 +807,21 @@ func planRenderHandler(database *sql.DB, wipnoteDir string) http.HandlerFunc {
 
 		var out strings.Builder
 
-		// Include plan CSS, stripping rules that would conflict with
-		// the dashboard shell (body grid, html reset, sidebar styles).
+		// Emit the plan's FULL stylesheet, SCOPED under the embed container so
+		// it renders at full fidelity (same CSS as the standalone page) without
+		// leaking into — or being overridden by — the dashboard shell. No rules
+		// are stripped; selectors are re-anchored under planEmbedScope. This is
+		// what makes the SPA panel visually match /plans/<id>.html: the
+		// :root custom properties, slice-card controls, status accent borders,
+		// pills, and left-nav triage badges all resolve correctly inside the
+		// container instead of being dropped.
 		doc.Find("style").Each(func(_ int, s *goquery.Selection) {
 			css, _ := s.Html()
 			if css == "" {
 				return
 			}
-			// Remove rules that target body/html layout (they'd override dashboard)
-			for _, strip := range []string{
-				":root{", ":root {", "[data-theme",
-				"*,", "body{", "html{",
-				".plan-sidebar{", ".plan-sidebar ",
-				".plan-sidebar.", "@media(max-width",
-			} {
-				for {
-					idx := strings.Index(css, strip)
-					if idx < 0 {
-						break
-					}
-					// Find the matching closing brace
-					depth := 0
-					end := idx
-					for i := idx; i < len(css); i++ {
-						if css[i] == '{' {
-							depth++
-						} else if css[i] == '}' {
-							depth--
-							if depth == 0 {
-								end = i + 1
-								break
-							}
-						}
-					}
-					css = css[:idx] + css[end:]
-				}
-			}
 			out.WriteString("<style>")
-			out.WriteString(css)
+			out.WriteString(scopePlanCSS(css, planEmbedScope))
 			out.WriteString("</style>\n")
 		})
 
@@ -849,15 +832,18 @@ func planRenderHandler(database *sql.DB, wipnoteDir string) http.HandlerFunc {
 			out.WriteString("\n")
 		})
 
-		// Plan layout (content + chat sidebar + drag handle).
-		// Extract .plan-layout which wraps article + chat-sidebar,
-		// falling back to article or body if layout wrapper missing.
-		layout, _ := goquery.OuterHtml(doc.Find(".plan-layout").First())
+		// Emit the FULL body content (left-nav + .plan-layout), not just
+		// .plan-layout. Scoping the CSS under the injection container means the
+		// nav (with its triage badges) and the slice cards both render exactly
+		// as on the standalone page. The injection target (#plan-detail-body)
+		// already carries the planEmbedScope class, so the scoped rules apply.
+		body := doc.Find("body")
+		nav, _ := goquery.OuterHtml(body.Find(".plan-sidebar").First())
+		out.WriteString(nav)
+		layout, _ := goquery.OuterHtml(body.Find(".plan-layout").First())
 		if layout == "" {
-			layout, _ = doc.Find("article").Html()
-		}
-		if layout == "" {
-			layout, _ = doc.Find("body").Html()
+			// Fallback: emit entire body content if the layout wrapper is absent.
+			layout, _ = body.Html()
 		}
 		out.WriteString(layout)
 

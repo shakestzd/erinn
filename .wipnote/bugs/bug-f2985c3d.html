@@ -10,15 +10,15 @@
 <body>
     <article id="bug-f2985c3d"
              data-type="bug"
-             data-status="in-progress"
+             data-status="done"
              data-priority="medium"
              data-created="2026-05-24T22:21:18.643007"
-             data-updated="2026-05-24T22:21:54.48964" data-agent-assigned="claude-code" data-track-id="trk-0677c709" data-created-by-agent="claude-code" data-created-by-model="claude-opus-4-7[1m]" data-created-by-cli-version="0.60.18">
+             data-updated="2026-05-24T22:32:01.312721" data-agent-assigned="claude-code" data-track-id="trk-0677c709" data-created-by-agent="claude-code" data-created-by-model="claude-opus-4-7[1m]" data-created-by-cli-version="0.60.18">
 
         <header>
             <h1>Plan-graph D3 v7 event handlers use wrong arg for node id</h1>
             <div class="metadata">
-                <span class="badge status-in-progress">In Progress</span>
+                <span class="badge status-done">Done</span>
                 <span class="badge priority-medium">Medium Priority</span>
             </div>
         </header>
@@ -40,7 +40,8 @@
 
         <section data-content>
             <h3>Description</h3>
-            <p>roborev job 3576 Medium on feat-36566570. D3 v7 selection.on listeners receive (event, datum), but the new plan_page.gohtml graph click and mouseover/mouseout handlers treat the first arg as the node id. So id is actually the event object: navigation targets slice-[object PointerEvent] and dependency highlighting queries with the wrong key, breaking node-card nav and dep-chain highlighting in the browser. Fix: change handlers to (event, id) and use the second arg as the node id (click, mouseover, mouseout).</p>
+            <p>roborev job 3576 Medium on feat-36566570. D3 v7 selection.on listeners receive (event, datum), but the new plan_page.gohtml graph click and mouseover/mouseout handlers treat the first arg as the node id. So id is actually the event object: navigation targets slice-[object PointerEvent] and dependency highlighting queries with the wrong key, breaking node-card nav and dep-chain highlighting in the browser. Fix: change handlers to (event, id) and use the second arg as the node id (click, mouseover, mouseout).
+[2026-05-24 22:32 claude-code] accepted-advisory (provenance override): Implemented in commit c84a5da9f: fixed D3 v7 (event, id) handler signature for plan-graph interactions</p>
         </section>
     </article>
 </body>

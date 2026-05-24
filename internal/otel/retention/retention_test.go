@@ -263,7 +263,8 @@ func TestValidateSessionID_AcceptsValidIDs(t *testing.T) {
 
 // TestRun_SkipsTraversalSessionIDs verifies that when the DB contains rows with
 // path-traversal session IDs, Run skips them safely without touching any
-// directory outside .wipnote/sessions/.
+// directory outside .wipnote/sessions/. It creates sentinel directories at the
+// actual resolved escape targets and verifies they are preserved.
 func TestRun_SkipsTraversalSessionIDs(t *testing.T) {
 	dir := t.TempDir()
 	wipnoteDir := filepath.Join(dir, ".wipnote")
@@ -279,9 +280,18 @@ func TestRun_SkipsTraversalSessionIDs(t *testing.T) {
 		insertSession(t, db, id, "completed", &old)
 	}
 
-	// Create a real directory at the escape target; Run must NOT remove it.
-	escapeTarget := filepath.Join(dir, "escape")
-	if err := os.MkdirAll(escapeTarget, 0o755); err != nil {
+	// Create sentinel directories at the ACTUAL resolved escape targets:
+	// - "../escape" from .wipnote/sessions/ resolves to .wipnote/escape
+	// - ".." from .wipnote/sessions/ resolves to .wipnote/
+	// We verify these are not removed by archiveSession if ValidateSessionID
+	// were to regress.
+	escapeViaParent := filepath.Join(wipnoteDir, "escape")
+	if err := os.MkdirAll(escapeViaParent, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	// Create a marker file to detect if .wipnote/ itself is removed.
+	markerFile := filepath.Join(wipnoteDir, "retention-test-marker")
+	if err := os.WriteFile(markerFile, []byte("test"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 
@@ -291,9 +301,15 @@ func TestRun_SkipsTraversalSessionIDs(t *testing.T) {
 		t.Fatalf("Run: unexpected error: %v", err)
 	}
 
-	// The escape target must still exist — nothing was removed outside sessions/.
-	if _, err := os.Stat(escapeTarget); os.IsNotExist(err) {
-		t.Error("Run: traversal-ID row caused escape target directory to be removed")
+	// Verify that .wipnote/escape is still present — ../escape should not have
+	// caused it to be removed.
+	if _, err := os.Stat(escapeViaParent); os.IsNotExist(err) {
+		t.Error("Run: ../escape traversal caused .wipnote/escape to be removed")
+	}
+
+	// Verify that .wipnote/ itself was not removed (marker file still present).
+	if _, err := os.Stat(markerFile); os.IsNotExist(err) {
+		t.Error("Run: .. traversal caused .wipnote/ directory to be removed")
 	}
 }
 

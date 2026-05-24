@@ -122,6 +122,43 @@ func TestWriteNodeHTML_StepProvenance(t *testing.T) {
 	}
 }
 
+// TestWriteNodeHTML_SanitizesHostPaths proves the render-layer fix for
+// bug-ff6a3286: absolute host-local path prefixes in Title, Content, and Step
+// descriptions must NOT appear verbatim in the rendered HTML file.
+func TestWriteNodeHTML_SanitizesHostPaths(t *testing.T) {
+	dir := t.TempDir()
+	hostPath := "/workspaces/wipnote/foo.go"
+	node := &models.Node{
+		ID:        "bug-hostpath01",
+		Title:     "Fix " + hostPath,
+		Type:      "bug",
+		Status:    models.StatusTodo,
+		Priority:  models.PriorityMedium,
+		CreatedAt: time.Date(2026, 5, 24, 0, 0, 0, 0, time.UTC),
+		UpdatedAt: time.Date(2026, 5, 24, 0, 0, 0, 0, time.UTC),
+		Content:   "Edited " + hostPath + " to fix the bug.",
+		Steps: []models.Step{
+			{
+				StepID:      "step-1",
+				Description: "Apply patch to " + hostPath,
+			},
+		},
+	}
+
+	path, err := WriteNodeHTML(dir, node)
+	if err != nil {
+		t.Fatalf("WriteNodeHTML: %v", err)
+	}
+	html, err := readFile(path)
+	if err != nil {
+		t.Fatalf("read written file: %v", err)
+	}
+
+	if strings.Contains(html, hostPath) {
+		t.Errorf("rendered HTML still contains host path %q\n--- excerpt ---\n%s", hostPath, html)
+	}
+}
+
 func readFile(path string) (string, error) {
 	b, err := os.ReadFile(path)
 	return string(b), err

@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/shakestzd/wipnote/internal/models"
+	"github.com/shakestzd/wipnote/internal/paths"
 )
 
 // nodeWriteMu serialises concurrent writes that touch the same work item HTML
@@ -331,10 +332,13 @@ type stepData struct {
 }
 
 // newNodeTemplateData converts a models.Node into template-ready data.
+// User-supplied text fields (Title, Content, Step descriptions) are sanitized
+// through SanitizeHostPaths before rendering so machine-local absolute path
+// prefixes never appear in committed work-item HTML (bug-ff6a3286).
 func newNodeTemplateData(n *models.Node) *nodeTemplateData {
 	d := &nodeTemplateData{
 		ID:               n.ID,
-		Title:            n.Title,
+		Title:            paths.SanitizeHostPaths(n.Title),
 		Type:             n.Type,
 		Status:           string(n.Status),
 		Priority:         string(n.Priority),
@@ -363,7 +367,7 @@ func newNodeTemplateData(n *models.Node) *nodeTemplateData {
 
 	if n.Content != "" {
 		d.HasContent = true
-		content := n.Content
+		content := paths.SanitizeHostPaths(n.Content)
 		// Wrap plain text in <p> so it survives the HTML round-trip.
 		// The parser reads element children only, not text nodes.
 		if !strings.HasPrefix(strings.TrimSpace(content), "<") {
@@ -429,7 +433,7 @@ func buildSteps(steps []models.Step) []stepData {
 			StepID:              s.StepID,
 			Agent:               s.Agent,
 			Icon:                icon,
-			Description:         s.Description,
+			Description:         paths.SanitizeHostPaths(s.Description),
 			CreatedByModel:      s.CreatedByModel,
 			CreatedByRole:       s.CreatedByRole,
 			CreatedByCLIVersion: s.CreatedByCLIVersion,

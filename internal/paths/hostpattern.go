@@ -19,6 +19,8 @@ import "regexp"
 //   - the runtime normalizer (NormalizeToRepoRelative) which marks
 //     outside-repo absolute paths as "unresolved:" so the downstream
 //     migration rewriter can repair them later.
+//   - the render-layer sanitizer (SanitizeHostPaths) which scrubs paths
+//     from user-supplied text before they are written into work-item HTML.
 //
 // Any future expansion (e.g. /Volumes/, C:\Users\) must be reflected in BOTH
 // hostpattern_test.go and the precommit-gate tests.
@@ -28,3 +30,16 @@ var HostPathPattern = regexp.MustCompile(
 		`|/workspaces/[^/\s]+/` +
 		`|/private/var/folders/`,
 )
+
+// SanitizeHostPaths replaces host-local absolute path prefixes in s with a
+// portable redaction token so they never reach committed work-item HTML.
+// Only the machine-specific prefix (matched by HostPathPattern) is replaced;
+// the remainder of the path component is preserved for readability.
+//
+// Example: "/workspaces/wipnote/foo.go" → "[host-path]/foo.go"
+//
+// This is the render-layer fix for bug-ff6a3286: sanitize at write time so
+// the precommit gate remains a narrow safety net rather than a broad allowlist.
+func SanitizeHostPaths(s string) string {
+	return HostPathPattern.ReplaceAllString(s, "[host-path]/")
+}

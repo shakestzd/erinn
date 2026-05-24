@@ -668,7 +668,7 @@ func TestAlterFailure_DoesNotAdvanceVersion(t *testing.T) {
 func TestRepairTrigger_AlreadyMigratedDB_TriggerDropped(t *testing.T) {
 	path := fileDBPath(t, "repair_trigger.db")
 
-	// Cold open: migrate to full current schema (now version 10).
+	// Cold open: migrate to full current schema (now version 11).
 	cold, err := db.Open(path)
 	if err != nil {
 		t.Fatalf("cold Open: %v", err)
@@ -698,7 +698,7 @@ func TestRepairTrigger_AlreadyMigratedDB_TriggerDropped(t *testing.T) {
 	}
 	cold.Close()
 
-	// Warm open: must run only step 10 and restore the trigger.
+	// Warm open: must run steps 10 and 11 (both needed for repair + backfill).
 	recorder := &migrationCallRecorder{}
 	db.SetMigrationObserver(recorder.Record)
 	defer db.SetMigrationObserver(nil)
@@ -709,10 +709,11 @@ func TestRepairTrigger_AlreadyMigratedDB_TriggerDropped(t *testing.T) {
 	}
 	defer warm.Close()
 
-	// Only step 10 should have run.
+	// Steps 10 and 11 should have run (trigger repair + total_events backfill).
 	calls := recorder.Calls()
-	if len(calls) != 1 || calls[0] != "010_repair_trigger_increment_total_events" {
-		t.Fatalf("expected exactly [010_repair_trigger_increment_total_events], got %v", calls)
+	want := []string{"010_repair_trigger_increment_total_events", "011_backfill_total_events"}
+	if !slices.Equal(calls, want) {
+		t.Fatalf("expected steps %v, got %v", want, calls)
 	}
 
 	// user_version must be at currentSchemaVersion.
@@ -787,6 +788,177 @@ func TestRepairTrigger_FreshDB_TriggerIntact(t *testing.T) {
 	}
 	if total != 1 {
 		t.Fatalf("total_events = %d, want 1", total)
+	}
+}
+
+// TestBackfillTotalEvents_StaleCountsRepaired verifies that step 11
+// (011_backfill_total_events) recomputes sessions.total_events from actual
+// agent_events rows for sessions whose counts are stale because agent_events
+// were inserted while trg_increment_total_events was absent.
+//
+// Setup: a DB at user_version 10 (step 10 ran, trigger is present) with a
+// session that had events recorded BEFORE the trigger existed (so total_events
+// is wrong/zero). Step 11 must correct it.
+func TestBackfillTotalEvents_StaleCountsRepaired(t *testing.T) {
+	path := fileDBPath(t, "backfill_stale.db")
+
+	// Cold open: migrate to version 11.
+	cold, err := db.Open(path)
+	if err != nil {
+		t.Fatalf("cold Open: %v", err)
+	}
+
+	// Insert a session and agent_events WITHOUT the trigger firing.
+	// Simulate this by dropping the trigger first, inserting, then rewinding
+	// user_version to 10 so step 11 runs on next open.
+	if _, err := cold.Exec("DROP TRIGGER IF EXISTS trg_increment_total_events"); err != nil {
+		cold.Close()
+		t.Fatalf("drop trigger: %v", err)
+	}
+	if _, err := cold.Exec(`INSERT INTO sessions (session_id, agent_assigned, total_events, status)
+		VALUES ('sess-stale', 'agent', 0, 'active')`); err != nil {
+		cold.Close()
+		t.Fatalf("insert session: %v", err)
+	}
+	for i := 1; i <= 5; i++ {
+		if _, err := cold.Exec(`INSERT INTO agent_events
+			(event_id, agent_id, event_type, session_id)
+			VALUES (?, 'agent', 'start', 'sess-stale')`,
+			fmt.Sprintf("ev-stale-%d", i)); err != nil {
+			cold.Close()
+			t.Fatalf("insert event %d: %v", i, err)
+		}
+	}
+	// Confirm total_events is still 0 (trigger was absent during inserts).
+	var preCount int
+	if err := cold.QueryRow(`SELECT total_events FROM sessions WHERE session_id='sess-stale'`).
+		Scan(&preCount); err != nil {
+		cold.Close()
+		t.Fatalf("read pre-backfill total_events: %v", err)
+	}
+	if preCount != 0 {
+		cold.Close()
+		t.Fatalf("pre-backfill total_events = %d, want 0 (trigger was absent)", preCount)
+	}
+	// Rewind to version 10 so step 11 runs on next open.
+	if _, err := cold.Exec("PRAGMA user_version = 10"); err != nil {
+		cold.Close()
+		t.Fatalf("rewind user_version to 10: %v", err)
+	}
+	cold.Close()
+
+	// Warm open: only step 11 should run.
+	recorder := &migrationCallRecorder{}
+	db.SetMigrationObserver(recorder.Record)
+	defer db.SetMigrationObserver(nil)
+
+	warm, err := db.Open(path)
+	if err != nil {
+		t.Fatalf("Open for backfill: %v", err)
+	}
+	defer warm.Close()
+
+	// Only step 11 should have run.
+	calls := recorder.Calls()
+	if len(calls) != 1 || calls[0] != "011_backfill_total_events" {
+		t.Fatalf("expected exactly [011_backfill_total_events], got %v", calls)
+	}
+
+	// total_events must now equal the true event count (5).
+	var postCount int
+	if err := warm.QueryRow(`SELECT total_events FROM sessions WHERE session_id='sess-stale'`).
+		Scan(&postCount); err != nil {
+		t.Fatalf("read post-backfill total_events: %v", err)
+	}
+	if postCount != 5 {
+		t.Fatalf("total_events after backfill = %d, want 5", postCount)
+	}
+}
+
+// TestBackfillTotalEvents_Idempotent verifies that step 11 is idempotent:
+// a session whose total_events is already correct is unaffected.
+func TestBackfillTotalEvents_Idempotent(t *testing.T) {
+	path := fileDBPath(t, "backfill_idem.db")
+
+	// Cold open: migrate to version 11. Trigger is active, so inserting events
+	// increments total_events correctly.
+	cold, err := db.Open(path)
+	if err != nil {
+		t.Fatalf("cold Open: %v", err)
+	}
+	if _, err := cold.Exec(`INSERT INTO sessions (session_id, agent_assigned, total_events, status)
+		VALUES ('sess-idem', 'agent', 0, 'active')`); err != nil {
+		cold.Close()
+		t.Fatalf("insert session: %v", err)
+	}
+	for i := 1; i <= 3; i++ {
+		if _, err := cold.Exec(`INSERT INTO agent_events
+			(event_id, agent_id, event_type, session_id)
+			VALUES (?, 'agent', 'start', 'sess-idem')`,
+			fmt.Sprintf("ev-idem-%d", i)); err != nil {
+			cold.Close()
+			t.Fatalf("insert event %d: %v", i, err)
+		}
+	}
+	// Confirm total_events is correct (3) before re-running backfill.
+	var preCount int
+	if err := cold.QueryRow(`SELECT total_events FROM sessions WHERE session_id='sess-idem'`).
+		Scan(&preCount); err != nil {
+		cold.Close()
+		t.Fatalf("read pre-idempotent total_events: %v", err)
+	}
+	if preCount != 3 {
+		cold.Close()
+		t.Fatalf("pre-idempotent total_events = %d, want 3", preCount)
+	}
+	// Rewind to version 10 to force step 11 to re-run.
+	if _, err := cold.Exec("PRAGMA user_version = 10"); err != nil {
+		cold.Close()
+		t.Fatalf("rewind user_version: %v", err)
+	}
+	cold.Close()
+
+	warm, err := db.Open(path)
+	if err != nil {
+		t.Fatalf("Open for idempotent backfill: %v", err)
+	}
+	defer warm.Close()
+
+	// total_events must still be 3 after re-run.
+	var postCount int
+	if err := warm.QueryRow(`SELECT total_events FROM sessions WHERE session_id='sess-idem'`).
+		Scan(&postCount); err != nil {
+		t.Fatalf("read post-idempotent total_events: %v", err)
+	}
+	if postCount != 3 {
+		t.Fatalf("total_events after idempotent backfill = %d, want 3", postCount)
+	}
+}
+
+// TestBackfillTotalEvents_FreshDB_Unaffected verifies that a fresh database
+// with no sessions is not affected by step 11 (zero rows updated, no error).
+func TestBackfillTotalEvents_FreshDB_Unaffected(t *testing.T) {
+	path := fileDBPath(t, "backfill_fresh.db")
+	cold, err := db.Open(path)
+	if err != nil {
+		t.Fatalf("cold Open: %v", err)
+	}
+	// Rewind to force step 11.
+	if _, err := cold.Exec("PRAGMA user_version = 10"); err != nil {
+		cold.Close()
+		t.Fatalf("rewind user_version: %v", err)
+	}
+	cold.Close()
+
+	warm, err := db.Open(path)
+	if err != nil {
+		t.Fatalf("Open on empty DB: %v", err)
+	}
+	defer warm.Close()
+
+	// No sessions — just confirm Open succeeded and version is correct.
+	if v := queryUserVersion(t, warm); v != db.CurrentSchemaVersion() {
+		t.Fatalf("user_version = %d, want %d", v, db.CurrentSchemaVersion())
 	}
 }
 

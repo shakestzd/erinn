@@ -15,7 +15,7 @@ import (
 // executes ZERO CREATE / ALTER / DROP / trigger / normalisation statements —
 // avoiding the write-lock acquisition that caused SQLITE_BUSY in short-lived
 // hook processes.
-const currentSchemaVersion = 10
+const currentSchemaVersion = 11
 
 // copySwapStepName is the name of the agent_events copy-and-swap migration
 // step. Exposed via CopySwapStepName() so tests can assert it runs at most
@@ -92,6 +92,11 @@ var migrations = []migrationStep{
 		version: 10,
 		name:    "010_repair_trigger_increment_total_events",
 		apply:   stepRepairTriggerIncrementTotalEvents,
+	},
+	{
+		version: 11,
+		name:    "011_backfill_total_events",
+		apply:   stepBackfillTotalEvents,
 	},
 }
 
@@ -473,4 +478,29 @@ func stepFeatureFilesPathSeenIndex(db *sql.DB) error {
 // no-op on DBs that still have it and a repair on DBs that lost it.
 func stepRepairTriggerIncrementTotalEvents(db *sql.DB) error {
 	return createTriggerIncrementTotalEvents(db)
+}
+
+// stepBackfillTotalEvents recomputes sessions.total_events for every session
+// from the actual agent_events rows. This repairs DBs that recorded agent_events
+// while trg_increment_total_events was absent (e.g. after step 10 recreated the
+// trigger but before this step ran) — their total_events counts remained stale.
+//
+// The backfill exactly mirrors what the trigger does: for each inserted
+// agent_events row the trigger increments total_events by 1 where
+// agent_events.session_id = sessions.session_id (no additional filter).
+// The COUNT(*) correlated subquery reproduces that accumulation in bulk.
+//
+// Idempotent: recomputing an already-correct count yields the same value.
+// Safe on a fresh DB (no sessions → zero rows updated).
+func stepBackfillTotalEvents(db *sql.DB) error {
+	_, err := db.Exec(`UPDATE sessions
+		SET total_events = (
+			SELECT COUNT(*)
+			FROM agent_events
+			WHERE agent_events.session_id = sessions.session_id
+		)`)
+	if err != nil {
+		return fmt.Errorf("backfill total_events: %w", err)
+	}
+	return nil
 }

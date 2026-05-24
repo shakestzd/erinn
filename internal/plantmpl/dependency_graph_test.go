@@ -156,3 +156,55 @@ func TestDependencyGraphRenderMultipleNodes(t *testing.T) {
 		t.Error(`Gamma node with empty Status should render data-status="pending"`)
 	}
 }
+
+func TestDependencyGraphRenderTriageBadges(t *testing.T) {
+	g := &plantmpl.DependencyGraph{
+		Nodes: []plantmpl.GraphNode{
+			{Num: 1, Name: "Alpha", Status: "revision", Issues: 3, Questions: 2},
+			{Num: 2, Name: "Beta", Status: "approved", Issues: 0, Questions: 0},
+		},
+	}
+
+	var buf bytes.Buffer
+	if err := g.Render(&buf); err != nil {
+		t.Fatalf("Render: %v", err)
+	}
+
+	html := buf.String()
+	if !strings.Contains(html, `data-issues="3"`) {
+		t.Error(`node with Issues=3 should emit data-issues="3"`)
+	}
+	if !strings.Contains(html, `data-questions="2"`) {
+		t.Error(`node with Questions=2 should emit data-questions="2"`)
+	}
+	// Beta has zero issues/questions — attributes should be omitted
+	if strings.Count(html, `data-issues=`) != 1 {
+		t.Error(`zero-issues node should not emit data-issues attribute`)
+	}
+	if strings.Count(html, `data-questions=`) != 1 {
+		t.Error(`zero-questions node should not emit data-questions attribute`)
+	}
+}
+
+func TestApprovalStatusToGraphStatus(t *testing.T) {
+	cases := []struct {
+		input string
+		want  string
+	}{
+		{"approved", "approved"},
+		{"revision", "revision"},
+		{"changes_requested", "revision"},
+		{"rejected", "revision"},
+		{"discuss", "discuss"},
+		{"blocked", "blocked"},
+		{"pending", "pending"},
+		{"", "pending"},
+		{"unknown_value", "pending"},
+	}
+	for _, tc := range cases {
+		got := plantmpl.ApprovalStatusToGraphStatus(tc.input)
+		if got != tc.want {
+			t.Errorf("ApprovalStatusToGraphStatus(%q) = %q; want %q", tc.input, got, tc.want)
+		}
+	}
+}

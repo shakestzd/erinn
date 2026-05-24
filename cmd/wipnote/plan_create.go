@@ -226,11 +226,13 @@ func enrichPageFromYAML(wipnoteDir, planID string, page *plantmpl.PlanPage) {
 			}
 			depsStr := sc.Deps
 			page.Graph.Nodes = append(page.Graph.Nodes, plantmpl.GraphNode{
-				Num:    s.Num,
-				Name:   s.Title,
-				Deps:   depsStr,
-				Files:  len(s.Files),
-				Status: "pending",
+				Num:       s.Num,
+				Name:      s.Title,
+				Deps:      depsStr,
+				Files:     len(s.Files),
+				Status:    plantmpl.ApprovalStatusToGraphStatus(s.ApprovalStatus),
+				Issues:    len(s.CriticRevisions),
+				Questions: len(s.Questions),
 			})
 		}
 		page.IsV2 = isV2

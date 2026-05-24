@@ -326,6 +326,14 @@ textarea::placeholder{color:var(--text-muted)}
 .slice-nav-dot[data-approval="approved"]{background:var(--approved)}
 .slice-nav-dot[data-approval="rejected"]{background:var(--revision)}
 .slice-nav-dot[data-approval="changes_requested"]{background:var(--revision)}
+.nav-triage-badge{font-size:.65rem;font-family:var(--mono);font-weight:700;border-radius:3px;padding:0 3px;line-height:1.4;flex-shrink:0}
+.nav-triage-issue{background:#7c2d12;color:#fde68a}
+.nav-triage-question{background:#1e3a5f;color:#bfdbfe}
+/* graph node highlight ring (added by JS on nav hover/click) */
+.graph-node-ring rect{stroke-width:4px !important;filter:drop-shadow(0 0 4px currentColor)}
+/* dep-chain dim/highlight */
+.dep-graph-dimmed{opacity:.25;transition:opacity .15s}
+.dep-graph-highlighted rect{stroke-width:3px !important}
 
 /* ── Amendments ── */
 .amendments-panel{margin-top:28px;background:var(--bg-card);border-radius:var(--radius);padding:20px;box-shadow:var(--shadow-card)}
@@ -404,6 +412,8 @@ body.right-rail-collapsed .sidebar-reopen{display:flex}
       <a href="#slice-{{.Num}}" class="slice-nav-item" data-slice-nav="{{.Num}}">
         <span class="slice-nav-dot" data-approval="{{.ApprovalDataAttr}}" data-dot-for="{{.Num}}"></span>
         <span>#{{.Num}} {{.Title}}</span>
+        {{if gt .IssueCount 0}}<span class="nav-triage-badge nav-triage-issue" title="{{.IssueCount}} issue(s)">&#9888;{{.IssueCount}}</span>{{end}}
+        {{if gt .QuestionCount 0}}<span class="nav-triage-badge nav-triage-question" title="{{.QuestionCount}} open question(s)">?{{.QuestionCount}}</span>{{end}}
       </a>
     </li>
     {{end}}
@@ -945,7 +955,9 @@ var planId=(function(){var a=document.querySelector('article[id]');return a?a.id
         var nodeRect=d3.select('#dep-graph-svg .node[id="'+n+'"] rect');
         if(!nodeRect.empty()){
           var val=getApprovalValue(sec);
-          var color=val==='approved'?'#16a34a':val==='rejected'?'#f59e0b':'#6b7280';
+          var SC={pending:'#6b7280',approved:'#16a34a',revision:'#f59e0b',discuss:'#8b5cf6',blocked:'#dc2626'};
+          var graphStatus=val==='approved'?'approved':val==='rejected'||val==='changes_requested'?'revision':val==='discuss'?'discuss':val==='blocked'?'blocked':'pending';
+          var color=SC[graphStatus]||SC.pending;
           var cs=getComputedStyle(document.querySelector('.dep-graph')||document.documentElement);
           nodeRect.style('stroke',color).style('fill',cs.getPropertyValue('--bg-input').trim()||'#222228');
         }
@@ -960,30 +972,94 @@ var planId=(function(){var a=document.querySelector('article[id]');return a?a.id
 
   var STATUS_COLORS={pending:'#6b7280',approved:'#16a34a',revision:'#f59e0b',discuss:'#8b5cf6',blocked:'#dc2626'};
 
+  // nodeDataMap: id -> {status, issues, questions, deps:[]}  — populated during render
+  var nodeDataMap={};
+  // graphRef: the dagreD3 graph object — stored for dep-chain queries
+  var graphRef=null;
+
+  // Build ancestor set for a node (all transitive prerequisites)
+  function ancestors(g,id){
+    var visited={};
+    var queue=[id];
+    while(queue.length){
+      var cur=queue.shift();
+      (g.predecessors(cur)||[]).forEach(function(p){
+        if(!visited[p]){visited[p]=true;queue.push(p);}
+      });
+    }
+    return visited;
+  }
+
+  // Build descendant set for a node (all transitive dependents)
+  function descendants(g,id){
+    var visited={};
+    var queue=[id];
+    while(queue.length){
+      var cur=queue.shift();
+      (g.successors(cur)||[]).forEach(function(s){
+        if(!visited[s]){visited[s]=true;queue.push(s);}
+      });
+    }
+    return visited;
+  }
+
+  // Apply dep-chain highlight: dim unrelated nodes/edges, highlight related ones.
+  // Pass null to clear.
+  function applyDepHighlight(inner,g,focusId){
+    var allNodes=inner.selectAll('g.node');
+    var allEdges=inner.selectAll('g.edgePath');
+    if(!focusId){
+      allNodes.classed('dep-graph-dimmed',false).classed('dep-graph-highlighted',false);
+      allEdges.classed('dep-graph-dimmed',false);
+      return;
+    }
+    var anc=ancestors(g,focusId);
+    var desc=descendants(g,focusId);
+    allNodes.each(function(id){
+      var related=(id===focusId||anc[id]||desc[id]);
+      d3.select(this).classed('dep-graph-dimmed',!related).classed('dep-graph-highlighted',related);
+    });
+    allEdges.each(function(e){
+      var related=(anc[e.v]||e.v===focusId||desc[e.v])&&(anc[e.w]||e.w===focusId||desc[e.w]);
+      d3.select(this).classed('dep-graph-dimmed',!related);
+    });
+  }
+
   function renderGraph(){
     var container=document.getElementById('graph-data');
     if(!container) return;
 
     var g=new dagreD3.graphlib.Graph().setGraph({rankdir:'TB',marginx:24,marginy:24,ranksep:48,nodesep:32});
     g.setDefaultEdgeLabel(function(){return{};});
+    graphRef=g;
+    nodeDataMap={};
 
-    var nodes=container.querySelectorAll('[data-node]');
-    nodes.forEach(function(el){
+    var nodeEls=container.querySelectorAll('[data-node]');
+    nodeEls.forEach(function(el){
       var id=el.dataset.node;
       var name=el.dataset.name;
       var files=el.dataset.files;
       var status=el.dataset.status||'pending';
+      var issues=parseInt(el.dataset.issues||'0',10);
+      var questions=parseInt(el.dataset.questions||'0',10);
+      // Build badge suffix appended to node label
+      var badge='';
+      if(issues>0) badge+=' ⚠'+issues;
+      if(questions>0) badge+=' ?'+questions;
+      nodeDataMap[id]={status:status,issues:issues,questions:questions};
       g.setNode(id,{
-        label: name+'\n'+files+' files',
+        label: name+(badge?badge:'')+'\n'+(files||'0')+' files',
         rx: 6,
         ry: 6,
         paddingX: 36,
         paddingY: 16,
-        status: status
+        status: status,
+        issues: issues,
+        questions: questions
       });
     });
 
-    nodes.forEach(function(el){
+    nodeEls.forEach(function(el){
       var id=el.dataset.node;
       var deps=el.dataset.deps?el.dataset.deps.split(',').map(function(d){return d.trim();}).filter(Boolean):[];
       deps.forEach(function(dep){g.setEdge(dep,id);});
@@ -1026,6 +1102,48 @@ var planId=(function(){var a=document.querySelector('article[id]');return a?a.id
     svgEl.setAttribute('width',graphWidth+pad*2);
     svgEl.setAttribute('height',graphHeight+pad*2);
     svgEl.removeAttribute('viewBox');
+
+    // Improvement 3: click a graph node → scroll to + open its slice card
+    var selectedNode=null;
+    inner.selectAll('g.node').on('click',function(id){
+      // Dep-chain highlight toggle
+      if(selectedNode===id){
+        selectedNode=null;
+        applyDepHighlight(inner,g,null);
+      } else {
+        selectedNode=id;
+        applyDepHighlight(inner,g,id);
+      }
+      // Navigate to slice card
+      var target=document.getElementById('slice-'+id);
+      if(target){
+        target.setAttribute('open','');
+        target.scrollIntoView({behavior:'smooth',block:'start'});
+      }
+    });
+
+    // Improvement 4: hover highlights dep-chain (without overriding click selection)
+    inner.selectAll('g.node')
+      .on('mouseover',function(id){
+        if(!selectedNode) applyDepHighlight(inner,g,id);
+      })
+      .on('mouseout',function(){
+        if(!selectedNode) applyDepHighlight(inner,g,null);
+      });
+
+    // Improvement 3 (reverse): clicking a slice nav item highlights the graph node
+    document.querySelectorAll('[data-slice-nav]').forEach(function(link){
+      link.addEventListener('mouseenter',function(){
+        var num=this.dataset.sliceNav;
+        var nodeEl=inner.select('g.node[id="'+num+'"]');
+        if(!nodeEl.empty()) nodeEl.classed('graph-node-ring',true);
+      });
+      link.addEventListener('mouseleave',function(){
+        var num=this.dataset.sliceNav;
+        var nodeEl=inner.select('g.node[id="'+num+'"]');
+        if(!nodeEl.empty()) nodeEl.classed('graph-node-ring',false);
+      });
+    });
   }
 
   if(document.readyState==='loading'){

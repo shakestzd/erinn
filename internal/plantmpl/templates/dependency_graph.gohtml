@@ -1,7 +1,7 @@
 <section class="dep-graph" data-zone="dependency-graph">
   <h2>Dependency Graph</h2>
   <div id="graph-data" style="display:none">
-    {{range .Nodes}}<div data-node="{{.Num}}" data-name="{{.Name}}" data-status="{{if .Status}}{{.Status}}{{else}}pending{{end}}" data-deps="{{.Deps}}"{{if .Files}} data-files="{{.Files}}"{{end}}></div>
+    {{range .Nodes}}<div data-node="{{.Num}}" data-name="{{.Name}}" data-status="{{if .Status}}{{.Status}}{{else}}pending{{end}}" data-deps="{{.Deps}}"{{if .Files}} data-files="{{.Files}}"{{end}}{{if .Issues}} data-issues="{{.Issues}}"{{end}}{{if .Questions}} data-questions="{{.Questions}}"{{end}}></div>
     {{end}}
   </div>
   <svg id="dep-graph-svg" width="100%"></svg>

@@ -1105,7 +1105,7 @@ var planId=(function(){var a=document.querySelector('article[id]');return a?a.id
 
     // Improvement 3: click a graph node → scroll to + open its slice card
     var selectedNode=null;
-    inner.selectAll('g.node').on('click',function(id){
+    inner.selectAll('g.node').on('click',function(event,id){
       // Dep-chain highlight toggle
       if(selectedNode===id){
         selectedNode=null;
@@ -1124,10 +1124,10 @@ var planId=(function(){var a=document.querySelector('article[id]');return a?a.id
 
     // Improvement 4: hover highlights dep-chain (without overriding click selection)
     inner.selectAll('g.node')
-      .on('mouseover',function(id){
+      .on('mouseover',function(event,id){
         if(!selectedNode) applyDepHighlight(inner,g,id);
       })
-      .on('mouseout',function(){
+      .on('mouseout',function(event){
         if(!selectedNode) applyDepHighlight(inner,g,null);
       });
 

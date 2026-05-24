@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>Consolidate plan-review to single dashboard surface; retire standalone page &#43; static HTML artifact</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="feat-801f2273"
+             data-type="feature"
+             data-status="todo"
+             data-priority="medium"
+             data-created="2026-05-24T22:57:26.745673"
+             data-updated="2026-05-24T22:57:26.760716" data-agent-assigned="claude-code" data-created-by-agent="claude-code" data-created-by-model="claude-opus-4-7[1m]" data-created-by-cli-version="0.60.18">
+
+        <header>
+            <h1>Consolidate plan-review to single dashboard surface; retire standalone page &#43; static HTML artifact</h1>
+            <div class="metadata">
+                <span class="badge status-todo">Todo</span>
+                <span class="badge priority-medium">Medium Priority</span>
+            </div>
+        </header>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>Make the dashboard SPA the single plan-review surface. Phase 1 (safety migrations): move discoverPlansByFeatureID off scanning plans/*.html to plans/*.yaml; verify+migrate any reindex plan-edge extraction to YAML; change the /render title fallback off the static HTML; update the plan render CLI to print the SPA deep link. Phase 2 (removal): reconcile planFileHandler vs planRenderHandler, redirect or remove the standalone /plans/.html route, stop generating+committing static .wipnote/plans/.html in commitPlanChange, git-rm existing static plan HTML, update/remove tests asserting on .html. The plantmpl renderer and the /render endpoint that powers the SPA are KEPT.</p>
+        </section>
+    </article>
+</body>
+</html>

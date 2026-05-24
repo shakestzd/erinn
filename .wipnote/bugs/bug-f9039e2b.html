@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>bug create auto-links caused_by the active feature, fabricating false lineage</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="bug-f9039e2b"
+             data-type="bug"
+             data-status="todo"
+             data-priority="medium"
+             data-created="2026-05-24T23:18:30.233399"
+             data-updated="2026-05-24T23:18:30.254936" data-agent-assigned="claude-code" data-track-id="trk-0677c709" data-created-by-agent="claude-code" data-created-by-model="claude-opus-4-7[1m]" data-created-by-cli-version="0.60.18">
+
+        <header>
+            <h1>bug create auto-links caused_by the active feature, fabricating false lineage</h1>
+            <div class="metadata">
+                <span class="badge status-todo">Todo</span>
+                <span class="badge priority-medium">Medium Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="trk-0677c709.html" data-relationship="part_of" data-since="2026-05-24T23:18:30.254293">trk-0677c709</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="caused_by">
+                <h3>Caused By:</h3>
+                <ul>
+                    <li><a href="feat-801f2273.html" data-relationship="caused_by" data-since="2026-05-24T23:18:30.246788">feat-801f2273</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>When a bug is created without an explicit --caused-by, cmd/wipnote/workitem_create.go:179 falls back to detectActiveFeature and links the new bug caused_by whatever feature is currently in-progress. This fabricates a causal edge: a bug about unrelated functionality gets attributed as caused_by the active work. Observed live this session: bug-b9d0e3e0 (YOLO worktree isolation) was auto-linked caused_by feat-801f2273 (plan-review consolidation) solely because that feature was active; the edge was wrong and removed manually. Because lineage/causal provenance is wipnote's headline capability, this silently corrupts it across any session where bugs are filed while a feature is in-progress. Required behavior: on new-issue creation, do NOT default caused_by to the active feature. Instead the orchestrator/CLI should find the CONTENT-relevant track and feature(s) via relevance search over the issue text and link the bug to those; set caused_by only when explicitly provided or content-justified. If nothing relevant is found, leave it linked to its track only rather than asserting a false causal edge. Fix location: cmd/wipnote/workitem_create.go:179 (the detectActiveFeature fallback for caused_by).</p>
+        </section>
+    </article>
+</body>
+</html>

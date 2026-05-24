@@ -8,7 +8,7 @@ tools:
   - Grep
   - Glob
   - Bash
-maxTurns: 15
+maxTurns: 25
 ---
 
 # Test Runner Agent

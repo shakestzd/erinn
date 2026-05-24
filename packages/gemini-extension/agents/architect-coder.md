@@ -2,7 +2,7 @@
 name: architect-coder
 description: Deep reasoning code execution agent for complex tasks
 model: gemini-3.1-pro-preview
-max_turns: 40
+max_turns: 60
 tools:
     - read_file
     - replace

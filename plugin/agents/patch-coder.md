@@ -10,7 +10,7 @@ tools:
   - Grep
   - Glob
   - Bash
-maxTurns: 20
+maxTurns: 30
 ---
 
 # Patch Coder Agent

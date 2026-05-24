@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"fmt"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -484,12 +485,7 @@ func TestMigrationsAreOrdered(t *testing.T) {
 
 // contains reports whether haystack contains needle.
 func contains(haystack []string, needle string) bool {
-	for _, s := range haystack {
-		if s == needle {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(haystack, needle)
 }
 
 // seedLegacyDB creates a pre-copy-swap schema (no CHECK constraint, has
@@ -659,6 +655,138 @@ func TestAlterFailure_DoesNotAdvanceVersion(t *testing.T) {
 	v := queryUserVersion(t, raw)
 	if v != 2 {
 		t.Fatalf("user_version after failed ALTER = %d, want 2 (step must not advance on failure)", v)
+	}
+}
+
+// TestRepairTrigger_AlreadyMigratedDB_TriggerDropped verifies that a database
+// already at the pre-fix current schema version (user_version 9) that has lost
+// trg_increment_total_events gets the trigger restored by the new step-10
+// migration — and that sessions.total_events increments correctly thereafter.
+//
+// This is the exact upgrade population that bug-045124a6's fix missed: step 4
+// only ran for DBs that hadn't yet completed step 4.
+func TestRepairTrigger_AlreadyMigratedDB_TriggerDropped(t *testing.T) {
+	path := fileDBPath(t, "repair_trigger.db")
+
+	// Cold open: migrate to full current schema (now version 10).
+	cold, err := db.Open(path)
+	if err != nil {
+		t.Fatalf("cold Open: %v", err)
+	}
+
+	// Rewind to version 9 (the pre-fix current version) to simulate a DB that
+	// ran all migrations up to and including step 9 but not step 10.
+	if _, err := cold.Exec("PRAGMA user_version = 9"); err != nil {
+		cold.Close()
+		t.Fatalf("rewind user_version to 9: %v", err)
+	}
+
+	// Drop the trigger to simulate the broken state the old migration left behind.
+	if _, err := cold.Exec("DROP TRIGGER IF EXISTS trg_increment_total_events"); err != nil {
+		cold.Close()
+		t.Fatalf("drop trigger: %v", err)
+	}
+
+	// Verify trigger is gone before migration.
+	var name string
+	err = cold.QueryRow(
+		`SELECT name FROM sqlite_master WHERE type='trigger' AND name='trg_increment_total_events'`,
+	).Scan(&name)
+	if err == nil {
+		cold.Close()
+		t.Fatal("trigger still present after manual DROP — test setup error")
+	}
+	cold.Close()
+
+	// Warm open: must run only step 10 and restore the trigger.
+	recorder := &migrationCallRecorder{}
+	db.SetMigrationObserver(recorder.Record)
+	defer db.SetMigrationObserver(nil)
+
+	warm, err := db.Open(path)
+	if err != nil {
+		t.Fatalf("Open after trigger drop: %v", err)
+	}
+	defer warm.Close()
+
+	// Only step 10 should have run.
+	calls := recorder.Calls()
+	if len(calls) != 1 || calls[0] != "010_repair_trigger_increment_total_events" {
+		t.Fatalf("expected exactly [010_repair_trigger_increment_total_events], got %v", calls)
+	}
+
+	// user_version must be at currentSchemaVersion.
+	if v := queryUserVersion(t, warm); v != db.CurrentSchemaVersion() {
+		t.Fatalf("user_version after repair = %d, want %d", v, db.CurrentSchemaVersion())
+	}
+
+	// Trigger must now exist in sqlite_master.
+	var trigName string
+	if err := warm.QueryRow(
+		`SELECT name FROM sqlite_master WHERE type='trigger' AND name='trg_increment_total_events'`,
+	).Scan(&trigName); err != nil {
+		t.Fatalf("trigger missing after repair migration: %v", err)
+	}
+
+	// Seed a session and insert an agent_event to confirm the trigger fires.
+	if _, err := warm.Exec(`INSERT INTO sessions (session_id, agent_assigned, total_events, status)
+		VALUES ('sess-repair', 'agent', 0, 'active')`); err != nil {
+		t.Fatalf("insert session: %v", err)
+	}
+	if _, err := warm.Exec(`INSERT INTO agent_events
+		(event_id, agent_id, event_type, session_id)
+		VALUES ('ev-repair', 'agent', 'start', 'sess-repair')`); err != nil {
+		t.Fatalf("insert agent_event: %v", err)
+	}
+	var totalEvents int
+	if err := warm.QueryRow(`SELECT total_events FROM sessions WHERE session_id='sess-repair'`).
+		Scan(&totalEvents); err != nil {
+		t.Fatalf("read total_events: %v", err)
+	}
+	if totalEvents != 1 {
+		t.Fatalf("total_events after insert = %d, want 1 (trigger not firing after repair)", totalEvents)
+	}
+}
+
+// TestRepairTrigger_FreshDB_TriggerIntact verifies that a fresh database
+// (migrated end-to-end through all steps) has trg_increment_total_events
+// present and functioning after migrations complete. Step 10 is idempotent
+// (CREATE TRIGGER IF NOT EXISTS) so it must not break a DB that already has
+// the trigger.
+func TestRepairTrigger_FreshDB_TriggerIntact(t *testing.T) {
+	path := fileDBPath(t, "fresh_trigger.db")
+
+	database, err := db.Open(path)
+	if err != nil {
+		t.Fatalf("Open fresh: %v", err)
+	}
+	defer database.Close()
+
+	// Trigger must exist.
+	var trigName string
+	if err := database.QueryRow(
+		`SELECT name FROM sqlite_master WHERE type='trigger' AND name='trg_increment_total_events'`,
+	).Scan(&trigName); err != nil {
+		t.Fatalf("trigger missing on fresh DB: %v", err)
+	}
+
+	// Confirm it fires correctly.
+	if _, err := database.Exec(`INSERT INTO sessions (session_id, agent_assigned, total_events, status)
+		VALUES ('sess-fresh', 'agent', 0, 'active')`); err != nil {
+		t.Fatalf("insert session: %v", err)
+	}
+	if _, err := database.Exec(`INSERT INTO agent_events
+		(event_id, agent_id, event_type, session_id)
+		VALUES ('ev-fresh', 'agent', 'start', 'sess-fresh')`); err != nil {
+		t.Fatalf("insert agent_event: %v", err)
+	}
+	var total int
+	if err := database.QueryRow(`SELECT total_events FROM sessions WHERE session_id='sess-fresh'`).
+		Scan(&total); err != nil {
+		t.Fatalf("read total_events: %v", err)
+	}
+	if total != 1 {
+		t.Fatalf("total_events = %d, want 1", total)
 	}
 }
 

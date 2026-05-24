@@ -171,12 +171,22 @@ func TestMigration_FeatureFilesPathSeenIndex(t *testing.T) {
 		t.Fatalf("idx_feature_files_path_seen missing after idempotent re-run")
 	}
 
-	names := MigrationStepNames()
-	if names[len(names)-1] != "009_feature_files_path_seen_index" {
-		t.Fatalf("last migration step = %q, want 009_feature_files_path_seen_index",
-			names[len(names)-1])
+	// Verify that idx_feature_files_path_seen was added by step 9 and is still
+	// present regardless of how many later steps exist.
+	if !indexExists(t, database, "idx_feature_files_path_seen") {
+		t.Fatalf("idx_feature_files_path_seen missing after all migrations")
 	}
-	if CurrentSchemaVersion() != 9 {
-		t.Fatalf("CurrentSchemaVersion = %d, want 9", CurrentSchemaVersion())
+
+	// Verify the migration registry is internally consistent (ordered, last ==
+	// CurrentSchemaVersion) without hardcoding the exact final step name or
+	// version number — so adding future steps does not break this test.
+	names := MigrationStepNames()
+	versions := MigrationStepVersions()
+	if len(names) == 0 {
+		t.Fatal("no migration steps registered")
+	}
+	if versions[len(versions)-1] != CurrentSchemaVersion() {
+		t.Fatalf("last migration version = %d, want CurrentSchemaVersion = %d",
+			versions[len(versions)-1], CurrentSchemaVersion())
 	}
 }

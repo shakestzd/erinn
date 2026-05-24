@@ -15,7 +15,7 @@ import (
 // executes ZERO CREATE / ALTER / DROP / trigger / normalisation statements —
 // avoiding the write-lock acquisition that caused SQLITE_BUSY in short-lived
 // hook processes.
-const currentSchemaVersion = 9
+const currentSchemaVersion = 10
 
 // copySwapStepName is the name of the agent_events copy-and-swap migration
 // step. Exposed via CopySwapStepName() so tests can assert it runs at most
@@ -87,6 +87,11 @@ var migrations = []migrationStep{
 		version: 9,
 		name:    "009_feature_files_path_seen_index",
 		apply:   stepFeatureFilesPathSeenIndex,
+	},
+	{
+		version: 10,
+		name:    "010_repair_trigger_increment_total_events",
+		apply:   stepRepairTriggerIncrementTotalEvents,
 	},
 }
 
@@ -454,4 +459,18 @@ func stepFeatureFilesPathSeenIndex(db *sql.DB) error {
 		return fmt.Errorf("create idx_feature_files_path_seen: %w", err)
 	}
 	return nil
+}
+
+// stepRepairTriggerIncrementTotalEvents ensures trg_increment_total_events
+// exists on every database, regardless of starting version.
+//
+// The bug-045124a6 fix recreated this trigger inside stepAgentEventsCopySwap
+// (step 4), which only ran on DBs that had not yet completed step 4. Any DB
+// already at user_version >= 4 that lost the trigger (e.g. due to manual DROP,
+// or a buggy old migration) remained broken. This new step runs unconditionally
+// on all DBs still below version 10 — including those already at version 9 —
+// and (re)creates the trigger using CREATE TRIGGER IF NOT EXISTS, which is a
+// no-op on DBs that still have it and a repair on DBs that lost it.
+func stepRepairTriggerIncrementTotalEvents(db *sql.DB) error {
+	return createTriggerIncrementTotalEvents(db)
 }

@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>Plan-graph D3 v7 event handlers use wrong arg for node id</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="bug-f2985c3d"
+             data-type="bug"
+             data-status="todo"
+             data-priority="medium"
+             data-created="2026-05-24T22:21:18.643007"
+             data-updated="2026-05-24T22:21:18.707069" data-agent-assigned="claude-code" data-track-id="trk-0677c709" data-created-by-agent="claude-code" data-created-by-model="claude-opus-4-7[1m]" data-created-by-cli-version="0.60.18">
+
+        <header>
+            <h1>Plan-graph D3 v7 event handlers use wrong arg for node id</h1>
+            <div class="metadata">
+                <span class="badge status-todo">Todo</span>
+                <span class="badge priority-medium">Medium Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="trk-0677c709.html" data-relationship="part_of" data-since="2026-05-24T22:21:18.706577">trk-0677c709</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>roborev job 3576 Medium on feat-36566570. D3 v7 selection.on listeners receive (event, datum), but the new plan_page.gohtml graph click and mouseover/mouseout handlers treat the first arg as the node id. So id is actually the event object: navigation targets slice-[object PointerEvent] and dependency highlighting queries with the wrong key, breaking node-card nav and dep-chain highlighting in the browser. Fix: change handlers to (event, id) and use the second arg as the node id (click, mouseover, mouseout).</p>
+        </section>
+    </article>
+</body>
+</html>

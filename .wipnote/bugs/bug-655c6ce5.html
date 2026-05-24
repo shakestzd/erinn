@@ -10,15 +10,15 @@
 <body>
     <article id="bug-655c6ce5"
              data-type="bug"
-             data-status="in-progress"
+             data-status="done"
              data-priority="medium"
              data-created="2026-05-24T19:43:46.378214"
-             data-updated="2026-05-24T19:44:49.471391" data-agent-assigned="claude-code" data-track-id="trk-0677c709" data-created-by-agent="claude-code" data-created-by-model="claude-opus-4-7[1m]" data-created-by-cli-version="0.60.18">
+             data-updated="2026-05-24T20:01:19.192227" data-agent-assigned="claude-code" data-track-id="trk-0677c709" data-created-by-agent="claude-code" data-created-by-model="claude-opus-4-7[1m]" data-created-by-cli-version="0.60.18">
 
         <header>
             <h1>session prune hardening: negative flags, path traversal, JSON parse</h1>
             <div class="metadata">
-                <span class="badge status-in-progress">In Progress</span>
+                <span class="badge status-done">Done</span>
                 <span class="badge priority-medium">Medium Priority</span>
             </div>
         </header>
@@ -46,7 +46,8 @@
 
         <section data-content>
             <h3>Description</h3>
-            <p>roborev job 3537 findings on feat-b4844012. Reject keepLast below zero and olderThan zero or less before collecting candidates; validate session id (reject separators, dot, dotdot, require base equals id) before path joins and tar names to stop traversal; parse .active-session with encoding json instead of substring match. Add tests for each.</p>
+            <p>roborev job 3537 findings on feat-b4844012. Reject keepLast below zero and olderThan zero or less before collecting candidates; validate session id (reject separators, dot, dotdot, require base equals id) before path joins and tar names to stop traversal; parse .active-session with encoding json instead of substring match. Add tests for each.
+[2026-05-24 20:01 claude-code] accepted-advisory (provenance override): implementation committed in 3a9cd83c5304c75aff8b431c680023a5b8bcc7c1 — fixes three roborev findings: reject negative/zero retention flags, validate session ID to prevent path traversal, JSON-parse .active-session properly</p>
         </section>
     </article>
 </body>

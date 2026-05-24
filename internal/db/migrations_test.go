@@ -492,3 +492,206 @@ func contains(haystack []string, needle string) bool {
 	return false
 }
 
+// seedLegacyDB creates a pre-copy-swap schema (no CHECK constraint, has
+// parent_event_id self-FK) at user_version=0. Shared by several tests below.
+func seedLegacyDB(t *testing.T, path string) {
+	t.Helper()
+	raw := openRaw(t, path)
+	defer raw.Close()
+	for _, stmt := range []string{
+		`CREATE TABLE sessions (
+			session_id TEXT PRIMARY KEY,
+			agent_assigned TEXT NOT NULL,
+			created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			total_events INTEGER DEFAULT 0,
+			status TEXT NOT NULL DEFAULT 'active'
+		)`,
+		`CREATE TABLE features (
+			id TEXT PRIMARY KEY,
+			type TEXT NOT NULL,
+			title TEXT NOT NULL,
+			status TEXT NOT NULL DEFAULT 'todo',
+			created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+		)`,
+		`CREATE TABLE agent_events (
+			event_id TEXT PRIMARY KEY,
+			agent_id TEXT NOT NULL,
+			event_type TEXT NOT NULL,
+			timestamp DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			tool_name TEXT,
+			session_id TEXT NOT NULL,
+			feature_id TEXT,
+			parent_event_id TEXT,
+			FOREIGN KEY (session_id) REFERENCES sessions(session_id),
+			FOREIGN KEY (feature_id) REFERENCES features(id),
+			FOREIGN KEY (parent_event_id) REFERENCES agent_events(event_id)
+		)`,
+		`PRAGMA user_version = 0`,
+	} {
+		if _, err := raw.Exec(stmt); err != nil {
+			t.Fatalf("seedLegacyDB %q: %v", stmt, err)
+		}
+	}
+}
+
+// TestCopySwap_TriggerRecreated verifies that trg_increment_total_events exists
+// after migrating a legacy DB through the copy-swap step, and that inserting a
+// new agent_event correctly increments sessions.total_events.
+func TestCopySwap_TriggerRecreated(t *testing.T) {
+	path := fileDBPath(t, "trigger_recreated.db")
+	seedLegacyDB(t, path)
+
+	database, err := db.Open(path)
+	if err != nil {
+		t.Fatalf("Open legacy fixture: %v", err)
+	}
+	defer database.Close()
+
+	// The trigger must exist in sqlite_master.
+	var trigName string
+	err = database.QueryRow(
+		`SELECT name FROM sqlite_master WHERE type='trigger' AND name='trg_increment_total_events'`,
+	).Scan(&trigName)
+	if err != nil {
+		t.Fatalf("trg_increment_total_events missing after copy-swap migration: %v", err)
+	}
+	if trigName != "trg_increment_total_events" {
+		t.Fatalf("unexpected trigger name: %q", trigName)
+	}
+
+	// Seed a session so we can test the trigger fires.
+	if _, err := database.Exec(`INSERT INTO sessions (session_id, agent_assigned, total_events, status)
+		VALUES ('sess-1', 'test-agent', 0, 'active')`); err != nil {
+		t.Fatalf("insert session: %v", err)
+	}
+
+	// Insert an agent_event — the trigger should increment total_events.
+	if _, err := database.Exec(`INSERT INTO agent_events
+		(event_id, agent_id, event_type, session_id)
+		VALUES ('ev-1', 'test-agent', 'start', 'sess-1')`); err != nil {
+		t.Fatalf("insert agent_event: %v", err)
+	}
+
+	var totalEvents int
+	if err := database.QueryRow(`SELECT total_events FROM sessions WHERE session_id='sess-1'`).
+		Scan(&totalEvents); err != nil {
+		t.Fatalf("read total_events: %v", err)
+	}
+	if totalEvents != 1 {
+		t.Fatalf("total_events after insert = %d, want 1 (trigger not firing)", totalEvents)
+	}
+}
+
+// TestCopySwap_TriggerRecreated_MultipleEvents verifies the trigger keeps
+// counting correctly across multiple agent_event inserts.
+func TestCopySwap_TriggerRecreated_MultipleEvents(t *testing.T) {
+	path := fileDBPath(t, "trigger_multi.db")
+	seedLegacyDB(t, path)
+
+	database, err := db.Open(path)
+	if err != nil {
+		t.Fatalf("Open legacy fixture: %v", err)
+	}
+	defer database.Close()
+
+	if _, err := database.Exec(`INSERT INTO sessions (session_id, agent_assigned, total_events, status)
+		VALUES ('sess-2', 'agent', 0, 'active')`); err != nil {
+		t.Fatalf("insert session: %v", err)
+	}
+	for i := 1; i <= 3; i++ {
+		if _, err := database.Exec(`INSERT INTO agent_events
+			(event_id, agent_id, event_type, session_id)
+			VALUES (?, 'agent', 'start', 'sess-2')`,
+			fmt.Sprintf("ev-%d", i)); err != nil {
+			t.Fatalf("insert event %d: %v", i, err)
+		}
+	}
+	var total int
+	if err := database.QueryRow(`SELECT total_events FROM sessions WHERE session_id='sess-2'`).
+		Scan(&total); err != nil {
+		t.Fatalf("read total_events: %v", err)
+	}
+	if total != 3 {
+		t.Fatalf("total_events = %d, want 3", total)
+	}
+}
+
+// TestAlterFailure_DoesNotAdvanceVersion verifies that a genuine (non-duplicate)
+// ALTER TABLE failure inside a migration causes the step to return an error,
+// which prevents user_version from advancing. On the next open the step retries.
+//
+// We simulate this by opening a DB at user_version=2 (past the initial tables
+// step but before step 3 which does the ALTERs), then truncating the sessions
+// table entirely so that the ALTER TABLE ADD COLUMN on a non-existent table
+// produces a real error — but we instead test the isDuplicateColumnError helper
+// and the contract: non-duplicate errors from ALTER are now returned, not swallowed.
+func TestAlterFailure_DoesNotAdvanceVersion(t *testing.T) {
+	path := fileDBPath(t, "alter_failure.db")
+
+	// Cold open to create a fully migrated DB.
+	cold, err := db.Open(path)
+	if err != nil {
+		t.Fatalf("cold Open: %v", err)
+	}
+	// Rewind to user_version=2 to force step 3 to re-run on next open.
+	if _, err := cold.Exec("PRAGMA user_version = 2"); err != nil {
+		t.Fatalf("rewind user_version: %v", err)
+	}
+	// Drop sessions table so the ALTER TABLE ADD COLUMN in step 3 fails with a
+	// real error ("no such table: sessions"), not "duplicate column".
+	if _, err := cold.Exec("DROP TABLE IF EXISTS sessions"); err != nil {
+		t.Fatalf("drop sessions: %v", err)
+	}
+	cold.Close()
+
+	// Opening now should fail because step 3 hits a real ALTER error on the
+	// missing sessions table. user_version must NOT advance past 2.
+	failDB, err := db.Open(path)
+	if err == nil {
+		failDB.Close()
+		t.Fatal("Open should have returned an error when ALTER fails on missing table")
+	}
+
+	// Verify user_version did NOT advance.
+	raw := openRaw(t, path)
+	defer raw.Close()
+	v := queryUserVersion(t, raw)
+	if v != 2 {
+		t.Fatalf("user_version after failed ALTER = %d, want 2 (step must not advance on failure)", v)
+	}
+}
+
+// TestDuplicateColumnTreatedAsApplied verifies that "duplicate column name"
+// errors from ALTER TABLE ADD COLUMN are silently treated as already-applied
+// (idempotent), not surfaced as migration failures.
+func TestDuplicateColumnTreatedAsApplied(t *testing.T) {
+	path := fileDBPath(t, "dup_col.db")
+
+	// A fully-migrated DB: all columns already exist, so re-running step 3
+	// will hit "duplicate column name" on every ALTER. Rewind to user_version=2
+	// to force step 3 to re-execute.
+	cold, err := db.Open(path)
+	if err != nil {
+		t.Fatalf("cold Open: %v", err)
+	}
+	if _, err := cold.Exec("PRAGMA user_version = 2"); err != nil {
+		t.Fatalf("rewind user_version: %v", err)
+	}
+	cold.Close()
+
+	// Step 3 will attempt to ADD COLUMN on tables that already have those
+	// columns. All errors should be "duplicate column name" and treated as
+	// idempotent — Open must succeed and land at currentSchemaVersion.
+	warm, err := db.Open(path)
+	if err != nil {
+		t.Fatalf("Open after rewind: %v", err)
+	}
+	defer warm.Close()
+
+	if v := queryUserVersion(t, warm); v != db.CurrentSchemaVersion() {
+		t.Fatalf("user_version after dup-column rerun = %d, want %d",
+			v, db.CurrentSchemaVersion())
+	}
+}
+

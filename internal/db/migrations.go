@@ -3,7 +3,6 @@ package db
 import (
 	"database/sql"
 	"fmt"
-	"log"
 	"strings"
 )
 
@@ -227,7 +226,7 @@ func stepPostInitialColumnsAndTables(db *sql.DB) error {
 	for _, stmt := range addCols {
 		if _, err := db.Exec(stmt); err != nil {
 			if !isDuplicateColumnError(err) {
-				log.Printf("schema migrate (non-fatal): %v", err)
+				return fmt.Errorf("add column (%s): %w", stmt, err)
 			}
 		}
 	}
@@ -256,15 +255,8 @@ func stepPostInitialColumnsAndTables(db *sql.DB) error {
 	}
 
 	// Trigger: auto-increment sessions.total_events on each agent_event insert.
-	if _, err := db.Exec(`CREATE TRIGGER IF NOT EXISTS trg_increment_total_events
-		AFTER INSERT ON agent_events
-		FOR EACH ROW
-		BEGIN
-			UPDATE sessions
-			SET total_events = total_events + 1
-			WHERE session_id = NEW.session_id;
-		END`); err != nil {
-		return fmt.Errorf("create trg_increment_total_events: %w", err)
+	if err := createTriggerIncrementTotalEvents(db); err != nil {
+		return err
 	}
 
 	// Backfill total_events for sessions that pre-date the trigger.
@@ -333,7 +325,7 @@ func stepAgentEventsCopySwap(db *sql.DB) error {
 	for _, stmt := range postSwapCols {
 		if _, err := db.Exec(stmt); err != nil {
 			if !isDuplicateColumnError(err) {
-				log.Printf("schema migrate (non-fatal): %v", err)
+				return fmt.Errorf("add column after copy-swap (%s): %w", stmt, err)
 			}
 		}
 	}
@@ -342,6 +334,13 @@ func stepAgentEventsCopySwap(db *sql.DB) error {
 	// CreateAllIndexes is fully idempotent (CREATE INDEX IF NOT EXISTS).
 	if err := CreateAllIndexes(db); err != nil {
 		return fmt.Errorf("reinstall indexes after copy-swap: %w", err)
+	}
+
+	// Recreate trg_increment_total_events: the DROP TABLE inside the swap
+	// silently destroyed the trigger that was attached to agent_events.
+	// Without recreation sessions.total_events stops incrementing after migration.
+	if err := createTriggerIncrementTotalEvents(db); err != nil {
+		return fmt.Errorf("recreate trigger after copy-swap: %w", err)
 	}
 	return nil
 }
@@ -363,6 +362,29 @@ func isDuplicateColumnError(err error) bool {
 		return false
 	}
 	return strings.Contains(err.Error(), "duplicate column name")
+}
+
+// triggerIncrementTotalEventsSQL is the single source of truth for the
+// trg_increment_total_events trigger DDL. Both the initial creation path
+// (stepPostInitialColumnsAndTables) and the post-copy-swap recreation path
+// (stepAgentEventsCopySwap) use this constant — never copy-paste the SQL.
+const triggerIncrementTotalEventsSQL = `CREATE TRIGGER IF NOT EXISTS trg_increment_total_events
+	AFTER INSERT ON agent_events
+	FOR EACH ROW
+	BEGIN
+		UPDATE sessions
+		SET total_events = total_events + 1
+		WHERE session_id = NEW.session_id;
+	END`
+
+// createTriggerIncrementTotalEvents (re)creates the trg_increment_total_events
+// trigger. Safe to call after a copy-swap that dropped the trigger — the
+// IF NOT EXISTS clause makes it idempotent on already-migrated DBs.
+func createTriggerIncrementTotalEvents(db *sql.DB) error {
+	if _, err := db.Exec(triggerIncrementTotalEventsSQL); err != nil {
+		return fmt.Errorf("create trg_increment_total_events: %w", err)
+	}
+	return nil
 }
 
 // stepSessionFamilyID adds the session_family_id column to sessions and creates

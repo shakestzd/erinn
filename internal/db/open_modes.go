@@ -173,17 +173,28 @@ func OpenReadOnlyMigrated(dbPath string) (*sql.DB, error) {
 // We use mode=rw (not mode=ro) so that SQLite can create the WAL -shm
 // coordination file when it is absent — a routine state after a clean
 // checkpoint. The connection is then locked read-only by query_only=ON
-// (applied in applyReadOnlyPragmas), which blocks all DML/DDL at the
-// engine level without restricting OS-level sidecar creation.
+// embedded in the DSN as a _pragma parameter.
+//
+// POOL SAFETY: _pragma parameters in the modernc.org/sqlite DSN are applied
+// by the driver's applyQueryParams hook on EVERY new physical connection
+// (not once on the pool). This guarantees that every connection the pool
+// opens — including connections created lazily after the initial Exec — has
+// query_only=1 set before it is returned to a caller, so writes cannot
+// succeed on any pooled connection.
+//
+// The single db.Exec("PRAGMA query_only=1") call in applyReadOnlyPragmas is
+// retained as belt-and-suspenders (it fires on the first connection only) but
+// the DSN parameter is the authoritative per-connection guard.
 func buildReadOnlyDSN(dbPath string) string {
 	if strings.Contains(dbPath, ":memory:") {
 		// In-memory databases cannot use file URI mode; keep as-is.
 		return dbPath
 	}
-	// mode=rw: allow WAL sidecar creation; query_only=ON (applied via pragma)
-	// prevents any writes. The _pragma parameter applies busy_timeout at first
-	// connection open so the first lock acquisition is protected.
-	return "file:" + dbPath + "?mode=rw&_pragma=busy_timeout(5000)"
+	// mode=rw: allow WAL sidecar creation.
+	// _pragma=busy_timeout(5000): protect first lock acquisition.
+	// _pragma=query_only(1): applied on EVERY physical connection by the driver;
+	//   prevents all DML/DDL at the engine level on every pooled connection.
+	return "file:" + dbPath + "?mode=rw&_pragma=busy_timeout(5000)&_pragma=query_only(1)"
 }
 
 // buildReadOnlyPragmas returns the pragma set appropriate for a query-only

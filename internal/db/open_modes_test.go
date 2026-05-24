@@ -239,6 +239,68 @@ func TestOpenWritable_MissingFileFails(t *testing.T) {
 	}
 }
 
+// TestOpenReadOnly_QueryOnlyPerPooledConnection verifies that query_only is
+// enforced on EVERY physical connection in the pool, not just the first one.
+//
+// Strategy: open the DB with MaxOpenConns > 1, hold one connection busy inside
+// a transaction (forcing the pool to open a second physical connection for the
+// next request), then attempt a write on that second connection and assert it
+// fails with a read-only error. This proves that the DSN _pragma=query_only(1)
+// is applied per-connection by the driver, not just once on the pool.
+func TestOpenReadOnly_QueryOnlyPerPooledConnection(t *testing.T) {
+	dir := t.TempDir()
+	dbPath := filepath.Join(dir, "pooltest.db")
+
+	// Seed: create a valid wipnote DB.
+	seed, err := db.Open(dbPath)
+	if err != nil {
+		t.Fatalf("seed Open: %v", err)
+	}
+	seed.Close()
+
+	rodb, err := db.OpenReadOnly(dbPath)
+	if err != nil {
+		t.Fatalf("OpenReadOnly: %v", err)
+	}
+	defer rodb.Close()
+
+	// Allow the pool to open multiple physical connections.
+	rodb.SetMaxOpenConns(4)
+
+	// Hold connection 1 busy inside a transaction.
+	tx, err := rodb.Begin()
+	if err != nil {
+		t.Fatalf("Begin tx (conn 1): %v", err)
+	}
+	defer tx.Rollback() //nolint:errcheck
+
+	// Issue a read on the held transaction so it has an open read lock.
+	row := tx.QueryRow("SELECT COUNT(*) FROM sqlite_master")
+	var cnt int
+	if err := row.Scan(&cnt); err != nil {
+		t.Fatalf("Scan on held tx: %v", err)
+	}
+
+	// Acquire a SECOND connection from the pool by running a query outside the tx.
+	// The pool must open a new physical connection since conn 1 is occupied.
+	rows2, err := rodb.Query("SELECT name FROM sqlite_master WHERE type='table' LIMIT 1")
+	if err != nil {
+		t.Fatalf("query on conn 2: %v", err)
+	}
+	rows2.Close()
+
+	// Attempt a write — must fail on every connection.
+	_, writeErr := rodb.Exec(`INSERT OR IGNORE INTO metadata (key, value) VALUES ('pool_probe', '1')`)
+	if writeErr == nil {
+		t.Fatal("expected write to fail on pooled read-only connection; got nil")
+	}
+	msg := strings.ToLower(writeErr.Error())
+	if !strings.Contains(msg, "readonly") && !strings.Contains(msg, "read-only") &&
+		!strings.Contains(msg, "read only") && !strings.Contains(msg, "attempt to write") {
+		t.Errorf("write error unexpected type: %v", writeErr)
+	}
+}
+
 // TestOpenReadOnly_PromptClose verifies that read-only paths close rows
 // promptly and do not hold long-lived read transactions that block writers.
 func TestOpenReadOnly_PromptClose(t *testing.T) {

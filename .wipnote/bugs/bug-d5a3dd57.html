@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>Retention traversal regression test asserts wrong escape target</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="bug-d5a3dd57"
+             data-type="bug"
+             data-status="todo"
+             data-priority="medium"
+             data-created="2026-05-24T20:40:09.46971"
+             data-updated="2026-05-24T20:40:09.48028" data-agent-assigned="claude-code" data-track-id="trk-0677c709" data-created-by-agent="claude-code" data-created-by-model="claude-opus-4-7[1m]" data-created-by-cli-version="0.60.18">
+
+        <header>
+            <h1>Retention traversal regression test asserts wrong escape target</h1>
+            <div class="metadata">
+                <span class="badge status-todo">Todo</span>
+                <span class="badge priority-medium">Medium Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="trk-0677c709.html" data-relationship="part_of" data-since="2026-05-24T20:40:09.47995">trk-0677c709</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>roborev job 3562 Low on bug-980df5cd fix. TestRun_SkipsTraversalSessionIDs creates dir/escape, but ../escape from .wipnote/sessions resolves to .wipnote/escape and .. resolves to .wipnote; the assertion would not catch the real destructive targets if validation regressed. Create and assert preservation of the actual traversal targets (e.g. join wipnoteDir escape), or use ../../escape so dir/escape is the true target. Production guard is already correct; this hardens the test only.</p>
+        </section>
+    </article>
+</body>
+</html>

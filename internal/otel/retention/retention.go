@@ -241,6 +241,29 @@ func indexerCaughtUp(sessDir, eventsFile string) bool {
 	return offset >= info.Size()
 }
 
+// ValidateSessionID rejects session IDs that could cause path traversal when
+// joined with a base directory. It requires that the ID contains no path
+// separators ('/' or '\'), is not "." or "..", and that filepath.Base(sessionID)
+// equals the sessionID itself. Returns a descriptive error on rejection.
+func ValidateSessionID(sessionID string) error {
+	if sessionID == "" {
+		return fmt.Errorf("session ID must not be empty")
+	}
+	if sessionID == "." || sessionID == ".." {
+		return fmt.Errorf("invalid session ID %q: . and .. are not allowed", sessionID)
+	}
+	if strings.ContainsAny(sessionID, `/\`) {
+		return fmt.Errorf("invalid session ID %q: path separators are not allowed", sessionID)
+	}
+	if filepath.IsAbs(sessionID) {
+		return fmt.Errorf("invalid session ID %q: absolute paths are not allowed", sessionID)
+	}
+	if filepath.Base(sessionID) != sessionID {
+		return fmt.Errorf("invalid session ID %q: must be a plain filename with no directory components", sessionID)
+	}
+	return nil
+}
+
 // ArchiveSession is the exported entry-point for archiving a single session on
 // demand (e.g. `wipnote session archive <id>`). It delegates to archiveSession
 // using the session's mtime as the timestamp for the archive subdirectory, and
@@ -251,6 +274,9 @@ func indexerCaughtUp(sessDir, eventsFile string) bool {
 // The caller is responsible for ensuring the session is not the active session
 // before calling this function — ArchiveSession does not check.
 func ArchiveSession(wipnoteDir, sessionID string, dryRun bool) error {
+	if err := ValidateSessionID(sessionID); err != nil {
+		return err
+	}
 	sessDir := filepath.Join(wipnoteDir, "sessions", sessionID)
 	eventsFile := filepath.Join(sessDir, "events.ndjson")
 

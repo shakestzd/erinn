@@ -9,6 +9,67 @@ import (
 	"time"
 )
 
+// --- Fix 1: negative/zero retention flag tests ---
+
+// TestRunSessionPrune_NegativeKeepLast verifies that --keep-last with a negative
+// value is rejected before any filesystem access.
+func TestRunSessionPrune_NegativeKeepLast(t *testing.T) {
+	err := runSessionPrune("", -1, false, false)
+	if err == nil {
+		t.Fatal("expected error for --keep-last -1, got nil")
+	}
+}
+
+// TestRunSessionPrune_ZeroOlderThan verifies that --older-than 0 is rejected.
+func TestRunSessionPrune_ZeroOlderThan(t *testing.T) {
+	err := runSessionPrune("0s", 0, false, false)
+	if err == nil {
+		t.Fatal("expected error for --older-than 0s, got nil")
+	}
+}
+
+// TestRunSessionPrune_NegativeOlderThan verifies that a negative --older-than
+// value (e.g. "-1h" parsed as negative duration) is rejected.
+func TestRunSessionPrune_NegativeOlderThan(t *testing.T) {
+	// parseDuration doesn't support a literal "-30d", but "0h" produces zero
+	// which is the boundary case; "0s" tests the same boundary.
+	// Test that zero duration triggers the guard.
+	err := runSessionPrune("0h", 0, false, false)
+	if err == nil {
+		t.Fatal("expected error for --older-than 0h (zero duration), got nil")
+	}
+}
+
+// --- Fix 3: pretty-printed JSON active session ---
+
+// TestActiveSessionIDFromFile_PrettyJSON verifies that a pretty-printed
+// .active-session file is parsed correctly (not just compact JSON).
+func TestActiveSessionIDFromFile_PrettyJSON(t *testing.T) {
+	dir := t.TempDir()
+	pretty := "{\n  \"session_id\": \"sess-pretty-123\",\n  \"harness\": \"claude-code\"\n}\n"
+	if err := os.WriteFile(filepath.Join(dir, ".active-session"), []byte(pretty), 0o644); err != nil {
+		t.Fatalf("write .active-session: %v", err)
+	}
+	got := activeSessionIDFromFile(dir)
+	if got != "sess-pretty-123" {
+		t.Errorf("got %q, want %q", got, "sess-pretty-123")
+	}
+}
+
+// TestActiveSessionIDFromFile_SpacedColon verifies that JSON with spaces around
+// the colon (valid JSON) is parsed correctly.
+func TestActiveSessionIDFromFile_SpacedColon(t *testing.T) {
+	dir := t.TempDir()
+	spaced := `{ "session_id" : "sess-spaced-456" }`
+	if err := os.WriteFile(filepath.Join(dir, ".active-session"), []byte(spaced), 0o644); err != nil {
+		t.Fatalf("write .active-session: %v", err)
+	}
+	got := activeSessionIDFromFile(dir)
+	if got != "sess-spaced-456" {
+		t.Errorf("got %q, want %q", got, "sess-spaced-456")
+	}
+}
+
 // buildTestSessionDir creates a fake session directory with an events.ndjson and
 // an .index-offset file (set to the exact file size so the indexer appears caught up).
 // mtime of events.ndjson is set to mtime.

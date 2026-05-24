@@ -7,6 +7,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -106,6 +107,26 @@ type pruneCandidate struct {
 
 // runSessionPrune implements `wipnote session prune`.
 func runSessionPrune(olderThan string, keepLast int, dryRun, yes bool) error {
+	// Reject negative or zero values before they can create an empty keep window.
+	// --keep-last 0 is the disabled sentinel (flag default); negative values are
+	// always invalid. Treat keepLast < 0 as an explicit error.
+	if keepLast < 0 {
+		return fmt.Errorf("--keep-last must be a positive integer (got %d)\n"+
+			"Use --keep-last 1 or higher, or omit the flag to disable the keep-last window.", keepLast)
+	}
+	// --older-than 0 or negative would set an age cutoff in the future, causing every
+	// session to appear "old enough" and be pruned. Reject non-positive durations.
+	if olderThan != "" {
+		dur, parseErr := parseDuration(olderThan)
+		if parseErr != nil {
+			return fmt.Errorf("invalid --older-than value %q: %w", olderThan, parseErr)
+		}
+		if dur <= 0 {
+			return fmt.Errorf("--older-than must be a positive duration (got %q)\n"+
+				"Use a value like 30d or 720h.", olderThan)
+		}
+	}
+
 	if olderThan == "" && keepLast == 0 {
 		return fmt.Errorf("at least one of --older-than or --keep-last must be supplied\n" +
 			"Run 'wipnote session prune --help' for details.")
@@ -120,10 +141,8 @@ func runSessionPrune(olderThan string, keepLast int, dryRun, yes bool) error {
 
 	var ageCutoff time.Time
 	if olderThan != "" {
-		dur, err := parseDuration(olderThan)
-		if err != nil {
-			return fmt.Errorf("invalid --older-than value %q: %w", olderThan, err)
-		}
+		// Already validated above — parseDuration cannot fail here.
+		dur, _ := parseDuration(olderThan)
 		ageCutoff = time.Now().Add(-dur)
 	}
 
@@ -266,6 +285,10 @@ func applyPrune(wipnoteDir string, targets []pruneCandidate) (int, []error) {
 
 // runSessionArchive implements `wipnote session archive <id>`.
 func runSessionArchive(sessionID string, dryRun bool) error {
+	if err := retention.ValidateSessionID(sessionID); err != nil {
+		return err
+	}
+
 	wipnoteDir, err := findWipnoteDir()
 	if err != nil {
 		return err
@@ -311,36 +334,25 @@ func runSessionArchive(sessionID string, dryRun bool) error {
 	return nil
 }
 
+// activeSessionFile is the minimal JSON shape read from .wipnote/.active-session.
+// Mirrors the identical type in internal/agent/detect.go — kept local to avoid
+// an import cycle between cmd/wipnote and internal/agent.
+type activeSessionFile struct {
+	SessionID string `json:"session_id"`
+}
+
 // activeSessionIDFromFile reads the active session ID from the .wipnote/.active-session
-// file. Returns empty string when the file is absent or unreadable — the caller
-// then treats no session as active, which is the safe default.
+// file using proper JSON decoding so that pretty-printed or space-formatted JSON
+// is handled correctly. Returns empty string when the file is absent, unreadable,
+// or unparseable — the caller then treats no session as active (safe default).
 func activeSessionIDFromFile(wipnoteDir string) string {
 	data, err := os.ReadFile(filepath.Join(wipnoteDir, ".active-session"))
 	if err != nil {
 		return ""
 	}
-	// The file is JSON {"session_id":"...",...}; extract just the session_id.
-	// Use a lightweight parse to avoid importing encoding/json here.
-	s := string(data)
-	const key = `"session_id":"`
-	idx := strIndexOf(s, key)
-	if idx < 0 {
+	var f activeSessionFile
+	if err := json.Unmarshal(data, &f); err != nil {
 		return ""
 	}
-	start := idx + len(key)
-	end := strIndexOf(s[start:], `"`)
-	if end < 0 {
-		return ""
-	}
-	return s[start : start+end]
-}
-
-// strIndexOf returns the byte index of substr in s, or -1.
-func strIndexOf(s, substr string) int {
-	for i := 0; i <= len(s)-len(substr); i++ {
-		if s[i:i+len(substr)] == substr {
-			return i
-		}
-	}
-	return -1
+	return f.SessionID
 }

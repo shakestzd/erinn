@@ -222,3 +222,71 @@ func TestExtractArchive_RoundTrip(t *testing.T) {
 		t.Errorf("restored content mismatch:\n got:  %q\n want: %q", got, content)
 	}
 }
+
+// --- Fix 2: path traversal via session ID ---
+
+// TestValidateSessionID_RejectsTraversal verifies that path-traversal IDs are
+// rejected and no filesystem operation is attempted outside the sessions dir.
+func TestValidateSessionID_RejectsTraversal(t *testing.T) {
+	cases := []struct {
+		id   string
+		desc string
+	}{
+		{"../escape", "parent traversal"},
+		{"/abs/path", "absolute path"},
+		{"..", "dotdot alone"},
+		{"subdir/id", "slash in id"},
+		{"sub\\id", "backslash in id"},
+		{".", "dot alone"},
+	}
+	for _, tc := range cases {
+		err := retention.ValidateSessionID(tc.id)
+		if err == nil {
+			t.Errorf("ValidateSessionID(%q) [%s]: expected error, got nil", tc.id, tc.desc)
+		}
+	}
+}
+
+// TestValidateSessionID_AcceptsValidIDs verifies that normal session IDs pass.
+func TestValidateSessionID_AcceptsValidIDs(t *testing.T) {
+	valid := []string{
+		"sess-abc123",
+		"d846b50d-9ce4-45c1-8ad2-0f84da537efd",
+		"session_20260524",
+	}
+	for _, id := range valid {
+		if err := retention.ValidateSessionID(id); err != nil {
+			t.Errorf("ValidateSessionID(%q): unexpected error: %v", id, err)
+		}
+	}
+}
+
+// TestArchiveSession_RejectsTraversal verifies that ArchiveSession returns an
+// error for path-traversal IDs and does not touch the filesystem outside the
+// sessions directory.
+func TestArchiveSession_RejectsTraversal(t *testing.T) {
+	dir := t.TempDir()
+	wipnoteDir := filepath.Join(dir, ".wipnote")
+	if err := os.MkdirAll(filepath.Join(wipnoteDir, "sessions"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	// Create a real directory at the escape target to detect if it gets removed.
+	escapeTarget := filepath.Join(dir, "escape")
+	if err := os.MkdirAll(escapeTarget, 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	traversalIDs := []string{"../escape", "/abs/path", ".."}
+	for _, id := range traversalIDs {
+		err := retention.ArchiveSession(wipnoteDir, id, false)
+		if err == nil {
+			t.Errorf("ArchiveSession(%q): expected error for traversal ID, got nil", id)
+		}
+	}
+
+	// The escape target directory must still exist — nothing was removed.
+	if _, err := os.Stat(escapeTarget); os.IsNotExist(err) {
+		t.Error("ArchiveSession traversal: escape target directory was unexpectedly removed")
+	}
+}

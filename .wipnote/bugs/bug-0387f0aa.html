@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>OpenReadOnly query_only not applied per pooled connection</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="bug-0387f0aa"
+             data-type="bug"
+             data-status="todo"
+             data-priority="medium"
+             data-created="2026-05-24T19:43:45.840635"
+             data-updated="2026-05-24T19:43:45.849302" data-agent-assigned="claude-code" data-track-id="trk-0677c709" data-created-by-agent="claude-code" data-created-by-model="claude-opus-4-7[1m]" data-created-by-cli-version="0.60.18">
+
+        <header>
+            <h1>OpenReadOnly query_only not applied per pooled connection</h1>
+            <div class="metadata">
+                <span class="badge status-todo">Todo</span>
+                <span class="badge priority-medium">Medium Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="trk-0677c709.html" data-relationship="part_of" data-since="2026-05-24T19:43:45.849062">trk-0677c709</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>roborev job 3538 High finding on bug-e71a1567. mode=rw plus query_only pragma is connection-scoped but applied once on the sql.DB; pooled connections can still write. Apply query_only on every physical connection via DSN pragma or connect hook; test forcing multiple pooled connections before a write.</p>
+        </section>
+    </article>
+</body>
+</html>

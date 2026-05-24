@@ -10,15 +10,15 @@
 <body>
     <article id="bug-add6e57f"
              data-type="bug"
-             data-status="in-progress"
+             data-status="done"
              data-priority="medium"
              data-created="2026-05-24T19:43:46.094768"
-             data-updated="2026-05-24T20:07:17.379806" data-agent-assigned="claude-code" data-track-id="trk-0677c709" data-created-by-agent="claude-code" data-created-by-model="claude-opus-4-7[1m]" data-created-by-cli-version="0.60.18">
+             data-updated="2026-05-24T20:16:08.578343" data-agent-assigned="claude-code" data-track-id="trk-0677c709" data-created-by-agent="claude-code" data-created-by-model="claude-opus-4-7[1m]" data-created-by-cli-version="0.60.18">
 
         <header>
             <h1>Trigger repair migration does not fix already-migrated DBs</h1>
             <div class="metadata">
-                <span class="badge status-in-progress">In Progress</span>
+                <span class="badge status-done">Done</span>
                 <span class="badge priority-medium">Medium Priority</span>
             </div>
         </header>
@@ -46,7 +46,8 @@
 
         <section data-content>
             <h3>Description</h3>
-            <p>roborev job 3542 High finding on bug-045124a6. Trigger recreation lives inside the existing version-4 step so DBs already at user_version 4 or higher that lost the trigger stay broken. Add a new migration step, bump currentSchemaVersion, recreate trg there; test a current-version DB missing the trigger.</p>
+            <p>roborev job 3542 High finding on bug-045124a6. Trigger recreation lives inside the existing version-4 step so DBs already at user_version 4 or higher that lost the trigger stay broken. Add a new migration step, bump currentSchemaVersion, recreate trg there; test a current-version DB missing the trigger.
+[2026-05-24 20:16 claude-code] accepted-advisory (provenance override): Implementation committed at 658e50e86 — fix(db): add migration step to repair total_events trigger on migrated DBs. Commit predates provenance link due to tooling gap.</p>
         </section>
     </article>
 </body>

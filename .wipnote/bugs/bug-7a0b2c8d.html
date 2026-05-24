@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>Repair migration does not backfill historical total_events</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="bug-7a0b2c8d"
+             data-type="bug"
+             data-status="todo"
+             data-priority="medium"
+             data-created="2026-05-24T20:24:03.346023"
+             data-updated="2026-05-24T20:24:03.367869" data-agent-assigned="claude-code" data-track-id="trk-0677c709" data-created-by-agent="claude-code" data-created-by-model="claude-opus-4-7[1m]" data-created-by-cli-version="0.60.18">
+
+        <header>
+            <h1>Repair migration does not backfill historical total_events</h1>
+            <div class="metadata">
+                <span class="badge status-todo">Todo</span>
+                <span class="badge priority-medium">Medium Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="trk-0677c709.html" data-relationship="part_of" data-since="2026-05-24T20:24:03.361001">trk-0677c709</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>roborev job 3554 Medium on bug-add6e57f fix. Step 10 recreates trg_increment_total_events but does not repair stale sessions.total_events for DBs that recorded agent_events while the trigger was missing; historical undercounts persist. After recreating the trigger, recompute/backfill sessions.total_events from agent_events; add a test that inserts events while the trigger is absent before running step 10.</p>
+        </section>
+    </article>
+</body>
+</html>

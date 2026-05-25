@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>Define YOLO worktree/branch isolation model (working-dir contract)</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="spk-f394951f"
+             data-type="spike"
+             data-status="todo"
+             data-priority="medium"
+             data-created="2026-05-25T00:46:57.126774"
+             data-updated="2026-05-25T00:46:57.137923" data-agent-assigned="claude-code" data-track-id="trk-0677c709" data-created-by-agent="claude-code" data-created-by-model="claude-opus-4-7[1m]" data-created-by-cli-version="0.60.18-62-g873289518">
+
+        <header>
+            <h1>Define YOLO worktree/branch isolation model (working-dir contract)</h1>
+            <div class="metadata">
+                <span class="badge status-todo">Todo</span>
+                <span class="badge priority-medium">Medium Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="trk-0677c709.html" data-relationship="part_of" data-since="2026-05-25T00:46:57.137658">trk-0677c709</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>Spike to define the intended isolation model for wipnote yolo before implementing enforcement. Source: bug-b9d0e3e0 (orchestrator confuses worktree vs main checkout).
+
+ROOT DIVERGENCE: yolo.go launches the orchestrator with c.Dir set to the track worktree (.claude/worktrees/-) while injecting WIPNOTE_PROJECT_DIR=canonicalMain. But the execute/orchestrator skills assume the orchestrator lives in the MAIN checkout and instruct it to 'git checkout main' + 'git merge' -- impossible from a linked worktree. Three surfaces disagree on the authoritative checkout: (1) orchestrator targets the worktree (its CWD); (2) quality gates assume main post-checkout (the checkout fails in a worktree); (3) feature complete + commitWipnoteArtifact resolve WIPNOTE_PROJECT_DIR to canonical main and run git -C main.
+
+CONFIRMED DEFECTS: (a) the literal 'Path confusion' string is NOT in the codebase -- it was the orchestrator AI's own narrative when worktree CWD != assumed main; fix is a prompt/contract change. (b) feature complete's dirty-tree gate (checkUncommittedSourceCompleteGate in workitem_commit.go) runs git status against canonical main, so pre-yolo dirty files on main (or work committed only to the worktree branch) spuriously trips 'Commit the implementation first'.
+
+PROPOSED MODEL: per-track branch + dedicated worktree with an explicit working-dir contract -- a single source of truth (e.g. .wipnote/.session-context.json: worktree_path, canonical_root, track_id, branch) read by all surfaces; a worktree-context block injected into the yolo system prompt (buildYoloSystemPrompt) telling the orchestrator: your CWD is a linked worktree, never git checkout, use git -C $WIPNOTE_PROJECT_DIR for main ops, gates run here, merge via git -C
+merge ; and a worktree-aware dirty-tree gate scoping to the work item's branch diff rather than the whole main tree.
+
+EST SCOPE: ~2 Go files (yolo.go, workitem_commit.go ~60 lines) + 2 skill markdown files (execute, orchestrator-directives ~40 lines). No schema/DB changes. Citations live in the session investigation report.</p>
+        </section>
+    </article>
+</body>
+</html>

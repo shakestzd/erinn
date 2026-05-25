@@ -630,12 +630,11 @@ func TestPlanRenderHandler_FullFidelityEmbed(t *testing.T) {
 	}
 	out := w.Body.String()
 
-	// 1. CSS must be SCOPED, not stripped. The prior lossy handler deleted
-	//    :root, [data-theme, body, html and .plan-sidebar rules entirely.
-	//    They must now be present, re-anchored under the embed scope.
+	// 1. CSS must be SCOPED, not stripped. Phase A.2 keeps the full scoped CSS
+	//    (including .plan-sidebar rules) but no longer emits the sidebar element.
 	scopedMarkers := []string{
 		planEmbedScope + "{",              // :root mapped onto the container
-		planEmbedScope + " .plan-sidebar", // sidebar CSS scoped, not stripped
+		planEmbedScope + " .plan-sidebar", // sidebar CSS rules scoped (element not emitted)
 		planEmbedScope + " .slice-card",   // slice-card component CSS present
 	}
 	for _, m := range scopedMarkers {
@@ -643,28 +642,34 @@ func TestPlanRenderHandler_FullFidelityEmbed(t *testing.T) {
 			t.Errorf("expected scoped CSS marker %q in render output (full-fidelity); missing", m)
 		}
 	}
-	// The plan's --accent custom property must survive (it was stripped before
-	// because the whole :root block was deleted). It now lives under the scope.
+	// The plan's --accent custom property must survive.
 	if !strings.Contains(out, "--accent:") {
-		t.Error("expected --accent custom property in scoped CSS (was stripped before)")
+		t.Error("expected --accent custom property in scoped CSS")
 	}
 	// The raw unscoped :root / body resets must NOT leak into the dashboard.
 	if strings.Contains(out, ">:root") || strings.Contains(out, "\n:root") || strings.Contains(out, "<style>:root") {
 		t.Errorf("unscoped :root leaked into embed output")
 	}
 
-	// 2. The FULL left-nav (with triage badges) must be present, not dropped.
-	if !strings.Contains(out, `class="plan-sidebar"`) {
-		t.Error("expected left-nav .plan-sidebar in embed (was dropped before)")
+	// 2. Phase A.2: embed is CONTENT ONLY — .plan-sidebar element must NOT be emitted.
+	//    The dashboard builds its own per-slice nav from the injected slice-card data.
+	if strings.Contains(out, `class="plan-sidebar"`) {
+		t.Error("embed must not include .plan-sidebar element (content-only embed, Phase A.2)")
 	}
-	if !strings.Contains(out, "nav-triage-issue") {
-		t.Error("expected issue triage badge in left-nav (slice 1 has a critic revision)")
+	// Triage badge data must remain accessible via the slice cards (not the nav).
+	if !strings.Contains(out, "badge-issues") {
+		t.Error("expected .badge-issues in slice card (dashboard reads this for triage nav)")
 	}
-	if !strings.Contains(out, "nav-triage-question") {
-		t.Error("expected question-count triage badge in left-nav (slice 2 has a question)")
+	if !strings.Contains(out, "badge-questions") {
+		t.Error("expected .badge-questions in slice card (dashboard reads this for triage nav)")
 	}
 
-	// 3. The slice cards and dependency graph must render.
+	// 3. #graph-data [data-node] bridge divs must be present (dep-graph + dashboard nav source).
+	if !strings.Contains(out, `id="graph-data"`) {
+		t.Error("expected #graph-data bridge divs in embed (dep-graph and slice triage data)")
+	}
+
+	// 4. The slice cards and dependency graph must render.
 	if !strings.Contains(out, "slice-card") {
 		t.Error("expected slice cards in embed")
 	}
@@ -672,7 +677,7 @@ func TestPlanRenderHandler_FullFidelityEmbed(t *testing.T) {
 		t.Error("expected dependency graph in embed")
 	}
 
-	// 4. Interactivity scripts (D3/dagre/plan JS) must still be emitted.
+	// 5. Interactivity scripts (D3/dagre/plan JS) must still be emitted.
 	if !strings.Contains(out, "<script") {
 		t.Error("expected scripts (dep-graph/plan JS) preserved in embed")
 	}

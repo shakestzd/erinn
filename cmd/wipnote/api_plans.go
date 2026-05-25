@@ -832,14 +832,17 @@ func planRenderHandler(database *sql.DB, wipnoteDir string) http.HandlerFunc {
 			out.WriteString("\n")
 		})
 
-		// Emit the FULL body content (left-nav + .plan-layout), not just
-		// .plan-layout. Scoping the CSS under the injection container means the
-		// nav (with its triage badges) and the slice cards both render exactly
-		// as on the standalone page. The injection target (#plan-detail-body)
-		// already carries the planEmbedScope class, so the scoped rules apply.
+		// Emit CONTENT ONLY (no .plan-sidebar chrome). The dashboard owns all
+		// chrome: brand header, primary nav, plan sub-nav with per-slice triage
+		// badges. Emitting the plan's own .plan-sidebar here would produce a
+		// second redundant nav column inside the panel. The scoped CSS still
+		// includes .plan-sidebar rules (they are not stripped) but the sidebar
+		// element itself is intentionally omitted.
+		//
+		// The #graph-data [data-node] bridge divs live inside .dep-graph inside
+		// .plan-layout and are therefore included — the dashboard JS reads them
+		// after injection to build its per-slice slice-nav with triage badges.
 		body := doc.Find("body")
-		nav, _ := goquery.OuterHtml(body.Find(".plan-sidebar").First())
-		out.WriteString(nav)
 		layout, _ := goquery.OuterHtml(body.Find(".plan-layout").First())
 		if layout == "" {
 			// Fallback: emit entire body content if the layout wrapper is absent.

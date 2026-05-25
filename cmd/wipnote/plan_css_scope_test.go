@@ -37,23 +37,99 @@ func TestScopePlanCSS_DataThemeScoped(t *testing.T) {
 // TestScopePlanCSS_HtmlBodyMapped verifies html/body document-level selectors
 // map onto the container (so they cannot reset the dashboard shell), while
 // body-state compounds re-anchor their leading body to the container.
+// Page-shell layout properties (display:grid, grid-template-columns, min-height,
+// margin, padding, etc.) must be stripped from html/body rules; typography/color
+// properties (font-family, color, background, line-height, etc.) must be kept.
 func TestScopePlanCSS_HtmlBodyMapped(t *testing.T) {
-	in := "html{font-size:15px}" +
-		"body{background:var(--bg);display:grid}" +
+	in := "html{font-size:15px;-webkit-font-smoothing:antialiased}" +
+		"body{font-family:var(--sans);background:var(--bg);color:var(--text);line-height:1.6;margin:0;padding:0;display:grid;grid-template-columns:200px 1fr;min-height:100vh}" +
 		"body.left-nav-collapsed .plan-sidebar{width:48px}"
 	got := scopePlanCSS(in, ".plan-detail-body")
-	if !strings.Contains(got, ".plan-detail-body{font-size:15px}") {
+
+	// html rule: typography kept, no layout props to strip.
+	if !strings.Contains(got, ".plan-detail-body{font-size:15px") {
 		t.Errorf("html not mapped to scope.\ngot: %s", got)
 	}
-	if !strings.Contains(got, ".plan-detail-body{background:var(--bg);display:grid}") {
-		t.Errorf("body not mapped to scope.\ngot: %s", got)
+
+	// body rule: typography/color/background kept, layout stripped.
+	if !strings.Contains(got, "font-family:var(--sans)") {
+		t.Errorf("font-family stripped from body rule (should be kept).\ngot: %s", got)
 	}
+	if !strings.Contains(got, "background:var(--bg)") {
+		t.Errorf("background stripped from body rule (should be kept).\ngot: %s", got)
+	}
+	if !strings.Contains(got, "color:var(--text)") {
+		t.Errorf("color stripped from body rule (should be kept).\ngot: %s", got)
+	}
+	if !strings.Contains(got, "line-height:1.6") {
+		t.Errorf("line-height stripped from body rule (should be kept).\ngot: %s", got)
+	}
+	// Page-shell layout must be removed.
+	if strings.Contains(got, "display:grid") {
+		t.Errorf("display:grid leaked into scoped body rule (must be stripped).\ngot: %s", got)
+	}
+	if strings.Contains(got, "grid-template-columns") {
+		t.Errorf("grid-template-columns leaked into scoped body rule (must be stripped).\ngot: %s", got)
+	}
+	if strings.Contains(got, "min-height:100vh") {
+		t.Errorf("min-height:100vh leaked into scoped body rule (must be stripped).\ngot: %s", got)
+	}
+	// margin:0 and padding:0 are layout — must be stripped.
+	if strings.Contains(got, "margin:0") {
+		t.Errorf("margin:0 leaked into scoped body rule (must be stripped).\ngot: %s", got)
+	}
+	if strings.Contains(got, "padding:0") {
+		t.Errorf("padding:0 leaked into scoped body rule (must be stripped).\ngot: %s", got)
+	}
+
+	// body-state compound is re-anchored; its non-body-origin declarations are not stripped.
 	if !strings.Contains(got, ".plan-detail-body.left-nav-collapsed .plan-sidebar{width:48px}") {
 		t.Errorf("body-state compound not re-anchored.\ngot: %s", got)
 	}
 	// Document-level html{ / body{ must not leak unscoped.
 	if strings.Contains(got, "}html{") || strings.HasPrefix(got, "html{") {
 		t.Errorf("unscoped html leaked: %s", got)
+	}
+}
+
+// TestScopePlanCSS_BodyCompoundLayoutStripped verifies that body.foo compound
+// selectors (which re-anchor to scope.foo) also have page-shell layout props
+// stripped from their declaration blocks.
+func TestScopePlanCSS_BodyCompoundLayoutStripped(t *testing.T) {
+	// body.left-nav-collapsed{grid-template-columns:48px 1fr} — the collapsed
+	// sidebar layout — must be stripped; non-layout props must survive.
+	in := "body.left-nav-collapsed{grid-template-columns:48px 1fr;color:red}"
+	got := scopePlanCSS(in, ".plan-detail-body")
+	if !strings.Contains(got, ".plan-detail-body.left-nav-collapsed{") {
+		t.Errorf("body compound not re-anchored.\ngot: %s", got)
+	}
+	if strings.Contains(got, "grid-template-columns") {
+		t.Errorf("grid-template-columns leaked from body.left-nav-collapsed (must be stripped).\ngot: %s", got)
+	}
+	if !strings.Contains(got, "color:red") {
+		t.Errorf("non-layout prop stripped from body compound (must be kept).\ngot: %s", got)
+	}
+}
+
+// TestScopePlanCSS_MediaBodyLayoutStripped verifies that body rules inside
+// @media blocks also have page-shell layout stripped when mapped to the scope.
+func TestScopePlanCSS_MediaBodyLayoutStripped(t *testing.T) {
+	in := "@media(max-width:768px){body{grid-template-columns:1fr;color:var(--text)}.plan-sidebar{display:none}}"
+	got := scopePlanCSS(in, ".plan-detail-body")
+	if !strings.Contains(got, "@media(max-width:768px){") {
+		t.Errorf("media query not preserved.\ngot: %s", got)
+	}
+	// grid-template-columns must be stripped from the body rule.
+	if strings.Contains(got, "grid-template-columns:1fr") {
+		t.Errorf("grid-template-columns leaked from @media body rule (must be stripped).\ngot: %s", got)
+	}
+	// color must be kept.
+	if !strings.Contains(got, "color:var(--text)") {
+		t.Errorf("color stripped from @media body rule (must be kept).\ngot: %s", got)
+	}
+	// .plan-sidebar inside @media is NOT a body/html rule — display:none must survive.
+	if !strings.Contains(got, ".plan-detail-body .plan-sidebar{display:none}") {
+		t.Errorf(".plan-sidebar display:none was incorrectly stripped.\ngot: %s", got)
 	}
 }
 
@@ -87,16 +163,24 @@ func TestScopePlanCSS_NormalSelectorPrefixed(t *testing.T) {
 }
 
 // TestScopePlanCSS_MediaQueryInnerScoped verifies @media blocks keep their
-// query verbatim while inner selectors get scoped.
+// query verbatim while inner selectors get scoped. body rules inside @media
+// have page-shell layout stripped (grid-template-columns etc.) before being
+// mapped to the scope container; component rules are scoped without stripping.
 func TestScopePlanCSS_MediaQueryInnerScoped(t *testing.T) {
-	in := "@media(max-width:768px){body{grid-template-columns:1fr}.plan-sidebar{display:none}}"
+	in := "@media(max-width:768px){body{grid-template-columns:1fr;color:inherit}.plan-sidebar{display:none}}"
 	got := scopePlanCSS(in, ".plan-detail-body")
 	if !strings.Contains(got, "@media(max-width:768px){") {
 		t.Errorf("media query not preserved.\ngot: %s", got)
 	}
-	if !strings.Contains(got, ".plan-detail-body{grid-template-columns:1fr}") {
-		t.Errorf("media inner body not mapped.\ngot: %s", got)
+	// grid-template-columns is a page-shell layout prop — must be stripped from body.
+	if strings.Contains(got, "grid-template-columns:1fr") {
+		t.Errorf("media inner body: grid-template-columns should be stripped.\ngot: %s", got)
 	}
+	// Non-layout prop (color) must survive.
+	if !strings.Contains(got, "color:inherit") {
+		t.Errorf("media inner body: color:inherit was incorrectly stripped.\ngot: %s", got)
+	}
+	// .plan-sidebar is a component — display:none must be kept (not a body/html rule).
 	if !strings.Contains(got, ".plan-detail-body .plan-sidebar{display:none}") {
 		t.Errorf("media inner selector not scoped.\ngot: %s", got)
 	}

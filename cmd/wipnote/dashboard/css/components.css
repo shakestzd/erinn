@@ -2681,3 +2681,21 @@
   color: var(--text-muted);
   font-style: italic;
 }
+
+/* ── Plan embed: neutralize standalone-page viewport geometry ────────────── */
+/* The plan stylesheet uses height:100vh / position:sticky designed for a full-
+   viewport standalone page. Inside the dashboard panel these overflow the panel
+   or create stacking conflicts. The #plan-detail-body id gives us higher
+   specificity than the scoped .plan-detail-body .plan-layout rules injected by
+   planRenderHandler. */
+#plan-detail-body .plan-layout {
+  height: auto;
+  min-height: 0;
+  overflow: visible;
+}
+#plan-detail-body .chat-sidebar {
+  height: auto;
+  position: relative;
+  top: auto;
+  overflow-y: auto;
+}

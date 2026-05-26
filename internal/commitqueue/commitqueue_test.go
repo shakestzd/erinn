@@ -332,11 +332,18 @@ func TestConcurrentAppendDuringFlushIsNotLost(t *testing.T) {
 	appendDone := make(chan error, 1)
 	go func() { appendDone <- o.Append(sampleIntent("b")) }()
 
-	// Deterministic (no sleep): wait until the append goroutine has reached the
-	// lock boundary. Past this point it physically cannot complete until the
-	// flush releases the lock, so observing appendDone fire now would mean the
-	// operations were NOT serialized (the old lost-update behavior).
-	<-atLockBoundary
+	// Deterministic (no sleep): wait until the append goroutine reaches the lock
+	// boundary. If instead it COMPLETES without ever signaling the boundary —
+	// i.e. a regression where Append bypasses withLock, the old lost-update
+	// behavior — fail fast here rather than hanging until the global test timeout
+	// (roborev #3669). In correct code atLockBoundary is always signaled before
+	// Append could complete (it cannot pass the held lock), so there is no race.
+	select {
+	case <-atLockBoundary:
+		// expected: append has reached the lock and will block on it
+	case err := <-appendDone:
+		t.Fatalf("Append completed without acquiring the outbox lock (not serialized): err=%v", err)
+	}
 	select {
 	case err := <-appendDone:
 		t.Fatalf("Append completed while the flush held the outbox lock (not serialized): err=%v", err)

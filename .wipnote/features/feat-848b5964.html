@@ -10,15 +10,15 @@
 <body>
     <article id="feat-848b5964"
              data-type="feature"
-             data-status="in-progress"
+             data-status="done"
              data-priority="medium"
              data-created="2026-05-26T23:15:30.658376"
-             data-updated="2026-05-26T23:26:51.749719" data-agent-assigned="claude-code" data-track-id="trk-fb4a1d6e">
+             data-updated="2026-05-26T23:51:06.618458" data-agent-assigned="claude-code" data-track-id="trk-fb4a1d6e">
 
         <header>
             <h1>Apply guard profiles across all gate sites &#43; record signature (feat-3304de17)</h1>
             <div class="metadata">
-                <span class="badge status-in-progress">In Progress</span>
+                <span class="badge status-done">Done</span>
                 <span class="badge priority-medium">Medium Priority</span>
             </div>
         </header>
@@ -65,7 +65,8 @@ keep today's autodetection and emit a one-line hint pointing at guard setup
 (`wipnote guard init`, also offered at launch — slice-3). Persist the profile
 signature + guards_run on the gate record via NEW columns (see decisions)
 and report a completion as stale when its recorded profile_signature !=
-the current approved signature.</p>
+the current approved signature.
+[2026-05-26 23:51 claude-code] accepted-advisory (provenance override): Implementation committed in 7f261a849 (single-parenthetical (feat-848b5964)): ResolveGuards + two gate-site wirings + gate_records profile_signature/guards_run migration + drift reporting. ingest attributed it in git_commits but the completion-gate trace edge did not surface it (shared-checkout linkage quirk). Full gates green (build/vet/test ./...; boundary inventory updated).</p>
         </section>
     </article>
 </body>

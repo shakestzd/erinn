@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>Durable Git mutation serialization for multi-agent work</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="trk-b1d06a84"
+             data-type="track"
+             data-status="todo"
+             data-priority="high"
+             data-created="2026-05-26T05:05:32.852292"
+             data-updated="2026-05-26T05:06:07.376466" data-agent-assigned="claude-code" data-created-by-agent="claude-code" data-created-by-model="gpt-5.5" data-created-by-role="codex" data-created-by-cli-version="0.60.18-72-gf05c89f94">
+
+        <header>
+            <h1>Durable Git mutation serialization for multi-agent work</h1>
+            <div class="metadata">
+                <span class="badge status-todo">Todo</span>
+                <span class="badge priority-high">High Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="contains">
+                <h3>Contains:</h3>
+                <ul>
+                    <li><a href="feat-3f66d83f.html" data-relationship="contains" data-since="2026-05-26T05:05:50.13897">Centralize wipnote Git mutation execution behind a repo-scoped lock</a></li>
+                    <li><a href="feat-c0307d7a.html" data-relationship="contains" data-since="2026-05-26T05:05:50.740185">Route plan YAML/HTML autocommit through the shared Git mutation helper</a></li>
+                    <li><a href="feat-9704121b.html" data-relationship="contains" data-since="2026-05-26T05:05:50.951551">Add safe stale Git lock diagnostics and repair command</a></li>
+                    <li><a href="feat-d9607f58.html" data-relationship="contains" data-since="2026-05-26T05:05:51.139625">Document and enforce multi-agent Git isolation guidance</a></li>
+                    <li><a href="feat-76504033.html" data-relationship="contains" data-since="2026-05-26T05:05:51.331197">Design and implement a serialized wipnote artifact commit queue</a></li>
+                    <li><a href="bug-4a65d000.html" data-relationship="contains" data-since="2026-05-26T05:06:07.375661">Durably prevent stale git index.lock from wipnote autocommit</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>Make wipnote robust when multiple agents, CLIs, IDEs, and harnesses operate in the same repository concurrently. Serialize wipnote-owned Git mutations, improve index.lock retry and diagnostics, add safe stale-lock repair, and design a long-term commit queue so canonical work-item writes are not blocked by transient Git contention.</p>
+        </section>
+    </article>
+</body>
+</html>

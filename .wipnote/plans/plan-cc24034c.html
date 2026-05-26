@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="htmlgraph-version" content="1.0">
+<meta name="wipnote-version" content="1.0">
 <title>Plan: CRISPI spec-definition enforcement — OpenSpec format + cross-harness elicitation</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -326,6 +326,14 @@ textarea::placeholder{color:var(--text-muted)}
 .slice-nav-dot[data-approval="approved"]{background:var(--approved)}
 .slice-nav-dot[data-approval="rejected"]{background:var(--revision)}
 .slice-nav-dot[data-approval="changes_requested"]{background:var(--revision)}
+.nav-triage-badge{font-size:.65rem;font-family:var(--mono);font-weight:700;border-radius:3px;padding:0 3px;line-height:1.4;flex-shrink:0}
+.nav-triage-issue{background:#7c2d12;color:#fde68a}
+.nav-triage-question{background:#1e3a5f;color:#bfdbfe}
+/* graph node highlight ring (added by JS on nav hover/click) */
+.graph-node-ring rect{stroke-width:4px !important;filter:drop-shadow(0 0 4px currentColor)}
+/* dep-chain dim/highlight */
+.dep-graph-dimmed{opacity:.25;transition:opacity .15s}
+.dep-graph-highlighted rect{stroke-width:3px !important}
 
 /* ── Amendments ── */
 .amendments-panel{margin-top:28px;background:var(--bg-card);border-radius:var(--radius);padding:20px;box-shadow:var(--shadow-card)}
@@ -391,7 +399,7 @@ body.right-rail-collapsed .sidebar-reopen{display:flex}
 
 <nav class="plan-sidebar" id="plan-sidebar">
   <div class="brand-row">
-    <a href="/" class="brand">HtmlGraph</a>
+    <a href="/" class="brand">wipnote</a>
     <button class="sidebar-toggle" id="left-sidebar-toggle" title="Collapse sidebar" aria-label="Toggle left sidebar">&#8249;</button>
   </div>
   <a href="#design" class="nav-link active" data-spy="design" data-initial="D">Design</a>
@@ -403,6 +411,8 @@ body.right-rail-collapsed .sidebar-reopen{display:flex}
       <a href="#slice-1" class="slice-nav-item" data-slice-nav="1">
         <span class="slice-nav-dot" data-approval="approved" data-dot-for="1"></span>
         <span>#1 OpenSpec spec template + `htmlgraph spec generate --insert` (non-destructive, locked)</span>
+        <span class="nav-triage-badge nav-triage-issue" title="7 issue(s)">&#9888;7</span>
+        <span class="nav-triage-badge nav-triage-question" title="2 open question(s)">?2</span>
       </a>
     </li>
     
@@ -410,6 +420,8 @@ body.right-rail-collapsed .sidebar-reopen{display:flex}
       <a href="#slice-2" class="slice-nav-item" data-slice-nav="2">
         <span class="slice-nav-dot" data-approval="approved" data-dot-for="2"></span>
         <span>#2 Parser extension: OpenSpec Requirement format + `[F]` failed-status revival</span>
+        <span class="nav-triage-badge nav-triage-issue" title="3 issue(s)">&#9888;3</span>
+        <span class="nav-triage-badge nav-triage-question" title="1 open question(s)">?1</span>
       </a>
     </li>
     
@@ -417,6 +429,8 @@ body.right-rail-collapsed .sidebar-reopen{display:flex}
       <a href="#slice-3" class="slice-nav-item" data-slice-nav="3">
         <span class="slice-nav-dot" data-approval="approved" data-dot-for="3"></span>
         <span>#3 Cross-harness `htmlgraph plan elicit-decisions` + Claude skill + promote/complete gates</span>
+        <span class="nav-triage-badge nav-triage-issue" title="6 issue(s)">&#9888;6</span>
+        <span class="nav-triage-badge nav-triage-question" title="3 open question(s)">?3</span>
       </a>
     </li>
     
@@ -429,7 +443,7 @@ body.right-rail-collapsed .sidebar-reopen{display:flex}
 </nav>
 <div class="plan-layout">
 <div class="plan-content">
-<article id="plan-cc24034c" data-plan-id="plan-cc24034c" data-feature-id="trk-13e39042" data-status="active">
+<article id="plan-cc24034c" data-type="plan" data-plan-id="plan-cc24034c" data-feature-id="trk-13e39042" data-status="active" data-priority="medium">
 
 <!-- Plan Header -->
 <header class="plan-header">
@@ -437,7 +451,7 @@ body.right-rail-collapsed .sidebar-reopen{display:flex}
   <p style="color:var(--text-dim)">Closes the spec-definition gap in CRISPI: today, 0 of 117 done features have a `<section class="spec">` block. Adopts OpenSpec's MIT-licensed Requirement/Scenario template (RFC 2119 + Given/When/Then) as the canonical spec format. Adds a cross-harness elicitation command (works on Claude/Codex/Gemini) plus a Claude-convenience skill, both writing free-text decision notes onto the slice. Gates `promote-slice` and `feature complete` on spec presence (opt-in via config). This rewrite (v2) addresses 10 HIGH findings from the opus + sonnet critiques: deferred 3-dimension scoring (premature without data), dropped typed `Decisions` schema (YAGNI — replaced with free-text `DecisionsNotes`), fixed promote-slice gate temporal bug (gate the slice, not the not-yet-feature), added cross-harness CLI fallback for the skill, fixed concurrent-writer corruption via shared per-feature lock, made `--insert` non-destructive by default. Backfill of the 117 existing spec-less features is explicitly out of scope (see non-goals).
 </p>
   <div class="meta">
-    <span class="badge badge-pending">Draft</span>
+    <span class="badge badge-revision">Active</span>
     <span style="font-size:.75rem;color:var(--text-muted)">v9 · 3 slices · Created 2026-05-04</span>
   </div>
 </header>
@@ -458,9 +472,9 @@ body.right-rail-collapsed .sidebar-reopen{display:flex}
 <section class="dep-graph" data-zone="dependency-graph">
   <h2>Dependency Graph</h2>
   <div id="graph-data" style="display:none">
-    <div data-node="1" data-name="OpenSpec spec template + `htmlgraph spec generate --insert` (non-destructive, locked)" data-status="pending" data-deps="" data-files="5"></div>
-    <div data-node="2" data-name="Parser extension: OpenSpec Requirement format + `[F]` failed-status revival" data-status="pending" data-deps="" data-files="2"></div>
-    <div data-node="3" data-name="Cross-harness `htmlgraph plan elicit-decisions` + Claude skill + promote/complete gates" data-status="pending" data-deps="1,2" data-files="8"></div>
+    <div data-node="1" data-name="OpenSpec spec template + `htmlgraph spec generate --insert` (non-destructive, locked)" data-status="approved" data-deps="" data-files="5"></div>
+    <div data-node="2" data-name="Parser extension: OpenSpec Requirement format + `[F]` failed-status revival" data-status="approved" data-deps="" data-files="2"></div>
+    <div data-node="3" data-name="Cross-harness `htmlgraph plan elicit-decisions` + Claude skill + promote/complete gates" data-status="approved" data-deps="1,2" data-files="8"></div>
     
     <!--PLAN_GRAPH_NODES-->
   </div>
@@ -523,6 +537,7 @@ body.right-rail-collapsed .sidebar-reopen{display:flex}
         <span class="slice-summary-badges">
           <span class="badge badge-revision badge-sm">M</span>
           <span class="badge badge-revision badge-sm">Med</span>
+          
           <span class="badge badge-revision badge-sm" title="Execution: promoted">Promoted</span>
           <span class="badge badge-approved badge-sm slice-approval-badge" data-badge-for="slice-1">Approved</span>
           <span class="badge badge-sm badge-issues" title="7 critic issue(s)">7 issues</span>
@@ -606,6 +621,8 @@ body.right-rail-collapsed .sidebar-reopen{display:flex}
         <ul class="slice-done-list slice-done-list--grid"><li>`htmlgraph spec generate &lt;feat-id&gt; --insert` writes a `&lt;section class=&#34;spec&#34;&gt;` block into the feature HTML containing the OpenSpec-formatted template populated from slice/feature fields, when no spec section exists or the existing section is empty</li><li>When the spec section exists with non-empty content and `--force` is NOT set: command exits non-zero with a clear remediation message and prints a unified diff of intended changes</li><li>`--force` flag enables the destructive replace; idempotent re-runs replace the section content</li><li>Generated spec contains: header attribution comment, optional `## Decisions` section (when slice has DecisionsNotes), `## Problem`, `## ADDED Requirements` with ≥1 `### Requirement:` (each with ≥1 `#### Scenario:`), `## Files`, `## Notes`</li><li>`THIRD-PARTY-NOTICES.md` exists at repo root with the OpenSpec entry</li><li>`internal/workitem/htmlwriter.go` exposes `LockFeatureForWrite(featureID)`; both `spec --insert` and `compliance auto` writers use it</li><li>Concurrent run test: racing `spec --insert` and `compliance auto` against the same feature does NOT lose updates (both sections present after both runs complete)</li><li>`--insert` and `--output` are mutually exclusive (error if both set)</li><li>`extractSpecSection` is unchanged in this slice (out-of-scope per design.constraints non-goal)</li></ul>
       </div>
       
+    
+
     
 
     
@@ -758,6 +775,7 @@ body.right-rail-collapsed .sidebar-reopen{display:flex}
         <span class="slice-summary-badges">
           <span class="badge badge-pending badge-sm">S</span>
           <span class="badge badge-pending badge-sm">Low</span>
+          
           <span class="badge badge-revision badge-sm" title="Execution: promoted">Promoted</span>
           <span class="badge badge-approved badge-sm slice-approval-badge" data-badge-for="slice-2">Approved</span>
           <span class="badge badge-sm badge-issues" title="3 critic issue(s)">3 issues</span>
@@ -831,6 +849,8 @@ body.right-rail-collapsed .sidebar-reopen{display:flex}
         <ul class="slice-done-list slice-done-list--grid"><li>`parseCriteria` recognises `### Requirement: &lt;name&gt;` as a criterion when inside `## ADDED Requirements` or `## MODIFIED Requirements`</li><li>Status for new-format requirements derived from `- [x]/[ ]/[F]` task lines inside `#### Scenario:` blocks (all passed → passed; any failed → failed; any unchecked → unchecked)</li><li>Legacy `[ ]/[x]/[F]` lines parsed only when directly under `## Acceptance Criteria`</li><li>`[F]` lines now correctly parse as `criterionFailed`, populating the previously-dead switch cases in `computeCompliance` / `formatCompliance` / JSON output</li><li>Hybrid pollution test: legacy spec containing meta-text `### Requirement:` in a comment counts only checkboxes (no double-count)</li><li>`htmlgraph compliance &lt;feat-id&gt;` correctly reports criteria for both legacy and new-format specs</li></ul>
       </div>
       
+    
+
     
 
     
@@ -941,6 +961,7 @@ body.right-rail-collapsed .sidebar-reopen{display:flex}
         <span class="slice-summary-badges">
           <span class="badge badge-blocked badge-sm">L</span>
           <span class="badge badge-revision badge-sm">Med</span>
+          
           <span class="badge badge-revision badge-sm" title="Execution: promoted">Promoted</span>
           <span class="badge badge-approved badge-sm slice-approval-badge" data-badge-for="slice-3">Approved</span>
           <span class="badge badge-sm badge-issues" title="6 critic issue(s)">6 issues</span>
@@ -1047,6 +1068,8 @@ e. Handle re-elicitation: if <code>slice.DecisionsNotes</code> already populated
         <ul class="slice-done-list slice-done-list--grid"><li>`PlanSlice.DecisionsNotes string` field exists with `omitempty` YAML tag; existing slice YAMLs without the field validate</li><li>`htmlgraph plan elicit-decisions &lt;plan-id&gt; &lt;num&gt; --scope X --decisions Y --context Z` writes the combined Markdown blob to the slice YAML</li><li>`htmlgraph plan elicit-decisions &lt;plan-id&gt; &lt;num&gt; --from-stdin` reads YAML from stdin (`scope:`, `decisions:`, `context:` keys) and writes the same blob</li><li>Cross-harness verification: command works under `bash`/`zsh` without Claude Code being present (no `AskUserQuestion` dependency)</li><li>Skill file `plugin/skills/spec-from-slice/SKILL.md` exists with `user_invocable: true`; body documents the 3-question interview pattern &#43; handles re-elicitation state</li><li>When `spec_enforcement.promote_slice: true`, `htmlgraph plan promote-slice` refuses if `slice.DecisionsNotes` is empty, with a remediation message that names the elicit-decisions command</li><li>When `spec_enforcement.feature_complete: true`, `htmlgraph feature complete &lt;id&gt;` refuses if the feature HTML&#39;s spec section is absent or has 0 requirements/criteria</li><li>`--allow-spec-skip` flag bypasses both gates and writes an audit comment to the slice (or feature) HTML</li><li>Default config (no `spec_enforcement` key) preserves existing behavior — neither gate fires</li></ul>
       </div>
       
+    
+
     
 
     
@@ -1243,10 +1266,10 @@ e. Handle re-elicitation: if <code>slice.DecisionsNotes</code> already populated
 // rendered HTML works whether the file is served at the legacy
 // /plans/<id>.html path (single-project server) or at /p/<id>/plans/<id>.html
 // (via the parent-doorway reverse proxy). Every fetch() on this page
-// prefixes window.htmlgraphPlanBase, which is '' at the root and
+// prefixes window.wipnotePlanBase, which is '' at the root and
 // '/p/<id>' under the proxy. This is the per-project routing fix for
 // the multi-project hardening re-architecture (plan-237fb251).
-window.htmlgraphPlanBase = (function() {
+window.wipnotePlanBase = (function() {
   var p = window.location.pathname || '';
   if (p.indexOf('/p/') !== 0) return '';
   var segs = p.split('/').filter(function(s) { return s !== ''; });
@@ -1357,7 +1380,7 @@ var planId=(function(){var a=document.querySelector('article[id]');return a?a.id
     }
     updateProgress();
     if(planId){
-      fetch((window.htmlgraphPlanBase||'')+'/api/plans/'+planId+'/feedback',{
+      fetch((window.wipnotePlanBase||'')+'/api/plans/'+planId+'/feedback',{
         method:'POST',
         headers:{'Content-Type':'application/json'},
         body:JSON.stringify({section:sec,action:'approve',value:(val==='approved'?'true':'false'),question_id:''})
@@ -1388,7 +1411,7 @@ var planId=(function(){var a=document.querySelector('article[id]');return a?a.id
       var details=document.querySelector('[data-phase="questions"]');
       if(details) details.dataset.status=allAnswered?'approved':'pending';
       if(planId){
-        fetch((window.htmlgraphPlanBase||'')+'/api/plans/'+planId+'/feedback',{
+        fetch((window.wipnotePlanBase||'')+'/api/plans/'+planId+'/feedback',{
           method:'POST',
           headers:{'Content-Type':'application/json'},
           body:JSON.stringify({section:'questions',action:'answer',value:this.value,question_id:this.dataset.question})
@@ -1410,7 +1433,7 @@ var planId=(function(){var a=document.querySelector('article[id]');return a?a.id
     r.addEventListener('change',function(){
       var sec=this.dataset.section;
       if(planId){
-        fetch((window.htmlgraphPlanBase||'')+'/api/plans/'+planId+'/feedback',{
+        fetch((window.wipnotePlanBase||'')+'/api/plans/'+planId+'/feedback',{
           method:'POST',
           headers:{'Content-Type':'application/json'},
           body:JSON.stringify({section:sec,action:'answer',value:this.value,question_id:sec})
@@ -1503,7 +1526,7 @@ var planId=(function(){var a=document.querySelector('article[id]');return a?a.id
     ta.addEventListener('input',function(){clearTimeout(timer);timer=setTimeout(updateComments,400)});
     ta.addEventListener('blur',function(){
       if(planId&&this.value.trim()){
-        fetch((window.htmlgraphPlanBase||'')+'/api/plans/'+planId+'/feedback',{
+        fetch((window.wipnotePlanBase||'')+'/api/plans/'+planId+'/feedback',{
           method:'POST',
           headers:{'Content-Type':'application/json'},
           body:JSON.stringify({section:this.dataset.section,action:'comment',value:this.value.trim(),question_id:''})
@@ -1523,7 +1546,7 @@ var planId=(function(){var a=document.querySelector('article[id]');return a?a.id
       btn.disabled=true;
       btn.textContent='Finalizing...';
       finalizeMsg.style.display='none';
-      fetch((window.htmlgraphPlanBase||'')+'/api/plans/'+planId+'/finalize',{
+      fetch((window.wipnotePlanBase||'')+'/api/plans/'+planId+'/finalize',{
         method:'POST',
         headers:{'Content-Type':'application/json'}
       })
@@ -1559,7 +1582,7 @@ var planId=(function(){var a=document.querySelector('article[id]');return a?a.id
       .catch(function(){
         btn.textContent='Finalize Plan';
         btn.disabled=false;
-        finalizeMsg.textContent='Could not reach server. Is htmlgraph serve running?';
+        finalizeMsg.textContent='Could not reach server. Is wipnote serve running?';
         finalizeMsg.style.color='var(--revision)';
         finalizeMsg.style.display='block';
       });
@@ -1577,7 +1600,7 @@ var planId=(function(){var a=document.querySelector('article[id]');return a?a.id
 
   function loadExistingFeedback(){
     if(!planId){return;}
-    fetch((window.htmlgraphPlanBase||'')+'/api/plans/'+planId+'/feedback')
+    fetch((window.wipnotePlanBase||'')+'/api/plans/'+planId+'/feedback')
       .then(function(r){return r.ok?r.json():null;})
       .then(function(data){
         if(!data){return;}
@@ -1630,7 +1653,9 @@ var planId=(function(){var a=document.querySelector('article[id]');return a?a.id
         var nodeRect=d3.select('#dep-graph-svg .node[id="'+n+'"] rect');
         if(!nodeRect.empty()){
           var val=getApprovalValue(sec);
-          var color=val==='approved'?'#16a34a':val==='rejected'?'#f59e0b':'#6b7280';
+          var SC={pending:'#6b7280',approved:'#16a34a',revision:'#f59e0b',discuss:'#8b5cf6',blocked:'#dc2626'};
+          var graphStatus=val==='approved'?'approved':val==='rejected'||val==='changes_requested'?'revision':val==='discuss'?'discuss':val==='blocked'?'blocked':'pending';
+          var color=SC[graphStatus]||SC.pending;
           var cs=getComputedStyle(document.querySelector('.dep-graph')||document.documentElement);
           nodeRect.style('stroke',color).style('fill',cs.getPropertyValue('--bg-input').trim()||'#222228');
         }
@@ -1645,30 +1670,94 @@ var planId=(function(){var a=document.querySelector('article[id]');return a?a.id
 
   var STATUS_COLORS={pending:'#6b7280',approved:'#16a34a',revision:'#f59e0b',discuss:'#8b5cf6',blocked:'#dc2626'};
 
+  // nodeDataMap: id -> {status, issues, questions, deps:[]}  — populated during render
+  var nodeDataMap={};
+  // graphRef: the dagreD3 graph object — stored for dep-chain queries
+  var graphRef=null;
+
+  // Build ancestor set for a node (all transitive prerequisites)
+  function ancestors(g,id){
+    var visited={};
+    var queue=[id];
+    while(queue.length){
+      var cur=queue.shift();
+      (g.predecessors(cur)||[]).forEach(function(p){
+        if(!visited[p]){visited[p]=true;queue.push(p);}
+      });
+    }
+    return visited;
+  }
+
+  // Build descendant set for a node (all transitive dependents)
+  function descendants(g,id){
+    var visited={};
+    var queue=[id];
+    while(queue.length){
+      var cur=queue.shift();
+      (g.successors(cur)||[]).forEach(function(s){
+        if(!visited[s]){visited[s]=true;queue.push(s);}
+      });
+    }
+    return visited;
+  }
+
+  // Apply dep-chain highlight: dim unrelated nodes/edges, highlight related ones.
+  // Pass null to clear.
+  function applyDepHighlight(inner,g,focusId){
+    var allNodes=inner.selectAll('g.node');
+    var allEdges=inner.selectAll('g.edgePath');
+    if(!focusId){
+      allNodes.classed('dep-graph-dimmed',false).classed('dep-graph-highlighted',false);
+      allEdges.classed('dep-graph-dimmed',false);
+      return;
+    }
+    var anc=ancestors(g,focusId);
+    var desc=descendants(g,focusId);
+    allNodes.each(function(id){
+      var related=(id===focusId||anc[id]||desc[id]);
+      d3.select(this).classed('dep-graph-dimmed',!related).classed('dep-graph-highlighted',related);
+    });
+    allEdges.each(function(e){
+      var related=(anc[e.v]||e.v===focusId||desc[e.v])&&(anc[e.w]||e.w===focusId||desc[e.w]);
+      d3.select(this).classed('dep-graph-dimmed',!related);
+    });
+  }
+
   function renderGraph(){
     var container=document.getElementById('graph-data');
     if(!container) return;
 
     var g=new dagreD3.graphlib.Graph().setGraph({rankdir:'TB',marginx:24,marginy:24,ranksep:48,nodesep:32});
     g.setDefaultEdgeLabel(function(){return{};});
+    graphRef=g;
+    nodeDataMap={};
 
-    var nodes=container.querySelectorAll('[data-node]');
-    nodes.forEach(function(el){
+    var nodeEls=container.querySelectorAll('[data-node]');
+    nodeEls.forEach(function(el){
       var id=el.dataset.node;
       var name=el.dataset.name;
       var files=el.dataset.files;
       var status=el.dataset.status||'pending';
+      var issues=parseInt(el.dataset.issues||'0',10);
+      var questions=parseInt(el.dataset.questions||'0',10);
+      // Build badge suffix appended to node label
+      var badge='';
+      if(issues>0) badge+=' ⚠'+issues;
+      if(questions>0) badge+=' ?'+questions;
+      nodeDataMap[id]={status:status,issues:issues,questions:questions};
       g.setNode(id,{
-        label: name+'\n'+files+' files',
+        label: name+(badge?badge:'')+'\n'+(files||'0')+' files',
         rx: 6,
         ry: 6,
         paddingX: 36,
         paddingY: 16,
-        status: status
+        status: status,
+        issues: issues,
+        questions: questions
       });
     });
 
-    nodes.forEach(function(el){
+    nodeEls.forEach(function(el){
       var id=el.dataset.node;
       var deps=el.dataset.deps?el.dataset.deps.split(',').map(function(d){return d.trim();}).filter(Boolean):[];
       deps.forEach(function(dep){g.setEdge(dep,id);});
@@ -1711,6 +1800,48 @@ var planId=(function(){var a=document.querySelector('article[id]');return a?a.id
     svgEl.setAttribute('width',graphWidth+pad*2);
     svgEl.setAttribute('height',graphHeight+pad*2);
     svgEl.removeAttribute('viewBox');
+
+    // Improvement 3: click a graph node → scroll to + open its slice card
+    var selectedNode=null;
+    inner.selectAll('g.node').on('click',function(id){
+      // Dep-chain highlight toggle
+      if(selectedNode===id){
+        selectedNode=null;
+        applyDepHighlight(inner,g,null);
+      } else {
+        selectedNode=id;
+        applyDepHighlight(inner,g,id);
+      }
+      // Navigate to slice card
+      var target=document.getElementById('slice-'+id);
+      if(target){
+        target.setAttribute('open','');
+        target.scrollIntoView({behavior:'smooth',block:'start'});
+      }
+    });
+
+    // Improvement 4: hover highlights dep-chain (without overriding click selection)
+    inner.selectAll('g.node')
+      .on('mouseover',function(id){
+        if(!selectedNode) applyDepHighlight(inner,g,id);
+      })
+      .on('mouseout',function(){
+        if(!selectedNode) applyDepHighlight(inner,g,null);
+      });
+
+    // Improvement 3 (reverse): clicking a slice nav item highlights the graph node
+    document.querySelectorAll('[data-slice-nav]').forEach(function(link){
+      link.addEventListener('mouseenter',function(){
+        var num=this.dataset.sliceNav;
+        var nodeEl=inner.select('g.node[id="'+num+'"]');
+        if(!nodeEl.empty()) nodeEl.classed('graph-node-ring',true);
+      });
+      link.addEventListener('mouseleave',function(){
+        var num=this.dataset.sliceNav;
+        var nodeEl=inner.select('g.node[id="'+num+'"]');
+        if(!nodeEl.empty()) nodeEl.classed('graph-node-ring',false);
+      });
+    });
   }
 
   if(document.readyState==='loading'){
@@ -1809,7 +1940,7 @@ function renderMd(text){
 
   // Load previous messages directly into the chat thread.
   if(planId){
-    fetch((window.htmlgraphPlanBase||'')+'/api/plans/'+planId+'/feedback')
+    fetch((window.wipnotePlanBase||'')+'/api/plans/'+planId+'/feedback')
       .then(function(r){return r.ok?r.json():null;})
       .then(function(data){
         if(!data||!data.chat_messages||!data.chat_messages.length) return;
@@ -1836,7 +1967,7 @@ function renderMd(text){
     chatMessages.appendChild(assistantBubble);
     var rawResponse='';
 
-    fetch((window.htmlgraphPlanBase||'')+'/api/plans/'+planId+'/chat',{
+    fetch((window.wipnotePlanBase||'')+'/api/plans/'+planId+'/chat',{
       method:'POST',
       headers:{'Content-Type':'application/json'},
       body:JSON.stringify({message:text})
@@ -1932,7 +2063,7 @@ function renderMd(text){
 // Left nav collapse toggle
 (function(){
   'use strict';
-  var KEY_L='htmlgraph-plan-left-collapsed';
+  var KEY_L='wipnote-plan-left-collapsed';
   var body=document.body;
   var btnL=document.getElementById('left-sidebar-toggle');
 
@@ -1974,7 +2105,7 @@ syncHljsTheme();
     var planEl=document.querySelector('[data-plan-id]');
     if(!planEl)return;
     var id=planEl.getAttribute('data-plan-id');
-    fetch((window.htmlgraphPlanBase||'')+'/api/plans/'+id+'/yaml')
+    fetch((window.wipnotePlanBase||'')+'/api/plans/'+id+'/yaml')
       .then(function(r){if(!r.ok)throw new Error('err');return r.text();})
       .then(function(t){
         codeEl.textContent=t;
@@ -2025,7 +2156,7 @@ syncHljsTheme();
     summary.textContent=selects.length+' amendments — '+accepted+' accepted, '+pending+' pending';
   }
 
-  fetch((window.htmlgraphPlanBase||'')+'/api/plans/'+planId+'/amendments')
+  fetch((window.wipnotePlanBase||'')+'/api/plans/'+planId+'/amendments')
     .then(function(r){return r.json();})
     .then(function(amendments){
       if(!amendments||!amendments.length)return;
@@ -2048,7 +2179,7 @@ syncHljsTheme();
           sel.appendChild(opt);
         });
         sel.addEventListener('change',function(){
-          fetch((window.htmlgraphPlanBase||'')+'/api/plans/'+planId+'/feedback',{
+          fetch((window.wipnotePlanBase||'')+'/api/plans/'+planId+'/feedback',{
             method:'POST',
             headers:{'Content-Type':'application/json'},
             body:JSON.stringify({

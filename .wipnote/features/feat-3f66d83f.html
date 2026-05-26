@@ -13,7 +13,7 @@
              data-status="todo"
              data-priority="high"
              data-created="2026-05-26T05:05:50.132322"
-             data-updated="2026-05-26T05:05:50.139211" data-agent-assigned="claude-code" data-track-id="trk-b1d06a84" data-created-by-agent="claude-code" data-created-by-model="gpt-5.5" data-created-by-role="codex" data-created-by-cli-version="0.60.18-72-gf05c89f94">
+             data-updated="2026-05-26T05:43:53.890258" data-agent-assigned="claude-code" data-track-id="trk-b1d06a84" data-created-by-agent="claude-code" data-created-by-model="gpt-5.5" data-created-by-role="codex" data-created-by-cli-version="0.60.18-72-gf05c89f94">
 
         <header>
             <h1>Centralize wipnote Git mutation execution behind a repo-scoped lock</h1>
@@ -30,6 +30,12 @@
                     <li><a href="trk-b1d06a84.html" data-relationship="part_of" data-since="2026-05-26T05:05:50.13897">trk-b1d06a84</a></li>
                 </ul>
             </section>
+            <section data-edge-type="caused_by">
+                <h3>Caused By:</h3>
+                <ul>
+                    <li><a href="bug-4a65d000.html" data-relationship="caused_by" data-since="2026-05-26T05:43:53.889946">Durably prevent stale git index.lock from wipnote autocommit</a></li>
+                </ul>
+            </section>
         </nav>
 
         <section data-steps>
@@ -38,12 +44,19 @@
                 <li data-completed="false" data-step-id="step-feat-3f66d83f-0" data-agent="claude-code" data-created-by-agent="claude-code">⏳ Add repo-scoped git mutation lock helper</li>
                 <li data-completed="false" data-step-id="step-feat-3f66d83f-1" data-agent="claude-code" data-created-by-agent="claude-code">⏳ Wrap work-item autocommit paths</li>
                 <li data-completed="false" data-step-id="step-feat-3f66d83f-2" data-agent="claude-code" data-created-by-agent="claude-code">⏳ Add concurrent-process regression tests</li>
+                <li data-completed="false" data-step-id="step-feat-3f66d83f-3" data-agent="claude-code" data-created-by-agent="claude-code">⏳ Use a maintained cross-platform lock library (e.g. gofrs/flock); do not hand-roll flock(2)/LockFileEx syscalls</li>
+                <li data-completed="false" data-step-id="step-feat-3f66d83f-4" data-agent="claude-code" data-created-by-agent="claude-code">⏳ Decide and document lock file location (.wipnote/ or per-user cache dir, never inside .git/) and use a single repo-scoped lock granularity</li>
+                <li data-completed="false" data-step-id="step-feat-3f66d83f-5" data-agent="claude-code" data-created-by-agent="claude-code">⏳ Retain runGitWithLockRetry as the complementary external-writer retry layer; advisory lock does not replace it</li>
             </ol>
         </section>
 
         <section data-content>
             <h3>Description</h3>
-            <p>Add a single helper for wipnote-owned Git mutations that acquires a repo-scoped advisory lock before running index/ref-writing Git commands. Use it to serialize concurrent agents and CLIs before Git's own index.lock contention path is reached.</p>
+            <p>Add a single helper for wipnote-owned Git mutations that acquires a repo-scoped advisory lock before running index/ref-writing Git commands. Use it to serialize concurrent agents and CLIs before Git's own index.lock contention path is reached. CONSTRAINT: the advisory lock only serializes wipnote's own processes; external writers (IDE, gitstatus daemon, user git) do not honor it, so the existing runGitWithLockRetry backoff loop MUST be retained as a complementary layer. flock auto-releases on process death, so wipnote's own lock can never go stale -- this is the rationale for flock over a pidfile.
+Acceptance Criteria
+Concurrent wipnote processes are serialized via the advisory lock; runGitWithLockRetry is retained for external-writer contention; lock auto-releases if the holding process dies.
+Expected Behavior
+Two wipnote autocommits launched simultaneously never both enter git's index-writing path at once; if one process is killed mid-commit, the lock is released automatically and the next process proceeds.</p>
         </section>
     </article>
 </body>

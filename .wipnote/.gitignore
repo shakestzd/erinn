@@ -1,0 +1,44 @@
+# Managed by wipnote — do not edit this block manually.
+# Patterns are relative to .wipnote/ (this is a nested .gitignore).
+# See: https://git-scm.com/docs/gitignore
+
+# Runtime/session directories
+sessions/
+events/
+logs/
+
+# Database and index artifacts
+*.db
+*.db-*
+*.sqlite*
+*.bloom
+archive-index/
+
+# Obsolete analytics artifacts
+cigs/
+
+# Runtime telemetry files
+**/*.jsonl
+**/*.log
+**/*.lock
+.active-session
+.launch-mode
+.otel-notice-shown
+.session-warning-state.json
+.session-families.lock
+session-families.json
+parent-activity.json
+.error-spikes.json
+active-auto-spikes.json
+drift-queue.json
+.otlp-port
+.serve.lock
+
+# Migration markers
+migrations/*.done
+
+# Process/collector pid and offset markers
+**/*.pid
+**/.index-offset
+**/.collector-pid
+**/state.json

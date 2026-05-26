@@ -13,7 +13,7 @@
              data-status="in-progress"
              data-priority="high"
              data-created="2026-04-10T22:30:29.647944"
-             data-updated="2026-05-20T09:46:44.695458" data-agent-assigned="claude-code">
+             data-updated="2026-05-26T04:44:19.298549" data-agent-assigned="claude-code">
 
         <header>
             <h1>Launch Readiness — close pitch/reality gaps before LinkedIn launch</h1>
@@ -233,6 +233,39 @@
                     <li><a href="bug-9a298dfa.html" data-relationship="contains" data-since="2026-05-20T07:52:35.034791">PreToolUse Write guard over-broadly blocks writes outside the project (e.g. /tmp scratch files), forcing fake work-item creation</a></li>
                     <li><a href="bug-2a99e9d4.html" data-relationship="contains" data-since="2026-05-20T07:52:35.448988">Spike/feature completion treats /tmp paths as &#39;code-bearing source&#39; and refuses to complete on missing commit; blocks planning-only work flows</a></li>
                     <li><a href="bug-2dc77f9f.html" data-relationship="contains" data-since="2026-05-20T09:46:44.685178">plan finalize &#43; CLI promote-slice creates duplicate feature work items (GH#113)</a></li>
+                    <li><a href="bug-276a9ef4.html" data-relationship="contains" data-since="2026-05-20T16:02:09.263537">wipnote codex registration fails on macOS install — Codex CLI does not find manifest at marketplace root</a></li>
+                    <li><a href="bug-fe592638.html" data-relationship="contains" data-since="2026-05-20T17:56:27.807453">Stale model-named agent references (sonnet-coder, haiku-coder, gemini-spawner) leak into Codex/Gemini sessions</a></li>
+                    <li><a href="bug-782a17cf.html" data-relationship="contains" data-since="2026-05-20T18:26:13.348392">codex marketplace registration: incomplete fix — auto-register (launchCodexDefault) and --dev paths still pass directory root</a></li>
+                    <li><a href="bug-c33f31b3.html" data-relationship="contains" data-since="2026-05-20T18:54:35.916533">codex marketplace registration: tarball uses FLAT layout (marketplace.json at root), dev source uses DEEP layout (.agents/plugins/marketplace.json) — fix must handle both</a></li>
+                    <li><a href="bug-900f6655.html" data-relationship="contains" data-since="2026-05-21T22:53:01.216266">feature complete unbypassable in non-Python projects: gate hardcodes pytest, --allow-dirty &#43; --accepted-advisory don&#39;t compose (issue #114)</a></li>
+                    <li><a href="bug-63996dd4.html" data-relationship="contains" data-since="2026-05-21T23:37:37.710082">post-commit hook doesn&#39;t link commit to work item by parsing the ID from the commit message (fallback when no active session item)</a></li>
+                    <li><a href="bug-9d07208b.html" data-relationship="contains" data-since="2026-05-22T01:39:49.361976">Session-name timestamp uses UTC instead of local machine timezone</a></li>
+                    <li><a href="bug-7dffa39e.html" data-relationship="contains" data-since="2026-05-22T02:02:30.106711">Add readable time separators to session-name timestamp (use periods)</a></li>
+                    <li><a href="bug-ee77c482.html" data-relationship="contains" data-since="2026-05-22T03:17:54.570695">wipnote codex: marketplace registration fails — &#39;local marketplace source must be a directory, not a file&#39; (v0.60.9)</a></li>
+                    <li><a href="bug-76c219bc.html" data-relationship="contains" data-since="2026-05-23T08:10:14.015253">gemini-extension release archive uses **/* glob — latent dotdir-dropping repeat of codex marketplace archive bug</a></li>
+                    <li><a href="bug-624e85ac.html" data-relationship="contains" data-since="2026-05-23T17:20:58.76057">work-item and research PreToolUse guards fire on Edit/Write/Bash targeting paths OUTSIDE the project root</a></li>
+                    <li><a href="bug-c3483435.html" data-relationship="contains" data-since="2026-05-23T17:20:59.053781">wipnote claude worktree launch should carry uncommitted main changes into the worktree (parity with yolo)</a></li>
+                    <li><a href="bug-938e56ae.html" data-relationship="contains" data-since="2026-05-23T17:28:55.014908">wipnote codex &amp; gemini worktree launches don&#39;t carry uncommitted main changes (carryover parity)</a></li>
+                    <li><a href="bug-c2ab6fe4.html" data-relationship="contains" data-since="2026-05-23T17:28:55.351113">codex --yolo does not trigger the worktree source-isolation guard (bypassPermissions detection is Claude-specific)</a></li>
+                    <li><a href="bug-a4dd9cfd.html" data-relationship="contains" data-since="2026-05-23T17:44:05.745561">Orchestrator &amp; researcher default to local-code search; web/docs/GitHub research is under-used and the research guard penalizes Claude WebSearch/WebFetch</a></li>
+                    <li><a href="bug-c4fee953.html" data-relationship="contains" data-since="2026-05-23T17:47:22.308457">Orchestrator &amp; researcher default to local-code search; web/docs/GitHub research is under-used and the research guard penalizes Claude WebSearch/WebFetch</a></li>
+                    <li><a href="bug-4fffaf57.html" data-relationship="contains" data-since="2026-05-23T22:39:48.77959">wipnote does not install its derived/runtime .gitignore policy into adopter projects — session/telemetry/lock/pid artifacts show as untracked</a></li>
+                    <li><a href="bug-ce17b49f.html" data-relationship="contains" data-since="2026-05-24T00:05:34.434226">Artifact autocommit hard-fails on transient git index.lock (IDE/gitstatus daemon), re-opening completed work items</a></li>
+                    <li><a href="bug-0387f0aa.html" data-relationship="contains" data-since="2026-05-24T19:43:45.849062">OpenReadOnly query_only not applied per pooled connection</a></li>
+                    <li><a href="bug-add6e57f.html" data-relationship="contains" data-since="2026-05-24T19:43:46.102759">Trigger repair migration does not fix already-migrated DBs</a></li>
+                    <li><a href="bug-655c6ce5.html" data-relationship="contains" data-since="2026-05-24T19:43:46.385604">session prune hardening: negative flags, path traversal, JSON parse</a></li>
+                    <li><a href="bug-980df5cd.html" data-relationship="contains" data-since="2026-05-24T20:24:03.122618">Retention Run path bypasses session id validation</a></li>
+                    <li><a href="bug-7a0b2c8d.html" data-relationship="contains" data-since="2026-05-24T20:24:03.361001">Repair migration does not backfill historical total_events</a></li>
+                    <li><a href="bug-d5a3dd57.html" data-relationship="contains" data-since="2026-05-24T20:40:09.47995">Retention traversal regression test asserts wrong escape target</a></li>
+                    <li><a href="bug-f2985c3d.html" data-relationship="contains" data-since="2026-05-24T22:21:18.706577">Plan-graph D3 v7 event handlers use wrong arg for node id</a></li>
+                    <li><a href="bug-8d5bbefa.html" data-relationship="contains" data-since="2026-05-24T22:46:46.671253">Plan finalize hits SQLITE_BUSY (database is locked) from dashboard</a></li>
+                    <li><a href="bug-b9d0e3e0.html" data-relationship="contains" data-since="2026-05-24T23:10:45.829031">YOLO mode worktree/branch isolation surface is ambiguous — orchestrator confuses worktree vs main checkout</a></li>
+                    <li><a href="bug-f9039e2b.html" data-relationship="contains" data-since="2026-05-24T23:18:30.254293">bug create auto-links caused_by the active feature, fabricating false lineage</a></li>
+                    <li><a href="spk-f394951f.html" data-relationship="contains" data-since="2026-05-25T00:46:57.137658">Define YOLO worktree/branch isolation model (working-dir contract)</a></li>
+                    <li><a href="bug-cbdb06ca.html" data-relationship="contains" data-since="2026-05-26T02:50:15.820978">Dashboard Activity Feed renders 0 events despite API returning data</a></li>
+                    <li><a href="bug-0ee1155b.html" data-relationship="contains" data-since="2026-05-26T04:15:39.668895">Plan embed: content capped at 960px (wastes width on collapse) &#43; review-progress crowds chat</a></li>
+                    <li><a href="bug-f3fd2605.html" data-relationship="contains" data-since="2026-05-26T04:28:27.964106">Bound serve log growth in devcontainer</a></li>
+                    <li><a href="bug-4a65d000.html" data-relationship="contains" data-since="2026-05-26T04:44:19.292254">Durably prevent stale git index.lock from wipnote autocommit</a></li>
                 </ul>
             </section>
             <section data-edge-type="implemented_in">

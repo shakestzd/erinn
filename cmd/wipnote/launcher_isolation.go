@@ -69,11 +69,18 @@ func reportMainWorktreeIsolation(b *strings.Builder, repoRoot string) {
 func reportMainWorktreeIsolationTo(w io.Writer, isMain bool, repoRoot string) {
 	fmt.Fprintln(w, "--- multi-agent Git isolation ---")
 	if isMain {
-		fmt.Fprintln(w, "  WARN: running in the primary worktree (not an isolated linked worktree)")
-		fmt.Fprintln(w, "  Multiple agents or CLIs sharing the primary worktree risk Git index")
-		fmt.Fprintln(w, "  contention and interleaved commits. Recommended operating model:")
+		// A primary worktree is EITHER the shared main checkout OR a dedicated
+		// isolated clone — both are recommended operating models and are
+		// indistinguishable at the git level. So this is informational, not a
+		// hard warning: it only matters if THIS checkout is shared by multiple
+		// agents/CLIs concurrently (roborev #3647 — don't flag compliant clones).
+		fmt.Fprintln(w, "  NOTE: running in a primary worktree (not a linked worktree)")
+		fmt.Fprintln(w, "  If this checkout is a dedicated isolated clone for one agent, no action")
+		fmt.Fprintln(w, "  is needed — that is a recommended model. Action is only needed if multiple")
+		fmt.Fprintln(w, "  agents or CLIs SHARE this checkout, which risks Git index contention and")
+		fmt.Fprintln(w, "  interleaved commits. Recommended operating model for shared checkouts:")
 		fmt.Fprintln(w, "    - Source edits: use per-agent worktrees (`wipnote yolo --feature <id>`)")
-		fmt.Fprintln(w, "      or isolated clones — never the shared main checkout")
+		fmt.Fprintln(w, "      or dedicated isolated clones — never a shared main checkout")
 		fmt.Fprintln(w, "    - Metadata commits: serialized via runGitMutation advisory lock")
 		fmt.Fprintln(w, "      (feat-3f66d83f) — safe to run from any worktree")
 		fmt.Fprintln(w, "    - Lock file cleanup: opt-in only via `wipnote launcher git-lock --fix`")

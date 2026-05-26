@@ -143,19 +143,26 @@ func TestIsMainWorktreeWith_Seam(t *testing.T) {
 }
 
 // TestReportMainWorktreeIsolation_Warning verifies that the report section
-// warns when running in the primary worktree.
+// surfaces isolation guidance when running in a primary worktree. Per roborev
+// #3647 this is an informational NOTE (a primary worktree may legitimately be a
+// dedicated isolated clone), and it must condition the guidance on the checkout
+// being SHARED rather than asserting unconditional risk.
 func TestReportMainWorktreeIsolation_Warning(t *testing.T) {
 	var b strings.Builder
 	reportMainWorktreeIsolationTo(&b, true /* isMain */, "/repo")
 	out := b.String()
+	low := strings.ToLower(out)
 
-	if !strings.Contains(out, "WARN") && !strings.Contains(strings.ToLower(out), "warn") {
-		t.Errorf("expected warning in output for main worktree, got:\n%s", out)
+	if !strings.Contains(low, "note") {
+		t.Errorf("expected an informational NOTE for primary worktree, got:\n%s", out)
 	}
-	if !strings.Contains(strings.ToLower(out), "worktree") {
+	if !strings.Contains(low, "shared") {
+		t.Errorf("expected the guidance to condition on a SHARED checkout (not flag isolated clones), got:\n%s", out)
+	}
+	if !strings.Contains(low, "worktree") {
 		t.Errorf("expected 'worktree' mention in output, got:\n%s", out)
 	}
-	if !strings.Contains(strings.ToLower(out), "isolat") {
+	if !strings.Contains(low, "isolat") {
 		t.Errorf("expected isolation guidance in output, got:\n%s", out)
 	}
 }

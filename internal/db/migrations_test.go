@@ -709,9 +709,10 @@ func TestRepairTrigger_AlreadyMigratedDB_TriggerDropped(t *testing.T) {
 	}
 	defer warm.Close()
 
-	// Steps 10 and 11 should have run (trigger repair + total_events backfill).
+	// Steps 10, 11 and 12 should have run (trigger repair + total_events
+	// backfill + gate_records profile columns).
 	calls := recorder.Calls()
-	want := []string{"010_repair_trigger_increment_total_events", "011_backfill_total_events"}
+	want := []string{"010_repair_trigger_increment_total_events", "011_backfill_total_events", "012_gate_records_profile_signature"}
 	if !slices.Equal(calls, want) {
 		t.Fatalf("expected steps %v, got %v", want, calls)
 	}
@@ -858,10 +859,11 @@ func TestBackfillTotalEvents_StaleCountsRepaired(t *testing.T) {
 	}
 	defer warm.Close()
 
-	// Only step 11 should have run.
+	// Steps 11 and 12 should have run (backfill + gate_records profile columns).
 	calls := recorder.Calls()
-	if len(calls) != 1 || calls[0] != "011_backfill_total_events" {
-		t.Fatalf("expected exactly [011_backfill_total_events], got %v", calls)
+	want := []string{"011_backfill_total_events", "012_gate_records_profile_signature"}
+	if !slices.Equal(calls, want) {
+		t.Fatalf("expected steps %v, got %v", want, calls)
 	}
 
 	// total_events must now equal the true event count (5).

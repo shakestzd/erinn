@@ -15,7 +15,7 @@ import (
 // executes ZERO CREATE / ALTER / DROP / trigger / normalisation statements —
 // avoiding the write-lock acquisition that caused SQLITE_BUSY in short-lived
 // hook processes.
-const currentSchemaVersion = 11
+const currentSchemaVersion = 12
 
 // copySwapStepName is the name of the agent_events copy-and-swap migration
 // step. Exposed via CopySwapStepName() so tests can assert it runs at most
@@ -97,6 +97,11 @@ var migrations = []migrationStep{
 		version: 11,
 		name:    "011_backfill_total_events",
 		apply:   stepBackfillTotalEvents,
+	},
+	{
+		version: 12,
+		name:    "012_gate_records_profile_signature",
+		apply:   stepGateRecordsProfileSignature,
 	},
 }
 
@@ -478,6 +483,27 @@ func stepFeatureFilesPathSeenIndex(db *sql.DB) error {
 // no-op on DBs that still have it and a repair on DBs that lost it.
 func stepRepairTriggerIncrementTotalEvents(db *sql.DB) error {
 	return createTriggerIncrementTotalEvents(db)
+}
+
+// stepGateRecordsProfileSignature adds the guard-profile provenance columns to
+// gate_records: profile_signature (the canonical guardprofile.Signature of the
+// approved profile that supplied the guards, empty when autodetection was used)
+// and guards_run (a JSON array of the guard names that ran). Both are NEW
+// columns distinct from the existing record-integrity `signature` MAC column.
+// Idempotent: ALTER TABLE ADD COLUMN is swallowed by isDuplicateColumnError on
+// re-run, and a fresh DB created by CreateAllTables already has both columns.
+func stepGateRecordsProfileSignature(db *sql.DB) error {
+	for _, stmt := range []string{
+		`ALTER TABLE gate_records ADD COLUMN profile_signature TEXT NOT NULL DEFAULT ''`,
+		`ALTER TABLE gate_records ADD COLUMN guards_run TEXT NOT NULL DEFAULT '[]'`,
+	} {
+		if _, err := db.Exec(stmt); err != nil {
+			if !isDuplicateColumnError(err) {
+				return fmt.Errorf("add gate_records column (%s): %w", stmt, err)
+			}
+		}
+	}
+	return nil
 }
 
 // stepBackfillTotalEvents recomputes sessions.total_events for every session

@@ -428,9 +428,9 @@ body.right-rail-collapsed .sidebar-reopen{display:flex}
     <li>
       <a href="#slice-3" class="slice-nav-item" data-slice-nav="3">
         <span class="slice-nav-dot" data-approval="pending" data-dot-for="3"></span>
-        <span>#3 First-run guard discovery for yolo/check (feat-534f209f)</span>
-        <span class="nav-triage-badge nav-triage-issue" title="4 issue(s)">&#9888;4</span>
-        <span class="nav-triage-badge nav-triage-question" title="1 open question(s)">?1</span>
+        <span>#3 Guard setup as a launch-time initialization step (feat-534f209f)</span>
+        <span class="nav-triage-badge nav-triage-issue" title="6 issue(s)">&#9888;6</span>
+        <span class="nav-triage-badge nav-triage-question" title="2 open question(s)">?2</span>
       </a>
     </li>
     
@@ -482,7 +482,7 @@ body.right-rail-collapsed .sidebar-reopen{display:flex}
   <div id="graph-data" style="display:none">
     <div data-node="1" data-name="Project guard profile config: schema, loader, signature (feat-29e16b20)" data-status="pending" data-deps="" data-files="3"></div>
     <div data-node="2" data-name="Apply guard profiles across all gate sites + record signature (feat-3304de17)" data-status="pending" data-deps="1" data-files="7"></div>
-    <div data-node="3" data-name="First-run guard discovery for yolo/check (feat-534f209f)" data-status="pending" data-deps="1" data-files="4"></div>
+    <div data-node="3" data-name="Guard setup as a launch-time initialization step (feat-534f209f)" data-status="pending" data-deps="1" data-files="6"></div>
     <div data-node="4" data-name="Guard authoring skill and docs (feat-1469fabc)" data-status="pending" data-deps="1" data-files="2"></div>
     
     <!--PLAN_GRAPH_NODES-->
@@ -506,13 +506,15 @@ contract, so &#34;done&#34; can mean &#34;passed a guessed command&#34;. Issue #
 <h4>Goals</h4>
 <ol>
 <li data-markdown>Project-owned, committed guard profile defining quality/completion/yolo guards with per-guard command, cwd, and applicability</li>
+<li data-markdown>Guard setup is a first-class wipnote INITIALIZATION step: every interactive CLI launch (wipnote claude/yolo/dev/codex/gemini) checks whether the project has an approved guard profile and offers setup if not — peer to the per-session OTel collector bootstrap, not a gate-time afterthought</li>
 <li data-markdown>Gates load the profile before autodetection and record a signature so completions are tied to the user-approved contract (drift is detectable and reported)</li>
-<li data-markdown>Frictionless interactive first-run discovery, with a documented authoring path; zero breakage for unconfigured projects</li>
+<li data-markdown>Zero breakage for unconfigured projects and a documented authoring path the user can edit by hand</li>
 </ol>
 <h4>Constraints</h4>
 <ul>
-<li data-markdown>Back-compat: when no profile exists, preserve today&#39;s manifest autodetection (autodetect + one-line hint); never break existing repos on upgrade</li>
-<li data-markdown>Non-interactive contexts (CI, hooks, no TTY) must never block on discovery prompts</li>
+<li data-markdown>User-editable YAML is the reference primitive: every project-controllable configuration this introduces (guards, and the pattern it sets for future user-owned settings incl. OTel-adjacent ones) must be a plain, hand-editable, committed YAML file the user can define and diff — not opaque/derived state. (User principle, 2026-05-26.)</li>
+<li data-markdown>Back-compat: when no profile exists, preserve today&#39;s manifest autodetection (autodetect + one-line hint pointing at the init flow); never break existing repos on upgrade</li>
+<li data-markdown>Non-interactive contexts (CI, hooks, no TTY) must never block on the launch-time setup prompt or on discovery</li>
 <li data-markdown>Profile is the committed canonical .wipnote/guard-profile.yaml; agent-facing docs live in plugin skill source, regenerated via build-ports, not hand-edited</li>
 <li data-markdown>Guard cmd strings are executed by gates; the committed profile is a trust boundary — only a profile whose content signature matches its approved.signature is honored, else fall back to autodetect+hint and warn (a tampered/edited-but-unapproved profile is never silently run)</li>
 </ul>
@@ -778,7 +780,8 @@ runTaskCompletionGate (the yolo PostToolUse hook gate — this IS &#34;yolo
 gating&#34;, not yolo.go), (c) cmd/wipnote/agent_init.go advisory output.
 When an APPROVED profile exists, run its phase guards (honoring cwd +
 applies_when) instead of autodetected commands; when absent or unapproved,
-keep today&#39;s autodetection and emit a one-line hint. Persist the profile
+keep today&#39;s autodetection and emit a one-line hint pointing at guard setup
+(<code>wipnote guard init</code>, also offered at launch — slice-3). Persist the profile
 signature + guards_run on the gate record via NEW columns (see decisions)
 and report a completion as stale when its recorded profile_signature !=
 the current approved signature.</p>
@@ -933,11 +936,11 @@ Integration through check/complete CLI. TMPDIR=/home/vscode/.gotest-tmp.</p>
   </div>
 </details>
 <details class="slice-card" id="slice-3" data-slice="3" data-slice-name="slice-3" data-status="pending" data-approval="pending">
-  <summary class="slice-summary" aria-label="Slice 3: First-run guard discovery for yolo/check (feat-534f209f)">
+  <summary class="slice-summary" aria-label="Slice 3: Guard setup as a launch-time initialization step (feat-534f209f)">
     <span class="slice-num">#3</span>
     <span class="slice-title-col">
-      <span class="slice-name">First-run guard discovery for yolo/check (feat-534f209f)</span>
-      <span class="slice-preview">Add a PURE discovery core in internal/guardprofile/discover.go:</span>
+      <span class="slice-name">Guard setup as a launch-time initialization step (feat-534f209f)</span>
+      <span class="slice-preview">Make guard setup part of wipnote&#39;s project INITIALIZATION, checked on every</span>
       <span class="slice-meta-row">
         <span class="slice-summary-badges">
           <span class="badge badge-blocked badge-sm">L</span>
@@ -945,8 +948,8 @@ Integration through check/complete CLI. TMPDIR=/home/vscode/.gotest-tmp.</p>
           <span class="badge badge-revision badge-sm badge-complexity" title="Complexity: complex">Complex</span>
           
           <span class="badge badge-pending badge-sm slice-approval-badge" data-badge-for="slice-3">Pending</span>
-          <span class="badge badge-sm badge-issues" title="4 critic issue(s)">4 issues</span>
-          <span class="badge badge-sm badge-questions" title="1 open question(s)">1 Q</span>
+          <span class="badge badge-sm badge-issues" title="6 critic issue(s)">6 issues</span>
+          <span class="badge badge-sm badge-questions" title="2 open question(s)">2 Q</span>
         </span>
         <span class="slice-actions" onclick="event.stopPropagation()">
           <span class="approval-segmented" role="group" aria-label="Approval action">
@@ -977,20 +980,26 @@ Integration through check/complete CLI. TMPDIR=/home/vscode/.gotest-tmp.</p>
         <div class="slice-field-value">
           
           <input type="checkbox" id="slice-3-what-reveal" class="reveal-toggle">
-          <div class="markdown-block reveal-content serif-prose"><p>Add a PURE discovery core in internal/guardprofile/discover.go:
+          <div class="markdown-block reveal-content serif-prose"><p>Make guard setup part of wipnote&#39;s project INITIALIZATION, checked on every
+interactive CLI launch — peer to the per-session OTel collector bootstrap,
+not a gate-time afterthought (user pivot 2026-05-26).
+Add a PURE discovery core internal/guardprofile/discover.go:
 Propose(repoRoot, inputs) inspects manifests, CI configs, Makefile/scripts,
-docs, and subprojects and returns a proposed phase-grouped profile struct —
-it performs NO I/O writes and NO git. cmd/wipnote/guard_init.go owns the
-side effects: gate TTY via the existing isTerminal() (cmd/wipnote/
-relevant.go:100) — on first yolo/check in an unconfigured project AND an
-interactive session, present Propose()&#39;s output for approve/edit, then write
-.wipnote/guard-profile.yaml with approved:{signature,by,at} (by = git
-config user.name or session identity; at = now) and commit it via
-runGitMutation. In non-interactive sessions skip entirely and fall back to
-autodetect+hint (gates never hang). Same core is exposed as the explicit
-<code>wipnote guard init</code> command. Proposal heuristic favors high-confidence
-signals (declared CI/test scripts, Makefile targets) over guesses and marks
-low-confidence proposals so the user prunes rather than invents.</p>
+docs, and subprojects, returning a proposed phase-grouped profile struct
+with NO writes and NO git. Add cmd/wipnote/guard_init.go: ensureGuardProfile
+(projectRoot) that on each interactive launch checks for an APPROVED profile
+and, if absent AND interactive (isTerminal(), cmd/wipnote/relevant.go:100),
+presents Propose()&#39;s output for approve/edit, writes
+.wipnote/guard-profile.yaml with approved:{signature,by,at} (by = git config
+user.name or session identity; at = now), and commits it via runGitMutation.
+Wire ensureGuardProfile into the launcher bootstraps right beside the OTel
+collector spawn: cmd/wipnote/claude.go (~line 608-616 alongside
+ensureServeForDashboard / spawnSessionCollector), plus yolo.go, dev.go,
+codex_launch.go, gemini.go. Non-interactive launches (CI, no TTY) skip
+silently; gates fall back to autodetect+hint. The same core is exposed as
+explicit <code>wipnote guard init</code> (re-runnable; also used to re-approve drift).
+Proposal ranks high-confidence signals (declared CI/test scripts, Makefile
+targets) and flags low-confidence ones so approval is prune-not-invent.</p>
 </div>
           <label for="slice-3-what-reveal" class="reveal-label">Show full description</label>
           
@@ -1002,8 +1011,11 @@ low-confidence proposals so the user prunes rather than invents.</p>
         <div class="slice-field-label">Why</div>
         <div class="slice-field-value">
           
-          <div class="markdown-block serif-prose"><p>Lets a project adopt a tailored contract with near-zero friction, which is
-what the autodetect+hint fallback points users toward.</p>
+          <div class="markdown-block serif-prose"><p>Guards are used throughout wipnote (every gate, completion, yolo), so the
+profile is project setup, not an optional gate add-on. Surfacing it at
+launch — the same place OTel is initialized — is how a project reliably
+adopts the contract, while the gate-time autodetect+hint stays as the safety
+net for sessions that bypass the launcher.</p>
 </div>
           
         </div>
@@ -1012,13 +1024,13 @@ what the autodetect+hint fallback points users toward.</p>
       
       <div class="slice-field">
         <div class="slice-field-label">Files</div>
-        <div class="slice-field-value"><code>internal/guardprofile/discover.go, internal/guardprofile/discover_test.go, cmd/wipnote/guard_init.go, cmd/wipnote/guard_init_test.go</code></div>
+        <div class="slice-field-value"><code>internal/guardprofile/discover.go, internal/guardprofile/discover_test.go, cmd/wipnote/guard_init.go, cmd/wipnote/guard_init_test.go, cmd/wipnote/claude.go, cmd/wipnote/yolo.go</code></div>
       </div>
       
       
       <div class="slice-field">
         <div class="slice-field-label">Done when</div>
-        <ul class="slice-done-list"><li>Propose() returns go/node/python/Makefile guards from a fixture repo as a struct, performing no writes (pure)</li><li>guard_init.go writes the profile with a valid approved signature (by/at set) and stages/commits it via runGitMutation only after interactive approval</li><li>In a non-interactive session (isTerminal()==false) discovery is skipped and the gate falls back to autodetect&#43;hint (never blocks)</li><li>Low-confidence proposals are flagged so the approval step is prune-not-invent</li></ul>
+        <ul class="slice-done-list slice-done-list--grid"><li>Propose() returns go/node/python/Makefile guards from a fixture repo as a struct, performing no writes (pure)</li><li>ensureGuardProfile is invoked from the interactive launcher bootstrap (claude.go) alongside the OTel collector spawn, and is a no-op when an approved profile already exists</li><li>On an interactive launch with no approved profile, the user is offered setup; on approval the profile is written with a valid approved signature (by/at) and committed via runGitMutation</li><li>On a non-interactive launch (isTerminal()==false) setup is skipped silently and the launcher proceeds; gates still fall back to autodetect&#43;hint</li><li>Low-confidence proposals are flagged so the approval step is prune-not-invent</li><li>`wipnote guard init` re-runs the same propose/approve/persist core (manual &#43; re-approval path)</li></ul>
       </div>
       
     
@@ -1029,19 +1041,28 @@ what the autodetect+hint fallback points users toward.</p>
       <div class="slice-field-value">
         
         <input type="checkbox" id="slice-3-decisions-reveal" class="reveal-toggle">
-        <div class="markdown-block reveal-content serif-prose"><p><strong>Trigger:</strong> first gate/yolo in an unconfigured repo, interactive only;
-non-interactive auto-skips to autodetect+hint (gates must never hang).
+        <div class="markdown-block reveal-content serif-prose"><p><strong>Trigger (PIVOT 2026-05-26):</strong> the check runs at INITIALIZATION on every
+interactive launcher entry (claude/yolo/dev/codex/gemini), mirroring the
+OTel collector bootstrap (claude.go:608-616 ensureServeForDashboard /
+spawnSessionCollector) — NOT only on first gate/yolo. Rationale: guards
+are used across all gates, so the profile is project setup; launch is the
+reliable adoption point. Non-interactive launches skip silently.
+<strong>Why launcher, not a SessionStart hook:</strong> hooks must not emit stderr/block
+and cannot drive an interactive AskUserQuestion approval; the launcher is
+already the interactive, otel-initializing entry point. A SessionStart
+hook may later add a non-blocking reminder, but the interactive setup
+lives in the launcher (out-of-scope refinement noted, not built here).
 <strong>Seam (per feasibility-critic WARN):</strong> internal/guardprofile (internal/)
 CANNOT call runGitMutation (package main). discover.go stays pure and
 returns the proposal; cmd/wipnote/guard_init.go owns TTY gating
-(reuse isTerminal() at relevant.go:100), the write, and the
-runGitMutation commit (confirmed at git_mutation_lock.go:83).
+(isTerminal() at relevant.go:100), the write, and the runGitMutation
+commit (confirmed at git_mutation_lock.go:83).
 <strong>Proposal quality (per design-critic WARN):</strong> rank by signal confidence;
-flag low-confidence entries so approval is editorial pruning, preserving
-the near-zero-friction goal.
-<strong>Rejected:</strong> draft-file + explicit approve (more steps); auto-trigger-only
-with no command (drops the manual/agentic path). Both available: the
-same core powers <code>wipnote guard init</code>.</p>
+flag low-confidence entries so approval is editorial pruning.
+<strong>Rejected:</strong> first-gate-only trigger (the prior framing — too narrow now
+that guards are project-wide setup); draft-file + explicit approve only
+(loses the launch-time adoption); SessionStart-hook prompt (can&#39;t be
+interactive/blocking-safe).</p>
 </div>
         <label for="slice-3-decisions-reveal" class="reveal-label">Show full decisions</label>
         
@@ -1057,8 +1078,9 @@ same core powers <code>wipnote guard init</code>.</p>
         
         <div class="markdown-block slice-tests"><p>TestPropose_FromManifests (table-driven fixtures, pure, no writes);
 TestPropose_FlagsLowConfidence;
-TestGuardInit_WritesApprovedAndCommits (committer seam);
-TestFirstRun_SkippedWhenNonInteractive (isTerminal seam).
+TestEnsureGuardProfile_NoOpWhenApprovedPresent;
+TestEnsureGuardProfile_SkippedWhenNonInteractive (isTerminal seam);
+TestGuardInit_WritesApprovedAndCommits (committer seam).
 TMPDIR=/home/vscode/.gotest-tmp.</p>
 </div>
         
@@ -1070,6 +1092,12 @@ TMPDIR=/home/vscode/.gotest-tmp.</p>
     <div class="slice-field slice-critic-revisions">
       <div class="slice-field-label">Critic Revisions</div>
       <div class="slice-field-value">
+        
+        <div class="critic-revision">
+          <span class="badge badge-pending critic-revision-badge">SUCCESS</span>
+          <span class="critic-revision-source">sonnet</span>
+          <span class="critic-revision-summary">Launch bootstrap anchor confirmed: claude.go:608/616 (ensureServeForDashboard / spawnSessionCollector) is exactly where ensureGuardProfile slots in, peer to OTel init.</span>
+        </div>
         
         <div class="critic-revision">
           <span class="badge badge-pending critic-revision-badge">WARN</span>
@@ -1086,13 +1114,19 @@ TMPDIR=/home/vscode/.gotest-tmp.</p>
         <div class="critic-revision">
           <span class="badge badge-pending critic-revision-badge">WARN</span>
           <span class="critic-revision-source">haiku</span>
-          <span class="critic-revision-summary">&#39;Good guard&#39; criteria were undefined; resolved by confidence ranking &#43; low-confidence flagging so first-run approval is prune-not-invent.</span>
+          <span class="critic-revision-summary">&#39;Good guard&#39; criteria were undefined; resolved by confidence ranking &#43; low-confidence flagging so launch-time approval is prune-not-invent.</span>
         </div>
         
         <div class="critic-revision">
           <span class="badge badge-pending critic-revision-badge">INFO</span>
           <span class="critic-revision-source">haiku</span>
-          <span class="critic-revision-summary">Concurrent first-run across sessions could double-trigger; the slice-1 advisory git lock &#43; &#39;profile already present -&gt; skip&#39; check makes the second writer a no-op.</span>
+          <span class="critic-revision-summary">Concurrent launches could double-trigger; the slice-1 advisory git lock &#43; &#39;approved profile already present -&gt; no-op&#39; check makes the second writer a no-op.</span>
+        </div>
+        
+        <div class="critic-revision">
+          <span class="badge badge-pending critic-revision-badge">INFO</span>
+          <span class="critic-revision-source">user</span>
+          <span class="critic-revision-summary">Pivot 2026-05-26: reframed from first-gate discovery to a launch-time initialization step (peer to OTel setup); wiring spans the interactive launchers (claude/yolo/dev/codex/gemini).</span>
         </div>
         
       </div>
@@ -1105,13 +1139,24 @@ TMPDIR=/home/vscode/.gotest-tmp.</p>
       <div class="slice-field-value">
         
         <div class="question-block slice-question-block">
-          <p>Is there also an explicit command, or only the auto-trigger?</p>
+          <p>Is there also an explicit command, or only the launch-time check?</p>
           
           
           <textarea
             data-section="slice-3-question-q-init-cmd"
             data-comment-for="slice-3-question-q-init-cmd"
-            placeholder="Answer question q-init-cmd...">Both: the propose/approve/persist core is exposed as `wipnote guard init` for manual/agentic invocation; the first-run path calls it automatically only when interactive. Keeps a non-auto escape hatch and serves slice-4&#39;s docs.</textarea>
+            placeholder="Answer question q-init-cmd...">Both: the propose/approve/persist core is exposed as `wipnote guard init` (manual/agentic &#43; drift re-approval); the launcher&#39;s ensureGuardProfile calls the same core automatically when interactive and unconfigured.</textarea>
+          
+        </div>
+        
+        <div class="question-block slice-question-block">
+          <p>Does the launch-time prompt block the agent from starting?</p>
+          
+          
+          <textarea
+            data-section="slice-3-question-q-launch-blocking"
+            data-comment-for="slice-3-question-q-launch-blocking"
+            placeholder="Answer question q-launch-blocking...">It offers setup before handing off to the agent window when interactive and unconfigured; the user can decline/defer (proceed with autodetect&#43;hint, re-offered next launch). It never blocks non-interactive launches. Mirrors how OTel autostart is best-effort, not a hard gate.</textarea>
           
         </div>
         
@@ -1179,8 +1224,10 @@ source, regenerated to codex/gemini via <code>wipnote plugin build-ports</code>)
 a standalone hand-maintained docs/guard-profiles.md. Cover: the schema
 reference (phases, per-guard name/cmd/cwd/applies_when, approved block),
 polyglot/monorepo examples (per-guard cwd, applies_when paths), the
-approve/signature/drift model and trust boundary, the <code>wipnote guard init</code>
-flow, and the safe default (autodetect+hint) when no profile exists.</p>
+approve/signature/drift model and trust boundary, the launch-time setup
+step + <code>wipnote guard init</code> flow (slice-3), and the safe default
+(autodetect+hint) when no profile exists. Frame the profile as a
+user-editable YAML config the user owns and diffs (the reference primitive).</p>
 </div>
           <label for="slice-4-what-reveal" class="reveal-label">Show full description</label>
           

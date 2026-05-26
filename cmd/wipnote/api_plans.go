@@ -815,8 +815,13 @@ func planRenderHandler(database *sql.DB, wipnoteDir string) http.HandlerFunc {
 		// :root custom properties, slice-card controls, status accent borders,
 		// pills, and left-nav triage badges all resolve correctly inside the
 		// container instead of being dropped.
+		//
+		// CRITICAL: Use .Text() not .Html() — .Html() HTML-entity-escapes the
+		// CSS text, turning " into &#34;, which breaks selectors like
+		// input[type="radio"]. .Text() returns the raw text content, correct for
+		// <style> raw-text content elements.
 		doc.Find("style").Each(func(_ int, s *goquery.Selection) {
-			css, _ := s.Html()
+			css := s.Text()
 			if css == "" {
 				return
 			}

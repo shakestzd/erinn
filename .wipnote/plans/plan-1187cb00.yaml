@@ -15,12 +15,13 @@ design:
         contract, so "done" can mean "passed a guessed command". Issue #117.
     goals:
         - Project-owned, committed guard profile defining quality/completion/yolo guards with per-guard command, cwd, and applicability
-        - Gates load the profile before autodetection and record a signature so completions are tied to the user-approved contract (drift is detectable)
+        - Gates load the profile before autodetection and record a signature so completions are tied to the user-approved contract (drift is detectable and reported)
         - Frictionless interactive first-run discovery, with a documented authoring path; zero breakage for unconfigured projects
     constraints:
         - 'Back-compat: when no profile exists, preserve today''s manifest autodetection (autodetect + one-line hint); never break existing repos on upgrade'
         - Non-interactive contexts (CI, hooks, no TTY) must never block on discovery prompts
         - Profile is the committed canonical .wipnote/guard-profile.yaml; agent-facing docs live in plugin skill source, regenerated via build-ports, not hand-edited
+        - Guard cmd strings are executed by gates; the committed profile is a trust boundary — only a profile whose content signature matches its approved.signature is honored, else fall back to autodetect+hint and warn (a tampered/edited-but-unapproved profile is never silently run)
     approved: false
     comment: ""
 slices:
@@ -31,12 +32,16 @@ slices:
         Add internal/guardprofile/ owning the committed profile at
         .wipnote/guard-profile.yaml. Schema is phase-grouped:
         guards.{quality,completion,yolo} each a list of
-        {name, cmd, cwd, applies_when}, plus an approved:{signature,by,at} block.
+        {name, cmd, cwd, applies_when}, plus approved:{signature, by, at}.
         Provide Load(repoRoot) (missing file -> (nil,nil)), Validate, and
-        Signature(): SHA-256 over the CANONICALIZED applicable guards
-        (name+cmd+cwd+applies_when, order-stable) so comment/format churn does
-        not change it. Expose a small API the gate/yolo/discovery slices consume.
-        No gate wiring here (slice-2) and no discovery (slice-3).
+        Signature(profile). CANONICALIZATION (fixed, cross-platform): phases in
+        the fixed order quality,completion,yolo; within each, guards sorted by
+        name; each guard encoded as the NUL-joined tuple
+        name\0cmd\0cwd\0applies_when-normalized; applies_when paths sorted and
+        slash-normalized; the approved block is EXCLUDED from the hash. Signature =
+        "sha256:"+hex(sha256(canonical bytes)). Expose IsApproved(profile) =
+        (Signature(profile) == profile.approved.signature). No gate wiring (slice-2)
+        and no discovery (slice-3) here.
       why: |
         Durable follow-up to issue #117: wipnote should run project-defined
         guards rather than a fixed universe of language manifests. Every other
@@ -48,13 +53,15 @@ slices:
       deps: []
       done_when:
         - Load returns a typed profile from .wipnote/guard-profile.yaml; a missing file returns (nil, nil) with no error
-        - Signature() is stable across comment/whitespace/key-order changes and changes when any guard name/cmd/cwd/applies_when changes
+        - Signature() is byte-stable across comment/whitespace/key-order/guard-order changes and changes when any guard name/cmd/cwd/applies_when changes
+        - IsApproved() is false when the content signature does not equal approved.signature (edited-but-unapproved profile)
         - Validate rejects an unknown phase key and a guard missing cmd
       effort: M
       risk: Med
       tests: |
         Unit TestLoad_MissingFileIsEmpty; TestSignature_StableAcrossFormatting;
-        TestSignature_ChangesOnGuardEdit; TestValidate_RejectsUnknownPhase.
+        TestSignature_StableAcrossGuardReorder; TestSignature_ChangesOnGuardEdit;
+        TestIsApproved_FalseWhenContentDrifted; TestValidate_RejectsUnknownPhase.
         Use TMPDIR=/home/vscode/.gotest-tmp.
       complexity: complex
       approved: false
@@ -62,7 +69,17 @@ slices:
       questions:
         - id: q-applies-when
           text: What vocabulary does applies_when use in v1?
-          answer: 'v1: applies_when is an optional glob/path predicate (e.g. paths: ["web/**"]) plus an implicit ''always'' when omitted. Richer predicates (env, branch) deferred to keep the foundation small.'
+          answer: 'v1: applies_when is an optional path predicate {paths: [globs]} plus an implicit ''always'' when omitted. Richer predicates (env, branch) deferred to keep the foundation small.'
+      critic_revisions:
+        - source: haiku
+          severity: WARN
+          summary: Canonicalization was unspecified (sort order / multiline / parser variance); now fixed to phase-order + name-sort + NUL-joined tuples with approved block excluded.
+        - source: sonnet
+          severity: SUCCESS
+          summary: internal/guardprofile/ namespace is free — no existing guard/profile package to collide with or reinvent.
+        - source: haiku
+          severity: INFO
+          summary: Load returning (nil,nil) conflates 'absent' with 'empty'; resolved by IsApproved gating — an unconfigured repo has no approved.signature so it is never treated as an approved-empty contract.
       decisions_notes: |
         **State:** committed .wipnote/guard-profile.yaml (canonical, team-shared,
           survives DB rebuild). Rejected: gitignored/per-user-cache (no shared
@@ -71,72 +88,119 @@ slices:
           {name,cmd,cwd,applies_when}. Rejected: flat list+phases[] (lookup becomes
           a filter); per-subproject nesting (heaviest; per-guard cwd covers most
           monorepo cases now, can extend later).
-        **Signature:** SHA-256 over canonicalized applicable guards + approved
-          block {signature,by,at}. Rejected: whole-file SHA (comment edits =
-          false drift); per-guard hashes (heavier, whole-profile hash already
-          detects any change).
+        **Signature:** SHA-256 over the canonicalized guards (fixed phase order,
+          name-sorted, NUL-joined tuples, approved block excluded) — a precise
+          algorithm so the hash is deterministic across YAML parsers/platforms
+          (design-critic A: canonicalization was unspecified). Stored in the
+          profile's approved.signature; IsApproved compares recomputed vs stored,
+          making the committed file a trust boundary (constraint).
+        **Rejected:** whole-file SHA (comment edits = false drift); per-guard
+          hashes (heavier, whole-profile hash already detects any change).
     - id: slice-2
       num: 2
-      title: Apply guard profiles in check --gate, completion gates, and yolo (feat-3304de17)
+      title: Apply guard profiles across all gate sites + record signature (feat-3304de17)
       what: |
-        Teach `check --gate`, work-item completion gates (cmd/wipnote/
-        workitem_commit.go), and yolo session setup to call
-        guardprofile.Load(repoRoot) BEFORE today's manifest autodetection. When a
-        profile exists, run its phase-appropriate guards (quality/completion/yolo)
-        honoring per-guard cwd and applies_when. When absent, preserve today's
-        autodetection and emit a one-line hint to run discovery. Passing gate
-        records embed the profile Signature() and the guard names actually run, so
-        a completion is 'current' iff its recorded signature == the profile's
-        approved signature.
+        Add a shared resolver guardprofile.ResolveGuards(repoRoot, phase) used by
+        EVERY gate-running site so they load the profile before manifest
+        autodetection. The three sites (feasibility-verified): (a)
+        cmd/wipnote/check_gate_support.go detectManifest/runSessionGate
+        (check --gate + completion), (b) internal/hooks/task_completion_gate.go
+        runTaskCompletionGate (the yolo PostToolUse hook gate — this IS "yolo
+        gating", not yolo.go), (c) cmd/wipnote/agent_init.go advisory output.
+        When an APPROVED profile exists, run its phase guards (honoring cwd +
+        applies_when) instead of autodetected commands; when absent or unapproved,
+        keep today's autodetection and emit a one-line hint. Persist the profile
+        signature + guards_run on the gate record via NEW columns (see decisions)
+        and report a completion as stale when its recorded profile_signature !=
+        the current approved signature.
       why: |
         Ties completions to the user-approved project contract instead of guessed
-        manifest commands, and makes drift detectable (recorded sig vs approved).
+        manifest commands, and makes drift detectable (recorded sig vs approved)
+        across ALL gate paths, not just check --gate.
       files:
-        - cmd/wipnote/check.go
-        - cmd/wipnote/workitem_commit.go
-        - cmd/wipnote/guard_apply.go
-        - cmd/wipnote/guard_apply_test.go
+        - internal/guardprofile/resolve.go
+        - internal/guardprofile/resolve_test.go
+        - internal/db/gate_records.go
+        - internal/db/schema.go
+        - cmd/wipnote/check_gate_support.go
+        - cmd/wipnote/workitem.go
+        - internal/hooks/task_completion_gate.go
       deps:
         - 1
       done_when:
-        - With a profile present, check --gate runs the profile's quality guards (with cwd/applies_when) instead of autodetected commands
-        - A passing gate record stores the profile signature and the guard names run
-        - With no profile present, behavior matches today's autodetection plus a single stderr hint
-        - A completion whose recorded signature != the current approved signature is reported as stale/needs re-validation
+        - With an approved profile, check --gate runs the profile's quality guards (cwd/applies_when) instead of autodetected commands
+        - The yolo PostToolUse hook gate (internal/hooks/task_completion_gate.go) also resolves the profile before its DetectProjectType autodetection
+        - A passing gate record persists profile_signature and guards_run in new gate_records columns behind a schema migration (NOT reusing GateRecord.Signature, which is the integrity MAC)
+        - With no profile (or an unapproved one), behavior matches today's autodetection plus a single stderr hint
+        - A completion whose recorded profile_signature != the current approved signature is reported as stale/needs re-validation by check/status (reported, not auto-failed)
       effort: L
       risk: High
       tests: |
-        TestGate_UsesProfileWhenPresent; TestGate_FallsBackToAutodetectWhenAbsent;
-        TestGateRecord_EmbedsSignatureAndGuards; TestCompletion_StaleWhenSigDrifts.
-        Integration through the check/complete CLI. TMPDIR=/home/vscode/.gotest-tmp.
+        TestResolveGuards_PrefersApprovedProfile;
+        TestResolveGuards_FallsBackWhenAbsentOrUnapproved;
+        TestGateRecord_PersistsProfileSignatureAndGuards (new columns + migration);
+        TestHookGate_ResolvesProfile; TestCompletion_StaleWhenSigDrifts.
+        Integration through check/complete CLI. TMPDIR=/home/vscode/.gotest-tmp.
       complexity: complex
       approved: false
       comment: ""
       questions:
         - id: q-record-store
-          text: Where do gate records persist the signature?
-          answer: Extend the existing passing-gate record path used by check --gate / completion (the same record the provenance gate already consults) with signature + guards_run fields; no new store. Reconcile exact column/edge with cmd/wipnote/workitem_commit.go at implementation.
+          text: Exactly where/how is the profile signature persisted on the gate record?
+          answer: New nullable columns profile_signature + guards_run on the gate_records SQLite table behind a forward migration; GateRecord struct + InsertGateRecord + scanGateRecord extended. NOT GateRecord.Signature (that is the existing integrity MAC at gate_records.go:23, computed by EnsureSignature over signablePayload). Confirmed by feasibility critic.
+      critic_revisions:
+        - source: sonnet
+          severity: DANGER
+          summary: GateRecord.Signature (gate_records.go:23) is already an integrity MAC; resolved by adding new profile_signature+guards_run columns via migration instead of overloading it.
+        - source: sonnet
+          severity: WARN
+          summary: '''yolo session setup'' was wrong: yolo gates run via internal/hooks/task_completion_gate.go runTaskCompletionGate (DetectProjectType), a third autodetection site now in scope + files.'
+        - source: sonnet
+          severity: WARN
+          summary: Drift reporting needs a call site in cmd/wipnote/workitem.go (checkCompletionGateRecord/validateCompletionGateRecord) — added to files.
+        - source: haiku
+          severity: DANGER
+          summary: 'Stale-completion recovery workflow was undefined; resolved: drift is reported by check/status and cleared by re-running the gate or re-approving (read-only, no auto-revert).'
+        - source: sonnet
+          severity: SUCCESS
+          summary: 'Wiring targets confirmed: check.go:69 runSessionGate, check_gate_support.go persistGateRecord, workitem.go:302 checkCompletionGateRecord.'
       decisions_notes: |
-        **Trigger:** profile load is attempted first on every gate/yolo entry;
+        **Trigger:** every gate site calls guardprofile.ResolveGuards first;
           autodetection is the fallback, not the default (preserves back-compat).
-        **Payload:** gate record carries {signature, guards_run[]}. Drift compare =
-          recorded signature vs profile.approved.signature.
-        **Rejected:** replacing autodetection outright (breaks unconfigured repos);
-          strict refuse-without-profile (too aggressive for upgrade) — chose
-          autodetect+hint per Round-1.
+        **State (CORRECTED per feasibility-critic DANGER):** GateRecord.Signature
+          (internal/db/gate_records.go:23) is ALREADY an integrity MAC over the
+          record — it cannot carry the profile signature. Add NEW columns
+          profile_signature TEXT + guards_run TEXT(json) on gate_records via a new
+          schema migration (internal/db/schema.go), and extend InsertGateRecord/
+          scanGateRecord/the GateRecord struct. The drift compare reads the stored
+          profile_signature against guardprofile.Signature(currentApproved).
+        **Scope (per feasibility-critic WARN):** autodetection lives at THREE sites;
+          slice covers the two real GATE sites (check_gate_support + the hook gate)
+          so yolo per-commit gating actually honors the profile. agent_init.go is
+          advisory output only — updated to mention the profile if present, not a
+          gate, lowest priority.
+        **Stale recovery (per design-critic DANGER):** a drifted completion is
+          REPORTED by check/status, never auto-reverted; the user re-runs the gate
+          (which re-records the new signature) or re-approves. Re-validation is a
+          read, not a state mutation of the work item.
     - id: slice-3
       num: 3
       title: First-run guard discovery for yolo/check (feat-534f209f)
       what: |
-        On the first yolo or check --gate in an unconfigured project AND an
-        interactive (TTY/agent) session, inspect repo manifests, CI configs,
-        Makefile/scripts, docs, and subprojects to PROPOSE phase-grouped guards;
-        ask the user to approve or edit; on approval write
-        .wipnote/guard-profile.yaml with a computed approved:{signature,by,at} and
-        commit it (via runGitMutation, per the git-serialization track). In
-        non-interactive contexts (CI, hooks, no TTY) skip the prompt and fall back
-        to autodetect+hint so gates never hang. Discovery core (inspect->propose)
-        is a pure, testable function seamed from the I/O.
+        Add a PURE discovery core in internal/guardprofile/discover.go:
+        Propose(repoRoot, inputs) inspects manifests, CI configs, Makefile/scripts,
+        docs, and subprojects and returns a proposed phase-grouped profile struct —
+        it performs NO I/O writes and NO git. cmd/wipnote/guard_init.go owns the
+        side effects: gate TTY via the existing isTerminal() (cmd/wipnote/
+        relevant.go:100) — on first yolo/check in an unconfigured project AND an
+        interactive session, present Propose()'s output for approve/edit, then write
+        .wipnote/guard-profile.yaml with approved:{signature,by,at} (by = git
+        config user.name or session identity; at = now) and commit it via
+        runGitMutation. In non-interactive sessions skip entirely and fall back to
+        autodetect+hint (gates never hang). Same core is exposed as the explicit
+        `wipnote guard init` command. Proposal heuristic favors high-confidence
+        signals (declared CI/test scripts, Makefile targets) over guesses and marks
+        low-confidence proposals so the user prunes rather than invents.
       why: |
         Lets a project adopt a tailored contract with near-zero friction, which is
         what the autodetect+hint fallback points users toward.
@@ -148,41 +212,63 @@ slices:
       deps:
         - 1
       done_when:
-        - Discovery proposes go/node/python/Makefile guards from a fixture repo without writing anything until approved
-        - On approval the profile is written with a valid approved signature and staged/committed
-        - In a non-interactive session discovery is skipped and the gate falls back to autodetect+hint (never blocks)
+        - Propose() returns go/node/python/Makefile guards from a fixture repo as a struct, performing no writes (pure)
+        - guard_init.go writes the profile with a valid approved signature (by/at set) and stages/commits it via runGitMutation only after interactive approval
+        - In a non-interactive session (isTerminal()==false) discovery is skipped and the gate falls back to autodetect+hint (never blocks)
+        - Low-confidence proposals are flagged so the approval step is prune-not-invent
       effort: L
       risk: Med
       tests: |
-        TestDiscover_ProposesFromManifests (table-driven fixtures);
-        TestDiscover_NoWriteBeforeApproval; TestFirstRun_SkippedWhenNonInteractive.
-        Seam the TTY check + committer. TMPDIR=/home/vscode/.gotest-tmp.
+        TestPropose_FromManifests (table-driven fixtures, pure, no writes);
+        TestPropose_FlagsLowConfidence;
+        TestGuardInit_WritesApprovedAndCommits (committer seam);
+        TestFirstRun_SkippedWhenNonInteractive (isTerminal seam).
+        TMPDIR=/home/vscode/.gotest-tmp.
       complexity: complex
       approved: false
       comment: ""
       questions:
         - id: q-init-cmd
           text: Is there also an explicit command, or only the auto-trigger?
-          answer: 'Both: the same propose/approve/persist core is exposed as `wipnote guard init` for manual/agentic invocation; the first-run path just calls it automatically when interactive. This keeps a non-auto escape hatch and serves slice-4''s docs.'
+          answer: 'Both: the propose/approve/persist core is exposed as `wipnote guard init` for manual/agentic invocation; the first-run path calls it automatically only when interactive. Keeps a non-auto escape hatch and serves slice-4''s docs.'
+      critic_revisions:
+        - source: sonnet
+          severity: WARN
+          summary: internal/ discover.go cannot call runGitMutation (package main); resolved by a seam — discover.go is pure, cmd/wipnote/guard_init.go owns write+commit.
+        - source: sonnet
+          severity: SUCCESS
+          summary: Reuse existing isTerminal() at cmd/wipnote/relevant.go:100 (already used in workitem_create.go:331) for the non-interactive skip — no new TTY detector.
+        - source: haiku
+          severity: WARN
+          summary: '''Good guard'' criteria were undefined; resolved by confidence ranking + low-confidence flagging so first-run approval is prune-not-invent.'
+        - source: haiku
+          severity: INFO
+          summary: Concurrent first-run across sessions could double-trigger; the slice-1 advisory git lock + 'profile already present -> skip' check makes the second writer a no-op.
       decisions_notes: |
         **Trigger:** first gate/yolo in an unconfigured repo, interactive only;
           non-interactive auto-skips to autodetect+hint (gates must never hang).
-        **State:** writes the committed .wipnote/guard-profile.yaml from slice-1's
-          schema, computing approved.signature via slice-1 Signature().
-        **Rejected:** draft-file + explicit approve command (more steps, slower
-          adoption); explicit `guard init` only with no auto-trigger (drops the
-          first-run requirement of this feature). Both remain available as the
-          manual path documented in slice-4.
+        **Seam (per feasibility-critic WARN):** internal/guardprofile (internal/)
+          CANNOT call runGitMutation (package main). discover.go stays pure and
+          returns the proposal; cmd/wipnote/guard_init.go owns TTY gating
+          (reuse isTerminal() at relevant.go:100), the write, and the
+          runGitMutation commit (confirmed at git_mutation_lock.go:83).
+        **Proposal quality (per design-critic WARN):** rank by signal confidence;
+          flag low-confidence entries so approval is editorial pruning, preserving
+          the near-zero-friction goal.
+        **Rejected:** draft-file + explicit approve (more steps); auto-trigger-only
+          with no command (drops the manual/agentic path). Both available: the
+          same core powers `wipnote guard init`.
     - id: slice-4
       num: 4
       title: Guard authoring skill and docs (feat-1469fabc)
       what: |
-        Add a user-level skill/workflow plus documentation for defining guards
-        manually or agentically: the .wipnote/guard-profile.yaml schema reference,
+        Add a user-level skill at plugin/skills/guard-authoring/SKILL.md (shared
+        source, regenerated to codex/gemini via `wipnote plugin build-ports`) plus
+        a standalone hand-maintained docs/guard-profiles.md. Cover: the schema
+        reference (phases, per-guard name/cmd/cwd/applies_when, approved block),
         polyglot/monorepo examples (per-guard cwd, applies_when paths), the
-        approve/signature model, and the safe-default behavior when no profile
-        exists. Skill source lives in plugin/skills/ (shared asset) and is
-        regenerated to all targets via `wipnote plugin build-ports`.
+        approve/signature/drift model and trust boundary, the `wipnote guard init`
+        flow, and the safe default (autodetect+hint) when no profile exists.
       why: |
         Makes the contract usable without reverse-engineering the schema, and
         gives agents a documented authoring workflow (polyglot + safe defaults).
@@ -193,8 +279,8 @@ slices:
         - 1
       done_when:
         - Skill documents the full schema (phases, per-guard fields, approved block) with at least one polyglot/monorepo example
-        - Docs state the no-profile safe default (autodetect+hint) and the approve/signature/drift model
-        - wipnote plugin build-ports regenerates the codex/gemini trees with no hand-edits to generated files
+        - Docs state the no-profile safe default (autodetect+hint), the approve/signature/drift model, and the trust boundary
+        - wipnote plugin build-ports regenerates the codex/gemini trees from the SKILL.md source with no hand-edits to generated files (docs/guard-profiles.md is standalone and NOT regenerated)
       effort: M
       risk: Low
       tests: |
@@ -207,12 +293,52 @@ slices:
         - id: q-skill-vs-command
           text: Is the authoring path a skill, a command, or both?
           answer: A skill (guidance/workflow) that points at the `wipnote guard init` command from slice-3 for the mechanical write+approve. Skill = how to think about guards; command = how to persist them.
+      critic_revisions:
+        - source: sonnet
+          severity: INFO
+          summary: docs/guard-profiles.md is NOT under plugin/, so build-ports won't regenerate it; done_when corrected to scope build-ports to the SKILL.md only.
+        - source: sonnet
+          severity: SUCCESS
+          summary: plugin/skills/<name>/SKILL.md convention and build-ports command (plugin_build_ports.go:87) both confirmed to exist.
       decisions_notes: |
-        **State:** skill source in plugin/skills/guard-authoring/ (shared), docs in
-          docs/. Generated codex/gemini trees are rebuilt via build-ports, never
+        **State:** skill source in plugin/skills/guard-authoring/ (shared, confirmed
+          convention; build-ports at plugin_build_ports.go:87), docs in docs/.
+          Generated codex/gemini trees are rebuilt via build-ports, never
           hand-edited (per the plugin single-source rule).
-        **Payload:** schema reference + polyglot examples + approve/signature model
-          + the autodetect+hint safe default from Round-1.
+        **Payload:** schema reference + polyglot examples + approve/signature/drift
+          model + trust boundary + the autodetect+hint safe default from Round-1.
         **Rejected:** documenting in AGENTS.md/CLAUDE.md (those describe, don't
           configure; agent-facing guidance belongs in plugin skill source).
 questions: []
+critique:
+    reviewed_at: "2026-05-26"
+    reviewers:
+        - Haiku (design)
+        - Sonnet (feasibility)
+    assumptions: []
+    critics: []
+    risks:
+        - risk: Profile signature collides with the existing GateRecord.Signature integrity MAC
+          severity: High
+          mitigation: New profile_signature + guards_run columns via a forward migration; do not overload GateRecord.Signature (slice-2).
+        - risk: yolo per-commit gating (PostToolUse hook) keeps running guessed commands because it was outside scope
+          severity: High
+          mitigation: slice-2 now wires internal/hooks/task_completion_gate.go through the shared ResolveGuards resolver.
+        - risk: Committed cmd strings are executed by gates (supply-chain footgun)
+          severity: Medium
+          mitigation: 'Trust boundary: only a profile whose content signature matches approved.signature is honored; edited-but-unapproved profiles fall back to autodetect+hint with a warning.'
+        - risk: Drift detection becomes a one-way flag with no recovery
+          severity: Medium
+          mitigation: Stale completions are reported by check/status (not auto-failed); cleared by re-running the gate or re-approving.
+    synthesis: |
+        Both DANGER findings are resolved in the revised plan: the gate-record
+        signature now uses dedicated columns behind a migration (not the existing
+        integrity MAC), and the stale-completion recovery path is defined as a
+        reported, read-only state cleared by re-run/re-approve. Two High risks remain
+        as deliberate scope the reviewer should confirm: (1) slice-2 now spans three
+        files it must touch atomically (db migration + check path + hook gate) — it is
+        the heaviest slice and the one to scrutinize for over-scope; (2) the
+        execute-arbitrary-cmd trust boundary relies entirely on the signature/approval
+        gate, so the reviewer should confirm the "unapproved profile -> never run,
+        fall back + warn" rule is acceptable. agent_init.go is intentionally left as
+        advisory-only, not a gate.

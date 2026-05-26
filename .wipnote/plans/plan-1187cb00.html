@@ -411,7 +411,7 @@ body.right-rail-collapsed .sidebar-reopen{display:flex}
       <a href="#slice-1" class="slice-nav-item" data-slice-nav="1">
         <span class="slice-nav-dot" data-approval="pending" data-dot-for="1"></span>
         <span>#1 Project guard profile config: schema, loader, signature (feat-29e16b20)</span>
-        
+        <span class="nav-triage-badge nav-triage-issue" title="3 issue(s)">&#9888;3</span>
         <span class="nav-triage-badge nav-triage-question" title="1 open question(s)">?1</span>
       </a>
     </li>
@@ -419,8 +419,8 @@ body.right-rail-collapsed .sidebar-reopen{display:flex}
     <li>
       <a href="#slice-2" class="slice-nav-item" data-slice-nav="2">
         <span class="slice-nav-dot" data-approval="pending" data-dot-for="2"></span>
-        <span>#2 Apply guard profiles in check --gate, completion gates, and yolo (feat-3304de17)</span>
-        
+        <span>#2 Apply guard profiles across all gate sites + record signature (feat-3304de17)</span>
+        <span class="nav-triage-badge nav-triage-issue" title="5 issue(s)">&#9888;5</span>
         <span class="nav-triage-badge nav-triage-question" title="1 open question(s)">?1</span>
       </a>
     </li>
@@ -429,7 +429,7 @@ body.right-rail-collapsed .sidebar-reopen{display:flex}
       <a href="#slice-3" class="slice-nav-item" data-slice-nav="3">
         <span class="slice-nav-dot" data-approval="pending" data-dot-for="3"></span>
         <span>#3 First-run guard discovery for yolo/check (feat-534f209f)</span>
-        
+        <span class="nav-triage-badge nav-triage-issue" title="4 issue(s)">&#9888;4</span>
         <span class="nav-triage-badge nav-triage-question" title="1 open question(s)">?1</span>
       </a>
     </li>
@@ -438,7 +438,7 @@ body.right-rail-collapsed .sidebar-reopen{display:flex}
       <a href="#slice-4" class="slice-nav-item" data-slice-nav="4">
         <span class="slice-nav-dot" data-approval="pending" data-dot-for="4"></span>
         <span>#4 Guard authoring skill and docs (feat-1469fabc)</span>
-        
+        <span class="nav-triage-badge nav-triage-issue" title="2 issue(s)">&#9888;2</span>
         <span class="nav-triage-badge nav-triage-question" title="1 open question(s)">?1</span>
       </a>
     </li>
@@ -481,7 +481,7 @@ body.right-rail-collapsed .sidebar-reopen{display:flex}
   <h2>Dependency Graph</h2>
   <div id="graph-data" style="display:none">
     <div data-node="1" data-name="Project guard profile config: schema, loader, signature (feat-29e16b20)" data-status="pending" data-deps="" data-files="3"></div>
-    <div data-node="2" data-name="Apply guard profiles in check --gate, completion gates, and yolo (feat-3304de17)" data-status="pending" data-deps="1" data-files="4"></div>
+    <div data-node="2" data-name="Apply guard profiles across all gate sites + record signature (feat-3304de17)" data-status="pending" data-deps="1" data-files="7"></div>
     <div data-node="3" data-name="First-run guard discovery for yolo/check (feat-534f209f)" data-status="pending" data-deps="1" data-files="4"></div>
     <div data-node="4" data-name="Guard authoring skill and docs (feat-1469fabc)" data-status="pending" data-deps="1" data-files="2"></div>
     
@@ -506,7 +506,7 @@ contract, so &#34;done&#34; can mean &#34;passed a guessed command&#34;. Issue #
 <h4>Goals</h4>
 <ol>
 <li data-markdown>Project-owned, committed guard profile defining quality/completion/yolo guards with per-guard command, cwd, and applicability</li>
-<li data-markdown>Gates load the profile before autodetection and record a signature so completions are tied to the user-approved contract (drift is detectable)</li>
+<li data-markdown>Gates load the profile before autodetection and record a signature so completions are tied to the user-approved contract (drift is detectable and reported)</li>
 <li data-markdown>Frictionless interactive first-run discovery, with a documented authoring path; zero breakage for unconfigured projects</li>
 </ol>
 <h4>Constraints</h4>
@@ -514,6 +514,7 @@ contract, so &#34;done&#34; can mean &#34;passed a guessed command&#34;. Issue #
 <li data-markdown>Back-compat: when no profile exists, preserve today&#39;s manifest autodetection (autodetect + one-line hint); never break existing repos on upgrade</li>
 <li data-markdown>Non-interactive contexts (CI, hooks, no TTY) must never block on discovery prompts</li>
 <li data-markdown>Profile is the committed canonical .wipnote/guard-profile.yaml; agent-facing docs live in plugin skill source, regenerated via build-ports, not hand-edited</li>
+<li data-markdown>Guard cmd strings are executed by gates; the committed profile is a trust boundary — only a profile whose content signature matches its approved.signature is honored, else fall back to autodetect+hint and warn (a tampered/edited-but-unapproved profile is never silently run)</li>
 </ul>
 
     <div class="approval-row">
@@ -544,7 +545,7 @@ contract, so &#34;done&#34; can mean &#34;passed a guessed command&#34;. Issue #
           <span class="badge badge-revision badge-sm badge-complexity" title="Complexity: complex">Complex</span>
           
           <span class="badge badge-pending badge-sm slice-approval-badge" data-badge-for="slice-1">Pending</span>
-          
+          <span class="badge badge-sm badge-issues" title="3 critic issue(s)">3 issues</span>
           <span class="badge badge-sm badge-questions" title="1 open question(s)">1 Q</span>
         </span>
         <span class="slice-actions" onclick="event.stopPropagation()">
@@ -579,12 +580,16 @@ contract, so &#34;done&#34; can mean &#34;passed a guessed command&#34;. Issue #
           <div class="markdown-block reveal-content serif-prose"><p>Add internal/guardprofile/ owning the committed profile at
 .wipnote/guard-profile.yaml. Schema is phase-grouped:
 guards.{quality,completion,yolo} each a list of
-{name, cmd, cwd, applies_when}, plus an approved:{signature,by,at} block.
+{name, cmd, cwd, applies_when}, plus approved:{signature, by, at}.
 Provide Load(repoRoot) (missing file -&gt; (nil,nil)), Validate, and
-Signature(): SHA-256 over the CANONICALIZED applicable guards
-(name+cmd+cwd+applies_when, order-stable) so comment/format churn does
-not change it. Expose a small API the gate/yolo/discovery slices consume.
-No gate wiring here (slice-2) and no discovery (slice-3).</p>
+Signature(profile). CANONICALIZATION (fixed, cross-platform): phases in
+the fixed order quality,completion,yolo; within each, guards sorted by
+name; each guard encoded as the NUL-joined tuple
+name\0cmd\0cwd\0applies_when-normalized; applies_when paths sorted and
+slash-normalized; the approved block is EXCLUDED from the hash. Signature =
+&#34;sha256:&#34;+hex(sha256(canonical bytes)). Expose IsApproved(profile) =
+(Signature(profile) == profile.approved.signature). No gate wiring (slice-2)
+and no discovery (slice-3) here.</p>
 </div>
           <label for="slice-1-what-reveal" class="reveal-label">Show full description</label>
           
@@ -613,7 +618,7 @@ slice reads or writes this schema, so it is the foundation one-way door.</p>
       
       <div class="slice-field">
         <div class="slice-field-label">Done when</div>
-        <ul class="slice-done-list"><li>Load returns a typed profile from .wipnote/guard-profile.yaml; a missing file returns (nil, nil) with no error</li><li>Signature() is stable across comment/whitespace/key-order changes and changes when any guard name/cmd/cwd/applies_when changes</li><li>Validate rejects an unknown phase key and a guard missing cmd</li></ul>
+        <ul class="slice-done-list"><li>Load returns a typed profile from .wipnote/guard-profile.yaml; a missing file returns (nil, nil) with no error</li><li>Signature() is byte-stable across comment/whitespace/key-order/guard-order changes and changes when any guard name/cmd/cwd/applies_when changes</li><li>IsApproved() is false when the content signature does not equal approved.signature (edited-but-unapproved profile)</li><li>Validate rejects an unknown phase key and a guard missing cmd</li></ul>
       </div>
       
     
@@ -631,10 +636,14 @@ contract, lost on cache clear).
 {name,cmd,cwd,applies_when}. Rejected: flat list+phases[] (lookup becomes
 a filter); per-subproject nesting (heaviest; per-guard cwd covers most
 monorepo cases now, can extend later).
-<strong>Signature:</strong> SHA-256 over canonicalized applicable guards + approved
-block {signature,by,at}. Rejected: whole-file SHA (comment edits =
-false drift); per-guard hashes (heavier, whole-profile hash already
-detects any change).</p>
+<strong>Signature:</strong> SHA-256 over the canonicalized guards (fixed phase order,
+name-sorted, NUL-joined tuples, approved block excluded) — a precise
+algorithm so the hash is deterministic across YAML parsers/platforms
+(design-critic A: canonicalization was unspecified). Stored in the
+profile&#39;s approved.signature; IsApproved compares recomputed vs stored,
+making the committed file a trust boundary (constraint).
+<strong>Rejected:</strong> whole-file SHA (comment edits = false drift); per-guard
+hashes (heavier, whole-profile hash already detects any change).</p>
 </div>
         <label for="slice-1-decisions-reveal" class="reveal-label">Show full decisions</label>
         
@@ -649,7 +658,8 @@ detects any change).</p>
         
         
         <div class="markdown-block slice-tests"><p>Unit TestLoad_MissingFileIsEmpty; TestSignature_StableAcrossFormatting;
-TestSignature_ChangesOnGuardEdit; TestValidate_RejectsUnknownPhase.
+TestSignature_StableAcrossGuardReorder; TestSignature_ChangesOnGuardEdit;
+TestIsApproved_FalseWhenContentDrifted; TestValidate_RejectsUnknownPhase.
 Use TMPDIR=/home/vscode/.gotest-tmp.</p>
 </div>
         
@@ -657,6 +667,31 @@ Use TMPDIR=/home/vscode/.gotest-tmp.</p>
     </div>
     
 
+    
+    <div class="slice-field slice-critic-revisions">
+      <div class="slice-field-label">Critic Revisions</div>
+      <div class="slice-field-value">
+        
+        <div class="critic-revision">
+          <span class="badge badge-pending critic-revision-badge">WARN</span>
+          <span class="critic-revision-source">haiku</span>
+          <span class="critic-revision-summary">Canonicalization was unspecified (sort order / multiline / parser variance); now fixed to phase-order &#43; name-sort &#43; NUL-joined tuples with approved block excluded.</span>
+        </div>
+        
+        <div class="critic-revision">
+          <span class="badge badge-pending critic-revision-badge">SUCCESS</span>
+          <span class="critic-revision-source">sonnet</span>
+          <span class="critic-revision-summary">internal/guardprofile/ namespace is free — no existing guard/profile package to collide with or reinvent.</span>
+        </div>
+        
+        <div class="critic-revision">
+          <span class="badge badge-pending critic-revision-badge">INFO</span>
+          <span class="critic-revision-source">haiku</span>
+          <span class="critic-revision-summary">Load returning (nil,nil) conflates &#39;absent&#39; with &#39;empty&#39;; resolved by IsApproved gating — an unconfigured repo has no approved.signature so it is never treated as an approved-empty contract.</span>
+        </div>
+        
+      </div>
+    </div>
     
 
     
@@ -671,7 +706,7 @@ Use TMPDIR=/home/vscode/.gotest-tmp.</p>
           <textarea
             data-section="slice-1-question-q-applies-when"
             data-comment-for="slice-1-question-q-applies-when"
-            placeholder="Answer question q-applies-when...">v1: applies_when is an optional glob/path predicate (e.g. paths: [&#34;web/**&#34;]) plus an implicit &#39;always&#39; when omitted. Richer predicates (env, branch) deferred to keep the foundation small.</textarea>
+            placeholder="Answer question q-applies-when...">v1: applies_when is an optional path predicate {paths: [globs]} plus an implicit &#39;always&#39; when omitted. Richer predicates (env, branch) deferred to keep the foundation small.</textarea>
           
         </div>
         
@@ -690,11 +725,11 @@ Use TMPDIR=/home/vscode/.gotest-tmp.</p>
   </div>
 </details>
 <details class="slice-card" id="slice-2" data-slice="2" data-slice-name="slice-2" data-status="pending" data-approval="pending">
-  <summary class="slice-summary" aria-label="Slice 2: Apply guard profiles in check --gate, completion gates, and yolo (feat-3304de17)">
+  <summary class="slice-summary" aria-label="Slice 2: Apply guard profiles across all gate sites &#43; record signature (feat-3304de17)">
     <span class="slice-num">#2</span>
     <span class="slice-title-col">
-      <span class="slice-name">Apply guard profiles in check --gate, completion gates, and yolo (feat-3304de17)</span>
-      <span class="slice-preview">Teach check --gate, work-item completion gates (cmd/wipnote/</span>
+      <span class="slice-name">Apply guard profiles across all gate sites &#43; record signature (feat-3304de17)</span>
+      <span class="slice-preview">Add a shared resolver guardprofile.ResolveGuards(repoRoot, phase) used by</span>
       <span class="slice-meta-row">
         <span class="slice-summary-badges">
           <span class="badge badge-blocked badge-sm">L</span>
@@ -702,7 +737,7 @@ Use TMPDIR=/home/vscode/.gotest-tmp.</p>
           <span class="badge badge-revision badge-sm badge-complexity" title="Complexity: complex">Complex</span>
           
           <span class="badge badge-pending badge-sm slice-approval-badge" data-badge-for="slice-2">Pending</span>
-          
+          <span class="badge badge-sm badge-issues" title="5 critic issue(s)">5 issues</span>
           <span class="badge badge-sm badge-questions" title="1 open question(s)">1 Q</span>
         </span>
         <span class="slice-actions" onclick="event.stopPropagation()">
@@ -734,15 +769,19 @@ Use TMPDIR=/home/vscode/.gotest-tmp.</p>
         <div class="slice-field-value">
           
           <input type="checkbox" id="slice-2-what-reveal" class="reveal-toggle">
-          <div class="markdown-block reveal-content serif-prose"><p>Teach <code>check --gate</code>, work-item completion gates (cmd/wipnote/
-workitem_commit.go), and yolo session setup to call
-guardprofile.Load(repoRoot) BEFORE today&#39;s manifest autodetection. When a
-profile exists, run its phase-appropriate guards (quality/completion/yolo)
-honoring per-guard cwd and applies_when. When absent, preserve today&#39;s
-autodetection and emit a one-line hint to run discovery. Passing gate
-records embed the profile Signature() and the guard names actually run, so
-a completion is &#39;current&#39; iff its recorded signature == the profile&#39;s
-approved signature.</p>
+          <div class="markdown-block reveal-content serif-prose"><p>Add a shared resolver guardprofile.ResolveGuards(repoRoot, phase) used by
+EVERY gate-running site so they load the profile before manifest
+autodetection. The three sites (feasibility-verified): (a)
+cmd/wipnote/check_gate_support.go detectManifest/runSessionGate
+(check --gate + completion), (b) internal/hooks/task_completion_gate.go
+runTaskCompletionGate (the yolo PostToolUse hook gate — this IS &#34;yolo
+gating&#34;, not yolo.go), (c) cmd/wipnote/agent_init.go advisory output.
+When an APPROVED profile exists, run its phase guards (honoring cwd +
+applies_when) instead of autodetected commands; when absent or unapproved,
+keep today&#39;s autodetection and emit a one-line hint. Persist the profile
+signature + guards_run on the gate record via NEW columns (see decisions)
+and report a completion as stale when its recorded profile_signature !=
+the current approved signature.</p>
 </div>
           <label for="slice-2-what-reveal" class="reveal-label">Show full description</label>
           
@@ -755,7 +794,8 @@ approved signature.</p>
         <div class="slice-field-value">
           
           <div class="markdown-block serif-prose"><p>Ties completions to the user-approved project contract instead of guessed
-manifest commands, and makes drift detectable (recorded sig vs approved).</p>
+manifest commands, and makes drift detectable (recorded sig vs approved)
+across ALL gate paths, not just check --gate.</p>
 </div>
           
         </div>
@@ -764,13 +804,13 @@ manifest commands, and makes drift detectable (recorded sig vs approved).</p>
       
       <div class="slice-field">
         <div class="slice-field-label">Files</div>
-        <div class="slice-field-value"><code>cmd/wipnote/check.go, cmd/wipnote/workitem_commit.go, cmd/wipnote/guard_apply.go, cmd/wipnote/guard_apply_test.go</code></div>
+        <div class="slice-field-value"><code>internal/guardprofile/resolve.go, internal/guardprofile/resolve_test.go, internal/db/gate_records.go, internal/db/schema.go, cmd/wipnote/check_gate_support.go, cmd/wipnote/workitem.go, internal/hooks/task_completion_gate.go</code></div>
       </div>
       
       
       <div class="slice-field">
         <div class="slice-field-label">Done when</div>
-        <ul class="slice-done-list"><li>With a profile present, check --gate runs the profile&#39;s quality guards (with cwd/applies_when) instead of autodetected commands</li><li>A passing gate record stores the profile signature and the guard names run</li><li>With no profile present, behavior matches today&#39;s autodetection plus a single stderr hint</li><li>A completion whose recorded signature != the current approved signature is reported as stale/needs re-validation</li></ul>
+        <ul class="slice-done-list"><li>With an approved profile, check --gate runs the profile&#39;s quality guards (cwd/applies_when) instead of autodetected commands</li><li>The yolo PostToolUse hook gate (internal/hooks/task_completion_gate.go) also resolves the profile before its DetectProjectType autodetection</li><li>A passing gate record persists profile_signature and guards_run in new gate_records columns behind a schema migration (NOT reusing GateRecord.Signature, which is the integrity MAC)</li><li>With no profile (or an unapproved one), behavior matches today&#39;s autodetection plus a single stderr hint</li><li>A completion whose recorded profile_signature != the current approved signature is reported as stale/needs re-validation by check/status (reported, not auto-failed)</li></ul>
       </div>
       
     
@@ -781,13 +821,24 @@ manifest commands, and makes drift detectable (recorded sig vs approved).</p>
       <div class="slice-field-value">
         
         <input type="checkbox" id="slice-2-decisions-reveal" class="reveal-toggle">
-        <div class="markdown-block reveal-content serif-prose"><p><strong>Trigger:</strong> profile load is attempted first on every gate/yolo entry;
+        <div class="markdown-block reveal-content serif-prose"><p><strong>Trigger:</strong> every gate site calls guardprofile.ResolveGuards first;
 autodetection is the fallback, not the default (preserves back-compat).
-<strong>Payload:</strong> gate record carries {signature, guards_run[]}. Drift compare =
-recorded signature vs profile.approved.signature.
-<strong>Rejected:</strong> replacing autodetection outright (breaks unconfigured repos);
-strict refuse-without-profile (too aggressive for upgrade) — chose
-autodetect+hint per Round-1.</p>
+<strong>State (CORRECTED per feasibility-critic DANGER):</strong> GateRecord.Signature
+(internal/db/gate_records.go:23) is ALREADY an integrity MAC over the
+record — it cannot carry the profile signature. Add NEW columns
+profile_signature TEXT + guards_run TEXT(json) on gate_records via a new
+schema migration (internal/db/schema.go), and extend InsertGateRecord/
+scanGateRecord/the GateRecord struct. The drift compare reads the stored
+profile_signature against guardprofile.Signature(currentApproved).
+<strong>Scope (per feasibility-critic WARN):</strong> autodetection lives at THREE sites;
+slice covers the two real GATE sites (check_gate_support + the hook gate)
+so yolo per-commit gating actually honors the profile. agent_init.go is
+advisory output only — updated to mention the profile if present, not a
+gate, lowest priority.
+<strong>Stale recovery (per design-critic DANGER):</strong> a drifted completion is
+REPORTED by check/status, never auto-reverted; the user re-runs the gate
+(which re-records the new signature) or re-approves. Re-validation is a
+read, not a state mutation of the work item.</p>
 </div>
         <label for="slice-2-decisions-reveal" class="reveal-label">Show full decisions</label>
         
@@ -801,15 +852,54 @@ autodetect+hint per Round-1.</p>
       <div class="slice-field-value">
         
         
-        <div class="markdown-block slice-tests"><p>TestGate_UsesProfileWhenPresent; TestGate_FallsBackToAutodetectWhenAbsent;
-TestGateRecord_EmbedsSignatureAndGuards; TestCompletion_StaleWhenSigDrifts.
-Integration through the check/complete CLI. TMPDIR=/home/vscode/.gotest-tmp.</p>
+        <div class="markdown-block slice-tests"><p>TestResolveGuards_PrefersApprovedProfile;
+TestResolveGuards_FallsBackWhenAbsentOrUnapproved;
+TestGateRecord_PersistsProfileSignatureAndGuards (new columns + migration);
+TestHookGate_ResolvesProfile; TestCompletion_StaleWhenSigDrifts.
+Integration through check/complete CLI. TMPDIR=/home/vscode/.gotest-tmp.</p>
 </div>
         
       </div>
     </div>
     
 
+    
+    <div class="slice-field slice-critic-revisions">
+      <div class="slice-field-label">Critic Revisions</div>
+      <div class="slice-field-value">
+        
+        <div class="critic-revision">
+          <span class="badge badge-blocked critic-revision-badge">DANGER</span>
+          <span class="critic-revision-source">sonnet</span>
+          <span class="critic-revision-summary">GateRecord.Signature (gate_records.go:23) is already an integrity MAC; resolved by adding new profile_signature&#43;guards_run columns via migration instead of overloading it.</span>
+        </div>
+        
+        <div class="critic-revision">
+          <span class="badge badge-pending critic-revision-badge">WARN</span>
+          <span class="critic-revision-source">sonnet</span>
+          <span class="critic-revision-summary">&#39;yolo session setup&#39; was wrong: yolo gates run via internal/hooks/task_completion_gate.go runTaskCompletionGate (DetectProjectType), a third autodetection site now in scope &#43; files.</span>
+        </div>
+        
+        <div class="critic-revision">
+          <span class="badge badge-pending critic-revision-badge">WARN</span>
+          <span class="critic-revision-source">sonnet</span>
+          <span class="critic-revision-summary">Drift reporting needs a call site in cmd/wipnote/workitem.go (checkCompletionGateRecord/validateCompletionGateRecord) — added to files.</span>
+        </div>
+        
+        <div class="critic-revision">
+          <span class="badge badge-blocked critic-revision-badge">DANGER</span>
+          <span class="critic-revision-source">haiku</span>
+          <span class="critic-revision-summary">Stale-completion recovery workflow was undefined; resolved: drift is reported by check/status and cleared by re-running the gate or re-approving (read-only, no auto-revert).</span>
+        </div>
+        
+        <div class="critic-revision">
+          <span class="badge badge-pending critic-revision-badge">SUCCESS</span>
+          <span class="critic-revision-source">sonnet</span>
+          <span class="critic-revision-summary">Wiring targets confirmed: check.go:69 runSessionGate, check_gate_support.go persistGateRecord, workitem.go:302 checkCompletionGateRecord.</span>
+        </div>
+        
+      </div>
+    </div>
     
 
     
@@ -818,13 +908,13 @@ Integration through the check/complete CLI. TMPDIR=/home/vscode/.gotest-tmp.</p>
       <div class="slice-field-value">
         
         <div class="question-block slice-question-block">
-          <p>Where do gate records persist the signature?</p>
+          <p>Exactly where/how is the profile signature persisted on the gate record?</p>
           
           
           <textarea
             data-section="slice-2-question-q-record-store"
             data-comment-for="slice-2-question-q-record-store"
-            placeholder="Answer question q-record-store...">Extend the existing passing-gate record path used by check --gate / completion (the same record the provenance gate already consults) with signature &#43; guards_run fields; no new store. Reconcile exact column/edge with cmd/wipnote/workitem_commit.go at implementation.</textarea>
+            placeholder="Answer question q-record-store...">New nullable columns profile_signature &#43; guards_run on the gate_records SQLite table behind a forward migration; GateRecord struct &#43; InsertGateRecord &#43; scanGateRecord extended. NOT GateRecord.Signature (that is the existing integrity MAC at gate_records.go:23, computed by EnsureSignature over signablePayload). Confirmed by feasibility critic.</textarea>
           
         </div>
         
@@ -847,7 +937,7 @@ Integration through the check/complete CLI. TMPDIR=/home/vscode/.gotest-tmp.</p>
     <span class="slice-num">#3</span>
     <span class="slice-title-col">
       <span class="slice-name">First-run guard discovery for yolo/check (feat-534f209f)</span>
-      <span class="slice-preview">On the first yolo or check --gate in an unconfigured project AND an</span>
+      <span class="slice-preview">Add a PURE discovery core in internal/guardprofile/discover.go:</span>
       <span class="slice-meta-row">
         <span class="slice-summary-badges">
           <span class="badge badge-blocked badge-sm">L</span>
@@ -855,7 +945,7 @@ Integration through the check/complete CLI. TMPDIR=/home/vscode/.gotest-tmp.</p>
           <span class="badge badge-revision badge-sm badge-complexity" title="Complexity: complex">Complex</span>
           
           <span class="badge badge-pending badge-sm slice-approval-badge" data-badge-for="slice-3">Pending</span>
-          
+          <span class="badge badge-sm badge-issues" title="4 critic issue(s)">4 issues</span>
           <span class="badge badge-sm badge-questions" title="1 open question(s)">1 Q</span>
         </span>
         <span class="slice-actions" onclick="event.stopPropagation()">
@@ -887,15 +977,20 @@ Integration through the check/complete CLI. TMPDIR=/home/vscode/.gotest-tmp.</p>
         <div class="slice-field-value">
           
           <input type="checkbox" id="slice-3-what-reveal" class="reveal-toggle">
-          <div class="markdown-block reveal-content serif-prose"><p>On the first yolo or check --gate in an unconfigured project AND an
-interactive (TTY/agent) session, inspect repo manifests, CI configs,
-Makefile/scripts, docs, and subprojects to PROPOSE phase-grouped guards;
-ask the user to approve or edit; on approval write
-.wipnote/guard-profile.yaml with a computed approved:{signature,by,at} and
-commit it (via runGitMutation, per the git-serialization track). In
-non-interactive contexts (CI, hooks, no TTY) skip the prompt and fall back
-to autodetect+hint so gates never hang. Discovery core (inspect-&gt;propose)
-is a pure, testable function seamed from the I/O.</p>
+          <div class="markdown-block reveal-content serif-prose"><p>Add a PURE discovery core in internal/guardprofile/discover.go:
+Propose(repoRoot, inputs) inspects manifests, CI configs, Makefile/scripts,
+docs, and subprojects and returns a proposed phase-grouped profile struct —
+it performs NO I/O writes and NO git. cmd/wipnote/guard_init.go owns the
+side effects: gate TTY via the existing isTerminal() (cmd/wipnote/
+relevant.go:100) — on first yolo/check in an unconfigured project AND an
+interactive session, present Propose()&#39;s output for approve/edit, then write
+.wipnote/guard-profile.yaml with approved:{signature,by,at} (by = git
+config user.name or session identity; at = now) and commit it via
+runGitMutation. In non-interactive sessions skip entirely and fall back to
+autodetect+hint (gates never hang). Same core is exposed as the explicit
+<code>wipnote guard init</code> command. Proposal heuristic favors high-confidence
+signals (declared CI/test scripts, Makefile targets) over guesses and marks
+low-confidence proposals so the user prunes rather than invents.</p>
 </div>
           <label for="slice-3-what-reveal" class="reveal-label">Show full description</label>
           
@@ -923,7 +1018,7 @@ what the autodetect+hint fallback points users toward.</p>
       
       <div class="slice-field">
         <div class="slice-field-label">Done when</div>
-        <ul class="slice-done-list"><li>Discovery proposes go/node/python/Makefile guards from a fixture repo without writing anything until approved</li><li>On approval the profile is written with a valid approved signature and staged/committed</li><li>In a non-interactive session discovery is skipped and the gate falls back to autodetect&#43;hint (never blocks)</li></ul>
+        <ul class="slice-done-list"><li>Propose() returns go/node/python/Makefile guards from a fixture repo as a struct, performing no writes (pure)</li><li>guard_init.go writes the profile with a valid approved signature (by/at set) and stages/commits it via runGitMutation only after interactive approval</li><li>In a non-interactive session (isTerminal()==false) discovery is skipped and the gate falls back to autodetect&#43;hint (never blocks)</li><li>Low-confidence proposals are flagged so the approval step is prune-not-invent</li></ul>
       </div>
       
     
@@ -936,12 +1031,17 @@ what the autodetect+hint fallback points users toward.</p>
         <input type="checkbox" id="slice-3-decisions-reveal" class="reveal-toggle">
         <div class="markdown-block reveal-content serif-prose"><p><strong>Trigger:</strong> first gate/yolo in an unconfigured repo, interactive only;
 non-interactive auto-skips to autodetect+hint (gates must never hang).
-<strong>State:</strong> writes the committed .wipnote/guard-profile.yaml from slice-1&#39;s
-schema, computing approved.signature via slice-1 Signature().
-<strong>Rejected:</strong> draft-file + explicit approve command (more steps, slower
-adoption); explicit <code>guard init</code> only with no auto-trigger (drops the
-first-run requirement of this feature). Both remain available as the
-manual path documented in slice-4.</p>
+<strong>Seam (per feasibility-critic WARN):</strong> internal/guardprofile (internal/)
+CANNOT call runGitMutation (package main). discover.go stays pure and
+returns the proposal; cmd/wipnote/guard_init.go owns TTY gating
+(reuse isTerminal() at relevant.go:100), the write, and the
+runGitMutation commit (confirmed at git_mutation_lock.go:83).
+<strong>Proposal quality (per design-critic WARN):</strong> rank by signal confidence;
+flag low-confidence entries so approval is editorial pruning, preserving
+the near-zero-friction goal.
+<strong>Rejected:</strong> draft-file + explicit approve (more steps); auto-trigger-only
+with no command (drops the manual/agentic path). Both available: the
+same core powers <code>wipnote guard init</code>.</p>
 </div>
         <label for="slice-3-decisions-reveal" class="reveal-label">Show full decisions</label>
         
@@ -955,15 +1055,48 @@ manual path documented in slice-4.</p>
       <div class="slice-field-value">
         
         
-        <div class="markdown-block slice-tests"><p>TestDiscover_ProposesFromManifests (table-driven fixtures);
-TestDiscover_NoWriteBeforeApproval; TestFirstRun_SkippedWhenNonInteractive.
-Seam the TTY check + committer. TMPDIR=/home/vscode/.gotest-tmp.</p>
+        <div class="markdown-block slice-tests"><p>TestPropose_FromManifests (table-driven fixtures, pure, no writes);
+TestPropose_FlagsLowConfidence;
+TestGuardInit_WritesApprovedAndCommits (committer seam);
+TestFirstRun_SkippedWhenNonInteractive (isTerminal seam).
+TMPDIR=/home/vscode/.gotest-tmp.</p>
 </div>
         
       </div>
     </div>
     
 
+    
+    <div class="slice-field slice-critic-revisions">
+      <div class="slice-field-label">Critic Revisions</div>
+      <div class="slice-field-value">
+        
+        <div class="critic-revision">
+          <span class="badge badge-pending critic-revision-badge">WARN</span>
+          <span class="critic-revision-source">sonnet</span>
+          <span class="critic-revision-summary">internal/ discover.go cannot call runGitMutation (package main); resolved by a seam — discover.go is pure, cmd/wipnote/guard_init.go owns write&#43;commit.</span>
+        </div>
+        
+        <div class="critic-revision">
+          <span class="badge badge-pending critic-revision-badge">SUCCESS</span>
+          <span class="critic-revision-source">sonnet</span>
+          <span class="critic-revision-summary">Reuse existing isTerminal() at cmd/wipnote/relevant.go:100 (already used in workitem_create.go:331) for the non-interactive skip — no new TTY detector.</span>
+        </div>
+        
+        <div class="critic-revision">
+          <span class="badge badge-pending critic-revision-badge">WARN</span>
+          <span class="critic-revision-source">haiku</span>
+          <span class="critic-revision-summary">&#39;Good guard&#39; criteria were undefined; resolved by confidence ranking &#43; low-confidence flagging so first-run approval is prune-not-invent.</span>
+        </div>
+        
+        <div class="critic-revision">
+          <span class="badge badge-pending critic-revision-badge">INFO</span>
+          <span class="critic-revision-source">haiku</span>
+          <span class="critic-revision-summary">Concurrent first-run across sessions could double-trigger; the slice-1 advisory git lock &#43; &#39;profile already present -&gt; skip&#39; check makes the second writer a no-op.</span>
+        </div>
+        
+      </div>
+    </div>
     
 
     
@@ -978,7 +1111,7 @@ Seam the TTY check + committer. TMPDIR=/home/vscode/.gotest-tmp.</p>
           <textarea
             data-section="slice-3-question-q-init-cmd"
             data-comment-for="slice-3-question-q-init-cmd"
-            placeholder="Answer question q-init-cmd...">Both: the same propose/approve/persist core is exposed as `wipnote guard init` for manual/agentic invocation; the first-run path just calls it automatically when interactive. This keeps a non-auto escape hatch and serves slice-4&#39;s docs.</textarea>
+            placeholder="Answer question q-init-cmd...">Both: the propose/approve/persist core is exposed as `wipnote guard init` for manual/agentic invocation; the first-run path calls it automatically only when interactive. Keeps a non-auto escape hatch and serves slice-4&#39;s docs.</textarea>
           
         </div>
         
@@ -1001,7 +1134,7 @@ Seam the TTY check + committer. TMPDIR=/home/vscode/.gotest-tmp.</p>
     <span class="slice-num">#4</span>
     <span class="slice-title-col">
       <span class="slice-name">Guard authoring skill and docs (feat-1469fabc)</span>
-      <span class="slice-preview">Add a user-level skill/workflow plus documentation for defining guards</span>
+      <span class="slice-preview">Add a user-level skill at plugin/skills/guard-authoring/SKILL.md (shared</span>
       <span class="slice-meta-row">
         <span class="slice-summary-badges">
           <span class="badge badge-revision badge-sm">M</span>
@@ -1009,7 +1142,7 @@ Seam the TTY check + committer. TMPDIR=/home/vscode/.gotest-tmp.</p>
           <span class="badge badge-revision badge-sm badge-complexity" title="Complexity: complex">Complex</span>
           
           <span class="badge badge-pending badge-sm slice-approval-badge" data-badge-for="slice-4">Pending</span>
-          
+          <span class="badge badge-sm badge-issues" title="2 critic issue(s)">2 issues</span>
           <span class="badge badge-sm badge-questions" title="1 open question(s)">1 Q</span>
         </span>
         <span class="slice-actions" onclick="event.stopPropagation()">
@@ -1041,12 +1174,13 @@ Seam the TTY check + committer. TMPDIR=/home/vscode/.gotest-tmp.</p>
         <div class="slice-field-value">
           
           <input type="checkbox" id="slice-4-what-reveal" class="reveal-toggle">
-          <div class="markdown-block reveal-content serif-prose"><p>Add a user-level skill/workflow plus documentation for defining guards
-manually or agentically: the .wipnote/guard-profile.yaml schema reference,
+          <div class="markdown-block reveal-content serif-prose"><p>Add a user-level skill at plugin/skills/guard-authoring/SKILL.md (shared
+source, regenerated to codex/gemini via <code>wipnote plugin build-ports</code>) plus
+a standalone hand-maintained docs/guard-profiles.md. Cover: the schema
+reference (phases, per-guard name/cmd/cwd/applies_when, approved block),
 polyglot/monorepo examples (per-guard cwd, applies_when paths), the
-approve/signature model, and the safe-default behavior when no profile
-exists. Skill source lives in plugin/skills/ (shared asset) and is
-regenerated to all targets via <code>wipnote plugin build-ports</code>.</p>
+approve/signature/drift model and trust boundary, the <code>wipnote guard init</code>
+flow, and the safe default (autodetect+hint) when no profile exists.</p>
 </div>
           <label for="slice-4-what-reveal" class="reveal-label">Show full description</label>
           
@@ -1074,7 +1208,7 @@ gives agents a documented authoring workflow (polyglot + safe defaults).</p>
       
       <div class="slice-field">
         <div class="slice-field-label">Done when</div>
-        <ul class="slice-done-list"><li>Skill documents the full schema (phases, per-guard fields, approved block) with at least one polyglot/monorepo example</li><li>Docs state the no-profile safe default (autodetect&#43;hint) and the approve/signature/drift model</li><li>wipnote plugin build-ports regenerates the codex/gemini trees with no hand-edits to generated files</li></ul>
+        <ul class="slice-done-list"><li>Skill documents the full schema (phases, per-guard fields, approved block) with at least one polyglot/monorepo example</li><li>Docs state the no-profile safe default (autodetect&#43;hint), the approve/signature/drift model, and the trust boundary</li><li>wipnote plugin build-ports regenerates the codex/gemini trees from the SKILL.md source with no hand-edits to generated files (docs/guard-profiles.md is standalone and NOT regenerated)</li></ul>
       </div>
       
     
@@ -1085,15 +1219,14 @@ gives agents a documented authoring workflow (polyglot + safe defaults).</p>
       <div class="slice-field-value">
         
         <input type="checkbox" id="slice-4-decisions-reveal" class="reveal-toggle">
-        <div class="markdown-block reveal-content serif-prose"><p><strong>State:</strong> skill source in plugin/skills/guard-authoring/ (shared), docs in
-docs/. Generated codex/gemini trees are rebuilt via build-ports, never
+        <div class="markdown-block reveal-content serif-prose"><p><strong>State:</strong> skill source in plugin/skills/guard-authoring/ (shared, confirmed
+convention; build-ports at plugin_build_ports.go:87), docs in docs/.
+Generated codex/gemini trees are rebuilt via build-ports, never
 hand-edited (per the plugin single-source rule).
-<strong>Payload:</strong> schema reference + polyglot examples + approve/signature model</p>
-<ul>
-<li>the autodetect+hint safe default from Round-1.
+<strong>Payload:</strong> schema reference + polyglot examples + approve/signature/drift
+model + trust boundary + the autodetect+hint safe default from Round-1.
 <strong>Rejected:</strong> documenting in AGENTS.md/CLAUDE.md (those describe, don&#39;t
-configure; agent-facing guidance belongs in plugin skill source).</li>
-</ul>
+configure; agent-facing guidance belongs in plugin skill source).</p>
 </div>
         <label for="slice-4-decisions-reveal" class="reveal-label">Show full decisions</label>
         
@@ -1115,6 +1248,25 @@ configure; agent-facing guidance belongs in plugin skill source).</li>
     </div>
     
 
+    
+    <div class="slice-field slice-critic-revisions">
+      <div class="slice-field-label">Critic Revisions</div>
+      <div class="slice-field-value">
+        
+        <div class="critic-revision">
+          <span class="badge badge-pending critic-revision-badge">INFO</span>
+          <span class="critic-revision-source">sonnet</span>
+          <span class="critic-revision-summary">docs/guard-profiles.md is NOT under plugin/, so build-ports won&#39;t regenerate it; done_when corrected to scope build-ports to the SKILL.md only.</span>
+        </div>
+        
+        <div class="critic-revision">
+          <span class="badge badge-pending critic-revision-badge">SUCCESS</span>
+          <span class="critic-revision-source">sonnet</span>
+          <span class="critic-revision-summary">plugin/skills/&lt;name&gt;/SKILL.md convention and build-ports command (plugin_build_ports.go:87) both confirmed to exist.</span>
+        </div>
+        
+      </div>
+    </div>
     
 
     

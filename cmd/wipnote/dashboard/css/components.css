@@ -2699,3 +2699,26 @@
   top: auto;
   overflow-y: auto;
 }
+
+/* ── Plan embed: ISSUE 1 — let plan-content fill the full panel width ─────
+   The plan's scoped <style> tag (injected after components.css in document
+   order) sets .plan-detail-body .plan-content { max-width: 960px } and wins
+   the cascade at equal (0,2,0) specificity. Using the #plan-detail-body ID
+   selector raises specificity to (1,1,0) so this override reliably wins
+   regardless of document order.  Cards and dep-graph now span full width;
+   the embed no longer clips the dependency graph when the panel is wide. */
+#plan-detail-body .plan-content {
+  max-width: none;
+}
+
+/* ── Plan embed: ISSUE 2 — cap review rail so chat gets a scroll region ───
+   .dash-review-rail has flex-shrink:0 so it expands freely when many slices
+   are pending, squeezing .dash-chat-section to a few lines.  Capping the
+   rail at 40% of the sidebar height (via max-height) with overflow-y:auto
+   lets it scroll internally; .dash-chat-section (flex:1, min-height:0) then
+   claims the remaining height so the message list and input are visible.
+   #dash-review-rail ID ensures specificity beats any class-only rule. */
+#dash-review-rail {
+  max-height: 40%;
+  overflow-y: auto;
+}

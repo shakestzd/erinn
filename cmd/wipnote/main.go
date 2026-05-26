@@ -331,6 +331,10 @@ func buildRoot() *cobra.Command {
 	launcher.GroupID = "quality"
 	root.AddCommand(launcher)
 
+	commitQueue := commitQueueCmd()
+	commitQueue.GroupID = "data"
+	root.AddCommand(commitQueue)
+
 	return root
 }
 

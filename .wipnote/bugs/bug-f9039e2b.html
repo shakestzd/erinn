@@ -10,15 +10,15 @@
 <body>
     <article id="bug-f9039e2b"
              data-type="bug"
-             data-status="in-progress"
+             data-status="done"
              data-priority="medium"
              data-created="2026-05-24T23:18:30.233399"
-             data-updated="2026-05-24T23:29:36.999276" data-agent-assigned="claude-code" data-track-id="trk-0677c709" data-created-by-agent="claude-code" data-created-by-model="claude-opus-4-7[1m]" data-created-by-cli-version="0.60.18">
+             data-updated="2026-05-25T00:33:11.9498" data-agent-assigned="claude-code" data-track-id="trk-0677c709" data-created-by-agent="claude-code" data-created-by-model="claude-opus-4-7[1m]" data-created-by-cli-version="0.60.18">
 
         <header>
             <h1>bug create auto-links caused_by the active feature, fabricating false lineage</h1>
             <div class="metadata">
-                <span class="badge status-in-progress">In Progress</span>
+                <span class="badge status-done">Done</span>
                 <span class="badge priority-medium">Medium Priority</span>
             </div>
         </header>
@@ -30,26 +30,13 @@
                     <li><a href="trk-0677c709.html" data-relationship="part_of" data-since="2026-05-24T23:18:30.254293">trk-0677c709</a></li>
                 </ul>
             </section>
-            <section data-edge-type="implemented_in">
-                <h3>Implemented In:</h3>
+            <section data-edge-type="caused_by">
+                <h3>Caused By:</h3>
                 <ul>
-                    <li><a href="ddbd873d-3bc2-42b3-b828-c9d7f9ddbb49.html" data-relationship="implemented_in" data-since="2026-05-24T23:29:02.621005">session ddbd873d-3bc2-42b3-b828-c9d7f9ddbb49</a></li>
-                </ul>
-            </section>
-            <section data-edge-type="relates_to">
-                <h3>Relates To:</h3>
-                <ul>
-                    <li><a href="feat-e8879220.html" data-relationship="relates_to" data-since="2026-05-24T23:18:37.717719">Dedup check at create (similarity-based relates_to &#43; needs-triage-dup)</a></li>
+                    <li><a href="feat-801f2273.html" data-relationship="caused_by" data-since="2026-05-24T23:18:30.246788">feat-801f2273</a></li>
                 </ul>
             </section>
         </nav>
-
-        <section data-steps>
-            <h3>Implementation Steps</h3>
-            <ol>
-                <li data-completed="false" data-step-id="task-1" data-agent="claude-code" data-created-by-agent="claude-code">⏳ Fix bug-f9039e2b: remove caused_by active-feature fallback</li>
-            </ol>
-        </section>
 
         <section data-content>
             <h3>Description</h3>

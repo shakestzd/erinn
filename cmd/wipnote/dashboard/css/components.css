@@ -1924,36 +1924,72 @@
 .plan-subnav a:hover { color: var(--text-primary); background: var(--bg-hover); }
 .plan-subnav a.active { color: var(--accent); font-weight: 600; }
 
+/* Per-slice nav list under the Slices section entry in plan-subnav.
+   Sourced from .badge-issues / .badge-questions in the embedded slice
+   cards (Phase A.2: single-nav, content-only embed). */
+.plan-slice-nav {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.plan-slice-nav-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 12px 4px 52px;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  text-decoration: none;
+  transition: color 150ms, background 150ms;
+  white-space: nowrap;
+  overflow: hidden;
+}
+.plan-slice-nav-item:hover { color: var(--text-primary); background: var(--bg-hover); }
+.plan-slice-nav-item.active { color: var(--accent); font-weight: 600; }
+.plan-slice-nav-label { flex: 1; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.plan-slice-nav-badge {
+  flex-shrink: 0;
+  font-size: 0.68rem;
+  font-family: var(--font-mono);
+  font-weight: 600;
+  padding: 1px 4px;
+  border-radius: 3px;
+  line-height: 1.4;
+}
+.plan-slice-nav-badge--issue {
+  background: rgba(239, 68, 68, 0.12);
+  color: #f87171;
+  border: 1px solid rgba(239, 68, 68, 0.25);
+}
+.plan-slice-nav-badge--question {
+  background: rgba(167, 139, 250, 0.12);
+  color: var(--accent, #a78bfa);
+  border: 1px solid rgba(167, 139, 250, 0.25);
+}
+
 /* ── Plan embedded — layout adaptation only ─────────────────────────
-   feat-801f2273 (Phase A): the embedded plan now ships its OWN full
+   feat-801f2273 (Phase A/A.2): the embedded plan ships its OWN full
    stylesheet, re-scoped under .plan-detail-body by scopePlanCSS (see
    cmd/wipnote/api_plans.go). That scoped CSS supplies every component
    style (slice-card segmented control, status accent borders, pills,
    question-count badge, triage badges, dep graph) at full fidelity —
    identical to the standalone /plans/<id>.html page. The shell must NOT
-   re-implement those component styles here; doing so is exactly what
-   degraded the embed before. The rules below cover ONLY the things that
-   legitimately differ in the panel context:
-     1. The panel scrolls, so the plan's 100vh sticky/full-height layout
+   re-implement those component styles here.
+   Phase A.2: the embed is now CONTENT ONLY — .plan-sidebar is NOT
+   emitted. The dashboard owns all chrome (brand, nav, per-slice
+   triage badges in the plan sub-nav). The rules below handle ONLY
+   the layout differences for the panel context:
+     1. The panel scrolls; the plan's 100vh sticky/full-height layout
         must collapse to normal flow.
-     2. Chrome (chat sidebar, drag handle, floating reopen + theme
-        toggle) is provided by the dashboard's own .dash-plan-sidebar,
-        so the in-template equivalents are suppressed.
-   The left-nav (.plan-sidebar) is intentionally LEFT VISIBLE so its
-   triage badges and slice-nav dots appear, matching the standalone page;
-   only its full-viewport sticky sizing is neutralized for the panel. */
+     2. In-template chrome (chat sidebar, drag handle, floating reopen,
+        theme toggle) is suppressed — the dashboard provides equivalents. */
 
-/* The scoped CSS maps the plan's body { display:grid } onto the
-   container; reproduce the standalone nav+content two-column layout but
-   sized for the panel instead of the viewport. */
-.plan-detail-body { display: grid; grid-template-columns: 188px 1fr; min-height: 0; align-items: start; }
-
-.plan-detail-body .plan-sidebar { position: static; height: auto; max-height: none; top: auto; overflow: visible; }
-.plan-detail-body #themeToggle { display: none; }
-/* plan-layout fills the content column; the in-template chat sidebar is
-   replaced by the dashboard's own .dash-plan-sidebar. */
+/* The embed is .plan-layout only (no preceding .plan-sidebar column).
+   Override the scoped body-grid so the layout fills the panel width. */
+.plan-detail-body { display: block; }
 .plan-detail-body .plan-layout { display: block; height: auto; overflow: visible; }
 .plan-detail-body .plan-content { min-width: 0; padding: 8px 24px 40px; max-width: none; height: auto; overflow-y: visible; }
+.plan-detail-body #themeToggle { display: none; }
 .plan-detail-body .chat-sidebar { display: none !important; }
 .plan-detail-body .chat-resize-handle { display: none !important; }
 .plan-detail-body .sidebar-reopen { display: none !important; }
@@ -2644,4 +2680,45 @@
   font-size: 11px;
   color: var(--text-muted);
   font-style: italic;
+}
+
+/* ── Plan embed: neutralize standalone-page viewport geometry ────────────── */
+/* The plan stylesheet uses height:100vh / position:sticky designed for a full-
+   viewport standalone page. Inside the dashboard panel these overflow the panel
+   or create stacking conflicts. The #plan-detail-body id gives us higher
+   specificity than the scoped .plan-detail-body .plan-layout rules injected by
+   planRenderHandler. */
+#plan-detail-body .plan-layout {
+  height: auto;
+  min-height: 0;
+  overflow: visible;
+}
+#plan-detail-body .chat-sidebar {
+  height: auto;
+  position: relative;
+  top: auto;
+  overflow-y: auto;
+}
+
+/* ── Plan embed: ISSUE 1 — let plan-content fill the full panel width ─────
+   The plan's scoped <style> tag (injected after components.css in document
+   order) sets .plan-detail-body .plan-content { max-width: 960px } and wins
+   the cascade at equal (0,2,0) specificity. Using the #plan-detail-body ID
+   selector raises specificity to (1,1,0) so this override reliably wins
+   regardless of document order.  Cards and dep-graph now span full width;
+   the embed no longer clips the dependency graph when the panel is wide. */
+#plan-detail-body .plan-content {
+  max-width: none;
+}
+
+/* ── Plan embed: ISSUE 2 — cap review rail so chat gets a scroll region ───
+   .dash-review-rail has flex-shrink:0 so it expands freely when many slices
+   are pending, squeezing .dash-chat-section to a few lines.  Capping the
+   rail at 40% of the sidebar height (via max-height) with overflow-y:auto
+   lets it scroll internally; .dash-chat-section (flex:1, min-height:0) then
+   claims the remaining height so the message list and input are visible.
+   #dash-review-rail ID ensures specificity beats any class-only rule. */
+#dash-review-rail {
+  max-height: 40%;
+  overflow-y: auto;
 }

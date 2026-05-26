@@ -150,9 +150,9 @@ func TestRotateLog_CapsWithoutLosingWriter(t *testing.T) {
 	if info, _ := os.Stat(logPath); info.Size() != 0 {
 		t.Errorf("expected live log truncated to 0, got %d", info.Size())
 	}
-	// Rotated copy .1 must hold the old content.
-	if data, err := os.ReadFile(logPath + ".1"); err != nil || len(data) != 100 {
-		t.Errorf("expected .1 rotation with 100 bytes, got len=%d err=%v", len(data), err)
+	// Rotated copy .1 must hold only the bounded tail, not the whole old log.
+	if data, err := os.ReadFile(logPath + ".1"); err != nil || len(data) != 50 || string(data) != strings.Repeat("a", 50) {
+		t.Errorf("expected .1 rotation with 50-byte tail, got len=%d err=%v", len(data), err)
 	}
 
 	// The active writer's NEXT append must still reach the live file (O_APPEND
@@ -188,6 +188,45 @@ func TestRotateLog_UnderCapNoOp(t *testing.T) {
 	}
 	if dirExists(logPath + ".1") {
 		t.Error("no rotation file should be created under cap")
+	}
+}
+
+func TestRotateProjectLogs_IncludesLegacyCacheServeLog(t *testing.T) {
+	cacheRoot := t.TempDir()
+	t.Setenv("XDG_CACHE_HOME", cacheRoot)
+
+	wipnoteDir := filepath.Join(t.TempDir(), ".wipnote")
+	if err := os.MkdirAll(wipnoteDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	cacheLog := filepath.Join(cacheRoot, "wipnote", "serve.log")
+	if err := os.MkdirAll(filepath.Dir(cacheLog), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(cacheLog, []byte(strings.Repeat("x", 100)), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	reclaimed, err := rotateProjectLogs(wipnoteDir, Config{LogMaxBytes: 25, LogKeep: 1})
+	if err != nil {
+		t.Fatalf("rotateProjectLogs: %v", err)
+	}
+	if reclaimed != 100 {
+		t.Fatalf("expected cache serve.log to be rotated, reclaimed %d", reclaimed)
+	}
+	info, err := os.Stat(cacheLog)
+	if err != nil {
+		t.Fatalf("stat live cache serve.log: %v", err)
+	}
+	if info.Size() != 0 {
+		t.Fatalf("expected live cache serve.log truncated, size=%d", info.Size())
+	}
+	info, err = os.Stat(cacheLog + ".1")
+	if err != nil {
+		t.Fatalf("stat rotated cache serve.log.1: %v", err)
+	}
+	if info.Size() != 25 {
+		t.Fatalf("expected bounded cache serve.log.1, size=%d", info.Size())
 	}
 }
 

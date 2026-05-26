@@ -176,10 +176,12 @@ func runWiCreate(typeName, title string, o *wiCreateOpts) error {
 		if o.causedBy != "" {
 			autoCausedByEdge(p, node.ID, o.causedBy)
 			fmt.Printf("  (caused by %s)\n", o.causedBy)
-		} else if featID := detectActiveFeature(p, dir); featID != "" {
-			autoCausedByEdge(p, node.ID, featID)
-			fmt.Printf("  (linked to %s)\n", featID)
 		}
+		// Implicit association: use similarity/dedup machinery to optionally
+		// link relates_to content-relevant items. This is handled below by
+		// maybeAttachDedupRelation (already runs for bug/feature). No
+		// active-feature fallback — asserting a false caused_by edge corrupts
+		// causal lineage, which is wipnote's headline provenance capability.
 	}
 
 	if o.trackID != "" && typeName != "track" {

@@ -1923,19 +1923,31 @@ function buildPlanSubnav(container) {
 
   var sections = [];
   var graph = container.querySelector('.dep-graph');
-  if (graph) sections.push({ id: graph.id || 'dep-graph', label: 'Graph' });
+  if (graph) sections.push({ id: graph.id || 'dep-graph', label: 'Graph', slices: null });
 
   container.querySelectorAll('.section-card[id]').forEach(function(el) {
     var summary = el.querySelector('summary span:first-child');
     var label = summary ? summary.textContent.trim() : el.id;
-    sections.push({ id: el.id, label: label });
+    // Collect per-slice triage data when we hit the Slices section.
+    var sliceData = null;
+    if (el.id === 'slices') {
+      sliceData = [];
+      el.querySelectorAll('.slice-card[id]').forEach(function(card) {
+        var num = card.dataset.slice || card.id.replace('slice-', '');
+        var nameEl = card.querySelector('.slice-name');
+        var title = nameEl ? nameEl.textContent.trim() : ('#' + num);
+        var issueBadge = card.querySelector('.badge-issues');
+        var questionBadge = card.querySelector('.badge-questions');
+        var issues = issueBadge ? (parseInt(issueBadge.textContent, 10) || 0) : 0;
+        var questions = questionBadge ? (parseInt(questionBadge.textContent, 10) || 0) : 0;
+        sliceData.push({ num: num, id: card.id, title: title, issues: issues, questions: questions });
+      });
+    }
+    sections.push({ id: el.id, label: label, slices: sliceData });
   });
 
   var progress = container.querySelector('.progress-zone');
-  if (progress) sections.push({ id: progress.id || 'feedback-summary', label: 'Progress' });
-
-  // Scroll container is .plan-content inside .plan-detail-body
-  var scrollTarget = container.querySelector('.plan-content') || container;
+  if (progress) sections.push({ id: progress.id || 'feedback-summary', label: 'Progress', slices: null });
 
   sections.forEach(function(sec) {
     var a = document.createElement('a');
@@ -1949,6 +1961,54 @@ function buildPlanSubnav(container) {
       a.classList.add('active');
     });
     subnav.appendChild(a);
+
+    // Under the Slices section, append one nav item per slice with triage badges.
+    if (sec.slices && sec.slices.length > 0) {
+      var ul = document.createElement('ul');
+      ul.className = 'plan-slice-nav';
+      sec.slices.forEach(function(slice) {
+        var li = document.createElement('li');
+        var sa = document.createElement('a');
+        sa.href = '#';
+        sa.className = 'plan-slice-nav-item';
+        // Slice label: "#N Title"
+        var labelSpan = document.createElement('span');
+        labelSpan.className = 'plan-slice-nav-label';
+        var shortTitle = slice.title.length > 22 ? slice.title.substring(0, 22) + '…' : slice.title;
+        labelSpan.textContent = '#' + slice.num + ' ' + shortTitle;
+        sa.appendChild(labelSpan);
+        // Issue badge (amber ⚠)
+        if (slice.issues > 0) {
+          var ib = document.createElement('span');
+          ib.className = 'plan-slice-nav-badge plan-slice-nav-badge--issue';
+          ib.title = slice.issues + ' issue(s)';
+          ib.textContent = '⚠' + slice.issues;
+          sa.appendChild(ib);
+        }
+        // Question badge (blue ?)
+        if (slice.questions > 0) {
+          var qb = document.createElement('span');
+          qb.className = 'plan-slice-nav-badge plan-slice-nav-badge--question';
+          qb.title = slice.questions + ' open question(s)';
+          qb.textContent = '?' + slice.questions;
+          sa.appendChild(qb);
+        }
+        sa.addEventListener('click', function(e) {
+          e.preventDefault();
+          var card = container.querySelector('#' + slice.id);
+          if (card) {
+            // Expand the slice card if collapsed.
+            if (!card.open) card.open = true;
+            card.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          }
+          subnav.querySelectorAll('a').forEach(function(l) { l.classList.remove('active'); });
+          sa.classList.add('active');
+        });
+        li.appendChild(sa);
+        ul.appendChild(li);
+      });
+      subnav.appendChild(ul);
+    }
   });
 
   // Chat link — focuses the dashboard-level chat panel

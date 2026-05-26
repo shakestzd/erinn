@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>Route plan YAML/HTML autocommit through the shared Git mutation helper</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="feat-c0307d7a"
+             data-type="feature"
+             data-status="todo"
+             data-priority="high"
+             data-created="2026-05-26T05:05:50.734969"
+             data-updated="2026-05-26T05:06:07.403327" data-agent-assigned="claude-code" data-track-id="trk-b1d06a84" data-created-by-agent="claude-code" data-created-by-model="gpt-5.5" data-created-by-role="codex" data-created-by-cli-version="0.60.18-72-gf05c89f94">
+
+        <header>
+            <h1>Route plan YAML/HTML autocommit through the shared Git mutation helper</h1>
+            <div class="metadata">
+                <span class="badge status-todo">Todo</span>
+                <span class="badge priority-high">High Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="trk-b1d06a84.html" data-relationship="part_of" data-since="2026-05-26T05:05:50.740185">trk-b1d06a84</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="blocked_by">
+                <h3>Blocked By:</h3>
+                <ul>
+                    <li><a href="feat-3f66d83f.html" data-relationship="blocked_by" data-since="2026-05-26T05:06:07.403053">Centralize wipnote Git mutation execution behind a repo-scoped lock</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-steps>
+            <h3>Implementation Steps</h3>
+            <ol>
+                <li data-completed="false" data-step-id="step-feat-c0307d7a-0" data-agent="claude-code" data-created-by-agent="claude-code">⏳ Replace direct exec.Command git calls</li>
+                <li data-completed="false" data-step-id="step-feat-c0307d7a-1" data-agent="claude-code" data-created-by-agent="claude-code">⏳ Preserve non-fatal hook-rejection behavior</li>
+                <li data-completed="false" data-step-id="step-feat-c0307d7a-2" data-agent="claude-code" data-created-by-agent="claude-code">⏳ Add index.lock retry regression for plan commits</li>
+            </ol>
+        </section>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>Replace direct git add/commit calls in plan autocommit with the shared retrying and serialized Git mutation helper so plan operations behave consistently with work-item artifact commits.</p>
+        </section>
+    </article>
+</body>
+</html>

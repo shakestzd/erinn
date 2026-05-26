@@ -10,16 +10,18 @@ import "strings"
 //
 // Rewriting strategy per selector:
 //   - ":root"                 -> scope            (custom properties resolve on the container)
-//   - "html" / "body"         -> scope            (document-level layout maps onto the container,
-//     reproducing the standalone two-column nav+content grid inside the panel)
-//   - "body.foo .bar"         -> "scope.foo .bar" (body-state compounds re-anchor to the container)
+//   - "html" / "body"         -> scope            (document-level layout maps onto the container;
+//     page-shell layout declarations are stripped — see stripPageShellLayout)
+//   - "body.foo .bar"         -> "scope.foo .bar" (body-state compounds re-anchor to the container;
+//     page-shell layout declarations are stripped from the declaration block)
 //   - "[data-theme=x]"        -> "[data-theme=x] scope"
 //   - "[data-theme=x] .bar"   -> "[data-theme=x] scope .bar"
 //   - "*,*::before,*::after"  -> "scope *,scope *::before,scope *::after"
 //   - anything else ".foo h2" -> "scope .foo h2"
 //
 // At-rules:
-//   - @media (...) { ... }     -> inner selectors are scoped, the query kept verbatim
+//   - @media (...) { ... }     -> inner selectors are scoped, the query kept verbatim;
+//     html/body rules inside @media also have page-shell layout stripped
 //   - @keyframes / @font-face  -> left untouched (no selectors to scope)
 //
 // The function is deliberately tolerant: malformed input is passed through rather
@@ -28,6 +30,82 @@ func scopePlanCSS(css, scope string) string {
 	var out strings.Builder
 	scopeRuleBlocks(css, scope, &out)
 	return out.String()
+}
+
+// pageShellLayoutProps lists CSS property prefixes that impose standalone-page
+// geometry on html/body and must be stripped when those rules are mapped onto
+// the embed container. Typography and visual properties are preserved.
+//
+// This only applies to html/body-origin rules — component rules like
+// .plan-layout, .chat-sidebar, etc. are never filtered.
+var pageShellLayoutProps = []string{
+	"display",
+	"grid",
+	"grid-template",
+	"grid-template-columns",
+	"grid-template-rows",
+	"min-height",
+	"height",
+	"max-height",
+	"width",
+	"max-width",
+	"min-width",
+	"margin",
+	"padding",
+	"position",
+	"top",
+	"right",
+	"bottom",
+	"left",
+	"overflow",
+	"overflow-x",
+	"overflow-y",
+}
+
+// stripPageShellLayout removes page-shell layout declarations from a CSS
+// declaration block (the text between the braces, without the braces).
+// Only declarations whose property matches one of the pageShellLayoutProps
+// prefixes are removed. Typography/color/background declarations are kept.
+//
+// This is intentionally simple: it splits on ";" and filters. It handles the
+// real-world minified plan stylesheet (no linebreaks) correctly. It does NOT
+// handle declarations with semicolons inside string values — acceptable given
+// no such patterns appear in the plan template's html/body rules.
+func stripPageShellLayout(decls string) string {
+	parts := strings.Split(decls, ";")
+	var kept []string
+	for _, part := range parts {
+		trimmed := strings.TrimSpace(part)
+		if trimmed == "" {
+			continue
+		}
+		colon := strings.IndexByte(trimmed, ':')
+		if colon < 0 {
+			// Malformed or empty — keep verbatim.
+			kept = append(kept, part)
+			continue
+		}
+		prop := strings.TrimSpace(trimmed[:colon])
+		if isPageShellLayoutProp(prop) {
+			continue // drop it
+		}
+		kept = append(kept, part)
+	}
+	if len(kept) == 0 {
+		return ""
+	}
+	return strings.Join(kept, ";")
+}
+
+// isPageShellLayoutProp reports whether prop is one of the layout-only
+// properties that should be stripped from html/body rules in the embed.
+func isPageShellLayoutProp(prop string) bool {
+	for _, blocked := range pageShellLayoutProps {
+		if prop == blocked {
+			return true
+		}
+	}
+	return false
 }
 
 // scopeRuleBlocks walks a CSS body splitting it into top-level rules at the
@@ -68,13 +146,69 @@ func scopeRuleBlocks(css, scope string, out *strings.Builder) {
 			out.WriteString(inner)
 			out.WriteString("}\n")
 		default:
-			out.WriteString(scopeSelectorList(prelude, scope))
+			scopedSel := scopeSelectorList(prelude, scope)
+			declBlock := inner
+			if isBodyHtmlOriginSelectorList(prelude) {
+				declBlock = stripPageShellLayout(inner)
+			}
+			out.WriteString(scopedSel)
 			out.WriteString("{")
-			out.WriteString(inner)
+			out.WriteString(declBlock)
 			out.WriteString("}\n")
 		}
 		i = blockEnd + 1
 	}
+}
+
+// isBodyHtmlOriginSelectorList reports whether every non-empty selector in the
+// comma-separated list originates from html or body. If so, the declaration
+// block should have page-shell layout stripped before being emitted into the
+// embed scope container.
+func isBodyHtmlOriginSelectorList(selectorList string) bool {
+	parts := strings.Split(selectorList, ",")
+	for _, p := range parts {
+		p = strings.TrimSpace(p)
+		if p == "" {
+			continue
+		}
+		if !isBodyHtmlOriginSelector(p) {
+			return false
+		}
+	}
+	return true
+}
+
+// isBodyHtmlOriginSelector reports whether a single selector is a pure
+// html/body document-level rule whose declarations should have page-shell
+// layout stripped. This covers:
+//
+//   - bare "html" or "body"
+//   - body/html with state classes/attrs directly attached with NO descendant
+//     combinator (space) following — e.g. "body.left-nav-collapsed" but NOT
+//     "body.left-nav-collapsed .plan-sidebar" (that rule targets a descendant
+//     element, so its declarations are component-level, not page-shell).
+func isBodyHtmlOriginSelector(sel string) bool {
+	if sel == "html" || sel == "body" {
+		return true
+	}
+	// Check for a body/html compound selector with no descendant combinator.
+	// If sel starts with "body." / "body:" / "body[" / "html." etc., look for
+	// the first space — if there is one, it's a rule targeting a descendant and
+	// must NOT be stripped.
+	var rest string
+	switch {
+	case strings.HasPrefix(sel, "body."), strings.HasPrefix(sel, "body:"),
+		strings.HasPrefix(sel, "body["):
+		rest = sel[len("body"):]
+	case strings.HasPrefix(sel, "html."), strings.HasPrefix(sel, "html:"),
+		strings.HasPrefix(sel, "html["):
+		rest = sel[len("html"):]
+	default:
+		return false
+	}
+	// If the remainder contains a space (descendant combinator), this selector
+	// targets a child element — do NOT strip layout from its declarations.
+	return !strings.ContainsAny(rest, " \t")
 }
 
 // scopeSelectorList rewrites a comma-separated selector list, scoping each

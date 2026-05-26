@@ -630,12 +630,11 @@ func TestPlanRenderHandler_FullFidelityEmbed(t *testing.T) {
 	}
 	out := w.Body.String()
 
-	// 1. CSS must be SCOPED, not stripped. The prior lossy handler deleted
-	//    :root, [data-theme, body, html and .plan-sidebar rules entirely.
-	//    They must now be present, re-anchored under the embed scope.
+	// 1. CSS must be SCOPED, not stripped. Phase A.2 keeps the full scoped CSS
+	//    (including .plan-sidebar rules) but no longer emits the sidebar element.
 	scopedMarkers := []string{
 		planEmbedScope + "{",              // :root mapped onto the container
-		planEmbedScope + " .plan-sidebar", // sidebar CSS scoped, not stripped
+		planEmbedScope + " .plan-sidebar", // sidebar CSS rules scoped (element not emitted)
 		planEmbedScope + " .slice-card",   // slice-card component CSS present
 	}
 	for _, m := range scopedMarkers {
@@ -643,28 +642,34 @@ func TestPlanRenderHandler_FullFidelityEmbed(t *testing.T) {
 			t.Errorf("expected scoped CSS marker %q in render output (full-fidelity); missing", m)
 		}
 	}
-	// The plan's --accent custom property must survive (it was stripped before
-	// because the whole :root block was deleted). It now lives under the scope.
+	// The plan's --accent custom property must survive.
 	if !strings.Contains(out, "--accent:") {
-		t.Error("expected --accent custom property in scoped CSS (was stripped before)")
+		t.Error("expected --accent custom property in scoped CSS")
 	}
 	// The raw unscoped :root / body resets must NOT leak into the dashboard.
 	if strings.Contains(out, ">:root") || strings.Contains(out, "\n:root") || strings.Contains(out, "<style>:root") {
 		t.Errorf("unscoped :root leaked into embed output")
 	}
 
-	// 2. The FULL left-nav (with triage badges) must be present, not dropped.
-	if !strings.Contains(out, `class="plan-sidebar"`) {
-		t.Error("expected left-nav .plan-sidebar in embed (was dropped before)")
+	// 2. Phase A.2: embed is CONTENT ONLY — .plan-sidebar element must NOT be emitted.
+	//    The dashboard builds its own per-slice nav from the injected slice-card data.
+	if strings.Contains(out, `class="plan-sidebar"`) {
+		t.Error("embed must not include .plan-sidebar element (content-only embed, Phase A.2)")
 	}
-	if !strings.Contains(out, "nav-triage-issue") {
-		t.Error("expected issue triage badge in left-nav (slice 1 has a critic revision)")
+	// Triage badge data must remain accessible via the slice cards (not the nav).
+	if !strings.Contains(out, "badge-issues") {
+		t.Error("expected .badge-issues in slice card (dashboard reads this for triage nav)")
 	}
-	if !strings.Contains(out, "nav-triage-question") {
-		t.Error("expected question-count triage badge in left-nav (slice 2 has a question)")
+	if !strings.Contains(out, "badge-questions") {
+		t.Error("expected .badge-questions in slice card (dashboard reads this for triage nav)")
 	}
 
-	// 3. The slice cards and dependency graph must render.
+	// 3. #graph-data [data-node] bridge divs must be present (dep-graph + dashboard nav source).
+	if !strings.Contains(out, `id="graph-data"`) {
+		t.Error("expected #graph-data bridge divs in embed (dep-graph and slice triage data)")
+	}
+
+	// 4. The slice cards and dependency graph must render.
 	if !strings.Contains(out, "slice-card") {
 		t.Error("expected slice cards in embed")
 	}
@@ -672,7 +677,7 @@ func TestPlanRenderHandler_FullFidelityEmbed(t *testing.T) {
 		t.Error("expected dependency graph in embed")
 	}
 
-	// 4. Interactivity scripts (D3/dagre/plan JS) must still be emitted.
+	// 5. Interactivity scripts (D3/dagre/plan JS) must still be emitted.
 	if !strings.Contains(out, "<script") {
 		t.Error("expected scripts (dep-graph/plan JS) preserved in embed")
 	}
@@ -774,5 +779,43 @@ func TestAPI_PostFeedback_SliceLevel_Returns200(t *testing.T) {
 
 	if w.Code != http.StatusOK {
 		t.Errorf("POST feedback with slice-level section: got %d, want 200; body: %s", w.Code, w.Body.String())
+	}
+}
+
+// TestPlanRenderHandler_CSSQuotedSelectorsUnescaped tests that rendered plan CSS
+// contains literal double-quotes in attribute selectors (feat-801f2273 fix).
+// The bug was: .Html() HTML-entity-escapes CSS text, turning input[type="radio"]
+// into input[type=&#34;radio&#34;], which is invalid CSS that browsers drop.
+// The fix: use .Text() to get raw CSS content before scoping.
+func TestPlanRenderHandler_CSSQuotedSelectorsUnescaped(t *testing.T) {
+	database, _ := setupPlanTestDB(t)
+	planID := "plan-render-css-quotes"
+	wipnoteDir := writeFullPlanYAML(t, planID)
+
+	handler := planRenderHandler(database, wipnoteDir)
+	req := httptest.NewRequest(http.MethodGet, "/api/plans/"+planID+"/render", nil)
+	w := httptest.NewRecorder()
+	handler(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("status: got %d, want 200", w.Code)
+	}
+	out := w.Body.String()
+
+	// The output MUST contain unescaped quoted selectors.
+	// Plan templates include input[type="radio"] for segmented toggles.
+	if !strings.Contains(out, `[type="radio"]`) {
+		t.Error("CSS should contain literal [type=\"radio\"] selector (double-quote unescaped)")
+	}
+
+	// The output MUST NOT contain HTML-escaped quote entities.
+	// This would indicate .Html() was used instead of .Text().
+	if strings.Contains(out, `&#34;`) || strings.Contains(out, `[type=&#34;radio&#34;]`) {
+		t.Error("CSS should NOT contain HTML-escaped quotes (&#34;) — indicates .Html() bug not fixed")
+	}
+
+	// Also check for other common double-quoted selectors.
+	if !strings.Contains(out, `[data-theme="`) {
+		t.Error("CSS should contain literal [data-theme=\"...\" selector (common in plan templates)")
 	}
 }

@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>Plan embed: content capped at 960px (wastes width on collapse) &#43; review-progress crowds chat</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="bug-0ee1155b"
+             data-type="bug"
+             data-status="todo"
+             data-priority="medium"
+             data-created="2026-05-26T04:15:39.66232"
+             data-updated="2026-05-26T04:15:39.66911" data-agent-assigned="claude-code" data-track-id="trk-0677c709" data-created-by-agent="claude-code" data-created-by-model="claude-opus-4-7[1m]" data-created-by-cli-version="0.60.18-69-gb943f90f2">
+
+        <header>
+            <h1>Plan embed: content capped at 960px (wastes width on collapse) &#43; review-progress crowds chat</h1>
+            <div class="metadata">
+                <span class="badge status-todo">Todo</span>
+                <span class="badge priority-medium">Medium Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="trk-0677c709.html" data-relationship="part_of" data-since="2026-05-26T04:15:39.668895">trk-0677c709</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>Two CSS issues in the dashboard plan-review embed (feat-801f2273). (1) .plan-content has max-width:960px inherited from the standalone page; when the dashboard sidebars collapse the panel widens (1228px+) but content stays pinned at 960px, wasting space and clipping the dependency graph. Let content (cards + dep-graph) use the full panel width in the #plan-detail-body embed. (2) In the right sidebar, the REVIEW PROGRESS block (slice list + Finalize button) consumes most of the height and crowds the PLAN DISCUSSION chat into ~4 visible lines; likely a side effect of neutralizing .chat-sidebar height:100vh earlier, which removed the bounded flex height needed to allocate space between the review block and the chat. Give the chat message area adequate, independently-scrollable height with the input pinned at the bottom.</p>
+        </section>
+    </article>
+</body>
+</html>

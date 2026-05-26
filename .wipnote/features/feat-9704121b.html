@@ -10,15 +10,15 @@
 <body>
     <article id="feat-9704121b"
              data-type="feature"
-             data-status="in-progress"
+             data-status="done"
              data-priority="high"
              data-created="2026-05-26T05:05:50.945064"
-             data-updated="2026-05-26T09:34:09.030156" data-agent-assigned="claude-code" data-track-id="trk-b1d06a84" data-created-by-agent="claude-code" data-created-by-model="gpt-5.5" data-created-by-role="codex" data-created-by-cli-version="0.60.18-72-gf05c89f94">
+             data-updated="2026-05-26T10:11:06.40457" data-agent-assigned="claude-code" data-track-id="trk-b1d06a84" data-created-by-agent="claude-code" data-created-by-model="gpt-5.5" data-created-by-role="codex" data-created-by-cli-version="0.60.18-72-gf05c89f94">
 
         <header>
             <h1>Add safe stale Git lock diagnostics and repair command</h1>
             <div class="metadata">
-                <span class="badge status-in-progress">In Progress</span>
+                <span class="badge status-done">Done</span>
                 <span class="badge priority-high">High Priority</span>
             </div>
         </header>
@@ -47,12 +47,12 @@
         <section data-steps>
             <h3>Implementation Steps</h3>
             <ol>
-                <li data-completed="false" data-step-id="step-feat-9704121b-0" data-agent="claude-code" data-created-by-agent="claude-code">⏳ Detect git lock files via git rev-parse --git-path</li>
-                <li data-completed="false" data-step-id="step-feat-9704121b-1" data-agent="claude-code" data-created-by-agent="claude-code">⏳ Check live git processes conservatively</li>
-                <li data-completed="false" data-step-id="step-feat-9704121b-2" data-agent="claude-code" data-created-by-agent="claude-code">⏳ Implement dry-run and explicit --fix repair</li>
-                <li data-completed="false" data-step-id="step-feat-9704121b-3" data-agent="claude-code" data-created-by-agent="claude-code">⏳ Document safety rules</li>
-                <li data-completed="false" data-step-id="step-feat-9704121b-4" data-agent="claude-code" data-created-by-agent="claude-code">⏳ Note: git index.lock is empty (no PID inside); infer staleness from live git processes plus lock age, not from lock file contents</li>
-                <li data-completed="false" data-step-id="step-feat-9704121b-5" data-agent="claude-code" data-created-by-agent="claude-code">⏳ Require an age threshold; make --fix opt-in (never the default); re-check writer liveness immediately before unlink</li>
+                <li data-completed="true" data-step-id="step-feat-9704121b-0" data-agent="claude-code" data-created-by-agent="claude-code">✅ Detect git lock files via git rev-parse --git-path</li>
+                <li data-completed="true" data-step-id="step-feat-9704121b-1" data-agent="claude-code" data-created-by-agent="claude-code">✅ Check live git processes conservatively</li>
+                <li data-completed="true" data-step-id="step-feat-9704121b-2" data-agent="claude-code" data-created-by-agent="claude-code">✅ Implement dry-run and explicit --fix repair</li>
+                <li data-completed="true" data-step-id="step-feat-9704121b-3" data-agent="claude-code" data-created-by-agent="claude-code">✅ Document safety rules</li>
+                <li data-completed="true" data-step-id="step-feat-9704121b-4" data-agent="claude-code" data-created-by-agent="claude-code">✅ Note: git index.lock is empty (no PID inside); infer staleness from live git processes plus lock age, not from lock file contents</li>
+                <li data-completed="true" data-step-id="step-feat-9704121b-5" data-agent="claude-code" data-created-by-agent="claude-code">✅ Require an age threshold; make --fix opt-in (never the default); re-check writer liveness immediately before unlink</li>
             </ol>
         </section>
 
@@ -62,7 +62,8 @@
 Acceptance Criteria
 Detection uses lock age plus a live-git-process scan; dry-run is the default; --fix is opt-in and performs a final re-check immediately before deleting; never deletes when any live writer is detected.
 Expected Behavior
-Running diagnostics reports lock age and active writers without modifying anything; --fix removes a lock only when it exceeds the age threshold AND no live git process is found, re-verified at the moment of unlink.</p>
+Running diagnostics reports lock age and active writers without modifying anything; --fix removes a lock only when it exceeds the age threshold AND no live git process is found, re-verified at the moment of unlink.
+[2026-05-26 10:11 claude-code] accepted-advisory (provenance override): Implementation durably committed in 9272d5911 (git_lock_repair.go: detection + dry-run report + opt-in --fix repair) and 803970dcb (roborev 3634 fix: absolute-git-dir resolution + worktree-root liveness anchor). Auto-link via 'wipnote ingest commits' did not fire because subjects use end-of-line and comma-separated multi-ID parenthetical forms rather than the single (feat-xxxxxxxx) pattern; provenance is recoverable from the commit subjects. Quality gates green (build/vet/full test suite).</p>
         </section>
     </article>
 </body>

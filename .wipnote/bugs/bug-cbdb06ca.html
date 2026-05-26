@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>Dashboard Activity Feed renders 0 events despite API returning data</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="bug-cbdb06ca"
+             data-type="bug"
+             data-status="todo"
+             data-priority="medium"
+             data-created="2026-05-26T02:50:14.357624"
+             data-updated="2026-05-26T02:50:15.821338" data-agent-assigned="claude-code" data-track-id="trk-0677c709" data-created-by-agent="claude-code" data-created-by-model="claude-opus-4-7[1m]" data-created-by-cli-version="0.60.18-69-gb943f90f2">
+
+        <header>
+            <h1>Dashboard Activity Feed renders 0 events despite API returning data</h1>
+            <div class="metadata">
+                <span class="badge status-todo">Todo</span>
+                <span class="badge priority-medium">Medium Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="trk-0677c709.html" data-relationship="part_of" data-since="2026-05-26T02:50:15.820978">trk-0677c709</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>Real-user symptom: dashboard opens but shows no data. Root-caused so far via headless Chromium against the live server (pid bound on 8088): the SPA shell + header stats render fine (Live/Cost/Errors populate), but the Activity Feed shows count 0 and zero rows. fetchEvents() in cmd/wipnote/dashboard/js/app.js fetches buildProjectUrl('events/recent','limit=100') which resolves to /p//api/events/recent?limit=100 and returns HTTP 200 with 100 events; the events are stored in the global events array (seenEventIds populated). But no rows render and no JS error/unhandledrejection fires. So the render path (likely components/event-tree.js or the function that consumes the events array into the feed DOM) silently produces 0 rows or a filter excludes all. Likely a regression from recent app.js/dashboard commits (Tier 4 Kanban 3847fa5f0, Tier 0 session-files 0492518d2, or single-nav plan review 9e4b94e9c). Need: trace events array to the feed render, find why 100 events yield 0 rows, fix, and verify with a headless browser that rows>0.</p>
+        </section>
+    </article>
+</body>
+</html>

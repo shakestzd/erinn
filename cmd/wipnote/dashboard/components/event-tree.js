@@ -68,6 +68,7 @@ class HgEventTree extends HTMLElement {
 
   async load() {
     var limit = this.dataset.limit || 50;
+    this.innerHTML = '<div class="empty-state">Loading activity…</div>';
     try {
       var resp = await fetch(buildProjectUrl('events/tree', 'limit=' + limit));
       if (!resp.ok) throw new Error('HTTP ' + resp.status);
@@ -77,10 +78,12 @@ class HgEventTree extends HTMLElement {
       this.loadError = 'Activity feed unavailable right now.';
       this.turns = [];
     }
-    await this.loadFeatureTitles();
-    await this.loadOtelData();
     this.updateCount();
     this._populateDropdowns();
+    this.render();
+    await this.loadFeatureTitles();
+    this.render();
+    await this.loadOtelData();
     this.render();
   }
 

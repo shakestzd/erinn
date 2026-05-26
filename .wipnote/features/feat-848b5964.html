@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>Apply guard profiles across all gate sites &#43; record signature (feat-3304de17)</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="feat-848b5964"
+             data-type="feature"
+             data-status="in-progress"
+             data-priority="medium"
+             data-created="2026-05-26T23:15:30.658376"
+             data-updated="2026-05-26T23:26:51.749719" data-agent-assigned="claude-code" data-track-id="trk-fb4a1d6e">
+
+        <header>
+            <h1>Apply guard profiles across all gate sites &#43; record signature (feat-3304de17)</h1>
+            <div class="metadata">
+                <span class="badge status-in-progress">In Progress</span>
+                <span class="badge priority-medium">Medium Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="blocked_by">
+                <h3>Blocked By:</h3>
+                <ul>
+                    <li><a href="feat-81004e4c.html" data-relationship="blocked_by">feat-81004e4c</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="planned_in">
+                <h3>Planned In:</h3>
+                <ul>
+                    <li><a href="plan-1187cb00.html" data-relationship="planned_in" data-since="2026-05-26T23:15:30.661749">plan-1187cb00</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="trk-fb4a1d6e.html" data-relationship="part_of" data-since="2026-05-26T23:15:30.671588">trk-fb4a1d6e</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="implemented_in">
+                <h3>Implemented In:</h3>
+                <ul>
+                    <li><a href="e2115ac3-91fe-4731-8d77-0cee62a8e8e2.html" data-relationship="implemented_in" data-since="2026-05-26T23:26:51.749487">session e2115ac3-91fe-4731-8d77-0cee62a8e8e2</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>Add a shared resolver guardprofile.ResolveGuards(repoRoot, phase) used by
+EVERY gate-running site so they load the profile before manifest
+autodetection. The three sites (feasibility-verified): (a)
+cmd/wipnote/check_gate_support.go detectManifest/runSessionGate
+(check --gate + completion), (b) internal/hooks/task_completion_gate.go
+runTaskCompletionGate (the yolo PostToolUse hook gate — this IS "yolo
+gating", not yolo.go), (c) cmd/wipnote/agent_init.go advisory output.
+When an APPROVED profile exists, run its phase guards (honoring cwd +
+applies_when) instead of autodetected commands; when absent or unapproved,
+keep today's autodetection and emit a one-line hint pointing at guard setup
+(`wipnote guard init`, also offered at launch — slice-3). Persist the profile
+signature + guards_run on the gate record via NEW columns (see decisions)
+and report a completion as stale when its recorded profile_signature !=
+the current approved signature.</p>
+        </section>
+    </article>
+</body>
+</html>

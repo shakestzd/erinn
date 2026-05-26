@@ -17,6 +17,7 @@ import (
 	"bytes"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"time"
@@ -183,7 +184,7 @@ func reportGitLockStateWith(
 //
 // Returns: (repaired count, skipped count, first error encountered).
 func repairGitLocksWith(
-	gitDir string,
+	gitDir, worktreeRoot string,
 	now time.Time,
 	initialCheck func(string) bool,
 	finalRecheck func(string) bool,
@@ -192,8 +193,9 @@ func repairGitLocksWith(
 	locks := detectGitLocks(gitDir)
 	repaired, skipped := 0, 0
 
-	// worktreeRoot for liveness checks — parent of .git
-	worktreeRoot := filepath.Dir(gitDir)
+	// worktreeRoot anchors the liveness scan to the working tree. It is passed
+	// explicitly (not derived from gitDir) because in a linked worktree gitDir
+	// is .git/worktrees/<name>, whose parent is NOT the working tree root.
 
 	for _, lf := range locks {
 		age := now.Sub(lf.ModTime)
@@ -222,15 +224,40 @@ func repairGitLocksWith(
 	return repaired, skipped, nil
 }
 
-// resolveGitDir returns the .git directory for repoRoot.
-// Falls back to repoRoot/.git when git is not available.
+// resolveGitDir returns the absolute git directory for repoRoot, where the
+// per-worktree lock files (index.lock, HEAD.lock) actually live. It uses
+// `git rev-parse --absolute-git-dir`, which resolves every layout correctly:
+// a standard `.git` directory, a linked-worktree `.git` FILE containing a
+// `gitdir:` pointer (the lock then lives under `.git/worktrees/<name>/`), and
+// submodules (where `.git` is also a file). If git is unavailable it falls back
+// to parsing the `.git` file's `gitdir:` line directly, and finally to
+// repoRoot/.git so detection degrades gracefully (detectGitLocks tolerates an
+// absent directory).
 func resolveGitDir(repoRoot string) string {
-	// Fast path: standard single-worktree layout
+	if out, err := exec.Command("git", "-C", repoRoot, "rev-parse", "--absolute-git-dir").Output(); err == nil {
+		if d := strings.TrimSpace(string(out)); d != "" {
+			return d
+		}
+	}
 	candidate := filepath.Join(repoRoot, ".git")
-	if fi, err := os.Stat(candidate); err == nil && fi.IsDir() {
+	fi, err := os.Stat(candidate)
+	if err != nil || fi.IsDir() {
 		return candidate
 	}
-	// Fallback: return the candidate even if missing (detectGitLocks handles absent dirs gracefully)
+	// `.git` is a file (linked worktree / submodule): parse its gitdir pointer.
+	data, err := os.ReadFile(candidate)
+	if err != nil {
+		return candidate
+	}
+	for _, line := range strings.Split(string(data), "\n") {
+		if rest, ok := strings.CutPrefix(strings.TrimSpace(line), "gitdir:"); ok {
+			gd := strings.TrimSpace(rest)
+			if !filepath.IsAbs(gd) {
+				gd = filepath.Join(repoRoot, gd)
+			}
+			return filepath.Clean(gd)
+		}
+	}
 	return candidate
 }
 
@@ -271,7 +298,7 @@ lock age plus the absence of live git processes — this is inherently racy.
 			}
 
 			// --fix path: repair with dual liveness check
-			repaired, skipped, err := repairGitLocksWith(gitDir, now, hasLiveGitWriter, hasLiveGitWriter, maxAge)
+			repaired, skipped, err := repairGitLocksWith(gitDir, repoRoot, now, hasLiveGitWriter, hasLiveGitWriter, maxAge)
 			if err != nil {
 				return err
 			}

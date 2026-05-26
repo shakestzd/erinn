@@ -69,19 +69,31 @@ func commitPlanChange(planPath, message string) error {
 		repoRoot = planDir // fallback: best-effort, still serialized within itself
 	}
 
+	// Absolutize the file paths. runGitMutation anchors with `git -C <repoRoot>`,
+	// so a relative planPath/htmlPath (e.g. from `--project-dir relative/repo`)
+	// would be resolved against repoRoot and fail to stage. Absolute paths are
+	// anchor-independent (roborev finding job 3633).
+	addPlanPath, htmlAbs := planPath, htmlPath
+	if abs, aerr := filepath.Abs(planPath); aerr == nil {
+		addPlanPath = abs
+	}
+	if abs, aerr := filepath.Abs(htmlPath); aerr == nil {
+		htmlAbs = abs
+	}
+
 	// Stage both files. Explicit absolute paths — never `git add -A` or `git add .`.
 	// runGitMutation acquires the repo-scoped advisory lock (keyed by repoRoot)
 	// before delegating to runGitWithLockRetry, so plan commits are serialized
 	// by the same lock as work-item artifact commits (feat-c0307d7a).
 	// After re-render, HTML is guaranteed to exist, so stage both unconditionally.
-	if out, err := runGitMutation(repoRoot, "add", "--", planPath, htmlPath); err != nil {
+	if out, err := runGitMutation(repoRoot, "add", "--", addPlanPath, htmlAbs); err != nil {
 		return fmt.Errorf("autocommit: git add failed: %s: %w", strings.TrimSpace(string(out)), err)
 	}
 
 	// Commit. No --no-verify. Pre-commit hooks run.
 	// runGitMutation serializes this mutation behind the same repo-scoped lock
 	// as the add above and as work-item artifact commits.
-	commitOut, err := runGitMutation(repoRoot, "commit", "-m", message, "--", planPath, htmlPath)
+	commitOut, err := runGitMutation(repoRoot, "commit", "-m", message, "--", addPlanPath, htmlAbs)
 	if err != nil {
 		// Check if the failure was "nothing to commit" (the mutation was a no-op
 		// — e.g., re-finalize with unchanged YAML). That's not an error.

@@ -10,9 +10,8 @@ import (
 
 // ---- helpers ----
 
-func fixedClock(t time.Time) func() time.Time { return func() time.Time { return t } }
-func noLiveWriter(_ string) bool              { return false }
-func hasLiveWriter(_ string) bool             { return true }
+func noLiveWriter(_ string) bool  { return false }
+func hasLiveWriter(_ string) bool { return true }
 
 // makeFakeLock creates a lock file at path with a specific mtime age ago.
 func makeFakeLock(t *testing.T, dir, name string, age time.Duration) string {
@@ -167,7 +166,7 @@ func TestRepairGitLock_DeletesStaleWhenNoLiveWriter(t *testing.T) {
 
 	now := time.Now()
 	// Both initial scan and final re-check: no live writer
-	repaired, skipped, err := repairGitLocksWith(gitDir, now, noLiveWriter, noLiveWriter, defaultMaxLockAge)
+	repaired, skipped, err := repairGitLocksWith(gitDir, gitDir, now, noLiveWriter, noLiveWriter, defaultMaxLockAge)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -191,7 +190,7 @@ func TestRepairGitLock_RefusesWhenLiveWriterDetectedInitially(t *testing.T) {
 	lockPath := makeFakeLock(t, gitDir, "index.lock", 20*time.Minute)
 
 	now := time.Now()
-	repaired, skipped, err := repairGitLocksWith(gitDir, now, hasLiveWriter, hasLiveWriter, defaultMaxLockAge)
+	repaired, skipped, err := repairGitLocksWith(gitDir, gitDir, now, hasLiveWriter, hasLiveWriter, defaultMaxLockAge)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -216,7 +215,7 @@ func TestRepairGitLock_RefusesWhenAgeBelowThreshold(t *testing.T) {
 	lockPath := makeFakeLock(t, gitDir, "index.lock", 2*time.Minute)
 
 	now := time.Now()
-	repaired, skipped, err := repairGitLocksWith(gitDir, now, noLiveWriter, noLiveWriter, defaultMaxLockAge)
+	repaired, skipped, err := repairGitLocksWith(gitDir, gitDir, now, noLiveWriter, noLiveWriter, defaultMaxLockAge)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -244,7 +243,7 @@ func TestRepairGitLock_FinalRecheckAborts(t *testing.T) {
 
 	now := time.Now()
 	// initialCheck: no live writer; finalRecheck: live writer appeared
-	repaired, skipped, err := repairGitLocksWith(gitDir, now, noLiveWriter, hasLiveWriter, defaultMaxLockAge)
+	repaired, skipped, err := repairGitLocksWith(gitDir, gitDir, now, noLiveWriter, hasLiveWriter, defaultMaxLockAge)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -268,7 +267,7 @@ func TestRepairGitLock_CustomMaxAge(t *testing.T) {
 	// 3-minute-old lock, custom threshold of 2 minutes → should delete
 	lockPath := makeFakeLock(t, gitDir, "index.lock", 3*time.Minute)
 	now := time.Now()
-	repaired, _, err := repairGitLocksWith(gitDir, now, noLiveWriter, noLiveWriter, 2*time.Minute)
+	repaired, _, err := repairGitLocksWith(gitDir, gitDir, now, noLiveWriter, noLiveWriter, 2*time.Minute)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}

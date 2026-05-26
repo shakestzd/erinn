@@ -76,6 +76,46 @@ func TestCommitPlanChange_RoutedThroughGitRunner(t *testing.T) {
 	}
 }
 
+// TestCommitPlanChange_RelativePlanPath verifies that a RELATIVE planPath
+// (as produced by `--project-dir relative/repo`) is staged correctly. Since
+// runGitMutation anchors with `git -C <repoRoot>`, the path must be absolutized
+// first or `git add -- relative/...` would resolve against repoRoot and miss the
+// file (roborev finding job 3633).
+func TestCommitPlanChange_RelativePlanPath(t *testing.T) {
+	dir := t.TempDir()
+	initGitRepo(t, dir)
+
+	plansDir := filepath.Join(dir, "plans")
+	if err := os.MkdirAll(plansDir, 0o755); err != nil {
+		t.Fatalf("mkdir plans: %v", err)
+	}
+	planID := "plan-rel12345"
+	plan := planyaml.NewPlan(planID, "Relative Path Test", "relative planPath staging")
+	if err := planyaml.Save(filepath.Join(plansDir, planID+".yaml"), plan); err != nil {
+		t.Fatalf("save yaml: %v", err)
+	}
+
+	// Run with the process CWD inside the repo and pass a RELATIVE planPath.
+	t.Chdir(dir)
+	relPlanPath := filepath.Join("plans", planID+".yaml")
+
+	if err := commitPlanChange(relPlanPath, "plan("+planID+"): relative path"); err != nil {
+		t.Fatalf("commitPlanChange with relative path: %v", err)
+	}
+
+	showOut, err := exec.Command("git", "-C", dir, "show", "--stat", "HEAD").CombinedOutput()
+	if err != nil {
+		t.Fatalf("git show: %v\n%s", err, showOut)
+	}
+	showStr := string(showOut)
+	if !strings.Contains(showStr, planID+".yaml") {
+		t.Errorf("relative planPath was not staged into the commit:\n%s", showStr)
+	}
+	if !strings.Contains(showStr, planID+".html") {
+		t.Errorf("relative htmlPath was not staged into the commit:\n%s", showStr)
+	}
+}
+
 // initGitRepo creates a git repo in dir and configures a test user identity.
 func initGitRepo(t *testing.T, dir string) {
 	t.Helper()

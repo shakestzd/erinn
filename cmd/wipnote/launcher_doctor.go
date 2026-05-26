@@ -68,6 +68,9 @@ func runDoctorReport(repoRoot string) string {
 	reportGitLockState(&b, repoRoot)
 	reportSessionDivergence(&b, repoRoot)
 	reportRolloutGate(&b)
+	var sb strings.Builder
+	reportMainWorktreeIsolation(&sb, repoRoot)
+	b.WriteString(sb.String())
 	fmt.Fprintln(&b, "--- delegated checks ---")
 	fmt.Fprintln(&b, "  orphan sessions: run `wipnote cleanup orphan-sessions` to list/remove")
 	fmt.Fprintln(&b, "  session reconcile: run `wipnote reconcile` to auto-commit artifacts and report drift")

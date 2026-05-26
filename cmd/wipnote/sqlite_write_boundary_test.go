@@ -197,7 +197,7 @@ var approvedWriteSites = []writeSite{
 	},
 	{
 		File:           "cmd/wipnote/plan_yaml_cmds.go",
-		Line:           546,
+		Line:           558,
 		Function:       "openPlanDB",
 		OpenExpr:       "dbpkg.Open",
 		Classification: intentionalCLIMutation,

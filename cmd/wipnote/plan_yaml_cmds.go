@@ -61,16 +61,20 @@ func commitPlanChange(planPath, message string) error {
 	}
 
 	// Stage both files. Explicit paths only — never `git add -A` or `git add .`.
-	// Use git -C to anchor to the plan dir so relative paths resolve correctly.
+	// runGitMutation acquires the repo-scoped advisory lock around the
+	// index-writing command before delegating to runGitWithLockRetry, so plan
+	// commits are serialized by the same lock as work-item artifact commits
+	// (feat-c0307d7a). planDir is passed as the repoRoot anchor; runGitMutation
+	// prepends -C planDir, so the explicit -C is dropped from the args slice.
 	// After re-render, HTML is guaranteed to exist, so stage both unconditionally.
-	addArgs := []string{"-C", planDir, "add", "--", filepath.Base(planPath), filepath.Base(htmlPath)}
-	if out, err := exec.Command("git", addArgs...).CombinedOutput(); err != nil {
+	if out, err := runGitMutation(planDir, "add", "--", filepath.Base(planPath), filepath.Base(htmlPath)); err != nil {
 		return fmt.Errorf("autocommit: git add failed: %s: %w", strings.TrimSpace(string(out)), err)
 	}
 
 	// Commit. No --no-verify. Pre-commit hooks run.
-	commitArgs := []string{"-C", planDir, "commit", "-m", message, "--", filepath.Base(planPath), filepath.Base(htmlPath)}
-	commitOut, err := exec.Command("git", commitArgs...).CombinedOutput()
+	// runGitMutation serializes this mutation behind the same repo-scoped lock
+	// as the add above and as work-item artifact commits.
+	commitOut, err := runGitMutation(planDir, "commit", "-m", message, "--", filepath.Base(planPath), filepath.Base(htmlPath))
 	if err != nil {
 		// Check if the failure was "nothing to commit" (the mutation was a no-op
 		// — e.g., re-finalize with unchanged YAML). That's not an error.

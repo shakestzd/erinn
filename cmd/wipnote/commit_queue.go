@@ -70,17 +70,19 @@ func outboxCommitter(i commitqueue.Intent) error {
 	}
 
 	addArgs := append([]string{"add", "--"}, absPaths...)
-	if out, err := runGitMutation(i.RepoRoot, addArgs...); err != nil {
-		return fmt.Errorf("commit-queue: git add: %s: %w", string(out), err)
-	}
-
 	commitArgs := append([]string{"commit", "-m", i.Message, "--"}, absPaths...)
-	out, err := runGitMutation(i.RepoRoot, commitArgs...)
+
+	// Run add+commit under ONE advisory-lock acquisition so no other wipnote git
+	// mutation can interleave between staging and committing this artifact
+	// (roborev finding on feat-76504033). On error, out is the failing command's
+	// combined output; an interrupted flush that re-runs an already-committed
+	// intent surfaces "nothing to commit" here and is treated as success.
+	out, err := runGitMutationBatch(i.RepoRoot, addArgs, commitArgs)
 	if err != nil {
 		if isNothingToCommit(string(out)) {
-			return nil // idempotent no-op
+			return nil // idempotent no-op (e.g. artifact already committed)
 		}
-		return fmt.Errorf("commit-queue: git commit: %s: %w", string(out), err)
+		return fmt.Errorf("commit-queue: git add+commit: %s: %w", string(out), err)
 	}
 	return nil
 }

@@ -48,14 +48,23 @@ func (o *Outbox) Flush(commit Committer, maxAttempts int) (FlushResult, error) {
 	if maxAttempts <= 0 {
 		maxAttempts = MaxAttempts
 	}
+	// Hold the cross-operation lock across the ENTIRE snapshot-process-rewrite
+	// cycle so a concurrent Append (or a second Flush) cannot have its intent
+	// dropped by the stale-snapshot rewrite (roborev finding on feat-76504033).
+	var res FlushResult
+	err := o.withLock(func() error { return o.flushLocked(commit, maxAttempts, &res) })
+	return res, err
+}
 
+// flushLocked is the drain body; callers MUST hold o.withLock. It is split out
+// of Flush only so the locking is expressed once at the boundary.
+func (o *Outbox) flushLocked(commit Committer, maxAttempts int, res *FlushResult) error {
 	pending, err := o.Pending()
 	if err != nil {
-		return FlushResult{}, err
+		return err
 	}
 
 	var remaining []Intent
-	var res FlushResult
 
 	for idx, intent := range pending {
 		if err := commit(intent); err == nil {
@@ -72,7 +81,7 @@ func (o *Outbox) Flush(commit Committer, maxAttempts int) (FlushResult, error) {
 				remaining = append(remaining, intent)
 				remaining = append(remaining, pending[idx+1:]...)
 				_ = o.rewrite(remaining)
-				return res, dlErr
+				return dlErr
 			}
 			res.DeadLettered++
 			continue // dropped from pending; queue keeps draining
@@ -82,12 +91,12 @@ func (o *Outbox) Flush(commit Committer, maxAttempts int) (FlushResult, error) {
 	}
 
 	if err := o.rewrite(remaining); err != nil {
-		return res, err
+		return err
 	}
 
 	res.RemainingDepth = len(remaining)
 	if dlDepth, dErr := o.DeadLetterDepth(); dErr == nil {
 		res.DeadLetterDepth = dlDepth
 	}
-	return res, nil
+	return nil
 }

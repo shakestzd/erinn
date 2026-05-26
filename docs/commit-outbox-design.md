@@ -51,6 +51,18 @@ intents are intact. `readIntents` skips blank/partial/corrupt lines so one bad
 trailing line never wedges the drain. Each append is an exclusive
 `flock(LOCK_EX)` + `fsync` (mirrors `internal/otel/sink/ndjson`).
 
+## Cross-operation locking
+
+A dedicated sibling lock file (`commit-outbox.ndjson.lock`) serializes whole
+operations. Both `Append` and the *entire* `Flush` snapshot → commit → rewrite
+cycle run under `withLock`. The lock spans the whole flush — not just the
+individual file writes — because `Flush` reads a snapshot, commits, then rewrites
+the pending file with what remains; without a lock covering that whole window, an
+`Append` landing between the snapshot and the rewrite would be silently dropped
+by the stale-snapshot rewrite (a lost-update race). The lock file is *separate*
+from the data file because `Flush` swaps the data file via `rename`, which would
+shed a lock held on the data-file inode; the stable lock-file inode persists.
+
 ## Ordering, recovery, idempotency
 
 - **FIFO**: intents drain oldest-first.

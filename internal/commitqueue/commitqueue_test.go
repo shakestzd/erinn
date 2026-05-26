@@ -293,3 +293,55 @@ func TestDeadLetterPathDerivation(t *testing.T) {
 		t.Fatalf("DeadLetterPath = %q, want %q", o.DeadLetterPath(), want)
 	}
 }
+
+// TestConcurrentAppendDuringFlushIsNotLost is the regression for the lost-update
+// race (roborev HIGH on feat-76504033): an Append that lands while a Flush is
+// mid-commit must NOT be clobbered by the flush's stale-snapshot rewrite. The
+// committer blocks the flush (holding the cross-operation lock) while a second
+// goroutine attempts to Append a new intent; once the flush completes, the new
+// intent must still be queued.
+func TestConcurrentAppendDuringFlushIsNotLost(t *testing.T) {
+	o := newTestOutbox(t)
+	if err := o.Append(sampleIntent("a")); err != nil {
+		t.Fatalf("seed append: %v", err)
+	}
+
+	started := make(chan struct{})
+	proceed := make(chan struct{})
+	committer := func(_ Intent) error {
+		close(started) // flush has snapshotted and is now committing "a"
+		<-proceed      // hold the flush (and its lock) until the test releases
+		return nil
+	}
+
+	flushDone := make(chan error, 1)
+	go func() {
+		_, err := o.Flush(committer, 0)
+		flushDone <- err
+	}()
+
+	<-started // flush is mid-commit, holding the outbox lock
+	appendDone := make(chan error, 1)
+	go func() { appendDone <- o.Append(sampleIntent("b")) }()
+
+	// Give the append goroutine a window to attempt its write. Under the buggy
+	// (lockless) model it would land now and be clobbered by the rewrite below;
+	// under the fix it blocks on the lock until the flush releases.
+	time.Sleep(25 * time.Millisecond)
+	close(proceed)
+
+	if err := <-flushDone; err != nil {
+		t.Fatalf("flush: %v", err)
+	}
+	if err := <-appendDone; err != nil {
+		t.Fatalf("concurrent append: %v", err)
+	}
+
+	pending, err := o.Pending()
+	if err != nil {
+		t.Fatalf("pending: %v", err)
+	}
+	if len(pending) != 1 || pending[0].WorkItemID != "b" {
+		t.Fatalf("concurrent-append intent was lost: pending=%+v, want exactly [b]", pending)
+	}
+}

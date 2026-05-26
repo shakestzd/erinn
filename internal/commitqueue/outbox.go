@@ -13,19 +13,47 @@ import (
 // that path from internal/storage so it lands in the per-user cache dir. Tests
 // point it at a temp dir.
 //
-// Outbox is process-safe via syscall.Flock(LOCK_EX) around each whole-file
-// operation (mirroring internal/otel/sink/ndjson), so a concurrent recorder and
-// a flush never interleave a partial line or race the rewrite.
+// Outbox is process-safe via a dedicated sibling lock file: withLock serializes
+// each WHOLE Outbox operation (an Append, or an entire Flush snapshot-process-
+// rewrite cycle) against every other operation on the same queue. The lock spans
+// the whole flush cycle — not just the individual file writes — so an Append
+// landing mid-flush can never be clobbered by the stale-snapshot rewrite (the
+// lost-update race flagged by roborev on feat-76504033).
 type Outbox struct {
-	path   string // the pending-intents NDJSON file
-	dlPath string // the dead-letter NDJSON sibling
+	path     string // the pending-intents NDJSON file
+	dlPath   string // the dead-letter NDJSON sibling
+	lockPath string // the dedicated cross-operation lock file (path + ".lock")
 }
 
 // NewOutbox constructs an Outbox at path. The dead-letter sibling is path with
 // a ".deadletter" suffix inserted before the extension. The parent directory is
 // created lazily on first Append.
 func NewOutbox(path string) *Outbox {
-	return &Outbox{path: path, dlPath: deadLetterPath(path)}
+	return &Outbox{path: path, dlPath: deadLetterPath(path), lockPath: path + ".lock"}
+}
+
+// withLock serializes a whole Outbox operation against every other operation on
+// the same queue, using a dedicated sibling lock file. This is REQUIRED for
+// correctness: Flush snapshots the pending file, commits each intent, then
+// rewrites the file with what remains. Without a lock spanning that whole cycle,
+// an Append landing between the snapshot and the rewrite would be silently
+// dropped by the stale-snapshot rewrite. The lock file is SEPARATE from the data
+// file because Flush replaces the data file via rename — a lock on the data-file
+// inode would not survive the swap, whereas the stable lock-file inode does.
+func (o *Outbox) withLock(fn func() error) error {
+	if err := os.MkdirAll(filepath.Dir(o.lockPath), 0o755); err != nil {
+		return fmt.Errorf("commitqueue: mkdir lock dir: %w", err)
+	}
+	f, err := os.OpenFile(o.lockPath, os.O_CREATE|os.O_RDWR, 0o644)
+	if err != nil {
+		return fmt.Errorf("commitqueue: open lock %s: %w", o.lockPath, err)
+	}
+	defer f.Close()
+	if err := syscall.Flock(int(f.Fd()), syscall.LOCK_EX); err != nil {
+		return fmt.Errorf("commitqueue: flock %s: %w", o.lockPath, err)
+	}
+	defer syscall.Flock(int(f.Fd()), syscall.LOCK_UN) //nolint:errcheck
+	return fn()
 }
 
 // Path returns the pending-intents file path.
@@ -52,10 +80,14 @@ func (o *Outbox) Append(i Intent) error {
 	if err != nil {
 		return fmt.Errorf("commitqueue: marshal intent: %w", err)
 	}
-	if err := os.MkdirAll(filepath.Dir(o.path), 0o755); err != nil {
-		return fmt.Errorf("commitqueue: mkdir outbox dir: %w", err)
-	}
-	return appendLineLocked(o.path, line)
+	// Hold the cross-operation lock so an Append concurrent with a Flush is
+	// ordered relative to that flush's snapshot/rewrite rather than racing it.
+	return o.withLock(func() error {
+		if err := os.MkdirAll(filepath.Dir(o.path), 0o755); err != nil {
+			return fmt.Errorf("commitqueue: mkdir outbox dir: %w", err)
+		}
+		return appendLineLocked(o.path, line)
+	})
 }
 
 // Pending reads and returns all intents currently queued, in FIFO order. A

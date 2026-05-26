@@ -81,17 +81,52 @@ var gitMutationLockPath = func(repoRoot string) (string, error) {
 // the pre-existing behavior (runGitWithLockRetry alone) rather than blocking
 // the user's work.
 func runGitMutation(repoRoot string, args ...string) ([]byte, error) {
+	return withGitMutationLock(repoRoot, func() ([]byte, error) {
+		return runGitWithLockRetry(repoRoot, args...)
+	})
+}
+
+// runGitMutationBatch runs a SEQUENCE of mutating git commands under a SINGLE
+// advisory-lock acquisition, so the whole sequence is atomic with respect to
+// other wipnote git writers. Use it when several mutations must not be
+// interleaved — notably `git add` then `git commit` of the same paths: if the
+// lock were released between them (two separate runGitMutation calls), another
+// wipnote mutation could commit or alter the staged artifacts under the wrong
+// message (roborev finding on feat-76504033).
+//
+// It stops at the FIRST command that errors, returning that command's combined
+// output and error. If every command succeeds it returns the LAST command's
+// output. Each command still runs through runGitWithLockRetry inside the lock,
+// preserving the external-writer backoff layer.
+func runGitMutationBatch(repoRoot string, cmds ...[]string) ([]byte, error) {
+	return withGitMutationLock(repoRoot, func() ([]byte, error) {
+		var out []byte
+		var err error
+		for _, args := range cmds {
+			if out, err = runGitWithLockRetry(repoRoot, args...); err != nil {
+				return out, err
+			}
+		}
+		return out, err
+	})
+}
+
+// withGitMutationLock acquires the repo-scoped advisory lock, runs fn, and
+// releases the lock on return (the kernel also auto-releases on process death).
+// If the lock path cannot be resolved or acquired, fn is run anyway — the
+// advisory lock is an optimization over git's own contention handling, not a
+// correctness prerequisite, so losing it degrades to runGitWithLockRetry alone
+// rather than blocking the user's work.
+func withGitMutationLock(repoRoot string, fn func() ([]byte, error)) ([]byte, error) {
 	lockPath, err := gitMutationLockPath(repoRoot)
 	if err != nil {
-		// Cannot resolve the lock path (e.g. no cache dir): degrade to the
-		// retry-only path so the mutation still proceeds.
-		return runGitWithLockRetry(repoRoot, args...)
+		return fn()
 	}
 
 	// Ensure the parent dir exists; CanonicalDBPath's dir may not have been
 	// created yet (DB lazily created on first index). flock needs the dir.
 	if mkErr := storage.EnsureDBDir(lockPath); mkErr != nil {
-		return runGitWithLockRetry(repoRoot, args...)
+		return fn()
 	}
 
 	lock := flock.New(lockPath)
@@ -99,14 +134,12 @@ func runGitMutation(repoRoot string, args ...string) ([]byte, error) {
 	// failing fast — the whole point is that the second process WAITS for the
 	// first to finish its index write instead of colliding on git's index.lock.
 	if lockErr := lock.Lock(); lockErr != nil {
-		// Lock acquisition failed for an unexpected reason; degrade to the
-		// retry-only path so the mutation is not blocked.
-		return runGitWithLockRetry(repoRoot, args...)
+		return fn()
 	}
 	// flock auto-releases on process death; this defer covers the normal path.
 	defer func() {
 		_ = lock.Unlock()
 	}()
 
-	return runGitWithLockRetry(repoRoot, args...)
+	return fn()
 }

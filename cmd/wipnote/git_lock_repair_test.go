@@ -189,6 +189,43 @@ func TestReportGitLockState_ActiveWriter(t *testing.T) {
 
 // ---- TestRepairGitLock (--fix path) ----
 
+// TestRepairGitLock_NeverDeletesSharedCommonDirLock is the regression for the
+// roborev #3659 HIGH: a stale lock in the common (shared) git dir must NOT be
+// removed by --fix even when the local worktree shows no live writer, because it
+// may be owned by the main worktree or another linked worktree. The per-worktree
+// lock in the same pass IS removed, proving the queue still drains.
+func TestRepairGitLock_NeverDeletesSharedCommonDirLock(t *testing.T) {
+	base := t.TempDir()
+	perWorktree := filepath.Join(base, ".git", "worktrees", "feat-abc")
+	common := filepath.Join(base, ".git")
+	if err := os.MkdirAll(perWorktree, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	wtLock := makeFakeLock(t, perWorktree, "index.lock", 20*time.Minute)
+	sharedLock := makeFakeLock(t, common, "config.lock", 20*time.Minute)
+
+	now := time.Now()
+	// gitDirs[0] is the primary (per-worktree) dir; common is shared. No local
+	// live writer in either liveness check.
+	repaired, skipped, err := repairGitLocksWith(
+		[]string{perWorktree, common}, perWorktree, now, noLiveWriter, noLiveWriter, defaultMaxLockAge)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if repaired != 1 {
+		t.Errorf("expected exactly the per-worktree lock removed (1), got %d", repaired)
+	}
+	if skipped != 1 {
+		t.Errorf("expected the shared common-dir lock skipped (1), got %d", skipped)
+	}
+	if _, statErr := os.Stat(wtLock); !os.IsNotExist(statErr) {
+		t.Error("per-worktree index.lock should have been removed")
+	}
+	if _, statErr := os.Stat(sharedLock); statErr != nil {
+		t.Error("shared common-dir config.lock must NOT be removed (#3659)")
+	}
+}
+
 func TestRepairGitLock_DeletesStaleWhenNoLiveWriter(t *testing.T) {
 	dir := t.TempDir()
 	gitDir := filepath.Join(dir, ".git")

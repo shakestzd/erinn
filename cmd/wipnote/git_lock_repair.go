@@ -42,6 +42,12 @@ type lockFileInfo struct {
 	Name    string
 	Path    string
 	ModTime time.Time
+	// Shared is true when the lock lives in a git dir OTHER than the first
+	// (primary per-worktree) dir passed to detectGitLocks — i.e. the git common
+	// dir. Shared locks may be owned by the main worktree or another linked
+	// worktree, whose liveness the local worktreeRoot scan cannot see, so --fix
+	// must NOT delete them (roborev #3659). They are still reported.
+	Shared bool
 }
 
 // detectGitLocks returns the known lock files found across gitDirs. It checks
@@ -49,12 +55,14 @@ type lockFileInfo struct {
 // because in a linked worktree the per-worktree admin dir (--git-dir) holds
 // index.lock/HEAD.lock while shared locks like config.lock/packed-refs.lock live
 // under the git common dir (--git-common-dir); both must be inspected (roborev
-// #3641). Results are de-duplicated by absolute path so overlapping dirs (the
-// main worktree, where the two dirs coincide) don't double-count.
+// #3641). The FIRST dir is treated as the primary per-worktree dir; locks found
+// only in later dirs are marked Shared. Results are de-duplicated by absolute
+// path so overlapping dirs (the main worktree, where the two dirs coincide)
+// don't double-count.
 func detectGitLocks(gitDirs ...string) []lockFileInfo {
 	var found []lockFileInfo
 	seen := make(map[string]bool)
-	for _, gitDir := range gitDirs {
+	for i, gitDir := range gitDirs {
 		for _, name := range knownLockNames {
 			p := filepath.Join(gitDir, name)
 			abs := p
@@ -73,6 +81,7 @@ func detectGitLocks(gitDirs ...string) []lockFileInfo {
 				Name:    name,
 				Path:    p,
 				ModTime: fi.ModTime(),
+				Shared:  i > 0,
 			})
 		}
 	}
@@ -160,6 +169,7 @@ func reportGitLockStateWith(
 	}
 
 	liveWriter := liveCheck(repoRoot)
+	sharedSeen := false
 	for _, lf := range locks {
 		age := now.Sub(lf.ModTime)
 		stale := age >= maxAge && !liveWriter
@@ -167,15 +177,22 @@ func reportGitLockStateWith(
 		if stale {
 			verdict = "stale"
 		}
-		fmt.Fprintf(&b, "  %s  age=%s  verdict=%s\n", lf.Name, age.Round(time.Second), verdict)
+		scope := ""
+		if lf.Shared {
+			scope = "  scope=shared(common-dir)"
+			sharedSeen = true
+		}
+		fmt.Fprintf(&b, "  %s  age=%s  verdict=%s%s\n", lf.Name, age.Round(time.Second), verdict, scope)
 	}
 
 	if liveWriter {
 		fmt.Fprintln(&b, "  live git writer detected — locks are active (safe to leave)")
 	} else {
+		// Only NON-shared (per-worktree) locks are eligible for --fix; shared
+		// common-dir locks are never auto-removed (roborev #3659).
 		eligibleCount := 0
 		for _, lf := range locks {
-			if now.Sub(lf.ModTime) >= maxAge {
+			if !lf.Shared && now.Sub(lf.ModTime) >= maxAge {
 				eligibleCount++
 			}
 		}
@@ -184,6 +201,11 @@ func reportGitLockStateWith(
 		} else {
 			fmt.Fprintln(&b, "  lock(s) present but below age threshold — not yet eligible for removal")
 		}
+	}
+	if sharedSeen {
+		fmt.Fprintln(&b, "  shared (common-dir) locks are reported only — not auto-removed, as they may be")
+		fmt.Fprintln(&b, "  held by the main worktree or another linked worktree; repair them from the")
+		fmt.Fprintln(&b, "  main worktree after verifying no git process is running anywhere on the repo")
 	}
 	fmt.Fprintln(&b)
 	return b.String()
@@ -218,6 +240,15 @@ func repairGitLocksWith(
 	for _, lf := range locks {
 		age := now.Sub(lf.ModTime)
 
+		// Gate 0: shared (common-dir) locks are NEVER auto-removed. They may be
+		// owned by the main worktree or another linked worktree, whose live
+		// writer the worktreeRoot-anchored liveness scan cannot observe; deleting
+		// one could clobber an active operation in a worktree we can't see
+		// (roborev #3659). They are reported by the dry-run path but left intact.
+		if lf.Shared {
+			skipped++
+			continue
+		}
 		// Gate 1: initial liveness check
 		if initialCheck(worktreeRoot) {
 			skipped++

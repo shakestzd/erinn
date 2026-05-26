@@ -405,6 +405,46 @@ body.right-rail-collapsed .sidebar-reopen{display:flex}
   <a href="#design" class="nav-link active" data-spy="design" data-initial="D">Design</a>
   <a href="#slices" class="nav-link" data-spy="slices" data-initial="S">Slices</a>
   
+  <ul class="slice-nav-list" id="slice-nav-list">
+    
+    <li>
+      <a href="#slice-1" class="slice-nav-item" data-slice-nav="1">
+        <span class="slice-nav-dot" data-approval="pending" data-dot-for="1"></span>
+        <span>#1 Project guard profile config: schema, loader, signature (feat-29e16b20)</span>
+        
+        <span class="nav-triage-badge nav-triage-question" title="1 open question(s)">?1</span>
+      </a>
+    </li>
+    
+    <li>
+      <a href="#slice-2" class="slice-nav-item" data-slice-nav="2">
+        <span class="slice-nav-dot" data-approval="pending" data-dot-for="2"></span>
+        <span>#2 Apply guard profiles in check --gate, completion gates, and yolo (feat-3304de17)</span>
+        
+        <span class="nav-triage-badge nav-triage-question" title="1 open question(s)">?1</span>
+      </a>
+    </li>
+    
+    <li>
+      <a href="#slice-3" class="slice-nav-item" data-slice-nav="3">
+        <span class="slice-nav-dot" data-approval="pending" data-dot-for="3"></span>
+        <span>#3 First-run guard discovery for yolo/check (feat-534f209f)</span>
+        
+        <span class="nav-triage-badge nav-triage-question" title="1 open question(s)">?1</span>
+      </a>
+    </li>
+    
+    <li>
+      <a href="#slice-4" class="slice-nav-item" data-slice-nav="4">
+        <span class="slice-nav-dot" data-approval="pending" data-dot-for="4"></span>
+        <span>#4 Guard authoring skill and docs (feat-1469fabc)</span>
+        
+        <span class="nav-triage-badge nav-triage-question" title="1 open question(s)">?1</span>
+      </a>
+    </li>
+    
+  </ul>
+  
   <a href="#questions" class="nav-link" data-spy="questions" data-initial="Q">Decisions</a>
   <a href="#critique" class="nav-link" data-spy="critique" data-initial="C">Critique</a>
   <a href="#feedback-summary" class="nav-link" data-spy="feedback-summary" data-initial="P">Progress</a>
@@ -412,15 +452,15 @@ body.right-rail-collapsed .sidebar-reopen{display:flex}
 </nav>
 <div class="plan-layout">
 <div class="plan-content">
-<article id="plan-1187cb00" data-type="plan" data-plan-id="plan-1187cb00" data-feature-id="trk-b1d06a84" data-status="draft" data-priority="medium">
+<article id="plan-1187cb00" data-type="plan" data-plan-id="plan-1187cb00" data-feature-id="" data-status="draft" data-priority="medium">
 
 <!-- Plan Header -->
 <header class="plan-header">
   <h1>Plan: Project guard profiles (issue #117)</h1>
-  <p style="color:var(--text-dim)">Project-owned, committed guard profile that lets wipnote run project-specific quality/completion/yolo guards instead of a fixed manifest universe; loaded by gates with signature-tied completions, with interactive first-run discovery and an authoring skill.</p>
+  
   <div class="meta">
     <span class="badge badge-pending">Draft</span>
-    <span style="font-size:.75rem;color:var(--text-muted)">v2 · 0 slices · Created 2026-05-26</span>
+    <span style="font-size:.75rem;color:var(--text-muted)">v1 · 4 slices · Created 2026-05-26</span>
   </div>
 </header>
 <button id="themeToggle" style="position:fixed;top:16px;right:16px;z-index:100;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:6px 12px;color:var(--text);font-family:var(--mono);font-size:0.75rem;cursor:pointer;">
@@ -440,6 +480,10 @@ body.right-rail-collapsed .sidebar-reopen{display:flex}
 <section class="dep-graph" data-zone="dependency-graph">
   <h2>Dependency Graph</h2>
   <div id="graph-data" style="display:none">
+    <div data-node="1" data-name="Project guard profile config: schema, loader, signature (feat-29e16b20)" data-status="pending" data-deps="" data-files="3"></div>
+    <div data-node="2" data-name="Apply guard profiles in check --gate, completion gates, and yolo (feat-3304de17)" data-status="pending" data-deps="1" data-files="4"></div>
+    <div data-node="3" data-name="First-run guard discovery for yolo/check (feat-534f209f)" data-status="pending" data-deps="1" data-files="4"></div>
+    <div data-node="4" data-name="Guard authoring skill and docs (feat-1469fabc)" data-status="pending" data-deps="1" data-files="2"></div>
     
     <!--PLAN_GRAPH_NODES-->
   </div>
@@ -452,17 +496,33 @@ body.right-rail-collapsed .sidebar-reopen{display:flex}
 <details id="design" class="section-card" open data-phase="design" data-status="pending">
   <summary><span>Design</span><span class="badge badge-pending" data-badge-for="design">Pending</span></summary>
   <div class="section-body">
-    <!--PLAN_DESIGN_CONTENT-->
-    <div class="sub-section">
-      <h4>Open Questions</h4>
-      <!--PLAN_QUESTIONS-->
-    </div>
+    <h4>Problem</h4>
+<div data-markdown>wipnote&#39;s quality/completion/yolo gates infer commands from a fixed universe
+of language manifests (go.mod, package.json, ...). That guesswork is wrong
+for polyglot repos, monorepos with subproject cwds, and projects whose real
+checks live in Make/CI/scripts. Completions are not tied to any approved
+contract, so &#34;done&#34; can mean &#34;passed a guessed command&#34;. Issue #117.
+</div>
+<h4>Goals</h4>
+<ol>
+<li data-markdown>Project-owned, committed guard profile defining quality/completion/yolo guards with per-guard command, cwd, and applicability</li>
+<li data-markdown>Gates load the profile before autodetection and record a signature so completions are tied to the user-approved contract (drift is detectable)</li>
+<li data-markdown>Frictionless interactive first-run discovery, with a documented authoring path; zero breakage for unconfigured projects</li>
+</ol>
+<h4>Constraints</h4>
+<ul>
+<li data-markdown>Back-compat: when no profile exists, preserve today&#39;s manifest autodetection (autodetect + one-line hint); never break existing repos on upgrade</li>
+<li data-markdown>Non-interactive contexts (CI, hooks, no TTY) must never block on discovery prompts</li>
+<li data-markdown>Profile is the committed canonical .wipnote/guard-profile.yaml; agent-facing docs live in plugin skill source, regenerated via build-ports, not hand-edited</li>
+</ul>
+
     <div class="approval-row">
       <label><input type="checkbox" data-section="design" data-action="approve"> Approve design</label>
       <textarea data-section="design" data-comment-for="design" placeholder="Comments on design decisions..."></textarea>
     </div>
   </div>
 </details>
+
 
 <!-- Structure Outline (hidden when empty) -->
 
@@ -471,23 +531,629 @@ body.right-rail-collapsed .sidebar-reopen{display:flex}
 <details id="slices" class="section-card" open data-phase="slices" data-status="pending">
   <summary><span>Slices</span><span class="badge badge-pending" data-badge-for="slices">Pending</span></summary>
   <div class="section-body">
+    <details class="slice-card" id="slice-1" data-slice="1" data-slice-name="slice-1" data-status="pending" data-approval="pending">
+  <summary class="slice-summary" aria-label="Slice 1: Project guard profile config: schema, loader, signature (feat-29e16b20)">
+    <span class="slice-num">#1</span>
+    <span class="slice-title-col">
+      <span class="slice-name">Project guard profile config: schema, loader, signature (feat-29e16b20)</span>
+      <span class="slice-preview">Add internal/guardprofile/ owning the committed profile at</span>
+      <span class="slice-meta-row">
+        <span class="slice-summary-badges">
+          <span class="badge badge-revision badge-sm">M</span>
+          <span class="badge badge-revision badge-sm">Med</span>
+          <span class="badge badge-revision badge-sm badge-complexity" title="Complexity: complex">Complex</span>
+          
+          <span class="badge badge-pending badge-sm slice-approval-badge" data-badge-for="slice-1">Pending</span>
+          
+          <span class="badge badge-sm badge-questions" title="1 open question(s)">1 Q</span>
+        </span>
+        <span class="slice-actions" onclick="event.stopPropagation()">
+          <span class="approval-segmented" role="group" aria-label="Approval action">
+            <label class="seg-btn seg-approve" title="Approve">
+              <input type="radio" name="slice-1-approval" value="approved" data-section="slice-1" data-action="approve" aria-label="Approve slice 1">
+              &#10003;
+            </label>
+            <label class="seg-btn seg-changes" title="Request changes">
+              <input type="radio" name="slice-1-approval" value="changes_requested" data-section="slice-1" data-action="approve" aria-label="Request changes for slice 1">
+              &#8635;
+            </label>
+            <label class="seg-btn seg-reject" title="Reject">
+              <input type="radio" name="slice-1-approval" value="rejected" data-section="slice-1" data-action="approve" aria-label="Reject slice 1">
+              &#10005;
+            </label>
+          </span>
+        </span>
+      </span>
+    </span>
+    <span class="slice-chevron" aria-hidden="true"></span>
+  </summary>
+
+  <div class="slice-body">
     
+      
+      <div class="slice-field slice-what">
+        <div class="slice-field-label">What</div>
+        <div class="slice-field-value">
+          
+          <input type="checkbox" id="slice-1-what-reveal" class="reveal-toggle">
+          <div class="markdown-block reveal-content serif-prose"><p>Add internal/guardprofile/ owning the committed profile at
+.wipnote/guard-profile.yaml. Schema is phase-grouped:
+guards.{quality,completion,yolo} each a list of
+{name, cmd, cwd, applies_when}, plus an approved:{signature,by,at} block.
+Provide Load(repoRoot) (missing file -&gt; (nil,nil)), Validate, and
+Signature(): SHA-256 over the CANONICALIZED applicable guards
+(name+cmd+cwd+applies_when, order-stable) so comment/format churn does
+not change it. Expose a small API the gate/yolo/discovery slices consume.
+No gate wiring here (slice-2) and no discovery (slice-3).</p>
+</div>
+          <label for="slice-1-what-reveal" class="reveal-label">Show full description</label>
+          
+        </div>
+      </div>
+      
+      
+      <div class="slice-field slice-why">
+        <div class="slice-field-label">Why</div>
+        <div class="slice-field-value">
+          
+          <div class="markdown-block serif-prose"><p>Durable follow-up to issue #117: wipnote should run project-defined
+guards rather than a fixed universe of language manifests. Every other
+slice reads or writes this schema, so it is the foundation one-way door.</p>
+</div>
+          
+        </div>
+      </div>
+      
+      
+      <div class="slice-field">
+        <div class="slice-field-label">Files</div>
+        <div class="slice-field-value"><code>internal/guardprofile/profile.go, internal/guardprofile/signature.go, internal/guardprofile/profile_test.go</code></div>
+      </div>
+      
+      
+      <div class="slice-field">
+        <div class="slice-field-label">Done when</div>
+        <ul class="slice-done-list"><li>Load returns a typed profile from .wipnote/guard-profile.yaml; a missing file returns (nil, nil) with no error</li><li>Signature() is stable across comment/whitespace/key-order changes and changes when any guard name/cmd/cwd/applies_when changes</li><li>Validate rejects an unknown phase key and a guard missing cmd</li></ul>
+      </div>
+      
+    
+
+    
+    <div class="slice-field slice-decisions-notes">
+      <div class="slice-field-label">Decisions</div>
+      <div class="slice-field-value">
+        
+        <input type="checkbox" id="slice-1-decisions-reveal" class="reveal-toggle">
+        <div class="markdown-block reveal-content serif-prose"><p><strong>State:</strong> committed .wipnote/guard-profile.yaml (canonical, team-shared,
+survives DB rebuild). Rejected: gitignored/per-user-cache (no shared
+contract, lost on cache clear).
+<strong>Schema:</strong> phase-grouped guards.{quality,completion,yolo}; each guard
+{name,cmd,cwd,applies_when}. Rejected: flat list+phases[] (lookup becomes
+a filter); per-subproject nesting (heaviest; per-guard cwd covers most
+monorepo cases now, can extend later).
+<strong>Signature:</strong> SHA-256 over canonicalized applicable guards + approved
+block {signature,by,at}. Rejected: whole-file SHA (comment edits =
+false drift); per-guard hashes (heavier, whole-profile hash already
+detects any change).</p>
+</div>
+        <label for="slice-1-decisions-reveal" class="reveal-label">Show full decisions</label>
+        
+      </div>
+    </div>
+    
+
+    
+    <div class="slice-field slice-tests-field">
+      <div class="slice-field-label">Test Strategy</div>
+      <div class="slice-field-value">
+        
+        
+        <div class="markdown-block slice-tests"><p>Unit TestLoad_MissingFileIsEmpty; TestSignature_StableAcrossFormatting;
+TestSignature_ChangesOnGuardEdit; TestValidate_RejectsUnknownPhase.
+Use TMPDIR=/home/vscode/.gotest-tmp.</p>
+</div>
+        
+      </div>
+    </div>
+    
+
+    
+
+    
+    <div class="slice-field slice-questions">
+      <div class="slice-field-label">Open Questions</div>
+      <div class="slice-field-value">
+        
+        <div class="question-block slice-question-block">
+          <p>What vocabulary does applies_when use in v1?</p>
+          
+          
+          <textarea
+            data-section="slice-1-question-q-applies-when"
+            data-comment-for="slice-1-question-q-applies-when"
+            placeholder="Answer question q-applies-when...">v1: applies_when is an optional glob/path predicate (e.g. paths: [&#34;web/**&#34;]) plus an implicit &#39;always&#39; when omitted. Richer predicates (env, branch) deferred to keep the foundation small.</textarea>
+          
+        </div>
+        
+      </div>
+    </div>
+    
+
+    <div class="slice-deps">Dependencies: none</div>
+
+    <details class="comment-collapse">
+      <summary class="comment-collapse-trigger">+ Leave a comment</summary>
+      <div class="comment-collapse-body">
+        <textarea data-section="slice-1" data-comment-for="slice-1" placeholder="Comments on slice 1..."></textarea>
+      </div>
+    </details>
+  </div>
+</details>
+<details class="slice-card" id="slice-2" data-slice="2" data-slice-name="slice-2" data-status="pending" data-approval="pending">
+  <summary class="slice-summary" aria-label="Slice 2: Apply guard profiles in check --gate, completion gates, and yolo (feat-3304de17)">
+    <span class="slice-num">#2</span>
+    <span class="slice-title-col">
+      <span class="slice-name">Apply guard profiles in check --gate, completion gates, and yolo (feat-3304de17)</span>
+      <span class="slice-preview">Teach check --gate, work-item completion gates (cmd/wipnote/</span>
+      <span class="slice-meta-row">
+        <span class="slice-summary-badges">
+          <span class="badge badge-blocked badge-sm">L</span>
+          <span class="badge badge-blocked badge-sm">High</span>
+          <span class="badge badge-revision badge-sm badge-complexity" title="Complexity: complex">Complex</span>
+          
+          <span class="badge badge-pending badge-sm slice-approval-badge" data-badge-for="slice-2">Pending</span>
+          
+          <span class="badge badge-sm badge-questions" title="1 open question(s)">1 Q</span>
+        </span>
+        <span class="slice-actions" onclick="event.stopPropagation()">
+          <span class="approval-segmented" role="group" aria-label="Approval action">
+            <label class="seg-btn seg-approve" title="Approve">
+              <input type="radio" name="slice-2-approval" value="approved" data-section="slice-2" data-action="approve" aria-label="Approve slice 2">
+              &#10003;
+            </label>
+            <label class="seg-btn seg-changes" title="Request changes">
+              <input type="radio" name="slice-2-approval" value="changes_requested" data-section="slice-2" data-action="approve" aria-label="Request changes for slice 2">
+              &#8635;
+            </label>
+            <label class="seg-btn seg-reject" title="Reject">
+              <input type="radio" name="slice-2-approval" value="rejected" data-section="slice-2" data-action="approve" aria-label="Reject slice 2">
+              &#10005;
+            </label>
+          </span>
+        </span>
+      </span>
+    </span>
+    <span class="slice-chevron" aria-hidden="true"></span>
+  </summary>
+
+  <div class="slice-body">
+    
+      
+      <div class="slice-field slice-what">
+        <div class="slice-field-label">What</div>
+        <div class="slice-field-value">
+          
+          <input type="checkbox" id="slice-2-what-reveal" class="reveal-toggle">
+          <div class="markdown-block reveal-content serif-prose"><p>Teach <code>check --gate</code>, work-item completion gates (cmd/wipnote/
+workitem_commit.go), and yolo session setup to call
+guardprofile.Load(repoRoot) BEFORE today&#39;s manifest autodetection. When a
+profile exists, run its phase-appropriate guards (quality/completion/yolo)
+honoring per-guard cwd and applies_when. When absent, preserve today&#39;s
+autodetection and emit a one-line hint to run discovery. Passing gate
+records embed the profile Signature() and the guard names actually run, so
+a completion is &#39;current&#39; iff its recorded signature == the profile&#39;s
+approved signature.</p>
+</div>
+          <label for="slice-2-what-reveal" class="reveal-label">Show full description</label>
+          
+        </div>
+      </div>
+      
+      
+      <div class="slice-field slice-why">
+        <div class="slice-field-label">Why</div>
+        <div class="slice-field-value">
+          
+          <div class="markdown-block serif-prose"><p>Ties completions to the user-approved project contract instead of guessed
+manifest commands, and makes drift detectable (recorded sig vs approved).</p>
+</div>
+          
+        </div>
+      </div>
+      
+      
+      <div class="slice-field">
+        <div class="slice-field-label">Files</div>
+        <div class="slice-field-value"><code>cmd/wipnote/check.go, cmd/wipnote/workitem_commit.go, cmd/wipnote/guard_apply.go, cmd/wipnote/guard_apply_test.go</code></div>
+      </div>
+      
+      
+      <div class="slice-field">
+        <div class="slice-field-label">Done when</div>
+        <ul class="slice-done-list"><li>With a profile present, check --gate runs the profile&#39;s quality guards (with cwd/applies_when) instead of autodetected commands</li><li>A passing gate record stores the profile signature and the guard names run</li><li>With no profile present, behavior matches today&#39;s autodetection plus a single stderr hint</li><li>A completion whose recorded signature != the current approved signature is reported as stale/needs re-validation</li></ul>
+      </div>
+      
+    
+
+    
+    <div class="slice-field slice-decisions-notes">
+      <div class="slice-field-label">Decisions</div>
+      <div class="slice-field-value">
+        
+        <input type="checkbox" id="slice-2-decisions-reveal" class="reveal-toggle">
+        <div class="markdown-block reveal-content serif-prose"><p><strong>Trigger:</strong> profile load is attempted first on every gate/yolo entry;
+autodetection is the fallback, not the default (preserves back-compat).
+<strong>Payload:</strong> gate record carries {signature, guards_run[]}. Drift compare =
+recorded signature vs profile.approved.signature.
+<strong>Rejected:</strong> replacing autodetection outright (breaks unconfigured repos);
+strict refuse-without-profile (too aggressive for upgrade) — chose
+autodetect+hint per Round-1.</p>
+</div>
+        <label for="slice-2-decisions-reveal" class="reveal-label">Show full decisions</label>
+        
+      </div>
+    </div>
+    
+
+    
+    <div class="slice-field slice-tests-field">
+      <div class="slice-field-label">Test Strategy</div>
+      <div class="slice-field-value">
+        
+        
+        <div class="markdown-block slice-tests"><p>TestGate_UsesProfileWhenPresent; TestGate_FallsBackToAutodetectWhenAbsent;
+TestGateRecord_EmbedsSignatureAndGuards; TestCompletion_StaleWhenSigDrifts.
+Integration through the check/complete CLI. TMPDIR=/home/vscode/.gotest-tmp.</p>
+</div>
+        
+      </div>
+    </div>
+    
+
+    
+
+    
+    <div class="slice-field slice-questions">
+      <div class="slice-field-label">Open Questions</div>
+      <div class="slice-field-value">
+        
+        <div class="question-block slice-question-block">
+          <p>Where do gate records persist the signature?</p>
+          
+          
+          <textarea
+            data-section="slice-2-question-q-record-store"
+            data-comment-for="slice-2-question-q-record-store"
+            placeholder="Answer question q-record-store...">Extend the existing passing-gate record path used by check --gate / completion (the same record the provenance gate already consults) with signature &#43; guards_run fields; no new store. Reconcile exact column/edge with cmd/wipnote/workitem_commit.go at implementation.</textarea>
+          
+        </div>
+        
+      </div>
+    </div>
+    
+
+    <div class="slice-deps">Dependencies: slices 1</div>
+
+    <details class="comment-collapse">
+      <summary class="comment-collapse-trigger">+ Leave a comment</summary>
+      <div class="comment-collapse-body">
+        <textarea data-section="slice-2" data-comment-for="slice-2" placeholder="Comments on slice 2..."></textarea>
+      </div>
+    </details>
+  </div>
+</details>
+<details class="slice-card" id="slice-3" data-slice="3" data-slice-name="slice-3" data-status="pending" data-approval="pending">
+  <summary class="slice-summary" aria-label="Slice 3: First-run guard discovery for yolo/check (feat-534f209f)">
+    <span class="slice-num">#3</span>
+    <span class="slice-title-col">
+      <span class="slice-name">First-run guard discovery for yolo/check (feat-534f209f)</span>
+      <span class="slice-preview">On the first yolo or check --gate in an unconfigured project AND an</span>
+      <span class="slice-meta-row">
+        <span class="slice-summary-badges">
+          <span class="badge badge-blocked badge-sm">L</span>
+          <span class="badge badge-revision badge-sm">Med</span>
+          <span class="badge badge-revision badge-sm badge-complexity" title="Complexity: complex">Complex</span>
+          
+          <span class="badge badge-pending badge-sm slice-approval-badge" data-badge-for="slice-3">Pending</span>
+          
+          <span class="badge badge-sm badge-questions" title="1 open question(s)">1 Q</span>
+        </span>
+        <span class="slice-actions" onclick="event.stopPropagation()">
+          <span class="approval-segmented" role="group" aria-label="Approval action">
+            <label class="seg-btn seg-approve" title="Approve">
+              <input type="radio" name="slice-3-approval" value="approved" data-section="slice-3" data-action="approve" aria-label="Approve slice 3">
+              &#10003;
+            </label>
+            <label class="seg-btn seg-changes" title="Request changes">
+              <input type="radio" name="slice-3-approval" value="changes_requested" data-section="slice-3" data-action="approve" aria-label="Request changes for slice 3">
+              &#8635;
+            </label>
+            <label class="seg-btn seg-reject" title="Reject">
+              <input type="radio" name="slice-3-approval" value="rejected" data-section="slice-3" data-action="approve" aria-label="Reject slice 3">
+              &#10005;
+            </label>
+          </span>
+        </span>
+      </span>
+    </span>
+    <span class="slice-chevron" aria-hidden="true"></span>
+  </summary>
+
+  <div class="slice-body">
+    
+      
+      <div class="slice-field slice-what">
+        <div class="slice-field-label">What</div>
+        <div class="slice-field-value">
+          
+          <input type="checkbox" id="slice-3-what-reveal" class="reveal-toggle">
+          <div class="markdown-block reveal-content serif-prose"><p>On the first yolo or check --gate in an unconfigured project AND an
+interactive (TTY/agent) session, inspect repo manifests, CI configs,
+Makefile/scripts, docs, and subprojects to PROPOSE phase-grouped guards;
+ask the user to approve or edit; on approval write
+.wipnote/guard-profile.yaml with a computed approved:{signature,by,at} and
+commit it (via runGitMutation, per the git-serialization track). In
+non-interactive contexts (CI, hooks, no TTY) skip the prompt and fall back
+to autodetect+hint so gates never hang. Discovery core (inspect-&gt;propose)
+is a pure, testable function seamed from the I/O.</p>
+</div>
+          <label for="slice-3-what-reveal" class="reveal-label">Show full description</label>
+          
+        </div>
+      </div>
+      
+      
+      <div class="slice-field slice-why">
+        <div class="slice-field-label">Why</div>
+        <div class="slice-field-value">
+          
+          <div class="markdown-block serif-prose"><p>Lets a project adopt a tailored contract with near-zero friction, which is
+what the autodetect+hint fallback points users toward.</p>
+</div>
+          
+        </div>
+      </div>
+      
+      
+      <div class="slice-field">
+        <div class="slice-field-label">Files</div>
+        <div class="slice-field-value"><code>internal/guardprofile/discover.go, internal/guardprofile/discover_test.go, cmd/wipnote/guard_init.go, cmd/wipnote/guard_init_test.go</code></div>
+      </div>
+      
+      
+      <div class="slice-field">
+        <div class="slice-field-label">Done when</div>
+        <ul class="slice-done-list"><li>Discovery proposes go/node/python/Makefile guards from a fixture repo without writing anything until approved</li><li>On approval the profile is written with a valid approved signature and staged/committed</li><li>In a non-interactive session discovery is skipped and the gate falls back to autodetect&#43;hint (never blocks)</li></ul>
+      </div>
+      
+    
+
+    
+    <div class="slice-field slice-decisions-notes">
+      <div class="slice-field-label">Decisions</div>
+      <div class="slice-field-value">
+        
+        <input type="checkbox" id="slice-3-decisions-reveal" class="reveal-toggle">
+        <div class="markdown-block reveal-content serif-prose"><p><strong>Trigger:</strong> first gate/yolo in an unconfigured repo, interactive only;
+non-interactive auto-skips to autodetect+hint (gates must never hang).
+<strong>State:</strong> writes the committed .wipnote/guard-profile.yaml from slice-1&#39;s
+schema, computing approved.signature via slice-1 Signature().
+<strong>Rejected:</strong> draft-file + explicit approve command (more steps, slower
+adoption); explicit <code>guard init</code> only with no auto-trigger (drops the
+first-run requirement of this feature). Both remain available as the
+manual path documented in slice-4.</p>
+</div>
+        <label for="slice-3-decisions-reveal" class="reveal-label">Show full decisions</label>
+        
+      </div>
+    </div>
+    
+
+    
+    <div class="slice-field slice-tests-field">
+      <div class="slice-field-label">Test Strategy</div>
+      <div class="slice-field-value">
+        
+        
+        <div class="markdown-block slice-tests"><p>TestDiscover_ProposesFromManifests (table-driven fixtures);
+TestDiscover_NoWriteBeforeApproval; TestFirstRun_SkippedWhenNonInteractive.
+Seam the TTY check + committer. TMPDIR=/home/vscode/.gotest-tmp.</p>
+</div>
+        
+      </div>
+    </div>
+    
+
+    
+
+    
+    <div class="slice-field slice-questions">
+      <div class="slice-field-label">Open Questions</div>
+      <div class="slice-field-value">
+        
+        <div class="question-block slice-question-block">
+          <p>Is there also an explicit command, or only the auto-trigger?</p>
+          
+          
+          <textarea
+            data-section="slice-3-question-q-init-cmd"
+            data-comment-for="slice-3-question-q-init-cmd"
+            placeholder="Answer question q-init-cmd...">Both: the same propose/approve/persist core is exposed as `wipnote guard init` for manual/agentic invocation; the first-run path just calls it automatically when interactive. This keeps a non-auto escape hatch and serves slice-4&#39;s docs.</textarea>
+          
+        </div>
+        
+      </div>
+    </div>
+    
+
+    <div class="slice-deps">Dependencies: slices 1</div>
+
+    <details class="comment-collapse">
+      <summary class="comment-collapse-trigger">+ Leave a comment</summary>
+      <div class="comment-collapse-body">
+        <textarea data-section="slice-3" data-comment-for="slice-3" placeholder="Comments on slice 3..."></textarea>
+      </div>
+    </details>
+  </div>
+</details>
+<details class="slice-card" id="slice-4" data-slice="4" data-slice-name="slice-4" data-status="pending" data-approval="pending">
+  <summary class="slice-summary" aria-label="Slice 4: Guard authoring skill and docs (feat-1469fabc)">
+    <span class="slice-num">#4</span>
+    <span class="slice-title-col">
+      <span class="slice-name">Guard authoring skill and docs (feat-1469fabc)</span>
+      <span class="slice-preview">Add a user-level skill/workflow plus documentation for defining guards</span>
+      <span class="slice-meta-row">
+        <span class="slice-summary-badges">
+          <span class="badge badge-revision badge-sm">M</span>
+          <span class="badge badge-pending badge-sm">Low</span>
+          <span class="badge badge-revision badge-sm badge-complexity" title="Complexity: complex">Complex</span>
+          
+          <span class="badge badge-pending badge-sm slice-approval-badge" data-badge-for="slice-4">Pending</span>
+          
+          <span class="badge badge-sm badge-questions" title="1 open question(s)">1 Q</span>
+        </span>
+        <span class="slice-actions" onclick="event.stopPropagation()">
+          <span class="approval-segmented" role="group" aria-label="Approval action">
+            <label class="seg-btn seg-approve" title="Approve">
+              <input type="radio" name="slice-4-approval" value="approved" data-section="slice-4" data-action="approve" aria-label="Approve slice 4">
+              &#10003;
+            </label>
+            <label class="seg-btn seg-changes" title="Request changes">
+              <input type="radio" name="slice-4-approval" value="changes_requested" data-section="slice-4" data-action="approve" aria-label="Request changes for slice 4">
+              &#8635;
+            </label>
+            <label class="seg-btn seg-reject" title="Reject">
+              <input type="radio" name="slice-4-approval" value="rejected" data-section="slice-4" data-action="approve" aria-label="Reject slice 4">
+              &#10005;
+            </label>
+          </span>
+        </span>
+      </span>
+    </span>
+    <span class="slice-chevron" aria-hidden="true"></span>
+  </summary>
+
+  <div class="slice-body">
+    
+      
+      <div class="slice-field slice-what">
+        <div class="slice-field-label">What</div>
+        <div class="slice-field-value">
+          
+          <input type="checkbox" id="slice-4-what-reveal" class="reveal-toggle">
+          <div class="markdown-block reveal-content serif-prose"><p>Add a user-level skill/workflow plus documentation for defining guards
+manually or agentically: the .wipnote/guard-profile.yaml schema reference,
+polyglot/monorepo examples (per-guard cwd, applies_when paths), the
+approve/signature model, and the safe-default behavior when no profile
+exists. Skill source lives in plugin/skills/ (shared asset) and is
+regenerated to all targets via <code>wipnote plugin build-ports</code>.</p>
+</div>
+          <label for="slice-4-what-reveal" class="reveal-label">Show full description</label>
+          
+        </div>
+      </div>
+      
+      
+      <div class="slice-field slice-why">
+        <div class="slice-field-label">Why</div>
+        <div class="slice-field-value">
+          
+          <div class="markdown-block serif-prose"><p>Makes the contract usable without reverse-engineering the schema, and
+gives agents a documented authoring workflow (polyglot + safe defaults).</p>
+</div>
+          
+        </div>
+      </div>
+      
+      
+      <div class="slice-field">
+        <div class="slice-field-label">Files</div>
+        <div class="slice-field-value"><code>plugin/skills/guard-authoring/SKILL.md, docs/guard-profiles.md</code></div>
+      </div>
+      
+      
+      <div class="slice-field">
+        <div class="slice-field-label">Done when</div>
+        <ul class="slice-done-list"><li>Skill documents the full schema (phases, per-guard fields, approved block) with at least one polyglot/monorepo example</li><li>Docs state the no-profile safe default (autodetect&#43;hint) and the approve/signature/drift model</li><li>wipnote plugin build-ports regenerates the codex/gemini trees with no hand-edits to generated files</li></ul>
+      </div>
+      
+    
+
+    
+    <div class="slice-field slice-decisions-notes">
+      <div class="slice-field-label">Decisions</div>
+      <div class="slice-field-value">
+        
+        <input type="checkbox" id="slice-4-decisions-reveal" class="reveal-toggle">
+        <div class="markdown-block reveal-content serif-prose"><p><strong>State:</strong> skill source in plugin/skills/guard-authoring/ (shared), docs in
+docs/. Generated codex/gemini trees are rebuilt via build-ports, never
+hand-edited (per the plugin single-source rule).
+<strong>Payload:</strong> schema reference + polyglot examples + approve/signature model</p>
+<ul>
+<li>the autodetect+hint safe default from Round-1.
+<strong>Rejected:</strong> documenting in AGENTS.md/CLAUDE.md (those describe, don&#39;t
+configure; agent-facing guidance belongs in plugin skill source).</li>
+</ul>
+</div>
+        <label for="slice-4-decisions-reveal" class="reveal-label">Show full decisions</label>
+        
+      </div>
+    </div>
+    
+
+    
+    <div class="slice-field slice-tests-field">
+      <div class="slice-field-label">Test Strategy</div>
+      <div class="slice-field-value">
+        
+        
+        <div class="markdown-block slice-tests"><p>Doc/skill change. Verify <code>wipnote plugin build-ports</code> succeeds and
+<code>go build ./...</code> passes; manual read-through against the slice-1 schema.</p>
+</div>
+        
+      </div>
+    </div>
+    
+
+    
+
+    
+    <div class="slice-field slice-questions">
+      <div class="slice-field-label">Open Questions</div>
+      <div class="slice-field-value">
+        
+        <div class="question-block slice-question-block">
+          <p>Is the authoring path a skill, a command, or both?</p>
+          
+          
+          <textarea
+            data-section="slice-4-question-q-skill-vs-command"
+            data-comment-for="slice-4-question-q-skill-vs-command"
+            placeholder="Answer question q-skill-vs-command...">A skill (guidance/workflow) that points at the `wipnote guard init` command from slice-3 for the mechanical write&#43;approve. Skill = how to think about guards; command = how to persist them.</textarea>
+          
+        </div>
+        
+      </div>
+    </div>
+    
+
+    <div class="slice-deps">Dependencies: slices 1</div>
+
+    <details class="comment-collapse">
+      <summary class="comment-collapse-trigger">+ Leave a comment</summary>
+      <div class="comment-collapse-body">
+        <textarea data-section="slice-4" data-comment-for="slice-4" placeholder="Comments on slice 4..."></textarea>
+      </div>
+    </details>
+  </div>
+</details>
+
     <!--PLAN_SLICE_CARDS-->
   </div>
 </details>
 
 <!-- Design Decisions (hidden for v2 plans — slice cards carry their own questions) -->
-<details id="questions" class="section-card" data-phase="questions" data-status="pending">
-  <summary><span>Design Decisions</span><span class="badge badge-pending" data-badge-for="questions">Pending</span></summary>
-  <div class="section-body">
-    <table class="q-table">
-      <thead><tr><th>Question</th><th>Selected</th><th>Status</th></tr></thead>
-      <tbody id="questionsRecap">
-        <!--PLAN_QUESTIONS_RECAP-->
-      </tbody>
-    </table>
-  </div>
-</details>
+
 
 
 
@@ -498,8 +1164,8 @@ body.right-rail-collapsed .sidebar-reopen{display:flex}
   <h2>Feedback Summary</h2>
   <div class="progress-stats">
     <div class="progress-stat"><strong id="approvedCount">0</strong> approved</div>
-    <div class="progress-stat"><strong id="totalSections">1</strong> sections</div>
-    <div class="progress-stat"><strong id="pendingCount">1</strong> pending</div>
+    <div class="progress-stat"><strong id="totalSections">5</strong> sections</div>
+    <div class="progress-stat"><strong id="pendingCount">5</strong> pending</div>
   </div>
   <div class="progress-bar-track"><div class="progress-bar-fill" id="progressFill" style="width:0%"></div></div>
   <div class="comments-summary">
@@ -579,7 +1245,7 @@ var planId=(function(){var a=document.querySelector('article[id]');return a?a.id
 
 (function(){
   'use strict';
-  var SECTIONS=/*PLAN_SECTIONS_JSON*/["design"]/*END_PLAN_SECTIONS_JSON*/;
+  var SECTIONS=/*PLAN_SECTIONS_JSON*/["design","slice-1","slice-2","slice-3","slice-4"]/*END_PLAN_SECTIONS_JSON*/;
 
   function setBadge(el,ok){
     el.className='badge badge-'+(ok?'approved':'pending');

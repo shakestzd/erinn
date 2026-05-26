@@ -1,18 +1,218 @@
 meta:
     id: plan-1187cb00
-    track_id: trk-b1d06a84
     title: 'Project guard profiles (issue #117)'
-    description: Project-owned, committed guard profile that lets wipnote run project-specific quality/completion/yolo guards instead of a fixed manifest universe; loaded by gates with signature-tied completions, with interactive first-run discovery and an authoring skill.
-    created_at: "2026-05-26"
+    description: ""
+    created_at: ""
     status: draft
-    priority: medium
     schema_version: v3
-    version: 2
+    version: 1
 design:
-    problem: ""
-    goals: []
-    constraints: []
+    problem: |
+        wipnote's quality/completion/yolo gates infer commands from a fixed universe
+        of language manifests (go.mod, package.json, ...). That guesswork is wrong
+        for polyglot repos, monorepos with subproject cwds, and projects whose real
+        checks live in Make/CI/scripts. Completions are not tied to any approved
+        contract, so "done" can mean "passed a guessed command". Issue #117.
+    goals:
+        - Project-owned, committed guard profile defining quality/completion/yolo guards with per-guard command, cwd, and applicability
+        - Gates load the profile before autodetection and record a signature so completions are tied to the user-approved contract (drift is detectable)
+        - Frictionless interactive first-run discovery, with a documented authoring path; zero breakage for unconfigured projects
+    constraints:
+        - 'Back-compat: when no profile exists, preserve today''s manifest autodetection (autodetect + one-line hint); never break existing repos on upgrade'
+        - Non-interactive contexts (CI, hooks, no TTY) must never block on discovery prompts
+        - Profile is the committed canonical .wipnote/guard-profile.yaml; agent-facing docs live in plugin skill source, regenerated via build-ports, not hand-edited
     approved: false
     comment: ""
-slices: []
+slices:
+    - id: slice-1
+      num: 1
+      title: 'Project guard profile config: schema, loader, signature (feat-29e16b20)'
+      what: |
+        Add internal/guardprofile/ owning the committed profile at
+        .wipnote/guard-profile.yaml. Schema is phase-grouped:
+        guards.{quality,completion,yolo} each a list of
+        {name, cmd, cwd, applies_when}, plus an approved:{signature,by,at} block.
+        Provide Load(repoRoot) (missing file -> (nil,nil)), Validate, and
+        Signature(): SHA-256 over the CANONICALIZED applicable guards
+        (name+cmd+cwd+applies_when, order-stable) so comment/format churn does
+        not change it. Expose a small API the gate/yolo/discovery slices consume.
+        No gate wiring here (slice-2) and no discovery (slice-3).
+      why: |
+        Durable follow-up to issue #117: wipnote should run project-defined
+        guards rather than a fixed universe of language manifests. Every other
+        slice reads or writes this schema, so it is the foundation one-way door.
+      files:
+        - internal/guardprofile/profile.go
+        - internal/guardprofile/signature.go
+        - internal/guardprofile/profile_test.go
+      deps: []
+      done_when:
+        - Load returns a typed profile from .wipnote/guard-profile.yaml; a missing file returns (nil, nil) with no error
+        - Signature() is stable across comment/whitespace/key-order changes and changes when any guard name/cmd/cwd/applies_when changes
+        - Validate rejects an unknown phase key and a guard missing cmd
+      effort: M
+      risk: Med
+      tests: |
+        Unit TestLoad_MissingFileIsEmpty; TestSignature_StableAcrossFormatting;
+        TestSignature_ChangesOnGuardEdit; TestValidate_RejectsUnknownPhase.
+        Use TMPDIR=/home/vscode/.gotest-tmp.
+      complexity: complex
+      approved: false
+      comment: ""
+      questions:
+        - id: q-applies-when
+          text: What vocabulary does applies_when use in v1?
+          answer: 'v1: applies_when is an optional glob/path predicate (e.g. paths: ["web/**"]) plus an implicit ''always'' when omitted. Richer predicates (env, branch) deferred to keep the foundation small.'
+      decisions_notes: |
+        **State:** committed .wipnote/guard-profile.yaml (canonical, team-shared,
+          survives DB rebuild). Rejected: gitignored/per-user-cache (no shared
+          contract, lost on cache clear).
+        **Schema:** phase-grouped guards.{quality,completion,yolo}; each guard
+          {name,cmd,cwd,applies_when}. Rejected: flat list+phases[] (lookup becomes
+          a filter); per-subproject nesting (heaviest; per-guard cwd covers most
+          monorepo cases now, can extend later).
+        **Signature:** SHA-256 over canonicalized applicable guards + approved
+          block {signature,by,at}. Rejected: whole-file SHA (comment edits =
+          false drift); per-guard hashes (heavier, whole-profile hash already
+          detects any change).
+    - id: slice-2
+      num: 2
+      title: Apply guard profiles in check --gate, completion gates, and yolo (feat-3304de17)
+      what: |
+        Teach `check --gate`, work-item completion gates (cmd/wipnote/
+        workitem_commit.go), and yolo session setup to call
+        guardprofile.Load(repoRoot) BEFORE today's manifest autodetection. When a
+        profile exists, run its phase-appropriate guards (quality/completion/yolo)
+        honoring per-guard cwd and applies_when. When absent, preserve today's
+        autodetection and emit a one-line hint to run discovery. Passing gate
+        records embed the profile Signature() and the guard names actually run, so
+        a completion is 'current' iff its recorded signature == the profile's
+        approved signature.
+      why: |
+        Ties completions to the user-approved project contract instead of guessed
+        manifest commands, and makes drift detectable (recorded sig vs approved).
+      files:
+        - cmd/wipnote/check.go
+        - cmd/wipnote/workitem_commit.go
+        - cmd/wipnote/guard_apply.go
+        - cmd/wipnote/guard_apply_test.go
+      deps:
+        - 1
+      done_when:
+        - With a profile present, check --gate runs the profile's quality guards (with cwd/applies_when) instead of autodetected commands
+        - A passing gate record stores the profile signature and the guard names run
+        - With no profile present, behavior matches today's autodetection plus a single stderr hint
+        - A completion whose recorded signature != the current approved signature is reported as stale/needs re-validation
+      effort: L
+      risk: High
+      tests: |
+        TestGate_UsesProfileWhenPresent; TestGate_FallsBackToAutodetectWhenAbsent;
+        TestGateRecord_EmbedsSignatureAndGuards; TestCompletion_StaleWhenSigDrifts.
+        Integration through the check/complete CLI. TMPDIR=/home/vscode/.gotest-tmp.
+      complexity: complex
+      approved: false
+      comment: ""
+      questions:
+        - id: q-record-store
+          text: Where do gate records persist the signature?
+          answer: Extend the existing passing-gate record path used by check --gate / completion (the same record the provenance gate already consults) with signature + guards_run fields; no new store. Reconcile exact column/edge with cmd/wipnote/workitem_commit.go at implementation.
+      decisions_notes: |
+        **Trigger:** profile load is attempted first on every gate/yolo entry;
+          autodetection is the fallback, not the default (preserves back-compat).
+        **Payload:** gate record carries {signature, guards_run[]}. Drift compare =
+          recorded signature vs profile.approved.signature.
+        **Rejected:** replacing autodetection outright (breaks unconfigured repos);
+          strict refuse-without-profile (too aggressive for upgrade) — chose
+          autodetect+hint per Round-1.
+    - id: slice-3
+      num: 3
+      title: First-run guard discovery for yolo/check (feat-534f209f)
+      what: |
+        On the first yolo or check --gate in an unconfigured project AND an
+        interactive (TTY/agent) session, inspect repo manifests, CI configs,
+        Makefile/scripts, docs, and subprojects to PROPOSE phase-grouped guards;
+        ask the user to approve or edit; on approval write
+        .wipnote/guard-profile.yaml with a computed approved:{signature,by,at} and
+        commit it (via runGitMutation, per the git-serialization track). In
+        non-interactive contexts (CI, hooks, no TTY) skip the prompt and fall back
+        to autodetect+hint so gates never hang. Discovery core (inspect->propose)
+        is a pure, testable function seamed from the I/O.
+      why: |
+        Lets a project adopt a tailored contract with near-zero friction, which is
+        what the autodetect+hint fallback points users toward.
+      files:
+        - internal/guardprofile/discover.go
+        - internal/guardprofile/discover_test.go
+        - cmd/wipnote/guard_init.go
+        - cmd/wipnote/guard_init_test.go
+      deps:
+        - 1
+      done_when:
+        - Discovery proposes go/node/python/Makefile guards from a fixture repo without writing anything until approved
+        - On approval the profile is written with a valid approved signature and staged/committed
+        - In a non-interactive session discovery is skipped and the gate falls back to autodetect+hint (never blocks)
+      effort: L
+      risk: Med
+      tests: |
+        TestDiscover_ProposesFromManifests (table-driven fixtures);
+        TestDiscover_NoWriteBeforeApproval; TestFirstRun_SkippedWhenNonInteractive.
+        Seam the TTY check + committer. TMPDIR=/home/vscode/.gotest-tmp.
+      complexity: complex
+      approved: false
+      comment: ""
+      questions:
+        - id: q-init-cmd
+          text: Is there also an explicit command, or only the auto-trigger?
+          answer: 'Both: the same propose/approve/persist core is exposed as `wipnote guard init` for manual/agentic invocation; the first-run path just calls it automatically when interactive. This keeps a non-auto escape hatch and serves slice-4''s docs.'
+      decisions_notes: |
+        **Trigger:** first gate/yolo in an unconfigured repo, interactive only;
+          non-interactive auto-skips to autodetect+hint (gates must never hang).
+        **State:** writes the committed .wipnote/guard-profile.yaml from slice-1's
+          schema, computing approved.signature via slice-1 Signature().
+        **Rejected:** draft-file + explicit approve command (more steps, slower
+          adoption); explicit `guard init` only with no auto-trigger (drops the
+          first-run requirement of this feature). Both remain available as the
+          manual path documented in slice-4.
+    - id: slice-4
+      num: 4
+      title: Guard authoring skill and docs (feat-1469fabc)
+      what: |
+        Add a user-level skill/workflow plus documentation for defining guards
+        manually or agentically: the .wipnote/guard-profile.yaml schema reference,
+        polyglot/monorepo examples (per-guard cwd, applies_when paths), the
+        approve/signature model, and the safe-default behavior when no profile
+        exists. Skill source lives in plugin/skills/ (shared asset) and is
+        regenerated to all targets via `wipnote plugin build-ports`.
+      why: |
+        Makes the contract usable without reverse-engineering the schema, and
+        gives agents a documented authoring workflow (polyglot + safe defaults).
+      files:
+        - plugin/skills/guard-authoring/SKILL.md
+        - docs/guard-profiles.md
+      deps:
+        - 1
+      done_when:
+        - Skill documents the full schema (phases, per-guard fields, approved block) with at least one polyglot/monorepo example
+        - Docs state the no-profile safe default (autodetect+hint) and the approve/signature/drift model
+        - wipnote plugin build-ports regenerates the codex/gemini trees with no hand-edits to generated files
+      effort: M
+      risk: Low
+      tests: |
+        Doc/skill change. Verify `wipnote plugin build-ports` succeeds and
+        `go build ./...` passes; manual read-through against the slice-1 schema.
+      complexity: complex
+      approved: false
+      comment: ""
+      questions:
+        - id: q-skill-vs-command
+          text: Is the authoring path a skill, a command, or both?
+          answer: A skill (guidance/workflow) that points at the `wipnote guard init` command from slice-3 for the mechanical write+approve. Skill = how to think about guards; command = how to persist them.
+      decisions_notes: |
+        **State:** skill source in plugin/skills/guard-authoring/ (shared), docs in
+          docs/. Generated codex/gemini trees are rebuilt via build-ports, never
+          hand-edited (per the plugin single-source rule).
+        **Payload:** schema reference + polyglot examples + approve/signature model
+          + the autodetect+hint safe default from Round-1.
+        **Rejected:** documenting in AGENTS.md/CLAUDE.md (those describe, don't
+          configure; agent-facing guidance belongs in plugin skill source).
 questions: []

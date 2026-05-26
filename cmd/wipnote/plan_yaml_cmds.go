@@ -60,21 +60,28 @@ func commitPlanChange(planPath, message string) error {
 		return fmt.Errorf("autocommit: re-render HTML: %w", err)
 	}
 
-	// Stage both files. Explicit paths only — never `git add -A` or `git add .`.
-	// runGitMutation acquires the repo-scoped advisory lock around the
-	// index-writing command before delegating to runGitWithLockRetry, so plan
-	// commits are serialized by the same lock as work-item artifact commits
-	// (feat-c0307d7a). planDir is passed as the repoRoot anchor; runGitMutation
-	// prepends -C planDir, so the explicit -C is dropped from the args slice.
+	// Resolve the true repo root so runGitMutation keys the advisory lock on
+	// the same path used by work-item artifact commits. Using planDir
+	// (e.g. .wipnote/plans) would produce a different lock-file hash and defeat
+	// the serialization guarantee (roborev finding on feat-c0307d7a).
+	repoRoot, err := repoRootOf(planDir)
+	if err != nil {
+		repoRoot = planDir // fallback: best-effort, still serialized within itself
+	}
+
+	// Stage both files. Explicit absolute paths — never `git add -A` or `git add .`.
+	// runGitMutation acquires the repo-scoped advisory lock (keyed by repoRoot)
+	// before delegating to runGitWithLockRetry, so plan commits are serialized
+	// by the same lock as work-item artifact commits (feat-c0307d7a).
 	// After re-render, HTML is guaranteed to exist, so stage both unconditionally.
-	if out, err := runGitMutation(planDir, "add", "--", filepath.Base(planPath), filepath.Base(htmlPath)); err != nil {
+	if out, err := runGitMutation(repoRoot, "add", "--", planPath, htmlPath); err != nil {
 		return fmt.Errorf("autocommit: git add failed: %s: %w", strings.TrimSpace(string(out)), err)
 	}
 
 	// Commit. No --no-verify. Pre-commit hooks run.
 	// runGitMutation serializes this mutation behind the same repo-scoped lock
 	// as the add above and as work-item artifact commits.
-	commitOut, err := runGitMutation(planDir, "commit", "-m", message, "--", filepath.Base(planPath), filepath.Base(htmlPath))
+	commitOut, err := runGitMutation(repoRoot, "commit", "-m", message, "--", planPath, htmlPath)
 	if err != nil {
 		// Check if the failure was "nothing to commit" (the mutation was a no-op
 		// — e.g., re-finalize with unchanged YAML). That's not an error.
@@ -97,6 +104,17 @@ func commitPlanChange(planPath, message string) error {
 func isGitRepo(dir string) bool {
 	err := exec.Command("git", "-C", dir, "rev-parse", "--git-dir").Run()
 	return err == nil
+}
+
+// repoRootOf returns the git repository root for the given directory.
+// This is the canonical anchor for repo-scoped advisory lock hashing in
+// runGitMutation — always pass the true repo root, never a subdirectory.
+func repoRootOf(dir string) (string, error) {
+	out, err := exec.Command("git", "-C", dir, "rev-parse", "--show-toplevel").Output()
+	if err != nil {
+		return "", err
+	}
+	return strings.TrimSpace(string(out)), nil
 }
 
 // planCreateYAMLCmd creates a YAML plan file with empty design, slices,

@@ -306,6 +306,12 @@ func TestConcurrentAppendDuringFlushIsNotLost(t *testing.T) {
 		t.Fatalf("seed append: %v", err)
 	}
 
+	// atLockBoundary fires (via the beforeLockForTest seam) each time an
+	// operation reaches the flock acquisition: once for the flush, then once for
+	// the concurrent append. Buffered so the synchronous seam never blocks.
+	atLockBoundary := make(chan struct{}, 2)
+	o.beforeLockForTest = func() { atLockBoundary <- struct{}{} }
+
 	started := make(chan struct{})
 	proceed := make(chan struct{})
 	committer := func(_ Intent) error {
@@ -320,16 +326,17 @@ func TestConcurrentAppendDuringFlushIsNotLost(t *testing.T) {
 		flushDone <- err
 	}()
 
-	<-started // flush is mid-commit, holding the outbox lock
+	<-atLockBoundary // the flush has reached (and will hold) the outbox lock
+	<-started        // flush is mid-commit, definitively holding the lock
+
 	appendDone := make(chan error, 1)
 	go func() { appendDone <- o.Append(sampleIntent("b")) }()
 
-	// Deterministic assertion (not just a timing window): while the flush holds
-	// the outbox lock, the concurrent Append MUST still be blocked. Under the old
-	// lockless model the Append would complete here and then be clobbered by the
-	// rewrite — so observing it complete BEFORE we release the flush is the bug.
-	// The brief pause lets the goroutine reach the (blocking) lock acquisition.
-	time.Sleep(25 * time.Millisecond)
+	// Deterministic (no sleep): wait until the append goroutine has reached the
+	// lock boundary. Past this point it physically cannot complete until the
+	// flush releases the lock, so observing appendDone fire now would mean the
+	// operations were NOT serialized (the old lost-update behavior).
+	<-atLockBoundary
 	select {
 	case err := <-appendDone:
 		t.Fatalf("Append completed while the flush held the outbox lock (not serialized): err=%v", err)

@@ -23,6 +23,13 @@ type Outbox struct {
 	path     string // the pending-intents NDJSON file
 	dlPath   string // the dead-letter NDJSON sibling
 	lockPath string // the dedicated cross-operation lock file (path + ".lock")
+
+	// beforeLockForTest, when non-nil, is invoked inside withLock immediately
+	// before the blocking flock acquisition. It is a test-only seam (mirroring
+	// the gitRunner/gitLockSleep seams in cmd/wipnote) that lets a test prove an
+	// operation has reached the lock boundary without a timing sleep. Production
+	// never sets it.
+	beforeLockForTest func()
 }
 
 // NewOutbox constructs an Outbox at path. The dead-letter sibling is path with
@@ -49,6 +56,9 @@ func (o *Outbox) withLock(fn func() error) error {
 		return fmt.Errorf("commitqueue: open lock %s: %w", o.lockPath, err)
 	}
 	defer f.Close()
+	if o.beforeLockForTest != nil {
+		o.beforeLockForTest()
+	}
 	if err := syscall.Flock(int(f.Fd()), syscall.LOCK_EX); err != nil {
 		return fmt.Errorf("commitqueue: flock %s: %w", o.lockPath, err)
 	}

@@ -10,26 +10,20 @@
 <body>
     <article id="feat-76504033"
              data-type="feature"
-             data-status="in-progress"
+             data-status="done"
              data-priority="medium"
              data-created="2026-05-26T05:05:51.322548"
-             data-updated="2026-05-26T10:35:45.980535" data-agent-assigned="claude-code" data-track-id="trk-b1d06a84" data-created-by-agent="claude-code" data-created-by-model="gpt-5.5" data-created-by-role="codex" data-created-by-cli-version="0.60.18-72-gf05c89f94">
+             data-updated="2026-05-26T10:44:47.690468" data-agent-assigned="claude-code" data-track-id="trk-b1d06a84" data-created-by-agent="claude-code" data-created-by-model="gpt-5.5" data-created-by-role="codex" data-created-by-cli-version="0.60.18-72-gf05c89f94">
 
         <header>
             <h1>Design and implement a serialized wipnote artifact commit queue</h1>
             <div class="metadata">
-                <span class="badge status-in-progress">In Progress</span>
+                <span class="badge status-done">Done</span>
                 <span class="badge priority-medium">Medium Priority</span>
             </div>
         </header>
 
         <nav data-graph-edges>
-            <section data-edge-type="part_of">
-                <h3>Part Of:</h3>
-                <ul>
-                    <li><a href="trk-b1d06a84.html" data-relationship="part_of" data-since="2026-05-26T05:05:51.331197">trk-b1d06a84</a></li>
-                </ul>
-            </section>
             <section data-edge-type="blocked_by">
                 <h3>Blocked By:</h3>
                 <ul>
@@ -44,22 +38,29 @@
                     <li><a href="e2115ac3-91fe-4731-8d77-0cee62a8e8e2.html" data-relationship="implemented_in" data-since="2026-05-26T10:35:45.979897">session e2115ac3-91fe-4731-8d77-0cee62a8e8e2</a></li>
                 </ul>
             </section>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="trk-b1d06a84.html" data-relationship="part_of" data-since="2026-05-26T05:05:51.331197">trk-b1d06a84</a></li>
+                </ul>
+            </section>
         </nav>
 
         <section data-steps>
             <h3>Implementation Steps</h3>
             <ol>
-                <li data-completed="false" data-step-id="step-feat-76504033-0" data-agent="claude-code" data-created-by-agent="claude-code">⏳ Write design note and queue format</li>
-                <li data-completed="false" data-step-id="step-feat-76504033-1" data-agent="claude-code" data-created-by-agent="claude-code">⏳ Record pending commit intents after canonical writes</li>
-                <li data-completed="false" data-step-id="step-feat-76504033-2" data-agent="claude-code" data-created-by-agent="claude-code">⏳ Implement serialized flush command/daemon hook</li>
-                <li data-completed="false" data-step-id="step-feat-76504033-3" data-agent="claude-code" data-created-by-agent="claude-code">⏳ Add recovery tests for interrupted flushes</li>
-                <li data-completed="false" data-step-id="step-feat-76504033-4" data-agent="claude-code" data-created-by-agent="claude-code">⏳ Add dead-letter/skip semantics so a single repeatedly-failing commit cannot freeze the ordered queue</li>
+                <li data-completed="true" data-step-id="step-feat-76504033-0" data-agent="claude-code" data-created-by-agent="claude-code">✅ Write design note and queue format</li>
+                <li data-completed="true" data-step-id="step-feat-76504033-1" data-agent="claude-code" data-created-by-agent="claude-code">✅ Record pending commit intents after canonical writes</li>
+                <li data-completed="true" data-step-id="step-feat-76504033-2" data-agent="claude-code" data-created-by-agent="claude-code">✅ Implement serialized flush command/daemon hook</li>
+                <li data-completed="true" data-step-id="step-feat-76504033-3" data-agent="claude-code" data-created-by-agent="claude-code">✅ Add recovery tests for interrupted flushes</li>
+                <li data-completed="true" data-step-id="step-feat-76504033-4" data-agent="claude-code" data-created-by-agent="claude-code">✅ Add dead-letter/skip semantics so a single repeatedly-failing commit cannot freeze the ordered queue</li>
             </ol>
         </section>
 
         <section data-content>
             <h3>Description</h3>
-            <p>Move long-term autocommit behavior toward an outbox model: canonical .wipnote HTML/YAML writes complete first, then a single serialized committer batches pending artifact commits. This avoids making every agent a direct Git writer on the hot path.</p>
+            <p>Move long-term autocommit behavior toward an outbox model: canonical .wipnote HTML/YAML writes complete first, then a single serialized committer batches pending artifact commits. This avoids making every agent a direct Git writer on the hot path.
+[2026-05-26 10:44 claude-code] accepted-advisory (provenance override): Implementation landed in commits ac388d99b (feat: outbox package + CLI commit-queue flush/status) and 1cf509c1e (test: recovery/dead-letter coverage + design note), both with the exact (feat-76504033) parenthetical. ingest commits reported attribution but no commit edge surfaced on the artifact; citing SHAs explicitly per provenance protocol.</p>
         </section>
     </article>
 </body>

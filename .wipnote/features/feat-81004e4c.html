@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>Project guard profile config: schema, loader, signature (feat-29e16b20)</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="feat-81004e4c"
+             data-type="feature"
+             data-status="in-progress"
+             data-priority="medium"
+             data-created="2026-05-26T23:15:30.601106"
+             data-updated="2026-05-26T23:18:53.86284" data-agent-assigned="claude-code" data-track-id="trk-fb4a1d6e">
+
+        <header>
+            <h1>Project guard profile config: schema, loader, signature (feat-29e16b20)</h1>
+            <div class="metadata">
+                <span class="badge status-in-progress">In Progress</span>
+                <span class="badge priority-medium">Medium Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="planned_in">
+                <h3>Planned In:</h3>
+                <ul>
+                    <li><a href="plan-1187cb00.html" data-relationship="planned_in" data-since="2026-05-26T23:15:30.631911">plan-1187cb00</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="trk-fb4a1d6e.html" data-relationship="part_of" data-since="2026-05-26T23:15:30.643534">trk-fb4a1d6e</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="implemented_in">
+                <h3>Implemented In:</h3>
+                <ul>
+                    <li><a href="e2115ac3-91fe-4731-8d77-0cee62a8e8e2.html" data-relationship="implemented_in" data-since="2026-05-26T23:18:53.862409">session e2115ac3-91fe-4731-8d77-0cee62a8e8e2</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>Add internal/guardprofile/ owning the committed profile at
+.wipnote/guard-profile.yaml. Schema is phase-grouped:
+guards.{quality,completion,yolo} each a list of
+{name, cmd, cwd, applies_when}, plus approved:{signature, by, at}.
+Provide Load(repoRoot) (missing file -> (nil,nil)), Validate, and
+Signature(profile). CANONICALIZATION (fixed, cross-platform): phases in
+the fixed order quality,completion,yolo; within each, guards sorted by
+name; each guard encoded as the NUL-joined tuple
+name\0cmd\0cwd\0applies_when-normalized; applies_when paths sorted and
+slash-normalized; the approved block is EXCLUDED from the hash. Signature =
+"sha256:"+hex(sha256(canonical bytes)). Expose IsApproved(profile) =
+(Signature(profile) == profile.approved.signature). No gate wiring (slice-2)
+and no discovery (slice-3) here.</p>
+        </section>
+    </article>
+</body>
+</html>

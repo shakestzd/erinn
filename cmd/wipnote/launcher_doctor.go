@@ -19,6 +19,7 @@ func launcherCmd() *cobra.Command {
 		Short: "Launcher diagnostics and migration tooling",
 	}
 	cmd.AddCommand(launcherDoctorCmd())
+	cmd.AddCommand(launcherGitLockCmd())
 	return cmd
 }
 
@@ -64,6 +65,7 @@ func runDoctorReport(repoRoot string) string {
 	fmt.Fprintf(&b, "wipnote launcher doctor — %s\n\n", repoRoot)
 	reportGitState(&b, repoRoot)
 	reportWorktrees(&b, repoRoot)
+	reportGitLockState(&b, repoRoot)
 	reportSessionDivergence(&b, repoRoot)
 	reportRolloutGate(&b)
 	fmt.Fprintln(&b, "--- delegated checks ---")

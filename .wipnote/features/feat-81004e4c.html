@@ -10,20 +10,26 @@
 <body>
     <article id="feat-81004e4c"
              data-type="feature"
-             data-status="in-progress"
+             data-status="done"
              data-priority="medium"
              data-created="2026-05-26T23:15:30.601106"
-             data-updated="2026-05-26T23:18:53.86284" data-agent-assigned="claude-code" data-track-id="trk-fb4a1d6e">
+             data-updated="2026-05-26T23:25:29.84473" data-agent-assigned="claude-code" data-track-id="trk-fb4a1d6e">
 
         <header>
             <h1>Project guard profile config: schema, loader, signature (feat-29e16b20)</h1>
             <div class="metadata">
-                <span class="badge status-in-progress">In Progress</span>
+                <span class="badge status-done">Done</span>
                 <span class="badge priority-medium">Medium Priority</span>
             </div>
         </header>
 
         <nav data-graph-edges>
+            <section data-edge-type="implemented_in">
+                <h3>Implemented In:</h3>
+                <ul>
+                    <li><a href="e2115ac3-91fe-4731-8d77-0cee62a8e8e2.html" data-relationship="implemented_in" data-since="2026-05-26T23:18:53.862409">session e2115ac3-91fe-4731-8d77-0cee62a8e8e2</a></li>
+                </ul>
+            </section>
             <section data-edge-type="planned_in">
                 <h3>Planned In:</h3>
                 <ul>
@@ -34,12 +40,6 @@
                 <h3>Part Of:</h3>
                 <ul>
                     <li><a href="trk-fb4a1d6e.html" data-relationship="part_of" data-since="2026-05-26T23:15:30.643534">trk-fb4a1d6e</a></li>
-                </ul>
-            </section>
-            <section data-edge-type="implemented_in">
-                <h3>Implemented In:</h3>
-                <ul>
-                    <li><a href="e2115ac3-91fe-4731-8d77-0cee62a8e8e2.html" data-relationship="implemented_in" data-since="2026-05-26T23:18:53.862409">session e2115ac3-91fe-4731-8d77-0cee62a8e8e2</a></li>
                 </ul>
             </section>
         </nav>
@@ -58,7 +58,8 @@ name\0cmd\0cwd\0applies_when-normalized; applies_when paths sorted and
 slash-normalized; the approved block is EXCLUDED from the hash. Signature =
 "sha256:"+hex(sha256(canonical bytes)). Expose IsApproved(profile) =
 (Signature(profile) == profile.approved.signature). No gate wiring (slice-2)
-and no discovery (slice-3) here.</p>
+and no discovery (slice-3) here.
+[2026-05-26 23:25 claude-code] accepted-advisory (provenance override): Implementation committed at c021945c430fcff55c1f783bafcdf2553ac15134 with subject containing (feat-81004e4c); wipnote ingest commits ran but auto-linker did not attach the commit in this delegated subagent session. All gates pass (go build/vet/test green under TMPDIR=[host-path]/.gotest-tmp).</p>
         </section>
     </article>
 </body>

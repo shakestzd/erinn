@@ -1,0 +1,18 @@
+meta:
+    id: plan-1187cb00
+    track_id: trk-b1d06a84
+    title: 'Project guard profiles (issue #117)'
+    description: Project-owned, committed guard profile that lets wipnote run project-specific quality/completion/yolo guards instead of a fixed manifest universe; loaded by gates with signature-tied completions, with interactive first-run discovery and an authoring skill.
+    created_at: "2026-05-26"
+    status: draft
+    priority: medium
+    schema_version: v3
+    version: 2
+design:
+    problem: ""
+    goals: []
+    constraints: []
+    approved: false
+    comment: ""
+slices: []
+questions: []

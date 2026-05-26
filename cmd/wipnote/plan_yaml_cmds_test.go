@@ -82,28 +82,35 @@ func TestCommitPlanChange_RoutedThroughGitRunner(t *testing.T) {
 // first or `git add -- relative/...` would resolve against repoRoot and miss the
 // file (roborev finding job 3633).
 func TestCommitPlanChange_RelativePlanPath(t *testing.T) {
-	dir := t.TempDir()
-	initGitRepo(t, dir)
-
-	plansDir := filepath.Join(dir, "plans")
-	if err := os.MkdirAll(plansDir, 0o755); err != nil {
-		t.Fatalf("mkdir plans: %v", err)
+	// Reproduce the `--project-dir relative/repo` scenario: the process CWD is
+	// the PARENT of the repo and the plan path is relative and INCLUDES the repo
+	// directory. The pre-fix code passed that relative path straight to
+	// `git -C <repoRoot> add`, which resolved it against repoRoot (→ repoRoot/repo
+	// /plans/...) and failed to stage. Passing CWD == repoRoot (as the prior test
+	// did) would have masked the bug because the path resolves correctly there
+	// (roborev #3641 Low).
+	parent := t.TempDir()
+	repoDir := filepath.Join(parent, "myrepo")
+	if err := os.MkdirAll(filepath.Join(repoDir, "plans"), 0o755); err != nil {
+		t.Fatalf("mkdir repo/plans: %v", err)
 	}
+	initGitRepo(t, repoDir)
+
 	planID := "plan-rel12345"
 	plan := planyaml.NewPlan(planID, "Relative Path Test", "relative planPath staging")
-	if err := planyaml.Save(filepath.Join(plansDir, planID+".yaml"), plan); err != nil {
+	if err := planyaml.Save(filepath.Join(repoDir, "plans", planID+".yaml"), plan); err != nil {
 		t.Fatalf("save yaml: %v", err)
 	}
 
-	// Run with the process CWD inside the repo and pass a RELATIVE planPath.
-	t.Chdir(dir)
-	relPlanPath := filepath.Join("plans", planID+".yaml")
+	// CWD = parent of the repo; planPath is relative and includes the repo dir.
+	t.Chdir(parent)
+	relPlanPath := filepath.Join("myrepo", "plans", planID+".yaml")
 
 	if err := commitPlanChange(relPlanPath, "plan("+planID+"): relative path"); err != nil {
 		t.Fatalf("commitPlanChange with relative path: %v", err)
 	}
 
-	showOut, err := exec.Command("git", "-C", dir, "show", "--stat", "HEAD").CombinedOutput()
+	showOut, err := exec.Command("git", "-C", repoDir, "show", "--stat", "HEAD").CombinedOutput()
 	if err != nil {
 		t.Fatalf("git show: %v\n%s", err, showOut)
 	}

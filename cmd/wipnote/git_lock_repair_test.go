@@ -72,6 +72,39 @@ func TestDetectGitLocks_FindsMultipleLocks(t *testing.T) {
 	}
 }
 
+// TestDetectGitLocks_ScansMultipleDirsAndDedupes models a linked worktree: the
+// per-worktree git dir holds index.lock while the shared common dir holds
+// config.lock. detectGitLocks must report locks from BOTH dirs (roborev #3641)
+// and must not double-count when the same dir is passed twice.
+func TestDetectGitLocks_ScansMultipleDirsAndDedupes(t *testing.T) {
+	base := t.TempDir()
+	perWorktree := filepath.Join(base, ".git", "worktrees", "feat-abc")
+	common := filepath.Join(base, ".git")
+	if err := os.MkdirAll(perWorktree, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	makeFakeLock(t, perWorktree, "index.lock", 20*time.Minute)
+	makeFakeLock(t, common, "config.lock", 20*time.Minute)
+
+	locks := detectGitLocks(perWorktree, common)
+	if len(locks) != 2 {
+		t.Fatalf("expected locks from both dirs, got %d: %+v", len(locks), locks)
+	}
+	names := map[string]bool{}
+	for _, l := range locks {
+		names[l.Name] = true
+	}
+	if !names["index.lock"] || !names["config.lock"] {
+		t.Errorf("expected both index.lock (per-worktree) and config.lock (common), got %+v", locks)
+	}
+
+	// De-dup: passing the same dir twice must not double-count.
+	deduped := detectGitLocks(common, common)
+	if len(deduped) != 1 {
+		t.Errorf("expected de-dup to 1 lock for repeated dir, got %d", len(deduped))
+	}
+}
+
 // ---- TestLockAge ----
 
 func TestLockAge_AboveThreshold(t *testing.T) {
@@ -110,7 +143,7 @@ func TestReportGitLockState_DryRunReportsStale(t *testing.T) {
 	}
 
 	now := time.Now()
-	out := reportGitLockStateWith(dir, gitDir, now, noLiveWriter, defaultMaxLockAge)
+	out := reportGitLockStateWith(dir, []string{gitDir}, now, noLiveWriter, defaultMaxLockAge)
 
 	// Must still exist (no deletion)
 	if _, err := os.Stat(lockPath); err != nil {
@@ -134,7 +167,7 @@ func TestReportGitLockState_NoLocks(t *testing.T) {
 		t.Fatal(err)
 	}
 	now := time.Now()
-	out := reportGitLockStateWith(dir, gitDir, now, noLiveWriter, defaultMaxLockAge)
+	out := reportGitLockStateWith(dir, []string{gitDir}, now, noLiveWriter, defaultMaxLockAge)
 	if !strings.Contains(out, "no lock files") {
 		t.Errorf("expected 'no lock files', got:\n%s", out)
 	}
@@ -148,7 +181,7 @@ func TestReportGitLockState_ActiveWriter(t *testing.T) {
 	}
 	makeFakeLock(t, gitDir, "index.lock", 20*time.Minute)
 	now := time.Now()
-	out := reportGitLockStateWith(dir, gitDir, now, hasLiveWriter, defaultMaxLockAge)
+	out := reportGitLockStateWith(dir, []string{gitDir}, now, hasLiveWriter, defaultMaxLockAge)
 	if !strings.Contains(strings.ToLower(out), "active") && !strings.Contains(strings.ToLower(out), "live") {
 		t.Errorf("expected active/live writer mention, got:\n%s", out)
 	}
@@ -166,7 +199,7 @@ func TestRepairGitLock_DeletesStaleWhenNoLiveWriter(t *testing.T) {
 
 	now := time.Now()
 	// Both initial scan and final re-check: no live writer
-	repaired, skipped, err := repairGitLocksWith(gitDir, gitDir, now, noLiveWriter, noLiveWriter, defaultMaxLockAge)
+	repaired, skipped, err := repairGitLocksWith([]string{gitDir}, gitDir, now, noLiveWriter, noLiveWriter, defaultMaxLockAge)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -190,7 +223,7 @@ func TestRepairGitLock_RefusesWhenLiveWriterDetectedInitially(t *testing.T) {
 	lockPath := makeFakeLock(t, gitDir, "index.lock", 20*time.Minute)
 
 	now := time.Now()
-	repaired, skipped, err := repairGitLocksWith(gitDir, gitDir, now, hasLiveWriter, hasLiveWriter, defaultMaxLockAge)
+	repaired, skipped, err := repairGitLocksWith([]string{gitDir}, gitDir, now, hasLiveWriter, hasLiveWriter, defaultMaxLockAge)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -215,7 +248,7 @@ func TestRepairGitLock_RefusesWhenAgeBelowThreshold(t *testing.T) {
 	lockPath := makeFakeLock(t, gitDir, "index.lock", 2*time.Minute)
 
 	now := time.Now()
-	repaired, skipped, err := repairGitLocksWith(gitDir, gitDir, now, noLiveWriter, noLiveWriter, defaultMaxLockAge)
+	repaired, skipped, err := repairGitLocksWith([]string{gitDir}, gitDir, now, noLiveWriter, noLiveWriter, defaultMaxLockAge)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -243,7 +276,7 @@ func TestRepairGitLock_FinalRecheckAborts(t *testing.T) {
 
 	now := time.Now()
 	// initialCheck: no live writer; finalRecheck: live writer appeared
-	repaired, skipped, err := repairGitLocksWith(gitDir, gitDir, now, noLiveWriter, hasLiveWriter, defaultMaxLockAge)
+	repaired, skipped, err := repairGitLocksWith([]string{gitDir}, gitDir, now, noLiveWriter, hasLiveWriter, defaultMaxLockAge)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -267,7 +300,7 @@ func TestRepairGitLock_CustomMaxAge(t *testing.T) {
 	// 3-minute-old lock, custom threshold of 2 minutes → should delete
 	lockPath := makeFakeLock(t, gitDir, "index.lock", 3*time.Minute)
 	now := time.Now()
-	repaired, _, err := repairGitLocksWith(gitDir, gitDir, now, noLiveWriter, noLiveWriter, 2*time.Minute)
+	repaired, _, err := repairGitLocksWith([]string{gitDir}, gitDir, now, noLiveWriter, noLiveWriter, 2*time.Minute)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}

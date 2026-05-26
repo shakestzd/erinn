@@ -44,21 +44,37 @@ type lockFileInfo struct {
 	ModTime time.Time
 }
 
-// detectGitLocks returns lock files found in gitDir (the .git directory).
-// It only checks known lock filenames — it does not recurse.
-func detectGitLocks(gitDir string) []lockFileInfo {
+// detectGitLocks returns the known lock files found across gitDirs. It checks
+// only known lock filenames and does not recurse. Multiple dirs are scanned
+// because in a linked worktree the per-worktree admin dir (--git-dir) holds
+// index.lock/HEAD.lock while shared locks like config.lock/packed-refs.lock live
+// under the git common dir (--git-common-dir); both must be inspected (roborev
+// #3641). Results are de-duplicated by absolute path so overlapping dirs (the
+// main worktree, where the two dirs coincide) don't double-count.
+func detectGitLocks(gitDirs ...string) []lockFileInfo {
 	var found []lockFileInfo
-	for _, name := range knownLockNames {
-		p := filepath.Join(gitDir, name)
-		fi, err := os.Stat(p)
-		if err != nil {
-			continue // not present
+	seen := make(map[string]bool)
+	for _, gitDir := range gitDirs {
+		for _, name := range knownLockNames {
+			p := filepath.Join(gitDir, name)
+			abs := p
+			if a, err := filepath.Abs(p); err == nil {
+				abs = a
+			}
+			if seen[abs] {
+				continue
+			}
+			fi, err := os.Stat(p)
+			if err != nil {
+				continue // not present
+			}
+			seen[abs] = true
+			found = append(found, lockFileInfo{
+				Name:    name,
+				Path:    p,
+				ModTime: fi.ModTime(),
+			})
 		}
-		found = append(found, lockFileInfo{
-			Name:    name,
-			Path:    p,
-			ModTime: fi.ModTime(),
-		})
 	}
 	return found
 }
@@ -117,17 +133,18 @@ func hasLiveGitWriter(worktreeRoot string) bool {
 // It is a pure read-only reporter — it NEVER deletes anything.
 // Called from runDoctorReport as one section among several.
 func reportGitLockState(b *bytes.Buffer, repoRoot string) {
-	gitDir := resolveGitDir(repoRoot)
+	gitDirs := resolveGitLockDirs(repoRoot)
 	now := time.Now()
-	section := reportGitLockStateWith(repoRoot, gitDir, now, hasLiveGitWriter, defaultMaxLockAge)
+	section := reportGitLockStateWith(repoRoot, gitDirs, now, hasLiveGitWriter, defaultMaxLockAge)
 	fmt.Fprint(b, section)
 }
 
 // reportGitLockStateWith is the testable core of reportGitLockState.
 // It accepts injectable seams for now(), a liveness check, and the age threshold.
-// It NEVER deletes anything — it is a pure diagnostic function.
+// It NEVER deletes anything — it is a pure diagnostic function. gitDirs is the
+// set of git directories to scan (per-worktree git dir plus the common dir).
 func reportGitLockStateWith(
-	repoRoot, gitDir string,
+	repoRoot string, gitDirs []string,
 	now time.Time,
 	liveCheck func(string) bool,
 	maxAge time.Duration,
@@ -135,7 +152,7 @@ func reportGitLockStateWith(
 	var b bytes.Buffer
 	fmt.Fprintln(&b, "--- git lock files ---")
 
-	locks := detectGitLocks(gitDir)
+	locks := detectGitLocks(gitDirs...)
 	if len(locks) == 0 {
 		fmt.Fprintln(&b, "  no lock files detected")
 		fmt.Fprintln(&b)
@@ -184,18 +201,19 @@ func reportGitLockStateWith(
 //
 // Returns: (repaired count, skipped count, first error encountered).
 func repairGitLocksWith(
-	gitDir, worktreeRoot string,
+	gitDirs []string, worktreeRoot string,
 	now time.Time,
 	initialCheck func(string) bool,
 	finalRecheck func(string) bool,
 	maxAge time.Duration,
 ) (int, int, error) {
-	locks := detectGitLocks(gitDir)
+	locks := detectGitLocks(gitDirs...)
 	repaired, skipped := 0, 0
 
 	// worktreeRoot anchors the liveness scan to the working tree. It is passed
-	// explicitly (not derived from gitDir) because in a linked worktree gitDir
-	// is .git/worktrees/<name>, whose parent is NOT the working tree root.
+	// explicitly (not derived from gitDirs) because in a linked worktree the
+	// per-worktree git dir is .git/worktrees/<name>, whose parent is NOT the
+	// working tree root.
 
 	for _, lf := range locks {
 		age := now.Sub(lf.ModTime)
@@ -261,6 +279,30 @@ func resolveGitDir(repoRoot string) string {
 	return candidate
 }
 
+// resolveGitLockDirs returns the set of directories that can hold git lock files
+// for repoRoot, de-duplicated. In the main worktree the per-worktree git dir and
+// the git common dir coincide (one entry). In a LINKED worktree they differ:
+// --git-dir (from resolveGitDir) holds index.lock/HEAD.lock while --git-common-dir
+// holds shared locks like config.lock/packed-refs.lock — both must be scanned
+// (roborev #3641). The common dir is best-effort: if git can't report it we just
+// return the primary git dir.
+func resolveGitLockDirs(repoRoot string) []string {
+	dirs := []string{resolveGitDir(repoRoot)}
+	if out, err := exec.Command("git", "-C", repoRoot, "rev-parse", "--git-common-dir").Output(); err == nil {
+		common := strings.TrimSpace(string(out))
+		if common != "" {
+			if !filepath.IsAbs(common) {
+				common = filepath.Join(repoRoot, common)
+			}
+			common = filepath.Clean(common)
+			if common != dirs[0] {
+				dirs = append(dirs, common)
+			}
+		}
+	}
+	return dirs
+}
+
 // launcherGitLockCmd returns the "wipnote launcher git-lock" subcommand.
 // Default (no --fix): dry-run report of what would be removed.
 // With --fix: performs the repair with mandatory age-threshold and final re-check.
@@ -286,19 +328,19 @@ lock age plus the absence of live git processes — this is inherently racy.
 			if err != nil {
 				return fmt.Errorf("could not locate git repository: %w", err)
 			}
-			gitDir := resolveGitDir(repoRoot)
+			gitDirs := resolveGitLockDirs(repoRoot)
 			maxAge := time.Duration(maxAgeMinutes) * time.Minute
 			now := time.Now()
 
 			if !fixMode {
 				// Dry-run: report only
-				report := reportGitLockStateWith(repoRoot, gitDir, now, hasLiveGitWriter, maxAge)
+				report := reportGitLockStateWith(repoRoot, gitDirs, now, hasLiveGitWriter, maxAge)
 				fmt.Fprint(cmd.OutOrStdout(), report)
 				return nil
 			}
 
 			// --fix path: repair with dual liveness check
-			repaired, skipped, err := repairGitLocksWith(gitDir, repoRoot, now, hasLiveGitWriter, hasLiveGitWriter, maxAge)
+			repaired, skipped, err := repairGitLocksWith(gitDirs, repoRoot, now, hasLiveGitWriter, hasLiveGitWriter, maxAge)
 			if err != nil {
 				return err
 			}

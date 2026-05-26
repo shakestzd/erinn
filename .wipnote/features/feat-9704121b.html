@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>Add safe stale Git lock diagnostics and repair command</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="feat-9704121b"
+             data-type="feature"
+             data-status="todo"
+             data-priority="high"
+             data-created="2026-05-26T05:05:50.945064"
+             data-updated="2026-05-26T05:05:50.951878" data-agent-assigned="claude-code" data-track-id="trk-b1d06a84" data-created-by-agent="claude-code" data-created-by-model="gpt-5.5" data-created-by-role="codex" data-created-by-cli-version="0.60.18-72-gf05c89f94">
+
+        <header>
+            <h1>Add safe stale Git lock diagnostics and repair command</h1>
+            <div class="metadata">
+                <span class="badge status-todo">Todo</span>
+                <span class="badge priority-high">High Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="trk-b1d06a84.html" data-relationship="part_of" data-since="2026-05-26T05:05:50.951551">trk-b1d06a84</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-steps>
+            <h3>Implementation Steps</h3>
+            <ol>
+                <li data-completed="false" data-step-id="step-feat-9704121b-0" data-agent="claude-code" data-created-by-agent="claude-code">⏳ Detect git lock files via git rev-parse --git-path</li>
+                <li data-completed="false" data-step-id="step-feat-9704121b-1" data-agent="claude-code" data-created-by-agent="claude-code">⏳ Check live git processes conservatively</li>
+                <li data-completed="false" data-step-id="step-feat-9704121b-2" data-agent="claude-code" data-created-by-agent="claude-code">⏳ Implement dry-run and explicit --fix repair</li>
+                <li data-completed="false" data-step-id="step-feat-9704121b-3" data-agent="claude-code" data-created-by-agent="claude-code">⏳ Document safety rules</li>
+            </ol>
+        </section>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>Add wipnote doctor support that reports active Git writers, lockfile age, repository operation state, and offers explicit stale index.lock cleanup only when no live Git process appears to own the repo.</p>
+        </section>
+    </article>
+</body>
+</html>

@@ -324,15 +324,25 @@ func TestConcurrentAppendDuringFlushIsNotLost(t *testing.T) {
 	appendDone := make(chan error, 1)
 	go func() { appendDone <- o.Append(sampleIntent("b")) }()
 
-	// Give the append goroutine a window to attempt its write. Under the buggy
-	// (lockless) model it would land now and be clobbered by the rewrite below;
-	// under the fix it blocks on the lock until the flush releases.
+	// Deterministic assertion (not just a timing window): while the flush holds
+	// the outbox lock, the concurrent Append MUST still be blocked. Under the old
+	// lockless model the Append would complete here and then be clobbered by the
+	// rewrite — so observing it complete BEFORE we release the flush is the bug.
+	// The brief pause lets the goroutine reach the (blocking) lock acquisition.
 	time.Sleep(25 * time.Millisecond)
-	close(proceed)
+	select {
+	case err := <-appendDone:
+		t.Fatalf("Append completed while the flush held the outbox lock (not serialized): err=%v", err)
+	default:
+		// expected: Append is parked on the outbox lock
+	}
+
+	close(proceed) // let the flush finish, rewrite, and release the lock
 
 	if err := <-flushDone; err != nil {
 		t.Fatalf("flush: %v", err)
 	}
+	// Only now — after the flush released the lock — may the Append complete.
 	if err := <-appendDone; err != nil {
 		t.Fatalf("concurrent append: %v", err)
 	}

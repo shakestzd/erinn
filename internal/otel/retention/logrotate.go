@@ -9,7 +9,8 @@ import (
 
 // RotateLog enforces a size cap on a single log file. When the file is at or
 // over maxBytes it rotates: <path>.<keep-1>...<path>.1 shift down, the current
-// content is copied into <path>.1, and the live file is truncated IN PLACE.
+// tail (up to maxBytes) is copied into <path>.1, and the live file is truncated
+// IN PLACE.
 //
 // SAFETY for actively-writing processes: the live file is never unlinked.
 // wipnote's log writers either reopen the file per write with O_APPEND
@@ -18,7 +19,7 @@ import (
 // truncates the same inode the writer's fd points at; with O_APPEND the next
 // write seeks to the (now-zero) end of file. No fd is closed and no inode is
 // swapped, so an in-flight writer never loses its descriptor or silently writes
-// into a deleted file. Rotated copies (.1, .2, …) are regular files we own.
+// into a deleted file. Rotated copies (.1, .2, ...) are regular files we own.
 //
 // Returns the number of bytes reclaimed from the live file (its size before
 // truncation), or 0 when no rotation was needed.
@@ -39,7 +40,7 @@ func RotateLog(path string, maxBytes int64, keep int) (int64, error) {
 	reclaimed := info.Size()
 
 	if keep > 0 {
-		// Shift existing rotated copies down: .{keep-1} -> .{keep}, … , .1 -> .2.
+		// Shift existing rotated copies down: .{keep-1} -> .{keep}, ..., .1 -> .2.
 		for i := keep - 1; i >= 1; i-- {
 			src := fmt.Sprintf("%s.%d", path, i)
 			dst := fmt.Sprintf("%s.%d", path, i+1)
@@ -47,9 +48,11 @@ func RotateLog(path string, maxBytes int64, keep int) (int64, error) {
 				_ = os.Rename(src, dst) // best-effort; a failed shift only loses an old rotation
 			}
 		}
-		// Copy current content into .1 (copy, not rename — the live inode must
-		// survive for the writer's open fd).
-		if err := copyFile(path, fmt.Sprintf("%s.1", path)); err != nil {
+		// Copy only the tail into .1 (copy, not rename: the live inode must
+		// survive for the writer's open fd). Copying the entire old file would
+		// preserve a runaway multi-GB log under the rotated name and reclaim
+		// almost no disk.
+		if err := copyFileTail(path, fmt.Sprintf("%s.1", path), maxBytes); err != nil {
 			return 0, fmt.Errorf("rotate copy %s: %w", path, err)
 		}
 	}
@@ -61,13 +64,23 @@ func RotateLog(path string, maxBytes int64, keep int) (int64, error) {
 	return reclaimed, nil
 }
 
-// copyFile copies src to dst, overwriting dst if it exists.
-func copyFile(src, dst string) error {
+// copyFileTail copies the last maxBytes of src to dst, overwriting dst if it
+// exists. If src is smaller than maxBytes, it copies the whole file.
+func copyFileTail(src, dst string, maxBytes int64) error {
 	in, err := os.Open(src)
 	if err != nil {
 		return err
 	}
 	defer in.Close()
+	info, err := in.Stat()
+	if err != nil {
+		return err
+	}
+	if maxBytes > 0 && info.Size() > maxBytes {
+		if _, err := in.Seek(info.Size()-maxBytes, io.SeekStart); err != nil {
+			return err
+		}
+	}
 	out, err := os.OpenFile(dst, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o644)
 	if err != nil {
 		return err
@@ -95,6 +108,12 @@ func rotateProjectLogs(wipnoteDir string, cfg Config) (int64, error) {
 
 	// debug.log lives directly under .wipnote/.
 	note(rotateLogSafe(filepath.Join(wipnoteDir, "debug.log"), cfg))
+	if cacheDir, err := os.UserCacheDir(); err == nil {
+		// Older/dev launcher paths wrote a process-level serve.log directly
+		// under the XDG cache root. It is outside .wipnote/logs, so include it
+		// here until all long-lived environments have aged past that behavior.
+		note(rotateLogSafe(filepath.Join(cacheDir, "wipnote", "serve.log"), cfg))
+	}
 
 	// serve-auto.log and serve-<projectID>.log live under .wipnote/logs/.
 	logsDir := filepath.Join(wipnoteDir, "logs")

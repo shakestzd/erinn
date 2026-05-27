@@ -38,6 +38,19 @@ var knownLockNames = []string{
 	"packed-refs.lock",
 }
 
+// sharedLockNames are repository-COMMON locks (live in the git common dir, not a
+// per-worktree admin dir). They can be held by ANY linked worktree, so a local
+// worktreeRoot liveness scan cannot prove they are stale — they are always
+// report-only and never auto-removed by --fix, regardless of which dir they were
+// scanned from (roborev #3711: in the main worktree --git-dir == --git-common-dir,
+// so scan order alone would mis-mark them as per-worktree/removable).
+var sharedLockNames = map[string]bool{
+	"config.lock":      true,
+	"packed-refs.lock": true,
+}
+
+func isSharedLockName(name string) bool { return sharedLockNames[name] }
+
 // lockFileInfo describes one detected git lock file.
 type lockFileInfo struct {
 	Name    string
@@ -82,7 +95,10 @@ func detectGitLocks(gitDirs ...string) []lockFileInfo {
 				Name:    name,
 				Path:    p,
 				ModTime: fi.ModTime(),
-				Shared:  i > 0,
+				// Shared when found in a non-primary (common) dir OR when it is a
+				// repository-common lock name — both cases may be owned by another
+				// worktree (roborev #3711).
+				Shared: i > 0 || isSharedLockName(name),
 			})
 		}
 	}
@@ -388,6 +404,12 @@ SAFETY: git lock files have no owner PID inside. Staleness is inferred from
 lock age plus the absence of live git processes — this is inherently racy.
 --fix is never the default. False "alive" detections are always safe.`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
+			// The safety contract requires a positive age threshold; a zero or
+			// negative --max-age would make every non-shared lock instantly
+			// eligible for removal (roborev #3711).
+			if maxAgeMinutes <= 0 {
+				return fmt.Errorf("--max-age must be a positive number of minutes (got %d)", maxAgeMinutes)
+			}
 			repoRoot, err := doctorFindRepoRoot()
 			if err != nil {
 				return fmt.Errorf("could not locate git repository: %w", err)

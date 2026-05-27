@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"os"
 	"path/filepath"
 	"strings"
@@ -383,6 +384,67 @@ func TestIsGitProcessArgv(t *testing.T) {
 	for _, c := range cases {
 		if got := isGitProcessArgv(c.argv); got != c.want {
 			t.Errorf("isGitProcessArgv(%v) = %v, want %v", c.argv, got, c.want)
+		}
+	}
+}
+
+// TestRepairGitLock_SharedLockNameNeverRemovedEvenInPrimaryDir is the regression
+// for roborev #3711 (High): config.lock/packed-refs.lock are repository-common
+// locks. Even in the main worktree (where --git-dir == --git-common-dir, so they
+// scan from the primary dir), --fix must NOT remove them — another linked
+// worktree the local liveness scan can't see may own them. Per-worktree
+// index.lock in the same pass IS removed.
+func TestRepairGitLock_SharedLockNameNeverRemovedEvenInPrimaryDir(t *testing.T) {
+	dir := t.TempDir()
+	gitDir := filepath.Join(dir, ".git")
+	if err := os.MkdirAll(gitDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	idx := makeFakeLock(t, gitDir, "index.lock", 20*time.Minute)
+	cfg := makeFakeLock(t, gitDir, "config.lock", 20*time.Minute)
+
+	// Confirm config.lock is flagged Shared even from the primary (single) dir.
+	for _, l := range detectGitLocks(gitDir) {
+		if l.Name == "config.lock" && !l.Shared {
+			t.Error("config.lock must be Shared even when scanned from the primary dir")
+		}
+		if l.Name == "index.lock" && l.Shared {
+			t.Error("index.lock must NOT be Shared")
+		}
+	}
+
+	repaired, skipped, err := repairGitLocksWith(
+		[]string{gitDir}, dir, time.Now(), noLiveWriter, noLiveWriter, defaultMaxLockAge)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if repaired != 1 {
+		t.Errorf("only the per-worktree index.lock should be removed, got repaired=%d", repaired)
+	}
+	if skipped != 1 {
+		t.Errorf("config.lock (shared name) must be skipped, got skipped=%d", skipped)
+	}
+	if _, e := os.Stat(idx); !os.IsNotExist(e) {
+		t.Error("index.lock should have been removed")
+	}
+	if _, e := os.Stat(cfg); e != nil {
+		t.Error("config.lock must NOT be removed (shared lock name, #3711)")
+	}
+}
+
+// TestGitLockCmd_RejectsNonPositiveMaxAge is the regression for roborev #3711
+// (Low): the safety contract requires a positive age threshold.
+func TestGitLockCmd_RejectsNonPositiveMaxAge(t *testing.T) {
+	for _, age := range []string{"--max-age=0", "--max-age=-5"} {
+		cmd := launcherGitLockCmd()
+		cmd.SetArgs([]string{"--fix", age})
+		cmd.SilenceUsage = true
+		cmd.SilenceErrors = true
+		cmd.SetOut(&bytes.Buffer{})
+		cmd.SetErr(&bytes.Buffer{})
+		err := cmd.Execute()
+		if err == nil || !strings.Contains(err.Error(), "max-age") {
+			t.Errorf("%s: expected a max-age validation error, got %v", age, err)
 		}
 	}
 }

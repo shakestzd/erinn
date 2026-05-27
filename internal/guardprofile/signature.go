@@ -102,5 +102,14 @@ func IsApproved(p *Profile) bool {
 	if p.Approved.Signature == "" {
 		return false
 	}
+	// An INVALID profile is never "approved". Canonicalization ignores unknown
+	// phase keys, so a typo like `completions:` could otherwise keep the old
+	// signature matching while the gates reject the profile and fall back to
+	// autodetection — leaving IsApproved (and the `guard init` no-op path) saying
+	// "approved" while gates disagree (roborev #3708). Requiring validity keeps
+	// the two consistent.
+	if Validate(p) != nil {
+		return false
+	}
 	return Signature(p) == p.Approved.Signature
 }

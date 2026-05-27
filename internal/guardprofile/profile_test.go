@@ -179,3 +179,17 @@ func TestSignature_StableAcrossAppliesWhenPathOrderAndSlashes(t *testing.T) {
 		t.Fatalf("applies_when path order/slash normalization not stable:\n a=%s\n b=%s", Signature(a), Signature(b))
 	}
 }
+
+// TestIsApproved_FalseForInvalidProfile is the regression for roborev #3708: an
+// invalid profile (e.g. a typo'd phase key like `completions:`) must never be
+// approved, even if its recorded signature matches the canonical content —
+// otherwise IsApproved says "approved" while the gates reject it and fall back.
+func TestIsApproved_FalseForInvalidProfile(t *testing.T) {
+	p := &Profile{Guards: map[string][]Guard{
+		"completions": {{Name: "x", Cmd: "echo x"}}, // unknown phase (typo)
+	}}
+	p.Approved.Signature = Signature(p) // signature matches canonical content
+	if IsApproved(p) {
+		t.Error("invalid profile (unknown phase key) must never report approved")
+	}
+}

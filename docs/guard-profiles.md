@@ -53,7 +53,12 @@ approved:
 | `completion` | `wipnote feature complete`, `wipnote bug complete`, etc. |
 | `yolo` | Per-commit PostToolUse gate in yolo sessions |
 
-All three phases are optional. Omit a phase key to inherit autodetection for that phase.
+All three phases are optional, but an APPROVED profile is authoritative: once a
+profile is approved, each gate trusts it and skips manifest autodetection. A phase
+you omit (or leave empty) therefore runs **no** guards for that phase — it does
+**not** fall back to autodetection. (Autodetection applies only when there is no
+approved profile at all.) So if you define `quality` guards but omit `yolo`, the
+per-commit yolo gate runs nothing. Define every phase you want enforced.
 
 ### Glob semantics
 
@@ -185,8 +190,13 @@ approved:
 Notes:
 
 - `cwd` routes each toolchain to its own subdirectory (relative to repo root).
-- `applies_when.paths` prevents the Go gate from firing on a purely Python commit.
-- A guard with paths matching no repo file is silently skipped — safe to include
+- `applies_when.paths` gates a guard on whether matching files **exist in the
+  repository** — NOT on which files a given commit changed. wipnote does not
+  currently inspect the changed-file set, so a guard whose globs match any repo
+  file runs on every gate invocation (e.g. in a polyglot repo the Go guard still
+  runs on a Python-only commit). Use it to scope guards to a project layout, not
+  to skip guards per-commit.
+- A guard whose paths match no repo file is silently skipped — safe to include
   even if the directory does not exist yet.
 - The `yolo` phase uses a lightweight vet guard to keep per-commit latency low.
 
@@ -205,9 +215,11 @@ Notes:
 `.wipnote/guard-profile.yaml` is committed to the repository. Changes belong in pull
 requests with the same review process you apply to CI config changes.
 
-Do not hand-edit `approved.signature` — it is computed by `wipnote guard init`. Any
-manual change to the `guards:` section (or to `approved:`) invalidates the signature
-and triggers the fallback until you re-approve.
+Do not hand-edit `approved.signature` — it is computed by `wipnote guard init`. The
+signature covers only the `guards:` content and EXCLUDES the `approved:` block, so any
+manual change to `guards:` invalidates approval (the gates fall back to autodetection
+until you re-approve). Editing `approved.by` or `approved.at` alone does NOT invalidate
+approval — only `approved.signature` must continue to match the `guards:` content.
 
 ---
 

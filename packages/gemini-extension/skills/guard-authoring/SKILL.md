@@ -85,8 +85,11 @@ approved:
   at: "2026-01-15T10:30:00Z"
 ```
 
-`cwd` routes each toolchain to its subdirectory. `applies_when.paths` skips a guard when
-no matching file exists in the repo — so the Go gate does not fire on a Python-only commit.
+`cwd` routes each toolchain to its subdirectory. `applies_when.paths` gates a guard on
+whether matching files EXIST in the repository — not on which files a commit changed
+(wipnote does not inspect the changed-file set). A guard whose globs match no repo file is
+skipped; one that matches any repo file runs on every gate. Use it to scope guards to a
+project layout, not to skip guards per-commit.
 
 ---
 

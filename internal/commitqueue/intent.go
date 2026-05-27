@@ -79,6 +79,11 @@ func (i Intent) Validate() error {
 			return fmt.Errorf("commitqueue: rel_path %q must be repo-relative, not absolute", rel)
 		}
 		clean := filepath.Clean(rel)
+		// "." / "./" / "a/.." all clean to "." which joins to RepoRoot — the same
+		// stage-the-whole-repo footgun as an empty path (roborev #3726).
+		if clean == "." {
+			return fmt.Errorf("commitqueue: rel_path %q resolves to the repo root (would stage the whole repo)", rel)
+		}
 		if clean == ".." || strings.HasPrefix(clean, ".."+string(filepath.Separator)) {
 			return fmt.Errorf("commitqueue: rel_path %q escapes the repository", rel)
 		}

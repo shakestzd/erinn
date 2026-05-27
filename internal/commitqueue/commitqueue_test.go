@@ -410,7 +410,7 @@ func TestAppend_RecoversAfterTornTrailingLine(t *testing.T) {
 // blank/absolute/escaping rel_path must be rejected so a malformed intent can't
 // stage the whole repo or files outside it.
 func TestValidate_RejectsUnsafeRelPaths(t *testing.T) {
-	for _, bad := range []string{"", "   ", "/abs/path", "../escape"} {
+	for _, bad := range []string{"", "   ", "/abs/path", "../escape", ".", "./", "a/.."} {
 		i := sampleIntent("x")
 		i.RelPaths = []string{bad}
 		if err := i.Validate(); err == nil {

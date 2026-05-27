@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>Guard authoring skill and docs (feat-1469fabc)</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="feat-a4c6b878"
+             data-type="feature"
+             data-status="in-progress"
+             data-priority="medium"
+             data-created="2026-05-26T23:15:30.698525"
+             data-updated="2026-05-27T00:20:59.075295" data-agent-assigned="claude-code" data-track-id="trk-fb4a1d6e">
+
+        <header>
+            <h1>Guard authoring skill and docs (feat-1469fabc)</h1>
+            <div class="metadata">
+                <span class="badge status-in-progress">In Progress</span>
+                <span class="badge priority-medium">Medium Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="blocked_by">
+                <h3>Blocked By:</h3>
+                <ul>
+                    <li><a href="feat-81004e4c.html" data-relationship="blocked_by">feat-81004e4c</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="planned_in">
+                <h3>Planned In:</h3>
+                <ul>
+                    <li><a href="plan-1187cb00.html" data-relationship="planned_in" data-since="2026-05-26T23:15:30.704981">plan-1187cb00</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="trk-fb4a1d6e.html" data-relationship="part_of" data-since="2026-05-26T23:15:30.709352">trk-fb4a1d6e</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="implemented_in">
+                <h3>Implemented In:</h3>
+                <ul>
+                    <li><a href="e2115ac3-91fe-4731-8d77-0cee62a8e8e2.html" data-relationship="implemented_in" data-since="2026-05-27T00:20:59.074709">session e2115ac3-91fe-4731-8d77-0cee62a8e8e2</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>Add a user-level skill at plugin/skills/guard-authoring/SKILL.md (shared
+source, regenerated to codex/gemini via `wipnote plugin build-ports`) plus
+a standalone hand-maintained docs/guard-profiles.md. Cover: the schema
+reference (phases, per-guard name/cmd/cwd/applies_when, approved block),
+polyglot/monorepo examples (per-guard cwd, applies_when paths), the
+approve/signature/drift model and trust boundary, the launch-time setup
+step + `wipnote guard init` flow (slice-3), and the safe default
+(autodetect+hint) when no profile exists. Frame the profile as a
+user-editable YAML config the user owns and diffs (the reference primitive).</p>
+        </section>
+    </article>
+</body>
+</html>

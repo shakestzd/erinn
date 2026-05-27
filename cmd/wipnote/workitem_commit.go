@@ -91,40 +91,39 @@ func commitWipnoteArtifact(wipnoteDir, typeName, id, action string) error {
 	relPath := filepath.Join(".wipnote", subDir, id+".html")
 	absPath := filepath.Join(wipnoteDir, subDir, id+".html")
 
-	// Stage the file. Use an explicit path to avoid sweeping unrelated changes.
-	// runGitMutation acquires the repo-scoped advisory lock around the
-	// index-writing command before delegating to runGitWithLockRetry.
-	addOut, err := runGitMutation(repoRoot, "add", "--", absPath)
-	if err != nil {
-		return fmt.Errorf("autocommit: git add %s: %s: %w", relPath, strings.TrimSpace(string(addOut)), err)
-	}
-
-	// Check whether anything was staged by the add above. Use git diff --cached
-	// on the specific file so we don't accidentally commit unrelated staged changes.
-	diffOut, err := exec.Command("git", "-C", repoRoot, "diff", "--cached", "--quiet", "--", absPath).CombinedOutput()
-	if err == nil {
-		// Exit code 0 means no diff — nothing new to commit.
-		return nil
-	}
-	_ = diffOut // non-zero exit is the expected "there is a diff" result
-
-	// Commit only the artifact file — never touch the broader index.
 	if action == "" {
 		action = "update"
 	}
 	msg := "wipnote: " + action + " " + id
-	commitOut, err := runGitMutation(repoRoot, "commit", "-m", msg, "--", absPath)
-	if err != nil {
-		outStr := string(commitOut)
-		if strings.Contains(outStr, "nothing to commit") || strings.Contains(outStr, "no changes added") {
-			return nil
-		}
-		fmt.Fprintf(stderr, "autocommit warning: git commit failed for %s (artifact persisted to disk — please commit manually): %s\n",
-			id, strings.TrimSpace(outStr))
-		return nil
-	}
 
-	return nil
+	// Hold ONE advisory lock across the whole add → diff → commit sequence so no
+	// other wipnote git mutation can interleave between staging and committing
+	// this artifact (roborev #3713). Inside the lock we call runGitWithLockRetry
+	// directly (the external-writer backoff layer) — not runGitMutation, which
+	// would re-acquire the lock per call.
+	var resultErr error
+	_, _ = withGitMutationLock(repoRoot, func() ([]byte, error) {
+		// Stage the file. Explicit path avoids sweeping unrelated changes.
+		if addOut, err := runGitWithLockRetry(repoRoot, "add", "--", absPath); err != nil {
+			resultErr = fmt.Errorf("autocommit: git add %s: %s: %w", relPath, strings.TrimSpace(string(addOut)), err)
+			return nil, err
+		}
+		// Nothing staged for this file → nothing new to commit.
+		if exec.Command("git", "-C", repoRoot, "diff", "--cached", "--quiet", "--", absPath).Run() == nil {
+			return nil, nil
+		}
+		// Commit only the artifact file — never touch the broader index.
+		if commitOut, err := runGitWithLockRetry(repoRoot, "commit", "-m", msg, "--", absPath); err != nil {
+			outStr := string(commitOut)
+			if strings.Contains(outStr, "nothing to commit") || strings.Contains(outStr, "no changes added") {
+				return nil, nil
+			}
+			fmt.Fprintf(stderr, "autocommit warning: git commit failed for %s (artifact persisted to disk — please commit manually): %s\n",
+				id, strings.TrimSpace(outStr))
+		}
+		return nil, nil
+	})
+	return resultErr
 }
 
 // commitWipnoteArtifactStrict is the fatal-on-failure variant of
@@ -165,34 +164,38 @@ func commitWipnoteArtifactStrict(wipnoteDir, typeName, id, action string) (commi
 	relPath := filepath.Join(".wipnote", subDir, id+".html")
 	absPath := filepath.Join(wipnoteDir, subDir, id+".html")
 
-	// Stage the file. Use an explicit path to avoid sweeping unrelated changes.
-	// runGitMutation acquires the repo-scoped advisory lock around the
-	// index-writing command before delegating to runGitWithLockRetry.
-	addOut, err := runGitMutation(repoRoot, "add", "--", absPath)
-	if err != nil {
-		return false, fmt.Errorf("strict autocommit: git add %s: %s: %w", relPath, strings.TrimSpace(string(addOut)), err)
-	}
-
-	// Nothing staged for this file → legitimate idempotent no-op, not a failure.
-	if err := exec.Command("git", "-C", repoRoot, "diff", "--cached", "--quiet", "--", absPath).Run(); err == nil {
-		return false, nil
-	}
-
 	if action == "" {
 		action = "update"
 	}
 	msg := "wipnote: " + action + " " + id
-	commitOut, err := runGitMutation(repoRoot, "commit", "-m", msg, "--", absPath)
-	if err != nil {
-		outStr := string(commitOut)
-		if strings.Contains(outStr, "nothing to commit") || strings.Contains(outStr, "no changes added") {
-			return false, nil
-		}
-		return false, fmt.Errorf("strict autocommit: git commit failed for %s: %s: %w",
-			id, strings.TrimSpace(outStr), err)
-	}
 
-	return true, nil
+	// Hold ONE advisory lock across add → diff → commit so the staged-index
+	// transaction cannot interleave with another wipnote git mutation (roborev
+	// #3713). committed/resultErr are captured from inside the locked section.
+	committed = false
+	err = nil
+	_, _ = withGitMutationLock(repoRoot, func() ([]byte, error) {
+		if addOut, addErr := runGitWithLockRetry(repoRoot, "add", "--", absPath); addErr != nil {
+			err = fmt.Errorf("strict autocommit: git add %s: %s: %w", relPath, strings.TrimSpace(string(addOut)), addErr)
+			return nil, addErr
+		}
+		// Nothing staged → legitimate idempotent no-op (committed stays false).
+		if exec.Command("git", "-C", repoRoot, "diff", "--cached", "--quiet", "--", absPath).Run() == nil {
+			return nil, nil
+		}
+		commitOut, commitErr := runGitWithLockRetry(repoRoot, "commit", "-m", msg, "--", absPath)
+		if commitErr != nil {
+			outStr := string(commitOut)
+			if strings.Contains(outStr, "nothing to commit") || strings.Contains(outStr, "no changes added") {
+				return nil, nil
+			}
+			err = fmt.Errorf("strict autocommit: git commit failed for %s: %s: %w", id, strings.TrimSpace(outStr), commitErr)
+			return nil, commitErr
+		}
+		committed = true
+		return nil, nil
+	})
+	return committed, err
 }
 
 // strictCommitFn is the injection seam for the strict artifact commit used by

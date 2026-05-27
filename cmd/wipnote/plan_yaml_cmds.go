@@ -81,35 +81,33 @@ func commitPlanChange(planPath, message string) error {
 		htmlAbs = abs
 	}
 
-	// Stage both files. Explicit absolute paths — never `git add -A` or `git add .`.
-	// runGitMutation acquires the repo-scoped advisory lock (keyed by repoRoot)
-	// before delegating to runGitWithLockRetry, so plan commits are serialized
-	// by the same lock as work-item artifact commits (feat-c0307d7a).
-	// After re-render, HTML is guaranteed to exist, so stage both unconditionally.
-	if out, err := runGitMutation(repoRoot, "add", "--", addPlanPath, htmlAbs); err != nil {
-		return fmt.Errorf("autocommit: git add failed: %s: %w", strings.TrimSpace(string(out)), err)
-	}
-
-	// Commit. No --no-verify. Pre-commit hooks run.
-	// runGitMutation serializes this mutation behind the same repo-scoped lock
-	// as the add above and as work-item artifact commits.
-	commitOut, err := runGitMutation(repoRoot, "commit", "-m", message, "--", addPlanPath, htmlAbs)
-	if err != nil {
-		// Check if the failure was "nothing to commit" (the mutation was a no-op
-		// — e.g., re-finalize with unchanged YAML). That's not an error.
-		outStr := string(commitOut)
-		if strings.Contains(outStr, "nothing to commit") || strings.Contains(outStr, "no changes added") {
-			return nil
+	// Stage both files then commit under ONE advisory-lock acquisition so the
+	// staged-index transaction cannot interleave with another wipnote git
+	// mutation (roborev #3713). Explicit absolute paths — never `git add -A`.
+	// Inside the lock we call runGitWithLockRetry directly (the external-writer
+	// backoff layer), not runGitMutation (which would re-acquire the lock).
+	var resultErr error
+	_, _ = withGitMutationLock(repoRoot, func() ([]byte, error) {
+		if out, err := runGitWithLockRetry(repoRoot, "add", "--", addPlanPath, htmlAbs); err != nil {
+			resultErr = fmt.Errorf("autocommit: git add failed: %s: %w", strings.TrimSpace(string(out)), err)
+			return nil, err
 		}
-		// Any other commit failure (pre-commit hook rejection, locked index, etc.)
-		// is non-fatal. The mutation is already persisted to disk; the user just
-		// needs to commit manually. Log a warning and return nil so the calling
-		// command reports success instead of rolling back on a git concern
-		// (Fix 1 of bug-365a84d9). Only staging/filesystem errors above are fatal.
-		fmt.Fprintf(stderr, "autocommit warning: git commit failed (mutation persisted to disk — please commit manually): %s\n", strings.TrimSpace(outStr))
-		return nil
-	}
-	return nil
+		// Commit. No --no-verify. Pre-commit hooks run.
+		commitOut, err := runGitWithLockRetry(repoRoot, "commit", "-m", message, "--", addPlanPath, htmlAbs)
+		if err != nil {
+			outStr := string(commitOut)
+			// "nothing to commit" (e.g. re-finalize with unchanged YAML) is a no-op.
+			if strings.Contains(outStr, "nothing to commit") || strings.Contains(outStr, "no changes added") {
+				return nil, nil
+			}
+			// Any other commit failure (hook rejection, locked index) is non-fatal:
+			// the mutation is persisted to disk; warn and let the command report
+			// success rather than rolling back on a git concern (Fix 1 of bug-365a84d9).
+			fmt.Fprintf(stderr, "autocommit warning: git commit failed (mutation persisted to disk — please commit manually): %s\n", strings.TrimSpace(outStr))
+		}
+		return nil, nil
+	})
+	return resultErr
 }
 
 // isGitRepo returns true if the given directory is inside a git repository.

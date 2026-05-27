@@ -19,6 +19,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -88,18 +89,27 @@ func detectGitLocks(gitDirs ...string) []lockFileInfo {
 	return found
 }
 
-// hasLiveGitWriter returns true when any process whose command-line arguments
-// or working directory reference worktreeOrGitDir appears to be a live git
-// operation. It inspects /proc/<pid>/cmdline and /proc/<pid>/cwd on Linux.
-// False positives (reporting "live" when no writer exists) are SAFE — the
-// lock will simply be left in place. False negatives are DANGEROUS, so we
-// are deliberately conservative: any ambiguous parse returns true.
+// hasLiveGitWriter returns true when a live `git` process appears to be
+// operating on worktreeRoot. It inspects /proc/<pid>/cmdline and
+// /proc/<pid>/cwd on Linux.
+//
+// A process counts only when its argv[0] basename is `git` (or a `git-*`
+// helper) AND it references worktreeRoot via cwd or an argument. The current
+// process is excluded: `wipnote launcher git-lock --fix` runs inside the repo
+// and its cmdline contains the substring "git", so a naive substring match made
+// the repair self-block — never removing the very lock it was asked to clean
+// (roborev #3703). Matching by argv[0] basename + excluding self fixes that.
+//
+// False positives (reporting "live" when none exists) remain SAFE — the lock is
+// left in place; false negatives are DANGEROUS, so any ambiguous parse that
+// still looks like a real git process returns true.
 func hasLiveGitWriter(worktreeRoot string) bool {
 	entries, err := os.ReadDir("/proc")
 	if err != nil {
 		// /proc unavailable — conservatively assume a writer exists
 		return true
 	}
+	selfPID := strconv.Itoa(os.Getpid())
 	for _, e := range entries {
 		if !e.IsDir() {
 			continue
@@ -113,29 +123,52 @@ func hasLiveGitWriter(worktreeRoot string) bool {
 				break
 			}
 		}
-		if !isNumeric {
-			continue
+		if !isNumeric || pid == selfPID {
+			continue // skip non-PIDs and the repair process itself
 		}
-		// Check cmdline for "git" invocations referencing the repo
 		cmdline, err := os.ReadFile(filepath.Join("/proc", pid, "cmdline"))
 		if err != nil {
 			continue
 		}
-		args := strings.ReplaceAll(string(cmdline), "\x00", " ")
-		if !strings.Contains(args, "git") {
+		argv := splitNulArgv(cmdline)
+		if !isGitProcessArgv(argv) {
 			continue
 		}
-		// Check if the process cwd is inside the repo
-		cwd, err := os.Readlink(filepath.Join("/proc", pid, "cwd"))
-		if err == nil && strings.HasPrefix(cwd, worktreeRoot) {
+		// Real git process: does it operate on THIS repo (cwd or an arg)?
+		if cwd, err := os.Readlink(filepath.Join("/proc", pid, "cwd")); err == nil &&
+			strings.HasPrefix(cwd, worktreeRoot) {
 			return true
 		}
-		// Also check if the repo root appears in the cmdline args
-		if strings.Contains(args, worktreeRoot) {
-			return true
+		for _, a := range argv {
+			if strings.Contains(a, worktreeRoot) {
+				return true
+			}
 		}
 	}
 	return false
+}
+
+// splitNulArgv splits a /proc/<pid>/cmdline blob (NUL-separated argv) into
+// non-empty arguments.
+func splitNulArgv(cmdline []byte) []string {
+	var argv []string
+	for _, part := range strings.Split(string(cmdline), "\x00") {
+		if part != "" {
+			argv = append(argv, part)
+		}
+	}
+	return argv
+}
+
+// isGitProcessArgv reports whether argv[0] is the git binary (basename "git")
+// or a git helper ("git-*"). This deliberately does NOT match `wipnote`, whose
+// subcommand path "launcher git-lock" merely contains the substring "git".
+func isGitProcessArgv(argv []string) bool {
+	if len(argv) == 0 {
+		return false
+	}
+	base := filepath.Base(argv[0])
+	return base == "git" || strings.HasPrefix(base, "git-")
 }
 
 // reportGitLockState writes the git lock diagnostics section to b.

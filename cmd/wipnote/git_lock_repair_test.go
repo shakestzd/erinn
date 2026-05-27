@@ -362,3 +362,27 @@ func TestDoctorReport_IncludesGitLockSection(t *testing.T) {
 		t.Errorf("doctor report should contain 'git lock' section, got:\n%s", report)
 	}
 }
+
+// TestIsGitProcessArgv is the regression for roborev #3703: liveness detection
+// must match real git processes by argv[0] basename, NOT any cmdline containing
+// the substring "git" — otherwise `wipnote launcher git-lock --fix` detects
+// itself and the repair self-blocks.
+func TestIsGitProcessArgv(t *testing.T) {
+	cases := []struct {
+		argv []string
+		want bool
+	}{
+		{[]string{"git", "commit"}, true},
+		{[]string{"/usr/bin/git", "status"}, true},
+		{[]string{"git-remote-https", "origin"}, true},
+		{[]string{"wipnote", "launcher", "git-lock", "--fix"}, false},
+		{[]string{"/home/u/.local/bin/wipnote", "launcher", "git-lock"}, false},
+		{[]string{"bash", "-c", "git status"}, false}, // argv[0] is bash, not git
+		{nil, false},
+	}
+	for _, c := range cases {
+		if got := isGitProcessArgv(c.argv); got != c.want {
+			t.Errorf("isGitProcessArgv(%v) = %v, want %v", c.argv, got, c.want)
+		}
+	}
+}

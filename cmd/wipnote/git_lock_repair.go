@@ -325,18 +325,26 @@ func repairGitLocksWith(
 			skipped++
 			continue
 		}
-		// Gate 4: re-stat immediately before unlink. Eligibility was decided from
-		// the initial snapshot; if git replaced the lock since then, the file on
-		// disk may now be FRESH (younger than maxAge) — deleting it would clobber
-		// a live op. Re-confirm it still exists and is still old enough; skip
-		// otherwise (roborev #3713 TOCTOU).
-		if fi, statErr := os.Stat(lf.Path); statErr != nil || now.Sub(fi.ModTime()) < maxAge {
+		// Gate 4: ATOMIC stale removal (roborev #3713/#3718). A plain
+		// stat-then-os.Remove is inherently racy: git could create a fresh lock at
+		// lf.Path between the age recheck and the unlink, and we'd delete it.
+		// Instead, rename the lock aside first — rename(2) atomically frees
+		// lf.Path, so any concurrent git op that creates a new lock there afterward
+		// creates a DISTINCT file we never touch. We then verify the age of the
+		// exact file we moved and delete only that; if it turns out fresh (we
+		// raced and grabbed a just-created lock), we restore it.
+		staged := lf.Path + fmt.Sprintf(".wipnote-stale.%d", os.Getpid())
+		if err := os.Rename(lf.Path, staged); err != nil {
+			skipped++ // vanished or not removable — leave it
+			continue
+		}
+		if fi, statErr := os.Stat(staged); statErr != nil || now.Sub(fi.ModTime()) < maxAge {
+			_ = os.Rename(staged, lf.Path) // raced a fresh lock — put it back
 			skipped++
 			continue
 		}
-		// All gates passed — safe to remove
-		if err := os.Remove(lf.Path); err != nil {
-			return repaired, skipped, fmt.Errorf("remove %s: %w", lf.Path, err)
+		if err := os.Remove(staged); err != nil {
+			return repaired, skipped, fmt.Errorf("remove %s: %w", staged, err)
 		}
 		repaired++
 	}

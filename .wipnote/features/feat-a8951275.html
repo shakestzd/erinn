@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>Cross-platform build support (Windows): build-tag Unix-only syscall usage</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="feat-a8951275"
+             data-type="feature"
+             data-status="todo"
+             data-priority="medium"
+             data-created="2026-05-27T09:28:06.189279"
+             data-updated="2026-05-27T09:28:06.200306" data-agent-assigned="claude-code" data-created-by-agent="claude-code" data-created-by-model="claude-opus-4-7[1m]" data-created-by-cli-version="0.60.18-81-g342a07557">
+
+        <header>
+            <h1>Cross-platform build support (Windows): build-tag Unix-only syscall usage</h1>
+            <div class="metadata">
+                <span class="badge status-todo">Todo</span>
+                <span class="badge priority-medium">Medium Priority</span>
+            </div>
+        </header>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>wipnote does not build for Windows today: GOOS=windows GOARCH=amd64 go build ./... fails on unguarded Unix-only syscall usage. Affected (pre-existing, predating trk-b1d06a84): internal/agent/session_family.go, internal/otel/materialize/materialize.go, internal/otel/sink/ndjson (syscall.Flock/LOCK_EX/LOCK_UN), and added on this branch: internal/commitqueue/outbox.go (syscall.Flock) and cmd/wipnote/git_lock_repair.go (syscall.Stat_t.Ino in inodeOf). Fix approach: route advisory file locking through the maintained cross-platform github.com/gofrs/flock wrapper (already a dependency, used by cmd/wipnote/git_mutation_lock.go) instead of raw syscall.Flock; move inode extraction behind platform build-tagged files (inode_unix.go //go:build unix returning Stat_t.Ino, inode_other.go fallback returning 0 so the git-lock same-file check degrades to mtime+age). Add a GOOS=windows go build check to CI to prevent regressions. Acceptance: GOOS=windows go build ./... succeeds; go test ./... still green on Linux.</p>
+        </section>
+    </article>
+</body>
+</html>

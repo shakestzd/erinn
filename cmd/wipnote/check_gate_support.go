@@ -64,10 +64,13 @@ type gateRunResult struct {
 	Record        *dbpkg.GateRecord
 }
 
-func detectGatePlan(projectRoot string) (gatePlan, error) {
-	// Approved guard profile takes precedence over manifest autodetection.
-	// quality is the phase that check --gate / completion run.
-	guards, usedProfile, err := guardprofile.ResolveGuards(projectRoot, guardprofile.PhaseQuality)
+func detectGatePlan(projectRoot, phase string) (gatePlan, error) {
+	// Approved guard profile takes precedence over manifest autodetection. The
+	// phase selects which guard group runs: PhaseQuality for `check --gate`,
+	// PhaseCompletion for the completion re-check (roborev #3703 — completion
+	// previously resolved PhaseQuality, so the completion phase never ran). The
+	// manifest-autodetection fallback below is phase-agnostic.
+	guards, usedProfile, err := guardprofile.ResolveGuards(projectRoot, phase)
 	if err != nil {
 		return gatePlan{}, fmt.Errorf("resolve guard profile: %w", err)
 	}
@@ -174,8 +177,8 @@ func detectManifest(projectRoot string) (dir, file string, projectType paths.Pro
 	return "", "", paths.ProjectTypeUnknown
 }
 
-func runSessionGate(projectRoot, sessionID, workItemID, source string, stdout, stderr io.Writer) (*gateRunResult, error) {
-	plan, err := detectGatePlan(projectRoot)
+func runSessionGate(projectRoot, sessionID, workItemID, source, phase string, stdout, stderr io.Writer) (*gateRunResult, error) {
+	plan, err := detectGatePlan(projectRoot, phase)
 	if err != nil {
 		return nil, err
 	}
@@ -458,7 +461,7 @@ func validateCompletionGateRecord(projectRoot string, database *sql.DB, sessionI
 		return fmt.Errorf("refusing to complete %s: no valid passing gate record exists for the current session (%s).\nRun:\n  wipnote check --gate", workItemID, sessionID)
 	}
 
-	result, err := runSessionGate(projectRoot, sessionID, workItemID, "complete-recheck", os.Stdout, os.Stderr)
+	result, err := runSessionGate(projectRoot, sessionID, workItemID, "complete-recheck", guardprofile.PhaseCompletion, os.Stdout, os.Stderr)
 	if err != nil {
 		return fmt.Errorf("re-run quality gate before completing %s: %w", workItemID, err)
 	}

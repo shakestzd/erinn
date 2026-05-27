@@ -4,9 +4,9 @@ meta:
     title: 'Project guard profiles (issue #117)'
     description: ""
     created_at: ""
-    status: finalized
+    status: completed
     schema_version: v3
-    version: 2
+    version: 3
 design:
     problem: |
         wipnote's quality/completion/yolo gates infer commands from a fixed universe

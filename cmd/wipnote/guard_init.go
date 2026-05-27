@@ -108,23 +108,48 @@ func ensureGuardProfileWith(projectRoot string, deps guardInitDeps) {
 // the shared body behind both ensureGuardProfile and the explicit
 // `wipnote guard init` command, so the two paths cannot drift.
 func runGuardSetup(projectRoot string, deps guardInitDeps) (*guardprofile.Profile, error) {
-	prop, err := guardprofile.Propose(projectRoot)
+	// Re-approval path (roborev #3703): if a profile already exists on disk,
+	// approve ITS current content rather than regenerating from manifests —
+	// discovery would overwrite the user's hand-edited guards. Discovery runs
+	// ONLY when there is no profile yet.
+	existing, err := guardprofile.Load(projectRoot)
 	if err != nil {
-		return nil, fmt.Errorf("propose guard profile: %w", err)
-	}
-	if prop == nil || prop.Profile == nil || len(prop.Guards) == 0 {
-		fmt.Fprintln(deps.out, "wipnote: no quality/test signals detected — skipping guard profile setup.")
-		return nil, nil
+		return nil, fmt.Errorf("load existing guard profile: %w", err)
 	}
 
-	renderProposal(deps.out, prop)
+	var p *guardprofile.Profile
+	switch {
+	case existing != nil && guardprofile.IsApproved(existing):
+		// Already approved and content matches its signature — nothing to do.
+		fmt.Fprintln(deps.out, "wipnote: guard profile already approved and up to date — nothing to do.")
+		return existing, nil
+	case existing != nil:
+		// Present (unapproved/drifted) profile: validate, then approve as-is.
+		if vErr := guardprofile.Validate(existing); vErr != nil {
+			return nil, fmt.Errorf("existing guard profile is invalid (fix %s before approving): %w", guardprofile.RelPath, vErr)
+		}
+		fmt.Fprintln(deps.out, "wipnote: an unapproved guard profile exists — review its current contents to (re-)approve (your edits are preserved):")
+		renderProfile(deps.out, existing)
+		p = existing
+	default:
+		// No profile yet: discover a proposal from project manifests.
+		prop, pErr := guardprofile.Propose(projectRoot)
+		if pErr != nil {
+			return nil, fmt.Errorf("propose guard profile: %w", pErr)
+		}
+		if prop == nil || prop.Profile == nil || len(prop.Guards) == 0 {
+			fmt.Fprintln(deps.out, "wipnote: no quality/test signals detected — skipping guard profile setup.")
+			return nil, nil
+		}
+		renderProposal(deps.out, prop)
+		p = prop.Profile
+	}
 
 	if !promptApprove(deps.in, deps.out) {
 		fmt.Fprintln(deps.out, "wipnote: guard profile deferred — re-offered on next launch. Run `wipnote guard init` anytime.")
 		return nil, nil
 	}
 
-	p := prop.Profile
 	p.Approved = guardprofile.Approval{
 		Signature: guardprofile.Signature(p),
 		By:        deps.approver(projectRoot),
@@ -170,6 +195,25 @@ func renderProposal(out io.Writer, prop *guardprofile.Proposal) {
 				flag = "  (low-confidence — prune if wrong)"
 			}
 			fmt.Fprintf(out, "    - %s: %s   # %s%s\n", pg.Guard.Name, pg.Guard.Cmd, pg.Source, flag)
+		}
+	}
+}
+
+// renderProfile prints an existing profile's guards grouped by phase, for the
+// re-approval path (no proposal source/confidence metadata to show).
+func renderProfile(out io.Writer, p *guardprofile.Profile) {
+	for _, phase := range []string{guardprofile.PhaseQuality, guardprofile.PhaseCompletion, guardprofile.PhaseYolo} {
+		guards := p.Guards[phase]
+		if len(guards) == 0 {
+			continue
+		}
+		fmt.Fprintf(out, "  [%s]\n", phase)
+		for _, g := range guards {
+			cwd := ""
+			if strings.TrimSpace(g.Cwd) != "" {
+				cwd = "  (cwd: " + g.Cwd + ")"
+			}
+			fmt.Fprintf(out, "    - %s: %s%s\n", g.Name, g.Cmd, cwd)
 		}
 	}
 }

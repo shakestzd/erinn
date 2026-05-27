@@ -282,3 +282,58 @@ func TestGuardInit_UnstagesProfileWhenCommitFails(t *testing.T) {
 		t.Errorf("profile must be unstaged from the index after revert, got: %q", st)
 	}
 }
+
+// TestGuardInit_ReapprovesExistingProfileWithoutOverwriting is the regression
+// for roborev #3703: re-approving an existing (unapproved/drifted) profile must
+// sign its CURRENT content, not regenerate from manifests — otherwise the user's
+// hand-edited guards are silently overwritten.
+func TestGuardInit_ReapprovesExistingProfileWithoutOverwriting(t *testing.T) {
+	root := writeGoMod(t) // go.mod present: discovery WOULD generate go guards
+	existing := &guardprofile.Profile{Guards: map[string][]guardprofile.Guard{
+		guardprofile.PhaseQuality: {{Name: "custom-handrolled", Cmd: "make verify"}},
+	}} // no approved signature -> unapproved/drifted
+	if err := writeGuardProfile(root, existing); err != nil {
+		t.Fatal(err)
+	}
+
+	rec := &recordedCommit{}
+	p, err := runGuardSetup(root, fakeDeps(true, "y\n", rec))
+	if err != nil {
+		t.Fatalf("runGuardSetup: %v", err)
+	}
+	if p == nil {
+		t.Fatal("expected an approved profile")
+	}
+	q := p.Guards[guardprofile.PhaseQuality]
+	if len(q) != 1 || q[0].Name != "custom-handrolled" || q[0].Cmd != "make verify" {
+		t.Errorf("re-approval overwrote the hand-edited guard, got %+v", q)
+	}
+	if !guardprofile.IsApproved(p) {
+		t.Error("re-approved profile must be approved")
+	}
+	loaded, _ := guardprofile.Load(root)
+	if loaded == nil || len(loaded.Guards[guardprofile.PhaseQuality]) != 1 ||
+		loaded.Guards[guardprofile.PhaseQuality][0].Name != "custom-handrolled" {
+		t.Errorf("persisted profile lost the custom guard: %+v", loaded)
+	}
+}
+
+// TestGuardInit_AlreadyApprovedIsNoOp: re-running on an already-approved,
+// up-to-date profile must not rewrite or commit.
+func TestGuardInit_AlreadyApprovedIsNoOp(t *testing.T) {
+	root := writeGoMod(t)
+	p := &guardprofile.Profile{Guards: map[string][]guardprofile.Guard{
+		guardprofile.PhaseQuality: {{Name: "x", Cmd: "echo x"}},
+	}}
+	p.Approved = guardprofile.Approval{Signature: guardprofile.Signature(p), By: "x", At: "2026-01-01T00:00:00Z"}
+	if err := writeGuardProfile(root, p); err != nil {
+		t.Fatal(err)
+	}
+	rec := &recordedCommit{}
+	if _, err := runGuardSetup(root, fakeDeps(true, "y\n", rec)); err != nil {
+		t.Fatalf("runGuardSetup: %v", err)
+	}
+	if rec.called {
+		t.Error("already-approved up-to-date profile must not re-commit")
+	}
+}

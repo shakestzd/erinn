@@ -42,10 +42,11 @@ func defaultGuardInitDeps() guardInitDeps {
 		approver:    resolveGuardApprover,
 		commit: func(repoRoot string, paths []string, message string) error {
 			addArgs := append([]string{"add", "--"}, paths...)
-			_, err := runGitMutationBatch(repoRoot,
-				addArgs,
-				[]string{"commit", "-m", message, "--"},
-			)
+			// Scope the COMMIT to the same pathspec, not just the add. A bare
+			// `commit -m ... --` would sweep any other already-staged changes
+			// into the guard-profile commit (roborev #3688).
+			commitArgs := append([]string{"commit", "-m", message, "--"}, paths...)
+			_, err := runGitMutationBatch(repoRoot, addArgs, commitArgs)
 			return err
 		},
 		in:  os.Stdin,
@@ -135,7 +136,11 @@ func runGuardSetup(projectRoot string, deps guardInitDeps) (*guardprofile.Profil
 	rel := filepath.FromSlash(guardprofile.RelPath)
 	msg := "chore(wipnote): approve project guard profile (feat-18dac61f)"
 	if err := deps.commit(projectRoot, []string{rel}, msg); err != nil {
-		return nil, fmt.Errorf("commit guard profile: %w", err)
+		// Commit failed: remove the just-written approved profile so a future
+		// launch retries setup instead of seeing IsApproved and skipping a
+		// profile that was never committed (roborev #3688).
+		_ = os.Remove(filepath.Join(projectRoot, rel))
+		return nil, fmt.Errorf("commit guard profile (reverted uncommitted write): %w", err)
 	}
 	fmt.Fprintf(deps.out, "wipnote: guard profile approved and committed at %s\n", guardprofile.RelPath)
 	return p, nil

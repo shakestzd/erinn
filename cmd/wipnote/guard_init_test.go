@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -163,5 +164,75 @@ func TestLaunchers_InvokeEnsureGuardProfile(t *testing.T) {
 				t.Errorf("%s expected to contain the serve bootstrap anchor", c.file)
 			}
 		})
+	}
+}
+
+// TestGuardInit_RevertsProfileWhenCommitFails is the regression for roborev
+// #3688 (Medium): if the commit fails after the approved profile is written,
+// the file must be removed so a future launch retries setup instead of seeing
+// IsApproved and skipping a profile that was never committed.
+func TestGuardInit_RevertsProfileWhenCommitFails(t *testing.T) {
+	root := writeGoMod(t)
+	deps := fakeDeps(true, "y\n", &recordedCommit{})
+	deps.commit = func(string, []string, string) error { return os.ErrPermission } // simulate commit failure
+
+	if _, err := runGuardSetup(root, deps); err == nil {
+		t.Fatal("expected an error when commit fails")
+	}
+	profilePath := filepath.Join(root, filepath.FromSlash(guardprofile.RelPath))
+	if _, statErr := os.Stat(profilePath); !os.IsNotExist(statErr) {
+		t.Error("guard profile must be removed when the commit fails (so the next launch retries)")
+	}
+}
+
+// TestGuardInit_CommitScopedToProfilePath is the regression for roborev #3688
+// (High): the commit must be scoped to the guard-profile pathspec and must NOT
+// sweep unrelated already-staged changes into the guard-profile commit.
+func TestGuardInit_CommitScopedToProfilePath(t *testing.T) {
+	root := writeGoMod(t)
+	initGitRepo(t, root)
+
+	// Pre-stage an unrelated file.
+	unrelated := filepath.Join(root, "unrelated.txt")
+	if err := os.WriteFile(unrelated, []byte("x"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if out, err := exec.Command("git", "-C", root, "add", "unrelated.txt").CombinedOutput(); err != nil {
+		t.Fatalf("git add unrelated: %v\n%s", err, out)
+	}
+
+	// Point the advisory mutation lock at a temp file (avoid the real cache dir).
+	origLock := gitMutationLockPath
+	t.Cleanup(func() { gitMutationLockPath = origLock })
+	gitMutationLockPath = func(string) (string, error) { return filepath.Join(root, "m.lock"), nil }
+
+	// Production deps, but force interactive + auto-approve.
+	deps := defaultGuardInitDeps()
+	deps.interactive = func() bool { return true }
+	deps.in = strings.NewReader("y\n")
+	deps.out = &bytes.Buffer{}
+	deps.now = func() time.Time { return time.Date(2026, 5, 26, 12, 0, 0, 0, time.UTC) }
+
+	if _, err := runGuardSetup(root, deps); err != nil {
+		t.Fatalf("runGuardSetup: %v", err)
+	}
+
+	show, err := exec.Command("git", "-C", root, "show", "--stat", "HEAD").CombinedOutput()
+	if err != nil {
+		t.Fatalf("git show: %v\n%s", err, show)
+	}
+	if !strings.Contains(string(show), "guard-profile.yaml") {
+		t.Errorf("guard profile not in the commit:\n%s", show)
+	}
+	if strings.Contains(string(show), "unrelated.txt") {
+		t.Errorf("unrelated.txt was swept into the guard-profile commit:\n%s", show)
+	}
+
+	st, err := exec.Command("git", "-C", root, "status", "--porcelain").CombinedOutput()
+	if err != nil {
+		t.Fatalf("git status: %v", err)
+	}
+	if !strings.Contains(string(st), "A  unrelated.txt") {
+		t.Errorf("unrelated.txt should remain staged (not committed), got:\n%s", st)
 	}
 }

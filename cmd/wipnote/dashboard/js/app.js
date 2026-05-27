@@ -4070,29 +4070,6 @@ function dashSidebarSetupChat(planId) {
     messagesEl.appendChild(notice);
   }
 
-  function escHtmlDash(s) { var d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
-
-  function renderMdDash(text) {
-    var s = escHtmlDash(text);
-    s = s.replace(/```(\w*)\n([\s\S]*?)```/g, function(_, lang, code) {
-      return '<pre><code' + (lang ? ' class="language-' + lang + '"' : '') + '>' + code.trim() + '</code></pre>';
-    });
-    s = s.replace(/`([^`]+)`/g, '<code>$1</code>');
-    s = s.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
-    s = s.replace(/\*([^*]+)\*/g, '<em>$1</em>');
-    s = s.replace(/^### (.+)$/gm, '<h4>$1</h4>');
-    s = s.replace(/^## (.+)$/gm, '<h3>$1</h3>');
-    s = s.replace(/^[*-] (.+)$/gm, '<li>$1</li>');
-    s = s.replace(/(<li>.*<\/li>\n?)+/g, '<ul>$&</ul>');
-    var blocks = s.split(/\n\n/);
-    var html = blocks.map(function(block) {
-      var trimmed = block.trim();
-      if (!trimmed) return '';
-      return '<p>' + trimmed.replace(/\n/g, '<br>') + '</p>';
-    }).filter(Boolean).join('');
-    return html || '<p></p>';
-  }
-
   function addBubble(role, content) {
     if (!content || !content.trim()) return null;
     var emptyNotice = messagesEl.querySelector('.dash-chat-notice');
@@ -4101,7 +4078,7 @@ function dashSidebarSetupChat(planId) {
     div.className = 'dash-chat-bubble';
     div.dataset.role = role;
     if (role === 'assistant') {
-      div.innerHTML = renderMdDash(content);
+      renderMarkdownInto(div, content);
     } else {
       div.textContent = content;
     }
@@ -4166,7 +4143,7 @@ function dashSidebarSetupChat(planId) {
       function processStream() {
         reader.read().then(function(result) {
           if (result.done) {
-            if (rawResponse) assistantBubble.innerHTML = renderMdDash(rawResponse);
+            if (rawResponse) renderMarkdownInto(assistantBubble, rawResponse);
             setEnabled(true);
             return;
           }
@@ -4186,7 +4163,7 @@ function dashSidebarSetupChat(planId) {
               } else if (evt.type === 'error') {
                 assistantBubble.textContent += ' [Error: ' + evt.error + ']';
               } else if (evt.type === 'done') {
-                if (rawResponse) assistantBubble.innerHTML = renderMdDash(rawResponse);
+                if (rawResponse) renderMarkdownInto(assistantBubble, rawResponse);
                 setEnabled(true);
               }
             } catch (e) {}

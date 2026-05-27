@@ -10,26 +10,20 @@
 <body>
     <article id="feat-18dac61f"
              data-type="feature"
-             data-status="in-progress"
+             data-status="done"
              data-priority="medium"
              data-created="2026-05-26T23:15:30.680265"
-             data-updated="2026-05-26T23:51:55.066192" data-agent-assigned="claude-code" data-track-id="trk-fb4a1d6e">
+             data-updated="2026-05-27T00:09:40.623126" data-agent-assigned="claude-code" data-track-id="trk-fb4a1d6e">
 
         <header>
             <h1>Guard setup as a launch-time initialization step (feat-534f209f)</h1>
             <div class="metadata">
-                <span class="badge status-in-progress">In Progress</span>
+                <span class="badge status-done">Done</span>
                 <span class="badge priority-medium">Medium Priority</span>
             </div>
         </header>
 
         <nav data-graph-edges>
-            <section data-edge-type="planned_in">
-                <h3>Planned In:</h3>
-                <ul>
-                    <li><a href="plan-1187cb00.html" data-relationship="planned_in" data-since="2026-05-26T23:15:30.685335">plan-1187cb00</a></li>
-                </ul>
-            </section>
             <section data-edge-type="part_of">
                 <h3>Part Of:</h3>
                 <ul>
@@ -46,6 +40,12 @@
                 <h3>Implemented In:</h3>
                 <ul>
                     <li><a href="e2115ac3-91fe-4731-8d77-0cee62a8e8e2.html" data-relationship="implemented_in" data-since="2026-05-26T23:51:55.065833">session e2115ac3-91fe-4731-8d77-0cee62a8e8e2</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="planned_in">
+                <h3>Planned In:</h3>
+                <ul>
+                    <li><a href="plan-1187cb00.html" data-relationship="planned_in" data-since="2026-05-26T23:15:30.685335">plan-1187cb00</a></li>
                 </ul>
             </section>
         </nav>
@@ -71,7 +71,8 @@ codex_launch.go, gemini.go. Non-interactive launches (CI, no TTY) skip
 silently; gates fall back to autodetect+hint. The same core is exposed as
 explicit `wipnote guard init` (re-runnable; also used to re-approve drift).
 Proposal ranks high-confidence signals (declared CI/test scripts, Makefile
-targets) and flags low-confidence ones so approval is prune-not-invent.</p>
+targets) and flags low-confidence ones so approval is prune-not-invent.
+[2026-05-27 00:09 claude-code] accepted-advisory (provenance override): Implementation committed in 6af1ed4ee (discovery core + signature fix) and 7111c7680 (ensureGuardProfile launch init + guard init command + launcher wiring); both subjects carry (feat-18dac61f). wipnote ingest commits reported attribution but the completion link table did not register (known delegated/subagent commit-linkage gap); reindex deliberately not backgrounded per tmpfs-noexec hazard. Quality gate recorded clean (signature fdff151d637, all tests ok with exec-capable TMPDIR).</p>
         </section>
     </article>
 </body>

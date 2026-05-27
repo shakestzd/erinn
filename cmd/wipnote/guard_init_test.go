@@ -236,3 +236,45 @@ func TestGuardInit_CommitScopedToProfilePath(t *testing.T) {
 		t.Errorf("unrelated.txt should remain staged (not committed), got:\n%s", st)
 	}
 }
+
+// TestGuardInit_UnstagesProfileWhenCommitFails covers roborev #3692: in the
+// production path `git add -- <profile>` runs before `git commit`, so on commit
+// failure the revert must ALSO unstage the profile from the index, not just
+// delete the working-tree file — otherwise a later user commit could include the
+// supposedly-reverted profile.
+func TestGuardInit_UnstagesProfileWhenCommitFails(t *testing.T) {
+	root := writeGoMod(t)
+	initGitRepo(t, root)
+
+	origLock := gitMutationLockPath
+	t.Cleanup(func() { gitMutationLockPath = origLock })
+	gitMutationLockPath = func(string) (string, error) { return filepath.Join(root, "m.lock"), nil }
+
+	deps := defaultGuardInitDeps()
+	deps.interactive = func() bool { return true }
+	deps.in = strings.NewReader("y\n")
+	deps.out = &bytes.Buffer{}
+	deps.now = func() time.Time { return time.Date(2026, 5, 26, 12, 0, 0, 0, time.UTC) }
+	// Stage the profile for real (as the production add would), then fail the commit.
+	deps.commit = func(repoRoot string, paths []string, message string) error {
+		addArgs := append([]string{"-C", repoRoot, "add", "--"}, paths...)
+		_ = exec.Command("git", addArgs...).Run()
+		return os.ErrPermission
+	}
+
+	if _, err := runGuardSetup(root, deps); err == nil {
+		t.Fatal("expected an error when commit fails")
+	}
+
+	rel := filepath.FromSlash(guardprofile.RelPath)
+	if _, statErr := os.Stat(filepath.Join(root, rel)); !os.IsNotExist(statErr) {
+		t.Error("profile file must be removed on commit failure")
+	}
+	st, err := exec.Command("git", "-C", root, "status", "--porcelain", "--", rel).CombinedOutput()
+	if err != nil {
+		t.Fatalf("git status: %v", err)
+	}
+	if strings.TrimSpace(string(st)) != "" {
+		t.Errorf("profile must be unstaged from the index after revert, got: %q", st)
+	}
+}

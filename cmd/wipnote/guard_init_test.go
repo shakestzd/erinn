@@ -255,10 +255,14 @@ func TestGuardInit_UnstagesProfileWhenCommitFails(t *testing.T) {
 	deps.in = strings.NewReader("y\n")
 	deps.out = &bytes.Buffer{}
 	deps.now = func() time.Time { return time.Date(2026, 5, 26, 12, 0, 0, 0, time.UTC) }
-	// Stage the profile for real (as the production add would), then fail the commit.
+	// Stage the profile for real (as the production add would), then fail the
+	// commit. The add MUST succeed or the test would not exercise the
+	// unstage-on-failure path (roborev #3695) — assert it.
 	deps.commit = func(repoRoot string, paths []string, message string) error {
 		addArgs := append([]string{"-C", repoRoot, "add", "--"}, paths...)
-		_ = exec.Command("git", addArgs...).Run()
+		if out, addErr := exec.Command("git", addArgs...).CombinedOutput(); addErr != nil {
+			t.Fatalf("staging setup failed (test would be vacuous): %v\n%s", addErr, out)
+		}
 		return os.ErrPermission
 	}
 

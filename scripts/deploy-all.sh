@@ -149,7 +149,16 @@ else
     if command -v golangci-lint >/dev/null 2>&1; then
         echo "  Complexity debt (advisory)..."
         debt=$( (cd "$GO_DIR" && golangci-lint run ./... 2>/dev/null | grep -cE "gocognit|cyclop|nestif") || true )
-        warn "complexity debt: ${debt:-0} function(s) over threshold (advisory — gated on new code in CI)"
+        warn "Go complexity debt: ${debt:-0} function(s) over threshold (advisory — gated on new code in CI)"
+    fi
+
+    # JS complexity ratchet (dashboard front-end). Blocking here too: it
+    # compares against a committed baseline, so it can't regress on a clean
+    # tree. Skipped silently if npx is unavailable.
+    if command -v npx >/dev/null 2>&1; then
+        echo "  Running JS complexity ratchet..."
+        bash "$(dirname "$0")/js-complexity-gate.sh" || fail "JS complexity ratchet failed"
+        ok "JS complexity ratchet"
     fi
 
     # Broad test gate: mirrors ci.yml's proven strategy (go test -short ./...)

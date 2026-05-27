@@ -15,6 +15,9 @@ jobs:
       - uses: actions/setup-go@v6
         with:
           go-version-file: go.mod
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
       - name: Install ripgrep
         run: sudo apt-get update && sudo apt-get install -y ripgrep
       - name: Build
@@ -31,6 +34,12 @@ jobs:
         with:
           version: v2.5.0
           args: --new-from-merge-base=origin/main
+      - name: JS complexity ratchet (dashboard front-end)
+        # oxlint has no git-baseline mode, so we ratchet on a committed
+        # violation count (cmd/wipnote/dashboard/.oxlint-baseline): the gate
+        # fails if the dashboard JS introduces MORE complexity than the
+        # baseline. Same "tolerate existing, block new" stance as the Go gate.
+        run: bash scripts/js-complexity-gate.sh
       - name: Test
         run: go test -short ./...
       - name: Acceptance harness (CI-safe, fake binaries)

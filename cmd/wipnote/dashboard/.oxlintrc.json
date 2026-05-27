@@ -1,0 +1,11 @@
+{
+  "$schema": "https://raw.githubusercontent.com/oxc-project/oxc/main/npm/oxlint/configuration_schema.json",
+  "categories": {
+    "correctness": "off"
+  },
+  "rules": {
+    "complexity": ["error", 15],
+    "max-depth": ["error", 4],
+    "max-nested-callbacks": ["error", 4]
+  }
+}

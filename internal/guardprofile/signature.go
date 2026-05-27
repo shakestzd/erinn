@@ -47,9 +47,6 @@ func canonical(p *Profile) []byte {
 	var phaseParts []string
 	for _, phase := range canonicalPhaseOrder {
 		guards := append([]Guard(nil), p.Guards[phase]...)
-		sort.Slice(guards, func(i, j int) bool {
-			return guards[i].Name < guards[j].Name
-		})
 		var guardParts []string
 		for _, g := range guards {
 			tuple := strings.Join([]string{
@@ -60,6 +57,12 @@ func canonical(p *Profile) []byte {
 			}, fieldSep)
 			guardParts = append(guardParts, tuple)
 		}
+		// Sort by the FULL canonical tuple, not just Name. Validate does not
+		// require guard names to be unique, so two same-name guards with
+		// different cmds must still sort deterministically — sorting by Name
+		// alone would let their YAML order leak into the signature, breaking
+		// the order-independence contract (roborev finding on c021945).
+		sort.Strings(guardParts)
 		phaseParts = append(phaseParts, strings.Join(guardParts, guardSep))
 	}
 	return []byte(strings.Join(phaseParts, phaseSep))

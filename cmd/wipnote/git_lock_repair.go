@@ -313,6 +313,15 @@ func repairGitLocksWith(
 			skipped++
 			continue
 		}
+		// Gate 4: re-stat immediately before unlink. Eligibility was decided from
+		// the initial snapshot; if git replaced the lock since then, the file on
+		// disk may now be FRESH (younger than maxAge) — deleting it would clobber
+		// a live op. Re-confirm it still exists and is still old enough; skip
+		// otherwise (roborev #3713 TOCTOU).
+		if fi, statErr := os.Stat(lf.Path); statErr != nil || now.Sub(fi.ModTime()) < maxAge {
+			skipped++
+			continue
+		}
 		// All gates passed — safe to remove
 		if err := os.Remove(lf.Path); err != nil {
 			return repaired, skipped, fmt.Errorf("remove %s: %w", lf.Path, err)

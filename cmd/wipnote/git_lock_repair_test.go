@@ -448,3 +448,40 @@ func TestGitLockCmd_RejectsNonPositiveMaxAge(t *testing.T) {
 		}
 	}
 }
+
+// TestRepairGitLock_RestatSkipsFreshlyReplacedLock is the regression for roborev
+// #3713 (TOCTOU): eligibility is decided from the initial snapshot, but if git
+// replaces the lock between detection and unlink, the file on disk is now fresh
+// and must NOT be deleted. The finalRecheck seam (which runs immediately before
+// the re-stat gate) simulates git rewriting the lock to a fresh mtime.
+func TestRepairGitLock_RestatSkipsFreshlyReplacedLock(t *testing.T) {
+	dir := t.TempDir()
+	gitDir := filepath.Join(dir, ".git")
+	if err := os.MkdirAll(gitDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	lockPath := makeFakeLock(t, gitDir, "index.lock", 20*time.Minute) // old at detect time
+
+	// No live writer, but simulate git replacing the lock with a fresh one in the
+	// window just before unlink.
+	finalRecheck := func(string) bool {
+		fresh := time.Now()
+		_ = os.Chtimes(lockPath, fresh, fresh)
+		return false
+	}
+
+	repaired, skipped, err := repairGitLocksWith(
+		[]string{gitDir}, dir, time.Now(), noLiveWriter, finalRecheck, defaultMaxLockAge)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if repaired != 0 {
+		t.Errorf("a freshly-replaced lock must not be removed, got repaired=%d", repaired)
+	}
+	if skipped != 1 {
+		t.Errorf("expected the fresh lock to be skipped, got skipped=%d", skipped)
+	}
+	if _, e := os.Stat(lockPath); e != nil {
+		t.Error("the freshly-replaced lock must survive the repair pass")
+	}
+}

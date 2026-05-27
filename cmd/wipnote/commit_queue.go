@@ -59,6 +59,9 @@ func recordCommitIntent(repoRoot string, relPaths []string, message, workItemID,
 // to commit", which is treated as success so an interrupted flush re-runs
 // safely.
 func outboxCommitter(i commitqueue.Intent) error {
+	if err := i.Validate(); err != nil {
+		return err
+	}
 	if !isGitRepo(i.RepoRoot) {
 		// Non-git project: nothing to commit. Treat as success so the intent
 		// drains rather than poisoning the queue.

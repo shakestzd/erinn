@@ -55,6 +55,17 @@ func TestOutboxCommitterIsIdempotentForNonGit(t *testing.T) {
 	}
 }
 
+func TestOutboxCommitterRejectsInvalidIntentBeforeGit(t *testing.T) {
+	intent := commitqueue.Intent{
+		RepoRoot: t.TempDir(),
+		RelPaths: []string{"."},
+		Message:  "wipnote: complete feat-1",
+	}
+	if err := outboxCommitter(intent); err == nil {
+		t.Fatal("outboxCommitter should reject invalid intents before constructing git pathspecs")
+	}
+}
+
 // TestIsNothingToCommit covers the idempotency string match used to treat an
 // already-committed artifact as success.
 func TestIsNothingToCommit(t *testing.T) {

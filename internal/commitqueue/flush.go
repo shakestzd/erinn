@@ -67,6 +67,17 @@ func (o *Outbox) flushLocked(commit Committer, maxAttempts int, res *FlushResult
 	var remaining []Intent
 
 	for idx, intent := range pending {
+		if err := intent.Validate(); err != nil {
+			intent.Attempts = maxAttempts
+			if dlErr := o.appendDeadLetter(intent); dlErr != nil {
+				remaining = append(remaining, intent)
+				remaining = append(remaining, pending[idx+1:]...)
+				_ = o.rewrite(remaining)
+				return dlErr
+			}
+			res.DeadLettered++
+			continue
+		}
 		if err := commit(intent); err == nil {
 			res.Committed++
 			continue

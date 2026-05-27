@@ -287,6 +287,36 @@ func TestPoisonDoesNotFreezeQueueInSinglePass(t *testing.T) {
 	}
 }
 
+func TestFlushDeadLettersInvalidIntentWithoutCommitting(t *testing.T) {
+	o := newTestOutbox(t)
+	valid := sampleIntent("valid")
+	invalid := sampleIntent("invalid")
+	invalid.RelPaths = []string{"."}
+
+	if err := atomicWriteIntents(o.Path(), []Intent{invalid, valid}); err != nil {
+		t.Fatalf("seed invalid pending intent: %v", err)
+	}
+
+	var committed []Intent
+	res, err := o.Flush(okCommitter(&committed), MaxAttempts)
+	if err != nil {
+		t.Fatalf("Flush: %v", err)
+	}
+	if res.DeadLettered != 1 || res.Committed != 1 || res.RemainingDepth != 0 {
+		t.Fatalf("res = %+v, want DeadLettered=1 Committed=1 RemainingDepth=0", res)
+	}
+	if len(committed) != 1 || committed[0].WorkItemID != "valid" {
+		t.Fatalf("flush should only commit the valid intent, committed=%+v", committed)
+	}
+	dl, err := o.DeadLettered()
+	if err != nil {
+		t.Fatalf("DeadLettered: %v", err)
+	}
+	if len(dl) != 1 || dl[0].WorkItemID != "invalid" || dl[0].Attempts != MaxAttempts {
+		t.Fatalf("dead-lettered invalid intent wrong: %+v", dl)
+	}
+}
+
 func TestDeadLetterPathDerivation(t *testing.T) {
 	o := NewOutbox("/cache/wipnote/abc/commit-outbox.ndjson")
 	want := "/cache/wipnote/abc/commit-outbox.deadletter.ndjson"

@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>Guard authoring skill and docs (feat-1469fabc)</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="feat-71db8ee4"
+             data-type="feature"
+             data-status="todo"
+             data-priority="medium"
+             data-created="2026-05-26T23:15:30.780549"
+             data-updated="2026-05-26T23:15:30.822892" data-agent-assigned="claude-code" data-track-id="trk-b6086017">
+
+        <header>
+            <h1>Guard authoring skill and docs (feat-1469fabc)</h1>
+            <div class="metadata">
+                <span class="badge status-todo">Todo</span>
+                <span class="badge priority-medium">Medium Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="planned_in">
+                <h3>Planned In:</h3>
+                <ul>
+                    <li><a href="plan-1187cb00.html" data-relationship="planned_in" data-since="2026-05-26T23:15:30.789614">plan-1187cb00</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="trk-b6086017.html" data-relationship="part_of" data-since="2026-05-26T23:15:30.794815">trk-b6086017</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="blocked_by">
+                <h3>Blocked By:</h3>
+                <ul>
+                    <li><a href="feat-72dec092.html" data-relationship="blocked_by">feat-72dec092</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>Add a user-level skill at plugin/skills/guard-authoring/SKILL.md (shared
+source, regenerated to codex/gemini via `wipnote plugin build-ports`) plus
+a standalone hand-maintained docs/guard-profiles.md. Cover: the schema
+reference (phases, per-guard name/cmd/cwd/applies_when, approved block),
+polyglot/monorepo examples (per-guard cwd, applies_when paths), the
+approve/signature/drift model and trust boundary, the launch-time setup
+step + `wipnote guard init` flow (slice-3), and the safe default
+(autodetect+hint) when no profile exists. Frame the profile as a
+user-editable YAML config the user owns and diffs (the reference primitive).</p>
+        </section>
+    </article>
+</body>
+</html>

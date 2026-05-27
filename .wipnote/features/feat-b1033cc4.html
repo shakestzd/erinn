@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>Guard setup as a launch-time initialization step (feat-534f209f)</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="feat-b1033cc4"
+             data-type="feature"
+             data-status="todo"
+             data-priority="medium"
+             data-created="2026-05-26T23:15:30.760442"
+             data-updated="2026-05-26T23:15:30.817056" data-agent-assigned="claude-code" data-track-id="trk-b6086017">
+
+        <header>
+            <h1>Guard setup as a launch-time initialization step (feat-534f209f)</h1>
+            <div class="metadata">
+                <span class="badge status-todo">Todo</span>
+                <span class="badge priority-medium">Medium Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="trk-b6086017.html" data-relationship="part_of" data-since="2026-05-26T23:15:30.771625">trk-b6086017</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="blocked_by">
+                <h3>Blocked By:</h3>
+                <ul>
+                    <li><a href="feat-72dec092.html" data-relationship="blocked_by">feat-72dec092</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="planned_in">
+                <h3>Planned In:</h3>
+                <ul>
+                    <li><a href="plan-1187cb00.html" data-relationship="planned_in" data-since="2026-05-26T23:15:30.76671">plan-1187cb00</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>Make guard setup part of wipnote's project INITIALIZATION, checked on every
+interactive CLI launch — peer to the per-session OTel collector bootstrap,
+not a gate-time afterthought (user pivot 2026-05-26).
+Add a PURE discovery core internal/guardprofile/discover.go:
+Propose(repoRoot, inputs) inspects manifests, CI configs, Makefile/scripts,
+docs, and subprojects, returning a proposed phase-grouped profile struct
+with NO writes and NO git. Add cmd/wipnote/guard_init.go: ensureGuardProfile
+(projectRoot) that on each interactive launch checks for an APPROVED profile
+and, if absent AND interactive (isTerminal(), cmd/wipnote/relevant.go:100),
+presents Propose()'s output for approve/edit, writes
+.wipnote/guard-profile.yaml with approved:{signature,by,at} (by = git config
+user.name or session identity; at = now), and commits it via runGitMutation.
+Wire ensureGuardProfile into the launcher bootstraps right beside the OTel
+collector spawn: cmd/wipnote/claude.go (~line 608-616 alongside
+ensureServeForDashboard / spawnSessionCollector), plus yolo.go, dev.go,
+codex_launch.go, gemini.go. Non-interactive launches (CI, no TTY) skip
+silently; gates fall back to autodetect+hint. The same core is exposed as
+explicit `wipnote guard init` (re-runnable; also used to re-approve drift).
+Proposal ranks high-confidence signals (declared CI/test scripts, Makefile
+targets) and flags low-confidence ones so approval is prune-not-invent.</p>
+        </section>
+    </article>
+</body>
+</html>

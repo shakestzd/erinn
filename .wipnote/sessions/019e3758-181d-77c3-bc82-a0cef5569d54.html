@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>Session 2026-05-17T19:09:44Z</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="019e3758-181d-77c3-bc82-a0cef5569d54"
+             data-type="session"
+             data-status="active"
+             data-agent="claude-code"
+             data-project-dir="."
+             data-started-at="2026-05-17T19:09:44Z"
+             data-event-count="0"
+             data-is-subagent="false"
+             data-start-commit="127a44226" data-created-by-agent="claude-code" data-created-by-model="gpt-5.5" data-created-by-cli-version="0.59.1-427-g39ed400c9">
+
+        <header>
+            <h1>Session 2026-05-17T19:09:44Z</h1>
+            <div class="metadata">
+                <span class="badge status-active">Active</span>
+                <span class="badge">claude-code</span>
+                <span class="badge">0 events</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+        </nav>
+
+        <section data-activity-log>
+            <ol reversed>
+                            <li data-ts="2026-05-17T19:09:53Z" data-tool="Bash" data-success="true" data-event-id="a00985ed-7863-4c8d-875a-2fb4bf46afec">sed -n &#39;1,220p&#39; cmd/wipnote/parallel_sessions*.go</li>
+                            <li data-ts="2026-05-17T19:09:53Z" data-tool="Bash" data-success="true" data-event-id="c675e218-67e3-48b1-b3ac-0530cf16beb0">sed -n &#39;1,260p&#39; cmd/wipnote/multiharness_test.go</li>
+                            <li data-ts="2026-05-17T19:09:53Z" data-tool="Bash" data-success="true" data-event-id="4cb71685-c823-4b7c-95f0-4003a7fa0c88">sed -n &#39;1,220p&#39; internal/db/session*.go</li>
+                            <li data-ts="2026-05-17T19:09:59Z" data-tool="Bash" data-success="true" data-event-id="76e3f3ee-e91e-4ac6-9ae3-c4e9a3452dd7">rg &#34;func InsertSession|SetSessionFamilyID|InsertLineageTrace|GetLineageByRoot&#34; -n internal/db cmd/wipnote</li>
+                            <li data-ts="2026-05-17T19:09:59Z" data-tool="Bash" data-success="true" data-event-id="052f81ff-c094-477c-9580-fe158f5de190">rg &#34;CREATE TABLE claims|owner_session_id|lease_expires_at|features&#34; -n internal cmd migrations .wipnote | head -200</li>
+                            <li data-ts="2026-05-17T19:09:59Z" data-tool="Bash" data-success="true" data-event-id="68a39e59-a028-4b0b-8ad3-5a8f0bbe84da">rg &#34;parallelSessionsHandler|type projectGroup&#34; -n cmd internal</li>
+                            <li data-ts="2026-05-17T19:10:06Z" data-tool="Bash" data-success="true" data-event-id="ecaf4499-bf99-490e-9434-f0016afdf826">sed -n &#39;1,240p&#39; cmd/wipnote/api_parallel_sessions.go</li>
+                            <li data-ts="2026-05-17T19:10:06Z" data-tool="Bash" data-success="true" data-event-id="ff1f3bf6-bbbb-431a-934f-8cb92aac05a2">sed -n &#39;1,340p&#39; internal/db/session_repo.go</li>
+                            <li data-ts="2026-05-17T19:10:06Z" data-tool="Bash" data-success="true" data-event-id="6873b78f-dd83-40e6-8966-127a63404f0f">sed -n &#39;1,160p&#39; internal/db/lineage_repo.go</li>
+                            <li data-ts="2026-05-17T19:10:06Z" data-tool="Bash" data-success="true" data-event-id="095419ef-dc65-492a-b24d-9f9b324c164e">rg &#34;CREATE TABLE IF NOT EXISTS claims|CREATE TABLE claims|lease_expires_at|owner_session_id&#34; -n internal/db cmd/wipnote …</li>
+                            <li data-ts="2026-05-17T19:10:11Z" data-tool="Bash" data-success="true" data-event-id="0faab902-66c1-4ab6-8c30-d786f6fa483c">sed -n &#39;180,225p&#39; internal/db/schema.go</li>
+                            <li data-ts="2026-05-17T19:10:11Z" data-tool="Bash" data-success="true" data-event-id="a9aeccf1-8cfd-49c3-93ca-851bf2896807">sed -n &#39;1,120p&#39; internal/db/claim_collision.go</li>
+                            <li data-ts="2026-05-17T19:10:11Z" data-tool="Bash" data-success="true" data-event-id="202ebb62-83ac-4e33-a275-eea4448a87bb">sed -n &#39;1,180p&#39; cmd/wipnote/api_parallel_sessions_test.go</li>
+                            <li data-ts="2026-05-17T19:10:26Z" data-tool="Bash" data-success="true" data-event-id="7c046bc3-da28-4cd1-a6a9-eb30b3601aa0">sed -n &#39;35,140p&#39; internal/childproc/childproc_test.go</li>
+                            <li data-ts="2026-05-17T19:10:26Z" data-tool="Bash" data-success="true" data-event-id="98d8ddde-7f07-4d8d-b23f-49bb2a7a155a">sed -n &#39;140,300p&#39; internal/childproc/childproc_test.go</li>
+                            <li data-ts="2026-05-17T19:10:26Z" data-tool="Bash" data-success="true" data-event-id="97e05263-9469-4c1c-a3d3-d4651a642722">sed -n &#39;1,130p&#39; internal/db/claim_repo.go</li>
+                            <li data-ts="2026-05-17T19:10:37Z" data-tool="Bash" data-success="true" data-event-id="201d98a6-9aeb-4dec-bf42-3b96c3eb5cb1">nl -ba .github/workflows/ci.yml | sed -n &#39;1,80p&#39;</li>
+                            <li data-ts="2026-05-17T19:10:37Z" data-tool="Bash" data-success="true" data-event-id="201d98a6-9aeb-4dec-bf42-3b96c3eb5cb1">nl -ba internal/childproc/childproc_test.go | sed -n &#39;30,170p&#39;</li>
+                            <li data-ts="2026-05-17T19:10:39Z" data-tool="Bash" data-success="true" data-event-id="57f63982-817d-42fc-853b-0c1726ab2584">nl -ba cmd/wipnote/launch_run_test.go | sed -n &#39;100,150p&#39;</li>
+                            <li data-ts="2026-05-17T19:10:42Z" data-tool="Bash" data-success="true" data-event-id="53057c54-82d5-480b-a64c-ce6307e20240">nl -ba internal/childproc/childproc_test.go | sed -n &#39;168,235p&#39;</li>
+                            <li data-ts="2026-05-17T19:10:49Z" data-tool="Bash" data-success="true" data-event-id="09389785-a963-4c3f-a128-7313b9f9bed3">rg &#34;TestSQLiteContentionStress|testing.Short\(\)&#34; -n cmd internal | head -80</li>
+                            <li data-ts="2026-05-17T19:10:55Z" data-tool="Bash" data-success="true" data-event-id="b33b469e-c9e6-4c0b-9ac0-c7391d0efa82">sed -n &#39;118,170p&#39; cmd/wipnote/sqlite_contention_test.go</li>
+                            <li data-ts="2026-05-17T19:11:21Z" data-tool="Bash" data-success="true" data-event-id="18a60c30-de8b-4fed-b963-67913ffb42d2">nl -ba cmd/wipnote/multiharness_test.go | sed -n &#39;250,410p&#39;</li>
+                            <li data-ts="2026-05-17T19:10:37Z" data-tool="Bash" data-success="false" data-event-id="ad8f7d10-b072-459a-87ef-80561e514c5a" data-status="aborted" data-reason="no-post-hook">[aborted] Bash never completed</li>
+            </ol>
+        </section>
+    </article>
+</body>
+</html>

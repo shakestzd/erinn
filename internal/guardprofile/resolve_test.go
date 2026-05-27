@@ -94,3 +94,26 @@ func TestResolveGuards_AppliesWhenPathFilter(t *testing.T) {
 		t.Fatalf("expected only the go guard to apply, got %#v", guards)
 	}
 }
+
+// TestMatchGlob_DoublestarNested is the regression for roborev #3684: "**" must
+// match zero or more whole path segments, so recursive-scoped guards match
+// nested files (the prior collapse-** approach dropped intermediate segments).
+func TestMatchGlob_DoublestarNested(t *testing.T) {
+	cases := []struct {
+		glob, rel string
+		want      bool
+	}{
+		{"internal/**/*.go", "internal/foo.go", true},
+		{"internal/**/*.go", "internal/pkg/sub/foo.go", true},
+		{"internal/**/*.go", "cmd/foo.go", false},
+		{"**/*.go", "a/b/c.go", true},
+		{"*.go", "a/b.go", false},
+		{"web/**", "web/src/app.tsx", true},
+		{"web/**", "web", true},
+	}
+	for _, c := range cases {
+		if got := matchGlob(c.glob, c.rel); got != c.want {
+			t.Errorf("matchGlob(%q, %q) = %v, want %v", c.glob, c.rel, got, c.want)
+		}
+	}
+}

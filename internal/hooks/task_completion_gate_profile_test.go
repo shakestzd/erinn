@@ -63,3 +63,25 @@ func TestHookGate_UnapprovedProfileFallsBack(t *testing.T) {
 		t.Fatalf("unapproved profile must not drive the gate; got GateName=%q", result.GateName)
 	}
 }
+
+// TestHookGate_MalformedProfileSurfacesError is the regression for roborev
+// #3684: a present-but-unparseable guard profile must NOT silently fall back to
+// autodetection and pass — the gate surfaces the configuration error.
+func TestHookGate_MalformedProfileSurfacesError(t *testing.T) {
+	dir := t.TempDir()
+	wp := filepath.Join(dir, ".wipnote")
+	if err := os.MkdirAll(wp, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	// Unterminated flow sequence -> yaml parse error in guardprofile.Load.
+	if err := os.WriteFile(filepath.Join(wp, "guard-profile.yaml"), []byte("guards: [1, 2\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	result := runTaskCompletionGate(dir)
+	if result.Passed {
+		t.Errorf("malformed profile must not pass silently; got Passed=true gate=%q", result.GateName)
+	}
+	if result.GateName != "guard-profile-error" {
+		t.Errorf("expected guard-profile-error gate, got %q", result.GateName)
+	}
+}

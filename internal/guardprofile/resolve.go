@@ -111,27 +111,39 @@ func anyRepoFileMatches(repoRoot, glob string) (bool, error) {
 	return found, nil
 }
 
-// matchGlob matches a forward-slash glob against a repo-relative path. It
-// supports a trailing/leading "**" segment by also testing each path suffix so
-// patterns like "internal/**/*.go" and "**/*.go" behave intuitively without a
-// full doublestar dependency.
+// matchGlob matches a forward-slash glob against a repo-relative path with
+// doublestar semantics: a "**" segment matches zero or more path segments, and
+// any other segment is matched with path.Match (so "*" does not cross "/").
+// E.g. "internal/**/*.go" matches both "internal/foo.go" and
+// "internal/pkg/sub/foo.go". (roborev #3684: the prior "collapse **" approach
+// dropped the intermediate segments and never matched nested files.)
 func matchGlob(glob, rel string) bool {
-	if ok, _ := path.Match(glob, rel); ok {
-		return true
-	}
-	if !strings.Contains(glob, "**") {
-		return false
-	}
-	// Collapse "**" handling: try matching the pattern with "**/" prefixes
-	// stripped against progressively shorter path suffixes.
-	stripped := strings.ReplaceAll(glob, "**/", "")
-	stripped = strings.ReplaceAll(stripped, "/**", "")
-	segments := strings.Split(rel, "/")
-	for i := range segments {
-		suffix := strings.Join(segments[i:], "/")
-		if ok, _ := path.Match(stripped, suffix); ok {
-			return true
+	return matchSegments(strings.Split(glob, "/"), strings.Split(rel, "/"))
+}
+
+// matchSegments matches pattern segments against name segments, treating "**"
+// as a wildcard over zero or more whole segments.
+func matchSegments(pat, name []string) bool {
+	for len(pat) > 0 {
+		if pat[0] == "**" {
+			if len(pat) == 1 {
+				return true // trailing "**" matches any remainder (incl. none)
+			}
+			// "**" matches zero or more leading segments of name; try each split.
+			for i := 0; i <= len(name); i++ {
+				if matchSegments(pat[1:], name[i:]) {
+					return true
+				}
+			}
+			return false
 		}
+		if len(name) == 0 {
+			return false
+		}
+		if ok, _ := path.Match(pat[0], name[0]); !ok {
+			return false
+		}
+		pat, name = pat[1:], name[1:]
 	}
-	return false
+	return len(name) == 0
 }

@@ -42,7 +42,17 @@ func runTaskCompletionGate(projectDir string) taskCompletionGateResult {
 	// Approved guard profile takes precedence over manifest autodetection. The
 	// yolo phase is the per-commit gate this hook enforces.
 	guards, usedProfile, err := guardprofile.ResolveGuards(projectDir, guardprofile.PhaseYolo)
-	if err == nil && usedProfile {
+	if err != nil {
+		// A present-but-unreadable/unparseable profile is a configuration problem
+		// the user must fix — do NOT silently fall back to autodetection and pass
+		// (roborev #3684): surface it as a failing gate result instead.
+		return taskCompletionGateResult{
+			Passed:   false,
+			GateName: "guard-profile-error",
+			Output:   fmt.Sprintf("guard profile could not be resolved: %v", err),
+		}
+	}
+	if usedProfile {
 		return runGuardProfileGate(projectDir, guards)
 	}
 

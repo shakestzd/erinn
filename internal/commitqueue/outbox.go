@@ -3,6 +3,7 @@ package commitqueue
 import (
 	"bufio"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"syscall"
@@ -156,7 +157,8 @@ func (o *Outbox) appendDeadLetter(i Intent) error {
 // appendLineLocked opens path in append mode, takes an exclusive flock, writes
 // line+newline, fsyncs, and releases. Mirrors internal/otel/sink/ndjson.
 func appendLineLocked(path string, line []byte) error {
-	f, err := os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
+	// O_RDWR (not O_APPEND) so we can inspect the trailing byte before writing.
+	f, err := os.OpenFile(path, os.O_CREATE|os.O_RDWR, 0o644)
 	if err != nil {
 		return fmt.Errorf("commitqueue: open %s: %w", path, err)
 	}
@@ -165,7 +167,25 @@ func appendLineLocked(path string, line []byte) error {
 		return fmt.Errorf("commitqueue: flock %s: %w", path, err)
 	}
 	defer syscall.Flock(int(f.Fd()), syscall.LOCK_UN) //nolint:errcheck
-	if _, err := f.Write(append(line, '\n')); err != nil {
+
+	out := make([]byte, 0, len(line)+2)
+	// If a prior append was torn by a crash (file doesn't end in '\n'), terminate
+	// that partial line FIRST so the new intent lands on its own clean line — else
+	// it merges into the corrupt tail and readIntents silently drops both
+	// (roborev #3723).
+	if fi, serr := f.Stat(); serr == nil && fi.Size() > 0 {
+		tail := make([]byte, 1)
+		if _, rerr := f.ReadAt(tail, fi.Size()-1); rerr == nil && tail[0] != '\n' {
+			out = append(out, '\n')
+		}
+	}
+	out = append(out, line...)
+	out = append(out, '\n')
+
+	if _, err := f.Seek(0, io.SeekEnd); err != nil {
+		return fmt.Errorf("commitqueue: seek %s: %w", path, err)
+	}
+	if _, err := f.Write(out); err != nil {
 		return fmt.Errorf("commitqueue: write %s: %w", path, err)
 	}
 	if err := f.Sync(); err != nil {

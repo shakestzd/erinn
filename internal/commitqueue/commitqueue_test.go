@@ -2,6 +2,7 @@ package commitqueue
 
 import (
 	"fmt"
+	"os"
 	"path/filepath"
 	"testing"
 	"time"
@@ -367,5 +368,53 @@ func TestConcurrentAppendDuringFlushIsNotLost(t *testing.T) {
 	}
 	if len(pending) != 1 || pending[0].WorkItemID != "b" {
 		t.Fatalf("concurrent-append intent was lost: pending=%+v, want exactly [b]", pending)
+	}
+}
+
+// TestAppend_RecoversAfterTornTrailingLine is the regression for roborev #3723:
+// after a crash leaves a partial (newline-less) trailing line, the next Append
+// must NOT merge into it (which would make both lines unparseable and silently
+// drop the new intent).
+func TestAppend_RecoversAfterTornTrailingLine(t *testing.T) {
+	o := newTestOutbox(t)
+	if err := o.Append(sampleIntent("a")); err != nil {
+		t.Fatalf("seed append: %v", err)
+	}
+	// Simulate a crash mid-append: a truncated JSON line with no trailing newline.
+	f, err := os.OpenFile(o.Path(), os.O_APPEND|os.O_WRONLY, 0o644)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := f.WriteString(`{"work_item_id":"partial`); err != nil {
+		t.Fatal(err)
+	}
+	f.Close()
+
+	if err := o.Append(sampleIntent("b")); err != nil {
+		t.Fatalf("append after torn tail: %v", err)
+	}
+	pending, err := o.Pending()
+	if err != nil {
+		t.Fatalf("pending: %v", err)
+	}
+	ids := map[string]bool{}
+	for _, in := range pending {
+		ids[in.WorkItemID] = true
+	}
+	if !ids["a"] || !ids["b"] {
+		t.Errorf("both intents must survive a torn trailing line; got %v", ids)
+	}
+}
+
+// TestValidate_RejectsUnsafeRelPaths is the regression for roborev #3723: a
+// blank/absolute/escaping rel_path must be rejected so a malformed intent can't
+// stage the whole repo or files outside it.
+func TestValidate_RejectsUnsafeRelPaths(t *testing.T) {
+	for _, bad := range []string{"", "   ", "/abs/path", "../escape"} {
+		i := sampleIntent("x")
+		i.RelPaths = []string{bad}
+		if err := i.Validate(); err == nil {
+			t.Errorf("rel_path %q must be rejected by Validate", bad)
+		}
 	}
 }

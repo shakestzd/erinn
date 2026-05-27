@@ -29,6 +29,7 @@ package commitqueue
 import (
 	"encoding/json"
 	"fmt"
+	"path/filepath"
 	"strings"
 	"time"
 )
@@ -65,6 +66,22 @@ func (i Intent) Validate() error {
 	}
 	if len(i.RelPaths) == 0 {
 		return fmt.Errorf("commitqueue: intent missing rel_paths")
+	}
+	for _, rel := range i.RelPaths {
+		// An empty/blank rel_path is dangerous: the committer joins it to RepoRoot
+		// (filepath.Join(root, "") == root), so `git add -- <root>` would stage the
+		// WHOLE repository under a queued artifact commit (roborev #3723). Require
+		// each path to be non-empty, relative, and contained within the repo.
+		if strings.TrimSpace(rel) == "" {
+			return fmt.Errorf("commitqueue: intent has an empty rel_path (would stage the whole repo)")
+		}
+		if filepath.IsAbs(rel) {
+			return fmt.Errorf("commitqueue: rel_path %q must be repo-relative, not absolute", rel)
+		}
+		clean := filepath.Clean(rel)
+		if clean == ".." || strings.HasPrefix(clean, ".."+string(filepath.Separator)) {
+			return fmt.Errorf("commitqueue: rel_path %q escapes the repository", rel)
+		}
 	}
 	if strings.TrimSpace(i.Message) == "" {
 		return fmt.Errorf("commitqueue: intent missing message")

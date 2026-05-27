@@ -337,3 +337,37 @@ func TestGuardInit_AlreadyApprovedIsNoOp(t *testing.T) {
 		t.Error("already-approved up-to-date profile must not re-commit")
 	}
 }
+
+// TestGuardInit_ReapprovalRestoresProfileOnCommitFailure is the regression for
+// roborev #3708: on the re-approval path the profile file PRE-EXISTED (user's
+// hand-edited content), so a failed commit must restore it, not delete it.
+func TestGuardInit_ReapprovalRestoresProfileOnCommitFailure(t *testing.T) {
+	root := writeGoMod(t)
+	existing := &guardprofile.Profile{Guards: map[string][]guardprofile.Guard{
+		guardprofile.PhaseQuality: {{Name: "custom-handrolled", Cmd: "make verify"}},
+	}} // unapproved/drifted, hand-edited
+	if err := writeGuardProfile(root, existing); err != nil {
+		t.Fatal(err)
+	}
+
+	deps := fakeDeps(true, "y\n", &recordedCommit{})
+	deps.commit = func(string, []string, string) error { return os.ErrPermission } // commit fails
+
+	if _, err := runGuardSetup(root, deps); err == nil {
+		t.Fatal("expected an error when commit fails")
+	}
+
+	// The pre-existing profile MUST survive (edits not lost)...
+	loaded, err := guardprofile.Load(root)
+	if err != nil || loaded == nil {
+		t.Fatalf("re-approval commit failure must not delete the pre-existing profile (load: %v)", err)
+	}
+	q := loaded.Guards[guardprofile.PhaseQuality]
+	if len(q) != 1 || q[0].Name != "custom-handrolled" {
+		t.Errorf("must restore the user's original guards, got %+v", q)
+	}
+	// ...as the ORIGINAL unapproved content (no leaked approval signature).
+	if guardprofile.IsApproved(loaded) {
+		t.Error("restored profile must be the original UNAPPROVED content")
+	}
+}

@@ -150,6 +150,19 @@ func runGuardSetup(projectRoot string, deps guardInitDeps) (*guardprofile.Profil
 		return nil, nil
 	}
 
+	rel := filepath.FromSlash(guardprofile.RelPath)
+	absPath := filepath.Join(projectRoot, rel)
+
+	// Capture the pre-existing file bytes so a failed commit on the RE-APPROVAL
+	// path can restore the user's hand-edited profile rather than delete it
+	// (roborev #3708). On the discovery path the file did not exist, so failure
+	// removes what this run created.
+	preExisted := existing != nil
+	var originalBytes []byte
+	if preExisted {
+		originalBytes, _ = os.ReadFile(absPath)
+	}
+
 	p.Approved = guardprofile.Approval{
 		Signature: guardprofile.Signature(p),
 		By:        deps.approver(projectRoot),
@@ -158,15 +171,17 @@ func runGuardSetup(projectRoot string, deps guardInitDeps) (*guardprofile.Profil
 	if err := writeGuardProfile(projectRoot, p); err != nil {
 		return nil, fmt.Errorf("write guard profile: %w", err)
 	}
-	rel := filepath.FromSlash(guardprofile.RelPath)
 	msg := "chore(wipnote): approve project guard profile (feat-18dac61f)"
 	if err := deps.commit(projectRoot, []string{rel}, msg); err != nil {
-		// Commit failed: remove the just-written approved profile AND unstage it
-		// so a future launch retries setup instead of seeing IsApproved and
-		// skipping a profile that was never committed. The git add step inside
-		// deps.commit may have already staged the file before the commit failed,
-		// so we must reset the index entry too (roborev #3688, #3692).
-		_ = os.Remove(filepath.Join(projectRoot, rel))
+		// Commit failed: undo the write and unstage, so a future launch retries
+		// instead of seeing IsApproved on a profile that was never committed
+		// (#3688/#3692). The `git add` inside deps.commit may already have staged
+		// the file, so reset the index too.
+		if preExisted && originalBytes != nil {
+			_ = os.WriteFile(absPath, originalBytes, 0o644) // restore the user's edits
+		} else {
+			_ = os.Remove(absPath)
+		}
 		_, _ = runGit("-C", projectRoot, "reset", "--", rel)
 		return nil, fmt.Errorf("commit guard profile (reverted uncommitted write): %w", err)
 	}

@@ -204,3 +204,14 @@ func TestValidate_RejectsMissingName(t *testing.T) {
 		t.Error("a guard with a blank name must be rejected by Validate")
 	}
 }
+
+// TestValidate_RejectsWhitespaceCmd is the regression for roborev #3718: a
+// whitespace-only cmd must be rejected (it would run as a no-op gate).
+func TestValidate_RejectsWhitespaceCmd(t *testing.T) {
+	p := &Profile{Guards: map[string][]Guard{
+		PhaseQuality: {{Name: "noop", Cmd: "   "}},
+	}}
+	if err := Validate(p); err == nil {
+		t.Error("a guard with a whitespace-only cmd must be rejected")
+	}
+}

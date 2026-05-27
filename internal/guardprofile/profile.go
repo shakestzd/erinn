@@ -103,7 +103,7 @@ func Validate(p *Profile) error {
 			if strings.TrimSpace(g.Name) == "" {
 				return fmt.Errorf("guardprofile: guard #%d in phase %q is missing name", i, phase)
 			}
-			if g.Cmd == "" {
+			if strings.TrimSpace(g.Cmd) == "" {
 				return fmt.Errorf("guardprofile: guard %q in phase %q is missing cmd", g.Name, phase)
 			}
 		}

@@ -390,7 +390,9 @@ func CreateAllTables(db *sql.DB) error {
 			allowlist_hits_json TEXT NOT NULL DEFAULT '[]',
 			allowlist_hit_count INTEGER NOT NULL DEFAULT 0,
 			source TEXT NOT NULL DEFAULT 'check',
-			output_summary TEXT
+			output_summary TEXT,
+			profile_signature TEXT NOT NULL DEFAULT '',
+			guards_run TEXT NOT NULL DEFAULT '[]'
 		)`,
 	}
 

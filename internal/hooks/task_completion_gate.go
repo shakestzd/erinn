@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/shakestzd/wipnote/internal/guardprofile"
 	"github.com/shakestzd/wipnote/internal/paths"
 )
 
@@ -38,6 +39,23 @@ type taskCompletionGateResult struct {
 // command. Returns a warn-only result on timeout (fails open to avoid
 // stranding teammates indefinitely).
 func runTaskCompletionGate(projectDir string) taskCompletionGateResult {
+	// Approved guard profile takes precedence over manifest autodetection. The
+	// yolo phase is the per-commit gate this hook enforces.
+	guards, usedProfile, err := guardprofile.ResolveGuards(projectDir, guardprofile.PhaseYolo)
+	if err != nil {
+		// A present-but-unreadable/unparseable profile is a configuration problem
+		// the user must fix — do NOT silently fall back to autodetection and pass
+		// (roborev #3684): surface it as a failing gate result instead.
+		return taskCompletionGateResult{
+			Passed:   false,
+			GateName: "guard-profile-error",
+			Output:   fmt.Sprintf("guard profile could not be resolved: %v", err),
+		}
+	}
+	if usedProfile {
+		return runGuardProfileGate(projectDir, guards)
+	}
+
 	pt := paths.DetectProjectType(projectDir)
 	testCmd := paths.TestCommandFor(pt)
 	if testCmd == "" {
@@ -64,6 +82,47 @@ func runTaskCompletionGate(projectDir string) taskCompletionGateResult {
 		GateName: testCmd,
 		Output:   string(out),
 	}
+}
+
+// runGuardProfileGate runs each resolved guard command (respecting per-guard
+// cwd) under the shared completion-gate timeout, failing open on timeout to
+// match the autodetection path. An empty guard set is a trivial pass.
+func runGuardProfileGate(projectDir string, guards []guardprofile.Guard) taskCompletionGateResult {
+	if len(guards) == 0 {
+		return taskCompletionGateResult{Passed: true, GateName: "guard-profile (no matching guards)"}
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), taskCompletionGateTimeout)
+	defer cancel()
+
+	var combined string
+	for _, g := range guards {
+		dir := projectDir
+		if filepath.IsAbs(g.Cwd) {
+			dir = g.Cwd
+		} else if g.Cwd != "" {
+			dir = filepath.Join(projectDir, filepath.FromSlash(g.Cwd))
+		}
+		cmd := exec.CommandContext(ctx, "sh", "-c", g.Cmd)
+		cmd.Dir = dir
+		out, err := cmd.CombinedOutput()
+		combined += "$ " + g.Cmd + "\n" + string(out)
+
+		if ctx.Err() == context.DeadlineExceeded {
+			return taskCompletionGateResult{
+				Passed:   true, // fail open on timeout
+				GateName: "guard-profile:" + g.Name,
+				Output:   "TIMEOUT: guard profile gate exceeded 60s, proceeding (warn-only)",
+			}
+		}
+		if err != nil {
+			return taskCompletionGateResult{
+				Passed:   false,
+				GateName: "guard-profile:" + g.Name,
+				Output:   combined,
+			}
+		}
+	}
+	return taskCompletionGateResult{Passed: true, GateName: "guard-profile", Output: combined}
 }
 
 // SpecEnforcement holds opt-in spec-presence gate flags. Both default to

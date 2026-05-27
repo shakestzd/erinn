@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	dbpkg "github.com/shakestzd/wipnote/internal/db"
+	"github.com/shakestzd/wipnote/internal/guardprofile"
 	"github.com/shakestzd/wipnote/internal/storage"
 )
 
@@ -74,7 +75,7 @@ func openGateTestDB(t *testing.T, projectRoot string) *sql.DB {
 
 func TestRunSessionGate_WritesSessionLocalRecord(t *testing.T) {
 	projectRoot := setupGateTestProject(t)
-	result, err := runSessionGate(projectRoot, "sess-gate-pass", "", "check", os.Stdout, os.Stderr)
+	result, err := runSessionGate(projectRoot, "sess-gate-pass", "", "check", guardprofile.PhaseQuality, os.Stdout, os.Stderr)
 	if err != nil {
 		t.Fatalf("runSessionGate: %v", err)
 	}
@@ -255,7 +256,7 @@ func TestCheckCompletionGateRecord_AcceptsMatchingSessionAfterRecheck(t *testing
 		t.Fatalf("insert feature file: %v", err)
 	}
 
-	initial, err := runSessionGate(projectRoot, "sess-gate-ok", "feat-gate", "check", os.Stdout, os.Stderr)
+	initial, err := runSessionGate(projectRoot, "sess-gate-ok", "feat-gate", "check", guardprofile.PhaseQuality, os.Stdout, os.Stderr)
 	if err != nil {
 		t.Fatalf("initial runSessionGate: %v", err)
 	}
@@ -292,7 +293,7 @@ func TestLoadGateAllowlist_MissingFileReturnsEmpty(t *testing.T) {
 // than a hard error (Fix 1).
 func TestDetectGatePlan_NoManifest_IsNoOp(t *testing.T) {
 	projectRoot := t.TempDir() // empty dir — no go.mod, package.json, etc.
-	plan, err := detectGatePlan(projectRoot)
+	plan, err := detectGatePlan(projectRoot, guardprofile.PhaseQuality)
 	if err != nil {
 		t.Fatalf("detectGatePlan on manifest-less dir returned error: %v", err)
 	}
@@ -312,7 +313,7 @@ func TestRunSessionGate_NoManifest_PassAndPersist(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	result, err := runSessionGate(projectRoot, "sess-noop-manifest", "feat-noop", "check", os.Stdout, os.Stderr)
+	result, err := runSessionGate(projectRoot, "sess-noop-manifest", "feat-noop", "check", guardprofile.PhaseQuality, os.Stdout, os.Stderr)
 	if err != nil {
 		t.Fatalf("runSessionGate on manifest-less root: %v", err)
 	}
@@ -346,7 +347,7 @@ func TestRunSessionGate_NoManifest_PassAndPersist(t *testing.T) {
 // happy path).
 func TestRunSessionGate_GoProject_StillRuns(t *testing.T) {
 	projectRoot := setupGateTestProject(t) // creates go.mod + main.go
-	result, err := runSessionGate(projectRoot, "sess-go-regression", "", "check", os.Stdout, os.Stderr)
+	result, err := runSessionGate(projectRoot, "sess-go-regression", "", "check", guardprofile.PhaseQuality, os.Stdout, os.Stderr)
 	if err != nil {
 		t.Fatalf("runSessionGate on Go project: %v", err)
 	}
@@ -364,6 +365,39 @@ func TestRunSessionGate_GoProject_StillRuns(t *testing.T) {
 	}
 	if !hasGoTest {
 		t.Fatalf("expected go test in gate commands, got %v", result.Commands)
+	}
+}
+
+// TestDetectGatePlan_SelectsPhaseGuards is the regression for roborev #3703:
+// gate-plan detection must honor the requested phase, so `check --gate`
+// (PhaseQuality) and the completion re-check (PhaseCompletion) run different
+// guard groups. Previously both resolved PhaseQuality and the completion phase
+// was never enforced.
+func TestDetectGatePlan_SelectsPhaseGuards(t *testing.T) {
+	root := t.TempDir()
+	p := &guardprofile.Profile{Guards: map[string][]guardprofile.Guard{
+		guardprofile.PhaseQuality:    {{Name: "q-test", Cmd: "echo quality"}},
+		guardprofile.PhaseCompletion: {{Name: "c-test", Cmd: "echo completion"}},
+	}}
+	p.Approved = guardprofile.Approval{Signature: guardprofile.Signature(p), By: "t", At: "2026-01-01T00:00:00Z"}
+	if err := writeGuardProfile(root, p); err != nil {
+		t.Fatal(err)
+	}
+
+	qPlan, err := detectGatePlan(root, guardprofile.PhaseQuality)
+	if err != nil {
+		t.Fatalf("quality detectGatePlan: %v", err)
+	}
+	if len(qPlan.GuardNames) != 1 || qPlan.GuardNames[0] != "q-test" {
+		t.Errorf("quality phase guards = %v, want [q-test]", qPlan.GuardNames)
+	}
+
+	cPlan, err := detectGatePlan(root, guardprofile.PhaseCompletion)
+	if err != nil {
+		t.Fatalf("completion detectGatePlan: %v", err)
+	}
+	if len(cPlan.GuardNames) != 1 || cPlan.GuardNames[0] != "c-test" {
+		t.Errorf("completion phase guards = %v, want [c-test]", cPlan.GuardNames)
 	}
 }
 
@@ -408,7 +442,7 @@ func TestDetectGatePlan_NodeProjectWithMissingScripts(t *testing.T) {
 		t.Fatalf("write package.json: %v", err)
 	}
 
-	plan, err := detectGatePlan(projectRoot)
+	plan, err := detectGatePlan(projectRoot, guardprofile.PhaseQuality)
 	if err != nil {
 		t.Fatalf("detectGatePlan: %v", err)
 	}

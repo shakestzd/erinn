@@ -19,6 +19,7 @@ func launcherCmd() *cobra.Command {
 		Short: "Launcher diagnostics and migration tooling",
 	}
 	cmd.AddCommand(launcherDoctorCmd())
+	cmd.AddCommand(launcherGitLockCmd())
 	return cmd
 }
 
@@ -64,8 +65,12 @@ func runDoctorReport(repoRoot string) string {
 	fmt.Fprintf(&b, "wipnote launcher doctor — %s\n\n", repoRoot)
 	reportGitState(&b, repoRoot)
 	reportWorktrees(&b, repoRoot)
+	reportGitLockState(&b, repoRoot)
 	reportSessionDivergence(&b, repoRoot)
 	reportRolloutGate(&b)
+	var sb strings.Builder
+	reportMainWorktreeIsolation(&sb, repoRoot)
+	b.WriteString(sb.String())
 	fmt.Fprintln(&b, "--- delegated checks ---")
 	fmt.Fprintln(&b, "  orphan sessions: run `wipnote cleanup orphan-sessions` to list/remove")
 	fmt.Fprintln(&b, "  session reconcile: run `wipnote reconcile` to auto-commit artifacts and report drift")

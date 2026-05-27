@@ -8,6 +8,7 @@ import (
 	"time"
 
 	dbpkg "github.com/shakestzd/wipnote/internal/db"
+	"github.com/shakestzd/wipnote/internal/guardprofile"
 	"github.com/shakestzd/wipnote/internal/htmlparse"
 	"github.com/shakestzd/wipnote/internal/models"
 )
@@ -116,7 +117,7 @@ func seedPassingGateRecord(t *testing.T, projectRoot, sessionID, workItemID stri
 	t.Setenv("GOTMPDIR", filepath.Join(tmpBase, "gotmp-exec"))
 	t.Setenv("GOCACHE", filepath.Join(tmpBase, "gocache"))
 
-	result, err := runSessionGate(projectRoot, sessionID, workItemID, "check", os.Stdout, os.Stderr)
+	result, err := runSessionGate(projectRoot, sessionID, workItemID, "check", guardprofile.PhaseQuality, os.Stdout, os.Stderr)
 	if err != nil {
 		t.Fatalf("runSessionGate: %v", err)
 	}

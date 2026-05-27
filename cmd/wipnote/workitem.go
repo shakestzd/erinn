@@ -911,6 +911,7 @@ func checkCompletionGateRecord(database *sql.DB, projectRoot, sessionID, workIte
 	if len(codePaths) == 0 {
 		return nil
 	}
+	reportGuardProfileDrift(database, projectRoot, sessionID, os.Stderr)
 	return validateCompletionGateRecord(projectRoot, database, sessionID, workItemID)
 }
 

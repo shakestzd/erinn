@@ -197,7 +197,7 @@ var approvedWriteSites = []writeSite{
 	},
 	{
 		File:           "cmd/wipnote/plan_yaml_cmds.go",
-		Line:           524,
+		Line:           560,
 		Function:       "openPlanDB",
 		OpenExpr:       "dbpkg.Open",
 		Classification: intentionalCLIMutation,
@@ -213,7 +213,7 @@ var approvedWriteSites = []writeSite{
 	},
 	{
 		File:           "cmd/wipnote/check_gate_support.go",
-		Line:           280,
+		Line:           335,
 		Function:       "persistGateRecord",
 		OpenExpr:       "dbpkg.Open",
 		Classification: intentionalCLIMutation,

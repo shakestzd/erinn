@@ -11,6 +11,118 @@ import (
 	"github.com/shakestzd/wipnote/internal/planyaml"
 )
 
+// TestCommitPlanChange_RoutedThroughGitRunner asserts that commitPlanChange's
+// add and commit mutations flow through gitRunner (the runGitWithLockRetry
+// seam that runGitMutation delegates to) rather than via bare exec.Command.
+// This is the TDD gate for feat-c0307d7a: the test is written before the
+// implementation change, so it must FAIL against the old exec.Command code and
+// PASS after commitPlanChange is routed through runGitMutation.
+func TestCommitPlanChange_RoutedThroughGitRunner(t *testing.T) {
+	dir := t.TempDir()
+	initGitRepo(t, dir)
+
+	plansDir := filepath.Join(dir, "plans")
+	if err := os.MkdirAll(plansDir, 0o755); err != nil {
+		t.Fatalf("mkdir plans: %v", err)
+	}
+
+	planID := "plan-seam1234"
+	planPath := filepath.Join(plansDir, planID+".yaml")
+	plan := planyaml.NewPlan(planID, "Seam Test", "gitRunner seam assertion")
+	if err := planyaml.Save(planPath, plan); err != nil {
+		t.Fatalf("save yaml: %v", err)
+	}
+
+	// Override the gitRunner seam and the lock path so no real flock or
+	// git subprocess is needed for the seam-assertion portion.
+	// We still need the real git calls to succeed for the test to work end-to-end,
+	// so we delegate to the real runner but record that it was called.
+	origRunner := gitRunner
+	origLockPath := gitMutationLockPath
+	t.Cleanup(func() {
+		gitRunner = origRunner
+		gitMutationLockPath = origLockPath
+	})
+
+	// Point the lock path at a temp file so the flock doesn't need the cache dir.
+	lockFile := filepath.Join(dir, "git-mutation.lock")
+	gitMutationLockPath = func(_ string) (string, error) { return lockFile, nil }
+
+	var addCalled, commitCalled bool
+	gitRunner = func(repoRoot string, args ...string) ([]byte, error) {
+		// Record which mutations flow through this seam.
+		if len(args) > 0 {
+			switch args[0] {
+			case "add":
+				addCalled = true
+			case "commit":
+				commitCalled = true
+			}
+		}
+		// Delegate to the real git so the commit actually happens.
+		all := append([]string{"-C", repoRoot}, args...)
+		return exec.Command("git", all...).CombinedOutput()
+	}
+
+	if err := commitPlanChange(planPath, "plan(plan-seam1234): seam test"); err != nil {
+		t.Fatalf("commitPlanChange: %v", err)
+	}
+
+	if !addCalled {
+		t.Error("git add did not flow through gitRunner — commitPlanChange is not using runGitMutation for the add step")
+	}
+	if !commitCalled {
+		t.Error("git commit did not flow through gitRunner — commitPlanChange is not using runGitMutation for the commit step")
+	}
+}
+
+// TestCommitPlanChange_RelativePlanPath verifies that a RELATIVE planPath
+// (as produced by `--project-dir relative/repo`) is staged correctly. Since
+// runGitMutation anchors with `git -C <repoRoot>`, the path must be absolutized
+// first or `git add -- relative/...` would resolve against repoRoot and miss the
+// file (roborev finding job 3633).
+func TestCommitPlanChange_RelativePlanPath(t *testing.T) {
+	// Reproduce the `--project-dir relative/repo` scenario: the process CWD is
+	// the PARENT of the repo and the plan path is relative and INCLUDES the repo
+	// directory. The pre-fix code passed that relative path straight to
+	// `git -C <repoRoot> add`, which resolved it against repoRoot (→ repoRoot/repo
+	// /plans/...) and failed to stage. Passing CWD == repoRoot (as the prior test
+	// did) would have masked the bug because the path resolves correctly there
+	// (roborev #3641 Low).
+	parent := t.TempDir()
+	repoDir := filepath.Join(parent, "myrepo")
+	if err := os.MkdirAll(filepath.Join(repoDir, "plans"), 0o755); err != nil {
+		t.Fatalf("mkdir repo/plans: %v", err)
+	}
+	initGitRepo(t, repoDir)
+
+	planID := "plan-rel12345"
+	plan := planyaml.NewPlan(planID, "Relative Path Test", "relative planPath staging")
+	if err := planyaml.Save(filepath.Join(repoDir, "plans", planID+".yaml"), plan); err != nil {
+		t.Fatalf("save yaml: %v", err)
+	}
+
+	// CWD = parent of the repo; planPath is relative and includes the repo dir.
+	t.Chdir(parent)
+	relPlanPath := filepath.Join("myrepo", "plans", planID+".yaml")
+
+	if err := commitPlanChange(relPlanPath, "plan("+planID+"): relative path"); err != nil {
+		t.Fatalf("commitPlanChange with relative path: %v", err)
+	}
+
+	showOut, err := exec.Command("git", "-C", repoDir, "show", "--stat", "HEAD").CombinedOutput()
+	if err != nil {
+		t.Fatalf("git show: %v\n%s", err, showOut)
+	}
+	showStr := string(showOut)
+	if !strings.Contains(showStr, planID+".yaml") {
+		t.Errorf("relative planPath was not staged into the commit:\n%s", showStr)
+	}
+	if !strings.Contains(showStr, planID+".html") {
+		t.Errorf("relative htmlPath was not staged into the commit:\n%s", showStr)
+	}
+}
+
 // initGitRepo creates a git repo in dir and configures a test user identity.
 func initGitRepo(t *testing.T, dir string) {
 	t.Helper()

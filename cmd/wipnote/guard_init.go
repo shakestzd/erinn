@@ -136,10 +136,13 @@ func runGuardSetup(projectRoot string, deps guardInitDeps) (*guardprofile.Profil
 	rel := filepath.FromSlash(guardprofile.RelPath)
 	msg := "chore(wipnote): approve project guard profile (feat-18dac61f)"
 	if err := deps.commit(projectRoot, []string{rel}, msg); err != nil {
-		// Commit failed: remove the just-written approved profile so a future
-		// launch retries setup instead of seeing IsApproved and skipping a
-		// profile that was never committed (roborev #3688).
+		// Commit failed: remove the just-written approved profile AND unstage it
+		// so a future launch retries setup instead of seeing IsApproved and
+		// skipping a profile that was never committed. The git add step inside
+		// deps.commit may have already staged the file before the commit failed,
+		// so we must reset the index entry too (roborev #3688, #3692).
 		_ = os.Remove(filepath.Join(projectRoot, rel))
+		_, _ = runGit("-C", projectRoot, "reset", "--", rel)
 		return nil, fmt.Errorf("commit guard profile (reverted uncommitted write): %w", err)
 	}
 	fmt.Fprintf(deps.out, "wipnote: guard profile approved and committed at %s\n", guardprofile.RelPath)

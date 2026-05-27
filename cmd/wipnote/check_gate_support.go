@@ -43,6 +43,10 @@ type gatePlan struct {
 	GuardNames []string
 }
 
+type packageJSON struct {
+	Scripts map[string]string `json:"scripts"`
+}
+
 type gateAllowlistEntry struct {
 	ID            string   `json:"id"`
 	MatchAll      []string `json:"match_all"`
@@ -122,10 +126,9 @@ func detectGatePlan(projectRoot, phase string) (gatePlan, error) {
 			{Name: "go test", Args: []string{"go", "test", "-buildvcs=false", "./..."}},
 		}
 	case paths.ProjectTypeNode:
-		plan.Commands = []gateCommand{
-			{Name: "npm run build", Args: []string{"npm", "run", "build"}},
-			{Name: "npm run lint", Args: []string{"npm", "run", "lint"}},
-			{Name: "npm test", Args: []string{"npm", "test"}},
+		plan.Commands, err = nodeGateCommands(plan.Manifest)
+		if err != nil {
+			return gatePlan{}, err
 		}
 	case paths.ProjectTypePython:
 		plan.Commands = []gateCommand{
@@ -142,6 +145,34 @@ func detectGatePlan(projectRoot, phase string) (gatePlan, error) {
 		return gatePlan{}, fmt.Errorf("unsupported project type %q", projectType)
 	}
 	return plan, nil
+}
+
+func nodeGateCommands(manifestPath string) ([]gateCommand, error) {
+	data, err := os.ReadFile(manifestPath)
+	if err != nil {
+		return nil, err
+	}
+	var manifest packageJSON
+	if err := json.Unmarshal(data, &manifest); err != nil {
+		return nil, fmt.Errorf("parse %s: %w", filepath.Base(manifestPath), err)
+	}
+	if len(manifest.Scripts) == 0 {
+		return nil, nil
+	}
+	commands := []gateCommand{}
+	for _, candidate := range []struct {
+		name string
+		args []string
+	}{
+		{name: "build", args: []string{"npm", "run", "build"}},
+		{name: "lint", args: []string{"npm", "run", "lint"}},
+		{name: "test", args: []string{"npm", "test"}},
+	} {
+		if _, ok := manifest.Scripts[candidate.name]; ok {
+			commands = append(commands, gateCommand{Name: strings.Join(candidate.args, " "), Args: candidate.args})
+		}
+	}
+	return commands, nil
 }
 
 func detectManifest(projectRoot string) (dir, file string, projectType paths.ProjectType) {

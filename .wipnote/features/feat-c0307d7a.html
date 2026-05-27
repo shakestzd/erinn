@@ -10,24 +10,24 @@
 <body>
     <article id="feat-c0307d7a"
              data-type="feature"
-             data-status="todo"
+             data-status="done"
              data-priority="high"
              data-created="2026-05-26T05:05:50.734969"
-             data-updated="2026-05-26T05:06:07.403327" data-agent-assigned="claude-code" data-track-id="trk-b1d06a84" data-created-by-agent="claude-code" data-created-by-model="gpt-5.5" data-created-by-role="codex" data-created-by-cli-version="0.60.18-72-gf05c89f94">
+             data-updated="2026-05-26T09:32:38.860451" data-agent-assigned="claude-code" data-track-id="trk-b1d06a84" data-created-by-agent="claude-code" data-created-by-model="gpt-5.5" data-created-by-role="codex" data-created-by-cli-version="0.60.18-72-gf05c89f94">
 
         <header>
             <h1>Route plan YAML/HTML autocommit through the shared Git mutation helper</h1>
             <div class="metadata">
-                <span class="badge status-todo">Todo</span>
+                <span class="badge status-done">Done</span>
                 <span class="badge priority-high">High Priority</span>
             </div>
         </header>
 
         <nav data-graph-edges>
-            <section data-edge-type="part_of">
-                <h3>Part Of:</h3>
+            <section data-edge-type="implemented_in">
+                <h3>Implemented In:</h3>
                 <ul>
-                    <li><a href="trk-b1d06a84.html" data-relationship="part_of" data-since="2026-05-26T05:05:50.740185">trk-b1d06a84</a></li>
+                    <li><a href="e2115ac3-91fe-4731-8d77-0cee62a8e8e2.html" data-relationship="implemented_in" data-since="2026-05-26T09:20:33.554859">session e2115ac3-91fe-4731-8d77-0cee62a8e8e2</a></li>
                 </ul>
             </section>
             <section data-edge-type="blocked_by">
@@ -36,20 +36,27 @@
                     <li><a href="feat-3f66d83f.html" data-relationship="blocked_by" data-since="2026-05-26T05:06:07.403053">Centralize wipnote Git mutation execution behind a repo-scoped lock</a></li>
                 </ul>
             </section>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="trk-b1d06a84.html" data-relationship="part_of" data-since="2026-05-26T05:05:50.740185">trk-b1d06a84</a></li>
+                </ul>
+            </section>
         </nav>
 
         <section data-steps>
             <h3>Implementation Steps</h3>
             <ol>
-                <li data-completed="false" data-step-id="step-feat-c0307d7a-0" data-agent="claude-code" data-created-by-agent="claude-code">⏳ Replace direct exec.Command git calls</li>
-                <li data-completed="false" data-step-id="step-feat-c0307d7a-1" data-agent="claude-code" data-created-by-agent="claude-code">⏳ Preserve non-fatal hook-rejection behavior</li>
-                <li data-completed="false" data-step-id="step-feat-c0307d7a-2" data-agent="claude-code" data-created-by-agent="claude-code">⏳ Add index.lock retry regression for plan commits</li>
+                <li data-completed="true" data-step-id="step-feat-c0307d7a-0" data-agent="claude-code" data-created-by-agent="claude-code">✅ Replace direct exec.Command git calls</li>
+                <li data-completed="true" data-step-id="step-feat-c0307d7a-1" data-agent="claude-code" data-created-by-agent="claude-code">✅ Preserve non-fatal hook-rejection behavior</li>
+                <li data-completed="true" data-step-id="step-feat-c0307d7a-2" data-agent="claude-code" data-created-by-agent="claude-code">✅ Add index.lock retry regression for plan commits</li>
             </ol>
         </section>
 
         <section data-content>
             <h3>Description</h3>
-            <p>Replace direct git add/commit calls in plan autocommit with the shared retrying and serialized Git mutation helper so plan operations behave consistently with work-item artifact commits.</p>
+            <p>Replace direct git add/commit calls in plan autocommit with the shared retrying and serialized Git mutation helper so plan operations behave consistently with work-item artifact commits.
+[2026-05-26 09:32 claude-code] accepted-advisory (provenance override): Implementation committed in 23144c410 on branch trk-b1d06a84; feat-c0307d7a in commit subject confirms provenance. Ingest de-duplication skips already-stored commits.</p>
         </section>
     </article>
 </body>

@@ -10,30 +10,36 @@
 <body>
     <article id="feat-3f66d83f"
              data-type="feature"
-             data-status="todo"
+             data-status="done"
              data-priority="high"
              data-created="2026-05-26T05:05:50.132322"
-             data-updated="2026-05-26T05:43:53.890258" data-agent-assigned="claude-code" data-track-id="trk-b1d06a84" data-created-by-agent="claude-code" data-created-by-model="gpt-5.5" data-created-by-role="codex" data-created-by-cli-version="0.60.18-72-gf05c89f94">
+             data-updated="2026-05-26T09:18:42.932739" data-agent-assigned="claude-code" data-track-id="trk-b1d06a84" data-created-by-agent="claude-code" data-created-by-model="gpt-5.5" data-created-by-role="codex" data-created-by-cli-version="0.60.18-72-gf05c89f94">
 
         <header>
             <h1>Centralize wipnote Git mutation execution behind a repo-scoped lock</h1>
             <div class="metadata">
-                <span class="badge status-todo">Todo</span>
+                <span class="badge status-done">Done</span>
                 <span class="badge priority-high">High Priority</span>
             </div>
         </header>
 
         <nav data-graph-edges>
+            <section data-edge-type="caused_by">
+                <h3>Caused By:</h3>
+                <ul>
+                    <li><a href="bug-4a65d000.html" data-relationship="caused_by" data-since="2026-05-26T05:43:53.889946">Durably prevent stale git index.lock from wipnote autocommit</a></li>
+                </ul>
+            </section>
             <section data-edge-type="part_of">
                 <h3>Part Of:</h3>
                 <ul>
                     <li><a href="trk-b1d06a84.html" data-relationship="part_of" data-since="2026-05-26T05:05:50.13897">trk-b1d06a84</a></li>
                 </ul>
             </section>
-            <section data-edge-type="caused_by">
-                <h3>Caused By:</h3>
+            <section data-edge-type="implemented_in">
+                <h3>Implemented In:</h3>
                 <ul>
-                    <li><a href="bug-4a65d000.html" data-relationship="caused_by" data-since="2026-05-26T05:43:53.889946">Durably prevent stale git index.lock from wipnote autocommit</a></li>
+                    <li><a href="e2115ac3-91fe-4731-8d77-0cee62a8e8e2.html" data-relationship="implemented_in" data-since="2026-05-26T09:08:58.441513">session e2115ac3-91fe-4731-8d77-0cee62a8e8e2</a></li>
                 </ul>
             </section>
         </nav>
@@ -41,12 +47,12 @@
         <section data-steps>
             <h3>Implementation Steps</h3>
             <ol>
-                <li data-completed="false" data-step-id="step-feat-3f66d83f-0" data-agent="claude-code" data-created-by-agent="claude-code">⏳ Add repo-scoped git mutation lock helper</li>
-                <li data-completed="false" data-step-id="step-feat-3f66d83f-1" data-agent="claude-code" data-created-by-agent="claude-code">⏳ Wrap work-item autocommit paths</li>
-                <li data-completed="false" data-step-id="step-feat-3f66d83f-2" data-agent="claude-code" data-created-by-agent="claude-code">⏳ Add concurrent-process regression tests</li>
-                <li data-completed="false" data-step-id="step-feat-3f66d83f-3" data-agent="claude-code" data-created-by-agent="claude-code">⏳ Use a maintained cross-platform lock library (e.g. gofrs/flock); do not hand-roll flock(2)/LockFileEx syscalls</li>
-                <li data-completed="false" data-step-id="step-feat-3f66d83f-4" data-agent="claude-code" data-created-by-agent="claude-code">⏳ Decide and document lock file location (.wipnote/ or per-user cache dir, never inside .git/) and use a single repo-scoped lock granularity</li>
-                <li data-completed="false" data-step-id="step-feat-3f66d83f-5" data-agent="claude-code" data-created-by-agent="claude-code">⏳ Retain runGitWithLockRetry as the complementary external-writer retry layer; advisory lock does not replace it</li>
+                <li data-completed="true" data-step-id="step-feat-3f66d83f-0" data-agent="claude-code" data-created-by-agent="claude-code">✅ Add repo-scoped git mutation lock helper</li>
+                <li data-completed="true" data-step-id="step-feat-3f66d83f-1" data-agent="claude-code" data-created-by-agent="claude-code">✅ Wrap work-item autocommit paths</li>
+                <li data-completed="true" data-step-id="step-feat-3f66d83f-2" data-agent="claude-code" data-created-by-agent="claude-code">✅ Add concurrent-process regression tests</li>
+                <li data-completed="true" data-step-id="step-feat-3f66d83f-3" data-agent="claude-code" data-created-by-agent="claude-code">✅ Use a maintained cross-platform lock library (e.g. gofrs/flock); do not hand-roll flock(2)/LockFileEx syscalls</li>
+                <li data-completed="true" data-step-id="step-feat-3f66d83f-4" data-agent="claude-code" data-created-by-agent="claude-code">✅ Decide and document lock file location (.wipnote/ or per-user cache dir, never inside .git/) and use a single repo-scoped lock granularity</li>
+                <li data-completed="true" data-step-id="step-feat-3f66d83f-5" data-agent="claude-code" data-created-by-agent="claude-code">✅ Retain runGitWithLockRetry as the complementary external-writer retry layer; advisory lock does not replace it</li>
             </ol>
         </section>
 
@@ -56,7 +62,8 @@
 Acceptance Criteria
 Concurrent wipnote processes are serialized via the advisory lock; runGitWithLockRetry is retained for external-writer contention; lock auto-releases if the holding process dies.
 Expected Behavior
-Two wipnote autocommits launched simultaneously never both enter git's index-writing path at once; if one process is killed mid-commit, the lock is released automatically and the next process proceeds.</p>
+Two wipnote autocommits launched simultaneously never both enter git's index-writing path at once; if one process is killed mid-commit, the lock is released automatically and the next process proceeds.
+[2026-05-26 09:18 claude-code] accepted-advisory (provenance override): Implementation committed as b59b3ce59 with feat-3f66d83f in the subject for recoverable provenance. Subagent commit has no session-linked tool event, so transcript-driven 'ingest commits' cannot auto-link it; quality gates (build/vet/test) pass.</p>
         </section>
     </article>
 </body>

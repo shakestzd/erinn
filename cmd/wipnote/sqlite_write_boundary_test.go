@@ -213,7 +213,7 @@ var approvedWriteSites = []writeSite{
 	},
 	{
 		File:           "cmd/wipnote/check_gate_support.go",
-		Line:           304,
+		Line:           335,
 		Function:       "persistGateRecord",
 		OpenExpr:       "dbpkg.Open",
 		Classification: intentionalCLIMutation,

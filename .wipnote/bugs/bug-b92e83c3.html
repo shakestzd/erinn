@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>check --gate runs wrong JS scripts from project package.json</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="bug-b92e83c3"
+             data-type="bug"
+             data-status="done"
+             data-priority="medium"
+             data-created="2026-05-26T09:42:26.308352"
+             data-updated="2026-05-26T09:56:59.539808" data-agent-assigned="claude-code" data-track-id="trk-b1d06a84" data-created-by-agent="claude-code" data-created-by-model="gpt-5.5" data-created-by-role="codex" data-created-by-cli-version="0.60.18-81-g342a07557">
+
+        <header>
+            <h1>check --gate runs wrong JS scripts from project package.json</h1>
+            <div class="metadata">
+                <span class="badge status-done">Done</span>
+                <span class="badge priority-medium">Medium Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="implemented_in">
+                <h3>Implemented In:</h3>
+                <ul>
+                    <li><a href="019e63a2-70e3-7892-a57c-3b8a582b1f92.html" data-relationship="implemented_in" data-since="2026-05-26T09:42:32.985802">session 019e63a2-70e3-7892-a57c-3b8a582b1f92</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="relates_to">
+                <h3>Relates To:</h3>
+                <ul>
+                    <li><a href="feat-29e16b20.html" data-relationship="relates_to" data-since="2026-05-26T09:56:59.444259">Project-level guard profile config</a></li>
+                    <li><a href="feat-534f209f.html" data-relationship="relates_to" data-since="2026-05-26T09:56:59.478618">First-run guard discovery for yolo/check</a></li>
+                    <li><a href="feat-3304de17.html" data-relationship="relates_to" data-since="2026-05-26T09:56:59.5117">Apply guard profiles across check complete and yolo</a></li>
+                    <li><a href="feat-1469fabc.html" data-relationship="relates_to" data-since="2026-05-26T09:56:59.539342">Guard authoring skill and docs</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="trk-b1d06a84.html" data-relationship="part_of" data-since="2026-05-26T09:42:26.317353">trk-b1d06a84</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>GitHub issue #117: check --gate runs against WIPNOTE_PROJECT_DIR package.json, which can be a wrangler/dev-only manifest with no build/lint/test scripts. The gate detects JS from manifest alone and runs missing scripts unconditionally, blocking feature completion. Fix package script detection and note polyglot subproject targeting limits.</p>
+        </section>
+    </article>
+</body>
+</html>

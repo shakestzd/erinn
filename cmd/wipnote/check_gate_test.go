@@ -400,3 +400,59 @@ func TestDetectGatePlan_SelectsPhaseGuards(t *testing.T) {
 		t.Errorf("completion phase guards = %v, want [c-test]", cPlan.GuardNames)
 	}
 }
+
+func TestNodeGateCommands_SkipsMissingScripts(t *testing.T) {
+	projectRoot := t.TempDir()
+	manifest := `{
+  "name": "node-gate",
+  "scripts": {
+    "build": "echo build",
+    "test": "echo test"
+  }
+}`
+	if err := os.WriteFile(filepath.Join(projectRoot, "package.json"), []byte(manifest), 0o644); err != nil {
+		t.Fatalf("write package.json: %v", err)
+	}
+
+	commands, err := nodeGateCommands(filepath.Join(projectRoot, "package.json"))
+	if err != nil {
+		t.Fatalf("nodeGateCommands: %v", err)
+	}
+	if len(commands) != 2 {
+		t.Fatalf("expected 2 commands, got %d: %+v", len(commands), commands)
+	}
+	if commands[0].Name != "npm run build" || commands[1].Name != "npm test" {
+		t.Fatalf("unexpected command order: %+v", commands)
+	}
+	for _, cmd := range commands {
+		if cmd.Name == "npm run lint" {
+			t.Fatalf("lint script should have been skipped: %+v", commands)
+		}
+	}
+}
+
+func TestDetectGatePlan_NodeProjectWithMissingScripts(t *testing.T) {
+	projectRoot := t.TempDir()
+	if err := os.WriteFile(filepath.Join(projectRoot, "package.json"), []byte(`{
+  "name": "node-gate",
+  "scripts": {
+    "lint": "echo lint"
+  }
+}`), 0o644); err != nil {
+		t.Fatalf("write package.json: %v", err)
+	}
+
+	plan, err := detectGatePlan(projectRoot, guardprofile.PhaseQuality)
+	if err != nil {
+		t.Fatalf("detectGatePlan: %v", err)
+	}
+	if plan.ProjectType != "node" {
+		t.Fatalf("project type = %q, want node", plan.ProjectType)
+	}
+	if len(plan.Commands) != 1 {
+		t.Fatalf("expected 1 command, got %d: %+v", len(plan.Commands), plan.Commands)
+	}
+	if plan.Commands[0].Name != "npm run lint" {
+		t.Fatalf("command = %q, want npm run lint", plan.Commands[0].Name)
+	}
+}

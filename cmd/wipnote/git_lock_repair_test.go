@@ -485,3 +485,28 @@ func TestRepairGitLock_RestatSkipsFreshlyReplacedLock(t *testing.T) {
 		t.Error("the freshly-replaced lock must survive the repair pass")
 	}
 }
+
+// TestReportGitLockState_StaleSharedOnlyNotBelowThreshold is the regression for
+// roborev #3716: when the only stale locks are shared/report-only, the summary
+// must NOT claim they are "below age threshold" (they are stale, just not
+// auto-removable).
+func TestReportGitLockState_StaleSharedOnlyNotBelowThreshold(t *testing.T) {
+	dir := t.TempDir()
+	gitDir := filepath.Join(dir, ".git")
+	if err := os.MkdirAll(gitDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	makeFakeLock(t, gitDir, "config.lock", 20*time.Minute) // stale + shared name
+
+	out := reportGitLockStateWith(dir, []string{gitDir}, time.Now(), noLiveWriter, defaultMaxLockAge)
+	low := strings.ToLower(out)
+	if strings.Contains(low, "below age threshold") {
+		t.Errorf("stale shared-only lock must not be reported as below age threshold:\n%s", out)
+	}
+	if !strings.Contains(low, "stale") {
+		t.Errorf("config.lock should still show verdict=stale:\n%s", out)
+	}
+	if !strings.Contains(low, "shared") {
+		t.Errorf("expected the shared report-only note:\n%s", out)
+	}
+}

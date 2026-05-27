@@ -13,6 +13,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"gopkg.in/yaml.v3"
 )
@@ -97,12 +98,13 @@ func Validate(p *Profile) error {
 			return fmt.Errorf("guardprofile: unknown phase %q", phase)
 		}
 		for i, g := range guards {
+			// name is required: gate output, provenance, and the canonical
+			// signature's per-guard sort key all rely on it (roborev #3716).
+			if strings.TrimSpace(g.Name) == "" {
+				return fmt.Errorf("guardprofile: guard #%d in phase %q is missing name", i, phase)
+			}
 			if g.Cmd == "" {
-				name := g.Name
-				if name == "" {
-					name = fmt.Sprintf("#%d", i)
-				}
-				return fmt.Errorf("guardprofile: guard %q in phase %q is missing cmd", name, phase)
+				return fmt.Errorf("guardprofile: guard %q in phase %q is missing cmd", g.Name, phase)
 			}
 		}
 	}

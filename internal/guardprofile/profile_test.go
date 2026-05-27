@@ -193,3 +193,14 @@ func TestIsApproved_FalseForInvalidProfile(t *testing.T) {
 		t.Error("invalid profile (unknown phase key) must never report approved")
 	}
 }
+
+// TestValidate_RejectsMissingName is the regression for roborev #3716: guard
+// name is required (gate output/provenance/signature sort key depend on it).
+func TestValidate_RejectsMissingName(t *testing.T) {
+	p := &Profile{Guards: map[string][]Guard{
+		PhaseQuality: {{Name: "  ", Cmd: "go test ./..."}}, // blank name
+	}}
+	if err := Validate(p); err == nil {
+		t.Error("a guard with a blank name must be rejected by Validate")
+	}
+}

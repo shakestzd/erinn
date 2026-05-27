@@ -240,15 +240,27 @@ func reportGitLockStateWith(
 		// Only NON-shared (per-worktree) locks are eligible for --fix; shared
 		// common-dir locks are never auto-removed (roborev #3659).
 		eligibleCount := 0
+		nonSharedBelowAge := 0
 		for _, lf := range locks {
-			if !lf.Shared && now.Sub(lf.ModTime) >= maxAge {
+			if lf.Shared {
+				continue
+			}
+			if now.Sub(lf.ModTime) >= maxAge {
 				eligibleCount++
+			} else {
+				nonSharedBelowAge++
 			}
 		}
-		if eligibleCount > 0 {
+		switch {
+		case eligibleCount > 0:
 			fmt.Fprintf(&b, "  %d stale lock(s) eligible for removal — run `wipnote launcher git-lock --fix` to remove\n", eligibleCount)
-		} else {
+		case nonSharedBelowAge > 0:
 			fmt.Fprintln(&b, "  lock(s) present but below age threshold — not yet eligible for removal")
+		default:
+			// Any stale locks present are all shared/report-only — don't claim
+			// they're "below age threshold" (roborev #3716). The sharedSeen note
+			// below explains why they are not auto-removed.
+			fmt.Fprintln(&b, "  no removable (per-worktree) locks — see shared-lock note below")
 		}
 	}
 	if sharedSeen {

@@ -4354,7 +4354,7 @@ function applySessionFilters(list) {
 // a parent container; never replaces existing content.
 function renderCollectorWarningBanner(sessionID, container) {
   if (!sessionID || !container) return;
-  fetch(buildProjectUrl('otel/status', 'session=' + sessionID))
+  fetch(buildProjectUrl('otel/status', 'session=' + encodeURIComponent(sessionID)))
     .then(function(r) { return r.ok ? r.json() : null; })
     .then(function(data) {
       if (!data) return;

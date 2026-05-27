@@ -142,6 +142,16 @@ else
     (cd "$GO_DIR" && go vet ./...) || fail "go vet failed"
     ok "go vet"
 
+    # Complexity debt report (advisory, non-blocking). The blocking ratchet
+    # lives in CI (.github/workflows/ci.yml) and only gates NEW complexity vs
+    # main. Here we just surface the current total so the debt stays visible
+    # at release time. Skipped silently if golangci-lint isn't installed.
+    if command -v golangci-lint >/dev/null 2>&1; then
+        echo "  Complexity debt (advisory)..."
+        debt=$( (cd "$GO_DIR" && golangci-lint run ./... 2>/dev/null | grep -cE "gocognit|cyclop|nestif") || true )
+        warn "complexity debt: ${debt:-0} function(s) over threshold (advisory — gated on new code in CI)"
+    fi
+
     # Broad test gate: mirrors ci.yml's proven strategy (go test -short ./...)
     # to avoid SQLITE_BUSY flakes from TestSQLiteContentionStress running
     # concurrently with the full suite. The stress test is run isolated below.

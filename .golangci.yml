@@ -1,0 +1,34 @@
+version: "2"
+
+# Complexity-only gate. We intentionally do NOT enforce file/function length
+# (raw line count is a poor maintainability proxy and pressures premature
+# splitting). We gate on cognitive/cyclomatic complexity and nesting depth,
+# which track how hard code actually is to understand.
+#
+# Introduced as a ratchet via `new-from-rev` in CI (see .github/workflows):
+# pre-existing violations are tolerated; newly added/changed code must stay
+# under the thresholds. Tighten thresholds or drop the ratchet once the
+# backlog is paid down.
+linters:
+  default: none
+  enable:
+    - gocognit
+    - cyclop
+    - nestif
+  settings:
+    gocognit:
+      # SonarQube's default cognitive-complexity threshold.
+      min-complexity: 20
+    cyclop:
+      max-complexity: 15
+    nestif:
+      min-complexity: 7
+  exclusions:
+    generated: lax
+    rules:
+      # Tests legitimately carry table-driven and setup complexity.
+      - path: _test\.go
+        linters:
+          - gocognit
+          - cyclop
+          - nestif

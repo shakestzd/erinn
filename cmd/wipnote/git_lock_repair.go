@@ -21,6 +21,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -51,11 +52,23 @@ var sharedLockNames = map[string]bool{
 
 func isSharedLockName(name string) bool { return sharedLockNames[name] }
 
+// inodeOf returns the inode number of fi, or 0 when it cannot be determined.
+func inodeOf(fi os.FileInfo) uint64 {
+	if st, ok := fi.Sys().(*syscall.Stat_t); ok {
+		return st.Ino
+	}
+	return 0
+}
+
 // lockFileInfo describes one detected git lock file.
 type lockFileInfo struct {
 	Name    string
 	Path    string
 	ModTime time.Time
+	// Inode of the file at detection time. Re-checked immediately before removal
+	// to prove the path still refers to the SAME file (not a fresh lock git
+	// created in the meantime) — see Gate 4 (roborev #3723).
+	Inode uint64
 	// Shared is true when the lock lives in a git dir OTHER than the first
 	// (primary per-worktree) dir passed to detectGitLocks — i.e. the git common
 	// dir. Shared locks may be owned by the main worktree or another linked
@@ -95,6 +108,7 @@ func detectGitLocks(gitDirs ...string) []lockFileInfo {
 				Name:    name,
 				Path:    p,
 				ModTime: fi.ModTime(),
+				Inode:   inodeOf(fi),
 				// Shared when found in a non-primary (common) dir OR when it is a
 				// repository-common lock name — both cases may be owned by another
 				// worktree (roborev #3711).
@@ -325,26 +339,21 @@ func repairGitLocksWith(
 			skipped++
 			continue
 		}
-		// Gate 4: ATOMIC stale removal (roborev #3713/#3718). A plain
-		// stat-then-os.Remove is inherently racy: git could create a fresh lock at
-		// lf.Path between the age recheck and the unlink, and we'd delete it.
-		// Instead, rename the lock aside first — rename(2) atomically frees
-		// lf.Path, so any concurrent git op that creates a new lock there afterward
-		// creates a DISTINCT file we never touch. We then verify the age of the
-		// exact file we moved and delete only that; if it turns out fresh (we
-		// raced and grabbed a just-created lock), we restore it.
-		staged := lf.Path + fmt.Sprintf(".wipnote-stale.%d", os.Getpid())
-		if err := os.Rename(lf.Path, staged); err != nil {
-			skipped++ // vanished or not removable — leave it
-			continue
-		}
-		if fi, statErr := os.Stat(staged); statErr != nil || now.Sub(fi.ModTime()) < maxAge {
-			_ = os.Rename(staged, lf.Path) // raced a fresh lock — put it back
+		// Gate 4: prove the path still refers to the ORIGINALLY-detected stale file
+		// immediately before unlink, and skip otherwise (roborev #3713/#3718/#3723).
+		// POSIX has no atomic "remove iff unchanged", so we take the conservative
+		// route the reviewer asked for: re-stat and require the SAME inode AND the
+		// SAME mtime as detection AND still older than maxAge. If git replaced the
+		// lock since detection (different inode/mtime, or now fresh), the proof
+		// fails and we leave it. Combined with the liveness gate above, the
+		// irreducible stat→unlink window is bounded to a no-live-writer instant.
+		fi, statErr := os.Stat(lf.Path)
+		if statErr != nil || inodeOf(fi) != lf.Inode || !fi.ModTime().Equal(lf.ModTime) || now.Sub(fi.ModTime()) < maxAge {
 			skipped++
 			continue
 		}
-		if err := os.Remove(staged); err != nil {
-			return repaired, skipped, fmt.Errorf("remove %s: %w", staged, err)
+		if err := os.Remove(lf.Path); err != nil {
+			return repaired, skipped, fmt.Errorf("remove %s: %w", lf.Path, err)
 		}
 		repaired++
 	}

@@ -102,7 +102,7 @@ func commitWipnoteArtifact(wipnoteDir, typeName, id, action string) error {
 	// directly (the external-writer backoff layer) — not runGitMutation, which
 	// would re-acquire the lock per call.
 	var resultErr error
-	_, _ = withGitMutationLock(repoRoot, func() ([]byte, error) {
+	_, lockErr := withGitMutationLock(repoRoot, func() ([]byte, error) {
 		// Stage the file. Explicit path avoids sweeping unrelated changes.
 		if addOut, err := runGitWithLockRetry(repoRoot, "add", "--", absPath); err != nil {
 			resultErr = fmt.Errorf("autocommit: git add %s: %s: %w", relPath, strings.TrimSpace(string(addOut)), err)
@@ -123,6 +123,11 @@ func commitWipnoteArtifact(wipnoteDir, typeName, id, action string) error {
 		}
 		return nil, nil
 	})
+	// Propagate a lock-wrapper/callback error if the callback did not already set
+	// a more specific one, so a failure can never be reported as success (#3721).
+	if resultErr == nil {
+		resultErr = lockErr
+	}
 	return resultErr
 }
 
@@ -174,7 +179,7 @@ func commitWipnoteArtifactStrict(wipnoteDir, typeName, id, action string) (commi
 	// #3713). committed/resultErr are captured from inside the locked section.
 	committed = false
 	err = nil
-	_, _ = withGitMutationLock(repoRoot, func() ([]byte, error) {
+	_, lockErr := withGitMutationLock(repoRoot, func() ([]byte, error) {
 		if addOut, addErr := runGitWithLockRetry(repoRoot, "add", "--", absPath); addErr != nil {
 			err = fmt.Errorf("strict autocommit: git add %s: %s: %w", relPath, strings.TrimSpace(string(addOut)), addErr)
 			return nil, addErr
@@ -195,6 +200,10 @@ func commitWipnoteArtifactStrict(wipnoteDir, typeName, id, action string) (commi
 		committed = true
 		return nil, nil
 	})
+	// Propagate a lock-wrapper/callback error if none was captured (#3721).
+	if err == nil {
+		err = lockErr
+	}
 	return committed, err
 }
 

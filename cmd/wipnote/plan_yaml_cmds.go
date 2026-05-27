@@ -87,7 +87,7 @@ func commitPlanChange(planPath, message string) error {
 	// Inside the lock we call runGitWithLockRetry directly (the external-writer
 	// backoff layer), not runGitMutation (which would re-acquire the lock).
 	var resultErr error
-	_, _ = withGitMutationLock(repoRoot, func() ([]byte, error) {
+	_, lockErr := withGitMutationLock(repoRoot, func() ([]byte, error) {
 		if out, err := runGitWithLockRetry(repoRoot, "add", "--", addPlanPath, htmlAbs); err != nil {
 			resultErr = fmt.Errorf("autocommit: git add failed: %s: %w", strings.TrimSpace(string(out)), err)
 			return nil, err
@@ -107,6 +107,10 @@ func commitPlanChange(planPath, message string) error {
 		}
 		return nil, nil
 	})
+	// Propagate a lock-wrapper/callback error if none was captured (#3721).
+	if resultErr == nil {
+		resultErr = lockErr
+	}
 	return resultErr
 }
 

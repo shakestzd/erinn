@@ -1,18 +1,508 @@
 meta:
     id: plan-bb91616a
-    track_id: trk-2c55adea
     title: 'Local-first architecture: daemon write-owner, reactive projections, first-class anomalies'
-    description: Apply proven local-first patterns to wipnote. Graduate the serve_child writqueue into an auto-spawned per-project daemon that is the single owner of SQLite writes (Unix-socket IPC, client op-ID dedup, auto-spawn primary with spool last-resort), route hooks/CLI/reindex through it to eliminate SQLITE_BUSY, add named snapshot+delta SSE dashboard projections, make SQLite an explicitly rebuildable derived index with a DB-health panel, and surface conflicts/stale-index/failed-hook-writes/duplicate-agent activity as first-class anomaly objects (canonical event + derived table + dashboard panel). Builds on the writqueue from plan-ae0c37b2. WASM and DuckDB out of scope.
-    created_at: "2026-05-28"
+    description: |
+        Apply proven local-first architecture patterns to wipnote, validated against
+        docs/research/local-first-architecture-for-wipnote.md. The spine is a
+        per-project daemon that owns all SQLite writes, graduated from the existing
+        serve_child writqueue (built in plan-ae0c37b2). Around that spine: reactive
+        snapshot+delta SSE dashboard projections, an explicit rebuildable-derived
+        contract for SQLite, and conflicts/stale-index/failed-hook-writes/duplicate-agent
+        activity promoted to first-class anomaly objects.
+
+        Direction locked via complex-interview:
+          - Canonical = .wipnote/*.html + events.ndjson; SQLite = rebuildable derived index.
+          - Daemon = graduated serve_child, Unix-socket IPC, client op-ID dedup window.
+          - Writer behavior with no daemon: AUTO-SPAWN primary, spool last-resort only if
+            spawn itself fails (e.g. hook sandbox cannot fork). Daemon is canonical design.
+          - Rollout: direct canonical cutover, NO config flag / NO shadow mode. Single user
+            (dogfooding) today; soak test + reindex-race fix are the safety net.
+          - Reactive dashboard: named snapshot-then-delta SSE projections with monotonic seq
+            and reconnect-resume.
+          - Anomalies: emitted as canonical events.ndjson records + indexed into a derived
+            anomalies table + surfaced via a dashboard projection panel.
+          - OUT OF SCOPE: WASM boundary, DuckDB replacement, CRDT rewrite, cloud sync.
+
+        Phasing: Phase A (slices 1-6) = daemon write-owner spine. Phase B (slice 7) =
+        rebuildable-derived contract + DB-health observability. Phase C (slices 8-9) =
+        reactive projections. Phase D (slice 10) = first-class anomalies.
+    created_at: ""
     status: draft
-    priority: medium
     schema_version: v3
-    version: 2
+    version: 1
 design:
-    problem: ""
-    goals: []
-    constraints: []
+    problem: |
+        wipnote's SQLite read index is written concurrently by multiple short-lived
+        processes — dashboard (serve_child), hook subprocesses (dbgate), and ~10 direct
+        CLI mutation sites (openDB). This multi-writer topology causes recurring
+        SQLITE_BUSY failures masked (not eliminated) by RetryOnBusy, and a real
+        unsynchronized race between reindex checkpoint-reset and the live indexer.
+        Meanwhile the dashboard mostly broad-polls JSON (and polls SQLite every 2s for
+        plan feedback), divergence/failure conditions surface only as opaque counters,
+        and the canonical-vs-derived contract lives only in a test inventory.
+    goals:
+        - Make a single per-project daemon (graduated serve_child) the sole owner of SQLite writes, eliminating SQLITE_BUSY structurally rather than via retry.
+        - Keep .wipnote/*.html + events.ndjson canonical and SQLite explicitly rebuildable-derived, with staleness visible to operators.
+        - Replace broad dashboard polling with named snapshot+delta SSE projections that reconnect-resume.
+        - Promote conflicts, stale indexes, failed/spooled hook writes, and duplicate-agent activity to first-class, resolvable dashboard objects.
+    constraints:
+        - Canonical artifacts are the source of truth; a writer must never block or lose a mutation because the daemon is unreachable (auto-spawn primary, spool last-resort).
+        - Direct canonical cutover with NO config flag and NO shadow mode (single dogfooding user today); soak test + reindex-race fix are the safety net.
+        - Reindex must remain a foreground command honoring the existing TMPDIR-safety contract — never backgrounded on volatile tmpfs.
+        - 'OUT OF SCOPE: WASM boundary, DuckDB replacement, CRDT rewrite, required cloud sync. No new runtime dependency beyond the existing go.mod.'
     approved: false
     comment: ""
-slices: []
+slices:
+    - id: slice-1
+      num: 1
+      title: Write-op protocol + Unix-socket listener over the serve_child writqueue
+      what: |
+        Define a transport-agnostic write-op envelope and expose the existing
+        serve_child writqueue (internal/db/writequeue) over a per-project Unix
+        domain socket in .wipnote/. Envelope carries: client-supplied op_id
+        (stable hash of the source event/mutation), op_type, payload, and an ack
+        reply (applied | duplicate | error + seq). Add a WriterClient submit
+        interface (dial socket, send op, await ack) and a dedup window (recent
+        op_id LRU set) inside the queue so retried/replayed ops are dropped.
+        No callers cut over in this slice — this is the protocol + listener only.
+      why: |
+        The single-writer writqueue already exists inside serve_child but is only
+        reachable in-process. Exposing it over a stable local socket is the
+        precondition for every other writer (hooks, CLI, reindex) to route writes
+        through one owner instead of opening SQLite directly — the structural fix
+        for SQLITE_BUSY (research doc, Item 3).
+      files:
+        - internal/db/writequeue/op.go
+        - internal/daemon/socket.go
+        - internal/daemon/client.go
+        - cmd/wipnote/serve_child.go
+      deps: []
+      done_when:
+        - serve_child binds a per-project Unix socket and accepts write-op envelopes
+        - WriterClient.Submit sends an op and receives an applied/duplicate/error ack with seq
+        - Submitting the same op_id twice returns duplicate on the second call (dedup window)
+      effort: M
+      risk: Med
+      tests: |
+        Unit: TestWriterClient_DedupWindow — same op_id twice -> applied then duplicate.
+        Integration: TestSocketRoundTrip — bind socket, submit op, assert row indexed + ack seq.
+      complexity: complex
+      approved: false
+      comment: ""
+      questions:
+        - id: q-transport
+          text: Unix socket vs loopback HTTP for write-op submit?
+          answer: Unix domain socket per project in .wipnote/ — local-only, no port allocation, matches local-first/no-network ethos. Abstracted behind WriterClient so HTTP could be added later if ever needed.
+      decisions_notes: |
+        **Trigger:** WriterClient.Submit over a per-project Unix socket at .wipnote/<sock>.
+        **State:** op applied through the existing writqueue (canonical-derived rows); a
+          bounded recent-op_id LRU lives in-memory in the queue owner for dedup.
+        **Payload:** {op_id, op_type, payload} -> ack {status: applied|duplicate|error, seq}.
+        **Idempotency:** client-supplied op_id (hash of source event); dedup window drops
+          retries and spool replays uniformly. Monotonic seq lets SSE consumers resume.
+        **Rejected:** loopback HTTP submit (heavier, port allocation, less local-first);
+          idempotent-by-construction-only ops (too restrictive for the mutation set);
+          source-offset checkpoints alone (works for NDJSON ops, not for CLI mutations).
+    - id: slice-2
+      num: 2
+      title: 'Daemon lifecycle: on-demand auto-spawn, discovery, and single-owner lease'
+      what: |
+        Graduate serve_child into an on-demand writer daemon. A writer discovers
+        the socket; if absent or stale, it auto-spawns serve_child in a headless
+        writer-only mode and blocks until the socket is ready (bounded readiness
+        wait). Enforce single-owner via a PID/lease file so two writers racing to
+        spawn converge on one daemon (loser dials the winner). Define idle/shutdown
+        semantics so the daemon does not linger forever after writers go quiet.
+      why: |
+        For the daemon to be the canonical writer with no config flag (locked
+        decision), ANY writer must be able to guarantee a daemon exists. Auto-spawn
+        makes "is the daemon up?" a non-question — the first writer brings it up.
+        The lease prevents the multi-process double-spawn race the current
+        intentionalCLIMutation paths would otherwise create.
+      files:
+        - internal/daemon/spawn.go
+        - internal/daemon/lease.go
+        - cmd/wipnote/serve_child.go
+        - cmd/wipnote/serve_global.go
+      deps:
+        - 1
+      done_when:
+        - A writer with no running daemon auto-spawns one and submits successfully within the readiness timeout
+        - Two writers racing to spawn result in exactly one daemon (lease holder); the other dials it
+        - The daemon shuts down cleanly after the configured idle window with no orphaned socket/lease
+      effort: M
+      risk: High
+      tests: |
+        Integration: TestAutoSpawn_FromColdStart — no daemon -> writer spawns -> op applied.
+        Integration: TestSpawnRace_SingleOwner — N concurrent writers -> one daemon, N acks.
+        Unit: TestLease_StaleTakeover — stale PID/lease is reclaimed, not deadlocked.
+      complexity: complex
+      approved: false
+      comment: ""
+      questions:
+        - id: q-process
+          text: Standalone daemon process vs graduate serve_child?
+          answer: Graduate serve_child — it already owns the writqueue and serve_global is already the doorway. Auto-spawn it on demand in a headless writer-only mode. Least new code, single lifecycle.
+      decisions_notes: |
+        **Trigger:** writer dials socket; on ECONNREFUSED/missing, acquire spawn lease and fork serve_child headless.
+        **State:** PID + lease file in .wipnote/; socket readiness signaled by successful dial.
+        **Payload:** none new — reuses slice-1 envelope once connected.
+        **Lifecycle:** idle-timeout shutdown so short-lived hook bursts do not leave a daemon resident indefinitely; readiness wait is bounded so a writer never hangs forever.
+        **Rejected:** standalone always-on `wipnote daemon` process (second lifecycle to manage, larger build) — graduating serve_child reuses the existing writqueue + doorway with least new code; library-mode opportunistic leadership (trickiest handoff semantics).
+    - id: slice-3
+      num: 3
+      title: Spool last-resort fallback + drain-on-start with op-ID dedup
+      what: |
+        Add the last-resort path for the rare case where auto-spawn itself fails
+        (e.g. a hook running in a sandbox that cannot fork a daemon). The writer
+        writes the canonical artifact first, then appends the write-op envelope to
+        an append-only spool under .wipnote/spool/. On next start the daemon drains
+        the spool in order, submitting each op through the same dedup window so
+        replay is safe and convergent. Spool entries are removed only after an
+        applied/duplicate ack.
+      why: |
+        The locked decision is "auto-spawn primary, spool only as last resort." The
+        canonical .html is always the source of truth, so a writer must never block
+        or lose a mutation just because it could not reach/start the daemon. The
+        spool guarantees the derived index eventually converges without making the
+        daemon a hard dependency (research doc, absolute-availability ethos).
+      files:
+        - internal/daemon/spool.go
+        - internal/daemon/client.go
+        - cmd/wipnote/serve_child.go
+      deps:
+        - 1
+        - 2
+      done_when:
+        - When auto-spawn fails, the canonical artifact is written and the op is appended to the spool
+        - On daemon start the spool is drained in order and the derived index converges
+        - Replaying an already-applied spooled op is dropped by the dedup window (no double-apply)
+      effort: M
+      risk: Med
+      tests: |
+        Integration: TestSpool_DrainConverges — force spawn failure, spool op, start daemon, assert index matches canonical.
+        Unit: TestSpool_ReplayIdempotent — drain twice -> single applied row.
+      complexity: complex
+      approved: false
+      comment: ""
+      questions:
+        - id: q-fallback
+          text: Spool always, or only when auto-spawn fails?
+          answer: Only when auto-spawn fails. Auto-spawn is primary; spool is the belt-and-suspenders last resort for sandboxes that can't fork. Canonical .html is written first regardless.
+      decisions_notes: |
+        **Trigger:** spool append happens ONLY on auto-spawn failure (last resort), not on every write.
+        **State:** append-only spool files in .wipnote/spool/; canonical .html written before spooling.
+        **Payload:** the slice-1 envelope (with op_id) is what gets spooled and later submitted.
+        **Convergence:** drain-on-start submits through the dedup window; entries removed only after ack.
+        **Rejected:** spool-always (Stage-2 default) — superseded by auto-spawn-primary; direct-DB-with-retry fallback — reintroduces the multi-writer contention this plan removes.
+    - id: slice-4
+      num: 4
+      title: Route hook writes through the daemon (dbgate cutover)
+      what: |
+        Cut internal/hooks/dbgate.go over to the WriterClient: OpenHookDB /
+        SubmitDerivedOp build a write-op envelope (stable op_id derived from the
+        hook event) and submit via the socket, auto-spawning the daemon if needed
+        and falling back to canonical-write+spool only if spawn fails. Remove the
+        direct OpenHookDB writable-handle path as the primary route; retire the
+        in-subprocess RetryOnBusy synchronous write since hooks no longer touch
+        SQLite directly.
+      why: |
+        Hook subprocesses opening SQLite directly are the single largest source of
+        SQLITE_BUSY contention. Routing them through the daemon removes that contention
+        at the root while preserving canonical-first durability (research doc, Item 3).
+      files:
+        - internal/hooks/dbgate.go
+        - cmd/wipnote/hook.go
+      deps:
+        - 2
+        - 3
+      done_when:
+        - Hook-driven derived writes are applied via the daemon socket, not a direct SQLite handle
+        - A hook whose spawn attempt fails still records canonically and spools the op
+        - SubsystemHookWriter busy-counter increments drop to zero under a concurrent-hook test
+      effort: M
+      risk: High
+      tests: |
+        Integration: TestHookWrite_ViaDaemon — fire hook, assert op applied through socket, no direct open.
+        Integration: TestHookWrite_NoBusyUnderConcurrency — N concurrent hooks -> zero SubsystemHookWriter busy events.
+      complexity: complex
+      approved: false
+      comment: ""
+      questions:
+        - id: q-hook-opid
+          text: How is a hook op_id derived so retries dedup?
+          answer: Hash of (sessionID + source event seq/offset). A re-fired hook produces the same op_id, so the dedup window drops the duplicate — no double-apply.
+      decisions_notes: |
+        **Trigger:** every PostToolUse/Session* hook derived write routes through WriterClient.
+        **State:** unchanged target tables; the write path changes from direct-open to socket-submit.
+        **Payload:** op_id = hash of the hook event (sessionID + event seq) for natural dedup on hook retries.
+        **Rejected:** keeping dbgate's direct OpenHookDB as primary — it is the single largest source of SQLITE_BUSY contention that this plan exists to remove; it survives only via the spool last-resort, not as the default.
+    - id: slice-5
+      num: 5
+      title: Route CLI mutations through the daemon (openDB cutover)
+      what: |
+        Convert the intentionalCLIMutation write sites (the ~10 direct writable
+        opens via openDB in cmd/wipnote/session.go and internal/workitem/project.go,
+        plus plan_yaml_cmds.go and the ingest/migrate-adjacent paths) to submit
+        write-ops through the WriterClient. Each CLI mutation (session start/end,
+        feature/bug/spike complete, plan mutations) becomes a daemon client with the
+        same auto-spawn-then-spool semantics. Reads stay on the read-only pool.
+      why: |
+        The ~10 intentionalCLIMutation sites are the second contention source after
+        hooks; until they route through the single owner, the daemon cannot guarantee
+        a contention-free writer and the single-owner invariant is incomplete.
+      files:
+        - cmd/wipnote/session.go
+        - internal/workitem/project.go
+        - cmd/wipnote/plan_yaml_cmds.go
+        - cmd/wipnote/check_gate_support.go
+      deps:
+        - 2
+        - 3
+      done_when:
+        - Work-item complete, session start/end, and plan mutations apply via the daemon, not a direct writable handle
+        - Running a CLI mutation concurrently with active serve reads and a hook burst surfaces zero SQLITE_BUSY
+        - The sqlite_write_boundary_test inventory reclassifies these sites away from intentionalCLIMutation
+      effort: L
+      risk: High
+      tests: |
+        Integration: TestCLIComplete_ViaDaemon — `feature complete` applies through socket.
+        Integration: TestConcurrentWriters_NoBusy — CLI mutation + serve + hook concurrently, zero busy.
+        Update: cmd/wipnote/sqlite_write_boundary_test.go classifications.
+      complexity: complex
+      approved: false
+      comment: ""
+      questions:
+        - id: q-canonical-order
+          text: Does the CLI write canonical .html before or after the daemon op?
+          answer: Canonical .html first (it is the source of truth), then submit the derived-index op. If the op is spooled, the index converges later; canonical is never at risk.
+      decisions_notes: |
+        **Trigger:** CLI subcommands that mutate derived state submit via WriterClient instead of openDB.
+        **State:** canonical .html still written by the command directly (source of truth); only the derived-index write is delegated to the daemon.
+        **Payload:** op_id = hash of (work-item id + mutation kind + monotonic command nonce).
+        **Rejected:** leaving CLI on direct openDB — these ~10 sites are the second contention source (after hooks); leaving them defeats the single-owner invariant.
+    - id: slice-6
+      num: 6
+      title: Coordinate reindex through the daemon (close the checkpoint race)
+      what: |
+        Make `wipnote reindex` a daemon-coordinated operation. Today reindex resets
+        .index-offset checkpoints and replays NDJSON while a running indexer may be
+        advancing those same checkpoints — an un-synchronized race. Route reindex
+        through the daemon writer lease so checkpoint-reset and indexer-advance
+        cannot interleave: reindex either runs inside the daemon's write context or
+        acquires the writer lease (pausing the live indexer) for the duration.
+        Preserve the foreground/TMPDIR-safe execution contract.
+      why: |
+        Reindex resets .index-offset checkpoints while a live indexer may advance them —
+        an unsynchronized race that can lose or duplicate offset progress. Serializing
+        reindex under the daemon writer lease closes a known correctness gap the
+        single-owner model otherwise exposes.
+      files:
+        - cmd/wipnote/reindex.go
+        - cmd/wipnote/reindex_otel_events.go
+        - cmd/wipnote/lazy_reindex.go
+        - internal/daemon/lease.go
+      deps:
+        - 2
+      done_when:
+        - Reindex acquires the writer lease (or runs in the daemon write context) before resetting checkpoints
+        - A reindex concurrent with a live indexer produces a consistent index (no lost/duplicated offset advances)
+        - Reindex remains a foreground command and honors the existing TMPDIR-safety contract
+      effort: M
+      risk: Med
+      tests: |
+        Integration: TestReindex_LeaseSerializes — start indexer, trigger reindex, assert single consistent offset progression.
+        Regression: reindex still runs foreground; no background-spawn of reindex.
+      complexity: complex
+      approved: false
+      comment: ""
+      questions:
+        - id: q-reindex-lease
+          text: Route reindex fully through the daemon, or just a lock guard?
+          answer: Route through the daemon writer lease so checkpoint reset and indexer advance are serialized by the same owner. A bare lock guard closes the race but leaves reindex outside the single-owner model.
+      decisions_notes: |
+        **Trigger:** `wipnote reindex` acquires the daemon writer lease before touching .index-offset.
+        **State:** checkpoints (.index-offset) and the derived index — both now mutated under a single lease holder.
+        **Payload:** n/a (control-plane coordination, not a write-op envelope).
+        **Hazard:** must stay foreground — backgrounding reindex on volatile tmpfs can brick the session; the lease must not deadlock against the very daemon reindex may need.
+        **Rejected:** minimal lock-guard only (refuse/wait) — chosen the fuller route-through-daemon so reindex composes with the single-owner model rather than fighting it.
+    - id: slice-7
+      num: 7
+      title: Explicit rebuildable-derived contract + /api/db-health endpoint and panel
+      what: |
+        Make the canonical-vs-derived contract explicit and operator-visible.
+        Classify every SQLite table as canonical-derived (rebuildable from
+        .html/NDJSON), ephemeral, or non-rebuildable, mirroring the write-site
+        Classification enum that already exists in sqlite_write_boundary_test.go but
+        lifting it to a table-level registry. Expose /api/db-health reporting per
+        table: classification, last-reindex/last-applied time, and a staleness
+        indicator (derived seq vs canonical high-water mark). Add a dashboard
+        DB-health panel.
+      why: |
+        The research doc's first dependency: before changing write topology, the
+        rebuildable contract must be explicit and staleness must be visible. Today
+        the classification lives only in a test inventory and the dashboard has no
+        staleness indicator (digest Items 1-2).
+      files:
+        - internal/db/health.go
+        - cmd/wipnote/api_db_health.go
+        - cmd/wipnote/serve_child.go
+        - plugin/static/dashboard (db-health panel)
+      deps: []
+      done_when:
+        - Every SQLite table has a registry entry classifying it canonical-derived / ephemeral / non-rebuildable
+        - /api/db-health returns per-table classification, last-applied time, and a staleness flag
+        - The dashboard renders a DB-health panel showing stale tables and last reindex time
+      effort: S
+      risk: Low
+      tests: |
+        Unit: TestTableRegistry_Complete — every table referenced in writes has a registry classification.
+        Integration: TestDBHealthEndpoint — stale a table, assert /api/db-health flags it.
+      complexity: complex
+      approved: false
+      comment: ""
+      questions:
+        - id: q-staleness
+          text: How is staleness measured per table?
+          answer: Compare the derived table's last-applied seq/offset against the canonical high-water mark (latest NDJSON offset / latest .html mtime). A gap = stale; zero gap = fresh.
+      decisions_notes: |
+        **Trigger:** GET /api/db-health (read-only); registry resolved at startup.
+        **State:** a static table-classification registry in internal/db; staleness computed from derived seq vs canonical high-water mark.
+        **Payload:** per-table {name, classification, last_applied, stale: bool}.
+        **Rejected:** deriving classification ad hoc per query (drift risk) — a single registry is the contract; reusing the test-only enum without lifting it (tests are not a runtime contract).
+    - id: slice-8
+      num: 8
+      title: Named snapshot+delta SSE projection protocol (infra + first projection)
+      what: |
+        Build the reactive projection layer. Define a projection registry keyed by
+        stable names (active-work, session-events:<id>, lineage:<id>, agent-activity,
+        collector-status, plan:<id>). Each projection serves an SSE channel whose
+        first event is a full snapshot carrying a monotonic seq, followed by delta
+        events with increasing seq; clients reconnect with Last-Event-ID to resume
+        from their last seq. Ship the infra plus the first projection (active-work)
+        end to end. Generalize the existing planEventsHandler high-water-mark pattern
+        into reusable projection plumbing.
+      why: |
+        Most dashboard panels do broad JSON polling today; the only streaming is a
+        2-second SQLite poll ticker. Named snapshot+delta projections cut read-pool
+        pressure and make the UI live (research doc, Item 4; digest §2 Item 4).
+      files:
+        - internal/projection/registry.go
+        - internal/projection/sse.go
+        - cmd/wipnote/api_projections.go
+        - cmd/wipnote/serve_child.go
+      deps: []
+      done_when:
+        - Opening a projection SSE channel yields a full snapshot with a monotonic seq, then deltas with increasing seq
+        - Reconnecting with Last-Event-ID resumes from the client's last seq without a full re-snapshot
+        - The active-work projection drives a dashboard panel without polling /api/initial-stats
+      effort: M
+      risk: Med
+      tests: |
+        Unit: TestProjectionSeq_Monotonic — snapshot seq < each subsequent delta seq.
+        Integration: TestProjectionResume — reconnect with Last-Event-ID skips already-seen deltas.
+      complexity: complex
+      approved: false
+      comment: ""
+      questions:
+        - id: q-resume
+          text: How does a reconnecting client avoid a full re-snapshot?
+          answer: SSE Last-Event-ID carries the client's last seq; the server replays deltas with seq greater than that, or sends a fresh snapshot only if the requested seq has been compacted away.
+      decisions_notes: |
+        **Trigger:** GET /api/projections/<name> as text/event-stream.
+        **State:** projection state derived read-only from SQLite; seq is the daemon/writer monotonic seq from slice-1 acks where applicable, else a per-projection counter.
+        **Payload:** event 1 = {type: snapshot, seq, data}; event N = {type: delta, seq, ops}.
+        **Rejected:** versioned-snapshot-push without deltas (coarse, large payloads); delta-only client reducers (hardest reconnect story, most client complexity) — snapshot-then-delta is the balanced choice.
+    - id: slice-9
+      num: 9
+      title: Migrate dashboard panels from broad polling to typed projections
+      what: |
+        Cut the remaining broad-fetch panels (events feed, graph, workboard,
+        timeline, collector-status) over to the named projection channels from
+        slice-8. Replace the plan-feedback 2-second SQLite poll ticker with a
+        proper projection subscription. Keep the old JSON endpoints during cutover,
+        then remove the broad ones whose panels have migrated.
+      why: |
+        The remaining panels still broad-poll JSON (and the plan-feedback panel polls
+        SQLite every 2s), burning read-pool connections on idle tabs. Migrating them to
+        projection channels makes the dashboard live and cuts read pressure (Item 4).
+      files:
+        - plugin/static/dashboard
+        - cmd/wipnote/api_feed.go
+        - cmd/wipnote/api_graph.go
+        - cmd/wipnote/api_plans.go
+      deps:
+        - 8
+      done_when:
+        - Feed, graph, workboard, and timeline panels render from projection SSE channels, not broad JSON polls
+        - The plan-feedback panel no longer polls SQLite on a fixed 2-second ticker
+        - Read-pool connection usage for an idle open dashboard tab drops measurably versus the polling baseline
+      effort: M
+      risk: Low
+      tests: |
+        Integration: TestFeedPanel_NoPoll — assert feed panel opens an SSE projection, issues no repeated /api/events/feed GETs.
+        Manual: dashboard smoke — panels update live on a new work item without manual refresh.
+      complexity: complex
+      approved: false
+      comment: ""
+      questions:
+        - id: q-cutover-order
+          text: Migrate all panels at once or incrementally?
+          answer: Incrementally — keep the broad JSON endpoints alive during cutover, migrate one panel at a time, verify live behavior, then prune the now-unused broad endpoints.
+      decisions_notes: |
+        **Trigger:** dashboard panel mount opens the matching projection SSE channel.
+        **State:** client holds projection state seeded by the snapshot, updated by deltas.
+        **Payload:** consumes slice-8 snapshot/delta events.
+        **Rejected:** big-bang removal of all JSON endpoints — keep them during cutover so a panel can be migrated and verified one at a time, then prune.
+    - id: slice-10
+      num: 10
+      title: 'Anomalies as first-class objects: canonical event + derived table + dashboard panel'
+      what: |
+        Promote conflicts, stale indexes, failed/spooled hook writes, and
+        duplicate-agent activity from opaque counters to first-class, navigable
+        objects. The daemon (and reindex/db-health) emit anomaly records into the
+        canonical events.ndjson append-only log; an indexer projects them into a
+        derived `anomalies` table (rebuildable on reindex). A dashboard anomalies
+        panel, driven by a named projection from slice-8, lists open anomalies with
+        timestamp, kind, source session/agent, and a resolved/acknowledged state.
+        Detection sources: spool-used events (slice-3), failed daemon submits,
+        db-health staleness (slice-7), and duplicate-agent activity on the same
+        work item.
+      why: |
+        The research doc treats divergence as expected in local-first systems and
+        wants it surfaced as resolvable objects, not silent counters. Today fallback
+        and busy counters exist only as numbers in /api/collector-status with no
+        actionable UX (research doc, Item 6; digest §2 Item 6).
+      files:
+        - internal/anomaly/detector.go
+        - internal/anomaly/index.go
+        - cmd/wipnote/api_projections.go
+        - plugin/static/dashboard
+      deps:
+        - 1
+        - 7
+        - 8
+      done_when:
+        - Spool-used, failed-submit, stale-index, and duplicate-agent events are written to canonical events.ndjson
+        - Anomaly records are indexed into a derived `anomalies` table that rebuilds cleanly on reindex
+        - A dashboard anomalies panel lists open anomalies with kind, source, timestamp, and an ack/resolve action
+      effort: M
+      risk: Med
+      tests: |
+        Integration: TestAnomaly_CanonicalAndDerived — force a spool-used event, assert NDJSON record + anomalies row.
+        Integration: TestAnomaly_RebuildsOnReindex — wipe DB, reindex, assert anomalies table repopulates from NDJSON.
+        Integration: TestDuplicateAgent_Flagged — two agents active on one work item -> one anomaly record.
+      complexity: complex
+      approved: false
+      comment: ""
+      questions:
+        - id: q-dup-agent
+          text: What defines duplicate-agent activity worth flagging?
+          answer: Two or more active agent sessions mutating/claiming the same work item concurrently (overlapping active windows on one feat/bug/spike id). The orchestrator convergence rule already treats this as a smell; the anomaly makes it visible.
+      decisions_notes: |
+        **Trigger:** daemon/reindex/db-health emit an anomaly event when a divergence condition is detected.
+        **State:** CANONICAL events.ndjson record (survives rebuild) + derived `anomalies` table (rebuildable) — the locked choice over derived-only (ephemeral) or per-anomaly .html (heaviest).
+        **Payload:** {kind: conflict|stale_index|failed_hook_write|duplicate_agent, source, ts, detail, status: open|acked|resolved}.
+        **Surfacing:** a named projection (slice-8) feeds the dashboard panel so anomalies stream live.
+        **Rejected:** derived-only anomalies table (lost on reindex, not local-first); dedicated .wipnote/anomalies/*.html (maximally first-class but heaviest — revisit only if anomalies need full lineage/linking).
 questions: []

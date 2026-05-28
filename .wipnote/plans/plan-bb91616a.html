@@ -405,6 +405,100 @@ body.right-rail-collapsed .sidebar-reopen{display:flex}
   <a href="#design" class="nav-link active" data-spy="design" data-initial="D">Design</a>
   <a href="#slices" class="nav-link" data-spy="slices" data-initial="S">Slices</a>
   
+  <ul class="slice-nav-list" id="slice-nav-list">
+    
+    <li>
+      <a href="#slice-1" class="slice-nav-item" data-slice-nav="1">
+        <span class="slice-nav-dot" data-approval="pending" data-dot-for="1"></span>
+        <span>#1 Write-op protocol + Unix-socket listener over the serve_child writqueue</span>
+        
+        <span class="nav-triage-badge nav-triage-question" title="1 open question(s)">?1</span>
+      </a>
+    </li>
+    
+    <li>
+      <a href="#slice-2" class="slice-nav-item" data-slice-nav="2">
+        <span class="slice-nav-dot" data-approval="pending" data-dot-for="2"></span>
+        <span>#2 Daemon lifecycle: on-demand auto-spawn, discovery, and single-owner lease</span>
+        
+        <span class="nav-triage-badge nav-triage-question" title="1 open question(s)">?1</span>
+      </a>
+    </li>
+    
+    <li>
+      <a href="#slice-3" class="slice-nav-item" data-slice-nav="3">
+        <span class="slice-nav-dot" data-approval="pending" data-dot-for="3"></span>
+        <span>#3 Spool last-resort fallback + drain-on-start with op-ID dedup</span>
+        
+        <span class="nav-triage-badge nav-triage-question" title="1 open question(s)">?1</span>
+      </a>
+    </li>
+    
+    <li>
+      <a href="#slice-4" class="slice-nav-item" data-slice-nav="4">
+        <span class="slice-nav-dot" data-approval="pending" data-dot-for="4"></span>
+        <span>#4 Route hook writes through the daemon (dbgate cutover)</span>
+        
+        <span class="nav-triage-badge nav-triage-question" title="1 open question(s)">?1</span>
+      </a>
+    </li>
+    
+    <li>
+      <a href="#slice-5" class="slice-nav-item" data-slice-nav="5">
+        <span class="slice-nav-dot" data-approval="pending" data-dot-for="5"></span>
+        <span>#5 Route CLI mutations through the daemon (openDB cutover)</span>
+        
+        <span class="nav-triage-badge nav-triage-question" title="1 open question(s)">?1</span>
+      </a>
+    </li>
+    
+    <li>
+      <a href="#slice-6" class="slice-nav-item" data-slice-nav="6">
+        <span class="slice-nav-dot" data-approval="pending" data-dot-for="6"></span>
+        <span>#6 Coordinate reindex through the daemon (close the checkpoint race)</span>
+        
+        <span class="nav-triage-badge nav-triage-question" title="1 open question(s)">?1</span>
+      </a>
+    </li>
+    
+    <li>
+      <a href="#slice-7" class="slice-nav-item" data-slice-nav="7">
+        <span class="slice-nav-dot" data-approval="pending" data-dot-for="7"></span>
+        <span>#7 Explicit rebuildable-derived contract + /api/db-health endpoint and panel</span>
+        
+        <span class="nav-triage-badge nav-triage-question" title="1 open question(s)">?1</span>
+      </a>
+    </li>
+    
+    <li>
+      <a href="#slice-8" class="slice-nav-item" data-slice-nav="8">
+        <span class="slice-nav-dot" data-approval="pending" data-dot-for="8"></span>
+        <span>#8 Named snapshot+delta SSE projection protocol (infra + first projection)</span>
+        
+        <span class="nav-triage-badge nav-triage-question" title="1 open question(s)">?1</span>
+      </a>
+    </li>
+    
+    <li>
+      <a href="#slice-9" class="slice-nav-item" data-slice-nav="9">
+        <span class="slice-nav-dot" data-approval="pending" data-dot-for="9"></span>
+        <span>#9 Migrate dashboard panels from broad polling to typed projections</span>
+        
+        <span class="nav-triage-badge nav-triage-question" title="1 open question(s)">?1</span>
+      </a>
+    </li>
+    
+    <li>
+      <a href="#slice-10" class="slice-nav-item" data-slice-nav="10">
+        <span class="slice-nav-dot" data-approval="pending" data-dot-for="10"></span>
+        <span>#10 Anomalies as first-class objects: canonical event + derived table + dashboard panel</span>
+        
+        <span class="nav-triage-badge nav-triage-question" title="1 open question(s)">?1</span>
+      </a>
+    </li>
+    
+  </ul>
+  
   <a href="#questions" class="nav-link" data-spy="questions" data-initial="Q">Decisions</a>
   <a href="#critique" class="nav-link" data-spy="critique" data-initial="C">Critique</a>
   <a href="#feedback-summary" class="nav-link" data-spy="feedback-summary" data-initial="P">Progress</a>
@@ -412,15 +506,39 @@ body.right-rail-collapsed .sidebar-reopen{display:flex}
 </nav>
 <div class="plan-layout">
 <div class="plan-content">
-<article id="plan-bb91616a" data-type="plan" data-plan-id="plan-bb91616a" data-feature-id="trk-2c55adea" data-status="draft" data-priority="medium">
+<article id="plan-bb91616a" data-type="plan" data-plan-id="plan-bb91616a" data-feature-id="" data-status="draft" data-priority="medium">
 
 <!-- Plan Header -->
 <header class="plan-header">
   <h1>Plan: Local-first architecture: daemon write-owner, reactive projections, first-class anomalies</h1>
-  <p style="color:var(--text-dim)">Apply proven local-first patterns to wipnote. Graduate the serve_child writqueue into an auto-spawned per-project daemon that is the single owner of SQLite writes (Unix-socket IPC, client op-ID dedup, auto-spawn primary with spool last-resort), route hooks/CLI/reindex through it to eliminate SQLITE_BUSY, add named snapshot+delta SSE dashboard projections, make SQLite an explicitly rebuildable derived index with a DB-health panel, and surface conflicts/stale-index/failed-hook-writes/duplicate-agent activity as first-class anomaly objects (canonical event + derived table + dashboard panel). Builds on the writqueue from plan-ae0c37b2. WASM and DuckDB out of scope.</p>
+  <p style="color:var(--text-dim)">Apply proven local-first architecture patterns to wipnote, validated against
+docs/research/local-first-architecture-for-wipnote.md. The spine is a
+per-project daemon that owns all SQLite writes, graduated from the existing
+serve_child writqueue (built in plan-ae0c37b2). Around that spine: reactive
+snapshot+delta SSE dashboard projections, an explicit rebuildable-derived
+contract for SQLite, and conflicts/stale-index/failed-hook-writes/duplicate-agent
+activity promoted to first-class anomaly objects.
+
+Direction locked via complex-interview:
+  - Canonical = .wipnote/*.html + events.ndjson; SQLite = rebuildable derived index.
+  - Daemon = graduated serve_child, Unix-socket IPC, client op-ID dedup window.
+  - Writer behavior with no daemon: AUTO-SPAWN primary, spool last-resort only if
+    spawn itself fails (e.g. hook sandbox cannot fork). Daemon is canonical design.
+  - Rollout: direct canonical cutover, NO config flag / NO shadow mode. Single user
+    (dogfooding) today; soak test + reindex-race fix are the safety net.
+  - Reactive dashboard: named snapshot-then-delta SSE projections with monotonic seq
+    and reconnect-resume.
+  - Anomalies: emitted as canonical events.ndjson records + indexed into a derived
+    anomalies table + surfaced via a dashboard projection panel.
+  - OUT OF SCOPE: WASM boundary, DuckDB replacement, CRDT rewrite, cloud sync.
+
+Phasing: Phase A (slices 1-6) = daemon write-owner spine. Phase B (slice 7) =
+rebuildable-derived contract + DB-health observability. Phase C (slices 8-9) =
+reactive projections. Phase D (slice 10) = first-class anomalies.
+</p>
   <div class="meta">
     <span class="badge badge-pending">Draft</span>
-    <span style="font-size:.75rem;color:var(--text-muted)">v2 · 0 slices · Created 2026-05-28</span>
+    <span style="font-size:.75rem;color:var(--text-muted)">v1 · 10 slices · Created 2026-05-28</span>
   </div>
 </header>
 <button id="themeToggle" style="position:fixed;top:16px;right:16px;z-index:100;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:6px 12px;color:var(--text);font-family:var(--mono);font-size:0.75rem;cursor:pointer;">
@@ -440,6 +558,16 @@ body.right-rail-collapsed .sidebar-reopen{display:flex}
 <section class="dep-graph" data-zone="dependency-graph">
   <h2>Dependency Graph</h2>
   <div id="graph-data" style="display:none">
+    <div data-node="1" data-name="Write-op protocol + Unix-socket listener over the serve_child writqueue" data-status="pending" data-deps="" data-files="4"></div>
+    <div data-node="2" data-name="Daemon lifecycle: on-demand auto-spawn, discovery, and single-owner lease" data-status="pending" data-deps="1" data-files="4"></div>
+    <div data-node="3" data-name="Spool last-resort fallback + drain-on-start with op-ID dedup" data-status="pending" data-deps="1,2" data-files="3"></div>
+    <div data-node="4" data-name="Route hook writes through the daemon (dbgate cutover)" data-status="pending" data-deps="2,3" data-files="2"></div>
+    <div data-node="5" data-name="Route CLI mutations through the daemon (openDB cutover)" data-status="pending" data-deps="2,3" data-files="4"></div>
+    <div data-node="6" data-name="Coordinate reindex through the daemon (close the checkpoint race)" data-status="pending" data-deps="2" data-files="4"></div>
+    <div data-node="7" data-name="Explicit rebuildable-derived contract + /api/db-health endpoint and panel" data-status="pending" data-deps="" data-files="4"></div>
+    <div data-node="8" data-name="Named snapshot+delta SSE projection protocol (infra + first projection)" data-status="pending" data-deps="" data-files="4"></div>
+    <div data-node="9" data-name="Migrate dashboard panels from broad polling to typed projections" data-status="pending" data-deps="8" data-files="4"></div>
+    <div data-node="10" data-name="Anomalies as first-class objects: canonical event + derived table + dashboard panel" data-status="pending" data-deps="1,7,8" data-files="4"></div>
     
     <!--PLAN_GRAPH_NODES-->
   </div>
@@ -452,17 +580,38 @@ body.right-rail-collapsed .sidebar-reopen{display:flex}
 <details id="design" class="section-card" open data-phase="design" data-status="pending">
   <summary><span>Design</span><span class="badge badge-pending" data-badge-for="design">Pending</span></summary>
   <div class="section-body">
-    <!--PLAN_DESIGN_CONTENT-->
-    <div class="sub-section">
-      <h4>Open Questions</h4>
-      <!--PLAN_QUESTIONS-->
-    </div>
+    <h4>Problem</h4>
+<div data-markdown>wipnote&#39;s SQLite read index is written concurrently by multiple short-lived
+processes — dashboard (serve_child), hook subprocesses (dbgate), and ~10 direct
+CLI mutation sites (openDB). This multi-writer topology causes recurring
+SQLITE_BUSY failures masked (not eliminated) by RetryOnBusy, and a real
+unsynchronized race between reindex checkpoint-reset and the live indexer.
+Meanwhile the dashboard mostly broad-polls JSON (and polls SQLite every 2s for
+plan feedback), divergence/failure conditions surface only as opaque counters,
+and the canonical-vs-derived contract lives only in a test inventory.
+</div>
+<h4>Goals</h4>
+<ol>
+<li data-markdown>Make a single per-project daemon (graduated serve_child) the sole owner of SQLite writes, eliminating SQLITE_BUSY structurally rather than via retry.</li>
+<li data-markdown>Keep .wipnote/*.html + events.ndjson canonical and SQLite explicitly rebuildable-derived, with staleness visible to operators.</li>
+<li data-markdown>Replace broad dashboard polling with named snapshot+delta SSE projections that reconnect-resume.</li>
+<li data-markdown>Promote conflicts, stale indexes, failed/spooled hook writes, and duplicate-agent activity to first-class, resolvable dashboard objects.</li>
+</ol>
+<h4>Constraints</h4>
+<ul>
+<li data-markdown>Canonical artifacts are the source of truth; a writer must never block or lose a mutation because the daemon is unreachable (auto-spawn primary, spool last-resort).</li>
+<li data-markdown>Direct canonical cutover with NO config flag and NO shadow mode (single dogfooding user today); soak test + reindex-race fix are the safety net.</li>
+<li data-markdown>Reindex must remain a foreground command honoring the existing TMPDIR-safety contract — never backgrounded on volatile tmpfs.</li>
+<li data-markdown>OUT OF SCOPE: WASM boundary, DuckDB replacement, CRDT rewrite, required cloud sync. No new runtime dependency beyond the existing go.mod.</li>
+</ul>
+
     <div class="approval-row">
       <label><input type="checkbox" data-section="design" data-action="approve"> Approve design</label>
       <textarea data-section="design" data-comment-for="design" placeholder="Comments on design decisions..."></textarea>
     </div>
   </div>
 </details>
+
 
 <!-- Structure Outline (hidden when empty) -->
 
@@ -471,23 +620,1599 @@ body.right-rail-collapsed .sidebar-reopen{display:flex}
 <details id="slices" class="section-card" open data-phase="slices" data-status="pending">
   <summary><span>Slices</span><span class="badge badge-pending" data-badge-for="slices">Pending</span></summary>
   <div class="section-body">
+    <details class="slice-card" id="slice-1" data-slice="1" data-slice-name="slice-1" data-status="pending" data-approval="pending">
+  <summary class="slice-summary" aria-label="Slice 1: Write-op protocol &#43; Unix-socket listener over the serve_child writqueue">
+    <span class="slice-num">#1</span>
+    <span class="slice-title-col">
+      <span class="slice-name">Write-op protocol &#43; Unix-socket listener over the serve_child writqueue</span>
+      <span class="slice-preview">Define a transport-agnostic write-op envelope and expose the existing</span>
+      <span class="slice-meta-row">
+        <span class="slice-summary-badges">
+          <span class="badge badge-revision badge-sm">M</span>
+          <span class="badge badge-revision badge-sm">Med</span>
+          <span class="badge badge-revision badge-sm badge-complexity" title="Complexity: complex">Complex</span>
+          
+          <span class="badge badge-pending badge-sm slice-approval-badge" data-badge-for="slice-1">Pending</span>
+          
+          <span class="badge badge-sm badge-questions" title="1 open question(s)">1 Q</span>
+        </span>
+        <span class="slice-actions" onclick="event.stopPropagation()">
+          <span class="approval-segmented" role="group" aria-label="Approval action">
+            <label class="seg-btn seg-approve" title="Approve">
+              <input type="radio" name="slice-1-approval" value="approved" data-section="slice-1" data-action="approve" aria-label="Approve slice 1">
+              &#10003;
+            </label>
+            <label class="seg-btn seg-changes" title="Request changes">
+              <input type="radio" name="slice-1-approval" value="changes_requested" data-section="slice-1" data-action="approve" aria-label="Request changes for slice 1">
+              &#8635;
+            </label>
+            <label class="seg-btn seg-reject" title="Reject">
+              <input type="radio" name="slice-1-approval" value="rejected" data-section="slice-1" data-action="approve" aria-label="Reject slice 1">
+              &#10005;
+            </label>
+          </span>
+        </span>
+      </span>
+    </span>
+    <span class="slice-chevron" aria-hidden="true"></span>
+  </summary>
+
+  <div class="slice-body">
     
+      
+      <div class="slice-field slice-what">
+        <div class="slice-field-label">What</div>
+        <div class="slice-field-value">
+          
+          <input type="checkbox" id="slice-1-what-reveal" class="reveal-toggle">
+          <div class="markdown-block reveal-content serif-prose"><p>Define a transport-agnostic write-op envelope and expose the existing
+serve_child writqueue (internal/db/writequeue) over a per-project Unix
+domain socket in .wipnote/. Envelope carries: client-supplied op_id
+(stable hash of the source event/mutation), op_type, payload, and an ack
+reply (applied | duplicate | error + seq). Add a WriterClient submit
+interface (dial socket, send op, await ack) and a dedup window (recent
+op_id LRU set) inside the queue so retried/replayed ops are dropped.
+No callers cut over in this slice — this is the protocol + listener only.</p>
+</div>
+          <label for="slice-1-what-reveal" class="reveal-label">Show full description</label>
+          
+        </div>
+      </div>
+      
+      
+      <div class="slice-field slice-why">
+        <div class="slice-field-label">Why</div>
+        <div class="slice-field-value">
+          
+          <div class="markdown-block serif-prose"><p>The single-writer writqueue already exists inside serve_child but is only
+reachable in-process. Exposing it over a stable local socket is the
+precondition for every other writer (hooks, CLI, reindex) to route writes
+through one owner instead of opening SQLite directly — the structural fix
+for SQLITE_BUSY (research doc, Item 3).</p>
+</div>
+          
+        </div>
+      </div>
+      
+      
+      <div class="slice-field">
+        <div class="slice-field-label">Files</div>
+        <div class="slice-field-value"><code>internal/db/writequeue/op.go, internal/daemon/socket.go, internal/daemon/client.go, cmd/wipnote/serve_child.go</code></div>
+      </div>
+      
+      
+      <div class="slice-field">
+        <div class="slice-field-label">Done when</div>
+        <ul class="slice-done-list"><li>serve_child binds a per-project Unix socket and accepts write-op envelopes</li><li>WriterClient.Submit sends an op and receives an applied/duplicate/error ack with seq</li><li>Submitting the same op_id twice returns duplicate on the second call (dedup window)</li></ul>
+      </div>
+      
+    
+
+    
+    <div class="slice-field slice-decisions-notes">
+      <div class="slice-field-label">Decisions</div>
+      <div class="slice-field-value">
+        
+        <input type="checkbox" id="slice-1-decisions-reveal" class="reveal-toggle">
+        <div class="markdown-block reveal-content serif-prose"><p><strong>Trigger:</strong> WriterClient.Submit over a per-project Unix socket at .wipnote/.
+<strong>State:</strong> op applied through the existing writqueue (canonical-derived rows); a
+bounded recent-op_id LRU lives in-memory in the queue owner for dedup.
+<strong>Payload:</strong> {op_id, op_type, payload} -&gt; ack {status: applied|duplicate|error, seq}.
+<strong>Idempotency:</strong> client-supplied op_id (hash of source event); dedup window drops
+retries and spool replays uniformly. Monotonic seq lets SSE consumers resume.
+<strong>Rejected:</strong> loopback HTTP submit (heavier, port allocation, less local-first);
+idempotent-by-construction-only ops (too restrictive for the mutation set);
+source-offset checkpoints alone (works for NDJSON ops, not for CLI mutations).</p>
+</div>
+        <label for="slice-1-decisions-reveal" class="reveal-label">Show full decisions</label>
+        
+      </div>
+    </div>
+    
+
+    
+    <div class="slice-field slice-tests-field">
+      <div class="slice-field-label">Test Strategy</div>
+      <div class="slice-field-value">
+        
+        
+        <div class="test-strategy">
+          
+          <div class="test-group" data-kind="unit">
+            <span class="test-chip">UNIT &middot; 1</span>
+            <ul><li>TestWriterClient_DedupWindow — same op_id twice -&gt; applied then duplicate.</li></ul>
+          </div>
+          
+          <div class="test-group" data-kind="integration">
+            <span class="test-chip">INTEGRATION &middot; 1</span>
+            <ul><li>TestSocketRoundTrip — bind socket, submit op, assert row indexed &#43; ack seq.</li></ul>
+          </div>
+          
+        </div>
+        
+      </div>
+    </div>
+    
+
+    
+
+    
+    <div class="slice-field slice-questions">
+      <div class="slice-field-label">Open Questions</div>
+      <div class="slice-field-value">
+        
+        <div class="question-block slice-question-block">
+          <p>Unix socket vs loopback HTTP for write-op submit?</p>
+          
+          
+          <textarea
+            data-section="slice-1-question-q-transport"
+            data-comment-for="slice-1-question-q-transport"
+            placeholder="Answer question q-transport...">Unix domain socket per project in .wipnote/ — local-only, no port allocation, matches local-first/no-network ethos. Abstracted behind WriterClient so HTTP could be added later if ever needed.</textarea>
+          
+        </div>
+        
+      </div>
+    </div>
+    
+
+    <div class="slice-deps">Dependencies: none</div>
+
+    <details class="comment-collapse">
+      <summary class="comment-collapse-trigger">+ Leave a comment</summary>
+      <div class="comment-collapse-body">
+        <textarea data-section="slice-1" data-comment-for="slice-1" placeholder="Comments on slice 1..."></textarea>
+      </div>
+    </details>
+  </div>
+</details>
+<details class="slice-card" id="slice-2" data-slice="2" data-slice-name="slice-2" data-status="pending" data-approval="pending">
+  <summary class="slice-summary" aria-label="Slice 2: Daemon lifecycle: on-demand auto-spawn, discovery, and single-owner lease">
+    <span class="slice-num">#2</span>
+    <span class="slice-title-col">
+      <span class="slice-name">Daemon lifecycle: on-demand auto-spawn, discovery, and single-owner lease</span>
+      <span class="slice-preview">Graduate servechild into an on-demand writer daemon.</span>
+      <span class="slice-meta-row">
+        <span class="slice-summary-badges">
+          <span class="badge badge-revision badge-sm">M</span>
+          <span class="badge badge-blocked badge-sm">High</span>
+          <span class="badge badge-revision badge-sm badge-complexity" title="Complexity: complex">Complex</span>
+          
+          <span class="badge badge-pending badge-sm slice-approval-badge" data-badge-for="slice-2">Pending</span>
+          
+          <span class="badge badge-sm badge-questions" title="1 open question(s)">1 Q</span>
+        </span>
+        <span class="slice-actions" onclick="event.stopPropagation()">
+          <span class="approval-segmented" role="group" aria-label="Approval action">
+            <label class="seg-btn seg-approve" title="Approve">
+              <input type="radio" name="slice-2-approval" value="approved" data-section="slice-2" data-action="approve" aria-label="Approve slice 2">
+              &#10003;
+            </label>
+            <label class="seg-btn seg-changes" title="Request changes">
+              <input type="radio" name="slice-2-approval" value="changes_requested" data-section="slice-2" data-action="approve" aria-label="Request changes for slice 2">
+              &#8635;
+            </label>
+            <label class="seg-btn seg-reject" title="Reject">
+              <input type="radio" name="slice-2-approval" value="rejected" data-section="slice-2" data-action="approve" aria-label="Reject slice 2">
+              &#10005;
+            </label>
+          </span>
+        </span>
+      </span>
+    </span>
+    <span class="slice-chevron" aria-hidden="true"></span>
+  </summary>
+
+  <div class="slice-body">
+    
+      
+      <div class="slice-field slice-what">
+        <div class="slice-field-label">What</div>
+        <div class="slice-field-value">
+          
+          <input type="checkbox" id="slice-2-what-reveal" class="reveal-toggle">
+          <div class="markdown-block reveal-content serif-prose"><p>Graduate serve_child into an on-demand writer daemon. A writer discovers
+the socket; if absent or stale, it auto-spawns serve_child in a headless
+writer-only mode and blocks until the socket is ready (bounded readiness
+wait). Enforce single-owner via a PID/lease file so two writers racing to
+spawn converge on one daemon (loser dials the winner). Define idle/shutdown
+semantics so the daemon does not linger forever after writers go quiet.</p>
+</div>
+          <label for="slice-2-what-reveal" class="reveal-label">Show full description</label>
+          
+        </div>
+      </div>
+      
+      
+      <div class="slice-field slice-why">
+        <div class="slice-field-label">Why</div>
+        <div class="slice-field-value">
+          
+          <div class="markdown-block serif-prose"><p>For the daemon to be the canonical writer with no config flag (locked
+decision), ANY writer must be able to guarantee a daemon exists. Auto-spawn
+makes &#34;is the daemon up?&#34; a non-question — the first writer brings it up.
+The lease prevents the multi-process double-spawn race the current
+intentionalCLIMutation paths would otherwise create.</p>
+</div>
+          
+        </div>
+      </div>
+      
+      
+      <div class="slice-field">
+        <div class="slice-field-label">Files</div>
+        <div class="slice-field-value"><code>internal/daemon/spawn.go, internal/daemon/lease.go, cmd/wipnote/serve_child.go, cmd/wipnote/serve_global.go</code></div>
+      </div>
+      
+      
+      <div class="slice-field">
+        <div class="slice-field-label">Done when</div>
+        <ul class="slice-done-list"><li>A writer with no running daemon auto-spawns one and submits successfully within the readiness timeout</li><li>Two writers racing to spawn result in exactly one daemon (lease holder); the other dials it</li><li>The daemon shuts down cleanly after the configured idle window with no orphaned socket/lease</li></ul>
+      </div>
+      
+    
+
+    
+    <div class="slice-field slice-decisions-notes">
+      <div class="slice-field-label">Decisions</div>
+      <div class="slice-field-value">
+        
+        <input type="checkbox" id="slice-2-decisions-reveal" class="reveal-toggle">
+        <div class="markdown-block reveal-content serif-prose"><p><strong>Trigger:</strong> writer dials socket; on ECONNREFUSED/missing, acquire spawn lease and fork serve_child headless.
+<strong>State:</strong> PID + lease file in .wipnote/; socket readiness signaled by successful dial.
+<strong>Payload:</strong> none new — reuses slice-1 envelope once connected.
+<strong>Lifecycle:</strong> idle-timeout shutdown so short-lived hook bursts do not leave a daemon resident indefinitely; readiness wait is bounded so a writer never hangs forever.
+<strong>Rejected:</strong> standalone always-on <code>wipnote daemon</code> process (second lifecycle to manage, larger build) — graduating serve_child reuses the existing writqueue + doorway with least new code; library-mode opportunistic leadership (trickiest handoff semantics).</p>
+</div>
+        <label for="slice-2-decisions-reveal" class="reveal-label">Show full decisions</label>
+        
+      </div>
+    </div>
+    
+
+    
+    <div class="slice-field slice-tests-field">
+      <div class="slice-field-label">Test Strategy</div>
+      <div class="slice-field-value">
+        
+        
+        <div class="test-strategy">
+          
+          <div class="test-group" data-kind="integration">
+            <span class="test-chip">INTEGRATION &middot; 2</span>
+            <ul><li>TestAutoSpawn_FromColdStart — no daemon -&gt; writer spawns -&gt; op applied.</li><li>TestSpawnRace_SingleOwner — N concurrent writers -&gt; one daemon, N acks.</li></ul>
+          </div>
+          
+          <div class="test-group" data-kind="unit">
+            <span class="test-chip">UNIT &middot; 1</span>
+            <ul><li>TestLease_StaleTakeover — stale PID/lease is reclaimed, not deadlocked.</li></ul>
+          </div>
+          
+        </div>
+        
+      </div>
+    </div>
+    
+
+    
+
+    
+    <div class="slice-field slice-questions">
+      <div class="slice-field-label">Open Questions</div>
+      <div class="slice-field-value">
+        
+        <div class="question-block slice-question-block">
+          <p>Standalone daemon process vs graduate serve_child?</p>
+          
+          
+          <textarea
+            data-section="slice-2-question-q-process"
+            data-comment-for="slice-2-question-q-process"
+            placeholder="Answer question q-process...">Graduate serve_child — it already owns the writqueue and serve_global is already the doorway. Auto-spawn it on demand in a headless writer-only mode. Least new code, single lifecycle.</textarea>
+          
+        </div>
+        
+      </div>
+    </div>
+    
+
+    <div class="slice-deps">Dependencies: slices 1</div>
+
+    <details class="comment-collapse">
+      <summary class="comment-collapse-trigger">+ Leave a comment</summary>
+      <div class="comment-collapse-body">
+        <textarea data-section="slice-2" data-comment-for="slice-2" placeholder="Comments on slice 2..."></textarea>
+      </div>
+    </details>
+  </div>
+</details>
+<details class="slice-card" id="slice-3" data-slice="3" data-slice-name="slice-3" data-status="pending" data-approval="pending">
+  <summary class="slice-summary" aria-label="Slice 3: Spool last-resort fallback &#43; drain-on-start with op-ID dedup">
+    <span class="slice-num">#3</span>
+    <span class="slice-title-col">
+      <span class="slice-name">Spool last-resort fallback &#43; drain-on-start with op-ID dedup</span>
+      <span class="slice-preview">Add the last-resort path for the rare case where auto-spawn itself fails</span>
+      <span class="slice-meta-row">
+        <span class="slice-summary-badges">
+          <span class="badge badge-revision badge-sm">M</span>
+          <span class="badge badge-revision badge-sm">Med</span>
+          <span class="badge badge-revision badge-sm badge-complexity" title="Complexity: complex">Complex</span>
+          
+          <span class="badge badge-pending badge-sm slice-approval-badge" data-badge-for="slice-3">Pending</span>
+          
+          <span class="badge badge-sm badge-questions" title="1 open question(s)">1 Q</span>
+        </span>
+        <span class="slice-actions" onclick="event.stopPropagation()">
+          <span class="approval-segmented" role="group" aria-label="Approval action">
+            <label class="seg-btn seg-approve" title="Approve">
+              <input type="radio" name="slice-3-approval" value="approved" data-section="slice-3" data-action="approve" aria-label="Approve slice 3">
+              &#10003;
+            </label>
+            <label class="seg-btn seg-changes" title="Request changes">
+              <input type="radio" name="slice-3-approval" value="changes_requested" data-section="slice-3" data-action="approve" aria-label="Request changes for slice 3">
+              &#8635;
+            </label>
+            <label class="seg-btn seg-reject" title="Reject">
+              <input type="radio" name="slice-3-approval" value="rejected" data-section="slice-3" data-action="approve" aria-label="Reject slice 3">
+              &#10005;
+            </label>
+          </span>
+        </span>
+      </span>
+    </span>
+    <span class="slice-chevron" aria-hidden="true"></span>
+  </summary>
+
+  <div class="slice-body">
+    
+      
+      <div class="slice-field slice-what">
+        <div class="slice-field-label">What</div>
+        <div class="slice-field-value">
+          
+          <input type="checkbox" id="slice-3-what-reveal" class="reveal-toggle">
+          <div class="markdown-block reveal-content serif-prose"><p>Add the last-resort path for the rare case where auto-spawn itself fails
+(e.g. a hook running in a sandbox that cannot fork a daemon). The writer
+writes the canonical artifact first, then appends the write-op envelope to
+an append-only spool under .wipnote/spool/. On next start the daemon drains
+the spool in order, submitting each op through the same dedup window so
+replay is safe and convergent. Spool entries are removed only after an
+applied/duplicate ack.</p>
+</div>
+          <label for="slice-3-what-reveal" class="reveal-label">Show full description</label>
+          
+        </div>
+      </div>
+      
+      
+      <div class="slice-field slice-why">
+        <div class="slice-field-label">Why</div>
+        <div class="slice-field-value">
+          
+          <div class="markdown-block serif-prose"><p>The locked decision is &#34;auto-spawn primary, spool only as last resort.&#34; The
+canonical .html is always the source of truth, so a writer must never block
+or lose a mutation just because it could not reach/start the daemon. The
+spool guarantees the derived index eventually converges without making the
+daemon a hard dependency (research doc, absolute-availability ethos).</p>
+</div>
+          
+        </div>
+      </div>
+      
+      
+      <div class="slice-field">
+        <div class="slice-field-label">Files</div>
+        <div class="slice-field-value"><code>internal/daemon/spool.go, internal/daemon/client.go, cmd/wipnote/serve_child.go</code></div>
+      </div>
+      
+      
+      <div class="slice-field">
+        <div class="slice-field-label">Done when</div>
+        <ul class="slice-done-list"><li>When auto-spawn fails, the canonical artifact is written and the op is appended to the spool</li><li>On daemon start the spool is drained in order and the derived index converges</li><li>Replaying an already-applied spooled op is dropped by the dedup window (no double-apply)</li></ul>
+      </div>
+      
+    
+
+    
+    <div class="slice-field slice-decisions-notes">
+      <div class="slice-field-label">Decisions</div>
+      <div class="slice-field-value">
+        
+        <input type="checkbox" id="slice-3-decisions-reveal" class="reveal-toggle">
+        <div class="markdown-block reveal-content serif-prose"><p><strong>Trigger:</strong> spool append happens ONLY on auto-spawn failure (last resort), not on every write.
+<strong>State:</strong> append-only spool files in .wipnote/spool/; canonical .html written before spooling.
+<strong>Payload:</strong> the slice-1 envelope (with op_id) is what gets spooled and later submitted.
+<strong>Convergence:</strong> drain-on-start submits through the dedup window; entries removed only after ack.
+<strong>Rejected:</strong> spool-always (Stage-2 default) — superseded by auto-spawn-primary; direct-DB-with-retry fallback — reintroduces the multi-writer contention this plan removes.</p>
+</div>
+        <label for="slice-3-decisions-reveal" class="reveal-label">Show full decisions</label>
+        
+      </div>
+    </div>
+    
+
+    
+    <div class="slice-field slice-tests-field">
+      <div class="slice-field-label">Test Strategy</div>
+      <div class="slice-field-value">
+        
+        
+        <div class="test-strategy">
+          
+          <div class="test-group" data-kind="integration">
+            <span class="test-chip">INTEGRATION &middot; 1</span>
+            <ul><li>TestSpool_DrainConverges — force spawn failure, spool op, start daemon, assert index matches canonical.</li></ul>
+          </div>
+          
+          <div class="test-group" data-kind="unit">
+            <span class="test-chip">UNIT &middot; 1</span>
+            <ul><li>TestSpool_ReplayIdempotent — drain twice -&gt; single applied row.</li></ul>
+          </div>
+          
+        </div>
+        
+      </div>
+    </div>
+    
+
+    
+
+    
+    <div class="slice-field slice-questions">
+      <div class="slice-field-label">Open Questions</div>
+      <div class="slice-field-value">
+        
+        <div class="question-block slice-question-block">
+          <p>Spool always, or only when auto-spawn fails?</p>
+          
+          
+          <textarea
+            data-section="slice-3-question-q-fallback"
+            data-comment-for="slice-3-question-q-fallback"
+            placeholder="Answer question q-fallback...">Only when auto-spawn fails. Auto-spawn is primary; spool is the belt-and-suspenders last resort for sandboxes that can&#39;t fork. Canonical .html is written first regardless.</textarea>
+          
+        </div>
+        
+      </div>
+    </div>
+    
+
+    <div class="slice-deps">Dependencies: slices 1,2</div>
+
+    <details class="comment-collapse">
+      <summary class="comment-collapse-trigger">+ Leave a comment</summary>
+      <div class="comment-collapse-body">
+        <textarea data-section="slice-3" data-comment-for="slice-3" placeholder="Comments on slice 3..."></textarea>
+      </div>
+    </details>
+  </div>
+</details>
+<details class="slice-card" id="slice-4" data-slice="4" data-slice-name="slice-4" data-status="pending" data-approval="pending">
+  <summary class="slice-summary" aria-label="Slice 4: Route hook writes through the daemon (dbgate cutover)">
+    <span class="slice-num">#4</span>
+    <span class="slice-title-col">
+      <span class="slice-name">Route hook writes through the daemon (dbgate cutover)</span>
+      <span class="slice-preview">Cut internal/hooks/dbgate.go over to the WriterClient: OpenHookDB /</span>
+      <span class="slice-meta-row">
+        <span class="slice-summary-badges">
+          <span class="badge badge-revision badge-sm">M</span>
+          <span class="badge badge-blocked badge-sm">High</span>
+          <span class="badge badge-revision badge-sm badge-complexity" title="Complexity: complex">Complex</span>
+          
+          <span class="badge badge-pending badge-sm slice-approval-badge" data-badge-for="slice-4">Pending</span>
+          
+          <span class="badge badge-sm badge-questions" title="1 open question(s)">1 Q</span>
+        </span>
+        <span class="slice-actions" onclick="event.stopPropagation()">
+          <span class="approval-segmented" role="group" aria-label="Approval action">
+            <label class="seg-btn seg-approve" title="Approve">
+              <input type="radio" name="slice-4-approval" value="approved" data-section="slice-4" data-action="approve" aria-label="Approve slice 4">
+              &#10003;
+            </label>
+            <label class="seg-btn seg-changes" title="Request changes">
+              <input type="radio" name="slice-4-approval" value="changes_requested" data-section="slice-4" data-action="approve" aria-label="Request changes for slice 4">
+              &#8635;
+            </label>
+            <label class="seg-btn seg-reject" title="Reject">
+              <input type="radio" name="slice-4-approval" value="rejected" data-section="slice-4" data-action="approve" aria-label="Reject slice 4">
+              &#10005;
+            </label>
+          </span>
+        </span>
+      </span>
+    </span>
+    <span class="slice-chevron" aria-hidden="true"></span>
+  </summary>
+
+  <div class="slice-body">
+    
+      
+      <div class="slice-field slice-what">
+        <div class="slice-field-label">What</div>
+        <div class="slice-field-value">
+          
+          <input type="checkbox" id="slice-4-what-reveal" class="reveal-toggle">
+          <div class="markdown-block reveal-content serif-prose"><p>Cut internal/hooks/dbgate.go over to the WriterClient: OpenHookDB /
+SubmitDerivedOp build a write-op envelope (stable op_id derived from the
+hook event) and submit via the socket, auto-spawning the daemon if needed
+and falling back to canonical-write+spool only if spawn fails. Remove the
+direct OpenHookDB writable-handle path as the primary route; retire the
+in-subprocess RetryOnBusy synchronous write since hooks no longer touch
+SQLite directly.</p>
+</div>
+          <label for="slice-4-what-reveal" class="reveal-label">Show full description</label>
+          
+        </div>
+      </div>
+      
+      
+      <div class="slice-field slice-why">
+        <div class="slice-field-label">Why</div>
+        <div class="slice-field-value">
+          
+          <div class="markdown-block serif-prose"><p>Hook subprocesses opening SQLite directly are the single largest source of
+SQLITE_BUSY contention. Routing them through the daemon removes that contention
+at the root while preserving canonical-first durability (research doc, Item 3).</p>
+</div>
+          
+        </div>
+      </div>
+      
+      
+      <div class="slice-field">
+        <div class="slice-field-label">Files</div>
+        <div class="slice-field-value"><code>internal/hooks/dbgate.go, cmd/wipnote/hook.go</code></div>
+      </div>
+      
+      
+      <div class="slice-field">
+        <div class="slice-field-label">Done when</div>
+        <ul class="slice-done-list"><li>Hook-driven derived writes are applied via the daemon socket, not a direct SQLite handle</li><li>A hook whose spawn attempt fails still records canonically and spools the op</li><li>SubsystemHookWriter busy-counter increments drop to zero under a concurrent-hook test</li></ul>
+      </div>
+      
+    
+
+    
+    <div class="slice-field slice-decisions-notes">
+      <div class="slice-field-label">Decisions</div>
+      <div class="slice-field-value">
+        
+        <input type="checkbox" id="slice-4-decisions-reveal" class="reveal-toggle">
+        <div class="markdown-block reveal-content serif-prose"><p><strong>Trigger:</strong> every PostToolUse/Session* hook derived write routes through WriterClient.
+<strong>State:</strong> unchanged target tables; the write path changes from direct-open to socket-submit.
+<strong>Payload:</strong> op_id = hash of the hook event (sessionID + event seq) for natural dedup on hook retries.
+<strong>Rejected:</strong> keeping dbgate&#39;s direct OpenHookDB as primary — it is the single largest source of SQLITE_BUSY contention that this plan exists to remove; it survives only via the spool last-resort, not as the default.</p>
+</div>
+        <label for="slice-4-decisions-reveal" class="reveal-label">Show full decisions</label>
+        
+      </div>
+    </div>
+    
+
+    
+    <div class="slice-field slice-tests-field">
+      <div class="slice-field-label">Test Strategy</div>
+      <div class="slice-field-value">
+        
+        
+        <div class="test-strategy">
+          
+          <div class="test-group" data-kind="integration">
+            <span class="test-chip">INTEGRATION &middot; 2</span>
+            <ul><li>TestHookWrite_ViaDaemon — fire hook, assert op applied through socket, no direct open.</li><li>TestHookWrite_NoBusyUnderConcurrency — N concurrent hooks -&gt; zero SubsystemHookWriter busy events.</li></ul>
+          </div>
+          
+        </div>
+        
+      </div>
+    </div>
+    
+
+    
+
+    
+    <div class="slice-field slice-questions">
+      <div class="slice-field-label">Open Questions</div>
+      <div class="slice-field-value">
+        
+        <div class="question-block slice-question-block">
+          <p>How is a hook op_id derived so retries dedup?</p>
+          
+          
+          <textarea
+            data-section="slice-4-question-q-hook-opid"
+            data-comment-for="slice-4-question-q-hook-opid"
+            placeholder="Answer question q-hook-opid...">Hash of (sessionID &#43; source event seq/offset). A re-fired hook produces the same op_id, so the dedup window drops the duplicate — no double-apply.</textarea>
+          
+        </div>
+        
+      </div>
+    </div>
+    
+
+    <div class="slice-deps">Dependencies: slices 2,3</div>
+
+    <details class="comment-collapse">
+      <summary class="comment-collapse-trigger">+ Leave a comment</summary>
+      <div class="comment-collapse-body">
+        <textarea data-section="slice-4" data-comment-for="slice-4" placeholder="Comments on slice 4..."></textarea>
+      </div>
+    </details>
+  </div>
+</details>
+<details class="slice-card" id="slice-5" data-slice="5" data-slice-name="slice-5" data-status="pending" data-approval="pending">
+  <summary class="slice-summary" aria-label="Slice 5: Route CLI mutations through the daemon (openDB cutover)">
+    <span class="slice-num">#5</span>
+    <span class="slice-title-col">
+      <span class="slice-name">Route CLI mutations through the daemon (openDB cutover)</span>
+      <span class="slice-preview">Convert the intentionalCLIMutation write sites (the ~10 direct writable</span>
+      <span class="slice-meta-row">
+        <span class="slice-summary-badges">
+          <span class="badge badge-blocked badge-sm">L</span>
+          <span class="badge badge-blocked badge-sm">High</span>
+          <span class="badge badge-revision badge-sm badge-complexity" title="Complexity: complex">Complex</span>
+          
+          <span class="badge badge-pending badge-sm slice-approval-badge" data-badge-for="slice-5">Pending</span>
+          
+          <span class="badge badge-sm badge-questions" title="1 open question(s)">1 Q</span>
+        </span>
+        <span class="slice-actions" onclick="event.stopPropagation()">
+          <span class="approval-segmented" role="group" aria-label="Approval action">
+            <label class="seg-btn seg-approve" title="Approve">
+              <input type="radio" name="slice-5-approval" value="approved" data-section="slice-5" data-action="approve" aria-label="Approve slice 5">
+              &#10003;
+            </label>
+            <label class="seg-btn seg-changes" title="Request changes">
+              <input type="radio" name="slice-5-approval" value="changes_requested" data-section="slice-5" data-action="approve" aria-label="Request changes for slice 5">
+              &#8635;
+            </label>
+            <label class="seg-btn seg-reject" title="Reject">
+              <input type="radio" name="slice-5-approval" value="rejected" data-section="slice-5" data-action="approve" aria-label="Reject slice 5">
+              &#10005;
+            </label>
+          </span>
+        </span>
+      </span>
+    </span>
+    <span class="slice-chevron" aria-hidden="true"></span>
+  </summary>
+
+  <div class="slice-body">
+    
+      
+      <div class="slice-field slice-what">
+        <div class="slice-field-label">What</div>
+        <div class="slice-field-value">
+          
+          <input type="checkbox" id="slice-5-what-reveal" class="reveal-toggle">
+          <div class="markdown-block reveal-content serif-prose"><p>Convert the intentionalCLIMutation write sites (the ~10 direct writable
+opens via openDB in cmd/wipnote/session.go and internal/workitem/project.go,
+plus plan_yaml_cmds.go and the ingest/migrate-adjacent paths) to submit
+write-ops through the WriterClient. Each CLI mutation (session start/end,
+feature/bug/spike complete, plan mutations) becomes a daemon client with the
+same auto-spawn-then-spool semantics. Reads stay on the read-only pool.</p>
+</div>
+          <label for="slice-5-what-reveal" class="reveal-label">Show full description</label>
+          
+        </div>
+      </div>
+      
+      
+      <div class="slice-field slice-why">
+        <div class="slice-field-label">Why</div>
+        <div class="slice-field-value">
+          
+          <div class="markdown-block serif-prose"><p>The ~10 intentionalCLIMutation sites are the second contention source after
+hooks; until they route through the single owner, the daemon cannot guarantee
+a contention-free writer and the single-owner invariant is incomplete.</p>
+</div>
+          
+        </div>
+      </div>
+      
+      
+      <div class="slice-field">
+        <div class="slice-field-label">Files</div>
+        <div class="slice-field-value"><code>cmd/wipnote/session.go, internal/workitem/project.go, cmd/wipnote/plan_yaml_cmds.go, cmd/wipnote/check_gate_support.go</code></div>
+      </div>
+      
+      
+      <div class="slice-field">
+        <div class="slice-field-label">Done when</div>
+        <ul class="slice-done-list"><li>Work-item complete, session start/end, and plan mutations apply via the daemon, not a direct writable handle</li><li>Running a CLI mutation concurrently with active serve reads and a hook burst surfaces zero SQLITE_BUSY</li><li>The sqlite_write_boundary_test inventory reclassifies these sites away from intentionalCLIMutation</li></ul>
+      </div>
+      
+    
+
+    
+    <div class="slice-field slice-decisions-notes">
+      <div class="slice-field-label">Decisions</div>
+      <div class="slice-field-value">
+        
+        <input type="checkbox" id="slice-5-decisions-reveal" class="reveal-toggle">
+        <div class="markdown-block reveal-content serif-prose"><p><strong>Trigger:</strong> CLI subcommands that mutate derived state submit via WriterClient instead of openDB.
+<strong>State:</strong> canonical .html still written by the command directly (source of truth); only the derived-index write is delegated to the daemon.
+<strong>Payload:</strong> op_id = hash of (work-item id + mutation kind + monotonic command nonce).
+<strong>Rejected:</strong> leaving CLI on direct openDB — these ~10 sites are the second contention source (after hooks); leaving them defeats the single-owner invariant.</p>
+</div>
+        <label for="slice-5-decisions-reveal" class="reveal-label">Show full decisions</label>
+        
+      </div>
+    </div>
+    
+
+    
+    <div class="slice-field slice-tests-field">
+      <div class="slice-field-label">Test Strategy</div>
+      <div class="slice-field-value">
+        
+        
+        <div class="test-strategy">
+          
+          <div class="test-group" data-kind="integration">
+            <span class="test-chip">INTEGRATION &middot; 2</span>
+            <ul><li>TestCLIComplete_ViaDaemon — `feature complete` applies through socket.</li><li>TestConcurrentWriters_NoBusy — CLI mutation &#43; serve &#43; hook concurrently, zero busy.</li></ul>
+          </div>
+          
+          <div class="test-group" data-kind="update">
+            <span class="test-chip">UPDATE &middot; 1</span>
+            <ul><li>cmd/wipnote/sqlite_write_boundary_test.go classifications.</li></ul>
+          </div>
+          
+        </div>
+        
+      </div>
+    </div>
+    
+
+    
+
+    
+    <div class="slice-field slice-questions">
+      <div class="slice-field-label">Open Questions</div>
+      <div class="slice-field-value">
+        
+        <div class="question-block slice-question-block">
+          <p>Does the CLI write canonical .html before or after the daemon op?</p>
+          
+          
+          <textarea
+            data-section="slice-5-question-q-canonical-order"
+            data-comment-for="slice-5-question-q-canonical-order"
+            placeholder="Answer question q-canonical-order...">Canonical .html first (it is the source of truth), then submit the derived-index op. If the op is spooled, the index converges later; canonical is never at risk.</textarea>
+          
+        </div>
+        
+      </div>
+    </div>
+    
+
+    <div class="slice-deps">Dependencies: slices 2,3</div>
+
+    <details class="comment-collapse">
+      <summary class="comment-collapse-trigger">+ Leave a comment</summary>
+      <div class="comment-collapse-body">
+        <textarea data-section="slice-5" data-comment-for="slice-5" placeholder="Comments on slice 5..."></textarea>
+      </div>
+    </details>
+  </div>
+</details>
+<details class="slice-card" id="slice-6" data-slice="6" data-slice-name="slice-6" data-status="pending" data-approval="pending">
+  <summary class="slice-summary" aria-label="Slice 6: Coordinate reindex through the daemon (close the checkpoint race)">
+    <span class="slice-num">#6</span>
+    <span class="slice-title-col">
+      <span class="slice-name">Coordinate reindex through the daemon (close the checkpoint race)</span>
+      <span class="slice-preview">Make wipnote reindex a daemon-coordinated operation.</span>
+      <span class="slice-meta-row">
+        <span class="slice-summary-badges">
+          <span class="badge badge-revision badge-sm">M</span>
+          <span class="badge badge-revision badge-sm">Med</span>
+          <span class="badge badge-revision badge-sm badge-complexity" title="Complexity: complex">Complex</span>
+          
+          <span class="badge badge-pending badge-sm slice-approval-badge" data-badge-for="slice-6">Pending</span>
+          
+          <span class="badge badge-sm badge-questions" title="1 open question(s)">1 Q</span>
+        </span>
+        <span class="slice-actions" onclick="event.stopPropagation()">
+          <span class="approval-segmented" role="group" aria-label="Approval action">
+            <label class="seg-btn seg-approve" title="Approve">
+              <input type="radio" name="slice-6-approval" value="approved" data-section="slice-6" data-action="approve" aria-label="Approve slice 6">
+              &#10003;
+            </label>
+            <label class="seg-btn seg-changes" title="Request changes">
+              <input type="radio" name="slice-6-approval" value="changes_requested" data-section="slice-6" data-action="approve" aria-label="Request changes for slice 6">
+              &#8635;
+            </label>
+            <label class="seg-btn seg-reject" title="Reject">
+              <input type="radio" name="slice-6-approval" value="rejected" data-section="slice-6" data-action="approve" aria-label="Reject slice 6">
+              &#10005;
+            </label>
+          </span>
+        </span>
+      </span>
+    </span>
+    <span class="slice-chevron" aria-hidden="true"></span>
+  </summary>
+
+  <div class="slice-body">
+    
+      
+      <div class="slice-field slice-what">
+        <div class="slice-field-label">What</div>
+        <div class="slice-field-value">
+          
+          <input type="checkbox" id="slice-6-what-reveal" class="reveal-toggle">
+          <div class="markdown-block reveal-content serif-prose"><p>Make <code>wipnote reindex</code> a daemon-coordinated operation. Today reindex resets
+.index-offset checkpoints and replays NDJSON while a running indexer may be
+advancing those same checkpoints — an un-synchronized race. Route reindex
+through the daemon writer lease so checkpoint-reset and indexer-advance
+cannot interleave: reindex either runs inside the daemon&#39;s write context or
+acquires the writer lease (pausing the live indexer) for the duration.
+Preserve the foreground/TMPDIR-safe execution contract.</p>
+</div>
+          <label for="slice-6-what-reveal" class="reveal-label">Show full description</label>
+          
+        </div>
+      </div>
+      
+      
+      <div class="slice-field slice-why">
+        <div class="slice-field-label">Why</div>
+        <div class="slice-field-value">
+          
+          <div class="markdown-block serif-prose"><p>Reindex resets .index-offset checkpoints while a live indexer may advance them —
+an unsynchronized race that can lose or duplicate offset progress. Serializing
+reindex under the daemon writer lease closes a known correctness gap the
+single-owner model otherwise exposes.</p>
+</div>
+          
+        </div>
+      </div>
+      
+      
+      <div class="slice-field">
+        <div class="slice-field-label">Files</div>
+        <div class="slice-field-value"><code>cmd/wipnote/reindex.go, cmd/wipnote/reindex_otel_events.go, cmd/wipnote/lazy_reindex.go, internal/daemon/lease.go</code></div>
+      </div>
+      
+      
+      <div class="slice-field">
+        <div class="slice-field-label">Done when</div>
+        <ul class="slice-done-list"><li>Reindex acquires the writer lease (or runs in the daemon write context) before resetting checkpoints</li><li>A reindex concurrent with a live indexer produces a consistent index (no lost/duplicated offset advances)</li><li>Reindex remains a foreground command and honors the existing TMPDIR-safety contract</li></ul>
+      </div>
+      
+    
+
+    
+    <div class="slice-field slice-decisions-notes">
+      <div class="slice-field-label">Decisions</div>
+      <div class="slice-field-value">
+        
+        <input type="checkbox" id="slice-6-decisions-reveal" class="reveal-toggle">
+        <div class="markdown-block reveal-content serif-prose"><p><strong>Trigger:</strong> <code>wipnote reindex</code> acquires the daemon writer lease before touching .index-offset.
+<strong>State:</strong> checkpoints (.index-offset) and the derived index — both now mutated under a single lease holder.
+<strong>Payload:</strong> n/a (control-plane coordination, not a write-op envelope).
+<strong>Hazard:</strong> must stay foreground — backgrounding reindex on volatile tmpfs can brick the session; the lease must not deadlock against the very daemon reindex may need.
+<strong>Rejected:</strong> minimal lock-guard only (refuse/wait) — chosen the fuller route-through-daemon so reindex composes with the single-owner model rather than fighting it.</p>
+</div>
+        <label for="slice-6-decisions-reveal" class="reveal-label">Show full decisions</label>
+        
+      </div>
+    </div>
+    
+
+    
+    <div class="slice-field slice-tests-field">
+      <div class="slice-field-label">Test Strategy</div>
+      <div class="slice-field-value">
+        
+        
+        <div class="test-strategy">
+          
+          <div class="test-group" data-kind="integration">
+            <span class="test-chip">INTEGRATION &middot; 1</span>
+            <ul><li>TestReindex_LeaseSerializes — start indexer, trigger reindex, assert single consistent offset progression.</li></ul>
+          </div>
+          
+          <div class="test-group" data-kind="regression">
+            <span class="test-chip">REGRESSION &middot; 1</span>
+            <ul><li>reindex still runs foreground; no background-spawn of reindex.</li></ul>
+          </div>
+          
+        </div>
+        
+      </div>
+    </div>
+    
+
+    
+
+    
+    <div class="slice-field slice-questions">
+      <div class="slice-field-label">Open Questions</div>
+      <div class="slice-field-value">
+        
+        <div class="question-block slice-question-block">
+          <p>Route reindex fully through the daemon, or just a lock guard?</p>
+          
+          
+          <textarea
+            data-section="slice-6-question-q-reindex-lease"
+            data-comment-for="slice-6-question-q-reindex-lease"
+            placeholder="Answer question q-reindex-lease...">Route through the daemon writer lease so checkpoint reset and indexer advance are serialized by the same owner. A bare lock guard closes the race but leaves reindex outside the single-owner model.</textarea>
+          
+        </div>
+        
+      </div>
+    </div>
+    
+
+    <div class="slice-deps">Dependencies: slices 2</div>
+
+    <details class="comment-collapse">
+      <summary class="comment-collapse-trigger">+ Leave a comment</summary>
+      <div class="comment-collapse-body">
+        <textarea data-section="slice-6" data-comment-for="slice-6" placeholder="Comments on slice 6..."></textarea>
+      </div>
+    </details>
+  </div>
+</details>
+<details class="slice-card" id="slice-7" data-slice="7" data-slice-name="slice-7" data-status="pending" data-approval="pending">
+  <summary class="slice-summary" aria-label="Slice 7: Explicit rebuildable-derived contract &#43; /api/db-health endpoint and panel">
+    <span class="slice-num">#7</span>
+    <span class="slice-title-col">
+      <span class="slice-name">Explicit rebuildable-derived contract &#43; /api/db-health endpoint and panel</span>
+      <span class="slice-preview">Make the canonical-vs-derived contract explicit and operator-visible.</span>
+      <span class="slice-meta-row">
+        <span class="slice-summary-badges">
+          <span class="badge badge-pending badge-sm">S</span>
+          <span class="badge badge-pending badge-sm">Low</span>
+          <span class="badge badge-revision badge-sm badge-complexity" title="Complexity: complex">Complex</span>
+          
+          <span class="badge badge-pending badge-sm slice-approval-badge" data-badge-for="slice-7">Pending</span>
+          
+          <span class="badge badge-sm badge-questions" title="1 open question(s)">1 Q</span>
+        </span>
+        <span class="slice-actions" onclick="event.stopPropagation()">
+          <span class="approval-segmented" role="group" aria-label="Approval action">
+            <label class="seg-btn seg-approve" title="Approve">
+              <input type="radio" name="slice-7-approval" value="approved" data-section="slice-7" data-action="approve" aria-label="Approve slice 7">
+              &#10003;
+            </label>
+            <label class="seg-btn seg-changes" title="Request changes">
+              <input type="radio" name="slice-7-approval" value="changes_requested" data-section="slice-7" data-action="approve" aria-label="Request changes for slice 7">
+              &#8635;
+            </label>
+            <label class="seg-btn seg-reject" title="Reject">
+              <input type="radio" name="slice-7-approval" value="rejected" data-section="slice-7" data-action="approve" aria-label="Reject slice 7">
+              &#10005;
+            </label>
+          </span>
+        </span>
+      </span>
+    </span>
+    <span class="slice-chevron" aria-hidden="true"></span>
+  </summary>
+
+  <div class="slice-body">
+    
+      
+      <div class="slice-field slice-what">
+        <div class="slice-field-label">What</div>
+        <div class="slice-field-value">
+          
+          <input type="checkbox" id="slice-7-what-reveal" class="reveal-toggle">
+          <div class="markdown-block reveal-content serif-prose"><p>Make the canonical-vs-derived contract explicit and operator-visible.
+Classify every SQLite table as canonical-derived (rebuildable from
+.html/NDJSON), ephemeral, or non-rebuildable, mirroring the write-site
+Classification enum that already exists in sqlite_write_boundary_test.go but
+lifting it to a table-level registry. Expose /api/db-health reporting per
+table: classification, last-reindex/last-applied time, and a staleness
+indicator (derived seq vs canonical high-water mark). Add a dashboard
+DB-health panel.</p>
+</div>
+          <label for="slice-7-what-reveal" class="reveal-label">Show full description</label>
+          
+        </div>
+      </div>
+      
+      
+      <div class="slice-field slice-why">
+        <div class="slice-field-label">Why</div>
+        <div class="slice-field-value">
+          
+          <div class="markdown-block serif-prose"><p>The research doc&#39;s first dependency: before changing write topology, the
+rebuildable contract must be explicit and staleness must be visible. Today
+the classification lives only in a test inventory and the dashboard has no
+staleness indicator (digest Items 1-2).</p>
+</div>
+          
+        </div>
+      </div>
+      
+      
+      <div class="slice-field">
+        <div class="slice-field-label">Files</div>
+        <div class="slice-field-value"><code>internal/db/health.go, cmd/wipnote/api_db_health.go, cmd/wipnote/serve_child.go, plugin/static/dashboard (db-health panel)</code></div>
+      </div>
+      
+      
+      <div class="slice-field">
+        <div class="slice-field-label">Done when</div>
+        <ul class="slice-done-list"><li>Every SQLite table has a registry entry classifying it canonical-derived / ephemeral / non-rebuildable</li><li>/api/db-health returns per-table classification, last-applied time, and a staleness flag</li><li>The dashboard renders a DB-health panel showing stale tables and last reindex time</li></ul>
+      </div>
+      
+    
+
+    
+    <div class="slice-field slice-decisions-notes">
+      <div class="slice-field-label">Decisions</div>
+      <div class="slice-field-value">
+        
+        <input type="checkbox" id="slice-7-decisions-reveal" class="reveal-toggle">
+        <div class="markdown-block reveal-content serif-prose"><p><strong>Trigger:</strong> GET /api/db-health (read-only); registry resolved at startup.
+<strong>State:</strong> a static table-classification registry in internal/db; staleness computed from derived seq vs canonical high-water mark.
+<strong>Payload:</strong> per-table {name, classification, last_applied, stale: bool}.
+<strong>Rejected:</strong> deriving classification ad hoc per query (drift risk) — a single registry is the contract; reusing the test-only enum without lifting it (tests are not a runtime contract).</p>
+</div>
+        <label for="slice-7-decisions-reveal" class="reveal-label">Show full decisions</label>
+        
+      </div>
+    </div>
+    
+
+    
+    <div class="slice-field slice-tests-field">
+      <div class="slice-field-label">Test Strategy</div>
+      <div class="slice-field-value">
+        
+        
+        <div class="test-strategy">
+          
+          <div class="test-group" data-kind="unit">
+            <span class="test-chip">UNIT &middot; 1</span>
+            <ul><li>TestTableRegistry_Complete — every table referenced in writes has a registry classification.</li></ul>
+          </div>
+          
+          <div class="test-group" data-kind="integration">
+            <span class="test-chip">INTEGRATION &middot; 1</span>
+            <ul><li>TestDBHealthEndpoint — stale a table, assert /api/db-health flags it.</li></ul>
+          </div>
+          
+        </div>
+        
+      </div>
+    </div>
+    
+
+    
+
+    
+    <div class="slice-field slice-questions">
+      <div class="slice-field-label">Open Questions</div>
+      <div class="slice-field-value">
+        
+        <div class="question-block slice-question-block">
+          <p>How is staleness measured per table?</p>
+          
+          
+          <textarea
+            data-section="slice-7-question-q-staleness"
+            data-comment-for="slice-7-question-q-staleness"
+            placeholder="Answer question q-staleness...">Compare the derived table&#39;s last-applied seq/offset against the canonical high-water mark (latest NDJSON offset / latest .html mtime). A gap = stale; zero gap = fresh.</textarea>
+          
+        </div>
+        
+      </div>
+    </div>
+    
+
+    <div class="slice-deps">Dependencies: none</div>
+
+    <details class="comment-collapse">
+      <summary class="comment-collapse-trigger">+ Leave a comment</summary>
+      <div class="comment-collapse-body">
+        <textarea data-section="slice-7" data-comment-for="slice-7" placeholder="Comments on slice 7..."></textarea>
+      </div>
+    </details>
+  </div>
+</details>
+<details class="slice-card" id="slice-8" data-slice="8" data-slice-name="slice-8" data-status="pending" data-approval="pending">
+  <summary class="slice-summary" aria-label="Slice 8: Named snapshot&#43;delta SSE projection protocol (infra &#43; first projection)">
+    <span class="slice-num">#8</span>
+    <span class="slice-title-col">
+      <span class="slice-name">Named snapshot&#43;delta SSE projection protocol (infra &#43; first projection)</span>
+      <span class="slice-preview">Build the reactive projection layer.</span>
+      <span class="slice-meta-row">
+        <span class="slice-summary-badges">
+          <span class="badge badge-revision badge-sm">M</span>
+          <span class="badge badge-revision badge-sm">Med</span>
+          <span class="badge badge-revision badge-sm badge-complexity" title="Complexity: complex">Complex</span>
+          
+          <span class="badge badge-pending badge-sm slice-approval-badge" data-badge-for="slice-8">Pending</span>
+          
+          <span class="badge badge-sm badge-questions" title="1 open question(s)">1 Q</span>
+        </span>
+        <span class="slice-actions" onclick="event.stopPropagation()">
+          <span class="approval-segmented" role="group" aria-label="Approval action">
+            <label class="seg-btn seg-approve" title="Approve">
+              <input type="radio" name="slice-8-approval" value="approved" data-section="slice-8" data-action="approve" aria-label="Approve slice 8">
+              &#10003;
+            </label>
+            <label class="seg-btn seg-changes" title="Request changes">
+              <input type="radio" name="slice-8-approval" value="changes_requested" data-section="slice-8" data-action="approve" aria-label="Request changes for slice 8">
+              &#8635;
+            </label>
+            <label class="seg-btn seg-reject" title="Reject">
+              <input type="radio" name="slice-8-approval" value="rejected" data-section="slice-8" data-action="approve" aria-label="Reject slice 8">
+              &#10005;
+            </label>
+          </span>
+        </span>
+      </span>
+    </span>
+    <span class="slice-chevron" aria-hidden="true"></span>
+  </summary>
+
+  <div class="slice-body">
+    
+      
+      <div class="slice-field slice-what">
+        <div class="slice-field-label">What</div>
+        <div class="slice-field-value">
+          
+          <input type="checkbox" id="slice-8-what-reveal" class="reveal-toggle">
+          <div class="markdown-block reveal-content serif-prose"><p>Build the reactive projection layer. Define a projection registry keyed by
+stable names (active-work, session-events:, lineage:, agent-activity,
+collector-status, plan:). Each projection serves an SSE channel whose
+first event is a full snapshot carrying a monotonic seq, followed by delta
+events with increasing seq; clients reconnect with Last-Event-ID to resume
+from their last seq. Ship the infra plus the first projection (active-work)
+end to end. Generalize the existing planEventsHandler high-water-mark pattern
+into reusable projection plumbing.</p>
+</div>
+          <label for="slice-8-what-reveal" class="reveal-label">Show full description</label>
+          
+        </div>
+      </div>
+      
+      
+      <div class="slice-field slice-why">
+        <div class="slice-field-label">Why</div>
+        <div class="slice-field-value">
+          
+          <div class="markdown-block serif-prose"><p>Most dashboard panels do broad JSON polling today; the only streaming is a
+2-second SQLite poll ticker. Named snapshot+delta projections cut read-pool
+pressure and make the UI live (research doc, Item 4; digest §2 Item 4).</p>
+</div>
+          
+        </div>
+      </div>
+      
+      
+      <div class="slice-field">
+        <div class="slice-field-label">Files</div>
+        <div class="slice-field-value"><code>internal/projection/registry.go, internal/projection/sse.go, cmd/wipnote/api_projections.go, cmd/wipnote/serve_child.go</code></div>
+      </div>
+      
+      
+      <div class="slice-field">
+        <div class="slice-field-label">Done when</div>
+        <ul class="slice-done-list"><li>Opening a projection SSE channel yields a full snapshot with a monotonic seq, then deltas with increasing seq</li><li>Reconnecting with Last-Event-ID resumes from the client&#39;s last seq without a full re-snapshot</li><li>The active-work projection drives a dashboard panel without polling /api/initial-stats</li></ul>
+      </div>
+      
+    
+
+    
+    <div class="slice-field slice-decisions-notes">
+      <div class="slice-field-label">Decisions</div>
+      <div class="slice-field-value">
+        
+        <input type="checkbox" id="slice-8-decisions-reveal" class="reveal-toggle">
+        <div class="markdown-block reveal-content serif-prose"><p><strong>Trigger:</strong> GET /api/projections/ as text/event-stream.
+<strong>State:</strong> projection state derived read-only from SQLite; seq is the daemon/writer monotonic seq from slice-1 acks where applicable, else a per-projection counter.
+<strong>Payload:</strong> event 1 = {type: snapshot, seq, data}; event N = {type: delta, seq, ops}.
+<strong>Rejected:</strong> versioned-snapshot-push without deltas (coarse, large payloads); delta-only client reducers (hardest reconnect story, most client complexity) — snapshot-then-delta is the balanced choice.</p>
+</div>
+        <label for="slice-8-decisions-reveal" class="reveal-label">Show full decisions</label>
+        
+      </div>
+    </div>
+    
+
+    
+    <div class="slice-field slice-tests-field">
+      <div class="slice-field-label">Test Strategy</div>
+      <div class="slice-field-value">
+        
+        
+        <div class="test-strategy">
+          
+          <div class="test-group" data-kind="unit">
+            <span class="test-chip">UNIT &middot; 1</span>
+            <ul><li>TestProjectionSeq_Monotonic — snapshot seq &lt; each subsequent delta seq.</li></ul>
+          </div>
+          
+          <div class="test-group" data-kind="integration">
+            <span class="test-chip">INTEGRATION &middot; 1</span>
+            <ul><li>TestProjectionResume — reconnect with Last-Event-ID skips already-seen deltas.</li></ul>
+          </div>
+          
+        </div>
+        
+      </div>
+    </div>
+    
+
+    
+
+    
+    <div class="slice-field slice-questions">
+      <div class="slice-field-label">Open Questions</div>
+      <div class="slice-field-value">
+        
+        <div class="question-block slice-question-block">
+          <p>How does a reconnecting client avoid a full re-snapshot?</p>
+          
+          
+          <textarea
+            data-section="slice-8-question-q-resume"
+            data-comment-for="slice-8-question-q-resume"
+            placeholder="Answer question q-resume...">SSE Last-Event-ID carries the client&#39;s last seq; the server replays deltas with seq greater than that, or sends a fresh snapshot only if the requested seq has been compacted away.</textarea>
+          
+        </div>
+        
+      </div>
+    </div>
+    
+
+    <div class="slice-deps">Dependencies: none</div>
+
+    <details class="comment-collapse">
+      <summary class="comment-collapse-trigger">+ Leave a comment</summary>
+      <div class="comment-collapse-body">
+        <textarea data-section="slice-8" data-comment-for="slice-8" placeholder="Comments on slice 8..."></textarea>
+      </div>
+    </details>
+  </div>
+</details>
+<details class="slice-card" id="slice-9" data-slice="9" data-slice-name="slice-9" data-status="pending" data-approval="pending">
+  <summary class="slice-summary" aria-label="Slice 9: Migrate dashboard panels from broad polling to typed projections">
+    <span class="slice-num">#9</span>
+    <span class="slice-title-col">
+      <span class="slice-name">Migrate dashboard panels from broad polling to typed projections</span>
+      <span class="slice-preview">Cut the remaining broad-fetch panels (events feed, graph, workboard,</span>
+      <span class="slice-meta-row">
+        <span class="slice-summary-badges">
+          <span class="badge badge-revision badge-sm">M</span>
+          <span class="badge badge-pending badge-sm">Low</span>
+          <span class="badge badge-revision badge-sm badge-complexity" title="Complexity: complex">Complex</span>
+          
+          <span class="badge badge-pending badge-sm slice-approval-badge" data-badge-for="slice-9">Pending</span>
+          
+          <span class="badge badge-sm badge-questions" title="1 open question(s)">1 Q</span>
+        </span>
+        <span class="slice-actions" onclick="event.stopPropagation()">
+          <span class="approval-segmented" role="group" aria-label="Approval action">
+            <label class="seg-btn seg-approve" title="Approve">
+              <input type="radio" name="slice-9-approval" value="approved" data-section="slice-9" data-action="approve" aria-label="Approve slice 9">
+              &#10003;
+            </label>
+            <label class="seg-btn seg-changes" title="Request changes">
+              <input type="radio" name="slice-9-approval" value="changes_requested" data-section="slice-9" data-action="approve" aria-label="Request changes for slice 9">
+              &#8635;
+            </label>
+            <label class="seg-btn seg-reject" title="Reject">
+              <input type="radio" name="slice-9-approval" value="rejected" data-section="slice-9" data-action="approve" aria-label="Reject slice 9">
+              &#10005;
+            </label>
+          </span>
+        </span>
+      </span>
+    </span>
+    <span class="slice-chevron" aria-hidden="true"></span>
+  </summary>
+
+  <div class="slice-body">
+    
+      
+      <div class="slice-field slice-what">
+        <div class="slice-field-label">What</div>
+        <div class="slice-field-value">
+          
+          <div class="markdown-block serif-prose"><p>Cut the remaining broad-fetch panels (events feed, graph, workboard,
+timeline, collector-status) over to the named projection channels from
+slice-8. Replace the plan-feedback 2-second SQLite poll ticker with a
+proper projection subscription. Keep the old JSON endpoints during cutover,
+then remove the broad ones whose panels have migrated.</p>
+</div>
+          
+        </div>
+      </div>
+      
+      
+      <div class="slice-field slice-why">
+        <div class="slice-field-label">Why</div>
+        <div class="slice-field-value">
+          
+          <div class="markdown-block serif-prose"><p>The remaining panels still broad-poll JSON (and the plan-feedback panel polls
+SQLite every 2s), burning read-pool connections on idle tabs. Migrating them to
+projection channels makes the dashboard live and cuts read pressure (Item 4).</p>
+</div>
+          
+        </div>
+      </div>
+      
+      
+      <div class="slice-field">
+        <div class="slice-field-label">Files</div>
+        <div class="slice-field-value"><code>plugin/static/dashboard, cmd/wipnote/api_feed.go, cmd/wipnote/api_graph.go, cmd/wipnote/api_plans.go</code></div>
+      </div>
+      
+      
+      <div class="slice-field">
+        <div class="slice-field-label">Done when</div>
+        <ul class="slice-done-list"><li>Feed, graph, workboard, and timeline panels render from projection SSE channels, not broad JSON polls</li><li>The plan-feedback panel no longer polls SQLite on a fixed 2-second ticker</li><li>Read-pool connection usage for an idle open dashboard tab drops measurably versus the polling baseline</li></ul>
+      </div>
+      
+    
+
+    
+    <div class="slice-field slice-decisions-notes">
+      <div class="slice-field-label">Decisions</div>
+      <div class="slice-field-value">
+        
+        <div class="markdown-block serif-prose"><p><strong>Trigger:</strong> dashboard panel mount opens the matching projection SSE channel.
+<strong>State:</strong> client holds projection state seeded by the snapshot, updated by deltas.
+<strong>Payload:</strong> consumes slice-8 snapshot/delta events.
+<strong>Rejected:</strong> big-bang removal of all JSON endpoints — keep them during cutover so a panel can be migrated and verified one at a time, then prune.</p>
+</div>
+        
+      </div>
+    </div>
+    
+
+    
+    <div class="slice-field slice-tests-field">
+      <div class="slice-field-label">Test Strategy</div>
+      <div class="slice-field-value">
+        
+        
+        <div class="test-strategy">
+          
+          <div class="test-group" data-kind="integration">
+            <span class="test-chip">INTEGRATION &middot; 1</span>
+            <ul><li>TestFeedPanel_NoPoll — assert feed panel opens an SSE projection, issues no repeated /api/events/feed GETs.</li></ul>
+          </div>
+          
+          <div class="test-group" data-kind="manual">
+            <span class="test-chip">MANUAL &middot; 1</span>
+            <ul><li>dashboard smoke — panels update live on a new work item without manual refresh.</li></ul>
+          </div>
+          
+        </div>
+        
+      </div>
+    </div>
+    
+
+    
+
+    
+    <div class="slice-field slice-questions">
+      <div class="slice-field-label">Open Questions</div>
+      <div class="slice-field-value">
+        
+        <div class="question-block slice-question-block">
+          <p>Migrate all panels at once or incrementally?</p>
+          
+          
+          <textarea
+            data-section="slice-9-question-q-cutover-order"
+            data-comment-for="slice-9-question-q-cutover-order"
+            placeholder="Answer question q-cutover-order...">Incrementally — keep the broad JSON endpoints alive during cutover, migrate one panel at a time, verify live behavior, then prune the now-unused broad endpoints.</textarea>
+          
+        </div>
+        
+      </div>
+    </div>
+    
+
+    <div class="slice-deps">Dependencies: slices 8</div>
+
+    <details class="comment-collapse">
+      <summary class="comment-collapse-trigger">+ Leave a comment</summary>
+      <div class="comment-collapse-body">
+        <textarea data-section="slice-9" data-comment-for="slice-9" placeholder="Comments on slice 9..."></textarea>
+      </div>
+    </details>
+  </div>
+</details>
+<details class="slice-card" id="slice-10" data-slice="10" data-slice-name="slice-10" data-status="pending" data-approval="pending">
+  <summary class="slice-summary" aria-label="Slice 10: Anomalies as first-class objects: canonical event &#43; derived table &#43; dashboard panel">
+    <span class="slice-num">#10</span>
+    <span class="slice-title-col">
+      <span class="slice-name">Anomalies as first-class objects: canonical event &#43; derived table &#43; dashboard panel</span>
+      <span class="slice-preview">Promote conflicts, stale indexes, failed/spooled hook writes, and</span>
+      <span class="slice-meta-row">
+        <span class="slice-summary-badges">
+          <span class="badge badge-revision badge-sm">M</span>
+          <span class="badge badge-revision badge-sm">Med</span>
+          <span class="badge badge-revision badge-sm badge-complexity" title="Complexity: complex">Complex</span>
+          
+          <span class="badge badge-pending badge-sm slice-approval-badge" data-badge-for="slice-10">Pending</span>
+          
+          <span class="badge badge-sm badge-questions" title="1 open question(s)">1 Q</span>
+        </span>
+        <span class="slice-actions" onclick="event.stopPropagation()">
+          <span class="approval-segmented" role="group" aria-label="Approval action">
+            <label class="seg-btn seg-approve" title="Approve">
+              <input type="radio" name="slice-10-approval" value="approved" data-section="slice-10" data-action="approve" aria-label="Approve slice 10">
+              &#10003;
+            </label>
+            <label class="seg-btn seg-changes" title="Request changes">
+              <input type="radio" name="slice-10-approval" value="changes_requested" data-section="slice-10" data-action="approve" aria-label="Request changes for slice 10">
+              &#8635;
+            </label>
+            <label class="seg-btn seg-reject" title="Reject">
+              <input type="radio" name="slice-10-approval" value="rejected" data-section="slice-10" data-action="approve" aria-label="Reject slice 10">
+              &#10005;
+            </label>
+          </span>
+        </span>
+      </span>
+    </span>
+    <span class="slice-chevron" aria-hidden="true"></span>
+  </summary>
+
+  <div class="slice-body">
+    
+      
+      <div class="slice-field slice-what">
+        <div class="slice-field-label">What</div>
+        <div class="slice-field-value">
+          
+          <input type="checkbox" id="slice-10-what-reveal" class="reveal-toggle">
+          <div class="markdown-block reveal-content serif-prose"><p>Promote conflicts, stale indexes, failed/spooled hook writes, and
+duplicate-agent activity from opaque counters to first-class, navigable
+objects. The daemon (and reindex/db-health) emit anomaly records into the
+canonical events.ndjson append-only log; an indexer projects them into a
+derived <code>anomalies</code> table (rebuildable on reindex). A dashboard anomalies
+panel, driven by a named projection from slice-8, lists open anomalies with
+timestamp, kind, source session/agent, and a resolved/acknowledged state.
+Detection sources: spool-used events (slice-3), failed daemon submits,
+db-health staleness (slice-7), and duplicate-agent activity on the same
+work item.</p>
+</div>
+          <label for="slice-10-what-reveal" class="reveal-label">Show full description</label>
+          
+        </div>
+      </div>
+      
+      
+      <div class="slice-field slice-why">
+        <div class="slice-field-label">Why</div>
+        <div class="slice-field-value">
+          
+          <div class="markdown-block serif-prose"><p>The research doc treats divergence as expected in local-first systems and
+wants it surfaced as resolvable objects, not silent counters. Today fallback
+and busy counters exist only as numbers in /api/collector-status with no
+actionable UX (research doc, Item 6; digest §2 Item 6).</p>
+</div>
+          
+        </div>
+      </div>
+      
+      
+      <div class="slice-field">
+        <div class="slice-field-label">Files</div>
+        <div class="slice-field-value"><code>internal/anomaly/detector.go, internal/anomaly/index.go, cmd/wipnote/api_projections.go, plugin/static/dashboard</code></div>
+      </div>
+      
+      
+      <div class="slice-field">
+        <div class="slice-field-label">Done when</div>
+        <ul class="slice-done-list"><li>Spool-used, failed-submit, stale-index, and duplicate-agent events are written to canonical events.ndjson</li><li>Anomaly records are indexed into a derived `anomalies` table that rebuilds cleanly on reindex</li><li>A dashboard anomalies panel lists open anomalies with kind, source, timestamp, and an ack/resolve action</li></ul>
+      </div>
+      
+    
+
+    
+    <div class="slice-field slice-decisions-notes">
+      <div class="slice-field-label">Decisions</div>
+      <div class="slice-field-value">
+        
+        <input type="checkbox" id="slice-10-decisions-reveal" class="reveal-toggle">
+        <div class="markdown-block reveal-content serif-prose"><p><strong>Trigger:</strong> daemon/reindex/db-health emit an anomaly event when a divergence condition is detected.
+<strong>State:</strong> CANONICAL events.ndjson record (survives rebuild) + derived <code>anomalies</code> table (rebuildable) — the locked choice over derived-only (ephemeral) or per-anomaly .html (heaviest).
+<strong>Payload:</strong> {kind: conflict|stale_index|failed_hook_write|duplicate_agent, source, ts, detail, status: open|acked|resolved}.
+<strong>Surfacing:</strong> a named projection (slice-8) feeds the dashboard panel so anomalies stream live.
+<strong>Rejected:</strong> derived-only anomalies table (lost on reindex, not local-first); dedicated .wipnote/anomalies/*.html (maximally first-class but heaviest — revisit only if anomalies need full lineage/linking).</p>
+</div>
+        <label for="slice-10-decisions-reveal" class="reveal-label">Show full decisions</label>
+        
+      </div>
+    </div>
+    
+
+    
+    <div class="slice-field slice-tests-field">
+      <div class="slice-field-label">Test Strategy</div>
+      <div class="slice-field-value">
+        
+        
+        <div class="test-strategy">
+          
+          <div class="test-group" data-kind="integration">
+            <span class="test-chip">INTEGRATION &middot; 3</span>
+            <ul><li>TestAnomaly_CanonicalAndDerived — force a spool-used event, assert NDJSON record &#43; anomalies row.</li><li>TestAnomaly_RebuildsOnReindex — wipe DB, reindex, assert anomalies table repopulates from NDJSON.</li><li>TestDuplicateAgent_Flagged — two agents active on one work item -&gt; one anomaly record.</li></ul>
+          </div>
+          
+        </div>
+        
+      </div>
+    </div>
+    
+
+    
+
+    
+    <div class="slice-field slice-questions">
+      <div class="slice-field-label">Open Questions</div>
+      <div class="slice-field-value">
+        
+        <div class="question-block slice-question-block">
+          <p>What defines duplicate-agent activity worth flagging?</p>
+          
+          
+          <textarea
+            data-section="slice-10-question-q-dup-agent"
+            data-comment-for="slice-10-question-q-dup-agent"
+            placeholder="Answer question q-dup-agent...">Two or more active agent sessions mutating/claiming the same work item concurrently (overlapping active windows on one feat/bug/spike id). The orchestrator convergence rule already treats this as a smell; the anomaly makes it visible.</textarea>
+          
+        </div>
+        
+      </div>
+    </div>
+    
+
+    <div class="slice-deps">Dependencies: slices 1,7,8</div>
+
+    <details class="comment-collapse">
+      <summary class="comment-collapse-trigger">+ Leave a comment</summary>
+      <div class="comment-collapse-body">
+        <textarea data-section="slice-10" data-comment-for="slice-10" placeholder="Comments on slice 10..."></textarea>
+      </div>
+    </details>
+  </div>
+</details>
+
     <!--PLAN_SLICE_CARDS-->
   </div>
 </details>
 
 <!-- Design Decisions (hidden for v2 plans — slice cards carry their own questions) -->
-<details id="questions" class="section-card" data-phase="questions" data-status="pending">
-  <summary><span>Design Decisions</span><span class="badge badge-pending" data-badge-for="questions">Pending</span></summary>
-  <div class="section-body">
-    <table class="q-table">
-      <thead><tr><th>Question</th><th>Selected</th><th>Status</th></tr></thead>
-      <tbody id="questionsRecap">
-        <!--PLAN_QUESTIONS_RECAP-->
-      </tbody>
-    </table>
-  </div>
-</details>
+
 
 
 
@@ -498,8 +2223,8 @@ body.right-rail-collapsed .sidebar-reopen{display:flex}
   <h2>Feedback Summary</h2>
   <div class="progress-stats">
     <div class="progress-stat"><strong id="approvedCount">0</strong> approved</div>
-    <div class="progress-stat"><strong id="totalSections">1</strong> sections</div>
-    <div class="progress-stat"><strong id="pendingCount">1</strong> pending</div>
+    <div class="progress-stat"><strong id="totalSections">11</strong> sections</div>
+    <div class="progress-stat"><strong id="pendingCount">11</strong> pending</div>
   </div>
   <div class="progress-bar-track"><div class="progress-bar-fill" id="progressFill" style="width:0%"></div></div>
   <div class="comments-summary">
@@ -579,7 +2304,7 @@ var planId=(function(){var a=document.querySelector('article[id]');return a?a.id
 
 (function(){
   'use strict';
-  var SECTIONS=/*PLAN_SECTIONS_JSON*/["design"]/*END_PLAN_SECTIONS_JSON*/;
+  var SECTIONS=/*PLAN_SECTIONS_JSON*/["design","slice-1","slice-2","slice-3","slice-4","slice-5","slice-6","slice-7","slice-8","slice-9","slice-10"]/*END_PLAN_SECTIONS_JSON*/;
 
   function setBadge(el,ok){
     el.className='badge badge-'+(ok?'approved':'pending');

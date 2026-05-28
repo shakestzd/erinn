@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>Reduce event-tree.js dispatch complexity</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="feat-8f5fca26"
+             data-type="feature"
+             data-status="in-progress"
+             data-priority="medium"
+             data-created="2026-05-28T20:55:48.628825"
+             data-updated="2026-05-28T21:32:43.775937" data-agent-assigned="claude-code" data-created-by-cli-version="0.60.19">
+
+        <header>
+            <h1>Reduce event-tree.js dispatch complexity</h1>
+            <div class="metadata">
+                <span class="badge status-in-progress">In Progress</span>
+                <span class="badge priority-medium">Medium Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="implemented_in">
+                <h3>Implemented In:</h3>
+                <ul>
+                    <li><a href="019e6bc3f6d3ec2c6f82023070ac.html" data-relationship="implemented_in" data-since="2026-05-28T21:32:43.773201">session 019e6bc3f6d3ec2c6f82023070ac</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>Behavior-preserving refactor of four hotspot methods in event-tree.js identified by oxlint complexity gate. Targets: _detectLanguage (38), _spanHasDetail (49), _spanSummary (54), _spanDetailBlock (114). Lowers .oxlint-baseline by the number of violations cleared.</p>
+        </section>
+    </article>
+</body>
+</html>

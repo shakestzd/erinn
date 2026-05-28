@@ -604,12 +604,14 @@ canonical-vs-derived contract lives only in a test inventory.
 <li data-markdown>Keep .wipnote/*.html + events.ndjson canonical and SQLite explicitly rebuildable-derived, with staleness visible to operators.</li>
 <li data-markdown>Replace broad dashboard polling with named snapshot+delta SSE projections that reconnect-resume.</li>
 <li data-markdown>Promote conflicts, stale indexes, failed/spooled hook writes, and duplicate-agent activity to first-class, resolvable dashboard objects.</li>
+<li data-markdown>Adopt a two-tier topology: per-project daemon = write-owner data plane (this plan); a global coordinator graduated from serve_global = control plane for supervision + cross-project monitoring/knowledge transfer (follow-on trk-cb80b7da). Design the per-project protocol coordinator-ready so the coordinator attaches with zero rework.</li>
 </ol>
 <h4>Constraints</h4>
 <ul>
 <li data-markdown>Canonical artifacts are the source of truth; a writer must never block or lose a mutation because the daemon is unreachable (auto-spawn primary, spool last-resort).</li>
 <li data-markdown>Direct canonical cutover with NO config flag and NO shadow mode (single dogfooding user today); soak test + reindex-race fix are the safety net.</li>
 <li data-markdown>Reindex must remain a foreground command honoring the existing TMPDIR-safety contract — never backgrounded on volatile tmpfs.</li>
+<li data-markdown>The per-project write-owner is the sole write authority for its DB (failure isolation — one writer crash never blocks other projects); the global coordinator (trk-cb80b7da) never holds per-DB write locks. The slice-1 socket/envelope and slice-2 lease must be coordinator-ready: project_id in the envelope, registry-discoverable socket+lease.</li>
 <li data-markdown>OUT OF SCOPE: WASM boundary, DuckDB replacement, CRDT rewrite, required cloud sync. No new runtime dependency beyond the existing go.mod.</li>
 </ul>
 
@@ -715,7 +717,7 @@ for SQLITE_BUSY (research doc, Item 3).</p>
       
       <div class="slice-field">
         <div class="slice-field-label">Done when</div>
-        <ul class="slice-done-list"><li>serve_child binds a per-project Unix socket and accepts versioned write-op envelopes</li><li>WriterClient.Submit sends an op and receives an applied/duplicate/error ack with a monotonic seq</li><li>Submitting the same op_id twice returns duplicate on the second call, including across a simulated daemon restart (durable dedup marker)</li><li>An envelope with an unknown op_format_version is rejected with a clear error, not mis-applied</li></ul>
+        <ul class="slice-done-list"><li>serve_child binds a per-project Unix socket and accepts versioned write-op envelopes</li><li>WriterClient.Submit sends an op and receives an applied/duplicate/error ack with a monotonic seq</li><li>Submitting the same op_id twice returns duplicate on the second call, including across a simulated daemon restart (durable dedup marker)</li><li>An envelope with an unknown op_format_version is rejected with a clear error, not mis-applied</li><li>The envelope carries a project_id and the socket&#43;lease are registry-discoverable so a future global coordinator (trk-cb80b7da) can attach with no protocol change</li></ul>
       </div>
       
     
@@ -735,6 +737,7 @@ restart cannot double-apply (resolves the version-skew/restart critic findings).
 daemon errors loudly rather than corrupting derived rows.
 <strong>Idempotency:</strong> client-supplied op_id (hash of source event); dedup drops retries and
 spool replays uniformly. Monotonic seq lets SSE consumers resume.
+<strong>Two-tier/coordinator-ready:</strong> envelope carries project_id; the per-project socket path + O_EXCL lease are published to a discoverable registry so a future global coordinator (trk-cb80b7da, graduated serve_global) can supervise/route without changing the wire protocol; the per-project writer stays the sole write authority for its DB (failure isolation).
 <strong>Rejected:</strong> loopback HTTP submit (heavier, port allocation, less local-first);
 idempotent-by-construction-only ops (too restrictive for the mutation set);
 source-offset checkpoints alone (works for NDJSON ops, not for CLI mutations).</p>
@@ -929,6 +932,7 @@ would otherwise create.</p>
 <strong>State:</strong> O_EXCL PID + lease file in .wipnote/; readiness = first successful socket dial after lease validation (NOT stdout port scan).
 <strong>Payload:</strong> none new — reuses slice-1 envelope once connected.
 <strong>Readiness/shutdown:</strong> bounded readiness wait (a small constant, e.g. ~2s, with backoff) so a writer never hangs; idle-timeout shutdown guarded by a connect-grace window so a concurrent dial re-spawns rather than racing a closing listener.
+<strong>Two-tier/coordinator-ready:</strong> the headless writer is spawnable/supervisable by EITHER a local writer (auto-spawn) OR the future global coordinator (trk-cb80b7da); the O_EXCL lease + socket registry is the coordinator discovery/attach point; the coordinator supervises, it never takes the per-DB write lock.
 <strong>Rejected:</strong> standalone always-on <code>wipnote daemon</code> process (second lifecycle, larger build) — graduating serve_child reuses the existing writqueue + doorway with least new code; library-mode opportunistic leadership (trickiest handoff semantics).</p>
 </div>
         <label for="slice-2-decisions-reveal" class="reveal-label">Show full decisions</label>

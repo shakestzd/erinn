@@ -53,10 +53,12 @@ design:
         - Keep .wipnote/*.html + events.ndjson canonical and SQLite explicitly rebuildable-derived, with staleness visible to operators.
         - Replace broad dashboard polling with named snapshot+delta SSE projections that reconnect-resume.
         - Promote conflicts, stale indexes, failed/spooled hook writes, and duplicate-agent activity to first-class, resolvable dashboard objects.
+        - 'Adopt a two-tier topology: per-project daemon = write-owner data plane (this plan); a global coordinator graduated from serve_global = control plane for supervision + cross-project monitoring/knowledge transfer (follow-on trk-cb80b7da). Design the per-project protocol coordinator-ready so the coordinator attaches with zero rework.'
     constraints:
         - Canonical artifacts are the source of truth; a writer must never block or lose a mutation because the daemon is unreachable (auto-spawn primary, spool last-resort).
         - Direct canonical cutover with NO config flag and NO shadow mode (single dogfooding user today); soak test + reindex-race fix are the safety net.
         - Reindex must remain a foreground command honoring the existing TMPDIR-safety contract — never backgrounded on volatile tmpfs.
+        - 'The per-project write-owner is the sole write authority for its DB (failure isolation — one writer crash never blocks other projects); the global coordinator (trk-cb80b7da) never holds per-DB write locks. The slice-1 socket/envelope and slice-2 lease must be coordinator-ready: project_id in the envelope, registry-discoverable socket+lease.'
         - 'OUT OF SCOPE: WASM boundary, DuckDB replacement, CRDT rewrite, required cloud sync. No new runtime dependency beyond the existing go.mod.'
     approved: false
     comment: ""
@@ -95,6 +97,7 @@ slices:
         - WriterClient.Submit sends an op and receives an applied/duplicate/error ack with a monotonic seq
         - Submitting the same op_id twice returns duplicate on the second call, including across a simulated daemon restart (durable dedup marker)
         - An envelope with an unknown op_format_version is rejected with a clear error, not mis-applied
+        - The envelope carries a project_id and the socket+lease are registry-discoverable so a future global coordinator (trk-cb80b7da) can attach with no protocol change
       effort: M
       risk: Med
       tests: |
@@ -128,6 +131,7 @@ slices:
           daemon errors loudly rather than corrupting derived rows.
         **Idempotency:** client-supplied op_id (hash of source event); dedup drops retries and
           spool replays uniformly. Monotonic seq lets SSE consumers resume.
+        **Two-tier/coordinator-ready:** envelope carries project_id; the per-project socket path + O_EXCL lease are published to a discoverable registry so a future global coordinator (trk-cb80b7da, graduated serve_global) can supervise/route without changing the wire protocol; the per-project writer stays the sole write authority for its DB (failure isolation).
         **Rejected:** loopback HTTP submit (heavier, port allocation, less local-first);
           idempotent-by-construction-only ops (too restrictive for the mutation set);
           source-offset checkpoints alone (works for NDJSON ops, not for CLI mutations).
@@ -196,6 +200,7 @@ slices:
         **State:** O_EXCL PID + lease file in .wipnote/; readiness = first successful socket dial after lease validation (NOT stdout port scan).
         **Payload:** none new — reuses slice-1 envelope once connected.
         **Readiness/shutdown:** bounded readiness wait (a small constant, e.g. ~2s, with backoff) so a writer never hangs; idle-timeout shutdown guarded by a connect-grace window so a concurrent dial re-spawns rather than racing a closing listener.
+        **Two-tier/coordinator-ready:** the headless writer is spawnable/supervisable by EITHER a local writer (auto-spawn) OR the future global coordinator (trk-cb80b7da); the O_EXCL lease + socket registry is the coordinator discovery/attach point; the coordinator supervises, it never takes the per-DB write lock.
         **Rejected:** standalone always-on `wipnote daemon` process (second lifecycle, larger build) — graduating serve_child reuses the existing writqueue + doorway with least new code; library-mode opportunistic leadership (trickiest handoff semantics).
     - id: slice-3
       num: 3

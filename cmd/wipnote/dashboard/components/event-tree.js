@@ -1,5 +1,236 @@
 /* ── <hg-event-tree> Web Component ─────────────────────────── */
 
+// File-extension → Prism/highlight.js language identifier. Hoisted to module
+// scope so the lookup is a single map indexing instead of a long switch
+// (drops _detectLanguage's cyclomatic complexity from ~38 to ~3).
+const EXT_TO_LANGUAGE = {
+  go: 'go',
+  js: 'javascript', mjs: 'javascript',
+  ts: 'typescript', tsx: 'typescript',
+  jsx: 'jsx',
+  py: 'python',
+  rb: 'ruby',
+  rs: 'rust',
+  java: 'java',
+  c: 'c', h: 'c',
+  cpp: 'cpp', cc: 'cpp', hpp: 'cpp',
+  cs: 'csharp',
+  sh: 'bash', bash: 'bash', zsh: 'bash', fish: 'bash',
+  html: 'html', htm: 'html',
+  css: 'css',
+  scss: 'scss', sass: 'scss',
+  json: 'json',
+  yaml: 'yaml', yml: 'yaml',
+  toml: 'toml',
+  xml: 'xml',
+  md: 'markdown', markdown: 'markdown',
+  sql: 'sql',
+  proto: 'protobuf',
+  dockerfile: 'docker',
+};
+
+// Per-tool detail-key lists. _spanHasDetail returns true when ANY listed key
+// is truthy on span.details — same semantics as the original if-chain, but
+// expressed as a table + .some() so the cyclomatic complexity is constant in
+// the number of tools instead of linear.
+//
+// The mcp__ prefix family, generic tool_input, and _precedingApi cases stay
+// as explicit checks in the function (they aren't a fixed key list).
+const TOOL_DETAIL_KEYS = {
+  Bash: ['description', 'timeout', 'git_commit_id', 'full_command'],
+  Read: ['file_path', 'offset', 'limit'],
+  Edit: ['file_path', 'old_string_len', 'new_string_len', 'replace_all', 'old_string', 'new_string'],
+  Write: ['file_path', 'content_len', 'content'],
+  NotebookEdit: ['file_path'],
+  Grep: ['pattern', 'path', 'output_mode'],
+  Glob: ['pattern', 'path'],
+  WebFetch: ['url', 'query'],
+  Skill: ['skill_name'],
+  TodoWrite: ['todo_count'],
+};
+const _taskAgentKeys = ['subagent_type', 'description', 'prompt'];
+TOOL_DETAIL_KEYS.Task = _taskAgentKeys;
+TOOL_DETAIL_KEYS.Agent = _taskAgentKeys;
+TOOL_DETAIL_KEYS.WebSearch = TOOL_DETAIL_KEYS.WebFetch;
+const _taskFamilyKeys = ['description', 'prompt', 'subagent_type'];
+['TaskCreate', 'TaskUpdate', 'TaskList', 'TaskGet', 'TaskStop', 'TaskOutput'].forEach(function(t) {
+  TOOL_DETAIL_KEYS[t] = _taskFamilyKeys;
+});
+
+// Per-tool summary-text builders. Each takes (d, self) and returns the short
+// summary string shown on the span row. Multi-name groups (Read/Edit/Write,
+// Grep/Glob, WebFetch/WebSearch, Task/Agent, TaskCreate-family) share a
+// function reference. Collapses _spanSummary's tool_name if-chain into a
+// table lookup (drops its cyclomatic complexity from ~54 below threshold).
+const _summaryFile = function(d, self) { return self._relativizePath(d.file_path || ''); };
+const _summaryBash = function(d) { return d.description || d.full_command || d.bash_command || ''; };
+const _summaryPattern = function(d) { return d.pattern || ''; };
+const _summaryUrl = function(d) { return d.url || ''; };
+const _summarySkill = function(d) { return d.skill_name || ''; };
+const _summaryDesc = function(d) { return d.description || ''; };
+const _summaryTodo = function(d) { return d.todo_count ? d.todo_count + ' todos' : ''; };
+const _summaryTaskFamily = function(d) { return d.description || d.subagent_type || ''; };
+const TOOL_SUMMARY = {
+  Bash: _summaryBash,
+  Read: _summaryFile, Edit: _summaryFile, Write: _summaryFile, NotebookEdit: _summaryFile,
+  Grep: _summaryPattern, Glob: _summaryPattern,
+  WebFetch: _summaryUrl, WebSearch: _summaryUrl,
+  Skill: _summarySkill,
+  Task: _summaryDesc, Agent: _summaryDesc,
+  TodoWrite: _summaryTodo,
+  TaskCreate: _summaryTaskFamily, TaskUpdate: _summaryTaskFamily,
+  TaskList: _summaryTaskFamily, TaskGet: _summaryTaskFamily,
+  TaskStop: _summaryTaskFamily, TaskOutput: _summaryTaskFamily,
+};
+
+// Permission-gate decision_source → user-facing text. An unmapped value
+// falls back to the explicit 'permission check' / 'decision: X' handling
+// in _summaryBlocked below.
+const BLOCKED_DECISION_TEXT = {
+  config: 'auto-approved (config)',
+  hook: 'auto-approved (hook)',
+  user_permanent: 'user approved (remember)',
+  user_temporary: 'user approved',
+  user_reject: 'blocked by user',
+  user_abort: 'aborted by user',
+};
+
+// Per-canonical summary builders. Mirror TOOL_SUMMARY but keyed on the
+// span's canonical type (tool_blocked_on_user / tool_execution /
+// interaction / api_request). Pulled out so _spanSummary itself stays
+// under the complexity threshold.
+const _summaryBlocked = function(d) {
+  var ds = d.decision_source;
+  var mapped = (typeof ds === 'string') ? BLOCKED_DECISION_TEXT[ds] : undefined;
+  if (mapped) return mapped;
+  if (!ds || ds === 'unknown') return 'permission check';
+  return 'decision: ' + ds;
+};
+const _summaryApi = function(d) {
+  var mode = d.mode || d.speed || '';
+  return mode ? mode + ' mode' : '';
+};
+const CANONICAL_SUMMARY = {
+  tool_blocked_on_user: _summaryBlocked,
+  tool_execution: function() { return 'executed'; },
+  interaction: function() { return ''; },
+  api_request: _summaryApi,
+};
+
+// Per-tool kv-row builders for _spanDetailBlock. Each takes (d) and returns
+// an array of [key, value] pairs that pass through the original truthy
+// guards. The mcp__ family is special (prefix match + mcp_input iteration)
+// and lives on the class as _mcpDetailRows. Multi-name groups share a
+// function reference. Bodies are copied verbatim from the original chain to
+// preserve behaviour byte-for-byte.
+const _rowsBash = function(d) {
+  var r = [];
+  if (d.description)    r.push(['description', d.description]);
+  if (d.timeout)        r.push(['timeout', d.timeout + 'ms']);
+  if (d.git_commit_id)  r.push(['git commit', d.git_commit_id]);
+  return r;
+};
+const _rowsRead = function(d) {
+  var r = [];
+  if (d.file_path)      r.push(['file', d.file_path]);
+  if (d.offset || d.limit) {
+    var start = d.offset || 1;
+    var end = d.limit ? (start + d.limit - 1) : '';
+    r.push(['range', end ? ('lines ' + start + '–' + end) : ('offset ' + start)]);
+  }
+  return r;
+};
+const _rowsEdit = function(d) {
+  var r = [];
+  if (d.file_path)      r.push(['file', d.file_path]);
+  if (d.old_string_len || d.new_string_len) {
+    r.push(['change', '−' + (d.old_string_len || 0) + ' → +' + (d.new_string_len || 0) + ' chars']);
+  }
+  if (d.replace_all)    r.push(['replace_all', 'true']);
+  return r;
+};
+const _rowsWrite = function(d) {
+  var r = [];
+  if (d.file_path)      r.push(['file', d.file_path]);
+  if (d.content_len)    r.push(['content', d.content_len + ' chars']);
+  return r;
+};
+const _rowsNotebookEdit = function(d) { return d.file_path ? [['notebook', d.file_path]] : []; };
+const _rowsGrep = function(d) {
+  var r = [];
+  if (d.pattern)        r.push(['pattern', d.pattern]);
+  if (d.path)           r.push(['path', d.path]);
+  if (d.output_mode)    r.push(['output', d.output_mode]);
+  return r;
+};
+const _rowsGlob = function(d) {
+  var r = [];
+  if (d.pattern)        r.push(['pattern', d.pattern]);
+  if (d.path)           r.push(['path', d.path]);
+  return r;
+};
+const _rowsTaskOrAgent = function(d) {
+  var r = [];
+  if (d.subagent_type)  r.push(['subagent', d.subagent_type]);
+  if (d.description)    r.push(['description', d.description]);
+  if (d.prompt)         r.push(['prompt', d.prompt]);
+  return r;
+};
+const _rowsWebFetch = function(d) { return d.url ? [['url', d.url]] : []; };
+const _rowsWebSearch = function(d) { return d.query ? [['query', d.query]] : []; };
+const _rowsSkill = function(d) { return d.skill_name ? [['skill', d.skill_name]] : []; };
+const _rowsTodoWrite = function(d) { return d.todo_count ? [['todos', d.todo_count]] : []; };
+const _rowsTaskFamily = function(d) {
+  var r = [];
+  if (d.description)    r.push(['description', d.description]);
+  if (d.prompt)         r.push(['prompt', d.prompt]);
+  if (d.subagent_type)  r.push(['subagent', d.subagent_type]);
+  return r;
+};
+const TOOL_DETAIL_ROW_BUILDERS = {
+  Bash: _rowsBash,
+  Read: _rowsRead,
+  Edit: _rowsEdit,
+  Write: _rowsWrite,
+  NotebookEdit: _rowsNotebookEdit,
+  Grep: _rowsGrep,
+  Glob: _rowsGlob,
+  Task: _rowsTaskOrAgent, Agent: _rowsTaskOrAgent,
+  WebFetch: _rowsWebFetch, WebSearch: _rowsWebSearch,
+  Skill: _rowsSkill,
+  TodoWrite: _rowsTodoWrite,
+  TaskCreate: _rowsTaskFamily, TaskUpdate: _rowsTaskFamily, TaskList: _rowsTaskFamily,
+  TaskGet: _rowsTaskFamily, TaskStop: _rowsTaskFamily, TaskOutput: _rowsTaskFamily,
+};
+
+// Per-tool code-block builders for _spanDetailBlock. Each takes (d, self) so
+// the few that need _codeBlock/_detectLanguage can dispatch through `self`.
+// The mcp__ and generic tool_input long-value cases reuse a single
+// class-side helper (_longInputCodeBlocks) since they're byte-identical
+// except for the source map.
+const _codeBash = function(d, self) {
+  return d.full_command
+    ? self._codeBlock('command', d.full_command, d.full_command.length, false, 'bash')
+    : '';
+};
+const _codeEdit = function(d, self) {
+  var lang = self._detectLanguage(d.file_path);
+  var out = '';
+  if (d.old_string) out += self._codeBlock('old_string', d.old_string, d.old_string_len, d.content_truncated, lang);
+  if (d.new_string) out += self._codeBlock('new_string', d.new_string, d.new_string_len, d.content_truncated, lang);
+  return out;
+};
+const _codeWrite = function(d, self) {
+  return d.content
+    ? self._codeBlock('content', d.content, d.content_len, d.content_truncated, self._detectLanguage(d.file_path))
+    : '';
+};
+const TOOL_CODE_BUILDERS = {
+  Bash: _codeBash,
+  Edit: _codeEdit,
+  Write: _codeWrite,
+};
+
 class HgEventTree extends HTMLElement {
   constructor() {
     super();
@@ -1262,23 +1493,11 @@ class HgEventTree extends HTMLElement {
     if (!span.tool_name) return false;
     var d = span.details || {};
     var tn = span.tool_name;
-    if (tn === 'Bash')        return !!(d.description || d.timeout || d.git_commit_id || d.full_command);
-    if (tn === 'Read')        return !!(d.file_path || d.offset || d.limit);
-    if (tn === 'Edit')        return !!(d.file_path || d.old_string_len || d.new_string_len || d.replace_all ||
-                                        d.old_string || d.new_string);
-    if (tn === 'Write')       return !!(d.file_path || d.content_len || d.content);
-    if (tn === 'NotebookEdit') return !!d.file_path;
-    if (tn === 'Grep')        return !!(d.pattern || d.path || d.output_mode);
-    if (tn === 'Glob')        return !!(d.pattern || d.path);
-    if (tn === 'Task' || tn === 'Agent') return !!(d.subagent_type || d.description || d.prompt);
-    if (tn === 'WebFetch' || tn === 'WebSearch') return !!(d.url || d.query);
-    if (tn === 'Skill')       return !!d.skill_name;
-    if (tn === 'TodoWrite')   return !!d.todo_count;
-    if (tn === 'TaskCreate' || tn === 'TaskUpdate' || tn === 'TaskList' ||
-        tn === 'TaskGet'    || tn === 'TaskStop'   || tn === 'TaskOutput') {
-      return !!(d.description || d.prompt || d.subagent_type);
+    var keys = TOOL_DETAIL_KEYS[tn];
+    if (keys) return keys.some(function(k) { return !!d[k]; });
+    if (tn.indexOf('mcp__') === 0) {
+      return !!(d.mcp_input || d.url || d.query || d.pattern || d.file_path);
     }
-    if (tn.indexOf('mcp__') === 0) return !!(d.mcp_input || d.url || d.query || d.pattern || d.file_path);
     if (d.tool_input) return true;
     // Also check for absorbed api_request details.
     if (span._precedingApi) return true;
@@ -1550,172 +1769,21 @@ class HgEventTree extends HTMLElement {
     return html;
   }
 
-  // _spanDetailBlock renders a single fixed-width panel below a tool
-  // row when it's expanded, showing the full input context the summary
-  // line couldn't fit. Returns '' when there's nothing worth showing.
+  // _spanDetailBlock renders a single fixed-width panel below a tool row
+  // when it's expanded, showing the full input context the summary line
+  // couldn't fit. Returns '' when there's nothing worth showing.
+  //
+  // The per-tool branching is dispatched through TOOL_DETAIL_ROW_BUILDERS
+  // and TOOL_CODE_BUILDERS (module-level tables above); this method only
+  // orchestrates and assembles HTML. The MCP and generic tool_input paths
+  // live on the class because they need _parseMCPToolName and the shared
+  // long-value scanner _longInputCodeBlocks.
   _spanDetailBlock(span, depth) {
     var d = span.details || {};
     if (!span.tool_name) return '';
-    var rows = [];
-    if (span.tool_name === 'Bash') {
-      // command becomes a <pre><code> code block below — it's typically
-      // multiline and long enough to deserve code rendering. Keep
-      // description/timeout/git-commit as simple kv rows.
-      if (d.description)    rows.push(['description', d.description]);
-      if (d.timeout)        rows.push(['timeout', d.timeout + 'ms']);
-      if (d.git_commit_id)  rows.push(['git commit', d.git_commit_id]);
-    } else if (span.tool_name === 'Read') {
-      if (d.file_path)      rows.push(['file', d.file_path]);
-      if (d.offset || d.limit) {
-        var start = d.offset || 1;
-        var end = d.limit ? (start + d.limit - 1) : '';
-        rows.push(['range', end ? ('lines ' + start + '–' + end) : ('offset ' + start)]);
-      }
-    } else if (span.tool_name === 'Edit') {
-      if (d.file_path)      rows.push(['file', d.file_path]);
-      if (d.old_string_len || d.new_string_len) {
-        rows.push(['change', '\u2212' + (d.old_string_len || 0) + ' \u2192 +' + (d.new_string_len || 0) + ' chars']);
-      }
-      if (d.replace_all)    rows.push(['replace_all', 'true']);
-    } else if (span.tool_name === 'Write') {
-      if (d.file_path)      rows.push(['file', d.file_path]);
-      if (d.content_len)    rows.push(['content', d.content_len + ' chars']);
-    } else if (span.tool_name === 'NotebookEdit') {
-      if (d.file_path)      rows.push(['notebook', d.file_path]);
-    } else if (span.tool_name === 'Grep') {
-      if (d.pattern)        rows.push(['pattern', d.pattern]);
-      if (d.path)           rows.push(['path', d.path]);
-      if (d.output_mode)    rows.push(['output', d.output_mode]);
-    } else if (span.tool_name === 'Glob') {
-      if (d.pattern)        rows.push(['pattern', d.pattern]);
-      if (d.path)           rows.push(['path', d.path]);
-    } else if (span.tool_name === 'Task' || span.tool_name === 'Agent') {
-      if (d.subagent_type)  rows.push(['subagent', d.subagent_type]);
-      if (d.description)    rows.push(['description', d.description]);
-      if (d.prompt)         rows.push(['prompt', d.prompt]);
-    } else if (span.tool_name === 'WebFetch') {
-      if (d.url)            rows.push(['url', d.url]);
-    } else if (span.tool_name === 'WebSearch') {
-      if (d.query)          rows.push(['query', d.query]);
-    } else if (span.tool_name === 'Skill') {
-      if (d.skill_name)     rows.push(['skill', d.skill_name]);
-    } else if (span.tool_name === 'TodoWrite') {
-      if (d.todo_count)     rows.push(['todos', d.todo_count]);
-    } else if (span.tool_name === 'TaskCreate' || span.tool_name === 'TaskUpdate' ||
-               span.tool_name === 'TaskList'   || span.tool_name === 'TaskGet' ||
-               span.tool_name === 'TaskStop'   || span.tool_name === 'TaskOutput') {
-      // Task-management family — show whatever identifying args the
-      // tool_input carried (description, prompt summary, task id).
-      if (d.description)    rows.push(['description', d.description]);
-      if (d.prompt)         rows.push(['prompt', d.prompt]);
-      if (d.subagent_type)  rows.push(['subagent', d.subagent_type]);
-    } else if (span.tool_name && span.tool_name.indexOf('mcp__') === 0) {
-      // MCP tool: show server + tool split, then all mcp_input key-values.
-      var mcp = this._parseMCPToolName(span.tool_name);
-      if (mcp) {
-        rows.push(['server', mcp.serverName]);
-        rows.push(['tool', mcp.toolName]);
-      }
-      // Render mcp_input key-values. Long/multi-line values become code blocks.
-      if (d.mcp_input && typeof d.mcp_input === 'object') {
-        var mcpKeys = Object.keys(d.mcp_input);
-        for (var mi = 0; mi < mcpKeys.length; mi++) {
-          var mk = mcpKeys[mi];
-          var mv = d.mcp_input[mk];
-          var mvStr = (typeof mv === 'string') ? mv : JSON.stringify(mv, null, 2);
-          if (mvStr.length > 200 || mvStr.indexOf('\n') !== -1) {
-            // Long or multi-line: defer to code block; don't add to rows.
-            // Code blocks are appended after rows below.
-          } else {
-            rows.push([mk, mvStr]);
-          }
-        }
-      } else {
-        // Fallback: legacy detail fields if mcp_input not present.
-        if (d.url)          rows.push(['url', d.url]);
-        if (d.query)        rows.push(['query', d.query]);
-        if (d.pattern)      rows.push(['pattern', d.pattern]);
-        if (d.file_path)    rows.push(['file', d.file_path]);
-      }
-    }
-    // Preceding api_request: if absorbed, show the details we hid from
-    // the top-level tree so expanding the tool reveals the full context.
-    if (span._precedingApi) {
-      var api = span._precedingApi;
-      var ad = api.details || {};
-      if (api.model)            rows.push(['model', api.model]);
-      if (api.tokens_in)        rows.push(['input tokens', api.tokens_in.toLocaleString()]);
-      if (api.tokens_out)       rows.push(['output tokens', api.tokens_out.toLocaleString()]);
-      if (api.cost_usd > 0)     rows.push(['cost', '$' + api.cost_usd.toFixed(6)]);
-      if (api.duration_ms)      rows.push(['api duration', api.duration_ms + 'ms']);
-      if (ad.request_id)        rows.push(['request id', ad.request_id]);
-      if (ad.mode || ad.speed)  rows.push(['mode', ad.mode || ad.speed]);
-      if (ad.command_type)      rows.push(['command type', ad.command_type]);
-    }
-    if (d.tool_input && typeof d.tool_input === 'object' && !(span.tool_name && span.tool_name.indexOf('mcp__') === 0)) {
-      var inputKeys = Object.keys(d.tool_input);
-      for (var ti = 0; ti < inputKeys.length; ti++) {
-        var tk = inputKeys[ti];
-        var tv = d.tool_input[tk];
-        var tvStr = (typeof tv === 'string') ? tv : JSON.stringify(tv, null, 2);
-        if (tvStr.length <= 200 && tvStr.indexOf('\n') === -1) {
-          rows.push([tk, tvStr]);
-        }
-      }
-    }
-    // Long-content code panels: render Bash command / Edit old_string /
-    // Edit new_string / Write content as <pre><code class="language-xxx">
-    // blocks. The language class is set from the file extension (for
-    // file-backed tools) or "bash" for Bash. A future syntax-highlighting
-    // library (feat-292f87fe) will pick up the class and colorize.
-    var codeBlocks = '';
-    if (span.tool_name === 'Bash') {
-      if (d.full_command) {
-        codeBlocks += this._codeBlock('command', d.full_command, d.full_command.length, false, 'bash');
-      }
-    } else if (span.tool_name === 'Edit') {
-      var editLang = this._detectLanguage(d.file_path);
-      if (d.old_string) {
-        codeBlocks += this._codeBlock('old_string', d.old_string, d.old_string_len, d.content_truncated, editLang);
-      }
-      if (d.new_string) {
-        codeBlocks += this._codeBlock('new_string', d.new_string, d.new_string_len, d.content_truncated, editLang);
-      }
-    } else if (span.tool_name === 'Write') {
-      if (d.content) {
-        codeBlocks += this._codeBlock('content', d.content, d.content_len, d.content_truncated, this._detectLanguage(d.file_path));
-      }
-    } else if (span.tool_name && span.tool_name.indexOf('mcp__') === 0 && d.mcp_input && typeof d.mcp_input === 'object') {
-      // MCP tools: render long/multi-line input values as code blocks.
-      var mcpCodeKeys = Object.keys(d.mcp_input);
-      for (var mci = 0; mci < mcpCodeKeys.length; mci++) {
-        var mck = mcpCodeKeys[mci];
-        var mcv = d.mcp_input[mck];
-        var mcvStr = (typeof mcv === 'string') ? mcv : JSON.stringify(mcv, null, 2);
-        if (mcvStr.length > 200 || mcvStr.indexOf('\n') !== -1) {
-          var mcLang = (typeof mcv !== 'string') ? 'json' : '';
-          codeBlocks += this._codeBlock(mck, mcvStr, mcvStr.length, false, mcLang);
-        }
-      }
-    } else if (d.tool_input && typeof d.tool_input === 'object') {
-      var genericCodeKeys = Object.keys(d.tool_input);
-      for (var gci = 0; gci < genericCodeKeys.length; gci++) {
-        var gck = genericCodeKeys[gci];
-        var gcv = d.tool_input[gck];
-        var gcvStr = (typeof gcv === 'string') ? gcv : JSON.stringify(gcv, null, 2);
-        if (gcvStr.length > 200 || gcvStr.indexOf('\n') !== -1) {
-          var gcLang = (typeof gcv !== 'string') ? 'json' : '';
-          codeBlocks += this._codeBlock(gck, gcvStr, gcvStr.length, false, gcLang);
-        }
-      }
-    }
-    // Tool output: render when available (e.g., Gemini tool spans)
-    if (d.tool_output) {
-      codeBlocks += this._codeBlock('output', d.tool_output, d.tool_output.length, false, '');
-    }
-
+    var rows = this._spanDetailRows(span, d);
+    var codeBlocks = this._spanCodeBlocks(span, d);
     if (rows.length === 0 && !codeBlocks) return '';
-
     var padLeft = (depth + 1) * 1.25;
     var bgAlpha = 0.05 + depth * 0.08;
     var kvHtml = rows.map(function(r) {
@@ -1727,6 +1795,129 @@ class HgEventTree extends HTMLElement {
       + kvHtml
       + codeBlocks
       + '</div>';
+  }
+
+  // _spanDetailRows builds the kv-row array: per-tool rows via the dispatch
+  // table, then optional api_request rows from an absorbed _precedingApi,
+  // then any short scalar tool_input keys not covered by the tool's own
+  // branch (skipped for mcp__ tools — they use _mcpDetailRows instead).
+  _spanDetailRows(span, d) {
+    var tn = span.tool_name;
+    var isMcp = tn && tn.indexOf('mcp__') === 0;
+    var rows;
+    if (isMcp) {
+      rows = this._mcpDetailRows(span, d);
+    } else {
+      var builder = tn ? TOOL_DETAIL_ROW_BUILDERS[tn] : null;
+      rows = builder ? builder(d) : [];
+    }
+    if (span._precedingApi) this._appendApiRows(rows, span._precedingApi);
+    if (!isMcp) this._appendShortToolInputRows(rows, d);
+    return rows;
+  }
+
+  // _appendApiRows appends rows summarising an absorbed api_request span
+  // (model, token counts, cost, duration, request id, mode, command type).
+  // Extracted from _spanDetailRows so each method stays below the cyclomatic
+  // threshold; the eight conditional pushes still live here, but only here.
+  _appendApiRows(rows, api) {
+    var ad = api.details || {};
+    if (api.model)            rows.push(['model', api.model]);
+    if (api.tokens_in)        rows.push(['input tokens', api.tokens_in.toLocaleString()]);
+    if (api.tokens_out)       rows.push(['output tokens', api.tokens_out.toLocaleString()]);
+    if (api.cost_usd > 0)     rows.push(['cost', '$' + api.cost_usd.toFixed(6)]);
+    if (api.duration_ms)      rows.push(['api duration', api.duration_ms + 'ms']);
+    if (ad.request_id)        rows.push(['request id', ad.request_id]);
+    if (ad.mode || ad.speed)  rows.push(['mode', ad.mode || ad.speed]);
+    if (ad.command_type)      rows.push(['command type', ad.command_type]);
+  }
+
+  // _appendShortToolInputRows appends generic short-scalar tool_input keys
+  // as kv rows. Long/multi-line values are skipped — they're emitted as
+  // code blocks via _longInputCodeBlocks. Called for non-mcp tools only;
+  // mcp tools have their own input handling in _mcpDetailRows.
+  _appendShortToolInputRows(rows, d) {
+    if (!d.tool_input || typeof d.tool_input !== 'object') return;
+    var keys = Object.keys(d.tool_input);
+    for (var i = 0; i < keys.length; i++) {
+      var k = keys[i];
+      var v = d.tool_input[k];
+      var vStr = (typeof v === 'string') ? v : JSON.stringify(v, null, 2);
+      if (vStr.length <= 200 && vStr.indexOf('\n') === -1) {
+        rows.push([k, vStr]);
+      }
+    }
+  }
+
+  // _mcpDetailRows renders server/tool name plus the short scalar entries
+  // of mcp_input. Long/multi-line values are deferred to _longInputCodeBlocks
+  // via _spanCodeBlocks. When mcp_input is absent we fall back to the legacy
+  // url/query/pattern/file_path detail fields.
+  _mcpDetailRows(span, d) {
+    var rows = [];
+    var mcp = this._parseMCPToolName(span.tool_name);
+    if (mcp) {
+      rows.push(['server', mcp.serverName]);
+      rows.push(['tool', mcp.toolName]);
+    }
+    if (d.mcp_input && typeof d.mcp_input === 'object') {
+      var keys = Object.keys(d.mcp_input);
+      for (var i = 0; i < keys.length; i++) {
+        var k = keys[i];
+        var v = d.mcp_input[k];
+        var vStr = (typeof v === 'string') ? v : JSON.stringify(v, null, 2);
+        if (vStr.length <= 200 && vStr.indexOf('\n') === -1) {
+          rows.push([k, vStr]);
+        }
+      }
+    } else {
+      if (d.url)        rows.push(['url', d.url]);
+      if (d.query)      rows.push(['query', d.query]);
+      if (d.pattern)    rows.push(['pattern', d.pattern]);
+      if (d.file_path)  rows.push(['file', d.file_path]);
+    }
+    return rows;
+  }
+
+  // _spanCodeBlocks emits the <pre><code> panels below the kv rows. Per-tool
+  // long content (Bash command, Edit old/new_string, Write content) goes
+  // through TOOL_CODE_BUILDERS. The mcp__ and generic tool_input paths share
+  // _longInputCodeBlocks. tool_output is always appended if present.
+  _spanCodeBlocks(span, d) {
+    var tn = span.tool_name;
+    var blocks = '';
+    if (tn) {
+      var builder = TOOL_CODE_BUILDERS[tn];
+      if (builder) {
+        blocks = builder(d, this);
+      } else if (tn.indexOf('mcp__') === 0 && d.mcp_input && typeof d.mcp_input === 'object') {
+        blocks = this._longInputCodeBlocks(d.mcp_input);
+      } else if (d.tool_input && typeof d.tool_input === 'object') {
+        blocks = this._longInputCodeBlocks(d.tool_input);
+      }
+    }
+    if (d.tool_output) {
+      blocks += this._codeBlock('output', d.tool_output, d.tool_output.length, false, '');
+    }
+    return blocks;
+  }
+
+  // _longInputCodeBlocks renders any long-or-multiline entries in a generic
+  // input map (mcp_input or tool_input) as labeled code blocks. Short scalar
+  // entries are skipped — they were already rendered as kv rows upstream.
+  _longInputCodeBlocks(input) {
+    var out = '';
+    var keys = Object.keys(input);
+    for (var i = 0; i < keys.length; i++) {
+      var k = keys[i];
+      var v = input[k];
+      var vStr = (typeof v === 'string') ? v : JSON.stringify(v, null, 2);
+      if (vStr.length > 200 || vStr.indexOf('\n') !== -1) {
+        var lang = (typeof v !== 'string') ? 'json' : '';
+        out += this._codeBlock(k, vStr, vStr.length, false, lang);
+      }
+    }
+    return out;
   }
 
   // _codeBlock emits a labeled <pre><code> block for a string attribute
@@ -1756,34 +1947,7 @@ class HgEventTree extends HTMLElement {
     var dot = filePath.lastIndexOf('.');
     if (dot === -1) return '';
     var ext = filePath.slice(dot + 1).toLowerCase();
-    switch (ext) {
-      case 'go':                 return 'go';
-      case 'js': case 'mjs':     return 'javascript';
-      case 'ts': case 'tsx':     return 'typescript';
-      case 'jsx':                return 'jsx';
-      case 'py':                 return 'python';
-      case 'rb':                 return 'ruby';
-      case 'rs':                 return 'rust';
-      case 'java':               return 'java';
-      case 'c': case 'h':        return 'c';
-      case 'cpp': case 'cc': case 'hpp': return 'cpp';
-      case 'cs':                 return 'csharp';
-      case 'sh': case 'bash':    return 'bash';
-      case 'zsh':                return 'bash';
-      case 'fish':               return 'bash';
-      case 'html': case 'htm':   return 'html';
-      case 'css':                return 'css';
-      case 'scss': case 'sass':  return 'scss';
-      case 'json':               return 'json';
-      case 'yaml': case 'yml':   return 'yaml';
-      case 'toml':               return 'toml';
-      case 'xml':                return 'xml';
-      case 'md': case 'markdown': return 'markdown';
-      case 'sql':                return 'sql';
-      case 'proto':              return 'protobuf';
-      case 'dockerfile':         return 'docker';
-      default:                   return '';
-    }
+    return EXT_TO_LANGUAGE[ext] || '';
   }
 
   // _toolChildRollup scans a tool span's immediate children for
@@ -2034,77 +2198,20 @@ class HgEventTree extends HTMLElement {
   // on expand.
   _spanSummary(span) {
     var d = span.details || {};
-    if (span.tool_name === 'Bash') {
-      return d.description || d.full_command || d.bash_command || '';
+    var tn = span.tool_name;
+    if (tn) {
+      var fn = TOOL_SUMMARY[tn];
+      if (fn) return fn(d, this);
+      // MCP tools: when tool_input carries something obviously summarizable
+      // use it; otherwise leave empty (expand to see full args).
+      if (tn.indexOf('mcp__') === 0) return d.url || d.query || d.pattern || '';
     }
-    if (span.tool_name === 'Read' || span.tool_name === 'Edit' || span.tool_name === 'Write' || span.tool_name === 'NotebookEdit') {
-      return this._relativizePath(d.file_path || '');
-    }
-    if (span.tool_name === 'Grep' || span.tool_name === 'Glob') {
-      return d.pattern || '';
-    }
-    if (span.tool_name === 'WebFetch' || span.tool_name === 'WebSearch') {
-      return d.url || '';
-    }
-    if (span.tool_name === 'Skill') {
-      return d.skill_name || '';
-    }
-    if (span.tool_name === 'Task' || span.tool_name === 'Agent') {
-      // For subagent delegations, surface the description/prompt-summary
-      // ("Multi-tool subagent for span nesting verification") since the
-      // agent name is already shown as a distinct chip.
-      return d.description || '';
-    }
-    if (span.tool_name === 'TodoWrite') {
-      return d.todo_count ? d.todo_count + ' todos' : '';
-    }
-    if (span.tool_name === 'TaskCreate' || span.tool_name === 'TaskUpdate' ||
-        span.tool_name === 'TaskList'   || span.tool_name === 'TaskGet'    ||
-        span.tool_name === 'TaskStop'   || span.tool_name === 'TaskOutput') {
-      return d.description || d.subagent_type || '';
-    }
-    // MCP tools: when tool_input carries something obviously summarizable
-    // use it; otherwise leave empty (expand to see full args).
-    if (span.tool_name && span.tool_name.indexOf('mcp__') === 0) {
-      return d.url || d.query || d.pattern || '';
-    }
-    // tool_blocked_on_user is a misleading name — it's the PERMISSION
-    // GATE span covering the time between tool emit and execution. It
-    // does NOT mean the tool was blocked. The decision_source attribute
-    // tells us how the gate resolved:
-    //   config          → auto-approved via settings / --allowedTools
-    //   hook            → auto-approved via a PreToolUse hook
-    //   user_permanent  → user approved, remembered for the session
-    //   user_temporary  → user approved, single-use
-    //   user_reject     → user blocked the call
-    //   user_abort      → user cancelled the turn
-    //   unknown         → no permission decision recorded
-    if (span.canonical === 'tool_blocked_on_user') {
-      switch (d.decision_source) {
-        case 'config':         return 'auto-approved (config)';
-        case 'hook':           return 'auto-approved (hook)';
-        case 'user_permanent': return 'user approved (remember)';
-        case 'user_temporary': return 'user approved';
-        case 'user_reject':    return 'blocked by user';
-        case 'user_abort':     return 'aborted by user';
-        case '':
-        case 'unknown':
-        case undefined:
-        case null:             return 'permission check';
-        default:               return 'decision: ' + d.decision_source;
-      }
-    }
-    if (span.canonical === 'tool_execution') {
-      return 'executed';
-    }
-    if (span.canonical === 'interaction') {
-      return '';
-    }
-    if (span.canonical === 'api_request') {
-      var mode = d.mode || d.speed || '';
-      return mode ? mode + ' mode' : '';
-    }
-    return '';
+    // tool_blocked_on_user is a misleading name — it's the PERMISSION GATE
+    // span covering the time between tool emit and execution; it does NOT
+    // mean the tool was blocked. The decision_source attribute (mapped via
+    // BLOCKED_DECISION_TEXT) tells us how the gate resolved.
+    var cfn = CANONICAL_SUMMARY[span.canonical];
+    return cfn ? cfn(d) : '';
   }
 }
 

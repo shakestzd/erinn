@@ -1,0 +1,18 @@
+meta:
+    id: plan-bb91616a
+    track_id: trk-2c55adea
+    title: 'Local-first architecture: daemon write-owner, reactive projections, first-class anomalies'
+    description: Apply proven local-first patterns to wipnote. Graduate the serve_child writqueue into an auto-spawned per-project daemon that is the single owner of SQLite writes (Unix-socket IPC, client op-ID dedup, auto-spawn primary with spool last-resort), route hooks/CLI/reindex through it to eliminate SQLITE_BUSY, add named snapshot+delta SSE dashboard projections, make SQLite an explicitly rebuildable derived index with a DB-health panel, and surface conflicts/stale-index/failed-hook-writes/duplicate-agent activity as first-class anomaly objects (canonical event + derived table + dashboard panel). Builds on the writqueue from plan-ae0c37b2. WASM and DuckDB out of scope.
+    created_at: "2026-05-28"
+    status: draft
+    priority: medium
+    schema_version: v3
+    version: 2
+design:
+    problem: ""
+    goals: []
+    constraints: []
+    approved: false
+    comment: ""
+slices: []
+questions: []

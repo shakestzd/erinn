@@ -473,7 +473,7 @@ body.right-rail-collapsed .sidebar-reopen{display:flex}
     <li>
       <a href="#slice-8" class="slice-nav-item" data-slice-nav="8">
         <span class="slice-nav-dot" data-approval="pending" data-dot-for="8"></span>
-        <span>#8 Named snapshot+delta SSE projection protocol (infra + first projection)</span>
+        <span>#8 Snapshot+delta projection infra; streaming via daemon append-notify, aggregates from SQLite</span>
         <span class="nav-triage-badge nav-triage-issue" title="2 issue(s)">&#9888;2</span>
         <span class="nav-triage-badge nav-triage-question" title="1 open question(s)">?1</span>
       </a>
@@ -482,8 +482,8 @@ body.right-rail-collapsed .sidebar-reopen{display:flex}
     <li>
       <a href="#slice-9" class="slice-nav-item" data-slice-nav="9">
         <span class="slice-nav-dot" data-approval="pending" data-dot-for="9"></span>
-        <span>#9 Migrate dashboard panels from broad polling to typed projections</span>
-        <span class="nav-triage-badge nav-triage-issue" title="2 issue(s)">&#9888;2</span>
+        <span>#9 Serve work items as canonical HTML fragments (document reads bypass SQLite + JSON)</span>
+        
         <span class="nav-triage-badge nav-triage-question" title="1 open question(s)">?1</span>
       </a>
     </li>
@@ -491,7 +491,43 @@ body.right-rail-collapsed .sidebar-reopen{display:flex}
     <li>
       <a href="#slice-10" class="slice-nav-item" data-slice-nav="10">
         <span class="slice-nav-dot" data-approval="pending" data-dot-for="10"></span>
-        <span>#10 Anomalies as first-class objects: canonical event + derived table + dashboard panel</span>
+        <span>#10 Native custom-element client foundation + <wip-stats-bar> proof (zero new deps)</span>
+        
+        <span class="nav-triage-badge nav-triage-question" title="1 open question(s)">?1</span>
+      </a>
+    </li>
+    
+    <li>
+      <a href="#slice-11" class="slice-nav-item" data-slice-nav="11">
+        <span class="slice-nav-dot" data-approval="pending" data-dot-for="11"></span>
+        <span>#11 <wip-session-list> + <wip-session-row> — patch fields, delete the localStorage expand hack</span>
+        
+        <span class="nav-triage-badge nav-triage-question" title="1 open question(s)">?1</span>
+      </a>
+    </li>
+    
+    <li>
+      <a href="#slice-12" class="slice-nav-item" data-slice-nav="12">
+        <span class="slice-nav-dot" data-approval="pending" data-dot-for="12"></span>
+        <span>#12 <wip-work-detail> (canonical HTML fragment) + <wip-kanban>/<wip-kanban-card></span>
+        
+        <span class="nav-triage-badge nav-triage-question" title="1 open question(s)">?1</span>
+      </a>
+    </li>
+    
+    <li>
+      <a href="#slice-13" class="slice-nav-item" data-slice-nav="13">
+        <span class="slice-nav-dot" data-approval="pending" data-dot-for="13"></span>
+        <span>#13 Cutover + cleanup: feed on daemon-push, retire 2s-poll SSE and broad JSON endpoints</span>
+        
+        <span class="nav-triage-badge nav-triage-question" title="1 open question(s)">?1</span>
+      </a>
+    </li>
+    
+    <li>
+      <a href="#slice-14" class="slice-nav-item" data-slice-nav="14">
+        <span class="slice-nav-dot" data-approval="pending" data-dot-for="14"></span>
+        <span>#14 Anomalies as first-class objects: canonical event + derived table + dashboard panel</span>
         <span class="nav-triage-badge nav-triage-issue" title="3 issue(s)">&#9888;3</span>
         <span class="nav-triage-badge nav-triage-question" title="1 open question(s)">?1</span>
       </a>
@@ -533,8 +569,10 @@ Direction locked via complex-interview:
   - OUT OF SCOPE: WASM boundary, DuckDB replacement, CRDT rewrite, cloud sync.
 
 Phasing: Phase A (slices 1-6) = daemon write-owner spine. Phase B (slice 7) =
-rebuildable-derived contract + DB-health observability. Phase C (slices 8-9) =
-reactive projections. Phase D (slice 10) = first-class anomalies.
+rebuildable-derived contract + DB-health observability + read-routing-by-shape.
+Phase C (slices 8-13) = reactive dashboard: daemon-push snapshot+delta projections,
+canonical-HTML document reads, and native (zero-dep) custom-element client components
+that patch fields. Phase D (slice 14) = first-class anomalies.
 
 Revised post-critique (2026-05-28): danger-level scope gaps from the dual-critic
 pass are folded in — headless writer-only serve_child mode is now explicit scope
@@ -542,10 +580,16 @@ pass are folded in — headless writer-only serve_child mode is now explicit sco
 serve_child.go:100 owned-writer case, slice 10 owns the anomaly NDJSON indexer
 extension, slice 4 updates the boundary-test inventory, and op-format versioning +
 spool durability + persistent dedup + reindex self-deadlock are specified.
+
+Revised 2026-05-28 (post frontend review): two-tier topology (per-project writer +
+follow-on global coordinator trk-cb80b7da). Phase C expanded with daemon-push
+streaming, canonical-HTML document reads, and native zero-dep custom-element client
+components (verified against app.js / event-tree.js); streaming source = daemon
+append-notify (NOT a SQLite poll or a per-session NDJSON tail).
 </p>
   <div class="meta">
     <span class="badge badge-pending">Draft</span>
-    <span style="font-size:.75rem;color:var(--text-muted)">v1 · 10 slices · Created 2026-05-28</span>
+    <span style="font-size:.75rem;color:var(--text-muted)">v1 · 14 slices · Created 2026-05-29</span>
   </div>
 </header>
 <button id="themeToggle" style="position:fixed;top:16px;right:16px;z-index:100;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:6px 12px;color:var(--text);font-family:var(--mono);font-size:0.75rem;cursor:pointer;">
@@ -572,9 +616,13 @@ spool durability + persistent dedup + reindex self-deadlock are specified.
     <div data-node="5" data-name="Route all 13 CLI mutation sites through the daemon (openDB cutover)" data-status="pending" data-deps="2,3" data-files="13"></div>
     <div data-node="6" data-name="Coordinate reindex through the daemon (close the checkpoint race, no self-deadlock)" data-status="pending" data-deps="2" data-files="4"></div>
     <div data-node="7" data-name="Explicit rebuildable-derived contract + /api/db-health endpoint and panel" data-status="pending" data-deps="1" data-files="4"></div>
-    <div data-node="8" data-name="Named snapshot+delta SSE projection protocol (infra + first projection)" data-status="pending" data-deps="" data-files="4"></div>
-    <div data-node="9" data-name="Migrate dashboard panels from broad polling to typed projections" data-status="pending" data-deps="8" data-files="4"></div>
-    <div data-node="10" data-name="Anomalies as first-class objects: canonical event + derived table + dashboard panel" data-status="pending" data-deps="1,7,8" data-files="5"></div>
+    <div data-node="8" data-name="Snapshot+delta projection infra; streaming via daemon append-notify, aggregates from SQLite" data-status="pending" data-deps="1" data-files="5"></div>
+    <div data-node="9" data-name="Serve work items as canonical HTML fragments (document reads bypass SQLite + JSON)" data-status="pending" data-deps="" data-files="2"></div>
+    <div data-node="10" data-name="Native custom-element client foundation + <wip-stats-bar> proof (zero new deps)" data-status="pending" data-deps="8" data-files="1"></div>
+    <div data-node="11" data-name="<wip-session-list> + <wip-session-row> — patch fields, delete the localStorage expand hack" data-status="pending" data-deps="8,10" data-files="2"></div>
+    <div data-node="12" data-name="<wip-work-detail> (canonical HTML fragment) + <wip-kanban>/<wip-kanban-card>" data-status="pending" data-deps="8,9,10" data-files="1"></div>
+    <div data-node="13" data-name="Cutover + cleanup: feed on daemon-push, retire 2s-poll SSE and broad JSON endpoints" data-status="pending" data-deps="8,11,12" data-files="4"></div>
+    <div data-node="14" data-name="Anomalies as first-class objects: canonical event + derived table + dashboard panel" data-status="pending" data-deps="1,7,8" data-files="5"></div>
     
     <!--PLAN_GRAPH_NODES-->
   </div>
@@ -1075,7 +1123,7 @@ framing so a crash mid-write leaves a truncatable (not corrupting) tail. On
 next start the daemon drains the spool in order, submitting each op through
 the durable dedup marker (slice 1) so replay is safe and convergent even if
 a crash occurred after apply but before spool-entry removal. A corrupt tail
-record is logged as an anomaly (slice 10) and truncated, never blocking the
+record is logged as an anomaly (slice 14) and truncated, never blocking the
 drain. Spool entries are removed only after an applied/duplicate ack.</p>
 </div>
           <label for="slice-3-what-reveal" class="reveal-label">Show full description</label>
@@ -1842,7 +1890,7 @@ staleness indicator (digest Items 1-2).</p>
       
       <div class="slice-field">
         <div class="slice-field-label">Done when</div>
-        <ul class="slice-done-list"><li>Every SQLite table has a registry entry classifying it canonical-derived / ephemeral / non-rebuildable, enforced by a test that enumerates all tables</li><li>/api/db-health returns per-table classification, last-applied seq/time, and a staleness flag (gap between derived seq and canonical high-water mark)</li><li>The dashboard renders a DB-health panel showing stale tables and last reindex time</li></ul>
+        <ul class="slice-done-list"><li>Every SQLite table has a registry entry classifying it canonical-derived / ephemeral / non-rebuildable, enforced by a test that enumerates all tables</li><li>/api/db-health returns per-table classification, last-applied seq/time, and a staleness flag (gap between derived seq and canonical high-water mark)</li><li>The dashboard renders a DB-health panel showing stale tables and last reindex time</li><li>The contract documents read-routing-by-shape: streaming reads -&gt; daemon append-notify, single-document reads -&gt; canonical HTML, aggregate reads -&gt; SQLite</li></ul>
       </div>
       
     
@@ -1857,6 +1905,7 @@ staleness indicator (digest Items 1-2).</p>
 <strong>State:</strong> a NEW static table-classification registry in internal/db (complements, does not reuse, the write-site enum at sqlite_write_boundary_test.go:59); staleness = derived-applied-seq vs canonical high-water mark.
 <strong>Payload:</strong> per-table {name, classification, last_applied_seq, last_applied_ts, stale: bool}.
 <strong>Staleness rule:</strong> a nonzero gap between the table&#39;s last-applied seq/offset and the canonical high-water mark = stale; zero gap = fresh. A startup test enumerates tables so a newly-added table fails until registered.
+<strong>Read-routing-by-shape:</strong> the contract also classifies READ paths — streaming -&gt; daemon append-notify (slice 8), single-document -&gt; canonical HTML fragment (slice 9), aggregate/cross-cutting -&gt; SQLite; the derived index serves aggregates only.
 <strong>Rejected:</strong> deriving classification ad hoc per query (drift risk); claiming direct reuse of the write-site enum (it is a different axis — site vs table).</p>
 </div>
         <label for="slice-7-decisions-reveal" class="reveal-label">Show full decisions</label>
@@ -1941,11 +1990,11 @@ staleness indicator (digest Items 1-2).</p>
   </div>
 </details>
 <details class="slice-card" id="slice-8" data-slice="8" data-slice-name="slice-8" data-status="pending" data-approval="pending">
-  <summary class="slice-summary" aria-label="Slice 8: Named snapshot&#43;delta SSE projection protocol (infra &#43; first projection)">
+  <summary class="slice-summary" aria-label="Slice 8: Snapshot&#43;delta projection infra; streaming via daemon append-notify, aggregates from SQLite">
     <span class="slice-num">#8</span>
     <span class="slice-title-col">
-      <span class="slice-name">Named snapshot&#43;delta SSE projection protocol (infra &#43; first projection)</span>
-      <span class="slice-preview">Build the reactive projection layer by generalizing the planEventsHandler</span>
+      <span class="slice-name">Snapshot&#43;delta projection infra; streaming via daemon append-notify, aggregates from SQLite</span>
+      <span class="slice-preview">Build the reactive projection layer with read sources routed BY SHAPE</span>
       <span class="slice-meta-row">
         <span class="slice-summary-badges">
           <span class="badge badge-revision badge-sm">M</span>
@@ -1985,19 +2034,20 @@ staleness indicator (digest Items 1-2).</p>
         <div class="slice-field-value">
           
           <input type="checkbox" id="slice-8-what-reveal" class="reveal-toggle">
-          <div class="markdown-block reveal-content serif-prose"><p>Build the reactive projection layer by generalizing the planEventsHandler
-pattern (api_plans.go:919 — 2s ticker at 942, lastRowID high-water at 936/940,
-text/event-stream). Define a projection registry keyed by stable names
+          <div class="markdown-block reveal-content serif-prose"><p>Build the reactive projection layer with read sources routed BY SHAPE
+(slice 7 contract). Define a projection registry keyed by stable names
 (active-work, session-events:, lineage:, agent-activity,
-collector-status, plan:). Each projection serves an SSE channel whose
-first event is a full snapshot carrying a monotonic seq, followed by delta
-events with increasing seq; clients reconnect with Last-Event-ID to resume.
-Define a compaction/retention policy (keep last N events or T window per
-projection); if a client&#39;s requested seq is below the compaction floor, send
-a fresh snapshot instead of deltas. Seq space: use the slice-1 writer
-monotonic seq when the daemon is present; otherwise a per-projection counter
-in a clearly namespaced space so the two never collide. Ship infra +
-active-work end to end.</p>
+collector-status, plan:). Each projection serves an SSE channel: first
+event = full snapshot with a monotonic seq, then deltas with increasing seq;
+clients reconnect with Last-Event-ID to resume. STREAMING projections (the
+activity feed, plan feed) are fed by the daemon&#39;s append-notify: the
+single-writer daemon (slices 1-2) emits a notification when it applies an op,
+and the projection pushes on that signal — replacing today&#39;s 2s SQLite poll
+(sseHandler api_transcript.go:361, planEventsHandler api_plans.go:942) with
+true push, no per-session NDJSON fan-out, no 2s flush floor. AGGREGATE
+projections (stats, session list, kanban, graph) still derive from SQLite
+(its genuine strength). Define a compaction floor (keep last N / T window);
+below it, send a fresh snapshot. Ship infra + the active-work projection.</p>
 </div>
           <label for="slice-8-what-reveal" class="reveal-label">Show full description</label>
           
@@ -2009,9 +2059,10 @@ active-work end to end.</p>
         <div class="slice-field-label">Why</div>
         <div class="slice-field-value">
           
-          <div class="markdown-block serif-prose"><p>Most dashboard panels do broad JSON polling today; the only streaming is a
-2-second SQLite poll ticker. Named snapshot+delta projections cut read-pool
-pressure and make the UI live (research doc, Item 4).</p>
+          <div class="markdown-block serif-prose"><p>Today the only streaming is a 2-second SQLite poll; everything else broad-polls
+JSON. The daemon this plan already builds is the natural append-notify source,
+so streaming becomes true push without polling and without the per-session
+NDJSON fan-out / 2s-flush blockers (research doc, Item 4; verified 2026-05-28).</p>
 </div>
           
         </div>
@@ -2020,13 +2071,13 @@ pressure and make the UI live (research doc, Item 4).</p>
       
       <div class="slice-field">
         <div class="slice-field-label">Files</div>
-        <div class="slice-field-value"><code>internal/projection/registry.go, internal/projection/sse.go, cmd/wipnote/api_projections.go, cmd/wipnote/serve_child.go</code></div>
+        <div class="slice-field-value"><code>internal/projection/registry.go, internal/projection/sse.go, internal/daemon/notify.go, cmd/wipnote/api_projections.go, cmd/wipnote/serve_child.go</code></div>
       </div>
       
       
       <div class="slice-field">
         <div class="slice-field-label">Done when</div>
-        <ul class="slice-done-list"><li>Opening a projection SSE channel yields a full snapshot with a monotonic seq, then deltas with increasing seq</li><li>Reconnecting with Last-Event-ID resumes from the client&#39;s last seq without a full re-snapshot</li><li>Reconnecting with a seq below the compaction floor receives a fresh snapshot (defined fallback), not an error</li><li>The active-work projection drives a dashboard panel without polling /api/initial-stats</li></ul>
+        <ul class="slice-done-list"><li>The single-writer daemon emits an append-notify on each applied op, and streaming projections push on it (no 2s poll)</li><li>Opening a projection SSE channel yields a full snapshot with a monotonic seq, then deltas with increasing seq</li><li>Reconnecting with Last-Event-ID resumes from the client&#39;s last seq; a seq below the compaction floor receives a fresh snapshot, not an error</li><li>Aggregate projections derive from SQLite; streaming projections do NOT poll SQLite</li></ul>
       </div>
       
     
@@ -2038,10 +2089,11 @@ pressure and make the UI live (research doc, Item 4).</p>
         
         <input type="checkbox" id="slice-8-decisions-reveal" class="reveal-toggle">
         <div class="markdown-block reveal-content serif-prose"><p><strong>Trigger:</strong> GET /api/projections/ as text/event-stream.
-<strong>State:</strong> projection state derived read-only from SQLite; seq = the slice-1 writer monotonic seq when the daemon is present, else a namespaced per-projection counter (never overlapping the daemon seq space).
+<strong>Read-routing-by-shape:</strong> STREAMING -&gt; daemon append-notify push (slices 1-2); AGGREGATE -&gt; SQLite read-only; DOCUMENT reads go straight to canonical HTML (slice 9), not through projections.
+<strong>State:</strong> seq = the slice-1 writer monotonic seq (single source across streaming projections).
 <strong>Payload:</strong> event 1 = {type: snapshot, seq, data}; event N = {type: delta, seq, ops}.
-<strong>Compaction:</strong> retain last N events / T window per projection; below the floor -&gt; fresh snapshot (explicit, tested fallback).
-<strong>Rejected:</strong> versioned-snapshot-push without deltas (coarse, large payloads); delta-only client reducers (hardest reconnect story).</p>
+<strong>Compaction:</strong> retain last N / T window; below floor -&gt; fresh snapshot (tested fallback).
+<strong>Rejected:</strong> generalizing the 2s SQLite-poll ticker (keeps the poll); naive NDJSON file-tail (per-session fan-out + sink&#39;s own 2s flush floor — verified not simpler); versioned-snapshot-push without deltas (coarse).</p>
 </div>
         <label for="slice-8-decisions-reveal" class="reveal-label">Show full decisions</label>
         
@@ -2064,7 +2116,7 @@ pressure and make the UI live (research doc, Item 4).</p>
           
           <div class="test-group" data-kind="integration">
             <span class="test-chip">INTEGRATION &middot; 2</span>
-            <ul><li>TestProjectionResume — reconnect with Last-Event-ID skips already-seen deltas.</li><li>TestProjectionCompactionFallback — reconnect below floor -&gt; fresh snapshot.</li></ul>
+            <ul><li>TestStreamingPush_NoPoll — apply an op via the daemon, assert the projection pushes without a timer tick.</li><li>TestProjectionResume — reconnect with Last-Event-ID skips seen deltas; below-floor -&gt; fresh snapshot.</li></ul>
           </div>
           
         </div>
@@ -2079,15 +2131,15 @@ pressure and make the UI live (research doc, Item 4).</p>
       <div class="slice-field-value">
         
         <div class="critic-revision">
-          <span class="badge badge-blocked critic-revision-badge">HIGH</span>
-          <span class="critic-revision-source">haiku</span>
-          <span class="critic-revision-summary">Compaction/retention policy was undefined — added a keep-last-N/T-window floor with a fresh-snapshot fallback below the floor, plus a test.</span>
+          <span class="badge badge-pending critic-revision-badge">SUCCESS</span>
+          <span class="critic-revision-source">sonnet</span>
+          <span class="critic-revision-summary">Verified 2026-05-28: live SSE is a 2s SQLite poll (api_transcript.go:361, api_plans.go:942), NOT an NDJSON tail; ingest.ParseFileFrom (parser.go:76) &#43; NDJSON sink exist.</span>
         </div>
         
         <div class="critic-revision">
-          <span class="badge badge-pending critic-revision-badge">LOW</span>
+          <span class="badge badge-blocked critic-revision-badge">HIGH</span>
           <span class="critic-revision-source">sonnet</span>
-          <span class="critic-revision-summary">Seq space inconsistency if slice 8 ships before slice 1 — resolved by namespacing the per-projection counter so it never collides with the daemon seq space. planEventsHandler anchor (api_plans.go:919/942) confirmed.</span>
+          <span class="critic-revision-summary">NDJSON-tail would NOT eliminate the poll cheaply (one file per session &#43; sink SyncInterval=2s); daemon append-notify is the correct push source and reuses the Phase A spine.</span>
         </div>
         
       </div>
@@ -2100,13 +2152,13 @@ pressure and make the UI live (research doc, Item 4).</p>
       <div class="slice-field-value">
         
         <div class="question-block slice-question-block">
-          <p>How does a reconnecting client avoid a full re-snapshot?</p>
+          <p>Streaming projection source — SQLite poll, NDJSON tail, or daemon append-notify?</p>
           
           
           <textarea
-            data-section="slice-8-question-q-resume"
-            data-comment-for="slice-8-question-q-resume"
-            placeholder="Answer question q-resume...">SSE Last-Event-ID carries the client&#39;s last seq; the server replays deltas with seq greater than that, or sends a fresh snapshot if the requested seq is below the compaction floor.</textarea>
+            data-section="slice-8-question-q-stream-source"
+            data-comment-for="slice-8-question-q-stream-source"
+            placeholder="Answer question q-stream-source...">Daemon append-notify. The single-writer daemon sees every applied op, so it emits a push notification with no poll, no per-session NDJSON fan-out, and no 2s-flush floor. Aggregates still come from SQLite; documents go straight to canonical HTML.</textarea>
           
         </div>
         
@@ -2114,7 +2166,7 @@ pressure and make the UI live (research doc, Item 4).</p>
     </div>
     
 
-    <div class="slice-deps">Dependencies: none</div>
+    <div class="slice-deps">Dependencies: slices 1</div>
 
     <details class="comment-collapse">
       <summary class="comment-collapse-trigger">+ Leave a comment</summary>
@@ -2125,19 +2177,19 @@ pressure and make the UI live (research doc, Item 4).</p>
   </div>
 </details>
 <details class="slice-card" id="slice-9" data-slice="9" data-slice-name="slice-9" data-status="pending" data-approval="pending">
-  <summary class="slice-summary" aria-label="Slice 9: Migrate dashboard panels from broad polling to typed projections">
+  <summary class="slice-summary" aria-label="Slice 9: Serve work items as canonical HTML fragments (document reads bypass SQLite &#43; JSON)">
     <span class="slice-num">#9</span>
     <span class="slice-title-col">
-      <span class="slice-name">Migrate dashboard panels from broad polling to typed projections</span>
-      <span class="slice-preview">Cut the remaining broad-fetch panels (events feed, graph, workboard, timeline,</span>
+      <span class="slice-name">Serve work items as canonical HTML fragments (document reads bypass SQLite &#43; JSON)</span>
+      <span class="slice-preview">Add a document read path that serves the canonical work-item HTML directly.</span>
       <span class="slice-meta-row">
         <span class="slice-summary-badges">
-          <span class="badge badge-revision badge-sm">M</span>
+          <span class="badge badge-pending badge-sm">S</span>
           <span class="badge badge-pending badge-sm">Low</span>
           <span class="badge badge-revision badge-sm badge-complexity" title="Complexity: complex">Complex</span>
           
           <span class="badge badge-pending badge-sm slice-approval-badge" data-badge-for="slice-9">Pending</span>
-          <span class="badge badge-sm badge-issues" title="2 critic issue(s)">2 issues</span>
+          
           <span class="badge badge-sm badge-questions" title="1 open question(s)">1 Q</span>
         </span>
         <span class="slice-actions" onclick="event.stopPropagation()">
@@ -2169,14 +2221,15 @@ pressure and make the UI live (research doc, Item 4).</p>
         <div class="slice-field-value">
           
           <input type="checkbox" id="slice-9-what-reveal" class="reveal-toggle">
-          <div class="markdown-block reveal-content serif-prose"><p>Cut the remaining broad-fetch panels (events feed, graph, workboard, timeline,
-collector-status) over to the named projection channels from slice-8. Replace
-the plan-feedback 2-second SQLite poll ticker (api_plans.go:942) with a proper
-projection subscription. Keep the old JSON endpoints during cutover; remove a
-broad endpoint only once its panel has migrated and is verified. &#34;Done&#34; for
-cutover = the panel issues no repeated broad-GET polls and holds at most its
-SSE subscription connections (an observable, testable criterion — not a vague
-&#34;measurable reduction&#34;).</p>
+          <div class="markdown-block reveal-content serif-prose"><p>Add a document read path that serves the canonical work-item HTML directly.
+Today featureDetailHandler (api.go:596) reads .wipnote/{features,bugs,spikes,
+tracks}/.html from disk but runs htmlparse.ParseFile -&gt; respondJSON,
+forcing a parse + client-side re-templating round-trip. Add an endpoint that
+returns the canonical HTML fragment as-is (the canonical store IS the wire
+format) for direct insertion into a  element (slice 12).
+Keep the JSON detail endpoint during cutover. Document reads never touch
+SQLite — making the rebuildable-derived contract (slice 7) concrete: single
+documents come from canonical, SQLite is for aggregates only.</p>
 </div>
           <label for="slice-9-what-reveal" class="reveal-label">Show full description</label>
           
@@ -2188,9 +2241,9 @@ SSE subscription connections (an observable, testable criterion — not a vague
         <div class="slice-field-label">Why</div>
         <div class="slice-field-value">
           
-          <div class="markdown-block serif-prose"><p>The remaining panels still broad-poll JSON (and the plan-feedback panel polls
-SQLite every 2s), burning read-pool connections on idle tabs. Migrating them to
-projection channels makes the dashboard live and cuts read pressure (Item 4).</p>
+          <div class="markdown-block serif-prose"><p>Work items are canonically HTML; parsing them to JSON only to re-render in JS
+is wasted work and a SQLite-adjacent round-trip. Serving the fragment directly
+is the cleanest canonical-first win in the dashboard (verified: api.go:596).</p>
 </div>
           
         </div>
@@ -2199,13 +2252,13 @@ projection channels makes the dashboard live and cuts read pressure (Item 4).</p
       
       <div class="slice-field">
         <div class="slice-field-label">Files</div>
-        <div class="slice-field-value"><code>plugin/static/dashboard, cmd/wipnote/api_feed.go, cmd/wipnote/api_graph.go, cmd/wipnote/api_plans.go</code></div>
+        <div class="slice-field-value"><code>cmd/wipnote/api.go, cmd/wipnote/api_features.go</code></div>
       </div>
       
       
       <div class="slice-field">
         <div class="slice-field-label">Done when</div>
-        <ul class="slice-done-list"><li>Feed, graph, workboard, and timeline panels render from projection SSE channels, not broad JSON polls</li><li>The plan-feedback panel no longer polls SQLite on a fixed 2-second ticker</li><li>An idle open dashboard tab issues zero repeated broad-GET polls and holds only its SSE subscription connections (verified by request log, not a vague metric)</li></ul>
+        <ul class="slice-done-list"><li>A document endpoint returns the canonical work-item HTML fragment as-is (text/html), reading the .wipnote/&lt;kind&gt;/&lt;id&gt;.html file directly</li><li>The document read path issues zero SQLite queries</li><li>The existing JSON detail endpoint still works during cutover</li></ul>
       </div>
       
     
@@ -2216,11 +2269,11 @@ projection channels makes the dashboard live and cuts read pressure (Item 4).</p
       <div class="slice-field-value">
         
         <input type="checkbox" id="slice-9-decisions-reveal" class="reveal-toggle">
-        <div class="markdown-block reveal-content serif-prose"><p><strong>Trigger:</strong> dashboard panel mount opens the matching projection SSE channel.
-<strong>State:</strong> client holds projection state seeded by the snapshot, updated by deltas.
-<strong>Payload:</strong> consumes slice-8 snapshot/delta events.
-<strong>Done criterion:</strong> replaced the vague &#34;read-pool drops measurably&#34; with a testable &#34;no repeated broad-GET polls; only SSE subscription connections held.&#34;
-<strong>Rejected:</strong> big-bang removal of all JSON endpoints — keep them during cutover, migrate one panel at a time, verify, then prune.</p>
+        <div class="markdown-block reveal-content serif-prose"><p><strong>Trigger:</strong> GET a work-item document endpoint -&gt; canonical HTML fragment.
+<strong>State:</strong> reads .wipnote//.html directly (canonical); no SQLite.
+<strong>Payload:</strong> text/html fragment (NOT parsed-to-JSON) for direct DOM insertion.
+<strong>Read-routing-by-shape:</strong> this is the DOCUMENT lane of the slice-7 contract — single-document reads come from canonical, never the derived index.
+<strong>Rejected:</strong> keeping parse-&gt;JSON-&gt;client-template as the only path (wasted round-trip); reconstructing detail from SQLite (it is derived, the file is the source).</p>
 </div>
         <label for="slice-9-decisions-reveal" class="reveal-label">Show full decisions</label>
         
@@ -2237,13 +2290,8 @@ projection channels makes the dashboard live and cuts read pressure (Item 4).</p
         <div class="test-strategy">
           
           <div class="test-group" data-kind="integration">
-            <span class="test-chip">INTEGRATION &middot; 1</span>
-            <ul><li>TestFeedPanel_NoPoll — assert feed panel opens an SSE projection, issues no repeated /api/events/feed GETs.</li></ul>
-          </div>
-          
-          <div class="test-group" data-kind="manual">
-            <span class="test-chip">MANUAL &middot; 1</span>
-            <ul><li>dashboard smoke — panels update live on a new work item without manual refresh.</li></ul>
+            <span class="test-chip">INTEGRATION &middot; 2</span>
+            <ul><li>TestWorkDetailFragment_HTML — request fragment, assert text/html body matches the on-disk canonical file.</li><li>TestWorkDetailFragment_NoSQLite — assert the handler opens no DB connection.</li></ul>
           </div>
           
         </div>
@@ -2252,25 +2300,6 @@ projection channels makes the dashboard live and cuts read pressure (Item 4).</p
     </div>
     
 
-    
-    <div class="slice-field slice-critic-revisions">
-      <div class="slice-field-label">Critic Revisions</div>
-      <div class="slice-field-value">
-        
-        <div class="critic-revision">
-          <span class="badge badge-pending critic-revision-badge">LOW</span>
-          <span class="critic-revision-source">haiku</span>
-          <span class="critic-revision-summary">&#39;read-pool usage drops measurably&#39; was unquantified/untestable — replaced with an observable criterion (no repeated broad-GET polls; only SSE connections held).</span>
-        </div>
-        
-        <div class="critic-revision">
-          <span class="badge badge-pending critic-revision-badge">INFO</span>
-          <span class="critic-revision-source">sonnet</span>
-          <span class="critic-revision-summary">api_feed.go/api_graph.go/api_plans.go confirmed; the 2s ticker target is api_plans.go:942.</span>
-        </div>
-        
-      </div>
-    </div>
     
 
     
@@ -2279,13 +2308,13 @@ projection channels makes the dashboard live and cuts read pressure (Item 4).</p
       <div class="slice-field-value">
         
         <div class="question-block slice-question-block">
-          <p>Migrate all panels at once or incrementally?</p>
+          <p>Serve raw canonical HTML or keep parsing to JSON?</p>
           
           
           <textarea
-            data-section="slice-9-question-q-cutover-order"
-            data-comment-for="slice-9-question-q-cutover-order"
-            placeholder="Answer question q-cutover-order...">Incrementally — keep the broad JSON endpoints alive during cutover, migrate one panel at a time, verify live behavior, then prune the now-unused broad endpoints.</textarea>
+            data-section="slice-9-question-q-fragment-format"
+            data-comment-for="slice-9-question-q-fragment-format"
+            placeholder="Answer question q-fragment-format...">Serve the raw canonical HTML fragment. The .wipnote/*.html file is already the source of truth and the browser&#39;s native format; parsing it to JSON only to re-template in JS is a wasted round-trip. The JSON endpoint stays during cutover.</textarea>
           
         </div>
         
@@ -2293,7 +2322,7 @@ projection channels makes the dashboard live and cuts read pressure (Item 4).</p
     </div>
     
 
-    <div class="slice-deps">Dependencies: slices 8</div>
+    <div class="slice-deps">Dependencies: none</div>
 
     <details class="comment-collapse">
       <summary class="comment-collapse-trigger">+ Leave a comment</summary>
@@ -2304,11 +2333,11 @@ projection channels makes the dashboard live and cuts read pressure (Item 4).</p
   </div>
 </details>
 <details class="slice-card" id="slice-10" data-slice="10" data-slice-name="slice-10" data-status="pending" data-approval="pending">
-  <summary class="slice-summary" aria-label="Slice 10: Anomalies as first-class objects: canonical event &#43; derived table &#43; dashboard panel">
+  <summary class="slice-summary" aria-label="Slice 10: Native custom-element client foundation &#43; &lt;wip-stats-bar&gt; proof (zero new deps)">
     <span class="slice-num">#10</span>
     <span class="slice-title-col">
-      <span class="slice-name">Anomalies as first-class objects: canonical event &#43; derived table &#43; dashboard panel</span>
-      <span class="slice-preview">Promote conflicts, stale indexes, failed/spooled hook writes, and</span>
+      <span class="slice-name">Native custom-element client foundation &#43; &lt;wip-stats-bar&gt; proof (zero new deps)</span>
+      <span class="slice-preview">Establish the dependency-free client component pattern, matching the one</span>
       <span class="slice-meta-row">
         <span class="slice-summary-badges">
           <span class="badge badge-revision badge-sm">M</span>
@@ -2316,7 +2345,7 @@ projection channels makes the dashboard live and cuts read pressure (Item 4).</p
           <span class="badge badge-revision badge-sm badge-complexity" title="Complexity: complex">Complex</span>
           
           <span class="badge badge-pending badge-sm slice-approval-badge" data-badge-for="slice-10">Pending</span>
-          <span class="badge badge-sm badge-issues" title="3 critic issue(s)">3 issues</span>
+          
           <span class="badge badge-sm badge-questions" title="1 open question(s)">1 Q</span>
         </span>
         <span class="slice-actions" onclick="event.stopPropagation()">
@@ -2348,6 +2377,641 @@ projection channels makes the dashboard live and cuts read pressure (Item 4).</p
         <div class="slice-field-value">
           
           <input type="checkbox" id="slice-10-what-reveal" class="reveal-toggle">
+          <div class="markdown-block reveal-content serif-prose"><p>Establish the dependency-free client component pattern, matching the one
+existing Web Component (hg-event-tree, light DOM, this.innerHTML — no Shadow
+DOM, event-tree.js:71/2111). Add a small base/helper for native custom
+elements that consume a projection (slice 8) and patch only changed fields via
+attributeChangedCallback / targeted text nodes (no innerHTML subtree rebuilds,
+no morphdom, no datastar). Prove it with , replacing the
+fetchStats/updateStatsBar 30s timer: the element subscribes to the active-work
+aggregate projection and patches ~7 text nodes on delta. Light DOM so the
+existing components.css (2724 lines) keeps applying with no duplication.</p>
+</div>
+          <label for="slice-10-what-reveal" class="reveal-label">Show full description</label>
+          
+        </div>
+      </div>
+      
+      
+      <div class="slice-field slice-why">
+        <div class="slice-field-label">Why</div>
+        <div class="slice-field-value">
+          
+          <div class="markdown-block serif-prose"><p>app.js (4459 lines) rebuilds DOM subtrees from JS globals on timers; pushing
+projection deltas to that client wastes them. Fine-grained native components
+that patch fields are the morph-free, dependency-free way to realize the delta
+benefit, consistent with hg-event-tree and the no-new-dependency constraint.</p>
+</div>
+          
+        </div>
+      </div>
+      
+      
+      <div class="slice-field">
+        <div class="slice-field-label">Files</div>
+        <div class="slice-field-value"><code>plugin/static/dashboard</code></div>
+      </div>
+      
+      
+      <div class="slice-field">
+        <div class="slice-field-label">Done when</div>
+        <ul class="slice-done-list"><li>A native custom-element base exists that subscribes to a projection and patches fields without rebuilding its subtree</li><li>&lt;wip-stats-bar&gt; renders from the active-work projection and patches text nodes on delta (no 30s fetch timer, no innerHTML rebuild)</li><li>It uses light DOM; existing components.css applies unchanged; no new runtime dependency is added</li></ul>
+      </div>
+      
+    
+
+    
+    <div class="slice-field slice-decisions-notes">
+      <div class="slice-field-label">Decisions</div>
+      <div class="slice-field-value">
+        
+        <input type="checkbox" id="slice-10-decisions-reveal" class="reveal-toggle">
+        <div class="markdown-block reveal-content serif-prose"><p><strong>Trigger:</strong> custom element connectedCallback subscribes to its projection; attributeChangedCallback / delta handler patches fields.
+<strong>State:</strong> the element owns its own subtree; no shared global re-render.
+<strong>Payload:</strong> consumes slice-8 snapshot/delta events.
+<strong>Native + light DOM:</strong> matches hg-event-tree; light DOM keeps components.css applying; NO Shadow DOM, NO morphdom, NO datastar.
+<strong>Rejected:</strong> morphdom (only needed if keeping innerHTML-blob replace); datastar / any framework (violates no-new-dependency constraint); Shadow DOM (would orphan components.css).</p>
+</div>
+        <label for="slice-10-decisions-reveal" class="reveal-label">Show full decisions</label>
+        
+      </div>
+    </div>
+    
+
+    
+    <div class="slice-field slice-tests-field">
+      <div class="slice-field-label">Test Strategy</div>
+      <div class="slice-field-value">
+        
+        
+        <div class="test-strategy">
+          
+          <div class="test-group" data-kind="manual">
+            <span class="test-chip">MANUAL &middot; 1</span>
+            <ul><li>dashboard smoke — stats update live on a new work item; no full re-render flash.</li></ul>
+          </div>
+          
+          <div class="test-group" data-kind="static">
+            <span class="test-chip">STATIC &middot; 1</span>
+            <ul><li>confirm no new runtime dependency and no attachShadow in the new component.</li></ul>
+          </div>
+          
+        </div>
+        
+      </div>
+    </div>
+    
+
+    
+
+    
+    <div class="slice-field slice-questions">
+      <div class="slice-field-label">Open Questions</div>
+      <div class="slice-field-value">
+        
+        <div class="question-block slice-question-block">
+          <p>Native custom elements, morphdom, or a framework like datastar?</p>
+          
+          
+          <textarea
+            data-section="slice-10-question-q-component-tech"
+            data-comment-for="slice-10-question-q-component-tech"
+            placeholder="Answer question q-component-tech...">Native custom elements with light DOM. The morph problem only exists if you keep innerHTML-blob replacement; components that patch their own fields solve it with zero dependencies, matching the existing hg-event-tree and the no-new-dependency constraint.</textarea>
+          
+        </div>
+        
+      </div>
+    </div>
+    
+
+    <div class="slice-deps">Dependencies: slices 8</div>
+
+    <details class="comment-collapse">
+      <summary class="comment-collapse-trigger">+ Leave a comment</summary>
+      <div class="comment-collapse-body">
+        <textarea data-section="slice-10" data-comment-for="slice-10" placeholder="Comments on slice 10..."></textarea>
+      </div>
+    </details>
+  </div>
+</details>
+<details class="slice-card" id="slice-11" data-slice="11" data-slice-name="slice-11" data-status="pending" data-approval="pending">
+  <summary class="slice-summary" aria-label="Slice 11: &lt;wip-session-list&gt; &#43; &lt;wip-session-row&gt; — patch fields, delete the localStorage expand hack">
+    <span class="slice-num">#11</span>
+    <span class="slice-title-col">
+      <span class="slice-name">&lt;wip-session-list&gt; &#43; &lt;wip-session-row&gt; — patch fields, delete the localStorage expand hack</span>
+      <span class="slice-preview">Convert the sessions panel (renderSessions, app.js:433, on a 15s</span>
+      <span class="slice-meta-row">
+        <span class="slice-summary-badges">
+          <span class="badge badge-revision badge-sm">M</span>
+          <span class="badge badge-revision badge-sm">Med</span>
+          <span class="badge badge-revision badge-sm badge-complexity" title="Complexity: complex">Complex</span>
+          
+          <span class="badge badge-pending badge-sm slice-approval-badge" data-badge-for="slice-11">Pending</span>
+          
+          <span class="badge badge-sm badge-questions" title="1 open question(s)">1 Q</span>
+        </span>
+        <span class="slice-actions" onclick="event.stopPropagation()">
+          <span class="approval-segmented" role="group" aria-label="Approval action">
+            <label class="seg-btn seg-approve" title="Approve">
+              <input type="radio" name="slice-11-approval" value="approved" data-section="slice-11" data-action="approve" aria-label="Approve slice 11">
+              &#10003;
+            </label>
+            <label class="seg-btn seg-changes" title="Request changes">
+              <input type="radio" name="slice-11-approval" value="changes_requested" data-section="slice-11" data-action="approve" aria-label="Request changes for slice 11">
+              &#8635;
+            </label>
+            <label class="seg-btn seg-reject" title="Reject">
+              <input type="radio" name="slice-11-approval" value="rejected" data-section="slice-11" data-action="approve" aria-label="Reject slice 11">
+              &#10005;
+            </label>
+          </span>
+        </span>
+      </span>
+    </span>
+    <span class="slice-chevron" aria-hidden="true"></span>
+  </summary>
+
+  <div class="slice-body">
+    
+      
+      <div class="slice-field slice-what">
+        <div class="slice-field-label">What</div>
+        <div class="slice-field-value">
+          
+          <input type="checkbox" id="slice-11-what-reveal" class="reveal-toggle">
+          <div class="markdown-block reveal-content serif-prose"><p>Convert the sessions panel (renderSessions, app.js:433, on a 15s
+SESSIONS_REFRESH_MS timer) to  + per-row 
+components fed by the agent-activity/sessions projection. Each row owns its
+subtree and patches its own fields on delta, so expand/preview state simply
+persists across updates. DELETE _loadExpandedSessions/_saveExpandedSessions
+and the _expandedSessions localStorage replay machinery (app.js:303-332) — the
+comment at app.js:303-306 (&#34;Survives rerenders...&#34;) is the explicit tell that
+this hack exists only to paper over the 15s DOM rebuild.</p>
+</div>
+          <label for="slice-11-what-reveal" class="reveal-label">Show full description</label>
+          
+        </div>
+      </div>
+      
+      
+      <div class="slice-field slice-why">
+        <div class="slice-field-label">Why</div>
+        <div class="slice-field-value">
+          
+          <div class="markdown-block serif-prose"><p>Highest-value conversion: it removes a real, well-commented workaround. The
+localStorage state-replay hack exists solely because renderSessions() destroys
+expand state every 15s; component-owned rows make it unnecessary (verified:
+app.js:303-332, 433, 452).</p>
+</div>
+          
+        </div>
+      </div>
+      
+      
+      <div class="slice-field">
+        <div class="slice-field-label">Files</div>
+        <div class="slice-field-value"><code>plugin/static/dashboard, cmd/wipnote/api_projections.go</code></div>
+      </div>
+      
+      
+      <div class="slice-field">
+        <div class="slice-field-label">Done when</div>
+        <ul class="slice-done-list"><li>Session rows render from the projection and patch fields in place; a 15s update no longer rebuilds row subtrees</li><li>Expanding a row and waiting through an update preserves expand/preview state with NO localStorage replay</li><li>_loadExpandedSessions / _saveExpandedSessions / _expandedSessions are deleted and the dashboard still preserves expand state</li></ul>
+      </div>
+      
+    
+
+    
+    <div class="slice-field slice-decisions-notes">
+      <div class="slice-field-label">Decisions</div>
+      <div class="slice-field-value">
+        
+        <input type="checkbox" id="slice-11-decisions-reveal" class="reveal-toggle">
+        <div class="markdown-block reveal-content serif-prose"><p><strong>Trigger:</strong>  subscribes to its row&#39;s projection slice; patches fields on delta.
+<strong>State:</strong> expand/preview state lives in the element instance, not localStorage; it survives updates because the subtree is never rebuilt.
+<strong>Payload:</strong> consumes the agent-activity/sessions projection (slice 8).
+<strong>Tell:</strong> app.js:303-306 comment + _expandedSessions Set (app.js:332) consulted every renderSessions() pass (app.js:452) — deleting this is the acceptance signal.
+<strong>Rejected:</strong> keeping renderSessions + localStorage replay (the workaround this slice removes).</p>
+</div>
+        <label for="slice-11-decisions-reveal" class="reveal-label">Show full decisions</label>
+        
+      </div>
+    </div>
+    
+
+    
+    <div class="slice-field slice-tests-field">
+      <div class="slice-field-label">Test Strategy</div>
+      <div class="slice-field-value">
+        
+        
+        <div class="test-strategy">
+          
+          <div class="test-group" data-kind="manual">
+            <span class="test-chip">MANUAL &middot; 1</span>
+            <ul><li>expand a session row, wait &gt;15s, confirm it stays expanded with no flicker and no localStorage key written.</li></ul>
+          </div>
+          
+          <div class="test-group" data-kind="static">
+            <span class="test-chip">STATIC &middot; 1</span>
+            <ul><li>confirm _loadExpandedSessions/_saveExpandedSessions removed.</li></ul>
+          </div>
+          
+        </div>
+        
+      </div>
+    </div>
+    
+
+    
+
+    
+    <div class="slice-field slice-questions">
+      <div class="slice-field-label">Open Questions</div>
+      <div class="slice-field-value">
+        
+        <div class="question-block slice-question-block">
+          <p>Where does row expand state live after conversion?</p>
+          
+          
+          <textarea
+            data-section="slice-11-question-q-session-state"
+            data-comment-for="slice-11-question-q-session-state"
+            placeholder="Answer question q-session-state...">In the &lt;wip-session-row&gt; element instance. Because the component patches fields instead of rebuilding its subtree, expand/preview state simply stays — so the localStorage save/replay hack (app.js:303-332) is deleted, not ported.</textarea>
+          
+        </div>
+        
+      </div>
+    </div>
+    
+
+    <div class="slice-deps">Dependencies: slices 8,10</div>
+
+    <details class="comment-collapse">
+      <summary class="comment-collapse-trigger">+ Leave a comment</summary>
+      <div class="comment-collapse-body">
+        <textarea data-section="slice-11" data-comment-for="slice-11" placeholder="Comments on slice 11..."></textarea>
+      </div>
+    </details>
+  </div>
+</details>
+<details class="slice-card" id="slice-12" data-slice="12" data-slice-name="slice-12" data-status="pending" data-approval="pending">
+  <summary class="slice-summary" aria-label="Slice 12: &lt;wip-work-detail&gt; (canonical HTML fragment) &#43; &lt;wip-kanban&gt;/&lt;wip-kanban-card&gt;">
+    <span class="slice-num">#12</span>
+    <span class="slice-title-col">
+      <span class="slice-name">&lt;wip-work-detail&gt; (canonical HTML fragment) &#43; &lt;wip-kanban&gt;/&lt;wip-kanban-card&gt;</span>
+      <span class="slice-preview">Convert two more surfaces.</span>
+      <span class="slice-meta-row">
+        <span class="slice-summary-badges">
+          <span class="badge badge-revision badge-sm">M</span>
+          <span class="badge badge-revision badge-sm">Med</span>
+          <span class="badge badge-revision badge-sm badge-complexity" title="Complexity: complex">Complex</span>
+          
+          <span class="badge badge-pending badge-sm slice-approval-badge" data-badge-for="slice-12">Pending</span>
+          
+          <span class="badge badge-sm badge-questions" title="1 open question(s)">1 Q</span>
+        </span>
+        <span class="slice-actions" onclick="event.stopPropagation()">
+          <span class="approval-segmented" role="group" aria-label="Approval action">
+            <label class="seg-btn seg-approve" title="Approve">
+              <input type="radio" name="slice-12-approval" value="approved" data-section="slice-12" data-action="approve" aria-label="Approve slice 12">
+              &#10003;
+            </label>
+            <label class="seg-btn seg-changes" title="Request changes">
+              <input type="radio" name="slice-12-approval" value="changes_requested" data-section="slice-12" data-action="approve" aria-label="Request changes for slice 12">
+              &#8635;
+            </label>
+            <label class="seg-btn seg-reject" title="Reject">
+              <input type="radio" name="slice-12-approval" value="rejected" data-section="slice-12" data-action="approve" aria-label="Reject slice 12">
+              &#10005;
+            </label>
+          </span>
+        </span>
+      </span>
+    </span>
+    <span class="slice-chevron" aria-hidden="true"></span>
+  </summary>
+
+  <div class="slice-body">
+    
+      
+      <div class="slice-field slice-what">
+        <div class="slice-field-label">What</div>
+        <div class="slice-field-value">
+          
+          <input type="checkbox" id="slice-12-what-reveal" class="reveal-toggle">
+          <div class="markdown-block reveal-content serif-prose"><p>Convert two more surfaces.  replaces openWorkDetail/
+renderWorkDetail (app.js:1197) and consumes the canonical HTML fragment from
+slice 9 directly (insert the fragment; no JSON, no client templating).
+ + per-card  replace renderKanban/buildKanbanCard
+(app.js:975) and consume the active-work aggregate projection; each card owns
+its grouping/drag state so updates don&#39;t reset it. Light DOM throughout.</p>
+</div>
+          <label for="slice-12-what-reveal" class="reveal-label">Show full description</label>
+          
+        </div>
+      </div>
+      
+      
+      <div class="slice-field slice-why">
+        <div class="slice-field-label">Why</div>
+        <div class="slice-field-value">
+          
+          <div class="markdown-block serif-prose"><p>Work-detail is the cleanest canonical win (HTML fragment straight in); kanban
+cards carry per-card UI state that the current full re-render resets. Both are
+strong native-component fits (verified candidates).</p>
+</div>
+          
+        </div>
+      </div>
+      
+      
+      <div class="slice-field">
+        <div class="slice-field-label">Files</div>
+        <div class="slice-field-value"><code>plugin/static/dashboard</code></div>
+      </div>
+      
+      
+      <div class="slice-field">
+        <div class="slice-field-label">Done when</div>
+        <ul class="slice-done-list"><li>&lt;wip-work-detail&gt; renders by inserting the canonical HTML fragment from slice 9 — no JSON round-trip, no client-side templating</li><li>&lt;wip-kanban-card&gt; components preserve grouping/drag state across a projection update (no full re-render reset)</li><li>Both use light DOM and add no new runtime dependency</li></ul>
+      </div>
+      
+    
+
+    
+    <div class="slice-field slice-decisions-notes">
+      <div class="slice-field-label">Decisions</div>
+      <div class="slice-field-value">
+        
+        <input type="checkbox" id="slice-12-decisions-reveal" class="reveal-toggle">
+        <div class="markdown-block reveal-content serif-prose"><p><strong>Trigger:</strong>  fetches+inserts the slice-9 HTML fragment;  subscribes to the active-work projection.
+<strong>State:</strong> detail is canonical HTML (no derived round-trip); card grouping/drag state lives per-card-instance.
+<strong>Payload:</strong> work-detail = text/html fragment (slice 9); kanban = aggregate projection (slice 8).
+<strong>Rejected:</strong> rendering work-detail from the JSON endpoint (re-templating canonical HTML in JS); monolithic renderKanban (resets per-card state on every poll).</p>
+</div>
+        <label for="slice-12-decisions-reveal" class="reveal-label">Show full decisions</label>
+        
+      </div>
+    </div>
+    
+
+    
+    <div class="slice-field slice-tests-field">
+      <div class="slice-field-label">Test Strategy</div>
+      <div class="slice-field-value">
+        
+        
+        <div class="test-strategy">
+          
+          <div class="test-group" data-kind="manual">
+            <span class="test-chip">MANUAL &middot; 1</span>
+            <ul><li>open a work item -&gt; detail matches the canonical HTML; begin a drag, trigger an update, drag state survives.</li></ul>
+          </div>
+          
+          <div class="test-group" data-kind="static">
+            <span class="test-chip">STATIC &middot; 1</span>
+            <ul><li>confirm &lt;wip-work-detail&gt; consumes text/html (slice 9), not the JSON endpoint.</li></ul>
+          </div>
+          
+        </div>
+        
+      </div>
+    </div>
+    
+
+    
+
+    
+    <div class="slice-field slice-questions">
+      <div class="slice-field-label">Open Questions</div>
+      <div class="slice-field-value">
+        
+        <div class="question-block slice-question-block">
+          <p>Does &lt;wip-work-detail&gt; consume JSON or the HTML fragment?</p>
+          
+          
+          <textarea
+            data-section="slice-12-question-q-detail-source"
+            data-comment-for="slice-12-question-q-detail-source"
+            placeholder="Answer question q-detail-source...">The canonical HTML fragment from slice 9, inserted directly. The work item is canonically HTML, so this skips both the SQLite round-trip and client-side templating.</textarea>
+          
+        </div>
+        
+      </div>
+    </div>
+    
+
+    <div class="slice-deps">Dependencies: slices 8,9,10</div>
+
+    <details class="comment-collapse">
+      <summary class="comment-collapse-trigger">+ Leave a comment</summary>
+      <div class="comment-collapse-body">
+        <textarea data-section="slice-12" data-comment-for="slice-12" placeholder="Comments on slice 12..."></textarea>
+      </div>
+    </details>
+  </div>
+</details>
+<details class="slice-card" id="slice-13" data-slice="13" data-slice-name="slice-13" data-status="pending" data-approval="pending">
+  <summary class="slice-summary" aria-label="Slice 13: Cutover &#43; cleanup: feed on daemon-push, retire 2s-poll SSE and broad JSON endpoints">
+    <span class="slice-num">#13</span>
+    <span class="slice-title-col">
+      <span class="slice-name">Cutover &#43; cleanup: feed on daemon-push, retire 2s-poll SSE and broad JSON endpoints</span>
+      <span class="slice-preview">Complete the reactive cutover.</span>
+      <span class="slice-meta-row">
+        <span class="slice-summary-badges">
+          <span class="badge badge-revision badge-sm">M</span>
+          <span class="badge badge-pending badge-sm">Low</span>
+          <span class="badge badge-revision badge-sm badge-complexity" title="Complexity: complex">Complex</span>
+          
+          <span class="badge badge-pending badge-sm slice-approval-badge" data-badge-for="slice-13">Pending</span>
+          
+          <span class="badge badge-sm badge-questions" title="1 open question(s)">1 Q</span>
+        </span>
+        <span class="slice-actions" onclick="event.stopPropagation()">
+          <span class="approval-segmented" role="group" aria-label="Approval action">
+            <label class="seg-btn seg-approve" title="Approve">
+              <input type="radio" name="slice-13-approval" value="approved" data-section="slice-13" data-action="approve" aria-label="Approve slice 13">
+              &#10003;
+            </label>
+            <label class="seg-btn seg-changes" title="Request changes">
+              <input type="radio" name="slice-13-approval" value="changes_requested" data-section="slice-13" data-action="approve" aria-label="Request changes for slice 13">
+              &#8635;
+            </label>
+            <label class="seg-btn seg-reject" title="Reject">
+              <input type="radio" name="slice-13-approval" value="rejected" data-section="slice-13" data-action="approve" aria-label="Reject slice 13">
+              &#10005;
+            </label>
+          </span>
+        </span>
+      </span>
+    </span>
+    <span class="slice-chevron" aria-hidden="true"></span>
+  </summary>
+
+  <div class="slice-body">
+    
+      
+      <div class="slice-field slice-what">
+        <div class="slice-field-label">What</div>
+        <div class="slice-field-value">
+          
+          <input type="checkbox" id="slice-13-what-reveal" class="reveal-toggle">
+          <div class="markdown-block reveal-content serif-prose"><p>Complete the reactive cutover. Point hg-event-tree&#39;s feed at the daemon-push
+streaming projection (slice 8) and retire the 2s-poll sseHandler
+(api_transcript.go:361) and the planEventsHandler 2s ticker (api_plans.go:942).
+Once each panel has migrated to a component+projection (slices 10-12), prune
+the now-unused broad JSON endpoints (api_feed.go, broad api_graph.go fetches).
+&#34;Done&#34; = an idle dashboard tab issues no repeated broad-GET polls and holds
+only its SSE subscription connections.</p>
+</div>
+          <label for="slice-13-what-reveal" class="reveal-label">Show full description</label>
+          
+        </div>
+      </div>
+      
+      
+      <div class="slice-field slice-why">
+        <div class="slice-field-label">Why</div>
+        <div class="slice-field-value">
+          
+          <div class="markdown-block serif-prose"><p>The remaining broad-poll endpoints and the 2s-poll SSE are the last sources of
+read-pool churn; retiring them after panels migrate makes the dashboard fully
+push-driven and removes dead code (verified pollers: api_transcript.go:361,
+api_plans.go:942).</p>
+</div>
+          
+        </div>
+      </div>
+      
+      
+      <div class="slice-field">
+        <div class="slice-field-label">Files</div>
+        <div class="slice-field-value"><code>plugin/static/dashboard, cmd/wipnote/api_transcript.go, cmd/wipnote/api_plans.go, cmd/wipnote/api_feed.go</code></div>
+      </div>
+      
+      
+      <div class="slice-field">
+        <div class="slice-field-label">Done when</div>
+        <ul class="slice-done-list"><li>The activity feed (hg-event-tree) consumes the daemon-push streaming projection; the 2s-poll sseHandler and planEventsHandler tickers are removed</li><li>An idle open dashboard tab issues zero repeated broad-GET polls and holds only SSE subscription connections</li><li>Broad JSON endpoints whose panels have fully migrated are deleted (no dead handlers left)</li></ul>
+      </div>
+      
+    
+
+    
+    <div class="slice-field slice-decisions-notes">
+      <div class="slice-field-label">Decisions</div>
+      <div class="slice-field-value">
+        
+        <input type="checkbox" id="slice-13-decisions-reveal" class="reveal-toggle">
+        <div class="markdown-block reveal-content serif-prose"><p><strong>Trigger:</strong> panel mount opens its projection; old pollers removed once all consumers migrated.
+<strong>State:</strong> client state seeded by snapshot, updated by deltas; no broad re-fetch.
+<strong>Payload:</strong> slice-8 projection events.
+<strong>Sequencing:</strong> retire a poller/endpoint only after its panel&#39;s component (slices 10-12) is verified; prune dead handlers last.
+<strong>Rejected:</strong> big-bang endpoint removal (migrate-then-prune per panel is safer); keeping the 2s pollers alongside push (defeats the purpose).</p>
+</div>
+        <label for="slice-13-decisions-reveal" class="reveal-label">Show full decisions</label>
+        
+      </div>
+    </div>
+    
+
+    
+    <div class="slice-field slice-tests-field">
+      <div class="slice-field-label">Test Strategy</div>
+      <div class="slice-field-value">
+        
+        
+        <div class="test-strategy">
+          
+          <div class="test-group" data-kind="integration">
+            <span class="test-chip">INTEGRATION &middot; 2</span>
+            <ul><li>TestFeed_DaemonPush — apply an op, assert the feed SSE pushes with no ticker.</li><li>TestNoBroadPoll — idle tab issues no repeated broad-GET; only SSE connections held.</li></ul>
+          </div>
+          
+        </div>
+        
+      </div>
+    </div>
+    
+
+    
+
+    
+    <div class="slice-field slice-questions">
+      <div class="slice-field-label">Open Questions</div>
+      <div class="slice-field-value">
+        
+        <div class="question-block slice-question-block">
+          <p>When are the 2s pollers and broad endpoints retired?</p>
+          
+          
+          <textarea
+            data-section="slice-13-question-q-retire-order"
+            data-comment-for="slice-13-question-q-retire-order"
+            placeholder="Answer question q-retire-order...">Per panel, after its component&#43;projection is verified — migrate, verify live, then prune the now-dead poller/endpoint. The 2s sseHandler/planEventsHandler tickers go once the feed/plan panels are on the daemon-push projection.</textarea>
+          
+        </div>
+        
+      </div>
+    </div>
+    
+
+    <div class="slice-deps">Dependencies: slices 8,11,12</div>
+
+    <details class="comment-collapse">
+      <summary class="comment-collapse-trigger">+ Leave a comment</summary>
+      <div class="comment-collapse-body">
+        <textarea data-section="slice-13" data-comment-for="slice-13" placeholder="Comments on slice 13..."></textarea>
+      </div>
+    </details>
+  </div>
+</details>
+<details class="slice-card" id="slice-14" data-slice="14" data-slice-name="slice-14" data-status="pending" data-approval="pending">
+  <summary class="slice-summary" aria-label="Slice 14: Anomalies as first-class objects: canonical event &#43; derived table &#43; dashboard panel">
+    <span class="slice-num">#14</span>
+    <span class="slice-title-col">
+      <span class="slice-name">Anomalies as first-class objects: canonical event &#43; derived table &#43; dashboard panel</span>
+      <span class="slice-preview">Promote conflicts, stale indexes, failed/spooled hook writes, and</span>
+      <span class="slice-meta-row">
+        <span class="slice-summary-badges">
+          <span class="badge badge-revision badge-sm">M</span>
+          <span class="badge badge-revision badge-sm">Med</span>
+          <span class="badge badge-revision badge-sm badge-complexity" title="Complexity: complex">Complex</span>
+          
+          <span class="badge badge-pending badge-sm slice-approval-badge" data-badge-for="slice-14">Pending</span>
+          <span class="badge badge-sm badge-issues" title="3 critic issue(s)">3 issues</span>
+          <span class="badge badge-sm badge-questions" title="1 open question(s)">1 Q</span>
+        </span>
+        <span class="slice-actions" onclick="event.stopPropagation()">
+          <span class="approval-segmented" role="group" aria-label="Approval action">
+            <label class="seg-btn seg-approve" title="Approve">
+              <input type="radio" name="slice-14-approval" value="approved" data-section="slice-14" data-action="approve" aria-label="Approve slice 14">
+              &#10003;
+            </label>
+            <label class="seg-btn seg-changes" title="Request changes">
+              <input type="radio" name="slice-14-approval" value="changes_requested" data-section="slice-14" data-action="approve" aria-label="Request changes for slice 14">
+              &#8635;
+            </label>
+            <label class="seg-btn seg-reject" title="Reject">
+              <input type="radio" name="slice-14-approval" value="rejected" data-section="slice-14" data-action="approve" aria-label="Reject slice 14">
+              &#10005;
+            </label>
+          </span>
+        </span>
+      </span>
+    </span>
+    <span class="slice-chevron" aria-hidden="true"></span>
+  </summary>
+
+  <div class="slice-body">
+    
+      
+      <div class="slice-field slice-what">
+        <div class="slice-field-label">What</div>
+        <div class="slice-field-value">
+          
+          <input type="checkbox" id="slice-14-what-reveal" class="reveal-toggle">
           <div class="markdown-block reveal-content serif-prose"><p>Promote conflicts, stale indexes, failed/spooled hook writes, and
 duplicate-agent activity from opaque counters to first-class, navigable
 objects. The daemon (and reindex/db-health) emit anomaly records into the
@@ -2361,7 +3025,7 @@ state. Duplicate-agent detection source: the sessions/agent-activity table —
 liveness window AND that has claimed/started a given work item; two such
 overlapping on one feat/bug/spike id raises one anomaly.</p>
 </div>
-          <label for="slice-10-what-reveal" class="reveal-label">Show full description</label>
+          <label for="slice-14-what-reveal" class="reveal-label">Show full description</label>
           
         </div>
       </div>
@@ -2399,7 +3063,7 @@ actionable UX (research doc, Item 6).</p>
       <div class="slice-field-label">Decisions</div>
       <div class="slice-field-value">
         
-        <input type="checkbox" id="slice-10-decisions-reveal" class="reveal-toggle">
+        <input type="checkbox" id="slice-14-decisions-reveal" class="reveal-toggle">
         <div class="markdown-block reveal-content serif-prose"><p><strong>Trigger:</strong> daemon/reindex/db-health emit an anomaly event when a divergence condition is detected.
 <strong>State:</strong> CANONICAL events.ndjson record (survives rebuild) + derived <code>anomalies</code> table (rebuildable) — chosen over derived-only (ephemeral) or per-anomaly .html (heaviest).
 <strong>Indexer:</strong> reindex_otel_events.go is extended to recognize a new anomaly record type alongside OTel signals (the critic flagged this as previously unowned).
@@ -2407,7 +3071,7 @@ actionable UX (research doc, Item 6).</p>
 <strong>Duplicate-agent &#34;active&#34;:</strong> sessions/agent-activity row with in-progress status, last-update within a liveness window, and a claimed/started work item; overlap on one id = anomaly.
 <strong>Rejected:</strong> derived-only anomalies table (lost on reindex, not local-first); dedicated .wipnote/anomalies/*.html (heaviest — revisit only if anomalies need full lineage/linking).</p>
 </div>
-        <label for="slice-10-decisions-reveal" class="reveal-label">Show full decisions</label>
+        <label for="slice-14-decisions-reveal" class="reveal-label">Show full decisions</label>
         
       </div>
     </div>
@@ -2469,8 +3133,8 @@ actionable UX (research doc, Item 6).</p>
           
           
           <textarea
-            data-section="slice-10-question-q-dup-agent"
-            data-comment-for="slice-10-question-q-dup-agent"
+            data-section="slice-14-question-q-dup-agent"
+            data-comment-for="slice-14-question-q-dup-agent"
             placeholder="Answer question q-dup-agent...">From the sessions/agent-activity table: two or more sessions that are in-progress, live within the liveness window, and have claimed/started the SAME work item (overlapping active windows on one feat/bug/spike id). The orchestrator convergence rule already treats this as a smell; the anomaly makes it visible.</textarea>
           
         </div>
@@ -2484,7 +3148,7 @@ actionable UX (research doc, Item 6).</p>
     <details class="comment-collapse">
       <summary class="comment-collapse-trigger">+ Leave a comment</summary>
       <div class="comment-collapse-body">
-        <textarea data-section="slice-10" data-comment-for="slice-10" placeholder="Comments on slice 10..."></textarea>
+        <textarea data-section="slice-14" data-comment-for="slice-14" placeholder="Comments on slice 14..."></textarea>
       </div>
     </details>
   </div>
@@ -2506,8 +3170,8 @@ actionable UX (research doc, Item 6).</p>
   <h2>Feedback Summary</h2>
   <div class="progress-stats">
     <div class="progress-stat"><strong id="approvedCount">0</strong> approved</div>
-    <div class="progress-stat"><strong id="totalSections">11</strong> sections</div>
-    <div class="progress-stat"><strong id="pendingCount">11</strong> pending</div>
+    <div class="progress-stat"><strong id="totalSections">15</strong> sections</div>
+    <div class="progress-stat"><strong id="pendingCount">15</strong> pending</div>
   </div>
   <div class="progress-bar-track"><div class="progress-bar-fill" id="progressFill" style="width:0%"></div></div>
   <div class="comments-summary">
@@ -2587,7 +3251,7 @@ var planId=(function(){var a=document.querySelector('article[id]');return a?a.id
 
 (function(){
   'use strict';
-  var SECTIONS=/*PLAN_SECTIONS_JSON*/["design","slice-1","slice-2","slice-3","slice-4","slice-5","slice-6","slice-7","slice-8","slice-9","slice-10"]/*END_PLAN_SECTIONS_JSON*/;
+  var SECTIONS=/*PLAN_SECTIONS_JSON*/["design","slice-1","slice-2","slice-3","slice-4","slice-5","slice-6","slice-7","slice-8","slice-9","slice-10","slice-11","slice-12","slice-13","slice-14"]/*END_PLAN_SECTIONS_JSON*/;
 
   function setBadge(el,ok){
     el.className='badge badge-'+(ok?'approved':'pending');

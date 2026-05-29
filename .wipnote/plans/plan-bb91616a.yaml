@@ -24,8 +24,10 @@ meta:
           - OUT OF SCOPE: WASM boundary, DuckDB replacement, CRDT rewrite, cloud sync.
 
         Phasing: Phase A (slices 1-6) = daemon write-owner spine. Phase B (slice 7) =
-        rebuildable-derived contract + DB-health observability. Phase C (slices 8-9) =
-        reactive projections. Phase D (slice 10) = first-class anomalies.
+        rebuildable-derived contract + DB-health observability + read-routing-by-shape.
+        Phase C (slices 8-13) = reactive dashboard: daemon-push snapshot+delta projections,
+        canonical-HTML document reads, and native (zero-dep) custom-element client components
+        that patch fields. Phase D (slice 14) = first-class anomalies.
 
         Revised post-critique (2026-05-28): danger-level scope gaps from the dual-critic
         pass are folded in — headless writer-only serve_child mode is now explicit scope
@@ -33,6 +35,12 @@ meta:
         serve_child.go:100 owned-writer case, slice 10 owns the anomaly NDJSON indexer
         extension, slice 4 updates the boundary-test inventory, and op-format versioning +
         spool durability + persistent dedup + reindex self-deadlock are specified.
+
+        Revised 2026-05-28 (post frontend review): two-tier topology (per-project writer +
+        follow-on global coordinator trk-cb80b7da). Phase C expanded with daemon-push
+        streaming, canonical-HTML document reads, and native zero-dep custom-element client
+        components (verified against app.js / event-tree.js); streaming source = daemon
+        append-notify (NOT a SQLite poll or a per-session NDJSON tail).
     created_at: ""
     status: draft
     schema_version: v3
@@ -214,7 +222,7 @@ slices:
         next start the daemon drains the spool in order, submitting each op through
         the durable dedup marker (slice 1) so replay is safe and convergent even if
         a crash occurred after apply but before spool-entry removal. A corrupt tail
-        record is logged as an anomaly (slice 10) and truncated, never blocking the
+        record is logged as an anomaly (slice 14) and truncated, never blocking the
         drain. Spool entries are removed only after an applied/duplicate ack.
       why: |
         The locked decision is "auto-spawn primary, spool only as last resort." The
@@ -473,6 +481,7 @@ slices:
         - Every SQLite table has a registry entry classifying it canonical-derived / ephemeral / non-rebuildable, enforced by a test that enumerates all tables
         - /api/db-health returns per-table classification, last-applied seq/time, and a staleness flag (gap between derived seq and canonical high-water mark)
         - The dashboard renders a DB-health panel showing stale tables and last reindex time
+        - 'The contract documents read-routing-by-shape: streaming reads -> daemon append-notify, single-document reads -> canonical HTML, aggregate reads -> SQLite'
       effort: S
       risk: Low
       tests: |
@@ -497,119 +506,293 @@ slices:
         **State:** a NEW static table-classification registry in internal/db (complements, does not reuse, the write-site enum at sqlite_write_boundary_test.go:59); staleness = derived-applied-seq vs canonical high-water mark.
         **Payload:** per-table {name, classification, last_applied_seq, last_applied_ts, stale: bool}.
         **Staleness rule:** a nonzero gap between the table's last-applied seq/offset and the canonical high-water mark = stale; zero gap = fresh. A startup test enumerates tables so a newly-added table fails until registered.
+        **Read-routing-by-shape:** the contract also classifies READ paths — streaming -> daemon append-notify (slice 8), single-document -> canonical HTML fragment (slice 9), aggregate/cross-cutting -> SQLite; the derived index serves aggregates only.
         **Rejected:** deriving classification ad hoc per query (drift risk); claiming direct reuse of the write-site enum (it is a different axis — site vs table).
     - id: slice-8
       num: 8
-      title: Named snapshot+delta SSE projection protocol (infra + first projection)
+      title: Snapshot+delta projection infra; streaming via daemon append-notify, aggregates from SQLite
       what: |
-        Build the reactive projection layer by generalizing the planEventsHandler
-        pattern (api_plans.go:919 — 2s ticker at 942, lastRowID high-water at 936/940,
-        text/event-stream). Define a projection registry keyed by stable names
+        Build the reactive projection layer with read sources routed BY SHAPE
+        (slice 7 contract). Define a projection registry keyed by stable names
         (active-work, session-events:<id>, lineage:<id>, agent-activity,
-        collector-status, plan:<id>). Each projection serves an SSE channel whose
-        first event is a full snapshot carrying a monotonic seq, followed by delta
-        events with increasing seq; clients reconnect with Last-Event-ID to resume.
-        Define a compaction/retention policy (keep last N events or T window per
-        projection); if a client's requested seq is below the compaction floor, send
-        a fresh snapshot instead of deltas. Seq space: use the slice-1 writer
-        monotonic seq when the daemon is present; otherwise a per-projection counter
-        in a clearly namespaced space so the two never collide. Ship infra +
-        active-work end to end.
+        collector-status, plan:<id>). Each projection serves an SSE channel: first
+        event = full snapshot with a monotonic seq, then deltas with increasing seq;
+        clients reconnect with Last-Event-ID to resume. STREAMING projections (the
+        activity feed, plan feed) are fed by the daemon's append-notify: the
+        single-writer daemon (slices 1-2) emits a notification when it applies an op,
+        and the projection pushes on that signal — replacing today's 2s SQLite poll
+        (sseHandler api_transcript.go:361, planEventsHandler api_plans.go:942) with
+        true push, no per-session NDJSON fan-out, no 2s flush floor. AGGREGATE
+        projections (stats, session list, kanban, graph) still derive from SQLite
+        (its genuine strength). Define a compaction floor (keep last N / T window);
+        below it, send a fresh snapshot. Ship infra + the active-work projection.
       why: |
-        Most dashboard panels do broad JSON polling today; the only streaming is a
-        2-second SQLite poll ticker. Named snapshot+delta projections cut read-pool
-        pressure and make the UI live (research doc, Item 4).
+        Today the only streaming is a 2-second SQLite poll; everything else broad-polls
+        JSON. The daemon this plan already builds is the natural append-notify source,
+        so streaming becomes true push without polling and without the per-session
+        NDJSON fan-out / 2s-flush blockers (research doc, Item 4; verified 2026-05-28).
       files:
         - internal/projection/registry.go
         - internal/projection/sse.go
+        - internal/daemon/notify.go
         - cmd/wipnote/api_projections.go
         - cmd/wipnote/serve_child.go
-      deps: []
+      deps:
+        - 1
       done_when:
+        - The single-writer daemon emits an append-notify on each applied op, and streaming projections push on it (no 2s poll)
         - Opening a projection SSE channel yields a full snapshot with a monotonic seq, then deltas with increasing seq
-        - Reconnecting with Last-Event-ID resumes from the client's last seq without a full re-snapshot
-        - Reconnecting with a seq below the compaction floor receives a fresh snapshot (defined fallback), not an error
-        - The active-work projection drives a dashboard panel without polling /api/initial-stats
+        - Reconnecting with Last-Event-ID resumes from the client's last seq; a seq below the compaction floor receives a fresh snapshot, not an error
+        - Aggregate projections derive from SQLite; streaming projections do NOT poll SQLite
       effort: M
       risk: Med
       tests: |
         Unit: TestProjectionSeq_Monotonic — snapshot seq < each subsequent delta seq.
-        Integration: TestProjectionResume — reconnect with Last-Event-ID skips already-seen deltas.
-        Integration: TestProjectionCompactionFallback — reconnect below floor -> fresh snapshot.
+        Integration: TestStreamingPush_NoPoll — apply an op via the daemon, assert the projection pushes without a timer tick.
+        Integration: TestProjectionResume — reconnect with Last-Event-ID skips seen deltas; below-floor -> fresh snapshot.
       complexity: complex
       approved: false
       comment: ""
       questions:
-        - id: q-resume
-          text: How does a reconnecting client avoid a full re-snapshot?
-          answer: SSE Last-Event-ID carries the client's last seq; the server replays deltas with seq greater than that, or sends a fresh snapshot if the requested seq is below the compaction floor.
+        - id: q-stream-source
+          text: Streaming projection source — SQLite poll, NDJSON tail, or daemon append-notify?
+          answer: Daemon append-notify. The single-writer daemon sees every applied op, so it emits a push notification with no poll, no per-session NDJSON fan-out, and no 2s-flush floor. Aggregates still come from SQLite; documents go straight to canonical HTML.
       critic_revisions:
-        - source: haiku
-          severity: HIGH
-          summary: Compaction/retention policy was undefined — added a keep-last-N/T-window floor with a fresh-snapshot fallback below the floor, plus a test.
         - source: sonnet
-          severity: LOW
-          summary: Seq space inconsistency if slice 8 ships before slice 1 — resolved by namespacing the per-projection counter so it never collides with the daemon seq space. planEventsHandler anchor (api_plans.go:919/942) confirmed.
+          severity: SUCCESS
+          summary: 'Verified 2026-05-28: live SSE is a 2s SQLite poll (api_transcript.go:361, api_plans.go:942), NOT an NDJSON tail; ingest.ParseFileFrom (parser.go:76) + NDJSON sink exist.'
+        - source: sonnet
+          severity: HIGH
+          summary: NDJSON-tail would NOT eliminate the poll cheaply (one file per session + sink SyncInterval=2s); daemon append-notify is the correct push source and reuses the Phase A spine.
       decisions_notes: |
         **Trigger:** GET /api/projections/<name> as text/event-stream.
-        **State:** projection state derived read-only from SQLite; seq = the slice-1 writer monotonic seq when the daemon is present, else a namespaced per-projection counter (never overlapping the daemon seq space).
+        **Read-routing-by-shape:** STREAMING -> daemon append-notify push (slices 1-2); AGGREGATE -> SQLite read-only; DOCUMENT reads go straight to canonical HTML (slice 9), not through projections.
+        **State:** seq = the slice-1 writer monotonic seq (single source across streaming projections).
         **Payload:** event 1 = {type: snapshot, seq, data}; event N = {type: delta, seq, ops}.
-        **Compaction:** retain last N events / T window per projection; below the floor -> fresh snapshot (explicit, tested fallback).
-        **Rejected:** versioned-snapshot-push without deltas (coarse, large payloads); delta-only client reducers (hardest reconnect story).
+        **Compaction:** retain last N / T window; below floor -> fresh snapshot (tested fallback).
+        **Rejected:** generalizing the 2s SQLite-poll ticker (keeps the poll); naive NDJSON file-tail (per-session fan-out + sink's own 2s flush floor — verified not simpler); versioned-snapshot-push without deltas (coarse).
     - id: slice-9
       num: 9
-      title: Migrate dashboard panels from broad polling to typed projections
+      title: Serve work items as canonical HTML fragments (document reads bypass SQLite + JSON)
       what: |
-        Cut the remaining broad-fetch panels (events feed, graph, workboard, timeline,
-        collector-status) over to the named projection channels from slice-8. Replace
-        the plan-feedback 2-second SQLite poll ticker (api_plans.go:942) with a proper
-        projection subscription. Keep the old JSON endpoints during cutover; remove a
-        broad endpoint only once its panel has migrated and is verified. "Done" for
-        cutover = the panel issues no repeated broad-GET polls and holds at most its
-        SSE subscription connections (an observable, testable criterion — not a vague
-        "measurable reduction").
+        Add a document read path that serves the canonical work-item HTML directly.
+        Today featureDetailHandler (api.go:596) reads .wipnote/{features,bugs,spikes,
+        tracks}/<id>.html from disk but runs htmlparse.ParseFile -> respondJSON,
+        forcing a parse + client-side re-templating round-trip. Add an endpoint that
+        returns the canonical HTML fragment as-is (the canonical store IS the wire
+        format) for direct insertion into a <wip-work-detail> element (slice 12).
+        Keep the JSON detail endpoint during cutover. Document reads never touch
+        SQLite — making the rebuildable-derived contract (slice 7) concrete: single
+        documents come from canonical, SQLite is for aggregates only.
       why: |
-        The remaining panels still broad-poll JSON (and the plan-feedback panel polls
-        SQLite every 2s), burning read-pool connections on idle tabs. Migrating them to
-        projection channels makes the dashboard live and cuts read pressure (Item 4).
+        Work items are canonically HTML; parsing them to JSON only to re-render in JS
+        is wasted work and a SQLite-adjacent round-trip. Serving the fragment directly
+        is the cleanest canonical-first win in the dashboard (verified: api.go:596).
+      files:
+        - cmd/wipnote/api.go
+        - cmd/wipnote/api_features.go
+      deps: []
+      done_when:
+        - A document endpoint returns the canonical work-item HTML fragment as-is (text/html), reading the .wipnote/<kind>/<id>.html file directly
+        - The document read path issues zero SQLite queries
+        - The existing JSON detail endpoint still works during cutover
+      effort: S
+      risk: Low
+      tests: |
+        Integration: TestWorkDetailFragment_HTML — request fragment, assert text/html body matches the on-disk canonical file.
+        Integration: TestWorkDetailFragment_NoSQLite — assert the handler opens no DB connection.
+      complexity: complex
+      approved: false
+      comment: ""
+      questions:
+        - id: q-fragment-format
+          text: Serve raw canonical HTML or keep parsing to JSON?
+          answer: Serve the raw canonical HTML fragment. The .wipnote/*.html file is already the source of truth and the browser's native format; parsing it to JSON only to re-template in JS is a wasted round-trip. The JSON endpoint stays during cutover.
+      decisions_notes: |
+        **Trigger:** GET a work-item document endpoint -> canonical HTML fragment.
+        **State:** reads .wipnote/<kind>/<id>.html directly (canonical); no SQLite.
+        **Payload:** text/html fragment (NOT parsed-to-JSON) for direct DOM insertion.
+        **Read-routing-by-shape:** this is the DOCUMENT lane of the slice-7 contract — single-document reads come from canonical, never the derived index.
+        **Rejected:** keeping parse->JSON->client-template as the only path (wasted round-trip); reconstructing detail from SQLite (it is derived, the file is the source).
+    - id: slice-10
+      num: 10
+      title: Native custom-element client foundation + <wip-stats-bar> proof (zero new deps)
+      what: |
+        Establish the dependency-free client component pattern, matching the one
+        existing Web Component (hg-event-tree, light DOM, this.innerHTML — no Shadow
+        DOM, event-tree.js:71/2111). Add a small base/helper for native custom
+        elements that consume a projection (slice 8) and patch only changed fields via
+        attributeChangedCallback / targeted text nodes (no innerHTML subtree rebuilds,
+        no morphdom, no datastar). Prove it with <wip-stats-bar>, replacing the
+        fetchStats/updateStatsBar 30s timer: the element subscribes to the active-work
+        aggregate projection and patches ~7 text nodes on delta. Light DOM so the
+        existing components.css (2724 lines) keeps applying with no duplication.
+      why: |
+        app.js (4459 lines) rebuilds DOM subtrees from JS globals on timers; pushing
+        projection deltas to that client wastes them. Fine-grained native components
+        that patch fields are the morph-free, dependency-free way to realize the delta
+        benefit, consistent with hg-event-tree and the no-new-dependency constraint.
       files:
         - plugin/static/dashboard
-        - cmd/wipnote/api_feed.go
-        - cmd/wipnote/api_graph.go
-        - cmd/wipnote/api_plans.go
       deps:
         - 8
       done_when:
-        - Feed, graph, workboard, and timeline panels render from projection SSE channels, not broad JSON polls
-        - The plan-feedback panel no longer polls SQLite on a fixed 2-second ticker
-        - An idle open dashboard tab issues zero repeated broad-GET polls and holds only its SSE subscription connections (verified by request log, not a vague metric)
+        - A native custom-element base exists that subscribes to a projection and patches fields without rebuilding its subtree
+        - <wip-stats-bar> renders from the active-work projection and patches text nodes on delta (no 30s fetch timer, no innerHTML rebuild)
+        - It uses light DOM; existing components.css applies unchanged; no new runtime dependency is added
       effort: M
-      risk: Low
+      risk: Med
       tests: |
-        Integration: TestFeedPanel_NoPoll — assert feed panel opens an SSE projection, issues no repeated /api/events/feed GETs.
-        Manual: dashboard smoke — panels update live on a new work item without manual refresh.
+        Manual: dashboard smoke — stats update live on a new work item; no full re-render flash.
+        Static: confirm no new runtime dependency and no attachShadow in the new component.
       complexity: complex
       approved: false
       comment: ""
       questions:
-        - id: q-cutover-order
-          text: Migrate all panels at once or incrementally?
-          answer: Incrementally — keep the broad JSON endpoints alive during cutover, migrate one panel at a time, verify live behavior, then prune the now-unused broad endpoints.
-      critic_revisions:
-        - source: haiku
-          severity: LOW
-          summary: '''read-pool usage drops measurably'' was unquantified/untestable — replaced with an observable criterion (no repeated broad-GET polls; only SSE connections held).'
-        - source: sonnet
-          severity: INFO
-          summary: api_feed.go/api_graph.go/api_plans.go confirmed; the 2s ticker target is api_plans.go:942.
+        - id: q-component-tech
+          text: Native custom elements, morphdom, or a framework like datastar?
+          answer: Native custom elements with light DOM. The morph problem only exists if you keep innerHTML-blob replacement; components that patch their own fields solve it with zero dependencies, matching the existing hg-event-tree and the no-new-dependency constraint.
       decisions_notes: |
-        **Trigger:** dashboard panel mount opens the matching projection SSE channel.
-        **State:** client holds projection state seeded by the snapshot, updated by deltas.
+        **Trigger:** custom element connectedCallback subscribes to its projection; attributeChangedCallback / delta handler patches fields.
+        **State:** the element owns its own subtree; no shared global re-render.
         **Payload:** consumes slice-8 snapshot/delta events.
-        **Done criterion:** replaced the vague "read-pool drops measurably" with a testable "no repeated broad-GET polls; only SSE subscription connections held."
-        **Rejected:** big-bang removal of all JSON endpoints — keep them during cutover, migrate one panel at a time, verify, then prune.
-    - id: slice-10
-      num: 10
+        **Native + light DOM:** matches hg-event-tree; light DOM keeps components.css applying; NO Shadow DOM, NO morphdom, NO datastar.
+        **Rejected:** morphdom (only needed if keeping innerHTML-blob replace); datastar / any framework (violates no-new-dependency constraint); Shadow DOM (would orphan components.css).
+    - id: slice-11
+      num: 11
+      title: <wip-session-list> + <wip-session-row> — patch fields, delete the localStorage expand hack
+      what: |
+        Convert the sessions panel (renderSessions, app.js:433, on a 15s
+        SESSIONS_REFRESH_MS timer) to <wip-session-list> + per-row <wip-session-row>
+        components fed by the agent-activity/sessions projection. Each row owns its
+        subtree and patches its own fields on delta, so expand/preview state simply
+        persists across updates. DELETE _loadExpandedSessions/_saveExpandedSessions
+        and the _expandedSessions localStorage replay machinery (app.js:303-332) — the
+        comment at app.js:303-306 ("Survives rerenders...") is the explicit tell that
+        this hack exists only to paper over the 15s DOM rebuild.
+      why: |
+        Highest-value conversion: it removes a real, well-commented workaround. The
+        localStorage state-replay hack exists solely because renderSessions() destroys
+        expand state every 15s; component-owned rows make it unnecessary (verified:
+        app.js:303-332, 433, 452).
+      files:
+        - plugin/static/dashboard
+        - cmd/wipnote/api_projections.go
+      deps:
+        - 8
+        - 10
+      done_when:
+        - Session rows render from the projection and patch fields in place; a 15s update no longer rebuilds row subtrees
+        - Expanding a row and waiting through an update preserves expand/preview state with NO localStorage replay
+        - _loadExpandedSessions / _saveExpandedSessions / _expandedSessions are deleted and the dashboard still preserves expand state
+      effort: M
+      risk: Med
+      tests: |
+        Manual: expand a session row, wait >15s, confirm it stays expanded with no flicker and no localStorage key written.
+        Static: confirm _loadExpandedSessions/_saveExpandedSessions removed.
+      complexity: complex
+      approved: false
+      comment: ""
+      questions:
+        - id: q-session-state
+          text: Where does row expand state live after conversion?
+          answer: In the <wip-session-row> element instance. Because the component patches fields instead of rebuilding its subtree, expand/preview state simply stays — so the localStorage save/replay hack (app.js:303-332) is deleted, not ported.
+      decisions_notes: |
+        **Trigger:** <wip-session-row> subscribes to its row's projection slice; patches fields on delta.
+        **State:** expand/preview state lives in the element instance, not localStorage; it survives updates because the subtree is never rebuilt.
+        **Payload:** consumes the agent-activity/sessions projection (slice 8).
+        **Tell:** app.js:303-306 comment + _expandedSessions Set (app.js:332) consulted every renderSessions() pass (app.js:452) — deleting this is the acceptance signal.
+        **Rejected:** keeping renderSessions + localStorage replay (the workaround this slice removes).
+    - id: slice-12
+      num: 12
+      title: <wip-work-detail> (canonical HTML fragment) + <wip-kanban>/<wip-kanban-card>
+      what: |
+        Convert two more surfaces. <wip-work-detail> replaces openWorkDetail/
+        renderWorkDetail (app.js:1197) and consumes the canonical HTML fragment from
+        slice 9 directly (insert the fragment; no JSON, no client templating).
+        <wip-kanban> + per-card <wip-kanban-card> replace renderKanban/buildKanbanCard
+        (app.js:975) and consume the active-work aggregate projection; each card owns
+        its grouping/drag state so updates don't reset it. Light DOM throughout.
+      why: |
+        Work-detail is the cleanest canonical win (HTML fragment straight in); kanban
+        cards carry per-card UI state that the current full re-render resets. Both are
+        strong native-component fits (verified candidates).
+      files:
+        - plugin/static/dashboard
+      deps:
+        - 8
+        - 9
+        - 10
+      done_when:
+        - <wip-work-detail> renders by inserting the canonical HTML fragment from slice 9 — no JSON round-trip, no client-side templating
+        - <wip-kanban-card> components preserve grouping/drag state across a projection update (no full re-render reset)
+        - Both use light DOM and add no new runtime dependency
+      effort: M
+      risk: Med
+      tests: |
+        Manual: open a work item -> detail matches the canonical HTML; begin a drag, trigger an update, drag state survives.
+        Static: confirm <wip-work-detail> consumes text/html (slice 9), not the JSON endpoint.
+      complexity: complex
+      approved: false
+      comment: ""
+      questions:
+        - id: q-detail-source
+          text: Does <wip-work-detail> consume JSON or the HTML fragment?
+          answer: The canonical HTML fragment from slice 9, inserted directly. The work item is canonically HTML, so this skips both the SQLite round-trip and client-side templating.
+      decisions_notes: |
+        **Trigger:** <wip-work-detail> fetches+inserts the slice-9 HTML fragment; <wip-kanban-card> subscribes to the active-work projection.
+        **State:** detail is canonical HTML (no derived round-trip); card grouping/drag state lives per-card-instance.
+        **Payload:** work-detail = text/html fragment (slice 9); kanban = aggregate projection (slice 8).
+        **Rejected:** rendering work-detail from the JSON endpoint (re-templating canonical HTML in JS); monolithic renderKanban (resets per-card state on every poll).
+    - id: slice-13
+      num: 13
+      title: 'Cutover + cleanup: feed on daemon-push, retire 2s-poll SSE and broad JSON endpoints'
+      what: |
+        Complete the reactive cutover. Point hg-event-tree's feed at the daemon-push
+        streaming projection (slice 8) and retire the 2s-poll sseHandler
+        (api_transcript.go:361) and the planEventsHandler 2s ticker (api_plans.go:942).
+        Once each panel has migrated to a component+projection (slices 10-12), prune
+        the now-unused broad JSON endpoints (api_feed.go, broad api_graph.go fetches).
+        "Done" = an idle dashboard tab issues no repeated broad-GET polls and holds
+        only its SSE subscription connections.
+      why: |
+        The remaining broad-poll endpoints and the 2s-poll SSE are the last sources of
+        read-pool churn; retiring them after panels migrate makes the dashboard fully
+        push-driven and removes dead code (verified pollers: api_transcript.go:361,
+        api_plans.go:942).
+      files:
+        - plugin/static/dashboard
+        - cmd/wipnote/api_transcript.go
+        - cmd/wipnote/api_plans.go
+        - cmd/wipnote/api_feed.go
+      deps:
+        - 8
+        - 11
+        - 12
+      done_when:
+        - The activity feed (hg-event-tree) consumes the daemon-push streaming projection; the 2s-poll sseHandler and planEventsHandler tickers are removed
+        - An idle open dashboard tab issues zero repeated broad-GET polls and holds only SSE subscription connections
+        - Broad JSON endpoints whose panels have fully migrated are deleted (no dead handlers left)
+      effort: M
+      risk: Low
+      tests: |
+        Integration: TestFeed_DaemonPush — apply an op, assert the feed SSE pushes with no ticker.
+        Integration: TestNoBroadPoll — idle tab issues no repeated broad-GET; only SSE connections held.
+      complexity: complex
+      approved: false
+      comment: ""
+      questions:
+        - id: q-retire-order
+          text: When are the 2s pollers and broad endpoints retired?
+          answer: Per panel, after its component+projection is verified — migrate, verify live, then prune the now-dead poller/endpoint. The 2s sseHandler/planEventsHandler tickers go once the feed/plan panels are on the daemon-push projection.
+      decisions_notes: |
+        **Trigger:** panel mount opens its projection; old pollers removed once all consumers migrated.
+        **State:** client state seeded by snapshot, updated by deltas; no broad re-fetch.
+        **Payload:** slice-8 projection events.
+        **Sequencing:** retire a poller/endpoint only after its panel's component (slices 10-12) is verified; prune dead handlers last.
+        **Rejected:** big-bang endpoint removal (migrate-then-prune per panel is safer); keeping the 2s pollers alongside push (defeats the purpose).
+    - id: slice-14
+      num: 14
       title: 'Anomalies as first-class objects: canonical event + derived table + dashboard panel'
       what: |
         Promote conflicts, stale indexes, failed/spooled hook writes, and
@@ -735,7 +918,7 @@ critique:
               items:
                 - badge: dup-agent table
                   kind: danger
-                  text: Duplicate-agent active source table undefined; bound to the sessions/agent-activity table with an explicit liveness definition (slice 10).
+                  text: Duplicate-agent active source table undefined; bound to the sessions/agent-activity table with an explicit liveness definition (slice 14).
     risks:
         - risk: Headless writer-only serve_child is net-new and underpins all of Phase A; a leak in the HTTP-handshake break could regress the existing dashboard spawn path.
           severity: High
@@ -755,7 +938,7 @@ critique:
         all now folded into the slices: (A2) serve_child has no headless writer-only mode —
         now explicit in slice 2 (effort M->L); (A4) slice 5 undercounted the CLI surface —
         now enumerates all 13 intentionalCLIMutation sites and resolves serve_child.go:100 as
-        the daemon's own writer; slice 10 now owns the anomaly NDJSON indexer extension and
+        the daemon's own writer; slice 14 now owns the anomaly NDJSON indexer extension and
         defines the duplicate-agent source table; slice 4 updates the boundary-test inventory;
         and op-format versioning, spool durability, persistent dedup, and reindex self-deadlock
         are specified. Residual risk concentrates in slice 2 (headless mode is the load-bearing

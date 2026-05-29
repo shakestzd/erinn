@@ -74,6 +74,54 @@ func TestPreCompact_NoSessionID_ReturnsContinue(t *testing.T) {
 	}
 }
 
+// TestPreCompact_DecodesAndRecordsTriggerAndStats verifies that PreCompact
+// decodes compaction_trigger and context_stats from the payload and records
+// them (trigger in input_summary, context_stats JSON in output_summary).
+// feat-16c79e70.
+func TestPreCompact_DecodesAndRecordsTriggerAndStats(t *testing.T) {
+	td, sessionID := setupMissingEventsDB(t)
+
+	event := &CloudEvent{
+		SessionID:         sessionID,
+		CWD:               t.TempDir(),
+		CompactionTrigger: "auto",
+		ContextStats: map[string]any{
+			"input_tokens": float64(123456),
+			"messages":     float64(42),
+		},
+	}
+
+	result, err := PreCompact(event, td.DB)
+	if err != nil {
+		t.Fatalf("PreCompact: %v", err)
+	}
+	if result == nil || !result.Continue {
+		t.Fatal("expected Continue=true from PreCompact")
+	}
+	// Observe-only: must NOT block.
+	if result.Decision != "" {
+		t.Errorf("expected no decision (observe-only), got %q", result.Decision)
+	}
+
+	var inputSummary, outputSummary string
+	if err := td.DB.QueryRow(
+		`SELECT input_summary, output_summary FROM agent_events WHERE session_id = ? AND tool_name = 'PreCompact'`,
+		sessionID,
+	).Scan(&inputSummary, &outputSummary); err != nil {
+		t.Fatalf("query agent_events: %v", err)
+	}
+	if !strings.Contains(inputSummary, "trigger=auto") {
+		t.Errorf("input_summary %q missing trigger=auto", inputSummary)
+	}
+	var stats map[string]any
+	if err := json.Unmarshal([]byte(outputSummary), &stats); err != nil {
+		t.Fatalf("output_summary is not valid context_stats JSON: %v (raw=%q)", err, outputSummary)
+	}
+	if stats["messages"] != float64(42) {
+		t.Errorf("context_stats[messages] = %v, want 42", stats["messages"])
+	}
+}
+
 func TestStop_PrefersLastAssistantMessageOverTranscript(t *testing.T) {
 	td, sessionID := setupMissingEventsDB(t)
 

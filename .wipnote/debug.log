@@ -16873,3 +16873,91 @@
 2026-05-29T19:10:03 handler=runHook duration=29.313416ms hook=posttooluse session=c51a0b5b completed
 2026-05-29T19:10:12 handler=pretooluse duration=1.55025ms phase=resolve-context session=c51a0b5b tool=Bash context resolved
 2026-05-29T19:10:12 handler=runHook duration=48.336291ms hook=pretooluse session=c51a0b5b completed
+2026-05-29T19:10:13 handler=pretooluse duration=488.375µs phase=resolve-context session=c51a0b5b tool=Bash context resolved
+2026-05-29T19:10:13 handler=runHook duration=16.612167ms hook=posttooluse session=c51a0b5b completed
+2026-05-29T19:10:16 handler=pretooluse duration=4.07175ms phase=resolve-context session=c51a0b5b tool=Bash context resolved
+2026-05-29T19:10:16 handler=runHook duration=86.179042ms hook=pretooluse session=c51a0b5b completed
+2026-05-29T19:10:33 handler=pretooluse duration=1.545833ms phase=resolve-context session=test-ses tool=Write context resolved
+2026-05-29T19:10:33 handler=pretooluse duration=1.073375ms phase=resolve-context session=test-ses tool=Write context resolved
+2026-05-29T19:10:39 handler=pretooluse duration=2.060625ms phase=resolve-context session=event-fl tool=Read context resolved
+2026-05-29T19:10:39 [wipnote] research-gate fail-open: no tool_call events recorded for session=event-flow-session-001 agent=claude-code — recording pipeline may be broken
+2026-05-29T19:10:39 handler=pretooluse duration=1.236084ms phase=resolve-context session=event-fl tool=Read context resolved
+2026-05-29T19:10:40 handler=pretooluse duration=1.031083ms phase=resolve-context session=yolo-gua tool=Write context resolved
+2026-05-29T19:10:40 handler=pretooluse duration=312.75µs phase=resolve-context session=yolo-gua tool=Write context resolved
+2026-05-29T19:10:41 [error] handler=PreCompact session=019e75fc: insert event: insert event 570ffd0d-3aba-4227-b785-aff63efee3e5: constraint failed: FOREIGN KEY constraint failed (787)
+2026-05-29T19:10:54 handler=pretooluse duration=1.616834ms phase=resolve-context session=test-ses tool=Edit context resolved
+2026-05-29T19:10:54 [wipnote] research-gate fail-open: no tool_call events recorded for session=test-sess agent=claude-code — recording pipeline may be broken
+2026-05-29T19:10:55 handler=pretooluse duration=1.320667ms phase=resolve-context session=test-ses tool=Edit context resolved
+2026-05-29T19:10:55 [wipnote] research-gate fail-open: no tool_call events recorded for session=test-sess agent=claude-code — recording pipeline may be broken
+2026-05-29T19:11:00 handler=pretooluse duration=1.775208ms phase=resolve-context session=test-ses tool=Read context resolved
+2026-05-29T19:11:00 [wipnote] research-gate fail-open: no tool_call events recorded for session=test-sess agent=codex — recording pipeline may be broken
+2026-05-29T19:11:17 handler=test detail=applying pragmas: acquiring dedicated connection for pragmas: unable to open database file: out of memory (14) fallback=writer_unavailable session=sess-wri canonical-first fallback engaged
+2026-05-29T19:11:17 handler=test detail=writequeue: queue full fallback=queue_full session=sess-que canonical-first fallback engaged
+2026-05-29T19:11:17 handler=test detail=writequeue: writer unavailable fallback=writer_unavailable session=sess-cra canonical-first fallback engaged
+2026-05-29T19:11:18 handler=test detail=no queue and no db fallback=writer_unavailable session=sess-no- canonical-first fallback engaged
+2026-05-29T19:12:08 handler=pretooluse duration=1.610584ms phase=resolve-context session=c51a0b5b tool=Bash context resolved
+2026-05-29T19:12:08 handler=runHook duration=19.107583ms hook=posttooluse session=c51a0b5b completed
+2026-05-29T19:12:10 handler=pretooluse duration=766.667µs phase=resolve-context session=c51a0b5b tool=Bash context resolved
+2026-05-29T19:12:11 handler=runHook duration=44.084958ms hook=pretooluse session=c51a0b5b completed
+2026-05-29T19:12:11 handler=pretooluse duration=420.292µs phase=resolve-context session=c51a0b5b tool=Bash context resolved
+2026-05-29T19:12:11 handler=runHook duration=11.086125ms hook=posttooluse session=c51a0b5b completed
+2026-05-29T19:12:14 handler=pretooluse duration=693.875µs phase=resolve-context session=c51a0b5b tool=Bash context resolved
+2026-05-29T19:12:14 handler=runHook duration=37.355625ms hook=pretooluse session=c51a0b5b completed
+2026-05-29T19:12:23 handler=pretooluse duration=6.345333ms phase=resolve-context session=test-ses tool=Write context resolved
+2026-05-29T19:12:23 handler=pretooluse duration=1.420333ms phase=resolve-context session=test-ses tool=Write context resolved
+2026-05-29T19:12:25 handler=pretooluse duration=1.958208ms phase=resolve-context session=event-fl tool=Read context resolved
+2026-05-29T19:12:25 [wipnote] research-gate fail-open: no tool_call events recorded for session=event-flow-session-001 agent=claude-code — recording pipeline may be broken
+2026-05-29T19:12:25 handler=pretooluse duration=1.411625ms phase=resolve-context session=event-fl tool=Read context resolved
+2026-05-29T19:12:25 handler=pretooluse duration=241.542µs phase=resolve-context session=yolo-gua tool=Write context resolved
+2026-05-29T19:12:25 handler=pretooluse duration=378.834µs phase=resolve-context session=yolo-gua tool=Write context resolved
+2026-05-29T19:12:25 [error] handler=PreCompact session=019e75fc: insert event: insert event 41d0155b-2f32-4eaa-a8f8-df6f1fcefc6d: constraint failed: FOREIGN KEY constraint failed (787)
+2026-05-29T19:12:26 handler=pretooluse duration=1.19575ms phase=resolve-context session=test-ses tool=Edit context resolved
+2026-05-29T19:12:26 [wipnote] research-gate fail-open: no tool_call events recorded for session=test-sess agent=claude-code — recording pipeline may be broken
+2026-05-29T19:12:26 handler=pretooluse duration=1.071958ms phase=resolve-context session=test-ses tool=Edit context resolved
+2026-05-29T19:12:26 [wipnote] research-gate fail-open: no tool_call events recorded for session=test-sess agent=claude-code — recording pipeline may be broken
+2026-05-29T19:12:26 handler=pretooluse duration=1.164458ms phase=resolve-context session=test-ses tool=Read context resolved
+2026-05-29T19:12:26 [wipnote] research-gate fail-open: no tool_call events recorded for session=test-sess agent=codex — recording pipeline may be broken
+2026-05-29T19:12:43 handler=test detail=applying pragmas: acquiring dedicated connection for pragmas: unable to open database file: out of memory (14) fallback=writer_unavailable session=sess-wri canonical-first fallback engaged
+2026-05-29T19:12:43 handler=test detail=writequeue: queue full fallback=queue_full session=sess-que canonical-first fallback engaged
+2026-05-29T19:12:43 handler=test detail=writequeue: writer unavailable fallback=writer_unavailable session=sess-cra canonical-first fallback engaged
+2026-05-29T19:12:43 handler=test detail=no queue and no db fallback=writer_unavailable session=sess-no- canonical-first fallback engaged
+2026-05-29T19:13:41 handler=pretooluse duration=747.542µs phase=resolve-context session=c51a0b5b tool=Bash context resolved
+2026-05-29T19:13:41 handler=runHook duration=18.830833ms hook=posttooluse session=c51a0b5b completed
+2026-05-29T19:13:44 [wipnote] CLAUDE_ENV_FILE unset — using .active-session only (session_id=019e7603-d3be-71e3-bbb2-b0d078de1a5e)
+2026-05-29T19:13:45 handler=session-start duration=5.39675ms phase=db-tx session=019e7603 transaction complete
+2026-05-29T19:13:45 handler=session-start duration=193.328042ms session=019e7603 handler complete
+2026-05-29T19:13:45 handler=runHook duration=229.021417ms hook=session-start session=019e7603 completed
+2026-05-29T19:13:45 handler=runHook duration=2.179875ms hook=user-prompt session=019e7603 completed
+2026-05-29T19:13:46 handler=pretooluse duration=785.667µs phase=resolve-context session=c51a0b5b tool=Bash context resolved
+2026-05-29T19:13:46 handler=runHook duration=27.186ms hook=pretooluse session=c51a0b5b completed
+2026-05-29T19:13:47 handler=pretooluse duration=449.708µs phase=resolve-context session=c51a0b5b tool=Bash context resolved
+2026-05-29T19:13:47 [posttooluse] tagged claim for feat-16c79e70 with agent ab110cc34da3e15c9
+2026-05-29T19:13:47 handler=runHook duration=9.027083ms hook=posttooluse session=c51a0b5b completed
+2026-05-29T19:13:49 [wipnote] CLAUDE_ENV_FILE unset — using .active-session only (session_id=019e7603-e858-7492-971d-82032829eca6)
+2026-05-29T19:13:49 handler=session-start duration=5.876ms phase=db-tx session=019e7603 transaction complete
+2026-05-29T19:13:49 handler=session-start duration=121.626625ms session=019e7603 handler complete
+2026-05-29T19:13:49 handler=runHook duration=153.114042ms hook=session-start session=019e7603 completed
+2026-05-29T19:13:49 handler=runHook duration=1.921625ms hook=user-prompt session=019e7603 completed
+2026-05-29T19:14:03 handler=pretooluse duration=1.171792ms phase=resolve-context session=c51a0b5b tool=Edit context resolved
+2026-05-29T19:14:04 handler=runHook duration=51.879125ms hook=pretooluse session=c51a0b5b completed
+2026-05-29T19:14:04 handler=pretooluse duration=1.093041ms phase=resolve-context session=c51a0b5b tool=Edit context resolved
+2026-05-29T19:14:04 handler=runHook duration=28.378791ms hook=posttooluse session=c51a0b5b completed
+2026-05-29T19:14:17 handler=pretooluse duration=1.864709ms phase=resolve-context session=c51a0b5b tool=Edit context resolved
+2026-05-29T19:14:17 handler=runHook duration=45.508375ms hook=pretooluse session=c51a0b5b completed
+2026-05-29T19:14:17 handler=pretooluse duration=386.125µs phase=resolve-context session=c51a0b5b tool=Edit context resolved
+2026-05-29T19:14:17 handler=runHook duration=19.089583ms hook=posttooluse session=c51a0b5b completed
+2026-05-29T19:14:21 handler=pretooluse duration=798.75µs phase=resolve-context session=c51a0b5b tool=Edit context resolved
+2026-05-29T19:14:21 handler=runHook duration=39.485541ms hook=pretooluse session=c51a0b5b completed
+2026-05-29T19:14:21 handler=pretooluse duration=1.623375ms phase=resolve-context session=c51a0b5b tool=Edit context resolved
+2026-05-29T19:14:21 handler=runHook duration=25.264959ms hook=posttooluse session=c51a0b5b completed
+2026-05-29T19:14:33 handler=pretooluse duration=1.567042ms phase=resolve-context session=c51a0b5b tool=Edit context resolved
+2026-05-29T19:14:33 handler=runHook duration=47.003125ms hook=pretooluse session=c51a0b5b completed
+2026-05-29T19:14:33 handler=pretooluse duration=721.041µs phase=resolve-context session=c51a0b5b tool=Edit context resolved
+2026-05-29T19:14:33 handler=runHook duration=31.833958ms hook=posttooluse session=c51a0b5b completed
+2026-05-29T19:14:36 handler=pretooluse duration=501.334µs phase=resolve-context session=c51a0b5b tool=Bash context resolved
+2026-05-29T19:14:36 handler=runHook duration=44.882875ms hook=pretooluse session=c51a0b5b completed
+2026-05-29T19:14:47 [error] handler=PreCompact session=019e7603: insert event: insert event 2a27d111-e73b-4ff4-8485-0fd501144b88: constraint failed: FOREIGN KEY constraint failed (787)
+2026-05-29T19:14:48 handler=pretooluse duration=819.166µs phase=resolve-context session=c51a0b5b tool=Bash context resolved
+2026-05-29T19:14:48 handler=runHook duration=13.655167ms hook=posttooluse session=c51a0b5b completed
+2026-05-29T19:14:53 handler=pretooluse duration=1.384625ms phase=resolve-context session=c51a0b5b tool=Bash context resolved
+2026-05-29T19:14:53 handler=runHook duration=51.955375ms hook=pretooluse session=c51a0b5b completed

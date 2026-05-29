@@ -2,6 +2,7 @@ package hooks
 
 import (
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"path/filepath"
 	"strings"
@@ -58,6 +59,19 @@ func recordSimpleEvent(
 	event *CloudEvent,
 	database *sql.DB,
 ) (*HookResult, error) {
+	return recordSimpleEventWithOutput(eventType, toolName, inputSummary, "", status, event, database)
+}
+
+// recordSimpleEventWithOutput is recordSimpleEvent with an additional
+// outputSummary field, used by handlers that want to persist structured detail
+// (e.g. PreCompact recording the JSON-encoded context_stats) alongside the
+// human-readable input summary. outputSummary may be empty.
+func recordSimpleEventWithOutput(
+	eventType models.EventType,
+	toolName, inputSummary, outputSummary, status string,
+	event *CloudEvent,
+	database *sql.DB,
+) (*HookResult, error) {
 	sessionID := resolveSessionIDWithHarness(event)
 	if sessionID == "" {
 		// For non-Claude harnesses where the session_id was missing,
@@ -72,18 +86,19 @@ func recordSimpleEvent(
 	now := time.Now().UTC()
 
 	ev := &models.AgentEvent{
-		EventID:      uuid.New().String(),
-		AgentID:      resolveEventAgentID(event),
-		EventType:    eventType,
-		Timestamp:    now,
-		ToolName:     toolName,
-		InputSummary: inputSummary,
-		SessionID:    sessionID,
-		FeatureID:    featureID,
-		Status:       status,
-		Source:       "hook",
-		CreatedAt:    now,
-		UpdatedAt:    now,
+		EventID:       uuid.New().String(),
+		AgentID:       resolveEventAgentID(event),
+		EventType:     eventType,
+		Timestamp:     now,
+		ToolName:      toolName,
+		InputSummary:  inputSummary,
+		OutputSummary: outputSummary,
+		SessionID:     sessionID,
+		FeatureID:     featureID,
+		Status:        status,
+		Source:        "hook",
+		CreatedAt:     now,
+		UpdatedAt:     now,
 	}
 
 	if err := db.InsertEvent(database, ev); err != nil {
@@ -191,9 +206,42 @@ func AfterAgent(event *CloudEvent, database *sql.DB) (*HookResult, error) {
 }
 
 // PreCompact handles the PreCompact Claude Code hook event.
-// Records a checkpoint before conversation context compaction.
+//
+// CONTROLLING CONTRACT (AdditiveControlling): returning
+// {decision:"block", reason:"…"} PREVENTS the compaction. wipnote does NOT
+// block today — there is no current trigger or use-case for refusing a
+// compaction — so this handler is observe-only by behaviour. It does, however,
+// now DECODE and RECORD the controlling-payload fields (compaction_trigger and
+// context_stats), closing the MISMATCH-payload observability gap: the timeline
+// can distinguish manual vs auto compactions and retains CC's pre-compaction
+// context accounting.
+//
+// The handler is structured so that adding a future block condition is a
+// one-line change: compute a `block` bool from event.CompactionTrigger /
+// event.ContextStats and, when true, return
+// &HookResult{Decision: "block", Reason: "…"} before the recordSimpleEvent
+// call below. No structural rework required.
 func PreCompact(event *CloudEvent, database *sql.DB) (*HookResult, error) {
-	return recordSimpleEvent(models.EventCheckPoint, "PreCompact", "Conversation compaction triggered", "recorded", event, database)
+	trigger := event.CompactionTrigger
+	if trigger == "" {
+		trigger = "unspecified"
+	}
+	summary := fmt.Sprintf("Conversation compaction triggered (trigger=%s)", trigger)
+
+	// Record CC's pre-compaction context accounting verbatim for observability.
+	// Shape is harness-defined, so persist the JSON encoding in OutputSummary.
+	var contextStatsJSON string
+	if len(event.ContextStats) > 0 {
+		if b, err := json.Marshal(event.ContextStats); err == nil {
+			contextStatsJSON = string(b)
+		}
+	}
+
+	// FUTURE BLOCK HOOK (intentionally inert today): to refuse a compaction,
+	// set `block` from trigger/context_stats and return a block HookResult here.
+	//   if block { return &HookResult{Decision: "block", Reason: "…"}, nil }
+
+	return recordSimpleEventWithOutput(models.EventCheckPoint, "PreCompact", summary, contextStatsJSON, "recorded", event, database)
 }
 
 // PostCompact handles the PostCompact Claude Code hook event.

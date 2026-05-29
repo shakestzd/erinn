@@ -429,6 +429,108 @@ func TestLiveCollision_SelfReclaim(t *testing.T) {
 	}
 }
 
+// TestLiveCollision_EndedSessionReclaimable verifies that a claim owned by a
+// session whose status is terminal (completed/failed/paused) is NOT a live
+// collision — even when the heartbeat is still within the staleness window.
+// This is the fix for Ctrl+C-killed sessions that leave orphaned claims:
+// SessionEnd hook is skipped by the kill, so the claim is never released,
+// but the session row IS updated to a terminal status by the SessionStop hook.
+func TestLiveCollision_EndedSessionReclaimable(t *testing.T) {
+	database := setupTestDB(t)
+	defer database.Close()
+
+	insertExtraFeature(t, database, "feat-lc-ended")
+	insertExtraSession(t, database, "sess-ended-holder", "claude-code")
+	insertExtraSession(t, database, "sess-new-caller", "claude-code")
+
+	ended := &models.Claim{
+		ClaimID:          "clm-lc-ended",
+		WorkItemID:       "feat-lc-ended",
+		OwnerSessionID:   "sess-ended-holder",
+		OwnerAgent:       "claude-code",
+		ClaimedByAgentID: "agent-ended",
+		Status:           models.ClaimInProgress,
+	}
+	if err := db.ClaimItemOrRenew(database, ended, 30*time.Minute); err != nil {
+		t.Fatalf("ended claim: %v", err)
+	}
+
+	// Heartbeat is fresh (within window) — simulates the Ctrl+C scenario where
+	// the session was killed before the heartbeat expired.
+	_, err := database.Exec(
+		`UPDATE claims SET last_heartbeat_at = ? WHERE claim_id = ?`,
+		time.Now().UTC().Format(time.RFC3339), "clm-lc-ended",
+	)
+	if err != nil {
+		t.Fatalf("update heartbeat: %v", err)
+	}
+
+	// Mark the session as completed (terminal status — set by SessionStop hook).
+	_, err = database.Exec(
+		`UPDATE sessions SET status = 'completed', completed_at = ? WHERE session_id = ?`,
+		time.Now().UTC().Format(time.RFC3339), "sess-ended-holder",
+	)
+	if err != nil {
+		t.Fatalf("mark session completed: %v", err)
+	}
+
+	// Despite fresh heartbeat, the ended session must NOT block reclaim.
+	lc, err := db.LiveCollision(database, "feat-lc-ended", "sess-new-caller", 2*time.Minute)
+	if err != nil {
+		t.Fatalf("LiveCollision: %v", err)
+	}
+	if lc.HasLiveCollision {
+		t.Error("ended session (status=completed) with fresh heartbeat must NOT be a live collision")
+	}
+	if len(lc.LiveClaimants) != 0 {
+		t.Errorf("expected 0 live claimants for ended session, got %d", len(lc.LiveClaimants))
+	}
+}
+
+// TestLiveCollision_ActiveNonEndedBlocks confirms that an active, non-ended
+// session with a fresh heartbeat still produces a live collision (the positive
+// case for the gate to ensure we haven't broken the original guard).
+func TestLiveCollision_ActiveNonEndedBlocks(t *testing.T) {
+	database := setupTestDB(t)
+	defer database.Close()
+
+	insertExtraFeature(t, database, "feat-lc-active")
+	insertExtraSession(t, database, "sess-active-holder", "claude-code")
+	insertExtraSession(t, database, "sess-active-caller", "claude-code")
+
+	active := &models.Claim{
+		ClaimID:          "clm-lc-active",
+		WorkItemID:       "feat-lc-active",
+		OwnerSessionID:   "sess-active-holder",
+		OwnerAgent:       "claude-code",
+		ClaimedByAgentID: "agent-active",
+		Status:           models.ClaimInProgress,
+	}
+	if err := db.ClaimItemOrRenew(database, active, 30*time.Minute); err != nil {
+		t.Fatalf("active claim: %v", err)
+	}
+
+	// Heartbeat is fresh; session stays 'active' (default from insertExtraSession).
+	_, err := database.Exec(
+		`UPDATE claims SET last_heartbeat_at = ? WHERE claim_id = ?`,
+		time.Now().UTC().Format(time.RFC3339), "clm-lc-active",
+	)
+	if err != nil {
+		t.Fatalf("update heartbeat: %v", err)
+	}
+
+	lc, err := db.LiveCollision(database, "feat-lc-active", "sess-active-caller", 2*time.Minute)
+	if err != nil {
+		t.Fatalf("LiveCollision: %v", err)
+	}
+	if !lc.HasLiveCollision {
+		t.Error("active non-ended session with fresh heartbeat must be a live collision")
+	}
+	if len(lc.LiveClaimants) != 1 {
+		t.Errorf("expected 1 live claimant, got %d", len(lc.LiveClaimants))
+	}
+}
+
 // insertExtraFeature inserts a feature row for FK satisfaction (does not fail if exists).
 func insertExtraFeature(t *testing.T, database *sql.DB, id string) {
 	t.Helper()

@@ -144,10 +144,18 @@ func Stop(event *CloudEvent, database *sql.DB) (*HookResult, error) {
 	// harness=="claude" AND ONLY on ambiguous generator-drift. This narrow,
 	// intentional amendment is scoped here: Gemini/Codex never block (a durable
 	// warning is persisted and surfaced at the next SessionStart instead).
+	//
+	// skipPortDrift=true: Stop fires on EVERY model response (per-turn), not
+	// just at true session boundaries. Running pluginbuild.CheckPorts here cost
+	// 8-22s/turn across 3 full regenerations. Port-drift enforcement is now
+	// handled at commit-time by checkPortDriftCommitGuard (commit_portdrift_guard.go),
+	// which fires only when generator-input files are staged — so correctness is
+	// preserved at zero per-turn cost. The cheap orphan/uncommitted reconcile
+	// classes still run on every Stop.
 	if sessionID != "" {
 		projectDir := ResolveProjectDir(event.CWD, event.SessionID)
 		if err := runSessionExitReconcile(database, projectDir,
-			currentHarness().String(), sessionID); err != nil {
+			currentHarness().String(), sessionID, true); err != nil {
 			return nil, err
 		}
 	}

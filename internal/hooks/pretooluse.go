@@ -128,6 +128,17 @@ func PreToolUse(event *CloudEvent, database *sql.DB) (*HookResult, error) {
 		return &HookResult{Decision: "block", Reason: warn}, nil
 	}
 
+	// Guard: block git commit when generator-input files are staged but the
+	// generated plugin trees are stale (not regenerated via build-ports).
+	// Always-on correctness gate — not YOLO-gated. Fast path: a single
+	// `git diff --cached --name-only` call; CheckPorts only runs when a
+	// generator-input file is actually staged. This replaces the expensive
+	// per-turn CheckPorts that was previously called from the Stop hook
+	// (bug-3fb22f7e).
+	if warn := checkPortDriftCommitGuard(event); warn != "" {
+		return &HookResult{Decision: "block", Reason: warn}, nil
+	}
+
 	// Always-on guards: work item and research required regardless of YOLO mode.
 	// Skipped during subagent grace period (subagent just spawned, needs time to claim).
 	if !subagentGrace {

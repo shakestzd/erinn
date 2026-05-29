@@ -133,8 +133,10 @@ func SessionEnd(event *CloudEvent, database *sql.DB, projectDir string) (*HookRe
 	// Session-exit reconciliation (slice-5, feat-f93fe770). Same harness
 	// discriminator as the Stop path: Claude blocks on ambiguous generator
 	// drift; Gemini(SessionEnd)/Codex persist a durable warning instead.
+	// skipPortDrift=false: SessionEnd is a true session boundary, so the full
+	// reconcile (including CheckPorts) is appropriate here.
 	if err := runSessionExitReconcile(database, projectDir,
-		currentHarness().String(), sessionID); err != nil {
+		currentHarness().String(), sessionID, false); err != nil {
 		return nil, err
 	}
 
@@ -313,8 +315,9 @@ var reconcileArtifactCommitFn = defaultReconcileArtifactCommit
 //     compatible.
 //  2. generator-touched-without-build-ports → reuse slice-2's
 //     internal/pluginbuild.CheckPorts (already on main; NOT reimplemented).
+//     Skipped when skipPortDrift is true (per-turn Stop path).
 //  3. started-but-orphaned → reported only.
-func Reconcile(database *sql.DB, projectDir string, strict bool) (*ReconcileReport, error) {
+func Reconcile(database *sql.DB, projectDir string, strict bool, skipPortDrift ...bool) (*ReconcileReport, error) {
 	_ = strict // detection is identical; strict only changes CLI exit semantics
 	rep := &ReconcileReport{}
 
@@ -322,7 +325,9 @@ func Reconcile(database *sql.DB, projectDir string, strict bool) (*ReconcileRepo
 		rep.AutoCommitted = reconcileDoneButUncommitted(database, projectDir)
 		rep.Orphaned = reconcileStartedButOrphaned(database, projectDir)
 	}
-	rep.PortDrift = reconcilePortDrift(projectDir)
+	if len(skipPortDrift) == 0 || !skipPortDrift[0] {
+		rep.PortDrift = reconcilePortDrift(projectDir)
+	}
 
 	sort.Strings(rep.AutoCommitted)
 	sort.Strings(rep.PortDrift)
@@ -586,8 +591,14 @@ func DrainReconcileWarnings(projectDir string) string {
 //     user-never-returns case is still recorded) for SessionStart to surface.
 //
 // done-but-uncommitted auto-commits and orphan reports never block any harness.
-func runSessionExitReconcile(database *sql.DB, projectDir, harness, sessionID string) error {
-	rep, err := Reconcile(database, projectDir, false)
+//
+// When skipPortDrift is true, the expensive pluginbuild.CheckPorts call is
+// skipped entirely — used by the per-turn Stop path so it does not pay 8-22s
+// of full regeneration on every model response. The commit-time
+// checkPortDriftCommitGuard (commit_portdrift_guard.go) enforces port-drift
+// correctness instead, firing only when generator-input files are staged.
+func runSessionExitReconcile(database *sql.DB, projectDir, harness, sessionID string, skipPortDrift bool) error {
+	rep, err := Reconcile(database, projectDir, false, skipPortDrift)
 	if err != nil || rep.Empty() {
 		return nil
 	}

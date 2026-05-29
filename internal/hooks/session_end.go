@@ -38,6 +38,11 @@ import (
 // liveness never depends on a session-end event arriving. This is why no
 // invented Codex-specific hook is needed: TaskComplete already covers the
 // graceful path, and heartbeat-recency + lease reap cover the abrupt path.
+//
+// Design: cheap critical writes run FIRST so that if Claude Code 2.1.156+
+// cancels this handler mid-flight, the important state is already persisted.
+// Steps that Stop already performs (FinalizeSessionHTML, backfillMissedUserPrompts,
+// runSessionExitReconcile) are intentionally omitted here to avoid duplicated work.
 func SessionEnd(event *CloudEvent, database *sql.DB, projectDir string) (*HookResult, error) {
 	sessionID := EnvSessionID(event.SessionID)
 	if sessionID == "" {
@@ -47,6 +52,9 @@ func SessionEnd(event *CloudEvent, database *sql.DB, projectDir string) (*HookRe
 	endCommit := headCommit(projectDir)
 	now := time.Now().UTC().Format(time.RFC3339)
 
+	// --- CRITICAL WRITES FIRST (survive cancellation) ---
+
+	// Mark session completed with end commit.
 	_, err := database.Exec(`
 		UPDATE sessions
 		SET status = 'completed',
@@ -59,11 +67,6 @@ func SessionEnd(event *CloudEvent, database *sql.DB, projectDir string) (*HookRe
 		debugLog(projectDir, "[error] handler=session-end session=%s: update sessions: %v", sessionID[:minLen(sessionID, 8)], err)
 	}
 
-	// Finalize session HTML file (non-critical, errors silently logged).
-	var evtCount int
-	_ = database.QueryRow(`SELECT COUNT(*) FROM agent_events WHERE session_id = ?`, sessionID).Scan(&evtCount)
-	FinalizeSessionHTML(projectDir, sessionID, now, "completed", evtCount)
-
 	// Store transcript_path and termination reason if provided.
 	if event.TranscriptPath != "" || event.Reason != "" {
 		_, _ = database.Exec(`
@@ -74,6 +77,15 @@ func SessionEnd(event *CloudEvent, database *sql.DB, projectDir string) (*HookRe
 			event.TranscriptPath, event.Reason, sessionID,
 		)
 	}
+
+	// Release all active claims held by this session.
+	if released, err := db.ReleaseAllClaimsForSession(database, sessionID); err != nil {
+		debugLog(projectDir, "[error] handler=session-end session=%s: release claims: %v", sessionID[:minLen(sessionID, 8)], err)
+	} else if released > 0 {
+		debugLog(projectDir, "[wipnote] session-end: released %d claims for session %s", released, sessionID[:minLen(sessionID, 8)])
+	}
+
+	// --- SESSIONEND-UNIQUE STEPS (best-effort after critical writes) ---
 
 	// Populate features_worked_on from distinct feature_ids in agent_events.
 	if feats, fErr := db.DistinctFeatureIDs(database, sessionID); fErr == nil && len(feats) > 0 {
@@ -88,37 +100,12 @@ func SessionEnd(event *CloudEvent, database *sql.DB, projectDir string) (*HookRe
 		debugLog(projectDir, "[error] handler=session-end session=%s: complete lineage trace: %v", sessionID[:minLen(sessionID, 8)], err)
 	}
 
-	// Release all active claims held by this session.
-	if released, err := db.ReleaseAllClaimsForSession(database, sessionID); err != nil {
-		debugLog(projectDir, "[error] handler=session-end session=%s: release claims: %v", sessionID[:minLen(sessionID, 8)], err)
-	} else if released > 0 {
-		debugLog(projectDir, "[wipnote] session-end: released %d claims for session %s", released, sessionID[:minLen(sessionID, 8)])
-	}
-
 	// Clean up the session-scoped project dir hint file now that this session is ending.
 	paths.CleanupSessionHint(sessionID)
 
-	// Backfill any user prompts missed by the live UserPromptSubmit hook path.
-	// transcript_path may come from the current event or from the sessions table
-	// (written by SessionStart or Stop). Non-fatal: errors are logged only.
-	backfillTranscriptPath := event.TranscriptPath
-	if backfillTranscriptPath == "" {
-		var storedPath sql.NullString
-		_ = database.QueryRow(`SELECT transcript_path FROM sessions WHERE session_id = ?`, sessionID).Scan(&storedPath)
-		if storedPath.Valid {
-			backfillTranscriptPath = storedPath.String
-		}
-	}
-	if backfillTranscriptPath != "" {
-		if n, err := backfillMissedUserPrompts(database, projectDir, sessionID, backfillTranscriptPath); err != nil {
-			debugLog(projectDir, "[user-prompt-backfill] session-end: %v", err)
-		} else if n > 0 {
-			debugLog(projectDir, "[user-prompt-backfill] session-end: %d prompts recovered (session=%s)", n, sessionID[:minLen(sessionID, 8)])
-		}
-	}
-
 	// Signal the per-session OTel collector to drain and exit (Q3 primary layer)
 	// BEFORE materializing — the indexer needs the final signals in SQLite first.
+	// NOTE: Stop does NOT signal the collector; this step is SessionEnd-unique.
 	signalCollector(projectDir, sessionID)
 
 	// Wait briefly for the indexer to catch up with the final NDJSON writes.
@@ -130,13 +117,12 @@ func SessionEnd(event *CloudEvent, database *sql.DB, projectDir string) (*HookRe
 		debugLog(projectDir, "[error] handler=session-end session=%s: materialize otel: %v", sessionID[:minLen(sessionID, 8)], err)
 	}
 
-	// Session-exit reconciliation (slice-5, feat-f93fe770). Same harness
-	// discriminator as the Stop path: Claude blocks on ambiguous generator
-	// drift; Gemini(SessionEnd)/Codex persist a durable warning instead.
-	if err := runSessionExitReconcile(database, projectDir,
-		currentHarness().String(), sessionID); err != nil {
-		return nil, err
-	}
+	// NOTE: FinalizeSessionHTML, backfillMissedUserPrompts, and
+	// runSessionExitReconcile are intentionally absent here — Stop already
+	// performs all three on every per-turn stop event, and port-drift
+	// reconciliation now runs at commit-time (bug-3fb22f7e). Duplicating them
+	// in SessionEnd wastes time and risks double-work when Claude Code cancels
+	// this handler mid-flight.
 
 	return &HookResult{Continue: true}, nil
 }

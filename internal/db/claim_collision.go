@@ -91,6 +91,97 @@ func CollaborationSummary(state CollaborationState) string {
 	return strings.Join(lines, "\n")
 }
 
+// LiveCollisionState extends CollaborationState with a liveness filter.
+// HasLiveCollision is true when at least one claimant OTHER than the caller's
+// own session is actively live (heartbeat within the staleness threshold AND
+// the session has not ended). LiveClaimants contains only the live foreign
+// claimants (caller excluded).
+//
+// callerSessionID may be "" — in that case all live claimants are included.
+// livenessThreshold is typically from LivenessStalenessThreshold(projectDir).
+type LiveCollisionState struct {
+	CollaborationState
+	HasLiveCollision bool
+	LiveClaimants    []models.Claim
+}
+
+// sessionHasEnded reports whether a session has a terminal status (completed,
+// paused, failed) or a recorded end marker (end_commit or completed_at).
+// A session that has ended is not a live collision — even if its last heartbeat
+// is still within the staleness window — because it cannot be actively writing.
+// Returns false on any query error (conservatively treats the session as live).
+func sessionHasEnded(database *sql.DB, sessionID string) bool {
+	if database == nil || sessionID == "" {
+		return false
+	}
+	var status string
+	var endCommit, completedAt sql.NullString
+	err := database.QueryRow(
+		`SELECT status, COALESCE(end_commit,''), COALESCE(completed_at,'')
+		 FROM sessions WHERE session_id = ?`, sessionID,
+	).Scan(&status, &endCommit, &completedAt)
+	if err != nil {
+		// Row missing or error — can't confirm ended; be conservative (not ended).
+		return false
+	}
+	if status != "active" {
+		return true
+	}
+	if endCommit.String != "" || completedAt.String != "" {
+		return true
+	}
+	return false
+}
+
+// LiveCollision returns the live-collision state for workItemID: it runs
+// DetectCollaboration, then filters claimants to those whose owner session is
+// live per SessionLivenessByHeartbeat AND has not ended. Only foreign sessions
+// (not equal to callerSessionID) contribute — a session reclaiming its own
+// item is not a collision.
+//
+// A claim owned by an ended session (terminal status, non-null end_commit, or
+// non-null completed_at) is never a live collision, even if the heartbeat is
+// still fresh. This handles Ctrl+C kills where the heartbeat window hasn't
+// yet expired but the session row records a terminal state.
+func LiveCollision(database *sql.DB, workItemID, callerSessionID string, livenessThreshold time.Duration) (LiveCollisionState, error) {
+	coll, err := DetectCollaboration(database, workItemID)
+	if err != nil {
+		return LiveCollisionState{}, err
+	}
+	state := LiveCollisionState{CollaborationState: coll}
+	for _, c := range coll.Claimants {
+		if c.OwnerSessionID == callerSessionID {
+			continue // own session reclaiming — not a foreign collision
+		}
+		if sessionHasEnded(database, c.OwnerSessionID) {
+			continue // session ended — claim is orphaned, not live
+		}
+		if SessionLivenessByHeartbeat(database, c.OwnerSessionID, livenessThreshold) {
+			state.LiveClaimants = append(state.LiveClaimants, c)
+		}
+	}
+	state.HasLiveCollision = len(state.LiveClaimants) > 0
+	return state, nil
+}
+
+// LiveCollisionMessage formats a human-readable refusal message for a live
+// collision. Returns "" when state.HasLiveCollision is false.
+func LiveCollisionMessage(state LiveCollisionState) string {
+	if !state.HasLiveCollision {
+		return ""
+	}
+	lines := make([]string, 0, len(state.LiveClaimants)+2)
+	for _, c := range state.LiveClaimants {
+		ts := c.LeasedAt.UTC().Format(time.RFC3339)
+		lines = append(lines, fmt.Sprintf(
+			"%s is actively claimed by session %s (agent %s, since %s).\n"+
+				"Coordinate, or re-run with --force to claim anyway.",
+			state.WorkItemID, c.OwnerSessionID, c.OwnerAgent, ts,
+		))
+	}
+	return strings.Join(lines, "\n")
+}
+
 // BackfillParentSession sets parent_session_id on a child session row when
 // the parent record arrives after the child was already written (out-of-order).
 // This is idempotent: if parent_session_id is already set to the same value

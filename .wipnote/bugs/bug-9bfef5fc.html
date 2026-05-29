@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>Activity feed endpoint /api/events/feed hangs ~12s, blocks writqueue (unbounded otel_signals scan)</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="bug-9bfef5fc"
+             data-type="bug"
+             data-status="todo"
+             data-priority="medium"
+             data-created="2026-05-29T00:51:13.598014"
+             data-updated="2026-05-29T00:51:13.622713" data-agent-assigned="claude-code" data-track-id="trk-2c55adea" data-created-by-agent="claude-code" data-created-by-model="claude-opus-4-8[1m]" data-created-by-cli-version="0.60.19">
+
+        <header>
+            <h1>Activity feed endpoint /api/events/feed hangs ~12s, blocks writqueue (unbounded otel_signals scan)</h1>
+            <div class="metadata">
+                <span class="badge status-todo">Todo</span>
+                <span class="badge priority-medium">Medium Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="trk-2c55adea.html" data-relationship="part_of" data-since="2026-05-29T00:51:13.620625">trk-2c55adea</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>queryOtelFeedEvents in cmd/wipnote/api_feed.go runs SELECT over otel_signals (238k rows, ~87k matching) ORDER BY ts_micros DESC with NO SQL LIMIT and two correlated subqueries per row (feature_title, session_family_id); the Go handler caps limit only after fetching all rows. Open sql.Rows holds a SHARED lock ~12s; in DELETE journal mode (overlayfs, WAL disabled) this blocks the writqueue BEGIN IMMEDIATE -> recurring commit/begin SQLITE_BUSY every ~5s, and the HTTP request exceeds the client timeout (HTTP 000) so the frontend stays on 'Loading activity'. Fix: push LIMIT ? into SQL (split OR into UNION ALL so the sorted index range is used) and replace per-row correlated subqueries with post-fetch batch IN-lookups. Distinct from bug-cbdb06ca (render-path on /api/events/recent).</p>
+        </section>
+    </article>
+</body>
+</html>

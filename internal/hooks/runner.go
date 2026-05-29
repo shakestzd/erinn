@@ -111,6 +111,37 @@ type CloudEvent struct {
 	IdleReason      string `json:"idle_reason"`
 	TaskSubject     string `json:"task_subject"`
 	TaskDescription string `json:"task_description"`
+
+	// PermissionRequest — controlling event. CC asks the hook whether to allow
+	// or deny a tool/permission request. The tool being gated is carried in
+	// ToolName/ToolInput (shared with PreToolUse). These classifier fields let
+	// the handler make a conservative, low-risk-only auto-allow decision.
+	//   permission_category: CC's own categorisation of the request
+	//     (e.g. "read", "write", "execute", "network", …).
+	//   risk_level: CC's risk assessment (e.g. "low", "medium", "high").
+	PermissionCategory string `json:"permission_category"`
+	RiskLevel          string `json:"risk_level"`
+
+	// PreCompact — controlling event. CC is about to compact the conversation
+	// context. compaction_trigger distinguishes a user-initiated compaction
+	// ("manual") from an automatic one fired on context pressure ("auto").
+	// context_stats carries CC's pre-compaction context accounting (token
+	// counts, message counts, etc.); shape is harness-defined so it is decoded
+	// as a free-form map and recorded verbatim for observability.
+	CompactionTrigger string         `json:"compaction_trigger"`
+	ContextStats      map[string]any `json:"context_stats"`
+
+	// InstructionsLoaded — observational event. CC has loaded an instruction
+	// file (CLAUDE.md, AGENTS.md, a memory file, a glob-matched ruleset, …).
+	//   file_path:   absolute path of the loaded instruction file.
+	//   load_reason: why CC loaded it (e.g. "startup", "import", "memory").
+	//   memory_type: classification of the memory source (e.g. "project",
+	//                "user", "local").
+	//   globs:       glob patterns that selected the file (when applicable).
+	FilePath   string   `json:"file_path"`
+	LoadReason string   `json:"load_reason"`
+	MemoryType string   `json:"memory_type"`
+	Globs      []string `json:"globs"`
 }
 
 // HookResult is the JSON written to stdout to control Claude Code behaviour.
@@ -121,6 +152,45 @@ type HookResult struct {
 	Reason            string `json:"reason,omitempty"`
 	Message           string `json:"message,omitempty"`           // shown on stderr
 	AdditionalContext string `json:"additionalContext,omitempty"` // injected into conversation
+
+	// HookSpecificOutput carries the newer per-event structured response shape
+	// Claude Code introduced for controlling events (verified against
+	// https://code.claude.com/docs/en/hooks, 2026-05-29). It is a pointer so
+	// the field is omitted entirely (omitempty) for every existing emitter that
+	// does not set it — preserving the historical empty-object "{}" = allow
+	// contract. Today only PermissionRequest populates it (decision.behavior =
+	// "allow" | "deny"); other controlling events continue to use the top-level
+	// Decision/Reason fields.
+	HookSpecificOutput *HookSpecificOutput `json:"hookSpecificOutput,omitempty"`
+}
+
+// HookSpecificOutput is Claude Code's per-event structured response envelope.
+// Only the fields wipnote emits are modelled.
+//
+// For PermissionRequest, CC reads hookSpecificOutput.decision.behavior to
+// decide the permission outcome:
+//   - behavior == "allow": the request is auto-approved without a user prompt.
+//   - behavior == "deny":  the request is auto-denied.
+//   - decision absent (nil): CC falls through to its normal permission prompt.
+//
+// wipnote NEVER auto-denies (that could block legitimate work); it only ever
+// emits behavior == "allow" for a tightly-scoped, reviewable allowlist of
+// read-only operations, and otherwise omits HookSpecificOutput entirely so CC
+// prompts as usual.
+type HookSpecificOutput struct {
+	// HookEventName echoes the event name back to CC (required by the
+	// structured-output contract, e.g. "PermissionRequest").
+	HookEventName string `json:"hookEventName,omitempty"`
+	// Decision carries the behavior verdict. Nil ⇒ no opinion (prompt).
+	Decision *PermissionDecision `json:"decision,omitempty"`
+}
+
+// PermissionDecision is the decision body inside HookSpecificOutput for the
+// PermissionRequest event. Behavior is "allow" or "deny" per the CC contract.
+type PermissionDecision struct {
+	Behavior string `json:"behavior,omitempty"`
+	// Message is an optional human-readable explanation surfaced by CC.
+	Message string `json:"message,omitempty"`
 }
 
 // ReadRawStdin reads all bytes from stdin without parsing. This is used by the

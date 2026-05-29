@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>Adopt remaining controlling hooks: SubagentStop block, TeammateIdle prevent-idle, PostToolUseFailure halt &#43; WorktreeRemove context</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="feat-cd937fc9"
+             data-type="feature"
+             data-status="todo"
+             data-priority="medium"
+             data-created="2026-05-29T14:25:08.779527"
+             data-updated="2026-05-29T14:25:08.795638" data-agent-assigned="claude-code" data-track-id="trk-93178cf4" data-created-by-agent="claude-code" data-created-by-model="claude-opus-4-8[1m]" data-created-by-cli-version="0.60.19-70-ga7cfc1f09">
+
+        <header>
+            <h1>Adopt remaining controlling hooks: SubagentStop block, TeammateIdle prevent-idle, PostToolUseFailure halt &#43; WorktreeRemove context</h1>
+            <div class="metadata">
+                <span class="badge status-todo">Todo</span>
+                <span class="badge priority-medium">Medium Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="trk-93178cf4.html" data-relationship="part_of" data-since="2026-05-29T14:25:08.793848">trk-93178cf4</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>Grouped lower-priority controlling-contract adoptions surfaced by the hook audit: SubagentStop can {decision:block} to gate subagent completion; TeammateIdle can prevent idle; PostToolUseFailure can {decision:block} to halt the loop after a tool crash; WorktreeRemove additionalContext is currently dropped (observational) — remove or repurpose. Also decode InstructionsLoaded input fields (file_path/load_reason/memory_type/globs) for observability. Each is latent capability, not breakage. Files: internal/hooks/*, runner.go, tests.</p>
+        </section>
+    </article>
+</body>
+</html>

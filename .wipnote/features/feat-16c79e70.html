@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>Adopt PreCompact gate &#43; decode compaction payload</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="feat-16c79e70"
+             data-type="feature"
+             data-status="todo"
+             data-priority="medium"
+             data-created="2026-05-29T14:25:06.009053"
+             data-updated="2026-05-29T14:25:06.025048" data-agent-assigned="claude-code" data-track-id="trk-93178cf4" data-created-by-agent="claude-code" data-created-by-model="claude-opus-4-8[1m]" data-created-by-cli-version="0.60.19-70-ga7cfc1f09">
+
+        <header>
+            <h1>Adopt PreCompact gate &#43; decode compaction payload</h1>
+            <div class="metadata">
+                <span class="badge status-todo">Todo</span>
+                <span class="badge priority-medium">Medium Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="trk-93178cf4.html" data-relationship="part_of" data-since="2026-05-29T14:25:06.024037">trk-93178cf4</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>PreCompact is a controlling event (supports {decision:block,reason} to prevent compaction) but wipnote observes only. Decode compaction_trigger (manual|auto) and context_stats (token counts) into CloudEvent and enable conditional gating (e.g. defer compaction during a critical work-item phase). Files: internal/hooks PreCompact handler, runner.go, tests.</p>
+        </section>
+    </article>
+</body>
+</html>

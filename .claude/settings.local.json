@@ -734,10 +734,14 @@
       "Bash(mkdir -p /tmp/smoke-non-wipnote)",
       "Bash(rm -rf .wipnote plugin)",
       "Bash(export GOTMPDIR=/home/vscode/.gotest-tmp)",
-      "Bash(tar tzf *)"
+      "Bash(tar tzf *)",
+      "Bash(ps -o pid,stat,%cpu,etime,cmd -p 96542)",
+      "WebFetch(domain:www.damiangalarza.com)"
     ]
   },
   "enabledPlugins": {
     "playwright@claude-plugins-official": true
-  }
+  },
+  "outputStyle": "Proactive",
+  "prefersReducedMotion": true
 }

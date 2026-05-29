@@ -355,13 +355,42 @@ func InstructionsLoaded(event *CloudEvent, database *sql.DB) (*HookResult, error
 }
 
 // PermissionRequest handles the PermissionRequest Claude Code hook event.
-// Records a checkpoint when Claude requests a permission prompt.
+//
+// CONTROLLING CONTRACT (AdditiveControlling, feat-b396bd33): CC reads
+// hookSpecificOutput.decision.behavior ("allow" | "deny") to decide the
+// permission outcome. wipnote uses this CONSERVATIVELY:
+//   - It auto-ALLOWS only the tight, read-only allowlist in
+//     permission_allowlist.go (and only when risk_level is low/absent).
+//   - For EVERYTHING ELSE it emits NO decision, so CC falls through to its
+//     normal interactive prompt. wipnote NEVER auto-DENIES.
+//
+// The checkpoint event is always recorded first (observability is unchanged);
+// the auto-allow decision is layered on top of that recorded result.
 func PermissionRequest(event *CloudEvent, database *sql.DB) (*HookResult, error) {
 	summary := "Permission requested"
 	if event.ToolName != "" {
 		summary = fmt.Sprintf("Permission requested for tool: %s", event.ToolName)
 	}
-	return recordSimpleEvent(models.EventCheckPoint, "PermissionRequest", summary, "recorded", event, database)
+
+	result, err := recordSimpleEvent(models.EventCheckPoint, "PermissionRequest", summary, "recorded", event, database)
+	if err != nil || result == nil {
+		return result, err
+	}
+
+	// Conservative auto-allow: only a demonstrably read-only, allowlisted op
+	// at low/absent risk gets a behavior:"allow"; all other requests fall
+	// through to CC's normal prompt (no decision emitted).
+	if permissionAutoAllow(event) {
+		result.HookSpecificOutput = &HookSpecificOutput{
+			HookEventName: "PermissionRequest",
+			Decision: &PermissionDecision{
+				Behavior: "allow",
+				Message:  "Auto-approved: read-only wipnote query (wipnote allowlist).",
+			},
+		}
+	}
+
+	return result, nil
 }
 
 // ConfigChange handles the ConfigChange Claude Code hook event.

@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>Global coordinator &#43; cross-project knowledge transfer</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="trk-cb80b7da"
+             data-type="track"
+             data-status="todo"
+             data-priority="medium"
+             data-created="2026-05-28T23:38:36.895441"
+             data-updated="2026-05-28T23:42:17.763771" data-agent-assigned="claude-code" data-created-by-agent="claude-code" data-created-by-model="claude-opus-4-8[1m]" data-created-by-cli-version="0.60.19">
+
+        <header>
+            <h1>Global coordinator &#43; cross-project knowledge transfer</h1>
+            <div class="metadata">
+                <span class="badge status-todo">Todo</span>
+                <span class="badge priority-medium">Medium Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="relates_to">
+                <h3>Relates To:</h3>
+                <ul>
+                    <li><a href="trk-2c55adea.html" data-relationship="relates_to" data-since="2026-05-28T23:42:17.761342">HTML-canonical architecture: drop SQLite as required</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>Graduate serve_global (the existing zero-SQLite doorway) into a global coordinator tier on top of the per-project write-owner daemons from plan-bb91616a. Scope: supervise/spawn per-project writers via a discoverable lease/socket registry, an all-projects monitoring view, cross-project aggregation projections, and cross-project knowledge transfer. Depends on plan-bb91616a designing the per-project socket protocol coordinator-ready (project_id in the envelope, registry-discoverable lease/socket). Two-tier by design: per-project = data plane (isolated SQLITE_BUSY fix), global = control plane (no per-DB write lock blast radius).</p>
+        </section>
+    </article>
+</body>
+</html>

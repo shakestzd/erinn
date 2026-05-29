@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>Stop hook runs full 3-target CheckPorts plugin-regen every turn (8-22s/turn); relocate port-drift guard to commit-time</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="bug-3fb22f7e"
+             data-type="bug"
+             data-status="in-progress"
+             data-priority="medium"
+             data-created="2026-05-29T10:33:11.482151"
+             data-updated="2026-05-29T10:41:18.434983" data-agent-assigned="claude-code" data-track-id="trk-2c55adea" data-created-by-agent="claude-code" data-created-by-model="claude-opus-4-8[1m]" data-created-by-cli-version="0.60.19-63-g2df392c78">
+
+        <header>
+            <h1>Stop hook runs full 3-target CheckPorts plugin-regen every turn (8-22s/turn); relocate port-drift guard to commit-time</h1>
+            <div class="metadata">
+                <span class="badge status-in-progress">In Progress</span>
+                <span class="badge priority-medium">Medium Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="trk-2c55adea.html" data-relationship="part_of" data-since="2026-05-29T10:33:11.604155">trk-2c55adea</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="implemented_in">
+                <h3>Implemented In:</h3>
+                <ul>
+                    <li><a href="c51a0b5b-904b-4888-b1f8-2bcaf8909c30.html" data-relationship="implemented_in" data-since="2026-05-29T10:41:18.434661">session c51a0b5b-904b-4888-b1f8-2bcaf8909c30</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>reconcilePortDrift -> pluginbuild.CheckPorts runs UNCONDITIONALLY on the per-turn Stop hook (missing_events.go:149 -> session_end.go:401/406-411 -> checkports.go:41). CheckPorts does a 3-target full plugin-tree regen into a tmpdir + byte-diff with no cache (explicit comment: 'no checksum or manifest cache'), accounting for ~90% of the observed 8-22s latency on EVERY turn-end (18 Stop completions vs 22 turns in one session). Fix part A: remove port-drift from the per-turn Stop path (keep the cheap reconcileDoneButUncommitted + reconcileStartedButOrphaned). Fix part B: relocate the port-drift guard to a git-commit PreToolUse check, gated on staged generator-input paths (manifest.json + plugin/{commands,agents,skills,templates,static,config}); when stale, BLOCK via the cross-harness decision path with a 'run wipnote plugin build-ports' remediation. This both removes the per-turn latency tax and makes the drift guard actually enforce (today it only ran at a SessionEnd that the harness cancels on 2.1.156). CheckPorts itself unchanged.</p>
+        </section>
+    </article>
+</body>
+</html>

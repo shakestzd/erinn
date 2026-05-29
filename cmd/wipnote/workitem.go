@@ -157,8 +157,12 @@ func printNodeDetailJSON(node *models.Node) error {
 	return nil
 }
 
+// wiForceStart is set by --force on the start sub-command and consumed by
+// wiSetStatusWithAgent to bypass the live-collision refusal.
+var wiForceStart bool
+
 func wiStartCmd(typeName string) *cobra.Command {
-	return &cobra.Command{
+	cmd := &cobra.Command{
 		Use:   "start <id>",
 		Short: "Mark a " + typeName + " as in-progress",
 		Args:  cobra.ExactArgs(1),
@@ -166,6 +170,9 @@ func wiStartCmd(typeName string) *cobra.Command {
 			return runWiSetStatus(typeName, args[0], "in-progress")
 		},
 	}
+	cmd.Flags().BoolVar(&wiForceStart, "force", false,
+		"claim anyway even when a live collision is detected (emits a warning and proceeds)")
+	return cmd
 }
 
 // wiAllowSpecSkip and wiAllowDirtyComplete are set by completion flags and
@@ -313,6 +320,24 @@ func wiSetStatusWithAgent(typeName, id, status, sessionID, agentID string) error
 		repoRoot := filepath.Dir(dir)
 		absArtifact := filepath.Join(dir, typeName+"s", id+".html")
 		artifactPreHead = artifactHeadCommit(repoRoot, absArtifact)
+	}
+
+	// Live-collision gate (feat-5a9839fb): before acquiring the claim, check
+	// whether another live session already holds this item. A live collision
+	// (foreign session with recent heartbeat) is a HARD REFUSAL unless --force
+	// was supplied. A stale/dead claim is NOT a refusal — the item is reclaimable.
+	if status == "in-progress" && p.DB != nil {
+		livenessWindow := dbpkg.LivenessStalenessThreshold(filepath.Dir(dir))
+		lc, lcErr := dbpkg.LiveCollision(p.DB, id, sessionID, livenessWindow)
+		if lcErr == nil && lc.HasLiveCollision {
+			if !wiForceStart {
+				return fmt.Errorf("%s", dbpkg.LiveCollisionMessage(lc))
+			}
+			// --force: emit the CollaborationSummary warning, then proceed.
+			if msg := dbpkg.CollaborationSummary(lc.CollaborationState); msg != "" {
+				fmt.Fprintln(os.Stderr, msg)
+			}
+		}
 	}
 
 	var node *models.Node

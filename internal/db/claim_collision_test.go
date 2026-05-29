@@ -5,6 +5,7 @@ package db_test
 
 import (
 	"database/sql"
+	"strings"
 	"testing"
 	"time"
 
@@ -287,6 +288,144 @@ func TestSubagentAttribution_OutOfOrderParent(t *testing.T) {
 		t.Error("child session not linked to parent after BackfillParentSession")
 	} else if err != nil {
 		t.Fatalf("query child: %v", err)
+	}
+}
+
+// TestLiveCollision_LiveRefusal verifies that LiveCollision reports
+// HasLiveCollision=true when a foreign session holds a fresh heartbeat.
+func TestLiveCollision_LiveRefusal(t *testing.T) {
+	database := setupTestDB(t)
+	defer database.Close()
+
+	insertExtraFeature(t, database, "feat-lc-live")
+	insertExtraSession(t, database, "sess-holder-live", "claude-code")
+	insertExtraSession(t, database, "sess-caller-live", "claude-code")
+
+	// Holder writes a claim with a very recent heartbeat.
+	holder := &models.Claim{
+		ClaimID:          "clm-lc-holder",
+		WorkItemID:       "feat-lc-live",
+		OwnerSessionID:   "sess-holder-live",
+		OwnerAgent:       "claude-code",
+		ClaimedByAgentID: "agent-holder",
+		Status:           models.ClaimInProgress,
+	}
+	if err := db.ClaimItemOrRenew(database, holder, 30*time.Minute); err != nil {
+		t.Fatalf("holder claim: %v", err)
+	}
+
+	// Simulate a recent heartbeat for the holder session (now).
+	_, err := database.Exec(
+		`UPDATE claims SET last_heartbeat_at = ? WHERE claim_id = ?`,
+		time.Now().UTC().Format(time.RFC3339), "clm-lc-holder",
+	)
+	if err != nil {
+		t.Fatalf("update heartbeat: %v", err)
+	}
+
+	// Caller checks with a 2-minute liveness window — holder IS live.
+	lc, err := db.LiveCollision(database, "feat-lc-live", "sess-caller-live", 2*time.Minute)
+	if err != nil {
+		t.Fatalf("LiveCollision: %v", err)
+	}
+	if !lc.HasLiveCollision {
+		t.Error("expected HasLiveCollision=true, got false")
+	}
+	if len(lc.LiveClaimants) != 1 {
+		t.Errorf("expected 1 live claimant, got %d", len(lc.LiveClaimants))
+	}
+
+	// LiveCollisionMessage must produce a non-empty refusal string.
+	msg := db.LiveCollisionMessage(lc)
+	if msg == "" {
+		t.Error("LiveCollisionMessage returned empty string for live collision")
+	}
+	if !strings.Contains(msg, "--force") {
+		t.Errorf("LiveCollisionMessage missing '--force' hint: %q", msg)
+	}
+}
+
+// TestLiveCollision_StaleAllows verifies that a stale (expired-heartbeat)
+// claimant does NOT produce a live collision — the item is reclaimable.
+func TestLiveCollision_StaleAllows(t *testing.T) {
+	database := setupTestDB(t)
+	defer database.Close()
+
+	insertExtraFeature(t, database, "feat-lc-stale")
+	insertExtraSession(t, database, "sess-stale-holder", "claude-code")
+	insertExtraSession(t, database, "sess-stale-caller", "claude-code")
+
+	stale := &models.Claim{
+		ClaimID:          "clm-lc-stale",
+		WorkItemID:       "feat-lc-stale",
+		OwnerSessionID:   "sess-stale-holder",
+		OwnerAgent:       "claude-code",
+		ClaimedByAgentID: "agent-stale",
+		Status:           models.ClaimInProgress,
+	}
+	if err := db.ClaimItemOrRenew(database, stale, 30*time.Minute); err != nil {
+		t.Fatalf("stale claim: %v", err)
+	}
+
+	// Back-date the heartbeat so it is well outside any liveness window.
+	ancient := time.Now().UTC().Add(-10 * time.Minute).Format(time.RFC3339)
+	_, err := database.Exec(
+		`UPDATE claims SET last_heartbeat_at = ? WHERE claim_id = ?`,
+		ancient, "clm-lc-stale",
+	)
+	if err != nil {
+		t.Fatalf("update heartbeat: %v", err)
+	}
+
+	// 2-minute window — stale holder is NOT live.
+	lc, err := db.LiveCollision(database, "feat-lc-stale", "sess-stale-caller", 2*time.Minute)
+	if err != nil {
+		t.Fatalf("LiveCollision: %v", err)
+	}
+	if lc.HasLiveCollision {
+		t.Error("expected HasLiveCollision=false for stale claimant, got true")
+	}
+	if len(lc.LiveClaimants) != 0 {
+		t.Errorf("expected 0 live claimants, got %d", len(lc.LiveClaimants))
+	}
+}
+
+// TestLiveCollision_SelfReclaim verifies that a session reclaiming its OWN
+// item (same callerSessionID) is NOT reported as a live collision.
+func TestLiveCollision_SelfReclaim(t *testing.T) {
+	database := setupTestDB(t)
+	defer database.Close()
+
+	insertExtraFeature(t, database, "feat-lc-self")
+	insertExtraSession(t, database, "sess-self-reclaim", "claude-code")
+
+	self := &models.Claim{
+		ClaimID:          "clm-lc-self",
+		WorkItemID:       "feat-lc-self",
+		OwnerSessionID:   "sess-self-reclaim",
+		OwnerAgent:       "claude-code",
+		ClaimedByAgentID: "agent-self",
+		Status:           models.ClaimInProgress,
+	}
+	if err := db.ClaimItemOrRenew(database, self, 30*time.Minute); err != nil {
+		t.Fatalf("self claim: %v", err)
+	}
+
+	// Fresh heartbeat — but caller IS the holder.
+	_, err := database.Exec(
+		`UPDATE claims SET last_heartbeat_at = ? WHERE claim_id = ?`,
+		time.Now().UTC().Format(time.RFC3339), "clm-lc-self",
+	)
+	if err != nil {
+		t.Fatalf("update heartbeat: %v", err)
+	}
+
+	lc, err := db.LiveCollision(database, "feat-lc-self", "sess-self-reclaim", 2*time.Minute)
+	if err != nil {
+		t.Fatalf("LiveCollision: %v", err)
+	}
+	if lc.HasLiveCollision {
+		t.Error("expected HasLiveCollision=false for self-reclaim, got true")
 	}
 }
 

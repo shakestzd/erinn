@@ -91,6 +91,60 @@ func CollaborationSummary(state CollaborationState) string {
 	return strings.Join(lines, "\n")
 }
 
+// LiveCollisionState extends CollaborationState with a liveness filter.
+// HasLiveCollision is true when at least one claimant OTHER than the caller's
+// own session is actively live (heartbeat within the staleness threshold).
+// LiveClaimants contains only the live foreign claimants (caller excluded).
+//
+// callerSessionID may be "" — in that case all live claimants are included.
+// livenessThreshold is typically from LivenessStalenessThreshold(projectDir).
+type LiveCollisionState struct {
+	CollaborationState
+	HasLiveCollision bool
+	LiveClaimants    []models.Claim
+}
+
+// LiveCollision returns the live-collision state for workItemID: it runs
+// DetectCollaboration, then filters claimants to those whose owner session is
+// live per SessionLivenessByHeartbeat. Only foreign sessions (not equal to
+// callerSessionID) contribute — a session reclaiming its own item is not a
+// collision.
+func LiveCollision(database *sql.DB, workItemID, callerSessionID string, livenessThreshold time.Duration) (LiveCollisionState, error) {
+	coll, err := DetectCollaboration(database, workItemID)
+	if err != nil {
+		return LiveCollisionState{}, err
+	}
+	state := LiveCollisionState{CollaborationState: coll}
+	for _, c := range coll.Claimants {
+		if c.OwnerSessionID == callerSessionID {
+			continue // own session reclaiming — not a foreign collision
+		}
+		if SessionLivenessByHeartbeat(database, c.OwnerSessionID, livenessThreshold) {
+			state.LiveClaimants = append(state.LiveClaimants, c)
+		}
+	}
+	state.HasLiveCollision = len(state.LiveClaimants) > 0
+	return state, nil
+}
+
+// LiveCollisionMessage formats a human-readable refusal message for a live
+// collision. Returns "" when state.HasLiveCollision is false.
+func LiveCollisionMessage(state LiveCollisionState) string {
+	if !state.HasLiveCollision {
+		return ""
+	}
+	lines := make([]string, 0, len(state.LiveClaimants)+2)
+	for _, c := range state.LiveClaimants {
+		ts := c.LeasedAt.UTC().Format(time.RFC3339)
+		lines = append(lines, fmt.Sprintf(
+			"%s is actively claimed by session %s (agent %s, since %s).\n"+
+				"Coordinate, or re-run with --force to claim anyway.",
+			state.WorkItemID, c.OwnerSessionID, c.OwnerAgent, ts,
+		))
+	}
+	return strings.Join(lines, "\n")
+}
+
 // BackfillParentSession sets parent_session_id on a child session row when
 // the parent record arrives after the child was already written (out-of-order).
 // This is idempotent: if parent_session_id is already set to the same value

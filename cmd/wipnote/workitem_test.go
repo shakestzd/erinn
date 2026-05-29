@@ -1630,3 +1630,243 @@ func TestUncommittedSourceCompleteGate_IgnoresUntrackedSource(t *testing.T) {
 		t.Fatalf("untracked source should not block tracked-file gate, got: %v", err)
 	}
 }
+
+// TestFeatureStart_LiveCollision_Refuses verifies that `feature start` returns
+// a non-zero error (without mutating state) when a foreign live session holds
+// the same work item.
+func TestFeatureStart_LiveCollision_Refuses(t *testing.T) {
+	const holderSessionID = "sess-collision-holder"
+	const callerSessionID = "sess-collision-caller"
+	const agentID = dbpkg.AgentRootSentinel
+
+	tmpDir, hgDir := testHgDirWithDB(t, holderSessionID)
+	projectDirFlag = tmpDir
+	defer func() { projectDirFlag = "" }()
+	t.Setenv("WIPNOTE_CACHE_DIR", tmpDir)
+
+	// Create a second session for the caller.
+	dbPath := filepath.Join(hgDir, ".db", "wipnote.db")
+	database, err := dbpkg.Open(dbPath)
+	if err != nil {
+		t.Fatalf("open db: %v", err)
+	}
+	if err := dbpkg.InsertSession(database, &models.Session{
+		SessionID:     callerSessionID,
+		AgentAssigned: "claude-code",
+		Status:        "active",
+		CreatedAt:     time.Now(),
+	}); err != nil {
+		t.Fatalf("insert caller session: %v", err)
+	}
+
+	trackID := testSetupTrack(t, hgDir)
+	if err := testCreate("feature", "Collision Test", trackID, "medium", false, false); err != nil {
+		t.Fatalf("create feature: %v", err)
+	}
+	featFiles, _ := filepath.Glob(filepath.Join(hgDir, "features", "feat-*.html"))
+	if len(featFiles) != 1 {
+		t.Fatalf("expected 1 feature file, got %d", len(featFiles))
+	}
+	featNode, _ := htmlparse.ParseFile(featFiles[0])
+	featID := featNode.ID
+
+	// Holder claims the item and gets a fresh heartbeat.
+	holderClaim := &models.Claim{
+		ClaimID:          "clm-collision-holder",
+		WorkItemID:       featID,
+		OwnerSessionID:   holderSessionID,
+		OwnerAgent:       "claude-code",
+		ClaimedByAgentID: agentID,
+		Status:           models.ClaimInProgress,
+	}
+	if err := dbpkg.ClaimItemOrRenew(database, holderClaim, 30*time.Minute); err != nil {
+		t.Fatalf("holder claim: %v", err)
+	}
+	// Ensure heartbeat is fresh (within liveness window).
+	if _, err := database.Exec(
+		`UPDATE claims SET last_heartbeat_at = ? WHERE claim_id = ?`,
+		time.Now().UTC().Format(time.RFC3339), "clm-collision-holder",
+	); err != nil {
+		t.Fatalf("set heartbeat: %v", err)
+	}
+	database.Close()
+
+	// Also advance the HTML status to in-progress so col.Start works.
+	if err := wiSetStatusWithAgent("feature", featID, "in-progress", holderSessionID, agentID); err != nil {
+		t.Fatalf("holder start: %v", err)
+	}
+
+	// Reopen to verify state before refusal.
+	database2, err := dbpkg.Open(dbPath)
+	if err != nil {
+		t.Fatalf("open db2: %v", err)
+	}
+	var preCount int
+	database2.QueryRow(
+		`SELECT COUNT(*) FROM claims WHERE work_item_id = ? AND status IN ('proposed','claimed','in_progress','blocked','handoff_pending')`,
+		featID,
+	).Scan(&preCount)
+	database2.Close()
+
+	// Caller tries to start the same item — must be refused (live collision).
+	wiForceStart = false
+	defer func() { wiForceStart = false }()
+	err = wiSetStatusWithAgent("feature", featID, "in-progress", callerSessionID, agentID)
+	if err == nil {
+		t.Fatal("expected error from live-collision refusal, got nil")
+	}
+	if !strings.Contains(err.Error(), "--force") {
+		t.Errorf("refusal message missing '--force' hint: %v", err)
+	}
+
+	// State must not have mutated (claim count unchanged).
+	database3, err := dbpkg.Open(dbPath)
+	if err != nil {
+		t.Fatalf("open db3: %v", err)
+	}
+	defer database3.Close()
+	var postCount int
+	database3.QueryRow(
+		`SELECT COUNT(*) FROM claims WHERE work_item_id = ? AND status IN ('proposed','claimed','in_progress','blocked','handoff_pending')`,
+		featID,
+	).Scan(&postCount)
+	if postCount != preCount {
+		t.Errorf("claim count mutated on refusal: was %d, now %d", preCount, postCount)
+	}
+}
+
+// TestFeatureStart_LiveCollision_ForceOverrides verifies that --force bypasses
+// the live-collision refusal and proceeds (emitting a warning but succeeding).
+func TestFeatureStart_LiveCollision_ForceOverrides(t *testing.T) {
+	const holderSessionID = "sess-force-holder"
+	const callerSessionID = "sess-force-caller"
+	const agentID = dbpkg.AgentRootSentinel
+
+	tmpDir, hgDir := testHgDirWithDB(t, holderSessionID)
+	projectDirFlag = tmpDir
+	defer func() { projectDirFlag = "" }()
+	t.Setenv("WIPNOTE_CACHE_DIR", tmpDir)
+
+	dbPath := filepath.Join(hgDir, ".db", "wipnote.db")
+	database, err := dbpkg.Open(dbPath)
+	if err != nil {
+		t.Fatalf("open db: %v", err)
+	}
+	if err := dbpkg.InsertSession(database, &models.Session{
+		SessionID:     callerSessionID,
+		AgentAssigned: "claude-code",
+		Status:        "active",
+		CreatedAt:     time.Now(),
+	}); err != nil {
+		t.Fatalf("insert caller session: %v", err)
+	}
+
+	trackID := testSetupTrack(t, hgDir)
+	if err := testCreate("feature", "Force Override Test", trackID, "medium", false, false); err != nil {
+		t.Fatalf("create feature: %v", err)
+	}
+	featFiles, _ := filepath.Glob(filepath.Join(hgDir, "features", "feat-*.html"))
+	if len(featFiles) != 1 {
+		t.Fatalf("expected 1 feature file, got %d", len(featFiles))
+	}
+	featNode, _ := htmlparse.ParseFile(featFiles[0])
+	featID := featNode.ID
+
+	// Holder claims and gets a fresh heartbeat.
+	holderClaim := &models.Claim{
+		ClaimID:          "clm-force-holder",
+		WorkItemID:       featID,
+		OwnerSessionID:   holderSessionID,
+		OwnerAgent:       "claude-code",
+		ClaimedByAgentID: agentID,
+		Status:           models.ClaimInProgress,
+	}
+	if err := dbpkg.ClaimItemOrRenew(database, holderClaim, 30*time.Minute); err != nil {
+		t.Fatalf("holder claim: %v", err)
+	}
+	if _, err := database.Exec(
+		`UPDATE claims SET last_heartbeat_at = ? WHERE claim_id = ?`,
+		time.Now().UTC().Format(time.RFC3339), "clm-force-holder",
+	); err != nil {
+		t.Fatalf("set heartbeat: %v", err)
+	}
+	database.Close()
+
+	// Holder starts first so HTML status is in-progress.
+	if err := wiSetStatusWithAgent("feature", featID, "in-progress", holderSessionID, agentID); err != nil {
+		t.Fatalf("holder start: %v", err)
+	}
+
+	// Caller with --force must succeed despite live collision.
+	wiForceStart = true
+	defer func() { wiForceStart = false }()
+	if err := wiSetStatusWithAgent("feature", featID, "in-progress", callerSessionID, agentID); err != nil {
+		t.Fatalf("force start should succeed: %v", err)
+	}
+}
+
+// TestFeatureStart_StaleCollision_Allows verifies that a stale (dead-heartbeat)
+// foreign claim does NOT block start — the item must be freely reclaimable.
+func TestFeatureStart_StaleCollision_Allows(t *testing.T) {
+	const holderSessionID = "sess-stale-coll-holder"
+	const callerSessionID = "sess-stale-coll-caller"
+	const agentID = dbpkg.AgentRootSentinel
+
+	tmpDir, hgDir := testHgDirWithDB(t, holderSessionID)
+	projectDirFlag = tmpDir
+	defer func() { projectDirFlag = "" }()
+	t.Setenv("WIPNOTE_CACHE_DIR", tmpDir)
+
+	dbPath := filepath.Join(hgDir, ".db", "wipnote.db")
+	database, err := dbpkg.Open(dbPath)
+	if err != nil {
+		t.Fatalf("open db: %v", err)
+	}
+	if err := dbpkg.InsertSession(database, &models.Session{
+		SessionID:     callerSessionID,
+		AgentAssigned: "claude-code",
+		Status:        "active",
+		CreatedAt:     time.Now(),
+	}); err != nil {
+		t.Fatalf("insert caller session: %v", err)
+	}
+
+	trackID := testSetupTrack(t, hgDir)
+	if err := testCreate("feature", "Stale Collision Test", trackID, "medium", false, false); err != nil {
+		t.Fatalf("create feature: %v", err)
+	}
+	featFiles, _ := filepath.Glob(filepath.Join(hgDir, "features", "feat-*.html"))
+	if len(featFiles) != 1 {
+		t.Fatalf("expected 1 feature file, got %d", len(featFiles))
+	}
+	featNode, _ := htmlparse.ParseFile(featFiles[0])
+	featID := featNode.ID
+
+	database.Close()
+
+	// Holder starts first, writing a claim with a fresh heartbeat.
+	if err := wiSetStatusWithAgent("feature", featID, "in-progress", holderSessionID, agentID); err != nil {
+		t.Fatalf("holder start: %v", err)
+	}
+
+	// Now back-date ALL heartbeats for the holder session so liveness check fails.
+	database2, err := dbpkg.Open(dbPath)
+	if err != nil {
+		t.Fatalf("open db2: %v", err)
+	}
+	ancient := time.Now().UTC().Add(-10 * time.Minute).Format(time.RFC3339)
+	if _, err := database2.Exec(
+		`UPDATE claims SET last_heartbeat_at = ? WHERE owner_session_id = ?`,
+		ancient, holderSessionID,
+	); err != nil {
+		t.Fatalf("set stale heartbeat: %v", err)
+	}
+	database2.Close()
+
+	// Caller must succeed because holder's heartbeat is stale.
+	wiForceStart = false
+	defer func() { wiForceStart = false }()
+	if err := wiSetStatusWithAgent("feature", featID, "in-progress", callerSessionID, agentID); err != nil {
+		t.Fatalf("stale-holder start should succeed: %v", err)
+	}
+}

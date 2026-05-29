@@ -95,6 +95,13 @@ func SubagentStart(event *CloudEvent, database *sql.DB) (*HookResult, error) {
 // SubagentStop handles the SubagentStop Claude Code hook event.
 // It marks the task_delegation for this specific agent as completed and
 // stores the last assistant message as the output summary.
+//
+// CONTROLLING CAPABILITY (AdditiveControlling, per hookEventContractSpecs): CC
+// reads a JSON HookResult here, so returning {decision:"block", reason:"…"}
+// would PREVENT the subagent from stopping. This handler is kept observe-only
+// by design — there is no current use-case to keep a subagent running — but the
+// HookResult return path is already wired, so a future block condition is a
+// one-line addition.
 func SubagentStop(event *CloudEvent, database *sql.DB) (*HookResult, error) {
 	sessionID := resolveSessionIDWithHarness(event)
 	if sessionID == "" {

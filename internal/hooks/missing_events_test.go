@@ -249,6 +249,90 @@ func TestInstructionsLoaded_RecordsCheckpoint(t *testing.T) {
 	}
 }
 
+// TestInstructionsLoaded_DecodesAndRecordsFields verifies that
+// InstructionsLoaded decodes file_path/load_reason/memory_type/globs and
+// records them (path/reason/memory in input_summary, full detail JSON in
+// output_summary). feat-cd937fc9.
+func TestInstructionsLoaded_DecodesAndRecordsFields(t *testing.T) {
+	td, sessionID := setupMissingEventsDB(t)
+
+	event := &CloudEvent{
+		SessionID:  sessionID,
+		CWD:        t.TempDir(),
+		FilePath:   "/repo/CLAUDE.md",
+		LoadReason: "startup",
+		MemoryType: "project",
+		Globs:      []string{"**/CLAUDE.md"},
+	}
+
+	result, err := InstructionsLoaded(event, td.DB)
+	if err != nil {
+		t.Fatalf("InstructionsLoaded: %v", err)
+	}
+	if result == nil || !result.Continue {
+		t.Fatal("expected Continue=true from InstructionsLoaded")
+	}
+
+	var inputSummary, outputSummary string
+	if err := td.DB.QueryRow(
+		`SELECT input_summary, output_summary FROM agent_events WHERE session_id = ? AND tool_name = 'InstructionsLoaded'`,
+		sessionID,
+	).Scan(&inputSummary, &outputSummary); err != nil {
+		t.Fatalf("query agent_events: %v", err)
+	}
+	if !strings.Contains(inputSummary, "/repo/CLAUDE.md") {
+		t.Errorf("input_summary %q missing file path", inputSummary)
+	}
+	if !strings.Contains(inputSummary, "reason=startup") {
+		t.Errorf("input_summary %q missing load reason", inputSummary)
+	}
+	var detail map[string]any
+	if err := json.Unmarshal([]byte(outputSummary), &detail); err != nil {
+		t.Fatalf("output_summary not valid JSON: %v (raw=%q)", err, outputSummary)
+	}
+	if detail["memory_type"] != "project" {
+		t.Errorf("detail[memory_type] = %v, want project", detail["memory_type"])
+	}
+	if detail["file_path"] != "/repo/CLAUDE.md" {
+		t.Errorf("detail[file_path] = %v", detail["file_path"])
+	}
+}
+
+// TestWorktreeRemove_NoAdditionalContext verifies that the cleanup in
+// feat-cd937fc9 removed the dead additionalContext return (CC ignores it for
+// this Observational event) while keeping the checkpoint recording.
+func TestWorktreeRemove_NoAdditionalContext(t *testing.T) {
+	td, sessionID := setupMissingEventsDB(t)
+
+	event := &CloudEvent{
+		SessionID:    sessionID,
+		CWD:          t.TempDir(),
+		WorktreePath: "/repo/.claude/worktrees/feat-aabbccdd",
+	}
+
+	result, err := WorktreeRemove(event, td.DB)
+	if err != nil {
+		t.Fatalf("WorktreeRemove: %v", err)
+	}
+	if result == nil || !result.Continue {
+		t.Fatal("expected Continue=true from WorktreeRemove")
+	}
+	if result.AdditionalContext != "" {
+		t.Errorf("expected no additionalContext (CC ignores it for Observational WorktreeRemove), got %q", result.AdditionalContext)
+	}
+
+	var count int
+	if err := td.DB.QueryRow(
+		`SELECT COUNT(*) FROM agent_events WHERE session_id = ? AND tool_name = 'WorktreeRemove'`,
+		sessionID,
+	).Scan(&count); err != nil {
+		t.Fatalf("query agent_events: %v", err)
+	}
+	if count != 1 {
+		t.Errorf("expected 1 WorktreeRemove checkpoint, got %d", count)
+	}
+}
+
 // --- PermissionRequest ---
 
 // TestPermissionRequest_RecordsCheckpoint verifies PermissionRequest records

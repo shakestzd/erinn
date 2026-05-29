@@ -253,6 +253,13 @@ func PostCompact(event *CloudEvent, database *sql.DB) (*HookResult, error) {
 
 // TeammateIdle handles the TeammateIdle Claude Code hook event.
 // Records a teammate_idle event when a teammate agent goes idle.
+//
+// CONTROLLING CAPABILITY (AdditiveControlling, per hookEventContractSpecs): CC
+// reads a JSON HookResult here, so this handler COULD return
+// {decision:"block", reason:"…"} to keep a teammate busy. It is kept
+// observe-only by design — there is no current use-case to override CC's idle
+// handling — but the HookResult return path is already in place, so adding a
+// future block condition is a one-line change.
 func TeammateIdle(event *CloudEvent, database *sql.DB) (*HookResult, error) {
 	summary := "Teammate agent went idle"
 	if event.TeammateName != "" {
@@ -397,9 +404,48 @@ func TaskCompleted(event *CloudEvent, database *sql.DB) (*HookResult, error) {
 }
 
 // InstructionsLoaded handles the InstructionsLoaded Claude Code hook event.
-// Records a checkpoint when CLAUDE.md or other instruction files are loaded.
+//
+// Observational event (stdout ignored by CC). Records a checkpoint when an
+// instruction file (CLAUDE.md, AGENTS.md, a memory file, a glob-matched
+// ruleset, …) is loaded. feat-cd937fc9 decodes and records the payload fields
+// file_path / load_reason / memory_type / globs, closing the MISMATCH-payload
+// observability gap so the timeline shows which instruction sources were loaded
+// and why.
 func InstructionsLoaded(event *CloudEvent, database *sql.DB) (*HookResult, error) {
-	return recordSimpleEvent(models.EventCheckPoint, "InstructionsLoaded", "Instruction files loaded (CLAUDE.md etc.)", "recorded", event, database)
+	summary := "Instruction files loaded (CLAUDE.md etc.)"
+	if event.FilePath != "" {
+		summary = fmt.Sprintf("Instructions loaded: %s", event.FilePath)
+		if event.LoadReason != "" {
+			summary += fmt.Sprintf(" (reason=%s)", event.LoadReason)
+		}
+		if event.MemoryType != "" {
+			summary += fmt.Sprintf(" [memory=%s]", event.MemoryType)
+		}
+	}
+
+	// Record the structured load detail (path, reason, memory type, globs) as
+	// JSON in OutputSummary for the timeline.
+	var detailJSON string
+	detail := map[string]any{}
+	if event.FilePath != "" {
+		detail["file_path"] = event.FilePath
+	}
+	if event.LoadReason != "" {
+		detail["load_reason"] = event.LoadReason
+	}
+	if event.MemoryType != "" {
+		detail["memory_type"] = event.MemoryType
+	}
+	if len(event.Globs) > 0 {
+		detail["globs"] = event.Globs
+	}
+	if len(detail) > 0 {
+		if b, err := json.Marshal(detail); err == nil {
+			detailJSON = string(b)
+		}
+	}
+
+	return recordSimpleEventWithOutput(models.EventCheckPoint, "InstructionsLoaded", summary, detailJSON, "recorded", event, database)
 }
 
 // PermissionRequest handles the PermissionRequest Claude Code hook event.
@@ -475,10 +521,16 @@ func WorktreeCreate(event *CloudEvent, database *sql.DB) (*HookResult, error) {
 }
 
 // WorktreeRemove handles the WorktreeRemove Claude Code hook event.
-// Records when a git worktree is removed after work is complete.
-// Auto-completes any in-progress work items associated with the worktree branch.
-// Also injects additionalContext to redirect the agent back to the project root
-// so it can run final checks even though its CWD no longer exists.
+//
+// OBSERVATIONAL event: CC ignores this hook's stdout entirely (see
+// hookEventContractSpecs). Records when a git worktree is removed after work is
+// complete and auto-completes any in-progress work items associated with the
+// worktree branch.
+//
+// feat-cd937fc9 cleanup: a previous version returned an additionalContext
+// message here. Because WorktreeRemove is Observational, CC discarded it — it
+// never reached the agent. The dead return has been removed; the checkpoint
+// recording and branch auto-completion (the real side effects) are retained.
 func WorktreeRemove(event *CloudEvent, database *sql.DB) (*HookResult, error) {
 	summary := "Worktree removed"
 	if event.WorktreePath != "" {
@@ -495,30 +547,12 @@ func WorktreeRemove(event *CloudEvent, database *sql.DB) (*HookResult, error) {
 	// The branch name is typically the last path component of the worktree path
 	// (e.g. /path/to/worktrees/trk-abc12345 → "trk-abc12345").
 	branch := extractBranchFromWorktreePath(event.WorktreePath)
-	var completedItems []string
 	if branch != "" {
-		completedItems = autoCompleteByBranch(branch, database)
+		completedItems := autoCompleteByBranch(branch, database)
 		if len(completedItems) > 0 {
 			projectDir := ResolveProjectDir(event.CWD, event.SessionID)
 			debugLog(projectDir, "[worktree-remove] auto-completed %s (branch=%s)", strings.Join(completedItems, ", "), branch)
 		}
-	}
-
-	// Inject guidance so the agent can complete post-worktree steps.
-	// The worktree directory no longer exists — any Bash command using the
-	// old CWD will fail. Tell the agent to switch to the project root.
-	projectRoot := ResolveProjectDir(event.CWD, event.SessionID)
-	if projectRoot != "" {
-		msg := fmt.Sprintf(
-			"WORKTREE REMOVED: Your working directory (%s) no longer exists. "+
-				"All subsequent Bash commands must use absolute paths or cd to the project root first. "+
-				"Project root: %s — use this for any remaining steps (marking feature done, final checks, etc.).",
-			event.WorktreePath, projectRoot,
-		)
-		if len(completedItems) > 0 {
-			msg += fmt.Sprintf("\nAuto-completed work items: %s", strings.Join(completedItems, ", "))
-		}
-		result.AdditionalContext = msg
 	}
 
 	return result, nil
@@ -537,6 +571,12 @@ func extractBranchFromWorktreePath(worktreePath string) string {
 // PostToolUseFailure handles the PostToolUseFailure Claude Code hook event.
 // Records a tool crash/exception as an error event with details from ToolResult.
 // This handler is kept separate because it extracts error info from ToolResult.
+//
+// CONTROLLING CAPABILITY (AdditiveControlling, per hookEventContractSpecs): CC
+// reads a JSON HookResult here, so this handler COULD return a controlling
+// shape (e.g. {decision:"block"} to halt after a tool failure). It is kept
+// observe-only by design — no current use-case to alter CC's failure handling
+// — but the HookResult return path is already in place for a future addition.
 func PostToolUseFailure(event *CloudEvent, database *sql.DB) (*HookResult, error) {
 	sessionID := EnvSessionID(event.SessionID)
 	if sessionID == "" {

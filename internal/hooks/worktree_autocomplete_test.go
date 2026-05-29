@@ -198,8 +198,10 @@ func TestCompleteInProgressByTrack_Query(t *testing.T) {
 	}
 }
 
-// TestWorktreeRemove_AutoCompletes verifies WorktreeRemove injects auto-completion
-// context and records the checkpoint event.
+// TestWorktreeRemove_AutoCompletes verifies WorktreeRemove auto-completes the
+// in-progress work item for the removed worktree's branch and records the
+// checkpoint event. (feat-cd937fc9: the dead additionalContext return was
+// removed — CC ignores stdout for this Observational event.)
 func TestWorktreeRemove_AutoCompletes(t *testing.T) {
 	// Stub out the CLI shell-out so the test does not require a real wipnote
 	// binary or a project DB at a known path. The stub marks the item done
@@ -265,13 +267,18 @@ func TestWorktreeRemove_AutoCompletes(t *testing.T) {
 	if result == nil {
 		t.Fatal("expected non-nil result")
 	}
-	// The result should include project root guidance.
-	if result.AdditionalContext == "" {
-		t.Error("expected AdditionalContext to be set")
+	// CC ignores stdout for the Observational WorktreeRemove event, so the
+	// handler must NOT emit an additionalContext (dead return removed).
+	if result.AdditionalContext != "" {
+		t.Errorf("expected no additionalContext, got: %s", result.AdditionalContext)
 	}
-	// Should contain WORKTREE REMOVED guidance.
-	if !containsStr(result.AdditionalContext, "WORKTREE REMOVED") {
-		t.Errorf("expected WORKTREE REMOVED in context, got: %s", result.AdditionalContext)
+	// The real side effect: the in-progress feature on the branch is completed.
+	var status string
+	if err := database.QueryRow(`SELECT status FROM features WHERE id = ?`, "feat-cafebabe").Scan(&status); err != nil {
+		t.Fatalf("query feature status: %v", err)
+	}
+	if status != "done" {
+		t.Errorf("expected feature auto-completed (status=done), got %q", status)
 	}
 }
 
@@ -305,8 +312,9 @@ func TestWorktreeRemove_UnknownBranch(t *testing.T) {
 	if result == nil {
 		t.Fatal("expected non-nil result")
 	}
-	// Should still have relocation guidance.
-	if result.AdditionalContext == "" {
-		t.Error("expected AdditionalContext to be set with relocation guidance")
+	// CC ignores stdout for the Observational WorktreeRemove event; the handler
+	// no longer emits an additionalContext (feat-cd937fc9 cleanup).
+	if result.AdditionalContext != "" {
+		t.Errorf("expected no additionalContext, got: %s", result.AdditionalContext)
 	}
 }

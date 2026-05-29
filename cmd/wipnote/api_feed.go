@@ -98,38 +98,53 @@ func eventsFeedHandler(database *sql.DB) http.HandlerFunc {
 }
 
 // queryOtelFeedEvents fetches relevant OTel spans and returns them as feedEvents.
+// The query is split into two UNION ALL subqueries (one for spans, one for logs),
+// each with its own ORDER BY + LIMIT to avoid scanning unbounded rows and holding
+// a SHARED lock for an extended period. The limit is applied generously per half
+// to leave headroom for Go-side dedup/merge/sort.
 func queryOtelFeedEvents(database *sql.DB, limit int) ([]feedEvent, error) {
+	// Use a generous per-half limit (3x requested + floor) to handle dedup/merge
+	perHalfLimit := limit*3 + 100
+	if perHalfLimit > 500 {
+		perHalfLimit = 500 // cap to avoid excessive memory
+	}
+
 	rows, err := database.Query(`
-		SELECT s.signal_id, COALESCE(s.harness, ''), COALESCE(s.trace_id, ''), COALESCE(s.parent_span, ''),
-		       s.canonical, COALESCE(s.tool_name, '') AS tool_name,
-		       COALESCE(s.model, '') AS model,
-		       s.ts_micros, COALESCE(s.duration_ms, 0) AS duration_ms,
-		       COALESCE(s.tokens_in, 0), COALESCE(s.tokens_out, 0),
-		       COALESCE(s.cost_usd, 0) AS cost_usd,
-		       s.success, COALESCE(s.decision, '') AS decision,
-		       COALESCE(s.session_id, '') AS session_id,
-		       COALESCE(s.feature_id, '') AS feature_id,
-		       COALESCE((SELECT f.title FROM features f WHERE f.id = s.feature_id LIMIT 1), '') AS feature_title,
-		       COALESCE((SELECT sess.session_family_id FROM sessions sess WHERE sess.session_id = s.session_id LIMIT 1), '') AS session_family_id,
-		       COALESCE(s.attrs_json, '{}') AS attrs_json
-		FROM otel_signals s
-		WHERE (
-			(s.kind = 'span' AND s.canonical IN (
-		      'interaction', 'api_request', 'tool_result',
-		      'tool_execution', 'tool_blocked_on_user', 'subagent_invocation'
-		    ))
-			OR
-			(s.kind = 'log' AND s.canonical IN (
-		      'user_prompt', 'assistant_text', 'api_request', 'tool_result', 'tool_decision'
-		    ))
+		WITH span_signals AS (
+			SELECT signal_id, harness, COALESCE(trace_id, '') AS trace_id, COALESCE(parent_span, '') AS parent_span, canonical, tool_name, model, ts_micros, duration_ms, COALESCE(tokens_in, 0) AS tokens_in, COALESCE(tokens_out, 0) AS tokens_out, COALESCE(cost_usd, 0.0) AS cost_usd, success, decision, session_id, COALESCE(feature_id, '') AS feature_id, attrs_json
+			FROM otel_signals
+			WHERE kind = 'span' AND canonical IN (
+				'interaction', 'api_request', 'tool_result',
+				'tool_execution', 'tool_blocked_on_user', 'subagent_invocation'
+			)
+			ORDER BY ts_micros DESC
+			LIMIT ?
+		),
+		log_signals AS (
+			SELECT signal_id, harness, COALESCE(trace_id, '') AS trace_id, COALESCE(parent_span, '') AS parent_span, canonical, tool_name, model, ts_micros, duration_ms, COALESCE(tokens_in, 0) AS tokens_in, COALESCE(tokens_out, 0) AS tokens_out, COALESCE(cost_usd, 0.0) AS cost_usd, success, decision, session_id, COALESCE(feature_id, '') AS feature_id, attrs_json
+			FROM otel_signals
+			WHERE kind = 'log' AND canonical IN (
+				'user_prompt', 'assistant_text', 'api_request', 'tool_result', 'tool_decision'
+			)
+			ORDER BY ts_micros DESC
+			LIMIT ?
 		)
-		ORDER BY s.ts_micros DESC`)
+		SELECT signal_id, harness, trace_id, parent_span, canonical, tool_name, model, ts_micros, duration_ms, tokens_in, tokens_out, cost_usd, success, decision, session_id, feature_id, attrs_json
+		FROM span_signals
+		UNION ALL
+		SELECT signal_id, harness, trace_id, parent_span, canonical, tool_name, model, ts_micros, duration_ms, tokens_in, tokens_out, cost_usd, success, decision, session_id, feature_id, attrs_json
+		FROM log_signals
+		ORDER BY ts_micros DESC`, perHalfLimit, perHalfLimit)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
 
+	// Collect rows and the set of feature_id and session_id for batch lookups
 	var out []feedEvent
+	featureIDs := make(map[string]bool)
+	sessionIDs := make(map[string]bool)
+
 	for rows.Next() {
 		var ev feedEvent
 		var successVal any
@@ -142,9 +157,7 @@ func queryOtelFeedEvents(database *sql.DB, limit int) ([]feedEvent, error) {
 			&tsMicros, &ev.DurationMs,
 			&ev.TokensIn, &ev.TokensOut, &ev.CostUSD,
 			&successVal, &ev.Decision,
-			&ev.SessionID, &ev.FeatureID, &ev.FeatureTitle,
-			&ev.SessionFamilyID,
-			&attrsRaw,
+			&ev.SessionID, &ev.FeatureID, &attrsRaw,
 		); err != nil {
 			continue
 		}
@@ -160,12 +173,89 @@ func queryOtelFeedEvents(database *sql.DB, limit int) ([]feedEvent, error) {
 		}
 		ev.Summary = otelSummary(ev.Type, ev.ToolName, ev.Model, ev.TokensIn, ev.TokensOut, attrsRaw)
 
+		// Track IDs for batch lookup after closing rows
+		if ev.FeatureID != "" {
+			featureIDs[ev.FeatureID] = true
+		}
+		if ev.SessionID != "" {
+			sessionIDs[ev.SessionID] = true
+		}
+
 		// Zero out empty optional fields to keep JSON tidy.
 		if ev.Model == "" {
 			ev.Model = ""
 		}
 		out = append(out, ev)
 	}
+	// Close rows to release the SHARED lock before doing batch lookups
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	// Convert sets to slices for batch queries
+	var featureIDList []string
+	for fid := range featureIDs {
+		featureIDList = append(featureIDList, fid)
+	}
+	var sessionIDList []string
+	for sid := range sessionIDs {
+		sessionIDList = append(sessionIDList, sid)
+	}
+
+	// Batch fetch feature titles
+	featureTitles := make(map[string]string)
+	if len(featureIDList) > 0 {
+		placeholders := make([]string, len(featureIDList))
+		args := make([]any, len(featureIDList))
+		for i, id := range featureIDList {
+			placeholders[i] = "?"
+			args[i] = id
+		}
+		ftRows, err := database.Query(
+			"SELECT id, title FROM features WHERE id IN ("+strings.Join(placeholders, ",")+")",
+			args...,
+		)
+		if err == nil {
+			defer ftRows.Close()
+			for ftRows.Next() {
+				var fid, title string
+				if err := ftRows.Scan(&fid, &title); err == nil {
+					featureTitles[fid] = title
+				}
+			}
+		}
+	}
+
+	// Batch fetch session_family_ids
+	sessionFamilyIDs := make(map[string]string)
+	if len(sessionIDList) > 0 {
+		placeholders := make([]string, len(sessionIDList))
+		args := make([]any, len(sessionIDList))
+		for i, id := range sessionIDList {
+			placeholders[i] = "?"
+			args[i] = id
+		}
+		sessRows, err := database.Query(
+			"SELECT session_id, session_family_id FROM sessions WHERE session_id IN ("+strings.Join(placeholders, ",")+")",
+			args...,
+		)
+		if err == nil {
+			defer sessRows.Close()
+			for sessRows.Next() {
+				var sid, sfid string
+				if err := sessRows.Scan(&sid, &sfid); err == nil {
+					sessionFamilyIDs[sid] = sfid
+				}
+			}
+		}
+	}
+
+	// Populate feature_title and session_family_id from the maps
+	for i := range out {
+		out[i].FeatureTitle = featureTitles[out[i].FeatureID]
+		out[i].SessionFamilyID = sessionFamilyIDs[out[i].SessionID]
+	}
+
 	sort.SliceStable(out, func(i, j int) bool {
 		if out[i].tsMicros == out[j].tsMicros {
 			return out[i].ID > out[j].ID

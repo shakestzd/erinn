@@ -1,0 +1,98 @@
+package pluginbuild
+
+import (
+	"os"
+	"path/filepath"
+	"strings"
+	"testing"
+)
+
+// TestHookEventContracts is the build-time guard that prevents the
+// "observe-only handler registered for a replacement hook" class of bugs
+// (canonical case: bug-80b27913 / WorktreeCreate).
+//
+// It exercises three properties:
+//
+//  1. COMPLETENESS — every Claude-registered event in the live manifest has an
+//     entry in hookEventContractSpecs. A new unclassified registration fails the
+//     build, forcing the author to choose a classification before shipping.
+//
+//  2. REPLACEMENT GUARD — no ReplacementOnRegistration event appears in the
+//     manifest's Claude hook registrations. wipnote's hook output layer always
+//     emits a JSON HookResult and cannot fulfill CC's raw-value replacement
+//     contract (JSON where CC expects a raw path = silent malfunction).
+//
+//  3. NEGATIVE UNIT TEST — a synthetic manifest that registers WorktreeCreate
+//     (the canonical ReplacementOnRegistration event) triggers a violation,
+//     proving the guard fires when needed.
+func TestHookEventContracts(t *testing.T) {
+	// --- locate the live manifest ---
+	repoRoot, err := filepath.Abs(filepath.Join("..", ".."))
+	if err != nil {
+		t.Fatalf("resolve repo root: %v", err)
+	}
+	manifestPath := filepath.Join(repoRoot, "packages", "plugin-core", "manifest.json")
+	if _, err := os.Stat(manifestPath); err != nil {
+		t.Fatalf("manifest not found at %s: %v", manifestPath, err)
+	}
+	m, err := Load(manifestPath)
+	if err != nil {
+		t.Fatalf("Load manifest: %v", err)
+	}
+
+	// --- 1. COMPLETENESS ---
+	// Every Claude-registered event name must have an entry in the spec table.
+	for _, name := range claudeHookEventNames(m) {
+		if _, ok := hookEventContractSpecs[name]; !ok {
+			t.Errorf("hook event %q is registered for claude but has no entry in hookEventContractSpecs; "+
+				"add it with an appropriate classification (Observational / AdditiveControlling / ReplacementOnRegistration) "+
+				"in internal/pluginbuild/hook_event_contracts.go before shipping",
+				name)
+		}
+	}
+
+	// --- 2. REPLACEMENT GUARD ---
+	// No ReplacementOnRegistration event may appear in Claude registrations.
+	violations := checkHookEventContracts(m)
+	for _, v := range violations {
+		t.Error(v)
+	}
+}
+
+// TestHookEventContractsNegative proves that checkHookEventContracts fires on a
+// synthetic manifest that registers WorktreeCreate (the canonical
+// ReplacementOnRegistration event). This guards the guard itself — if someone
+// accidentally reclassifies WorktreeCreate or changes the check logic, this
+// test will catch it.
+func TestHookEventContractsNegative(t *testing.T) {
+	// Build a minimal manifest with WorktreeCreate registered for claude.
+	bad := fixtureManifest()
+	bad.Hooks.Events = append(bad.Hooks.Events, HookEvent{
+		Name:    "WorktreeCreate",
+		Handler: "worktree-create",
+		Targets: []string{"claude"},
+	})
+
+	violations := checkHookEventContracts(bad)
+	if len(violations) == 0 {
+		t.Fatal("expected checkHookEventContracts to report a violation for WorktreeCreate, got none")
+	}
+
+	// The violation message must name the event and reference the bug.
+	joined := strings.Join(violations, "\n")
+	for _, want := range []string{"WorktreeCreate", "ReplacementOnRegistration", "bug-80b27913"} {
+		if !strings.Contains(joined, want) {
+			t.Errorf("violation message missing %q:\n%s", want, joined)
+		}
+	}
+}
+
+// TestHookEventContractSpecsRequireNote ensures every spec has a non-empty
+// contract note (mirrors TestAgentFrontmatterFieldSpecsRequireProvenance).
+func TestHookEventContractSpecsRequireNote(t *testing.T) {
+	for name, spec := range hookEventContractSpecs {
+		if spec.Note == "" {
+			t.Errorf("hookEventContractSpecs[%q] has an empty Note; add a short contract description", name)
+		}
+	}
+}

@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>WorktreeCreate observe-only registration breaks Agent(isolation=worktree); remove registration so CC creates worktrees natively</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="bug-80b27913"
+             data-type="bug"
+             data-status="todo"
+             data-priority="medium"
+             data-created="2026-05-29T13:45:17.077053"
+             data-updated="2026-05-29T13:45:17.107809" data-agent-assigned="claude-code" data-track-id="trk-93178cf4" data-created-by-agent="claude-code" data-created-by-model="claude-opus-4-8[1m]" data-created-by-cli-version="0.60.19-63-g2df392c78">
+
+        <header>
+            <h1>WorktreeCreate observe-only registration breaks Agent(isolation=worktree); remove registration so CC creates worktrees natively</h1>
+            <div class="metadata">
+                <span class="badge status-todo">Todo</span>
+                <span class="badge priority-medium">Medium Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="trk-93178cf4.html" data-relationship="part_of" data-since="2026-05-29T13:45:17.106409">trk-93178cf4</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>Claude Code WorktreeCreate is a replacement-on-registration hook: registering it replaces CC native git worktree creation; the hook must create the dir and print ONLY the absolute path to stdout. wipnote's handler (internal/hooks/missing_events.go WorktreeCreate) is observe-only — records a checkpoint and returns {continue:true} JSON, so CC stats the JSON as a path and worktree creation fails (live error: 'returned a path that is not a directory: {continue:true}'). Since CC creates worktrees natively when NO WorktreeCreate hook is registered, the durable fix is to REMOVE the WorktreeCreate registration from packages/plugin-core/manifest.json and regenerate ports. Leave WorktreeRemove (documented observational). Verified against code.claude.com/docs/en/worktrees + hooks docs. Takes effect next Claude session (hooks load at startup).</p>
+        </section>
+    </article>
+</body>
+</html>

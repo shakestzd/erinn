@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>Adopt PermissionRequest controlling contract (auto-approve/deny known-safe ops)</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="feat-b396bd33"
+             data-type="feature"
+             data-status="in-progress"
+             data-priority="medium"
+             data-created="2026-05-29T14:25:03.189001"
+             data-updated="2026-05-29T23:05:53.148366" data-agent-assigned="claude-code" data-track-id="trk-93178cf4" data-created-by-agent="claude-code" data-created-by-model="claude-opus-4-8[1m]" data-created-by-cli-version="0.60.19-70-ga7cfc1f09">
+
+        <header>
+            <h1>Adopt PermissionRequest controlling contract (auto-approve/deny known-safe ops)</h1>
+            <div class="metadata">
+                <span class="badge status-in-progress">In Progress</span>
+                <span class="badge priority-medium">Medium Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="trk-93178cf4.html" data-relationship="part_of" data-since="2026-05-29T14:25:03.200337">trk-93178cf4</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="implemented_in">
+                <h3>Implemented In:</h3>
+                <ul>
+                    <li><a href="c51a0b5b-904b-4888-b1f8-2bcaf8909c30.html" data-relationship="implemented_in" data-since="2026-05-29T23:05:53.148003">session c51a0b5b-904b-4888-b1f8-2bcaf8909c30</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>PermissionRequest is observe-only today (returns {continue:true}); CC ignores that and falls to its default prompt, so wipnote cannot auto-approve/deny. Adopt the controlling contract: return hookSpecificOutput.decision.behavior allow|deny (+ optional updatedInput), and decode the input fields permission_category and risk_level into CloudEvent. High UX value: auto-approve known-safe wipnote/dev ops to cut permission prompts. Files: internal/hooks (PermissionRequest handler), internal/hooks/runner.go (CloudEvent fields), tests.</p>
+        </section>
+    </article>
+</body>
+</html>

@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>hookEventContractSpecs build-time guard (prevent observe-vs-replacement hook drift)</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="feat-f34fe3de"
+             data-type="feature"
+             data-status="in-progress"
+             data-priority="medium"
+             data-created="2026-05-29T14:25:00.253549"
+             data-updated="2026-05-29T21:08:31.940968" data-agent-assigned="claude-code" data-track-id="trk-93178cf4" data-created-by-agent="claude-code" data-created-by-model="claude-opus-4-8[1m]" data-created-by-cli-version="0.60.19-70-ga7cfc1f09">
+
+        <header>
+            <h1>hookEventContractSpecs build-time guard (prevent observe-vs-replacement hook drift)</h1>
+            <div class="metadata">
+                <span class="badge status-in-progress">In Progress</span>
+                <span class="badge priority-medium">Medium Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="trk-93178cf4.html" data-relationship="part_of" data-since="2026-05-29T14:25:00.316035">trk-93178cf4</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="implemented_in">
+                <h3>Implemented In:</h3>
+                <ul>
+                    <li><a href="c51a0b5b-904b-4888-b1f8-2bcaf8909c30.html" data-relationship="implemented_in" data-since="2026-05-29T21:08:31.94045">session c51a0b5b-904b-4888-b1f8-2bcaf8909c30</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>Durable systemic fix for harness hook-contract drift. Add a hookEventContractSpecs table in internal/pluginbuild (analogous to agentFrontmatterFieldSpecs) classifying each hook event as observational / additive-controlling / replacement-on-registration, and a build/test-time check that FAILS when a replacement-classified event is registered with an observe-only handler (the WorktreeCreate class of bug, bug-80b27913). Also flag handlers returning a shape an event does not support. This catches drift at build time instead of in production.</p>
+        </section>
+    </article>
+</body>
+</html>

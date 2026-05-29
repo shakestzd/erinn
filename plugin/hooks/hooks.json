@@ -174,17 +174,6 @@
         ]
       }
     ],
-    "WorktreeCreate": [
-      {
-        "matcher": "",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "wipnote hook worktree-create"
-          }
-        ]
-      }
-    ],
     "WorktreeRemove": [
       {
         "matcher": "",

@@ -10,21 +10,23 @@ design:
     problem: |
         Best-practice enforcement in wipnote is uneven across the three harnesses it ships to
         (Claude Code, Codex CLI, Gemini CLI). The strongest gate — commit-quality (build/vet/test)
-        — fires ONLY in YOLO mode (yolo_guard.go:305 `if !yolo { return "" }`) and the TaskCompleted
-        quality gate targets ["claude"] only, so a normal Codex/Gemini/Claude session can commit a
-        failing build on every harness. Separately, the claim path enforces live-collision at start
-        (feat-5a9839fb) but lets a stale-heartbeat claim lapse silently with no reclaim audit trail.
-        The enforcement floor must be the wipnote CLI + (future) write-owner daemon — harness-agnostic
-        via JSON decision:block — not Claude-only exit-2 and not YOLO-only guards.
+        — fires ONLY in YOLO mode (yolo_guard.go:306 `if !yolo { return "" }`), and even then it
+        only checks hasRecentTestRun ("did a test tool-call fire this session"), not that the build
+        actually passes. The TaskCompleted quality gate targets ["claude"] only. So a normal
+        Codex/Gemini/Claude session can commit a failing build on every harness. Separately, the
+        claim path enforces live-collision at start (feat-5a9839fb) but lets a stale-heartbeat claim
+        lapse silently with no reclaim audit trail. The enforcement floor must be the wipnote CLI +
+        (future) write-owner daemon — harness-agnostic via JSON decision:block — not Claude-only
+        exit-2 and not YOLO-only guards.
     goals:
-        - Make commit-quality enforcement always-on (non-YOLO) and cross-harness via PreToolUse JSON decision:block
+        - Make commit-quality enforcement always-on (non-YOLO) and cross-harness via PreToolUse JSON decision:block, running the real wipnote check (not just hasRecentTestRun)
         - 'Close the stale-claim half of the claim path: enforced reclaim + reclaim provenance audit trail'
         - Give plan-bb91616a Phase A a machine-readable daemon-migration checklist of every enforcement gate
         - Add escalating warn-once->block-on-repeat as reusable cross-session infra without downgrading existing hard-refuse gates
-        - 'Fix the audit-surfaced c1 residual: non-YOLO subagents must be able to claim before the work-item guard blocks them'
+        - 'Fix the audit-surfaced c1 residual: non-YOLO subagents must be able to claim before the always-on work-item guard blocks them'
     constraints:
         - No new runtime dependency — stdlib + existing go.mod only
-        - Escalation state lives in the .wipnote/ canonical store, not SQLite (derived/per-user) — must survive session + harness restart
+        - Escalation state lives in a gitignored .wipnote/.enforce/ subdir — survives session + harness restart but does NOT pollute git status or get committed (NOT SQLite, which is derived/per-user)
         - Do NOT downgrade existing always-on hard-refuse gates (c1 work-item, c3 provenance) to escalating
         - CLI-direct enforcement now; mark new gates as write-owner-daemon migration candidates (daemon is unbuilt — plan-bb91616a still draft)
         - Quality gates must pass with TMPDIR set to an exec-capable non-git dir; never background `wipnote reindex`
@@ -33,132 +35,172 @@ design:
 slices:
     - id: slice-1
       num: 1
-      title: Escalation-marker primitive — cross-session warn-once then block-on-repeat (.wipnote/)
+      title: Escalation-marker primitive — cross-session warn-once then block-on-repeat (.wipnote/.enforce/)
       what: |
         New internal/enforce package providing a persisted escalation marker keyed by
-        (gate-id, scope-key). First Check returns Warn and writes a marker under
-        .wipnote/; a subsequent Check for the same key returns Block. Markers are plain
-        files in the canonical store so they survive session AND harness restart. API:
-        Check(gateID, key) -> {Warn|Block}, Clear(gateID, key), and a sweep to expire
-        stale markers. This is shared infra consumed by the commit gate (slice-2) and the
-        stale-claim guard (slice-3); the deferred sub-axis (b) session-end surfacing will
-        also reuse it.
+        (gate-id, scope-key). First Check returns Warn and writes a marker under a GITIGNORED
+        .wipnote/.enforce/ subdir; a subsequent Check for the same key returns Block. Markers
+        survive session AND harness restart (on disk) but are NOT git-tracked, so they never
+        appear as dirty working-tree state or get committed. API: Check(gateID, key) ->
+        {Warn|Block}, Clear(gateID, key), and a lazy expiry sweep run on each Check (no daemon —
+        stale markers older than a TTL are pruned in-line). Shared infra consumed by the commit
+        gate (slice-2) and the stale-claim guard (slice-3); the deferred sub-axis (b) session-end
+        surfacing will also reuse it.
       why: |
         The interview chose an escalating failure mode (warn once, block on repeat), which
-        requires persisted cross-session state. No such primitive exists today (the
-        existing always-on guards are immediate hard-block). Centralizing it prevents each
-        gate from inventing its own state file (DRY) and keeps the floor harness-agnostic.
+        requires persisted cross-session state. No such primitive exists today (the existing
+        always-on guards are immediate hard-block). Centralizing it prevents each gate from
+        inventing its own state file (DRY) and keeps the floor harness-agnostic.
       files:
         - internal/enforce/escalation.go
         - internal/enforce/escalation_test.go
+        - .gitignore
       deps: []
       done_when:
-        - First Check for a (gateID,key) returns Warn and writes a marker file under .wipnote/
+        - First Check for a (gateID,key) returns Warn and writes a marker under .wipnote/.enforce/
         - A second Check for the same (gateID,key) returns Block
         - Marker persists across process restart (re-reading from disk yields Block, not Warn)
         - Clear removes the marker so the next Check warns again
+        - .wipnote/.enforce/ is gitignored — `git status` stays clean when a marker is written
+        - A marker older than the TTL is pruned by the lazy sweep on the next Check
       effort: M
       risk: Med
       tests: |
         Unit (TMPDIR=.gotest-tmp): TestEscalation_WarnThenBlock — first call Warn, second Block.
         Unit: TestEscalation_PersistAcrossReopen — write, construct fresh store from same dir, expect Block.
         Unit: TestEscalation_ClearResets — Clear then Check returns Warn.
-        Unit: TestEscalation_StaleSweep — marker older than TTL is expired.
+        Unit: TestEscalation_StaleSweep — marker older than TTL is expired in-line on Check.
+        Unit: TestEscalation_NotGitTracked — write a marker, assert path is under a gitignored dir.
       complexity: complex
       approved: false
       comment: ""
       questions:
         - id: q-granularity
           text: 'Escalation key granularity: per (gate) globally, per (gate, work-item), or per (gate, session)?'
-          answer: Per (gate, scopeKey) where scopeKey is gate-defined — commit gate keys by repo+failing-check, stale-claim keys by work-item. Avoids one project-wide warning masking unrelated violations while still surviving session restart. Not per-session (that would reset the escalation every restart).
+          answer: Per (gate, scopeKey) where scopeKey is gate-defined — commit gate keys by repo+failing-check signature, stale-claim keys by work-item. Avoids one project-wide warning masking unrelated violations while still surviving session restart. Not per-session (that would reset the escalation every restart).
+      critic_revisions:
+        - source: sonnet
+          severity: HIGH
+          summary: '1-C: .wipnote/ is git-tracked — raw markers would dirty the tree on every violation. RESOLVED: markers moved to gitignored .wipnote/.enforce/ subdir; added .gitignore to files and a NotGitTracked done_when/test.'
+        - source: haiku
+          severity: LOW
+          summary: '1-info: marker-expiry lifecycle was unspecified. RESOLVED: expiry is a lazy in-line sweep on each Check (no daemon); documented in decisions_notes + StaleSweep test.'
+        - source: sonnet
+          severity: LOW
+          summary: '1-A/1-B: internal/enforce/ is greenfield and the correct home (orthogonal to internal/hooks, consumed cross-package); no existing primitive to reuse — confirmed.'
       decisions_notes: |
         **Trigger:** invoked by enforcement gates (commit gate, stale-claim guard) when a
         violation is first detected; not a hook itself.
-        **State:** plain marker file(s) under .wipnote/ (canonical, committed-store-aligned,
-        harness-agnostic). Keyed by (gateID, scopeKey) so different gates and different
-        targets escalate independently.
+        **State:** plain marker file(s) under a GITIGNORED .wipnote/.enforce/ subdir
+        (canonical-store-adjacent, harness-agnostic, survives restart) — but excluded from git so
+        it doesn't dirty the tree or get committed. Keyed by (gateID, scopeKey).
         **Payload:** marker records gateID, scopeKey, first-seen timestamp, harness, session.
-        **Rejected:** SQLite-backed counters — SQLite is derived/per-user/not committed, so a
-        DB rebuild silently grants a fresh free warning. In-memory only — a restarted session
-        re-grants a free warning every time, defeating "block on repeat" across sessions.
+        **Expiry:** lazy in-line sweep on each Check (no daemon/periodic job); TTL-based.
+        **Rejected:** SQLite-backed counters — derived/per-user/not committed, so a DB rebuild
+        silently grants a fresh free warning. In-memory only — a restarted session re-grants a
+        free warning every time, defeating cross-session "block on repeat". Tracked .wipnote/
+        file (no gitignore) — pollutes git status / risks committing transient warn state.
     - id: slice-2
       num: 2
-      title: Always-on commit-quality gate — extract shared gate + PreToolUse git-commit intercept (all 3 harnesses)
+      title: Always-on commit-quality gate — run real `wipnote check` via PreToolUse git-commit intercept (all 3 harnesses)
       what: |
-        Make commit-quality enforcement non-YOLO. Two steps in one slice:
-        (1) Extract the quality-check logic out of checkYoloCommitGuard
-        (internal/hooks/yolo_guard.go:204/305) into a single shared function (the gate runs
-        `wipnote check`). The existing YOLO path calls the shared function unchanged.
-        (2) Add an always-on PreToolUse handler that intercepts Bash `git commit` on all
-        three harnesses, runs the shared gate, and on failure emits JSON {"decision":"block"}
-        via the existing harness.go emitters (Claude/Codex/Gemini). Failure is escalating
-        per slice-1: first failing-commit attempt Warns (surfaces what is broken), a repeat
-        attempt in the same failing state Blocks.
+        Make commit-quality enforcement non-YOLO AND real. CRITICAL CORRECTION from the critic
+        pass: the existing checkYoloCommitGuard (yolo_guard.go:306) does NOT run `wipnote check` —
+        it only checks hasRecentTestRun (a DB query for whether a test tool-call fired in the
+        session). That is "tests were invoked", not "the build passes". This slice adds a NEW
+        shared quality-gate function that actually runs `wipnote check` (build/vet/test) and an
+        always-on PreToolUse handler that intercepts Bash `git commit` on all three harnesses
+        (gitCommitPattern + isShellTool, reusing the existing commit-detection shape), runs that
+        gate, and on failure emits JSON {"decision":"block"} via the existing harness.go emitters.
+        Failure is escalating per slice-1. To keep the subprocess affordable, cache the last
+        passing result keyed by the worktree tree-hash and skip re-running when the tree is
+        unchanged since the last green check. OPTIONAL (reviewer-decided): upgrade the YOLO
+        commit guard to call the same real-check function instead of hasRecentTestRun.
       why: |
         Confirmed gap: today checkYoloCommitGuard opens with `if !yolo { return "" }`
-        (yolo_guard.go:305) and the TaskCompleted quality gate targets ["claude"] only — so a
+        (yolo_guard.go:306) and the TaskCompleted quality gate targets ["claude"] only — so a
         normal Codex/Gemini/Claude session can commit with a failing build/tests, on every
         harness. This is the headline proof of "CLI/daemon as the enforcement floor" for the
-        commit path. Extracting the shared gate (interview choice) keeps one definition of
-        "a passing commit".
+        commit path.
       files:
-        - internal/hooks/yolo_guard.go
         - internal/hooks/pretooluse.go
         - internal/hooks/harness.go
+        - internal/enforce/commit_gate.go
         - cmd/wipnote/check.go
-        - packages/plugin-core/manifest.json
+        - internal/hooks/yolo_guard.go
       deps:
         - 1
       done_when:
-        - On a normal (non-YOLO) Claude session, `git commit` with a failing `wipnote check` is blocked (after the escalation warn->block step)
+        - On a normal (non-YOLO) Claude session, `git commit` when `wipnote check` fails is blocked (after the escalation warn->block step)
         - Same commit on Codex is blocked via JSON {"decision":"block"} (emitCodexResponse)
         - Same commit on Gemini is blocked via {"continue":false,"decision":"block"} (emitGeminiResponse)
-        - A commit that passes `wipnote check` is allowed on all three harnesses
-        - The existing YOLO commit guard still enforces, now via the shared extracted function (no behavior regression)
+        - Claude uses the same JSON decision:block path (not exit-2) for cross-harness uniformity
+        - A commit is allowed on all three harnesses when `wipnote check` passes
+        - When the worktree tree-hash is unchanged since the last green check, the gate skips re-running the subprocess
       effort: M
       risk: Med
       tests: |
-        Unit (TMPDIR=.gotest-tmp): TestSharedCommitGate_PassFail — shared fn returns block on failing check, allow on passing.
+        Unit (TMPDIR=.gotest-tmp): TestCommitGate_RunsRealCheck — gate blocks on failing `wipnote check`, allows on passing.
         Unit: TestCommitGate_Escalates — first failing attempt warns, second blocks (consumes slice-1).
-        Harness: assert emitCodexResponse / emitGeminiResponse shapes for a blocked commit.
-        Regression: existing YOLO commit-guard test still passes against the extracted fn.
+        Unit: TestCommitGate_TreeHashCache — unchanged tree skips the subprocess.
+        Harness: assert emitCodexResponse / emitGeminiResponse / Claude JSON shapes for a blocked commit.
       complexity: complex
       approved: false
       comment: ""
       questions:
+        - id: q-check-scope
+          text: Should the commit gate run full `wipnote check` (build+vet+test) on every commit, or a fast subset (build+vet) on commit with full tests deferred to `complete`?
+          answer: Default to full `wipnote check` with a tree-hash cache to avoid redundant runs; flag for reviewer — if commit latency is unacceptable, fall back to build+vet on commit and rely on the existing complete-path gates for full tests. Single switch in commit_gate.go.
         - id: q-commit-failmode
-          text: Should the commit gate use escalating warn->block (interview default) or hard-refuse with an explicit --force-style override, given that 'warn' lets one broken commit land?
-          answer: Default to escalating per the interview, but flag for human review — committing a failing build is the highest-stakes gate and may warrant hard-refuse-with-override. Reviewer decides at promotion; the shared gate is written so the fail-mode is a single switch.
+          text: Escalating warn->block (interview default) or hard-refuse-with-override for the commit gate, given 'warn' lets one broken commit land?
+          answer: Default escalating per the interview, but flagged for human review — committing a failing build is the highest-stakes gate and may warrant hard-refuse-with-override. Reviewer decides at promotion; fail-mode is a single switch.
+      critic_revisions:
+        - source: sonnet
+          severity: DANGER
+          summary: '2-A/P-C: plan claimed it extracts a `wipnote check` gate from checkYoloCommitGuard, but that guard runs hasRecentTestRun (a DB ''did tests fire'' query), not wipnote check. RESOLVED: slice now adds a NEW commit_gate.go that runs the real `wipnote check`; ''extract'' framing removed; YOLO upgrade made optional.'
+        - source: haiku
+          severity: LOW
+          summary: '2-info: Claude path was missing from done_when. RESOLVED: added explicit ''Claude uses JSON decision:block (not exit-2)'' done_when for cross-harness uniformity.'
+        - source: sonnet
+          severity: LOW
+          summary: '2-B/2-C/2-D: line cites confirmed (checkYoloCommitGuard guard at :306; emitCodex :303 / emitGemini :342; PreToolUse already targets all 3 in manifest line 73 — no manifest change needed).'
       decisions_notes: |
-        **Trigger:** PreToolUse on Bash whose command is a `git commit` (and amend/commit -m
-        variants). Cross-harness intercept because git commit is a Bash tool call on all three.
+        **Trigger:** PreToolUse on Bash whose command matches gitCommitPattern (commit / commit -m /
+        amend), reusing the existing isShellTool + gitCommitPattern detection. Cross-harness because
+        git commit is a Bash tool call on all three.
+        **Gate semantic:** runs the REAL `wipnote check` (build/vet/test), NOT hasRecentTestRun. This
+        is the corrected design — see critic finding 2-A. The existing YOLO guard's "tests were
+        invoked" signal is too weak for a commit-quality floor.
         **State:** escalation marker from slice-1, keyed by (commit-gate, repo + failing-check
-        signature).
-        **Payload:** JSON decision:block + reason listing the failing `wipnote check` output;
-        Claude also has exit-2 available but the JSON path is the cross-harness primitive.
-        **Rejected:** `wipnote commit` CLI wrapper as the sole seam — raw `git commit` escapes
-        it unless a hook also blocks, so the hook IS the floor. Belt-and-suspenders wrapper
-        deferred (not needed for the floor).
-        **TENSION FOR HUMAN REVIEW:** escalating semantics let ONE failing commit through
-        (the warn step) before blocking. For "commit with failing build" that may be too lax;
-        a reviewer may prefer hard-refuse-with-override for this specific gate. Captured as the
-        slice question below; default follows the interview's escalating choice.
+        signature); tree-hash cache for the last green result.
+        **Payload:** JSON decision:block + reason listing the failing `wipnote check` output.
+        **Rejected:** "extract checkYoloCommitGuard" as-is — it doesn't run `wipnote check`, so
+        extracting it would not enforce build quality (critic 2-A/P-C). `wipnote commit` CLI wrapper
+        as the sole seam — raw `git commit` escapes it unless a hook also blocks, so the hook IS the
+        floor. Claude exit-2 — works only on Claude; JSON is the cross-harness primitive.
+        **TENSION FOR HUMAN REVIEW:** running `wipnote check` (esp. tests) on every commit attempt
+        is heavier than the current DB query; the tree-hash cache mitigates but a reviewer may want a
+        fast subset (build+vet only) on commit and full tests on complete. Captured below.
     - id: slice-3
       num: 3
-      title: c2 — stale-claim continue-guard + reclaim provenance stamp
+      title: c2 — stale-claim reclaim provenance + heartbeat-snapshot continue-guard
       what: |
-        Close the missing half of the claim path. Today live-collision is a hard-refuse at
-        `start` (workitem.go:331, feat-5a9839fb) but a stale-heartbeat claim is a silent
-        pass-through: re-running `wipnote feature start <id>` on a stale claim proceeds with no
-        record, and PreToolUse keeps treating the persisted claim as valid even after the
-        owning session's heartbeat goes stale. Add: (1) when start reclaims a stale claim,
-        stamp a reclaim provenance event on the work item (who reclaimed, prior owner, when);
-        (2) a continue-guard so that writing under a claim whose heartbeat has gone stale
-        escalates (warn via slice-1, then block) until an explicit reclaim refreshes it.
+        Close the missing half of the claim path, in two parts of differing risk:
+        (PART A, solid/greenfield) when `start` reclaims a stale-heartbeat claim, stamp a reclaim
+        provenance event on the work item (reclaiming session, prior owner, timestamp) — today
+        workitem.go:328 silently proceeds with the comment "A stale/dead claim is NOT a refusal".
+        (PART B, riskier — see critic 3-B) a PreToolUse continue-guard so that writing under a
+        claim whose heartbeat has gone stale escalates (warn via slice-1, then block) until an
+        explicit reclaim refreshes it. CRITICAL ORDERING CONSTRAINT: pretooluse.go:386 calls
+        HeartbeatClaimByWorkItem on every tool call, refreshing last_heartbeat_at BEFORE any guard
+        could observe it as stale. The continue-guard MUST snapshot last_heartbeat_at (read it from
+        the DB) BEFORE that heartbeat-refresh fires in the same PreToolUse pass, or it is
+        self-defeating. claim_collision.go already SELECTs last_heartbeat_at (line 33), so the data
+        is accessible.
       why: |
-        Without this, "ownership" silently lapses: a reconnected/idle session keeps editing
-        under a claim the liveness model already considers dead, and reclaims leave no audit
-        trail — undermining the claim path as an enforcement invariant and the lineage story.
+        Without this, "ownership" silently lapses: a reconnected/idle session keeps editing under a
+        claim the liveness model already considers dead, and reclaims leave no audit trail —
+        undermining the claim path as an enforcement invariant and the lineage story.
       files:
         - cmd/wipnote/workitem.go
         - internal/db/claim_collision.go
@@ -167,55 +209,77 @@ slices:
       deps:
         - 1
       done_when:
-        - Reclaiming a stale-heartbeat claim via `start` records a reclaim provenance event on the item (prior owner + reclaiming session)
-        - A Write/Edit under a claim whose heartbeat is stale first warns then blocks (escalating) until an explicit reclaim refreshes the heartbeat
-        - A fresh-heartbeat claim is unaffected (no warn, no block)
+        - 'PART A: reclaiming a stale-heartbeat claim via `start` records a reclaim provenance event on the item (prior owner + reclaiming session)'
+        - 'PART A: a fresh-heartbeat foreign claim still hard-refuses at start (feat-5a9839fb unchanged)'
+        - 'PART B: the continue-guard reads last_heartbeat_at BEFORE the per-call heartbeat refresh (pretooluse.go:386), so a genuinely-idle stale claim is detectable'
+        - 'PART B: a Write/Edit under a stale-heartbeat claim first warns then blocks (escalating) until an explicit reclaim refreshes the heartbeat'
+        - 'PART B: a fresh-heartbeat claim is unaffected (no warn, no block)'
         - Behavior holds on all three harnesses (CLI reclaim + PreToolUse guard)
       effort: M
       risk: Med
       tests: |
-        Unit (TMPDIR=.gotest-tmp): TestReclaim_StampsProvenance — stale claim reclaim writes event.
-        Unit: TestContinueGuard_StaleHeartbeat — stale claim Write warns then blocks; fresh claim passes.
+        Unit (TMPDIR=.gotest-tmp): TestReclaim_StampsProvenance — stale claim reclaim writes event (PART A).
+        Unit: TestContinueGuard_SnapshotBeforeRefresh — guard reads stale recency before HeartbeatClaimByWorkItem refreshes it (PART B, the ordering regression).
+        Unit: TestContinueGuard_FreshClaimPasses — fresh heartbeat: no warn/block.
         Reuse SessionLivenessByHeartbeat / LiveCollision fixtures from feat-5a9839fb tests.
       complexity: complex
       approved: false
       comment: ""
       questions:
+        - id: q-partb-now
+          text: Ship PART B (heartbeat-snapshot continue-guard) in this slice, or land PART A (reclaim provenance) first and defer PART B given its ordering subtlety?
+          answer: Default to shipping both with the ordering constraint made explicit in tests (TestContinueGuard_SnapshotBeforeRefresh); reviewer may split PART B into a follow-up if the pretooluse.go:386 ordering proves fragile in practice.
         - id: q-stale-window
-          text: Use the same LivenessStalenessThreshold (120s window) for the continue-guard as for live-collision, or a longer grace before the continue-guard escalates?
-          answer: Reuse the same configurable LivenessStalenessThreshold for consistency (one notion of 'stale' across the claim path); if reconnect-after-idle proves noisy, expose a separate continue-guard grace as a follow-up rather than hardcoding two windows now.
+          text: Use the same LivenessStalenessThreshold (120s) for the continue-guard as for live-collision, or a longer grace?
+          answer: Reuse the same configurable LivenessStalenessThreshold for one notion of 'stale' across the claim path; if reconnect-after-idle proves noisy, expose a separate continue-guard grace as a follow-up rather than hardcoding two windows now.
+      critic_revisions:
+        - source: sonnet
+          severity: DANGER
+          summary: '3-B: self-defeating ordering — pretooluse.go:386 refreshes the claim heartbeat on every tool call before any continue-guard could read it as stale. RESOLVED: added explicit snapshot-before-refresh ordering constraint to what/done_when/decisions + TestContinueGuard_SnapshotBeforeRefresh; split into PART A (solid provenance) and PART B (riskier guard) with a reviewer option to defer PART B.'
+        - source: sonnet
+          severity: LOW
+          summary: '3-A/3-C/3-D/3-E: cites confirmed (LiveCollision workitem.go:331; SessionLivenessByHeartbeat session_repo.go:391; stale-not-refusal comment workitem.go:328; claim_collision.go SELECTs last_heartbeat_at line 33; reclaim provenance is greenfield).'
       decisions_notes: |
-        **Trigger:** (a) `wipnote feature/bug/spike start` on an item with a stale-heartbeat
-        foreign claim; (b) PreToolUse Write/Edit when the active claim's heartbeat is stale.
+        **Trigger:** (PART A) `wipnote feature/bug/spike start` on an item with a stale-heartbeat
+        claim; (PART B) PreToolUse Write/Edit when the active claim's heartbeat is stale.
         **State:** reuses SessionLivenessByHeartbeat (session_repo.go:391) + LivenessStalenessThreshold;
         reclaim event on the work-item artifact; escalation marker (slice-1) keyed by (stale-claim, item).
-        **Payload:** reclaim provenance event (prior owner session, reclaiming session, timestamp);
-        block reason naming the stale claim and the reclaim command.
+        **Ordering (critic 3-B):** the continue-guard snapshots last_heartbeat_at from the DB BEFORE
+        pretooluse.go:386's HeartbeatClaimByWorkItem refresh runs; otherwise the very tool call being
+        guarded refreshes the heartbeat and the guard never sees "stale". This ordering is the
+        load-bearing detail of PART B.
+        **Payload:** reclaim provenance event (prior owner, reclaiming session, timestamp); block
+        reason naming the stale claim and the reclaim command.
         **Rejected:** auto-reclaiming silently (current behavior) — loses the audit trail and lets
         ownership lapse invisibly. Hard-refuse on first stale write — too aggressive for a normal
         reconnect-after-idle; escalating gives one warn to run the reclaim.
+        **REVIEWER OPTION:** PART A (provenance stamp) is low-risk and high-value on its own; PART B
+        (continue-guard) carries the ordering subtlety. Reviewer may approve PART A now and defer
+        PART B, or approve both. Recorded as the slice question.
     - id: slice-4
       num: 4
       title: c4 — daemon-migration marker convention + surfacing command
       what: |
-        A lightweight, greenfield convention that tags each always-on CLI/hook enforcement
-        gate as a future write-owner-daemon (plan-bb91616a Phase A) migration candidate. A
-        small in-code registry (gate id, where it lives, what it enforces, daemon-migration:
-        yes/no/done) plus a `wipnote` surface (e.g. `wipnote check --gates` or a generated
-        doc table) that lists the gates and their migration status. Gives Phase A a concrete,
-        machine-readable checklist instead of re-discovering the gates by grep.
+        A lightweight, greenfield convention that tags each always-on CLI/hook enforcement gate as
+        a future write-owner-daemon (plan-bb91616a Phase A) migration candidate. A small in-code
+        registry (gate id, location, what-it-enforces, daemon-migration: yes/no/done) plus a
+        `wipnote check --gates` flag (mechanically identical to the existing --go-only/--python-only
+        flags at check.go:119-121) that prints the gate inventory with migration status. Gives Phase
+        A a concrete, machine-readable checklist instead of re-discovering ~18 PreToolUse checks by
+        grep.
       why: |
-        The interview asked that every invariant added now carry a marker so plan-bb91616a has
-        a clean migration checklist. The audit found no such convention exists today (greenfield)
-        and the gate inventory is implicit across ~18 PreToolUse checks — easy to miss one when
-        moving invariants into the daemon write path.
+        The interview asked that every invariant added now carry a marker so plan-bb91616a has a
+        clean migration checklist. The audit found no such convention exists today (greenfield) and
+        the gate inventory is implicit across ~18 PreToolUse checks — easy to miss one when moving
+        invariants into the daemon write path.
       files:
         - internal/enforce/gates_registry.go
         - cmd/wipnote/check.go
-      deps: []
+      deps:
+        - 1
       done_when:
         - Each always-on enforcement gate has a registry entry (id, location, what-it-enforces, daemon-migration status)
-        - '`wipnote check --gates` (or equivalent) prints the gate inventory with migration status'
+        - '`wipnote check --gates` prints the gate inventory with migration status and exits 0'
         - New gates from slice-2 and slice-3 are registered as daemon-migration candidates
       effort: S
       risk: Low
@@ -225,6 +289,13 @@ slices:
       complexity: standard
       approved: false
       comment: ""
+      critic_revisions:
+        - source: sonnet
+          severity: LOW
+          summary: '4-B: cmd/wipnote/check.go exists (checkCmd at :26); --gates flag is mechanically identical to existing --go-only/--python-only at :119-121. Feasible.'
+        - source: sonnet
+          severity: INFO
+          summary: '4-C: gates_registry.go shares the new internal/enforce package with slice-1, so dep on slice-1 added; should land in the same PR wave.'
       decisions_notes: |
         **Trigger:** explicit CLI invocation (`wipnote check --gates`); the registry itself is
         compile-time data.
@@ -236,17 +307,20 @@ slices:
       num: 5
       title: c1 residual — non-YOLO subagent claim grace
       what: |
-        Audit-surfaced refinement to the already-always-on work-item guard. Today
-        checkYoloSubagentGrace (yolo_guard.go:83) grants its ~30s post-spawn bypass only when
-        yolo mode is active, so in a NON-YOLO session a freshly spawned subagent that has not
-        yet run `wipnote feature start` is hard-blocked on its first Write/Edit before it can
-        claim. Extend the subagent grace to non-YOLO sessions (narrow window, same intent) so
-        subagents can perform their initial claim, without weakening the always-on guard for
-        established sessions.
+        Audit-surfaced refinement to the already-always-on work-item guard. The block on a fresh
+        non-YOLO subagent's first Write/Edit comes from checkYoloWorkItemGuard (yolo_guard.go:161,
+        called for ALL sessions at pretooluse.go:151) when FeatureID == "" and there is no linked
+        feature — NOT from the YOLO-only subagent guard. Today checkYoloSubagentGrace
+        (yolo_guard.go:193) grants its post-spawn bypass only when yolo mode is active
+        (`if !yolo || !isSubagent { return false }` at line 83 of the inheritance helper), so a
+        freshly spawned subagent in a NON-YOLO session is hard-blocked before it can run
+        `wipnote feature start`. Extend the subagent grace to non-YOLO sessions (narrow window,
+        same intent) so subagents can perform their initial claim, without weakening the always-on
+        guard for established sessions.
       why: |
-        The always-on work-item guard (c1) is correct, but its interaction with subagent
-        spawn in non-YOLO mode can dead-end legitimate delegated work on the first tool call.
-        This is the only real residual from the c1 audit (c1 itself is done).
+        The always-on work-item guard (c1) is correct, but its interaction with subagent spawn in
+        non-YOLO mode dead-ends legitimate delegated work on the first tool call. This is the only
+        real residual from the c1 audit (c1 itself is done).
       files:
         - internal/hooks/yolo_guard.go
         - internal/hooks/pretooluse.go
@@ -259,16 +333,108 @@ slices:
       risk: Med
       tests: |
         Unit (TMPDIR=.gotest-tmp): TestSubagentGrace_NonYolo — fresh subagent within window passes, after window blocks.
-        Regression: non-subagent non-YOLO write with no item still blocks.
+        Regression: non-subagent non-YOLO write with no item still blocks (checkYoloWorkItemGuard intact).
       complexity: standard
       approved: false
       comment: ""
+      critic_revisions:
+        - source: sonnet
+          severity: DANGER
+          summary: '5-A: rationale named the wrong guard. RESOLVED: the block comes from the always-on checkYoloWorkItemGuard (yolo_guard.go:161, pretooluse.go:151), not the YOLO subagent guard; fix path (extend checkYoloSubagentGrace) confirmed correct and small.'
+        - source: sonnet
+          severity: LOW
+          summary: '5-B: citation drift — checkYoloSubagentGrace is at yolo_guard.go:193, not :83 (:83 is the inheritance helper''s `if !yolo || !isSubagent` check). Both references corrected in what/decisions.'
       decisions_notes: |
         **Trigger:** PreToolUse Write/Edit by a subagent session within N seconds of spawn, in
         non-YOLO mode.
-        **State:** spawn timestamp / subagent detection already used by checkYoloSubagentGrace.
+        **State:** spawn timestamp / subagent detection already used by checkYoloSubagentGrace
+        (yolo_guard.go:193).
         **Payload:** allow (grace) vs block (post-grace) decision.
-        **Rejected:** removing the work-item guard for subagents entirely — would let delegated
-        work edit source with no claim indefinitely. Keeping it YOLO-only (status quo) — leaves
-        non-YOLO delegated work dead-ended on first write.
+        **Rejected:** removing the work-item guard for subagents entirely — would let delegated work
+        edit source with no claim indefinitely. Keeping it YOLO-only (status quo) — leaves non-YOLO
+        delegated work dead-ended on first write.
 questions: []
+critique:
+    reviewed_at: "2026-06-01"
+    reviewers:
+        - Haiku (design)
+        - Sonnet (feasibility)
+    assumptions:
+        - id: A1
+          status: falsified
+          text: checkYoloCommitGuard runs `wipnote check` and could be extracted as the shared quality gate.
+          evidence: yolo_guard.go:305-306 — checks hasRecentTestRun (DB 'did a test fire this session'), never invokes wipnote check.
+        - id: A2
+          status: verified
+          text: JSON {decision:block} blocks on all 3 harnesses; PreToolUse already targets all 3.
+          evidence: harness.go:303 emitCodexResponse, :342 emitGeminiResponse; manifest.json:73 targets [claude,codex,gemini].
+        - id: A3
+          status: questionable
+          text: A PreToolUse continue-guard can observe a stale claim heartbeat at write time.
+          evidence: pretooluse.go:386 HeartbeatClaimByWorkItem refreshes last_heartbeat_at on every call; guard must snapshot recency BEFORE that refresh or it never sees stale.
+        - id: A4
+          status: verified
+          text: c1 and c3 are already enforced always-on and cross-harness.
+          evidence: c1 yolo_guard.go:161 (param now `_ bool`, all 3 harnesses); c3 workitem_commit.go:269 + workitem.go:823 hard-refuse on complete.
+        - id: A5
+          status: verified
+          text: .wipnote/ is git-tracked, so naive marker files would dirty the tree.
+          evidence: 'architecture table: .wipnote/*.html is the committed canonical store — markers need a gitignored subdir.'
+    critics:
+        - title: DESIGN CRITIC
+          sections:
+            - heading: Coherence & coverage
+              items:
+                - badge: goals->slices
+                  kind: success
+                  text: All five design.goals map to slices; dependency sequencing sound (1 foundational; 2,3 dep on 1; 4,5 light).
+            - heading: Open questions for reviewer
+              items:
+                - badge: commit fail-mode
+                  kind: warn
+                  text: slice-2 escalating-vs-hard-refuse tension flagged but deferred to human (warn lets one broken commit land).
+                - badge: marker sweep
+                  kind: info
+                  text: slice-1 expiry lifecycle clarified to lazy in-line sweep.
+        - title: FEASIBILITY CRITIC
+          sections:
+            - heading: Blocking design gaps (resolved)
+              items:
+                - badge: wipnote check
+                  kind: danger
+                  text: 'slice-2: existing guard uses hasRecentTestRun, not wipnote check — reframed to a new commit_gate.go running the real check.'
+                - badge: heartbeat ordering
+                  kind: danger
+                  text: 'slice-3: pretooluse.go:386 refreshes heartbeat before guard can read stale — added snapshot-before-refresh constraint + test.'
+                - badge: guard attribution
+                  kind: danger
+                  text: 'slice-5: block is from always-on checkYoloWorkItemGuard, not YOLO subagent guard — rationale corrected; fix still valid.'
+            - heading: Citations & wiring
+              items:
+                - badge: git-tracked markers
+                  kind: warn
+                  text: 'slice-1: .wipnote/ is tracked — markers moved to gitignored .wipnote/.enforce/.'
+                - badge: line cites
+                  kind: success
+                  text: emitCodex :303, emitGemini :342, manifest targets line 73, check.go flags :119-121 all confirmed.
+    risks:
+        - risk: Running full `wipnote check` (tests) on every commit attempt adds commit latency.
+          severity: Medium
+          mitigation: Tree-hash cache skips re-running on an unchanged tree; reviewer option to run build+vet on commit and full tests on complete (slice-2 q-check-scope).
+        - risk: slice-3 PART B continue-guard depends on a fragile PreToolUse ordering (snapshot before heartbeat refresh).
+          severity: Medium
+          mitigation: Ordering pinned by TestContinueGuard_SnapshotBeforeRefresh; reviewer may ship PART A (provenance) now and defer PART B (slice-3 q-partb-now).
+        - risk: Escalating commit gate lets one failing commit land before blocking.
+          severity: Medium
+          mitigation: fail-mode is a single switch; reviewer can choose hard-refuse-with-override for the commit gate (slice-2 q-commit-failmode).
+    synthesis: |
+        All three DANGER findings are resolved in-plan: A1 (slice-2 does NOT get `wipnote check` from
+        checkYoloCommitGuard — reframed to a new commit_gate.go that runs the real check), 3-B (slice-3
+        continue-guard now carries the snapshot-before-refresh ordering constraint and a test, split
+        into low-risk PART A provenance + riskier PART B guard), and 5-A (slice-5 rationale corrected to
+        the always-on work-item guard). The git-tracked-marker WARN (A5) is resolved by the gitignored
+        .wipnote/.enforce/ subdir. No blockers remain. The human reviewer should focus first on three
+        deliberately-deferred decisions, all captured as slice questions: (1) slice-2 q-check-scope —
+        full check vs build+vet on commit (latency); (2) slice-2 q-commit-failmode — escalating vs
+        hard-refuse for the highest-stakes gate; (3) slice-3 q-partb-now — ship the continue-guard now
+        or land reclaim provenance first. Slices 1, 4, 5 are straightforwardly buildable as written.

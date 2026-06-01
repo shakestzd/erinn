@@ -410,8 +410,8 @@ body.right-rail-collapsed .sidebar-reopen{display:flex}
     <li>
       <a href="#slice-1" class="slice-nav-item" data-slice-nav="1">
         <span class="slice-nav-dot" data-approval="pending" data-dot-for="1"></span>
-        <span>#1 Escalation-marker primitive — cross-session warn-once then block-on-repeat (.wipnote/)</span>
-        
+        <span>#1 Escalation-marker primitive — cross-session warn-once then block-on-repeat (.wipnote/.enforce/)</span>
+        <span class="nav-triage-badge nav-triage-issue" title="3 issue(s)">&#9888;3</span>
         <span class="nav-triage-badge nav-triage-question" title="1 open question(s)">?1</span>
       </a>
     </li>
@@ -419,18 +419,18 @@ body.right-rail-collapsed .sidebar-reopen{display:flex}
     <li>
       <a href="#slice-2" class="slice-nav-item" data-slice-nav="2">
         <span class="slice-nav-dot" data-approval="pending" data-dot-for="2"></span>
-        <span>#2 Always-on commit-quality gate — extract shared gate + PreToolUse git-commit intercept (all 3 harnesses)</span>
-        
-        <span class="nav-triage-badge nav-triage-question" title="1 open question(s)">?1</span>
+        <span>#2 Always-on commit-quality gate — run real `wipnote check` via PreToolUse git-commit intercept (all 3 harnesses)</span>
+        <span class="nav-triage-badge nav-triage-issue" title="3 issue(s)">&#9888;3</span>
+        <span class="nav-triage-badge nav-triage-question" title="2 open question(s)">?2</span>
       </a>
     </li>
     
     <li>
       <a href="#slice-3" class="slice-nav-item" data-slice-nav="3">
         <span class="slice-nav-dot" data-approval="pending" data-dot-for="3"></span>
-        <span>#3 c2 — stale-claim continue-guard + reclaim provenance stamp</span>
-        
-        <span class="nav-triage-badge nav-triage-question" title="1 open question(s)">?1</span>
+        <span>#3 c2 — stale-claim reclaim provenance + heartbeat-snapshot continue-guard</span>
+        <span class="nav-triage-badge nav-triage-issue" title="2 issue(s)">&#9888;2</span>
+        <span class="nav-triage-badge nav-triage-question" title="2 open question(s)">?2</span>
       </a>
     </li>
     
@@ -438,7 +438,7 @@ body.right-rail-collapsed .sidebar-reopen{display:flex}
       <a href="#slice-4" class="slice-nav-item" data-slice-nav="4">
         <span class="slice-nav-dot" data-approval="pending" data-dot-for="4"></span>
         <span>#4 c4 — daemon-migration marker convention + surfacing command</span>
-        
+        <span class="nav-triage-badge nav-triage-issue" title="2 issue(s)">&#9888;2</span>
         
       </a>
     </li>
@@ -447,7 +447,7 @@ body.right-rail-collapsed .sidebar-reopen{display:flex}
       <a href="#slice-5" class="slice-nav-item" data-slice-nav="5">
         <span class="slice-nav-dot" data-approval="pending" data-dot-for="5"></span>
         <span>#5 c1 residual — non-YOLO subagent claim grace</span>
-        
+        <span class="nav-triage-badge nav-triage-issue" title="2 issue(s)">&#9888;2</span>
         
       </a>
     </li>
@@ -489,10 +489,10 @@ body.right-rail-collapsed .sidebar-reopen{display:flex}
 <section class="dep-graph" data-zone="dependency-graph">
   <h2>Dependency Graph</h2>
   <div id="graph-data" style="display:none">
-    <div data-node="1" data-name="Escalation-marker primitive — cross-session warn-once then block-on-repeat (.wipnote/)" data-status="pending" data-deps="" data-files="2"></div>
-    <div data-node="2" data-name="Always-on commit-quality gate — extract shared gate + PreToolUse git-commit intercept (all 3 harnesses)" data-status="pending" data-deps="1" data-files="5"></div>
-    <div data-node="3" data-name="c2 — stale-claim continue-guard + reclaim provenance stamp" data-status="pending" data-deps="1" data-files="4"></div>
-    <div data-node="4" data-name="c4 — daemon-migration marker convention + surfacing command" data-status="pending" data-deps="" data-files="2"></div>
+    <div data-node="1" data-name="Escalation-marker primitive — cross-session warn-once then block-on-repeat (.wipnote/.enforce/)" data-status="pending" data-deps="" data-files="3"></div>
+    <div data-node="2" data-name="Always-on commit-quality gate — run real `wipnote check` via PreToolUse git-commit intercept (all 3 harnesses)" data-status="pending" data-deps="1" data-files="5"></div>
+    <div data-node="3" data-name="c2 — stale-claim reclaim provenance + heartbeat-snapshot continue-guard" data-status="pending" data-deps="1" data-files="4"></div>
+    <div data-node="4" data-name="c4 — daemon-migration marker convention + surfacing command" data-status="pending" data-deps="1" data-files="2"></div>
     <div data-node="5" data-name="c1 residual — non-YOLO subagent claim grace" data-status="pending" data-deps="" data-files="2"></div>
     
     <!--PLAN_GRAPH_NODES-->
@@ -509,25 +509,27 @@ body.right-rail-collapsed .sidebar-reopen{display:flex}
     <h4>Problem</h4>
 <div data-markdown>Best-practice enforcement in wipnote is uneven across the three harnesses it ships to
 (Claude Code, Codex CLI, Gemini CLI). The strongest gate — commit-quality (build/vet/test)
-— fires ONLY in YOLO mode (yolo_guard.go:305 `if !yolo { return &#34;&#34; }`) and the TaskCompleted
-quality gate targets [&#34;claude&#34;] only, so a normal Codex/Gemini/Claude session can commit a
-failing build on every harness. Separately, the claim path enforces live-collision at start
-(feat-5a9839fb) but lets a stale-heartbeat claim lapse silently with no reclaim audit trail.
-The enforcement floor must be the wipnote CLI + (future) write-owner daemon — harness-agnostic
-via JSON decision:block — not Claude-only exit-2 and not YOLO-only guards.
+— fires ONLY in YOLO mode (yolo_guard.go:306 `if !yolo { return &#34;&#34; }`), and even then it
+only checks hasRecentTestRun (&#34;did a test tool-call fire this session&#34;), not that the build
+actually passes. The TaskCompleted quality gate targets [&#34;claude&#34;] only. So a normal
+Codex/Gemini/Claude session can commit a failing build on every harness. Separately, the
+claim path enforces live-collision at start (feat-5a9839fb) but lets a stale-heartbeat claim
+lapse silently with no reclaim audit trail. The enforcement floor must be the wipnote CLI +
+(future) write-owner daemon — harness-agnostic via JSON decision:block — not Claude-only
+exit-2 and not YOLO-only guards.
 </div>
 <h4>Goals</h4>
 <ol>
-<li data-markdown>Make commit-quality enforcement always-on (non-YOLO) and cross-harness via PreToolUse JSON decision:block</li>
+<li data-markdown>Make commit-quality enforcement always-on (non-YOLO) and cross-harness via PreToolUse JSON decision:block, running the real wipnote check (not just hasRecentTestRun)</li>
 <li data-markdown>Close the stale-claim half of the claim path: enforced reclaim + reclaim provenance audit trail</li>
 <li data-markdown>Give plan-bb91616a Phase A a machine-readable daemon-migration checklist of every enforcement gate</li>
 <li data-markdown>Add escalating warn-once-&gt;block-on-repeat as reusable cross-session infra without downgrading existing hard-refuse gates</li>
-<li data-markdown>Fix the audit-surfaced c1 residual: non-YOLO subagents must be able to claim before the work-item guard blocks them</li>
+<li data-markdown>Fix the audit-surfaced c1 residual: non-YOLO subagents must be able to claim before the always-on work-item guard blocks them</li>
 </ol>
 <h4>Constraints</h4>
 <ul>
 <li data-markdown>No new runtime dependency — stdlib + existing go.mod only</li>
-<li data-markdown>Escalation state lives in the .wipnote/ canonical store, not SQLite (derived/per-user) — must survive session + harness restart</li>
+<li data-markdown>Escalation state lives in a gitignored .wipnote/.enforce/ subdir — survives session + harness restart but does NOT pollute git status or get committed (NOT SQLite, which is derived/per-user)</li>
 <li data-markdown>Do NOT downgrade existing always-on hard-refuse gates (c1 work-item, c3 provenance) to escalating</li>
 <li data-markdown>CLI-direct enforcement now; mark new gates as write-owner-daemon migration candidates (daemon is unbuilt — plan-bb91616a still draft)</li>
 <li data-markdown>Quality gates must pass with TMPDIR set to an exec-capable non-git dir; never background `wipnote reindex`</li>
@@ -549,10 +551,10 @@ via JSON decision:block — not Claude-only exit-2 and not YOLO-only guards.
   <summary><span>Slices</span><span class="badge badge-pending" data-badge-for="slices">Pending</span></summary>
   <div class="section-body">
     <details class="slice-card" id="slice-1" data-slice="1" data-slice-name="slice-1" data-status="pending" data-approval="pending">
-  <summary class="slice-summary" aria-label="Slice 1: Escalation-marker primitive — cross-session warn-once then block-on-repeat (.wipnote/)">
+  <summary class="slice-summary" aria-label="Slice 1: Escalation-marker primitive — cross-session warn-once then block-on-repeat (.wipnote/.enforce/)">
     <span class="slice-num">#1</span>
     <span class="slice-title-col">
-      <span class="slice-name">Escalation-marker primitive — cross-session warn-once then block-on-repeat (.wipnote/)</span>
+      <span class="slice-name">Escalation-marker primitive — cross-session warn-once then block-on-repeat (.wipnote/.enforce/)</span>
       <span class="slice-preview">New internal/enforce package providing a persisted escalation marker keyed by</span>
       <span class="slice-meta-row">
         <span class="slice-summary-badges">
@@ -561,7 +563,7 @@ via JSON decision:block — not Claude-only exit-2 and not YOLO-only guards.
           <span class="badge badge-revision badge-sm badge-complexity" title="Complexity: complex">Complex</span>
           
           <span class="badge badge-pending badge-sm slice-approval-badge" data-badge-for="slice-1">Pending</span>
-          
+          <span class="badge badge-sm badge-issues" title="3 critic issue(s)">3 issues</span>
           <span class="badge badge-sm badge-questions" title="1 open question(s)">1 Q</span>
         </span>
         <span class="slice-actions" onclick="event.stopPropagation()">
@@ -594,13 +596,14 @@ via JSON decision:block — not Claude-only exit-2 and not YOLO-only guards.
           
           <input type="checkbox" id="slice-1-what-reveal" class="reveal-toggle">
           <div class="markdown-block reveal-content serif-prose"><p>New internal/enforce package providing a persisted escalation marker keyed by
-(gate-id, scope-key). First Check returns Warn and writes a marker under
-.wipnote/; a subsequent Check for the same key returns Block. Markers are plain
-files in the canonical store so they survive session AND harness restart. API:
-Check(gateID, key) -&gt; {Warn|Block}, Clear(gateID, key), and a sweep to expire
-stale markers. This is shared infra consumed by the commit gate (slice-2) and the
-stale-claim guard (slice-3); the deferred sub-axis (b) session-end surfacing will
-also reuse it.</p>
+(gate-id, scope-key). First Check returns Warn and writes a marker under a GITIGNORED
+.wipnote/.enforce/ subdir; a subsequent Check for the same key returns Block. Markers
+survive session AND harness restart (on disk) but are NOT git-tracked, so they never
+appear as dirty working-tree state or get committed. API: Check(gateID, key) -&gt;
+{Warn|Block}, Clear(gateID, key), and a lazy expiry sweep run on each Check (no daemon —
+stale markers older than a TTL are pruned in-line). Shared infra consumed by the commit
+gate (slice-2) and the stale-claim guard (slice-3); the deferred sub-axis (b) session-end
+surfacing will also reuse it.</p>
 </div>
           <label for="slice-1-what-reveal" class="reveal-label">Show full description</label>
           
@@ -613,9 +616,9 @@ also reuse it.</p>
         <div class="slice-field-value">
           
           <div class="markdown-block serif-prose"><p>The interview chose an escalating failure mode (warn once, block on repeat), which
-requires persisted cross-session state. No such primitive exists today (the
-existing always-on guards are immediate hard-block). Centralizing it prevents each
-gate from inventing its own state file (DRY) and keeps the floor harness-agnostic.</p>
+requires persisted cross-session state. No such primitive exists today (the existing
+always-on guards are immediate hard-block). Centralizing it prevents each gate from
+inventing its own state file (DRY) and keeps the floor harness-agnostic.</p>
 </div>
           
         </div>
@@ -624,13 +627,13 @@ gate from inventing its own state file (DRY) and keeps the floor harness-agnosti
       
       <div class="slice-field">
         <div class="slice-field-label">Files</div>
-        <div class="slice-field-value"><code>internal/enforce/escalation.go, internal/enforce/escalation_test.go</code></div>
+        <div class="slice-field-value"><code>internal/enforce/escalation.go, internal/enforce/escalation_test.go, .gitignore</code></div>
       </div>
       
       
       <div class="slice-field">
         <div class="slice-field-label">Done when</div>
-        <ul class="slice-done-list"><li>First Check for a (gateID,key) returns Warn and writes a marker file under .wipnote/</li><li>A second Check for the same (gateID,key) returns Block</li><li>Marker persists across process restart (re-reading from disk yields Block, not Warn)</li><li>Clear removes the marker so the next Check warns again</li></ul>
+        <ul class="slice-done-list slice-done-list--grid"><li>First Check for a (gateID,key) returns Warn and writes a marker under .wipnote/.enforce/</li><li>A second Check for the same (gateID,key) returns Block</li><li>Marker persists across process restart (re-reading from disk yields Block, not Warn)</li><li>Clear removes the marker so the next Check warns again</li><li>.wipnote/.enforce/ is gitignored — `git status` stays clean when a marker is written</li><li>A marker older than the TTL is pruned by the lazy sweep on the next Check</li></ul>
       </div>
       
     
@@ -643,13 +646,15 @@ gate from inventing its own state file (DRY) and keeps the floor harness-agnosti
         <input type="checkbox" id="slice-1-decisions-reveal" class="reveal-toggle">
         <div class="markdown-block reveal-content serif-prose"><p><strong>Trigger:</strong> invoked by enforcement gates (commit gate, stale-claim guard) when a
 violation is first detected; not a hook itself.
-<strong>State:</strong> plain marker file(s) under .wipnote/ (canonical, committed-store-aligned,
-harness-agnostic). Keyed by (gateID, scopeKey) so different gates and different
-targets escalate independently.
+<strong>State:</strong> plain marker file(s) under a GITIGNORED .wipnote/.enforce/ subdir
+(canonical-store-adjacent, harness-agnostic, survives restart) — but excluded from git so
+it doesn&#39;t dirty the tree or get committed. Keyed by (gateID, scopeKey).
 <strong>Payload:</strong> marker records gateID, scopeKey, first-seen timestamp, harness, session.
-<strong>Rejected:</strong> SQLite-backed counters — SQLite is derived/per-user/not committed, so a
-DB rebuild silently grants a fresh free warning. In-memory only — a restarted session
-re-grants a free warning every time, defeating &#34;block on repeat&#34; across sessions.</p>
+<strong>Expiry:</strong> lazy in-line sweep on each Check (no daemon/periodic job); TTL-based.
+<strong>Rejected:</strong> SQLite-backed counters — derived/per-user/not committed, so a DB rebuild
+silently grants a fresh free warning. In-memory only — a restarted session re-grants a
+free warning every time, defeating cross-session &#34;block on repeat&#34;. Tracked .wipnote/
+file (no gitignore) — pollutes git status / risks committing transient warn state.</p>
 </div>
         <label for="slice-1-decisions-reveal" class="reveal-label">Show full decisions</label>
         
@@ -671,8 +676,8 @@ re-grants a free warning every time, defeating &#34;block on repeat&#34; across 
           </div>
           
           <div class="test-group" data-kind="unit">
-            <span class="test-chip">UNIT &middot; 3</span>
-            <ul><li>TestEscalation_PersistAcrossReopen — write, construct fresh store from same dir, expect Block.</li><li>TestEscalation_ClearResets — Clear then Check returns Warn.</li><li>TestEscalation_StaleSweep — marker older than TTL is expired.</li></ul>
+            <span class="test-chip">UNIT &middot; 4</span>
+            <ul><li>TestEscalation_PersistAcrossReopen — write, construct fresh store from same dir, expect Block.</li><li>TestEscalation_ClearResets — Clear then Check returns Warn.</li><li>TestEscalation_StaleSweep — marker older than TTL is expired in-line on Check.</li><li>TestEscalation_NotGitTracked — write a marker, assert path is under a gitignored dir.</li></ul>
           </div>
           
         </div>
@@ -681,6 +686,31 @@ re-grants a free warning every time, defeating &#34;block on repeat&#34; across 
     </div>
     
 
+    
+    <div class="slice-field slice-critic-revisions">
+      <div class="slice-field-label">Critic Revisions</div>
+      <div class="slice-field-value">
+        
+        <div class="critic-revision">
+          <span class="badge badge-blocked critic-revision-badge">HIGH</span>
+          <span class="critic-revision-source">sonnet</span>
+          <span class="critic-revision-summary">1-C: .wipnote/ is git-tracked — raw markers would dirty the tree on every violation. RESOLVED: markers moved to gitignored .wipnote/.enforce/ subdir; added .gitignore to files and a NotGitTracked done_when/test.</span>
+        </div>
+        
+        <div class="critic-revision">
+          <span class="badge badge-pending critic-revision-badge">LOW</span>
+          <span class="critic-revision-source">haiku</span>
+          <span class="critic-revision-summary">1-info: marker-expiry lifecycle was unspecified. RESOLVED: expiry is a lazy in-line sweep on each Check (no daemon); documented in decisions_notes &#43; StaleSweep test.</span>
+        </div>
+        
+        <div class="critic-revision">
+          <span class="badge badge-pending critic-revision-badge">LOW</span>
+          <span class="critic-revision-source">sonnet</span>
+          <span class="critic-revision-summary">1-A/1-B: internal/enforce/ is greenfield and the correct home (orthogonal to internal/hooks, consumed cross-package); no existing primitive to reuse — confirmed.</span>
+        </div>
+        
+      </div>
+    </div>
     
 
     
@@ -695,7 +725,7 @@ re-grants a free warning every time, defeating &#34;block on repeat&#34; across 
           <textarea
             data-section="slice-1-question-q-granularity"
             data-comment-for="slice-1-question-q-granularity"
-            placeholder="Answer question q-granularity...">Per (gate, scopeKey) where scopeKey is gate-defined — commit gate keys by repo&#43;failing-check, stale-claim keys by work-item. Avoids one project-wide warning masking unrelated violations while still surviving session restart. Not per-session (that would reset the escalation every restart).</textarea>
+            placeholder="Answer question q-granularity...">Per (gate, scopeKey) where scopeKey is gate-defined — commit gate keys by repo&#43;failing-check signature, stale-claim keys by work-item. Avoids one project-wide warning masking unrelated violations while still surviving session restart. Not per-session (that would reset the escalation every restart).</textarea>
           
         </div>
         
@@ -714,11 +744,11 @@ re-grants a free warning every time, defeating &#34;block on repeat&#34; across 
   </div>
 </details>
 <details class="slice-card" id="slice-2" data-slice="2" data-slice-name="slice-2" data-status="pending" data-approval="pending">
-  <summary class="slice-summary" aria-label="Slice 2: Always-on commit-quality gate — extract shared gate &#43; PreToolUse git-commit intercept (all 3 harnesses)">
+  <summary class="slice-summary" aria-label="Slice 2: Always-on commit-quality gate — run real `wipnote check` via PreToolUse git-commit intercept (all 3 harnesses)">
     <span class="slice-num">#2</span>
     <span class="slice-title-col">
-      <span class="slice-name">Always-on commit-quality gate — extract shared gate &#43; PreToolUse git-commit intercept (all 3 harnesses)</span>
-      <span class="slice-preview">Make commit-quality enforcement non-YOLO.</span>
+      <span class="slice-name">Always-on commit-quality gate — run real `wipnote check` via PreToolUse git-commit intercept (all 3 harnesses)</span>
+      <span class="slice-preview">Make commit-quality enforcement non-YOLO AND real.</span>
       <span class="slice-meta-row">
         <span class="slice-summary-badges">
           <span class="badge badge-revision badge-sm">M</span>
@@ -726,8 +756,8 @@ re-grants a free warning every time, defeating &#34;block on repeat&#34; across 
           <span class="badge badge-revision badge-sm badge-complexity" title="Complexity: complex">Complex</span>
           
           <span class="badge badge-pending badge-sm slice-approval-badge" data-badge-for="slice-2">Pending</span>
-          
-          <span class="badge badge-sm badge-questions" title="1 open question(s)">1 Q</span>
+          <span class="badge badge-sm badge-issues" title="3 critic issue(s)">3 issues</span>
+          <span class="badge badge-sm badge-questions" title="2 open question(s)">2 Q</span>
         </span>
         <span class="slice-actions" onclick="event.stopPropagation()">
           <span class="approval-segmented" role="group" aria-label="Approval action">
@@ -758,15 +788,18 @@ re-grants a free warning every time, defeating &#34;block on repeat&#34; across 
         <div class="slice-field-value">
           
           <input type="checkbox" id="slice-2-what-reveal" class="reveal-toggle">
-          <div class="markdown-block reveal-content serif-prose"><p>Make commit-quality enforcement non-YOLO. Two steps in one slice:
-(1) Extract the quality-check logic out of checkYoloCommitGuard
-(internal/hooks/yolo_guard.go:204/305) into a single shared function (the gate runs
-<code>wipnote check</code>). The existing YOLO path calls the shared function unchanged.
-(2) Add an always-on PreToolUse handler that intercepts Bash <code>git commit</code> on all
-three harnesses, runs the shared gate, and on failure emits JSON {&#34;decision&#34;:&#34;block&#34;}
-via the existing harness.go emitters (Claude/Codex/Gemini). Failure is escalating
-per slice-1: first failing-commit attempt Warns (surfaces what is broken), a repeat
-attempt in the same failing state Blocks.</p>
+          <div class="markdown-block reveal-content serif-prose"><p>Make commit-quality enforcement non-YOLO AND real. CRITICAL CORRECTION from the critic
+pass: the existing checkYoloCommitGuard (yolo_guard.go:306) does NOT run <code>wipnote check</code> —
+it only checks hasRecentTestRun (a DB query for whether a test tool-call fired in the
+session). That is &#34;tests were invoked&#34;, not &#34;the build passes&#34;. This slice adds a NEW
+shared quality-gate function that actually runs <code>wipnote check</code> (build/vet/test) and an
+always-on PreToolUse handler that intercepts Bash <code>git commit</code> on all three harnesses
+(gitCommitPattern + isShellTool, reusing the existing commit-detection shape), runs that
+gate, and on failure emits JSON {&#34;decision&#34;:&#34;block&#34;} via the existing harness.go emitters.
+Failure is escalating per slice-1. To keep the subprocess affordable, cache the last
+passing result keyed by the worktree tree-hash and skip re-running when the tree is
+unchanged since the last green check. OPTIONAL (reviewer-decided): upgrade the YOLO
+commit guard to call the same real-check function instead of hasRecentTestRun.</p>
 </div>
           <label for="slice-2-what-reveal" class="reveal-label">Show full description</label>
           
@@ -778,15 +811,12 @@ attempt in the same failing state Blocks.</p>
         <div class="slice-field-label">Why</div>
         <div class="slice-field-value">
           
-          <input type="checkbox" id="slice-2-why-reveal" class="reveal-toggle">
-          <div class="markdown-block reveal-content serif-prose"><p>Confirmed gap: today checkYoloCommitGuard opens with <code>if !yolo { return &#34;&#34; }</code>
-(yolo_guard.go:305) and the TaskCompleted quality gate targets [&#34;claude&#34;] only — so a
+          <div class="markdown-block serif-prose"><p>Confirmed gap: today checkYoloCommitGuard opens with <code>if !yolo { return &#34;&#34; }</code>
+(yolo_guard.go:306) and the TaskCompleted quality gate targets [&#34;claude&#34;] only — so a
 normal Codex/Gemini/Claude session can commit with a failing build/tests, on every
 harness. This is the headline proof of &#34;CLI/daemon as the enforcement floor&#34; for the
-commit path. Extracting the shared gate (interview choice) keeps one definition of
-&#34;a passing commit&#34;.</p>
+commit path.</p>
 </div>
-          <label for="slice-2-why-reveal" class="reveal-label">Show full description</label>
           
         </div>
       </div>
@@ -794,13 +824,13 @@ commit path. Extracting the shared gate (interview choice) keeps one definition 
       
       <div class="slice-field">
         <div class="slice-field-label">Files</div>
-        <div class="slice-field-value"><code>internal/hooks/yolo_guard.go, internal/hooks/pretooluse.go, internal/hooks/harness.go, cmd/wipnote/check.go, packages/plugin-core/manifest.json</code></div>
+        <div class="slice-field-value"><code>internal/hooks/pretooluse.go, internal/hooks/harness.go, internal/enforce/commit_gate.go, cmd/wipnote/check.go, internal/hooks/yolo_guard.go</code></div>
       </div>
       
       
       <div class="slice-field">
         <div class="slice-field-label">Done when</div>
-        <ul class="slice-done-list"><li>On a normal (non-YOLO) Claude session, `git commit` with a failing `wipnote check` is blocked (after the escalation warn-&gt;block step)</li><li>Same commit on Codex is blocked via JSON {&#34;decision&#34;:&#34;block&#34;} (emitCodexResponse)</li><li>Same commit on Gemini is blocked via {&#34;continue&#34;:false,&#34;decision&#34;:&#34;block&#34;} (emitGeminiResponse)</li><li>A commit that passes `wipnote check` is allowed on all three harnesses</li><li>The existing YOLO commit guard still enforces, now via the shared extracted function (no behavior regression)</li></ul>
+        <ul class="slice-done-list slice-done-list--grid"><li>On a normal (non-YOLO) Claude session, `git commit` when `wipnote check` fails is blocked (after the escalation warn-&gt;block step)</li><li>Same commit on Codex is blocked via JSON {&#34;decision&#34;:&#34;block&#34;} (emitCodexResponse)</li><li>Same commit on Gemini is blocked via {&#34;continue&#34;:false,&#34;decision&#34;:&#34;block&#34;} (emitGeminiResponse)</li><li>Claude uses the same JSON decision:block path (not exit-2) for cross-harness uniformity</li><li>A commit is allowed on all three harnesses when `wipnote check` passes</li><li>When the worktree tree-hash is unchanged since the last green check, the gate skips re-running the subprocess</li></ul>
       </div>
       
     
@@ -811,19 +841,22 @@ commit path. Extracting the shared gate (interview choice) keeps one definition 
       <div class="slice-field-value">
         
         <input type="checkbox" id="slice-2-decisions-reveal" class="reveal-toggle">
-        <div class="markdown-block reveal-content serif-prose"><p><strong>Trigger:</strong> PreToolUse on Bash whose command is a <code>git commit</code> (and amend/commit -m
-variants). Cross-harness intercept because git commit is a Bash tool call on all three.
+        <div class="markdown-block reveal-content serif-prose"><p><strong>Trigger:</strong> PreToolUse on Bash whose command matches gitCommitPattern (commit / commit -m /
+amend), reusing the existing isShellTool + gitCommitPattern detection. Cross-harness because
+git commit is a Bash tool call on all three.
+<strong>Gate semantic:</strong> runs the REAL <code>wipnote check</code> (build/vet/test), NOT hasRecentTestRun. This
+is the corrected design — see critic finding 2-A. The existing YOLO guard&#39;s &#34;tests were
+invoked&#34; signal is too weak for a commit-quality floor.
 <strong>State:</strong> escalation marker from slice-1, keyed by (commit-gate, repo + failing-check
-signature).
-<strong>Payload:</strong> JSON decision:block + reason listing the failing <code>wipnote check</code> output;
-Claude also has exit-2 available but the JSON path is the cross-harness primitive.
-<strong>Rejected:</strong> <code>wipnote commit</code> CLI wrapper as the sole seam — raw <code>git commit</code> escapes
-it unless a hook also blocks, so the hook IS the floor. Belt-and-suspenders wrapper
-deferred (not needed for the floor).
-<strong>TENSION FOR HUMAN REVIEW:</strong> escalating semantics let ONE failing commit through
-(the warn step) before blocking. For &#34;commit with failing build&#34; that may be too lax;
-a reviewer may prefer hard-refuse-with-override for this specific gate. Captured as the
-slice question below; default follows the interview&#39;s escalating choice.</p>
+signature); tree-hash cache for the last green result.
+<strong>Payload:</strong> JSON decision:block + reason listing the failing <code>wipnote check</code> output.
+<strong>Rejected:</strong> &#34;extract checkYoloCommitGuard&#34; as-is — it doesn&#39;t run <code>wipnote check</code>, so
+extracting it would not enforce build quality (critic 2-A/P-C). <code>wipnote commit</code> CLI wrapper
+as the sole seam — raw <code>git commit</code> escapes it unless a hook also blocks, so the hook IS the
+floor. Claude exit-2 — works only on Claude; JSON is the cross-harness primitive.
+<strong>TENSION FOR HUMAN REVIEW:</strong> running <code>wipnote check</code> (esp. tests) on every commit attempt
+is heavier than the current DB query; the tree-hash cache mitigates but a reviewer may want a
+fast subset (build+vet only) on commit and full tests on complete. Captured below.</p>
 </div>
         <label for="slice-2-decisions-reveal" class="reveal-label">Show full decisions</label>
         
@@ -841,22 +874,17 @@ slice question below; default follows the interview&#39;s escalating choice.</p>
           
           <div class="test-group" data-kind="other">
             <span class="test-chip">OTHER &middot; 1</span>
-            <ul><li>Unit (TMPDIR=.gotest-tmp): TestSharedCommitGate_PassFail — shared fn returns block on failing check, allow on passing.</li></ul>
+            <ul><li>Unit (TMPDIR=.gotest-tmp): TestCommitGate_RunsRealCheck — gate blocks on failing `wipnote check`, allows on passing.</li></ul>
           </div>
           
           <div class="test-group" data-kind="unit">
-            <span class="test-chip">UNIT &middot; 1</span>
-            <ul><li>TestCommitGate_Escalates — first failing attempt warns, second blocks (consumes slice-1).</li></ul>
+            <span class="test-chip">UNIT &middot; 2</span>
+            <ul><li>TestCommitGate_Escalates — first failing attempt warns, second blocks (consumes slice-1).</li><li>TestCommitGate_TreeHashCache — unchanged tree skips the subprocess.</li></ul>
           </div>
           
           <div class="test-group" data-kind="harness">
             <span class="test-chip">HARNESS &middot; 1</span>
-            <ul><li>assert emitCodexResponse / emitGeminiResponse shapes for a blocked commit.</li></ul>
-          </div>
-          
-          <div class="test-group" data-kind="regression">
-            <span class="test-chip">REGRESSION &middot; 1</span>
-            <ul><li>existing YOLO commit-guard test still passes against the extracted fn.</li></ul>
+            <ul><li>assert emitCodexResponse / emitGeminiResponse / Claude JSON shapes for a blocked commit.</li></ul>
           </div>
           
         </div>
@@ -866,6 +894,31 @@ slice question below; default follows the interview&#39;s escalating choice.</p>
     
 
     
+    <div class="slice-field slice-critic-revisions">
+      <div class="slice-field-label">Critic Revisions</div>
+      <div class="slice-field-value">
+        
+        <div class="critic-revision">
+          <span class="badge badge-blocked critic-revision-badge">DANGER</span>
+          <span class="critic-revision-source">sonnet</span>
+          <span class="critic-revision-summary">2-A/P-C: plan claimed it extracts a `wipnote check` gate from checkYoloCommitGuard, but that guard runs hasRecentTestRun (a DB &#39;did tests fire&#39; query), not wipnote check. RESOLVED: slice now adds a NEW commit_gate.go that runs the real `wipnote check`; &#39;extract&#39; framing removed; YOLO upgrade made optional.</span>
+        </div>
+        
+        <div class="critic-revision">
+          <span class="badge badge-pending critic-revision-badge">LOW</span>
+          <span class="critic-revision-source">haiku</span>
+          <span class="critic-revision-summary">2-info: Claude path was missing from done_when. RESOLVED: added explicit &#39;Claude uses JSON decision:block (not exit-2)&#39; done_when for cross-harness uniformity.</span>
+        </div>
+        
+        <div class="critic-revision">
+          <span class="badge badge-pending critic-revision-badge">LOW</span>
+          <span class="critic-revision-source">sonnet</span>
+          <span class="critic-revision-summary">2-B/2-C/2-D: line cites confirmed (checkYoloCommitGuard guard at :306; emitCodex :303 / emitGemini :342; PreToolUse already targets all 3 in manifest line 73 — no manifest change needed).</span>
+        </div>
+        
+      </div>
+    </div>
+    
 
     
     <div class="slice-field slice-questions">
@@ -873,13 +926,24 @@ slice question below; default follows the interview&#39;s escalating choice.</p>
       <div class="slice-field-value">
         
         <div class="question-block slice-question-block">
-          <p>Should the commit gate use escalating warn-&gt;block (interview default) or hard-refuse with an explicit --force-style override, given that &#39;warn&#39; lets one broken commit land?</p>
+          <p>Should the commit gate run full `wipnote check` (build&#43;vet&#43;test) on every commit, or a fast subset (build&#43;vet) on commit with full tests deferred to `complete`?</p>
+          
+          
+          <textarea
+            data-section="slice-2-question-q-check-scope"
+            data-comment-for="slice-2-question-q-check-scope"
+            placeholder="Answer question q-check-scope...">Default to full `wipnote check` with a tree-hash cache to avoid redundant runs; flag for reviewer — if commit latency is unacceptable, fall back to build&#43;vet on commit and rely on the existing complete-path gates for full tests. Single switch in commit_gate.go.</textarea>
+          
+        </div>
+        
+        <div class="question-block slice-question-block">
+          <p>Escalating warn-&gt;block (interview default) or hard-refuse-with-override for the commit gate, given &#39;warn&#39; lets one broken commit land?</p>
           
           
           <textarea
             data-section="slice-2-question-q-commit-failmode"
             data-comment-for="slice-2-question-q-commit-failmode"
-            placeholder="Answer question q-commit-failmode...">Default to escalating per the interview, but flag for human review — committing a failing build is the highest-stakes gate and may warrant hard-refuse-with-override. Reviewer decides at promotion; the shared gate is written so the fail-mode is a single switch.</textarea>
+            placeholder="Answer question q-commit-failmode...">Default escalating per the interview, but flagged for human review — committing a failing build is the highest-stakes gate and may warrant hard-refuse-with-override. Reviewer decides at promotion; fail-mode is a single switch.</textarea>
           
         </div>
         
@@ -898,11 +962,11 @@ slice question below; default follows the interview&#39;s escalating choice.</p>
   </div>
 </details>
 <details class="slice-card" id="slice-3" data-slice="3" data-slice-name="slice-3" data-status="pending" data-approval="pending">
-  <summary class="slice-summary" aria-label="Slice 3: c2 — stale-claim continue-guard &#43; reclaim provenance stamp">
+  <summary class="slice-summary" aria-label="Slice 3: c2 — stale-claim reclaim provenance &#43; heartbeat-snapshot continue-guard">
     <span class="slice-num">#3</span>
     <span class="slice-title-col">
-      <span class="slice-name">c2 — stale-claim continue-guard &#43; reclaim provenance stamp</span>
-      <span class="slice-preview">Close the missing half of the claim path.</span>
+      <span class="slice-name">c2 — stale-claim reclaim provenance &#43; heartbeat-snapshot continue-guard</span>
+      <span class="slice-preview">Close the missing half of the claim path, in two parts of differing risk:</span>
       <span class="slice-meta-row">
         <span class="slice-summary-badges">
           <span class="badge badge-revision badge-sm">M</span>
@@ -910,8 +974,8 @@ slice question below; default follows the interview&#39;s escalating choice.</p>
           <span class="badge badge-revision badge-sm badge-complexity" title="Complexity: complex">Complex</span>
           
           <span class="badge badge-pending badge-sm slice-approval-badge" data-badge-for="slice-3">Pending</span>
-          
-          <span class="badge badge-sm badge-questions" title="1 open question(s)">1 Q</span>
+          <span class="badge badge-sm badge-issues" title="2 critic issue(s)">2 issues</span>
+          <span class="badge badge-sm badge-questions" title="2 open question(s)">2 Q</span>
         </span>
         <span class="slice-actions" onclick="event.stopPropagation()">
           <span class="approval-segmented" role="group" aria-label="Approval action">
@@ -942,14 +1006,18 @@ slice question below; default follows the interview&#39;s escalating choice.</p>
         <div class="slice-field-value">
           
           <input type="checkbox" id="slice-3-what-reveal" class="reveal-toggle">
-          <div class="markdown-block reveal-content serif-prose"><p>Close the missing half of the claim path. Today live-collision is a hard-refuse at
-<code>start</code> (workitem.go:331, feat-5a9839fb) but a stale-heartbeat claim is a silent
-pass-through: re-running <code>wipnote feature start &lt;id&gt;</code> on a stale claim proceeds with no
-record, and PreToolUse keeps treating the persisted claim as valid even after the
-owning session&#39;s heartbeat goes stale. Add: (1) when start reclaims a stale claim,
-stamp a reclaim provenance event on the work item (who reclaimed, prior owner, when);
-(2) a continue-guard so that writing under a claim whose heartbeat has gone stale
-escalates (warn via slice-1, then block) until an explicit reclaim refreshes it.</p>
+          <div class="markdown-block reveal-content serif-prose"><p>Close the missing half of the claim path, in two parts of differing risk:
+(PART A, solid/greenfield) when <code>start</code> reclaims a stale-heartbeat claim, stamp a reclaim
+provenance event on the work item (reclaiming session, prior owner, timestamp) — today
+workitem.go:328 silently proceeds with the comment &#34;A stale/dead claim is NOT a refusal&#34;.
+(PART B, riskier — see critic 3-B) a PreToolUse continue-guard so that writing under a
+claim whose heartbeat has gone stale escalates (warn via slice-1, then block) until an
+explicit reclaim refreshes it. CRITICAL ORDERING CONSTRAINT: pretooluse.go:386 calls
+HeartbeatClaimByWorkItem on every tool call, refreshing last_heartbeat_at BEFORE any guard
+could observe it as stale. The continue-guard MUST snapshot last_heartbeat_at (read it from
+the DB) BEFORE that heartbeat-refresh fires in the same PreToolUse pass, or it is
+self-defeating. claim_collision.go already SELECTs last_heartbeat_at (line 33), so the data
+is accessible.</p>
 </div>
           <label for="slice-3-what-reveal" class="reveal-label">Show full description</label>
           
@@ -961,9 +1029,9 @@ escalates (warn via slice-1, then block) until an explicit reclaim refreshes it.
         <div class="slice-field-label">Why</div>
         <div class="slice-field-value">
           
-          <div class="markdown-block serif-prose"><p>Without this, &#34;ownership&#34; silently lapses: a reconnected/idle session keeps editing
-under a claim the liveness model already considers dead, and reclaims leave no audit
-trail — undermining the claim path as an enforcement invariant and the lineage story.</p>
+          <div class="markdown-block serif-prose"><p>Without this, &#34;ownership&#34; silently lapses: a reconnected/idle session keeps editing under a
+claim the liveness model already considers dead, and reclaims leave no audit trail —
+undermining the claim path as an enforcement invariant and the lineage story.</p>
 </div>
           
         </div>
@@ -978,7 +1046,7 @@ trail — undermining the claim path as an enforcement invariant and the lineage
       
       <div class="slice-field">
         <div class="slice-field-label">Done when</div>
-        <ul class="slice-done-list"><li>Reclaiming a stale-heartbeat claim via `start` records a reclaim provenance event on the item (prior owner &#43; reclaiming session)</li><li>A Write/Edit under a claim whose heartbeat is stale first warns then blocks (escalating) until an explicit reclaim refreshes the heartbeat</li><li>A fresh-heartbeat claim is unaffected (no warn, no block)</li><li>Behavior holds on all three harnesses (CLI reclaim &#43; PreToolUse guard)</li></ul>
+        <ul class="slice-done-list slice-done-list--grid"><li>PART A: reclaiming a stale-heartbeat claim via `start` records a reclaim provenance event on the item (prior owner &#43; reclaiming session)</li><li>PART A: a fresh-heartbeat foreign claim still hard-refuses at start (feat-5a9839fb unchanged)</li><li>PART B: the continue-guard reads last_heartbeat_at BEFORE the per-call heartbeat refresh (pretooluse.go:386), so a genuinely-idle stale claim is detectable</li><li>PART B: a Write/Edit under a stale-heartbeat claim first warns then blocks (escalating) until an explicit reclaim refreshes the heartbeat</li><li>PART B: a fresh-heartbeat claim is unaffected (no warn, no block)</li><li>Behavior holds on all three harnesses (CLI reclaim &#43; PreToolUse guard)</li></ul>
       </div>
       
     
@@ -989,15 +1057,22 @@ trail — undermining the claim path as an enforcement invariant and the lineage
       <div class="slice-field-value">
         
         <input type="checkbox" id="slice-3-decisions-reveal" class="reveal-toggle">
-        <div class="markdown-block reveal-content serif-prose"><p><strong>Trigger:</strong> (a) <code>wipnote feature/bug/spike start</code> on an item with a stale-heartbeat
-foreign claim; (b) PreToolUse Write/Edit when the active claim&#39;s heartbeat is stale.
+        <div class="markdown-block reveal-content serif-prose"><p><strong>Trigger:</strong> (PART A) <code>wipnote feature/bug/spike start</code> on an item with a stale-heartbeat
+claim; (PART B) PreToolUse Write/Edit when the active claim&#39;s heartbeat is stale.
 <strong>State:</strong> reuses SessionLivenessByHeartbeat (session_repo.go:391) + LivenessStalenessThreshold;
 reclaim event on the work-item artifact; escalation marker (slice-1) keyed by (stale-claim, item).
-<strong>Payload:</strong> reclaim provenance event (prior owner session, reclaiming session, timestamp);
-block reason naming the stale claim and the reclaim command.
+<strong>Ordering (critic 3-B):</strong> the continue-guard snapshots last_heartbeat_at from the DB BEFORE
+pretooluse.go:386&#39;s HeartbeatClaimByWorkItem refresh runs; otherwise the very tool call being
+guarded refreshes the heartbeat and the guard never sees &#34;stale&#34;. This ordering is the
+load-bearing detail of PART B.
+<strong>Payload:</strong> reclaim provenance event (prior owner, reclaiming session, timestamp); block
+reason naming the stale claim and the reclaim command.
 <strong>Rejected:</strong> auto-reclaiming silently (current behavior) — loses the audit trail and lets
 ownership lapse invisibly. Hard-refuse on first stale write — too aggressive for a normal
-reconnect-after-idle; escalating gives one warn to run the reclaim.</p>
+reconnect-after-idle; escalating gives one warn to run the reclaim.
+<strong>REVIEWER OPTION:</strong> PART A (provenance stamp) is low-risk and high-value on its own; PART B
+(continue-guard) carries the ordering subtlety. Reviewer may approve PART A now and defer
+PART B, or approve both. Recorded as the slice question.</p>
 </div>
         <label for="slice-3-decisions-reveal" class="reveal-label">Show full decisions</label>
         
@@ -1015,12 +1090,12 @@ reconnect-after-idle; escalating gives one warn to run the reclaim.</p>
           
           <div class="test-group" data-kind="other">
             <span class="test-chip">OTHER &middot; 2</span>
-            <ul><li>Unit (TMPDIR=.gotest-tmp): TestReclaim_StampsProvenance — stale claim reclaim writes event.</li><li>Reuse SessionLivenessByHeartbeat / LiveCollision fixtures from feat-5a9839fb tests.</li></ul>
+            <ul><li>Unit (TMPDIR=.gotest-tmp): TestReclaim_StampsProvenance — stale claim reclaim writes event (PART A).</li><li>Reuse SessionLivenessByHeartbeat / LiveCollision fixtures from feat-5a9839fb tests.</li></ul>
           </div>
           
           <div class="test-group" data-kind="unit">
-            <span class="test-chip">UNIT &middot; 1</span>
-            <ul><li>TestContinueGuard_StaleHeartbeat — stale claim Write warns then blocks; fresh claim passes.</li></ul>
+            <span class="test-chip">UNIT &middot; 2</span>
+            <ul><li>TestContinueGuard_SnapshotBeforeRefresh — guard reads stale recency before HeartbeatClaimByWorkItem refreshes it (PART B, the ordering regression).</li><li>TestContinueGuard_FreshClaimPasses — fresh heartbeat: no warn/block.</li></ul>
           </div>
           
         </div>
@@ -1030,6 +1105,25 @@ reconnect-after-idle; escalating gives one warn to run the reclaim.</p>
     
 
     
+    <div class="slice-field slice-critic-revisions">
+      <div class="slice-field-label">Critic Revisions</div>
+      <div class="slice-field-value">
+        
+        <div class="critic-revision">
+          <span class="badge badge-blocked critic-revision-badge">DANGER</span>
+          <span class="critic-revision-source">sonnet</span>
+          <span class="critic-revision-summary">3-B: self-defeating ordering — pretooluse.go:386 refreshes the claim heartbeat on every tool call before any continue-guard could read it as stale. RESOLVED: added explicit snapshot-before-refresh ordering constraint to what/done_when/decisions &#43; TestContinueGuard_SnapshotBeforeRefresh; split into PART A (solid provenance) and PART B (riskier guard) with a reviewer option to defer PART B.</span>
+        </div>
+        
+        <div class="critic-revision">
+          <span class="badge badge-pending critic-revision-badge">LOW</span>
+          <span class="critic-revision-source">sonnet</span>
+          <span class="critic-revision-summary">3-A/3-C/3-D/3-E: cites confirmed (LiveCollision workitem.go:331; SessionLivenessByHeartbeat session_repo.go:391; stale-not-refusal comment workitem.go:328; claim_collision.go SELECTs last_heartbeat_at line 33; reclaim provenance is greenfield).</span>
+        </div>
+        
+      </div>
+    </div>
+    
 
     
     <div class="slice-field slice-questions">
@@ -1037,13 +1131,24 @@ reconnect-after-idle; escalating gives one warn to run the reclaim.</p>
       <div class="slice-field-value">
         
         <div class="question-block slice-question-block">
-          <p>Use the same LivenessStalenessThreshold (120s window) for the continue-guard as for live-collision, or a longer grace before the continue-guard escalates?</p>
+          <p>Ship PART B (heartbeat-snapshot continue-guard) in this slice, or land PART A (reclaim provenance) first and defer PART B given its ordering subtlety?</p>
+          
+          
+          <textarea
+            data-section="slice-3-question-q-partb-now"
+            data-comment-for="slice-3-question-q-partb-now"
+            placeholder="Answer question q-partb-now...">Default to shipping both with the ordering constraint made explicit in tests (TestContinueGuard_SnapshotBeforeRefresh); reviewer may split PART B into a follow-up if the pretooluse.go:386 ordering proves fragile in practice.</textarea>
+          
+        </div>
+        
+        <div class="question-block slice-question-block">
+          <p>Use the same LivenessStalenessThreshold (120s) for the continue-guard as for live-collision, or a longer grace?</p>
           
           
           <textarea
             data-section="slice-3-question-q-stale-window"
             data-comment-for="slice-3-question-q-stale-window"
-            placeholder="Answer question q-stale-window...">Reuse the same configurable LivenessStalenessThreshold for consistency (one notion of &#39;stale&#39; across the claim path); if reconnect-after-idle proves noisy, expose a separate continue-guard grace as a follow-up rather than hardcoding two windows now.</textarea>
+            placeholder="Answer question q-stale-window...">Reuse the same configurable LivenessStalenessThreshold for one notion of &#39;stale&#39; across the claim path; if reconnect-after-idle proves noisy, expose a separate continue-guard grace as a follow-up rather than hardcoding two windows now.</textarea>
           
         </div>
         
@@ -1066,7 +1171,7 @@ reconnect-after-idle; escalating gives one warn to run the reclaim.</p>
     <span class="slice-num">#4</span>
     <span class="slice-title-col">
       <span class="slice-name">c4 — daemon-migration marker convention &#43; surfacing command</span>
-      <span class="slice-preview">A lightweight, greenfield convention that tags each always-on CLI/hook enforcement</span>
+      <span class="slice-preview">A lightweight, greenfield convention that tags each always-on CLI/hook enforcement gate as</span>
       <span class="slice-meta-row">
         <span class="slice-summary-badges">
           <span class="badge badge-pending badge-sm">S</span>
@@ -1074,7 +1179,7 @@ reconnect-after-idle; escalating gives one warn to run the reclaim.</p>
           <span class="badge badge-discuss badge-sm badge-complexity" title="Complexity: standard">Standard</span>
           
           <span class="badge badge-pending badge-sm slice-approval-badge" data-badge-for="slice-4">Pending</span>
-          
+          <span class="badge badge-sm badge-issues" title="2 critic issue(s)">2 issues</span>
           
         </span>
         <span class="slice-actions" onclick="event.stopPropagation()">
@@ -1106,12 +1211,13 @@ reconnect-after-idle; escalating gives one warn to run the reclaim.</p>
         <div class="slice-field-value">
           
           <input type="checkbox" id="slice-4-what-reveal" class="reveal-toggle">
-          <div class="markdown-block reveal-content serif-prose"><p>A lightweight, greenfield convention that tags each always-on CLI/hook enforcement
-gate as a future write-owner-daemon (plan-bb91616a Phase A) migration candidate. A
-small in-code registry (gate id, where it lives, what it enforces, daemon-migration:
-yes/no/done) plus a <code>wipnote</code> surface (e.g. <code>wipnote check --gates</code> or a generated
-doc table) that lists the gates and their migration status. Gives Phase A a concrete,
-machine-readable checklist instead of re-discovering the gates by grep.</p>
+          <div class="markdown-block reveal-content serif-prose"><p>A lightweight, greenfield convention that tags each always-on CLI/hook enforcement gate as
+a future write-owner-daemon (plan-bb91616a Phase A) migration candidate. A small in-code
+registry (gate id, location, what-it-enforces, daemon-migration: yes/no/done) plus a
+<code>wipnote check --gates</code> flag (mechanically identical to the existing --go-only/--python-only
+flags at check.go:119-121) that prints the gate inventory with migration status. Gives Phase
+A a concrete, machine-readable checklist instead of re-discovering ~18 PreToolUse checks by
+grep.</p>
 </div>
           <label for="slice-4-what-reveal" class="reveal-label">Show full description</label>
           
@@ -1123,10 +1229,10 @@ machine-readable checklist instead of re-discovering the gates by grep.</p>
         <div class="slice-field-label">Why</div>
         <div class="slice-field-value">
           
-          <div class="markdown-block serif-prose"><p>The interview asked that every invariant added now carry a marker so plan-bb91616a has
-a clean migration checklist. The audit found no such convention exists today (greenfield)
-and the gate inventory is implicit across ~18 PreToolUse checks — easy to miss one when
-moving invariants into the daemon write path.</p>
+          <div class="markdown-block serif-prose"><p>The interview asked that every invariant added now carry a marker so plan-bb91616a has a
+clean migration checklist. The audit found no such convention exists today (greenfield) and
+the gate inventory is implicit across ~18 PreToolUse checks — easy to miss one when moving
+invariants into the daemon write path.</p>
 </div>
           
         </div>
@@ -1141,7 +1247,7 @@ moving invariants into the daemon write path.</p>
       
       <div class="slice-field">
         <div class="slice-field-label">Done when</div>
-        <ul class="slice-done-list"><li>Each always-on enforcement gate has a registry entry (id, location, what-it-enforces, daemon-migration status)</li><li>`wipnote check --gates` (or equivalent) prints the gate inventory with migration status</li><li>New gates from slice-2 and slice-3 are registered as daemon-migration candidates</li></ul>
+        <ul class="slice-done-list"><li>Each always-on enforcement gate has a registry entry (id, location, what-it-enforces, daemon-migration status)</li><li>`wipnote check --gates` prints the gate inventory with migration status and exits 0</li><li>New gates from slice-2 and slice-3 are registered as daemon-migration candidates</li></ul>
       </div>
       
     
@@ -1190,10 +1296,29 @@ counted. A separate YAML/doc file — drifts from code; keep the registry next t
     
 
     
+    <div class="slice-field slice-critic-revisions">
+      <div class="slice-field-label">Critic Revisions</div>
+      <div class="slice-field-value">
+        
+        <div class="critic-revision">
+          <span class="badge badge-pending critic-revision-badge">LOW</span>
+          <span class="critic-revision-source">sonnet</span>
+          <span class="critic-revision-summary">4-B: cmd/wipnote/check.go exists (checkCmd at :26); --gates flag is mechanically identical to existing --go-only/--python-only at :119-121. Feasible.</span>
+        </div>
+        
+        <div class="critic-revision">
+          <span class="badge badge-pending critic-revision-badge">INFO</span>
+          <span class="critic-revision-source">sonnet</span>
+          <span class="critic-revision-summary">4-C: gates_registry.go shares the new internal/enforce package with slice-1, so dep on slice-1 added; should land in the same PR wave.</span>
+        </div>
+        
+      </div>
+    </div>
+    
 
     
 
-    <div class="slice-deps">Dependencies: none</div>
+    <div class="slice-deps">Dependencies: slices 1</div>
 
     <details class="comment-collapse">
       <summary class="comment-collapse-trigger">+ Leave a comment</summary>
@@ -1216,7 +1341,7 @@ counted. A separate YAML/doc file — drifts from code; keep the registry next t
           <span class="badge badge-discuss badge-sm badge-complexity" title="Complexity: standard">Standard</span>
           
           <span class="badge badge-pending badge-sm slice-approval-badge" data-badge-for="slice-5">Pending</span>
-          
+          <span class="badge badge-sm badge-issues" title="2 critic issue(s)">2 issues</span>
           
         </span>
         <span class="slice-actions" onclick="event.stopPropagation()">
@@ -1248,13 +1373,16 @@ counted. A separate YAML/doc file — drifts from code; keep the registry next t
         <div class="slice-field-value">
           
           <input type="checkbox" id="slice-5-what-reveal" class="reveal-toggle">
-          <div class="markdown-block reveal-content serif-prose"><p>Audit-surfaced refinement to the already-always-on work-item guard. Today
-checkYoloSubagentGrace (yolo_guard.go:83) grants its ~30s post-spawn bypass only when
-yolo mode is active, so in a NON-YOLO session a freshly spawned subagent that has not
-yet run <code>wipnote feature start</code> is hard-blocked on its first Write/Edit before it can
-claim. Extend the subagent grace to non-YOLO sessions (narrow window, same intent) so
-subagents can perform their initial claim, without weakening the always-on guard for
-established sessions.</p>
+          <div class="markdown-block reveal-content serif-prose"><p>Audit-surfaced refinement to the already-always-on work-item guard. The block on a fresh
+non-YOLO subagent&#39;s first Write/Edit comes from checkYoloWorkItemGuard (yolo_guard.go:161,
+called for ALL sessions at pretooluse.go:151) when FeatureID == &#34;&#34; and there is no linked
+feature — NOT from the YOLO-only subagent guard. Today checkYoloSubagentGrace
+(yolo_guard.go:193) grants its post-spawn bypass only when yolo mode is active
+(<code>if !yolo || !isSubagent { return false }</code> at line 83 of the inheritance helper), so a
+freshly spawned subagent in a NON-YOLO session is hard-blocked before it can run
+<code>wipnote feature start</code>. Extend the subagent grace to non-YOLO sessions (narrow window,
+same intent) so subagents can perform their initial claim, without weakening the always-on
+guard for established sessions.</p>
 </div>
           <label for="slice-5-what-reveal" class="reveal-label">Show full description</label>
           
@@ -1266,9 +1394,9 @@ established sessions.</p>
         <div class="slice-field-label">Why</div>
         <div class="slice-field-value">
           
-          <div class="markdown-block serif-prose"><p>The always-on work-item guard (c1) is correct, but its interaction with subagent
-spawn in non-YOLO mode can dead-end legitimate delegated work on the first tool call.
-This is the only real residual from the c1 audit (c1 itself is done).</p>
+          <div class="markdown-block serif-prose"><p>The always-on work-item guard (c1) is correct, but its interaction with subagent spawn in
+non-YOLO mode dead-ends legitimate delegated work on the first tool call. This is the only
+real residual from the c1 audit (c1 itself is done).</p>
 </div>
           
         </div>
@@ -1296,11 +1424,12 @@ This is the only real residual from the c1 audit (c1 itself is done).</p>
         <input type="checkbox" id="slice-5-decisions-reveal" class="reveal-toggle">
         <div class="markdown-block reveal-content serif-prose"><p><strong>Trigger:</strong> PreToolUse Write/Edit by a subagent session within N seconds of spawn, in
 non-YOLO mode.
-<strong>State:</strong> spawn timestamp / subagent detection already used by checkYoloSubagentGrace.
+<strong>State:</strong> spawn timestamp / subagent detection already used by checkYoloSubagentGrace
+(yolo_guard.go:193).
 <strong>Payload:</strong> allow (grace) vs block (post-grace) decision.
-<strong>Rejected:</strong> removing the work-item guard for subagents entirely — would let delegated
-work edit source with no claim indefinitely. Keeping it YOLO-only (status quo) — leaves
-non-YOLO delegated work dead-ended on first write.</p>
+<strong>Rejected:</strong> removing the work-item guard for subagents entirely — would let delegated work
+edit source with no claim indefinitely. Keeping it YOLO-only (status quo) — leaves non-YOLO
+delegated work dead-ended on first write.</p>
 </div>
         <label for="slice-5-decisions-reveal" class="reveal-label">Show full decisions</label>
         
@@ -1323,7 +1452,7 @@ non-YOLO delegated work dead-ended on first write.</p>
           
           <div class="test-group" data-kind="regression">
             <span class="test-chip">REGRESSION &middot; 1</span>
-            <ul><li>non-subagent non-YOLO write with no item still blocks.</li></ul>
+            <ul><li>non-subagent non-YOLO write with no item still blocks (checkYoloWorkItemGuard intact).</li></ul>
           </div>
           
         </div>
@@ -1332,6 +1461,25 @@ non-YOLO delegated work dead-ended on first write.</p>
     </div>
     
 
+    
+    <div class="slice-field slice-critic-revisions">
+      <div class="slice-field-label">Critic Revisions</div>
+      <div class="slice-field-value">
+        
+        <div class="critic-revision">
+          <span class="badge badge-blocked critic-revision-badge">DANGER</span>
+          <span class="critic-revision-source">sonnet</span>
+          <span class="critic-revision-summary">5-A: rationale named the wrong guard. RESOLVED: the block comes from the always-on checkYoloWorkItemGuard (yolo_guard.go:161, pretooluse.go:151), not the YOLO subagent guard; fix path (extend checkYoloSubagentGrace) confirmed correct and small.</span>
+        </div>
+        
+        <div class="critic-revision">
+          <span class="badge badge-pending critic-revision-badge">LOW</span>
+          <span class="critic-revision-source">sonnet</span>
+          <span class="critic-revision-summary">5-B: citation drift — checkYoloSubagentGrace is at yolo_guard.go:193, not :83 (:83 is the inheritance helper&#39;s `if !yolo || !isSubagent` check). Both references corrected in what/decisions.</span>
+        </div>
+        
+      </div>
+    </div>
     
 
     

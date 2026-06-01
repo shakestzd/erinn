@@ -1,0 +1,18 @@
+meta:
+    id: plan-ee999752
+    track_id: trk-15764941
+    title: Cross-harness enforcement floor — always-on commit gates + CLI claim/write invariants
+    description: 'Lead-axis plan for the coordination-substrate workstream: make best-practice enforcement non-bypassable across Claude/Codex/Gemini by moving gates into the CLI claim/write path (the harness-agnostic floor) with PreToolUse JSON decision:block as the cross-harness intercept. Covers sub-axis (a) always-on commit-quality gates and (c) four always-on CLI invariants; sub-axis (b) session-end surfacing is deferred to its own plan. Failure mode is escalating warn-once -> block-on-repeat via a cross-session .wipnote/ marker. Builds on feat-5a9839fb and feat-4be58538. Slices pause for human review before promotion.'
+    created_at: "2026-06-01"
+    status: draft
+    priority: medium
+    schema_version: v3
+    version: 2
+design:
+    problem: ""
+    goals: []
+    constraints: []
+    approved: false
+    comment: ""
+slices: []
+questions: []

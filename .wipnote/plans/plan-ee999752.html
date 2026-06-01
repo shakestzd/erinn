@@ -405,6 +405,55 @@ body.right-rail-collapsed .sidebar-reopen{display:flex}
   <a href="#design" class="nav-link active" data-spy="design" data-initial="D">Design</a>
   <a href="#slices" class="nav-link" data-spy="slices" data-initial="S">Slices</a>
   
+  <ul class="slice-nav-list" id="slice-nav-list">
+    
+    <li>
+      <a href="#slice-1" class="slice-nav-item" data-slice-nav="1">
+        <span class="slice-nav-dot" data-approval="pending" data-dot-for="1"></span>
+        <span>#1 Escalation-marker primitive — cross-session warn-once then block-on-repeat (.wipnote/)</span>
+        
+        <span class="nav-triage-badge nav-triage-question" title="1 open question(s)">?1</span>
+      </a>
+    </li>
+    
+    <li>
+      <a href="#slice-2" class="slice-nav-item" data-slice-nav="2">
+        <span class="slice-nav-dot" data-approval="pending" data-dot-for="2"></span>
+        <span>#2 Always-on commit-quality gate — extract shared gate + PreToolUse git-commit intercept (all 3 harnesses)</span>
+        
+        <span class="nav-triage-badge nav-triage-question" title="1 open question(s)">?1</span>
+      </a>
+    </li>
+    
+    <li>
+      <a href="#slice-3" class="slice-nav-item" data-slice-nav="3">
+        <span class="slice-nav-dot" data-approval="pending" data-dot-for="3"></span>
+        <span>#3 c2 — stale-claim continue-guard + reclaim provenance stamp</span>
+        
+        <span class="nav-triage-badge nav-triage-question" title="1 open question(s)">?1</span>
+      </a>
+    </li>
+    
+    <li>
+      <a href="#slice-4" class="slice-nav-item" data-slice-nav="4">
+        <span class="slice-nav-dot" data-approval="pending" data-dot-for="4"></span>
+        <span>#4 c4 — daemon-migration marker convention + surfacing command</span>
+        
+        
+      </a>
+    </li>
+    
+    <li>
+      <a href="#slice-5" class="slice-nav-item" data-slice-nav="5">
+        <span class="slice-nav-dot" data-approval="pending" data-dot-for="5"></span>
+        <span>#5 c1 residual — non-YOLO subagent claim grace</span>
+        
+        
+      </a>
+    </li>
+    
+  </ul>
+  
   <a href="#questions" class="nav-link" data-spy="questions" data-initial="Q">Decisions</a>
   <a href="#critique" class="nav-link" data-spy="critique" data-initial="C">Critique</a>
   <a href="#feedback-summary" class="nav-link" data-spy="feedback-summary" data-initial="P">Progress</a>
@@ -412,15 +461,15 @@ body.right-rail-collapsed .sidebar-reopen{display:flex}
 </nav>
 <div class="plan-layout">
 <div class="plan-content">
-<article id="plan-ee999752" data-type="plan" data-plan-id="plan-ee999752" data-feature-id="trk-15764941" data-status="draft" data-priority="medium">
+<article id="plan-ee999752" data-type="plan" data-plan-id="plan-ee999752" data-feature-id="" data-status="draft" data-priority="medium">
 
 <!-- Plan Header -->
 <header class="plan-header">
   <h1>Plan: Cross-harness enforcement floor — always-on commit gates + CLI claim/write invariants</h1>
-  <p style="color:var(--text-dim)">Lead-axis plan for the coordination-substrate workstream: make best-practice enforcement non-bypassable across Claude/Codex/Gemini by moving gates into the CLI claim/write path (the harness-agnostic floor) with PreToolUse JSON decision:block as the cross-harness intercept. Covers sub-axis (a) always-on commit-quality gates and (c) four always-on CLI invariants; sub-axis (b) session-end surfacing is deferred to its own plan. Failure mode is escalating warn-once -> block-on-repeat via a cross-session .wipnote/ marker. Builds on feat-5a9839fb and feat-4be58538. Slices pause for human review before promotion.</p>
+  
   <div class="meta">
     <span class="badge badge-pending">Draft</span>
-    <span style="font-size:.75rem;color:var(--text-muted)">v2 · 0 slices · Created 2026-06-01</span>
+    <span style="font-size:.75rem;color:var(--text-muted)">v1 · 5 slices · Created 2026-06-01</span>
   </div>
 </header>
 <button id="themeToggle" style="position:fixed;top:16px;right:16px;z-index:100;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:6px 12px;color:var(--text);font-family:var(--mono);font-size:0.75rem;cursor:pointer;">
@@ -440,6 +489,11 @@ body.right-rail-collapsed .sidebar-reopen{display:flex}
 <section class="dep-graph" data-zone="dependency-graph">
   <h2>Dependency Graph</h2>
   <div id="graph-data" style="display:none">
+    <div data-node="1" data-name="Escalation-marker primitive — cross-session warn-once then block-on-repeat (.wipnote/)" data-status="pending" data-deps="" data-files="2"></div>
+    <div data-node="2" data-name="Always-on commit-quality gate — extract shared gate + PreToolUse git-commit intercept (all 3 harnesses)" data-status="pending" data-deps="1" data-files="5"></div>
+    <div data-node="3" data-name="c2 — stale-claim continue-guard + reclaim provenance stamp" data-status="pending" data-deps="1" data-files="4"></div>
+    <div data-node="4" data-name="c4 — daemon-migration marker convention + surfacing command" data-status="pending" data-deps="" data-files="2"></div>
+    <div data-node="5" data-name="c1 residual — non-YOLO subagent claim grace" data-status="pending" data-deps="" data-files="2"></div>
     
     <!--PLAN_GRAPH_NODES-->
   </div>
@@ -452,17 +506,40 @@ body.right-rail-collapsed .sidebar-reopen{display:flex}
 <details id="design" class="section-card" open data-phase="design" data-status="pending">
   <summary><span>Design</span><span class="badge badge-pending" data-badge-for="design">Pending</span></summary>
   <div class="section-body">
-    <!--PLAN_DESIGN_CONTENT-->
-    <div class="sub-section">
-      <h4>Open Questions</h4>
-      <!--PLAN_QUESTIONS-->
-    </div>
+    <h4>Problem</h4>
+<div data-markdown>Best-practice enforcement in wipnote is uneven across the three harnesses it ships to
+(Claude Code, Codex CLI, Gemini CLI). The strongest gate — commit-quality (build/vet/test)
+— fires ONLY in YOLO mode (yolo_guard.go:305 `if !yolo { return &#34;&#34; }`) and the TaskCompleted
+quality gate targets [&#34;claude&#34;] only, so a normal Codex/Gemini/Claude session can commit a
+failing build on every harness. Separately, the claim path enforces live-collision at start
+(feat-5a9839fb) but lets a stale-heartbeat claim lapse silently with no reclaim audit trail.
+The enforcement floor must be the wipnote CLI + (future) write-owner daemon — harness-agnostic
+via JSON decision:block — not Claude-only exit-2 and not YOLO-only guards.
+</div>
+<h4>Goals</h4>
+<ol>
+<li data-markdown>Make commit-quality enforcement always-on (non-YOLO) and cross-harness via PreToolUse JSON decision:block</li>
+<li data-markdown>Close the stale-claim half of the claim path: enforced reclaim + reclaim provenance audit trail</li>
+<li data-markdown>Give plan-bb91616a Phase A a machine-readable daemon-migration checklist of every enforcement gate</li>
+<li data-markdown>Add escalating warn-once-&gt;block-on-repeat as reusable cross-session infra without downgrading existing hard-refuse gates</li>
+<li data-markdown>Fix the audit-surfaced c1 residual: non-YOLO subagents must be able to claim before the work-item guard blocks them</li>
+</ol>
+<h4>Constraints</h4>
+<ul>
+<li data-markdown>No new runtime dependency — stdlib + existing go.mod only</li>
+<li data-markdown>Escalation state lives in the .wipnote/ canonical store, not SQLite (derived/per-user) — must survive session + harness restart</li>
+<li data-markdown>Do NOT downgrade existing always-on hard-refuse gates (c1 work-item, c3 provenance) to escalating</li>
+<li data-markdown>CLI-direct enforcement now; mark new gates as write-owner-daemon migration candidates (daemon is unbuilt — plan-bb91616a still draft)</li>
+<li data-markdown>Quality gates must pass with TMPDIR set to an exec-capable non-git dir; never background `wipnote reindex`</li>
+</ul>
+
     <div class="approval-row">
       <label><input type="checkbox" data-section="design" data-action="approve"> Approve design</label>
       <textarea data-section="design" data-comment-for="design" placeholder="Comments on design decisions..."></textarea>
     </div>
   </div>
 </details>
+
 
 <!-- Structure Outline (hidden when empty) -->
 
@@ -471,23 +548,811 @@ body.right-rail-collapsed .sidebar-reopen{display:flex}
 <details id="slices" class="section-card" open data-phase="slices" data-status="pending">
   <summary><span>Slices</span><span class="badge badge-pending" data-badge-for="slices">Pending</span></summary>
   <div class="section-body">
+    <details class="slice-card" id="slice-1" data-slice="1" data-slice-name="slice-1" data-status="pending" data-approval="pending">
+  <summary class="slice-summary" aria-label="Slice 1: Escalation-marker primitive — cross-session warn-once then block-on-repeat (.wipnote/)">
+    <span class="slice-num">#1</span>
+    <span class="slice-title-col">
+      <span class="slice-name">Escalation-marker primitive — cross-session warn-once then block-on-repeat (.wipnote/)</span>
+      <span class="slice-preview">New internal/enforce package providing a persisted escalation marker keyed by</span>
+      <span class="slice-meta-row">
+        <span class="slice-summary-badges">
+          <span class="badge badge-revision badge-sm">M</span>
+          <span class="badge badge-revision badge-sm">Med</span>
+          <span class="badge badge-revision badge-sm badge-complexity" title="Complexity: complex">Complex</span>
+          
+          <span class="badge badge-pending badge-sm slice-approval-badge" data-badge-for="slice-1">Pending</span>
+          
+          <span class="badge badge-sm badge-questions" title="1 open question(s)">1 Q</span>
+        </span>
+        <span class="slice-actions" onclick="event.stopPropagation()">
+          <span class="approval-segmented" role="group" aria-label="Approval action">
+            <label class="seg-btn seg-approve" title="Approve">
+              <input type="radio" name="slice-1-approval" value="approved" data-section="slice-1" data-action="approve" aria-label="Approve slice 1">
+              &#10003;
+            </label>
+            <label class="seg-btn seg-changes" title="Request changes">
+              <input type="radio" name="slice-1-approval" value="changes_requested" data-section="slice-1" data-action="approve" aria-label="Request changes for slice 1">
+              &#8635;
+            </label>
+            <label class="seg-btn seg-reject" title="Reject">
+              <input type="radio" name="slice-1-approval" value="rejected" data-section="slice-1" data-action="approve" aria-label="Reject slice 1">
+              &#10005;
+            </label>
+          </span>
+        </span>
+      </span>
+    </span>
+    <span class="slice-chevron" aria-hidden="true"></span>
+  </summary>
+
+  <div class="slice-body">
     
+      
+      <div class="slice-field slice-what">
+        <div class="slice-field-label">What</div>
+        <div class="slice-field-value">
+          
+          <input type="checkbox" id="slice-1-what-reveal" class="reveal-toggle">
+          <div class="markdown-block reveal-content serif-prose"><p>New internal/enforce package providing a persisted escalation marker keyed by
+(gate-id, scope-key). First Check returns Warn and writes a marker under
+.wipnote/; a subsequent Check for the same key returns Block. Markers are plain
+files in the canonical store so they survive session AND harness restart. API:
+Check(gateID, key) -&gt; {Warn|Block}, Clear(gateID, key), and a sweep to expire
+stale markers. This is shared infra consumed by the commit gate (slice-2) and the
+stale-claim guard (slice-3); the deferred sub-axis (b) session-end surfacing will
+also reuse it.</p>
+</div>
+          <label for="slice-1-what-reveal" class="reveal-label">Show full description</label>
+          
+        </div>
+      </div>
+      
+      
+      <div class="slice-field slice-why">
+        <div class="slice-field-label">Why</div>
+        <div class="slice-field-value">
+          
+          <div class="markdown-block serif-prose"><p>The interview chose an escalating failure mode (warn once, block on repeat), which
+requires persisted cross-session state. No such primitive exists today (the
+existing always-on guards are immediate hard-block). Centralizing it prevents each
+gate from inventing its own state file (DRY) and keeps the floor harness-agnostic.</p>
+</div>
+          
+        </div>
+      </div>
+      
+      
+      <div class="slice-field">
+        <div class="slice-field-label">Files</div>
+        <div class="slice-field-value"><code>internal/enforce/escalation.go, internal/enforce/escalation_test.go</code></div>
+      </div>
+      
+      
+      <div class="slice-field">
+        <div class="slice-field-label">Done when</div>
+        <ul class="slice-done-list"><li>First Check for a (gateID,key) returns Warn and writes a marker file under .wipnote/</li><li>A second Check for the same (gateID,key) returns Block</li><li>Marker persists across process restart (re-reading from disk yields Block, not Warn)</li><li>Clear removes the marker so the next Check warns again</li></ul>
+      </div>
+      
+    
+
+    
+    <div class="slice-field slice-decisions-notes">
+      <div class="slice-field-label">Decisions</div>
+      <div class="slice-field-value">
+        
+        <input type="checkbox" id="slice-1-decisions-reveal" class="reveal-toggle">
+        <div class="markdown-block reveal-content serif-prose"><p><strong>Trigger:</strong> invoked by enforcement gates (commit gate, stale-claim guard) when a
+violation is first detected; not a hook itself.
+<strong>State:</strong> plain marker file(s) under .wipnote/ (canonical, committed-store-aligned,
+harness-agnostic). Keyed by (gateID, scopeKey) so different gates and different
+targets escalate independently.
+<strong>Payload:</strong> marker records gateID, scopeKey, first-seen timestamp, harness, session.
+<strong>Rejected:</strong> SQLite-backed counters — SQLite is derived/per-user/not committed, so a
+DB rebuild silently grants a fresh free warning. In-memory only — a restarted session
+re-grants a free warning every time, defeating &#34;block on repeat&#34; across sessions.</p>
+</div>
+        <label for="slice-1-decisions-reveal" class="reveal-label">Show full decisions</label>
+        
+      </div>
+    </div>
+    
+
+    
+    <div class="slice-field slice-tests-field">
+      <div class="slice-field-label">Test Strategy</div>
+      <div class="slice-field-value">
+        
+        
+        <div class="test-strategy">
+          
+          <div class="test-group" data-kind="other">
+            <span class="test-chip">OTHER &middot; 1</span>
+            <ul><li>Unit (TMPDIR=.gotest-tmp): TestEscalation_WarnThenBlock — first call Warn, second Block.</li></ul>
+          </div>
+          
+          <div class="test-group" data-kind="unit">
+            <span class="test-chip">UNIT &middot; 3</span>
+            <ul><li>TestEscalation_PersistAcrossReopen — write, construct fresh store from same dir, expect Block.</li><li>TestEscalation_ClearResets — Clear then Check returns Warn.</li><li>TestEscalation_StaleSweep — marker older than TTL is expired.</li></ul>
+          </div>
+          
+        </div>
+        
+      </div>
+    </div>
+    
+
+    
+
+    
+    <div class="slice-field slice-questions">
+      <div class="slice-field-label">Open Questions</div>
+      <div class="slice-field-value">
+        
+        <div class="question-block slice-question-block">
+          <p>Escalation key granularity: per (gate) globally, per (gate, work-item), or per (gate, session)?</p>
+          
+          
+          <textarea
+            data-section="slice-1-question-q-granularity"
+            data-comment-for="slice-1-question-q-granularity"
+            placeholder="Answer question q-granularity...">Per (gate, scopeKey) where scopeKey is gate-defined — commit gate keys by repo&#43;failing-check, stale-claim keys by work-item. Avoids one project-wide warning masking unrelated violations while still surviving session restart. Not per-session (that would reset the escalation every restart).</textarea>
+          
+        </div>
+        
+      </div>
+    </div>
+    
+
+    <div class="slice-deps">Dependencies: none</div>
+
+    <details class="comment-collapse">
+      <summary class="comment-collapse-trigger">+ Leave a comment</summary>
+      <div class="comment-collapse-body">
+        <textarea data-section="slice-1" data-comment-for="slice-1" placeholder="Comments on slice 1..."></textarea>
+      </div>
+    </details>
+  </div>
+</details>
+<details class="slice-card" id="slice-2" data-slice="2" data-slice-name="slice-2" data-status="pending" data-approval="pending">
+  <summary class="slice-summary" aria-label="Slice 2: Always-on commit-quality gate — extract shared gate &#43; PreToolUse git-commit intercept (all 3 harnesses)">
+    <span class="slice-num">#2</span>
+    <span class="slice-title-col">
+      <span class="slice-name">Always-on commit-quality gate — extract shared gate &#43; PreToolUse git-commit intercept (all 3 harnesses)</span>
+      <span class="slice-preview">Make commit-quality enforcement non-YOLO.</span>
+      <span class="slice-meta-row">
+        <span class="slice-summary-badges">
+          <span class="badge badge-revision badge-sm">M</span>
+          <span class="badge badge-revision badge-sm">Med</span>
+          <span class="badge badge-revision badge-sm badge-complexity" title="Complexity: complex">Complex</span>
+          
+          <span class="badge badge-pending badge-sm slice-approval-badge" data-badge-for="slice-2">Pending</span>
+          
+          <span class="badge badge-sm badge-questions" title="1 open question(s)">1 Q</span>
+        </span>
+        <span class="slice-actions" onclick="event.stopPropagation()">
+          <span class="approval-segmented" role="group" aria-label="Approval action">
+            <label class="seg-btn seg-approve" title="Approve">
+              <input type="radio" name="slice-2-approval" value="approved" data-section="slice-2" data-action="approve" aria-label="Approve slice 2">
+              &#10003;
+            </label>
+            <label class="seg-btn seg-changes" title="Request changes">
+              <input type="radio" name="slice-2-approval" value="changes_requested" data-section="slice-2" data-action="approve" aria-label="Request changes for slice 2">
+              &#8635;
+            </label>
+            <label class="seg-btn seg-reject" title="Reject">
+              <input type="radio" name="slice-2-approval" value="rejected" data-section="slice-2" data-action="approve" aria-label="Reject slice 2">
+              &#10005;
+            </label>
+          </span>
+        </span>
+      </span>
+    </span>
+    <span class="slice-chevron" aria-hidden="true"></span>
+  </summary>
+
+  <div class="slice-body">
+    
+      
+      <div class="slice-field slice-what">
+        <div class="slice-field-label">What</div>
+        <div class="slice-field-value">
+          
+          <input type="checkbox" id="slice-2-what-reveal" class="reveal-toggle">
+          <div class="markdown-block reveal-content serif-prose"><p>Make commit-quality enforcement non-YOLO. Two steps in one slice:
+(1) Extract the quality-check logic out of checkYoloCommitGuard
+(internal/hooks/yolo_guard.go:204/305) into a single shared function (the gate runs
+<code>wipnote check</code>). The existing YOLO path calls the shared function unchanged.
+(2) Add an always-on PreToolUse handler that intercepts Bash <code>git commit</code> on all
+three harnesses, runs the shared gate, and on failure emits JSON {&#34;decision&#34;:&#34;block&#34;}
+via the existing harness.go emitters (Claude/Codex/Gemini). Failure is escalating
+per slice-1: first failing-commit attempt Warns (surfaces what is broken), a repeat
+attempt in the same failing state Blocks.</p>
+</div>
+          <label for="slice-2-what-reveal" class="reveal-label">Show full description</label>
+          
+        </div>
+      </div>
+      
+      
+      <div class="slice-field slice-why">
+        <div class="slice-field-label">Why</div>
+        <div class="slice-field-value">
+          
+          <input type="checkbox" id="slice-2-why-reveal" class="reveal-toggle">
+          <div class="markdown-block reveal-content serif-prose"><p>Confirmed gap: today checkYoloCommitGuard opens with <code>if !yolo { return &#34;&#34; }</code>
+(yolo_guard.go:305) and the TaskCompleted quality gate targets [&#34;claude&#34;] only — so a
+normal Codex/Gemini/Claude session can commit with a failing build/tests, on every
+harness. This is the headline proof of &#34;CLI/daemon as the enforcement floor&#34; for the
+commit path. Extracting the shared gate (interview choice) keeps one definition of
+&#34;a passing commit&#34;.</p>
+</div>
+          <label for="slice-2-why-reveal" class="reveal-label">Show full description</label>
+          
+        </div>
+      </div>
+      
+      
+      <div class="slice-field">
+        <div class="slice-field-label">Files</div>
+        <div class="slice-field-value"><code>internal/hooks/yolo_guard.go, internal/hooks/pretooluse.go, internal/hooks/harness.go, cmd/wipnote/check.go, packages/plugin-core/manifest.json</code></div>
+      </div>
+      
+      
+      <div class="slice-field">
+        <div class="slice-field-label">Done when</div>
+        <ul class="slice-done-list"><li>On a normal (non-YOLO) Claude session, `git commit` with a failing `wipnote check` is blocked (after the escalation warn-&gt;block step)</li><li>Same commit on Codex is blocked via JSON {&#34;decision&#34;:&#34;block&#34;} (emitCodexResponse)</li><li>Same commit on Gemini is blocked via {&#34;continue&#34;:false,&#34;decision&#34;:&#34;block&#34;} (emitGeminiResponse)</li><li>A commit that passes `wipnote check` is allowed on all three harnesses</li><li>The existing YOLO commit guard still enforces, now via the shared extracted function (no behavior regression)</li></ul>
+      </div>
+      
+    
+
+    
+    <div class="slice-field slice-decisions-notes">
+      <div class="slice-field-label">Decisions</div>
+      <div class="slice-field-value">
+        
+        <input type="checkbox" id="slice-2-decisions-reveal" class="reveal-toggle">
+        <div class="markdown-block reveal-content serif-prose"><p><strong>Trigger:</strong> PreToolUse on Bash whose command is a <code>git commit</code> (and amend/commit -m
+variants). Cross-harness intercept because git commit is a Bash tool call on all three.
+<strong>State:</strong> escalation marker from slice-1, keyed by (commit-gate, repo + failing-check
+signature).
+<strong>Payload:</strong> JSON decision:block + reason listing the failing <code>wipnote check</code> output;
+Claude also has exit-2 available but the JSON path is the cross-harness primitive.
+<strong>Rejected:</strong> <code>wipnote commit</code> CLI wrapper as the sole seam — raw <code>git commit</code> escapes
+it unless a hook also blocks, so the hook IS the floor. Belt-and-suspenders wrapper
+deferred (not needed for the floor).
+<strong>TENSION FOR HUMAN REVIEW:</strong> escalating semantics let ONE failing commit through
+(the warn step) before blocking. For &#34;commit with failing build&#34; that may be too lax;
+a reviewer may prefer hard-refuse-with-override for this specific gate. Captured as the
+slice question below; default follows the interview&#39;s escalating choice.</p>
+</div>
+        <label for="slice-2-decisions-reveal" class="reveal-label">Show full decisions</label>
+        
+      </div>
+    </div>
+    
+
+    
+    <div class="slice-field slice-tests-field">
+      <div class="slice-field-label">Test Strategy</div>
+      <div class="slice-field-value">
+        
+        
+        <div class="test-strategy">
+          
+          <div class="test-group" data-kind="other">
+            <span class="test-chip">OTHER &middot; 1</span>
+            <ul><li>Unit (TMPDIR=.gotest-tmp): TestSharedCommitGate_PassFail — shared fn returns block on failing check, allow on passing.</li></ul>
+          </div>
+          
+          <div class="test-group" data-kind="unit">
+            <span class="test-chip">UNIT &middot; 1</span>
+            <ul><li>TestCommitGate_Escalates — first failing attempt warns, second blocks (consumes slice-1).</li></ul>
+          </div>
+          
+          <div class="test-group" data-kind="harness">
+            <span class="test-chip">HARNESS &middot; 1</span>
+            <ul><li>assert emitCodexResponse / emitGeminiResponse shapes for a blocked commit.</li></ul>
+          </div>
+          
+          <div class="test-group" data-kind="regression">
+            <span class="test-chip">REGRESSION &middot; 1</span>
+            <ul><li>existing YOLO commit-guard test still passes against the extracted fn.</li></ul>
+          </div>
+          
+        </div>
+        
+      </div>
+    </div>
+    
+
+    
+
+    
+    <div class="slice-field slice-questions">
+      <div class="slice-field-label">Open Questions</div>
+      <div class="slice-field-value">
+        
+        <div class="question-block slice-question-block">
+          <p>Should the commit gate use escalating warn-&gt;block (interview default) or hard-refuse with an explicit --force-style override, given that &#39;warn&#39; lets one broken commit land?</p>
+          
+          
+          <textarea
+            data-section="slice-2-question-q-commit-failmode"
+            data-comment-for="slice-2-question-q-commit-failmode"
+            placeholder="Answer question q-commit-failmode...">Default to escalating per the interview, but flag for human review — committing a failing build is the highest-stakes gate and may warrant hard-refuse-with-override. Reviewer decides at promotion; the shared gate is written so the fail-mode is a single switch.</textarea>
+          
+        </div>
+        
+      </div>
+    </div>
+    
+
+    <div class="slice-deps">Dependencies: slices 1</div>
+
+    <details class="comment-collapse">
+      <summary class="comment-collapse-trigger">+ Leave a comment</summary>
+      <div class="comment-collapse-body">
+        <textarea data-section="slice-2" data-comment-for="slice-2" placeholder="Comments on slice 2..."></textarea>
+      </div>
+    </details>
+  </div>
+</details>
+<details class="slice-card" id="slice-3" data-slice="3" data-slice-name="slice-3" data-status="pending" data-approval="pending">
+  <summary class="slice-summary" aria-label="Slice 3: c2 — stale-claim continue-guard &#43; reclaim provenance stamp">
+    <span class="slice-num">#3</span>
+    <span class="slice-title-col">
+      <span class="slice-name">c2 — stale-claim continue-guard &#43; reclaim provenance stamp</span>
+      <span class="slice-preview">Close the missing half of the claim path.</span>
+      <span class="slice-meta-row">
+        <span class="slice-summary-badges">
+          <span class="badge badge-revision badge-sm">M</span>
+          <span class="badge badge-revision badge-sm">Med</span>
+          <span class="badge badge-revision badge-sm badge-complexity" title="Complexity: complex">Complex</span>
+          
+          <span class="badge badge-pending badge-sm slice-approval-badge" data-badge-for="slice-3">Pending</span>
+          
+          <span class="badge badge-sm badge-questions" title="1 open question(s)">1 Q</span>
+        </span>
+        <span class="slice-actions" onclick="event.stopPropagation()">
+          <span class="approval-segmented" role="group" aria-label="Approval action">
+            <label class="seg-btn seg-approve" title="Approve">
+              <input type="radio" name="slice-3-approval" value="approved" data-section="slice-3" data-action="approve" aria-label="Approve slice 3">
+              &#10003;
+            </label>
+            <label class="seg-btn seg-changes" title="Request changes">
+              <input type="radio" name="slice-3-approval" value="changes_requested" data-section="slice-3" data-action="approve" aria-label="Request changes for slice 3">
+              &#8635;
+            </label>
+            <label class="seg-btn seg-reject" title="Reject">
+              <input type="radio" name="slice-3-approval" value="rejected" data-section="slice-3" data-action="approve" aria-label="Reject slice 3">
+              &#10005;
+            </label>
+          </span>
+        </span>
+      </span>
+    </span>
+    <span class="slice-chevron" aria-hidden="true"></span>
+  </summary>
+
+  <div class="slice-body">
+    
+      
+      <div class="slice-field slice-what">
+        <div class="slice-field-label">What</div>
+        <div class="slice-field-value">
+          
+          <input type="checkbox" id="slice-3-what-reveal" class="reveal-toggle">
+          <div class="markdown-block reveal-content serif-prose"><p>Close the missing half of the claim path. Today live-collision is a hard-refuse at
+<code>start</code> (workitem.go:331, feat-5a9839fb) but a stale-heartbeat claim is a silent
+pass-through: re-running <code>wipnote feature start &lt;id&gt;</code> on a stale claim proceeds with no
+record, and PreToolUse keeps treating the persisted claim as valid even after the
+owning session&#39;s heartbeat goes stale. Add: (1) when start reclaims a stale claim,
+stamp a reclaim provenance event on the work item (who reclaimed, prior owner, when);
+(2) a continue-guard so that writing under a claim whose heartbeat has gone stale
+escalates (warn via slice-1, then block) until an explicit reclaim refreshes it.</p>
+</div>
+          <label for="slice-3-what-reveal" class="reveal-label">Show full description</label>
+          
+        </div>
+      </div>
+      
+      
+      <div class="slice-field slice-why">
+        <div class="slice-field-label">Why</div>
+        <div class="slice-field-value">
+          
+          <div class="markdown-block serif-prose"><p>Without this, &#34;ownership&#34; silently lapses: a reconnected/idle session keeps editing
+under a claim the liveness model already considers dead, and reclaims leave no audit
+trail — undermining the claim path as an enforcement invariant and the lineage story.</p>
+</div>
+          
+        </div>
+      </div>
+      
+      
+      <div class="slice-field">
+        <div class="slice-field-label">Files</div>
+        <div class="slice-field-value"><code>cmd/wipnote/workitem.go, internal/db/claim_collision.go, internal/db/session_repo.go, internal/hooks/pretooluse.go</code></div>
+      </div>
+      
+      
+      <div class="slice-field">
+        <div class="slice-field-label">Done when</div>
+        <ul class="slice-done-list"><li>Reclaiming a stale-heartbeat claim via `start` records a reclaim provenance event on the item (prior owner &#43; reclaiming session)</li><li>A Write/Edit under a claim whose heartbeat is stale first warns then blocks (escalating) until an explicit reclaim refreshes the heartbeat</li><li>A fresh-heartbeat claim is unaffected (no warn, no block)</li><li>Behavior holds on all three harnesses (CLI reclaim &#43; PreToolUse guard)</li></ul>
+      </div>
+      
+    
+
+    
+    <div class="slice-field slice-decisions-notes">
+      <div class="slice-field-label">Decisions</div>
+      <div class="slice-field-value">
+        
+        <input type="checkbox" id="slice-3-decisions-reveal" class="reveal-toggle">
+        <div class="markdown-block reveal-content serif-prose"><p><strong>Trigger:</strong> (a) <code>wipnote feature/bug/spike start</code> on an item with a stale-heartbeat
+foreign claim; (b) PreToolUse Write/Edit when the active claim&#39;s heartbeat is stale.
+<strong>State:</strong> reuses SessionLivenessByHeartbeat (session_repo.go:391) + LivenessStalenessThreshold;
+reclaim event on the work-item artifact; escalation marker (slice-1) keyed by (stale-claim, item).
+<strong>Payload:</strong> reclaim provenance event (prior owner session, reclaiming session, timestamp);
+block reason naming the stale claim and the reclaim command.
+<strong>Rejected:</strong> auto-reclaiming silently (current behavior) — loses the audit trail and lets
+ownership lapse invisibly. Hard-refuse on first stale write — too aggressive for a normal
+reconnect-after-idle; escalating gives one warn to run the reclaim.</p>
+</div>
+        <label for="slice-3-decisions-reveal" class="reveal-label">Show full decisions</label>
+        
+      </div>
+    </div>
+    
+
+    
+    <div class="slice-field slice-tests-field">
+      <div class="slice-field-label">Test Strategy</div>
+      <div class="slice-field-value">
+        
+        
+        <div class="test-strategy">
+          
+          <div class="test-group" data-kind="other">
+            <span class="test-chip">OTHER &middot; 2</span>
+            <ul><li>Unit (TMPDIR=.gotest-tmp): TestReclaim_StampsProvenance — stale claim reclaim writes event.</li><li>Reuse SessionLivenessByHeartbeat / LiveCollision fixtures from feat-5a9839fb tests.</li></ul>
+          </div>
+          
+          <div class="test-group" data-kind="unit">
+            <span class="test-chip">UNIT &middot; 1</span>
+            <ul><li>TestContinueGuard_StaleHeartbeat — stale claim Write warns then blocks; fresh claim passes.</li></ul>
+          </div>
+          
+        </div>
+        
+      </div>
+    </div>
+    
+
+    
+
+    
+    <div class="slice-field slice-questions">
+      <div class="slice-field-label">Open Questions</div>
+      <div class="slice-field-value">
+        
+        <div class="question-block slice-question-block">
+          <p>Use the same LivenessStalenessThreshold (120s window) for the continue-guard as for live-collision, or a longer grace before the continue-guard escalates?</p>
+          
+          
+          <textarea
+            data-section="slice-3-question-q-stale-window"
+            data-comment-for="slice-3-question-q-stale-window"
+            placeholder="Answer question q-stale-window...">Reuse the same configurable LivenessStalenessThreshold for consistency (one notion of &#39;stale&#39; across the claim path); if reconnect-after-idle proves noisy, expose a separate continue-guard grace as a follow-up rather than hardcoding two windows now.</textarea>
+          
+        </div>
+        
+      </div>
+    </div>
+    
+
+    <div class="slice-deps">Dependencies: slices 1</div>
+
+    <details class="comment-collapse">
+      <summary class="comment-collapse-trigger">+ Leave a comment</summary>
+      <div class="comment-collapse-body">
+        <textarea data-section="slice-3" data-comment-for="slice-3" placeholder="Comments on slice 3..."></textarea>
+      </div>
+    </details>
+  </div>
+</details>
+<details class="slice-card" id="slice-4" data-slice="4" data-slice-name="slice-4" data-status="pending" data-approval="pending">
+  <summary class="slice-summary" aria-label="Slice 4: c4 — daemon-migration marker convention &#43; surfacing command">
+    <span class="slice-num">#4</span>
+    <span class="slice-title-col">
+      <span class="slice-name">c4 — daemon-migration marker convention &#43; surfacing command</span>
+      <span class="slice-preview">A lightweight, greenfield convention that tags each always-on CLI/hook enforcement</span>
+      <span class="slice-meta-row">
+        <span class="slice-summary-badges">
+          <span class="badge badge-pending badge-sm">S</span>
+          <span class="badge badge-pending badge-sm">Low</span>
+          <span class="badge badge-discuss badge-sm badge-complexity" title="Complexity: standard">Standard</span>
+          
+          <span class="badge badge-pending badge-sm slice-approval-badge" data-badge-for="slice-4">Pending</span>
+          
+          
+        </span>
+        <span class="slice-actions" onclick="event.stopPropagation()">
+          <span class="approval-segmented" role="group" aria-label="Approval action">
+            <label class="seg-btn seg-approve" title="Approve">
+              <input type="radio" name="slice-4-approval" value="approved" data-section="slice-4" data-action="approve" aria-label="Approve slice 4">
+              &#10003;
+            </label>
+            <label class="seg-btn seg-changes" title="Request changes">
+              <input type="radio" name="slice-4-approval" value="changes_requested" data-section="slice-4" data-action="approve" aria-label="Request changes for slice 4">
+              &#8635;
+            </label>
+            <label class="seg-btn seg-reject" title="Reject">
+              <input type="radio" name="slice-4-approval" value="rejected" data-section="slice-4" data-action="approve" aria-label="Reject slice 4">
+              &#10005;
+            </label>
+          </span>
+        </span>
+      </span>
+    </span>
+    <span class="slice-chevron" aria-hidden="true"></span>
+  </summary>
+
+  <div class="slice-body">
+    
+      
+      <div class="slice-field slice-what">
+        <div class="slice-field-label">What</div>
+        <div class="slice-field-value">
+          
+          <input type="checkbox" id="slice-4-what-reveal" class="reveal-toggle">
+          <div class="markdown-block reveal-content serif-prose"><p>A lightweight, greenfield convention that tags each always-on CLI/hook enforcement
+gate as a future write-owner-daemon (plan-bb91616a Phase A) migration candidate. A
+small in-code registry (gate id, where it lives, what it enforces, daemon-migration:
+yes/no/done) plus a <code>wipnote</code> surface (e.g. <code>wipnote check --gates</code> or a generated
+doc table) that lists the gates and their migration status. Gives Phase A a concrete,
+machine-readable checklist instead of re-discovering the gates by grep.</p>
+</div>
+          <label for="slice-4-what-reveal" class="reveal-label">Show full description</label>
+          
+        </div>
+      </div>
+      
+      
+      <div class="slice-field slice-why">
+        <div class="slice-field-label">Why</div>
+        <div class="slice-field-value">
+          
+          <div class="markdown-block serif-prose"><p>The interview asked that every invariant added now carry a marker so plan-bb91616a has
+a clean migration checklist. The audit found no such convention exists today (greenfield)
+and the gate inventory is implicit across ~18 PreToolUse checks — easy to miss one when
+moving invariants into the daemon write path.</p>
+</div>
+          
+        </div>
+      </div>
+      
+      
+      <div class="slice-field">
+        <div class="slice-field-label">Files</div>
+        <div class="slice-field-value"><code>internal/enforce/gates_registry.go, cmd/wipnote/check.go</code></div>
+      </div>
+      
+      
+      <div class="slice-field">
+        <div class="slice-field-label">Done when</div>
+        <ul class="slice-done-list"><li>Each always-on enforcement gate has a registry entry (id, location, what-it-enforces, daemon-migration status)</li><li>`wipnote check --gates` (or equivalent) prints the gate inventory with migration status</li><li>New gates from slice-2 and slice-3 are registered as daemon-migration candidates</li></ul>
+      </div>
+      
+    
+
+    
+    <div class="slice-field slice-decisions-notes">
+      <div class="slice-field-label">Decisions</div>
+      <div class="slice-field-value">
+        
+        <input type="checkbox" id="slice-4-decisions-reveal" class="reveal-toggle">
+        <div class="markdown-block reveal-content serif-prose"><p><strong>Trigger:</strong> explicit CLI invocation (<code>wipnote check --gates</code>); the registry itself is
+compile-time data.
+<strong>State:</strong> in-code registry (single source of truth), not persisted — derived view only.
+<strong>Payload:</strong> table of gate id, file location, enforcement summary, daemon-migration status.
+<strong>Rejected:</strong> scattered TODO(daemon) comments — not machine-readable, can&#39;t be surfaced or
+counted. A separate YAML/doc file — drifts from code; keep the registry next to the gates.</p>
+</div>
+        <label for="slice-4-decisions-reveal" class="reveal-label">Show full decisions</label>
+        
+      </div>
+    </div>
+    
+
+    
+    <div class="slice-field slice-tests-field">
+      <div class="slice-field-label">Test Strategy</div>
+      <div class="slice-field-value">
+        
+        
+        <div class="test-strategy">
+          
+          <div class="test-group" data-kind="other">
+            <span class="test-chip">OTHER &middot; 1</span>
+            <ul><li>Unit (TMPDIR=.gotest-tmp): TestGatesRegistry_ListsAll — registry non-empty, entries well-formed.</li></ul>
+          </div>
+          
+          <div class="test-group" data-kind="smoke">
+            <span class="test-chip">SMOKE &middot; 1</span>
+            <ul><li>`wipnote check --gates` exits 0 and prints the new gates as migration candidates.</li></ul>
+          </div>
+          
+        </div>
+        
+      </div>
+    </div>
+    
+
+    
+
+    
+
+    <div class="slice-deps">Dependencies: none</div>
+
+    <details class="comment-collapse">
+      <summary class="comment-collapse-trigger">+ Leave a comment</summary>
+      <div class="comment-collapse-body">
+        <textarea data-section="slice-4" data-comment-for="slice-4" placeholder="Comments on slice 4..."></textarea>
+      </div>
+    </details>
+  </div>
+</details>
+<details class="slice-card" id="slice-5" data-slice="5" data-slice-name="slice-5" data-status="pending" data-approval="pending">
+  <summary class="slice-summary" aria-label="Slice 5: c1 residual — non-YOLO subagent claim grace">
+    <span class="slice-num">#5</span>
+    <span class="slice-title-col">
+      <span class="slice-name">c1 residual — non-YOLO subagent claim grace</span>
+      <span class="slice-preview">Audit-surfaced refinement to the already-always-on work-item guard.</span>
+      <span class="slice-meta-row">
+        <span class="slice-summary-badges">
+          <span class="badge badge-pending badge-sm">S</span>
+          <span class="badge badge-revision badge-sm">Med</span>
+          <span class="badge badge-discuss badge-sm badge-complexity" title="Complexity: standard">Standard</span>
+          
+          <span class="badge badge-pending badge-sm slice-approval-badge" data-badge-for="slice-5">Pending</span>
+          
+          
+        </span>
+        <span class="slice-actions" onclick="event.stopPropagation()">
+          <span class="approval-segmented" role="group" aria-label="Approval action">
+            <label class="seg-btn seg-approve" title="Approve">
+              <input type="radio" name="slice-5-approval" value="approved" data-section="slice-5" data-action="approve" aria-label="Approve slice 5">
+              &#10003;
+            </label>
+            <label class="seg-btn seg-changes" title="Request changes">
+              <input type="radio" name="slice-5-approval" value="changes_requested" data-section="slice-5" data-action="approve" aria-label="Request changes for slice 5">
+              &#8635;
+            </label>
+            <label class="seg-btn seg-reject" title="Reject">
+              <input type="radio" name="slice-5-approval" value="rejected" data-section="slice-5" data-action="approve" aria-label="Reject slice 5">
+              &#10005;
+            </label>
+          </span>
+        </span>
+      </span>
+    </span>
+    <span class="slice-chevron" aria-hidden="true"></span>
+  </summary>
+
+  <div class="slice-body">
+    
+      
+      <div class="slice-field slice-what">
+        <div class="slice-field-label">What</div>
+        <div class="slice-field-value">
+          
+          <input type="checkbox" id="slice-5-what-reveal" class="reveal-toggle">
+          <div class="markdown-block reveal-content serif-prose"><p>Audit-surfaced refinement to the already-always-on work-item guard. Today
+checkYoloSubagentGrace (yolo_guard.go:83) grants its ~30s post-spawn bypass only when
+yolo mode is active, so in a NON-YOLO session a freshly spawned subagent that has not
+yet run <code>wipnote feature start</code> is hard-blocked on its first Write/Edit before it can
+claim. Extend the subagent grace to non-YOLO sessions (narrow window, same intent) so
+subagents can perform their initial claim, without weakening the always-on guard for
+established sessions.</p>
+</div>
+          <label for="slice-5-what-reveal" class="reveal-label">Show full description</label>
+          
+        </div>
+      </div>
+      
+      
+      <div class="slice-field slice-why">
+        <div class="slice-field-label">Why</div>
+        <div class="slice-field-value">
+          
+          <div class="markdown-block serif-prose"><p>The always-on work-item guard (c1) is correct, but its interaction with subagent
+spawn in non-YOLO mode can dead-end legitimate delegated work on the first tool call.
+This is the only real residual from the c1 audit (c1 itself is done).</p>
+</div>
+          
+        </div>
+      </div>
+      
+      
+      <div class="slice-field">
+        <div class="slice-field-label">Files</div>
+        <div class="slice-field-value"><code>internal/hooks/yolo_guard.go, internal/hooks/pretooluse.go</code></div>
+      </div>
+      
+      
+      <div class="slice-field">
+        <div class="slice-field-label">Done when</div>
+        <ul class="slice-done-list"><li>A freshly spawned subagent in a non-YOLO session may Write/Edit during the grace window before claiming</li><li>After the grace window with still no active work item, the subagent is blocked (guard intact)</li><li>Established (non-subagent) sessions are unaffected — no new bypass</li></ul>
+      </div>
+      
+    
+
+    
+    <div class="slice-field slice-decisions-notes">
+      <div class="slice-field-label">Decisions</div>
+      <div class="slice-field-value">
+        
+        <input type="checkbox" id="slice-5-decisions-reveal" class="reveal-toggle">
+        <div class="markdown-block reveal-content serif-prose"><p><strong>Trigger:</strong> PreToolUse Write/Edit by a subagent session within N seconds of spawn, in
+non-YOLO mode.
+<strong>State:</strong> spawn timestamp / subagent detection already used by checkYoloSubagentGrace.
+<strong>Payload:</strong> allow (grace) vs block (post-grace) decision.
+<strong>Rejected:</strong> removing the work-item guard for subagents entirely — would let delegated
+work edit source with no claim indefinitely. Keeping it YOLO-only (status quo) — leaves
+non-YOLO delegated work dead-ended on first write.</p>
+</div>
+        <label for="slice-5-decisions-reveal" class="reveal-label">Show full decisions</label>
+        
+      </div>
+    </div>
+    
+
+    
+    <div class="slice-field slice-tests-field">
+      <div class="slice-field-label">Test Strategy</div>
+      <div class="slice-field-value">
+        
+        
+        <div class="test-strategy">
+          
+          <div class="test-group" data-kind="other">
+            <span class="test-chip">OTHER &middot; 1</span>
+            <ul><li>Unit (TMPDIR=.gotest-tmp): TestSubagentGrace_NonYolo — fresh subagent within window passes, after window blocks.</li></ul>
+          </div>
+          
+          <div class="test-group" data-kind="regression">
+            <span class="test-chip">REGRESSION &middot; 1</span>
+            <ul><li>non-subagent non-YOLO write with no item still blocks.</li></ul>
+          </div>
+          
+        </div>
+        
+      </div>
+    </div>
+    
+
+    
+
+    
+
+    <div class="slice-deps">Dependencies: none</div>
+
+    <details class="comment-collapse">
+      <summary class="comment-collapse-trigger">+ Leave a comment</summary>
+      <div class="comment-collapse-body">
+        <textarea data-section="slice-5" data-comment-for="slice-5" placeholder="Comments on slice 5..."></textarea>
+      </div>
+    </details>
+  </div>
+</details>
+
     <!--PLAN_SLICE_CARDS-->
   </div>
 </details>
 
 <!-- Design Decisions (hidden for v2 plans — slice cards carry their own questions) -->
-<details id="questions" class="section-card" data-phase="questions" data-status="pending">
-  <summary><span>Design Decisions</span><span class="badge badge-pending" data-badge-for="questions">Pending</span></summary>
-  <div class="section-body">
-    <table class="q-table">
-      <thead><tr><th>Question</th><th>Selected</th><th>Status</th></tr></thead>
-      <tbody id="questionsRecap">
-        <!--PLAN_QUESTIONS_RECAP-->
-      </tbody>
-    </table>
-  </div>
-</details>
+
 
 
 
@@ -498,8 +1363,8 @@ body.right-rail-collapsed .sidebar-reopen{display:flex}
   <h2>Feedback Summary</h2>
   <div class="progress-stats">
     <div class="progress-stat"><strong id="approvedCount">0</strong> approved</div>
-    <div class="progress-stat"><strong id="totalSections">1</strong> sections</div>
-    <div class="progress-stat"><strong id="pendingCount">1</strong> pending</div>
+    <div class="progress-stat"><strong id="totalSections">6</strong> sections</div>
+    <div class="progress-stat"><strong id="pendingCount">6</strong> pending</div>
   </div>
   <div class="progress-bar-track"><div class="progress-bar-fill" id="progressFill" style="width:0%"></div></div>
   <div class="comments-summary">
@@ -579,7 +1444,7 @@ var planId=(function(){var a=document.querySelector('article[id]');return a?a.id
 
 (function(){
   'use strict';
-  var SECTIONS=/*PLAN_SECTIONS_JSON*/["design"]/*END_PLAN_SECTIONS_JSON*/;
+  var SECTIONS=/*PLAN_SECTIONS_JSON*/["design","slice-1","slice-2","slice-3","slice-4","slice-5"]/*END_PLAN_SECTIONS_JSON*/;
 
   function setBadge(el,ok){
     el.className='badge badge-'+(ok?'approved':'pending');

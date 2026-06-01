@@ -1,18 +1,274 @@
 meta:
     id: plan-ee999752
-    track_id: trk-15764941
     title: Cross-harness enforcement floor — always-on commit gates + CLI claim/write invariants
-    description: 'Lead-axis plan for the coordination-substrate workstream: make best-practice enforcement non-bypassable across Claude/Codex/Gemini by moving gates into the CLI claim/write path (the harness-agnostic floor) with PreToolUse JSON decision:block as the cross-harness intercept. Covers sub-axis (a) always-on commit-quality gates and (c) four always-on CLI invariants; sub-axis (b) session-end surfacing is deferred to its own plan. Failure mode is escalating warn-once -> block-on-repeat via a cross-session .wipnote/ marker. Builds on feat-5a9839fb and feat-4be58538. Slices pause for human review before promotion.'
-    created_at: "2026-06-01"
+    description: ""
+    created_at: ""
     status: draft
-    priority: medium
     schema_version: v3
-    version: 2
+    version: 1
 design:
-    problem: ""
-    goals: []
-    constraints: []
+    problem: |
+        Best-practice enforcement in wipnote is uneven across the three harnesses it ships to
+        (Claude Code, Codex CLI, Gemini CLI). The strongest gate — commit-quality (build/vet/test)
+        — fires ONLY in YOLO mode (yolo_guard.go:305 `if !yolo { return "" }`) and the TaskCompleted
+        quality gate targets ["claude"] only, so a normal Codex/Gemini/Claude session can commit a
+        failing build on every harness. Separately, the claim path enforces live-collision at start
+        (feat-5a9839fb) but lets a stale-heartbeat claim lapse silently with no reclaim audit trail.
+        The enforcement floor must be the wipnote CLI + (future) write-owner daemon — harness-agnostic
+        via JSON decision:block — not Claude-only exit-2 and not YOLO-only guards.
+    goals:
+        - Make commit-quality enforcement always-on (non-YOLO) and cross-harness via PreToolUse JSON decision:block
+        - 'Close the stale-claim half of the claim path: enforced reclaim + reclaim provenance audit trail'
+        - Give plan-bb91616a Phase A a machine-readable daemon-migration checklist of every enforcement gate
+        - Add escalating warn-once->block-on-repeat as reusable cross-session infra without downgrading existing hard-refuse gates
+        - 'Fix the audit-surfaced c1 residual: non-YOLO subagents must be able to claim before the work-item guard blocks them'
+    constraints:
+        - No new runtime dependency — stdlib + existing go.mod only
+        - Escalation state lives in the .wipnote/ canonical store, not SQLite (derived/per-user) — must survive session + harness restart
+        - Do NOT downgrade existing always-on hard-refuse gates (c1 work-item, c3 provenance) to escalating
+        - CLI-direct enforcement now; mark new gates as write-owner-daemon migration candidates (daemon is unbuilt — plan-bb91616a still draft)
+        - Quality gates must pass with TMPDIR set to an exec-capable non-git dir; never background `wipnote reindex`
     approved: false
     comment: ""
-slices: []
+slices:
+    - id: slice-1
+      num: 1
+      title: Escalation-marker primitive — cross-session warn-once then block-on-repeat (.wipnote/)
+      what: |
+        New internal/enforce package providing a persisted escalation marker keyed by
+        (gate-id, scope-key). First Check returns Warn and writes a marker under
+        .wipnote/; a subsequent Check for the same key returns Block. Markers are plain
+        files in the canonical store so they survive session AND harness restart. API:
+        Check(gateID, key) -> {Warn|Block}, Clear(gateID, key), and a sweep to expire
+        stale markers. This is shared infra consumed by the commit gate (slice-2) and the
+        stale-claim guard (slice-3); the deferred sub-axis (b) session-end surfacing will
+        also reuse it.
+      why: |
+        The interview chose an escalating failure mode (warn once, block on repeat), which
+        requires persisted cross-session state. No such primitive exists today (the
+        existing always-on guards are immediate hard-block). Centralizing it prevents each
+        gate from inventing its own state file (DRY) and keeps the floor harness-agnostic.
+      files:
+        - internal/enforce/escalation.go
+        - internal/enforce/escalation_test.go
+      deps: []
+      done_when:
+        - First Check for a (gateID,key) returns Warn and writes a marker file under .wipnote/
+        - A second Check for the same (gateID,key) returns Block
+        - Marker persists across process restart (re-reading from disk yields Block, not Warn)
+        - Clear removes the marker so the next Check warns again
+      effort: M
+      risk: Med
+      tests: |
+        Unit (TMPDIR=.gotest-tmp): TestEscalation_WarnThenBlock — first call Warn, second Block.
+        Unit: TestEscalation_PersistAcrossReopen — write, construct fresh store from same dir, expect Block.
+        Unit: TestEscalation_ClearResets — Clear then Check returns Warn.
+        Unit: TestEscalation_StaleSweep — marker older than TTL is expired.
+      complexity: complex
+      approved: false
+      comment: ""
+      questions:
+        - id: q-granularity
+          text: 'Escalation key granularity: per (gate) globally, per (gate, work-item), or per (gate, session)?'
+          answer: Per (gate, scopeKey) where scopeKey is gate-defined — commit gate keys by repo+failing-check, stale-claim keys by work-item. Avoids one project-wide warning masking unrelated violations while still surviving session restart. Not per-session (that would reset the escalation every restart).
+      decisions_notes: |
+        **Trigger:** invoked by enforcement gates (commit gate, stale-claim guard) when a
+        violation is first detected; not a hook itself.
+        **State:** plain marker file(s) under .wipnote/ (canonical, committed-store-aligned,
+        harness-agnostic). Keyed by (gateID, scopeKey) so different gates and different
+        targets escalate independently.
+        **Payload:** marker records gateID, scopeKey, first-seen timestamp, harness, session.
+        **Rejected:** SQLite-backed counters — SQLite is derived/per-user/not committed, so a
+        DB rebuild silently grants a fresh free warning. In-memory only — a restarted session
+        re-grants a free warning every time, defeating "block on repeat" across sessions.
+    - id: slice-2
+      num: 2
+      title: Always-on commit-quality gate — extract shared gate + PreToolUse git-commit intercept (all 3 harnesses)
+      what: |
+        Make commit-quality enforcement non-YOLO. Two steps in one slice:
+        (1) Extract the quality-check logic out of checkYoloCommitGuard
+        (internal/hooks/yolo_guard.go:204/305) into a single shared function (the gate runs
+        `wipnote check`). The existing YOLO path calls the shared function unchanged.
+        (2) Add an always-on PreToolUse handler that intercepts Bash `git commit` on all
+        three harnesses, runs the shared gate, and on failure emits JSON {"decision":"block"}
+        via the existing harness.go emitters (Claude/Codex/Gemini). Failure is escalating
+        per slice-1: first failing-commit attempt Warns (surfaces what is broken), a repeat
+        attempt in the same failing state Blocks.
+      why: |
+        Confirmed gap: today checkYoloCommitGuard opens with `if !yolo { return "" }`
+        (yolo_guard.go:305) and the TaskCompleted quality gate targets ["claude"] only — so a
+        normal Codex/Gemini/Claude session can commit with a failing build/tests, on every
+        harness. This is the headline proof of "CLI/daemon as the enforcement floor" for the
+        commit path. Extracting the shared gate (interview choice) keeps one definition of
+        "a passing commit".
+      files:
+        - internal/hooks/yolo_guard.go
+        - internal/hooks/pretooluse.go
+        - internal/hooks/harness.go
+        - cmd/wipnote/check.go
+        - packages/plugin-core/manifest.json
+      deps:
+        - 1
+      done_when:
+        - On a normal (non-YOLO) Claude session, `git commit` with a failing `wipnote check` is blocked (after the escalation warn->block step)
+        - Same commit on Codex is blocked via JSON {"decision":"block"} (emitCodexResponse)
+        - Same commit on Gemini is blocked via {"continue":false,"decision":"block"} (emitGeminiResponse)
+        - A commit that passes `wipnote check` is allowed on all three harnesses
+        - The existing YOLO commit guard still enforces, now via the shared extracted function (no behavior regression)
+      effort: M
+      risk: Med
+      tests: |
+        Unit (TMPDIR=.gotest-tmp): TestSharedCommitGate_PassFail — shared fn returns block on failing check, allow on passing.
+        Unit: TestCommitGate_Escalates — first failing attempt warns, second blocks (consumes slice-1).
+        Harness: assert emitCodexResponse / emitGeminiResponse shapes for a blocked commit.
+        Regression: existing YOLO commit-guard test still passes against the extracted fn.
+      complexity: complex
+      approved: false
+      comment: ""
+      questions:
+        - id: q-commit-failmode
+          text: Should the commit gate use escalating warn->block (interview default) or hard-refuse with an explicit --force-style override, given that 'warn' lets one broken commit land?
+          answer: Default to escalating per the interview, but flag for human review — committing a failing build is the highest-stakes gate and may warrant hard-refuse-with-override. Reviewer decides at promotion; the shared gate is written so the fail-mode is a single switch.
+      decisions_notes: |
+        **Trigger:** PreToolUse on Bash whose command is a `git commit` (and amend/commit -m
+        variants). Cross-harness intercept because git commit is a Bash tool call on all three.
+        **State:** escalation marker from slice-1, keyed by (commit-gate, repo + failing-check
+        signature).
+        **Payload:** JSON decision:block + reason listing the failing `wipnote check` output;
+        Claude also has exit-2 available but the JSON path is the cross-harness primitive.
+        **Rejected:** `wipnote commit` CLI wrapper as the sole seam — raw `git commit` escapes
+        it unless a hook also blocks, so the hook IS the floor. Belt-and-suspenders wrapper
+        deferred (not needed for the floor).
+        **TENSION FOR HUMAN REVIEW:** escalating semantics let ONE failing commit through
+        (the warn step) before blocking. For "commit with failing build" that may be too lax;
+        a reviewer may prefer hard-refuse-with-override for this specific gate. Captured as the
+        slice question below; default follows the interview's escalating choice.
+    - id: slice-3
+      num: 3
+      title: c2 — stale-claim continue-guard + reclaim provenance stamp
+      what: |
+        Close the missing half of the claim path. Today live-collision is a hard-refuse at
+        `start` (workitem.go:331, feat-5a9839fb) but a stale-heartbeat claim is a silent
+        pass-through: re-running `wipnote feature start <id>` on a stale claim proceeds with no
+        record, and PreToolUse keeps treating the persisted claim as valid even after the
+        owning session's heartbeat goes stale. Add: (1) when start reclaims a stale claim,
+        stamp a reclaim provenance event on the work item (who reclaimed, prior owner, when);
+        (2) a continue-guard so that writing under a claim whose heartbeat has gone stale
+        escalates (warn via slice-1, then block) until an explicit reclaim refreshes it.
+      why: |
+        Without this, "ownership" silently lapses: a reconnected/idle session keeps editing
+        under a claim the liveness model already considers dead, and reclaims leave no audit
+        trail — undermining the claim path as an enforcement invariant and the lineage story.
+      files:
+        - cmd/wipnote/workitem.go
+        - internal/db/claim_collision.go
+        - internal/db/session_repo.go
+        - internal/hooks/pretooluse.go
+      deps:
+        - 1
+      done_when:
+        - Reclaiming a stale-heartbeat claim via `start` records a reclaim provenance event on the item (prior owner + reclaiming session)
+        - A Write/Edit under a claim whose heartbeat is stale first warns then blocks (escalating) until an explicit reclaim refreshes the heartbeat
+        - A fresh-heartbeat claim is unaffected (no warn, no block)
+        - Behavior holds on all three harnesses (CLI reclaim + PreToolUse guard)
+      effort: M
+      risk: Med
+      tests: |
+        Unit (TMPDIR=.gotest-tmp): TestReclaim_StampsProvenance — stale claim reclaim writes event.
+        Unit: TestContinueGuard_StaleHeartbeat — stale claim Write warns then blocks; fresh claim passes.
+        Reuse SessionLivenessByHeartbeat / LiveCollision fixtures from feat-5a9839fb tests.
+      complexity: complex
+      approved: false
+      comment: ""
+      questions:
+        - id: q-stale-window
+          text: Use the same LivenessStalenessThreshold (120s window) for the continue-guard as for live-collision, or a longer grace before the continue-guard escalates?
+          answer: Reuse the same configurable LivenessStalenessThreshold for consistency (one notion of 'stale' across the claim path); if reconnect-after-idle proves noisy, expose a separate continue-guard grace as a follow-up rather than hardcoding two windows now.
+      decisions_notes: |
+        **Trigger:** (a) `wipnote feature/bug/spike start` on an item with a stale-heartbeat
+        foreign claim; (b) PreToolUse Write/Edit when the active claim's heartbeat is stale.
+        **State:** reuses SessionLivenessByHeartbeat (session_repo.go:391) + LivenessStalenessThreshold;
+        reclaim event on the work-item artifact; escalation marker (slice-1) keyed by (stale-claim, item).
+        **Payload:** reclaim provenance event (prior owner session, reclaiming session, timestamp);
+        block reason naming the stale claim and the reclaim command.
+        **Rejected:** auto-reclaiming silently (current behavior) — loses the audit trail and lets
+        ownership lapse invisibly. Hard-refuse on first stale write — too aggressive for a normal
+        reconnect-after-idle; escalating gives one warn to run the reclaim.
+    - id: slice-4
+      num: 4
+      title: c4 — daemon-migration marker convention + surfacing command
+      what: |
+        A lightweight, greenfield convention that tags each always-on CLI/hook enforcement
+        gate as a future write-owner-daemon (plan-bb91616a Phase A) migration candidate. A
+        small in-code registry (gate id, where it lives, what it enforces, daemon-migration:
+        yes/no/done) plus a `wipnote` surface (e.g. `wipnote check --gates` or a generated
+        doc table) that lists the gates and their migration status. Gives Phase A a concrete,
+        machine-readable checklist instead of re-discovering the gates by grep.
+      why: |
+        The interview asked that every invariant added now carry a marker so plan-bb91616a has
+        a clean migration checklist. The audit found no such convention exists today (greenfield)
+        and the gate inventory is implicit across ~18 PreToolUse checks — easy to miss one when
+        moving invariants into the daemon write path.
+      files:
+        - internal/enforce/gates_registry.go
+        - cmd/wipnote/check.go
+      deps: []
+      done_when:
+        - Each always-on enforcement gate has a registry entry (id, location, what-it-enforces, daemon-migration status)
+        - '`wipnote check --gates` (or equivalent) prints the gate inventory with migration status'
+        - New gates from slice-2 and slice-3 are registered as daemon-migration candidates
+      effort: S
+      risk: Low
+      tests: |
+        Unit (TMPDIR=.gotest-tmp): TestGatesRegistry_ListsAll — registry non-empty, entries well-formed.
+        Smoke: `wipnote check --gates` exits 0 and prints the new gates as migration candidates.
+      complexity: standard
+      approved: false
+      comment: ""
+      decisions_notes: |
+        **Trigger:** explicit CLI invocation (`wipnote check --gates`); the registry itself is
+        compile-time data.
+        **State:** in-code registry (single source of truth), not persisted — derived view only.
+        **Payload:** table of gate id, file location, enforcement summary, daemon-migration status.
+        **Rejected:** scattered TODO(daemon) comments — not machine-readable, can't be surfaced or
+        counted. A separate YAML/doc file — drifts from code; keep the registry next to the gates.
+    - id: slice-5
+      num: 5
+      title: c1 residual — non-YOLO subagent claim grace
+      what: |
+        Audit-surfaced refinement to the already-always-on work-item guard. Today
+        checkYoloSubagentGrace (yolo_guard.go:83) grants its ~30s post-spawn bypass only when
+        yolo mode is active, so in a NON-YOLO session a freshly spawned subagent that has not
+        yet run `wipnote feature start` is hard-blocked on its first Write/Edit before it can
+        claim. Extend the subagent grace to non-YOLO sessions (narrow window, same intent) so
+        subagents can perform their initial claim, without weakening the always-on guard for
+        established sessions.
+      why: |
+        The always-on work-item guard (c1) is correct, but its interaction with subagent
+        spawn in non-YOLO mode can dead-end legitimate delegated work on the first tool call.
+        This is the only real residual from the c1 audit (c1 itself is done).
+      files:
+        - internal/hooks/yolo_guard.go
+        - internal/hooks/pretooluse.go
+      deps: []
+      done_when:
+        - A freshly spawned subagent in a non-YOLO session may Write/Edit during the grace window before claiming
+        - After the grace window with still no active work item, the subagent is blocked (guard intact)
+        - Established (non-subagent) sessions are unaffected — no new bypass
+      effort: S
+      risk: Med
+      tests: |
+        Unit (TMPDIR=.gotest-tmp): TestSubagentGrace_NonYolo — fresh subagent within window passes, after window blocks.
+        Regression: non-subagent non-YOLO write with no item still blocks.
+      complexity: standard
+      approved: false
+      comment: ""
+      decisions_notes: |
+        **Trigger:** PreToolUse Write/Edit by a subagent session within N seconds of spawn, in
+        non-YOLO mode.
+        **State:** spawn timestamp / subagent detection already used by checkYoloSubagentGrace.
+        **Payload:** allow (grace) vs block (post-grace) decision.
+        **Rejected:** removing the work-item guard for subagents entirely — would let delegated
+        work edit source with no claim indefinitely. Keeping it YOLO-only (status quo) — leaves
+        non-YOLO delegated work dead-ended on first write.
 questions: []

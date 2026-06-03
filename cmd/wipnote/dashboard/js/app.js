@@ -3100,6 +3100,10 @@ function highlightSession(sessionId) {
 
 /* ── Terminal feature gate ─────────────────────────────────── */
 
+// terminalFeatureAvailable tracks whether the backend has terminal routes.
+// Set by probeTerminalFeature(); checked by the liveness poll to gate requests.
+var terminalFeatureAvailable = undefined; // undefined = still probing, true = available, false = not available
+
 // probeTerminalFeature checks once at init whether the backend has the
 // terminal routes registered (WIPNOTE_TERMINAL env var). On 404 (or
 // any network error) the open-terminal button is hidden so the feature
@@ -3108,11 +3112,19 @@ function probeTerminalFeature() {
   fetch(buildProjectUrl('terminal/sessions'))
     .then(function(r) {
       if (r.status === 404) {
+        terminalFeatureAvailable = false;
+        var btn = document.getElementById('open-terminal-btn');
+        if (btn) btn.style.display = 'none';
+      } else if (r.ok) {
+        terminalFeatureAvailable = true;
+      } else {
+        terminalFeatureAvailable = false;
         var btn = document.getElementById('open-terminal-btn');
         if (btn) btn.style.display = 'none';
       }
     })
     .catch(function() {
+      terminalFeatureAvailable = false;
       var btn = document.getElementById('open-terminal-btn');
       if (btn) btn.style.display = 'none';
     });
@@ -3846,8 +3858,9 @@ function updateLauncherCapState() {
 // Liveness poll: fetch /api/terminal/sessions every 4s, sync pane state.
 // Skip at the doorway landing (/) — the terminal routes only exist under
 // /p/<id>/ in multi-project serve, and polling the doorway would 404-spam.
+// Also skip if terminal feature is not available (terminalFeatureAvailable === false).
 setInterval(function() {
-  if (isDoorwayLanding()) return;
+  if (!terminalFeatureAvailable || isDoorwayLanding()) return;
   fetch(buildProjectUrl('terminal/sessions'))
     .then(function(r) { return r.json(); })
     .then(function(data) {

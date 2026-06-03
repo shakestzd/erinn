@@ -89,7 +89,9 @@ class HgEventTree extends HTMLElement {
 
   async load() {
     var limit = this.dataset.limit || 50;
-    this.innerHTML = '<div class="empty-state">Loading activity…</div>';
+    if (!this.turns || this.turns.length === 0) {
+      this.innerHTML = '<div class="empty-state">Loading activity…</div>';
+    }
     try {
       var resp = await fetch(buildProjectUrl('events/tree', 'limit=' + limit));
       if (!resp.ok) throw new Error('HTTP ' + resp.status);

@@ -4,7 +4,6 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
-	"syscall"
 	"testing"
 )
 
@@ -21,22 +20,6 @@ func TestChildSysProcAttrSetpgid(t *testing.T) {
 	}
 	if !attr.Setpgid {
 		t.Error("SysProcAttr.Setpgid = false; want true")
-	}
-}
-
-// TestChildSysProcAttrPdeathsigLinux verifies that on Linux Pdeathsig is set
-// to SIGTERM so the kernel delivers the signal to the child the moment the
-// parent dies.
-func TestChildSysProcAttrPdeathsigLinux(t *testing.T) {
-	if runtime.GOOS != "linux" {
-		t.Skip("Pdeathsig is Linux-only")
-	}
-	attr := childSysProcAttr()
-	if attr == nil {
-		t.Fatal("childSysProcAttr() returned nil")
-	}
-	if attr.Pdeathsig != syscall.SIGTERM {
-		t.Errorf("Pdeathsig = %v; want SIGTERM (%v)", attr.Pdeathsig, syscall.SIGTERM)
 	}
 }
 

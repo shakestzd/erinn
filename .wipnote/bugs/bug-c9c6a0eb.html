@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>Dashboard polls /api/terminal/sessions every 4s forever — 404 flood when WIPNOTE_TERMINAL unset</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="bug-c9c6a0eb"
+             data-type="bug"
+             data-status="todo"
+             data-priority="medium"
+             data-created="2026-06-03T14:50:06.751078"
+             data-updated="2026-06-03T14:50:06.77896" data-agent-assigned="claude-code" data-track-id="trk-d8aef97a" data-created-by-agent="claude-code" data-created-by-model="claude-opus-4-8[1m]" data-created-by-cli-version="0.60.19-92-g1a12d927e">
+
+        <header>
+            <h1>Dashboard polls /api/terminal/sessions every 4s forever — 404 flood when WIPNOTE_TERMINAL unset</h1>
+            <div class="metadata">
+                <span class="badge status-todo">Todo</span>
+                <span class="badge priority-medium">Medium Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="trk-d8aef97a.html" data-relationship="part_of" data-since="2026-06-03T14:50:06.778095">trk-d8aef97a</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>Discovered during Playwright QA: the project dashboard fires GET /api/terminal/sessions every 4s with no back-off, producing hundreds of 404 console errors (190+ in ~2min) on any /p// page. Root cause is client-side: the terminal routes ARE implemented (cmd/wipnote/serve.go:150-155 -> handleTerminalSessions in terminal_handlers.go) but gated behind os.Getenv WIPNOTE_TERMINAL == 1, so they 404 when unset. A startup probe probeTerminalFeature (dashboard/js/app.js:3108) already detects absence and hides the button, but the separate liveness setInterval at app.js:3849-3859 polls blindly and swallows the error in an empty .catch(). Fix (client): have the probe record a terminalFeatureAvailable flag (false on 404) and guard the interval body so the poll stops once the feature is known absent. Server route is correct; do not change it.</p>
+        </section>
+    </article>
+</body>
+</html>

@@ -149,7 +149,23 @@ func autoDetectCurrentProject() *registry.Entry {
 //  4. Plumb SIGINT/SIGTERM through http.Server.RegisterOnShutdown to
 //     SIGTERM all children cleanly before exit.
 func runParentServer(bind string, port int) error {
-	sup := childproc.NewSupervisor(childproc.Options{})
+	// Resolve the project dir early so we can pass it to the supervisor
+	// for PID-file tracking and stale-child reaping.
+	parentProjectDir := ""
+	if wipnoteDir, err := findWipnoteDir(); err == nil {
+		parentProjectDir = filepath.Dir(wipnoteDir)
+	}
+
+	sup := childproc.NewSupervisor(childproc.Options{
+		PIDFileDir: parentProjectDir,
+	})
+
+	// Belt-and-suspenders stale-child reap: before binding the listen
+	// socket, terminate any _serve-child orphans from a previous hard-killed
+	// parent. Pdeathsig handles Linux; this sweep handles SIGKILL races and
+	// non-Linux platforms.
+	sup.ReapStaleChildren()
+
 	reaperCtx, stopReaper := context.WithCancel(context.Background())
 	defer stopReaper()
 	go sup.RunIdleReaper(reaperCtx)

@@ -52,6 +52,7 @@ import (
 	"net/url"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
@@ -60,6 +61,12 @@ import (
 	"syscall"
 	"time"
 )
+
+// serveChildrenPIDFile is the name of the file written inside a project's
+// .wipnote/ directory that records the PIDs of live _serve-child processes
+// spawned by this supervisor.  The file is covered by the .wipnote/**/*.pid
+// gitignore pattern and is therefore never committed.
+const serveChildrenPIDFile = ".serve-children.pid"
 
 // Options configures a Supervisor.
 type Options struct {
@@ -74,6 +81,13 @@ type Options struct {
 	// the ready line within this window is killed and GetOrSpawn returns
 	// an error.
 	SpawnTimeout time.Duration
+	// PIDFileDir is the directory that contains the .wipnote/ subdirectory
+	// for the parent project (i.e. the project root). When set, the
+	// supervisor writes spawned child PIDs to
+	// <PIDFileDir>/.wipnote/.serve-children.pid so that the next serve
+	// parent startup can reap any orphans that survived a hard kill.
+	// When empty, PID-file tracking is disabled.
+	PIDFileDir string
 }
 
 // DefaultIdleTimeout is the IdleTimeout used when Options.IdleTimeout is
@@ -107,6 +121,7 @@ type Supervisor struct {
 	binPath      string
 	idleTimeout  time.Duration
 	spawnTimeout time.Duration
+	pidFilePath  string // absolute path to .serve-children.pid; empty = disabled
 }
 
 // NewSupervisor constructs a Supervisor with the given options.
@@ -125,13 +140,24 @@ func NewSupervisor(opts Options) *Supervisor {
 	if spawn == 0 {
 		spawn = DefaultSpawnTimeout
 	}
+	pidFilePath := ""
+	if opts.PIDFileDir != "" {
+		pidFilePath = pidFilePath_(opts.PIDFileDir)
+	}
 	return &Supervisor{
 		children:     make(map[string]*Child),
 		spawnGroups:  make(map[string]*sync.Once),
 		binPath:      binPath,
 		idleTimeout:  idle,
 		spawnTimeout: spawn,
+		pidFilePath:  pidFilePath,
 	}
+}
+
+// pidFilePath_ returns the absolute path for the serve-children PID file
+// given the project root directory (the directory that contains .wipnote/).
+func pidFilePath_(projectDir string) string {
+	return filepath.Join(projectDir, ".wipnote", serveChildrenPIDFile)
 }
 
 // handshakeRE matches exactly the line the _serve-child subcommand prints
@@ -213,6 +239,13 @@ func (s *Supervisor) spawnLocked(ctx context.Context, projectID, projectDir stri
 		"_serve-child",
 		"--port", "0",
 	)
+
+	// Platform-specific process attributes:
+	//   Linux:  Setpgid isolates the child in its own pgroup; Pdeathsig
+	//           delivers SIGTERM to the child immediately when the parent
+	//           dies — kernel-level orphan prevention.
+	//   Others: Setpgid only (Pdeathsig is Linux-specific).
+	cmd.SysProcAttr = childSysProcAttr()
 
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
@@ -318,6 +351,11 @@ func (s *Supervisor) spawnLocked(ctx context.Context, projectID, projectDir stri
 	}
 	child.LastRequest.Store(time.Now().Unix())
 
+	// Record the child PID so a future serve-parent startup can reap it
+	// if the current parent dies without a graceful shutdown (belt-and-
+	// suspenders, complements Pdeathsig on Linux).
+	s.recordChildPID(hs.pid)
+
 	// Reaper goroutine: waits for the process and removes it from the
 	// supervisor map when it exits (normal shutdown, crash, idle reap).
 	go func() {
@@ -328,6 +366,10 @@ func (s *Supervisor) spawnLocked(ctx context.Context, projectID, projectDir stri
 			delete(s.children, projectID)
 		}
 		s.mu.Unlock()
+		// Remove the PID from the persistent file now that the child has
+		// exited — keeps the file tidy so the stale-reaper on next start
+		// has fewer entries to check.
+		s.forgetChildPID(hs.pid)
 		cancel()
 	}()
 
@@ -413,6 +455,109 @@ func (s *Supervisor) reapIdleOnce() {
 				_ = c.cmd.Process.Kill()
 			}
 		}(c)
+	}
+}
+
+// recordChildPID appends pid to the persistent PID file. Best-effort;
+// errors are silently ignored — the Pdeathsig path is the primary guard
+// on Linux, and stale-reap is a belt-and-suspenders secondary.
+func (s *Supervisor) recordChildPID(pid int) {
+	if s.pidFilePath == "" {
+		return
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	pids := s.readPIDsLocked()
+	pids = append(pids, pid)
+	_ = s.writePIDsLocked(pids)
+}
+
+// forgetChildPID removes pid from the persistent PID file. Best-effort.
+func (s *Supervisor) forgetChildPID(pid int) {
+	if s.pidFilePath == "" {
+		return
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	pids := s.readPIDsLocked()
+	out := pids[:0]
+	for _, p := range pids {
+		if p != pid {
+			out = append(out, p)
+		}
+	}
+	_ = s.writePIDsLocked(out)
+}
+
+// readPIDsLocked reads the PID file and returns the list of recorded PIDs.
+// Caller must hold s.mu. Returns nil on any read or parse error.
+func (s *Supervisor) readPIDsLocked() []int {
+	data, err := os.ReadFile(s.pidFilePath)
+	if err != nil {
+		return nil
+	}
+	var out []int
+	for _, line := range strings.Split(strings.TrimSpace(string(data)), "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+		if pid, err := strconv.Atoi(line); err == nil && pid > 0 {
+			out = append(out, pid)
+		}
+	}
+	return out
+}
+
+// writePIDsLocked serialises pids back to the PID file, creating it if
+// needed. Caller must hold s.mu.
+func (s *Supervisor) writePIDsLocked(pids []int) error {
+	var sb strings.Builder
+	for _, p := range pids {
+		sb.WriteString(strconv.Itoa(p))
+		sb.WriteByte('\n')
+	}
+	return os.WriteFile(s.pidFilePath, []byte(sb.String()), 0o644)
+}
+
+// ReapStaleChildren reads the persistent PID file and SIGTERMs any
+// recorded child that is still alive and whose /proc/<pid>/cmdline
+// confirms it is a wipnote _serve-child for the configured project
+// directory. On non-Linux platforms the /proc check is skipped and the
+// SIGTERM is sent whenever the PID is alive (best-effort). After
+// inspection the PID file is truncated so the current generation starts
+// clean.
+//
+// Call this from the serve parent on startup, before binding the listen
+// socket, to handle orphans left by a previous hard-killed parent.
+func (s *Supervisor) ReapStaleChildren() {
+	if s.pidFilePath == "" {
+		return
+	}
+	s.mu.Lock()
+	pids := s.readPIDsLocked()
+	// Truncate immediately so we start the new generation clean.
+	_ = s.writePIDsLocked(nil)
+	s.mu.Unlock()
+
+	for _, pid := range pids {
+		proc, err := os.FindProcess(pid)
+		if err != nil {
+			continue
+		}
+		// kill -0: check liveness without sending a signal.
+		if err := proc.Signal(syscall.Signal(0)); err != nil {
+			continue // process is gone — nothing to do
+		}
+		// Verify via /proc that this PID is actually our child, not an
+		// unrelated process that reused the PID. On non-Linux the guard
+		// is skipped and we rely on Pdeathsig having already done its job.
+		if !isServeChildPID(pid, s.pidFilePath) {
+			continue
+		}
+		// Best-effort SIGTERM.  The child's own deferred cleanup will
+		// flush logs and release the SQLite handle.
+		_ = proc.Signal(syscall.SIGTERM)
 	}
 }
 

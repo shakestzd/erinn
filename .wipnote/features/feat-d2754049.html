@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>Per-project write-owner daemon — Phase-A MVP (kill SQLITE_BUSY &#43; reap orphaned serve-children)</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="feat-d2754049"
+             data-type="feature"
+             data-status="todo"
+             data-priority="medium"
+             data-created="2026-06-03T15:42:27.161083"
+             data-updated="2026-06-03T15:42:27.179443" data-agent-assigned="claude-code" data-track-id="trk-cb36e595" data-created-by-agent="claude-code" data-created-by-model="claude-opus-4-8[1m]" data-created-by-cli-version="0.60.19-92-g1a12d927e">
+
+        <header>
+            <h1>Per-project write-owner daemon — Phase-A MVP (kill SQLITE_BUSY &#43; reap orphaned serve-children)</h1>
+            <div class="metadata">
+                <span class="badge status-todo">Todo</span>
+                <span class="badge priority-medium">Medium Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="trk-cb36e595.html" data-relationship="part_of" data-since="2026-06-03T15:42:27.179044">trk-cb36e595</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-steps>
+            <h3>Implementation Steps</h3>
+            <ol>
+                <li data-completed="false" data-step-id="step-feat-d2754049-0" data-agent="claude-code" data-created-by-agent="claude-code">⏳ MVP-1: Orphan reap — Setpgid &#43; Pdeathsig on child spawn in internal/childproc/childproc.go; SIGTERM stale child PIDs from a prior serve on next start (net-new; not in Phase-A)|MVP-2: Headless writer-only child mode &#43; Unix socket listener (.wipnote/writer.sock) &#43; WriterClient &#43; O_EXCL lease (.wipnote/writer.pid)</li>
+                <li data-completed="false" data-step-id="step-feat-d2754049-1" data-agent="claude-code" data-created-by-agent="claude-code">⏳ new internal/daemon/ (reuses plan-bb91616a slices 1&#43;2)|MVP-3: Route hook writes through WriterClient in internal/hooks/dbgate.go with direct-open fallback</li>
+                <li data-completed="false" data-step-id="step-feat-d2754049-2" data-agent="claude-code" data-created-by-agent="claude-code">⏳ no spool (reuses slice 4)|MVP-4: Route the two highest-contention CLI write sites (internal/workitem/project.go Open</li>
+                <li data-completed="false" data-step-id="step-feat-d2754049-3" data-agent="claude-code" data-created-by-agent="claude-code">⏳ cmd/wipnote/session.go openDB) through WriterClient (reuses slice 5</li>
+                <li data-completed="false" data-step-id="step-feat-d2754049-4" data-agent="claude-code" data-created-by-agent="claude-code">⏳ partial)</li>
+            </ol>
+        </section>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>Standalone minimal MVP of the per-project write-owner daemon, reusing plan-bb91616a Phase-A design (envelope op_format_version/op_id/op_type/payload carrying project_id; O_EXCL single-owner lease in .wipnote/; WriterClient.Submit abstraction). Two outcomes: (1) serialize SQLite writes so concurrent serve + CLI stop hitting SQLITE_BUSY; (2) reap orphaned child processes — today a killed serve parent left children holding the write lock because childproc.go spawns with no Setpgid/Pdeathsig. Current write path: single primitive internal/db/open_modes.go Open with busy_timeout=5000 + RetryOnBusy masking (internal/db/busy_retry.go); the MVP replaces masking with structural serialization at the two largest contention sources. DEFERRED from the full 14-slice plan: spool fallback (slice 3), the other 11 CLI mutation sites (rest of slice 5), reindex coordination (slice 6), durable cross-restart dedup, full op-format version skew handling, and all of Phase B/C/D. CAUTION: any daemon path touching reindex must respect the tmpfs reindex hazard.</p>
+        </section>
+    </article>
+</body>
+</html>

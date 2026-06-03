@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>diagnose skill and researcher Mode-2 dispatch a local-only investigation recipe with no external-origin routing</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="bug-456fae38"
+             data-type="bug"
+             data-status="todo"
+             data-priority="medium"
+             data-created="2026-06-03T02:03:52.737219"
+             data-updated="2026-06-03T02:03:52.744791" data-agent-assigned="claude-code" data-track-id="trk-0677c709" data-created-by-agent="claude-code" data-created-by-model="claude-opus-4-8[1m]" data-created-by-cli-version="0.60.19-92-g1a12d927e">
+
+        <header>
+            <h1>diagnose skill and researcher Mode-2 dispatch a local-only investigation recipe with no external-origin routing</h1>
+            <div class="metadata">
+                <span class="badge status-todo">Todo</span>
+                <span class="badge priority-medium">Medium Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="trk-0677c709.html" data-relationship="part_of" data-since="2026-06-03T02:03:52.744555">trk-0677c709</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>Follow-through on bug-a4dd9cfd: plugin/skills/diagnose/SKILL.md (investigation template ~lines 60-81) lists six steps, all local code-reading, with no 'is this error external-origin?' branch, so harness/3rd-party/version-contract bugs get a local-only investigation by construction, overriding the shipped web-first disposition. plugin/agents/researcher.md Mode-2 Debugging starts at 'Reproduce locally' for the same reason. Fix (shippable, cross-harness, nudge-level): add a step-0 external-origin fork to the diagnose investigation/routing template AND to researcher.md Mode-2 (classify error source; if external -> WebSearch + gh issues + official docs BEFORE local code reads). Regenerate per-harness trees with 'wipnote plugin build-ports' after editing. This is the entry point through which debugging begins, so it is where the disposition most needs reinforcing.</p>
+        </section>
+    </article>
+</body>
+</html>

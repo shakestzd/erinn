@@ -10,15 +10,15 @@
 <body>
     <article id="feat-075c110d"
              data-type="feature"
-             data-status="todo"
+             data-status="in-progress"
              data-priority="medium"
              data-created="2026-06-03T15:43:34.058731"
-             data-updated="2026-06-03T15:43:34.156844" data-agent-assigned="claude-code" data-track-id="trk-cb36e595" data-created-by-agent="claude-code" data-created-by-model="claude-opus-4-8[1m]" data-created-by-cli-version="0.60.19-92-g1a12d927e">
+             data-updated="2026-06-03T16:02:51.124863" data-agent-assigned="claude-code" data-track-id="trk-cb36e595" data-created-by-agent="claude-code" data-created-by-model="claude-opus-4-8[1m]" data-created-by-cli-version="0.60.19-92-g1a12d927e">
 
         <header>
             <h1>Per-project write-owner daemon — Phase-A MVP (kill SQLITE_BUSY &#43; reap orphaned serve-children)</h1>
             <div class="metadata">
-                <span class="badge status-todo">Todo</span>
+                <span class="badge status-in-progress">In Progress</span>
                 <span class="badge priority-medium">Medium Priority</span>
             </div>
         </header>
@@ -34,9 +34,26 @@
                 <h3>Relates To:</h3>
                 <ul>
                     <li><a href="feat-d2754049.html" data-relationship="relates_to" data-since="2026-06-03T15:43:34.156348">needs-triage-dup: feat-d2754049</a></li>
+                    <li><a href="plan-bb91616a.html" data-relationship="relates_to" data-since="2026-06-03T15:55:53.851885">Plan: Local-first architecture: daemon write-owner, reactive projections, first-class anomalies</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="implemented_in">
+                <h3>Implemented In:</h3>
+                <ul>
+                    <li><a href="3e494367-8068-4984-9d56-6bf658805afd.html" data-relationship="implemented_in" data-since="2026-06-03T16:02:51.124514">session 3e494367-8068-4984-9d56-6bf658805afd</a></li>
                 </ul>
             </section>
         </nav>
+
+        <section data-steps>
+            <h3>Implementation Steps</h3>
+            <ol>
+                <li data-completed="false" data-step-id="step-feat-075c110d-0" data-agent="claude-code" data-created-by-agent="claude-code">⏳ MVP-1: Orphan reap — set Setpgid &#43; Pdeathsig on child spawn in internal/childproc/childproc.go spawnLocked; on next serve start SIGTERM any live child PIDs recorded by a prior serve (net-new; not in Phase-A; fixes the SIGKILL-leaves-orphans gap)</li>
+                <li data-completed="false" data-step-id="step-feat-075c110d-1" data-agent="claude-code" data-created-by-agent="claude-code">⏳ MVP-2: Headless writer-only child mode &#43; Unix-socket listener at .wipnote/writer.sock; new internal/daemon/ (socket.go, client.go, lease.go) with WriterClient.Submit and O_EXCL single-owner lease at .wipnote/writer.pid (reuses plan-bb91616a slices 1&#43;2)</li>
+                <li data-completed="false" data-step-id="step-feat-075c110d-2" data-agent="claude-code" data-created-by-agent="claude-code">⏳ MVP-3: Route hook writes through WriterClient in internal/hooks/dbgate.go (OpenHookDB/SubmitDerivedOp); direct-open fallback on stale lease; no spool (reuses slice 4)</li>
+                <li data-completed="false" data-step-id="step-feat-075c110d-3" data-agent="claude-code" data-created-by-agent="claude-code">⏳ MVP-4: Route the two highest-contention CLI write sites through WriterClient — internal/workitem/project.go Open and cmd/wipnote/session.go openDB; canonical HTML written first, only derived-index write delegated (reuses slice 5, partial)</li>
+            </ol>
+        </section>
 
         <section data-content>
             <h3>Description</h3>

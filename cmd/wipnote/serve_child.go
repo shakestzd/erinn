@@ -9,7 +9,9 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"time"
 
+	"github.com/shakestzd/wipnote/internal/daemon"
 	dbpkg "github.com/shakestzd/wipnote/internal/db"
 	"github.com/shakestzd/wipnote/internal/db/writequeue"
 	"github.com/shakestzd/wipnote/internal/otel/indexer"
@@ -58,17 +60,116 @@ const dashboardReadPoolMaxConns = 12
 // supervisor's stdout-drain goroutine attaching.
 func serveChildCmd() *cobra.Command {
 	var port int
+	var headless bool
 	cmd := &cobra.Command{
 		Use:    "_serve-child",
 		Hidden: true,
 		Short:  "Internal: single-project HTTP server spawned by parent (do not invoke directly)",
 		RunE: func(_ *cobra.Command, _ []string) error {
+			if headless {
+				// MVP-2 (feat-075c110d): writer-only mode — acquire the
+				// per-project write lease, open the writable DB + writequeue,
+				// and run ONLY the daemon socket listener. No HTTP mux. The
+				// default (non-headless) path below is unchanged.
+				return runWriterOnly()
+			}
 			return runServeChild(port)
 		},
 	}
 	cmd.Flags().IntVar(&port, "port", 0, "TCP port (0 = ephemeral)")
+	cmd.Flags().BoolVar(&headless, "headless", false, "Writer-only mode: run the daemon socket listener + writequeue without the HTTP dashboard (feat-075c110d MVP-2)")
 	return cmd
 }
+
+// runWriterOnly is the headless writer-only serve_child path (plan-bb91616a
+// slice-2, feat-075c110d MVP-2). It is ADDITIVE: it shares no code path with
+// runServeChild's HTTP setup and changes no existing write path.
+//
+// Lifecycle:
+//  1. Acquire the O_EXCL single-owner lease. A racing loser gets
+//     daemon.ErrLeaseHeld and exits 0 (the existing owner serves the socket).
+//  2. Open the writable DB (same dbpkg.Open + receiver.NewWriter the default
+//     serve_child uses) and start a writequeue.Queue — the SAME single-writer
+//     mechanism. Every op submitted over the socket funnels through it.
+//  3. Bind the per-project Unix socket and serve until interrupted.
+//
+// MVP-2 wires NO real op appliers (callers cut over in MVP-3/4); the listener
+// uses daemon.RejectingApplier so any op_type is acked error rather than
+// mis-applied. This proves the transport end-to-end without touching dbgate.
+func runWriterOnly() error {
+	wipnoteDir, err := findWipnoteDir()
+	if err != nil {
+		return fmt.Errorf("locate .wipnote: %w", err)
+	}
+	projectRoot := filepath.Dir(wipnoteDir)
+
+	lease, err := daemon.AcquireLease(projectRoot)
+	if err != nil {
+		if err == daemon.ErrLeaseHeld {
+			// Another process already owns the writer — nothing to do.
+			fmt.Fprintln(os.Stderr, "wipnote: writer already owned; exiting")
+			return nil
+		}
+		return fmt.Errorf("acquire writer lease: %w", err)
+	}
+	defer lease.Release()
+
+	dbPath, err := storage.CanonicalDBPath(projectRoot)
+	if err != nil {
+		return fmt.Errorf("resolve db path: %w", err)
+	}
+	if err := storage.EnsureDBDir(dbPath); err != nil {
+		return fmt.Errorf("ensure db dir: %w", err)
+	}
+	// dbpkg.Open runs migrations / ensures schema exists, exactly as the
+	// default path does, before the writequeue worker touches the DB.
+	if writeDB, err := dbpkg.Open(dbPath); err != nil {
+		return fmt.Errorf("open db (writable, schema): %w", err)
+	} else {
+		// The headless writer holds the schema-bearing handle open for its
+		// lifetime so reindex/migrations stay consistent; the writequeue
+		// worker owns the actual write connection via receiver.NewWriter.
+		defer writeDB.Close()
+	}
+
+	writer, err := otelreceiver.NewWriter(dbPath)
+	if err != nil {
+		return fmt.Errorf("writer service init: %w", err)
+	}
+	defer writer.Close()
+
+	q := writequeue.New(writequeue.Config{
+		Capacity: writequeue.DefaultCapacity,
+		OnError:  func(err error) { log.Printf("writequeue: op error: %v", err) },
+	})
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	if err := q.Start(ctx); err != nil {
+		return fmt.Errorf("writer queue start: %w", err)
+	}
+	defer q.Stop(drainGrace)
+
+	ln, err := daemon.NewListener(daemon.ListenerConfig{
+		SocketPath: daemon.SocketPath(projectRoot),
+		Queue:      q,
+		Applier:    daemon.RejectingApplier,
+	})
+	if err != nil {
+		return fmt.Errorf("bind writer socket: %w", err)
+	}
+	defer ln.Close()
+
+	// Readiness signal: the socket is bound and the queue is running. A
+	// future auto-spawn parent (MVP follow-on) can dial to confirm; for
+	// MVP-2 we just log it.
+	fmt.Fprintf(os.Stderr, "wipnote: writer-only daemon ready socket=%s pid=%d\n", ln.Addr(), os.Getpid())
+
+	return ln.Serve(ctx)
+}
+
+// drainGrace bounds how long the headless writer waits for in-flight ops to
+// commit on shutdown.
+const drainGrace = 2 * time.Second
 
 // runServeChild opens the project DB, builds the single-project mux, binds
 // the listener, prints the handshake, redirects stdio, and serves HTTP.

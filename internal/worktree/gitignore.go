@@ -64,6 +64,7 @@ migrations/*.done
 
 # Process/collector pid and offset markers
 **/*.pid
+**/*.sock
 **/.index-offset
 **/.collector-pid
 **/state.json

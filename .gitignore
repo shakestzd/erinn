@@ -95,6 +95,7 @@ CODEX.md
 .wipnote/.serve.lock
 .wipnote/migrations/*.done
 .wipnote/**/*.pid
+.wipnote/**/*.sock
 .wipnote/**/.index-offset
 .wipnote/**/.collector-pid
 .wipnote/**/state.json

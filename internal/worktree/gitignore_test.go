@@ -64,6 +64,7 @@ func TestEnsureWipnoteGitignore_CreatesFileWhenMissing(t *testing.T) {
 		".serve.lock",
 		"migrations/*.done",
 		"**/*.pid",
+		"**/*.sock",
 		"**/.index-offset",
 		"**/.collector-pid",
 		"**/state.json",

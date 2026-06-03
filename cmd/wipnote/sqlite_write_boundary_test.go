@@ -234,11 +234,25 @@ var approvedWriteSites = []writeSite{
 	// removed; the read-only open is not a writable-boundary site.
 	{
 		File:           "cmd/wipnote/serve_child.go",
-		Line:           100,
+		Line:           201,
 		Function:       "runServeChild",
 		OpenExpr:       "dbpkg.Open",
 		Classification: intentionalCLIMutation,
-		Note:           "Dashboard child: ONE writable handle for schema/migrations + background maintenance loops (auto-ingest, ai-title backfill, indexer prompt-ID bridge). The HTTP mux uses a SEPARATE read-only handle (dbpkg.OpenReadOnly, line 104) — bug-74a7bda7.",
+		Note:           "Dashboard child: ONE writable handle for schema/migrations + background maintenance loops (auto-ingest, ai-title backfill, indexer prompt-ID bridge). The HTTP mux uses a SEPARATE read-only handle (dbpkg.OpenReadOnly) — bug-74a7bda7.",
+	},
+	// feat-075c110d MVP-2: headless writer-only serve_child. Opens the
+	// writable handle ONLY to run schema/migrations before the writequeue
+	// worker (receiver.NewWriter) takes over; the handle is then held open
+	// for process lifetime but issues no ad-hoc writes. This is the
+	// per-project write-owner spine (plan-bb91616a slice-2) — the SAME
+	// owned-writer pattern as runServeChild, in a no-HTTP mode.
+	{
+		File:           "cmd/wipnote/serve_child.go",
+		Line:           126,
+		Function:       "runWriterOnly",
+		OpenExpr:       "dbpkg.Open",
+		Classification: intentionalCLIMutation,
+		Note:           "Headless writer-only daemon: ONE writable handle for schema/migrations; the daemon socket listener funnels all ops through the writequeue worker (receiver.NewWriter), the single-writer service. No HTTP mux. feat-075c110d MVP-2.",
 	},
 	{
 		File:           "cmd/wipnote/session.go",

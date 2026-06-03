@@ -1646,6 +1646,10 @@ function detectMode() {
   }).then(function(data) {
     if (!data) return;
     window.wipnoteMode = data.mode;
+    // Signal that the mode has been confirmed by the server. The event-tree
+    // connectedCallback uses this flag to distinguish a real 'single' mode
+    // from the initial default value (which is also 'single').
+    window._wipnoteModeResolved = true;
     if (data.mode === 'global' && isDoorwayLanding()) {
       return loadAndRenderProjectsLanding();
     }
@@ -1758,27 +1762,46 @@ detectMode().then(function() {
   // button, since the root server never registers /api/terminal/* either.
   probeTerminalFeature();
   if (isDoorwayLanding()) {
-    // Landing: hide the stats bar (no aggregate data in the doorway).
-    var sb = document.getElementById('stats-bar');
-    if (sb) sb.style.display = 'none';
-    return;
+    // In single-project mode the server serves all /api/* routes from the
+    // root URL. The event-tree's connectedCallback ran before detectMode()
+    // resolved and saw an unknown mode, so it skipped load(). Now that we
+    // know the mode is 'single', explicitly trigger the component's
+    // startLoad() so the activity feed populates at the root URL too.
+    if (window.wipnoteMode === 'single') {
+      var treeEl = document.querySelector('hg-event-tree');
+      if (treeEl && typeof treeEl.startLoad === 'function') {
+        treeEl.startLoad();
+      }
+      // Continue below — single-project mode at root still needs stats, etc.
+    } else {
+      // Global doorway: hide the stats bar (no aggregate data in the doorway).
+      var sb = document.getElementById('stats-bar');
+      if (sb) sb.style.display = 'none';
+      return;
+    }
   }
   // Inside a project via /p/<id>/ — inject a back link at the top of
-  // the nav so the user can return to the projects doorway.
-  var nav = document.querySelector('.nav');
-  if (nav && !document.getElementById('doorway-back')) {
-    var back = document.createElement('a');
-    back.id = 'doorway-back';
-    back.href = '/';
-    back.className = 'nav-btn';
-    back.innerHTML = '<span style="font-size:13px;margin-right:4px;">&larr;</span> All Projects';
-    back.style.cssText = 'margin-bottom:12px;border-bottom:1px solid var(--border);padding-bottom:12px;display:flex;align-items:center;text-decoration:none;color:var(--text-dim);font-size:.82rem;';
-    nav.insertBefore(back, nav.firstChild);
+  // the nav so the user can return to the projects doorway. Skip in
+  // single-project mode at root: there is no multi-project doorway to
+  // return to, so the "All Projects" link would be a dead end.
+  if (window.location.pathname.indexOf('/p/') === 0) {
+    var nav = document.querySelector('.nav');
+    if (nav && !document.getElementById('doorway-back')) {
+      var back = document.createElement('a');
+      back.id = 'doorway-back';
+      back.href = '/';
+      back.className = 'nav-btn';
+      back.innerHTML = '<span style="font-size:13px;margin-right:4px;">&larr;</span> All Projects';
+      back.style.cssText = 'margin-bottom:12px;border-bottom:1px solid var(--border);padding-bottom:12px;display:flex;align-items:center;text-decoration:none;color:var(--text-dim);font-size:.82rem;';
+      nav.insertBefore(back, nav.firstChild);
+    }
   }
   Promise.all([fetchStats(), fetchEvents()]);
 });
 setInterval(function() {
-  if (!isDoorwayLanding()) fetchStats();
+  // Refresh stats in /p/<id>/ mode or when at root in single-project mode;
+  // skip for the global doorway (multi-project landing, no per-project stats).
+  if (!isDoorwayLanding() || window.wipnoteMode === 'single') fetchStats();
 }, 30000);
 
 // Auto-refresh the sessions list while it is the active view so an
@@ -1790,7 +1813,7 @@ setInterval(function() {
 // avoiding background work for the activity/work/graph/plans views.
 var SESSIONS_REFRESH_MS = 15000;
 setInterval(function() {
-  if (currentView === 'sessions' && !isDoorwayLanding()) {
+  if (currentView === 'sessions' && (!isDoorwayLanding() || window.wipnoteMode === 'single')) {
     fetchSessions();
   }
 }, SESSIONS_REFRESH_MS);

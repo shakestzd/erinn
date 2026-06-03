@@ -19,11 +19,32 @@ class HgEventTree extends HTMLElement {
   }
 
   connectedCallback() {
-    // At the doorway landing page (root path, no /p/<id>/ prefix) the
-    // server holds no per-project DB handles, so /api/events/* 404s.
-    // Skip the load + SSE subscription entirely — the event tree only
-    // belongs inside a per-project view.
-    if (window.location.pathname.indexOf('/p/') !== 0) return;
+    // Fast path: /p/<id>/ URL — the event tree belongs here, start immediately.
+    if (window.location.pathname.indexOf('/p/') === 0) {
+      this.startLoad();
+      return;
+    }
+    // At the root URL in single-project mode the server IS able to serve
+    // /api/events/* (there is only one project). We check window.wipnoteMode
+    // here only if detectMode() has already resolved (window._wipnoteModeResolved
+    // is set by app.js). This avoids acting on the initial default value before
+    // the real mode is known. The primary async path is app.js calling
+    // startLoad() directly after detectMode() resolves to 'single'.
+    if (window._wipnoteModeResolved && window.wipnoteMode === 'single') {
+      this.startLoad();
+      return;
+    }
+    // Multi-project root doorway (global mode), or mode not yet resolved —
+    // do not load here; app.js handles the async single-mode trigger.
+  }
+
+  // startLoad sets up the SSE stream and fires the initial data load.
+  // Guards against double-loading with this._loaded so it is safe to call
+  // from both connectedCallback (fast /p/ path or late single-mode check)
+  // and from app.js (after detectMode() resolves to 'single' at root).
+  startLoad() {
+    if (this._loaded) return;
+    this._loaded = true;
     this.load();
     this.evtSource = new EventSource(buildProjectUrl('events/stream'));
     this.evtSource.onmessage = (msg) => this.handleSSE(JSON.parse(msg.data));

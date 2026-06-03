@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>Per-project write-owner daemon — Phase-A MVP (kill SQLITE_BUSY &#43; reap orphaned serve-children)</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="feat-075c110d"
+             data-type="feature"
+             data-status="todo"
+             data-priority="medium"
+             data-created="2026-06-03T15:43:34.058731"
+             data-updated="2026-06-03T15:43:34.156844" data-agent-assigned="claude-code" data-track-id="trk-cb36e595" data-created-by-agent="claude-code" data-created-by-model="claude-opus-4-8[1m]" data-created-by-cli-version="0.60.19-92-g1a12d927e">
+
+        <header>
+            <h1>Per-project write-owner daemon — Phase-A MVP (kill SQLITE_BUSY &#43; reap orphaned serve-children)</h1>
+            <div class="metadata">
+                <span class="badge status-todo">Todo</span>
+                <span class="badge priority-medium">Medium Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="trk-cb36e595.html" data-relationship="part_of" data-since="2026-06-03T15:43:34.066959">trk-cb36e595</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="relates_to">
+                <h3>Relates To:</h3>
+                <ul>
+                    <li><a href="feat-d2754049.html" data-relationship="relates_to" data-since="2026-06-03T15:43:34.156348">needs-triage-dup: feat-d2754049</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>Standalone minimal MVP of the per-project write-owner daemon, reusing plan-bb91616a Phase-A design (envelope op_format_version/op_id/op_type/payload carrying project_id; O_EXCL single-owner lease in .wipnote/; WriterClient.Submit abstraction). Two outcomes: (1) serialize SQLite writes so concurrent serve + CLI stop hitting SQLITE_BUSY; (2) reap orphaned child processes — today a killed serve parent left children holding the write lock because childproc.go spawns with no Setpgid/Pdeathsig. Current write path: single primitive internal/db/open_modes.go Open with busy_timeout=5000 + RetryOnBusy masking (internal/db/busy_retry.go); the MVP replaces masking with structural serialization at the two largest contention sources. DEFERRED from the full 14-slice plan: spool fallback (slice 3), the other 11 CLI mutation sites (rest of slice 5), reindex coordination (slice 6), durable cross-restart dedup, full op-format version skew handling, and all of Phase B/C/D. CAUTION: any daemon path touching reindex must respect the tmpfs reindex hazard.</p>
+        </section>
+    </article>
+</body>
+</html>

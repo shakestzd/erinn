@@ -27,10 +27,15 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"os"
 	"sync/atomic"
+	"time"
 
+	"github.com/shakestzd/wipnote/internal/daemon"
+	"github.com/shakestzd/wipnote/internal/daemon/apply"
 	"github.com/shakestzd/wipnote/internal/db"
 	"github.com/shakestzd/wipnote/internal/db/writequeue"
+	"github.com/shakestzd/wipnote/internal/models"
 )
 
 // FallbackReason is the structured label emitted when a hook's derived-index
@@ -188,6 +193,92 @@ func SubmitDerivedOp(handler, sessionID string, q *writequeue.Queue, database *s
 		debugLogFields(resolveLogDir(), handler,
 			map[string]string{"phase": "derived-op", "session": safeSessionID(sessionID)},
 			"sync derived-op error (recoverable via reindex): "+err.Error())
+	}
+}
+
+// daemonSubmitBudget is the TOTAL wall-clock budget for the daemon-routed
+// derived-write attempt (dial + auto-spawn + readiness-wait + submit).
+//
+// LIVE-SESSION SAFETY (feat-075c110d): hooks shell out to the wipnote binary
+// on every tool call, so this path runs inside the user's RUNNING session. It
+// MUST be strictly bounded — on any timeout/error/unavailability the caller
+// falls back to the existing direct-open path, never blocking the session.
+const daemonSubmitBudget = 2 * time.Second
+
+// SubmitDerivedEvent routes an agent_events derived-index upsert through the
+// per-project writer daemon (auto-spawning it when absent), and falls back to
+// the existing direct-open + RetryOnBusy path on ANY daemon failure.
+//
+// Contract (MVP-3, plan-bb91616a slice-4):
+//   - The canonical NDJSON/HTML write is the caller's responsibility and MUST
+//     already have happened — this routes ONLY the derived-index write.
+//   - Daemon path: build a typed DerivedOp → WriterClient.SubmitOrSpawn under
+//     a hard daemonSubmitBudget deadline. An applied/duplicate ack ends here.
+//   - Fallback path: on ErrWriterUnavailable (no/forbidden daemon, spawn or
+//     readiness failure, budget exhausted) OR an error ack, run the SAME
+//     upsert synchronously via db.RetryOnBusy against `database` — exactly
+//     today's behaviour. A nil `database` records writer_unavailable and
+//     returns (canonical NDJSON upstream is authoritative).
+//
+// The return value is always nil-effect (no error surfaced to the hook
+// protocol): like SubmitDerivedOp, this never propagates failures back to the
+// caller. seq is the per-event sequence/offset used to derive the dedup op_id.
+func SubmitDerivedEvent(handler, projectRoot, sessionID string, seq int64, ev *models.AgentEvent, database *sql.DB) {
+	if ev == nil {
+		return
+	}
+
+	if routeDerivedEventViaDaemon(projectRoot, sessionID, seq, ev) {
+		return // applied (or deduped) by the writer daemon
+	}
+
+	// Fallback: direct-open synchronous upsert with bounded BUSY retry —
+	// identical to the legacy SubmitDerivedOp synchronous path.
+	if database == nil {
+		RecordFallback(handler, sessionID, FallbackWriterUnavailable, "no daemon and no db")
+		return
+	}
+	err := db.RetryOnBusy(db.DefaultBusyBackoff, func() error { return db.UpsertEvent(database, ev) })
+	db.Record(db.SubsystemHookWriter, err)
+	if err != nil {
+		debugLogFields(resolveLogDir(), handler,
+			map[string]string{"phase": "derived-event", "session": safeSessionID(sessionID)},
+			"sync derived-event error (recoverable via reindex): "+err.Error())
+	}
+}
+
+// routeDerivedEventViaDaemon attempts the daemon-routed derived write under a
+// hard deadline. It returns true ONLY when the writer applied (or deduped) the
+// op; any unavailability, error ack, or empty projectRoot returns false so the
+// caller falls back to direct-open. It never blocks beyond daemonSubmitBudget.
+func routeDerivedEventViaDaemon(projectRoot, sessionID string, seq int64, ev *models.AgentEvent) bool {
+	if projectRoot == "" {
+		return false
+	}
+	payload, err := apply.Encode(apply.DerivedOp{Type: apply.OpTypeAgentEventUpsert, Event: ev})
+	if err != nil {
+		return false
+	}
+	env := daemon.Envelope{
+		OpID:    apply.OpID(sessionID, seq),
+		OpType:  apply.OpTypeAgentEventUpsert,
+		Payload: payload,
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), daemonSubmitBudget)
+	defer cancel()
+
+	selfExe, _ := os.Executable()
+	client := daemon.NewWriterClient(projectRoot)
+	ack, err := client.SubmitOrSpawn(ctx, projectRoot, selfExe, env)
+	if err != nil {
+		return false // ErrWriterUnavailable / ctx deadline → fall back
+	}
+	switch ack.Status {
+	case daemon.AckApplied, daemon.AckDuplicate:
+		return true
+	default:
+		return false // error ack → fall back to direct-open
 	}
 }
 

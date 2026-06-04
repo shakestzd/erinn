@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/shakestzd/wipnote/internal/daemon"
+	"github.com/shakestzd/wipnote/internal/daemon/apply"
 	dbpkg "github.com/shakestzd/wipnote/internal/db"
 	"github.com/shakestzd/wipnote/internal/db/writequeue"
 	"github.com/shakestzd/wipnote/internal/otel/indexer"
@@ -149,10 +150,15 @@ func runWriterOnly() error {
 	}
 	defer q.Stop(drainGrace)
 
+	// MVP-3 (feat-075c110d): wire the real derived-op Applier. It runs every
+	// op against the SAME writable handle the writequeue worker owns
+	// (writer.DB()), so all socket-delivered writes serialize on the single
+	// writer connection — the structural single-writer invariant. This
+	// replaces the MVP-2 RejectingApplier.
 	ln, err := daemon.NewListener(daemon.ListenerConfig{
 		SocketPath: daemon.SocketPath(projectRoot),
 		Queue:      q,
-		Applier:    daemon.RejectingApplier,
+		Applier:    apply.NewApplier(writer.DB()),
 	})
 	if err != nil {
 		return fmt.Errorf("bind writer socket: %w", err)

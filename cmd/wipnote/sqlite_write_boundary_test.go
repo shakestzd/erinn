@@ -137,11 +137,11 @@ var approvedWriteSites = []writeSite{
 	// approved writable open today.
 	{
 		File:           "internal/hooks/dbgate.go",
-		Line:           123,
+		Line:           128,
 		Function:       "OpenHookDB",
 		OpenExpr:       "db.Open",
 		Classification: canonicalFirstHookFallback,
-		Note:           "Slice 7 (feat-33c26c74): single auditable writable open used by hook subprocesses. Logs a structured `writer_unavailable` fallback and returns nil-DB on failure; callers MUST treat nil as a signal to return canonical-success. The canonical NDJSON write upstream guarantees reindex recovers any rows the synchronous path could not write.",
+		Note:           "Slice 7 (feat-33c26c74) + MVP-3 (feat-075c110d): single auditable writable open used by hook subprocesses. As of MVP-3 the derived-index write FIRST attempts the per-project writer daemon (SubmitDerivedEvent → WriterClient.SubmitOrSpawn, bounded ~2s); this direct open is now the FALLBACK path taken only when the daemon is unavailable/forbidden/times out. Logs a structured `writer_unavailable` fallback and returns nil-DB on open failure; callers MUST treat nil as a signal to return canonical-success. The canonical NDJSON write upstream guarantees reindex recovers any rows neither path could write.",
 	},
 	{
 		File:           "internal/otel/receiver/writer.go",
@@ -234,7 +234,7 @@ var approvedWriteSites = []writeSite{
 	// removed; the read-only open is not a writable-boundary site.
 	{
 		File:           "cmd/wipnote/serve_child.go",
-		Line:           201,
+		Line:           207,
 		Function:       "runServeChild",
 		OpenExpr:       "dbpkg.Open",
 		Classification: intentionalCLIMutation,
@@ -248,7 +248,7 @@ var approvedWriteSites = []writeSite{
 	// owned-writer pattern as runServeChild, in a no-HTTP mode.
 	{
 		File:           "cmd/wipnote/serve_child.go",
-		Line:           126,
+		Line:           127,
 		Function:       "runWriterOnly",
 		OpenExpr:       "dbpkg.Open",
 		Classification: intentionalCLIMutation,

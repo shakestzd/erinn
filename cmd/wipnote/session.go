@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/shakestzd/wipnote/internal/daemon/apply"
 	dbpkg "github.com/shakestzd/wipnote/internal/db"
 	"github.com/shakestzd/wipnote/internal/models"
 	"github.com/shakestzd/wipnote/internal/storage"
@@ -148,8 +149,15 @@ func runSessionStart(agent string) error {
 		CreatedAt:     time.Now().UTC(),
 	}
 
-	if err := dbpkg.InsertSession(db, s); err != nil {
-		return fmt.Errorf("start session: %w", err)
+	// feat-075c110d MVP-4: route the session-row insert through the per-project
+	// writer daemon first (bounded ~2s, auto-spawn). On ANY daemon miss
+	// (unavailable / forbidden / timeout / error-ack) fall back to the direct
+	// insert — surfacing its error exactly as before. The session row is never
+	// lost: the fallback always runs the direct insert when the daemon misses.
+	if !apply.RouteSessionInsert(filepath.Dir(dir), s) {
+		if err := dbpkg.InsertSession(db, s); err != nil {
+			return fmt.Errorf("start session: %w", err)
+		}
 	}
 	fmt.Printf("Started session: %s\n", s.SessionID)
 	return nil
@@ -193,8 +201,14 @@ func runSessionEnd(sessionID string) error {
 		}
 	}
 
-	if err := dbpkg.UpdateSessionStatus(db, sessionID, "completed"); err != nil {
-		return fmt.Errorf("end session: %w", err)
+	// feat-075c110d MVP-4: route the session status transition through the
+	// per-project writer daemon first (bounded ~2s, auto-spawn). On ANY daemon
+	// miss fall back to the direct UpdateSessionStatus, surfacing its error
+	// exactly as before.
+	if !apply.RouteSessionStatus(filepath.Dir(dir), sessionID, "completed") {
+		if err := dbpkg.UpdateSessionStatus(db, sessionID, "completed"); err != nil {
+			return fmt.Errorf("end session: %w", err)
+		}
 	}
 	fmt.Printf("Ended session: %s\n", sessionID)
 	return nil

@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/shakestzd/wipnote/internal/daemon/apply"
 	"github.com/shakestzd/wipnote/internal/graph"
 	"github.com/shakestzd/wipnote/internal/htmlparse"
 	"github.com/shakestzd/wipnote/internal/models"
@@ -189,11 +190,7 @@ func (c *Collection) Start(id string) (*models.Node, error) {
 		node.UpdatedAt = time.Now().UTC()
 		return nil
 	}, func(*models.Node) {
-		if c.base.DB != nil {
-			completeWithBusyRetry(func() error {
-				return dbpkg.UpdateFeatureStatus(c.base.DB, id, "in-progress")
-			})
-		}
+		c.routeFeatureStatus(id, "in-progress")
 	})
 	if err != nil {
 		return nil, err
@@ -216,16 +213,15 @@ func (c *Collection) Complete(id string) (*models.Node, error) {
 		node.UpdatedAt = time.Now().UTC()
 		return nil
 	}, func(*models.Node) {
+		// bug-74a7bda7: the completion status transition is THE
+		// user-visible contended write. feat-075c110d MVP-4 routes it
+		// through the per-project writer daemon first (bounded, fallback-
+		// safe); on any daemon miss it falls back to the direct write with
+		// bounded SQLITE_BUSY backoff so a transient lock resolves
+		// transparently instead of silently dropping the derived-index
+		// completion (canonical HTML is still authoritative either way).
+		c.routeFeatureStatus(id, "done")
 		if c.base.DB != nil {
-			// bug-74a7bda7: the completion status transition is THE
-			// user-visible contended write. A dashboard read pool or a
-			// parallel session's writer can briefly hold the lock; retry
-			// with bounded backoff so a transient SQLITE_BUSY resolves
-			// transparently instead of silently dropping the derived-index
-			// completion (canonical HTML is still authoritative either way).
-			completeWithBusyRetry(func() error {
-				return dbpkg.UpdateFeatureStatus(c.base.DB, id, "done")
-			})
 			if activeClaim, err := dbpkg.GetActiveClaim(c.base.DB, id); err == nil && activeClaim != nil {
 				completeWithBusyRetry(func() error {
 					return dbpkg.ReleaseClaim(c.base.DB, activeClaim.ClaimID, activeClaim.OwnerSessionID, models.ClaimCompleted)
@@ -250,6 +246,33 @@ func (c *Collection) Complete(id string) (*models.Node, error) {
 func completeWithBusyRetry(fn func() error) {
 	err := dbpkg.RetryOnBusy(dbpkg.DefaultBusyBackoff, fn)
 	dbpkg.Record(dbpkg.SubsystemCLIMutation, err)
+}
+
+// routeFeatureStatus persists a work-item status transition to the derived
+// SQLite index. feat-075c110d MVP-4: it FIRST attempts the per-project writer
+// daemon (apply.RouteFeatureStatus — bounded ~2s, auto-spawn) so concurrent
+// start/complete + dashboard reads no longer contend the writer lock. On ANY
+// daemon miss (unavailable / forbidden / timeout / error-ack) it falls back to
+// the existing direct write via completeWithBusyRetry — exactly today's
+// behaviour. The canonical HTML written upstream is authoritative either way,
+// so a missed derived write is recovered by `wipnote reindex`.
+//
+// SAFETY: this is on the feature/bug/spike start+complete path used by core
+// work tracking. It must never hang and never surface a daemon error to the
+// caller — both the daemon attempt and the fallback are strictly bounded.
+func (c *Collection) routeFeatureStatus(id, status string) {
+	// Reads stay direct; only the derived write is delegated. base.ProjectDir
+	// is the .wipnote/ dir, so the project root is its parent.
+	projectRoot := filepath.Dir(c.base.ProjectDir)
+	if apply.RouteFeatureStatus(projectRoot, id, status) {
+		return // applied (or deduped) by the writer daemon
+	}
+	if c.base.DB == nil {
+		return // no daemon and no direct handle — canonical HTML is authoritative
+	}
+	completeWithBusyRetry(func() error {
+		return dbpkg.UpdateFeatureStatus(c.base.DB, id, status)
+	})
 }
 
 // --- Edge operations ---------------------------------------------------------

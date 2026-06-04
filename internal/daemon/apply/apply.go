@@ -39,17 +39,45 @@ import (
 // INSERT OR REPLACE the synchronous dbgate path would run.
 const OpTypeAgentEventUpsert = "agent_event.upsert"
 
-// DerivedOp is the serializable representation of one hook-derived index
-// write. Type selects the apply dispatch; the type-specific body lives in the
-// remaining fields. Today only the agent_events upsert is modelled (Event).
+// MVP-4 (feat-075c110d): the two highest-contention CLI derived-index writes
+// are routed through the same writer daemon as the hook tree. Each maps to the
+// IDENTICAL db.* call the direct CLI path runs today.
+const (
+	// OpTypeFeatureStatus is the work-item status transition emitted by
+	// feature/bug/spike start + complete (internal/workitem). It maps to
+	// db.UpdateFeatureStatus — the bug-74a7bda7 user-visible contended write.
+	OpTypeFeatureStatus = "feature.status"
+
+	// OpTypeSessionInsert is the session-row insert emitted by
+	// `wipnote session start` (cmd/wipnote/session.go). Maps to db.InsertSession.
+	OpTypeSessionInsert = "session.insert"
+
+	// OpTypeSessionStatus is the session status transition emitted by
+	// `wipnote session end` (cmd/wipnote/session.go). Maps to
+	// db.UpdateSessionStatus.
+	OpTypeSessionStatus = "session.status"
+)
+
+// DerivedOp is the serializable representation of one derived index write.
+// Type selects the apply dispatch; the type-specific body lives in the
+// remaining fields. The agent_events upsert (Event) is the hook-tree op;
+// the Feature*/Session* fields carry the MVP-4 CLI work-item / session ops.
 //
 // DerivedOp is JSON-encoded into Envelope.Payload. Keeping it a single typed
 // struct (rather than an opaque closure) is what makes the op cross a process
-// boundary — the dbgate path's historical `func(*sql.DB) error` closure could
+// boundary — the direct path's historical `func(*sql.DB) error` closure could
 // not be shipped to the writer.
 type DerivedOp struct {
 	Type  string             `json:"type"`
 	Event *models.AgentEvent `json:"event,omitempty"`
+
+	// MVP-4 fields. FeatureID + Status carry OpTypeFeatureStatus and the
+	// session status op; Session carries the full row for OpTypeSessionInsert;
+	// SessionID + Status carry OpTypeSessionStatus.
+	FeatureID string          `json:"feature_id,omitempty"`
+	SessionID string          `json:"session_id,omitempty"`
+	Status    string          `json:"status,omitempty"`
+	Session   *models.Session `json:"session,omitempty"`
 }
 
 // Encode marshals a DerivedOp for Envelope.Payload.
@@ -98,6 +126,30 @@ func NewApplier(database *sql.DB) daemon.Applier {
 			ev := *op.Event // capture by value so the closure is self-contained
 			return func(_ context.Context) error {
 				return db.UpsertEvent(database, &ev)
+			}, nil
+		case OpTypeFeatureStatus:
+			if op.FeatureID == "" {
+				return nil, fmt.Errorf("%s: empty feature_id", OpTypeFeatureStatus)
+			}
+			id, status := op.FeatureID, op.Status
+			return func(_ context.Context) error {
+				return db.UpdateFeatureStatus(database, id, status)
+			}, nil
+		case OpTypeSessionInsert:
+			if op.Session == nil {
+				return nil, fmt.Errorf("%s: nil session", OpTypeSessionInsert)
+			}
+			s := *op.Session // capture by value so the closure is self-contained
+			return func(_ context.Context) error {
+				return db.InsertSession(database, &s)
+			}, nil
+		case OpTypeSessionStatus:
+			if op.SessionID == "" {
+				return nil, fmt.Errorf("%s: empty session_id", OpTypeSessionStatus)
+			}
+			sid, status := op.SessionID, op.Status
+			return func(_ context.Context) error {
+				return db.UpdateSessionStatus(database, sid, status)
 			}, nil
 		default:
 			return nil, fmt.Errorf("unknown derived op_type %q", op.Type)

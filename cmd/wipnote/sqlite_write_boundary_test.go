@@ -256,11 +256,11 @@ var approvedWriteSites = []writeSite{
 	},
 	{
 		File:           "cmd/wipnote/session.go",
-		Line:           215,
+		Line:           229,
 		Function:       "openDB",
 		OpenExpr:       "dbpkg.Open",
 		Classification: intentionalCLIMutation,
-		Note:           "Package-level writable-open helper used by many mutating CLI paths (session start/end, claim, ingest, backfill, blame, cleanup, compliance, report, who, …). Read-only commands must NOT use openDB — they open read-only, either via the cmd-level openReadOnlyDB helper or a direct dbpkg.OpenReadOnlyMigrated call. This inventory entry exists to catch any future read-only command that wrongly calls the writable openDB instead.",
+		Note:           "Package-level writable-open helper used by many mutating CLI paths (session start/end, claim, ingest, backfill, blame, cleanup, compliance, report, who, …). Read-only commands must NOT use openDB — they open read-only, either via the cmd-level openReadOnlyDB helper or a direct dbpkg.OpenReadOnlyMigrated call. This inventory entry exists to catch any future read-only command that wrongly calls the writable openDB instead. feat-075c110d MVP-4: the two highest-contention session writes (start→InsertSession, end→UpdateSessionStatus) are now routed through the per-project writer daemon FIRST (apply.RouteSessionInsert / RouteSessionStatus, bounded ~2s, auto-spawn) and only use this direct handle as the fallback on daemon miss; the open itself stays direct because it still backs the read paths and other session mutations.",
 	},
 	{
 		File:           "cmd/wipnote/status.go",
@@ -292,7 +292,7 @@ var approvedWriteSites = []writeSite{
 		Function:       "Open",
 		OpenExpr:       "dbpkg.Open",
 		Classification: intentionalCLIMutation,
-		Note:           "Canonical entry point for every CLI work-item operation (feature/bug/spike/track start/complete).",
+		Note:           "Canonical entry point for every CLI work-item operation (feature/bug/spike/track start/complete). feat-075c110d MVP-4: the highest-contention work-item write — the start/complete status transition (UpdateFeatureStatus, bug-74a7bda7) — is now routed through the per-project writer daemon FIRST (apply.RouteFeatureStatus, bounded ~2s, auto-spawn) and only falls back to this direct handle on daemon miss; the open itself stays direct because it still backs reads, claim/release, and step-counter writes.",
 	},
 
 	// ----------------------------------------------------------------------

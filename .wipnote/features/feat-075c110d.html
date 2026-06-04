@@ -13,7 +13,7 @@
              data-status="in-progress"
              data-priority="medium"
              data-created="2026-06-03T15:43:34.058731"
-             data-updated="2026-06-03T16:02:51.124863" data-agent-assigned="claude-code" data-track-id="trk-cb36e595" data-created-by-agent="claude-code" data-created-by-model="claude-opus-4-8[1m]" data-created-by-cli-version="0.60.19-92-g1a12d927e">
+             data-updated="2026-06-04T23:17:48.832339" data-agent-assigned="claude-code" data-track-id="trk-cb36e595" data-created-by-agent="claude-code" data-created-by-model="claude-opus-4-8[1m]" data-created-by-cli-version="0.60.19-92-g1a12d927e">
 
         <header>
             <h1>Per-project write-owner daemon — Phase-A MVP (kill SQLITE_BUSY &#43; reap orphaned serve-children)</h1>
@@ -52,12 +52,13 @@
                 <li data-completed="false" data-step-id="step-feat-075c110d-1" data-agent="claude-code" data-created-by-agent="claude-code">⏳ MVP-2: Headless writer-only child mode &#43; Unix-socket listener at .wipnote/writer.sock; new internal/daemon/ (socket.go, client.go, lease.go) with WriterClient.Submit and O_EXCL single-owner lease at .wipnote/writer.pid (reuses plan-bb91616a slices 1&#43;2)</li>
                 <li data-completed="false" data-step-id="step-feat-075c110d-2" data-agent="claude-code" data-created-by-agent="claude-code">⏳ MVP-3: Route hook writes through WriterClient in internal/hooks/dbgate.go (OpenHookDB/SubmitDerivedOp); direct-open fallback on stale lease; no spool (reuses slice 4)</li>
                 <li data-completed="false" data-step-id="step-feat-075c110d-3" data-agent="claude-code" data-created-by-agent="claude-code">⏳ MVP-4: Route the two highest-contention CLI write sites through WriterClient — internal/workitem/project.go Open and cmd/wipnote/session.go openDB; canonical HTML written first, only derived-index write delegated (reuses slice 5, partial)</li>
+                <li data-completed="false" data-step-id="step-feat-075c110d-4" data-agent="claude-code" data-created-by-agent="claude-code">⏳ Smoke test step</li>
             </ol>
         </section>
 
         <section data-content>
             <h3>Description</h3>
-            <p>Standalone minimal MVP of the per-project write-owner daemon, reusing plan-bb91616a Phase-A design (envelope op_format_version/op_id/op_type/payload carrying project_id; O_EXCL single-owner lease in .wipnote/; WriterClient.Submit abstraction). Two outcomes: (1) serialize SQLite writes so concurrent serve + CLI stop hitting SQLITE_BUSY; (2) reap orphaned child processes — today a killed serve parent left children holding the write lock because childproc.go spawns with no Setpgid/Pdeathsig. Current write path: single primitive internal/db/open_modes.go Open with busy_timeout=5000 + RetryOnBusy masking (internal/db/busy_retry.go); the MVP replaces masking with structural serialization at the two largest contention sources. DEFERRED from the full 14-slice plan: spool fallback (slice 3), the other 11 CLI mutation sites (rest of slice 5), reindex coordination (slice 6), durable cross-restart dedup, full op-format version skew handling, and all of Phase B/C/D. CAUTION: any daemon path touching reindex must respect the tmpfs reindex hazard.</p>
+            <p>Test write for smoke test</p>
         </section>
     </article>
 </body>

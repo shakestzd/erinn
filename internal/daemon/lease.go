@@ -137,6 +137,16 @@ func leaseOwnerAlive(path string) bool {
 	return proc.Signal(syscall.Signal(0)) == nil
 }
 
+// LeaseOwnerAlive reports whether a live process currently holds the writer
+// lease for projectRoot. It is the exported probe serve_child uses to decide
+// whether a writer daemon is already running (and thus must NOT be double-
+// spawned) — the O_EXCL lease remains the single-owner authority; this is just
+// a cheap pre-check (feat-075c110d increment 2). A missing/malformed/dead-PID
+// lease reports false.
+func LeaseOwnerAlive(projectRoot string) bool {
+	return leaseOwnerAlive(LeasePath(projectRoot))
+}
+
 // Release removes the lease file. Safe to call multiple times. The socket
 // file is owned by the listener (socket.go) and removed there.
 func (l *Lease) Release() error {

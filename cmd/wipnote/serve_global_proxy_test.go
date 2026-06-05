@@ -338,3 +338,68 @@ func TestIdleReapViaProxy(t *testing.T) {
 	}
 	t.Fatalf("child was not reaped after idle: children=%d", len(sup.Children()))
 }
+
+// TestServeManagedWriterReapedOnShutdown is the increment-2 lifecycle proof
+// (feat-075c110d). It drives a real `wipnote _serve-child` (the HTTP dashboard
+// child) through the proxy. That child, being strictly read-only now, ensures a
+// per-project headless writer daemon is running as a MANAGED child. We assert:
+//
+//	(a) a headless writer daemon comes up and holds the lease + binds the socket
+//	    (so exactly one writable owner exists);
+//	(b) on serve shutdown (supervisor SIGTERMs the serve_child) the managed
+//	    writer is reaped — its lease (writer.pid) and socket (writer.sock) are
+//	    removed by the writer's deferred cleanup.
+func TestServeManagedWriterReapedOnShutdown(t *testing.T) {
+	proj := mkIntegrationProject(t, "feat-1")
+	newTestRegistry(t, proj)
+
+	srv, sup := mkProxyServer(t, 0) // idle reaping disabled
+	id := projectID(t, proj)
+
+	// One request spawns the serve_child, which in turn ensures the writer.
+	status, _ := fetchBody(t, srv.URL+"/p/"+id+"/api/stats")
+	if status != http.StatusOK {
+		t.Fatalf("spawn serve_child: got %d", status)
+	}
+
+	leasePath := filepath.Join(proj, ".wipnote", "writer.pid")
+	sockPath := filepath.Join(proj, ".wipnote", "writer.sock")
+
+	// (a) The managed writer must come up and claim the lease + socket.
+	deadline := time.Now().Add(5 * time.Second)
+	var up bool
+	for time.Now().Before(deadline) {
+		_, lerr := os.Stat(leasePath)
+		_, serr := os.Stat(sockPath)
+		if lerr == nil && serr == nil {
+			up = true
+			break
+		}
+		time.Sleep(25 * time.Millisecond)
+	}
+	if !up {
+		t.Fatalf("managed writer never came up: lease/socket not present at %s", filepath.Dir(leasePath))
+	}
+
+	// Shut serve down: supervisor SIGTERMs the serve_child, whose deferred
+	// stopWriter() SIGTERMs the managed writer; the writer's deferred cleanup
+	// removes the lease + socket.
+	srv.Close()
+	shutCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	sup.Shutdown(shutCtx)
+
+	// (b) After shutdown the writer must be reaped — lease + socket gone.
+	deadline = time.Now().Add(6 * time.Second)
+	for time.Now().Before(deadline) {
+		_, lerr := os.Stat(leasePath)
+		_, serr := os.Stat(sockPath)
+		if os.IsNotExist(lerr) && os.IsNotExist(serr) {
+			return // reaped cleanly
+		}
+		time.Sleep(50 * time.Millisecond)
+	}
+	_, lerr := os.Stat(leasePath)
+	_, serr := os.Stat(sockPath)
+	t.Fatalf("managed writer not reaped on shutdown: lease err=%v socket err=%v", lerr, serr)
+}

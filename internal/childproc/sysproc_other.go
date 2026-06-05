@@ -15,3 +15,11 @@ import "syscall"
 func childSysProcAttr() *syscall.SysProcAttr {
 	return &syscall.SysProcAttr{Setpgid: true}
 }
+
+// WriterSysProcAttr returns the SysProcAttr for a serve-managed headless writer
+// daemon (feat-075c110d increment 2). On non-Linux platforms Pdeathsig is
+// unavailable; Setpgid still isolates the writer's process group. serve_child's
+// explicit SIGTERM-on-shutdown reap is the primary lifecycle guard here.
+func WriterSysProcAttr() *syscall.SysProcAttr {
+	return childSysProcAttr()
+}

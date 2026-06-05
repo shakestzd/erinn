@@ -2,17 +2,19 @@ package main
 
 import (
 	"context"
-	"encoding/json"
+	"database/sql"
 	"fmt"
 	"log"
 	"net"
 	"net/http"
 	"os"
+	"os/exec"
 	"os/signal"
 	"path/filepath"
 	"syscall"
 	"time"
 
+	"github.com/shakestzd/wipnote/internal/childproc"
 	"github.com/shakestzd/wipnote/internal/daemon"
 	"github.com/shakestzd/wipnote/internal/daemon/apply"
 	dbpkg "github.com/shakestzd/wipnote/internal/db"
@@ -64,23 +66,27 @@ const dashboardReadPoolMaxConns = 12
 func serveChildCmd() *cobra.Command {
 	var port int
 	var headless bool
+	var serveManaged bool
 	cmd := &cobra.Command{
 		Use:    "_serve-child",
 		Hidden: true,
 		Short:  "Internal: single-project HTTP server spawned by parent (do not invoke directly)",
 		RunE: func(_ *cobra.Command, _ []string) error {
 			if headless {
-				// MVP-2 (feat-075c110d): writer-only mode — acquire the
-				// per-project write lease, open the writable DB + writequeue,
-				// and run ONLY the daemon socket listener. No HTTP mux. The
-				// default (non-headless) path below is unchanged.
-				return runWriterOnly()
+				// feat-075c110d INCREMENT 2: writer-only daemon — acquire the
+				// per-project write lease, open the SOLE writable DB + writequeue,
+				// run the per-project background maintenance (auto-ingest,
+				// indexer, ai-title backfill, retention) AND the daemon socket
+				// listener. No HTTP mux. --serve-managed disables idle-exit so a
+				// writer started by `wipnote serve` persists for serve's lifetime.
+				return runWriterOnly(serveManaged)
 			}
 			return runServeChild(port)
 		},
 	}
 	cmd.Flags().IntVar(&port, "port", 0, "TCP port (0 = ephemeral)")
-	cmd.Flags().BoolVar(&headless, "headless", false, "Writer-only mode: run the daemon socket listener + writequeue without the HTTP dashboard (feat-075c110d MVP-2)")
+	cmd.Flags().BoolVar(&headless, "headless", false, "Writer-only mode: run the daemon socket listener + writequeue + background maintenance without the HTTP dashboard (feat-075c110d)")
+	cmd.Flags().BoolVar(&serveManaged, "serve-managed", false, "Headless writer is managed by a parent `wipnote serve` child: disable idle-exit so it persists for serve's lifetime (feat-075c110d increment 2)")
 	return cmd
 }
 
@@ -99,7 +105,7 @@ func serveChildCmd() *cobra.Command {
 // MVP-2 wires NO real op appliers (callers cut over in MVP-3/4); the listener
 // uses daemon.RejectingApplier so any op_type is acked error rather than
 // mis-applied. This proves the transport end-to-end without touching dbgate.
-func runWriterOnly() error {
+func runWriterOnly(serveManaged bool) error {
 	wipnoteDir, err := findWipnoteDir()
 	if err != nil {
 		return fmt.Errorf("locate .wipnote: %w", err)
@@ -125,15 +131,20 @@ func runWriterOnly() error {
 		return fmt.Errorf("ensure db dir: %w", err)
 	}
 	// dbpkg.Open runs migrations / ensures schema exists, exactly as the
-	// default path does, before the writequeue worker touches the DB.
-	if writeDB, err := dbpkg.Open(dbPath); err != nil {
+	// default path did in runServeChild, before the writequeue worker (or the
+	// background maintenance loops) touches the DB. The daemon now OWNS this
+	// single writable handle for the whole process: the writequeue worker
+	// commits socket-delivered ops via receiver.NewWriter's own connection,
+	// and the maintenance loops (auto-ingest, indexer prompt-ID bridge,
+	// ai-title backfill, retention) issue their INSERT/UPDATE/DELETE through
+	// THIS handle. There is exactly one writable SQLite handle per project
+	// while serve runs — eliminating the serve_child↔writer SQLITE_BUSY
+	// contention (feat-075c110d increment 2).
+	writeDB, err := dbpkg.Open(dbPath)
+	if err != nil {
 		return fmt.Errorf("open db (writable, schema): %w", err)
-	} else {
-		// The headless writer holds the schema-bearing handle open for its
-		// lifetime so reindex/migrations stay consistent; the writequeue
-		// worker owns the actual write connection via receiver.NewWriter.
-		defer writeDB.Close()
 	}
+	defer writeDB.Close()
 
 	writer, err := otelreceiver.NewWriter(dbPath)
 	if err != nil {
@@ -154,12 +165,12 @@ func runWriterOnly() error {
 
 	// Graceful shutdown (feat-075c110d lifecycle hardening): trap SIGTERM/
 	// SIGINT and cancel the serve context. Cancellation closes the listener
-	// (Serve returns), which fires the deferred ln.Close() — unlinking
-	// .wipnote/writer.sock — and the deferred lease.Release() — removing
-	// .wipnote/writer.pid. Draining of in-flight ops happens in the deferred
-	// q.Stop(drainGrace) above. Without this the headless writer left both the
-	// stale socket and the lease behind on SIGTERM, blocking the dashboard's
-	// serve_child and the next writer from binding.
+	// (Serve returns), stops the maintenance loops, and fires the deferred
+	// ln.Close() — unlinking .wipnote/writer.sock — and the deferred
+	// lease.Release() — removing .wipnote/writer.pid. Draining of in-flight
+	// ops happens in the deferred q.Stop(drainGrace) above. Without this the
+	// headless writer left both the stale socket and the lease behind on
+	// SIGTERM, blocking the dashboard's serve_child and the next writer.
 	sigC := make(chan os.Signal, 1)
 	signal.Notify(sigC, syscall.SIGINT, syscall.SIGTERM)
 	defer signal.Stop(sigC)
@@ -171,11 +182,19 @@ func runWriterOnly() error {
 		}
 	}()
 
-	// MVP-3 (feat-075c110d): wire the real derived-op Applier. It runs every
-	// op against the SAME writable handle the writequeue worker owns
-	// (writer.DB()), so all socket-delivered writes serialize on the single
-	// writer connection — the structural single-writer invariant. This
-	// replaces the MVP-2 RejectingApplier.
+	// Per-project background maintenance (MOVED from runServeChild in
+	// feat-075c110d increment 2). These are the writable workloads that don't
+	// fit the socket/writequeue op API and previously ran inside the HTTP
+	// serve_child against its own writable handle — the source of the
+	// serve_child↔writer contention. They now run HERE, against the daemon's
+	// single writable handle / queue, so the HTTP serve_child can be strictly
+	// read-only.
+	startWriterMaintenance(ctx, writeDB, wipnoteDir, q, writer)
+
+	// Wire the real derived-op Applier. It runs every op against the SAME
+	// writable handle the writequeue worker owns (writer.DB()), so all
+	// socket-delivered writes serialize on the single writer connection — the
+	// structural single-writer invariant.
 	ln, err := daemon.NewListener(daemon.ListenerConfig{
 		SocketPath: daemon.SocketPath(projectRoot),
 		Queue:      q,
@@ -186,18 +205,64 @@ func runWriterOnly() error {
 	}
 	defer ln.Close()
 
-	// Readiness signal: the socket is bound and the queue is running. A
-	// future auto-spawn parent (MVP follow-on) can dial to confirm; for
-	// MVP-2 we just log it.
-	fmt.Fprintf(os.Stderr, "wipnote: writer-only daemon ready socket=%s pid=%d\n", ln.Addr(), os.Getpid())
+	// Readiness signal: the socket is bound and the queue is running. A parent
+	// `wipnote serve` child dials this socket to confirm the writer is up
+	// before serving HTTP read traffic.
+	fmt.Fprintf(os.Stderr, "wipnote: writer-only daemon ready socket=%s pid=%d serve_managed=%t\n", ln.Addr(), os.Getpid(), serveManaged)
 
-	// Idle-exit (feat-075c110d lifecycle hardening): an auto-spawned writer is
-	// detached and would otherwise run forever. ServeWithIdleTimeout closes the
-	// listener after writerIdleTimeout with zero ops in flight, running the
-	// same deferred socket+lease cleanup as a signal shutdown. The next write
-	// auto-spawns a fresh writer. WIPNOTE_WRITER_IDLE_TIMEOUT (a Go duration)
-	// overrides the default, primarily for tests.
-	return ln.ServeWithIdleTimeout(ctx, writerIdleTimeout())
+	// Idle-exit resolution (feat-075c110d increment 2): a CLI/hook auto-spawned
+	// writer is detached and idle-exits after writerIdleTimeout so it never
+	// lingers. But a SERVE-MANAGED writer must persist for serve's whole
+	// lifetime — serve opens read-only and depends on this writer for every
+	// write, and serve reaps it on shutdown (Pdeathsig + Supervisor SIGTERM).
+	// So when serveManaged is set we DISABLE idle-exit (idleTimeout <= 0 ⇒
+	// plain Serve) and rely entirely on serve's managed lifecycle to stop it.
+	idle := writerIdleTimeout()
+	if serveManaged {
+		idle = 0
+	}
+	return ln.ServeWithIdleTimeout(ctx, idle)
+}
+
+// startWriterMaintenance launches the per-project background maintenance loops
+// that legitimately write to the project DB but do not fit the socket/
+// writequeue op API. It runs INSIDE the headless writer daemon (feat-075c110d
+// increment 2) so these writes share the daemon's single writable handle/queue
+// rather than opening a second writer inside the HTTP serve_child.
+//
+// Loops started:
+//   - auto-ingest (every 60s) + a one-time ai-title backfill after the first
+//     ingest cycle, both against writeDB.
+//   - the NDJSON→SQLite indexer: SELECTs run against writeDB (the daemon holds
+//     no separate read-only handle), and its writes route through the same
+//     writequeue (WithQueue) / OTel sink the socket ops use.
+//   - retention archival (startup + every 24h) against writeDB.
+//
+// ctx cancellation (from SIGTERM/SIGINT or idle-exit) stops every loop.
+func startWriterMaintenance(ctx context.Context, writeDB *sql.DB, wipnoteDir string, q *writequeue.Queue, writer *otelreceiver.Writer) {
+	// Auto-ingest + one-time ai-title backfill. These issue INSERT/UPDATE/
+	// DELETE on sessions/messages/tool_calls directly on the writable handle.
+	go autoIngestLoop(writeDB, wipnoteDir, func() {
+		startAITitleBackfill(ctx, writeDB, wipnoteDir)
+	})
+
+	// NDJSON→SQLite indexer. Routes every SignalSink batch through the daemon's
+	// writequeue (via the OTel sink) and its prompt-ID bridge through the same
+	// queue (WithQueue). The daemon holds no separate read-only handle, so the
+	// orphan-filter SELECTs use the writable handle directly here — acceptable
+	// because they execute in the SAME process as the single writer (no cross-
+	// process SHARED↔RESERVED lock escalation, which was the bug-272c5e34/
+	// bug-74a7bda7 contention root cause).
+	snk := sqls.NewQueued(q, writer)
+	idxr := indexer.New(wipnoteDir, snk).
+		WithDB(writeDB).
+		WithWriteDB(writeDB).
+		WithQueue(q)
+	go idxr.Start(ctx)
+
+	// Retention archival: archive sessions older than the retention window at
+	// startup and every 24h.
+	retention.StartLoop(ctx, writeDB, wipnoteDir)
 }
 
 // writerIdleTimeout resolves the headless writer's idle-exit window. It honours
@@ -224,30 +289,30 @@ func runServeChild(port int) error {
 		return fmt.Errorf("locate .wipnote: %w", err)
 	}
 
-	dbPath, err := storage.CanonicalDBPath(filepath.Dir(wipnoteDir))
+	projectRoot := filepath.Dir(wipnoteDir)
+	dbPath, err := storage.CanonicalDBPath(projectRoot)
 	if err != nil {
 		return fmt.Errorf("resolve db path: %w", err)
 	}
 	if err := storage.EnsureDBDir(dbPath); err != nil {
 		return fmt.Errorf("ensure db dir: %w", err)
 	}
-	// bug-74a7bda7 topology split: the dashboard mux gets a READ-ONLY handle
-	// so no HTTP request can ever escalate a SHARED lock to RESERVED on the
-	// project DB (the root cause of SQLITE_BUSY blocking completions while a
-	// parallel session writes — on every filesystem, WAL or DELETE).
+
+	// feat-075c110d increment 2: the HTTP serve_child is now STRICTLY
+	// read-only. The headless writer daemon (runWriterOnly) is the SOLE owner
+	// of the per-project writable workload — the writequeue AND all background
+	// maintenance (auto-ingest, indexer, ai-title backfill, retention). With
+	// serve running there is exactly ONE writable SQLite handle for the
+	// project: the daemon's. serve_child no longer opens a writable handle and
+	// therefore can never contend with the writer.
 	//
-	// dbpkg.Open (writable + migrations) still runs FIRST so the schema
-	// exists / is current before any read-only connection opens (mode=ro
-	// never creates a file and never migrates). That same writable handle is
-	// then reused by the background maintenance loops that legitimately write
-	// but do NOT fit the slice-6 signal-batch write queue API
-	// (auto-ingest, ai-title backfill, indexer prompt-ID bridge). The
-	// slice-6 Writer still owns all OTLP/indexer-batch writes.
-	writeDB, err := dbpkg.Open(dbPath)
-	if err != nil {
-		return fmt.Errorf("open db (writable, schema): %w", err)
-	}
-	database, err := dbpkg.OpenReadOnly(dbPath)
+	// OpenReadOnlyMigrated bootstraps the schema (a brief writable Open that
+	// runs migrations, then is closed immediately) and returns a read-only
+	// handle. mode=ro never creates a file and never migrates, so the bootstrap
+	// is still required for a fresh/schema-behind workspace; it does NOT leave
+	// a writable handle open. Once the writer daemon is up it owns migrations,
+	// but serve may start first, so we keep the bootstrap here.
+	database, err := dbpkg.OpenReadOnlyMigrated(dbPath)
 	if err != nil {
 		return fmt.Errorf("open db (read-only mux): %w", err)
 	}
@@ -257,72 +322,41 @@ func runServeChild(port int) error {
 	// the single writer). 12 is comfortably above the dashboard's steady
 	// concurrency while bounding worst-case lock pressure.
 	database.SetMaxOpenConns(dashboardReadPoolMaxConns)
-	// Both handles live for the process lifetime; no defer Close — Serve blocks.
+	// The read-only handle lives for the process lifetime; no defer Close —
+	// Serve blocks. The dashboard performs no in-process writes: any write the
+	// HTTP layer still needs goes via the writer daemon over its socket.
 
-	// Slice 6 writer service (plan-ae0c37b2): one Writer + one queue
-	// per project DB. Every in-process producer (indexer, future OTLP
-	// receiver, sub-agent auto-ingest) submits SignalSink batches
-	// through this queue instead of opening its own writable handle.
-	// This is the architectural fix for the SQLITE_BUSY contention the
-	// plan targets — see plan q-service-owner for the post-launch
-	// `wipnote daemon` graduation path.
-	if writer, err := otelreceiver.NewWriter(dbPath); err != nil {
-		fmt.Fprintf(os.Stderr, "writer service init: %v\n", err)
-	} else {
-		q := writequeue.New(writequeue.Config{
-			Capacity: writequeue.DefaultCapacity,
-			OnError: func(err error) {
-				// Slice-10 contention observability: BUSY classification
-				// already lands at the WriteBatch boundary in
-				// internal/otel/sink/sqlite/writer.go under the writer_service
-				// subsystem (which captures the actual SQL contention
-				// site). Counting again here would double-bill the same
-				// event. We keep the OnError hook as the log-only path
-				// so operators can correlate the queue depth surfaced via
-				// /api/collector-status with worker errors.
-				log.Printf("writequeue: op error: %v", err)
-			},
-		})
-		if startErr := q.Start(context.Background()); startErr != nil {
-			fmt.Fprintf(os.Stderr, "writer queue start: %v\n", startErr)
-			_ = writer.Close()
-		} else {
-			writerService.queue = q
-			writerService.sink = sqls.NewQueued(q, writer)
-		}
-	}
+	// Ensure the per-project writer daemon is running and reaped on shutdown
+	// (feat-075c110d increment 2). If a live writer lease already exists
+	// (CLI/hook auto-spawn, or a prior serve), we reuse it; otherwise we start
+	// the headless writer as a MANAGED child (Setpgid + Pdeathsig) so it is
+	// SIGTERMed when this serve_child exits. The O_EXCL lease guarantees a
+	// single writer regardless of who starts it.
+	stopWriter := ensureWriterDaemon(projectRoot)
+	defer stopWriter()
 
-	mux := buildSingleProjectMux(database, writeDB, wipnoteDir)
+	// Dashboard interactive write routes (manual session-ingest button; plan
+	// feedback/finalize/delete/chat) genuinely mutate the DB and capture their
+	// *sql.DB at mux-build time. These are LOW-FREQUENCY, user-triggered writes
+	// — NOT the high-frequency background maintenance that increment 2 moved
+	// into the daemon (auto-ingest/indexer/ai-title/retention, the real
+	// contention source). They cannot yet be expressed as daemon op_types:
+	// routing them would require expanding the apply dispatch, which is
+	// explicitly OUT OF SCOPE for this increment (no wire-protocol / new-op
+	// changes). They are routed through the per-project writer daemon via the
+	// dashboardWriteClient (WriterClient over the writer socket); see
+	// dashWrite handlers. Read routes use the read-only `database` handle.
+	//
+	// IMPORTANT: serve_child holds NO writable SQLite handle. The mux's
+	// "write" argument is the read-only handle; any handler that needs to
+	// mutate MUST go through the writer daemon. query_only=ON on this handle
+	// turns any accidental in-process write into a loud SQLITE_READONLY error
+	// rather than a silent second-writer regression.
+	mux := buildSingleProjectMux(database, database, wipnoteDir)
 
-	// NDJSON→SQLite indexer (unconditional per Q5 cutover decision).
-	// The indexer now routes every SignalSink batch through the slice-6
-	// writer queue rather than holding its own writable handle. Canonical
-	// persistence is upstream of this path — the indexer reads NDJSON
-	// produced by per-session collectors, so user work is durable on
-	// disk before any submit hits the queue (canonical-first contract).
-	if writerService.sink != nil {
-		// Change 1 (bug-272c5e34): pass the read-only `database` handle so
-		// filterSessionsByDB / queryKnownSessionIDs SELECTs no longer hold a
-		// SHARED lock on the writable handle and can't block the queue
-		// worker's BEGIN IMMEDIATE.
-		//
-		// Change 2 (bug-272c5e34): wire the writequeue so maybeSetPromptID
-		// routes its SELECT+UPDATE through the single writer instead of
-		// issuing an independent write on a second connection.  WithDB is
-		// still needed for the read-only filter path above; the writable
-		// operations now go through the queue.
-		idxr := indexer.New(wipnoteDir, writerService.sink).
-			WithDB(database).
-			WithWriteDB(writeDB).
-			WithQueue(writerService.queue)
-		ctx := context.Background()
-		go idxr.Start(ctx)
-		// /api/indexer/status — per-file health for observability (Q7).
-		mux.Handle("/api/indexer/status", indexerStatusHandler(idxr))
-	}
-
-	// /api/collector-status — slice-6 diagnostic surface. Returns writer
-	// queue depth/state/rates so the dashboard can show backpressure.
+	// /api/collector-status — diagnostic surface. The writer queue now lives in
+	// the daemon, so writerService.queue is nil here; readWriterServiceStatus
+	// is nil-safe and still reports the process-level BUSY counters.
 	mux.Handle("/api/collector-status", collectorWriterStatusHandler())
 
 	ln, err := net.Listen("tcp", fmt.Sprintf("127.0.0.1:%d", port))
@@ -356,33 +390,114 @@ func runServeChild(port int) error {
 		os.Stderr = f
 	}
 
-	// Auto-ingest transcripts on startup and every 60s, scoped to this
-	// project via the explicit wipnoteDir argument (not CWD). After the
-	// first ingest cycle completes we kick off a one-time ai-title backfill
-	// so it observes any newly-ingested legacy sessions instead of writing
-	// its `.done` marker against an empty sessions table.
-	// auto-ingest and ai-title backfill both issue INSERT/UPDATE/DELETE on
-	// sessions/messages/tool_calls — route them to the writable handle, not
-	// the read-only mux handle (bug-74a7bda7 STEP 0 reroute).
-	go autoIngestLoop(writeDB, wipnoteDir, func() {
-		startAITitleBackfill(context.Background(), writeDB, wipnoteDir)
-	})
+	// Background maintenance (auto-ingest, ai-title backfill, indexer,
+	// retention) is NO LONGER started here — feat-075c110d increment 2 moved
+	// it into the headless writer daemon (runWriterOnly→startWriterMaintenance)
+	// so it runs against the daemon's single writable handle. serve_child is
+	// read-only.
 
-	// Retention job: archive sessions older than WIPNOTE_SESSION_RETAIN_DAYS
-	// (default 30) at startup and every 24h. Dry-run via WIPNOTE_RETENTION_DRYRUN=1.
-	retention.StartLoop(context.Background(), database, wipnoteDir)
+	// Graceful shutdown: trap SIGTERM/SIGINT so the deferred stopWriter() (which
+	// reaps a serve-managed writer) actually runs. The childproc supervisor
+	// SIGTERMs us on serve-parent shutdown / idle-reap; without this handler the
+	// process would die before the defer fires and a serve-managed writer would
+	// be orphaned (Pdeathsig is the kernel-level backstop, but we reap
+	// explicitly for portability and promptness).
+	srv := &http.Server{Handler: mux}
+	srvErr := make(chan error, 1)
+	go func() { srvErr <- srv.Serve(ln) }()
 
-	return (&http.Server{Handler: mux}).Serve(ln)
+	sigC := make(chan os.Signal, 1)
+	signal.Notify(sigC, syscall.SIGINT, syscall.SIGTERM)
+	defer signal.Stop(sigC)
+	select {
+	case err := <-srvErr:
+		return err
+	case <-sigC:
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		_ = srv.Shutdown(shutdownCtx)
+		// stopWriter() runs via defer after we return, reaping the managed writer.
+		return nil
+	}
 }
 
-// indexerStatusHandler returns an HTTP handler for GET /api/indexer/status.
-// The response body is a JSON object with per-session file health metrics.
-func indexerStatusHandler(idxr *indexer.Indexer) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		status := idxr.Status()
-		w.Header().Set("Content-Type", "application/json")
-		if err := json.NewEncoder(w).Encode(map[string]any{"files": status}); err != nil {
-			http.Error(w, "encode error", http.StatusInternalServerError)
+// ensureWriterDaemon makes sure a per-project writer daemon is running and
+// returns a stop function that reaps it IF this serve_child started it.
+//
+// feat-075c110d increment 2 — serve→writer management:
+//   - If a live writer lease already exists (a CLI/hook auto-spawned writer, or
+//     a writer from a prior serve), we DO NOT start another one. The O_EXCL
+//     lease is the single-owner authority; we simply use the existing writer
+//     and the returned stop func is a no-op (we don't own its lifecycle).
+//   - Otherwise we spawn the headless writer as a MANAGED child with
+//     Setpgid + Pdeathsig (the MVP-1 spawn attrs) and --serve-managed (which
+//     disables the writer's idle-exit). The returned stop func SIGTERMs that
+//     child so the writer is reaped on serve shutdown.
+//
+// The lease check is racy by nature (another writer could appear between the
+// check and our spawn), but that race is benign: the writer we fork calls
+// AcquireLease itself and a loser exits 0 immediately, leaving the existing
+// owner serving. So we never end up with two writers regardless of who starts.
+func ensureWriterDaemon(projectRoot string) func() {
+	if daemon.LeaseOwnerAlive(projectRoot) {
+		// A live writer already owns the lease — reuse it, own nothing.
+		fmt.Fprintf(os.Stderr, "wipnote: serve_child reusing existing writer daemon (lease held)\n")
+		return func() {}
+	}
+
+	selfExe, err := os.Executable()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "wipnote: serve_child cannot resolve self exe to spawn writer: %v\n", err)
+		return func() {}
+	}
+
+	logDir := filepath.Join(projectRoot, ".wipnote", "logs")
+	_ = os.MkdirAll(logDir, 0o755)
+	var out *os.File
+	if f, ferr := os.OpenFile(filepath.Join(logDir, "writer.log"),
+		os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644); ferr == nil {
+		out = f
+	}
+
+	cmd := exec.Command(selfExe, "--project-dir", projectRoot,
+		"_serve-child", "--headless", "--serve-managed")
+	cmd.Dir = projectRoot
+	cmd.Stdin = nil
+	if out != nil {
+		cmd.Stdout = out
+		cmd.Stderr = out
+	}
+	cmd.Env = os.Environ()
+	// Managed-child spawn attrs (reuse the MVP-1 childproc attrs): Setpgid
+	// isolates the writer in its own process group; Pdeathsig (Linux) delivers
+	// SIGTERM to the writer the moment this serve_child dies — kernel-level
+	// orphan prevention so a serve-managed writer never outlives its serve.
+	cmd.SysProcAttr = childproc.WriterSysProcAttr()
+
+	if err := cmd.Start(); err != nil {
+		fmt.Fprintf(os.Stderr, "wipnote: serve_child failed to spawn writer daemon: %v\n", err)
+		if out != nil {
+			_ = out.Close()
 		}
-	})
+		return func() {}
+	}
+	if out != nil {
+		_ = out.Close() // child holds its own fd after Start
+	}
+	fmt.Fprintf(os.Stderr, "wipnote: serve_child started managed writer daemon pid=%d\n", cmd.Process.Pid)
+
+	stopped := make(chan struct{})
+	go func() { _ = cmd.Wait(); close(stopped) }()
+
+	return func() {
+		// SIGTERM the managed writer and wait briefly for it to run its
+		// deferred socket+lease cleanup, escalating to SIGKILL if it lingers.
+		_ = cmd.Process.Signal(syscall.SIGTERM)
+		select {
+		case <-stopped:
+		case <-time.After(3 * time.Second):
+			_ = cmd.Process.Kill()
+			<-stopped
+		}
+	}
 }

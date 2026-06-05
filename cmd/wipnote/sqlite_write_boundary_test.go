@@ -232,27 +232,28 @@ var approvedWriteSites = []writeSite{
 	// SELECT-only, so it no longer needs (and must not hold) the writer lock.
 	// Its former intentional-cli-mutation inventory entry is therefore
 	// removed; the read-only open is not a writable-boundary site.
+	// feat-075c110d increment 2: runServeChild (the HTTP dashboard child) NO
+	// LONGER opens a writable handle. It now opens the project DB read-only
+	// (dbpkg.OpenReadOnlyMigrated — a brief bootstrap Open inside internal/db,
+	// which is OUT of scan scope, then a read-only handle) and ensures the
+	// headless writer DAEMON is running for every write. Its former
+	// intentional-cli-mutation entry (serve_child.go:246, runServeChild) is
+	// therefore removed: with serve running there is exactly ONE writable
+	// SQLite handle per project — the daemon's (runWriterOnly below).
+	//
+	// runWriterOnly is the SOLE per-project writable opener while serve runs.
+	// It opens the writable handle to run schema/migrations AND to back the
+	// background maintenance loops (auto-ingest, ai-title backfill, indexer
+	// prompt-ID bridge, retention) that moved here from runServeChild; the
+	// daemon socket listener funnels all socket-delivered ops through the
+	// writequeue worker (receiver.NewWriter). No HTTP mux.
 	{
 		File:           "cmd/wipnote/serve_child.go",
-		Line:           246,
-		Function:       "runServeChild",
-		OpenExpr:       "dbpkg.Open",
-		Classification: intentionalCLIMutation,
-		Note:           "Dashboard child: ONE writable handle for schema/migrations + background maintenance loops (auto-ingest, ai-title backfill, indexer prompt-ID bridge). The HTTP mux uses a SEPARATE read-only handle (dbpkg.OpenReadOnly) — bug-74a7bda7.",
-	},
-	// feat-075c110d MVP-2: headless writer-only serve_child. Opens the
-	// writable handle ONLY to run schema/migrations before the writequeue
-	// worker (receiver.NewWriter) takes over; the handle is then held open
-	// for process lifetime but issues no ad-hoc writes. This is the
-	// per-project write-owner spine (plan-bb91616a slice-2) — the SAME
-	// owned-writer pattern as runServeChild, in a no-HTTP mode.
-	{
-		File:           "cmd/wipnote/serve_child.go",
-		Line:           129,
+		Line:           143,
 		Function:       "runWriterOnly",
 		OpenExpr:       "dbpkg.Open",
 		Classification: intentionalCLIMutation,
-		Note:           "Headless writer-only daemon: ONE writable handle for schema/migrations; the daemon socket listener funnels all ops through the writequeue worker (receiver.NewWriter), the single-writer service. No HTTP mux. feat-075c110d MVP-2.",
+		Note:           "Headless writer-only daemon (feat-075c110d increment 2): the SOLE writable handle per project while serve runs. Backs schema/migrations, the background maintenance loops (auto-ingest, ai-title backfill, indexer prompt-ID bridge, retention — MOVED here from runServeChild), and the daemon socket listener's writequeue worker (receiver.NewWriter). The HTTP serve_child (runServeChild) is now strictly read-only and ensures+reaps this daemon.",
 	},
 	{
 		File:           "cmd/wipnote/session.go",

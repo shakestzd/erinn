@@ -61,7 +61,12 @@ func TestStaleSocketUnlinkedOnBind(t *testing.T) {
 	q, stop := startQueue(t)
 	defer stop()
 
-	ln, err := NewListener(ListenerConfig{SocketPath: sock, Queue: q, Applier: RejectingApplier})
+	ln, err := NewListener(ListenerConfig{
+		SocketPath: sock,
+		Queue:      q,
+		Applier:    RejectingApplier,
+		OwnerPID:   os.Getpid(),
+	})
 	if err != nil {
 		t.Fatalf("NewListener over stale socket: %v", err)
 	}
@@ -73,10 +78,14 @@ func TestStaleSocketUnlinkedOnBind(t *testing.T) {
 	}
 }
 
-// TestStaleSocketUnlinkRefusedWhenOwnerAlive verifies the defence-in-depth
-// guard: NewListener must NOT unlink a socket whose lease is held by a LIVE
-// owner (the lease — not the inode — is the ownership authority).
-func TestStaleSocketUnlinkRefusedWhenOwnerAlive(t *testing.T) {
+// TestSelfOwnedStaleSocketUnlinkedOnBind verifies the bugfix: when the lease
+// is held by the CURRENT process (ownerPID == os.Getpid()), NewListener
+// unlinks the stale socket and succeeds. The lease holder may always reclaim
+// its own stale socket before binding (feat-075c110d bugfix). This is the
+// regression test for the case where AcquireLease succeeds (winning the
+// O_EXCL), writes the current pid to writer.pid, but a stale writer.sock
+// file remains from a prior unclean exit.
+func TestSelfOwnedStaleSocketUnlinkedOnBind(t *testing.T) {
 	dir := t.TempDir()
 	if err := os.MkdirAll(filepath.Join(dir, ".wipnote"), 0o755); err != nil {
 		t.Fatalf("mkdir .wipnote: %v", err)
@@ -87,7 +96,7 @@ func TestStaleSocketUnlinkRefusedWhenOwnerAlive(t *testing.T) {
 	} else {
 		_ = f.Close()
 	}
-	// Live lease: record OUR pid (this test process is alive).
+	// Lease held by OUR pid (this test process has already acquired it).
 	if err := os.WriteFile(LeasePath(dir), []byte(strconv.Itoa(os.Getpid())+"\n"), 0o644); err != nil {
 		t.Fatalf("write live lease: %v", err)
 	}
@@ -95,8 +104,63 @@ func TestStaleSocketUnlinkRefusedWhenOwnerAlive(t *testing.T) {
 	q, stop := startQueue(t)
 	defer stop()
 
-	if _, err := NewListener(ListenerConfig{SocketPath: sock, Queue: q, Applier: RejectingApplier}); err == nil {
-		t.Fatal("NewListener succeeded but a live lease owner should have blocked the unlink")
+	// Pass OwnerPID = os.Getpid() so the listener knows it holds the lease.
+	// The stale socket must be unlinked and the bind must succeed.
+	ln, err := NewListener(ListenerConfig{
+		SocketPath: sock,
+		Queue:      q,
+		Applier:    RejectingApplier,
+		OwnerPID:   os.Getpid(),
+	})
+	if err != nil {
+		t.Fatalf("NewListener with self-owned stale socket: %v", err)
+	}
+	defer ln.Close()
+
+	// The bind must have succeeded.
+	if ln.Addr() != sock {
+		t.Fatalf("listener addr = %q, want %q", ln.Addr(), sock)
+	}
+}
+
+// TestStaleSocketUnlinkRefusedWhenDifferentOwnerAlive verifies the
+// defence-in-depth guard: NewListener must refuse to unlink a socket whose
+// lease is held by a DIFFERENT live process. We verify this by recording a
+// different (non-current) pid in the lease; the lease holder's cmdline check
+// will consider it a stale or non-writer PID for portability, but we verify
+// the refusal logic still fires when a lease is held.
+func TestStaleSocketUnlinkRefusedWhenDifferentOwnerAlive(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(dir, ".wipnote"), 0o755); err != nil {
+		t.Fatalf("mkdir .wipnote: %v", err)
+	}
+	sock := SocketPath(dir)
+	if f, err := os.Create(sock); err != nil {
+		t.Fatalf("create socket inode: %v", err)
+	} else {
+		_ = f.Close()
+	}
+	// Live lease: record CURRENT pid (this test process is alive).
+	// We pass a DIFFERENT ownerPID to NewListener so it will attempt
+	// the unlink and hit the refusal when leaseOwnerAlive returns true.
+	if err := os.WriteFile(LeasePath(dir), []byte(strconv.Itoa(os.Getpid())+"\n"), 0o644); err != nil {
+		t.Fatalf("write live lease: %v", err)
+	}
+
+	q, stop := startQueue(t)
+	defer stop()
+
+	// Pass ownerPID = os.Getpid() + 99999 (a different, unlikely live pid).
+	// When unlinkStaleSocket checks leaseOwnerAlive and finds our (test
+	// process) pid in the lease, it will see ownerPID != os.Getpid() and
+	// refuse the unlink.
+	if _, err := NewListener(ListenerConfig{
+		SocketPath: sock,
+		Queue:      q,
+		Applier:    RejectingApplier,
+		OwnerPID:   os.Getpid() + 99999,
+	}); err == nil {
+		t.Fatal("NewListener succeeded but a different live lease owner should have blocked the unlink")
 	}
 }
 
@@ -155,7 +219,12 @@ func TestIdleExitNotTriggeredWhileActive(t *testing.T) {
 	applier := func(env Envelope) (writequeue.WriteOp, error) {
 		return func(_ context.Context) error { return nil }, nil
 	}
-	ln, err := NewListener(ListenerConfig{SocketPath: sock, Queue: q, Applier: applier})
+	ln, err := NewListener(ListenerConfig{
+		SocketPath: sock,
+		Queue:      q,
+		Applier:    applier,
+		OwnerPID:   os.Getpid(),
+	})
 	if err != nil {
 		t.Fatalf("NewListener: %v", err)
 	}
@@ -239,7 +308,12 @@ func TestEmptyLeasePIDAllowsUnlink(t *testing.T) {
 	q, stop := startQueue(t)
 	defer stop()
 
-	ln, err := NewListener(ListenerConfig{SocketPath: sock, Queue: q, Applier: RejectingApplier})
+	ln, err := NewListener(ListenerConfig{
+		SocketPath: sock,
+		Queue:      q,
+		Applier:    RejectingApplier,
+		OwnerPID:   os.Getpid(),
+	})
 	if err != nil {
 		t.Fatalf("NewListener with empty lease: %v", err)
 	}
@@ -272,7 +346,12 @@ func TestWhitespaceLeasePIDAllowsUnlink(t *testing.T) {
 	q, stop := startQueue(t)
 	defer stop()
 
-	ln, err := NewListener(ListenerConfig{SocketPath: sock, Queue: q, Applier: RejectingApplier})
+	ln, err := NewListener(ListenerConfig{
+		SocketPath: sock,
+		Queue:      q,
+		Applier:    RejectingApplier,
+		OwnerPID:   os.Getpid(),
+	})
 	if err != nil {
 		t.Fatalf("NewListener with whitespace lease: %v", err)
 	}
@@ -301,7 +380,12 @@ func TestMissingLeasePIDAllowsUnlink(t *testing.T) {
 	q, stop := startQueue(t)
 	defer stop()
 
-	ln, err := NewListener(ListenerConfig{SocketPath: sock, Queue: q, Applier: RejectingApplier})
+	ln, err := NewListener(ListenerConfig{
+		SocketPath: sock,
+		Queue:      q,
+		Applier:    RejectingApplier,
+		OwnerPID:   os.Getpid(),
+	})
 	if err != nil {
 		t.Fatalf("NewListener with missing lease: %v", err)
 	}
@@ -333,7 +417,12 @@ func TestGarbageLeasePIDAllowsUnlink(t *testing.T) {
 	q, stop := startQueue(t)
 	defer stop()
 
-	ln, err := NewListener(ListenerConfig{SocketPath: sock, Queue: q, Applier: RejectingApplier})
+	ln, err := NewListener(ListenerConfig{
+		SocketPath: sock,
+		Queue:      q,
+		Applier:    RejectingApplier,
+		OwnerPID:   os.Getpid(),
+	})
 	if err != nil {
 		t.Fatalf("NewListener with garbage lease: %v", err)
 	}

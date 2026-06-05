@@ -199,6 +199,7 @@ func runWriterOnly(serveManaged bool) error {
 		SocketPath: daemon.SocketPath(projectRoot),
 		Queue:      q,
 		Applier:    apply.NewApplier(writer.DB()),
+		OwnerPID:   os.Getpid(),
 	})
 	if err != nil {
 		return fmt.Errorf("bind writer socket: %w", err)

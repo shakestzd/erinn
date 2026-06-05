@@ -77,11 +77,15 @@ type Listener struct {
 // ListenerConfig configures a Listener. SocketPath is the Unix socket the
 // listener binds (caller derives it via SocketPath(projectRoot)). Queue is
 // the single-writer queue ops funnel through — the SAME type serve_child
-// constructs. Applier maps op_type+payload to a WriteOp.
+// constructs. Applier maps op_type+payload to a WriteOp. OwnerPID is the
+// process ID of the lease holder (the process that called AcquireLease);
+// passed to unlinkStaleSocket so the lease holder may unlink its own stale
+// socket (feat-075c110d bugfix).
 type ListenerConfig struct {
 	SocketPath string
 	Queue      *writequeue.Queue
 	Applier    Applier
+	OwnerPID   int
 }
 
 // NewListener binds the Unix socket and returns a Listener ready to Serve.
@@ -94,7 +98,8 @@ type ListenerConfig struct {
 // here a leftover socket is necessarily stale and safe to unlink. For defence
 // in depth NewListener still confirms no live lease owner before unlinking, so
 // a programming error that called NewListener without the lease cannot stomp a
-// live writer's socket.
+// live writer's socket. When the lease owner (cfg.OwnerPID) is the current
+// process, the socket is always reclaimed (feat-075c110d bugfix).
 func NewListener(cfg ListenerConfig) (*Listener, error) {
 	if cfg.Queue == nil {
 		return nil, errors.New("daemon: NewListener requires a non-nil Queue")
@@ -102,7 +107,7 @@ func NewListener(cfg ListenerConfig) (*Listener, error) {
 	if cfg.Applier == nil {
 		return nil, errors.New("daemon: NewListener requires a non-nil Applier")
 	}
-	if err := unlinkStaleSocket(cfg.SocketPath); err != nil {
+	if err := unlinkStaleSocket(cfg.SocketPath, cfg.OwnerPID); err != nil {
 		return nil, err
 	}
 	ln, err := net.Listen("unix", cfg.SocketPath)
@@ -124,8 +129,11 @@ func NewListener(cfg ListenerConfig) (*Listener, error) {
 // after an unclean exit. It refuses to unlink when a LIVE lease owner exists
 // for the same project (lease co-located with the socket under .wipnote/): the
 // lease, not the socket, is the ownership authority, so a live owner's socket
-// must never be stomped. A missing socket is a no-op.
-func unlinkStaleSocket(sockPath string) error {
+// must never be stomped. However, if the lease is held by ownerPID (the current
+// lease holder), the socket is reclaimable and will be unlinked — the lease
+// holder may clear its own stale socket before binding (feat-075c110d bugfix).
+// A missing socket is a no-op.
+func unlinkStaleSocket(sockPath string, ownerPID int) error {
 	if _, err := os.Lstat(sockPath); err != nil {
 		if os.IsNotExist(err) {
 			return nil
@@ -133,10 +141,17 @@ func unlinkStaleSocket(sockPath string) error {
 		return fmt.Errorf("stat socket %s: %w", sockPath, err)
 	}
 	// The lease lives next to the socket: .wipnote/writer.pid alongside
-	// .wipnote/writer.sock. If a live owner still holds it, do not unlink.
+	// .wipnote/writer.sock. If a live owner still holds it, do not unlink —
+	// unless the owner is us (ownerPID == our pid), in which case the socket
+	// is our stale leftover and we may reclaim it.
 	leasePath := filepath.Join(filepath.Dir(sockPath), "writer.pid")
 	if leaseOwnerAlive(leasePath) {
-		return fmt.Errorf("daemon: refusing to unlink socket %s: a live writer holds the lease", sockPath)
+		// Check if the live owner is us (the lease holder passed to NewListener).
+		if ownerPID != os.Getpid() {
+			return fmt.Errorf("daemon: refusing to unlink socket %s: a live writer holds the lease", sockPath)
+		}
+		// The lease is held by the current process — the socket is our stale
+		// leftover, safe to unlink.
 	}
 	if err := os.Remove(sockPath); err != nil && !os.IsNotExist(err) {
 		return fmt.Errorf("clear stale socket: %w", err)

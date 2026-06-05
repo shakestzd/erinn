@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>plan finalize gate counts sections UI never exposes (issue #122)</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="bug-9e45dd31"
+             data-type="bug"
+             data-status="todo"
+             data-priority="medium"
+             data-created="2026-06-05T17:13:49.785264"
+             data-updated="2026-06-05T17:14:00.34248" data-agent-assigned="claude-code" data-track-id="trk-d8aef97a" data-created-by-cli-version="0.60.19-127-g2fb214ab1">
+
+        <header>
+            <h1>plan finalize gate counts sections UI never exposes (issue #122)</h1>
+            <div class="metadata">
+                <span class="badge status-todo">Todo</span>
+                <span class="badge priority-medium">Medium Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="trk-d8aef97a.html" data-relationship="part_of" data-since="2026-06-05T17:14:00.328721">trk-d8aef97a</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>IsPlanFullyApproved (internal/db/plan_feedback.go) counts COUNT(DISTINCT section) over ALL action=approve rows and blocks if any has value!=true. UI SectionsJSON only tracks design/outline/slice-N, so an invisible slice-N-question-* (or critique/q-*) approve row blocks finalize while dashboard shows All approved with no recovery path. Fix: scope gate to design/outline/^slice-[0-9]+$ to match the UI's approvable section set. GH issue 122.</p>
+        </section>
+    </article>
+</body>
+</html>

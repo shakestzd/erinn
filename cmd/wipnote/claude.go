@@ -600,6 +600,10 @@ func launchClaude(opts LaunchOpts) error {
 	// server so users see the explanation before any server output.
 	MaybeShowOtelNotice(opts.ProjectRoot)
 
+	// Launch-time guard-profile initialization (peer to the OTel collector
+	// bootstrap). No-op when already approved or non-interactive; never blocks.
+	ensureGuardProfile(opts.ProjectRoot)
+
 	// Auto-start a detached `wipnote serve` for the dashboard and
 	// semantic-ops (AI-title backfill, etc.). The serve process is now a
 	// pure reader + dashboard server — OTLP ingest is handled by the

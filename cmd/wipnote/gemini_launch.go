@@ -209,6 +209,10 @@ func execGemini(opts geminiLaunchOpts) error {
 	// Auto-start a detached `wipnote serve` for the dashboard.
 	ensureServeForDashboard(effectiveProjDir)
 
+	// Launch-time guard-profile initialization (peer to the OTel collector
+	// bootstrap). No-op when already approved or non-interactive; never blocks.
+	ensureGuardProfile(effectiveProjDir)
+
 	// Spawn a per-session OTel collector when a project dir is known and OTel
 	// is not explicitly disabled. Non-fatal: falls back gracefully on failure.
 	var otelPort int

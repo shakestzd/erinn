@@ -15,6 +15,7 @@ import (
 	"time"
 
 	dbpkg "github.com/shakestzd/wipnote/internal/db"
+	"github.com/shakestzd/wipnote/internal/guardprofile"
 	"github.com/shakestzd/wipnote/internal/paths"
 	"github.com/shakestzd/wipnote/internal/storage"
 )
@@ -22,6 +23,9 @@ import (
 type gateCommand struct {
 	Name string
 	Args []string
+	// Dir overrides the working directory for this command (guard-profile cwd).
+	// Empty means use the plan's ManifestDir.
+	Dir string
 }
 
 type gatePlan struct {
@@ -29,6 +33,14 @@ type gatePlan struct {
 	ManifestDir string
 	Manifest    string
 	Commands    []gateCommand
+	// UsedProfile is true when the approved guard profile (not manifest
+	// autodetection) supplied Commands.
+	UsedProfile bool
+	// ProfileSignature is the canonical signature of the approved profile when
+	// UsedProfile is true; empty otherwise.
+	ProfileSignature string
+	// GuardNames lists the guard names that ran (profile path only).
+	GuardNames []string
 }
 
 type packageJSON struct {
@@ -56,7 +68,39 @@ type gateRunResult struct {
 	Record        *dbpkg.GateRecord
 }
 
-func detectGatePlan(projectRoot string) (gatePlan, error) {
+func detectGatePlan(projectRoot, phase string) (gatePlan, error) {
+	// Approved guard profile takes precedence over manifest autodetection. The
+	// phase selects which guard group runs: PhaseQuality for `check --gate`,
+	// PhaseCompletion for the completion re-check (roborev #3703 — completion
+	// previously resolved PhaseQuality, so the completion phase never ran). The
+	// manifest-autodetection fallback below is phase-agnostic.
+	guards, usedProfile, err := guardprofile.ResolveGuards(projectRoot, phase)
+	if err != nil {
+		return gatePlan{}, fmt.Errorf("resolve guard profile: %w", err)
+	}
+	if usedProfile {
+		prof, _ := guardprofile.Load(projectRoot)
+		plan := gatePlan{
+			ProjectType:      paths.ProjectTypeUnknown,
+			ManifestDir:      projectRoot,
+			UsedProfile:      true,
+			ProfileSignature: guardprofile.Signature(prof),
+		}
+		for _, g := range guards {
+			dir := projectRoot
+			if strings.TrimSpace(g.Cwd) != "" {
+				dir = filepath.Join(projectRoot, filepath.FromSlash(g.Cwd))
+			}
+			plan.Commands = append(plan.Commands, gateCommand{
+				Name: g.Name,
+				Args: []string{"sh", "-c", g.Cmd},
+				Dir:  dir,
+			})
+			plan.GuardNames = append(plan.GuardNames, g.Name)
+		}
+		return plan, nil
+	}
+
 	manifestDir, manifestName, projectType := detectManifest(projectRoot)
 	if projectType == paths.ProjectTypeUnknown {
 		// No supported manifest detected — resolve to a zero-command no-op plan
@@ -74,7 +118,6 @@ func detectGatePlan(projectRoot string) (gatePlan, error) {
 		ManifestDir: manifestDir,
 		Manifest:    filepath.Join(manifestDir, manifestName),
 	}
-	var err error
 	switch projectType {
 	case paths.ProjectTypeGo:
 		plan.Commands = []gateCommand{
@@ -165,14 +208,22 @@ func detectManifest(projectRoot string) (dir, file string, projectType paths.Pro
 	return "", "", paths.ProjectTypeUnknown
 }
 
-func runSessionGate(projectRoot, sessionID, workItemID, source string, stdout, stderr io.Writer) (*gateRunResult, error) {
-	plan, err := detectGatePlan(projectRoot)
+func runSessionGate(projectRoot, sessionID, workItemID, source, phase string, stdout, stderr io.Writer) (*gateRunResult, error) {
+	plan, err := detectGatePlan(projectRoot, phase)
 	if err != nil {
 		return nil, err
 	}
 
-	// No-op path: unknown project type has zero commands and passes trivially.
-	if plan.ProjectType == paths.ProjectTypeUnknown {
+	// When no approved profile drove the plan, emit a single stderr hint
+	// pointing at guard setup so projects can opt into a committed contract.
+	if !plan.UsedProfile {
+		fmt.Fprintln(stderr, "hint: no approved guard profile found — gate ran via autodetection. Run `wipnote guard init` to define and approve a project guard profile.")
+	}
+
+	// No-op path: unknown project type (and no profile) has zero commands and
+	// passes trivially. A profile-driven plan with zero matching guards also
+	// lands here but is treated as a profile pass.
+	if !plan.UsedProfile && plan.ProjectType == paths.ProjectTypeUnknown {
 		fmt.Fprintln(stdout, "no supported project manifest detected — treating quality gate as a no-op pass")
 		result := &gateRunResult{
 			Plan:          plan,
@@ -247,7 +298,11 @@ func writeGateAllowlistHits(w io.Writer, hits []gateAllowlistHit) {
 
 func runGateCommand(gc gateCommand, dir string, allowlist []gateAllowlistEntry, stdout, stderr io.Writer) ([]gateAllowlistHit, error) {
 	cmd := exec.Command(gc.Args[0], gc.Args[1:]...)
-	cmd.Dir = dir
+	if strings.TrimSpace(gc.Dir) != "" {
+		cmd.Dir = gc.Dir
+	} else {
+		cmd.Dir = dir
+	}
 	cmd.Env = os.Environ()
 	var output bytes.Buffer
 	cmd.Stdout = io.MultiWriter(stdout, &output)
@@ -287,6 +342,14 @@ func persistGateRecord(projectRoot, sessionID, workItemID, source string, result
 	if err != nil {
 		return nil, fmt.Errorf("marshal gate allowlist hits: %w", err)
 	}
+	guardsRun := result.Plan.GuardNames
+	if guardsRun == nil {
+		guardsRun = []string{}
+	}
+	guardsRunJSON, err := json.Marshal(guardsRun)
+	if err != nil {
+		return nil, fmt.Errorf("marshal guards run: %w", err)
+	}
 	record := &dbpkg.GateRecord{
 		SessionID:         sessionID,
 		WorkItemID:        workItemID,
@@ -299,6 +362,8 @@ func persistGateRecord(projectRoot, sessionID, workItemID, source string, result
 		AllowlistHitCount: len(result.AllowlistHits),
 		Source:            source,
 		OutputSummary:     result.OutputSummary,
+		ProfileSignature:  result.Plan.ProfileSignature,
+		GuardsRunJSON:     string(guardsRunJSON),
 	}
 	record.EnsureSignature()
 	if err := dbpkg.InsertGateRecord(database, record); err != nil {
@@ -383,6 +448,34 @@ func activeWorkItemForGate(sessionID, agentID string) string {
 	return dbpkg.GetActiveWorkItemWithFallback(database, sessionID, dbpkg.NormaliseAgentID(agentID))
 }
 
+// reportGuardProfileDrift prints a READ-ONLY stale/needs-revalidation notice
+// when the latest recorded gate's profile_signature differs from the current
+// approved guard-profile signature. It NEVER fails completion or mutates the
+// work item — drift is cleared by re-running the gate (which re-records the
+// fresh signature) or by re-approving the profile. No-ops silently when there
+// is no approved profile, no prior record, or the signatures already match.
+func reportGuardProfileDrift(database *sql.DB, projectRoot, sessionID string, w io.Writer) {
+	if database == nil || strings.TrimSpace(sessionID) == "" {
+		return
+	}
+	prof, err := guardprofile.Load(projectRoot)
+	if err != nil || prof == nil || !guardprofile.IsApproved(prof) {
+		return
+	}
+	current := guardprofile.Signature(prof)
+
+	record, err := dbpkg.LatestGateRecordForSession(database, sessionID)
+	if err != nil || record == nil {
+		return
+	}
+	// Only meaningful when the prior record was itself profile-driven.
+	if record.ProfileSignature == "" || record.ProfileSignature == current {
+		return
+	}
+	fmt.Fprintf(w, "notice: guard-profile drift — last passing gate recorded profile %s but the approved profile is now %s. The gate will be re-run to revalidate against the current contract.\n",
+		record.ProfileSignature, current)
+}
+
 func validateCompletionGateRecord(projectRoot string, database *sql.DB, sessionID, workItemID string) error {
 	if database == nil {
 		return nil
@@ -399,7 +492,7 @@ func validateCompletionGateRecord(projectRoot string, database *sql.DB, sessionI
 		return fmt.Errorf("refusing to complete %s: no valid passing gate record exists for the current session (%s).\nRun:\n  wipnote check --gate", workItemID, sessionID)
 	}
 
-	result, err := runSessionGate(projectRoot, sessionID, workItemID, "complete-recheck", os.Stdout, os.Stderr)
+	result, err := runSessionGate(projectRoot, sessionID, workItemID, "complete-recheck", guardprofile.PhaseCompletion, os.Stdout, os.Stderr)
 	if err != nil {
 		return fmt.Errorf("re-run quality gate before completing %s: %w", workItemID, err)
 	}

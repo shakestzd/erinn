@@ -977,6 +977,24 @@ These reduce per-turn output volume and let tighter `maxTurns` caps actually hol
 
 ---
 
+## Multi-agent Git Isolation
+
+When multiple agents or CLIs work on the same repository concurrently, follow this operating model to avoid Git index contention and interleaved commits:
+
+**Source edits** must happen in **per-agent worktrees or isolated clones**, never in the shared main checkout. Create an isolated worktree for each agent:
+```bash
+wipnote yolo --feature <feat-id>   # creates a managed linked worktree
+# or manually: git worktree add .claude/worktrees/<id> -b <branch>
+```
+
+**Metadata commits** (wipnote HTML artifacts, session data) are automatically serialized via the repo-scoped advisory lock (`runGitMutation` in feat-3f66d83f). This lock is safe from any worktree because it lives in the per-user cache directory, not in `.git/` or `.wipnote/`.
+
+**Git lock file cleanup** is opt-in only — never automatic. Use `wipnote launcher git-lock --fix` (requires an age threshold and a no-live-writer check) to clean stale lock files. Do NOT remove `.git/index.lock` manually unless you have confirmed no process is writing.
+
+**Diagnosis:** Run `wipnote launcher doctor` to check whether you're in the primary worktree (warns if so) or a properly isolated linked worktree.
+
+---
+
 ## Pre-Work Validation (YOLO Mode Hook)
 
 The PreToolUse hook enforces attribution before code changes. Behavior by scenario:

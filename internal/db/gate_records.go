@@ -25,6 +25,14 @@ type GateRecord struct {
 	AllowlistHitCount int
 	Source            string
 	OutputSummary     string
+	// ProfileSignature is the canonical guardprofile.Signature of the APPROVED
+	// guard profile that supplied this gate's commands, or "" when the gate ran
+	// via manifest autodetection. It is provenance, NOT part of the
+	// record-integrity signablePayload/Signature MAC.
+	ProfileSignature string
+	// GuardsRunJSON is a JSON array of the guard names that ran. "[]" when none
+	// (autodetection or no-op).
+	GuardsRunJSON string
 }
 
 func (gr *GateRecord) signablePayload() string {
@@ -72,6 +80,9 @@ func InsertGateRecord(database *sql.DB, gr *GateRecord) error {
 	if gr.AllowlistHitsJSON == "" {
 		gr.AllowlistHitsJSON = "[]"
 	}
+	if gr.GuardsRunJSON == "" {
+		gr.GuardsRunJSON = "[]"
+	}
 	if gr.Signature == "" {
 		gr.EnsureSignature()
 	}
@@ -79,12 +90,13 @@ func InsertGateRecord(database *sql.DB, gr *GateRecord) error {
 		INSERT INTO gate_records (
 			session_id, work_item_id, harness, project_type, gate_command,
 			status, checked_at, signature, allowlist_hits_json,
-			allowlist_hit_count, source, output_summary
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+			allowlist_hit_count, source, output_summary,
+			profile_signature, guards_run
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		gr.SessionID, nullStr(gr.WorkItemID), nullStr(gr.Harness), gr.ProjectType,
 		gr.GateCommand, gr.Status, gr.CheckedAt.UTC().Format(time.RFC3339Nano),
 		gr.Signature, gr.AllowlistHitsJSON, gr.AllowlistHitCount, gr.Source,
-		nullStr(gr.OutputSummary),
+		nullStr(gr.OutputSummary), gr.ProfileSignature, gr.GuardsRunJSON,
 	)
 	if err != nil {
 		return fmt.Errorf("insert gate record: %w", err)
@@ -103,7 +115,8 @@ func LatestGateRecordForSession(database *sql.DB, sessionID string) (*GateRecord
 		SELECT id, session_id, COALESCE(work_item_id,''), COALESCE(harness,''),
 		       COALESCE(project_type,''), COALESCE(gate_command,''), COALESCE(status,''),
 		       checked_at, COALESCE(signature,''), COALESCE(allowlist_hits_json,'[]'),
-		       COALESCE(allowlist_hit_count,0), COALESCE(source,''), COALESCE(output_summary,'')
+		       COALESCE(allowlist_hit_count,0), COALESCE(source,''), COALESCE(output_summary,''),
+		       COALESCE(profile_signature,''), COALESCE(guards_run,'[]')
 		FROM gate_records
 		WHERE session_id = ?
 		ORDER BY checked_at DESC, id DESC
@@ -138,6 +151,7 @@ func scanGateRecord(scanner interface{ Scan(dest ...any) error }) (*GateRecord, 
 		&gr.ID, &gr.SessionID, &gr.WorkItemID, &gr.Harness, &gr.ProjectType,
 		&gr.GateCommand, &gr.Status, &checkedAt, &gr.Signature,
 		&gr.AllowlistHitsJSON, &gr.AllowlistHitCount, &gr.Source, &gr.OutputSummary,
+		&gr.ProfileSignature, &gr.GuardsRunJSON,
 	)
 	if err == sql.ErrNoRows {
 		return nil, nil

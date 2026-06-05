@@ -11,6 +11,7 @@ import (
 
 	dbpkg "github.com/shakestzd/wipnote/internal/db"
 	"github.com/shakestzd/wipnote/internal/graph"
+	"github.com/shakestzd/wipnote/internal/guardprofile"
 	"github.com/shakestzd/wipnote/internal/hooks"
 	"github.com/shakestzd/wipnote/internal/models"
 	"github.com/spf13/cobra"
@@ -66,7 +67,7 @@ Returns exit code 0 if all gates pass, 1 if any fail.`,
 				sessionID := hooks.EnvSessionID("")
 				agentID := dbpkg.NormaliseAgentID(os.Getenv("WIPNOTE_AGENT_ID"))
 				workItemID := activeWorkItemForGate(sessionID, agentID)
-				result, err := runSessionGate(projectRoot, sessionID, workItemID, "check", os.Stdout, os.Stderr)
+				result, err := runSessionGate(projectRoot, sessionID, workItemID, "check", guardprofile.PhaseQuality, os.Stdout, os.Stderr)
 				if err != nil {
 					return err
 				}

@@ -20,6 +20,7 @@ func featureCmdWithExtras() *cobra.Command {
 	cmd.AddCommand(featureReopenCmd())
 	cmd.AddCommand(featureResetCmd())
 	cmd.AddCommand(relatedCmd())
+	cmd.AddCommand(linkCommitCmd("feature"))
 	return cmd
 }
 

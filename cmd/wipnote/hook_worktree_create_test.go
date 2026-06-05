@@ -146,6 +146,89 @@ func TestHookWorktreeCreate_PrintsBarePathAndCreatesGitWorktree(t *testing.T) {
 	}
 }
 
+func TestHookWorktreeCreate_DataEnvelopePrintsBarePath(t *testing.T) {
+	t.Setenv("CLAUDE_CODE_ENTRYPOINT", "cli")
+	t.Setenv("XDG_CACHE_HOME", t.TempDir())
+	t.Setenv("WIPNOTE_SESSION_ID", "test-hook-worktree-create-data")
+	repoRoot := setupGitRepoForHookWorktreeCreate(t)
+	basePath := filepath.Join(t.TempDir(), "claude-worktrees")
+	worktreeName := "feat-hook-data"
+	wantPath := filepath.Join(basePath, worktreeName)
+
+	seedHookWorktreeCreateSession(t, repoRoot, "test-hook-worktree-create-data")
+	prev := worktreepkg.SetReindexFnForTest(func(string, io.Writer) {})
+	t.Cleanup(func() { worktreepkg.SetReindexFnForTest(prev) })
+
+	payload, err := json.Marshal(map[string]any{
+		"data": map[string]string{
+			"session_id":         "test-hook-worktree-create-data",
+			"hook_event_name":    "WorktreeCreate",
+			"cwd":                repoRoot,
+			"worktree_base_path": basePath,
+			"worktree_name":      worktreeName,
+		},
+	})
+	if err != nil {
+		t.Fatalf("marshal payload: %v", err)
+	}
+
+	stdout, stderr, runErr := captureHookCommand(t, payload, func() error {
+		cmd := hookCmd()
+		cmd.SetArgs([]string{"worktree-create"})
+		return cmd.Execute()
+	})
+	if runErr != nil {
+		t.Fatalf("hook worktree-create: %v\nstderr=%s", runErr, stderr)
+	}
+	if stdout != wantPath+"\n" {
+		t.Fatalf("stdout = %q, want bare path %q", stdout, wantPath+"\n")
+	}
+	if info, err := os.Stat(wantPath); err != nil || !info.IsDir() {
+		t.Fatalf("created path is not a directory: info=%v err=%v", info, err)
+	}
+}
+
+func TestHookWorktreeCreate_TopLevelWorktreePathWithoutClaudeEnv(t *testing.T) {
+	t.Setenv("XDG_CACHE_HOME", t.TempDir())
+	t.Setenv("WIPNOTE_SESSION_ID", "test-hook-worktree-create-path")
+	repoRoot := setupGitRepoForHookWorktreeCreate(t)
+	basePath := filepath.Join(t.TempDir(), "claude-worktrees")
+	wantPath := filepath.Join(basePath, "feat-hook-path")
+
+	seedHookWorktreeCreateSession(t, repoRoot, "test-hook-worktree-create-path")
+	prev := worktreepkg.SetReindexFnForTest(func(string, io.Writer) {})
+	t.Cleanup(func() { worktreepkg.SetReindexFnForTest(prev) })
+
+	payload, err := json.Marshal(map[string]string{
+		"session_id":         "test-hook-worktree-create-path",
+		"hook_event_name":    "WorktreeCreate",
+		"cwd":                repoRoot,
+		"worktree_base_path": basePath,
+		"worktree_path":      wantPath,
+	})
+	if err != nil {
+		t.Fatalf("marshal payload: %v", err)
+	}
+
+	stdout, stderr, runErr := captureHookCommand(t, payload, func() error {
+		cmd := hookCmd()
+		cmd.SetArgs([]string{"worktree-create"})
+		return cmd.Execute()
+	})
+	if runErr != nil {
+		t.Fatalf("hook worktree-create: %v\nstderr=%s", runErr, stderr)
+	}
+	if stdout != wantPath+"\n" {
+		t.Fatalf("stdout = %q, want bare path %q", stdout, wantPath+"\n")
+	}
+	if strings.Contains(stdout, "{") || strings.Contains(stdout, "continue") {
+		t.Fatalf("stdout contains JSON envelope: %q", stdout)
+	}
+	if out, err := exec.Command("git", "-C", wantPath, "rev-parse", "--is-inside-work-tree").Output(); err != nil || strings.TrimSpace(string(out)) != "true" {
+		t.Fatalf("created path is not a git worktree: out=%q err=%v", out, err)
+	}
+}
+
 func TestHookWorktreeCreate_MissingFieldsPrintsNoJSON(t *testing.T) {
 	stdout, _, runErr := captureHookCommand(t, []byte(`{}`), func() error {
 		cmd := hookCmd()
@@ -157,5 +240,27 @@ func TestHookWorktreeCreate_MissingFieldsPrintsNoJSON(t *testing.T) {
 	}
 	if stdout != "" {
 		t.Fatalf("stdout = %q, want empty", stdout)
+	}
+}
+
+func seedHookWorktreeCreateSession(t *testing.T, repoRoot, sessionID string) {
+	t.Helper()
+	dbPath, err := hooks.DBPath(repoRoot)
+	if err != nil {
+		t.Fatalf("DBPath: %v", err)
+	}
+	database, err := db.Open(dbPath)
+	if err != nil {
+		t.Fatalf("db.Open: %v", err)
+	}
+	defer database.Close()
+	now := time.Now().UTC()
+	if err := db.InsertSession(database, &models.Session{
+		SessionID:     sessionID,
+		AgentAssigned: "claude-code",
+		CreatedAt:     now,
+		Status:        "active",
+	}); err != nil {
+		t.Fatalf("InsertSession: %v", err)
 	}
 }

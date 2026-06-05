@@ -521,6 +521,14 @@ func WorktreeCreate(event *CloudEvent, database *sql.DB) (string, error) {
 	if event == nil {
 		return "", errors.New("missing WorktreeCreate event")
 	}
+	if event.WorktreePath != "" {
+		if event.WorktreeBasePath == "" {
+			event.WorktreeBasePath = filepath.Dir(event.WorktreePath)
+		}
+		if event.WorktreeName == "" {
+			event.WorktreeName = filepath.Base(event.WorktreePath)
+		}
+	}
 	if event.WorktreeBasePath == "" {
 		return "", errors.New("missing worktree_base_path")
 	}
@@ -528,7 +536,10 @@ func WorktreeCreate(event *CloudEvent, database *sql.DB) (string, error) {
 		return "", errors.New("missing worktree_name")
 	}
 
-	worktreePath := filepath.Join(event.WorktreeBasePath, event.WorktreeName)
+	worktreePath := event.WorktreePath
+	if worktreePath == "" {
+		worktreePath = filepath.Join(event.WorktreeBasePath, event.WorktreeName)
+	}
 	createdPath, err := worktree.CreateForClaudeHook(event.CWD, worktreePath, event.WorktreeName, io.Discard)
 	if err != nil {
 		return "", err

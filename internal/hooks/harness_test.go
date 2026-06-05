@@ -687,6 +687,26 @@ func TestParseEventForHarnessClaude(t *testing.T) {
 	}
 }
 
+func TestParseClaudeWorktreeCreateEvent_DataEnvelopeAndPathFallback(t *testing.T) {
+	payload := []byte(`{"data":{"session_id":"sess-1","cwd":"/repo","worktree_base_path":"/tmp/wt","worktree_path":"/tmp/wt/feat-123"}}`)
+	ev, err := ParseClaudeWorktreeCreateEvent(payload)
+	if err != nil {
+		t.Fatalf("ParseClaudeWorktreeCreateEvent: %v", err)
+	}
+	if ev.SessionID != "sess-1" {
+		t.Fatalf("SessionID = %q", ev.SessionID)
+	}
+	if ev.CWD != "/repo" {
+		t.Fatalf("CWD = %q", ev.CWD)
+	}
+	if ev.WorktreeBasePath != "/tmp/wt" {
+		t.Fatalf("WorktreeBasePath = %q", ev.WorktreeBasePath)
+	}
+	if ev.WorktreePath != "/tmp/wt/feat-123" {
+		t.Fatalf("WorktreePath = %q", ev.WorktreePath)
+	}
+}
+
 func TestParseEventForHarnessCodex(t *testing.T) {
 	ev, err := ParseEventForHarness(HarnessCodex, []byte(codexSessionStartJSON))
 	if err != nil {

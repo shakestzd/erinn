@@ -417,3 +417,53 @@ func ParseEventForHarness(harness Harness, raw []byte) (*CloudEvent, error) {
 		return &ev, nil
 	}
 }
+
+// ParseClaudeWorktreeCreateEvent parses Claude Code's WorktreeCreate payload.
+// WorktreeCreate is a Claude-only replacement hook, and observed Claude
+// payloads may wrap event-specific fields inside a top-level "data" object.
+// Keep this parser separate from generic harness detection so manual repros
+// with hook_event_name are not misclassified as Codex payloads.
+func ParseClaudeWorktreeCreateEvent(raw []byte) (*CloudEvent, error) {
+	ev, err := ParseEventForHarness(HarnessClaude, raw)
+	if err != nil {
+		return nil, err
+	}
+	if len(raw) == 0 {
+		return ev, nil
+	}
+
+	var envelope struct {
+		Data *CloudEvent `json:"data"`
+	}
+	if err := json.Unmarshal(raw, &envelope); err != nil {
+		return nil, fmt.Errorf("parsing WorktreeCreate event: %w", err)
+	}
+	if envelope.Data != nil {
+		overlayMissingCloudEventFields(ev, envelope.Data)
+	}
+	return ev, nil
+}
+
+func overlayMissingCloudEventFields(dst, src *CloudEvent) {
+	if dst == nil || src == nil {
+		return
+	}
+	if dst.SessionID == "" {
+		dst.SessionID = src.SessionID
+	}
+	if dst.CWD == "" {
+		dst.CWD = src.CWD
+	}
+	if dst.TranscriptPath == "" {
+		dst.TranscriptPath = src.TranscriptPath
+	}
+	if dst.WorktreeName == "" {
+		dst.WorktreeName = src.WorktreeName
+	}
+	if dst.WorktreeBasePath == "" {
+		dst.WorktreeBasePath = src.WorktreeBasePath
+	}
+	if dst.WorktreePath == "" {
+		dst.WorktreePath = src.WorktreePath
+	}
+}

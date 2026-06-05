@@ -101,7 +101,7 @@ func hookWorktreeCreateCmd() *cobra.Command {
 				fmt.Fprintln(os.Stderr, err)
 				return err
 			}
-			event, err := hooks.ParseEventForHarness(hooks.DetectHarness(rawPayload), rawPayload)
+			event, err := hooks.ParseClaudeWorktreeCreateEvent(rawPayload)
 			if err != nil {
 				fmt.Fprintln(os.Stderr, err)
 				return err

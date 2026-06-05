@@ -3,6 +3,7 @@ package db
 import (
 	"database/sql"
 	"fmt"
+	"regexp"
 	"time"
 )
 
@@ -65,38 +66,68 @@ func GetPlanFeedbackBySection(db *sql.DB, planID, section string) ([]PlanFeedbac
 	return scanPlanFeedbackRows(rows)
 }
 
-// IsPlanFullyApproved returns true when every distinct section in plan_feedback
-// has at least one 'approve' entry with value 'true'.
+// isUIExposedSection returns true if the section is one of the approvable sections
+// exposed in the CRISPI plan UI: "design", "outline", or slice-N (where N is numeric).
+// All other sections (slice-N-question-*, critique, q-*, meta, chat, etc.) are excluded.
+func isUIExposedSection(section string) bool {
+	if section == "design" || section == "outline" {
+		return true
+	}
+	// Match slice-N where N is one or more digits.
+	matched, err := regexp.MatchString(`^slice-\d+$`, section)
+	return err == nil && matched
+}
+
+// IsPlanFullyApproved returns true when every UI-exposed section in plan_feedback
+// (design, outline if present, slice-N) has at least one 'approve' entry with value 'true',
+// and none of those sections have an 'approve' entry with value != 'true'.
+// Non-exposed sections (slice-N-question-*, critique, q-*, meta, chat) are ignored.
 // Returns false (not an error) when no sections exist yet.
 func IsPlanFullyApproved(db *sql.DB, planID string) (bool, error) {
-	// Count distinct sections that have been explicitly approved.
-	var approvedSections int
-	err := db.QueryRow(`
-		SELECT COUNT(DISTINCT section)
+	// Fetch all approve/disapprove feedback rows for this plan.
+	rows, err := db.Query(`
+		SELECT DISTINCT section, value
 		FROM plan_feedback
-		WHERE plan_id = ? AND action = 'approve' AND value = 'true'`,
-		planID,
-	).Scan(&approvedSections)
+		WHERE plan_id = ? AND action = 'approve'
+		ORDER BY section ASC`, planID)
 	if err != nil {
-		return false, fmt.Errorf("count approved sections (plan=%s): %w", planID, err)
+		return false, fmt.Errorf("fetch approve feedback (plan=%s): %w", planID, err)
 	}
-	if approvedSections == 0 {
-		return false, nil
+	defer rows.Close()
+
+	// Track UI-exposed sections and their approval status.
+	exposedApproved := make(map[string]bool)     // section → true if has value='true'
+	exposedDisapproved := make(map[string]bool)  // section → true if has value!='true'
+
+	for rows.Next() {
+		var section, value string
+		if err := rows.Scan(&section, &value); err != nil {
+			return false, fmt.Errorf("scan approve feedback: %w", err)
+		}
+
+		// Only consider UI-exposed sections.
+		if !isUIExposedSection(section) {
+			continue
+		}
+
+		// Track approval status by section.
+		if value == "true" {
+			exposedApproved[section] = true
+		} else {
+			exposedDisapproved[section] = true
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return false, fmt.Errorf("scan approve feedback rows: %w", err)
 	}
 
-	// All known sections must be approved — none may be disapproved (value != 'true').
-	var unapprovedSections int
-	err = db.QueryRow(`
-		SELECT COUNT(DISTINCT section)
-		FROM plan_feedback
-		WHERE plan_id = ? AND action = 'approve' AND value != 'true'`,
-		planID,
-	).Scan(&unapprovedSections)
-	if err != nil {
-		return false, fmt.Errorf("count unapproved sections (plan=%s): %w", planID, err)
-	}
+	// Plan is fully approved iff:
+	// 1. At least one UI-exposed section exists and is approved (not blocked case).
+	// 2. No UI-exposed section has a disapproval.
+	hasAnyApproved := len(exposedApproved) > 0
+	hasAnyDisapproved := len(exposedDisapproved) > 0
 
-	return unapprovedSections == 0, nil
+	return hasAnyApproved && !hasAnyDisapproved, nil
 }
 
 // FinalizePlan marks a plan as done. If the plan exists in the features table,
@@ -140,10 +171,13 @@ func GetSliceApprovals(db *sql.DB, planID string) (map[string]string, error) {
 		if err := rows.Scan(&section, &value); err != nil {
 			return nil, fmt.Errorf("scan slice approval row: %w", err)
 		}
-		if value == "true" {
-			result[section] = "approved"
-		} else {
-			result[section] = "rejected"
+		// Only include actual slice-N sections (not slice-N-question-*).
+		if isUIExposedSection(section) {
+			if value == "true" {
+				result[section] = "approved"
+			} else {
+				result[section] = "rejected"
+			}
 		}
 	}
 	return result, rows.Err()

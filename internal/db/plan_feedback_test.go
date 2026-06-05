@@ -425,3 +425,95 @@ func TestGetSliceApprovals_ReturnsPerSliceStatus(t *testing.T) {
 		t.Errorf("slice-2: got %q ok=%v, want rejected", v, ok)
 	}
 }
+
+// ---- IsPlanFullyApproved regression tests (bug-9e45dd31) ---------------------------
+
+// TestIsPlanFullyApproved_IgnoresNonUIExposedSections verifies that question sections
+// (slice-N-question-*) and other non-UI-exposed sections are ignored by IsPlanFullyApproved.
+// A plan with all UI sections approved (design + slice-1 approved) plus a question
+// section disapproved should still return true.
+func TestIsPlanFullyApproved_IgnoresNonUIExposedSections(t *testing.T) {
+	database, planID := setupPlanDB(t)
+	defer database.Close()
+
+	// Store UI-exposed sections, all approved.
+	if err := db.StorePlanFeedback(database, planID, "design", "approve", "true", ""); err != nil {
+		t.Fatalf("store design: %v", err)
+	}
+	if err := db.StorePlanFeedback(database, planID, "slice-1", "approve", "true", ""); err != nil {
+		t.Fatalf("store slice-1: %v", err)
+	}
+
+	// Store a non-UI-exposed question section, disapproved.
+	// This should NOT block the approval, as questions are invisible to the gate.
+	if err := db.StorePlanFeedback(database, planID, "slice-1-question-xyz", "approve", "false", ""); err != nil {
+		t.Fatalf("store slice-1-question-xyz: %v", err)
+	}
+
+	approved, err := db.IsPlanFullyApproved(database, planID)
+	if err != nil {
+		t.Fatalf("IsPlanFullyApproved: %v", err)
+	}
+	if !approved {
+		t.Error("expected true: question sections (slice-N-question-*) must be ignored")
+	}
+}
+
+// TestIsPlanFullyApproved_BlocksOnUnapprovedUISection verifies that an unapproved
+// UI-exposed section (e.g., slice-2 with value='false') blocks approval.
+func TestIsPlanFullyApproved_BlocksOnUnapprovedUISection(t *testing.T) {
+	database, planID := setupPlanDB(t)
+	defer database.Close()
+
+	// Store some approved sections.
+	if err := db.StorePlanFeedback(database, planID, "design", "approve", "true", ""); err != nil {
+		t.Fatalf("store design: %v", err)
+	}
+	if err := db.StorePlanFeedback(database, planID, "slice-1", "approve", "true", ""); err != nil {
+		t.Fatalf("store slice-1: %v", err)
+	}
+
+	// Store an unapproved UI-exposed section.
+	if err := db.StorePlanFeedback(database, planID, "slice-2", "approve", "false", ""); err != nil {
+		t.Fatalf("store slice-2: %v", err)
+	}
+
+	approved, err := db.IsPlanFullyApproved(database, planID)
+	if err != nil {
+		t.Fatalf("IsPlanFullyApproved: %v", err)
+	}
+	if approved {
+		t.Error("expected false: unapproved UI-exposed section (slice-2) must block approval")
+	}
+}
+
+// TestIsPlanFullyApproved_LegacyCritiqueSectionIgnored verifies that a legacy
+// "critique" section (a non-UI-exposed section from older workflow) is ignored
+// by IsPlanFullyApproved. A plan with all UI sections approved plus a disapproved
+// critique section should still return true.
+func TestIsPlanFullyApproved_LegacyCritiqueSectionIgnored(t *testing.T) {
+	database, planID := setupPlanDB(t)
+	defer database.Close()
+
+	// Store UI-exposed sections, all approved.
+	if err := db.StorePlanFeedback(database, planID, "design", "approve", "true", ""); err != nil {
+		t.Fatalf("store design: %v", err)
+	}
+	if err := db.StorePlanFeedback(database, planID, "slice-1", "approve", "true", ""); err != nil {
+		t.Fatalf("store slice-1: %v", err)
+	}
+
+	// Store a legacy critique section, disapproved.
+	// This should NOT block approval, as critique is not UI-exposed.
+	if err := db.StorePlanFeedback(database, planID, "critique", "approve", "false", ""); err != nil {
+		t.Fatalf("store critique: %v", err)
+	}
+
+	approved, err := db.IsPlanFullyApproved(database, planID)
+	if err != nil {
+		t.Fatalf("IsPlanFullyApproved: %v", err)
+	}
+	if !approved {
+		t.Error("expected true: legacy critique section must be ignored")
+	}
+}

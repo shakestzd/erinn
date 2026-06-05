@@ -3,7 +3,9 @@ package hooks
 import (
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io"
 	"path/filepath"
 	"strings"
 	"time"
@@ -12,6 +14,7 @@ import (
 	"github.com/shakestzd/wipnote/internal/db"
 	"github.com/shakestzd/wipnote/internal/models"
 	"github.com/shakestzd/wipnote/internal/paths"
+	"github.com/shakestzd/wipnote/internal/worktree"
 )
 
 // worktreePathResolver is the resolver function passed to
@@ -510,14 +513,34 @@ func ConfigChange(event *CloudEvent, database *sql.DB) (*HookResult, error) {
 }
 
 // WorktreeCreate handles the WorktreeCreate Claude Code hook event.
-// Records when a git worktree is created for isolated work.
-func WorktreeCreate(event *CloudEvent, database *sql.DB) (*HookResult, error) {
-	summary := "Worktree created"
-	if event.WorktreePath != "" {
-		normPath := normalizeWorktreePath(event.WorktreePath)
-		summary = fmt.Sprintf("Worktree created: %s", normPath)
+//
+// REPLACEMENT hook: Claude Code expects the hook process to create the
+// worktree and print only the created directory path on stdout. Callers must
+// bypass the JSON HookResult response layer.
+func WorktreeCreate(event *CloudEvent, database *sql.DB) (string, error) {
+	if event == nil {
+		return "", errors.New("missing WorktreeCreate event")
 	}
-	return recordSimpleEvent(models.EventCheckPoint, "WorktreeCreate", summary, "recorded", event, database)
+	if event.WorktreeBasePath == "" {
+		return "", errors.New("missing worktree_base_path")
+	}
+	if event.WorktreeName == "" {
+		return "", errors.New("missing worktree_name")
+	}
+
+	worktreePath := filepath.Join(event.WorktreeBasePath, event.WorktreeName)
+	createdPath, err := worktree.CreateForClaudeHook(event.CWD, worktreePath, event.WorktreeName, io.Discard)
+	if err != nil {
+		return "", err
+	}
+
+	summary := fmt.Sprintf("Worktree created: %s", normalizeWorktreePath(createdPath))
+	if _, err := recordSimpleEvent(models.EventCheckPoint, "WorktreeCreate", summary, "recorded", event, database); err != nil {
+		projectDir := ResolveProjectDir(event.CWD, event.SessionID)
+		debugLog(projectDir, "[worktree-create] checkpoint record failed: %v", err)
+	}
+
+	return createdPath, nil
 }
 
 // WorktreeRemove handles the WorktreeRemove Claude Code hook event.

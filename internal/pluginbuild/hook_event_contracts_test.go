@@ -8,7 +8,7 @@ import (
 )
 
 // TestHookEventContracts is the build-time guard that prevents the
-// "observe-only handler registered for a replacement hook" class of bugs
+// "JSON-emitting handler registered for a replacement hook" class of bugs
 // (canonical case: bug-80b27913 / WorktreeCreate).
 //
 // It exercises three properties:
@@ -17,14 +17,12 @@ import (
 //     entry in hookEventContractSpecs. A new unclassified registration fails the
 //     build, forcing the author to choose a classification before shipping.
 //
-//  2. REPLACEMENT GUARD — no ReplacementOnRegistration event appears in the
-//     manifest's Claude hook registrations. wipnote's hook output layer always
-//     emits a JSON HookResult and cannot fulfill CC's raw-value replacement
-//     contract (JSON where CC expects a raw path = silent malfunction).
+//  2. REPLACEMENT GUARD — any ReplacementOnRegistration event in the manifest
+//     must be an explicitly allowlisted raw-output handler.
 //
-//  3. NEGATIVE UNIT TEST — a synthetic manifest that registers WorktreeCreate
-//     (the canonical ReplacementOnRegistration event) triggers a violation,
-//     proving the guard fires when needed.
+//  3. NEGATIVE UNIT TEST — a synthetic manifest that registers an unknown
+//     replacement event triggers a violation, proving the guard fires when
+//     needed.
 func TestHookEventContracts(t *testing.T) {
 	// --- locate the live manifest ---
 	repoRoot, err := filepath.Abs(filepath.Join("..", ".."))
@@ -52,7 +50,7 @@ func TestHookEventContracts(t *testing.T) {
 	}
 
 	// --- 2. REPLACEMENT GUARD ---
-	// No ReplacementOnRegistration event may appear in Claude registrations.
+	// ReplacementOnRegistration events need explicit raw-output support.
 	violations := checkHookEventContracts(m)
 	for _, v := range violations {
 		t.Error(v)
@@ -60,27 +58,31 @@ func TestHookEventContracts(t *testing.T) {
 }
 
 // TestHookEventContractsNegative proves that checkHookEventContracts fires on a
-// synthetic manifest that registers WorktreeCreate (the canonical
-// ReplacementOnRegistration event). This guards the guard itself — if someone
-// accidentally reclassifies WorktreeCreate or changes the check logic, this
-// test will catch it.
+// synthetic manifest that registers an unallowlisted ReplacementOnRegistration
+// event. This guards the guard itself.
 func TestHookEventContractsNegative(t *testing.T) {
-	// Build a minimal manifest with WorktreeCreate registered for claude.
+	hookEventContractSpecs["SyntheticReplacement"] = hookEventContractSpec{
+		Classification: ReplacementOnRegistration,
+		Note:           "synthetic replacement hook for guard testing",
+	}
+	t.Cleanup(func() { delete(hookEventContractSpecs, "SyntheticReplacement") })
+
+	// Build a minimal manifest with an unallowlisted replacement hook.
 	bad := fixtureManifest()
 	bad.Hooks.Events = append(bad.Hooks.Events, HookEvent{
-		Name:    "WorktreeCreate",
-		Handler: "worktree-create",
+		Name:    "SyntheticReplacement",
+		Handler: "synthetic-replacement",
 		Targets: []string{"claude"},
 	})
 
 	violations := checkHookEventContracts(bad)
 	if len(violations) == 0 {
-		t.Fatal("expected checkHookEventContracts to report a violation for WorktreeCreate, got none")
+		t.Fatal("expected checkHookEventContracts to report a violation for SyntheticReplacement, got none")
 	}
 
 	// The violation message must name the event and reference the bug.
 	joined := strings.Join(violations, "\n")
-	for _, want := range []string{"WorktreeCreate", "ReplacementOnRegistration", "bug-80b27913"} {
+	for _, want := range []string{"SyntheticReplacement", "ReplacementOnRegistration", "bug-80b27913"} {
 		if !strings.Contains(joined, want) {
 			t.Errorf("violation message missing %q:\n%s", want, joined)
 		}

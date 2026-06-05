@@ -389,6 +389,21 @@ func EnsureForAgent(trackID, taskName, repoRoot string, w io.Writer) (string, er
 	return worktreePath, nil
 }
 
+// CreateForClaudeHook creates or reuses the git worktree requested by Claude
+// Code's WorktreeCreate replacement hook. The returned path is the path Claude
+// must receive on stdout.
+func CreateForClaudeHook(repoRoot, worktreePath, branchName string, w io.Writer) (string, error) {
+	resolved, created, err := addOrAttachWorktree(repoRoot, worktreePath, branchName)
+	if err != nil {
+		return "", err
+	}
+	if created {
+		excludeWipnoteFromWorktree(resolved, w)
+		reindexWorktree(resolved, w)
+	}
+	return resolved, nil
+}
+
 // resolveTrackForFeature reads a feature HTML file and returns its data-track-id attribute.
 // If the feature file doesn't exist or has no track ID, returns empty string.
 func resolveTrackForFeature(featureID, projectRoot string) string {

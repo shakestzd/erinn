@@ -63,7 +63,7 @@ Usage in hooks.json:
 		hookSubcmd("posttooluse-failure", "Handle PostToolUseFailure event", continueResult, hooks.PostToolUseFailure),
 		hookSubcmd("pre-compact", "Handle PreCompact event", continueResult, hooks.PreCompact),
 		hookSubcmd("post-compact", "Handle PostCompact event", continueResult, hooks.PostCompact),
-		hookSubcmd("worktree-create", "Handle WorktreeCreate event", continueResult, hooks.WorktreeCreate),
+		hookWorktreeCreateCmd(),
 		hookSubcmd("worktree-remove", "Handle WorktreeRemove event", continueResult, hooks.WorktreeRemove),
 		hookSubcmd("teammate-idle", "Handle TeammateIdle event", continueResult, hooks.TeammateIdle),
 		hookSubcmd("task-completed", "Handle TaskCompleted event", continueResult, hooks.TaskCompleted),
@@ -85,6 +85,57 @@ Usage in hooks.json:
 		hookTrackEventCmd(continueResult),
 	)
 	return cmd
+}
+
+// hookWorktreeCreateCmd handles Claude Code's WorktreeCreate replacement hook.
+// It must print exactly the created worktree path on stdout, bypassing the JSON
+// HookResult response layer used by ordinary hooks.
+func hookWorktreeCreateCmd() *cobra.Command {
+	const use = "worktree-create"
+	return &cobra.Command{
+		Use:   use,
+		Short: "Handle WorktreeCreate event",
+		RunE: func(_ *cobra.Command, _ []string) error {
+			rawPayload, err := hooks.ReadRawStdin()
+			if err != nil {
+				fmt.Fprintln(os.Stderr, err)
+				return err
+			}
+			event, err := hooks.ParseEventForHarness(hooks.DetectHarness(rawPayload), rawPayload)
+			if err != nil {
+				fmt.Fprintln(os.Stderr, err)
+				return err
+			}
+			hooks.TraceInvocation(use, rawPayload, event)
+
+			projectDir := hooks.ResolveProjectDir(event.CWD, event.SessionID)
+			if !hooks.IswipnoteProject(projectDir) {
+				err := fmt.Errorf("not a wipnote project: %s", projectDir)
+				fmt.Fprintln(os.Stderr, err)
+				return err
+			}
+			dbPath, err := hooks.DBPath(projectDir)
+			if err != nil {
+				fmt.Fprintln(os.Stderr, err)
+				return err
+			}
+			database, reason := hooks.OpenHookDB(use, event.SessionID, dbPath)
+			if database == nil {
+				err := fmt.Errorf("open hook database: %s", reason)
+				fmt.Fprintln(os.Stderr, err)
+				return err
+			}
+			defer database.Close()
+
+			path, err := hooks.WorktreeCreate(event, database)
+			if err != nil {
+				fmt.Fprintln(os.Stderr, err)
+				return err
+			}
+			fmt.Fprintln(os.Stdout, path)
+			return nil
+		},
+	}
 }
 
 // hookSubcmd creates a hook subcommand that resolves the project dir and opens

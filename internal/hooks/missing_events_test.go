@@ -2,7 +2,9 @@ package hooks
 
 import (
 	"encoding/json"
+	"io"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -10,6 +12,7 @@ import (
 
 	"github.com/shakestzd/wipnote/internal/db"
 	"github.com/shakestzd/wipnote/internal/models"
+	worktreepkg "github.com/shakestzd/wipnote/internal/worktree"
 )
 
 // setupMissingEventsDB creates a temp project dir with .wipnote/ and an
@@ -24,6 +27,36 @@ func setupMissingEventsDB(t *testing.T) (*testDB, string) {
 	t.Setenv("WIPNOTE_PROJECT_DIR", projectDir)
 
 	return td, "test-sess"
+}
+
+func setupGitRepoForWorktreeCreate(t *testing.T) string {
+	t.Helper()
+	repoRoot := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(repoRoot, ".wipnote"), 0o755); err != nil {
+		t.Fatalf("mkdir .wipnote: %v", err)
+	}
+	run := func(args ...string) {
+		t.Helper()
+		cmd := exec.Command("git", args...)
+		cmd.Dir = repoRoot
+		out, err := cmd.CombinedOutput()
+		if err != nil {
+			t.Fatalf("git %s: %v\n%s", strings.Join(args, " "), err, out)
+		}
+	}
+	run("init")
+	run("config", "user.email", "test@example.com")
+	run("config", "user.name", "Test User")
+	if err := os.WriteFile(filepath.Join(repoRoot, "README.md"), []byte("test\n"), 0o644); err != nil {
+		t.Fatalf("write README.md: %v", err)
+	}
+	run("add", "README.md")
+	run("commit", "-m", "initial")
+
+	prev := worktreepkg.SetReindexFnForTest(func(string, io.Writer) {})
+	t.Cleanup(func() { worktreepkg.SetReindexFnForTest(prev) })
+
+	return repoRoot
 }
 
 // --- PreCompact ---
@@ -475,24 +508,35 @@ func TestConfigChange_EmptyPermissionMode_NoUpdate(t *testing.T) {
 
 // --- WorktreeCreate ---
 
-// TestWorktreeCreate_RecordsCheckpoint verifies that WorktreeCreate records
-// a checkpoint event with the worktree path in the summary.
+// TestWorktreeCreate_RecordsCheckpoint verifies that WorktreeCreate creates
+// the requested git worktree, returns its path, and records a checkpoint event
+// with the worktree path in the summary.
 func TestWorktreeCreate_RecordsCheckpoint(t *testing.T) {
 	td, sessionID := setupMissingEventsDB(t)
-	worktreePath := "/repo/.claude/worktrees/feat-aabbccdd"
+	repoRoot := setupGitRepoForWorktreeCreate(t)
+	basePath := filepath.Join(repoRoot, ".claude", "worktrees")
+	worktreeName := "feat-aabbccdd"
+	worktreePath := filepath.Join(basePath, worktreeName)
 
 	event := &CloudEvent{
-		SessionID:    sessionID,
-		CWD:          t.TempDir(),
-		WorktreePath: worktreePath,
+		SessionID:        sessionID,
+		CWD:              repoRoot,
+		WorktreeBasePath: basePath,
+		WorktreeName:     worktreeName,
 	}
 
-	result, err := WorktreeCreate(event, td.DB)
+	got, err := WorktreeCreate(event, td.DB)
 	if err != nil {
 		t.Fatalf("WorktreeCreate: %v", err)
 	}
-	if result == nil || !result.Continue {
-		t.Error("expected Continue=true from WorktreeCreate")
+	if got != worktreePath {
+		t.Fatalf("WorktreeCreate path = %q, want %q", got, worktreePath)
+	}
+	if info, err := os.Stat(got); err != nil || !info.IsDir() {
+		t.Fatalf("created path is not a directory: info=%v err=%v", info, err)
+	}
+	if out, err := exec.Command("git", "-C", got, "rev-parse", "--is-inside-work-tree").Output(); err != nil || strings.TrimSpace(string(out)) != "true" {
+		t.Fatalf("created path is not a git worktree: out=%q err=%v", out, err)
 	}
 
 	var inputSummary string
@@ -502,14 +546,14 @@ func TestWorktreeCreate_RecordsCheckpoint(t *testing.T) {
 	).Scan(&inputSummary); err != nil {
 		t.Fatalf("query agent_events: %v", err)
 	}
-	expected := "Worktree created: " + worktreePath
+	expected := "Worktree created: .claude/worktrees/" + worktreeName
 	if inputSummary != expected {
 		t.Errorf("unexpected input_summary: got %q, want %q", inputSummary, expected)
 	}
 }
 
-// TestWorktreeCreate_NoPath_RecordsGenericSummary verifies a generic summary
-// is recorded when no worktree path is provided.
+// TestWorktreeCreate_NoPath_RecordsGenericSummary verifies missing replacement
+// hook fields abort cleanly and record no generic checkpoint.
 func TestWorktreeCreate_NoPath_RecordsGenericSummary(t *testing.T) {
 	td, sessionID := setupMissingEventsDB(t)
 
@@ -518,23 +562,19 @@ func TestWorktreeCreate_NoPath_RecordsGenericSummary(t *testing.T) {
 		CWD:       t.TempDir(),
 	}
 
-	result, err := WorktreeCreate(event, td.DB)
-	if err != nil {
-		t.Fatalf("WorktreeCreate: %v", err)
-	}
-	if result == nil || !result.Continue {
-		t.Error("expected Continue=true from WorktreeCreate")
+	if _, err := WorktreeCreate(event, td.DB); err == nil {
+		t.Fatal("expected missing WorktreeCreate fields to error")
 	}
 
-	var inputSummary string
+	var count int
 	if err := td.DB.QueryRow(
-		`SELECT input_summary FROM agent_events WHERE session_id = ? AND tool_name = 'WorktreeCreate'`,
+		`SELECT COUNT(*) FROM agent_events WHERE session_id = ? AND tool_name = 'WorktreeCreate'`,
 		sessionID,
-	).Scan(&inputSummary); err != nil {
-		t.Fatalf("query agent_events: %v", err)
+	).Scan(&count); err != nil {
+		t.Fatalf("query agent_events count: %v", err)
 	}
-	if inputSummary != "Worktree created" {
-		t.Errorf("unexpected input_summary: %q", inputSummary)
+	if count != 0 {
+		t.Fatalf("expected no WorktreeCreate checkpoint on missing fields, got %d", count)
 	}
 }
 

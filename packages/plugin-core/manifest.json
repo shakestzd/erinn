@@ -81,6 +81,7 @@
       { "name": "TeammateIdle",       "handler": "teammate-idle",       "targets": ["claude"] },
       { "name": "TaskCompleted",      "handler": "task-completed",      "targets": ["claude"] },
       { "name": "InstructionsLoaded", "handler": "instructions-loaded", "targets": ["claude"] },
+      { "name": "WorktreeCreate",     "handler": "worktree-create",     "targets": ["claude"] },
       { "name": "WorktreeRemove",     "handler": "worktree-remove",     "targets": ["claude"] },
       { "name": "PostCompact",        "handler": "post-compact",        "targets": ["claude"] },
       { "name": "TaskCreated",        "handler": "task-created",        "targets": ["claude"] },

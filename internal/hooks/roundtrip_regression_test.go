@@ -17,6 +17,7 @@ package hooks
 
 import (
 	"encoding/json"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -27,6 +28,7 @@ import (
 	"github.com/shakestzd/wipnote/internal/db"
 	"github.com/shakestzd/wipnote/internal/models"
 	"github.com/shakestzd/wipnote/internal/paths"
+	worktreepkg "github.com/shakestzd/wipnote/internal/worktree"
 )
 
 // makeLinkedWorktreeRepo creates:
@@ -241,14 +243,22 @@ func TestWorktreeRoundTripRegressionGate(t *testing.T) {
 		paths.ResetNormalizeCacheForTesting()
 	})
 
-	absWorktreePath := filepath.Join(mainRepo, ".claude", "worktrees", "feat-roundtrip-12345")
+	prevReindex := worktreepkg.SetReindexFnForTest(func(string, io.Writer) {})
+	t.Cleanup(func() { worktreepkg.SetReindexFnForTest(prevReindex) })
+	worktreeName := "feat-roundtrip-12345"
+	worktreeBasePath := filepath.Join(mainRepo, ".claude", "worktrees")
 	worktreeEvent := &CloudEvent{
-		SessionID:    parentSessionID,
-		CWD:          linkedWt,
-		WorktreePath: absWorktreePath,
+		SessionID:        parentSessionID,
+		CWD:              mainRepo,
+		WorktreeBasePath: worktreeBasePath,
+		WorktreeName:     worktreeName,
 	}
-	if _, err := WorktreeCreate(worktreeEvent, database); err != nil {
+	createdWorktreePath, err := WorktreeCreate(worktreeEvent, database)
+	if err != nil {
 		t.Fatalf("WorktreeCreate: %v", err)
+	}
+	if createdWorktreePath != filepath.Join(worktreeBasePath, worktreeName) {
+		t.Fatalf("WorktreeCreate path = %q, want %q", createdWorktreePath, filepath.Join(worktreeBasePath, worktreeName))
 	}
 
 	var inputSummary string

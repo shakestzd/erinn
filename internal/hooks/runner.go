@@ -1,8 +1,10 @@
 // Package hooks implements Claude Code hook handlers for wipnote.
 //
-// Each handler reads a CloudEvent JSON payload from stdin and writes a
-// HookResult JSON to stdout. The Go binary replaces the Python hook scripts,
-// eliminating the ~500ms uv cold-start per invocation.
+// Most handlers read a CloudEvent JSON payload from stdin and write a
+// HookResult JSON to stdout. Replacement hooks such as WorktreeCreate have
+// dedicated command wiring for their raw stdout contracts. The Go binary
+// replaces the Python hook scripts, eliminating the ~500ms uv cold-start per
+// invocation.
 package hooks
 
 import (
@@ -86,7 +88,9 @@ type CloudEvent struct {
 	AgentType string `json:"agent_type"`
 
 	// WorktreeCreate / WorktreeRemove
-	WorktreePath string `json:"worktree_path"`
+	WorktreeName     string `json:"worktree_name"`
+	WorktreeBasePath string `json:"worktree_base_path"`
+	WorktreePath     string `json:"worktree_path"`
 
 	// Stop / SubagentStop
 	StopReason           string `json:"stop_reason"`

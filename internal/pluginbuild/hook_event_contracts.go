@@ -22,11 +22,8 @@ const (
 
 	// ReplacementOnRegistration events do NOT read a JSON HookResult. Instead
 	// Claude Code expects the hook to emit a raw replacement value on stdout
-	// (e.g. an absolute directory path). wipnote's hook output layer always
-	// emits a JSON HookResult and therefore structurally CANNOT satisfy this
-	// contract. Registering a ReplacementOnRegistration event will cause Claude
-	// Code to receive JSON where it expects a raw value — a silent malfunction.
-	// See bug-80b27913 (WorktreeCreate) for the canonical failure example.
+	// (e.g. an absolute directory path). Such events may only be registered
+	// when their CLI command bypasses wipnote's JSON HookResult output layer.
 	ReplacementOnRegistration
 )
 
@@ -51,11 +48,11 @@ var hookEventContractSpecs = map[string]hookEventContractSpec{
 	// --- ReplacementOnRegistration ---
 
 	// WorktreeCreate: CC expects a raw absolute path on stdout pointing to the
-	// worktree directory the hook created. wipnote emits JSON → cannot register.
-	// Fixed in bug-80b27913 by removing the registration.
+	// worktree directory the hook created. The worktree-create CLI command has
+	// a dedicated bare-path output path and does not use the JSON hook emitter.
 	"WorktreeCreate": {
 		Classification: ReplacementOnRegistration,
-		Note:           "CC expects a raw absolute path on stdout (the created worktree directory); JSON HookResult is structurally incompatible (bug-80b27913).",
+		Note:           "CC expects a raw absolute path on stdout (the created worktree directory); handler must bypass JSON HookResult output.",
 	},
 
 	// --- AdditiveControlling ---
@@ -166,8 +163,8 @@ func claudeHookEventNames(m *Manifest) []string {
 }
 
 // checkHookEventContracts validates that every Claude-registered event in m
-// has a spec in hookEventContractSpecs (completeness) and that no
-// ReplacementOnRegistration event is registered (replacement guard).
+// has a spec in hookEventContractSpecs (completeness) and that any
+// ReplacementOnRegistration registration uses a dedicated raw-output handler.
 //
 // Returns a slice of violation strings; nil means all checks pass.
 func checkHookEventContracts(m *Manifest) []string {
@@ -182,7 +179,7 @@ func checkHookEventContracts(m *Manifest) []string {
 			))
 			continue
 		}
-		if spec.Classification == ReplacementOnRegistration {
+		if spec.Classification == ReplacementOnRegistration && name != "WorktreeCreate" {
 			violations = append(violations, fmt.Sprintf(
 				"hook event %q is classified ReplacementOnRegistration and MUST NOT be registered for claude: "+
 					"wipnote hooks emit JSON HookResult and cannot fulfill CC's raw-value replacement contract; "+

@@ -216,3 +216,130 @@ func TestSingleOwnerLeaseRace(t *testing.T) {
 	}
 	_ = second.Release()
 }
+
+// TestEmptyLeasePIDAllowsUnlink verifies that when the lease file is present
+// but empty (no PID content), the socket unlink proceeds — an empty lease
+// means no owner holds it.
+func TestEmptyLeasePIDAllowsUnlink(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(dir, ".wipnote"), 0o755); err != nil {
+		t.Fatalf("mkdir .wipnote: %v", err)
+	}
+	sock := SocketPath(dir)
+	if f, err := os.Create(sock); err != nil {
+		t.Fatalf("create socket inode: %v", err)
+	} else {
+		_ = f.Close()
+	}
+	// Create an empty lease file (no PID).
+	if err := os.WriteFile(LeasePath(dir), []byte(""), 0o644); err != nil {
+		t.Fatalf("write empty lease: %v", err)
+	}
+
+	q, stop := startQueue(t)
+	defer stop()
+
+	ln, err := NewListener(ListenerConfig{SocketPath: sock, Queue: q, Applier: RejectingApplier})
+	if err != nil {
+		t.Fatalf("NewListener with empty lease: %v", err)
+	}
+	defer ln.Close()
+
+	// The bind must have succeeded — the empty lease should not block the unlink.
+	if ln.Addr() != sock {
+		t.Fatalf("listener addr = %q, want %q", ln.Addr(), sock)
+	}
+}
+
+// TestWhitespaceLeasePIDAllowsUnlink verifies that when the lease file
+// contains only whitespace, the socket unlink proceeds.
+func TestWhitespaceLeasePIDAllowsUnlink(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(dir, ".wipnote"), 0o755); err != nil {
+		t.Fatalf("mkdir .wipnote: %v", err)
+	}
+	sock := SocketPath(dir)
+	if f, err := os.Create(sock); err != nil {
+		t.Fatalf("create socket inode: %v", err)
+	} else {
+		_ = f.Close()
+	}
+	// Create a lease file with only whitespace.
+	if err := os.WriteFile(LeasePath(dir), []byte("   \n"), 0o644); err != nil {
+		t.Fatalf("write whitespace lease: %v", err)
+	}
+
+	q, stop := startQueue(t)
+	defer stop()
+
+	ln, err := NewListener(ListenerConfig{SocketPath: sock, Queue: q, Applier: RejectingApplier})
+	if err != nil {
+		t.Fatalf("NewListener with whitespace lease: %v", err)
+	}
+	defer ln.Close()
+
+	if ln.Addr() != sock {
+		t.Fatalf("listener addr = %q, want %q", ln.Addr(), sock)
+	}
+}
+
+// TestMissingLeasePIDAllowsUnlink verifies that when the lease file is
+// missing entirely, the socket unlink proceeds.
+func TestMissingLeasePIDAllowsUnlink(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(dir, ".wipnote"), 0o755); err != nil {
+		t.Fatalf("mkdir .wipnote: %v", err)
+	}
+	sock := SocketPath(dir)
+	if f, err := os.Create(sock); err != nil {
+		t.Fatalf("create socket inode: %v", err)
+	} else {
+		_ = f.Close()
+	}
+	// No lease file created.
+
+	q, stop := startQueue(t)
+	defer stop()
+
+	ln, err := NewListener(ListenerConfig{SocketPath: sock, Queue: q, Applier: RejectingApplier})
+	if err != nil {
+		t.Fatalf("NewListener with missing lease: %v", err)
+	}
+	defer ln.Close()
+
+	if ln.Addr() != sock {
+		t.Fatalf("listener addr = %q, want %q", ln.Addr(), sock)
+	}
+}
+
+// TestGarbageLeasePIDAllowsUnlink verifies that when the lease file contains
+// non-numeric garbage, the socket unlink proceeds.
+func TestGarbageLeasePIDAllowsUnlink(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(dir, ".wipnote"), 0o755); err != nil {
+		t.Fatalf("mkdir .wipnote: %v", err)
+	}
+	sock := SocketPath(dir)
+	if f, err := os.Create(sock); err != nil {
+		t.Fatalf("create socket inode: %v", err)
+	} else {
+		_ = f.Close()
+	}
+	// Create a lease file with garbage.
+	if err := os.WriteFile(LeasePath(dir), []byte("not-a-pid\n"), 0o644); err != nil {
+		t.Fatalf("write garbage lease: %v", err)
+	}
+
+	q, stop := startQueue(t)
+	defer stop()
+
+	ln, err := NewListener(ListenerConfig{SocketPath: sock, Queue: q, Applier: RejectingApplier})
+	if err != nil {
+		t.Fatalf("NewListener with garbage lease: %v", err)
+	}
+	defer ln.Close()
+
+	if ln.Addr() != sock {
+		t.Fatalf("listener addr = %q, want %q", ln.Addr(), sock)
+	}
+}

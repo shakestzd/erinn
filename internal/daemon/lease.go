@@ -117,15 +117,21 @@ func tryCreateLease(path string) (*Lease, error) {
 }
 
 // leaseOwnerAlive reports whether the PID recorded in the lease file refers
-// to a live process. Mirrors checkServeLock: a malformed file or a dead PID
-// counts as not-alive (reclaimable). Uses os.FindProcess + Signal(0) so it
-// stays portable across Linux and darwin (no /proc dependency).
+// to a live process that is actually a wipnote writer. A malformed file,
+// empty file, dead PID, or (on Linux) a live process that is NOT a wipnote
+// writer counts as not-alive (reclaimable). Uses os.FindProcess + Signal(0)
+// for portability, with /proc/<pid>/cmdline verification on Linux to guard
+// against PID reuse.
 func leaseOwnerAlive(path string) bool {
 	data, err := os.ReadFile(path)
 	if err != nil {
-		return false
+		return false // missing or unreadable
 	}
-	pid, err := strconv.Atoi(strings.TrimSpace(string(data)))
+	pidStr := strings.TrimSpace(string(data))
+	if pidStr == "" {
+		return false // empty file — no owner
+	}
+	pid, err := strconv.Atoi(pidStr)
 	if err != nil || pid <= 0 {
 		return false // malformed — treat as stale
 	}
@@ -134,7 +140,24 @@ func leaseOwnerAlive(path string) bool {
 		return false
 	}
 	// kill -0 checks process existence without delivering a signal.
-	return proc.Signal(syscall.Signal(0)) == nil
+	if proc.Signal(syscall.Signal(0)) != nil {
+		return false // PID is dead
+	}
+	// Process is alive. On Linux, verify it's actually a wipnote writer to
+	// guard against PID reuse. On other platforms, trust the liveness check.
+	return isWriterProcess(pid, path)
+}
+
+// isWriterProcess verifies that a live PID is actually a wipnote headless
+// writer process. On Linux, it checks /proc/<pid>/cmdline for the
+// "headless-writer" invocation. On other platforms, it returns true (trust
+// the liveness check). Returns false if the check fails or the process is not
+// a writer.
+func isWriterProcess(pid int, leasePath string) bool {
+	// On non-Linux, we trust the liveness check (kill -0) and skip cmdline
+	// verification. This keeps the code portable and avoids best-effort
+	// failures on systems without /proc.
+	return isWriterProcessImpl(pid, leasePath)
 }
 
 // LeaseOwnerAlive reports whether a live process currently holds the writer

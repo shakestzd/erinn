@@ -234,7 +234,7 @@ var approvedWriteSites = []writeSite{
 	// removed; the read-only open is not a writable-boundary site.
 	{
 		File:           "cmd/wipnote/serve_child.go",
-		Line:           207,
+		Line:           246,
 		Function:       "runServeChild",
 		OpenExpr:       "dbpkg.Open",
 		Classification: intentionalCLIMutation,
@@ -248,7 +248,7 @@ var approvedWriteSites = []writeSite{
 	// owned-writer pattern as runServeChild, in a no-HTTP mode.
 	{
 		File:           "cmd/wipnote/serve_child.go",
-		Line:           127,
+		Line:           129,
 		Function:       "runWriterOnly",
 		OpenExpr:       "dbpkg.Open",
 		Classification: intentionalCLIMutation,

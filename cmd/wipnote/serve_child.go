@@ -8,7 +8,9 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"os/signal"
 	"path/filepath"
+	"syscall"
 	"time"
 
 	"github.com/shakestzd/wipnote/internal/daemon"
@@ -150,6 +152,25 @@ func runWriterOnly() error {
 	}
 	defer q.Stop(drainGrace)
 
+	// Graceful shutdown (feat-075c110d lifecycle hardening): trap SIGTERM/
+	// SIGINT and cancel the serve context. Cancellation closes the listener
+	// (Serve returns), which fires the deferred ln.Close() — unlinking
+	// .wipnote/writer.sock — and the deferred lease.Release() — removing
+	// .wipnote/writer.pid. Draining of in-flight ops happens in the deferred
+	// q.Stop(drainGrace) above. Without this the headless writer left both the
+	// stale socket and the lease behind on SIGTERM, blocking the dashboard's
+	// serve_child and the next writer from binding.
+	sigC := make(chan os.Signal, 1)
+	signal.Notify(sigC, syscall.SIGINT, syscall.SIGTERM)
+	defer signal.Stop(sigC)
+	go func() {
+		select {
+		case <-sigC:
+			cancel()
+		case <-ctx.Done():
+		}
+	}()
+
 	// MVP-3 (feat-075c110d): wire the real derived-op Applier. It runs every
 	// op against the SAME writable handle the writequeue worker owns
 	// (writer.DB()), so all socket-delivered writes serialize on the single
@@ -170,7 +191,25 @@ func runWriterOnly() error {
 	// MVP-2 we just log it.
 	fmt.Fprintf(os.Stderr, "wipnote: writer-only daemon ready socket=%s pid=%d\n", ln.Addr(), os.Getpid())
 
-	return ln.Serve(ctx)
+	// Idle-exit (feat-075c110d lifecycle hardening): an auto-spawned writer is
+	// detached and would otherwise run forever. ServeWithIdleTimeout closes the
+	// listener after writerIdleTimeout with zero ops in flight, running the
+	// same deferred socket+lease cleanup as a signal shutdown. The next write
+	// auto-spawns a fresh writer. WIPNOTE_WRITER_IDLE_TIMEOUT (a Go duration)
+	// overrides the default, primarily for tests.
+	return ln.ServeWithIdleTimeout(ctx, writerIdleTimeout())
+}
+
+// writerIdleTimeout resolves the headless writer's idle-exit window. It honours
+// WIPNOTE_WRITER_IDLE_TIMEOUT (e.g. "200ms", "10m") for tests/operators and
+// otherwise falls back to daemon.DefaultIdleTimeout.
+func writerIdleTimeout() time.Duration {
+	if v := os.Getenv("WIPNOTE_WRITER_IDLE_TIMEOUT"); v != "" {
+		if d, err := time.ParseDuration(v); err == nil && d > 0 {
+			return d
+		}
+	}
+	return daemon.DefaultIdleTimeout
 }
 
 // drainGrace bounds how long the headless writer waits for in-flight ops to

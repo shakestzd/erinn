@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"path/filepath"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -63,6 +64,14 @@ type Listener struct {
 
 	closeOnce sync.Once
 	wg        sync.WaitGroup
+
+	// Idle-exit accounting (feat-075c110d lifecycle hardening). lastActivity
+	// is the UnixNano of the most recent op submission; inFlight counts ops
+	// currently between accept and ack. ServeWithIdleTimeout exits only when
+	// BOTH no op has arrived within the idle window AND inFlight == 0, so an
+	// in-progress Submit can never race the idle shutdown.
+	lastActivity atomic.Int64
+	inFlight     atomic.Int64
 }
 
 // ListenerConfig configures a Listener. SocketPath is the Unix socket the
@@ -76,10 +85,16 @@ type ListenerConfig struct {
 }
 
 // NewListener binds the Unix socket and returns a Listener ready to Serve.
-// A stale socket file from a crashed prior owner is removed first (the
-// lease — not the socket inode — is the ownership authority, so a leftover
-// socket is safe to unlink). The caller is expected to already hold the
-// write lease (see AcquireLease) before binding.
+//
+// A leftover socket file from a crashed prior owner is unlinked before bind
+// (a Unix socket bind fails with EADDRINUSE if the path already exists). The
+// lease — not the socket inode — is the ownership authority: the caller is
+// expected to already hold the write lease (see AcquireLease) before binding,
+// and AcquireLease only returns to a single live owner. So when we reach
+// here a leftover socket is necessarily stale and safe to unlink. For defence
+// in depth NewListener still confirms no live lease owner before unlinking, so
+// a programming error that called NewListener without the lease cannot stomp a
+// live writer's socket.
 func NewListener(cfg ListenerConfig) (*Listener, error) {
 	if cfg.Queue == nil {
 		return nil, errors.New("daemon: NewListener requires a non-nil Queue")
@@ -87,22 +102,46 @@ func NewListener(cfg ListenerConfig) (*Listener, error) {
 	if cfg.Applier == nil {
 		return nil, errors.New("daemon: NewListener requires a non-nil Applier")
 	}
-	// Remove a leftover socket from a crashed prior owner; bind would
-	// otherwise fail with EADDRINUSE on an orphaned inode.
-	if err := os.Remove(cfg.SocketPath); err != nil && !os.IsNotExist(err) {
-		return nil, fmt.Errorf("clear stale socket: %w", err)
+	if err := unlinkStaleSocket(cfg.SocketPath); err != nil {
+		return nil, err
 	}
 	ln, err := net.Listen("unix", cfg.SocketPath)
 	if err != nil {
 		return nil, fmt.Errorf("listen unix %s: %w", cfg.SocketPath, err)
 	}
-	return &Listener{
+	l := &Listener{
 		ln:       ln,
 		queue:    cfg.Queue,
 		applier:  cfg.Applier,
 		sockPath: cfg.SocketPath,
 		dedup:    newLRUSet(dedupCapacity),
-	}, nil
+	}
+	l.lastActivity.Store(time.Now().UnixNano())
+	return l, nil
+}
+
+// unlinkStaleSocket removes a leftover socket inode so a fresh bind succeeds
+// after an unclean exit. It refuses to unlink when a LIVE lease owner exists
+// for the same project (lease co-located with the socket under .wipnote/): the
+// lease, not the socket, is the ownership authority, so a live owner's socket
+// must never be stomped. A missing socket is a no-op.
+func unlinkStaleSocket(sockPath string) error {
+	if _, err := os.Lstat(sockPath); err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
+		return fmt.Errorf("stat socket %s: %w", sockPath, err)
+	}
+	// The lease lives next to the socket: .wipnote/writer.pid alongside
+	// .wipnote/writer.sock. If a live owner still holds it, do not unlink.
+	leasePath := filepath.Join(filepath.Dir(sockPath), "writer.pid")
+	if leaseOwnerAlive(leasePath) {
+		return fmt.Errorf("daemon: refusing to unlink socket %s: a live writer holds the lease", sockPath)
+	}
+	if err := os.Remove(sockPath); err != nil && !os.IsNotExist(err) {
+		return fmt.Errorf("clear stale socket: %w", err)
+	}
+	return nil
 }
 
 // Serve accepts connections until the listener is closed or ctx is done.
@@ -130,6 +169,80 @@ func (l *Listener) Serve(ctx context.Context) error {
 	}
 }
 
+// DefaultIdleTimeout is how long a headless writer waits with zero ops before
+// it self-terminates (running the graceful-shutdown cleanup). This bounds the
+// lifetime of an auto-spawned writer so it never lingers indefinitely holding
+// the lease + socket; the next write simply auto-spawns a fresh writer. Five
+// minutes is long enough to amortise spawn cost across a burst of hook/CLI
+// writes yet short enough that an idle project releases its writer promptly.
+const DefaultIdleTimeout = 5 * time.Minute
+
+// idleCheckInterval is how often ServeWithIdleTimeout samples idleness. Kept
+// well below DefaultIdleTimeout so the actual exit lands within one interval of
+// the configured deadline.
+const idleCheckInterval = 15 * time.Second
+
+// ServeWithIdleTimeout runs Serve and additionally cancels (via the returned
+// derived context) once the writer has been idle — no op in flight AND no op
+// submitted within idleTimeout. It returns when Serve returns. Passing
+// idleTimeout <= 0 disables idle-exit (equivalent to plain Serve).
+//
+// The idle watcher resets implicitly: process() stamps lastActivity on every
+// op and increments inFlight for the op's whole lifetime, so a steady stream of
+// writes — or even a single slow in-flight commit — keeps the writer alive.
+// On idle, the watcher cancels an internal context which closes the listener;
+// the CALLER's cleanup (socket + lease removal) then runs exactly as it does
+// for a signal-driven shutdown.
+func (l *Listener) ServeWithIdleTimeout(ctx context.Context, idleTimeout time.Duration) error {
+	if idleTimeout <= 0 {
+		return l.Serve(ctx)
+	}
+	idleCtx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
+	interval := idleCheckInterval
+	if idleTimeout < interval {
+		interval = idleTimeout / 2
+		if interval <= 0 {
+			interval = idleTimeout
+		}
+	}
+
+	done := make(chan struct{})
+	go func() {
+		ticker := time.NewTicker(interval)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-idleCtx.Done():
+				return
+			case <-done:
+				return
+			case <-ticker.C:
+				if l.isIdle(idleTimeout) {
+					cancel() // triggers Serve's listener close
+					return
+				}
+			}
+		}
+	}()
+
+	err := l.Serve(idleCtx)
+	close(done)
+	return err
+}
+
+// isIdle reports whether no op is in flight and the last op completed more than
+// idleTimeout ago. Both conditions are required: a long-running commit keeps
+// inFlight > 0 even if lastActivity briefly looks old.
+func (l *Listener) isIdle(idleTimeout time.Duration) bool {
+	if l.inFlight.Load() != 0 {
+		return false
+	}
+	last := time.Unix(0, l.lastActivity.Load())
+	return time.Since(last) >= idleTimeout
+}
+
 // handleConn reads newline-delimited envelopes and writes one ack per
 // envelope. The connection closes on read EOF or a malformed frame.
 func (l *Listener) handleConn(ctx context.Context, conn net.Conn) {
@@ -154,6 +267,18 @@ func (l *Listener) handleConn(ctx context.Context, conn net.Conn) {
 // the op through the writequeue. It always returns an Ack (never panics on
 // bad input). A monotonic seq is assigned to every accepted submission.
 func (l *Listener) process(ctx context.Context, line []byte) Ack {
+	// Idle-exit accounting: an op is "in flight" for the whole decode→ack
+	// span. Recording activity on BOTH entry and exit, plus the inFlight
+	// counter, guarantees ServeWithIdleTimeout never declares the writer idle
+	// while a Submit is mid-process (decode/apply/commit can outlast the idle
+	// window for a slow op).
+	l.inFlight.Add(1)
+	l.lastActivity.Store(time.Now().UnixNano())
+	defer func() {
+		l.lastActivity.Store(time.Now().UnixNano())
+		l.inFlight.Add(-1)
+	}()
+
 	var env Envelope
 	if err := json.Unmarshal(line, &env); err != nil {
 		return Ack{Status: AckError, Seq: l.seq.Add(1), Error: "malformed envelope: " + err.Error()}

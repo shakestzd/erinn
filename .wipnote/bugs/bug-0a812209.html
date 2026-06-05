@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>feature complete gate: no link path for worktree-branch source commits (issue #121)</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="bug-0a812209"
+             data-type="bug"
+             data-status="todo"
+             data-priority="medium"
+             data-created="2026-06-05T17:12:34.638868"
+             data-updated="2026-06-05T17:12:35.986231" data-agent-assigned="claude-code" data-track-id="trk-08dcbb33" data-created-by-cli-version="0.60.19-127-g2fb214ab1">
+
+        <header>
+            <h1>feature complete gate: no link path for worktree-branch source commits (issue #121)</h1>
+            <div class="metadata">
+                <span class="badge status-todo">Todo</span>
+                <span class="badge priority-medium">Medium Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="trk-08dcbb33.html" data-relationship="part_of" data-since="2026-06-05T17:12:35.984471">trk-08dcbb33</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>completion gate (checkProvenanceCompleteGate, cmd/wipnote/workitem.go) is a pure git_commits table query; commits made on a .claude worktree branch never get a git_commits row, so code-bearing features block with zero linked source commits. Fix: add 'wipnote feature link-commit  ' surgical link command (git show -> InsertGitCommit with feature_id); make ingest commits walk all refs/worktree branches not just current HEAD. GH issue 121.</p>
+        </section>
+    </article>
+</body>
+</html>

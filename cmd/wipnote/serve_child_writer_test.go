@@ -239,9 +239,10 @@ func TestDaemonSingleWriter_NoBusyUnderConcurrentWritePaths(t *testing.T) {
 	db.ResetBusyCounters()
 
 	const (
-		sessions  = 4
-		otelBatch = 6
-		evtsPer   = 6
+		sessions    = 4
+		otelBatch   = 6
+		evtsPer     = 6
+		filesPer    = 6
 	)
 	res := map[string]any{"service.name": "claude-code"}
 
@@ -308,6 +309,21 @@ func TestDaemonSingleWriter_NoBusyUnderConcurrentWritePaths(t *testing.T) {
 				}
 			}
 		}(sessionID)
+
+		// Path 3: direct maintenance write through writeDB — models the
+		// claimless-file indexer / retention job that writes directly to the
+		// daemon's handle (not via the applier queue), racing the two queued
+		// paths. db.UpsertSessionFile is the exact call the indexer makes.
+		wg.Add(1)
+		go func(sid string) {
+			defer wg.Done()
+			for i := 0; i < filesPer; i++ {
+				filePath := fmt.Sprintf("/project/file-%d.go", i)
+				if err := db.UpsertSessionFile(writeDB, sid, filePath, "write"); err != nil {
+					t.Errorf("UpsertSessionFile(%s, %s): %v", sid, filePath, err)
+				}
+			}
+		}(sessionID)
 	}
 
 	wg.Wait()
@@ -320,19 +336,28 @@ func TestDaemonSingleWriter_NoBusyUnderConcurrentWritePaths(t *testing.T) {
 		t.Fatalf("writequeue errors = %d, want 0 (concurrent paths contended)", stats.Errors)
 	}
 
-	// Every row from both paths landed.
-	var otelRows, evtRows int
+	// Every row from all three paths landed.
+	var otelRows, evtRows, fileRows int
 	if err := writeDB.QueryRow(`SELECT COUNT(*) FROM otel_signals`).Scan(&otelRows); err != nil {
 		t.Fatalf("count otel_signals: %v", err)
 	}
 	if err := writeDB.QueryRow(`SELECT COUNT(*) FROM agent_events`).Scan(&evtRows); err != nil {
 		t.Fatalf("count agent_events: %v", err)
 	}
+	if err := writeDB.QueryRow(`SELECT COUNT(*) FROM session_files`).Scan(&fileRows); err != nil {
+		t.Fatalf("count session_files: %v", err)
+	}
 	if wantOtel := sessions * otelBatch; otelRows != wantOtel {
 		t.Errorf("otel_signals rows = %d, want %d", otelRows, wantOtel)
 	}
 	if wantEvt := sessions * evtsPer; evtRows != wantEvt {
 		t.Errorf("agent_events rows = %d, want %d", evtRows, wantEvt)
+	}
+	// Each session writes filesPer unique paths; since UpsertSessionFile is
+	// idempotent on (session_id, file_path), distinct sessions produce distinct
+	// rows (different session_id), so total = sessions * filesPer.
+	if wantFiles := sessions * filesPer; fileRows != wantFiles {
+		t.Errorf("session_files rows = %d, want %d", fileRows, wantFiles)
 	}
 }
 

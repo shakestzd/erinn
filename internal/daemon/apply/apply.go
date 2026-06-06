@@ -144,7 +144,12 @@ func NewApplier(database *sql.DB) daemon.Applier {
 			}
 			s := *op.Session // capture by value so the closure is self-contained
 			return func(_ context.Context) error {
-				return db.InsertSession(database, &s)
+				// Use UpsertSession rather than InsertSession so that a
+				// placeholder row created by EnsureSession (from an earlier
+				// out-of-order agent_event.upsert for this session) is
+				// upgraded with the real metadata rather than causing a PK
+				// conflict and leaving the row stuck with "__hook__" values.
+				return db.UpsertSession(database, &s)
 			}, nil
 		case OpTypeSessionStatus:
 			if op.SessionID == "" {

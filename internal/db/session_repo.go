@@ -32,6 +32,43 @@ func InsertSession(db *sql.DB, s *models.Session) error {
 	return nil
 }
 
+// UpsertSession inserts a new session row or upgrades an existing placeholder
+// row (created by EnsureSession) with real metadata. Called by the applier's
+// OpTypeSessionInsert path so that out-of-order arrival — where an agent_event
+// op created a "__hook__" placeholder before the real session.insert arrived —
+// results in the final row carrying the real metadata rather than sticking with
+// the placeholder values.
+func UpsertSession(db *sql.DB, s *models.Session) error {
+	_, err := db.Exec(`
+		INSERT INTO sessions (session_id, agent_assigned, parent_session_id,
+			parent_event_id, created_at, status, start_commit,
+			is_subagent, model, active_feature_id, git_remote_url, project_dir)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		ON CONFLICT(session_id) DO UPDATE SET
+			agent_assigned=excluded.agent_assigned,
+			parent_session_id=excluded.parent_session_id,
+			parent_event_id=excluded.parent_event_id,
+			created_at=excluded.created_at,
+			status=excluded.status,
+			start_commit=excluded.start_commit,
+			is_subagent=excluded.is_subagent,
+			model=excluded.model,
+			active_feature_id=excluded.active_feature_id,
+			git_remote_url=excluded.git_remote_url,
+			project_dir=excluded.project_dir`,
+		s.SessionID, s.AgentAssigned, nullStr(s.ParentSessionID),
+		nullStr(s.ParentEventID), s.CreatedAt.UTC().Format(time.RFC3339),
+		s.Status, nullStr(s.StartCommit),
+		s.IsSubagent, nullStr(s.Model), nullStr(s.ActiveFeatureID),
+		nullStr(s.GitRemoteURL),
+		nullStr(s.ProjectDir),
+	)
+	if err != nil {
+		return fmt.Errorf("upsert session %s: %w", s.SessionID, err)
+	}
+	return nil
+}
+
 // GetSession retrieves a session by ID.
 func GetSession(db *sql.DB, sessionID string) (*models.Session, error) {
 	row := db.QueryRow(`

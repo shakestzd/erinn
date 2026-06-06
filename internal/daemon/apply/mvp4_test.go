@@ -209,6 +209,124 @@ func TestRouteFeatureStatus_FallbackBounded(t *testing.T) {
 	}
 }
 
+// TestSessionInsert_UpgradesEnsureSessionPlaceholder applies ops OUT OF ORDER:
+// an agent_event.upsert for session "S1" arrives first, which causes
+// EnsureSession to create a placeholder row with agent_assigned="__hook__".
+// Then session.insert for "S1" arrives with real metadata (agent_assigned
+// "real-agent"). After both ops the sessions row must carry the real metadata,
+// proving UpsertSession upgraded the placeholder rather than failing with a PK
+// conflict.
+func TestSessionInsert_UpgradesEnsureSessionPlaceholder(t *testing.T) {
+	// Use a short path to stay under the Unix socket path limit (~104 chars).
+	projectRoot, err := os.MkdirTemp("", "wn-upsert")
+	if err != nil {
+		t.Fatalf("mkdirtemp: %v", err)
+	}
+	t.Cleanup(func() { os.RemoveAll(projectRoot) })
+
+	wDB, err := db.Open(filepath.Join(projectRoot, "writer.db"))
+	if err != nil {
+		t.Fatalf("open writer db: %v", err)
+	}
+	t.Cleanup(func() { wDB.Close() })
+
+	q := writequeue.New(writequeue.Config{Capacity: 16})
+	if err := q.Start(context.Background()); err != nil {
+		t.Fatalf("queue start: %v", err)
+	}
+	t.Cleanup(func() { q.Stop(time.Second) })
+
+	if err := os.MkdirAll(filepath.Join(projectRoot, ".wipnote"), 0o755); err != nil {
+		t.Fatalf("mkdir .wipnote: %v", err)
+	}
+	sock := daemon.SocketPath(projectRoot)
+	ln, err := daemon.NewListener(daemon.ListenerConfig{
+		SocketPath: sock, Queue: q, Applier: NewApplier(wDB),
+	})
+	if err != nil {
+		t.Fatalf("new listener: %v", err)
+	}
+	lnCtx, lnCancel := context.WithCancel(context.Background())
+	t.Cleanup(lnCancel)
+	go func() { _ = ln.Serve(lnCtx) }()
+	t.Cleanup(func() { ln.Close() })
+	waitForSocket(t, sock)
+
+	const sid = "S1-ooo"
+
+	// --- Op 1: agent_event.upsert arrives BEFORE the session row exists.
+	// The applier calls EnsureSession, which inserts agent_assigned="__hook__".
+	now := time.Now().UTC().Truncate(time.Second)
+	ev := &models.AgentEvent{
+		EventID:   "evt-ooo-1",
+		AgentID:   "agent-ooo",
+		EventType: models.EventToolCall,
+		Timestamp: now,
+		ToolName:  "Bash",
+		SessionID: sid,
+		Status:    "completed",
+		Source:    "test",
+		CreatedAt: now,
+		UpdatedAt: now,
+	}
+	evPayload, encErr := Encode(DerivedOp{Type: OpTypeAgentEventUpsert, Event: ev})
+	if encErr != nil {
+		t.Fatalf("encode event op: %v", encErr)
+	}
+	client := daemon.NewWriterClientForSocket(sock)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	ack, submitErr := client.Submit(ctx, daemon.Envelope{
+		OpID: OpID(sid, 1), OpType: OpTypeAgentEventUpsert, Payload: evPayload,
+	})
+	if submitErr != nil {
+		t.Fatalf("submit event op: %v", submitErr)
+	}
+	if ack.Status != daemon.AckApplied {
+		t.Fatalf("event op ack = %q (err=%q), want applied", ack.Status, ack.Error)
+	}
+
+	// Confirm the placeholder exists with agent_assigned="__hook__".
+	var placeholderAgent string
+	if err := wDB.QueryRow(`SELECT agent_assigned FROM sessions WHERE session_id = ?`, sid).Scan(&placeholderAgent); err != nil {
+		t.Fatalf("placeholder row missing after agent_event.upsert: %v", err)
+	}
+	if placeholderAgent != "__hook__" {
+		t.Fatalf("expected placeholder agent_assigned=__hook__, got %q", placeholderAgent)
+	}
+
+	// --- Op 2: session.insert for the same session with real metadata.
+	s := &models.Session{
+		SessionID:     sid,
+		AgentAssigned: "real-agent",
+		CreatedAt:     now,
+		Status:        "active",
+	}
+	sessPayload, encErr2 := Encode(DerivedOp{Type: OpTypeSessionInsert, Session: s})
+	if encErr2 != nil {
+		t.Fatalf("encode session op: %v", encErr2)
+	}
+	ack, submitErr2 := client.Submit(ctx, daemon.Envelope{
+		OpID: cliOpID(OpTypeSessionInsert, sid, s.Status), OpType: OpTypeSessionInsert, Payload: sessPayload,
+	})
+	if submitErr2 != nil {
+		t.Fatalf("submit session op: %v", submitErr2)
+	}
+	if ack.Status != daemon.AckApplied {
+		t.Fatalf("session op ack = %q (err=%q), want applied (placeholder upgrade failed)", ack.Status, ack.Error)
+	}
+
+	// Assert: the sessions row now has agent_assigned="real-agent", not "__hook__".
+	var finalAgent string
+	if err := wDB.QueryRow(`SELECT agent_assigned FROM sessions WHERE session_id = ?`, sid).Scan(&finalAgent); err != nil {
+		t.Fatalf("final session row missing: %v", err)
+	}
+	if finalAgent != "real-agent" {
+		t.Fatalf("session placeholder was not upgraded: agent_assigned=%q, want real-agent", finalAgent)
+	}
+}
+
 // TestRouteSession_FallbackBounded mirrors the bounded-miss contract for the
 // session route helpers.
 func TestRouteSession_FallbackBounded(t *testing.T) {

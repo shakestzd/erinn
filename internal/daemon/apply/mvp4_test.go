@@ -327,6 +327,122 @@ func TestSessionInsert_UpgradesEnsureSessionPlaceholder(t *testing.T) {
 	}
 }
 
+// TestSessionInsert_DoesNotClobberRealSession verifies that UpsertSession does NOT
+// overwrite an existing real session row when a replay/late session.insert arrives.
+// This is the regression test for the MEDIUM bug where a guarded upsert was added
+// to prevent completed sessions from being reverted to active.
+func TestSessionInsert_DoesNotClobberRealSession(t *testing.T) {
+	// Use a short path to stay under the Unix socket path limit (~104 chars).
+	projectRoot, err := os.MkdirTemp("", "wn-noclobber")
+	if err != nil {
+		t.Fatalf("mkdirtemp: %v", err)
+	}
+	t.Cleanup(func() { os.RemoveAll(projectRoot) })
+
+	wDB, err := db.Open(filepath.Join(projectRoot, "writer.db"))
+	if err != nil {
+		t.Fatalf("open writer db: %v", err)
+	}
+	t.Cleanup(func() { wDB.Close() })
+
+	const sid = "S2-noclobber"
+	now := time.Now().UTC().Truncate(time.Second)
+
+	// --- Directly insert a REAL session (not a placeholder) in "completed" state.
+	realSession := &models.Session{
+		SessionID:     sid,
+		AgentAssigned: "real-agent",
+		CreatedAt:     now,
+		Status:        "completed",
+	}
+	if err := db.InsertSession(wDB, realSession); err != nil {
+		t.Fatalf("insert real session: %v", err)
+	}
+
+	// Set completed_at on the session to simulate a truly completed session.
+	completedTime := now.Format(time.RFC3339)
+	if _, err := wDB.Exec(`UPDATE sessions SET completed_at = ? WHERE session_id = ?`, completedTime, sid); err != nil {
+		t.Fatalf("set completed_at: %v", err)
+	}
+
+	// Verify the real session state before the upsert attempt.
+	var beforeStatus, beforeAgent, beforeCompletedAt string
+	row := wDB.QueryRow(`SELECT status, agent_assigned, completed_at FROM sessions WHERE session_id = ?`, sid)
+	if err := row.Scan(&beforeStatus, &beforeAgent, &beforeCompletedAt); err != nil {
+		t.Fatalf("query initial state: %v", err)
+	}
+	if beforeStatus != "completed" || beforeAgent != "real-agent" || beforeCompletedAt != completedTime {
+		t.Fatalf("initial state invalid: status=%q (want completed), agent=%q (want real-agent), completed_at=%q (want %q)",
+			beforeStatus, beforeAgent, beforeCompletedAt, completedTime)
+	}
+
+	// --- Now attempt to upsert with "active" status (the replay/late case).
+	replayedSession := &models.Session{
+		SessionID:     sid,
+		AgentAssigned: "some-other-agent",
+		CreatedAt:     now,
+		Status:        "active", // This should NOT overwrite completed status.
+	}
+	if err := db.UpsertSession(wDB, replayedSession); err != nil {
+		t.Fatalf("upsert replayed session: %v", err)
+	}
+
+	// --- Assert: the row status is STILL "completed" and agent_assigned is STILL "real-agent".
+	var afterStatus, afterAgent, afterCompletedAt string
+	row = wDB.QueryRow(`SELECT status, agent_assigned, completed_at FROM sessions WHERE session_id = ?`, sid)
+	if err := row.Scan(&afterStatus, &afterAgent, &afterCompletedAt); err != nil {
+		t.Fatalf("query final state: %v", err)
+	}
+
+	if afterStatus != "completed" {
+		t.Fatalf("session status was clobbered: got %q, want completed", afterStatus)
+	}
+	if afterAgent != "real-agent" {
+		t.Fatalf("session agent_assigned was clobbered: got %q, want real-agent", afterAgent)
+	}
+	if afterCompletedAt != completedTime {
+		t.Fatalf("session completed_at was clobbered: got %q, want %q", afterCompletedAt, completedTime)
+	}
+
+	// Also verify that placeholder upgrade still works by running the existing test
+	// inline to confirm it still passes.
+	t.Run("PlaceholderUpgradeStillWorks", func(t *testing.T) {
+		const placeholderSid = "S3-placeholder"
+
+		// Create a placeholder with agent_assigned="__hook__".
+		ph := &models.Session{
+			SessionID:     placeholderSid,
+			AgentAssigned: "__hook__",
+			CreatedAt:     now,
+			Status:        "active",
+		}
+		if err := db.InsertSession(wDB, ph); err != nil {
+			t.Fatalf("insert placeholder: %v", err)
+		}
+
+		// Now upsert with real metadata.
+		real := &models.Session{
+			SessionID:     placeholderSid,
+			AgentAssigned: "real-agent-2",
+			CreatedAt:     now,
+			Status:        "active",
+		}
+		if err := db.UpsertSession(wDB, real); err != nil {
+			t.Fatalf("upsert real over placeholder: %v", err)
+		}
+
+		// Verify upgrade happened.
+		var agent string
+		row := wDB.QueryRow(`SELECT agent_assigned FROM sessions WHERE session_id = ?`, placeholderSid)
+		if err := row.Scan(&agent); err != nil {
+			t.Fatalf("query placeholder: %v", err)
+		}
+		if agent != "real-agent-2" {
+			t.Fatalf("placeholder was not upgraded: got %q, want real-agent-2", agent)
+		}
+	})
+}
+
 // TestRouteSession_FallbackBounded mirrors the bounded-miss contract for the
 // session route helpers.
 func TestRouteSession_FallbackBounded(t *testing.T) {

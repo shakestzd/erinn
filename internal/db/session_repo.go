@@ -38,6 +38,11 @@ func InsertSession(db *sql.DB, s *models.Session) error {
 // op created a "__hook__" placeholder before the real session.insert arrived —
 // results in the final row carrying the real metadata rather than sticking with
 // the placeholder values.
+//
+// The WHERE guard ensures we only upgrade placeholder rows (agent_assigned='__hook__')
+// and never overwrite real session rows created by other means (which may have
+// progressed state like completed status). A replayed/late session.insert must not
+// revert a completed session back to active, for example.
 func UpsertSession(db *sql.DB, s *models.Session) error {
 	_, err := db.Exec(`
 		INSERT INTO sessions (session_id, agent_assigned, parent_session_id,
@@ -55,7 +60,8 @@ func UpsertSession(db *sql.DB, s *models.Session) error {
 			model=excluded.model,
 			active_feature_id=excluded.active_feature_id,
 			git_remote_url=excluded.git_remote_url,
-			project_dir=excluded.project_dir`,
+			project_dir=excluded.project_dir
+		WHERE sessions.agent_assigned = '__hook__'`,
 		s.SessionID, s.AgentAssigned, nullStr(s.ParentSessionID),
 		nullStr(s.ParentEventID), s.CreatedAt.UTC().Format(time.RFC3339),
 		s.Status, nullStr(s.StartCommit),

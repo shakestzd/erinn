@@ -43,6 +43,12 @@ func InsertSession(db *sql.DB, s *models.Session) error {
 // and never overwrite real session rows created by other means (which may have
 // progressed state like completed status). A replayed/late session.insert must not
 // revert a completed session back to active, for example.
+//
+// CRITICAL: The upgrade-only branch (DO UPDATE) omits status and completed_at.
+// These fields are lifecycle-owned state and must NEVER be reverted by a late/
+// replayed session.insert. The upgrade attaches real session identity/metadata
+// (agent_assigned, parent_session_id, etc.) to a pristine placeholder; lifecycle
+// status is managed exclusively by session.status ops (OpTypeSessionStatus).
 func UpsertSession(db *sql.DB, s *models.Session) error {
 	_, err := db.Exec(`
 		INSERT INTO sessions (session_id, agent_assigned, parent_session_id,
@@ -54,7 +60,6 @@ func UpsertSession(db *sql.DB, s *models.Session) error {
 			parent_session_id=excluded.parent_session_id,
 			parent_event_id=excluded.parent_event_id,
 			created_at=excluded.created_at,
-			status=excluded.status,
 			start_commit=excluded.start_commit,
 			is_subagent=excluded.is_subagent,
 			model=excluded.model,

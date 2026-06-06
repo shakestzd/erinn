@@ -443,6 +443,94 @@ func TestSessionInsert_DoesNotClobberRealSession(t *testing.T) {
 	})
 }
 
+// TestSessionInsert_LateInsertDoesNotRevertProgressedPlaceholder is the regression
+// test for the MEDIUM bug: A placeholder (agent_assigned='__hook__') created by
+// EnsureSession can progress to 'completed' status before the real session.insert
+// arrives. When the late/replayed session.insert arrives carrying status='active',
+// the ON CONFLICT DO UPDATE must NOT revert the status back to 'active'. The
+// lifecycle status is owned by session.status ops; the upgrade-only branch must
+// preserve existing status and completed_at while attaching real identity metadata.
+func TestSessionInsert_LateInsertDoesNotRevertProgressedPlaceholder(t *testing.T) {
+	// Use a short path to stay under the Unix socket path limit (~104 chars).
+	projectRoot, err := os.MkdirTemp("", "wn-prog")
+	if err != nil {
+		t.Fatalf("mkdirtemp: %v", err)
+	}
+	t.Cleanup(func() { os.RemoveAll(projectRoot) })
+
+	wDB, err := db.Open(filepath.Join(projectRoot, "writer.db"))
+	if err != nil {
+		t.Fatalf("open writer db: %v", err)
+	}
+	t.Cleanup(func() { wDB.Close() })
+
+	const sid = "S3-prog"
+	now := time.Now().UTC().Truncate(time.Second)
+
+	// --- Step 1: Create placeholder via EnsureSession (simulating agent_event.upsert arriving first).
+	if err := db.EnsureSession(wDB, sid); err != nil {
+		t.Fatalf("ensure placeholder: %v", err)
+	}
+
+	// Verify placeholder exists with status='active' and agent_assigned='__hook__'.
+	var placeholderStatus, placeholderAgent string
+	row := wDB.QueryRow(`SELECT status, agent_assigned FROM sessions WHERE session_id = ?`, sid)
+	if err := row.Scan(&placeholderStatus, &placeholderAgent); err != nil {
+		t.Fatalf("query placeholder: %v", err)
+	}
+	if placeholderStatus != "active" || placeholderAgent != "__hook__" {
+		t.Fatalf("placeholder state invalid: status=%q (want active), agent=%q (want __hook__)",
+			placeholderStatus, placeholderAgent)
+	}
+
+	// --- Step 2: Mark placeholder as progressed to 'completed' state.
+	// This simulates a session.status op arriving after the placeholder but before the real session.insert.
+	if err := db.UpdateSessionStatus(wDB, sid, "completed"); err != nil {
+		t.Fatalf("mark placeholder completed: %v", err)
+	}
+
+	// Verify progression succeeded.
+	var progressedStatus, progressedCompletedAt string
+	row = wDB.QueryRow(`SELECT status, completed_at FROM sessions WHERE session_id = ?`, sid)
+	if err := row.Scan(&progressedStatus, &progressedCompletedAt); err != nil {
+		t.Fatalf("query progressed state: %v", err)
+	}
+	if progressedStatus != "completed" || progressedCompletedAt == "" {
+		t.Fatalf("progression failed: status=%q (want completed), completed_at=%q (want non-empty)",
+			progressedStatus, progressedCompletedAt)
+	}
+
+	// --- Step 3: Late/replayed session.insert arrives with status='active' and real agent.
+	// This is the bug scenario: the UpsertSession must NOT revert status back to 'active'.
+	replayedSession := &models.Session{
+		SessionID:     sid,
+		AgentAssigned: "real-agent",
+		CreatedAt:     now,
+		Status:        "active", // MUST NOT overwrite progressed 'completed' status.
+	}
+	if err := db.UpsertSession(wDB, replayedSession); err != nil {
+		t.Fatalf("upsert late session.insert: %v", err)
+	}
+
+	// --- Assert: status is STILL 'completed', completed_at is STILL set, AND agent_assigned
+	// was upgraded to 'real-agent' (identity attachment succeeded).
+	var finalStatus, finalAgent, finalCompletedAt string
+	row = wDB.QueryRow(`SELECT status, agent_assigned, completed_at FROM sessions WHERE session_id = ?`, sid)
+	if err := row.Scan(&finalStatus, &finalAgent, &finalCompletedAt); err != nil {
+		t.Fatalf("query final state: %v", err)
+	}
+
+	if finalStatus != "completed" {
+		t.Fatalf("bug: session status was reverted by late session.insert: got %q, want completed", finalStatus)
+	}
+	if finalCompletedAt != progressedCompletedAt {
+		t.Fatalf("bug: completed_at was lost: got %q, want %q", finalCompletedAt, progressedCompletedAt)
+	}
+	if finalAgent != "real-agent" {
+		t.Fatalf("identity attachment failed: got %q, want real-agent", finalAgent)
+	}
+}
+
 // TestRouteSession_FallbackBounded mirrors the bounded-miss contract for the
 // session route helpers.
 func TestRouteSession_FallbackBounded(t *testing.T) {

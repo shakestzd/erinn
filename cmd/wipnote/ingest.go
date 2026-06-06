@@ -520,7 +520,7 @@ func runIngestCommits(since string, limit int) error {
 //   - since: ISO date string for --after filter (empty = all history)
 //   - limit: max commits to read (0 = no limit)
 func ingestCommitsFromRepo(database *sql.DB, repoDir, since string, limit int) (inserted, attributed int, err error) {
-	args := []string{"log", "--format=%H|%s|%aI"}
+	args := []string{"log", "--all", "--format=%H|%s|%aI"}
 	if since != "" {
 		args = append(args, "--after="+since)
 	}

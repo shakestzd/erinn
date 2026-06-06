@@ -545,10 +545,17 @@ func WorktreeCreate(event *CloudEvent, database *sql.DB) (string, error) {
 		return "", err
 	}
 
-	summary := fmt.Sprintf("Worktree created: %s", normalizeWorktreePath(createdPath))
-	if _, err := recordSimpleEvent(models.EventCheckPoint, "WorktreeCreate", summary, "recorded", event, database); err != nil {
-		projectDir := ResolveProjectDir(event.CWD, event.SessionID)
-		debugLog(projectDir, "[worktree-create] checkpoint record failed: %v", err)
+	// Checkpoint recording is best-effort and canonical-first: a nil database
+	// means the derived-index open was unavailable (writer_unavailable), but
+	// the worktree itself was created successfully, so we MUST still return the
+	// bare path (#119 stdout contract). Skip the derived-index write when the
+	// handle is nil; reindex recovers it on the next serve cycle.
+	if database != nil {
+		summary := fmt.Sprintf("Worktree created: %s", normalizeWorktreePath(createdPath))
+		if _, err := recordSimpleEvent(models.EventCheckPoint, "WorktreeCreate", summary, "recorded", event, database); err != nil {
+			projectDir := ResolveProjectDir(event.CWD, event.SessionID)
+			debugLog(projectDir, "[worktree-create] checkpoint record failed: %v", err)
+		}
 	}
 
 	return createdPath, nil

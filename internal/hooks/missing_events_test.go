@@ -578,6 +578,48 @@ func TestWorktreeCreate_NoPath_RecordsGenericSummary(t *testing.T) {
 	}
 }
 
+// TestWorktreeCreate_NilDB_StillCreatesAndReturnsPath verifies the
+// canonical-first fallback (feat-075c110d): when the derived-index handle is
+// unavailable (writer_unavailable → nil *sql.DB), WorktreeCreate MUST still
+// create the worktree and return its bare path (the #119 stdout contract),
+// skipping only the best-effort checkpoint write. It must NOT panic on the
+// nil handle and must NOT error.
+func TestWorktreeCreate_NilDB_StillCreatesAndReturnsPath(t *testing.T) {
+	repoRoot := setupGitRepoForWorktreeCreate(t)
+	basePath := filepath.Join(repoRoot, ".claude", "worktrees")
+	worktreeName := "feat-deadbeef"
+	worktreePath := filepath.Join(basePath, worktreeName)
+
+	event := &CloudEvent{
+		SessionID:        "sess-nil-db",
+		CWD:              repoRoot,
+		WorktreeBasePath: basePath,
+		WorktreeName:     worktreeName,
+	}
+
+	got, err := WorktreeCreate(event, nil)
+	if err != nil {
+		t.Fatalf("WorktreeCreate with nil DB: %v", err)
+	}
+	if got != worktreePath {
+		t.Fatalf("WorktreeCreate path = %q, want %q", got, worktreePath)
+	}
+	if info, err := os.Stat(got); err != nil || !info.IsDir() {
+		t.Fatalf("created path is not a directory: info=%v err=%v", info, err)
+	}
+}
+
+// TestWorktreeCreate_MissingFields_NilDB_StillErrors verifies the contract
+// boundary: even on the fallback (nil DB) path, a genuine failure (missing
+// worktree_name / worktree_base_path) must STILL return an error so the
+// command exits non-zero with no path on stdout.
+func TestWorktreeCreate_MissingFields_NilDB_StillErrors(t *testing.T) {
+	event := &CloudEvent{SessionID: "sess-x", CWD: t.TempDir()}
+	if got, err := WorktreeCreate(event, nil); err == nil {
+		t.Fatalf("expected error on missing fields with nil DB, got path=%q nil err", got)
+	}
+}
+
 // --- TaskCreated ---
 
 // TestTaskCreated_RecordsEventWithSubject verifies that TaskCreated records a

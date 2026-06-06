@@ -119,13 +119,22 @@ func hookWorktreeCreateCmd() *cobra.Command {
 				fmt.Fprintln(os.Stderr, err)
 				return err
 			}
+			// Canonical-first fallback (feat-075c110d): OpenHookDB direct-opens
+			// the writable handle. When it is unavailable (writer_unavailable —
+			// e.g. the daemon holds the single writable handle, or a transient
+			// lock), we do NOT abort: worktree creation does not require the DB,
+			// only the best-effort checkpoint does. We proceed with a nil handle
+			// so the worktree is still created and its bare path is still echoed
+			// (#119 contract). The derived-index checkpoint is recovered by
+			// reindex on the next serve cycle. A genuine failure (missing
+			// worktree_name / worktree_base_path, or a worktree creation error)
+			// still returns a non-zero error with no JSON on stdout.
 			database, reason := hooks.OpenHookDB(use, event.SessionID, dbPath)
-			if database == nil {
-				err := fmt.Errorf("open hook database: %s", reason)
-				fmt.Fprintln(os.Stderr, err)
-				return err
+			if database != nil {
+				defer database.Close()
+			} else {
+				_ = reason // already logged + counted inside OpenHookDB
 			}
-			defer database.Close()
 
 			path, err := hooks.WorktreeCreate(event, database)
 			if err != nil {

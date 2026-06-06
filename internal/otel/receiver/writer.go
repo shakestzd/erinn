@@ -43,14 +43,38 @@ const metricRowsPerSessionLimit = 5000
 // "BEGIN IMMEDIATE" / "COMMIT" / "ROLLBACK" statements that the
 // database/sql api cannot express through sql.TxOptions.
 type Writer struct {
-	db              *sql.DB
-	conn            *sql.Conn // pinned to the single MaxOpenConns=1 connection
-	insertStmt      *sql.Stmt
+	db   *sql.DB
+	conn *sql.Conn // pinned to the single connection (own-pool mode only; nil in shared mode)
+	// shared is true when the Writer borrows an externally-owned *sql.DB
+	// (feat-075c110d: the daemon's single writable handle) instead of
+	// opening + pinning its own. In shared mode the Writer does NOT pin a
+	// lifetime connection and does NOT hold lifetime prepared statements;
+	// each WriteBatch acquires the pool's connection for the duration of
+	// the batch and releases it on completion. The shared handle is
+	// opened with MaxOpenConns=1 by the owner, so the database/sql pool
+	// itself serializes every caller (the writer batches, the socket-op
+	// applier, and the maintenance loops) onto ONE physical SQLite
+	// connection — making concurrent BEGIN IMMEDIATE structurally
+	// impossible and eliminating the cross-handle SQLITE_BUSY thrash.
+	shared          bool
+	ownDB           bool      // true when the Writer opened db itself and must Close it
+	insertStmt      *sql.Stmt // own-pool mode only: lifetime statements pinned to conn
 	sessStmt        *sql.Stmt
 	resStmt         *sql.Stmt
 	placeholderStmt *sql.Stmt  // INSERT placeholder subagent_invocation row
 	upgradeStmt     *sql.Stmt  // UPDATE placeholder → real Agent span
 	mu              sync.Mutex // serializes WriteBatch calls — SQLite serializes writes anyway via IMMEDIATE lock, this just makes it explicit at the Go layer
+}
+
+// batchStmts is the per-batch set of prepared statements used in shared
+// mode. They are prepared on the acquired connection and closed when the
+// batch completes, mirroring the lifetime statements held in own-pool mode.
+type batchStmts struct {
+	insert      *sql.Stmt
+	sess        *sql.Stmt
+	res         *sql.Stmt
+	placeholder *sql.Stmt
+	upgrade     *sql.Stmt
 }
 
 // NewWriter opens a writer-mode DB handle on dbPath. The handle is
@@ -106,13 +130,39 @@ func NewWriter(dbPath string) (*Writer, error) {
 	// This never forces WAL on overlayfs and never touches isUnsafeForMmap.
 	assertWriterJournalMode(conn, dbPath)
 
-	w := &Writer{db: db, conn: conn}
+	w := &Writer{db: db, conn: conn, ownDB: true}
 	if err := w.prepare(); err != nil {
 		conn.Close()
 		db.Close()
 		return nil, err
 	}
 	return w, nil
+}
+
+// NewWriterFromDB constructs a Writer that BORROWS an existing writable
+// *sql.DB instead of opening + pinning its own pool. This is the
+// daemon's single-writer path (feat-075c110d): serve_child opens ONE
+// writable handle with MaxOpenConns=1 (which also runs migrations) and
+// shares it across every write path — the socket-op applier, the OTel
+// sink (this Writer), the indexer, and the maintenance loops. Because
+// the underlying pool caps at a single physical connection, the
+// database/sql pool serializes every caller onto that one connection, so
+// two concurrent BEGIN IMMEDIATE transactions can never exist and the
+// cross-handle SQLITE_BUSY contention is eliminated at the root.
+//
+// Unlike NewWriter, this constructor does NOT pin a lifetime connection
+// (that would starve the applier + maintenance of the single pooled
+// connection) and does NOT prepare lifetime statements. Each WriteBatch
+// acquires the pool connection for its duration, prepares the batch's
+// statements on it, runs the BEGIN IMMEDIATE transaction, and releases
+// the connection back to the pool so the next caller can proceed.
+//
+// The caller OWNS the *sql.DB lifecycle: Writer.Close does NOT close it.
+func NewWriterFromDB(database *sql.DB) (*Writer, error) {
+	if database == nil {
+		return nil, fmt.Errorf("NewWriterFromDB: nil *sql.DB")
+	}
+	return &Writer{db: database, shared: true, ownDB: false}, nil
 }
 
 // assertWriterJournalMode promotes a fresh DB from the SQLite default
@@ -139,10 +189,12 @@ func assertWriterJournalMode(conn *sql.Conn, dbPath string) {
 	_, _ = conn.ExecContext(ctx, "PRAGMA journal_mode = WAL")
 }
 
-func (w *Writer) prepare() error {
-	ctx := context.Background()
-	var err error
-	w.insertStmt, err = w.conn.PrepareContext(ctx, `
+// SQL for the five statements the Writer holds. Shared by both the
+// own-pool lifetime-prepare path (prepare) and the shared-handle
+// per-batch prepare path (prepareBatchStmts) so the two modes execute
+// byte-identical SQL.
+const (
+	sqlInsertSignal = `
 		INSERT OR IGNORE INTO otel_signals (
 			signal_id, harness, session_id, prompt_id,
 			trace_id, span_id, parent_span,
@@ -153,56 +205,29 @@ func (w *Writer) prepare() error {
 			cost_usd, cost_source,
 			duration_ms, success, error_msg, attempt, status_code,
 			attrs_json, feature_id
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
-	if err != nil {
-		return fmt.Errorf("prepare insert: %w", err)
-	}
-	// Session placeholder upsert: if the OTLP receiver sees a session_id
-	// we haven't created via the hooks path, we create a minimal row so
-	// the FK resolves. If SessionStart later fires for the same id, it
-	// upgrades agent_assigned from the placeholder. Status stays 'active'.
-	w.sessStmt, err = w.conn.PrepareContext(ctx, `
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+
+	sqlSessionUpsert = `
 		INSERT OR IGNORE INTO sessions (session_id, agent_assigned, status)
-		VALUES (?, ?, 'active')`)
-	if err != nil {
-		return fmt.Errorf("prepare session upsert: %w", err)
-	}
-	// Resource attribute upsert: per (session_id, key), replace on conflict.
-	// OTel resource attrs repeat on every batch; we want the latest value.
-	w.resStmt, err = w.conn.PrepareContext(ctx, `
+		VALUES (?, ?, 'active')`
+
+	sqlResourceUpsert = `
 		INSERT INTO otel_resource_attrs (session_id, harness, key, value, observed_at)
 		VALUES (?, ?, ?, ?, ?)
 		ON CONFLICT(session_id, key) DO UPDATE SET
 			value = excluded.value,
-			observed_at = excluded.observed_at`)
-	if err != nil {
-		return fmt.Errorf("prepare resource upsert: %w", err)
-	}
+			observed_at = excluded.observed_at`
 
-	// Placeholder upsert: synthesise a minimal subagent_invocation row keyed on
-	// the orphan span's parent_span so the dashboard sees an Agent node immediately
-	// rather than waiting minutes for the real Agent span to arrive.
-	// ON CONFLICT(signal_id) DO NOTHING: if we already wrote a placeholder for this
-	// signal_id, leave it alone (idempotent re-delivery).
-	// The span_id unique index (idx_otel_span_id_unique) is NOT used here; instead
-	// we guard at the call site with an existence check on span_id.
-	w.placeholderStmt, err = w.conn.PrepareContext(ctx, `
+	sqlPlaceholderInsert = `
 		INSERT OR IGNORE INTO otel_signals (
 			signal_id, harness, session_id,
 			trace_id, span_id,
 			kind, canonical, native, ts_micros,
 			tool_name,
 			attrs_json
-		) VALUES (?, ?, ?, ?, ?, 'span', 'subagent_invocation', 'agent_invocation', ?, 'Agent', ?)`)
-	if err != nil {
-		return fmt.Errorf("prepare placeholder insert: %w", err)
-	}
+		) VALUES (?, ?, ?, ?, ?, 'span', 'subagent_invocation', 'agent_invocation', ?, 'Agent', ?)`
 
-	// Upgrade statement: when the real Agent span arrives and a placeholder row
-	// already exists for the same span_id, overwrite the placeholder's fields
-	// with actual data. We identify placeholder rows via attrs_json containing
-	// "_pending":true so we don't accidentally overwrite real data.
-	w.upgradeStmt, err = w.conn.PrepareContext(ctx, `
+	sqlUpgradePlaceholder = `
 		UPDATE otel_signals SET
 			signal_id = ?,
 			harness = ?,
@@ -232,15 +257,74 @@ func (w *Writer) prepare() error {
 			status_code = ?,
 			attrs_json = ?,
 			feature_id = ?
-		WHERE span_id = ? AND attrs_json LIKE '%"_pending":true%'`)
-	if err != nil {
-		return fmt.Errorf("prepare upgrade stmt: %w", err)
-	}
+		WHERE span_id = ? AND attrs_json LIKE '%"_pending":true%'`
+)
 
+// stmtPreparer is satisfied by both *sql.Conn and *sql.DB, letting the
+// statement-preparation helper serve the pinned-conn (own-pool) path and
+// the per-batch acquired-conn (shared) path identically.
+type stmtPreparer interface {
+	PrepareContext(ctx context.Context, query string) (*sql.Stmt, error)
+}
+
+// prepareBatchStmts prepares the five statements on p (a pinned *sql.Conn
+// in own-pool mode, or a per-batch acquired *sql.Conn in shared mode).
+func prepareBatchStmts(ctx context.Context, p stmtPreparer) (*batchStmts, error) {
+	bs := &batchStmts{}
+	var err error
+	if bs.insert, err = p.PrepareContext(ctx, sqlInsertSignal); err != nil {
+		return nil, fmt.Errorf("prepare insert: %w", err)
+	}
+	if bs.sess, err = p.PrepareContext(ctx, sqlSessionUpsert); err != nil {
+		bs.close()
+		return nil, fmt.Errorf("prepare session upsert: %w", err)
+	}
+	if bs.res, err = p.PrepareContext(ctx, sqlResourceUpsert); err != nil {
+		bs.close()
+		return nil, fmt.Errorf("prepare resource upsert: %w", err)
+	}
+	if bs.placeholder, err = p.PrepareContext(ctx, sqlPlaceholderInsert); err != nil {
+		bs.close()
+		return nil, fmt.Errorf("prepare placeholder insert: %w", err)
+	}
+	if bs.upgrade, err = p.PrepareContext(ctx, sqlUpgradePlaceholder); err != nil {
+		bs.close()
+		return nil, fmt.Errorf("prepare upgrade stmt: %w", err)
+	}
+	return bs, nil
+}
+
+func (bs *batchStmts) close() {
+	if bs == nil {
+		return
+	}
+	for _, s := range []*sql.Stmt{bs.insert, bs.sess, bs.res, bs.placeholder, bs.upgrade} {
+		if s != nil {
+			s.Close()
+		}
+	}
+}
+
+// prepare prepares the lifetime statements on the pinned connection
+// (own-pool mode only). Shared-handle writers prepare per-batch instead.
+func (w *Writer) prepare() error {
+	bs, err := prepareBatchStmts(context.Background(), w.conn)
+	if err != nil {
+		return err
+	}
+	w.insertStmt = bs.insert
+	w.sessStmt = bs.sess
+	w.resStmt = bs.res
+	w.placeholderStmt = bs.placeholder
+	w.upgradeStmt = bs.upgrade
 	return nil
 }
 
 // Close releases prepared statements and the underlying connection.
+//
+// In shared mode the Writer holds no lifetime statements or pinned
+// connection and does NOT own the *sql.DB (the daemon owns it), so Close
+// is effectively a no-op — the owner closes the handle.
 func (w *Writer) Close() error {
 	if w.insertStmt != nil {
 		w.insertStmt.Close()
@@ -260,7 +344,10 @@ func (w *Writer) Close() error {
 	if w.conn != nil {
 		w.conn.Close()
 	}
-	return w.db.Close()
+	if w.ownDB {
+		return w.db.Close()
+	}
+	return nil
 }
 
 // WriteBatch persists one OTLP request's worth of signals plus the
@@ -294,6 +381,36 @@ func (w *Writer) WriteBatch(
 	w.mu.Lock()
 	defer w.mu.Unlock()
 
+	// Resolve the connection + prepared statements for this batch.
+	//
+	//   - own-pool mode: the lifetime pinned conn + lifetime statements.
+	//   - shared mode (NewWriterFromDB): acquire the pool's connection for
+	//     the duration of this batch and prepare statements on it, then
+	//     release on completion. The shared pool is MaxOpenConns=1, so this
+	//     acquire blocks until any in-flight applier/maintenance write
+	//     finishes — which is exactly the single-writer serialization we
+	//     want (no two BEGIN IMMEDIATE can ever overlap).
+	conn := w.conn
+	stmts := &batchStmts{
+		insert:      w.insertStmt,
+		sess:        w.sessStmt,
+		res:         w.resStmt,
+		placeholder: w.placeholderStmt,
+		upgrade:     w.upgradeStmt,
+	}
+	if w.shared {
+		conn, err = w.db.Conn(ctx)
+		if err != nil {
+			return 0, fmt.Errorf("acquire shared conn: %w", err)
+		}
+		defer conn.Close() // release back to the pool
+		stmts, err = prepareBatchStmts(ctx, conn)
+		if err != nil {
+			return 0, err
+		}
+		defer stmts.close()
+	}
+
 	// BEGIN IMMEDIATE acquires the write lock up front, avoiding the
 	// SHARED→RESERVED→EXCLUSIVE upgrade race that a DEFERRED transaction
 	// triggers. With DEFERRED, SQLite holds only a SHARED lock until the
@@ -301,14 +418,14 @@ func (w *Writer) WriteBatch(
 	// and the RESERVED upgrade and return SQLITE_BUSY before busy_timeout
 	// even gets a chance to retry (the upgrade attempt is not retried under
 	// busy_timeout). IMMEDIATE eliminates this race entirely.
-	if _, err = w.conn.ExecContext(ctx, "BEGIN IMMEDIATE"); err != nil {
+	if _, err = conn.ExecContext(ctx, "BEGIN IMMEDIATE"); err != nil {
 		return 0, fmt.Errorf("begin immediate: %w", err)
 	}
 	// rollback is a no-op after a successful COMMIT; safe to call from defer.
 	committed := false
 	defer func() {
 		if !committed {
-			w.conn.ExecContext(context.Background(), "ROLLBACK") //nolint:errcheck
+			conn.ExecContext(context.Background(), "ROLLBACK") //nolint:errcheck
 		}
 	}()
 
@@ -339,13 +456,13 @@ func (w *Writer) WriteBatch(
 		}
 		if !seen[s.SessionID] {
 			agent := string(harness)
-			if _, err = w.sessStmt.ExecContext(ctx, s.SessionID, agent); err != nil {
+			if _, err = stmts.sess.ExecContext(ctx, s.SessionID, agent); err != nil {
 				return inserted, fmt.Errorf("sessions upsert: %w", err)
 			}
 			// Persist the resource attributes snapshot for this session.
 			for k, v := range resourceAttrs {
 				if sv, ok := valueString(v); ok {
-					if _, err = w.resStmt.ExecContext(ctx, s.SessionID, string(harness), k, sv, resObservedAt); err != nil {
+					if _, err = stmts.res.ExecContext(ctx, s.SessionID, string(harness), k, sv, resObservedAt); err != nil {
 						return inserted, fmt.Errorf("resource attr upsert: %w", err)
 					}
 				}
@@ -373,7 +490,7 @@ func (w *Writer) WriteBatch(
 		featureID, cached := featureByID[s.SessionID]
 		if !cached {
 			var fid sql.NullString
-			_ = w.conn.QueryRowContext(ctx,
+			_ = conn.QueryRowContext(ctx,
 				`SELECT work_item_id FROM active_work_items WHERE session_id = ? AND agent_id = ?`,
 				s.SessionID, "__root__",
 			).Scan(&fid)
@@ -386,7 +503,7 @@ func (w *Writer) WriteBatch(
 		// rather than inserting a duplicate. This transparently promotes the placeholder
 		// written during orphan-span detection to a fully-attributed row.
 		if s.Kind == otel.KindSpan && s.CanonicalName == otel.CanonicalSubagent && s.SpanID != "" {
-			upgraded, upgradeErr := tryUpgradePlaceholder(ctx, w.upgradeStmt, s, attrsJSON, successVal, featureID)
+			upgraded, upgradeErr := tryUpgradePlaceholder(ctx, stmts.upgrade, s, attrsJSON, successVal, featureID)
 			if upgradeErr != nil {
 				return inserted, fmt.Errorf("upgrade placeholder for span %s: %w", s.SpanID, upgradeErr)
 			}
@@ -402,7 +519,7 @@ func (w *Writer) WriteBatch(
 		// Only attempt this when the signal carries wipnote.agent_id so we can
 		// look up pending_subagent_starts. Gracefully degrade when missing.
 		if s.Kind == otel.KindSpan && s.ParentSpan != "" {
-			if err2 := w.maybeCreatePlaceholder(ctx, w.conn, w.placeholderStmt, s, resourceAttrs, spanExists, resObservedAt); err2 != nil {
+			if err2 := w.maybeCreatePlaceholder(ctx, conn, stmts.placeholder, s, resourceAttrs, spanExists, resObservedAt); err2 != nil {
 				// Non-fatal: log via return path but don't block the real signal.
 				_ = err2
 			}
@@ -415,14 +532,14 @@ func (w *Writer) WriteBatch(
 		// is correct from the start. Two strategies (A: agent_id resource attr,
 		// B: overlap window) are applied in priority order.
 		if s.Kind == otel.KindSpan && s.ParentSpan != "" && s.CanonicalName != otel.CanonicalSubagent {
-			if newParent, reason := tryReattributeParent(ctx, w.conn, s, resourceAttrs); newParent != "" {
+			if newParent, reason := tryReattributeParent(ctx, conn, s, resourceAttrs); newParent != "" {
 				log.Printf("reattribute: span=%s old_parent=%s new_parent=%s reason=%s",
 					s.SpanID, s.ParentSpan, newParent, reason)
 				s.ParentSpan = newParent
 			}
 		}
 
-		res, execErr := w.insertStmt.ExecContext(ctx,
+		res, execErr := stmts.insert.ExecContext(ctx,
 			s.SignalID, string(s.Harness), s.SessionID, nullStr(s.PromptID),
 			nullStr(s.TraceID), nullStr(s.SpanID), nullStr(s.ParentSpan),
 			string(s.Kind), s.CanonicalName, s.NativeName, s.Timestamp.UnixMicro(),
@@ -445,12 +562,12 @@ func (w *Writer) WriteBatch(
 	}
 
 	for sessionID := range seen {
-		if err = pruneMetricSignals(ctx, w.conn, sessionID, metricRowsPerSessionLimit); err != nil {
+		if err = pruneMetricSignals(ctx, conn, sessionID, metricRowsPerSessionLimit); err != nil {
 			return inserted, fmt.Errorf("prune metric signals for session %s: %w", sessionID, err)
 		}
 	}
 
-	if _, err = w.conn.ExecContext(ctx, "COMMIT"); err != nil {
+	if _, err = conn.ExecContext(ctx, "COMMIT"); err != nil {
 		return inserted, fmt.Errorf("commit: %w", err)
 	}
 	committed = true

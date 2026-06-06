@@ -217,6 +217,17 @@ func MostRecentSession(db *sql.DB) (string, error) {
 	return id, nil
 }
 
+// EnsureSession inserts a minimal sessions row for sessionID if none exists, so
+// agent_events (whose session_id FKs to sessions) can be applied even when child
+// events arrive before their parent session row (out-of-order async write ops).
+func EnsureSession(database *sql.DB, sessionID string) error {
+	_, err := database.Exec(
+		`INSERT OR IGNORE INTO sessions (session_id, agent_assigned, status) VALUES (?, ?, 'active')`,
+		sessionID, "__hook__",
+	)
+	return err
+}
+
 // UpsertEvent performs an INSERT OR REPLACE for idempotent event writes.
 // This is useful when a hook may fire multiple times for the same logical event.
 func UpsertEvent(db *sql.DB, e *models.AgentEvent) error {

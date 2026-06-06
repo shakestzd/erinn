@@ -125,6 +125,9 @@ func NewApplier(database *sql.DB) daemon.Applier {
 			}
 			ev := *op.Event // capture by value so the closure is self-contained
 			return func(_ context.Context) error {
+				if err := db.EnsureSession(database, ev.SessionID); err != nil {
+					return err
+				}
 				return db.UpsertEvent(database, &ev)
 			}, nil
 		case OpTypeFeatureStatus:

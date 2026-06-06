@@ -133,20 +133,47 @@ func runWriterOnly(serveManaged bool) error {
 	// dbpkg.Open runs migrations / ensures schema exists, exactly as the
 	// default path did in runServeChild, before the writequeue worker (or the
 	// background maintenance loops) touches the DB. The daemon now OWNS this
-	// single writable handle for the whole process: the writequeue worker
-	// commits socket-delivered ops via receiver.NewWriter's own connection,
-	// and the maintenance loops (auto-ingest, indexer prompt-ID bridge,
-	// ai-title backfill, retention) issue their INSERT/UPDATE/DELETE through
-	// THIS handle. There is exactly one writable SQLite handle per project
-	// while serve runs — eliminating the serve_child↔writer SQLITE_BUSY
-	// contention (feat-075c110d increment 2).
+	// single writable handle for the whole process.
+	//
+	// SINGLE-WRITER CONSOLIDATION (feat-075c110d): this is the ONE and ONLY
+	// writable SQLite handle the daemon opens. We cap it at MaxOpenConns=1 so
+	// the database/sql pool itself guarantees exactly ONE physical connection
+	// — and therefore that at most one BEGIN IMMEDIATE transaction is ever in
+	// flight across EVERY write path in the process:
+	//
+	//   - the writequeue applier (socket-delivered derived ops),
+	//   - the OTel sink (otel_signals inserts via the receiver Writer),
+	//   - the indexer (its direct writes + orphan-filter SELECTs),
+	//   - auto-ingest, the one-time ai-title backfill, and retention.
+	//
+	// Previously the daemon opened TWO writable pools to the same file —
+	// `dbpkg.Open` here AND a second pool inside receiver.NewWriter — so two
+	// connections could each issue BEGIN IMMEDIATE concurrently, producing the
+	// "database is locked (5) (SQLITE_BUSY)" thrash that kept the indexer
+	// failing and left otel_signals empty. Sharing this single handle (passed
+	// to receiver.NewWriterFromDB below) and capping it to one connection
+	// removes the second pool entirely.
+	//
+	// Read amplification note: collapsing to a single connection serializes
+	// the daemon's same-process SELECTs (orphan-filter, prompt-ID bridge)
+	// behind writes. That is acceptable here — the daemon is write-dominated,
+	// the SELECTs are tiny and infrequent, and the HTTP dashboard reads run in
+	// a SEPARATE read-only handle inside serve_child (not this pool). No user-
+	// facing read path shares this connection.
 	writeDB, err := dbpkg.Open(dbPath)
 	if err != nil {
 		return fmt.Errorf("open db (writable, schema): %w", err)
 	}
+	writeDB.SetMaxOpenConns(1)
+	writeDB.SetMaxIdleConns(1)
 	defer writeDB.Close()
 
-	writer, err := otelreceiver.NewWriter(dbPath)
+	// The OTel signals Writer BORROWS the single writable handle above rather
+	// than opening its own pool (feat-075c110d). With MaxOpenConns=1 it cannot
+	// pin a lifetime connection (that would starve the applier + maintenance),
+	// so NewWriterFromDB acquires the pool connection per-batch and releases it
+	// — the pool serialization is the single-writer guarantee.
+	writer, err := otelreceiver.NewWriterFromDB(writeDB)
 	if err != nil {
 		return fmt.Errorf("writer service init: %w", err)
 	}
@@ -191,10 +218,10 @@ func runWriterOnly(serveManaged bool) error {
 	// read-only.
 	startWriterMaintenance(ctx, writeDB, wipnoteDir, q, writer)
 
-	// Wire the real derived-op Applier. It runs every op against the SAME
-	// writable handle the writequeue worker owns (writer.DB()), so all
-	// socket-delivered writes serialize on the single writer connection — the
-	// structural single-writer invariant.
+	// Wire the real derived-op Applier. writer.DB() is the SAME single
+	// writable handle (writeDB, MaxOpenConns=1) the OTel sink, indexer, and
+	// maintenance loops use, so all socket-delivered writes serialize on the
+	// one connection — the structural single-writer invariant.
 	ln, err := daemon.NewListener(daemon.ListenerConfig{
 		SocketPath: daemon.SocketPath(projectRoot),
 		Queue:      q,

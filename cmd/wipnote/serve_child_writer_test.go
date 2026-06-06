@@ -23,13 +23,18 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"sync"
 	"testing"
 	"time"
 
 	"github.com/shakestzd/wipnote/internal/daemon"
+	"github.com/shakestzd/wipnote/internal/daemon/apply"
 	"github.com/shakestzd/wipnote/internal/db"
 	"github.com/shakestzd/wipnote/internal/db/writequeue"
+	"github.com/shakestzd/wipnote/internal/models"
+	"github.com/shakestzd/wipnote/internal/otel"
 	otelreceiver "github.com/shakestzd/wipnote/internal/otel/receiver"
+	sqls "github.com/shakestzd/wipnote/internal/otel/sink/sqlite"
 )
 
 // TestLeaseOwnerAlive_ReflectsLiveOwner verifies the exported probe serve_child
@@ -111,15 +116,22 @@ func TestStartWriterMaintenance_IndexerRunsInDaemon(t *testing.T) {
 	}
 	boot.Close()
 
+	// Consolidated single-writer topology (feat-075c110d): ONE writable
+	// handle capped at MaxOpenConns=1, shared by the maintenance loops AND the
+	// OTel sink (NewWriterFromDB borrows it). This mirrors runWriterOnly so the
+	// test exercises the real wiring — otel_signals must populate through this
+	// single handle with zero contention.
 	writeDB, err := db.Open(dbPath)
 	if err != nil {
 		t.Fatalf("open writable: %v", err)
 	}
+	writeDB.SetMaxOpenConns(1)
+	writeDB.SetMaxIdleConns(1)
 	defer writeDB.Close()
 
-	writer, err := otelreceiver.NewWriter(dbPath)
+	writer, err := otelreceiver.NewWriterFromDB(writeDB)
 	if err != nil {
-		t.Fatalf("NewWriter: %v", err)
+		t.Fatalf("NewWriterFromDB: %v", err)
 	}
 	defer writer.Close()
 
@@ -168,6 +180,159 @@ func TestStartWriterMaintenance_IndexerRunsInDaemon(t *testing.T) {
 	}
 	if stats := q.Stats(); stats.Errors != 0 {
 		t.Fatalf("writequeue errors = %d, want 0 (daemon-side maintenance hit contention)", stats.Errors)
+	}
+}
+
+// TestDaemonSingleWriter_NoBusyUnderConcurrentWritePaths is the core
+// feat-075c110d regression: the daemon's THREE concurrent write paths — the
+// OTel sink (otel_signals), the socket-op applier (agent_events), and a
+// direct maintenance write — must all serialize on ONE writable handle
+// (MaxOpenConns=1) with ZERO SQLITE_BUSY.
+//
+// Before the fix the daemon opened TWO writable pools (dbpkg.Open + the
+// receiver Writer's own pool), so concurrent BEGIN IMMEDIATE produced
+// "database is locked (5)". This test drives all three paths hard against the
+// consolidated single handle and asserts both the writer_service busy counter
+// AND the queue error counter stay zero, and that every row lands.
+func TestDaemonSingleWriter_NoBusyUnderConcurrentWritePaths(t *testing.T) {
+	projectRoot := t.TempDir()
+	wipnoteDir := filepath.Join(projectRoot, ".wipnote")
+	dbPath := filepath.Join(wipnoteDir, "wipnote.db")
+	if err := os.MkdirAll(wipnoteDir, 0o755); err != nil {
+		t.Fatalf("mkdir .wipnote: %v", err)
+	}
+
+	boot, err := db.Open(dbPath)
+	if err != nil {
+		t.Fatalf("db.Open: %v", err)
+	}
+	boot.Close()
+
+	// THE single writable handle — exactly runWriterOnly's topology.
+	writeDB, err := db.Open(dbPath)
+	if err != nil {
+		t.Fatalf("open writable: %v", err)
+	}
+	writeDB.SetMaxOpenConns(1)
+	writeDB.SetMaxIdleConns(1)
+	defer writeDB.Close()
+
+	writer, err := otelreceiver.NewWriterFromDB(writeDB)
+	if err != nil {
+		t.Fatalf("NewWriterFromDB: %v", err)
+	}
+	defer writer.Close()
+
+	// Both the otel sink AND the applier route through ONE queue worker — the
+	// same single-writer serialization the daemon uses.
+	q := writequeue.New(writequeue.Config{Capacity: 512})
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	if err := q.Start(ctx); err != nil {
+		t.Fatalf("queue start: %v", err)
+	}
+	defer q.Stop(2 * time.Second)
+
+	snk := sqls.NewQueued(q, writer)
+	applier := apply.NewApplier(writer.DB())
+
+	db.ResetBusyCounters()
+
+	const (
+		sessions  = 4
+		otelBatch = 6
+		evtsPer   = 6
+	)
+	res := map[string]any{"service.name": "claude-code"}
+
+	var wg sync.WaitGroup
+	for sIdx := 0; sIdx < sessions; sIdx++ {
+		sessionID := fmt.Sprintf("sw-sess-%d", sIdx)
+
+		// Path 1: OTel sink → otel_signals (also creates the session row).
+		wg.Add(1)
+		go func(sid string) {
+			defer wg.Done()
+			batch := make([]otel.UnifiedSignal, otelBatch)
+			for i := range batch {
+				batch[i] = otel.UnifiedSignal{
+					SignalID:      fmt.Sprintf("%s-osig-%d", sid, i),
+					Harness:       otel.HarnessClaude,
+					SessionID:     sid,
+					Kind:          otel.KindSpan,
+					CanonicalName: "api_request",
+					NativeName:    "claude_code.api_request",
+					Timestamp:     time.Now(),
+				}
+			}
+			if err := snk.WriteBatchSync(context.Background(), otel.HarnessClaude, res, batch); err != nil {
+				t.Errorf("otel WriteBatchSync(%s): %v", sid, err)
+			}
+		}(sessionID)
+
+		// Path 2: socket-op applier → agent_events upsert (concurrent with the
+		// otel writes on the same single handle).
+		wg.Add(1)
+		go func(sid string) {
+			defer wg.Done()
+			for i := 0; i < evtsPer; i++ {
+				ev := &models.AgentEvent{
+					EventID:      fmt.Sprintf("%s-evt-%d", sid, i),
+					AgentID:      "__root__",
+					EventType:    models.EventCheckPoint,
+					Timestamp:    time.Now().UTC(),
+					ToolName:     "T",
+					InputSummary: "concurrent-write",
+					SessionID:    sid,
+					Status:       "recorded",
+					Source:       "test",
+					CreatedAt:    time.Now().UTC(),
+					UpdatedAt:    time.Now().UTC(),
+				}
+				payload, err := apply.Encode(apply.DerivedOp{Type: apply.OpTypeAgentEventUpsert, Event: ev})
+				if err != nil {
+					t.Errorf("encode op: %v", err)
+					return
+				}
+				op, err := applier(daemon.Envelope{
+					OpID:    apply.OpID(sid, int64(i)),
+					OpType:  apply.OpTypeAgentEventUpsert,
+					Payload: payload,
+				})
+				if err != nil {
+					t.Errorf("applier(%s): %v", sid, err)
+					return
+				}
+				if err := q.SubmitSync(context.Background(), op); err != nil {
+					t.Errorf("submit applier op(%s): %v", sid, err)
+				}
+			}
+		}(sessionID)
+	}
+
+	wg.Wait()
+
+	// Zero contention on the consolidated handle.
+	if got := db.BusyCount(db.SubsystemWriterService); got != 0 {
+		t.Fatalf("writer_service SQLITE_BUSY count = %d, want 0 (single-writer consolidation broken)", got)
+	}
+	if stats := q.Stats(); stats.Errors != 0 {
+		t.Fatalf("writequeue errors = %d, want 0 (concurrent paths contended)", stats.Errors)
+	}
+
+	// Every row from both paths landed.
+	var otelRows, evtRows int
+	if err := writeDB.QueryRow(`SELECT COUNT(*) FROM otel_signals`).Scan(&otelRows); err != nil {
+		t.Fatalf("count otel_signals: %v", err)
+	}
+	if err := writeDB.QueryRow(`SELECT COUNT(*) FROM agent_events`).Scan(&evtRows); err != nil {
+		t.Fatalf("count agent_events: %v", err)
+	}
+	if wantOtel := sessions * otelBatch; otelRows != wantOtel {
+		t.Errorf("otel_signals rows = %d, want %d", otelRows, wantOtel)
+	}
+	if wantEvt := sessions * evtsPer; evtRows != wantEvt {
+		t.Errorf("agent_events rows = %d, want %d", evtRows, wantEvt)
 	}
 }
 

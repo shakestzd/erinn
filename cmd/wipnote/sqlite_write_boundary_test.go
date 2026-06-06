@@ -145,7 +145,7 @@ var approvedWriteSites = []writeSite{
 	},
 	{
 		File:           "internal/otel/receiver/writer.go",
-		Line:           72,
+		Line:           96,
 		Function:       "NewWriter",
 		OpenExpr:       "sql.Open",
 		Classification: daemonRoutedWriterService,
@@ -248,8 +248,16 @@ var approvedWriteSites = []writeSite{
 	// daemon socket listener funnels all socket-delivered ops through the
 	// writequeue worker (receiver.NewWriter). No HTTP mux.
 	{
+		File:           "cmd/wipnote/link_commit.go",
+		Line:           62,
+		Function:       "runLinkCommit",
+		OpenExpr:       "dbpkg.Open",
+		Classification: intentionalCLIMutation,
+		Note:           "User-driven `wipnote link commit`; short-lived foreground process that links a commit to a work item.",
+	},
+	{
 		File:           "cmd/wipnote/serve_child.go",
-		Line:           143,
+		Line:           163,
 		Function:       "runWriterOnly",
 		OpenExpr:       "dbpkg.Open",
 		Classification: intentionalCLIMutation,

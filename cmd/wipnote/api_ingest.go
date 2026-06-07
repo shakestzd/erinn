@@ -7,8 +7,8 @@ import (
 	"strings"
 	"time"
 
-	dbpkg "github.com/shakestzd/wipnote/internal/db"
-	"github.com/shakestzd/wipnote/internal/ingest"
+	dbpkg "github.com/shakestzd/wipnote/core/db"
+	"github.com/shakestzd/wipnote/core/ingest"
 )
 
 // sessionIngestHandler handles requests under /api/sessions/{id}/.

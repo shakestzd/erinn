@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"path/filepath"
 
-	dbpkg "github.com/shakestzd/wipnote/internal/db"
+	dbpkg "github.com/shakestzd/wipnote/core/db"
 	"github.com/shakestzd/wipnote/internal/planyaml"
 )
 

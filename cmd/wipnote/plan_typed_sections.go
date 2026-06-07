@@ -6,10 +6,10 @@ import (
 	"path/filepath"
 	"strings"
 
-	dbpkg "github.com/shakestzd/wipnote/internal/db"
-	"github.com/shakestzd/wipnote/internal/htmlparse"
+	dbpkg "github.com/shakestzd/wipnote/core/db"
+	"github.com/shakestzd/wipnote/core/htmlparse"
 	"github.com/shakestzd/wipnote/internal/plantmpl"
-	"github.com/shakestzd/wipnote/internal/storage"
+	"github.com/shakestzd/wipnote/core/storage"
 )
 
 // buildTypedPlanSections builds typed plantmpl.SliceCard and DependencyGraph

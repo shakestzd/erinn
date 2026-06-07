@@ -15,16 +15,16 @@ import (
 	"time"
 
 	"github.com/shakestzd/wipnote/internal/childproc"
-	"github.com/shakestzd/wipnote/internal/daemon"
-	"github.com/shakestzd/wipnote/internal/daemon/apply"
-	dbpkg "github.com/shakestzd/wipnote/internal/db"
-	"github.com/shakestzd/wipnote/internal/db/writequeue"
+	"github.com/shakestzd/wipnote/core/daemon"
+	"github.com/shakestzd/wipnote/core/daemon/apply"
+	dbpkg "github.com/shakestzd/wipnote/core/db"
+	"github.com/shakestzd/wipnote/core/db/writequeue"
 	"github.com/shakestzd/wipnote/internal/otel/indexer"
 	otelreceiver "github.com/shakestzd/wipnote/internal/otel/receiver"
 	"github.com/shakestzd/wipnote/internal/otel/retention"
 	sqls "github.com/shakestzd/wipnote/internal/otel/sink/sqlite"
 	"github.com/shakestzd/wipnote/internal/registry"
-	"github.com/shakestzd/wipnote/internal/storage"
+	"github.com/shakestzd/wipnote/core/storage"
 	"github.com/spf13/cobra"
 )
 

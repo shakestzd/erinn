@@ -9,8 +9,8 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/shakestzd/wipnote/internal/paths"
-	"github.com/shakestzd/wipnote/internal/storage"
+	"github.com/shakestzd/wipnote/core/paths"
+	"github.com/shakestzd/wipnote/core/storage"
 	"github.com/spf13/cobra"
 )
 

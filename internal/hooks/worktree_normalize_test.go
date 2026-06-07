@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/shakestzd/wipnote/internal/paths"
+	"github.com/shakestzd/wipnote/core/paths"
 )
 
 // TestWorktreeNormalize_AbsoluteInsideRepo_StoredRelative verifies that a

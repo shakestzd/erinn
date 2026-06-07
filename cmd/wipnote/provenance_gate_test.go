@@ -7,10 +7,10 @@ import (
 	"testing"
 	"time"
 
-	dbpkg "github.com/shakestzd/wipnote/internal/db"
+	dbpkg "github.com/shakestzd/wipnote/core/db"
 	"github.com/shakestzd/wipnote/internal/guardprofile"
-	"github.com/shakestzd/wipnote/internal/htmlparse"
-	"github.com/shakestzd/wipnote/internal/models"
+	"github.com/shakestzd/wipnote/core/htmlparse"
+	"github.com/shakestzd/wipnote/core/models"
 )
 
 // seedFeatureFile records a feature_files row at the same DB path production

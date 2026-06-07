@@ -9,8 +9,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/shakestzd/wipnote/internal/db"
-	"github.com/shakestzd/wipnote/internal/models"
+	"github.com/shakestzd/wipnote/core/db"
+	"github.com/shakestzd/wipnote/core/models"
 )
 
 // makeSessionDB creates an in-memory DB with a session row pointing to projectDir.

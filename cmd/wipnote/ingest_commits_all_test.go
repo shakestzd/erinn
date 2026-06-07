@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	dbpkg "github.com/shakestzd/wipnote/internal/db"
+	dbpkg "github.com/shakestzd/wipnote/core/db"
 )
 
 // initTestRepo creates a minimal git repo in dir with an initial commit on main.

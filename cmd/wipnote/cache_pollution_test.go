@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/shakestzd/wipnote/internal/storage"
+	"github.com/shakestzd/wipnote/core/storage"
 )
 
 // TestNoCachePollution is a regression test for bug-8c34e1f5.

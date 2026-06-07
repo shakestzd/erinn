@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	dbpkg "github.com/shakestzd/wipnote/internal/db"
+	dbpkg "github.com/shakestzd/wipnote/core/db"
 )
 
 func TestPlanFeedback_OutputStructure(t *testing.T) {

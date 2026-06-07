@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"path/filepath"
 
-	"github.com/shakestzd/wipnote/internal/paths"
+	"github.com/shakestzd/wipnote/core/paths"
 )
 
 // pathKeysToNormalize lists the tool_input keys that may contain file-system

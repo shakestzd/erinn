@@ -12,8 +12,8 @@ import (
 	"testing"
 	"time"
 
-	dbpkg "github.com/shakestzd/wipnote/internal/db"
-	"github.com/shakestzd/wipnote/internal/db/writequeue"
+	dbpkg "github.com/shakestzd/wipnote/core/db"
+	"github.com/shakestzd/wipnote/core/db/writequeue"
 	otelreceiver "github.com/shakestzd/wipnote/internal/otel/receiver"
 	otelsqlite "github.com/shakestzd/wipnote/internal/otel/sink/sqlite"
 )

@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"sort"
 
-	"github.com/shakestzd/wipnote/internal/graph"
-	"github.com/shakestzd/wipnote/internal/models"
+	"github.com/shakestzd/wipnote/core/graph"
+	"github.com/shakestzd/wipnote/core/models"
 	"github.com/spf13/cobra"
 )
 

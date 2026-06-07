@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 
 	"github.com/shakestzd/wipnote/internal/hooks"
-	"github.com/shakestzd/wipnote/internal/workitem"
+	"github.com/shakestzd/wipnote/core/workitem"
 	"github.com/spf13/cobra"
 )
 

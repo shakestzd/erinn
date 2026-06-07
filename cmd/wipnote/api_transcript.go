@@ -12,7 +12,7 @@ import (
 	"strings"
 	"time"
 
-	dbpkg "github.com/shakestzd/wipnote/internal/db"
+	dbpkg "github.com/shakestzd/wipnote/core/db"
 )
 
 // transcriptHandler returns messages and tool calls for a session.

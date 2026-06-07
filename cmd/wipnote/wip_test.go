@@ -10,8 +10,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/shakestzd/wipnote/internal/models"
-	"github.com/shakestzd/wipnote/internal/workitem"
+	"github.com/shakestzd/wipnote/core/models"
+	"github.com/shakestzd/wipnote/core/workitem"
 )
 
 func TestWipResetWithoutForceError(t *testing.T) {

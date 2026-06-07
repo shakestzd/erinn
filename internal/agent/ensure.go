@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/shakestzd/wipnote/internal/paths"
+	"github.com/shakestzd/wipnote/core/paths"
 )
 
 // EnsureSession ensures a session row exists in the database for the current

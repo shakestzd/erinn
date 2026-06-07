@@ -8,8 +8,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/shakestzd/wipnote/internal/db"
-	"github.com/shakestzd/wipnote/internal/models"
+	"github.com/shakestzd/wipnote/core/db"
+	"github.com/shakestzd/wipnote/core/models"
 )
 
 // seedOverlap wires up the DB state shared by the advisory tests: an active

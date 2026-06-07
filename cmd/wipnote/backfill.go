@@ -4,8 +4,8 @@ import (
 	"fmt"
 
 	"github.com/google/uuid"
-	dbpkg "github.com/shakestzd/wipnote/internal/db"
-	"github.com/shakestzd/wipnote/internal/models"
+	dbpkg "github.com/shakestzd/wipnote/core/db"
+	"github.com/shakestzd/wipnote/core/models"
 	"github.com/spf13/cobra"
 )
 

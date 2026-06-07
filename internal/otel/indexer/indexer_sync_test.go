@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/shakestzd/wipnote/internal/db/writequeue"
+	"github.com/shakestzd/wipnote/core/db/writequeue"
 	"github.com/shakestzd/wipnote/internal/otel"
 	"github.com/shakestzd/wipnote/internal/otel/sink"
 	sqls "github.com/shakestzd/wipnote/internal/otel/sink/sqlite"

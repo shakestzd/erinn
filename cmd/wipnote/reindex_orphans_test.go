@@ -9,8 +9,8 @@ import (
 	"testing"
 	"time"
 
-	dbpkg "github.com/shakestzd/wipnote/internal/db"
-	"github.com/shakestzd/wipnote/internal/models"
+	dbpkg "github.com/shakestzd/wipnote/core/db"
+	"github.com/shakestzd/wipnote/core/models"
 )
 
 // setupOrphanTestRepo creates a git repo with commits referencing feat-AAAAAAAA.

@@ -9,8 +9,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/shakestzd/wipnote/internal/db"
-	"github.com/shakestzd/wipnote/internal/models"
+	"github.com/shakestzd/wipnote/core/db"
+	"github.com/shakestzd/wipnote/core/models"
 )
 
 // PostToolUse handles the PostToolUse Claude Code hook event.

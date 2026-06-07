@@ -5,8 +5,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/shakestzd/wipnote/internal/db"
-	"github.com/shakestzd/wipnote/internal/models"
+	"github.com/shakestzd/wipnote/core/db"
+	"github.com/shakestzd/wipnote/core/models"
 )
 
 // TestSubagentStart_WritesLineageRows is the bug-cb4918d8 regression test for

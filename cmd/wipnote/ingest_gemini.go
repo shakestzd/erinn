@@ -7,11 +7,11 @@ import (
 	"path/filepath"
 	"time"
 
-	dbpkg "github.com/shakestzd/wipnote/internal/db"
+	dbpkg "github.com/shakestzd/wipnote/core/db"
 	"github.com/shakestzd/wipnote/internal/hooks"
-	"github.com/shakestzd/wipnote/internal/ingest"
-	"github.com/shakestzd/wipnote/internal/models"
-	"github.com/shakestzd/wipnote/internal/storage"
+	"github.com/shakestzd/wipnote/core/ingest"
+	"github.com/shakestzd/wipnote/core/models"
+	"github.com/shakestzd/wipnote/core/storage"
 	"github.com/spf13/cobra"
 )
 

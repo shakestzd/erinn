@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/shakestzd/wipnote/internal/hooks"
-	"github.com/shakestzd/wipnote/internal/provenance"
+	"github.com/shakestzd/wipnote/core/provenance"
 	"github.com/spf13/cobra"
 )
 

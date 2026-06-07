@@ -11,7 +11,7 @@ import (
 	"strings"
 
 	"github.com/pelletier/go-toml/v2"
-	"github.com/shakestzd/wipnote/internal/storage"
+	"github.com/shakestzd/wipnote/core/storage"
 	"github.com/spf13/cobra"
 )
 

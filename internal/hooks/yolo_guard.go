@@ -14,9 +14,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/shakestzd/wipnote/internal/db"
-	"github.com/shakestzd/wipnote/internal/paths"
-	"github.com/shakestzd/wipnote/internal/storage"
+	"github.com/shakestzd/wipnote/core/db"
+	"github.com/shakestzd/wipnote/core/paths"
+	"github.com/shakestzd/wipnote/core/storage"
 )
 
 // mergeInProgressFn is injected for testing. In production, it checks the real

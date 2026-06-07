@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/shakestzd/wipnote/internal/ingest"
+	"github.com/shakestzd/wipnote/core/ingest"
 )
 
 // feedEvent is the unified wire shape for /api/events/feed.

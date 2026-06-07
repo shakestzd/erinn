@@ -12,10 +12,10 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/shakestzd/wipnote/internal/ingest"
-	"github.com/shakestzd/wipnote/internal/models"
-	"github.com/shakestzd/wipnote/internal/paths"
-	"github.com/shakestzd/wipnote/internal/provenance"
+	"github.com/shakestzd/wipnote/core/ingest"
+	"github.com/shakestzd/wipnote/core/models"
+	"github.com/shakestzd/wipnote/core/paths"
+	"github.com/shakestzd/wipnote/core/provenance"
 )
 
 // SessionEvent holds the data needed to write a <li> element to a session's

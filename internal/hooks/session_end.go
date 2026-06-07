@@ -13,9 +13,9 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/shakestzd/wipnote/internal/db"
+	"github.com/shakestzd/wipnote/core/db"
 	"github.com/shakestzd/wipnote/internal/otel/materialize"
-	"github.com/shakestzd/wipnote/internal/paths"
+	"github.com/shakestzd/wipnote/core/paths"
 	"github.com/shakestzd/wipnote/internal/pluginbuild"
 )
 

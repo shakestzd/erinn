@@ -6,8 +6,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	dbpkg "github.com/shakestzd/wipnote/internal/db"
-	"github.com/shakestzd/wipnote/internal/htmlparse"
+	dbpkg "github.com/shakestzd/wipnote/core/db"
+	"github.com/shakestzd/wipnote/core/htmlparse"
 )
 
 func TestStatuslineCmd(t *testing.T) {

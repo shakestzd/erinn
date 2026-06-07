@@ -3,7 +3,7 @@ package main
 import (
 	"testing"
 
-	"github.com/shakestzd/wipnote/internal/models"
+	"github.com/shakestzd/wipnote/core/models"
 )
 
 func TestIsOrphanFeature(t *testing.T) {

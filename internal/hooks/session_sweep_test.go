@@ -8,8 +8,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/shakestzd/wipnote/internal/db"
-	"github.com/shakestzd/wipnote/internal/models"
+	"github.com/shakestzd/wipnote/core/db"
+	"github.com/shakestzd/wipnote/core/models"
 )
 
 // setupSweepEnv creates a temp project directory with a pre-populated

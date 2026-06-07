@@ -30,7 +30,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/shakestzd/wipnote/internal/db"
+	"github.com/shakestzd/wipnote/core/db"
 )
 
 // seedLineageGraph inserts a small graph_edges chain rooted at root so a

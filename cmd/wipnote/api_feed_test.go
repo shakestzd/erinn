@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/shakestzd/wipnote/internal/db"
+	"github.com/shakestzd/wipnote/core/db"
 )
 
 func seedFeedEventsDB(t *testing.T) *sql.DB {

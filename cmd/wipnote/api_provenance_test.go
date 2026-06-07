@@ -7,7 +7,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/shakestzd/wipnote/internal/db"
+	"github.com/shakestzd/wipnote/core/db"
 )
 
 // setupProvenanceDB creates an in-memory DB with test fixtures for provenance tests.

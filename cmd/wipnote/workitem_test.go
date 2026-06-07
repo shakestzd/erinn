@@ -9,10 +9,10 @@ import (
 	"testing"
 	"time"
 
-	dbpkg "github.com/shakestzd/wipnote/internal/db"
+	dbpkg "github.com/shakestzd/wipnote/core/db"
 	"github.com/shakestzd/wipnote/internal/hooks"
-	"github.com/shakestzd/wipnote/internal/htmlparse"
-	"github.com/shakestzd/wipnote/internal/models"
+	"github.com/shakestzd/wipnote/core/htmlparse"
+	"github.com/shakestzd/wipnote/core/models"
 )
 
 // testCreate is a test helper that wraps runWiCreate with the opts struct.

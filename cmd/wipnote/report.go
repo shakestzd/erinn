@@ -6,8 +6,8 @@ import (
 	"strings"
 	"time"
 
-	dbpkg "github.com/shakestzd/wipnote/internal/db"
-	"github.com/shakestzd/wipnote/internal/models"
+	dbpkg "github.com/shakestzd/wipnote/core/db"
+	"github.com/shakestzd/wipnote/core/models"
 	"github.com/spf13/cobra"
 )
 

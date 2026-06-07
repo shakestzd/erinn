@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/shakestzd/wipnote/internal/workitem"
+	"github.com/shakestzd/wipnote/core/workitem"
 )
 
 // TestPlanFirstLifecycle exercises the complete plan-first pipeline:

@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/shakestzd/wipnote/internal/models"
+	"github.com/shakestzd/wipnote/core/models"
 )
 
 // TestCreateSessionHTML_ProvenanceAttrs verifies that when the Session struct

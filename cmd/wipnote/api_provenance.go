@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/shakestzd/wipnote/internal/htmlparse"
+	"github.com/shakestzd/wipnote/core/htmlparse"
 )
 
 // provenanceResponse is the JSON shape for /api/provenance/{id}.

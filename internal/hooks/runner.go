@@ -16,9 +16,9 @@ import (
 	"path/filepath"
 
 	"github.com/shakestzd/wipnote/internal/agent"
-	"github.com/shakestzd/wipnote/internal/db/writequeue"
-	"github.com/shakestzd/wipnote/internal/paths"
-	"github.com/shakestzd/wipnote/internal/storage"
+	"github.com/shakestzd/wipnote/core/db/writequeue"
+	"github.com/shakestzd/wipnote/core/paths"
+	"github.com/shakestzd/wipnote/core/storage"
 )
 
 // Runner bundles the optional dependencies needed by in-process hook

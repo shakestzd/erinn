@@ -7,9 +7,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/shakestzd/wipnote/internal/models"
+	"github.com/shakestzd/wipnote/core/models"
 	"github.com/shakestzd/wipnote/internal/planyaml"
-	"github.com/shakestzd/wipnote/internal/workitem"
+	"github.com/shakestzd/wipnote/core/workitem"
 	"github.com/spf13/cobra"
 )
 

@@ -10,9 +10,9 @@ import (
 	"testing"
 	"time"
 
-	dbpkg "github.com/shakestzd/wipnote/internal/db"
-	"github.com/shakestzd/wipnote/internal/htmlparse"
-	"github.com/shakestzd/wipnote/internal/models"
+	dbpkg "github.com/shakestzd/wipnote/core/db"
+	"github.com/shakestzd/wipnote/core/htmlparse"
+	"github.com/shakestzd/wipnote/core/models"
 )
 
 // setupTransactionalCompleteRepo builds a real git repo OUTSIDE the project

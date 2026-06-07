@@ -4,7 +4,7 @@ import (
 	"database/sql"
 	"testing"
 
-	dbpkg "github.com/shakestzd/wipnote/internal/db"
+	dbpkg "github.com/shakestzd/wipnote/core/db"
 )
 
 // openGraphTestDB opens an in-memory SQLite database with full schema applied.

@@ -7,9 +7,9 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/shakestzd/wipnote/internal/db"
-	"github.com/shakestzd/wipnote/internal/ingest"
-	"github.com/shakestzd/wipnote/internal/models"
+	"github.com/shakestzd/wipnote/core/db"
+	"github.com/shakestzd/wipnote/core/ingest"
+	"github.com/shakestzd/wipnote/core/models"
 )
 
 // UserPrompt handles the UserPromptSubmit Claude Code hook event.

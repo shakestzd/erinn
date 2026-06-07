@@ -7,9 +7,9 @@ import (
 	"strings"
 	"testing"
 
-	dbpkg "github.com/shakestzd/wipnote/internal/db"
+	dbpkg "github.com/shakestzd/wipnote/core/db"
 	"github.com/shakestzd/wipnote/internal/planyaml"
-	"github.com/shakestzd/wipnote/internal/workitem"
+	"github.com/shakestzd/wipnote/core/workitem"
 )
 
 func TestPromoteSlice_Approved_CreatesFeature(t *testing.T) {

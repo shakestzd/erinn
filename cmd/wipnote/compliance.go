@@ -10,7 +10,7 @@ import (
 	"strings"
 	"sync/atomic"
 
-	"github.com/shakestzd/wipnote/internal/workitem"
+	"github.com/shakestzd/wipnote/core/workitem"
 	"github.com/spf13/cobra"
 )
 

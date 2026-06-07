@@ -31,11 +31,11 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/shakestzd/wipnote/internal/daemon"
-	"github.com/shakestzd/wipnote/internal/daemon/apply"
-	"github.com/shakestzd/wipnote/internal/db"
-	"github.com/shakestzd/wipnote/internal/db/writequeue"
-	"github.com/shakestzd/wipnote/internal/models"
+	"github.com/shakestzd/wipnote/core/daemon"
+	"github.com/shakestzd/wipnote/core/daemon/apply"
+	"github.com/shakestzd/wipnote/core/db"
+	"github.com/shakestzd/wipnote/core/db/writequeue"
+	"github.com/shakestzd/wipnote/core/models"
 )
 
 // FallbackReason is the structured label emitted when a hook's derived-index

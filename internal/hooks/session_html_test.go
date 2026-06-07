@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/shakestzd/wipnote/internal/ingest"
-	"github.com/shakestzd/wipnote/internal/models"
+	"github.com/shakestzd/wipnote/core/ingest"
+	"github.com/shakestzd/wipnote/core/models"
 )
 
 func TestCreateSessionHTML(t *testing.T) {

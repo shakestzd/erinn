@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"strings"
 
-	dbpkg "github.com/shakestzd/wipnote/internal/db"
-	"github.com/shakestzd/wipnote/internal/models"
+	dbpkg "github.com/shakestzd/wipnote/core/db"
+	"github.com/shakestzd/wipnote/core/models"
 )
 
 // RenderAgentTree reads agent_lineage_trace rows for the given rootSessionID,

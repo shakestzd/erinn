@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	"github.com/shakestzd/wipnote/internal/agent"
-	"github.com/shakestzd/wipnote/internal/db"
+	"github.com/shakestzd/wipnote/core/db"
 )
 
 // TestEventTree_SessionFamilyGrouping verifies that root + subagent sessions

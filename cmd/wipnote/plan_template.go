@@ -6,7 +6,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/shakestzd/wipnote/internal/htmlparse"
+	"github.com/shakestzd/wipnote/core/htmlparse"
 )
 
 // ---- plan template types & helpers -----------------------------------------

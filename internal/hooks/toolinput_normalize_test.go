@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/shakestzd/wipnote/internal/paths"
+	"github.com/shakestzd/wipnote/core/paths"
 )
 
 // fakeResolver is a test-injectable anchor resolver: it returns repoRoot for

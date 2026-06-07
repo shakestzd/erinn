@@ -8,10 +8,10 @@ import (
 	"strings"
 
 	"github.com/shakestzd/wipnote/internal/agent"
-	"github.com/shakestzd/wipnote/internal/paths"
-	"github.com/shakestzd/wipnote/internal/provenance"
+	"github.com/shakestzd/wipnote/core/paths"
+	"github.com/shakestzd/wipnote/core/provenance"
 	"github.com/shakestzd/wipnote/internal/registry"
-	"github.com/shakestzd/wipnote/internal/storage"
+	"github.com/shakestzd/wipnote/core/storage"
 	versionpkg "github.com/shakestzd/wipnote/internal/version"
 	"github.com/shakestzd/wipnote/internal/worktree"
 	"github.com/spf13/cobra"

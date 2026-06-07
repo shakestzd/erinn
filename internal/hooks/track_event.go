@@ -6,8 +6,8 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/shakestzd/wipnote/internal/db"
-	"github.com/shakestzd/wipnote/internal/models"
+	"github.com/shakestzd/wipnote/core/db"
+	"github.com/shakestzd/wipnote/core/models"
 )
 
 // TrackEvent handles generic Claude Code hook events that should be recorded

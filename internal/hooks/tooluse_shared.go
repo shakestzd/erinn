@@ -7,8 +7,8 @@ import (
 	"time"
 
 	"github.com/shakestzd/wipnote/internal/agent"
-	"github.com/shakestzd/wipnote/internal/db"
-	"github.com/shakestzd/wipnote/internal/paths"
+	"github.com/shakestzd/wipnote/core/db"
+	"github.com/shakestzd/wipnote/core/paths"
 )
 
 // featureIDCacheEntry holds the single cached result of GetActiveFeatureID for

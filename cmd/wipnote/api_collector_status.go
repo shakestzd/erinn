@@ -10,8 +10,8 @@ import (
 	"strings"
 	"time"
 
-	dbpkg "github.com/shakestzd/wipnote/internal/db"
-	"github.com/shakestzd/wipnote/internal/db/writequeue"
+	dbpkg "github.com/shakestzd/wipnote/core/db"
+	"github.com/shakestzd/wipnote/core/db/writequeue"
 	"github.com/shakestzd/wipnote/internal/otel/collector"
 )
 

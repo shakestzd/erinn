@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/shakestzd/wipnote/internal/guardprofile"
-	"github.com/shakestzd/wipnote/internal/paths"
+	"github.com/shakestzd/wipnote/core/paths"
 )
 
 // BlockExit2Error is a sentinel error that signals the hook runner to exit

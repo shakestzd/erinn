@@ -16,7 +16,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/shakestzd/wipnote/internal/htmlparse"
+	"github.com/shakestzd/wipnote/core/htmlparse"
 	"github.com/shakestzd/wipnote/internal/slug"
 )
 

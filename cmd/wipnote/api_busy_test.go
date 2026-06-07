@@ -14,7 +14,7 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/shakestzd/wipnote/internal/db"
+	"github.com/shakestzd/wipnote/core/db"
 )
 
 // openBusyTestDB opens a temp-file DB (not in-memory so exclusive locks work)

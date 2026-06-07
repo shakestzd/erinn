@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	dbpkg "github.com/shakestzd/wipnote/internal/db"
+	dbpkg "github.com/shakestzd/wipnote/core/db"
 )
 
 // reconcileTestRepo builds a real git repo under /tmp (so isTestTmpPath does

@@ -5,7 +5,7 @@ import (
 
 	"github.com/gofrs/flock"
 
-	"github.com/shakestzd/wipnote/internal/storage"
+	"github.com/shakestzd/wipnote/core/storage"
 )
 
 // Repo-scoped advisory lock for wipnote-owned Git mutations.

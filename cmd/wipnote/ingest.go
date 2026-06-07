@@ -12,11 +12,11 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	dbpkg "github.com/shakestzd/wipnote/internal/db"
+	dbpkg "github.com/shakestzd/wipnote/core/db"
 	"github.com/shakestzd/wipnote/internal/hooks"
-	"github.com/shakestzd/wipnote/internal/ingest"
-	"github.com/shakestzd/wipnote/internal/models"
-	"github.com/shakestzd/wipnote/internal/paths"
+	"github.com/shakestzd/wipnote/core/ingest"
+	"github.com/shakestzd/wipnote/core/models"
+	"github.com/shakestzd/wipnote/core/paths"
 	"github.com/spf13/cobra"
 )
 

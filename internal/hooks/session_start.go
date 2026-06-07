@@ -13,12 +13,12 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/shakestzd/wipnote/internal/agent"
-	"github.com/shakestzd/wipnote/internal/db"
-	"github.com/shakestzd/wipnote/internal/models"
+	"github.com/shakestzd/wipnote/core/db"
+	"github.com/shakestzd/wipnote/core/models"
 	"github.com/shakestzd/wipnote/internal/otel"
 	"github.com/shakestzd/wipnote/internal/otel/sink/ndjson"
-	"github.com/shakestzd/wipnote/internal/paths"
-	"github.com/shakestzd/wipnote/internal/provenance"
+	"github.com/shakestzd/wipnote/core/paths"
+	"github.com/shakestzd/wipnote/core/provenance"
 	"github.com/shakestzd/wipnote/internal/worktree"
 )
 

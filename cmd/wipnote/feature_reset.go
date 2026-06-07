@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"os"
 
-	dbpkg "github.com/shakestzd/wipnote/internal/db"
-	"github.com/shakestzd/wipnote/internal/models"
-	"github.com/shakestzd/wipnote/internal/workitem"
+	dbpkg "github.com/shakestzd/wipnote/core/db"
+	"github.com/shakestzd/wipnote/core/models"
+	"github.com/shakestzd/wipnote/core/workitem"
 	"github.com/spf13/cobra"
 )
 

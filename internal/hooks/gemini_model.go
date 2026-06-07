@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/shakestzd/wipnote/internal/models"
+	"github.com/shakestzd/wipnote/core/models"
 )
 
 // AfterModel handles the Gemini CLI AfterModel hook event. This event fires

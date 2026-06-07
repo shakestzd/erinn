@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/shakestzd/wipnote/internal/storage"
+	"github.com/shakestzd/wipnote/core/storage"
 )
 
 // TestStatusOutput_RendersFstype verifies that runStatus includes

@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/shakestzd/wipnote/internal/ingest"
+	"github.com/shakestzd/wipnote/core/ingest"
 )
 
 // turnStats holds per-turn aggregate counts.

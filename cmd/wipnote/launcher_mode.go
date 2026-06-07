@@ -7,7 +7,7 @@ import (
 
 	"github.com/shakestzd/wipnote/internal/launcher/mode"
 	"github.com/shakestzd/wipnote/internal/launcher/plan"
-	"github.com/shakestzd/wipnote/internal/paths"
+	"github.com/shakestzd/wipnote/core/paths"
 	"github.com/shakestzd/wipnote/internal/worktree"
 )
 

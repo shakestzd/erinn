@@ -767,15 +767,23 @@ var planId=(function(){var a=document.querySelector('article[id]');return a?a.id
     if(pc) pc.textContent=SECTIONS.length-approved;
     var pf=document.getElementById('progressFill');
     if(pf) pf.style.width=pct+'%';
+    // Finalize gates on SLICES only — every slice-N section approved — matching
+    // the dashboard review rail and the backend. design/outline are still
+    // reviewed (and counted in the progress bar above) but do not block
+    // finalize. Legacy plans with no slices fall back to the all-sections gate.
+    var sliceSecs=SECTIONS.filter(function(s){return /^slice-\d+$/.test(s);});
+    var canFinalize=sliceSecs.length>0
+      ? sliceSecs.every(function(s){return getApprovalValue(s)==='approved';})
+      : (SECTIONS.length>0 && approved===SECTIONS.length);
     var fb=document.getElementById('finalizeBtn');
-    if(fb) fb.disabled=(approved<SECTIONS.length);
+    if(fb) fb.disabled=!canFinalize;
     // Review rail
     var ra=document.getElementById('railApproved');
     if(ra) ra.textContent=approved;
     var rf=document.getElementById('railFill');
     if(rf) rf.style.width=pct+'%';
     var frb=document.getElementById('finalizeRailBtn');
-    if(frb) frb.disabled=(approved<SECTIONS.length);
+    if(frb) frb.disabled=!canFinalize;
     updateRailPending();
     updateComments();
   }

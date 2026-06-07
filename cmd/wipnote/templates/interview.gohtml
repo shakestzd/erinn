@@ -30,8 +30,15 @@
   .sub{color:var(--text-secondary);font-size:12px;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
   .chip{background:var(--accent-dim);color:var(--accent);border-radius:999px;padding:2px 10px;
     font-size:10px;text-transform:uppercase;letter-spacing:.1em}
-  .what{color:var(--text-muted);font-size:12px;margin:14px 0 0;white-space:pre-wrap;
-    border-left:2px solid var(--border);padding-left:12px}
+  .ctx{margin:16px 0 0;background:var(--bg-secondary);border:1px solid var(--border);
+    border-left:2px solid var(--accent);border-radius:var(--radius-sm);padding:0 16px}
+  .ctx>summary{cursor:pointer;list-style:none;user-select:none;padding:11px 0;
+    font-size:10px;text-transform:uppercase;letter-spacing:.1em;color:var(--text-secondary)}
+  .ctx>summary::-webkit-details-marker{display:none}
+  .ctx>summary::before{content:"▾ ";color:var(--accent)}
+  .ctx:not([open])>summary::before{content:"▸ "}
+  .ctx-body{color:var(--text-secondary);font-size:13px;line-height:1.75;
+    white-space:pre-wrap;padding:0 0 14px;max-height:240px;overflow:auto}
   /* ---------- stepper ---------- */
   .stepper{display:flex;gap:8px;margin:26px 0 22px}
   .step{flex:1;min-width:0}
@@ -127,7 +134,7 @@
     <div class="eyebrow">wipnote · plan interview</div>
     <h1>{{.SliceTitle}}</h1>
     <div class="sub">{{.PlanID}} · slice {{.SliceNum}} <span class="chip">{{if .Complexity}}{{.Complexity}}{{else}}standard{{end}}</span></div>
-    {{if .SliceWhat}}<div class="what">{{.SliceWhat}}</div>{{end}}
+    {{if .SliceWhat}}<details class="ctx" open><summary>Slice context</summary><div class="ctx-body">{{.SliceWhat}}</div></details>{{end}}
 
     {{if .Submitted}}
       <div class="banner"><div class="big">✓ Decisions saved</div>{{.Message}}</div>

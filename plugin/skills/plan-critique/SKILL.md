@@ -39,7 +39,7 @@ Both critics produce structured output: a list of findings tagged with a per-sli
 
 ## Output shape (critic_revisions)
 
-Each finding lands on the affected slice as a `critic_revisions[]` entry. Schema mirrors `internal/planyaml/schema.go`:
+Each finding lands on the affected slice as a `critic_revisions[]` entry. Schema mirrors `plan/planyaml/schema.go`:
 
 ```yaml
 slices:
@@ -73,7 +73,7 @@ The dashboard renders each `critic_revision` as a compact badge inside the slice
 
 ## Output format (top-level critique section, optional)
 
-For complex plans, the critics also populate a top-level `critique:` section in the plan YAML. Schema from `internal/planyaml/schema.go`:
+For complex plans, the critics also populate a top-level `critique:` section in the plan YAML. Schema from `plan/planyaml/schema.go`:
 
 ```yaml
 critique:

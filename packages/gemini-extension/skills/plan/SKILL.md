@@ -21,7 +21,7 @@ Before any slice content, classify the work. The classification drives both the 
 | `standard` | 3 stages (Requirements, Scope & state, Done-when) | `what`, `decisions_notes` >=50 chars |
 | `complex`  | 4 stages (all) | `decisions_notes` >=50 chars; >=2 `done_when` entries; >=1 slice-local question with an answer |
 
-Set `complexity: trivial|standard|complex` on each slice card. The field is read by `internal/planyaml/validate.go` via `effectiveComplexity`; an unset value defaults to `standard` for back-compat.
+Set `complexity: trivial|standard|complex` on each slice card. The field is read by `plan/planyaml/validate.go` via `effectiveComplexity`; an unset value defaults to `standard` for back-compat.
 
 Every plan you create must include `meta.schema_version: v3`. This enables strict validation including the decisions_notes requirement for standard/complex slices — even when `complexity` is omitted from a slice (which defaults to standard).
 
@@ -239,7 +239,7 @@ wipnote plan set-status <plan-id> completed # when all slices done
 ## Section-Naming Contract (load-bearing)
 
 State stored in `plan_feedback` uses these section keys — mirrored in
-`internal/planyaml/schema.go:43-55` and enforced by `validSectionRe` in
+`plan/planyaml/schema.go:43-55` and enforced by `validSectionRe` in
 `cmd/wipnote/api_plans.go`:
 
 | Key pattern | What it stores |

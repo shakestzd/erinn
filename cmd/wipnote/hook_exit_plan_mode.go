@@ -10,8 +10,8 @@ import (
 	"time"
 
 	"github.com/shakestzd/wipnote/core/hooks"
-	"github.com/shakestzd/wipnote/plan/planyaml"
 	"github.com/shakestzd/wipnote/core/workitem"
+	"github.com/shakestzd/wipnote/plan/planyaml"
 )
 
 // handleExitPlanMode handles the PostToolUse ExitPlanMode event. It finds the

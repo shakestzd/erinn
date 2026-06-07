@@ -11,9 +11,9 @@ import (
 	"time"
 
 	"github.com/shakestzd/wipnote/core/models"
+	"github.com/shakestzd/wipnote/core/workitem"
 	"github.com/shakestzd/wipnote/plan/plantmpl"
 	"github.com/shakestzd/wipnote/plan/planyaml"
-	"github.com/shakestzd/wipnote/core/workitem"
 	"github.com/spf13/cobra"
 )
 

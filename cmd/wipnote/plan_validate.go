@@ -7,8 +7,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/shakestzd/wipnote/plan/planyaml"
 	"github.com/shakestzd/wipnote/core/workitem"
+	"github.com/shakestzd/wipnote/plan/planyaml"
 	"github.com/spf13/cobra"
 )
 

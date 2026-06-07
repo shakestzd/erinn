@@ -7,8 +7,8 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/shakestzd/wipnote/plan/planyaml"
 	"github.com/shakestzd/wipnote/core/workitem"
+	"github.com/shakestzd/wipnote/plan/planyaml"
 )
 
 // seedPlanForElicit creates a temp project dir with a single-slice plan ready

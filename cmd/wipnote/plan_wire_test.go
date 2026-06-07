@@ -5,8 +5,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/shakestzd/wipnote/plan/planyaml"
 	"github.com/shakestzd/wipnote/core/workitem"
+	"github.com/shakestzd/wipnote/plan/planyaml"
 )
 
 func TestWirePlan_BasicWiring(t *testing.T) {

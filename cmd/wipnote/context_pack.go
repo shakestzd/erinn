@@ -10,11 +10,11 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/shakestzd/wipnote/internal/blame"
 	dbpkg "github.com/shakestzd/wipnote/core/db"
 	"github.com/shakestzd/wipnote/core/models"
-	"github.com/shakestzd/wipnote/plan/planyaml"
 	"github.com/shakestzd/wipnote/core/workitem"
+	"github.com/shakestzd/wipnote/internal/blame"
+	"github.com/shakestzd/wipnote/plan/planyaml"
 	"github.com/spf13/cobra"
 )
 

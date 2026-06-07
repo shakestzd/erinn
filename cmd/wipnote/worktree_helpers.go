@@ -6,7 +6,7 @@ import (
 	"strings"
 
 	"github.com/shakestzd/wipnote/internal/launcher/plan"
-	"github.com/shakestzd/wipnote/internal/worktree"
+	"github.com/shakestzd/wipnote/core/worktree"
 )
 
 // emitWorktreeCarryoverMessage carries canonical main-repo uncommitted tracked

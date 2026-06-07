@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/shakestzd/wipnote/internal/agent"
+	"github.com/shakestzd/wipnote/core/agent"
 )
 
 // TestResolveSessionFamilyID_FreshLaunch verifies that a new session without

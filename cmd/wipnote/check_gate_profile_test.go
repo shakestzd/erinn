@@ -8,7 +8,7 @@ import (
 	"testing"
 
 	dbpkg "github.com/shakestzd/wipnote/core/db"
-	"github.com/shakestzd/wipnote/internal/guardprofile"
+	"github.com/shakestzd/wipnote/core/guardprofile"
 )
 
 // writeApprovedProfile writes an approved guard profile under projectRoot and

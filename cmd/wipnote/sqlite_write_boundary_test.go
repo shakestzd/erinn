@@ -136,7 +136,7 @@ var approvedWriteSites = []writeSite{
 	// failure-tolerance contract. The hook tree therefore has exactly one
 	// approved writable open today.
 	{
-		File:           "internal/hooks/dbgate.go",
+		File:           "core/hooks/dbgate.go",
 		Line:           128,
 		Function:       "OpenHookDB",
 		OpenExpr:       "db.Open",

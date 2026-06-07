@@ -3,7 +3,7 @@ package adapter
 import (
 	"time"
 
-	"github.com/shakestzd/wipnote/internal/harness"
+	"github.com/shakestzd/wipnote/core/harness"
 	"github.com/shakestzd/wipnote/internal/otel"
 	"github.com/shakestzd/wipnote/internal/pricing"
 )

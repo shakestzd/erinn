@@ -9,7 +9,7 @@ import (
 	"time"
 
 	dbpkg "github.com/shakestzd/wipnote/core/db"
-	"github.com/shakestzd/wipnote/internal/harness"
+	"github.com/shakestzd/wipnote/core/harness"
 )
 
 // mergeWorkBoardSignals enriches each feature map (produced by featuresFromDB /

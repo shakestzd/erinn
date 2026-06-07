@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/shakestzd/wipnote/internal/guardprofile"
+	"github.com/shakestzd/wipnote/core/guardprofile"
 )
 
 // fakeDeps builds guardInitDeps with controllable seams and a recording

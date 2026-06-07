@@ -3,7 +3,7 @@ package main
 import (
 	"os"
 
-	"github.com/shakestzd/wipnote/internal/agent"
+	"github.com/shakestzd/wipnote/core/agent"
 )
 
 // resolveSessionFamilyID returns the session family ID to use for a new

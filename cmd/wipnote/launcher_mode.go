@@ -8,7 +8,7 @@ import (
 	"github.com/shakestzd/wipnote/internal/launcher/mode"
 	"github.com/shakestzd/wipnote/internal/launcher/plan"
 	"github.com/shakestzd/wipnote/core/paths"
-	"github.com/shakestzd/wipnote/internal/worktree"
+	"github.com/shakestzd/wipnote/core/worktree"
 )
 
 // LauncherModeResult is the computed mode object exposed to preflight paths.

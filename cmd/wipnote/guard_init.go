@@ -12,7 +12,7 @@ import (
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
 
-	"github.com/shakestzd/wipnote/internal/guardprofile"
+	"github.com/shakestzd/wipnote/core/guardprofile"
 )
 
 // guardInitDeps bundles the side-effecting seams ensureGuardProfile/guard init

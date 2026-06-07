@@ -10,10 +10,10 @@ import (
 	"github.com/shakestzd/wipnote/core/paths"
 	"github.com/shakestzd/wipnote/core/provenance"
 	"github.com/shakestzd/wipnote/core/storage"
-	"github.com/shakestzd/wipnote/internal/agent"
+	"github.com/shakestzd/wipnote/core/agent"
 	"github.com/shakestzd/wipnote/internal/registry"
 	versionpkg "github.com/shakestzd/wipnote/internal/version"
-	"github.com/shakestzd/wipnote/internal/worktree"
+	"github.com/shakestzd/wipnote/core/worktree"
 	"github.com/spf13/cobra"
 
 	// Side-effect import: registers the otel-backed core/eventsink factory so
@@ -22,7 +22,7 @@ import (
 	// Side-effect import: registers the otel/pluginbuild-backed lifecycle hook
 	// implementations (retention, materialize, port-drift) so core hooks invoke
 	// them without importing otel/pluginbuild directly (feat-331927fb).
-	_ "github.com/shakestzd/wipnote/internal/hooks/observe"
+	_ "github.com/shakestzd/wipnote/internal/observe"
 )
 
 // selfHealGitdirIfStale runs a best-effort repair on the current directory's

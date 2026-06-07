@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/shakestzd/wipnote/internal/worktree"
+	"github.com/shakestzd/wipnote/core/worktree"
 )
 
 // TestMain is the test suite entry point for the non-integration (unit) test

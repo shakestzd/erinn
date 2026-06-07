@@ -6,7 +6,7 @@ import (
 	"strings"
 	"text/tabwriter"
 
-	"github.com/shakestzd/wipnote/internal/harness"
+	"github.com/shakestzd/wipnote/core/harness"
 	"github.com/spf13/cobra"
 )
 

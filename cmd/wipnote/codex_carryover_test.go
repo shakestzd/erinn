@@ -9,7 +9,7 @@ import (
 	"testing"
 
 	"github.com/shakestzd/wipnote/internal/launcher/plan"
-	"github.com/shakestzd/wipnote/internal/worktree"
+	"github.com/shakestzd/wipnote/core/worktree"
 )
 
 // TestCodexWorktreeCarryover_DirtyMain verifies that when a NEW worktree is

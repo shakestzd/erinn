@@ -23,7 +23,12 @@
   .iv-inner{max-width:680px;margin:0 auto}
   .iv-chat{width:380px;flex-shrink:0;border-left:1px solid var(--border);
     display:flex;flex-direction:column;height:100vh;background:var(--bg-secondary)}
-  @media(max-width:880px){body{flex-direction:column}.iv-chat{width:auto;height:46vh;border-left:0;border-top:1px solid var(--border)}.iv-main{height:54vh}}
+  /* drag-to-resize divider between form and chat */
+  .iv-resize{flex-shrink:0;width:7px;cursor:col-resize;position:relative;z-index:5}
+  .iv-resize::after{content:"";position:absolute;inset:0 3px;background:var(--border);transition:background .15s}
+  .iv-resize:hover::after,.iv-resize.drag::after{background:var(--accent)}
+  body.iv-dragging{cursor:col-resize}
+  @media(max-width:880px){body{flex-direction:column}.iv-chat{width:auto!important;height:46vh;border-left:0;border-top:1px solid var(--border)}.iv-main{height:54vh}.iv-resize{display:none}}
   /* ---------- header ---------- */
   .eyebrow{color:var(--accent);font-size:11px;letter-spacing:.16em;text-transform:uppercase}
   h1{font-size:21px;margin:8px 0 6px;letter-spacing:-.01em}
@@ -199,6 +204,7 @@
 </div>
 
 {{if .ChatEnabled}}
+<div class="iv-resize" id="rz" title="Drag to resize · double-click to reset"></div>
 <aside class="iv-chat">
   <div class="chat-head"><span class="chat-dot"></span><span class="chat-title">Discussion</span></div>
   <div class="chat-msgs" id="msgs">
@@ -232,6 +238,20 @@
   if(back)back.onclick=function(){if(cur>0){cur--;render();document.querySelector('.iv-scroll').scrollTop=0;}};
   steps.forEach(function(s){s.onclick=function(){cur=+s.dataset.i;render();}});
   if(stages.length)render();
+
+  // ---- drag-to-resize the chat panel (persisted) ----
+  var rz=document.getElementById('rz'),chatEl=document.querySelector('.iv-chat');
+  if(rz&&chatEl){
+    var KEY='wipnote.interview.chatW',MIN=300,MAX=820,DEF=380;
+    function clamp(w){return Math.max(MIN,Math.min(MAX,w));}
+    var saved=parseInt(localStorage.getItem(KEY)||'',10);
+    if(saved)chatEl.style.width=clamp(saved)+'px';
+    var dragging=false;
+    rz.addEventListener('mousedown',function(e){dragging=true;rz.classList.add('drag');document.body.classList.add('iv-dragging');e.preventDefault();});
+    window.addEventListener('mousemove',function(e){if(!dragging)return;chatEl.style.width=clamp(window.innerWidth-e.clientX)+'px';});
+    window.addEventListener('mouseup',function(){if(!dragging)return;dragging=false;rz.classList.remove('drag');document.body.classList.remove('iv-dragging');localStorage.setItem(KEY,parseInt(chatEl.style.width,10));});
+    rz.addEventListener('dblclick',function(){chatEl.style.width=DEF+'px';localStorage.setItem(KEY,DEF);});
+  }
 
   // ---- chat (reuses dashboard plan-review chat API) ----
   if(document.body.dataset.chat!=='true')return;

@@ -96,17 +96,17 @@ func requirementsStage() Stage {
 			{ID: "requirements.0", Header: "Goal", Type: Choice,
 				Prompt: "What's the user-visible behavior we're after?",
 				Options: []Option{
-					{"New capability — feature add", "User can do X they couldn't before."},
-					{"Behavior change — modify existing", "X works but in a way that's wrong/slow/incomplete."},
-					{"Bug fix — restore intended behavior", "X should already work; root-cause and fix."},
+					{"New capability — feature add", "Net-new surface (command, hook, or view). Expect new files + tests, not edits to existing flows."},
+					{"Behavior change — modify existing", "It exists but acts wrong, slow, or incomplete. You'll change logic and must keep current callers working."},
+					{"Bug fix — restore intended behavior", "It should already work. Reproduce first, fix the root cause, leave the contract unchanged."},
 				}},
 			{ID: "requirements.1", Header: "Constraint", Type: Choice,
 				Prompt: "What's the hard constraint?",
 				Options: []Option{
-					{"Performance budget", "p99, throughput, or memory ceiling."},
-					{"Backward compatibility", "Existing on-disk data must keep working."},
-					{"No new runtime dependency", "Stdlib + existing go.mod only."},
-					{"Other", "Describe below."},
+					{"Performance budget", "A measurable ceiling — p99 latency, throughput, or memory — the change must not exceed."},
+					{"Backward compatibility", "Existing .wipnote/ HTML and SQLite must keep loading; no migration that breaks old data."},
+					{"No new runtime dependency", "Solve it with the stdlib and the current go.mod — no new third-party modules."},
+					{"Other", "A different hard constraint — name it in the note below or ask in the chat."},
 				}},
 		},
 	}
@@ -119,10 +119,10 @@ func scopeStage() Stage {
 			{ID: "scope.0", Header: "State", Type: Choice,
 				Prompt: "Where does the state live?",
 				Options: []Option{
-					{"In SQLite (read index)", "Derived, can be rebuilt."},
-					{"In .wipnote/<kind>/*.html", "Canonical store — survives DB rebuild."},
-					{"In-memory only", "No persistence; lifecycle = process."},
-					{"On the filesystem outside .wipnote/", "Session transcripts, hook artifacts."},
+					{"In SQLite (read index)", "Derived, rebuildable cache (~/.cache). Safe to drop and reindex — never the source of truth."},
+					{"In .wipnote/<kind>/*.html", "The canonical, committed store. Survives a DB rebuild — this is the source of truth."},
+					{"In-memory only", "Lives for the process lifetime; nothing is persisted across runs."},
+					{"On the filesystem outside .wipnote/", "Files like session transcripts or hook artifacts, kept outside the canonical store."},
 				}},
 		},
 	}
@@ -135,14 +135,14 @@ func contractStage() Stage {
 			{ID: "contract.0", Header: "Trigger", Type: Choice,
 				Prompt: "What's the firing rule for this behavior?",
 				Options: []Option{
-					{"On every tool call", "PreToolUse / PostToolUse hook."},
-					{"On user prompt submission", "UserPromptSubmit hook."},
-					{"On session lifecycle", "SessionStart / SessionEnd hook."},
-					{"On explicit CLI invocation only", "Not a hook — a wipnote subcommand."},
+					{"On every tool call", "A PreToolUse/PostToolUse hook — runs around each tool the agent invokes."},
+					{"On user prompt submission", "A UserPromptSubmit hook — runs each time the user sends a message."},
+					{"On session lifecycle", "A SessionStart/SessionEnd hook — runs when a session begins or ends."},
+					{"On explicit CLI invocation only", "No hook — a wipnote subcommand a user or agent runs deliberately."},
 				}},
 			{ID: "contract.1", Header: "Payload", Type: Text,
 				Prompt:      "What's the input/output contract (payload, return shape)?",
-				Placeholder: "e.g. reads slice-num + answers map; writes decisions_notes Markdown"},
+				Placeholder: "e.g. in: slice-num + answers map · out: Scope/Decisions/Context Markdown written to the slice"},
 		},
 	}
 }
@@ -154,9 +154,9 @@ func doneWhenStage() Stage {
 			{ID: "donewhen.0", Header: "Acceptance", Type: Choice,
 				Prompt: "How will you tell it works?",
 				Options: []Option{
-					{"Unit test on the smallest function", "Pure function — input/output check."},
-					{"Integration test through the CLI", "Spawn the binary, assert exit code + side effects."},
-					{"Manual smoke test against the dashboard", "Operator-visible; no auto-assertion."},
+					{"Unit test on the smallest function", "A pure input→output assertion on the core logic — the fastest, most precise signal."},
+					{"Integration test through the CLI", "Spawn the binary and assert the exit code plus on-disk side effects, end to end."},
+					{"Manual smoke test against the dashboard", "An operator eyeballs the UI — no automated assertion; use only when the output is visual."},
 				}},
 		},
 	}

@@ -25,16 +25,16 @@ rules:
   - { glob: "internal/planyaml/**",               track_id: "trk-a30e8df4", priority: 100 }
   - { glob: "internal/planamend/**",              track_id: "trk-a30e8df4", priority: 100 }
   - { glob: "internal/planchat/**",               track_id: "trk-a30e8df4", priority: 100 }
-  - { glob: "internal/db/plan_*.go",              track_id: "trk-a30e8df4", priority: 100 }
+  - { glob: "core/db/plan_*.go",              track_id: "trk-a30e8df4", priority: 100 }
   - { glob: "plugin/skills/plan/**",              track_id: "trk-a30e8df4", priority: 100 }
 
   # ---- Subagents ----
   - { glob: "plugin/agents/*.md",                 track_id: "trk-2c83a1e2", priority: 100 }
-  - { glob: "internal/agent/**",                  track_id: "trk-2c83a1e2", priority: 100 }
-  - { glob: "internal/hooks/subagent_start*.go",  track_id: "trk-2c83a1e2", priority: 110 }
-  - { glob: "internal/hooks/attribution*.go",     track_id: "trk-2c83a1e2", priority: 110 }
-  - { glob: "internal/hooks/task_*.go",           track_id: "trk-2c83a1e2", priority: 110 }
-  - { glob: "internal/hooks/quality_gate*.go",    track_id: "trk-2c83a1e2", priority: 110 }
+  - { glob: "core/agent/**",                  track_id: "trk-2c83a1e2", priority: 100 }
+  - { glob: "core/hooks/subagent_start*.go",  track_id: "trk-2c83a1e2", priority: 110 }
+  - { glob: "core/hooks/attribution*.go",     track_id: "trk-2c83a1e2", priority: 110 }
+  - { glob: "core/hooks/task_*.go",           track_id: "trk-2c83a1e2", priority: 110 }
+  - { glob: "core/hooks/quality_gate*.go",    track_id: "trk-2c83a1e2", priority: 110 }
   - { glob: "internal/otel/adapter/claude/**",    track_id: "trk-2c83a1e2", priority: 100 }
   - { glob: "internal/otel/adapter/codex/**",     track_id: "trk-2c83a1e2", priority: 100 }
   - { glob: "internal/otel/adapter/gemini/**",    track_id: "trk-2c83a1e2", priority: 100 }
@@ -51,8 +51,8 @@ rules:
   - { glob: "cmd/wipnote/claude.go",            track_id: "trk-be293476", priority: 110 }
   - { glob: "cmd/wipnote/claude_env*.go",       track_id: "trk-be293476", priority: 110 }
   - { glob: "cmd/wipnote/agent_worktree*.go",   track_id: "trk-be293476", priority: 115 }
-  - { glob: "internal/hooks/yolo_guard*.go",      track_id: "trk-be293476", priority: 110 }
-  - { glob: "internal/worktree/**",               track_id: "trk-be293476", priority: 100 }
+  - { glob: "core/hooks/yolo_guard*.go",      track_id: "trk-be293476", priority: 110 }
+  - { glob: "core/worktree/**",               track_id: "trk-be293476", priority: 100 }
 
   # ---- Workitem Attribution & Lineage ----
   - { glob: "cmd/wipnote/lineage*.go",           track_id: "trk-08dcbb33", priority: 100 }
@@ -68,12 +68,12 @@ rules:
   - { glob: "cmd/wipnote/api_tree*.go",          track_id: "trk-08dcbb33", priority: 110 }
   - { glob: "cmd/wipnote/migrate_attribution*.go",track_id: "trk-08dcbb33", priority: 110 }
   - { glob: "cmd/wipnote/migrate_tracks*.go",    track_id: "trk-08dcbb33", priority: 110 }
-  - { glob: "internal/graph/**",                   track_id: "trk-08dcbb33", priority: 100 }
+  - { glob: "core/graph/**",                   track_id: "trk-08dcbb33", priority: 100 }
   - { glob: "internal/blame/**",                   track_id: "trk-08dcbb33", priority: 100 }
   - { glob: "internal/migrate/**",                 track_id: "trk-08dcbb33", priority: 100 }
-  - { glob: "internal/db/lineage_repo*.go",        track_id: "trk-08dcbb33", priority: 110 }
-  - { glob: "internal/db/edge_repo*.go",           track_id: "trk-08dcbb33", priority: 110 }
-  - { glob: "internal/db/feature_files_repo*.go",  track_id: "trk-08dcbb33", priority: 110 }
-  - { glob: "internal/models/lineage*.go",         track_id: "trk-08dcbb33", priority: 110 }
-  - { glob: "internal/models/node*.go",            track_id: "trk-08dcbb33", priority: 110 }
-  - { glob: "internal/models/feature_file*.go",    track_id: "trk-08dcbb33", priority: 110 }
+  - { glob: "core/db/lineage_repo*.go",        track_id: "trk-08dcbb33", priority: 110 }
+  - { glob: "core/db/edge_repo*.go",           track_id: "trk-08dcbb33", priority: 110 }
+  - { glob: "core/db/feature_files_repo*.go",  track_id: "trk-08dcbb33", priority: 110 }
+  - { glob: "core/models/lineage*.go",         track_id: "trk-08dcbb33", priority: 110 }
+  - { glob: "core/models/node*.go",            track_id: "trk-08dcbb33", priority: 110 }
+  - { glob: "core/models/feature_file*.go",    track_id: "trk-08dcbb33", priority: 110 }

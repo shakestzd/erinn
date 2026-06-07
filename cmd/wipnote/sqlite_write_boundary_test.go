@@ -407,7 +407,7 @@ var approvedWriteSites = []writeSite{
 // event-capture paths are the contention sources the plan targets.
 var forbiddenPathPrefixes = []string{
 	"cmd/wipnote/hook.go",      // hook event handlers
-	"internal/hooks/",          // hook implementations
+	"core/hooks/",              // hook implementations (moved out of internal/ — feat-0e3f1b3f)
 	"internal/otel/indexer/",   // NDJSON→SQLite indexer
 	"internal/otel/receiver/",  // OTLP HTTP receiver writer
 	"internal/otel/collector/", // OTLP collector spawn (defensive — not currently a writer)

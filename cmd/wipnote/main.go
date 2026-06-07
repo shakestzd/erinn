@@ -7,13 +7,13 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/shakestzd/wipnote/core/agent"
 	"github.com/shakestzd/wipnote/core/paths"
 	"github.com/shakestzd/wipnote/core/provenance"
 	"github.com/shakestzd/wipnote/core/storage"
-	"github.com/shakestzd/wipnote/core/agent"
+	"github.com/shakestzd/wipnote/core/worktree"
 	"github.com/shakestzd/wipnote/internal/registry"
 	versionpkg "github.com/shakestzd/wipnote/internal/version"
-	"github.com/shakestzd/wipnote/core/worktree"
 	"github.com/spf13/cobra"
 
 	// Side-effect import: registers the otel-backed core/eventsink factory so

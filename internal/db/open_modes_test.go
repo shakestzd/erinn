@@ -1,11 +1,14 @@
 package db_test
 
 import (
+	"context"
+	"database/sql"
 	"os"
 	"path/filepath"
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/shakestzd/wipnote/internal/db"
 )
@@ -168,6 +171,110 @@ func TestOpenMigrated_RunsMigrations(t *testing.T) {
 	calls := recorder.Calls()
 	if len(calls) == 0 {
 		t.Error("Open (migrated) expected to invoke migration hooks, got none")
+	}
+}
+
+func TestOpenModes_BusyTimeoutPerPooledConnection(t *testing.T) {
+	dir := t.TempDir()
+	dbPath := filepath.Join(dir, "busy-timeout-pool.db")
+
+	seed, err := db.Open(dbPath)
+	if err != nil {
+		t.Fatalf("seed Open: %v", err)
+	}
+	seed.Close()
+
+	t.Run("Open", func(t *testing.T) {
+		database, err := db.Open(dbPath)
+		if err != nil {
+			t.Fatalf("Open: %v", err)
+		}
+		defer database.Close()
+		assertBusyTimeoutOnSecondPooledConn(t, database)
+	})
+
+	t.Run("OpenWritable", func(t *testing.T) {
+		database, err := db.OpenWritable(dbPath)
+		if err != nil {
+			t.Fatalf("OpenWritable: %v", err)
+		}
+		defer database.Close()
+		assertBusyTimeoutOnSecondPooledConn(t, database)
+	})
+
+	t.Run("OpenReadOnly", func(t *testing.T) {
+		database, err := db.OpenReadOnly(dbPath)
+		if err != nil {
+			t.Fatalf("OpenReadOnly: %v", err)
+		}
+		defer database.Close()
+		assertBusyTimeoutOnSecondPooledConn(t, database)
+	})
+}
+
+func assertBusyTimeoutOnSecondPooledConn(t *testing.T, database *sql.DB) {
+	t.Helper()
+	database.SetMaxOpenConns(2)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+
+	conn1, err := database.Conn(ctx)
+	if err != nil {
+		t.Fatalf("conn1: %v", err)
+	}
+	defer conn1.Close()
+
+	conn2, err := database.Conn(ctx)
+	if err != nil {
+		t.Fatalf("conn2: %v", err)
+	}
+	defer conn2.Close()
+
+	var got int
+	if err := conn2.QueryRowContext(ctx, "PRAGMA busy_timeout").Scan(&got); err != nil {
+		t.Fatalf("PRAGMA busy_timeout on conn2: %v", err)
+	}
+	if got != 5000 {
+		t.Fatalf("conn2 busy_timeout = %d, want 5000", got)
+	}
+}
+
+func TestOpenWritable_BeginUsesImmediateTransaction(t *testing.T) {
+	dir := t.TempDir()
+	dbPath := filepath.Join(dir, "begin-immediate.db")
+
+	seed, err := db.Open(dbPath)
+	if err != nil {
+		t.Fatalf("seed Open: %v", err)
+	}
+	seed.Close()
+
+	writable, err := db.OpenWritable(dbPath)
+	if err != nil {
+		t.Fatalf("OpenWritable: %v", err)
+	}
+	defer writable.Close()
+
+	tx, err := writable.Begin()
+	if err != nil {
+		t.Fatalf("Begin: %v", err)
+	}
+	defer tx.Rollback() //nolint:errcheck
+
+	competitor, err := sql.Open("sqlite", dbPath+"?_pragma=busy_timeout(1)")
+	if err != nil {
+		t.Fatalf("competitor open: %v", err)
+	}
+	defer competitor.Close()
+
+	_, err = competitor.Exec("BEGIN IMMEDIATE")
+	if err == nil {
+		_, _ = competitor.Exec("ROLLBACK")
+		t.Fatal("competing BEGIN IMMEDIATE succeeded; OpenWritable Begin did not acquire the writer lock up front")
+	}
+	if !db.IsBusyError(err) {
+		t.Fatalf("competing BEGIN IMMEDIATE error = %v, want SQLITE_BUSY", err)
 	}
 }
 

@@ -246,6 +246,8 @@ func TestMultiHarnessIngestion(t *testing.T) {
 //
 // PROFILE: CI-safe. All assertions are in-process (no real harness binaries).
 func TestParallelHarnessLineage(t *testing.T) {
+	t.Setenv("WIPNOTE_SESSION_FAMILY_ID", "")
+
 	dbPath := filepath.Join(t.TempDir(), "parallel.db")
 	database, err := dbpkg.Open(dbPath)
 	if err != nil {

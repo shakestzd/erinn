@@ -62,7 +62,7 @@ func NewWriter(dbPath string) (*Writer, error) {
 	// source of truth for journal_mode; on unsafe filesystems it resolves
 	// to DELETE. Setting WAL here would permanently override that decision
 	// for the lifetime of the DB file, breaking all subsequent connections.
-	dsn := dbPath + "?_pragma=busy_timeout(5000)&_pragma=synchronous(NORMAL)&_pragma=foreign_keys(1)"
+	dsn := dbPath + "?_pragma=busy_timeout(5000)&_pragma=synchronous(NORMAL)&_pragma=foreign_keys(1)&_txlock=immediate"
 	db, err := sql.Open("sqlite", dsn)
 	if err != nil {
 		return nil, fmt.Errorf("open writer: %w", err)
@@ -250,13 +250,34 @@ func (w *Writer) WriteBatch(
 	w.mu.Lock()
 	defer w.mu.Unlock()
 
+	err = db.RetryOnBusy(db.DefaultBusyBackoff, func() error {
+		var attemptInserted int
+		attemptInserted, err = w.writeBatchAttempt(ctx, harness, resourceAttrs, signals)
+		if err != nil {
+			return err
+		}
+		inserted = attemptInserted
+		return nil
+	})
+	return inserted, err
+}
+
+func (w *Writer) writeBatchAttempt(
+	ctx context.Context,
+	harness otel.Harness,
+	resourceAttrs map[string]any,
+	signals []otel.UnifiedSignal,
+) (inserted int, err error) {
 	// BEGIN IMMEDIATE acquires the write lock up front, avoiding the
 	// SHARED→RESERVED→EXCLUSIVE upgrade race that a DEFERRED transaction
 	// triggers. With DEFERRED, SQLite holds only a SHARED lock until the
 	// first write; another writer can interpose between the SHARED acquisition
 	// and the RESERVED upgrade and return SQLITE_BUSY before busy_timeout
 	// even gets a chance to retry (the upgrade attempt is not retried under
-	// busy_timeout). IMMEDIATE eliminates this race entirely.
+	// busy_timeout). IMMEDIATE eliminates this race entirely. A bounded
+	// RetryOnBusy envelope around this raw transaction attempt still handles
+	// DELETE-journal readers blocking COMMIT, or a competing writer already
+	// holding RESERVED when this raw BEGIN IMMEDIATE starts.
 	if _, err = w.conn.ExecContext(ctx, "BEGIN IMMEDIATE"); err != nil {
 		return 0, fmt.Errorf("begin immediate: %w", err)
 	}

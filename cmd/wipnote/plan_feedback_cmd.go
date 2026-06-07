@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 
 	dbpkg "github.com/shakestzd/wipnote/internal/db"
 	"github.com/shakestzd/wipnote/internal/storage"
@@ -109,7 +108,7 @@ func planFeedback(wipnoteDir, planID string) error {
 		switch action {
 		case "approve":
 			entry := out.Approvals[section]
-			entry.Approved = strings.EqualFold(value, "true")
+			entry.Approved = dbpkg.IsPlanApprovalValueApproved(value)
 			out.Approvals[section] = entry
 
 		case "comment":

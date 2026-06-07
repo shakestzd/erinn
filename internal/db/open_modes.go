@@ -122,10 +122,12 @@ func OpenWritable(dbPath string) (*sql.DB, error) {
 	}
 
 	// Use the same busy_timeout DSN embedding as Open to prevent SQLITE_BUSY
-	// on the very first connection before pragmas have been applied.
+	// on the very first connection before pragmas have been applied. _txlock
+	// makes database/sql Begin issue BEGIN IMMEDIATE, avoiding deferred
+	// SHARED→RESERVED upgrade BUSY on DELETE-journal filesystems.
 	dsn := dbPath
 	if !isInMemory {
-		dsn = dsn + "?_pragma=busy_timeout(5000)"
+		dsn = dsn + "?_pragma=busy_timeout(5000)&_txlock=immediate"
 	}
 
 	database, err := sql.Open("sqlite", dsn)

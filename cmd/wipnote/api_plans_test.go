@@ -175,6 +175,33 @@ func TestPlanStatusHandler_OK(t *testing.T) {
 	}
 }
 
+func TestPlanStatusHandler_LegacyApprovedValue(t *testing.T) {
+	database, planID := setupPlanTestDB(t)
+	wipnoteDir := writeTempPlanHTML(t, planID)
+
+	for _, section := range []string{"design", "slice-1"} {
+		if err := db.StorePlanFeedback(database, planID, section, "approve", "approved", ""); err != nil {
+			t.Fatalf("store feedback %s: %v", section, err)
+		}
+	}
+
+	handler := planStatusHandler(database, wipnoteDir)
+	req := httptest.NewRequest(http.MethodGet, "/api/plans/"+planID+"/status", nil)
+	w := httptest.NewRecorder()
+	handler(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Errorf("status: got %d, want 200; body: %s", w.Code, w.Body.String())
+	}
+	var resp planStatusResponse
+	if err := json.NewDecoder(w.Body).Decode(&resp); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if resp.ApprovedCount != 2 || resp.TotalSections != 2 {
+		t.Errorf("counts: got %d/%d, want 2/2", resp.ApprovedCount, resp.TotalSections)
+	}
+}
+
 func TestPlanStatusHandler_PlanNotFound(t *testing.T) {
 	database, _ := setupPlanTestDB(t)
 	wipnoteDir := t.TempDir()
@@ -286,6 +313,26 @@ func TestPlanFinalizeHandler_Success(t *testing.T) {
 	}
 	if htmlStatus != "finalized" {
 		t.Errorf("HTML data-status: got %q, want finalized", htmlStatus)
+	}
+}
+
+func TestPlanFinalizeHandler_LegacyApprovedValue(t *testing.T) {
+	database, planID := setupPlanTestDB(t)
+	wipnoteDir := writeTempPlanHTML(t, planID)
+
+	for _, section := range []string{"design", "slice-1"} {
+		if err := db.StorePlanFeedback(database, planID, section, "approve", "approved", ""); err != nil {
+			t.Fatalf("store feedback %s: %v", section, err)
+		}
+	}
+
+	handler := planFinalizeHandler(database, wipnoteDir)
+	req := httptest.NewRequest(http.MethodPost, "/api/plans/"+planID+"/finalize", nil)
+	w := httptest.NewRecorder()
+	handler(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Errorf("status: got %d, want 200; body: %s", w.Code, w.Body.String())
 	}
 }
 

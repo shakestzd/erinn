@@ -736,7 +736,8 @@
       "Bash(export GOTMPDIR=/home/vscode/.gotest-tmp)",
       "Bash(tar tzf *)",
       "Bash(ps -o pid,stat,%cpu,etime,cmd -p 96542)",
-      "WebFetch(domain:www.damiangalarza.com)"
+      "WebFetch(domain:www.damiangalarza.com)",
+      "Bash(kill 4988 47901 47910)"
     ]
   },
   "enabledPlugins": {

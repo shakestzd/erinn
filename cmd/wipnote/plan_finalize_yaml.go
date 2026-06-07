@@ -290,7 +290,7 @@ func loadPlanApprovals(db *sql.DB, planID string) map[string]bool {
 	for rows.Next() {
 		var section, value string
 		rows.Scan(&section, &value)
-		approvals[section] = strings.EqualFold(value, "true")
+		approvals[section] = dbpkg.IsPlanApprovalValueApproved(value)
 	}
 	return approvals
 }

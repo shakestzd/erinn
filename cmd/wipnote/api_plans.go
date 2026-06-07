@@ -150,7 +150,7 @@ func parsePlanListItem(planPath, planID string, database *sql.DB) (planListItem,
 			feedback, err := dbpkg.GetPlanFeedback(database, planID)
 			if err == nil {
 				for _, fb := range feedback {
-					if fb.Action == "approve" && fb.Value == "true" {
+					if fb.Action == "approve" && dbpkg.IsPlanApprovalValueApproved(fb.Value) {
 						approved++
 					}
 				}
@@ -213,7 +213,7 @@ func countApprovedSlices(database *sql.DB, planID string, slices []planyaml.Plan
 		for rows.Next() {
 			var section, value string
 			rows.Scan(&section, &value) //nolint:errcheck
-			dbApprovals[section] = strings.EqualFold(value, "true")
+			dbApprovals[section] = dbpkg.IsPlanApprovalValueApproved(value)
 		}
 	}
 
@@ -1140,7 +1140,7 @@ func finalizePlanHTML(planPath string, database *sql.DB, planID string) error {
 			// with three values (approved, changes_requested, rejected). For legacy plans,
 			// these are checkboxes. Must branch on type to preserve radio-group invariant.
 			section := fb.Section
-			approved := fb.Value == "true"
+			approved := dbpkg.IsPlanApprovalValueApproved(fb.Value)
 
 			// For radios: set checked only on value='approved' if approved, clear all otherwise
 			doc.Find(fmt.Sprintf("input[type='radio'][data-section='%s'][data-action='approve']", section)).
@@ -1186,17 +1186,27 @@ func finalizePlanHTML(planPath string, database *sql.DB, planID string) error {
 	return os.WriteFile(planPath, []byte(html), 0o644)
 }
 
-// countPlanSections returns the count of approved sections and the total
-// distinct sections with any feedback for the given plan.
+// countPlanSections returns the count of approved UI-exposed approval sections
+// and the total UI-exposed approval sections with feedback for the given plan.
 func countPlanSections(database *sql.DB, planID string) (approved, total int, err error) {
-	err = database.QueryRow(`
-		SELECT
-			COUNT(DISTINCT CASE WHEN action = 'approve' AND value = 'true' THEN section END),
-			COUNT(DISTINCT section)
-		FROM plan_feedback
-		WHERE plan_id = ?`, planID,
-	).Scan(&approved, &total)
-	return
+	entries, err := dbpkg.GetPlanFeedback(database, planID)
+	if err != nil {
+		return 0, 0, err
+	}
+	sections := make(map[string]bool)
+	approvedSections := make(map[string]bool)
+	for _, e := range entries {
+		if e.Action != "approve" || !dbpkg.IsPlanApprovalSection(e.Section) {
+			continue
+		}
+		sections[e.Section] = true
+		if dbpkg.IsPlanApprovalValueApproved(e.Value) {
+			approvedSections[e.Section] = true
+		} else {
+			delete(approvedSections, e.Section)
+		}
+	}
+	return len(approvedSections), len(sections), nil
 }
 
 // buildFeedbackResponse groups raw feedback entries into the structured
@@ -1211,7 +1221,7 @@ func buildFeedbackResponse(planID string, entries []dbpkg.PlanFeedback) planFeed
 		switch e.Action {
 		case "approve":
 			sf := sections[e.Section]
-			sf.Approved = e.Value == "true"
+			sf.Approved = dbpkg.IsPlanApprovalValueApproved(e.Value)
 			sections[e.Section] = sf
 			if sf.Approved {
 				approvedSections[e.Section] = true

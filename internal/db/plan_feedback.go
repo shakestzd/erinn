@@ -66,10 +66,10 @@ func GetPlanFeedbackBySection(db *sql.DB, planID, section string) ([]PlanFeedbac
 	return scanPlanFeedbackRows(rows)
 }
 
-// isUIExposedSection returns true if the section is one of the approvable sections
+// IsPlanApprovalSection returns true if the section is one of the approvable sections
 // exposed in the CRISPI plan UI: "design", "outline", or slice-N (where N is numeric).
 // All other sections (slice-N-question-*, critique, q-*, meta, chat, etc.) are excluded.
-func isUIExposedSection(section string) bool {
+func IsPlanApprovalSection(section string) bool {
 	if section == "design" || section == "outline" {
 		return true
 	}
@@ -78,9 +78,21 @@ func isUIExposedSection(section string) bool {
 	return err == nil && matched
 }
 
+// IsPlanApprovalValueApproved reports whether a stored plan_feedback approve
+// value represents approval. "approved" is a legacy UI value that may still be
+// visible to already-open DB handles that predate normalization.
+func IsPlanApprovalValueApproved(value string) bool {
+	switch value {
+	case "true", "approved":
+		return true
+	default:
+		return false
+	}
+}
+
 // IsPlanFullyApproved returns true when every UI-exposed section in plan_feedback
-// (design, outline if present, slice-N) has at least one 'approve' entry with value 'true',
-// and none of those sections have an 'approve' entry with value != 'true'.
+// (design, outline if present, slice-N) has at least one approved 'approve' entry,
+// and none of those sections have a blocking 'approve' entry.
 // Non-exposed sections (slice-N-question-*, critique, q-*, meta, chat) are ignored.
 // Returns false (not an error) when no sections exist yet.
 func IsPlanFullyApproved(db *sql.DB, planID string) (bool, error) {
@@ -96,8 +108,8 @@ func IsPlanFullyApproved(db *sql.DB, planID string) (bool, error) {
 	defer rows.Close()
 
 	// Track UI-exposed sections and their approval status.
-	exposedApproved := make(map[string]bool)     // section → true if has value='true'
-	exposedDisapproved := make(map[string]bool)  // section → true if has value!='true'
+	exposedApproved := make(map[string]bool)
+	exposedDisapproved := make(map[string]bool)
 
 	for rows.Next() {
 		var section, value string
@@ -106,12 +118,11 @@ func IsPlanFullyApproved(db *sql.DB, planID string) (bool, error) {
 		}
 
 		// Only consider UI-exposed sections.
-		if !isUIExposedSection(section) {
+		if !IsPlanApprovalSection(section) {
 			continue
 		}
 
-		// Track approval status by section.
-		if value == "true" {
+		if IsPlanApprovalValueApproved(value) {
 			exposedApproved[section] = true
 		} else {
 			exposedDisapproved[section] = true
@@ -172,8 +183,8 @@ func GetSliceApprovals(db *sql.DB, planID string) (map[string]string, error) {
 			return nil, fmt.Errorf("scan slice approval row: %w", err)
 		}
 		// Only include actual slice-N sections (not slice-N-question-*).
-		if isUIExposedSection(section) {
-			if value == "true" {
+		if IsPlanApprovalSection(section) {
+			if IsPlanApprovalValueApproved(value) {
 				result[section] = "approved"
 			} else {
 				result[section] = "rejected"

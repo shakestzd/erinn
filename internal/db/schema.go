@@ -38,7 +38,7 @@ func Open(dbPath string) (*sql.DB, error) {
 	dsn := dbPath
 	isInMemory := strings.Contains(dbPath, ":memory:")
 	if !isInMemory {
-		dsn = dsn + "?_pragma=busy_timeout(5000)"
+		dsn = dsn + "?_pragma=busy_timeout(5000)&_txlock=immediate"
 	}
 	db, err := sql.Open("sqlite", dsn)
 	if err != nil {

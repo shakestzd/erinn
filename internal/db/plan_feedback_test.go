@@ -185,6 +185,49 @@ func TestIsPlanFullyApproved_True(t *testing.T) {
 	}
 }
 
+func TestIsPlanFullyApproved_LegacyApprovedValue(t *testing.T) {
+	database, planID := setupPlanDB(t)
+	defer database.Close()
+
+	for _, s := range []string{"design", "outline", "slice-1"} {
+		if err := db.StorePlanFeedback(database, planID, s, "approve", "approved", ""); err != nil {
+			t.Fatalf("StorePlanFeedback %s: %v", s, err)
+		}
+	}
+
+	approved, err := db.IsPlanFullyApproved(database, planID)
+	if err != nil {
+		t.Fatalf("IsPlanFullyApproved: %v", err)
+	}
+	if !approved {
+		t.Error("expected legacy approve value 'approved' to count as approved")
+	}
+}
+
+func TestIsPlanFullyApproved_LegacyNegativeValuesBlock(t *testing.T) {
+	for _, value := range []string{"false", "rejected", "changes_requested"} {
+		t.Run(value, func(t *testing.T) {
+			database, planID := setupPlanDB(t)
+			defer database.Close()
+
+			if err := db.StorePlanFeedback(database, planID, "design", "approve", "approved", ""); err != nil {
+				t.Fatalf("StorePlanFeedback design: %v", err)
+			}
+			if err := db.StorePlanFeedback(database, planID, "slice-1", "approve", value, ""); err != nil {
+				t.Fatalf("StorePlanFeedback slice-1: %v", err)
+			}
+
+			approved, err := db.IsPlanFullyApproved(database, planID)
+			if err != nil {
+				t.Fatalf("IsPlanFullyApproved: %v", err)
+			}
+			if approved {
+				t.Errorf("expected legacy negative value %q to block approval", value)
+			}
+		})
+	}
+}
+
 func TestIsPlanFullyApproved_WithNonApproveActions(t *testing.T) {
 	database, planID := setupPlanDB(t)
 	defer database.Close()

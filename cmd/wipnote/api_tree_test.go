@@ -1375,3 +1375,29 @@ func TestBuildEventTree_FiltersResumeNotificationPromptLogs(t *testing.T) {
 		t.Fatalf("event_id = %v, want sig-real", got)
 	}
 }
+
+func TestBuildEventTree_TrimsCodexSubagentWorkItemPreamble(t *testing.T) {
+	database := openTreeTestDB(t)
+	defer database.Close()
+
+	now := time.Now().UTC()
+	ts := now.UnixMicro()
+	prompt := "Work item: bug-774ee9c8. Start by running `wipnote bug start bug-774ee9c8`. Investigate runtime SQLITE_BUSY under DELETE journal."
+
+	mustExec(t, database,
+		`INSERT INTO otel_signals (signal_id, harness, session_id, kind, canonical, native, ts_micros, attrs_json)
+		 VALUES (?, ?, ?, 'log', 'user_prompt', ?, ?, ?)`,
+		"sig-subagent", "codex", "sess-test", "codex.user_prompt", ts,
+		`{"text":`+strconv.Quote(prompt)+`}`)
+
+	turns, err := buildEventTree(database, 50)
+	if err != nil {
+		t.Fatalf("buildEventTree: %v", err)
+	}
+	if len(turns) != 1 {
+		t.Fatalf("got %d turns, want 1", len(turns))
+	}
+	if got := turns[0].UserQuery["input_summary"]; got != "Investigate runtime SQLITE_BUSY under DELETE journal." {
+		t.Fatalf("input_summary = %v", got)
+	}
+}

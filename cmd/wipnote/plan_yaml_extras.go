@@ -655,9 +655,9 @@ func runReadFeedbackYAML(planID string) error {
 		switch action {
 		case "approve":
 			if section == "design" {
-				result.DesignApproved = strings.EqualFold(value, "true")
+				result.DesignApproved = dbpkg.IsPlanApprovalValueApproved(value)
 			} else {
-				result.SliceApprovals[section] = strings.EqualFold(value, "true")
+				result.SliceApprovals[section] = dbpkg.IsPlanApprovalValueApproved(value)
 			}
 		case "comment":
 			if section == "design" {

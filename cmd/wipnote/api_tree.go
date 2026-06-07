@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"sort"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/shakestzd/wipnote/internal/ingest"
@@ -299,12 +300,12 @@ func buildEventTreeOtel(database *sql.DB, limit int) ([]turn, error) {
 		ts := time.UnixMicro(tsMicros).UTC().Format(time.RFC3339)
 
 		// Extract prompt text from attrs_json (attrs.user_prompt, attrs.prompt).
-		promptText := extractPromptText(attrsRaw)
+		promptText := displayPromptText(extractPromptText(attrsRaw))
 
 		// If attrs_json didn't carry the prompt, look for a user_prompt log
 		// record in the same trace.
 		if promptText == "" && traceID != "" {
-			promptText = fetchPromptFromTrace(database, traceID)
+			promptText = displayPromptText(fetchPromptFromTrace(database, traceID))
 		}
 		if ingest.IsSystemMessage(promptText) {
 			continue
@@ -397,7 +398,7 @@ func buildEventTreeOtelLogFallback(database *sql.DB, limit int) ([]turn, error) 
 			continue
 		}
 		anchor.AttrsRaw = attrsRaw
-		anchor.PromptText = extractPromptText(attrsRaw)
+		anchor.PromptText = displayPromptText(extractPromptText(attrsRaw))
 		if ingest.IsSystemMessage(anchor.PromptText) {
 			continue
 		}
@@ -651,6 +652,32 @@ func extractPromptText(attrsRaw string) string {
 		}
 	}
 	return ""
+}
+
+// displayPromptText keeps the stored OTel prompt intact while removing the
+// repeated orchestrator preamble from Codex-spawned agent prompts. Without this,
+// parallel subagents all render as "Work item: ... Start by running ..." and
+// look duplicated even when their actual task bodies differ.
+func displayPromptText(raw string) string {
+	s := strings.TrimSpace(raw)
+	if !strings.HasPrefix(s, "Work item:") {
+		return s
+	}
+
+	if idx := strings.Index(s, "."); idx >= 0 {
+		s = strings.TrimSpace(s[idx+1:])
+	}
+	if strings.HasPrefix(s, "Start by running") {
+		if idx := strings.Index(s, "`."); idx >= 0 {
+			s = strings.TrimSpace(s[idx+2:])
+		} else if idx := strings.Index(s, "."); idx >= 0 {
+			s = strings.TrimSpace(s[idx+1:])
+		}
+	}
+	if s == "" {
+		return strings.TrimSpace(raw)
+	}
+	return s
 }
 
 // fetchPromptFromTrace looks up the user_prompt log record that shares the

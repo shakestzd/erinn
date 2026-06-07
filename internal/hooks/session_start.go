@@ -12,13 +12,12 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/shakestzd/wipnote/internal/agent"
 	"github.com/shakestzd/wipnote/core/db"
+	"github.com/shakestzd/wipnote/core/eventsink"
 	"github.com/shakestzd/wipnote/core/models"
-	"github.com/shakestzd/wipnote/internal/otel"
-	"github.com/shakestzd/wipnote/internal/otel/sink/ndjson"
 	"github.com/shakestzd/wipnote/core/paths"
 	"github.com/shakestzd/wipnote/core/provenance"
+	"github.com/shakestzd/wipnote/internal/agent"
 	"github.com/shakestzd/wipnote/internal/worktree"
 )
 
@@ -196,7 +195,7 @@ func SessionStart(event *CloudEvent, database *sql.DB, projectDir string) (*Hook
 		// subagent-start hook writing sessions+agent_lineage_trace directly.
 		ParentSessionID: os.Getenv("WIPNOTE_PARENT_SESSION"),
 		ParentEventID:   os.Getenv("WIPNOTE_PARENT_EVENT"),
-		GitRemoteURL: paths.GetGitRemoteURL(projectDir),
+		GitRemoteURL:    paths.GetGitRemoteURL(projectDir),
 		// Normalize to repo-relative so session records remain stable across
 		// worktrees and machines. Local sessions get a relative path (e.g. ".");
 		// sessions ingested from foreign machines (where the canonical root
@@ -614,15 +613,13 @@ func emitRosettaEvent(projectDir, wipnoteSID, claudeSessionID string) {
 		return // not a launcher-managed session; skip silently
 	}
 
-	sessDir := filepath.Join(projectDir, ".wipnote", "sessions", wipnoteSID)
-	if err := os.MkdirAll(sessDir, 0o755); err != nil {
-		debugLog(projectDir, "[session-start] rosetta: mkdir session dir: %v", err)
-		return
-	}
-
-	snk, err := ndjson.New(projectDir, wipnoteSID)
+	// Emit through the core eventsink boundary rather than importing otel
+	// directly (feat-f87e93a6). The telemetry implementation is registered out
+	// of band by internal/otel/eventsink; with no sink registered this is a
+	// no-op, matching the best-effort semantics of the rosetta record.
+	snk, err := eventsink.New(projectDir, wipnoteSID)
 	if err != nil {
-		debugLog(projectDir, "[session-start] rosetta: create ndjson sink: %v", err)
+		debugLog(projectDir, "[session-start] rosetta: create event sink: %v", err)
 		return
 	}
 	// Close flushes the in-memory buffer + fsyncs before the hook process exits.
@@ -630,24 +627,24 @@ func emitRosettaEvent(projectDir, wipnoteSID, claudeSessionID string) {
 	// periodic ticker never fires in a short-lived hook process.
 	defer func() {
 		if err := snk.Close(); err != nil {
-			debugLog(projectDir, "[session-start] rosetta: close ndjson sink: %v", err)
+			debugLog(projectDir, "[session-start] rosetta: close event sink: %v", err)
 		}
 	}()
 
-	sig := otel.UnifiedSignal{
+	ev := eventsink.Event{
 		Harness:       "wipnote",
 		SignalID:      "session-start-" + wipnoteSID,
-		Kind:          otel.KindLog,
-		CanonicalName: otel.CanonicalSessionStart,
+		Kind:          eventsink.KindLog,
+		CanonicalName: eventsink.CanonicalSessionStart,
 		NativeName:    "session_start",
 		Timestamp:     time.Now().UTC(),
 		SessionID:     wipnoteSID,
-		RawAttrs: map[string]any{
+		Attrs: map[string]any{
 			"wipnote_sid":       wipnoteSID,
 			"claude_session_id": claudeSessionID,
 		},
 	}
-	if err := snk.WriteBatch(context.Background(), "wipnote", nil, []otel.UnifiedSignal{sig}); err != nil {
+	if err := snk.EmitEvent(context.Background(), ev); err != nil {
 		debugLog(projectDir, "[session-start] rosetta: write event: %v", err)
 	}
 }

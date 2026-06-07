@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Plan interview · slice {{.SliceNum}}</title>
+<style>
+  :root{
+    --bg-primary:#151518;--bg-secondary:#1C1C20;--bg-tertiary:#252528;--bg-hover:#2A2A2F;
+    --text-primary:#E0DED8;--text-secondary:#A0A0A0;--text-muted:#707070;
+    --border:#333338;--border-strong:#606068;--accent:#CDFF00;--accent-dim:rgba(205,255,0,.15);
+    --accent-text:#0A0A0A;--radius:6px;--radius-sm:4px;
+    --font:'JetBrains Mono',ui-monospace,SFMono-Regular,Menlo,monospace;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg-primary);color:var(--text-primary);font-family:var(--font);
+    line-height:1.5;padding:32px 16px}
+  .wrap{max-width:760px;margin:0 auto}
+  header{border-bottom:1px solid var(--border);padding-bottom:16px;margin-bottom:24px}
+  .eyebrow{color:var(--accent);font-size:12px;letter-spacing:.12em;text-transform:uppercase}
+  h1{font-size:20px;margin:6px 0 4px}
+  .sub{color:var(--text-secondary);font-size:13px}
+  .chip{display:inline-block;background:var(--accent-dim);color:var(--accent);
+    border-radius:var(--radius-sm);padding:1px 8px;font-size:11px;text-transform:uppercase;letter-spacing:.08em}
+  .what{color:var(--text-secondary);font-size:13px;margin-top:10px;white-space:pre-wrap}
+  .stage{background:var(--bg-secondary);border:1px solid var(--border);border-radius:var(--radius);
+    padding:18px 18px 8px;margin-bottom:18px}
+  .stage h2{font-size:14px;margin:0 0 2px;display:flex;justify-content:space-between;align-items:center}
+  .bucket{font-size:10px;color:var(--text-muted);border:1px solid var(--border);border-radius:var(--radius-sm);padding:1px 6px}
+  .q{margin:16px 0}
+  .q .prompt{font-size:13px;margin-bottom:8px}
+  .q .hdr{color:var(--text-muted);font-size:11px;text-transform:uppercase;letter-spacing:.08em;margin-right:6px}
+  label.opt{display:block;background:var(--bg-tertiary);border:1px solid var(--border);
+    border-radius:var(--radius-sm);padding:9px 12px;margin:6px 0;cursor:pointer;font-size:13px;transition:.12s}
+  label.opt:hover{background:var(--bg-hover);border-color:var(--border-strong)}
+  label.opt input{margin-right:9px;accent-color:var(--accent)}
+  label.opt .desc{display:block;color:var(--text-muted);font-size:11px;margin-left:24px}
+  textarea,input[type=text]{width:100%;background:var(--bg-tertiary);color:var(--text-primary);
+    border:1px solid var(--border);border-radius:var(--radius-sm);padding:9px 12px;font-family:var(--font);font-size:13px;resize:vertical}
+  textarea:focus,input:focus{outline:none;border-color:var(--accent)}
+  .note{margin-top:6px}
+  .note label{font-size:11px;color:var(--text-muted);display:block;margin-bottom:4px}
+  .actions{margin:24px 0 8px}
+  button{background:var(--accent);color:var(--accent-text);border:0;border-radius:var(--radius);
+    padding:11px 22px;font-family:var(--font);font-weight:600;font-size:13px;cursor:pointer}
+  button:hover{filter:brightness(1.08)}
+  .banner{background:var(--accent-dim);border:1px solid var(--accent);border-radius:var(--radius);
+    padding:14px 16px;margin-bottom:24px;font-size:13px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="eyebrow">wipnote · plan interview</div>
+    <h1>{{.SliceTitle}}</h1>
+    <div class="sub">{{.PlanID}} · slice {{.SliceNum}} · <span class="chip">{{if .Complexity}}{{.Complexity}}{{else}}standard{{end}}</span></div>
+    {{if .SliceWhat}}<div class="what">{{.SliceWhat}}</div>{{end}}
+  </header>
+
+  {{if .Submitted}}
+    <div class="banner">{{.Message}}</div>
+  {{else}}
+  <form method="POST" action="/submit">
+    {{range .Stages}}
+    <section class="stage">
+      <h2><span>{{.Title}}</span><span class="bucket">→ {{.Bucket}}</span></h2>
+      {{$stage := .}}
+      {{range .Questions}}
+      <div class="q">
+        <div class="prompt"><span class="hdr">{{.Header}}</span>{{.Prompt}}</div>
+        {{if eq (printf "%s" .Type) "choice"}}
+          {{$q := .}}
+          {{range .Options}}
+          <label class="opt">
+            <input type="{{if $q.MultiSelect}}checkbox{{else}}radio{{end}}" name="{{$q.ID}}" value="{{.Label}}">
+            {{.Label}}{{if .Description}}<span class="desc">{{.Description}}</span>{{end}}
+          </label>
+          {{end}}
+        {{else if eq (printf "%s" .Type) "yesno"}}
+          <label class="opt"><input type="radio" name="{{.ID}}" value="Yes"> Yes</label>
+          <label class="opt"><input type="radio" name="{{.ID}}" value="No"> No</label>
+        {{else}}
+          <input type="text" name="{{.ID}}" placeholder="{{.Placeholder}}">
+        {{end}}
+      </div>
+      {{end}}
+      <div class="note">
+        <label>Notes / anything else for {{.Title}} (free text)</label>
+        <textarea name="note:{{.Key}}" rows="2" placeholder="Optional — captured verbatim into the {{.Bucket}} section"></textarea>
+      </div>
+    </section>
+    {{end}}
+    <div class="actions"><button type="submit">Submit decisions</button></div>
+  </form>
+  {{end}}
+</div>
+</body>
+</html>

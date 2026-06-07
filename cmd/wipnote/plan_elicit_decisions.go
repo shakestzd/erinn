@@ -131,6 +131,15 @@ func elicitDecisionsForSlice(wipnoteDir, planID string, sliceNum int, in elicitI
 		return fmt.Errorf("save plan: %w", err)
 	}
 
+	// Version every decisions write to git so the slice's decisions_notes are
+	// tracked like any other plan mutation (set-status, finalize). commitPlanChange
+	// re-renders the HTML and commits YAML+HTML atomically, and no-ops gracefully
+	// when there is nothing to commit or the project is not a git repo. This is
+	// what lets the interview form (which writes through here) be versioned.
+	if err := commitPlanChange(planPath, fmt.Sprintf("plan(%s): set decisions — slice %d", planID, sliceNum)); err != nil {
+		return fmt.Errorf("autocommit decisions: %w", err)
+	}
+
 	fmt.Printf("Decisions written to slice %d of %s\n", sliceNum, planID)
 	return nil
 }

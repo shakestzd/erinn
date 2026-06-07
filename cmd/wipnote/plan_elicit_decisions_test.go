@@ -2,6 +2,7 @@ package main
 
 import (
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -105,6 +106,55 @@ func TestElicitDecisions_FlagsForm(t *testing.T) {
 		if !strings.Contains(got, want) {
 			t.Errorf("DecisionsNotes missing %q\n--- got ---\n%s", want, got)
 		}
+	}
+}
+
+// TestElicitDecisions_CommitsToGit verifies every decisions write is versioned:
+// in a real git repo, elicitDecisionsForSlice must produce a commit containing
+// the plan YAML+HTML (so the interview form, which writes through here, is
+// versioned like any plan mutation).
+func TestElicitDecisions_CommitsToGit(t *testing.T) {
+	dir, planID, sliceNum := seedPlanForElicit(t)
+
+	git := func(args ...string) string {
+		t.Helper()
+		c := exec.Command("git", append([]string{"-C", dir}, args...)...)
+		c.Env = append(os.Environ(),
+			"GIT_AUTHOR_NAME=t", "GIT_AUTHOR_EMAIL=t@t.co",
+			"GIT_COMMITTER_NAME=t", "GIT_COMMITTER_EMAIL=t@t.co")
+		out, err := c.CombinedOutput()
+		if err != nil {
+			t.Fatalf("git %v: %v\n%s", args, err, out)
+		}
+		return string(out)
+	}
+	git("init", "-q")
+	// local config so commitPlanChange's own git subprocess has an identity
+	git("config", "user.email", "t@t.co")
+	git("config", "user.name", "t")
+	git("add", "-A")
+	git("commit", "-q", "-m", "init")
+
+	before := strings.TrimSpace(git("rev-list", "--count", "HEAD"))
+
+	if err := elicitDecisionsForSlice(dir, planID, sliceNum, elicitInput{decisions: "we chose the versioned path"}); err != nil {
+		t.Fatalf("elicit: %v", err)
+	}
+
+	after := strings.TrimSpace(git("rev-list", "--count", "HEAD"))
+	if before == after {
+		t.Fatalf("no commit created (commit count stayed %s)", before)
+	}
+	if subj := strings.TrimSpace(git("log", "-1", "--format=%s")); !strings.Contains(subj, "set decisions") {
+		t.Errorf("latest commit subject = %q, want it to mention 'set decisions'", subj)
+	}
+	// the committed plan YAML must carry the decisions, and nothing is left dangling
+	files := git("show", "--name-only", "--format=", "HEAD")
+	if !strings.Contains(files, planID+".yaml") {
+		t.Errorf("commit did not include the plan YAML; files:\n%s", files)
+	}
+	if st := strings.TrimSpace(git("status", "--porcelain")); strings.Contains(st, planID) {
+		t.Errorf("plan artifacts left uncommitted after elicit:\n%s", st)
 	}
 }
 

@@ -10,15 +10,15 @@
 <body>
     <article id="feat-d74bd0d0"
              data-type="feature"
-             data-status="in-progress"
+             data-status="done"
              data-priority="medium"
              data-created="2026-06-07T13:48:55.989255"
-             data-updated="2026-06-07T13:54:12.398902" data-agent-assigned="claude-code" data-track-id="trk-03da9cce" data-created-by-agent="claude-code" data-created-by-model="claude-opus-4-8[1m]" data-created-by-cli-version="0.60.21-9-gc72335802">
+             data-updated="2026-06-07T14:27:07.800712" data-agent-assigned="claude-code" data-track-id="trk-03da9cce" data-created-by-agent="claude-code" data-created-by-model="claude-opus-4-8[1m]" data-created-by-cli-version="0.60.21-9-gc72335802">
 
         <header>
             <h1>Carve core/ go.mod module boundary &#43; repo restructure</h1>
             <div class="metadata">
-                <span class="badge status-in-progress">In Progress</span>
+                <span class="badge status-done">Done</span>
                 <span class="badge priority-medium">Medium Priority</span>
             </div>
         </header>
@@ -37,6 +37,18 @@
                 </ul>
             </section>
         </nav>
+
+        <section data-steps>
+            <h3>Implementation Steps</h3>
+            <ol>
+                <li data-completed="true" data-step-id="task-1" data-agent="claude-code" data-created-by-agent="claude-code">✅ Research: compute core closure &amp; coupling</li>
+                <li data-completed="true" data-step-id="task-2" data-agent="claude-code" data-created-by-agent="claude-code">✅ Spec &#43; layout: core module path &amp; package paths</li>
+                <li data-completed="true" data-step-id="task-3" data-agent="claude-code" data-created-by-agent="claude-code">✅ Move 10 packages into core/ &#43; create core/go.mod</li>
+                <li data-completed="true" data-step-id="task-4" data-agent="claude-code" data-created-by-agent="claude-code">✅ Rewrite ~300 import sites repo-wide</li>
+                <li data-completed="true" data-step-id="task-5" data-agent="claude-code" data-created-by-agent="claude-code">✅ Quality gate: build/vet/test both modules</li>
+                <li data-completed="true" data-step-id="task-6" data-agent="claude-code" data-created-by-agent="claude-code">✅ Diff review &#43; commit &#43; complete feature</li>
+            </ol>
+        </section>
 
         <section data-content>
             <h3>Description</h3>

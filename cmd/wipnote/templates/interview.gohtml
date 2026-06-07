@@ -8,91 +8,259 @@
   :root{
     --bg-primary:#151518;--bg-secondary:#1C1C20;--bg-tertiary:#252528;--bg-hover:#2A2A2F;
     --text-primary:#E0DED8;--text-secondary:#A0A0A0;--text-muted:#707070;
-    --border:#333338;--border-strong:#606068;--accent:#CDFF00;--accent-dim:rgba(205,255,0,.15);
-    --accent-text:#0A0A0A;--radius:6px;--radius-sm:4px;
+    --border:#333338;--border-strong:#606068;--accent:#CDFF00;--accent-dim:rgba(205,255,0,.12);
+    --accent-text:#0A0A0A;--radius:8px;--radius-sm:5px;
     --font:'JetBrains Mono',ui-monospace,SFMono-Regular,Menlo,monospace;
   }
   *{box-sizing:border-box}
+  html,body{height:100%}
   body{margin:0;background:var(--bg-primary);color:var(--text-primary);font-family:var(--font);
-    line-height:1.5;padding:32px 16px}
-  .wrap{max-width:760px;margin:0 auto}
-  header{border-bottom:1px solid var(--border);padding-bottom:16px;margin-bottom:24px}
-  .eyebrow{color:var(--accent);font-size:12px;letter-spacing:.12em;text-transform:uppercase}
-  h1{font-size:20px;margin:6px 0 4px}
-  .sub{color:var(--text-secondary);font-size:13px}
-  .chip{display:inline-block;background:var(--accent-dim);color:var(--accent);
-    border-radius:var(--radius-sm);padding:1px 8px;font-size:11px;text-transform:uppercase;letter-spacing:.08em}
-  .what{color:var(--text-secondary);font-size:13px;margin-top:10px;white-space:pre-wrap}
-  .stage{background:var(--bg-secondary);border:1px solid var(--border);border-radius:var(--radius);
-    padding:18px 18px 8px;margin-bottom:18px}
-  .stage h2{font-size:14px;margin:0 0 2px;display:flex;justify-content:space-between;align-items:center}
-  .bucket{font-size:10px;color:var(--text-muted);border:1px solid var(--border);border-radius:var(--radius-sm);padding:1px 6px}
-  .q{margin:16px 0}
-  .q .prompt{font-size:13px;margin-bottom:8px}
-  .q .hdr{color:var(--text-muted);font-size:11px;text-transform:uppercase;letter-spacing:.08em;margin-right:6px}
-  label.opt{display:block;background:var(--bg-tertiary);border:1px solid var(--border);
-    border-radius:var(--radius-sm);padding:9px 12px;margin:6px 0;cursor:pointer;font-size:13px;transition:.12s}
-  label.opt:hover{background:var(--bg-hover);border-color:var(--border-strong)}
-  label.opt input{margin-right:9px;accent-color:var(--accent)}
-  label.opt .desc{display:block;color:var(--text-muted);font-size:11px;margin-left:24px}
-  textarea,input[type=text]{width:100%;background:var(--bg-tertiary);color:var(--text-primary);
-    border:1px solid var(--border);border-radius:var(--radius-sm);padding:9px 12px;font-family:var(--font);font-size:13px;resize:vertical}
-  textarea:focus,input:focus{outline:none;border-color:var(--accent)}
-  .note{margin-top:6px}
-  .note label{font-size:11px;color:var(--text-muted);display:block;margin-bottom:4px}
-  .actions{margin:24px 0 8px}
-  button{background:var(--accent);color:var(--accent-text);border:0;border-radius:var(--radius);
-    padding:11px 22px;font-family:var(--font);font-weight:600;font-size:13px;cursor:pointer}
-  button:hover{filter:brightness(1.08)}
-  .banner{background:var(--accent-dim);border:1px solid var(--accent);border-radius:var(--radius);
-    padding:14px 16px;margin-bottom:24px;font-size:13px}
+    line-height:1.55;font-size:14px;display:flex}
+  ::selection{background:var(--accent);color:var(--accent-text)}
+  /* ---------- layout ---------- */
+  .iv-main{flex:1;min-width:0;display:flex;flex-direction:column;height:100vh}
+  .iv-scroll{flex:1;overflow-y:auto;padding:34px 40px 12px}
+  .iv-inner{max-width:680px;margin:0 auto}
+  .iv-chat{width:380px;flex-shrink:0;border-left:1px solid var(--border);
+    display:flex;flex-direction:column;height:100vh;background:var(--bg-secondary)}
+  @media(max-width:880px){body{flex-direction:column}.iv-chat{width:auto;height:46vh;border-left:0;border-top:1px solid var(--border)}.iv-main{height:54vh}}
+  /* ---------- header ---------- */
+  .eyebrow{color:var(--accent);font-size:11px;letter-spacing:.16em;text-transform:uppercase}
+  h1{font-size:21px;margin:8px 0 6px;letter-spacing:-.01em}
+  .sub{color:var(--text-secondary);font-size:12px;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  .chip{background:var(--accent-dim);color:var(--accent);border-radius:999px;padding:2px 10px;
+    font-size:10px;text-transform:uppercase;letter-spacing:.1em}
+  .what{color:var(--text-muted);font-size:12px;margin:14px 0 0;white-space:pre-wrap;
+    border-left:2px solid var(--border);padding-left:12px}
+  /* ---------- stepper ---------- */
+  .stepper{display:flex;gap:8px;margin:26px 0 22px}
+  .step{flex:1;min-width:0}
+  .step .bar{height:3px;border-radius:3px;background:var(--bg-tertiary);transition:.3s}
+  .step.done .bar,.step.active .bar{background:var(--accent)}
+  .step .lbl{font-size:10px;color:var(--text-muted);margin-top:7px;text-transform:uppercase;
+    letter-spacing:.06em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .step.active .lbl{color:var(--text-primary)}
+  .step .arrow{font-size:9px;color:var(--text-muted);margin-left:5px}
+  /* ---------- stages ---------- */
+  .stage{display:none;animation:rise .32s ease}
+  .stage.active{display:block}
+  @keyframes rise{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+  .stage-bucket{font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:18px}
+  .stage-bucket b{color:var(--accent);font-weight:600}
+  .q{margin:0 0 24px}
+  .q .prompt{font-size:14px;margin-bottom:3px}
+  .q .hdr{display:block;color:var(--text-muted);font-size:10px;text-transform:uppercase;letter-spacing:.1em;margin-bottom:9px}
+  /* option cards (radio/checkbox) */
+  .opts{display:flex;flex-direction:column;gap:8px}
+  .opt{position:relative;display:flex;align-items:flex-start;gap:11px;background:var(--bg-secondary);
+    border:1px solid var(--border);border-radius:var(--radius-sm);padding:11px 14px;cursor:pointer;transition:.14s}
+  .opt:hover{border-color:var(--border-strong);background:var(--bg-hover)}
+  .opt input{position:absolute;opacity:0;pointer-events:none}
+  .opt .mark{flex-shrink:0;width:16px;height:16px;margin-top:2px;border:1.5px solid var(--border-strong);
+    border-radius:50%;display:grid;place-items:center;transition:.14s}
+  .opt input[type=checkbox]~.mark{border-radius:4px}
+  .opt .mark::after{content:"";width:8px;height:8px;border-radius:inherit;background:var(--accent);transform:scale(0);transition:.14s}
+  .opt:has(input:checked){border-color:var(--accent);background:var(--accent-dim)}
+  .opt:has(input:checked) .mark{border-color:var(--accent)}
+  .opt:has(input:checked) .mark::after{transform:scale(1)}
+  .opt .otxt{flex:1}
+  .opt .olabel{font-size:13px}
+  .opt .odesc{display:block;color:var(--text-muted);font-size:11px;margin-top:2px}
+  /* yes/no segmented */
+  .seg{display:inline-flex;border:1px solid var(--border);border-radius:var(--radius-sm);overflow:hidden}
+  .seg label{padding:8px 22px;cursor:pointer;font-size:13px;color:var(--text-secondary);transition:.14s}
+  .seg label:first-child{border-right:1px solid var(--border)}
+  .seg input{position:absolute;opacity:0;pointer-events:none}
+  .seg label:has(input:checked){background:var(--accent);color:var(--accent-text);font-weight:600}
+  /* text + note */
+  input[type=text],textarea{width:100%;background:var(--bg-tertiary);color:var(--text-primary);
+    border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px 13px;
+    font-family:var(--font);font-size:13px;resize:vertical}
+  input[type=text]:focus,textarea:focus{outline:none;border-color:var(--accent)}
+  .note details{margin-top:4px}
+  .note summary{color:var(--text-muted);font-size:11px;cursor:pointer;list-style:none;user-select:none}
+  .note summary::before{content:"+ ";color:var(--accent)}
+  .note details[open] summary::before{content:"– "}
+  .note textarea{margin-top:8px}
+  /* ---------- footer ---------- */
+  .iv-foot{border-top:1px solid var(--border);padding:14px 40px;display:flex;align-items:center;
+    justify-content:space-between;gap:14px;background:var(--bg-primary)}
+  .counter{font-size:11px;color:var(--text-muted)}
+  .counter b{color:var(--text-primary)}
+  .foot-btns{display:flex;gap:10px}
+  button{font-family:var(--font);font-size:13px;border-radius:var(--radius-sm);padding:10px 20px;
+    cursor:pointer;border:1px solid var(--border);background:var(--bg-tertiary);color:var(--text-primary);transition:.14s}
+  button:hover{border-color:var(--border-strong)}
+  button.primary{background:var(--accent);color:var(--accent-text);border-color:var(--accent);font-weight:600}
+  button.primary:hover{filter:brightness(1.08)}
+  button[hidden]{display:none}
+  /* ---------- success banner ---------- */
+  .banner{max-width:680px;margin:60px auto;background:var(--accent-dim);border:1px solid var(--accent);
+    border-radius:var(--radius);padding:22px 24px;font-size:14px}
+  .banner .big{font-size:16px;margin-bottom:6px}
+  /* ---------- chat (mirrors dashboard plan-review) ---------- */
+  .chat-head{padding:13px 16px;border-bottom:1px solid var(--border);flex-shrink:0;
+    display:flex;align-items:center;gap:8px}
+  .chat-title{font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.1em}
+  .chat-dot{width:6px;height:6px;border-radius:50%;background:var(--accent)}
+  .chat-msgs{flex:1;overflow-y:auto;padding:14px 16px;display:flex;flex-direction:column;gap:11px}
+  .chat-notice{font-size:12px;color:var(--text-muted);font-style:italic;text-align:center;margin:auto 0;line-height:1.7}
+  .bubble{max-width:100%;padding:10px 13px;border-radius:12px;font-size:12.5px;line-height:1.6;word-break:break-word}
+  .bubble[data-role=user]{background:var(--accent-dim);border-bottom-right-radius:4px;align-self:flex-end}
+  .bubble[data-role=assistant]{background:var(--bg-primary);color:var(--text-secondary);
+    border:1px solid var(--border);border-bottom-left-radius:4px}
+  .bubble p{margin:0 0 6px}.bubble p:last-child{margin:0}
+  .bubble code{background:var(--bg-tertiary);padding:1px 5px;border-radius:3px;font-size:11.5px}
+  .bubble pre{background:var(--bg-tertiary);padding:10px;border-radius:5px;overflow-x:auto;margin:6px 0}
+  .bubble ul{margin:4px 0;padding-left:18px}
+  .chat-in{display:flex;gap:8px;padding:12px 16px;border-top:1px solid var(--border);flex-shrink:0}
+  .chat-in textarea{flex:1;rows:2;font-size:12.5px;padding:9px 11px;min-height:40px}
+  .chat-in button{align-self:flex-end}
+  .chat-in button:disabled{opacity:.4;cursor:not-allowed}
 </style>
 </head>
-<body>
-<div class="wrap">
-  <header>
+<body data-plan="{{.PlanID}}" data-chat="{{.ChatEnabled}}">
+
+<div class="iv-main">
+  <div class="iv-scroll">
+   <div class="iv-inner">
     <div class="eyebrow">wipnote · plan interview</div>
     <h1>{{.SliceTitle}}</h1>
-    <div class="sub">{{.PlanID}} · slice {{.SliceNum}} · <span class="chip">{{if .Complexity}}{{.Complexity}}{{else}}standard{{end}}</span></div>
+    <div class="sub">{{.PlanID}} · slice {{.SliceNum}} <span class="chip">{{if .Complexity}}{{.Complexity}}{{else}}standard{{end}}</span></div>
     {{if .SliceWhat}}<div class="what">{{.SliceWhat}}</div>{{end}}
-  </header>
 
-  {{if .Submitted}}
-    <div class="banner">{{.Message}}</div>
-  {{else}}
-  <form method="POST" action="/submit">
-    {{range .Stages}}
-    <section class="stage">
-      <h2><span>{{.Title}}</span><span class="bucket">→ {{.Bucket}}</span></h2>
-      {{$stage := .}}
-      {{range .Questions}}
-      <div class="q">
-        <div class="prompt"><span class="hdr">{{.Header}}</span>{{.Prompt}}</div>
-        {{if eq (printf "%s" .Type) "choice"}}
-          {{$q := .}}
-          {{range .Options}}
-          <label class="opt">
-            <input type="{{if $q.MultiSelect}}checkbox{{else}}radio{{end}}" name="{{$q.ID}}" value="{{.Label}}">
-            {{.Label}}{{if .Description}}<span class="desc">{{.Description}}</span>{{end}}
-          </label>
-          {{end}}
-        {{else if eq (printf "%s" .Type) "yesno"}}
-          <label class="opt"><input type="radio" name="{{.ID}}" value="Yes"> Yes</label>
-          <label class="opt"><input type="radio" name="{{.ID}}" value="No"> No</label>
-        {{else}}
-          <input type="text" name="{{.ID}}" placeholder="{{.Placeholder}}">
-        {{end}}
-      </div>
+    {{if .Submitted}}
+      <div class="banner"><div class="big">✓ Decisions saved</div>{{.Message}}</div>
+    {{else}}
+    <div class="stepper" id="stepper">
+      {{range $i, $s := .Stages}}
+      <div class="step" data-i="{{$i}}"><div class="bar"></div><div class="lbl">{{$s.Title}}<span class="arrow">→ {{$s.Bucket}}</span></div></div>
       {{end}}
-      <div class="note">
-        <label>Notes / anything else for {{.Title}} (free text)</label>
-        <textarea name="note:{{.Key}}" rows="2" placeholder="Optional — captured verbatim into the {{.Bucket}} section"></textarea>
-      </div>
-    </section>
+    </div>
+
+    <form method="POST" action="/submit" id="iv-form">
+      {{range $i, $s := .Stages}}
+      <section class="stage" data-i="{{$i}}">
+        <div class="stage-bucket">Stage {{add $i 1}} · feeds <b>{{$s.Bucket}}</b></div>
+        {{range $s.Questions}}
+        <div class="q">
+          <span class="hdr">{{.Header}}</span>
+          <div class="prompt">{{.Prompt}}</div>
+          {{if eq (printf "%s" .Type) "choice"}}
+            {{$q := .}}
+            <div class="opts">
+            {{range .Options}}
+              <label class="opt">
+                <input type="{{if $q.MultiSelect}}checkbox{{else}}radio{{end}}" name="{{$q.ID}}" value="{{.Label}}">
+                <span class="mark"></span>
+                <span class="otxt"><span class="olabel">{{.Label}}</span>{{if .Description}}<span class="odesc">{{.Description}}</span>{{end}}</span>
+              </label>
+            {{end}}
+            </div>
+          {{else if eq (printf "%s" .Type) "yesno"}}
+            <div class="seg">
+              <label><input type="radio" name="{{.ID}}" value="Yes">Yes</label>
+              <label><input type="radio" name="{{.ID}}" value="No">No</label>
+            </div>
+          {{else}}
+            <input type="text" name="{{.ID}}" placeholder="{{.Placeholder}}">
+          {{end}}
+        </div>
+        {{end}}
+        <div class="note q">
+          <details><summary>Add a note for {{$s.Title}}</summary>
+            <textarea name="note:{{$s.Key}}" rows="2" placeholder="Free text — captured verbatim into the {{$s.Bucket}} section"></textarea>
+          </details>
+        </div>
+      </section>
+      {{end}}
+    </form>
     {{end}}
-    <div class="actions"><button type="submit">Submit decisions</button></div>
-  </form>
+   </div>
+  </div>
+
+  {{if not .Submitted}}
+  <div class="iv-foot">
+    <div class="counter">Stage <b id="cur">1</b> of {{len .Stages}}</div>
+    <div class="foot-btns">
+      <button type="button" id="back" hidden>← Back</button>
+      <button type="button" id="next" class="primary">Next →</button>
+      <button type="submit" form="iv-form" id="submit" class="primary" hidden>Submit decisions</button>
+    </div>
+  </div>
   {{end}}
 </div>
+
+{{if .ChatEnabled}}
+<aside class="iv-chat">
+  <div class="chat-head"><span class="chat-dot"></span><span class="chat-title">Discussion</span></div>
+  <div class="chat-msgs" id="msgs">
+    <p class="chat-notice" id="notice">Stuck on a question, or want something in the plan changed?<br>Ask here — answered by the same assistant as plan review.</p>
+  </div>
+  <div class="chat-in">
+    <textarea id="cin" rows="2" placeholder="Ask a question or request a change…"></textarea>
+    <button id="csend" class="primary">Send</button>
+  </div>
+</aside>
+{{end}}
+
+<script>
+(function(){
+  // ---- wizard ----
+  var stages=[].slice.call(document.querySelectorAll('.stage'));
+  var steps=[].slice.call(document.querySelectorAll('.step'));
+  var cur=0;
+  var back=document.getElementById('back'),next=document.getElementById('next'),
+      submit=document.getElementById('submit'),curEl=document.getElementById('cur');
+  function render(){
+    stages.forEach(function(s,i){s.classList.toggle('active',i===cur)});
+    steps.forEach(function(s,i){s.classList.toggle('active',i===cur);s.classList.toggle('done',i<cur)});
+    if(curEl)curEl.textContent=cur+1;
+    if(back)back.hidden=cur===0;
+    var last=cur===stages.length-1;
+    if(next)next.hidden=last;
+    if(submit)submit.hidden=!last;
+  }
+  if(next)next.onclick=function(){if(cur<stages.length-1){cur++;render();document.querySelector('.iv-scroll').scrollTop=0;}};
+  if(back)back.onclick=function(){if(cur>0){cur--;render();document.querySelector('.iv-scroll').scrollTop=0;}};
+  steps.forEach(function(s){s.onclick=function(){cur=+s.dataset.i;render();}});
+  if(stages.length)render();
+
+  // ---- chat (reuses dashboard plan-review chat API) ----
+  if(document.body.dataset.chat!=='true')return;
+  var plan=document.body.dataset.plan,msgs=document.getElementById('msgs'),
+      notice=document.getElementById('notice'),cin=document.getElementById('cin'),csend=document.getElementById('csend');
+  function esc(t){var d=document.createElement('div');d.textContent=t;return d.innerHTML;}
+  function md(t){var s=esc(t);
+    s=s.replace(/```(\w*)\n([\s\S]*?)```/g,function(_,l,c){return '<pre><code>'+c.trim()+'</code></pre>'});
+    s=s.replace(/`([^`]+)`/g,'<code>$1</code>').replace(/\*\*([^*]+)\*\*/g,'<strong>$1</strong>');
+    s=s.replace(/^[*-] (.+)$/gm,'<li>$1</li>').replace(/(<li>[\s\S]*?<\/li>)/g,'<ul>$1</ul>');
+    return s.split(/\n\n/).map(function(b){b=b.trim();return b?(/^<(ul|pre)/.test(b)?b:'<p>'+b.replace(/\n/g,'<br>')+'</p>'):''}).join('');}
+  function bubble(role,content){if(!content||!content.trim())return null;if(notice)notice.style.display='none';
+    var d=document.createElement('div');d.className='bubble';d.dataset.role=role;
+    d.innerHTML=role==='assistant'?md(content):esc(content);msgs.appendChild(d);msgs.scrollTop=msgs.scrollHeight;return d;}
+  fetch('/api/plans/'+plan+'/feedback').then(function(r){return r.ok?r.json():null}).then(function(d){
+    if(d&&d.chat_messages)d.chat_messages.forEach(function(m){bubble(m.role,m.content)});}).catch(function(){});
+  function enable(on){csend.disabled=!on;cin.disabled=!on;}
+  function send(){var t=cin.value.trim();if(!t)return;bubble('user',t);cin.value='';enable(false);
+    var ab=bubble('assistant','…'),raw='';
+    fetch('/api/plans/'+plan+'/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:t})})
+    .then(function(resp){
+      if(resp.status===503){ab.textContent='Chat unavailable — Claude CLI not found and no API key configured.';enable(true);return;}
+      var rd=resp.body.getReader(),dec=new TextDecoder(),buf='';
+      (function pump(){rd.read().then(function(res){
+        if(res.done){if(raw)ab.innerHTML=md(raw);enable(true);return;}
+        buf+=dec.decode(res.value,{stream:true});var lines=buf.split('\n');buf=lines.pop()||'';
+        lines.forEach(function(ln){ln=ln.trim();if(ln.indexOf('data: ')!==0)return;
+          try{var e=JSON.parse(ln.slice(6));
+            if(e.type==='chunk'&&e.text){raw+=e.text;ab.textContent=raw;msgs.scrollTop=msgs.scrollHeight;}
+            else if(e.type==='error'){ab.textContent+=' [error: '+e.error+']';}
+            else if(e.type==='done'){if(raw)ab.innerHTML=md(raw);enable(true);}
+          }catch(_){}}); pump();});})();
+    }).catch(function(){ab.textContent='Network error.';enable(true);});}
+  csend.onclick=send;
+  cin.addEventListener('keydown',function(e){if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();send();}});
+})();
+</script>
 </body>
 </html>

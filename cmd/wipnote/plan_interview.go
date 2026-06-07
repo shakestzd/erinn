@@ -29,6 +29,8 @@ import (
 	"syscall"
 	"time"
 
+	dbpkg "github.com/shakestzd/wipnote/core/db"
+	"github.com/shakestzd/wipnote/core/storage"
 	"github.com/shakestzd/wipnote/plan/interview"
 	"github.com/shakestzd/wipnote/plan/planyaml"
 	"github.com/spf13/cobra"
@@ -37,18 +39,21 @@ import (
 //go:embed templates/interview.gohtml
 var interviewFormHTML string
 
-var interviewTmpl = template.Must(template.New("interview").Parse(interviewFormHTML))
+var interviewTmpl = template.Must(template.New("interview").
+	Funcs(template.FuncMap{"add": func(a, b int) int { return a + b }}).
+	Parse(interviewFormHTML))
 
 // interviewPage is the template/render model for the form.
 type interviewPage struct {
-	PlanID     string
-	SliceNum   int
-	SliceTitle string
-	SliceWhat  string
-	Complexity string
-	Stages     []interview.Stage
-	Submitted  bool
-	Message    string
+	PlanID      string
+	SliceNum    int
+	SliceTitle  string
+	SliceWhat   string
+	Complexity  string
+	Stages      []interview.Stage
+	Submitted   bool
+	Message     string
+	ChatEnabled bool
 }
 
 func planInterviewCmd() *cobra.Command {
@@ -109,6 +114,21 @@ func runPlanInterview(wipnoteDir, planID string, sliceNum int, bind string, port
 
 	done := make(chan error, 1)
 	mux := http.NewServeMux()
+
+	// Mount the same plan API the dashboard uses so the embedded chat panel
+	// is the real plan-review chat (Claude-answered, AMEND directives honored)
+	// — the user can ask questions or request plan changes without leaving the
+	// interview. Best-effort: if the DB can't open, the form still works and
+	// the chat panel reports itself unavailable.
+	page.ChatEnabled = false
+	if dbPath, derr := storage.CanonicalDBPath(filepath.Dir(wipnoteDir)); derr == nil {
+		if db, oerr := dbpkg.Open(dbPath); oerr == nil {
+			defer db.Close()
+			mux.Handle("/api/plans/", planRouter(db, db, wipnoteDir))
+			page.ChatEnabled = true
+		}
+	}
+
 	mux.HandleFunc("/", func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		_ = interviewTmpl.Execute(w, page)

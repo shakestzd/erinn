@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>Completion/quality gate runs go test against main checkout, not invoking worktree</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="bug-1cd1acef"
+             data-type="bug"
+             data-status="todo"
+             data-priority="medium"
+             data-created="2026-06-07T16:41:17.885195"
+             data-updated="2026-06-07T16:41:17.893604" data-agent-assigned="claude-code" data-track-id="trk-b6086017" data-created-by-agent="claude-code" data-created-by-model="claude-opus-4-8[1m]" data-created-by-cli-version="0.60.21-9-gc72335802">
+
+        <header>
+            <h1>Completion/quality gate runs go test against main checkout, not invoking worktree</h1>
+            <div class="metadata">
+                <span class="badge status-todo">Todo</span>
+                <span class="badge priority-medium">Medium Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="trk-b6086017.html" data-relationship="part_of" data-since="2026-06-07T16:41:17.892605">trk-b6086017</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>runSessionGate/detectGatePlan run gate commands in projectRoot (main checkout where .wipnote lives). Invoked from a linked worktree, the gate tests main instead of the branch under test; pre-existing red main blocks completion of green worktree features, and worktree changes go ungated. Fix: run gate in the worktree owning the invocation CWD (same repo via shared git-common-dir), keep projectRoot for DB/profile/state.</p>
+        </section>
+    </article>
+</body>
+</html>

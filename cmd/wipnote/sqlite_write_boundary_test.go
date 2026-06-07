@@ -173,7 +173,7 @@ var approvedWriteSites = []writeSite{
 	},
 	{
 		File:           "cmd/wipnote/plan_feedback_cmd.go",
-		Line:           77,
+		Line:           76,
 		Function:       "planFeedback",
 		OpenExpr:       "dbpkg.Open",
 		Classification: intentionalCLIMutation,

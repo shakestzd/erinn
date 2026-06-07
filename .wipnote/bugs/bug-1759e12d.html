@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>Post-move stale path refs: forbiddenPathPrefixes, host-paths allowlist, track-attribution globs, gofmt</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="bug-1759e12d"
+             data-type="bug"
+             data-status="todo"
+             data-priority="medium"
+             data-created="2026-06-07T18:26:41.485244"
+             data-updated="2026-06-07T18:26:41.49422" data-agent-assigned="claude-code" data-track-id="trk-03da9cce" data-created-by-agent="claude-code" data-created-by-model="claude-opus-4-8[1m]" data-created-by-cli-version="0.60.21-9-gc72335802">
+
+        <header>
+            <h1>Post-move stale path refs: forbiddenPathPrefixes, host-paths allowlist, track-attribution globs, gofmt</h1>
+            <div class="metadata">
+                <span class="badge status-todo">Todo</span>
+                <span class="badge priority-medium">Medium Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="trk-03da9cce.html" data-relationship="part_of" data-since="2026-06-07T18:26:41.493997">trk-03da9cce</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>roborev job 3892 on the carve-out branch: import rewrite only touched .go files, leaving stale internal/ path refs in config/docs/guards after the hooks/harness/lineage move to core/. Fix forbiddenPathPrefixes (add core/hooks), host-paths-allowlist-patterns.conf, track-attribution-rules.yaml, and gofmt main.go.</p>
+        </section>
+    </article>
+</body>
+</html>

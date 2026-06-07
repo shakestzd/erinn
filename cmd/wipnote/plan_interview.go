@@ -16,9 +16,13 @@ package main
 
 import (
 	"context"
+	"database/sql"
 	_ "embed"
+	"encoding/json"
 	"fmt"
 	"html/template"
+	"io"
+	"log"
 	"net"
 	"net/http"
 	"net/url"
@@ -32,6 +36,8 @@ import (
 	dbpkg "github.com/shakestzd/wipnote/core/db"
 	"github.com/shakestzd/wipnote/core/storage"
 	"github.com/shakestzd/wipnote/plan/interview"
+	"github.com/shakestzd/wipnote/plan/planamend"
+	"github.com/shakestzd/wipnote/plan/planchat"
 	"github.com/shakestzd/wipnote/plan/planyaml"
 	"github.com/spf13/cobra"
 )
@@ -124,7 +130,12 @@ func runPlanInterview(wipnoteDir, planID string, sliceNum int, bind string, port
 	if dbPath, derr := storage.CanonicalDBPath(filepath.Dir(wipnoteDir)); derr == nil {
 		if db, oerr := dbpkg.Open(dbPath); oerr == nil {
 			defer db.Close()
+			// planRouter serves the shared chat history (/feedback) and amendments;
+			// the interview-aware chat endpoint injects the current slice, stages,
+			// questions, and the user's in-progress selections into the context so
+			// the assistant answers about the form, not just the plan.
 			mux.Handle("/api/plans/", planRouter(db, db, wipnoteDir))
+			mux.Handle("/api/interview/chat", interviewChatHandler(db, wipnoteDir, planID, sliceNum, slice, stages))
 			page.ChatEnabled = true
 		}
 	}
@@ -182,6 +193,124 @@ func runPlanInterview(wipnoteDir, planID string, sliceNum int, bind string, port
 	defer cancel()
 	_ = srv.Shutdown(shutdownCtx)
 	return runErr
+}
+
+// interviewChatReq is the POST body for the interview-aware chat endpoint. It
+// carries the user's message plus their in-progress answers and current stage
+// so the assistant has the form's live state, not just the plan.
+type interviewChatReq struct {
+	Message string            `json:"message"`
+	Answers map[string]string `json:"answers"`
+	Stage   string            `json:"stage"`
+}
+
+// interviewChatHandler streams a Claude reply (SSE) like the dashboard plan
+// chat, but seeds the context with the interview itself: the slice, every
+// stage/question/option, and what the user has selected so far. This is what
+// lets the user ask "what does this option mean?" or "recommend a choice" and
+// get an answer grounded in the form. AMEND directives are honored so plan
+// changes can be requested without leaving the interview.
+func interviewChatHandler(db *sql.DB, wipnoteDir, planID string, sliceNum int, slice planyaml.PlanSlice, stages []interview.Stage) http.HandlerFunc {
+	projectDir := filepath.Dir(wipnoteDir)
+	return func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			http.Error(w, "POST only", http.StatusMethodNotAllowed)
+			return
+		}
+		var req interviewChatReq
+		body, _ := io.ReadAll(io.LimitReader(r.Body, 64*1024))
+		if json.Unmarshal(body, &req) != nil || strings.TrimSpace(req.Message) == "" {
+			http.Error(w, "message is required", http.StatusBadRequest)
+			return
+		}
+
+		ctxText := interviewChatContext(planID, sliceNum, slice, stages, req.Answers, req.Stage) +
+			"\n\n--- FULL PLAN YAML ---\n" + loadPlanContext(wipnoteDir, planID)
+		backend := planchat.New(db, planID, ctxText, projectDir)
+		if !backend.IsAvailable() {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusServiceUnavailable)
+			_ = json.NewEncoder(w).Encode(map[string]string{"error": "Claude unavailable. Install claude CLI or set ANTHROPIC_API_KEY."})
+			return
+		}
+		_ = backend.SaveMessage("user", req.Message)
+
+		flusher, ok := w.(http.Flusher)
+		if !ok {
+			http.Error(w, "streaming not supported", http.StatusInternalServerError)
+			return
+		}
+		w.Header().Set("Content-Type", "text/event-stream")
+		w.Header().Set("Cache-Control", "no-cache")
+		w.Header().Set("Connection", "keep-alive")
+
+		chunks, errCh := backend.Send(r.Context(), req.Message)
+		var full strings.Builder
+		for chunk := range chunks {
+			full.WriteString(chunk)
+			payload, _ := json.Marshal(map[string]string{"type": "chunk", "text": chunk})
+			fmt.Fprintf(w, "data: %s\n\n", payload)
+			flusher.Flush()
+		}
+		if err := <-errCh; err != nil {
+			payload, _ := json.Marshal(map[string]string{"type": "error", "error": err.Error()})
+			fmt.Fprintf(w, "data: %s\n\n", payload)
+		} else if full.Len() > 0 {
+			_ = backend.SaveMessage("assistant", full.String())
+			for _, a := range planamend.ParseAmendments(full.String()) {
+				value, _ := json.Marshal(a)
+				if serr := dbpkg.StorePlanFeedback(db, planID, fmt.Sprintf("slice-%d", a.SliceNum), "amendment", string(value), ""); serr != nil {
+					log.Printf("warning: store amendment for plan %s slice %d: %v", planID, a.SliceNum, serr)
+				}
+			}
+		}
+		fmt.Fprintf(w, "data: %s\n\n", `{"type":"done"}`)
+		flusher.Flush()
+	}
+}
+
+// interviewChatContext renders the interview's live state as plain-text context
+// for the assistant: the slice, every stage with its questions and options, a
+// marker for the stage the user is on, and the answers chosen so far.
+func interviewChatContext(planID string, sliceNum int, slice planyaml.PlanSlice, stages []interview.Stage, answers map[string]string, currentStage string) string {
+	var b strings.Builder
+	fmt.Fprintf(&b, "The user is filling out wipnote's staged PLANNING INTERVIEW for slice %d (%q) of plan %s.\n", sliceNum, slice.Title, planID)
+	if w := strings.TrimSpace(slice.What); w != "" {
+		b.WriteString("Slice intent: " + w + "\n")
+	}
+	b.WriteString("\nThe interview collects Scope/Decisions/Context that become the slice's decisions_notes. Stages and questions:\n")
+	for i, st := range stages {
+		here := ""
+		if st.Key == currentStage {
+			here = "   <-- the user is on this stage"
+		}
+		fmt.Fprintf(&b, "\nStage %d — %s (feeds %s)%s\n", i+1, st.Title, st.Bucket, here)
+		for _, q := range st.Questions {
+			b.WriteString("  • " + q.Prompt + "\n")
+			for _, o := range q.Options {
+				b.WriteString("      - " + o.Label + ": " + o.Description + "\n")
+			}
+		}
+	}
+	b.WriteString("\nThe user's selections so far:\n")
+	any := false
+	for _, st := range stages {
+		for _, q := range st.Questions {
+			if v := strings.TrimSpace(answers[q.ID]); v != "" {
+				fmt.Fprintf(&b, "  • %s: %s\n", q.Header, v)
+				any = true
+			}
+		}
+		if n := strings.TrimSpace(answers["note:"+st.Key]); n != "" {
+			fmt.Fprintf(&b, "  • note (%s): %s\n", st.Title, n)
+			any = true
+		}
+	}
+	if !any {
+		b.WriteString("  (nothing selected yet)\n")
+	}
+	b.WriteString("\nAnswer the user's question in THIS interview's context — explain what a question or option means, recommend a choice for this slice, or help them phrase a decision. If they ask to change the plan itself, emit AMEND directives as in plan review.\n")
+	return b.String()
 }
 
 // collectAnswers flattens posted form values into the answers map Compose

@@ -152,7 +152,7 @@
 
     <form method="POST" action="/submit" id="iv-form">
       {{range $i, $s := .Stages}}
-      <section class="stage" data-i="{{$i}}">
+      <section class="stage" data-i="{{$i}}" data-key="{{$s.Key}}">
         <div class="stage-bucket">Stage {{add $i 1}} · feeds <b>{{$s.Bucket}}</b></div>
         {{range $s.Questions}}
         <div class="q">
@@ -269,9 +269,13 @@
   fetch('/api/plans/'+plan+'/feedback').then(function(r){return r.ok?r.json():null}).then(function(d){
     if(d&&d.chat_messages)d.chat_messages.forEach(function(m){bubble(m.role,m.content)});}).catch(function(){});
   function enable(on){csend.disabled=!on;cin.disabled=!on;}
+  // snapshot the user's in-progress form answers so the assistant has live context
+  function currentAnswers(){var f=document.getElementById('iv-form'),out={};if(!f)return out;
+    new FormData(f).forEach(function(v,k){v=(''+v).trim();if(!v)return;out[k]=out[k]?out[k]+'; '+v:v;});return out;}
   function send(){var t=cin.value.trim();if(!t)return;bubble('user',t);cin.value='';enable(false);
     var ab=bubble('assistant','…'),raw='';
-    fetch('/api/plans/'+plan+'/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:t})})
+    var stageKey=(function(){var a=document.querySelector('.stage.active');return a?a.getAttribute('data-key'):'';})();
+    fetch('/api/interview/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:t,answers:currentAnswers(),stage:stageKey})})
     .then(function(resp){
       if(resp.status===503){ab.textContent='Chat unavailable — Claude CLI not found and no API key configured.';enable(true);return;}
       var rd=resp.body.getReader(),dec=new TextDecoder(),buf='';

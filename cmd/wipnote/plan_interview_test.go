@@ -6,7 +6,46 @@ import (
 	"testing"
 
 	"github.com/shakestzd/wipnote/plan/interview"
+	"github.com/shakestzd/wipnote/plan/planyaml"
 )
+
+func TestInterviewChatContext_IncludesFormState(t *testing.T) {
+	stages := interview.ForComplexity("complex")
+	slice := planyaml.PlanSlice{Num: 2, Title: "Apply guard profiles", What: "Wire guards into all gate sites."}
+	answers := map[string]string{
+		stages[0].Questions[0].ID: "New capability — feature add",
+		"note:" + stages[1].Key:   "state lives in committed html",
+	}
+	ctx := interviewChatContext("plan-x", 2, slice, stages, answers, stages[1].Key)
+
+	for _, want := range []string{
+		"Apply guard profiles",          // slice title
+		"Wire guards into all gate",     // slice intent
+		"Stage 1 — Requirements",        // stage listing
+		"the user is on this stage",     // current-stage marker
+		"New capability",                // a rendered option/answer
+		"state lives in committed html", // the free-text note
+	} {
+		if !strings.Contains(ctx, want) {
+			t.Errorf("interview context missing %q\n---\n%s", want, ctx)
+		}
+	}
+
+	// the marker must attach to the stage the user is actually on (scope), not stage 1
+	scopeLine := lineContaining(ctx, stages[1].Title)
+	if !strings.Contains(scopeLine, "the user is on this stage") {
+		t.Errorf("marker not on the active stage line: %q", scopeLine)
+	}
+}
+
+func lineContaining(s, sub string) string {
+	for _, ln := range strings.Split(s, "\n") {
+		if strings.Contains(ln, sub) {
+			return ln
+		}
+	}
+	return ""
+}
 
 func TestCollectAnswers_FlattensFormIntoComposableMap(t *testing.T) {
 	stages := interview.ForComplexity("complex")

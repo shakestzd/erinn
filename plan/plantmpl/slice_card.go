@@ -8,7 +8,7 @@ import (
 	"strings"
 	"unicode/utf8"
 
-	"github.com/shakestzd/wipnote/internal/planyaml"
+	"github.com/shakestzd/wipnote/plan/planyaml"
 )
 
 // mdStripRe matches common inline Markdown formatting tokens for stripping.

@@ -8,7 +8,7 @@ import (
 
 	dbpkg "github.com/shakestzd/wipnote/core/db"
 	"github.com/shakestzd/wipnote/core/htmlparse"
-	"github.com/shakestzd/wipnote/internal/plantmpl"
+	"github.com/shakestzd/wipnote/plan/plantmpl"
 	"github.com/shakestzd/wipnote/core/storage"
 )
 

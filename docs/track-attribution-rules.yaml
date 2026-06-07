@@ -21,10 +21,10 @@ rules:
   - { glob: "cmd/wipnote/plan_*.go",            track_id: "trk-a30e8df4", priority: 100 }
   - { glob: "cmd/wipnote/plan.go",              track_id: "trk-a30e8df4", priority: 100 }
   - { glob: "cmd/wipnote/api_plans*.go",        track_id: "trk-a30e8df4", priority: 100 }
-  - { glob: "internal/plantmpl/**",               track_id: "trk-a30e8df4", priority: 100 }
-  - { glob: "internal/planyaml/**",               track_id: "trk-a30e8df4", priority: 100 }
-  - { glob: "internal/planamend/**",              track_id: "trk-a30e8df4", priority: 100 }
-  - { glob: "internal/planchat/**",               track_id: "trk-a30e8df4", priority: 100 }
+  - { glob: "plan/plantmpl/**",               track_id: "trk-a30e8df4", priority: 100 }
+  - { glob: "plan/planyaml/**",               track_id: "trk-a30e8df4", priority: 100 }
+  - { glob: "plan/planamend/**",              track_id: "trk-a30e8df4", priority: 100 }
+  - { glob: "plan/planchat/**",               track_id: "trk-a30e8df4", priority: 100 }
   - { glob: "core/db/plan_*.go",              track_id: "trk-a30e8df4", priority: 100 }
   - { glob: "plugin/skills/plan/**",              track_id: "trk-a30e8df4", priority: 100 }
 

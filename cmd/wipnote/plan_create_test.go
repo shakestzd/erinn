@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/shakestzd/wipnote/internal/planyaml"
+	"github.com/shakestzd/wipnote/plan/planyaml"
 )
 
 func TestRunPlanCreateFromTopic(t *testing.T) {

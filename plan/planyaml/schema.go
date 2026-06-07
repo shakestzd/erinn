@@ -68,7 +68,7 @@ type PlanDesign struct {
 // The Complexity field (added in the triage-gated interview redesign) drives
 // validator branching for the per-slice required-field checks. Empty string is
 // treated as "standard" for back-compat with v2 plans written before the field
-// existed — see internal/planyaml/validate.go for the branching table.
+// existed — see plan/planyaml/validate.go for the branching table.
 type PlanSlice struct {
 	ID        string   `yaml:"id"`
 	FeatureID string   `yaml:"feature_id,omitempty"` // populated after plan finalize

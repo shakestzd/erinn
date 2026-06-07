@@ -415,7 +415,7 @@ var forbiddenPathPrefixes = []string{
 
 // scannedDirs lists the first-party Go directories the boundary covers.
 // plugin/ holds only markdown / static assets (verified by the file-walk).
-var scannedDirs = []string{"cmd", "internal", "core"}
+var scannedDirs = []string{"cmd", "internal", "core", "plan"}
 
 // excludedDirs lists package directories whose internal sql.Open / Open
 // calls are NOT caller sites — they are the canonical open primitives

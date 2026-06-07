@@ -10,7 +10,7 @@ import (
 	"strings"
 
 	dbpkg "github.com/shakestzd/wipnote/core/db"
-	"github.com/shakestzd/wipnote/internal/planyaml"
+	"github.com/shakestzd/wipnote/plan/planyaml"
 	"github.com/shakestzd/wipnote/core/storage"
 	"github.com/spf13/cobra"
 )

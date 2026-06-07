@@ -8,18 +8,20 @@ require (
 	github.com/PuerkitoBio/goquery v1.10.3
 	github.com/gofrs/flock v0.13.0
 	github.com/google/uuid v1.6.0
-	github.com/microcosm-cc/bluemonday v1.0.27
 	github.com/pelletier/go-toml/v2 v2.3.0
 	github.com/spf13/cobra v1.9.1
 	github.com/tidwall/gjson v1.18.0
-	github.com/yuin/goldmark v1.8.2
 	go.opentelemetry.io/proto/otlp v1.10.0
 	google.golang.org/protobuf v1.36.11
 	gopkg.in/yaml.v3 v3.0.1
 	modernc.org/sqlite v1.37.1
 )
 
-require golang.org/x/sys v0.41.0 // indirect
+require (
+	github.com/microcosm-cc/bluemonday v1.0.27 // indirect
+	github.com/yuin/goldmark v1.8.2 // indirect
+	golang.org/x/sys v0.41.0 // indirect
+)
 
 require (
 	github.com/andybalholm/cascadia v1.3.3 // indirect
@@ -33,6 +35,7 @@ require (
 	github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec // indirect
 	github.com/rogpeppe/go-internal v1.14.1 // indirect
 	github.com/shakestzd/wipnote/core v0.0.0
+	github.com/shakestzd/wipnote/plan v0.0.0
 	github.com/spf13/pflag v1.0.6 // indirect
 	github.com/tidwall/match v1.1.1 // indirect
 	github.com/tidwall/pretty v1.2.0 // indirect
@@ -50,3 +53,8 @@ require (
 // supported install path today; when core is tagged and released, swap this
 // replace for a real version require (tracked on trk-03da9cce).
 replace github.com/shakestzd/wipnote/core => ./core
+
+// Interim multi-module wiring: plan/ is the planning product carved out of the
+// monolith (trk-49c43b06). Same local-replace rationale as core/ above; swap for
+// a real version require when plan is tagged and released.
+replace github.com/shakestzd/wipnote/plan => ./plan

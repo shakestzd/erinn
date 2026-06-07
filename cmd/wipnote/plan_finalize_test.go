@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	"github.com/PuerkitoBio/goquery"
-	"github.com/shakestzd/wipnote/internal/planyaml"
+	"github.com/shakestzd/wipnote/plan/planyaml"
 	"github.com/shakestzd/wipnote/core/workitem"
 )
 

@@ -16,10 +16,10 @@ import (
 
 	"github.com/PuerkitoBio/goquery"
 	dbpkg "github.com/shakestzd/wipnote/core/db"
-	"github.com/shakestzd/wipnote/internal/planamend"
-	"github.com/shakestzd/wipnote/internal/planchat"
-	"github.com/shakestzd/wipnote/internal/plantmpl"
-	"github.com/shakestzd/wipnote/internal/planyaml"
+	"github.com/shakestzd/wipnote/plan/planamend"
+	"github.com/shakestzd/wipnote/plan/planchat"
+	"github.com/shakestzd/wipnote/plan/plantmpl"
+	"github.com/shakestzd/wipnote/plan/planyaml"
 )
 
 // planListItem is a single entry in the GET /api/plans response.

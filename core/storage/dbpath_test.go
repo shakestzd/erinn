@@ -53,14 +53,16 @@ func TestNoInlineDBPathConstruction(t *testing.T) {
 		t.Fatalf("cannot locate module root (tried %s); err: %v", root, err)
 	}
 
-	// Directories to scan.
+	// Directories to scan. core/ is a separate module since the lineage
+	// closure was carved out; it must be covered too (storage now lives there).
 	scanDirs := []string{
 		filepath.Join(root, "cmd"),
 		filepath.Join(root, "internal"),
+		filepath.Join(root, "core"),
 	}
 
 	// The storage package itself is the one place allowed to define DBFileName.
-	storagePkg := filepath.Join(root, "internal", "storage")
+	storagePkg := filepath.Join(root, "core", "storage")
 
 	type violation struct {
 		path    string

@@ -43,4 +43,10 @@ require (
 	modernc.org/memory v1.11.0 // indirect
 )
 
+// Interim multi-module wiring: core/ is part of this monorepo and not yet
+// published/tagged, so it is consumed via a local replace. This is portable
+// for every supported install path (local `wipnote build` and the Homebrew
+// tarball both build from the checkout). `go install <pkg>@version` is not a
+// supported install path today; when core is tagged and released, swap this
+// replace for a real version require (tracked on trk-03da9cce).
 replace github.com/shakestzd/wipnote/core => ./core

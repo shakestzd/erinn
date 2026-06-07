@@ -21,6 +21,18 @@ jobs:
         run: go vet ./...
       - name: Test
         run: go test -short ./...
+      # The core/ module is separate (its own go.mod), so the root `./...`
+      # above does not include it. Run its gates explicitly so the moved
+      # core packages/tests stay covered in CI and release gates.
+      - name: Build (core module)
+        working-directory: core
+        run: go build ./...
+      - name: Vet (core module)
+        working-directory: core
+        run: go vet ./...
+      - name: Test (core module)
+        working-directory: core
+        run: go test -short ./...
       - name: Acceptance harness (CI-safe, fake binaries)
         # Runs the small CI-safe subset of the parallel-launcher acceptance
         # harness (plan-1670cacd slice-10, feat-7835351a). Uses fake DB rows

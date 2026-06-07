@@ -1,12 +1,8 @@
 package hooks
 
 import (
-	"os"
 	"os/exec"
-	"path/filepath"
 	"strings"
-
-	"github.com/shakestzd/wipnote/internal/pluginbuild"
 )
 
 // generatorInputDirs are the source-of-truth directories whose contents, when
@@ -69,24 +65,16 @@ func checkPortDriftCommitGuard(event *CloudEvent) string {
 		return ""
 	}
 
-	// Slow path: a generator-input is staged — check for drift.
-	manifestPath := filepath.Join(repoRoot, generatorInputManifest)
-	if _, err := os.Stat(manifestPath); err != nil {
-		// Not a plugin-core repo — no port drift to check.
+	// Slow path: a generator-input is staged — check for drift via the injected
+	// checker (feat-331927fb) so this core guard does not import pluginbuild. A
+	// nil checker means plugin tooling isn't wired (e.g. a downstream project
+	// dogfooding wipnote), so there is nothing to verify — allow.
+	if PortDriftPathsFn == nil {
 		return ""
 	}
-	m, err := pluginbuild.Load(manifestPath)
-	if err != nil {
+	paths := PortDriftPathsFn(repoRoot)
+	if len(paths) == 0 {
 		return ""
-	}
-	drifts, err := pluginbuild.CheckPorts(m, repoRoot, pluginbuild.Names())
-	if err != nil || len(drifts) == 0 {
-		return ""
-	}
-
-	var paths []string
-	for _, d := range drifts {
-		paths = append(paths, d.Path)
 	}
 	return "Generated plugin trees are stale — run `wipnote plugin build-ports`, " +
 		"stage the result, and re-commit.\n" +

@@ -14,9 +14,7 @@ import (
 	"time"
 
 	"github.com/shakestzd/wipnote/core/db"
-	"github.com/shakestzd/wipnote/internal/otel/materialize"
 	"github.com/shakestzd/wipnote/core/paths"
-	"github.com/shakestzd/wipnote/internal/pluginbuild"
 )
 
 // SessionEnd handles the SessionEnd Claude Code hook event.
@@ -113,8 +111,12 @@ func SessionEnd(event *CloudEvent, database *sql.DB, projectDir string) (*HookRe
 
 	// Materialize OTel rollup (no-op if no signals received for this session).
 	// Non-fatal: errors are logged but do not block SessionEnd completion.
-	if err := materialize.Materialize(database, projectDir, sessionID); err != nil {
-		debugLog(projectDir, "[error] handler=session-end session=%s: materialize otel: %v", sessionID[:minLen(sessionID, 8)], err)
+	// Injected (feat-331927fb) so core hooks don't import otel directly; a nil
+	// fn means telemetry isn't wired and the rollup is simply skipped.
+	if SessionMaterializeFn != nil {
+		if err := SessionMaterializeFn(database, projectDir, sessionID); err != nil {
+			debugLog(projectDir, "[error] handler=session-end session=%s: materialize otel: %v", sessionID[:minLen(sessionID, 8)], err)
+		}
 	}
 
 	// NOTE: FinalizeSessionHTML, backfillMissedUserPrompts, and
@@ -388,29 +390,14 @@ func reconcileStartedButOrphaned(database *sql.DB, _ string) []string {
 // and CheckPorts is the authoritative regenerate-and-compare. Returns the
 // drifted paths, or nil when in sync / not a plugin-core repo.
 func reconcilePortDrift(projectDir string) []string {
-	repoRoot := reconcileRepoRoot(projectDir)
-	if repoRoot == "" {
+	// Delegated to the injected port-drift checker (feat-331927fb) so this core
+	// reconcile path does not import pluginbuild. The checker owns the
+	// manifest-presence gate and the regenerate-and-compare; a nil fn (telemetry/
+	// plugin tooling not wired) means no drift to reconcile.
+	if PortDriftPathsFn == nil {
 		return nil
 	}
-	manifestPath := filepath.Join(repoRoot, "packages", "plugin-core", "manifest.json")
-	if _, err := os.Stat(manifestPath); err != nil {
-		// Not a plugin-core repo (e.g. a downstream project dogfooding
-		// wipnote) — there is no generator drift to reconcile here.
-		return nil
-	}
-	m, err := pluginbuild.Load(manifestPath)
-	if err != nil {
-		return nil
-	}
-	drifts, err := pluginbuild.CheckPorts(m, repoRoot, pluginbuild.Names())
-	if err != nil {
-		return nil
-	}
-	out := make([]string, 0, len(drifts))
-	for _, d := range drifts {
-		out = append(out, d.Path)
-	}
-	return out
+	return PortDriftPathsFn(reconcileRepoRoot(projectDir))
 }
 
 // reconcileRepoRoot walks up from projectDir to the directory containing a

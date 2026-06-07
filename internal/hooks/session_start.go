@@ -169,7 +169,9 @@ func SessionStart(event *CloudEvent, database *sql.DB, projectDir string) (*Hook
 	// passed as active so its own ndjson is never touched; the sweep is
 	// idempotent and fail-safe (no-op on any error). Backgrounded so it never
 	// blocks the hot hook path.
-	go runRetentionSweep(projectDir, sessionID)
+	if RetentionSweepFn != nil {
+		go RetentionSweepFn(projectDir, sessionID)
+	}
 
 	// Propagate session ID to downstream hooks while git is running.
 	writeEnvVars(sessionID, projectDir)

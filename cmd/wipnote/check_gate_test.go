@@ -293,7 +293,7 @@ func TestLoadGateAllowlist_MissingFileReturnsEmpty(t *testing.T) {
 // than a hard error (Fix 1).
 func TestDetectGatePlan_NoManifest_IsNoOp(t *testing.T) {
 	projectRoot := t.TempDir() // empty dir — no go.mod, package.json, etc.
-	plan, err := detectGatePlan(projectRoot, guardprofile.PhaseQuality)
+	plan, err := detectGatePlan(projectRoot, projectRoot, guardprofile.PhaseQuality)
 	if err != nil {
 		t.Fatalf("detectGatePlan on manifest-less dir returned error: %v", err)
 	}
@@ -384,7 +384,7 @@ func TestDetectGatePlan_SelectsPhaseGuards(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	qPlan, err := detectGatePlan(root, guardprofile.PhaseQuality)
+	qPlan, err := detectGatePlan(root, root, guardprofile.PhaseQuality)
 	if err != nil {
 		t.Fatalf("quality detectGatePlan: %v", err)
 	}
@@ -392,7 +392,7 @@ func TestDetectGatePlan_SelectsPhaseGuards(t *testing.T) {
 		t.Errorf("quality phase guards = %v, want [q-test]", qPlan.GuardNames)
 	}
 
-	cPlan, err := detectGatePlan(root, guardprofile.PhaseCompletion)
+	cPlan, err := detectGatePlan(root, root, guardprofile.PhaseCompletion)
 	if err != nil {
 		t.Fatalf("completion detectGatePlan: %v", err)
 	}
@@ -442,7 +442,7 @@ func TestDetectGatePlan_NodeProjectWithMissingScripts(t *testing.T) {
 		t.Fatalf("write package.json: %v", err)
 	}
 
-	plan, err := detectGatePlan(projectRoot, guardprofile.PhaseQuality)
+	plan, err := detectGatePlan(projectRoot, projectRoot, guardprofile.PhaseQuality)
 	if err != nil {
 		t.Fatalf("detectGatePlan: %v", err)
 	}

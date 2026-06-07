@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"time"
 
-	dbpkg "github.com/shakestzd/wipnote/internal/db"
+	dbpkg "github.com/shakestzd/wipnote/core/db"
 	"github.com/shakestzd/wipnote/internal/otel/indexer"
 	otelreceiver "github.com/shakestzd/wipnote/internal/otel/receiver"
 	otelsqlite "github.com/shakestzd/wipnote/internal/otel/sink/sqlite"

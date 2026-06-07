@@ -12,7 +12,7 @@ import (
 	"time"
 
 	"github.com/shakestzd/wipnote/internal/migrate"
-	"github.com/shakestzd/wipnote/internal/workitem"
+	"github.com/shakestzd/wipnote/core/workitem"
 	"github.com/spf13/cobra"
 )
 

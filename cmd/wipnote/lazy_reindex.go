@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"path/filepath"
 
-	dbpkg "github.com/shakestzd/wipnote/internal/db"
-	"github.com/shakestzd/wipnote/internal/storage"
+	dbpkg "github.com/shakestzd/wipnote/core/db"
+	"github.com/shakestzd/wipnote/core/storage"
 )
 
 // lazySyncReindexHook is the function called by ensureIndexPopulated when the

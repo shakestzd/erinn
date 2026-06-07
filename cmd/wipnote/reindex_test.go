@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	dbpkg "github.com/shakestzd/wipnote/internal/db"
+	dbpkg "github.com/shakestzd/wipnote/core/db"
 )
 
 // openReindexTestDB creates an in-memory SQLite database with the full schema.

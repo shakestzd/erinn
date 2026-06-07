@@ -9,7 +9,7 @@ import (
 	"path/filepath"
 	"sync"
 
-	"github.com/shakestzd/wipnote/internal/ingest"
+	"github.com/shakestzd/wipnote/core/ingest"
 )
 
 const (

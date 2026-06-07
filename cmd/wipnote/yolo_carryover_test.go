@@ -10,7 +10,7 @@ import (
 	"testing"
 
 	"github.com/shakestzd/wipnote/internal/launcher/plan"
-	"github.com/shakestzd/wipnote/internal/worktree"
+	"github.com/shakestzd/wipnote/core/worktree"
 )
 
 // setupCarryRepo builds a git repo on branch "main" with a committed tracked file,

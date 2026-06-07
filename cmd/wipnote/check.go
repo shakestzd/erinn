@@ -9,11 +9,11 @@ import (
 	"sort"
 	"strings"
 
-	dbpkg "github.com/shakestzd/wipnote/internal/db"
-	"github.com/shakestzd/wipnote/internal/graph"
-	"github.com/shakestzd/wipnote/internal/guardprofile"
-	"github.com/shakestzd/wipnote/internal/hooks"
-	"github.com/shakestzd/wipnote/internal/models"
+	dbpkg "github.com/shakestzd/wipnote/core/db"
+	"github.com/shakestzd/wipnote/core/graph"
+	"github.com/shakestzd/wipnote/core/guardprofile"
+	"github.com/shakestzd/wipnote/core/hooks"
+	"github.com/shakestzd/wipnote/core/models"
 	"github.com/spf13/cobra"
 )
 

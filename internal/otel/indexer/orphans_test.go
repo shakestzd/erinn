@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/shakestzd/wipnote/internal/db"
+	"github.com/shakestzd/wipnote/core/db"
 	sqls "github.com/shakestzd/wipnote/internal/otel/sink/sqlite"
 )
 

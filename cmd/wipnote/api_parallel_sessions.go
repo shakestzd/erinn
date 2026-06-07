@@ -6,7 +6,7 @@ import (
 	"sort"
 	"time"
 
-	dbpkg "github.com/shakestzd/wipnote/internal/db"
+	dbpkg "github.com/shakestzd/wipnote/core/db"
 )
 
 // parallelSessionIdentity holds the per-session identity fields exposed to

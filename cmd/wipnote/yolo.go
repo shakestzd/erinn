@@ -10,10 +10,10 @@ import (
 
 	"io"
 
-	"github.com/shakestzd/wipnote/internal/htmlparse"
+	"github.com/shakestzd/wipnote/core/htmlparse"
 	"github.com/shakestzd/wipnote/internal/launcher/plan"
-	"github.com/shakestzd/wipnote/internal/slug"
-	"github.com/shakestzd/wipnote/internal/workitem"
+	"github.com/shakestzd/wipnote/core/slug"
+	"github.com/shakestzd/wipnote/core/workitem"
 	"github.com/spf13/cobra"
 )
 

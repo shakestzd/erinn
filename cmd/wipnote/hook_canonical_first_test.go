@@ -23,10 +23,10 @@ import (
 	"testing"
 	"time"
 
-	dbpkg "github.com/shakestzd/wipnote/internal/db"
-	"github.com/shakestzd/wipnote/internal/db/writequeue"
-	"github.com/shakestzd/wipnote/internal/hooks"
-	"github.com/shakestzd/wipnote/internal/models"
+	dbpkg "github.com/shakestzd/wipnote/core/db"
+	"github.com/shakestzd/wipnote/core/db/writequeue"
+	"github.com/shakestzd/wipnote/core/hooks"
+	"github.com/shakestzd/wipnote/core/models"
 )
 
 // TestWriterUnavailable_FallsBackToCanonicalAppend asserts that when the

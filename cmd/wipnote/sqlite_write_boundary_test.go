@@ -136,7 +136,7 @@ var approvedWriteSites = []writeSite{
 	// failure-tolerance contract. The hook tree therefore has exactly one
 	// approved writable open today.
 	{
-		File:           "internal/hooks/dbgate.go",
+		File:           "core/hooks/dbgate.go",
 		Line:           128,
 		Function:       "OpenHookDB",
 		OpenExpr:       "db.Open",
@@ -213,7 +213,7 @@ var approvedWriteSites = []writeSite{
 	},
 	{
 		File:           "cmd/wipnote/check_gate_support.go",
-		Line:           335,
+		Line:           398,
 		Function:       "persistGateRecord",
 		OpenExpr:       "dbpkg.Open",
 		Classification: intentionalCLIMutation,
@@ -296,7 +296,7 @@ var approvedWriteSites = []writeSite{
 		Note:           "Helper for `wipnote track show` CLI command.",
 	},
 	{
-		File:           "internal/workitem/project.go",
+		File:           "core/workitem/project.go",
 		Line:           80,
 		Function:       "Open",
 		OpenExpr:       "dbpkg.Open",
@@ -407,7 +407,7 @@ var approvedWriteSites = []writeSite{
 // event-capture paths are the contention sources the plan targets.
 var forbiddenPathPrefixes = []string{
 	"cmd/wipnote/hook.go",      // hook event handlers
-	"internal/hooks/",          // hook implementations
+	"core/hooks/",              // hook implementations (moved out of internal/ — feat-0e3f1b3f)
 	"internal/otel/indexer/",   // NDJSON→SQLite indexer
 	"internal/otel/receiver/",  // OTLP HTTP receiver writer
 	"internal/otel/collector/", // OTLP collector spawn (defensive — not currently a writer)
@@ -415,15 +415,15 @@ var forbiddenPathPrefixes = []string{
 
 // scannedDirs lists the first-party Go directories the boundary covers.
 // plugin/ holds only markdown / static assets (verified by the file-walk).
-var scannedDirs = []string{"cmd", "internal"}
+var scannedDirs = []string{"cmd", "internal", "core"}
 
 // excludedDirs lists package directories whose internal sql.Open / Open
 // calls are NOT caller sites — they are the canonical open primitives
-// themselves. internal/db defines Open / OpenWritable / OpenReadOnly,
+// themselves. core/db defines Open / OpenWritable / OpenReadOnly,
 // which by definition must call into the SQLite driver. The boundary
 // rule applies to CALLERS of these primitives, not to the primitives.
 var excludedDirs = []string{
-	"internal/db",
+	"core/db",
 }
 
 // foundSite captures one writable-open occurrence discovered by the AST scan.
@@ -668,7 +668,7 @@ func findModuleRoot(t *testing.T) string {
 //     in the DSN — if mode=ro is present, the call is READ-ONLY and skipped.
 //
 // The db-alias resolution honours the import statement at the top of
-// each file (e.g. `import dbpkg "github.com/shakestzd/wipnote/internal/db"`
+// each file (e.g. `import dbpkg "github.com/shakestzd/wipnote/core/db"`
 // makes `dbpkg.Open(...)` a write call).
 func scanWritableOpens(root string) ([]foundSite, error) {
 	var sites []foundSite
@@ -717,7 +717,7 @@ func scanFile(root, path string) ([]foundSite, error) {
 	for _, imp := range f.Imports {
 		// imp.Path.Value is the quoted import path, e.g. "\"...internal/db\"".
 		pathStr := strings.Trim(imp.Path.Value, "\"")
-		if pathStr != "github.com/shakestzd/wipnote/internal/db" {
+		if pathStr != "github.com/shakestzd/wipnote/core/db" {
 			continue
 		}
 		alias := "db" // default package name

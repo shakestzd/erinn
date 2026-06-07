@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	dbpkg "github.com/shakestzd/wipnote/internal/db"
+	dbpkg "github.com/shakestzd/wipnote/core/db"
 )
 
 // setupColdCloneFixture creates a temp project with .wipnote/*.html containing

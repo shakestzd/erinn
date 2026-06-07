@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"net/http"
 
-	dbpkg "github.com/shakestzd/wipnote/internal/db"
+	dbpkg "github.com/shakestzd/wipnote/core/db"
 )
 
 // familyTreeHandler returns the event tree for all sessions in a given family.

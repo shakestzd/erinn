@@ -6,10 +6,10 @@ import (
 	"path/filepath"
 	"sort"
 
-	dbpkg "github.com/shakestzd/wipnote/internal/db"
-	"github.com/shakestzd/wipnote/internal/graph"
-	"github.com/shakestzd/wipnote/internal/models"
-	"github.com/shakestzd/wipnote/internal/storage"
+	dbpkg "github.com/shakestzd/wipnote/core/db"
+	"github.com/shakestzd/wipnote/core/graph"
+	"github.com/shakestzd/wipnote/core/models"
+	"github.com/shakestzd/wipnote/core/storage"
 	versionpkg "github.com/shakestzd/wipnote/internal/version"
 	"github.com/spf13/cobra"
 )

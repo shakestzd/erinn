@@ -14,10 +14,10 @@ import (
 	"strings"
 	"time"
 
-	dbpkg "github.com/shakestzd/wipnote/internal/db"
-	"github.com/shakestzd/wipnote/internal/guardprofile"
-	"github.com/shakestzd/wipnote/internal/paths"
-	"github.com/shakestzd/wipnote/internal/storage"
+	dbpkg "github.com/shakestzd/wipnote/core/db"
+	"github.com/shakestzd/wipnote/core/guardprofile"
+	"github.com/shakestzd/wipnote/core/paths"
+	"github.com/shakestzd/wipnote/core/storage"
 )
 
 type gateCommand struct {
@@ -68,7 +68,63 @@ type gateRunResult struct {
 	Record        *dbpkg.GateRecord
 }
 
-func detectGatePlan(projectRoot, phase string) (gatePlan, error) {
+// gitWorktreeFacts returns the worktree top-level and the shared git-common-dir
+// for dir. Empty strings mean dir is not inside a git worktree (or git failed).
+func gitWorktreeFacts(dir string) (top, common string) {
+	run := func(args ...string) string {
+		cmd := exec.Command("git", append([]string{"-C", dir}, args...)...)
+		out, err := cmd.Output()
+		if err != nil {
+			return ""
+		}
+		return strings.TrimSpace(string(out))
+	}
+	top = run("rev-parse", "--show-toplevel")
+	common = run("rev-parse", "--git-common-dir")
+	if common != "" && !filepath.IsAbs(common) {
+		// --git-common-dir may be relative to dir; make it absolute so it can
+		// be compared across worktrees.
+		if abs, err := filepath.Abs(filepath.Join(dir, common)); err == nil {
+			common = abs
+		}
+	}
+	return top, common
+}
+
+// resolveCodeRoot decides which directory the gate commands should run in. The
+// gate must validate the code actually under test — the worktree the command was
+// invoked from — not always projectRoot (where .wipnote/ lives). It overrides to
+// the invocation worktree ONLY when that worktree is a linked worktree of the
+// SAME repository as projectRoot (shared git-common-dir). Otherwise it returns
+// projectRoot, which keeps unrelated callers (and tests whose projectRoot is an
+// independent temp dir) running exactly where they expect. Pure for testability.
+func resolveCodeRoot(projectRoot, cwdTop, cwdCommon, projCommon string) string {
+	if cwdTop == "" || cwdCommon == "" || projCommon == "" {
+		return projectRoot
+	}
+	if filepath.Clean(cwdTop) == filepath.Clean(projectRoot) {
+		return projectRoot
+	}
+	if filepath.Clean(cwdCommon) == filepath.Clean(projCommon) {
+		return cwdTop
+	}
+	return projectRoot
+}
+
+// gateCodeRoot resolves the directory the gate should run in, given the wipnote
+// projectRoot. When invoked from a linked worktree of the same repo it returns
+// that worktree; otherwise it returns projectRoot. See resolveCodeRoot.
+func gateCodeRoot(projectRoot string) string {
+	cwd, err := os.Getwd()
+	if err != nil {
+		return projectRoot
+	}
+	cwdTop, cwdCommon := gitWorktreeFacts(cwd)
+	_, projCommon := gitWorktreeFacts(projectRoot)
+	return resolveCodeRoot(projectRoot, cwdTop, cwdCommon, projCommon)
+}
+
+func detectGatePlan(projectRoot, codeRoot, phase string) (gatePlan, error) {
 	// Approved guard profile takes precedence over manifest autodetection. The
 	// phase selects which guard group runs: PhaseQuality for `check --gate`,
 	// PhaseCompletion for the completion re-check (roborev #3703 — completion
@@ -82,14 +138,14 @@ func detectGatePlan(projectRoot, phase string) (gatePlan, error) {
 		prof, _ := guardprofile.Load(projectRoot)
 		plan := gatePlan{
 			ProjectType:      paths.ProjectTypeUnknown,
-			ManifestDir:      projectRoot,
+			ManifestDir:      codeRoot,
 			UsedProfile:      true,
 			ProfileSignature: guardprofile.Signature(prof),
 		}
 		for _, g := range guards {
-			dir := projectRoot
+			dir := codeRoot
 			if strings.TrimSpace(g.Cwd) != "" {
-				dir = filepath.Join(projectRoot, filepath.FromSlash(g.Cwd))
+				dir = filepath.Join(codeRoot, filepath.FromSlash(g.Cwd))
 			}
 			plan.Commands = append(plan.Commands, gateCommand{
 				Name: g.Name,
@@ -101,7 +157,7 @@ func detectGatePlan(projectRoot, phase string) (gatePlan, error) {
 		return plan, nil
 	}
 
-	manifestDir, manifestName, projectType := detectManifest(projectRoot)
+	manifestDir, manifestName, projectType := detectManifest(codeRoot)
 	if projectType == paths.ProjectTypeUnknown {
 		// No supported manifest detected — resolve to a zero-command no-op plan
 		// that passes trivially. This covers pure-documentation repos and any
@@ -110,7 +166,7 @@ func detectGatePlan(projectRoot, phase string) (gatePlan, error) {
 		// case is covered by --accepted-advisory, not by this no-op path.
 		return gatePlan{
 			ProjectType: paths.ProjectTypeUnknown,
-			ManifestDir: projectRoot,
+			ManifestDir: codeRoot,
 		}, nil
 	}
 	plan := gatePlan{
@@ -209,7 +265,14 @@ func detectManifest(projectRoot string) (dir, file string, projectType paths.Pro
 }
 
 func runSessionGate(projectRoot, sessionID, workItemID, source, phase string, stdout, stderr io.Writer) (*gateRunResult, error) {
-	plan, err := detectGatePlan(projectRoot, phase)
+	// The gate must validate the code under test — the worktree the command was
+	// invoked from — not always projectRoot (where .wipnote/ lives). State (DB,
+	// guard profile, gate record) still resolves against projectRoot.
+	codeRoot := gateCodeRoot(projectRoot)
+	if filepath.Clean(codeRoot) != filepath.Clean(projectRoot) {
+		fmt.Fprintf(stderr, "gate: running in worktree %s (state in %s)\n", codeRoot, projectRoot)
+	}
+	plan, err := detectGatePlan(projectRoot, codeRoot, phase)
 	if err != nil {
 		return nil, err
 	}

@@ -8,7 +8,7 @@ import (
 
 	"github.com/PuerkitoBio/goquery"
 	"github.com/shakestzd/wipnote/internal/planyaml"
-	"github.com/shakestzd/wipnote/internal/workitem"
+	"github.com/shakestzd/wipnote/core/workitem"
 )
 
 func setupFinalizeProject(t *testing.T) (*workitem.Project, string) {

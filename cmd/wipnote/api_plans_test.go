@@ -11,7 +11,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/shakestzd/wipnote/internal/db"
+	"github.com/shakestzd/wipnote/core/db"
 )
 
 // setupPlanTestDB creates an in-memory DB with plan_feedback schema and inserts

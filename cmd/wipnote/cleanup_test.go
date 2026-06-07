@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	dbpkg "github.com/shakestzd/wipnote/internal/db"
+	dbpkg "github.com/shakestzd/wipnote/core/db"
 )
 
 // setupCleanupTestDB creates an in-memory SQLite DB for cleanup tests.

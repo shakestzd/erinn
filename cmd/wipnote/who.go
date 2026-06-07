@@ -9,10 +9,10 @@ import (
 	"strings"
 	"time"
 
-	dbpkg "github.com/shakestzd/wipnote/internal/db"
-	"github.com/shakestzd/wipnote/internal/harness"
-	"github.com/shakestzd/wipnote/internal/hooks"
-	"github.com/shakestzd/wipnote/internal/provenance"
+	dbpkg "github.com/shakestzd/wipnote/core/db"
+	"github.com/shakestzd/wipnote/core/harness"
+	"github.com/shakestzd/wipnote/core/hooks"
+	"github.com/shakestzd/wipnote/core/provenance"
 	"github.com/spf13/cobra"
 )
 

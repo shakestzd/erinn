@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/shakestzd/wipnote/internal/harness"
+	"github.com/shakestzd/wipnote/core/harness"
 )
 
 // effectiveProjectDir resolves the project dir for OTel port derivation.

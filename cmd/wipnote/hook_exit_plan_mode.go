@@ -9,9 +9,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/shakestzd/wipnote/internal/hooks"
+	"github.com/shakestzd/wipnote/core/hooks"
 	"github.com/shakestzd/wipnote/internal/planyaml"
-	"github.com/shakestzd/wipnote/internal/workitem"
+	"github.com/shakestzd/wipnote/core/workitem"
 )
 
 // handleExitPlanMode handles the PostToolUse ExitPlanMode event. It finds the

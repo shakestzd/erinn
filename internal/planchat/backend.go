@@ -15,7 +15,7 @@ import (
 	"os/exec"
 	"time"
 
-	dbpkg "github.com/shakestzd/wipnote/internal/db"
+	dbpkg "github.com/shakestzd/wipnote/core/db"
 )
 
 // ChatMessage represents a single message in the chat history.

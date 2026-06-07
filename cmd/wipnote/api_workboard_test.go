@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/shakestzd/wipnote/internal/db"
+	"github.com/shakestzd/wipnote/core/db"
 )
 
 // TestRenderKanban_DataContractAndOverflowSafety asserts the embedded

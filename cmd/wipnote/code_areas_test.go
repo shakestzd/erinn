@@ -11,8 +11,8 @@ import (
 	"time"
 
 	"github.com/shakestzd/wipnote/internal/blame"
-	"github.com/shakestzd/wipnote/internal/db"
-	"github.com/shakestzd/wipnote/internal/models"
+	"github.com/shakestzd/wipnote/core/db"
+	"github.com/shakestzd/wipnote/core/models"
 )
 
 // gitInitWithFiles makes root a git repo with the given files committed, so

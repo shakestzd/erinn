@@ -6,8 +6,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/shakestzd/wipnote/internal/htmlparse"
-	"github.com/shakestzd/wipnote/internal/provenance"
+	"github.com/shakestzd/wipnote/core/htmlparse"
+	"github.com/shakestzd/wipnote/core/provenance"
 )
 
 // setupProvenanceFixture creates an empty .wipnote tree under a temp dir

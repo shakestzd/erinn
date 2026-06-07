@@ -8,7 +8,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/shakestzd/wipnote/internal/commitqueue"
-	"github.com/shakestzd/wipnote/internal/storage"
+	"github.com/shakestzd/wipnote/core/storage"
 )
 
 // commitOutboxPath returns the absolute path to the per-repo commit outbox.

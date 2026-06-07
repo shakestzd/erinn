@@ -15,7 +15,7 @@ import (
 	"time"
 
 	"github.com/PuerkitoBio/goquery"
-	dbpkg "github.com/shakestzd/wipnote/internal/db"
+	dbpkg "github.com/shakestzd/wipnote/core/db"
 	"github.com/shakestzd/wipnote/internal/planamend"
 	"github.com/shakestzd/wipnote/internal/planchat"
 	"github.com/shakestzd/wipnote/internal/plantmpl"

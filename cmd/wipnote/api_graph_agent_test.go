@@ -4,7 +4,7 @@ import (
 	"database/sql"
 	"testing"
 
-	dbpkg "github.com/shakestzd/wipnote/internal/db"
+	dbpkg "github.com/shakestzd/wipnote/core/db"
 )
 
 func setupAgentTestDB(t *testing.T) *sql.DB {

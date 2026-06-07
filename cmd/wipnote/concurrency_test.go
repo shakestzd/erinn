@@ -7,8 +7,8 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/shakestzd/wipnote/internal/htmlparse"
-	"github.com/shakestzd/wipnote/internal/models"
+	"github.com/shakestzd/wipnote/core/htmlparse"
+	"github.com/shakestzd/wipnote/core/models"
 )
 
 func TestConcurrentCLIRepeatedStartAndCompleteAreIdempotent(t *testing.T) {

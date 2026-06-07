@@ -11,10 +11,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/shakestzd/wipnote/internal/db"
-	"github.com/shakestzd/wipnote/internal/hooks"
-	"github.com/shakestzd/wipnote/internal/models"
-	worktreepkg "github.com/shakestzd/wipnote/internal/worktree"
+	"github.com/shakestzd/wipnote/core/db"
+	"github.com/shakestzd/wipnote/core/hooks"
+	"github.com/shakestzd/wipnote/core/models"
+	worktreepkg "github.com/shakestzd/wipnote/core/worktree"
 )
 
 func setupGitRepoForHookWorktreeCreate(t *testing.T) string {

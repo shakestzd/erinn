@@ -14,11 +14,12 @@ require (
 	github.com/tidwall/gjson v1.18.0
 	github.com/yuin/goldmark v1.8.2
 	go.opentelemetry.io/proto/otlp v1.10.0
-	golang.org/x/sys v0.41.0
 	google.golang.org/protobuf v1.36.11
 	gopkg.in/yaml.v3 v3.0.1
 	modernc.org/sqlite v1.37.1
 )
+
+require golang.org/x/sys v0.41.0 // indirect
 
 require (
 	github.com/andybalholm/cascadia v1.3.3 // indirect
@@ -31,6 +32,7 @@ require (
 	github.com/ncruces/go-strftime v0.1.9 // indirect
 	github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec // indirect
 	github.com/rogpeppe/go-internal v1.14.1 // indirect
+	github.com/shakestzd/wipnote/core v0.0.0
 	github.com/spf13/pflag v1.0.6 // indirect
 	github.com/tidwall/match v1.1.1 // indirect
 	github.com/tidwall/pretty v1.2.0 // indirect
@@ -40,3 +42,11 @@ require (
 	modernc.org/mathutil v1.7.1 // indirect
 	modernc.org/memory v1.11.0 // indirect
 )
+
+// Interim multi-module wiring: core/ is part of this monorepo and not yet
+// published/tagged, so it is consumed via a local replace. This is portable
+// for every supported install path (local `wipnote build` and the Homebrew
+// tarball both build from the checkout). `go install <pkg>@version` is not a
+// supported install path today; when core is tagged and released, swap this
+// replace for a real version require (tracked on trk-03da9cce).
+replace github.com/shakestzd/wipnote/core => ./core

@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/shakestzd/wipnote/internal/htmlparse"
+	"github.com/shakestzd/wipnote/core/htmlparse"
 )
 
 func TestLinkErrorMessageInvalidPrefix(t *testing.T) {

@@ -6,7 +6,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	dbpkg "github.com/shakestzd/wipnote/internal/db"
+	dbpkg "github.com/shakestzd/wipnote/core/db"
 )
 
 func TestGraphAPI_TypesFilter(t *testing.T) {

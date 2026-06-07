@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"testing"
 
-	dbpkg "github.com/shakestzd/wipnote/internal/db"
+	dbpkg "github.com/shakestzd/wipnote/core/db"
 )
 
 // setupHierarchyDB opens an in-memory SQLite DB with the full schema for

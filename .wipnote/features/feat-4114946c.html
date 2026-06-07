@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>Multi-module CI &#43; path-guard coverage for core/ carve-out</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="feat-4114946c"
+             data-type="feature"
+             data-status="todo"
+             data-priority="medium"
+             data-created="2026-06-07T16:14:06.943099"
+             data-updated="2026-06-07T16:14:06.956655" data-agent-assigned="claude-code" data-track-id="trk-03da9cce" data-created-by-agent="claude-code" data-created-by-model="claude-opus-4-8[1m]" data-created-by-cli-version="0.60.21-9-gc72335802">
+
+        <header>
+            <h1>Multi-module CI &#43; path-guard coverage for core/ carve-out</h1>
+            <div class="metadata">
+                <span class="badge status-todo">Todo</span>
+                <span class="badge priority-medium">Medium Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="trk-03da9cce.html" data-relationship="part_of" data-since="2026-06-07T16:14:06.956178">trk-03da9cce</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>Address roborev job 3870 findings on the core/ carve-out: (1) CI quality gates only cover the root module — add build/vet/test for ./core; (2) dbpath_test path-guard scans only cmd/internal and exempts internal/storage — add core, exempt core/storage. go.mod replace portability noted as accepted interim (no go-install path; core not yet tagged).</p>
+        </section>
+    </article>
+</body>
+</html>

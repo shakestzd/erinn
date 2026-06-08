@@ -414,6 +414,28 @@ func planFinalizeHandler(database *sql.DB, wipnoteDir string) http.HandlerFunc {
 			return
 		}
 
+		// Defense-in-depth: require EVERY slice in the plan YAML to have an
+		// approved row, not merely that the existing approval rows are all
+		// approved (a slice with no row would otherwise slip through a direct
+		// API call). The dashboard already enforces this client-side.
+		if planForCheck, lerr := planyaml.Load(filepath.Join(wipnoteDir, "plans", planID+".yaml")); lerr == nil && len(planForCheck.Slices) > 0 {
+			sliceApprovals, aerr := dbpkg.GetSliceApprovals(database, planID)
+			if aerr != nil {
+				http.Error(w, fmt.Sprintf("checking slice approvals: %v", aerr), http.StatusInternalServerError)
+				return
+			}
+			var pending []int
+			for _, sc := range planForCheck.Slices {
+				if sliceApprovals[fmt.Sprintf("slice-%d", sc.Num)] != "approved" {
+					pending = append(pending, sc.Num)
+				}
+			}
+			if len(pending) > 0 {
+				http.Error(w, fmt.Sprintf("not all slices approved (pending: %v)", pending), http.StatusBadRequest)
+				return
+			}
+		}
+
 		if err := dbpkg.FinalizePlan(database, planID); err != nil {
 			http.Error(w, fmt.Sprintf("finalizing plan: %v", err), http.StatusInternalServerError)
 			return

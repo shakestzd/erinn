@@ -62,7 +62,12 @@ Each stage = 1-3 questions in a single `AskUserQuestion` call (AUQ supports up t
 
 ### Rendering the interview (cross-harness)
 
-The staged interview has **one canonical definition** emitted by the binary — `wipnote plan interview-questions <plan-id> <slice-num>` prints it as JSON (the complexity template **plus the slice's own unanswered open questions**). Both renderers consume that same set, so you never hand-maintain a divergent question list:
+There are **two interview moments**, both renderable inline (AskUserQuestion) or as the cross-harness web form:
+
+1. **Upfront intake** — the interview at the *beginning* of the plan, before slices exist, when information is thin. It runs triage (assesses complexity) and gathers the plan-level problem/goals/constraints. Cross-harness: `wipnote plan interview <plan-id>` (no slice-num) leads with the triage question, then problem/goals/constraints; on submit it writes `plan.Design` and records the assessed complexity in `Design.Comment`. You then **draft slice cards** from that Design (using the assessed complexity for each slice's depth). On Claude you may instead run the triage AUQ (below) + design questions inline and write Design via `plan set-design-yaml`.
+2. **Per-slice decisions** — after slices exist, fill each slice's `decisions_notes` (the rest of this section).
+
+For the per-slice step, the staged interview has **one canonical definition** emitted by the binary — `wipnote plan interview-questions <plan-id> <slice-num>` prints it as JSON (the complexity template **plus the slice's own unanswered open questions**). Both renderers consume that same set, so you never hand-maintain a divergent question list:
 
 - **Claude Code (inline fast-path)** — fetch the set and render each stage as an `AskUserQuestion` block. The example AUQs below show the shape; the *live* questions are whatever `interview-questions` returns for this slice (it folds in the slice's real open questions).
 - **Any harness / richer surface (portable canonical path)** — pipe the same set into the web form:

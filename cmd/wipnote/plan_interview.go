@@ -60,6 +60,7 @@ type interviewPage struct {
 	Submitted   bool
 	Message     string
 	ChatEnabled bool
+	IsIntake    bool // upfront plan-level intake (no slice) vs per-slice decisions
 }
 
 func planInterviewCmd() *cobra.Command {
@@ -67,21 +68,27 @@ func planInterviewCmd() *cobra.Command {
 	var port int
 	var questionsPath string
 	cmd := &cobra.Command{
-		Use:   "interview <plan-id> <slice-num>",
-		Short: "Run the staged plan interview as a local web form (cross-harness)",
-		Long: "Serves the slice's staged interview as a local web form, waits for the\n" +
-			"user to submit, then writes the answers to the slice's decisions_notes.\n" +
-			"Portable across Claude Code, Codex CLI, and Gemini CLI — the agent just\n" +
-			"launches it and waits.\n\n" +
-			"By default the questions come from a built-in template keyed off slice\n" +
-			"complexity. Pass --questions <file|-> to supply an agent-composed staged\n" +
-			"question set (JSON: {\"stages\":[...]}) — this is how the plan skill asks\n" +
-			"plan-specific and adaptive follow-up questions across interview rounds.",
-		Args: cobra.ExactArgs(2),
+		Use:   "interview <plan-id> [slice-num]",
+		Short: "Run the plan interview as a local web form (cross-harness)",
+		Long: "Two modes, both served as a local web form, portable across Claude Code,\n" +
+			"Codex CLI, and Gemini CLI:\n\n" +
+			"  wipnote plan interview <plan-id>            UPFRONT INTAKE (no slice):\n" +
+			"     The interview at the beginning of a plan. Leads with triage to assess\n" +
+			"     complexity, then gathers problem/goals/constraints from limited info,\n" +
+			"     and writes them to the plan's Design. The agent then drafts slices.\n\n" +
+			"  wipnote plan interview <plan-id> <slice-num>   PER-SLICE DECISIONS:\n" +
+			"     Fills an existing slice's decisions_notes. Questions default to the\n" +
+			"     slice's canonical set (complexity template + the slice's open\n" +
+			"     questions); pass --questions <file|-> to supply an agent-composed set\n" +
+			"     for plan-specific or adaptive follow-up rounds.",
+		Args: cobra.RangeArgs(1, 2),
 		RunE: func(_ *cobra.Command, args []string) error {
 			wipnoteDir, err := findWipnoteDir()
 			if err != nil {
 				return err
+			}
+			if len(args) == 1 {
+				return runPlanIntake(wipnoteDir, args[0], bind, port)
 			}
 			sliceNum, err := parseSliceNum(args[1])
 			if err != nil {
@@ -138,6 +145,8 @@ func planInterviewQuestionsCmd() *cobra.Command {
 	}
 }
 
+// runPlanInterview is the per-slice decisions mode: fill an existing slice's
+// decisions_notes.
 func runPlanInterview(wipnoteDir, planID string, sliceNum int, bind string, port int, questionsPath string) error {
 	planPath := filepath.Join(wipnoteDir, "plans", planID+".yaml")
 	plan, err := planyaml.Load(planPath)
@@ -148,10 +157,6 @@ func runPlanInterview(wipnoteDir, planID string, sliceNum int, bind string, port
 	if err != nil {
 		return err
 	}
-
-	// Questions come from an agent-supplied set when --questions is given (the
-	// skill composes plan-specific / adaptive rounds), else the canonical
-	// per-slice set (complexity template + the slice's open questions).
 	stages, err := loadInterviewStages(questionsPath, slice)
 	if err != nil {
 		return err
@@ -166,7 +171,98 @@ func runPlanInterview(wipnoteDir, planID string, sliceNum int, bind string, port
 		SliceTitle: slice.Title, SliceWhat: slice.What,
 		Complexity: slice.Complexity, Stages: stages,
 	}
+	onSubmit := func(answers map[string]string) (string, error) {
+		scope, decisions, contextStr := interview.Compose(stages, answers)
+		if err := elicitDecisionsForSlice(wipnoteDir, planID, sliceNum, elicitInput{
+			scope: scope, decisions: decisions, context: contextStr,
+		}); err != nil {
+			return "", err
+		}
+		return fmt.Sprintf("Saved decisions to slice %d of %s. You can close this tab.", sliceNum, planID), nil
+	}
+	chatContext := func(answers map[string]string, stage string) string {
+		return interviewChatContext(planID, sliceNum, slice, stages, answers, stage)
+	}
+	banner := fmt.Sprintf("Interview ready for slice %d (%q) of %s", sliceNum, slice.Title, planID)
+	return serveInterviewForm(wipnoteDir, planID, page, stages, bind, port, banner, onSubmit, chatContext)
+}
 
+// runPlanIntake is the upfront mode: the interview at the beginning of a plan.
+// It assesses complexity and gathers problem/goals/constraints, writing them to
+// the plan's Design so the agent can draft slices.
+func runPlanIntake(wipnoteDir, planID, bind string, port int) error {
+	planPath := filepath.Join(wipnoteDir, "plans", planID+".yaml")
+	plan, err := planyaml.Load(planPath)
+	if err != nil {
+		return fmt.Errorf("load plan: %w", err)
+	}
+	stages := interview.PlanIntakeStages()
+	title := plan.Meta.Title
+	if title == "" {
+		title = planID
+	}
+	page := interviewPage{
+		PlanID: planID, IsIntake: true,
+		SliceTitle: title, SliceWhat: strings.TrimSpace(plan.Design.Problem),
+		Complexity: "intake", Stages: stages,
+	}
+	onSubmit := func(answers map[string]string) (string, error) {
+		res := interview.ComposeIntake(answers)
+		if err := writePlanIntake(planPath, res); err != nil {
+			return "", err
+		}
+		cx := res.Complexity
+		if cx == "" {
+			cx = "(skipped)"
+		}
+		return fmt.Sprintf("Saved plan design. Assessed complexity: %s. The agent will draft slices from this — you can close this tab.", cx), nil
+	}
+	chatContext := func(answers map[string]string, _ string) string {
+		return intakeChatContext(planID, plan, stages, answers)
+	}
+	banner := fmt.Sprintf("Plan intake interview for %q (%s)", title, planID)
+	return serveInterviewForm(wipnoteDir, planID, page, stages, bind, port, banner, onSubmit, chatContext)
+}
+
+// writePlanIntake persists the upfront interview's answers to the plan's Design
+// section and git-commits, matching how other plan mutations are versioned.
+func writePlanIntake(planPath string, res interview.IntakeResult) error {
+	defer planyaml.LockPlanForWrite(planPath)()
+	plan, err := planyaml.Load(planPath)
+	if err != nil {
+		return fmt.Errorf("load plan: %w", err)
+	}
+	if res.Problem != "" {
+		plan.Design.Problem = res.Problem
+	}
+	if len(res.Goals) > 0 {
+		plan.Design.Goals = res.Goals
+	}
+	if len(res.Constraints) > 0 {
+		plan.Design.Constraints = res.Constraints
+	}
+	if res.Complexity != "" {
+		note := "Assessed complexity: " + res.Complexity
+		if strings.TrimSpace(plan.Design.Comment) == "" {
+			plan.Design.Comment = note
+		} else {
+			plan.Design.Comment = plan.Design.Comment + "\n" + note
+		}
+	}
+	if err := planyaml.SaveLocked(planPath, plan); err != nil {
+		return fmt.Errorf("save plan: %w", err)
+	}
+	planID := strings.TrimSuffix(filepath.Base(planPath), ".yaml")
+	if err := commitPlanChange(planPath, fmt.Sprintf("plan(%s): intake — design from interview", planID)); err != nil {
+		return fmt.Errorf("autocommit intake: %w", err)
+	}
+	return nil
+}
+
+// serveInterviewForm runs the one-off blocking web form shared by both modes:
+// it mounts the plan-review chat, renders the form, and on submit calls
+// onSubmit(answers) and shows the returned message, then shuts down.
+func serveInterviewForm(wipnoteDir, planID string, page interviewPage, stages []interview.Stage, bind string, port int, banner string, onSubmit func(map[string]string) (string, error), chatContext func(map[string]string, string) string) error {
 	ln, err := net.Listen("tcp", fmt.Sprintf("%s:%d", bind, port))
 	if err != nil {
 		return fmt.Errorf("listen: %w", err)
@@ -175,21 +271,15 @@ func runPlanInterview(wipnoteDir, planID string, sliceNum int, bind string, port
 	done := make(chan error, 1)
 	mux := http.NewServeMux()
 
-	// Mount the same plan API the dashboard uses so the embedded chat panel
-	// is the real plan-review chat (Claude-answered, AMEND directives honored)
-	// — the user can ask questions or request plan changes without leaving the
-	// interview. Best-effort: if the DB can't open, the form still works and
-	// the chat panel reports itself unavailable.
+	// Mount the same plan API the dashboard uses so the embedded chat panel is
+	// the real plan-review chat (Claude-answered, AMEND directives honored).
+	// Best-effort: if the DB can't open, the form still works (chat hidden).
 	page.ChatEnabled = false
 	if dbPath, derr := storage.CanonicalDBPath(filepath.Dir(wipnoteDir)); derr == nil {
 		if db, oerr := dbpkg.Open(dbPath); oerr == nil {
 			defer db.Close()
-			// planRouter serves the shared chat history (/feedback) and amendments;
-			// the interview-aware chat endpoint injects the current slice, stages,
-			// questions, and the user's in-progress selections into the context so
-			// the assistant answers about the form, not just the plan.
 			mux.Handle("/api/plans/", planRouter(db, db, wipnoteDir))
-			mux.Handle("/api/interview/chat", interviewChatHandler(db, wipnoteDir, planID, sliceNum, slice, stages))
+			mux.Handle("/api/interview/chat", interviewChatHandler(db, wipnoteDir, planID, chatContext))
 			page.ChatEnabled = true
 		}
 	}
@@ -208,17 +298,14 @@ func runPlanInterview(wipnoteDir, planID string, sliceNum int, bind string, port
 			return
 		}
 		answers := collectAnswers(r.Form, stages)
-		scope, decisions, contextStr := interview.Compose(stages, answers)
-		perr := elicitDecisionsForSlice(wipnoteDir, planID, sliceNum, elicitInput{
-			scope: scope, decisions: decisions, context: contextStr,
-		})
+		msg, perr := onSubmit(answers)
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		result := page
 		result.Submitted = true
 		if perr != nil {
 			result.Message = "Error saving: " + perr.Error()
 		} else {
-			result.Message = fmt.Sprintf("Saved decisions to slice %d of %s. You can close this tab.", sliceNum, planID)
+			result.Message = msg
 		}
 		_ = interviewTmpl.Execute(w, result)
 		done <- perr
@@ -227,9 +314,8 @@ func runPlanInterview(wipnoteDir, planID string, sliceNum int, bind string, port
 	srv := &http.Server{Handler: mux}
 	go func() { _ = srv.Serve(ln) }()
 
-	formURL := fmt.Sprintf("http://%s/", ln.Addr().String())
-	fmt.Printf("Interview ready for slice %d (%q) of %s\n", sliceNum, slice.Title, planID)
-	fmt.Printf("Open: %s\n", formURL)
+	fmt.Println(banner)
+	fmt.Printf("Open: http://%s/\n", ln.Addr().String())
 	fmt.Println("Waiting for you to submit the form (Ctrl-C to cancel)...")
 
 	sigC := make(chan os.Signal, 1)
@@ -240,13 +326,45 @@ func runPlanInterview(wipnoteDir, planID string, sliceNum int, bind string, port
 	select {
 	case runErr = <-done:
 	case <-sigC:
-		fmt.Println("\nCancelled — no decisions written.")
+		fmt.Println("\nCancelled — nothing written.")
 	}
 
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 	_ = srv.Shutdown(shutdownCtx)
 	return runErr
+}
+
+// intakeChatContext builds the chat context for the upfront intake interview:
+// the plan-level questions and the user's in-progress answers, so the assistant
+// helps articulate problem/goals/constraints and pick a complexity.
+func intakeChatContext(planID string, plan *planyaml.PlanYAML, stages []interview.Stage, answers map[string]string) string {
+	var b strings.Builder
+	fmt.Fprintf(&b, "The user is doing the UPFRONT intake interview for plan %s — before any slices exist. It assesses complexity and gathers the plan's problem, goals, and constraints from possibly limited information.\n", planID)
+	if p := strings.TrimSpace(plan.Design.Problem); p != "" {
+		b.WriteString("Current problem statement: " + p + "\n")
+	}
+	b.WriteString("\nIntake questions:\n")
+	for _, st := range stages {
+		for _, q := range st.Questions {
+			b.WriteString("  • " + q.Prompt + "\n")
+		}
+	}
+	b.WriteString("\nAnswers so far:\n")
+	any := false
+	for _, st := range stages {
+		for _, q := range st.Questions {
+			if v := strings.TrimSpace(answers[q.ID]); v != "" {
+				fmt.Fprintf(&b, "  • %s: %s\n", q.Header, v)
+				any = true
+			}
+		}
+	}
+	if !any {
+		b.WriteString("  (nothing yet)\n")
+	}
+	b.WriteString("\nHelp the user sharpen the problem, goals, and constraints, and pick a complexity. If asked, propose candidate slices.\n")
+	return b.String()
 }
 
 // loadInterviewStages returns the staged questions for an interview round.
@@ -320,7 +438,7 @@ type interviewChatReq struct {
 // lets the user ask "what does this option mean?" or "recommend a choice" and
 // get an answer grounded in the form. AMEND directives are honored so plan
 // changes can be requested without leaving the interview.
-func interviewChatHandler(db *sql.DB, wipnoteDir, planID string, sliceNum int, slice planyaml.PlanSlice, stages []interview.Stage) http.HandlerFunc {
+func interviewChatHandler(db *sql.DB, wipnoteDir, planID string, buildContext func(answers map[string]string, stage string) string) http.HandlerFunc {
 	projectDir := filepath.Dir(wipnoteDir)
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
@@ -334,7 +452,7 @@ func interviewChatHandler(db *sql.DB, wipnoteDir, planID string, sliceNum int, s
 			return
 		}
 
-		ctxText := interviewChatContext(planID, sliceNum, slice, stages, req.Answers, req.Stage) +
+		ctxText := buildContext(req.Answers, req.Stage) +
 			"\n\n--- FULL PLAN YAML ---\n" + loadPlanContext(wipnoteDir, planID)
 		backend := planchat.New(db, planID, ctxText, projectDir)
 		if !backend.IsAvailable() {

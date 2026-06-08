@@ -138,7 +138,7 @@
    <div class="iv-inner">
     <div class="eyebrow">wipnote · plan interview</div>
     <h1>{{.SliceTitle}}</h1>
-    <div class="sub">{{.PlanID}} · slice {{.SliceNum}} <span class="chip">{{if .Complexity}}{{.Complexity}}{{else}}standard{{end}}</span></div>
+    <div class="sub">{{.PlanID}} · {{if .IsIntake}}plan intake <span class="chip">triage</span>{{else}}slice {{.SliceNum}} <span class="chip">{{if .Complexity}}{{.Complexity}}{{else}}standard{{end}}</span>{{end}}</div>
     {{if .SliceWhat}}<details class="ctx" open><summary>Slice context</summary><div class="ctx-body">{{.SliceWhat}}</div></details>{{end}}
 
     {{if .Submitted}}

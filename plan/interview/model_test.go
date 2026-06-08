@@ -66,6 +66,42 @@ func TestCompose_EmptyAnswersYieldEmptyBuckets(t *testing.T) {
 	}
 }
 
+func TestPlanIntakeStages_LeadsWithTriage(t *testing.T) {
+	stages := PlanIntakeStages()
+	if len(stages) == 0 || stages[0].Key != "triage" {
+		t.Fatalf("intake must lead with a triage stage; got %+v", stages)
+	}
+	if stages[0].Questions[0].ID != QIntakeComplexity {
+		t.Errorf("first question should be the complexity assessment, got %q", stages[0].Questions[0].ID)
+	}
+}
+
+func TestComposeIntake_MapsAnswersToDesign(t *testing.T) {
+	res := ComposeIntake(map[string]string{
+		QIntakeComplexity:  "Complex — system design, multiple unknowns",
+		QIntakeProblem:     "users can't review plans cross-harness",
+		QIntakeGoals:       "ship web form\n keep it portable \n",
+		QIntakeConstraints: "no new runtime deps",
+	})
+	if res.Complexity != "complex" {
+		t.Errorf("complexity = %q, want complex", res.Complexity)
+	}
+	if res.Problem != "users can't review plans cross-harness" {
+		t.Errorf("problem = %q", res.Problem)
+	}
+	if len(res.Goals) != 2 || res.Goals[0] != "ship web form" || res.Goals[1] != "keep it portable" {
+		t.Errorf("goals not split/trimmed: %#v", res.Goals)
+	}
+	if len(res.Constraints) != 1 || res.Constraints[0] != "no new runtime deps" {
+		t.Errorf("constraints = %#v", res.Constraints)
+	}
+
+	// "Skip" and unknown classify to empty (no forced complexity).
+	if c := ComposeIntake(map[string]string{QIntakeComplexity: "Skip — I'll paste the spec"}).Complexity; c != "" {
+		t.Errorf("skip should classify to empty, got %q", c)
+	}
+}
+
 func TestBuildForSlice_AppendsOpenQuestions(t *testing.T) {
 	base := len(ForComplexity("complex"))
 	open := []Question{{ID: "slicequestion.sq-1", Header: "sq-1", Prompt: "GraphQL or REST?", Type: Text}}

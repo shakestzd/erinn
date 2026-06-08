@@ -3,12 +3,42 @@ package main
 import (
 	"encoding/json"
 	"net/url"
+	"path/filepath"
 	"strings"
 	"testing"
 
 	"github.com/shakestzd/wipnote/plan/interview"
 	"github.com/shakestzd/wipnote/plan/planyaml"
 )
+
+func TestWritePlanIntake_PopulatesDesign(t *testing.T) {
+	dir, planID, _ := seedPlanForElicit(t) // non-git temp; commitPlanChange no-ops
+	planPath := filepath.Join(dir, "plans", planID+".yaml")
+
+	err := writePlanIntake(planPath, interview.IntakeResult{
+		Complexity:  "complex",
+		Problem:     "cross-harness plan review is missing",
+		Goals:       []string{"ship the web form", "stay portable"},
+		Constraints: []string{"no new runtime deps"},
+	})
+	if err != nil {
+		t.Fatalf("writePlanIntake: %v", err)
+	}
+
+	plan, err := planyaml.Load(planPath)
+	if err != nil {
+		t.Fatalf("reload: %v", err)
+	}
+	if plan.Design.Problem != "cross-harness plan review is missing" {
+		t.Errorf("problem not written: %q", plan.Design.Problem)
+	}
+	if len(plan.Design.Goals) != 2 || len(plan.Design.Constraints) != 1 {
+		t.Errorf("goals/constraints not written: %#v / %#v", plan.Design.Goals, plan.Design.Constraints)
+	}
+	if !strings.Contains(plan.Design.Comment, "complexity: complex") {
+		t.Errorf("assessed complexity not recorded in Comment: %q", plan.Design.Comment)
+	}
+}
 
 func TestSliceOpenQuestions_MapsUnansweredOnly(t *testing.T) {
 	slice := planyaml.PlanSlice{

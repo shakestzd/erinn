@@ -153,6 +153,96 @@ func ForComplexity(complexity string) []Stage {
 	}
 }
 
+// Plan-intake question IDs — the upfront, triage-led interview that runs BEFORE
+// slices exist and writes plan Design. Distinct from the per-slice flow.
+const (
+	QIntakeComplexity  = "intake.complexity"
+	QIntakeProblem     = "intake.problem"
+	QIntakeGoals       = "intake.goals"
+	QIntakeConstraints = "intake.constraints"
+)
+
+// BucketDesign / BucketTriage are display labels for intake stages; intake
+// answers populate plan Design, not the Scope/Decisions/Context note buckets.
+const (
+	BucketDesign Bucket = "Design"
+	BucketTriage Bucket = "Triage"
+)
+
+// PlanIntakeStages is the upfront interview, run before any slices exist: it
+// assesses complexity (triage) and gathers the plan-level problem/goals/
+// constraints from a topic with possibly limited information. Its answers
+// populate plan Design and a recommended complexity; the agent then drafts
+// slices. This is the "interview at the beginning of the plan" — distinct from
+// the per-slice BuildForSlice flow that fills a slice's decisions_notes.
+func PlanIntakeStages() []Stage {
+	return []Stage{
+		{Key: "triage", Title: "Triage", Bucket: BucketTriage, Questions: []Question{
+			{ID: QIntakeComplexity, Header: "Complexity", Type: Choice,
+				Prompt: "How would you classify this work? Drives interview depth and the slices' mandatory fields.",
+				Options: []Option{
+					{"Trivial — one-shot patch, no design risk", "Minimal slice card; skip the deep interview."},
+					{"Standard — bounded scope, needs design clarity", "Per slice: Requirements, Scope & state, Done-when."},
+					{"Complex — system design, multiple unknowns", "Per slice: all four stages."},
+					{"Skip — I'll paste the spec", "You supply the spec; the agent drafts the YAML."},
+				}},
+		}},
+		{Key: "problem", Title: "Problem & goals", Bucket: BucketDesign, Questions: []Question{
+			{ID: QIntakeProblem, Header: "Problem", Type: Text,
+				Prompt: "What problem does this solve, and for whom?", Placeholder: "users can't X today; they need Y"},
+			{ID: QIntakeGoals, Header: "Goals", Type: Text,
+				Prompt: "What does success look like? One goal per line.", Placeholder: "ship X\nkeep p99 < 50ms"},
+		}},
+		{Key: "constraints", Title: "Constraints", Bucket: BucketDesign, Questions: []Question{
+			{ID: QIntakeConstraints, Header: "Constraints", Type: Text,
+				Prompt: "Hard constraints or non-negotiables? One per line.", Placeholder: "no new runtime deps\nbackward-compatible on-disk format"},
+		}},
+	}
+}
+
+// IntakeResult is the upfront interview's output: plan Design fields plus the
+// assessed complexity ("trivial"|"standard"|"complex", or "" when skipped).
+type IntakeResult struct {
+	Complexity  string
+	Problem     string
+	Goals       []string
+	Constraints []string
+}
+
+// ComposeIntake maps plan-intake answers (keyed by the QIntake* ids) into an
+// IntakeResult for writing to plan Design.
+func ComposeIntake(answers map[string]string) IntakeResult {
+	return IntakeResult{
+		Complexity:  classifyComplexity(answers[QIntakeComplexity]),
+		Problem:     strings.TrimSpace(answers[QIntakeProblem]),
+		Goals:       splitLines(answers[QIntakeGoals]),
+		Constraints: splitLines(answers[QIntakeConstraints]),
+	}
+}
+
+func classifyComplexity(label string) string {
+	switch {
+	case strings.HasPrefix(label, "Trivial"):
+		return "trivial"
+	case strings.HasPrefix(label, "Standard"):
+		return "standard"
+	case strings.HasPrefix(label, "Complex"):
+		return "complex"
+	default:
+		return ""
+	}
+}
+
+func splitLines(s string) []string {
+	var out []string
+	for _, ln := range strings.Split(s, "\n") {
+		if t := strings.TrimSpace(ln); t != "" {
+			out = append(out, t)
+		}
+	}
+	return out
+}
+
 // BuildForSlice returns the canonical staged interview for a slice: the
 // complexity template plus, when present, a stage carrying the slice's own
 // unanswered slice-local questions. This is the single source of truth both

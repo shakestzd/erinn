@@ -118,6 +118,11 @@ func ParseDefinition(data []byte) ([]Stage, error) {
 			if q.Type == "" {
 				q.Type = Choice
 			}
+			switch q.Type {
+			case Choice, Text, YesNo:
+			default:
+				return nil, fmt.Errorf("question %q: invalid type %q (want choice|text|yesno)", q.ID, q.Type)
+			}
 			if q.Type == Choice && len(q.Options) == 0 {
 				return nil, fmt.Errorf("question %q: choice type needs at least one option", q.ID)
 			}

@@ -264,6 +264,14 @@ var approvedWriteSites = []writeSite{
 		Note:           "Headless writer-only daemon (feat-075c110d increment 2): the SOLE writable handle per project while serve runs. Backs schema/migrations, the background maintenance loops (auto-ingest, ai-title backfill, indexer prompt-ID bridge, retention — MOVED here from runServeChild), and the daemon socket listener's writequeue worker (receiver.NewWriter). The HTTP serve_child (runServeChild) is now strictly read-only and ensures+reaps this daemon.",
 	},
 	{
+		File:           "cmd/wipnote/plan_interview.go",
+		Line:           289,
+		Function:       "serveInterviewForm",
+		OpenExpr:       "dbpkg.Open",
+		Classification: intentionalCLIMutation,
+		Note:           "feat-2852d0c8 cross-harness plan interview web form: short-lived foreground server that mounts the same plan API as the dashboard (planRouter) so the embedded plan-review chat works. Needs a writable handle because the chat persists feedback/amendments. Process exits on submit; one open for the form's lifetime.",
+	},
+	{
 		File:           "cmd/wipnote/session.go",
 		Line:           229,
 		Function:       "openDB",

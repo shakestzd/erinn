@@ -154,6 +154,7 @@ func TestParseDefinition_Rejects(t *testing.T) {
 		"missing id":       `{"stages":[{"key":"k","title":"T","bucket":"Scope","questions":[{"prompt":"p","options":[{"label":"A"}]}]}]}`,
 		"duplicate id":     `{"stages":[{"key":"k","title":"T","bucket":"Scope","questions":[{"id":"d","prompt":"p","options":[{"label":"A"}]},{"id":"d","prompt":"q","options":[{"label":"B"}]}]}]}`,
 		"choice no option": `{"stages":[{"key":"k","title":"T","bucket":"Scope","questions":[{"id":"k.0","prompt":"p","type":"choice"}]}]}`,
+		"unknown type":     `{"stages":[{"key":"k","title":"T","bucket":"Scope","questions":[{"id":"k.0","prompt":"p","type":"slider"}]}]}`,
 		"bad json":         `{not json`,
 	}
 	for name, js := range cases {

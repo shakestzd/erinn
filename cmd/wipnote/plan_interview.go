@@ -30,6 +30,7 @@ import (
 	"os/signal"
 	"path/filepath"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 
@@ -297,6 +298,11 @@ func serveInterviewForm(wipnoteDir, planID string, page interviewPage, stages []
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		_ = interviewTmpl.Execute(w, page)
 	})
+	// submitOnce guards against double-submit (double-click, resubmit-on-refresh,
+	// concurrent POSTs): only the first accepted submission runs onSubmit and
+	// signals done; later POSTs are rejected.
+	var submitMu sync.Mutex
+	var submitted bool
 	mux.HandleFunc("/submit", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
 			http.Error(w, "POST only", http.StatusMethodNotAllowed)
@@ -307,6 +313,21 @@ func serveInterviewForm(wipnoteDir, planID string, page interviewPage, stages []
 			return
 		}
 		answers := collectAnswers(r.Form, stages)
+		// Reject empty submissions so the interview can't complete without
+		// capturing anything.
+		if len(answers) == 0 {
+			http.Error(w, "answer at least one question before submitting", http.StatusBadRequest)
+			return
+		}
+		submitMu.Lock()
+		if submitted {
+			submitMu.Unlock()
+			http.Error(w, "already submitted", http.StatusConflict)
+			return
+		}
+		submitted = true
+		submitMu.Unlock()
+
 		msg, perr := onSubmit(answers)
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		result := page

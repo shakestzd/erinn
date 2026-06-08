@@ -1,6 +1,6 @@
 ---
 name: wipnote:plan
-description: Plan development work using a triage-gated interview. Classify scope as trivial/standard/complex, then run 0/2/4 staged AskUserQuestion rounds to earn each slice field. Produces slice-card YAML; pauses for human review; promotes approved slices to features. Use when asked to plan, create a development plan, or build a feature with design clarity first.
+description: Plan development work using a triage-gated interview. Classify scope as trivial/standard/complex, then run 0/2/4 staged interview rounds — rendered inline via AskUserQuestion on Claude Code, or as the cross-harness `wipnote plan interview` web form — to earn each slice field. Produces slice-card YAML; pauses for human review; promotes approved slices to features. Use when asked to plan, create a development plan, or build a feature with design clarity first.
 ---
 
 # wipnote Plan
@@ -59,6 +59,35 @@ Before emitting any slice, run this `AskUserQuestion` (paste-ready):
 | 4. Done-when | Acceptance criteria, tests, effort, risk | `done_when`, `tests`, `effort`, `risk` | "How will you tell it works? Which existing tests must still pass?" |
 
 Each stage = 1-3 questions in a single `AskUserQuestion` call (AUQ supports up to 4 per call).
+
+### Rendering the interview (cross-harness)
+
+The staged interview is render-agnostic — the same stages drive any of these. Pick by harness:
+
+- **Claude Code** — render each stage inline with `AskUserQuestion` (the examples below). Fastest path, no context switch. This is the Claude fast-path.
+- **Any harness (Codex, Gemini, or when a richer review surface helps)** — render the SAME stage(s) as a local web form, the portable canonical path:
+  1. Write the round's stages as JSON to a temp file (schema below).
+  2. Run `wipnote plan interview <plan-id> <slice-num> --questions <file>`. It prints a localhost URL, **blocks** until the user submits, writes the answers into the slice's `decisions_notes` (git-committed automatically), then exits. The form embeds the plan-review **chat panel**, so the user can ask clarifying questions or request plan changes mid-form.
+  3. Read the result: `wipnote plan show <plan-id>` (the slice's `decisions_notes`).
+
+**Adaptive follow-ups (each form is one independent round).** After reading the submitted `decisions_notes`, judge whether anything is still ambiguous or a mandatory field is unmet. If so, compose a NEW stage set targeting only the gaps and launch another `wipnote plan interview … --questions <file2>` round. Repeat until the slice's mandatory fields are satisfied. Do **not** keep one form alive across rounds — you (the agent) own the round-to-round adaptivity; the form is a stateless renderer that returns to the CLI on submit.
+
+**`--questions` JSON schema:**
+
+    {"stages": [
+      {"key": "requirements", "title": "Requirements", "bucket": "Decisions",
+       "questions": [
+         {"id": "requirements.0", "header": "Goal", "type": "choice",
+          "prompt": "What's the user-visible behavior?",
+          "options": [{"label": "New capability", "description": "user can do X"}]},
+         {"id": "requirements.1", "header": "Payload", "type": "text",
+          "prompt": "Input/output contract?", "placeholder": "in: … out: …"}
+       ]}
+    ]}
+
+- `bucket` ∈ `Scope` | `Decisions` | `Context` — routes the stage's answers into that `decisions_notes` subsection.
+- `type` ∈ `choice` (needs `options`, optional `multiSelect`) | `text` | `yesno`.
+- Question `id`s must be unique; the form posts answers back under them and composes into the same `### Scope` / `### Decisions` / `### Context` markdown the AUQ path produces — so downstream (`validate-yaml`, `spec generate --insert`, `promote-slice`, `finalize`) is identical regardless of renderer.
 
 ### Example AUQs
 

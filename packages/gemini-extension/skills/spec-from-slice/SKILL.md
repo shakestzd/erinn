@@ -45,13 +45,22 @@ user at `wipnote plan promote-slice` first.
      re-write verbatim.
    - **Skip** — leave notes unchanged; jump to step 5 (generate spec).
 
-3. **Three-question interview.** Use `AskUserQuestion` with one grouped block
-   containing three questions:
+3. **Three-question interview.** Capture Scope / Decisions / Context:
    - **Scope** — what is and is not in this slice? List the boundaries.
    - **Decisions** — what design choices were made and why? Reference any
      plan questions answered.
    - **Context** — what else does the implementer need to know? Pre-existing
      constraints, related work, file ownership boundaries.
+
+   Render the questions by harness (both write the same `decisions_notes`):
+   - **Claude Code** — one grouped `AskUserQuestion` block with the three
+     questions (fast path).
+   - **Cross-harness / richer surface** — a local web form:
+     `wipnote plan interview <plan-id> <slice-num>` (optionally
+     `--questions <file>` to supply a tailored Scope/Decisions/Context set).
+     It blocks until the user submits, writes `decisions_notes`, commits, and
+     returns — then skip step 4 (the form already persisted). See
+     [/wipnote:plan](/wipnote:plan) → "Rendering the interview (cross-harness)".
 
    The user may answer each in free-form prose. Empty answers are allowed —
    the field is free text.

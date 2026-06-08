@@ -70,7 +70,12 @@ retry npm install -g --no-fund --no-audit \
     @github/copilot
 
 echo "==> Building wipnote from source..."
-./plugin/build.sh
+# Bootstrap: raw go build because the wipnote binary does not exist yet.
+mkdir -p "${HOME}/.local/bin"
+go build -o "${HOME}/.local/bin/wipnote" ./cmd/wipnote/
+chmod +x "${HOME}/.local/bin/wipnote"
+# Full build: mirrors plugin trees, creates wn symlink, writes .binary-version.
+wipnote build
 
 echo "==> Running quality gates..."
 go build ./...

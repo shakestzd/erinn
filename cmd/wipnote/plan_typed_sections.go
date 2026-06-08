@@ -8,8 +8,8 @@ import (
 
 	dbpkg "github.com/shakestzd/wipnote/core/db"
 	"github.com/shakestzd/wipnote/core/htmlparse"
-	"github.com/shakestzd/wipnote/internal/plantmpl"
 	"github.com/shakestzd/wipnote/core/storage"
+	"github.com/shakestzd/wipnote/plan/plantmpl"
 )
 
 // buildTypedPlanSections builds typed plantmpl.SliceCard and DependencyGraph

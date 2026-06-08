@@ -1,6 +1,6 @@
 ---
 name: wipnote:plan
-description: Plan development work using a triage-gated interview. Classify scope as trivial/standard/complex, then run 0/2/4 staged AskUserQuestion rounds to earn each slice field. Produces slice-card YAML; pauses for human review; promotes approved slices to features. Use when asked to plan, create a development plan, or build a feature with design clarity first.
+description: Plan development work using a triage-gated interview. Classify scope as trivial/standard/complex, then run 0/2/4 staged interview rounds — rendered inline via AskUserQuestion on Claude Code, or as the cross-harness `wipnote plan interview` web form — to earn each slice field. Produces slice-card YAML; pauses for human review; promotes approved slices to features. Use when asked to plan, create a development plan, or build a feature with design clarity first.
 ---
 
 # wipnote Plan
@@ -21,7 +21,7 @@ Before any slice content, classify the work. The classification drives both the 
 | `standard` | 3 stages (Requirements, Scope & state, Done-when) | `what`, `decisions_notes` >=50 chars |
 | `complex`  | 4 stages (all) | `decisions_notes` >=50 chars; >=2 `done_when` entries; >=1 slice-local question with an answer |
 
-Set `complexity: trivial|standard|complex` on each slice card. The field is read by `internal/planyaml/validate.go` via `effectiveComplexity`; an unset value defaults to `standard` for back-compat.
+Set `complexity: trivial|standard|complex` on each slice card. The field is read by `plan/planyaml/validate.go` via `effectiveComplexity`; an unset value defaults to `standard` for back-compat.
 
 Every plan you create must include `meta.schema_version: v3`. This enables strict validation including the decisions_notes requirement for standard/complex slices — even when `complexity` is omitted from a slice (which defaults to standard).
 
@@ -59,6 +59,44 @@ Before emitting any slice, run this `AskUserQuestion` (paste-ready):
 | 4. Done-when | Acceptance criteria, tests, effort, risk | `done_when`, `tests`, `effort`, `risk` | "How will you tell it works? Which existing tests must still pass?" |
 
 Each stage = 1-3 questions in a single `AskUserQuestion` call (AUQ supports up to 4 per call).
+
+### Rendering the interview (cross-harness)
+
+**One workflow, lowest-friction renderer.** The questions have a single canonical source — the binary — and you render them with whatever mechanism the *current* harness supports, preferring the one that keeps the user in place. Don't default to the web form; it's a context switch.
+
+Get the canonical set (one source of truth, never hand-maintained):
+
+    wipnote plan interview-questions <plan-id>            # upfront: triage + problem/goals/constraints
+    wipnote plan interview-questions <plan-id> <slice-num>  # per-slice: template + the slice's open questions
+
+Render it by capability, in this preference order:
+
+1. **Native ask-user tool, inline** — Claude `AskUserQuestion`, Gemini `ask_user`. Map each stage's questions to one tool call. No context switch. Preferred whenever the harness has it.
+2. **Plain conversational, non-interactive** — harnesses with no ask-user tool (e.g. Codex): just ask the questions as text in your turn (present each question + its options); the user answers in their reply. Still no context switch. **Triage is always done this way or via the tool — never a form** (it's one question).
+3. **Web form (optional)** — only when a richer visual surface genuinely helps (a long complex interview) or the user asks for it: `wipnote plan interview-questions … | wipnote plan interview … --questions -`. The form blocks, persists on submit, and embeds the plan-review chat panel. It's an enhancement, not the default path.
+
+Then **persist non-interactively** (the form does this itself; for the inline/conversational paths you write the answers):
+- Upfront intake → `wipnote plan set-design-yaml <plan> --problem … --goals … --constraints …`, then draft slice cards using the assessed complexity.
+- Per-slice → `wipnote plan elicit-decisions <plan> <slice> --scope … --decisions … --context …`.
+
+**Adaptive follow-ups** stay in the same channel — after persisting, judge whether a mandatory field is unmet or something's ambiguous; if so, ask the gap questions again via the *same* mechanism (tool / conversation / another form round). You own the round-to-round adaptivity; nothing keeps state between rounds.
+
+**`--questions` JSON schema:**
+
+    {"stages": [
+      {"key": "requirements", "title": "Requirements", "bucket": "Decisions",
+       "questions": [
+         {"id": "requirements.0", "header": "Goal", "type": "choice",
+          "prompt": "What's the user-visible behavior?",
+          "options": [{"label": "New capability", "description": "user can do X"}]},
+         {"id": "requirements.1", "header": "Payload", "type": "text",
+          "prompt": "Input/output contract?", "placeholder": "in: … out: …"}
+       ]}
+    ]}
+
+- `bucket` ∈ `Scope` | `Decisions` | `Context` — routes the stage's answers into that `decisions_notes` subsection.
+- `type` ∈ `choice` (needs `options`, optional `multiSelect`) | `text` | `yesno`.
+- Question `id`s must be unique; the form posts answers back under them and composes into the same `### Scope` / `### Decisions` / `### Context` markdown the AUQ path produces — so downstream (`validate-yaml`, `spec generate --insert`, `promote-slice`, `finalize`) is identical regardless of renderer.
 
 ### Example AUQs
 
@@ -239,7 +277,7 @@ wipnote plan set-status <plan-id> completed # when all slices done
 ## Section-Naming Contract (load-bearing)
 
 State stored in `plan_feedback` uses these section keys — mirrored in
-`internal/planyaml/schema.go:43-55` and enforced by `validSectionRe` in
+`plan/planyaml/schema.go:43-55` and enforced by `validSectionRe` in
 `cmd/wipnote/api_plans.go`:
 
 | Key pattern | What it stores |

@@ -14,9 +14,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/shakestzd/wipnote/internal/plantmpl"
-	"github.com/shakestzd/wipnote/internal/planyaml"
 	"github.com/shakestzd/wipnote/core/workitem"
+	"github.com/shakestzd/wipnote/plan/plantmpl"
+	"github.com/shakestzd/wipnote/plan/planyaml"
 	"github.com/spf13/cobra"
 )
 
@@ -69,6 +69,9 @@ func planCmdWithExtras() *cobra.Command {
 	cmd.AddCommand(planPromoteSliceCmd())
 	// CRISPI: cross-harness decisions elicitation (feat-0fd7c8bc)
 	cmd.AddCommand(planElicitDecisionsCmd())
+	// Cross-harness web-form interview prototype (feat-2852d0c8)
+	cmd.AddCommand(planInterviewCmd())
+	cmd.AddCommand(planInterviewQuestionsCmd())
 	return cmd
 }
 

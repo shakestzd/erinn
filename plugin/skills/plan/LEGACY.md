@@ -10,7 +10,7 @@ Legacy plans can be migrated incrementally: add v2 fields to individual slices a
 
 ## v2 plans (pre-triage redesign)
 
-Plans created after v2 but before the triage-gated interview redesign do not carry a `complexity` field. The validator treats an unset `complexity` as `standard` via `effectiveComplexity` — see `internal/planyaml/validate.go`. Such plans validate identically to how they did before the field existed, except:
+Plans created after v2 but before the triage-gated interview redesign do not carry a `complexity` field. The validator treats an unset `complexity` as `standard` via `effectiveComplexity` — see `plan/planyaml/validate.go`. Such plans validate identically to how they did before the field existed, except:
 
 - `decisions_notes` (>=50 chars after `TrimSpace`) is required for non-finalized plans. Finalized plans (`meta.status: finalized`) are exempted as a back-compat carve-out for historical plans that pre-date the requirement.
 

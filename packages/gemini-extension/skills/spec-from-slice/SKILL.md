@@ -45,13 +45,23 @@ user at `wipnote plan promote-slice` first.
      re-write verbatim.
    - **Skip** — leave notes unchanged; jump to step 5 (generate spec).
 
-3. **Three-question interview.** Use `AskUserQuestion` with one grouped block
-   containing three questions:
+3. **Three-question interview.** Capture Scope / Decisions / Context:
    - **Scope** — what is and is not in this slice? List the boundaries.
    - **Decisions** — what design choices were made and why? Reference any
      plan questions answered.
    - **Context** — what else does the implementer need to know? Pre-existing
      constraints, related work, file ownership boundaries.
+
+   Render with the lowest-friction mechanism the harness has (all write the
+   same `decisions_notes`) — prefer staying in place over a context switch:
+   - **Native ask-user tool** — Claude `AskUserQuestion` / Gemini `ask_user`,
+     one grouped block.
+   - **No such tool (e.g. Codex)** — just ask the three questions as text;
+     the user answers in their reply.
+   - **Web form (optional)** — only for a richer surface or on request:
+     `wipnote plan interview <plan-id> <slice-num>` (blocks, writes
+     `decisions_notes`, commits, returns — then skip step 4). See
+     [/wipnote:plan](/wipnote:plan) → "Rendering the interview".
 
    The user may answer each in free-form prose. Empty answers are allowed —
    the field is free text.

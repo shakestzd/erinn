@@ -90,12 +90,42 @@ func IsPlanApprovalValueApproved(value string) bool {
 	}
 }
 
-// IsPlanFullyApproved returns true when every UI-exposed section in plan_feedback
-// (design, outline if present, slice-N) has at least one approved 'approve' entry,
-// and none of those sections have a blocking 'approve' entry.
-// Non-exposed sections (slice-N-question-*, critique, q-*, meta, chat) are ignored.
-// Returns false (not an error) when no sections exist yet.
+// IsPlanFullyApproved reports whether a plan is approved enough to finalize.
+//
+// For v2 (slice-card) plans — any plan that has slice-N approval rows — the gate
+// is SLICES ONLY: every slice with an approval row must be approved and none
+// rejected. design/outline approval is NOT required and does not block. This
+// matches the dashboard review rail (the canonical behavior) and the plan-page
+// finalize button, so the three finalize paths agree.
+//
+// For legacy plans with no slice sections at all, it falls back to the original
+// behavior (design/outline must be approved, none disapproved), so older plans
+// keep finalizing as before.
+//
+// Returns false (not an error) when nothing approvable exists yet.
 func IsPlanFullyApproved(db *sql.DB, planID string) (bool, error) {
+	// v2 path: if the plan has any slice approval rows, gate on slices only.
+	sliceApprovals, err := GetSliceApprovals(db, planID)
+	if err != nil {
+		return false, err
+	}
+	if len(sliceApprovals) > 0 {
+		for _, status := range sliceApprovals {
+			if status != "approved" {
+				return false, nil
+			}
+		}
+		return true, nil
+	}
+
+	// Legacy fallback: no slice sections — preserve original design/outline gate.
+	return legacyPlanFullyApproved(db, planID)
+}
+
+// legacyPlanFullyApproved is the pre-slice-gating behavior: every UI-exposed
+// section (design, outline) with an approve row must be approved and none
+// disapproved. Retained for plans that predate slice-card sections.
+func legacyPlanFullyApproved(db *sql.DB, planID string) (bool, error) {
 	// Fetch all approve/disapprove feedback rows for this plan.
 	rows, err := db.Query(`
 		SELECT DISTINCT section, value

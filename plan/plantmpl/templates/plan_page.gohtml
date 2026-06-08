@@ -767,15 +767,23 @@ var planId=(function(){var a=document.querySelector('article[id]');return a?a.id
     if(pc) pc.textContent=SECTIONS.length-approved;
     var pf=document.getElementById('progressFill');
     if(pf) pf.style.width=pct+'%';
+    // Finalize gates on SLICES only — every slice-N section approved — matching
+    // the dashboard review rail and the backend. design/outline are still
+    // reviewed (and counted in the progress bar above) but do not block
+    // finalize. Legacy plans with no slices fall back to the all-sections gate.
+    var sliceSecs=SECTIONS.filter(function(s){return /^slice-\d+$/.test(s);});
+    var canFinalize=sliceSecs.length>0
+      ? sliceSecs.every(function(s){return getApprovalValue(s)==='approved';})
+      : (SECTIONS.length>0 && approved===SECTIONS.length);
     var fb=document.getElementById('finalizeBtn');
-    if(fb) fb.disabled=(approved<SECTIONS.length);
+    if(fb) fb.disabled=!canFinalize;
     // Review rail
     var ra=document.getElementById('railApproved');
     if(ra) ra.textContent=approved;
     var rf=document.getElementById('railFill');
     if(rf) rf.style.width=pct+'%';
     var frb=document.getElementById('finalizeRailBtn');
-    if(frb) frb.disabled=(approved<SECTIONS.length);
+    if(frb) frb.disabled=!canFinalize;
     updateRailPending();
     updateComments();
   }
@@ -859,16 +867,33 @@ var planId=(function(){var a=document.querySelector('article[id]');return a?a.id
             btn.textContent='Plan Finalized';
             btn.style.background='var(--approved)';
             btn.style.color='#fff';
-            if(data&&data.next_steps){
-              var pre=document.createElement('pre');
-              pre.style.cssText='margin-top:12px;padding:10px 14px;background:var(--bg-input);border:1px solid var(--border);border-radius:var(--radius);font-family:var(--mono);font-size:.78rem;text-align:left;white-space:pre-wrap;word-break:break-all;color:var(--text)';
-              pre.textContent=data.next_steps;
-              finalizeMsg.innerHTML='';
-              finalizeMsg.appendChild(pre);
-            } else {
-              finalizeMsg.textContent='Plan finalized successfully.';
+            // Render the same rich result as the dashboard review rail: created
+            // features + the agentic next/yolo commands (data.next_command /
+            // data.yolo_command — NOT the legacy data.next_steps, which the
+            // backend never returns).
+            data=data||{};
+            var preCss='margin:4px 0 0;padding:8px 12px;background:var(--bg-input);border:1px solid var(--border);border-radius:var(--radius);font-family:var(--mono);font-size:.76rem;text-align:left;white-space:pre-wrap;word-break:break-all;color:var(--text);user-select:text';
+            var html='<span style="color:var(--approved);font-weight:600">Plan finalized.</span>';
+            var feats=data.created_features||[];
+            if(feats.length){
+              html+='<div style="margin-top:8px;font-size:.78rem;color:var(--text-muted)">Features created ('+feats.length+'):</div>';
+              html+='<ul style="margin:4px 0 0;padding-left:18px;font-size:.78rem;font-family:var(--mono);color:var(--text-muted)">';
+              feats.forEach(function(f){html+='<li>'+escHtml(f)+'</li>';});
+              html+='</ul>';
             }
-            finalizeMsg.style.color='var(--approved)';
+            if(data.failures&&data.failures.length){
+              html+='<div style="margin-top:6px;font-size:.78rem;color:var(--blocked)">'+data.failures.length+' slice(s) failed to create — see server log.</div>';
+            }
+            if(data.next_command){
+              html+='<div style="margin-top:8px;font-size:.76rem;color:var(--text-muted)">Next — agentic generation (integrates review feedback):</div>';
+              html+='<pre style="'+preCss+'">'+escHtml(data.next_command)+'</pre>';
+            }
+            if(data.yolo_command){
+              html+='<div style="margin-top:6px;font-size:.76rem;color:var(--text-muted)">Or autonomous mode:</div>';
+              html+='<pre style="'+preCss+'">'+escHtml(data.yolo_command)+'</pre>';
+            }
+            finalizeMsg.innerHTML=html;
+            finalizeMsg.style.color='';
             finalizeMsg.style.display='block';
           });
         } else {

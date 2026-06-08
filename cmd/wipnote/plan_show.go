@@ -8,7 +8,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/shakestzd/wipnote/internal/planyaml"
+	"github.com/shakestzd/wipnote/plan/planyaml"
 	"github.com/spf13/cobra"
 )
 

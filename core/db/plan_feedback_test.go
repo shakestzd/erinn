@@ -249,6 +249,46 @@ func TestIsPlanFullyApproved_WithNonApproveActions(t *testing.T) {
 	}
 }
 
+// TestIsPlanFullyApproved_V2SlicesOnly_IgnoresDesign verifies the slice-gated
+// behavior: for a plan with slice approvals, finalize is allowed once all slices
+// are approved, regardless of design/outline approval state — matching the
+// dashboard review rail. This is the fix for "all slices approved but can't
+// finalize because design/outline weren't approved".
+func TestIsPlanFullyApproved_V2SlicesOnly_IgnoresDesign(t *testing.T) {
+	database, planID := setupPlanDB(t)
+	defer database.Close()
+
+	// All slices approved; design left untouched AND outline explicitly disapproved.
+	for _, s := range []string{"slice-1", "slice-2"} {
+		if err := db.StorePlanFeedback(database, planID, s, "approve", "true", ""); err != nil {
+			t.Fatalf("StorePlanFeedback %s: %v", s, err)
+		}
+	}
+	if err := db.StorePlanFeedback(database, planID, "outline", "approve", "false", ""); err != nil {
+		t.Fatalf("StorePlanFeedback outline: %v", err)
+	}
+
+	approved, err := db.IsPlanFullyApproved(database, planID)
+	if err != nil {
+		t.Fatalf("IsPlanFullyApproved: %v", err)
+	}
+	if !approved {
+		t.Error("expected true: all slices approved should finalize regardless of design/outline")
+	}
+
+	// A rejected slice still blocks.
+	if err := db.StorePlanFeedback(database, planID, "slice-2", "approve", "false", ""); err != nil {
+		t.Fatalf("StorePlanFeedback slice-2 reject: %v", err)
+	}
+	approved, err = db.IsPlanFullyApproved(database, planID)
+	if err != nil {
+		t.Fatalf("IsPlanFullyApproved (after reject): %v", err)
+	}
+	if approved {
+		t.Error("expected false: a rejected slice must block finalize")
+	}
+}
+
 func TestFinalizePlan(t *testing.T) {
 	database, planID := setupPlanDB(t)
 	defer database.Close()

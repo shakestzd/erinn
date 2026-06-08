@@ -7,8 +7,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/shakestzd/wipnote/internal/planyaml"
 	"github.com/shakestzd/wipnote/core/workitem"
+	"github.com/shakestzd/wipnote/plan/planyaml"
 	"github.com/spf13/cobra"
 )
 
@@ -158,7 +158,7 @@ func validatePlanFromWorkitem(wipnoteDir, planID string) (planValidation, error)
 	}
 
 	// Validate status. v2 lifecycle states 'active' and 'completed' (slice-1)
-	// align with internal/planyaml/validate.go meta.status enum.
+	// align with plan/planyaml/validate.go meta.status enum.
 	validStatuses := map[string]bool{
 		"todo": true, "draft": true, "in-progress": true, "done": true, "finalized": true,
 		"active": true, "completed": true,

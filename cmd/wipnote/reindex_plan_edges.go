@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 
 	dbpkg "github.com/shakestzd/wipnote/core/db"
-	"github.com/shakestzd/wipnote/internal/planyaml"
+	"github.com/shakestzd/wipnote/plan/planyaml"
 )
 
 // reindexPlanEdges walks every plan YAML in .wipnote/plans/ and rebuilds the

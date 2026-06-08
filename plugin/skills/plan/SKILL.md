@@ -62,13 +62,15 @@ Each stage = 1-3 questions in a single `AskUserQuestion` call (AUQ supports up t
 
 ### Rendering the interview (cross-harness)
 
-The staged interview is render-agnostic — the same stages drive any of these. Pick by harness:
+The staged interview has **one canonical definition** emitted by the binary — `wipnote plan interview-questions <plan-id> <slice-num>` prints it as JSON (the complexity template **plus the slice's own unanswered open questions**). Both renderers consume that same set, so you never hand-maintain a divergent question list:
 
-- **Claude Code** — render each stage inline with `AskUserQuestion` (the examples below). Fastest path, no context switch. This is the Claude fast-path.
-- **Any harness (Codex, Gemini, or when a richer review surface helps)** — render the SAME stage(s) as a local web form, the portable canonical path:
-  1. Write the round's stages as JSON to a temp file (schema below).
-  2. Run `wipnote plan interview <plan-id> <slice-num> --questions <file>`. It prints a localhost URL, **blocks** until the user submits, writes the answers into the slice's `decisions_notes` (git-committed automatically), then exits. The form embeds the plan-review **chat panel**, so the user can ask clarifying questions or request plan changes mid-form.
-  3. Read the result: `wipnote plan show <plan-id>` (the slice's `decisions_notes`).
+- **Claude Code (inline fast-path)** — fetch the set and render each stage as an `AskUserQuestion` block. The example AUQs below show the shape; the *live* questions are whatever `interview-questions` returns for this slice (it folds in the slice's real open questions).
+- **Any harness / richer surface (portable canonical path)** — pipe the same set into the web form:
+
+      wipnote plan interview-questions <plan-id> <slice-num> \
+        | wipnote plan interview <plan-id> <slice-num> --questions -
+
+  It prints a localhost URL, **blocks** until the user submits, writes the answers into the slice's `decisions_notes` (git-committed automatically), then exits. The form embeds the plan-review **chat panel** for clarifying questions or plan-change requests mid-form. Read the result with `wipnote plan show <plan-id>`. (Running `wipnote plan interview …` with no `--questions` uses the same canonical set by default.)
 
 **Adaptive follow-ups (each form is one independent round).** After reading the submitted `decisions_notes`, judge whether anything is still ambiguous or a mandatory field is unmet. If so, compose a NEW stage set targeting only the gaps and launch another `wipnote plan interview … --questions <file2>` round. Repeat until the slice's mandatory fields are satisfied. Do **not** keep one form alive across rounds — you (the agent) own the round-to-round adaptivity; the form is a stateless renderer that returns to the CLI on submit.
 

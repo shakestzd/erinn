@@ -66,6 +66,23 @@ func TestCompose_EmptyAnswersYieldEmptyBuckets(t *testing.T) {
 	}
 }
 
+func TestBuildForSlice_AppendsOpenQuestions(t *testing.T) {
+	base := len(ForComplexity("complex"))
+	open := []Question{{ID: "slicequestion.sq-1", Header: "sq-1", Prompt: "GraphQL or REST?", Type: Text}}
+	stages := BuildForSlice("complex", open)
+	if len(stages) != base+1 {
+		t.Fatalf("got %d stages, want %d (template + 1 open-questions stage)", len(stages), base+1)
+	}
+	last := stages[len(stages)-1]
+	if last.Key != "slice-questions" || last.Bucket != BucketDecisions || len(last.Questions) != 1 {
+		t.Errorf("open-questions stage wrong: %+v", last)
+	}
+	// No open questions → identical to ForComplexity.
+	if len(BuildForSlice("standard", nil)) != len(ForComplexity("standard")) {
+		t.Error("BuildForSlice with no open questions should equal ForComplexity")
+	}
+}
+
 func TestParseDefinition_ValidRoundTripsAndComposes(t *testing.T) {
 	js := `{"stages":[
 	  {"key":"req","title":"Requirements","bucket":"Decisions","questions":[

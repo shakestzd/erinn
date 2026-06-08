@@ -96,6 +96,48 @@ func planInterviewCmd() *cobra.Command {
 	return cmd
 }
 
+// planInterviewQuestionsCmd prints the canonical staged interview question set
+// (JSON) for a slice — the same model the web form renders. Any harness can
+// fetch this and render it via its native ask-user tool (Claude
+// AskUserQuestion, Gemini ask_user), so the questions are defined once.
+func planInterviewQuestionsCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "interview-questions <plan-id> <slice-num>",
+		Short: "Print the canonical staged interview question set (JSON) for a slice",
+		Long: "Emits the same staged question model the web form renders ({\"stages\":[…]}),\n" +
+			"so any harness can render it via its native ask-user tool. Single source of\n" +
+			"truth for the interview questions: complexity template + the slice's open\n" +
+			"questions. Pipe it to `wipnote plan interview --questions -` to render the\n" +
+			"web form, or map it to AskUserQuestion / ask_user inline.",
+		Args: cobra.ExactArgs(2),
+		RunE: func(_ *cobra.Command, args []string) error {
+			wipnoteDir, err := findWipnoteDir()
+			if err != nil {
+				return err
+			}
+			sliceNum, err := parseSliceNum(args[1])
+			if err != nil {
+				return err
+			}
+			plan, err := planyaml.Load(filepath.Join(wipnoteDir, "plans", args[0]+".yaml"))
+			if err != nil {
+				return fmt.Errorf("load plan: %w", err)
+			}
+			_, slice, err := findPlanSlice(plan, sliceNum)
+			if err != nil {
+				return err
+			}
+			stages := interview.BuildForSlice(slice.Complexity, sliceOpenQuestions(slice))
+			out, err := json.MarshalIndent(interview.Definition{Stages: stages}, "", "  ")
+			if err != nil {
+				return fmt.Errorf("marshal questions: %w", err)
+			}
+			fmt.Println(string(out))
+			return nil
+		},
+	}
+}
+
 func runPlanInterview(wipnoteDir, planID string, sliceNum int, bind string, port int, questionsPath string) error {
 	planPath := filepath.Join(wipnoteDir, "plans", planID+".yaml")
 	plan, err := planyaml.Load(planPath)
@@ -108,9 +150,9 @@ func runPlanInterview(wipnoteDir, planID string, sliceNum int, bind string, port
 	}
 
 	// Questions come from an agent-supplied set when --questions is given (the
-	// skill composes plan-specific / adaptive rounds), else the built-in
-	// complexity template.
-	stages, err := loadInterviewStages(questionsPath, slice.Complexity)
+	// skill composes plan-specific / adaptive rounds), else the canonical
+	// per-slice set (complexity template + the slice's open questions).
+	stages, err := loadInterviewStages(questionsPath, slice)
 	if err != nil {
 		return err
 	}
@@ -209,10 +251,11 @@ func runPlanInterview(wipnoteDir, planID string, sliceNum int, bind string, port
 
 // loadInterviewStages returns the staged questions for an interview round.
 // With questionsPath set ("-" = stdin), it parses an agent-composed question
-// set; otherwise it falls back to the built-in complexity template.
-func loadInterviewStages(questionsPath, complexity string) ([]interview.Stage, error) {
+// set; otherwise it builds the canonical per-slice set (complexity template +
+// the slice's unanswered open questions).
+func loadInterviewStages(questionsPath string, slice planyaml.PlanSlice) ([]interview.Stage, error) {
 	if questionsPath == "" {
-		return interview.ForComplexity(complexity), nil
+		return interview.BuildForSlice(slice.Complexity, sliceOpenQuestions(slice)), nil
 	}
 	var data []byte
 	var err error
@@ -225,6 +268,41 @@ func loadInterviewStages(questionsPath, complexity string) ([]interview.Stage, e
 		return nil, fmt.Errorf("read questions: %w", err)
 	}
 	return interview.ParseDefinition(data)
+}
+
+// sliceOpenQuestions maps a slice's unanswered slice-local questions into
+// interview questions so the interview asks the plan's real open questions.
+// Choice when the question carries options, free text otherwise.
+func sliceOpenQuestions(slice planyaml.PlanSlice) []interview.Question {
+	var out []interview.Question
+	for _, q := range slice.Questions {
+		if strings.TrimSpace(q.Answer) != "" {
+			continue // already answered
+		}
+		iq := interview.Question{
+			ID:     "slicequestion." + q.ID,
+			Header: q.ID,
+			Prompt: q.Text,
+		}
+		if strings.TrimSpace(q.Description) != "" {
+			iq.Prompt = strings.TrimSpace(q.Text + " — " + q.Description)
+		}
+		if len(q.Options) > 0 {
+			iq.Type = interview.Choice
+			for _, o := range q.Options {
+				label := o.Label
+				if label == "" {
+					label = o.Key
+				}
+				iq.Options = append(iq.Options, interview.Option{Label: label})
+			}
+		} else {
+			iq.Type = interview.Text
+			iq.Placeholder = "your answer"
+		}
+		out = append(out, iq)
+	}
+	return out
 }
 
 // interviewChatReq is the POST body for the interview-aware chat endpoint. It

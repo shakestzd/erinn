@@ -153,6 +153,25 @@ func ForComplexity(complexity string) []Stage {
 	}
 }
 
+// BuildForSlice returns the canonical staged interview for a slice: the
+// complexity template plus, when present, a stage carrying the slice's own
+// unanswered slice-local questions. This is the single source of truth both
+// renderers consume — the web form and (via `plan interview-questions`) a
+// harness's native ask-user tool — so the questions asked are the plan's real
+// open questions, not just a fixed template.
+func BuildForSlice(complexity string, openQuestions []Question) []Stage {
+	stages := ForComplexity(complexity)
+	if len(openQuestions) > 0 {
+		stages = append(stages, Stage{
+			Key:       "slice-questions",
+			Title:     "Open slice questions",
+			Bucket:    BucketDecisions,
+			Questions: openQuestions,
+		})
+	}
+	return stages
+}
+
 func requirementsStage() Stage {
 	return Stage{
 		Key: "requirements", Title: "Requirements", Bucket: BucketDecisions,

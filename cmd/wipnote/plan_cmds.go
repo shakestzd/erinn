@@ -71,6 +71,7 @@ func planCmdWithExtras() *cobra.Command {
 	cmd.AddCommand(planElicitDecisionsCmd())
 	// Cross-harness web-form interview prototype (feat-2852d0c8)
 	cmd.AddCommand(planInterviewCmd())
+	cmd.AddCommand(planInterviewQuestionsCmd())
 	return cmd
 }
 

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"net/url"
 	"strings"
 	"testing"
@@ -8,6 +9,39 @@ import (
 	"github.com/shakestzd/wipnote/plan/interview"
 	"github.com/shakestzd/wipnote/plan/planyaml"
 )
+
+func TestSliceOpenQuestions_MapsUnansweredOnly(t *testing.T) {
+	slice := planyaml.PlanSlice{
+		Questions: []planyaml.SliceQuestion{
+			{ID: "sq-1", Text: "GraphQL or REST?", Options: []planyaml.QuestionOption{{Key: "gql", Label: "GraphQL"}, {Key: "rest", Label: "REST"}}},
+			{ID: "sq-2", Text: "Already decided", Answer: "yes"},     // answered → skipped
+			{ID: "sq-3", Text: "Cache TTL?", Description: "seconds"}, // free text
+		},
+	}
+	got := sliceOpenQuestions(slice)
+	if len(got) != 2 {
+		t.Fatalf("got %d questions, want 2 (answered one skipped)", len(got))
+	}
+	if got[0].Type != interview.Choice || len(got[0].Options) != 2 {
+		t.Errorf("sq-1 should be a 2-option choice; got %+v", got[0])
+	}
+	if got[1].Type != interview.Text || got[1].ID != "slicequestion.sq-3" {
+		t.Errorf("sq-3 should be free text with stable id; got %+v", got[1])
+	}
+	if got[1].Prompt != "Cache TTL? — seconds" {
+		t.Errorf("description not folded into prompt: %q", got[1].Prompt)
+	}
+	// The built set must survive a JSON round-trip through ParseDefinition
+	// (this is what `plan interview-questions` emits and `--questions -` reads).
+	stages := interview.BuildForSlice("standard", got)
+	blob, err := json.Marshal(interview.Definition{Stages: stages})
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+	if _, err := interview.ParseDefinition(blob); err != nil {
+		t.Errorf("emitted question set failed ParseDefinition round-trip: %v", err)
+	}
+}
 
 func TestInterviewChatContext_IncludesFormState(t *testing.T) {
 	stages := interview.ForComplexity("complex")

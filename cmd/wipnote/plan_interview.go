@@ -109,32 +109,41 @@ func planInterviewCmd() *cobra.Command {
 // AskUserQuestion, Gemini ask_user), so the questions are defined once.
 func planInterviewQuestionsCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "interview-questions <plan-id> <slice-num>",
-		Short: "Print the canonical staged interview question set (JSON) for a slice",
+		Use:   "interview-questions <plan-id> [slice-num]",
+		Short: "Print the canonical interview question set (JSON) for a plan or slice",
 		Long: "Emits the same staged question model the web form renders ({\"stages\":[…]}),\n" +
-			"so any harness can render it via its native ask-user tool. Single source of\n" +
-			"truth for the interview questions: complexity template + the slice's open\n" +
-			"questions. Pipe it to `wipnote plan interview --questions -` to render the\n" +
-			"web form, or map it to AskUserQuestion / ask_user inline.",
-		Args: cobra.ExactArgs(2),
+			"so ANY harness can render it however it can — inline via a native ask-user\n" +
+			"tool (Claude AskUserQuestion, Gemini ask_user), as plain conversational\n" +
+			"questions when the harness has no such tool (Codex), or piped to the web\n" +
+			"form. One source of truth; the agent picks the lowest-friction renderer.\n\n" +
+			"  interview-questions <plan>            upfront intake: triage + problem/\n" +
+			"                                         goals/constraints (before slices).\n" +
+			"  interview-questions <plan> <slice>    per-slice: complexity template +\n" +
+			"                                         the slice's open questions.",
+		Args: cobra.RangeArgs(1, 2),
 		RunE: func(_ *cobra.Command, args []string) error {
 			wipnoteDir, err := findWipnoteDir()
 			if err != nil {
 				return err
 			}
-			sliceNum, err := parseSliceNum(args[1])
-			if err != nil {
-				return err
+			var stages []interview.Stage
+			if len(args) == 1 {
+				stages = interview.PlanIntakeStages()
+			} else {
+				sliceNum, err := parseSliceNum(args[1])
+				if err != nil {
+					return err
+				}
+				plan, err := planyaml.Load(filepath.Join(wipnoteDir, "plans", args[0]+".yaml"))
+				if err != nil {
+					return fmt.Errorf("load plan: %w", err)
+				}
+				_, slice, err := findPlanSlice(plan, sliceNum)
+				if err != nil {
+					return err
+				}
+				stages = interview.BuildForSlice(slice.Complexity, sliceOpenQuestions(slice))
 			}
-			plan, err := planyaml.Load(filepath.Join(wipnoteDir, "plans", args[0]+".yaml"))
-			if err != nil {
-				return fmt.Errorf("load plan: %w", err)
-			}
-			_, slice, err := findPlanSlice(plan, sliceNum)
-			if err != nil {
-				return err
-			}
-			stages := interview.BuildForSlice(slice.Complexity, sliceOpenQuestions(slice))
 			out, err := json.MarshalIndent(interview.Definition{Stages: stages}, "", "  ")
 			if err != nil {
 				return fmt.Errorf("marshal questions: %w", err)

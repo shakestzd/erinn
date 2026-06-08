@@ -52,15 +52,16 @@ user at `wipnote plan promote-slice` first.
    - **Context** — what else does the implementer need to know? Pre-existing
      constraints, related work, file ownership boundaries.
 
-   Render the questions by harness (both write the same `decisions_notes`):
-   - **Claude Code** — one grouped `AskUserQuestion` block with the three
-     questions (fast path).
-   - **Cross-harness / richer surface** — a local web form:
-     `wipnote plan interview <plan-id> <slice-num>` (optionally
-     `--questions <file>` to supply a tailored Scope/Decisions/Context set).
-     It blocks until the user submits, writes `decisions_notes`, commits, and
-     returns — then skip step 4 (the form already persisted). See
-     [/wipnote:plan](/wipnote:plan) → "Rendering the interview (cross-harness)".
+   Render with the lowest-friction mechanism the harness has (all write the
+   same `decisions_notes`) — prefer staying in place over a context switch:
+   - **Native ask-user tool** — Claude `AskUserQuestion` / Gemini `ask_user`,
+     one grouped block.
+   - **No such tool (e.g. Codex)** — just ask the three questions as text;
+     the user answers in their reply.
+   - **Web form (optional)** — only for a richer surface or on request:
+     `wipnote plan interview <plan-id> <slice-num>` (blocks, writes
+     `decisions_notes`, commits, returns — then skip step 4). See
+     [/wipnote:plan](/wipnote:plan) → "Rendering the interview".
 
    The user may answer each in free-form prose. Empty answers are allowed —
    the field is free text.

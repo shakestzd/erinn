@@ -62,22 +62,24 @@ Each stage = 1-3 questions in a single `AskUserQuestion` call (AUQ supports up t
 
 ### Rendering the interview (cross-harness)
 
-There are **two interview moments**, both renderable inline (AskUserQuestion) or as the cross-harness web form:
+**One workflow, lowest-friction renderer.** The questions have a single canonical source — the binary — and you render them with whatever mechanism the *current* harness supports, preferring the one that keeps the user in place. Don't default to the web form; it's a context switch.
 
-1. **Upfront intake** — the interview at the *beginning* of the plan, before slices exist, when information is thin. It runs triage (assesses complexity) and gathers the plan-level problem/goals/constraints. Cross-harness: `wipnote plan interview <plan-id>` (no slice-num) leads with the triage question, then problem/goals/constraints; on submit it writes `plan.Design` and records the assessed complexity in `Design.Comment`. You then **draft slice cards** from that Design (using the assessed complexity for each slice's depth). On Claude you may instead run the triage AUQ (below) + design questions inline and write Design via `plan set-design-yaml`.
-2. **Per-slice decisions** — after slices exist, fill each slice's `decisions_notes` (the rest of this section).
+Get the canonical set (one source of truth, never hand-maintained):
 
-For the per-slice step, the staged interview has **one canonical definition** emitted by the binary — `wipnote plan interview-questions <plan-id> <slice-num>` prints it as JSON (the complexity template **plus the slice's own unanswered open questions**). Both renderers consume that same set, so you never hand-maintain a divergent question list:
+    wipnote plan interview-questions <plan-id>            # upfront: triage + problem/goals/constraints
+    wipnote plan interview-questions <plan-id> <slice-num>  # per-slice: template + the slice's open questions
 
-- **Claude Code (inline fast-path)** — fetch the set and render each stage as an `AskUserQuestion` block. The example AUQs below show the shape; the *live* questions are whatever `interview-questions` returns for this slice (it folds in the slice's real open questions).
-- **Any harness / richer surface (portable canonical path)** — pipe the same set into the web form:
+Render it by capability, in this preference order:
 
-      wipnote plan interview-questions <plan-id> <slice-num> \
-        | wipnote plan interview <plan-id> <slice-num> --questions -
+1. **Native ask-user tool, inline** — Claude `AskUserQuestion`, Gemini `ask_user`. Map each stage's questions to one tool call. No context switch. Preferred whenever the harness has it.
+2. **Plain conversational, non-interactive** — harnesses with no ask-user tool (e.g. Codex): just ask the questions as text in your turn (present each question + its options); the user answers in their reply. Still no context switch. **Triage is always done this way or via the tool — never a form** (it's one question).
+3. **Web form (optional)** — only when a richer visual surface genuinely helps (a long complex interview) or the user asks for it: `wipnote plan interview-questions … | wipnote plan interview … --questions -`. The form blocks, persists on submit, and embeds the plan-review chat panel. It's an enhancement, not the default path.
 
-  It prints a localhost URL, **blocks** until the user submits, writes the answers into the slice's `decisions_notes` (git-committed automatically), then exits. The form embeds the plan-review **chat panel** for clarifying questions or plan-change requests mid-form. Read the result with `wipnote plan show <plan-id>`. (Running `wipnote plan interview …` with no `--questions` uses the same canonical set by default.)
+Then **persist non-interactively** (the form does this itself; for the inline/conversational paths you write the answers):
+- Upfront intake → `wipnote plan set-design-yaml <plan> --problem … --goals … --constraints …`, then draft slice cards using the assessed complexity.
+- Per-slice → `wipnote plan elicit-decisions <plan> <slice> --scope … --decisions … --context …`.
 
-**Adaptive follow-ups (each form is one independent round).** After reading the submitted `decisions_notes`, judge whether anything is still ambiguous or a mandatory field is unmet. If so, compose a NEW stage set targeting only the gaps and launch another `wipnote plan interview … --questions <file2>` round. Repeat until the slice's mandatory fields are satisfied. Do **not** keep one form alive across rounds — you (the agent) own the round-to-round adaptivity; the form is a stateless renderer that returns to the CLI on submit.
+**Adaptive follow-ups** stay in the same channel — after persisting, judge whether a mandatory field is unmet or something's ambiguous; if so, ask the gap questions again via the *same* mechanism (tool / conversation / another form round). You own the round-to-round adaptivity; nothing keeps state between rounds.
 
 **`--questions` JSON schema:**
 

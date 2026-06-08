@@ -14,7 +14,12 @@
 // `wipnote plan elicit-decisions` command persists.
 package interview
 
-import "strings"
+import (
+	"encoding/json"
+	"errors"
+	"fmt"
+	"strings"
+)
 
 // AnswerType is the input kind for a question. The set is the common
 // denominator of Claude `AskUserQuestion` and Gemini `ask_user`.
@@ -37,29 +42,88 @@ const (
 
 // Option is one selectable choice for a Choice question.
 type Option struct {
-	Label       string
-	Description string
+	Label       string `json:"label"`
+	Description string `json:"description,omitempty"`
 }
 
 // Question is a single prompt within a stage. ID is stable and is what a
 // renderer posts answers back under.
 type Question struct {
-	ID          string
-	Prompt      string
-	Header      string
-	Type        AnswerType
-	MultiSelect bool
-	Options     []Option
-	Placeholder string
+	ID          string     `json:"id"`
+	Prompt      string     `json:"prompt"`
+	Header      string     `json:"header"`
+	Type        AnswerType `json:"type"`
+	MultiSelect bool       `json:"multiSelect,omitempty"`
+	Options     []Option   `json:"options,omitempty"`
+	Placeholder string     `json:"placeholder,omitempty"`
 }
 
 // Stage is one interview round. Bucket says which decisions_notes section its
 // answers (and the stage's free-text note) are composed into.
 type Stage struct {
-	Key       string
-	Title     string
-	Bucket    Bucket
-	Questions []Question
+	Key       string     `json:"key"`
+	Title     string     `json:"title"`
+	Bucket    Bucket     `json:"bucket"`
+	Questions []Question `json:"questions"`
+}
+
+// Definition is an agent-supplied interview: the staged question set the
+// orchestrating skill composes for one round and hands to a renderer (the web
+// form, or a native ask-user tool). Decoupling the model from ForComplexity is
+// what lets the skill ask plan/slice-specific and adaptive follow-up questions
+// rather than a fixed template.
+type Definition struct {
+	Stages []Stage `json:"stages"`
+}
+
+// ParseDefinition decodes an agent-supplied question set (JSON) and validates
+// it enough to render and to compose answers back: every stage needs a key,
+// a known bucket, and at least one question; every question needs a stable id,
+// a prompt, and (for choice) at least one option. Question IDs must be unique
+// so posted answers map unambiguously.
+func ParseDefinition(data []byte) ([]Stage, error) {
+	var def Definition
+	if err := json.Unmarshal(data, &def); err != nil {
+		return nil, fmt.Errorf("parse interview definition: %w", err)
+	}
+	if len(def.Stages) == 0 {
+		return nil, errors.New("interview definition has no stages")
+	}
+	seen := map[string]bool{}
+	for si := range def.Stages {
+		st := &def.Stages[si]
+		if strings.TrimSpace(st.Key) == "" {
+			return nil, fmt.Errorf("stage %d: missing key", si)
+		}
+		switch st.Bucket {
+		case BucketScope, BucketDecisions, BucketContext:
+		default:
+			return nil, fmt.Errorf("stage %q: invalid bucket %q (want Scope|Decisions|Context)", st.Key, st.Bucket)
+		}
+		if len(st.Questions) == 0 {
+			return nil, fmt.Errorf("stage %q: no questions", st.Key)
+		}
+		for qi := range st.Questions {
+			q := &st.Questions[qi]
+			if strings.TrimSpace(q.ID) == "" {
+				return nil, fmt.Errorf("stage %q question %d: missing id", st.Key, qi)
+			}
+			if seen[q.ID] {
+				return nil, fmt.Errorf("duplicate question id %q", q.ID)
+			}
+			seen[q.ID] = true
+			if strings.TrimSpace(q.Prompt) == "" {
+				return nil, fmt.Errorf("question %q: missing prompt", q.ID)
+			}
+			if q.Type == "" {
+				q.Type = Choice
+			}
+			if q.Type == Choice && len(q.Options) == 0 {
+				return nil, fmt.Errorf("question %q: choice type needs at least one option", q.ID)
+			}
+		}
+	}
+	return def.Stages, nil
 }
 
 // effectiveComplexity mirrors the validator: unset/unknown -> standard.

@@ -66,6 +66,61 @@ func TestCompose_EmptyAnswersYieldEmptyBuckets(t *testing.T) {
 	}
 }
 
+func TestParseDefinition_ValidRoundTripsAndComposes(t *testing.T) {
+	js := `{"stages":[
+	  {"key":"req","title":"Requirements","bucket":"Decisions","questions":[
+	    {"id":"req.0","header":"Goal","prompt":"What are we building?","type":"choice",
+	     "options":[{"label":"A","description":"first"},{"label":"B"}]}
+	  ]},
+	  {"key":"acc","title":"Done-when","bucket":"Context","questions":[
+	    {"id":"acc.0","header":"Acceptance","prompt":"How verified?","type":"text","placeholder":"e.g. unit test"}
+	  ]}
+	]}`
+	stages, err := ParseDefinition([]byte(js))
+	if err != nil {
+		t.Fatalf("ParseDefinition: %v", err)
+	}
+	if len(stages) != 2 {
+		t.Fatalf("got %d stages, want 2", len(stages))
+	}
+	if stages[0].Bucket != BucketDecisions || stages[1].Bucket != BucketContext {
+		t.Errorf("buckets not parsed: %q %q", stages[0].Bucket, stages[1].Bucket)
+	}
+	// The parsed stages must compose like any other interview.
+	_, decisions, contextStr := Compose(stages, map[string]string{"req.0": "A", "acc.0": "covered"})
+	if !contains(decisions, "Goal: A") || !contains(contextStr, "Acceptance: covered") {
+		t.Errorf("compose routed wrong: decisions=%q context=%q", decisions, contextStr)
+	}
+}
+
+func TestParseDefinition_Rejects(t *testing.T) {
+	cases := map[string]string{
+		"no stages":        `{"stages":[]}`,
+		"bad bucket":       `{"stages":[{"key":"k","title":"T","bucket":"Nope","questions":[{"id":"k.0","prompt":"p","options":[{"label":"A"}]}]}]}`,
+		"no questions":     `{"stages":[{"key":"k","title":"T","bucket":"Scope","questions":[]}]}`,
+		"missing id":       `{"stages":[{"key":"k","title":"T","bucket":"Scope","questions":[{"prompt":"p","options":[{"label":"A"}]}]}]}`,
+		"duplicate id":     `{"stages":[{"key":"k","title":"T","bucket":"Scope","questions":[{"id":"d","prompt":"p","options":[{"label":"A"}]},{"id":"d","prompt":"q","options":[{"label":"B"}]}]}]}`,
+		"choice no option": `{"stages":[{"key":"k","title":"T","bucket":"Scope","questions":[{"id":"k.0","prompt":"p","type":"choice"}]}]}`,
+		"bad json":         `{not json`,
+	}
+	for name, js := range cases {
+		if _, err := ParseDefinition([]byte(js)); err == nil {
+			t.Errorf("%s: expected error, got nil", name)
+		}
+	}
+}
+
+func TestParseDefinition_DefaultsTypeToChoice(t *testing.T) {
+	js := `{"stages":[{"key":"k","title":"T","bucket":"Scope","questions":[{"id":"k.0","prompt":"p","options":[{"label":"A"}]}]}]}`
+	stages, err := ParseDefinition([]byte(js))
+	if err != nil {
+		t.Fatalf("ParseDefinition: %v", err)
+	}
+	if stages[0].Questions[0].Type != Choice {
+		t.Errorf("type default = %q, want choice", stages[0].Questions[0].Type)
+	}
+}
+
 func contains(haystack, needle string) bool {
 	return len(haystack) >= len(needle) && (haystack == needle || indexOf(haystack, needle) >= 0)
 }

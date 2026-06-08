@@ -65,13 +65,18 @@ type interviewPage struct {
 func planInterviewCmd() *cobra.Command {
 	var bind string
 	var port int
+	var questionsPath string
 	cmd := &cobra.Command{
 		Use:   "interview <plan-id> <slice-num>",
 		Short: "Run the staged plan interview as a local web form (cross-harness)",
 		Long: "Serves the slice's staged interview as a local web form, waits for the\n" +
 			"user to submit, then writes the answers to the slice's decisions_notes.\n" +
 			"Portable across Claude Code, Codex CLI, and Gemini CLI — the agent just\n" +
-			"launches it and waits.",
+			"launches it and waits.\n\n" +
+			"By default the questions come from a built-in template keyed off slice\n" +
+			"complexity. Pass --questions <file|-> to supply an agent-composed staged\n" +
+			"question set (JSON: {\"stages\":[...]}) — this is how the plan skill asks\n" +
+			"plan-specific and adaptive follow-up questions across interview rounds.",
 		Args: cobra.ExactArgs(2),
 		RunE: func(_ *cobra.Command, args []string) error {
 			wipnoteDir, err := findWipnoteDir()
@@ -82,15 +87,16 @@ func planInterviewCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			return runPlanInterview(wipnoteDir, args[0], sliceNum, bind, port)
+			return runPlanInterview(wipnoteDir, args[0], sliceNum, bind, port, questionsPath)
 		},
 	}
 	cmd.Flags().StringVar(&bind, "bind", "127.0.0.1", "Bind address")
 	cmd.Flags().IntVar(&port, "port", 0, "Port (0 = pick a free port)")
+	cmd.Flags().StringVar(&questionsPath, "questions", "", "Path to an agent-composed question set (JSON); '-' reads stdin. Defaults to the built-in template.")
 	return cmd
 }
 
-func runPlanInterview(wipnoteDir, planID string, sliceNum int, bind string, port int) error {
+func runPlanInterview(wipnoteDir, planID string, sliceNum int, bind string, port int, questionsPath string) error {
 	planPath := filepath.Join(wipnoteDir, "plans", planID+".yaml")
 	plan, err := planyaml.Load(planPath)
 	if err != nil {
@@ -101,7 +107,13 @@ func runPlanInterview(wipnoteDir, planID string, sliceNum int, bind string, port
 		return err
 	}
 
-	stages := interview.ForComplexity(slice.Complexity)
+	// Questions come from an agent-supplied set when --questions is given (the
+	// skill composes plan-specific / adaptive rounds), else the built-in
+	// complexity template.
+	stages, err := loadInterviewStages(questionsPath, slice.Complexity)
+	if err != nil {
+		return err
+	}
 	if len(stages) == 0 {
 		fmt.Printf("Slice %d of %s is trivial — no interview needed.\n", sliceNum, planID)
 		return nil
@@ -193,6 +205,26 @@ func runPlanInterview(wipnoteDir, planID string, sliceNum int, bind string, port
 	defer cancel()
 	_ = srv.Shutdown(shutdownCtx)
 	return runErr
+}
+
+// loadInterviewStages returns the staged questions for an interview round.
+// With questionsPath set ("-" = stdin), it parses an agent-composed question
+// set; otherwise it falls back to the built-in complexity template.
+func loadInterviewStages(questionsPath, complexity string) ([]interview.Stage, error) {
+	if questionsPath == "" {
+		return interview.ForComplexity(complexity), nil
+	}
+	var data []byte
+	var err error
+	if questionsPath == "-" {
+		data, err = io.ReadAll(os.Stdin)
+	} else {
+		data, err = os.ReadFile(questionsPath)
+	}
+	if err != nil {
+		return nil, fmt.Errorf("read questions: %w", err)
+	}
+	return interview.ParseDefinition(data)
 }
 
 // interviewChatReq is the POST body for the interview-aware chat endpoint. It

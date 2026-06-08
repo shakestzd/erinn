@@ -867,16 +867,33 @@ var planId=(function(){var a=document.querySelector('article[id]');return a?a.id
             btn.textContent='Plan Finalized';
             btn.style.background='var(--approved)';
             btn.style.color='#fff';
-            if(data&&data.next_steps){
-              var pre=document.createElement('pre');
-              pre.style.cssText='margin-top:12px;padding:10px 14px;background:var(--bg-input);border:1px solid var(--border);border-radius:var(--radius);font-family:var(--mono);font-size:.78rem;text-align:left;white-space:pre-wrap;word-break:break-all;color:var(--text)';
-              pre.textContent=data.next_steps;
-              finalizeMsg.innerHTML='';
-              finalizeMsg.appendChild(pre);
-            } else {
-              finalizeMsg.textContent='Plan finalized successfully.';
+            // Render the same rich result as the dashboard review rail: created
+            // features + the agentic next/yolo commands (data.next_command /
+            // data.yolo_command — NOT the legacy data.next_steps, which the
+            // backend never returns).
+            data=data||{};
+            var preCss='margin:4px 0 0;padding:8px 12px;background:var(--bg-input);border:1px solid var(--border);border-radius:var(--radius);font-family:var(--mono);font-size:.76rem;text-align:left;white-space:pre-wrap;word-break:break-all;color:var(--text);user-select:text';
+            var html='<span style="color:var(--approved);font-weight:600">Plan finalized.</span>';
+            var feats=data.created_features||[];
+            if(feats.length){
+              html+='<div style="margin-top:8px;font-size:.78rem;color:var(--text-muted)">Features created ('+feats.length+'):</div>';
+              html+='<ul style="margin:4px 0 0;padding-left:18px;font-size:.78rem;font-family:var(--mono);color:var(--text-muted)">';
+              feats.forEach(function(f){html+='<li>'+escHtml(f)+'</li>';});
+              html+='</ul>';
             }
-            finalizeMsg.style.color='var(--approved)';
+            if(data.failures&&data.failures.length){
+              html+='<div style="margin-top:6px;font-size:.78rem;color:var(--blocked)">'+data.failures.length+' slice(s) failed to create — see server log.</div>';
+            }
+            if(data.next_command){
+              html+='<div style="margin-top:8px;font-size:.76rem;color:var(--text-muted)">Next — agentic generation (integrates review feedback):</div>';
+              html+='<pre style="'+preCss+'">'+escHtml(data.next_command)+'</pre>';
+            }
+            if(data.yolo_command){
+              html+='<div style="margin-top:6px;font-size:.76rem;color:var(--text-muted)">Or autonomous mode:</div>';
+              html+='<pre style="'+preCss+'">'+escHtml(data.yolo_command)+'</pre>';
+            }
+            finalizeMsg.innerHTML=html;
+            finalizeMsg.style.color='';
             finalizeMsg.style.display='block';
           });
         } else {

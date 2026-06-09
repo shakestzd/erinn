@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>Completion rejects validated merge without current-session gate</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="bug-35857288"
+             data-type="bug"
+             data-status="todo"
+             data-priority="medium"
+             data-created="2026-06-09T10:11:45.24938"
+             data-updated="2026-06-09T10:11:45.306177" data-agent-assigned="claude-code" data-track-id="trk-49c43b06" data-created-by-agent="codex" data-created-by-model="gpt-5.5" data-created-by-role="codex" data-created-by-cli-version="dev">
+
+        <header>
+            <h1>Completion rejects validated merge without current-session gate</h1>
+            <div class="metadata">
+                <span class="badge status-todo">Todo</span>
+                <span class="badge priority-medium">Medium Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="trk-49c43b06.html" data-relationship="part_of" data-since="2026-06-09T10:11:45.305639">trk-49c43b06</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>After merge commit 4958c6614 had already been validated and pushed, running wipnote feature complete feat-2852d0c8 refused with: no valid passing gate record exists for the current session. This makes simple bookkeeping after a validated merge require rerunning gates in the orchestrator session instead of recognizing a recent passing gate tied to the same commit/work item. Decide whether completion should accept a recent gate for the current HEAD/work item, provide a clear --use-existing-gate path, or document that same-session gates are required.</p>
+        </section>
+    </article>
+</body>
+</html>

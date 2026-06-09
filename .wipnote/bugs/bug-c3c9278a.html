@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>Completion runs long silent gates during bookkeeping</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="bug-c3c9278a"
+             data-type="bug"
+             data-status="todo"
+             data-priority="medium"
+             data-created="2026-06-09T10:11:48.134002"
+             data-updated="2026-06-09T10:11:48.159581" data-agent-assigned="claude-code" data-track-id="trk-49c43b06" data-created-by-agent="codex" data-created-by-model="gpt-5.5" data-created-by-role="codex" data-created-by-cli-version="dev">
+
+        <header>
+            <h1>Completion runs long silent gates during bookkeeping</h1>
+            <div class="metadata">
+                <span class="badge status-todo">Todo</span>
+                <span class="badge priority-medium">Medium Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="trk-49c43b06.html" data-relationship="part_of" data-since="2026-06-09T10:11:48.157616">trk-49c43b06</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>Running wipnote feature complete feat-2852d0c8 with GOTMPDIR/GOCACHE set launched go test ./... and nested go test -buildvcs=false ./... / go build -buildvcs=false ./... processes for several minutes with no stdout progress. After the user interrupted the turn, the process tree kept running in the background. Completion should stream gate progress, show what command is running, and handle cancellation/signals so interrupted closeouts do not leave orphaned test/build subprocesses.</p>
+        </section>
+    </article>
+</body>
+</html>

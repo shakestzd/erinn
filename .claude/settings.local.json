@@ -742,7 +742,9 @@
       "Bash(command -v docker)",
       "Bash(docker info *)",
       "Bash(export TMPDIR=/home/vscode/.gotest-tmp GOTMPDIR=/home/vscode/.gotest-tmp/wipnote-build)",
-      "Bash(pwd)"
+      "Bash(pwd)",
+      "Bash(export TMPDIR=$HOME/.gotest-tmp GOTMPDIR=$HOME/.gotest-tmp/wipnote-build)",
+      "Bash(mkdir -p /home/vscode/.gotest-tmp /home/vscode/.gotest-tmp/wipnote-build)"
     ]
   },
   "enabledPlugins": {

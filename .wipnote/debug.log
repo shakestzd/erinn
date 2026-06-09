@@ -30928,3 +30928,927 @@
 2026-06-09T12:54:40 handler=runHook duration=15.805875ms hook=posttooluse session=019ead4c completed
 2026-06-09T12:54:41 handler=pretooluse duration=950.958µs phase=resolve-context session=43308a52 tool=Bash context resolved
 2026-06-09T12:54:41 handler=runHook duration=92.189ms hook=pretooluse session=43308a52 completed
+2026-06-09T13:47:41 handler=pretooluse duration=471.59µs phase=resolve-context session=00ebb453 tool=Bash context resolved
+2026-06-09T13:47:41 handler=runHook duration=7.887426ms hook=posttooluse session=00ebb453 completed
+2026-06-09T13:47:42 handler=runHook duration=2.406922ms hook=config-change session=00ebb453 completed
+2026-06-09T13:47:44 handler=pretooluse duration=568.464µs phase=resolve-context session=00ebb453 tool=Bash context resolved
+2026-06-09T13:47:44 handler=runHook duration=56.887204ms hook=pretooluse session=00ebb453 completed
+2026-06-09T13:47:44 handler=pretooluse duration=559.25µs phase=resolve-context session=00ebb453 tool=Bash context resolved
+2026-06-09T13:47:44 handler=runHook duration=11.188015ms hook=posttooluse session=00ebb453 completed
+2026-06-09T13:47:46 handler=pretooluse duration=652.689µs phase=resolve-context session=00ebb453 tool=Bash context resolved
+2026-06-09T13:47:46 handler=runHook duration=22.926948ms hook=pretooluse session=00ebb453 completed
+2026-06-09T13:47:47 handler=pretooluse duration=598.048µs phase=resolve-context session=00ebb453 tool=Bash context resolved
+2026-06-09T13:47:47 handler=runHook duration=5.742853ms hook=posttooluse session=00ebb453 completed
+2026-06-09T13:47:48 handler=pretooluse duration=1.719302ms phase=resolve-context session=00ebb453 tool=Bash context resolved
+2026-06-09T13:47:48 handler=runHook duration=38.768401ms hook=pretooluse session=00ebb453 completed
+2026-06-09T13:47:49 handler=pretooluse duration=604.427µs phase=resolve-context session=00ebb453 tool=Bash context resolved
+2026-06-09T13:47:49 handler=runHook duration=6.064301ms hook=posttooluse session=00ebb453 completed
+2026-06-09T13:47:53 handler=runHook duration=8.703688ms hook=subagent-stop session=00ebb453 completed
+2026-06-09T13:47:53 handler=pretooluse duration=665.148µs phase=resolve-context session=00ebb453 tool=Agent context resolved
+2026-06-09T13:47:53 handler=runHook duration=7.499862ms hook=posttooluse session=00ebb453 completed
+2026-06-09T13:48:18 handler=pretooluse duration=626.49µs phase=resolve-context session=00ebb453 tool=ToolSearch context resolved
+2026-06-09T13:48:18 handler=runHook duration=36.049675ms hook=pretooluse session=00ebb453 completed
+2026-06-09T13:48:18 handler=pretooluse duration=626.87µs phase=resolve-context session=00ebb453 tool=ToolSearch context resolved
+2026-06-09T13:48:18 handler=runHook duration=14.554722ms hook=posttooluse session=00ebb453 completed
+2026-06-09T13:48:29 handler=pretooluse duration=785.246µs phase=resolve-context session=00ebb453 tool=Agent context resolved
+2026-06-09T13:48:29 handler=runHook duration=36.689395ms hook=pretooluse session=00ebb453 completed
+2026-06-09T13:48:29 [wipnote] CLAUDE_ENV_FILE unset — writing session-scoped project dir hint (agent=wipnote:patch-coder session=00ebb453-4549-480d-b1a6-6a6c8586ba2f)
+2026-06-09T13:48:29 handler=runHook duration=13.409102ms hook=subagent-start session=00ebb453 completed
+2026-06-09T13:48:31 handler=pretooluse duration=3.702896ms phase=resolve-context session=00ebb453 tool=Bash context resolved
+2026-06-09T13:48:31 handler=runHook duration=60.210236ms hook=pretooluse session=00ebb453 completed
+2026-06-09T13:48:34 handler=pretooluse duration=2.062451ms phase=resolve-context session=00ebb453 tool=Bash context resolved
+2026-06-09T13:48:35 [posttooluse] tagged claim for feat-23821886 with agent a08e44e724b30f077
+2026-06-09T13:48:35 handler=runHook duration=1.600962922s hook=posttooluse session=00ebb453 completed
+2026-06-09T13:48:37 handler=pretooluse duration=5.836443ms phase=resolve-context session=00ebb453 tool=Bash context resolved
+2026-06-09T13:48:38 handler=runHook duration=310.870863ms hook=pretooluse session=00ebb453 completed
+2026-06-09T13:48:39 handler=runHook duration=102.050776ms hook=permission-request session=00ebb453 completed
+2026-06-09T13:48:47 handler=pretooluse duration=1.280701ms phase=resolve-context session=00ebb453 tool=Bash context resolved
+2026-06-09T13:48:47 handler=runHook duration=591.576573ms hook=posttooluse session=00ebb453 completed
+2026-06-09T13:48:49 handler=pretooluse duration=4.49321ms phase=resolve-context session=00ebb453 tool=Read context resolved
+2026-06-09T13:48:50 handler=runHook duration=202.768535ms hook=pretooluse session=00ebb453 completed
+2026-06-09T13:48:50 handler=pretooluse duration=1.778159ms phase=resolve-context session=00ebb453 tool=Read context resolved
+2026-06-09T13:48:51 handler=runHook duration=378.446461ms hook=posttooluse session=00ebb453 completed
+2026-06-09T13:48:54 handler=pretooluse duration=1.913851ms phase=resolve-context session=00ebb453 tool=Bash context resolved
+2026-06-09T13:48:54 handler=runHook duration=163.726206ms hook=pretooluse session=00ebb453 completed
+2026-06-09T13:48:56 handler=runHook duration=875.561331ms hook=permission-request session=00ebb453 completed
+2026-06-09T13:49:54 handler=pretooluse duration=1.325337ms phase=resolve-context session=00ebb453 tool=Bash context resolved
+2026-06-09T13:49:54 handler=runHook duration=34.078431ms hook=posttooluse session=00ebb453 completed
+2026-06-09T13:49:56 handler=pretooluse duration=901.078µs phase=resolve-context session=00ebb453 tool=Read context resolved
+2026-06-09T13:49:56 handler=runHook duration=48.608666ms hook=pretooluse session=00ebb453 completed
+2026-06-09T13:49:56 handler=pretooluse duration=816.502µs phase=resolve-context session=00ebb453 tool=Read context resolved
+2026-06-09T13:49:56 handler=runHook duration=8.894351ms hook=posttooluse session=00ebb453 completed
+2026-06-09T13:49:56 handler=runHook duration=11.547009ms hook=instructions-loaded session=00ebb453 completed
+2026-06-09T13:49:56 handler=runHook duration=7.865904ms hook=instructions-loaded session=00ebb453 completed
+2026-06-09T13:49:59 handler=pretooluse duration=766.538µs phase=resolve-context session=00ebb453 tool=Bash context resolved
+2026-06-09T13:49:59 handler=runHook duration=43.386345ms hook=pretooluse session=00ebb453 completed
+2026-06-09T13:49:59 handler=runHook duration=7.41086ms hook=permission-request session=00ebb453 completed
+2026-06-09T13:50:47 handler=pretooluse duration=784.404µs phase=resolve-context session=00ebb453 tool=Bash context resolved
+2026-06-09T13:50:47 handler=runHook duration=15.757308ms hook=posttooluse session=00ebb453 completed
+2026-06-09T13:50:50 handler=pretooluse duration=669.563µs phase=resolve-context session=00ebb453 tool=Read context resolved
+2026-06-09T13:50:50 handler=runHook duration=35.707368ms hook=pretooluse session=00ebb453 completed
+2026-06-09T13:50:50 handler=pretooluse duration=594.923µs phase=resolve-context session=00ebb453 tool=Read context resolved
+2026-06-09T13:50:50 handler=runHook duration=9.597304ms hook=posttooluse session=00ebb453 completed
+2026-06-09T13:50:52 handler=pretooluse duration=5.071507ms phase=resolve-context session=00ebb453 tool=Read context resolved
+2026-06-09T13:50:52 handler=runHook duration=69.728753ms hook=pretooluse session=00ebb453 completed
+2026-06-09T13:50:52 handler=pretooluse duration=784.084µs phase=resolve-context session=00ebb453 tool=Read context resolved
+2026-06-09T13:50:52 handler=runHook duration=13.834824ms hook=posttooluse session=00ebb453 completed
+2026-06-09T13:50:54 handler=pretooluse duration=1.344015ms phase=resolve-context session=00ebb453 tool=Read context resolved
+2026-06-09T13:50:55 handler=runHook duration=58.446418ms hook=pretooluse session=00ebb453 completed
+2026-06-09T13:50:55 handler=pretooluse duration=1.600415ms phase=resolve-context session=00ebb453 tool=Read context resolved
+2026-06-09T13:50:55 handler=runHook duration=10.750025ms hook=posttooluse session=00ebb453 completed
+2026-06-09T13:50:59 handler=pretooluse duration=3.612102ms phase=resolve-context session=00ebb453 tool=Bash context resolved
+2026-06-09T13:50:59 handler=runHook duration=71.796182ms hook=pretooluse session=00ebb453 completed
+2026-06-09T13:51:26 handler=pretooluse duration=4.0225ms phase=resolve-context session=00ebb453 tool=Bash context resolved
+2026-06-09T13:51:26 handler=runHook duration=43.996751ms hook=posttooluse session=00ebb453 completed
+2026-06-09T13:51:28 handler=pretooluse duration=2.283339ms phase=resolve-context session=00ebb453 tool=Bash context resolved
+2026-06-09T13:51:28 handler=runHook duration=92.219635ms hook=pretooluse session=00ebb453 completed
+2026-06-09T13:53:30 handler=pretooluse duration=2.078425ms phase=resolve-context session=00ebb453 tool=Bash context resolved
+2026-06-09T13:53:30 handler=runHook duration=37.915415ms hook=posttooluse session=00ebb453 completed
+2026-06-09T13:53:32 handler=pretooluse duration=4.657133ms phase=resolve-context session=00ebb453 tool=Bash context resolved
+2026-06-09T13:53:32 handler=runHook duration=128.629756ms hook=pretooluse session=00ebb453 completed
+2026-06-09T13:53:32 handler=runHook duration=37.511075ms hook=permission-request session=00ebb453 completed
+2026-06-09T13:54:32 handler=test detail=applying pragmas: acquiring dedicated connection for pragmas: unable to open database file: out of memory (14) fallback=writer_unavailable session=sess-wri canonical-first fallback engaged
+2026-06-09T13:54:32 handler=test detail=writequeue: queue full fallback=queue_full session=sess-que canonical-first fallback engaged
+2026-06-09T13:54:33 handler=test detail=writequeue: writer unavailable fallback=writer_unavailable session=sess-cra canonical-first fallback engaged
+2026-06-09T13:54:34 handler=test detail=no queue and no db fallback=writer_unavailable session=sess-no- canonical-first fallback engaged
+2026-06-09T13:58:33 handler=pretooluse duration=10.566383ms phase=resolve-context session=test-ses tool=Write context resolved
+2026-06-09T13:58:33 handler=pretooluse duration=900.877µs phase=resolve-context session=test-ses tool=Write context resolved
+2026-06-09T13:58:41 handler=posttooluse detail=no daemon and no db fallback=writer_unavailable session=sess-xyz canonical-first fallback engaged
+2026-06-09T13:58:43 handler=pretooluse duration=726.328µs phase=resolve-context session=event-fl tool=Read context resolved
+2026-06-09T13:58:43 [wipnote] research-gate fail-open: no tool_call events recorded for session=event-flow-session-001 agent=claude-code — recording pipeline may be broken
+2026-06-09T13:58:43 handler=pretooluse duration=748.601µs phase=resolve-context session=event-fl tool=Read context resolved
+2026-06-09T13:58:44 handler=pretooluse duration=485.51µs phase=resolve-context session=yolo-gua tool=Write context resolved
+2026-06-09T13:58:44 handler=pretooluse duration=540.332µs phase=resolve-context session=yolo-gua tool=Write context resolved
+2026-06-09T13:58:46 [error] handler=PreCompact session=019ead4c: insert event: insert event 102e3255-bfb8-44c2-8d0b-e43cd0b02744: constraint failed: FOREIGN KEY constraint failed (787)
+2026-06-09T13:59:04 handler=pretooluse duration=788.631µs phase=resolve-context session=test-ses tool=Edit context resolved
+2026-06-09T13:59:04 [wipnote] research-gate fail-open: no tool_call events recorded for session=test-sess agent=claude-code — recording pipeline may be broken
+2026-06-09T13:59:06 handler=pretooluse duration=861.749µs phase=resolve-context session=test-ses tool=Edit context resolved
+2026-06-09T13:59:06 [wipnote] research-gate fail-open: no tool_call events recorded for session=test-sess agent=claude-code — recording pipeline may be broken
+2026-06-09T13:59:10 handler=pretooluse duration=661.702µs phase=resolve-context session=test-ses tool=Read context resolved
+2026-06-09T13:59:10 [wipnote] research-gate fail-open: no tool_call events recorded for session=test-sess agent=codex — recording pipeline may be broken
+2026-06-09T13:59:49 handler=pretooluse duration=5.149793ms phase=resolve-context session=00ebb453 tool=Bash context resolved
+2026-06-09T13:59:49 handler=runHook duration=34.735526ms hook=posttooluse session=00ebb453 completed
+2026-06-09T13:59:51 handler=pretooluse duration=3.209133ms phase=resolve-context session=00ebb453 tool=Read context resolved
+2026-06-09T13:59:51 handler=runHook duration=58.961322ms hook=pretooluse session=00ebb453 completed
+2026-06-09T13:59:51 handler=pretooluse duration=1.431455ms phase=resolve-context session=00ebb453 tool=Read context resolved
+2026-06-09T13:59:51 handler=runHook duration=10.986226ms hook=posttooluse session=00ebb453 completed
+2026-06-09T14:00:09 handler=pretooluse duration=1.800082ms phase=resolve-context session=00ebb453 tool=Edit context resolved
+2026-06-09T14:00:09 handler=runHook duration=75.970338ms hook=pretooluse session=00ebb453 completed
+2026-06-09T14:00:09 handler=pretooluse duration=605.529µs phase=resolve-context session=00ebb453 tool=Edit context resolved
+2026-06-09T14:00:09 handler=runHook duration=14.028051ms hook=posttooluse session=00ebb453 completed
+2026-06-09T14:00:13 handler=pretooluse duration=671.357µs phase=resolve-context session=00ebb453 tool=Read context resolved
+2026-06-09T14:00:13 handler=runHook duration=30.195928ms hook=pretooluse session=00ebb453 completed
+2026-06-09T14:00:13 handler=pretooluse duration=1.003169ms phase=resolve-context session=00ebb453 tool=Read context resolved
+2026-06-09T14:00:13 handler=runHook duration=7.213687ms hook=posttooluse session=00ebb453 completed
+2026-06-09T14:00:16 handler=pretooluse duration=544.338µs phase=resolve-context session=00ebb453 tool=Bash context resolved
+2026-06-09T14:00:16 handler=runHook duration=29.451453ms hook=pretooluse session=00ebb453 completed
+2026-06-09T14:02:17 handler=pretooluse duration=1.481199ms phase=resolve-context session=00ebb453 tool=Bash context resolved
+2026-06-09T14:02:17 handler=runHook duration=29.116085ms hook=posttooluse session=00ebb453 completed
+2026-06-09T14:02:19 handler=pretooluse duration=814.87µs phase=resolve-context session=00ebb453 tool=Read context resolved
+2026-06-09T14:02:19 handler=runHook duration=87.376166ms hook=pretooluse session=00ebb453 completed
+2026-06-09T14:02:19 handler=pretooluse duration=1.054195ms phase=resolve-context session=00ebb453 tool=Read context resolved
+2026-06-09T14:02:19 handler=runHook duration=9.25074ms hook=posttooluse session=00ebb453 completed
+2026-06-09T14:02:22 handler=pretooluse duration=1.740934ms phase=resolve-context session=00ebb453 tool=Bash context resolved
+2026-06-09T14:02:22 handler=runHook duration=44.811891ms hook=pretooluse session=00ebb453 completed
+2026-06-09T14:02:59 handler=test detail=applying pragmas: acquiring dedicated connection for pragmas: unable to open database file: out of memory (14) fallback=writer_unavailable session=sess-wri canonical-first fallback engaged
+2026-06-09T14:02:59 handler=test detail=writequeue: queue full fallback=queue_full session=sess-que canonical-first fallback engaged
+2026-06-09T14:03:00 handler=test detail=writequeue: writer unavailable fallback=writer_unavailable session=sess-cra canonical-first fallback engaged
+2026-06-09T14:03:02 handler=test detail=no queue and no db fallback=writer_unavailable session=sess-no- canonical-first fallback engaged
+2026-06-09T14:04:23 handler=pretooluse duration=2.422695ms phase=resolve-context session=00ebb453 tool=Bash context resolved
+2026-06-09T14:04:23 handler=runHook duration=73.04128ms hook=posttooluse session=00ebb453 completed
+2026-06-09T14:04:28 handler=pretooluse duration=841.87µs phase=resolve-context session=00ebb453 tool=Bash context resolved
+2026-06-09T14:04:28 handler=runHook duration=245.006536ms hook=pretooluse session=00ebb453 completed
+2026-06-09T14:04:30 handler=pretooluse duration=6.375442ms phase=resolve-context session=00ebb453 tool=Bash context resolved
+2026-06-09T14:04:30 handler=runHook duration=72.940891ms hook=posttooluse session=00ebb453 completed
+2026-06-09T14:04:33 handler=pretooluse duration=862.81µs phase=resolve-context session=00ebb453 tool=Bash context resolved
+2026-06-09T14:04:33 handler=runHook duration=140.242361ms hook=pretooluse session=00ebb453 completed
+2026-06-09T14:04:33 handler=runHook duration=22.714032ms hook=permission-request session=00ebb453 completed
+2026-06-09T14:05:22 handler=pretooluse duration=9.523885ms phase=resolve-context session=00ebb453 tool=Bash context resolved
+2026-06-09T14:05:22 handler=runHook duration=104.602884ms hook=posttooluse session=00ebb453 completed
+2026-06-09T14:05:26 handler=pretooluse duration=5.424892ms phase=resolve-context session=00ebb453 tool=Bash context resolved
+2026-06-09T14:05:26 handler=runHook duration=105.155164ms hook=pretooluse session=00ebb453 completed
+2026-06-09T14:05:57 handler=test detail=applying pragmas: acquiring dedicated connection for pragmas: unable to open database file: out of memory (14) fallback=writer_unavailable session=sess-wri canonical-first fallback engaged
+2026-06-09T14:05:57 handler=test detail=writequeue: queue full fallback=queue_full session=sess-que canonical-first fallback engaged
+2026-06-09T14:05:59 handler=test detail=writequeue: writer unavailable fallback=writer_unavailable session=sess-cra canonical-first fallback engaged
+2026-06-09T14:06:00 handler=pretooluse duration=4.932481ms phase=resolve-context session=00ebb453 tool=Bash context resolved
+2026-06-09T14:06:00 handler=runHook duration=52.702453ms hook=posttooluse session=00ebb453 completed
+2026-06-09T14:06:01 handler=test detail=no queue and no db fallback=writer_unavailable session=sess-no- canonical-first fallback engaged
+2026-06-09T14:06:02 handler=pretooluse duration=2.793416ms phase=resolve-context session=00ebb453 tool=Bash context resolved
+2026-06-09T14:06:02 handler=runHook duration=121.483259ms hook=pretooluse session=00ebb453 completed
+2026-06-09T14:08:03 handler=pretooluse duration=3.281971ms phase=resolve-context session=00ebb453 tool=Bash context resolved
+2026-06-09T14:08:03 handler=runHook duration=28.791573ms hook=posttooluse session=00ebb453 completed
+2026-06-09T14:08:06 handler=pretooluse duration=4.574339ms phase=resolve-context session=00ebb453 tool=Bash context resolved
+2026-06-09T14:08:06 handler=runHook duration=134.725242ms hook=pretooluse session=00ebb453 completed
+2026-06-09T14:08:53 handler=pretooluse duration=7.603396ms phase=resolve-context session=00ebb453 tool=Bash context resolved
+2026-06-09T14:08:53 handler=runHook duration=152.300178ms hook=posttooluse session=00ebb453 completed
+2026-06-09T14:08:56 handler=pretooluse duration=865.745µs phase=resolve-context session=00ebb453 tool=Bash context resolved
+2026-06-09T14:08:56 handler=runHook duration=75.838261ms hook=pretooluse session=00ebb453 completed
+2026-06-09T14:08:56 handler=pretooluse duration=754.43µs phase=resolve-context session=00ebb453 tool=Bash context resolved
+2026-06-09T14:08:56 handler=runHook duration=16.585116ms hook=posttooluse session=00ebb453 completed
+2026-06-09T14:08:58 handler=pretooluse duration=8.749095ms phase=resolve-context session=00ebb453 tool=Bash context resolved
+2026-06-09T14:08:58 handler=runHook duration=144.536055ms hook=pretooluse session=00ebb453 completed
+2026-06-09T14:08:59 handler=pretooluse duration=14.107289ms phase=resolve-context session=00ebb453 tool=Bash context resolved
+2026-06-09T14:08:59 handler=runHook duration=54.700939ms hook=posttooluse session=00ebb453 completed
+2026-06-09T14:09:02 handler=pretooluse duration=2.807717ms phase=resolve-context session=00ebb453 tool=Bash context resolved
+2026-06-09T14:09:02 handler=runHook duration=64.622655ms hook=pretooluse session=00ebb453 completed
+2026-06-09T14:09:03 handler=runHook duration=45.526782ms hook=permission-request session=00ebb453 completed
+2026-06-09T14:10:19 handler=test detail=applying pragmas: acquiring dedicated connection for pragmas: unable to open database file: out of memory (14) fallback=writer_unavailable session=sess-wri canonical-first fallback engaged
+2026-06-09T14:10:19 handler=test detail=writequeue: queue full fallback=queue_full session=sess-que canonical-first fallback engaged
+2026-06-09T14:10:19 handler=test detail=writequeue: writer unavailable fallback=writer_unavailable session=sess-cra canonical-first fallback engaged
+2026-06-09T14:10:20 handler=test detail=no queue and no db fallback=writer_unavailable session=sess-no- canonical-first fallback engaged
+2026-06-09T14:38:18 handler=pretooluse duration=8.383012ms phase=resolve-context session=00ebb453 tool=Bash context resolved
+2026-06-09T14:38:18 handler=runHook duration=39.575299ms hook=posttooluse session=00ebb453 completed
+2026-06-09T14:38:21 handler=pretooluse duration=598.689µs phase=resolve-context session=00ebb453 tool=Bash context resolved
+2026-06-09T14:38:21 handler=runHook duration=40.606219ms hook=pretooluse session=00ebb453 completed
+2026-06-09T14:38:22 handler=runHook duration=7.391801ms hook=permission-request session=00ebb453 completed
+2026-06-09T14:40:15 handler=pretooluse duration=9.671685ms phase=resolve-context session=00ebb453 tool=Agent context resolved
+2026-06-09T14:40:15 handler=runHook duration=33.381816ms hook=posttooluse session=00ebb453 completed
+2026-06-09T14:40:15 handler=runHook duration=7.392152ms hook=subagent-stop session=00ebb453 completed
+2026-06-09T14:40:15 [warn] handler=subagent-start session=00ebb453: insert lineage trace: insert lineage trace a08e44e724b30f077: constraint failed: UNIQUE constraint failed: agent_lineage_trace.trace_id (1555)
+2026-06-09T14:40:15 [wipnote] CLAUDE_ENV_FILE unset — writing session-scoped project dir hint (agent=wipnote:patch-coder session=00ebb453-4549-480d-b1a6-6a6c8586ba2f)
+2026-06-09T14:40:15 handler=runHook duration=40.204343ms hook=subagent-start session=00ebb453 completed
+2026-06-09T14:40:15 handler=runHook duration=15.877295ms hook=posttooluse-failure session=00ebb453 completed
+2026-06-09T14:40:17 handler=pretooluse duration=1.767684ms phase=resolve-context session=00ebb453 tool=Bash context resolved
+2026-06-09T14:40:17 handler=runHook duration=50.303652ms hook=pretooluse session=00ebb453 completed
+2026-06-09T14:40:20 handler=pretooluse duration=749.322µs phase=resolve-context session=00ebb453 tool=Bash context resolved
+2026-06-09T14:40:20 [posttooluse] tagged claim for feat-23821886 with agent a08e44e724b30f077
+2026-06-09T14:40:20 handler=runHook duration=18.968714ms hook=posttooluse session=00ebb453 completed
+2026-06-09T14:40:21 handler=pretooluse duration=809.281µs phase=resolve-context session=00ebb453 tool=TaskCreate context resolved
+2026-06-09T14:40:21 handler=runHook duration=32.470925ms hook=pretooluse session=00ebb453 completed
+2026-06-09T14:40:21 handler=runHook duration=52.836431ms hook=task-created session=00ebb453 completed
+2026-06-09T14:40:21 handler=pretooluse duration=5.44403ms phase=resolve-context session=00ebb453 tool=TaskCreate context resolved
+2026-06-09T14:40:21 handler=runHook duration=33.798064ms hook=posttooluse session=00ebb453 completed
+2026-06-09T14:40:22 handler=pretooluse duration=1.666153ms phase=resolve-context session=00ebb453 tool=Bash context resolved
+2026-06-09T14:40:22 handler=runHook duration=36.801191ms hook=pretooluse session=00ebb453 completed
+2026-06-09T14:40:22 handler=pretooluse duration=2.743232ms phase=resolve-context session=00ebb453 tool=TaskCreate context resolved
+2026-06-09T14:40:22 handler=runHook duration=31.308539ms hook=pretooluse session=00ebb453 completed
+2026-06-09T14:40:23 handler=runHook duration=196.628292ms hook=task-created session=00ebb453 completed
+2026-06-09T14:40:23 handler=pretooluse duration=6.750469ms phase=resolve-context session=00ebb453 tool=Bash context resolved
+2026-06-09T14:40:23 handler=runHook duration=24.646942ms hook=posttooluse session=00ebb453 completed
+2026-06-09T14:40:23 handler=pretooluse duration=15.704869ms phase=resolve-context session=00ebb453 tool=TaskCreate context resolved
+2026-06-09T14:40:23 handler=runHook duration=52.125917ms hook=posttooluse session=00ebb453 completed
+2026-06-09T14:40:24 handler=pretooluse duration=2.097464ms phase=resolve-context session=00ebb453 tool=TaskCreate context resolved
+2026-06-09T14:40:24 handler=runHook duration=65.082467ms hook=pretooluse session=00ebb453 completed
+2026-06-09T14:40:24 handler=runHook duration=106.827506ms hook=task-created session=00ebb453 completed
+2026-06-09T14:40:25 handler=pretooluse duration=1.528428ms phase=resolve-context session=00ebb453 tool=TaskCreate context resolved
+2026-06-09T14:40:25 handler=runHook duration=20.019383ms hook=posttooluse session=00ebb453 completed
+2026-06-09T14:40:26 handler=pretooluse duration=2.39903ms phase=resolve-context session=00ebb453 tool=Bash context resolved
+2026-06-09T14:40:26 handler=runHook duration=107.634914ms hook=pretooluse session=00ebb453 completed
+2026-06-09T14:40:26 handler=pretooluse duration=12.167499ms phase=resolve-context session=00ebb453 tool=TaskCreate context resolved
+2026-06-09T14:40:27 handler=runHook duration=154.535145ms hook=pretooluse session=00ebb453 completed
+2026-06-09T14:40:28 handler=runHook duration=1.14902986s hook=task-created session=00ebb453 completed
+2026-06-09T14:40:29 handler=pretooluse duration=37.145573ms phase=resolve-context session=00ebb453 tool=TaskCreate context resolved
+2026-06-09T14:40:29 handler=pretooluse duration=834.839µs phase=resolve-context session=00ebb453 tool=Bash context resolved
+2026-06-09T14:40:29 handler=runHook duration=265.63374ms hook=posttooluse session=00ebb453 completed
+2026-06-09T14:40:29 handler=runHook duration=795.323871ms hook=posttooluse session=00ebb453 completed
+2026-06-09T14:40:32 handler=pretooluse duration=772.457µs phase=resolve-context session=00ebb453 tool=TaskUpdate context resolved
+2026-06-09T14:40:32 handler=runHook duration=40.615563ms hook=pretooluse session=00ebb453 completed
+2026-06-09T14:40:32 handler=pretooluse duration=2.651366ms phase=resolve-context session=00ebb453 tool=TaskUpdate context resolved
+2026-06-09T14:40:32 handler=runHook duration=12.779918ms hook=posttooluse session=00ebb453 completed
+2026-06-09T14:40:34 handler=pretooluse duration=708.441µs phase=resolve-context session=00ebb453 tool=Read context resolved
+2026-06-09T14:40:34 handler=runHook duration=40.939413ms hook=pretooluse session=00ebb453 completed
+2026-06-09T14:40:34 handler=pretooluse duration=702.623µs phase=resolve-context session=00ebb453 tool=Read context resolved
+2026-06-09T14:40:34 handler=runHook duration=5.220579ms hook=posttooluse session=00ebb453 completed
+2026-06-09T14:40:36 handler=pretooluse duration=1.597751ms phase=resolve-context session=00ebb453 tool=Bash context resolved
+2026-06-09T14:40:36 handler=runHook duration=57.589686ms hook=pretooluse session=00ebb453 completed
+2026-06-09T14:40:36 handler=runHook duration=10.362119ms hook=permission-request session=00ebb453 completed
+2026-06-09T14:40:39 handler=pretooluse duration=768.921µs phase=resolve-context session=00ebb453 tool=Bash context resolved
+2026-06-09T14:40:39 handler=runHook duration=35.386471ms hook=pretooluse session=00ebb453 completed
+2026-06-09T14:40:40 [user-prompt-backfill] stop: 1 prompts recovered (session=00ebb453)
+2026-06-09T14:40:40 handler=runHook duration=50.177675ms hook=stop session=00ebb453 completed
+2026-06-09T14:40:40 handler=pretooluse duration=1.802555ms phase=resolve-context session=00ebb453 tool=Bash context resolved
+2026-06-09T14:40:40 handler=runHook duration=19.32949ms hook=posttooluse session=00ebb453 completed
+2026-06-09T14:40:43 handler=pretooluse duration=3.865888ms phase=resolve-context session=00ebb453 tool=Read context resolved
+2026-06-09T14:40:43 handler=runHook duration=36.270163ms hook=pretooluse session=00ebb453 completed
+2026-06-09T14:40:44 handler=pretooluse duration=696.133µs phase=resolve-context session=00ebb453 tool=Read context resolved
+2026-06-09T14:40:44 handler=runHook duration=6.914232ms hook=posttooluse session=00ebb453 completed
+2026-06-09T14:40:44 handler=runHook duration=7.714681ms hook=instructions-loaded session=00ebb453 completed
+2026-06-09T14:40:44 handler=runHook duration=9.556354ms hook=instructions-loaded session=00ebb453 completed
+2026-06-09T14:40:47 handler=pretooluse duration=2.476235ms phase=resolve-context session=00ebb453 tool=Bash context resolved
+2026-06-09T14:40:47 handler=runHook duration=80.89705ms hook=pretooluse session=00ebb453 completed
+2026-06-09T14:40:47 handler=pretooluse duration=706.308µs phase=resolve-context session=00ebb453 tool=Bash context resolved
+2026-06-09T14:40:47 handler=runHook duration=7.517478ms hook=posttooluse session=00ebb453 completed
+2026-06-09T14:40:49 handler=pretooluse duration=751.585µs phase=resolve-context session=00ebb453 tool=Read context resolved
+2026-06-09T14:40:49 handler=runHook duration=47.736262ms hook=pretooluse session=00ebb453 completed
+2026-06-09T14:40:49 handler=pretooluse duration=744.806µs phase=resolve-context session=00ebb453 tool=Read context resolved
+2026-06-09T14:40:49 handler=runHook duration=9.676723ms hook=posttooluse session=00ebb453 completed
+2026-06-09T14:40:51 handler=pretooluse duration=2.280094ms phase=resolve-context session=00ebb453 tool=Read context resolved
+2026-06-09T14:40:51 handler=runHook duration=74.951284ms hook=pretooluse session=00ebb453 completed
+2026-06-09T14:40:51 handler=pretooluse duration=1.735876ms phase=resolve-context session=00ebb453 tool=Read context resolved
+2026-06-09T14:40:51 handler=runHook duration=12.657557ms hook=posttooluse session=00ebb453 completed
+2026-06-09T14:40:56 handler=pretooluse duration=2.285783ms phase=resolve-context session=00ebb453 tool=Bash context resolved
+2026-06-09T14:40:56 handler=runHook duration=36.19375ms hook=pretooluse session=00ebb453 completed
+2026-06-09T14:41:29 handler=pretooluse duration=2.329468ms phase=resolve-context session=00ebb453 tool=Bash context resolved
+2026-06-09T14:41:29 handler=runHook duration=24.818526ms hook=posttooluse session=00ebb453 completed
+2026-06-09T14:41:31 handler=pretooluse duration=1.163146ms phase=resolve-context session=00ebb453 tool=Bash context resolved
+2026-06-09T14:41:31 handler=runHook duration=50.914499ms hook=pretooluse session=00ebb453 completed
+2026-06-09T14:43:32 handler=pretooluse duration=1.811239ms phase=resolve-context session=00ebb453 tool=Bash context resolved
+2026-06-09T14:43:32 handler=runHook duration=33.265644ms hook=posttooluse session=00ebb453 completed
+2026-06-09T14:43:34 handler=pretooluse duration=1.045452ms phase=resolve-context session=00ebb453 tool=Bash context resolved
+2026-06-09T14:43:34 handler=runHook duration=37.186133ms hook=pretooluse session=00ebb453 completed
+2026-06-09T14:43:34 handler=pretooluse duration=632.549µs phase=resolve-context session=00ebb453 tool=Bash context resolved
+2026-06-09T14:43:34 handler=runHook duration=4.937518ms hook=posttooluse session=00ebb453 completed
+2026-06-09T14:43:36 handler=pretooluse duration=845.986µs phase=resolve-context session=00ebb453 tool=Read context resolved
+2026-06-09T14:43:36 handler=runHook duration=64.637277ms hook=pretooluse session=00ebb453 completed
+2026-06-09T14:43:36 handler=pretooluse duration=753.018µs phase=resolve-context session=00ebb453 tool=Read context resolved
+2026-06-09T14:43:36 handler=runHook duration=5.512832ms hook=posttooluse session=00ebb453 completed
+2026-06-09T14:43:38 handler=pretooluse duration=787.219µs phase=resolve-context session=00ebb453 tool=Bash context resolved
+2026-06-09T14:43:38 handler=runHook duration=43.509407ms hook=pretooluse session=00ebb453 completed
+2026-06-09T14:43:41 handler=test detail=applying pragmas: acquiring dedicated connection for pragmas: unable to open database file: out of memory (14) fallback=writer_unavailable session=sess-wri canonical-first fallback engaged
+2026-06-09T14:43:41 handler=test detail=writequeue: queue full fallback=queue_full session=sess-que canonical-first fallback engaged
+2026-06-09T14:43:43 handler=test detail=writequeue: writer unavailable fallback=writer_unavailable session=sess-cra canonical-first fallback engaged
+2026-06-09T14:43:44 [warn] handler=subagent-stop session=00ebb453: no open lineage trace for agent_id=a1d802a8eeb46ae35
+2026-06-09T14:43:44 handler=runHook duration=14.617205ms hook=subagent-stop session=00ebb453 completed
+2026-06-09T14:43:46 handler=test detail=no queue and no db fallback=writer_unavailable session=sess-no- canonical-first fallback engaged
+2026-06-09T14:45:39 handler=runHook duration=33.504879ms hook=posttooluse-failure session=00ebb453 completed
+2026-06-09T14:45:42 handler=pretooluse duration=28.28412ms phase=resolve-context session=00ebb453 tool=Bash context resolved
+2026-06-09T14:45:42 handler=runHook duration=108.672315ms hook=pretooluse session=00ebb453 completed
+2026-06-09T14:45:42 handler=runHook duration=23.629602ms hook=permission-request session=00ebb453 completed
+2026-06-09T14:45:44 handler=pretooluse duration=6.970766ms phase=resolve-context session=00ebb453 tool=Bash context resolved
+2026-06-09T14:45:44 handler=runHook duration=77.389012ms hook=pretooluse session=00ebb453 completed
+2026-06-09T14:45:45 handler=pretooluse duration=6.842696ms phase=resolve-context session=00ebb453 tool=Bash context resolved
+2026-06-09T14:45:45 handler=runHook duration=52.057324ms hook=posttooluse session=00ebb453 completed
+2026-06-09T14:45:47 handler=pretooluse duration=6.38048ms phase=resolve-context session=00ebb453 tool=Bash context resolved
+2026-06-09T14:45:48 handler=runHook duration=142.847437ms hook=pretooluse session=00ebb453 completed
+2026-06-09T14:46:26 handler=pretooluse duration=2.277961ms phase=resolve-context session=00ebb453 tool=Bash context resolved
+2026-06-09T14:46:26 handler=runHook duration=41.230766ms hook=posttooluse session=00ebb453 completed
+2026-06-09T14:46:28 handler=pretooluse duration=4.806954ms phase=resolve-context session=00ebb453 tool=Bash context resolved
+2026-06-09T14:46:28 handler=runHook duration=60.935873ms hook=pretooluse session=00ebb453 completed
+2026-06-09T14:46:51 handler=pretooluse duration=1.860121ms phase=resolve-context session=00ebb453 tool=Bash context resolved
+2026-06-09T14:46:51 handler=runHook duration=49.696712ms hook=posttooluse session=00ebb453 completed
+2026-06-09T14:46:57 handler=runHook duration=5.15409ms hook=subagent-stop session=00ebb453 completed
+2026-06-09T14:46:57 handler=runHook duration=9.724473ms hook=user-prompt session=00ebb453 completed
+2026-06-09T14:47:23 handler=pretooluse duration=1.692612ms phase=resolve-context session=00ebb453 tool=Agent context resolved
+2026-06-09T14:47:23 handler=runHook duration=35.732795ms hook=pretooluse session=00ebb453 completed
+2026-06-09T14:47:23 [wipnote] CLAUDE_ENV_FILE unset — writing session-scoped project dir hint (agent=wipnote:test-runner session=00ebb453-4549-480d-b1a6-6a6c8586ba2f)
+2026-06-09T14:47:23 handler=runHook duration=15.516069ms hook=subagent-start session=00ebb453 completed
+2026-06-09T14:47:25 handler=pretooluse duration=782.872µs phase=resolve-context session=00ebb453 tool=Bash context resolved
+2026-06-09T14:47:25 handler=runHook duration=28.755269ms hook=pretooluse session=00ebb453 completed
+2026-06-09T14:47:25 handler=pretooluse duration=654.011µs phase=resolve-context session=00ebb453 tool=Bash context resolved
+2026-06-09T14:47:25 handler=runHook duration=9.274956ms hook=posttooluse session=00ebb453 completed
+2026-06-09T14:47:27 handler=pretooluse duration=937.031µs phase=resolve-context session=00ebb453 tool=Bash context resolved
+2026-06-09T14:47:27 handler=runHook duration=28.946203ms hook=pretooluse session=00ebb453 completed
+2026-06-09T14:47:27 handler=pretooluse duration=629.885µs phase=resolve-context session=00ebb453 tool=Bash context resolved
+2026-06-09T14:47:27 handler=runHook duration=5.644558ms hook=posttooluse session=00ebb453 completed
+2026-06-09T14:47:30 handler=pretooluse duration=806.687µs phase=resolve-context session=00ebb453 tool=Bash context resolved
+2026-06-09T14:47:30 handler=runHook duration=51.320852ms hook=pretooluse session=00ebb453 completed
+2026-06-09T14:47:30 handler=pretooluse duration=583.286µs phase=resolve-context session=00ebb453 tool=Bash context resolved
+2026-06-09T14:47:30 handler=runHook duration=5.530498ms hook=posttooluse session=00ebb453 completed
+2026-06-09T14:47:32 handler=pretooluse duration=594.953µs phase=resolve-context session=00ebb453 tool=Bash context resolved
+2026-06-09T14:47:32 handler=runHook duration=22.207011ms hook=pretooluse session=00ebb453 completed
+2026-06-09T14:47:32 handler=pretooluse duration=724.785µs phase=resolve-context session=00ebb453 tool=Bash context resolved
+2026-06-09T14:47:32 handler=runHook duration=6.601448ms hook=posttooluse session=00ebb453 completed
+2026-06-09T14:47:34 handler=pretooluse duration=781.87µs phase=resolve-context session=00ebb453 tool=Bash context resolved
+2026-06-09T14:47:34 handler=runHook duration=25.667266ms hook=pretooluse session=00ebb453 completed
+2026-06-09T14:47:34 handler=pretooluse duration=592.87µs phase=resolve-context session=00ebb453 tool=Bash context resolved
+2026-06-09T14:47:34 handler=runHook duration=5.568204ms hook=posttooluse session=00ebb453 completed
+2026-06-09T14:47:35 handler=pretooluse duration=877.963µs phase=resolve-context session=00ebb453 tool=Bash context resolved
+2026-06-09T14:47:35 handler=runHook duration=34.839349ms hook=pretooluse session=00ebb453 completed
+2026-06-09T14:47:44 handler=pretooluse duration=1.26644ms phase=resolve-context session=00ebb453 tool=Bash context resolved
+2026-06-09T14:47:44 handler=runHook duration=19.749162ms hook=posttooluse session=00ebb453 completed
+2026-06-09T14:47:46 handler=pretooluse duration=709.473µs phase=resolve-context session=00ebb453 tool=Bash context resolved
+2026-06-09T14:47:46 handler=runHook duration=99.269078ms hook=pretooluse session=00ebb453 completed
+2026-06-09T14:47:53 handler=pretooluse duration=1.617171ms phase=resolve-context session=00ebb453 tool=Bash context resolved
+2026-06-09T14:47:53 handler=runHook duration=15.8193ms hook=posttooluse session=00ebb453 completed
+2026-06-09T14:47:54 handler=pretooluse duration=2.760007ms phase=resolve-context session=00ebb453 tool=Bash context resolved
+2026-06-09T14:47:54 handler=runHook duration=42.206334ms hook=pretooluse session=00ebb453 completed
+2026-06-09T14:49:46 handler=test detail=applying pragmas: acquiring dedicated connection for pragmas: unable to open database file: out of memory (14) fallback=writer_unavailable session=sess-wri canonical-first fallback engaged
+2026-06-09T14:49:46 handler=test detail=writequeue: queue full fallback=queue_full session=sess-que canonical-first fallback engaged
+2026-06-09T14:49:47 handler=test detail=writequeue: writer unavailable fallback=writer_unavailable session=sess-cra canonical-first fallback engaged
+2026-06-09T14:49:48 handler=test detail=no queue and no db fallback=writer_unavailable session=sess-no- canonical-first fallback engaged
+2026-06-09T14:49:55 handler=pretooluse duration=2.458849ms phase=resolve-context session=00ebb453 tool=Bash context resolved
+2026-06-09T14:49:55 handler=runHook duration=24.720681ms hook=posttooluse session=00ebb453 completed
+2026-06-09T14:49:58 handler=pretooluse duration=1.921953ms phase=resolve-context session=00ebb453 tool=Bash context resolved
+2026-06-09T14:49:58 handler=runHook duration=49.416425ms hook=pretooluse session=00ebb453 completed
+2026-06-09T14:49:58 handler=runHook duration=13.29269ms hook=permission-request session=00ebb453 completed
+2026-06-09T14:58:06 handler=pretooluse duration=4.173014ms phase=resolve-context session=00ebb453 tool=Bash context resolved
+2026-06-09T14:58:07 handler=runHook duration=52.80871ms hook=posttooluse session=00ebb453 completed
+2026-06-09T14:58:09 handler=pretooluse duration=789.672µs phase=resolve-context session=00ebb453 tool=Bash context resolved
+2026-06-09T14:58:09 handler=runHook duration=62.249493ms hook=pretooluse session=00ebb453 completed
+2026-06-09T14:58:09 handler=runHook duration=5.463539ms hook=permission-request session=00ebb453 completed
+2026-06-09T15:04:47 handler=pretooluse duration=1.553826ms phase=resolve-context session=00ebb453 tool=Bash context resolved
+2026-06-09T15:04:47 handler=runHook duration=25.577092ms hook=posttooluse session=00ebb453 completed
+2026-06-09T15:04:49 handler=pretooluse duration=623.666µs phase=resolve-context session=00ebb453 tool=Bash context resolved
+2026-06-09T15:04:49 handler=runHook duration=91.31358ms hook=pretooluse session=00ebb453 completed
+2026-06-09T15:04:49 handler=pretooluse duration=593.711µs phase=resolve-context session=00ebb453 tool=Bash context resolved
+2026-06-09T15:04:49 handler=runHook duration=5.568615ms hook=posttooluse session=00ebb453 completed
+2026-06-09T15:04:54 handler=runHook duration=3.069666ms hook=subagent-stop session=00ebb453 completed
+2026-06-09T15:04:54 handler=pretooluse duration=2.916299ms phase=resolve-context session=00ebb453 tool=Agent context resolved
+2026-06-09T15:04:54 handler=runHook duration=8.142465ms hook=posttooluse session=00ebb453 completed
+2026-06-09T15:05:15 handler=pretooluse duration=892.675µs phase=resolve-context session=00ebb453 tool=Agent context resolved
+2026-06-09T15:05:15 handler=runHook duration=30.310617ms hook=pretooluse session=00ebb453 completed
+2026-06-09T15:05:15 [wipnote] CLAUDE_ENV_FILE unset — writing session-scoped project dir hint (agent=wipnote:researcher session=00ebb453-4549-480d-b1a6-6a6c8586ba2f)
+2026-06-09T15:05:15 handler=runHook duration=26.828119ms hook=subagent-start session=00ebb453 completed
+2026-06-09T15:05:18 handler=pretooluse duration=1.307671ms phase=resolve-context session=00ebb453 tool=Bash context resolved
+2026-06-09T15:05:18 handler=runHook duration=54.532358ms hook=pretooluse session=00ebb453 completed
+2026-06-09T15:05:18 handler=pretooluse duration=1.403152ms phase=resolve-context session=00ebb453 tool=Bash context resolved
+2026-06-09T15:05:18 handler=runHook duration=9.232863ms hook=posttooluse session=00ebb453 completed
+2026-06-09T15:05:21 handler=pretooluse duration=1.109857ms phase=resolve-context session=00ebb453 tool=Bash context resolved
+2026-06-09T15:05:21 handler=runHook duration=43.985605ms hook=pretooluse session=00ebb453 completed
+2026-06-09T15:05:21 handler=pretooluse duration=918.002µs phase=resolve-context session=00ebb453 tool=Bash context resolved
+2026-06-09T15:05:21 handler=runHook duration=9.947104ms hook=posttooluse session=00ebb453 completed
+2026-06-09T15:05:22 handler=pretooluse duration=2.228928ms phase=resolve-context session=00ebb453 tool=Bash context resolved
+2026-06-09T15:05:22 handler=runHook duration=53.323865ms hook=pretooluse session=00ebb453 completed
+2026-06-09T15:05:22 handler=pretooluse duration=698.487µs phase=resolve-context session=00ebb453 tool=Bash context resolved
+2026-06-09T15:05:22 handler=runHook duration=6.420079ms hook=posttooluse session=00ebb453 completed
+2026-06-09T15:05:23 handler=pretooluse duration=633.5µs phase=resolve-context session=00ebb453 tool=Bash context resolved
+2026-06-09T15:05:23 handler=runHook duration=21.614361ms hook=pretooluse session=00ebb453 completed
+2026-06-09T15:05:23 handler=pretooluse duration=655.263µs phase=resolve-context session=00ebb453 tool=Bash context resolved
+2026-06-09T15:05:23 handler=runHook duration=15.182023ms hook=posttooluse session=00ebb453 completed
+2026-06-09T15:05:23 handler=pretooluse duration=3.605612ms phase=resolve-context session=00ebb453 tool=Bash context resolved
+2026-06-09T15:05:23 handler=runHook duration=37.542462ms hook=pretooluse session=00ebb453 completed
+2026-06-09T15:05:23 handler=pretooluse duration=815.271µs phase=resolve-context session=00ebb453 tool=Bash context resolved
+2026-06-09T15:05:23 handler=runHook duration=10.187121ms hook=posttooluse session=00ebb453 completed
+2026-06-09T15:05:27 handler=pretooluse duration=800.849µs phase=resolve-context session=00ebb453 tool=Bash context resolved
+2026-06-09T15:05:27 handler=runHook duration=24.739188ms hook=pretooluse session=00ebb453 completed
+2026-06-09T15:05:35 handler=pretooluse duration=4.813724ms phase=resolve-context session=00ebb453 tool=Bash context resolved
+2026-06-09T15:05:35 handler=runHook duration=35.753295ms hook=posttooluse session=00ebb453 completed
+2026-06-09T15:06:00 handler=runHook duration=6.39406ms hook=subagent-stop session=00ebb453 completed
+2026-06-09T15:06:01 handler=pretooluse duration=1.684811ms phase=resolve-context session=00ebb453 tool=Agent context resolved
+2026-06-09T15:06:01 handler=runHook duration=12.955859ms hook=posttooluse session=00ebb453 completed
+2026-06-09T15:06:38 handler=pretooluse duration=3.938846ms phase=resolve-context session=00ebb453 tool=TaskUpdate context resolved
+2026-06-09T15:06:38 handler=runHook duration=114.34946ms hook=pretooluse session=00ebb453 completed
+2026-06-09T15:06:38 handler=runHook duration=73.749551ms hook=task-completed session=00ebb453 completed
+2026-06-09T15:06:38 handler=pretooluse duration=690.865µs phase=resolve-context session=00ebb453 tool=TaskUpdate context resolved
+2026-06-09T15:06:38 handler=runHook duration=8.101865ms hook=posttooluse session=00ebb453 completed
+2026-06-09T15:06:38 handler=pretooluse duration=9.992461ms phase=resolve-context session=00ebb453 tool=TaskUpdate context resolved
+2026-06-09T15:06:38 handler=runHook duration=46.683068ms hook=pretooluse session=00ebb453 completed
+2026-06-09T15:06:39 handler=runHook duration=67.635566ms hook=task-completed session=00ebb453 completed
+2026-06-09T15:06:39 handler=pretooluse duration=832.565µs phase=resolve-context session=00ebb453 tool=TaskUpdate context resolved
+2026-06-09T15:06:39 handler=runHook duration=22.156616ms hook=pretooluse session=00ebb453 completed
+2026-06-09T15:06:39 handler=pretooluse duration=914.588µs phase=resolve-context session=00ebb453 tool=TaskUpdate context resolved
+2026-06-09T15:06:39 handler=runHook duration=8.398886ms hook=posttooluse session=00ebb453 completed
+2026-06-09T15:06:39 handler=pretooluse duration=840.097µs phase=resolve-context session=00ebb453 tool=TaskUpdate context resolved
+2026-06-09T15:06:39 handler=runHook duration=11.861815ms hook=posttooluse session=00ebb453 completed
+2026-06-09T15:06:53 handler=pretooluse duration=1.554287ms phase=resolve-context session=00ebb453 tool=Agent context resolved
+2026-06-09T15:06:53 handler=runHook duration=32.517845ms hook=pretooluse session=00ebb453 completed
+2026-06-09T15:06:54 [wipnote] CLAUDE_ENV_FILE unset — writing session-scoped project dir hint (agent=wipnote:patch-coder session=00ebb453-4549-480d-b1a6-6a6c8586ba2f)
+2026-06-09T15:06:54 handler=runHook duration=19.334877ms hook=subagent-start session=00ebb453 completed
+2026-06-09T15:06:56 handler=pretooluse duration=1.630089ms phase=resolve-context session=00ebb453 tool=Bash context resolved
+2026-06-09T15:06:56 handler=runHook duration=41.998135ms hook=pretooluse session=00ebb453 completed
+2026-06-09T15:06:56 handler=pretooluse duration=760.789µs phase=resolve-context session=00ebb453 tool=Bash context resolved
+2026-06-09T15:06:56 handler=runHook duration=10.536138ms hook=posttooluse session=00ebb453 completed
+2026-06-09T15:06:58 handler=pretooluse duration=828.16µs phase=resolve-context session=00ebb453 tool=Bash context resolved
+2026-06-09T15:06:58 handler=runHook duration=39.950496ms hook=pretooluse session=00ebb453 completed
+2026-06-09T15:06:58 handler=pretooluse duration=2.820015ms phase=resolve-context session=00ebb453 tool=Bash context resolved
+2026-06-09T15:06:58 handler=runHook duration=16.020688ms hook=posttooluse session=00ebb453 completed
+2026-06-09T15:07:00 handler=pretooluse duration=772.286µs phase=resolve-context session=00ebb453 tool=Bash context resolved
+2026-06-09T15:07:00 handler=runHook duration=25.849827ms hook=pretooluse session=00ebb453 completed
+2026-06-09T15:07:00 handler=pretooluse duration=914.027µs phase=resolve-context session=00ebb453 tool=Bash context resolved
+2026-06-09T15:07:00 handler=runHook duration=8.461248ms hook=posttooluse session=00ebb453 completed
+2026-06-09T15:07:02 handler=pretooluse duration=780.818µs phase=resolve-context session=00ebb453 tool=Bash context resolved
+2026-06-09T15:07:02 handler=runHook duration=52.469346ms hook=pretooluse session=00ebb453 completed
+2026-06-09T15:07:03 handler=pretooluse duration=2.501753ms phase=resolve-context session=00ebb453 tool=Bash context resolved
+2026-06-09T15:07:03 handler=runHook duration=15.03151ms hook=posttooluse session=00ebb453 completed
+2026-06-09T15:07:05 handler=pretooluse duration=2.635261ms phase=resolve-context session=00ebb453 tool=Bash context resolved
+2026-06-09T15:07:05 handler=runHook duration=58.589701ms hook=pretooluse session=00ebb453 completed
+2026-06-09T15:07:05 handler=pretooluse duration=2.038266ms phase=resolve-context session=00ebb453 tool=Bash context resolved
+2026-06-09T15:07:05 handler=runHook duration=22.611411ms hook=posttooluse session=00ebb453 completed
+2026-06-09T15:07:08 handler=pretooluse duration=866.195µs phase=resolve-context session=00ebb453 tool=Bash context resolved
+2026-06-09T15:07:08 handler=runHook duration=115.119734ms hook=pretooluse session=00ebb453 completed
+2026-06-09T15:07:10 handler=runHook duration=20.301873ms hook=posttooluse-failure session=00ebb453 completed
+2026-06-09T15:07:12 handler=pretooluse duration=675.202µs phase=resolve-context session=00ebb453 tool=Bash context resolved
+2026-06-09T15:07:12 handler=runHook duration=24.323402ms hook=pretooluse session=00ebb453 completed
+2026-06-09T15:07:12 handler=pretooluse duration=654.992µs phase=resolve-context session=00ebb453 tool=Bash context resolved
+2026-06-09T15:07:12 handler=runHook duration=9.093327ms hook=posttooluse session=00ebb453 completed
+2026-06-09T15:07:14 handler=pretooluse duration=855.54µs phase=resolve-context session=00ebb453 tool=Bash context resolved
+2026-06-09T15:07:14 handler=runHook duration=29.149265ms hook=pretooluse session=00ebb453 completed
+2026-06-09T15:07:15 handler=pretooluse duration=2.188338ms phase=resolve-context session=00ebb453 tool=Bash context resolved
+2026-06-09T15:07:15 handler=runHook duration=12.020801ms hook=posttooluse session=00ebb453 completed
+2026-06-09T15:07:18 handler=pretooluse duration=2.109671ms phase=resolve-context session=00ebb453 tool=Bash context resolved
+2026-06-09T15:07:18 handler=runHook duration=62.541395ms hook=pretooluse session=00ebb453 completed
+2026-06-09T15:07:30 handler=pretooluse duration=909.05µs phase=resolve-context session=00ebb453 tool=Bash context resolved
+2026-06-09T15:07:30 handler=runHook duration=56.281454ms hook=posttooluse session=00ebb453 completed
+2026-06-09T15:07:32 handler=pretooluse duration=11.77055ms phase=resolve-context session=00ebb453 tool=Bash context resolved
+2026-06-09T15:07:32 handler=runHook duration=110.372507ms hook=pretooluse session=00ebb453 completed
+2026-06-09T15:07:32 handler=pretooluse duration=1.284055ms phase=resolve-context session=00ebb453 tool=Bash context resolved
+2026-06-09T15:07:32 handler=runHook duration=17.093581ms hook=posttooluse session=00ebb453 completed
+2026-06-09T15:07:35 handler=runHook duration=13.231469ms hook=subagent-stop session=00ebb453 completed
+2026-06-09T15:07:36 handler=pretooluse duration=4.609171ms phase=resolve-context session=00ebb453 tool=Agent context resolved
+2026-06-09T15:07:36 handler=runHook duration=40.510086ms hook=posttooluse session=00ebb453 completed
+2026-06-09T15:08:01 handler=pretooluse duration=14.13506ms phase=resolve-context session=00ebb453 tool=Agent context resolved
+2026-06-09T15:08:01 handler=runHook duration=182.271452ms hook=pretooluse session=00ebb453 completed
+2026-06-09T15:08:02 [wipnote] CLAUDE_ENV_FILE unset — writing session-scoped project dir hint (agent=wipnote:researcher session=00ebb453-4549-480d-b1a6-6a6c8586ba2f)
+2026-06-09T15:08:02 handler=runHook duration=183.061395ms hook=subagent-start session=00ebb453 completed
+2026-06-09T15:08:05 handler=pretooluse duration=3.066171ms phase=resolve-context session=00ebb453 tool=Bash context resolved
+2026-06-09T15:08:05 handler=runHook duration=69.677417ms hook=pretooluse session=00ebb453 completed
+2026-06-09T15:08:05 handler=pretooluse duration=4.754226ms phase=resolve-context session=00ebb453 tool=Bash context resolved
+2026-06-09T15:08:05 handler=runHook duration=43.891405ms hook=posttooluse session=00ebb453 completed
+2026-06-09T15:08:06 handler=pretooluse duration=2.463727ms phase=resolve-context session=00ebb453 tool=Bash context resolved
+2026-06-09T15:08:06 handler=runHook duration=69.634955ms hook=pretooluse session=00ebb453 completed
+2026-06-09T15:08:06 handler=pretooluse duration=2.852053ms phase=resolve-context session=00ebb453 tool=Bash context resolved
+2026-06-09T15:08:06 handler=runHook duration=18.887032ms hook=posttooluse session=00ebb453 completed
+2026-06-09T15:08:09 handler=pretooluse duration=8.07804ms phase=resolve-context session=00ebb453 tool=Bash context resolved
+2026-06-09T15:08:09 handler=runHook duration=162.378557ms hook=pretooluse session=00ebb453 completed
+2026-06-09T15:08:09 handler=pretooluse duration=5.728582ms phase=resolve-context session=00ebb453 tool=Bash context resolved
+2026-06-09T15:08:09 handler=runHook duration=129.120575ms hook=pretooluse session=00ebb453 completed
+2026-06-09T15:08:10 handler=pretooluse duration=3.168272ms phase=resolve-context session=00ebb453 tool=Bash context resolved
+2026-06-09T15:08:10 handler=runHook duration=101.626226ms hook=posttooluse session=00ebb453 completed
+2026-06-09T15:08:10 handler=pretooluse duration=3.614815ms phase=resolve-context session=00ebb453 tool=Bash context resolved
+2026-06-09T15:08:10 handler=runHook duration=28.099697ms hook=posttooluse session=00ebb453 completed
+2026-06-09T15:08:12 handler=pretooluse duration=1.529189ms phase=resolve-context session=00ebb453 tool=Bash context resolved
+2026-06-09T15:08:13 handler=runHook duration=54.624726ms hook=pretooluse session=00ebb453 completed
+2026-06-09T15:08:13 handler=pretooluse duration=7.331381ms phase=resolve-context session=00ebb453 tool=Bash context resolved
+2026-06-09T15:08:13 handler=runHook duration=49.746215ms hook=posttooluse session=00ebb453 completed
+2026-06-09T15:08:13 handler=pretooluse duration=3.202073ms phase=resolve-context session=00ebb453 tool=Bash context resolved
+2026-06-09T15:08:13 handler=runHook duration=75.370697ms hook=pretooluse session=00ebb453 completed
+2026-06-09T15:08:14 handler=pretooluse duration=1.725651ms phase=resolve-context session=00ebb453 tool=Bash context resolved
+2026-06-09T15:08:14 handler=runHook duration=18.390195ms hook=posttooluse session=00ebb453 completed
+2026-06-09T15:08:16 handler=pretooluse duration=2.430207ms phase=resolve-context session=00ebb453 tool=Bash context resolved
+2026-06-09T15:08:16 handler=runHook duration=65.365377ms hook=pretooluse session=00ebb453 completed
+2026-06-09T15:08:16 handler=pretooluse duration=1.257686ms phase=resolve-context session=00ebb453 tool=Bash context resolved
+2026-06-09T15:08:16 handler=runHook duration=22.733322ms hook=posttooluse session=00ebb453 completed
+2026-06-09T15:08:40 handler=runHook duration=19.765977ms hook=subagent-stop session=00ebb453 completed
+2026-06-09T15:08:40 handler=pretooluse duration=915.279µs phase=resolve-context session=00ebb453 tool=Agent context resolved
+2026-06-09T15:08:40 handler=runHook duration=73.430056ms hook=posttooluse session=00ebb453 completed
+2026-06-09T15:08:54 handler=pretooluse duration=2.036983ms phase=resolve-context session=00ebb453 tool=TaskUpdate context resolved
+2026-06-09T15:08:54 handler=runHook duration=69.395448ms hook=pretooluse session=00ebb453 completed
+2026-06-09T15:08:54 handler=runHook duration=147.715804ms hook=task-completed session=00ebb453 completed
+2026-06-09T15:08:54 handler=pretooluse duration=1.066383ms phase=resolve-context session=00ebb453 tool=TaskUpdate context resolved
+2026-06-09T15:08:54 handler=runHook duration=66.325752ms hook=pretooluse session=00ebb453 completed
+2026-06-09T15:08:55 handler=pretooluse duration=9.860185ms phase=resolve-context session=00ebb453 tool=TaskUpdate context resolved
+2026-06-09T15:08:55 handler=runHook duration=68.008591ms hook=posttooluse session=00ebb453 completed
+2026-06-09T15:08:55 handler=pretooluse duration=5.687712ms phase=resolve-context session=00ebb453 tool=TaskUpdate context resolved
+2026-06-09T15:08:55 handler=runHook duration=40.539619ms hook=posttooluse session=00ebb453 completed
+2026-06-09T15:09:08 handler=pretooluse duration=705.277µs phase=resolve-context session=00ebb453 tool=Agent context resolved
+2026-06-09T15:09:08 handler=runHook duration=23.200134ms hook=pretooluse session=00ebb453 completed
+2026-06-09T15:09:08 [wipnote] CLAUDE_ENV_FILE unset — writing session-scoped project dir hint (agent=wipnote:researcher session=00ebb453-4549-480d-b1a6-6a6c8586ba2f)
+2026-06-09T15:09:08 handler=runHook duration=31.58522ms hook=subagent-start session=00ebb453 completed
+2026-06-09T15:09:11 handler=pretooluse duration=782.482µs phase=resolve-context session=00ebb453 tool=Bash context resolved
+2026-06-09T15:09:11 handler=runHook duration=25.470214ms hook=pretooluse session=00ebb453 completed
+2026-06-09T15:09:11 handler=pretooluse duration=710.245µs phase=resolve-context session=00ebb453 tool=Bash context resolved
+2026-06-09T15:09:11 handler=runHook duration=8.26725ms hook=posttooluse session=00ebb453 completed
+2026-06-09T15:09:13 handler=pretooluse duration=843.452µs phase=resolve-context session=00ebb453 tool=Bash context resolved
+2026-06-09T15:09:13 handler=runHook duration=23.493429ms hook=pretooluse session=00ebb453 completed
+2026-06-09T15:09:13 handler=pretooluse duration=860.878µs phase=resolve-context session=00ebb453 tool=Bash context resolved
+2026-06-09T15:09:13 handler=runHook duration=8.085041ms hook=posttooluse session=00ebb453 completed
+2026-06-09T15:09:15 handler=pretooluse duration=2.231372ms phase=resolve-context session=00ebb453 tool=Bash context resolved
+2026-06-09T15:09:15 handler=runHook duration=82.829106ms hook=pretooluse session=00ebb453 completed
+2026-06-09T15:09:16 handler=pretooluse duration=1.255483ms phase=resolve-context session=00ebb453 tool=Bash context resolved
+2026-06-09T15:09:16 handler=runHook duration=9.133346ms hook=posttooluse session=00ebb453 completed
+2026-06-09T15:09:16 handler=pretooluse duration=840.037µs phase=resolve-context session=00ebb453 tool=Read context resolved
+2026-06-09T15:09:16 handler=runHook duration=28.131904ms hook=pretooluse session=00ebb453 completed
+2026-06-09T15:09:16 handler=pretooluse duration=834.529µs phase=resolve-context session=00ebb453 tool=Read context resolved
+2026-06-09T15:09:16 handler=runHook duration=8.169696ms hook=posttooluse session=00ebb453 completed
+2026-06-09T15:09:16 handler=runHook duration=6.526317ms hook=instructions-loaded session=00ebb453 completed
+2026-06-09T15:09:16 handler=runHook duration=8.380439ms hook=instructions-loaded session=00ebb453 completed
+2026-06-09T15:09:19 handler=pretooluse duration=764.474µs phase=resolve-context session=00ebb453 tool=Read context resolved
+2026-06-09T15:09:19 handler=runHook duration=38.127089ms hook=pretooluse session=00ebb453 completed
+2026-06-09T15:09:19 handler=pretooluse duration=907.868µs phase=resolve-context session=00ebb453 tool=Read context resolved
+2026-06-09T15:09:19 handler=runHook duration=7.535935ms hook=posttooluse session=00ebb453 completed
+2026-06-09T15:09:19 handler=pretooluse duration=890.121µs phase=resolve-context session=00ebb453 tool=Read context resolved
+2026-06-09T15:09:20 handler=runHook duration=88.091578ms hook=pretooluse session=00ebb453 completed
+2026-06-09T15:09:20 handler=pretooluse duration=780.438µs phase=resolve-context session=00ebb453 tool=Read context resolved
+2026-06-09T15:09:20 handler=runHook duration=7.563927ms hook=posttooluse session=00ebb453 completed
+2026-06-09T15:09:22 handler=pretooluse duration=1.356544ms phase=resolve-context session=00ebb453 tool=Bash context resolved
+2026-06-09T15:09:22 handler=runHook duration=56.64936ms hook=pretooluse session=00ebb453 completed
+2026-06-09T15:09:23 handler=pretooluse duration=1.261682ms phase=resolve-context session=00ebb453 tool=Bash context resolved
+2026-06-09T15:09:23 handler=runHook duration=8.527136ms hook=posttooluse session=00ebb453 completed
+2026-06-09T15:09:24 handler=pretooluse duration=1.041656ms phase=resolve-context session=00ebb453 tool=Bash context resolved
+2026-06-09T15:09:24 handler=runHook duration=37.188076ms hook=pretooluse session=00ebb453 completed
+2026-06-09T15:09:25 handler=pretooluse duration=1.018692ms phase=resolve-context session=00ebb453 tool=Bash context resolved
+2026-06-09T15:09:25 handler=runHook duration=8.689317ms hook=posttooluse session=00ebb453 completed
+2026-06-09T15:09:28 handler=pretooluse duration=902.75µs phase=resolve-context session=00ebb453 tool=Bash context resolved
+2026-06-09T15:09:28 handler=runHook duration=55.505804ms hook=pretooluse session=00ebb453 completed
+2026-06-09T15:09:28 handler=pretooluse duration=753.509µs phase=resolve-context session=00ebb453 tool=Bash context resolved
+2026-06-09T15:09:28 handler=runHook duration=10.185677ms hook=posttooluse session=00ebb453 completed
+2026-06-09T15:09:29 handler=pretooluse duration=844.413µs phase=resolve-context session=00ebb453 tool=Bash context resolved
+2026-06-09T15:09:29 handler=runHook duration=37.680506ms hook=pretooluse session=00ebb453 completed
+2026-06-09T15:09:29 handler=pretooluse duration=880.407µs phase=resolve-context session=00ebb453 tool=Bash context resolved
+2026-06-09T15:09:29 handler=runHook duration=10.156374ms hook=posttooluse session=00ebb453 completed
+2026-06-09T15:09:31 handler=pretooluse duration=3.838478ms phase=resolve-context session=00ebb453 tool=Read context resolved
+2026-06-09T15:09:31 handler=runHook duration=39.717991ms hook=pretooluse session=00ebb453 completed
+2026-06-09T15:09:31 handler=pretooluse duration=620.481µs phase=resolve-context session=00ebb453 tool=Read context resolved
+2026-06-09T15:09:31 handler=runHook duration=6.586666ms hook=posttooluse session=00ebb453 completed
+2026-06-09T15:09:32 handler=pretooluse duration=622.584µs phase=resolve-context session=00ebb453 tool=Read context resolved
+2026-06-09T15:09:32 handler=runHook duration=31.96952ms hook=pretooluse session=00ebb453 completed
+2026-06-09T15:09:32 handler=pretooluse duration=2.019347ms phase=resolve-context session=00ebb453 tool=Read context resolved
+2026-06-09T15:09:32 handler=runHook duration=13.557052ms hook=posttooluse session=00ebb453 completed
+2026-06-09T15:09:35 handler=pretooluse duration=776.543µs phase=resolve-context session=00ebb453 tool=Read context resolved
+2026-06-09T15:09:35 handler=runHook duration=32.928884ms hook=pretooluse session=00ebb453 completed
+2026-06-09T15:09:35 handler=pretooluse duration=673.059µs phase=resolve-context session=00ebb453 tool=Read context resolved
+2026-06-09T15:09:35 handler=runHook duration=6.530182ms hook=posttooluse session=00ebb453 completed
+2026-06-09T15:09:36 handler=pretooluse duration=735.502µs phase=resolve-context session=00ebb453 tool=Bash context resolved
+2026-06-09T15:09:36 handler=runHook duration=27.712081ms hook=pretooluse session=00ebb453 completed
+2026-06-09T15:09:36 handler=pretooluse duration=649.624µs phase=resolve-context session=00ebb453 tool=Bash context resolved
+2026-06-09T15:09:36 handler=runHook duration=8.980719ms hook=posttooluse session=00ebb453 completed
+2026-06-09T15:09:39 handler=pretooluse duration=724.656µs phase=resolve-context session=00ebb453 tool=Bash context resolved
+2026-06-09T15:09:39 handler=runHook duration=30.249477ms hook=pretooluse session=00ebb453 completed
+2026-06-09T15:09:39 handler=pretooluse duration=644.617µs phase=resolve-context session=00ebb453 tool=Bash context resolved
+2026-06-09T15:09:39 handler=runHook duration=9.139965ms hook=posttooluse session=00ebb453 completed
+2026-06-09T15:09:40 handler=pretooluse duration=751.325µs phase=resolve-context session=00ebb453 tool=Bash context resolved
+2026-06-09T15:09:40 handler=runHook duration=33.789201ms hook=pretooluse session=00ebb453 completed
+2026-06-09T15:09:40 handler=pretooluse duration=632.178µs phase=resolve-context session=00ebb453 tool=Bash context resolved
+2026-06-09T15:09:40 handler=runHook duration=5.971423ms hook=posttooluse session=00ebb453 completed
+2026-06-09T15:09:42 handler=pretooluse duration=804.965µs phase=resolve-context session=00ebb453 tool=Read context resolved
+2026-06-09T15:09:42 handler=runHook duration=27.311777ms hook=pretooluse session=00ebb453 completed
+2026-06-09T15:09:42 handler=pretooluse duration=746.207µs phase=resolve-context session=00ebb453 tool=Read context resolved
+2026-06-09T15:09:42 handler=runHook duration=10.028214ms hook=posttooluse session=00ebb453 completed
+2026-06-09T15:09:46 handler=pretooluse duration=780.679µs phase=resolve-context session=00ebb453 tool=Read context resolved
+2026-06-09T15:09:46 handler=runHook duration=26.681471ms hook=pretooluse session=00ebb453 completed
+2026-06-09T15:09:46 handler=pretooluse duration=791.725µs phase=resolve-context session=00ebb453 tool=Read context resolved
+2026-06-09T15:09:46 handler=runHook duration=10.056376ms hook=posttooluse session=00ebb453 completed
+2026-06-09T15:09:47 handler=pretooluse duration=640.221µs phase=resolve-context session=00ebb453 tool=Bash context resolved
+2026-06-09T15:09:47 handler=runHook duration=29.141503ms hook=pretooluse session=00ebb453 completed
+2026-06-09T15:09:47 handler=pretooluse duration=677.646µs phase=resolve-context session=00ebb453 tool=Bash context resolved
+2026-06-09T15:09:47 handler=runHook duration=6.282094ms hook=posttooluse session=00ebb453 completed
+2026-06-09T15:09:50 handler=pretooluse duration=843.242µs phase=resolve-context session=00ebb453 tool=Bash context resolved
+2026-06-09T15:09:50 handler=runHook duration=30.618175ms hook=pretooluse session=00ebb453 completed
+2026-06-09T15:09:51 handler=pretooluse duration=693.599µs phase=resolve-context session=00ebb453 tool=Bash context resolved
+2026-06-09T15:09:51 handler=runHook duration=10.116565ms hook=posttooluse session=00ebb453 completed
+2026-06-09T15:09:53 handler=pretooluse duration=950.491µs phase=resolve-context session=00ebb453 tool=Read context resolved
+2026-06-09T15:09:53 handler=runHook duration=75.010973ms hook=pretooluse session=00ebb453 completed
+2026-06-09T15:09:53 handler=pretooluse duration=795.751µs phase=resolve-context session=00ebb453 tool=Read context resolved
+2026-06-09T15:09:53 handler=runHook duration=8.778128ms hook=posttooluse session=00ebb453 completed
+2026-06-09T15:09:58 handler=pretooluse duration=805.927µs phase=resolve-context session=00ebb453 tool=Bash context resolved
+2026-06-09T15:09:58 handler=runHook duration=41.595397ms hook=pretooluse session=00ebb453 completed
+2026-06-09T15:09:58 handler=pretooluse duration=721.331µs phase=resolve-context session=00ebb453 tool=Bash context resolved
+2026-06-09T15:09:58 handler=runHook duration=7.944772ms hook=posttooluse session=00ebb453 completed
+2026-06-09T15:11:05 handler=runHook duration=18.485327ms hook=subagent-stop session=00ebb453 completed
+2026-06-09T15:11:05 handler=pretooluse duration=5.190003ms phase=resolve-context session=00ebb453 tool=Agent context resolved
+2026-06-09T15:11:05 handler=runHook duration=32.965478ms hook=posttooluse session=00ebb453 completed
+2026-06-09T15:11:48 handler=pretooluse duration=848.84µs phase=resolve-context session=00ebb453 tool=Agent context resolved
+2026-06-09T15:11:48 handler=runHook duration=44.707676ms hook=pretooluse session=00ebb453 completed
+2026-06-09T15:11:48 [wipnote] CLAUDE_ENV_FILE unset — writing session-scoped project dir hint (agent=wipnote:feature-coder session=00ebb453-4549-480d-b1a6-6a6c8586ba2f)
+2026-06-09T15:11:49 handler=runHook duration=72.110349ms hook=subagent-start session=00ebb453 completed
+2026-06-09T15:11:54 handler=pretooluse duration=1.044991ms phase=resolve-context session=00ebb453 tool=Bash context resolved
+2026-06-09T15:11:54 handler=runHook duration=29.967809ms hook=pretooluse session=00ebb453 completed
+2026-06-09T15:11:56 handler=pretooluse duration=839.737µs phase=resolve-context session=00ebb453 tool=Bash context resolved
+2026-06-09T15:11:56 [posttooluse] tagged claim for bug-36b696a5 with agent a77856debeae37fa1
+2026-06-09T15:11:56 handler=runHook duration=8.5903ms hook=posttooluse session=00ebb453 completed
+2026-06-09T15:11:58 handler=pretooluse duration=17.814071ms phase=resolve-context session=00ebb453 tool=Read context resolved
+2026-06-09T15:11:58 handler=pretooluse duration=11.232151ms phase=resolve-context session=00ebb453 tool=Read context resolved
+2026-06-09T15:11:58 handler=runHook duration=188.349103ms hook=pretooluse session=00ebb453 completed
+2026-06-09T15:11:58 handler=runHook duration=130.621412ms hook=pretooluse session=00ebb453 completed
+2026-06-09T15:11:59 handler=pretooluse duration=2.491668ms phase=resolve-context session=00ebb453 tool=Read context resolved
+2026-06-09T15:11:59 handler=runHook duration=21.804613ms hook=posttooluse session=00ebb453 completed
+2026-06-09T15:11:59 handler=pretooluse duration=3.01817ms phase=resolve-context session=00ebb453 tool=Read context resolved
+2026-06-09T15:11:59 handler=runHook duration=77.204599ms hook=posttooluse session=00ebb453 completed
+2026-06-09T15:12:00 handler=runHook duration=21.371571ms hook=instructions-loaded session=00ebb453 completed
+2026-06-09T15:12:00 handler=runHook duration=10.248471ms hook=instructions-loaded session=00ebb453 completed
+2026-06-09T15:12:03 handler=pretooluse duration=743.915µs phase=resolve-context session=00ebb453 tool=Read context resolved
+2026-06-09T15:12:03 handler=runHook duration=49.961264ms hook=pretooluse session=00ebb453 completed
+2026-06-09T15:12:03 handler=pretooluse duration=1.004631ms phase=resolve-context session=00ebb453 tool=Read context resolved
+2026-06-09T15:12:03 handler=runHook duration=16.786124ms hook=posttooluse session=00ebb453 completed
+2026-06-09T15:12:04 handler=pretooluse duration=762.612µs phase=resolve-context session=00ebb453 tool=Bash context resolved
+2026-06-09T15:12:04 handler=runHook duration=30.876979ms hook=pretooluse session=00ebb453 completed
+2026-06-09T15:12:04 handler=pretooluse duration=842.28µs phase=resolve-context session=00ebb453 tool=Bash context resolved
+2026-06-09T15:12:04 handler=runHook duration=8.491523ms hook=posttooluse session=00ebb453 completed
+2026-06-09T15:12:06 handler=pretooluse duration=6.094565ms phase=resolve-context session=00ebb453 tool=Read context resolved
+2026-06-09T15:12:06 handler=runHook duration=62.629337ms hook=pretooluse session=00ebb453 completed
+2026-06-09T15:12:06 handler=pretooluse duration=903.141µs phase=resolve-context session=00ebb453 tool=Read context resolved
+2026-06-09T15:12:06 handler=runHook duration=18.065634ms hook=posttooluse session=00ebb453 completed
+2026-06-09T15:12:11 handler=pretooluse duration=646.309µs phase=resolve-context session=00ebb453 tool=Edit context resolved
+2026-06-09T15:12:11 handler=runHook duration=34.699872ms hook=pretooluse session=00ebb453 completed
+2026-06-09T15:12:11 handler=pretooluse duration=628.572µs phase=resolve-context session=00ebb453 tool=Edit context resolved
+2026-06-09T15:12:11 handler=runHook duration=11.378088ms hook=posttooluse session=00ebb453 completed
+2026-06-09T15:12:15 handler=pretooluse duration=658.908µs phase=resolve-context session=00ebb453 tool=Edit context resolved
+2026-06-09T15:12:15 handler=runHook duration=26.746608ms hook=pretooluse session=00ebb453 completed
+2026-06-09T15:12:15 handler=pretooluse duration=758.476µs phase=resolve-context session=00ebb453 tool=Edit context resolved
+2026-06-09T15:12:16 handler=runHook duration=19.960055ms hook=posttooluse session=00ebb453 completed
+2026-06-09T15:12:22 handler=pretooluse duration=821.89µs phase=resolve-context session=00ebb453 tool=Edit context resolved
+2026-06-09T15:12:22 handler=runHook duration=34.595097ms hook=pretooluse session=00ebb453 completed
+2026-06-09T15:12:22 handler=pretooluse duration=629.083µs phase=resolve-context session=00ebb453 tool=Edit context resolved
+2026-06-09T15:12:22 handler=runHook duration=10.224536ms hook=posttooluse session=00ebb453 completed
+2026-06-09T15:12:30 handler=pretooluse duration=779.197µs phase=resolve-context session=00ebb453 tool=Edit context resolved
+2026-06-09T15:12:31 handler=runHook duration=24.967347ms hook=pretooluse session=00ebb453 completed
+2026-06-09T15:12:31 handler=pretooluse duration=796.222µs phase=resolve-context session=00ebb453 tool=Edit context resolved
+2026-06-09T15:12:31 handler=runHook duration=12.116183ms hook=posttooluse session=00ebb453 completed
+2026-06-09T15:12:38 handler=pretooluse duration=834.368µs phase=resolve-context session=00ebb453 tool=Read context resolved
+2026-06-09T15:12:39 handler=runHook duration=65.294693ms hook=pretooluse session=00ebb453 completed
+2026-06-09T15:12:39 handler=pretooluse duration=912.064µs phase=resolve-context session=00ebb453 tool=Read context resolved
+2026-06-09T15:12:39 handler=runHook duration=10.417242ms hook=posttooluse session=00ebb453 completed
+2026-06-09T15:12:43 handler=pretooluse duration=760.639µs phase=resolve-context session=00ebb453 tool=Edit context resolved
+2026-06-09T15:12:44 handler=runHook duration=29.568676ms hook=pretooluse session=00ebb453 completed
+2026-06-09T15:12:44 handler=pretooluse duration=758.616µs phase=resolve-context session=00ebb453 tool=Edit context resolved
+2026-06-09T15:12:44 handler=runHook duration=17.737716ms hook=posttooluse session=00ebb453 completed
+2026-06-09T15:12:46 handler=pretooluse duration=841.069µs phase=resolve-context session=00ebb453 tool=Read context resolved
+2026-06-09T15:12:47 handler=runHook duration=36.78704ms hook=pretooluse session=00ebb453 completed
+2026-06-09T15:12:47 handler=pretooluse duration=612.55µs phase=resolve-context session=00ebb453 tool=Read context resolved
+2026-06-09T15:12:47 handler=runHook duration=10.752499ms hook=posttooluse session=00ebb453 completed
+2026-06-09T15:12:49 handler=pretooluse duration=734.02µs phase=resolve-context session=00ebb453 tool=Read context resolved
+2026-06-09T15:12:49 handler=runHook duration=60.511703ms hook=pretooluse session=00ebb453 completed
+2026-06-09T15:12:49 handler=pretooluse duration=619.749µs phase=resolve-context session=00ebb453 tool=Read context resolved
+2026-06-09T15:12:49 handler=runHook duration=6.410605ms hook=posttooluse session=00ebb453 completed
+2026-06-09T15:12:52 handler=pretooluse duration=908.549µs phase=resolve-context session=00ebb453 tool=Edit context resolved
+2026-06-09T15:12:52 handler=runHook duration=29.797647ms hook=pretooluse session=00ebb453 completed
+2026-06-09T15:12:52 handler=pretooluse duration=855.891µs phase=resolve-context session=00ebb453 tool=Edit context resolved
+2026-06-09T15:12:52 handler=runHook duration=19.513392ms hook=posttooluse session=00ebb453 completed
+2026-06-09T15:13:12 handler=pretooluse duration=763.474µs phase=resolve-context session=00ebb453 tool=Edit context resolved
+2026-06-09T15:13:12 handler=runHook duration=42.319141ms hook=pretooluse session=00ebb453 completed
+2026-06-09T15:13:12 handler=pretooluse duration=852.946µs phase=resolve-context session=00ebb453 tool=Edit context resolved
+2026-06-09T15:13:12 handler=runHook duration=22.127152ms hook=posttooluse session=00ebb453 completed
+2026-06-09T15:13:17 handler=pretooluse duration=762.572µs phase=resolve-context session=00ebb453 tool=Read context resolved
+2026-06-09T15:13:17 handler=runHook duration=26.541834ms hook=pretooluse session=00ebb453 completed
+2026-06-09T15:13:17 handler=pretooluse duration=650.485µs phase=resolve-context session=00ebb453 tool=Read context resolved
+2026-06-09T15:13:17 handler=runHook duration=6.495961ms hook=posttooluse session=00ebb453 completed
+2026-06-09T15:13:38 handler=pretooluse duration=596.325µs phase=resolve-context session=00ebb453 tool=Edit context resolved
+2026-06-09T15:13:38 handler=runHook duration=39.568789ms hook=pretooluse session=00ebb453 completed
+2026-06-09T15:13:38 handler=pretooluse duration=777.524µs phase=resolve-context session=00ebb453 tool=Edit context resolved
+2026-06-09T15:13:38 handler=runHook duration=13.633224ms hook=posttooluse session=00ebb453 completed
+2026-06-09T15:13:42 handler=pretooluse duration=783.432µs phase=resolve-context session=00ebb453 tool=Bash context resolved
+2026-06-09T15:13:42 handler=runHook duration=40.24358ms hook=pretooluse session=00ebb453 completed
+2026-06-09T15:14:04 handler=pretooluse duration=3.838217ms phase=resolve-context session=00ebb453 tool=Bash context resolved
+2026-06-09T15:14:04 handler=runHook duration=45.165686ms hook=posttooluse session=00ebb453 completed
+2026-06-09T15:14:07 handler=pretooluse duration=815.26µs phase=resolve-context session=00ebb453 tool=Bash context resolved
+2026-06-09T15:14:07 handler=runHook duration=114.496168ms hook=pretooluse session=00ebb453 completed
+2026-06-09T15:16:16 handler=test detail=applying pragmas: acquiring dedicated connection for pragmas: unable to open database file: out of memory (14) fallback=writer_unavailable session=sess-wri canonical-first fallback engaged
+2026-06-09T15:16:16 handler=test detail=writequeue: queue full fallback=queue_full session=sess-que canonical-first fallback engaged
+2026-06-09T15:16:17 handler=test detail=writequeue: writer unavailable fallback=writer_unavailable session=sess-cra canonical-first fallback engaged
+2026-06-09T15:16:18 handler=test detail=no queue and no db fallback=writer_unavailable session=sess-no- canonical-first fallback engaged
+2026-06-09T15:17:08 handler=pretooluse duration=4.369255ms phase=resolve-context session=00ebb453 tool=Bash context resolved
+2026-06-09T15:17:08 handler=runHook duration=73.074168ms hook=posttooluse session=00ebb453 completed
+2026-06-09T15:17:16 handler=pretooluse duration=7.314546ms phase=resolve-context session=00ebb453 tool=Read context resolved
+2026-06-09T15:17:16 handler=runHook duration=153.342725ms hook=pretooluse session=00ebb453 completed
+2026-06-09T15:17:16 handler=pretooluse duration=2.327995ms phase=resolve-context session=00ebb453 tool=Read context resolved
+2026-06-09T15:17:17 handler=runHook duration=259.426047ms hook=posttooluse session=00ebb453 completed
+2026-06-09T15:17:21 handler=pretooluse duration=5.296131ms phase=resolve-context session=00ebb453 tool=Bash context resolved
+2026-06-09T15:17:21 handler=runHook duration=72.921132ms hook=pretooluse session=00ebb453 completed
+2026-06-09T15:17:52 handler=pretooluse duration=11.642551ms phase=resolve-context session=00ebb453 tool=Bash context resolved
+2026-06-09T15:17:52 handler=runHook duration=114.751307ms hook=posttooluse session=00ebb453 completed
+2026-06-09T15:17:56 handler=pretooluse duration=4.115358ms phase=resolve-context session=00ebb453 tool=Bash context resolved
+2026-06-09T15:17:56 handler=runHook duration=65.618984ms hook=pretooluse session=00ebb453 completed
+2026-06-09T15:20:35 handler=test detail=applying pragmas: acquiring dedicated connection for pragmas: unable to open database file: out of memory (14) fallback=writer_unavailable session=sess-wri canonical-first fallback engaged
+2026-06-09T15:20:35 handler=test detail=writequeue: queue full fallback=queue_full session=sess-que canonical-first fallback engaged
+2026-06-09T15:20:36 handler=test detail=writequeue: writer unavailable fallback=writer_unavailable session=sess-cra canonical-first fallback engaged
+2026-06-09T15:20:38 handler=test detail=no queue and no db fallback=writer_unavailable session=sess-no- canonical-first fallback engaged
+2026-06-09T15:22:57 handler=pretooluse duration=4.69649ms phase=resolve-context session=00ebb453 tool=Bash context resolved
+2026-06-09T15:22:57 handler=runHook duration=42.955396ms hook=posttooluse session=00ebb453 completed
+2026-06-09T15:23:01 handler=pretooluse duration=2.759816ms phase=resolve-context session=00ebb453 tool=Read context resolved
+2026-06-09T15:23:01 handler=runHook duration=95.048864ms hook=pretooluse session=00ebb453 completed
+2026-06-09T15:23:01 handler=pretooluse duration=889.61µs phase=resolve-context session=00ebb453 tool=Read context resolved
+2026-06-09T15:23:01 handler=runHook duration=19.477389ms hook=posttooluse session=00ebb453 completed
+2026-06-09T15:23:05 handler=pretooluse duration=1.895423ms phase=resolve-context session=00ebb453 tool=Bash context resolved
+2026-06-09T15:23:05 handler=runHook duration=47.434483ms hook=pretooluse session=00ebb453 completed
+2026-06-09T15:25:21 handler=test detail=applying pragmas: acquiring dedicated connection for pragmas: unable to open database file: out of memory (14) fallback=writer_unavailable session=sess-wri canonical-first fallback engaged
+2026-06-09T15:25:21 handler=test detail=writequeue: queue full fallback=queue_full session=sess-que canonical-first fallback engaged
+2026-06-09T15:25:22 handler=test detail=writequeue: writer unavailable fallback=writer_unavailable session=sess-cra canonical-first fallback engaged
+2026-06-09T15:25:23 handler=test detail=no queue and no db fallback=writer_unavailable session=sess-no- canonical-first fallback engaged
+2026-06-09T15:28:06 handler=pretooluse duration=2.928677ms phase=resolve-context session=00ebb453 tool=Bash context resolved
+2026-06-09T15:28:06 handler=runHook duration=32.658934ms hook=posttooluse session=00ebb453 completed
+2026-06-09T15:28:10 handler=pretooluse duration=1.81936ms phase=resolve-context session=00ebb453 tool=Bash context resolved
+2026-06-09T15:28:10 handler=runHook duration=45.21544ms hook=pretooluse session=00ebb453 completed
+2026-06-09T15:28:10 handler=runHook duration=8.783607ms hook=permission-request session=00ebb453 completed
+2026-06-09T16:13:30 handler=pretooluse duration=2.697814ms phase=resolve-context session=00ebb453 tool=Bash context resolved
+2026-06-09T16:13:30 handler=runHook duration=27.457042ms hook=posttooluse session=00ebb453 completed
+2026-06-09T16:13:45 handler=pretooluse duration=845.675µs phase=resolve-context session=00ebb453 tool=Bash context resolved
+2026-06-09T16:13:45 handler=runHook duration=46.207022ms hook=pretooluse session=00ebb453 completed
+2026-06-09T16:13:56 handler=pretooluse duration=2.662663ms phase=resolve-context session=00ebb453 tool=Bash context resolved
+2026-06-09T16:13:56 handler=runHook duration=48.758349ms hook=posttooluse session=00ebb453 completed
+2026-06-09T16:14:17 handler=runHook duration=17.754292ms hook=subagent-stop session=00ebb453 completed
+2026-06-09T16:14:17 handler=pretooluse duration=6.536893ms phase=resolve-context session=00ebb453 tool=Agent context resolved
+2026-06-09T16:14:17 handler=runHook duration=23.56775ms hook=posttooluse session=00ebb453 completed
+2026-06-09T16:14:39 handler=pretooluse duration=13.269556ms phase=resolve-context session=00ebb453 tool=Agent context resolved
+2026-06-09T16:14:39 handler=runHook duration=87.739796ms hook=pretooluse session=00ebb453 completed
+2026-06-09T16:14:39 [wipnote] CLAUDE_ENV_FILE unset — writing session-scoped project dir hint (agent=wipnote:test-runner session=00ebb453-4549-480d-b1a6-6a6c8586ba2f)
+2026-06-09T16:14:39 handler=runHook duration=51.279531ms hook=subagent-start session=00ebb453 completed
+2026-06-09T16:14:41 handler=pretooluse duration=25.463393ms phase=resolve-context session=00ebb453 tool=Bash context resolved
+2026-06-09T16:14:41 handler=runHook duration=129.149967ms hook=pretooluse session=00ebb453 completed
+2026-06-09T16:14:42 handler=pretooluse duration=906.165µs phase=resolve-context session=00ebb453 tool=Bash context resolved
+2026-06-09T16:14:42 handler=runHook duration=32.034616ms hook=posttooluse session=00ebb453 completed
+2026-06-09T16:14:43 handler=pretooluse duration=820.117µs phase=resolve-context session=00ebb453 tool=Bash context resolved
+2026-06-09T16:14:43 handler=runHook duration=38.605039ms hook=pretooluse session=00ebb453 completed
+2026-06-09T16:14:44 handler=pretooluse duration=907.367µs phase=resolve-context session=00ebb453 tool=Bash context resolved
+2026-06-09T16:14:44 handler=runHook duration=12.710776ms hook=posttooluse session=00ebb453 completed
+2026-06-09T16:14:46 handler=pretooluse duration=871.955µs phase=resolve-context session=00ebb453 tool=Bash context resolved
+2026-06-09T16:14:46 handler=runHook duration=47.542183ms hook=pretooluse session=00ebb453 completed
+2026-06-09T16:14:46 handler=pretooluse duration=979.163µs phase=resolve-context session=00ebb453 tool=Bash context resolved
+2026-06-09T16:14:46 handler=runHook duration=18.11707ms hook=posttooluse session=00ebb453 completed
+2026-06-09T16:14:48 handler=pretooluse duration=1.965267ms phase=resolve-context session=00ebb453 tool=Bash context resolved
+2026-06-09T16:14:48 handler=runHook duration=63.768688ms hook=pretooluse session=00ebb453 completed
+2026-06-09T16:14:48 handler=pretooluse duration=785.596µs phase=resolve-context session=00ebb453 tool=Bash context resolved
+2026-06-09T16:14:48 handler=runHook duration=12.324572ms hook=posttooluse session=00ebb453 completed
+2026-06-09T16:14:50 handler=pretooluse duration=9.02182ms phase=resolve-context session=00ebb453 tool=Bash context resolved
+2026-06-09T16:14:50 handler=runHook duration=145.89397ms hook=pretooluse session=00ebb453 completed
+2026-06-09T16:14:51 handler=pretooluse duration=2.503435ms phase=resolve-context session=00ebb453 tool=Bash context resolved
+2026-06-09T16:14:51 handler=runHook duration=19.840328ms hook=posttooluse session=00ebb453 completed
+2026-06-09T16:14:53 handler=pretooluse duration=7.851283ms phase=resolve-context session=00ebb453 tool=Bash context resolved
+2026-06-09T16:14:53 handler=runHook duration=121.525552ms hook=pretooluse session=00ebb453 completed
+2026-06-09T16:14:54 handler=pretooluse duration=906.615µs phase=resolve-context session=00ebb453 tool=Bash context resolved
+2026-06-09T16:14:54 handler=runHook duration=55.990563ms hook=posttooluse session=00ebb453 completed
+2026-06-09T16:14:56 handler=pretooluse duration=1.147724ms phase=resolve-context session=00ebb453 tool=Bash context resolved
+2026-06-09T16:14:57 handler=runHook duration=80.594109ms hook=pretooluse session=00ebb453 completed
+2026-06-09T16:15:13 handler=pretooluse duration=3.370742ms phase=resolve-context session=00ebb453 tool=Bash context resolved
+2026-06-09T16:15:13 handler=runHook duration=32.458505ms hook=posttooluse session=00ebb453 completed
+2026-06-09T16:15:15 handler=pretooluse duration=1.337085ms phase=resolve-context session=00ebb453 tool=Bash context resolved
+2026-06-09T16:15:15 handler=runHook duration=73.155659ms hook=pretooluse session=00ebb453 completed
+2026-06-09T16:15:24 handler=pretooluse duration=2.392141ms phase=resolve-context session=00ebb453 tool=Bash context resolved
+2026-06-09T16:15:24 handler=runHook duration=18.182437ms hook=posttooluse session=00ebb453 completed
+2026-06-09T16:15:26 handler=pretooluse duration=2.852634ms phase=resolve-context session=00ebb453 tool=Bash context resolved
+2026-06-09T16:15:26 handler=runHook duration=89.022049ms hook=pretooluse session=00ebb453 completed
+2026-06-09T16:17:27 handler=pretooluse duration=2.191062ms phase=resolve-context session=00ebb453 tool=Bash context resolved
+2026-06-09T16:17:27 handler=runHook duration=29.170875ms hook=posttooluse session=00ebb453 completed
+2026-06-09T16:17:29 handler=pretooluse duration=882.329µs phase=resolve-context session=00ebb453 tool=Bash context resolved
+2026-06-09T16:17:29 handler=runHook duration=12.669405ms hook=pretooluse session=00ebb453 completed
+2026-06-09T16:17:30 handler=pretooluse duration=809.521µs phase=resolve-context session=00ebb453 tool=Bash context resolved
+2026-06-09T16:17:30 handler=runHook duration=26.131365ms hook=pretooluse session=00ebb453 completed
+2026-06-09T16:17:31 handler=runHook duration=9.03471ms hook=permission-request session=00ebb453 completed
+2026-06-09T16:18:00 handler=test detail=applying pragmas: acquiring dedicated connection for pragmas: unable to open database file: out of memory (14) fallback=writer_unavailable session=sess-wri canonical-first fallback engaged
+2026-06-09T16:18:00 handler=test detail=writequeue: queue full fallback=queue_full session=sess-que canonical-first fallback engaged
+2026-06-09T16:18:01 handler=test detail=writequeue: writer unavailable fallback=writer_unavailable session=sess-cra canonical-first fallback engaged
+2026-06-09T16:18:01 handler=test detail=no queue and no db fallback=writer_unavailable session=sess-no- canonical-first fallback engaged
+2026-06-09T16:27:48 handler=session-start duration=13.127054ms phase=db-tx session=c92d5c55 transaction complete
+2026-06-09T16:27:49 handler=session-start duration=473.253946ms session=c92d5c55 handler complete
+2026-06-09T16:27:49 handler=runHook duration=604.33526ms hook=session-start session=c92d5c55 completed
+2026-06-09T16:27:50 handler=runHook duration=39.546586ms hook=instructions-loaded session=c92d5c55 completed
+2026-06-09T16:27:50 handler=runHook duration=26.226486ms hook=instructions-loaded session=c92d5c55 completed
+2026-06-09T16:27:50 handler=runHook duration=36.097416ms hook=instructions-loaded session=c92d5c55 completed
+2026-06-09T16:28:35 handler=runHook duration=16.35887ms hook=session-end session=c92d5c55 completed
+2026-06-09T16:28:35 handler=runHook duration=35.134377ms hook=session-resume session=00ebb453 completed
+2026-06-09T16:28:35 handler=session-start duration=384.38µs phase=db-tx session=00ebb453 transaction complete
+2026-06-09T16:28:35 handler=session-start duration=88.270954ms session=00ebb453 handler complete
+2026-06-09T16:28:35 handler=runHook duration=135.772968ms hook=session-start session=00ebb453 completed
+2026-06-09T16:28:48 handler=runHook duration=9.542173ms hook=user-prompt session=00ebb453 completed
+2026-06-09T16:29:06 handler=pretooluse duration=2.618416ms phase=resolve-context session=00ebb453 tool=Agent context resolved
+2026-06-09T16:29:06 handler=runHook duration=33.414044ms hook=pretooluse session=00ebb453 completed
+2026-06-09T16:29:06 [wipnote] CLAUDE_ENV_FILE unset — writing session-scoped project dir hint (agent=wipnote:test-runner session=00ebb453-4549-480d-b1a6-6a6c8586ba2f)
+2026-06-09T16:29:06 handler=runHook duration=28.297981ms hook=subagent-start session=00ebb453 completed
+2026-06-09T16:29:08 handler=pretooluse duration=1.924748ms phase=resolve-context session=00ebb453 tool=Bash context resolved
+2026-06-09T16:29:08 handler=runHook duration=63.100606ms hook=pretooluse session=00ebb453 completed
+2026-06-09T16:29:08 handler=runHook duration=8.94014ms hook=permission-request session=00ebb453 completed
+2026-06-09T16:29:13 handler=pretooluse duration=793.288µs phase=resolve-context session=00ebb453 tool=Bash context resolved
+2026-06-09T16:29:13 handler=runHook duration=6.968022ms hook=posttooluse session=00ebb453 completed
+2026-06-09T16:29:15 handler=pretooluse duration=857.833µs phase=resolve-context session=00ebb453 tool=Bash context resolved
+2026-06-09T16:29:15 handler=runHook duration=31.572791ms hook=pretooluse session=00ebb453 completed
+2026-06-09T16:29:15 handler=pretooluse duration=672.578µs phase=resolve-context session=00ebb453 tool=Bash context resolved
+2026-06-09T16:29:15 handler=runHook duration=7.31678ms hook=posttooluse session=00ebb453 completed
+2026-06-09T16:29:21 handler=pretooluse duration=946.104µs phase=resolve-context session=00ebb453 tool=Bash context resolved
+2026-06-09T16:29:21 handler=runHook duration=33.853066ms hook=pretooluse session=00ebb453 completed
+2026-06-09T16:29:21 handler=pretooluse duration=682.673µs phase=resolve-context session=00ebb453 tool=Bash context resolved
+2026-06-09T16:29:21 handler=runHook duration=8.486256ms hook=posttooluse session=00ebb453 completed
+2026-06-09T16:29:26 handler=pretooluse duration=1.036548ms phase=resolve-context session=00ebb453 tool=Bash context resolved
+2026-06-09T16:29:26 handler=runHook duration=40.733628ms hook=pretooluse session=00ebb453 completed
+2026-06-09T16:29:42 handler=pretooluse duration=1.524533ms phase=resolve-context session=00ebb453 tool=Bash context resolved
+2026-06-09T16:29:42 handler=runHook duration=11.297808ms hook=posttooluse session=00ebb453 completed
+2026-06-09T16:29:48 handler=pretooluse duration=1.010219ms phase=resolve-context session=00ebb453 tool=Bash context resolved
+2026-06-09T16:29:48 handler=runHook duration=37.989466ms hook=pretooluse session=00ebb453 completed
+2026-06-09T16:29:58 handler=pretooluse duration=1.537041ms phase=resolve-context session=00ebb453 tool=Bash context resolved
+2026-06-09T16:29:58 handler=runHook duration=12.196703ms hook=posttooluse session=00ebb453 completed
+2026-06-09T16:30:00 handler=pretooluse duration=3.106671ms phase=resolve-context session=00ebb453 tool=Bash context resolved
+2026-06-09T16:30:00 handler=runHook duration=89.207594ms hook=pretooluse session=00ebb453 completed
+2026-06-09T16:30:28 handler=runHook duration=8.036578ms hook=posttooluse-failure session=00ebb453 completed
+2026-06-09T16:30:29 [wipnote] session-end: released 1 claims for session 00ebb453
+2026-06-09T16:30:29 handler=runHook duration=25.128447ms hook=session-end session=00ebb453 completed
+2026-06-09T16:34:49 handler=session-start duration=8.968301ms phase=db-tx session=56dbc95b transaction complete
+2026-06-09T16:34:49 handler=session-start duration=414.201479ms session=56dbc95b handler complete
+2026-06-09T16:34:49 handler=runHook duration=724.453783ms hook=session-start session=56dbc95b completed
+2026-06-09T16:34:51 handler=runHook duration=344.021045ms hook=instructions-loaded session=56dbc95b completed
+2026-06-09T16:34:51 handler=runHook duration=423.031475ms hook=instructions-loaded session=56dbc95b completed
+2026-06-09T16:34:51 handler=runHook duration=451.832843ms hook=instructions-loaded session=56dbc95b completed
+2026-06-09T16:35:28 handler=runHook duration=14.170371ms hook=user-prompt session=56dbc95b completed
+2026-06-09T16:35:40 handler=pretooluse duration=1.693674ms phase=resolve-context session=56dbc95b tool=Bash context resolved
+2026-06-09T16:35:40 handler=runHook duration=36.094162ms hook=pretooluse session=56dbc95b completed
+2026-06-09T16:35:40 handler=runHook duration=13.985878ms hook=permission-request session=56dbc95b completed
+2026-06-09T16:35:44 handler=pretooluse duration=460.603µs phase=resolve-context session=56dbc95b tool=Bash context resolved
+2026-06-09T16:35:44 handler=runHook duration=7.870602ms hook=posttooluse session=56dbc95b completed
+2026-06-09T16:35:54 handler=pretooluse duration=799.797µs phase=resolve-context session=56dbc95b tool=Bash context resolved
+2026-06-09T16:35:54 handler=runHook duration=23.536675ms hook=pretooluse session=56dbc95b completed
+2026-06-09T16:35:54 handler=runHook duration=8.802395ms hook=permission-request session=56dbc95b completed
+2026-06-09T16:35:57 handler=pretooluse duration=713.359µs phase=resolve-context session=56dbc95b tool=Bash context resolved
+2026-06-09T16:35:57 handler=runHook duration=11.5681ms hook=posttooluse session=56dbc95b completed
+2026-06-09T16:36:02 handler=pretooluse duration=543.968µs phase=resolve-context session=56dbc95b tool=Bash context resolved
+2026-06-09T16:36:02 handler=runHook duration=18.498736ms hook=pretooluse session=56dbc95b completed
+2026-06-09T16:36:03 handler=runHook duration=12.340066ms hook=permission-request session=56dbc95b completed
+2026-06-09T16:36:05 handler=pretooluse duration=407.975µs phase=resolve-context session=56dbc95b tool=Bash context resolved
+2026-06-09T16:36:05 handler=runHook duration=4.856378ms hook=posttooluse session=56dbc95b completed
+2026-06-09T16:36:21 handler=pretooluse duration=626.119µs phase=resolve-context session=56dbc95b tool=Bash context resolved
+2026-06-09T16:36:21 handler=runHook duration=36.409069ms hook=pretooluse session=56dbc95b completed
+2026-06-09T16:36:21 handler=runHook duration=6.180353ms hook=permission-request session=56dbc95b completed
+2026-06-09T16:36:23 handler=pretooluse duration=620.411µs phase=resolve-context session=56dbc95b tool=Bash context resolved
+2026-06-09T16:36:23 handler=runHook duration=14.819966ms hook=posttooluse session=56dbc95b completed
+2026-06-09T16:36:43 [user-prompt-backfill] stop: 1 prompts recovered (session=56dbc95b)
+2026-06-09T16:36:43 handler=runHook duration=45.197824ms hook=stop session=56dbc95b completed
+2026-06-09T16:36:48 handler=runHook duration=3.259398ms hook=subagent-stop session=56dbc95b completed
+2026-06-09T16:37:59 handler=runHook duration=9.786867ms hook=user-prompt session=56dbc95b completed
+2026-06-09T16:38:04 handler=pretooluse duration=1.225288ms phase=resolve-context session=56dbc95b tool=Bash context resolved
+2026-06-09T16:38:04 handler=runHook duration=27.809185ms hook=pretooluse session=56dbc95b completed
+2026-06-09T16:38:04 handler=runHook duration=11.607759ms hook=permission-request session=56dbc95b completed
+2026-06-09T16:38:06 handler=pretooluse duration=462.366µs phase=resolve-context session=56dbc95b tool=Bash context resolved
+2026-06-09T16:38:06 handler=runHook duration=5.554424ms hook=posttooluse session=56dbc95b completed
+2026-06-09T16:38:13 handler=pretooluse duration=632.229µs phase=resolve-context session=56dbc95b tool=Bash context resolved
+2026-06-09T16:38:13 handler=runHook duration=30.922736ms hook=pretooluse session=56dbc95b completed
+2026-06-09T16:38:13 handler=runHook duration=24.973927ms hook=permission-request session=56dbc95b completed
+2026-06-09T16:38:15 handler=pretooluse duration=555.885µs phase=resolve-context session=56dbc95b tool=Bash context resolved
+2026-06-09T16:38:15 handler=runHook duration=11.06962ms hook=posttooluse session=56dbc95b completed
+2026-06-09T16:38:25 [user-prompt-backfill] stop: 1 prompts recovered (session=56dbc95b)
+2026-06-09T16:38:25 handler=runHook duration=28.636583ms hook=stop session=56dbc95b completed
+2026-06-09T16:38:28 handler=runHook duration=9.47923ms hook=subagent-stop session=56dbc95b completed
+2026-06-09T16:39:00 handler=runHook duration=7.457448ms hook=user-prompt session=56dbc95b completed
+2026-06-09T16:39:24 handler=pretooluse duration=830.533µs phase=resolve-context session=56dbc95b tool=Agent context resolved
+2026-06-09T16:39:24 handler=runHook duration=26.908618ms hook=pretooluse session=56dbc95b completed
+2026-06-09T16:39:24 [wipnote] CLAUDE_ENV_FILE unset — writing session-scoped project dir hint (agent=wipnote:patch-coder session=56dbc95b-1ccc-42bf-89a7-9004c8dbbf67)
+2026-06-09T16:39:24 handler=runHook duration=48.800341ms hook=subagent-start session=56dbc95b completed
+2026-06-09T16:39:29 handler=pretooluse duration=604.207µs phase=resolve-context session=56dbc95b tool=Bash context resolved
+2026-06-09T16:39:29 handler=runHook duration=33.749201ms hook=pretooluse session=56dbc95b completed
+2026-06-09T16:41:29 handler=pretooluse duration=1.971446ms phase=resolve-context session=56dbc95b tool=Bash context resolved
+2026-06-09T16:41:29 handler=runHook duration=25.614888ms hook=posttooluse session=56dbc95b completed
+2026-06-09T16:41:29 handler=pretooluse duration=698.497µs phase=resolve-context session=56dbc95b tool=Bash context resolved
+2026-06-09T16:41:29 handler=pretooluse duration=1.32074ms phase=resolve-context session=56dbc95b tool=Bash context resolved
+2026-06-09T16:41:29 handler=runHook duration=74.316603ms hook=pretooluse session=56dbc95b completed
+2026-06-09T16:41:29 handler=runHook duration=66.788479ms hook=pretooluse session=56dbc95b completed
+2026-06-09T16:41:30 handler=pretooluse duration=1.503972ms phase=resolve-context session=56dbc95b tool=Bash context resolved
+2026-06-09T16:41:30 handler=runHook duration=12.863602ms hook=posttooluse session=56dbc95b completed
+2026-06-09T16:41:30 handler=pretooluse duration=451.47µs phase=resolve-context session=56dbc95b tool=Bash context resolved
+2026-06-09T16:41:30 handler=runHook duration=6.27278ms hook=posttooluse session=56dbc95b completed
+2026-06-09T16:41:32 handler=pretooluse duration=673.099µs phase=resolve-context session=56dbc95b tool=Bash context resolved
+2026-06-09T16:41:32 handler=runHook duration=53.118159ms hook=pretooluse session=56dbc95b completed
+2026-06-09T16:41:33 handler=pretooluse duration=621.773µs phase=resolve-context session=56dbc95b tool=Bash context resolved
+2026-06-09T16:41:33 handler=runHook duration=6.159733ms hook=posttooluse session=56dbc95b completed
+2026-06-09T16:41:36 handler=pretooluse duration=532.651µs phase=resolve-context session=56dbc95b tool=Read context resolved
+2026-06-09T16:41:36 handler=runHook duration=52.89619ms hook=pretooluse session=56dbc95b completed
+2026-06-09T16:41:37 handler=pretooluse duration=593.671µs phase=resolve-context session=56dbc95b tool=Read context resolved
+2026-06-09T16:41:37 handler=runHook duration=9.179484ms hook=posttooluse session=56dbc95b completed
+2026-06-09T16:41:38 handler=pretooluse duration=576.505µs phase=resolve-context session=56dbc95b tool=Bash context resolved
+2026-06-09T16:41:39 handler=runHook duration=58.563151ms hook=pretooluse session=56dbc95b completed
+2026-06-09T16:41:54 handler=pretooluse duration=2.357759ms phase=resolve-context session=56dbc95b tool=Bash context resolved
+2026-06-09T16:41:54 handler=runHook duration=7.841128ms hook=posttooluse session=56dbc95b completed
+2026-06-09T16:41:56 handler=pretooluse duration=659.008µs phase=resolve-context session=56dbc95b tool=Bash context resolved
+2026-06-09T16:41:56 handler=runHook duration=62.775723ms hook=pretooluse session=56dbc95b completed
+2026-06-09T16:41:56 handler=pretooluse duration=2.779776ms phase=resolve-context session=56dbc95b tool=Bash context resolved
+2026-06-09T16:41:56 handler=runHook duration=16.835568ms hook=posttooluse session=56dbc95b completed
+2026-06-09T16:41:57 handler=pretooluse duration=721.641µs phase=resolve-context session=56dbc95b tool=Bash context resolved
+2026-06-09T16:41:58 handler=runHook duration=38.707701ms hook=pretooluse session=56dbc95b completed
+2026-06-09T16:42:16 handler=test detail=applying pragmas: acquiring dedicated connection for pragmas: unable to open database file: out of memory (14) fallback=writer_unavailable session=sess-wri canonical-first fallback engaged
+2026-06-09T16:42:16 handler=test detail=writequeue: queue full fallback=queue_full session=sess-que canonical-first fallback engaged
+2026-06-09T16:42:16 handler=test detail=writequeue: writer unavailable fallback=writer_unavailable session=sess-cra canonical-first fallback engaged
+2026-06-09T16:42:17 handler=test detail=no queue and no db fallback=writer_unavailable session=sess-no- canonical-first fallback engaged
+2026-06-09T16:45:36 handler=test detail=applying pragmas: acquiring dedicated connection for pragmas: unable to open database file: out of memory (14) fallback=writer_unavailable session=sess-wri canonical-first fallback engaged
+2026-06-09T16:45:36 handler=test detail=writequeue: queue full fallback=queue_full session=sess-que canonical-first fallback engaged
+2026-06-09T16:45:36 handler=test detail=writequeue: writer unavailable fallback=writer_unavailable session=sess-cra canonical-first fallback engaged
+2026-06-09T16:45:36 handler=test detail=no queue and no db fallback=writer_unavailable session=sess-no- canonical-first fallback engaged
+2026-06-09T16:46:58 handler=pretooluse duration=5.12101ms phase=resolve-context session=56dbc95b tool=Bash context resolved
+2026-06-09T16:46:58 handler=runHook duration=73.697333ms hook=posttooluse session=56dbc95b completed
+2026-06-09T16:46:59 handler=pretooluse duration=579.39µs phase=resolve-context session=56dbc95b tool=Read context resolved
+2026-06-09T16:46:59 handler=runHook duration=68.053436ms hook=pretooluse session=56dbc95b completed
+2026-06-09T16:47:00 handler=pretooluse duration=2.38538ms phase=resolve-context session=56dbc95b tool=Read context resolved
+2026-06-09T16:47:00 handler=runHook duration=28.707619ms hook=posttooluse session=56dbc95b completed
+2026-06-09T16:47:04 handler=pretooluse duration=4.405649ms phase=resolve-context session=56dbc95b tool=Read context resolved
+2026-06-09T16:47:04 handler=runHook duration=69.761522ms hook=pretooluse session=56dbc95b completed
+2026-06-09T16:47:04 handler=pretooluse duration=596.855µs phase=resolve-context session=56dbc95b tool=Read context resolved
+2026-06-09T16:47:04 handler=runHook duration=6.479718ms hook=posttooluse session=56dbc95b completed
+2026-06-09T16:47:06 handler=pretooluse duration=579.19µs phase=resolve-context session=56dbc95b tool=Read context resolved
+2026-06-09T16:47:06 handler=runHook duration=85.191724ms hook=pretooluse session=56dbc95b completed
+2026-06-09T16:47:06 handler=pretooluse duration=662.323µs phase=resolve-context session=56dbc95b tool=Read context resolved
+2026-06-09T16:47:06 handler=runHook duration=24.429609ms hook=posttooluse session=56dbc95b completed
+2026-06-09T16:47:09 handler=pretooluse duration=593.421µs phase=resolve-context session=56dbc95b tool=Bash context resolved
+2026-06-09T16:47:09 handler=runHook duration=28.099396ms hook=pretooluse session=56dbc95b completed
+2026-06-09T16:47:09 handler=pretooluse duration=591.678µs phase=resolve-context session=56dbc95b tool=Bash context resolved
+2026-06-09T16:47:09 handler=runHook duration=14.20887ms hook=posttooluse session=56dbc95b completed
+2026-06-09T16:47:11 handler=pretooluse duration=548.414µs phase=resolve-context session=56dbc95b tool=Bash context resolved
+2026-06-09T16:47:11 handler=runHook duration=22.840411ms hook=pretooluse session=56dbc95b completed
+2026-06-09T16:47:26 handler=pretooluse duration=1.01725ms phase=resolve-context session=56dbc95b tool=Bash context resolved
+2026-06-09T16:47:26 handler=runHook duration=19.730194ms hook=posttooluse session=56dbc95b completed
+2026-06-09T16:47:28 handler=pretooluse duration=11.564574ms phase=resolve-context session=56dbc95b tool=Bash context resolved
+2026-06-09T16:47:28 handler=runHook duration=65.316595ms hook=pretooluse session=56dbc95b completed
+2026-06-09T16:47:28 handler=pretooluse duration=671.546µs phase=resolve-context session=56dbc95b tool=Bash context resolved
+2026-06-09T16:47:28 handler=runHook duration=14.536766ms hook=posttooluse session=56dbc95b completed
+2026-06-09T16:47:30 handler=pretooluse duration=3.751789ms phase=resolve-context session=56dbc95b tool=Bash context resolved
+2026-06-09T16:47:30 handler=runHook duration=58.695448ms hook=pretooluse session=56dbc95b completed
+2026-06-09T16:49:41 handler=test detail=applying pragmas: acquiring dedicated connection for pragmas: unable to open database file: out of memory (14) fallback=writer_unavailable session=sess-wri canonical-first fallback engaged
+2026-06-09T16:49:41 handler=test detail=writequeue: queue full fallback=queue_full session=sess-que canonical-first fallback engaged
+2026-06-09T16:49:41 handler=test detail=writequeue: writer unavailable fallback=writer_unavailable session=sess-cra canonical-first fallback engaged
+2026-06-09T16:49:41 handler=test detail=no queue and no db fallback=writer_unavailable session=sess-no- canonical-first fallback engaged
+2026-06-09T16:52:56 handler=pretooluse duration=1.703478ms phase=resolve-context session=56dbc95b tool=Bash context resolved
+2026-06-09T16:52:56 handler=runHook duration=22.235522ms hook=posttooluse session=56dbc95b completed
+2026-06-09T16:53:00 handler=pretooluse duration=4.78367ms phase=resolve-context session=56dbc95b tool=Bash context resolved
+2026-06-09T16:53:00 handler=runHook duration=76.274028ms hook=pretooluse session=56dbc95b completed

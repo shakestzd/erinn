@@ -3,6 +3,7 @@ package main
 import (
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -437,6 +438,17 @@ func wiSetStatusWithAgent(typeName, id, status, sessionID, agentID string) error
 		// command. The re-open's own side effects (lineage edges, session
 		// events, attribution) are accepted and coherent with a re-open.
 		if cerr := commitArtifactTransactional(dir, typeName, id, artifactPreHead); cerr != nil {
+			// Environmental read-only filesystem: the artifact is on disk and the
+			// item is logically done — do NOT reopen. Emit an advisory to stderr
+			// and return nil so the item stays "done".
+			if errors.Is(cerr, errReadOnlyFS) {
+				relArtifact := filepath.Join(".wipnote", typeName+"s", id+".html")
+				fmt.Fprintf(os.Stderr,
+					"autocommit skipped: .git is read-only (sandboxed). Item marked done. "+
+						"Commit manually: git add %s && git commit -m %q\n",
+					relArtifact, "wipnote: complete "+id)
+				return nil
+			}
 			// Compensating re-open: use col.Start, the codebase's canonical
 			// revert transition. Unlike Edit().SetStatus(), Start dual-writes
 			// status "in-progress" to SQLite so the HTML (canonical) and the

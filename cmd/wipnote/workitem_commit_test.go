@@ -642,6 +642,88 @@ func TestCommitMessageReflectsAction(t *testing.T) {
 	}
 }
 
+// TestTransactionalComplete_ReadOnlyFSSkipsReopen injects a read-only-FS error
+// via the strictCommitFn seam and asserts the complete path (1) returns nil,
+// (2) leaves the item in "done" status (NOT reopened to in-progress), and (3)
+// the repo HEAD does NOT carry a "complete" commit (autocommit was skipped).
+func TestTransactionalComplete_ReadOnlyFSSkipsReopen(t *testing.T) {
+	repoRoot, wipnoteDir, featID, sessionID, agentID := setupTransactionalCompleteRepo(t)
+
+	orig := strictCommitFn
+	t.Cleanup(func() { strictCommitFn = orig })
+	strictCommitFn = func(_, _, _, _ string) (bool, error) {
+		return false, fmt.Errorf("strict autocommit: git add x: fatal: Unable to create '.git/index.lock': Read-only file system: %w", errReadOnlyFS)
+	}
+
+	err := wiSetStatusWithAgent("feature", featID, "done", sessionID, agentID)
+	if err != nil {
+		t.Fatalf("expected nil error on read-only FS (item stays done), got: %v", err)
+	}
+
+	if got := diskStatus(t, wipnoteDir, featID); got != "done" {
+		t.Errorf("on-disk status after read-only FS = %q, want done (no reopen)", got)
+	}
+
+	// Verify SQLite also reflects done (not re-opened to in-progress).
+	database, derr := dbpkg.Open(filepath.Join(wipnoteDir, ".db", "wipnote.db"))
+	if derr != nil {
+		t.Fatalf("open db: %v", derr)
+	}
+	defer database.Close()
+	var dbStatus string
+	if qerr := database.QueryRow(`SELECT status FROM features WHERE id = ?`, featID).Scan(&dbStatus); qerr != nil {
+		t.Fatalf("query feature status: %v", qerr)
+	}
+	if dbStatus != "done" {
+		t.Errorf("SQLite status after read-only FS = %q, want done", dbStatus)
+	}
+
+	// The repo HEAD must NOT carry a "complete" commit for this item (autocommit
+	// was skipped because the FS is read-only).
+	logOut, _ := exec.Command("git", "-C", repoRoot, "log", "--format=%s").CombinedOutput()
+	if strings.Contains(string(logOut), "wipnote: complete "+featID) {
+		t.Errorf("repo must not contain a 'complete' commit when autocommit was skipped:\n%s", logOut)
+	}
+}
+
+// TestIsReadOnlyFSError verifies the string-match detector for the read-only
+// filesystem signal from git subprocess output.
+func TestIsReadOnlyFSError(t *testing.T) {
+	cases := []struct {
+		output string
+		want   bool
+	}{
+		{"fatal: Unable to create '.git/index.lock': Read-only file system", true},
+		{"error: open('.git/index.lock'): Read-only file system", true},
+		{"Read-only file system", true},
+		{"", false},
+		{"Unable to create '.git/index.lock': File exists", false},
+		{"Another git process seems to be running", false},
+		{"hook rejection: pre-commit failed", false},
+	}
+	for _, c := range cases {
+		if got := isReadOnlyFSError(c.output); got != c.want {
+			t.Errorf("isReadOnlyFSError(%q) = %v, want %v", c.output, got, c.want)
+		}
+	}
+}
+
+// TestIsGitLockContention_ReadOnlyIsNotContention verifies that the read-only
+// filesystem signal is NOT treated as transient lock contention (stops wasted
+// retries in runGitWithLockRetry).
+func TestIsGitLockContention_ReadOnlyIsNotContention(t *testing.T) {
+	readOnlyOutput := "fatal: Unable to create '.git/index.lock': Read-only file system"
+	if isGitLockContention(readOnlyOutput) {
+		t.Errorf("isGitLockContention(%q) = true, want false (read-only FS is not transient lock contention)", readOnlyOutput)
+	}
+
+	// Sanity-check that real lock contention still matches.
+	lockOutput := "fatal: Unable to create '.git/index.lock': File exists"
+	if !isGitLockContention(lockOutput) {
+		t.Errorf("isGitLockContention(%q) = false, want true (real lock contention should match)", lockOutput)
+	}
+}
+
 // gitCommitCount returns the number of commits in the repo at dir.
 func gitCommitCount(t *testing.T, dir string) int {
 	t.Helper()

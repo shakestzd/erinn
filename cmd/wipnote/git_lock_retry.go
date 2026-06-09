@@ -39,7 +39,8 @@ func isGitLockContention(output string) bool {
 		return true
 	}
 	if strings.Contains(output, "index.lock") &&
-		(strings.Contains(output, "File exists") || strings.Contains(output, "Unable to create")) {
+		(strings.Contains(output, "File exists") || strings.Contains(output, "Unable to create")) &&
+		!strings.Contains(output, "Read-only file system") {
 		return true
 	}
 	return false

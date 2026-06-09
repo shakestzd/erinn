@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -131,6 +132,19 @@ func commitWipnoteArtifact(wipnoteDir, typeName, id, action string) error {
 	return resultErr
 }
 
+// errReadOnlyFS is the sentinel returned (wrapped) by commitWipnoteArtifactStrict
+// when git reports the index is on a read-only filesystem. Callers use
+// errors.Is(err, errReadOnlyFS) to distinguish this environmental condition
+// from real commit failures (hook rejection, lock contention, etc.).
+var errReadOnlyFS = errors.New("git index is on a read-only filesystem")
+
+// isReadOnlyFSError reports whether git subprocess output indicates the index
+// could not be written because the filesystem is read-only. The signal comes
+// from the git subprocess output string, not from a Go syscall error.
+func isReadOnlyFSError(output string) bool {
+	return strings.Contains(output, "Read-only file system")
+}
+
 // commitWipnoteArtifactStrict is the fatal-on-failure variant of
 // commitWipnoteArtifact, used ONLY from the complete path so that a failed
 // artifact commit can trigger a compensating re-open instead of leaving the
@@ -181,7 +195,12 @@ func commitWipnoteArtifactStrict(wipnoteDir, typeName, id, action string) (commi
 	err = nil
 	_, lockErr := withGitMutationLock(repoRoot, func() ([]byte, error) {
 		if addOut, addErr := runGitWithLockRetry(repoRoot, "add", "--", absPath); addErr != nil {
-			err = fmt.Errorf("strict autocommit: git add %s: %s: %w", relPath, strings.TrimSpace(string(addOut)), addErr)
+			addOutStr := strings.TrimSpace(string(addOut))
+			if isReadOnlyFSError(addOutStr) {
+				err = fmt.Errorf("strict autocommit: git add %s: %s: %w", relPath, addOutStr, errReadOnlyFS)
+			} else {
+				err = fmt.Errorf("strict autocommit: git add %s: %s: %w", relPath, addOutStr, addErr)
+			}
 			return nil, addErr
 		}
 		// Nothing staged → legitimate idempotent no-op (committed stays false).
@@ -194,7 +213,12 @@ func commitWipnoteArtifactStrict(wipnoteDir, typeName, id, action string) (commi
 			if strings.Contains(outStr, "nothing to commit") || strings.Contains(outStr, "no changes added") {
 				return nil, nil
 			}
-			err = fmt.Errorf("strict autocommit: git commit failed for %s: %s: %w", id, strings.TrimSpace(outStr), commitErr)
+			outStrTrimmed := strings.TrimSpace(outStr)
+			if isReadOnlyFSError(outStrTrimmed) {
+				err = fmt.Errorf("strict autocommit: git commit failed for %s: %s: %w", id, outStrTrimmed, errReadOnlyFS)
+			} else {
+				err = fmt.Errorf("strict autocommit: git commit failed for %s: %s: %w", id, outStrTrimmed, commitErr)
+			}
 			return nil, commitErr
 		}
 		committed = true

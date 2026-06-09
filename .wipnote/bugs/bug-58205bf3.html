@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>Completion gate uses noexec /tmp and fails Go test binaries</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="bug-58205bf3"
+             data-type="bug"
+             data-status="todo"
+             data-priority="medium"
+             data-created="2026-06-09T10:11:46.678301"
+             data-updated="2026-06-09T10:11:46.692219" data-agent-assigned="claude-code" data-track-id="trk-49c43b06" data-created-by-agent="codex" data-created-by-model="gpt-5.5" data-created-by-role="codex" data-created-by-cli-version="dev">
+
+        <header>
+            <h1>Completion gate uses noexec /tmp and fails Go test binaries</h1>
+            <div class="metadata">
+                <span class="badge status-todo">Todo</span>
+                <span class="badge priority-medium">Medium Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="trk-49c43b06.html" data-relationship="part_of" data-since="2026-06-09T10:11:46.690679">trk-49c43b06</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>Running wipnote feature complete feat-2852d0c8 triggered Go tests that attempted to execute test binaries under /tmp/go-build... and failed with permission denied in the devcontainer where /tmp is noexec. wipnote surfaced tmp-noexec after failure, but completion did not automatically choose a workspace GOTMPDIR/GOCACHE or print a copy-paste rerun using .gotmp. Completion should either use an executable workspace temp dir in known devcontainer/noexec environments or produce a precise remediation command before mutating item state.</p>
+        </section>
+    </article>
+</body>
+</html>

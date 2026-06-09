@@ -737,7 +737,12 @@
       "Bash(tar tzf *)",
       "Bash(ps -o pid,stat,%cpu,etime,cmd -p 96542)",
       "WebFetch(domain:www.damiangalarza.com)",
-      "Bash(kill 4988 47901 47910)"
+      "Bash(kill 4988 47901 47910)",
+      "Bash(command -v devcontainer)",
+      "Bash(command -v docker)",
+      "Bash(docker info *)",
+      "Bash(export TMPDIR=/home/vscode/.gotest-tmp GOTMPDIR=/home/vscode/.gotest-tmp/wipnote-build)",
+      "Bash(pwd)"
     ]
   },
   "enabledPlugins": {

@@ -13,7 +13,7 @@
              data-status="in-progress"
              data-priority="medium"
              data-created="2026-06-09T10:17:53.693816"
-             data-updated="2026-06-09T16:51:30.868029" data-agent-assigned="claude-code" data-created-by-agent="claude-code" data-created-by-model="claude-opus-4-8[1m]" data-created-by-cli-version="dev">
+             data-updated="2026-06-09T16:52:41.141913" data-agent-assigned="claude-code" data-created-by-agent="claude-code" data-created-by-model="claude-opus-4-8[1m]" data-created-by-cli-version="dev">
 
         <header>
             <h1>Raise subagent maxTurns to stop research/coder truncation</h1>
@@ -35,9 +35,11 @@
         <section data-content>
             <h3>Description</h3>
             <p>RESUME STATE (paused 2026-06-09 for machine restart → continuing in GitHub Codespace). Branch: wip/completion-gate-hardening.
+
 DONE + verified green (go build/vet/test pass incl core/ module) and committed on this branch:
 - maxTurns bump (this feature): plugin/agents/*.md + regenerated packages/gemini-extension/agents/*.md. Values reader 20, researcher 50, test-runner 45, patch-coder 50, feature-coder 100, architect-coder 120. (Applies only to agents spawned after a wipnote relaunch.)
-- Gate-runner hardening for bug-58205bf3 (noexec /tmp -> GOTMPDIR redirect via gate_exec.go gateExecEnv/isLikelyNoexecFailure/gateTmpRemediation), bug-c3c9278a (runManagedGate Setpgid + watchdog process-group kill + running: progress line), bug-35857288 (LatestPassingGateRecordForWorkItem cross-session fallback in core/db/gate_records.go + HEAD re-gate in validateCompletionGateRecord). All wired into wipnote feature complete path with passing tests.
+- Gate-runner hardening for bug-58205bf3 (noexec /tmp → GOTMPDIR redirect via gate_exec.go gateExecEnv/isLikelyNoexecFailure/gateTmpRemediation), bug-c3c9278a (runManagedGate Setpgid + watchdog process-group kill + running: progress line), bug-35857288 (LatestPassingGateRecordForWorkItem cross-session fallback in core/db/gate_records.go + HEAD re-gate in validateCompletionGateRecord). All wired into wipnote feature complete path with passing tests.
+
 REMAINING when resuming in Codespace:
 1. Cleanup: remove dead decodeGateAllowlistHits in core/db/gate_records.go; use-or-remove unused name param in runManagedGate (gate_exec.go). Confirm why sqlite_write_boundary_test.go changed.
 2. wipnote build, then gates green with TMPDIR/GOTMPDIR set to an exec-capable non-/tmp dir whose path contains wipnote.

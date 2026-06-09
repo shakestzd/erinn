@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>wipnote-core: stable importable core API</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="trk-03da9cce"
+             data-type="track"
+             data-status="done"
+             data-priority="medium"
+             data-created="2026-06-07T13:48:34.952338"
+             data-updated="2026-06-07T19:11:38.059205" data-agent-assigned="claude-code" data-created-by-agent="claude-code" data-created-by-model="claude-opus-4-8[1m]" data-created-by-cli-version="0.60.21-9-gc72335802">
+
+        <header>
+            <h1>wipnote-core: stable importable core API</h1>
+            <div class="metadata">
+                <span class="badge status-done">Done</span>
+                <span class="badge priority-medium">Medium Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="blocks">
+                <h3>Blocks:</h3>
+                <ul>
+                    <li><a href="trk-49c43b06.html" data-relationship="blocks" data-since="2026-06-07T13:48:55.931339">wipnote-plan: extract planning/CRISPI IDE</a></li>
+                    <li><a href="trk-1ea27426.html" data-relationship="blocks" data-since="2026-06-07T13:48:55.950919">wipnote-port: extract plugin porting tool</a></li>
+                    <li><a href="trk-505c1685.html" data-relationship="blocks" data-since="2026-06-07T13:48:55.971">wipnote-observe: extract dashboard &#43; OTEL (DEFERRED)</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="trk-1f94484c.html" data-relationship="part_of" data-since="2026-06-07T13:48:55.84912">Modular carve-out: lean core &#43; extracted products</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="contains">
+                <h3>Contains:</h3>
+                <ul>
+                    <li><a href="feat-d74bd0d0.html" data-relationship="contains" data-since="2026-06-07T13:48:55.999058">Carve core/ go.mod module boundary &#43; repo restructure</a></li>
+                    <li><a href="feat-0e3f1b3f.html" data-relationship="contains" data-since="2026-06-07T13:48:56.337599">Promote core packages out of internal/ to importable API</a></li>
+                    <li><a href="feat-f87e93a6.html" data-relationship="contains" data-since="2026-06-07T13:48:56.627504">Define EventSink interface in core for hooks-&gt;otel inversion</a></li>
+                    <li><a href="feat-4114946c.html" data-relationship="contains" data-since="2026-06-07T16:14:06.956178">Multi-module CI &#43; path-guard coverage for core/ carve-out</a></li>
+                    <li><a href="feat-331927fb.html" data-relationship="contains" data-since="2026-06-07T17:50:03.614767">Seam: inject observe/dev hook ops so core hooks drop otel&#43;pluginbuild</a></li>
+                    <li><a href="bug-1759e12d.html" data-relationship="contains" data-since="2026-06-07T18:26:41.493997">Post-move stale path refs: forbiddenPathPrefixes, host-paths allowlist, track-attribution globs, gofmt</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>ENABLER. Promote db, workitem, models, graph, provenance, ingest, daemon, hooks, harness out of internal/ into an importable core module (core/go.mod). harness stays in core (cross-harness coordination is core value, not bloat). Blocks all product extractions.</p>
+        </section>
+    </article>
+</body>
+</html>

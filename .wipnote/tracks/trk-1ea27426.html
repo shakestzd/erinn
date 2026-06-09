@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>wipnote-port: extract plugin porting tool</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="trk-1ea27426"
+             data-type="track"
+             data-status="todo"
+             data-priority="medium"
+             data-created="2026-06-07T13:48:35.019133"
+             data-updated="2026-06-07T13:48:57.131701" data-agent-assigned="claude-code" data-created-by-agent="claude-code" data-created-by-model="claude-opus-4-8[1m]" data-created-by-cli-version="0.60.21-9-gc72335802">
+
+        <header>
+            <h1>wipnote-port: extract plugin porting tool</h1>
+            <div class="metadata">
+                <span class="badge status-todo">Todo</span>
+                <span class="badge priority-medium">Medium Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="trk-1f94484c.html" data-relationship="part_of" data-since="2026-06-07T13:48:55.892036">Modular carve-out: lean core &#43; extracted products</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="contains">
+                <h3>Contains:</h3>
+                <ul>
+                    <li><a href="feat-29195f33.html" data-relationship="contains" data-since="2026-06-07T13:48:57.128828">Invert commit-portdrift guard out of core hooks</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>Product 2, ONE EDGE TO CUT. Move pluginbuild + packages/codex + packages/gemini into port/ module. pluginbuild has zero internal deps; only seam is hooks/commit_portdrift_guard.go calling pluginbuild.CheckPorts -- invert to an external pre-commit hook. Blocked by core API.</p>
+        </section>
+    </article>
+</body>
+</html>

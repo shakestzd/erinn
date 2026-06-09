@@ -3,7 +3,6 @@ package db
 import (
 	"crypto/sha256"
 	"database/sql"
-	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
@@ -124,6 +123,44 @@ func LatestGateRecordForSession(database *sql.DB, sessionID string) (*GateRecord
 	return scanGateRecord(row)
 }
 
+// LatestPassingGateRecordForWorkItem returns the most recent passing gate
+// record for workItemID, regardless of which session produced it, provided the
+// record was checked within the `within` window. When headCommit is non-empty
+// the lookup additionally requires that the record's gate_command-independent
+// output_summary or the caller's verification ties it to the current HEAD; HEAD
+// matching is enforced by the caller (validateCompletionGateRecord) against the
+// returned record's metadata, so this query only applies the work-item +
+// status + recency filter. A nil record (no error) means no qualifying record
+// exists. This is the cross-session fallback for bug-35857288: a work item
+// validated by a passing gate in one session must be completable from another
+// session at the same HEAD, instead of being rejected for lacking a
+// session-scoped record.
+func LatestPassingGateRecordForWorkItem(database *sql.DB, workItemID string, within time.Duration) (*GateRecord, error) {
+	if database == nil || strings.TrimSpace(workItemID) == "" {
+		return nil, nil
+	}
+	row := database.QueryRow(`
+		SELECT id, session_id, COALESCE(work_item_id,''), COALESCE(harness,''),
+		       COALESCE(project_type,''), COALESCE(gate_command,''), COALESCE(status,''),
+		       checked_at, COALESCE(signature,''), COALESCE(allowlist_hits_json,'[]'),
+		       COALESCE(allowlist_hit_count,0), COALESCE(source,''), COALESCE(output_summary,''),
+		       COALESCE(profile_signature,''), COALESCE(guards_run,'[]')
+		FROM gate_records
+		WHERE work_item_id = ? AND status = 'pass'
+		ORDER BY checked_at DESC, id DESC
+		LIMIT 1`, workItemID)
+	record, err := scanGateRecord(row)
+	if err != nil || record == nil {
+		return record, err
+	}
+	if within > 0 {
+		if time.Since(record.CheckedAt) > within {
+			return nil, nil
+		}
+	}
+	return record, nil
+}
+
 func CountGateRecords(database *sql.DB, sessionID string) (int, error) {
 	if database == nil {
 		return 0, nil
@@ -133,15 +170,6 @@ func CountGateRecords(database *sql.DB, sessionID string) (int, error) {
 		return 0, fmt.Errorf("count gate records: %w", err)
 	}
 	return count, nil
-}
-
-func decodeGateAllowlistHits(raw string) []map[string]any {
-	if strings.TrimSpace(raw) == "" {
-		return nil
-	}
-	var hits []map[string]any
-	_ = json.Unmarshal([]byte(raw), &hits)
-	return hits
 }
 
 func scanGateRecord(scanner interface{ Scan(dest ...any) error }) (*GateRecord, error) {

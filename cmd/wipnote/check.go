@@ -1,10 +1,10 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -85,12 +85,15 @@ Returns exit code 0 if all gates pass, 1 if any fail.`,
 				return nil
 			}
 
+			ctx, stop := gateSignalContext()
+			defer stop()
+
 			var results []gateResult
 			ranAny := false
 
 			if !pythonOnly && hasGoProject(projectRoot) {
 				ranAny = true
-				results = append(results, runGoGates(projectRoot, skipTests)...)
+				results = append(results, runGoGates(ctx, projectRoot, skipTests)...)
 			}
 
 			if !pythonOnly && hasNodeProject(projectRoot) {
@@ -99,7 +102,7 @@ Returns exit code 0 if all gates pass, 1 if any fail.`,
 
 			if !goOnly && hasPythonProject(projectRoot) {
 				ranAny = true
-				results = append(results, runPythonGates(projectRoot, skipTests)...)
+				results = append(results, runPythonGates(ctx, projectRoot, skipTests)...)
 			}
 
 			if !ranAny {
@@ -311,36 +314,40 @@ func hasPythonProject(root string) bool {
 	return err == nil
 }
 
-// runGate executes a command, capturing its combined output, and returns a gateResult.
-func runGate(name, dir string, args ...string) gateResult {
-	cmd := exec.Command(args[0], args[1:]...)
-	cmd.Dir = dir
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	err := cmd.Run()
+// runGate executes a command, capturing its combined output, and returns a
+// gateResult. Like runGateCommand it runs in an exec-capable temp dir
+// (bug-58205bf3) and in its own process group with a context watchdog
+// (bug-c3c9278a) so an interrupt kills the whole subtree instead of orphaning
+// the `go test`/`go build` child.
+func runGate(ctx context.Context, name, dir string, args ...string) gateResult {
+	env, _, _ := gateExecEnv(dir)
+	output, err := runManagedGate(ctx, name, dir, env, os.Stdout, os.Stderr, args...)
+	if err != nil && isLikelyNoexecFailure(output) {
+		fmt.Fprintf(os.Stderr, "\nhint: this looks like a noexec temp-dir failure. Retry with an exec-capable temp dir:\n  %s\n", gateTmpRemediation(dir))
+	}
 	return gateResult{name: name, passed: err == nil, err: err}
 }
 
-func runGoGates(root string, skipTests bool) []gateResult {
+func runGoGates(ctx context.Context, root string, skipTests bool) []gateResult {
 	goDir := filepath.Join(root, "packages", "go")
 	gates := []gateResult{
-		runGate("go build", goDir, "go", "build", "-buildvcs=false", "./..."),
-		runGate("go vet", goDir, "go", "vet", "./..."),
+		runGate(ctx, "go build", goDir, "go", "build", "-buildvcs=false", "./..."),
+		runGate(ctx, "go vet", goDir, "go", "vet", "./..."),
 	}
 	if !skipTests {
-		gates = append(gates, runGate("go test", goDir, "go", "test", "-buildvcs=false", "./..."))
+		gates = append(gates, runGate(ctx, "go test", goDir, "go", "test", "-buildvcs=false", "./..."))
 	}
 	return gates
 }
 
-func runPythonGates(root string, skipTests bool) []gateResult {
+func runPythonGates(ctx context.Context, root string, skipTests bool) []gateResult {
 	gates := []gateResult{
-		runGate("ruff check", root, "uv", "run", "ruff", "check", "--fix"),
-		runGate("ruff format", root, "uv", "run", "ruff", "format"),
-		runGate("mypy", root, "uv", "run", "mypy", "src/"),
+		runGate(ctx, "ruff check", root, "uv", "run", "ruff", "check", "--fix"),
+		runGate(ctx, "ruff format", root, "uv", "run", "ruff", "format"),
+		runGate(ctx, "mypy", root, "uv", "run", "mypy", "src/"),
 	}
 	if !skipTests {
-		gates = append(gates, runGate("pytest", root, "uv", "run", "pytest"))
+		gates = append(gates, runGate(ctx, "pytest", root, "uv", "run", "pytest"))
 	}
 	return gates
 }

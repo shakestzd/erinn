@@ -1,7 +1,7 @@
 package main
 
 import (
-	"bytes"
+	"context"
 	"database/sql"
 	"encoding/json"
 	"errors"
@@ -316,9 +316,12 @@ func runSessionGate(projectRoot, sessionID, workItemID, source, phase string, st
 		result.Commands = append(result.Commands, strings.Join(gc.Args, " "))
 	}
 
+	ctx, stop := gateSignalContext()
+	defer stop()
+
 	var summary []string
 	for _, gc := range plan.Commands {
-		hits, cmdErr := runGateCommand(gc, plan.ManifestDir, allowlist, stdout, stderr)
+		hits, cmdErr := runGateCommand(ctx, gc, plan.ManifestDir, allowlist, stdout, stderr)
 		if len(hits) > 0 {
 			result.AllowlistHits = append(result.AllowlistHits, hits...)
 		}
@@ -359,22 +362,27 @@ func writeGateAllowlistHits(w io.Writer, hits []gateAllowlistHit) {
 	}
 }
 
-func runGateCommand(gc gateCommand, dir string, allowlist []gateAllowlistEntry, stdout, stderr io.Writer) ([]gateAllowlistHit, error) {
-	cmd := exec.Command(gc.Args[0], gc.Args[1:]...)
+func runGateCommand(ctx context.Context, gc gateCommand, dir string, allowlist []gateAllowlistEntry, stdout, stderr io.Writer) ([]gateAllowlistHit, error) {
+	runDir := dir
 	if strings.TrimSpace(gc.Dir) != "" {
-		cmd.Dir = gc.Dir
-	} else {
-		cmd.Dir = dir
+		runDir = gc.Dir
 	}
-	cmd.Env = os.Environ()
-	var output bytes.Buffer
-	cmd.Stdout = io.MultiWriter(stdout, &output)
-	cmd.Stderr = io.MultiWriter(stderr, &output)
-	err := cmd.Run()
+	// bug-58205bf3: build an environment whose temp dir is exec-capable. In the
+	// devcontainer /tmp is mounted noexec, so `go test` fails to exec the freshly
+	// linked test binary; gateExecEnv redirects GOTMPDIR (and GOCACHE if needed)
+	// to an exec-capable scratch dir inside the project tree.
+	env, _, _ := gateExecEnv(runDir)
+	// bug-c3c9278a: run in its own process group with a context watchdog so an
+	// interrupt kills the whole `go test`/`go build` subtree instead of orphaning
+	// it. runManagedGate also announces "running: <cmd>" for buffered-tty progress.
+	output, err := runManagedGate(ctx, gc.Name, runDir, env, stdout, stderr, gc.Args...)
 	if err == nil {
 		return nil, nil
 	}
-	return matchGateAllowlist(gc.Name, output.String(), allowlist), err
+	if isLikelyNoexecFailure(output) {
+		fmt.Fprintf(stderr, "\nhint: this looks like a noexec temp-dir failure. Retry with an exec-capable temp dir:\n  %s\n", gateTmpRemediation(runDir))
+	}
+	return matchGateAllowlist(gc.Name, output, allowlist), err
 }
 
 func gateCommandAllowlisted(cmdErr error, hits []gateAllowlistHit) bool {
@@ -539,6 +547,13 @@ func reportGuardProfileDrift(database *sql.DB, projectRoot, sessionID string, w 
 		record.ProfileSignature, current)
 }
 
+// completionGateFallbackWindow bounds how old a cross-session passing gate
+// record may be to satisfy the bug-35857288 fallback. It is generous enough to
+// cover a normal review/merge cycle but short enough that a stale record cannot
+// silently authorise a much-later completion. The mandatory immediate re-check
+// at current HEAD remains the real safety boundary regardless of this window.
+const completionGateFallbackWindow = 6 * time.Hour
+
 func validateCompletionGateRecord(projectRoot string, database *sql.DB, sessionID, workItemID string) error {
 	if database == nil {
 		return nil
@@ -551,8 +566,27 @@ func validateCompletionGateRecord(projectRoot string, database *sql.DB, sessionI
 	if err != nil {
 		return fmt.Errorf("load gate record: %w", err)
 	}
-	if record == nil || record.Status != "pass" || !record.SignatureValid() {
-		return fmt.Errorf("refusing to complete %s: no valid passing gate record exists for the current session (%s).\nRun:\n  wipnote check --gate", workItemID, sessionID)
+	sessionScopedValid := record != nil && record.Status == "pass" && record.SignatureValid()
+	if !sessionScopedValid {
+		// bug-35857288: cross-session fallback. A work item validated by a
+		// passing gate in another session (e.g. the merge was prepared and
+		// gated in a sibling worktree/session) must still be completable here,
+		// rather than being hard-rejected for lacking a session-scoped record.
+		// Accept the most recent passing record for THIS work item within a
+		// recency window. HEAD safety is not taken on trust from the prior
+		// record: completion below ALWAYS re-runs the gate at the current HEAD
+		// in this session and requires a fresh valid passing record, so the
+		// fallback only relaxes the "must have a prior same-session record"
+		// precondition — it never substitutes for HEAD-current validation.
+		fallback, ferr := dbpkg.LatestPassingGateRecordForWorkItem(database, workItemID, completionGateFallbackWindow)
+		if ferr != nil {
+			return fmt.Errorf("load gate record: %w", ferr)
+		}
+		if fallback == nil || !fallback.SignatureValid() {
+			return fmt.Errorf("refusing to complete %s: no valid passing gate record exists for the current session (%s) and no recent passing gate record (within %s) exists for this work item.\nRun:\n  wipnote check --gate", workItemID, sessionID, completionGateFallbackWindow)
+		}
+		fmt.Fprintf(os.Stderr, "gate: accepting cross-session passing gate record for %s from session %s (checked %s ago); re-validating at current HEAD before completing\n",
+			workItemID, fallback.SessionID, time.Since(fallback.CheckedAt).Round(time.Second))
 	}
 
 	result, err := runSessionGate(projectRoot, sessionID, workItemID, "complete-recheck", guardprofile.PhaseCompletion, os.Stdout, os.Stderr)

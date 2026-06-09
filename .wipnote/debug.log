@@ -31852,3 +31852,102 @@
 2026-06-09T16:52:56 handler=runHook duration=22.235522ms hook=posttooluse session=56dbc95b completed
 2026-06-09T16:53:00 handler=pretooluse duration=4.78367ms phase=resolve-context session=56dbc95b tool=Bash context resolved
 2026-06-09T16:53:00 handler=runHook duration=76.274028ms hook=pretooluse session=56dbc95b completed
+2026-06-09T16:53:02 handler=pretooluse duration=566.34µs phase=resolve-context session=56dbc95b tool=Bash context resolved
+2026-06-09T16:53:02 handler=runHook duration=8.420818ms hook=posttooluse session=56dbc95b completed
+2026-06-09T16:53:04 handler=pretooluse duration=1.758059ms phase=resolve-context session=56dbc95b tool=Bash context resolved
+2026-06-09T16:53:04 handler=runHook duration=55.999516ms hook=pretooluse session=56dbc95b completed
+2026-06-09T16:53:08 handler=pretooluse duration=2.273825ms phase=resolve-context session=56dbc95b tool=Bash context resolved
+2026-06-09T16:53:08 handler=runHook duration=41.67807ms hook=posttooluse session=56dbc95b completed
+2026-06-09T16:53:09 handler=pretooluse duration=849.431µs phase=resolve-context session=56dbc95b tool=Bash context resolved
+2026-06-09T16:53:09 handler=runHook duration=47.540411ms hook=pretooluse session=56dbc95b completed
+2026-06-09T16:53:09 handler=pretooluse duration=457.569µs phase=resolve-context session=56dbc95b tool=Bash context resolved
+2026-06-09T16:53:09 handler=runHook duration=5.332064ms hook=posttooluse session=56dbc95b completed
+2026-06-09T16:53:11 handler=pretooluse duration=603.035µs phase=resolve-context session=56dbc95b tool=Bash context resolved
+2026-06-09T16:53:11 handler=runHook duration=24.213348ms hook=pretooluse session=56dbc95b completed
+2026-06-09T16:55:40 handler=test detail=applying pragmas: acquiring dedicated connection for pragmas: unable to open database file: out of memory (14) fallback=writer_unavailable session=sess-wri canonical-first fallback engaged
+2026-06-09T16:55:40 handler=test detail=writequeue: queue full fallback=queue_full session=sess-que canonical-first fallback engaged
+2026-06-09T16:55:40 handler=test detail=writequeue: writer unavailable fallback=writer_unavailable session=sess-cra canonical-first fallback engaged
+2026-06-09T16:55:40 handler=test detail=no queue and no db fallback=writer_unavailable session=sess-no- canonical-first fallback engaged
+2026-06-09T16:58:49 handler=pretooluse duration=1.477953ms phase=resolve-context session=56dbc95b tool=Bash context resolved
+2026-06-09T16:58:49 handler=runHook duration=20.910205ms hook=posttooluse session=56dbc95b completed
+2026-06-09T16:58:57 handler=runHook duration=4.110711ms hook=subagent-stop session=56dbc95b completed
+2026-06-09T16:58:57 handler=pretooluse duration=822.591µs phase=resolve-context session=56dbc95b tool=Agent context resolved
+2026-06-09T16:58:57 handler=runHook duration=10.026111ms hook=posttooluse session=56dbc95b completed
+2026-06-09T16:59:06 [user-prompt-backfill] stop: 1 prompts recovered (session=56dbc95b)
+2026-06-09T16:59:06 handler=runHook duration=30.991017ms hook=stop session=56dbc95b completed
+2026-06-09T17:02:11 handler=runHook duration=3.86715ms hook=subagent-stop session=56dbc95b completed
+2026-06-09T17:31:32 handler=session-start duration=7.08518ms phase=db-tx session=f5245b91 transaction complete
+2026-06-09T17:31:32 handler=session-start duration=319.483785ms session=f5245b91 handler complete
+2026-06-09T17:31:32 handler=runHook duration=496.756081ms hook=session-start session=f5245b91 completed
+2026-06-09T17:31:33 handler=runHook duration=11.199162ms hook=instructions-loaded session=f5245b91 completed
+2026-06-09T17:31:33 handler=runHook duration=3.853896ms hook=instructions-loaded session=f5245b91 completed
+2026-06-09T17:31:33 handler=runHook duration=82.418698ms hook=instructions-loaded session=f5245b91 completed
+2026-06-09T17:38:33 handler=runHook duration=9.562546ms hook=session-end session=f5245b91 completed
+2026-06-09T17:38:33 handler=runHook duration=12.797324ms hook=session-resume session=56dbc95b completed
+2026-06-09T17:38:33 handler=session-start duration=1.676931ms phase=db-tx session=56dbc95b transaction complete
+2026-06-09T17:38:33 handler=session-start duration=70.152685ms session=56dbc95b handler complete
+2026-06-09T17:38:33 handler=runHook duration=83.466145ms hook=session-start session=56dbc95b completed
+2026-06-09T17:38:44 handler=runHook duration=18.563152ms hook=user-prompt session=56dbc95b completed
+2026-06-09T17:38:49 handler=pretooluse duration=549.626µs phase=resolve-context session=56dbc95b tool=Bash context resolved
+2026-06-09T17:38:49 handler=runHook duration=19.016266ms hook=pretooluse session=56dbc95b completed
+2026-06-09T17:38:50 handler=runHook duration=18.721197ms hook=permission-request session=56dbc95b completed
+2026-06-09T17:41:15 handler=pretooluse duration=447.506µs phase=resolve-context session=56dbc95b tool=Bash context resolved
+2026-06-09T17:41:15 handler=runHook duration=6.303099ms hook=posttooluse session=56dbc95b completed
+2026-06-09T17:41:27 handler=pretooluse duration=541.27µs phase=resolve-context session=56dbc95b tool=Bash context resolved
+2026-06-09T17:41:27 handler=runHook duration=26.16513ms hook=pretooluse session=56dbc95b completed
+2026-06-09T17:41:27 handler=pretooluse duration=403.574µs phase=resolve-context session=56dbc95b tool=Bash context resolved
+2026-06-09T17:41:27 handler=runHook duration=5.484333ms hook=posttooluse session=56dbc95b completed
+2026-06-09T17:41:38 handler=pretooluse duration=563.542µs phase=resolve-context session=56dbc95b tool=Bash context resolved
+2026-06-09T17:41:38 handler=runHook duration=20.777019ms hook=pretooluse session=56dbc95b completed
+2026-06-09T17:41:39 handler=runHook duration=5.780765ms hook=permission-request session=56dbc95b completed
+2026-06-09T17:41:49 handler=pretooluse duration=629.806µs phase=resolve-context session=56dbc95b tool=Bash context resolved
+2026-06-09T17:41:49 handler=runHook duration=17.642326ms hook=posttooluse session=56dbc95b completed
+2026-06-09T17:42:06 handler=pretooluse duration=503.47µs phase=resolve-context session=56dbc95b tool=ToolSearch context resolved
+2026-06-09T17:42:06 handler=runHook duration=39.37281ms hook=pretooluse session=56dbc95b completed
+2026-06-09T17:42:06 handler=pretooluse duration=583.971µs phase=resolve-context session=56dbc95b tool=ToolSearch context resolved
+2026-06-09T17:42:06 handler=runHook duration=5.776096ms hook=posttooluse session=56dbc95b completed
+2026-06-09T17:42:14 handler=pretooluse duration=547.472µs phase=resolve-context session=56dbc95b tool=WebFetch context resolved
+2026-06-09T17:42:14 handler=runHook duration=26.600363ms hook=pretooluse session=56dbc95b completed
+2026-06-09T17:42:14 handler=pretooluse duration=529.86µs phase=resolve-context session=56dbc95b tool=WebFetch context resolved
+2026-06-09T17:42:14 handler=runHook duration=15.919496ms hook=pretooluse session=56dbc95b completed
+2026-06-09T17:42:17 handler=pretooluse duration=836.823µs phase=resolve-context session=56dbc95b tool=WebFetch context resolved
+2026-06-09T17:42:17 handler=runHook duration=6.460476ms hook=posttooluse session=56dbc95b completed
+2026-06-09T17:42:18 handler=pretooluse duration=411.728µs phase=resolve-context session=56dbc95b tool=WebFetch context resolved
+2026-06-09T17:42:18 handler=runHook duration=5.055738ms hook=posttooluse session=56dbc95b completed
+2026-06-09T17:42:36 handler=pretooluse duration=818.729µs phase=resolve-context session=56dbc95b tool=Bash context resolved
+2026-06-09T17:42:36 handler=runHook duration=16.599444ms hook=pretooluse session=56dbc95b completed
+2026-06-09T17:42:36 handler=runHook duration=12.716515ms hook=permission-request session=56dbc95b completed
+2026-06-09T17:42:40 handler=pretooluse duration=379.479µs phase=resolve-context session=56dbc95b tool=Bash context resolved
+2026-06-09T17:42:40 handler=runHook duration=4.811605ms hook=posttooluse session=56dbc95b completed
+2026-06-09T17:42:48 handler=pretooluse duration=1.620429ms phase=resolve-context session=56dbc95b tool=Bash context resolved
+2026-06-09T17:42:48 handler=runHook duration=21.897701ms hook=pretooluse session=56dbc95b completed
+2026-06-09T17:42:48 handler=runHook duration=7.721829ms hook=permission-request session=56dbc95b completed
+2026-06-09T17:51:19 handler=runHook duration=14.495176ms hook=posttooluse-failure session=56dbc95b completed
+2026-06-09T17:51:30 handler=pretooluse duration=554.877µs phase=resolve-context session=56dbc95b tool=Bash context resolved
+2026-06-09T17:51:30 handler=runHook duration=38.090316ms hook=pretooluse session=56dbc95b completed
+2026-06-09T17:51:30 handler=runHook duration=21.366991ms hook=permission-request session=56dbc95b completed
+2026-06-09T17:51:33 handler=pretooluse duration=534.027µs phase=resolve-context session=56dbc95b tool=Bash context resolved
+2026-06-09T17:51:33 handler=runHook duration=6.820586ms hook=posttooluse session=56dbc95b completed
+2026-06-09T17:51:49 [user-prompt-backfill] stop: 5 prompts recovered (session=56dbc95b)
+2026-06-09T17:51:49 handler=runHook duration=21.277681ms hook=stop session=56dbc95b completed
+2026-06-09T17:54:54 handler=runHook duration=3.920561ms hook=subagent-stop session=56dbc95b completed
+2026-06-09T18:22:52 handler=session-start duration=18.459606ms phase=db-tx session=737e5496 transaction complete
+2026-06-09T18:22:52 handler=session-start duration=154.518158ms session=737e5496 handler complete
+2026-06-09T18:22:52 handler=runHook duration=197.093328ms hook=session-start session=737e5496 completed
+2026-06-09T18:22:54 handler=runHook duration=68.00854ms hook=instructions-loaded session=737e5496 completed
+2026-06-09T18:22:54 handler=runHook duration=38.788328ms hook=instructions-loaded session=737e5496 completed
+2026-06-09T18:22:54 handler=runHook duration=57.533351ms hook=instructions-loaded session=737e5496 completed
+2026-06-09T18:23:02 handler=runHook duration=21.356911ms hook=session-end session=737e5496 completed
+2026-06-09T18:23:02 handler=session-start duration=642.53µs phase=db-tx session=56dbc95b transaction complete
+2026-06-09T18:23:02 handler=runHook duration=23.766749ms hook=session-resume session=56dbc95b completed
+2026-06-09T18:23:02 handler=session-start duration=58.235172ms session=56dbc95b handler complete
+2026-06-09T18:23:02 handler=runHook duration=89.66124ms hook=session-start session=56dbc95b completed
+2026-06-09T18:23:36 handler=runHook duration=10.243989ms hook=user-prompt session=56dbc95b completed
+2026-06-09T18:23:42 handler=pretooluse duration=550.307µs phase=resolve-context session=56dbc95b tool=Bash context resolved
+2026-06-09T18:23:42 handler=runHook duration=32.973784ms hook=pretooluse session=56dbc95b completed
+2026-06-09T18:23:42 handler=runHook duration=36.342682ms hook=permission-request session=56dbc95b completed
+2026-06-09T18:27:08 handler=pretooluse duration=377.826µs phase=resolve-context session=56dbc95b tool=Bash context resolved
+2026-06-09T18:27:08 handler=runHook duration=13.362905ms hook=posttooluse session=56dbc95b completed
+2026-06-09T18:27:19 [user-prompt-backfill] stop: 2 prompts recovered (session=56dbc95b)
+2026-06-09T18:27:19 handler=runHook duration=44.961987ms hook=stop session=56dbc95b completed
+2026-06-09T18:30:24 handler=runHook duration=3.218901ms hook=subagent-stop session=56dbc95b completed

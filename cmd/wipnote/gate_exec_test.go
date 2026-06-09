@@ -146,7 +146,7 @@ func TestRunManagedGateSuccessCapturesOutput(t *testing.T) {
 	if !strings.Contains(out, "hello") {
 		t.Errorf("captured output missing: %q", out)
 	}
-	if !strings.Contains(serr.String(), "running: sh -c echo hello") {
+	if !strings.Contains(serr.String(), "running: echo (sh -c echo hello)") {
 		t.Errorf("missing running announcement: %q", serr.String())
 	}
 }

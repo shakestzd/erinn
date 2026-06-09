@@ -13,7 +13,7 @@
              data-status="in-progress"
              data-priority="medium"
              data-created="2026-06-09T10:17:53.693816"
-             data-updated="2026-06-09T18:40:17.794066" data-agent-assigned="claude-code" data-created-by-agent="claude-code" data-created-by-model="claude-opus-4-8[1m]" data-created-by-cli-version="dev">
+             data-updated="2026-06-09T19:06:39.174868" data-agent-assigned="claude-code" data-created-by-agent="claude-code" data-created-by-model="claude-opus-4-8[1m]" data-created-by-cli-version="dev">
 
         <header>
             <h1>Raise subagent maxTurns to stop research/coder truncation</h1>
@@ -32,6 +32,16 @@
                 </ul>
             </section>
         </nav>
+
+        <section data-steps>
+            <h3>Implementation Steps</h3>
+            <ol>
+                <li data-completed="true" data-step-id="task-1" data-agent="claude-code" data-created-by-agent="claude-code">✅ Dead-code cleanup (decodeGateAllowlistHits &#43; runManagedGate name param)</li>
+                <li data-completed="true" data-step-id="task-2" data-agent="claude-code" data-created-by-agent="claude-code">✅ Run all quality gates green (root &#43; core module)</li>
+                <li data-completed="false" data-step-id="task-3" data-agent="claude-code" data-created-by-agent="claude-code">⏳ Commit cleanup and complete the three implemented bugs</li>
+                <li data-completed="false" data-step-id="task-4" data-agent="claude-code" data-created-by-agent="claude-code">⏳ Implement bug-36b696a5 (read-only .git autocommit bypass)</li>
+            </ol>
+        </section>
 
         <section data-content>
             <h3>Description</h3>

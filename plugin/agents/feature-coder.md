@@ -10,7 +10,7 @@ tools:
   - Grep
   - Glob
   - Bash
-maxTurns: 60
+maxTurns: 100
 ---
 
 # Feature Coder Agent

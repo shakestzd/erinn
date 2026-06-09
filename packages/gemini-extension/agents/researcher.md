@@ -2,7 +2,7 @@
 name: researcher
 description: Research, debug, and visual QA agent. Use for investigating unfamiliar systems, root cause analysis of errors, and visual quality assurance of web UIs. Enforces research-first philosophy — documentation before trial-and-error.
 model: gemini-3-flash-preview
-max_turns: 20
+max_turns: 50
 tools:
     - read_file
     - grep_search

@@ -13,7 +13,7 @@ tools:
   - WebSearch
   - WebFetch
   - mcp__claude-in-chrome__computer
-maxTurns: 20
+maxTurns: 50
 memory: project
 ---
 

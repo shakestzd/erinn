@@ -2,7 +2,7 @@
 name: feature-coder
 description: Balanced code execution agent for moderate complexity tasks
 model: gemini-3-flash-preview
-max_turns: 60
+max_turns: 100
 tools:
     - read_file
     - replace

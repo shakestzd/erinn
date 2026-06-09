@@ -7,7 +7,7 @@ tools:
   - Read
   - Grep
   - Glob
-maxTurns: 10
+maxTurns: 20
 ---
 
 # Reader Agent

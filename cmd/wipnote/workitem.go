@@ -287,9 +287,13 @@ func wiSetStatusWithAgent(typeName, id, status, sessionID, agentID string) error
 	col := collectionFor(p, typeName)
 
 	// --learning validation gate: MUST run before any other completion side effect.
-	// If the body fails arch card validation, abort immediately with a clear error.
-	// The work item must not end up half-completed with a silently lost learning.
+	// If the body fails arch card validation, OR the kind is invalid, abort immediately
+	// with a clear error. The work item must not end up half-completed with a silently
+	// lost learning.
 	if status == "done" && strings.TrimSpace(wiLearning) != "" {
+		if err := validateLearningKind(wiLearningKind); err != nil {
+			return fmt.Errorf("--learning-kind validation failed (completion aborted): %w", err)
+		}
 		if err := validateLearningBody(wiLearning); err != nil {
 			return fmt.Errorf("--learning validation failed (completion aborted): %w", err)
 		}

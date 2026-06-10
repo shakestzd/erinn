@@ -34,12 +34,13 @@ SESSION_ID="<subagent-session-id>"
 SESSION_FILE=".wipnote/sessions/${SESSION_ID}/events.ndjson"
 
 # First Edit or Write tool call timestamp
-python3 - <<'EOF'
+python3 - "$SESSION_FILE" <<'EOF'
 import json, sys
 from datetime import datetime
 
+session_file = sys.argv[1]
 events = []
-with open("$SESSION_FILE") as f:
+with open(session_file) as f:
     for line in f:
         line = line.strip()
         if not line:

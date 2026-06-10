@@ -543,6 +543,26 @@ func createLearningCard(wipnoteDir, workItemID, body, kind string, paths []strin
 	return store.Create(card)
 }
 
+// validateLearningKind checks if the provided kind string is a valid arch card kind.
+// Valid kinds are: subsystem-map, invariant, hazard, decision.
+// When kind is empty, it defaults to "decision" (no error).
+func validateLearningKind(kind string) error {
+	if kind == "" {
+		return nil // empty defaults to decision, which is valid
+	}
+	cardKind := corearch.Kind(kind)
+	validKinds := map[corearch.Kind]bool{
+		corearch.KindSubsystemMap: true,
+		corearch.KindInvariant:    true,
+		corearch.KindHazard:       true,
+		corearch.KindDecision:     true,
+	}
+	if !validKinds[cardKind] {
+		return fmt.Errorf("invalid --learning-kind %q; must be one of: subsystem-map, invariant, hazard, decision", kind)
+	}
+	return nil
+}
+
 // validateLearningBody validates just the body text for an arch card (word cap).
 func validateLearningBody(body string) error {
 	dummy := &corearch.Card{

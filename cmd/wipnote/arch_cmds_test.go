@@ -403,6 +403,61 @@ func TestCompletionLearning_InvalidBody(t *testing.T) {
 	}
 }
 
+// TestCompletionLearning_InvalidKind tests that --learning-kind with an invalid kind
+// aborts the completion with a clear error and does NOT complete the work item.
+func TestCompletionLearning_InvalidKind(t *testing.T) {
+	tmpDir := t.TempDir()
+	hgDir := filepath.Join(tmpDir, ".wipnote")
+	for _, sub := range []string{"features", "bugs", "spikes", "tracks", "plans", "specs"} {
+		if err := os.MkdirAll(filepath.Join(hgDir, sub), 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	t.Setenv("WIPNOTE_PROJECT_DIR", tmpDir)
+
+	if err := testCreateStandalone("feature", "Test Invalid Learning Kind"); err != nil {
+		t.Fatalf("create feature: %v", err)
+	}
+	files, _ := filepath.Glob(filepath.Join(hgDir, "features", "feat-*.html"))
+	if len(files) == 0 {
+		t.Fatal("no feature file created")
+	}
+	node, _ := parseNodeFile(files[len(files)-1])
+	featID := node.ID
+
+	if err := wiSetStatusWithAgent("feature", featID, "in-progress", "", ""); err != nil {
+		t.Fatalf("start feature: %v", err)
+	}
+
+	// Invalid learning kind — should abort completion.
+	wiLearning = "This is a valid learning body."
+	wiLearningKind = "invalid-kind"
+	defer func() { wiLearning = ""; wiLearningKind = "" }()
+
+	err := wiSetStatusWithAgent("feature", featID, "done", "", "")
+	if err == nil {
+		t.Fatal("expected error: invalid --learning-kind should abort completion")
+	}
+	if !strings.Contains(err.Error(), "learning-kind") {
+		t.Errorf("error should mention 'learning-kind', got: %v", err)
+	}
+	if !strings.Contains(err.Error(), "invalid-kind") {
+		t.Errorf("error should mention the invalid kind value, got: %v", err)
+	}
+
+	// Verify no arch card was created.
+	archDir := filepath.Join(hgDir, "arch")
+	if entries, readErr := os.ReadDir(archDir); readErr == nil && len(entries) > 0 {
+		t.Fatal("no arch card should exist after a failed --learning-kind completion")
+	}
+
+	// Verify the feature is still in-progress (not done).
+	nodeAfter, _ := parseNodeFile(files[len(files)-1])
+	if string(nodeAfter.Status) == "done" {
+		t.Fatal("feature should NOT be done after aborted completion due to invalid --learning-kind")
+	}
+}
+
 // TestDriftNudge_BestEffort tests that drift-nudge failures do NOT fail
 // the completion (nudge is best-effort).
 func TestDriftNudge_BestEffort(t *testing.T) {

@@ -487,6 +487,33 @@ func TestStore_Update_NotFound(t *testing.T) {
 	}
 }
 
+func TestStore_Update_DuplicateGlobSet(t *testing.T) {
+	dir := t.TempDir()
+	store, _ := NewStore(dir)
+
+	// Create the first card with a specific path set.
+	card1 := validCard()
+	card1.Name = "card-one"
+	card1.Paths = []string{"internal/auth/**", "pkg/auth/**"}
+	store.Create(card1)
+
+	// Create a second card with different paths.
+	card2 := validCard()
+	card2.Name = "card-two"
+	card2.Paths = []string{"internal/db/**"}
+	store.Create(card2)
+
+	// Try to update card2 to have the same path set as card1 — should fail.
+	card2.Paths = []string{"pkg/auth/**", "internal/auth/**"} // same set, different order
+	err := store.Update(card2)
+	if err == nil {
+		t.Fatal("expected ErrDuplicateGlobSet when updating to another card's path set")
+	}
+	if !strings.Contains(err.Error(), "same path glob set already exists") {
+		t.Errorf("expected duplicate glob set error, got: %v", err)
+	}
+}
+
 func TestStore_ValidateAll(t *testing.T) {
 	dir := t.TempDir()
 	store, _ := NewStore(dir)

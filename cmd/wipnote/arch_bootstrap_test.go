@@ -126,6 +126,43 @@ func TestArchBootstrap_ExistingDocsPointed(t *testing.T) {
 	}
 }
 
+// TestArchBootstrap_ExistingDocsNoFenceBreakout verifies that embedded ``` in
+// CLAUDE.md / AGENTS.md does not break out of the indented block.
+func TestArchBootstrap_ExistingDocsNoFenceBreakout(t *testing.T) {
+	dir := setupArchTestDir(t)
+
+	// Create a CLAUDE.md with embedded triple-backticks.
+	claudeMd := filepath.Join(dir, "CLAUDE.md")
+	content := "# Instructions\n\n```bash\necho test\n```\n\nDone."
+	if err := os.WriteFile(claudeMd, []byte(content), 0o644); err != nil {
+		t.Fatalf("create CLAUDE.md: %v", err)
+	}
+
+	out, err := runArchBootstrapCapture(t)
+	if err != nil {
+		t.Fatalf("arch bootstrap: %v", err)
+	}
+
+	// Verify the output includes the verbatim label to signal untrusted content.
+	if !strings.Contains(out, "verbatim excerpt") {
+		t.Errorf("brief should label content as 'verbatim excerpt':\n%s", out)
+	}
+
+	// Verify that the embedded ``` is indented (not a real fence).
+	// The output should have 4-space-indented lines containing ```.
+	lines := strings.Split(out, "\n")
+	foundIndentedFence := false
+	for _, line := range lines {
+		if strings.HasPrefix(line, "    ") && strings.Contains(line, "```") {
+			foundIndentedFence = true
+			break
+		}
+	}
+	if !foundIndentedFence {
+		t.Errorf("embedded ``` should be 4-space indented to prevent fence breakout:\n%s", out)
+	}
+}
+
 // TestArchAdd_DuplicateGlobSetRejected verifies that adding a card with the exact
 // same set of path globs (order-insensitive) as an existing card is rejected.
 func TestArchAdd_DuplicateGlobSetRejected(t *testing.T) {

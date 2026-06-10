@@ -129,6 +129,8 @@ func normalizeGlobSet(paths []string) string {
 
 // Update validates and overwrites an existing card.
 // Returns ErrNotFound when the card does not exist.
+// Returns ErrDuplicateGlobSet when another active card has the exact same
+// set of non-empty path globs (order-insensitive). Empty glob sets are exempt.
 func (s *Store) Update(card *Card) error {
 	if err := Validate(card); err != nil {
 		return err
@@ -136,6 +138,13 @@ func (s *Store) Update(card *Card) error {
 	path := s.cardPath(card.Name)
 	if _, err := os.Stat(path); os.IsNotExist(err) {
 		return fmt.Errorf("%w: %s", ErrNotFound, card.Name)
+	}
+	if len(card.Paths) > 0 {
+		if dup, err := s.findGlobSetDuplicate(card); err != nil {
+			return err
+		} else if dup != "" {
+			return fmt.Errorf("%w: same paths as %q", ErrDuplicateGlobSet, dup)
+		}
 	}
 	card.UpdatedAt = time.Now().UTC()
 	return s.write(card)

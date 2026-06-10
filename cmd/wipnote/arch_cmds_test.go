@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"os"
 	"path/filepath"
 	"strings"
@@ -27,6 +28,17 @@ func runArch(t *testing.T, args ...string) error {
 	root := buildRoot()
 	root.SetArgs(append([]string{"arch"}, args...))
 	return root.Execute()
+}
+
+// runArchCapture executes an arch subcommand and returns captured stdout plus any error.
+func runArchCapture(t *testing.T, args ...string) (string, error) {
+	t.Helper()
+	var buf bytes.Buffer
+	root := buildRoot()
+	root.SetOut(&buf)
+	root.SetArgs(append([]string{"arch"}, args...))
+	err := root.Execute()
+	return buf.String(), err
 }
 
 func TestArchAdd_HappyPath(t *testing.T) {
@@ -176,8 +188,7 @@ func TestArchDeprecate_Outright(t *testing.T) {
 }
 
 func TestArchList_HidesRetiredByDefault(t *testing.T) {
-	dir := setupArchTestDir(t)
-	wipnoteDir := filepath.Join(dir, ".wipnote")
+	setupArchTestDir(t)
 
 	if err := runArch(t,
 		"add", "active-one",
@@ -201,14 +212,16 @@ func TestArchList_HidesRetiredByDefault(t *testing.T) {
 		t.Fatalf("deprecate: %v", err)
 	}
 
-	// Read the arch dir to confirm the retired card was written.
-	archPath := filepath.Join(wipnoteDir, "arch", "retired-one.md")
-	data, err := os.ReadFile(archPath)
+	// Run list (default — no --all) and verify filtering.
+	out, err := runArchCapture(t, "list")
 	if err != nil {
-		t.Fatalf("read retired card: %v", err)
+		t.Fatalf("list: %v", err)
 	}
-	if !strings.Contains(string(data), "retired: true") {
-		t.Errorf("expected 'retired: true' in card file, got:\n%s", data)
+	if !strings.Contains(out, "active-one") {
+		t.Errorf("list output missing active-one:\n%s", out)
+	}
+	if strings.Contains(out, "retired-one") {
+		t.Errorf("list output should not show retired-one:\n%s", out)
 	}
 }
 

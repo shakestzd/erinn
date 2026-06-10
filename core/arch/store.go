@@ -33,7 +33,11 @@ func (s *Store) cardPath(slug string) string {
 
 // Get reads and parses the card with the given slug.
 // Returns ErrNotFound when the file does not exist.
+// Returns an error when slug is not a valid slug (path traversal prevention).
 func (s *Store) Get(slug string) (*Card, error) {
+	if !isValidSlug(slug) {
+		return nil, fmt.Errorf("invalid slug %q: must contain only lowercase letters, digits, and hyphens", slug)
+	}
 	return ParseFile(s.cardPath(slug))
 }
 
@@ -106,6 +110,9 @@ func (s *Store) Deprecate(slug, supersededBy string) error {
 	}
 	if supersededBy != "" && !isValidSlug(supersededBy) {
 		return fmt.Errorf("superseded_by %q is not a valid slug", supersededBy)
+	}
+	if supersededBy == slug {
+		return fmt.Errorf("superseded_by must differ from the card slug %q", slug)
 	}
 	if supersededBy != "" {
 		card.SupersededBy = supersededBy

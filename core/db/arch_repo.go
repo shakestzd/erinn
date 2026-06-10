@@ -75,6 +75,13 @@ func ArchCardRowFromFields(
 	body string,
 	createdAt, updatedAt *time.Time,
 ) (*ArchCardRow, error) {
+	// Normalize nil slices to empty slices so JSON encodes as [] not null.
+	if paths == nil {
+		paths = []string{}
+	}
+	if links == nil {
+		links = []string{}
+	}
 	pathsJSON, err := json.Marshal(paths)
 	if err != nil {
 		return nil, fmt.Errorf("marshal paths: %w", err)

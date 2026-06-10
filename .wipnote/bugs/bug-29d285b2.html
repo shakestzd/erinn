@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>Dashboard approve UI swallows 500 responses — silent data loss</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="bug-29d285b2"
+             data-type="bug"
+             data-status="todo"
+             data-priority="medium"
+             data-created="2026-06-10T17:16:28.702295"
+             data-updated="2026-06-10T17:16:28.710229" data-agent-assigned="claude-code" data-track-id="trk-13e39042" data-created-by-agent="claude-code" data-created-by-model="claude-fable-5[1m]" data-created-by-cli-version="0.61.0-8-g9df39b266">
+
+        <header>
+            <h1>Dashboard approve UI swallows 500 responses — silent data loss</h1>
+            <div class="metadata">
+                <span class="badge status-todo">Todo</span>
+                <span class="badge priority-medium">Medium Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="trk-13e39042.html" data-relationship="part_of" data-since="2026-06-10T17:16:28.710087">trk-13e39042</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>When POST .../feedback returns 500, the dashboard approve radio updates optimistically and surfaces no error: user believes slices are approved while nothing persisted (confirmed in production, v0.61.1). The review rail also rendered 8/8 approved from stale HTML checked attributes with zero backing rows. Fix: surface non-2xx responses on feedback writes (toast/inline error + revert the control), and derive review-progress from the same store the finalize gate reads so UI and gate cannot disagree.</p>
+        </section>
+    </article>
+</body>
+</html>

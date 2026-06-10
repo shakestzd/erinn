@@ -10,15 +10,15 @@
 <body>
     <article id="feat-cecb2f2b"
              data-type="feature"
-             data-status="todo"
+             data-status="in-progress"
              data-priority="medium"
              data-created="2026-06-10T05:00:18.781602"
-             data-updated="2026-06-10T05:00:18.806671" data-agent-assigned="claude-code" data-track-id="trk-757c1c9f" data-created-by-agent="claude-code" data-created-by-model="claude-fable-5[1m]" data-created-by-cli-version="0.60.21-111-g2c00119b4">
+             data-updated="2026-06-10T05:37:23.604217" data-agent-assigned="claude-code" data-track-id="trk-757c1c9f" data-created-by-agent="claude-code" data-created-by-model="claude-fable-5[1m]" data-created-by-cli-version="0.60.21-111-g2c00119b4">
 
         <header>
             <h1>Fix completion-gate record staleness that forces redundant full re-runs</h1>
             <div class="metadata">
-                <span class="badge status-todo">Todo</span>
+                <span class="badge status-in-progress">In Progress</span>
                 <span class="badge priority-medium">Medium Priority</span>
             </div>
         </header>
@@ -30,11 +30,17 @@
                     <li><a href="trk-757c1c9f.html" data-relationship="part_of" data-since="2026-06-10T05:00:18.806512">trk-757c1c9f</a></li>
                 </ul>
             </section>
+            <section data-edge-type="implemented_in">
+                <h3>Implemented In:</h3>
+                <ul>
+                    <li><a href="127926be-6a1c-4045-a347-e42785ec5839.html" data-relationship="implemented_in" data-since="2026-06-10T05:37:23.604073">session 127926be-6a1c-4045-a347-e42785ec5839</a></li>
+                </ul>
+            </section>
         </nav>
 
         <section data-content>
             <h3>Description</h3>
-            <p>A passing gate record recorded moments earlier is rejected by feature/bug complete unless check --gate and complete run chained in one shell — observed repeatedly: signature drift appears to come from constantly-churning runtime files (debug.log, .active-session) and possibly session attribution. Diagnose validateCompletionGateRecord signature inputs; exclude volatile non-code paths from the workspace signature (or tolerate drift in non-Go paths) so one green gate run stays valid until code actually changes. Do NOT weaken the HEAD-change re-gate semantics from bug-35857288.</p>
+            <p>DIAGNOSED 2026-06-10 (researcher, confidence 8/10). NOT signature drift — ComputeSignature only hashes immutable DB-row fields and round-trips cleanly. Real root cause: session-identity race across separate CLI subprocesses. (1) Each orchestrator Bash call lacks WIPNOTE_SESSION_ID so EnvSessionID falls back to .wipnote/.active-session, which concurrent agents' SessionStart hooks overwrite — check --gate resolves session A, feature complete resolves session B. (2) check --gate stores work_item_id EMPTY because activeWorkItemForGate(sessionA) finds no attribution, so LatestPassingGateRecordForWorkItem (the bug-35857288 cross-session fallback queried with the explicit CLI work-item id) cannot match the record either. Chained '&&' works because one process tree = one session resolution, no hook fires between. FIX: make gate records always carry a non-empty work_item_id — add optional --work-item  flag to wipnote check --gate (validate the id exists); when absent keep activeWorkItemForGate but fall back to most-recent in-progress item; completion path unchanged, HEAD re-gate semantics preserved. Confirming experiment: run check --gate then sqlite3 query gate_records for empty work_item_id; compare session ids printed by two separate invocations. Key sites: cmd/wipnote/check.go ~67, check_gate_support.go runSessionGate/persistGateRecord/validateCompletionGateRecord ~267-592, core/hooks/runner.go EnvSessionID ~305.</p>
         </section>
     </article>
 </body>

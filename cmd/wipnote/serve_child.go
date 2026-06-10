@@ -371,16 +371,24 @@ func runServeChild(port int) error {
 	// contention source). They cannot yet be expressed as daemon op_types:
 	// routing them would require expanding the apply dispatch, which is
 	// explicitly OUT OF SCOPE for this increment (no wire-protocol / new-op
-	// changes). They are routed through the per-project writer daemon via the
-	// dashboardWriteClient (WriterClient over the writer socket); see
-	// dashWrite handlers. Read routes use the read-only `database` handle.
+	// changes). A dedicated writable handle is opened here for exactly these
+	// mutation endpoints (plan feedback POST, finalize, delete, chat, and
+	// manual session ingest). Read routes use the read-only `database` handle.
 	//
-	// IMPORTANT: serve_child holds NO writable SQLite handle. The mux's
-	// "write" argument is the read-only handle; any handler that needs to
-	// mutate MUST go through the writer daemon. query_only=ON on this handle
-	// turns any accidental in-process write into a loud SQLITE_READONLY error
-	// rather than a silent second-writer regression.
-	mux := buildSingleProjectMux(database, database, wipnoteDir)
+	// bug-528478ad: previously this passed `database` (read-only, query_only=ON)
+	// for BOTH arguments, so every dashboard Approve/Finalize click returned 500
+	// "attempt to write a readonly database". The writable handle is capped at
+	// MaxOpenConns=1 so it serialises with the writer daemon; low-frequency
+	// user-triggered writes at dashboard speed will never contend in practice.
+	dashWriteDB, err := dbpkg.OpenWritable(dbPath)
+	if err != nil {
+		return fmt.Errorf("open db (dashboard write handle): %w", err)
+	}
+	dashWriteDB.SetMaxOpenConns(1)
+	dashWriteDB.SetMaxIdleConns(1)
+	defer dashWriteDB.Close()
+
+	mux := buildSingleProjectMux(database, dashWriteDB, wipnoteDir)
 
 	// /api/collector-status — diagnostic surface. The writer queue now lives in
 	// the daemon, so writerService.queue is nil here; readWriterServiceStatus

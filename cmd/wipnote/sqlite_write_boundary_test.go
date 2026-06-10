@@ -272,6 +272,14 @@ var approvedWriteSites = []writeSite{
 		Note:           "feat-2852d0c8 cross-harness plan interview web form: short-lived foreground server that mounts the same plan API as the dashboard (planRouter) so the embedded plan-review chat works. Needs a writable handle because the chat persists feedback/amendments. Process exits on submit; one open for the form's lifetime.",
 	},
 	{
+		File:           "cmd/wipnote/serve_child.go",
+		Line:           383,
+		Function:       "runServeChild",
+		OpenExpr:       "dbpkg.OpenWritable",
+		Classification: intentionalCLIMutation,
+		Note:           "bug-528478ad: dashboard mutation endpoints (plan feedback POST, finalize, delete, chat, manual session ingest) require a writable handle. Read routes use the read-only `database` handle. MaxOpenConns=1 serialises with the writer daemon. These are low-frequency user-triggered writes that cannot yet be expressed as daemon op_types (no wire-protocol expansion in scope).",
+	},
+	{
 		File:           "cmd/wipnote/session.go",
 		Line:           229,
 		Function:       "openDB",

@@ -36,6 +36,7 @@ require (
 	github.com/rogpeppe/go-internal v1.14.1 // indirect
 	github.com/shakestzd/wipnote/core v0.0.0
 	github.com/shakestzd/wipnote/plan v0.0.0
+	github.com/shakestzd/wipnote/port v0.0.0
 	github.com/spf13/pflag v1.0.6 // indirect
 	github.com/tidwall/match v1.1.1 // indirect
 	github.com/tidwall/pretty v1.2.0 // indirect
@@ -58,3 +59,9 @@ replace github.com/shakestzd/wipnote/core => ./core
 // monolith (trk-49c43b06). Same local-replace rationale as core/ above; swap for
 // a real version require when plan is tagged and released.
 replace github.com/shakestzd/wipnote/plan => ./plan
+
+// Interim multi-module wiring: port/ is the plugin-porting product lifted out of
+// the monolith (trk-1ea27426). It houses the pluginbuild generator plus the
+// generated Codex/Gemini target trees. Same local-replace rationale as core/ and
+// plan/ above; swap for a real version require when port is tagged and released.
+replace github.com/shakestzd/wipnote/port => ./port

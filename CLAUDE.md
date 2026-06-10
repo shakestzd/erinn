@@ -103,8 +103,8 @@ a single source. Each target's plugin tree is **generated** — never hand-edit 
 | `plugin/commands/`, `plugin/agents/`, `plugin/skills/`, `plugin/templates/`, `plugin/static/`, `plugin/config/` | Shared markdown/static assets — copied verbatim into every target tree | YES |
 | `cmd/`, `internal/` | Go CLI + hook handlers (all hooks are thin wrappers over `wipnote hook <handler>`) | YES |
 | `plugin/.claude-plugin/plugin.json`, `plugin/hooks/hooks.json` | Generated Claude Code tree | NO — regenerate |
-| `packages/codex-plugin/` | Generated Codex CLI tree | NO — regenerate |
-| `packages/gemini-extension/` | Generated Gemini CLI tree | NO — regenerate |
+| `port/packages/codex-marketplace/` | Generated Codex CLI tree | NO — regenerate |
+| `port/packages/gemini-extension/` | Generated Gemini CLI tree | NO — regenerate |
 | `.claude/` (anything) | Auto-synced from `plugin/` — changes are lost | NO |
 
 **Regenerate after every manifest or asset edit:**
@@ -175,7 +175,7 @@ wipnote ships to three independently-evolving CLIs: Claude Code, Codex CLI, and 
 - Gemini agent .md frontmatter: max_turns (snake_case), tools (Gemini tool names like run_shell_command/read_file), timeout_mins (documented, default 10min), model (full IDs e.g. gemini-3-flash-preview)
 - https://ai.google.dev/gemini-api/docs/models — current model identifiers
 
-**Re-verify on a cadence, not just on suspicion.** These schemas drift silently — a field you set may stop being honored with no error. Re-run the cross-harness doc-verification audit at least every release cycle (or via a scheduled routine), using `agentFrontmatterFieldSpecs` in `internal/pluginbuild/agent_frontmatter.go` as the checklist for agent frontmatter fields, supported harnesses, output-name translations, and provenance links. When a contract changes, the fix lands in `plugin/agents/*.md`, `packages/plugin-core/manifest.json`, `internal/pluginbuild/`, or `cmd/wipnote/prompts/system-prompt.md` — never in user-facing docs like AGENTS.md or CLAUDE.md (those describe, they don't configure).
+**Re-verify on a cadence, not just on suspicion.** These schemas drift silently — a field you set may stop being honored with no error. Re-run the cross-harness doc-verification audit at least every release cycle (or via a scheduled routine), using `agentFrontmatterFieldSpecs` in `port/pluginbuild/agent_frontmatter.go` as the checklist for agent frontmatter fields, supported harnesses, output-name translations, and provenance links. When a contract changes, the fix lands in `plugin/agents/*.md`, `packages/plugin-core/manifest.json`, `port/pluginbuild/`, or `cmd/wipnote/prompts/system-prompt.md` — never in user-facing docs like AGENTS.md or CLAUDE.md (those describe, they don't configure).
 
 ---
 

@@ -133,7 +133,7 @@ func TestStopReconcile_GeminiCodex_DurableWarningSurfacedAtSessionStart(t *testi
 			if err := os.MkdirAll(filepath.Join(root, ".wipnote"), 0o755); err != nil {
 				t.Fatal(err)
 			}
-			rep := &ReconcileReport{PortDrift: []string{"packages/gemini-extension/z"}}
+			rep := &ReconcileReport{PortDrift: []string{"port/packages/gemini-extension/z"}}
 			if err := persistReconcileWarning(root, h, "sess-9", rep); err != nil {
 				t.Fatalf("persist: %v", err)
 			}

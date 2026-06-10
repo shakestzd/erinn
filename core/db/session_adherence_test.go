@@ -41,7 +41,7 @@ func TestDeriveSessionAdherence_HappyPath(t *testing.T) {
 		t.Fatalf("insert feature file source: %v", err)
 	}
 	if _, err := database.Exec(`INSERT INTO feature_files (id, feature_id, file_path, operation, session_id) VALUES (?, ?, ?, 'modify', ?)`,
-		"ff2", "feat-happy", "packages/codex-marketplace/.agents/plugins/wipnote/hooks.json", "sess-happy"); err != nil {
+		"ff2", "feat-happy", "port/packages/codex-marketplace/.agents/plugins/wipnote/hooks.json", "sess-happy"); err != nil {
 		t.Fatalf("insert feature file generated: %v", err)
 	}
 	record := &db.GateRecord{

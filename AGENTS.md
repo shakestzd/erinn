@@ -20,8 +20,8 @@ Run `wipnote help --compact` for the CLI reference.
 wipnote currently ships the same plugin to three AI coding harnesses:
 
 - **Claude Code** — plugin tree at `plugin/`
-- **Codex CLI** — marketplace tree at `packages/codex-marketplace/`
-- **Gemini CLI** — extension tree at `packages/gemini-extension/`
+- **Codex CLI** — marketplace tree at `port/packages/codex-marketplace/`
+- **Gemini CLI** — extension tree at `port/packages/gemini-extension/`
 
 All three trees are **generated** from the same source of truth at
 `packages/plugin-core/manifest.json` by `wipnote plugin build-ports`. Shared

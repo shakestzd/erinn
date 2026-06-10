@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# gemini-subtree-split.sh — Split packages/gemini-extension/ to a distribution branch/tag.
+# gemini-subtree-split.sh — Split port/packages/gemini-extension/ to a distribution branch/tag.
 #
 # Usage:
 #   scripts/gemini-subtree-split.sh [REF] [VERSION]
@@ -10,7 +10,7 @@
 #            Example: "v0.55.6" → tag "gemini-extension-v0.55.6"
 #
 # What it does:
-#   1. Runs `git subtree split` on packages/gemini-extension/ at REF.
+#   1. Runs `git subtree split` on port/packages/gemini-extension/ at REF.
 #   2. Force-creates local branch gemini-extension-dist pointing at the split commit.
 #   3. Creates annotated tag gemini-extension-<VERSION> on that commit.
 #   4. Force-pushes branch and tag to origin.
@@ -46,7 +46,7 @@ fi
 
 DIST_BRANCH="gemini-extension-dist"
 DIST_TAG="gemini-extension-${VERSION}"
-SUBTREE_PREFIX="packages/gemini-extension"
+SUBTREE_PREFIX="port/packages/gemini-extension"
 
 echo "→ Splitting ${SUBTREE_PREFIX} from ref '${REF}' …"
 SPLIT_COMMIT="$(git subtree split --prefix="${SUBTREE_PREFIX}" "${REF}")"

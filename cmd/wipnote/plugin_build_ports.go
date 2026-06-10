@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/shakestzd/wipnote/internal/pluginbuild"
+	"github.com/shakestzd/wipnote/port/pluginbuild"
 	"github.com/spf13/cobra"
 )
 
@@ -82,7 +82,7 @@ func resolvePluginBuildContext(manifestFlag, targetFlag string) (*pluginBuildCon
 // pluginBuildPortsCmd is `wipnote plugin build-ports`. It regenerates every
 // target plugin tree from packages/plugin-core/manifest.json — the single
 // source of truth for the wipnote CLI companion plugin across Claude Code,
-// Codex CLI, and future targets. See internal/pluginbuild for the adapter
+// Codex CLI, and future targets. See port/pluginbuild for the adapter
 // interface and per-target emitters.
 func pluginBuildPortsCmd() *cobra.Command {
 	var (

@@ -502,9 +502,9 @@ func resolveLocalGeminiExtension() (string, error) {
 			"Run from the wipnote project directory, or use wipnote gemini --init for the extension version")
 	}
 	projectRoot := filepath.Dir(wipnoteDir)
-	extPath := filepath.Join(projectRoot, "packages", "gemini-extension")
+	extPath := filepath.Join(projectRoot, "port", "packages", "gemini-extension")
 	if _, statErr := os.Stat(extPath); os.IsNotExist(statErr) {
-		return "", fmt.Errorf("packages/gemini-extension/ not found at %s\n"+
+		return "", fmt.Errorf("port/packages/gemini-extension/ not found at %s\n"+
 			"Run from the wipnote repo root, or use wipnote gemini --init for the published version",
 			extPath)
 	}

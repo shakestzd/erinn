@@ -42,14 +42,14 @@ recipes (new command, new agent, new skill, new hook).
 
 Link this tree into your Gemini CLI and restart so the new extension is picked up:
 
-    gemini extensions link $(pwd)/packages/gemini-extension
+    gemini extensions link $(pwd)/port/packages/gemini-extension
 
 Then restart the Gemini CLI. Unlink with `gemini extensions unlink wipnote`
 when you're done.
 
 ## Tree layout
 
-    packages/gemini-extension/
+    port/packages/gemini-extension/
     ├── gemini-extension.json     # extension manifest (name, version, contextFileName)
     ├── GEMINI.md                 # context file copied from the repo root
     ├── commands/<namespace>/     # TOML slash commands (translated from plugin/commands/*.md)
@@ -57,5 +57,5 @@ when you're done.
     ├── skills/<name>/SKILL.md    # skill directories (copied verbatim)
     └── hooks/hooks.json          # hook event wiring for Gemini-targeted events
 
-See `internal/pluginbuild/gemini.go` for the emitter and the sub-emitter files
+See `port/pluginbuild/gemini.go` for the emitter and the sub-emitter files
 (`gemini_*.go`) that populate each part of the tree.

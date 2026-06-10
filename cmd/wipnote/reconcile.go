@@ -18,7 +18,7 @@ import (
 //     bookkeeping: the "done" decision was already made; we only persist the
 //     durable record) and reported.
 //  2. generator-touched-without-build-ports — reuses slice-2's
-//     `wipnote plugin check-ports` engine (internal/pluginbuild.CheckPorts)
+//     `wipnote plugin check-ports` engine (port/pluginbuild.CheckPorts)
 //     verbatim; NOT reimplemented here.
 //  3. started-but-orphaned — in-progress items with no live owning session.
 //     Reported only; never auto-resolved.

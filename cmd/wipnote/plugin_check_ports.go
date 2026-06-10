@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/shakestzd/wipnote/internal/pluginbuild"
+	"github.com/shakestzd/wipnote/port/pluginbuild"
 	"github.com/spf13/cobra"
 )
 

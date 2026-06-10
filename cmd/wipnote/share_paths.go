@@ -87,9 +87,9 @@ func sharedTreeMetadata(treeName string) (string, string, bool) {
 	case "plugin":
 		return "WIPNOTE_PLUGIN_DIR", "plugin", true
 	case "codex-marketplace":
-		return "WIPNOTE_CODEX_DIR", filepath.Join("packages", "codex-marketplace"), true
+		return "WIPNOTE_CODEX_DIR", filepath.Join("port", "packages", "codex-marketplace"), true
 	case "gemini-extension":
-		return "WIPNOTE_GEMINI_DIR", filepath.Join("packages", "gemini-extension"), true
+		return "WIPNOTE_GEMINI_DIR", filepath.Join("port", "packages", "gemini-extension"), true
 	default:
 		return "", "", false
 	}

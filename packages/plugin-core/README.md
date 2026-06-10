@@ -7,19 +7,19 @@ files in this directory so we never edit the same logic twice.
 
 - **`manifest.json`** — plugin metadata, per-target output paths, hook event
   matrix. `plugin/.claude-plugin/plugin.json`,
-  `packages/codex-marketplace/.agents/plugins/wipnote/.codex-plugin/plugin.json`, and
-  `packages/gemini-extension/gemini-extension.json` are all generated from it.
+  `port/packages/codex-marketplace/.agents/plugins/wipnote/.codex-plugin/plugin.json`, and
+  `port/packages/gemini-extension/gemini-extension.json` are all generated from it.
 - **Assets** (commands, agents, skills, templates, static, config) live in
   `plugin/…/`. Codex skills and commands are copied in their native markdown
   form, while Codex agents are translated from `plugin/agents/*.md` into
   custom-agent TOML under the generated marketplace plugin's `agents/` directory.
   Gemini CLI requires TOML slash commands, so a sub-emitter translates the
   markdown on the way out.
-- **Generated trees** — `plugin/` (Claude), `packages/codex-marketplace/` (Codex),
-  and `packages/gemini-extension/` (Gemini) are output directories. Treat them
+- **Generated trees** — `plugin/` (Claude), `port/packages/codex-marketplace/` (Codex),
+  and `port/packages/gemini-extension/` (Gemini) are output directories. Treat them
   as build artifacts: do not hand-edit anything under `plugin/.claude-plugin/`,
-  `plugin/hooks/hooks.json`, `packages/codex-marketplace/`, or
-  `packages/gemini-extension/`. Regenerate instead.
+  `plugin/hooks/hooks.json`, `port/packages/codex-marketplace/`, or
+  `port/packages/gemini-extension/`. Regenerate instead.
 
 ## Build
 
@@ -33,7 +33,7 @@ The command writes each target's tree under the `outDir` declared in
 
 Codex custom agents have a second runtime step: `wipnote codex --init`,
 `wipnote codex`, and `wipnote codex --dev` mirror the generated
-`packages/codex-marketplace/.agents/plugins/wipnote/agents/*.toml` files into
+`port/packages/codex-marketplace/.agents/plugins/wipnote/agents/*.toml` files into
 Codex's documented custom-agent lookup directory. Normal installs use
 `~/.codex/agents`; dev launches also refresh project-local `.codex/agents`.
 The launcher additionally passes explicit `-c agents.<name>.config_file=...`
@@ -166,7 +166,7 @@ A new harness requires changes in both the plugin build layer (steps 1–3) and
 the Go runtime layer (steps 4–6). Follow the steps in order; validate at the end.
 
 Gemini CLI is the current reference for the plugin build layer —
-see `internal/pluginbuild/gemini.go` for the canonical sub-emitter pattern.
+see `port/pluginbuild/gemini.go` for the canonical sub-emitter pattern.
 
 **Plugin build layer**
 
@@ -200,7 +200,7 @@ see `internal/pluginbuild/gemini.go` for the canonical sub-emitter pattern.
    target name in their `targets` list so the build emits hook configs for it.
 
 3. **Plugin adapter** — implement the `Adapter` interface in a new file under
-   `internal/pluginbuild/` (model it on `claude.go` / `codex.go` / `gemini.go`):
+   `port/pluginbuild/` (model it on `claude.go` / `codex.go` / `gemini.go`):
 
    ```go
    package pluginbuild
@@ -220,7 +220,7 @@ see `internal/pluginbuild/gemini.go` for the canonical sub-emitter pattern.
    }
    ```
 
-   The `Adapter` interface is defined in `internal/pluginbuild/adapter.go`:
+   The `Adapter` interface is defined in `port/pluginbuild/adapter.go`:
 
    - `Name() string` — must match the manifest `targets.<name>` key.
    - `Emit(m *Manifest, repoRoot, outDir string) error` — write the full tree
@@ -235,7 +235,7 @@ see `internal/pluginbuild/gemini.go` for the canonical sub-emitter pattern.
    `gemini_commands.go`, `gemini_assets.go`, `gemini_hooks.go`) that registers
    a callback in `init()`. The parent adapter iterates its sub-emitter slice,
    so each phase or format converter can land independently. See
-   `internal/pluginbuild/gemini.go` for the canonical registration pattern
+   `port/pluginbuild/gemini.go` for the canonical registration pattern
    (the `geminiSubEmitters` slice and `GeminiSubEmitter` signature).
 
 **Go runtime layer**

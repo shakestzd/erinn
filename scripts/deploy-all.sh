@@ -217,7 +217,7 @@ if $DRY_RUN; then
     fi
 else
     # Stage version files + regenerated port trees + any other tracked changes
-    git add "$PLUGIN_JSON" "$MANIFEST_JSON" packages/codex-marketplace packages/gemini-extension
+    git add "$PLUGIN_JSON" "$MANIFEST_JSON" port/packages/codex-marketplace port/packages/gemini-extension
 
     if git diff --cached --quiet; then
         ok "No changes to commit"
@@ -276,8 +276,8 @@ else
     # marketplace clone to pull or a marketplace plugin to uninstall/install.
     #
     # `wipnote build` does both: it compiles the new binary into ~/.local/bin
-    # AND mirrors plugin/, packages/codex-marketplace/, and
-    # packages/gemini-extension/ into ~/.local/share/wipnote/. The launchers
+    # AND mirrors plugin/, port/packages/codex-marketplace/, and
+    # port/packages/gemini-extension/ into ~/.local/share/wipnote/. The launchers
     # pick those up automatically on next invocation.
     #
     # Bootstrap from source via `go run` so we don't depend on a pre-existing

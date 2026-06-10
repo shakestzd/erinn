@@ -44,11 +44,17 @@ func repositoryRootForTest(t *testing.T) string {
 	if err != nil {
 		t.Fatal(err)
 	}
-	repoRoot := filepath.Clean(filepath.Join(wd, "..", ".."))
-	if _, err := os.Stat(filepath.Join(repoRoot, "packages", "plugin-core", "manifest.json")); err != nil {
+	// The plugin-core manifest is the canonical source of truth and lives at the
+	// repository root (packages/plugin-core/manifest.json) — it did NOT move under
+	// port/ when the pluginbuild generator was lifted here (trk-1ea27426). Walk up
+	// to find it rather than hardcoding a directory depth, so this stays correct
+	// regardless of how deeply nested the test package is.
+	manifestPath, err := FindManifest(wd)
+	if err != nil {
 		t.Fatalf("cannot locate repository root from %s: %v", wd, err)
 	}
-	return repoRoot
+	// manifestPath = <root>/packages/plugin-core/manifest.json → three dirs up = <root>.
+	return filepath.Dir(filepath.Dir(filepath.Dir(manifestPath)))
 }
 
 func assertNoGeminiColonAgentIDs(t *testing.T, root string, knownRoles map[string]struct{}) {

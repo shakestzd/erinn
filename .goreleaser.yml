@@ -49,13 +49,13 @@ archives:
       # DIRECTORY whose layout is `<root>/.agents/plugins/marketplace.json`; a
       # `**/*` glob silently drops dotdirs and flattens the tree, leaving
       # tarball-installed users with an unusable flat marketplace.json.
-      - src: "packages/codex-marketplace"
+      - src: "port/packages/codex-marketplace"
         dst: codex-marketplace
         info:
           mode: 0644
       # Copy the whole gemini-extension directory (not a `**/*` glob) to preserve
       # hidden dotdirs such as `.archived` and ensure the full tree integrity.
-      - src: "packages/gemini-extension"
+      - src: "port/packages/gemini-extension"
         dst: gemini-extension
         info:
           mode: 0644

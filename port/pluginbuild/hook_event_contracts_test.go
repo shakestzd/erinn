@@ -2,7 +2,6 @@ package pluginbuild
 
 import (
 	"os"
-	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -25,13 +24,17 @@ import (
 //     needed.
 func TestHookEventContracts(t *testing.T) {
 	// --- locate the live manifest ---
-	repoRoot, err := filepath.Abs(filepath.Join("..", ".."))
+	// The plugin-core manifest stays at the repository root
+	// (packages/plugin-core/manifest.json); it did not move under port/ when the
+	// pluginbuild generator was lifted into this module (trk-1ea27426). Walk up to
+	// find it instead of assuming a fixed depth from this test package.
+	wd, err := os.Getwd()
 	if err != nil {
-		t.Fatalf("resolve repo root: %v", err)
+		t.Fatalf("getwd: %v", err)
 	}
-	manifestPath := filepath.Join(repoRoot, "packages", "plugin-core", "manifest.json")
-	if _, err := os.Stat(manifestPath); err != nil {
-		t.Fatalf("manifest not found at %s: %v", manifestPath, err)
+	manifestPath, err := FindManifest(wd)
+	if err != nil {
+		t.Fatalf("manifest not found: %v", err)
 	}
 	m, err := Load(manifestPath)
 	if err != nil {
@@ -44,7 +47,7 @@ func TestHookEventContracts(t *testing.T) {
 		if _, ok := hookEventContractSpecs[name]; !ok {
 			t.Errorf("hook event %q is registered for claude but has no entry in hookEventContractSpecs; "+
 				"add it with an appropriate classification (Observational / AdditiveControlling / ReplacementOnRegistration) "+
-				"in internal/pluginbuild/hook_event_contracts.go before shipping",
+				"in port/pluginbuild/hook_event_contracts.go before shipping",
 				name)
 		}
 	}

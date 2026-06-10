@@ -1,6 +1,6 @@
 {
   "$schema": "./manifest.schema.json",
-  "_comment": "Single source of truth for the wipnote CLI companion plugin. Both the Claude Code plugin (plugin/) and the Codex CLI marketplace (packages/codex-marketplace/) are generated from this file by `wipnote plugin build-ports`. Assets (commands, agents, skills, templates, static, config) are sourced from plugin/ verbatim — same markdown format works for both Claude and Codex.",
+  "_comment": "Single source of truth for the wipnote CLI companion plugin. Both the Claude Code plugin (plugin/) and the Codex CLI marketplace (port/packages/codex-marketplace/) are generated from this file by `wipnote plugin build-ports`. Assets (commands, agents, skills, templates, static, config) are sourced from plugin/ verbatim — same markdown format works for both Claude and Codex.",
 
   "name": "wipnote",
   "version": "0.60.21",
@@ -32,7 +32,7 @@
       "hooksPath": "hooks/hooks.json"
     },
     "codex": {
-      "outDir": "packages/codex-marketplace",
+      "outDir": "port/packages/codex-marketplace",
       "manifestPath": ".codex-plugin/plugin.json",
       "hooksPath": "hooks.json",
       "mcpPath": ".mcp.json",
@@ -42,7 +42,7 @@
       "pluginSubdir": ".agents/plugins/wipnote"
     },
     "gemini": {
-      "outDir": "packages/gemini-extension",
+      "outDir": "port/packages/gemini-extension",
       "manifestPath": "gemini-extension.json",
       "hooksPath": "hooks/hooks.json",
       "contextFile": "GEMINI.md",

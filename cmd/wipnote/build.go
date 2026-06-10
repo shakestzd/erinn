@@ -95,7 +95,7 @@ func runBuild() error {
 	// Mirror the Codex CLI marketplace tree alongside the plugin tree. Phase B
 	// will flip `wipnote codex` to load from this bundled path; until then it
 	// just keeps dev and release layouts in sync.
-	srcCodex := filepath.Join(projectRoot, "packages", "codex-marketplace")
+	srcCodex := filepath.Join(projectRoot, "port", "packages", "codex-marketplace")
 	destCodex := filepath.Join(metaDir, "codex-marketplace")
 	if err := mirrorPluginTree(srcCodex, destCodex); err != nil {
 		return fmt.Errorf("mirror codex-marketplace tree: %w", err)
@@ -104,7 +104,7 @@ func runBuild() error {
 	// Mirror the Gemini CLI extension tree alongside the plugin tree. Phase B
 	// will flip `wipnote gemini` to load from this bundled path; until then it
 	// just keeps dev and release layouts in sync.
-	srcGemini := filepath.Join(projectRoot, "packages", "gemini-extension")
+	srcGemini := filepath.Join(projectRoot, "port", "packages", "gemini-extension")
 	destGemini := filepath.Join(metaDir, "gemini-extension")
 	if err := mirrorPluginTree(srcGemini, destGemini); err != nil {
 		return fmt.Errorf("mirror gemini-extension tree: %w", err)

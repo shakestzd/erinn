@@ -10,7 +10,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/shakestzd/wipnote/internal/pluginbuild"
+	"github.com/shakestzd/wipnote/port/pluginbuild"
 )
 
 // checkPortsManifest is a minimal self-contained manifest exercising all three
@@ -30,7 +30,7 @@ func checkPortsManifest() *pluginbuild.Manifest {
 		Targets: map[string]pluginbuild.Target{
 			"claude": {OutDir: "plugin", ManifestPath: ".claude-plugin/plugin.json", HooksPath: "hooks/hooks.json"},
 			"codex": {
-				OutDir:                 "packages/codex-marketplace",
+				OutDir:                 "port/packages/codex-marketplace",
 				ManifestPath:           ".codex-plugin/plugin.json",
 				HooksPath:              "hooks.json",
 				MCPPath:                ".mcp.json",
@@ -39,7 +39,7 @@ func checkPortsManifest() *pluginbuild.Manifest {
 				MarketplaceCategory:    "Dev",
 				PluginSubdir:           ".agents/plugins/wipnote",
 			},
-			"gemini": {OutDir: "packages/gemini-extension", ManifestPath: "gemini-extension.json", HooksPath: "hooks/hooks.json", ContextFile: "GEMINI.md", CommandNamespace: "wipnote"},
+			"gemini": {OutDir: "port/packages/gemini-extension", ManifestPath: "gemini-extension.json", HooksPath: "hooks/hooks.json", ContextFile: "GEMINI.md", CommandNamespace: "wipnote"},
 		},
 		AssetSources: pluginbuild.AssetSources{
 			Commands: "plugin/commands",

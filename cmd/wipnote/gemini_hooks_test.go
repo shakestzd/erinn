@@ -137,7 +137,7 @@ func TestGeminiSettingsJSONPath(t *testing.T) {
 }
 
 // canonicalHooksJSON is a minimal valid hooks.json in the same format as
-// packages/gemini-extension/hooks/hooks.json, used by installGeminiHooksAt tests.
+// port/packages/gemini-extension/hooks/hooks.json, used by installGeminiHooksAt tests.
 const canonicalHooksJSON = `{
   "hooks": {
     "SessionStart": [

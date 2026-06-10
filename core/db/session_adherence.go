@@ -27,8 +27,8 @@ var (
 		"plugin/config/",
 	}
 	portGeneratedPrefixes = []string{
-		"packages/codex-marketplace/",
-		"packages/gemini-extension/",
+		"port/packages/codex-marketplace/",
+		"port/packages/gemini-extension/",
 		"plugin/.claude-plugin/",
 		"plugin/hooks/",
 	}

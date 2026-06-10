@@ -2,7 +2,7 @@
 // core hooks lifecycle injection points (feat-331927fb).
 //
 // It is intentionally NOT part of the core hooks surface: it imports telemetry
-// (internal/otel/*) and plugin-build tooling (internal/pluginbuild), neither of
+// (internal/otel/*) and plugin-build tooling (port/pluginbuild), neither of
 // which may live in core. Blank-importing this package from the binary
 // registers these implementations into core hooks at init time, so lifecycle
 // hooks invoke them without taking a direct dependency on otel/pluginbuild.
@@ -15,7 +15,7 @@ import (
 	"github.com/shakestzd/wipnote/core/hooks"
 	"github.com/shakestzd/wipnote/internal/otel/materialize"
 	"github.com/shakestzd/wipnote/internal/otel/retention"
-	"github.com/shakestzd/wipnote/internal/pluginbuild"
+	"github.com/shakestzd/wipnote/port/pluginbuild"
 )
 
 func init() {

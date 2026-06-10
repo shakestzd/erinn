@@ -20,7 +20,7 @@ import (
 // no longer use them as of Phase B (bundled-tree migration) — the Codex
 // marketplace is now resolved via resolveSharedTreePath("codex-marketplace").
 const codexMarketplaceRepo = "shakestzd/wipnote"
-const codexMarketplaceSparse = "packages/codex-marketplace"
+const codexMarketplaceSparse = "port/packages/codex-marketplace"
 
 // codexConfigPath returns the path to ~/.codex/config.toml.
 func codexConfigPath() string {
@@ -1246,9 +1246,9 @@ func resolveLocalCodexMarketplace() (string, error) {
 			"Run from the wipnote project directory, or use wipnote codex --init for the marketplace version")
 	}
 	projectRoot := filepath.Dir(wipnoteDir)
-	marketplacePath := filepath.Join(projectRoot, "packages", "codex-marketplace")
+	marketplacePath := filepath.Join(projectRoot, "port", "packages", "codex-marketplace")
 	if _, statErr := os.Stat(marketplacePath); os.IsNotExist(statErr) {
-		return "", fmt.Errorf("packages/codex-marketplace/ not found at %s\n"+
+		return "", fmt.Errorf("port/packages/codex-marketplace/ not found at %s\n"+
 			"Run from the wipnote repo root, or use wipnote codex --init for the marketplace version",
 			marketplacePath)
 	}

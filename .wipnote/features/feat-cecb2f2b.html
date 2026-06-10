@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>Fix completion-gate record staleness that forces redundant full re-runs</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="feat-cecb2f2b"
+             data-type="feature"
+             data-status="todo"
+             data-priority="medium"
+             data-created="2026-06-10T05:00:18.781602"
+             data-updated="2026-06-10T05:00:18.806671" data-agent-assigned="claude-code" data-track-id="trk-757c1c9f" data-created-by-agent="claude-code" data-created-by-model="claude-fable-5[1m]" data-created-by-cli-version="0.60.21-111-g2c00119b4">
+
+        <header>
+            <h1>Fix completion-gate record staleness that forces redundant full re-runs</h1>
+            <div class="metadata">
+                <span class="badge status-todo">Todo</span>
+                <span class="badge priority-medium">Medium Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="trk-757c1c9f.html" data-relationship="part_of" data-since="2026-06-10T05:00:18.806512">trk-757c1c9f</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>A passing gate record recorded moments earlier is rejected by feature/bug complete unless check --gate and complete run chained in one shell — observed repeatedly: signature drift appears to come from constantly-churning runtime files (debug.log, .active-session) and possibly session attribution. Diagnose validateCompletionGateRecord signature inputs; exclude volatile non-code paths from the workspace signature (or tolerate drift in non-Go paths) so one green gate run stays valid until code actually changes. Do NOT weaken the HEAD-change re-gate semantics from bug-35857288.</p>
+        </section>
+    </article>
+</body>
+</html>

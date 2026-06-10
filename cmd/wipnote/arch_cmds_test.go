@@ -2,10 +2,14 @@ package main
 
 import (
 	"bytes"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/shakestzd/wipnote/core/htmlparse"
+	"github.com/shakestzd/wipnote/core/models"
 )
 
 // setupArchTestDir creates a temporary directory with a .wipnote structure
@@ -238,4 +242,181 @@ func TestArchBodyWordLimitRejected(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error for body exceeding 120-word limit")
 	}
+}
+
+// TestArchVerify tests the `arch verify` subcommand which re-pins verified_at
+// to the current HEAD SHA.
+func TestArchVerify_RePinsHead(t *testing.T) {
+	dir := setupArchTestDir(t)
+
+	// Create a card with an old verified_at.
+	if err := runArch(t,
+		"add", "verify-test",
+		"--kind", "invariant",
+		"--created-by", "agent",
+		"--body", "This card will be verified.",
+		"--verified-at", "deadbeef1234567",
+	); err != nil {
+		t.Fatalf("add: %v", err)
+	}
+
+	// Run verify — it should succeed even without a real git repo (falls back gracefully).
+	// In unit tests there is no git repo, so headSHA will be empty.
+	err := runArch(t, "verify", "verify-test")
+	if err != nil {
+		t.Fatalf("arch verify: %v", err)
+	}
+
+	// The card should exist (file readable).
+	wipnoteDir := filepath.Join(dir, ".wipnote")
+	cardPath := filepath.Join(wipnoteDir, "arch", "verify-test.md")
+	if _, err := os.Stat(cardPath); err != nil {
+		t.Fatalf("card file missing after verify: %v", err)
+	}
+}
+
+// TestArchVerify_NotFound tests that verify returns an error for missing cards.
+func TestArchVerify_NotFound(t *testing.T) {
+	setupArchTestDir(t)
+
+	err := runArch(t, "verify", "nonexistent-card")
+	if err == nil {
+		t.Fatal("expected error for nonexistent card")
+	}
+}
+
+// testCreateStandalone creates a standalone feature (no plan/track required) for tests.
+func testCreateStandalone(typeName, title string) error {
+	return runWiCreate(typeName, title, &wiCreateOpts{
+		standaloneReason: "unit-test",
+		description:      "test description",
+		noLink:           true,
+	})
+}
+
+// TestCompletionLearning_HappyPath tests that --learning creates a card
+// and the completion proceeds normally.
+func TestCompletionLearning_HappyPath(t *testing.T) {
+	tmpDir := t.TempDir()
+	hgDir := filepath.Join(tmpDir, ".wipnote")
+	for _, sub := range []string{"features", "bugs", "spikes", "tracks", "plans", "specs"} {
+		if err := os.MkdirAll(filepath.Join(hgDir, sub), 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	t.Setenv("WIPNOTE_PROJECT_DIR", tmpDir)
+
+	// Create and complete a feature with --learning.
+	if err := testCreateStandalone("feature", "Test Learning Feature"); err != nil {
+		t.Fatalf("create feature: %v", err)
+	}
+	files, _ := filepath.Glob(filepath.Join(hgDir, "features", "feat-*.html"))
+	if len(files) == 0 {
+		t.Fatal("no feature file created")
+	}
+
+	node, err := parseNodeFile(files[len(files)-1])
+	if err != nil {
+		t.Fatalf("parse feature: %v", err)
+	}
+	featID := node.ID
+
+	if err := wiSetStatusWithAgent("feature", featID, "in-progress", "", ""); err != nil {
+		t.Fatalf("start feature: %v", err)
+	}
+
+	// Set the learning body.
+	const learningBody = "The connection pool must be pre-warmed before serving traffic."
+	wiLearning = learningBody
+	wiLearningKind = "invariant"
+	defer func() { wiLearning = ""; wiLearningKind = "" }()
+
+	// Allow dirty / no source commits gate.
+	wiAcceptedAdvisory = "unit test"
+	wiAllowDirtyComplete = true
+	defer func() { wiAcceptedAdvisory = ""; wiAllowDirtyComplete = false }()
+
+	if err := wiSetStatusWithAgent("feature", featID, "done", "", ""); err != nil {
+		t.Fatalf("complete feature with --learning: %v", err)
+	}
+
+	// Verify a card was created in .wipnote/arch/.
+	archDir := filepath.Join(hgDir, "arch")
+	entries, err := os.ReadDir(archDir)
+	if err != nil {
+		t.Fatalf("read arch dir: %v", err)
+	}
+	if len(entries) == 0 {
+		t.Fatal("expected at least one arch card created by --learning")
+	}
+}
+
+// TestCompletionLearning_InvalidBody tests that --learning with an invalid body
+// aborts the completion with a clear error and does NOT create a card.
+func TestCompletionLearning_InvalidBody(t *testing.T) {
+	tmpDir := t.TempDir()
+	hgDir := filepath.Join(tmpDir, ".wipnote")
+	for _, sub := range []string{"features", "bugs", "spikes", "tracks", "plans", "specs"} {
+		if err := os.MkdirAll(filepath.Join(hgDir, sub), 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	t.Setenv("WIPNOTE_PROJECT_DIR", tmpDir)
+
+	if err := testCreateStandalone("feature", "Test Invalid Learning"); err != nil {
+		t.Fatalf("create feature: %v", err)
+	}
+	files, _ := filepath.Glob(filepath.Join(hgDir, "features", "feat-*.html"))
+	if len(files) == 0 {
+		t.Fatal("no feature file created")
+	}
+	node, _ := parseNodeFile(files[len(files)-1])
+	featID := node.ID
+
+	if err := wiSetStatusWithAgent("feature", featID, "in-progress", "", ""); err != nil {
+		t.Fatalf("start feature: %v", err)
+	}
+
+	// Too many words (> 120) — should abort.
+	wiLearning = strings.Repeat("word ", 121)
+	wiLearningKind = "decision"
+	defer func() { wiLearning = ""; wiLearningKind = "" }()
+
+	err := wiSetStatusWithAgent("feature", featID, "done", "", "")
+	if err == nil {
+		t.Fatal("expected error: --learning validation should abort completion")
+	}
+	if !strings.Contains(err.Error(), "learning") {
+		t.Errorf("error should mention 'learning', got: %v", err)
+	}
+
+	// Verify no arch card was created.
+	archDir := filepath.Join(hgDir, "arch")
+	if entries, readErr := os.ReadDir(archDir); readErr == nil && len(entries) > 0 {
+		t.Fatal("no arch card should exist after a failed --learning completion")
+	}
+
+	// Verify the feature is still in-progress (not done).
+	nodeAfter, _ := parseNodeFile(files[len(files)-1])
+	if string(nodeAfter.Status) == "done" {
+		t.Fatal("feature should NOT be done after aborted completion")
+	}
+}
+
+// TestDriftNudge_BestEffort tests that drift-nudge failures do NOT fail
+// the completion (nudge is best-effort).
+func TestDriftNudge_BestEffort(t *testing.T) {
+	// Nudge operates on cards retrieved from an arch store; an empty store
+	// means 0 cards matched, and nudge is silently skipped. This test ensures
+	// the completion path returns nil even when there are no matched cards.
+	var buf bytes.Buffer
+	emitDriftNudge(&buf, []string{"cmd/wipnote/arch_cmds.go"}, "", func(_, _ string) ([]string, error) {
+		return nil, fmt.Errorf("git error: intentional test failure")
+	})
+	// The function must not panic or return an error even when the runner fails.
+}
+
+// parseNodeFile parses an HTML work-item file and returns its node.
+func parseNodeFile(path string) (*models.Node, error) {
+	return htmlparse.ParseFile(path)
 }

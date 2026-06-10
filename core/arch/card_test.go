@@ -287,6 +287,59 @@ func TestStore_CreateAndGet(t *testing.T) {
 	}
 }
 
+func TestStore_DuplicateGlobSet(t *testing.T) {
+	dir := t.TempDir()
+	store, _ := NewStore(dir)
+
+	first := validCard()
+	first.Name = "first-card"
+	if err := store.Create(first); err != nil {
+		t.Fatalf("Create first: %v", err)
+	}
+
+	// Same glob set, different name — must be rejected.
+	second := validCard()
+	second.Name = "second-card"
+	err := store.Create(second)
+	if err == nil {
+		t.Fatal("expected ErrDuplicateGlobSet for same path glob set")
+	}
+	if !strings.Contains(err.Error(), "glob") && !strings.Contains(err.Error(), "paths") {
+		t.Errorf("error should mention glob/paths, got: %v", err)
+	}
+
+	// Order-insensitive: reversed glob set must also be rejected.
+	third := validCard()
+	third.Name = "third-card"
+	third.Paths = []string{"cmd/**", "internal/auth/**"} // reversed relative to validCard
+	// Note: validCard has only "internal/auth/**", so this is different — use matching set.
+	third.Paths = []string{"internal/auth/**"} // identical set
+	err = store.Create(third)
+	if err == nil {
+		t.Fatal("expected ErrDuplicateGlobSet for identical single-element set")
+	}
+}
+
+func TestStore_DuplicateGlobSet_EmptyExempt(t *testing.T) {
+	dir := t.TempDir()
+	store, _ := NewStore(dir)
+
+	// Two cards with no paths — must both be accepted.
+	a := validCard()
+	a.Name = "no-paths-a"
+	a.Paths = nil
+	if err := store.Create(a); err != nil {
+		t.Fatalf("Create a: %v", err)
+	}
+
+	b := validCard()
+	b.Name = "no-paths-b"
+	b.Paths = nil
+	if err := store.Create(b); err != nil {
+		t.Errorf("empty glob set should not trigger dedup: %v", err)
+	}
+}
+
 func TestStore_DuplicateSlug(t *testing.T) {
 	dir := t.TempDir()
 	store, _ := NewStore(dir)
@@ -324,6 +377,7 @@ func TestStore_List_HidesRetiredByDefault(t *testing.T) {
 
 	retired := validCard()
 	retired.Name = "retired-card"
+	retired.Paths = []string{"internal/other/**"} // distinct glob set
 	store.Create(retired)
 	store.Deprecate("retired-card", "active-card")
 
@@ -351,6 +405,7 @@ func TestStore_List_IncludeRetiredWithFlag(t *testing.T) {
 
 	retired := validCard()
 	retired.Name = "retired-card"
+	retired.Paths = []string{"internal/other/**"} // distinct glob set
 	store.Create(retired)
 	store.Deprecate("retired-card", "active-card")
 

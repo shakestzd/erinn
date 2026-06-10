@@ -157,8 +157,12 @@ func parsePlanListItem(planPath, planID string, database *sql.DB) (planListItem,
 			}
 		}
 		// Also check if finalized in SQLite — either fully approved or explicit flag.
+		// Pass YAML slices for canonical-first fallback (bug-eca8141d): if
+		// plan_feedback has no rows (e.g. after a cache rebuild), the check falls
+		// back to the slice ApprovalStatus/Approved fields baked into the YAML.
 		if status != "finalized" {
-			isApproved, _ := dbpkg.IsPlanFullyApproved(database, planID)
+			yamlSliceApprovals := toPlanSliceApprovals(yamlSlices)
+			isApproved, _ := dbpkg.IsPlanFullyApproved(database, planID, yamlSliceApprovals)
 			if isApproved {
 				status = "finalized"
 			}
@@ -230,6 +234,23 @@ func countApprovedSlices(database *sql.DB, planID string, slices []planyaml.Plan
 		}
 	}
 	return count
+}
+
+// toPlanSliceApprovals converts a []planyaml.PlanSlice to []dbpkg.PlanSliceApproval,
+// the minimal type that core/db accepts without importing plan/planyaml.
+func toPlanSliceApprovals(slices []planyaml.PlanSlice) []dbpkg.PlanSliceApproval {
+	if len(slices) == 0 {
+		return nil
+	}
+	out := make([]dbpkg.PlanSliceApproval, len(slices))
+	for i, s := range slices {
+		out[i] = dbpkg.PlanSliceApproval{
+			Num:            s.Num,
+			ApprovalStatus: s.ApprovalStatus,
+			Approved:       s.Approved,
+		}
+	}
+	return out
 }
 
 // planStatusResponse is returned by GET /api/plans/{id}/status.
@@ -404,7 +425,15 @@ func planFinalizeHandler(database *sql.DB, wipnoteDir string) http.HandlerFunc {
 			return
 		}
 
-		approved, err := dbpkg.IsPlanFullyApproved(database, planID)
+		// Load YAML slices for canonical-first fallback (bug-eca8141d): if
+		// plan_feedback has no rows after a cache rebuild, IsPlanFullyApproved
+		// falls back to the ApprovalStatus / Approved fields baked into the YAML.
+		var finalizeYAMLSlices []dbpkg.PlanSliceApproval
+		if planForLoad, lerr := planyaml.Load(filepath.Join(wipnoteDir, "plans", planID+".yaml")); lerr == nil {
+			finalizeYAMLSlices = toPlanSliceApprovals(planForLoad.Slices)
+		}
+
+		approved, err := dbpkg.IsPlanFullyApproved(database, planID, finalizeYAMLSlices)
 		if err != nil {
 			http.Error(w, fmt.Sprintf("checking approval: %v", err), http.StatusInternalServerError)
 			return
@@ -418,16 +447,28 @@ func planFinalizeHandler(database *sql.DB, wipnoteDir string) http.HandlerFunc {
 		// approved row, not merely that the existing approval rows are all
 		// approved (a slice with no row would otherwise slip through a direct
 		// API call). The dashboard already enforces this client-side.
-		if planForCheck, lerr := planyaml.Load(filepath.Join(wipnoteDir, "plans", planID+".yaml")); lerr == nil && len(planForCheck.Slices) > 0 {
+		// Canonical-first fallback (bug-eca8141d): when plan_feedback has no
+		// slice rows (e.g. after a cache rebuild), fall back to YAML
+		// ApprovalStatus / Approved fields for each slice.
+		if len(finalizeYAMLSlices) > 0 {
 			sliceApprovals, aerr := dbpkg.GetSliceApprovals(database, planID)
 			if aerr != nil {
 				http.Error(w, fmt.Sprintf("checking slice approvals: %v", aerr), http.StatusInternalServerError)
 				return
 			}
 			var pending []int
-			for _, sc := range planForCheck.Slices {
-				if sliceApprovals[fmt.Sprintf("slice-%d", sc.Num)] != "approved" {
-					pending = append(pending, sc.Num)
+			for _, sc := range finalizeYAMLSlices {
+				key := fmt.Sprintf("slice-%d", sc.Num)
+				if dbStatus, ok := sliceApprovals[key]; ok {
+					// DB row present: use it.
+					if dbStatus != "approved" {
+						pending = append(pending, sc.Num)
+					}
+				} else {
+					// No DB row: fall back to YAML canonical state.
+					if sc.ApprovalStatus != "approved" && !sc.Approved {
+						pending = append(pending, sc.Num)
+					}
 				}
 			}
 			if len(pending) > 0 {

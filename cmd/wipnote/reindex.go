@@ -137,6 +137,15 @@ func runReindex(cmd *cobra.Command, _ []string) error {
 			fmt.Printf("  plan edges: %d edges from %d plan YAML files (%d errors)\n",
 				planEdges, planFiles, planErrs)
 		}
+
+		// bug-eca8141d: replay slice approval state from canonical plan YAML into
+		// plan_feedback so the finalize gate works after a cache rebuild. Rows are
+		// inserted with INSERT OR IGNORE — live interactive rows win.
+		_, approvalRows, approvalErrs := reindexPlanApprovals(database, wipnoteDir)
+		if approvalRows > 0 || approvalErrs > 0 {
+			fmt.Printf("  plan approvals: %d slice approval rows replayed (%d errors)\n",
+				approvalRows, approvalErrs)
+		}
 	}
 
 	if currentCommit != "" && errCount == 0 {

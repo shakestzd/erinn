@@ -3,6 +3,7 @@ package db
 import (
 	"database/sql"
 	"fmt"
+	"os"
 	"regexp"
 	"time"
 )
@@ -90,6 +91,15 @@ func IsPlanApprovalValueApproved(value string) bool {
 	}
 }
 
+// PlanSliceApproval is a minimal slice descriptor used by canonical-first approval
+// checks. Callers in cmd/ populate this from planyaml.PlanSlice to avoid a
+// circular import (cmd/ → plan/planyaml is fine; core/db → plan/planyaml is not).
+type PlanSliceApproval struct {
+	Num            int
+	ApprovalStatus string // "approved" | "rejected" | "pending" | ""
+	Approved       bool   // legacy bool field, written by finalize-yaml
+}
+
 // IsPlanFullyApproved reports whether a plan is approved enough to finalize.
 //
 // For v2 (slice-card) plans — any plan that has slice-N approval rows — the gate
@@ -98,12 +108,19 @@ func IsPlanApprovalValueApproved(value string) bool {
 // matches the dashboard review rail (the canonical behavior) and the plan-page
 // finalize button, so the three finalize paths agree.
 //
+// Canonical-first fallback (bug-eca8141d): if plan_feedback has NO slice rows
+// but the caller supplies yamlSlices, the function reads approval state from the
+// YAML fields (ApprovalStatus / Approved). This recovers plans whose cache was
+// rebuilt after all slices were approved — the exact user-facing symptom where
+// 8/8 slices showed approved in the UI but Finalize rejected "not all sections
+// approved". Pass nil for yamlSlices to retain the previous pure-SQLite behavior.
+//
 // For legacy plans with no slice sections at all, it falls back to the original
 // behavior (design/outline must be approved, none disapproved), so older plans
 // keep finalizing as before.
 //
 // Returns false (not an error) when nothing approvable exists yet.
-func IsPlanFullyApproved(db *sql.DB, planID string) (bool, error) {
+func IsPlanFullyApproved(db *sql.DB, planID string, yamlSlices []PlanSliceApproval) (bool, error) {
 	// v2 path: if the plan has any slice approval rows, gate on slices only.
 	sliceApprovals, err := GetSliceApprovals(db, planID)
 	if err != nil {
@@ -115,6 +132,20 @@ func IsPlanFullyApproved(db *sql.DB, planID string) (bool, error) {
 				return false, nil
 			}
 		}
+		return true, nil
+	}
+
+	// Canonical-first fallback: no SQLite rows, but YAML slices supplied.
+	// Check every slice's ApprovalStatus / Approved field from the YAML.
+	// This is the recovery path after a cache rebuild (bug-eca8141d).
+	if len(yamlSlices) > 0 {
+		for _, s := range yamlSlices {
+			approved := s.ApprovalStatus == "approved" || s.Approved
+			if !approved {
+				return false, nil
+			}
+		}
+		fmt.Fprintf(os.Stderr, "wipnote: plan %s: IsPlanFullyApproved: no plan_feedback rows — used canonical YAML approval state as fallback (cache rebuild recovery)\n", planID)
 		return true, nil
 	}
 

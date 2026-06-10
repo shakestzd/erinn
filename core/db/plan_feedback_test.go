@@ -140,7 +140,7 @@ func TestIsPlanFullyApproved_NotYet(t *testing.T) {
 	defer database.Close()
 
 	// No feedback at all — not approved.
-	approved, err := db.IsPlanFullyApproved(database, planID)
+	approved, err := db.IsPlanFullyApproved(database, planID, nil)
 	if err != nil {
 		t.Fatalf("IsPlanFullyApproved (no feedback): %v", err)
 	}
@@ -156,7 +156,7 @@ func TestIsPlanFullyApproved_NotYet(t *testing.T) {
 		t.Fatalf("StorePlanFeedback: %v", err)
 	}
 
-	approved, err = db.IsPlanFullyApproved(database, planID)
+	approved, err = db.IsPlanFullyApproved(database, planID, nil)
 	if err != nil {
 		t.Fatalf("IsPlanFullyApproved (partial): %v", err)
 	}
@@ -176,7 +176,7 @@ func TestIsPlanFullyApproved_True(t *testing.T) {
 		}
 	}
 
-	approved, err := db.IsPlanFullyApproved(database, planID)
+	approved, err := db.IsPlanFullyApproved(database, planID, nil)
 	if err != nil {
 		t.Fatalf("IsPlanFullyApproved: %v", err)
 	}
@@ -195,7 +195,7 @@ func TestIsPlanFullyApproved_LegacyApprovedValue(t *testing.T) {
 		}
 	}
 
-	approved, err := db.IsPlanFullyApproved(database, planID)
+	approved, err := db.IsPlanFullyApproved(database, planID, nil)
 	if err != nil {
 		t.Fatalf("IsPlanFullyApproved: %v", err)
 	}
@@ -217,7 +217,7 @@ func TestIsPlanFullyApproved_LegacyNegativeValuesBlock(t *testing.T) {
 				t.Fatalf("StorePlanFeedback slice-1: %v", err)
 			}
 
-			approved, err := db.IsPlanFullyApproved(database, planID)
+			approved, err := db.IsPlanFullyApproved(database, planID, nil)
 			if err != nil {
 				t.Fatalf("IsPlanFullyApproved: %v", err)
 			}
@@ -240,7 +240,7 @@ func TestIsPlanFullyApproved_WithNonApproveActions(t *testing.T) {
 		t.Fatalf("StorePlanFeedback comment: %v", err)
 	}
 
-	approved, err := db.IsPlanFullyApproved(database, planID)
+	approved, err := db.IsPlanFullyApproved(database, planID, nil)
 	if err != nil {
 		t.Fatalf("IsPlanFullyApproved: %v", err)
 	}
@@ -268,7 +268,7 @@ func TestIsPlanFullyApproved_V2SlicesOnly_IgnoresDesign(t *testing.T) {
 		t.Fatalf("StorePlanFeedback outline: %v", err)
 	}
 
-	approved, err := db.IsPlanFullyApproved(database, planID)
+	approved, err := db.IsPlanFullyApproved(database, planID, nil)
 	if err != nil {
 		t.Fatalf("IsPlanFullyApproved: %v", err)
 	}
@@ -280,7 +280,7 @@ func TestIsPlanFullyApproved_V2SlicesOnly_IgnoresDesign(t *testing.T) {
 	if err := db.StorePlanFeedback(database, planID, "slice-2", "approve", "false", ""); err != nil {
 		t.Fatalf("StorePlanFeedback slice-2 reject: %v", err)
 	}
-	approved, err = db.IsPlanFullyApproved(database, planID)
+	approved, err = db.IsPlanFullyApproved(database, planID, nil)
 	if err != nil {
 		t.Fatalf("IsPlanFullyApproved (after reject): %v", err)
 	}
@@ -361,7 +361,7 @@ func TestIsPlanFullyApproved_LegacyOnly_StillPasses(t *testing.T) {
 		}
 	}
 
-	approved, err := db.IsPlanFullyApproved(database, planID)
+	approved, err := db.IsPlanFullyApproved(database, planID, nil)
 	if err != nil {
 		t.Fatalf("IsPlanFullyApproved: %v", err)
 	}
@@ -386,7 +386,7 @@ func TestIsPlanFullyApproved_MixedLegacyAndV2_StableBehavior(t *testing.T) {
 		}
 	}
 
-	approved, err := db.IsPlanFullyApproved(database, planID)
+	approved, err := db.IsPlanFullyApproved(database, planID, nil)
 	if err != nil {
 		t.Fatalf("IsPlanFullyApproved: %v", err)
 	}
@@ -399,7 +399,7 @@ func TestIsPlanFullyApproved_MixedLegacyAndV2_StableBehavior(t *testing.T) {
 		t.Fatalf("StorePlanFeedback slice-2: %v", err)
 	}
 
-	approved, err = db.IsPlanFullyApproved(database, planID)
+	approved, err = db.IsPlanFullyApproved(database, planID, nil)
 	if err != nil {
 		t.Fatalf("IsPlanFullyApproved after slice-2 disapprove: %v", err)
 	}
@@ -533,7 +533,7 @@ func TestIsPlanFullyApproved_IgnoresNonUIExposedSections(t *testing.T) {
 		t.Fatalf("store slice-1-question-xyz: %v", err)
 	}
 
-	approved, err := db.IsPlanFullyApproved(database, planID)
+	approved, err := db.IsPlanFullyApproved(database, planID, nil)
 	if err != nil {
 		t.Fatalf("IsPlanFullyApproved: %v", err)
 	}
@@ -561,7 +561,7 @@ func TestIsPlanFullyApproved_BlocksOnUnapprovedUISection(t *testing.T) {
 		t.Fatalf("store slice-2: %v", err)
 	}
 
-	approved, err := db.IsPlanFullyApproved(database, planID)
+	approved, err := db.IsPlanFullyApproved(database, planID, nil)
 	if err != nil {
 		t.Fatalf("IsPlanFullyApproved: %v", err)
 	}
@@ -592,11 +592,87 @@ func TestIsPlanFullyApproved_LegacyCritiqueSectionIgnored(t *testing.T) {
 		t.Fatalf("store critique: %v", err)
 	}
 
-	approved, err := db.IsPlanFullyApproved(database, planID)
+	approved, err := db.IsPlanFullyApproved(database, planID, nil)
 	if err != nil {
 		t.Fatalf("IsPlanFullyApproved: %v", err)
 	}
 	if !approved {
 		t.Error("expected true: legacy critique section must be ignored")
+	}
+}
+
+// ---- Canonical-first approval tests (bug-eca8141d) ---------------------------
+
+// TestIsPlanFullyApproved_CanonicalFallback_FreshDB is the exact user-facing
+// scenario: fresh DB (no plan_feedback rows) + YAML slices all marked approved.
+// IsPlanFullyApproved must return true using canonical YAML state, not false.
+func TestIsPlanFullyApproved_CanonicalFallback_FreshDB(t *testing.T) {
+	database, planID := setupPlanDB(t)
+	defer database.Close()
+
+	// No plan_feedback rows — simulates a cache rebuild / first-run.
+	yamlSlices := []db.PlanSliceApproval{
+		{Num: 1, ApprovalStatus: "approved"},
+		{Num: 2, ApprovalStatus: "approved"},
+		{Num: 3, Approved: true}, // legacy bool field written by finalize-yaml
+	}
+
+	approved, err := db.IsPlanFullyApproved(database, planID, yamlSlices)
+	if err != nil {
+		t.Fatalf("IsPlanFullyApproved: %v", err)
+	}
+	if !approved {
+		t.Error("expected true: fresh DB + all YAML slices approved should use canonical fallback")
+	}
+}
+
+// TestIsPlanFullyApproved_CanonicalFallback_PendingSliceBlocks verifies that a
+// slice with no ApprovalStatus (pending) blocks finalize even in canonical mode.
+func TestIsPlanFullyApproved_CanonicalFallback_PendingSliceBlocks(t *testing.T) {
+	database, planID := setupPlanDB(t)
+	defer database.Close()
+
+	// No plan_feedback rows.
+	yamlSlices := []db.PlanSliceApproval{
+		{Num: 1, ApprovalStatus: "approved"},
+		{Num: 2, ApprovalStatus: ""},    // pending / unset
+		{Num: 3, ApprovalStatus: "rejected"},
+	}
+
+	approved, err := db.IsPlanFullyApproved(database, planID, yamlSlices)
+	if err != nil {
+		t.Fatalf("IsPlanFullyApproved: %v", err)
+	}
+	if approved {
+		t.Error("expected false: pending and rejected slices in YAML must block finalize")
+	}
+}
+
+// TestIsPlanFullyApproved_DBRowsWinOverYAML verifies that when plan_feedback
+// rows exist, they take precedence over YAML fields (existing behavior preserved).
+func TestIsPlanFullyApproved_DBRowsWinOverYAML(t *testing.T) {
+	database, planID := setupPlanDB(t)
+	defer database.Close()
+
+	// Write a DB row that says slice-1 is NOT approved.
+	if err := db.StorePlanFeedback(database, planID, "slice-1", "approve", "false", ""); err != nil {
+		t.Fatalf("store slice-1 false: %v", err)
+	}
+	if err := db.StorePlanFeedback(database, planID, "slice-2", "approve", "true", ""); err != nil {
+		t.Fatalf("store slice-2 true: %v", err)
+	}
+
+	// YAML says slice-1 is approved — DB row must win.
+	yamlSlices := []db.PlanSliceApproval{
+		{Num: 1, ApprovalStatus: "approved"},
+		{Num: 2, ApprovalStatus: "approved"},
+	}
+
+	approved, err := db.IsPlanFullyApproved(database, planID, yamlSlices)
+	if err != nil {
+		t.Fatalf("IsPlanFullyApproved: %v", err)
+	}
+	if approved {
+		t.Error("expected false: DB row (slice-1 rejected) must override YAML approval state")
 	}
 }

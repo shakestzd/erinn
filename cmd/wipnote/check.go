@@ -26,6 +26,7 @@ type gateResult struct {
 
 func checkCmd() *cobra.Command {
 	var goOnly, pythonOnly, skipTests, gateOnly bool
+	var gateWorkItem string
 
 	cmd := &cobra.Command{
 		Use:   "check",
@@ -66,7 +67,7 @@ Returns exit code 0 if all gates pass, 1 if any fail.`,
 				}
 				sessionID := hooks.EnvSessionID("")
 				agentID := dbpkg.NormaliseAgentID(os.Getenv("WIPNOTE_AGENT_ID"))
-				workItemID := activeWorkItemForGate(sessionID, agentID)
+				workItemID := resolveGateWorkItem(projectRoot, sessionID, agentID, gateWorkItem, os.Stderr)
 				result, err := runSessionGate(projectRoot, sessionID, workItemID, "check", guardprofile.PhaseQuality, os.Stdout, os.Stderr)
 				if err != nil {
 					return err
@@ -124,6 +125,7 @@ Returns exit code 0 if all gates pass, 1 if any fail.`,
 	cmd.Flags().BoolVar(&pythonOnly, "python-only", false, "Run Python quality gates only")
 	cmd.Flags().BoolVar(&skipTests, "skip-tests", false, "Skip test execution (run lint/build only)")
 	cmd.Flags().BoolVar(&gateOnly, "gate", false, "Run the full project quality gate and write a session-local gate record")
+	cmd.Flags().StringVar(&gateWorkItem, "work-item", "", "Work item ID to attribute this gate run to (overrides session-resolved active work item)")
 
 	cmd.AddCommand(checkOrphansCmd())
 	cmd.AddCommand(checkIncompleteCmd())

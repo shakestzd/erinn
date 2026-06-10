@@ -90,3 +90,48 @@ func TestLatestPassingGateRecordForWorkItem(t *testing.T) {
 		t.Errorf("nil db: got rec=%v err=%v", rec, err)
 	}
 }
+
+// TestMostRecentInProgressWorkItem covers feat-cecb2f2b: the last-resort
+// fallback that resolves work_item_id when session attribution is unavailable.
+func TestMostRecentInProgressWorkItem(t *testing.T) {
+	database, err := Open(":memory:")
+	if err != nil {
+		t.Fatalf("open db: %v", err)
+	}
+	defer database.Close()
+
+	// No in-progress items yet — must return "".
+	if got := MostRecentInProgressWorkItem(database); got != "" {
+		t.Errorf("empty db: got %q want empty", got)
+	}
+
+	// Insert two in-progress features; the one with the later updated_at wins.
+	_, err = database.Exec(`INSERT INTO features (id, type, title, status, priority, created_at, updated_at)
+		VALUES ('feat-older', 'feature', 'Older', 'in-progress', 'medium', '2026-06-10T00:00:00Z', '2026-06-10T00:01:00Z'),
+		       ('feat-newer', 'feature', 'Newer', 'in-progress', 'medium', '2026-06-10T00:00:00Z', '2026-06-10T00:02:00Z')`)
+	if err != nil {
+		t.Fatalf("insert features: %v", err)
+	}
+
+	got := MostRecentInProgressWorkItem(database)
+	if got != "feat-newer" {
+		t.Errorf("got %q, want feat-newer", got)
+	}
+
+	// A done item must not be returned even if it's more recent.
+	_, err = database.Exec(`INSERT INTO features (id, type, title, status, priority, created_at, updated_at)
+		VALUES ('feat-done', 'feature', 'Done', 'done', 'medium', '2026-06-10T00:00:00Z', '2026-06-10T00:10:00Z')`)
+	if err != nil {
+		t.Fatalf("insert done feature: %v", err)
+	}
+
+	got = MostRecentInProgressWorkItem(database)
+	if got != "feat-newer" {
+		t.Errorf("after done insert: got %q, want feat-newer", got)
+	}
+
+	// Nil db defensive no-op.
+	if got := MostRecentInProgressWorkItem(nil); got != "" {
+		t.Errorf("nil db: got %q, want empty", got)
+	}
+}

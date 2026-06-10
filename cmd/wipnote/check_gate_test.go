@@ -456,3 +456,124 @@ func TestDetectGatePlan_NodeProjectWithMissingScripts(t *testing.T) {
 		t.Fatalf("command = %q, want npm run lint", plan.Commands[0].Name)
 	}
 }
+
+// TestPersistGateRecord_ExplicitWorkItemID verifies that when a non-empty
+// workItemID is provided, persistGateRecord stores it on the record verbatim
+// (feat-cecb2f2b: --work-item flag path).
+func TestPersistGateRecord_ExplicitWorkItemID(t *testing.T) {
+	projectRoot := setupGateTestProject(t)
+	result := &gateRunResult{
+		Plan:          gatePlan{ProjectType: "go"},
+		Commands:      []string{"go build -buildvcs=false ./..."},
+		Passed:        true,
+		AllowlistHits: nil,
+		OutputSummary: "all commands passed",
+	}
+	const wantWorkItem = "feat-explicit-123"
+	record, err := persistGateRecord(projectRoot, "sess-explicit-wi", wantWorkItem, "check", result)
+	if err != nil {
+		t.Fatalf("persistGateRecord: %v", err)
+	}
+	if record == nil {
+		t.Fatal("expected a record")
+	}
+	if record.WorkItemID != wantWorkItem {
+		t.Errorf("work_item_id = %q, want %q", record.WorkItemID, wantWorkItem)
+	}
+	if !record.SignatureValid() {
+		t.Error("signature invalid after explicit work item set")
+	}
+
+	database := openGateTestDB(t, projectRoot)
+	defer database.Close()
+	stored, err := dbpkg.LatestGateRecordForSession(database, "sess-explicit-wi")
+	if err != nil {
+		t.Fatalf("LatestGateRecordForSession: %v", err)
+	}
+	if stored == nil {
+		t.Fatal("expected stored record")
+	}
+	if stored.WorkItemID != wantWorkItem {
+		t.Errorf("stored work_item_id = %q, want %q", stored.WorkItemID, wantWorkItem)
+	}
+}
+
+// TestResolveGateWorkItem_FlagTakesPrecedence verifies that an explicit
+// --work-item flag value overrides session-resolved attribution
+// (feat-cecb2f2b: resolution path 1).
+func TestResolveGateWorkItem_FlagTakesPrecedence(t *testing.T) {
+	projectRoot := setupGateTestProject(t)
+	var stderr strings.Builder
+	got := resolveGateWorkItem(projectRoot, "sess-any", dbpkg.AgentRootSentinel, "feat-flag-explicit", &stderr)
+	if got != "feat-flag-explicit" {
+		t.Errorf("resolveGateWorkItem with flag = %q, want feat-flag-explicit", got)
+	}
+	if !strings.Contains(stderr.String(), "--work-item flag") {
+		t.Errorf("expected --work-item flag attribution in stderr, got: %s", stderr.String())
+	}
+}
+
+// TestResolveGateWorkItem_FallbackToMostRecentInProgress verifies that when
+// neither the --work-item flag nor session attribution resolves a work item,
+// the last-resort fallback finds the most recent in-progress item
+// (feat-cecb2f2b: resolution path 3).
+func TestResolveGateWorkItem_FallbackToMostRecentInProgress(t *testing.T) {
+	projectRoot := setupGateTestProject(t)
+	// Seed an in-progress feature directly into the DB.
+	database := openGateTestDB(t, projectRoot)
+	_, err := database.Exec(`INSERT INTO features (id, type, title, status, priority, created_at, updated_at)
+		VALUES ('feat-fallback-latest', 'feature', 'Fallback test', 'in-progress', 'medium', '2026-06-10T00:00:00Z', '2026-06-10T00:01:00Z')`)
+	if err != nil {
+		database.Close()
+		t.Fatalf("insert feature: %v", err)
+	}
+	database.Close()
+
+	var stderr strings.Builder
+	// Use a session that has no active work item claim and no flag value.
+	got := resolveGateWorkItem(projectRoot, "sess-no-claim", dbpkg.AgentRootSentinel, "", &stderr)
+	if got != "feat-fallback-latest" {
+		t.Errorf("resolveGateWorkItem fallback = %q, want feat-fallback-latest", got)
+	}
+	if !strings.Contains(stderr.String(), "most recent in-progress") {
+		t.Errorf("expected last-resort attribution in stderr, got: %s", stderr.String())
+	}
+}
+
+// TestValidateCompletionGateRecord_CrossSessionMatchByWorkItemID verifies that
+// a gate record from a different session can satisfy the completion gate when
+// the work_item_id matches — the bug-35857288 cross-session fallback with
+// non-empty attribution (feat-cecb2f2b: the empty work_item_id prevented this
+// path from working before).
+func TestValidateCompletionGateRecord_CrossSessionMatchByWorkItemID(t *testing.T) {
+	projectRoot := setupGateTestProject(t)
+	database := openGateTestDB(t, projectRoot)
+	defer database.Close()
+
+	// Insert a passing gate record attributed to the work item but from
+	// a DIFFERENT session than the one that will call validateCompletionGateRecord.
+	// Do not pre-call EnsureSignature() — InsertGateRecord sets CheckedAt then
+	// computes the signature to keep them consistent.
+	priorRecord := &dbpkg.GateRecord{
+		SessionID:     "sess-gate-producer",
+		WorkItemID:    "feat-cross-session-test",
+		ProjectType:   "go",
+		GateCommand:   "go build ./...",
+		Status:        "pass",
+		Source:        "check",
+		OutputSummary: "all commands passed",
+	}
+	if err := dbpkg.InsertGateRecord(database, priorRecord); err != nil {
+		t.Fatalf("insert prior record: %v", err)
+	}
+
+	// The completing session is different. With empty work_item_id the
+	// cross-session fallback would fail; with the explicit work item it must
+	// find the record, then run the re-check gate and pass.
+	// validateCompletionGateRecord calls runSessionGate internally for the
+	// re-check; it runs against projectRoot (a real Go project from setupGateTestProject).
+	err := validateCompletionGateRecord(projectRoot, database, "sess-completing", "feat-cross-session-test")
+	if err != nil {
+		t.Fatalf("expected cross-session match to pass, got: %v", err)
+	}
+}

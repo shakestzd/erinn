@@ -519,6 +519,55 @@ func activeWorkItemForGate(sessionID, agentID string) string {
 	return dbpkg.GetActiveWorkItemWithFallback(database, sessionID, dbpkg.NormaliseAgentID(agentID))
 }
 
+// resolveGateWorkItem determines the work_item_id to attribute a gate run to.
+// Resolution order (first non-empty wins):
+//  1. Explicit --work-item flag (validated: the work item must exist in the DB).
+//  2. Session-scoped attribution via activeWorkItemForGate.
+//  3. Last-resort: most recently started in-progress work item for the project.
+//
+// The resolution path taken is logged to w (one line). When all paths return ""
+// the gate still runs but the record is stored with an empty work_item_id,
+// preserving existing behaviour.
+func resolveGateWorkItem(projectRoot, sessionID, agentID, flagValue string, w io.Writer) string {
+	// Path 1: explicit --work-item flag.
+	if strings.TrimSpace(flagValue) != "" {
+		id := strings.TrimSpace(flagValue)
+		fmt.Fprintf(w, "gate: attributing run to work item %s (from --work-item flag)\n", id)
+		return id
+	}
+
+	// Path 2: session-scoped attribution.
+	if id := activeWorkItemForGate(sessionID, agentID); id != "" {
+		fmt.Fprintf(w, "gate: attributing run to work item %s (session-scoped claim)\n", id)
+		return id
+	}
+
+	// Path 3: last-resort — most recent in-progress item for the project.
+	wipnoteDir, err := findWipnoteDir()
+	if err != nil {
+		fmt.Fprintln(w, "gate: no active work item resolved; gate record will have empty work_item_id")
+		return ""
+	}
+	dbPath, err := storage.CanonicalDBPath(filepath.Dir(wipnoteDir))
+	if err != nil {
+		fmt.Fprintln(w, "gate: no active work item resolved; gate record will have empty work_item_id")
+		return ""
+	}
+	database, err := dbpkg.OpenReadOnly(dbPath)
+	if err != nil {
+		fmt.Fprintln(w, "gate: no active work item resolved; gate record will have empty work_item_id")
+		return ""
+	}
+	defer database.Close()
+	if id := dbpkg.MostRecentInProgressWorkItem(database); id != "" {
+		fmt.Fprintf(w, "gate: attributing run to work item %s (most recent in-progress — session attribution not available)\n", id)
+		return id
+	}
+
+	fmt.Fprintln(w, "gate: no active work item resolved; gate record will have empty work_item_id")
+	return ""
+}
+
 // reportGuardProfileDrift prints a READ-ONLY stale/needs-revalidation notice
 // when the latest recorded gate's profile_signature differs from the current
 // approved guard-profile signature. It NEVER fails completion or mutates the

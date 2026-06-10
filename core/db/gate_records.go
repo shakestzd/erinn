@@ -161,6 +161,27 @@ func LatestPassingGateRecordForWorkItem(database *sql.DB, workItemID string, wit
 	return record, nil
 }
 
+// MostRecentInProgressWorkItem returns the ID of the most recently started
+// in-progress work item (feature, bug, or spike) for the project, ordered by
+// updated_at DESC then created_at DESC. Returns "" when no in-progress item
+// exists or the database is nil. Used as last-resort attribution when the gate
+// subprocess cannot resolve an active session-scoped claim.
+func MostRecentInProgressWorkItem(database *sql.DB) string {
+	if database == nil {
+		return ""
+	}
+	var id string
+	row := database.QueryRow(`
+		SELECT id FROM features
+		WHERE status = 'in-progress'
+		ORDER BY updated_at DESC, created_at DESC
+		LIMIT 1`)
+	if err := row.Scan(&id); err != nil {
+		return ""
+	}
+	return id
+}
+
 func CountGateRecords(database *sql.DB, sessionID string) (int, error) {
 	if database == nil {
 		return 0, nil

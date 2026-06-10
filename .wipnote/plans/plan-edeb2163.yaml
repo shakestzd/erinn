@@ -1,18 +1,244 @@
 meta:
     id: plan-edeb2163
-    track_id: trk-23232c8d
     title: Architectural memory v1
-    description: Card store, resolve engine with drift labels, bootstrap, completion-time capture, Claude Code hook injection + dogfood measurement
-    created_at: "2026-06-10"
+    description: ""
+    created_at: ""
     status: draft
-    priority: medium
     schema_version: v3
-    version: 2
+    version: 1
 design:
-    problem: ""
-    goals: []
-    constraints: []
+    problem: |
+        wipnote captures what changed and why (lineage) but not how the system
+        works. Every fresh coder agent re-derives the same architectural facts
+        (connection splits, daemon lifecycles, where state lives) by re-reading
+        code — observed 15-25 min research tax per dispatch across 6+ dispatches
+        on 2026-06-10. Knowledge evaporates when each agent exits.
+    goals:
+        - Durable, queryable architectural knowledge keyed to code areas, project-agnostic (any wipnote-instrumented repo)
+        - Auto-delivery into coder dispatch context under a hard token budget
+        - 'Knowledge stays trustworthy: drift-labeled against the verified_at commit; provenance links back to work items'
+        - Capture is a side effect of normal work (completion flow + orchestrator distillation), not a separate chore
+    constraints:
+        - 'Hard token budget on injection: a few hundred tokens per dispatch, relevance-filtered, never a wiki dump'
+        - Reuse canonical-store (.wipnote/) + SQLite read-index architecture; no new storage layer
+        - Nothing wipnote-repo-specific baked into code; this repo is only the dogfooding instance
     approved: false
     comment: ""
-slices: []
+slices:
+    - id: slice-1
+      num: 1
+      title: 'Arch card format: canonical store, validator, CRUD CLI, index'
+      what: |
+        New canonical artifact type: .wipnote/arch/<slug>.md with frontmatter
+        (name, kind: subsystem-map|invariant|hazard|decision, paths: [globs],
+        verified_at: <commit>, links: [work-item ids], created_by) and a
+        body capped at 120 words (validator-enforced). CLI: wipnote arch
+        add|edit|list|show|validate. Reindex ingests cards into a new
+        arch_cards SQLite table (globs flattened for matching). Cards are
+        git-committed like all .wipnote artifacts.
+      why: |
+        Foundation slice: the durable store. Markdown + frontmatter keeps
+        cards human-editable and review-able in PRs; the SQLite index makes
+        resolve queries cheap; canonical-first means cache rebuilds can never
+        lose knowledge (the exact failure mode plan approvals just exhibited).
+      files:
+        - core/arch/ (new package)
+        - cmd/wipnote/arch.go (new)
+        - cmd/wipnote/reindex.go
+        - core/db/schema.go
+      deps: []
+      done_when:
+        - wipnote arch add creates a valid card file and index row; validate rejects missing kind/paths/oversize body
+        - wipnote reindex on a fresh cache rebuilds arch_cards losslessly from .wipnote/arch/
+        - sqlite_write_boundary_test approves the new write site per its documented process
+      effort: M
+      risk: Low
+      tests: |
+        Unit: card parse/validate round-trip, body-cap rejection, glob
+        normalization. Integration: add -> reindex from scratch -> list shows
+        identical cards.
+      complexity: standard
+      approved: false
+      comment: ""
+      decisions_notes: |
+        **State:** canonical .wipnote/arch/*.md + derived arch_cards index —
+        mirrors the work-item HTML/SQLite split exactly.
+        **Payload:** frontmatter kinds subsystem-map|invariant|hazard|decision
+        drive injection priority; verified_at pins drift detection; links
+        carry provenance to work items.
+        **Rejected:** SQLite-only storage (dies on cache rebuild — violates
+        canonical-first); single ARCHITECTURE.md (no per-dispatch relevance
+        filtering); storing inside work items (knowledge outlives any one item).
+    - id: slice-2
+      num: 2
+      title: 'Resolve engine: wipnote arch --for with budget, ordering, drift labels'
+      what: |
+        wipnote arch resolve --for <work-item-id|path,...> [--budget N]:
+        matches the item's files (from its description/linked commits) or the
+        given paths against card globs; orders hazard > invariant >
+        subsystem-map > decision; truncates at the token budget (default
+        ~600 tokens) never mid-card; prefixes "UNVERIFIED since <verified_at>"
+        when git diff verified_at..HEAD touches files under the card's globs.
+        Output is a compact markdown block ready to paste into a prompt.
+      why: |
+        The delivery half of the value prop: deterministic, explainable
+        card selection under the hard token-budget constraint.
+      files:
+        - core/arch/resolve.go (new)
+        - cmd/wipnote/arch.go
+      deps:
+        - 1
+      done_when:
+        - Given seeded cards, resolve --for returns hazard-first matches and respects --budget without splitting a card
+        - A card whose glob-covered files changed after verified_at is labeled UNVERIFIED with the pinned commit
+        - resolve --for <work-item> derives paths from the item without manual path input
+      effort: M
+      risk: Med
+      tests: |
+        Unit: glob matching, ordering, budget truncation boundaries, drift
+        detection against a fixture git repo. Integration: end-to-end resolve
+        on a temp project with cards + commits.
+      complexity: complex
+      approved: false
+      comment: ""
+      questions:
+        - id: q-budget-unit
+          text: Budget in tokens or words?
+          answer: Words as the enforced unit (approx 1.3 tokens/word), since wipnote has no tokenizer dependency; flag named --budget with word semantics documented.
+      decisions_notes: |
+        **Trigger:** explicit CLI invocation at dispatch time; hook delivery
+        builds on this in slice 5.
+        **State:** read-only — resolve never mutates; drift check is a git
+        diff over the card's globs since verified_at.
+        **Payload:** compact markdown block, hazard-first, hard budget cap.
+        **Rejected:** full-text relevance search as primary key (fuzzier,
+        unexplainable injections); suppressing drift-suspect cards (memory
+        would vanish exactly when files are hot — label instead).
+    - id: slice-3
+      num: 3
+      title: 'Bootstrap: agent-driven starter cards for any repo'
+      what: |
+        wipnote arch bootstrap emits a structured drafting brief (repo layout,
+        module list, existing CLAUDE.md/AGENTS.md, recent session/lineage
+        summaries) for the calling agent, which then authors starter cards via
+        wipnote arch add. A plugin skill (arch-bootstrap) wraps the flow for
+        all three harnesses. No model calls from the Go binary itself.
+      why: |
+        Cold-start: organic capture alone leaves new projects without benefit
+        for weeks. Agent-driven (not mechanical doc import) because CLAUDE.md
+        content is instructions, not architecture.
+      files:
+        - cmd/wipnote/arch.go
+        - plugin/skills/arch-bootstrap/ (new)
+        - packages/plugin-core/manifest.json
+      deps:
+        - 1
+        - 2
+      done_when:
+        - Running the skill on a fresh repo yields >=5 valid cards covering its top-level subsystems
+        - Bootstrap brief includes lineage-derived hotspots (most-touched areas) when history exists
+      effort: M
+      risk: Med
+      tests: |
+        Unit: brief assembly from fixture repo. Manual: dogfood bootstrap on
+        this repo, review card quality.
+      complexity: standard
+      approved: false
+      comment: ""
+      decisions_notes: |
+        **Trigger:** explicit skill/CLI invocation once per project.
+        **Payload:** drafting brief for the agent; cards authored through the
+        same validated add path as everything else.
+        **Rejected:** mechanical CLAUDE.md import (instructions != architecture);
+        binary-embedded LLM calls (wipnote stays model-free; agents do the
+        thinking on whichever harness is present).
+    - id: slice-4
+      num: 4
+      title: 'Capture loop: completion-time learnings + orchestrator distillation'
+      what: |
+        (a) Work-item completion flow gains an optional --learning flag and a
+        post-complete stderr nudge listing drift-suspect cards under the item's
+        touched paths, inviting wipnote arch add/edit. (b) The orchestrator
+        directives skill is updated: resolve+paste cards into every coder
+        dispatch (manual injection path), and distill verified subagent
+        reports into card updates after verification. (c) wipnote arch
+        verify <card> re-pins verified_at to HEAD.
+      why: |
+        Memory must grow as a side effect of normal work or it stagnates;
+        the orchestrator is the quality filter (it already verifies reports).
+      files:
+        - cmd/wipnote/workitem.go
+        - cmd/wipnote/arch.go
+        - plugin/skills/orchestrator-directives-skill/
+        - plugin/agents/ (coder agent notes)
+      deps:
+        - 1
+        - 2
+      done_when:
+        - complete --learning '<text>' creates/updates a card linked to the work item in one command
+        - Completing an item whose paths overlap drift-suspect cards prints a re-verify nudge naming them
+        - Orchestrator skill documents the dispatch-time resolve+paste ritual
+      effort: M
+      risk: Low
+      tests: |
+        Integration: complete with --learning produces a valid linked card;
+        drift nudge fires on overlapping paths fixture.
+      complexity: standard
+      approved: false
+      comment: ""
+      decisions_notes: |
+        **Trigger:** work-item completion (capture) and dispatch (injection
+        ritual); zero added agent turns when there is nothing to record.
+        **State:** cards only; no new tables.
+        **Rejected:** dedicated librarian cron pass for v1 (more machinery
+        before value is proven); human approval gate (slows capture to zero —
+        drift labels carry the trust signal instead).
+    - id: slice-5
+      num: 5
+      title: Claude Code hook auto-injection + dogfood measurement
+      what: |
+        Wire resolve output into coder subagent dispatch automatically on
+        Claude Code: the plugin's task/dispatch hook surface runs wipnote arch
+        resolve --for derived from the dispatch prompt's work-item ID and
+        prepends the block. Codex/Gemini keep the documented manual ritual
+        (follow-up track). Then the acceptance study: seed cards for the
+        serve/hub area (bootstrap from slice 3), run a real serve-area task,
+        compare research-phase duration in session telemetry against the
+        2026-06-10 baseline (15-25 min).
+      why: |
+        Acceptance is end-to-end injection plus a dogfood case study — proof
+        the tax actually shrinks, not just that plumbing exists.
+      files:
+        - plugin/hooks/ (generated via manifest)
+        - packages/plugin-core/manifest.json
+        - core/hooks/ (handler)
+      deps:
+        - 2
+        - 3
+        - 4
+      done_when:
+        - A spawned coder agent's context contains the matched cards with no orchestrator action, verified by an e2e test on Claude Code
+        - Drift label visibly present when a covered file changed post-verification
+        - 'Dogfood case study written into the track: research-phase time on a serve-area task with cards vs the recorded baseline'
+      effort: L
+      risk: Med
+      tests: |
+        E2E: hook fires on dispatch, injected block present in subagent
+        transcript. Manual: timed dogfood task + telemetry comparison.
+      complexity: complex
+      approved: false
+      comment: ""
+      questions:
+        - id: q-hook-surface
+          text: Which Claude Code hook event carries dispatch-time injection?
+          answer: 'Investigate at implementation: candidate is the PreToolUse(Task) wrapper the plugin already uses for step tracking; if payload mutation is unsupported there, fall back to the agent-context skill dynamic-context mechanism with a per-dispatch CLI call.'
+      decisions_notes: |
+        **Trigger:** subagent dispatch hook on Claude Code only for v1 —
+        the harness whose hook surface we control best; cross-harness parity
+        is a follow-up track once value is proven.
+        **Payload:** resolve output prepended to dispatch context; budget
+        enforced by resolve, not the hook.
+        **Rejected:** baking cards into agent-context skill at build time
+        (stale within a session, no per-task relevance); shipping all three
+        harnesses at once (triples surface area before the case study exists).
 questions: []

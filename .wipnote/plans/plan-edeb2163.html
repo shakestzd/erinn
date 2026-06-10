@@ -405,6 +405,55 @@ body.right-rail-collapsed .sidebar-reopen{display:flex}
   <a href="#design" class="nav-link active" data-spy="design" data-initial="D">Design</a>
   <a href="#slices" class="nav-link" data-spy="slices" data-initial="S">Slices</a>
   
+  <ul class="slice-nav-list" id="slice-nav-list">
+    
+    <li>
+      <a href="#slice-1" class="slice-nav-item" data-slice-nav="1">
+        <span class="slice-nav-dot" data-approval="pending" data-dot-for="1"></span>
+        <span>#1 Arch card format: canonical store, validator, CRUD CLI, index</span>
+        
+        
+      </a>
+    </li>
+    
+    <li>
+      <a href="#slice-2" class="slice-nav-item" data-slice-nav="2">
+        <span class="slice-nav-dot" data-approval="pending" data-dot-for="2"></span>
+        <span>#2 Resolve engine: wipnote arch --for with budget, ordering, drift labels</span>
+        
+        <span class="nav-triage-badge nav-triage-question" title="1 open question(s)">?1</span>
+      </a>
+    </li>
+    
+    <li>
+      <a href="#slice-3" class="slice-nav-item" data-slice-nav="3">
+        <span class="slice-nav-dot" data-approval="pending" data-dot-for="3"></span>
+        <span>#3 Bootstrap: agent-driven starter cards for any repo</span>
+        
+        
+      </a>
+    </li>
+    
+    <li>
+      <a href="#slice-4" class="slice-nav-item" data-slice-nav="4">
+        <span class="slice-nav-dot" data-approval="pending" data-dot-for="4"></span>
+        <span>#4 Capture loop: completion-time learnings + orchestrator distillation</span>
+        
+        
+      </a>
+    </li>
+    
+    <li>
+      <a href="#slice-5" class="slice-nav-item" data-slice-nav="5">
+        <span class="slice-nav-dot" data-approval="pending" data-dot-for="5"></span>
+        <span>#5 Claude Code hook auto-injection + dogfood measurement</span>
+        
+        <span class="nav-triage-badge nav-triage-question" title="1 open question(s)">?1</span>
+      </a>
+    </li>
+    
+  </ul>
+  
   <a href="#questions" class="nav-link" data-spy="questions" data-initial="Q">Decisions</a>
   <a href="#critique" class="nav-link" data-spy="critique" data-initial="C">Critique</a>
   <a href="#feedback-summary" class="nav-link" data-spy="feedback-summary" data-initial="P">Progress</a>
@@ -412,15 +461,15 @@ body.right-rail-collapsed .sidebar-reopen{display:flex}
 </nav>
 <div class="plan-layout">
 <div class="plan-content">
-<article id="plan-edeb2163" data-type="plan" data-plan-id="plan-edeb2163" data-feature-id="trk-23232c8d" data-status="draft" data-priority="medium">
+<article id="plan-edeb2163" data-type="plan" data-plan-id="plan-edeb2163" data-feature-id="" data-status="draft" data-priority="medium">
 
 <!-- Plan Header -->
 <header class="plan-header">
   <h1>Plan: Architectural memory v1</h1>
-  <p style="color:var(--text-dim)">Card store, resolve engine with drift labels, bootstrap, completion-time capture, Claude Code hook injection + dogfood measurement</p>
+  
   <div class="meta">
     <span class="badge badge-pending">Draft</span>
-    <span style="font-size:.75rem;color:var(--text-muted)">v2 · 0 slices · Created 2026-06-10</span>
+    <span style="font-size:.75rem;color:var(--text-muted)">v1 · 5 slices · Created 2026-06-10</span>
   </div>
 </header>
 <button id="themeToggle" style="position:fixed;top:16px;right:16px;z-index:100;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:6px 12px;color:var(--text);font-family:var(--mono);font-size:0.75rem;cursor:pointer;">
@@ -440,6 +489,11 @@ body.right-rail-collapsed .sidebar-reopen{display:flex}
 <section class="dep-graph" data-zone="dependency-graph">
   <h2>Dependency Graph</h2>
   <div id="graph-data" style="display:none">
+    <div data-node="1" data-name="Arch card format: canonical store, validator, CRUD CLI, index" data-status="pending" data-deps="" data-files="4"></div>
+    <div data-node="2" data-name="Resolve engine: wipnote arch --for with budget, ordering, drift labels" data-status="pending" data-deps="1" data-files="2"></div>
+    <div data-node="3" data-name="Bootstrap: agent-driven starter cards for any repo" data-status="pending" data-deps="1,2" data-files="3"></div>
+    <div data-node="4" data-name="Capture loop: completion-time learnings + orchestrator distillation" data-status="pending" data-deps="1,2" data-files="4"></div>
+    <div data-node="5" data-name="Claude Code hook auto-injection + dogfood measurement" data-status="pending" data-deps="2,3,4" data-files="3"></div>
     
     <!--PLAN_GRAPH_NODES-->
   </div>
@@ -452,17 +506,34 @@ body.right-rail-collapsed .sidebar-reopen{display:flex}
 <details id="design" class="section-card" open data-phase="design" data-status="pending">
   <summary><span>Design</span><span class="badge badge-pending" data-badge-for="design">Pending</span></summary>
   <div class="section-body">
-    <!--PLAN_DESIGN_CONTENT-->
-    <div class="sub-section">
-      <h4>Open Questions</h4>
-      <!--PLAN_QUESTIONS-->
-    </div>
+    <h4>Problem</h4>
+<div data-markdown>wipnote captures what changed and why (lineage) but not how the system
+works. Every fresh coder agent re-derives the same architectural facts
+(connection splits, daemon lifecycles, where state lives) by re-reading
+code — observed 15-25 min research tax per dispatch across 6+ dispatches
+on 2026-06-10. Knowledge evaporates when each agent exits.
+</div>
+<h4>Goals</h4>
+<ol>
+<li data-markdown>Durable, queryable architectural knowledge keyed to code areas, project-agnostic (any wipnote-instrumented repo)</li>
+<li data-markdown>Auto-delivery into coder dispatch context under a hard token budget</li>
+<li data-markdown>Knowledge stays trustworthy: drift-labeled against the verified_at commit; provenance links back to work items</li>
+<li data-markdown>Capture is a side effect of normal work (completion flow + orchestrator distillation), not a separate chore</li>
+</ol>
+<h4>Constraints</h4>
+<ul>
+<li data-markdown>Hard token budget on injection: a few hundred tokens per dispatch, relevance-filtered, never a wiki dump</li>
+<li data-markdown>Reuse canonical-store (.wipnote/) + SQLite read-index architecture; no new storage layer</li>
+<li data-markdown>Nothing wipnote-repo-specific baked into code; this repo is only the dogfooding instance</li>
+</ul>
+
     <div class="approval-row">
       <label><input type="checkbox" data-section="design" data-action="approve"> Approve design</label>
       <textarea data-section="design" data-comment-for="design" placeholder="Comments on design decisions..."></textarea>
     </div>
   </div>
 </details>
+
 
 <!-- Structure Outline (hidden when empty) -->
 
@@ -471,23 +542,756 @@ body.right-rail-collapsed .sidebar-reopen{display:flex}
 <details id="slices" class="section-card" open data-phase="slices" data-status="pending">
   <summary><span>Slices</span><span class="badge badge-pending" data-badge-for="slices">Pending</span></summary>
   <div class="section-body">
+    <details class="slice-card" id="slice-1" data-slice="1" data-slice-name="slice-1" data-status="pending" data-approval="pending">
+  <summary class="slice-summary" aria-label="Slice 1: Arch card format: canonical store, validator, CRUD CLI, index">
+    <span class="slice-num">#1</span>
+    <span class="slice-title-col">
+      <span class="slice-name">Arch card format: canonical store, validator, CRUD CLI, index</span>
+      <span class="slice-preview">New canonical artifact type: .wipnote/arch/.md with frontmatter</span>
+      <span class="slice-meta-row">
+        <span class="slice-summary-badges">
+          <span class="badge badge-revision badge-sm">M</span>
+          <span class="badge badge-pending badge-sm">Low</span>
+          <span class="badge badge-discuss badge-sm badge-complexity" title="Complexity: standard">Standard</span>
+          
+          <span class="badge badge-pending badge-sm slice-approval-badge" data-badge-for="slice-1">Pending</span>
+          
+          
+        </span>
+        <span class="slice-actions" onclick="event.stopPropagation()">
+          <span class="approval-segmented" role="group" aria-label="Approval action">
+            <label class="seg-btn seg-approve" title="Approve">
+              <input type="radio" name="slice-1-approval" value="approved" data-section="slice-1" data-action="approve" aria-label="Approve slice 1">
+              &#10003;
+            </label>
+            <label class="seg-btn seg-changes" title="Request changes">
+              <input type="radio" name="slice-1-approval" value="changes_requested" data-section="slice-1" data-action="approve" aria-label="Request changes for slice 1">
+              &#8635;
+            </label>
+            <label class="seg-btn seg-reject" title="Reject">
+              <input type="radio" name="slice-1-approval" value="rejected" data-section="slice-1" data-action="approve" aria-label="Reject slice 1">
+              &#10005;
+            </label>
+          </span>
+        </span>
+      </span>
+    </span>
+    <span class="slice-chevron" aria-hidden="true"></span>
+  </summary>
+
+  <div class="slice-body">
     
+      
+      <div class="slice-field slice-what">
+        <div class="slice-field-label">What</div>
+        <div class="slice-field-value">
+          
+          <input type="checkbox" id="slice-1-what-reveal" class="reveal-toggle">
+          <div class="markdown-block reveal-content serif-prose"><p>New canonical artifact type: .wipnote/arch/.md with frontmatter
+(name, kind: subsystem-map|invariant|hazard|decision, paths: [globs],
+verified_at: , links: [work-item ids], created_by) and a
+body capped at 120 words (validator-enforced). CLI: wipnote arch
+add|edit|list|show|validate. Reindex ingests cards into a new
+arch_cards SQLite table (globs flattened for matching). Cards are
+git-committed like all .wipnote artifacts.</p>
+</div>
+          <label for="slice-1-what-reveal" class="reveal-label">Show full description</label>
+          
+        </div>
+      </div>
+      
+      
+      <div class="slice-field slice-why">
+        <div class="slice-field-label">Why</div>
+        <div class="slice-field-value">
+          
+          <div class="markdown-block serif-prose"><p>Foundation slice: the durable store. Markdown + frontmatter keeps
+cards human-editable and review-able in PRs; the SQLite index makes
+resolve queries cheap; canonical-first means cache rebuilds can never
+lose knowledge (the exact failure mode plan approvals just exhibited).</p>
+</div>
+          
+        </div>
+      </div>
+      
+      
+      <div class="slice-field">
+        <div class="slice-field-label">Files</div>
+        <div class="slice-field-value"><code>core/arch/ (new package), cmd/wipnote/arch.go (new), cmd/wipnote/reindex.go, core/db/schema.go</code></div>
+      </div>
+      
+      
+      <div class="slice-field">
+        <div class="slice-field-label">Done when</div>
+        <ul class="slice-done-list"><li>wipnote arch add creates a valid card file and index row; validate rejects missing kind/paths/oversize body</li><li>wipnote reindex on a fresh cache rebuilds arch_cards losslessly from .wipnote/arch/</li><li>sqlite_write_boundary_test approves the new write site per its documented process</li></ul>
+      </div>
+      
+    
+
+    
+    <div class="slice-field slice-decisions-notes">
+      <div class="slice-field-label">Decisions</div>
+      <div class="slice-field-value">
+        
+        <input type="checkbox" id="slice-1-decisions-reveal" class="reveal-toggle">
+        <div class="markdown-block reveal-content serif-prose"><p><strong>State:</strong> canonical .wipnote/arch/*.md + derived arch_cards index —
+mirrors the work-item HTML/SQLite split exactly.
+<strong>Payload:</strong> frontmatter kinds subsystem-map|invariant|hazard|decision
+drive injection priority; verified_at pins drift detection; links
+carry provenance to work items.
+<strong>Rejected:</strong> SQLite-only storage (dies on cache rebuild — violates
+canonical-first); single ARCHITECTURE.md (no per-dispatch relevance
+filtering); storing inside work items (knowledge outlives any one item).</p>
+</div>
+        <label for="slice-1-decisions-reveal" class="reveal-label">Show full decisions</label>
+        
+      </div>
+    </div>
+    
+
+    
+    <div class="slice-field slice-tests-field">
+      <div class="slice-field-label">Test Strategy</div>
+      <div class="slice-field-value">
+        
+        
+        <div class="test-strategy">
+          
+          <div class="test-group" data-kind="unit">
+            <span class="test-chip">UNIT &middot; 1</span>
+            <ul><li>card parse/validate round-trip, body-cap rejection, glob</li></ul>
+          </div>
+          
+          <div class="test-group" data-kind="other">
+            <span class="test-chip">OTHER &middot; 2</span>
+            <ul><li>normalization. Integration: add -&gt; reindex from scratch -&gt; list shows</li><li>identical cards.</li></ul>
+          </div>
+          
+        </div>
+        
+      </div>
+    </div>
+    
+
+    
+
+    
+
+    <div class="slice-deps">Dependencies: none</div>
+
+    <details class="comment-collapse">
+      <summary class="comment-collapse-trigger">+ Leave a comment</summary>
+      <div class="comment-collapse-body">
+        <textarea data-section="slice-1" data-comment-for="slice-1" placeholder="Comments on slice 1..."></textarea>
+      </div>
+    </details>
+  </div>
+</details>
+<details class="slice-card" id="slice-2" data-slice="2" data-slice-name="slice-2" data-status="pending" data-approval="pending">
+  <summary class="slice-summary" aria-label="Slice 2: Resolve engine: wipnote arch --for with budget, ordering, drift labels">
+    <span class="slice-num">#2</span>
+    <span class="slice-title-col">
+      <span class="slice-name">Resolve engine: wipnote arch --for with budget, ordering, drift labels</span>
+      <span class="slice-preview">wipnote arch resolve --for  [--budget N]:</span>
+      <span class="slice-meta-row">
+        <span class="slice-summary-badges">
+          <span class="badge badge-revision badge-sm">M</span>
+          <span class="badge badge-revision badge-sm">Med</span>
+          <span class="badge badge-revision badge-sm badge-complexity" title="Complexity: complex">Complex</span>
+          
+          <span class="badge badge-pending badge-sm slice-approval-badge" data-badge-for="slice-2">Pending</span>
+          
+          <span class="badge badge-sm badge-questions" title="1 open question(s)">1 Q</span>
+        </span>
+        <span class="slice-actions" onclick="event.stopPropagation()">
+          <span class="approval-segmented" role="group" aria-label="Approval action">
+            <label class="seg-btn seg-approve" title="Approve">
+              <input type="radio" name="slice-2-approval" value="approved" data-section="slice-2" data-action="approve" aria-label="Approve slice 2">
+              &#10003;
+            </label>
+            <label class="seg-btn seg-changes" title="Request changes">
+              <input type="radio" name="slice-2-approval" value="changes_requested" data-section="slice-2" data-action="approve" aria-label="Request changes for slice 2">
+              &#8635;
+            </label>
+            <label class="seg-btn seg-reject" title="Reject">
+              <input type="radio" name="slice-2-approval" value="rejected" data-section="slice-2" data-action="approve" aria-label="Reject slice 2">
+              &#10005;
+            </label>
+          </span>
+        </span>
+      </span>
+    </span>
+    <span class="slice-chevron" aria-hidden="true"></span>
+  </summary>
+
+  <div class="slice-body">
+    
+      
+      <div class="slice-field slice-what">
+        <div class="slice-field-label">What</div>
+        <div class="slice-field-value">
+          
+          <input type="checkbox" id="slice-2-what-reveal" class="reveal-toggle">
+          <div class="markdown-block reveal-content serif-prose"><p>wipnote arch resolve --for &lt;work-item-id|path,...&gt; [--budget N]:
+matches the item&#39;s files (from its description/linked commits) or the
+given paths against card globs; orders hazard &gt; invariant &gt;
+subsystem-map &gt; decision; truncates at the token budget (default
+~600 tokens) never mid-card; prefixes &#34;UNVERIFIED since &lt;verified_at&gt;&#34;
+when git diff verified_at..HEAD touches files under the card&#39;s globs.
+Output is a compact markdown block ready to paste into a prompt.</p>
+</div>
+          <label for="slice-2-what-reveal" class="reveal-label">Show full description</label>
+          
+        </div>
+      </div>
+      
+      
+      <div class="slice-field slice-why">
+        <div class="slice-field-label">Why</div>
+        <div class="slice-field-value">
+          
+          <div class="markdown-block serif-prose"><p>The delivery half of the value prop: deterministic, explainable
+card selection under the hard token-budget constraint.</p>
+</div>
+          
+        </div>
+      </div>
+      
+      
+      <div class="slice-field">
+        <div class="slice-field-label">Files</div>
+        <div class="slice-field-value"><code>core/arch/resolve.go (new), cmd/wipnote/arch.go</code></div>
+      </div>
+      
+      
+      <div class="slice-field">
+        <div class="slice-field-label">Done when</div>
+        <ul class="slice-done-list"><li>Given seeded cards, resolve --for returns hazard-first matches and respects --budget without splitting a card</li><li>A card whose glob-covered files changed after verified_at is labeled UNVERIFIED with the pinned commit</li><li>resolve --for &lt;work-item&gt; derives paths from the item without manual path input</li></ul>
+      </div>
+      
+    
+
+    
+    <div class="slice-field slice-decisions-notes">
+      <div class="slice-field-label">Decisions</div>
+      <div class="slice-field-value">
+        
+        <input type="checkbox" id="slice-2-decisions-reveal" class="reveal-toggle">
+        <div class="markdown-block reveal-content serif-prose"><p><strong>Trigger:</strong> explicit CLI invocation at dispatch time; hook delivery
+builds on this in slice 5.
+<strong>State:</strong> read-only — resolve never mutates; drift check is a git
+diff over the card&#39;s globs since verified_at.
+<strong>Payload:</strong> compact markdown block, hazard-first, hard budget cap.
+<strong>Rejected:</strong> full-text relevance search as primary key (fuzzier,
+unexplainable injections); suppressing drift-suspect cards (memory
+would vanish exactly when files are hot — label instead).</p>
+</div>
+        <label for="slice-2-decisions-reveal" class="reveal-label">Show full decisions</label>
+        
+      </div>
+    </div>
+    
+
+    
+    <div class="slice-field slice-tests-field">
+      <div class="slice-field-label">Test Strategy</div>
+      <div class="slice-field-value">
+        
+        
+        <div class="test-strategy">
+          
+          <div class="test-group" data-kind="unit">
+            <span class="test-chip">UNIT &middot; 1</span>
+            <ul><li>glob matching, ordering, budget truncation boundaries, drift</li></ul>
+          </div>
+          
+          <div class="test-group" data-kind="other">
+            <span class="test-chip">OTHER &middot; 2</span>
+            <ul><li>detection against a fixture git repo. Integration: end-to-end resolve</li><li>on a temp project with cards &#43; commits.</li></ul>
+          </div>
+          
+        </div>
+        
+      </div>
+    </div>
+    
+
+    
+
+    
+    <div class="slice-field slice-questions">
+      <div class="slice-field-label">Open Questions</div>
+      <div class="slice-field-value">
+        
+        <div class="question-block slice-question-block">
+          <p>Budget in tokens or words?</p>
+          
+          
+          <textarea
+            data-section="slice-2-question-q-budget-unit"
+            data-comment-for="slice-2-question-q-budget-unit"
+            placeholder="Answer question q-budget-unit...">Words as the enforced unit (approx 1.3 tokens/word), since wipnote has no tokenizer dependency; flag named --budget with word semantics documented.</textarea>
+          
+        </div>
+        
+      </div>
+    </div>
+    
+
+    <div class="slice-deps">Dependencies: slices 1</div>
+
+    <details class="comment-collapse">
+      <summary class="comment-collapse-trigger">+ Leave a comment</summary>
+      <div class="comment-collapse-body">
+        <textarea data-section="slice-2" data-comment-for="slice-2" placeholder="Comments on slice 2..."></textarea>
+      </div>
+    </details>
+  </div>
+</details>
+<details class="slice-card" id="slice-3" data-slice="3" data-slice-name="slice-3" data-status="pending" data-approval="pending">
+  <summary class="slice-summary" aria-label="Slice 3: Bootstrap: agent-driven starter cards for any repo">
+    <span class="slice-num">#3</span>
+    <span class="slice-title-col">
+      <span class="slice-name">Bootstrap: agent-driven starter cards for any repo</span>
+      <span class="slice-preview">wipnote arch bootstrap emits a structured drafting brief (repo layout,</span>
+      <span class="slice-meta-row">
+        <span class="slice-summary-badges">
+          <span class="badge badge-revision badge-sm">M</span>
+          <span class="badge badge-revision badge-sm">Med</span>
+          <span class="badge badge-discuss badge-sm badge-complexity" title="Complexity: standard">Standard</span>
+          
+          <span class="badge badge-pending badge-sm slice-approval-badge" data-badge-for="slice-3">Pending</span>
+          
+          
+        </span>
+        <span class="slice-actions" onclick="event.stopPropagation()">
+          <span class="approval-segmented" role="group" aria-label="Approval action">
+            <label class="seg-btn seg-approve" title="Approve">
+              <input type="radio" name="slice-3-approval" value="approved" data-section="slice-3" data-action="approve" aria-label="Approve slice 3">
+              &#10003;
+            </label>
+            <label class="seg-btn seg-changes" title="Request changes">
+              <input type="radio" name="slice-3-approval" value="changes_requested" data-section="slice-3" data-action="approve" aria-label="Request changes for slice 3">
+              &#8635;
+            </label>
+            <label class="seg-btn seg-reject" title="Reject">
+              <input type="radio" name="slice-3-approval" value="rejected" data-section="slice-3" data-action="approve" aria-label="Reject slice 3">
+              &#10005;
+            </label>
+          </span>
+        </span>
+      </span>
+    </span>
+    <span class="slice-chevron" aria-hidden="true"></span>
+  </summary>
+
+  <div class="slice-body">
+    
+      
+      <div class="slice-field slice-what">
+        <div class="slice-field-label">What</div>
+        <div class="slice-field-value">
+          
+          <div class="markdown-block serif-prose"><p>wipnote arch bootstrap emits a structured drafting brief (repo layout,
+module list, existing CLAUDE.md/AGENTS.md, recent session/lineage
+summaries) for the calling agent, which then authors starter cards via
+wipnote arch add. A plugin skill (arch-bootstrap) wraps the flow for
+all three harnesses. No model calls from the Go binary itself.</p>
+</div>
+          
+        </div>
+      </div>
+      
+      
+      <div class="slice-field slice-why">
+        <div class="slice-field-label">Why</div>
+        <div class="slice-field-value">
+          
+          <div class="markdown-block serif-prose"><p>Cold-start: organic capture alone leaves new projects without benefit
+for weeks. Agent-driven (not mechanical doc import) because CLAUDE.md
+content is instructions, not architecture.</p>
+</div>
+          
+        </div>
+      </div>
+      
+      
+      <div class="slice-field">
+        <div class="slice-field-label">Files</div>
+        <div class="slice-field-value"><code>cmd/wipnote/arch.go, plugin/skills/arch-bootstrap/ (new), packages/plugin-core/manifest.json</code></div>
+      </div>
+      
+      
+      <div class="slice-field">
+        <div class="slice-field-label">Done when</div>
+        <ul class="slice-done-list"><li>Running the skill on a fresh repo yields &gt;=5 valid cards covering its top-level subsystems</li><li>Bootstrap brief includes lineage-derived hotspots (most-touched areas) when history exists</li></ul>
+      </div>
+      
+    
+
+    
+    <div class="slice-field slice-decisions-notes">
+      <div class="slice-field-label">Decisions</div>
+      <div class="slice-field-value">
+        
+        <div class="markdown-block serif-prose"><p><strong>Trigger:</strong> explicit skill/CLI invocation once per project.
+<strong>Payload:</strong> drafting brief for the agent; cards authored through the
+same validated add path as everything else.
+<strong>Rejected:</strong> mechanical CLAUDE.md import (instructions != architecture);
+binary-embedded LLM calls (wipnote stays model-free; agents do the
+thinking on whichever harness is present).</p>
+</div>
+        
+      </div>
+    </div>
+    
+
+    
+    <div class="slice-field slice-tests-field">
+      <div class="slice-field-label">Test Strategy</div>
+      <div class="slice-field-value">
+        
+        
+        <div class="test-strategy">
+          
+          <div class="test-group" data-kind="unit">
+            <span class="test-chip">UNIT &middot; 1</span>
+            <ul><li>brief assembly from fixture repo. Manual: dogfood bootstrap on</li></ul>
+          </div>
+          
+          <div class="test-group" data-kind="other">
+            <span class="test-chip">OTHER &middot; 1</span>
+            <ul><li>this repo, review card quality.</li></ul>
+          </div>
+          
+        </div>
+        
+      </div>
+    </div>
+    
+
+    
+
+    
+
+    <div class="slice-deps">Dependencies: slices 1,2</div>
+
+    <details class="comment-collapse">
+      <summary class="comment-collapse-trigger">+ Leave a comment</summary>
+      <div class="comment-collapse-body">
+        <textarea data-section="slice-3" data-comment-for="slice-3" placeholder="Comments on slice 3..."></textarea>
+      </div>
+    </details>
+  </div>
+</details>
+<details class="slice-card" id="slice-4" data-slice="4" data-slice-name="slice-4" data-status="pending" data-approval="pending">
+  <summary class="slice-summary" aria-label="Slice 4: Capture loop: completion-time learnings &#43; orchestrator distillation">
+    <span class="slice-num">#4</span>
+    <span class="slice-title-col">
+      <span class="slice-name">Capture loop: completion-time learnings &#43; orchestrator distillation</span>
+      <span class="slice-preview">(a) Work-item completion flow gains an optional --learning flag and a</span>
+      <span class="slice-meta-row">
+        <span class="slice-summary-badges">
+          <span class="badge badge-revision badge-sm">M</span>
+          <span class="badge badge-pending badge-sm">Low</span>
+          <span class="badge badge-discuss badge-sm badge-complexity" title="Complexity: standard">Standard</span>
+          
+          <span class="badge badge-pending badge-sm slice-approval-badge" data-badge-for="slice-4">Pending</span>
+          
+          
+        </span>
+        <span class="slice-actions" onclick="event.stopPropagation()">
+          <span class="approval-segmented" role="group" aria-label="Approval action">
+            <label class="seg-btn seg-approve" title="Approve">
+              <input type="radio" name="slice-4-approval" value="approved" data-section="slice-4" data-action="approve" aria-label="Approve slice 4">
+              &#10003;
+            </label>
+            <label class="seg-btn seg-changes" title="Request changes">
+              <input type="radio" name="slice-4-approval" value="changes_requested" data-section="slice-4" data-action="approve" aria-label="Request changes for slice 4">
+              &#8635;
+            </label>
+            <label class="seg-btn seg-reject" title="Reject">
+              <input type="radio" name="slice-4-approval" value="rejected" data-section="slice-4" data-action="approve" aria-label="Reject slice 4">
+              &#10005;
+            </label>
+          </span>
+        </span>
+      </span>
+    </span>
+    <span class="slice-chevron" aria-hidden="true"></span>
+  </summary>
+
+  <div class="slice-body">
+    
+      
+      <div class="slice-field slice-what">
+        <div class="slice-field-label">What</div>
+        <div class="slice-field-value">
+          
+          <input type="checkbox" id="slice-4-what-reveal" class="reveal-toggle">
+          <div class="markdown-block reveal-content serif-prose"><p>(a) Work-item completion flow gains an optional --learning flag and a
+post-complete stderr nudge listing drift-suspect cards under the item&#39;s
+touched paths, inviting wipnote arch add/edit. (b) The orchestrator
+directives skill is updated: resolve+paste cards into every coder
+dispatch (manual injection path), and distill verified subagent
+reports into card updates after verification. (c) wipnote arch
+verify  re-pins verified_at to HEAD.</p>
+</div>
+          <label for="slice-4-what-reveal" class="reveal-label">Show full description</label>
+          
+        </div>
+      </div>
+      
+      
+      <div class="slice-field slice-why">
+        <div class="slice-field-label">Why</div>
+        <div class="slice-field-value">
+          
+          <div class="markdown-block serif-prose"><p>Memory must grow as a side effect of normal work or it stagnates;
+the orchestrator is the quality filter (it already verifies reports).</p>
+</div>
+          
+        </div>
+      </div>
+      
+      
+      <div class="slice-field">
+        <div class="slice-field-label">Files</div>
+        <div class="slice-field-value"><code>cmd/wipnote/workitem.go, cmd/wipnote/arch.go, plugin/skills/orchestrator-directives-skill/, plugin/agents/ (coder agent notes)</code></div>
+      </div>
+      
+      
+      <div class="slice-field">
+        <div class="slice-field-label">Done when</div>
+        <ul class="slice-done-list"><li>complete --learning &#39;&lt;text&gt;&#39; creates/updates a card linked to the work item in one command</li><li>Completing an item whose paths overlap drift-suspect cards prints a re-verify nudge naming them</li><li>Orchestrator skill documents the dispatch-time resolve&#43;paste ritual</li></ul>
+      </div>
+      
+    
+
+    
+    <div class="slice-field slice-decisions-notes">
+      <div class="slice-field-label">Decisions</div>
+      <div class="slice-field-value">
+        
+        <div class="markdown-block serif-prose"><p><strong>Trigger:</strong> work-item completion (capture) and dispatch (injection
+ritual); zero added agent turns when there is nothing to record.
+<strong>State:</strong> cards only; no new tables.
+<strong>Rejected:</strong> dedicated librarian cron pass for v1 (more machinery
+before value is proven); human approval gate (slows capture to zero —
+drift labels carry the trust signal instead).</p>
+</div>
+        
+      </div>
+    </div>
+    
+
+    
+    <div class="slice-field slice-tests-field">
+      <div class="slice-field-label">Test Strategy</div>
+      <div class="slice-field-value">
+        
+        
+        <div class="test-strategy">
+          
+          <div class="test-group" data-kind="integration">
+            <span class="test-chip">INTEGRATION &middot; 1</span>
+            <ul><li>complete with --learning produces a valid linked card;</li></ul>
+          </div>
+          
+          <div class="test-group" data-kind="other">
+            <span class="test-chip">OTHER &middot; 1</span>
+            <ul><li>drift nudge fires on overlapping paths fixture.</li></ul>
+          </div>
+          
+        </div>
+        
+      </div>
+    </div>
+    
+
+    
+
+    
+
+    <div class="slice-deps">Dependencies: slices 1,2</div>
+
+    <details class="comment-collapse">
+      <summary class="comment-collapse-trigger">+ Leave a comment</summary>
+      <div class="comment-collapse-body">
+        <textarea data-section="slice-4" data-comment-for="slice-4" placeholder="Comments on slice 4..."></textarea>
+      </div>
+    </details>
+  </div>
+</details>
+<details class="slice-card" id="slice-5" data-slice="5" data-slice-name="slice-5" data-status="pending" data-approval="pending">
+  <summary class="slice-summary" aria-label="Slice 5: Claude Code hook auto-injection &#43; dogfood measurement">
+    <span class="slice-num">#5</span>
+    <span class="slice-title-col">
+      <span class="slice-name">Claude Code hook auto-injection &#43; dogfood measurement</span>
+      <span class="slice-preview">Wire resolve output into coder subagent dispatch automatically on</span>
+      <span class="slice-meta-row">
+        <span class="slice-summary-badges">
+          <span class="badge badge-blocked badge-sm">L</span>
+          <span class="badge badge-revision badge-sm">Med</span>
+          <span class="badge badge-revision badge-sm badge-complexity" title="Complexity: complex">Complex</span>
+          
+          <span class="badge badge-pending badge-sm slice-approval-badge" data-badge-for="slice-5">Pending</span>
+          
+          <span class="badge badge-sm badge-questions" title="1 open question(s)">1 Q</span>
+        </span>
+        <span class="slice-actions" onclick="event.stopPropagation()">
+          <span class="approval-segmented" role="group" aria-label="Approval action">
+            <label class="seg-btn seg-approve" title="Approve">
+              <input type="radio" name="slice-5-approval" value="approved" data-section="slice-5" data-action="approve" aria-label="Approve slice 5">
+              &#10003;
+            </label>
+            <label class="seg-btn seg-changes" title="Request changes">
+              <input type="radio" name="slice-5-approval" value="changes_requested" data-section="slice-5" data-action="approve" aria-label="Request changes for slice 5">
+              &#8635;
+            </label>
+            <label class="seg-btn seg-reject" title="Reject">
+              <input type="radio" name="slice-5-approval" value="rejected" data-section="slice-5" data-action="approve" aria-label="Reject slice 5">
+              &#10005;
+            </label>
+          </span>
+        </span>
+      </span>
+    </span>
+    <span class="slice-chevron" aria-hidden="true"></span>
+  </summary>
+
+  <div class="slice-body">
+    
+      
+      <div class="slice-field slice-what">
+        <div class="slice-field-label">What</div>
+        <div class="slice-field-value">
+          
+          <input type="checkbox" id="slice-5-what-reveal" class="reveal-toggle">
+          <div class="markdown-block reveal-content serif-prose"><p>Wire resolve output into coder subagent dispatch automatically on
+Claude Code: the plugin&#39;s task/dispatch hook surface runs wipnote arch
+resolve --for derived from the dispatch prompt&#39;s work-item ID and
+prepends the block. Codex/Gemini keep the documented manual ritual
+(follow-up track). Then the acceptance study: seed cards for the
+serve/hub area (bootstrap from slice 3), run a real serve-area task,
+compare research-phase duration in session telemetry against the
+2026-06-10 baseline (15-25 min).</p>
+</div>
+          <label for="slice-5-what-reveal" class="reveal-label">Show full description</label>
+          
+        </div>
+      </div>
+      
+      
+      <div class="slice-field slice-why">
+        <div class="slice-field-label">Why</div>
+        <div class="slice-field-value">
+          
+          <div class="markdown-block serif-prose"><p>Acceptance is end-to-end injection plus a dogfood case study — proof
+the tax actually shrinks, not just that plumbing exists.</p>
+</div>
+          
+        </div>
+      </div>
+      
+      
+      <div class="slice-field">
+        <div class="slice-field-label">Files</div>
+        <div class="slice-field-value"><code>plugin/hooks/ (generated via manifest), packages/plugin-core/manifest.json, core/hooks/ (handler)</code></div>
+      </div>
+      
+      
+      <div class="slice-field">
+        <div class="slice-field-label">Done when</div>
+        <ul class="slice-done-list"><li>A spawned coder agent&#39;s context contains the matched cards with no orchestrator action, verified by an e2e test on Claude Code</li><li>Drift label visibly present when a covered file changed post-verification</li><li>Dogfood case study written into the track: research-phase time on a serve-area task with cards vs the recorded baseline</li></ul>
+      </div>
+      
+    
+
+    
+    <div class="slice-field slice-decisions-notes">
+      <div class="slice-field-label">Decisions</div>
+      <div class="slice-field-value">
+        
+        <input type="checkbox" id="slice-5-decisions-reveal" class="reveal-toggle">
+        <div class="markdown-block reveal-content serif-prose"><p><strong>Trigger:</strong> subagent dispatch hook on Claude Code only for v1 —
+the harness whose hook surface we control best; cross-harness parity
+is a follow-up track once value is proven.
+<strong>Payload:</strong> resolve output prepended to dispatch context; budget
+enforced by resolve, not the hook.
+<strong>Rejected:</strong> baking cards into agent-context skill at build time
+(stale within a session, no per-task relevance); shipping all three
+harnesses at once (triples surface area before the case study exists).</p>
+</div>
+        <label for="slice-5-decisions-reveal" class="reveal-label">Show full decisions</label>
+        
+      </div>
+    </div>
+    
+
+    
+    <div class="slice-field slice-tests-field">
+      <div class="slice-field-label">Test Strategy</div>
+      <div class="slice-field-value">
+        
+        
+        <div class="test-strategy">
+          
+          <div class="test-group" data-kind="e2e">
+            <span class="test-chip">E2E &middot; 1</span>
+            <ul><li>hook fires on dispatch, injected block present in subagent</li></ul>
+          </div>
+          
+          <div class="test-group" data-kind="other">
+            <span class="test-chip">OTHER &middot; 1</span>
+            <ul><li>transcript. Manual: timed dogfood task &#43; telemetry comparison.</li></ul>
+          </div>
+          
+        </div>
+        
+      </div>
+    </div>
+    
+
+    
+
+    
+    <div class="slice-field slice-questions">
+      <div class="slice-field-label">Open Questions</div>
+      <div class="slice-field-value">
+        
+        <div class="question-block slice-question-block">
+          <p>Which Claude Code hook event carries dispatch-time injection?</p>
+          
+          
+          <textarea
+            data-section="slice-5-question-q-hook-surface"
+            data-comment-for="slice-5-question-q-hook-surface"
+            placeholder="Answer question q-hook-surface...">Investigate at implementation: candidate is the PreToolUse(Task) wrapper the plugin already uses for step tracking; if payload mutation is unsupported there, fall back to the agent-context skill dynamic-context mechanism with a per-dispatch CLI call.</textarea>
+          
+        </div>
+        
+      </div>
+    </div>
+    
+
+    <div class="slice-deps">Dependencies: slices 2,3,4</div>
+
+    <details class="comment-collapse">
+      <summary class="comment-collapse-trigger">+ Leave a comment</summary>
+      <div class="comment-collapse-body">
+        <textarea data-section="slice-5" data-comment-for="slice-5" placeholder="Comments on slice 5..."></textarea>
+      </div>
+    </details>
+  </div>
+</details>
+
     <!--PLAN_SLICE_CARDS-->
   </div>
 </details>
 
 <!-- Design Decisions (hidden for v2 plans — slice cards carry their own questions) -->
-<details id="questions" class="section-card" data-phase="questions" data-status="pending">
-  <summary><span>Design Decisions</span><span class="badge badge-pending" data-badge-for="questions">Pending</span></summary>
-  <div class="section-body">
-    <table class="q-table">
-      <thead><tr><th>Question</th><th>Selected</th><th>Status</th></tr></thead>
-      <tbody id="questionsRecap">
-        <!--PLAN_QUESTIONS_RECAP-->
-      </tbody>
-    </table>
-  </div>
-</details>
+
 
 
 
@@ -498,8 +1302,8 @@ body.right-rail-collapsed .sidebar-reopen{display:flex}
   <h2>Feedback Summary</h2>
   <div class="progress-stats">
     <div class="progress-stat"><strong id="approvedCount">0</strong> approved</div>
-    <div class="progress-stat"><strong id="totalSections">1</strong> sections</div>
-    <div class="progress-stat"><strong id="pendingCount">1</strong> pending</div>
+    <div class="progress-stat"><strong id="totalSections">6</strong> sections</div>
+    <div class="progress-stat"><strong id="pendingCount">6</strong> pending</div>
   </div>
   <div class="progress-bar-track"><div class="progress-bar-fill" id="progressFill" style="width:0%"></div></div>
   <div class="comments-summary">
@@ -579,7 +1383,7 @@ var planId=(function(){var a=document.querySelector('article[id]');return a?a.id
 
 (function(){
   'use strict';
-  var SECTIONS=/*PLAN_SECTIONS_JSON*/["design"]/*END_PLAN_SECTIONS_JSON*/;
+  var SECTIONS=/*PLAN_SECTIONS_JSON*/["design","slice-1","slice-2","slice-3","slice-4","slice-5"]/*END_PLAN_SECTIONS_JSON*/;
 
   function setBadge(el,ok){
     el.className='badge badge-'+(ok?'approved':'pending');

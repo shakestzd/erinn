@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>Capture loop: completion-time learnings &#43; orchestrator distillation</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="feat-5a312c8f"
+             data-type="feature"
+             data-status="in-progress"
+             data-priority="medium"
+             data-created="2026-06-10T19:50:01.898692"
+             data-updated="2026-06-10T21:31:37.748435" data-agent-assigned="claude-code" data-track-id="trk-53715165">
+
+        <header>
+            <h1>Capture loop: completion-time learnings &#43; orchestrator distillation</h1>
+            <div class="metadata">
+                <span class="badge status-in-progress">In Progress</span>
+                <span class="badge priority-medium">Medium Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="implemented_in">
+                <h3>Implemented In:</h3>
+                <ul>
+                    <li><a href="873ecf53-d8ef-4743-8599-064e2c00279e.html" data-relationship="implemented_in" data-since="2026-06-10T21:31:37.748315">session 873ecf53-d8ef-4743-8599-064e2c00279e</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="planned_in">
+                <h3>Planned In:</h3>
+                <ul>
+                    <li><a href="plan-edeb2163.html" data-relationship="planned_in" data-since="2026-06-10T19:50:01.901303">plan-edeb2163</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="trk-53715165.html" data-relationship="part_of" data-since="2026-06-10T19:50:01.903432">trk-53715165</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="blocked_by">
+                <h3>Blocked By:</h3>
+                <ul>
+                    <li><a href="feat-ec48cb3c.html" data-relationship="blocked_by">feat-ec48cb3c</a></li>
+                    <li><a href="feat-256d5099.html" data-relationship="blocked_by">feat-256d5099</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>(a) Work-item completion flow gains an optional --learning flag: the
+text is pre-validated as a card body BEFORE completion proceeds (a
+validation failure aborts with a clear message rather than silently
+losing the learning); on success a card is created/updated and linked
+to the work item. (b) Post-complete stderr nudge lists drift-suspect
+cards under the item's touched paths, inviting wipnote arch verify or
+edit. (c) wipnote arch verify  re-pins verified_at to HEAD.
+(d) The orchestrator directives skill documents the dispatch-time
+resolve+paste ritual and post-verification distillation.</p>
+        </section>
+    </article>
+</body>
+</html>

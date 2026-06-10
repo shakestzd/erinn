@@ -20,6 +20,7 @@ import (
 	"github.com/shakestzd/wipnote/core/provenance"
 	"github.com/shakestzd/wipnote/core/slug"
 	"github.com/shakestzd/wipnote/core/workitem"
+	iarch "github.com/shakestzd/wipnote/internal/arch"
 	"github.com/spf13/cobra"
 )
 
@@ -190,6 +191,16 @@ var wiAllowDirtyComplete bool
 // surfaced by `wipnote check accepted-advisory` and `wipnote show`.
 var wiAcceptedAdvisory string
 
+// wiLearning carries the --learning body text. When non-empty, completion
+// validates the text as an arch card body and, on success, creates a card
+// linked to the work item. A validation failure ABORTS the entire completion
+// before any state change.
+var wiLearning string
+
+// wiLearningKind is the --learning-kind flag value. Defaults to "decision"
+// when empty. Must be one of: subsystem-map, invariant, hazard, decision.
+var wiLearningKind string
+
 // acceptedAdvisoryMarker prefixes the content note the override rationale is
 // persisted under. Node.Properties does NOT round-trip through the canonical
 // HTML writer/parser (only edge properties do), but Node.Content does (via
@@ -232,6 +243,10 @@ func wiCompleteCmd(typeName string) *cobra.Command {
 		cmd.Flags().StringVar(&wiAcceptedAdvisory, "accepted-advisory", "",
 			"audited override of the zero-commit provenance gate; records the rationale on the artifact")
 	}
+	cmd.Flags().StringVar(&wiLearning, "learning", "",
+		"arch card body text to capture as a durable learning; validation failure aborts completion")
+	cmd.Flags().StringVar(&wiLearningKind, "learning-kind", "",
+		"arch card kind for --learning (default: decision); one of: subsystem-map, invariant, hazard, decision")
 	return cmd
 }
 
@@ -270,6 +285,19 @@ func wiSetStatusWithAgent(typeName, id, status, sessionID, agentID string) error
 	defer p.Close()
 
 	col := collectionFor(p, typeName)
+
+	// --learning validation gate: MUST run before any other completion side effect.
+	// If the body fails arch card validation, OR the kind is invalid, abort immediately
+	// with a clear error. The work item must not end up half-completed with a silently
+	// lost learning.
+	if status == "done" && strings.TrimSpace(wiLearning) != "" {
+		if err := validateLearningKind(wiLearningKind); err != nil {
+			return fmt.Errorf("--learning-kind validation failed (completion aborted): %w", err)
+		}
+		if err := validateLearningBody(wiLearning); err != nil {
+			return fmt.Errorf("--learning validation failed (completion aborted): %w", err)
+		}
+	}
 
 	// CRISPI spec-enforcement gate: when completing a feature with the
 	// gate opted in via config, refuse if the feature HTML has no usable
@@ -490,6 +518,15 @@ func wiSetStatusWithAgent(typeName, id, status, sessionID, agentID string) error
 		WriteStatuslineCache(dir, "")
 	}
 
+	// Create the learning arch card after successful completion.
+	// Any error is non-fatal (logged to stderr) since the item is already done.
+	if status == "done" && strings.TrimSpace(wiLearning) != "" {
+		touchedPaths, _ := resolveWorkItemPaths(id, dir)
+		if cerr := createLearningCard(dir, id, strings.TrimSpace(wiLearning), wiLearningKind, touchedPaths); cerr != nil {
+			fmt.Fprintf(os.Stderr, "warning: failed to create learning card: %v\n", cerr)
+		}
+	}
+
 	verb := "Started"
 	switch status {
 	case "done":
@@ -500,6 +537,12 @@ func wiSetStatusWithAgent(typeName, id, status, sessionID, agentID string) error
 	fmt.Printf("%s: %s  %s\n", verb, node.ID, node.Title)
 	if status == "done" && strings.TrimSpace(wiAcceptedAdvisory) != "" {
 		fmt.Printf("  accepted-advisory: %s\n", strings.TrimSpace(wiAcceptedAdvisory))
+	}
+
+	// Post-completion drift nudge: emit to stderr (best-effort, never fails completion).
+	if status == "done" {
+		touchedPaths, _ := resolveWorkItemPaths(id, dir)
+		emitDriftNudge(os.Stderr, touchedPaths, dir, iarch.GitDiffNameOnly)
 	}
 
 	// On start, print a session-label hint tailored to the active harness.

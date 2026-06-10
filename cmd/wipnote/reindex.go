@@ -128,6 +128,13 @@ func runReindex(cmd *cobra.Command, _ []string) error {
 		fmt.Printf("  feature_files: %d file associations rebuilt\n", fileCount)
 	}
 
+	// Ingest arch cards (.wipnote/arch/*.md) into the arch_cards read index.
+	archTotal, archUpserted, archErrs := reindexArchCards(database, wipnoteDir, verboseFlag)
+	if archUpserted > 0 || archErrs > 0 {
+		fmt.Printf("  arch cards: %d upserted, %d errors (of %d card files)\n",
+			archUpserted, archErrs, archTotal)
+	}
+
 	// Slice 9 (feat-229f3333): rebuild graph_edges derived from plan YAML
 	// dependency lists. The HTML edge pass above only covers <a data-*-id>
 	// attributes; plan YAML slice deps are a separate canonical source.

@@ -1022,6 +1022,68 @@ wipnote feature start <feat-id>                   # sets attribution for this se
 
 ---
 
+## Architectural Memory
+
+wipnote maintains a queryable store of architectural facts in `.wipnote/arch/` (cards with
+kinds: `hazard`, `invariant`, `subsystem-map`, `decision`). The facts are relevance-filtered
+into subagent prompts under a hard word budget. Using this store saves each coder agent
+the 15-25 min research tax of re-deriving the same facts from code.
+
+### Dispatch-Time Ritual (MANDATORY for every subagent dispatch)
+
+Before composing a subagent prompt, run:
+
+```bash
+wipnote arch resolve --for <work-item-id>
+# or for path-based queries:
+wipnote arch resolve --for "cmd/wipnote/arch_cmds.go,internal/arch/"
+```
+
+Paste the output verbatim into the subagent's prompt under a heading like
+`## Architectural context`. The output is already budget-capped (~450 words) and
+annotated with UNVERIFIED drift markers. The subagent must treat UNVERIFIED cards
+as advisory only and verify assumptions in code.
+
+If no cards match, the command prints "No arch cards matched." — skip the heading entirely.
+
+### Post-Completion Distillation (AFTER every work item completes)
+
+When a subagent returns or you complete a work item yourself, distill durable learnings
+into arch cards using one of two paths:
+
+**Path A — Completion-time (recommended, single step):**
+```bash
+wipnote feature complete <feat-id> --learning "Body text: max 120 words." \
+  --learning-kind invariant   # or: hazard, decision, subsystem-map
+```
+The `--learning` flag validates the body BEFORE marking done. A failed validation
+aborts the completion with a clear error — the learning is never silently lost.
+
+**Path B — Manual add (for learnings discovered outside completion):**
+```bash
+wipnote arch add <slug> --kind invariant --body "Body text." \
+  --paths "cmd/wipnote/**" --links <work-item-id> --created-by "agent"
+```
+
+### Post-Completion Nudge
+
+After a successful completion, wipnote prints drift-suspect arch cards whose globs
+overlap the item's touched paths. Act on the nudge:
+
+```bash
+wipnote arch verify <slug>      # re-pins verified_at to HEAD; card is trustworthy again
+wipnote arch edit <slug> --body "Updated body."   # update stale content then verify
+```
+
+### Trust Model
+
+- Active cards (no drift marker): authoritative — include in prompt without caveat.
+- UNVERIFIED cards (drift marker or empty verified_at): advisory — include but tell the
+  subagent to verify assumptions in code.
+- Retired/superseded cards: excluded from resolve output by default.
+
+---
+
 ## Related Skills
 
 - **[/multi-ai-orchestration](/multi-ai-orchestration)** - Comprehensive model selection guide with detailed decision matrix

@@ -15,7 +15,7 @@ import (
 // executes ZERO CREATE / ALTER / DROP / trigger / normalisation statements —
 // avoiding the write-lock acquisition that caused SQLITE_BUSY in short-lived
 // hook processes.
-const currentSchemaVersion = 12
+const currentSchemaVersion = 13
 
 // copySwapStepName is the name of the agent_events copy-and-swap migration
 // step. Exposed via CopySwapStepName() so tests can assert it runs at most
@@ -102,6 +102,11 @@ var migrations = []migrationStep{
 		version: 12,
 		name:    "012_gate_records_profile_signature",
 		apply:   stepGateRecordsProfileSignature,
+	},
+	{
+		version: 13,
+		name:    "013_arch_cards",
+		apply:   stepArchCards,
 	},
 }
 
@@ -501,6 +506,38 @@ func stepGateRecordsProfileSignature(db *sql.DB) error {
 			if !isDuplicateColumnError(err) {
 				return fmt.Errorf("add gate_records column (%s): %w", stmt, err)
 			}
+		}
+	}
+	return nil
+}
+
+// stepArchCards creates the arch_cards read-index table and its indexes.
+// This is a derived read index — the canonical store is .wipnote/arch/*.md.
+// Idempotent: CREATE TABLE/INDEX IF NOT EXISTS are no-ops on a DB that already
+// has the table (e.g. a fresh DB where stepCreateBaseTables ran first).
+func stepArchCards(db *sql.DB) error {
+	if _, err := db.Exec(`CREATE TABLE IF NOT EXISTS arch_cards (
+		slug           TEXT PRIMARY KEY,
+		kind           TEXT NOT NULL,
+		paths_json     TEXT NOT NULL DEFAULT '[]',
+		verified_at    TEXT NOT NULL DEFAULT '',
+		links_json     TEXT NOT NULL DEFAULT '[]',
+		created_by     TEXT NOT NULL DEFAULT '',
+		superseded_by  TEXT NOT NULL DEFAULT '',
+		retired        INTEGER NOT NULL DEFAULT 0,
+		body           TEXT NOT NULL DEFAULT '',
+		created_at     DATETIME,
+		updated_at     DATETIME,
+		indexed_at     DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		return fmt.Errorf("create arch_cards: %w", err)
+	}
+	for _, stmt := range []string{
+		`CREATE INDEX IF NOT EXISTS idx_arch_cards_kind ON arch_cards(kind)`,
+		`CREATE INDEX IF NOT EXISTS idx_arch_cards_retired ON arch_cards(retired)`,
+	} {
+		if _, err := db.Exec(stmt); err != nil {
+			return fmt.Errorf("create arch_cards index: %w", err)
 		}
 	}
 	return nil

@@ -54,6 +54,34 @@ Use the CLI to ensure valid structure:
 The `rewrite-yaml` command validates schema, checks meta.id match, and writes atomically.
 Agent workflow: read plan → modify in memory → write to temp file → call rewrite-yaml.
 
+## Architectural Context (run once at agent start — Claude Code only)
+
+At the start of your session, inject relevant architectural memory by running:
+
+```bash
+wipnote who --json 2>/dev/null | python3 -c "
+import json,sys
+d=json.load(sys.stdin)
+wi=d.get('work_item','')
+if wi: print(wi)
+" 2>/dev/null
+```
+
+If the above prints a work item ID (e.g. `feat-abc12345`), run:
+
+```bash
+wipnote arch resolve --for <work-item-id> 2>/dev/null
+```
+
+Paste the output verbatim under a `## Architectural Context` heading in your working context.
+If the command prints "No arch cards matched." or fails silently, skip the heading — do not
+emit errors or warnings. This step is informational only and must never block attribution or
+task execution.
+
+Drift markers (`UNVERIFIED:`) in the output mean the card's verified commit pre-dates recent
+changes to covered files. Treat those facts as advisory — verify assumptions in code before
+relying on them.
+
 ## Research routing — where does the answer live?
 
 Before grepping local code, route by where the answer actually lives:

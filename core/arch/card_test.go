@@ -1,0 +1,546 @@
+package arch
+
+import (
+	"os"
+	"path/filepath"
+	"strings"
+	"testing"
+)
+
+// ---- helpers ----------------------------------------------------------------
+
+func validCard() *Card {
+	return &Card{
+		Name:      "auth-subsystem",
+		Kind:      KindSubsystemMap,
+		Paths:     []string{"internal/auth/**"},
+		CreatedBy: "agent",
+		Body:      "The auth subsystem handles JWT validation and session management.",
+	}
+}
+
+func validFrontmatter(extra ...string) string {
+	lines := []string{
+		"---",
+		"name: auth-subsystem",
+		"kind: subsystem-map",
+		"paths:",
+		"  - internal/auth/**",
+		"created_by: agent",
+	}
+	lines = append(lines, extra...)
+	lines = append(lines, "---", "Body text here.")
+	return strings.Join(lines, "\n")
+}
+
+// ---- Parse tests -------------------------------------------------------------
+
+func TestParse_ValidCard(t *testing.T) {
+	data := []byte(validFrontmatter())
+	card, err := Parse(data)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if card.Name != "auth-subsystem" {
+		t.Errorf("name = %q, want %q", card.Name, "auth-subsystem")
+	}
+	if card.Kind != KindSubsystemMap {
+		t.Errorf("kind = %q, want %q", card.Kind, KindSubsystemMap)
+	}
+	if card.Body != "Body text here." {
+		t.Errorf("body = %q, want %q", card.Body, "Body text here.")
+	}
+}
+
+func TestParse_MissingFrontmatterDelimiter(t *testing.T) {
+	_, err := Parse([]byte("no frontmatter here"))
+	if err == nil {
+		t.Fatal("expected error for missing frontmatter delimiter")
+	}
+}
+
+func TestParse_UnclosedFrontmatter(t *testing.T) {
+	_, err := Parse([]byte("---\nname: x\nkind: hazard\n"))
+	if err == nil {
+		t.Fatal("expected error for unclosed frontmatter")
+	}
+}
+
+func TestParse_EmptyBody(t *testing.T) {
+	data := []byte("---\nname: x\nkind: hazard\ncreated_by: agent\n---\n")
+	card, err := Parse(data)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if card.Body != "" {
+		t.Errorf("expected empty body, got %q", card.Body)
+	}
+}
+
+func TestParse_SupersededBy(t *testing.T) {
+	data := []byte(validFrontmatter("superseded_by: new-card"))
+	card, err := Parse(data)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if card.SupersededBy != "new-card" {
+		t.Errorf("superseded_by = %q, want %q", card.SupersededBy, "new-card")
+	}
+	if !card.IsRetired() {
+		t.Error("expected IsRetired() = true for card with superseded_by")
+	}
+}
+
+// ---- Validate tests ----------------------------------------------------------
+
+func TestValidate_ValidCard(t *testing.T) {
+	if err := Validate(validCard()); err != nil {
+		t.Errorf("expected no error, got: %v", err)
+	}
+}
+
+func TestValidate_MissingName(t *testing.T) {
+	c := validCard()
+	c.Name = ""
+	if err := Validate(c); err == nil {
+		t.Error("expected error for missing name")
+	}
+}
+
+func TestValidate_InvalidSlug(t *testing.T) {
+	cases := []string{"Auth Subsystem", "auth_subsystem", "CAPS", "-starts-hyphen", "ends-hyphen-"}
+	for _, name := range cases {
+		c := validCard()
+		c.Name = name
+		if err := Validate(c); err == nil {
+			t.Errorf("expected slug error for name %q", name)
+		}
+	}
+}
+
+func TestValidate_ValidSlugs(t *testing.T) {
+	cases := []string{"auth", "auth-subsystem", "auth2", "a1b2c3"}
+	for _, name := range cases {
+		c := validCard()
+		c.Name = name
+		if err := Validate(c); err != nil {
+			t.Errorf("unexpected slug error for %q: %v", name, err)
+		}
+	}
+}
+
+func TestValidate_MissingKind(t *testing.T) {
+	c := validCard()
+	c.Kind = ""
+	if err := Validate(c); err == nil {
+		t.Error("expected error for missing kind")
+	}
+}
+
+func TestValidate_InvalidKind(t *testing.T) {
+	c := validCard()
+	c.Kind = "unknown-kind"
+	if err := Validate(c); err == nil {
+		t.Error("expected error for invalid kind")
+	}
+}
+
+func TestValidate_AllKindsValid(t *testing.T) {
+	for _, k := range []Kind{KindSubsystemMap, KindInvariant, KindHazard, KindDecision} {
+		c := validCard()
+		c.Kind = k
+		if err := Validate(c); err != nil {
+			t.Errorf("unexpected error for kind %q: %v", k, err)
+		}
+	}
+}
+
+func TestValidate_MissingCreatedBy(t *testing.T) {
+	c := validCard()
+	c.CreatedBy = ""
+	if err := Validate(c); err == nil {
+		t.Error("expected error for missing created_by")
+	}
+}
+
+func TestValidate_BodyAtWordLimit(t *testing.T) {
+	c := validCard()
+	c.Body = strings.Repeat("word ", MaxBodyWords)
+	if err := Validate(c); err != nil {
+		t.Errorf("unexpected error at exact word limit: %v", err)
+	}
+}
+
+func TestValidate_BodyOverWordLimit(t *testing.T) {
+	c := validCard()
+	c.Body = strings.Repeat("word ", MaxBodyWords+1)
+	err := Validate(c)
+	if err == nil {
+		t.Error("expected error for body exceeding word limit")
+	}
+	if !strings.Contains(err.Error(), "word") {
+		t.Errorf("error should mention word limit, got: %v", err)
+	}
+}
+
+func TestValidate_SupersededByInvalidSlug(t *testing.T) {
+	c := validCard()
+	c.SupersededBy = "Invalid Slug!"
+	if err := Validate(c); err == nil {
+		t.Error("expected error for invalid superseded_by slug")
+	}
+}
+
+func TestValidate_SupersededByValidSlug(t *testing.T) {
+	c := validCard()
+	c.SupersededBy = "new-auth-card"
+	if err := Validate(c); err != nil {
+		t.Errorf("unexpected error for valid superseded_by: %v", err)
+	}
+}
+
+func TestValidate_MultipleErrors(t *testing.T) {
+	c := &Card{}
+	err := Validate(c)
+	if err == nil {
+		t.Fatal("expected errors for empty card")
+	}
+	msg := err.Error()
+	if !strings.Contains(msg, "name") {
+		t.Errorf("error should mention name, got: %v", msg)
+	}
+	if !strings.Contains(msg, "kind") {
+		t.Errorf("error should mention kind, got: %v", msg)
+	}
+}
+
+// ---- countWords tests -------------------------------------------------------
+
+func TestCountWords(t *testing.T) {
+	cases := []struct {
+		input string
+		want  int
+	}{
+		{"", 0},
+		{"   ", 0},
+		{"one", 1},
+		{"one two three", 3},
+		{"  leading and trailing  ", 3},
+		{"multiple   spaces", 2},
+		{"newline\nword", 2},
+	}
+	for _, tc := range cases {
+		got := countWords(tc.input)
+		if got != tc.want {
+			t.Errorf("countWords(%q) = %d, want %d", tc.input, got, tc.want)
+		}
+	}
+}
+
+// ---- Marshal round-trip tests -----------------------------------------------
+
+func TestMarshal_RoundTrip(t *testing.T) {
+	c := validCard()
+	c.Links = []string{"feat-abc123"}
+
+	data, err := Marshal(c)
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+
+	parsed, err := Parse(data)
+	if err != nil {
+		t.Fatalf("parse after marshal: %v", err)
+	}
+
+	if parsed.Name != c.Name {
+		t.Errorf("name: got %q, want %q", parsed.Name, c.Name)
+	}
+	if parsed.Kind != c.Kind {
+		t.Errorf("kind: got %q, want %q", parsed.Kind, c.Kind)
+	}
+	if parsed.Body != c.Body {
+		t.Errorf("body: got %q, want %q", parsed.Body, c.Body)
+	}
+}
+
+// ---- Store tests ------------------------------------------------------------
+
+func TestStore_CreateAndGet(t *testing.T) {
+	dir := t.TempDir()
+	store, err := NewStore(dir)
+	if err != nil {
+		t.Fatalf("NewStore: %v", err)
+	}
+
+	card := validCard()
+	if err := store.Create(card); err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+
+	got, err := store.Get(card.Name)
+	if err != nil {
+		t.Fatalf("Get: %v", err)
+	}
+	if got.Name != card.Name {
+		t.Errorf("name: got %q, want %q", got.Name, card.Name)
+	}
+}
+
+func TestStore_DuplicateGlobSet(t *testing.T) {
+	dir := t.TempDir()
+	store, _ := NewStore(dir)
+
+	first := validCard()
+	first.Name = "first-card"
+	if err := store.Create(first); err != nil {
+		t.Fatalf("Create first: %v", err)
+	}
+
+	// Same glob set, different name — must be rejected.
+	second := validCard()
+	second.Name = "second-card"
+	err := store.Create(second)
+	if err == nil {
+		t.Fatal("expected ErrDuplicateGlobSet for same path glob set")
+	}
+	if !strings.Contains(err.Error(), "glob") && !strings.Contains(err.Error(), "paths") {
+		t.Errorf("error should mention glob/paths, got: %v", err)
+	}
+
+	// Order-insensitive: reversed glob set must also be rejected.
+	third := validCard()
+	third.Name = "third-card"
+	third.Paths = []string{"cmd/**", "internal/auth/**"} // reversed relative to validCard
+	// Note: validCard has only "internal/auth/**", so this is different — use matching set.
+	third.Paths = []string{"internal/auth/**"} // identical set
+	err = store.Create(third)
+	if err == nil {
+		t.Fatal("expected ErrDuplicateGlobSet for identical single-element set")
+	}
+}
+
+func TestStore_DuplicateGlobSet_EmptyExempt(t *testing.T) {
+	dir := t.TempDir()
+	store, _ := NewStore(dir)
+
+	// Two cards with no paths — must both be accepted.
+	a := validCard()
+	a.Name = "no-paths-a"
+	a.Paths = nil
+	if err := store.Create(a); err != nil {
+		t.Fatalf("Create a: %v", err)
+	}
+
+	b := validCard()
+	b.Name = "no-paths-b"
+	b.Paths = nil
+	if err := store.Create(b); err != nil {
+		t.Errorf("empty glob set should not trigger dedup: %v", err)
+	}
+}
+
+func TestStore_DuplicateSlug(t *testing.T) {
+	dir := t.TempDir()
+	store, _ := NewStore(dir)
+
+	card := validCard()
+	if err := store.Create(card); err != nil {
+		t.Fatalf("first Create: %v", err)
+	}
+	err := store.Create(card)
+	if err == nil {
+		t.Fatal("expected ErrDuplicateSlug on second Create")
+	}
+	if !strings.Contains(err.Error(), "already exists") {
+		t.Errorf("expected duplicate slug error, got: %v", err)
+	}
+}
+
+func TestStore_GetNotFound(t *testing.T) {
+	dir := t.TempDir()
+	store, _ := NewStore(dir)
+
+	_, err := store.Get("nonexistent")
+	if err == nil {
+		t.Fatal("expected ErrNotFound")
+	}
+}
+
+func TestStore_List_HidesRetiredByDefault(t *testing.T) {
+	dir := t.TempDir()
+	store, _ := NewStore(dir)
+
+	active := validCard()
+	active.Name = "active-card"
+	store.Create(active)
+
+	retired := validCard()
+	retired.Name = "retired-card"
+	retired.Paths = []string{"internal/other/**"} // distinct glob set
+	store.Create(retired)
+	store.Deprecate("retired-card", "active-card")
+
+	cards, err := store.List(false)
+	if err != nil {
+		t.Fatalf("List: %v", err)
+	}
+	for _, c := range cards {
+		if c.Name == "retired-card" {
+			t.Error("retired card should be hidden from default list")
+		}
+	}
+	if len(cards) != 1 {
+		t.Errorf("expected 1 active card, got %d", len(cards))
+	}
+}
+
+func TestStore_List_IncludeRetiredWithFlag(t *testing.T) {
+	dir := t.TempDir()
+	store, _ := NewStore(dir)
+
+	active := validCard()
+	active.Name = "active-card"
+	store.Create(active)
+
+	retired := validCard()
+	retired.Name = "retired-card"
+	retired.Paths = []string{"internal/other/**"} // distinct glob set
+	store.Create(retired)
+	store.Deprecate("retired-card", "active-card")
+
+	cards, err := store.List(true)
+	if err != nil {
+		t.Fatalf("List: %v", err)
+	}
+	if len(cards) != 2 {
+		t.Errorf("expected 2 cards with --all, got %d", len(cards))
+	}
+}
+
+func TestStore_Deprecate_WithSuccessor(t *testing.T) {
+	dir := t.TempDir()
+	store, _ := NewStore(dir)
+
+	card := validCard()
+	store.Create(card)
+
+	if err := store.Deprecate(card.Name, "new-card"); err != nil {
+		t.Fatalf("Deprecate: %v", err)
+	}
+
+	got, _ := store.Get(card.Name)
+	if got.SupersededBy != "new-card" {
+		t.Errorf("superseded_by = %q, want %q", got.SupersededBy, "new-card")
+	}
+	if !got.IsRetired() {
+		t.Error("expected IsRetired() = true after Deprecate")
+	}
+}
+
+func TestStore_Deprecate_Outright(t *testing.T) {
+	dir := t.TempDir()
+	store, _ := NewStore(dir)
+
+	card := validCard()
+	store.Create(card)
+
+	if err := store.Deprecate(card.Name, ""); err != nil {
+		t.Fatalf("Deprecate (outright): %v", err)
+	}
+
+	got, _ := store.Get(card.Name)
+	if got.SupersededBy != "" {
+		t.Errorf("expected empty superseded_by for outright retirement, got %q", got.SupersededBy)
+	}
+	if !got.IsRetired() {
+		t.Error("expected IsRetired() = true after outright Deprecate")
+	}
+}
+
+func TestStore_Update(t *testing.T) {
+	dir := t.TempDir()
+	store, _ := NewStore(dir)
+
+	card := validCard()
+	store.Create(card)
+
+	card.Body = "Updated body content."
+	if err := store.Update(card); err != nil {
+		t.Fatalf("Update: %v", err)
+	}
+
+	got, _ := store.Get(card.Name)
+	if got.Body != "Updated body content." {
+		t.Errorf("body = %q, want %q", got.Body, "Updated body content.")
+	}
+}
+
+func TestStore_Update_NotFound(t *testing.T) {
+	dir := t.TempDir()
+	store, _ := NewStore(dir)
+
+	card := validCard()
+	err := store.Update(card)
+	if err == nil {
+		t.Fatal("expected ErrNotFound")
+	}
+}
+
+func TestStore_Update_DuplicateGlobSet(t *testing.T) {
+	dir := t.TempDir()
+	store, _ := NewStore(dir)
+
+	// Create the first card with a specific path set.
+	card1 := validCard()
+	card1.Name = "card-one"
+	card1.Paths = []string{"internal/auth/**", "pkg/auth/**"}
+	store.Create(card1)
+
+	// Create a second card with different paths.
+	card2 := validCard()
+	card2.Name = "card-two"
+	card2.Paths = []string{"internal/db/**"}
+	store.Create(card2)
+
+	// Try to update card2 to have the same path set as card1 — should fail.
+	card2.Paths = []string{"pkg/auth/**", "internal/auth/**"} // same set, different order
+	err := store.Update(card2)
+	if err == nil {
+		t.Fatal("expected ErrDuplicateGlobSet when updating to another card's path set")
+	}
+	if !strings.Contains(err.Error(), "same path glob set already exists") {
+		t.Errorf("expected duplicate glob set error, got: %v", err)
+	}
+}
+
+func TestStore_ValidateAll(t *testing.T) {
+	dir := t.TempDir()
+	store, _ := NewStore(dir)
+
+	// Write a valid card.
+	card := validCard()
+	store.Create(card)
+
+	// Write an invalid card directly (bypass Create's validation).
+	bad := []byte("---\nname: bad-card\nkind: not-a-kind\ncreated_by: agent\n---\nBody.\n")
+	os.WriteFile(filepath.Join(store.Dir(), "bad-card.md"), bad, 0o644)
+
+	errs, err := store.ValidateAll()
+	if err != nil {
+		t.Fatalf("ValidateAll: %v", err)
+	}
+	if len(errs) != 1 {
+		t.Errorf("expected 1 validation error, got %d: %v", len(errs), errs)
+	}
+	if _, ok := errs["bad-card"]; !ok {
+		t.Error("expected error for bad-card")
+	}
+}
+
+func TestStore_ParseFile_NotFound(t *testing.T) {
+	_, err := ParseFile("/nonexistent/path/card.md")
+	if err == nil {
+		t.Fatal("expected ErrNotFound")
+	}
+}

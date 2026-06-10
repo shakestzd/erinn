@@ -38,7 +38,6 @@ jobs:
           # to a wipnote-named dir under RUNNER_TEMP so the compiled test binary
           # path contains "wipnote", satisfying the guard without touching tests.
           GOTMPDIR: ${{ runner.temp }}/wipnote-test
-          TMPDIR: ${{ runner.temp }}/wipnote-test
         run: mkdir -p "$GOTMPDIR" && go test -short ./...
       # The plan/ module is separate (its own go.mod, depends on core/), so the
       # root `./...` above does not include it. Run its gates explicitly so the

@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>Cross-harness doc-verification audit pre-v0.61.0</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="spk-1e3c80a7"
+             data-type="spike"
+             data-status="todo"
+             data-priority="medium"
+             data-created="2026-06-10T05:11:53.846846"
+             data-updated="2026-06-10T05:11:54.185021" data-agent-assigned="claude-code" data-created-by-agent="claude-code" data-created-by-model="claude-fable-5[1m]" data-created-by-cli-version="0.60.21-111-g2c00119b4">
+
+        <header>
+            <h1>Cross-harness doc-verification audit pre-v0.61.0</h1>
+            <div class="metadata">
+                <span class="badge status-todo">Todo</span>
+                <span class="badge priority-medium">Medium Priority</span>
+            </div>
+        </header>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>Re-verify agent frontmatter field specs against current upstream docs for Claude Code (sub-agents, plugins, hooks, skills), Codex CLI (subagents, config-reference), and Gemini CLI (subagents.md, extensions reference, model IDs). Checklist source: agentFrontmatterFieldSpecs in port/pluginbuild/agent_frontmatter.go (post port-lift location). Schemas drift silently — fields can stop being honored with no error. Fixes land in plugin agents source, plugin-core manifest, pluginbuild, or the system prompt — never user-facing docs. Executed via Gemini CLI headless delegation.</p>
+        </section>
+    </article>
+</body>
+</html>

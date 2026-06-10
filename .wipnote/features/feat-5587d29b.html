@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>Bootstrap: agent-driven starter cards for any repo</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="feat-5587d29b"
+             data-type="feature"
+             data-status="in-progress"
+             data-priority="medium"
+             data-created="2026-06-10T19:50:01.88911"
+             data-updated="2026-06-10T21:31:15.145688" data-agent-assigned="claude-code" data-track-id="trk-53715165">
+
+        <header>
+            <h1>Bootstrap: agent-driven starter cards for any repo</h1>
+            <div class="metadata">
+                <span class="badge status-in-progress">In Progress</span>
+                <span class="badge priority-medium">Medium Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="planned_in">
+                <h3>Planned In:</h3>
+                <ul>
+                    <li><a href="plan-edeb2163.html" data-relationship="planned_in" data-since="2026-06-10T19:50:01.891772">plan-edeb2163</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="blocked_by">
+                <h3>Blocked By:</h3>
+                <ul>
+                    <li><a href="feat-ec48cb3c.html" data-relationship="blocked_by">feat-ec48cb3c</a></li>
+                    <li><a href="feat-256d5099.html" data-relationship="blocked_by">feat-256d5099</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="trk-53715165.html" data-relationship="part_of" data-since="2026-06-10T19:50:01.894083">trk-53715165</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="implemented_in">
+                <h3>Implemented In:</h3>
+                <ul>
+                    <li><a href="873ecf53-d8ef-4743-8599-064e2c00279e.html" data-relationship="implemented_in" data-since="2026-06-10T21:31:15.145519">session 873ecf53-d8ef-4743-8599-064e2c00279e</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>wipnote arch bootstrap emits a structured drafting brief (repo layout,
+module list, existing CLAUDE.md/AGENTS.md, lineage hotspots = top
+file-touch counts from the last 90 days via the code-areas/blame
+machinery) for the calling agent, which authors starter cards via
+wipnote arch add. Bootstrap rejects cards whose name or glob set
+duplicates an existing card. A plugin skill (arch-bootstrap) wraps the
+flow for all three harnesses. No model calls from the Go binary.</p>
+        </section>
+    </article>
+</body>
+</html>

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 )
@@ -72,6 +73,8 @@ func (s *Store) List(includeRetired bool) ([]*Card, error) {
 
 // Create validates and writes a new card.
 // Returns ErrDuplicateSlug when a card with the same name already exists.
+// Returns ErrDuplicateGlobSet when an existing active card has the exact same
+// set of non-empty path globs (order-insensitive). Empty glob sets are exempt.
 func (s *Store) Create(card *Card) error {
 	if err := Validate(card); err != nil {
 		return err
@@ -80,10 +83,48 @@ func (s *Store) Create(card *Card) error {
 	if _, err := os.Stat(path); err == nil {
 		return fmt.Errorf("%w: %s", ErrDuplicateSlug, card.Name)
 	}
+	if len(card.Paths) > 0 {
+		if dup, err := s.findGlobSetDuplicate(card); err != nil {
+			return err
+		} else if dup != "" {
+			return fmt.Errorf("%w: same paths as %q", ErrDuplicateGlobSet, dup)
+		}
+	}
 	now := time.Now().UTC()
 	card.CreatedAt = now
 	card.UpdatedAt = now
 	return s.write(card)
+}
+
+// findGlobSetDuplicate returns the slug of an existing active card whose path
+// glob set is equal (order-insensitive) to card.Paths, or "" if none.
+func (s *Store) findGlobSetDuplicate(card *Card) (string, error) {
+	existing, err := s.List(false) // active cards only
+	if err != nil {
+		return "", err
+	}
+	target := normalizeGlobSet(card.Paths)
+	for _, c := range existing {
+		if len(c.Paths) == 0 {
+			continue
+		}
+		if c.Name == card.Name {
+			continue
+		}
+		if normalizeGlobSet(c.Paths) == target {
+			return c.Name, nil
+		}
+	}
+	return "", nil
+}
+
+// normalizeGlobSet sorts and joins a glob slice into a canonical string for
+// order-insensitive equality comparison.
+func normalizeGlobSet(paths []string) string {
+	cp := make([]string, len(paths))
+	copy(cp, paths)
+	sort.Strings(cp)
+	return strings.Join(cp, "\x00")
 }
 
 // Update validates and overwrites an existing card.

@@ -23,6 +23,7 @@ func archCmd() *cobra.Command {
 		Short: "Manage architectural memory cards",
 	}
 	cmd.AddCommand(archAddCmd())
+	cmd.AddCommand(archBootstrapCmd())
 	cmd.AddCommand(archEditCmd())
 	cmd.AddCommand(archListCmd())
 	cmd.AddCommand(archShowCmd())

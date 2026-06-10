@@ -237,3 +237,7 @@ var ErrNotFound = errors.New("card not found")
 
 // ErrDuplicateSlug is returned when a card with the same name already exists.
 var ErrDuplicateSlug = errors.New("card with this slug already exists")
+
+// ErrDuplicateGlobSet is returned when a card with the exact same (non-empty)
+// set of path globs already exists. Order of globs is ignored.
+var ErrDuplicateGlobSet = errors.New("card with the same path glob set already exists")

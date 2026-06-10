@@ -1,0 +1,18 @@
+meta:
+    id: plan-edeb2163
+    track_id: trk-23232c8d
+    title: Architectural memory v1
+    description: Card store, resolve engine with drift labels, bootstrap, completion-time capture, Claude Code hook injection + dogfood measurement
+    created_at: "2026-06-10"
+    status: draft
+    priority: medium
+    schema_version: v3
+    version: 2
+design:
+    problem: ""
+    goals: []
+    constraints: []
+    approved: false
+    comment: ""
+slices: []
+questions: []

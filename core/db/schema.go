@@ -376,7 +376,24 @@ func CreateAllTables(db *sql.DB) error {
 			UNIQUE(plan_id, section, action, question_id)
 		)`,
 
-		// 16. gate_records — session-local derived quality-gate runs
+		// 16. arch_cards — read index for architectural memory cards (.wipnote/arch/*.md)
+		// Canonical store is the .md files; this table is derived and never authoritative.
+		`CREATE TABLE IF NOT EXISTS arch_cards (
+			slug           TEXT PRIMARY KEY,
+			kind           TEXT NOT NULL,
+			paths_json     TEXT NOT NULL DEFAULT '[]',
+			verified_at    TEXT NOT NULL DEFAULT '',
+			links_json     TEXT NOT NULL DEFAULT '[]',
+			created_by     TEXT NOT NULL DEFAULT '',
+			superseded_by  TEXT NOT NULL DEFAULT '',
+			retired        INTEGER NOT NULL DEFAULT 0,
+			body           TEXT NOT NULL DEFAULT '',
+			created_at     DATETIME,
+			updated_at     DATETIME,
+			indexed_at     DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+		)`,
+
+		// 17. gate_records — session-local derived quality-gate runs
 		`CREATE TABLE IF NOT EXISTS gate_records (
 			id INTEGER PRIMARY KEY AUTOINCREMENT,
 			session_id TEXT NOT NULL,
@@ -471,6 +488,9 @@ func CreateAllIndexes(db *sql.DB) error {
 		// session_files
 		"CREATE INDEX IF NOT EXISTS idx_session_files_session ON session_files(session_id)",
 		"CREATE INDEX IF NOT EXISTS idx_session_files_path ON session_files(file_path)",
+		// arch_cards
+		"CREATE INDEX IF NOT EXISTS idx_arch_cards_kind ON arch_cards(kind)",
+		"CREATE INDEX IF NOT EXISTS idx_arch_cards_retired ON arch_cards(retired)",
 		// plan_feedback
 		"CREATE INDEX IF NOT EXISTS idx_plan_feedback_plan_id ON plan_feedback(plan_id)",
 		"CREATE INDEX IF NOT EXISTS idx_plan_feedback_section ON plan_feedback(plan_id, section)",

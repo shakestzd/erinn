@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>Resolve engine: wipnote arch resolve with pinned glob semantics, batched drift, budget</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="feat-256d5099"
+             data-type="feature"
+             data-status="in-progress"
+             data-priority="medium"
+             data-created="2026-06-10T19:50:01.879656"
+             data-updated="2026-06-10T20:47:02.609897" data-agent-assigned="claude-code" data-track-id="trk-53715165">
+
+        <header>
+            <h1>Resolve engine: wipnote arch resolve with pinned glob semantics, batched drift, budget</h1>
+            <div class="metadata">
+                <span class="badge status-in-progress">In Progress</span>
+                <span class="badge priority-medium">Medium Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="trk-53715165.html" data-relationship="part_of" data-since="2026-06-10T19:50:01.884421">trk-53715165</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="blocked_by">
+                <h3>Blocked By:</h3>
+                <ul>
+                    <li><a href="feat-ec48cb3c.html" data-relationship="blocked_by">feat-ec48cb3c</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="implemented_in">
+                <h3>Implemented In:</h3>
+                <ul>
+                    <li><a href="873ecf53-d8ef-4743-8599-064e2c00279e.html" data-relationship="implemented_in" data-since="2026-06-10T20:47:02.609738">session 873ecf53-d8ef-4743-8599-064e2c00279e</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="planned_in">
+                <h3>Planned In:</h3>
+                <ul>
+                    <li><a href="plan-edeb2163.html" data-relationship="planned_in" data-since="2026-06-10T19:50:01.882025">plan-edeb2163</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>wipnote arch resolve --for  [--budget N]:
+matches paths against card globs using the SAME matching primitive as
+internal/blame (resolve lives in the root module — internal/arch — so
+it can reuse internal/blame.WalkAreas and cmd git helpers; core/arch
+stays parse/validate only). Ordering hazard > invariant > subsystem-map
+> decision; budget in WORDS (default ~450 words ≈ 600 tokens), never
+splitting a card, appending a sentinel line "(N cards omitted by
+budget)" when truncated. Drift: ONE git diff --name-only per unique
+verified_at value per invocation (not per card), matched in memory;
+drifted cards prefixed "UNVERIFIED since ".
+resolve --for  derives paths via the existing work-item
+file attribution (feature_files machinery).</p>
+        </section>
+    </article>
+</body>
+</html>

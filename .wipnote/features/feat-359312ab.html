@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>Dynamic skill-context injection (Claude Code) &#43; dogfood measurement</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="feat-359312ab"
+             data-type="feature"
+             data-status="in-progress"
+             data-priority="medium"
+             data-created="2026-06-10T19:50:01.908055"
+             data-updated="2026-06-10T22:04:10.580001" data-agent-assigned="claude-code" data-track-id="trk-53715165">
+
+        <header>
+            <h1>Dynamic skill-context injection (Claude Code) &#43; dogfood measurement</h1>
+            <div class="metadata">
+                <span class="badge status-in-progress">In Progress</span>
+                <span class="badge priority-medium">Medium Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="planned_in">
+                <h3>Planned In:</h3>
+                <ul>
+                    <li><a href="plan-edeb2163.html" data-relationship="planned_in" data-since="2026-06-10T19:50:01.910618">plan-edeb2163</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="trk-53715165.html" data-relationship="part_of" data-since="2026-06-10T19:50:01.912716">trk-53715165</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="blocked_by">
+                <h3>Blocked By:</h3>
+                <ul>
+                    <li><a href="feat-256d5099.html" data-relationship="blocked_by">feat-256d5099</a></li>
+                    <li><a href="feat-5587d29b.html" data-relationship="blocked_by">feat-5587d29b</a></li>
+                    <li><a href="feat-5a312c8f.html" data-relationship="blocked_by">feat-5a312c8f</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="implemented_in">
+                <h3>Implemented In:</h3>
+                <ul>
+                    <li><a href="873ecf53-d8ef-4743-8599-064e2c00279e.html" data-relationship="implemented_in" data-since="2026-06-10T22:04:10.579662">session 873ecf53-d8ef-4743-8599-064e2c00279e</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>Primary mechanism (feasibility-verified): the wipnote:agent-context
+skill — loaded by all plugin coder agents — gains a dynamic-context
+shell invocation that runs wipnote arch resolve --for derived from the
+active work item at agent start, so matched cards land in the subagent
+context with zero orchestrator action. (TaskCreated/PreToolUse payload
+mutation is NOT viable: HookResult cannot inject into a spawned
+subagent's prompt — falsified by critics B6/B7.) Codex/Gemini keep the
+documented manual ritual (follow-up track). Acceptance study: bootstrap
+cards for the serve/hub area, run a scripted serve-area task, measure
+research phase = time from subagent start to its first Edit/Write tool
+call in the session transcript, compared with the recorded 2026-06-10
+baseline (15-25 min on serve-area tasks).</p>
+        </section>
+    </article>
+</body>
+</html>

@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>Lift dashboard &#43; OTEL into observe/ module</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="feat-67f3ab7f"
+             data-type="feature"
+             data-status="todo"
+             data-priority="medium"
+             data-created="2026-06-10T01:32:54.549167"
+             data-updated="2026-06-10T01:32:54.553961" data-agent-assigned="claude-code" data-track-id="trk-505c1685" data-created-by-agent="claude-code" data-created-by-model="claude-fable-5[1m]" data-created-by-cli-version="0.60.21-111-g2c00119b4">
+
+        <header>
+            <h1>Lift dashboard &#43; OTEL into observe/ module</h1>
+            <div class="metadata">
+                <span class="badge status-todo">Todo</span>
+                <span class="badge priority-medium">Medium Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="trk-505c1685.html" data-relationship="part_of" data-since="2026-06-10T01:32:54.553842">trk-505c1685</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>Final carve-out phase: move dashboard (serve) + OTEL collector/ingest into an observe/ sibling Go module importing core (and plan render lib where needed). EventSink inversion already landed (feat-f87e93a6, feat-331927fb). Remaining seams: otel_schema migration lives in core db (move migration or co-resident sink); dashboard cmd imports plan renderer. Mirror multi-module CI + path-guard pattern.</p>
+        </section>
+    </article>
+</body>
+</html>

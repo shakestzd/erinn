@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>Gemini headless sessions captured but attributed as claude-code agent</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="bug-5128672e"
+             data-type="bug"
+             data-status="todo"
+             data-priority="medium"
+             data-created="2026-06-10T05:24:43.835128"
+             data-updated="2026-06-10T05:24:43.842944" data-agent-assigned="claude-code" data-track-id="trk-2e707ed1" data-created-by-agent="claude-code" data-created-by-model="claude-fable-5[1m]" data-created-by-cli-version="0.60.21-111-g2c00119b4">
+
+        <header>
+            <h1>Gemini headless sessions captured but attributed as claude-code agent</h1>
+            <div class="metadata">
+                <span class="badge status-todo">Todo</span>
+                <span class="badge priority-medium">Medium Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="trk-2e707ed1.html" data-relationship="part_of" data-since="2026-06-10T05:24:43.842825">trk-2e707ed1</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>Probe 2026-06-10: gemini -p run was captured as session 0ed854e8 (hooks fire headless — good) but session list shows AGENT=claude-code instead of gemini. Attribution likely defaults when the hook handler cannot identify the calling harness. Fix harness detection in the hook handler (env-based or payload-based) so lineage and analytics distinguish gemini/codex/claude sessions.</p>
+        </section>
+    </article>
+</body>
+</html>

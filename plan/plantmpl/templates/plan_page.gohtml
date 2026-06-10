@@ -633,40 +633,65 @@ var planId=(function(){var a=document.querySelector('article[id]');return a?a.id
 
   function escHtml(s){var d=document.createElement('div');d.textContent=s;return d.innerHTML}
 
-  // Helper: get effective approval value for a slice section.
-  // For radio-based slice controls, returns the selected value or 'pending'.
-  // For checkbox-based controls (design, outline), returns 'approved' or 'pending'.
-  function getApprovalValue(sec){
-    // Try radio group first (slice-N approval segmented control)
-    var checked=document.querySelector('input[type="radio"][data-section="'+sec+'"][data-action="approve"]:checked');
-    if(checked) return checked.value;
-    // Fallback: checkbox
-    var cb=document.querySelector('input[type="checkbox"][data-section="'+sec+'"][data-action="approve"]');
-    if(cb) return cb.checked?'approved':'pending';
-    return 'pending';
+  // showFeedbackError: display a visible toast near the top of the page for
+  // any feedback write that returns non-2xx. The toast auto-dismisses after
+  // 8 seconds but can be dismissed early by clicking. Uses inline styles so
+  // it works whether the plan page is loaded standalone or embedded.
+  function showFeedbackError(msg){
+    var toast=document.createElement('div');
+    toast.setAttribute('role','alert');
+    toast.style.cssText='position:fixed;top:16px;right:16px;z-index:9999;max-width:420px;padding:12px 16px;background:rgba(239,68,68,.95);color:#fff;border-radius:8px;font-size:.85rem;line-height:1.4;box-shadow:0 4px 16px rgba(0,0,0,.5);display:flex;align-items:flex-start;gap:10px;cursor:pointer';
+    var icon=document.createElement('span');
+    icon.textContent='⚠️';
+    icon.style.flexShrink='0';
+    var text=document.createElement('span');
+    text.textContent='Feedback not saved: '+msg;
+    var close=document.createElement('span');
+    close.textContent='×';
+    close.style.cssText='margin-left:auto;font-size:1.1rem;line-height:1;flex-shrink:0;opacity:.8';
+    toast.appendChild(icon);
+    toast.appendChild(text);
+    toast.appendChild(close);
+    document.body.appendChild(toast);
+    var tid=setTimeout(function(){if(toast.parentNode)toast.parentNode.removeChild(toast);},8000);
+    toast.addEventListener('click',function(){clearTimeout(tid);if(toast.parentNode)toast.parentNode.removeChild(toast);});
   }
 
-  function handleApprovalChange(el){
-    var sec=el.dataset.section;
-    var val=getApprovalValue(sec);
+  // revertApproval: restore a section's approval control to prevVal after a
+  // failed POST, then re-run all downstream UI updates without firing another
+  // network request. Temporarily suppresses change events to prevent re-POST.
+  function revertApproval(sec,prevVal){
+    var radio=document.querySelector('input[type="radio"][data-section="'+sec+'"][data-action="approve"][value="'+prevVal+'"]');
+    if(radio){
+      radio.checked=true;
+    } else {
+      var cb=document.querySelector('input[type="checkbox"][data-section="'+sec+'"][data-action="approve"]');
+      if(cb) cb.checked=(prevVal==='approved'||prevVal==='true');
+    }
+    // Re-run downstream visual updates without a new fetch
+    var dummy=document.querySelector('[data-section="'+sec+'"][data-action="approve"]');
+    if(dummy) handleApprovalVisuals(sec,prevVal);
+  }
+
+  // handleApprovalVisuals: apply all downstream visual state changes for a
+  // section approval value WITHOUT firing a network request (used both by
+  // handleApprovalChange and revertApproval).
+  function handleApprovalVisuals(sec,val){
     var isApproved=(val==='approved');
     var badge=document.querySelector('[data-badge-for="'+sec+'"]');
     if(badge) setBadge(badge,isApproved);
-    var phaseDetails=el.closest('details[data-phase]');
-    if(phaseDetails) phaseDetails.dataset.status=isApproved?'approved':'pending';
+    var phaseDetails=document.querySelector('[data-action="approve"][data-section="'+sec+'"]');
+    var pd=phaseDetails&&phaseDetails.closest('details[data-phase]');
+    if(pd) pd.dataset.status=isApproved?'approved':'pending';
     if(sec.startsWith('slice-')&&sec.split('-').length===2){
       var n=sec.split('-')[1];
-      // Update data-approval attribute on slice-card for CSS stripe
       var sliceCard=document.getElementById('slice-'+n);
       if(sliceCard) sliceCard.dataset.approval=val;
-      // Update dep graph node
       var node=document.getElementById('node-'+n);
       if(node) node.dataset.status=isApproved?'approved':'pending';
-      // Update sidebar nav dot
       document.querySelectorAll('[data-dot-for="'+n+'"]').forEach(function(dot){
         dot.dataset.approval=val;
       });
-      // Update overall slices badge
       var allSliceInputs=document.querySelectorAll('input[data-section^="slice-"][data-action="approve"]');
       var sliceNums={};
       Array.prototype.forEach.call(allSliceInputs,function(inp){
@@ -681,11 +706,58 @@ var planId=(function(){var a=document.querySelector('article[id]');return a?a.id
       if(sd) sd.dataset.status=allOk?'approved':'pending';
     }
     updateProgress();
-    if(planId){
+  }
+
+  // Helper: get effective approval value for a slice section.
+  // For radio-based slice controls, returns the selected value or 'pending'.
+  // For checkbox-based controls (design, outline), returns 'approved' or 'pending'.
+  function getApprovalValue(sec){
+    // Try radio group first (slice-N approval segmented control)
+    var checked=document.querySelector('input[type="radio"][data-section="'+sec+'"][data-action="approve"]:checked');
+    if(checked) return checked.value;
+    // Fallback: checkbox
+    var cb=document.querySelector('input[type="checkbox"][data-section="'+sec+'"][data-action="approve"]');
+    if(cb) return cb.checked?'approved':'pending';
+    return 'pending';
+  }
+
+  // approvalServerState: tracks the last server-confirmed approval value per
+  // section key. Populated by loadExistingFeedback (GET) and successful POSTs.
+  // Used to revert optimistic UI updates when a POST fails.
+  var approvalServerState={};
+
+  function handleApprovalChange(el){
+    var sec=el.dataset.section;
+    var val=getApprovalValue(sec);
+    // Capture the last server-confirmed value for this section (or 'pending'
+    // if we have never seen a confirmed server value — i.e. the page just
+    // loaded with baked-in checked state and the first POST fails).
+    var prevVal=approvalServerState.hasOwnProperty(sec)?approvalServerState[sec]:'pending';
+    // Apply optimistic UI update
+    handleApprovalVisuals(sec,val);
+    // During initial hydration from the server GET, suppress POST — the change
+    // events are synthetic (we are restoring server state, not recording new input).
+    if(planId&&!_loadingFeedback){
       fetch((window.wipnotePlanBase||'')+'/api/plans/'+planId+'/feedback',{
         method:'POST',
         headers:{'Content-Type':'application/json'},
         body:JSON.stringify({section:sec,action:'approve',value:(val==='approved'?'true':'false'),question_id:''})
+      }).then(function(r){
+        if(r.ok){
+          // Record the now-confirmed server state so we can revert correctly
+          // if a subsequent POST fails.
+          approvalServerState[sec]=val;
+          return;
+        }
+        return r.text().then(function(body){
+          console.error('[wipnote] feedback POST '+sec+' returned '+r.status+': '+body);
+          showFeedbackError((body&&body.trim())||('HTTP '+r.status));
+          revertApproval(sec,prevVal);
+        });
+      }).catch(function(err){
+        console.error('[wipnote] feedback POST '+sec+' network error:',err);
+        showFeedbackError('Could not reach server. Is wipnote serve running?');
+        revertApproval(sec,prevVal);
       });
     }
   }
@@ -713,10 +785,20 @@ var planId=(function(){var a=document.querySelector('article[id]');return a?a.id
       var details=document.querySelector('[data-phase="questions"]');
       if(details) details.dataset.status=allAnswered?'approved':'pending';
       if(planId){
+        var qVal=this.value,qId=this.dataset.question;
         fetch((window.wipnotePlanBase||'')+'/api/plans/'+planId+'/feedback',{
           method:'POST',
           headers:{'Content-Type':'application/json'},
-          body:JSON.stringify({section:'questions',action:'answer',value:this.value,question_id:this.dataset.question})
+          body:JSON.stringify({section:'questions',action:'answer',value:qVal,question_id:qId})
+        }).then(function(r){
+          if(r.ok) return;
+          return r.text().then(function(body){
+            console.error('[wipnote] feedback POST questions/'+qId+' returned '+r.status+': '+body);
+            showFeedbackError((body&&body.trim())||('HTTP '+r.status+' saving answer'));
+          });
+        }).catch(function(err){
+          console.error('[wipnote] feedback POST questions network error:',err);
+          showFeedbackError('Could not reach server. Is wipnote serve running?');
         });
       }
     });
@@ -733,12 +815,21 @@ var planId=(function(){var a=document.querySelector('article[id]');return a?a.id
   // Slice-local question radio chips (data-action="answer", data-section=slice-N-question-<id>)
   document.querySelectorAll('input[type="radio"][data-action="answer"]').forEach(function(r){
     r.addEventListener('change',function(){
-      var sec=this.dataset.section;
+      var sec=this.dataset.section,ansVal=this.value;
       if(planId){
         fetch((window.wipnotePlanBase||'')+'/api/plans/'+planId+'/feedback',{
           method:'POST',
           headers:{'Content-Type':'application/json'},
-          body:JSON.stringify({section:sec,action:'answer',value:this.value,question_id:sec})
+          body:JSON.stringify({section:sec,action:'answer',value:ansVal,question_id:sec})
+        }).then(function(r){
+          if(r.ok) return;
+          return r.text().then(function(body){
+            console.error('[wipnote] feedback POST slice-question '+sec+' returned '+r.status+': '+body);
+            showFeedbackError((body&&body.trim())||('HTTP '+r.status+' saving answer'));
+          });
+        }).catch(function(err){
+          console.error('[wipnote] feedback POST slice-question network error:',err);
+          showFeedbackError('Could not reach server. Is wipnote serve running?');
         });
       }
     });
@@ -836,10 +927,20 @@ var planId=(function(){var a=document.querySelector('article[id]');return a?a.id
     ta.addEventListener('input',function(){clearTimeout(timer);timer=setTimeout(updateComments,400)});
     ta.addEventListener('blur',function(){
       if(planId&&this.value.trim()){
+        var cSec=this.dataset.section,cVal=this.value.trim();
         fetch((window.wipnotePlanBase||'')+'/api/plans/'+planId+'/feedback',{
           method:'POST',
           headers:{'Content-Type':'application/json'},
-          body:JSON.stringify({section:this.dataset.section,action:'comment',value:this.value.trim(),question_id:''})
+          body:JSON.stringify({section:cSec,action:'comment',value:cVal,question_id:''})
+        }).then(function(r){
+          if(r.ok) return;
+          return r.text().then(function(body){
+            console.error('[wipnote] feedback POST comment '+cSec+' returned '+r.status+': '+body);
+            showFeedbackError((body&&body.trim())||('HTTP '+r.status+' saving comment'));
+          });
+        }).catch(function(err){
+          console.error('[wipnote] feedback POST comment network error:',err);
+          showFeedbackError('Could not reach server. Is wipnote serve running?');
         });
       }
     });
@@ -925,17 +1026,25 @@ var planId=(function(){var a=document.querySelector('article[id]');return a?a.id
     });
   }
 
+  // _loadingFeedback: true while loadExistingFeedback is hydrating controls
+  // from the server GET. handleApprovalChange skips POST during this window
+  // to avoid echoing server state back as new writes.
+  var _loadingFeedback=false;
+
   function loadExistingFeedback(){
     if(!planId){return;}
     fetch((window.wipnotePlanBase||'')+'/api/plans/'+planId+'/feedback')
       .then(function(r){return r.ok?r.json():null;})
       .then(function(data){
         if(!data){return;}
+        _loadingFeedback=true;
         if(data.sections){
           Object.keys(data.sections).forEach(function(sec){
             var info=data.sections[sec];
             if(info.approved||info.value){
               var val=info.value||'approved';
+              // Record server-confirmed state so revert logic has a baseline.
+              approvalServerState[sec]=val;
               // Try radio first (slice controls)
               var radio=document.querySelector('input[type="radio"][data-section="'+sec+'"][data-action="approve"][value="'+val+'"]');
               if(radio&&!radio.checked){radio.checked=true;radio.dispatchEvent(new Event('change'));}
@@ -943,6 +1052,17 @@ var planId=(function(){var a=document.querySelector('article[id]');return a?a.id
                 // Fallback checkbox (design, outline)
                 var cb=document.querySelector('input[type="checkbox"][data-section="'+sec+'"][data-action="approve"]');
                 if(cb&&!cb.checked){cb.checked=true;cb.dispatchEvent(new Event('change'));}
+              }
+            } else {
+              // Section exists in server data but is not approved — record as
+              // 'pending' so a subsequent approval revert has a valid baseline.
+              approvalServerState[sec]='pending';
+              // If baked HTML had this section checked (stale render), clear it.
+              var radio=document.querySelector('input[type="radio"][data-section="'+sec+'"][data-action="approve"][value="pending"]');
+              if(radio&&!radio.checked){radio.checked=true;radio.dispatchEvent(new Event('change'));}
+              else {
+                var cbPend=document.querySelector('input[type="checkbox"][data-section="'+sec+'"][data-action="approve"]');
+                if(cbPend&&cbPend.checked){cbPend.checked=false;cbPend.dispatchEvent(new Event('change'));}
               }
             }
             if(info.comment){
@@ -965,9 +1085,12 @@ var planId=(function(){var a=document.querySelector('article[id]');return a?a.id
             if(radio&&!radio.checked){radio.checked=true;radio.dispatchEvent(new Event('change'));}
           });
         }
+        _loadingFeedback=false;
         updateProgress();
       })
-      .catch(function(){});
+      .catch(function(){
+        _loadingFeedback=false;
+      });
   }
 
   loadExistingFeedback();

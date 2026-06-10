@@ -340,3 +340,127 @@ func TestPlanPage_Legacy_StillRendersGlobalSections(t *testing.T) {
 		t.Error("legacy plan: global questions section should still be rendered")
 	}
 }
+
+// ---------------------------------------------------------------------------
+// Slice-4: feedback POST error-handling script hooks (bug-29d285b2)
+// ---------------------------------------------------------------------------
+
+// TestPlanPage_FeedbackError_ToastFunction asserts that the rendered page
+// contains the showFeedbackError helper, which surfaces non-2xx responses to
+// the user via a visible toast.
+func TestPlanPage_FeedbackError_ToastFunction(t *testing.T) {
+	page := &plantmpl.PlanPage{
+		PlanID: "plan-err-toast",
+		Title:  "Error Toast Test",
+	}
+
+	var buf bytes.Buffer
+	if err := page.Render(&buf); err != nil {
+		t.Fatalf("Render: %v", err)
+	}
+
+	html := buf.String()
+	if !strings.Contains(html, "showFeedbackError") {
+		t.Error("rendered page missing showFeedbackError function — non-2xx responses will be silent")
+	}
+	// The toast must carry an ARIA role so screen-readers and automated
+	// tests can locate it.
+	if !strings.Contains(html, `role','alert'`) && !strings.Contains(html, `role="alert"`) {
+		t.Error("showFeedbackError toast missing role=alert")
+	}
+}
+
+// TestPlanPage_FeedbackError_RevertApproval asserts that the rendered page
+// contains the revertApproval helper, which restores control state after a
+// failed POST.
+func TestPlanPage_FeedbackError_RevertApproval(t *testing.T) {
+	page := &plantmpl.PlanPage{
+		PlanID: "plan-err-revert",
+		Title:  "Revert Approval Test",
+	}
+
+	var buf bytes.Buffer
+	if err := page.Render(&buf); err != nil {
+		t.Fatalf("Render: %v", err)
+	}
+
+	html := buf.String()
+	if !strings.Contains(html, "revertApproval") {
+		t.Error("rendered page missing revertApproval function — failed POSTs will not revert the control")
+	}
+}
+
+// TestPlanPage_FeedbackError_ApprovalServerState asserts that the rendered
+// page tracks approvalServerState to record the last server-confirmed value,
+// enabling accurate reverts.
+func TestPlanPage_FeedbackError_ApprovalServerState(t *testing.T) {
+	page := &plantmpl.PlanPage{
+		PlanID: "plan-err-serverstate",
+		Title:  "Server State Test",
+	}
+
+	var buf bytes.Buffer
+	if err := page.Render(&buf); err != nil {
+		t.Fatalf("Render: %v", err)
+	}
+
+	html := buf.String()
+	if !strings.Contains(html, "approvalServerState") {
+		t.Error("rendered page missing approvalServerState tracking — revert baseline will always be 'pending'")
+	}
+}
+
+// TestPlanPage_FeedbackError_LoadingFlagSupressesPosts asserts that the
+// rendered page sets _loadingFeedback during hydration so that synthetic
+// change events from loadExistingFeedback do not re-POST server state back.
+func TestPlanPage_FeedbackError_LoadingFlagSupressesPosts(t *testing.T) {
+	page := &plantmpl.PlanPage{
+		PlanID: "plan-err-loadflag",
+		Title:  "Loading Flag Test",
+	}
+
+	var buf bytes.Buffer
+	if err := page.Render(&buf); err != nil {
+		t.Fatalf("Render: %v", err)
+	}
+
+	html := buf.String()
+	if !strings.Contains(html, "_loadingFeedback") {
+		t.Error("rendered page missing _loadingFeedback guard — hydration will echo server state as new POSTs")
+	}
+}
+
+// TestPlanPage_FeedbackError_FetchHandlesNon2xx asserts that all three
+// feedback fetch paths (approval, answer, comment) use .then/.catch rather
+// than fire-and-forget, ensuring non-2xx responses are handled.
+func TestPlanPage_FeedbackError_FetchHandlesNon2xx(t *testing.T) {
+	page := &plantmpl.PlanPage{
+		PlanID: "plan-err-fetch",
+		Title:  "Fetch Error Test",
+		Slices: []plantmpl.SliceCard{
+			{Num: 1, ID: "feat-s1", Title: "Slice 1"},
+		},
+		IsV2: true,
+	}
+
+	var buf bytes.Buffer
+	if err := page.Render(&buf); err != nil {
+		t.Fatalf("Render: %v", err)
+	}
+
+	html := buf.String()
+	// Verify that fetch calls chain .then() for non-2xx detection. A bare
+	// fire-and-forget fetch() would have no .then( immediately after the
+	// closing paren of the options object.
+	if !strings.Contains(html, ".then(function(r)") {
+		t.Error("feedback fetch calls missing .then(function(r)) — non-2xx responses will be swallowed")
+	}
+	// Verify console.error is emitted on failure paths.
+	if !strings.Contains(html, "console.error('[wipnote]") {
+		t.Error("feedback error paths missing console.error — failures will be completely silent")
+	}
+	// Verify stale-HTML hydration clears sections the server reports as pending.
+	if !strings.Contains(html, "approvalServerState[sec]='pending'") {
+		t.Error("loadExistingFeedback missing pending-section clearing — stale baked HTML can show wrong state")
+	}
+}

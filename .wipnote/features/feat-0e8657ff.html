@@ -13,7 +13,7 @@
              data-status="todo"
              data-priority="medium"
              data-created="2026-06-10T05:00:16.830503"
-             data-updated="2026-06-10T05:00:16.837275" data-agent-assigned="claude-code" data-track-id="trk-757c1c9f" data-created-by-agent="claude-code" data-created-by-model="claude-fable-5[1m]" data-created-by-cli-version="0.60.21-111-g2c00119b4">
+             data-updated="2026-06-10T05:16:58.87237" data-agent-assigned="claude-code" data-track-id="trk-757c1c9f" data-created-by-agent="claude-code" data-created-by-model="claude-fable-5[1m]" data-created-by-cli-version="0.60.21-111-g2c00119b4">
 
         <header>
             <h1>Split slow integration tests behind a fast/full tier boundary</h1>
@@ -30,11 +30,17 @@
                     <li><a href="trk-757c1c9f.html" data-relationship="part_of" data-since="2026-06-10T05:00:16.837121">trk-757c1c9f</a></li>
                 </ul>
             </section>
+            <section data-edge-type="blocks">
+                <h3>Blocks:</h3>
+                <ul>
+                    <li><a href="feat-9164accb.html" data-relationship="blocks" data-since="2026-06-10T05:00:31.879101">Teach agents the tiered loop: targeted tests inner-loop, full gate pre-commit</a></li>
+                </ul>
+            </section>
         </nav>
 
         <section data-content>
             <h3>Description</h3>
-            <p>Move the slow integration-heavy tests in cmd/wipnote (SQLite contention stress, daemon lease, archive extraction, real-git fixtures) behind testing.Short guards (skip when -short) or an integration build tag, so 'go test -short ./...' completes in under ~60s while plain 'go test ./...' still runs everything. The completion gate and CI keep running the FULL suite — only the inner loop gets the fast tier. Audit core/ and plan/ and port/ for the same split where warranted.</p>
+            <p>Add testing.Short() guards so 'go test -short ./...' completes fast while plain 'go test ./...' (completion gate, CI) still runs everything. Static inventory done 2026-06-10 (researcher scan): ~85-100 test functions across ~35 cmd/wipnote files move behind the boundary. Conventions already exist: testing.Short() (sqlite_contention_test.go is the template; observe receiver follows) and //go:build integration (serve_global_proxy_test.go, session_roundtrip_test.go — reserve tag for tests needing a prebuilt binary/real server). Groups: A binary-build+process-spawn (otel_collect_test.go, claude_otel_collect_spawn_test.go partial, claude_serve_autostart_test.go); B real-git-repo tests (history, yolo, yolo_carryover, launcher_isolation, launcher_worktree, agent_worktree, hook_worktree_create, gate_coderoot, launcher_doctor, reconcile, sync entire file, ingest_commits_all, git_timestamps entire file, reindex_feature_files, reindex_orphans partial, reindex_trailers partial, workitem_commit partial, plan_elicit_decisions partial, plan_yaml_cmds partial, code_areas, guard_init partial, worktree_helpers); C concurrency-stress (busy_filesystem_agnostic, lineage_busy, writer_transport partial, hook_canonical_first partial, gate_exec partial); D mostly-fast (relevant, workitem, git_mutation_lock, git_lock_retry — leave alone). Per-function care needed: many files mix fast pure-logic tests with slow git tests — guard per test function, not per file. Not yet scanned: launch_run, codex/codex_launch, gemini*/gemini_launch, install_script (likely integration), upgrade_cmd (httptest, fast). CI keeps full suite; busy_filesystem_agnostic + sqlite contention remain critical regression gates in full tier. core/, plan/, port/ already fast — no changes needed there.</p>
         </section>
     </article>
 </body>

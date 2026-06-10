@@ -10,22 +10,31 @@
 <body>
     <article id="trk-1f94484c"
              data-type="track"
-             data-status="todo"
+             data-status="done"
              data-priority="medium"
              data-created="2026-06-07T13:48:34.925279"
-             data-updated="2026-06-07T13:48:34.929821" data-agent-assigned="claude-code" data-created-by-agent="claude-code" data-created-by-model="claude-opus-4-8[1m]" data-created-by-cli-version="0.60.21-9-gc72335802">
+             data-updated="2026-06-10T05:24:01.694887" data-agent-assigned="claude-code" data-created-by-agent="claude-code" data-created-by-model="claude-opus-4-8[1m]" data-created-by-cli-version="0.60.21-9-gc72335802">
 
         <header>
             <h1>Modular carve-out: lean core &#43; extracted products</h1>
             <div class="metadata">
-                <span class="badge status-todo">Todo</span>
+                <span class="badge status-done">Done</span>
                 <span class="badge priority-medium">Medium Priority</span>
             </div>
         </header>
 
+        <nav data-graph-edges>
+            <section data-edge-type="implemented_in">
+                <h3>Implemented In:</h3>
+                <ul>
+                    <li><a href="127926be-6a1c-4045-a347-e42785ec5839.html" data-relationship="implemented_in" data-since="2026-06-10T01:32:08.622393">session 127926be-6a1c-4045-a347-e42785ec5839</a></li>
+                </ul>
+            </section>
+        </nav>
+
         <section data-content>
             <h3>Description</h3>
-            <p>Carve adjacent products out of the monolith into separate Go modules in one repo, leaving a lean lineage+coordination core. Topology: core/ (go.mod) + plan/ + port/ + observe/ each importing core. Blocker: core currently under internal/ (un-importable); step zero is a stable importable core API. Order: core API -> plan (clean lift) -> port (cut 1 drift-guard edge) -> observe (deferred, needs hooks->otel EventSink inversion). Source: spk-6907bb8c bloat audit.</p>
+            <p>Carve adjacent products out of the monolith into separate Go modules in one repo, leaving a lean lineage+coordination core. Topology: core/ (go.mod) + plan/ + port/ + observe/ each importing core. Source: spk-6907bb8c bloat audit. STATUS 2026-06-09: Phase 1 core API DONE (trk-03da9cce, 5/5 — core/ go.mod carved, packages promoted out of internal/, EventSink seam, multi-module CI + path guards). Phase 2 plan DONE (feat-7d0c7568 — planning packages lifted into plan/ sibling module). Phase 3 port IN PROGRESS (trk-1ea27426 — guard inversion feat-29195f33 then mechanical lift of pluginbuild + codex/gemini trees into port/). Phase 4 observe PENDING (trk-505c1685 — dashboard + OTEL into observe/; EventSink inversion prerequisite already landed in phase 1; remaining seams: otel_schema in core db, dashboard imports plan renderer).</p>
         </section>
     </article>
 </body>

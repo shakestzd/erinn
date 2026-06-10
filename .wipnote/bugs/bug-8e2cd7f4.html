@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>core/daemon lease tests false-fail on CI: require &#39;wipnote&#39; in temp path</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="bug-8e2cd7f4"
+             data-type="bug"
+             data-status="todo"
+             data-priority="high"
+             data-created="2026-06-10T16:11:41.400104"
+             data-updated="2026-06-10T16:11:41.408787" data-agent-assigned="claude-code" data-track-id="trk-757c1c9f" data-created-by-agent="claude-code" data-created-by-model="claude-fable-5[1m]" data-created-by-cli-version="0.61.0-8-g9df39b266">
+
+        <header>
+            <h1>core/daemon lease tests false-fail on CI: require &#39;wipnote&#39; in temp path</h1>
+            <div class="metadata">
+                <span class="badge status-todo">Todo</span>
+                <span class="badge priority-high">High Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="trk-757c1c9f.html" data-relationship="part_of" data-since="2026-06-10T16:11:41.408664">trk-757c1c9f</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>CI quality-gates job on main has been red since the carve-out put core/ tests in the CI matrix: TestLease_AcquireAndHold, TestStaleSocketUnlinkRefusedWhenDifferentOwnerAlive, TestSingleOwnerLeaseRace fail in 0.00s on GitHub runners (run 27261432601). Root cause: the lease/socket code (or its tests) has a safety guard that requires the temp/socket path to contain the string wipnote; runners use [host-path]/work/_temp which does not. Locally we mask this via GOTMPDIR=...wipnote-build (the session env hazard). FIX: make the tests hermetic — construct socket/temp paths inside a wipnote-named subdir of t.TempDir() instead of depending on ambient TMPDIR; identify the actual guard in core/daemon lease code and document the constraint there. Belt-and-braces: also export a wipnote-named GOTMPDIR/TMPDIR in the ci.yml quality-gates job. Release pipeline (release-go.yml) is unaffected.</p>
+        </section>
+    </article>
+</body>
+</html>

@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>External-harness subagent delegation: drive Codex/Gemini from Claude under wipnote observability</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="trk-2e707ed1"
+             data-type="track"
+             data-status="todo"
+             data-priority="medium"
+             data-created="2026-06-10T05:24:27.143733"
+             data-updated="2026-06-10T06:15:30.802118" data-agent-assigned="claude-code" data-created-by-agent="claude-code" data-created-by-model="claude-fable-5[1m]" data-created-by-cli-version="0.60.21-111-g2c00119b4">
+
+        <header>
+            <h1>External-harness subagent delegation: drive Codex/Gemini from Claude under wipnote observability</h1>
+            <div class="metadata">
+                <span class="badge status-todo">Todo</span>
+                <span class="badge priority-medium">Medium Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="contains">
+                <h3>Contains:</h3>
+                <ul>
+                    <li><a href="bug-3e4c6e02.html" data-relationship="contains" data-since="2026-06-10T05:24:43.098864">Codex exec-mode runs emit no wipnote session despite installed hooks.json</a></li>
+                    <li><a href="bug-5128672e.html" data-relationship="contains" data-since="2026-06-10T05:24:43.842825">Gemini headless sessions captured but attributed as claude-code agent</a></li>
+                    <li><a href="feat-9b98cd0b.html" data-relationship="contains" data-since="2026-06-10T05:24:45.029031">Launcher exec passthrough: wipnote codex exec / wipnote gemini -p with JSONL capture</a></li>
+                    <li><a href="bug-aada9834.html" data-relationship="contains" data-since="2026-06-10T06:15:30.79782">WorktreeCreate hook fails on Claude Code native worktree isolation: missing worktree_base_path</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>Architecture goal (user-requested 2026-06-10): orchestrate Codex CLI and Gemini CLI as headless subagents from a Claude Code session while wipnote captures their sessions — removing the need to run them as independent interactive harnesses. Empirical probe results: Gemini headless (gemini -p) WORKS today — extension hooks fire, session captured (10s probe registered). Codex exec does NOT capture — hooks.json is installed at user level (Claude-Code-style schema, wipnote hook commands) but no session registered even with --dangerously-bypass-hook-trust; root cause unknown (schema mismatch vs exec-mode hook suppression vs handler gap). Codex docs: exec emits JSONL event stream (--json), supports exec resume, and codex mcp-server exposes codex/codex-reply tools — strongest fallback is transcript/JSONL ingest. Gemini has no MCP server mode; headless hooks now empirically confirmed.</p>
+        </section>
+    </article>
+</body>
+</html>

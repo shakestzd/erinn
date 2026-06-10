@@ -141,6 +141,10 @@ func buildRoot() *cobra.Command {
 	plan.GroupID = "workitems"
 	root.AddCommand(plan)
 
+	archC := archCmd()
+	archC.GroupID = "workitems"
+	root.AddCommand(archC)
+
 	// query group
 	find := findCmd()
 	find.GroupID = "query"

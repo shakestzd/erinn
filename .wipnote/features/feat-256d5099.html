@@ -10,26 +10,20 @@
 <body>
     <article id="feat-256d5099"
              data-type="feature"
-             data-status="in-progress"
+             data-status="done"
              data-priority="medium"
              data-created="2026-06-10T19:50:01.879656"
-             data-updated="2026-06-10T20:47:02.609897" data-agent-assigned="claude-code" data-track-id="trk-53715165">
+             data-updated="2026-06-10T21:20:51.511696" data-agent-assigned="claude-code" data-track-id="trk-53715165">
 
         <header>
             <h1>Resolve engine: wipnote arch resolve with pinned glob semantics, batched drift, budget</h1>
             <div class="metadata">
-                <span class="badge status-in-progress">In Progress</span>
+                <span class="badge status-done">Done</span>
                 <span class="badge priority-medium">Medium Priority</span>
             </div>
         </header>
 
         <nav data-graph-edges>
-            <section data-edge-type="part_of">
-                <h3>Part Of:</h3>
-                <ul>
-                    <li><a href="trk-53715165.html" data-relationship="part_of" data-since="2026-06-10T19:50:01.884421">trk-53715165</a></li>
-                </ul>
-            </section>
             <section data-edge-type="blocked_by">
                 <h3>Blocked By:</h3>
                 <ul>
@@ -48,6 +42,12 @@
                     <li><a href="plan-edeb2163.html" data-relationship="planned_in" data-since="2026-06-10T19:50:01.882025">plan-edeb2163</a></li>
                 </ul>
             </section>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="trk-53715165.html" data-relationship="part_of" data-since="2026-06-10T19:50:01.884421">trk-53715165</a></li>
+                </ul>
+            </section>
         </nav>
 
         <section data-content>
@@ -63,7 +63,8 @@ budget)" when truncated. Drift: ONE git diff --name-only per unique
 verified_at value per invocation (not per card), matched in memory;
 drifted cards prefixed "UNVERIFIED since ".
 resolve --for  derives paths via the existing work-item
-file attribution (feature_files machinery).</p>
+file attribution (feature_files machinery).
+[2026-06-10 21:20 claude-code] accepted-advisory (provenance override): Commits cd831de19 and 137023b0e on trk-53715165 implement this feature; ingested as backfill session due to worktree commit attribution gap. Feature files and test coverage verified.</p>
         </section>
     </article>
 </body>

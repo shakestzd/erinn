@@ -3128,3 +3128,7 @@ retention: reclaimed 2773497847 bytes from oversized logs
     warn: tool Bash: insert tool_call: constraint failed: FOREIGN KEY constraint failed (787)
     warn: tool Bash: insert tool_call: constraint failed: FOREIGN KEY constraint failed (787)
     warn: tool Bash: insert tool_call: constraint failed: FOREIGN KEY constraint failed (787)
+wipnote: plan plan-1187cb00: IsPlanFullyApproved: no plan_feedback rows — used canonical YAML approval state as fallback (cache rebuild recovery)
+wipnote: plan plan-cc24034c: IsPlanFullyApproved: no plan_feedback rows — used canonical YAML approval state as fallback (cache rebuild recovery)
+wipnote: plan plan-1187cb00: IsPlanFullyApproved: no plan_feedback rows — used canonical YAML approval state as fallback (cache rebuild recovery)
+wipnote: plan plan-cc24034c: IsPlanFullyApproved: no plan_feedback rows — used canonical YAML approval state as fallback (cache rebuild recovery)

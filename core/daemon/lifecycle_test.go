@@ -130,7 +130,10 @@ func TestSelfOwnedStaleSocketUnlinkedOnBind(t *testing.T) {
 // will consider it a stale or non-writer PID for portability, but we verify
 // the refusal logic still fires when a lease is held.
 func TestStaleSocketUnlinkRefusedWhenDifferentOwnerAlive(t *testing.T) {
-	dir := t.TempDir()
+	// Use a "wipnote"-named subdirectory so isWriterProcessImpl's project-root
+	// fallback fires when the test binary path does not contain "wipnote"
+	// (e.g. on CI without GOTMPDIR set). See lease_linux.go for the constraint.
+	dir := filepath.Join(t.TempDir(), "wipnote-test")
 	if err := os.MkdirAll(filepath.Join(dir, ".wipnote"), 0o755); err != nil {
 		t.Fatalf("mkdir .wipnote: %v", err)
 	}
@@ -267,7 +270,13 @@ func TestIdleExitNotTriggeredWhileActive(t *testing.T) {
 // second acquire while held fails with ErrLeaseHeld, and succeeds once the
 // first owner releases.
 func TestSingleOwnerLeaseRace(t *testing.T) {
-	dir := t.TempDir()
+	// Use a "wipnote"-named subdirectory so isWriterProcessImpl's project-root
+	// fallback fires when the test binary path does not contain "wipnote"
+	// (e.g. on CI without GOTMPDIR set). See lease_linux.go for the constraint.
+	dir := filepath.Join(t.TempDir(), "wipnote-test")
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatalf("mkdir wipnote-test: %v", err)
+	}
 
 	first, err := AcquireLease(dir)
 	if err != nil {

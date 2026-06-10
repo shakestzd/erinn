@@ -202,7 +202,13 @@ func TestClientUnavailable(t *testing.T) {
 // TestLease_AcquireAndHold verifies a second O_EXCL attempt fails while the
 // owner holds the lease, and succeeds after the stale lease is reclaimed.
 func TestLease_AcquireAndHold(t *testing.T) {
-	dir := t.TempDir()
+	// Use a "wipnote"-named subdirectory so isWriterProcessImpl's project-root
+	// fallback fires when the test binary path does not contain "wipnote"
+	// (e.g. on CI without GOTMPDIR set). See lease_linux.go for the constraint.
+	dir := filepath.Join(t.TempDir(), "wipnote-test")
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatalf("mkdir wipnote-test: %v", err)
+	}
 
 	l1, err := AcquireLease(dir)
 	if err != nil {

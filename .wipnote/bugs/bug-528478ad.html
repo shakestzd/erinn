@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>Dashboard project-scoped mutation routes use read-only DB: approve/finalize 500 &#39;attempt to write a readonly database&#39;</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="bug-528478ad"
+             data-type="bug"
+             data-status="todo"
+             data-priority="high"
+             data-created="2026-06-10T17:16:27.501955"
+             data-updated="2026-06-10T17:16:27.569939" data-agent-assigned="claude-code" data-track-id="trk-13e39042" data-created-by-agent="claude-code" data-created-by-model="claude-fable-5[1m]" data-created-by-cli-version="0.61.0-8-g9df39b266">
+
+        <header>
+            <h1>Dashboard project-scoped mutation routes use read-only DB: approve/finalize 500 &#39;attempt to write a readonly database&#39;</h1>
+            <div class="metadata">
+                <span class="badge status-todo">Todo</span>
+                <span class="badge priority-high">High Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="trk-13e39042.html" data-relationship="part_of" data-since="2026-06-10T17:16:27.569145">trk-13e39042</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>Confirmed in production on v0.61.1 (user probe): POST /p//api/plans//feedback returns 500 'storing feedback: ... attempt to write a readonly database (8)'. The multi-project hub opens project DBs read-only (format string: open database (read-only)) and the per-project mux wires plan mutation handlers (feedback POST, finalize, chat, delete) to that read-only connection — the api_plans.go comment near line 777 promises these run on a dedicated writable handle, but that wiring only exists for root-scoped routes, and in 0.61.1 even the cwd project is served as a read-only /p// child with NO root-scoped plan routes at all. Net effect: every dashboard Approve click 500s, nothing persists to plan_feedback or YAML, and Finalize correctly reports nothing approved. THIS was the true root cause of the user-reported finalize failures (bug-eca8141d treated a secondary path). Fix: per-project mux must route mutation endpoints through a writable connection for the project (mirror root wiring; see buildSingleProjectMux factory from feat-79fd74ba and serve.go ~140 read-only/writable split). Add a regression test: POST feedback via /p// route persists a row.</p>
+        </section>
+    </article>
+</body>
+</html>

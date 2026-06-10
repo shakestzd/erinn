@@ -1,0 +1,229 @@
+prompt = '''
+---
+description: Set up Oh My Posh status line with wipnote active work item display
+---
+
+# /wipnote:setup-statusline
+
+Configure the Claude Code status line to use Oh My Posh with wipnote work item display.
+
+## What This Sets Up
+
+1. **`~/.claude/omp-claude-wrapper.sh`** — Wrapper script that:
+   - Reads session JSON from Claude Code stdin
+   - Queries `wipnote statusline --session <id>` for the active work item
+   - Exports `WIPNOTE_ACTIVE` env var for Oh My Posh to display
+   - Pipes through to Oh My Posh for rendering
+
+2. **`~/.claude.omp.json`** — Oh My Posh theme with:
+   - Git repo/branch/status segment
+   - wipnote active work item segment (purple, uses `WIPNOTE_ACTIVE`)
+   - Claude model + token usage segment
+
+3. **`.claude/settings.json`** — Points `statusLine.command` at the wrapper
+
+## Instructions for Claude
+
+### Step 1: Verify Prerequisites
+
+Check that Oh My Posh is installed:
+```bash
+which oh-my-posh || echo "NOT INSTALLED"
+```
+
+If not installed, tell the user:
+```
+Oh My Posh is required. Install it first:
+  brew install oh-my-posh    # macOS
+  # See https://ohmyposh.dev/docs/installation for other platforms
+```
+
+Check that `wipnote` is on PATH:
+```bash
+which wipnote || echo "NOT INSTALLED"
+```
+
+### Step 2: Write the Wrapper Script
+
+Write `~/.claude/omp-claude-wrapper.sh`:
+
+```bash
+#!/bin/bash
+# wipnote + Oh My Posh wrapper for Claude Code status line
+# Reads session JSON from stdin, queries active work item, renders via OMP
+
+# Guard: only show status when CWD is inside a wipnote project.
+# This prevents CLAUDE_PROJECT_DIR env bleed from a previous session resolving
+# wipnote statusline to the wrong project when in an unrelated directory.
+_dir="$(pwd)"
+while [ "$_dir" != "/" ]; do
+    [ -d "$_dir/.wipnote" ] && break
+    _dir=$(dirname "$_dir")
+done
+if [ "$_dir" = "/" ]; then
+    echo ""
+    exit 0
+fi
+
+INPUT=$(cat)
+
+# Extract session ID (use python3 for JSON parsing — always available on macOS/Linux)
+SESS_ID=$(echo "$INPUT" | python3 -c "import sys, json; print(json.load(sys.stdin).get('session_id',''))" 2>/dev/null)
+
+# Get active work item for THIS session via fast Go binary
+ACTIVE_WORK=$(wipnote statusline --session "$SESS_ID" 2>/dev/null)
+
+# No cache fallback — if statusline returns empty, show nothing.
+# The global cache ($HOME/.wipnote-statusline-cache) caused cross-project bleed
+# when switching directories, showing stale items from unrelated projects.
+
+# Export for Oh My Posh template to use
+export WIPNOTE_ACTIVE="$ACTIVE_WORK"
+
+# Find Oh My Posh binary
+OMP_BIN="${WIPNOTE_OMP_BIN:-$(which oh-my-posh 2>/dev/null)}"
+OMP_CONFIG="${WIPNOTE_OMP_CONFIG:-$HOME/.claude.omp.json}"
+
+if [ -n "$OMP_BIN" ] && [ -f "$OMP_CONFIG" ]; then
+    echo "$INPUT" | "$OMP_BIN" claude --config "$OMP_CONFIG"
+else
+    # Fallback: plain text if OMP not available
+    echo "$ACTIVE_WORK"
+fi
+```
+
+Then make it executable:
+```bash
+chmod +x ~/.claude/omp-claude-wrapper.sh
+```
+
+### Step 3: Write the OMP Theme
+
+Write `~/.claude.omp.json` — but ONLY if it doesn't already exist. If it exists, skip this step and tell the user their existing theme is preserved.
+
+The default theme:
+
+```json
+{
+  "$schema": "https://raw.githubusercontent.com/JanDeDobbeleer/oh-my-posh/main/themes/schema.json",
+  "version": 4,
+  "palette": {
+    "black": "#262B44",
+    "blue": "#4B95E9",
+    "green": "#59C9A5",
+    "orange": "#F07623",
+    "red": "#D81E5B",
+    "white": "#E0DEF4",
+    "yellow": "#F3AE35"
+  },
+  "accent_color": "32",
+  "blocks": [
+    {
+      "type": "prompt",
+      "alignment": "left",
+      "segments": [
+        {
+          "type": "path",
+          "style": "diamond",
+          "leading_diamond": "\ue0b6",
+          "foreground": "p:white",
+          "background": "p:orange",
+          "template": " {{ if .Segments.Git.Dir }} \uf1d2 <i><b>{{ .Segments.Git.RepoName }}{{ if .Segments.Git.IsWorkTree }} \ue21c{{ end }}</b></i>{{ $rel :=  .Segments.Git.RelativeDir }}{{ if $rel }} \ueaf7 {{ .Format $rel }}{{ end }}{{ else }} \uea83 {{ path .Path .Location }}{{ end }} ",
+          "properties": {
+            "dir_length": 3,
+            "folder_separator_icon": "\ue0bb",
+            "style": "fish"
+          }
+        },
+        {
+          "type": "git",
+          "style": "diamond",
+          "leading_diamond": "<parentBackground,background>\ue0b0</>",
+          "foreground": "p:black",
+          "background": "p:green",
+          "template": " {{ if .UpstreamURL }}{{ url .UpstreamIcon .UpstreamURL }} {{ end }}{{ .HEAD }}{{if .BranchStatus }} {{ .BranchStatus }}{{ end }}{{ if .Working.Changed }} \uf044 {{ nospace .Working.String }}{{ end }}{{ if .Staging.Changed }} \uf046 {{ .Staging.String }}{{ end }} ",
+          "foreground_templates": [
+            "{{ if or (.Working.Changed) (.Staging.Changed) }}p:black{{ end }}",
+            "{{ if or (gt .Ahead 0) (gt .Behind 0) }}p:white{{ end }}"
+          ],
+          "background_templates": [
+            "{{ if or (.Working.Changed) (.Staging.Changed) }}p:yellow{{ end }}",
+            "{{ if and (gt .Ahead 0) (gt .Behind 0) }}p:red{{ end }}",
+            "{{ if gt .Ahead 0 }}#49416D{{ end }}",
+            "{{ if gt .Behind 0 }}#7A306C{{ end }}"
+          ],
+          "properties": {
+            "branch_icon": "\ue0a0",
+            "fetch_status": true
+          }
+        },
+        {
+          "type": "text",
+          "style": "diamond",
+          "leading_diamond": "<parentBackground,background>\ue0b0</>",
+          "foreground": "p:white",
+          "background": "#8B5CF6",
+          "template": " {{ if .Env.WIPNOTE_ACTIVE }}{{ .Env.WIPNOTE_ACTIVE }}{{ end }} "
+        },
+        {
+          "type": "claude",
+          "style": "diamond",
+          "leading_diamond": "<parentBackground,background>\ue0b0</>",
+          "trailing_diamond": "\ue0b4",
+          "foreground": "p:white",
+          "background": "#4B95E9",
+          "template": " {{ .Model.DisplayName }} {{ .TokenUsagePercent.Gauge }} ",
+          "properties": {
+            "always_enabled": true
+          }
+        }
+      ]
+    }
+  ]
+}
+```
+
+### Step 4: Configure Claude Code Settings
+
+Read the current `.claude/settings.json` (create if missing), set:
+
+```json
+{
+  "statusLine": {
+    "type": "command",
+    "command": "/Users/<username>/.claude/omp-claude-wrapper.sh",
+    "padding": 0
+  }
+}
+```
+
+Use the actual expanded `$HOME` path, not `~`.
+
+### Step 5: Verify
+
+```bash
+echo '{"session_id":"test","model":{"display_name":"Claude"}}' | ~/.claude/omp-claude-wrapper.sh
+```
+
+Tell the user to restart Claude Code to see the status line.
+
+## Output
+
+After setup, tell the user:
+
+```
+Status line configured with Oh My Posh.
+
+  Wrapper:  ~/.claude/omp-claude-wrapper.sh
+  Theme:    ~/.claude.omp.json
+  Settings: .claude/settings.json
+
+Restart Claude Code to see it. The status line shows:
+  [repo/branch] [active work item] [model + tokens]
+
+To customize the theme: edit ~/.claude.omp.json
+To override OMP binary: set WIPNOTE_OMP_BIN
+To override theme path: set WIPNOTE_OMP_CONFIG
+```
+
+'''

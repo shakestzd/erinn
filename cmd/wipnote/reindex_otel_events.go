@@ -8,9 +8,9 @@ import (
 	"time"
 
 	dbpkg "github.com/shakestzd/wipnote/core/db"
-	"github.com/shakestzd/wipnote/internal/otel/indexer"
-	otelreceiver "github.com/shakestzd/wipnote/internal/otel/receiver"
-	otelsqlite "github.com/shakestzd/wipnote/internal/otel/sink/sqlite"
+	"github.com/shakestzd/wipnote/observe/otel/indexer"
+	otelreceiver "github.com/shakestzd/wipnote/observe/otel/receiver"
+	otelsqlite "github.com/shakestzd/wipnote/observe/otel/sink/sqlite"
 )
 
 // reindexOtelEvents replays every .wipnote/sessions/<id>/events.ndjson file

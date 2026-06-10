@@ -18,11 +18,11 @@ import (
 
 	// Side-effect import: registers the otel-backed core/eventsink factory so
 	// lifecycle hooks emit telemetry without importing otel directly (feat-f87e93a6).
-	_ "github.com/shakestzd/wipnote/internal/otel/eventsink"
+	_ "github.com/shakestzd/wipnote/observe/otel/eventsink"
 	// Side-effect import: registers the otel/pluginbuild-backed lifecycle hook
 	// implementations (retention, materialize, port-drift) so core hooks invoke
 	// them without importing otel/pluginbuild directly (feat-331927fb).
-	_ "github.com/shakestzd/wipnote/internal/observe"
+	_ "github.com/shakestzd/wipnote/observe/register"
 )
 
 // selfHealGitdirIfStale runs a best-effort repair on the current directory's

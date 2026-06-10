@@ -58,6 +58,19 @@ jobs:
       - name: Test (port module)
         working-directory: port
         run: go test -short ./...
+      # The observe/ module is separate (its own go.mod, depends on core/ and
+      # port/), so the root `./...` above does not include it. Run its gates
+      # explicitly so the lifted dashboard + OTEL collector/ingest packages and
+      # tests stay covered in CI and release gates.
+      - name: Build (observe module)
+        working-directory: observe
+        run: go build ./...
+      - name: Vet (observe module)
+        working-directory: observe
+        run: go vet ./...
+      - name: Test (observe module)
+        working-directory: observe
+        run: go test -short ./...
       - name: Acceptance harness (CI-safe, fake binaries)
         # Runs the small CI-safe subset of the parallel-launcher acceptance
         # harness (plan-1670cacd slice-10, feat-7835351a). Uses fake DB rows

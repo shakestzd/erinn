@@ -7,10 +7,10 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/shakestzd/wipnote/internal/otel/adapter"
-	"github.com/shakestzd/wipnote/internal/otel/convert"
-	"github.com/shakestzd/wipnote/internal/otel/otlp"
-	"github.com/shakestzd/wipnote/internal/otel/sink/ndjson"
+	"github.com/shakestzd/wipnote/observe/otel/adapter"
+	"github.com/shakestzd/wipnote/observe/otel/convert"
+	"github.com/shakestzd/wipnote/observe/otel/otlp"
+	"github.com/shakestzd/wipnote/observe/otel/sink/ndjson"
 
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"

@@ -6,7 +6,7 @@ import (
 	"text/tabwriter"
 	"time"
 
-	"github.com/shakestzd/wipnote/internal/otel/indexer"
+	"github.com/shakestzd/wipnote/observe/otel/indexer"
 	"github.com/spf13/cobra"
 )
 

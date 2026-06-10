@@ -12,7 +12,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/shakestzd/wipnote/internal/otel/collector"
+	"github.com/shakestzd/wipnote/observe/otel/collector"
 )
 
 // TestGenerateOtelSessionID verifies OTel session ID generation produces

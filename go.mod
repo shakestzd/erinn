@@ -35,6 +35,7 @@ require (
 	github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec // indirect
 	github.com/rogpeppe/go-internal v1.14.1 // indirect
 	github.com/shakestzd/wipnote/core v0.0.0
+	github.com/shakestzd/wipnote/observe v0.0.0
 	github.com/shakestzd/wipnote/plan v0.0.0
 	github.com/shakestzd/wipnote/port v0.0.0
 	github.com/spf13/pflag v1.0.6 // indirect
@@ -65,3 +66,10 @@ replace github.com/shakestzd/wipnote/plan => ./plan
 // generated Codex/Gemini target trees. Same local-replace rationale as core/ and
 // plan/ above; swap for a real version require when port is tagged and released.
 replace github.com/shakestzd/wipnote/port => ./port
+
+// Interim multi-module wiring: observe/ is the dashboard + OTEL observability
+// product lifted out of the monolith (trk-505c1685, final phase of trk-1f94484c).
+// It houses the OTEL collector/ingest/receiver/sink packages plus pricing and the
+// lifecycle-registration shim. Same local-replace rationale as core/, plan/, and
+// port/ above; swap for a real version require when observe is tagged and released.
+replace github.com/shakestzd/wipnote/observe => ./observe

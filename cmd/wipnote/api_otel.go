@@ -12,7 +12,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/shakestzd/wipnote/internal/otel/materialize"
+	"github.com/shakestzd/wipnote/observe/otel/materialize"
 	"github.com/tidwall/gjson"
 )
 

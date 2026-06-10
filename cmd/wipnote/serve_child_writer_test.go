@@ -32,9 +32,9 @@ import (
 	"github.com/shakestzd/wipnote/core/db"
 	"github.com/shakestzd/wipnote/core/db/writequeue"
 	"github.com/shakestzd/wipnote/core/models"
-	"github.com/shakestzd/wipnote/internal/otel"
-	otelreceiver "github.com/shakestzd/wipnote/internal/otel/receiver"
-	sqls "github.com/shakestzd/wipnote/internal/otel/sink/sqlite"
+	"github.com/shakestzd/wipnote/observe/otel"
+	otelreceiver "github.com/shakestzd/wipnote/observe/otel/receiver"
+	sqls "github.com/shakestzd/wipnote/observe/otel/sink/sqlite"
 )
 
 // TestLeaseOwnerAlive_ReflectsLiveOwner verifies the exported probe serve_child

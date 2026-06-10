@@ -9,7 +9,7 @@ import (
 	"strings"
 
 	"github.com/shakestzd/wipnote/core/harness"
-	"github.com/shakestzd/wipnote/internal/otel/collector"
+	"github.com/shakestzd/wipnote/observe/otel/collector"
 )
 
 type codexLaunchMode string

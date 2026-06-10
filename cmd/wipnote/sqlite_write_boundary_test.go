@@ -144,7 +144,7 @@ var approvedWriteSites = []writeSite{
 		Note:           "Slice 7 (feat-33c26c74) + MVP-3 (feat-075c110d): single auditable writable open used by hook subprocesses. As of MVP-3 the derived-index write FIRST attempts the per-project writer daemon (SubmitDerivedEvent → WriterClient.SubmitOrSpawn, bounded ~2s); this direct open is now the FALLBACK path taken only when the daemon is unavailable/forbidden/times out. Logs a structured `writer_unavailable` fallback and returns nil-DB on open failure; callers MUST treat nil as a signal to return canonical-success. The canonical NDJSON write upstream guarantees reindex recovers any rows neither path could write.",
 	},
 	{
-		File:           "internal/otel/receiver/writer.go",
+		File:           "observe/otel/receiver/writer.go",
 		Line:           96,
 		Function:       "NewWriter",
 		OpenExpr:       "sql.Open",
@@ -152,7 +152,7 @@ var approvedWriteSites = []writeSite{
 		Note:           "Slice 6 writer service (feat-f3bcbcef): the single writable SQLite handle owned by the writequeue worker inside `wipnote serve`. Indexer + OTLP receiver no longer open writable handles directly — they submit batches through internal/db/writequeue to this writer.",
 	},
 	{
-		File:           "internal/otel/sink/sqlite/writer.go",
+		File:           "observe/otel/sink/sqlite/writer.go",
 		Line:           66,
 		Function:       "NewWriter",
 		OpenExpr:       "sql.Open",
@@ -415,15 +415,15 @@ var approvedWriteSites = []writeSite{
 // event-capture paths are the contention sources the plan targets.
 var forbiddenPathPrefixes = []string{
 	"cmd/wipnote/hook.go",      // hook event handlers
-	"core/hooks/",              // hook implementations (moved out of internal/ — feat-0e3f1b3f)
-	"internal/otel/indexer/",   // NDJSON→SQLite indexer
-	"internal/otel/receiver/",  // OTLP HTTP receiver writer
-	"internal/otel/collector/", // OTLP collector spawn (defensive — not currently a writer)
+	"core/hooks/",             // hook implementations (moved out of internal/ — feat-0e3f1b3f)
+	"observe/otel/indexer/",   // NDJSON→SQLite indexer (lifted into observe/ — feat-67f3ab7f)
+	"observe/otel/receiver/",  // OTLP HTTP receiver writer (lifted into observe/ — feat-67f3ab7f)
+	"observe/otel/collector/", // OTLP collector spawn (defensive — not currently a writer)
 }
 
 // scannedDirs lists the first-party Go directories the boundary covers.
 // plugin/ holds only markdown / static assets (verified by the file-walk).
-var scannedDirs = []string{"cmd", "internal", "core", "plan", "port"}
+var scannedDirs = []string{"cmd", "internal", "core", "plan", "port", "observe"}
 
 // excludedDirs lists package directories whose internal sql.Open / Open
 // calls are NOT caller sites — they are the canonical open primitives

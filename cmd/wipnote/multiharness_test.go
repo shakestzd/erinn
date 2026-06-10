@@ -23,7 +23,7 @@ import (
 	"github.com/shakestzd/wipnote/core/agent"
 	dbpkg "github.com/shakestzd/wipnote/core/db"
 	"github.com/shakestzd/wipnote/core/models"
-	"github.com/shakestzd/wipnote/internal/otel/sink/ndjson"
+	"github.com/shakestzd/wipnote/observe/otel/sink/ndjson"
 )
 
 // mhKV builds a string KeyValue proto for OTLP payloads.

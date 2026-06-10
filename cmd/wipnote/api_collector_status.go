@@ -12,7 +12,7 @@ import (
 
 	dbpkg "github.com/shakestzd/wipnote/core/db"
 	"github.com/shakestzd/wipnote/core/db/writequeue"
-	"github.com/shakestzd/wipnote/internal/otel/collector"
+	"github.com/shakestzd/wipnote/observe/otel/collector"
 )
 
 // WriterServiceStatus is the diagnostic JSON the dashboard reads from

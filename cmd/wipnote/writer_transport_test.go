@@ -24,10 +24,10 @@ import (
 
 	"github.com/shakestzd/wipnote/core/db"
 	"github.com/shakestzd/wipnote/core/db/writequeue"
-	"github.com/shakestzd/wipnote/internal/otel"
-	"github.com/shakestzd/wipnote/internal/otel/indexer"
-	otelreceiver "github.com/shakestzd/wipnote/internal/otel/receiver"
-	sqls "github.com/shakestzd/wipnote/internal/otel/sink/sqlite"
+	"github.com/shakestzd/wipnote/observe/otel"
+	"github.com/shakestzd/wipnote/observe/otel/indexer"
+	otelreceiver "github.com/shakestzd/wipnote/observe/otel/receiver"
+	sqls "github.com/shakestzd/wipnote/observe/otel/sink/sqlite"
 )
 
 // setupWriterTransport builds the slice-6 writer-service trio

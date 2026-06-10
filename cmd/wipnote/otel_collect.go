@@ -13,9 +13,9 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/shakestzd/wipnote/internal/otel"
-	"github.com/shakestzd/wipnote/internal/otel/adapter"
-	"github.com/shakestzd/wipnote/internal/otel/sink/ndjson"
+	"github.com/shakestzd/wipnote/observe/otel"
+	"github.com/shakestzd/wipnote/observe/otel/adapter"
+	"github.com/shakestzd/wipnote/observe/otel/sink/ndjson"
 	"github.com/spf13/cobra"
 )
 

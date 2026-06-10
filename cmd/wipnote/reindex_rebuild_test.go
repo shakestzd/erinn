@@ -14,8 +14,8 @@ import (
 
 	dbpkg "github.com/shakestzd/wipnote/core/db"
 	"github.com/shakestzd/wipnote/core/db/writequeue"
-	otelreceiver "github.com/shakestzd/wipnote/internal/otel/receiver"
-	otelsqlite "github.com/shakestzd/wipnote/internal/otel/sink/sqlite"
+	otelreceiver "github.com/shakestzd/wipnote/observe/otel/receiver"
+	otelsqlite "github.com/shakestzd/wipnote/observe/otel/sink/sqlite"
 )
 
 // Slice 9 rebuild-guarantee tests. The plan promise is that deleting the

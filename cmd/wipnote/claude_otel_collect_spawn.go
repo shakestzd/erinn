@@ -8,7 +8,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/shakestzd/wipnote/internal/otel/collector"
+	"github.com/shakestzd/wipnote/observe/otel/collector"
 )
 
 // generateOtelSessionID produces a hex session ID from a Unix-millisecond

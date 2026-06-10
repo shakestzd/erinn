@@ -14,7 +14,7 @@ import (
 	"sort"
 	"time"
 
-	"github.com/shakestzd/wipnote/internal/otel/retention"
+	"github.com/shakestzd/wipnote/observe/otel/retention"
 	"github.com/spf13/cobra"
 )
 

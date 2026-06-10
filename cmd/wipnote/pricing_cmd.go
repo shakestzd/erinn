@@ -12,7 +12,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/shakestzd/wipnote/internal/pricing"
+	"github.com/shakestzd/wipnote/observe/pricing"
 	"github.com/spf13/cobra"
 )
 

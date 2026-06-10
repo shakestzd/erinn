@@ -39660,3 +39660,16 @@ Run `wipnote build` to sync, or update the plugin.
 2026-06-10T18:23:09 handler=runHook duration=8.277731ms hook=posttooluse session=873ecf53 completed
 2026-06-10T18:23:28 handler=pretooluse duration=1.102626ms phase=resolve-context session=873ecf53 tool=Bash context resolved
 2026-06-10T18:23:28 handler=runHook duration=43.458367ms hook=pretooluse session=873ecf53 completed
+2026-06-10T18:52:31 handler=runHook duration=19.521336ms hook=config-change session=127926be completed
+2026-06-10T18:52:32 handler=pretooluse duration=820.69µs phase=resolve-context session=873ecf53 tool=Bash context resolved
+2026-06-10T18:52:32 handler=runHook duration=12.145097ms hook=posttooluse session=873ecf53 completed
+2026-06-10T18:52:52 handler=pretooluse duration=1.198776ms phase=resolve-context session=873ecf53 tool=Bash context resolved
+2026-06-10T18:52:52 handler=runHook duration=45.044863ms hook=pretooluse session=873ecf53 completed
+2026-06-10T18:52:52 handler=pretooluse duration=1.214936ms phase=resolve-context session=873ecf53 tool=Bash context resolved
+2026-06-10T18:52:52 handler=runHook duration=23.989606ms hook=posttooluse session=873ecf53 completed
+2026-06-10T18:53:05 handler=pretooluse duration=1.397449ms phase=resolve-context session=873ecf53 tool=Bash context resolved
+2026-06-10T18:53:05 handler=runHook duration=52.575193ms hook=pretooluse session=873ecf53 completed
+2026-06-10T18:53:06 handler=pretooluse duration=1.06682ms phase=resolve-context session=873ecf53 tool=Bash context resolved
+2026-06-10T18:53:06 handler=runHook duration=16.242592ms hook=posttooluse session=873ecf53 completed
+2026-06-10T18:53:28 handler=pretooluse duration=1.116562ms phase=resolve-context session=873ecf53 tool=Bash context resolved
+2026-06-10T18:53:28 handler=runHook duration=64.842521ms hook=pretooluse session=873ecf53 completed

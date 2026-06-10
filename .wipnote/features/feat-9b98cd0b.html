@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>Launcher exec passthrough: wipnote codex exec / wipnote gemini -p with JSONL capture</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="feat-9b98cd0b"
+             data-type="feature"
+             data-status="todo"
+             data-priority="medium"
+             data-created="2026-06-10T05:24:44.978168"
+             data-updated="2026-06-10T05:24:45.029284" data-agent-assigned="claude-code" data-track-id="trk-2e707ed1" data-created-by-agent="claude-code" data-created-by-model="claude-fable-5[1m]" data-created-by-cli-version="0.60.21-111-g2c00119b4">
+
+        <header>
+            <h1>Launcher exec passthrough: wipnote codex exec / wipnote gemini -p with JSONL capture</h1>
+            <div class="metadata">
+                <span class="badge status-todo">Todo</span>
+                <span class="badge priority-medium">Medium Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="trk-2e707ed1.html" data-relationship="part_of" data-since="2026-06-10T05:24:45.029031">trk-2e707ed1</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>Add headless passthrough modes to the launchers so orchestrators delegate via wipnote: wipnote codex exec '' (wraps codex exec --json, captures the documented JSONL event stream — thread.started/turn.completed/item.* — and ingests it as a wipnote session with attribution and token usage) and wipnote gemini exec '' (wraps gemini -p --output-format stream-json similarly; hooks already fire so ingest is belt-and-braces plus usage stats). This gives live-hook capture where supported and transcript ingest everywhere, making external CLIs first-class observed subagents.</p>
+        </section>
+    </article>
+</body>
+</html>

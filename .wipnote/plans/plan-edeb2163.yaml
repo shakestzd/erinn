@@ -1,11 +1,12 @@
 meta:
     id: plan-edeb2163
+    track_id: trk-53715165
     title: Architectural memory v1
     description: ""
     created_at: ""
-    status: draft
+    status: finalized
     schema_version: v3
-    version: 1
+    version: 2
 design:
     problem: |
         wipnote captures what changed and why (lineage) but not how the system
@@ -27,6 +28,7 @@ design:
     comment: ""
 slices:
     - id: slice-1
+      feature_id: feat-ec48cb3c
       num: 1
       title: 'Arch card format: canonical store, validator, lifecycle, CRUD CLI, index'
       what: |
@@ -63,8 +65,9 @@ slices:
         visibility rules. Integration: add -> reindex from scratch -> list
         shows identical cards; deprecate -> hidden.
       complexity: standard
-      approved: false
+      approved: true
       comment: ""
+      execution_status: promoted
       critic_revisions:
         - source: haiku
           severity: HIGH
@@ -83,6 +86,7 @@ slices:
         ARCHITECTURE.md (no per-dispatch relevance); human approval gate
         (slows capture to zero — drift labels + deprecation carry trust).
     - id: slice-2
+      feature_id: feat-256d5099
       num: 2
       title: 'Resolve engine: wipnote arch resolve with pinned glob semantics, batched drift, budget'
       what: |
@@ -121,8 +125,9 @@ slices:
         runner. Integration: end-to-end resolve on a temp project with cards
         + commits at two different verified_at pins.
       complexity: complex
-      approved: false
+      approved: true
       comment: ""
+      execution_status: promoted
       questions:
         - id: q-budget-unit
           text: Budget in tokens or words?
@@ -147,6 +152,7 @@ slices:
         unexplainable); suppressing drift-suspect cards (label instead);
         per-card git diffs (O(cards) subprocess cost — batched by design).
     - id: slice-3
+      feature_id: feat-5587d29b
       num: 3
       title: 'Bootstrap: agent-driven starter cards for any repo'
       what: |
@@ -180,8 +186,9 @@ slices:
         count-gated bootstrap on fixture. Manual: dogfood on this repo,
         review card quality.
       complexity: standard
-      approved: false
+      approved: true
       comment: ""
+      execution_status: promoted
       critic_revisions:
         - source: haiku
           severity: LOW
@@ -196,6 +203,7 @@ slices:
         **Rejected:** mechanical CLAUDE.md import (instructions != architecture);
         binary-embedded LLM calls (wipnote stays model-free).
     - id: slice-4
+      feature_id: feat-5a312c8f
       num: 4
       title: 'Capture loop: completion-time learnings + orchestrator distillation'
       what: |
@@ -229,8 +237,9 @@ slices:
         invalid learning aborts pre-completion; drift nudge fires on
         overlapping-paths fixture.
       complexity: standard
-      approved: false
+      approved: true
       comment: ""
+      execution_status: promoted
       critic_revisions:
         - source: haiku
           severity: MEDIUM
@@ -245,6 +254,7 @@ slices:
         proven value); human approval gate (drift labels + deprecation carry
         trust instead).
     - id: slice-5
+      feature_id: feat-359312ab
       num: 5
       title: Dynamic skill-context injection (Claude Code) + dogfood measurement
       what: |
@@ -282,8 +292,9 @@ slices:
         block for a fixture work item. E2E: scripted dispatch + transcript
         grep for an injected card marker. Manual: timed dogfood comparison.
       complexity: complex
-      approved: false
+      approved: true
       comment: ""
+      execution_status: promoted
       questions:
         - id: q-hook-surface
           text: Which Claude Code mechanism carries dispatch-time injection?

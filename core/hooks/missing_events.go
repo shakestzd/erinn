@@ -164,7 +164,7 @@ func Stop(event *CloudEvent, database *sql.DB) (*HookResult, error) {
 	// warning is persisted and surfaced at the next SessionStart instead).
 	//
 	// skipPortDrift=true: Stop fires on EVERY model response (per-turn), not
-	// just at true session boundaries. Running pluginbuild.CheckPorts here cost
+	// just at true session boundaries. Running the port-drift check here cost
 	// 8-22s/turn across 3 full regenerations. Port-drift enforcement is now
 	// handled at commit-time by checkPortDriftCommitGuard (commit_portdrift_guard.go),
 	// which fires only when generator-input files are staged — so correctness is

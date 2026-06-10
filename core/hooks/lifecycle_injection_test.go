@@ -7,8 +7,8 @@ import (
 )
 
 // TestReconcilePortDrift_Injection proves the core reconcile path delegates to
-// the injected PortDriftPathsFn (feat-331927fb) and resolves the repo root
-// before calling it — without importing pluginbuild.
+// the injected PortDriftPathsFn (feat-29195f33) and resolves the repo root
+// before calling it — the core module has no port-generation import.
 func TestReconcilePortDrift_Injection(t *testing.T) {
 	prev := PortDriftPathsFn
 	t.Cleanup(func() { PortDriftPathsFn = prev })

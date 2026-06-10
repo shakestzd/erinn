@@ -252,7 +252,7 @@ func minLen(s string, n int) int {
 //   - AutoCommitted: done-but-uncommitted artifacts that were auto-committed
 //     during this pass (deterministic bookkeeping — never blocks).
 //   - PortDrift: generator-touched-without-build-ports paths reported by
-//     internal/pluginbuild.CheckPorts (slice-2 reuse — NOT reimplemented here).
+//     the injected PortDriftPathsFn (see lifecycle_injection.go).
 //   - Orphaned: in-progress work items with no live owning session (reported
 //     only — never auto-resolved).
 //
@@ -299,8 +299,8 @@ var reconcileArtifactCommitFn = defaultReconcileArtifactCommit
 //     idempotent on an already-committed unchanged artifact (returns no-op,
 //     HEAD must-not-advance branch) — so a reconcile pre-commit is forward
 //     compatible.
-//  2. generator-touched-without-build-ports → reuse slice-2's
-//     internal/pluginbuild.CheckPorts (already on main; NOT reimplemented).
+//  2. generator-touched-without-build-ports → delegated to the injected
+//     PortDriftPathsFn (see lifecycle_injection.go; feat-29195f33).
 //     Skipped when skipPortDrift is true (per-turn Stop path).
 //  3. started-but-orphaned → reported only.
 func Reconcile(database *sql.DB, projectDir string, strict bool, skipPortDrift ...bool) (*ReconcileReport, error) {
@@ -384,16 +384,14 @@ func reconcileStartedButOrphaned(database *sql.DB, _ string) []string {
 	return orphaned
 }
 
-// reconcilePortDrift reuses slice-2's generator drift gate
-// (internal/pluginbuild.CheckPorts) verbatim. We deliberately do NOT
-// reimplement port diffing here — the generator is the single source of truth
-// and CheckPorts is the authoritative regenerate-and-compare. Returns the
-// drifted paths, or nil when in sync / not a plugin-core repo.
+// reconcilePortDrift delegates to the injected PortDriftPathsFn
+// (feat-29195f33). The checker owns the manifest-presence gate and the
+// regenerate-and-compare; core never reimplements port diffing. Returns
+// the drifted paths, or nil when in sync / not a plugin-core repo.
 func reconcilePortDrift(projectDir string) []string {
-	// Delegated to the injected port-drift checker (feat-331927fb) so this core
-	// reconcile path does not import pluginbuild. The checker owns the
-	// manifest-presence gate and the regenerate-and-compare; a nil fn (telemetry/
-	// plugin tooling not wired) means no drift to reconcile.
+	// Delegated to the injected PortDriftPathsFn so this core reconcile path
+	// does not import port-generation tooling. A nil fn (tooling not wired)
+	// means no drift to reconcile.
 	if PortDriftPathsFn == nil {
 		return nil
 	}
@@ -563,9 +561,9 @@ func DrainReconcileWarnings(projectDir string) string {
 //
 // done-but-uncommitted auto-commits and orphan reports never block any harness.
 //
-// When skipPortDrift is true, the expensive pluginbuild.CheckPorts call is
-// skipped entirely — used by the per-turn Stop path so it does not pay 8-22s
-// of full regeneration on every model response. The commit-time
+// When skipPortDrift is true, the expensive port-drift check is skipped
+// entirely — used by the per-turn Stop path so it does not pay 8-22s of full
+// regeneration on every model response. The commit-time
 // checkPortDriftCommitGuard (commit_portdrift_guard.go) enforces port-drift
 // correctness instead, firing only when generator-input files are staged.
 func runSessionExitReconcile(database *sql.DB, projectDir, harness, sessionID string, skipPortDrift bool) error {

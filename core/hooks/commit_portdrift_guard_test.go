@@ -9,11 +9,11 @@ import (
 )
 
 // TestStopPath_SkipsPortDrift asserts that the per-turn Stop path does NOT
-// invoke pluginbuild.CheckPorts (Part A of bug-3fb22f7e fix).
+// invoke the port-drift check (Part A of bug-3fb22f7e fix).
 //
 // We verify this via the skipPortDrift seam: Reconcile with skipPortDrift=true
 // must return PortDrift=nil even when the project directory has a manifest.json,
-// because CheckPorts is bypassed. Reconcile with skipPortDrift=false (full
+// because the check is bypassed. Reconcile with skipPortDrift=false (full
 // reconcile) on the same repo exercises the port-drift code path.
 func TestStopPath_SkipsPortDrift(t *testing.T) {
 	// Reconcile with skipPortDrift=true must never populate PortDrift.
@@ -28,7 +28,7 @@ func TestStopPath_SkipsPortDrift(t *testing.T) {
 		if err := os.MkdirAll(manifestDir, 0o755); err != nil {
 			t.Fatal(err)
 		}
-		// Write an invalid manifest — pluginbuild.Load would fail, but with
+		// Write an invalid manifest — the port checker would fail, but with
 		// skipPortDrift=true the whole reconcilePortDrift call is never made.
 		if err := os.WriteFile(filepath.Join(manifestDir, "manifest.json"),
 			[]byte(`{}`), 0o644); err != nil {

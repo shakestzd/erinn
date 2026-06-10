@@ -6,8 +6,8 @@ import (
 )
 
 // generatorInputDirs are the source-of-truth directories whose contents, when
-// staged, trigger a CheckPorts verification. They map to the asset source
-// directories that pluginbuild.Emit reads from repoRoot.
+// staged, trigger a port-drift verification. They map to the asset source
+// directories that the port generator reads from repoRoot.
 var generatorInputDirs = []string{
 	"plugin/commands",
 	"plugin/agents",
@@ -28,7 +28,7 @@ const generatorInputManifest = "packages/plugin-core/manifest.json"
 // Fast path: if no generator-input files are staged, the guard returns "" with
 // only the cost of one `git diff --cached --name-only` call.
 //
-// Slow path: if a generator-input IS staged, calls pluginbuild.CheckPorts. If
+// Slow path: if a generator-input IS staged, invokes PortDriftPathsFn. If
 // it reports drift (stale generated trees), blocks the commit with a
 // remediation message. If ports are in sync, allows.
 //
@@ -66,9 +66,9 @@ func checkPortDriftCommitGuard(event *CloudEvent) string {
 	}
 
 	// Slow path: a generator-input is staged — check for drift via the injected
-	// checker (feat-331927fb) so this core guard does not import pluginbuild. A
-	// nil checker means plugin tooling isn't wired (e.g. a downstream project
-	// dogfooding wipnote), so there is nothing to verify — allow.
+	// PortDriftPathsFn (feat-29195f33). A nil fn means port-drift tooling isn't
+	// wired (e.g. a downstream project dogfooding wipnote), so there is nothing
+	// to verify — allow.
 	if PortDriftPathsFn == nil {
 		return ""
 	}

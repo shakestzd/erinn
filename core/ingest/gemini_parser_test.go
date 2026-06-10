@@ -302,14 +302,11 @@ func TestIsGeminiSessionFile(t *testing.T) {
 }
 
 // TestGeminiParityModernToolNames verifies that modern Gemini tool names
-// emitted by the generator (from pluginbuild.claudeToGeminiTool) are recognized
-// by the ingestion parser (geminiToolCategory). This guards against drift:
-// if the generator maps a tool to a modern name, the ingestion parser must
-// recognize it. The test uses the pluginbuild package to discover the modern
-// names and confirms each maps to a non-"Other" category.
+// emitted by the port generator are recognized by the ingestion parser
+// (geminiToolCategory). This guards against drift: if the generator maps a
+// tool to a modern name, the ingestion parser must recognize it.
 func TestGeminiParityModernToolNames(t *testing.T) {
 	// These are the modern Gemini tool names the generator emits.
-	// (They are known to be in pluginbuild.claudeToGeminiTool values.)
 	modernToolNames := map[string]string{
 		"read_file":         "Read",
 		"replace":           "Edit",
@@ -332,8 +329,8 @@ func TestGeminiParityModernToolNames(t *testing.T) {
 }
 
 // TestGeminiAgentToolTranslationWithModernNames is an integration test that
-// verifies the agent translator (pluginbuild) emits modern Gemini names that
-// the ingestion parser can recognize.
+// verifies the port generator emits modern Gemini names that the ingestion
+// parser can recognize.
 func TestGeminiAgentToolTranslationWithModernNames(t *testing.T) {
 	sessionJSON := `{
 		"sessionId": "sess-gemini-modern",

@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 	"text/tabwriter"
+	"time"
 
 	corearch "github.com/shakestzd/wipnote/core/arch"
 	dbpkg "github.com/shakestzd/wipnote/core/db"
@@ -30,6 +31,7 @@ func archCmd() *cobra.Command {
 	cmd.AddCommand(archValidateCmd())
 	cmd.AddCommand(archDeprecateCmd())
 	cmd.AddCommand(archResolveCmd())
+	cmd.AddCommand(archVerifyCmd())
 	return cmd
 }
 
@@ -445,5 +447,198 @@ func resolveWorkItemPaths(workItemID, wipnoteDir string) ([]string, error) {
 		}
 	}
 	return paths, nil
+}
+
+// archVerifyCmd re-pins the card's verified_at to the current HEAD SHA.
+func archVerifyCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "verify <slug>",
+		Short: "Re-pin a card's verified_at to current HEAD SHA",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(_ *cobra.Command, args []string) error {
+			return runArchVerify(args[0])
+		},
+	}
+}
+
+func runArchVerify(slug string) error {
+	wipnoteDir, err := findWipnoteDir()
+	if err != nil {
+		return err
+	}
+	store, err := corearch.NewStore(wipnoteDir)
+	if err != nil {
+		return err
+	}
+	card, err := store.Get(slug)
+	if err != nil {
+		return err
+	}
+	repoRoot := filepath.Dir(wipnoteDir)
+	sha := currentHeadSHA(repoRoot)
+	card.VerifiedAt = sha
+	card.UpdatedAt = time.Now().UTC()
+	if err := store.Update(card); err != nil {
+		return err
+	}
+	if sha == "" {
+		fmt.Printf("Verified arch card: %s (no git repo — verified_at cleared)\n", slug)
+	} else {
+		fmt.Printf("Verified arch card: %s @ %s\n", slug, firstN(sha, 7))
+	}
+	return nil
+}
+
+// currentHeadSHA returns the full HEAD SHA for the repo at repoRoot.
+// Returns "" when git is unavailable or the directory is not a git repo.
+func currentHeadSHA(repoRoot string) string {
+	sha, err := gitOutputIn(repoRoot, "rev-parse", "HEAD")
+	if err != nil {
+		return ""
+	}
+	return sha
+}
+
+// createLearningCard validates the learning body text and creates an arch card
+// linked to the given work-item ID. Slug is derived from the work-item ID.
+// Returns a validation error (which should ABORT completion) or a creation error.
+func createLearningCard(wipnoteDir, workItemID, body, kind string, paths []string) error {
+	if err := validateLearningBody(body); err != nil {
+		return fmt.Errorf("--learning validation failed: %w", err)
+	}
+	store, err := corearch.NewStore(wipnoteDir)
+	if err != nil {
+		return fmt.Errorf("open arch store: %w", err)
+	}
+	// Derive slug: "learning-<workItemID>" (e.g. "learning-feat-abc12345").
+	slug := "learning-" + workItemID
+	if !isValidArchSlug(slug) {
+		// Fallback: strip hyphens beyond the standard format.
+		slug = "learning-" + sanitizeSlug(workItemID)
+	}
+	repoRoot := filepath.Dir(wipnoteDir)
+	sha := currentHeadSHA(repoRoot)
+
+	cardKind := corearch.KindDecision
+	if kind != "" {
+		cardKind = corearch.Kind(kind)
+	}
+	card := &corearch.Card{
+		Name:       slug,
+		Kind:       cardKind,
+		Paths:      paths,
+		VerifiedAt: sha,
+		Links:      []string{workItemID},
+		CreatedBy:  "wipnote-completion",
+		Body:       body,
+	}
+	// If a card with this slug already exists, update it instead.
+	if existing, getErr := store.Get(slug); getErr == nil {
+		existing.Body = body
+		existing.Links = appendUnique(existing.Links, workItemID)
+		existing.Paths = mergeUnique(existing.Paths, paths)
+		existing.UpdatedAt = time.Now().UTC()
+		return store.Update(existing)
+	}
+	return store.Create(card)
+}
+
+// validateLearningBody validates just the body text for an arch card (word cap).
+func validateLearningBody(body string) error {
+	dummy := &corearch.Card{
+		Name:      "x",
+		Kind:      corearch.KindDecision,
+		CreatedBy: "x",
+		Body:      body,
+	}
+	return corearch.Validate(dummy)
+}
+
+// isValidArchSlug is a thin wrapper matching the core/arch slug rules.
+func isValidArchSlug(s string) bool {
+	if s == "" || s[0] == '-' || s[len(s)-1] == '-' {
+		return false
+	}
+	for _, r := range s {
+		if !('a' <= r && r <= 'z') && !('0' <= r && r <= '9') && r != '-' {
+			return false
+		}
+	}
+	return true
+}
+
+// sanitizeSlug replaces non-slug characters with hyphens.
+func sanitizeSlug(s string) string {
+	var b strings.Builder
+	for _, r := range strings.ToLower(s) {
+		if ('a' <= r && r <= 'z') || ('0' <= r && r <= '9') || r == '-' {
+			b.WriteRune(r)
+		} else {
+			b.WriteRune('-')
+		}
+	}
+	return strings.Trim(b.String(), "-")
+}
+
+// appendUnique appends val to slice if not already present.
+func appendUnique(slice []string, val string) []string {
+	for _, v := range slice {
+		if v == val {
+			return slice
+		}
+	}
+	return append(slice, val)
+}
+
+// mergeUnique merges additional paths into existing, skipping duplicates.
+func mergeUnique(existing, additional []string) []string {
+	seen := make(map[string]bool, len(existing))
+	for _, v := range existing {
+		seen[v] = true
+	}
+	out := append([]string(nil), existing...)
+	for _, v := range additional {
+		if !seen[v] {
+			seen[v] = true
+			out = append(out, v)
+		}
+	}
+	return out
+}
+
+// emitDriftNudge writes a stderr nudge listing arch cards that are drift-suspect
+// and whose globs overlap the given paths. It is purely advisory; any error is
+// silently swallowed.
+func emitDriftNudge(w io.Writer, touchedPaths []string, wipnoteDir string, runner iarch.DiffRunner) {
+	if len(touchedPaths) == 0 || wipnoteDir == "" {
+		return
+	}
+	store, err := corearch.NewStore(wipnoteDir)
+	if err != nil {
+		return
+	}
+	cards, err := store.List(false)
+	if err != nil || len(cards) == 0 {
+		return
+	}
+	matched := iarch.MatchCards(cards, touchedPaths)
+	if len(matched) == 0 {
+		return
+	}
+	repoRoot := filepath.Dir(wipnoteDir)
+	driftMap := iarch.DetectDrift(matched, repoRoot, runner)
+	var drifted []string
+	for _, c := range matched {
+		if _, ok := driftMap[c.Name]; ok {
+			drifted = append(drifted, c.Name)
+		}
+	}
+	if len(drifted) == 0 {
+		return
+	}
+	fmt.Fprintf(w, "\nArch cards may be drift-suspect (code changed since last verify):\n")
+	for _, slug := range drifted {
+		fmt.Fprintf(w, "  wipnote arch verify %s   # or: wipnote arch edit %s\n", slug, slug)
+	}
 }
 

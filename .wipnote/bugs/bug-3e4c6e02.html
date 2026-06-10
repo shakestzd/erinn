@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>Codex exec-mode runs emit no wipnote session despite installed hooks.json</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="bug-3e4c6e02"
+             data-type="bug"
+             data-status="todo"
+             data-priority="medium"
+             data-created="2026-06-10T05:24:43.089445"
+             data-updated="2026-06-10T05:24:43.098999" data-agent-assigned="claude-code" data-track-id="trk-2e707ed1" data-created-by-agent="claude-code" data-created-by-model="claude-fable-5[1m]" data-created-by-cli-version="0.60.21-111-g2c00119b4">
+
+        <header>
+            <h1>Codex exec-mode runs emit no wipnote session despite installed hooks.json</h1>
+            <div class="metadata">
+                <span class="badge status-todo">Todo</span>
+                <span class="badge priority-medium">Medium Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="trk-2e707ed1.html" data-relationship="part_of" data-since="2026-06-10T05:24:43.098864">trk-2e707ed1</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>Probe 2026-06-10: codex exec (with and without --dangerously-bypass-hook-trust) completes but no wipnote session appears. ~/.codex/hooks.json exists with wipnote hook commands in Claude-Code-style nested schema. Diagnose: (1) does Codex's documented hooks.json schema match what wipnote installs (verify against developers.openai.com/codex/hooks — payload has session_id/cwd/hook_event_name/model, registration in hooks.json or config.toml); (2) do Codex hooks fire in exec mode at all (test with a trivial logging hook); (3) does wipnote hook session-start handle Codex's payload shape. Fix in port/pluginbuild codex generation or core/hooks handler.</p>
+        </section>
+    </article>
+</body>
+</html>

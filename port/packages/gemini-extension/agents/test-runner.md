@@ -40,6 +40,10 @@ Better to finish in 8 tool calls with a partial answer than to truncate at 15 wi
 
 - **Batch wipnote CLI calls** with `&&` — each Bash tool call costs a turn from the user's quota.
 
+## Preferred gate invocation (when a work-item ID is provided)
+
+Use `wipnote check --gate --work-item <id>` instead of running the language tools directly. This runs the same gates and also attaches a gate record to the work item, which `wipnote {feature|bug|spike} complete` requires. When no work-item ID is given, run the language gates directly.
+
 ## When to use
 
 - After implementing code changes

@@ -313,6 +313,52 @@ func TestSanitizePathID(t *testing.T) {
 	}
 }
 
+// TestReindexFeatureFiles_BugTypeItem mirrors TestReindexFeatureFiles_PopulatesFromCommit
+// but uses a bug- work item ID, confirming that the feature_id column and diff-tree
+// expansion handle bug-prefixed IDs the same way as feat-prefixed ones.
+func TestReindexFeatureFiles_BugTypeItem(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	commitHash := initBareGitRepo(t, tmpDir, map[string]string{
+		"internal/serve.go": "package serve\n",
+		"cmd/main.go":       "package main\n",
+	})
+
+	database, err := dbpkg.Open(":memory:")
+	if err != nil {
+		t.Fatalf("open db: %v", err)
+	}
+	defer database.Close()
+
+	bugID := "bug-test-001"
+	insertFeatureRow(t, database, bugID)
+	insertGitCommitRow(t, database, bugID, commitHash)
+
+	count, err := reindexFeatureFiles(database, tmpDir)
+	if err != nil {
+		t.Fatalf("reindexFeatureFiles: %v", err)
+	}
+	if count < 2 {
+		t.Errorf("expected >= 2 file associations for bug item, got %d", count)
+	}
+
+	rows, err := dbpkg.ListFilesByFeature(database, bugID)
+	if err != nil {
+		t.Fatalf("ListFilesByFeature: %v", err)
+	}
+
+	pathSet := make(map[string]bool)
+	for _, r := range rows {
+		pathSet[r.FilePath] = true
+	}
+	if !pathSet["internal/serve.go"] {
+		t.Errorf("internal/serve.go not found in feature_files for bug item; got %v", pathSet)
+	}
+	if !pathSet["cmd/main.go"] {
+		t.Errorf("cmd/main.go not found in feature_files for bug item; got %v", pathSet)
+	}
+}
+
 // TestSanitizePathID_NoCollision verifies that two paths sharing the same first
 // 32 sanitized characters produce distinct IDs after truncation.
 func TestSanitizePathID_NoCollision(t *testing.T) {

@@ -46,22 +46,10 @@ func reindexFeatureFiles(database *sql.DB, projectDir string) (int, error) {
 
 	total := 0
 	for _, ref := range refs {
-		out, cmdErr := exec.Command(
-			"git", "-C", projectDir,
-			"diff-tree", "--root", "--no-commit-id", "-r", "--name-only", ref.commitHash,
-		).Output()
-		if cmdErr != nil {
-			// Commit may not exist locally (rebased away) -- skip silently.
-			continue
-		}
-
-		hashPrefix := ref.commitHash
-		if len(hashPrefix) > 8 {
-			hashPrefix = hashPrefix[:8]
-		}
-		for _, filePath := range strings.Split(strings.TrimSpace(string(out)), "\n") {
-			if filePath == "" {
-				continue
+		for _, filePath := range expandCommitFiles(projectDir, []string{ref.commitHash}) {
+			hashPrefix := ref.commitHash
+			if len(hashPrefix) > 8 {
+				hashPrefix = hashPrefix[:8]
 			}
 			ff := &models.FeatureFile{
 				ID:        ref.featureID + "-" + hashPrefix + "-" + sanitizePathID(filePath),
@@ -75,6 +63,36 @@ func reindexFeatureFiles(database *sql.DB, projectDir string) (int, error) {
 		}
 	}
 	return total, nil
+}
+
+// expandCommitFiles runs git diff-tree on each provided commit hash and returns
+// the deduplicated, repo-relative file paths touched by those commits.
+// Hashes that do not exist locally (rebased away, shallow clone) are silently
+// skipped. An empty slice is returned when no files can be resolved.
+func expandCommitFiles(projectDir string, hashes []string) []string {
+	seen := make(map[string]bool)
+	var files []string
+	for _, hash := range hashes {
+		if hash == "" {
+			continue
+		}
+		out, err := exec.Command(
+			"git", "-C", projectDir,
+			"diff-tree", "--root", "--no-commit-id", "-r", "--name-only", hash,
+		).Output()
+		if err != nil {
+			// Commit may not exist locally (rebased away) -- skip silently.
+			continue
+		}
+		for _, fp := range strings.Split(strings.TrimSpace(string(out)), "\n") {
+			if fp == "" || seen[fp] {
+				continue
+			}
+			seen[fp] = true
+			files = append(files, fp)
+		}
+	}
+	return files
 }
 
 // sanitizePathID converts a file path to a short token safe for use in a

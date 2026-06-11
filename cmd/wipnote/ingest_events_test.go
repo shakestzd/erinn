@@ -2,6 +2,9 @@ package main
 
 import (
 	"database/sql"
+	"os/exec"
+	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -213,5 +216,83 @@ func TestStoreParseResult_InputSummaryTruncated(t *testing.T) {
 	}
 	if len([]rune(evt.InputSummary)) > 200 {
 		t.Errorf("InputSummary length %d > 200", len([]rune(evt.InputSummary)))
+	}
+}
+
+// TestIngestFilePathNormalization verifies that storeParseResult filters out
+// absolute/outside-repo paths from feature_files (bug-c06a0457 L1).
+// A session with an active feature receives tool calls with both a legitimate
+// repo-relative absolute path and a garbage /tmp path. Only the repo-relative
+// survivor should appear in feature_files.
+func TestIngestFilePathNormalization(t *testing.T) {
+	// Create a real git repo so NormalizeToRepoRelative can find the worktree root.
+	tmpDir := t.TempDir()
+	run := func(args ...string) {
+		t.Helper()
+		cmd := exec.Command("git", args...)
+		cmd.Dir = tmpDir
+		out, err := cmd.CombinedOutput()
+		if err != nil {
+			t.Fatalf("git %s: %v\n%s", strings.Join(args, " "), err, out)
+		}
+	}
+	run("init", "-b", "main")
+	run("config", "user.email", "test@test.com")
+	run("config", "user.name", "Test")
+
+	database := setupIngestEventsDB(t)
+
+	sessionID := "sess-norm-001"
+	featureID := "feat-norm-001"
+
+	// Insert session with project_dir set so sessionProjectDir returns it.
+	database.Exec(`INSERT INTO sessions (session_id, agent_assigned, created_at, status, project_dir, active_feature_id)
+		VALUES (?, 'claude-code', datetime('now'), 'completed', ?, ?)`,
+		sessionID, tmpDir, featureID)
+
+	// Insert the feature row to satisfy FK.
+	database.Exec(`INSERT OR IGNORE INTO features (id, type, title, status, priority, created_at, updated_at)
+		VALUES (?, 'feature', 'Test Feature', 'todo', 'medium', datetime('now'), datetime('now'))`, featureID)
+
+	repoRelAbs := filepath.Join(tmpDir, "cmd", "main.go") // absolute but inside repo
+	garbagePath := "/tmp/claude-scratch-12345/foo.go"
+
+	result := &ingest.ParseResult{
+		Messages: []models.Message{
+			{Ordinal: 0, Role: "assistant", Timestamp: time.Now()},
+		},
+		ToolCalls: []models.ToolCall{
+			{
+				MessageOrdinal: 0,
+				ToolName:       "Read",
+				ToolUseID:      "tu-norm-001",
+				InputJSON:      `{"file_path":"` + repoRelAbs + `"}`,
+			},
+			{
+				MessageOrdinal: 0,
+				ToolName:       "Edit",
+				ToolUseID:      "tu-norm-002",
+				InputJSON:      `{"file_path":"` + garbagePath + `"}`,
+			},
+		},
+	}
+
+	storeParseResult(database, sessionID, "", result)
+
+	rows, err := dbpkg.ListFilesByFeature(database, featureID)
+	if err != nil {
+		t.Fatalf("ListFilesByFeature: %v", err)
+	}
+
+	for _, row := range rows {
+		if filepath.IsAbs(row.FilePath) {
+			t.Errorf("absolute path stored in feature_files: %q", row.FilePath)
+		}
+		if strings.HasPrefix(row.FilePath, "unresolved:") {
+			t.Errorf("unresolved: path stored in feature_files: %q", row.FilePath)
+		}
+		if row.FilePath == garbagePath || strings.Contains(row.FilePath, "/tmp/") {
+			t.Errorf("garbage /tmp path leaked into feature_files: %q", row.FilePath)
+		}
 	}
 }

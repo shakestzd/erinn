@@ -249,6 +249,8 @@ func storeParseResult(database *sql.DB, sessionID, agentID string, result *inges
 	// Fetch the session's active_feature_id to tag each tool call and file tracking.
 	activeFeatureID := sessionActiveFeature(database, sessionID)
 	featureID := activeFeatureID
+	// Read project_dir for path normalization (bug-c06a0457 L1).
+	projDir := sessionProjectDir(database, sessionID)
 
 	for _, tc := range result.ToolCalls {
 		tc.SessionID = sessionID
@@ -275,10 +277,16 @@ func storeParseResult(database *sql.DB, sessionID, agentID string, result *inges
 		if featureID != "" {
 			if op := ingestFileOp(tc.ToolName); op != "" {
 				if fp := extractIngestFilePath(tc.InputJSON); fp != "" {
+					// bug-c06a0457 L1: normalize path to repo-relative and skip
+					// outside-repo or unresolvable paths before writing to feature_files.
+					normalized := paths.MustNormalize(fp, projDir)
+					if normalized == "" || strings.HasPrefix(normalized, "unresolved:") {
+						continue
+					}
 					ff := &models.FeatureFile{
 						ID:        featureID + "-" + uuid.NewString(),
 						FeatureID: featureID,
-						FilePath:  fp,
+						FilePath:  normalized,
 						Operation: op,
 						SessionID: sessionID,
 					}
@@ -422,6 +430,7 @@ func sessionActiveFeature(database *sql.DB, sessionID string) string {
 	).Scan(&featureID)
 	return featureID
 }
+
 
 // ingestFileOp maps tool names to feature_files operation labels for ingest.
 // Returns "" for tools that don't operate on a specific file path.

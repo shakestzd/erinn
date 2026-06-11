@@ -1,9 +1,11 @@
 package main
 
 import (
+	"database/sql"
 	"fmt"
 	"io"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"text/tabwriter"
@@ -12,6 +14,7 @@ import (
 	corearch "github.com/shakestzd/wipnote/core/arch"
 	dbpkg "github.com/shakestzd/wipnote/core/db"
 	"github.com/shakestzd/wipnote/core/models"
+	"github.com/shakestzd/wipnote/core/paths"
 	"github.com/shakestzd/wipnote/core/storage"
 	iarch "github.com/shakestzd/wipnote/internal/arch"
 	"github.com/spf13/cobra"
@@ -375,14 +378,19 @@ func runArchResolve(forFlag string, budget int) error {
 		return err
 	}
 
-	paths, err := resolveInputPaths(forFlag, wipnoteDir)
+	resolvedPaths, pathsAttribMsg, err := resolveInputPathsWithDiag(forFlag, wipnoteDir)
 	if err != nil {
 		return err
 	}
 
-	matched := iarch.MatchCards(cards, paths)
+	matched := iarch.MatchCards(cards, resolvedPaths)
 	if len(matched) == 0 {
-		fmt.Println("No arch cards matched.")
+		if pathsAttribMsg != "" {
+			// Paths were found but no cards matched them.
+			fmt.Printf("No arch cards matched for paths attributed to %s.\n", pathsAttribMsg)
+		} else {
+			fmt.Println("No arch cards matched.")
+		}
 		return nil
 	}
 
@@ -398,24 +406,89 @@ func runArchResolve(forFlag string, budget int) error {
 // If forFlag is a work-item ID, it queries the DB for attributed files.
 // Otherwise, it splits forFlag on commas and treats each element as a file path.
 func resolveInputPaths(forFlag, wipnoteDir string) ([]string, error) {
+	resolved, _, err := resolveInputPathsWithDiag(forFlag, wipnoteDir)
+	return resolved, err
+}
+
+// resolveInputPathsWithDiag is like resolveInputPaths but also returns a
+// diagnostic label when the forFlag is a work-item ID (used to produce
+// differentiated no-match messages). The label is empty for direct path inputs.
+func resolveInputPathsWithDiag(forFlag, wipnoteDir string) (filePaths []string, attribLabel string, err error) {
 	if iarch.LooksLikeWorkItemID(forFlag) {
-		return resolveWorkItemPaths(forFlag, wipnoteDir)
+		fp, label, resolveErr := resolveWorkItemPathsWithDiag(forFlag, wipnoteDir)
+		return fp, label, resolveErr
 	}
 	raw := strings.Split(forFlag, ",")
-	paths := make([]string, 0, len(raw))
+	result := make([]string, 0, len(raw))
 	for _, p := range raw {
 		p = strings.TrimSpace(p)
 		if p != "" {
-			paths = append(paths, p)
+			result = append(result, p)
 		}
 	}
-	return paths, nil
+	return result, "", nil
 }
 
-// resolveWorkItemPaths looks up the files attributed to a work-item ID in the
-// SQLite feature_files table. Returns the deduplicated file paths.
+// resolveWorkItemPaths looks up the files attributed to a work-item ID using a
+// three-tier fallback chain. Returns the deduplicated file paths.
 func resolveWorkItemPaths(workItemID, wipnoteDir string) ([]string, error) {
+	fp, _, err := resolveWorkItemPathsWithDiag(workItemID, wipnoteDir)
+	return fp, err
+}
+
+// resolveWorkItemPathsWithDiag resolves file paths for a work-item ID and also
+// returns a diagnostic label indicating which tier produced the result (used to
+// differentiate "no paths attributed" from "paths found but no cards matched").
+//
+// Three-tier fallback:
+//  1. feature_files rows in SQLite (fast path; populated by reindex/hooks).
+//  2. git_commits rows for the work item -> git diff-tree expansion.
+//  3. git log --grep=<workItemID> -> expandCommitFiles (zero-DB fallback).
+//
+// If all tiers return empty, the label is "" and the caller should print
+// "No files attributed yet; try 'wipnote reindex'".
+func resolveWorkItemPathsWithDiag(workItemID, wipnoteDir string) (filePaths []string, attribLabel string, err error) {
 	projectDir := filepath.Dir(wipnoteDir)
+
+	// Tier 1: feature_files table.
+	dbFiles, dbErr := queryFeatureFiles(projectDir, workItemID)
+	if dbErr == nil && len(dbFiles) > 0 {
+		seen := make(map[string]bool, len(dbFiles))
+		var result []string
+		for _, f := range dbFiles {
+			if !seen[f.FilePath] {
+				seen[f.FilePath] = true
+				result = append(result, f.FilePath)
+			}
+		}
+		return result, workItemID, nil
+	}
+
+	// Tier 2: git_commits rows -> diff-tree.
+	if hashes, hashErr := queryCommitHashesForItem(projectDir, workItemID); hashErr == nil && len(hashes) > 0 {
+		expanded := expandCommitFiles(projectDir, hashes)
+		if len(expanded) > 0 {
+			return expanded, workItemID, nil
+		}
+	}
+
+	// Tier 3: git log --grep -> diff-tree (zero-DB fallback).
+	gitHashes := gitCommitHashesForWorkItem(projectDir, workItemID)
+	if len(gitHashes) > 0 {
+		expanded := expandCommitFiles(projectDir, gitHashes)
+		if len(expanded) > 0 {
+			return expanded, workItemID, nil
+		}
+	}
+
+	// No files attributed: print guidance and return empty (caller prints no-match).
+	fmt.Fprintf(os.Stderr, "No files attributed to %s yet; try 'wipnote reindex'\n", workItemID)
+	return nil, "", nil
+}
+
+// queryFeatureFiles opens the DB (read-only) and lists feature_files for the
+// given work-item ID. Returns an error when the DB is unavailable.
+func queryFeatureFiles(projectDir, workItemID string) ([]models.FeatureFile, error) {
 	dbPath, err := storage.CanonicalDBPath(projectDir)
 	if err != nil {
 		return nil, fmt.Errorf("resolve db path: %w", err)
@@ -427,26 +500,75 @@ func resolveWorkItemPaths(workItemID, wipnoteDir string) ([]string, error) {
 	defer database.Close()
 
 	var files []models.FeatureFile
-	if err := dbpkg.RetryOnBusy(dbpkg.DefaultBusyBackoff, func() error {
+	if retryErr := dbpkg.RetryOnBusy(dbpkg.DefaultBusyBackoff, func() error {
 		f, derr := dbpkg.ListFilesByFeature(database, workItemID)
 		if derr != nil {
 			return derr
 		}
 		files = f
 		return nil
-	}); err != nil {
-		return nil, fmt.Errorf("list files for %s: %w", workItemID, err)
+	}); retryErr != nil {
+		return nil, fmt.Errorf("list files for %s: %w", workItemID, retryErr)
 	}
+	return files, nil
+}
 
-	seen := make(map[string]bool, len(files))
-	paths := make([]string, 0, len(files))
-	for _, f := range files {
-		if !seen[f.FilePath] {
-			seen[f.FilePath] = true
-			paths = append(paths, f.FilePath)
+// queryCommitHashesForItem opens the DB and fetches commit hashes linked to the
+// given work-item ID from the git_commits table.
+func queryCommitHashesForItem(projectDir, workItemID string) ([]string, error) {
+	dbPath, err := storage.CanonicalDBPath(projectDir)
+	if err != nil {
+		return nil, fmt.Errorf("resolve db path: %w", err)
+	}
+	database, err := dbpkg.OpenReadOnlyMigrated(dbPath)
+	if err != nil {
+		return nil, fmt.Errorf("open database: %w", err)
+	}
+	defer database.Close()
+
+	return queryCommitHashesFromDB(database, workItemID)
+}
+
+// queryCommitHashesFromDB is the injectable form of queryCommitHashesForItem
+// used by tests that provide their own *sql.DB.
+func queryCommitHashesFromDB(database *sql.DB, workItemID string) ([]string, error) {
+	rows, err := database.Query(
+		`SELECT DISTINCT commit_hash FROM git_commits WHERE feature_id = ?`,
+		workItemID,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("query git_commits for %s: %w", workItemID, err)
+	}
+	defer rows.Close()
+	var hashes []string
+	for rows.Next() {
+		var h string
+		if scanErr := rows.Scan(&h); scanErr == nil && h != "" {
+			hashes = append(hashes, h)
 		}
 	}
-	return paths, nil
+	return hashes, rows.Err()
+}
+
+// gitCommitHashesForWorkItem runs git log to find commits whose messages
+// reference workItemID (via parenthesized or trailer convention). This is the
+// zero-DB fallback (tier 3) for resolveWorkItemPathsWithDiag.
+func gitCommitHashesForWorkItem(projectDir, workItemID string) []string {
+	out, err := exec.Command(
+		"git", "-C", projectDir,
+		"log", "--format=%H", "--grep="+workItemID, "-100",
+	).Output()
+	if err != nil || len(out) == 0 {
+		return nil
+	}
+	var hashes []string
+	for _, h := range strings.Split(strings.TrimSpace(string(out)), "\n") {
+		h = strings.TrimSpace(h)
+		if h != "" {
+			hashes = append(hashes, h)
+		}
+	}
+	return hashes
 }
 
 // archVerifyCmd re-pins the card's verified_at to the current HEAD SHA.
@@ -523,10 +645,14 @@ func createLearningCard(wipnoteDir, workItemID, body, kind string, paths []strin
 	if kind != "" {
 		cardKind = corearch.Kind(kind)
 	}
+	// L2 (bug-c06a0457): normalize, deduplicate, and filter paths before writing
+	// the card. This defends against garbage absolute/tmp paths that may arrive
+	// from pre-fix feature_files rows or from outside-repo tool inputs.
+	normalizedPaths := normalizeLearningPaths(repoRoot, paths)
 	card := &corearch.Card{
 		Name:       slug,
 		Kind:       cardKind,
-		Paths:      paths,
+		Paths:      normalizedPaths,
 		VerifiedAt: sha,
 		Links:      []string{workItemID},
 		CreatedBy:  "wipnote-completion",
@@ -536,7 +662,7 @@ func createLearningCard(wipnoteDir, workItemID, body, kind string, paths []strin
 	if existing, getErr := store.Get(slug); getErr == nil {
 		existing.Body = body
 		existing.Links = appendUnique(existing.Links, workItemID)
-		existing.Paths = mergeUnique(existing.Paths, paths)
+		existing.Paths = mergeUnique(existing.Paths, normalizedPaths)
 		existing.UpdatedAt = time.Now().UTC()
 		return store.Update(existing)
 	}
@@ -598,6 +724,31 @@ func sanitizeSlug(s string) string {
 		}
 	}
 	return strings.Trim(b.String(), "-")
+}
+
+// normalizeLearningPaths normalizes, deduplicates, and filters a list of file
+// paths for inclusion in an arch card (bug-c06a0457 L2). It discards:
+//   - paths that normalize to "unresolved:..." (outside-repo absolute paths)
+//   - empty strings
+//
+// Relative paths that are already repo-relative pass through unchanged.
+func normalizeLearningPaths(repoRoot string, rawPaths []string) []string {
+	seen := make(map[string]bool, len(rawPaths))
+	var out []string
+	for _, p := range rawPaths {
+		if p == "" {
+			continue
+		}
+		normalized := paths.MustNormalize(p, repoRoot)
+		if normalized == "" || strings.HasPrefix(normalized, "unresolved:") {
+			continue
+		}
+		if !seen[normalized] {
+			seen[normalized] = true
+			out = append(out, normalized)
+		}
+	}
+	return out
 }
 
 // appendUnique appends val to slice if not already present.

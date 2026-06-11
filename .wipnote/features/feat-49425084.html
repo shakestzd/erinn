@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>Truncation-resilient reporting: persist-then-summarize protocol for all agents</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="feat-49425084"
+             data-type="feature"
+             data-status="todo"
+             data-priority="medium"
+             data-created="2026-06-11T08:10:07.83923"
+             data-updated="2026-06-11T08:10:07.846944" data-agent-assigned="claude-code" data-track-id="trk-9f0ac8e2" data-created-by-agent="claude-code" data-created-by-model="claude-fable-5[1m]" data-created-by-cli-version="0.61.2-29-g705c042ac">
+
+        <header>
+            <h1>Truncation-resilient reporting: persist-then-summarize protocol for all agents</h1>
+            <div class="metadata">
+                <span class="badge status-todo">Todo</span>
+                <span class="badge priority-medium">Medium Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="trk-9f0ac8e2.html" data-relationship="part_of" data-since="2026-06-11T08:10:07.846734">trk-9f0ac8e2</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>Subagents truncated mid-final-report 4x on 2026-06-10/11 despite maxTurns raises (feat-23821886), each costing an orchestrator recovery round-trip. Add to plugin/skills/agent-context (inherited by every agent): persist substantive findings into durable artifacts BEFORE composing the final message — wipnote bug/feature set-description for diagnoses, add-step for progress, arch add for durable facts, commits for code — and write the final message as a summary pointing at those artifacts. Rationale: truncation then loses presentation, never substance. Include guidance to write the report into the work item incrementally on long tasks (>30 tool calls).</p>
+        </section>
+    </article>
+</body>
+</html>

@@ -10,15 +10,15 @@
 <body>
     <article id="bug-fddf5820"
              data-type="bug"
-             data-status="done"
+             data-status="in-progress"
              data-priority="high"
              data-created="2026-06-11T12:39:36.243141"
-             data-updated="2026-06-11T13:09:44.266321" data-agent-assigned="claude-code" data-track-id="trk-13e39042" data-created-by-agent="claude-code" data-created-by-model="claude-fable-5" data-created-by-cli-version="0.61.2-73-g9dad23f3e">
+             data-updated="2026-06-11T16:20:04.371802" data-agent-assigned="claude-code" data-track-id="trk-13e39042" data-created-by-agent="claude-code" data-created-by-model="claude-fable-5" data-created-by-cli-version="0.61.2-73-g9dad23f3e">
 
         <header>
             <h1>roborev sweep: 40 failing reviews — 2 renderer bugs &#43; 10 code findings on recent fixes</h1>
             <div class="metadata">
-                <span class="badge status-done">Done</span>
+                <span class="badge status-in-progress">In Progress</span>
                 <span class="badge priority-high">High Priority</span>
             </div>
         </header>
@@ -27,13 +27,13 @@
             <section data-edge-type="part_of">
                 <h3>Part Of:</h3>
                 <ul>
-                    <li><a href="trk-13e39042.html" data-relationship="part_of" data-since="2026-06-11T12:39:36.258055">trk-13e39042</a></li>
+                    <li><a href="../tracks/trk-13e39042.html" data-relationship="part_of" data-since="2026-06-11T12:39:36.258055">trk-13e39042</a></li>
                 </ul>
             </section>
             <section data-edge-type="implemented_in">
                 <h3>Implemented In:</h3>
                 <ul>
-                    <li><a href="127926be-6a1c-4045-a347-e42785ec5839.html" data-relationship="implemented_in" data-since="2026-06-11T12:40:24.946716">session 127926be-6a1c-4045-a347-e42785ec5839</a></li>
+                    <li><a href="../sessions/127926be-6a1c-4045-a347-e42785ec5839.html" data-relationship="implemented_in" data-since="2026-06-11T12:40:24.946716">session 127926be-6a1c-4045-a347-e42785ec5839</a></li>
                 </ul>
             </section>
         </nav>
@@ -45,7 +45,7 @@
 PER-FINDING STATUS (all FIXED):
 1 renderer cross-collection edge hrefs - FIXED: edgeHref() in core/workitem/htmlwriter.go maps ID prefix to collection dir (sessions via UUID shape); template uses .Href; parser already strips leading dir so round-trip safe.
 2 renderer angle-bracket escaping - FIXED: plain-text descriptions HTML-escaped via template.HTMLEscapeString before
-wrap. Step text already auto-escaped by html/template. Authored HTML (starts with <) passes through.
+wrap. Step text already auto-escaped by html/template. Authored HTML (starts with &lt;) passes through.
 3 resolveGateWorkItem cwd - FIXED: openProjectGateDB anchors DB on projectRoot, not findWipnoteDir cwd walk.
 4 check --gate nonexistent ID - FIXED: db.WorkItemExists (features+tracks) validates --work-item; nonexistent warns but still records (DB-unavailable trusts flag).
 5 IsPlanFullyApproved merge - FIXED: per-slice MERGE when both DB rows and YAML slices present (DB status when row exists else YAML; every YAML slice must be approved). nil YAML preserves slices-only (bug-9f753d25); no-DB-rows preserves canonical fallback (bug-eca8141d).
@@ -62,7 +62,7 @@ wrap. Step text already auto-escaped by html/template. Authored HTML (starts wit
 
 GATE: wipnote check --gate passes (go build + go vet, exit 0). Root module go build/vet/test green except TestExtractArchive_BinaryAndPlugin (documented umask flake, unrelated). core module: go build + go vet clean (go test blocked by env permission hook; test files compile via vet).
 ENV NOTE: go test in core/ and plan/ modules blocked by permission hook in this environment; validated via root-module tests + go vet on all modules.
-[2026-06-11 13:09 claude-code] accepted-advisory (provenance override): Implementation committed as 50fc6e777 (subject ends '(bug-fddf5820)'). wipnote link-commit and reindex commit-trailer linkage are blocked by this environment's permission hook, so the automatic source-commit link could not be recorded. Commit is real and on main; provenance is the commit subject trailer.</p>
+[2026-06-11 13:09 claude-code] accepted-advisory (provenance override): Implementation committed as 50fc6e777 (subject ends &#39;(bug-fddf5820)&#39;). wipnote link-commit and reindex commit-trailer linkage are blocked by this environment&#39;s permission hook, so the automatic source-commit link could not be recorded. Commit is real and on main; provenance is the commit subject trailer.</p>
         </section>
     </article>
 </body>

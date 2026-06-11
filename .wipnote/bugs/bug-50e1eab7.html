@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>Old-name and personal-path residue tracked in repo (pre-OSS hygiene)</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="bug-50e1eab7"
+             data-type="bug"
+             data-status="todo"
+             data-priority="high"
+             data-created="2026-06-11T21:08:19.34968"
+             data-updated="2026-06-11T21:08:19.365783" data-agent-assigned="claude-code" data-track-id="trk-0677c709" data-created-by-agent="claude-code" data-created-by-model="claude-fable-5" data-created-by-cli-version="0.62.0">
+
+        <header>
+            <h1>Old-name and personal-path residue tracked in repo (pre-OSS hygiene)</h1>
+            <div class="metadata">
+                <span class="badge status-todo">Todo</span>
+                <span class="badge priority-high">High Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-0677c709.html" data-relationship="part_of" data-since="2026-06-11T21:08:19.365555">trk-0677c709</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>Pre-OSS-launch hygiene, found 2026-06-11: (1) a tracked file under .claude/projects/ embeds a contributor&#39;s local home directory path from the old htmlgraph-era checkout — personal residue that publishes with the repo; untrack it (.claude/ tree is auto-synced/ephemeral per project rules). (2) Four stale htmlgraph-*.png screenshots tracked under the playwright artifacts dir — untrack and gitignore that dir. (3) ~38 old-project-name mentions across source/docs (cmd, core, plan, port, observe, plugin) — audit each: rename-safe comments vs load-bearing identifiers. (4) Decide private/ tracking policy before the repo goes public — currently tracked, contains blog drafts. Do not quote literal personal paths in work items (this item replaces bug-271c5fb3 whose own title leaked one — caught by roborev job 147).</p>
+        </section>
+    </article>
+</body>
+</html>

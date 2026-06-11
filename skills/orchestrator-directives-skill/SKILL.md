@@ -863,25 +863,32 @@ When delegating to ANY coder agent, include these requirements in the prompt:
 
 ### Research First
 - Search for existing libraries before implementing from scratch
-- Check `pyproject.toml` before adding new dependencies
+- Check `go.mod` before adding new dependencies
 - Prefer well-maintained packages over custom implementations
 
 ### Code Design
-- **DRY** — Extract shared logic; check `src/python/wipnote/utils/` for existing utilities before writing new ones
-- **Single Responsibility** — One clear purpose per module, class, and function
+- **DRY** — Extract shared logic; check `internal/` for existing utilities before writing new ones
+- **Single Responsibility** — One clear purpose per module, function, and struct
 - **KISS** — Simplest solution that satisfies current requirements
 - **YAGNI** — Only implement what is needed now, not speculative future needs
-- **Composition over inheritance**
 
-### Module Size Limits
-- Functions: <50 lines | Classes: <300 lines | Modules: <500 lines
-- If a module would exceed limits, split it as part of the work — do not defer refactoring
+### Module Size Limits (from code-hygiene rules)
+- Functions: <50 lines | Structs: <300 lines | Files: <500 lines
+- If a file would exceed limits, split it as part of the work — do not defer refactoring
 
 ### Before Committing
 ```bash
-uv run ruff check --fix && uv run ruff format && uv run mypy src/ && uv run pytest
+go build ./... && go vet ./... && go test ./...
 ```
-Never commit with unresolved type errors, lint warnings, or test failures.
+Never commit with unresolved build errors, vet warnings, or test failures.
+
+### Environment Hazards (auto-injected via arch memory)
+
+Operational hazards for this repo (TMPDIR setup for go test, banned git stash, TestExtractArchive
+flake, gpg/401 signing in sandboxed Bash) are stored as `kind=hazard` arch cards and injected
+automatically by `wipnote arch resolve` at dispatch time. Do NOT repeat them verbatim in dispatch
+prompts — the arch injection delivers them with fresher, deduplicated text. Include the arch resolve
+output under `## Architectural context` in every subagent prompt instead.
 
 ---
 

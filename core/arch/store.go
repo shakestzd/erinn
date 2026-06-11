@@ -192,17 +192,21 @@ func (s *Store) write(card *Card) error {
 }
 
 // ValidateAll parses and validates every card in the store.
-// Returns a map from slug to validation error for any card that fails.
-func (s *Store) ValidateAll() (map[string]error, error) {
-	entries, err := os.ReadDir(s.dir)
-	if err != nil {
-		if os.IsNotExist(err) {
-			return nil, nil
+// Returns:
+//   - errs: map from slug to error for cards that fail validation (error-class violations).
+//   - warnings: map from slug to warning strings for cards with advisory path issues.
+//   - err: a non-nil error only when the store directory cannot be read.
+func (s *Store) ValidateAll() (errs map[string]error, warnings map[string][]string, err error) {
+	entries, readErr := os.ReadDir(s.dir)
+	if readErr != nil {
+		if os.IsNotExist(readErr) {
+			return nil, nil, nil
 		}
-		return nil, fmt.Errorf("read arch dir: %w", err)
+		return nil, nil, fmt.Errorf("read arch dir: %w", readErr)
 	}
 
-	errs := make(map[string]error)
+	errs = make(map[string]error)
+	warnings = make(map[string][]string)
 	for _, e := range entries {
 		if e.IsDir() || !strings.HasSuffix(e.Name(), ".md") {
 			continue
@@ -217,6 +221,9 @@ func (s *Store) ValidateAll() (map[string]error, error) {
 		if valErr := Validate(card); valErr != nil {
 			errs[slug] = valErr
 		}
+		if ws := ValidatePaths(card.Paths); len(ws) > 0 {
+			warnings[slug] = ws
+		}
 	}
-	return errs, nil
+	return errs, warnings, nil
 }

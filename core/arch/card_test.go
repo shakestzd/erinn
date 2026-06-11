@@ -526,7 +526,7 @@ func TestStore_ValidateAll(t *testing.T) {
 	bad := []byte("---\nname: bad-card\nkind: not-a-kind\ncreated_by: agent\n---\nBody.\n")
 	os.WriteFile(filepath.Join(store.Dir(), "bad-card.md"), bad, 0o644)
 
-	errs, err := store.ValidateAll()
+	errs, _, err := store.ValidateAll()
 	if err != nil {
 		t.Fatalf("ValidateAll: %v", err)
 	}
@@ -542,5 +542,128 @@ func TestStore_ParseFile_NotFound(t *testing.T) {
 	_, err := ParseFile("/nonexistent/path/card.md")
 	if err == nil {
 		t.Fatal("expected ErrNotFound")
+	}
+}
+
+// ---- Path validation tests (bug-c06a0457) -----------------------------------
+
+func TestValidate_AbsolutePath_Error(t *testing.T) {
+	c := validCard()
+	c.Paths = []string{"/workspaces/wipnote/cmd/main.go"}
+	err := Validate(c)
+	if err == nil {
+		t.Fatal("expected error for absolute path")
+	}
+	if !strings.Contains(err.Error(), "absolute") {
+		t.Errorf("error should mention absolute, got: %v", err)
+	}
+}
+
+func TestValidate_UnresolvedPrefix_Error(t *testing.T) {
+	c := validCard()
+	c.Paths = []string{"unresolved:/home/vscode/something.md"}
+	err := Validate(c)
+	if err == nil {
+		t.Fatal("expected error for unresolved: path")
+	}
+	if !strings.Contains(err.Error(), "unresolved:") {
+		t.Errorf("error should mention unresolved:, got: %v", err)
+	}
+}
+
+func TestValidate_DotDotEscape_Error(t *testing.T) {
+	cases := []string{
+		"../outside-repo/file.go",
+		"..",
+	}
+	for _, p := range cases {
+		c := validCard()
+		c.Paths = []string{p}
+		err := Validate(c)
+		if err == nil {
+			t.Errorf("expected error for ../ escape path %q", p)
+		}
+		if !strings.Contains(err.Error(), "escapes") {
+			t.Errorf("error should mention escapes, got: %v", err)
+		}
+	}
+}
+
+func TestValidate_RepoRelativePath_OK(t *testing.T) {
+	c := validCard()
+	c.Paths = []string{"cmd/wipnote/arch_cmds.go", "core/arch/card.go"}
+	if err := Validate(c); err != nil {
+		t.Errorf("unexpected error for repo-relative paths: %v", err)
+	}
+}
+
+func TestValidatePaths_SuspiciousPaths_WarnOnly(t *testing.T) {
+	// These paths are repo-relative (not absolute) but suspicious.
+	// They should produce a warning but NOT fail Validate().
+	suspiciousCases := []struct {
+		path     string
+		contains string
+	}{
+		// tmp/ as a relative path prefix (not absolute) — suspicious but valid.
+		{"tmp/claude-transcript.jsonl", "tmp"},
+		// agent-memory directory reference.
+		{"agent-memory/context.md", "agent memory"},
+		// dead worktree relative path.
+		{".claude/worktrees/some-branch/file.go", "worktree"},
+	}
+	for _, tc := range suspiciousCases {
+		warns := ValidatePaths([]string{tc.path})
+		if len(warns) == 0 {
+			t.Errorf("expected warning for suspicious path %q", tc.path)
+			continue
+		}
+		if !strings.Contains(warns[0], tc.contains) {
+			t.Errorf("warning for %q should contain %q, got: %s", tc.path, tc.contains, warns[0])
+		}
+		// Validate must NOT return an error for warn-only paths.
+		c := validCard()
+		c.Paths = []string{tc.path}
+		if err := Validate(c); err != nil {
+			t.Errorf("Validate should not error for warn-only relative path %q, got: %v", tc.path, err)
+		}
+	}
+}
+
+func TestValidatePaths_CleanPath_NoWarn(t *testing.T) {
+	warns := ValidatePaths([]string{"cmd/wipnote/arch_cmds.go"})
+	if len(warns) != 0 {
+		t.Errorf("expected no warnings for clean path, got: %v", warns)
+	}
+}
+
+// ValidateAll now returns (errs, warnings, err) — ensure both are plumbed.
+func TestStore_ValidateAll_WithWarnings(t *testing.T) {
+	dir := t.TempDir()
+	store, err := NewStore(dir)
+	if err != nil {
+		t.Fatalf("NewStore: %v", err)
+	}
+
+	// Write a card with a suspicious (warn-only) path directly to bypass validation.
+	raw := []byte("---\nname: warn-card\nkind: invariant\ncreated_by: agent\npaths:\n  - agent-memory/ctx.md\n---\nBody here.\n")
+	os.WriteFile(filepath.Join(store.Dir(), "warn-card.md"), raw, 0o644)
+
+	// Write a card with an error-class absolute path.
+	bad := []byte("---\nname: bad-card\nkind: invariant\ncreated_by: agent\npaths:\n  - /abs/path/to/file.go\n---\nBody.\n")
+	os.WriteFile(filepath.Join(store.Dir(), "bad-card.md"), bad, 0o644)
+
+	errs, warnings, valErr := store.ValidateAll()
+	if valErr != nil {
+		t.Fatalf("ValidateAll: %v", valErr)
+	}
+	if _, ok := errs["bad-card"]; !ok {
+		t.Error("expected error for bad-card with absolute path")
+	}
+	if _, ok := warnings["warn-card"]; !ok {
+		t.Error("expected warning for warn-card with agent-memory path")
+	}
+	// warn-card should NOT appear in errs.
+	if _, ok := errs["warn-card"]; ok {
+		t.Error("warn-card should not appear in errs (warn-only path)")
 	}
 }

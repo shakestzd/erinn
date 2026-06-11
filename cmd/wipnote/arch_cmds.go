@@ -35,6 +35,7 @@ func archCmd() *cobra.Command {
 	cmd.AddCommand(archDeprecateCmd())
 	cmd.AddCommand(archResolveCmd())
 	cmd.AddCommand(archVerifyCmd())
+	cmd.AddCommand(archRepairCmd())
 	return cmd
 }
 
@@ -274,6 +275,10 @@ func runArchValidateOne(slug string) error {
 	if err != nil {
 		return err
 	}
+	// Emit path warnings to stderr — advisory, do not fail.
+	for _, w := range corearch.ValidatePaths(card.Paths) {
+		fmt.Fprintf(os.Stderr, "WARN card %s: %s\n", slug, w)
+	}
 	if err := corearch.Validate(card); err != nil {
 		return fmt.Errorf("card %s: %w", slug, err)
 	}
@@ -290,16 +295,22 @@ func runArchValidateAll() error {
 	if err != nil {
 		return err
 	}
-	errs, err := store.ValidateAll()
+	errs, warnings, err := store.ValidateAll()
 	if err != nil {
 		return err
+	}
+	// Emit warnings to stderr — advisory only, do not fail.
+	for slug, ws := range warnings {
+		for _, w := range ws {
+			fmt.Fprintf(os.Stderr, "WARN card %s: %s\n", slug, w)
+		}
 	}
 	if len(errs) == 0 {
 		fmt.Println("All arch cards are valid.")
 		return nil
 	}
 	for slug, e := range errs {
-		fmt.Fprintf(os.Stderr, "card %s: %v\n", slug, e)
+		fmt.Fprintf(os.Stderr, "ERROR card %s: %v\n", slug, e)
 	}
 	return fmt.Errorf("%d card(s) failed validation", len(errs))
 }
@@ -771,6 +782,182 @@ func mergeUnique(existing, additional []string) []string {
 	for _, v := range additional {
 		if !seen[v] {
 			seen[v] = true
+			out = append(out, v)
+		}
+	}
+	return out
+}
+
+// archRepairCmd implements `wipnote arch repair [--dry-run]`.
+func archRepairCmd() *cobra.Command {
+	var dryRun bool
+	cmd := &cobra.Command{
+		Use:   "repair",
+		Short: "Repair arch cards that contain garbage paths (absolute, unresolved:, dead worktrees)",
+		Long: `For each active card, normalize every path via core/paths MustNormalize against
+the repo root. Paths that remain absolute, unresolved:, or ../-escaping are
+repaired by resolving the card's linked work-item IDs via the three-tier
+fallback chain (feature_files -> git diff-tree -> git log --grep). Paths that
+cannot be recovered are dropped. The card file is rewritten and a per-card
+change summary is printed.`,
+		RunE: func(_ *cobra.Command, _ []string) error {
+			return runArchRepair(dryRun)
+		},
+	}
+	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Print what would change without writing any files")
+	return cmd
+}
+
+// runArchRepair is the implementation of `wipnote arch repair`.
+func runArchRepair(dryRun bool) error {
+	wipnoteDir, err := findWipnoteDir()
+	if err != nil {
+		return err
+	}
+	store, err := corearch.NewStore(wipnoteDir)
+	if err != nil {
+		return err
+	}
+	cards, err := store.List(false) // active cards only
+	if err != nil {
+		return err
+	}
+	repoRoot := filepath.Dir(wipnoteDir)
+
+	repaired := 0
+	for _, card := range cards {
+		changed, newPaths, err := repairCardPaths(card, repoRoot, wipnoteDir)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "WARN repair %s: %v\n", card.Name, err)
+			continue
+		}
+		if !changed {
+			fmt.Printf("card %-40s ok (no garbage paths)\n", card.Name)
+			continue
+		}
+		dropped := pathSetDiff(card.Paths, newPaths)
+		added := pathSetDiff(newPaths, card.Paths)
+		fmt.Printf("card %s:\n", card.Name)
+		for _, p := range dropped {
+			fmt.Printf("  - DROP  %s\n", p)
+		}
+		for _, p := range added {
+			fmt.Printf("  + ADD   %s\n", p)
+		}
+		addedSet := make(map[string]bool, len(added))
+		for _, p := range added {
+			addedSet[p] = true
+		}
+		for _, p := range newPaths {
+			if !addedSet[p] {
+				fmt.Printf("    keep  %s\n", p)
+			}
+		}
+		if dryRun {
+			fmt.Printf("  (dry-run: no file written)\n")
+			continue
+		}
+		card.Paths = newPaths
+		if err := store.Update(card); err != nil {
+			fmt.Fprintf(os.Stderr, "ERROR repair %s: update failed: %v\n", card.Name, err)
+			continue
+		}
+		repaired++
+	}
+	if dryRun {
+		return nil
+	}
+	fmt.Printf("\nRepair complete: %d card(s) rewritten.\n", repaired)
+	return nil
+}
+
+// repairCardPaths normalizes and repairs all paths on a card.
+// Returns (changed bool, newPaths []string, err error).
+// changed is true when newPaths differs from card.Paths.
+func repairCardPaths(card *corearch.Card, repoRoot, wipnoteDir string) (bool, []string, error) {
+	// First pass: normalize each path and separate clean from garbage.
+	var clean []string
+	var garbageExists bool
+	seen := make(map[string]bool)
+
+	for _, p := range card.Paths {
+		if isGarbagePath(p) {
+			garbageExists = true
+			continue
+		}
+		// Already-relative non-garbage paths pass through; dedupe.
+		normalized := paths.MustNormalize(p, repoRoot)
+		if normalized == "" || strings.HasPrefix(normalized, "unresolved:") {
+			garbageExists = true
+			continue
+		}
+		if !seen[normalized] {
+			seen[normalized] = true
+			clean = append(clean, normalized)
+		}
+	}
+
+	if !garbageExists {
+		return false, card.Paths, nil
+	}
+
+	// Second pass: attempt recovery from linked work-item IDs.
+	var recovered []string
+	for _, linkID := range card.Links {
+		fp, err := resolveWorkItemPaths(linkID, wipnoteDir)
+		if err != nil {
+			continue
+		}
+		for _, p := range fp {
+			if !seen[p] && !isGarbagePath(p) {
+				seen[p] = true
+				recovered = append(recovered, p)
+			}
+		}
+	}
+
+	newPaths := append(clean, recovered...)
+	// Determine changed: length differs OR any path differs.
+	changed := len(newPaths) != len(card.Paths)
+	if !changed {
+		origSet := make(map[string]bool, len(card.Paths))
+		for _, p := range card.Paths {
+			origSet[p] = true
+		}
+		for _, p := range newPaths {
+			if !origSet[p] {
+				changed = true
+				break
+			}
+		}
+	}
+	return changed, newPaths, nil
+}
+
+// isGarbagePath reports whether a path is an error-class garbage path
+// (absolute, unresolved:, or ../ escape).
+func isGarbagePath(p string) bool {
+	if filepath.IsAbs(p) {
+		return true
+	}
+	if strings.HasPrefix(p, "unresolved:") {
+		return true
+	}
+	if p == ".." || strings.HasPrefix(p, "../") {
+		return true
+	}
+	return false
+}
+
+// pathSetDiff returns elements in a that are not in b.
+func pathSetDiff(a, b []string) []string {
+	bSet := make(map[string]bool, len(b))
+	for _, v := range b {
+		bSet[v] = true
+	}
+	var out []string
+	for _, v := range a {
+		if !bSet[v] {
 			out = append(out, v)
 		}
 	}

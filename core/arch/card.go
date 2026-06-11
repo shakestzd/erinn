@@ -107,6 +107,18 @@ func Parse(data []byte) (*Card, error) {
 
 // Validate checks all invariants on a parsed card and returns a joined error
 // listing every violation found. Returns nil when the card is valid.
+//
+// Path validation rules (per bug-c06a0457):
+//
+//   ERROR (fails validation):
+//   - filepath.IsAbs(path) — absolute paths are host-local and not portable
+//   - strings.HasPrefix(path, "unresolved:") — outside-repo sentinel
+//   - path == ".." or strings.HasPrefix(path, "../") — repo-escape via traversal
+//
+//   WARN (advisory, not an error — use ValidatePaths for warnings):
+//   - path contains /tmp/ — temp file captured by mistake
+//   - path contains agent-memory — agent session artifact
+//   - path contains .claude/worktrees — dead worktree path
 func Validate(c *Card) error {
 	var errs []string
 
@@ -135,10 +147,60 @@ func Validate(c *Card) error {
 		errs = append(errs, "superseded_by must be a valid slug")
 	}
 
+	for _, p := range c.Paths {
+		if pe := validatePathError(p); pe != "" {
+			errs = append(errs, pe)
+		}
+	}
+
 	if len(errs) == 0 {
 		return nil
 	}
 	return fmt.Errorf("%s", strings.Join(errs, "; "))
+}
+
+// validatePathError returns a non-empty error string when path p violates an
+// ERROR-class path rule (absolute, unresolved:, or ../ escape).
+// Returns "" when p is acceptable.
+func validatePathError(p string) string {
+	if filepath.IsAbs(p) {
+		return fmt.Sprintf("path %q is absolute; only repo-relative paths are allowed", p)
+	}
+	if strings.HasPrefix(p, "unresolved:") {
+		return fmt.Sprintf("path %q has unresolved: prefix; outside-repo paths must be excluded", p)
+	}
+	if p == ".." || strings.HasPrefix(p, "../") {
+		return fmt.Sprintf("path %q escapes the repository via ..; only repo-relative paths are allowed", p)
+	}
+	return ""
+}
+
+// ValidatePaths returns WARNING strings for paths that are suspicious but not
+// errors — temp files, agent memory artifacts, dead worktree paths. Returns nil
+// when no warnings apply. These do not fail Validate; callers should emit them
+// to stderr.
+func ValidatePaths(paths []string) []string {
+	var warns []string
+	for _, p := range paths {
+		if w := validatePathWarn(p); w != "" {
+			warns = append(warns, w)
+		}
+	}
+	return warns
+}
+
+// validatePathWarn returns a non-empty warning string when path p matches a
+// WARN-class pattern (tmp, agent-memory, dead worktree). Returns "" otherwise.
+func validatePathWarn(p string) string {
+	switch {
+	case strings.Contains(p, "/tmp/") || strings.HasPrefix(p, "tmp/"):
+		return fmt.Sprintf("path %q looks like a temp file (contains /tmp/)", p)
+	case strings.Contains(p, "agent-memory"):
+		return fmt.Sprintf("path %q looks like an agent memory artifact", p)
+	case strings.Contains(p, ".claude/worktrees"):
+		return fmt.Sprintf("path %q looks like a dead worktree path", p)
+	}
+	return ""
 }
 
 // ParseAndValidate parses and validates in one step.

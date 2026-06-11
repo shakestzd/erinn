@@ -621,3 +621,172 @@ func TestArchResolve_ForBugItem_FallsBackToCommitFiles(t *testing.T) {
 		t.Errorf("expected serve-area card to match resolved paths %v, got no matches", filePaths)
 	}
 }
+
+// TestArchAdd_RejectsAbsolutePath verifies that `arch add` returns an error
+// when a path-class error (absolute path) is passed via --paths.
+func TestArchAdd_RejectsAbsolutePath(t *testing.T) {
+	setupArchTestDir(t)
+
+	err := runArch(t,
+		"add", "absolute-paths-card",
+		"--kind", "invariant",
+		"--created-by", "agent",
+		"--body", "Body here.",
+		"--paths", "/absolute/path/to/file.go",
+	)
+	if err == nil {
+		t.Fatal("expected error when adding card with absolute path")
+	}
+	if !strings.Contains(err.Error(), "absolute") {
+		t.Errorf("error should mention absolute, got: %v", err)
+	}
+}
+
+// TestArchAdd_AcceptsDiffTreePaths verifies that repo-relative paths produced
+// by diff-tree (as the bootstrap/fallback chain generates them) pass validation.
+func TestArchAdd_AcceptsDiffTreePaths(t *testing.T) {
+	setupArchTestDir(t)
+
+	// diff-tree emits paths like "cmd/wipnote/arch_cmds.go" — repo-relative, no leading slash.
+	err := runArch(t,
+		"add", "diff-tree-card",
+		"--kind", "invariant",
+		"--created-by", "agent",
+		"--body", "Diff-tree derived paths must validate clean.",
+		"--paths", "cmd/wipnote/arch_cmds.go,core/arch/card.go",
+	)
+	if err != nil {
+		t.Fatalf("arch add with diff-tree-style paths should succeed, got: %v", err)
+	}
+}
+
+// TestArchRepair_FixesMixedCard verifies the repair pass on a fixture card that
+// contains garbage (absolute + worktree) paths mixed with valid repo-relative paths.
+// After repair: garbage dropped/recovered (or just dropped), valid retained, file rewritten.
+func TestArchRepair_FixesMixedCard(t *testing.T) {
+	dir := setupArchTestDir(t)
+	wipnoteDir := filepath.Join(dir, ".wipnote")
+
+	// Write a card with mixed paths directly to the arch store (bypass Create validation).
+	archDir := filepath.Join(wipnoteDir, "arch")
+	if err := os.MkdirAll(archDir, 0o755); err != nil {
+		t.Fatalf("mkdir arch: %v", err)
+	}
+	raw := []byte("---\n" +
+		"name: mixed-card\n" +
+		"kind: invariant\n" +
+		"created_by: agent\n" +
+		"paths:\n" +
+		"    - /absolute/garbage/path.go\n" +
+		"    - core/arch/card.go\n" +
+		"    - /workspaces/wipnote/.claude/worktrees/dead-branch/file.go\n" +
+		"links:\n" +
+		"    - feat-test1234\n" +
+		"---\n" +
+		"Invariant body here.\n")
+	cardFile := filepath.Join(archDir, "mixed-card.md")
+	if err := os.WriteFile(cardFile, raw, 0o644); err != nil {
+		t.Fatalf("write fixture card: %v", err)
+	}
+
+	// Run repair (no --dry-run).
+	if err := runArch(t, "repair"); err != nil {
+		t.Fatalf("arch repair: %v", err)
+	}
+
+	// Read the repaired card.
+	store, err := corearch.NewStore(wipnoteDir)
+	if err != nil {
+		t.Fatalf("NewStore: %v", err)
+	}
+	card, err := store.Get("mixed-card")
+	if err != nil {
+		t.Fatalf("Get mixed-card after repair: %v", err)
+	}
+
+	// The valid path must survive.
+	found := false
+	for _, p := range card.Paths {
+		if p == "core/arch/card.go" {
+			found = true
+		}
+		// No garbage paths should remain.
+		if filepath.IsAbs(p) {
+			t.Errorf("absolute path not removed after repair: %q", p)
+		}
+		if strings.HasPrefix(p, "unresolved:") {
+			t.Errorf("unresolved: path not removed after repair: %q", p)
+		}
+	}
+	if !found {
+		t.Errorf("valid path core/arch/card.go should survive repair; paths = %v", card.Paths)
+	}
+
+	// The card must now pass validation (no error-class paths).
+	if err := corearch.Validate(card); err != nil {
+		t.Errorf("card should pass validation after repair, got: %v", err)
+	}
+}
+
+// TestArchRepair_DryRun verifies that --dry-run prints what would change
+// but does not rewrite the card file.
+func TestArchRepair_DryRun(t *testing.T) {
+	dir := setupArchTestDir(t)
+	wipnoteDir := filepath.Join(dir, ".wipnote")
+
+	archDir := filepath.Join(wipnoteDir, "arch")
+	if err := os.MkdirAll(archDir, 0o755); err != nil {
+		t.Fatalf("mkdir arch: %v", err)
+	}
+	// Card with one garbage absolute path.
+	raw := []byte("---\n" +
+		"name: dry-run-card\n" +
+		"kind: decision\n" +
+		"created_by: agent\n" +
+		"paths:\n" +
+		"    - /absolute/garbage.go\n" +
+		"    - cmd/wipnote/main.go\n" +
+		"---\n" +
+		"Decision body.\n")
+	cardFile := filepath.Join(archDir, "dry-run-card.md")
+	if err := os.WriteFile(cardFile, raw, 0o644); err != nil {
+		t.Fatalf("write fixture card: %v", err)
+	}
+	originalContent, _ := os.ReadFile(cardFile)
+
+	if err := runArch(t, "repair", "--dry-run"); err != nil {
+		t.Fatalf("arch repair --dry-run: %v", err)
+	}
+
+	// File must be unchanged.
+	afterContent, _ := os.ReadFile(cardFile)
+	if string(afterContent) != string(originalContent) {
+		t.Errorf("--dry-run should not modify the file; content changed")
+	}
+}
+
+// TestArchDiffTreePaths_ValidateClean proves that diff-tree-derived paths
+// (repo-relative, no leading slash, no "../") pass the validator.
+func TestArchDiffTreePaths_ValidateClean(t *testing.T) {
+	diffTreePaths := []string{
+		"cmd/wipnote/arch_cmds.go",
+		"core/arch/card.go",
+		"internal/arch/match.go",
+		"plugin/skills/arch-bootstrap/SKILL.md",
+		".wipnote/arch/serve-writequeue-hazard.md",
+	}
+	card := &corearch.Card{
+		Name:      "diff-tree-test",
+		Kind:      corearch.KindInvariant,
+		Paths:     diffTreePaths,
+		CreatedBy: "test",
+		Body:      "Diff-tree paths validate clean.",
+	}
+	if err := corearch.Validate(card); err != nil {
+		t.Errorf("diff-tree-derived paths should validate clean, got: %v", err)
+	}
+	warns := corearch.ValidatePaths(diffTreePaths)
+	if len(warns) != 0 {
+		t.Errorf("diff-tree paths should produce no warnings, got: %v", warns)
+	}
+}

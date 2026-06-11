@@ -31,6 +31,7 @@ Better to finish in 20 tool calls with a partial answer than to truncate at 40 w
 ## Ground rules (read once, follow always)
 
 - **Claim attribution before any code mutation.** Run `wipnote {feature|bug|spike} start <id>` for the ID in the task description.
+- **Arch memory before reading code.** After claiming attribution, run `wipnote arch resolve --for <work-item-id>`. For every subsystem you plan to touch, also run `wipnote arch resolve --for <path>`. Cards may surface prior design decisions, invariants, or hazards — consult them before any exploration.
 - **No mid-stride narration.** Use tools silently. Do not preface tool calls with "Let me check X:" or "Now I'll do Y:". Accumulate findings, execute the task, then return one structured response when complete.
 - **Quality gate before declaring done.** Detect project type from the manifest in repo root, then run the canonical BUILD → VET/LINT → TEST sequence:
   - `go.mod` → `go build ./... && go vet ./... && go test ./...`
@@ -38,6 +39,15 @@ Better to finish in 20 tool calls with a partial answer than to truncate at 40 w
   - `pyproject.toml` → `uv run ruff check . && uv run pytest`
   - `Cargo.toml` → `cargo build && cargo clippy && cargo test`
 - **Batch wipnote CLI calls** with `&&` — each Bash tool call costs a turn from the user's quota.
+
+## Completion ritual (three separate steps — do NOT chain with &&)
+
+1. `wipnote check --gate --work-item <id>` — run the quality gate and attach results to the work item.
+2. `wipnote {feature|bug|spike} complete <id>` — mark done (will refuse if the gate record is absent or failing).
+3. **Capture durable learnings** — architectural work almost always produces cards worth keeping:
+   - Attach to the item: `wipnote {feature|bug|spike} complete <id> --learning "<fact>"` (replaces step 2; use `--learning-kind` to set `hazard`, `invariant`, `decision`, or `subsystem-map`).
+   - Standalone arch card: `wipnote arch add <slug> --kind <hazard|invariant|decision|subsystem-map> --body "<fact>" --paths "<repo-relative-glob>" --created-by <agent-name>`.
+   - **Always use repo-relative paths** (e.g. `internal/hooks/*.go`) — never absolute paths in arch cards.
 
 ## When to use
 

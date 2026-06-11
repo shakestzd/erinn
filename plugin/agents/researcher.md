@@ -35,9 +35,21 @@ Better to finish in 10 tool calls with a partial answer than to truncate at 40 w
 ## Ground rules (read once, follow always)
 
 - **Claim attribution only if a feature/bug ID is provided:** `wipnote {feature|bug|spike} start <id>` (skip for pure read-only research).
+- **Arch memory before reading code.** When a work-item ID or specific paths are given, run `wipnote arch resolve --for <work-item-id>` (or `wipnote arch resolve --for <path>`) before reading source or searching. Cards may already contain the answer or point you to the right place.
 - **No mid-stride narration.** Use tools silently. Do not preface tool calls with "Let me check X:" or "Now I'll do Y:". Accumulate findings, then return one structured response when complete.
 - **Research first, implement second.** WebSearch / WebFetch official docs BEFORE reading codebase source for unfamiliar library behavior.
 - **Batch wipnote CLI calls** with `&&` — each Bash tool call costs a turn from the user's quota.
+
+## Completion (when a work-item ID is provided)
+
+If you claimed attribution for a work item, complete it after reporting findings:
+
+1. `wipnote check --gate --work-item <id>` — attach a gate record (researcher tasks typically pass with no build/test).
+2. `wipnote {feature|bug|spike} complete <id>` — mark done.
+3. **Capture key findings as a durable arch card** if you learned something broadly reusable:
+   - `wipnote {feature|bug|spike} complete <id> --learning "<fact>"` (replaces step 2).
+   - Or a standalone card: `wipnote arch add <slug> --kind <decision|hazard|invariant|subsystem-map> --body "<fact>" --paths "<repo-relative-glob>" --created-by researcher`.
+   - **Always use repo-relative paths** — never absolute paths in arch cards.
 
 ## Mode 1: Research
 

@@ -10,15 +10,15 @@
 <body>
     <article id="feat-9704121b"
              data-type="feature"
-             data-status="in-progress"
+             data-status="todo"
              data-priority="high"
              data-created="2026-05-26T05:05:50.945064"
-             data-updated="2026-05-27T23:22:28.295586" data-agent-assigned="claude-code" data-track-id="trk-b1d06a84" data-created-by-agent="claude-code" data-created-by-model="gpt-5.5" data-created-by-role="codex" data-created-by-cli-version="0.60.18-72-gf05c89f94">
+             data-updated="2026-06-11T20:43:59.961508" data-track-id="trk-b1d06a84" data-created-by-agent="claude-code" data-created-by-model="gpt-5.5" data-created-by-role="codex" data-created-by-cli-version="0.60.18-72-gf05c89f94">
 
         <header>
             <h1>Add safe stale Git lock diagnostics and repair command</h1>
             <div class="metadata">
-                <span class="badge status-in-progress">In Progress</span>
+                <span class="badge status-todo">Todo</span>
                 <span class="badge priority-high">High Priority</span>
             </div>
         </header>
@@ -27,20 +27,20 @@
             <section data-edge-type="part_of">
                 <h3>Part Of:</h3>
                 <ul>
-                    <li><a href="trk-b1d06a84.html" data-relationship="part_of" data-since="2026-05-26T05:05:50.951551">trk-b1d06a84</a></li>
+                    <li><a href="../tracks/trk-b1d06a84.html" data-relationship="part_of" data-since="2026-05-26T05:05:50.951551">trk-b1d06a84</a></li>
                 </ul>
             </section>
             <section data-edge-type="blocked_by">
                 <h3>Blocked By:</h3>
                 <ul>
-                    <li><a href="feat-3f66d83f.html" data-relationship="blocked_by" data-since="2026-05-26T05:06:07.426965">Centralize wipnote Git mutation execution behind a repo-scoped lock</a></li>
+                    <li><a href="../features/feat-3f66d83f.html" data-relationship="blocked_by" data-since="2026-05-26T05:06:07.426965">Centralize wipnote Git mutation execution behind a repo-scoped lock</a></li>
                 </ul>
             </section>
             <section data-edge-type="implemented_in">
                 <h3>Implemented In:</h3>
                 <ul>
-                    <li><a href="e2115ac3-91fe-4731-8d77-0cee62a8e8e2.html" data-relationship="implemented_in" data-since="2026-05-26T09:34:09.029752">session e2115ac3-91fe-4731-8d77-0cee62a8e8e2</a></li>
-                    <li><a href="019e660a-4d52-7451-a210-f22624842249.html" data-relationship="implemented_in" data-since="2026-05-27T23:22:28.295258">session 019e660a-4d52-7451-a210-f22624842249</a></li>
+                    <li><a href="../sessions/e2115ac3-91fe-4731-8d77-0cee62a8e8e2.html" data-relationship="implemented_in" data-since="2026-05-26T09:34:09.029752">session e2115ac3-91fe-4731-8d77-0cee62a8e8e2</a></li>
+                    <li><a href="../sessions/019e660a-4d52-7451-a210-f22624842249.html" data-relationship="implemented_in" data-since="2026-05-27T23:22:28.295258">session 019e660a-4d52-7451-a210-f22624842249</a></li>
                 </ul>
             </section>
         </nav>
@@ -64,7 +64,7 @@ Acceptance Criteria
 Detection uses lock age plus a live-git-process scan; dry-run is the default; --fix is opt-in and performs a final re-check immediately before deleting; never deletes when any live writer is detected.
 Expected Behavior
 Running diagnostics reports lock age and active writers without modifying anything; --fix removes a lock only when it exceeds the age threshold AND no live git process is found, re-verified at the moment of unlink.
-[2026-05-26 10:11 claude-code] accepted-advisory (provenance override): Implementation durably committed in 9272d5911 (git_lock_repair.go: detection + dry-run report + opt-in --fix repair) and 803970dcb (roborev 3634 fix: absolute-git-dir resolution + worktree-root liveness anchor). Auto-link via 'wipnote ingest commits' did not fire because subjects use end-of-line and comma-separated multi-ID parenthetical forms rather than the single (feat-xxxxxxxx) pattern; provenance is recoverable from the commit subjects. Quality gates green (build/vet/full test suite).</p>
+[2026-05-26 10:11 claude-code] accepted-advisory (provenance override): Implementation durably committed in 9272d5911 (git_lock_repair.go: detection + dry-run report + opt-in --fix repair) and 803970dcb (roborev 3634 fix: absolute-git-dir resolution + worktree-root liveness anchor). Auto-link via &#39;wipnote ingest commits&#39; did not fire because subjects use end-of-line and comma-separated multi-ID parenthetical forms rather than the single (feat-xxxxxxxx) pattern; provenance is recoverable from the commit subjects. Quality gates green (build/vet/full test suite).</p>
         </section>
     </article>
 </body>

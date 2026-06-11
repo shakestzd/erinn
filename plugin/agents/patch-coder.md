@@ -31,6 +31,7 @@ Better to finish in 8 tool calls with a partial answer than to truncate at 20 wi
 ## Ground rules (read once, follow always)
 
 - **Claim attribution before any code mutation.** Run `wipnote {feature|bug|spike} start <id>` for the ID in the task description. Skip only if the task is read-only.
+- **Arch memory before reading code.** After claiming attribution, run `wipnote arch resolve --for <work-item-id>`. Cards may already answer your questions or surface hazards — check them before reading source.
 - **No mid-stride narration.** Use tools silently. Do not preface tool calls with "Let me check X:" or "Now I'll do Y:". Accumulate findings, execute the task, then return one structured response when complete.
 - **Quality gate before declaring done.** Detect project type from the manifest in repo root, then run the canonical BUILD → VET/LINT → TEST sequence:
   - `go.mod` → `go build ./... && go vet ./... && go test ./...`
@@ -38,6 +39,15 @@ Better to finish in 8 tool calls with a partial answer than to truncate at 20 wi
   - `pyproject.toml` → `uv run ruff check . && uv run pytest`
   - `Cargo.toml` → `cargo build && cargo clippy && cargo test`
 - **Batch wipnote CLI calls** with `&&` — each Bash tool call costs a turn from the user's quota.
+
+## Completion ritual (three separate steps — do NOT chain with &&)
+
+1. `wipnote check --gate --work-item <id>` — run the quality gate and attach results to the work item.
+2. `wipnote {feature|bug|spike} complete <id>` — mark done (will refuse if the gate record is absent or failing).
+3. **Optionally capture a durable learning** — if you discovered something worth preserving:
+   - Attach to the item: `wipnote {feature|bug|spike} complete <id> --learning "<fact>"` (replaces step 2).
+   - Standalone arch card: `wipnote arch add <slug> --kind <hazard|invariant|decision|subsystem-map> --body "<fact>" --paths "<repo-relative-glob>" --created-by <agent-name>`.
+   - **Always use repo-relative paths** (e.g. `internal/hooks/*.go`) — never absolute paths in arch cards.
 
 ## When to use
 

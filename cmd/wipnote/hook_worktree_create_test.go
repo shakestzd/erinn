@@ -229,6 +229,48 @@ func TestHookWorktreeCreate_TopLevelWorktreePathWithoutClaudeEnv(t *testing.T) {
 	}
 }
 
+func TestHookWorktreeCreate_NameOnlyPayloadDefaultsBasePath(t *testing.T) {
+	// Claude Code (observed 2026-06-11) sends only {session_id, transcript_path,
+	// cwd, hook_event_name, name} — no worktree_name / worktree_base_path. The
+	// hook must fall back to name and default the base path to the harness's
+	// conventional <cwd>/.claude/worktrees location.
+	t.Setenv("CLAUDE_CODE_ENTRYPOINT", "cli")
+	t.Setenv("XDG_CACHE_HOME", t.TempDir())
+	t.Setenv("WIPNOTE_SESSION_ID", "test-hook-worktree-create-name")
+	repoRoot := setupGitRepoForHookWorktreeCreate(t)
+	worktreeName := "agent-a31fed0933652ecdf"
+	wantPath := filepath.Join(repoRoot, ".claude", "worktrees", worktreeName)
+
+	seedHookWorktreeCreateSession(t, repoRoot, "test-hook-worktree-create-name")
+	prev := worktreepkg.SetReindexFnForTest(func(string, io.Writer) {})
+	t.Cleanup(func() { worktreepkg.SetReindexFnForTest(prev) })
+
+	payload, err := json.Marshal(map[string]string{
+		"session_id":      "test-hook-worktree-create-name",
+		"hook_event_name": "WorktreeCreate",
+		"cwd":             repoRoot,
+		"name":            worktreeName,
+	})
+	if err != nil {
+		t.Fatalf("marshal payload: %v", err)
+	}
+
+	stdout, stderr, runErr := captureHookCommand(t, payload, func() error {
+		cmd := hookCmd()
+		cmd.SetArgs([]string{"worktree-create"})
+		return cmd.Execute()
+	})
+	if runErr != nil {
+		t.Fatalf("hook worktree-create: %v\nstderr=%s", runErr, stderr)
+	}
+	if stdout != wantPath+"\n" {
+		t.Fatalf("stdout = %q, want bare path %q", stdout, wantPath+"\n")
+	}
+	if out, err := exec.Command("git", "-C", wantPath, "rev-parse", "--is-inside-work-tree").Output(); err != nil || strings.TrimSpace(string(out)) != "true" {
+		t.Fatalf("created path is not a git worktree: out=%q err=%v", out, err)
+	}
+}
+
 func TestHookWorktreeCreate_MissingFieldsPrintsNoJSON(t *testing.T) {
 	stdout, _, runErr := captureHookCommand(t, []byte(`{}`), func() error {
 		cmd := hookCmd()

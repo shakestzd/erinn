@@ -92,6 +92,27 @@ Before grepping local code, route by where the answer actually lives:
 
 Web/docs/GitHub searches COUNT as research — don't reflexively fall back to local grep for questions whose answer lives upstream.
 
+## Persist-Then-Summarize (Truncation-Resilient Reporting)
+
+Subagents are routinely truncated mid-final-report. Guard against this by persisting
+substance into durable artifacts BEFORE composing the final message.
+
+**Persist first:**
+
+| What | Command |
+|------|---------|
+| Diagnoses / root-cause findings | `wipnote bug set-description <id> "<text>"` or `wipnote feature set-description <id> "<text>"` |
+| Progress steps | `wipnote <type> add-step <id> "<step>"` |
+| Durable architectural facts | `wipnote arch add <slug> --kind <kind> --body "…" --created-by <agent>` |
+| Code changes | `git commit` — only when your task includes committing AND quality gates pass; otherwise record the working-tree state via `add-step` and leave changes uncommitted |
+
+**Then summarize:** The final message to the orchestrator is a compact summary pointing
+at those artifacts — not a dump of every detail. If truncation hits, it loses
+presentation, never substance.
+
+**On long tasks (>30 tool calls):** Write findings into the work item incrementally
+via `add-step` and `set-description` rather than holding everything for the end.
+
 ## Development Principles
 
 - DRY — check for existing utilities before creating new ones

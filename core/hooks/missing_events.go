@@ -529,6 +529,11 @@ func WorktreeCreate(event *CloudEvent, database *sql.DB) (string, error) {
 			event.WorktreeName = filepath.Base(event.WorktreePath)
 		}
 	}
+	if event.WorktreeBasePath == "" && event.WorktreeName != "" && event.CWD != "" {
+		// Claude Code payloads (observed 2026-06-11) carry only "name"; default
+		// to the harness's conventional location under the project directory.
+		event.WorktreeBasePath = filepath.Join(event.CWD, ".claude", "worktrees")
+	}
 	if event.WorktreeBasePath == "" {
 		return "", errors.New("missing worktree_base_path")
 	}

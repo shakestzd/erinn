@@ -205,3 +205,5 @@ tmp/gotmp.*/
 /.roborev/
 # compiled binary — use `wipnote build` (installs to ~/.local/bin), never commit
 /wipnote
+# local drafts and notes — never publish
+/private/

@@ -203,3 +203,5 @@ tmp/gotmp.*/
 .build-cache/
 # roborev snapshots
 /.roborev/
+# compiled binary — use `wipnote build` (installs to ~/.local/bin), never commit
+/wipnote

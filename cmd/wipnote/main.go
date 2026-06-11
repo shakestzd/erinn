@@ -335,6 +335,7 @@ func buildRoot() *cobra.Command {
 	root.AddCommand(devCmd())
 	root.AddCommand(pluginCmd())
 	root.AddCommand(projectsCmd())
+	root.AddCommand(registryCmd())
 	root.AddCommand(initCmd())
 	root.AddCommand(setupCmd())
 	root.AddCommand(setupCLICmd())

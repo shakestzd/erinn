@@ -253,9 +253,9 @@ func WriteEntriesForTest(path string, entries []Entry) error {
 // Two conditions trigger a skip:
 //
 //  1. WIPNOTE_SKIP_REGISTER=1 env var — explicit opt-out for tests.
-//  2. The path is inside os.TempDir() AND a component of the path under
-//     tempdir starts with "Test" (Go's t.TempDir() naming convention:
-//     /tmp/TestFooNNNN/sub).
+//  2. The path is inside a temp directory (os.TempDir() or GOTMPDIR) AND a
+//     component of the path under that dir starts with "Test" (Go's
+//     t.TempDir() naming convention: /tmp/TestFooNNNN/sub).
 //
 // Production paths (e.g. /workspaces/wipnote) are never skipped because they
 // do not live under the OS temp directory.
@@ -266,31 +266,68 @@ func ShouldSkipRegistration(projectDir string) bool {
 	return isGoTestTempDirPath(projectDir)
 }
 
-// isGoTestTempDirPath returns true when projectDir is inside os.TempDir()
-// and matches Go's t.TempDir() naming convention: projectDir is DIRECTLY
-// under (or IS ITSELF) a directory named TestXXX... (e.g. /tmp/TestFoo1234
-// or /tmp/TestFoo1234/sub, but not /tmp/TestFoo1234/realproject/sub).
-// This matches projects created by t.TempDir() at the temp root level.
-func isGoTestTempDirPath(projectDir string) bool {
-	tempDir, err := filepath.EvalSymlinks(os.TempDir())
-	if err != nil {
-		tempDir = os.TempDir()
+// effectiveTempDirs returns the set of candidate temp-root directories to
+// check when deciding whether a path is a Go test temp dir. It always includes
+// os.TempDir() (which honours TMPDIR on Unix), and also GOTMPDIR when set —
+// that environment variable redirects where 'go test' places t.TempDir()
+// subtrees (e.g. /home/vscode/.gotest-tmp in devcontainer setups).
+func effectiveTempDirs() []string {
+	seen := map[string]bool{}
+	var dirs []string
+	add := func(raw string) {
+		if raw == "" {
+			return
+		}
+		resolved, err := filepath.EvalSymlinks(raw)
+		if err != nil {
+			resolved = raw
+		}
+		resolved = filepath.Clean(resolved)
+		if !seen[resolved] {
+			seen[resolved] = true
+			dirs = append(dirs, resolved)
+		}
 	}
+	add(os.TempDir())
+	add(os.Getenv("GOTMPDIR"))
+	return dirs
+}
+
+// isGoTestTempDirPath returns true when projectDir is inside any known temp
+// root (os.TempDir() or GOTMPDIR) and matches Go's t.TempDir() naming
+// convention: projectDir is DIRECTLY under (or IS ITSELF) a directory named
+// TestXXX... (e.g. /tmp/TestFoo1234 or /tmp/TestFoo1234/sub, but not
+// /tmp/TestFoo1234/realproject/sub).
+//
+// GOTMPDIR is checked alongside os.TempDir() to handle devcontainer setups
+// where 'go test' writes t.TempDir() subtrees into a non-standard location
+// (e.g. /home/vscode/.gotest-tmp) that differs from the system /tmp.
+func isGoTestTempDirPath(projectDir string) bool {
 	abs, err := filepath.Abs(projectDir)
 	if err != nil {
 		return false
 	}
+	for _, tempDir := range effectiveTempDirs() {
+		if matchesTestTempDirUnder(abs, tempDir) {
+			return true
+		}
+	}
+	return false
+}
+
+// matchesTestTempDirUnder returns true when abs is inside tempDir and matches
+// Go's t.TempDir() path shape (Test* component directly under tempDir).
+func matchesTestTempDirUnder(abs, tempDir string) bool {
 	if !strings.HasPrefix(abs, tempDir+string(filepath.Separator)) {
 		return false
 	}
 
-	// Check if abs itself or its direct parent is under a Test* directory
-	// For /tmp/TestFoo1234, return true
-	// For /tmp/TestFoo1234/sub, return true
-	// For /tmp/TestFoo1234/sub/subsub, return false
+	// Check if abs itself or its direct parent is a Test* directory.
+	// For <tempDir>/TestFoo1234, return true
+	// For <tempDir>/TestFoo1234/sub, return true
+	// For <tempDir>/TestFoo1234/sub/subsub, return false
 	parent := filepath.Dir(abs)
 	if parent == abs {
-		// At filesystem root, not a test temp dir
 		return false
 	}
 
@@ -303,7 +340,6 @@ func isGoTestTempDirPath(projectDir string) bool {
 	// Check if abs is itself a Test* dir (directly under tempDir)
 	absBase := filepath.Base(abs)
 	if strings.HasPrefix(absBase, "Test") {
-		// Make sure it's directly under tempDir (not deeper)
 		relPath, _ := filepath.Rel(tempDir, abs)
 		return !strings.Contains(relPath, string(filepath.Separator))
 	}
@@ -311,26 +347,28 @@ func isGoTestTempDirPath(projectDir string) bool {
 	return false
 }
 
-// IsGoTestTempDirPath reports whether projectDir points inside os.TempDir() and
-// contains a Test* path component under that temp root, matching Go's
-// t.TempDir() naming convention.
+// IsGoTestTempDirPath reports whether projectDir points inside a known temp
+// root (os.TempDir() or GOTMPDIR) and contains a Test* path component,
+// matching Go's t.TempDir() naming convention.
 func IsGoTestTempDirPath(projectDir string) bool {
 	return isGoTestTempDirPath(projectDir)
 }
 
-// pathInsideTempDir reports whether path lives under os.TempDir(). Test suites
-// that redirect the registry file into a temp location should still be able to
-// exercise tempdir projects without polluting the user's persistent registry.
+// pathInsideTempDir reports whether path lives under any known temp root
+// (os.TempDir() or GOTMPDIR). Test suites that redirect the registry file
+// into a temp location should still be able to exercise tempdir projects
+// without polluting the user's persistent registry.
 func pathInsideTempDir(path string) bool {
-	tempDir, err := filepath.EvalSymlinks(os.TempDir())
-	if err != nil {
-		tempDir = os.TempDir()
-	}
 	abs, err := filepath.Abs(path)
 	if err != nil {
 		return false
 	}
-	return abs == tempDir || strings.HasPrefix(abs, tempDir+string(filepath.Separator))
+	for _, tempDir := range effectiveTempDirs() {
+		if abs == tempDir || strings.HasPrefix(abs, tempDir+string(filepath.Separator)) {
+			return true
+		}
+	}
+	return false
 }
 
 // PruneStale removes entries whose LastSeen timestamp is older than ttl.

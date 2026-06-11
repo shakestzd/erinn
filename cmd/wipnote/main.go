@@ -335,7 +335,9 @@ func buildRoot() *cobra.Command {
 	root.AddCommand(devCmd())
 	root.AddCommand(pluginCmd())
 	root.AddCommand(projectsCmd())
-	root.AddCommand(registryCmd())
+	reg := registryCmd()
+	reg.GroupID = "data"
+	root.AddCommand(reg)
 	root.AddCommand(initCmd())
 	root.AddCommand(setupCmd())
 	root.AddCommand(setupCLICmd())

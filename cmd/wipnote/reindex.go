@@ -134,6 +134,7 @@ func runReindex(cmd *cobra.Command, _ []string) error {
 		fmt.Printf("  arch cards: %d upserted, %d errors (of %d card files)\n",
 			archUpserted, archErrs, archTotal)
 	}
+	errCount += archErrs
 
 	// Slice 9 (feat-229f3333): rebuild graph_edges derived from plan YAML
 	// dependency lists. The HTML edge pass above only covers <a data-*-id>
@@ -144,6 +145,7 @@ func runReindex(cmd *cobra.Command, _ []string) error {
 			fmt.Printf("  plan edges: %d edges from %d plan YAML files (%d errors)\n",
 				planEdges, planFiles, planErrs)
 		}
+		errCount += planErrs
 
 		// bug-eca8141d: replay slice approval state from canonical plan YAML into
 		// plan_feedback so the finalize gate works after a cache rebuild. Rows are
@@ -153,6 +155,11 @@ func runReindex(cmd *cobra.Command, _ []string) error {
 			fmt.Printf("  plan approvals: %d slice approval rows replayed (%d errors)\n",
 				approvalRows, approvalErrs)
 		}
+		// bug-fddf5820 (finding 6): approvalErrs (and the sibling planErrs /
+		// archErrs passes) were never folded into errCount, so a rebuild with
+		// failed approval replays still set the "last indexed commit" metadata
+		// as if it were clean — suppressing the next incremental pass's retry.
+		errCount += approvalErrs
 	}
 
 	if currentCommit != "" && errCount == 0 {

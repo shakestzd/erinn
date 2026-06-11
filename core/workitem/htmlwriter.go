@@ -309,10 +309,80 @@ type edgeGroupData struct {
 // edgeData holds one edge link for the template.
 type edgeData struct {
 	TargetID     string
+	Href         string
 	Relationship string
 	Label        string
 	HasSince     bool
 	Since        string
+}
+
+// edgeHref returns a collection-aware relative href for a link to targetID.
+//
+// Work-item HTML lives in per-collection subdirectories of .wipnote/
+// (bugs/, features/, spikes/, tracks/, plans/, specs/, sessions/). A bare
+// "<id>.html" href only resolves when source and target share a directory;
+// cross-collection edges (e.g. a bug's part_of → a track, or implemented_in →
+// a session) must hop up one level and into the target's collection
+// ("../tracks/trk-….html"). The target collection is derived from the ID
+// prefix; session IDs are bare UUIDs with no prefix (fix for bug-fddf5820,
+// findings 1).
+//
+// The parser strips any leading directory component when reading the href back
+// (core/htmlparse parser.go), so prefixed hrefs round-trip to the same target
+// ID — making this change safe for re-ingest.
+func edgeHref(targetID string) string {
+	dir := collectionDirForID(targetID)
+	if dir == "" {
+		return targetID + ".html"
+	}
+	return "../" + dir + "/" + targetID + ".html"
+}
+
+// collectionDirForID maps a target ID to its .wipnote/ collection
+// subdirectory based on the ID prefix. Session IDs (bare UUIDs, no prefix)
+// resolve to "sessions". Returns "" when the prefix is unrecognized, signaling
+// callers to fall back to a bare same-directory href.
+func collectionDirForID(id string) string {
+	switch {
+	case strings.HasPrefix(id, "feat-"):
+		return "features"
+	case strings.HasPrefix(id, "bug-"):
+		return "bugs"
+	case strings.HasPrefix(id, "spk-"):
+		return "spikes"
+	case strings.HasPrefix(id, "trk-"):
+		return "tracks"
+	case strings.HasPrefix(id, "pln-"):
+		return "plans"
+	case strings.HasPrefix(id, "spc-"):
+		return "specs"
+	case isSessionID(id):
+		return "sessions"
+	default:
+		return ""
+	}
+}
+
+// isSessionID reports whether id looks like a session UUID
+// (8-4-4-4-12 hex groups). Session work items carry no ID prefix, so they are
+// identified structurally.
+func isSessionID(id string) bool {
+	if len(id) != 36 {
+		return false
+	}
+	for i, r := range id {
+		switch i {
+		case 8, 13, 18, 23:
+			if r != '-' {
+				return false
+			}
+		default:
+			if !((r >= '0' && r <= '9') || (r >= 'a' && r <= 'f') || (r >= 'A' && r <= 'F')) {
+				return false
+			}
+		}
+	}
+	return true
 }
 
 // stepData holds one implementation step for the template.
@@ -370,8 +440,14 @@ func newNodeTemplateData(n *models.Node) *nodeTemplateData {
 		content := paths.SanitizeHostPaths(n.Content)
 		// Wrap plain text in <p> so it survives the HTML round-trip.
 		// The parser reads element children only, not text nodes.
+		//
+		// Plain-text descriptions are HTML-escaped first so angle-bracket
+		// placeholders (e.g. "<id>", "<path>") are emitted as entities rather
+		// than being parsed as tags and silently dropped on re-ingest
+		// (bug-fddf5820, finding 2). Content that already begins with "<" is
+		// treated as authored HTML and passed through verbatim.
 		if !strings.HasPrefix(strings.TrimSpace(content), "<") {
-			content = "<p>" + content + "</p>"
+			content = "<p>" + template.HTMLEscapeString(content) + "</p>"
 		}
 		d.TrustedContent = template.HTML(content) // #nosec: authored HTML
 	}
@@ -401,6 +477,7 @@ func buildEdgeGroups(n *models.Node) []edgeGroupData {
 			}
 			ed := edgeData{
 				TargetID:     e.TargetID,
+				Href:         edgeHref(e.TargetID),
 				Relationship: string(e.Relationship),
 				Label:        label,
 			}

@@ -575,6 +575,12 @@ func TestValidate_DotDotEscape_Error(t *testing.T) {
 	cases := []string{
 		"../outside-repo/file.go",
 		"..",
+		// Interior dot-dot segments that net-escape the repo must also be
+		// caught (bug-fddf5820, finding 9): these have no "../" prefix but
+		// resolve to a path above the repo root.
+		"a/../../etc/passwd",
+		"internal/../../outside.go",
+		"foo/bar/../../../escape.go",
 	}
 	for _, p := range cases {
 		c := validCard()

@@ -503,6 +503,19 @@ func TestPersistGateRecord_ExplicitWorkItemID(t *testing.T) {
 // (feat-cecb2f2b: resolution path 1).
 func TestResolveGateWorkItem_FlagTakesPrecedence(t *testing.T) {
 	projectRoot := setupGateTestProject(t)
+	// Seed the work item so the --work-item flag validates as existing
+	// (bug-fddf5820, finding 4: the flag is now checked against the DB). Seed it
+	// as 'done' so it cannot be picked up by the most-recent-in-progress
+	// fallback path and pollute sibling tests that share the read index.
+	database := openGateTestDB(t, projectRoot)
+	_, err := database.Exec(`INSERT INTO features (id, type, title, status, priority, created_at, updated_at)
+		VALUES ('feat-flag-explicit', 'feature', 'Flag test', 'done', 'medium', '2026-06-10T00:00:00Z', '2026-06-10T00:01:00Z')`)
+	if err != nil {
+		database.Close()
+		t.Fatalf("insert feature: %v", err)
+	}
+	database.Close()
+
 	var stderr strings.Builder
 	got := resolveGateWorkItem(projectRoot, "sess-any", dbpkg.AgentRootSentinel, "feat-flag-explicit", &stderr)
 	if got != "feat-flag-explicit" {
@@ -510,6 +523,25 @@ func TestResolveGateWorkItem_FlagTakesPrecedence(t *testing.T) {
 	}
 	if !strings.Contains(stderr.String(), "--work-item flag") {
 		t.Errorf("expected --work-item flag attribution in stderr, got: %s", stderr.String())
+	}
+}
+
+// TestResolveGateWorkItem_FlagNonexistentWarns verifies that an explicit
+// --work-item ID that does not exist in the project index is still recorded
+// (preserving the return value) but emits a not-found warning rather than
+// silently accepting it (bug-fddf5820, finding 4).
+func TestResolveGateWorkItem_FlagNonexistentWarns(t *testing.T) {
+	projectRoot := setupGateTestProject(t)
+	// Force creation of the DB so validation has an index to consult.
+	openGateTestDB(t, projectRoot).Close()
+
+	var stderr strings.Builder
+	got := resolveGateWorkItem(projectRoot, "sess-any", dbpkg.AgentRootSentinel, "feat-does-not-exist", &stderr)
+	if got != "feat-does-not-exist" {
+		t.Errorf("resolveGateWorkItem with unknown flag = %q, want feat-does-not-exist", got)
+	}
+	if !strings.Contains(stderr.String(), "not found") {
+		t.Errorf("expected not-found warning in stderr, got: %s", stderr.String())
 	}
 }
 

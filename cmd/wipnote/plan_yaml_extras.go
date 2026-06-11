@@ -442,6 +442,17 @@ func runRewriteYAML(planID, filePath string) error {
 		newPlan.Meta.ID = planID
 	}
 
+	// Preserve the existing plan-track linkage across rewrites (bug-fddf5820,
+	// finding 15). meta.track_id is structural — a hand- or LLM-authored rewrite
+	// of the plan body almost always omits it, which silently severed the plan
+	// from its track and caused finalize to create a brand-new track instead of
+	// attaching to the existing one (plan-edeb2163 → lost trk-23232c8d).
+	if existing, lerr := planyaml.Load(planPath); lerr == nil {
+		if preserved := preserveTrackLinkage(existing, newPlan); preserved != "" {
+			fmt.Fprintf(os.Stderr, "note: preserved meta.track_id %q from the existing plan (rewrite did not specify one)\n", preserved)
+		}
+	}
+
 	// Apply accepted amendments from plan_feedback before saving.
 	amendmentsApplied, err := applyAcceptedAmendments(wipnoteDir, planID, newPlan)
 	if err != nil {
@@ -463,6 +474,26 @@ func runRewriteYAML(planID, filePath string) error {
 	}
 	fmt.Printf("Plan %s rewritten: %d slices, %d questions\n", planID, len(newPlan.Slices), len(newPlan.Questions))
 	return nil
+}
+
+// preserveTrackLinkage carries the existing plan's meta.track_id forward onto
+// newPlan when the rewrite did not specify one (bug-fddf5820, finding 15).
+// An explicit non-empty track_id in newPlan is respected (allows intentional
+// re-targeting). Returns the track_id that was preserved, or "" when no
+// preservation happened. Pure (no I/O) so it is unit-testable.
+func preserveTrackLinkage(existing, newPlan *planyaml.PlanYAML) string {
+	if existing == nil || newPlan == nil {
+		return ""
+	}
+	if strings.TrimSpace(newPlan.Meta.TrackID) != "" {
+		return ""
+	}
+	existingTrack := strings.TrimSpace(existing.Meta.TrackID)
+	if existingTrack == "" {
+		return ""
+	}
+	newPlan.Meta.TrackID = existing.Meta.TrackID
+	return existingTrack
 }
 
 // amendmentValue is the JSON payload stored in plan_feedback.value for amendments.

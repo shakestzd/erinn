@@ -202,6 +202,9 @@ func TestClientUnavailable(t *testing.T) {
 // TestLease_AcquireAndHold verifies a second O_EXCL attempt fails while the
 // owner holds the lease, and succeeds after the stale lease is reclaimed.
 func TestLease_AcquireAndHold(t *testing.T) {
+	// Opt into the test-only project-root-name fallback (bug-fddf5820,
+	// finding 7); production keeps the strict cmdline-only guard.
+	t.Setenv("WIPNOTE_LEASE_TEST_FALLBACK", "1")
 	// Use a "wipnote"-named subdirectory so isWriterProcessImpl's project-root
 	// fallback fires when the test binary path does not contain "wipnote"
 	// (e.g. on CI without GOTMPDIR set). See lease_linux.go for the constraint.

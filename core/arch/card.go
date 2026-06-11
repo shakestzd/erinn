@@ -169,7 +169,13 @@ func validatePathError(p string) string {
 	if strings.HasPrefix(p, "unresolved:") {
 		return fmt.Sprintf("path %q has unresolved: prefix; outside-repo paths must be excluded", p)
 	}
-	if p == ".." || strings.HasPrefix(p, "../") {
+	// Normalize before the escape check so INTERIOR dot-dot segments cannot
+	// slip past a naive prefix test (bug-fddf5820, finding 9). For example
+	// "a/../../etc" has no "../" prefix but resolves to "../etc", which escapes
+	// the repo root. filepath.Clean collapses the path so any residual leading
+	// ".." surfaces the escape.
+	cleaned := filepath.ToSlash(filepath.Clean(p))
+	if cleaned == ".." || strings.HasPrefix(cleaned, "../") {
 		return fmt.Sprintf("path %q escapes the repository via ..; only repo-relative paths are allowed", p)
 	}
 	return ""

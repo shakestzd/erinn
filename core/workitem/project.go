@@ -94,10 +94,9 @@ func Open(projectDir, agent string) (*Project, error) {
 			time.Sleep(200 * time.Millisecond)
 			continue
 		}
-		if err != nil {
-			// Final attempt — bump the counter once before returning.
-			dbpkg.Record(dbpkg.SubsystemCLIMutation, err)
-		}
+		// Reached only when err != nil and we are not retrying (final attempt
+		// or a non-lock error). Bump the counter once before returning.
+		dbpkg.Record(dbpkg.SubsystemCLIMutation, err)
 		return nil, fmt.Errorf("open database: %w", err)
 	}
 

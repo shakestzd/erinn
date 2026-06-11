@@ -784,7 +784,10 @@ var planId=(function(){var a=document.querySelector('article[id]');return a?a.id
       if(headerBadge) setBadge(headerBadge,allAnswered);
       var details=document.querySelector('[data-phase="questions"]');
       if(details) details.dataset.status=allAnswered?'approved':'pending';
-      if(planId){
+      // Suppress POST during hydration (bug-fddf5820, finding 8): loadExistingFeedback
+      // dispatches synthetic change events to restore answers from the server GET;
+      // re-POSTing them echoes server state back as new writes.
+      if(planId&&!_loadingFeedback){
         var qVal=this.value,qId=this.dataset.question;
         fetch((window.wipnotePlanBase||'')+'/api/plans/'+planId+'/feedback',{
           method:'POST',
@@ -816,7 +819,9 @@ var planId=(function(){var a=document.querySelector('article[id]');return a?a.id
   document.querySelectorAll('input[type="radio"][data-action="answer"]').forEach(function(r){
     r.addEventListener('change',function(){
       var sec=this.dataset.section,ansVal=this.value;
-      if(planId){
+      // Suppress POST during hydration (bug-fddf5820, finding 8) — same reason
+      // as the design/outline question radios above.
+      if(planId&&!_loadingFeedback){
         fetch((window.wipnotePlanBase||'')+'/api/plans/'+planId+'/feedback',{
           method:'POST',
           headers:{'Content-Type':'application/json'},

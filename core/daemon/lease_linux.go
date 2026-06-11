@@ -9,25 +9,33 @@ import (
 	"strings"
 )
 
+// leaseTestFallbackEnv, when set to a non-empty value, enables a relaxed
+// project-root-name fallback in isWriterProcessImpl for hermetic tests. It is
+// NEVER set in production — see the finding-7 note below.
+const leaseTestFallbackEnv = "WIPNOTE_LEASE_TEST_FALLBACK"
+
 // isWriterProcessImpl verifies via /proc/<pid>/cmdline that the given PID is
 // running a wipnote process (the most basic guard against PID reuse).
 //
 // The verification strategy:
 //  1. Read /proc/<pid>/cmdline (NUL-separated argv).
-//  2. Confirm that the args contain "wipnote" (the binary name); OR
-//  3. Fall back to checking whether the project root (the grandparent of
-//     leasePath, i.e. the parent of the .wipnote/ dir) contains "wipnote"
-//     in its base name. This makes the check hermetic in test environments
-//     where the test binary is compiled to a path that does not contain
-//     "wipnote" (e.g. when GOTMPDIR is not set). Tests must therefore
-//     construct their project root as filepath.Join(t.TempDir(), "wipnote-test")
-//     or similar — any name that includes "wipnote".
+//  2. Confirm that the args contain "wipnote" (the binary name).
 //
 // This is a best-effort guard against PID reuse: if a user starts an
 // unrelated process after a wipnote writer crashes, that process is very
-// unlikely to have "wipnote" in its cmdline or be inside a wipnote project
-// root. If the process exited, the /proc entry is gone and we return false
-// (dead process = not holding lease).
+// unlikely to have "wipnote" in its cmdline. If the process exited, the /proc
+// entry is gone and we return false (dead process = not holding lease).
+//
+// TEST-ONLY FALLBACK (bug-fddf5820, finding 7): the previous implementation
+// also returned true whenever the project root's base name contained
+// "wipnote". In production this is unsafe — wipnote frequently lives at a path
+// like /workspaces/wipnote, so the fallback matched EVERY live PID, defeating
+// the PID-reuse guard entirely (any unrelated process inheriting a recycled PID
+// would be treated as the live writer). The fallback now fires ONLY when the
+// WIPNOTE_LEASE_TEST_FALLBACK env var is set, which tests do explicitly. The
+// process cwd/exe cannot be cheaply made reliable for the go test binary
+// (compiled to a temp path without "wipnote"), so an opt-in env guard is the
+// safe choice: production behaviour is strict, tests opt in.
 func isWriterProcessImpl(pid int, leasePath string) bool {
 	cmdlinePath := "/proc/" + strconv.Itoa(pid) + "/cmdline"
 	data, err := os.ReadFile(cmdlinePath)
@@ -41,12 +49,9 @@ func isWriterProcessImpl(pid int, leasePath string) bool {
 	if strings.Contains(args, "wipnote") {
 		return true
 	}
-	// Secondary check: the project root (parent of .wipnote/) contains "wipnote"
-	// in its base name. This handles test environments where the test binary is
-	// compiled to a path without "wipnote" (e.g. /tmp/go-testXXX/daemon.test).
-	// Tests satisfy this by using filepath.Join(t.TempDir(), "wipnote-test") as
-	// the project root; production writers satisfy it via the primary check above.
-	if leasePath != "" {
+	// Test-only fallback: gated behind an env var so it never weakens the
+	// production PID-reuse guard. See the function comment above.
+	if os.Getenv(leaseTestFallbackEnv) != "" && leasePath != "" {
 		// leasePath = <projectRoot>/.wipnote/writer.pid
 		// filepath.Dir(leasePath)        = <projectRoot>/.wipnote
 		// filepath.Dir(filepath.Dir(...)) = <projectRoot>

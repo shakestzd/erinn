@@ -529,10 +529,28 @@ func activeWorkItemForGate(sessionID, agentID string) string {
 // the gate still runs but the record is stored with an empty work_item_id,
 // preserving existing behaviour.
 func resolveGateWorkItem(projectRoot, sessionID, agentID, flagValue string, w io.Writer) string {
-	// Path 1: explicit --work-item flag.
+	// The DB for paths 1 and 3 is resolved from projectRoot — NOT the process
+	// cwd. Resolving via findWipnoteDir() (cwd-relative) picked the wrong
+	// repository when the gate ran from a subdirectory or sibling checkout
+	// (bug-fddf5820, finding 3). Open the project DB once and reuse it for both
+	// the --work-item validation and the most-recent-in-progress fallback.
+	database := openProjectGateDB(projectRoot)
+	if database != nil {
+		defer database.Close()
+	}
+
+	// Path 1: explicit --work-item flag. Validate against the DB so a typo or a
+	// stale ID surfaces immediately rather than silently recording a gate run
+	// against a nonexistent work item (bug-fddf5820, finding 4). When the DB is
+	// unavailable we cannot validate, so we trust the flag (preserving prior
+	// behaviour for environments without a read index).
 	if strings.TrimSpace(flagValue) != "" {
 		id := strings.TrimSpace(flagValue)
-		fmt.Fprintf(w, "gate: attributing run to work item %s (from --work-item flag)\n", id)
+		if database != nil && !dbpkg.WorkItemExists(database, id) {
+			fmt.Fprintf(w, "gate: warning — --work-item %s not found in the project index; recording the run against it anyway\n", id)
+		} else {
+			fmt.Fprintf(w, "gate: attributing run to work item %s (from --work-item flag)\n", id)
+		}
 		return id
 	}
 
@@ -543,29 +561,35 @@ func resolveGateWorkItem(projectRoot, sessionID, agentID, flagValue string, w io
 	}
 
 	// Path 3: last-resort — most recent in-progress item for the project.
-	wipnoteDir, err := findWipnoteDir()
-	if err != nil {
-		fmt.Fprintln(w, "gate: no active work item resolved; gate record will have empty work_item_id")
-		return ""
-	}
-	dbPath, err := storage.CanonicalDBPath(filepath.Dir(wipnoteDir))
-	if err != nil {
-		fmt.Fprintln(w, "gate: no active work item resolved; gate record will have empty work_item_id")
-		return ""
-	}
-	database, err := dbpkg.OpenReadOnly(dbPath)
-	if err != nil {
-		fmt.Fprintln(w, "gate: no active work item resolved; gate record will have empty work_item_id")
-		return ""
-	}
-	defer database.Close()
-	if id := dbpkg.MostRecentInProgressWorkItem(database); id != "" {
-		fmt.Fprintf(w, "gate: attributing run to work item %s (most recent in-progress — session attribution not available)\n", id)
-		return id
+	if database != nil {
+		if id := dbpkg.MostRecentInProgressWorkItem(database); id != "" {
+			fmt.Fprintf(w, "gate: attributing run to work item %s (most recent in-progress — session attribution not available)\n", id)
+			return id
+		}
 	}
 
 	fmt.Fprintln(w, "gate: no active work item resolved; gate record will have empty work_item_id")
 	return ""
+}
+
+// openProjectGateDB opens the read index for projectRoot's canonical DB path.
+// Returns nil (rather than erroring) when the path cannot be resolved or the
+// DB cannot be opened — callers degrade gracefully to non-DB behaviour. The DB
+// is anchored on projectRoot so attribution does not depend on the process cwd
+// (bug-fddf5820, finding 3).
+func openProjectGateDB(projectRoot string) *sql.DB {
+	if strings.TrimSpace(projectRoot) == "" {
+		return nil
+	}
+	dbPath, err := storage.CanonicalDBPath(projectRoot)
+	if err != nil {
+		return nil
+	}
+	database, err := dbpkg.OpenReadOnly(dbPath)
+	if err != nil {
+		return nil
+	}
+	return database
 }
 
 // reportGuardProfileDrift prints a READ-ONLY stale/needs-revalidation notice

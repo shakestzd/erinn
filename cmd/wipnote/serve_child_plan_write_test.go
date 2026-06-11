@@ -209,19 +209,37 @@ func TestPlanFinalizePOST_WritableMux(t *testing.T) {
 
 	mux := buildSingleProjectMux(readDB, writeDB, wipnoteDir)
 
-	// POST finalize. The handler checks IsPlanFullyApproved; with an empty
-	// plan_feedback table and a plan with no slices it will return 400
-	// "no sections approved" — but it must NOT return 500 (readonly DB).
+	// bug-fddf5820 (finding 13): the prior version accepted a pre-write 400
+	// ("not all sections approved") as a pass, so it never proved finalize
+	// actually WRITES through the writable handle. Seed the approval the legacy
+	// gate requires (the minimal plan has no slices, so IsPlanFullyApproved
+	// needs the design section approved), then assert the finalize succeeds and
+	// persists its write.
+	if err := dbpkg.StorePlanFeedback(writeDB, planID, "design", "approve", "true", ""); err != nil {
+		t.Fatalf("seed design approval: %v", err)
+	}
+
 	req := httptest.NewRequest(http.MethodPost,
 		"/api/plans/"+planID+"/finalize",
 		nil)
 	rec := httptest.NewRecorder()
 	mux.ServeHTTP(rec, req)
 
-	// Any status other than 500 means the writable handle reached the handler
-	// and its business logic ran (even if the plan isn't approved yet).
-	if rec.Code == http.StatusInternalServerError {
-		t.Fatalf("POST /api/plans/%s/finalize: got 500 %s — writable mux regression",
-			planID, rec.Body.String())
+	if rec.Code != http.StatusOK {
+		t.Fatalf("POST /api/plans/%s/finalize: got %d %s, want 200 (approved plan must finalize through writable mux)",
+			planID, rec.Code, rec.Body.String())
+	}
+
+	// Assert the write landed: planFinalizeHandler stores a meta.finalize row
+	// through writeDB. A read-only writeDB regression would 500 before this.
+	var finalizeCount int
+	if err := writeDB.QueryRow(
+		`SELECT COUNT(*) FROM plan_feedback WHERE plan_id = ? AND section = 'meta' AND action = 'finalize'`,
+		planID,
+	).Scan(&finalizeCount); err != nil {
+		t.Fatalf("count meta.finalize: %v", err)
+	}
+	if finalizeCount == 0 {
+		t.Errorf("expected a meta.finalize row after successful finalize, got none")
 	}
 }

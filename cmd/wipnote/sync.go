@@ -23,6 +23,33 @@ var workItemFileRe = regexp.MustCompile(`^\.wipnote/(features|bugs|spikes|tracks
 // would resurrect superseded artifacts into history.
 var preMergeBackupRe = regexp.MustCompile(`^\.wipnote/\.pre-merge-backup-[^/]+/`)
 
+// runtimeStateFiles are per-machine, per-session runtime state under .wipnote/
+// that must NEVER be committed by `wipnote sync` (bug-fddf5820, finding 14).
+// They are volatile (rewritten constantly), machine-local, and committing them
+// churns history and leaks one machine's session/launch/socket state into the
+// shared canonical store. Matched as exact repo-relative paths.
+var runtimeStateFiles = map[string]bool{
+	".wipnote/.active-session": true,
+	".wipnote/.launch-mode":    true,
+	".wipnote/.serve.lock":     true,
+	".wipnote/debug.log":       true,
+	".wipnote/writer.pid":      true,
+}
+
+// runtimeStateDirRe matches files under runtime-state subdirectories of
+// .wipnote/ that must be excluded from sync (currently logs/). Anchored so it
+// only matches the intended trees.
+var runtimeStateDirRe = regexp.MustCompile(`^\.wipnote/logs/`)
+
+// isRuntimeStateFile reports whether a repo-relative .wipnote/ path is volatile
+// machine-local runtime state that sync must skip (bug-fddf5820, finding 14).
+func isRuntimeStateFile(path string) bool {
+	if runtimeStateFiles[path] {
+		return true
+	}
+	return runtimeStateDirRe.MatchString(path)
+}
+
 func syncCmd() *cobra.Command {
 	var dryRun bool
 	cmd := &cobra.Command{
@@ -193,6 +220,10 @@ func dirtyWipnoteFiles(repoRoot string) ([]string, error) {
 			continue
 		}
 		if preMergeBackupRe.MatchString(path) {
+			continue
+		}
+		// Never sync volatile machine-local runtime state (finding 14).
+		if isRuntimeStateFile(path) {
 			continue
 		}
 		files = append(files, path)

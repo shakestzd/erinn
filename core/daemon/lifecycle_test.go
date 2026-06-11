@@ -130,6 +130,9 @@ func TestSelfOwnedStaleSocketUnlinkedOnBind(t *testing.T) {
 // will consider it a stale or non-writer PID for portability, but we verify
 // the refusal logic still fires when a lease is held.
 func TestStaleSocketUnlinkRefusedWhenDifferentOwnerAlive(t *testing.T) {
+	// Opt into the test-only project-root-name fallback (bug-fddf5820,
+	// finding 7); production keeps the strict cmdline-only guard.
+	t.Setenv("WIPNOTE_LEASE_TEST_FALLBACK", "1")
 	// Use a "wipnote"-named subdirectory so isWriterProcessImpl's project-root
 	// fallback fires when the test binary path does not contain "wipnote"
 	// (e.g. on CI without GOTMPDIR set). See lease_linux.go for the constraint.
@@ -270,6 +273,9 @@ func TestIdleExitNotTriggeredWhileActive(t *testing.T) {
 // second acquire while held fails with ErrLeaseHeld, and succeeds once the
 // first owner releases.
 func TestSingleOwnerLeaseRace(t *testing.T) {
+	// Opt into the test-only project-root-name fallback (bug-fddf5820,
+	// finding 7); production keeps the strict cmdline-only guard.
+	t.Setenv("WIPNOTE_LEASE_TEST_FALLBACK", "1")
 	// Use a "wipnote"-named subdirectory so isWriterProcessImpl's project-root
 	// fallback fires when the test binary path does not contain "wipnote"
 	// (e.g. on CI without GOTMPDIR set). See lease_linux.go for the constraint.

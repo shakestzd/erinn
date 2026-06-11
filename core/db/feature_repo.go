@@ -87,6 +87,23 @@ func trackExists(db *sql.DB, trackID string) bool {
 	return err == nil
 }
 
+// WorkItemExists reports whether id refers to a known work item in the read
+// index — a feature/bug/spike (features table) or a track (tracks table).
+// Used to validate an explicit --work-item gate flag so a typo or stale ID is
+// surfaced rather than silently recorded (bug-fddf5820, finding 4). A nil DB
+// or empty id returns false.
+func WorkItemExists(db *sql.DB, id string) bool {
+	if db == nil || strings.TrimSpace(id) == "" {
+		return false
+	}
+	var exists int
+	err := db.QueryRow(`SELECT 1 FROM features WHERE id = ? LIMIT 1`, id).Scan(&exists)
+	if err == nil {
+		return true
+	}
+	return trackExists(db, id)
+}
+
 // UpsertFeature inserts or updates a feature row.
 // On conflict by id, all mutable fields are updated.
 // If the feature's TrackID does not correspond to an existing track, it is

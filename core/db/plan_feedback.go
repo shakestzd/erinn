@@ -127,6 +127,35 @@ func IsPlanFullyApproved(db *sql.DB, planID string, yamlSlices []PlanSliceApprov
 		return false, err
 	}
 	if len(sliceApprovals) > 0 {
+		// Per-slice MERGE (bug-fddf5820, finding 5). When BOTH the DB has
+		// slice rows AND the caller supplies the canonical YAML slice list, the
+		// effective status of each YAML slice is the DB status when a row exists
+		// for that slice, otherwise the YAML status. EVERY YAML slice must be
+		// approved. This closes the gap where a plan with one approved DB row
+		// (and other slices that have no row but are unapproved in YAML) was
+		// reported fully approved — the old code iterated only the DB rows and
+		// never saw the unapproved slices.
+		//
+		// When yamlSlices is nil/empty the DB is the only source of truth, so we
+		// keep the slices-only semantics (bug-9f753d25): every slice WITH a row
+		// must be approved.
+		if len(yamlSlices) > 0 {
+			for _, s := range yamlSlices {
+				section := fmt.Sprintf("slice-%d", s.Num)
+				if dbStatus, ok := sliceApprovals[section]; ok {
+					if dbStatus != "approved" {
+						return false, nil
+					}
+					continue
+				}
+				// No DB row for this slice — fall back to canonical YAML state.
+				if !(s.ApprovalStatus == "approved" || s.Approved) {
+					return false, nil
+				}
+			}
+			return true, nil
+		}
+
 		for _, status := range sliceApprovals {
 			if status != "approved" {
 				return false, nil

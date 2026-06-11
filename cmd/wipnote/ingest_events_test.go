@@ -284,7 +284,16 @@ func TestIngestFilePathNormalization(t *testing.T) {
 		t.Fatalf("ListFilesByFeature: %v", err)
 	}
 
+	// Positively assert that the in-repo absolute path normalized to its
+	// repo-relative form AND survived (bug-fddf5820, finding 12). The previous
+	// assertions only checked the ABSENCE of bad paths, so a regression that
+	// dropped every path (storing nothing) would have passed silently.
+	const wantRel = "cmd/main.go"
+	var sawNormalized bool
 	for _, row := range rows {
+		if row.FilePath == wantRel {
+			sawNormalized = true
+		}
 		if filepath.IsAbs(row.FilePath) {
 			t.Errorf("absolute path stored in feature_files: %q", row.FilePath)
 		}
@@ -294,5 +303,8 @@ func TestIngestFilePathNormalization(t *testing.T) {
 		if row.FilePath == garbagePath || strings.Contains(row.FilePath, "/tmp/") {
 			t.Errorf("garbage /tmp path leaked into feature_files: %q", row.FilePath)
 		}
+	}
+	if !sawNormalized {
+		t.Errorf("expected normalized in-repo path %q to survive; got rows: %+v", wantRel, rows)
 	}
 }

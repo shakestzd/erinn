@@ -277,6 +277,102 @@ func TestSyncSkipsPreMergeBackup(t *testing.T) {
 	}
 }
 
+// TestIsRuntimeStateFile is a table test for the runtime-state exclusion used
+// by sync staging (bug-fddf5820, finding 14).
+func TestIsRuntimeStateFile(t *testing.T) {
+	cases := []struct {
+		path string
+		want bool
+	}{
+		// Excluded runtime state.
+		{".wipnote/.active-session", true},
+		{".wipnote/.launch-mode", true},
+		{".wipnote/.serve.lock", true},
+		{".wipnote/debug.log", true},
+		{".wipnote/writer.pid", true},
+		{".wipnote/logs/writer.log", true},
+		{".wipnote/logs/sub/anything.log", true},
+		// Real canonical artifacts that MUST still sync.
+		{".wipnote/features/feat-abc12345.html", false},
+		{".wipnote/bugs/bug-deadbeef.html", false},
+		{".wipnote/arch/some-card.md", false},
+		{".wipnote/config.json", false},
+		// Similar-but-not-runtime names must not be over-matched.
+		{".wipnote/sessions/127926be.html", false},
+		{".wipnote/active-session-notes.md", false},
+	}
+	for _, c := range cases {
+		if got := isRuntimeStateFile(c.path); got != c.want {
+			t.Errorf("isRuntimeStateFile(%q) = %v, want %v", c.path, got, c.want)
+		}
+	}
+}
+
+// TestSyncExcludesRuntimeState verifies that sync stages canonical work-item
+// artifacts but skips volatile machine-local runtime state files
+// (bug-fddf5820, finding 14).
+func TestSyncExcludesRuntimeState(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("/tmp", "wipnote-sync-runtime-*")
+	if err != nil {
+		t.Fatalf("MkdirTemp /tmp: %v", err)
+	}
+	t.Cleanup(func() { os.RemoveAll(tmpDir) })
+
+	mainRepo := setupWorktreeGitRepoIn(t, tmpDir)
+	wipnoteDir := filepath.Join(mainRepo, ".wipnote")
+	if err := os.MkdirAll(filepath.Join(wipnoteDir, "features"), 0o755); err != nil {
+		t.Fatalf("mkdir features: %v", err)
+	}
+	if err := os.MkdirAll(filepath.Join(wipnoteDir, "logs"), 0o755); err != nil {
+		t.Fatalf("mkdir logs: %v", err)
+	}
+	seedWipnoteCommit(t, mainRepo)
+
+	// One real work-item file that SHOULD sync.
+	featureID := "feat-rt00001"
+	if err := os.WriteFile(filepath.Join(wipnoteDir, "features", featureID+".html"),
+		[]byte(`<article id="`+featureID+`"></article>`), 0o644); err != nil {
+		t.Fatalf("write feature: %v", err)
+	}
+	// Runtime-state files that should be EXCLUDED.
+	runtime := map[string]string{
+		".active-session": "sess-123",
+		".launch-mode":    "dev",
+		".serve.lock":     "8088",
+		"debug.log":       "noise\n",
+		"writer.pid":      "4242",
+		"logs/writer.log": "log line\n",
+	}
+	for rel, content := range runtime {
+		full := filepath.Join(wipnoteDir, rel)
+		if err := os.WriteFile(full, []byte(content), 0o644); err != nil {
+			t.Fatalf("write runtime %s: %v", rel, err)
+		}
+	}
+
+	var out bytes.Buffer
+	n, err := runSync(wipnoteDir, false, &out)
+	if err != nil {
+		t.Fatalf("runSync: %v", err)
+	}
+	if n != 1 {
+		t.Errorf("expected exactly 1 file synced (the feature), got %d\noutput: %s", n, out.String())
+	}
+
+	showOut, err := exec.Command("git", "-C", mainRepo, "show", "--name-only", "HEAD").CombinedOutput()
+	if err != nil {
+		t.Fatalf("git show: %v", err)
+	}
+	if !strings.Contains(string(showOut), featureID+".html") {
+		t.Errorf("expected %s.html in commit, got:\n%s", featureID, showOut)
+	}
+	for rel := range runtime {
+		if strings.Contains(string(showOut), filepath.Base(rel)) {
+			t.Errorf("runtime-state file %q must not be committed, got:\n%s", rel, showOut)
+		}
+	}
+}
+
 // TestSyncSingleIDDerivation verifies extractWorkItemID returns the ID stem
 // for canonical .wipnote/<type>s/<id>.html paths, and empty for paths it
 // cannot confidently map (used to fall back to "N items" wording).

@@ -396,10 +396,15 @@ func runArchResolve(forFlag string, budget int) error {
 
 	matched := iarch.MatchCards(cards, resolvedPaths)
 	if len(matched) == 0 {
-		if pathsAttribMsg != "" {
+		switch {
+		case pathsAttribMsg == noFilesAttributedLabel:
+			// A work-item ID resolved to zero attributed files: emit ONLY the
+			// specific guidance, not the generic no-match line (finding 11).
+			fmt.Printf("No files attributed to %s yet; try 'wipnote reindex'.\n", forFlag)
+		case pathsAttribMsg != "":
 			// Paths were found but no cards matched them.
 			fmt.Printf("No arch cards matched for paths attributed to %s.\n", pathsAttribMsg)
-		} else {
+		default:
 			fmt.Println("No arch cards matched.")
 		}
 		return nil
@@ -413,15 +418,7 @@ func runArchResolve(forFlag string, budget int) error {
 	return nil
 }
 
-// resolveInputPaths derives the file paths to match against.
-// If forFlag is a work-item ID, it queries the DB for attributed files.
-// Otherwise, it splits forFlag on commas and treats each element as a file path.
-func resolveInputPaths(forFlag, wipnoteDir string) ([]string, error) {
-	resolved, _, err := resolveInputPathsWithDiag(forFlag, wipnoteDir)
-	return resolved, err
-}
-
-// resolveInputPathsWithDiag is like resolveInputPaths but also returns a
+// resolveInputPathsWithDiag derives the file paths to match against and also returns a
 // diagnostic label when the forFlag is a work-item ID (used to produce
 // differentiated no-match messages). The label is empty for direct path inputs.
 func resolveInputPathsWithDiag(forFlag, wipnoteDir string) (filePaths []string, attribLabel string, err error) {
@@ -492,10 +489,19 @@ func resolveWorkItemPathsWithDiag(workItemID, wipnoteDir string) (filePaths []st
 		}
 	}
 
-	// No files attributed: print guidance and return empty (caller prints no-match).
-	fmt.Fprintf(os.Stderr, "No files attributed to %s yet; try 'wipnote reindex'\n", workItemID)
-	return nil, "", nil
+	// No files attributed. Do NOT print here — the caller owns the single
+	// no-match message so the specific guidance and the generic "No arch cards
+	// matched" line are not both emitted (bug-fddf5820, finding 11). Signal the
+	// no-files condition via the sentinel label so the caller can print the
+	// right message exactly once.
+	return nil, noFilesAttributedLabel, nil
 }
+
+// noFilesAttributedLabel is the sentinel attribLabel returned by
+// resolveWorkItemPathsWithDiag when a work-item ID resolved to zero attributed
+// files. The caller maps it to a single "no files attributed; try reindex"
+// message (bug-fddf5820, finding 11).
+const noFilesAttributedLabel = "\x00no-files-attributed"
 
 // queryFeatureFiles opens the DB (read-only) and lists feature_files for the
 // given work-item ID. Returns an error when the DB is unavailable.
@@ -825,6 +831,7 @@ func runArchRepair(dryRun bool) error {
 	repoRoot := filepath.Dir(wipnoteDir)
 
 	repaired := 0
+	var updateFailures int
 	for _, card := range cards {
 		changed, newPaths, err := repairCardPaths(card, repoRoot, wipnoteDir)
 		if err != nil {
@@ -860,6 +867,7 @@ func runArchRepair(dryRun bool) error {
 		card.Paths = newPaths
 		if err := store.Update(card); err != nil {
 			fmt.Fprintf(os.Stderr, "ERROR repair %s: update failed: %v\n", card.Name, err)
+			updateFailures++
 			continue
 		}
 		repaired++
@@ -868,6 +876,13 @@ func runArchRepair(dryRun bool) error {
 		return nil
 	}
 	fmt.Printf("\nRepair complete: %d card(s) rewritten.\n", repaired)
+	// bug-fddf5820 (finding 10): a store.Update failure previously only logged
+	// to stderr while the command still exited 0, so scripts and the gate saw
+	// a successful repair that had silently dropped writes. Surface the failure
+	// as a non-nil error so the exit code reflects reality.
+	if updateFailures > 0 {
+		return fmt.Errorf("arch repair: %d card(s) failed to write; see errors above", updateFailures)
+	}
 	return nil
 }
 

@@ -676,3 +676,63 @@ func TestIsPlanFullyApproved_DBRowsWinOverYAML(t *testing.T) {
 		t.Error("expected false: DB row (slice-1 rejected) must override YAML approval state")
 	}
 }
+
+// TestIsPlanFullyApproved_MergeSliceWithoutRowBlocks is the bug-fddf5820
+// finding-5 regression: when one slice has an approved DB row but another YAML
+// slice has NO DB row and is unapproved, the plan must NOT report fully
+// approved. The old code iterated only the DB rows and never saw the
+// unapproved slice, returning true incorrectly.
+func TestIsPlanFullyApproved_MergeSliceWithoutRowBlocks(t *testing.T) {
+	database, planID := setupPlanDB(t)
+	defer database.Close()
+
+	// Only slice-1 has a DB row, and it is approved.
+	if err := db.StorePlanFeedback(database, planID, "slice-1", "approve", "true", ""); err != nil {
+		t.Fatalf("store slice-1 true: %v", err)
+	}
+
+	// YAML carries both slices: slice-2 has no DB row and is pending.
+	yamlSlices := []db.PlanSliceApproval{
+		{Num: 1, ApprovalStatus: "approved"},
+		{Num: 2, ApprovalStatus: ""}, // pending — no DB row, must block
+	}
+
+	approved, err := db.IsPlanFullyApproved(database, planID, yamlSlices)
+	if err != nil {
+		t.Fatalf("IsPlanFullyApproved: %v", err)
+	}
+	if approved {
+		t.Error("expected false: an unapproved YAML slice with no DB row must block finalize (per-slice merge)")
+	}
+
+	// Now approve slice-2 in YAML (no DB row) — merge should accept it.
+	yamlSlices[1].ApprovalStatus = "approved"
+	approved, err = db.IsPlanFullyApproved(database, planID, yamlSlices)
+	if err != nil {
+		t.Fatalf("IsPlanFullyApproved (after YAML approve): %v", err)
+	}
+	if !approved {
+		t.Error("expected true: slice-1 DB-approved + slice-2 YAML-approved should finalize")
+	}
+}
+
+// TestIsPlanFullyApproved_NilYAMLPreservesSlicesOnly verifies that with nil
+// yamlSlices the DB-only slices-only semantics are preserved (bug-9f753d25):
+// every slice WITH a row must be approved, and slices without a row are not
+// consulted.
+func TestIsPlanFullyApproved_NilYAMLPreservesSlicesOnly(t *testing.T) {
+	database, planID := setupPlanDB(t)
+	defer database.Close()
+
+	if err := db.StorePlanFeedback(database, planID, "slice-1", "approve", "true", ""); err != nil {
+		t.Fatalf("store slice-1 true: %v", err)
+	}
+
+	approved, err := db.IsPlanFullyApproved(database, planID, nil)
+	if err != nil {
+		t.Fatalf("IsPlanFullyApproved: %v", err)
+	}
+	if !approved {
+		t.Error("expected true: with nil YAML, the only DB slice row is approved")
+	}
+}

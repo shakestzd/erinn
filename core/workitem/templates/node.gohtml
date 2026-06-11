@@ -39,7 +39,7 @@
                 <h3>{{.RelLabel}}:</h3>
                 <ul>
 {{- range .Edges}}
-                    <li><a href="{{.TargetID}}.html" data-relationship="{{.Relationship}}"{{if .HasSince}} data-since="{{.Since}}"{{end}}>{{.Label}}</a></li>
+                    <li><a href="{{.Href}}" data-relationship="{{.Relationship}}"{{if .HasSince}} data-since="{{.Since}}"{{end}}>{{.Label}}</a></li>
 {{- end}}
                 </ul>
             </section>

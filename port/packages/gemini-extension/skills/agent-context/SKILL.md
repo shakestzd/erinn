@@ -103,8 +103,8 @@ substance into durable artifacts BEFORE composing the final message.
 |------|---------|
 | Diagnoses / root-cause findings | `wipnote bug set-description <id> "<text>"` or `wipnote feature set-description <id> "<text>"` |
 | Progress steps | `wipnote <type> add-step <id> "<step>"` |
-| Durable architectural facts | `wipnote arch add --title "…" --body "…"` |
-| Code changes | `git commit` |
+| Durable architectural facts | `wipnote arch add <slug> --kind <kind> --body "…" --created-by <agent>` |
+| Code changes | `git commit` — only when your task includes committing AND quality gates pass; otherwise record the working-tree state via `add-step` and leave changes uncommitted |
 
 **Then summarize:** The final message to the orchestrator is a compact summary pointing
 at those artifacts — not a dump of every detail. If truncation hits, it loses

@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>Bake arch memory &#43; gate rituals into agent definitions</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="feat-acdebf4d"
+             data-type="feature"
+             data-status="todo"
+             data-priority="medium"
+             data-created="2026-06-11T08:10:07.033375"
+             data-updated="2026-06-11T08:10:07.041417" data-agent-assigned="claude-code" data-track-id="trk-9f0ac8e2" data-created-by-agent="claude-code" data-created-by-model="claude-fable-5[1m]" data-created-by-cli-version="0.61.2-29-g705c042ac">
+
+        <header>
+            <h1>Bake arch memory &#43; gate rituals into agent definitions</h1>
+            <div class="metadata">
+                <span class="badge status-todo">Todo</span>
+                <span class="badge priority-medium">Medium Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="trk-9f0ac8e2.html" data-relationship="part_of" data-since="2026-06-11T08:10:07.041224">trk-9f0ac8e2</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>Update plugin/agents/*.md (coders, researcher, test-runner, reader): (1) at task start run wipnote arch resolve --for  (and for touched paths) before reading code; (2) at completion capture durable discoveries via complete --learning or wipnote arch add with REPO-RELATIVE paths only; (3) completion ritual is wipnote check --gate --work-item  then complete (separate calls OK since feat-cecb2f2b — drop chaining); (4) regenerate all target trees via wipnote plugin build-ports. Cross-harness honesty: codex TOMLs document the manual resolve ritual until bug-3e4c6e02 (codex hooks) is fixed; gemini agents may rely on hooks (probe-verified 2026-06-10).</p>
+        </section>
+    </article>
+</body>
+</html>

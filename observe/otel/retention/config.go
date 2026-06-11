@@ -28,11 +28,12 @@ type Config struct {
 	NDJSONMaxSessions int `json:"ndjson_max_sessions"`
 }
 
-// Defaults. Conservative on purpose — the sweep only ever touches data that is
-// BOTH inactive and durably ingested into SQLite, so age bounds are a secondary
-// guard, not the primary safety mechanism.
+// Defaults. Log cap is intentionally small: hooks fire on every tool call, so
+// debug.log and the serve/writer logs can accumulate thousands of lines per
+// session. 5 MB keeps at most ~2 days of typical devcontainer churn under the
+// default 24-hour sweep cadence. Overridable via .wipnote/config.json.
 const (
-	DefaultLogMaxBytes      int64 = 50 * 1024 * 1024 // 50 MB
+	DefaultLogMaxBytes      int64 = 5 * 1024 * 1024 // 5 MB
 	DefaultLogKeep                = 2
 	DefaultNDJSONRetainDays       = 30
 	// activeGrace is the recent-mtime window: an events.ndjson modified within

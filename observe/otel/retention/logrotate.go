@@ -138,3 +138,24 @@ func rotateProjectLogs(wipnoteDir string, cfg Config) (int64, error) {
 func rotateLogSafe(path string, cfg Config) (int64, error) {
 	return RotateLog(path, cfg.LogMaxBytes, cfg.LogKeep)
 }
+
+// OpenBoundedLog rotates path if it already exceeds maxBytes (keeping keep
+// rotated copies), then opens the live file for append. It is intended for
+// long-lived log writers (serve-auto.log, writer.log, serve-<id>.log) that
+// are opened once per process and therefore cannot rely solely on the 24-hour
+// retention sweep to enforce size bounds.
+//
+// If maxBytes <= 0 the rotation step is skipped and the file is opened as-is.
+// The caller owns the returned *os.File and must close it.
+// Returns (nil, nil) when the path cannot be opened — matches the existing
+// best-effort pattern in cmd/wipnote callers.
+func OpenBoundedLog(path string, maxBytes int64, keep int) (*os.File, error) {
+	if maxBytes > 0 {
+		if _, err := RotateLog(path, maxBytes, keep); err != nil {
+			// Non-fatal: log the rotation failure but proceed with the open so
+			// the serving process is not blocked by a transient FS error.
+			fmt.Fprintf(os.Stderr, "wipnote: log rotation before open %s: %v\n", path, err)
+		}
+	}
+	return os.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644)
+}

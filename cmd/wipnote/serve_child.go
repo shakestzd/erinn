@@ -421,7 +421,8 @@ func runServeChild(port int) error {
 	logsDir := filepath.Join(wipnoteDir, "logs")
 	_ = os.MkdirAll(logsDir, 0o755)
 	logPath := filepath.Join(logsDir, fmt.Sprintf("serve-%s.log", projectID))
-	if f, err := os.OpenFile(logPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644); err == nil {
+	serveLogCfg := retention.LoadConfig(filepath.Dir(wipnoteDir))
+	if f, err := retention.OpenBoundedLog(logPath, serveLogCfg.LogMaxBytes, serveLogCfg.LogKeep); err == nil {
 		os.Stdout = f
 		os.Stderr = f
 	}
@@ -490,8 +491,9 @@ func ensureWriterDaemon(projectRoot string) func() {
 	logDir := filepath.Join(projectRoot, ".wipnote", "logs")
 	_ = os.MkdirAll(logDir, 0o755)
 	var out *os.File
-	if f, ferr := os.OpenFile(filepath.Join(logDir, "writer.log"),
-		os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644); ferr == nil {
+	writerLogCfg := retention.LoadConfig(projectRoot)
+	if f, ferr := retention.OpenBoundedLog(filepath.Join(logDir, "writer.log"),
+		writerLogCfg.LogMaxBytes, writerLogCfg.LogKeep); ferr == nil {
 		out = f
 	}
 

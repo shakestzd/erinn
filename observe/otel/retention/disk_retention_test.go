@@ -230,6 +230,123 @@ func TestRotateProjectLogs_IncludesLegacyCacheServeLog(t *testing.T) {
 	}
 }
 
+// TestOpenBoundedLog_RotatesBeforeOpen verifies that OpenBoundedLog rotates
+// an oversized log file before returning the append fd, and that subsequent
+// writes land in the freshly-truncated live file.
+func TestOpenBoundedLog_RotatesBeforeOpen(t *testing.T) {
+	dir := t.TempDir()
+	logPath := filepath.Join(dir, "writer.log")
+
+	// Pre-seed the log with 100 bytes, over a 50-byte cap.
+	if err := os.WriteFile(logPath, []byte(strings.Repeat("x", 100)), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	f, err := OpenBoundedLog(logPath, 50, 2)
+	if err != nil {
+		t.Fatalf("OpenBoundedLog: %v", err)
+	}
+	defer f.Close()
+
+	// Live file must have been truncated before the open.
+	info, err := os.Stat(logPath)
+	if err != nil {
+		t.Fatalf("stat after open: %v", err)
+	}
+	if info.Size() != 0 {
+		t.Errorf("expected live log truncated to 0 after bounded open, got %d bytes", info.Size())
+	}
+
+	// Rotated copy must contain the bounded tail.
+	rot, err := os.ReadFile(logPath + ".1")
+	if err != nil {
+		t.Fatalf("read .1 rotation: %v", err)
+	}
+	if len(rot) != 50 {
+		t.Errorf("expected 50-byte tail in .1, got %d", len(rot))
+	}
+
+	// Writes via the returned fd must land in the live file.
+	if _, err := f.WriteString("new-entry\n"); err != nil {
+		t.Fatalf("write via returned fd: %v", err)
+	}
+	data, err := os.ReadFile(logPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(data) != "new-entry\n" {
+		t.Errorf("post-rotation write lost; live log = %q", string(data))
+	}
+}
+
+// TestOpenBoundedLog_UnderCapNoRotation verifies that a log under the cap is
+// opened as-is (no rotation, existing content preserved).
+func TestOpenBoundedLog_UnderCapNoRotation(t *testing.T) {
+	dir := t.TempDir()
+	logPath := filepath.Join(dir, "serve-auto.log")
+	if err := os.WriteFile(logPath, []byte("existing\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	f, err := OpenBoundedLog(logPath, 50, 2)
+	if err != nil {
+		t.Fatalf("OpenBoundedLog: %v", err)
+	}
+	defer f.Close()
+
+	// No rotation file should exist.
+	if _, err := os.Stat(logPath + ".1"); !os.IsNotExist(err) {
+		t.Error("no rotation expected for log under cap")
+	}
+
+	// Existing content must still be there (file was opened for append, not truncated).
+	if _, err := f.WriteString("appended\n"); err != nil {
+		t.Fatalf("append: %v", err)
+	}
+	data, err := os.ReadFile(logPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(data), "existing\n") || !strings.Contains(string(data), "appended\n") {
+		t.Errorf("unexpected log contents: %q", string(data))
+	}
+}
+
+// TestOpenBoundedLog_OldGenerationsPruned verifies that when multiple
+// rotation generations already exist, shifting them drops the oldest on rotate.
+func TestOpenBoundedLog_OldGenerationsPruned(t *testing.T) {
+	dir := t.TempDir()
+	logPath := filepath.Join(dir, "debug.log")
+
+	// Pre-create two existing rotations.
+	for _, suf := range []string{".1", ".2"} {
+		if err := os.WriteFile(logPath+suf, []byte("old"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	// Oversized live log.
+	if err := os.WriteFile(logPath, []byte(strings.Repeat("y", 100)), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	f, err := OpenBoundedLog(logPath, 50, 2)
+	if err != nil {
+		t.Fatalf("OpenBoundedLog: %v", err)
+	}
+	f.Close()
+
+	// After rotation with keep=2, .3 must not exist (pruned).
+	if _, err := os.Stat(logPath + ".3"); !os.IsNotExist(err) {
+		t.Error("generation .3 should not exist with keep=2")
+	}
+	// .1 and .2 must exist.
+	for _, suf := range []string{".1", ".2"} {
+		if _, err := os.Stat(logPath + suf); err != nil {
+			t.Errorf("expected rotation %s to exist: %v", suf, err)
+		}
+	}
+}
+
 // TestLoadConfig_Defaults verifies defaults apply when config is missing and
 // that present keys override them.
 func TestLoadConfig_Defaults(t *testing.T) {

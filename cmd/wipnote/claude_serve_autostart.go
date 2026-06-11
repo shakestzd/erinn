@@ -11,6 +11,8 @@ import (
 	"strings"
 	"syscall"
 	"time"
+
+	"github.com/shakestzd/wipnote/observe/otel/retention"
 )
 
 // serveLockPath returns the path of the per-project serve lock file.
@@ -266,7 +268,8 @@ func spawnDetachedServe(projectDir string) error {
 		return fmt.Errorf("create log dir: %w", err)
 	}
 	logPath := filepath.Join(logDir, "serve-auto.log")
-	logFile, err := os.OpenFile(logPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644)
+	cfg := retention.LoadConfig(projectDir)
+	logFile, err := retention.OpenBoundedLog(logPath, cfg.LogMaxBytes, cfg.LogKeep)
 	if err != nil {
 		return fmt.Errorf("open log %s: %w", logPath, err)
 	}

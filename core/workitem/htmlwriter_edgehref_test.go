@@ -72,6 +72,9 @@ func TestEdgeHref_PrefixMapping(t *testing.T) {
 		{"spk-12345678", "../spikes/spk-12345678.html"},
 		{"trk-12345678", "../tracks/trk-12345678.html"},
 		{"pln-12345678", "../plans/pln-12345678.html"},
+		// plan- is the prefix actually used by plan IDs (roborev job 126);
+		// pln- is retained above for defensive coverage.
+		{"plan-edeb2163", "../plans/plan-edeb2163.html"},
 		{"spc-12345678", "../specs/spc-12345678.html"},
 		{"127926be-6a1c-4045-a347-e42785ec5839", "../sessions/127926be-6a1c-4045-a347-e42785ec5839.html"},
 		// Unrecognized prefix falls back to bare same-directory href.

@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>arch resolve --for &lt;work-item&gt; returns no matches despite linked commits touching covered paths</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="bug-38680a65"
+             data-type="bug"
+             data-status="todo"
+             data-priority="medium"
+             data-created="2026-06-11T07:44:47.335444"
+             data-updated="2026-06-11T07:44:47.344519" data-agent-assigned="claude-code" data-track-id="trk-53715165" data-created-by-agent="claude-code" data-created-by-model="claude-fable-5[1m]" data-created-by-cli-version="0.61.2-29-g705c042ac">
+
+        <header>
+            <h1>arch resolve --for &lt;work-item&gt; returns no matches despite linked commits touching covered paths</h1>
+            <div class="metadata">
+                <span class="badge status-todo">Todo</span>
+                <span class="badge priority-medium">Medium Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="trk-53715165.html" data-relationship="part_of" data-since="2026-06-11T07:44:47.344378">trk-53715165</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>Repro: 'wipnote arch resolve --for bug-528478ad' returns 'No arch cards matched', but that bug's linked commit (15470805c) modified cmd/wipnote/serve_child.go, which matches three active cards (path-based resolve 'wipnote arch resolve --for cmd/wipnote/serve_child.go' returns them, hazard-first). The work-item -> paths derivation is failing, possibly: bug-type items not covered by the feature_files attribution machinery, or linked-commit file rows missing for this item, or the derivation only reads description text not commit files. Slice-2 done_when claimed this path worked — find the gap and add a bug-type-item regression test.</p>
+        </section>
+    </article>
+</body>
+</html>

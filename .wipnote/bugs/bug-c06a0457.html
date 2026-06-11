@@ -10,15 +10,15 @@
 <body>
     <article id="bug-c06a0457"
              data-type="bug"
-             data-status="in-progress"
+             data-status="done"
              data-priority="medium"
              data-created="2026-06-11T07:45:07.383977"
-             data-updated="2026-06-11T08:49:39.08395" data-agent-assigned="claude-code" data-track-id="trk-53715165" data-created-by-agent="claude-code" data-created-by-model="claude-fable-5[1m]" data-created-by-cli-version="0.61.2-29-g705c042ac">
+             data-updated="2026-06-11T08:59:12.215882" data-agent-assigned="claude-code" data-track-id="trk-53715165" data-created-by-agent="claude-code" data-created-by-model="claude-fable-5[1m]" data-created-by-cli-version="0.61.2-29-g705c042ac">
 
         <header>
             <h1>complete --learning captures garbage path globs: absolute host paths, dead worktrees, transcript tmp files</h1>
             <div class="metadata">
-                <span class="badge status-in-progress">In Progress</span>
+                <span class="badge status-done">Done</span>
                 <span class="badge priority-medium">Medium Priority</span>
             </div>
         </header>
@@ -40,7 +40,8 @@
 
         <section data-content>
             <h3>Description</h3>
-            <p>ROOT CAUSE (researched 2026-06-11): two unguarded write paths. (1) cmd/wipnote/ingest.go ~277 stores RAW absolute paths from tool inputs into feature_files — core/paths.MustNormalize/NormalizeToRepoRelative exists (core/paths/normalize.go, used by core/hooks/pretooluse.go) but ingest never calls it; reindex-sourced rows are clean (git diff-tree emits repo-relative). (2) createLearningCard (arch_cmds.go ~526) writes resolveWorkItemPaths output verbatim into card.Paths. DURABLE FIX, three layers: L1 ingest.go — normalize each extracted path with paths.MustNormalize(projectDir) and SKIP unresolved:/empty results (outside-repo paths must not enter feature_files); L2 createLearningCard — normalize+dedupe+filter again (defense in depth against pre-fix rows); L3 arch validate rule — ERROR on absolute or ../-escaping or unresolved: paths, WARN on suspicious prefixes (agent-memory dirs, tmp) so bootstrap cards keep working. REPAIR: fix the two existing garbage cards via a repeatable repair pass (read card links -> git diff-tree linked commits -> normalize -> rewrite paths) and land the repair BEFORE the validator, or validate immediately reds the live cards. Interaction: bug-38680a65's fallback emits diff-tree (repo-relative) paths — passes this validator; no conflict. Effort ~2.5h. Order: ship ingest+capture normalization with bug-38680a65's helper extraction in one PR; validator+repair as follow-on.</p>
+            <p>ROOT CAUSE (researched 2026-06-11): two unguarded write paths. (1) cmd/wipnote/ingest.go ~277 stores RAW absolute paths from tool inputs into feature_files — core/paths.MustNormalize/NormalizeToRepoRelative exists (core/paths/normalize.go, used by core/hooks/pretooluse.go) but ingest never calls it; reindex-sourced rows are clean (git diff-tree emits repo-relative). (2) createLearningCard (arch_cmds.go ~526) writes resolveWorkItemPaths output verbatim into card.Paths. DURABLE FIX, three layers: L1 ingest.go — normalize each extracted path with paths.MustNormalize(projectDir) and SKIP unresolved:/empty results (outside-repo paths must not enter feature_files); L2 createLearningCard — normalize+dedupe+filter again (defense in depth against pre-fix rows); L3 arch validate rule — ERROR on absolute or ../-escaping or unresolved: paths, WARN on suspicious prefixes (agent-memory dirs, tmp) so bootstrap cards keep working. REPAIR: fix the two existing garbage cards via a repeatable repair pass (read card links -> git diff-tree linked commits -> normalize -> rewrite paths) and land the repair BEFORE the validator, or validate immediately reds the live cards. Interaction: bug-38680a65's fallback emits diff-tree (repo-relative) paths — passes this validator; no conflict. Effort ~2.5h. Order: ship ingest+capture normalization with bug-38680a65's helper extraction in one PR; validator+repair as follow-on.
+[2026-06-11 08:59 claude-code] accepted-advisory (provenance override): commit 2462965b7 contains all implementation; DB sync needed to link commit</p>
         </section>
     </article>
 </body>

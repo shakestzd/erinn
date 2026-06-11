@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>WorktreeCreate hook rejects current Claude Code payload (name-only, no worktree_base_path)</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="bug-474380ef"
+             data-type="bug"
+             data-status="todo"
+             data-priority="medium"
+             data-created="2026-06-11T09:11:29.685365"
+             data-updated="2026-06-11T09:11:29.696812" data-agent-assigned="claude-code" data-track-id="trk-9f0ac8e2" data-created-by-agent="claude-code" data-created-by-model="claude-fable-5" data-created-by-cli-version="0.61.2-43-g4562c9fd0">
+
+        <header>
+            <h1>WorktreeCreate hook rejects current Claude Code payload (name-only, no worktree_base_path)</h1>
+            <div class="metadata">
+                <span class="badge status-todo">Todo</span>
+                <span class="badge priority-medium">Medium Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="trk-9f0ac8e2.html" data-relationship="part_of" data-since="2026-06-11T09:11:29.6967">trk-9f0ac8e2</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>Blocking: parallel agent dispatch via isolation=worktree fails. Claude Code WorktreeCreate payload drifted to {session_id,transcript_path,cwd,hook_event_name,name} — no worktree_name/worktree_base_path. Fix: fall back worktree_name<-name in ParseClaudeWorktreeCreateEvent, default base_path<-cwd/.claude/worktrees in hooks.WorktreeCreate. Observed 2026-06-11, trace /tmp/wipnote-hook-trace.jsonl.</p>
+        </section>
+    </article>
+</body>
+</html>

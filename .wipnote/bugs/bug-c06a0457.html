@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>complete --learning captures garbage path globs: absolute host paths, dead worktrees, transcript tmp files</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="bug-c06a0457"
+             data-type="bug"
+             data-status="todo"
+             data-priority="medium"
+             data-created="2026-06-11T07:45:07.383977"
+             data-updated="2026-06-11T07:45:07.415544" data-agent-assigned="claude-code" data-track-id="trk-53715165" data-created-by-agent="claude-code" data-created-by-model="claude-fable-5[1m]" data-created-by-cli-version="0.61.2-29-g705c042ac">
+
+        <header>
+            <h1>complete --learning captures garbage path globs: absolute host paths, dead worktrees, transcript tmp files</h1>
+            <div class="metadata">
+                <span class="badge status-todo">Todo</span>
+                <span class="badge priority-medium">Medium Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="trk-53715165.html" data-relationship="part_of" data-since="2026-06-11T07:45:07.415364">trk-53715165</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>Cards learning-feat-359312ab and learning-feat-5a312c8f (created by the slice implementations' own --learning capture) have paths pointing at: worktree-absolute locations (.claude/worktrees//...), the per-user Claude memory dir, and task transcript output files under the system temp dir. Consequences: globs never match real dispatch paths (dead cards), the no-host-paths rule is violated, and worktree paths dangle after teardown. Fix capture-path derivation: normalize to repo-relative paths, strip worktree prefixes to repo-root-relative form, and filter out paths outside the repo (temp dirs, home dirs, transcripts). Add validator rule: arch validate rejects absolute paths outside the project. Also repair the two existing garbage cards as part of the fix. Found by orchestrator dogfooding 2026-06-11; ironically this CLI's own host-path guard on this description caught the same class of problem the cards exhibit.</p>
+        </section>
+    </article>
+</body>
+</html>

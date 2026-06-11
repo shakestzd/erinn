@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>Canonical HTML state-sync nits: finalize leaves slice badges Pending; step data-completed lags completion text</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="bug-129f890e"
+             data-type="bug"
+             data-status="todo"
+             data-priority="medium"
+             data-created="2026-06-11T13:43:27.837299"
+             data-updated="2026-06-11T13:43:27.855106" data-agent-assigned="claude-code" data-track-id="trk-13e39042" data-created-by-agent="claude-code" data-created-by-model="claude-fable-5" data-created-by-cli-version="0.61.2-73-g9dad23f3e">
+
+        <header>
+            <h1>Canonical HTML state-sync nits: finalize leaves slice badges Pending; step data-completed lags completion text</h1>
+            <div class="metadata">
+                <span class="badge status-todo">Todo</span>
+                <span class="badge priority-medium">Medium Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="trk-13e39042.html" data-relationship="part_of" data-since="2026-06-11T13:43:27.854957">trk-13e39042</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>Two related canonical-store consistency nits from roborev jobs 52 and 118: (1) plan finalize sets YAML approved and meta finalized but the regenerated plan HTML still renders slice-approval badges as Pending (plan finalize HTML mutation does not update slice-approval-badge state for slices 1-N); (2) feature step entries can carry data-completed=false while their text says gates passed and the feature is done (TaskCompleted hook timing writes step text before/without the completion flag). Both leave the canonical store internally inconsistent for dashboards/queries. Fix the finalize HTML badge sync in the plan renderer and make step completion writes atomic with their text.</p>
+        </section>
+    </article>
+</body>
+</html>

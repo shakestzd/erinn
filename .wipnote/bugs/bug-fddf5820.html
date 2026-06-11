@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>roborev sweep: 40 failing reviews — 2 renderer bugs &#43; 10 code findings on recent fixes</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="bug-fddf5820"
+             data-type="bug"
+             data-status="todo"
+             data-priority="high"
+             data-created="2026-06-11T12:39:36.243141"
+             data-updated="2026-06-11T12:39:36.258188" data-agent-assigned="claude-code" data-track-id="trk-13e39042" data-created-by-agent="claude-code" data-created-by-model="claude-fable-5" data-created-by-cli-version="0.61.2-73-g9dad23f3e">
+
+        <header>
+            <h1>roborev sweep: 40 failing reviews — 2 renderer bugs &#43; 10 code findings on recent fixes</h1>
+            <div class="metadata">
+                <span class="badge status-todo">Todo</span>
+                <span class="badge priority-high">High Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="trk-13e39042.html" data-relationship="part_of" data-since="2026-06-11T12:39:36.258055">trk-13e39042</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>Consolidated fixes for the open failing roborev reviews on main. RENDERER (covers ~24 reviews): (1) work-item HTML edge links use bare filenames so cross-collection hrefs break — part_of from bugs/features to ../tracks/, implemented_in to ../sessions/, blocks across collections; fix the edge-link writer to emit collection-aware relative paths. (2) Description/step text containing angle-bracket placeholders is swallowed when rendered to HTML (and a line starting with '> decision' becomes a blockquote in plan HTML) — escape user text before HTML interpolation in work-item and plan renderers. CODE FINDINGS: (3) resolveGateWorkItem (check_gate_support.go ~547) ignores projectRoot, resolves via cwd findWipnoteDir; use projectRoot. (4) check --gate --work-item accepts nonexistent IDs silently; validate against DB or fix doc+comment. (5) IsPlanFullyApproved (core/db/plan_feedback.go ~126): when any DB slice row exists, YAML slices are ignored — slice with approved row + slice with no row reports fully approved; merge per-slice: DB status when present else YAML, require every YAML slice approved. (6) reindex.go ~145 approvalErrs not added to errCount. (7) lease_linux.go ~50 fallback treats any live PID as writer when project basename contains wipnote — tighten via process cwd/exe/argv check or restrict to test envs. (8) plan_page.gohtml ~785: _loadingFeedback guards approval POSTs only; answer-radio hydration still re-POSTs — guard answer handlers too. (9) core/arch/card.go ~164 traversal check bypassed by interior dot-dot segments — filepath.Clean before validation. (10) arch repair (arch_cmds.go ~856) logs store.Update failures but returns success — accumulate and return error. (11) arch no-files diagnostic double-prints with generic no-match (arch_cmds.go ~493). (12) ingest_events_test ~280 assert the surviving normalized path, not just absence of bad ones. (13) serve_child_plan_write_test ~214: finalize regression accepts pre-write 400 — seed approvals and assert the write. (14) wipnote sync commits runtime files (.active-session, .launch-mode, .serve.lock, debug.log, logs/) — exclude runtime state from sync staging. (15) plan rewrite-yaml dropped the plan-track linkage (meta track field ignored/renamed?) — preserve meta.track_id across rewrites (this caused plan-edeb2163's finalize to create a new track instead of attaching to trk-23232c8d).</p>
+        </section>
+    </article>
+</body>
+</html>

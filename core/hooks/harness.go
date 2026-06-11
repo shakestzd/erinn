@@ -434,12 +434,18 @@ func ParseClaudeWorktreeCreateEvent(raw []byte) (*CloudEvent, error) {
 
 	var envelope struct {
 		Data *CloudEvent `json:"data"`
+		// Claude Code (observed 2026-06-11) sends the worktree name as a bare
+		// top-level "name" field with no worktree_name/worktree_base_path.
+		Name string `json:"name"`
 	}
 	if err := json.Unmarshal(raw, &envelope); err != nil {
 		return nil, fmt.Errorf("parsing WorktreeCreate event: %w", err)
 	}
 	if envelope.Data != nil {
 		overlayMissingCloudEventFields(ev, envelope.Data)
+	}
+	if ev.WorktreeName == "" {
+		ev.WorktreeName = envelope.Name
 	}
 	return ev, nil
 }

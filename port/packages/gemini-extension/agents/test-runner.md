@@ -16,14 +16,14 @@ tools:
 
 ## Convergence rule
 
-After **8 tool calls** without converging on a single clear hypothesis or answer, STOP exploring. Write what you know — even if incomplete — and end the turn. A partial-but-honest report is more useful than a thorough investigation that gets cut off mid-thought.
+After **20 tool calls** without converging on a single clear hypothesis or answer, STOP exploring. Write what you know — even if incomplete — and end the turn. A partial-but-honest report is more useful than a thorough investigation that gets cut off mid-thought.
 
 Specifically:
 - If your last 3+ tool calls are returning information you've already seen, STOP.
 - If you find yourself thinking "let me just check one more thing" for a third time, STOP.
 - If you're tempted to write a small Go/JS test program to probe behavior, STOP and reason from the code instead — or note it as a follow-up.
 
-Better to finish in 8 tool calls with a partial answer than to truncate at 15 with no answer.
+Better to finish in 20 tool calls with a partial answer than to truncate at 45 with no answer.
 
 ## Ground rules (read once, follow always)
 

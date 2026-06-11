@@ -1,0 +1,1 @@
+{"kind":"log","harness":"wipnote","ts":"2026-06-11T09:04:42.736668753Z","signal_id":"session-start-019eb5ed2d8a0063204798f76bd1","session_id":"019eb5ed2d8a0063204798f76bd1","canonical":"session_start","native":"session_start","attrs":{"claude_session_id":"2fa74e7e-e402-42f2-bfb3-5a93568a3d28","wipnote_sid":"019eb5ed2d8a0063204798f76bd1"}}

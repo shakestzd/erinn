@@ -110,8 +110,9 @@ Bash is **read-only** in research mode. Only these command families are allowed:
 
 - `grep`, `rg`, `find`, `ls`, `cat`, `head`, `tail`, `wc` — file/text inspection
 - `git log`, `git show`, `git diff`, `git status`, `git blame` — read-only git history and diff; NEVER `git commit/push/stash/checkout/reset/rebase`
-- `gh api`, `gh pr view`, `gh issue view`, `gh run view` — read-only GitHub state
+- `gh api --method GET` (GET only — never `--field`/`--input`/non-GET methods), `gh pr view`, `gh issue view`, `gh run view` — read-only GitHub state
 - `wipnote find`, `wipnote show`, `wipnote search`, `wipnote arch resolve` — wipnote queries (prefer `wipnote search '<ast pattern>'` over bare `grep` for code structures)
+- `wipnote sh "<command>"` — output wrapper for verbose commands; only for wrapping commands already allowed above
 - `sqlite3 <db> "SELECT ..."` — read-only DB queries
 
 ### Verbose output → wipnote sh

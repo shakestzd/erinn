@@ -47,11 +47,18 @@ The CIGS guidance (injected per-turn) lists open work items — pick from those.
 
 **When delegating to subagents, always include the work item ID in the prompt** (e.g., "Feature: feat-123"). The subagent must run `wipnote feature start <id>` to claim the work before writing code.
 
-**After an agent returns, verify the work item was completed:**
+**After an agent returns, run the quality gate then complete the work item as separate calls:**
 ```bash
-wipnote find <id>   # check status
+wipnote check --gate --work-item <id>   # attribute gate run to the item
+wipnote feature complete <id>           # separate call — do not chain with &&
 ```
-If the item is still in-progress, run `wipnote feature complete <id>` yourself. This is the orchestrator's responsibility as a safety net.
+If `complete` refuses due to unlinked commits, run `wipnote feature link-commit <id> <sha>` first. This is the orchestrator's responsibility as a safety net.
+
+**Distillation duty:** after verifying a subagent's report, capture durable learnings so future sessions benefit:
+```bash
+wipnote arch add --kind decision --title "..." --body "..."   # standalone arch card
+wipnote feature complete <id> --learning "<one-liner fact>"  # attach to work item
+```
 
 ## Delegation Enforcement
 
@@ -95,6 +102,8 @@ If using `Task(subagent_type="general-purpose")` instead of named agents:
 When delegating to ANY coder agent, ensure these principles are followed:
 
 **Research First**
+- **Before grepping or dispatching researchers**, consult architectural memory: `wipnote arch resolve --for <path-or-work-item>` — it may already hold the answer
+- Cards labeled UNVERIFIED are leads to confirm, not ground truth; verify before acting on them
 - Search for existing libraries (npm/hex/Go modules) before implementing from scratch
 - Check project dependencies (`go.mod`, `package.json`) before adding new ones
 - Prefer well-maintained packages over custom implementations

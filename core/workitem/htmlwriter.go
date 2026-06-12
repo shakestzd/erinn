@@ -363,26 +363,50 @@ func collectionDirForID(id string) string {
 	}
 }
 
-// isSessionID reports whether id looks like a session UUID
-// (8-4-4-4-12 hex groups). Session work items carry no ID prefix, so they are
-// identified structurally.
+// isSessionID reports whether id looks like a session identifier.
+// Two formats are recognised:
+//
+//  1. RFC 4122 UUID (8-4-4-4-12 hex groups, 36 chars with hyphens), e.g.
+//     "127926be-6a1c-4045-a347-e42785ec5839" — produced by Claude Code's own
+//     session_id and by uuid.New() fallback in session-start.
+//
+//  2. OTel compact hex (28 lowercase hex chars, no hyphens), e.g.
+//     "019ebc63ba7ae905adb1f8db7504" — produced by generateOtelSessionID()
+//     in cmd/wipnote/claude_otel_collect_spawn.go (12-char ms timestamp +
+//     16-char entropy). Without this branch, compact IDs fall through
+//     collectionDirForID to the default "" case and edgeHref emits a bare
+//     filename, breaking the ../sessions/ cross-collection link (bug-91e8aa4c).
+//
+// Session work items carry no recognised work-item prefix, so they must be
+// identified structurally rather than by prefix.
 func isSessionID(id string) bool {
-	if len(id) != 36 {
-		return false
-	}
-	for i, r := range id {
-		switch i {
-		case 8, 13, 18, 23:
-			if r != '-' {
-				return false
+	switch len(id) {
+	case 36:
+		// RFC 4122 UUID: 8-4-4-4-12 hex groups separated by hyphens.
+		for i, r := range id {
+			switch i {
+			case 8, 13, 18, 23:
+				if r != '-' {
+					return false
+				}
+			default:
+				if !((r >= '0' && r <= '9') || (r >= 'a' && r <= 'f') || (r >= 'A' && r <= 'F')) {
+					return false
+				}
 			}
-		default:
-			if !((r >= '0' && r <= '9') || (r >= 'a' && r <= 'f') || (r >= 'A' && r <= 'F')) {
+		}
+		return true
+	case 28:
+		// OTel compact hex: 28 lowercase hex characters, no separators.
+		for _, r := range id {
+			if !((r >= '0' && r <= '9') || (r >= 'a' && r <= 'f')) {
 				return false
 			}
 		}
+		return true
+	default:
+		return false
 	}
-	return true
 }
 
 // stepData holds one implementation step for the template.

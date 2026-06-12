@@ -60,6 +60,65 @@ func TestWriteNodeHTML_CrossCollectionEdgeHrefs(t *testing.T) {
 	}
 }
 
+// TestWriteNodeHTML_CompactSessionEdgeHref verifies that a feature with an
+// implemented_in edge targeting a compact 28-char OTel session ID keeps the
+// ../sessions/ prefix across a WriteNodeHTML rewrite cycle (bug-91e8aa4c).
+// The regression: isSessionID only checked 36-char UUIDs, so compact hex IDs
+// fell through collectionDirForID to "" and edgeHref emitted a bare filename.
+func TestWriteNodeHTML_CompactSessionEdgeHref(t *testing.T) {
+	compactSessionID := "019ebc63ba7ae905adb1f8db7504" // 28-char OTel format
+	dir := t.TempDir()
+	node := &models.Node{
+		ID:        "feat-a1e427d6",
+		Title:     "Compact session edge regression",
+		Type:      "feature",
+		Status:    models.StatusInProgress,
+		Priority:  models.PriorityMedium,
+		CreatedAt: time.Date(2026, 6, 12, 15, 0, 0, 0, time.UTC),
+		UpdatedAt: time.Date(2026, 6, 12, 15, 0, 0, 0, time.UTC),
+		Edges: map[string][]models.Edge{
+			"implemented_in": {{
+				TargetID:     compactSessionID,
+				Relationship: models.RelationshipType("implemented_in"),
+				Title:        "session " + compactSessionID,
+			}},
+		},
+	}
+
+	path, err := WriteNodeHTML(dir, node)
+	if err != nil {
+		t.Fatalf("WriteNodeHTML: %v", err)
+	}
+	html, err := readFile(path)
+	if err != nil {
+		t.Fatalf("read written file: %v", err)
+	}
+
+	wantHref := `href="../sessions/` + compactSessionID + `.html"`
+	if !strings.Contains(html, wantHref) {
+		t.Errorf("compact session edge href missing %s\n--- html ---\n%s", wantHref, html)
+	}
+	// Bare filename must not appear.
+	bareHref := `href="` + compactSessionID + `.html"`
+	if strings.Contains(html, bareHref) {
+		t.Errorf("bare compact session href leaked into output (breaks cross-collection link)\n%s", html)
+	}
+
+	// Simulate a start/complete rewrite: mutate status and re-render.
+	node.Status = models.StatusDone
+	path2, err := WriteNodeHTML(dir, node)
+	if err != nil {
+		t.Fatalf("WriteNodeHTML second render: %v", err)
+	}
+	html2, err := readFile(path2)
+	if err != nil {
+		t.Fatalf("read second written file: %v", err)
+	}
+	if !strings.Contains(html2, wantHref) {
+		t.Errorf("after rewrite: compact session edge href missing %s\n--- html ---\n%s", wantHref, html2)
+	}
+}
+
 // TestEdgeHref_PrefixMapping is a table test for the ID-prefix → collection
 // directory mapping used by edge hrefs (bug-fddf5820, finding 1).
 func TestEdgeHref_PrefixMapping(t *testing.T) {
@@ -77,6 +136,9 @@ func TestEdgeHref_PrefixMapping(t *testing.T) {
 		{"plan-edeb2163", "../plans/plan-edeb2163.html"},
 		{"spc-12345678", "../specs/spc-12345678.html"},
 		{"127926be-6a1c-4045-a347-e42785ec5839", "../sessions/127926be-6a1c-4045-a347-e42785ec5839.html"},
+		// OTel compact-hex session IDs (28 lowercase hex chars, no hyphens)
+		// must also resolve to ../sessions/ — bug-91e8aa4c.
+		{"019ebc63ba7ae905adb1f8db7504", "../sessions/019ebc63ba7ae905adb1f8db7504.html"},
 		// Unrecognized prefix falls back to bare same-directory href.
 		{"weird-id", "weird-id.html"},
 	}

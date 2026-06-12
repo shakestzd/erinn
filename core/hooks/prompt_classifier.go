@@ -196,19 +196,24 @@ func intentDirective(intent PromptIntent, activeFeatureID, activeWorkType string
 		)
 	}
 
-	// No active work item — nudge toward creating one.
+	// No active work item — nudge toward searching lineage first, then creating.
 	// Prioritize: Implementation > Bug > Investigation
 	if !hasActive {
 		if intent.IsImplementation {
 			return "ORCHESTRATOR DIRECTIVE: Implementation work detected but no active work item.\n" +
-				"REQUIRED: Create a feature, start it, then delegate to a coder subagent."
+				"REQUIRED: First run `wipnote relevant <topic>` — it searches ALL items including completed tracks, plans, and features.\n" +
+				"The CIGS roster shows only open items; an empty roster does NOT mean no lineage exists.\n" +
+				"Attach to existing lineage if any covers this scope; only create new if none does (justify --standalone).\n" +
+				"Then start it and delegate to a coder subagent."
 		}
 		if intent.IsBugReport {
 			return "WORKFLOW GUIDANCE: Bug report detected but no active work item.\n" +
+				"First run `wipnote relevant <topic>` to find existing tracks and completed lineage.\n" +
 				"Create a bug: wipnote bug create \"Title\" --track <trk-id> then wipnote bug start <id>"
 		}
 		if intent.IsInvestigation {
 			return "WORKFLOW GUIDANCE: Investigation detected but no active work item.\n" +
+				"First run `wipnote relevant <topic>` to find existing tracks and completed lineage.\n" +
 				"Create a spike: wipnote spike create \"Title\" --track <trk-id> then wipnote spike start <id>"
 		}
 	}

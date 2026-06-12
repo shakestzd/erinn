@@ -268,16 +268,18 @@ Only these can be executed directly by orchestrator:
 - `wipnote feature create "title" --track <trk-id>`
 - `wipnote bug create "title" --track <trk-id>`
 
-**Track Assignment (MANDATORY before creating work items):**
+**Track and Lineage Search (MANDATORY before creating ANY work item):**
 
-Before creating ANY new track:
-1. Run `wipnote track list` to see all existing tracks
-2. Match the new work against existing track titles and descriptions
-3. Only create a new track if NO existing track covers the scope
-4. When in doubt, ask the user which track to use
+Before creating ANY feature, bug, or spike:
+1. Run `wipnote relevant <topic>` — it searches ALL items including completed tracks, plans, and features (`wipnote find` also returns all statuses without `--status`). The CIGS roster shows only open items; an empty roster does NOT mean no lineage exists.
+2. Match the new work against existing tracks, plans, and completed features — attach to the best fitting existing lineage rather than creating a new standalone item.
+3. Only create a new track if NO existing track covers the scope; run `wipnote track list` to enumerate all tracks.
+4. When in doubt, ask the user which track or plan to use.
+5. `--standalone <reason>` requires justification naming what was searched (e.g., `"searched: wipnote relevant <topic> — no existing track/plan covers this scope"`).
 
-This also applies when creating bugs, features, or spikes with `--track`:
-- Search existing tracks first, create a new track only as last resort
+This applies equally to features, bugs, and spikes with `--track` or `--plan`:
+- Search completed lineage first; a completed track is still valid lineage for new work in the same scope.
+- Only create a new track as a last resort.
 
 Everything else MUST be delegated.
 

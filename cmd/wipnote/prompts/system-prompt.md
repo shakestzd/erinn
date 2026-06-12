@@ -33,17 +33,19 @@ Activate the work item you're working on BEFORE any tool calls:
 ```bash
 wipnote feature start feat-xxx  # or: wipnote bug start bug-xxx / wipnote spike start spk-xxx
 ```
-If no item matches, **first run `wipnote relevant <topic>`** to find existing context. If still nothing, create one:
+If no item matches, **before creating anything, run `wipnote relevant <topic>`** to search ALL items including completed tracks, plans, and features (the CIGS roster shows only open items — an empty roster does NOT mean no lineage exists). If existing lineage covers the scope, attach the new work to that plan or track rather than creating a standalone item. Only create new if nothing covers it:
 ```bash
 # Preferred — links the feature to its plan and the plan's track:
 wipnote feature create "title" --plan <plan-id> --description "what you're implementing"
-# Last resort (hotfix or pre-plan work):
-wipnote feature create "title" --standalone "<reason>" --description "what you're implementing"
+# Also valid — attach to a completed track whose sibling features are done but whose scope still fits:
+wipnote feature create "title" --track <trk-id> --description "what you're implementing"
+# Last resort (hotfix or pre-plan work) — state what was searched and why no existing lineage fits:
+wipnote feature create "title" --standalone "searched: wipnote relevant <topic> — no existing track/plan covers this scope" --description "what you're implementing"
 wipnote feature start <new-id>
 ```
 Do not embed absolute host paths (`/workspaces/…`, `/home/…`, `/Users/…`, `/tmp/…`, `/private/var/…`) in `--description` / `--body` text — they fail the `check-host-paths` pre-commit gate. Use relative paths or basenames. Enforced at creation time; bypass with `--allow-host-paths` if legitimately needed.
 
-The CIGS guidance (injected per-turn) lists open work items — pick from those.
+The CIGS guidance (injected per-turn) lists open work items — pick from those. For completed lineage, always run `wipnote relevant <topic>` first.
 
 **When delegating to subagents, always include the work item ID in the prompt** (e.g., "Feature: feat-123"). The subagent must run `wipnote feature start <id>` to claim the work before writing code.
 

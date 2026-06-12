@@ -46,6 +46,8 @@ go vet ./...             # LINT  — static analysis
 go test ./...            # TEST  — run test suite
 ```
 
+**⚠️ Go suite timing:** From cold, `go test ./...` is SILENT for ~5–6 minutes — output is buffered per package and `cmd/wipnote` (the slowest, ~320s) prints first, so nothing appears until it finishes. Silence is NOT a stall. Budget ≥10 minutes before suspecting a hang. For streaming progress use `go test -json ./...` or split: `go test ./internal/... && go test ./cmd/...`. (Cached runs finish in seconds.)
+
 #### JavaScript / TypeScript (`package.json`)
 
 ```bash

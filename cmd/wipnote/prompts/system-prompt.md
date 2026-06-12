@@ -133,6 +133,8 @@ Detect the project type from manifest files in the repository root:
 | `pyproject.toml` / `requirements.txt` | `uv run ruff check . && uv run pytest` |
 | `Cargo.toml` | `cargo build && cargo clippy && cargo test` |
 
+**Go suite timing (CRITICAL):** From cold, `go test ./...` is SILENT for ~5–6 minutes — output is buffered per package and `cmd/wipnote` (the slowest, ~320s) prints first, so nothing appears until it finishes. Silence is NOT a stall; never kill the suite on silence alone. Budget ≥10 minutes before suspecting a hang. For streaming progress use `go test -json ./...` or run `go test ./internal/...` then `go test ./cmd/...`.
+
 Never commit with unresolved type errors, lint warnings, or test failures.
 
 ## Key Rules

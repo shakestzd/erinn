@@ -745,7 +745,19 @@
       "Bash(pwd)",
       "Bash(export TMPDIR=$HOME/.gotest-tmp GOTMPDIR=$HOME/.gotest-tmp/wipnote-build)",
       "Bash(mkdir -p /home/vscode/.gotest-tmp /home/vscode/.gotest-tmp/wipnote-build)",
-      "Bash(gh codespace *)"
+      "Bash(gh codespace *)",
+      "Bash(wipnote arch *)",
+      "Bash(go -C core build ./...)",
+      "Bash(go -C core vet ./...)",
+      "Bash(go -C core test ./...)",
+      "Bash(roborev fix *)",
+      "Bash(go -C plan test ./...)",
+      "Bash(wipnote sync *)",
+      "Bash(ps -o pid,lstart,cmd -p 2659)",
+      "Bash(export TMPDIR=/tmp/wipnote-gotest)",
+      "Bash(export GOTMPDIR=/tmp/wipnote-gotest)",
+      "Bash(mkdir -p /tmp/wipnote-gotest)",
+      "Bash(umask *)"
     ]
   },
   "enabledPlugins": {

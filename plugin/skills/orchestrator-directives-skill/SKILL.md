@@ -805,6 +805,8 @@ wipnote feature complete feat-abc --accepted-advisory \
 
 **Codex exec sandbox failures in devcontainers (bwrap/bubblewrap):** In VS Code devcontainers and GitHub Codespaces, `codex exec` may fail immediately because the container lacks bubblewrap (bwrap) privileges — the nested session cannot run even `pwd`. Failure signatures: "bwrap", "bubblewrap", "Operation not permitted", "cannot create namespace". On ANY of these in `codex exec` output, treat the environment as permanently incompatible with nested Codex execution: skip `codex exec` for the rest of the session and delegate directly to in-harness agents (e.g. `wipnote:feature-coder`). Do not retry.
 
+**Full Go suite is silent ~6 min by design:** `go test ./...` buffers per-package output; `cmd/wipnote` (~320s from cold) prints first, so the run produces no output until it completes. Do not treat silence as a stall and do not kill the run — budget ≥10 min. Need progress? `go test -json ./...` or split: `go test ./internal/... && go test ./cmd/...`. (Cached runs finish in seconds.)
+
 ---
 
 ## Advanced: Post-Compact Persistence

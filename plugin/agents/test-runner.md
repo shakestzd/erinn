@@ -39,6 +39,8 @@ Better to finish in 20 tool calls with a partial answer than to truncate at 45 w
   | `pyproject.toml` | `uv run ruff check . && uv run pytest` |
   | `Cargo.toml` | `cargo build && cargo clippy && cargo test` |
 
+**CRITICAL — Go suite baseline:** From cold, `go test ./...` is SILENT for ~5–6 minutes — output is buffered per package and `cmd/wipnote` (~320s from cold) prints first. Silence is NOT a stall or timeout. Do not interrupt. Budget ≥10 min before suspecting a hang. For progress visibility use `go test -json ./...` or split: `go test ./internal/... && go test ./cmd/...`.
+
 - **Batch wipnote CLI calls** with `&&` — each Bash tool call costs a turn from the user's quota.
 
 ## Preferred gate invocation (when a work-item ID is provided)

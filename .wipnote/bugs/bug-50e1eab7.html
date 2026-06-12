@@ -13,7 +13,7 @@
              data-status="in-progress"
              data-priority="high"
              data-created="2026-06-11T21:08:19.34968"
-             data-updated="2026-06-11T21:50:29.37581" data-agent-assigned="claude-code" data-track-id="trk-0677c709" data-created-by-agent="claude-code" data-created-by-model="claude-fable-5" data-created-by-cli-version="0.62.0">
+             data-updated="2026-06-11T21:51:02.271376" data-agent-assigned="claude-code" data-track-id="trk-0677c709" data-created-by-agent="claude-code" data-created-by-model="claude-fable-5" data-created-by-cli-version="0.62.0">
 
         <header>
             <h1>Old-name and personal-path residue tracked in repo (pre-OSS hygiene)</h1>
@@ -40,7 +40,7 @@
 
         <section data-content>
             <h3>Description</h3>
-            <p>Pre-OSS-launch hygiene, found 2026-06-11: (1) a tracked file under .claude/projects/ embeds a contributor&#39;s local home directory path from the old htmlgraph-era checkout — personal residue that publishes with the repo; untrack it (.claude/ tree is auto-synced/ephemeral per project rules). (2) Four stale htmlgraph-*.png screenshots tracked under the playwright artifacts dir — untrack and gitignore that dir. (3) ~38 old-project-name mentions across source/docs (cmd, core, plan, port, observe, plugin) — audit each: rename-safe comments vs load-bearing identifiers. (4) Decide private/ tracking policy before the repo goes public — currently tracked, contains blog drafts. Do not quote literal personal paths in work items (this item replaces bug-271c5fb3 whose own title leaked one — caught by roborev job 147).</p>
+            <p>Pre-OSS-launch hygiene, found 2026-06-11: (1) a tracked file under .claude/projects/ embeds a contributor&#39;s local home directory path from the old htmlgraph-era checkout — personal residue that publishes with the repo; untrack it (.claude/ tree is auto-synced/ephemeral per project rules). (2) Four stale htmlgraph-*.png screenshots tracked under the playwright artifacts dir — untrack and gitignore that dir. (3) ~38 old-project-name mentions across source/docs — audit each: rename-safe comments vs load-bearing identifiers. (4) DONE 2026-06-11 (513f4dd98): private/ untracked + gitignored; drafts stay local-only. IMPORTANT HISTORY CAVEAT: untracking does not unpublish git history — the blog draft and the personal-path file remain readable in past commits; before the repo flips public, decide whether a git filter-repo history rewrite is needed for items (1) and any other sensitive blobs (the 33MB binary&#39;s ~30MB-per-version layers would also be reclaimed by the same pass). Do not quote literal personal paths in work items (this item replaces a deleted predecessor whose own title leaked one — roborev job 147).</p>
         </section>
     </article>
 </body>

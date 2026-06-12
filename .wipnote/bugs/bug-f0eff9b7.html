@@ -10,26 +10,20 @@
 <body>
     <article id="bug-f0eff9b7"
              data-type="bug"
-             data-status="in-progress"
+             data-status="done"
              data-priority="high"
              data-created="2026-04-25T23:31:35.662584"
-             data-updated="2026-06-11T23:21:26.482325" data-agent-assigned="claude-code" data-track-id="trk-cb36e595">
+             data-updated="2026-06-12T00:02:14.649266" data-agent-assigned="claude-code" data-track-id="trk-cb36e595">
 
         <header>
             <h1>Host registry accumulates thousands of ghost projects</h1>
             <div class="metadata">
-                <span class="badge status-in-progress">In Progress</span>
+                <span class="badge status-done">Done</span>
                 <span class="badge priority-high">High Priority</span>
             </div>
         </header>
 
         <nav data-graph-edges>
-            <section data-edge-type="part_of">
-                <h3>Part Of:</h3>
-                <ul>
-                    <li><a href="../tracks/trk-cb36e595.html" data-relationship="part_of" data-since="2026-04-25T23:31:35.669933">trk-cb36e595</a></li>
-                </ul>
-            </section>
             <section data-edge-type="implemented_in">
                 <h3>Implemented In:</h3>
                 <ul>
@@ -37,17 +31,23 @@
                     <li><a href="../sessions/127926be-6a1c-4045-a347-e42785ec5839.html" data-relationship="implemented_in" data-since="2026-06-11T23:21:26.482162">session 127926be-6a1c-4045-a347-e42785ec5839</a></li>
                 </ul>
             </section>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-cb36e595.html" data-relationship="part_of" data-since="2026-04-25T23:31:35.669933">trk-cb36e595</a></li>
+                </ul>
+            </section>
         </nav>
 
         <section data-steps>
             <h3>Implementation Steps</h3>
             <ol>
-                <li data-completed="false" data-step-id="step-bug-f0eff9b7-0">⏳ FINDING 1 — Root cause: persistentPreRunE in cmd/htmlgraph/main.go:356 calls reg.Upsert(projectDir, filepath.Base(projectDir), remoteURL) on EVERY CLI invocation (except a small skip-list). It fires for any cwd that ResolveProjectDir resolves — including temp test dirs like /tmp/TestOtelCollect_HandshakeLine3293863294/002 that happen to contain a .htmlgraph/ subdir created by test helpers.</li>
-                <li data-completed="false" data-step-id="step-bug-f0eff9b7-1">⏳ FINDING 2 — Ghost dir source: otel_collect_test.go tests (TestOtelCollect_HandshakeLine, IdleTimeout, CollectorStartEvent) call exec.Command(bin, &#39;otel-collect&#39;, ...) spawning the real htmlgraph binary. Each subprocess invokes persistentPreRunE with a t.TempDir() path (e.g. /tmp/TestOtelCollect_HandshakeLine3293863294/001). These paths get upserted into ~/.local/share/htmlgraph/projects.json. Running &#39;go test ./...&#39; repeatedly accumulates ~3 entries per test run, across many goroutine-parallel runs → 1,787 registry entries confirmed in projects.json.</li>
-                <li data-completed="false" data-step-id="step-bug-f0eff9b7-2">⏳ FINDING 3 — Cache dir proliferation source: db.Open() in internal/db/schema.go:18 calls os.MkdirAll(dir, 0o755) unconditionally before sql.Open(). Every test subprocess that runs persistentPreRunE → openDB → db.Open() creates ~/.cache/htmlgraph/&lt;16-char-hash&gt;/ even for /tmp/... paths. The 5,531 subdirs are the cumulative DB dirs for all those temp project paths across all test runs.</li>
-                <li data-completed="false" data-step-id="step-bug-f0eff9b7-3">⏳ FINDING 4 — &#39;No validation&#39; gap: persistentPreRunE in main.go does NOT check hooks.IsHtmlGraphProject() before upsert. The hookSubcmd wrappers in hook.go DO check IsHtmlGraphProject (line 92), but the CLI&#39;s PersistentPreRun only calls findHtmlgraphDir() and proceeds on success — it does NOT verify that the resolved dir is a real project (only that .htmlgraph/ stat succeeded). For test dirs this stat succeeds because mkOtelCollectProject calls os.MkdirAll(filepath.Join(dir, &#39;.htmlgraph&#39;), 0o755).</li>
-                <li data-completed="false" data-step-id="step-bug-f0eff9b7-4">⏳ FINDING 5 — Cleanup gap: cmd/htmlgraph/projects.go:70 provides &#39;htmlgraph projects prune&#39; which calls registry.Prune() (internal/registry/registry.go:147). Prune() checks whether each entry&#39;s .htmlgraph/ dir still exists on disk. Ghost entries from /tmp/ would be pruned IF prune is run after the test — but t.TempDir() dirs persist until go test process exits, so if prune ran during a test run they would NOT be pruned. More importantly, there is no automatic prune: it requires explicit user invocation. No cleanup.go or sweep.go command prunes the registry or the cache dirs.</li>
-                <li data-completed="false" data-step-id="step-bug-f0eff9b7-5">⏳ FINDING 6 — Evidence from ghost dirs: Inspected ~/.cache/htmlgraph/0087d19a4eedf691/ — contains only htmlgraph.db (434 KB), no project.json. The DB was created by db.Open() as part of the otel-collect subprocess&#39;s persistentPreRunE. The entry for this hash in projects.json maps to a /tmp/TestOtelCollect* temp dir whose .htmlgraph/ stat succeeded because the test helper created it. Registry has 1,787 total entries; 1,786 are /tmp paths named &#39;001&#39; or &#39;002&#39;.</li>
+                <li data-completed="true" data-step-id="step-bug-f0eff9b7-0" data-agent="claude-code" data-created-by-agent="claude-code">✅ FINDING 1 — Root cause: persistentPreRunE in cmd/htmlgraph/main.go:356 calls reg.Upsert(projectDir, filepath.Base(projectDir), remoteURL) on EVERY CLI invocation (except a small skip-list). It fires for any cwd that ResolveProjectDir resolves — including temp test dirs like /tmp/TestOtelCollect_HandshakeLine3293863294/002 that happen to contain a .htmlgraph/ subdir created by test helpers.</li>
+                <li data-completed="true" data-step-id="step-bug-f0eff9b7-1" data-agent="claude-code" data-created-by-agent="claude-code">✅ FINDING 2 — Ghost dir source: otel_collect_test.go tests (TestOtelCollect_HandshakeLine, IdleTimeout, CollectorStartEvent) call exec.Command(bin, &#39;otel-collect&#39;, ...) spawning the real htmlgraph binary. Each subprocess invokes persistentPreRunE with a t.TempDir() path (e.g. /tmp/TestOtelCollect_HandshakeLine3293863294/001). These paths get upserted into ~/.local/share/htmlgraph/projects.json. Running &#39;go test ./...&#39; repeatedly accumulates ~3 entries per test run, across many goroutine-parallel runs → 1,787 registry entries confirmed in projects.json.</li>
+                <li data-completed="true" data-step-id="step-bug-f0eff9b7-2" data-agent="claude-code" data-created-by-agent="claude-code">✅ FINDING 3 — Cache dir proliferation source: db.Open() in internal/db/schema.go:18 calls os.MkdirAll(dir, 0o755) unconditionally before sql.Open(). Every test subprocess that runs persistentPreRunE → openDB → db.Open() creates ~/.cache/htmlgraph/&lt;16-char-hash&gt;/ even for /tmp/... paths. The 5,531 subdirs are the cumulative DB dirs for all those temp project paths across all test runs.</li>
+                <li data-completed="true" data-step-id="step-bug-f0eff9b7-3" data-agent="claude-code" data-created-by-agent="claude-code">✅ FINDING 4 — &#39;No validation&#39; gap: persistentPreRunE in main.go does NOT check hooks.IsHtmlGraphProject() before upsert. The hookSubcmd wrappers in hook.go DO check IsHtmlGraphProject (line 92), but the CLI&#39;s PersistentPreRun only calls findHtmlgraphDir() and proceeds on success — it does NOT verify that the resolved dir is a real project (only that .htmlgraph/ stat succeeded). For test dirs this stat succeeds because mkOtelCollectProject calls os.MkdirAll(filepath.Join(dir, &#39;.htmlgraph&#39;), 0o755).</li>
+                <li data-completed="true" data-step-id="step-bug-f0eff9b7-4" data-agent="claude-code" data-created-by-agent="claude-code">✅ FINDING 5 — Cleanup gap: cmd/htmlgraph/projects.go:70 provides &#39;htmlgraph projects prune&#39; which calls registry.Prune() (internal/registry/registry.go:147). Prune() checks whether each entry&#39;s .htmlgraph/ dir still exists on disk. Ghost entries from /tmp/ would be pruned IF prune is run after the test — but t.TempDir() dirs persist until go test process exits, so if prune ran during a test run they would NOT be pruned. More importantly, there is no automatic prune: it requires explicit user invocation. No cleanup.go or sweep.go command prunes the registry or the cache dirs.</li>
+                <li data-completed="true" data-step-id="step-bug-f0eff9b7-5" data-agent="claude-code" data-created-by-agent="claude-code">✅ FINDING 6 — Evidence from ghost dirs: Inspected ~/.cache/htmlgraph/0087d19a4eedf691/ — contains only htmlgraph.db (434 KB), no project.json. The DB was created by db.Open() as part of the otel-collect subprocess&#39;s persistentPreRunE. The entry for this hash in projects.json maps to a /tmp/TestOtelCollect* temp dir whose .htmlgraph/ stat succeeded because the test helper created it. Registry has 1,787 total entries; 1,786 are /tmp paths named &#39;001&#39; or &#39;002&#39;.</li>
             </ol>
         </section>
 

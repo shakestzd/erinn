@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>Agents kill healthy go test runs: full suite is silent ~6 min by design</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="bug-9e4884e8"
+             data-type="bug"
+             data-status="todo"
+             data-priority="medium"
+             data-created="2026-06-12T18:53:47.999514"
+             data-updated="2026-06-12T18:53:48.0197" data-agent-assigned="claude-code" data-track-id="trk-a30e8df4" data-created-by-agent="claude-code" data-created-by-model="claude-fable-5" data-created-by-cli-version="0.62.0-26-g02e14688a">
+
+        <header>
+            <h1>Agents kill healthy go test runs: full suite is silent ~6 min by design</h1>
+            <div class="metadata">
+                <span class="badge status-todo">Todo</span>
+                <span class="badge priority-medium">Medium Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-a30e8df4.html" data-relationship="part_of" data-since="2026-06-12T18:53:48.019535">trk-a30e8df4</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>Incident: an agent babysitting &#39;go test ./...&#39; interpreted minutes of silence as a stall and killed the run just before completion. Root cause: go test buffers per-package output and prints in package list order; cmd/wipnote sorts first AND is the slowest package (~320s from cold), so a from-cold full suite emits zero output for ~5-6 minutes, then everything at once. No guidance states the expected duration or that silence is normal, so agents&#39; output-as-liveness heuristics false-trigger. Compounding: prior TMPDIR lease false-failures prime agents to suspect the suite. Expected: gate/test guidance (system prompt, code-quality skill, test-runner agent, orchestrator directives) must state the ~6-min silent baseline, forbid killing the suite on silence alone, and offer streaming options (go test -v/-json, or internal/... then cmd/... split) when progress visibility is needed.</p>
+        </section>
+    </article>
+</body>
+</html>

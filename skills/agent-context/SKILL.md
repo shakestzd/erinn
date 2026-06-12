@@ -16,8 +16,9 @@ wipnote feature start <id>   # or bug start / spike start
 **Rules:**
 1. Look for a feature/bug/spike ID in the task prompt first
 2. If found, run `start` on it — do NOT create a new one
-3. Only create a new work item if the prompt genuinely contains no ID
-4. If wipnote is unavailable, proceed — attribution is not a blocker
+3. If no ID is in the prompt, run `wipnote relevant "<topic>"` before creating anything — it searches ALL items including completed tracks, plans, and features (the CIGS roster shows only open items; an empty roster does NOT mean no lineage exists). Attach to the best existing lineage (plan, track, or completed feature's track) if any covers the scope; only create a new item if none does. This applies equally to bugs, features, and spikes.
+4. Only create a new work item if step 3 finds nothing covering the scope
+5. If wipnote is unavailable, proceed — attribution is not a blocker
 
 ## Work Completion
 

@@ -85,7 +85,8 @@ Try external CLIs directly via Bash before spawning agents:
 
 1. `Bash("copilot ...")` / `Bash("codex exec ...")` / `Bash("gemini ...")` — try first
 2. If CLI not found or fails → delegate to `wipnote:patch-coder` (or `feature-coder` for code gen)
-3. Never spawn operator agents — they don't exist
+3. Sandbox wrapper failures are PERMANENT, not transient: if the failure output contains "bwrap", "bubblewrap", "sandbox", "Operation not permitted", or "cannot create namespace", the environment (e.g. a devcontainer without bwrap privileges) cannot run nested `codex exec` at all. Do NOT retry codex exec for the rest of the session — go straight to the in-harness agent fallback.
+4. Never spawn operator agents — they don't exist
 
 The orchestrator owns the fallback decision based on the Bash result.
 

@@ -837,3 +837,86 @@ func TestPruneStale_AllRecent(t *testing.T) {
 		t.Errorf("expected 2 entries, got %d", len(reg.List()))
 	}
 }
+
+// ---- GOTMPDIR detection tests ----
+
+// TestIsGoTestTempDirPath_GOTMPDIRDetection verifies that a Test* path inside
+// GOTMPDIR is identified as a test temp dir, even when it differs from os.TempDir().
+// This covers the devcontainer case where GOTMPDIR=/home/vscode/.gotest-tmp but
+// os.TempDir() returns /tmp.
+func TestIsGoTestTempDirPath_GOTMPDIRDetection(t *testing.T) {
+	// Use a dedicated temp dir that is NOT os.TempDir() to simulate GOTMPDIR.
+	altTmp := t.TempDir()
+	t.Setenv("GOTMPDIR", altTmp)
+
+	// Build a synthetic Test* path inside altTmp.
+	testPath := filepath.Join(altTmp, "TestFooBar1234567890", "001")
+	if !registry.IsGoTestTempDirPath(testPath) {
+		t.Errorf("IsGoTestTempDirPath(%q) = false, want true (GOTMPDIR=%s)", testPath, altTmp)
+	}
+}
+
+// TestIsGoTestTempDirPath_GOTMPDIRNonTestPath verifies that a non-Test path
+// inside GOTMPDIR is NOT identified as a test temp dir.
+func TestIsGoTestTempDirPath_GOTMPDIRNonTestPath(t *testing.T) {
+	altTmp := t.TempDir()
+	t.Setenv("GOTMPDIR", altTmp)
+
+	nonTestPath := filepath.Join(altTmp, "my-project")
+	if registry.IsGoTestTempDirPath(nonTestPath) {
+		t.Errorf("IsGoTestTempDirPath(%q) = true, want false (non-Test* path under GOTMPDIR)", nonTestPath)
+	}
+}
+
+// TestUpsert_GOTMPDIRPathRejected verifies that Upsert silently rejects a path
+// under GOTMPDIR that matches Go's t.TempDir() naming convention, even when
+// the path has a .wipnote/ subdirectory and would otherwise look like a real project.
+func TestUpsert_GOTMPDIRPathRejected(t *testing.T) {
+	altTmp := t.TempDir()
+	t.Setenv("GOTMPDIR", altTmp)
+
+	// Create a project dir inside the synthetic GOTMPDIR with Test* naming.
+	// This is exactly what test subprocesses that create t.TempDir() projects produce.
+	testProjDir := filepath.Join(altTmp, "TestOtelCollect12345", "001")
+	if err := os.MkdirAll(filepath.Join(testProjDir, ".wipnote"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	// Use a persistent registry path so the normal tempdir-path guard activates.
+	regPath := makePersistentRegistryPath(t)
+	reg, err := registry.Load(regPath)
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	reg.Upsert(testProjDir, "test-proj", "")
+	if n := len(reg.List()); n != 0 {
+		t.Errorf("Upsert accepted GOTMPDIR test path; registry has %d entries, want 0", n)
+	}
+}
+
+// TestPathInsideTempDir_GOTMPDIRRecognised verifies that pathInsideTempDir
+// (indirectly exercised via ShouldSkipRegistration) treats GOTMPDIR as a
+// temp root when checking whether a registry file is inside a temp dir.
+func TestPathInsideTempDir_GOTMPDIRRecognised(t *testing.T) {
+	altTmp := t.TempDir()
+	t.Setenv("GOTMPDIR", altTmp)
+
+	// A registry file inside the GOTMPDIR should be treated as a temp-local
+	// registry, which relaxes the tempdir-path guard in Upsert.
+	regPath := filepath.Join(altTmp, "projects.json")
+	reg, err := registry.Load(regPath)
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+
+	// A test project dir inside altTmp/TestXxx/001 should be ACCEPTED by a
+	// temp-local registry (both the registry and the project are temp).
+	testProjDir := filepath.Join(altTmp, "TestRegistryLocal123", "001")
+	if err := os.MkdirAll(filepath.Join(testProjDir, ".wipnote"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	reg.Upsert(testProjDir, "local-test", "")
+	if n := len(reg.List()); n != 1 {
+		t.Errorf("temp-local registry should accept tempdir project; got %d entries, want 1", n)
+	}
+}

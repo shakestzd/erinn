@@ -791,6 +791,8 @@ wipnote feature complete feat-abc --accepted-advisory \
 
 **Subagent commit linkage gap (bug-3718b630):** Subagent commits are not auto-linked to the work item they implement, and subagent quality-gate records are session-local and invisible to the orchestrator. This blocks full automation of completion gates. **See Pattern B (Completion Gate) above** for the interim workaround (double-gating + explicit SHAs in advisory). The durable fix belongs in the binary and hooks.
 
+**Codex exec sandbox failures in devcontainers (bwrap/bubblewrap):** In VS Code devcontainers and GitHub Codespaces, `codex exec` may fail immediately because the container lacks bubblewrap (bwrap) privileges — the nested session cannot run even `pwd`. Failure signatures: "bwrap", "bubblewrap", "Operation not permitted", "cannot create namespace". On ANY of these in `codex exec` output, treat the environment as permanently incompatible with nested Codex execution: skip `codex exec` for the rest of the session and delegate directly to in-harness agents (e.g. `feature-coder`). Do not retry.
+
 ---
 
 ## Advanced: Post-Compact Persistence

@@ -10,6 +10,8 @@ tools:
   - Grep
   - Glob
   - Bash
+  - WebSearch
+  - WebFetch
 maxTurns: 100
 ---
 
@@ -64,6 +66,13 @@ Better to finish in 30 tool calls with a partial answer than to truncate at 100 
 ## Output format
 
 Report files changed (with line counts), the exact quality-gate command and its final line, test names that passed, and any follow-up items not in scope. Do not paste full file contents unless the user asks.
+
+## Web research mandate
+
+Before designing any non-trivial component or accepting an external technology assumption, use WebSearch / WebFetch to:
+- Verify current official docs (libraries, SDKs, harness contracts) — do not rely solely on training-data knowledge.
+- Search for existing OSS packages that already solve the problem. Prefer adoption over custom builds; record the adopt-vs-build outcome in your progress notes.
+- When the task touches Claude Code / Codex CLI / Gemini CLI integration, check provider docs for existing plugins, skills, subagents, or hooks that may already cover the requirement.
 
 ## Use wipnote search and wipnote sh
 

@@ -85,11 +85,13 @@ relying on them.
 
 ## Research routing — where does the answer live?
 
-Before grepping local code, route by where the answer actually lives:
+Web search is an integral part of software development, not a last resort. Route by where the answer actually lives:
 
-- External libraries/SDKs, upstream harness behavior (Claude Code / Codex / Gemini CLI), third-party tool error messages, version/API contracts, or "is this a known/recent issue?" → use your web search / web fetch tools and the GitHub CLI (`gh search issues`, `gh api`) FIRST, or in parallel with local search. Official docs, GitHub issues, releases, and changelogs are first-class research, not a last resort.
-- This repo's own code, conventions, wiring, or "where is X defined?" → use local file-read/search tools first.
-- When local code encodes an assumption about EXTERNAL behavior, verify it against official docs before trusting it.
+- **External libraries/SDKs, harness contracts, version/API details, "is this a known issue?"** → MUST use your web search / web fetch tools and the GitHub CLI (`gh search issues`, `gh api`) FIRST, or in parallel with local search. Official docs, GitHub issues, releases, and changelogs are first-class research.
+- **Existing implementations before writing custom code** → MUST search for well-maintained OSS packages or tools that already solve the problem before implementing from scratch. If a suitable package exists, adopt it; record the adopt-vs-build outcome in your work item notes.
+- **Agent-harness integration** → when work touches Claude Code, Codex CLI, or Gemini CLI behaviour (plugins, skills, subagents, hooks), MUST check the relevant provider docs for existing primitives before building custom solutions.
+- **This repo's own code, conventions, wiring, "where is X defined?"** → use local file-read/search tools first.
+- When local code encodes an assumption about EXTERNAL behaviour, verify it against official docs before trusting it.
 
 Web/docs/GitHub searches COUNT as research — don't reflexively fall back to local grep for questions whose answer lives upstream.
 

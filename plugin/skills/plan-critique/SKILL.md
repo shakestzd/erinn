@@ -31,7 +31,9 @@ The agent:
 2. Runs two critic passes itself (no separate CLI dispatch):
    - **DESIGN CRITIC** — Haiku model. Reads the plan as a design document. Looks for missing slices, scope gaps, unclear acceptance criteria, conflicting goals, undefined lifecycle states, and reviewer ergonomics issues (will a human actually understand and approve this?).
    - **FEASIBILITY CRITIC** — Sonnet model. Reads the plan as an implementation contract. Verifies cited files exist, line ranges match, existing patterns are reused not reinvented, gates and regex/SQL constraints accommodate the proposed sections, and that each done_when entry is testable from the listed files alone.
-3. Applies findings by editing the YAML directly and re-running `wipnote plan validate <plan-id>`, or by using `wipnote plan edit <plan-id>` to write `critic_revisions` back into the affected slice cards.
+3. Applies findings by editing the YAML directly and re-running `wipnote plan validate <plan-id>`, or by using `wipnote plan edit <plan-id>` to write `critic_revisions` back into the affected slice cards. Before scoring any slice, the FEASIBILITY CRITIC MUST:
+   - **Verify external claims via web search / web fetch.** When a slice's `what` or `decisions_notes` asserts specific library behaviour, SDK contracts, API response shapes, or harness (Claude Code / Codex CLI / Gemini CLI) plugin/hook semantics, the critic must check that assertion against current official documentation. Unverified external claims are `warn`-level findings; claims that contradict official docs are `danger`.
+   - **Flag reinvented wheels.** When a slice proposes a custom solution for a problem that a well-maintained OSS package already solves, the critic MUST flag it (severity `warn`) and cite what it found (package name + source). The goal is to catch custom implementations before they are built, not after.
 
 Both critics produce structured output: a list of findings tagged with a per-slice scope (the slice `num` they target), a severity (`success | warn | danger | info`), and a one-line summary.
 

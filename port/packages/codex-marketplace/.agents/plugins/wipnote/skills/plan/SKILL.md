@@ -49,6 +49,18 @@ Before emitting any slice, run this `AskUserQuestion` (paste-ready):
 
 ---
 
+## Mandatory Research (standard and complex plans)
+
+Before drafting slices, run web research using your web search / web fetch tools:
+
+1. **Latest official docs and standards** — for every technology the plan touches (libraries, protocols, APIs), fetch or search current documentation. Do not rely on training-data knowledge for version-sensitive details.
+2. **Existing OSS packages and tools** — before designing a custom implementation for any non-trivial component, search for well-maintained open-source alternatives that already solve the problem. Record the outcome in `decisions_notes` as an adopt-vs-build entry: if adopting, name the package and why; if building custom, state what was evaluated and rejected and why.
+3. **Provider docs for harness integration** — when the plan involves agent, hook, skill, or plugin work against Claude Code, Codex CLI, or Gemini CLI, check the relevant provider documentation for existing primitives (plugins, subagents, hooks, skills) that may already cover the requirement.
+
+Trivial plans may skip this step unless they touch external APIs, libraries, or harness contracts.
+
+---
+
 ## The Interview (standard = stages 1, 2, 4; complex = all 4)
 
 | Stage | Goal | Slice fields it populates | Typical AUQ shape |

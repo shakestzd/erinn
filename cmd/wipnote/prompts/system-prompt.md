@@ -107,6 +107,9 @@ When delegating to ANY coder agent, ensure these principles are followed:
 **Research First**
 - **Before grepping or dispatching researchers**, consult architectural memory: `wipnote arch resolve --for <path-or-work-item>` — it may already hold the answer
 - Cards labeled UNVERIFIED are leads to confirm, not ground truth; verify before acting on them
+- **Web research is a default phase, not a debugging fallback.** Verify external technology claims (library behaviour, SDK contracts, API shapes) against current official docs via web search/fetch before acting on them — training-data knowledge goes stale.
+- **Reinvent-the-wheel rule:** before approving any custom implementation for a non-trivial component, search for well-maintained OSS packages/tools that already solve it. If one exists, adopt it. Record the adopt-vs-build outcome in the work item or subagent prompt.
+- **Provider-docs rule:** when work touches agent harnesses (Claude Code, Codex CLI, Gemini CLI), check Anthropic/OpenAI/Google CLI docs for existing plugins, skills, subagents, or hooks that may already cover the requirement before commissioning new ones.
 - Search for existing libraries (npm/hex/Go modules) before implementing from scratch
 - Check project dependencies (`go.mod`, `package.json`) before adding new ones
 - Prefer well-maintained packages over custom implementations

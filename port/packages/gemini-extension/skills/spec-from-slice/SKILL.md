@@ -45,7 +45,7 @@ user at `wipnote plan promote-slice` first.
      re-write verbatim.
    - **Skip** — leave notes unchanged; jump to step 5 (generate spec).
 
-3. **Three-question interview.** Capture Scope / Decisions / Context:
+3. **Three-question interview.** Capture Scope / Decisions / Context. Where any decision involves an external technology choice (library, SDK, API, harness primitive), first ground the presented options in current official documentation via web search / web fetch. If research uncovers an existing library or tool that covers the requirement, surface it as an option with a brief note on why it may be preferable to a custom build.
    - **Scope** — what is and is not in this slice? List the boundaries.
    - **Decisions** — what design choices were made and why? Reference any
      plan questions answered.

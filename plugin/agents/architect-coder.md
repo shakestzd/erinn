@@ -10,6 +10,8 @@ tools:
   - Grep
   - Glob
   - Bash
+  - WebSearch
+  - WebFetch
 maxTurns: 120
 ---
 
@@ -67,6 +69,13 @@ Better to finish in 40 tool calls with a partial answer than to truncate at 120 
 ## Output format
 
 Report the design decisions made (with rationale), files changed (with line counts), the exact quality-gate command and its final line, and follow-up items not in scope. Do not paste full file contents unless the user asks.
+
+## Web research mandate
+
+Architectural decisions depend on accurate external knowledge. Use WebSearch / WebFetch:
+- Verify current official docs and standards for every technology the design touches. Do not anchor on training-data knowledge for version-sensitive contracts.
+- Search for existing OSS packages or tools before designing a custom solution. Prefer adoption where a maintained package covers the requirement; record the adopt-vs-build decision with rationale in your output.
+- When the design involves Claude Code / Codex CLI / Gemini CLI integration, check provider docs for existing plugins, skills, subagents, or hooks before specifying new ones.
 
 ## Use wipnote search and wipnote sh
 

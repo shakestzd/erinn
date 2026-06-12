@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>HTML writer drops ../sessions/ prefix on implemented_in hrefs during start rewrite</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="bug-91e8aa4c"
+             data-type="bug"
+             data-status="todo"
+             data-priority="medium"
+             data-created="2026-06-12T22:21:11.870844"
+             data-updated="2026-06-12T22:21:11.939163" data-agent-assigned="claude-code" data-track-id="trk-13e39042" data-created-by-agent="claude-code" data-created-by-model="claude-fable-5" data-created-by-cli-version="0.62.0-66-gafc6b8179">
+
+        <header>
+            <h1>HTML writer drops ../sessions/ prefix on implemented_in hrefs during start rewrite</h1>
+            <div class="metadata">
+                <span class="badge status-todo">Todo</span>
+                <span class="badge priority-medium">Medium Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-13e39042.html" data-relationship="part_of" data-since="2026-06-12T22:21:11.938996">trk-13e39042</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>Roborev job 198 caught .wipnote/features/feat-a1e427d6.html line 31: a &#39;wipnote: start feat-a1e427d6&#39; autocommit (176f02b05) rewrote the implemented_in session link from ../sessions/019ebc63....html to a bare 019ebc63....html, which resolves under features/ and breaks the session edge. Root cause is in the Go HTML writer&#39;s edge-href handling on rewrite, sibling of bug-fddf5820 (plan- prefix mapping). Fix the writer, repair the broken href in feat-a1e427d6.html, add a regression test covering session-edge href preservation across start/complete rewrites.</p>
+        </section>
+    </article>
+</body>
+</html>

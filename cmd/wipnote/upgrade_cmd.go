@@ -338,6 +338,9 @@ func extractArchive(tarball, destRoot string) error {
 			if err := out.Close(); err != nil {
 				return fmt.Errorf("closing %s: %w", target, err)
 			}
+			if err := os.Chmod(target, mode); err != nil {
+				return fmt.Errorf("chmod %s: %w", target, err)
+			}
 		default:
 			// Symlinks/devices: not produced by goreleaser for this archive.
 		}

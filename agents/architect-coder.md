@@ -71,7 +71,7 @@ Report the design decisions made (with rationale), files changed (with line coun
 
 ## Web research mandate
 
-Architectural decisions depend on accurate external knowledge. Use WebSearch / WebFetch:
+Architectural decisions depend on accurate external knowledge. Use your web search / web fetch tools:
 - Verify current official docs and standards for every technology the design touches. Do not anchor on training-data knowledge for version-sensitive contracts.
 - Search for existing OSS packages or tools before designing a custom solution. Prefer adoption where a maintained package covers the requirement; record the adopt-vs-build decision with rationale in your output.
 - When the design involves Claude Code / Codex CLI / Gemini CLI integration, check provider docs for existing plugins, skills, subagents, or hooks before specifying new ones.

@@ -7,7 +7,7 @@ Local-first observability and coordination platform for AI-assisted development.
 | Layer | Role |
 |-------|------|
 | `.wipnote/*.html` | Canonical store — single source of truth |
-| SQLite (`~/.cache/wipnote/<path-hash>/wipnote.db`) | Per-user read index for queries and dashboard (derived; not committed) |
+| SQLite (WAL-safety-driven path: `~/.cache/wipnote/<hash>/` if WAL-safe, else `~/.local/share/wipnote/<hash>/` if WAL-safe, else ephemeral tmp; derived, not committed) | Per-user read index for queries and dashboard |
 | Go binary (`wipnote`) | CLI + hook handler |
 
 ## For AI Agents

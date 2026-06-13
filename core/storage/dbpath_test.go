@@ -769,3 +769,190 @@ func TestDBPathInfo_Fields(t *testing.T) {
 		t.Errorf("Path must end with %q, got %q", storage.DBFileName, info.Path)
 	}
 }
+
+// ---- Local-share persistent candidate tests (feat-fdcc46d8) ----
+
+// TestCanonicalDBPath_LocalShareSelectedWhenCacheUnsafe verifies that when
+// os.UserCacheDir() probes WAL-unsafe (e.g. overlayfs in a devcontainer) and
+// the local-share candidate probes WAL-safe (e.g. ext4), the local-share path
+// is selected — not the ephemeral tmp path.
+func TestCanonicalDBPath_LocalShareSelectedWhenCacheUnsafe(t *testing.T) {
+	t.Setenv("WIPNOTE_DB_PATH", "")
+	t.Setenv("XDG_RUNTIME_DIR", "")
+	t.Setenv("WIPNOTE_ALLOW_TMPFS_DB", "")
+
+	cacheBase := t.TempDir()
+	t.Setenv("XDG_CACHE_HOME", cacheBase)
+
+	localShareBase := t.TempDir()
+	t.Setenv("XDG_DATA_HOME", localShareBase)
+
+	tmpBase := t.TempDir()
+	t.Setenv("TMPDIR", tmpBase)
+
+	origProber := storage.FsTypeProber
+	t.Cleanup(func() { storage.FsTypeProber = origProber })
+	storage.FsTypeProber = func(path string) (string, bool) {
+		switch {
+		case strings.HasPrefix(path, cacheBase):
+			return "overlayfs", false
+		case strings.HasPrefix(path, localShareBase):
+			return "ext4", true
+		case strings.HasPrefix(path, tmpBase):
+			return "ext4", true
+		default:
+			return "overlayfs", false
+		}
+	}
+
+	info, err := storage.CanonicalDBPathWithInfo("/some/project")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !strings.HasPrefix(info.Path, localShareBase) {
+		t.Errorf("expected path under local-share %q when cache is WAL-unsafe, got %q", localShareBase, info.Path)
+	}
+	if !info.WalSafe {
+		t.Errorf("expected WalSafe=true for local-share candidate")
+	}
+	if info.FsType != "ext4" {
+		t.Errorf("expected FsType=ext4, got %q", info.FsType)
+	}
+	if strings.Contains(info.Path, tmpBase) {
+		t.Errorf("must not choose volatile tmp path when local-share is WAL-safe: %q", info.Path)
+	}
+	if !strings.Contains(info.Reason, "persistent local-share") {
+		t.Errorf("expected reason to mention 'persistent local-share', got %q", info.Reason)
+	}
+}
+
+// TestCanonicalDBPath_CacheSelectedWhenWalSafeHostUnchanged verifies that when
+// os.UserCacheDir() probes WAL-safe, it is selected first (normal host behavior
+// unchanged — local-share candidate must not displace cache on healthy hosts).
+func TestCanonicalDBPath_CacheSelectedWhenWalSafeHostUnchanged(t *testing.T) {
+	t.Setenv("WIPNOTE_DB_PATH", "")
+	t.Setenv("XDG_RUNTIME_DIR", "")
+
+	cacheBase := t.TempDir()
+	t.Setenv("XDG_CACHE_HOME", cacheBase)
+
+	localShareBase := t.TempDir()
+	t.Setenv("XDG_DATA_HOME", localShareBase)
+
+	tmpBase := t.TempDir()
+	t.Setenv("TMPDIR", tmpBase)
+
+	origProber := storage.FsTypeProber
+	t.Cleanup(func() { storage.FsTypeProber = origProber })
+	storage.FsTypeProber = func(path string) (string, bool) {
+		switch {
+		case strings.HasPrefix(path, cacheBase):
+			return "ext4", true
+		case strings.HasPrefix(path, localShareBase):
+			return "ext4", true
+		case strings.HasPrefix(path, tmpBase):
+			return "ext4", true
+		default:
+			return "overlayfs", false
+		}
+	}
+
+	info, err := storage.CanonicalDBPathWithInfo("/some/project")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !strings.HasPrefix(info.Path, cacheBase) {
+		t.Errorf("expected path under cache %q (host-unchanged case), got %q", cacheBase, info.Path)
+	}
+	if !info.WalSafe {
+		t.Errorf("expected WalSafe=true")
+	}
+	if strings.HasPrefix(info.Path, localShareBase) {
+		t.Errorf("local-share must not displace cache when cache is WAL-safe: %q", info.Path)
+	}
+}
+
+// TestCanonicalDBPath_LocalShareXDGDataHomeRespected verifies that XDG_DATA_HOME
+// is respected over the default ~/.local/share fallback.
+func TestCanonicalDBPath_LocalShareXDGDataHomeRespected(t *testing.T) {
+	t.Setenv("WIPNOTE_DB_PATH", "")
+	t.Setenv("XDG_RUNTIME_DIR", "")
+	t.Setenv("WIPNOTE_ALLOW_TMPFS_DB", "")
+
+	cacheBase := t.TempDir()
+	t.Setenv("XDG_CACHE_HOME", cacheBase)
+
+	customDataHome := t.TempDir()
+	t.Setenv("XDG_DATA_HOME", customDataHome)
+
+	tmpBase := t.TempDir()
+	t.Setenv("TMPDIR", tmpBase)
+
+	origProber := storage.FsTypeProber
+	t.Cleanup(func() { storage.FsTypeProber = origProber })
+	storage.FsTypeProber = func(path string) (string, bool) {
+		switch {
+		case strings.HasPrefix(path, cacheBase):
+			return "overlayfs", false
+		case strings.HasPrefix(path, customDataHome):
+			return "ext4", true
+		case strings.HasPrefix(path, tmpBase):
+			return "ext4", true
+		default:
+			return "overlayfs", false
+		}
+	}
+
+	info, err := storage.CanonicalDBPathWithInfo("/proj")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !strings.HasPrefix(info.Path, customDataHome) {
+		t.Errorf("expected XDG_DATA_HOME %q to be used for local-share candidate, got %q", customDataHome, info.Path)
+	}
+}
+
+// TestCanonicalDBPath_LocalShareUnsafeFallsThrough verifies that when the
+// local-share candidate is also WAL-unsafe, resolution falls through to the
+// existing tmp behavior unchanged.
+func TestCanonicalDBPath_LocalShareUnsafeFallsThrough(t *testing.T) {
+	t.Setenv("WIPNOTE_DB_PATH", "")
+	t.Setenv("XDG_RUNTIME_DIR", "")
+	t.Setenv("WIPNOTE_ALLOW_TMPFS_DB", "1") // allow tmpfs so we can assert it's picked
+
+	cacheBase := t.TempDir()
+	t.Setenv("XDG_CACHE_HOME", cacheBase)
+
+	localShareBase := t.TempDir()
+	t.Setenv("XDG_DATA_HOME", localShareBase)
+
+	tmpBase := t.TempDir()
+	t.Setenv("TMPDIR", tmpBase)
+
+	origProber := storage.FsTypeProber
+	t.Cleanup(func() { storage.FsTypeProber = origProber })
+	storage.FsTypeProber = func(path string) (string, bool) {
+		switch {
+		case strings.HasPrefix(path, cacheBase):
+			return "overlayfs", false
+		case strings.HasPrefix(path, localShareBase):
+			return "overlayfs", false
+		case strings.HasPrefix(path, tmpBase):
+			return "tmpfs", true
+		default:
+			return "overlayfs", false
+		}
+	}
+
+	info, err := storage.CanonicalDBPathWithInfo("/proj")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	// tmpfs is WAL-safe and opted in — should be selected over unsafe local-share.
+	if !strings.HasPrefix(info.Path, tmpBase) {
+		t.Errorf("expected fallthrough to tmp %q when local-share is also unsafe, got %q", tmpBase, info.Path)
+	}
+	if !info.WalSafe {
+		t.Errorf("expected WalSafe=true for tmpfs with opt-in")
+	}
+}

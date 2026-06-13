@@ -63,13 +63,28 @@ type candidateRoot struct {
 // candidateRoots returns the ordered list of candidate root directories for
 // the DB cache. Priority:
 //  1. os.UserCacheDir()  (persistent, managed by `wipnote cache prune`)
-//  2. $XDG_RUNTIME_DIR (often tmpfs on Linux, tied to user session)
-//  3. $TMPDIR / /tmp  (tmpfs on many Linux systems; volatile fallback)
+//  2. $XDG_DATA_HOME/wipnote or ~/.local/share/wipnote (persistent local-share;
+//     preferred over tmp so containers with overlayfs ~/.cache keep a durable DB)
+//  3. $XDG_RUNTIME_DIR (often tmpfs on Linux, tied to user session)
+//  4. $TMPDIR / /tmp  (tmpfs on many Linux systems; volatile fallback)
 func candidateRoots() []candidateRoot {
 	var roots []candidateRoot
 
 	if cacheDir, err := os.UserCacheDir(); err == nil {
 		roots = append(roots, candidateRoot{dir: cacheDir, label: "user-cache"})
+	}
+
+	// Persistent local-share directory: $XDG_DATA_HOME or ~/.local/share.
+	// This survives container restarts when ~/.cache is on overlayfs (WAL-unsafe)
+	// but ~/.local/share is on ext4 (WAL-safe and persistent).
+	localShareDir := os.Getenv("XDG_DATA_HOME")
+	if localShareDir == "" {
+		if homeDir, err := os.UserHomeDir(); err == nil {
+			localShareDir = filepath.Join(homeDir, ".local", "share")
+		}
+	}
+	if localShareDir != "" {
+		roots = append(roots, candidateRoot{dir: localShareDir, label: "local-share"})
 	}
 
 	if xdg := os.Getenv("XDG_RUNTIME_DIR"); xdg != "" {
@@ -148,7 +163,7 @@ func CanonicalDBPathWithInfo(projectDir string) (DBPathInfo, error) {
 			continue
 		}
 		if walSafe {
-			reason := buildWalSafeReason(fstype)
+			reason := buildWalSafeReason(fstype, c.label)
 			return DBPathInfo{
 				Path:    candidatePath,
 				FsType:  fstype,
@@ -180,10 +195,13 @@ func CanonicalDBPathWithInfo(projectDir string) (DBPathInfo, error) {
 }
 
 // buildWalSafeReason constructs a human-readable selection reason for a
-// WAL-safe path.
-func buildWalSafeReason(fstype string) string {
+// WAL-safe path. label is the candidateRoot.label for context.
+func buildWalSafeReason(fstype, label string) string {
 	if fstype == "tmpfs" {
 		return "tmpfs (volatile, preferred for WAL safety)"
+	}
+	if label == "local-share" {
+		return fmt.Sprintf("%s (WAL safe, persistent local-share)", fstype)
 	}
 	return fmt.Sprintf("%s (WAL safe)", fstype)
 }

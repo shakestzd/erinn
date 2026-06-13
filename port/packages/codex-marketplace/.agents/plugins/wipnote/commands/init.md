@@ -55,7 +55,7 @@ Created `.wipnote/` directory with:
 - `tracks/` - Multi-feature tracks
 - `spikes/` - Research and investigation
 - `bugs/` - Bug tracking
-- `wipnote.db` - SQLite read index for queries and dashboard
+- `.db/` - Derived SQLite read index for queries and dashboard (can be rebuilt)
 - `refs.json` - Project metadata references
 - `styles.css` - Default stylesheet for wipnote HTML nodes
 

@@ -138,7 +138,7 @@ Then **persist non-interactively** (the form does this itself; for the inline/co
 {
   "questions": [
     {"question": "Where does the state live?", "header": "State", "multiSelect": false, "options": [
-      {"label": "In SQLite (read index)", "description": "internal/db/ — derived, can be rebuilt."},
+      {"label": "In SQLite (read index)", "description": "Derived read-index (per-user cache), can be rebuilt."},
       {"label": "In .wipnote/<kind>/*.html", "description": "Canonical store — survives DB rebuild."},
       {"label": "In-memory only", "description": "No persistence; lifecycle = process."},
       {"label": "On the filesystem outside .wipnote/", "description": "e.g., session transcripts, hook artifacts."}

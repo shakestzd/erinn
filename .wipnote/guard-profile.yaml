@@ -1,13 +1,13 @@
 guards:
     completion:
         - name: go-test
-          cmd: go test ./...
+          cmd: go test -short ./...
     quality:
         - name: go-build
           cmd: go build ./...
         - name: go-vet
           cmd: go vet ./...
 approved:
-    signature: sha256:97427bc92f35720ffc37760b9bb910c4143de2383ea53be428b5c4b458b8fb93
-    by: shakestzd
-    at: "2026-06-06T19:40:49Z"
+    signature: sha256:bb40141727a3b47ae3535a2fc2c55313c16b8a06bb60ebac94dab04a1ce6539b
+    by: Thandolwethu Shakes Dlamini
+    at: "2026-06-13T17:27:42Z"

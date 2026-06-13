@@ -127,6 +127,25 @@ roborev init || {
   echo "roborev init failed; continuing because AI agent authentication may not be complete yet" >&2
 }
 
+echo "==> Configuring roborev to skip wipnote bookkeeping commits..."
+# Idempotent: only inject the guard if feat-1915300d marker is not present
+if ! grep -q 'feat-1915300d' "$REPO_ROOT/.git/hooks/post-commit" 2>/dev/null; then
+  # Insert the wipnote bookkeeping skip guard before the final roborev invocation
+  tmpfile=$(mktemp)
+  awk '
+    /^"?\$?ROBOREV"? post-commit 2>\/dev\/null$/ && !done {
+      print "# wipnote: skip bookkeeping autocommits — they carry no reviewable code content (feat-1915300d)"
+      print "case \"$(git log -1 --format='"'"'%s'"'"')\" in"
+      print "  wipnote:*) exit 0 ;;"
+      print "esac"
+      done = 1
+    }
+    { print }
+  ' "$REPO_ROOT/.git/hooks/post-commit" > "$tmpfile"
+  mv "$tmpfile" "$REPO_ROOT/.git/hooks/post-commit"
+  chmod +x "$REPO_ROOT/.git/hooks/post-commit"
+fi
+
 echo "==> Ensuring \$HOME/.local/bin is on PATH in shell rc files..."
 for _rc in "$HOME/.bashrc" "$HOME/.zshrc"; do
   if [ -f "$_rc" ] && ! grep -q '.local/bin' "$_rc"; then

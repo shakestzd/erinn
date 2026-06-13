@@ -3,8 +3,8 @@ meta:
     title: Distribution de-bundle, version-sync, and container launchers
     description: 'Four-part architecture change: (A) strip bundled binary from plugin — ship CLI and plugin as two artifacts with shared version; (B) add SessionStart version-check hook + htmlgraph doctor + upgrade messaging to prevent plugin/CLI version skew; (C) curl install script + Homebrew tap for frictionless first install; (D) --container launchers that use a shared devcontainer and skip host-state mutations. Inspired by roborev''s binary-first distribution, refined to keep our marketplace presence for discoverability.'
     created_at: "2026-04-21"
-    status: draft
-    version: 4
+    status: done
+    version: 5
 design:
     problem: |
         HtmlGraph currently bundles the CLI binary inside the Claude Code plugin tree (`plugin/hooks/bin/`), bloating the marketplace artifact with per-arch binaries and coupling plugin versioning to CLI versioning. When a user updates the plugin via the marketplace while running an older CLI (or vice versa), hooks resolve to the wrong binary with no runtime detection — silent version skew with no recovery path. There is no first-run install story beyond `claude plugin install`: no curl script, no Homebrew tap, no `htmlgraph doctor` to surface mismatches. The `--dev` launcher mutates host `~/.claude/plugins/` state (remove/reinstall marketplace plugin) that bleeds across machines when users sync dotfiles, and fails outright in a container where the host state is ephemeral or absent. These four pain points — bundle bloat, version skew, install friction, host mutation — are the concrete problems this plan resolves.

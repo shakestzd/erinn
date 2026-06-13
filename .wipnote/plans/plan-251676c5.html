@@ -3,11 +3,11 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="htmlgraph-version" content="1.0">
+<meta name="wipnote-version" content="1.0">
 <title>Plan: Distribution de-bundle, version-sync, and container launchers</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=Source+Serif+4:ital,opsz,wght@0,8..60,300;0,8..60,400;0,8..60,500;1,8..60,300;1,8..60,400&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/styles/github-dark.min.css" id="hljs-dark">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/styles/github.min.css" id="hljs-light" disabled>
 <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/highlight.min.js"></script>
@@ -22,6 +22,7 @@
   --radius:8px; --radius-sm:5px;
   --mono:'JetBrains Mono',ui-monospace,'SF Mono','Cascadia Code',monospace;
   --sans:'DM Sans','Inter',system-ui,-apple-system,sans-serif;
+  --serif:'Source Serif 4',Georgia,serif;
   --shadow-card:0 2px 8px rgba(0,0,0,.5), 0 0 0 1px var(--border);
   --shadow-elevated:0 8px 32px rgba(0,0,0,.6), 0 0 0 1px var(--border);
   --transition:150ms cubic-bezier(.4,0,.2,1);
@@ -57,7 +58,7 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);line-height:
 .plan-content{flex:1;min-width:0;padding:32px 40px 80px;overflow-y:auto;max-width:960px}
 
 /* ── Chat sidebar ── */
-.chat-sidebar{width:360px;min-width:280px;max-width:600px;border-left:1px solid var(--border);display:flex;flex-direction:column;background:var(--bg-card);overflow:hidden;height:100%}
+.chat-sidebar{width:360px;min-width:280px;max-width:600px;border-left:1px solid var(--border);display:flex;flex-direction:column;background:var(--bg-card);overflow-y:auto;overflow-x:hidden;height:100vh;position:sticky;top:0;flex-shrink:0;transition:width 200ms ease,opacity 150ms ease}
 .chat-resize-handle{width:4px;cursor:col-resize;background:transparent;transition:background .15s;flex-shrink:0;position:relative}
 .chat-resize-handle:hover,.chat-resize-handle.dragging{background:var(--accent);opacity:.5}
 .chat-resize-handle::after{content:'';position:absolute;top:50%;left:-4px;width:12px;height:32px;transform:translateY(-50%);border-radius:4px}
@@ -149,24 +150,84 @@ textarea::placeholder{color:var(--text-muted)}
 .question-block input[type="radio"]{accent-color:var(--accent);margin-right:8px;cursor:pointer}
 .rec-tag{font-family:var(--mono);font-size:.65rem;color:var(--accent);text-transform:uppercase;letter-spacing:.05em;margin-left:6px;opacity:.8}
 
-/* ── Slice cards ── */
-.slice-card{background:var(--bg-input);border:1px solid var(--border);border-radius:var(--radius);padding:24px;margin-bottom:16px;transition:border-color var(--transition)}
+/* ── Slice cards (collapsible) ── */
+.slice-card{background:var(--bg-input);border:1px solid var(--border);border-left:3px solid var(--border);border-radius:var(--radius);margin-bottom:12px;transition:border-color var(--transition);scroll-margin-top:64px}
 .slice-card:hover{border-color:rgba(205,255,0,.2)}
-.slice-header{display:flex;align-items:center;gap:10px;margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid var(--border);flex-wrap:wrap}
-.slice-num{font-family:var(--mono);font-size:.8rem;color:var(--bg);background:var(--accent);padding:3px 9px;border-radius:4px;font-weight:700;min-width:26px;text-align:center}
-.slice-name{font-weight:600;font-size:1rem;font-family:var(--sans);flex:1}
-.slice-meta{font-size:.85rem;color:var(--text-muted);margin-bottom:8px;font-family:var(--mono)}
+/* Status stripe — keyed to data-approval attribute */
+.slice-card[data-approval="approved"]{border-left-color:var(--approved)}
+.slice-card[data-approval="rejected"]{border-left-color:var(--revision)}
+.slice-card[data-approval="changes_requested"]{border-left-color:var(--revision)}
+.slice-card[data-approval="pending"]{border-left-color:var(--border)}
+.slice-card[data-status="done"]{border-left-color:var(--discuss)}
+/* Summary / header — flex row: [#N] [title-col grows] [chevron]; title-col stacks title/preview/meta-row */
+.slice-card > summary.slice-summary{display:flex;align-items:flex-start;gap:12px;padding:12px 16px;cursor:pointer;list-style:none;user-select:none;font-weight:400;font-size:.94rem}
+.slice-card > summary.slice-summary::-webkit-details-marker{display:none}
+.slice-card > summary.slice-summary::marker{content:""}
+.slice-card > summary.slice-summary:hover{background:var(--bg-hover);border-radius:calc(var(--radius) - 1px)}
+.slice-num{margin-top:2px;font-family:var(--mono);font-size:.78rem;color:var(--bg);background:var(--accent);padding:2px 8px;border-radius:4px;font-weight:700;min-width:28px;text-align:center;flex:0 0 auto;align-self:flex-start}
+.slice-title-col{flex:1 1 auto;display:flex;flex-direction:column;gap:4px;min-width:0}
+.slice-name{font-weight:600;font-size:.94rem;font-family:var(--sans);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.slice-preview{color:var(--text-muted);font-size:.82rem;line-height:1.4;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.slice-meta-row{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:4px;flex-wrap:wrap}
+.slice-summary-badges{display:flex;align-items:center;gap:4px;flex-wrap:wrap}
+.badge-sm{font-size:.68rem;padding:2px 7px;letter-spacing:.04em}
+.badge-issues{background:rgba(239,68,68,.12);color:#f87171;border-color:rgba(239,68,68,.25)}
+.badge-questions{background:rgba(167,139,250,.12);color:var(--discuss);border-color:rgba(167,139,250,.25)}
+/* Segmented approval control */
+.slice-actions{display:flex;align-items:center;gap:6px;flex-shrink:0;margin-left:auto}
+.approval-segmented{display:inline-flex;border:1px solid var(--border);border-radius:var(--radius-sm);overflow:hidden;gap:0}
+.seg-btn{display:inline-flex;align-items:center;justify-content:center;padding:4px 9px;font-size:.82rem;cursor:pointer;line-height:1;color:var(--text-muted);transition:background var(--transition),color var(--transition);user-select:none}
+.seg-btn:hover{background:var(--bg-hover);color:var(--text)}
+.seg-btn input[type="radio"]{position:absolute;opacity:0;width:0;height:0;pointer-events:none}
+.seg-btn:has(input:checked){background:var(--bg-hover)}
+.seg-approve:has(input:checked){background:rgba(34,197,94,.15);color:var(--approved);border-right:1px solid var(--border)}
+.seg-changes:has(input:checked){background:rgba(245,158,11,.15);color:var(--revision);border-right:1px solid var(--border)}
+.seg-reject:has(input:checked){background:rgba(239,68,68,.15);color:var(--blocked)}
+/* Chevron */
+.slice-chevron{flex:0 0 auto;align-self:flex-start;width:16px;height:16px;position:relative;margin-top:6px}
+.slice-chevron::after{content:'';position:absolute;top:50%;left:50%;width:7px;height:7px;border-right:2px solid var(--text-muted);border-bottom:2px solid var(--text-muted);transform:translate(-60%,-60%) rotate(-45deg);transition:transform .2s ease}
+.slice-card[open] .slice-chevron::after{transform:translate(-60%,-30%) rotate(45deg)}
+/* Slice body (expanded content) */
+.slice-body{padding:4px 18px 16px}
+.slice-meta{font-size:.82rem;color:var(--text-muted);margin-bottom:6px;font-family:var(--mono)}
 .slice-meta span{margin-right:14px}
-.slice-field{margin-bottom:14px;padding-bottom:12px;border-bottom:1px solid rgba(51,51,56,.4)}
+.slice-field{margin-top:14px;padding-bottom:10px;border-bottom:1px solid rgba(51,51,56,.4)}
 .slice-field:last-of-type{border-bottom:none}
-.slice-field-label{font-family:var(--mono);font-size:.75rem;font-weight:600;color:var(--accent);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px}
+.slice-field-label{font-family:var(--mono);font-size:.7rem;font-weight:600;color:var(--accent);text-transform:uppercase;letter-spacing:.08em;margin-bottom:5px;opacity:.85}
 .slice-field-value{font-size:.92rem;color:var(--text-dim);line-height:1.7}
 .slice-field-value code{font-size:.82rem;word-break:break-all}
-.slice-tests{white-space:pre-line}
+/* Serif prose for WHAT/WHY/description */
+.serif-prose{font-family:var(--serif);font-size:.96rem;line-height:1.6}
+/* Reveal toggle (CSS-only) */
+.reveal-toggle{position:absolute;opacity:0;width:0;height:0;pointer-events:none}
+.reveal-content{max-height:8.5em;overflow:hidden;mask-image:linear-gradient(to bottom, black 60%, transparent 100%);-webkit-mask-image:linear-gradient(to bottom, black 60%, transparent 100%)}
+.reveal-toggle:checked~.reveal-content{max-height:none;mask-image:none;-webkit-mask-image:none}
+.reveal-label{display:inline-block;margin-top:4px;font-size:.78rem;color:var(--accent);cursor:pointer;font-family:var(--mono);opacity:.8;transition:opacity var(--transition)}
+.reveal-label:hover{opacity:1}
+.reveal-toggle:checked~.reveal-content~.reveal-label{display:none}
+/* Test strategy chips */
+.test-strategy{display:flex;flex-direction:column;gap:6px}
+.test-group{display:flex;align-items:flex-start;gap:10px}
+.test-chip{font-family:var(--mono);font-size:.65rem;font-weight:700;letter-spacing:.06em;background:var(--bg-card);border:1px solid var(--border);border-radius:4px;padding:3px 8px;white-space:nowrap;color:var(--text-muted);flex-shrink:0;margin-top:2px}
+.test-group[data-kind="unit"] .test-chip{border-color:rgba(34,197,94,.3);color:var(--approved)}
+.test-group[data-kind="integration"] .test-chip{border-color:rgba(167,139,250,.3);color:var(--discuss)}
+.test-group[data-kind="regression"] .test-chip,.test-group[data-kind="e2e"] .test-chip{border-color:rgba(245,158,11,.3);color:var(--revision)}
+.test-group ul{margin:0;padding-left:1.2em;display:flex;flex-direction:column;gap:2px}
+.test-group ul li{font-size:.84rem;padding:2px 0;color:var(--text-dim)}
+/* Done when list */
 .slice-done-list{list-style:none;padding-left:0;margin:0}
-.slice-done-list li{font-size:.9rem;color:var(--text-dim);padding:4px 0;padding-left:20px;position:relative}
+.slice-done-list li{font-size:.88rem;color:var(--text-dim);padding:3px 0;padding-left:18px;position:relative}
 .slice-done-list li::before{content:'\2713';position:absolute;left:0;color:var(--approved);font-weight:700}
-.slice-deps{font-size:.85rem;color:var(--text-muted);margin-top:8px;font-family:var(--mono)}
+.slice-done-list--grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:4px 24px}
+/* Slice deps */
+.slice-deps{font-size:.78rem;color:var(--text-muted);margin-top:10px;font-family:var(--mono)}
+/* Comment collapse */
+.comment-collapse{margin-top:10px;border-top:1px solid var(--border)}
+.comment-collapse-trigger{cursor:pointer;font-size:.8rem;color:var(--text-muted);padding:8px 0;font-family:var(--mono);list-style:none;user-select:none;transition:color var(--transition)}
+.comment-collapse-trigger::-webkit-details-marker{display:none}
+.comment-collapse-trigger:hover{color:var(--accent)}
+.comment-collapse-body{padding:8px 0 0}
+/* Old approval-row (design section etc) */
 .slice-card .approval-row{margin-top:16px}
 
 /* ── Progress zone ── */
@@ -228,6 +289,52 @@ textarea::placeholder{color:var(--text-muted)}
 #chat-send:disabled{opacity:.3;cursor:not-allowed}
 .chat-notice{font-size:.82rem;color:var(--text-muted);padding:20px;text-align:center;line-height:1.6}
 
+/* ── Review rail (sticky sidebar top) ── */
+.review-rail{padding:16px 18px;border-bottom:1px solid var(--border);background:var(--bg-card)}
+.review-rail h3{font-family:var(--sans);font-size:.82rem;font-weight:600;color:var(--text);margin-bottom:10px;text-transform:none;letter-spacing:0}
+.rail-dots{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:8px}
+.rail-dot{width:12px;height:12px;border-radius:50%;background:var(--border);border:2px solid transparent;cursor:pointer;transition:transform .12s;text-decoration:none;display:inline-block}
+.rail-dot:hover{transform:scale(1.3)}
+.rail-dot[data-approval="approved"]{background:var(--approved);border-color:rgba(34,197,94,.3)}
+.rail-dot[data-approval="rejected"]{background:var(--revision);border-color:rgba(245,158,11,.3)}
+.rail-dot[data-approval="changes_requested"]{background:var(--revision);border-color:rgba(245,158,11,.3)}
+.rail-dot[data-approval="pending"]{background:var(--border)}
+.rail-counter{font-size:.78rem;color:var(--text-dim);margin-bottom:6px;font-family:var(--sans)}
+.rail-counter strong{color:var(--text)}
+.rail-progress{height:5px;background:var(--bg-input);border-radius:3px;overflow:hidden;margin-bottom:12px}
+.rail-progress-fill{height:100%;background:linear-gradient(90deg,var(--accent),var(--approved));border-radius:3px;transition:width .4s cubic-bezier(.4,0,.2,1)}
+.rail-pending-list{font-size:.78rem;color:var(--text-dim);margin-bottom:12px}
+.rail-pending-list strong{display:block;font-size:.7rem;font-family:var(--mono);color:var(--text-muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px}
+.rail-pending-list li{list-style:none;padding:2px 0;display:flex;align-items:center;gap:6px}
+.rail-pending-list li::before{content:'';width:6px;height:6px;border-radius:50%;background:var(--border);flex-shrink:0}
+.rail-pending-list li[data-has-issues]::before{background:var(--blocked)}
+.rail-pending-list li[data-has-questions]::before{background:var(--discuss)}
+.btn-finalize-rail{width:100%;background:var(--accent);color:#0a0a0a;border:none;border-radius:var(--radius);padding:10px 16px;font-weight:700;font-size:.82rem;cursor:pointer;font-family:var(--sans);transition:all var(--transition)}
+.btn-finalize-rail:hover:not(:disabled){filter:brightness(.92)}
+.btn-finalize-rail:disabled{opacity:.3;cursor:not-allowed}
+.rail-finalize-hint{font-size:.7rem;color:var(--text-muted);margin-top:4px;text-align:center}
+/* Chat section inside sidebar now collapsible */
+.chat-collapsible{border-top:1px solid var(--border)}
+.chat-collapsible>summary{cursor:pointer;font-size:.82rem;font-weight:600;color:var(--text-muted);padding:10px 18px;list-style:none;user-select:none;font-family:var(--mono);text-transform:uppercase;letter-spacing:.04em;transition:color var(--transition)}
+.chat-collapsible>summary::-webkit-details-marker{display:none}
+.chat-collapsible>summary:hover{color:var(--accent)}
+/* sidebar slice nav */
+.slice-nav-list{padding:0;margin:0;list-style:none}
+.slice-nav-item{display:flex;align-items:center;gap:6px;padding:4px 20px 4px 28px;font-size:.75rem;color:var(--text-muted);text-decoration:none;cursor:pointer;transition:color var(--transition)}
+.slice-nav-item:hover{color:var(--text)}
+.slice-nav-dot{width:8px;height:8px;border-radius:50%;background:var(--border);flex-shrink:0;transition:background .2s}
+.slice-nav-dot[data-approval="approved"]{background:var(--approved)}
+.slice-nav-dot[data-approval="rejected"]{background:var(--revision)}
+.slice-nav-dot[data-approval="changes_requested"]{background:var(--revision)}
+.nav-triage-badge{font-size:.65rem;font-family:var(--mono);font-weight:700;border-radius:3px;padding:0 3px;line-height:1.4;flex-shrink:0}
+.nav-triage-issue{background:#7c2d12;color:#fde68a}
+.nav-triage-question{background:#1e3a5f;color:#bfdbfe}
+/* graph node highlight ring (added by JS on nav hover/click) */
+.graph-node-ring rect{stroke-width:4px !important;filter:drop-shadow(0 0 4px currentColor)}
+/* dep-chain dim/highlight */
+.dep-graph-dimmed{opacity:.25;transition:opacity .15s}
+.dep-graph-highlighted rect{stroke-width:3px !important}
+
 /* ── Amendments ── */
 .amendments-panel{margin-top:28px;background:var(--bg-card);border-radius:var(--radius);padding:20px;box-shadow:var(--shadow-card)}
 .amendments-panel h3{margin:0 0 14px;font-size:.92rem;color:var(--text);font-family:var(--sans);font-weight:600}
@@ -249,6 +356,29 @@ textarea::placeholder{color:var(--text-muted)}
 .yaml-viewer code{font-family:var(--mono);color:var(--text)}
 
 
+/* ── Sidebar toggle buttons ── */
+.sidebar-toggle{display:flex;align-items:center;justify-content:center;width:28px;height:28px;background:transparent;border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-muted);cursor:pointer;font-size:.9rem;line-height:1;transition:background var(--transition),color var(--transition);flex-shrink:0;padding:0}
+.sidebar-toggle:hover{background:var(--bg-hover);color:var(--text)}
+/* Left sidebar toggle — sits beside the brand */
+.plan-sidebar .brand-row{display:flex;align-items:center;justify-content:space-between;padding:16px 20px 20px;border-bottom:1px solid var(--border);margin-bottom:8px}
+.plan-sidebar .brand-row .brand{padding:0;border-bottom:none;margin-bottom:0}
+/* Right sidebar toggle header */
+.chat-sidebar-header{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-bottom:1px solid var(--border);flex-shrink:0}
+.chat-sidebar-header-title{font-family:var(--mono);font-size:.72rem;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.06em}
+/* Collapsed states */
+body.left-nav-collapsed .plan-sidebar{width:48px;min-width:48px;overflow:hidden}
+body.left-nav-collapsed .plan-sidebar .brand-row{padding:12px 10px}
+body.left-nav-collapsed .plan-sidebar .brand-row .brand{display:none}
+body.left-nav-collapsed .plan-sidebar .nav-link{padding:10px;justify-content:center;font-size:0;gap:0}
+body.left-nav-collapsed .plan-sidebar .nav-link::after{content:attr(data-initial);font-size:.7rem;font-family:var(--mono);font-weight:700}
+body.left-nav-collapsed .plan-sidebar .slice-nav-list{display:none}
+body.left-nav-collapsed{grid-template-columns:48px 1fr}
+body.right-rail-collapsed .chat-sidebar{width:0;min-width:0;opacity:0;pointer-events:none;overflow:hidden;border-left:none}
+body.right-rail-collapsed .chat-resize-handle{display:none}
+.sidebar-reopen{display:none;position:fixed;top:14px;right:14px;z-index:50;width:32px;height:32px;align-items:center;justify-content:center;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-muted);cursor:pointer;font-size:1rem;line-height:1;padding:0;box-shadow:0 2px 8px rgba(0,0,0,.35);transition:background var(--transition),color var(--transition)}
+.sidebar-reopen:hover{background:var(--bg-hover);color:var(--text)}
+body.right-rail-collapsed .sidebar-reopen{display:flex}
+
 /* ── Print ── */
 @media print{body{background:#fff;color:#111;max-width:100%;display:block}.plan-sidebar{display:none}.section-card,.dep-graph,.progress-zone,.slice-card{border-color:#ccc;background:#fafafa;box-shadow:none}details[open] summary~*{display:block}.btn-finalize,.chat-panel,.amendments-panel{display:none}}
 
@@ -267,26 +397,133 @@ textarea::placeholder{color:var(--text-muted)}
 </head>
 <body>
 
-<nav class="plan-sidebar">
-  <a href="/" class="brand">HtmlGraph</a>
-  <a href="#design" class="nav-link active" data-spy="design">Design</a>
-  <a href="#slices" class="nav-link" data-spy="slices">Slices</a>
-  <a href="#questions" class="nav-link" data-spy="questions">Decisions</a>
-  <a href="#critique" class="nav-link" data-spy="critique">Critique</a>
-  <a href="#feedback-summary" class="nav-link" data-spy="feedback-summary">Progress</a>
-  <a href="#chat-panel" class="nav-link" data-spy="chat-panel">Chat</a>
+<nav class="plan-sidebar" id="plan-sidebar">
+  <div class="brand-row">
+    <a href="/" class="brand">wipnote</a>
+    <button class="sidebar-toggle" id="left-sidebar-toggle" title="Collapse sidebar" aria-label="Toggle left sidebar">&#8249;</button>
+  </div>
+  <a href="#design" class="nav-link active" data-spy="design" data-initial="D">Design</a>
+  <a href="#slices" class="nav-link" data-spy="slices" data-initial="S">Slices</a>
+  
+  <ul class="slice-nav-list" id="slice-nav-list">
+    
+    <li>
+      <a href="#slice-1" class="slice-nav-item" data-slice-nav="1">
+        <span class="slice-nav-dot" data-approval="pending" data-dot-for="1"></span>
+        <span>#1 Delete plugin/hooks/bin/ and update build script to stop copying there</span>
+        
+        
+      </a>
+    </li>
+    
+    <li>
+      <a href="#slice-2" class="slice-nav-item" data-slice-nav="2">
+        <span class="slice-nav-dot" data-approval="pending" data-dot-for="2"></span>
+        <span>#2 Add post-build assertion to plugin build-ports verifying binary-free hook commands</span>
+        
+        
+      </a>
+    </li>
+    
+    <li>
+      <a href="#slice-3" class="slice-nav-item" data-slice-nav="3">
+        <span class="slice-nav-dot" data-approval="pending" data-dot-for="3"></span>
+        <span>#3 Split deploy-all.sh into binary-release and plugin-release artifacts with shared version file</span>
+        
+        
+      </a>
+    </li>
+    
+    <li>
+      <a href="#slice-4" class="slice-nav-item" data-slice-nav="4">
+        <span class="slice-nav-dot" data-approval="pending" data-dot-for="4"></span>
+        <span>#4 Refactor version-check into shared decision function and add missing-CLI block path to SessionStart</span>
+        
+        
+      </a>
+    </li>
+    
+    <li>
+      <a href="#slice-5" class="slice-nav-item" data-slice-nav="5">
+        <span class="slice-nav-dot" data-approval="pending" data-dot-for="5"></span>
+        <span>#5 Add htmlgraph doctor subcommand with cross-harness version matrix</span>
+        
+        
+      </a>
+    </li>
+    
+    <li>
+      <a href="#slice-6" class="slice-nav-item" data-slice-nav="6">
+        <span class="slice-nav-dot" data-approval="pending" data-dot-for="6"></span>
+        <span>#6 Extend htmlgraph upgrade to print post-upgrade plugin-update instructions</span>
+        
+        
+      </a>
+    </li>
+    
+    <li>
+      <a href="#slice-7" class="slice-nav-item" data-slice-nav="7">
+        <span class="slice-nav-dot" data-approval="pending" data-dot-for="7"></span>
+        <span>#7 Add env-var escape hatches to install.sh (HTMLGRAPH_INSTALL_DIR, HTMLGRAPH_NO_MODIFY_PATH, HTMLGRAPH_VERSION)</span>
+        
+        
+      </a>
+    </li>
+    
+    <li>
+      <a href="#slice-8" class="slice-nav-item" data-slice-nav="8">
+        <span class="slice-nav-dot" data-approval="pending" data-dot-for="8"></span>
+        <span>#8 Publish Homebrew tap formula and wire version bump into deploy pipeline</span>
+        
+        
+      </a>
+    </li>
+    
+    <li>
+      <a href="#slice-9" class="slice-nav-item" data-slice-nav="9">
+        <span class="slice-nav-dot" data-approval="pending" data-dot-for="9"></span>
+        <span>#9 Add internal/launcher/container/ package: preflight, wrap, paths</span>
+        
+        
+      </a>
+    </li>
+    
+    <li>
+      <a href="#slice-10" class="slice-nav-item" data-slice-nav="10">
+        <span class="slice-nav-dot" data-approval="pending" data-dot-for="10"></span>
+        <span>#10 Add --container flag to claude/codex/gemini/yolo and wire HTMLGRAPH_DEVCONTAINER=1</span>
+        
+        
+      </a>
+    </li>
+    
+    <li>
+      <a href="#slice-11" class="slice-nav-item" data-slice-nav="11">
+        <span class="slice-nav-dot" data-approval="pending" data-dot-for="11"></span>
+        <span>#11 Add .devcontainer/Dockerfile and wire postCreateCommand to install htmlgraph CLI</span>
+        
+        
+      </a>
+    </li>
+    
+  </ul>
+  
+  <a href="#questions" class="nav-link" data-spy="questions" data-initial="Q">Decisions</a>
+  <a href="#critique" class="nav-link" data-spy="critique" data-initial="C">Critique</a>
+  <a href="#feedback-summary" class="nav-link" data-spy="feedback-summary" data-initial="P">Progress</a>
+  <a href="#chat-panel" class="nav-link" data-spy="chat-panel" data-initial="&#9825;">Chat</a>
 </nav>
 <div class="plan-layout">
 <div class="plan-content">
-<article id="plan-251676c5" data-plan-id="plan-251676c5" data-feature-id="" data-status="draft">
+<article id="plan-251676c5" data-type="plan" data-plan-id="plan-251676c5" data-feature-id="" data-status="done" data-priority="medium">
 
 <!-- Plan Header -->
 <header class="plan-header">
   <h1>Plan: Distribution de-bundle, version-sync, and container launchers</h1>
   <p style="color:var(--text-dim)">Four-part architecture change: (A) strip bundled binary from plugin — ship CLI and plugin as two artifacts with shared version; (B) add SessionStart version-check hook + htmlgraph doctor + upgrade messaging to prevent plugin/CLI version skew; (C) curl install script + Homebrew tap for frictionless first install; (D) --container launchers that use a shared devcontainer and skip host-state mutations. Inspired by roborev's binary-first distribution, refined to keep our marketplace presence for discoverability.</p>
   <div class="meta">
-    <span class="badge badge-pending">Draft</span>
-    <span style="font-size:.75rem;color:var(--text-muted)">v4 · 11 slices · Created 2026-04-21</span>
+    <span class="badge badge-approved">done</span>
+    <span style="font-size:.75rem;color:var(--text-muted)">v5 · 11 slices · Created 2026-04-21</span>
   </div>
 </header>
 <button id="themeToggle" style="position:fixed;top:16px;right:16px;z-index:100;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:6px 12px;color:var(--text);font-family:var(--mono);font-size:0.75rem;cursor:pointer;">
@@ -367,375 +604,1460 @@ textarea::placeholder{color:var(--text-muted)}
 <details id="slices" class="section-card" open data-phase="slices" data-status="pending">
   <summary><span>Slices</span><span class="badge badge-pending" data-badge-for="slices">Pending</span></summary>
   <div class="section-body">
-    <div class="slice-card" data-slice="1" data-slice-name="slice-1" data-status="pending">
-  <div class="slice-header">
+    <details class="slice-card" id="slice-1" data-slice="1" data-slice-name="slice-1" data-status="pending" data-approval="pending">
+  <summary class="slice-summary" aria-label="Slice 1: Delete plugin/hooks/bin/ and update build script to stop copying there">
     <span class="slice-num">#1</span>
-    <span class="slice-name">Delete plugin/hooks/bin/ and update build script to stop copying there</span>
-    <span class="badge badge-pending">S</span>
-    <span class="badge badge-revision">Med</span>
-    <span class="badge badge-pending" data-badge-for="slice-1">Pending</span>
-  </div>
-  
-  <div class="slice-field"><div class="slice-field-label">What</div><div class="slice-field-value" data-markdown="">Remove the bundled binary from the Claude Code plugin tree. Specifically: delete `plugin/hooks/bin/htmlgraph`, `plugin/hooks/bin/htmlgraph-dev`, `plugin/hooks/bin/bootstrap.sh`, and `plugin/hooks/bin/install-binary.sh` from source control. Update `plugin/build.sh` (invoked by `htmlgraph build`) to stop installing the binary into `plugin/hooks/bin/`. Update `cmd/htmlgraph/build.go` to remove the walk-up path that resolves the binary from `plugin/hooks/bin/htmlgraph` (the `os.Executable()` two-level walk-up at line 111). Update `cmd/htmlgraph/serve.go` comment at line 159 that refers to `plugin/hooks/bin/htmlgraph`. All hook commands in `plugin/hooks/hooks.json` already use `htmlgraph hook &lt;handler&gt;` via PATH — confirm no hook still references the bin/ path. The `htmlgraph build` output path becomes only the PATH-installed binary (e.g. `~/.local/bin/htmlgraph`).
-</div></div>
-  <div class="slice-field"><div class="slice-field-label">Why</div><div class="slice-field-value" data-markdown="">The bundled binary in `plugin/hooks/bin/` is the root cause of plugin artifact bloat and the CLI/plugin version-skew problem. Removing it is the prerequisite for workstreams B (version-check hook), C (install UX), and D (container launchers). Without this slice the marketplace artifact stays oversized and the hook-via-PATH model is not the sole truth.
-</div></div>
-  <div class="slice-field"><div class="slice-field-label">Files</div><div class="slice-field-value"><code>plugin/hooks/bin/htmlgraph, plugin/hooks/bin/htmlgraph-dev, plugin/hooks/bin/bootstrap.sh, plugin/hooks/bin/install-binary.sh, plugin/build.sh, cmd/htmlgraph/build.go, cmd/htmlgraph/serve.go</code></div></div>
-  <div class="slice-field"><div class="slice-field-label">Done when</div><ul class="slice-done-list"><li data-markdown="">`plugin/hooks/bin/` directory no longer exists in source control</li><li data-markdown="">`git ls-files plugin/hooks/bin/` returns empty</li><li data-markdown="">`htmlgraph build` succeeds without writing anything to `plugin/hooks/bin/`</li><li data-markdown="">`go build ./...` and `go vet ./...` pass with no errors</li><li data-markdown="">The marketplace plugin directory (sans bin/) is under 10 MB</li><li data-markdown="">`htmlgraph build` resolves its own binary and build.sh location without relying on `plugin/hooks/bin/` parentage — uses `os.Executable()` for the binary path and a known repo-root discovery (walk-up to `.htmlgraph/` directory) for build.sh</li></ul></div>
-  
-  <div class="slice-field"><div class="slice-field-label">Test Strategy</div><div class="slice-field-value slice-tests" data-markdown="">Unit: TestResolveBuildScript in cmd/htmlgraph (update or add) — assert that
-  the walk-up strategy does not reference a hooks/bin path, and that
-  CLAUDE_PLUGIN_ROOT still resolves correctly.
-Integration: Run `htmlgraph build` in the devcontainer, confirm binary lands
-  in ~/.local/bin/htmlgraph and plugin/hooks/bin/ is absent.
-Regression: All existing go test ./... must pass. Confirm `htmlgraph hook
-  session-start` resolves from PATH (not bin/) after build.
-</div></div>
-  <div class="slice-deps">Dependencies: none</div>
-  <div class="approval-row">
-    <label><input type="checkbox" data-section="slice-1" data-action="approve"> Approve slice</label>
-    <textarea data-section="slice-1" data-comment-for="slice-1" placeholder="Comments on slice 1..."></textarea>
-  </div>
+    <span class="slice-title-col">
+      <span class="slice-name">Delete plugin/hooks/bin/ and update build script to stop copying there</span>
+      <span class="slice-preview">Remove the bundled binary from the Claude Code plugin tree.</span>
+      <span class="slice-meta-row">
+        <span class="slice-summary-badges">
+          <span class="badge badge-pending badge-sm">S</span>
+          <span class="badge badge-revision badge-sm">Med</span>
+          
+          
+          <span class="badge badge-pending badge-sm slice-approval-badge" data-badge-for="slice-1">Pending</span>
+          
+          
+        </span>
+        <span class="slice-actions" onclick="event.stopPropagation()">
+          <span class="approval-segmented" role="group" aria-label="Approval action">
+            <label class="seg-btn seg-approve" title="Approve">
+              <input type="radio" name="slice-1-approval" value="approved" data-section="slice-1" data-action="approve" aria-label="Approve slice 1">
+              &#10003;
+            </label>
+            <label class="seg-btn seg-changes" title="Request changes">
+              <input type="radio" name="slice-1-approval" value="changes_requested" data-section="slice-1" data-action="approve" aria-label="Request changes for slice 1">
+              &#8635;
+            </label>
+            <label class="seg-btn seg-reject" title="Reject">
+              <input type="radio" name="slice-1-approval" value="rejected" data-section="slice-1" data-action="approve" aria-label="Reject slice 1">
+              &#10005;
+            </label>
+          </span>
+        </span>
+      </span>
+    </span>
+    <span class="slice-chevron" aria-hidden="true"></span>
+  </summary>
+
+  <div class="slice-body">
+    
+      
+      <div class="slice-field slice-what">
+        <div class="slice-field-label">What</div>
+        <div class="slice-field-value">
+          
+          <input type="checkbox" id="slice-1-what-reveal" class="reveal-toggle">
+          <div class="markdown-block reveal-content serif-prose"><p>Remove the bundled binary from the Claude Code plugin tree. Specifically: delete <code>plugin/hooks/bin/htmlgraph</code>, <code>plugin/hooks/bin/htmlgraph-dev</code>, <code>plugin/hooks/bin/bootstrap.sh</code>, and <code>plugin/hooks/bin/install-binary.sh</code> from source control. Update <code>plugin/build.sh</code> (invoked by <code>htmlgraph build</code>) to stop installing the binary into <code>plugin/hooks/bin/</code>. Update <code>cmd/htmlgraph/build.go</code> to remove the walk-up path that resolves the binary from <code>plugin/hooks/bin/htmlgraph</code> (the <code>os.Executable()</code> two-level walk-up at line 111). Update <code>cmd/htmlgraph/serve.go</code> comment at line 159 that refers to <code>plugin/hooks/bin/htmlgraph</code>. All hook commands in <code>plugin/hooks/hooks.json</code> already use <code>htmlgraph hook &lt;handler&gt;</code> via PATH — confirm no hook still references the bin/ path. The <code>htmlgraph build</code> output path becomes only the PATH-installed binary (e.g. <code>~/.local/bin/htmlgraph</code>).</p>
 </div>
-<div class="slice-card" data-slice="2" data-slice-name="slice-2" data-status="pending">
-  <div class="slice-header">
+          <label for="slice-1-what-reveal" class="reveal-label">Show full description</label>
+          
+        </div>
+      </div>
+      
+      
+      <div class="slice-field slice-why">
+        <div class="slice-field-label">Why</div>
+        <div class="slice-field-value">
+          
+          <div class="markdown-block serif-prose"><p>The bundled binary in <code>plugin/hooks/bin/</code> is the root cause of plugin artifact bloat and the CLI/plugin version-skew problem. Removing it is the prerequisite for workstreams B (version-check hook), C (install UX), and D (container launchers). Without this slice the marketplace artifact stays oversized and the hook-via-PATH model is not the sole truth.</p>
+</div>
+          
+        </div>
+      </div>
+      
+      
+      <div class="slice-field">
+        <div class="slice-field-label">Files</div>
+        <div class="slice-field-value"><code>plugin/hooks/bin/htmlgraph, plugin/hooks/bin/htmlgraph-dev, plugin/hooks/bin/bootstrap.sh, plugin/hooks/bin/install-binary.sh, plugin/build.sh, cmd/htmlgraph/build.go, cmd/htmlgraph/serve.go</code></div>
+      </div>
+      
+      
+      <div class="slice-field">
+        <div class="slice-field-label">Done when</div>
+        <ul class="slice-done-list slice-done-list--grid"><li>`plugin/hooks/bin/` directory no longer exists in source control</li><li>`git ls-files plugin/hooks/bin/` returns empty</li><li>`htmlgraph build` succeeds without writing anything to `plugin/hooks/bin/`</li><li>`go build ./...` and `go vet ./...` pass with no errors</li><li>The marketplace plugin directory (sans bin/) is under 10 MB</li><li>`htmlgraph build` resolves its own binary and build.sh location without relying on `plugin/hooks/bin/` parentage — uses `os.Executable()` for the binary path and a known repo-root discovery (walk-up to `.htmlgraph/` directory) for build.sh</li></ul>
+      </div>
+      
+    
+
+    
+
+    
+    <div class="slice-field slice-tests-field">
+      <div class="slice-field-label">Test Strategy</div>
+      <div class="slice-field-value">
+        
+        
+        <div class="test-strategy">
+          
+          <div class="test-group" data-kind="unit">
+            <span class="test-chip">UNIT &middot; 1</span>
+            <ul><li>TestResolveBuildScript in cmd/htmlgraph (update or add) — assert that</li></ul>
+          </div>
+          
+          <div class="test-group" data-kind="other">
+            <span class="test-chip">OTHER &middot; 4</span>
+            <ul><li>the walk-up strategy does not reference a hooks/bin path, and that</li><li>CLAUDE_PLUGIN_ROOT still resolves correctly.</li><li>in ~/.local/bin/htmlgraph and plugin/hooks/bin/ is absent.</li><li>session-start` resolves from PATH (not bin/) after build.</li></ul>
+          </div>
+          
+          <div class="test-group" data-kind="integration">
+            <span class="test-chip">INTEGRATION &middot; 1</span>
+            <ul><li>Run `htmlgraph build` in the devcontainer, confirm binary lands</li></ul>
+          </div>
+          
+          <div class="test-group" data-kind="regression">
+            <span class="test-chip">REGRESSION &middot; 1</span>
+            <ul><li>All existing go test ./... must pass. Confirm `htmlgraph hook</li></ul>
+          </div>
+          
+        </div>
+        
+      </div>
+    </div>
+    
+
+    
+
+    
+
+    <div class="slice-deps">Dependencies: none</div>
+
+    <details class="comment-collapse">
+      <summary class="comment-collapse-trigger">+ Leave a comment</summary>
+      <div class="comment-collapse-body">
+        <textarea data-section="slice-1" data-comment-for="slice-1" placeholder="Comments on slice 1..."></textarea>
+      </div>
+    </details>
+  </div>
+</details>
+<details class="slice-card" id="slice-2" data-slice="2" data-slice-name="slice-2" data-status="pending" data-approval="pending">
+  <summary class="slice-summary" aria-label="Slice 2: Add post-build assertion to plugin build-ports verifying binary-free hook commands">
     <span class="slice-num">#2</span>
-    <span class="slice-name">Add post-build assertion to plugin build-ports verifying binary-free hook commands</span>
-    <span class="badge badge-pending">S</span>
-    <span class="badge badge-pending">Low</span>
-    <span class="badge badge-pending" data-badge-for="slice-2">Pending</span>
-  </div>
-  
-  <div class="slice-field"><div class="slice-field-label">What</div><div class="slice-field-value" data-markdown="">`htmlgraph plugin build-ports` is already registered in `cmd/htmlgraph/plugin_build_ports.go` (line 47) and current adapter code contains no binary copy logic — the de-bundle for Codex and Gemini trees is already functionally complete. This slice adds a correctness guard: add a post-build assertion in `pluginBuildPortsCmd` (in `plugin_build_ports.go`) that iterates all generated hook command strings across the three output trees (`plugin/hooks/hooks.json`, `packages/codex-marketplace/.agents/plugins/htmlgraph/hooks.json`, `packages/gemini-extension/hooks.json`) and fails with a clear error if any command references a path containing `plugin/hooks/bin/` or any other local filesystem path. The assertion must match the pattern `^htmlgraph hook ` for all hook commands and reject anything else. This prevents future regressions where a manifest edit accidentally reintroduces a local-path hook reference.
-</div></div>
-  <div class="slice-field"><div class="slice-field-label">Why</div><div class="slice-field-value" data-markdown="">The current build-ports adapters already emit binary-free trees, but there is no guard preventing a future manifest edit from reintroducing a local binary path. The assertion is a zero-overhead regression gate — it runs at build time, costs nothing at runtime, and makes the binary-free invariant machine-enforceable rather than convention-based.
-</div></div>
-  <div class="slice-field"><div class="slice-field-label">Files</div><div class="slice-field-value"><code>cmd/htmlgraph/plugin_build_ports.go</code></div></div>
-  <div class="slice-field"><div class="slice-field-label">Done when</div><ul class="slice-done-list"><li data-markdown="">`find packages/ -name &#39;bin&#39; -type d` returns empty after `htmlgraph plugin build-ports`</li><li data-markdown="">Every hook command in all three `hooks.json` files matches `^htmlgraph hook `</li><li data-markdown="">`htmlgraph plugin build-ports` exits non-zero and prints a clear error if any generated hook command contains `plugin/hooks/bin/` or a local file path</li><li data-markdown="">`htmlgraph plugin build-ports` exits 0 and prints no warnings about binary paths on a clean tree</li><li data-markdown="">`go test ./cmd/htmlgraph/...` passes including any new assertion unit tests</li></ul></div>
-  
-  <div class="slice-field"><div class="slice-field-label">Test Strategy</div><div class="slice-field-value slice-tests" data-markdown="">Unit: Add TestBuildPortsAssertionFails — inject a fake hooks.json with a local-path command into a temp dir, assert pluginBuildPortsCmd returns a non-nil error containing &#34;plugin/hooks/bin/&#34;. Add TestBuildPortsAssertionPasses — clean tree exits 0.
-Integration: Run `htmlgraph plugin build-ports` in the devcontainer, then
-  grep all generated hooks.json files for local paths — expect zero matches.
-Regression: Existing plugin_build_ports tests (if any) must still pass.
-  `go build ./...` clean.
-</div></div>
-  <div class="slice-deps">Dependencies: slices 1</div>
-  <div class="approval-row">
-    <label><input type="checkbox" data-section="slice-2" data-action="approve"> Approve slice</label>
-    <textarea data-section="slice-2" data-comment-for="slice-2" placeholder="Comments on slice 2..."></textarea>
-  </div>
+    <span class="slice-title-col">
+      <span class="slice-name">Add post-build assertion to plugin build-ports verifying binary-free hook commands</span>
+      <span class="slice-preview">htmlgraph plugin build-ports is already registered in cmd/htmlgraph/pluginbuildports.go (line 47) and current adapter code contains no binar…</span>
+      <span class="slice-meta-row">
+        <span class="slice-summary-badges">
+          <span class="badge badge-pending badge-sm">S</span>
+          <span class="badge badge-pending badge-sm">Low</span>
+          
+          
+          <span class="badge badge-pending badge-sm slice-approval-badge" data-badge-for="slice-2">Pending</span>
+          
+          
+        </span>
+        <span class="slice-actions" onclick="event.stopPropagation()">
+          <span class="approval-segmented" role="group" aria-label="Approval action">
+            <label class="seg-btn seg-approve" title="Approve">
+              <input type="radio" name="slice-2-approval" value="approved" data-section="slice-2" data-action="approve" aria-label="Approve slice 2">
+              &#10003;
+            </label>
+            <label class="seg-btn seg-changes" title="Request changes">
+              <input type="radio" name="slice-2-approval" value="changes_requested" data-section="slice-2" data-action="approve" aria-label="Request changes for slice 2">
+              &#8635;
+            </label>
+            <label class="seg-btn seg-reject" title="Reject">
+              <input type="radio" name="slice-2-approval" value="rejected" data-section="slice-2" data-action="approve" aria-label="Reject slice 2">
+              &#10005;
+            </label>
+          </span>
+        </span>
+      </span>
+    </span>
+    <span class="slice-chevron" aria-hidden="true"></span>
+  </summary>
+
+  <div class="slice-body">
+    
+      
+      <div class="slice-field slice-what">
+        <div class="slice-field-label">What</div>
+        <div class="slice-field-value">
+          
+          <input type="checkbox" id="slice-2-what-reveal" class="reveal-toggle">
+          <div class="markdown-block reveal-content serif-prose"><p><code>htmlgraph plugin build-ports</code> is already registered in <code>cmd/htmlgraph/plugin_build_ports.go</code> (line 47) and current adapter code contains no binary copy logic — the de-bundle for Codex and Gemini trees is already functionally complete. This slice adds a correctness guard: add a post-build assertion in <code>pluginBuildPortsCmd</code> (in <code>plugin_build_ports.go</code>) that iterates all generated hook command strings across the three output trees (<code>plugin/hooks/hooks.json</code>, <code>packages/codex-marketplace/.agents/plugins/htmlgraph/hooks.json</code>, <code>packages/gemini-extension/hooks.json</code>) and fails with a clear error if any command references a path containing <code>plugin/hooks/bin/</code> or any other local filesystem path. The assertion must match the pattern <code>^htmlgraph hook </code> for all hook commands and reject anything else. This prevents future regressions where a manifest edit accidentally reintroduces a local-path hook reference.</p>
 </div>
-<div class="slice-card" data-slice="3" data-slice-name="slice-3" data-status="pending">
-  <div class="slice-header">
+          <label for="slice-2-what-reveal" class="reveal-label">Show full description</label>
+          
+        </div>
+      </div>
+      
+      
+      <div class="slice-field slice-why">
+        <div class="slice-field-label">Why</div>
+        <div class="slice-field-value">
+          
+          <div class="markdown-block serif-prose"><p>The current build-ports adapters already emit binary-free trees, but there is no guard preventing a future manifest edit from reintroducing a local binary path. The assertion is a zero-overhead regression gate — it runs at build time, costs nothing at runtime, and makes the binary-free invariant machine-enforceable rather than convention-based.</p>
+</div>
+          
+        </div>
+      </div>
+      
+      
+      <div class="slice-field">
+        <div class="slice-field-label">Files</div>
+        <div class="slice-field-value"><code>cmd/htmlgraph/plugin_build_ports.go</code></div>
+      </div>
+      
+      
+      <div class="slice-field">
+        <div class="slice-field-label">Done when</div>
+        <ul class="slice-done-list"><li>`find packages/ -name &#39;bin&#39; -type d` returns empty after `htmlgraph plugin build-ports`</li><li>Every hook command in all three `hooks.json` files matches `^htmlgraph hook `</li><li>`htmlgraph plugin build-ports` exits non-zero and prints a clear error if any generated hook command contains `plugin/hooks/bin/` or a local file path</li><li>`htmlgraph plugin build-ports` exits 0 and prints no warnings about binary paths on a clean tree</li><li>`go test ./cmd/htmlgraph/...` passes including any new assertion unit tests</li></ul>
+      </div>
+      
+    
+
+    
+
+    
+    <div class="slice-field slice-tests-field">
+      <div class="slice-field-label">Test Strategy</div>
+      <div class="slice-field-value">
+        
+        
+        <div class="test-strategy">
+          
+          <div class="test-group" data-kind="unit">
+            <span class="test-chip">UNIT &middot; 1</span>
+            <ul><li>Add TestBuildPortsAssertionFails — inject a fake hooks.json with a local-path command into a temp dir, assert pluginBuildPortsCmd returns a non-nil error containing &#34;plugin/hooks/bin/&#34;. Add TestBuildPortsAssertionPasses — clean tree exits 0.</li></ul>
+          </div>
+          
+          <div class="test-group" data-kind="integration">
+            <span class="test-chip">INTEGRATION &middot; 1</span>
+            <ul><li>Run `htmlgraph plugin build-ports` in the devcontainer, then</li></ul>
+          </div>
+          
+          <div class="test-group" data-kind="other">
+            <span class="test-chip">OTHER &middot; 2</span>
+            <ul><li>grep all generated hooks.json files for local paths — expect zero matches.</li><li>`go build ./...` clean.</li></ul>
+          </div>
+          
+          <div class="test-group" data-kind="regression">
+            <span class="test-chip">REGRESSION &middot; 1</span>
+            <ul><li>Existing plugin_build_ports tests (if any) must still pass.</li></ul>
+          </div>
+          
+        </div>
+        
+      </div>
+    </div>
+    
+
+    
+
+    
+
+    <div class="slice-deps">Dependencies: slices 1</div>
+
+    <details class="comment-collapse">
+      <summary class="comment-collapse-trigger">+ Leave a comment</summary>
+      <div class="comment-collapse-body">
+        <textarea data-section="slice-2" data-comment-for="slice-2" placeholder="Comments on slice 2..."></textarea>
+      </div>
+    </details>
+  </div>
+</details>
+<details class="slice-card" id="slice-3" data-slice="3" data-slice-name="slice-3" data-status="pending" data-approval="pending">
+  <summary class="slice-summary" aria-label="Slice 3: Split deploy-all.sh into binary-release and plugin-release artifacts with shared version file">
     <span class="slice-num">#3</span>
-    <span class="slice-name">Split deploy-all.sh into binary-release and plugin-release artifacts with shared version file</span>
-    <span class="badge badge-revision">M</span>
-    <span class="badge badge-blocked">High</span>
-    <span class="badge badge-pending" data-badge-for="slice-3">Pending</span>
-  </div>
-  
-  <div class="slice-field"><div class="slice-field-label">What</div><div class="slice-field-value" data-markdown="">Refactor `scripts/deploy-all.sh` into two independently runnable phases within the same script (or two separate scripts called from a thin orchestrator): (a) `deploy-binary` — bumps Go version via ldflags, pushes git tag,
-    triggers GoReleaser via `release-go.yml`, updates the Homebrew formula
-    SHA values in `packages/homebrew/update-formula.sh`;
-(b) `deploy-plugin` — bumps `plugin/.claude-plugin/plugin.json` version,
-    regenerates port trees via `htmlgraph plugin build-ports`, pulls and
-    updates `~/.claude/plugins/marketplaces/htmlgraph` marketplace clone.
-Introduce a single shared version source — the `version` field in `packages/plugin-core/manifest.json` (already present at version 0.55.5) — that both phases read. This field is the canonical version; the CLI binary receives it via ldflags at build time, and `plugin.json` is updated from it during `deploy-plugin`. Both phases must read the same version string so CLI binary and plugin artifact always share a version. Add `--binary-only` and `--plugin-only` flags so CI can run each phase independently. Both phases are triggered by a single GitHub Actions workflow run on the same tag and commit, bounding the skew window to the job duration (&lt;2 min).
-</div></div>
-  <div class="slice-field"><div class="slice-field-label">Why</div><div class="slice-field-value" data-markdown="">Currently `deploy-all.sh` is a monolith that updates both artifacts in one run. The curl install script (slice 7) and Homebrew tap (slice 8) need to reference stable binary release URLs that are published before the marketplace plugin is updated — or the user can be left with a mismatched install. Splitting into two phases with a shared version file is also the prerequisite for automating the plugin-only release in CI.
-</div></div>
-  <div class="slice-field"><div class="slice-field-label">Files</div><div class="slice-field-value"><code>scripts/deploy-all.sh, packages/homebrew/update-formula.sh, packages/homebrew/htmlgraph.rb, packages/plugin-core/manifest.json</code></div></div>
-  <div class="slice-field"><div class="slice-field-label">Done when</div><ul class="slice-done-list"><li data-markdown="">`./scripts/deploy-all.sh 0.99.0 --binary-only --dry-run` exits 0 and prints only binary-related steps</li><li data-markdown="">`./scripts/deploy-all.sh 0.99.0 --plugin-only --dry-run` exits 0 and prints only plugin-related steps</li><li data-markdown="">Both phases read version from `packages/plugin-core/manifest.json` (no hard-coded version in two places)</li><li data-markdown="">`./scripts/deploy-all.sh 0.99.0 --no-confirm --dry-run` (full run) exits 0</li><li data-markdown="">Release pipeline publishes binary and plugin within a single GitHub Actions workflow run (same tag, same commit); skew window is bounded to job duration (&lt;2 min)</li></ul></div>
-  
-  <div class="slice-field"><div class="slice-field-label">Test Strategy</div><div class="slice-field-value slice-tests" data-markdown="">Unit: Bash unit tests (bats or inline assertions) for argument parsing —
-  --binary-only and --plugin-only flags are mutually exclusive, VERSION
-  validation rejects non-semver strings.
-Integration: Run `./scripts/deploy-all.sh 0.99.0 --dry-run --no-confirm`
-  in CI, assert both phases print correct step lists without executing.
-Regression: Existing `./scripts/deploy-all.sh --build-only` must still
-  work. GoReleaser workflow (`release-go.yml`) trigger path unchanged.
-</div></div>
-  <div class="slice-deps">Dependencies: slices 1,2</div>
-  <div class="approval-row">
-    <label><input type="checkbox" data-section="slice-3" data-action="approve"> Approve slice</label>
-    <textarea data-section="slice-3" data-comment-for="slice-3" placeholder="Comments on slice 3..."></textarea>
-  </div>
+    <span class="slice-title-col">
+      <span class="slice-name">Split deploy-all.sh into binary-release and plugin-release artifacts with shared version file</span>
+      <span class="slice-preview">Refactor scripts/deploy-all.sh into two independently runnable phases within the same script (or two separate scripts called from a thin orc…</span>
+      <span class="slice-meta-row">
+        <span class="slice-summary-badges">
+          <span class="badge badge-revision badge-sm">M</span>
+          <span class="badge badge-blocked badge-sm">High</span>
+          
+          
+          <span class="badge badge-pending badge-sm slice-approval-badge" data-badge-for="slice-3">Pending</span>
+          
+          
+        </span>
+        <span class="slice-actions" onclick="event.stopPropagation()">
+          <span class="approval-segmented" role="group" aria-label="Approval action">
+            <label class="seg-btn seg-approve" title="Approve">
+              <input type="radio" name="slice-3-approval" value="approved" data-section="slice-3" data-action="approve" aria-label="Approve slice 3">
+              &#10003;
+            </label>
+            <label class="seg-btn seg-changes" title="Request changes">
+              <input type="radio" name="slice-3-approval" value="changes_requested" data-section="slice-3" data-action="approve" aria-label="Request changes for slice 3">
+              &#8635;
+            </label>
+            <label class="seg-btn seg-reject" title="Reject">
+              <input type="radio" name="slice-3-approval" value="rejected" data-section="slice-3" data-action="approve" aria-label="Reject slice 3">
+              &#10005;
+            </label>
+          </span>
+        </span>
+      </span>
+    </span>
+    <span class="slice-chevron" aria-hidden="true"></span>
+  </summary>
+
+  <div class="slice-body">
+    
+      
+      <div class="slice-field slice-what">
+        <div class="slice-field-label">What</div>
+        <div class="slice-field-value">
+          
+          <input type="checkbox" id="slice-3-what-reveal" class="reveal-toggle">
+          <div class="markdown-block reveal-content serif-prose"><p>Refactor <code>scripts/deploy-all.sh</code> into two independently runnable phases within the same script (or two separate scripts called from a thin orchestrator): (a) <code>deploy-binary</code> — bumps Go version via ldflags, pushes git tag,
+triggers GoReleaser via <code>release-go.yml</code>, updates the Homebrew formula
+SHA values in <code>packages/homebrew/update-formula.sh</code>;
+(b) <code>deploy-plugin</code> — bumps <code>plugin/.claude-plugin/plugin.json</code> version,
+regenerates port trees via <code>htmlgraph plugin build-ports</code>, pulls and
+updates <code>~/.claude/plugins/marketplaces/htmlgraph</code> marketplace clone.
+Introduce a single shared version source — the <code>version</code> field in <code>packages/plugin-core/manifest.json</code> (already present at version 0.55.5) — that both phases read. This field is the canonical version; the CLI binary receives it via ldflags at build time, and <code>plugin.json</code> is updated from it during <code>deploy-plugin</code>. Both phases must read the same version string so CLI binary and plugin artifact always share a version. Add <code>--binary-only</code> and <code>--plugin-only</code> flags so CI can run each phase independently. Both phases are triggered by a single GitHub Actions workflow run on the same tag and commit, bounding the skew window to the job duration (&lt;2 min).</p>
 </div>
-<div class="slice-card" data-slice="4" data-slice-name="slice-4" data-status="pending">
-  <div class="slice-header">
+          <label for="slice-3-what-reveal" class="reveal-label">Show full description</label>
+          
+        </div>
+      </div>
+      
+      
+      <div class="slice-field slice-why">
+        <div class="slice-field-label">Why</div>
+        <div class="slice-field-value">
+          
+          <input type="checkbox" id="slice-3-why-reveal" class="reveal-toggle">
+          <div class="markdown-block reveal-content serif-prose"><p>Currently <code>deploy-all.sh</code> is a monolith that updates both artifacts in one run. The curl install script (slice 7) and Homebrew tap (slice 8) need to reference stable binary release URLs that are published before the marketplace plugin is updated — or the user can be left with a mismatched install. Splitting into two phases with a shared version file is also the prerequisite for automating the plugin-only release in CI.</p>
+</div>
+          <label for="slice-3-why-reveal" class="reveal-label">Show full description</label>
+          
+        </div>
+      </div>
+      
+      
+      <div class="slice-field">
+        <div class="slice-field-label">Files</div>
+        <div class="slice-field-value"><code>scripts/deploy-all.sh, packages/homebrew/update-formula.sh, packages/homebrew/htmlgraph.rb, packages/plugin-core/manifest.json</code></div>
+      </div>
+      
+      
+      <div class="slice-field">
+        <div class="slice-field-label">Done when</div>
+        <ul class="slice-done-list"><li>`./scripts/deploy-all.sh 0.99.0 --binary-only --dry-run` exits 0 and prints only binary-related steps</li><li>`./scripts/deploy-all.sh 0.99.0 --plugin-only --dry-run` exits 0 and prints only plugin-related steps</li><li>Both phases read version from `packages/plugin-core/manifest.json` (no hard-coded version in two places)</li><li>`./scripts/deploy-all.sh 0.99.0 --no-confirm --dry-run` (full run) exits 0</li><li>Release pipeline publishes binary and plugin within a single GitHub Actions workflow run (same tag, same commit); skew window is bounded to job duration (&lt;2 min)</li></ul>
+      </div>
+      
+    
+
+    
+
+    
+    <div class="slice-field slice-tests-field">
+      <div class="slice-field-label">Test Strategy</div>
+      <div class="slice-field-value">
+        
+        
+        <div class="test-strategy">
+          
+          <div class="test-group" data-kind="unit">
+            <span class="test-chip">UNIT &middot; 1</span>
+            <ul><li>Bash unit tests (bats or inline assertions) for argument parsing —</li></ul>
+          </div>
+          
+          <div class="test-group" data-kind="other">
+            <span class="test-chip">OTHER &middot; 4</span>
+            <ul><li>--binary-only and --plugin-only flags are mutually exclusive, VERSION</li><li>validation rejects non-semver strings.</li><li>in CI, assert both phases print correct step lists without executing.</li><li>work. GoReleaser workflow (`release-go.yml`) trigger path unchanged.</li></ul>
+          </div>
+          
+          <div class="test-group" data-kind="integration">
+            <span class="test-chip">INTEGRATION &middot; 1</span>
+            <ul><li>Run `./scripts/deploy-all.sh 0.99.0 --dry-run --no-confirm`</li></ul>
+          </div>
+          
+          <div class="test-group" data-kind="regression">
+            <span class="test-chip">REGRESSION &middot; 1</span>
+            <ul><li>Existing `./scripts/deploy-all.sh --build-only` must still</li></ul>
+          </div>
+          
+        </div>
+        
+      </div>
+    </div>
+    
+
+    
+
+    
+
+    <div class="slice-deps">Dependencies: slices 1,2</div>
+
+    <details class="comment-collapse">
+      <summary class="comment-collapse-trigger">+ Leave a comment</summary>
+      <div class="comment-collapse-body">
+        <textarea data-section="slice-3" data-comment-for="slice-3" placeholder="Comments on slice 3..."></textarea>
+      </div>
+    </details>
+  </div>
+</details>
+<details class="slice-card" id="slice-4" data-slice="4" data-slice-name="slice-4" data-status="pending" data-approval="pending">
+  <summary class="slice-summary" aria-label="Slice 4: Refactor version-check into shared decision function and add missing-CLI block path to SessionStart">
     <span class="slice-num">#4</span>
-    <span class="slice-name">Refactor version-check into shared decision function and add missing-CLI block path to SessionStart</span>
-    <span class="badge badge-revision">M</span>
-    <span class="badge badge-revision">Med</span>
-    <span class="badge badge-pending" data-badge-for="slice-4">Pending</span>
-  </div>
-  
-  <div class="slice-field"><div class="slice-field-label">What</div><div class="slice-field-value" data-markdown="">The version-check logic already partially exists: `internal/hooks/version_check.go` has `readPluginVersion()`, `versionMismatchWarning()`, and `CLIVersion`. `internal/hooks/session_start.go` (line 226) already calls `versionMismatchWarning()`. The dispatch layer is `cmd/htmlgraph/hook.go` (cobra `hookSubcmd`), not `internal/hooks/runner.go`. This slice makes two targeted changes: (1) Add a new exported function `CheckVersionAlignment(pluginVersion, cliVersion string) (status string, message string)` in `internal/hooks/version_check.go` that returns one of (&#34;ok&#34;, &#34;warn&#34;, &#34;block&#34;) and an accompanying message. &#34;block&#34; is returned when cliVersion is empty (CLI missing). &#34;warn&#34; is returned on minor/patch divergence. &#34;ok&#34; is returned on match or dev builds. This function is the single comparison logic reused by both the session_start handler (slice 4) and `htmlgraph doctor` (slice 5). (2) Extend the existing session_start handler in `internal/hooks/session_start.go` to call `CheckVersionAlignment` and, when the result is &#34;block&#34; (CLI missing), return a `BlockExit2Error` (the pattern already used in hook.go lines 195-198) with JSON `{&#34;decision&#34;:&#34;block&#34;,&#34;reason&#34;:&#34;htmlgraph CLI not found. Install: curl -fsSL https://raw.githubusercontent.com/shakestzd/htmlgraph/main/install.sh | sh&#34;}`. Do NOT add a second SessionStart hook entry. One handler, one path. Remove `internal/hooks/runner.go` from scope — the dispatch layer is hook.go.
-</div></div>
-  <div class="slice-field"><div class="slice-field-label">Why</div><div class="slice-field-value" data-markdown="">Without a SessionStart gate for the missing-CLI case, a user can install the plugin from the marketplace and run Claude Code with no CLI installed — all hooks silently fail. The shared `CheckVersionAlignment` function eliminates duplication between the hook handler and `htmlgraph doctor`, ensuring consistent comparison semantics across both surfaces.
-</div></div>
-  <div class="slice-field"><div class="slice-field-label">Files</div><div class="slice-field-value"><code>internal/hooks/version_check.go, internal/hooks/session_start.go</code></div></div>
-  <div class="slice-field"><div class="slice-field-label">Done when</div><ul class="slice-done-list"><li data-markdown="">`CheckVersionAlignment(&#34;&#34;, &#34;dev&#34;)` returns (&#34;block&#34;, ...) — missing CLI case</li><li data-markdown="">`CheckVersionAlignment(&#34;0.55.5&#34;, &#34;0.55.5&#34;)` returns (&#34;ok&#34;, &#34;&#34;) — match case</li><li data-markdown="">`CheckVersionAlignment(&#34;0.55.4&#34;, &#34;0.55.5&#34;)` returns (&#34;warn&#34;, ...) — mismatch case</li><li data-markdown="">Session_start handler calls CheckVersionAlignment and returns BlockExit2Error when status is &#34;block&#34;</li><li data-markdown="">No second SessionStart entry added to hooks.json or manifest.json</li><li data-markdown="">`go test ./internal/hooks/...` passes including new TestCheckVersionAlignment tests</li></ul></div>
-  
-  <div class="slice-field"><div class="slice-field-label">Test Strategy</div><div class="slice-field-value slice-tests" data-markdown="">Unit: TestCheckVersionAlignment_Missing, TestCheckVersionAlignment_Match,
-  TestCheckVersionAlignment_Mismatch in internal/hooks/version_check_test.go —
-  test all three return paths with table-driven cases.
-Integration: Install the rebuilt plugin in a devcontainer with a deliberate
-  version mismatch, start a Claude Code session, verify the additionalContext
-  message appears in the conversation.
-Regression: Existing TestVersionMismatchWarning and TestStripGitDescribeSuffix
-  in version_check_test.go must still pass. session_start_test.go must still pass.
-</div></div>
-  <div class="slice-deps">Dependencies: slices 1</div>
-  <div class="approval-row">
-    <label><input type="checkbox" data-section="slice-4" data-action="approve"> Approve slice</label>
-    <textarea data-section="slice-4" data-comment-for="slice-4" placeholder="Comments on slice 4..."></textarea>
-  </div>
+    <span class="slice-title-col">
+      <span class="slice-name">Refactor version-check into shared decision function and add missing-CLI block path to SessionStart</span>
+      <span class="slice-preview">The version-check logic already partially exists: internal/hooks/versioncheck.go has readPluginVersion(), versionMismatchWarning(), and CLIV…</span>
+      <span class="slice-meta-row">
+        <span class="slice-summary-badges">
+          <span class="badge badge-revision badge-sm">M</span>
+          <span class="badge badge-revision badge-sm">Med</span>
+          
+          
+          <span class="badge badge-pending badge-sm slice-approval-badge" data-badge-for="slice-4">Pending</span>
+          
+          
+        </span>
+        <span class="slice-actions" onclick="event.stopPropagation()">
+          <span class="approval-segmented" role="group" aria-label="Approval action">
+            <label class="seg-btn seg-approve" title="Approve">
+              <input type="radio" name="slice-4-approval" value="approved" data-section="slice-4" data-action="approve" aria-label="Approve slice 4">
+              &#10003;
+            </label>
+            <label class="seg-btn seg-changes" title="Request changes">
+              <input type="radio" name="slice-4-approval" value="changes_requested" data-section="slice-4" data-action="approve" aria-label="Request changes for slice 4">
+              &#8635;
+            </label>
+            <label class="seg-btn seg-reject" title="Reject">
+              <input type="radio" name="slice-4-approval" value="rejected" data-section="slice-4" data-action="approve" aria-label="Reject slice 4">
+              &#10005;
+            </label>
+          </span>
+        </span>
+      </span>
+    </span>
+    <span class="slice-chevron" aria-hidden="true"></span>
+  </summary>
+
+  <div class="slice-body">
+    
+      
+      <div class="slice-field slice-what">
+        <div class="slice-field-label">What</div>
+        <div class="slice-field-value">
+          
+          <input type="checkbox" id="slice-4-what-reveal" class="reveal-toggle">
+          <div class="markdown-block reveal-content serif-prose"><p>The version-check logic already partially exists: <code>internal/hooks/version_check.go</code> has <code>readPluginVersion()</code>, <code>versionMismatchWarning()</code>, and <code>CLIVersion</code>. <code>internal/hooks/session_start.go</code> (line 226) already calls <code>versionMismatchWarning()</code>. The dispatch layer is <code>cmd/htmlgraph/hook.go</code> (cobra <code>hookSubcmd</code>), not <code>internal/hooks/runner.go</code>. This slice makes two targeted changes: (1) Add a new exported function <code>CheckVersionAlignment(pluginVersion, cliVersion string) (status string, message string)</code> in <code>internal/hooks/version_check.go</code> that returns one of (&#34;ok&#34;, &#34;warn&#34;, &#34;block&#34;) and an accompanying message. &#34;block&#34; is returned when cliVersion is empty (CLI missing). &#34;warn&#34; is returned on minor/patch divergence. &#34;ok&#34; is returned on match or dev builds. This function is the single comparison logic reused by both the session_start handler (slice 4) and <code>htmlgraph doctor</code> (slice 5). (2) Extend the existing session_start handler in <code>internal/hooks/session_start.go</code> to call <code>CheckVersionAlignment</code> and, when the result is &#34;block&#34; (CLI missing), return a <code>BlockExit2Error</code> (the pattern already used in hook.go lines 195-198) with JSON <code>{&#34;decision&#34;:&#34;block&#34;,&#34;reason&#34;:&#34;htmlgraph CLI not found. Install: curl -fsSL https://raw.githubusercontent.com/shakestzd/htmlgraph/main/install.sh | sh&#34;}</code>. Do NOT add a second SessionStart hook entry. One handler, one path. Remove <code>internal/hooks/runner.go</code> from scope — the dispatch layer is hook.go.</p>
 </div>
-<div class="slice-card" data-slice="5" data-slice-name="slice-5" data-status="pending">
-  <div class="slice-header">
+          <label for="slice-4-what-reveal" class="reveal-label">Show full description</label>
+          
+        </div>
+      </div>
+      
+      
+      <div class="slice-field slice-why">
+        <div class="slice-field-label">Why</div>
+        <div class="slice-field-value">
+          
+          <div class="markdown-block serif-prose"><p>Without a SessionStart gate for the missing-CLI case, a user can install the plugin from the marketplace and run Claude Code with no CLI installed — all hooks silently fail. The shared <code>CheckVersionAlignment</code> function eliminates duplication between the hook handler and <code>htmlgraph doctor</code>, ensuring consistent comparison semantics across both surfaces.</p>
+</div>
+          
+        </div>
+      </div>
+      
+      
+      <div class="slice-field">
+        <div class="slice-field-label">Files</div>
+        <div class="slice-field-value"><code>internal/hooks/version_check.go, internal/hooks/session_start.go</code></div>
+      </div>
+      
+      
+      <div class="slice-field">
+        <div class="slice-field-label">Done when</div>
+        <ul class="slice-done-list slice-done-list--grid"><li>`CheckVersionAlignment(&#34;&#34;, &#34;dev&#34;)` returns (&#34;block&#34;, ...) — missing CLI case</li><li>`CheckVersionAlignment(&#34;0.55.5&#34;, &#34;0.55.5&#34;)` returns (&#34;ok&#34;, &#34;&#34;) — match case</li><li>`CheckVersionAlignment(&#34;0.55.4&#34;, &#34;0.55.5&#34;)` returns (&#34;warn&#34;, ...) — mismatch case</li><li>Session_start handler calls CheckVersionAlignment and returns BlockExit2Error when status is &#34;block&#34;</li><li>No second SessionStart entry added to hooks.json or manifest.json</li><li>`go test ./internal/hooks/...` passes including new TestCheckVersionAlignment tests</li></ul>
+      </div>
+      
+    
+
+    
+
+    
+    <div class="slice-field slice-tests-field">
+      <div class="slice-field-label">Test Strategy</div>
+      <div class="slice-field-value">
+        
+        
+        <div class="test-strategy">
+          
+          <div class="test-group" data-kind="unit">
+            <span class="test-chip">UNIT &middot; 1</span>
+            <ul><li>TestCheckVersionAlignment_Missing, TestCheckVersionAlignment_Match,</li></ul>
+          </div>
+          
+          <div class="test-group" data-kind="other">
+            <span class="test-chip">OTHER &middot; 5</span>
+            <ul><li>TestCheckVersionAlignment_Mismatch in internal/hooks/version_check_test.go —</li><li>test all three return paths with table-driven cases.</li><li>version mismatch, start a Claude Code session, verify the additionalContext</li><li>message appears in the conversation.</li><li>in version_check_test.go must still pass. session_start_test.go must still pass.</li></ul>
+          </div>
+          
+          <div class="test-group" data-kind="integration">
+            <span class="test-chip">INTEGRATION &middot; 1</span>
+            <ul><li>Install the rebuilt plugin in a devcontainer with a deliberate</li></ul>
+          </div>
+          
+          <div class="test-group" data-kind="regression">
+            <span class="test-chip">REGRESSION &middot; 1</span>
+            <ul><li>Existing TestVersionMismatchWarning and TestStripGitDescribeSuffix</li></ul>
+          </div>
+          
+        </div>
+        
+      </div>
+    </div>
+    
+
+    
+
+    
+
+    <div class="slice-deps">Dependencies: slices 1</div>
+
+    <details class="comment-collapse">
+      <summary class="comment-collapse-trigger">+ Leave a comment</summary>
+      <div class="comment-collapse-body">
+        <textarea data-section="slice-4" data-comment-for="slice-4" placeholder="Comments on slice 4..."></textarea>
+      </div>
+    </details>
+  </div>
+</details>
+<details class="slice-card" id="slice-5" data-slice="5" data-slice-name="slice-5" data-status="pending" data-approval="pending">
+  <summary class="slice-summary" aria-label="Slice 5: Add htmlgraph doctor subcommand with cross-harness version matrix">
     <span class="slice-num">#5</span>
-    <span class="slice-name">Add htmlgraph doctor subcommand with cross-harness version matrix</span>
-    <span class="badge badge-revision">M</span>
-    <span class="badge badge-pending">Low</span>
-    <span class="badge badge-pending" data-badge-for="slice-5">Pending</span>
-  </div>
-  
-  <div class="slice-field"><div class="slice-field-label">What</div><div class="slice-field-value" data-markdown="">Add `cmd/htmlgraph/doctor.go` implementing `htmlgraph doctor` as a new Cobra subcommand registered in `cmd/htmlgraph/main.go`. The command queries: (a) CLI binary version — accessed directly via the `version` package-level var in `cmd/htmlgraph/main.go` (set via ldflags; doctor.go is in the same package so it can read it directly without an internal/version package); (b) Claude Code plugin version — read `~/.claude/plugins/marketplaces/htmlgraph`
-    or `${CLAUDE_PLUGIN_ROOT}/.claude-plugin/plugin.json`;
+    <span class="slice-title-col">
+      <span class="slice-name">Add htmlgraph doctor subcommand with cross-harness version matrix</span>
+      <span class="slice-preview">Add cmd/htmlgraph/doctor.go implementing htmlgraph doctor as a new Cobra subcommand registered in cmd/htmlgraph/main.go.</span>
+      <span class="slice-meta-row">
+        <span class="slice-summary-badges">
+          <span class="badge badge-revision badge-sm">M</span>
+          <span class="badge badge-pending badge-sm">Low</span>
+          
+          
+          <span class="badge badge-pending badge-sm slice-approval-badge" data-badge-for="slice-5">Pending</span>
+          
+          
+        </span>
+        <span class="slice-actions" onclick="event.stopPropagation()">
+          <span class="approval-segmented" role="group" aria-label="Approval action">
+            <label class="seg-btn seg-approve" title="Approve">
+              <input type="radio" name="slice-5-approval" value="approved" data-section="slice-5" data-action="approve" aria-label="Approve slice 5">
+              &#10003;
+            </label>
+            <label class="seg-btn seg-changes" title="Request changes">
+              <input type="radio" name="slice-5-approval" value="changes_requested" data-section="slice-5" data-action="approve" aria-label="Request changes for slice 5">
+              &#8635;
+            </label>
+            <label class="seg-btn seg-reject" title="Reject">
+              <input type="radio" name="slice-5-approval" value="rejected" data-section="slice-5" data-action="approve" aria-label="Reject slice 5">
+              &#10005;
+            </label>
+          </span>
+        </span>
+      </span>
+    </span>
+    <span class="slice-chevron" aria-hidden="true"></span>
+  </summary>
+
+  <div class="slice-body">
+    
+      
+      <div class="slice-field slice-what">
+        <div class="slice-field-label">What</div>
+        <div class="slice-field-value">
+          
+          <input type="checkbox" id="slice-5-what-reveal" class="reveal-toggle">
+          <div class="markdown-block reveal-content serif-prose"><p>Add <code>cmd/htmlgraph/doctor.go</code> implementing <code>htmlgraph doctor</code> as a new Cobra subcommand registered in <code>cmd/htmlgraph/main.go</code>. The command queries: (a) CLI binary version — accessed directly via the <code>version</code> package-level var in <code>cmd/htmlgraph/main.go</code> (set via ldflags; doctor.go is in the same package so it can read it directly without an internal/version package); (b) Claude Code plugin version — read <code>~/.claude/plugins/marketplaces/htmlgraph</code>
+or <code>${CLAUDE_PLUGIN_ROOT}/.claude-plugin/plugin.json</code>;
 (c) Codex plugin version — read
-    `~/.codex/plugins/htmlgraph/` (equivalent path, probe for a `plugin.json` or
-    `htmlgraph.json` manifest);
+<code>~/.codex/plugins/htmlgraph/</code> (equivalent path, probe for a <code>plugin.json</code> or
+<code>htmlgraph.json</code> manifest);
 (d) Gemini extension version — read
-    `~/.gemini/extensions/htmlgraph/gemini-extension.json`.
-For each, output a row: harness name, installed path, installed version, match/mismatch vs CLI version. Reuse `readPluginVersion()` from `internal/hooks/version_check.go` (refactor to accept an arbitrary path) and reuse `CheckVersionAlignment()` from slice 4 for consistent comparison logic. Print the matrix as a plain-text table (no external dependency). Exit 1 if any harness has a mismatch; exit 0 if all match or are not installed. Note: `internal/version/version.go` does NOT exist; the version string lives as `var version string` in `cmd/htmlgraph/main.go` — access it directly from the same package.
-</div></div>
-  <div class="slice-field"><div class="slice-field-label">Why</div><div class="slice-field-value" data-markdown="">Slice 4 handles the automated SessionStart gate; `htmlgraph doctor` gives humans an explicit diagnostic surface for debugging installs across all three harnesses — especially useful after `htmlgraph upgrade` or a marketplace update. Pattern mirrors roborev&#39;s `roborev skills` matrix. Reusing `CheckVersionAlignment` from slice 4 ensures consistent comparison semantics.
-</div></div>
-  <div class="slice-field"><div class="slice-field-label">Files</div><div class="slice-field-value"><code>cmd/htmlgraph/doctor.go, cmd/htmlgraph/main.go, internal/hooks/version_check.go</code></div></div>
-  <div class="slice-field"><div class="slice-field-label">Done when</div><ul class="slice-done-list"><li data-markdown="">`htmlgraph doctor` prints a table with at least three rows (claude, codex, gemini)</li><li data-markdown="">`htmlgraph doctor` exits 1 when any harness version does not match the CLI version</li><li data-markdown="">`htmlgraph doctor` exits 0 when all detected harness versions match or none are installed</li><li data-markdown="">`go test ./cmd/htmlgraph/...` passes including TestDoctorCmd</li><li data-markdown="">doctor.go uses the `version` var from main.go directly (no internal/version package)</li><li data-markdown="">doctor.go calls CheckVersionAlignment from slice 4 for all comparison logic</li></ul></div>
-  
-  <div class="slice-field"><div class="slice-field-label">Test Strategy</div><div class="slice-field-value slice-tests" data-markdown="">Unit: TestDoctorCmd in cmd/htmlgraph/doctor_test.go — stub plugin manifest
-  files under a temp home dir, assert table rows and exit code.
-Integration: Run `htmlgraph doctor` in the devcontainer after a fresh build,
-  confirm at least the claude row populates with a version.
-Regression: `go build ./...` clean. Existing plugin_ensure_test.go must pass
-  (doctor and plugin_ensure share version-reading helpers).
-</div></div>
-  <div class="slice-deps">Dependencies: slices 4</div>
-  <div class="approval-row">
-    <label><input type="checkbox" data-section="slice-5" data-action="approve"> Approve slice</label>
-    <textarea data-section="slice-5" data-comment-for="slice-5" placeholder="Comments on slice 5..."></textarea>
-  </div>
+<code>~/.gemini/extensions/htmlgraph/gemini-extension.json</code>.
+For each, output a row: harness name, installed path, installed version, match/mismatch vs CLI version. Reuse <code>readPluginVersion()</code> from <code>internal/hooks/version_check.go</code> (refactor to accept an arbitrary path) and reuse <code>CheckVersionAlignment()</code> from slice 4 for consistent comparison logic. Print the matrix as a plain-text table (no external dependency). Exit 1 if any harness has a mismatch; exit 0 if all match or are not installed. Note: <code>internal/version/version.go</code> does NOT exist; the version string lives as <code>var version string</code> in <code>cmd/htmlgraph/main.go</code> — access it directly from the same package.</p>
 </div>
-<div class="slice-card" data-slice="6" data-slice-name="slice-6" data-status="pending">
-  <div class="slice-header">
+          <label for="slice-5-what-reveal" class="reveal-label">Show full description</label>
+          
+        </div>
+      </div>
+      
+      
+      <div class="slice-field slice-why">
+        <div class="slice-field-label">Why</div>
+        <div class="slice-field-value">
+          
+          <div class="markdown-block serif-prose"><p>Slice 4 handles the automated SessionStart gate; <code>htmlgraph doctor</code> gives humans an explicit diagnostic surface for debugging installs across all three harnesses — especially useful after <code>htmlgraph upgrade</code> or a marketplace update. Pattern mirrors roborev&#39;s <code>roborev skills</code> matrix. Reusing <code>CheckVersionAlignment</code> from slice 4 ensures consistent comparison semantics.</p>
+</div>
+          
+        </div>
+      </div>
+      
+      
+      <div class="slice-field">
+        <div class="slice-field-label">Files</div>
+        <div class="slice-field-value"><code>cmd/htmlgraph/doctor.go, cmd/htmlgraph/main.go, internal/hooks/version_check.go</code></div>
+      </div>
+      
+      
+      <div class="slice-field">
+        <div class="slice-field-label">Done when</div>
+        <ul class="slice-done-list slice-done-list--grid"><li>`htmlgraph doctor` prints a table with at least three rows (claude, codex, gemini)</li><li>`htmlgraph doctor` exits 1 when any harness version does not match the CLI version</li><li>`htmlgraph doctor` exits 0 when all detected harness versions match or none are installed</li><li>`go test ./cmd/htmlgraph/...` passes including TestDoctorCmd</li><li>doctor.go uses the `version` var from main.go directly (no internal/version package)</li><li>doctor.go calls CheckVersionAlignment from slice 4 for all comparison logic</li></ul>
+      </div>
+      
+    
+
+    
+
+    
+    <div class="slice-field slice-tests-field">
+      <div class="slice-field-label">Test Strategy</div>
+      <div class="slice-field-value">
+        
+        
+        <div class="test-strategy">
+          
+          <div class="test-group" data-kind="unit">
+            <span class="test-chip">UNIT &middot; 1</span>
+            <ul><li>TestDoctorCmd in cmd/htmlgraph/doctor_test.go — stub plugin manifest</li></ul>
+          </div>
+          
+          <div class="test-group" data-kind="other">
+            <span class="test-chip">OTHER &middot; 3</span>
+            <ul><li>files under a temp home dir, assert table rows and exit code.</li><li>confirm at least the claude row populates with a version.</li><li>(doctor and plugin_ensure share version-reading helpers).</li></ul>
+          </div>
+          
+          <div class="test-group" data-kind="integration">
+            <span class="test-chip">INTEGRATION &middot; 1</span>
+            <ul><li>Run `htmlgraph doctor` in the devcontainer after a fresh build,</li></ul>
+          </div>
+          
+          <div class="test-group" data-kind="regression">
+            <span class="test-chip">REGRESSION &middot; 1</span>
+            <ul><li>`go build ./...` clean. Existing plugin_ensure_test.go must pass</li></ul>
+          </div>
+          
+        </div>
+        
+      </div>
+    </div>
+    
+
+    
+
+    
+
+    <div class="slice-deps">Dependencies: slices 4</div>
+
+    <details class="comment-collapse">
+      <summary class="comment-collapse-trigger">+ Leave a comment</summary>
+      <div class="comment-collapse-body">
+        <textarea data-section="slice-5" data-comment-for="slice-5" placeholder="Comments on slice 5..."></textarea>
+      </div>
+    </details>
+  </div>
+</details>
+<details class="slice-card" id="slice-6" data-slice="6" data-slice-name="slice-6" data-status="pending" data-approval="pending">
+  <summary class="slice-summary" aria-label="Slice 6: Extend htmlgraph upgrade to print post-upgrade plugin-update instructions">
     <span class="slice-num">#6</span>
-    <span class="slice-name">Extend htmlgraph upgrade to print post-upgrade plugin-update instructions</span>
-    <span class="badge badge-pending">S</span>
-    <span class="badge badge-pending">Low</span>
-    <span class="badge badge-pending" data-badge-for="slice-6">Pending</span>
-  </div>
-  
-  <div class="slice-field"><div class="slice-field-label">What</div><div class="slice-field-value" data-markdown="">Edit `cmd/htmlgraph/upgrade_cmd.go` function `runUpgrade`. After the self-test at line 120 confirms the new binary runs, append to stdout: &#34;CLI upgraded to vX.Y.Z. To sync the plugin, run:
-  /plugin marketplace htmlgraph   (inside Claude Code)
-Then run: htmlgraph doctor   to verify all harnesses are in sync.&#34; Also add a `--check` output line that prints plugin versions detected by the same logic used in slice 5 (`htmlgraph doctor` can be called internally). No new flags — this is purely additive output.
-</div></div>
-  <div class="slice-field"><div class="slice-field-label">Why</div><div class="slice-field-value" data-markdown="">After `htmlgraph upgrade` the CLI binary is at the new version but the marketplace plugin is at the old version until the user manually updates it. Without the reminder, users are left in the skewed state that slice 4 detects. Closing the loop here makes the version-sync story end-to-end.
-</div></div>
-  <div class="slice-field"><div class="slice-field-label">Files</div><div class="slice-field-value"><code>cmd/htmlgraph/upgrade_cmd.go, cmd/htmlgraph/upgrade_cmd_test.go</code></div></div>
-  <div class="slice-field"><div class="slice-field-label">Done when</div><ul class="slice-done-list"><li data-markdown="">`htmlgraph upgrade --check` output includes a line mentioning `/plugin marketplace htmlgraph`</li><li data-markdown="">After `htmlgraph upgrade` (mocked), stdout includes `htmlgraph doctor`</li><li data-markdown="">`go test ./cmd/htmlgraph/... -run TestUpgrade` passes</li></ul></div>
-  
-  <div class="slice-field"><div class="slice-field-label">Test Strategy</div><div class="slice-field-value slice-tests" data-markdown="">Unit: TestUpgradePostMessage in upgrade_cmd_test.go — mock the HTTP version
-  fetch and binary replace, assert stdout contains the post-upgrade message.
-Integration: Run `htmlgraph upgrade --check` in devcontainer, confirm new
-  message lines appear.
-Regression: Existing TestUpgradeCmd* tests must still pass.
-</div></div>
-  <div class="slice-deps">Dependencies: slices 5</div>
-  <div class="approval-row">
-    <label><input type="checkbox" data-section="slice-6" data-action="approve"> Approve slice</label>
-    <textarea data-section="slice-6" data-comment-for="slice-6" placeholder="Comments on slice 6..."></textarea>
-  </div>
+    <span class="slice-title-col">
+      <span class="slice-name">Extend htmlgraph upgrade to print post-upgrade plugin-update instructions</span>
+      <span class="slice-preview">Edit cmd/htmlgraph/upgradecmd.go function runUpgrade.</span>
+      <span class="slice-meta-row">
+        <span class="slice-summary-badges">
+          <span class="badge badge-pending badge-sm">S</span>
+          <span class="badge badge-pending badge-sm">Low</span>
+          
+          
+          <span class="badge badge-pending badge-sm slice-approval-badge" data-badge-for="slice-6">Pending</span>
+          
+          
+        </span>
+        <span class="slice-actions" onclick="event.stopPropagation()">
+          <span class="approval-segmented" role="group" aria-label="Approval action">
+            <label class="seg-btn seg-approve" title="Approve">
+              <input type="radio" name="slice-6-approval" value="approved" data-section="slice-6" data-action="approve" aria-label="Approve slice 6">
+              &#10003;
+            </label>
+            <label class="seg-btn seg-changes" title="Request changes">
+              <input type="radio" name="slice-6-approval" value="changes_requested" data-section="slice-6" data-action="approve" aria-label="Request changes for slice 6">
+              &#8635;
+            </label>
+            <label class="seg-btn seg-reject" title="Reject">
+              <input type="radio" name="slice-6-approval" value="rejected" data-section="slice-6" data-action="approve" aria-label="Reject slice 6">
+              &#10005;
+            </label>
+          </span>
+        </span>
+      </span>
+    </span>
+    <span class="slice-chevron" aria-hidden="true"></span>
+  </summary>
+
+  <div class="slice-body">
+    
+      
+      <div class="slice-field slice-what">
+        <div class="slice-field-label">What</div>
+        <div class="slice-field-value">
+          
+          <input type="checkbox" id="slice-6-what-reveal" class="reveal-toggle">
+          <div class="markdown-block reveal-content serif-prose"><p>Edit <code>cmd/htmlgraph/upgrade_cmd.go</code> function <code>runUpgrade</code>. After the self-test at line 120 confirms the new binary runs, append to stdout: &#34;CLI upgraded to vX.Y.Z. To sync the plugin, run:
+/plugin marketplace htmlgraph   (inside Claude Code)
+Then run: htmlgraph doctor   to verify all harnesses are in sync.&#34; Also add a <code>--check</code> output line that prints plugin versions detected by the same logic used in slice 5 (<code>htmlgraph doctor</code> can be called internally). No new flags — this is purely additive output.</p>
 </div>
-<div class="slice-card" data-slice="7" data-slice-name="slice-7" data-status="pending">
-  <div class="slice-header">
+          <label for="slice-6-what-reveal" class="reveal-label">Show full description</label>
+          
+        </div>
+      </div>
+      
+      
+      <div class="slice-field slice-why">
+        <div class="slice-field-label">Why</div>
+        <div class="slice-field-value">
+          
+          <div class="markdown-block serif-prose"><p>After <code>htmlgraph upgrade</code> the CLI binary is at the new version but the marketplace plugin is at the old version until the user manually updates it. Without the reminder, users are left in the skewed state that slice 4 detects. Closing the loop here makes the version-sync story end-to-end.</p>
+</div>
+          
+        </div>
+      </div>
+      
+      
+      <div class="slice-field">
+        <div class="slice-field-label">Files</div>
+        <div class="slice-field-value"><code>cmd/htmlgraph/upgrade_cmd.go, cmd/htmlgraph/upgrade_cmd_test.go</code></div>
+      </div>
+      
+      
+      <div class="slice-field">
+        <div class="slice-field-label">Done when</div>
+        <ul class="slice-done-list"><li>`htmlgraph upgrade --check` output includes a line mentioning `/plugin marketplace htmlgraph`</li><li>After `htmlgraph upgrade` (mocked), stdout includes `htmlgraph doctor`</li><li>`go test ./cmd/htmlgraph/... -run TestUpgrade` passes</li></ul>
+      </div>
+      
+    
+
+    
+
+    
+    <div class="slice-field slice-tests-field">
+      <div class="slice-field-label">Test Strategy</div>
+      <div class="slice-field-value">
+        
+        
+        <div class="test-strategy">
+          
+          <div class="test-group" data-kind="unit">
+            <span class="test-chip">UNIT &middot; 1</span>
+            <ul><li>TestUpgradePostMessage in upgrade_cmd_test.go — mock the HTTP version</li></ul>
+          </div>
+          
+          <div class="test-group" data-kind="other">
+            <span class="test-chip">OTHER &middot; 2</span>
+            <ul><li>fetch and binary replace, assert stdout contains the post-upgrade message.</li><li>message lines appear.</li></ul>
+          </div>
+          
+          <div class="test-group" data-kind="integration">
+            <span class="test-chip">INTEGRATION &middot; 1</span>
+            <ul><li>Run `htmlgraph upgrade --check` in devcontainer, confirm new</li></ul>
+          </div>
+          
+          <div class="test-group" data-kind="regression">
+            <span class="test-chip">REGRESSION &middot; 1</span>
+            <ul><li>Existing TestUpgradeCmd* tests must still pass.</li></ul>
+          </div>
+          
+        </div>
+        
+      </div>
+    </div>
+    
+
+    
+
+    
+
+    <div class="slice-deps">Dependencies: slices 5</div>
+
+    <details class="comment-collapse">
+      <summary class="comment-collapse-trigger">+ Leave a comment</summary>
+      <div class="comment-collapse-body">
+        <textarea data-section="slice-6" data-comment-for="slice-6" placeholder="Comments on slice 6..."></textarea>
+      </div>
+    </details>
+  </div>
+</details>
+<details class="slice-card" id="slice-7" data-slice="7" data-slice-name="slice-7" data-status="pending" data-approval="pending">
+  <summary class="slice-summary" aria-label="Slice 7: Add env-var escape hatches to install.sh (HTMLGRAPH_INSTALL_DIR, HTMLGRAPH_NO_MODIFY_PATH, HTMLGRAPH_VERSION)">
     <span class="slice-num">#7</span>
-    <span class="slice-name">Add env-var escape hatches to install.sh (HTMLGRAPH_INSTALL_DIR, HTMLGRAPH_NO_MODIFY_PATH, HTMLGRAPH_VERSION)</span>
-    <span class="badge badge-pending">S</span>
-    <span class="badge badge-pending">Low</span>
-    <span class="badge badge-pending" data-badge-for="slice-7">Pending</span>
-  </div>
-  
-  <div class="slice-field"><div class="slice-field-label">What</div><div class="slice-field-value" data-markdown="">Edit `install.sh` to honour three environment variables that override CLI flags when set: - `HTMLGRAPH_INSTALL_DIR` — overrides `--install-dir` (current default
-  `~/.local/bin`); used by corporate-managed shells and CI.
-- `HTMLGRAPH_NO_MODIFY_PATH` — when set to `1`, skip the shell-rc PATH
-  modification block unconditionally.
-- `HTMLGRAPH_VERSION` — when set, install that version instead of
-  fetching the latest GitHub release; overrides `--version` flag if both
-  are set (env takes precedence for scriptability).
-The existing `--install-dir` and `--version` flags must still work as before. Add a `--help` section documenting all three env vars. No other changes to install.sh logic.
-</div></div>
-  <div class="slice-field"><div class="slice-field-label">Why</div><div class="slice-field-value" data-markdown="">Corporate environments and CI pipelines need deterministic, non-interactive installs without shell-rc mutation. These are the exact escape hatches roborev ships (`ROBOREV_INSTALL_DIR`, `ROBOREV_NO_MODIFY_PATH`). Without them, `curl | sh` is not safe to run in CI. Slice 8 (Homebrew tap) is independent; slices 7 and 8 together complete the install UX story.
-</div></div>
-  <div class="slice-field"><div class="slice-field-label">Files</div><div class="slice-field-value"><code>install.sh</code></div></div>
-  <div class="slice-field"><div class="slice-field-label">Done when</div><ul class="slice-done-list"><li data-markdown="">`HTMLGRAPH_INSTALL_DIR=/tmp/testbin sh install.sh` installs binary to `/tmp/testbin/htmlgraph`</li><li data-markdown="">`HTMLGRAPH_NO_MODIFY_PATH=1 sh install.sh` does not modify ~/.bashrc or ~/.zshrc</li><li data-markdown="">`HTMLGRAPH_VERSION=0.35.0 sh install.sh` downloads version 0.35.0 regardless of latest</li><li data-markdown="">All three env vars are documented in `install.sh --help` output</li></ul></div>
-  
-  <div class="slice-field"><div class="slice-field-label">Test Strategy</div><div class="slice-field-value slice-tests" data-markdown="">Unit: Bash test (bats or inline) — set each env var in isolation,
-  mock the download step, assert correct install path / version / rc mutation.
-Integration: Run `HTMLGRAPH_INSTALL_DIR=/tmp/hg-test sh install.sh` in
-  the devcontainer, verify binary appears at /tmp/hg-test/htmlgraph.
-Regression: Existing `--install-dir` and `--version` flag tests (if any)
-  must still pass. Default install to ~/.local/bin must still work.
-</div></div>
-  <div class="slice-deps">Dependencies: slices 3</div>
-  <div class="approval-row">
-    <label><input type="checkbox" data-section="slice-7" data-action="approve"> Approve slice</label>
-    <textarea data-section="slice-7" data-comment-for="slice-7" placeholder="Comments on slice 7..."></textarea>
-  </div>
+    <span class="slice-title-col">
+      <span class="slice-name">Add env-var escape hatches to install.sh (HTMLGRAPH_INSTALL_DIR, HTMLGRAPH_NO_MODIFY_PATH, HTMLGRAPH_VERSION)</span>
+      <span class="slice-preview">Edit install.sh to honour three environment variables that override CLI flags when set: - HTMLGRAPHINSTALLDIR — overrides --install-dir (cur…</span>
+      <span class="slice-meta-row">
+        <span class="slice-summary-badges">
+          <span class="badge badge-pending badge-sm">S</span>
+          <span class="badge badge-pending badge-sm">Low</span>
+          
+          
+          <span class="badge badge-pending badge-sm slice-approval-badge" data-badge-for="slice-7">Pending</span>
+          
+          
+        </span>
+        <span class="slice-actions" onclick="event.stopPropagation()">
+          <span class="approval-segmented" role="group" aria-label="Approval action">
+            <label class="seg-btn seg-approve" title="Approve">
+              <input type="radio" name="slice-7-approval" value="approved" data-section="slice-7" data-action="approve" aria-label="Approve slice 7">
+              &#10003;
+            </label>
+            <label class="seg-btn seg-changes" title="Request changes">
+              <input type="radio" name="slice-7-approval" value="changes_requested" data-section="slice-7" data-action="approve" aria-label="Request changes for slice 7">
+              &#8635;
+            </label>
+            <label class="seg-btn seg-reject" title="Reject">
+              <input type="radio" name="slice-7-approval" value="rejected" data-section="slice-7" data-action="approve" aria-label="Reject slice 7">
+              &#10005;
+            </label>
+          </span>
+        </span>
+      </span>
+    </span>
+    <span class="slice-chevron" aria-hidden="true"></span>
+  </summary>
+
+  <div class="slice-body">
+    
+      
+      <div class="slice-field slice-what">
+        <div class="slice-field-label">What</div>
+        <div class="slice-field-value">
+          
+          <input type="checkbox" id="slice-7-what-reveal" class="reveal-toggle">
+          <div class="markdown-block reveal-content serif-prose"><p>Edit <code>install.sh</code> to honour three environment variables that override CLI flags when set: - <code>HTMLGRAPH_INSTALL_DIR</code> — overrides <code>--install-dir</code> (current default
+<code>~/.local/bin</code>); used by corporate-managed shells and CI.</p>
+<ul>
+<li><code>HTMLGRAPH_NO_MODIFY_PATH</code> — when set to <code>1</code>, skip the shell-rc PATH
+modification block unconditionally.</li>
+<li><code>HTMLGRAPH_VERSION</code> — when set, install that version instead of
+fetching the latest GitHub release; overrides <code>--version</code> flag if both
+are set (env takes precedence for scriptability).
+The existing <code>--install-dir</code> and <code>--version</code> flags must still work as before. Add a <code>--help</code> section documenting all three env vars. No other changes to install.sh logic.</li>
+</ul>
 </div>
-<div class="slice-card" data-slice="8" data-slice-name="slice-8" data-status="pending">
-  <div class="slice-header">
+          <label for="slice-7-what-reveal" class="reveal-label">Show full description</label>
+          
+        </div>
+      </div>
+      
+      
+      <div class="slice-field slice-why">
+        <div class="slice-field-label">Why</div>
+        <div class="slice-field-value">
+          
+          <div class="markdown-block serif-prose"><p>Corporate environments and CI pipelines need deterministic, non-interactive installs without shell-rc mutation. These are the exact escape hatches roborev ships (<code>ROBOREV_INSTALL_DIR</code>, <code>ROBOREV_NO_MODIFY_PATH</code>). Without them, <code>curl | sh</code> is not safe to run in CI. Slice 8 (Homebrew tap) is independent; slices 7 and 8 together complete the install UX story.</p>
+</div>
+          
+        </div>
+      </div>
+      
+      
+      <div class="slice-field">
+        <div class="slice-field-label">Files</div>
+        <div class="slice-field-value"><code>install.sh</code></div>
+      </div>
+      
+      
+      <div class="slice-field">
+        <div class="slice-field-label">Done when</div>
+        <ul class="slice-done-list"><li>`HTMLGRAPH_INSTALL_DIR=/tmp/testbin sh install.sh` installs binary to `/tmp/testbin/htmlgraph`</li><li>`HTMLGRAPH_NO_MODIFY_PATH=1 sh install.sh` does not modify ~/.bashrc or ~/.zshrc</li><li>`HTMLGRAPH_VERSION=0.35.0 sh install.sh` downloads version 0.35.0 regardless of latest</li><li>All three env vars are documented in `install.sh --help` output</li></ul>
+      </div>
+      
+    
+
+    
+
+    
+    <div class="slice-field slice-tests-field">
+      <div class="slice-field-label">Test Strategy</div>
+      <div class="slice-field-value">
+        
+        
+        <div class="test-strategy">
+          
+          <div class="test-group" data-kind="unit">
+            <span class="test-chip">UNIT &middot; 1</span>
+            <ul><li>Bash test (bats or inline) — set each env var in isolation,</li></ul>
+          </div>
+          
+          <div class="test-group" data-kind="other">
+            <span class="test-chip">OTHER &middot; 3</span>
+            <ul><li>mock the download step, assert correct install path / version / rc mutation.</li><li>the devcontainer, verify binary appears at /tmp/hg-test/htmlgraph.</li><li>must still pass. Default install to ~/.local/bin must still work.</li></ul>
+          </div>
+          
+          <div class="test-group" data-kind="integration">
+            <span class="test-chip">INTEGRATION &middot; 1</span>
+            <ul><li>Run `HTMLGRAPH_INSTALL_DIR=/tmp/hg-test sh install.sh` in</li></ul>
+          </div>
+          
+          <div class="test-group" data-kind="regression">
+            <span class="test-chip">REGRESSION &middot; 1</span>
+            <ul><li>Existing `--install-dir` and `--version` flag tests (if any)</li></ul>
+          </div>
+          
+        </div>
+        
+      </div>
+    </div>
+    
+
+    
+
+    
+
+    <div class="slice-deps">Dependencies: slices 3</div>
+
+    <details class="comment-collapse">
+      <summary class="comment-collapse-trigger">+ Leave a comment</summary>
+      <div class="comment-collapse-body">
+        <textarea data-section="slice-7" data-comment-for="slice-7" placeholder="Comments on slice 7..."></textarea>
+      </div>
+    </details>
+  </div>
+</details>
+<details class="slice-card" id="slice-8" data-slice="8" data-slice-name="slice-8" data-status="pending" data-approval="pending">
+  <summary class="slice-summary" aria-label="Slice 8: Publish Homebrew tap formula and wire version bump into deploy pipeline">
     <span class="slice-num">#8</span>
-    <span class="slice-name">Publish Homebrew tap formula and wire version bump into deploy pipeline</span>
-    <span class="badge badge-revision">M</span>
-    <span class="badge badge-pending">Low</span>
-    <span class="badge badge-pending" data-badge-for="slice-8">Pending</span>
-  </div>
-  
-  <div class="slice-field"><div class="slice-field-label">What</div><div class="slice-field-value" data-markdown="">Create or update the external tap repo `shakestzd/homebrew-htmlgraph` so that `brew install shakestzd/htmlgraph/htmlgraph` works. The formula template already exists at `packages/homebrew/htmlgraph.rb`. Steps: (a) Confirm the tap repo exists at github.com/shakestzd/homebrew-htmlgraph
-    (create if not); its only required file is `Formula/htmlgraph.rb`.
-(b) Update `packages/homebrew/update-formula.sh` to accept the new version
-    and SHA256 values as arguments (already partially implemented), compute
-    SHA256 from the GoReleaser-published `.tar.gz` assets on GitHub Releases,
-    patch `Formula/htmlgraph.rb` in the tap repo, and push a commit.
-(c) Wire `update-formula.sh` into `scripts/deploy-all.sh`&#39;s `deploy-binary`
-    phase (slice 3) so formula is bumped automatically on every binary release.
-Document the one-time tap repo setup in `packages/homebrew/README.md`.
-</div></div>
-  <div class="slice-field"><div class="slice-field-label">Why</div><div class="slice-field-value" data-markdown="">`brew install` is the default install path for macOS developers. Without a tap the Homebrew formula placeholder in `packages/homebrew/htmlgraph.rb` has SHA256 stubs and is not installable. Closing this gap completes the install UX workstream for macOS users and is required for public release.
-</div></div>
-  <div class="slice-field"><div class="slice-field-label">Files</div><div class="slice-field-value"><code>packages/homebrew/htmlgraph.rb, packages/homebrew/update-formula.sh, scripts/deploy-all.sh</code></div></div>
-  <div class="slice-field"><div class="slice-field-label">Done when</div><ul class="slice-done-list"><li data-markdown="">Tap repo `shakestzd/homebrew-htmlgraph` exists with an initial `Formula/htmlgraph.rb` and PAT-based push credentials are configured in this repo&#39;s GitHub Actions secrets (prereq — must be satisfied before this slice can complete)</li><li data-markdown="">`brew install shakestzd/htmlgraph/htmlgraph` succeeds on macOS (arm64 and amd64)</li><li data-markdown="">`packages/homebrew/update-formula.sh 0.99.0` patches version and SHA256 placeholders</li><li data-markdown="">`scripts/deploy-all.sh --binary-only` invokes update-formula.sh as a step</li><li data-markdown="">Formula file contains no SHA256 placeholder strings after a dry-run update</li></ul></div>
-  
-  <div class="slice-field"><div class="slice-field-label">Test Strategy</div><div class="slice-field-value slice-tests" data-markdown="">Unit: Bash test for update-formula.sh — mock curl SHA256 fetch, assert
-  Formula/htmlgraph.rb is patched with correct version and SHA256.
-Integration: Run update-formula.sh against a real GitHub release asset,
-  confirm SHA256 matches `shasum -a 256` output.
-Regression: deploy-all.sh --build-only must still pass (formula update skipped).
-</div></div>
-  <div class="slice-deps">Dependencies: slices 3</div>
-  <div class="approval-row">
-    <label><input type="checkbox" data-section="slice-8" data-action="approve"> Approve slice</label>
-    <textarea data-section="slice-8" data-comment-for="slice-8" placeholder="Comments on slice 8..."></textarea>
-  </div>
+    <span class="slice-title-col">
+      <span class="slice-name">Publish Homebrew tap formula and wire version bump into deploy pipeline</span>
+      <span class="slice-preview">Create or update the external tap repo shakestzd/homebrew-htmlgraph so that brew install shakestzd/htmlgraph/htmlgraph works.</span>
+      <span class="slice-meta-row">
+        <span class="slice-summary-badges">
+          <span class="badge badge-revision badge-sm">M</span>
+          <span class="badge badge-pending badge-sm">Low</span>
+          
+          
+          <span class="badge badge-pending badge-sm slice-approval-badge" data-badge-for="slice-8">Pending</span>
+          
+          
+        </span>
+        <span class="slice-actions" onclick="event.stopPropagation()">
+          <span class="approval-segmented" role="group" aria-label="Approval action">
+            <label class="seg-btn seg-approve" title="Approve">
+              <input type="radio" name="slice-8-approval" value="approved" data-section="slice-8" data-action="approve" aria-label="Approve slice 8">
+              &#10003;
+            </label>
+            <label class="seg-btn seg-changes" title="Request changes">
+              <input type="radio" name="slice-8-approval" value="changes_requested" data-section="slice-8" data-action="approve" aria-label="Request changes for slice 8">
+              &#8635;
+            </label>
+            <label class="seg-btn seg-reject" title="Reject">
+              <input type="radio" name="slice-8-approval" value="rejected" data-section="slice-8" data-action="approve" aria-label="Reject slice 8">
+              &#10005;
+            </label>
+          </span>
+        </span>
+      </span>
+    </span>
+    <span class="slice-chevron" aria-hidden="true"></span>
+  </summary>
+
+  <div class="slice-body">
+    
+      
+      <div class="slice-field slice-what">
+        <div class="slice-field-label">What</div>
+        <div class="slice-field-value">
+          
+          <input type="checkbox" id="slice-8-what-reveal" class="reveal-toggle">
+          <div class="markdown-block reveal-content serif-prose"><p>Create or update the external tap repo <code>shakestzd/homebrew-htmlgraph</code> so that <code>brew install shakestzd/htmlgraph/htmlgraph</code> works. The formula template already exists at <code>packages/homebrew/htmlgraph.rb</code>. Steps: (a) Confirm the tap repo exists at github.com/shakestzd/homebrew-htmlgraph
+(create if not); its only required file is <code>Formula/htmlgraph.rb</code>.
+(b) Update <code>packages/homebrew/update-formula.sh</code> to accept the new version
+and SHA256 values as arguments (already partially implemented), compute
+SHA256 from the GoReleaser-published <code>.tar.gz</code> assets on GitHub Releases,
+patch <code>Formula/htmlgraph.rb</code> in the tap repo, and push a commit.
+(c) Wire <code>update-formula.sh</code> into <code>scripts/deploy-all.sh</code>&#39;s <code>deploy-binary</code>
+phase (slice 3) so formula is bumped automatically on every binary release.
+Document the one-time tap repo setup in <code>packages/homebrew/README.md</code>.</p>
 </div>
-<div class="slice-card" data-slice="9" data-slice-name="slice-9" data-status="pending">
-  <div class="slice-header">
+          <label for="slice-8-what-reveal" class="reveal-label">Show full description</label>
+          
+        </div>
+      </div>
+      
+      
+      <div class="slice-field slice-why">
+        <div class="slice-field-label">Why</div>
+        <div class="slice-field-value">
+          
+          <div class="markdown-block serif-prose"><p><code>brew install</code> is the default install path for macOS developers. Without a tap the Homebrew formula placeholder in <code>packages/homebrew/htmlgraph.rb</code> has SHA256 stubs and is not installable. Closing this gap completes the install UX workstream for macOS users and is required for public release.</p>
+</div>
+          
+        </div>
+      </div>
+      
+      
+      <div class="slice-field">
+        <div class="slice-field-label">Files</div>
+        <div class="slice-field-value"><code>packages/homebrew/htmlgraph.rb, packages/homebrew/update-formula.sh, scripts/deploy-all.sh</code></div>
+      </div>
+      
+      
+      <div class="slice-field">
+        <div class="slice-field-label">Done when</div>
+        <ul class="slice-done-list"><li>Tap repo `shakestzd/homebrew-htmlgraph` exists with an initial `Formula/htmlgraph.rb` and PAT-based push credentials are configured in this repo&#39;s GitHub Actions secrets (prereq — must be satisfied before this slice can complete)</li><li>`brew install shakestzd/htmlgraph/htmlgraph` succeeds on macOS (arm64 and amd64)</li><li>`packages/homebrew/update-formula.sh 0.99.0` patches version and SHA256 placeholders</li><li>`scripts/deploy-all.sh --binary-only` invokes update-formula.sh as a step</li><li>Formula file contains no SHA256 placeholder strings after a dry-run update</li></ul>
+      </div>
+      
+    
+
+    
+
+    
+    <div class="slice-field slice-tests-field">
+      <div class="slice-field-label">Test Strategy</div>
+      <div class="slice-field-value">
+        
+        
+        <div class="test-strategy">
+          
+          <div class="test-group" data-kind="unit">
+            <span class="test-chip">UNIT &middot; 1</span>
+            <ul><li>Bash test for update-formula.sh — mock curl SHA256 fetch, assert</li></ul>
+          </div>
+          
+          <div class="test-group" data-kind="other">
+            <span class="test-chip">OTHER &middot; 2</span>
+            <ul><li>Formula/htmlgraph.rb is patched with correct version and SHA256.</li><li>confirm SHA256 matches `shasum -a 256` output.</li></ul>
+          </div>
+          
+          <div class="test-group" data-kind="integration">
+            <span class="test-chip">INTEGRATION &middot; 1</span>
+            <ul><li>Run update-formula.sh against a real GitHub release asset,</li></ul>
+          </div>
+          
+          <div class="test-group" data-kind="regression">
+            <span class="test-chip">REGRESSION &middot; 1</span>
+            <ul><li>deploy-all.sh --build-only must still pass (formula update skipped).</li></ul>
+          </div>
+          
+        </div>
+        
+      </div>
+    </div>
+    
+
+    
+
+    
+
+    <div class="slice-deps">Dependencies: slices 3</div>
+
+    <details class="comment-collapse">
+      <summary class="comment-collapse-trigger">+ Leave a comment</summary>
+      <div class="comment-collapse-body">
+        <textarea data-section="slice-8" data-comment-for="slice-8" placeholder="Comments on slice 8..."></textarea>
+      </div>
+    </details>
+  </div>
+</details>
+<details class="slice-card" id="slice-9" data-slice="9" data-slice-name="slice-9" data-status="pending" data-approval="pending">
+  <summary class="slice-summary" aria-label="Slice 9: Add internal/launcher/container/ package: preflight, wrap, paths">
     <span class="slice-num">#9</span>
-    <span class="slice-name">Add internal/launcher/container/ package: preflight, wrap, paths</span>
-    <span class="badge badge-pending">S</span>
-    <span class="badge badge-pending">Low</span>
-    <span class="badge badge-pending" data-badge-for="slice-9">Pending</span>
-  </div>
-  
-  <div class="slice-field"><div class="slice-field-label">What</div><div class="slice-field-value" data-markdown="">Create package `internal/launcher/container/` with three files: - `preflight.go` — exports `IsDevcontainer() bool` that returns true when
-  `HTMLGRAPH_DEVCONTAINER=1` is set OR `/workspaces` exists on the
-  filesystem (VS Code devcontainer convention). Also exports
-  `MustHaveBinaryInContainer() error` that checks the binary is on PATH
-  inside the container and returns a human-readable error if not.
-- `paths.go` — exports `PluginRoots() []string` returning the container-local
-  paths for Claude, Codex, and Gemini config dirs (e.g.
-  `/home/vscode/.claude`, `/home/vscode/.codex`, `/home/vscode/.gemini`).
-- `wrap.go` — exports `WrapArgs(args []string) []string` that prepends
-  any container-specific environment setup (e.g. ensuring PATH includes
-  `/home/vscode/.local/bin`) before the underlying command args. Initially
-  this may be a no-op pass-through; the structure is what matters for the
-  subsequent slice.
-Write unit tests in `internal/launcher/container/container_test.go`.
-</div></div>
-  <div class="slice-field"><div class="slice-field-label">Why</div><div class="slice-field-value" data-markdown="">Workstream D (slices 9-11) depends on a clean abstraction layer that the launcher commands (claude.go, codex.go, gemini.go, yolo.go) can import without duplicating devcontainer detection logic. This slice creates that layer; slice 10 wires it into the launcher commands.
-</div></div>
-  <div class="slice-field"><div class="slice-field-label">Files</div><div class="slice-field-value"><code>internal/launcher/container/preflight.go, internal/launcher/container/paths.go, internal/launcher/container/wrap.go, internal/launcher/container/container_test.go</code></div></div>
-  <div class="slice-field"><div class="slice-field-label">Done when</div><ul class="slice-done-list"><li data-markdown="">`IsDevcontainer()` returns true when HTMLGRAPH_DEVCONTAINER=1 is set</li><li data-markdown="">`IsDevcontainer()` returns true in a devcontainer where `/workspaces` exists</li><li data-markdown="">`IsDevcontainer()` returns false in a normal host environment</li><li data-markdown="">`go test ./internal/launcher/container/...` passes</li><li data-markdown="">`go vet ./internal/launcher/container/...` clean</li></ul></div>
-  
-  <div class="slice-field"><div class="slice-field-label">Test Strategy</div><div class="slice-field-value slice-tests" data-markdown="">Unit: TestIsDevcontainer_EnvSet, TestIsDevcontainer_WorkspacesPath,
-  TestIsDevcontainer_HostEnv, TestPluginRoots, TestWrapArgs in container_test.go.
-Integration: Run `go test` inside the devcontainer — TestIsDevcontainer_WorkspacesPath
-  should pass automatically.
-Regression: `go build ./...` clean. No other internal packages affected.
-</div></div>
-  <div class="slice-deps">Dependencies: slices 1</div>
-  <div class="approval-row">
-    <label><input type="checkbox" data-section="slice-9" data-action="approve"> Approve slice</label>
-    <textarea data-section="slice-9" data-comment-for="slice-9" placeholder="Comments on slice 9..."></textarea>
-  </div>
+    <span class="slice-title-col">
+      <span class="slice-name">Add internal/launcher/container/ package: preflight, wrap, paths</span>
+      <span class="slice-preview">Create package internal/launcher/container/ with three files: - preflight.go — exports IsDevcontainer() bool that returns true when</span>
+      <span class="slice-meta-row">
+        <span class="slice-summary-badges">
+          <span class="badge badge-pending badge-sm">S</span>
+          <span class="badge badge-pending badge-sm">Low</span>
+          
+          
+          <span class="badge badge-pending badge-sm slice-approval-badge" data-badge-for="slice-9">Pending</span>
+          
+          
+        </span>
+        <span class="slice-actions" onclick="event.stopPropagation()">
+          <span class="approval-segmented" role="group" aria-label="Approval action">
+            <label class="seg-btn seg-approve" title="Approve">
+              <input type="radio" name="slice-9-approval" value="approved" data-section="slice-9" data-action="approve" aria-label="Approve slice 9">
+              &#10003;
+            </label>
+            <label class="seg-btn seg-changes" title="Request changes">
+              <input type="radio" name="slice-9-approval" value="changes_requested" data-section="slice-9" data-action="approve" aria-label="Request changes for slice 9">
+              &#8635;
+            </label>
+            <label class="seg-btn seg-reject" title="Reject">
+              <input type="radio" name="slice-9-approval" value="rejected" data-section="slice-9" data-action="approve" aria-label="Reject slice 9">
+              &#10005;
+            </label>
+          </span>
+        </span>
+      </span>
+    </span>
+    <span class="slice-chevron" aria-hidden="true"></span>
+  </summary>
+
+  <div class="slice-body">
+    
+      
+      <div class="slice-field slice-what">
+        <div class="slice-field-label">What</div>
+        <div class="slice-field-value">
+          
+          <input type="checkbox" id="slice-9-what-reveal" class="reveal-toggle">
+          <div class="markdown-block reveal-content serif-prose"><p>Create package <code>internal/launcher/container/</code> with three files: - <code>preflight.go</code> — exports <code>IsDevcontainer() bool</code> that returns true when
+<code>HTMLGRAPH_DEVCONTAINER=1</code> is set OR <code>/workspaces</code> exists on the
+filesystem (VS Code devcontainer convention). Also exports
+<code>MustHaveBinaryInContainer() error</code> that checks the binary is on PATH
+inside the container and returns a human-readable error if not.</p>
+<ul>
+<li><code>paths.go</code> — exports <code>PluginRoots() []string</code> returning the container-local
+paths for Claude, Codex, and Gemini config dirs (e.g.
+<code>/home/vscode/.claude</code>, <code>/home/vscode/.codex</code>, <code>/home/vscode/.gemini</code>).</li>
+<li><code>wrap.go</code> — exports <code>WrapArgs(args []string) []string</code> that prepends
+any container-specific environment setup (e.g. ensuring PATH includes
+<code>/home/vscode/.local/bin</code>) before the underlying command args. Initially
+this may be a no-op pass-through; the structure is what matters for the
+subsequent slice.
+Write unit tests in <code>internal/launcher/container/container_test.go</code>.</li>
+</ul>
 </div>
-<div class="slice-card" data-slice="10" data-slice-name="slice-10" data-status="pending">
-  <div class="slice-header">
+          <label for="slice-9-what-reveal" class="reveal-label">Show full description</label>
+          
+        </div>
+      </div>
+      
+      
+      <div class="slice-field slice-why">
+        <div class="slice-field-label">Why</div>
+        <div class="slice-field-value">
+          
+          <div class="markdown-block serif-prose"><p>Workstream D (slices 9-11) depends on a clean abstraction layer that the launcher commands (claude.go, codex.go, gemini.go, yolo.go) can import without duplicating devcontainer detection logic. This slice creates that layer; slice 10 wires it into the launcher commands.</p>
+</div>
+          
+        </div>
+      </div>
+      
+      
+      <div class="slice-field">
+        <div class="slice-field-label">Files</div>
+        <div class="slice-field-value"><code>internal/launcher/container/preflight.go, internal/launcher/container/paths.go, internal/launcher/container/wrap.go, internal/launcher/container/container_test.go</code></div>
+      </div>
+      
+      
+      <div class="slice-field">
+        <div class="slice-field-label">Done when</div>
+        <ul class="slice-done-list"><li>`IsDevcontainer()` returns true when HTMLGRAPH_DEVCONTAINER=1 is set</li><li>`IsDevcontainer()` returns true in a devcontainer where `/workspaces` exists</li><li>`IsDevcontainer()` returns false in a normal host environment</li><li>`go test ./internal/launcher/container/...` passes</li><li>`go vet ./internal/launcher/container/...` clean</li></ul>
+      </div>
+      
+    
+
+    
+
+    
+    <div class="slice-field slice-tests-field">
+      <div class="slice-field-label">Test Strategy</div>
+      <div class="slice-field-value">
+        
+        
+        <div class="test-strategy">
+          
+          <div class="test-group" data-kind="unit">
+            <span class="test-chip">UNIT &middot; 1</span>
+            <ul><li>TestIsDevcontainer_EnvSet, TestIsDevcontainer_WorkspacesPath,</li></ul>
+          </div>
+          
+          <div class="test-group" data-kind="other">
+            <span class="test-chip">OTHER &middot; 2</span>
+            <ul><li>TestIsDevcontainer_HostEnv, TestPluginRoots, TestWrapArgs in container_test.go.</li><li>should pass automatically.</li></ul>
+          </div>
+          
+          <div class="test-group" data-kind="integration">
+            <span class="test-chip">INTEGRATION &middot; 1</span>
+            <ul><li>Run `go test` inside the devcontainer — TestIsDevcontainer_WorkspacesPath</li></ul>
+          </div>
+          
+          <div class="test-group" data-kind="regression">
+            <span class="test-chip">REGRESSION &middot; 1</span>
+            <ul><li>`go build ./...` clean. No other internal packages affected.</li></ul>
+          </div>
+          
+        </div>
+        
+      </div>
+    </div>
+    
+
+    
+
+    
+
+    <div class="slice-deps">Dependencies: slices 1</div>
+
+    <details class="comment-collapse">
+      <summary class="comment-collapse-trigger">+ Leave a comment</summary>
+      <div class="comment-collapse-body">
+        <textarea data-section="slice-9" data-comment-for="slice-9" placeholder="Comments on slice 9..."></textarea>
+      </div>
+    </details>
+  </div>
+</details>
+<details class="slice-card" id="slice-10" data-slice="10" data-slice-name="slice-10" data-status="pending" data-approval="pending">
+  <summary class="slice-summary" aria-label="Slice 10: Add --container flag to claude/codex/gemini/yolo and wire HTMLGRAPH_DEVCONTAINER=1">
     <span class="slice-num">#10</span>
-    <span class="slice-name">Add --container flag to claude/codex/gemini/yolo and wire HTMLGRAPH_DEVCONTAINER=1</span>
-    <span class="badge badge-revision">M</span>
-    <span class="badge badge-revision">Med</span>
-    <span class="badge badge-pending" data-badge-for="slice-10">Pending</span>
-  </div>
-  
-  <div class="slice-field"><div class="slice-field-label">What</div><div class="slice-field-value" data-markdown="">Edit `cmd/htmlgraph/claude.go`, `cmd/htmlgraph/codex.go`, `cmd/htmlgraph/gemini.go`, `cmd/htmlgraph/yolo.go`, and `cmd/htmlgraph/dev.go` to add a `--container` boolean flag. When `--container` is true (or `HTMLGRAPH_DEVCONTAINER=1` is set), the launcher must apply the following, scoped to only those launchers where the mutation actually exists: (1) In `claude.go` and `yolo.go` (the only launchers that call `removeMarketplaceHtmlgraph()`): skip the `removeMarketplaceHtmlgraph()` call. Also skip `setPluginEnabled()` calls that modify `~/.claude/settings.json`, the `os.RemoveAll` calls that wipe `~/.claude/plugins/marketplaces/htmlgraph` and `~/.claude/plugins/cache/`, and any `installOrUpdatePlugin()` call. List of actual mutations to skip in claude.go: removeMarketplaceHtmlgraph() (line 161), setPluginEnabled() (line 249), os.RemoveAll on plugin cache dirs (lines 123-130). (2) In `codex.go` and `gemini.go`: `--container` is a no-op stub flag (accepted, ignored, clearly documented in code comments) — these launchers have no host-mutation calls equivalent to removeMarketplaceHtmlgraph, so there is nothing to skip. Do not claim to skip mutations that do not exist. (3) Call `container.IsDevcontainer()` from slice 9 to auto-detect the flag when the env var is set in all launchers. (4) In `yolo.go`, when `--container` is active, force `noWorktree=true` and log a single message &#34;container mode: worktree creation skipped&#34;. (5) In `dev.go`, default `container` to `container.IsDevcontainer()` so the devcontainer auto-applies container mode.
-</div></div>
-  <div class="slice-field"><div class="slice-field-label">Why</div><div class="slice-field-value" data-markdown="">In a devcontainer the host filesystem is bind-mounted; `removeMarketplaceHtmlgraph` and the associated cache-wipe calls in claude.go mutate host paths that may be volume-mounted or non-writable. Skipping those specific mutations when `--container` prevents errors and unexpected side effects. `--container` also makes yolo safe to run inside the devcontainer without worktree isolation (which requires host git). Codex and gemini launchers have no equivalent host mutations, so stub-only is the honest scope.
-</div></div>
-  <div class="slice-field"><div class="slice-field-label">Files</div><div class="slice-field-value"><code>cmd/htmlgraph/claude.go, cmd/htmlgraph/codex.go, cmd/htmlgraph/gemini.go, cmd/htmlgraph/yolo.go, cmd/htmlgraph/dev.go</code></div></div>
-  <div class="slice-field"><div class="slice-field-label">Done when</div><ul class="slice-done-list"><li data-markdown="">`htmlgraph claude --container` starts without calling removeMarketplaceHtmlgraph, setPluginEnabled, or os.RemoveAll on plugin cache dirs</li><li data-markdown="">`htmlgraph yolo --container` logs &#39;container mode: worktree creation skipped&#39; and sets noWorktree</li><li data-markdown="">`HTMLGRAPH_DEVCONTAINER=1 htmlgraph yolo` behaves identically to `htmlgraph yolo --container`</li><li data-markdown="">codex.go and gemini.go accept `--container` without error but document it as a no-op in code comments</li><li data-markdown="">`go test ./cmd/htmlgraph/...` passes</li></ul></div>
-  
-  <div class="slice-field"><div class="slice-field-label">Test Strategy</div><div class="slice-field-value slice-tests" data-markdown="">Unit: TestContainerFlagSkipsMarketplace in claude_test.go (or new file) —
-  mock removeMarketplaceHtmlgraph, assert it is not called when --container.
-  TestYoloContainerNoWorktree — assert noWorktree=true when --container.
-  TestCodexContainerFlagNoOp — assert codex.go accepts --container without error.
-Integration: Run `htmlgraph claude --container --dry-run` (if dry-run exists)
-  in devcontainer, confirm no marketplace operations are attempted.
-Regression: Existing codex_test.go, gemini_test.go, yolo_test.go must pass.
-  Default (non-container) behavior unchanged.
-</div></div>
-  <div class="slice-deps">Dependencies: slices 9</div>
-  <div class="approval-row">
-    <label><input type="checkbox" data-section="slice-10" data-action="approve"> Approve slice</label>
-    <textarea data-section="slice-10" data-comment-for="slice-10" placeholder="Comments on slice 10..."></textarea>
-  </div>
+    <span class="slice-title-col">
+      <span class="slice-name">Add --container flag to claude/codex/gemini/yolo and wire HTMLGRAPH_DEVCONTAINER=1</span>
+      <span class="slice-preview">Edit cmd/htmlgraph/claude.go, cmd/htmlgraph/codex.go, cmd/htmlgraph/gemini.go, cmd/htmlgraph/yolo.go, and cmd/htmlgraph/dev.go to add a --co…</span>
+      <span class="slice-meta-row">
+        <span class="slice-summary-badges">
+          <span class="badge badge-revision badge-sm">M</span>
+          <span class="badge badge-revision badge-sm">Med</span>
+          
+          
+          <span class="badge badge-pending badge-sm slice-approval-badge" data-badge-for="slice-10">Pending</span>
+          
+          
+        </span>
+        <span class="slice-actions" onclick="event.stopPropagation()">
+          <span class="approval-segmented" role="group" aria-label="Approval action">
+            <label class="seg-btn seg-approve" title="Approve">
+              <input type="radio" name="slice-10-approval" value="approved" data-section="slice-10" data-action="approve" aria-label="Approve slice 10">
+              &#10003;
+            </label>
+            <label class="seg-btn seg-changes" title="Request changes">
+              <input type="radio" name="slice-10-approval" value="changes_requested" data-section="slice-10" data-action="approve" aria-label="Request changes for slice 10">
+              &#8635;
+            </label>
+            <label class="seg-btn seg-reject" title="Reject">
+              <input type="radio" name="slice-10-approval" value="rejected" data-section="slice-10" data-action="approve" aria-label="Reject slice 10">
+              &#10005;
+            </label>
+          </span>
+        </span>
+      </span>
+    </span>
+    <span class="slice-chevron" aria-hidden="true"></span>
+  </summary>
+
+  <div class="slice-body">
+    
+      
+      <div class="slice-field slice-what">
+        <div class="slice-field-label">What</div>
+        <div class="slice-field-value">
+          
+          <input type="checkbox" id="slice-10-what-reveal" class="reveal-toggle">
+          <div class="markdown-block reveal-content serif-prose"><p>Edit <code>cmd/htmlgraph/claude.go</code>, <code>cmd/htmlgraph/codex.go</code>, <code>cmd/htmlgraph/gemini.go</code>, <code>cmd/htmlgraph/yolo.go</code>, and <code>cmd/htmlgraph/dev.go</code> to add a <code>--container</code> boolean flag. When <code>--container</code> is true (or <code>HTMLGRAPH_DEVCONTAINER=1</code> is set), the launcher must apply the following, scoped to only those launchers where the mutation actually exists: (1) In <code>claude.go</code> and <code>yolo.go</code> (the only launchers that call <code>removeMarketplaceHtmlgraph()</code>): skip the <code>removeMarketplaceHtmlgraph()</code> call. Also skip <code>setPluginEnabled()</code> calls that modify <code>~/.claude/settings.json</code>, the <code>os.RemoveAll</code> calls that wipe <code>~/.claude/plugins/marketplaces/htmlgraph</code> and <code>~/.claude/plugins/cache/</code>, and any <code>installOrUpdatePlugin()</code> call. List of actual mutations to skip in claude.go: removeMarketplaceHtmlgraph() (line 161), setPluginEnabled() (line 249), os.RemoveAll on plugin cache dirs (lines 123-130). (2) In <code>codex.go</code> and <code>gemini.go</code>: <code>--container</code> is a no-op stub flag (accepted, ignored, clearly documented in code comments) — these launchers have no host-mutation calls equivalent to removeMarketplaceHtmlgraph, so there is nothing to skip. Do not claim to skip mutations that do not exist. (3) Call <code>container.IsDevcontainer()</code> from slice 9 to auto-detect the flag when the env var is set in all launchers. (4) In <code>yolo.go</code>, when <code>--container</code> is active, force <code>noWorktree=true</code> and log a single message &#34;container mode: worktree creation skipped&#34;. (5) In <code>dev.go</code>, default <code>container</code> to <code>container.IsDevcontainer()</code> so the devcontainer auto-applies container mode.</p>
 </div>
-<div class="slice-card" data-slice="11" data-slice-name="slice-11" data-status="pending">
-  <div class="slice-header">
+          <label for="slice-10-what-reveal" class="reveal-label">Show full description</label>
+          
+        </div>
+      </div>
+      
+      
+      <div class="slice-field slice-why">
+        <div class="slice-field-label">Why</div>
+        <div class="slice-field-value">
+          
+          <input type="checkbox" id="slice-10-why-reveal" class="reveal-toggle">
+          <div class="markdown-block reveal-content serif-prose"><p>In a devcontainer the host filesystem is bind-mounted; <code>removeMarketplaceHtmlgraph</code> and the associated cache-wipe calls in claude.go mutate host paths that may be volume-mounted or non-writable. Skipping those specific mutations when <code>--container</code> prevents errors and unexpected side effects. <code>--container</code> also makes yolo safe to run inside the devcontainer without worktree isolation (which requires host git). Codex and gemini launchers have no equivalent host mutations, so stub-only is the honest scope.</p>
+</div>
+          <label for="slice-10-why-reveal" class="reveal-label">Show full description</label>
+          
+        </div>
+      </div>
+      
+      
+      <div class="slice-field">
+        <div class="slice-field-label">Files</div>
+        <div class="slice-field-value"><code>cmd/htmlgraph/claude.go, cmd/htmlgraph/codex.go, cmd/htmlgraph/gemini.go, cmd/htmlgraph/yolo.go, cmd/htmlgraph/dev.go</code></div>
+      </div>
+      
+      
+      <div class="slice-field">
+        <div class="slice-field-label">Done when</div>
+        <ul class="slice-done-list"><li>`htmlgraph claude --container` starts without calling removeMarketplaceHtmlgraph, setPluginEnabled, or os.RemoveAll on plugin cache dirs</li><li>`htmlgraph yolo --container` logs &#39;container mode: worktree creation skipped&#39; and sets noWorktree</li><li>`HTMLGRAPH_DEVCONTAINER=1 htmlgraph yolo` behaves identically to `htmlgraph yolo --container`</li><li>codex.go and gemini.go accept `--container` without error but document it as a no-op in code comments</li><li>`go test ./cmd/htmlgraph/...` passes</li></ul>
+      </div>
+      
+    
+
+    
+
+    
+    <div class="slice-field slice-tests-field">
+      <div class="slice-field-label">Test Strategy</div>
+      <div class="slice-field-value">
+        
+        
+        <div class="test-strategy">
+          
+          <div class="test-group" data-kind="unit">
+            <span class="test-chip">UNIT &middot; 1</span>
+            <ul><li>TestContainerFlagSkipsMarketplace in claude_test.go (or new file) —</li></ul>
+          </div>
+          
+          <div class="test-group" data-kind="other">
+            <span class="test-chip">OTHER &middot; 5</span>
+            <ul><li>mock removeMarketplaceHtmlgraph, assert it is not called when --container.</li><li>TestYoloContainerNoWorktree — assert noWorktree=true when --container.</li><li>TestCodexContainerFlagNoOp — assert codex.go accepts --container without error.</li><li>in devcontainer, confirm no marketplace operations are attempted.</li><li>Default (non-container) behavior unchanged.</li></ul>
+          </div>
+          
+          <div class="test-group" data-kind="integration">
+            <span class="test-chip">INTEGRATION &middot; 1</span>
+            <ul><li>Run `htmlgraph claude --container --dry-run` (if dry-run exists)</li></ul>
+          </div>
+          
+          <div class="test-group" data-kind="regression">
+            <span class="test-chip">REGRESSION &middot; 1</span>
+            <ul><li>Existing codex_test.go, gemini_test.go, yolo_test.go must pass.</li></ul>
+          </div>
+          
+        </div>
+        
+      </div>
+    </div>
+    
+
+    
+
+    
+
+    <div class="slice-deps">Dependencies: slices 9</div>
+
+    <details class="comment-collapse">
+      <summary class="comment-collapse-trigger">+ Leave a comment</summary>
+      <div class="comment-collapse-body">
+        <textarea data-section="slice-10" data-comment-for="slice-10" placeholder="Comments on slice 10..."></textarea>
+      </div>
+    </details>
+  </div>
+</details>
+<details class="slice-card" id="slice-11" data-slice="11" data-slice-name="slice-11" data-status="pending" data-approval="pending">
+  <summary class="slice-summary" aria-label="Slice 11: Add .devcontainer/Dockerfile and wire postCreateCommand to install htmlgraph CLI">
     <span class="slice-num">#11</span>
-    <span class="slice-name">Add .devcontainer/Dockerfile and wire postCreateCommand to install htmlgraph CLI</span>
-    <span class="badge badge-pending">S</span>
-    <span class="badge badge-pending">Low</span>
-    <span class="badge badge-pending" data-badge-for="slice-11">Pending</span>
-  </div>
-  
-  <div class="slice-field"><div class="slice-field-label">What</div><div class="slice-field-value" data-markdown="">Edit `.devcontainer/Dockerfile` (already exists) to add a layer that runs `go install ./cmd/htmlgraph/` so the CLI binary is available at container creation time without requiring a manual `htmlgraph build`. If the project is bind-mounted (not baked into the image), the `postCreateCommand` in `.devcontainer/devcontainer.json` (currently `bash .devcontainer/post-create.sh`) handles the install instead — add `go install ./cmd/htmlgraph/` as a step in `post-create.sh` before the existing htmlgraph references at line 28. Ensure `GOBIN` is set to `/home/vscode/.local/bin` in the Dockerfile ENV so the installed binary lands on PATH. Update `post-create.sh` to verify `htmlgraph version` runs after install and bail with a clear error if it does not.
-</div></div>
-  <div class="slice-field"><div class="slice-field-label">Why</div><div class="slice-field-value" data-markdown="">Currently the devcontainer relies on `htmlgraph build` being run manually after `post-create.sh`. If the binary is missing, every htmlgraph CLI call in `post-create.sh` (line 75&#43;) silently fails. Auto-provisioning via `go install` makes the container self-contained and is the recommended devcontainer pattern for Go projects.
-</div></div>
-  <div class="slice-field"><div class="slice-field-label">Files</div><div class="slice-field-value"><code>.devcontainer/Dockerfile, .devcontainer/post-create.sh, .devcontainer/devcontainer.json</code></div></div>
-  <div class="slice-field"><div class="slice-field-label">Done when</div><ul class="slice-done-list"><li data-markdown="">Rebuilding the devcontainer from scratch results in `htmlgraph version` succeeding without manual steps</li><li data-markdown="">`which htmlgraph` inside the container returns `/home/vscode/.local/bin/htmlgraph`</li><li data-markdown="">`post-create.sh` exits non-zero with a clear error if `htmlgraph version` fails after install</li></ul></div>
-  
-  <div class="slice-field"><div class="slice-field-label">Test Strategy</div><div class="slice-field-value slice-tests" data-markdown="">Unit: No Go unit tests — bash assertion in post-create.sh itself is the gate.
-Integration: Rebuild the devcontainer in CI (GitHub Actions devcontainer-verify
-  workflow if it exists, or add one), assert `htmlgraph version` exits 0.
-Regression: Existing `scripts/devcontainer-verify.sh` must still pass.
-  post-create.sh must not break for existing volume-mount setups.
-</div></div>
-  <div class="slice-deps">Dependencies: slices 9,10</div>
-  <div class="approval-row">
-    <label><input type="checkbox" data-section="slice-11" data-action="approve"> Approve slice</label>
-    <textarea data-section="slice-11" data-comment-for="slice-11" placeholder="Comments on slice 11..."></textarea>
-  </div>
+    <span class="slice-title-col">
+      <span class="slice-name">Add .devcontainer/Dockerfile and wire postCreateCommand to install htmlgraph CLI</span>
+      <span class="slice-preview">Edit .devcontainer/Dockerfile (already exists) to add a layer that runs go install ./cmd/htmlgraph/ so the CLI binary is available at contai…</span>
+      <span class="slice-meta-row">
+        <span class="slice-summary-badges">
+          <span class="badge badge-pending badge-sm">S</span>
+          <span class="badge badge-pending badge-sm">Low</span>
+          
+          
+          <span class="badge badge-pending badge-sm slice-approval-badge" data-badge-for="slice-11">Pending</span>
+          
+          
+        </span>
+        <span class="slice-actions" onclick="event.stopPropagation()">
+          <span class="approval-segmented" role="group" aria-label="Approval action">
+            <label class="seg-btn seg-approve" title="Approve">
+              <input type="radio" name="slice-11-approval" value="approved" data-section="slice-11" data-action="approve" aria-label="Approve slice 11">
+              &#10003;
+            </label>
+            <label class="seg-btn seg-changes" title="Request changes">
+              <input type="radio" name="slice-11-approval" value="changes_requested" data-section="slice-11" data-action="approve" aria-label="Request changes for slice 11">
+              &#8635;
+            </label>
+            <label class="seg-btn seg-reject" title="Reject">
+              <input type="radio" name="slice-11-approval" value="rejected" data-section="slice-11" data-action="approve" aria-label="Reject slice 11">
+              &#10005;
+            </label>
+          </span>
+        </span>
+      </span>
+    </span>
+    <span class="slice-chevron" aria-hidden="true"></span>
+  </summary>
+
+  <div class="slice-body">
+    
+      
+      <div class="slice-field slice-what">
+        <div class="slice-field-label">What</div>
+        <div class="slice-field-value">
+          
+          <input type="checkbox" id="slice-11-what-reveal" class="reveal-toggle">
+          <div class="markdown-block reveal-content serif-prose"><p>Edit <code>.devcontainer/Dockerfile</code> (already exists) to add a layer that runs <code>go install ./cmd/htmlgraph/</code> so the CLI binary is available at container creation time without requiring a manual <code>htmlgraph build</code>. If the project is bind-mounted (not baked into the image), the <code>postCreateCommand</code> in <code>.devcontainer/devcontainer.json</code> (currently <code>bash .devcontainer/post-create.sh</code>) handles the install instead — add <code>go install ./cmd/htmlgraph/</code> as a step in <code>post-create.sh</code> before the existing htmlgraph references at line 28. Ensure <code>GOBIN</code> is set to <code>/home/vscode/.local/bin</code> in the Dockerfile ENV so the installed binary lands on PATH. Update <code>post-create.sh</code> to verify <code>htmlgraph version</code> runs after install and bail with a clear error if it does not.</p>
 </div>
+          <label for="slice-11-what-reveal" class="reveal-label">Show full description</label>
+          
+        </div>
+      </div>
+      
+      
+      <div class="slice-field slice-why">
+        <div class="slice-field-label">Why</div>
+        <div class="slice-field-value">
+          
+          <div class="markdown-block serif-prose"><p>Currently the devcontainer relies on <code>htmlgraph build</code> being run manually after <code>post-create.sh</code>. If the binary is missing, every htmlgraph CLI call in <code>post-create.sh</code> (line 75+) silently fails. Auto-provisioning via <code>go install</code> makes the container self-contained and is the recommended devcontainer pattern for Go projects.</p>
+</div>
+          
+        </div>
+      </div>
+      
+      
+      <div class="slice-field">
+        <div class="slice-field-label">Files</div>
+        <div class="slice-field-value"><code>.devcontainer/Dockerfile, .devcontainer/post-create.sh, .devcontainer/devcontainer.json</code></div>
+      </div>
+      
+      
+      <div class="slice-field">
+        <div class="slice-field-label">Done when</div>
+        <ul class="slice-done-list"><li>Rebuilding the devcontainer from scratch results in `htmlgraph version` succeeding without manual steps</li><li>`which htmlgraph` inside the container returns `/home/vscode/.local/bin/htmlgraph`</li><li>`post-create.sh` exits non-zero with a clear error if `htmlgraph version` fails after install</li></ul>
+      </div>
+      
+    
+
+    
+
+    
+    <div class="slice-field slice-tests-field">
+      <div class="slice-field-label">Test Strategy</div>
+      <div class="slice-field-value">
+        
+        
+        <div class="test-strategy">
+          
+          <div class="test-group" data-kind="unit">
+            <span class="test-chip">UNIT &middot; 1</span>
+            <ul><li>No Go unit tests — bash assertion in post-create.sh itself is the gate.</li></ul>
+          </div>
+          
+          <div class="test-group" data-kind="integration">
+            <span class="test-chip">INTEGRATION &middot; 1</span>
+            <ul><li>Rebuild the devcontainer in CI (GitHub Actions devcontainer-verify</li></ul>
+          </div>
+          
+          <div class="test-group" data-kind="other">
+            <span class="test-chip">OTHER &middot; 2</span>
+            <ul><li>workflow if it exists, or add one), assert `htmlgraph version` exits 0.</li><li>post-create.sh must not break for existing volume-mount setups.</li></ul>
+          </div>
+          
+          <div class="test-group" data-kind="regression">
+            <span class="test-chip">REGRESSION &middot; 1</span>
+            <ul><li>Existing `scripts/devcontainer-verify.sh` must still pass.</li></ul>
+          </div>
+          
+        </div>
+        
+      </div>
+    </div>
+    
+
+    
+
+    
+
+    <div class="slice-deps">Dependencies: slices 9,10</div>
+
+    <details class="comment-collapse">
+      <summary class="comment-collapse-trigger">+ Leave a comment</summary>
+      <div class="comment-collapse-body">
+        <textarea data-section="slice-11" data-comment-for="slice-11" placeholder="Comments on slice 11..."></textarea>
+      </div>
+    </details>
+  </div>
+</details>
 
     <!--PLAN_SLICE_CARDS-->
   </div>
 </details>
 
-<!-- Design Decisions -->
+<!-- Design Decisions (hidden for v2 plans — slice cards carry their own questions) -->
 <details id="questions" class="section-card" data-phase="questions" data-status="pending">
   <summary><span>Design Decisions</span><span class="badge badge-pending" data-badge-for="questions">Pending</span></summary>
   <div class="section-body">
@@ -1096,30 +2418,6 @@ Regression: Existing `scripts/devcontainer-verify.sh` must still pass.
 
 </article>
 </div><!-- /.plan-content -->
-
-<!-- Drag handle for resizing chat sidebar -->
-<div class="chat-resize-handle" id="chat-resize-handle"></div>
-
-<!-- Chat sidebar -->
-<aside class="chat-sidebar" id="chat-sidebar">
-  <section id="chat-panel" class="chat-panel" data-zone="chat">
-    <h2>Plan Discussion</h2>
-    <div id="chat-messages" class="chat-messages">
-      <p class="chat-notice" id="chat-empty">Ask about the plan design, slices, risks, or tradeoffs.</p>
-    </div>
-    <div class="chat-input-area">
-      <textarea id="chat-input" placeholder="Ask about the plan..." rows="2"></textarea>
-      <button id="chat-send">Send</button>
-    </div>
-  </section>
-
-  <!-- Amendments Panel -->
-  <div id="amendments-panel" class="amendments-panel" style="display:none">
-    <h3>Amendments</h3>
-    <div id="amendments-list"></div>
-    <div id="amendments-summary" class="amendments-summary"></div>
-  </div>
-</aside>
 </div><!-- /.plan-layout -->
 
 <script src="https://d3js.org/d3.v7.min.js"></script>
@@ -1129,10 +2427,10 @@ Regression: Existing `scripts/devcontainer-verify.sh` must still pass.
 // rendered HTML works whether the file is served at the legacy
 // /plans/<id>.html path (single-project server) or at /p/<id>/plans/<id>.html
 // (via the parent-doorway reverse proxy). Every fetch() on this page
-// prefixes window.htmlgraphPlanBase, which is '' at the root and
+// prefixes window.wipnotePlanBase, which is '' at the root and
 // '/p/<id>' under the proxy. This is the per-project routing fix for
 // the multi-project hardening re-architecture (plan-237fb251).
-window.htmlgraphPlanBase = (function() {
+window.wipnotePlanBase = (function() {
   var p = window.location.pathname || '';
   if (p.indexOf('/p/') !== 0) return '';
   var segs = p.split('/').filter(function(s) { return s !== ''; });
@@ -1194,33 +2492,137 @@ var planId=(function(){var a=document.querySelector('article[id]');return a?a.id
 
   function escHtml(s){var d=document.createElement('div');d.textContent=s;return d.innerHTML}
 
-  document.querySelectorAll('input[data-action="approve"]').forEach(function(cb){
-    cb.addEventListener('change',function(){
-      var sec=this.dataset.section;
-      var badge=document.querySelector('[data-badge-for="'+sec+'"]');
-      if(badge) setBadge(badge,this.checked);
-      var details=this.closest('details[data-phase]');
-      if(details) details.dataset.status=this.checked?'approved':'pending';
-      if(sec.startsWith('slice-')){
-        var n=sec.split('-')[1];
-        var node=document.getElementById('node-'+n);
-        if(node) node.dataset.status=this.checked?'approved':'pending';
-        var all=document.querySelectorAll('input[data-section^="slice-"][data-action="approve"]');
-        var allOk=Array.prototype.every.call(all,function(c){return c.checked});
-        var sb=document.querySelector('[data-badge-for="slices"]');
-        if(sb) setBadge(sb,allOk);
-        var sd=document.querySelector('[data-phase="slices"]');
-        if(sd) sd.dataset.status=allOk?'approved':'pending';
-      }
-      updateProgress();
-      if(planId){
-        fetch((window.htmlgraphPlanBase||'')+'/api/plans/'+planId+'/feedback',{
-          method:'POST',
-          headers:{'Content-Type':'application/json'},
-          body:JSON.stringify({section:sec,action:'approve',value:String(this.checked),question_id:''})
+  // showFeedbackError: display a visible toast near the top of the page for
+  // any feedback write that returns non-2xx. The toast auto-dismisses after
+  // 8 seconds but can be dismissed early by clicking. Uses inline styles so
+  // it works whether the plan page is loaded standalone or embedded.
+  function showFeedbackError(msg){
+    var toast=document.createElement('div');
+    toast.setAttribute('role','alert');
+    toast.style.cssText='position:fixed;top:16px;right:16px;z-index:9999;max-width:420px;padding:12px 16px;background:rgba(239,68,68,.95);color:#fff;border-radius:8px;font-size:.85rem;line-height:1.4;box-shadow:0 4px 16px rgba(0,0,0,.5);display:flex;align-items:flex-start;gap:10px;cursor:pointer';
+    var icon=document.createElement('span');
+    icon.textContent='⚠️';
+    icon.style.flexShrink='0';
+    var text=document.createElement('span');
+    text.textContent='Feedback not saved: '+msg;
+    var close=document.createElement('span');
+    close.textContent='×';
+    close.style.cssText='margin-left:auto;font-size:1.1rem;line-height:1;flex-shrink:0;opacity:.8';
+    toast.appendChild(icon);
+    toast.appendChild(text);
+    toast.appendChild(close);
+    document.body.appendChild(toast);
+    var tid=setTimeout(function(){if(toast.parentNode)toast.parentNode.removeChild(toast);},8000);
+    toast.addEventListener('click',function(){clearTimeout(tid);if(toast.parentNode)toast.parentNode.removeChild(toast);});
+  }
+
+  // revertApproval: restore a section's approval control to prevVal after a
+  // failed POST, then re-run all downstream UI updates without firing another
+  // network request. Temporarily suppresses change events to prevent re-POST.
+  function revertApproval(sec,prevVal){
+    var radio=document.querySelector('input[type="radio"][data-section="'+sec+'"][data-action="approve"][value="'+prevVal+'"]');
+    if(radio){
+      radio.checked=true;
+    } else {
+      var cb=document.querySelector('input[type="checkbox"][data-section="'+sec+'"][data-action="approve"]');
+      if(cb) cb.checked=(prevVal==='approved'||prevVal==='true');
+    }
+    // Re-run downstream visual updates without a new fetch
+    var dummy=document.querySelector('[data-section="'+sec+'"][data-action="approve"]');
+    if(dummy) handleApprovalVisuals(sec,prevVal);
+  }
+
+  // handleApprovalVisuals: apply all downstream visual state changes for a
+  // section approval value WITHOUT firing a network request (used both by
+  // handleApprovalChange and revertApproval).
+  function handleApprovalVisuals(sec,val){
+    var isApproved=(val==='approved');
+    var badge=document.querySelector('[data-badge-for="'+sec+'"]');
+    if(badge) setBadge(badge,isApproved);
+    var phaseDetails=document.querySelector('[data-action="approve"][data-section="'+sec+'"]');
+    var pd=phaseDetails&&phaseDetails.closest('details[data-phase]');
+    if(pd) pd.dataset.status=isApproved?'approved':'pending';
+    if(sec.startsWith('slice-')&&sec.split('-').length===2){
+      var n=sec.split('-')[1];
+      var sliceCard=document.getElementById('slice-'+n);
+      if(sliceCard) sliceCard.dataset.approval=val;
+      var node=document.getElementById('node-'+n);
+      if(node) node.dataset.status=isApproved?'approved':'pending';
+      document.querySelectorAll('[data-dot-for="'+n+'"]').forEach(function(dot){
+        dot.dataset.approval=val;
+      });
+      var allSliceInputs=document.querySelectorAll('input[data-section^="slice-"][data-action="approve"]');
+      var sliceNums={};
+      Array.prototype.forEach.call(allSliceInputs,function(inp){
+        sliceNums[inp.dataset.section]=true;
+      });
+      var allOk=Object.keys(sliceNums).every(function(s){
+        return getApprovalValue(s)==='approved';
+      });
+      var sb=document.querySelector('[data-badge-for="slices"]');
+      if(sb) setBadge(sb,allOk);
+      var sd=document.querySelector('[data-phase="slices"]');
+      if(sd) sd.dataset.status=allOk?'approved':'pending';
+    }
+    updateProgress();
+  }
+
+  // Helper: get effective approval value for a slice section.
+  // For radio-based slice controls, returns the selected value or 'pending'.
+  // For checkbox-based controls (design, outline), returns 'approved' or 'pending'.
+  function getApprovalValue(sec){
+    // Try radio group first (slice-N approval segmented control)
+    var checked=document.querySelector('input[type="radio"][data-section="'+sec+'"][data-action="approve"]:checked');
+    if(checked) return checked.value;
+    // Fallback: checkbox
+    var cb=document.querySelector('input[type="checkbox"][data-section="'+sec+'"][data-action="approve"]');
+    if(cb) return cb.checked?'approved':'pending';
+    return 'pending';
+  }
+
+  // approvalServerState: tracks the last server-confirmed approval value per
+  // section key. Populated by loadExistingFeedback (GET) and successful POSTs.
+  // Used to revert optimistic UI updates when a POST fails.
+  var approvalServerState={};
+
+  function handleApprovalChange(el){
+    var sec=el.dataset.section;
+    var val=getApprovalValue(sec);
+    // Capture the last server-confirmed value for this section (or 'pending'
+    // if we have never seen a confirmed server value — i.e. the page just
+    // loaded with baked-in checked state and the first POST fails).
+    var prevVal=approvalServerState.hasOwnProperty(sec)?approvalServerState[sec]:'pending';
+    // Apply optimistic UI update
+    handleApprovalVisuals(sec,val);
+    // During initial hydration from the server GET, suppress POST — the change
+    // events are synthetic (we are restoring server state, not recording new input).
+    if(planId&&!_loadingFeedback){
+      fetch((window.wipnotePlanBase||'')+'/api/plans/'+planId+'/feedback',{
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({section:sec,action:'approve',value:(val==='approved'?'true':'false'),question_id:''})
+      }).then(function(r){
+        if(r.ok){
+          // Record the now-confirmed server state so we can revert correctly
+          // if a subsequent POST fails.
+          approvalServerState[sec]=val;
+          return;
+        }
+        return r.text().then(function(body){
+          console.error('[wipnote] feedback POST '+sec+' returned '+r.status+': '+body);
+          showFeedbackError((body&&body.trim())||('HTTP '+r.status));
+          revertApproval(sec,prevVal);
         });
-      }
-    });
+      }).catch(function(err){
+        console.error('[wipnote] feedback POST '+sec+' network error:',err);
+        showFeedbackError('Could not reach server. Is wipnote serve running?');
+        revertApproval(sec,prevVal);
+      });
+    }
+  }
+
+  document.querySelectorAll('input[data-action="approve"]').forEach(function(el){
+    el.addEventListener('change',function(){ handleApprovalChange(this); });
   });
 
   document.querySelectorAll('input[type="radio"][data-question]').forEach(function(r){
@@ -1241,11 +2643,24 @@ var planId=(function(){var a=document.querySelector('article[id]');return a?a.id
       if(headerBadge) setBadge(headerBadge,allAnswered);
       var details=document.querySelector('[data-phase="questions"]');
       if(details) details.dataset.status=allAnswered?'approved':'pending';
-      if(planId){
-        fetch((window.htmlgraphPlanBase||'')+'/api/plans/'+planId+'/feedback',{
+      // Suppress POST during hydration (bug-fddf5820, finding 8): loadExistingFeedback
+      // dispatches synthetic change events to restore answers from the server GET;
+      // re-POSTing them echoes server state back as new writes.
+      if(planId&&!_loadingFeedback){
+        var qVal=this.value,qId=this.dataset.question;
+        fetch((window.wipnotePlanBase||'')+'/api/plans/'+planId+'/feedback',{
           method:'POST',
           headers:{'Content-Type':'application/json'},
-          body:JSON.stringify({section:'questions',action:'answer',value:this.value,question_id:this.dataset.question})
+          body:JSON.stringify({section:'questions',action:'answer',value:qVal,question_id:qId})
+        }).then(function(r){
+          if(r.ok) return;
+          return r.text().then(function(body){
+            console.error('[wipnote] feedback POST questions/'+qId+' returned '+r.status+': '+body);
+            showFeedbackError((body&&body.trim())||('HTTP '+r.status+' saving answer'));
+          });
+        }).catch(function(err){
+          console.error('[wipnote] feedback POST questions network error:',err);
+          showFeedbackError('Could not reach server. Is wipnote serve running?');
         });
       }
     });
@@ -1258,6 +2673,32 @@ var planId=(function(){var a=document.querySelector('article[id]');return a?a.id
       if(badge) setBadge(badge,true);
     }
   });
+
+  // Slice-local question radio chips (data-action="answer", data-section=slice-N-question-<id>)
+  document.querySelectorAll('input[type="radio"][data-action="answer"]').forEach(function(r){
+    r.addEventListener('change',function(){
+      var sec=this.dataset.section,ansVal=this.value;
+      // Suppress POST during hydration (bug-fddf5820, finding 8) — same reason
+      // as the design/outline question radios above.
+      if(planId&&!_loadingFeedback){
+        fetch((window.wipnotePlanBase||'')+'/api/plans/'+planId+'/feedback',{
+          method:'POST',
+          headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({section:sec,action:'answer',value:ansVal,question_id:sec})
+        }).then(function(r){
+          if(r.ok) return;
+          return r.text().then(function(body){
+            console.error('[wipnote] feedback POST slice-question '+sec+' returned '+r.status+': '+body);
+            showFeedbackError((body&&body.trim())||('HTTP '+r.status+' saving answer'));
+          });
+        }).catch(function(err){
+          console.error('[wipnote] feedback POST slice-question network error:',err);
+          showFeedbackError('Could not reach server. Is wipnote serve running?');
+        });
+      }
+    });
+  });
+
   var allRows=document.querySelectorAll('[data-recap-for]');
   var allAnswered=Array.prototype.every.call(allRows,function(r){
     var b=r.querySelector('.badge');
@@ -1271,14 +2712,69 @@ var planId=(function(){var a=document.querySelector('article[id]');return a?a.id
   function updateProgress(){
     var approved=0;
     SECTIONS.forEach(function(sec){
-      var cb=document.querySelector('input[data-section="'+sec+'"][data-action="approve"]');
-      if(cb&&cb.checked) approved++;
+      if(getApprovalValue(sec)==='approved') approved++;
     });
-    document.getElementById('approvedCount').textContent=approved;
-    document.getElementById('pendingCount').textContent=SECTIONS.length-approved;
-    document.getElementById('progressFill').style.width=Math.round(approved/SECTIONS.length*100)+'%';
-    document.getElementById('finalizeBtn').disabled=(approved<SECTIONS.length);
+    var pct=SECTIONS.length>0?Math.round(approved/SECTIONS.length*100):0;
+    // Main progress bar
+    var ac=document.getElementById('approvedCount');
+    if(ac) ac.textContent=approved;
+    var pc=document.getElementById('pendingCount');
+    if(pc) pc.textContent=SECTIONS.length-approved;
+    var pf=document.getElementById('progressFill');
+    if(pf) pf.style.width=pct+'%';
+    // Finalize gates on SLICES only — every slice-N section approved — matching
+    // the dashboard review rail and the backend. design/outline are still
+    // reviewed (and counted in the progress bar above) but do not block
+    // finalize. Legacy plans with no slices fall back to the all-sections gate.
+    var sliceSecs=SECTIONS.filter(function(s){return /^slice-\d+$/.test(s);});
+    var canFinalize=sliceSecs.length>0
+      ? sliceSecs.every(function(s){return getApprovalValue(s)==='approved';})
+      : (SECTIONS.length>0 && approved===SECTIONS.length);
+    var fb=document.getElementById('finalizeBtn');
+    if(fb) fb.disabled=!canFinalize;
+    // Review rail
+    var ra=document.getElementById('railApproved');
+    if(ra) ra.textContent=approved;
+    var rf=document.getElementById('railFill');
+    if(rf) rf.style.width=pct+'%';
+    var frb=document.getElementById('finalizeRailBtn');
+    if(frb) frb.disabled=!canFinalize;
+    updateRailPending();
     updateComments();
+  }
+
+  function updateRailPending(){
+    var list=document.getElementById('railPendingList');
+    if(!list) return;
+    // Keep the "Pending" header strong
+    list.innerHTML='<strong>Pending</strong>';
+    SECTIONS.forEach(function(sec){
+      if(getApprovalValue(sec)!=='approved'){
+        var li=document.createElement('li');
+        var sliceNum=sec.startsWith('slice-')?sec.split('-')[1]:null;
+        var issueCount=0,qCount=0;
+        if(sliceNum){
+          var card=document.getElementById('slice-'+sliceNum);
+          if(card){
+            var issueBadge=card.querySelector('.badge-issues');
+            var qBadge=card.querySelector('.badge-questions');
+            if(issueBadge) issueCount=parseInt(issueBadge.textContent)||0;
+            if(qBadge) qCount=parseInt(qBadge.textContent)||0;
+          }
+        }
+        if(issueCount>0) li.dataset.hasIssues='1';
+        if(qCount>0) li.dataset.hasQuestions='1';
+        var label=sec;
+        if(sliceNum){
+          var nameEl=document.querySelector('#slice-'+sliceNum+' .slice-name');
+          label='Slice '+sliceNum+(nameEl?' ('+nameEl.textContent.trim().substring(0,20)+(nameEl.textContent.trim().length>20?'…':'')+')':'');
+        }
+        if(issueCount>0) label+=' · '+issueCount+' issue'+(issueCount>1?'s':'');
+        if(qCount>0) label+=' · '+qCount+' Q';
+        li.textContent=label;
+        list.appendChild(li);
+      }
+    });
   }
 
   function updateComments(){
@@ -1295,10 +2791,20 @@ var planId=(function(){var a=document.querySelector('article[id]');return a?a.id
     ta.addEventListener('input',function(){clearTimeout(timer);timer=setTimeout(updateComments,400)});
     ta.addEventListener('blur',function(){
       if(planId&&this.value.trim()){
-        fetch((window.htmlgraphPlanBase||'')+'/api/plans/'+planId+'/feedback',{
+        var cSec=this.dataset.section,cVal=this.value.trim();
+        fetch((window.wipnotePlanBase||'')+'/api/plans/'+planId+'/feedback',{
           method:'POST',
           headers:{'Content-Type':'application/json'},
-          body:JSON.stringify({section:this.dataset.section,action:'comment',value:this.value.trim(),question_id:''})
+          body:JSON.stringify({section:cSec,action:'comment',value:cVal,question_id:''})
+        }).then(function(r){
+          if(r.ok) return;
+          return r.text().then(function(body){
+            console.error('[wipnote] feedback POST comment '+cSec+' returned '+r.status+': '+body);
+            showFeedbackError((body&&body.trim())||('HTTP '+r.status+' saving comment'));
+          });
+        }).catch(function(err){
+          console.error('[wipnote] feedback POST comment network error:',err);
+          showFeedbackError('Could not reach server. Is wipnote serve running?');
         });
       }
     });
@@ -1315,7 +2821,7 @@ var planId=(function(){var a=document.querySelector('article[id]');return a?a.id
       btn.disabled=true;
       btn.textContent='Finalizing...';
       finalizeMsg.style.display='none';
-      fetch((window.htmlgraphPlanBase||'')+'/api/plans/'+planId+'/finalize',{
+      fetch((window.wipnotePlanBase||'')+'/api/plans/'+planId+'/finalize',{
         method:'POST',
         headers:{'Content-Type':'application/json'}
       })
@@ -1326,23 +2832,40 @@ var planId=(function(){var a=document.querySelector('article[id]');return a?a.id
             btn.textContent='Plan Finalized';
             btn.style.background='var(--approved)';
             btn.style.color='#fff';
-            if(data&&data.next_steps){
-              var pre=document.createElement('pre');
-              pre.style.cssText='margin-top:12px;padding:10px 14px;background:var(--bg-input);border:1px solid var(--border);border-radius:var(--radius);font-family:var(--mono);font-size:.78rem;text-align:left;white-space:pre-wrap;word-break:break-all;color:var(--text)';
-              pre.textContent=data.next_steps;
-              finalizeMsg.innerHTML='';
-              finalizeMsg.appendChild(pre);
-            } else {
-              finalizeMsg.textContent='Plan finalized successfully.';
+            // Render the same rich result as the dashboard review rail: created
+            // features + the agentic next/yolo commands (data.next_command /
+            // data.yolo_command — NOT the legacy data.next_steps, which the
+            // backend never returns).
+            data=data||{};
+            var preCss='margin:4px 0 0;padding:8px 12px;background:var(--bg-input);border:1px solid var(--border);border-radius:var(--radius);font-family:var(--mono);font-size:.76rem;text-align:left;white-space:pre-wrap;word-break:break-all;color:var(--text);user-select:text';
+            var html='<span style="color:var(--approved);font-weight:600">Plan finalized.</span>';
+            var feats=data.created_features||[];
+            if(feats.length){
+              html+='<div style="margin-top:8px;font-size:.78rem;color:var(--text-muted)">Features created ('+feats.length+'):</div>';
+              html+='<ul style="margin:4px 0 0;padding-left:18px;font-size:.78rem;font-family:var(--mono);color:var(--text-muted)">';
+              feats.forEach(function(f){html+='<li>'+escHtml(f)+'</li>';});
+              html+='</ul>';
             }
-            finalizeMsg.style.color='var(--approved)';
+            if(data.failures&&data.failures.length){
+              html+='<div style="margin-top:6px;font-size:.78rem;color:var(--blocked)">'+data.failures.length+' slice(s) failed to create — see server log.</div>';
+            }
+            if(data.next_command){
+              html+='<div style="margin-top:8px;font-size:.76rem;color:var(--text-muted)">Next — agentic generation (integrates review feedback):</div>';
+              html+='<pre style="'+preCss+'">'+escHtml(data.next_command)+'</pre>';
+            }
+            if(data.yolo_command){
+              html+='<div style="margin-top:6px;font-size:.76rem;color:var(--text-muted)">Or autonomous mode:</div>';
+              html+='<pre style="'+preCss+'">'+escHtml(data.yolo_command)+'</pre>';
+            }
+            finalizeMsg.innerHTML=html;
+            finalizeMsg.style.color='';
             finalizeMsg.style.display='block';
           });
         } else {
-          return r.json().then(function(data){
+          return r.text().then(function(body){
             btn.textContent='Finalize Plan';
             btn.disabled=false;
-            finalizeMsg.textContent=data.error||'Not all sections approved.';
+            finalizeMsg.textContent=body||'Not all sections approved.';
             finalizeMsg.style.color='var(--blocked)';
             finalizeMsg.style.display='block';
           });
@@ -1351,29 +2874,71 @@ var planId=(function(){var a=document.querySelector('article[id]');return a?a.id
       .catch(function(){
         btn.textContent='Finalize Plan';
         btn.disabled=false;
-        finalizeMsg.textContent='Could not reach server. Is htmlgraph serve running?';
+        finalizeMsg.textContent='Could not reach server. Is wipnote serve running?';
         finalizeMsg.style.color='var(--revision)';
         finalizeMsg.style.display='block';
       });
     });
   }
 
+  // Wire the rail finalize button to the same handler
+  var finalizeRailBtn=document.getElementById('finalizeRailBtn');
+  if(finalizeRailBtn){
+    finalizeRailBtn.addEventListener('click',function(){
+      var mainBtn=document.getElementById('finalizeBtn');
+      if(mainBtn) mainBtn.click();
+    });
+  }
+
+  // _loadingFeedback: true while loadExistingFeedback is hydrating controls
+  // from the server GET. handleApprovalChange skips POST during this window
+  // to avoid echoing server state back as new writes.
+  var _loadingFeedback=false;
+
   function loadExistingFeedback(){
     if(!planId){return;}
-    fetch((window.htmlgraphPlanBase||'')+'/api/plans/'+planId+'/feedback')
+    fetch((window.wipnotePlanBase||'')+'/api/plans/'+planId+'/feedback')
       .then(function(r){return r.ok?r.json():null;})
       .then(function(data){
         if(!data){return;}
+        _loadingFeedback=true;
         if(data.sections){
           Object.keys(data.sections).forEach(function(sec){
             var info=data.sections[sec];
-            if(info.approved){
-              var cb=document.querySelector('input[data-section="'+sec+'"][data-action="approve"]');
-              if(cb&&!cb.checked){cb.checked=true;cb.dispatchEvent(new Event('change'));}
+            if(info.approved||info.value){
+              var val=info.value||'approved';
+              // Record server-confirmed state so revert logic has a baseline.
+              approvalServerState[sec]=val;
+              // Try radio first (slice controls)
+              var radio=document.querySelector('input[type="radio"][data-section="'+sec+'"][data-action="approve"][value="'+val+'"]');
+              if(radio&&!radio.checked){radio.checked=true;radio.dispatchEvent(new Event('change'));}
+              else if(val==='approved'||val==='true'){
+                // Fallback checkbox (design, outline)
+                var cb=document.querySelector('input[type="checkbox"][data-section="'+sec+'"][data-action="approve"]');
+                if(cb&&!cb.checked){cb.checked=true;cb.dispatchEvent(new Event('change'));}
+              }
+            } else {
+              // Section exists in server data but is not approved — record as
+              // 'pending' so a subsequent approval revert has a valid baseline.
+              approvalServerState[sec]='pending';
+              // If baked HTML had this section checked (stale render), clear it.
+              var radio=document.querySelector('input[type="radio"][data-section="'+sec+'"][data-action="approve"][value="pending"]');
+              if(radio&&!radio.checked){radio.checked=true;radio.dispatchEvent(new Event('change'));}
+              else {
+                var cbPend=document.querySelector('input[type="checkbox"][data-section="'+sec+'"][data-action="approve"]');
+                if(cbPend&&cbPend.checked){cbPend.checked=false;cbPend.dispatchEvent(new Event('change'));}
+              }
             }
             if(info.comment){
+              // Comment textarea is inside a details.comment-collapse — open it first
               var ta=document.querySelector('textarea[data-section="'+sec+'"]');
-              if(ta) ta.value=info.comment;
+              if(ta){
+                ta.value=info.comment;
+                var collapse=ta.closest('details.comment-collapse');
+                if(collapse) collapse.open=true;
+                var trigger=collapse&&collapse.querySelector('.comment-collapse-trigger');
+                if(trigger) trigger.textContent='Edit comment';
+              }
             }
           });
         }
@@ -1384,9 +2949,12 @@ var planId=(function(){var a=document.querySelector('article[id]');return a?a.id
             if(radio&&!radio.checked){radio.checked=true;radio.dispatchEvent(new Event('change'));}
           });
         }
+        _loadingFeedback=false;
         updateProgress();
       })
-      .catch(function(){});
+      .catch(function(){
+        _loadingFeedback=false;
+      });
   }
 
   loadExistingFeedback();
@@ -1394,11 +2962,14 @@ var planId=(function(){var a=document.querySelector('article[id]');return a?a.id
   document.querySelectorAll('input[data-action="approve"]').forEach(function(cb){
     cb.addEventListener('change',function(){
       var sec=this.dataset.section;
-      if(sec.startsWith('slice-')){
+      if(sec.startsWith('slice-')&&sec.split('-').length===2){
         var n=sec.split('-')[1];
         var nodeRect=d3.select('#dep-graph-svg .node[id="'+n+'"] rect');
         if(!nodeRect.empty()){
-          var color=this.checked?'#16a34a':'#6b7280';
+          var val=getApprovalValue(sec);
+          var SC={pending:'#6b7280',approved:'#16a34a',revision:'#f59e0b',discuss:'#8b5cf6',blocked:'#dc2626'};
+          var graphStatus=val==='approved'?'approved':val==='rejected'||val==='changes_requested'?'revision':val==='discuss'?'discuss':val==='blocked'?'blocked':'pending';
+          var color=SC[graphStatus]||SC.pending;
           var cs=getComputedStyle(document.querySelector('.dep-graph')||document.documentElement);
           nodeRect.style('stroke',color).style('fill',cs.getPropertyValue('--bg-input').trim()||'#222228');
         }
@@ -1413,30 +2984,94 @@ var planId=(function(){var a=document.querySelector('article[id]');return a?a.id
 
   var STATUS_COLORS={pending:'#6b7280',approved:'#16a34a',revision:'#f59e0b',discuss:'#8b5cf6',blocked:'#dc2626'};
 
+  // nodeDataMap: id -> {status, issues, questions, deps:[]}  — populated during render
+  var nodeDataMap={};
+  // graphRef: the dagreD3 graph object — stored for dep-chain queries
+  var graphRef=null;
+
+  // Build ancestor set for a node (all transitive prerequisites)
+  function ancestors(g,id){
+    var visited={};
+    var queue=[id];
+    while(queue.length){
+      var cur=queue.shift();
+      (g.predecessors(cur)||[]).forEach(function(p){
+        if(!visited[p]){visited[p]=true;queue.push(p);}
+      });
+    }
+    return visited;
+  }
+
+  // Build descendant set for a node (all transitive dependents)
+  function descendants(g,id){
+    var visited={};
+    var queue=[id];
+    while(queue.length){
+      var cur=queue.shift();
+      (g.successors(cur)||[]).forEach(function(s){
+        if(!visited[s]){visited[s]=true;queue.push(s);}
+      });
+    }
+    return visited;
+  }
+
+  // Apply dep-chain highlight: dim unrelated nodes/edges, highlight related ones.
+  // Pass null to clear.
+  function applyDepHighlight(inner,g,focusId){
+    var allNodes=inner.selectAll('g.node');
+    var allEdges=inner.selectAll('g.edgePath');
+    if(!focusId){
+      allNodes.classed('dep-graph-dimmed',false).classed('dep-graph-highlighted',false);
+      allEdges.classed('dep-graph-dimmed',false);
+      return;
+    }
+    var anc=ancestors(g,focusId);
+    var desc=descendants(g,focusId);
+    allNodes.each(function(id){
+      var related=(id===focusId||anc[id]||desc[id]);
+      d3.select(this).classed('dep-graph-dimmed',!related).classed('dep-graph-highlighted',related);
+    });
+    allEdges.each(function(e){
+      var related=(anc[e.v]||e.v===focusId||desc[e.v])&&(anc[e.w]||e.w===focusId||desc[e.w]);
+      d3.select(this).classed('dep-graph-dimmed',!related);
+    });
+  }
+
   function renderGraph(){
     var container=document.getElementById('graph-data');
     if(!container) return;
 
     var g=new dagreD3.graphlib.Graph().setGraph({rankdir:'TB',marginx:24,marginy:24,ranksep:48,nodesep:32});
     g.setDefaultEdgeLabel(function(){return{};});
+    graphRef=g;
+    nodeDataMap={};
 
-    var nodes=container.querySelectorAll('[data-node]');
-    nodes.forEach(function(el){
+    var nodeEls=container.querySelectorAll('[data-node]');
+    nodeEls.forEach(function(el){
       var id=el.dataset.node;
       var name=el.dataset.name;
       var files=el.dataset.files;
       var status=el.dataset.status||'pending';
+      var issues=parseInt(el.dataset.issues||'0',10);
+      var questions=parseInt(el.dataset.questions||'0',10);
+      // Build badge suffix appended to node label
+      var badge='';
+      if(issues>0) badge+=' ⚠'+issues;
+      if(questions>0) badge+=' ?'+questions;
+      nodeDataMap[id]={status:status,issues:issues,questions:questions};
       g.setNode(id,{
-        label: name+'\n'+files+' files',
+        label: name+(badge?badge:'')+'\n'+(files||'0')+' files',
         rx: 6,
         ry: 6,
         paddingX: 36,
         paddingY: 16,
-        status: status
+        status: status,
+        issues: issues,
+        questions: questions
       });
     });
 
-    nodes.forEach(function(el){
+    nodeEls.forEach(function(el){
       var id=el.dataset.node;
       var deps=el.dataset.deps?el.dataset.deps.split(',').map(function(d){return d.trim();}).filter(Boolean):[];
       deps.forEach(function(dep){g.setEdge(dep,id);});
@@ -1479,6 +3114,48 @@ var planId=(function(){var a=document.querySelector('article[id]');return a?a.id
     svgEl.setAttribute('width',graphWidth+pad*2);
     svgEl.setAttribute('height',graphHeight+pad*2);
     svgEl.removeAttribute('viewBox');
+
+    // Improvement 3: click a graph node → scroll to + open its slice card
+    var selectedNode=null;
+    inner.selectAll('g.node').on('click',function(event,id){
+      // Dep-chain highlight toggle
+      if(selectedNode===id){
+        selectedNode=null;
+        applyDepHighlight(inner,g,null);
+      } else {
+        selectedNode=id;
+        applyDepHighlight(inner,g,id);
+      }
+      // Navigate to slice card
+      var target=document.getElementById('slice-'+id);
+      if(target){
+        target.setAttribute('open','');
+        target.scrollIntoView({behavior:'smooth',block:'start'});
+      }
+    });
+
+    // Improvement 4: hover highlights dep-chain (without overriding click selection)
+    inner.selectAll('g.node')
+      .on('mouseover',function(event,id){
+        if(!selectedNode) applyDepHighlight(inner,g,id);
+      })
+      .on('mouseout',function(event){
+        if(!selectedNode) applyDepHighlight(inner,g,null);
+      });
+
+    // Improvement 3 (reverse): clicking a slice nav item highlights the graph node
+    document.querySelectorAll('[data-slice-nav]').forEach(function(link){
+      link.addEventListener('mouseenter',function(){
+        var num=this.dataset.sliceNav;
+        var nodeEl=inner.select('g.node[id="'+num+'"]');
+        if(!nodeEl.empty()) nodeEl.classed('graph-node-ring',true);
+      });
+      link.addEventListener('mouseleave',function(){
+        var num=this.dataset.sliceNav;
+        var nodeEl=inner.select('g.node[id="'+num+'"]');
+        if(!nodeEl.empty()) nodeEl.classed('graph-node-ring',false);
+      });
+    });
   }
 
   if(document.readyState==='loading'){
@@ -1577,7 +3254,7 @@ function renderMd(text){
 
   // Load previous messages directly into the chat thread.
   if(planId){
-    fetch((window.htmlgraphPlanBase||'')+'/api/plans/'+planId+'/feedback')
+    fetch((window.wipnotePlanBase||'')+'/api/plans/'+planId+'/feedback')
       .then(function(r){return r.ok?r.json():null;})
       .then(function(data){
         if(!data||!data.chat_messages||!data.chat_messages.length) return;
@@ -1604,7 +3281,7 @@ function renderMd(text){
     chatMessages.appendChild(assistantBubble);
     var rawResponse='';
 
-    fetch((window.htmlgraphPlanBase||'')+'/api/plans/'+planId+'/chat',{
+    fetch((window.wipnotePlanBase||'')+'/api/plans/'+planId+'/chat',{
       method:'POST',
       headers:{'Content-Type':'application/json'},
       body:JSON.stringify({message:text})
@@ -1697,34 +3374,28 @@ function renderMd(text){
   update();
 })();
 
-// Chat sidebar drag-resize
+// Left nav collapse toggle
 (function(){
-  var handle=document.getElementById('chat-resize-handle');
-  var sidebar=document.getElementById('chat-sidebar');
-  if(!handle||!sidebar) return;
-  var startX,startW;
-  handle.addEventListener('mousedown',function(e){
-    e.preventDefault();
-    startX=e.clientX;
-    startW=sidebar.offsetWidth;
-    handle.classList.add('dragging');
-    document.body.style.cursor='col-resize';
-    document.body.style.userSelect='none';
-    function onMove(e){
-      var delta=startX-e.clientX;
-      var newW=Math.max(280,Math.min(600,startW+delta));
-      sidebar.style.width=newW+'px';
-    }
-    function onUp(){
-      handle.classList.remove('dragging');
-      document.body.style.cursor='';
-      document.body.style.userSelect='';
-      document.removeEventListener('mousemove',onMove);
-      document.removeEventListener('mouseup',onUp);
-    }
-    document.addEventListener('mousemove',onMove);
-    document.addEventListener('mouseup',onUp);
-  });
+  'use strict';
+  var KEY_L='wipnote-plan-left-collapsed';
+  var body=document.body;
+  var btnL=document.getElementById('left-sidebar-toggle');
+
+  function applyLeft(collapsed){
+    body.classList.toggle('left-nav-collapsed',collapsed);
+    if(btnL) btnL.textContent=collapsed?'›':'‹';
+    if(btnL) btnL.title=collapsed?'Expand sidebar':'Collapse sidebar';
+  }
+
+  applyLeft(localStorage.getItem(KEY_L)==='1');
+
+  if(btnL){
+    btnL.addEventListener('click',function(){
+      var collapsed=!body.classList.contains('left-nav-collapsed');
+      applyLeft(collapsed);
+      localStorage.setItem(KEY_L,collapsed?'1':'0');
+    });
+  }
 })();
 
 
@@ -1748,7 +3419,7 @@ syncHljsTheme();
     var planEl=document.querySelector('[data-plan-id]');
     if(!planEl)return;
     var id=planEl.getAttribute('data-plan-id');
-    fetch((window.htmlgraphPlanBase||'')+'/api/plans/'+id+'/yaml')
+    fetch((window.wipnotePlanBase||'')+'/api/plans/'+id+'/yaml')
       .then(function(r){if(!r.ok)throw new Error('err');return r.text();})
       .then(function(t){
         codeEl.textContent=t;
@@ -1799,7 +3470,7 @@ syncHljsTheme();
     summary.textContent=selects.length+' amendments — '+accepted+' accepted, '+pending+' pending';
   }
 
-  fetch((window.htmlgraphPlanBase||'')+'/api/plans/'+planId+'/amendments')
+  fetch((window.wipnotePlanBase||'')+'/api/plans/'+planId+'/amendments')
     .then(function(r){return r.json();})
     .then(function(amendments){
       if(!amendments||!amendments.length)return;
@@ -1822,7 +3493,7 @@ syncHljsTheme();
           sel.appendChild(opt);
         });
         sel.addEventListener('change',function(){
-          fetch((window.htmlgraphPlanBase||'')+'/api/plans/'+planId+'/feedback',{
+          fetch((window.wipnotePlanBase||'')+'/api/plans/'+planId+'/feedback',{
             method:'POST',
             headers:{'Content-Type':'application/json'},
             body:JSON.stringify({

@@ -108,7 +108,7 @@ When `--delegation` is specified, audit the current session's delegation complia
 1. **Collect data**:
 ```bash
 wipnote status
-sqlite3 .wipnote/.db/wipnote.db "
+sqlite3 "$(wipnote status | awk '/^DB:/{print $2}')" "
 SELECT tool_name, COUNT(*) as count
 FROM agent_events
 WHERE session_id = (SELECT session_id FROM agent_events ORDER BY timestamp DESC LIMIT 1)

@@ -886,6 +886,14 @@ When delegating to ANY coder agent, include these requirements in the prompt:
 - Check `go.mod` before adding new dependencies
 - Prefer well-maintained packages over custom implementations
 
+### Capability Delivery & Context Economy
+When delivering a wipnote capability, choose the cheapest context tier that works:
+**CLI via Bash (≈zero resident cost) > Skill (progressive disclosure) > deferred MCP tool (names-only until used) > eager MCP tool (full schema always resident — avoid).**
+Never expose wipnote's own command surface as eager MCP tools. MCP is for external, user-chosen services only, with deferred/tool-search loading. CLI is the most cross-harness-portable tier.
+
+### Plugin / Project Boundary
+wipnote must **never author, generate, or overwrite a project's own instruction files (AGENTS.md, CLAUDE.md, GEMINI.md)**. Those are user-owned and describe the host project. wipnote agents READ them; at most they OFFER an opt-in, user-reviewed snippet — never silent ownership. Cross-harness portability of wipnote *behavior* comes from the single-source manifest → generated per-harness trees, NOT from AGENTS.md.
+
 ### Code Design
 - **DRY** — Extract shared logic; check `internal/` for existing utilities before writing new ones
 - **Single Responsibility** — One clear purpose per module, function, and struct

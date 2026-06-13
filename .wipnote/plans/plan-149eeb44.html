@@ -3,11 +3,11 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="htmlgraph-version" content="1.0">
+<meta name="wipnote-version" content="1.0">
 <title>Plan: Delete SQLite and regenerate plugin ports (Phase 4)</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=Source+Serif+4:ital,opsz,wght@0,8..60,300;0,8..60,400;0,8..60,500;1,8..60,300;1,8..60,400&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/styles/github-dark.min.css" id="hljs-dark">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/styles/github.min.css" id="hljs-light" disabled>
 <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/highlight.min.js"></script>
@@ -22,6 +22,7 @@
   --radius:8px; --radius-sm:5px;
   --mono:'JetBrains Mono',ui-monospace,'SF Mono','Cascadia Code',monospace;
   --sans:'DM Sans','Inter',system-ui,-apple-system,sans-serif;
+  --serif:'Source Serif 4',Georgia,serif;
   --shadow-card:0 2px 8px rgba(0,0,0,.5), 0 0 0 1px var(--border);
   --shadow-elevated:0 8px 32px rgba(0,0,0,.6), 0 0 0 1px var(--border);
   --transition:150ms cubic-bezier(.4,0,.2,1);
@@ -57,7 +58,7 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);line-height:
 .plan-content{flex:1;min-width:0;padding:32px 40px 80px;overflow-y:auto;max-width:960px}
 
 /* ── Chat sidebar ── */
-.chat-sidebar{width:360px;min-width:280px;max-width:600px;border-left:1px solid var(--border);display:flex;flex-direction:column;background:var(--bg-card);overflow:hidden;height:100%}
+.chat-sidebar{width:360px;min-width:280px;max-width:600px;border-left:1px solid var(--border);display:flex;flex-direction:column;background:var(--bg-card);overflow-y:auto;overflow-x:hidden;height:100vh;position:sticky;top:0;flex-shrink:0;transition:width 200ms ease,opacity 150ms ease}
 .chat-resize-handle{width:4px;cursor:col-resize;background:transparent;transition:background .15s;flex-shrink:0;position:relative}
 .chat-resize-handle:hover,.chat-resize-handle.dragging{background:var(--accent);opacity:.5}
 .chat-resize-handle::after{content:'';position:absolute;top:50%;left:-4px;width:12px;height:32px;transform:translateY(-50%);border-radius:4px}
@@ -149,24 +150,84 @@ textarea::placeholder{color:var(--text-muted)}
 .question-block input[type="radio"]{accent-color:var(--accent);margin-right:8px;cursor:pointer}
 .rec-tag{font-family:var(--mono);font-size:.65rem;color:var(--accent);text-transform:uppercase;letter-spacing:.05em;margin-left:6px;opacity:.8}
 
-/* ── Slice cards ── */
-.slice-card{background:var(--bg-input);border:1px solid var(--border);border-radius:var(--radius);padding:24px;margin-bottom:16px;transition:border-color var(--transition)}
+/* ── Slice cards (collapsible) ── */
+.slice-card{background:var(--bg-input);border:1px solid var(--border);border-left:3px solid var(--border);border-radius:var(--radius);margin-bottom:12px;transition:border-color var(--transition);scroll-margin-top:64px}
 .slice-card:hover{border-color:rgba(205,255,0,.2)}
-.slice-header{display:flex;align-items:center;gap:10px;margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid var(--border);flex-wrap:wrap}
-.slice-num{font-family:var(--mono);font-size:.8rem;color:var(--bg);background:var(--accent);padding:3px 9px;border-radius:4px;font-weight:700;min-width:26px;text-align:center}
-.slice-name{font-weight:600;font-size:1rem;font-family:var(--sans);flex:1}
-.slice-meta{font-size:.85rem;color:var(--text-muted);margin-bottom:8px;font-family:var(--mono)}
+/* Status stripe — keyed to data-approval attribute */
+.slice-card[data-approval="approved"]{border-left-color:var(--approved)}
+.slice-card[data-approval="rejected"]{border-left-color:var(--revision)}
+.slice-card[data-approval="changes_requested"]{border-left-color:var(--revision)}
+.slice-card[data-approval="pending"]{border-left-color:var(--border)}
+.slice-card[data-status="done"]{border-left-color:var(--discuss)}
+/* Summary / header — flex row: [#N] [title-col grows] [chevron]; title-col stacks title/preview/meta-row */
+.slice-card > summary.slice-summary{display:flex;align-items:flex-start;gap:12px;padding:12px 16px;cursor:pointer;list-style:none;user-select:none;font-weight:400;font-size:.94rem}
+.slice-card > summary.slice-summary::-webkit-details-marker{display:none}
+.slice-card > summary.slice-summary::marker{content:""}
+.slice-card > summary.slice-summary:hover{background:var(--bg-hover);border-radius:calc(var(--radius) - 1px)}
+.slice-num{margin-top:2px;font-family:var(--mono);font-size:.78rem;color:var(--bg);background:var(--accent);padding:2px 8px;border-radius:4px;font-weight:700;min-width:28px;text-align:center;flex:0 0 auto;align-self:flex-start}
+.slice-title-col{flex:1 1 auto;display:flex;flex-direction:column;gap:4px;min-width:0}
+.slice-name{font-weight:600;font-size:.94rem;font-family:var(--sans);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.slice-preview{color:var(--text-muted);font-size:.82rem;line-height:1.4;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.slice-meta-row{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:4px;flex-wrap:wrap}
+.slice-summary-badges{display:flex;align-items:center;gap:4px;flex-wrap:wrap}
+.badge-sm{font-size:.68rem;padding:2px 7px;letter-spacing:.04em}
+.badge-issues{background:rgba(239,68,68,.12);color:#f87171;border-color:rgba(239,68,68,.25)}
+.badge-questions{background:rgba(167,139,250,.12);color:var(--discuss);border-color:rgba(167,139,250,.25)}
+/* Segmented approval control */
+.slice-actions{display:flex;align-items:center;gap:6px;flex-shrink:0;margin-left:auto}
+.approval-segmented{display:inline-flex;border:1px solid var(--border);border-radius:var(--radius-sm);overflow:hidden;gap:0}
+.seg-btn{display:inline-flex;align-items:center;justify-content:center;padding:4px 9px;font-size:.82rem;cursor:pointer;line-height:1;color:var(--text-muted);transition:background var(--transition),color var(--transition);user-select:none}
+.seg-btn:hover{background:var(--bg-hover);color:var(--text)}
+.seg-btn input[type="radio"]{position:absolute;opacity:0;width:0;height:0;pointer-events:none}
+.seg-btn:has(input:checked){background:var(--bg-hover)}
+.seg-approve:has(input:checked){background:rgba(34,197,94,.15);color:var(--approved);border-right:1px solid var(--border)}
+.seg-changes:has(input:checked){background:rgba(245,158,11,.15);color:var(--revision);border-right:1px solid var(--border)}
+.seg-reject:has(input:checked){background:rgba(239,68,68,.15);color:var(--blocked)}
+/* Chevron */
+.slice-chevron{flex:0 0 auto;align-self:flex-start;width:16px;height:16px;position:relative;margin-top:6px}
+.slice-chevron::after{content:'';position:absolute;top:50%;left:50%;width:7px;height:7px;border-right:2px solid var(--text-muted);border-bottom:2px solid var(--text-muted);transform:translate(-60%,-60%) rotate(-45deg);transition:transform .2s ease}
+.slice-card[open] .slice-chevron::after{transform:translate(-60%,-30%) rotate(45deg)}
+/* Slice body (expanded content) */
+.slice-body{padding:4px 18px 16px}
+.slice-meta{font-size:.82rem;color:var(--text-muted);margin-bottom:6px;font-family:var(--mono)}
 .slice-meta span{margin-right:14px}
-.slice-field{margin-bottom:14px;padding-bottom:12px;border-bottom:1px solid rgba(51,51,56,.4)}
+.slice-field{margin-top:14px;padding-bottom:10px;border-bottom:1px solid rgba(51,51,56,.4)}
 .slice-field:last-of-type{border-bottom:none}
-.slice-field-label{font-family:var(--mono);font-size:.75rem;font-weight:600;color:var(--accent);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px}
+.slice-field-label{font-family:var(--mono);font-size:.7rem;font-weight:600;color:var(--accent);text-transform:uppercase;letter-spacing:.08em;margin-bottom:5px;opacity:.85}
 .slice-field-value{font-size:.92rem;color:var(--text-dim);line-height:1.7}
 .slice-field-value code{font-size:.82rem;word-break:break-all}
-.slice-tests{white-space:pre-line}
+/* Serif prose for WHAT/WHY/description */
+.serif-prose{font-family:var(--serif);font-size:.96rem;line-height:1.6}
+/* Reveal toggle (CSS-only) */
+.reveal-toggle{position:absolute;opacity:0;width:0;height:0;pointer-events:none}
+.reveal-content{max-height:8.5em;overflow:hidden;mask-image:linear-gradient(to bottom, black 60%, transparent 100%);-webkit-mask-image:linear-gradient(to bottom, black 60%, transparent 100%)}
+.reveal-toggle:checked~.reveal-content{max-height:none;mask-image:none;-webkit-mask-image:none}
+.reveal-label{display:inline-block;margin-top:4px;font-size:.78rem;color:var(--accent);cursor:pointer;font-family:var(--mono);opacity:.8;transition:opacity var(--transition)}
+.reveal-label:hover{opacity:1}
+.reveal-toggle:checked~.reveal-content~.reveal-label{display:none}
+/* Test strategy chips */
+.test-strategy{display:flex;flex-direction:column;gap:6px}
+.test-group{display:flex;align-items:flex-start;gap:10px}
+.test-chip{font-family:var(--mono);font-size:.65rem;font-weight:700;letter-spacing:.06em;background:var(--bg-card);border:1px solid var(--border);border-radius:4px;padding:3px 8px;white-space:nowrap;color:var(--text-muted);flex-shrink:0;margin-top:2px}
+.test-group[data-kind="unit"] .test-chip{border-color:rgba(34,197,94,.3);color:var(--approved)}
+.test-group[data-kind="integration"] .test-chip{border-color:rgba(167,139,250,.3);color:var(--discuss)}
+.test-group[data-kind="regression"] .test-chip,.test-group[data-kind="e2e"] .test-chip{border-color:rgba(245,158,11,.3);color:var(--revision)}
+.test-group ul{margin:0;padding-left:1.2em;display:flex;flex-direction:column;gap:2px}
+.test-group ul li{font-size:.84rem;padding:2px 0;color:var(--text-dim)}
+/* Done when list */
 .slice-done-list{list-style:none;padding-left:0;margin:0}
-.slice-done-list li{font-size:.9rem;color:var(--text-dim);padding:4px 0;padding-left:20px;position:relative}
+.slice-done-list li{font-size:.88rem;color:var(--text-dim);padding:3px 0;padding-left:18px;position:relative}
 .slice-done-list li::before{content:'\2713';position:absolute;left:0;color:var(--approved);font-weight:700}
-.slice-deps{font-size:.85rem;color:var(--text-muted);margin-top:8px;font-family:var(--mono)}
+.slice-done-list--grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:4px 24px}
+/* Slice deps */
+.slice-deps{font-size:.78rem;color:var(--text-muted);margin-top:10px;font-family:var(--mono)}
+/* Comment collapse */
+.comment-collapse{margin-top:10px;border-top:1px solid var(--border)}
+.comment-collapse-trigger{cursor:pointer;font-size:.8rem;color:var(--text-muted);padding:8px 0;font-family:var(--mono);list-style:none;user-select:none;transition:color var(--transition)}
+.comment-collapse-trigger::-webkit-details-marker{display:none}
+.comment-collapse-trigger:hover{color:var(--accent)}
+.comment-collapse-body{padding:8px 0 0}
+/* Old approval-row (design section etc) */
 .slice-card .approval-row{margin-top:16px}
 
 /* ── Progress zone ── */
@@ -228,6 +289,52 @@ textarea::placeholder{color:var(--text-muted)}
 #chat-send:disabled{opacity:.3;cursor:not-allowed}
 .chat-notice{font-size:.82rem;color:var(--text-muted);padding:20px;text-align:center;line-height:1.6}
 
+/* ── Review rail (sticky sidebar top) ── */
+.review-rail{padding:16px 18px;border-bottom:1px solid var(--border);background:var(--bg-card)}
+.review-rail h3{font-family:var(--sans);font-size:.82rem;font-weight:600;color:var(--text);margin-bottom:10px;text-transform:none;letter-spacing:0}
+.rail-dots{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:8px}
+.rail-dot{width:12px;height:12px;border-radius:50%;background:var(--border);border:2px solid transparent;cursor:pointer;transition:transform .12s;text-decoration:none;display:inline-block}
+.rail-dot:hover{transform:scale(1.3)}
+.rail-dot[data-approval="approved"]{background:var(--approved);border-color:rgba(34,197,94,.3)}
+.rail-dot[data-approval="rejected"]{background:var(--revision);border-color:rgba(245,158,11,.3)}
+.rail-dot[data-approval="changes_requested"]{background:var(--revision);border-color:rgba(245,158,11,.3)}
+.rail-dot[data-approval="pending"]{background:var(--border)}
+.rail-counter{font-size:.78rem;color:var(--text-dim);margin-bottom:6px;font-family:var(--sans)}
+.rail-counter strong{color:var(--text)}
+.rail-progress{height:5px;background:var(--bg-input);border-radius:3px;overflow:hidden;margin-bottom:12px}
+.rail-progress-fill{height:100%;background:linear-gradient(90deg,var(--accent),var(--approved));border-radius:3px;transition:width .4s cubic-bezier(.4,0,.2,1)}
+.rail-pending-list{font-size:.78rem;color:var(--text-dim);margin-bottom:12px}
+.rail-pending-list strong{display:block;font-size:.7rem;font-family:var(--mono);color:var(--text-muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px}
+.rail-pending-list li{list-style:none;padding:2px 0;display:flex;align-items:center;gap:6px}
+.rail-pending-list li::before{content:'';width:6px;height:6px;border-radius:50%;background:var(--border);flex-shrink:0}
+.rail-pending-list li[data-has-issues]::before{background:var(--blocked)}
+.rail-pending-list li[data-has-questions]::before{background:var(--discuss)}
+.btn-finalize-rail{width:100%;background:var(--accent);color:#0a0a0a;border:none;border-radius:var(--radius);padding:10px 16px;font-weight:700;font-size:.82rem;cursor:pointer;font-family:var(--sans);transition:all var(--transition)}
+.btn-finalize-rail:hover:not(:disabled){filter:brightness(.92)}
+.btn-finalize-rail:disabled{opacity:.3;cursor:not-allowed}
+.rail-finalize-hint{font-size:.7rem;color:var(--text-muted);margin-top:4px;text-align:center}
+/* Chat section inside sidebar now collapsible */
+.chat-collapsible{border-top:1px solid var(--border)}
+.chat-collapsible>summary{cursor:pointer;font-size:.82rem;font-weight:600;color:var(--text-muted);padding:10px 18px;list-style:none;user-select:none;font-family:var(--mono);text-transform:uppercase;letter-spacing:.04em;transition:color var(--transition)}
+.chat-collapsible>summary::-webkit-details-marker{display:none}
+.chat-collapsible>summary:hover{color:var(--accent)}
+/* sidebar slice nav */
+.slice-nav-list{padding:0;margin:0;list-style:none}
+.slice-nav-item{display:flex;align-items:center;gap:6px;padding:4px 20px 4px 28px;font-size:.75rem;color:var(--text-muted);text-decoration:none;cursor:pointer;transition:color var(--transition)}
+.slice-nav-item:hover{color:var(--text)}
+.slice-nav-dot{width:8px;height:8px;border-radius:50%;background:var(--border);flex-shrink:0;transition:background .2s}
+.slice-nav-dot[data-approval="approved"]{background:var(--approved)}
+.slice-nav-dot[data-approval="rejected"]{background:var(--revision)}
+.slice-nav-dot[data-approval="changes_requested"]{background:var(--revision)}
+.nav-triage-badge{font-size:.65rem;font-family:var(--mono);font-weight:700;border-radius:3px;padding:0 3px;line-height:1.4;flex-shrink:0}
+.nav-triage-issue{background:#7c2d12;color:#fde68a}
+.nav-triage-question{background:#1e3a5f;color:#bfdbfe}
+/* graph node highlight ring (added by JS on nav hover/click) */
+.graph-node-ring rect{stroke-width:4px !important;filter:drop-shadow(0 0 4px currentColor)}
+/* dep-chain dim/highlight */
+.dep-graph-dimmed{opacity:.25;transition:opacity .15s}
+.dep-graph-highlighted rect{stroke-width:3px !important}
+
 /* ── Amendments ── */
 .amendments-panel{margin-top:28px;background:var(--bg-card);border-radius:var(--radius);padding:20px;box-shadow:var(--shadow-card)}
 .amendments-panel h3{margin:0 0 14px;font-size:.92rem;color:var(--text);font-family:var(--sans);font-weight:600}
@@ -249,6 +356,29 @@ textarea::placeholder{color:var(--text-muted)}
 .yaml-viewer code{font-family:var(--mono);color:var(--text)}
 
 
+/* ── Sidebar toggle buttons ── */
+.sidebar-toggle{display:flex;align-items:center;justify-content:center;width:28px;height:28px;background:transparent;border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-muted);cursor:pointer;font-size:.9rem;line-height:1;transition:background var(--transition),color var(--transition);flex-shrink:0;padding:0}
+.sidebar-toggle:hover{background:var(--bg-hover);color:var(--text)}
+/* Left sidebar toggle — sits beside the brand */
+.plan-sidebar .brand-row{display:flex;align-items:center;justify-content:space-between;padding:16px 20px 20px;border-bottom:1px solid var(--border);margin-bottom:8px}
+.plan-sidebar .brand-row .brand{padding:0;border-bottom:none;margin-bottom:0}
+/* Right sidebar toggle header */
+.chat-sidebar-header{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-bottom:1px solid var(--border);flex-shrink:0}
+.chat-sidebar-header-title{font-family:var(--mono);font-size:.72rem;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.06em}
+/* Collapsed states */
+body.left-nav-collapsed .plan-sidebar{width:48px;min-width:48px;overflow:hidden}
+body.left-nav-collapsed .plan-sidebar .brand-row{padding:12px 10px}
+body.left-nav-collapsed .plan-sidebar .brand-row .brand{display:none}
+body.left-nav-collapsed .plan-sidebar .nav-link{padding:10px;justify-content:center;font-size:0;gap:0}
+body.left-nav-collapsed .plan-sidebar .nav-link::after{content:attr(data-initial);font-size:.7rem;font-family:var(--mono);font-weight:700}
+body.left-nav-collapsed .plan-sidebar .slice-nav-list{display:none}
+body.left-nav-collapsed{grid-template-columns:48px 1fr}
+body.right-rail-collapsed .chat-sidebar{width:0;min-width:0;opacity:0;pointer-events:none;overflow:hidden;border-left:none}
+body.right-rail-collapsed .chat-resize-handle{display:none}
+.sidebar-reopen{display:none;position:fixed;top:14px;right:14px;z-index:50;width:32px;height:32px;align-items:center;justify-content:center;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-muted);cursor:pointer;font-size:1rem;line-height:1;padding:0;box-shadow:0 2px 8px rgba(0,0,0,.35);transition:background var(--transition),color var(--transition)}
+.sidebar-reopen:hover{background:var(--bg-hover);color:var(--text)}
+body.right-rail-collapsed .sidebar-reopen{display:flex}
+
 /* ── Print ── */
 @media print{body{background:#fff;color:#111;max-width:100%;display:block}.plan-sidebar{display:none}.section-card,.dep-graph,.progress-zone,.slice-card{border-color:#ccc;background:#fafafa;box-shadow:none}details[open] summary~*{display:block}.btn-finalize,.chat-panel,.amendments-panel{display:none}}
 
@@ -267,18 +397,44 @@ textarea::placeholder{color:var(--text-muted)}
 </head>
 <body>
 
-<nav class="plan-sidebar">
-  <a href="/" class="brand">HtmlGraph</a>
-  <a href="#design" class="nav-link active" data-spy="design">Design</a>
-  <a href="#slices" class="nav-link" data-spy="slices">Slices</a>
-  <a href="#questions" class="nav-link" data-spy="questions">Decisions</a>
-  <a href="#critique" class="nav-link" data-spy="critique">Critique</a>
-  <a href="#feedback-summary" class="nav-link" data-spy="feedback-summary">Progress</a>
-  <a href="#chat-panel" class="nav-link" data-spy="chat-panel">Chat</a>
+<nav class="plan-sidebar" id="plan-sidebar">
+  <div class="brand-row">
+    <a href="/" class="brand">wipnote</a>
+    <button class="sidebar-toggle" id="left-sidebar-toggle" title="Collapse sidebar" aria-label="Toggle left sidebar">&#8249;</button>
+  </div>
+  <a href="#design" class="nav-link active" data-spy="design" data-initial="D">Design</a>
+  <a href="#slices" class="nav-link" data-spy="slices" data-initial="S">Slices</a>
+  
+  <ul class="slice-nav-list" id="slice-nav-list">
+    
+    <li>
+      <a href="#slice-1" class="slice-nav-item" data-slice-nav="1">
+        <span class="slice-nav-dot" data-approval="pending" data-dot-for="1"></span>
+        <span>#1 Phase 4 — Delete `modernc.org/sqlite` from the codebase</span>
+        <span class="nav-triage-badge nav-triage-issue" title="2 issue(s)">&#9888;2</span>
+        
+      </a>
+    </li>
+    
+    <li>
+      <a href="#slice-2" class="slice-nav-item" data-slice-nav="2">
+        <span class="slice-nav-dot" data-approval="pending" data-dot-for="2"></span>
+        <span>#2 Phase 4b — Regenerate plugin ports (Codex, Gemini, Claude) after schema lands</span>
+        
+        
+      </a>
+    </li>
+    
+  </ul>
+  
+  <a href="#questions" class="nav-link" data-spy="questions" data-initial="Q">Decisions</a>
+  <a href="#critique" class="nav-link" data-spy="critique" data-initial="C">Critique</a>
+  <a href="#feedback-summary" class="nav-link" data-spy="feedback-summary" data-initial="P">Progress</a>
+  <a href="#chat-panel" class="nav-link" data-spy="chat-panel" data-initial="&#9825;">Chat</a>
 </nav>
 <div class="plan-layout">
 <div class="plan-content">
-<article id="plan-149eeb44" data-plan-id="plan-149eeb44" data-feature-id="trk-2c55adea" data-status="draft">
+<article id="plan-149eeb44" data-type="plan" data-plan-id="plan-149eeb44" data-feature-id="trk-2c55adea" data-status="done" data-priority="medium">
 
 <!-- Plan Header -->
 <header class="plan-header">
@@ -286,8 +442,8 @@ textarea::placeholder{color:var(--text-muted)}
   <p style="color:var(--text-dim)">Sub-plan of plan-3bbc313f — Phase 4 deletion. With every consumer migrated, delete modernc.org/sqlite from go.mod, the internal/db/ package, the htmlgraph reindex command family, and SQLite mentions from all docs. Regenerate Codex/Gemini/Claude plugin ports so deployed marketplaces stop shipping the old architecture description. Tight 2-slice review surface is intentional.
 </p>
   <div class="meta">
-    <span class="badge badge-pending">Draft</span>
-    <span style="font-size:.75rem;color:var(--text-muted)">v2 · 2 slices · Created 2026-05-01</span>
+    <span class="badge badge-approved">done</span>
+    <span style="font-size:.75rem;color:var(--text-muted)">v3 · 2 slices · Created 2026-05-01</span>
   </div>
 </header>
 <button id="themeToggle" style="position:fixed;top:16px;right:16px;z-index:100;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:6px 12px;color:var(--text);font-family:var(--mono);font-size:0.75rem;cursor:pointer;">
@@ -352,17 +508,52 @@ textarea::placeholder{color:var(--text-muted)}
 <details id="slices" class="section-card" open data-phase="slices" data-status="pending">
   <summary><span>Slices</span><span class="badge badge-pending" data-badge-for="slices">Pending</span></summary>
   <div class="section-body">
-    <div class="slice-card" data-slice="1" data-slice-name="slice-1" data-status="pending">
-  <div class="slice-header">
+    <details class="slice-card" id="slice-1" data-slice="1" data-slice-name="slice-1" data-status="pending" data-approval="pending">
+  <summary class="slice-summary" aria-label="Slice 1: Phase 4 — Delete `modernc.org/sqlite` from the codebase">
     <span class="slice-num">#1</span>
-    <span class="slice-name">Phase 4 — Delete `modernc.org/sqlite` from the codebase</span>
-    <span class="badge badge-blocked">L</span>
-    <span class="badge badge-blocked">High</span>
-    <span class="badge badge-pending slice-exec-badge" title="Execution: not_started">Not Started</span>
-    <span class="badge badge-pending slice-approval-badge" data-badge-for="slice-1">Pending</span>
-  </div>
-  
-  <div class="slice-field"><div class="slice-field-label">What</div><div class="slice-field-value slice-md"><p>With slices 1, 2, 5-10, 15, 16 landed (all SQL-using subsystems
+    <span class="slice-title-col">
+      <span class="slice-name">Phase 4 — Delete `modernc.org/sqlite` from the codebase</span>
+      <span class="slice-preview">With slices 1, 2, 5-10, 15, 16 landed (all SQL-using subsystems</span>
+      <span class="slice-meta-row">
+        <span class="slice-summary-badges">
+          <span class="badge badge-blocked badge-sm">L</span>
+          <span class="badge badge-blocked badge-sm">High</span>
+          
+          <span class="badge badge-pending badge-sm" title="Execution: not_started">Not Started</span>
+          <span class="badge badge-pending badge-sm slice-approval-badge" data-badge-for="slice-1">Pending</span>
+          <span class="badge badge-sm badge-issues" title="2 critic issue(s)">2 issues</span>
+          
+        </span>
+        <span class="slice-actions" onclick="event.stopPropagation()">
+          <span class="approval-segmented" role="group" aria-label="Approval action">
+            <label class="seg-btn seg-approve" title="Approve">
+              <input type="radio" name="slice-1-approval" value="approved" data-section="slice-1" data-action="approve" aria-label="Approve slice 1">
+              &#10003;
+            </label>
+            <label class="seg-btn seg-changes" title="Request changes">
+              <input type="radio" name="slice-1-approval" value="changes_requested" data-section="slice-1" data-action="approve" aria-label="Request changes for slice 1">
+              &#8635;
+            </label>
+            <label class="seg-btn seg-reject" title="Reject">
+              <input type="radio" name="slice-1-approval" value="rejected" data-section="slice-1" data-action="approve" aria-label="Reject slice 1">
+              &#10005;
+            </label>
+          </span>
+        </span>
+      </span>
+    </span>
+    <span class="slice-chevron" aria-hidden="true"></span>
+  </summary>
+
+  <div class="slice-body">
+    
+      
+      <div class="slice-field slice-what">
+        <div class="slice-field-label">What</div>
+        <div class="slice-field-value">
+          
+          <input type="checkbox" id="slice-1-what-reveal" class="reveal-toggle">
+          <div class="markdown-block reveal-content serif-prose"><p>With slices 1, 2, 5-10, 15, 16 landed (all SQL-using subsystems
 migrated), delete the dependency:</p>
 <p>(1) Delete the entire <code>internal/db/</code> package (18 files: schema,
 pragmas, *_repo.go, otel_schema, plan_feedback). All callers
@@ -392,58 +583,151 @@ currently returns ~110 files. By the time slice-11 runs, that count
 must be 0. Slice-11 deletes the residual <code>internal/db/</code> package
 and updates docs; the actual migrations happen in slices 5, 6, 8,
 10, 15, 16.</p>
-</div></div>
-  <div class="slice-field"><div class="slice-field-label">Why</div><div class="slice-field-value slice-md"><p>Closes the migration. Until SQLite is deleted from go.mod, the
+</div>
+          <label for="slice-1-what-reveal" class="reveal-label">Show full description</label>
+          
+        </div>
+      </div>
+      
+      
+      <div class="slice-field slice-why">
+        <div class="slice-field-label">Why</div>
+        <div class="slice-field-value">
+          
+          <div class="markdown-block serif-prose"><p>Closes the migration. Until SQLite is deleted from go.mod, the
 team will keep accidentally re-adding SQL-backed code paths
 (we&#39;ve watched it happen — <code>internal/storage/evict.go</code> landed
 mid-conversation). &#34;Removing the option&#34; is the only way to
 make the architecture promise real.</p>
-</div></div>
-  <div class="slice-field"><div class="slice-field-label">Files</div><div class="slice-field-value"><code>internal/db/, internal/storage/dbpath.go, internal/storage/evict.go, internal/storage/evict_test.go, cmd/htmlgraph/cache.go, cmd/htmlgraph/cache_pollution_test.go, cmd/htmlgraph/reindex.go, cmd/htmlgraph/reindex_files.go, cmd/htmlgraph/reindex_helpers.go, cmd/htmlgraph/reindex_sessions.go, cmd/htmlgraph/reindex_trailers.go, cmd/htmlgraph/reindex_test.go, cmd/htmlgraph/reindex_feature_files_test.go, cmd/htmlgraph/reindex_incremental_test.go, cmd/htmlgraph/reindex_sessions_test.go, cmd/htmlgraph/reindex_trailers_test.go, go.mod, go.sum, AGENTS.md, CLAUDE.md, cmd/htmlgraph/prompts/system-prompt.md, .htmlgraph/.gitignore, scripts/deploy-all.sh</code></div></div>
-  <div class="slice-field"><div class="slice-field-label">Done when</div><ul class="slice-done-list"><li>`go.sum` no longer references `mattn/go-sqlite3` or any SQLite driver.</li><li>`grep -r &#39;database/sql&#39; cmd/ internal/` returns zero matches.</li><li>Full test suite passes.</li><li>Binary size reduction documented in commit message (expected: ~3-5 MB).</li><li>Architecture table in `AGENTS.md` no longer mentions SQLite.</li></ul></div>
-  
-  <div class="slice-field"><div class="slice-field-label">Test Strategy</div><div class="slice-field-value slice-md slice-tests"><p>Integration: TestNoSQLiteDriver — <code>go test ./...</code> with a build tag that fails on <code>database/sql</code> import.
-Regression: full CLI command matrix passes.
-Smoke: fresh checkout, <code>go build</code>, <code>htmlgraph status</code> against a clean repo — works.</p>
-</div></div>
-  
-  <div class="slice-field slice-critic-revisions">
-    <div class="slice-field-label">Critic Revisions</div>
-    <div class="slice-field-value">
-      
-      <div class="critic-revision">
-        <span class="badge badge-blocked critic-revision-badge">DANGER</span>
-        <span class="critic-revision-source">researcher</span>
-        <span class="critic-revision-summary">ADDRESSED in revision: file list now enumerates real paths from grep audit (internal/db/ package, internal/storage/dbpath.go, reindex command family). 110 files import database/sql; deps now include slice-15 (hook handlers) and slice-16 (graph/agent/planchat/registry) so file count reaches 0 before deletion.</span>
-      </div>
-      
-      <div class="critic-revision">
-        <span class="badge badge-revision critic-revision-badge">MED</span>
-        <span class="critic-revision-source">researcher</span>
-        <span class="critic-revision-summary">ADDRESSED in revision: internal/storage/evict.go is now explicitly in the file list for deletion.</span>
-      </div>
-      
-    </div>
-  </div>
-  
-  
-  <div class="slice-deps">Dependencies: none</div>
-  <div class="approval-row">
-    <label><input type="checkbox" data-section="slice-1" data-action="approve"> Approve slice</label>
-    <textarea data-section="slice-1" data-comment-for="slice-1" placeholder="Comments on slice 1..."></textarea>
-  </div>
 </div>
-<div class="slice-card" data-slice="2" data-slice-name="slice-2" data-status="pending">
-  <div class="slice-header">
-    <span class="slice-num">#2</span>
-    <span class="slice-name">Phase 4b — Regenerate plugin ports (Codex, Gemini, Claude) after schema lands</span>
-    <span class="badge badge-pending">S</span>
-    <span class="badge badge-pending">Low</span>
-    <span class="badge badge-pending slice-exec-badge" title="Execution: not_started">Not Started</span>
-    <span class="badge badge-pending slice-approval-badge" data-badge-for="slice-2">Pending</span>
+          
+        </div>
+      </div>
+      
+      
+      <div class="slice-field">
+        <div class="slice-field-label">Files</div>
+        <div class="slice-field-value"><code>internal/db/, internal/storage/dbpath.go, internal/storage/evict.go, internal/storage/evict_test.go, cmd/htmlgraph/cache.go, cmd/htmlgraph/cache_pollution_test.go, cmd/htmlgraph/reindex.go, cmd/htmlgraph/reindex_files.go, cmd/htmlgraph/reindex_helpers.go, cmd/htmlgraph/reindex_sessions.go, cmd/htmlgraph/reindex_trailers.go, cmd/htmlgraph/reindex_test.go, cmd/htmlgraph/reindex_feature_files_test.go, cmd/htmlgraph/reindex_incremental_test.go, cmd/htmlgraph/reindex_sessions_test.go, cmd/htmlgraph/reindex_trailers_test.go, go.mod, go.sum, AGENTS.md, CLAUDE.md, cmd/htmlgraph/prompts/system-prompt.md, .htmlgraph/.gitignore, scripts/deploy-all.sh</code></div>
+      </div>
+      
+      
+      <div class="slice-field">
+        <div class="slice-field-label">Done when</div>
+        <ul class="slice-done-list"><li>`go.sum` no longer references `mattn/go-sqlite3` or any SQLite driver.</li><li>`grep -r &#39;database/sql&#39; cmd/ internal/` returns zero matches.</li><li>Full test suite passes.</li><li>Binary size reduction documented in commit message (expected: ~3-5 MB).</li><li>Architecture table in `AGENTS.md` no longer mentions SQLite.</li></ul>
+      </div>
+      
+    
+
+    
+
+    
+    <div class="slice-field slice-tests-field">
+      <div class="slice-field-label">Test Strategy</div>
+      <div class="slice-field-value">
+        
+        
+        <div class="test-strategy">
+          
+          <div class="test-group" data-kind="integration">
+            <span class="test-chip">INTEGRATION &middot; 1</span>
+            <ul><li>TestNoSQLiteDriver — `go test ./...` with a build tag that fails on `database/sql` import.</li></ul>
+          </div>
+          
+          <div class="test-group" data-kind="regression">
+            <span class="test-chip">REGRESSION &middot; 1</span>
+            <ul><li>full CLI command matrix passes.</li></ul>
+          </div>
+          
+          <div class="test-group" data-kind="smoke">
+            <span class="test-chip">SMOKE &middot; 1</span>
+            <ul><li>fresh checkout, `go build`, `htmlgraph status` against a clean repo — works.</li></ul>
+          </div>
+          
+        </div>
+        
+      </div>
+    </div>
+    
+
+    
+    <div class="slice-field slice-critic-revisions">
+      <div class="slice-field-label">Critic Revisions</div>
+      <div class="slice-field-value">
+        
+        <div class="critic-revision">
+          <span class="badge badge-blocked critic-revision-badge">DANGER</span>
+          <span class="critic-revision-source">researcher</span>
+          <span class="critic-revision-summary">ADDRESSED in revision: file list now enumerates real paths from grep audit (internal/db/ package, internal/storage/dbpath.go, reindex command family). 110 files import database/sql; deps now include slice-15 (hook handlers) and slice-16 (graph/agent/planchat/registry) so file count reaches 0 before deletion.</span>
+        </div>
+        
+        <div class="critic-revision">
+          <span class="badge badge-revision critic-revision-badge">MED</span>
+          <span class="critic-revision-source">researcher</span>
+          <span class="critic-revision-summary">ADDRESSED in revision: internal/storage/evict.go is now explicitly in the file list for deletion.</span>
+        </div>
+        
+      </div>
+    </div>
+    
+
+    
+
+    <div class="slice-deps">Dependencies: none</div>
+
+    <details class="comment-collapse">
+      <summary class="comment-collapse-trigger">+ Leave a comment</summary>
+      <div class="comment-collapse-body">
+        <textarea data-section="slice-1" data-comment-for="slice-1" placeholder="Comments on slice 1..."></textarea>
+      </div>
+    </details>
   </div>
-  
-  <div class="slice-field"><div class="slice-field-label">What</div><div class="slice-field-value slice-md"><p>htmlgraph ships the same plugin to three harnesses (Claude Code at
+</details>
+<details class="slice-card" id="slice-2" data-slice="2" data-slice-name="slice-2" data-status="pending" data-approval="pending">
+  <summary class="slice-summary" aria-label="Slice 2: Phase 4b — Regenerate plugin ports (Codex, Gemini, Claude) after schema lands">
+    <span class="slice-num">#2</span>
+    <span class="slice-title-col">
+      <span class="slice-name">Phase 4b — Regenerate plugin ports (Codex, Gemini, Claude) after schema lands</span>
+      <span class="slice-preview">htmlgraph ships the same plugin to three harnesses (Claude Code at</span>
+      <span class="slice-meta-row">
+        <span class="slice-summary-badges">
+          <span class="badge badge-pending badge-sm">S</span>
+          <span class="badge badge-pending badge-sm">Low</span>
+          
+          <span class="badge badge-pending badge-sm" title="Execution: not_started">Not Started</span>
+          <span class="badge badge-pending badge-sm slice-approval-badge" data-badge-for="slice-2">Pending</span>
+          
+          
+        </span>
+        <span class="slice-actions" onclick="event.stopPropagation()">
+          <span class="approval-segmented" role="group" aria-label="Approval action">
+            <label class="seg-btn seg-approve" title="Approve">
+              <input type="radio" name="slice-2-approval" value="approved" data-section="slice-2" data-action="approve" aria-label="Approve slice 2">
+              &#10003;
+            </label>
+            <label class="seg-btn seg-changes" title="Request changes">
+              <input type="radio" name="slice-2-approval" value="changes_requested" data-section="slice-2" data-action="approve" aria-label="Request changes for slice 2">
+              &#8635;
+            </label>
+            <label class="seg-btn seg-reject" title="Reject">
+              <input type="radio" name="slice-2-approval" value="rejected" data-section="slice-2" data-action="approve" aria-label="Reject slice 2">
+              &#10005;
+            </label>
+          </span>
+        </span>
+      </span>
+    </span>
+    <span class="slice-chevron" aria-hidden="true"></span>
+  </summary>
+
+  <div class="slice-body">
+    
+      
+      <div class="slice-field slice-what">
+        <div class="slice-field-label">What</div>
+        <div class="slice-field-value">
+          
+          <input type="checkbox" id="slice-2-what-reveal" class="reveal-toggle">
+          <div class="markdown-block reveal-content serif-prose"><p>htmlgraph ships the same plugin to three harnesses (Claude Code at
 <code>plugin/</code>, Codex CLI at <code>packages/codex-plugin/</code>, Gemini extension
 at <code>packages/gemini-extension/</code>) — all generated from
 <code>packages/plugin-core/manifest.json</code> by <code>htmlgraph plugin build-ports</code>.
@@ -459,26 +743,80 @@ and audit that the regenerated trees:
 under <code>plugin/{commands,agents,skills,templates,static,config}/</code> if
 the deletion of SQLite-related commands (e.g. <code>htmlgraph reindex</code>)
 requires command-tree changes.</p>
-</div></div>
-  <div class="slice-field"><div class="slice-field-label">Why</div><div class="slice-field-value slice-md"><p>Without this, deployed plugins for Codex and Gemini will continue
+</div>
+          <label for="slice-2-what-reveal" class="reveal-label">Show full description</label>
+          
+        </div>
+      </div>
+      
+      
+      <div class="slice-field slice-why">
+        <div class="slice-field-label">Why</div>
+        <div class="slice-field-value">
+          
+          <div class="markdown-block serif-prose"><p>Without this, deployed plugins for Codex and Gemini will continue
 to ship docs describing the old architecture even after slice-11
 lands. Marketplaces ship from generated trees, not from source —
 regenerate and verify.</p>
-</div></div>
-  <div class="slice-field"><div class="slice-field-label">Files</div><div class="slice-field-value"><code>packages/plugin-core/manifest.json, plugin/agents/, plugin/skills/, plugin/commands/, cmd/htmlgraph/prompts/system-prompt.md, packages/codex-plugin/, packages/gemini-extension/</code></div></div>
-  <div class="slice-field"><div class="slice-field-label">Done when</div><ul class="slice-done-list"><li>`htmlgraph plugin build-ports --target all` succeeds with zero diffs after a clean rebuild.</li><li>`grep -r -i sqlite packages/codex-plugin/ packages/gemini-extension/ plugin/` returns zero matches.</li><li>Architecture docs in all three plugin trees describe HTML&#43;NDJSON canonical.</li></ul></div>
-  
-  <div class="slice-field"><div class="slice-field-label">Test Strategy</div><div class="slice-field-value slice-md slice-tests"><p>Integration: TestPluginPortsIdempotent — run build-ports twice, assert byte-equality.
-Lint: shell test that grep -r sqlite packages/ returns no matches.</p>
-</div></div>
-  
-  
-  <div class="slice-deps">Dependencies: slices 1</div>
-  <div class="approval-row">
-    <label><input type="checkbox" data-section="slice-2" data-action="approve"> Approve slice</label>
-    <textarea data-section="slice-2" data-comment-for="slice-2" placeholder="Comments on slice 2..."></textarea>
-  </div>
 </div>
+          
+        </div>
+      </div>
+      
+      
+      <div class="slice-field">
+        <div class="slice-field-label">Files</div>
+        <div class="slice-field-value"><code>packages/plugin-core/manifest.json, plugin/agents/, plugin/skills/, plugin/commands/, cmd/htmlgraph/prompts/system-prompt.md, packages/codex-plugin/, packages/gemini-extension/</code></div>
+      </div>
+      
+      
+      <div class="slice-field">
+        <div class="slice-field-label">Done when</div>
+        <ul class="slice-done-list"><li>`htmlgraph plugin build-ports --target all` succeeds with zero diffs after a clean rebuild.</li><li>`grep -r -i sqlite packages/codex-plugin/ packages/gemini-extension/ plugin/` returns zero matches.</li><li>Architecture docs in all three plugin trees describe HTML&#43;NDJSON canonical.</li></ul>
+      </div>
+      
+    
+
+    
+
+    
+    <div class="slice-field slice-tests-field">
+      <div class="slice-field-label">Test Strategy</div>
+      <div class="slice-field-value">
+        
+        
+        <div class="test-strategy">
+          
+          <div class="test-group" data-kind="integration">
+            <span class="test-chip">INTEGRATION &middot; 1</span>
+            <ul><li>TestPluginPortsIdempotent — run build-ports twice, assert byte-equality.</li></ul>
+          </div>
+          
+          <div class="test-group" data-kind="lint">
+            <span class="test-chip">LINT &middot; 1</span>
+            <ul><li>shell test that grep -r sqlite packages/ returns no matches.</li></ul>
+          </div>
+          
+        </div>
+        
+      </div>
+    </div>
+    
+
+    
+
+    
+
+    <div class="slice-deps">Dependencies: slices 1</div>
+
+    <details class="comment-collapse">
+      <summary class="comment-collapse-trigger">+ Leave a comment</summary>
+      <div class="comment-collapse-body">
+        <textarea data-section="slice-2" data-comment-for="slice-2" placeholder="Comments on slice 2..."></textarea>
+      </div>
+    </details>
+  </div>
+</details>
 
     <!--PLAN_SLICE_CARDS-->
   </div>
@@ -512,30 +850,6 @@ Lint: shell test that grep -r sqlite packages/ returns no matches.</p>
 
 </article>
 </div><!-- /.plan-content -->
-
-<!-- Drag handle for resizing chat sidebar -->
-<div class="chat-resize-handle" id="chat-resize-handle"></div>
-
-<!-- Chat sidebar -->
-<aside class="chat-sidebar" id="chat-sidebar">
-  <section id="chat-panel" class="chat-panel" data-zone="chat">
-    <h2>Plan Discussion</h2>
-    <div id="chat-messages" class="chat-messages">
-      <p class="chat-notice" id="chat-empty">Ask about the plan design, slices, risks, or tradeoffs.</p>
-    </div>
-    <div class="chat-input-area">
-      <textarea id="chat-input" placeholder="Ask about the plan..." rows="2"></textarea>
-      <button id="chat-send">Send</button>
-    </div>
-  </section>
-
-  <!-- Amendments Panel -->
-  <div id="amendments-panel" class="amendments-panel" style="display:none">
-    <h3>Amendments</h3>
-    <div id="amendments-list"></div>
-    <div id="amendments-summary" class="amendments-summary"></div>
-  </div>
-</aside>
 </div><!-- /.plan-layout -->
 
 <script src="https://d3js.org/d3.v7.min.js"></script>
@@ -545,10 +859,10 @@ Lint: shell test that grep -r sqlite packages/ returns no matches.</p>
 // rendered HTML works whether the file is served at the legacy
 // /plans/<id>.html path (single-project server) or at /p/<id>/plans/<id>.html
 // (via the parent-doorway reverse proxy). Every fetch() on this page
-// prefixes window.htmlgraphPlanBase, which is '' at the root and
+// prefixes window.wipnotePlanBase, which is '' at the root and
 // '/p/<id>' under the proxy. This is the per-project routing fix for
 // the multi-project hardening re-architecture (plan-237fb251).
-window.htmlgraphPlanBase = (function() {
+window.wipnotePlanBase = (function() {
   var p = window.location.pathname || '';
   if (p.indexOf('/p/') !== 0) return '';
   var segs = p.split('/').filter(function(s) { return s !== ''; });
@@ -610,33 +924,137 @@ var planId=(function(){var a=document.querySelector('article[id]');return a?a.id
 
   function escHtml(s){var d=document.createElement('div');d.textContent=s;return d.innerHTML}
 
-  document.querySelectorAll('input[data-action="approve"]').forEach(function(cb){
-    cb.addEventListener('change',function(){
-      var sec=this.dataset.section;
-      var badge=document.querySelector('[data-badge-for="'+sec+'"]');
-      if(badge) setBadge(badge,this.checked);
-      var details=this.closest('details[data-phase]');
-      if(details) details.dataset.status=this.checked?'approved':'pending';
-      if(sec.startsWith('slice-')){
-        var n=sec.split('-')[1];
-        var node=document.getElementById('node-'+n);
-        if(node) node.dataset.status=this.checked?'approved':'pending';
-        var all=document.querySelectorAll('input[data-section^="slice-"][data-action="approve"]');
-        var allOk=Array.prototype.every.call(all,function(c){return c.checked});
-        var sb=document.querySelector('[data-badge-for="slices"]');
-        if(sb) setBadge(sb,allOk);
-        var sd=document.querySelector('[data-phase="slices"]');
-        if(sd) sd.dataset.status=allOk?'approved':'pending';
-      }
-      updateProgress();
-      if(planId){
-        fetch((window.htmlgraphPlanBase||'')+'/api/plans/'+planId+'/feedback',{
-          method:'POST',
-          headers:{'Content-Type':'application/json'},
-          body:JSON.stringify({section:sec,action:'approve',value:String(this.checked),question_id:''})
+  // showFeedbackError: display a visible toast near the top of the page for
+  // any feedback write that returns non-2xx. The toast auto-dismisses after
+  // 8 seconds but can be dismissed early by clicking. Uses inline styles so
+  // it works whether the plan page is loaded standalone or embedded.
+  function showFeedbackError(msg){
+    var toast=document.createElement('div');
+    toast.setAttribute('role','alert');
+    toast.style.cssText='position:fixed;top:16px;right:16px;z-index:9999;max-width:420px;padding:12px 16px;background:rgba(239,68,68,.95);color:#fff;border-radius:8px;font-size:.85rem;line-height:1.4;box-shadow:0 4px 16px rgba(0,0,0,.5);display:flex;align-items:flex-start;gap:10px;cursor:pointer';
+    var icon=document.createElement('span');
+    icon.textContent='⚠️';
+    icon.style.flexShrink='0';
+    var text=document.createElement('span');
+    text.textContent='Feedback not saved: '+msg;
+    var close=document.createElement('span');
+    close.textContent='×';
+    close.style.cssText='margin-left:auto;font-size:1.1rem;line-height:1;flex-shrink:0;opacity:.8';
+    toast.appendChild(icon);
+    toast.appendChild(text);
+    toast.appendChild(close);
+    document.body.appendChild(toast);
+    var tid=setTimeout(function(){if(toast.parentNode)toast.parentNode.removeChild(toast);},8000);
+    toast.addEventListener('click',function(){clearTimeout(tid);if(toast.parentNode)toast.parentNode.removeChild(toast);});
+  }
+
+  // revertApproval: restore a section's approval control to prevVal after a
+  // failed POST, then re-run all downstream UI updates without firing another
+  // network request. Temporarily suppresses change events to prevent re-POST.
+  function revertApproval(sec,prevVal){
+    var radio=document.querySelector('input[type="radio"][data-section="'+sec+'"][data-action="approve"][value="'+prevVal+'"]');
+    if(radio){
+      radio.checked=true;
+    } else {
+      var cb=document.querySelector('input[type="checkbox"][data-section="'+sec+'"][data-action="approve"]');
+      if(cb) cb.checked=(prevVal==='approved'||prevVal==='true');
+    }
+    // Re-run downstream visual updates without a new fetch
+    var dummy=document.querySelector('[data-section="'+sec+'"][data-action="approve"]');
+    if(dummy) handleApprovalVisuals(sec,prevVal);
+  }
+
+  // handleApprovalVisuals: apply all downstream visual state changes for a
+  // section approval value WITHOUT firing a network request (used both by
+  // handleApprovalChange and revertApproval).
+  function handleApprovalVisuals(sec,val){
+    var isApproved=(val==='approved');
+    var badge=document.querySelector('[data-badge-for="'+sec+'"]');
+    if(badge) setBadge(badge,isApproved);
+    var phaseDetails=document.querySelector('[data-action="approve"][data-section="'+sec+'"]');
+    var pd=phaseDetails&&phaseDetails.closest('details[data-phase]');
+    if(pd) pd.dataset.status=isApproved?'approved':'pending';
+    if(sec.startsWith('slice-')&&sec.split('-').length===2){
+      var n=sec.split('-')[1];
+      var sliceCard=document.getElementById('slice-'+n);
+      if(sliceCard) sliceCard.dataset.approval=val;
+      var node=document.getElementById('node-'+n);
+      if(node) node.dataset.status=isApproved?'approved':'pending';
+      document.querySelectorAll('[data-dot-for="'+n+'"]').forEach(function(dot){
+        dot.dataset.approval=val;
+      });
+      var allSliceInputs=document.querySelectorAll('input[data-section^="slice-"][data-action="approve"]');
+      var sliceNums={};
+      Array.prototype.forEach.call(allSliceInputs,function(inp){
+        sliceNums[inp.dataset.section]=true;
+      });
+      var allOk=Object.keys(sliceNums).every(function(s){
+        return getApprovalValue(s)==='approved';
+      });
+      var sb=document.querySelector('[data-badge-for="slices"]');
+      if(sb) setBadge(sb,allOk);
+      var sd=document.querySelector('[data-phase="slices"]');
+      if(sd) sd.dataset.status=allOk?'approved':'pending';
+    }
+    updateProgress();
+  }
+
+  // Helper: get effective approval value for a slice section.
+  // For radio-based slice controls, returns the selected value or 'pending'.
+  // For checkbox-based controls (design, outline), returns 'approved' or 'pending'.
+  function getApprovalValue(sec){
+    // Try radio group first (slice-N approval segmented control)
+    var checked=document.querySelector('input[type="radio"][data-section="'+sec+'"][data-action="approve"]:checked');
+    if(checked) return checked.value;
+    // Fallback: checkbox
+    var cb=document.querySelector('input[type="checkbox"][data-section="'+sec+'"][data-action="approve"]');
+    if(cb) return cb.checked?'approved':'pending';
+    return 'pending';
+  }
+
+  // approvalServerState: tracks the last server-confirmed approval value per
+  // section key. Populated by loadExistingFeedback (GET) and successful POSTs.
+  // Used to revert optimistic UI updates when a POST fails.
+  var approvalServerState={};
+
+  function handleApprovalChange(el){
+    var sec=el.dataset.section;
+    var val=getApprovalValue(sec);
+    // Capture the last server-confirmed value for this section (or 'pending'
+    // if we have never seen a confirmed server value — i.e. the page just
+    // loaded with baked-in checked state and the first POST fails).
+    var prevVal=approvalServerState.hasOwnProperty(sec)?approvalServerState[sec]:'pending';
+    // Apply optimistic UI update
+    handleApprovalVisuals(sec,val);
+    // During initial hydration from the server GET, suppress POST — the change
+    // events are synthetic (we are restoring server state, not recording new input).
+    if(planId&&!_loadingFeedback){
+      fetch((window.wipnotePlanBase||'')+'/api/plans/'+planId+'/feedback',{
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({section:sec,action:'approve',value:(val==='approved'?'true':'false'),question_id:''})
+      }).then(function(r){
+        if(r.ok){
+          // Record the now-confirmed server state so we can revert correctly
+          // if a subsequent POST fails.
+          approvalServerState[sec]=val;
+          return;
+        }
+        return r.text().then(function(body){
+          console.error('[wipnote] feedback POST '+sec+' returned '+r.status+': '+body);
+          showFeedbackError((body&&body.trim())||('HTTP '+r.status));
+          revertApproval(sec,prevVal);
         });
-      }
-    });
+      }).catch(function(err){
+        console.error('[wipnote] feedback POST '+sec+' network error:',err);
+        showFeedbackError('Could not reach server. Is wipnote serve running?');
+        revertApproval(sec,prevVal);
+      });
+    }
+  }
+
+  document.querySelectorAll('input[data-action="approve"]').forEach(function(el){
+    el.addEventListener('change',function(){ handleApprovalChange(this); });
   });
 
   document.querySelectorAll('input[type="radio"][data-question]').forEach(function(r){
@@ -657,11 +1075,24 @@ var planId=(function(){var a=document.querySelector('article[id]');return a?a.id
       if(headerBadge) setBadge(headerBadge,allAnswered);
       var details=document.querySelector('[data-phase="questions"]');
       if(details) details.dataset.status=allAnswered?'approved':'pending';
-      if(planId){
-        fetch((window.htmlgraphPlanBase||'')+'/api/plans/'+planId+'/feedback',{
+      // Suppress POST during hydration (bug-fddf5820, finding 8): loadExistingFeedback
+      // dispatches synthetic change events to restore answers from the server GET;
+      // re-POSTing them echoes server state back as new writes.
+      if(planId&&!_loadingFeedback){
+        var qVal=this.value,qId=this.dataset.question;
+        fetch((window.wipnotePlanBase||'')+'/api/plans/'+planId+'/feedback',{
           method:'POST',
           headers:{'Content-Type':'application/json'},
-          body:JSON.stringify({section:'questions',action:'answer',value:this.value,question_id:this.dataset.question})
+          body:JSON.stringify({section:'questions',action:'answer',value:qVal,question_id:qId})
+        }).then(function(r){
+          if(r.ok) return;
+          return r.text().then(function(body){
+            console.error('[wipnote] feedback POST questions/'+qId+' returned '+r.status+': '+body);
+            showFeedbackError((body&&body.trim())||('HTTP '+r.status+' saving answer'));
+          });
+        }).catch(function(err){
+          console.error('[wipnote] feedback POST questions network error:',err);
+          showFeedbackError('Could not reach server. Is wipnote serve running?');
         });
       }
     });
@@ -674,6 +1105,32 @@ var planId=(function(){var a=document.querySelector('article[id]');return a?a.id
       if(badge) setBadge(badge,true);
     }
   });
+
+  // Slice-local question radio chips (data-action="answer", data-section=slice-N-question-<id>)
+  document.querySelectorAll('input[type="radio"][data-action="answer"]').forEach(function(r){
+    r.addEventListener('change',function(){
+      var sec=this.dataset.section,ansVal=this.value;
+      // Suppress POST during hydration (bug-fddf5820, finding 8) — same reason
+      // as the design/outline question radios above.
+      if(planId&&!_loadingFeedback){
+        fetch((window.wipnotePlanBase||'')+'/api/plans/'+planId+'/feedback',{
+          method:'POST',
+          headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({section:sec,action:'answer',value:ansVal,question_id:sec})
+        }).then(function(r){
+          if(r.ok) return;
+          return r.text().then(function(body){
+            console.error('[wipnote] feedback POST slice-question '+sec+' returned '+r.status+': '+body);
+            showFeedbackError((body&&body.trim())||('HTTP '+r.status+' saving answer'));
+          });
+        }).catch(function(err){
+          console.error('[wipnote] feedback POST slice-question network error:',err);
+          showFeedbackError('Could not reach server. Is wipnote serve running?');
+        });
+      }
+    });
+  });
+
   var allRows=document.querySelectorAll('[data-recap-for]');
   var allAnswered=Array.prototype.every.call(allRows,function(r){
     var b=r.querySelector('.badge');
@@ -687,14 +1144,69 @@ var planId=(function(){var a=document.querySelector('article[id]');return a?a.id
   function updateProgress(){
     var approved=0;
     SECTIONS.forEach(function(sec){
-      var cb=document.querySelector('input[data-section="'+sec+'"][data-action="approve"]');
-      if(cb&&cb.checked) approved++;
+      if(getApprovalValue(sec)==='approved') approved++;
     });
-    document.getElementById('approvedCount').textContent=approved;
-    document.getElementById('pendingCount').textContent=SECTIONS.length-approved;
-    document.getElementById('progressFill').style.width=Math.round(approved/SECTIONS.length*100)+'%';
-    document.getElementById('finalizeBtn').disabled=(approved<SECTIONS.length);
+    var pct=SECTIONS.length>0?Math.round(approved/SECTIONS.length*100):0;
+    // Main progress bar
+    var ac=document.getElementById('approvedCount');
+    if(ac) ac.textContent=approved;
+    var pc=document.getElementById('pendingCount');
+    if(pc) pc.textContent=SECTIONS.length-approved;
+    var pf=document.getElementById('progressFill');
+    if(pf) pf.style.width=pct+'%';
+    // Finalize gates on SLICES only — every slice-N section approved — matching
+    // the dashboard review rail and the backend. design/outline are still
+    // reviewed (and counted in the progress bar above) but do not block
+    // finalize. Legacy plans with no slices fall back to the all-sections gate.
+    var sliceSecs=SECTIONS.filter(function(s){return /^slice-\d+$/.test(s);});
+    var canFinalize=sliceSecs.length>0
+      ? sliceSecs.every(function(s){return getApprovalValue(s)==='approved';})
+      : (SECTIONS.length>0 && approved===SECTIONS.length);
+    var fb=document.getElementById('finalizeBtn');
+    if(fb) fb.disabled=!canFinalize;
+    // Review rail
+    var ra=document.getElementById('railApproved');
+    if(ra) ra.textContent=approved;
+    var rf=document.getElementById('railFill');
+    if(rf) rf.style.width=pct+'%';
+    var frb=document.getElementById('finalizeRailBtn');
+    if(frb) frb.disabled=!canFinalize;
+    updateRailPending();
     updateComments();
+  }
+
+  function updateRailPending(){
+    var list=document.getElementById('railPendingList');
+    if(!list) return;
+    // Keep the "Pending" header strong
+    list.innerHTML='<strong>Pending</strong>';
+    SECTIONS.forEach(function(sec){
+      if(getApprovalValue(sec)!=='approved'){
+        var li=document.createElement('li');
+        var sliceNum=sec.startsWith('slice-')?sec.split('-')[1]:null;
+        var issueCount=0,qCount=0;
+        if(sliceNum){
+          var card=document.getElementById('slice-'+sliceNum);
+          if(card){
+            var issueBadge=card.querySelector('.badge-issues');
+            var qBadge=card.querySelector('.badge-questions');
+            if(issueBadge) issueCount=parseInt(issueBadge.textContent)||0;
+            if(qBadge) qCount=parseInt(qBadge.textContent)||0;
+          }
+        }
+        if(issueCount>0) li.dataset.hasIssues='1';
+        if(qCount>0) li.dataset.hasQuestions='1';
+        var label=sec;
+        if(sliceNum){
+          var nameEl=document.querySelector('#slice-'+sliceNum+' .slice-name');
+          label='Slice '+sliceNum+(nameEl?' ('+nameEl.textContent.trim().substring(0,20)+(nameEl.textContent.trim().length>20?'…':'')+')':'');
+        }
+        if(issueCount>0) label+=' · '+issueCount+' issue'+(issueCount>1?'s':'');
+        if(qCount>0) label+=' · '+qCount+' Q';
+        li.textContent=label;
+        list.appendChild(li);
+      }
+    });
   }
 
   function updateComments(){
@@ -711,10 +1223,20 @@ var planId=(function(){var a=document.querySelector('article[id]');return a?a.id
     ta.addEventListener('input',function(){clearTimeout(timer);timer=setTimeout(updateComments,400)});
     ta.addEventListener('blur',function(){
       if(planId&&this.value.trim()){
-        fetch((window.htmlgraphPlanBase||'')+'/api/plans/'+planId+'/feedback',{
+        var cSec=this.dataset.section,cVal=this.value.trim();
+        fetch((window.wipnotePlanBase||'')+'/api/plans/'+planId+'/feedback',{
           method:'POST',
           headers:{'Content-Type':'application/json'},
-          body:JSON.stringify({section:this.dataset.section,action:'comment',value:this.value.trim(),question_id:''})
+          body:JSON.stringify({section:cSec,action:'comment',value:cVal,question_id:''})
+        }).then(function(r){
+          if(r.ok) return;
+          return r.text().then(function(body){
+            console.error('[wipnote] feedback POST comment '+cSec+' returned '+r.status+': '+body);
+            showFeedbackError((body&&body.trim())||('HTTP '+r.status+' saving comment'));
+          });
+        }).catch(function(err){
+          console.error('[wipnote] feedback POST comment network error:',err);
+          showFeedbackError('Could not reach server. Is wipnote serve running?');
         });
       }
     });
@@ -731,7 +1253,7 @@ var planId=(function(){var a=document.querySelector('article[id]');return a?a.id
       btn.disabled=true;
       btn.textContent='Finalizing...';
       finalizeMsg.style.display='none';
-      fetch((window.htmlgraphPlanBase||'')+'/api/plans/'+planId+'/finalize',{
+      fetch((window.wipnotePlanBase||'')+'/api/plans/'+planId+'/finalize',{
         method:'POST',
         headers:{'Content-Type':'application/json'}
       })
@@ -742,23 +1264,40 @@ var planId=(function(){var a=document.querySelector('article[id]');return a?a.id
             btn.textContent='Plan Finalized';
             btn.style.background='var(--approved)';
             btn.style.color='#fff';
-            if(data&&data.next_steps){
-              var pre=document.createElement('pre');
-              pre.style.cssText='margin-top:12px;padding:10px 14px;background:var(--bg-input);border:1px solid var(--border);border-radius:var(--radius);font-family:var(--mono);font-size:.78rem;text-align:left;white-space:pre-wrap;word-break:break-all;color:var(--text)';
-              pre.textContent=data.next_steps;
-              finalizeMsg.innerHTML='';
-              finalizeMsg.appendChild(pre);
-            } else {
-              finalizeMsg.textContent='Plan finalized successfully.';
+            // Render the same rich result as the dashboard review rail: created
+            // features + the agentic next/yolo commands (data.next_command /
+            // data.yolo_command — NOT the legacy data.next_steps, which the
+            // backend never returns).
+            data=data||{};
+            var preCss='margin:4px 0 0;padding:8px 12px;background:var(--bg-input);border:1px solid var(--border);border-radius:var(--radius);font-family:var(--mono);font-size:.76rem;text-align:left;white-space:pre-wrap;word-break:break-all;color:var(--text);user-select:text';
+            var html='<span style="color:var(--approved);font-weight:600">Plan finalized.</span>';
+            var feats=data.created_features||[];
+            if(feats.length){
+              html+='<div style="margin-top:8px;font-size:.78rem;color:var(--text-muted)">Features created ('+feats.length+'):</div>';
+              html+='<ul style="margin:4px 0 0;padding-left:18px;font-size:.78rem;font-family:var(--mono);color:var(--text-muted)">';
+              feats.forEach(function(f){html+='<li>'+escHtml(f)+'</li>';});
+              html+='</ul>';
             }
-            finalizeMsg.style.color='var(--approved)';
+            if(data.failures&&data.failures.length){
+              html+='<div style="margin-top:6px;font-size:.78rem;color:var(--blocked)">'+data.failures.length+' slice(s) failed to create — see server log.</div>';
+            }
+            if(data.next_command){
+              html+='<div style="margin-top:8px;font-size:.76rem;color:var(--text-muted)">Next — agentic generation (integrates review feedback):</div>';
+              html+='<pre style="'+preCss+'">'+escHtml(data.next_command)+'</pre>';
+            }
+            if(data.yolo_command){
+              html+='<div style="margin-top:6px;font-size:.76rem;color:var(--text-muted)">Or autonomous mode:</div>';
+              html+='<pre style="'+preCss+'">'+escHtml(data.yolo_command)+'</pre>';
+            }
+            finalizeMsg.innerHTML=html;
+            finalizeMsg.style.color='';
             finalizeMsg.style.display='block';
           });
         } else {
-          return r.json().then(function(data){
+          return r.text().then(function(body){
             btn.textContent='Finalize Plan';
             btn.disabled=false;
-            finalizeMsg.textContent=data.error||'Not all sections approved.';
+            finalizeMsg.textContent=body||'Not all sections approved.';
             finalizeMsg.style.color='var(--blocked)';
             finalizeMsg.style.display='block';
           });
@@ -767,29 +1306,71 @@ var planId=(function(){var a=document.querySelector('article[id]');return a?a.id
       .catch(function(){
         btn.textContent='Finalize Plan';
         btn.disabled=false;
-        finalizeMsg.textContent='Could not reach server. Is htmlgraph serve running?';
+        finalizeMsg.textContent='Could not reach server. Is wipnote serve running?';
         finalizeMsg.style.color='var(--revision)';
         finalizeMsg.style.display='block';
       });
     });
   }
 
+  // Wire the rail finalize button to the same handler
+  var finalizeRailBtn=document.getElementById('finalizeRailBtn');
+  if(finalizeRailBtn){
+    finalizeRailBtn.addEventListener('click',function(){
+      var mainBtn=document.getElementById('finalizeBtn');
+      if(mainBtn) mainBtn.click();
+    });
+  }
+
+  // _loadingFeedback: true while loadExistingFeedback is hydrating controls
+  // from the server GET. handleApprovalChange skips POST during this window
+  // to avoid echoing server state back as new writes.
+  var _loadingFeedback=false;
+
   function loadExistingFeedback(){
     if(!planId){return;}
-    fetch((window.htmlgraphPlanBase||'')+'/api/plans/'+planId+'/feedback')
+    fetch((window.wipnotePlanBase||'')+'/api/plans/'+planId+'/feedback')
       .then(function(r){return r.ok?r.json():null;})
       .then(function(data){
         if(!data){return;}
+        _loadingFeedback=true;
         if(data.sections){
           Object.keys(data.sections).forEach(function(sec){
             var info=data.sections[sec];
-            if(info.approved){
-              var cb=document.querySelector('input[data-section="'+sec+'"][data-action="approve"]');
-              if(cb&&!cb.checked){cb.checked=true;cb.dispatchEvent(new Event('change'));}
+            if(info.approved||info.value){
+              var val=info.value||'approved';
+              // Record server-confirmed state so revert logic has a baseline.
+              approvalServerState[sec]=val;
+              // Try radio first (slice controls)
+              var radio=document.querySelector('input[type="radio"][data-section="'+sec+'"][data-action="approve"][value="'+val+'"]');
+              if(radio&&!radio.checked){radio.checked=true;radio.dispatchEvent(new Event('change'));}
+              else if(val==='approved'||val==='true'){
+                // Fallback checkbox (design, outline)
+                var cb=document.querySelector('input[type="checkbox"][data-section="'+sec+'"][data-action="approve"]');
+                if(cb&&!cb.checked){cb.checked=true;cb.dispatchEvent(new Event('change'));}
+              }
+            } else {
+              // Section exists in server data but is not approved — record as
+              // 'pending' so a subsequent approval revert has a valid baseline.
+              approvalServerState[sec]='pending';
+              // If baked HTML had this section checked (stale render), clear it.
+              var radio=document.querySelector('input[type="radio"][data-section="'+sec+'"][data-action="approve"][value="pending"]');
+              if(radio&&!radio.checked){radio.checked=true;radio.dispatchEvent(new Event('change'));}
+              else {
+                var cbPend=document.querySelector('input[type="checkbox"][data-section="'+sec+'"][data-action="approve"]');
+                if(cbPend&&cbPend.checked){cbPend.checked=false;cbPend.dispatchEvent(new Event('change'));}
+              }
             }
             if(info.comment){
+              // Comment textarea is inside a details.comment-collapse — open it first
               var ta=document.querySelector('textarea[data-section="'+sec+'"]');
-              if(ta) ta.value=info.comment;
+              if(ta){
+                ta.value=info.comment;
+                var collapse=ta.closest('details.comment-collapse');
+                if(collapse) collapse.open=true;
+                var trigger=collapse&&collapse.querySelector('.comment-collapse-trigger');
+                if(trigger) trigger.textContent='Edit comment';
+              }
             }
           });
         }
@@ -800,9 +1381,12 @@ var planId=(function(){var a=document.querySelector('article[id]');return a?a.id
             if(radio&&!radio.checked){radio.checked=true;radio.dispatchEvent(new Event('change'));}
           });
         }
+        _loadingFeedback=false;
         updateProgress();
       })
-      .catch(function(){});
+      .catch(function(){
+        _loadingFeedback=false;
+      });
   }
 
   loadExistingFeedback();
@@ -810,11 +1394,14 @@ var planId=(function(){var a=document.querySelector('article[id]');return a?a.id
   document.querySelectorAll('input[data-action="approve"]').forEach(function(cb){
     cb.addEventListener('change',function(){
       var sec=this.dataset.section;
-      if(sec.startsWith('slice-')){
+      if(sec.startsWith('slice-')&&sec.split('-').length===2){
         var n=sec.split('-')[1];
         var nodeRect=d3.select('#dep-graph-svg .node[id="'+n+'"] rect');
         if(!nodeRect.empty()){
-          var color=this.checked?'#16a34a':'#6b7280';
+          var val=getApprovalValue(sec);
+          var SC={pending:'#6b7280',approved:'#16a34a',revision:'#f59e0b',discuss:'#8b5cf6',blocked:'#dc2626'};
+          var graphStatus=val==='approved'?'approved':val==='rejected'||val==='changes_requested'?'revision':val==='discuss'?'discuss':val==='blocked'?'blocked':'pending';
+          var color=SC[graphStatus]||SC.pending;
           var cs=getComputedStyle(document.querySelector('.dep-graph')||document.documentElement);
           nodeRect.style('stroke',color).style('fill',cs.getPropertyValue('--bg-input').trim()||'#222228');
         }
@@ -829,30 +1416,94 @@ var planId=(function(){var a=document.querySelector('article[id]');return a?a.id
 
   var STATUS_COLORS={pending:'#6b7280',approved:'#16a34a',revision:'#f59e0b',discuss:'#8b5cf6',blocked:'#dc2626'};
 
+  // nodeDataMap: id -> {status, issues, questions, deps:[]}  — populated during render
+  var nodeDataMap={};
+  // graphRef: the dagreD3 graph object — stored for dep-chain queries
+  var graphRef=null;
+
+  // Build ancestor set for a node (all transitive prerequisites)
+  function ancestors(g,id){
+    var visited={};
+    var queue=[id];
+    while(queue.length){
+      var cur=queue.shift();
+      (g.predecessors(cur)||[]).forEach(function(p){
+        if(!visited[p]){visited[p]=true;queue.push(p);}
+      });
+    }
+    return visited;
+  }
+
+  // Build descendant set for a node (all transitive dependents)
+  function descendants(g,id){
+    var visited={};
+    var queue=[id];
+    while(queue.length){
+      var cur=queue.shift();
+      (g.successors(cur)||[]).forEach(function(s){
+        if(!visited[s]){visited[s]=true;queue.push(s);}
+      });
+    }
+    return visited;
+  }
+
+  // Apply dep-chain highlight: dim unrelated nodes/edges, highlight related ones.
+  // Pass null to clear.
+  function applyDepHighlight(inner,g,focusId){
+    var allNodes=inner.selectAll('g.node');
+    var allEdges=inner.selectAll('g.edgePath');
+    if(!focusId){
+      allNodes.classed('dep-graph-dimmed',false).classed('dep-graph-highlighted',false);
+      allEdges.classed('dep-graph-dimmed',false);
+      return;
+    }
+    var anc=ancestors(g,focusId);
+    var desc=descendants(g,focusId);
+    allNodes.each(function(id){
+      var related=(id===focusId||anc[id]||desc[id]);
+      d3.select(this).classed('dep-graph-dimmed',!related).classed('dep-graph-highlighted',related);
+    });
+    allEdges.each(function(e){
+      var related=(anc[e.v]||e.v===focusId||desc[e.v])&&(anc[e.w]||e.w===focusId||desc[e.w]);
+      d3.select(this).classed('dep-graph-dimmed',!related);
+    });
+  }
+
   function renderGraph(){
     var container=document.getElementById('graph-data');
     if(!container) return;
 
     var g=new dagreD3.graphlib.Graph().setGraph({rankdir:'TB',marginx:24,marginy:24,ranksep:48,nodesep:32});
     g.setDefaultEdgeLabel(function(){return{};});
+    graphRef=g;
+    nodeDataMap={};
 
-    var nodes=container.querySelectorAll('[data-node]');
-    nodes.forEach(function(el){
+    var nodeEls=container.querySelectorAll('[data-node]');
+    nodeEls.forEach(function(el){
       var id=el.dataset.node;
       var name=el.dataset.name;
       var files=el.dataset.files;
       var status=el.dataset.status||'pending';
+      var issues=parseInt(el.dataset.issues||'0',10);
+      var questions=parseInt(el.dataset.questions||'0',10);
+      // Build badge suffix appended to node label
+      var badge='';
+      if(issues>0) badge+=' ⚠'+issues;
+      if(questions>0) badge+=' ?'+questions;
+      nodeDataMap[id]={status:status,issues:issues,questions:questions};
       g.setNode(id,{
-        label: name+'\n'+files+' files',
+        label: name+(badge?badge:'')+'\n'+(files||'0')+' files',
         rx: 6,
         ry: 6,
         paddingX: 36,
         paddingY: 16,
-        status: status
+        status: status,
+        issues: issues,
+        questions: questions
       });
     });
 
-    nodes.forEach(function(el){
+    nodeEls.forEach(function(el){
       var id=el.dataset.node;
       var deps=el.dataset.deps?el.dataset.deps.split(',').map(function(d){return d.trim();}).filter(Boolean):[];
       deps.forEach(function(dep){g.setEdge(dep,id);});
@@ -895,6 +1546,48 @@ var planId=(function(){var a=document.querySelector('article[id]');return a?a.id
     svgEl.setAttribute('width',graphWidth+pad*2);
     svgEl.setAttribute('height',graphHeight+pad*2);
     svgEl.removeAttribute('viewBox');
+
+    // Improvement 3: click a graph node → scroll to + open its slice card
+    var selectedNode=null;
+    inner.selectAll('g.node').on('click',function(event,id){
+      // Dep-chain highlight toggle
+      if(selectedNode===id){
+        selectedNode=null;
+        applyDepHighlight(inner,g,null);
+      } else {
+        selectedNode=id;
+        applyDepHighlight(inner,g,id);
+      }
+      // Navigate to slice card
+      var target=document.getElementById('slice-'+id);
+      if(target){
+        target.setAttribute('open','');
+        target.scrollIntoView({behavior:'smooth',block:'start'});
+      }
+    });
+
+    // Improvement 4: hover highlights dep-chain (without overriding click selection)
+    inner.selectAll('g.node')
+      .on('mouseover',function(event,id){
+        if(!selectedNode) applyDepHighlight(inner,g,id);
+      })
+      .on('mouseout',function(event){
+        if(!selectedNode) applyDepHighlight(inner,g,null);
+      });
+
+    // Improvement 3 (reverse): clicking a slice nav item highlights the graph node
+    document.querySelectorAll('[data-slice-nav]').forEach(function(link){
+      link.addEventListener('mouseenter',function(){
+        var num=this.dataset.sliceNav;
+        var nodeEl=inner.select('g.node[id="'+num+'"]');
+        if(!nodeEl.empty()) nodeEl.classed('graph-node-ring',true);
+      });
+      link.addEventListener('mouseleave',function(){
+        var num=this.dataset.sliceNav;
+        var nodeEl=inner.select('g.node[id="'+num+'"]');
+        if(!nodeEl.empty()) nodeEl.classed('graph-node-ring',false);
+      });
+    });
   }
 
   if(document.readyState==='loading'){
@@ -993,7 +1686,7 @@ function renderMd(text){
 
   // Load previous messages directly into the chat thread.
   if(planId){
-    fetch((window.htmlgraphPlanBase||'')+'/api/plans/'+planId+'/feedback')
+    fetch((window.wipnotePlanBase||'')+'/api/plans/'+planId+'/feedback')
       .then(function(r){return r.ok?r.json():null;})
       .then(function(data){
         if(!data||!data.chat_messages||!data.chat_messages.length) return;
@@ -1020,7 +1713,7 @@ function renderMd(text){
     chatMessages.appendChild(assistantBubble);
     var rawResponse='';
 
-    fetch((window.htmlgraphPlanBase||'')+'/api/plans/'+planId+'/chat',{
+    fetch((window.wipnotePlanBase||'')+'/api/plans/'+planId+'/chat',{
       method:'POST',
       headers:{'Content-Type':'application/json'},
       body:JSON.stringify({message:text})
@@ -1113,34 +1806,28 @@ function renderMd(text){
   update();
 })();
 
-// Chat sidebar drag-resize
+// Left nav collapse toggle
 (function(){
-  var handle=document.getElementById('chat-resize-handle');
-  var sidebar=document.getElementById('chat-sidebar');
-  if(!handle||!sidebar) return;
-  var startX,startW;
-  handle.addEventListener('mousedown',function(e){
-    e.preventDefault();
-    startX=e.clientX;
-    startW=sidebar.offsetWidth;
-    handle.classList.add('dragging');
-    document.body.style.cursor='col-resize';
-    document.body.style.userSelect='none';
-    function onMove(e){
-      var delta=startX-e.clientX;
-      var newW=Math.max(280,Math.min(600,startW+delta));
-      sidebar.style.width=newW+'px';
-    }
-    function onUp(){
-      handle.classList.remove('dragging');
-      document.body.style.cursor='';
-      document.body.style.userSelect='';
-      document.removeEventListener('mousemove',onMove);
-      document.removeEventListener('mouseup',onUp);
-    }
-    document.addEventListener('mousemove',onMove);
-    document.addEventListener('mouseup',onUp);
-  });
+  'use strict';
+  var KEY_L='wipnote-plan-left-collapsed';
+  var body=document.body;
+  var btnL=document.getElementById('left-sidebar-toggle');
+
+  function applyLeft(collapsed){
+    body.classList.toggle('left-nav-collapsed',collapsed);
+    if(btnL) btnL.textContent=collapsed?'›':'‹';
+    if(btnL) btnL.title=collapsed?'Expand sidebar':'Collapse sidebar';
+  }
+
+  applyLeft(localStorage.getItem(KEY_L)==='1');
+
+  if(btnL){
+    btnL.addEventListener('click',function(){
+      var collapsed=!body.classList.contains('left-nav-collapsed');
+      applyLeft(collapsed);
+      localStorage.setItem(KEY_L,collapsed?'1':'0');
+    });
+  }
 })();
 
 
@@ -1164,7 +1851,7 @@ syncHljsTheme();
     var planEl=document.querySelector('[data-plan-id]');
     if(!planEl)return;
     var id=planEl.getAttribute('data-plan-id');
-    fetch((window.htmlgraphPlanBase||'')+'/api/plans/'+id+'/yaml')
+    fetch((window.wipnotePlanBase||'')+'/api/plans/'+id+'/yaml')
       .then(function(r){if(!r.ok)throw new Error('err');return r.text();})
       .then(function(t){
         codeEl.textContent=t;
@@ -1215,7 +1902,7 @@ syncHljsTheme();
     summary.textContent=selects.length+' amendments — '+accepted+' accepted, '+pending+' pending';
   }
 
-  fetch((window.htmlgraphPlanBase||'')+'/api/plans/'+planId+'/amendments')
+  fetch((window.wipnotePlanBase||'')+'/api/plans/'+planId+'/amendments')
     .then(function(r){return r.json();})
     .then(function(amendments){
       if(!amendments||!amendments.length)return;
@@ -1238,7 +1925,7 @@ syncHljsTheme();
           sel.appendChild(opt);
         });
         sel.addEventListener('change',function(){
-          fetch((window.htmlgraphPlanBase||'')+'/api/plans/'+planId+'/feedback',{
+          fetch((window.wipnotePlanBase||'')+'/api/plans/'+planId+'/feedback',{
             method:'POST',
             headers:{'Content-Type':'application/json'},
             body:JSON.stringify({

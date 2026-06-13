@@ -5,9 +5,9 @@ meta:
     description: |
         Sub-plan of plan-3bbc313f — Phase 4 deletion. With every consumer migrated, delete modernc.org/sqlite from go.mod, the internal/db/ package, the htmlgraph reindex command family, and SQLite mentions from all docs. Regenerate Codex/Gemini/Claude plugin ports so deployed marketplaces stop shipping the old architecture description. Tight 2-slice review surface is intentional.
     created_at: "2026-05-01"
-    status: draft
+    status: done
     created_by: claude-opus
-    version: 2
+    version: 3
 design:
     problem: |
         Until SQLite is deleted from go.mod, the team will keep accidentally re-adding SQL-backed code paths (already happened mid-conversation with `internal/storage/evict.go`). Removing the option is the only way to make the architecture promise real. The deployed Codex and Gemini plugin trees still embed `system-prompt.md` describing the SQLite read index; without regeneration, marketplaces will continue shipping the old narrative.

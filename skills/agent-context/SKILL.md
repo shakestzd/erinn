@@ -126,4 +126,8 @@ via `add-step` and `set-description` rather than holding everything for the end.
 - Research existing libraries/packages before implementing from scratch
 - Check project dependencies before adding new ones
 
+**Capability delivery tiers:** CLI via Bash (≈zero cost) > Skill > deferred MCP tool > eager MCP tool (avoid). Never expose wipnote's own commands as eager MCP tools. MCP is for external services only, with deferred loading.
+
+**Plugin/project boundary:** wipnote must never author or overwrite AGENTS.md, CLAUDE.md, or GEMINI.md. Those are user-owned project files. Read and respect them; never silently own them.
+
 These principles are language-neutral and apply to any codebase.

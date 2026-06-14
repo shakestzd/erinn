@@ -15,6 +15,7 @@ func antigravityOtelEnv(port int, sessionID string) []string {
 		// Standard OpenTelemetry environment variables
 		"OTEL_EXPORTER_OTLP_ENDPOINT=" + endpoint,
 		"OTEL_EXPORTER_OTLP_PROTOCOL=http",
+		"OTEL_SERVICE_NAME=antigravity-cli",
 		"WIPNOTE_OTEL_SESSION=" + sessionID,
 		// Fallbacks for Gemini compatibility/engine settings
 		"GEMINI_TELEMETRY_ENABLED=true",

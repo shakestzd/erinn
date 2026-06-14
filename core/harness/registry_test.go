@@ -11,10 +11,10 @@ import (
 
 // TestRegistry_All_HasThree verifies that All() returns exactly three entries
 // with the expected harness IDs.
-func TestRegistry_All_HasThree(t *testing.T) {
+func TestRegistry_All_HasFour(t *testing.T) {
 	all := harness.All()
-	if len(all) != 3 {
-		t.Fatalf("All() returned %d entries, want 3", len(all))
+	if len(all) != 4 {
+		t.Fatalf("All() returned %d entries, want 4", len(all))
 	}
 
 	ids := make([]string, len(all))
@@ -23,7 +23,7 @@ func TestRegistry_All_HasThree(t *testing.T) {
 	}
 	sort.Strings(ids)
 
-	want := []string{"claude_code", "codex", "gemini_cli"}
+	want := []string{"antigravity_cli", "claude_code", "codex", "gemini_cli"}
 	for i, id := range want {
 		if ids[i] != id {
 			t.Errorf("All() IDs[%d] = %q, want %q", i, ids[i], id)
@@ -110,6 +110,7 @@ func TestRegistry_HooksHarnessMatchesHooksConst(t *testing.T) {
 		{harness.HooksClaude, hooks.HarnessClaude, "Claude"},
 		{harness.HooksCodex, hooks.HarnessCodex, "Codex"},
 		{harness.HooksGemini, hooks.HarnessGemini, "Gemini"},
+		{harness.HooksAntigravity, hooks.HarnessAntigravity, "Antigravity"},
 	}
 
 	for _, tt := range tests {
@@ -180,6 +181,38 @@ func TestGeminiOtelEnv(t *testing.T) {
 	}
 	if !foundEnabled {
 		t.Errorf("OtelEnv missing GEMINI_TELEMETRY_ENABLED=true; got %v", got)
+	}
+}
+
+func TestAntigravityOtelEnv(t *testing.T) {
+	cfg := harness.Get("antigravity_cli")
+	if cfg == nil {
+		t.Fatal("Get(\"antigravity_cli\") returned nil")
+	}
+	if cfg.OtelEnv == nil {
+		t.Fatal("Get(\"antigravity_cli\").OtelEnv is nil -- must be non-nil for Antigravity")
+	}
+
+	got := cfg.OtelEnv(7777, "sess-antigravity")
+	if got == nil {
+		t.Fatal("OtelEnv(7777, \"sess-antigravity\") returned nil")
+	}
+
+	foundServiceName := false
+	foundPort := false
+	for _, e := range got {
+		if e == "OTEL_SERVICE_NAME=antigravity-cli" {
+			foundServiceName = true
+		}
+		if strings.Contains(e, "7777") {
+			foundPort = true
+		}
+	}
+	if !foundServiceName {
+		t.Errorf("OtelEnv missing OTEL_SERVICE_NAME=antigravity-cli; got %v", got)
+	}
+	if !foundPort {
+		t.Errorf("OtelEnv missing entry containing port 7777; got %v", got)
 	}
 }
 

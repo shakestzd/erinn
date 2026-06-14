@@ -2,9 +2,32 @@
 # scripts/git-test-selective.sh - Selective testing for Go packages in quality/completion gates.
 set -euo pipefail
 
-REPO_ROOT="$(pwd)"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if REPO_ROOT="$(git -C "$SCRIPT_DIR" rev-parse --show-toplevel 2>/dev/null)"; then
+    :
+else
+    REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+fi
+cd "$REPO_ROOT"
 
-# Helper to find the nearest directory containing go.mod
+collect_git_files() {
+    git diff --name-only
+    git diff --cached --name-only
+    git status --porcelain | awk "\$1 == \"??\" {print \$2}"
+}
+
+append_file() {
+    local file="$1"
+    if [ -z "$file" ]; then
+        return 0
+    fi
+    if [[ "$file" = /* ]]; then
+        FILES+=("$file")
+    else
+        FILES+=("${REPO_ROOT}/$file")
+    fi
+}
+
 find_module_root() {
     local dir="$1"
     while [ "$dir" != "$REPO_ROOT" ] && [ "$dir" != "/" ] && [ "$dir" != "." ]; do
@@ -17,37 +40,34 @@ find_module_root() {
     echo "$REPO_ROOT"
 }
 
-# 1. Resolve files touched by the current work item (if specified)
 FILES=()
 
 if [ -n "${WIPNOTE_WORKITEM_ID:-}" ]; then
     echo "selective-test: tracing files for work item ${WIPNOTE_WORKITEM_ID}..."
-    # Get JSON output from wipnote trace and extract files
-    # Output is a list of absolute paths
-    if TRACE_OUT=$(wipnote trace "${WIPNOTE_WORKITEM_ID}" --json 2>/dev/null); then
-        # Parse files array from JSON
-        # Example JSON: { "files": ["/path/to/file1.go", ...] }
-        while read -r file; do
-            if [ -n "$file" ]; then
-                FILES+=("$file")
-            fi
-        done < <(echo "$TRACE_OUT" | jq -r '.files[]?' 2>/dev/null || true)
+    if ! command -v jq >/dev/null 2>&1; then
+        echo "selective-test: jq is required to parse wipnote trace JSON" >&2
+        exit 1
     fi
+    if ! TRACE_OUT=$(wipnote trace "${WIPNOTE_WORKITEM_ID}" --json 2>/dev/null); then
+        echo "selective-test: failed to trace work item ${WIPNOTE_WORKITEM_ID}" >&2
+        exit 1
+    fi
+    if ! TRACE_FILES=$(jq -r ".files[]?" <<<"$TRACE_OUT"); then
+        echo "selective-test: failed to parse wipnote trace JSON" >&2
+        exit 1
+    fi
+    while read -r file; do
+        append_file "$file"
+    done <<<"$TRACE_FILES"
 fi
 
-# 2. If no work item files found, fall back to uncommitted files in git status/diff
 if [ ${#FILES[@]} -eq 0 ]; then
     echo "selective-test: no work item files traced, checking git diff/status..."
-    # Include both staged, unstaged, and untracked Go files
     while read -r file; do
-        if [ -n "$file" ]; then
-            # Resolve to absolute path
-            FILES+=("${REPO_ROOT}/$file")
-        fi
-    done < <(git diff --name-only; git diff --cached --name-only; git status --porcelain | grep '??' | awk '{print $2}')
+        append_file "$file"
+    done < <(collect_git_files)
 fi
 
-# 3. Filter list to Go files
 GO_FILES=()
 for file in "${FILES[@]}"; do
     if [[ "$file" == *.go ]]; then
@@ -55,48 +75,66 @@ for file in "${FILES[@]}"; do
     fi
 done
 
-# 4. If no Go files were modified, exit 0 instantly
+if [ ${#GO_FILES[@]} -eq 0 ] && [ -n "${WIPNOTE_WORKITEM_ID:-}" ]; then
+    echo "selective-test: traced files contain no Go files, checking git diff/status..."
+    while read -r file; do
+        if [[ "$file" == *.go ]]; then
+            append_file "$file"
+            GO_FILES+=("${REPO_ROOT}/$file")
+        fi
+    done < <(collect_git_files)
+fi
+
 if [ ${#GO_FILES[@]} -eq 0 ]; then
     echo "selective-test: no Go files modified. Skipping tests."
     exit 0
 fi
 
-# 5. Resolve module roots and package relative paths
 TMP_LIST=$(mktemp)
-trap 'rm -f "$TMP_LIST"' EXIT
+trap "rm -f \"$TMP_LIST\"" EXIT
 
 for file in "${GO_FILES[@]}"; do
     dir=$(dirname "$file")
     if [ -d "$dir" ]; then
         mod_root=$(find_module_root "$dir")
-        # Convert absolute path to package path relative to module root
         rel_pkg="./$(realpath --relative-to="$mod_root" "$dir")"
         echo "$mod_root|$rel_pkg" >> "$TMP_LIST"
     fi
 done
 
 if [ ! -s "$TMP_LIST" ]; then
-    echo "selective-test: no valid Go package directories found. Skipping tests."
-    exit 0
+    echo "selective-test: no valid Go package directories found. Failing closed." >&2
+    exit 1
 fi
 
-# 6. Group and execute tests per module root
 sort -u "$TMP_LIST" -o "$TMP_LIST"
-
-# Extract unique module roots
-MOD_ROOTS=($(awk -F'|' '{print $1}' "$TMP_LIST" | sort -u))
+mapfile -t MOD_ROOTS < <(cut -d"|" -f1 "$TMP_LIST" | sort -u)
 
 for mod in "${MOD_ROOTS[@]}"; do
-    # Extract packages for this module
-    pkgs=($(grep "^${mod}|" "$TMP_LIST" | awk -F'|' '{print $2}'))
-    
+    mapfile -t changed_pkgs < <(awk -F"|" -v mod="$mod" "\$1 == mod {print \$2}" "$TMP_LIST")
+
     mod_name=$(basename "$mod")
     if [ "$mod" = "$REPO_ROOT" ]; then
         mod_name="root"
     fi
-    
-    echo "selective-test: running tests in module [${mod_name}] for packages: ${pkgs[*]}"
+
     cd "$mod"
+    mapfile -t changed_imports < <(go list -f "{{.ImportPath}}" "${changed_pkgs[@]}")
+    pkgs=("${changed_pkgs[@]}")
+
+    while IFS= read -r line; do
+        pkg="${line%% *}"
+        deps=" ${line#* } "
+        for changed in "${changed_imports[@]}"; do
+            if [[ "$pkg" == "$changed" || "$deps" == *" $changed "* ]]; then
+                pkgs+=("$pkg")
+                break
+            fi
+        done
+    done < <(go list -f "{{.ImportPath}} {{join .Deps \" \"}}" ./...)
+
+    mapfile -t pkgs < <(printf "%s\n" "${pkgs[@]}" | sort -u)
+    echo "selective-test: running tests in module [${mod_name}] for packages: ${pkgs[*]}"
     go test -short "${pkgs[@]}"
     cd "$REPO_ROOT"
 done

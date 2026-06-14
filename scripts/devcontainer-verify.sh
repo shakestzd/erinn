@@ -29,7 +29,7 @@ section "go vet ./..."
 go vet ./...
 
 section "go test -short ./..."
-go test -short ./...
+go test -short ./... -count=1
 
 section "required devcontainer tools"
 for tool in wipnote claude codex gemini copilot roborev uv mkdocs oh-my-posh ttyd bwrap tmux rg fd jq sqlite3 shellcheck zsh direnv; do

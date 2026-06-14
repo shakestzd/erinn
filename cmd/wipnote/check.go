@@ -34,7 +34,7 @@ func checkCmd() *cobra.Command {
 		Long: `Run quality gate checks for the project.
 
 Detects which languages are present and runs the appropriate gates:
-  Go:     go build ./...  |  go vet ./...  |  go test ./...
+  Go:     go build ./...  |  go vet ./...  |  go test -short ./...
   Python: uv run ruff check --fix  |  uv run ruff format  |  uv run mypy src/  |  uv run pytest
 
 Launch-readiness contention gate (plan-ae0c37b2, feat-156e0a1a):

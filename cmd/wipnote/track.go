@@ -14,6 +14,7 @@ import (
 	"github.com/shakestzd/wipnote/core/models"
 	"github.com/shakestzd/wipnote/core/storage"
 	"github.com/shakestzd/wipnote/core/workitem"
+	commandspkg "github.com/shakestzd/wipnote/internal/commands"
 	"github.com/spf13/cobra"
 )
 
@@ -22,16 +23,7 @@ import (
 // all linked children (features, bugs, and spikes).
 func trackCmdWithExtras() *cobra.Command {
 	cmd := workitemCmd("track", "tracks")
-	// Replace generic show with track-specific show (shows linked features)
-	for i, sub := range cmd.Commands() {
-		if sub.Use == "show <id>" {
-			cmd.RemoveCommand(sub)
-			newCmds := append(cmd.Commands()[:i], cmd.Commands()[i:]...)
-			_ = newCmds // removal already happened
-			break
-		}
-	}
-	cmd.AddCommand(trackShowCmd())
+	commandspkg.ReplaceSubcommand(cmd, "show", trackShowCmd)
 	cmd.AddCommand(trackStatusCmd())
 	cmd.AddCommand(trackPRCmd())
 	return cmd

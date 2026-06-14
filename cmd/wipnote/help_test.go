@@ -10,6 +10,15 @@ import (
 // buildTestRoot returns a minimal cobra root command that mirrors the kinds of
 // commands the real CLI registers — visible, hidden, deprecated, grouped, and
 // ungrouped — so tests can assert renderCompactHelp behaviour in isolation.
+func findSubcommand(parent *cobra.Command, name string) *cobra.Command {
+	for _, child := range parent.Commands() {
+		if child.Name() == name {
+			return child
+		}
+	}
+	return nil
+}
+
 func buildTestRoot() *cobra.Command {
 	root := &cobra.Command{Use: "wipnote"}
 
@@ -239,6 +248,7 @@ var internalPlumbingAllowlist = map[string]bool{
 	"claude":        true,
 	"codex":         true,
 	"gemini":        true,
+	"antigravity":   true,
 	"orchestrator":  true,
 	"install-hooks": true,
 	"report":        true,
@@ -252,10 +262,10 @@ var internalPlumbingAllowlist = map[string]bool{
 	"query":         true,
 	"pricing":       true, // OTel model-pricing maintenance subcommand
 	// Less frequently used — omitted from compact output to stay within line budget.
-	"dev":       true,
-	"plugin":    true,
-	"projects":  true,
-	"init":      true,
+	"dev":         true,
+	"plugin":      true,
+	"projects":    true,
+	"init":        true,
 	"setup":       true,
 	"setup-cli":   true,
 	"harness":     true, // debugging/inspection tool for harness registry

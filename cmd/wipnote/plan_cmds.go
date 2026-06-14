@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/shakestzd/wipnote/core/workitem"
+	commandspkg "github.com/shakestzd/wipnote/internal/commands"
 	"github.com/shakestzd/wipnote/plan/plantmpl"
 	"github.com/shakestzd/wipnote/plan/planyaml"
 	"github.com/spf13/cobra"
@@ -31,9 +32,9 @@ var _ = planTemplateFS // referenced via go:embed; keep until plan template code
 func planCmdWithExtras() *cobra.Command {
 	cmd := workitemCmd("plan", "plans")
 	// Replace the generic create with CRISPI plan create.
-	removeSubcommand(cmd, "create")
+	commandspkg.RemoveSubcommand(cmd, "create")
 	// Replace the generic show with a plan-aware version that warns on YAML/HTML drift.
-	removeSubcommand(cmd, "show")
+	commandspkg.RemoveSubcommand(cmd, "show")
 	cmd.AddCommand(planShowCmd())
 	cmd.AddCommand(planCreateFromTopicCmd())
 	cmd.AddCommand(planGenerateCmd())
@@ -73,20 +74,6 @@ func planCmdWithExtras() *cobra.Command {
 	cmd.AddCommand(planInterviewCmd())
 	cmd.AddCommand(planInterviewQuestionsCmd())
 	return cmd
-}
-
-// removeSubcommand removes a subcommand by name from a cobra command.
-func removeSubcommand(parent *cobra.Command, name string) {
-	parent.RemoveCommand(findSubcommand(parent, name))
-}
-
-func findSubcommand(parent *cobra.Command, name string) *cobra.Command {
-	for _, c := range parent.Commands() {
-		if c.Name() == name {
-			return c
-		}
-	}
-	return nil
 }
 
 // planGenerateCmd scaffolds a plan HTML file from a work item ID or topic title.

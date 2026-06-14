@@ -12,6 +12,7 @@ import (
 	"github.com/shakestzd/wipnote/core/provenance"
 	"github.com/shakestzd/wipnote/core/storage"
 	"github.com/shakestzd/wipnote/core/worktree"
+	cliinternal "github.com/shakestzd/wipnote/internal/cli"
 	"github.com/shakestzd/wipnote/internal/registry"
 	versionpkg "github.com/shakestzd/wipnote/internal/version"
 	"github.com/spf13/cobra"
@@ -86,277 +87,110 @@ func main() {
 // command registration — both main() and tests use this function so the
 // command tree cannot drift.
 func buildRoot() *cobra.Command {
-	root := &cobra.Command{
-		Use:           "wipnote",
-		Short:         "Causal lineage and observability for AI-assisted development",
-		Long:          "wipnote — trace causal lineage across work items, commits, sessions, and agent spawns. Local-first observability and coordination for AI-assisted development.",
-		SilenceErrors: true,
-		SilenceUsage:  true,
-	}
-
-	// --project-dir overrides all other project-root detection strategies.
-	root.PersistentFlags().StringVar(
-		&projectDirFlag,
-		"project-dir",
-		"",
-		"explicit project root containing .wipnote/ (overrides CLAUDE_PROJECT_DIR and CWD walk-up)",
-	)
-
-	// Lazy session registration + passive project registration: every CLI
-	// command self-heals attribution chains and upserts the current project
-	// into the cross-project registry.
-	root.PersistentPreRunE = persistentPreRunE
-
-	// Register cobra groups. Registration order determines display order in
-	// renderCompactHelp. Commands assigned to a group ID appear in their group;
-	// ungrouped commands are treated as internal plumbing and omitted.
-	root.AddGroup(&cobra.Group{ID: "workitems", Title: "Work Items"})
-	root.AddGroup(&cobra.Group{ID: "query", Title: "Query & Status"})
-	root.AddGroup(&cobra.Group{ID: "quality", Title: "Quality"})
-	root.AddGroup(&cobra.Group{ID: "data", Title: "Data"})
-	root.AddGroup(&cobra.Group{ID: "dev", Title: "Dev"})
-
-	// workitems group
-	feature := featureCmdWithExtras()
-	feature.GroupID = "workitems"
-	root.AddCommand(feature)
-
 	spike := workitemCmd("spike", "spikes")
 	spike.AddCommand(spikeResetCmd())
 	spike.AddCommand(linkCommitCmd("spike"))
-	spike.GroupID = "workitems"
-	root.AddCommand(spike)
 
 	bug := workitemCmd("bug", "bugs")
 	bug.AddCommand(bugResetCmd())
 	bug.AddCommand(linkCommitCmd("bug"))
-	bug.GroupID = "workitems"
-	root.AddCommand(bug)
 
-	track := trackCmdWithExtras()
-	track.GroupID = "workitems"
-	root.AddCommand(track)
-
-	plan := planCmdWithExtras()
-	plan.GroupID = "workitems"
-	root.AddCommand(plan)
-
-	archC := archCmd()
-	archC.GroupID = "workitems"
-	root.AddCommand(archC)
-
-	// query group
-	find := findCmd()
-	find.GroupID = "query"
-	root.AddCommand(find)
-
-	wip := wipCmd()
-	wip.GroupID = "query"
-	root.AddCommand(wip)
-
-	status := statusCmd()
-	status.GroupID = "query"
-	root.AddCommand(status)
-
-	snapshot := snapshotCmd()
-	snapshot.GroupID = "query"
-	root.AddCommand(snapshot)
-
-	link := linkCmd()
-	link.GroupID = "query"
-	root.AddCommand(link)
-
-	session := sessionCmd()
-	session.GroupID = "query"
-	root.AddCommand(session)
-
-	analytics := analyticsCmd()
-	analytics.GroupID = "query"
-	root.AddCommand(analytics)
-
-	recommend := recommendCmd()
-	recommend.GroupID = "query"
-	root.AddCommand(recommend)
-
-	relevant := relevantCmd()
-	relevant.GroupID = "query"
-	root.AddCommand(relevant)
-
-	history := newHistoryCmd()
-	history.GroupID = "query"
-	root.AddCommand(history)
-
-	lineage := newLineageCmd()
-	lineage.GroupID = "query"
-	root.AddCommand(lineage)
-
-	blameC := blameCmd()
-	blameC.GroupID = "query"
-	root.AddCommand(blameC)
-
-	codeAreas := codeAreasCmd()
-	codeAreas.GroupID = "query"
-	root.AddCommand(codeAreas)
-
-	contextPack := contextPackCmd()
-	contextPack.GroupID = "query"
-	root.AddCommand(contextPack)
-
-	executePreview := executePreviewCmd()
-	executePreview.GroupID = "query"
-	root.AddCommand(executePreview)
-
-	search := searchCmd()
-	search.GroupID = "query"
-	root.AddCommand(search)
-
-	// quality group
-	check := checkCmd()
-	check.GroupID = "quality"
-	root.AddCommand(check)
-
-	health := healthCmd()
-	health.GroupID = "quality"
-	root.AddCommand(health)
-
-	spec := specCmd()
-	spec.GroupID = "quality"
-	root.AddCommand(spec)
-
-	tdd := tddCmd()
-	tdd.GroupID = "quality"
-	root.AddCommand(tdd)
-
-	review := reviewCmd()
-	review.GroupID = "quality"
-	root.AddCommand(review)
-
-	compliance := complianceCmd()
-	compliance.GroupID = "quality"
-	root.AddCommand(compliance)
-
-	reconcile := reconcileCmd()
-	reconcile.GroupID = "quality"
-	root.AddCommand(reconcile)
-
-	// data group
-	batch := batchCmd()
-	batch.GroupID = "data"
-	root.AddCommand(batch)
-
-	ingest := ingestCmd()
-	ingest.GroupID = "data"
-	root.AddCommand(ingest)
-
-	backfill := backfillCmd()
-	backfill.GroupID = "data"
-	root.AddCommand(backfill)
-
-	sweep := sweepCmd()
-	sweep.GroupID = "data"
-	root.AddCommand(sweep)
-
-	reindex := reindexCmd()
-	reindex.GroupID = "data"
-	root.AddCommand(reindex)
-
-	migrate := migrateCmd()
-	migrate.GroupID = "data"
-	root.AddCommand(migrate)
-
-	migrateTracks := migrateTracksCmd()
-	migrateTracks.GroupID = "data"
-	root.AddCommand(migrateTracks)
-
-	cleanup := cleanupCmd()
-	cleanup.GroupID = "data"
-	root.AddCommand(cleanup)
-
-	cache := cacheCmd()
-	cache.GroupID = "data"
-	root.AddCommand(cache)
-
-	sync := syncCmd()
-	sync.GroupID = "data"
-	root.AddCommand(sync)
-
-	prune := pruneCmd()
-	prune.GroupID = "data"
-	root.AddCommand(prune)
-
-	// dev group
-	yolo := yoloCmd()
-	yolo.GroupID = "dev"
-	root.AddCommand(yolo)
-
-	upgrade := upgradeCmd()
-	upgrade.GroupID = "dev"
-	root.AddCommand(upgrade)
-
-	build := buildCmd()
-	build.GroupID = "dev"
-	root.AddCommand(build)
-
-	serve := serveCmd()
-	serve.GroupID = "dev"
-	root.AddCommand(serve)
-
-	agentInit := agentInitCmd()
-	agentInit.GroupID = "dev"
-	root.AddCommand(agentInit)
-
-	sh := shCmd()
-	sh.GroupID = "dev"
-	root.AddCommand(sh)
-
-	// ungrouped (internal plumbing — omitted from compact help)
-	root.AddCommand(versionCmd())
-	root.AddCommand(statuslineCmd())
-	root.AddCommand(serveChildCmd())
-	root.AddCommand(otelCollectCmd())
-	root.AddCommand(hookCmd())
-	root.AddCommand(claudeCmd())
-	root.AddCommand(codexCmd())
-	root.AddCommand(geminiCmd())
-	root.AddCommand(orchestratorCmd())
-	root.AddCommand(installHooksCmd())
-	root.AddCommand(reportCmd())
-	root.AddCommand(budgetCmd())
-	root.AddCommand(ciCmd())
-	root.AddCommand(helpCmd())
-	root.AddCommand(claimCmd())
-	who := whoCmd()
-	who.GroupID = "query"
-	root.AddCommand(who)
-	root.AddCommand(purgeSpikesCmd())
-	root.AddCommand(traceCmd())
-	root.AddCommand(graphCmd())
-	root.AddCommand(queryCmd())
-	root.AddCommand(devCmd())
-	root.AddCommand(pluginCmd())
-	root.AddCommand(projectsCmd())
-	reg := registryCmd()
-	reg.GroupID = "data"
-	root.AddCommand(reg)
-	root.AddCommand(initCmd())
-	root.AddCommand(setupCmd())
-	root.AddCommand(setupCLICmd())
-	root.AddCommand(shellAliasCmd())
-	root.AddCommand(pricingCmd())
-	root.AddCommand(harnessCmd())
-	launcher := launcherCmd()
-	launcher.GroupID = "quality"
-	root.AddCommand(launcher)
-
-	guard := guardCmd()
-	guard.GroupID = "quality"
-	root.AddCommand(guard)
-
-	commitQueue := commitQueueCmd()
-	commitQueue.GroupID = "data"
-	root.AddCommand(commitQueue)
-
-	return root
+	return cliinternal.BuildRoot(cliinternal.RootOptions{
+		ProjectDirFlag:    &projectDirFlag,
+		PersistentPreRunE: persistentPreRunE,
+		WorkItems: []cliinternal.GroupedCommand{
+			{GroupID: "workitems", Command: featureCmdWithExtras()},
+			{GroupID: "workitems", Command: spike},
+			{GroupID: "workitems", Command: bug},
+			{GroupID: "workitems", Command: trackCmdWithExtras()},
+			{GroupID: "workitems", Command: planCmdWithExtras()},
+			{GroupID: "workitems", Command: archCmd()},
+		},
+		Query: []cliinternal.GroupedCommand{
+			{GroupID: "query", Command: findCmd()},
+			{GroupID: "query", Command: wipCmd()},
+			{GroupID: "query", Command: statusCmd()},
+			{GroupID: "query", Command: snapshotCmd()},
+			{GroupID: "query", Command: linkCmd()},
+			{GroupID: "query", Command: sessionCmd()},
+			{GroupID: "query", Command: analyticsCmd()},
+			{GroupID: "query", Command: recommendCmd()},
+			{GroupID: "query", Command: relevantCmd()},
+			{GroupID: "query", Command: newHistoryCmd()},
+			{GroupID: "query", Command: newLineageCmd()},
+			{GroupID: "query", Command: blameCmd()},
+			{GroupID: "query", Command: codeAreasCmd()},
+			{GroupID: "query", Command: contextPackCmd()},
+			{GroupID: "query", Command: executePreviewCmd()},
+			{GroupID: "query", Command: searchCmd()},
+			{GroupID: "query", Command: whoCmd()},
+		},
+		Quality: []cliinternal.GroupedCommand{
+			{GroupID: "quality", Command: checkCmd()},
+			{GroupID: "quality", Command: healthCmd()},
+			{GroupID: "quality", Command: specCmd()},
+			{GroupID: "quality", Command: tddCmd()},
+			{GroupID: "quality", Command: reviewCmd()},
+			{GroupID: "quality", Command: complianceCmd()},
+			{GroupID: "quality", Command: reconcileCmd()},
+			{GroupID: "quality", Command: launcherCmd()},
+			{GroupID: "quality", Command: guardCmd()},
+		},
+		Data: []cliinternal.GroupedCommand{
+			{GroupID: "data", Command: batchCmd()},
+			{GroupID: "data", Command: ingestCmd()},
+			{GroupID: "data", Command: backfillCmd()},
+			{GroupID: "data", Command: sweepCmd()},
+			{GroupID: "data", Command: reindexCmd()},
+			{GroupID: "data", Command: migrateCmd()},
+			{GroupID: "data", Command: migrateTracksCmd()},
+			{GroupID: "data", Command: cleanupCmd()},
+			{GroupID: "data", Command: cacheCmd()},
+			{GroupID: "data", Command: syncCmd()},
+			{GroupID: "data", Command: pruneCmd()},
+			{GroupID: "data", Command: registryCmd()},
+			{GroupID: "data", Command: commitQueueCmd()},
+		},
+		Dev: []cliinternal.GroupedCommand{
+			{GroupID: "dev", Command: yoloCmd()},
+			{GroupID: "dev", Command: upgradeCmd()},
+			{GroupID: "dev", Command: buildCmd()},
+			{GroupID: "dev", Command: serveCmd()},
+			{GroupID: "dev", Command: agentInitCmd()},
+			{GroupID: "dev", Command: shCmd()},
+		},
+		Ungrouped: []*cobra.Command{
+			versionCmd(),
+			statuslineCmd(),
+			serveChildCmd(),
+			otelCollectCmd(),
+			hookCmd(),
+			claudeCmd(),
+			codexCmd(),
+			geminiCmd(),
+			antigravityCmd(),
+			orchestratorCmd(),
+			installHooksCmd(),
+			reportCmd(),
+			budgetCmd(),
+			ciCmd(),
+			helpCmd(),
+			claimCmd(),
+			purgeSpikesCmd(),
+			traceCmd(),
+			graphCmd(),
+			queryCmd(),
+			devCmd(),
+			pluginCmd(),
+			projectsCmd(),
+			initCmd(),
+			setupCmd(),
+			setupCLICmd(),
+			shellAliasCmd(),
+			pricingCmd(),
+			harnessCmd(),
+		},
+	})
 }
 
 func versionCmd() *cobra.Command {

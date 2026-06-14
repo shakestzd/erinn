@@ -21,31 +21,29 @@ import (
 	"github.com/shakestzd/wipnote/core/slug"
 	"github.com/shakestzd/wipnote/core/workitem"
 	iarch "github.com/shakestzd/wipnote/internal/arch"
+	commandspkg "github.com/shakestzd/wipnote/internal/commands"
 	"github.com/spf13/cobra"
 )
 
 // workitemCmd builds a standard CRUD command group for any work item type.
 // Usage: workitemCmd("feature", "features"), workitemCmd("bug", "bugs"), etc.
 func workitemCmd(typeName, dirName string) *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   typeName,
-		Short: "Manage " + dirName,
-	}
-	cmd.AddCommand(wiCreateCmd(typeName, dirName))
-	cmd.AddCommand(wiListCmd(typeName, dirName))
-	cmd.AddCommand(wiShowCmd(typeName))
-	cmd.AddCommand(wiStartCmd(typeName))
-	cmd.AddCommand(wiCompleteCmd(typeName))
-	cmd.AddCommand(wiDeleteCmd(typeName))
-	cmd.AddCommand(wiAddStepCmd(typeName))
-	cmd.AddCommand(wiAddTaskStepCmd(typeName))
-	cmd.AddCommand(wiCompleteTaskStepCmd(typeName))
-	cmd.AddCommand(wiUpdateCmd(typeName))
-	cmd.AddCommand(setDescriptionCmd(typeName))
-	if typeName != "track" {
-		cmd.AddCommand(wiMoveCmd(typeName))
-	}
-	return cmd
+	return commandspkg.BuildWorkItemCommand(commandspkg.WorkItemOptions{
+		TypeName:         typeName,
+		DirName:          dirName,
+		Create:           func() *cobra.Command { return wiCreateCmd(typeName, dirName) },
+		List:             func() *cobra.Command { return wiListCmd(typeName, dirName) },
+		Show:             func() *cobra.Command { return wiShowCmd(typeName) },
+		Start:            func() *cobra.Command { return wiStartCmd(typeName) },
+		Complete:         func() *cobra.Command { return wiCompleteCmd(typeName) },
+		Delete:           func() *cobra.Command { return wiDeleteCmd(typeName) },
+		AddStep:          func() *cobra.Command { return wiAddStepCmd(typeName) },
+		AddTaskStep:      func() *cobra.Command { return wiAddTaskStepCmd(typeName) },
+		CompleteTaskStep: func() *cobra.Command { return wiCompleteTaskStepCmd(typeName) },
+		Update:           func() *cobra.Command { return wiUpdateCmd(typeName) },
+		SetDescription:   func() *cobra.Command { return setDescriptionCmd(typeName) },
+		Move:             func() *cobra.Command { return wiMoveCmd(typeName) },
+	})
 }
 
 func wiListCmd(_ string, dirName string) *cobra.Command {

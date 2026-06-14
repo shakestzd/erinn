@@ -124,7 +124,9 @@ func emitAntigravityAssets(m *Manifest, repoRoot, outDir string, t Target) error
 
 	if t.ContextFile != "" {
 		src := filepath.Join(repoRoot, t.ContextFile)
-		dst := filepath.Join(outDir, filepath.Base(t.ContextFile))
+		// Antigravity reads GEMINI.md-style context files, but the source is
+		// Antigravity-specific so we do not copy the Gemini instructions verbatim.
+		dst := filepath.Join(outDir, "GEMINI.md")
 		if err := copyFile(src, dst); err != nil {
 			return fmt.Errorf("antigravity copy contextFile %s: %w", t.ContextFile, err)
 		}

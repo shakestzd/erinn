@@ -176,6 +176,17 @@ func runUpgrade(out io.Writer, checkOnly bool, pinVersion string) error {
 		}
 	}
 
+	// Install the bundled Antigravity extension tree, if present. Older
+	// archives had no antigravity-extension/ subdirectory; silently skip.
+	extractedAntigravity := filepath.Join(extractRoot, "antigravity-extension")
+	if info, err := os.Stat(extractedAntigravity); err == nil && info.IsDir() {
+		if err := installAntigravityTree(extractedAntigravity); err != nil {
+			fmt.Fprintf(out, "warning: failed to install bundled antigravity-extension tree: %v\n", err)
+		} else {
+			fmt.Fprintln(out, "Installed bundled antigravity-extension tree to ~/.local/share/wipnote/antigravity-extension")
+		}
+	}
+
 	// Update ~/.local/share/wipnote/.binary-version so bootstrap fast-path works.
 	updateVersionFile(targetVer)
 
@@ -421,6 +432,30 @@ func installGeminiTree(srcGeminiDir string) error {
 		return nil
 	}
 	return copyDirRecursive(srcGeminiDir, destGemini)
+}
+
+// installAntigravityTree replaces ~/.local/share/wipnote/antigravity-extension
+// atomically by moving srcAntigravityDir into place after removing any prior
+// contents. Mirrors installPluginTree so upgrade and bootstrap paths leave
+// identical on-disk state across all harness trees.
+func installAntigravityTree(srcAntigravityDir string) error {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return fmt.Errorf("resolve home dir: %w", err)
+	}
+	metaDir := filepath.Join(home, ".local", "share", "wipnote")
+	destAntigravity := filepath.Join(metaDir, "antigravity-extension")
+
+	if err := os.MkdirAll(metaDir, 0o755); err != nil {
+		return fmt.Errorf("create %s: %w", metaDir, err)
+	}
+	if err := os.RemoveAll(destAntigravity); err != nil {
+		return fmt.Errorf("remove existing %s: %w", destAntigravity, err)
+	}
+	if err := os.Rename(srcAntigravityDir, destAntigravity); err == nil {
+		return nil
+	}
+	return copyDirRecursive(srcAntigravityDir, destAntigravity)
 }
 
 // copyDirRecursive walks src and copies every entry into dst, preserving file

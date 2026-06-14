@@ -59,6 +59,12 @@ archives:
         dst: gemini-extension
         info:
           mode: 0644
+      # Copy the whole antigravity-extension directory so release-installed
+      # users can initialize the Antigravity harness from bundled assets.
+      - src: "port/packages/antigravity-extension"
+        dst: antigravity-extension
+        info:
+          mode: 0644
 
 checksum:
   name_template: "wipnote_{{.Version}}_checksums.txt"
@@ -111,6 +117,7 @@ brews:
       (share/"wipnote").install "plugin"
       (share/"wipnote").install "codex-marketplace"
       (share/"wipnote").install "gemini-extension"
+      (share/"wipnote").install "antigravity-extension"
     test: |
       assert_match version.to_s, shell_output("#{bin}/wipnote version")
 

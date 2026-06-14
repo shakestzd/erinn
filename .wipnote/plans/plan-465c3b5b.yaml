@@ -1,0 +1,18 @@
+meta:
+    id: plan-465c3b5b
+    track_id: trk-757c1c9f
+    title: Modularize cmd/wipnote CLI package
+    description: Decompose cmd/wipnote CLI monolith into discrete internal packages to enable Go test caching and faster iteration.
+    created_at: "2026-06-14"
+    status: draft
+    priority: medium
+    schema_version: v3
+    version: 2
+design:
+    problem: ""
+    goals: []
+    constraints: []
+    approved: false
+    comment: ""
+slices: []
+questions: []

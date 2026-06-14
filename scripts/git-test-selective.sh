@@ -122,16 +122,20 @@ for mod in "${MOD_ROOTS[@]}"; do
     mapfile -t changed_imports < <(go list -f "{{.ImportPath}}" "${changed_pkgs[@]}")
     pkgs=("${changed_pkgs[@]}")
 
-    while IFS= read -r line; do
-        pkg="${line%% *}"
-        deps=" ${line#* } "
+    while IFS='|' read -r pkg target deps; do
+        if [ -z "$target" ]; then
+            target="$pkg"
+        fi
+        if [[ "$target" == *.test ]]; then
+            continue
+        fi
         for changed in "${changed_imports[@]}"; do
-            if [[ "$pkg" == "$changed" || "$deps" == *" $changed "* ]]; then
-                pkgs+=("$pkg")
+            if [[ "$target" == "$changed" || " $deps " == *" $changed "* ]]; then
+                pkgs+=("$target")
                 break
             fi
         done
-    done < <(go list -f "{{.ImportPath}} {{join .Deps \" \"}}" ./...)
+    done < <(go list -test -f "{{.ImportPath}}|{{if .ForTest}}{{.ForTest}}{{else}}{{.ImportPath}}{{end}}|{{join .Deps \" \"}}" ./...)
 
     mapfile -t pkgs < <(printf "%s\n" "${pkgs[@]}" | sort -u)
     echo "selective-test: running tests in module [${mod_name}] for packages: ${pkgs[*]}"

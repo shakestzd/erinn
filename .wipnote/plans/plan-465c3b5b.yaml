@@ -4,9 +4,9 @@ meta:
     title: Modularize cmd/wipnote CLI package
     description: ""
     created_at: "2026-06-14"
-    status: draft
+    status: finalized
     schema_version: v3
-    version: 1
+    version: 2
 design:
     problem: |
         Compiling and running the entire Go test suite for cmd/wipnote takes ~40 seconds for any edit because cmd/wipnote is a monolith package containing 357 Go files. This invalidates the test cache and slows down local quality and completion gates.
@@ -21,6 +21,7 @@ design:
     comment: ""
 slices:
     - id: slice-1
+      feature_id: feat-23b7a7a6
       num: 1
       title: Extract cli and commands sub-packages
       what: |
@@ -41,8 +42,9 @@ slices:
       tests: |
         Run go test -short ./internal/commands/... and verify all tests pass.
       complexity: standard
-      approved: false
+      approved: true
       comment: ""
+      execution_status: promoted
       critic_revisions:
         - source: haiku
           severity: HIGH
@@ -55,6 +57,7 @@ slices:
         **State:** Canonical on-disk .wipnote/*.html files.
         **Rejected:** Creating all packages at once (violates Phase 1 incremental refactoring constraint).
     - id: slice-2
+      feature_id: feat-0fb5dd76
       num: 2
       title: Extract launcher and daemon sub-packages
       what: |
@@ -75,8 +78,9 @@ slices:
       tests: |
         Run go test -short ./internal/launcher/... and ./internal/daemon/...
       complexity: standard
-      approved: false
+      approved: true
       comment: ""
+      execution_status: promoted
       critic_revisions:
         - source: haiku
           severity: LOW
@@ -86,6 +90,7 @@ slices:
         **State:** In-memory WebSocket/SSE stream state and SQLite cache.
         **Rejected:** Integrating launchers into core commands package (coupling remains too high).
     - id: slice-3
+      feature_id: feat-723af8ef
       num: 3
       title: Extract quality and completion gate runners
       what: |
@@ -106,8 +111,9 @@ slices:
       tests: |
         Run go test -short ./internal/gate/... and verify all gates pass.
       complexity: standard
-      approved: false
+      approved: true
       comment: ""
+      execution_status: promoted
       critic_revisions:
         - source: sonnet
           severity: HIGH

@@ -163,6 +163,10 @@ func launchAntigravityDefault(trackID, featureID, worktreePath, workItem string,
 	})
 }
 
+func isAntigravityInitAlias(args []string) bool {
+	return len(args) == 1 && args[0] == "init"
+}
+
 func launchAntigravityDev(dryRun bool, extraArgs []string) error {
 	wipnoteDir, err := findWipnoteDir()
 	if err != nil {
@@ -204,10 +208,11 @@ func antigravityCmd() *cobra.Command {
 Modes:
   wipnote antigravity                  Launch Antigravity interactively with wipnote env.
   wipnote antigravity --init           Install the wipnote Antigravity extension (idempotent).
+  wipnote antigravity init             Alias for --init.
   wipnote antigravity --dev            Link port/packages/antigravity-extension/ and launch.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			switch {
-			case init_:
+			case init_ || isAntigravityInitAlias(args):
 				return runAntigravityInit(force, dryRun)
 			case dev:
 				return launchAntigravityDev(dryRun, args)

@@ -212,9 +212,9 @@ var approvedWriteSites = []writeSite{
 		Note:           "User-driven plan amendment apply; short-lived foreground process.",
 	},
 	{
-		File:           "cmd/wipnote/check_gate_support.go",
-		Line:           415,
-		Function:       "persistGateRecord",
+		File:           "internal/gate/check.go",
+		Line:           361,
+		Function:       "PersistRecord",
 		OpenExpr:       "dbpkg.Open",
 		Classification: intentionalCLIMutation,
 		Note:           "`wipnote check --gate` persists the session-local gate record after foreground build/vet/test execution completes.",
@@ -305,7 +305,7 @@ var approvedWriteSites = []writeSite{
 	},
 	{
 		File:           "cmd/wipnote/track.go",
-		Line:           195,
+		Line:           187,
 		Function:       "openTrackDB",
 		OpenExpr:       "db.Open",
 		Classification: intentionalCLIMutation,

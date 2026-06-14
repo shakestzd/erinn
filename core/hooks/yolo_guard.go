@@ -693,7 +693,7 @@ func isCodeHealthCheckedFile(path string) bool {
 
 // genericAgentIDs lists harness-level agent identifiers that must not be used
 // as a cross-session bridge — they appear in many unrelated sessions.
-var genericAgentIDs = []string{"claude-code", "codex", "gemini", "human"}
+var genericAgentIDs = []string{"claude-code", "claude", "codex", "gemini", "antigravity", "human"}
 
 // isGenericAgentID returns true when id is one of the well-known harness
 // identifiers that should never be used for cross-session matching.

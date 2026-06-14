@@ -240,29 +240,30 @@ func TestHasRecentResearch_WebToolsSatisfyResearch(t *testing.T) {
 	}
 }
 
-// TestHasRecentResearch_GenericAgentIDNotCrossSession verifies that a generic
-// harness-level agentID (e.g. "claude-code") does not bridge unrelated sessions.
+// TestHasRecentResearch_GenericAgentIDNotCrossSession verifies that generic
+// harness-level agent IDs do not bridge unrelated sessions.
 func TestHasRecentResearch_GenericAgentIDNotCrossSession(t *testing.T) {
-	tdb := setupTestDB(t)
-	defer tdb.DB.Close()
+	for _, genericID := range []string{"claude-code", "claude", "codex", "gemini", "antigravity"} {
+		t.Run(genericID, func(t *testing.T) {
+			tdb := setupTestDB(t)
+			defer tdb.DB.Close()
 
-	const (
-		sessionA  = "generic-sess-a"
-		sessionB  = "generic-sess-b"
-		genericID = "claude-code"
-	)
+			sessionA := "generic-sess-a-" + genericID
+			sessionB := "generic-sess-b-" + genericID
 
-	// Session A with a Read event tagged with the generic agent_id.
-	insertResearchTestSessionWithProject(t, tdb, sessionA, "", ".")
-	insertAgentEventFull(t, tdb, "evt-generic-read", sessionA, genericID, "tool_call", "Read", "README.md")
+			// Session A with a Read event tagged with the generic agent_id.
+			insertResearchTestSessionWithProject(t, tdb, sessionA, "", ".")
+			insertAgentEventFull(t, tdb, "evt-generic-read-"+genericID, sessionA, genericID, "tool_call", "Read", "README.md")
 
-	// Session B is unrelated (no parent, no lineage trace to A), has a non-research tool call.
-	insertResearchTestSessionWithProject(t, tdb, sessionB, "", ".")
-	insertAgentEventFull(t, tdb, "evt-generic-write", sessionB, genericID, "tool_call", "Write", "out.txt")
+			// Session B is unrelated (no parent, no lineage trace to A), has a non-research tool call.
+			insertResearchTestSessionWithProject(t, tdb, sessionB, "", ".")
+			insertAgentEventFull(t, tdb, "evt-generic-write-"+genericID, sessionB, genericID, "tool_call", "Write", "out.txt")
 
-	// Calling from session B with the generic ID must NOT find session A's Read.
-	if hasRecentResearch(tdb.DB, sessionB, genericID, "") {
-		t.Error("expected hasRecentResearch=false: generic agent_id 'claude-code' must not bridge unrelated sessions")
+			// Calling from session B with the generic ID must NOT find session A's Read.
+			if hasRecentResearch(tdb.DB, sessionB, genericID, "") {
+				t.Errorf("expected hasRecentResearch=false: generic agent_id %q must not bridge unrelated sessions", genericID)
+			}
+		})
 	}
 }
 

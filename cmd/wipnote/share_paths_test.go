@@ -186,7 +186,7 @@ func TestSharedTreeRefreshHint(t *testing.T) {
 		t.Fatalf("release hint = %q", got)
 	}
 
-	for _, v := range []string{"dev", "0.62.1-5-gabc1234"} {
+	for _, v := range []string{"dev", "0.62.1-5-gabc1234", "abc1234", "2026-06-14"} {
 		version = v
 		got := sharedTreeRefreshHint()
 		if strings.Contains(got, "--version") {

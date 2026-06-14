@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 )
 
@@ -26,10 +27,26 @@ import (
 // Returns an absolute path on success, or a clear error if nothing is found.
 func sharedTreeRefreshHint() string {
 	ver := strings.TrimPrefix(version, "v")
-	if ver != "" && ver != "dev" && !strings.Contains(ver, "-") {
+	if isReleaseSemver(ver) {
 		return fmt.Sprintf("Refresh bundled assets with 'wipnote upgrade --version %s' or install via 'brew install wipnote'.", ver)
 	}
 	return "Refresh bundled assets with 'wipnote upgrade' or install via 'brew install wipnote'."
+}
+
+func isReleaseSemver(ver string) bool {
+	parts := strings.Split(ver, ".")
+	if len(parts) != 3 {
+		return false
+	}
+	for _, part := range parts {
+		if part == "" {
+			return false
+		}
+		if _, err := strconv.Atoi(part); err != nil {
+			return false
+		}
+	}
+	return true
 }
 
 func resolveSharedTreePath(treeName string) (string, error) {

@@ -278,8 +278,8 @@ Before creating ANY feature, bug, or spike:
 2. If the first result is generic, ambiguous, or only loosely related, inspect provenance before creating/attaching anything: run `wipnote lineage <candidate>`, `wipnote trace <candidate>`, and/or `wipnote history <candidate>` on the best plan/feature/track candidates until you can name the closest causal parent. Prefer a precise `caused_by`/`relates_to` edge to that feature or plan over a broad `part_of` edge to a catch-all track.
 3. Match the new work against existing tracks, plans, and completed features — attach to the best fitting existing lineage rather than creating a new standalone item.
 4. Only create a new track if NO existing track covers the scope; run `wipnote track list` to enumerate all tracks.
-4. When in doubt, ask the user which track or plan to use.
-5. `--standalone <reason>` requires justification naming what was searched (e.g., `"searched: wipnote relevant <topic> — no existing track/plan covers this scope"`).
+5. When in doubt, ask the user which track or plan to use.
+6. `--standalone <reason>` requires justification naming what was searched (e.g., `"searched: wipnote relevant <topic> — no existing track/plan covers this scope"`).
 
 This applies equally to features, bugs, and spikes with `--track` or `--plan`:
 - Search completed lineage first; a completed track is still valid lineage for new work in the same scope.

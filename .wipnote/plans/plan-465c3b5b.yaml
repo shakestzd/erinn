@@ -43,6 +43,13 @@ slices:
       complexity: standard
       approved: false
       comment: ""
+      critic_revisions:
+        - source: haiku
+          severity: HIGH
+          summary: Moving workitem.go to internal/commands will require updating package main references (e.g. commands.Func) across remaining files in cmd/wipnote.
+        - source: sonnet
+          severity: LOW
+          summary: Ensure internal/commands does not circular-import other cmd/wipnote files.
       decisions_notes: |
         **Goal:** Extract command routing to internal/cli and basic subcommands to internal/commands.
         **State:** Canonical on-disk .wipnote/*.html files.
@@ -70,6 +77,10 @@ slices:
       complexity: standard
       approved: false
       comment: ""
+      critic_revisions:
+        - source: haiku
+          severity: LOW
+          summary: Launcher extraction should isolate OTel setup variables to prevent environment contamination.
       decisions_notes: |
         **Goal:** Isolate launcher and serve daemon logic into separate packages.
         **State:** In-memory WebSocket/SSE stream state and SQLite cache.
@@ -97,6 +108,10 @@ slices:
       complexity: standard
       approved: false
       comment: ""
+      critic_revisions:
+        - source: sonnet
+          severity: HIGH
+          summary: Moving check_gate_support.go will change line numbers and paths for sqlite_write_boundary_test.go. Line inventory must be updated in tandem.
       decisions_notes: |
         **Goal:** Move gate runners to internal/gate and complete thin main wrapper.
         **State:** Gate records are persisted to SQLite read index.

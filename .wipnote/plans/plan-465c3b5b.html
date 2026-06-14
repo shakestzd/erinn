@@ -411,7 +411,7 @@ body.right-rail-collapsed .sidebar-reopen{display:flex}
       <a href="#slice-1" class="slice-nav-item" data-slice-nav="1">
         <span class="slice-nav-dot" data-approval="pending" data-dot-for="1"></span>
         <span>#1 Extract cli and commands sub-packages</span>
-        
+        <span class="nav-triage-badge nav-triage-issue" title="2 issue(s)">&#9888;2</span>
         
       </a>
     </li>
@@ -420,7 +420,7 @@ body.right-rail-collapsed .sidebar-reopen{display:flex}
       <a href="#slice-2" class="slice-nav-item" data-slice-nav="2">
         <span class="slice-nav-dot" data-approval="pending" data-dot-for="2"></span>
         <span>#2 Extract launcher and daemon sub-packages</span>
-        
+        <span class="nav-triage-badge nav-triage-issue" title="1 issue(s)">&#9888;1</span>
         
       </a>
     </li>
@@ -429,7 +429,7 @@ body.right-rail-collapsed .sidebar-reopen{display:flex}
       <a href="#slice-3" class="slice-nav-item" data-slice-nav="3">
         <span class="slice-nav-dot" data-approval="pending" data-dot-for="3"></span>
         <span>#3 Extract quality and completion gate runners</span>
-        
+        <span class="nav-triage-badge nav-triage-issue" title="1 issue(s)">&#9888;1</span>
         
       </a>
     </li>
@@ -529,7 +529,7 @@ body.right-rail-collapsed .sidebar-reopen{display:flex}
           <span class="badge badge-discuss badge-sm badge-complexity" title="Complexity: standard">Standard</span>
           
           <span class="badge badge-pending badge-sm slice-approval-badge" data-badge-for="slice-1">Pending</span>
-          
+          <span class="badge badge-sm badge-issues" title="2 critic issue(s)">2 issues</span>
           
         </span>
         <span class="slice-actions" onclick="event.stopPropagation()">
@@ -620,6 +620,25 @@ Move basic work-item subcommands (feature, bug, spike, track) from cmd/wipnote/ 
     
 
     
+    <div class="slice-field slice-critic-revisions">
+      <div class="slice-field-label">Critic Revisions</div>
+      <div class="slice-field-value">
+        
+        <div class="critic-revision">
+          <span class="badge badge-blocked critic-revision-badge">HIGH</span>
+          <span class="critic-revision-source">haiku</span>
+          <span class="critic-revision-summary">Moving workitem.go to internal/commands will require updating package main references (e.g. commands.Func) across remaining files in cmd/wipnote.</span>
+        </div>
+        
+        <div class="critic-revision">
+          <span class="badge badge-pending critic-revision-badge">LOW</span>
+          <span class="critic-revision-source">sonnet</span>
+          <span class="critic-revision-summary">Ensure internal/commands does not circular-import other cmd/wipnote files.</span>
+        </div>
+        
+      </div>
+    </div>
+    
 
     
 
@@ -646,7 +665,7 @@ Move basic work-item subcommands (feature, bug, spike, track) from cmd/wipnote/ 
           <span class="badge badge-discuss badge-sm badge-complexity" title="Complexity: standard">Standard</span>
           
           <span class="badge badge-pending badge-sm slice-approval-badge" data-badge-for="slice-2">Pending</span>
-          
+          <span class="badge badge-sm badge-issues" title="1 critic issue(s)">1 issue</span>
           
         </span>
         <span class="slice-actions" onclick="event.stopPropagation()">
@@ -737,6 +756,19 @@ Move serve command and dashboard endpoints to internal/daemon/.</p>
     
 
     
+    <div class="slice-field slice-critic-revisions">
+      <div class="slice-field-label">Critic Revisions</div>
+      <div class="slice-field-value">
+        
+        <div class="critic-revision">
+          <span class="badge badge-pending critic-revision-badge">LOW</span>
+          <span class="critic-revision-source">haiku</span>
+          <span class="critic-revision-summary">Launcher extraction should isolate OTel setup variables to prevent environment contamination.</span>
+        </div>
+        
+      </div>
+    </div>
+    
 
     
 
@@ -763,7 +795,7 @@ Move serve command and dashboard endpoints to internal/daemon/.</p>
           <span class="badge badge-discuss badge-sm badge-complexity" title="Complexity: standard">Standard</span>
           
           <span class="badge badge-pending badge-sm slice-approval-badge" data-badge-for="slice-3">Pending</span>
-          
+          <span class="badge badge-sm badge-issues" title="1 critic issue(s)">1 issue</span>
           
         </span>
         <span class="slice-actions" onclick="event.stopPropagation()">
@@ -854,6 +886,19 @@ Clean up remaining helper files in cmd/wipnote/ to make it a thin wrapper.</p>
     
 
     
+    <div class="slice-field slice-critic-revisions">
+      <div class="slice-field-label">Critic Revisions</div>
+      <div class="slice-field-value">
+        
+        <div class="critic-revision">
+          <span class="badge badge-blocked critic-revision-badge">HIGH</span>
+          <span class="critic-revision-source">sonnet</span>
+          <span class="critic-revision-summary">Moving check_gate_support.go will change line numbers and paths for sqlite_write_boundary_test.go. Line inventory must be updated in tandem.</span>
+        </div>
+        
+      </div>
+    </div>
+    
 
     
 
@@ -873,17 +918,7 @@ Clean up remaining helper files in cmd/wipnote/ to make it a thin wrapper.</p>
 </details>
 
 <!-- Design Decisions (hidden for v2 plans — slice cards carry their own questions) -->
-<details id="questions" class="section-card" data-phase="questions" data-status="pending">
-  <summary><span>Design Decisions</span><span class="badge badge-pending" data-badge-for="questions">Pending</span></summary>
-  <div class="section-body">
-    <table class="q-table">
-      <thead><tr><th>Question</th><th>Selected</th><th>Status</th></tr></thead>
-      <tbody id="questionsRecap">
-        <!--PLAN_QUESTIONS_RECAP-->
-      </tbody>
-    </table>
-  </div>
-</details>
+
 
 
 

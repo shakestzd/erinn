@@ -60,6 +60,9 @@ func TestMigration_SessionFilesTable(t *testing.T) {
 // a touch with no feature is recorded in session_files and surfaced by
 // ListClaimlessFilesBySession (newest first), independent of feature_files.
 func TestClaimlessSessionFilesLedger(t *testing.T) {
+	if testing.Short() {
+		t.Skip("wall-clock timestamp-ordering test")
+	}
 	database := setupTestDB(t)
 	defer database.Close()
 

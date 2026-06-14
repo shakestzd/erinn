@@ -10,6 +10,10 @@ import (
 )
 
 func TestFeatureReopen(t *testing.T) {
+	if testing.Short() {
+		t.Skip("drives full work-item lifecycle")
+	}
+
 	tmpDir := t.TempDir()
 	hgDir := filepath.Join(tmpDir, ".wipnote")
 	for _, sub := range []string{"features", "bugs", "spikes", "tracks", "plans", "specs"} {

@@ -131,6 +131,10 @@ func diskStatus(t *testing.T, wipnoteDir, featID string) string {
 // re-open's side effects are coherent (active_feature_id cleared, statusline
 // cache reflects the still-active item).
 func TestTransactionalComplete_StrictFailureTriggersCompensatingReopen(t *testing.T) {
+	if testing.Short() {
+		t.Skip("drives real git-backed work-item completion")
+	}
+
 	repoRoot, wipnoteDir, featID, sessionID, agentID := setupTransactionalCompleteRepo(t)
 
 	orig := strictCommitFn
@@ -201,6 +205,10 @@ func TestTransactionalComplete_StrictFailureTriggersCompensatingReopen(t *testin
 // transactional complete with no injected failure and asserts the artifact's
 // pre-commit HEAD differs from the post-commit HEAD and the item ends "done".
 func TestTransactionalComplete_HappyPathAdvancesArtifactHead(t *testing.T) {
+	if testing.Short() {
+		t.Skip("drives real git-backed work-item completion")
+	}
+
 	repoRoot, wipnoteDir, featID, sessionID, agentID := setupTransactionalCompleteRepo(t)
 
 	absArtifact := filepath.Join(wipnoteDir, "features", featID+".html")
@@ -647,6 +655,10 @@ func TestCommitMessageReflectsAction(t *testing.T) {
 // (2) leaves the item in "done" status (NOT reopened to in-progress), and (3)
 // the repo HEAD does NOT carry a "complete" commit (autocommit was skipped).
 func TestTransactionalComplete_ReadOnlyFSSkipsReopen(t *testing.T) {
+	if testing.Short() {
+		t.Skip("drives real git-backed work-item completion")
+	}
+
 	repoRoot, wipnoteDir, featID, sessionID, agentID := setupTransactionalCompleteRepo(t)
 
 	orig := strictCommitFn

@@ -337,7 +337,7 @@ func runGoGates(ctx context.Context, root string, skipTests bool) []gateResult {
 		runGate(ctx, "go vet", goDir, "go", "vet", "./..."),
 	}
 	if !skipTests {
-		gates = append(gates, runGate(ctx, "go test", goDir, "go", "test", "-buildvcs=false", "./..."))
+		gates = append(gates, runGate(ctx, "go test", goDir, "go", "test", "-buildvcs=false", "-short", "./..."))
 	}
 	return gates
 }

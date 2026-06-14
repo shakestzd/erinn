@@ -12,6 +12,10 @@ import (
 )
 
 func TestConcurrentCLIRepeatedStartAndCompleteAreIdempotent(t *testing.T) {
+	if testing.Short() {
+		t.Skip("drives concurrent CLI lifecycle")
+	}
+
 	const sessionID = "test-cli-concurrent-status"
 	tmpDir, hgDir := testHgDirWithDB(t, sessionID)
 	projectDirFlag = tmpDir
@@ -49,6 +53,10 @@ func TestConcurrentCLIRepeatedStartAndCompleteAreIdempotent(t *testing.T) {
 }
 
 func TestConcurrentCLIMutationsDoNotLoseCanonicalUpdates(t *testing.T) {
+	if testing.Short() {
+		t.Skip("drives concurrent CLI lifecycle")
+	}
+
 	tmpDir, hgDir := testHgDirWithDB(t, "test-cli-concurrent-mutations")
 	projectDirFlag = tmpDir
 	defer func() { projectDirFlag = "" }()

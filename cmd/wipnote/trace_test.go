@@ -418,10 +418,14 @@ func setupStaleSchemaDB(t *testing.T) {
 // The test drives the ACTUAL command paths (not direct OpenReadOnlyMigrated
 // calls), so a revert at any line (78, 118, 211) makes that subtest FAIL.
 func TestTraceStaleSchemaRegressions(t *testing.T) {
+	if testing.Short() {
+		t.Skip("drives trace stale-schema integration flow")
+	}
+
 	tests := []struct {
-		name          string
-		runFunc       func() error
-		wantErrorMsg  string // exact substring expected in error if OpenReadOnlyMigrated worked; empty string means expect nil
+		name         string
+		runFunc      func() error
+		wantErrorMsg string // exact substring expected in error if OpenReadOnlyMigrated worked; empty string means expect nil
 	}{
 		{
 			name: "runTrace with work-item ID (line 78)",

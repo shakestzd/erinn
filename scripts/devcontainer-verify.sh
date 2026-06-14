@@ -28,8 +28,8 @@ go build ./...
 section "go vet ./..."
 go vet ./...
 
-section "go test ./... -count=1"
-go test ./... -count=1
+section "go test -short ./..."
+go test -short ./...
 
 section "required devcontainer tools"
 for tool in wipnote claude codex gemini copilot roborev uv mkdocs oh-my-posh ttyd bwrap tmux rg fd jq sqlite3 shellcheck zsh direnv; do

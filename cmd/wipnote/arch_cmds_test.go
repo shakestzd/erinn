@@ -301,6 +301,10 @@ func testCreateStandalone(typeName, title string) error {
 // TestCompletionLearning_HappyPath tests that --learning creates a card
 // and the completion proceeds normally.
 func TestCompletionLearning_HappyPath(t *testing.T) {
+	if testing.Short() {
+		t.Skip("drives architecture card creation lifecycle")
+	}
+
 	tmpDir := t.TempDir()
 	hgDir := filepath.Join(tmpDir, ".wipnote")
 	for _, sub := range []string{"features", "bugs", "spikes", "tracks", "plans", "specs"} {
@@ -358,6 +362,10 @@ func TestCompletionLearning_HappyPath(t *testing.T) {
 // TestCompletionLearning_InvalidBody tests that --learning with an invalid body
 // aborts the completion with a clear error and does NOT create a card.
 func TestCompletionLearning_InvalidBody(t *testing.T) {
+	if testing.Short() {
+		t.Skip("drives architecture card creation lifecycle")
+	}
+
 	tmpDir := t.TempDir()
 	hgDir := filepath.Join(tmpDir, ".wipnote")
 	for _, sub := range []string{"features", "bugs", "spikes", "tracks", "plans", "specs"} {
@@ -410,6 +418,10 @@ func TestCompletionLearning_InvalidBody(t *testing.T) {
 // TestCompletionLearning_InvalidKind tests that --learning-kind with an invalid kind
 // aborts the completion with a clear error and does NOT complete the work item.
 func TestCompletionLearning_InvalidKind(t *testing.T) {
+	if testing.Short() {
+		t.Skip("drives architecture card creation lifecycle")
+	}
+
 	tmpDir := t.TempDir()
 	hgDir := filepath.Join(tmpDir, ".wipnote")
 	for _, sub := range []string{"features", "bugs", "spikes", "tracks", "plans", "specs"} {

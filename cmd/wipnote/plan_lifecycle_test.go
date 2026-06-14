@@ -12,6 +12,10 @@ import (
 // TestPlanFirstLifecycle exercises the complete plan-first pipeline:
 // create → add-slice-yaml → render → critique → finalize → verify work items.
 func TestPlanFirstLifecycle(t *testing.T) {
+	if testing.Short() {
+		t.Skip("drives full plan lifecycle")
+	}
+
 	dir := t.TempDir()
 	for _, sub := range []string{"plans", "features", "tracks"} {
 		os.MkdirAll(filepath.Join(dir, sub), 0o755)

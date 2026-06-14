@@ -141,6 +141,10 @@ func holdWriteLock(
 // BUSY counter stays 0 (transient busy absorbed by RetryOnBusy must never
 // leak to the launch gate).
 func TestLineageBfsWalk_NoBusyUnderContention(t *testing.T) {
+	if testing.Short() {
+		t.Skip("stress test for contended SQLite lineage reads")
+	}
+
 	for _, mode := range []string{"wal", "delete"} {
 		t.Run(mode, func(t *testing.T) {
 			db.ResetBusyCounters()

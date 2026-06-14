@@ -9,6 +9,10 @@ import (
 )
 
 func TestSpikeReset_HappyPath(t *testing.T) {
+	if testing.Short() {
+		t.Skip("drives full work-item reset lifecycle")
+	}
+
 	tmpDir, hgDir := setupResetTest(t)
 	projectDirFlag = tmpDir
 	defer func() { projectDirFlag = "" }()
@@ -65,6 +69,10 @@ func TestSpikeReset_ErrorOnTodo(t *testing.T) {
 }
 
 func TestSpikeReset_ErrorOnDone(t *testing.T) {
+	if testing.Short() {
+		t.Skip("drives full work-item reset lifecycle")
+	}
+
 	tmpDir, hgDir := setupResetTest(t)
 	projectDirFlag = tmpDir
 	defer func() { projectDirFlag = "" }()
@@ -93,6 +101,10 @@ func TestSpikeReset_ErrorOnDone(t *testing.T) {
 }
 
 func TestSpikeReset_PreservesDescription(t *testing.T) {
+	if testing.Short() {
+		t.Skip("drives full work-item reset lifecycle")
+	}
+
 	tmpDir, hgDir := setupResetTest(t)
 	projectDirFlag = tmpDir
 	defer func() { projectDirFlag = "" }()

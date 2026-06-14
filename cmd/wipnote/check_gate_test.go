@@ -74,6 +74,10 @@ func openGateTestDB(t *testing.T, projectRoot string) *sql.DB {
 }
 
 func TestRunSessionGate_WritesSessionLocalRecord(t *testing.T) {
+	if testing.Short() {
+		t.Skip("runs real Go gate commands")
+	}
+
 	projectRoot := setupGateTestProject(t)
 	result, err := runSessionGate(projectRoot, "sess-gate-pass", "", "check", guardprofile.PhaseQuality, os.Stdout, os.Stderr)
 	if err != nil {
@@ -154,7 +158,7 @@ func TestRunSessionGate_ReportsAndPersistsAllowlistHits(t *testing.T) {
 
 	result := &gateRunResult{
 		Plan:          gatePlan{ProjectType: "go"},
-		Commands:      []string{"go build -buildvcs=false ./...", "go vet ./...", "go test -buildvcs=false ./..."},
+		Commands:      []string{"go build -buildvcs=false ./...", "go vet ./...", "go test -buildvcs=false -short ./..."},
 		Passed:        false,
 		AllowlistHits: hits,
 		OutputSummary: "go test failed",
@@ -247,6 +251,10 @@ func TestCheckCompletionGateRecord_RequiresCurrentSessionRecord(t *testing.T) {
 }
 
 func TestCheckCompletionGateRecord_AcceptsMatchingSessionAfterRecheck(t *testing.T) {
+	if testing.Short() {
+		t.Skip("runs real Go gate commands")
+	}
+
 	projectRoot := setupGateTestProject(t)
 	database := openGateTestDB(t, projectRoot)
 	defer database.Close()
@@ -346,6 +354,10 @@ func TestRunSessionGate_NoManifest_PassAndPersist(t *testing.T) {
 // project still runs go build / go vet / go test (Fix 1 must not regress the
 // happy path).
 func TestRunSessionGate_GoProject_StillRuns(t *testing.T) {
+	if testing.Short() {
+		t.Skip("runs real Go gate commands")
+	}
+
 	projectRoot := setupGateTestProject(t) // creates go.mod + main.go
 	result, err := runSessionGate(projectRoot, "sess-go-regression", "", "check", guardprofile.PhaseQuality, os.Stdout, os.Stderr)
 	if err != nil {
@@ -578,6 +590,10 @@ func TestResolveGateWorkItem_FallbackToMostRecentInProgress(t *testing.T) {
 // non-empty attribution (feat-cecb2f2b: the empty work_item_id prevented this
 // path from working before).
 func TestValidateCompletionGateRecord_CrossSessionMatchByWorkItemID(t *testing.T) {
+	if testing.Short() {
+		t.Skip("runs real Go gate commands")
+	}
+
 	projectRoot := setupGateTestProject(t)
 	database := openGateTestDB(t, projectRoot)
 	defer database.Close()

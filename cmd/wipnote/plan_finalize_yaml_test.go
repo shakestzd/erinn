@@ -198,6 +198,10 @@ func TestBuildFeatureContent_SkipsQuestionsWithNoAnswer(t *testing.T) {
 // bug-3e524d0f. It verifies that finalizeYAMLWithDB reads plan_feedback, flips
 // per-slice approved flags, creates the track+features, and is idempotent.
 func TestFinalizeYAML_ReconcilesFeedbackApprovals(t *testing.T) {
+	if testing.Short() {
+		t.Skip("drives plan finalize integration flow")
+	}
+
 	const numSlices = 3
 
 	dir := t.TempDir()

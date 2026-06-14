@@ -296,6 +296,10 @@ func setupReindexTestEnv(t *testing.T, projectDir string) {
 // of slice 9: deleting the SQLite cache and running reindex restores every
 // dashboard-critical table.
 func TestCacheDeletion_ReindexRestoresDashboardCriticalRows(t *testing.T) {
+	if testing.Short() {
+		t.Skip("drives reindex integration flow")
+	}
+
 	projectDir := buildCanonicalFixture(t)
 	setupReindexTestEnv(t, projectDir)
 
@@ -419,6 +423,10 @@ func snapshotCriticalCounts(t *testing.T, projectDir string) map[string]int {
 // canonical NDJSON still contains every signal. After the crash, deleting
 // the DB and running reindex must produce a complete otel_signals table.
 func TestDaemonCrashDuringWrite_ReindexRecovers(t *testing.T) {
+	if testing.Short() {
+		t.Skip("drives daemon crash recovery integration flow")
+	}
+
 	projectDir := buildCanonicalFixture(t)
 	setupReindexTestEnv(t, projectDir)
 
@@ -506,6 +514,10 @@ func TestDaemonCrashDuringWrite_ReindexRecovers(t *testing.T) {
 // data. We mount the single-project mux and probe the endpoints the plan
 // names: /api/features, /api/sessions, /api/collector-status, /api/plans.
 func TestReindex_DashboardSmoke(t *testing.T) {
+	if testing.Short() {
+		t.Skip("drives dashboard reindex integration flow")
+	}
+
 	projectDir := buildCanonicalFixture(t)
 	setupReindexTestEnv(t, projectDir)
 

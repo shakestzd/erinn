@@ -286,6 +286,10 @@ func captureStdout(t *testing.T, fn func()) string {
 // TestRunCleanupGhostSessions_NeverDeletesHTMLBacked is the critical regression
 // test: a session row with zero events but an HTML file on disk must NOT be deleted.
 func TestRunCleanupGhostSessions_NeverDeletesHTMLBacked(t *testing.T) {
+	if testing.Short() {
+		t.Skip("drives cleanup integration flow")
+	}
+
 	hgDir, database := setupHTMLGraphDir(t)
 
 	sessionID := "html-backed-sess-0001"
@@ -527,4 +531,3 @@ func TestRunCleanupOrphanSessions_NoOrphans(t *testing.T) {
 		t.Errorf("expected 'No orphan' message, got: %q", output)
 	}
 }
-

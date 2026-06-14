@@ -149,6 +149,10 @@ func TestProvenanceGate_CodeBearingFeatureZeroCommits_Blocked(t *testing.T) {
 
 // 2. Code-bearing BUG and SPIKE with zero commits → also blocked (type-agnostic).
 func TestProvenanceGate_CodeBearingBugAndSpikeZeroCommits_Blocked(t *testing.T) {
+	if testing.Short() {
+		t.Skip("drives real completion provenance gate")
+	}
+
 	for _, tc := range []struct{ typeName, dir string }{
 		{"bug", "bugs"},
 		{"spike", "spikes"},
@@ -174,6 +178,10 @@ func TestProvenanceGate_CodeBearingBugAndSpikeZeroCommits_Blocked(t *testing.T) 
 
 // 3. Same with --accepted-advisory → completes, reason persisted + in check.
 func TestProvenanceGate_AdvisoryOverrideCompletesAndPersists(t *testing.T) {
+	if testing.Short() {
+		t.Skip("drives real completion provenance gate")
+	}
+
 	tmpDir, hgDir := prepProject(t)
 	trackID := testSetupTrack(t, hgDir)
 	id := createItem(t, hgDir, "feature", "Advisory Feature", trackID)
@@ -209,6 +217,10 @@ func TestProvenanceGate_AdvisoryOverrideCompletesAndPersists(t *testing.T) {
 
 // 4. Pure-.wipnote/doc item, zero commits → completes normally (exempt).
 func TestProvenanceGate_PureWipnoteItemExempt(t *testing.T) {
+	if testing.Short() {
+		t.Skip("drives real completion provenance gate")
+	}
+
 	tmpDir, hgDir := prepProject(t)
 	trackID := testSetupTrack(t, hgDir)
 	id := createItem(t, hgDir, "feature", "Docs Feature", trackID)
@@ -228,6 +240,10 @@ func TestProvenanceGate_PureWipnoteItemExempt(t *testing.T) {
 
 // 5. Item with >=1 commit row → completes normally.
 func TestProvenanceGate_HasCommitsCompletes(t *testing.T) {
+	if testing.Short() {
+		t.Skip("drives real completion provenance gate")
+	}
+
 	tmpDir, hgDir := prepProject(t)
 	trackID := testSetupTrack(t, hgDir)
 	id := createItem(t, hgDir, "feature", "Committed Feature", trackID)
@@ -247,6 +263,10 @@ func TestProvenanceGate_HasCommitsCompletes(t *testing.T) {
 
 // CodeBearingPaths unit: .wipnote paths excluded, source paths returned.
 func TestCodeBearingPaths_ExcludesWipnote(t *testing.T) {
+	if testing.Short() {
+		t.Skip("drives provenance path classification integration flow")
+	}
+
 	tmpDir, hgDir := prepProject(t)
 	id := "feat-cbtest01"
 	seedFeatureFile(t, hgDir, id, ".wipnote/features/"+id+".html")
@@ -304,6 +324,10 @@ func TestCodeBearingPaths_ExcludesTmpScratch(t *testing.T) {
 // `feature/bug/spike complete --allow-dirty --accepted-advisory "<reason>"` can
 // succeed even when no passing gate record exists in the DB.
 func TestGateRecordGuard_AdvisoryBypassesGateRecord(t *testing.T) {
+	if testing.Short() {
+		t.Skip("drives completion gate bypass flow")
+	}
+
 	for _, tc := range []string{"feature", "bug", "spike"} {
 		t.Run(tc, func(t *testing.T) {
 			_, hgDir := prepProject(t)

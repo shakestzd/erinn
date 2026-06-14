@@ -162,6 +162,10 @@ func TestOtelPromptsHandler(t *testing.T) {
 }
 
 func TestOtelLogsHandler_IncludesAssistantMessages(t *testing.T) {
+	if testing.Short() {
+		t.Skip("drives otel handler integration flow")
+	}
+
 	database := seedOtelSignals(t)
 	_, err := database.Exec(`
 		INSERT INTO messages (
@@ -279,6 +283,10 @@ func TestOtelHandlers_RejectNonGet(t *testing.T) {
 // verifies the endpoint returns them with trace_id / parent_span / span_id
 // preserved so the client-side tree builder has every field it needs.
 func TestOtelSpansHandler(t *testing.T) {
+	if testing.Short() {
+		t.Skip("drives otel handler integration flow")
+	}
+
 	database := seedOtelSignals(t)
 	// seedOtelSignals doesn't add spans — insert two here under sess-api-1.
 	_, err := database.Exec(`

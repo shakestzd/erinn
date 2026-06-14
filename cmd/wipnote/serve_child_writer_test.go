@@ -102,6 +102,10 @@ func TestEnsureWriterDaemon_NoDoubleSpawnWhenLeaseHeld(t *testing.T) {
 // daemon's single writable handle + writequeue: writing an events.ndjson file
 // and starting maintenance must land rows in otel_signals via the queue.
 func TestStartWriterMaintenance_IndexerRunsInDaemon(t *testing.T) {
+	if testing.Short() {
+		t.Skip("drives daemon writer maintenance integration flow")
+	}
+
 	projectRoot := t.TempDir()
 	wipnoteDir := filepath.Join(projectRoot, ".wipnote")
 	dbPath := filepath.Join(wipnoteDir, "wipnote.db")
@@ -239,10 +243,10 @@ func TestDaemonSingleWriter_NoBusyUnderConcurrentWritePaths(t *testing.T) {
 	db.ResetBusyCounters()
 
 	const (
-		sessions    = 4
-		otelBatch   = 6
-		evtsPer     = 6
-		filesPer    = 6
+		sessions  = 4
+		otelBatch = 6
+		evtsPer   = 6
+		filesPer  = 6
 	)
 	res := map[string]any{"service.name": "claude-code"}
 

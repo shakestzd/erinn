@@ -15,6 +15,10 @@ import (
 )
 
 func TestWipResetWithoutForceError(t *testing.T) {
+	if testing.Short() {
+		t.Skip("drives full work-item lifecycle")
+	}
+
 	tmpDir := t.TempDir()
 	hgDir := filepath.Join(tmpDir, ".wipnote")
 	for _, sub := range []string{"features", "bugs", "spikes", "tracks", "plans", "specs"} {
@@ -49,6 +53,10 @@ func TestWipResetWithoutForceError(t *testing.T) {
 }
 
 func TestWipResetWithoutForceErrorMultipleItems(t *testing.T) {
+	if testing.Short() {
+		t.Skip("drives full work-item lifecycle")
+	}
+
 	tmpDir := t.TempDir()
 	hgDir := filepath.Join(tmpDir, ".wipnote")
 	for _, sub := range []string{"features", "bugs", "spikes", "tracks", "plans", "specs"} {
@@ -89,6 +97,10 @@ func TestWipResetWithoutForceErrorMultipleItems(t *testing.T) {
 }
 
 func TestWipResetWithForceSucceeds(t *testing.T) {
+	if testing.Short() {
+		t.Skip("drives full work-item lifecycle")
+	}
+
 	tmpDir := t.TempDir()
 	hgDir := filepath.Join(tmpDir, ".wipnote")
 	for _, sub := range []string{"features", "bugs", "spikes", "tracks", "plans", "specs"} {

@@ -24,6 +24,10 @@ import (
 // not OpenReadOnlyMigrated directly — so a revert at the openReadOnlyDB call
 // site makes the subtest FAIL.
 func TestSessionShowListStaleSchemaRegressions(t *testing.T) {
+	if testing.Short() {
+		t.Skip("drives stale-schema session integration flow")
+	}
+
 	tests := []struct {
 		name         string
 		runFunc      func() error

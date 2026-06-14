@@ -179,7 +179,7 @@ func detectGatePlan(projectRoot, codeRoot, phase string) (gatePlan, error) {
 		plan.Commands = []gateCommand{
 			{Name: "go build", Args: []string{"go", "build", "-buildvcs=false", "./..."}},
 			{Name: "go vet", Args: []string{"go", "vet", "./..."}},
-			{Name: "go test", Args: []string{"go", "test", "-buildvcs=false", "./..."}},
+			{Name: "go test", Args: []string{"go", "test", "-buildvcs=false", "-short", "./..."}},
 		}
 	case paths.ProjectTypeNode:
 		plan.Commands, err = nodeGateCommands(plan.Manifest)

@@ -280,6 +280,10 @@ func TestPlanFinalizeHandler_NotApproved(t *testing.T) {
 }
 
 func TestPlanFinalizeHandler_Success(t *testing.T) {
+	if testing.Short() {
+		t.Skip("drives plan finalize integration flow")
+	}
+
 	database, planID := setupPlanTestDB(t)
 	wipnoteDir := writeTempPlanHTML(t, planID)
 

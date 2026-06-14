@@ -130,6 +130,10 @@ func TestAutoTrackEdgesNotCreatedForTrack(t *testing.T) {
 }
 
 func TestAutoImplementedInEdgeOnStart(t *testing.T) {
+	if testing.Short() {
+		t.Skip("drives full work-item start lifecycle")
+	}
+
 	tmpDir := t.TempDir()
 	hgDir := filepath.Join(tmpDir, ".wipnote")
 	for _, sub := range []string{"features", "bugs", "spikes", "tracks", "plans", "specs"} {
@@ -183,6 +187,10 @@ func TestAutoImplementedInEdgeOnStart(t *testing.T) {
 }
 
 func TestNoImplementedInEdgeWithoutSession(t *testing.T) {
+	if testing.Short() {
+		t.Skip("drives full work-item start lifecycle")
+	}
+
 	tmpDir := t.TempDir()
 	hgDir := filepath.Join(tmpDir, ".wipnote")
 	for _, sub := range []string{"features", "bugs", "spikes", "tracks", "plans", "specs"} {
@@ -218,6 +226,10 @@ func TestNoImplementedInEdgeWithoutSession(t *testing.T) {
 }
 
 func TestRunWiSetStatus_ClaudeStartTip(t *testing.T) {
+	if testing.Short() {
+		t.Skip("drives full work-item start lifecycle")
+	}
+
 	tmpDir := t.TempDir()
 	hgDir := filepath.Join(tmpDir, ".wipnote")
 	for _, sub := range []string{"features", "bugs", "spikes", "tracks", "plans", "specs"} {
@@ -348,6 +360,10 @@ func TestAutoCausedByEdgeOnBugCreate(t *testing.T) {
 }
 
 func TestBugCreateNoLinkSkipsCausedBy(t *testing.T) {
+	if testing.Short() {
+		t.Skip("drives full work-item create lifecycle")
+	}
+
 	tmpDir := t.TempDir()
 	hgDir := filepath.Join(tmpDir, ".wipnote")
 	for _, sub := range []string{"features", "bugs", "spikes", "tracks", "plans", "specs"} {
@@ -482,6 +498,10 @@ func TestSpecCreateNoDescriptionWarning(t *testing.T) {
 }
 
 func TestRunWiSetStatus_BlockedClearsCache(t *testing.T) {
+	if testing.Short() {
+		t.Skip("drives full work-item status lifecycle")
+	}
+
 	tmpDir := t.TempDir()
 	hgDir := filepath.Join(tmpDir, ".wipnote")
 	for _, sub := range []string{"features", "bugs", "spikes", "tracks", "plans", "specs"} {
@@ -819,6 +839,10 @@ func testHgDirWithDB(t *testing.T, sessionID string) (tmpDir, hgDir string) {
 // detect this by checking that active_feature_id in the DB remains set after
 // both calls, and that only one claim row exists for the session+feature pair.
 func TestFeatureStart_Idempotent(t *testing.T) {
+	if testing.Short() {
+		t.Skip("drives full work-item start lifecycle")
+	}
+
 	const sessionID = "test-session-idempotent"
 	tmpDir, hgDir := testHgDirWithDB(t, sessionID)
 
@@ -895,6 +919,10 @@ func TestFeatureStart_Idempotent(t *testing.T) {
 // features in sequence issues both UpdateActiveFeature writes, ending with
 // active_feature_id pointing at the second feature.
 func TestFeatureStart_DifferentFeatures(t *testing.T) {
+	if testing.Short() {
+		t.Skip("drives full work-item start lifecycle")
+	}
+
 	const sessionID = "test-session-two-features"
 	tmpDir, hgDir := testHgDirWithDB(t, sessionID)
 
@@ -946,6 +974,10 @@ func TestFeatureStart_DifferentFeatures(t *testing.T) {
 // TestFeatureStart_ClaimWrittenOnFirstStart verifies that a claim row is written
 // to the claims table on the very first call to feature start (bug-0d55d8e4).
 func TestFeatureStart_ClaimWrittenOnFirstStart(t *testing.T) {
+	if testing.Short() {
+		t.Skip("drives full work-item start lifecycle")
+	}
+
 	const sessionID = "test-session-claim-first-start"
 	const agentID = dbpkg.AgentRootSentinel
 
@@ -992,6 +1024,10 @@ func TestFeatureStart_ClaimWrittenOnFirstStart(t *testing.T) {
 // duplicate live claim row — the existing claim's lease is renewed instead
 // (bug-0d55d8e4 fix: ClaimItemOrRenew is idempotent).
 func TestFeatureStart_ClaimRenewedOnRepeatStart(t *testing.T) {
+	if testing.Short() {
+		t.Skip("drives full work-item start lifecycle")
+	}
+
 	const sessionID = "test-session-claim-repeat-start"
 	const agentID = dbpkg.AgentRootSentinel
 
@@ -1047,6 +1083,10 @@ func TestFeatureStart_ClaimRenewedOnRepeatStart(t *testing.T) {
 // This is the core scenario of bug-0d55d8e4: the short-circuit on
 // active_work_items was preventing the claim re-write when the claim expired.
 func TestFeatureStart_ClaimWrittenAfterExpiry(t *testing.T) {
+	if testing.Short() {
+		t.Skip("drives full work-item start lifecycle")
+	}
+
 	const sessionID = "test-session-claim-after-expiry"
 	const agentID = dbpkg.AgentRootSentinel
 
@@ -1144,6 +1184,10 @@ func TestFeatureStart_ClaimWrittenAfterExpiry(t *testing.T) {
 // invariant being tested is that N distinct (session, agentID) pairs each
 // produce an independent row in active_work_items — not raw write parallelism.
 func TestRunWiSetStatus_ConcurrentAgents(t *testing.T) {
+	if testing.Short() {
+		t.Skip("drives concurrent work-item claim lifecycle")
+	}
+
 	const sessionID = "test-session-concurrent"
 	const N = 5
 
@@ -1635,6 +1679,10 @@ func TestUncommittedSourceCompleteGate_IgnoresUntrackedSource(t *testing.T) {
 // a non-zero error (without mutating state) when a foreign live session holds
 // the same work item.
 func TestFeatureStart_LiveCollision_Refuses(t *testing.T) {
+	if testing.Short() {
+		t.Skip("drives multi-session collision lifecycle")
+	}
+
 	const holderSessionID = "sess-collision-holder"
 	const callerSessionID = "sess-collision-caller"
 	const agentID = dbpkg.AgentRootSentinel
@@ -1738,6 +1786,10 @@ func TestFeatureStart_LiveCollision_Refuses(t *testing.T) {
 // TestFeatureStart_LiveCollision_ForceOverrides verifies that --force bypasses
 // the live-collision refusal and proceeds (emitting a warning but succeeding).
 func TestFeatureStart_LiveCollision_ForceOverrides(t *testing.T) {
+	if testing.Short() {
+		t.Skip("drives multi-session collision lifecycle")
+	}
+
 	const holderSessionID = "sess-force-holder"
 	const callerSessionID = "sess-force-caller"
 	const agentID = dbpkg.AgentRootSentinel
@@ -1808,6 +1860,10 @@ func TestFeatureStart_LiveCollision_ForceOverrides(t *testing.T) {
 // TestFeatureStart_StaleCollision_Allows verifies that a stale (dead-heartbeat)
 // foreign claim does NOT block start — the item must be freely reclaimable.
 func TestFeatureStart_StaleCollision_Allows(t *testing.T) {
+	if testing.Short() {
+		t.Skip("drives multi-session collision lifecycle")
+	}
+
 	const holderSessionID = "sess-stale-coll-holder"
 	const callerSessionID = "sess-stale-coll-caller"
 	const agentID = dbpkg.AgentRootSentinel

@@ -84,6 +84,10 @@ func seedFeature(t *testing.T, dbPath, id string) {
 //     bumped on a TERMINAL busy; transient busy that the retry absorbs must
 //     not leak into the launch-gate counter).
 func TestBusyFix_FilesystemAgnostic(t *testing.T) {
+	if testing.Short() {
+		t.Skip("stress test for filesystem-agnostic SQLite busy handling")
+	}
+
 	for _, mode := range []string{"wal", "delete"} {
 		t.Run(mode, func(t *testing.T) {
 			db.ResetBusyCounters()

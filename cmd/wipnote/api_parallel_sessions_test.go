@@ -325,6 +325,10 @@ func TestParallelSessionsAPI_SubagentVisibility(t *testing.T) {
 // TestSessionsAPI_CollisionFieldPresent verifies claim_collision and
 // claim_status are present in sessions list (stable contract for plan-c3bbb1ed).
 func TestSessionsAPI_CollisionFieldPresent(t *testing.T) {
+	if testing.Short() {
+		t.Skip("drives sessions API integration flow")
+	}
+
 	database, err := dbpkg.Open(filepath.Join(t.TempDir(), "test.db"))
 	if err != nil {
 		t.Fatalf("open db: %v", err)

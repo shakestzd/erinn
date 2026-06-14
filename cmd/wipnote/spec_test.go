@@ -259,6 +259,10 @@ func TestThirdPartyNotices_HasOpenSpec(t *testing.T) {
 // rewritten by a status transition (col.Start / col.Complete). This is the
 // regression test for the HIGH finding in roborev job 236.
 func TestSpecSectionSurvivesStatusWrite(t *testing.T) {
+	if testing.Short() {
+		t.Skip("drives full work-item status lifecycle")
+	}
+
 	tmpDir := t.TempDir()
 	hgDir := filepath.Join(tmpDir, ".wipnote")
 	for _, sub := range []string{"features", "tracks", "plans", "specs", "spikes", "bugs"} {

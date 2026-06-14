@@ -22,6 +22,10 @@ func setupResetTest(t *testing.T) (tmpDir, hgDir string) {
 }
 
 func TestFeatureReset_HappyPath(t *testing.T) {
+	if testing.Short() {
+		t.Skip("drives full work-item reset lifecycle")
+	}
+
 	tmpDir, hgDir := setupResetTest(t)
 	projectDirFlag = tmpDir
 	defer func() { projectDirFlag = "" }()
@@ -68,6 +72,10 @@ func TestFeatureReset_HappyPath(t *testing.T) {
 }
 
 func TestFeatureReset_PreservesStepsAndDescription(t *testing.T) {
+	if testing.Short() {
+		t.Skip("drives full work-item reset lifecycle")
+	}
+
 	tmpDir, hgDir := setupResetTest(t)
 	projectDirFlag = tmpDir
 	defer func() { projectDirFlag = "" }()
@@ -127,6 +135,10 @@ func TestFeatureReset_ErrorOnTodo(t *testing.T) {
 }
 
 func TestFeatureReset_ErrorOnDone(t *testing.T) {
+	if testing.Short() {
+		t.Skip("drives full work-item reset lifecycle")
+	}
+
 	tmpDir, hgDir := setupResetTest(t)
 	projectDirFlag = tmpDir
 	defer func() { projectDirFlag = "" }()

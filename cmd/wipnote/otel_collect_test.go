@@ -88,6 +88,9 @@ func readHandshakeLine(t *testing.T, scanner *bufio.Scanner, deadline time.Durat
 // else before the process is signalled. Stdout purity is required because the
 // launcher in S3 uses bufio.Scanner on the child's stdout pipe.
 func TestOtelCollect_HandshakeLine(t *testing.T) {
+	if testing.Short() {
+		t.Skip("requires binary build; run without -short")
+	}
 	bin := buildOtelCollectTestBinary(t)
 	projectDir := mkOtelCollectProject(t)
 	sid := "test-sid-handshake"
@@ -135,6 +138,9 @@ func TestOtelCollect_HandshakeLine(t *testing.T) {
 // reasonable window when no OTLP traffic arrives and WIPNOTE_OTEL_IDLE_TIMEOUT
 // is set to a short value.
 func TestOtelCollect_IdleTimeout(t *testing.T) {
+	if testing.Short() {
+		t.Skip("requires binary build; run without -short")
+	}
 	bin := buildOtelCollectTestBinary(t)
 	projectDir := mkOtelCollectProject(t)
 	sid := "test-sid-idletimeout"
@@ -182,6 +188,9 @@ func TestOtelCollect_IdleTimeout(t *testing.T) {
 // TestOtelCollect_CollectorStartEvent verifies that after the handshake, the
 // session's events.ndjson contains a collector_start event as the first line.
 func TestOtelCollect_CollectorStartEvent(t *testing.T) {
+	if testing.Short() {
+		t.Skip("requires binary build; run without -short")
+	}
 	bin := buildOtelCollectTestBinary(t)
 	projectDir := mkOtelCollectProject(t)
 	sid := "test-sid-startev"

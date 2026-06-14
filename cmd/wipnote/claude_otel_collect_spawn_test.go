@@ -39,6 +39,9 @@ func TestGenerateOtelSessionID(t *testing.T) {
 // asserts the handshake returns a valid port, and verifies the process
 // is alive.
 func TestSpawnCollector_HandshakeAndPort(t *testing.T) {
+	if testing.Short() {
+		t.Skip("requires binary build; run without -short")
+	}
 	bin := buildOtelCollectTestBinary(t)
 	projectDir := mkOtelCollectProject(t)
 

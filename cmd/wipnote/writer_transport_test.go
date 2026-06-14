@@ -73,6 +73,10 @@ func setupWriterTransport(t *testing.T) (*writequeue.Queue, *sqls.QueuedSink, st
 // single-threaded; this test asserts the queue layer plus the real
 // SQLite *receiver.Writer plays nicely under concurrent load.
 func TestWriterTransport_ConcurrentProducers(t *testing.T) {
+	if testing.Short() {
+		t.Skip("drives writer transport integration flow")
+	}
+
 	q, queuedSink, dbPath := setupWriterTransport(t)
 
 	const producers = 8
@@ -154,6 +158,10 @@ func TestWriterTransport_ConcurrentProducers(t *testing.T) {
 // and assert every signal eventually lands without deadlock or
 // duplicates.
 func TestWriterTransport_WithIndexerBudget(t *testing.T) {
+	if testing.Short() {
+		t.Skip("drives writer transport integration flow")
+	}
+
 	q, queuedSink, dbPath := setupWriterTransport(t)
 
 	wipnoteDir := filepath.Join(t.TempDir(), ".wipnote")

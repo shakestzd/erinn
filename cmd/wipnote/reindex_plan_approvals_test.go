@@ -146,6 +146,10 @@ func TestReindexPlanApprovals_DoesNotOverwriteLiveRows(t *testing.T) {
 // TestReindexPlanApprovals_PendingSliceNotReplayed verifies that slices with no
 // ApprovalStatus (pending) do not get a spurious "false" row inserted.
 func TestReindexPlanApprovals_PendingSliceNotReplayed(t *testing.T) {
+	if testing.Short() {
+		t.Skip("drives reindex integration flow")
+	}
+
 	dir := t.TempDir()
 	plansDir := filepath.Join(dir, "plans")
 	if err := os.MkdirAll(plansDir, 0o755); err != nil {
@@ -169,7 +173,7 @@ func TestReindexPlanApprovals_PendingSliceNotReplayed(t *testing.T) {
 		Meta: planyaml.PlanMeta{ID: planID, Title: "Pending Test"},
 		Slices: []planyaml.PlanSlice{
 			{Num: 1, Title: "Slice One", ApprovalStatus: "approved"},
-			{Num: 2, Title: "Slice Two", ApprovalStatus: ""},      // pending
+			{Num: 2, Title: "Slice Two", ApprovalStatus: ""}, // pending
 			{Num: 3, Title: "Slice Three", ApprovalStatus: "rejected"},
 		},
 	}

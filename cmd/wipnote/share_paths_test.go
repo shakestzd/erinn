@@ -3,6 +3,7 @@ package main
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -21,6 +22,9 @@ func makeFakePluginTree(t *testing.T, root, treeName string) string {
 	case "gemini-extension":
 		mustMkdirAll(t, dir)
 		mustWriteFile(t, filepath.Join(dir, "gemini-extension.json"), `{"name":"wipnote"}`)
+	case "antigravity-extension":
+		mustMkdirAll(t, dir)
+		mustWriteFile(t, filepath.Join(dir, "plugin.json"), `{"name":"wipnote"}`)
 	default:
 		t.Fatalf("unknown tree %q", treeName)
 	}
@@ -43,7 +47,7 @@ func mustWriteFile(t *testing.T, path, content string) {
 
 func TestResolveSharedTreePath_EnvOverride(t *testing.T) {
 	tmp := t.TempDir()
-	for _, tree := range []string{"plugin", "codex-marketplace", "gemini-extension"} {
+	for _, tree := range []string{"plugin", "codex-marketplace", "gemini-extension", "antigravity-extension"} {
 		t.Run(tree, func(t *testing.T) {
 			got := makeFakePluginTree(t, tmp, tree)
 			envVar, _, _ := sharedTreeMetadata(tree)
@@ -102,8 +106,8 @@ func TestResolveSharedTreePath_UnknownTreeName(t *testing.T) {
 func TestIsValidHarnessTree(t *testing.T) {
 	tmp := t.TempDir()
 	cases := []struct {
-		tree string
-		ok   bool
+		tree  string
+		ok    bool
 		setup func(string)
 	}{
 		{"plugin", true, func(dir string) {
@@ -125,6 +129,10 @@ func TestIsValidHarnessTree(t *testing.T) {
 		{"gemini-extension", true, func(dir string) {
 			_ = os.MkdirAll(dir, 0o755)
 			_ = os.WriteFile(filepath.Join(dir, "gemini-extension.json"), []byte("{}"), 0o644)
+		}},
+		{"antigravity-extension", true, func(dir string) {
+			_ = os.MkdirAll(dir, 0o755)
+			_ = os.WriteFile(filepath.Join(dir, "plugin.json"), []byte("{}"), 0o644)
 		}},
 	}
 	for i, c := range cases {
@@ -161,11 +169,53 @@ func TestIsValidHarnessTree_CodexAcceptsDevDeepLayout(t *testing.T) {
 }
 
 func TestIsValidHarnessTree_RejectsEmptyTree(t *testing.T) {
-	for _, tree := range []string{"plugin", "codex-marketplace", "gemini-extension"} {
+	for _, tree := range []string{"plugin", "codex-marketplace", "gemini-extension", "antigravity-extension"} {
 		dir := t.TempDir()
 		if isValidHarnessTree(dir, tree) {
 			t.Errorf("expected false for empty tree %q, got true", tree)
 		}
+	}
+}
+
+func TestSharedTreeRefreshHint(t *testing.T) {
+	originalVersion := version
+	t.Cleanup(func() { version = originalVersion })
+
+	version = "v0.62.1"
+	if got := sharedTreeRefreshHint(); !strings.Contains(got, "wipnote upgrade --version 0.62.1") {
+		t.Fatalf("release hint = %q", got)
+	}
+
+	for _, v := range []string{"dev", "0.62.1-5-gabc1234"} {
+		version = v
+		got := sharedTreeRefreshHint()
+		if strings.Contains(got, "--version") {
+			t.Fatalf("dev hint for %q should not include --version: %q", v, got)
+		}
+		if !strings.Contains(got, "wipnote upgrade") {
+			t.Fatalf("dev hint for %q missing upgrade: %q", v, got)
+		}
+	}
+}
+
+func TestResolveSharedTreePath_MissingTreeMentionsUpgradeRefresh(t *testing.T) {
+	t.Setenv("WIPNOTE_ANTIGRAVITY_DIR", "")
+	t.Setenv("HOME", filepath.Join(t.TempDir(), "home"))
+	t.Chdir(t.TempDir())
+	originalVersion := version
+	version = "0.62.1"
+	t.Cleanup(func() { version = originalVersion })
+
+	_, err := resolveSharedTreePath("antigravity-extension")
+	if err == nil {
+		t.Fatal("expected missing antigravity-extension error")
+	}
+	msg := err.Error()
+	if !strings.Contains(msg, "wipnote upgrade --version 0.62.1") {
+		t.Fatalf("error missing upgrade refresh guidance:\n%s", msg)
+	}
+	if !strings.Contains(msg, "wipnote source checkout") {
+		t.Fatalf("error missing source-checkout-only build guidance:\n%s", msg)
 	}
 }
 

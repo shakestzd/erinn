@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 // resolveSharedTreePath resolves the on-disk path to a bundled harness tree
@@ -23,6 +24,14 @@ import (
 //
 // treeName is one of "plugin", "codex-marketplace", or "gemini-extension".
 // Returns an absolute path on success, or a clear error if nothing is found.
+func sharedTreeRefreshHint() string {
+	ver := strings.TrimPrefix(version, "v")
+	if ver != "" && ver != "dev" && !strings.Contains(ver, "-") {
+		return fmt.Sprintf("Refresh bundled assets with 'wipnote upgrade --version %s' or install via 'brew install wipnote'.", ver)
+	}
+	return "Refresh bundled assets with 'wipnote upgrade' or install via 'brew install wipnote'."
+}
+
 func resolveSharedTreePath(treeName string) (string, error) {
 	envVar, sourceSubpath, ok := sharedTreeMetadata(treeName)
 	if !ok {
@@ -74,9 +83,10 @@ func resolveSharedTreePath(treeName string) (string, error) {
 
 	return "", fmt.Errorf(
 		"wipnote %s tree not found.\n"+
-			"  Install via 'brew install wipnote' or 'wipnote build'.\n"+
+			"  %s\n"+
+			"  Developers can run 'wipnote build' from the wipnote source checkout.\n"+
 			"  Override with %s=<path> if installed in a non-standard location.",
-		treeName, envVar,
+		treeName, sharedTreeRefreshHint(), envVar,
 	)
 }
 
@@ -114,7 +124,7 @@ func isValidHarnessTree(path, treeName string) bool {
 		sentinels = []string{filepath.Join(".claude-plugin", "plugin.json")}
 	case "codex-marketplace":
 		sentinels = []string{
-			"marketplace.json",                                      // bundled tarball (GoReleaser flat layout)
+			"marketplace.json", // bundled tarball (GoReleaser flat layout)
 			filepath.Join(".agents", "plugins", "marketplace.json"), // dev source (deep layout)
 		}
 	case "gemini-extension":

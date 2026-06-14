@@ -193,7 +193,7 @@ chmod +x "${WIPNOTE_BIN_DIR}/wipnote"
 # ---------------------------------------------------------------------------
 mkdir -p "${WIPNOTE_SHARE_DIR}"
 
-for tree in plugin codex-marketplace gemini-extension; do
+for tree in plugin codex-marketplace gemini-extension antigravity-extension; do
   SRC="${TMPDIR_INSTALL}/${tree}"
   DST="${WIPNOTE_SHARE_DIR}/${tree}"
 

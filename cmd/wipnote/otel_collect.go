@@ -110,6 +110,7 @@ func buildCollectorMux(snk *ndjson.Sink, lastActivity *atomic.Int64) *http.Serve
 	reg.Register(adapter.NewClaudeAdapter())
 	reg.Register(adapter.NewCodexAdapter())
 	reg.Register(adapter.NewGeminiAdapter())
+	reg.Register(adapter.NewAntigravityAdapter())
 
 	handler := &collectorHandler{
 		registry:     reg,

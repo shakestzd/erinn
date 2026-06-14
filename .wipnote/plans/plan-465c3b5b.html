@@ -409,7 +409,7 @@ body.right-rail-collapsed .sidebar-reopen{display:flex}
     
     <li>
       <a href="#slice-1" class="slice-nav-item" data-slice-nav="1">
-        <span class="slice-nav-dot" data-approval="pending" data-dot-for="1"></span>
+        <span class="slice-nav-dot" data-approval="approved" data-dot-for="1"></span>
         <span>#1 Extract cli and commands sub-packages</span>
         <span class="nav-triage-badge nav-triage-issue" title="2 issue(s)">&#9888;2</span>
         
@@ -418,7 +418,7 @@ body.right-rail-collapsed .sidebar-reopen{display:flex}
     
     <li>
       <a href="#slice-2" class="slice-nav-item" data-slice-nav="2">
-        <span class="slice-nav-dot" data-approval="pending" data-dot-for="2"></span>
+        <span class="slice-nav-dot" data-approval="approved" data-dot-for="2"></span>
         <span>#2 Extract launcher and daemon sub-packages</span>
         <span class="nav-triage-badge nav-triage-issue" title="1 issue(s)">&#9888;1</span>
         
@@ -427,7 +427,7 @@ body.right-rail-collapsed .sidebar-reopen{display:flex}
     
     <li>
       <a href="#slice-3" class="slice-nav-item" data-slice-nav="3">
-        <span class="slice-nav-dot" data-approval="pending" data-dot-for="3"></span>
+        <span class="slice-nav-dot" data-approval="approved" data-dot-for="3"></span>
         <span>#3 Extract quality and completion gate runners</span>
         <span class="nav-triage-badge nav-triage-issue" title="1 issue(s)">&#9888;1</span>
         
@@ -471,9 +471,9 @@ body.right-rail-collapsed .sidebar-reopen{display:flex}
 <section class="dep-graph" data-zone="dependency-graph">
   <h2>Dependency Graph</h2>
   <div id="graph-data" style="display:none">
-    <div data-node="1" data-name="Extract cli and commands sub-packages" data-status="pending" data-deps="" data-files="3"></div>
-    <div data-node="2" data-name="Extract launcher and daemon sub-packages" data-status="pending" data-deps="1" data-files="2"></div>
-    <div data-node="3" data-name="Extract quality and completion gate runners" data-status="pending" data-deps="2" data-files="2"></div>
+    <div data-node="1" data-name="Extract cli and commands sub-packages" data-status="approved" data-deps="" data-files="3"></div>
+    <div data-node="2" data-name="Extract launcher and daemon sub-packages" data-status="approved" data-deps="1" data-files="2"></div>
+    <div data-node="3" data-name="Extract quality and completion gate runners" data-status="approved" data-deps="2" data-files="2"></div>
     
     <!--PLAN_GRAPH_NODES-->
   </div>
@@ -535,7 +535,7 @@ body.right-rail-collapsed .sidebar-reopen{display:flex}
         <span class="slice-actions" onclick="event.stopPropagation()">
           <span class="approval-segmented" role="group" aria-label="Approval action">
             <label class="seg-btn seg-approve" title="Approve">
-              <input type="radio" name="slice-1-approval" value="approved" data-section="slice-1" data-action="approve" aria-label="Approve slice 1">
+              <input type="radio" name="slice-1-approval" value="approved" checked data-section="slice-1" data-action="approve" aria-label="Approve slice 1">
               &#10003;
             </label>
             <label class="seg-btn seg-changes" title="Request changes">
@@ -671,7 +671,7 @@ Move basic work-item subcommands (feature, bug, spike, track) from cmd/wipnote/ 
         <span class="slice-actions" onclick="event.stopPropagation()">
           <span class="approval-segmented" role="group" aria-label="Approval action">
             <label class="seg-btn seg-approve" title="Approve">
-              <input type="radio" name="slice-2-approval" value="approved" data-section="slice-2" data-action="approve" aria-label="Approve slice 2">
+              <input type="radio" name="slice-2-approval" value="approved" checked data-section="slice-2" data-action="approve" aria-label="Approve slice 2">
               &#10003;
             </label>
             <label class="seg-btn seg-changes" title="Request changes">
@@ -801,7 +801,7 @@ Move serve command and dashboard endpoints to internal/daemon/.</p>
         <span class="slice-actions" onclick="event.stopPropagation()">
           <span class="approval-segmented" role="group" aria-label="Approval action">
             <label class="seg-btn seg-approve" title="Approve">
-              <input type="radio" name="slice-3-approval" value="approved" data-section="slice-3" data-action="approve" aria-label="Approve slice 3">
+              <input type="radio" name="slice-3-approval" value="approved" checked data-section="slice-3" data-action="approve" aria-label="Approve slice 3">
               &#10003;
             </label>
             <label class="seg-btn seg-changes" title="Request changes">
@@ -928,11 +928,11 @@ Clean up remaining helper files in cmd/wipnote/ to make it a thin wrapper.</p>
 <section id="feedback-summary" class="progress-zone" data-zone="feedback-summary">
   <h2>Feedback Summary</h2>
   <div class="progress-stats">
-    <div class="progress-stat"><strong id="approvedCount">0</strong> approved</div>
+    <div class="progress-stat"><strong id="approvedCount">3</strong> approved</div>
     <div class="progress-stat"><strong id="totalSections">4</strong> sections</div>
-    <div class="progress-stat"><strong id="pendingCount">4</strong> pending</div>
+    <div class="progress-stat"><strong id="pendingCount">1</strong> pending</div>
   </div>
-  <div class="progress-bar-track"><div class="progress-bar-fill" id="progressFill" style="width:0%"></div></div>
+  <div class="progress-bar-track"><div class="progress-bar-fill" id="progressFill" style="width:75%"></div></div>
   <div class="comments-summary">
     <h3>Decisions &amp; Comments</h3>
     <div id="commentsFeed"><p style="font-size:.8rem;color:var(--text-muted);font-style:italic">No comments yet.</p></div>

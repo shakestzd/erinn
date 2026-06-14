@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "wipnote hook session-start"
+            "command": "WIPNOTE_AGENT_ID=antigravity WIPNOTE_AGENT_TYPE=antigravity wipnote hook session-start"
           }
         ]
       }
@@ -17,7 +17,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "wipnote hook user-prompt"
+            "command": "WIPNOTE_AGENT_ID=antigravity WIPNOTE_AGENT_TYPE=antigravity wipnote hook user-prompt"
           }
         ]
       }
@@ -28,7 +28,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "wipnote hook after-agent"
+            "command": "WIPNOTE_AGENT_ID=antigravity WIPNOTE_AGENT_TYPE=antigravity wipnote hook after-agent"
           }
         ]
       }
@@ -39,7 +39,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "wipnote hook after-model"
+            "command": "WIPNOTE_AGENT_ID=antigravity WIPNOTE_AGENT_TYPE=antigravity wipnote hook after-model"
           }
         ]
       }
@@ -50,7 +50,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "wipnote hook pretooluse"
+            "command": "WIPNOTE_AGENT_ID=antigravity WIPNOTE_AGENT_TYPE=antigravity wipnote hook pretooluse"
           }
         ]
       }
@@ -61,7 +61,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "wipnote hook posttooluse"
+            "command": "WIPNOTE_AGENT_ID=antigravity WIPNOTE_AGENT_TYPE=antigravity wipnote hook posttooluse"
           }
         ]
       }
@@ -72,7 +72,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "wipnote hook session-end",
+            "command": "WIPNOTE_AGENT_ID=antigravity WIPNOTE_AGENT_TYPE=antigravity wipnote hook session-end",
             "timeout": 90
           }
         ]

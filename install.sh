@@ -353,6 +353,15 @@ download_and_install() {
         log_info "Installed gemini-extension tree to ${DEFAULT_DATA_DIR}/gemini-extension"
     fi
 
+    # Same pattern for the Antigravity extension tree. Releases with
+    # antigravity-extension/ at the archive root install it for bundled init.
+    if [ -d "${_tmpdir}/antigravity-extension" ]; then
+        mkdir -p "${DEFAULT_DATA_DIR}"
+        rm -rf "${DEFAULT_DATA_DIR}/antigravity-extension"
+        mv "${_tmpdir}/antigravity-extension" "${DEFAULT_DATA_DIR}/antigravity-extension"
+        log_info "Installed antigravity-extension tree to ${DEFAULT_DATA_DIR}/antigravity-extension"
+    fi
+
     log_info "Installed ${BINARY_NAME} to ${INSTALL_DIR}/${BINARY_NAME}"
 }
 

@@ -309,7 +309,7 @@ func writeAntigravityHooks(m *Manifest, path string) error {
 			if e.GeminiHandler != "" {
 				handler = e.GeminiHandler
 			}
-			cmd = "wipnote hook " + handler
+			cmd = "WIPNOTE_AGENT_ID=antigravity WIPNOTE_AGENT_TYPE=antigravity wipnote hook " + handler
 		}
 		cmd = strings.ReplaceAll(cmd, "$GEMINI_EXTENSION_DIR", "${extensionPath}")
 

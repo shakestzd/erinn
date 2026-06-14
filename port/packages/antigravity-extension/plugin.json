@@ -1,0 +1,11 @@
+{
+  "name": "wipnote",
+  "version": "0.62.0",
+  "description": "Local-first observability and coordination platform for AI-assisted development. Go binary hooks for near-zero cold start.",
+  "author": {
+    "name": "Shakes Dlamini"
+  },
+  "homepage": "https://github.com/shakestzd/wipnote",
+  "repository": "https://github.com/shakestzd/wipnote",
+  "license": "MIT"
+}

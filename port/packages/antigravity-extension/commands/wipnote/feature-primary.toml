@@ -1,0 +1,64 @@
+prompt = '''
+# /wipnote:feature-primary
+
+Set the primary feature for activity attribution
+
+## Usage
+
+```
+/wipnote:feature-primary <feature-id>
+```
+
+## Parameters
+
+- `feature-id` (required): The feature ID to set as primary
+
+
+## Examples
+
+```bash
+/wipnote:feature-primary feature-001
+```
+Set feature-001 as the primary feature for activity attribution
+
+
+
+## Instructions for Claude
+
+### Implementation:
+
+**DO THIS:**
+
+1. **Start the feature (makes it the active/primary feature):**
+   ```bash
+   wipnote feature start {feature_id}
+   ```
+
+2. **Get feature details and other active features:**
+   ```bash
+   wipnote feature show {feature_id}
+   wipnote find features --status in-progress
+   ```
+
+3. **Present a summary** using the output template below with:
+   - feature_id: The ID of the primary feature
+   - title: The feature title
+   - other_active_features: Other in-progress features from list (excluding this one)
+
+4. **Inform the user:**
+   - All new activity will be attributed to this feature by default
+   - Other features remain in progress and can be worked on
+
+### Output Format:
+
+## Primary Feature Set
+
+**ID:** {feature_id}
+**Title:** {title}
+
+All subsequent activity will be attributed to this feature unless it matches another feature's patterns better.
+
+### Other Active Features
+{other_active_features}
+
+'''

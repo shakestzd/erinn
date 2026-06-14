@@ -1,0 +1,179 @@
+{
+  "$schema": "https://json-schema.org/draft-07/schema#",
+  "version": "1.0.0",
+  "description": "Pre-Work Validation Hook Configuration - Enforces wipnote workflow before code changes",
+
+  "core_principles": {
+    "sdk_only": "SDK is the ONLY interface to .wipnote/ - never direct Write/Edit",
+    "spike_planning": "Spikes are for planning and creating work items (via SDK only)",
+    "implementation_work": "Features/bugs/chores are for code implementation"
+  },
+
+  "always_allow": {
+    "description": "Read-only tools are always allowed without work items",
+    "tools": ["Read", "Glob", "Grep", "LSP", "Skill", "Task", "TaskOutput", "AskUserQuestion"],
+    "bash_patterns": [
+      "^git status",
+      "^git diff",
+      "^git log",
+      "^wipnote status",
+      "^wipnote session",
+      "^wipnote version",
+      "^ls",
+      "^pwd",
+      "^cat",
+      "^head",
+      "^tail",
+      "^find",
+      "^grep"
+    ]
+  },
+
+  "always_deny": {
+    "description": "Operations that are NEVER allowed (even with active work)",
+    "direct_wipnote_writes": {
+      "tools": ["Write", "Edit", "Delete", "NotebookEdit"],
+      "path_patterns": ["\\.wipnote/"],
+      "message": "Never write directly to .wipnote/. Use SDK: wipnote feature create/start/complete",
+      "suggestion": "Use SDK commands:\n  wipnote feature create 'Title' --track <trk-id>\n  wipnote feature start <id>\n  wipnote bug create 'Title' --track <trk-id>"
+    }
+  },
+
+  "sdk_commands": {
+    "description": "Bash commands that invoke wipnote SDK",
+    "patterns": [
+      "^wipnote ",
+      "^wipnote "
+    ],
+    "allowed_during_spike": true,
+    "examples": [
+      "wipnote feature create 'Add validation' --track trk-xxx",
+      "wipnote bug create 'Fix drift issue' --track trk-xxx",
+      "wipnote feature start feat-123"
+    ]
+  },
+
+  "work_type_rules": {
+    "spike": {
+      "description": "Spikes (auto or manual) are for planning and creating work items via SDK",
+      "allow": {
+        "read_operations": ["Read", "Glob", "Grep", "LSP"],
+        "sdk_commands": ["Bash matching sdk_commands.patterns"]
+      },
+      "deny": {
+        "direct_writes": ["Write", "Edit", "Delete", "NotebookEdit"],
+        "code_bash": ["Bash that modifies code (go build, npm, git commit, etc.)"]
+      },
+      "deny_message": "Spike '{spike_id}' is for planning only.\n\nAllowed:\n  - Read operations (Read, Grep, Glob)\n  - SDK commands (wipnote feature create)\n\nFor code changes:\n  1. Create feature: wipnote feature create 'Title'\n  2. Start feature: wipnote feature start <id>\n  3. Then make code changes"
+    },
+    "implementation": {
+      "description": "Features, bugs, chores allow all code operations (except direct .wipnote/ writes)",
+      "types": ["feature", "bug", "chore"],
+      "allow": {
+        "code_operations": ["Write", "Edit", "Delete", "NotebookEdit (not .wipnote/)"],
+        "code_bash": ["All Bash commands"],
+        "sdk_commands": ["All SDK commands"]
+      },
+      "deny": {
+        "direct_wipnote_writes": ["Write/Edit/Delete to .wipnote/ paths"]
+      }
+    }
+  },
+
+  "code_operations": {
+    "description": "Tools and bash commands that modify code",
+    "tools": ["Write", "Edit", "Delete", "NotebookEdit"],
+    "bash_patterns": [
+      "^go build",
+      "^go test",
+      "^go vet",
+      "^npm install",
+      "^npm run",
+      "^yarn install",
+      "^yarn add",
+      "^git commit",
+      "^git push"
+    ]
+  },
+
+  "permission_responses": {
+    "description": "Standard JSON responses for permission decisions",
+    "templates": {
+      "read_only_allowed": {
+        "decision": "allow",
+        "reason": "Read-only operation"
+      },
+      "sdk_command_with_spike": {
+        "decision": "allow",
+        "reason": "Planning with spike {spike_id}: creating work items via SDK"
+      },
+      "sdk_command_no_work": {
+        "decision": "allow",
+        "reason": "Creating work item via SDK"
+      },
+      "implementation_work_active": {
+        "decision": "allow",
+        "reason": "Active implementation work: {work_item_id}"
+      },
+      "no_work_item_code_change": {
+        "decision": "deny",
+        "reason": "INSTRUCTION: Before this file operation, create and start a work item. Execute:\n\nwipnote feature create 'Your feature description here'\nwipnote feature start <id>\n\nThen retry the file operation.",
+        "suggestion": "Work item required for code changes"
+      },
+      "spike_code_change_denied": {
+        "decision": "deny",
+        "reason": "INSTRUCTION: Spike '{spike_id}' is for planning only. Before this file operation, create an implementation work item. Execute:\n\nwipnote feature create 'Implement [describe the change]'\nwipnote feature start <id>\n\nThen retry the file operation.",
+        "suggestion": "Implementation work item required"
+      },
+      "direct_wipnote_write_denied": {
+        "decision": "deny",
+        "reason": "INSTRUCTION: Never write directly to .wipnote/ files. Use the CLI instead. For tracking operations, use:\n\nwipnote feature create 'Title' --track <trk-id>\nwipnote feature start <id>\nwipnote bug create 'Title' --track <trk-id>\n\nBugs require --track <trk-id>; --standalone is only supported for feature create. The CLI is the only interface to .wipnote/ data.",
+        "suggestion": "Use SDK - never direct file writes to .wipnote/"
+      }
+    }
+  },
+
+  "validation_workflow": {
+    "description": "Steps for validating tool calls before execution",
+    "steps": [
+      {
+        "step": 1,
+        "action": "check_always_allow",
+        "description": "Check if tool is always allowed (Read, Glob, Grep, LSP, read-only Bash)"
+      },
+      {
+        "step": 2,
+        "action": "check_always_deny",
+        "description": "Check if direct write to .wipnote/ (always denied)"
+      },
+      {
+        "step": 3,
+        "action": "classify_operation",
+        "description": "Classify as: SDK command, code operation, or other"
+      },
+      {
+        "step": 4,
+        "action": "get_active_work_item",
+        "description": "Query for active work item (in-progress status)"
+      },
+      {
+        "step": 5,
+        "action": "apply_work_type_rules",
+        "description": "Apply rules based on active work type (spike vs implementation)"
+      },
+      {
+        "step": 6,
+        "action": "return_permission",
+        "description": "Return JSON decision (deny/allow)"
+      }
+    ]
+  },
+
+  "logging": {
+    "enabled": true,
+    "log_file": ".wipnote/validation-audit.log",
+    "log_denials": true,
+    "log_bypasses": true,
+    "log_permissions": false
+  }
+}

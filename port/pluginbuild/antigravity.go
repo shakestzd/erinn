@@ -1,0 +1,337 @@
+package pluginbuild
+
+import (
+	"bytes"
+	"fmt"
+	"log"
+	"os"
+	"path/filepath"
+	"strings"
+)
+
+func init() { Register(antigravityAdapter{}) }
+
+// antigravityAdapter emits the Antigravity CLI plugin tree. Layout:
+//
+//	<outDir>/plugin.json
+//	<outDir>/GEMINI.md                  (copied from repoRoot, if target.ContextFile is set)
+//	<outDir>/commands/<namespace>/*.toml
+//	<outDir>/agents/*.md
+//	<outDir>/skills/<name>/SKILL.md
+//	<outDir>/hooks.json
+type antigravityAdapter struct{}
+
+func (antigravityAdapter) Name() string { return "antigravity" }
+
+// antigravityOwnedSubtrees lists the subdirectory names under the antigravity outDir that
+// build-ports fully regenerates. Hand-maintained files (README.md, etc.) live
+// outside these subtrees and are never touched by stale-file cleanup.
+var antigravityOwnedSubtrees = []string{"commands", "agents", "skills", "templates", "static", "config"}
+
+func (a antigravityAdapter) Emit(m *Manifest, repoRoot, outDir string) error {
+	target, ok := m.Targets[a.Name()]
+	if !ok {
+		return fmt.Errorf("manifest has no target %q", a.Name())
+	}
+
+	// Pre-clean owned subtrees so renamed/deleted source files don't leave
+	// stale output files behind. Non-owned files (README, plugin.json,
+	// GEMINI.md, etc.) at the outDir root are untouched.
+	if err := cleanOwnedSubtrees(outDir, antigravityOwnedSubtrees); err != nil {
+		return fmt.Errorf("antigravity pre-clean: %w", err)
+	}
+
+	if err := writeAntigravityManifest(m, target, filepath.Join(outDir, target.ManifestPath)); err != nil {
+		return err
+	}
+	if err := ensureAntigravitySkeletonDirs(outDir); err != nil {
+		return err
+	}
+
+	// Sub-emitters populate the skeleton (assets, commands).
+	for _, emit := range antigravitySubEmitters {
+		if err := emit(m, repoRoot, outDir, target); err != nil {
+			return err
+		}
+	}
+
+	// Write hooks.json
+	if err := writeAntigravityHooks(m, filepath.Join(outDir, target.HooksPath)); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+type AntigravitySubEmitter func(m *Manifest, repoRoot, outDir string, target Target) error
+
+var antigravitySubEmitters = []AntigravitySubEmitter{
+	emitAntigravityAssets,
+	emitAntigravityCommands,
+	emitAntigravityAgents,
+}
+
+// Antigravity plugin manifest schema.
+type antigravityPluginJSON struct {
+	Name        string           `json:"name"`
+	Version     string           `json:"version"`
+	Description string           `json:"description"`
+	Author      claudeAuthorJSON `json:"author"`
+	Homepage    string           `json:"homepage,omitempty"`
+	Repository  string           `json:"repository,omitempty"`
+	License     string           `json:"license,omitempty"`
+}
+
+func writeAntigravityManifest(m *Manifest, t Target, path string) error {
+	return writeJSON(path, antigravityPluginJSON{
+		Name:        m.Name,
+		Version:     m.Version,
+		Description: m.Description,
+		Author:      claudeAuthorJSON{Name: m.Author.Name},
+		Homepage:    m.Homepage,
+		Repository:  m.Repository,
+		License:     m.License,
+	})
+}
+
+func ensureAntigravitySkeletonDirs(outDir string) error {
+	for _, dir := range []string{"commands", "agents", "skills"} {
+		if err := os.MkdirAll(filepath.Join(outDir, dir), 0o755); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func emitAntigravityAssets(m *Manifest, repoRoot, outDir string, t Target) error {
+	knownRoles := codexKnownAgentRoles(m, repoRoot)
+	pairs := []struct{ src, dst string }{
+		{m.AssetSources.Skills, "skills"},
+		{m.AssetSources.Templates, "templates"},
+		{m.AssetSources.Static, "static"},
+		{m.AssetSources.Config, "config"},
+	}
+	for _, p := range pairs {
+		if p.src == "" {
+			continue
+		}
+		src := filepath.Join(repoRoot, p.src)
+		dst := filepath.Join(outDir, p.dst)
+		if err := copyAssetTreeGemini(src, dst, knownRoles); err != nil {
+			return fmt.Errorf("antigravity copy %s -> %s: %w", p.src, p.dst, err)
+		}
+	}
+
+	if t.ContextFile != "" {
+		src := filepath.Join(repoRoot, t.ContextFile)
+		dst := filepath.Join(outDir, filepath.Base(t.ContextFile))
+		if err := copyFile(src, dst); err != nil {
+			return fmt.Errorf("antigravity copy contextFile %s: %w", t.ContextFile, err)
+		}
+	}
+	return nil
+}
+
+func emitAntigravityCommands(m *Manifest, repoRoot, outDir string, t Target) error {
+	if m.AssetSources.Commands == "" {
+		return nil
+	}
+	knownRoles := codexKnownAgentRoles(m, repoRoot)
+	srcDir := filepath.Join(repoRoot, m.AssetSources.Commands)
+	info, err := os.Stat(srcDir)
+	if os.IsNotExist(err) {
+		return nil
+	}
+	if err != nil {
+		return fmt.Errorf("stat commands source %s: %w", srcDir, err)
+	}
+	if !info.IsDir() {
+		return fmt.Errorf("commands source %s is not a directory", srcDir)
+	}
+
+	dstDir := filepath.Join(outDir, "commands")
+	if t.CommandNamespace != "" {
+		dstDir = filepath.Join(dstDir, t.CommandNamespace)
+	}
+	if err := os.MkdirAll(dstDir, 0o755); err != nil {
+		return err
+	}
+
+	entries, err := os.ReadDir(srcDir)
+	if err != nil {
+		return fmt.Errorf("read commands source %s: %w", srcDir, err)
+	}
+	for _, e := range entries {
+		if e.IsDir() || !strings.HasSuffix(e.Name(), ".md") {
+			continue
+		}
+		body, err := os.ReadFile(filepath.Join(srcDir, e.Name()))
+		if err != nil {
+			return fmt.Errorf("read command %s: %w", e.Name(), err)
+		}
+		toml, err := toGeminiCommandTOML(rewriteGeminiAgentIDs(rewriteGeminiDelegationSyntax(string(body), knownRoles), knownRoles))
+		if err != nil {
+			return fmt.Errorf("encode antigravity command %s: %w", e.Name(), err)
+		}
+		name := strings.TrimSuffix(e.Name(), ".md") + ".toml"
+		dst := filepath.Join(dstDir, name)
+		if err := os.WriteFile(dst, []byte(toml), 0o644); err != nil {
+			return fmt.Errorf("write antigravity command %s: %w", dst, err)
+		}
+	}
+	return nil
+}
+
+func emitAntigravityAgents(m *Manifest, repoRoot, outDir string, t Target) error {
+	if m.AssetSources.Agents == "" {
+		return nil
+	}
+	srcDir := filepath.Join(repoRoot, m.AssetSources.Agents)
+	info, err := os.Stat(srcDir)
+	if os.IsNotExist(err) {
+		return nil
+	}
+	if err != nil {
+		return fmt.Errorf("stat agents source %s: %w", srcDir, err)
+	}
+	if !info.IsDir() {
+		return fmt.Errorf("agents source %s is not a directory", srcDir)
+	}
+
+	dstDir := filepath.Join(outDir, "agents")
+	if err := os.MkdirAll(dstDir, 0o755); err != nil {
+		return err
+	}
+	knownRoles := codexKnownAgentRoles(m, repoRoot)
+
+	entries, err := os.ReadDir(srcDir)
+	if err != nil {
+		return fmt.Errorf("read agents source %s: %w", srcDir, err)
+	}
+	for _, e := range entries {
+		if e.IsDir() || !strings.HasSuffix(e.Name(), ".md") {
+			continue
+		}
+		src := filepath.Join(srcDir, e.Name())
+		raw, err := os.ReadFile(src)
+		if err != nil {
+			return fmt.Errorf("read agent %s: %w", e.Name(), err)
+		}
+		translated, err := translateAntigravityAgentFrontmatter(e.Name(), raw)
+		if err != nil {
+			return fmt.Errorf("translate agent %s: %w", e.Name(), err)
+		}
+		dst := filepath.Join(dstDir, e.Name())
+		body := rewriteGeminiAgentIDs(rewriteGeminiDelegationSyntax(string(translated), knownRoles), knownRoles)
+		if err := os.WriteFile(dst, []byte(body), 0o644); err != nil {
+			return fmt.Errorf("write translated agent %s: %w", dst, err)
+		}
+	}
+	return nil
+}
+
+func translateAntigravityAgentFrontmatter(filename string, raw []byte) ([]byte, error) {
+	claudeFM, body, hasFM, err := parseAgentFrontmatter(raw)
+	if !hasFM {
+		return raw, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	claudeFM = filterAgentFrontmatter(filename, "antigravity", claudeFM)
+
+	gFM := map[string]any{}
+
+	if v, ok := claudeFM["name"].(string); ok {
+		gFM["name"] = v
+	}
+	if v, ok := claudeFM["description"].(string); ok {
+		gFM["description"] = v
+	}
+	if v, ok := claudeFM["model"].(string); ok {
+		gFM["model"] = mapGeminiAgentModel(v)
+	}
+	if v, ok := claudeFM["maxTurns"].(int); ok {
+		gFM["maxTurns"] = v
+	}
+	if v, ok := claudeFM["timeout_mins"].(int); ok {
+		gFM["timeout_mins"] = v
+	}
+
+	if toolsRaw, ok := claudeFM["tools"]; ok {
+		claudeTools := toStringSlice(toolsRaw)
+		geminiTools := make([]string, 0, len(claudeTools))
+		for _, ct := range claudeTools {
+			if gt, known := claudeToGeminiTool[ct]; known {
+				geminiTools = append(geminiTools, gt)
+			} else {
+				log.Printf("antigravity_agents: agent %s: unknown tool %q dropped (not in claudeToGeminiTool map)", filename, ct)
+			}
+		}
+		if len(geminiTools) == 0 {
+			geminiTools = []string{"*"}
+		}
+		gFM["tools"] = geminiTools
+	}
+
+	fmBytes, err := marshalAgentFrontmatterForHarness(gFM, "antigravity")
+	if err != nil {
+		return nil, fmt.Errorf("marshal antigravity frontmatter: %w", err)
+	}
+
+	var buf bytes.Buffer
+	buf.WriteString("---\n")
+	buf.Write(fmBytes)
+	buf.WriteString("---\n")
+	buf.Write(body)
+	return buf.Bytes(), nil
+}
+
+func writeAntigravityHooks(m *Manifest, path string) error {
+	hooks := map[string][]claudeMatcherGroup{}
+	order := []string{}
+
+	for _, e := range m.Hooks.Events {
+		if !e.AppliesTo("antigravity") {
+			continue
+		}
+
+		eventName := e.GeminiEventName
+		if eventName == "" {
+			eventName = e.Name
+		}
+
+		cmd := e.Command
+		if cmd == "" {
+			handler := e.Handler
+			if e.GeminiHandler != "" {
+				handler = e.GeminiHandler
+			}
+			cmd = "wipnote hook " + handler
+		}
+		cmd = strings.ReplaceAll(cmd, "$GEMINI_EXTENSION_DIR", "${extensionPath}")
+
+		matcher := e.Matcher
+		if matcher == "" {
+			matcher = "*"
+		}
+
+		group := claudeMatcherGroup{
+			Matcher: matcher,
+			Hooks: []claudeHookEntry{{
+				Type:    "command",
+				Command: cmd,
+				Timeout: e.Timeout,
+			}},
+		}
+		if _, seen := hooks[eventName]; !seen {
+			order = append(order, eventName)
+		}
+		hooks[eventName] = append(hooks[eventName], group)
+	}
+
+	if len(order) == 0 {
+		return nil
+	}
+	return writeJSON(path, orderedHookMap{keys: order, values: hooks})
+}

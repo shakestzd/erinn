@@ -2,17 +2,103 @@ meta:
     id: plan-465c3b5b
     track_id: trk-757c1c9f
     title: Modularize cmd/wipnote CLI package
-    description: Decompose cmd/wipnote CLI monolith into discrete internal packages to enable Go test caching and faster iteration.
-    created_at: "2026-06-14"
+    description: ""
+    created_at: ""
     status: draft
-    priority: medium
     schema_version: v3
-    version: 2
+    version: 1
 design:
-    problem: ""
-    goals: []
-    constraints: []
+    problem: |
+        Compiling and running the entire Go test suite for cmd/wipnote takes ~40 seconds for any edit because cmd/wipnote is a monolith package containing 357 Go files. This invalidates the test cache and slows down local quality and completion gates.
+    goals:
+        - Decompose the cmd/wipnote monolith into clean internal packages (internal/cli, internal/commands, internal/launcher, internal/gate, internal/daemon) to enable Go test caching.
+        - Reduce local completion gate and development test loop times from ~40 seconds to <2 seconds.
+    constraints:
+        - Maintain backward compatibility with all existing CLI commands, flags, and options.
+        - Do not introduce any new third-party dependencies (stdlib + existing go.mod only).
+        - Extract packages incrementally, starting with Phase 1 (cli and basic commands) and verifying at each step.
     approved: false
     comment: ""
-slices: []
+slices:
+    - id: slice-1
+      num: 1
+      title: Extract cli and commands sub-packages
+      what: |
+        Move cmd/wipnote/main.go Cobra root command setup to internal/cli.
+        Move basic work-item subcommands (feature, bug, spike, track) from cmd/wipnote/ to internal/commands/.
+      why: |
+        Start modularization by isolating command routing and core work-item operations, allowing them to compile independently of daemon/launcher code.
+      files:
+        - cmd/wipnote/main.go
+        - internal/cli/root.go
+        - internal/commands/workitem.go
+      deps: []
+      done_when:
+        - Cobra root command and core work-item commands are fully functional when built.
+        - Core work-item command tests pass under internal/commands.
+      effort: M
+      risk: Med
+      tests: |
+        Run go test -short ./internal/commands/... and verify all tests pass.
+      complexity: standard
+      approved: false
+      comment: ""
+      decisions_notes: |
+        **Goal:** Extract command routing to internal/cli and basic subcommands to internal/commands.
+        **State:** Canonical on-disk .wipnote/*.html files.
+        **Rejected:** Creating all packages at once (violates Phase 1 incremental refactoring constraint).
+    - id: slice-2
+      num: 2
+      title: Extract launcher and daemon sub-packages
+      what: |
+        Move AI harness launchers (claude, codex, gemini, antigravity) to internal/launcher/.
+        Move serve command and dashboard endpoints to internal/daemon/.
+      why: |
+        Decouple the long-running daemon and external model harness launch logic from basic CLI commands, preventing launcher edits from rebuilding basic command tests.
+      files:
+        - internal/launcher/launcher.go
+        - internal/daemon/serve.go
+      deps:
+        - 1
+      done_when:
+        - AI harness launchers compile and invoke correctly.
+        - Serve command starts the dashboard on local port conventions successfully.
+      effort: M
+      risk: Med
+      tests: |
+        Run go test -short ./internal/launcher/... and ./internal/daemon/...
+      complexity: standard
+      approved: false
+      comment: ""
+      decisions_notes: |
+        **Goal:** Isolate launcher and serve daemon logic into separate packages.
+        **State:** In-memory WebSocket/SSE stream state and SQLite cache.
+        **Rejected:** Integrating launchers into core commands package (coupling remains too high).
+    - id: slice-3
+      num: 3
+      title: Extract quality and completion gate runners
+      what: |
+        Move quality gate checks (check, check_gate_support, gate_exec) from cmd/wipnote/ to internal/gate/.
+        Clean up remaining helper files in cmd/wipnote/ to make it a thin wrapper.
+      why: |
+        Completely isolate the gate runner engine, allowing gate checks to be compiled and executed independently, finalizing the thin-wrapper target architecture.
+      files:
+        - internal/gate/check.go
+        - cmd/wipnote/main.go
+      deps:
+        - 2
+      done_when:
+        - Quality and completion gates run correctly via internal/gate.
+        - The root cmd/wipnote package contains only a thin main function wrapper.
+      effort: M
+      risk: Med
+      tests: |
+        Run go test -short ./internal/gate/... and verify all gates pass.
+      complexity: standard
+      approved: false
+      comment: ""
+      decisions_notes: |
+        **Goal:** Move gate runners to internal/gate and complete thin main wrapper.
+        **State:** Gate records are persisted to SQLite read index.
+        **Rejected:** Keeping gate runner in main package (main remains bloated and un-cacheable).
 questions: []

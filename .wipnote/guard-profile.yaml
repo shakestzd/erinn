@@ -1,13 +1,13 @@
 guards:
     completion:
-        - name: go-test
-          cmd: go test -short ./...
+        - name: go-test-selective
+          cmd: ./scripts/git-test-selective.sh
     quality:
         - name: go-build
           cmd: go build ./...
         - name: go-vet
           cmd: go vet ./...
 approved:
-    signature: sha256:bb40141727a3b47ae3535a2fc2c55313c16b8a06bb60ebac94dab04a1ce6539b
+    signature: sha256:12420651f4d83781866d8ff941aeefcb45b58e43fb805ae90470c45cd05a1a38
     by: Thandolwethu Shakes Dlamini
-    at: "2026-06-13T17:27:42Z"
+    at: "2026-06-14T03:52:09Z"

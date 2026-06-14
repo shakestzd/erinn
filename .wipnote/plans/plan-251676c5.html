@@ -2418,6 +2418,18 @@ Write unit tests in <code>internal/launcher/container/container_test.go</code>.<
 
 </article>
 </div><!-- /.plan-content -->
+<aside class="chat-sidebar" id="chat-panel">
+  <section class="chat-panel">
+    <h2>Chat</h2>
+    <div class="chat-messages" id="chat-messages">
+      <p class="chat-notice" id="chat-empty">No messages yet.</p>
+    </div>
+    <div class="chat-input-area">
+      <textarea id="chat-input" rows="2" placeholder="Ask about this plan..."></textarea>
+      <button id="chat-send" type="button">Send</button>
+    </div>
+  </section>
+</aside>
 </div><!-- /.plan-layout -->
 
 <script src="https://d3js.org/d3.v7.min.js"></script>
@@ -2524,6 +2536,9 @@ var planId=(function(){var a=document.querySelector('article[id]');return a?a.id
     if(radio){
       radio.checked=true;
     } else {
+      document.querySelectorAll('input[type="radio"][data-section="'+sec+'"][data-action="approve"]').forEach(function(r){
+        r.checked=false;
+      });
       var cb=document.querySelector('input[type="checkbox"][data-section="'+sec+'"][data-action="approve"]');
       if(cb) cb.checked=(prevVal==='approved'||prevVal==='true');
     }
@@ -2600,7 +2615,7 @@ var planId=(function(){var a=document.querySelector('article[id]');return a?a.id
       fetch((window.wipnotePlanBase||'')+'/api/plans/'+planId+'/feedback',{
         method:'POST',
         headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({section:sec,action:'approve',value:(val==='approved'?'true':'false'),question_id:''})
+        body:JSON.stringify({section:sec,action:'approve',value:val,question_id:''})
       }).then(function(r){
         if(r.ok){
           // Record the now-confirmed server state so we can revert correctly
@@ -2925,6 +2940,9 @@ var planId=(function(){var a=document.querySelector('article[id]');return a?a.id
               var radio=document.querySelector('input[type="radio"][data-section="'+sec+'"][data-action="approve"][value="pending"]');
               if(radio&&!radio.checked){radio.checked=true;radio.dispatchEvent(new Event('change'));}
               else {
+                document.querySelectorAll('input[type="radio"][data-section="'+sec+'"][data-action="approve"]').forEach(function(r){
+                  if(r.checked){r.checked=false;r.dispatchEvent(new Event('change'));}
+                });
                 var cbPend=document.querySelector('input[type="checkbox"][data-section="'+sec+'"][data-action="approve"]');
                 if(cbPend&&cbPend.checked){cbPend.checked=false;cbPend.dispatchEvent(new Event('change'));}
               }

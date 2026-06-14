@@ -129,7 +129,7 @@ roborev init || {
 
 echo "==> Configuring roborev to skip wipnote bookkeeping commits..."
 # Idempotent: only inject the guard if feat-1915300d marker is not present
-if ! grep -q 'feat-1915300d' "$REPO_ROOT/.git/hooks/post-commit" 2>/dev/null; then
+if [ -f "$REPO_ROOT/.git/hooks/post-commit" ] && ! grep -q 'feat-1915300d' "$REPO_ROOT/.git/hooks/post-commit" 2>/dev/null; then
   # Insert the wipnote bookkeeping skip guard before the final roborev invocation
   tmpfile=$(mktemp)
   awk '

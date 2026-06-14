@@ -464,3 +464,48 @@ func TestPlanPage_FeedbackError_FetchHandlesNon2xx(t *testing.T) {
 		t.Error("loadExistingFeedback missing pending-section clearing — stale baked HTML can show wrong state")
 	}
 }
+
+func TestPlanPage_ApprovalPostsSelectedValue(t *testing.T) {
+	page := &plantmpl.PlanPage{
+		PlanID: "plan-approval-value",
+		Title:  "Approval Value Test",
+		Slices: []plantmpl.SliceCard{{Num: 1, ID: "feat-s1", Title: "Slice 1"}},
+		IsV2:   true,
+	}
+
+	var buf bytes.Buffer
+	if err := page.Render(&buf); err != nil {
+		t.Fatalf("Render: %v", err)
+	}
+
+	html := buf.String()
+	if strings.Contains(html, `value:(val==='approved'?'true':'false')`) {
+		t.Error("approval POST still collapses segmented states to boolean strings")
+	}
+	if !strings.Contains(html, "value:val") {
+		t.Error("approval POST does not persist the selected segmented value")
+	}
+}
+
+func TestPlanPage_RadioPendingClearsSelectionAndChatPanelExists(t *testing.T) {
+	page := &plantmpl.PlanPage{
+		PlanID: "plan-radio-pending",
+		Title:  "Radio Pending Test",
+		Slices: []plantmpl.SliceCard{{Num: 1, ID: "feat-s1", Title: "Slice 1"}},
+		IsV2:   true,
+	}
+
+	var buf bytes.Buffer
+	if err := page.Render(&buf); err != nil {
+		t.Fatalf("Render: %v", err)
+	}
+
+	html := buf.String()
+	clearSnippet := `document.querySelectorAll('input[type="radio"][data-section="'+sec+'"][data-action="approve"]').forEach`
+	if !strings.Contains(html, clearSnippet) {
+		t.Error("rendered page does not clear radio approvals when reverting or hydrating pending state")
+	}
+	if !strings.Contains(html, `id="chat-panel"`) || !strings.Contains(html, `id="chat-messages"`) {
+		t.Error("rendered page is missing chat panel markup targeted by navigation and chat script")
+	}
+}

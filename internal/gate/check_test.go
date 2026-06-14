@@ -125,7 +125,7 @@ func TestDetectPlan_NoManifest_IsNoOp(t *testing.T) {
 
 func TestResolveWorkItem_FlagTakesPrecedence(t *testing.T) {
 	projectRoot := setupGateTestProject(t)
-	featureID := "feat-flag-" + strings.ReplaceAll(t.Name(), "/", "-")
+	featureID := "feat-flag-" + strings.ReplaceAll(t.Name(), "/", "-") + "-" + filepath.Base(t.TempDir())
 	database := openGateTestDB(t, projectRoot)
 	_, err := database.Exec(`INSERT INTO features (id, type, title, status, priority, created_at, updated_at)
 		VALUES (?, 'feature', 'Flag test', 'done', 'medium', '2026-06-10T00:00:00Z', '2026-06-10T00:01:00Z')`, featureID)

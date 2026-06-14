@@ -265,6 +265,15 @@ func detectManifest(projectRoot string) (dir, file string, projectType paths.Pro
 }
 
 func runSessionGate(projectRoot, sessionID, workItemID, source, phase string, stdout, stderr io.Writer) (*gateRunResult, error) {
+	if workItemID != "" {
+		os.Setenv("WIPNOTE_WORKITEM_ID", workItemID)
+		defer os.Unsetenv("WIPNOTE_WORKITEM_ID")
+	}
+	if sessionID != "" {
+		os.Setenv("WIPNOTE_SESSION_ID", sessionID)
+		defer os.Unsetenv("WIPNOTE_SESSION_ID")
+	}
+
 	// The gate must validate the code under test — the worktree the command was
 	// invoked from — not always projectRoot (where .wipnote/ lives). State (DB,
 	// guard profile, gate record) still resolves against projectRoot.

@@ -9,31 +9,20 @@ import (
 	"os/signal"
 	"path"
 	"path/filepath"
-	"regexp"
-	"strings"
 	"syscall"
+
+	daemonpkg "github.com/shakestzd/wipnote/internal/daemon"
 	"time"
 
 	"github.com/shakestzd/wipnote/internal/childproc"
 	"github.com/shakestzd/wipnote/internal/registry"
 )
 
-// validProjectIDRE matches the 8-char SHA256 prefix the registry assigns
-// to each project. Any request to /p/<id>/... with an id that does not
-// match this regex is rejected with 400 before the registry lookup.
-var validProjectIDRE = regexp.MustCompile(`^[a-f0-9]{4,64}$`)
-
 // isValidProjectID rejects empty, ".", "..", path separators, null bytes,
 // and anything outside the project-ID character set. A defense-in-depth
 // guard against path traversal in the proxy router.
 func isValidProjectID(id string) bool {
-	if id == "" || id == "." || id == ".." {
-		return false
-	}
-	if strings.ContainsAny(id, "/\\\x00") {
-		return false
-	}
-	return validProjectIDRE.MatchString(id)
+	return daemonpkg.IsValidProjectID(id)
 }
 
 // proxyHandler parses /p/<id>/<rest>, validates the project ID, looks up
@@ -49,17 +38,8 @@ func isValidProjectID(id string) bool {
 //	502 — child spawn or reach failure (supervisor error or proxy error)
 func proxyHandler(sup *childproc.Supervisor) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		rest := strings.TrimPrefix(r.URL.Path, "/p/")
-		var projectID, remainder string
-		if i := strings.Index(rest, "/"); i >= 0 {
-			projectID = rest[:i]
-			remainder = rest[i:]
-		} else {
-			projectID = rest
-			remainder = "/"
-		}
-
-		if !isValidProjectID(projectID) {
+		projectID, remainder, ok := daemonpkg.ParseProjectProxyPath(r.URL.Path)
+		if !ok {
 			http.Error(w, "invalid project id", http.StatusBadRequest)
 			return
 		}

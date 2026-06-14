@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"fmt"
-	"net"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -11,6 +10,8 @@ import (
 	"strings"
 	"syscall"
 	"time"
+
+	daemonpkg "github.com/shakestzd/wipnote/internal/daemon"
 
 	"github.com/shakestzd/wipnote/observe/otel/retention"
 )
@@ -29,21 +30,7 @@ func serveLockPath(projectDir string) string {
 // or CODESPACES=true, so the forwarded port is reachable from the host.
 // Env var overrides (highest priority): WIPNOTE_SERVE_BIND, WIPNOTE_SERVE_PORT.
 func resolveDashboardAddress() (string, int) {
-	host := "127.0.0.1"
-	port := 8080
-	if isDevcontainer() {
-		host = "0.0.0.0"
-		port = 8088
-	}
-	if v := os.Getenv("WIPNOTE_SERVE_BIND"); v != "" {
-		host = v
-	}
-	if v := os.Getenv("WIPNOTE_SERVE_PORT"); v != "" {
-		if p, err := strconv.Atoi(v); err == nil && p > 0 {
-			port = p
-		}
-	}
-	return host, port
+	return daemonpkg.ResolveDashboardAddress(isDevcontainer(), os.Getenv)
 }
 
 // devcontainerDetector is the function used to detect a devcontainer.
@@ -140,12 +127,7 @@ func ensureServeForDashboard(projectDir string) {
 // the given timeout. Used both to detect an existing receiver and to
 // wait for a freshly-spawned one to come up.
 func probePort(host string, port int, timeout time.Duration) bool {
-	conn, err := net.DialTimeout("tcp", net.JoinHostPort(host, strconv.Itoa(port)), timeout)
-	if err != nil {
-		return false
-	}
-	_ = conn.Close()
-	return true
+	return daemonpkg.ProbePort(host, port, timeout)
 }
 
 // otelNoticeMarkerPath returns the path of the one-time notice marker file.

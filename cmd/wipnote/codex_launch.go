@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/shakestzd/wipnote/core/harness"
+	"github.com/shakestzd/wipnote/internal/launcher"
 	"github.com/shakestzd/wipnote/observe/otel/collector"
 )
 
@@ -29,24 +29,7 @@ const (
 // its entry is replaced in-place; otherwise the kv is appended. The original
 // slice is modified and returned. Order of existing entries is preserved.
 func appendOrReplaceEnv(env []string, kv ...string) []string {
-	for _, pair := range kv {
-		key := pair
-		if idx := strings.IndexByte(pair, '='); idx >= 0 {
-			key = pair[:idx+1] // includes '=' so prefix matching works
-		}
-		replaced := false
-		for i, e := range env {
-			if strings.HasPrefix(e, key) {
-				env[i] = pair
-				replaced = true
-				break
-			}
-		}
-		if !replaced {
-			env = append(env, pair)
-		}
-	}
-	return env
+	return launcher.AppendOrReplaceEnv(env, kv...)
 }
 
 // spawnCodexOtelCollector spawns a per-session OTel collector and returns the
@@ -83,19 +66,11 @@ func spawnCodexOtelCollector(projectDir string) (port int, sessionID string, cle
 // spawnCodexOtelCollector; when port is 0 the base env is returned unchanged.
 // Env var assembly is delegated to the harness registry to avoid hardcoding.
 func buildCodexOtelEnv(base []string, port int, sessionID string) []string {
-	if port == 0 {
-		return base
-	}
-	env := make([]string, len(base))
-	copy(env, base)
-	otelVars := harness.Get("codex").OtelEnv(port, sessionID)
-	env = appendOrReplaceEnv(env, otelVars...)
-	return env
+	return launcher.BuildHarnessOtelEnv(base, "codex", port, sessionID)
 }
 
 func buildCodexAgentEnv(base []string) []string {
-	agentVars := harness.Get("codex").BuildAgentEnv()
-	return appendOrReplaceEnv(base, agentVars...)
+	return launcher.BuildHarnessAgentEnv(base, "codex")
 }
 
 func buildCodexOtelConfigArgs(port int) []string {

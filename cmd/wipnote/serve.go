@@ -13,23 +13,12 @@ import (
 	dbpkg "github.com/shakestzd/wipnote/core/db"
 	"github.com/shakestzd/wipnote/core/hooks"
 	"github.com/shakestzd/wipnote/core/ingest"
+	daemonpkg "github.com/shakestzd/wipnote/internal/daemon"
 	"github.com/spf13/cobra"
 )
 
 func serveCmd() *cobra.Command {
-	var port int
-	var bind string
-
-	cmd := &cobra.Command{
-		Use:   "serve",
-		Short: "Start HTTP dashboard server with SSE event stream",
-		RunE: func(_ *cobra.Command, _ []string) error {
-			return runServer(bind, port)
-		},
-	}
-	cmd.Flags().IntVarP(&port, "port", "p", 8080, "Port to listen on")
-	cmd.Flags().StringVar(&bind, "bind", "127.0.0.1", "Bind address (use 0.0.0.0 when publishing port from a container)")
-	return cmd
+	return daemonpkg.NewServeCommand(runServer)
 }
 
 // runServer is now the parent-with-reverse-proxy entry point. The old

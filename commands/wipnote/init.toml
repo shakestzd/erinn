@@ -56,12 +56,12 @@ Created `.wipnote/` directory with:
 - `tracks/` - Multi-feature tracks
 - `spikes/` - Research and investigation
 - `bugs/` - Bug tracking
-- `.db/` - Derived SQLite read index for queries and dashboard (can be rebuilt)
 - `refs.json` - Project metadata references
 - `styles.css` - Default stylesheet for wipnote HTML nodes
 
 Note:
 - Additional paths such as plans, events, and launch/session markers may appear later as other wipnote commands and hooks run.
+- The SQLite read index is derived per-user state resolved by the CLI, not canonical project content, and can be rebuilt.
 - Current `wipnote init` does not create legacy analytics directories like `insights/`, `metrics/`, or `cigs/`.
 
 ### Next Steps

@@ -33,7 +33,7 @@ Activate the work item you're working on BEFORE any tool calls:
 ```bash
 wipnote feature start feat-xxx  # or: wipnote bug start bug-xxx / wipnote spike start spk-xxx
 ```
-If no item matches, **before creating anything, run `wipnote relevant <topic>`** to search ALL items including completed tracks, plans, and features (the CIGS roster shows only open items — an empty roster does NOT mean no lineage exists). If existing lineage covers the scope, attach the new work to that plan or track rather than creating a standalone item. Only create new if nothing covers it:
+If no item matches, **before creating anything, run `wipnote relevant <topic>`** to search ALL items including completed tracks, plans, and features (the CIGS roster shows only open items — an empty roster does NOT mean no lineage exists). If the first match is generic or ambiguous, inspect candidate provenance with `wipnote lineage <id>`, `wipnote trace <id>`, and/or `wipnote history <id>` before choosing an attachment. Prefer a precise `caused_by`/`relates_to` edge to the closest causal feature or plan over a broad `part_of` edge to a catch-all track. If existing lineage covers the scope, attach the new work to that plan or track rather than creating a standalone item. Only create new if nothing covers it:
 ```bash
 # Preferred — links the feature to its plan and the plan's track:
 wipnote feature create "title" --plan <plan-id> --description "what you're implementing"

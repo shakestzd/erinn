@@ -28,6 +28,8 @@ const (
 	HooksCodex
 	// HooksGemini corresponds to hooks.HarnessGemini (iota 2).
 	HooksGemini
+	// HooksAntigravity corresponds to hooks.HarnessAntigravity (iota 3).
+	HooksAntigravity
 )
 
 // HarnessConfig holds the canonical per-harness identity and configuration

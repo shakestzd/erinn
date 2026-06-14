@@ -24,6 +24,7 @@ var agentFrontmatterFieldSpecs = []agentFrontmatterFieldSpec{
 			"claude": "name",
 			"codex":  "name",
 			"gemini": "name",
+			"antigravity": "name",
 		},
 	},
 	{
@@ -33,6 +34,7 @@ var agentFrontmatterFieldSpecs = []agentFrontmatterFieldSpec{
 			"claude": "description",
 			"codex":  "description",
 			"gemini": "description",
+			"antigravity": "description",
 		},
 	},
 	{
@@ -42,6 +44,7 @@ var agentFrontmatterFieldSpecs = []agentFrontmatterFieldSpec{
 			"claude": "model",
 			"codex":  "model",
 			"gemini": "model",
+			"antigravity": "model",
 		},
 	},
 	{
@@ -57,6 +60,7 @@ var agentFrontmatterFieldSpecs = []agentFrontmatterFieldSpec{
 		Harnesses: map[string]string{
 			"claude": "maxTurns",
 			"gemini": "max_turns",
+			"antigravity": "max_turns",
 		},
 	},
 	{
@@ -66,6 +70,7 @@ var agentFrontmatterFieldSpecs = []agentFrontmatterFieldSpec{
 			"claude": "tools",
 			"codex":  "tools",
 			"gemini": "tools",
+			"antigravity": "tools",
 		},
 	},
 	{
@@ -97,6 +102,7 @@ var agentFrontmatterFieldSpecs = []agentFrontmatterFieldSpec{
 		DocURL: "https://github.com/google-gemini/gemini-cli/blob/main/docs/core/subagents.md",
 		Harnesses: map[string]string{
 			"gemini": "timeout_mins",
+			"antigravity": "timeout_mins",
 		},
 	},
 }
@@ -199,9 +205,10 @@ func agentFrontmatterKnownFields(specs []agentFrontmatterFieldSpec) map[string]s
 
 func agentFrontmatterAllowlists(specs []agentFrontmatterFieldSpec) map[string]map[string]struct{} {
 	out := map[string]map[string]struct{}{
-		"claude": {},
-		"codex":  {},
-		"gemini": {},
+		"claude":      {},
+		"codex":       {},
+		"gemini":      {},
+		"antigravity": {},
 	}
 	for _, spec := range specs {
 		for harness := range spec.Harnesses {

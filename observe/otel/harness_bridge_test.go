@@ -19,6 +19,7 @@ func TestHarnessIDsMatchOtelConsts(t *testing.T) {
 		{otel.HarnessClaude, "claude_code"},
 		{otel.HarnessCodex, "codex"},
 		{otel.HarnessGemini, "gemini_cli"},
+		{otel.HarnessAntigravity, "antigravity_cli"},
 	}
 
 	for _, tt := range tests {

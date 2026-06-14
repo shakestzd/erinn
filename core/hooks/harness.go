@@ -22,6 +22,8 @@ const (
 	// HarnessGemini is the Google Gemini CLI harness. Payload has a top-level
 	// "invocation_id" field and no "hook_event_name" field.
 	HarnessGemini
+	// HarnessAntigravity is the Google Antigravity CLI harness.
+	HarnessAntigravity
 )
 
 // String returns a human-readable name for the harness.
@@ -31,6 +33,8 @@ func (h Harness) String() string {
 		return "codex"
 	case HarnessGemini:
 		return "gemini"
+	case HarnessAntigravity:
+		return "antigravity"
 	default:
 		return "claude"
 	}
@@ -275,6 +279,36 @@ func parseGeminiEvent(raw []byte) (*CloudEvent, error) {
 	return ev, nil
 }
 
+// parseAntigravityEvent converts an Antigravity CLI hook payload into our internal
+// CloudEvent representation. Antigravity uses the same base input schema as Gemini.
+func parseAntigravityEvent(raw []byte) (*CloudEvent, error) {
+	var p geminiPayload
+	if err := json.Unmarshal(raw, &p); err != nil {
+		return nil, fmt.Errorf("parseAntigravityEvent: %w", err)
+	}
+
+	ev := &CloudEvent{
+		AgentID: harness.GetByHooksHarness(harness.HooksAntigravity).AgentID,
+		SessionID:      p.SessionID,
+		CWD:            p.CWD,
+		Model:          p.Model,
+		TranscriptPath: p.TranscriptPath,
+		Timestamp:      p.Timestamp,
+		Prompt:         p.Prompt,
+		PromptResponse: p.PromptResponse,
+		// BeforeTool / AfterTool: tool name is nested under "tool".
+		ToolName:  p.Tool.Name,
+		ToolInput: p.Tool.Input,
+		// AfterModel: LLM request/response payloads.
+		LLMRequest:  p.LLMRequest,
+		LLMResponse: p.LLMResponse,
+	}
+	if ev.SessionID == "" && p.InvocationID != "" {
+		ev.SessionID = p.InvocationID
+	}
+	return ev, nil
+}
+
 // HookResponse is the normalised internal response that all handlers return.
 // It is an alias for HookResult so the rest of the codebase is unchanged; the
 // harness-specific emitters read from it.
@@ -371,8 +405,8 @@ func emitGeminiResponse(w io.Writer, result *HookResult) error {
 // will be emitted as their respective wire formats ({"continue": true}).
 func AllowForHarness(harness Harness) *HookResult {
 	switch harness {
-	case HarnessCodex, HarnessGemini:
-		// Codex/Gemini expect {"continue": true} on allow
+	case HarnessCodex, HarnessGemini, HarnessAntigravity:
+		// Codex/Gemini/Antigravity expect {"continue": true} on allow
 		return &HookResult{Continue: true}
 	default:
 		// Claude expects {} (empty object) on allow
@@ -387,7 +421,7 @@ func WriteResultForHarness(harness Harness, result *HookResult) error {
 	switch harness {
 	case HarnessCodex:
 		return emitCodexResponse(os.Stdout, result)
-	case HarnessGemini:
+	case HarnessGemini, HarnessAntigravity:
 		return emitGeminiResponse(os.Stdout, result)
 	default:
 		return emitClaudeResponse(os.Stdout, result)
@@ -405,6 +439,8 @@ func ParseEventForHarness(harness Harness, raw []byte) (*CloudEvent, error) {
 		return parseCodexEvent(raw)
 	case HarnessGemini:
 		return parseGeminiEvent(raw)
+	case HarnessAntigravity:
+		return parseAntigravityEvent(raw)
 	default:
 		// Claude: standard CloudEvent unmarshal (existing behaviour).
 		if len(raw) == 0 {

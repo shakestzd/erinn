@@ -99,6 +99,7 @@ func New(cfg Config, s sink.SignalSink) (*Receiver, error) {
 	r.registry.Register(adapter.NewClaudeAdapter())
 	r.registry.Register(adapter.NewCodexAdapter())
 	r.registry.Register(adapter.NewGeminiAdapter())
+	r.registry.Register(adapter.NewAntigravityAdapter())
 
 	if !cfg.Enabled {
 		return r, nil

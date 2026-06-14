@@ -29,6 +29,7 @@ const (
 	HarnessClaude Harness = "claude_code"
 	HarnessCodex  Harness = "codex"
 	HarnessGemini Harness = "gemini_cli"
+	HarnessAntigravity Harness = "antigravity_cli"
 )
 
 // Canonical event names. Adapters map native harness names onto these

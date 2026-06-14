@@ -90,6 +90,8 @@ func sharedTreeMetadata(treeName string) (string, string, bool) {
 		return "WIPNOTE_CODEX_DIR", filepath.Join("port", "packages", "codex-marketplace"), true
 	case "gemini-extension":
 		return "WIPNOTE_GEMINI_DIR", filepath.Join("port", "packages", "gemini-extension"), true
+	case "antigravity-extension":
+		return "WIPNOTE_ANTIGRAVITY_DIR", filepath.Join("port", "packages", "antigravity-extension"), true
 	default:
 		return "", "", false
 	}
@@ -117,6 +119,8 @@ func isValidHarnessTree(path, treeName string) bool {
 		}
 	case "gemini-extension":
 		sentinels = []string{"gemini-extension.json"}
+	case "antigravity-extension":
+		sentinels = []string{"plugin.json"}
 	default:
 		return false
 	}

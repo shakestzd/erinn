@@ -224,6 +224,31 @@ func TestDeduplicateUserPromptLogs(t *testing.T) {
 			},
 		},
 		{
+			name: "antigravity: any otel event triggers suppression",
+			events: []feedEvent{
+				{
+					ID:        "ev1",
+					Type:      "api_request",
+					Source:    "otel",
+					Harness:   "antigravity_cli",
+					SessionID: "sess-antigravity",
+					tsMicros:  2500,
+				},
+				{
+					ID:        "ev2",
+					Type:      "user_prompt",
+					Source:    "otel",
+					Harness:   "antigravity_cli",
+					SessionID: "sess-antigravity",
+					tsMicros:  2501,
+				},
+			},
+			wantLen: 1,
+			wantType: map[int]string{
+				0: "api_request",
+			},
+		},
+		{
 			name: "mixed: only gemini session affected",
 			events: []feedEvent{
 				{

@@ -33,10 +33,10 @@ type feedEvent struct {
 	TraceID      string  `json:"trace_id,omitempty"`
 	ParentSpan   string  `json:"parent_span,omitempty"`
 	Summary      string  `json:"summary,omitempty"`
-	FeatureTitle    string  `json:"feature_title,omitempty"`
+	FeatureTitle string  `json:"feature_title,omitempty"`
 	// SessionFamilyID groups this event's session with continuation sessions.
 	// Exposed so feed consumers (plan-c3bbb1ed, wipnote who) can group by family.
-	SessionFamilyID string  `json:"session_family_id,omitempty"`
+	SessionFamilyID string `json:"session_family_id,omitempty"`
 	// tsMicros is used internally for sorting and is not serialised.
 	tsMicros int64
 }
@@ -709,35 +709,39 @@ func deduplicateMessageEvents(otelEvents, messageEvents []feedEvent) []feedEvent
 }
 
 // deduplicateUserPromptLogs suppresses user_prompt OTel log events for
-// gemini_cli sessions that have other OTel coverage (api_request,
+// Gemini-compatible sessions that have other OTel coverage (api_request,
 // assistant_text, tool_result, etc.). Gemini emits both:
 //  1. hook check_point events that render the user's prompt with tool children
 //  2. a gemini_cli.user_prompt OTel log with the same prompt text and 0 tools
 //
-// If any non-user_prompt gemini_cli OTel signal exists for a session, the hook
+// If any non-user_prompt Gemini-compatible OTel signal exists for a session, the hook
 // path already covers that turn and the user_prompt log is redundant.
 // Excluding user_prompt from the coverage map prevents a prompt-only session
 // from suppressing its own only record.
 //
-// Suppression is gated to gemini_cli harness only — Codex and other harnesses
-// keep their user_prompt logs intact.
+// Suppression is gated to Gemini-compatible harnesses only — Codex and other
+// harnesses keep their user_prompt logs intact.
 func deduplicateUserPromptLogs(events []feedEvent) []feedEvent {
-	// Collect sessions that have any gemini_cli OTel signal OTHER than user_prompt.
-	geminiOtelSessions := make(map[string]bool)
+	// Collect sessions that have any Gemini-compatible OTel signal OTHER than user_prompt.
+	geminiLikeOtelSessions := make(map[string]bool)
 	for _, ev := range events {
-		if ev.Source == "otel" && ev.Harness == "gemini_cli" && ev.Type != "user_prompt" {
-			geminiOtelSessions[ev.SessionID] = true
+		if ev.Source == "otel" && isGeminiLikeFeedHarness(ev.Harness) && ev.Type != "user_prompt" {
+			geminiLikeOtelSessions[ev.SessionID] = true
 		}
 	}
-	if len(geminiOtelSessions) == 0 {
+	if len(geminiLikeOtelSessions) == 0 {
 		return events
 	}
 	out := make([]feedEvent, 0, len(events))
 	for _, ev := range events {
-		if ev.Type == "user_prompt" && ev.Harness == "gemini_cli" && geminiOtelSessions[ev.SessionID] {
+		if ev.Type == "user_prompt" && isGeminiLikeFeedHarness(ev.Harness) && geminiLikeOtelSessions[ev.SessionID] {
 			continue // hook check_point already shows this turn's prompt
 		}
 		out = append(out, ev)
 	}
 	return out
+}
+
+func isGeminiLikeFeedHarness(harness string) bool {
+	return harness == "gemini_cli" || harness == "antigravity_cli"
 }

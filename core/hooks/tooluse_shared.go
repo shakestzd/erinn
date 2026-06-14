@@ -6,9 +6,9 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/shakestzd/wipnote/core/agent"
 	"github.com/shakestzd/wipnote/core/db"
 	"github.com/shakestzd/wipnote/core/paths"
-	"github.com/shakestzd/wipnote/core/agent"
 )
 
 // featureIDCacheEntry holds the single cached result of GetActiveFeatureID for
@@ -139,9 +139,15 @@ func resolveToolUseContext(event *CloudEvent, database *sql.DB, trustParentEnvVa
 }
 
 // isSubagentEvent returns true when the event originates from a subagent.
-// Claude Code sets a non-empty agent_id (not "claude-code") for subagent hooks.
+// Generic harness agent IDs mark top-level activity; Claude Code sets other
+// non-empty agent_id values for subagent hooks.
 func isSubagentEvent(event *CloudEvent) bool {
-	return event.AgentID != "" && event.AgentID != "claude-code"
+	switch event.AgentID {
+	case "", "claude-code", "claude", "codex", "gemini", "antigravity":
+		return false
+	default:
+		return true
+	}
 }
 
 // resolveAgentID returns the effective agent ID: the CloudEvent agent_id when

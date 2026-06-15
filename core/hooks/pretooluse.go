@@ -71,6 +71,8 @@ func PreToolUse(event *CloudEvent, database *sql.DB) (*HookResult, error) {
 		return recordEventAndAllow(event, ctx, database)
 	}
 
+	orchestrationResearchAdvisory := checkOrchestratorResearchDelegationAdvisory(event, ctx, database)
+
 	// Guard: block Write/Edit/MultiEdit from subagents when THIS AGENT has no
 	// active claim. Subagents are checked per-agent via claimed_by_agent_id in
 	// the claims table (now supplied by the batch context query); the
@@ -235,17 +237,93 @@ func PreToolUse(event *CloudEvent, database *sql.DB) (*HookResult, error) {
 	} else if advisory != "" {
 		result, err := recordEventAndAllow(event, ctx, database)
 		if err == nil && result != nil {
-			if result.AdditionalContext != "" {
-				result.AdditionalContext += "\n" + advisory
-			} else {
-				result.AdditionalContext = advisory
-			}
+			appendAdditionalContext(result, orchestrationResearchAdvisory)
+			appendAdditionalContext(result, advisory)
 		}
 		return result, err
 	}
 
 	// Record the event and allow the tool to proceed.
-	return recordEventAndAllow(event, ctx, database)
+	result, err := recordEventAndAllow(event, ctx, database)
+	if err == nil && result != nil {
+		appendAdditionalContext(result, orchestrationResearchAdvisory)
+	}
+	return result, err
+}
+
+func appendAdditionalContext(result *HookResult, context string) {
+	if result == nil || context == "" {
+		return
+	}
+	if result.AdditionalContext != "" {
+		result.AdditionalContext += "\n" + context
+	} else {
+		result.AdditionalContext = context
+	}
+}
+
+func checkOrchestratorResearchDelegationAdvisory(event *CloudEvent, ctx *toolUseContext, database *sql.DB) string {
+	if event == nil || ctx == nil || database == nil || ctx.IsSubagent || ctx.SessionID == "" {
+		return ""
+	}
+	if !isOrchestratorResearchTool(event.ToolName) {
+		return ""
+	}
+	counts, err := db.CountEventsByTool(database, ctx.SessionID)
+	if err != nil {
+		return ""
+	}
+	if hasPriorOrchestratorResearch(counts) || hasPriorDelegationEvidence(counts) || hasPriorSidecarCommand(database, ctx.SessionID) {
+		return ""
+	}
+	return "wipnote orchestration advisory: root-session web/docs research is starting before any sidecar dispatch was recorded. In orchestrator mode, delegate web/docs research to a researcher/codebase sidecar when available. If this is a one-shot verification or no sidecar exists in this harness, continue and note that exception."
+}
+
+func isOrchestratorResearchTool(toolName string) bool {
+	switch strings.TrimSpace(toolName) {
+	case "WebSearch", "WebFetch", "web_search", "web_fetch", "google_web_search",
+		"web.search_query", "web.open", "web.find", "web.click":
+		return true
+	default:
+		return false
+	}
+}
+
+func hasPriorOrchestratorResearch(counts map[string]int) bool {
+	for toolName, count := range counts {
+		if count > 0 && isOrchestratorResearchTool(toolName) {
+			return true
+		}
+	}
+	return false
+}
+
+func hasPriorDelegationEvidence(counts map[string]int) bool {
+	for _, toolName := range []string{
+		"Task", "Agent", "TaskStarted", "SubagentStart", "multi_agent.spawn",
+		"multi_agent_v1.spawn_agent", "multi_agent_v1.spawn_agents",
+	} {
+		if counts[toolName] > 0 {
+			return true
+		}
+	}
+	return false
+}
+
+func hasPriorSidecarCommand(database *sql.DB, sessionID string) bool {
+	var count int
+	err := database.QueryRow(`
+		SELECT COUNT(*) FROM agent_events
+		WHERE session_id = ?
+		  AND tool_name = 'Bash'
+		  AND (
+			input_summary LIKE 'gemini %'
+			OR input_summary LIKE 'codex exec %'
+			OR input_summary LIKE 'agy %'
+			OR input_summary LIKE 'copilot %'
+		  )
+		LIMIT 1`, sessionID).Scan(&count)
+	return err == nil && count > 0
 }
 
 // fileOverlapConfig holds the two opt-in flags read from .wipnote/config.json

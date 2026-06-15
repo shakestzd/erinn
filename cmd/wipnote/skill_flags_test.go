@@ -140,6 +140,36 @@ func TestPlanningSkillsRequireResearchProvenance(t *testing.T) {
 	}
 }
 
+func TestOrchestratorResearchDelegationContract(t *testing.T) {
+	root := repoRootForTest(t)
+	checks := map[string][]string{
+		filepath.Join(root, "plugin", "skills", "orchestrator-directives-skill", "SKILL.md"): {
+			"Harness-Aware Research Delegation Contract",
+			"MUST run in a sidecar context",
+			"Do not use main-context `web.search_query`",
+			"delegation unavailable in this harness/session",
+		},
+		filepath.Join(root, "plugin", "skills", "agent-context", "SKILL.md"): {
+			"For orchestrators:",
+			"Research-first does not mean orchestrator researches directly",
+			"Main-context `web.*` use is limited",
+		},
+	}
+	for path, wants := range checks {
+		data, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatalf("read %s: %v", path, err)
+		}
+		content := string(data)
+		for _, want := range wants {
+			if !strings.Contains(content, want) {
+				rel, _ := filepath.Rel(root, path)
+				t.Fatalf("%s missing orchestrator research delegation marker %q", rel, want)
+			}
+		}
+	}
+}
+
 func TestSharedPluginPromptsAvoidClaudeOnlyBoilerplate(t *testing.T) {
 	root := repoRootForTest(t)
 	pluginRoots := []string{

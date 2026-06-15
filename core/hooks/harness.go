@@ -288,7 +288,7 @@ func parseAntigravityEvent(raw []byte) (*CloudEvent, error) {
 	}
 
 	ev := &CloudEvent{
-		AgentID: harness.GetByHooksHarness(harness.HooksAntigravity).AgentID,
+		AgentID:        harness.GetByHooksHarness(harness.HooksAntigravity).AgentID,
 		SessionID:      p.SessionID,
 		CWD:            p.CWD,
 		Model:          p.Model,
@@ -340,7 +340,6 @@ func emitCodexResponse(w io.Writer, result *HookResult) error {
 		SystemMessage string `json:"systemMessage,omitempty"`
 		Decision      string `json:"decision,omitempty"`
 		Reason        string `json:"reason,omitempty"`
-		StopReason    string `json:"stopReason,omitempty"`
 	}
 
 	continueTrue := true
@@ -357,7 +356,6 @@ func emitCodexResponse(w io.Writer, result *HookResult) error {
 	if result.Decision == "block" || result.Decision == "deny" {
 		resp.Decision = result.Decision
 		resp.Reason = result.Reason
-		resp.StopReason = result.Reason
 	} else {
 		resp.Continue = &continueTrue
 	}

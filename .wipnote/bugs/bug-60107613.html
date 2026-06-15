@@ -10,15 +10,15 @@
 <body>
     <article id="bug-60107613"
              data-type="bug"
-             data-status="in-progress"
+             data-status="done"
              data-priority="medium"
              data-created="2026-06-15T17:21:17.67285"
-             data-updated="2026-06-15T17:21:49.577667" data-agent-assigned="claude-code" data-track-id="trk-0677c709" data-created-by-agent="claude-code" data-created-by-model="claude-opus-4-8[1m]" data-created-by-cli-version="dev">
+             data-updated="2026-06-15T18:40:45.418738" data-agent-assigned="claude-code" data-track-id="trk-0677c709" data-created-by-agent="claude-code" data-created-by-model="claude-opus-4-8[1m]" data-created-by-cli-version="dev">
 
         <header>
             <h1>Harness-aware hook event names &#43; drop TaskStarted from delegation evidence (roborev 266/267)</h1>
             <div class="metadata">
-                <span class="badge status-in-progress">In Progress</span>
+                <span class="badge status-done">Done</span>
                 <span class="badge priority-medium">Medium Priority</span>
             </div>
         </header>
@@ -40,7 +40,8 @@
 
         <section data-content>
             <h3>Description</h3>
-            <p>Fix two failing roborev findings in hook handling. (267) hookEventNameForResponse in cmd/wipnote/hook.go returns Codex/Claude event names for shared handlers, so Gemini/Antigravity hookSpecificOutput.hookEventName echoes wrong names (BeforeAgent/BeforeTool/AfterTool) and structured context/decisions get ignored. (266) hasPriorDelegationEvidence in core/hooks/pretooluse.go counts TaskStarted (a Codex generic checkpoint, not a subagent spawn) as delegation evidence, suppressing the research advisory prematurely in Codex sessions.</p>
+            <p>Fix two failing roborev findings in hook handling. (267) hookEventNameForResponse in cmd/wipnote/hook.go returns Codex/Claude event names for shared handlers, so Gemini/Antigravity hookSpecificOutput.hookEventName echoes wrong names (BeforeAgent/BeforeTool/AfterTool) and structured context/decisions get ignored. (266) hasPriorDelegationEvidence in core/hooks/pretooluse.go counts TaskStarted (a Codex generic checkpoint, not a subagent spawn) as delegation evidence, suppressing the research advisory prematurely in Codex sessions.
+[2026-06-15 18:40 claude-code] accepted-advisory (provenance override): orchestrator handles the commit; all quality gates pass</p>
         </section>
     </article>
 </body>

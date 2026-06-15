@@ -90,6 +90,97 @@ func TestSkillFlagsValidator_PassesGoodFixture(t *testing.T) {
 	}
 }
 
+func TestPlanningSkillsAvoidClaudeOnlyCriticRunners(t *testing.T) {
+	root := repoRootForTest(t)
+	paths := []string{
+		filepath.Join(root, "plugin", "skills", "plan", "SKILL.md"),
+		filepath.Join(root, "plugin", "skills", "plan-critique", "SKILL.md"),
+	}
+	for _, path := range paths {
+		data, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatalf("read %s: %v", path, err)
+		}
+		content := string(data)
+		for _, forbidden := range []string{"Sonnet+Haiku", "Haiku model", "Sonnet model", "source: haiku", "source: sonnet", "Haiku (design)", "Sonnet (feasibility)"} {
+			if strings.Contains(content, forbidden) {
+				rel, _ := filepath.Rel(root, path)
+				t.Fatalf("%s contains Claude-only critique runner reference %q", rel, forbidden)
+			}
+		}
+	}
+}
+
+func TestPlanningSkillsRequireResearchProvenance(t *testing.T) {
+	root := repoRootForTest(t)
+	checks := map[string][]string{
+		filepath.Join(root, "plugin", "skills", "plan", "SKILL.md"): {
+			"Mandatory Research",
+			"research_basis",
+			"External technical claims have a visible research basis",
+		},
+		filepath.Join(root, "plugin", "skills", "plan-critique", "SKILL.md"): {
+			"Verify external claims via web search / web fetch",
+			"Runtime verification requirements for backend claims",
+			"unverified",
+		},
+	}
+	for path, wants := range checks {
+		data, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatalf("read %s: %v", path, err)
+		}
+		content := string(data)
+		for _, want := range wants {
+			if !strings.Contains(content, want) {
+				rel, _ := filepath.Rel(root, path)
+				t.Fatalf("%s missing research provenance marker %q", rel, want)
+			}
+		}
+	}
+}
+
+func TestSharedPluginPromptsAvoidClaudeOnlyBoilerplate(t *testing.T) {
+	root := repoRootForTest(t)
+	pluginRoots := []string{
+		filepath.Join(root, "plugin", "commands"),
+		filepath.Join(root, "plugin", "skills"),
+	}
+	forbidden := []string{
+		"## Instructions for Claude",
+		"Claude performs the searches directly",
+		"Claude analyzes the diff",
+		"Claude Code version:",
+		"Co-Authored-By: Claude",
+	}
+
+	for _, pr := range pluginRoots {
+		err := filepath.WalkDir(pr, func(path string, d fs.DirEntry, err error) error {
+			if err != nil {
+				return err
+			}
+			if d.IsDir() || !strings.HasSuffix(path, ".md") {
+				return nil
+			}
+			data, err := os.ReadFile(path)
+			if err != nil {
+				return err
+			}
+			content := string(data)
+			for _, phrase := range forbidden {
+				if strings.Contains(content, phrase) {
+					rel, _ := filepath.Rel(root, path)
+					t.Errorf("%s contains Claude-only shared prompt boilerplate %q", rel, phrase)
+				}
+			}
+			return nil
+		})
+		if err != nil {
+			t.Fatalf("walk %s: %v", pr, err)
+		}
+	}
+}
+
 // allowedShellFlags are flags that belong to non-wipnote tools reached via
 // pipes in skill examples (grep, jq, etc.). They should not be validated
 // against the cobra tree.

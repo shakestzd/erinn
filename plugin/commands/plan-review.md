@@ -23,7 +23,7 @@ canonical YAML source.
 /wipnote:plan-review plan-3a88d8a9
 ```
 
-## Instructions for Claude
+## Instructions
 
 1. Verify the plan exists:
    ```bash

@@ -27,7 +27,7 @@ List available features and prompt for selection
 
 
 
-## Instructions for Claude
+## Instructions
 
 ### Implementation:
 

@@ -21,7 +21,7 @@ Set up wipnote directory structure in project
 
 
 
-## Instructions for Claude
+## Instructions
 
 ### Implementation:
 

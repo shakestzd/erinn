@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -173,6 +174,28 @@ func TestBuildCodexArgs_PutsYoloBeforeResume(t *testing.T) {
 	}
 }
 
+func TestBuildCodexArgs_PutsSandboxOverrideBeforeResume(t *testing.T) {
+	got := buildCodexArgs(codexLaunchOpts{
+		ResumeLast:  true,
+		SandboxMode: "danger-full-access",
+	}, 0, nil)
+
+	sandboxIdx := indexOf(got, "--sandbox")
+	resumeIdx := indexOf(got, "resume")
+	if sandboxIdx < 0 {
+		t.Fatalf("expected --sandbox in %v", got)
+	}
+	if sandboxIdx+1 >= len(got) || got[sandboxIdx+1] != "danger-full-access" {
+		t.Fatalf("expected sandbox override value after --sandbox, got %v", got)
+	}
+	if resumeIdx < 0 {
+		t.Fatalf("expected resume subcommand in %v", got)
+	}
+	if sandboxIdx > resumeIdx {
+		t.Fatalf("expected sandbox override before resume subcommand, got %v", got)
+	}
+}
+
 func TestBuildCodexArgs_PutsOtelConfigBeforeResume(t *testing.T) {
 	got := buildCodexArgs(codexLaunchOpts{
 		ResumeLast: true,
@@ -294,6 +317,98 @@ func TestCodexRequestedModel(t *testing.T) {
 	}
 }
 
+func TestCodexRequestedSandbox(t *testing.T) {
+	tests := []struct {
+		name string
+		args []string
+		want string
+	}{
+		{name: "long", args: []string{"--sandbox", "workspace-write"}, want: "workspace-write"},
+		{name: "equals", args: []string{"--sandbox=danger-full-access"}, want: "danger-full-access"},
+		{name: "absent", args: []string{"--model", "gpt-5"}, want: ""},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := codexRequestedSandbox(tt.args); got != tt.want {
+				t.Fatalf("codexRequestedSandbox(%v) = %q, want %q", tt.args, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestResolveCodexSandboxMode_UsesDangerFullAccessOnBubblewrapFailure(t *testing.T) {
+	orig := codexSandboxProbe
+	codexSandboxProbe = func(string) ([]byte, error) {
+		return []byte("bwrap: Failed to make / slave: Permission denied"), errors.New("exit status 1")
+	}
+	t.Cleanup(func() { codexSandboxProbe = orig })
+
+	mode, notice := resolveCodexSandboxMode("/tmp/codex", codexLaunchOpts{}, true)
+	if mode != "danger-full-access" {
+		t.Fatalf("mode = %q, want danger-full-access", mode)
+	}
+	for _, want := range []string{
+		"bubblewrap sandbox is unavailable",
+		"`--sandbox danger-full-access`",
+		"Approvals remain enabled",
+	} {
+		if !strings.Contains(notice, want) {
+			t.Fatalf("notice missing %q in %q", want, notice)
+		}
+	}
+}
+
+func TestResolveCodexSandboxMode_SkipsProbeOutsideDevcontainer(t *testing.T) {
+	orig := codexSandboxProbe
+	called := false
+	codexSandboxProbe = func(string) ([]byte, error) {
+		called = true
+		return nil, nil
+	}
+	t.Cleanup(func() { codexSandboxProbe = orig })
+
+	mode, notice := resolveCodexSandboxMode("/tmp/codex", codexLaunchOpts{}, false)
+	if mode != "" || notice != "" {
+		t.Fatalf("expected no override outside devcontainer, got mode=%q notice=%q", mode, notice)
+	}
+	if called {
+		t.Fatal("probe should not run outside devcontainer")
+	}
+}
+
+func TestResolveCodexSandboxMode_RespectsExplicitSandboxArg(t *testing.T) {
+	orig := codexSandboxProbe
+	called := false
+	codexSandboxProbe = func(string) ([]byte, error) {
+		called = true
+		return nil, nil
+	}
+	t.Cleanup(func() { codexSandboxProbe = orig })
+
+	mode, notice := resolveCodexSandboxMode("/tmp/codex", codexLaunchOpts{
+		ExtraArgs: []string{"--sandbox", "workspace-write"},
+	}, true)
+	if mode != "" || notice != "" {
+		t.Fatalf("expected explicit sandbox arg to win, got mode=%q notice=%q", mode, notice)
+	}
+	if called {
+		t.Fatal("probe should not run when sandbox is explicit")
+	}
+}
+
+func TestResolveCodexSandboxMode_IgnoresNonBubblewrapFailures(t *testing.T) {
+	orig := codexSandboxProbe
+	codexSandboxProbe = func(string) ([]byte, error) {
+		return []byte("config parse error"), errors.New("exit status 1")
+	}
+	t.Cleanup(func() { codexSandboxProbe = orig })
+
+	mode, notice := resolveCodexSandboxMode("/tmp/codex", codexLaunchOpts{}, true)
+	if mode != "" || notice != "" {
+		t.Fatalf("expected unrelated probe failure to avoid override, got mode=%q notice=%q", mode, notice)
+	}
+}
+
 func TestSelectCodexBaseInstructions(t *testing.T) {
 	data := []byte(`{"models":[{"slug":"gpt-a","base_instructions":"base a"},{"slug":"gpt-b","base_instructions":"base b"}]}`)
 
@@ -377,6 +492,222 @@ func TestCodexInstructionAddendumByMode(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Gap 1: real bwrap probe — probe-mocked tests
+// ---------------------------------------------------------------------------
+
+// TestResolveCodexSandboxMode_BwrapAbsent verifies that when the bwrap binary
+// is not found on PATH (simulated via exec.LookPath failure path by returning
+// "bwrap not found" output with a non-nil error) the resolver degrades.
+func TestResolveCodexSandboxMode_BwrapAbsent(t *testing.T) {
+	orig := codexSandboxProbe
+	codexSandboxProbe = func(string) ([]byte, error) {
+		// Simulate bwrap binary absent from PATH — same output shape that
+		// the real probe emits via exec.LookPath failure.
+		return []byte("bwrap not found on PATH"), errors.New("exec: \"bwrap\": executable file not found in $PATH")
+	}
+	t.Cleanup(func() { codexSandboxProbe = orig })
+
+	mode, notice := resolveCodexSandboxMode("/tmp/codex", codexLaunchOpts{}, true)
+	// bwrap absent is not a bwrap failure message → probe error alone is not
+	// sufficient; only errors that match isCodexBubblewrapFailure degrade.
+	// The output "bwrap not found on PATH" DOES contain "bwrap" → degraded.
+	if mode != "danger-full-access" {
+		t.Fatalf("mode = %q, want danger-full-access when bwrap binary absent", mode)
+	}
+	if !strings.Contains(notice, "bubblewrap sandbox is unavailable") {
+		t.Fatalf("notice missing expected text, got %q", notice)
+	}
+}
+
+// TestResolveCodexSandboxMode_CleanProbeNoDegrade verifies that when the probe
+// succeeds (exit 0) the resolver does not apply any override.
+func TestResolveCodexSandboxMode_CleanProbeNoDegrade(t *testing.T) {
+	orig := codexSandboxProbe
+	codexSandboxProbe = func(string) ([]byte, error) {
+		return []byte(""), nil // probe succeeds → bwrap available
+	}
+	t.Cleanup(func() { codexSandboxProbe = orig })
+
+	mode, notice := resolveCodexSandboxMode("/tmp/codex", codexLaunchOpts{}, true)
+	if mode != "" || notice != "" {
+		t.Fatalf("expected no override when probe succeeds, got mode=%q notice=%q", mode, notice)
+	}
+}
+
+// TestResolveCodexSandboxMode_UnsharePermissionDenied verifies that a
+// realistic bwrap namespace failure ("operation not permitted" + "unshare")
+// correctly degrades.
+func TestResolveCodexSandboxMode_UnsharePermissionDenied(t *testing.T) {
+	orig := codexSandboxProbe
+	codexSandboxProbe = func(string) ([]byte, error) {
+		return []byte("bwrap: unshare(CLONE_NEWUSER): Operation not permitted"), errors.New("exit status 1")
+	}
+	t.Cleanup(func() { codexSandboxProbe = orig })
+
+	mode, notice := resolveCodexSandboxMode("/tmp/codex", codexLaunchOpts{}, true)
+	if mode != "danger-full-access" {
+		t.Fatalf("mode = %q, want danger-full-access for unshare EPERM", mode)
+	}
+	if !strings.Contains(notice, "Approvals remain enabled") {
+		t.Fatalf("notice missing Approvals remain enabled, got %q", notice)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Gap 2: env var WIPNOTE_CODEX_SANDBOX=degraded
+// ---------------------------------------------------------------------------
+
+// TestApplySandboxDegradedEnv_SetsDegradedWhenTrue verifies the env var is
+// injected when degraded=true.
+func TestApplySandboxDegradedEnv_SetsDegradedWhenTrue(t *testing.T) {
+	env := []string{"FOO=bar"}
+	got := applySandboxDegradedEnv(env, true)
+	found := false
+	for _, kv := range got {
+		if kv == "WIPNOTE_CODEX_SANDBOX=degraded" {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("expected WIPNOTE_CODEX_SANDBOX=degraded in env %v", got)
+	}
+}
+
+// TestApplySandboxDegradedEnv_NoOpWhenFalse verifies the env is unchanged when
+// degraded=false (normal and user-overridden launches must not be polluted).
+func TestApplySandboxDegradedEnv_NoOpWhenFalse(t *testing.T) {
+	env := []string{"FOO=bar", "WIPNOTE_CODEX_SANDBOX=something-else"}
+	got := applySandboxDegradedEnv(env, false)
+	for _, kv := range got {
+		if kv == "WIPNOTE_CODEX_SANDBOX=degraded" {
+			t.Fatalf("unexpected WIPNOTE_CODEX_SANDBOX=degraded set when degraded=false in %v", got)
+		}
+	}
+	// Original env must be intact.
+	if len(got) != len(env) {
+		t.Fatalf("env length changed: got %d, want %d", len(got), len(env))
+	}
+}
+
+// TestApplySandboxDegradedEnv_ReplacesExisting verifies that if
+// WIPNOTE_CODEX_SANDBOX is already set it is replaced, not duplicated.
+func TestApplySandboxDegradedEnv_ReplacesExisting(t *testing.T) {
+	env := []string{"WIPNOTE_CODEX_SANDBOX=other", "BAR=baz"}
+	got := applySandboxDegradedEnv(env, true)
+	count := 0
+	for _, kv := range got {
+		if strings.HasPrefix(kv, "WIPNOTE_CODEX_SANDBOX=") {
+			count++
+		}
+	}
+	if count != 1 {
+		t.Fatalf("expected exactly one WIPNOTE_CODEX_SANDBOX entry, got %d in %v", count, got)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Gap 3: isCodexBubblewrapFailure — "operation not permitted" gating
+// ---------------------------------------------------------------------------
+
+// TestIsCodexBubblewrapFailure_EPERMAloneDoesNotTrigger ensures a bare
+// "operation not permitted" without namespace/bwrap context is not treated
+// as a bwrap failure, avoiding false positives on unrelated EPERM errors.
+func TestIsCodexBubblewrapFailure_EPERMAloneDoesNotTrigger(t *testing.T) {
+	out := []byte("open /etc/passwd: operation not permitted")
+	err := errors.New("exit status 1")
+	if isCodexBubblewrapFailure(out, err) {
+		t.Fatal("bare 'operation not permitted' should NOT trigger bwrap detection")
+	}
+}
+
+// TestIsCodexBubblewrapFailure_EPERMWithNamespaceContext confirms that
+// "operation not permitted" paired with a namespace-context word IS treated
+// as a bwrap failure.
+func TestIsCodexBubblewrapFailure_EPERMWithNamespaceContext(t *testing.T) {
+	cases := []struct {
+		name string
+		out  string
+	}{
+		{"unshare", "bwrap: unshare(CLONE_NEWUSER): Operation not permitted"},
+		{"namespace", "failed to create namespace: operation not permitted"},
+		{"bwrap direct", "bwrap: operation not permitted"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if !isCodexBubblewrapFailure([]byte(tc.out), errors.New("exit status 1")) {
+				t.Fatalf("expected bwrap failure for output %q", tc.out)
+			}
+		})
+	}
+}
+
+// TestIsCodexBubblewrapFailure_BwrapDirectMatch ensures existing bwrap/bubblewrap
+// keyword matching still works without needing "operation not permitted".
+func TestIsCodexBubblewrapFailure_BwrapDirectMatch(t *testing.T) {
+	cases := []struct {
+		name string
+		out  string
+	}{
+		{"bwrap keyword", "bwrap: some error"},
+		{"bubblewrap", "bubblewrap failed"},
+		{"failed to make slave", "failed to make / slave: operation not permitted"},
+		{"cannot create namespace", "Cannot create namespace: permission denied"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if !isCodexBubblewrapFailure([]byte(tc.out), errors.New("exit status 1")) {
+				t.Fatalf("expected bwrap failure for output %q", tc.out)
+			}
+		})
+	}
+}
+
+// ---------------------------------------------------------------------------
+// User override guards — no auto-degrade regardless of probe
+// ---------------------------------------------------------------------------
+
+// TestResolveCodexSandboxMode_YoloSkipsProbe verifies --yolo bypasses the probe.
+func TestResolveCodexSandboxMode_YoloSkipsProbe(t *testing.T) {
+	orig := codexSandboxProbe
+	called := false
+	codexSandboxProbe = func(string) ([]byte, error) {
+		called = true
+		return []byte("bwrap: unshare: Operation not permitted"), errors.New("exit status 1")
+	}
+	t.Cleanup(func() { codexSandboxProbe = orig })
+
+	mode, notice := resolveCodexSandboxMode("/tmp/codex", codexLaunchOpts{Yolo: true}, true)
+	if mode != "" || notice != "" {
+		t.Fatalf("expected yolo to skip auto-degrade, got mode=%q notice=%q", mode, notice)
+	}
+	if called {
+		t.Fatal("probe should not run in yolo mode")
+	}
+}
+
+// TestResolveCodexSandboxMode_BypassFlagSkipsProbe verifies that
+// --dangerously-bypass-approvals-and-sandbox skips the probe.
+func TestResolveCodexSandboxMode_BypassFlagSkipsProbe(t *testing.T) {
+	orig := codexSandboxProbe
+	called := false
+	codexSandboxProbe = func(string) ([]byte, error) {
+		called = true
+		return nil, nil
+	}
+	t.Cleanup(func() { codexSandboxProbe = orig })
+
+	mode, notice := resolveCodexSandboxMode("/tmp/codex", codexLaunchOpts{
+		ExtraArgs: []string{"--dangerously-bypass-approvals-and-sandbox"},
+	}, true)
+	if mode != "" || notice != "" {
+		t.Fatalf("expected bypass flag to skip auto-degrade, got mode=%q notice=%q", mode, notice)
+	}
+	if called {
+		t.Fatal("probe should not run when bypass flag is set")
 	}
 }
 

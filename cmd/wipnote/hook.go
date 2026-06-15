@@ -319,7 +319,20 @@ func runHookNamed(subcommand string, handler func(*hooks.CloudEvent) (*hooks.Hoo
 	return hooks.WriteResultForHarnessEvent(harness, hookEventNameForResponse(subcommand, event), result)
 }
 
-func hookEventNameForResponse(subcommand string, _ *hooks.CloudEvent) string {
+// hookEventNameForResponse returns the hook event name that should be echoed in
+// the response's hookSpecificOutput. It first checks the incoming CloudEvent's
+// HookEventName field (populated by parseGeminiEvent, parseAntigravityEvent, and
+// parseCodexEvent from the payload's hook_event_name). When that is present, it
+// is echoed directly — ensuring Gemini/Antigravity receive their own native event
+// names (BeforeAgent, BeforeTool, AfterTool) rather than Claude canonical names.
+// When HookEventName is absent (Claude payloads lack hook_event_name), the
+// subcommand-to-event-name mapping provides the Claude/Codex canonical name.
+func hookEventNameForResponse(subcommand string, event *hooks.CloudEvent) string {
+	// Prefer the harness-native event name echoed from the incoming payload.
+	if event != nil && event.HookEventName != "" {
+		return event.HookEventName
+	}
+	// Fall back to Claude/Codex canonical event names by subcommand.
 	switch subcommand {
 	case "session-start":
 		return "SessionStart"

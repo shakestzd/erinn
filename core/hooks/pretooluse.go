@@ -299,8 +299,13 @@ func hasPriorOrchestratorResearch(counts map[string]int) bool {
 }
 
 func hasPriorDelegationEvidence(counts map[string]int) bool {
+	// TaskStarted is intentionally excluded: in the Codex harness it is a generic
+	// progress checkpoint (roborev finding 266, bug-60107613), not a sidecar spawn.
+	// Counting it as delegation evidence caused the research advisory to be wrongly
+	// suppressed before the first root web/docs tool call in Codex sessions.
+	// Only genuine spawn events are accepted as delegation evidence.
 	for _, toolName := range []string{
-		"Task", "Agent", "TaskStarted", "SubagentStart", "multi_agent.spawn",
+		"Task", "Agent", "SubagentStart", "multi_agent.spawn",
 		"multi_agent_v1.spawn_agent", "multi_agent_v1.spawn_agents",
 	} {
 		if counts[toolName] > 0 {

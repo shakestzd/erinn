@@ -273,15 +273,40 @@ func extractSliceTitles(content, nodeID, openTag, closeTag string) []models.Step
 	return steps
 }
 
-// isCRISPIPlanFile returns true when the file at path is an existing CRISPI
-// interactive plan. Detection is based on the presence of data-zone= which
-// only appears in CRISPI-generated plans, not in generic node HTML.
+// richPlanThreshold is the minimum byte size below which a file cannot
+// contain substantial plan content. A minimal WriteNodeHTML shell is
+// roughly 1-2 KB; real CRISPI plans run several hundred KB.
+const richPlanThreshold = 8 * 1024 // 8 KiB
+
+// richPlanMarkers are content patterns that definitively identify a file as
+// a rich/CRISPI plan that must never be overwritten by the minimal
+// WriteNodeHTML path. Any one match is sufficient.
+var richPlanMarkers = []string{
+	`data-zone=`,         // CRISPI zone sections
+	`class="slice-card"`, // CRISPI slice cards (current format)
+	`data-slice=`,        // CRISPI slice data attributes
+	`data-approval=`,     // CRISPI approval attributes
+}
+
+// isCRISPIPlanFile returns true when the file at path is an existing rich or
+// CRISPI interactive plan that must be protected from full regeneration.
+// Detection looks for any of several canonical markers AND also triggers on
+// files that exceed a content-size threshold, catching rich plan docs that may
+// be missing a single marker token.
 func isCRISPIPlanFile(path string) bool {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return false // file doesn't exist — use standard WriteNodeHTML
 	}
-	return strings.Contains(string(data), `data-zone=`)
+	content := string(data)
+	for _, marker := range richPlanMarkers {
+		if strings.Contains(content, marker) {
+			return true
+		}
+	}
+	// Treat any substantially-sized plan file as protected even if none of
+	// the above markers matched (e.g., a bespoke hand-authored plan).
+	return len(data) >= richPlanThreshold
 }
 
 // patchPlanHTML surgically updates only the data-status attribute on the

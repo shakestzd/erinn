@@ -142,6 +142,24 @@ func CreateSessionHTML(projectDir string, s *models.Session) {
 `)
 
 	htmlPath := filepath.Join(sessDir, s.SessionID+".html")
+
+	// Guard: do not clobber an existing session HTML that belongs to a
+	// different session or is already populated/completed. A UUID reuse
+	// collision (or a resumed session that re-fires SessionStart) must not
+	// destroy an already-written 732-event session. Only write when:
+	//   (a) the file does not yet exist, or
+	//   (b) the file exists and encodes the same session ID (legitimate
+	//       same-session re-initialisation, e.g. resumed session startup).
+	if existing, readErr := os.ReadFile(htmlPath); readErr == nil {
+		existingID := extractArticleID(string(existing))
+		if existingID != "" && existingID != s.SessionID {
+			debugLog(projectDir,
+				"[session-html] skipping write: %s already belongs to session %q (new=%q)",
+				htmlPath, existingID, s.SessionID)
+			return
+		}
+	}
+
 	if err := os.WriteFile(htmlPath, []byte(b.String()), 0o644); err != nil {
 		debugLog(projectDir, "[session-html] write %s: %v", htmlPath, err)
 	}
@@ -231,6 +249,23 @@ func AppendEventToSessionHTML(projectDir, sessionID string, ev SessionEvent) {
 	if _, err := f.Write([]byte(newContent)); err != nil {
 		debugLog(projectDir, "[session-html] write %s: %v", htmlPath, err)
 	}
+}
+
+// extractArticleID extracts the id="..." value from the first <article id="...">
+// element in an HTML string. Returns "" when not found. Used by CreateSessionHTML
+// to detect UUID collisions before overwriting an existing session file.
+func extractArticleID(content string) string {
+	const needle = `<article id="`
+	idx := strings.Index(content, needle)
+	if idx < 0 {
+		return ""
+	}
+	rest := content[idx+len(needle):]
+	end := strings.IndexByte(rest, '"')
+	if end < 0 {
+		return ""
+	}
+	return rest[:end]
 }
 
 // articleAttrRe matches data attributes on the <article> tag for replacement.

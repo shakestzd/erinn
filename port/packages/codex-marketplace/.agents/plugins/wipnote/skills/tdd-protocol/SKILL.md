@@ -64,7 +64,7 @@ git commit -m "feat({scope}): {description} ({feature_id})"
 Include attribution in every commit:
 
 ```
-Co-Authored-By: Claude Sonnet <noreply@anthropic.com>
+Co-Authored-By: <agent name> <noreply@example.com>
 ```
 
 ---

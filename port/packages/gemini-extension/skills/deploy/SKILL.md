@@ -30,7 +30,7 @@ Run the full deployment pipeline for wipnote.
 5. **Push** — Push commits and tags to origin/main
 6. **GitHub Release** — Triggered automatically by `release-go.yml` workflow on `v*` tag
 
-## Instructions for Claude
+## Instructions
 
 When the user asks to deploy or release:
 

@@ -22,7 +22,7 @@ Set feature-001 as the primary feature for activity attribution
 
 
 
-## Instructions for Claude
+## Instructions
 
 ### Implementation:
 

@@ -21,7 +21,7 @@ Configure the Claude Code status line to use Oh My Posh with wipnote work item d
 
 3. **`.claude/settings.json`** — Points `statusLine.command` at the wrapper
 
-## Instructions for Claude
+## Instructions
 
 ### Step 1: Verify Prerequisites
 

@@ -27,7 +27,7 @@ Complete the current active feature
 
 
 
-## Instructions for Claude
+## Instructions
 
 ### Implementation:
 

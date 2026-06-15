@@ -1,11 +1,11 @@
 ---
 name: wipnote:plan
-description: Plan development work using a triage-gated interview. Classify scope as trivial/standard/complex, then run 0/2/4 staged interview rounds — rendered inline via AskUserQuestion on Claude Code, or as the cross-harness `wipnote plan interview` web form — to earn each slice field. Produces slice-card YAML; pauses for human review; promotes approved slices to features. Use when asked to plan, create a development plan, or build a feature with design clarity first.
+description: Plan development work using a triage-gated interview. Classify scope as trivial/standard/complex, then run 0/2/4 staged interview rounds through the current harness native ask-user tool when available, or plain conversation when it is not, to earn each slice field. Produces slice-card YAML with visible research provenance for external claims; pauses for human review; promotes approved slices to features. Use when asked to plan, create a development plan, or build a feature with design clarity first.
 ---
 
 # wipnote Plan
 
-Treat plan creation as a system design interview. You are the candidate; the user is the interviewer with requirements. Extract requirements via staged `AskUserQuestion` calls before producing slice YAML. Do not jump to a 9-field worksheet — earn each field through the interview.
+Treat plan creation as a system design interview. You are the candidate; the user is the interviewer with requirements. Extract requirements via staged questions before producing slice YAML. Prefer the current harness native ask-user tool when one is available; otherwise ask the same questions in plain chat. Do not jump to a 9-field worksheet — earn each field through the interview, or explicitly mark fields as inferred/skipped when the user has supplied a complete spec and the harness lacks interactive tools.
 
 **Trigger keywords:** create plan, development plan, parallel plan, plan tasks, plan this feature, review before building, generate plan, scaffold plan, slice plan, crispi
 
@@ -25,9 +25,9 @@ Set `complexity: trivial|standard|complex` on each slice card. The field is read
 
 Every plan you create must include `meta.schema_version: v3`. This enables strict validation including the decisions_notes requirement for standard/complex slices — even when `complexity` is omitted from a slice (which defaults to standard).
 
-### Triage AUQ template
+### Triage question template
 
-Before emitting any slice, run this `AskUserQuestion` (paste-ready):
+Before emitting any slice, ask this question with the native ask-user tool when available. In Codex or any harness without such a tool, render it as plain chat and wait for the user answer unless the user already supplied enough detail to classify the work:
 
 ```json
 {
@@ -59,6 +59,23 @@ Before drafting slices, run web research using your web search / web fetch tools
 
 Trivial plans may skip this step unless they touch external APIs, libraries, or harness contracts.
 
+Every standard or complex plan that relies on external technical claims must include a visible research provenance note before the slices. Use a top-level `meta.research_basis` field when supported by the local schema; otherwise put the same content at the start of `meta.description` and in each affected slice's `decisions_notes`.
+
+Research basis format:
+
+```yaml
+meta:
+  research_basis:
+    - source: "https://example.com/docs"
+      checked_at: "YYYY-MM-DD"
+      claim: "Short statement of what this source verifies."
+    - source: "runtime: codex exec --help"
+      checked_at: "YYYY-MM-DD"
+      claim: "Short statement of the local CLI flag or behavior verified."
+```
+
+If research was skipped, state why in `research_basis` or `decisions_notes` and mark affected external assumptions as `unverified`; do not present them as confirmed design facts.
+
 ---
 
 ## The Interview (standard = stages 1, 2, 4; complex = all 4)
@@ -70,7 +87,7 @@ Trivial plans may skip this step unless they touch external APIs, libraries, or 
 | 3. API / contract | Public-facing surface, payload, return shape | `what` (contract half), `decisions_notes` (interface picks) | "What's the firing rule for this event? What does the response carry?" |
 | 4. Done-when | Acceptance criteria, tests, effort, risk | `done_when`, `tests`, `effort`, `risk` | "How will you tell it works? Which existing tests must still pass?" |
 
-Each stage = 1-3 questions in a single `AskUserQuestion` call (AUQ supports up to 4 per call).
+Each stage = 1-3 questions in a single native ask-user call where available, or one compact chat question set where it is not.
 
 ### Rendering the interview (cross-harness)
 
@@ -83,7 +100,7 @@ Get the canonical set (one source of truth, never hand-maintained):
 
 Render it by capability, in this preference order:
 
-1. **Native ask-user tool, inline** — Claude `AskUserQuestion`, Gemini `ask_user`. Map each stage's questions to one tool call. No context switch. Preferred whenever the harness has it.
+1. **Native ask-user tool, inline** — e.g. Claude `AskUserQuestion`, Gemini/Antigravity `ask_user` when exposed. Map each stage's questions to one tool call. No context switch. Preferred whenever the harness has it.
 2. **Plain conversational, non-interactive** — harnesses with no ask-user tool (e.g. Codex): just ask the questions as text in your turn (present each question + its options); the user answers in their reply. Still no context switch. **Triage is always done this way or via the tool — never a form** (it's one question).
 3. **Web form (optional)** — only when a richer visual surface genuinely helps (a long complex interview) or the user asks for it: `wipnote plan interview-questions … | wipnote plan interview … --questions -`. The form blocks, persists on submit, and embeds the plan-review chat panel. It's an enhancement, not the default path.
 
@@ -92,6 +109,22 @@ Then **persist non-interactively** (the form does this itself; for the inline/co
 - Per-slice → `wipnote plan elicit-decisions <plan> <slice> --scope … --decisions … --context …`.
 
 **Adaptive follow-ups** stay in the same channel — after persisting, judge whether a mandatory field is unmet or something's ambiguous; if so, ask the gap questions again via the *same* mechanism (tool / conversation / another form round). You own the round-to-round adaptivity; nothing keeps state between rounds.
+
+### Codex-compatible fallback
+
+Codex may not expose `AskUserQuestion`, Task tools, or Claude-style agent dispatch. In Codex:
+
+1. Ask triage and interview questions in plain chat, or infer answers from the supplied spec if the user explicitly asks you to proceed without more questions.
+2. Persist inferred/skipped answers in `decisions_notes` with labels such as `**Inferred:**` and `**Skipped:**` so reviewers can see where the interview was compressed.
+3. Run mandatory web research before drafting any slice with external technical claims. Include source links and runtime checks in the plan's research basis.
+4. Validate locally with `wipnote plan validate-yaml <plan-id>` before requesting human review.
+
+Acceptance criteria for generated plans:
+
+- No Codex-facing plan instructions depend on Claude-only model aliases or Claude-only Task/AUQ tools.
+- External technical claims have a visible research basis with links or runtime commands, or are explicitly marked unverified.
+- Any skipped interview stage is named and explained in the slice's `decisions_notes`.
+
 
 **`--questions` JSON schema:**
 
@@ -271,7 +304,7 @@ wipnote plan validate-yaml <plan-id>
 
 Fix schema errors before continuing.
 
-After the plan is drafted, run `/wipnote:plan-critique <plan-id>` for the dual-critic (Sonnet+Haiku) review pass. See `plugin/skills/plan-critique/SKILL.md`.
+After the plan is drafted, run `/wipnote:plan-critique <plan-id>` for the dual role-based design/feasibility review pass. See `plugin/skills/plan-critique/SKILL.md`.
 
 Then:
 

@@ -126,3 +126,123 @@ func assertHasSkill(t *testing.T, dir string) {
 	}
 	t.Errorf("no non-empty SKILL.md under %s", dir)
 }
+
+func TestLiveGeneratedPortSkillAndCommandParity(t *testing.T) {
+	manifestPath, err := FindManifest(".")
+	if err != nil {
+		t.Skipf("no live manifest: %v", err)
+	}
+	m, err := Load(manifestPath)
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	repoRoot := filepath.Dir(filepath.Dir(filepath.Dir(manifestPath)))
+
+	commands := liveCommandNames(t, filepath.Join(repoRoot, m.AssetSources.Commands))
+	skills := liveSkillNames(t, filepath.Join(repoRoot, m.AssetSources.Skills))
+	if len(commands) == 0 {
+		t.Fatalf("expected live plugin commands")
+	}
+	if len(skills) == 0 {
+		t.Fatalf("expected live plugin skills")
+	}
+
+	outBase := t.TempDir()
+
+	codexTarget, ok := m.Targets["codex"]
+	if !ok {
+		t.Fatalf("manifest missing codex target")
+	}
+	codexOut := filepath.Join(outBase, "codex")
+	if err := (codexAdapter{}).Emit(m, repoRoot, codexOut); err != nil {
+		t.Fatalf("emit codex: %v", err)
+	}
+	codexPluginDir := filepath.Join(codexOut, codexTarget.PluginSubdir)
+	assertSkillFilesPresent(t, filepath.Join(codexPluginDir, "skills"), skills)
+
+	geminiTarget, ok := m.Targets["gemini"]
+	if !ok {
+		t.Fatalf("manifest missing gemini target")
+	}
+	geminiOut := filepath.Join(outBase, "gemini")
+	if err := (geminiAdapter{}).Emit(m, repoRoot, geminiOut); err != nil {
+		t.Fatalf("emit gemini: %v", err)
+	}
+	assertSkillFilesPresent(t, filepath.Join(geminiOut, "skills"), skills)
+	assertCommandFilesPresent(t, filepath.Join(geminiOut, "commands", geminiTarget.CommandNamespace), commands, ".toml")
+
+	antigravityTarget, ok := m.Targets["antigravity"]
+	if !ok {
+		t.Fatalf("manifest missing antigravity target")
+	}
+	antigravityOut := filepath.Join(outBase, "antigravity")
+	if err := (antigravityAdapter{}).Emit(m, repoRoot, antigravityOut); err != nil {
+		t.Fatalf("emit antigravity: %v", err)
+	}
+	assertSkillFilesPresent(t, filepath.Join(antigravityOut, "skills"), skills)
+	assertCommandFilesPresent(t, filepath.Join(antigravityOut, "commands", antigravityTarget.CommandNamespace), commands, ".toml")
+}
+
+func liveCommandNames(t *testing.T, dir string) []string {
+	t.Helper()
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		t.Fatalf("read commands %s: %v", dir, err)
+	}
+	var names []string
+	for _, e := range entries {
+		if e.IsDir() || !strings.HasSuffix(e.Name(), ".md") {
+			continue
+		}
+		names = append(names, strings.TrimSuffix(e.Name(), ".md"))
+	}
+	return names
+}
+
+func liveSkillNames(t *testing.T, dir string) []string {
+	t.Helper()
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		t.Fatalf("read skills %s: %v", dir, err)
+	}
+	var names []string
+	for _, e := range entries {
+		if !e.IsDir() {
+			continue
+		}
+		if info, err := os.Stat(filepath.Join(dir, e.Name(), "SKILL.md")); err == nil && info.Size() > 0 {
+			names = append(names, e.Name())
+		}
+	}
+	return names
+}
+
+func assertSkillFilesPresent(t *testing.T, root string, names []string) {
+	t.Helper()
+	for _, name := range names {
+		path := filepath.Join(root, name, "SKILL.md")
+		info, err := os.Stat(path)
+		if err != nil {
+			t.Errorf("missing generated skill %s: %v", path, err)
+			continue
+		}
+		if info.Size() == 0 {
+			t.Errorf("generated skill is empty: %s", path)
+		}
+	}
+}
+
+func assertCommandFilesPresent(t *testing.T, root string, names []string, ext string) {
+	t.Helper()
+	for _, name := range names {
+		path := filepath.Join(root, name+ext)
+		info, err := os.Stat(path)
+		if err != nil {
+			t.Errorf("missing generated command %s: %v", path, err)
+			continue
+		}
+		if info.Size() == 0 {
+			t.Errorf("generated command is empty: %s", path)
+		}
+	}
+}

@@ -32,7 +32,7 @@ All diagnostic work must be attributed:
 - New errors: `wipnote bug create "Error: description" --track <trk-id>` then start it
 - Run `wipnote help` for available commands
 
-## Instructions for Claude
+## Instructions
 
 ### Route by Input
 

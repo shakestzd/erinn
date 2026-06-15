@@ -34,7 +34,7 @@ The command displays:
 - **Recommended Work** — Top N items scored by priority and impact
 - **Parallel Opportunities** — Features grouped by track that can run in parallel
 
-## Instructions for Claude
+## Instructions
 
 This command invokes `wipnote recommend` via the CLI, which provides all analytics in one unified output.
 

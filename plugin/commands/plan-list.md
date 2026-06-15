@@ -8,7 +8,7 @@ List all YAML plans in the project with their status, slice counts, and creation
 /wipnote:plan-list
 ```
 
-## Instructions for Claude
+## Instructions
 
 Single command — no shell parsing needed:
 

@@ -2,7 +2,7 @@
 
 Perform structured research before planning implementation. Uses WebSearch to gather best practices, patterns, and solutions from the web.
 
-Claude performs the searches directly using WebSearch — this is not delegated to a subagent.
+The active agent performs the searches directly using the available web search/fetch tools — this is not delegated to a subagent.
 
 ## Usage
 
@@ -29,7 +29,7 @@ Research WebSocket patterns and document findings
 Research JWT security and attach findings to existing spike
 
 
-## Instructions for Claude
+## Instructions
 
 **CRITICAL: This command MUST be used before planning complex features.**
 

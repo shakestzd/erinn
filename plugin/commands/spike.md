@@ -34,7 +34,7 @@ Spike linked to a track
 
 
 
-## Instructions for Claude
+## Instructions
 
 ### Implementation:
 

@@ -21,7 +21,7 @@ Begin a new development session and choose what to work on
 
 
 
-## Instructions for Claude
+## Instructions
 
 ### Implementation:
 

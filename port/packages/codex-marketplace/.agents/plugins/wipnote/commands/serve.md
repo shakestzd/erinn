@@ -27,7 +27,7 @@ Start dashboard on port 3000
 
 
 
-## Instructions for Claude
+## Instructions
 
 ### Implementation:
 

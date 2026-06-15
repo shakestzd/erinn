@@ -21,7 +21,7 @@ Gracefully end the current session and show work summary
 
 
 
-## Instructions for Claude
+## Instructions
 
 ### Implementation:
 

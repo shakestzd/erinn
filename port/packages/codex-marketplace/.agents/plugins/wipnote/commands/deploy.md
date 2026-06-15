@@ -24,7 +24,7 @@ Patch release (bug fixes)
 ```
 Minor release (new features)
 
-## Instructions for Claude
+## Instructions
 
 ### Pre-deployment
 

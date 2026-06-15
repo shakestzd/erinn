@@ -35,6 +35,66 @@ func makeSessionDB(t *testing.T, sessionID, projectDir string) *sql.DB {
 	return database
 }
 
+func TestCheckOrchestratorResearchDelegationAdvisory_WarnsForRootWebBeforeDelegation(t *testing.T) {
+	projectDir := t.TempDir()
+	database := makeSessionDB(t, "sess-orch-web", projectDir)
+
+	got := checkOrchestratorResearchDelegationAdvisory(
+		&CloudEvent{ToolName: "web.search_query"},
+		&toolUseContext{SessionID: "sess-orch-web"},
+		database,
+	)
+	if got == "" {
+		t.Fatal("expected advisory for root-session web research before delegation")
+	}
+	if !strings.Contains(got, "delegate web/docs research") {
+		t.Fatalf("expected delegation guidance, got %q", got)
+	}
+}
+
+func TestCheckOrchestratorResearchDelegationAdvisory_SkipsAfterSidecarEvidence(t *testing.T) {
+	projectDir := t.TempDir()
+	database := makeSessionDB(t, "sess-orch-sidecar", projectDir)
+	now := time.Now().UTC()
+	if err := db.InsertEvent(database, &models.AgentEvent{
+		EventID:   "ev-task-started",
+		AgentID:   "codex",
+		EventType: models.EventToolCall,
+		Timestamp: now,
+		ToolName:  "TaskStarted",
+		SessionID: "sess-orch-sidecar",
+		Status:    "started",
+		Source:    "hook",
+		CreatedAt: now,
+		UpdatedAt: now,
+	}); err != nil {
+		t.Fatalf("InsertEvent: %v", err)
+	}
+
+	got := checkOrchestratorResearchDelegationAdvisory(
+		&CloudEvent{ToolName: "web.search_query"},
+		&toolUseContext{SessionID: "sess-orch-sidecar"},
+		database,
+	)
+	if got != "" {
+		t.Fatalf("expected no advisory after sidecar evidence, got %q", got)
+	}
+}
+
+func TestCheckOrchestratorResearchDelegationAdvisory_SkipsForSubagent(t *testing.T) {
+	projectDir := t.TempDir()
+	database := makeSessionDB(t, "sess-subagent-web", projectDir)
+
+	got := checkOrchestratorResearchDelegationAdvisory(
+		&CloudEvent{ToolName: "web.search_query"},
+		&toolUseContext{SessionID: "sess-subagent-web", IsSubagent: true},
+		database,
+	)
+	if got != "" {
+		t.Fatalf("expected no advisory for subagent research, got %q", got)
+	}
+}
+
 func TestCheckProjectDivergence_SameProject(t *testing.T) {
 	projectDir := t.TempDir()
 	if err := os.MkdirAll(filepath.Join(projectDir, ".wipnote"), 0o755); err != nil {

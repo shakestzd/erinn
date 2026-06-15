@@ -556,6 +556,9 @@ func TestEmitCodexBlockResponse(t *testing.T) {
 	if got["reason"] != "no active work item" {
 		t.Errorf("reason = %v, want no active work item", got["reason"])
 	}
+	if _, ok := got["stopReason"]; ok {
+		t.Errorf("stopReason must be omitted for Codex PreToolUse block responses, got %v", got["stopReason"])
+	}
 }
 
 func TestEmitCodexEmptyResponse(t *testing.T) {

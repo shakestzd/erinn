@@ -126,6 +126,15 @@ type CloudEvent struct {
 	PermissionCategory string `json:"permission_category"`
 	RiskLevel          string `json:"risk_level"`
 
+	// HookEventName carries the harness-native hook_event_name from the incoming
+	// payload, populated by parseCodexEvent, parseGeminiEvent, and
+	// parseAntigravityEvent. It is absent (empty string) for Claude payloads,
+	// which do not include a top-level hook_event_name that handlers need to
+	// echo back. hookEventNameForResponse echoes this field when present so
+	// that Gemini/Antigravity receive their own native event names (BeforeAgent,
+	// BeforeTool, AfterTool) rather than Claude canonical names.
+	HookEventName string `json:"hook_event_name,omitempty"`
+
 	// PreCompact — controlling event. CC is about to compact the conversation
 	// context. compaction_trigger distinguishes a user-initiated compaction
 	// ("manual") from an automatic one fired on context pressure ("auto").

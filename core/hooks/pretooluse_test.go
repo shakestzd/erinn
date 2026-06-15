@@ -52,18 +52,24 @@ func TestCheckOrchestratorResearchDelegationAdvisory_WarnsForRootWebBeforeDelega
 	}
 }
 
+// TestCheckOrchestratorResearchDelegationAdvisory_SkipsAfterSidecarEvidence
+// verifies that a real sidecar spawn (Task tool) suppresses the advisory.
+// The test was updated as part of bug-60107613 (roborev finding 266): the
+// previous version used TaskStarted as evidence, which was incorrect — that
+// is a Codex progress checkpoint, not a spawn. See pretooluse_delegation_test.go
+// for the regression tests that now pin the correct per-token behaviour.
 func TestCheckOrchestratorResearchDelegationAdvisory_SkipsAfterSidecarEvidence(t *testing.T) {
 	projectDir := t.TempDir()
 	database := makeSessionDB(t, "sess-orch-sidecar", projectDir)
 	now := time.Now().UTC()
 	if err := db.InsertEvent(database, &models.AgentEvent{
-		EventID:   "ev-task-started",
-		AgentID:   "codex",
+		EventID:   "ev-task-spawn",
+		AgentID:   "claude-code",
 		EventType: models.EventToolCall,
 		Timestamp: now,
-		ToolName:  "TaskStarted",
+		ToolName:  "Task",
 		SessionID: "sess-orch-sidecar",
-		Status:    "started",
+		Status:    "completed",
 		Source:    "hook",
 		CreatedAt: now,
 		UpdatedAt: now,
@@ -77,7 +83,7 @@ func TestCheckOrchestratorResearchDelegationAdvisory_SkipsAfterSidecarEvidence(t
 		database,
 	)
 	if got != "" {
-		t.Fatalf("expected no advisory after sidecar evidence, got %q", got)
+		t.Fatalf("expected no advisory after Task spawn evidence, got %q", got)
 	}
 }
 

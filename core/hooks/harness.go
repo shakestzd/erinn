@@ -222,6 +222,7 @@ func parseCodexEvent(raw []byte) (*CloudEvent, error) {
 		AgentID:              agentID,
 		SessionID:            p.SessionID,
 		CWD:                  p.CWD,
+		HookEventName:        p.HookEventName,
 		PermissionMode:       p.PermissionMode,
 		Timestamp:            p.Timestamp,
 		Model:                p.Model,
@@ -259,6 +260,7 @@ func parseGeminiEvent(raw []byte) (*CloudEvent, error) {
 		// fall back to session_id if present.
 		SessionID:      p.SessionID,
 		CWD:            p.CWD,
+		HookEventName:  p.HookEventName,
 		Model:          p.Model,
 		TranscriptPath: p.TranscriptPath,
 		Timestamp:      p.Timestamp,
@@ -291,6 +293,7 @@ func parseAntigravityEvent(raw []byte) (*CloudEvent, error) {
 		AgentID:        harness.GetByHooksHarness(harness.HooksAntigravity).AgentID,
 		SessionID:      p.SessionID,
 		CWD:            p.CWD,
+		HookEventName:  p.HookEventName,
 		Model:          p.Model,
 		TranscriptPath: p.TranscriptPath,
 		Timestamp:      p.Timestamp,

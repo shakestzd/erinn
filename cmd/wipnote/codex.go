@@ -1372,6 +1372,9 @@ type codexLaunchOpts struct {
 	// Yolo passes Codex's explicit approvals/sandbox bypass flag before any
 	// subcommand, matching Claude's bypassPermissions launcher behavior.
 	Yolo bool
+	// SandboxMode overrides Codex's default sandbox selection for this launch.
+	// Empty means inherit Codex's own config/default behavior.
+	SandboxMode string
 	// WritableRoots are passed to Codex before any subcommand so resumed
 	// sessions and spawned subagents inherit required writable directories.
 	WritableRoots []string
@@ -1423,6 +1426,12 @@ func execCodex(opts codexLaunchOpts) error {
 	instructionArgs, instructionErr := buildCodexInstructionConfigArgs(codexPath, opts.ExtraArgs, opts.effectiveMode())
 	if instructionErr != nil {
 		fmt.Fprintf(os.Stderr, "wipnote: warning: codex orchestrator instructions skipped: %v\n", instructionErr)
+	}
+	sandboxDegraded := false
+	if sandboxMode, notice := resolveCodexSandboxMode(codexPath, opts, isDevcontainer()); sandboxMode != "" {
+		opts.SandboxMode = sandboxMode
+		sandboxDegraded = true
+		fmt.Fprintln(os.Stderr, notice)
 	}
 	configArgs := append([]string{}, instructionArgs...)
 	configArgs = append(configArgs, buildCodexAgentConfigArgs(codexAgentsPath())...)
@@ -1482,6 +1491,16 @@ func execCodex(opts codexLaunchOpts) error {
 		env = setOrReplaceEnv(env, "WIPNOTE_YOLO", "1")
 	}
 
+	// When the bwrap sandbox probe determined that Bubblewrap is unavailable
+	// and we automatically degraded to danger-full-access, record that outcome
+	// in the session environment. WIPNOTE_CODEX_SANDBOX=degraded signals
+	// agents and hooks running inside this Codex session to stop retrying
+	// nested codex exec / sandbox paths after the first failure — the
+	// devcontainer is already the isolation boundary. Only set this in the
+	// auto-degraded case; explicit --sandbox and --yolo launches do not set it
+	// so they don't silently suppress legitimate sandboxing errors.
+	env = applySandboxDegradedEnv(env, sandboxDegraded)
+
 	c.Env = env
 	if workDir != "" {
 		c.Dir = workDir
@@ -1520,6 +1539,8 @@ func buildCodexArgs(opts codexLaunchOpts, otelPort int, instructionArgs []string
 	args = append(args, instructionArgs...)
 	if opts.Yolo {
 		args = append(args, "--dangerously-bypass-approvals-and-sandbox")
+	} else if opts.SandboxMode != "" {
+		args = append(args, "--sandbox", opts.SandboxMode)
 	}
 	for _, root := range opts.WritableRoots {
 		if root != "" {

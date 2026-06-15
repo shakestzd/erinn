@@ -116,7 +116,7 @@ func TestPlanningSkillsRequireResearchProvenance(t *testing.T) {
 	checks := map[string][]string{
 		filepath.Join(root, "plugin", "skills", "plan", "SKILL.md"): {
 			"Mandatory Research",
-			"research_basis",
+			"Research basis",
 			"External technical claims have a visible research basis",
 		},
 		filepath.Join(root, "plugin", "skills", "plan-critique", "SKILL.md"): {

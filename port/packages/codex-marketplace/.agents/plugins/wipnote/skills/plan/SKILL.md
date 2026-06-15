@@ -59,22 +59,21 @@ Before drafting slices, run web research using your web search / web fetch tools
 
 Trivial plans may skip this step unless they touch external APIs, libraries, or harness contracts.
 
-Every standard or complex plan that relies on external technical claims must include a visible research provenance note before the slices. Use a top-level `meta.research_basis` field when supported by the local schema; otherwise put the same content at the start of `meta.description` and in each affected slice's `decisions_notes`.
+Every standard or complex plan that relies on external technical claims must include a visible **Research basis** note before the slices. Persist it in existing schema-backed fields: put a compact summary at the start of `meta.description`, and copy slice-specific source/runtime evidence into each affected slice's `decisions_notes`.
 
-Research basis format:
+Research basis format in `meta.description`:
 
 ```yaml
 meta:
-  research_basis:
-    - source: "https://example.com/docs"
-      checked_at: "YYYY-MM-DD"
-      claim: "Short statement of what this source verifies."
-    - source: "runtime: codex exec --help"
-      checked_at: "YYYY-MM-DD"
-      claim: "Short statement of the local CLI flag or behavior verified."
+  description: |
+    Research basis:
+    - https://example.com/docs (checked YYYY-MM-DD): Short statement of what this source verifies.
+    - runtime: codex exec --help (checked YYYY-MM-DD): Short statement of the local CLI flag or behavior verified.
+
+    <plan description continues here>
 ```
 
-If research was skipped, state why in `research_basis` or `decisions_notes` and mark affected external assumptions as `unverified`; do not present them as confirmed design facts.
+If research was skipped, state why in `meta.description` and `decisions_notes`, and mark affected external assumptions as `unverified`; do not present them as confirmed design facts.
 
 ---
 

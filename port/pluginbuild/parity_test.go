@@ -159,6 +159,7 @@ func TestLiveGeneratedPortSkillAndCommandParity(t *testing.T) {
 	}
 	codexPluginDir := filepath.Join(codexOut, codexTarget.PluginSubdir)
 	assertSkillFilesPresent(t, filepath.Join(codexPluginDir, "skills"), skills)
+	assertCommandFilesPresent(t, filepath.Join(codexPluginDir, "commands"), commands, ".md")
 
 	geminiTarget, ok := m.Targets["gemini"]
 	if !ok {

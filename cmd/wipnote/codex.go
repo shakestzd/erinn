@@ -541,8 +541,95 @@ func codexHookGroupInstalled(existing []codexHookGroup, want codexHookGroup) boo
 	return true
 }
 
-func ensureCodexGlobalHooksFromCache() (bool, error) {
-	return ensureCodexGlobalHooksInstalled(codexHooksPath(), codexInstalledPluginDirAt(codexPluginCachePath()))
+func pruneCodexGlobalHooksInstalled(hooksPath, pluginDir string) (bool, error) {
+	if pluginDir == "" {
+		return false, nil
+	}
+	sourcePath := filepath.Join(pluginDir, "hooks.json")
+	sourceData, err := os.ReadFile(sourcePath)
+	if err != nil {
+		return false, fmt.Errorf("reading plugin hooks %s: %w", sourcePath, err)
+	}
+	var source codexHooksFile
+	if err := json.Unmarshal(sourceData, &source); err != nil {
+		return false, fmt.Errorf("parsing plugin hooks %s: %w", sourcePath, err)
+	}
+	commands := map[string]struct{}{}
+	for _, groups := range source.Hooks {
+		for _, group := range groups {
+			for _, hook := range group.Hooks {
+				cmd := strings.TrimSpace(hook.Command)
+				if cmd != "" {
+					commands[cmd] = struct{}{}
+				}
+			}
+		}
+	}
+	if len(commands) == 0 {
+		return false, nil
+	}
+
+	targetData, err := os.ReadFile(hooksPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return false, nil
+		}
+		return false, fmt.Errorf("reading %s: %w", hooksPath, err)
+	}
+	var target codexHooksFile
+	if len(targetData) > 0 {
+		if err := json.Unmarshal(targetData, &target); err != nil {
+			return false, fmt.Errorf("parsing %s: %w", hooksPath, err)
+		}
+	}
+	if len(target.Hooks) == 0 {
+		return false, nil
+	}
+
+	changed := false
+	for eventName, groups := range target.Hooks {
+		keptGroups := make([]codexHookGroup, 0, len(groups))
+		for _, group := range groups {
+			keptHooks := make([]codexHookEntry, 0, len(group.Hooks))
+			for _, hook := range group.Hooks {
+				if _, remove := commands[strings.TrimSpace(hook.Command)]; remove {
+					changed = true
+					continue
+				}
+				keptHooks = append(keptHooks, hook)
+			}
+			if len(keptHooks) == 0 {
+				if len(group.Hooks) > 0 {
+					changed = true
+				}
+				continue
+			}
+			group.Hooks = keptHooks
+			keptGroups = append(keptGroups, group)
+		}
+		if len(keptGroups) == 0 {
+			delete(target.Hooks, eventName)
+		} else {
+			target.Hooks[eventName] = keptGroups
+		}
+	}
+	if !changed {
+		return false, nil
+	}
+
+	out, err := json.MarshalIndent(target, "", "  ")
+	if err != nil {
+		return false, fmt.Errorf("marshaling %s: %w", hooksPath, err)
+	}
+	out = append(out, '\n')
+	if err := os.WriteFile(hooksPath, out, 0644); err != nil {
+		return false, fmt.Errorf("writing %s: %w", hooksPath, err)
+	}
+	return true, nil
+}
+
+func pruneCodexGlobalHooksFromCache() (bool, error) {
+	return pruneCodexGlobalHooksInstalled(codexHooksPath(), codexInstalledPluginDirAt(codexPluginCachePath()))
 }
 
 type codexCustomAgentHeader struct {
@@ -886,13 +973,13 @@ func runCodexInit(yes, dryRun bool) error {
 		}
 	}
 	if dryRun {
-		fmt.Println("[dry-run] would install wipnote hooks into ~/.codex/hooks.json")
-	} else if changed, err := ensureCodexGlobalHooksFromCache(); err != nil {
-		fmt.Fprintf(os.Stderr, "warning: could not install wipnote Codex hooks: %v\n", err)
+		fmt.Println("[dry-run] would remove mirrored wipnote hooks from ~/.codex/hooks.json")
+	} else if changed, err := pruneCodexGlobalHooksFromCache(); err != nil {
+		fmt.Fprintf(os.Stderr, "warning: could not remove mirrored wipnote Codex hooks: %v\n", err)
 	} else if changed {
-		fmt.Println("wipnote Codex hooks installed in ~/.codex/hooks.json.")
+		fmt.Println("mirrored wipnote Codex hooks removed from ~/.codex/hooks.json.")
 	} else {
-		fmt.Println("wipnote Codex hooks are already installed.")
+		fmt.Println("no mirrored wipnote Codex hooks found in ~/.codex/hooks.json.")
 	}
 	if dryRun {
 		fmt.Println("[dry-run] would install wipnote Codex agents into ~/.codex/agents")
@@ -965,10 +1052,10 @@ func launchCodexDefault(resumeID, trackID, featureID, worktreePath, workItem str
 		}
 	}
 	if isCodexPluginInstalledAt(codexPluginCachePath()) {
-		if changed, err := ensureCodexGlobalHooksFromCache(); err != nil {
-			fmt.Fprintf(os.Stderr, "warning: could not install wipnote Codex hooks: %v\n", err)
+		if changed, err := pruneCodexGlobalHooksFromCache(); err != nil {
+			fmt.Fprintf(os.Stderr, "warning: could not remove mirrored wipnote Codex hooks: %v\n", err)
 		} else if changed {
-			fmt.Println("wipnote Codex hooks installed in ~/.codex/hooks.json.")
+			fmt.Println("mirrored wipnote Codex hooks removed from ~/.codex/hooks.json.")
 		}
 		if changed, err := ensureCodexAgentsFromCache(); err != nil {
 			fmt.Fprintf(os.Stderr, "warning: could not install wipnote Codex agents: %v\n", err)
@@ -1186,12 +1273,12 @@ func launchCodexDev(resumeID string, cleanup, dryRun, yolo bool, extraArgs []str
 		} else if installed {
 			fmt.Println("Local wipnote plugin installed in Codex cache.")
 		}
-		if changed, err := ensureCodexGlobalHooksFromCache(); err != nil {
-			return fmt.Errorf("installing wipnote Codex hooks: %w", err)
+		if changed, err := pruneCodexGlobalHooksFromCache(); err != nil {
+			return fmt.Errorf("removing mirrored wipnote Codex hooks: %w", err)
 		} else if changed {
-			fmt.Println("wipnote Codex hooks installed in ~/.codex/hooks.json.")
+			fmt.Println("mirrored wipnote Codex hooks removed from ~/.codex/hooks.json.")
 		} else {
-			fmt.Println("wipnote Codex hooks are already installed.")
+			fmt.Println("no mirrored wipnote Codex hooks found in ~/.codex/hooks.json.")
 		}
 		pluginDir := codexInstalledPluginDirAt(codexPluginCachePath())
 		if changed, err := ensureCodexCustomAgentsInstalled(pluginDir, codexAgentsPath()); err != nil {
@@ -1205,7 +1292,7 @@ func launchCodexDev(resumeID string, cleanup, dryRun, yolo bool, extraArgs []str
 			fmt.Println("wipnote Codex agents installed in .codex/agents.")
 		}
 	} else {
-		fmt.Println("[dry-run] would install wipnote hooks into ~/.codex/hooks.json")
+		fmt.Println("[dry-run] would remove mirrored wipnote hooks from ~/.codex/hooks.json")
 		fmt.Println("[dry-run] would install wipnote Codex agents into ~/.codex/agents and .codex/agents")
 	}
 

@@ -835,6 +835,57 @@ func TestEnsureCodexGlobalHooksInstalledPreservesUserHooks(t *testing.T) {
 	}
 }
 
+func TestPruneCodexGlobalHooksInstalledRemovesOnlyWipnoteHooks(t *testing.T) {
+	tmpdir := t.TempDir()
+	pluginDir := filepath.Join(tmpdir, "plugin")
+	if err := os.MkdirAll(pluginDir, 0755); err != nil {
+		t.Fatalf("MkdirAll plugin: %v", err)
+	}
+	pluginHooks := `{"hooks":{"SessionStart":[{"matcher":"","hooks":[{"type":"command","command":"wipnote hook session-start"}]}],"PreToolUse":[{"matcher":"","hooks":[{"type":"command","command":"wipnote hook pretooluse"}]}]}}`
+	if err := os.WriteFile(filepath.Join(pluginDir, "hooks.json"), []byte(pluginHooks), 0644); err != nil {
+		t.Fatalf("WriteFile plugin hooks: %v", err)
+	}
+	hooksPath := filepath.Join(tmpdir, ".codex", "hooks.json")
+	globalHooks := `{"hooks":{"SessionStart":[{"matcher":"","hooks":[{"type":"command","command":"wipnote hook session-start"}]}],"PreToolUse":[{"matcher":"","hooks":[{"type":"command","command":"wipnote hook pretooluse"}]},{"matcher":"^Bash$","hooks":[{"type":"command","command":"roborev agent-hook run"}]}],"Stop":[{"matcher":"","hooks":[{"type":"command","command":"echo user-stop"}]}]}}`
+	if err := os.MkdirAll(filepath.Dir(hooksPath), 0755); err != nil {
+		t.Fatalf("MkdirAll hooks dir: %v", err)
+	}
+	if err := os.WriteFile(hooksPath, []byte(globalHooks), 0644); err != nil {
+		t.Fatalf("WriteFile global hooks: %v", err)
+	}
+
+	changed, err := pruneCodexGlobalHooksInstalled(hooksPath, pluginDir)
+	if err != nil {
+		t.Fatalf("pruneCodexGlobalHooksInstalled: %v", err)
+	}
+	if !changed {
+		t.Fatalf("expected prune to report changed")
+	}
+	data, err := os.ReadFile(hooksPath)
+	if err != nil {
+		t.Fatalf("ReadFile hooks: %v", err)
+	}
+	content := string(data)
+	for _, gone := range []string{"wipnote hook session-start", "wipnote hook pretooluse"} {
+		if strings.Contains(content, gone) {
+			t.Fatalf("global hooks still contain mirrored wipnote hook %q:\n%s", gone, content)
+		}
+	}
+	for _, want := range []string{"roborev agent-hook run", "echo user-stop"} {
+		if !strings.Contains(content, want) {
+			t.Fatalf("global hooks lost user hook %q:\n%s", want, content)
+		}
+	}
+
+	changed, err = pruneCodexGlobalHooksInstalled(hooksPath, pluginDir)
+	if err != nil {
+		t.Fatalf("second prune: %v", err)
+	}
+	if changed {
+		t.Fatalf("second prune should be idempotent")
+	}
+}
+
 // TestCodexDevReplacesMismatchedMarketplace verifies that --dev mode detects
 // a mismatched marketplace registration and replaces it.
 func TestCodexDevReplacesMismatchedMarketplace(t *testing.T) {

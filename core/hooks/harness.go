@@ -331,64 +331,102 @@ func emitClaudeResponse(w io.Writer, result *HookResult) error {
 
 // emitCodexResponse writes the Codex CLI wire-format JSON to w.
 // Codex expects:
-//   - "continue": true/false  (required for lifecycle events)
-//   - "systemMessage": "..."  (equivalent to Claude's additionalContext)
-//   - "decision": "allow"|"block" and "reason" for PreToolUse decisions
+//   - "continue": true/false for lifecycle events
+//   - "systemMessage": "..." for user-visible hook messages
+//   - "hookSpecificOutput.additionalContext" for model-visible context injection
+//   - "hookSpecificOutput.permissionDecision" for PreToolUse allow/deny decisions
 func emitCodexResponse(w io.Writer, result *HookResult) error {
+	return emitCodexResponseForEvent(w, "", result)
+}
+
+func emitCodexResponseForEvent(w io.Writer, hookEventName string, result *HookResult) error {
+	type codexHookSpecificOutput struct {
+		HookEventName            string `json:"hookEventName,omitempty"`
+		AdditionalContext        string `json:"additionalContext,omitempty"`
+		PermissionDecision       string `json:"permissionDecision,omitempty"`
+		PermissionDecisionReason string `json:"permissionDecisionReason,omitempty"`
+	}
 	type codexResponse struct {
-		Continue      *bool  `json:"continue,omitempty"`
-		SystemMessage string `json:"systemMessage,omitempty"`
-		Decision      string `json:"decision,omitempty"`
-		Reason        string `json:"reason,omitempty"`
+		Continue           *bool                    `json:"continue,omitempty"`
+		SystemMessage      string                   `json:"systemMessage,omitempty"`
+		Decision           string                   `json:"decision,omitempty"`
+		Reason             string                   `json:"reason,omitempty"`
+		HookSpecificOutput *codexHookSpecificOutput `json:"hookSpecificOutput,omitempty"`
 	}
 
 	continueTrue := true
 	resp := codexResponse{}
-
-	// Map AdditionalContext → systemMessage (Codex's inject-into-conversation field).
-	if result.AdditionalContext != "" {
-		resp.SystemMessage = result.AdditionalContext
+	if result.Message != "" {
+		resp.SystemMessage = result.Message
 	}
 
-	// Preserve decision/reason for blocking hooks (PreToolUse equivalent).
-	// Codex rejects {"continue": false} for PreToolUse; decision=block is the
-	// supported way to deny a tool call.
+	hookOutput := codexHookSpecificOutput{HookEventName: hookEventName}
+	if result.HookSpecificOutput != nil {
+		if result.HookSpecificOutput.HookEventName != "" {
+			hookOutput.HookEventName = result.HookSpecificOutput.HookEventName
+		}
+		hookOutput.AdditionalContext = result.HookSpecificOutput.AdditionalContext
+		hookOutput.PermissionDecision = result.HookSpecificOutput.PermissionDecision
+		hookOutput.PermissionDecisionReason = result.HookSpecificOutput.PermissionDecisionReason
+	}
+	if result.AdditionalContext != "" {
+		hookOutput.AdditionalContext = result.AdditionalContext
+	}
+	if hookOutput.HookEventName == "" && hookOutput.AdditionalContext != "" {
+		hookOutput.HookEventName = "SessionStart"
+	}
+
 	if result.Decision == "block" || result.Decision == "deny" {
-		resp.Decision = result.Decision
-		resp.Reason = result.Reason
-	} else {
+		if hookEventName == "PreToolUse" {
+			hookOutput.PermissionDecision = "deny"
+			hookOutput.PermissionDecisionReason = result.Reason
+		} else {
+			resp.Decision = result.Decision
+			resp.Reason = result.Reason
+		}
+	} else if hookEventName != "PreToolUse" {
 		resp.Continue = &continueTrue
+	}
+
+	if hookOutput.AdditionalContext != "" || hookOutput.PermissionDecision != "" || hookOutput.PermissionDecisionReason != "" {
+		resp.HookSpecificOutput = &hookOutput
 	}
 
 	return json.NewEncoder(w).Encode(resp)
 }
 
 // emitGeminiResponse writes the Gemini CLI wire-format JSON to w.
-// Gemini's output schema (from https://geminicli.com/docs/hooks/reference/):
-//   - Exit code 0 with JSON output is the preferred path (not exit 2).
-//   - Common output fields include "continue" and "systemPrompt" (context injection).
-//   - BeforeTool blocking uses "decision": "block" and "reason".
-//
-// This is a best-effort implementation pending a real captured payload;
-// a follow-up bug will tighten the schema once one is available.
+// Gemini uses hookSpecificOutput.additionalContext for model-visible context.
+// systemMessage is display/status text, not the prompt append channel.
 func emitGeminiResponse(w io.Writer, result *HookResult) error {
+	return emitGeminiResponseForEvent(w, "", result)
+}
+
+func emitGeminiResponseForEvent(w io.Writer, hookEventName string, result *HookResult) error {
+	type geminiHookSpecificOutput struct {
+		HookEventName     string `json:"hookEventName,omitempty"`
+		AdditionalContext string `json:"additionalContext,omitempty"`
+	}
 	type geminiResponse struct {
-		Continue     bool   `json:"continue"`
-		SystemPrompt string `json:"systemPrompt,omitempty"`
-		Decision     string `json:"decision,omitempty"`
-		Reason       string `json:"reason,omitempty"`
+		Continue           bool                      `json:"continue"`
+		SystemMessage      string                    `json:"systemMessage,omitempty"`
+		Decision           string                    `json:"decision,omitempty"`
+		Reason             string                    `json:"reason,omitempty"`
+		HookSpecificOutput *geminiHookSpecificOutput `json:"hookSpecificOutput,omitempty"`
 	}
 
 	resp := geminiResponse{
 		Continue: result.Decision != "block" && result.Decision != "deny",
 	}
-
-	// Map AdditionalContext → systemPrompt (Gemini's context injection field).
-	if result.AdditionalContext != "" {
-		resp.SystemPrompt = result.AdditionalContext
+	if result.Message != "" {
+		resp.SystemMessage = result.Message
 	}
-
-	// Preserve decision/reason for blocking hooks (BeforeTool equivalent).
+	if result.AdditionalContext != "" {
+		resp.HookSpecificOutput = &geminiHookSpecificOutput{
+			HookEventName:     hookEventName,
+			AdditionalContext: result.AdditionalContext,
+		}
+	}
 	if result.Decision == "block" || result.Decision == "deny" {
 		resp.Decision = result.Decision
 		resp.Reason = result.Reason
@@ -416,11 +454,17 @@ func AllowForHarness(harness Harness) *HookResult {
 // appropriate for the detected harness. This replaces the harness-agnostic
 // WriteResult call in runHookNamed.
 func WriteResultForHarness(harness Harness, result *HookResult) error {
+	return WriteResultForHarnessEvent(harness, "", result)
+}
+
+// WriteResultForHarnessEvent encodes result as JSON with the hook event name
+// needed by Codex/Gemini hookSpecificOutput responses.
+func WriteResultForHarnessEvent(harness Harness, hookEventName string, result *HookResult) error {
 	switch harness {
 	case HarnessCodex:
-		return emitCodexResponse(os.Stdout, result)
+		return emitCodexResponseForEvent(os.Stdout, hookEventName, result)
 	case HarnessGemini, HarnessAntigravity:
-		return emitGeminiResponse(os.Stdout, result)
+		return emitGeminiResponseForEvent(os.Stdout, hookEventName, result)
 	default:
 		return emitClaudeResponse(os.Stdout, result)
 	}

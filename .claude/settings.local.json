@@ -757,7 +757,27 @@
       "Bash(export TMPDIR=/tmp/wipnote-gotest)",
       "Bash(export GOTMPDIR=/tmp/wipnote-gotest)",
       "Bash(mkdir -p /tmp/wipnote-gotest)",
-      "Bash(umask *)"
+      "Bash(umask *)",
+      "Bash(wipnote analytics *)",
+      "WebFetch(domain:hivetrail.com)",
+      "WebFetch(domain:www.inkandswitch.com)",
+      "WebFetch(domain:nesbitt.io)",
+      "WebFetch(domain:www.bugsink.com)",
+      "WebFetch(domain:codylindley.github.io)",
+      "WebFetch(domain:agents.md)",
+      "WebFetch(domain:antigravity.google)",
+      "WebFetch(domain:electric-sql.com)",
+      "WebFetch(domain:electric.ax)",
+      "WebFetch(domain:agentpedia.codes)",
+      "WebFetch(domain:softwaremill.com)",
+      "WebFetch(domain:techstackups.com)",
+      "WebFetch(domain:mlflow.org)",
+      "WebFetch(domain:a3nm.net)",
+      "WebFetch(domain:greptime.com)",
+      "WebFetch(domain:blog.skypilot.co)",
+      "WebFetch(domain:oldmoe.blog)",
+      "WebFetch(domain:wal.sh)",
+      "Bash(wipnote guard *)"
     ]
   },
   "enabledPlugins": {

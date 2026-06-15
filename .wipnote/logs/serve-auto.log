@@ -23,3 +23,21 @@ wipnote:            http://0.0.0.0:8088/
 Current project:     http://0.0.0.0:8088/p/f8093eb9/
 Press Ctrl+C to stop.
 wipnote: serve_child started managed writer daemon pid=5941
+2026/06/12 16:06:52 httputil: ReverseProxy read error during body copy: unexpected EOF
+wipnote: serve_child started managed writer daemon pid=575114
+2026/06/12 20:43:52 httputil: ReverseProxy read error during body copy: unexpected EOF
+2026/06/12 20:43:53 httputil: ReverseProxy read error during body copy: unexpected EOF
+wipnote:            http://0.0.0.0:8088/
+Current project:     http://0.0.0.0:8088/p/f8093eb9/
+Press Ctrl+C to stop.
+wipnote:            http://0.0.0.0:8088/
+Current project:     http://0.0.0.0:8088/p/f8093eb9/
+Press Ctrl+C to stop.
+wipnote: serve_child reusing existing writer daemon (lease held)
+wipnote:            http://0.0.0.0:8088/
+Current project:     http://0.0.0.0:8088/p/f8093eb9/
+Press Ctrl+C to stop.
+wipnote: serve_child started managed writer daemon pid=21572
+wipnote:            http://0.0.0.0:8088/
+Current project:     http://0.0.0.0:8088/p/f8093eb9/
+Press Ctrl+C to stop.

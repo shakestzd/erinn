@@ -15,10 +15,10 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/shakestzd/wipnote/core/agent"
 	"github.com/shakestzd/wipnote/core/db/writequeue"
 	"github.com/shakestzd/wipnote/core/paths"
 	"github.com/shakestzd/wipnote/core/storage"
-	"github.com/shakestzd/wipnote/core/agent"
 )
 
 // Runner bundles the optional dependencies needed by in-process hook
@@ -182,11 +182,17 @@ type HookResult struct {
 // read-only operations, and otherwise omits HookSpecificOutput entirely so CC
 // prompts as usual.
 type HookSpecificOutput struct {
-	// HookEventName echoes the event name back to CC (required by the
-	// structured-output contract, e.g. "PermissionRequest").
+	// HookEventName echoes the event name back to the harness for structured hook
+	// responses such as PermissionRequest, PreToolUse, and BeforeAgent.
 	HookEventName string `json:"hookEventName,omitempty"`
-	// Decision carries the behavior verdict. Nil ⇒ no opinion (prompt).
+	// Decision carries the Claude Code PermissionRequest behavior verdict. Nil ⇒ no opinion (prompt).
 	Decision *PermissionDecision `json:"decision,omitempty"`
+	// AdditionalContext is model-visible context appended by Codex/Gemini-style hooks.
+	AdditionalContext string `json:"additionalContext,omitempty"`
+	// PermissionDecision is Codex's PreToolUse permission verdict.
+	PermissionDecision string `json:"permissionDecision,omitempty"`
+	// PermissionDecisionReason is Codex's PreToolUse denial reason.
+	PermissionDecisionReason string `json:"permissionDecisionReason,omitempty"`
 }
 
 // PermissionDecision is the decision body inside HookSpecificOutput for the

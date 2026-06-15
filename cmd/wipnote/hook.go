@@ -301,11 +301,11 @@ func runHookNamed(subcommand string, handler func(*hooks.CloudEvent) (*hooks.Hoo
 			os.Exit(2)
 		}
 		hooks.LogError("runHook", event.SessionID, fmt.Sprintf("handler error: %v", err))
-		return hooks.WriteResultForHarness(harness, hooks.AllowForHarness(harness))
+		return hooks.WriteResultForHarnessEvent(harness, hookEventNameForResponse(subcommand, event), hooks.AllowForHarness(harness))
 	}
 	if result == nil {
 		hooks.LogError("runHook", event.SessionID, "handler returned nil result")
-		return hooks.WriteResultForHarness(harness, hooks.AllowForHarness(harness))
+		return hooks.WriteResultForHarnessEvent(harness, hookEventNameForResponse(subcommand, event), hooks.AllowForHarness(harness))
 	}
 
 	projectDir := hooks.ResolveProjectDir(event.CWD, event.SessionID)
@@ -316,5 +316,30 @@ func runHookNamed(subcommand string, handler func(*hooks.CloudEvent) (*hooks.Hoo
 	}, start, "completed")
 
 	// Emit the result in the harness-appropriate wire format.
-	return hooks.WriteResultForHarness(harness, result)
+	return hooks.WriteResultForHarnessEvent(harness, hookEventNameForResponse(subcommand, event), result)
+}
+
+func hookEventNameForResponse(subcommand string, _ *hooks.CloudEvent) string {
+	switch subcommand {
+	case "session-start":
+		return "SessionStart"
+	case "session-end":
+		return "SessionEnd"
+	case "user-prompt":
+		return "UserPromptSubmit"
+	case "pretooluse":
+		return "PreToolUse"
+	case "posttooluse":
+		return "PostToolUse"
+	case "after-agent":
+		return "AfterAgent"
+	case "after-model":
+		return "AfterModel"
+	case "task-started":
+		return "TaskStarted"
+	case "task-aborted":
+		return "TurnAborted"
+	default:
+		return ""
+	}
 }

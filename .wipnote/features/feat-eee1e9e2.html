@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>Inject wipnote orchestrator system prompt into wipnote antigravity at runtime</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="feat-eee1e9e2"
+             data-type="feature"
+             data-status="todo"
+             data-priority="medium"
+             data-created="2026-06-15T22:31:51.176641"
+             data-updated="2026-06-15T22:31:51.217186" data-agent-assigned="claude-code" data-track-id="trk-6a1f5362" data-created-by-agent="claude-code" data-created-by-model="claude-opus-4-8[1m]" data-created-by-cli-version="dev">
+
+        <header>
+            <h1>Inject wipnote orchestrator system prompt into wipnote antigravity at runtime</h1>
+            <div class="metadata">
+                <span class="badge status-todo">Todo</span>
+                <span class="badge priority-medium">Medium Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-6a1f5362.html" data-relationship="part_of" data-since="2026-06-15T22:31:51.217015">trk-6a1f5362</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>Headline parity gap: wipnote claude uses --append-system-prompt, codex uses -c model_instructions_file, gemini uses GEMINI_SYSTEM_MD; wipnote antigravity injects nothing at runtime (only a 48-line static GEMINI.md). agy has no --append-system-prompt flag. Primary approach: set GEMINI_SYSTEM_MD to a temp file with the composed orchestrator prompt in the antigravity launcher (mirror the gemini launcher path); fallback: emit a plugin-bundled rules/ file. Add an antigravity-system prompt source if a distinct one is warranted.</p>
+        </section>
+    </article>
+</body>
+</html>

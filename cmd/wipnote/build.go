@@ -59,8 +59,14 @@ func runBuild() error {
 	// "exit 127: not found" mid-rebuild (bug-8fd0fac2). os.Rename is atomic on
 	// the same filesystem and gives the new binary a fresh inode, so macOS does
 	// not reuse a cached code signature (the reason the old code removed first).
-	tmpBinary := binaryPath + ".tmp-build"
-	_ = os.Remove(tmpBinary)
+	// Unique temp name in the same dir so concurrent `wipnote build` runs don't
+	// clobber each other's in-progress output (roborev 296).
+	tmpFile, err := os.CreateTemp(installDir, "wipnote-build-*")
+	if err != nil {
+		return fmt.Errorf("create temp binary: %w", err)
+	}
+	tmpBinary := tmpFile.Name()
+	tmpFile.Close() // go build overwrites it; CreateTemp just reserves the name
 	goBuild := exec.Command("go", "build",
 		"-ldflags", fmt.Sprintf("-s -w -X main.version=%s", version),
 		"-o", tmpBinary,

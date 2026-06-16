@@ -26,9 +26,9 @@ meta:
         Three-layer model enforced throughout: session (ephemeral context) != worktree (ephemeral fs, GC'd)
         != work item (durable continuity).
     created_at: ""
-    status: draft
+    status: finalized
     schema_version: v3
-    version: 1
+    version: 2
 design:
     problem: |
         wipnote can launch the CLIs but cannot help a user RESUME coherently or isolate predictably.
@@ -59,6 +59,7 @@ design:
     comment: ""
 slices:
     - id: slice-1
+      feature_id: feat-9348de66
       num: 1
       title: Persist exec worktree path + branch per session (reconcile existing harness column)
       what: |
@@ -92,8 +93,9 @@ slices:
         Unit: TestSessionStart_HarnessPersisted — harness sourced from marker/env, rejects values outside the enum.
         Migration: opening a pre-migration DB adds columns without data loss.
       complexity: complex
-      approved: false
+      approved: true
       comment: ""
+      execution_status: promoted
       questions:
         - id: q-harness-source
           text: Harness from a new .launch-mode field or a WIPNOTE_HARNESS env set per launcher?
@@ -116,6 +118,7 @@ slices:
         **Rejected:** absolute paths (fail check-host-paths, break cross-host); a separate sessions_exec
         table (needless join at this cardinality).
     - id: slice-2
+      feature_id: feat-98096297
       num: 2
       title: Daemon resumable-session index (query + CLI + API)
       what: |
@@ -146,8 +149,9 @@ slices:
         Unit: TestResumableIndex_LiveFlag_MultiHarness — heartbeating claim live; stale Codex/Gemini crash not live.
         Integration: TestSessionsResumableCLI — seed sessions, assert JSON shape + ordering.
       complexity: complex
-      approved: false
+      approved: true
       comment: ""
+      execution_status: promoted
       questions:
         - id: q-index-grain
           text: Index rows keyed by work item or by individual session?
@@ -168,6 +172,7 @@ slices:
         **Rejected:** per-launcher index computation (drift); a materialized table (cheap join here; must
         not get stale vs liveness).
     - id: slice-3
+      feature_id: feat-b5411a1d
       num: 3
       title: Session-end handoff capture (write the existing, unwritten handoff columns)
       what: |
@@ -197,8 +202,9 @@ slices:
         Unit: TestHandoff_PointersNotContents — recommended_context stores paths/ids, not file bodies.
         Integration: TestContinueReadsHandoff — write at end, read non-empty on the next 'continue'.
       complexity: complex
-      approved: false
+      approved: true
       comment: ""
+      execution_status: promoted
       questions:
         - id: q-handoff-author
           text: Who composes the handoff content at SessionEnd — the harness via a final structured write, or a deterministic snapshot of work-item step state + git status?
@@ -215,6 +221,7 @@ slices:
         **Rejected:** lossy LLM summary into a prose blob (research: summaries drift and poison resume);
         a new table (columns already exist); storing file contents (bloat — keep pointers per Manus).
     - id: slice-4
+      feature_id: feat-a6f15eff
       num: 4
       title: Chooser core + intent flags + Claude launcher
       what: |
@@ -248,8 +255,9 @@ slices:
         Unit: TestIntentFlags_BypassPrompt — each flag short-circuits the chooser.
         Integration: TestClaudeLaunchChooser_PrintsResolvedTarget — transparency line on the Claude path.
       complexity: complex
-      approved: false
+      approved: true
       comment: ""
+      execution_status: promoted
       questions:
         - id: q-split-rationale
           text: Why split the chooser from the other three launchers?
@@ -267,6 +275,7 @@ slices:
         **Rejected:** always-on prompt with no bypass (breaks scripts/yolo/CI); infer-then-confirm
         (reintroduces guessing the user rejected); per-CLI worktree axis (item x CLI explosion).
     - id: slice-5
+      feature_id: feat-f63672dd
       num: 5
       title: Wire chooser into codex / gemini / antigravity + define auto-config reposition
       what: |
@@ -296,8 +305,9 @@ slices:
         Unit: TestCodexChooser_NonTTYBypass / TestGeminiChooser_NonTTYBypass / TestAntigravityChooser_NonTTYBypass.
         Unit: TestAutoConfig_TTYvsNonTTY — auto => chooser on TTY, adhoc/spike on non-TTY.
       complexity: complex
-      approved: false
+      approved: true
       comment: ""
+      execution_status: promoted
       questions:
         - id: q-auto-supersede
           text: When the chooser ships and config still says launch_isolation=auto, does auto invoke the chooser or get superseded?
@@ -314,6 +324,7 @@ slices:
         **Rejected:** duplicating chooser logic per launcher (drift); leaving auto-config semantics
         implicit (non-deterministic transition).
     - id: slice-6
+      feature_id: feat-56b5319e
       num: 6
       title: Two-level resume with worktree reuse, re-hydration, and failure-edge handling
       what: |
@@ -356,8 +367,9 @@ slices:
         Unit: TestContinue_MissingWorktreeRecreates / TestContinue_DeletedBranch / TestContinue_LiveClaimBlocks — the three edges.
         Cross-harness: TestContinue_AllLaunchers — table test asserting continue routing + handoff re-hydration for claude/codex/gemini/antigravity (shared code path; per-launcher transcript flag mapping).
       complexity: complex
-      approved: false
+      approved: true
       comment: ""
+      execution_status: promoted
       questions:
         - id: q-resume-default
           text: Default continue = fresh session re-hydrated from the work item, or transcript replay?
@@ -378,6 +390,7 @@ slices:
         **Rejected:** transcript replay as default (bloat per Anthropic/Amp); fresh worktree on resume
         (defeats reuse, causes base divergence).
     - id: slice-7
+      feature_id: feat-e3005c7f
       num: 7
       title: Snapshot-safe empty-spike and worktree GC (SessionEnd + TTL, both covered)
       what: |
@@ -408,8 +421,9 @@ slices:
         Unit: TestGC_PreservesDirtyWorktree_WithSnapshot — uncommitted change => kept + snapshot ref created.
         Unit: TestGC_TTLSweep_RespectsLockAndLiveness — locked/live worktree skipped (distinct from the SessionEnd path).
       complexity: complex
-      approved: false
+      approved: true
       comment: ""
+      execution_status: promoted
       questions:
         - id: q-snapshot-form
           text: Snapshot dirty worktrees as a git ref/branch or a patch file under .wipnote?
@@ -430,6 +444,7 @@ slices:
         **Rejected:** unconditional TTL deletion (#46444 class bug); summarizing/discarding dirty worktrees;
         GC keyed on session rather than worktree emptiness (races live reuse).
     - id: slice-8
+      feature_id: feat-d0ba5f2d
       num: 8
       title: Web dashboard resume view
       what: |
@@ -455,8 +470,9 @@ slices:
         Integration: TestDashboardResumePanel — endpoint returns rows; panel renders them.
         Manual: smoke-test in `wipnote serve --bind 0.0.0.0 --port 8088`.
       complexity: standard
-      approved: false
+      approved: true
       comment: ""
+      execution_status: promoted
       questions:
         - id: q-web-actions
           text: Read-only command display, or actionable launch buttons?

@@ -320,31 +320,41 @@ slices:
         Implement "continue": pick a work item from the index, REUSE its existing worktree (EnsureFor*
         reuse path via launcher_mode.go resolveManagedWorktreeStatus — never create a second), route exec
         into the recorded exec_worktree_path (slice 1) with canonical WIPNOTE_PROJECT_DIR, and re-hydrate
-        the slice-3 handoff into the new session. Offer an optional second level: transcript resume via
-        the harness flag (`claude --resume <id>` etc.) for same-day pickup; default is a fresh session
-        re-hydrated from the work item. Define the three failure edges explicitly.
+        the slice-3 handoff into the new session. This MUST work for ALL FOUR launchers, not just Claude:
+        continue/resume routing, handoff re-hydration, and live-claim blocking apply uniformly across
+        claude/codex/gemini/antigravity, each using its own transcript-resume flag for the optional
+        second level (`claude --resume <id>`, `codex resume <id>`, `gemini --resume <id|uuid>`,
+        `agy --conversation=<id>`). Default is a fresh session re-hydrated from the work item. Define the
+        three failure edges explicitly.
       why: |
         Closes the continuity loop without bloat (durable work item primary, transcript optional) and
-        makes resume robust to the normal passage of time between sessions.
+        makes resume robust to the normal passage of time between sessions — and it must be harness-neutral
+        so resume is not a Claude-only privilege.
       files:
         - cmd/wipnote/launcher_mode.go
         - cmd/wipnote/claude.go
+        - cmd/wipnote/codex.go
+        - cmd/wipnote/gemini.go
+        - cmd/wipnote/antigravity.go
         - core/worktree/worktree.go
       deps:
         - 3
         - 4
+        - 5
       done_when:
         - 'Continuing a work item re-enters its EXISTING worktree (asserted: created=false, no second worktree).'
         - Resume routes into the recorded exec_worktree_path even when invoked elsewhere, with canonical WIPNOTE_PROJECT_DIR, and re-hydrates a non-empty handoff.
         - 'Failure edge — GC''d/missing worktree: ''continue'' recreates it from the recorded branch (or errors with guidance if the branch is gone), never silently lands on the wrong dir.'
         - 'Failure edge — deleted/merged branch: ''continue'' detects the missing branch and offers to branch from the merged base (or errors), rather than failing opaquely.'
         - 'Failure edge — concurrent live claim: when the chosen item is flagged live, the chooser warns and blocks by default (claims layer), with a clear message; it does not silently hijack.'
+        - 'Cross-harness: continue/resume routing, handoff re-hydration, and live-claim blocking are verified for ALL FOUR launchers (claude/codex/gemini/antigravity), each invoking its own transcript-resume flag — not Claude-only.'
       effort: M
       risk: High
       tests: |
         Unit: TestContinue_ReusesWorktree — second continue reuses, created=false.
         Unit: TestResume_RoutesToRecordedWorktree_AndHandoff — exec dir matches stored path; project_dir canonical; handoff non-empty.
         Unit: TestContinue_MissingWorktreeRecreates / TestContinue_DeletedBranch / TestContinue_LiveClaimBlocks — the three edges.
+        Cross-harness: TestContinue_AllLaunchers — table test asserting continue routing + handoff re-hydration for claude/codex/gemini/antigravity (shared code path; per-launcher transcript flag mapping).
       complexity: complex
       approved: false
       comment: ""
@@ -356,6 +366,9 @@ slices:
         - source: local-design
           severity: DANGER
           summary: 'RESOLVED: three undefined ''continue'' failure edges (GC''d worktree, deleted branch, concurrent live claim) now have explicit done_when + decisions.'
+        - source: roborev-301
+          severity: MEDIUM
+          summary: 'RESOLVED: continue/resume was Claude-only. Now depends on slice 5, covers all four launchers (files + per-launcher transcript flags + TestContinue_AllLaunchers), so resume is harness-neutral.'
       decisions_notes: |
         **Trigger:** chooser "continue" or --continue/--work-item on an item with recorded exec state.
         **State:** reads slice-1 exec path + slice-2 index + slice-3 handoff; reuses worktree via existing Ensure* reuse.
@@ -503,7 +516,7 @@ critique:
           mitigation: Split into slice 4 (core+Claude) and slice 5 (codex/gemini/antigravity) with per-launcher non-TTY bypass criteria.
         - risk: 'feat-d805d64f reposition under-specified (was: dep unmerged — now RESOLVED, merged to main 4ea6598a0).'
           severity: Low
-          mitigation: Dependency merged into baseline (A3); slice 5 defines auto-config semantics (TTL→chooser on TTY, adhoc/spike on non-TTY).
+          mitigation: Dependency merged into baseline (A3); slice 5 defines auto-config semantics (TTY→chooser, non-TTY→adhoc/spike).
         - risk: Snapshot of a detached-HEAD managed worktree needs collision-safe naming.
           severity: Low
           mitigation: 'Slice 7 q-snapshot-form: deterministic snapshot ref name + patch fallback; never delete without a recoverable snapshot.'

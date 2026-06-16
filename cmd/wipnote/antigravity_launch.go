@@ -154,7 +154,14 @@ func execAntigravity(opts antigravityLaunchOpts) error {
 	env = buildAntigravityOtelEnv(env, otelPort, otelSessionID)
 
 	if otelSessionID != "" && effectiveProjDir != "" {
-		familyID := resolveSessionFamilyID(effectiveProjDir, otelSessionID, "", false)
+		// A resumed launch (--continue or --resume <id>) must join the existing
+		// session family, not start a new one, so dashboard/observability
+		// grouping matches the other resume-capable launchers. agy's --resume ID
+		// is a conversation ID, not a wipnote session ID, so pass "" as the
+		// resumed session ID and rely on resolveSessionFamilyID's most-recent
+		// path (mirrors gemini_launch.go).
+		isResume := opts.Continue || opts.ResumeID != ""
+		familyID := resolveSessionFamilyID(effectiveProjDir, otelSessionID, "", isResume)
 		env = setOrReplaceEnv(env, "WIPNOTE_SESSION_FAMILY_ID", familyID)
 		persistLauncherSessionFamily(effectiveProjDir, otelSessionID, "antigravity", familyID)
 	}

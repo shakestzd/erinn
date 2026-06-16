@@ -4,9 +4,30 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"strconv"
 	"strings"
 	"syscall"
 )
+
+// tmuxFlagEnabled reports whether the --tmux flag is set AND truthy in args.
+// Bare "--tmux" is enabled; "--tmux=<v>" honors the boolean value, so an
+// explicit "--tmux=false" / "--tmux=0" is correctly treated as disabled rather
+// than enabled by mere prefix presence. An unparseable value defaults to
+// enabled (cobra rejects bad bools before this runs).
+func tmuxFlagEnabled(args []string) bool {
+	for _, a := range args {
+		if a == "--tmux" {
+			return true
+		}
+		if v, ok := strings.CutPrefix(a, "--tmux="); ok {
+			if b, err := strconv.ParseBool(v); err == nil {
+				return b
+			}
+			return true
+		}
+	}
+	return false
+}
 
 // tmuxWrapAction describes what maybeTmuxWrap should do.
 type tmuxWrapAction int
@@ -67,14 +88,8 @@ func stripTmuxFlag(args []string) []string {
 // When re-exec is needed, this function does not return (on Unix) — it replaces
 // the process via syscall.Exec.
 func maybeTmuxWrap(sessionName string) error {
-	// Determine whether --tmux flag was present via os.Args inspection.
-	tmuxFlag := false
-	for _, a := range os.Args {
-		if a == "--tmux" || strings.HasPrefix(a, "--tmux=") {
-			tmuxFlag = true
-			break
-		}
-	}
+	// Determine whether --tmux was set and truthy via os.Args inspection.
+	tmuxFlag := tmuxFlagEnabled(os.Args)
 
 	tmuxEnv := os.Getenv("TMUX")
 	_, lookErr := exec.LookPath("tmux")

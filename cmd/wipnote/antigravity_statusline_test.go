@@ -1,6 +1,37 @@
 package main
 
-import "testing"
+import (
+	"os"
+	"path/filepath"
+	"strings"
+	"testing"
+)
+
+// TestEnsureAntigravityStatusLine_NullSettings guards against a panic when the
+// existing agy settings.json is a literal `null` (unmarshals to a nil map).
+func TestEnsureAntigravityStatusLine_NullSettings(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("WIPNOTE_ANTIGRAVITY_STATUSLINE", "")
+	settingsPath := filepath.Join(home, ".gemini", "antigravity-cli", "settings.json")
+	if err := os.MkdirAll(filepath.Dir(settingsPath), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(settingsPath, []byte("null"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	// Must not panic on the nil map produced by unmarshalling `null`.
+	ensureAntigravityStatusLine(false)
+
+	raw, err := os.ReadFile(settingsPath)
+	if err != nil {
+		t.Fatalf("settings.json unreadable after ensure: %v", err)
+	}
+	if !strings.Contains(string(raw), "statusLine") {
+		t.Errorf("statusLine not written into settings.json; got: %s", raw)
+	}
+}
 
 func TestIsWipnoteStatusLineCommand(t *testing.T) {
 	cases := map[string]bool{

@@ -95,6 +95,11 @@ func ensureAntigravityStatusLine(dryRun bool) {
 			fmt.Fprintf(os.Stderr, "warning: could not parse agy settings.json; skipping statusline setup: %v\n", err)
 			return
 		}
+		// A literal `null` (or a non-object top-level value) unmarshals into a
+		// nil map; re-init so the later statusLine assignment can't panic.
+		if settings == nil {
+			settings = map[string]any{}
+		}
 	}
 
 	if !mergeAntigravityStatusLine(settings, antigravityStatusLineCommand()) {

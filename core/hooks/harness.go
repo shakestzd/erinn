@@ -466,11 +466,63 @@ func WriteResultForHarnessEvent(harness Harness, hookEventName string, result *H
 	switch harness {
 	case HarnessCodex:
 		return emitCodexResponseForEvent(os.Stdout, hookEventName, result)
-	case HarnessGemini, HarnessAntigravity:
+	case HarnessAntigravity:
+		return emitAntigravityResponseForEvent(os.Stdout, hookEventName, result)
+	case HarnessGemini:
 		return emitGeminiResponseForEvent(os.Stdout, hookEventName, result)
 	default:
 		return emitClaudeResponse(os.Stdout, result)
 	}
+}
+
+// emitAntigravityResponseForEvent writes the Antigravity CLI (agy) hook-result
+// wire format. agy decodes a hook's stdout as a protojson hook-result message
+// and STRICT-rejects unknown fields — the Gemini-shaped {"continue":true,...}
+// response fails with `unknown field "continue"` (verified live, agy v1.0.8),
+// so every hook's output was being discarded. A no-op / allow must therefore be
+// an empty object "{}".
+//
+// On the PreInvocation event, wipnote injects model-visible context via the
+// result's injectSteps[].systemMessage channel: the orchestrator system prompt
+// (from the file named by WIPNOTE_ANTIGRAVITY_SYSTEM_MD, written by the
+// launcher) plus any per-prompt additionalContext the handler produced. agy
+// merges duplicate system messages across turns, so re-injecting every turn is
+// cheap. This is the only working channel to convey the wipnote orchestrator
+// directives to agy (GEMINI_SYSTEM_MD / additionalContext / plugin context are
+// all ignored by agy).
+//
+// Block/deny enforcement (PreToolUse) is not yet wired for agy: a blocking
+// result still emits "{}" (allow). agy's pre-tool deny shape needs live
+// confirmation; until then this is no worse than the prior all-rejected state.
+func emitAntigravityResponseForEvent(w io.Writer, hookEventName string, result *HookResult) error {
+	if hookEventName == "PreInvocation" {
+		var sb strings.Builder
+		if p := os.Getenv("WIPNOTE_ANTIGRAVITY_SYSTEM_MD"); p != "" {
+			if data, err := os.ReadFile(p); err == nil {
+				sb.WriteString(strings.TrimSpace(string(data)))
+			}
+		}
+		if result != nil && result.AdditionalContext != "" {
+			if sb.Len() > 0 {
+				sb.WriteString("\n\n")
+			}
+			sb.WriteString(strings.TrimSpace(result.AdditionalContext))
+		}
+		if sb.Len() > 0 {
+			type injectedStep struct {
+				SystemMessage string `json:"systemMessage"`
+			}
+			type preInvocationResult struct {
+				InjectSteps []injectedStep `json:"injectSteps"`
+			}
+			return json.NewEncoder(w).Encode(preInvocationResult{
+				InjectSteps: []injectedStep{{SystemMessage: sb.String()}},
+			})
+		}
+	}
+	// Allow / no-op. agy's strict protojson decoder accepts an empty object.
+	_, err := io.WriteString(w, "{}\n")
+	return err
 }
 
 // ParseEventForHarness reads the raw payload bytes and returns a CloudEvent

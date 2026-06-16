@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>Runtime/session files tracked in git despite .wipnote/.gitignore — dirty working tree on every session</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="bug-a4d7d14c"
+             data-type="bug"
+             data-status="todo"
+             data-priority="medium"
+             data-created="2026-06-16T17:46:16.318508"
+             data-updated="2026-06-16T17:46:16.482818" data-agent-assigned="claude-code" data-track-id="trk-6a1f5362" data-created-by-agent="claude-code" data-created-by-model="claude-opus-4-8[1m]" data-created-by-cli-version="0.62.2-46-gdc8886628">
+
+        <header>
+            <h1>Runtime/session files tracked in git despite .wipnote/.gitignore — dirty working tree on every session</h1>
+            <div class="metadata">
+                <span class="badge status-todo">Todo</span>
+                <span class="badge priority-medium">Medium Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-6a1f5362.html" data-relationship="part_of" data-since="2026-06-16T17:46:16.482629">trk-6a1f5362</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>9 files are git-tracked even though .wipnote/.gitignore already lists them: .active-session, .launch-mode, debug.log, logs/serve-auto.log, logs/serve-*.log, logs/writer.log(.1/.2), session-families.json. They were committed before the ignore rules existed; gitignore does not untrack already-tracked paths, so every session rewrites them and dirties the working tree (the exact churn that makes concurrent sessions on main conflict). Fix: git rm --cached the affected paths and commit; verify .gitignore covers each so they stay untracked. Files remain on disk (no data loss). Observability is unaffected — these are runtime artifacts, not canonical work-item HTML.</p>
+        </section>
+    </article>
+</body>
+</html>

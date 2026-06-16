@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/hex"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -17,16 +18,42 @@ import (
 
 func statuslineCmd() *cobra.Command {
 	var sessionID string
+	var cacheMode bool
 
 	cmd := &cobra.Command{
 		Use:   "statusline",
-		Short: "Print the active work item for Claude Code status line",
+		Short: "Print the active work item for a harness status line",
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if cacheMode {
+				return runStatuslineCache()
+			}
 			return runStatusline(sessionID)
 		},
 	}
 	cmd.Flags().StringVar(&sessionID, "session", "", "Session ID to scope the active work item lookup")
+	cmd.Flags().BoolVar(&cacheMode, "cache", false, "Render the project-scoped active work item from the launch cache (session-independent; used by harnesses like Antigravity that do not key statusline commands to a wipnote session)")
 	return cmd
+}
+
+// runStatuslineCache renders the project-scoped active work item from the
+// launch cache written by `wipnote feature start`. It is session-independent:
+// the cache is keyed by a hash of the project's .wipnote/ dir, so the value is
+// correct for whichever project the current working directory belongs to and
+// never bleeds across projects. Any piped stdin (harness agent-state JSON) is
+// drained and ignored — the work item comes from the cache, not the session.
+func runStatuslineCache() error {
+	// Drain stdin so the harness's pipe writer never blocks on a full buffer.
+	if fi, err := os.Stdin.Stat(); err == nil && (fi.Mode()&os.ModeCharDevice) == 0 {
+		_, _ = io.Copy(io.Discard, os.Stdin)
+	}
+	dir, err := findWipnoteDir()
+	if err != nil {
+		return nil
+	}
+	if line := ReadStatuslineCache(dir); line != "" {
+		fmt.Println(line)
+	}
+	return nil
 }
 
 func runStatusline(sessionID string) error {

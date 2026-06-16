@@ -101,6 +101,7 @@ func launchAntigravityDefault(trackID, featureID, worktreePath, workItem string,
 	if !dryRun {
 		ensureAntigravityExtensionLinked()
 	}
+	ensureAntigravityStatusLine(dryRun)
 
 	if workItem != "" && !dryRun {
 		if err := runFeatureStart(workItem); err != nil {

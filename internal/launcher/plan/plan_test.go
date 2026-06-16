@@ -229,6 +229,84 @@ func TestLauncherPlan_EnforceIsolationRefusesDirtyMain(t *testing.T) {
 	}
 }
 
+// TestLauncherPlan_AutoWorktreeIsolatesWithoutWorkItem verifies the "auto"
+// launch_isolation mode: even with an empty WorkItemID, when AutoWorktree is set
+// and the caller supplies a deterministic AdhocBranchName, PlanLaunch selects a
+// managed worktree whose planned path uses the ad-hoc slug. This keeps the test
+// deterministic — PlanLaunch never reads the clock.
+func TestLauncherPlan_AutoWorktreeIsolatesWithoutWorkItem(t *testing.T) {
+	dir := setupGitRepo(t)
+
+	in := plan.Input{
+		RepoRoot:         dir,
+		WorkItemID:       "",
+		RuntimeMode:      mode.RuntimeHost,
+		InPlace:          false,
+		EnforceIsolation: true,
+		AutoWorktree:     true,
+		AdhocBranchName:  "adhoc-20260616-120000",
+	}
+	p, err := plan.PlanLaunch(in)
+	if err != nil {
+		t.Fatalf("PlanLaunch: %v", err)
+	}
+	if p.IsolationMode != plan.IsolationManagedWorktree {
+		t.Errorf("auto + no work item: want IsolationManagedWorktree, got %v", p.IsolationMode)
+	}
+	wantPath := filepath.Join(dir, ".claude", "worktrees", "adhoc-20260616-120000")
+	if p.PlannedWorktreePath != wantPath {
+		t.Errorf("auto worktree path: want %q, got %q", wantPath, p.PlannedWorktreePath)
+	}
+}
+
+// TestLauncherPlan_AutoWithoutAdhocNameStaysWarnOnly verifies the caller contract:
+// AutoWorktree without an AdhocBranchName cannot name a branch, so PlanLaunch
+// falls back to warn-only rather than guessing a name.
+func TestLauncherPlan_AutoWithoutAdhocNameStaysWarnOnly(t *testing.T) {
+	dir := setupGitRepo(t)
+
+	in := plan.Input{
+		RepoRoot:     dir,
+		WorkItemID:   "",
+		RuntimeMode:  mode.RuntimeHost,
+		AutoWorktree: true,
+	}
+	p, err := plan.PlanLaunch(in)
+	if err != nil {
+		t.Fatalf("PlanLaunch: %v", err)
+	}
+	if p.IsolationMode == plan.IsolationManagedWorktree {
+		t.Error("auto without ad-hoc name: must not select managed-worktree (cannot name a branch)")
+	}
+}
+
+// TestLauncherPlan_AutoInPlaceWins verifies --in-place beats auto mode: the
+// explicit opt-out short-circuits before any worktree planning.
+func TestLauncherPlan_AutoInPlaceWins(t *testing.T) {
+	dir := setupGitRepo(t)
+	makeDirty(t, dir)
+
+	in := plan.Input{
+		RepoRoot:         dir,
+		WorkItemID:       "",
+		RuntimeMode:      mode.RuntimeHost,
+		InPlace:          true,
+		EnforceIsolation: true,
+		AutoWorktree:     true,
+		AdhocBranchName:  "adhoc-20260616-120000",
+	}
+	p, err := plan.PlanLaunch(in)
+	if err != nil {
+		t.Fatalf("PlanLaunch: %v", err)
+	}
+	if p.IsolationMode != plan.IsolationExplicitInPlace {
+		t.Errorf("auto + --in-place: want IsolationExplicitInPlace, got %v", p.IsolationMode)
+	}
+	if p.RefuseLaunch {
+		t.Error("auto + --in-place: explicit opt-out must never refuse")
+	}
+}
+
 func TestLauncherPlan_NoWorkItemSkipsWorktree(t *testing.T) {
 	dir := setupGitRepo(t)
 

@@ -124,6 +124,46 @@ func EnsureForFeatureStatus(featureID, repoRoot string, w io.Writer) (string, bo
 	return resolved, true, nil
 }
 
+// EnsureForAdhocStatus ensures a git worktree exists for an ad-hoc (no work item)
+// isolated session, using the given slug as both the directory name under
+// .claude/worktrees/<slug> and the branch name. It mirrors EnsureForFeatureStatus
+// but skips track resolution because an ad-hoc session has no work-item identity.
+//
+// This backs the "auto" launch_isolation mode: a bare `wipnote claude` with no
+// --work-item still isolates into a managed worktree. created is true only when a
+// NEW worktree was created on disk this call (see EnsureForFeatureStatus for the
+// contract). The slug must be non-empty; an empty slug returns an error rather
+// than silently checking out the repo root.
+func EnsureForAdhocStatus(slug, repoRoot string, w io.Writer) (string, bool, error) {
+	if strings.TrimSpace(slug) == "" {
+		return "", false, fmt.Errorf("ad-hoc worktree requires a non-empty slug")
+	}
+
+	worktreePath := filepath.Join(repoRoot, ".claude", "worktrees", slug)
+	branchName := slug
+
+	// Reuse existing worktree.
+	if _, err := os.Stat(worktreePath); err == nil {
+		fmt.Fprintf(w, "  Worktree: %s (reusing existing)\n", worktreePath)
+		return worktreePath, false, nil
+	}
+
+	resolved, created, err := addOrAttachWorktree(repoRoot, worktreePath, branchName)
+	if err != nil {
+		return "", false, err
+	}
+	if !created {
+		fmt.Fprintf(w, "  Worktree: %s (reusing existing)\n", resolved)
+		return resolved, false, nil
+	}
+
+	fmt.Fprintf(w, "  Worktree: %s (branch: %s)\n", resolved, branchName)
+	excludeWipnoteFromWorktree(resolved, w)
+	reindexWorktree(resolved, w)
+
+	return resolved, true, nil
+}
+
 // EnsureForTrack ensures a git worktree exists for the given track and returns its path.
 // Progress is written to w; pass io.Discard to suppress output.
 func EnsureForTrack(trackID, repoRoot string, w io.Writer) (string, error) {

@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
+	"time"
 
 	"github.com/shakestzd/wipnote/internal/launcher/mode"
 	"github.com/shakestzd/wipnote/internal/launcher/plan"
@@ -43,12 +45,27 @@ func computeLauncherMode(worktreePath string, devPlugin, generatedPort bool) Lau
 // enforceLaunchPlan can use it.
 func applyLaunchPlanOpts(repoRoot, workItemID string, inPlace, suppressDirtyWarning bool, w io.Writer) plan.LaunchPlan {
 	m := mode.Compute("", false, false, false)
+
+	// Resolve effective isolation from .wipnote/config.json ("launch_isolation")
+	// ORed with the legacy WIPNOTE_ENFORCE_ISOLATION env var. Absent config keeps
+	// today's warn-only behavior (backward compatible).
+	enforce, autoWorktree := resolveIsolationFlags(repoRoot)
+
+	// In auto mode with no work item, supply a deterministic ad-hoc branch slug so
+	// PlanLaunch can plan a managed worktree without reading the clock itself.
+	var adhoc string
+	if autoWorktree && workItemID == "" && !inPlace {
+		adhoc = adhocBranchName(time.Now())
+	}
+
 	p, err := plan.PlanLaunch(plan.Input{
-		RepoRoot:    repoRoot,
-		WorkItemID:  workItemID,
-		RuntimeMode: m.Runtime,
-		InPlace:     inPlace,
-		EnforceIsolation: os.Getenv("WIPNOTE_ENFORCE_ISOLATION") == "true",
+		RepoRoot:         repoRoot,
+		WorkItemID:       workItemID,
+		RuntimeMode:      m.Runtime,
+		InPlace:          inPlace,
+		EnforceIsolation: enforce,
+		AutoWorktree:     autoWorktree,
+		AdhocBranchName:  adhoc,
 	})
 	if err != nil {
 		return p
@@ -120,6 +137,13 @@ func resolveManagedWorktreeStatus(p plan.LaunchPlan, projectRoot, trackID, featu
 		return path, created, err
 	case workItemID != "":
 		path, created, err := worktree.EnsureForFeatureStatus(workItemID, projectRoot, w)
+		return path, created, err
+	case p.PlannedWorktreePath != "":
+		// Auto mode with no work item: the plan named an ad-hoc worktree (its
+		// directory basename is the deterministic adhoc slug). Create it under
+		// .claude/worktrees/<slug> consistent with plannedWorktreePath.
+		slug := filepath.Base(p.PlannedWorktreePath)
+		path, created, err := worktree.EnsureForAdhocStatus(slug, projectRoot, w)
 		return path, created, err
 	}
 	return fallbackDir, false, nil

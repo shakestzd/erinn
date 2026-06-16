@@ -49,8 +49,20 @@ type Input struct {
 	// Empty defaults to the current HEAD branch.
 	BaseBranch string
 	// EnforceIsolation, when true, upgrades the host warn-only guard to a hard
-	// refusal. This is gated off by default (slice-9 will expose via config).
+	// refusal. Exposed via the .wipnote/config.json "launch_isolation" key
+	// ("enforce"/"auto") and the WIPNOTE_ENFORCE_ISOLATION=true env var.
 	EnforceIsolation bool
+	// AdhocBranchName, when set, supplies a deterministic worktree/branch slug to
+	// use when there is no WorkItemID but isolation is still desired (auto mode).
+	// PlanLaunch stays pure: the CALLER computes this name (e.g. an
+	// "adhoc-<UTC timestamp>" slug) and passes it in, so PlanLaunch never reads
+	// the clock. When set and AutoWorktree is true, an IsolationManagedWorktree is
+	// planned even with an empty WorkItemID.
+	AdhocBranchName string
+	// AutoWorktree, when true, requests isolation even with NO WorkItemID: a bare
+	// `wipnote claude` will still plan a managed (ad-hoc) worktree. This maps to
+	// the "auto" launch_isolation config value. Implies EnforceIsolation.
+	AutoWorktree bool
 }
 
 // LaunchPlan is the computed isolation decision returned by PlanLaunch.
@@ -104,8 +116,15 @@ func PlanLaunch(in Input) (LaunchPlan, error) {
 		}
 	}
 
-	// Without a work-item ID we cannot create a deterministically-named branch.
+	// Without a work-item ID we normally cannot create a deterministically-named
+	// branch. Auto mode lifts this: the caller supplies an ad-hoc branch slug so a
+	// bare session (no work item) still isolates into a managed worktree.
 	if in.WorkItemID == "" {
+		if in.AutoWorktree && in.AdhocBranchName != "" {
+			p.IsolationMode = IsolationManagedWorktree
+			p.PlannedWorktreePath = plannedWorktreePath(in.RepoRoot, in.AdhocBranchName)
+			return p, nil
+		}
 		p.IsolationMode = IsolationWarnOnly
 		return p, nil
 	}

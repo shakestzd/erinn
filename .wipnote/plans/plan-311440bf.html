@@ -505,7 +505,7 @@ body.right-rail-collapsed .sidebar-reopen{display:flex}
 - runtime: core/worktree/worktree.go:95-150 (read 2026-06-16): EnsureForFeature/TrackStatus REUSE an existing worktree on os.Stat hit (created=false). The actual reuse call lives in launcher callers (launcher_mode.go resolveManagedWorktreeStatus), not in PlanLaunch.
 - runtime: go.mod (read 2026-06-16): no TUI lib vendored (cobra + mattn/go-isatty only) — stdlib prompt for v1 is the correct adopt-vs-build call; isatty already available for TTY detection.
 
-DEPENDENCY/BASELINE NOTE: feat-d805d64f (branch feat-d805d64f-launch-isolation-config, commit a30f100bf) is NOT yet merged to main. It introduced the `launch_isolation` config key and `EnsureForAdhocStatus` (`adhoc-<timestamp>` worktrees). This plan REPOSITIONS that auto/adhoc mode as the non-interactive fallback and therefore DEPENDS ON feat-d805d64f merging first (or absorbing its fallback into slice 5). On main today, EnsureForAdhocStatus does not exist — do not assume it.
+BASELINE NOTE: feat-d805d64f is now MERGED to main (cherry-picked as commit 4ea6598a0, 2026-06-16; build/vet + feature tests verified green against current main). It introduced the `launch_isolation` config key and `EnsureForAdhocStatus` (`adhoc-<timestamp>` worktrees). This plan REPOSITIONS that auto/adhoc mode as the non-interactive fallback — the dependency is SATISFIED, and slice 5 builds on it directly. HARNESS-SOURCE DECISION (settled): per-session durability analysis chose `WIPNOTE_HARNESS` env as the primary source (process-scoped, race-free, no staleness, rides the proven WIPNOTE_PROJECT_DIR injection channel) over the `.launch-mode` file field (shared-file last-writer-wins race — the same churn class we just untracked). See slice 1 q-harness-source.
 
 Replace auto-guessed worktree creation with a USER-DECLARED intent flow shared by all four CLI
 launchers (claude/codex/gemini/antigravity). Bare interactive launch asks "continue prior work or
@@ -561,7 +561,7 @@ Three-layer model enforced throughout: session (ephemeral context) != worktree (
     <h4>Problem</h4>
 <div data-markdown>wipnote can launch the CLIs but cannot help a user RESUME coherently or isolate predictably.
 Today: (1) the only resume is the harness&#39;s own transcript replay (directory-scoped, bloats
-context); (2) isolation is auto-inferred and the unmerged feat-d805d64f auto mode mints
+context); (2) isolation is auto-inferred and the (now-merged) feat-d805d64f auto mode mints
 non-deterministic `adhoc-&lt;timestamp&gt;` worktrees that are unresumable and accumulate; (3) the sessions
 table records transcript_path + canonical project_dir but NOT the exec worktree/branch, so nothing
 can route a resume back; and (4) the handoff columns that should carry continuity exist in the
@@ -582,7 +582,7 @@ exactly what was chosen.
 <h4>Constraints</h4>
 <ul>
 <li data-markdown>Canonical observability identity stays anchored to the main repo root via WIPNOTE_PROJECT_DIR + git-common-dir; worktrees are execution dirs only (delivered by plan-1670cacd / plan-2133adf2).</li>
-<li data-markdown>Depends on feat-d805d64f (unmerged): the non-interactive fallback reuses its launch_isolation config + EnsureForAdhocStatus. Merge it first, or absorb the adhoc/spike fallback into slice 5&#39;s scope.</li>
+<li data-markdown>Builds on feat-d805d64f (MERGED to main as commit 4ea6598a0, 2026-06-16): the non-interactive fallback reuses its launch_isolation config + EnsureForAdhocStatus, now in the baseline.</li>
 <li data-markdown>No new mandatory runtime dependency for the TUI — go.mod has no TUI lib; v1 uses a stdlib prompt + the already-available mattn/go-isatty.</li>
 <li data-markdown>The interactive prompt must never block non-TTY, piped, yolo, or CI invocations; flags always win over the prompt.</li>
 <li data-markdown>Cross-harness: the chooser and daemon index are harness-neutral; only the final exec wiring differs per CLI.</li>
@@ -1361,8 +1361,7 @@ three launchers keeps this high-risk slice testable and prevents a per-launcher 
 (codex/gemini/antigravity), each with its own non-TTY-bypass coverage. Define the feat-d805d64f
 <code>launch_isolation: auto</code> reposition precisely: on a TTY, auto invokes the chooser; on non-TTY/
 yolo/CI, auto falls back to the deterministic adhoc/spike worktree (EnsureForAdhocStatus from
-feat-d805d64f). This slice assumes feat-d805d64f is merged (see baseline note); if not, it absorbs
-that fallback.</p>
+feat-d805d64f, now merged to main as commit 4ea6598a0).</p>
 </div>
           <label for="slice-5-what-reveal" class="reveal-label">Show full description</label>
           
@@ -1404,8 +1403,8 @@ feat-d805d64f is not surprising.</p>
         <input type="checkbox" id="slice-5-decisions-reveal" class="reveal-toggle">
         <div class="markdown-block reveal-content serif-prose"><p><strong>Trigger:</strong> bare interactive launch of codex/gemini/antigravity; auto-config resolution at launch.
 <strong>State:</strong> same chooser + index as slice 4; reads launch_isolation from .wipnote/config.json.
-<strong>Dependency (A3):</strong> EnsureForAdhocStatus + launch_isolation exist only on the unmerged
-feat-d805d64f branch — merge first or absorb the fallback here.
+<strong>Dependency (A3 resolved):</strong> EnsureForAdhocStatus + launch_isolation are now MERGED to main
+(commit 4ea6598a0) — this slice builds on them directly.
 <strong>Rejected:</strong> duplicating chooser logic per launcher (drift); leaving auto-config semantics
 implicit (non-deterministic transition).</p>
 </div>
@@ -1442,7 +1441,7 @@ implicit (non-deterministic transition).</p>
         <div class="critic-revision">
           <span class="badge badge-blocked critic-revision-badge">HIGH</span>
           <span class="critic-revision-source">local-design</span>
-          <span class="critic-revision-summary">feat-d805d64f auto-mode reposition was hand-wavy; now defined as TTY=&gt;chooser, non-TTY=&gt;adhoc/spike, with the unmerged-branch dependency declared (A3).</span>
+          <span class="critic-revision-summary">feat-d805d64f auto-mode reposition was hand-wavy; now defined as TTY=&gt;chooser, non-TTY=&gt;adhoc/spike; dependency RESOLVED — feat-d805d64f merged to main 4ea6598a0 (A3).</span>
         </div>
         
       </div>

@@ -15,7 +15,7 @@ meta:
         - runtime: core/worktree/worktree.go:95-150 (read 2026-06-16): EnsureForFeature/TrackStatus REUSE an existing worktree on os.Stat hit (created=false). The actual reuse call lives in launcher callers (launcher_mode.go resolveManagedWorktreeStatus), not in PlanLaunch.
         - runtime: go.mod (read 2026-06-16): no TUI lib vendored (cobra + mattn/go-isatty only) — stdlib prompt for v1 is the correct adopt-vs-build call; isatty already available for TTY detection.
 
-        DEPENDENCY/BASELINE NOTE: feat-d805d64f (branch feat-d805d64f-launch-isolation-config, commit a30f100bf) is NOT yet merged to main. It introduced the `launch_isolation` config key and `EnsureForAdhocStatus` (`adhoc-<timestamp>` worktrees). This plan REPOSITIONS that auto/adhoc mode as the non-interactive fallback and therefore DEPENDS ON feat-d805d64f merging first (or absorbing its fallback into slice 5). On main today, EnsureForAdhocStatus does not exist — do not assume it.
+        BASELINE NOTE: feat-d805d64f is now MERGED to main (cherry-picked as commit 4ea6598a0, 2026-06-16; build/vet + feature tests verified green against current main). It introduced the `launch_isolation` config key and `EnsureForAdhocStatus` (`adhoc-<timestamp>` worktrees). This plan REPOSITIONS that auto/adhoc mode as the non-interactive fallback — the dependency is SATISFIED, and slice 5 builds on it directly. HARNESS-SOURCE DECISION (settled): per-session durability analysis chose `WIPNOTE_HARNESS` env as the primary source (process-scoped, race-free, no staleness, rides the proven WIPNOTE_PROJECT_DIR injection channel) over the `.launch-mode` file field (shared-file last-writer-wins race — the same churn class we just untracked). See slice 1 q-harness-source.
 
         Replace auto-guessed worktree creation with a USER-DECLARED intent flow shared by all four CLI
         launchers (claude/codex/gemini/antigravity). Bare interactive launch asks "continue prior work or
@@ -33,7 +33,7 @@ design:
     problem: |
         wipnote can launch the CLIs but cannot help a user RESUME coherently or isolate predictably.
         Today: (1) the only resume is the harness's own transcript replay (directory-scoped, bloats
-        context); (2) isolation is auto-inferred and the unmerged feat-d805d64f auto mode mints
+        context); (2) isolation is auto-inferred and the (now-merged) feat-d805d64f auto mode mints
         non-deterministic `adhoc-<timestamp>` worktrees that are unresumable and accumulate; (3) the sessions
         table records transcript_path + canonical project_dir but NOT the exec worktree/branch, so nothing
         can route a resume back; and (4) the handoff columns that should carry continuity exist in the
@@ -50,7 +50,7 @@ design:
         - Backward compatible — flags and non-interactive/yolo/CI paths bypass the prompt; existing launch behavior is preserved when no intent is declared.
     constraints:
         - Canonical observability identity stays anchored to the main repo root via WIPNOTE_PROJECT_DIR + git-common-dir; worktrees are execution dirs only (delivered by plan-1670cacd / plan-2133adf2).
-        - 'Depends on feat-d805d64f (unmerged): the non-interactive fallback reuses its launch_isolation config + EnsureForAdhocStatus. Merge it first, or absorb the adhoc/spike fallback into slice 5''s scope.'
+        - 'Builds on feat-d805d64f (MERGED to main as commit 4ea6598a0, 2026-06-16): the non-interactive fallback reuses its launch_isolation config + EnsureForAdhocStatus, now in the baseline.'
         - No new mandatory runtime dependency for the TUI — go.mod has no TUI lib; v1 uses a stdlib prompt + the already-available mattn/go-isatty.
         - The interactive prompt must never block non-TTY, piped, yolo, or CI invocations; flags always win over the prompt.
         - 'Cross-harness: the chooser and daemon index are harness-neutral; only the final exec wiring differs per CLI.'
@@ -274,8 +274,7 @@ slices:
         (codex/gemini/antigravity), each with its own non-TTY-bypass coverage. Define the feat-d805d64f
         `launch_isolation: auto` reposition precisely: on a TTY, auto invokes the chooser; on non-TTY/
         yolo/CI, auto falls back to the deterministic adhoc/spike worktree (EnsureForAdhocStatus from
-        feat-d805d64f). This slice assumes feat-d805d64f is merged (see baseline note); if not, it absorbs
-        that fallback.
+        feat-d805d64f, now merged to main as commit 4ea6598a0).
       why: |
         Cross-harness parity is the whole point — the chooser must be harness-neutral in practice, not
         just in the core. The auto-config semantics must be deterministic so the transition from
@@ -306,12 +305,12 @@ slices:
       critic_revisions:
         - source: local-design
           severity: HIGH
-          summary: feat-d805d64f auto-mode reposition was hand-wavy; now defined as TTY=>chooser, non-TTY=>adhoc/spike, with the unmerged-branch dependency declared (A3).
+          summary: feat-d805d64f auto-mode reposition was hand-wavy; now defined as TTY=>chooser, non-TTY=>adhoc/spike; dependency RESOLVED — feat-d805d64f merged to main 4ea6598a0 (A3).
       decisions_notes: |
         **Trigger:** bare interactive launch of codex/gemini/antigravity; auto-config resolution at launch.
         **State:** same chooser + index as slice 4; reads launch_isolation from .wipnote/config.json.
-        **Dependency (A3):** EnsureForAdhocStatus + launch_isolation exist only on the unmerged
-        feat-d805d64f branch — merge first or absorb the fallback here.
+        **Dependency (A3 resolved):** EnsureForAdhocStatus + launch_isolation are now MERGED to main
+        (commit 4ea6598a0) — this slice builds on them directly.
         **Rejected:** duplicating chooser logic per launcher (drift); leaving auto-config semantics
         implicit (non-deterministic transition).
     - id: slice-6
@@ -476,9 +475,9 @@ critique:
           text: sessions table lacks exec_worktree_path and branch; a harness column already exists at schema.go:401.
           evidence: core/db/schema.go:142-180,401; core/db/migrations.go:298
         - id: A3
-          status: falsified
-          text: Original plan assumed feat-d805d64f (EnsureForAdhocStatus/launch_isolation) was in the baseline. It is NOT on main — only on the unmerged feat-d805d64f-launch-isolation-config branch.
-          evidence: 'git grep EnsureForAdhocStatus: 0 hits on HEAD(main); present on feat branch (commit a30f100bf)'
+          status: verified
+          text: 'RESOLVED: the original draft wrongly assumed feat-d805d64f (EnsureForAdhocStatus/launch_isolation) was in the baseline. It has since been MERGED to main (cherry-pick 4ea6598a0, 2026-06-16), making the assumption true; build/vet + feature tests pass against current main.'
+          evidence: 'git log main: commit 4ea6598a0; go build ./... + go test ./internal/launcher/... ./cmd/wipnote/ green 2026-06-16'
         - id: A4
           status: falsified
           text: Original q-harness-source claimed .launch-mode is the harness source. The marker's Mode field stores launch mode (yolo/dev/auto), not the CLI name.
@@ -502,9 +501,9 @@ critique:
         - risk: Original chooser slice bundled all four launchers with harness-neutral done_when — could pass with only Claude wired.
           severity: Medium
           mitigation: Split into slice 4 (core+Claude) and slice 5 (codex/gemini/antigravity) with per-launcher non-TTY bypass criteria.
-        - risk: feat-d805d64f reposition under-specified and the dep is unmerged.
-          severity: Medium
-          mitigation: Declared as an explicit baseline dependency (A3) + constraint; slice 5 defines auto-config semantics (TTL→chooser on TTY, adhoc/spike on non-TTY).
+        - risk: 'feat-d805d64f reposition under-specified (was: dep unmerged — now RESOLVED, merged to main 4ea6598a0).'
+          severity: Low
+          mitigation: Dependency merged into baseline (A3); slice 5 defines auto-config semantics (TTL→chooser on TTY, adhoc/spike on non-TTY).
         - risk: Snapshot of a detached-HEAD managed worktree needs collision-safe naming.
           severity: Low
           mitigation: 'Slice 7 q-snapshot-form: deterministic snapshot ref name + patch fallback; never delete without a recoverable snapshot.'
@@ -512,7 +511,8 @@ critique:
         Both DANGER blockers are resolved by structure changes, not hand-waving: the handoff artifact now
         has an owning slice (slice 3) that writes columns the schema already declares (A1), and slice 6
         enumerates the three real 'continue' failure edges. Feasibility falsified three baseline claims
-        (A3 feat-d805d64f unmerged, A4 harness source, A5 dashboard path) — all corrected in this revision.
-        Remaining reviewer focus: (1) confirm the harness source decision (new .launch-mode field vs
-        WIPNOTE_HARNESS env) in slice 1; (2) decide whether to merge feat-d805d64f before this plan or
-        absorb its fallback into slice 5; (3) sanity-check the slice 4/5 split keeps the critical path short.
+        (A3 feat-d805d64f baseline, A4 harness source, A5 dashboard path) — all corrected in this revision.
+        Both prior open decisions are now SETTLED: feat-d805d64f is merged to main (A3, commit 4ea6598a0),
+        and the harness source is WIPNOTE_HARNESS env (slice 1 q-harness-source). Remaining reviewer focus:
+        sanity-check the slice 4/5 split keeps the critical path short, and approve slices 1-3 (the unblocked
+        foundation: persist exec state, resumable index, handoff capture) for promotion first.

@@ -9,13 +9,13 @@ meta:
         - https://manus.im/blog/Context-Engineering-for-AI-Agents-Lessons-from-Building-Manus (checked 2026-06-16): file/path-as-memory (reversible compaction) + todo.md; keep pointers in context, not contents.
         - https://code.claude.com/docs/en/worktrees (checked 2026-06-16): native --worktree, cleanupPeriodDays TTL sweep (skips dirty/untracked/unpushed), git worktree lock during run.
         - https://github.com/anthropics/claude-code/issues/46444 (checked 2026-06-16): VERIFIED open issue — Claude Code auto-cleanup silently deleted 10 days of uncommitted work. GC here MUST be snapshot-safe.
-        - https://code.claude.com/docs/en/sessions (checked 2026-06-16): claude --resume <id>. Codex `codex resume <id>|--last`, Gemini `--resume <N|uuid>`, agy `--conversation=<id>`/`-c` all verified (and already wired in antigravity.go:247, codex.go:849).
+        - https://code.claude.com/docs/en/sessions (checked 2026-06-16): `claude --resume <id>`. Codex `codex resume <id>|--last`, Gemini `--resume <N|uuid>`, agy `--conversation=<id>`/`-c` all verified (and already wired in antigravity.go:247, codex.go:849).
         - runtime: core/db/schema.go (read 2026-06-16): sessions table ALREADY has handoff_notes/recommended_next/recommended_context/blockers columns (lines 165-168) that NOTHING writes; a `harness TEXT` column already exists (line 401). The genuinely-missing fields are exec_worktree_path + branch.
         - runtime: core/hooks/session_start.go:153-155 (read 2026-06-16): event.CWD is used only for gitdir repair and then discarded — the missing link for routed resume.
         - runtime: core/worktree/worktree.go:95-150 (read 2026-06-16): EnsureForFeature/TrackStatus REUSE an existing worktree on os.Stat hit (created=false). The actual reuse call lives in launcher callers (launcher_mode.go resolveManagedWorktreeStatus), not in PlanLaunch.
         - runtime: go.mod (read 2026-06-16): no TUI lib vendored (cobra + mattn/go-isatty only) — stdlib prompt for v1 is the correct adopt-vs-build call; isatty already available for TTY detection.
 
-        DEPENDENCY/BASELINE NOTE: feat-d805d64f (branch feat-d805d64f-launch-isolation-config, commit a30f100bf) is NOT yet merged to main. It introduced the `launch_isolation` config key and `EnsureForAdhocStatus` (adhoc-<timestamp> worktrees). This plan REPOSITIONS that auto/adhoc mode as the non-interactive fallback and therefore DEPENDS ON feat-d805d64f merging first (or absorbing its fallback into slice 5). On main today, EnsureForAdhocStatus does not exist — do not assume it.
+        DEPENDENCY/BASELINE NOTE: feat-d805d64f (branch feat-d805d64f-launch-isolation-config, commit a30f100bf) is NOT yet merged to main. It introduced the `launch_isolation` config key and `EnsureForAdhocStatus` (`adhoc-<timestamp>` worktrees). This plan REPOSITIONS that auto/adhoc mode as the non-interactive fallback and therefore DEPENDS ON feat-d805d64f merging first (or absorbing its fallback into slice 5). On main today, EnsureForAdhocStatus does not exist — do not assume it.
 
         Replace auto-guessed worktree creation with a USER-DECLARED intent flow shared by all four CLI
         launchers (claude/codex/gemini/antigravity). Bare interactive launch asks "continue prior work or
@@ -34,7 +34,7 @@ design:
         wipnote can launch the CLIs but cannot help a user RESUME coherently or isolate predictably.
         Today: (1) the only resume is the harness's own transcript replay (directory-scoped, bloats
         context); (2) isolation is auto-inferred and the unmerged feat-d805d64f auto mode mints
-        non-deterministic adhoc-<timestamp> worktrees that are unresumable and accumulate; (3) the sessions
+        non-deterministic `adhoc-<timestamp>` worktrees that are unresumable and accumulate; (3) the sessions
         table records transcript_path + canonical project_dir but NOT the exec worktree/branch, so nothing
         can route a resume back; and (4) the handoff columns that should carry continuity exist in the
         schema but are never written. Concurrent sessions on one shared checkout therefore collide (dirty
@@ -222,8 +222,8 @@ slices:
         detection) and the shared intent-flag contract, wired into the Claude launcher first. Bare
         interactive launch (TTY, no intent flags) shows the chooser; "new" prompts for work TYPE — plan /
         spike / feature / bug — which deterministically selects isolation (plan => in-place, no worktree;
-        spike/feature/bug => work-item-keyed worktree). Flags --continue, --work-item <id>,
-        --new <type> "<title>", --in-place all bypass the prompt. Non-TTY, piped, --yolo, CI ALWAYS bypass
+        spike/feature/bug => work-item-keyed worktree). Flags `--continue`, `--work-item <id>`,
+        `--new <type> "<title>"`, `--in-place` all bypass the prompt. Non-TTY, piped, --yolo, CI ALWAYS bypass
         and fall back to the non-interactive policy. Print the resolved work item + worktree before exec.
       why: |
         Implements the user-declared intent model on the primary harness. Splitting Claude from the other
@@ -322,7 +322,7 @@ slices:
         reuse path via launcher_mode.go resolveManagedWorktreeStatus — never create a second), route exec
         into the recorded exec_worktree_path (slice 1) with canonical WIPNOTE_PROJECT_DIR, and re-hydrate
         the slice-3 handoff into the new session. Offer an optional second level: transcript resume via
-        the harness flag (claude --resume <id> etc.) for same-day pickup; default is a fresh session
+        the harness flag (`claude --resume <id>` etc.) for same-day pickup; default is a fresh session
         re-hydrated from the work item. Define the three failure edges explicitly.
       why: |
         Closes the continuity loop without bloat (durable work item primary, transcript optional) and
@@ -414,7 +414,7 @@ slices:
         **State:** reads git status of the worktree; writes spike completion + removes dir; snapshot ref/patch under .wipnote on the dirty path.
         **Safety (A-feasibility verified #46444):** never delete dirty/unpushed without a recoverable snapshot.
         **Detached-HEAD (A-design):** managed worktrees may be detached; snapshot uses a deterministic name
-        (e.g. wipnote-snapshot/<workitem>-<shortsha>) to avoid branch-name collisions; patch fallback if the ref exists.
+        (e.g. `wipnote-snapshot/<workitem>-<shortsha>`) to avoid branch-name collisions; patch fallback if the ref exists.
         **Rejected:** unconditional TTL deletion (#46444 class bug); summarizing/discarding dirty worktrees;
         GC keyed on session rather than worktree emptiness (races live reuse).
     - id: slice-8

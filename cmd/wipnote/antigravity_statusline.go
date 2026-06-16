@@ -38,12 +38,27 @@ func antigravityStatusLineCommand() string {
 
 // isWipnoteStatusLineCommand reports whether cmd is a wipnote-managed statusline
 // command (so re-launch can refresh the binary path without clobbering a
-// user-authored custom statusLine). It anchors on the exact "statusline --cache"
-// command shape this launcher writes rather than a loose "wipnote" substring, so
-// an unrelated user command that merely mentions wipnote is never misclassified
-// as ours (CLAUDE.md "Hook State": anchor to the specific command shape).
+// user-authored custom statusLine). It matches the exact launcher-owned shape —
+// a wipnote executable (bare name, or a path/quoted-path whose basename is
+// wipnote*) followed by exactly "statusline --cache" — so a different tool that
+// happens to expose a "statusline --cache" command is not misclassified as ours
+// (CLAUDE.md "Hook State": anchor to the specific command shape).
 func isWipnoteStatusLineCommand(cmd string) bool {
-	return strings.Contains(cmd, "statusline --cache")
+	rest, ok := strings.CutSuffix(strings.TrimSpace(cmd), "statusline --cache")
+	if !ok {
+		return false
+	}
+	exe := strings.TrimSpace(rest)
+	// Strip the single quotes shellQuote adds around paths with spaces.
+	if len(exe) >= 2 && exe[0] == '\'' && exe[len(exe)-1] == '\'' {
+		exe = exe[1 : len(exe)-1]
+	}
+	if exe == "" {
+		return false
+	}
+	base := filepath.Base(exe)
+	// "wipnote" in prod; "wipnote-dev" / "wipnote.test" in dev and tests.
+	return base == "wipnote" || strings.HasPrefix(base, "wipnote-") || strings.HasPrefix(base, "wipnote.")
 }
 
 // mergeAntigravityStatusLine sets a wipnote-managed statusLine into the given
@@ -119,7 +134,10 @@ func ensureAntigravityStatusLine(dryRun bool) {
 	// Atomic write (temp file + rename, via the shared helper) so a concurrent
 	// agy read or a parallel `wipnote antigravity` launch never observes a torn
 	// settings.json. MkdirAll is handled inside atomicWriteFile.
-	atomicWriteFile(path, out, 0o644)
+	if err := atomicWriteFile(path, out, 0o644); err != nil {
+		fmt.Fprintf(os.Stderr, "warning: could not write agy settings.json; status line not configured: %v\n", err)
+		return
+	}
 
 	// This only runs when the statusLine was absent or its path changed (the
 	// merge is a no-op otherwise), so it is not per-launch noise. Surface the

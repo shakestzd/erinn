@@ -214,36 +214,39 @@ func WriteStatuslineCache(wipnoteDir, featureID string) {
 	if featureID != "" {
 		payload = []byte(buildCacheLine(wipnoteDir, featureID))
 	}
-	atomicWriteFile(cachePath, payload, 0o644)
+	_ = atomicWriteFile(cachePath, payload, 0o644) // best-effort cache write
 }
 
 // atomicWriteFile writes data to path via a temp file in the same directory
-// followed by os.Rename. Errors are silently dropped — callers treat cache
-// writes as best-effort.
-func atomicWriteFile(path string, data []byte, mode os.FileMode) {
+// followed by os.Rename, and returns any error. Best-effort callers (e.g. cache
+// writes) may ignore the result; callers that report success to the user should
+// check it so a permission/disk-full/rename failure is not mistaken for success.
+func atomicWriteFile(path string, data []byte, mode os.FileMode) error {
 	dir := filepath.Dir(path)
 	if err := os.MkdirAll(dir, 0o755); err != nil {
-		return
+		return err
 	}
 	base := filepath.Base(path)
 	tmp, err := os.CreateTemp(dir, base+".tmp-*")
 	if err != nil {
-		return
+		return err
 	}
 	tmpPath := tmp.Name()
 	if _, err := tmp.Write(data); err != nil {
 		tmp.Close()
 		_ = os.Remove(tmpPath)
-		return
+		return err
 	}
 	if err := tmp.Close(); err != nil {
 		_ = os.Remove(tmpPath)
-		return
+		return err
 	}
 	_ = os.Chmod(tmpPath, mode)
 	if err := os.Rename(tmpPath, path); err != nil {
 		_ = os.Remove(tmpPath)
+		return err
 	}
+	return nil
 }
 
 // buildCacheLine produces the display string for a work item, including

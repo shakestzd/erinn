@@ -44,6 +44,9 @@ func TestIsWipnoteStatusLineCommand(t *testing.T) {
 		"oh-my-posh print primary":         false,
 		"":                                 false,
 		"some-other-status":                false,
+		// A different tool exposing "statusline --cache" must NOT be claimed.
+		"othertool statusline --cache":      false,
+		"/opt/othertool statusline --cache": false,
 	}
 	for cmd, want := range cases {
 		if got := isWipnoteStatusLineCommand(cmd); got != want {

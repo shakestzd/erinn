@@ -13,7 +13,8 @@ import (
 // protojson decode: a no-op/allow must be "{}" and must never contain the
 // Gemini "continue" field (which agy rejects with `unknown field "continue"`).
 func TestEmitAntigravityResponse_AllowIsEmptyObject(t *testing.T) {
-	for _, ev := range []string{"PreToolUse", "PostToolUse", "PostInvocation", "Stop", ""} {
+	// PreToolUse is gated separately (allowTool); these events no-op with "{}".
+	for _, ev := range []string{"PostToolUse", "PostInvocation", "Stop", ""} {
 		var buf bytes.Buffer
 		if err := emitAntigravityResponseForEvent(&buf, ev, &HookResult{Continue: true}); err != nil {
 			t.Fatalf("emit(%q): %v", ev, err)
@@ -26,6 +27,52 @@ func TestEmitAntigravityResponse_AllowIsEmptyObject(t *testing.T) {
 			t.Errorf("event %q: response must not contain agy-rejected \"continue\" field: %q", ev, got)
 		}
 	}
+}
+
+// TestEmitAntigravityResponse_PreToolUse guards the deny-by-default fix: agy's
+// PreToolHookResult.allowTool is false unless set, so allow must be explicit.
+func TestEmitAntigravityResponse_PreToolUse(t *testing.T) {
+	t.Run("allow", func(t *testing.T) {
+		var buf bytes.Buffer
+		if err := emitAntigravityResponseForEvent(&buf, "PreToolUse", &HookResult{Continue: true}); err != nil {
+			t.Fatalf("emit: %v", err)
+		}
+		var parsed struct {
+			AllowTool  bool   `json:"allowTool"`
+			DenyReason string `json:"denyReason"`
+		}
+		dec := json.NewDecoder(bytes.NewReader(buf.Bytes()))
+		dec.DisallowUnknownFields()
+		if err := dec.Decode(&parsed); err != nil {
+			t.Fatalf("not strict-decodable: %v\n%s", err, buf.String())
+		}
+		if !parsed.AllowTool {
+			t.Errorf("PreToolUse allow must set allowTool:true, got %s", buf.String())
+		}
+		if strings.Contains(buf.String(), "continue") {
+			t.Errorf("must not contain agy-rejected \"continue\": %s", buf.String())
+		}
+	})
+	t.Run("block", func(t *testing.T) {
+		var buf bytes.Buffer
+		res := &HookResult{Decision: "block", Reason: "dangerous command"}
+		if err := emitAntigravityResponseForEvent(&buf, "PreToolUse", res); err != nil {
+			t.Fatalf("emit: %v", err)
+		}
+		var parsed struct {
+			AllowTool  bool   `json:"allowTool"`
+			DenyReason string `json:"denyReason"`
+		}
+		if err := json.Unmarshal(buf.Bytes(), &parsed); err != nil {
+			t.Fatalf("decode: %v", err)
+		}
+		if parsed.AllowTool {
+			t.Error("blocked PreToolUse must set allowTool:false")
+		}
+		if parsed.DenyReason != "dangerous command" {
+			t.Errorf("denyReason = %q, want \"dangerous command\"", parsed.DenyReason)
+		}
+	})
 }
 
 // TestEmitAntigravityResponse_PreInvocationInjects asserts the orchestrator

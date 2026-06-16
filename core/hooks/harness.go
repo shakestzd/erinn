@@ -491,11 +491,13 @@ func WriteResultForHarnessEvent(harness Harness, hookEventName string, result *H
 // directives to agy (GEMINI_SYSTEM_MD / additionalContext / plugin context are
 // all ignored by agy).
 //
-// Block/deny enforcement (PreToolUse) is not yet wired for agy: a blocking
-// result still emits "{}" (allow). agy's pre-tool deny shape needs live
-// confirmation; until then this is no worse than the prior all-rejected state.
+// PreToolUse is gated: agy's PreToolHookResult.allowTool defaults to false, so
+// an empty "{}" DENIES every tool (verified live: "Tool call denied by
+// jsonhook__wipnote_PreToolUse_0_0"). PreToolUse must therefore emit an explicit
+// {"allowTool":true}; a wipnote block emits {"allowTool":false,"denyReason":…}.
 func emitAntigravityResponseForEvent(w io.Writer, hookEventName string, result *HookResult) error {
-	if hookEventName == "PreInvocation" {
+	switch hookEventName {
+	case "PreInvocation":
 		var sb strings.Builder
 		if p := os.Getenv("WIPNOTE_ANTIGRAVITY_SYSTEM_MD"); p != "" {
 			if data, err := os.ReadFile(p); err == nil {
@@ -519,8 +521,23 @@ func emitAntigravityResponseForEvent(w io.Writer, hookEventName string, result *
 				InjectSteps: []injectedStep{{SystemMessage: sb.String()}},
 			})
 		}
+		// Nothing to inject — fall through to the empty no-op object.
+
+	case "PreToolUse":
+		// agy gates tool execution on PreToolHookResult.allowTool (default
+		// false). Must allow explicitly; a wipnote block denies with a reason.
+		type preToolResult struct {
+			AllowTool  bool   `json:"allowTool"`
+			DenyReason string `json:"denyReason,omitempty"`
+		}
+		if result != nil && (result.Decision == "block" || result.Decision == "deny") {
+			return json.NewEncoder(w).Encode(preToolResult{AllowTool: false, DenyReason: result.Reason})
+		}
+		return json.NewEncoder(w).Encode(preToolResult{AllowTool: true})
 	}
-	// Allow / no-op. agy's strict protojson decoder accepts an empty object.
+
+	// Allow / no-op for PostToolUse, PostInvocation, Stop, and PreInvocation
+	// with nothing to inject. agy's strict protojson decoder accepts "{}".
 	_, err := io.WriteString(w, "{}\n")
 	return err
 }

@@ -12,6 +12,12 @@ import (
 
 // antigravityLaunchOpts controls how the Antigravity CLI is launched.
 type antigravityLaunchOpts struct {
+	// Continue, when true, passes --continue to agy (resume most recent
+	// conversation).
+	Continue bool
+	// ResumeID, if non-empty, passes --conversation <id> to agy (resume by
+	// conversation ID). Takes precedence over Continue.
+	ResumeID string
 	// ExtraArgs are forwarded to the agy process.
 	ExtraArgs []string
 	// ProjectRoot is the absolute path to the project root (or worktree path).
@@ -60,10 +66,26 @@ func buildAntigravityAgentEnv(base []string) []string {
 	return launcher.BuildHarnessAgentEnv(base, "antigravity_cli")
 }
 
+// buildAntigravityArgs builds the agy argv for resume/continue plus any
+// forwarded extra args. Resume-by-id (--conversation <id>) takes precedence
+// over --continue. Flag names verified live against agy v1.0.8: agy has no
+// --resume flag; resume-by-id is --conversation <id>, and -c/--continue
+// resumes the most recent conversation.
+func buildAntigravityArgs(continue_ bool, resumeID string, extraArgs []string) []string {
+	var args []string
+	switch {
+	case resumeID != "":
+		args = append(args, "--conversation", resumeID)
+	case continue_:
+		args = append(args, "--continue")
+	}
+	args = append(args, extraArgs...)
+	return args
+}
+
 // execAntigravity builds the agy argv and runs it.
 func execAntigravity(opts antigravityLaunchOpts) error {
-	var agyArgs []string
-	agyArgs = append(agyArgs, opts.ExtraArgs...)
+	agyArgs := buildAntigravityArgs(opts.Continue, opts.ResumeID, opts.ExtraArgs)
 
 	if opts.DryRun {
 		fmt.Printf("[dry-run] agy %s\n", strings.Join(agyArgs, " "))

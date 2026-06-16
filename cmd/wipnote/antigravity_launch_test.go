@@ -1,9 +1,33 @@
 package main
 
 import (
+	"os"
 	"reflect"
+	"strings"
 	"testing"
 )
+
+// TestWriteAntigravitySystemPrompt verifies the staged orchestrator prompt is
+// non-empty and uses agy's run_command, never the Gemini run_shell_command.
+func TestWriteAntigravitySystemPrompt(t *testing.T) {
+	path, err := writeAntigravitySystemPrompt()
+	if err != nil {
+		t.Fatalf("writeAntigravitySystemPrompt: %v", err)
+	}
+	defer os.Remove(path)
+
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read staged prompt: %v", err)
+	}
+	s := string(data)
+	if strings.Contains(s, "run_shell_command") {
+		t.Error("antigravity orchestrator prompt must use run_command, not run_shell_command")
+	}
+	if len(strings.TrimSpace(s)) < 100 {
+		t.Errorf("orchestrator prompt suspiciously short (%d bytes)", len(strings.TrimSpace(s)))
+	}
+}
 
 // TestBuildAntigravityArgs verifies that --continue and --resume map to the
 // correct agy launch flags (verified live against agy v1.0.8: resume-by-id is

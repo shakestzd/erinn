@@ -83,6 +83,29 @@ func buildAntigravityArgs(continue_ bool, resumeID string, extraArgs []string) [
 	return args
 }
 
+// writeAntigravitySystemPrompt renders the embedded wipnote orchestrator system
+// prompt for Antigravity, writes it to a temp file, and returns the absolute
+// path. The PreInvocation hook reads this file (via WIPNOTE_ANTIGRAVITY_SYSTEM_MD)
+// and injects it into agy through injectSteps[].systemMessage. It reuses the
+// Gemini rendering, then applies agy's tool rename (run_shell_command ->
+// run_command) so tool references match what agy exposes.
+func writeAntigravitySystemPrompt() (string, error) {
+	f, err := os.CreateTemp("", "wipnote-antigravity-system-*.md")
+	if err != nil {
+		return "", fmt.Errorf("creating temp file: %w", err)
+	}
+	rendered := renderGeminiSystemPrompt(geminiSystemPrompt, geminiLaunchModeDefault)
+	rendered = strings.ReplaceAll(rendered, "run_shell_command", "run_command")
+	if _, err := f.WriteString(rendered); err != nil {
+		f.Close()
+		return "", fmt.Errorf("writing antigravity system prompt: %w", err)
+	}
+	if err := f.Close(); err != nil {
+		return "", fmt.Errorf("closing temp file: %w", err)
+	}
+	return f.Name(), nil
+}
+
 // execAntigravity builds the agy argv and runs it.
 func execAntigravity(opts antigravityLaunchOpts) error {
 	agyArgs := buildAntigravityArgs(opts.Continue, opts.ResumeID, opts.ExtraArgs)
@@ -152,6 +175,16 @@ func execAntigravity(opts antigravityLaunchOpts) error {
 	env = buildAntigravityAgentEnv(env)
 	env = append(env, "WIPNOTE_AGENT=antigravity")
 	env = buildAntigravityOtelEnv(env, otelPort, otelSessionID)
+
+	// Make the orchestrator system prompt available to the PreInvocation hook,
+	// which injects it via injectSteps[].systemMessage — the only channel agy
+	// honors (GEMINI_SYSTEM_MD / additionalContext / plugin context are ignored).
+	// Non-fatal: without it, hooks still fire and the agent runs unguided.
+	if smdPath, smdErr := writeAntigravitySystemPrompt(); smdErr == nil {
+		env = setOrReplaceEnv(env, "WIPNOTE_ANTIGRAVITY_SYSTEM_MD", smdPath)
+	} else {
+		fmt.Fprintf(os.Stderr, "wipnote: warning: could not stage Antigravity orchestrator prompt: %v\n", smdErr)
+	}
 
 	if otelSessionID != "" && effectiveProjDir != "" {
 		// A resumed launch (--continue or --resume <id>) must join the existing

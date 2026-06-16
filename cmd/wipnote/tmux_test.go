@@ -62,6 +62,31 @@ func TestDecideTmuxWrap(t *testing.T) {
 	}
 }
 
+// TestTmuxFlagEnabled verifies that --tmux presence AND its boolean value are
+// honored, so --tmux=false is not treated as enabled by mere prefix match.
+func TestTmuxFlagEnabled(t *testing.T) {
+	cases := []struct {
+		name string
+		args []string
+		want bool
+	}{
+		{"bare --tmux", []string{"wipnote", "antigravity", "--tmux"}, true},
+		{"--tmux=true", []string{"wipnote", "antigravity", "--tmux=true"}, true},
+		{"--tmux=false", []string{"wipnote", "antigravity", "--tmux=false"}, false},
+		{"--tmux=0", []string{"wipnote", "antigravity", "--tmux=0"}, false},
+		{"--tmux=1", []string{"wipnote", "antigravity", "--tmux=1"}, true},
+		{"absent", []string{"wipnote", "antigravity"}, false},
+		{"unparseable value defaults enabled", []string{"--tmux=yes-please"}, true},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := tmuxFlagEnabled(tc.args); got != tc.want {
+				t.Errorf("tmuxFlagEnabled(%v) = %v, want %v", tc.args, got, tc.want)
+			}
+		})
+	}
+}
+
 // TestStripTmuxFlag verifies that --tmux variants are removed and other args preserved.
 func TestStripTmuxFlag(t *testing.T) {
 	tests := []struct {

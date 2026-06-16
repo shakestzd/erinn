@@ -25,3 +25,14 @@ func TestAntigravityInitAlias(t *testing.T) {
 		})
 	}
 }
+
+func TestAntigravityCmd_HasTmuxFlag(t *testing.T) {
+	cmd := antigravityCmd()
+	f := cmd.Flags().Lookup("tmux")
+	if f == nil {
+		t.Fatal("antigravity command is missing the --tmux flag")
+	}
+	if f.Value.Type() != "bool" {
+		t.Errorf("--tmux flag type = %q, want bool", f.Value.Type())
+	}
+}

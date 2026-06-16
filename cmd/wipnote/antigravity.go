@@ -91,7 +91,7 @@ func ensureAntigravityExtensionLinked() {
 	fmt.Printf("wipnote Antigravity extension installed (bundled): %s\n", bundled)
 }
 
-func launchAntigravityDefault(trackID, featureID, worktreePath, workItem string, noWorktree bool, extraArgs []string, dryRun bool) error {
+func launchAntigravityDefault(trackID, featureID, worktreePath, workItem string, noWorktree bool, continue_ bool, resumeID string, extraArgs []string, dryRun bool) error {
 	projectRoot, _ := resolveProjectRoot()
 	willCreateWorktree := !noWorktree && (trackID != "" || featureID != "" || workItem != "")
 	launchPlan := applyLaunchPlanOpts(projectRoot, workItem, noWorktree, willCreateWorktree, os.Stderr)
@@ -101,6 +101,7 @@ func launchAntigravityDefault(trackID, featureID, worktreePath, workItem string,
 	if !dryRun {
 		ensureAntigravityExtensionLinked()
 	}
+	ensureAntigravityStatusLine(dryRun)
 
 	if workItem != "" && !dryRun {
 		if err := runFeatureStart(workItem); err != nil {
@@ -155,6 +156,8 @@ func launchAntigravityDefault(trackID, featureID, worktreePath, workItem string,
 
 	fmt.Println("Launching Antigravity CLI with wipnote context...")
 	return execAntigravity(antigravityLaunchOpts{
+		Continue:     continue_,
+		ResumeID:     resumeID,
 		ExtraArgs:    extraArgs,
 		ProjectRoot:  workDir,
 		WorktreeRoot: workDir,
@@ -167,7 +170,7 @@ func isAntigravityInitAlias(args []string) bool {
 	return len(args) == 1 && args[0] == "init"
 }
 
-func launchAntigravityDev(dryRun bool, extraArgs []string) error {
+func launchAntigravityDev(dryRun bool, continue_ bool, resumeID string, extraArgs []string) error {
 	wipnoteDir, err := findWipnoteDir()
 	if err != nil {
 		return fmt.Errorf("could not find project root (.wipnote/ directory not found)")
@@ -190,6 +193,8 @@ func launchAntigravityDev(dryRun bool, extraArgs []string) error {
 	}
 
 	return execAntigravity(antigravityLaunchOpts{
+		Continue:    continue_,
+		ResumeID:    resumeID,
 		ExtraArgs:   extraArgs,
 		ProjectRoot: projectRoot,
 		DryRun:      dryRun,
@@ -197,8 +202,8 @@ func launchAntigravityDev(dryRun bool, extraArgs []string) error {
 }
 
 func antigravityCmd() *cobra.Command {
-	var init_, dev, force, dryRun, noWorktree, inPlace bool
-	var trackID, featureID, worktreePath, workItem, baseBranch string
+	var init_, dev, force, dryRun, noWorktree, inPlace, tmux, continue_ bool
+	var trackID, featureID, worktreePath, workItem, baseBranch, resumeID string
 
 	cmd := &cobra.Command{
 		Use:   "antigravity",
@@ -209,23 +214,36 @@ Modes:
   wipnote antigravity                  Launch Antigravity interactively with wipnote env.
   wipnote antigravity --init           Install the wipnote Antigravity extension (idempotent).
   wipnote antigravity init             Alias for --init.
-  wipnote antigravity --dev            Link port/packages/antigravity-extension/ and launch.`,
+  wipnote antigravity --dev            Link port/packages/antigravity-extension/ and launch.
+  wipnote antigravity --tmux           Wrap in a tmux session (survives Codespaces disconnects).`,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			// Tmux wrap must happen before any side-effecting work. When --tmux
+			// is set and we are not already inside tmux, this replaces the
+			// current process with tmux new-session -A -s wipnote-antigravity
+			// and never returns. No-op when already inside tmux; errors when the
+			// tmux binary is missing.
+			_ = tmux // consumed via os.Args inspection in maybeTmuxWrap
+			if err := maybeTmuxWrap("wipnote-antigravity"); err != nil {
+				return err
+			}
 			switch {
 			case init_ || isAntigravityInitAlias(args):
 				return runAntigravityInit(force, dryRun)
 			case dev:
-				return launchAntigravityDev(dryRun, args)
+				return launchAntigravityDev(dryRun, continue_, resumeID, args)
 			default:
 				effectiveInPlace := inPlace || noWorktree
 				_ = baseBranch
-				return launchAntigravityDefault(trackID, featureID, worktreePath, workItem, effectiveInPlace, args, dryRun)
+				return launchAntigravityDefault(trackID, featureID, worktreePath, workItem, effectiveInPlace, continue_, resumeID, args, dryRun)
 			}
 		},
 	}
 
 	cmd.Flags().BoolVar(&init_, "init", false, "Install the wipnote Antigravity extension (idempotent)")
 	cmd.Flags().BoolVar(&dev, "dev", false, "Link port/packages/antigravity-extension/ and launch")
+	cmd.Flags().BoolVar(&tmux, "tmux", false, "Wrap in a tmux session named 'wipnote-antigravity' (survives disconnects; reattaches on re-run)")
+	cmd.Flags().BoolVarP(&continue_, "continue", "c", false, "Resume the most recent Antigravity conversation (agy --continue)")
+	cmd.Flags().StringVar(&resumeID, "resume", "", "Resume a specific Antigravity conversation by ID (maps to agy --conversation <id>)")
 	cmd.Flags().BoolVar(&force, "force", false, "With --init: reinstall even if already installed")
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Print what would happen without executing")
 	cmd.Flags().BoolVar(&noWorktree, "no-worktree", false, "Skip worktree creation; run in project root")

@@ -184,6 +184,120 @@ func TestLiveGeneratedPortSkillAndCommandParity(t *testing.T) {
 	assertCommandFilesPresent(t, filepath.Join(antigravityOut, "commands", antigravityTarget.CommandNamespace), commands, ".toml")
 }
 
+// TestAntigravityEmitsMCPConfig verifies the antigravity adapter scaffolds a
+// plugin-scoped mcp_config.json with an mcpServers map. agy reads plugin MCP
+// servers exclusively from mcp_config.json at the extension root (verified live
+// against agy v1.0.8 — spk-0698d585).
+func TestAntigravityEmitsMCPConfig(t *testing.T) {
+	manifestPath, err := FindManifest(".")
+	if err != nil {
+		t.Skipf("no live manifest: %v", err)
+	}
+	m, err := Load(manifestPath)
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	repoRoot := filepath.Dir(filepath.Dir(filepath.Dir(manifestPath)))
+
+	target, ok := m.Targets["antigravity"]
+	if !ok {
+		t.Fatalf("manifest missing antigravity target")
+	}
+	if target.MCPPath != "mcp_config.json" {
+		t.Fatalf("antigravity mcpPath = %q, want mcp_config.json", target.MCPPath)
+	}
+
+	out := t.TempDir()
+	if err := (antigravityAdapter{}).Emit(m, repoRoot, out); err != nil {
+		t.Fatalf("emit antigravity: %v", err)
+	}
+
+	mcpPath := filepath.Join(out, target.MCPPath)
+	raw, err := os.ReadFile(mcpPath)
+	if err != nil {
+		t.Fatalf("expected mcp_config.json at %s: %v", mcpPath, err)
+	}
+	var parsed struct {
+		MCPServers map[string]any `json:"mcpServers"`
+	}
+	if err := json.Unmarshal(raw, &parsed); err != nil {
+		t.Fatalf("mcp_config.json is not valid JSON: %v", err)
+	}
+	if parsed.MCPServers == nil {
+		t.Errorf("mcp_config.json missing mcpServers key; got: %s", raw)
+	}
+}
+
+// TestInjectDisableModelInvocation unit-tests the frontmatter injector.
+func TestInjectDisableModelInvocation(t *testing.T) {
+	t.Run("inserts into frontmatter", func(t *testing.T) {
+		in := []byte("---\nname: deploy\ndescription: ship it\n---\nbody\n")
+		out, changed := injectDisableModelInvocation(in)
+		if !changed {
+			t.Fatal("expected changed=true")
+		}
+		if !strings.Contains(string(out), "disable-model-invocation: true") {
+			t.Errorf("missing flag; got:\n%s", out)
+		}
+		if !strings.Contains(string(out), "name: deploy") || !strings.Contains(string(out), "body") {
+			t.Errorf("original content not preserved; got:\n%s", out)
+		}
+	})
+	t.Run("idempotent when present", func(t *testing.T) {
+		in := []byte("---\ndisable-model-invocation: true\nname: deploy\n---\nbody\n")
+		_, changed := injectDisableModelInvocation(in)
+		if changed {
+			t.Error("expected changed=false when flag already present")
+		}
+	})
+	t.Run("no frontmatter — no change", func(t *testing.T) {
+		in := []byte("no frontmatter here\n")
+		_, changed := injectDisableModelInvocation(in)
+		if changed {
+			t.Error("expected changed=false when no frontmatter")
+		}
+	})
+}
+
+// TestAntigravityDisablesModelInvocationForExplicitSkills verifies that the
+// emitted antigravity skill tree carries disable-model-invocation on the
+// curated explicit-only skills and not on ordinary skills.
+func TestAntigravityDisablesModelInvocationForExplicitSkills(t *testing.T) {
+	manifestPath, err := FindManifest(".")
+	if err != nil {
+		t.Skipf("no live manifest: %v", err)
+	}
+	m, err := Load(manifestPath)
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	repoRoot := filepath.Dir(filepath.Dir(filepath.Dir(manifestPath)))
+
+	out := t.TempDir()
+	if err := (antigravityAdapter{}).Emit(m, repoRoot, out); err != nil {
+		t.Fatalf("emit antigravity: %v", err)
+	}
+
+	skillHasFlag := func(name string) bool {
+		raw, rerr := os.ReadFile(filepath.Join(out, "skills", name, "SKILL.md"))
+		if rerr != nil {
+			t.Fatalf("read skill %s: %v", name, rerr)
+		}
+		return strings.Contains(string(raw), "disable-model-invocation: true")
+	}
+
+	for name := range antigravityDisableModelInvocationSkills {
+		if !skillHasFlag(name) {
+			t.Errorf("explicit-only skill %q is missing disable-model-invocation", name)
+		}
+	}
+	// orchestrator-directives-skill is ambient (visibility: always) and must
+	// remain model-invocable.
+	if skillHasFlag("orchestrator-directives-skill") {
+		t.Error("ambient skill orchestrator-directives-skill should NOT be disabled")
+	}
+}
+
 func liveCommandNames(t *testing.T, dir string) []string {
 	t.Helper()
 	entries, err := os.ReadDir(dir)

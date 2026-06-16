@@ -79,7 +79,7 @@ func (c codexAdapter) Emit(m *Manifest, repoRoot, outDir string) error {
 		return err
 	}
 	if target.MCPPath != "" {
-		if err := ensureCodexMCP(filepath.Join(pluginDir, target.MCPPath)); err != nil {
+		if err := ensureMCPServersScaffold(filepath.Join(pluginDir, target.MCPPath)); err != nil {
 			return err
 		}
 	}
@@ -246,7 +246,11 @@ func writeCodexHooks(m *Manifest, path string) error {
 // ensureCodexMCP writes a stub .mcp.json if none exists. wipnote doesn't
 // currently expose an MCP server, but the file is part of the Codex plugin
 // contract and future MCP integrations land here without schema churn.
-func ensureCodexMCP(path string) error {
+// ensureMCPServersScaffold writes an empty {"mcpServers":{}} config at path if
+// no file already exists, preserving any user-populated config. Used by the
+// Codex (.mcp.json) and Antigravity (mcp_config.json) targets — both consume
+// the same {"mcpServers":{...}} schema.
+func ensureMCPServersScaffold(path string) error {
 	if _, err := os.Stat(path); err == nil {
 		return nil
 	}

@@ -52,6 +52,7 @@
       "outDir": "port/packages/antigravity-extension",
       "manifestPath": "plugin.json",
       "hooksPath": "hooks.json",
+      "mcpPath": "mcp_config.json",
       "contextFile": "plugin/contexts/ANTIGRAVITY.md",
       "commandNamespace": "wipnote"
     }

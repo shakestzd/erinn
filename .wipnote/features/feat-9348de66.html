@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>Persist exec worktree path &#43; branch per session (reconcile existing harness column)</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="feat-9348de66"
+             data-type="feature"
+             data-status="in-progress"
+             data-priority="medium"
+             data-created="2026-06-16T23:17:32.810269"
+             data-updated="2026-06-16T23:26:18.531745" data-agent-assigned="claude-code" data-track-id="trk-6a1f5362">
+
+        <header>
+            <h1>Persist exec worktree path &#43; branch per session (reconcile existing harness column)</h1>
+            <div class="metadata">
+                <span class="badge status-in-progress">In Progress</span>
+                <span class="badge priority-medium">Medium Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-6a1f5362.html" data-relationship="part_of" data-since="2026-06-16T23:17:32.848798">trk-6a1f5362</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="implemented_in">
+                <h3>Implemented In:</h3>
+                <ul>
+                    <li><a href="../sessions/03e4f451-629b-48f0-895c-7ab073b99884.html" data-relationship="implemented_in" data-since="2026-06-16T23:26:18.531569">session 03e4f451-629b-48f0-895c-7ab073b99884</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="planned_in">
+                <h3>Planned In:</h3>
+                <ul>
+                    <li><a href="../plans/plan-311440bf.html" data-relationship="planned_in" data-since="2026-06-16T23:17:32.831749">plan-311440bf</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>Record, at SessionStart, the session&#39;s execution context: exec_worktree_path (from the CloudEvent
+CWD, normalized repo-relative) and branch. Add these two nullable columns to the sessions table
+and populate them in the SessionStart handler, which already has event.CWD (today used only for
+gitdir repair, then discarded). Reconcile the harness value: a `harness` column already exists at
+schema.go:401 — verify which table owns it and either reuse it for sessions or add a sessions-level
+harness, sourced correctly (the .launch-mode Mode field is launch-mode, NOT the CLI, so the source
+must be a new marker field or a WIPNOTE_HARNESS env set by each launcher). Canonical project_dir
+stays &#34;.&#34;.</p>
+        </section>
+    </article>
+</body>
+</html>

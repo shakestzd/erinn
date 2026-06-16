@@ -143,19 +143,50 @@ func CreateSessionHTML(projectDir string, s *models.Session) {
 
 	htmlPath := filepath.Join(sessDir, s.SessionID+".html")
 
-	// Guard: do not clobber an existing session HTML that belongs to a
-	// different session or is already populated/completed. A UUID reuse
-	// collision (or a resumed session that re-fires SessionStart) must not
-	// destroy an already-written 732-event session. Only write when:
+	// Guard: do not clobber an existing session HTML that is already
+	// populated or belongs to a different session. Only write when:
 	//   (a) the file does not yet exist, or
-	//   (b) the file exists and encodes the same session ID (legitimate
-	//       same-session re-initialisation, e.g. resumed session startup).
+	//   (b) the file exists, encodes the SAME session ID, AND is an empty
+	//       shell (data-event-count=0 and not completed/aborted) — i.e. a
+	//       safe same-session re-initialisation before any events have been
+	//       recorded.
+	// Cases that MUST NOT overwrite:
+	//   • different session ID on disk (UUID collision guard — unchanged)
+	//   • same session ID but already has recorded events (data-event-count>0)
+	//   • same session ID but already finalized (status != "active")
+	// This fixes the SessionStart REPLAY / resume / re-init data-loss bug
+	// (roborev job 272, commit 2d54416ed): the previous guard only checked
+	// for a different id, so a same-session replay could reset a 732-event
+	// session back to an empty shell.
 	if existing, readErr := os.ReadFile(htmlPath); readErr == nil {
-		existingID := extractArticleID(string(existing))
+		existingContent := string(existing)
+		existingID := extractArticleID(existingContent)
 		if existingID != "" && existingID != s.SessionID {
+			// Different session id on disk — preserve it (UUID collision guard).
 			debugLog(projectDir,
 				"[session-html] skipping write: %s already belongs to session %q (new=%q)",
 				htmlPath, existingID, s.SessionID)
+			return
+		}
+		// Same session id (or no id found): only overwrite when the shell is
+		// empty — i.e. no events recorded and not finalized.
+		//
+		// IMPORTANT: data-event-count on the <article> tag is only updated by
+		// FinalizeSessionHTML. During a live session, AppendEventToSessionHTML
+		// inserts <li> elements but leaves data-event-count="0". So we must
+		// detect population by counting actual <li> activity entries in the
+		// section, not by reading data-event-count alone.
+		if extractEventCount(existingContent) > 0 || countActivityEntries(existingContent) > 0 {
+			debugLog(projectDir,
+				"[session-html] skipping write: %s has recorded events (same session %q)",
+				htmlPath, s.SessionID)
+			return
+		}
+		existingStatus := extractArticleStatus(existingContent)
+		if existingStatus != "" && existingStatus != "active" {
+			debugLog(projectDir,
+				"[session-html] skipping write: %s is already %q (same session %q)",
+				htmlPath, existingStatus, s.SessionID)
 			return
 		}
 	}
@@ -266,6 +297,62 @@ func extractArticleID(content string) string {
 		return ""
 	}
 	return rest[:end]
+}
+
+// extractEventCount returns the integer value of data-event-count="..." from
+// the session HTML content. Returns 0 when the attribute is absent or cannot
+// be parsed — which is the safe default (treat as empty shell).
+func extractEventCount(content string) int {
+	const needle = `data-event-count="`
+	idx := strings.Index(content, needle)
+	if idx < 0 {
+		return 0
+	}
+	rest := content[idx+len(needle):]
+	end := strings.IndexByte(rest, '"')
+	if end < 0 {
+		return 0
+	}
+	n := 0
+	for _, ch := range rest[:end] {
+		if ch < '0' || ch > '9' {
+			return 0
+		}
+		n = n*10 + int(ch-'0')
+	}
+	return n
+}
+
+// extractArticleStatus returns the value of data-status="..." from the session
+// HTML content. Returns "" when the attribute is absent.
+func extractArticleStatus(content string) string {
+	const needle = `data-status="`
+	idx := strings.Index(content, needle)
+	if idx < 0 {
+		return ""
+	}
+	rest := content[idx+len(needle):]
+	end := strings.IndexByte(rest, '"')
+	if end < 0 {
+		return ""
+	}
+	return rest[:end]
+}
+
+// countActivityEntries counts the number of <li …> elements inside
+// <section data-activity-log> in the session HTML content. This is the
+// canonical way to detect whether a live (non-finalized) session has recorded
+// events: AppendEventToSessionHTML writes <li> entries but does NOT update
+// data-event-count (only FinalizeSessionHTML does that). Returns 0 when the
+// section is absent or contains no entries.
+func countActivityEntries(content string) int {
+	const sectionMarker = `<section data-activity-log>`
+	sIdx := strings.Index(content, sectionMarker)
+	if sIdx < 0 {
+		return 0
+	}
+	section := content[sIdx:]
+	return strings.Count(section, "<li ")
 }
 
 // articleAttrRe matches data attributes on the <article> tag for replacement.

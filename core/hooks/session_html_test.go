@@ -522,10 +522,12 @@ func TestCreateSessionHTML_GuardAbsent(t *testing.T) {
 	}
 }
 
-// TestCreateSessionHTML_GuardSameSession verifies that CreateSessionHTML
-// overwrites an existing file when it belongs to the same session ID
-// (legitimate same-session re-initialisation).
-func TestCreateSessionHTML_GuardSameSession(t *testing.T) {
+// TestCreateSessionHTML_GuardSameSessionEmptyShell verifies that
+// CreateSessionHTML may overwrite an existing file that belongs to the same
+// session ID when the file is an empty shell (0 events, status=active).
+// This is the legitimate same-session re-initialisation path (e.g. a resumed
+// session fires SessionStart before any events are written).
+func TestCreateSessionHTML_GuardSameSessionEmptyShell(t *testing.T) {
 	projectDir := t.TempDir()
 	sessDir := filepath.Join(projectDir, ".wipnote", "sessions")
 	if err := os.MkdirAll(sessDir, 0o755); err != nil {
@@ -533,22 +535,22 @@ func TestCreateSessionHTML_GuardSameSession(t *testing.T) {
 	}
 
 	s := &models.Session{
-		SessionID:     "sess-guard-same-001",
+		SessionID:     "sess-guard-same-empty-001",
 		AgentAssigned: "claude-code",
 		Status:        "active",
 		CreatedAt:     time.Now().UTC(),
 	}
 
-	// First write.
+	// First write — creates the empty shell.
 	CreateSessionHTML(projectDir, s)
 
-	htmlPath := filepath.Join(projectDir, ".wipnote", "sessions", "sess-guard-same-001.html")
+	htmlPath := filepath.Join(projectDir, ".wipnote", "sessions", "sess-guard-same-empty-001.html")
 	first, err := os.ReadFile(htmlPath)
 	if err != nil {
 		t.Fatalf("read after first write: %v", err)
 	}
 
-	// Second write for same session — should succeed (overwrite is allowed).
+	// Second write for same session while still empty — should succeed (rewrite is safe).
 	CreateSessionHTML(projectDir, s)
 
 	second, err := os.ReadFile(htmlPath)
@@ -557,11 +559,124 @@ func TestCreateSessionHTML_GuardSameSession(t *testing.T) {
 	}
 
 	// Both writes should produce a file with the correct session ID.
-	if !strings.Contains(string(first), `id="sess-guard-same-001"`) {
+	if !strings.Contains(string(first), `id="sess-guard-same-empty-001"`) {
 		t.Error("first write: missing session id in html")
 	}
-	if !strings.Contains(string(second), `id="sess-guard-same-001"`) {
+	if !strings.Contains(string(second), `id="sess-guard-same-empty-001"`) {
 		t.Error("second write: missing session id in html")
+	}
+	// Must still be an empty shell after rewrite.
+	if !strings.Contains(string(second), `data-event-count="0"`) {
+		t.Error("rewritten empty shell should retain data-event-count=0")
+	}
+}
+
+// TestCreateSessionHTML_GuardSameSessionWithEvents is the regression test for
+// roborev job 272: CreateSessionHTML must NOT reset a same-session file that
+// already has recorded events (data-event-count > 0). A SessionStart
+// REPLAY / resume / re-init must preserve the existing activity log.
+func TestCreateSessionHTML_GuardSameSessionWithEvents(t *testing.T) {
+	projectDir := t.TempDir()
+	sessDir := filepath.Join(projectDir, ".wipnote", "sessions")
+	if err := os.MkdirAll(sessDir, 0o755); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+
+	const sessionID = "sess-guard-same-events-001"
+
+	s := &models.Session{
+		SessionID:     sessionID,
+		AgentAssigned: "claude-code",
+		Status:        "active",
+		CreatedAt:     time.Now().UTC(),
+	}
+
+	// Create initial shell.
+	CreateSessionHTML(projectDir, s)
+
+	// Append an event so the file is now populated.
+	AppendEventToSessionHTML(projectDir, sessionID, SessionEvent{
+		Timestamp: time.Now().UTC(),
+		ToolName:  "Read",
+		Success:   true,
+		EventID:   "evt-guard-events-001",
+		Summary:   "activity that must be preserved",
+	})
+
+	htmlPath := filepath.Join(sessDir, sessionID+".html")
+	before, err := os.ReadFile(htmlPath)
+	if err != nil {
+		t.Fatalf("read before replay: %v", err)
+	}
+	// Sanity: the event IS in the file.
+	if !strings.Contains(string(before), "evt-guard-events-001") {
+		t.Fatal("setup error: event not found in file before replay")
+	}
+
+	// Simulate SessionStart replay with the same session id.
+	CreateSessionHTML(projectDir, s)
+
+	after, err := os.ReadFile(htmlPath)
+	if err != nil {
+		t.Fatalf("read after replay: %v", err)
+	}
+
+	// The activity log must NOT have been reset.
+	if !strings.Contains(string(after), "evt-guard-events-001") {
+		t.Error("regression: CreateSessionHTML erased recorded events on same-session replay")
+	}
+	// The <li> entry that AppendEventToSessionHTML wrote must still be present.
+	// NOTE: data-event-count on the <article> tag is only updated by
+	// FinalizeSessionHTML, not by AppendEventToSessionHTML, so the attribute
+	// legitimately remains "0" in a live (non-finalized) session. The correct
+	// liveness signal is the presence of <li> activity entries in the section.
+	if !strings.Contains(string(after), `<li `) {
+		t.Error("regression: activity <li> entries missing after same-session replay — file was overwritten")
+	}
+}
+
+// TestCreateSessionHTML_GuardSameSessionCompleted verifies that
+// CreateSessionHTML does NOT overwrite a same-session file that has been
+// finalized (status != "active"), even if it somehow has 0 events.
+func TestCreateSessionHTML_GuardSameSessionCompleted(t *testing.T) {
+	projectDir := t.TempDir()
+	sessDir := filepath.Join(projectDir, ".wipnote", "sessions")
+	if err := os.MkdirAll(sessDir, 0o755); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+
+	const sessionID = "sess-guard-same-completed-001"
+	htmlPath := filepath.Join(sessDir, sessionID+".html")
+
+	// Seed a completed session file directly (data-event-count=5, status=completed).
+	completed := []byte(`<!DOCTYPE html><html><body><article id="` + sessionID + `" data-type="session" data-status="completed" data-event-count="5"><section data-activity-log><ol reversed><li data-event-id="evt-abc">done</li></ol></section></article></body></html>`)
+	if err := os.WriteFile(htmlPath, completed, 0o644); err != nil {
+		t.Fatalf("seed completed: %v", err)
+	}
+
+	// Attempt to reinitialise with the same session id.
+	s := &models.Session{
+		SessionID:     sessionID,
+		AgentAssigned: "claude-code",
+		Status:        "active",
+		CreatedAt:     time.Now().UTC(),
+	}
+	CreateSessionHTML(projectDir, s)
+
+	got, err := os.ReadFile(htmlPath)
+	if err != nil {
+		t.Fatalf("read after guard: %v", err)
+	}
+
+	// The completed file must be preserved.
+	if !strings.Contains(string(got), `data-status="completed"`) {
+		t.Error("guard failed: completed session was overwritten with active shell")
+	}
+	if strings.Contains(string(got), `data-event-count="0"`) {
+		t.Error("guard failed: event count was reset to 0 on completed session")
+	}
+	if !strings.Contains(string(got), "evt-abc") {
+		t.Error("guard failed: activity log was erased on completed session")
 	}
 }
 

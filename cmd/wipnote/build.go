@@ -51,23 +51,35 @@ func runBuild() error {
 		return fmt.Errorf("create %s: %w", metaDir, err)
 	}
 
-	// Remove existing binary first so macOS doesn't reuse a cached code signature.
-	_ = os.Remove(binaryPath)
-
 	fmt.Printf("Building wipnote (version: %s)...\n", version)
+	// Build to a temp path in the same directory, then atomically rename into
+	// place. A direct `go build -o binaryPath` (or remove-then-build) leaves a
+	// multi-second window where ~/.local/bin/wipnote is missing or partially
+	// written — a concurrently-running agy/Claude statusline or hook hits
+	// "exit 127: not found" mid-rebuild (bug-8fd0fac2). os.Rename is atomic on
+	// the same filesystem and gives the new binary a fresh inode, so macOS does
+	// not reuse a cached code signature (the reason the old code removed first).
+	tmpBinary := binaryPath + ".tmp-build"
+	_ = os.Remove(tmpBinary)
 	goBuild := exec.Command("go", "build",
 		"-ldflags", fmt.Sprintf("-s -w -X main.version=%s", version),
-		"-o", binaryPath,
+		"-o", tmpBinary,
 		"./cmd/wipnote/",
 	)
 	goBuild.Dir = projectRoot
 	goBuild.Stdout = os.Stdout
 	goBuild.Stderr = os.Stderr
 	if err := goBuild.Run(); err != nil {
+		_ = os.Remove(tmpBinary)
 		return fmt.Errorf("go build: %w", err)
 	}
-	if err := os.Chmod(binaryPath, 0o755); err != nil {
-		return fmt.Errorf("chmod %s: %w", binaryPath, err)
+	if err := os.Chmod(tmpBinary, 0o755); err != nil {
+		_ = os.Remove(tmpBinary)
+		return fmt.Errorf("chmod %s: %w", tmpBinary, err)
+	}
+	if err := os.Rename(tmpBinary, binaryPath); err != nil {
+		_ = os.Remove(tmpBinary)
+		return fmt.Errorf("install %s: %w", binaryPath, err)
 	}
 
 	if err := os.Remove(aliasPath); err != nil && !errors.Is(err, os.ErrNotExist) {

@@ -42,9 +42,14 @@ func statuslineCmd() *cobra.Command {
 // never bleeds across projects. Any piped stdin (harness agent-state JSON) is
 // drained and ignored — the work item comes from the cache, not the session.
 func runStatuslineCache() error {
-	// Drain stdin so the harness's pipe writer never blocks on a full buffer.
+	// Drain any piped agent-state JSON in the BACKGROUND so a large writer never
+	// blocks on a full pipe buffer — but never block our own exit waiting for
+	// EOF. A harness that holds the status-line command's stdin open (agy
+	// streams and does not close it) would otherwise hang a synchronous read
+	// forever and leave the status line blank. We print the cached work item and
+	// exit immediately; the goroutine is reaped on process exit.
 	if fi, err := os.Stdin.Stat(); err == nil && (fi.Mode()&os.ModeCharDevice) == 0 {
-		_, _ = io.Copy(io.Discard, os.Stdin)
+		go func() { _, _ = io.Copy(io.Discard, os.Stdin) }()
 	}
 	dir, err := findWipnoteDir()
 	if err != nil {

@@ -11,7 +11,7 @@ links:
     - feat-2c6d04d1
 created_by: wipnote-completion
 created_at: 2026-06-15T22:51:08.072708049Z
-updated_at: 2026-06-15T23:24:39.507650073Z
+updated_at: 2026-06-15T23:28:21.716674197Z
 ---
 
-Codex CLI Linux sandbox requires user-namespace creation via bwrap --unshare-user. In Codespaces/devcontainers the required kernel caps are absent, so probing 'codex --help' never fires. Probe bwrap directly: 'bwrap --unshare-user --ro-bind / / true'. Set WIPNOTE_CODEX_SANDBOX=degraded in the launched process env (auto-degraded case only) so agents stop retrying sandbox paths. 'operation not permitted' (EPERM) must only match as a bwrap failure when co-occurring with namespace/bwrap context words to avoid false positives.
+Codex Linux sandbox needs unprivileged user-namespace creation (bwrap --unshare-user), which Codespaces/restricted containers withhold; probe once with 'bwrap --unshare-user --ro-bind / / true', degrade to --sandbox danger-full-access (devcontainer is the boundary), and set WIPNOTE_CODEX_SANDBOX=degraded so agents stop retrying nested codex exec. Match EPERM only with namespace context to avoid false positives.

@@ -405,6 +405,64 @@ body.right-rail-collapsed .sidebar-reopen{display:flex}
   <a href="#design" class="nav-link active" data-spy="design" data-initial="D">Design</a>
   <a href="#slices" class="nav-link" data-spy="slices" data-initial="S">Slices</a>
   
+  <ul class="slice-nav-list" id="slice-nav-list">
+    
+    <li>
+      <a href="#slice-1" class="slice-nav-item" data-slice-nav="1">
+        <span class="slice-nav-dot" data-approval="pending" data-dot-for="1"></span>
+        <span>#1 Persist exec worktree path, branch, and harness per session</span>
+        
+        <span class="nav-triage-badge nav-triage-question" title="1 open question(s)">?1</span>
+      </a>
+    </li>
+    
+    <li>
+      <a href="#slice-2" class="slice-nav-item" data-slice-nav="2">
+        <span class="slice-nav-dot" data-approval="pending" data-dot-for="2"></span>
+        <span>#2 Daemon resumable-session index (query + CLI + API)</span>
+        
+        <span class="nav-triage-badge nav-triage-question" title="1 open question(s)">?1</span>
+      </a>
+    </li>
+    
+    <li>
+      <a href="#slice-3" class="slice-nav-item" data-slice-nav="3">
+        <span class="slice-nav-dot" data-approval="pending" data-dot-for="3"></span>
+        <span>#3 Interactive launch chooser (TUI) + intent flags, harness-neutral</span>
+        
+        <span class="nav-triage-badge nav-triage-question" title="1 open question(s)">?1</span>
+      </a>
+    </li>
+    
+    <li>
+      <a href="#slice-4" class="slice-nav-item" data-slice-nav="4">
+        <span class="slice-nav-dot" data-approval="pending" data-dot-for="4"></span>
+        <span>#4 Two-level resume with worktree reuse and routed re-entry</span>
+        
+        <span class="nav-triage-badge nav-triage-question" title="1 open question(s)">?1</span>
+      </a>
+    </li>
+    
+    <li>
+      <a href="#slice-5" class="slice-nav-item" data-slice-nav="5">
+        <span class="slice-nav-dot" data-approval="pending" data-dot-for="5"></span>
+        <span>#5 Snapshot-safe empty-spike and worktree GC</span>
+        
+        <span class="nav-triage-badge nav-triage-question" title="1 open question(s)">?1</span>
+      </a>
+    </li>
+    
+    <li>
+      <a href="#slice-6" class="slice-nav-item" data-slice-nav="6">
+        <span class="slice-nav-dot" data-approval="pending" data-dot-for="6"></span>
+        <span>#6 Web dashboard resume view</span>
+        
+        <span class="nav-triage-badge nav-triage-question" title="1 open question(s)">?1</span>
+      </a>
+    </li>
+    
+  </ul>
+  
   <a href="#questions" class="nav-link" data-spy="questions" data-initial="Q">Decisions</a>
   <a href="#critique" class="nav-link" data-spy="critique" data-initial="C">Critique</a>
   <a href="#feedback-summary" class="nav-link" data-spy="feedback-summary" data-initial="P">Progress</a>
@@ -417,10 +475,33 @@ body.right-rail-collapsed .sidebar-reopen{display:flex}
 <!-- Plan Header -->
 <header class="plan-header">
   <h1>Plan: Explicit-intent launch: daemon-backed session resume + work-item-keyed worktrees</h1>
-  <p style="color:var(--text-dim)">Replace auto-guessed worktree creation with a user-declared intent flow across all CLI launchers.</p>
+  <p style="color:var(--text-dim)">Research basis:
+- https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents (checked 2026-06-16): continuity should live in a curated, always-loaded artifact layer ("attention budget"), not raw transcript replay.
+- https://tessl.io/blog/amp-retires-compaction-for-a-cleaner-handoff-in-the-coding-agent-context-race/ (checked 2026-06-16): Amp dropped automatic compaction for an explicit, user-reviewed /handoff — the field is moving away from auto-magic toward declared intent.
+- https://manus.im/blog/Context-Engineering-for-AI-Agents-Lessons-from-Building-Manus (checked 2026-06-16): file/path-as-memory (reversible compaction) + todo.md; keep pointers in context, not contents.
+- https://code.claude.com/docs/en/worktrees (checked 2026-06-16): native --worktree, isolation:worktree, cleanupPeriodDays TTL sweep, worktree.baseRef, lock-during-run.
+- https://github.com/anthropics/claude-code/issues/46444 (checked 2026-06-16): open safety bug — Claude Code silently deletes uncommitted worktree work on startup. GC here MUST be snapshot-safe.
+- https://codex.danielvaughan.com/2026/04/11/codex-app-worktree-lifecycle-local-environments/ (checked 2026-06-16): Codex snapshots before deleting a managed worktree; ~15 active-worktree cap.
+- https://kiro.dev/docs/specs/ and https://github.github.com/spec-kit/ (checked 2026-06-16): industry lifecycle is Specify->Design->Tasks->Implement with typed artifacts (feature vs bugfix); neither models a first-class spike — wipnote already does.
+- runtime: internal/launcher/plan/plan.go (read 2026-06-16): PlanLaunch already keys isolation on RuntimeMode + WorkItemID + EnforceIsolation; EnsureForFeature/TrackStatus already REUSE an existing worktree on os.Stat hit.
+- runtime: core/db/schema.go sessions table (read 2026-06-16): stores transcript_path + canonical project_dir ("."), but NOT the exec worktree path/branch/harness — the missing link for routed resume.
+
+Replace auto-guessed worktree creation with a USER-DECLARED intent flow shared by all CLI launchers
+(claude/codex/gemini/antigravity). Bare interactive launch asks "continue prior work or start new?";
+the persistent daemon stores per-session state (work item, exec worktree, branch, harness, last
+activity) and serves a resumable-session index to a TUI chooser (and the web dashboard). "Continue"
+re-hydrates the durable WORK ITEM (not the transcript) and reuses its worktree; "new" creates a typed
+work item (plan/spike/feature/bug) which deterministically selects isolation. Worktrees are keyed by
+work item, never by session or CLI. Planning sessions run in-place read-mostly (no worktree). Cleanup
+is snapshot-safe. This repositions the earlier auto-adhoc-timestamp mode (feat-d805d64f) as the
+non-interactive fallback, with the explicit chooser as the primary path.
+
+Three-layer model enforced throughout: session (ephemeral context) != worktree (ephemeral fs,
+GC'd) != work item (durable continuity).
+</p>
   <div class="meta">
     <span class="badge badge-pending">Draft</span>
-    <span style="font-size:.75rem;color:var(--text-muted)">v2 · 0 slices · Created 2026-06-16</span>
+    <span style="font-size:.75rem;color:var(--text-muted)">v1 · 6 slices · Created 2026-06-16</span>
   </div>
 </header>
 <button id="themeToggle" style="position:fixed;top:16px;right:16px;z-index:100;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:6px 12px;color:var(--text);font-family:var(--mono);font-size:0.75rem;cursor:pointer;">
@@ -440,6 +521,12 @@ body.right-rail-collapsed .sidebar-reopen{display:flex}
 <section class="dep-graph" data-zone="dependency-graph">
   <h2>Dependency Graph</h2>
   <div id="graph-data" style="display:none">
+    <div data-node="1" data-name="Persist exec worktree path, branch, and harness per session" data-status="pending" data-deps="" data-files="3"></div>
+    <div data-node="2" data-name="Daemon resumable-session index (query + CLI + API)" data-status="pending" data-deps="1" data-files="3"></div>
+    <div data-node="3" data-name="Interactive launch chooser (TUI) + intent flags, harness-neutral" data-status="pending" data-deps="2" data-files="6"></div>
+    <div data-node="4" data-name="Two-level resume with worktree reuse and routed re-entry" data-status="pending" data-deps="3" data-files="3"></div>
+    <div data-node="5" data-name="Snapshot-safe empty-spike and worktree GC" data-status="pending" data-deps="1" data-files="3"></div>
+    <div data-node="6" data-name="Web dashboard resume view" data-status="pending" data-deps="2" data-files="2"></div>
     
     <!--PLAN_GRAPH_NODES-->
   </div>
@@ -452,17 +539,42 @@ body.right-rail-collapsed .sidebar-reopen{display:flex}
 <details id="design" class="section-card" open data-phase="design" data-status="pending">
   <summary><span>Design</span><span class="badge badge-pending" data-badge-for="design">Pending</span></summary>
   <div class="section-body">
-    <!--PLAN_DESIGN_CONTENT-->
-    <div class="sub-section">
-      <h4>Open Questions</h4>
-      <!--PLAN_QUESTIONS-->
-    </div>
+    <h4>Problem</h4>
+<div data-markdown>wipnote can launch the CLIs but cannot help a user RESUME coherently or isolate predictably.
+Today: (1) the only resume is the harness&#39;s own transcript replay (claude --resume), which is
+directory-scoped and bloats context; (2) isolation is auto-inferred (RuntimeMode + WorkItemID),
+and the auto mode mints non-deterministic adhoc-&lt;timestamp&gt; worktrees that are unresumable and
+accumulate; (3) the sessions table never records which worktree/branch/harness a session ran in,
+so nothing can route a resume back to the right directory. Concurrent sessions on one shared
+checkout therefore collide (dirty main, stray commits on the wrong branch) — observed live during
+this design session. The fix is to make the user DECLARE intent and have wipnote implement it
+transparently, with the daemon as the durable session-state store.
+</div>
+<h4>Goals</h4>
+<ol>
+<li data-markdown>Explicit intent over inference — the user declares continue-vs-new and the work type; wipnote never silently guesses worktree behavior.</li>
+<li data-markdown>Continuity without context bloat — resume re-hydrates the durable work item + curated handoff, not the raw transcript (transcript resume is an optional same-day convenience).</li>
+<li data-markdown>Worktree keyed by WORK ITEM — reused across sessions, never per-session or per-CLI; planning runs in-place; bare exploration becomes a typed spike.</li>
+<li data-markdown>Daemon-backed resumable index — one harness-neutral source of truth surfaced by both a launch-time TUI and the web dashboard.</li>
+<li data-markdown>Snapshot-safe cleanup — empty spikes/worktrees are GC&#39;d, but a worktree with uncommitted or unpushed work is NEVER removed without a snapshot (avoid Claude Code #46444 class of data loss).</li>
+<li data-markdown>Backward compatible — flags and non-interactive/yolo/CI paths bypass the prompt; existing launch behavior is preserved when no intent is declared.</li>
+</ol>
+<h4>Constraints</h4>
+<ul>
+<li data-markdown>Canonical observability identity stays anchored to the main repo root via WIPNOTE_PROJECT_DIR + git-common-dir; worktrees are execution dirs only (delivered by plan-1670cacd / plan-2133adf2).</li>
+<li data-markdown>No new mandatory runtime dependency for the TUI — prefer an already-vendored TUI lib or a minimal stdlib prompt; record the adopt-vs-build outcome.</li>
+<li data-markdown>The interactive prompt must never block non-TTY, piped, yolo, or CI invocations; flags always win over the prompt.</li>
+<li data-markdown>Cross-harness: the chooser and daemon index are harness-neutral; only the final exec wiring differs per CLI (claude/codex/gemini/antigravity).</li>
+<li data-markdown>Claims layer (LiveCollision) remains the concurrency guard — two live sessions on one work item are prevented at the claim level, not by spawning extra worktrees.</li>
+</ul>
+
     <div class="approval-row">
       <label><input type="checkbox" data-section="design" data-action="approve"> Approve design</label>
       <textarea data-section="design" data-comment-for="design" placeholder="Comments on design decisions..."></textarea>
     </div>
   </div>
 </details>
+
 
 <!-- Structure Outline (hidden when empty) -->
 
@@ -471,23 +583,948 @@ body.right-rail-collapsed .sidebar-reopen{display:flex}
 <details id="slices" class="section-card" open data-phase="slices" data-status="pending">
   <summary><span>Slices</span><span class="badge badge-pending" data-badge-for="slices">Pending</span></summary>
   <div class="section-body">
+    <details class="slice-card" id="slice-1" data-slice="1" data-slice-name="slice-1" data-status="pending" data-approval="pending">
+  <summary class="slice-summary" aria-label="Slice 1: Persist exec worktree path, branch, and harness per session">
+    <span class="slice-num">#1</span>
+    <span class="slice-title-col">
+      <span class="slice-name">Persist exec worktree path, branch, and harness per session</span>
+      <span class="slice-preview">Record, at SessionStart, the session&#39;s actual execution context: the worktree/exec dir</span>
+      <span class="slice-meta-row">
+        <span class="slice-summary-badges">
+          <span class="badge badge-revision badge-sm">M</span>
+          <span class="badge badge-revision badge-sm">Med</span>
+          <span class="badge badge-revision badge-sm badge-complexity" title="Complexity: complex">Complex</span>
+          
+          <span class="badge badge-pending badge-sm slice-approval-badge" data-badge-for="slice-1">Pending</span>
+          
+          <span class="badge badge-sm badge-questions" title="1 open question(s)">1 Q</span>
+        </span>
+        <span class="slice-actions" onclick="event.stopPropagation()">
+          <span class="approval-segmented" role="group" aria-label="Approval action">
+            <label class="seg-btn seg-approve" title="Approve">
+              <input type="radio" name="slice-1-approval" value="approved" data-section="slice-1" data-action="approve" aria-label="Approve slice 1">
+              &#10003;
+            </label>
+            <label class="seg-btn seg-changes" title="Request changes">
+              <input type="radio" name="slice-1-approval" value="changes_requested" data-section="slice-1" data-action="approve" aria-label="Request changes for slice 1">
+              &#8635;
+            </label>
+            <label class="seg-btn seg-reject" title="Reject">
+              <input type="radio" name="slice-1-approval" value="rejected" data-section="slice-1" data-action="approve" aria-label="Reject slice 1">
+              &#10005;
+            </label>
+          </span>
+        </span>
+      </span>
+    </span>
+    <span class="slice-chevron" aria-hidden="true"></span>
+  </summary>
+
+  <div class="slice-body">
     
+      
+      <div class="slice-field slice-what">
+        <div class="slice-field-label">What</div>
+        <div class="slice-field-value">
+          
+          <input type="checkbox" id="slice-1-what-reveal" class="reveal-toggle">
+          <div class="markdown-block reveal-content serif-prose"><p>Record, at SessionStart, the session&#39;s actual execution context: the worktree/exec dir
+(from the CloudEvent CWD, normalized repo-relative), the git branch, and the harness
+(claude/codex/gemini/antigravity). Add nullable columns to the sessions table (or a sidecar
+table) and populate them in the SessionStart handler, which already has event.CWD available
+for gitdir repair but currently discards it. Canonical project_dir stays &#34;.&#34; — these new
+fields describe WHERE execution happened, not the observability identity.</p>
+</div>
+          <label for="slice-1-what-reveal" class="reveal-label">Show full description</label>
+          
+        </div>
+      </div>
+      
+      
+      <div class="slice-field slice-why">
+        <div class="slice-field-label">Why</div>
+        <div class="slice-field-value">
+          
+          <div class="markdown-block serif-prose"><p>This is the missing link for routed resume. The sessions table stores transcript_path +
+canonical project_dir only; without the exec worktree/branch/harness, nothing can send a
+resume back into the correct directory, and the chooser cannot show meaningful rows.</p>
+</div>
+          
+        </div>
+      </div>
+      
+      
+      <div class="slice-field">
+        <div class="slice-field-label">Files</div>
+        <div class="slice-field-value"><code>core/db/schema.go, core/hooks/session_start.go, core/db/session_repo.go</code></div>
+      </div>
+      
+      
+      <div class="slice-field">
+        <div class="slice-field-label">Done when</div>
+        <ul class="slice-done-list"><li>A new session row records exec_worktree_path (repo-relative), branch, and harness.</li><li>Existing rows and DBs upgrade cleanly: columns are nullable; reindex of old HTML leaves them empty without error.</li><li>project_dir remains canonical (&#34;.&#34;) — the new fields do not alter observability identity.</li></ul>
+      </div>
+      
+    
+
+    
+    <div class="slice-field slice-decisions-notes">
+      <div class="slice-field-label">Decisions</div>
+      <div class="slice-field-value">
+        
+        <input type="checkbox" id="slice-1-decisions-reveal" class="reveal-toggle">
+        <div class="markdown-block reveal-content serif-prose"><p><strong>State:</strong> new nullable columns on the existing sessions table (SQLite read index), backfilled
+from event.CWD at SessionStart; canonical project_dir untouched.
+<strong>Payload:</strong> exec_worktree_path (repo-relative), branch, harness enum.
+<strong>Rejected:</strong> a separate sessions_exec table (extra join for every chooser query, no benefit at
+this cardinality); storing absolute paths (fails check-host-paths and breaks cross-host).</p>
+</div>
+        <label for="slice-1-decisions-reveal" class="reveal-label">Show full decisions</label>
+        
+      </div>
+    </div>
+    
+
+    
+    <div class="slice-field slice-tests-field">
+      <div class="slice-field-label">Test Strategy</div>
+      <div class="slice-field-value">
+        
+        
+        <div class="test-strategy">
+          
+          <div class="test-group" data-kind="unit">
+            <span class="test-chip">UNIT &middot; 2</span>
+            <ul><li>TestSessionStart_RecordsExecWorktree — event.CWD inside a linked worktree is stored repo-relative; main-worktree launch stores empty/&#34;.&#34;.</li><li>TestSessionStart_HarnessDetected — harness derived from launch marker/env is persisted.</li></ul>
+          </div>
+          
+          <div class="test-group" data-kind="migration">
+            <span class="test-chip">MIGRATION &middot; 1</span>
+            <ul><li>opening a pre-migration DB adds columns without data loss.</li></ul>
+          </div>
+          
+        </div>
+        
+      </div>
+    </div>
+    
+
+    
+
+    
+    <div class="slice-field slice-questions">
+      <div class="slice-field-label">Open Questions</div>
+      <div class="slice-field-value">
+        
+        <div class="question-block slice-question-block">
+          <p>Where does the harness value come from — the .launch-mode marker or a launch env var?</p>
+          
+          
+          <textarea
+            data-section="slice-1-question-q-harness-source"
+            data-comment-for="slice-1-question-q-harness-source"
+            placeholder="Answer question q-harness-source...">The .launch-mode marker is the source of truth (writeLaunchMarker already records mode&#43;pid&#43;ts); fall back to a WIPNOTE_HARNESS env only if the marker is stale/absent.</textarea>
+          
+        </div>
+        
+      </div>
+    </div>
+    
+
+    <div class="slice-deps">Dependencies: none</div>
+
+    <details class="comment-collapse">
+      <summary class="comment-collapse-trigger">+ Leave a comment</summary>
+      <div class="comment-collapse-body">
+        <textarea data-section="slice-1" data-comment-for="slice-1" placeholder="Comments on slice 1..."></textarea>
+      </div>
+    </details>
+  </div>
+</details>
+<details class="slice-card" id="slice-2" data-slice="2" data-slice-name="slice-2" data-status="pending" data-approval="pending">
+  <summary class="slice-summary" aria-label="Slice 2: Daemon resumable-session index (query &#43; CLI &#43; API)">
+    <span class="slice-num">#2</span>
+    <span class="slice-title-col">
+      <span class="slice-name">Daemon resumable-session index (query &#43; CLI &#43; API)</span>
+      <span class="slice-preview">Build a harness-neutral resumable-session index served by the persistent daemon: a query that</span>
+      <span class="slice-meta-row">
+        <span class="slice-summary-badges">
+          <span class="badge badge-revision badge-sm">M</span>
+          <span class="badge badge-revision badge-sm">Med</span>
+          <span class="badge badge-revision badge-sm badge-complexity" title="Complexity: complex">Complex</span>
+          
+          <span class="badge badge-pending badge-sm slice-approval-badge" data-badge-for="slice-2">Pending</span>
+          
+          <span class="badge badge-sm badge-questions" title="1 open question(s)">1 Q</span>
+        </span>
+        <span class="slice-actions" onclick="event.stopPropagation()">
+          <span class="approval-segmented" role="group" aria-label="Approval action">
+            <label class="seg-btn seg-approve" title="Approve">
+              <input type="radio" name="slice-2-approval" value="approved" data-section="slice-2" data-action="approve" aria-label="Approve slice 2">
+              &#10003;
+            </label>
+            <label class="seg-btn seg-changes" title="Request changes">
+              <input type="radio" name="slice-2-approval" value="changes_requested" data-section="slice-2" data-action="approve" aria-label="Request changes for slice 2">
+              &#8635;
+            </label>
+            <label class="seg-btn seg-reject" title="Reject">
+              <input type="radio" name="slice-2-approval" value="rejected" data-section="slice-2" data-action="approve" aria-label="Reject slice 2">
+              &#10005;
+            </label>
+          </span>
+        </span>
+      </span>
+    </span>
+    <span class="slice-chevron" aria-hidden="true"></span>
+  </summary>
+
+  <div class="slice-body">
+    
+      
+      <div class="slice-field slice-what">
+        <div class="slice-field-label">What</div>
+        <div class="slice-field-value">
+          
+          <input type="checkbox" id="slice-2-what-reveal" class="reveal-toggle">
+          <div class="markdown-block reveal-content serif-prose"><p>Build a harness-neutral resumable-session index served by the persistent daemon: a query that
+joins sessions to their work item and returns rows of {work_item_id, title, type, branch,
+exec_worktree_path, harness, last_activity, last_session_id, live?}. Expose it as
+<code>wipnote sessions resumable [--json]</code> and a daemon HTTP endpoint the dashboard and TUI consume.
+Rank by recency; mark items with a currently-live claim.</p>
+</div>
+          <label for="slice-2-what-reveal" class="reveal-label">Show full description</label>
+          
+        </div>
+      </div>
+      
+      
+      <div class="slice-field slice-why">
+        <div class="slice-field-label">Why</div>
+        <div class="slice-field-value">
+          
+          <div class="markdown-block serif-prose"><p>The chooser (slice 3) and dashboard (slice 6) need one authoritative, fast list of what can be
+resumed. Centralizing it in the daemon avoids each launcher reimplementing the query and keeps
+the index consistent with claim/liveness state already tracked there.</p>
+</div>
+          
+        </div>
+      </div>
+      
+      
+      <div class="slice-field">
+        <div class="slice-field-label">Files</div>
+        <div class="slice-field-value"><code>core/db/session_repo.go, cmd/wipnote/sessions.go, cmd/wipnote/api_sessions.go</code></div>
+      </div>
+      
+      
+      <div class="slice-field">
+        <div class="slice-field-label">Done when</div>
+        <ul class="slice-done-list"><li>`wipnote sessions resumable --json` returns ranked rows with work item, branch, worktree, harness, last activity, and live flag.</li><li>A daemon HTTP endpoint returns the same payload for the dashboard/TUI.</li><li>Liveness reflects the claims/heartbeat layer — a dead session&#39;s item shows resumable, a live one is flagged.</li></ul>
+      </div>
+      
+    
+
+    
+    <div class="slice-field slice-decisions-notes">
+      <div class="slice-field-label">Decisions</div>
+      <div class="slice-field-value">
+        
+        <input type="checkbox" id="slice-2-decisions-reveal" class="reveal-toggle">
+        <div class="markdown-block reveal-content serif-prose"><p><strong>Trigger:</strong> explicit CLI invocation and a daemon endpoint (not a hook) — read-only query path.
+<strong>State:</strong> derived from the sessions table + claims/liveness; no new persistent state.
+<strong>Payload:</strong> array of resumable rows keyed by work item, newest first, with a live boolean.
+<strong>Rejected:</strong> computing the index in each launcher (duplicated logic, drift); a new materialized
+table (the join is cheap at this scale and must not get stale vs liveness).</p>
+</div>
+        <label for="slice-2-decisions-reveal" class="reveal-label">Show full decisions</label>
+        
+      </div>
+    </div>
+    
+
+    
+    <div class="slice-field slice-tests-field">
+      <div class="slice-field-label">Test Strategy</div>
+      <div class="slice-field-value">
+        
+        
+        <div class="test-strategy">
+          
+          <div class="test-group" data-kind="unit">
+            <span class="test-chip">UNIT &middot; 2</span>
+            <ul><li>TestResumableIndex_RanksByRecency — most-recent activity first.</li><li>TestResumableIndex_LiveFlag — item with a heartbeating claim is marked live; stale claim is not.</li></ul>
+          </div>
+          
+          <div class="test-group" data-kind="integration">
+            <span class="test-chip">INTEGRATION &middot; 1</span>
+            <ul><li>TestSessionsResumableCLI — seed sessions, assert JSON shape &#43; ordering.</li></ul>
+          </div>
+          
+        </div>
+        
+      </div>
+    </div>
+    
+
+    
+
+    
+    <div class="slice-field slice-questions">
+      <div class="slice-field-label">Open Questions</div>
+      <div class="slice-field-value">
+        
+        <div class="question-block slice-question-block">
+          <p>Index rows keyed by work item or by individual session?</p>
+          
+          
+          <textarea
+            data-section="slice-2-question-q-index-grain"
+            data-comment-for="slice-2-question-q-index-grain"
+            placeholder="Answer question q-index-grain...">By work item (the durable continuity unit), with last_session_id attached for the optional transcript-level resume — matches the two-level resume model in slice 4.</textarea>
+          
+        </div>
+        
+      </div>
+    </div>
+    
+
+    <div class="slice-deps">Dependencies: slices 1</div>
+
+    <details class="comment-collapse">
+      <summary class="comment-collapse-trigger">+ Leave a comment</summary>
+      <div class="comment-collapse-body">
+        <textarea data-section="slice-2" data-comment-for="slice-2" placeholder="Comments on slice 2..."></textarea>
+      </div>
+    </details>
+  </div>
+</details>
+<details class="slice-card" id="slice-3" data-slice="3" data-slice-name="slice-3" data-status="pending" data-approval="pending">
+  <summary class="slice-summary" aria-label="Slice 3: Interactive launch chooser (TUI) &#43; intent flags, harness-neutral">
+    <span class="slice-num">#3</span>
+    <span class="slice-title-col">
+      <span class="slice-name">Interactive launch chooser (TUI) &#43; intent flags, harness-neutral</span>
+      <span class="slice-preview">On a bare interactive launch (TTY, no intent flags) of any CLI, show a continue-vs-new chooser.</span>
+      <span class="slice-meta-row">
+        <span class="slice-summary-badges">
+          <span class="badge badge-blocked badge-sm">L</span>
+          <span class="badge badge-blocked badge-sm">High</span>
+          <span class="badge badge-revision badge-sm badge-complexity" title="Complexity: complex">Complex</span>
+          
+          <span class="badge badge-pending badge-sm slice-approval-badge" data-badge-for="slice-3">Pending</span>
+          
+          <span class="badge badge-sm badge-questions" title="1 open question(s)">1 Q</span>
+        </span>
+        <span class="slice-actions" onclick="event.stopPropagation()">
+          <span class="approval-segmented" role="group" aria-label="Approval action">
+            <label class="seg-btn seg-approve" title="Approve">
+              <input type="radio" name="slice-3-approval" value="approved" data-section="slice-3" data-action="approve" aria-label="Approve slice 3">
+              &#10003;
+            </label>
+            <label class="seg-btn seg-changes" title="Request changes">
+              <input type="radio" name="slice-3-approval" value="changes_requested" data-section="slice-3" data-action="approve" aria-label="Request changes for slice 3">
+              &#8635;
+            </label>
+            <label class="seg-btn seg-reject" title="Reject">
+              <input type="radio" name="slice-3-approval" value="rejected" data-section="slice-3" data-action="approve" aria-label="Reject slice 3">
+              &#10005;
+            </label>
+          </span>
+        </span>
+      </span>
+    </span>
+    <span class="slice-chevron" aria-hidden="true"></span>
+  </summary>
+
+  <div class="slice-body">
+    
+      
+      <div class="slice-field slice-what">
+        <div class="slice-field-label">What</div>
+        <div class="slice-field-value">
+          
+          <input type="checkbox" id="slice-3-what-reveal" class="reveal-toggle">
+          <div class="markdown-block reveal-content serif-prose"><p>On a bare interactive launch (TTY, no intent flags) of any CLI, show a continue-vs-new chooser.
+&#34;New&#34; prompts for the work TYPE — plan / spike / feature / bug — which deterministically selects
+isolation: plan =&gt; in-place read-mostly (NO worktree); spike/feature/bug =&gt; work-item-keyed
+managed worktree. Add/normalize intent flags across launchers: --continue, --work-item ,
+--new  &#34;</div>
+          <label for="slice-3-what-reveal" class="reveal-label">Show full description</label>
+          
+        </div>
+      </div>
+      
+      
+      <div class="slice-field slice-why">
+        <div class="slice-field-label">Why</div>
+        <div class="slice-field-value">
+          
+          <div class="markdown-block serif-prose"><p>Implements the user-declared intent model: stop guessing, ask once, then implement exactly what
+the user chose. Mapping &#34;new&#34; to a typed work item makes the lifecycle phase explicit and gives
+the worktree decision a deterministic, non-magical basis.</p>
+</div>
+          
+        </div>
+      </div>
+      
+      
+      <div class="slice-field">
+        <div class="slice-field-label">Files</div>
+        <div class="slice-field-value"><code>cmd/wipnote/launcher_chooser.go, cmd/wipnote/launcher_mode.go, cmd/wipnote/claude.go, cmd/wipnote/codex.go, cmd/wipnote/gemini.go, cmd/wipnote/antigravity.go</code></div>
+      </div>
+      
+      
+      <div class="slice-field">
+        <div class="slice-field-label">Done when</div>
+        <ul class="slice-done-list"><li>Bare interactive launch with no flags shows the continue-vs-new chooser; choosing new asks the work type.</li><li>--continue / --work-item / --new / --in-place all bypass the prompt and behave deterministically.</li><li>Non-TTY, piped, --yolo, and CI never block on the prompt (verified by a non-TTY test).</li><li>Choosing &#39;plan&#39; launches in-place with no worktree; spike/feature/bug create/enter a work-item-keyed worktree.</li><li>The resolved work item and worktree path are printed before the harness starts.</li></ul>
+      </div>
+      
+    
+
+    
+    <div class="slice-field slice-decisions-notes">
+      <div class="slice-field-label">Decisions</div>
+      <div class="slice-field-value">
+        
+        <input type="checkbox" id="slice-3-decisions-reveal" class="reveal-toggle">
+        <div class="markdown-block reveal-content serif-prose"><p><strong>Trigger:</strong> bare interactive launch (isatty on stdin/stdout, no intent flag) of any CLI launcher.
+<strong>State:</strong> reads the slice-2 index; writes the chosen/created work item via existing work-item APIs.
+<strong>Payload:</strong> chooser returns {action: continue|new, work_item_id, type}; launcher maps to isolation.
+<strong>Adopt-vs-build:</strong> prefer an already-vendored TUI primitive (e.g. bubbletea/promptui if present
+in go.mod) over a hand-rolled raw-terminal loop; if none is vendored, use a minimal stdlib
+line-prompt for v1 and defer rich TUI — recorded so review can decide.
+<strong>Rejected:</strong> always-on prompt with no bypass (breaks scripts/yolo/CI); inferring intent then
+confirming (reintroduces the guessing the user explicitly rejected); per-CLI worktree axis
+(item x CLI explosion — CLI is the tool, work item is the isolation key).</p>
+</div>
+        <label for="slice-3-decisions-reveal" class="reveal-label">Show full decisions</label>
+        
+      </div>
+    </div>
+    
+
+    
+    <div class="slice-field slice-tests-field">
+      <div class="slice-field-label">Test Strategy</div>
+      <div class="slice-field-value">
+        
+        
+        <div class="test-strategy">
+          
+          <div class="test-group" data-kind="unit">
+            <span class="test-chip">UNIT &middot; 3</span>
+            <ul><li>TestChooser_NonTTYBypass — no TTY =&gt; no prompt, falls back to policy.</li><li>TestChooser_NewTypeSelectsIsolation — plan=&gt;in-place, spike/feature/bug=&gt;managed worktree.</li><li>TestIntentFlags_BypassPrompt — each flag short-circuits the chooser.</li></ul>
+          </div>
+          
+          <div class="test-group" data-kind="integration">
+            <span class="test-chip">INTEGRATION &middot; 1</span>
+            <ul><li>TestLaunchChooser_PrintsResolvedTarget — asserts the transparency line.</li></ul>
+          </div>
+          
+        </div>
+        
+      </div>
+    </div>
+    
+
+    
+
+    
+    <div class="slice-field slice-questions">
+      <div class="slice-field-label">Open Questions</div>
+      <div class="slice-field-value">
+        
+        <div class="question-block slice-question-block">
+          <p>Rich TUI library now, or minimal stdlib prompt for v1?</p>
+          
+          
+          <textarea
+            data-section="slice-3-question-q-tui-lib"
+            data-comment-for="slice-3-question-q-tui-lib"
+            placeholder="Answer question q-tui-lib...">Audit go.mod first; adopt an already-vendored TUI lib if present, otherwise ship a minimal stdlib continue-vs-new &#43; type prompt for v1 and file a follow-up for a richer picker — avoids a new dependency on the critical launch path.</textarea>
+          
+        </div>
+        
+      </div>
+    </div>
+    
+
+    <div class="slice-deps">Dependencies: slices 2</div>
+
+    <details class="comment-collapse">
+      <summary class="comment-collapse-trigger">+ Leave a comment</summary>
+      <div class="comment-collapse-body">
+        <textarea data-section="slice-3" data-comment-for="slice-3" placeholder="Comments on slice 3..."></textarea>
+      </div>
+    </details>
+  </div>
+</details>
+<details class="slice-card" id="slice-4" data-slice="4" data-slice-name="slice-4" data-status="pending" data-approval="pending">
+  <summary class="slice-summary" aria-label="Slice 4: Two-level resume with worktree reuse and routed re-entry">
+    <span class="slice-num">#4</span>
+    <span class="slice-title-col">
+      <span class="slice-name">Two-level resume with worktree reuse and routed re-entry</span>
+      <span class="slice-preview">Implement &#34;continue&#34;: pick a work item from the index, REUSE its existing worktree (the</span>
+      <span class="slice-meta-row">
+        <span class="slice-summary-badges">
+          <span class="badge badge-revision badge-sm">M</span>
+          <span class="badge badge-blocked badge-sm">High</span>
+          <span class="badge badge-revision badge-sm badge-complexity" title="Complexity: complex">Complex</span>
+          
+          <span class="badge badge-pending badge-sm slice-approval-badge" data-badge-for="slice-4">Pending</span>
+          
+          <span class="badge badge-sm badge-questions" title="1 open question(s)">1 Q</span>
+        </span>
+        <span class="slice-actions" onclick="event.stopPropagation()">
+          <span class="approval-segmented" role="group" aria-label="Approval action">
+            <label class="seg-btn seg-approve" title="Approve">
+              <input type="radio" name="slice-4-approval" value="approved" data-section="slice-4" data-action="approve" aria-label="Approve slice 4">
+              &#10003;
+            </label>
+            <label class="seg-btn seg-changes" title="Request changes">
+              <input type="radio" name="slice-4-approval" value="changes_requested" data-section="slice-4" data-action="approve" aria-label="Request changes for slice 4">
+              &#8635;
+            </label>
+            <label class="seg-btn seg-reject" title="Reject">
+              <input type="radio" name="slice-4-approval" value="rejected" data-section="slice-4" data-action="approve" aria-label="Reject slice 4">
+              &#10005;
+            </label>
+          </span>
+        </span>
+      </span>
+    </span>
+    <span class="slice-chevron" aria-hidden="true"></span>
+  </summary>
+
+  <div class="slice-body">
+    
+      
+      <div class="slice-field slice-what">
+        <div class="slice-field-label">What</div>
+        <div class="slice-field-value">
+          
+          <input type="checkbox" id="slice-4-what-reveal" class="reveal-toggle">
+          <div class="markdown-block reveal-content serif-prose"><p>Implement &#34;continue&#34;: pick a work item from the index, REUSE its existing worktree (the
+EnsureForFeature/TrackStatus reuse path — never create a second one), cd/exec into the recorded
+exec_worktree_path from slice 1, and inject the correct WIPNOTE_PROJECT_DIR (canonical root).
+Offer an optional second level: resume the last harness transcript for that item via the
+harness&#39;s own resume flag (claude --resume  etc.) for a same-day pickup; default is a fresh
+session re-hydrated from the work item, not a transcript replay.</p>
+</div>
+          <label for="slice-4-what-reveal" class="reveal-label">Show full description</label>
+          
+        </div>
+      </div>
+      
+      
+      <div class="slice-field slice-why">
+        <div class="slice-field-label">Why</div>
+        <div class="slice-field-value">
+          
+          <div class="markdown-block serif-prose"><p>Closes the continuity loop without bloat: the durable work item is the primary resume unit
+(curated, small), transcript replay is an explicit opt-in. Routing into the recorded worktree
+makes resume work regardless of the directory the user invoked wipnote from.</p>
+</div>
+          
+        </div>
+      </div>
+      
+      
+      <div class="slice-field">
+        <div class="slice-field-label">Files</div>
+        <div class="slice-field-value"><code>cmd/wipnote/launcher_mode.go, cmd/wipnote/claude.go, core/worktree/worktree.go</code></div>
+      </div>
+      
+      
+      <div class="slice-field">
+        <div class="slice-field-label">Done when</div>
+        <ul class="slice-done-list"><li>Continuing a work item re-enters its EXISTING worktree (asserted: no new worktree created).</li><li>Resume routes into the recorded exec_worktree_path even when invoked from elsewhere, with canonical WIPNOTE_PROJECT_DIR.</li><li>Transcript-level resume is offered as an explicit second step and is not the default.</li></ul>
+      </div>
+      
+    
+
+    
+    <div class="slice-field slice-decisions-notes">
+      <div class="slice-field-label">Decisions</div>
+      <div class="slice-field-value">
+        
+        <input type="checkbox" id="slice-4-decisions-reveal" class="reveal-toggle">
+        <div class="markdown-block reveal-content serif-prose"><p><strong>Trigger:</strong> chooser &#34;continue&#34; or --continue/--work-item with an item that has an existing worktree.
+<strong>State:</strong> reads slice-1 exec path + slice-2 index; reuses worktree via existing Ensure* reuse.
+<strong>Payload:</strong> launch into recorded worktree; optional harness --resume &lt;last_session_id&gt;.
+<strong>Rejected:</strong> transcript replay as the default (context-bloat path per Anthropic/Amp research);
+creating a fresh worktree on resume (defeats reuse, causes bloat + base divergence).</p>
+</div>
+        <label for="slice-4-decisions-reveal" class="reveal-label">Show full decisions</label>
+        
+      </div>
+    </div>
+    
+
+    
+    <div class="slice-field slice-tests-field">
+      <div class="slice-field-label">Test Strategy</div>
+      <div class="slice-field-value">
+        
+        
+        <div class="test-strategy">
+          
+          <div class="test-group" data-kind="unit">
+            <span class="test-chip">UNIT &middot; 2</span>
+            <ul><li>TestContinue_ReusesWorktree — second continue on the same item reuses, created=false.</li><li>TestResume_RoutesToRecordedWorktree — exec dir matches the stored path; project_dir canonical.</li></ul>
+          </div>
+          
+          <div class="test-group" data-kind="integration">
+            <span class="test-chip">INTEGRATION &middot; 1</span>
+            <ul><li>TestTwoLevelResume_TranscriptOptional — work-item resume by default; --resume &lt;id&gt; opts into transcript.</li></ul>
+          </div>
+          
+        </div>
+        
+      </div>
+    </div>
+    
+
+    
+
+    
+    <div class="slice-field slice-questions">
+      <div class="slice-field-label">Open Questions</div>
+      <div class="slice-field-value">
+        
+        <div class="question-block slice-question-block">
+          <p>Default continue = fresh session re-hydrated from the work item, or transcript replay?</p>
+          
+          
+          <textarea
+            data-section="slice-4-question-q-resume-default"
+            data-comment-for="slice-4-question-q-resume-default"
+            placeholder="Answer question q-resume-default...">Fresh session re-hydrated from the work item is the default (durable-artifact continuity, no bloat); transcript replay is an explicit opt-in for same-day pickups.</textarea>
+          
+        </div>
+        
+      </div>
+    </div>
+    
+
+    <div class="slice-deps">Dependencies: slices 3</div>
+
+    <details class="comment-collapse">
+      <summary class="comment-collapse-trigger">+ Leave a comment</summary>
+      <div class="comment-collapse-body">
+        <textarea data-section="slice-4" data-comment-for="slice-4" placeholder="Comments on slice 4..."></textarea>
+      </div>
+    </details>
+  </div>
+</details>
+<details class="slice-card" id="slice-5" data-slice="5" data-slice-name="slice-5" data-status="pending" data-approval="pending">
+  <summary class="slice-summary" aria-label="Slice 5: Snapshot-safe empty-spike and worktree GC">
+    <span class="slice-num">#5</span>
+    <span class="slice-title-col">
+      <span class="slice-name">Snapshot-safe empty-spike and worktree GC</span>
+      <span class="slice-preview">On SessionEnd, if the session ran a spike whose worktree has no commits, no staged/unstaged</span>
+      <span class="slice-meta-row">
+        <span class="slice-summary-badges">
+          <span class="badge badge-revision badge-sm">M</span>
+          <span class="badge badge-blocked badge-sm">High</span>
+          <span class="badge badge-revision badge-sm badge-complexity" title="Complexity: complex">Complex</span>
+          
+          <span class="badge badge-pending badge-sm slice-approval-badge" data-badge-for="slice-5">Pending</span>
+          
+          <span class="badge badge-sm badge-questions" title="1 open question(s)">1 Q</span>
+        </span>
+        <span class="slice-actions" onclick="event.stopPropagation()">
+          <span class="approval-segmented" role="group" aria-label="Approval action">
+            <label class="seg-btn seg-approve" title="Approve">
+              <input type="radio" name="slice-5-approval" value="approved" data-section="slice-5" data-action="approve" aria-label="Approve slice 5">
+              &#10003;
+            </label>
+            <label class="seg-btn seg-changes" title="Request changes">
+              <input type="radio" name="slice-5-approval" value="changes_requested" data-section="slice-5" data-action="approve" aria-label="Request changes for slice 5">
+              &#8635;
+            </label>
+            <label class="seg-btn seg-reject" title="Reject">
+              <input type="radio" name="slice-5-approval" value="rejected" data-section="slice-5" data-action="approve" aria-label="Reject slice 5">
+              &#10005;
+            </label>
+          </span>
+        </span>
+      </span>
+    </span>
+    <span class="slice-chevron" aria-hidden="true"></span>
+  </summary>
+
+  <div class="slice-body">
+    
+      
+      <div class="slice-field slice-what">
+        <div class="slice-field-label">What</div>
+        <div class="slice-field-value">
+          
+          <input type="checkbox" id="slice-5-what-reveal" class="reveal-toggle">
+          <div class="markdown-block reveal-content serif-prose"><p>On SessionEnd, if the session ran a spike whose worktree has no commits, no staged/unstaged
+changes, and no untracked files, auto-complete the spike and remove its worktree (mirrors Claude
+Code&#39;s no-op-worktree cleanup). Add a TTL sweep for stale managed worktrees gated on the same
+emptiness check and on the run-lock. CRITICAL safety: NEVER remove a worktree that has
+uncommitted or unpushed work without first taking a snapshot (branch/stash ref or patch under
+.wipnote), explicitly avoiding the Claude Code #46444 silent-data-loss failure mode.</p>
+</div>
+          <label for="slice-5-what-reveal" class="reveal-label">Show full description</label>
+          
+        </div>
+      </div>
+      
+      
+      <div class="slice-field slice-why">
+        <div class="slice-field-label">Why</div>
+        <div class="slice-field-value">
+          
+          <div class="markdown-block serif-prose"><p>Keeps worktree/spike count bounded (the anti-bloat half of &#34;every bare session = a spike&#34;)
+without the data-loss risk that auto-cleanup notoriously introduces.</p>
+</div>
+          
+        </div>
+      </div>
+      
+      
+      <div class="slice-field">
+        <div class="slice-field-label">Files</div>
+        <div class="slice-field-value"><code>core/hooks/session_end.go, core/worktree/cleanup.go, cmd/wipnote/config.go</code></div>
+      </div>
+      
+      
+      <div class="slice-field">
+        <div class="slice-field-label">Done when</div>
+        <ul class="slice-done-list"><li>A spike session ending with a clean worktree auto-completes the spike and removes the worktree.</li><li>A worktree with uncommitted/unpushed work is preserved AND snapshotted; it is never silently deleted.</li><li>TTL sweep respects the run-lock and the emptiness check; live worktrees are never swept.</li><li>Cleanup is opt-in/tunable via .wipnote/config.json and defaults conservatively.</li></ul>
+      </div>
+      
+    
+
+    
+    <div class="slice-field slice-decisions-notes">
+      <div class="slice-field-label">Decisions</div>
+      <div class="slice-field-value">
+        
+        <input type="checkbox" id="slice-5-decisions-reveal" class="reveal-toggle">
+        <div class="markdown-block reveal-content serif-prose"><p><strong>Trigger:</strong> SessionEnd hook (per-session) + a periodic daemon TTL sweep.
+<strong>State:</strong> reads git status of the worktree; writes spike completion + removes worktree dir;
+snapshot ref/patch stored under .wipnote on the dirty path.
+<strong>Payload:</strong> none external; emits a cleanup log line naming what was removed (no silent caps).
+<strong>Rejected:</strong> unconditional TTL deletion (the #46444 data-loss bug); summarizing/discarding dirty
+worktrees (lossy); GC keyed on session rather than worktree emptiness (would race live reuse).</p>
+</div>
+        <label for="slice-5-decisions-reveal" class="reveal-label">Show full decisions</label>
+        
+      </div>
+    </div>
+    
+
+    
+    <div class="slice-field slice-tests-field">
+      <div class="slice-field-label">Test Strategy</div>
+      <div class="slice-field-value">
+        
+        
+        <div class="test-strategy">
+          
+          <div class="test-group" data-kind="unit">
+            <span class="test-chip">UNIT &middot; 3</span>
+            <ul><li>TestGC_RemovesEmptySpikeWorktree — clean worktree =&gt; removed &#43; spike completed.</li><li>TestGC_PreservesDirtyWorktree — uncommitted change =&gt; kept &#43; snapshot recorded, not deleted.</li><li>TestGC_RespectsLock — locked/live worktree is skipped by the TTL sweep.</li></ul>
+          </div>
+          
+        </div>
+        
+      </div>
+    </div>
+    
+
+    
+
+    
+    <div class="slice-field slice-questions">
+      <div class="slice-field-label">Open Questions</div>
+      <div class="slice-field-value">
+        
+        <div class="question-block slice-question-block">
+          <p>Snapshot dirty worktrees as a git stash/branch ref or a patch file under .wipnote?</p>
+          
+          
+          <textarea
+            data-section="slice-5-question-q-snapshot-form"
+            data-comment-for="slice-5-question-q-snapshot-form"
+            placeholder="Answer question q-snapshot-form...">A retained branch/ref (durable, restorable via git) is preferred over a loose patch; fall back to a patch under .wipnote only when a ref cannot be created. Either way, never delete without a recoverable snapshot.</textarea>
+          
+        </div>
+        
+      </div>
+    </div>
+    
+
+    <div class="slice-deps">Dependencies: slices 1</div>
+
+    <details class="comment-collapse">
+      <summary class="comment-collapse-trigger">+ Leave a comment</summary>
+      <div class="comment-collapse-body">
+        <textarea data-section="slice-5" data-comment-for="slice-5" placeholder="Comments on slice 5..."></textarea>
+      </div>
+    </details>
+  </div>
+</details>
+<details class="slice-card" id="slice-6" data-slice="6" data-slice-name="slice-6" data-status="pending" data-approval="pending">
+  <summary class="slice-summary" aria-label="Slice 6: Web dashboard resume view">
+    <span class="slice-num">#6</span>
+    <span class="slice-title-col">
+      <span class="slice-name">Web dashboard resume view</span>
+      <span class="slice-preview">Surface the slice-2 resumable index in the wipnote serve dashboard: a &#34;Resume&#34; panel listing</span>
+      <span class="slice-meta-row">
+        <span class="slice-summary-badges">
+          <span class="badge badge-pending badge-sm">S</span>
+          <span class="badge badge-pending badge-sm">Low</span>
+          <span class="badge badge-discuss badge-sm badge-complexity" title="Complexity: standard">Standard</span>
+          
+          <span class="badge badge-pending badge-sm slice-approval-badge" data-badge-for="slice-6">Pending</span>
+          
+          <span class="badge badge-sm badge-questions" title="1 open question(s)">1 Q</span>
+        </span>
+        <span class="slice-actions" onclick="event.stopPropagation()">
+          <span class="approval-segmented" role="group" aria-label="Approval action">
+            <label class="seg-btn seg-approve" title="Approve">
+              <input type="radio" name="slice-6-approval" value="approved" data-section="slice-6" data-action="approve" aria-label="Approve slice 6">
+              &#10003;
+            </label>
+            <label class="seg-btn seg-changes" title="Request changes">
+              <input type="radio" name="slice-6-approval" value="changes_requested" data-section="slice-6" data-action="approve" aria-label="Request changes for slice 6">
+              &#8635;
+            </label>
+            <label class="seg-btn seg-reject" title="Reject">
+              <input type="radio" name="slice-6-approval" value="rejected" data-section="slice-6" data-action="approve" aria-label="Reject slice 6">
+              &#10005;
+            </label>
+          </span>
+        </span>
+      </span>
+    </span>
+    <span class="slice-chevron" aria-hidden="true"></span>
+  </summary>
+
+  <div class="slice-body">
+    
+      
+      <div class="slice-field slice-what">
+        <div class="slice-field-label">What</div>
+        <div class="slice-field-value">
+          
+          <div class="markdown-block serif-prose"><p>Surface the slice-2 resumable index in the wipnote serve dashboard: a &#34;Resume&#34; panel listing
+resumable work items with branch, worktree, harness, last activity, and live status, each row
+showing the exact launch command to continue (e.g. <code>wipnote claude --work-item feat-X</code>).
+Read-only; reuses the same daemon endpoint as the TUI.</p>
+</div>
+          
+        </div>
+      </div>
+      
+      
+      <div class="slice-field slice-why">
+        <div class="slice-field-label">Why</div>
+        <div class="slice-field-value">
+          
+          <div class="markdown-block serif-prose"><p>Gives a richer browse/management surface for resumption beyond the launch-time TUI, on the same
+single source of truth — so the terminal and web views never disagree.</p>
+</div>
+          
+        </div>
+      </div>
+      
+      
+      <div class="slice-field">
+        <div class="slice-field-label">Files</div>
+        <div class="slice-field-value"><code>cmd/wipnote/api_sessions.go, plugin/static/dashboard.js</code></div>
+      </div>
+      
+      
+      <div class="slice-field">
+        <div class="slice-field-label">Done when</div>
+        <ul class="slice-done-list"><li>The dashboard shows a Resume panel populated from the daemon resumable endpoint.</li><li>Each row displays the copy-paste launch command and live/idle status.</li></ul>
+      </div>
+      
+    
+
+    
+    <div class="slice-field slice-decisions-notes">
+      <div class="slice-field-label">Decisions</div>
+      <div class="slice-field-value">
+        
+        <div class="markdown-block serif-prose"><p><strong>Trigger:</strong> dashboard page load fetching the slice-2 endpoint.
+<strong>State:</strong> none new; pure read view over the daemon index.
+<strong>Rejected:</strong> a second query path for the web (must share slice-2&#39;s endpoint so TUI and web agree).</p>
+</div>
+        
+      </div>
+    </div>
+    
+
+    
+    <div class="slice-field slice-tests-field">
+      <div class="slice-field-label">Test Strategy</div>
+      <div class="slice-field-value">
+        
+        
+        <div class="test-strategy">
+          
+          <div class="test-group" data-kind="integration">
+            <span class="test-chip">INTEGRATION &middot; 1</span>
+            <ul><li>TestDashboardResumePanel — endpoint returns rows; panel renders them.</li></ul>
+          </div>
+          
+          <div class="test-group" data-kind="manual">
+            <span class="test-chip">MANUAL &middot; 1</span>
+            <ul><li>smoke-test the panel in `wipnote serve --bind 0.0.0.0 --port 8088`.</li></ul>
+          </div>
+          
+        </div>
+        
+      </div>
+    </div>
+    
+
+    
+
+    
+    <div class="slice-field slice-questions">
+      <div class="slice-field-label">Open Questions</div>
+      <div class="slice-field-value">
+        
+        <div class="question-block slice-question-block">
+          <p>Read-only command display, or actionable buttons that launch from the browser?</p>
+          
+          
+          <textarea
+            data-section="slice-6-question-q-web-actions"
+            data-comment-for="slice-6-question-q-web-actions"
+            placeholder="Answer question q-web-actions...">Read-only copy-paste command for v1 (launching a terminal CLI from a browser is an attack/UX surface); revisit actionable launch later.</textarea>
+          
+        </div>
+        
+      </div>
+    </div>
+    
+
+    <div class="slice-deps">Dependencies: slices 2</div>
+
+    <details class="comment-collapse">
+      <summary class="comment-collapse-trigger">+ Leave a comment</summary>
+      <div class="comment-collapse-body">
+        <textarea data-section="slice-6" data-comment-for="slice-6" placeholder="Comments on slice 6..."></textarea>
+      </div>
+    </details>
+  </div>
+</details>
+
     <!--PLAN_SLICE_CARDS-->
   </div>
 </details>
 
 <!-- Design Decisions (hidden for v2 plans — slice cards carry their own questions) -->
-<details id="questions" class="section-card" data-phase="questions" data-status="pending">
-  <summary><span>Design Decisions</span><span class="badge badge-pending" data-badge-for="questions">Pending</span></summary>
-  <div class="section-body">
-    <table class="q-table">
-      <thead><tr><th>Question</th><th>Selected</th><th>Status</th></tr></thead>
-      <tbody id="questionsRecap">
-        <!--PLAN_QUESTIONS_RECAP-->
-      </tbody>
-    </table>
-  </div>
-</details>
+
 
 
 
@@ -498,8 +1535,8 @@ body.right-rail-collapsed .sidebar-reopen{display:flex}
   <h2>Feedback Summary</h2>
   <div class="progress-stats">
     <div class="progress-stat"><strong id="approvedCount">0</strong> approved</div>
-    <div class="progress-stat"><strong id="totalSections">1</strong> sections</div>
-    <div class="progress-stat"><strong id="pendingCount">1</strong> pending</div>
+    <div class="progress-stat"><strong id="totalSections">7</strong> sections</div>
+    <div class="progress-stat"><strong id="pendingCount">7</strong> pending</div>
   </div>
   <div class="progress-bar-track"><div class="progress-bar-fill" id="progressFill" style="width:0%"></div></div>
   <div class="comments-summary">
@@ -591,7 +1628,7 @@ var planId=(function(){var a=document.querySelector('article[id]');return a?a.id
 
 (function(){
   'use strict';
-  var SECTIONS=/*PLAN_SECTIONS_JSON*/["design"]/*END_PLAN_SECTIONS_JSON*/;
+  var SECTIONS=/*PLAN_SECTIONS_JSON*/["design","slice-1","slice-2","slice-3","slice-4","slice-5","slice-6"]/*END_PLAN_SECTIONS_JSON*/;
 
   function setBadge(el,ok){
     el.className='badge badge-'+(ok?'approved':'pending');

@@ -9,7 +9,7 @@ tools:
     - write_file
     - grep_search
     - glob
-    - run_shell_command
+    - run_command
     - google_web_search
     - web_fetch
 ---

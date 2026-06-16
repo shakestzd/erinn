@@ -1,17 +1,7 @@
 {
-  "hooks": {
-    "SessionStart": [
-      {
-        "matcher": "*",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "WIPNOTE_AGENT_ID=antigravity WIPNOTE_AGENT_TYPE=antigravity wipnote hook session-start"
-          }
-        ]
-      }
-    ],
-    "BeforeAgent": [
+  "wipnote": {
+    "enabled": true,
+    "PreInvocation": [
       {
         "matcher": "*",
         "hooks": [
@@ -22,7 +12,7 @@
         ]
       }
     ],
-    "AfterAgent": [
+    "PostInvocation": [
       {
         "matcher": "*",
         "hooks": [
@@ -33,18 +23,7 @@
         ]
       }
     ],
-    "AfterModel": [
-      {
-        "matcher": "*",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "WIPNOTE_AGENT_ID=antigravity WIPNOTE_AGENT_TYPE=antigravity wipnote hook after-model"
-          }
-        ]
-      }
-    ],
-    "BeforeTool": [
+    "PreToolUse": [
       {
         "matcher": "*",
         "hooks": [
@@ -55,7 +34,7 @@
         ]
       }
     ],
-    "AfterTool": [
+    "PostToolUse": [
       {
         "matcher": "*",
         "hooks": [
@@ -66,13 +45,13 @@
         ]
       }
     ],
-    "SessionEnd": [
+    "Stop": [
       {
         "matcher": "*",
         "hooks": [
           {
             "type": "command",
-            "command": "WIPNOTE_AGENT_ID=antigravity WIPNOTE_AGENT_TYPE=antigravity wipnote hook session-end",
+            "command": "WIPNOTE_AGENT_ID=antigravity WIPNOTE_AGENT_TYPE=antigravity wipnote hook stop",
             "timeout": 90
           }
         ]

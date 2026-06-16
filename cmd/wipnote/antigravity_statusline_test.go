@@ -47,6 +47,10 @@ func TestIsWipnoteStatusLineCommand(t *testing.T) {
 		// A different tool exposing "statusline --cache" must NOT be claimed.
 		"othertool statusline --cache":      false,
 		"/opt/othertool statusline --cache": false,
+		// Dev/test launcher basenames are ours; a "wipnote-"-prefixed user tool
+		// is NOT (exact-basename allowlist, not a broad prefix).
+		"wipnote-dev statusline --cache":   true,
+		"wipnote-theme statusline --cache": false,
 	}
 	for cmd, want := range cases {
 		if got := isWipnoteStatusLineCommand(cmd); got != want {

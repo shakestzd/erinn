@@ -56,9 +56,15 @@ func isWipnoteStatusLineCommand(cmd string) bool {
 	if exe == "" {
 		return false
 	}
-	base := filepath.Base(exe)
-	// "wipnote" in prod; "wipnote-dev" / "wipnote.test" in dev and tests.
-	return base == "wipnote" || strings.HasPrefix(base, "wipnote-") || strings.HasPrefix(base, "wipnote.")
+	// Match only the concrete launcher-generated basenames, not a broad
+	// "wipnote*" prefix — otherwise a user tool like "wipnote-theme" with a
+	// "statusline --cache" command would be wrongly claimed and clobbered.
+	switch filepath.Base(exe) {
+	case "wipnote", "wipnote.exe", "wipnote-dev", "wipnote.test":
+		return true
+	default:
+		return false
+	}
 }
 
 // mergeAntigravityStatusLine sets a wipnote-managed statusLine into the given

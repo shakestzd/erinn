@@ -197,7 +197,7 @@ func launchAntigravityDev(dryRun bool, extraArgs []string) error {
 }
 
 func antigravityCmd() *cobra.Command {
-	var init_, dev, force, dryRun, noWorktree, inPlace bool
+	var init_, dev, force, dryRun, noWorktree, inPlace, tmux bool
 	var trackID, featureID, worktreePath, workItem, baseBranch string
 
 	cmd := &cobra.Command{
@@ -209,8 +209,18 @@ Modes:
   wipnote antigravity                  Launch Antigravity interactively with wipnote env.
   wipnote antigravity --init           Install the wipnote Antigravity extension (idempotent).
   wipnote antigravity init             Alias for --init.
-  wipnote antigravity --dev            Link port/packages/antigravity-extension/ and launch.`,
+  wipnote antigravity --dev            Link port/packages/antigravity-extension/ and launch.
+  wipnote antigravity --tmux           Wrap in a tmux session (survives Codespaces disconnects).`,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			// Tmux wrap must happen before any side-effecting work. When --tmux
+			// is set and we are not already inside tmux, this replaces the
+			// current process with tmux new-session -A -s wipnote-antigravity
+			// and never returns. No-op when already inside tmux; errors when the
+			// tmux binary is missing.
+			_ = tmux // consumed via os.Args inspection in maybeTmuxWrap
+			if err := maybeTmuxWrap("wipnote-antigravity"); err != nil {
+				return err
+			}
 			switch {
 			case init_ || isAntigravityInitAlias(args):
 				return runAntigravityInit(force, dryRun)
@@ -226,6 +236,7 @@ Modes:
 
 	cmd.Flags().BoolVar(&init_, "init", false, "Install the wipnote Antigravity extension (idempotent)")
 	cmd.Flags().BoolVar(&dev, "dev", false, "Link port/packages/antigravity-extension/ and launch")
+	cmd.Flags().BoolVar(&tmux, "tmux", false, "Wrap in a tmux session named 'wipnote-antigravity' (survives disconnects; reattaches on re-run)")
 	cmd.Flags().BoolVar(&force, "force", false, "With --init: reinstall even if already installed")
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Print what would happen without executing")
 	cmd.Flags().BoolVar(&noWorktree, "no-worktree", false, "Skip worktree creation; run in project root")

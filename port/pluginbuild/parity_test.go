@@ -184,6 +184,50 @@ func TestLiveGeneratedPortSkillAndCommandParity(t *testing.T) {
 	assertCommandFilesPresent(t, filepath.Join(antigravityOut, "commands", antigravityTarget.CommandNamespace), commands, ".toml")
 }
 
+// TestAntigravityEmitsMCPConfig verifies the antigravity adapter scaffolds a
+// plugin-scoped mcp_config.json with an mcpServers map. agy reads plugin MCP
+// servers exclusively from mcp_config.json at the extension root (verified live
+// against agy v1.0.8 — spk-0698d585).
+func TestAntigravityEmitsMCPConfig(t *testing.T) {
+	manifestPath, err := FindManifest(".")
+	if err != nil {
+		t.Skipf("no live manifest: %v", err)
+	}
+	m, err := Load(manifestPath)
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	repoRoot := filepath.Dir(filepath.Dir(filepath.Dir(manifestPath)))
+
+	target, ok := m.Targets["antigravity"]
+	if !ok {
+		t.Fatalf("manifest missing antigravity target")
+	}
+	if target.MCPPath != "mcp_config.json" {
+		t.Fatalf("antigravity mcpPath = %q, want mcp_config.json", target.MCPPath)
+	}
+
+	out := t.TempDir()
+	if err := (antigravityAdapter{}).Emit(m, repoRoot, out); err != nil {
+		t.Fatalf("emit antigravity: %v", err)
+	}
+
+	mcpPath := filepath.Join(out, target.MCPPath)
+	raw, err := os.ReadFile(mcpPath)
+	if err != nil {
+		t.Fatalf("expected mcp_config.json at %s: %v", mcpPath, err)
+	}
+	var parsed struct {
+		MCPServers map[string]any `json:"mcpServers"`
+	}
+	if err := json.Unmarshal(raw, &parsed); err != nil {
+		t.Fatalf("mcp_config.json is not valid JSON: %v", err)
+	}
+	if parsed.MCPServers == nil {
+		t.Errorf("mcp_config.json missing mcpServers key; got: %s", raw)
+	}
+}
+
 func liveCommandNames(t *testing.T, dir string) []string {
 	t.Helper()
 	entries, err := os.ReadDir(dir)

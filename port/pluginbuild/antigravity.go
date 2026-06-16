@@ -60,6 +60,16 @@ func (a antigravityAdapter) Emit(m *Manifest, repoRoot, outDir string) error {
 		return err
 	}
 
+	// Scaffold the plugin-scoped MCP config. agy reads plugin MCP servers from
+	// mcp_config.json at the extension root (verified live against agy v1.0.8:
+	// `agy plugin validate` reports "mcpServers: processed" only for
+	// mcp_config.json — not .mcp.json or an mcpServers key in plugin.json).
+	if target.MCPPath != "" {
+		if err := ensureMCPServersScaffold(filepath.Join(outDir, target.MCPPath)); err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
 

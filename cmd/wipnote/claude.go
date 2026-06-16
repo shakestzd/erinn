@@ -438,6 +438,10 @@ func launchClaudeDefault(extraArgs []string, resumeID, name, workItem string, in
 	projectRoot, _ := resolveProjectRoot()
 	cleanupStaleDev(projectRoot)
 
+	// Resolve canonical main repo root when CWD is a linked worktree (slice-3).
+	// canonicalProjectRoot returns "" for the main worktree (no override needed).
+	wipnoteRoot := canonicalProjectRoot(projectRoot)
+
 	// Run the isolation planner (slice-2). The plan is computed, any warning
 	// is printed, and the plan is now HONORED (slice-9): a RefuseLaunch plan
 	// aborts before the harness starts, and an IsolationManagedWorktree plan
@@ -447,14 +451,15 @@ func launchClaudeDefault(extraArgs []string, resumeID, name, workItem string, in
 	// suppress the generic dirty-main advisory — we emit an accurate message
 	// after carryover instead (mirrors yolo's approach, bug-c3483435).
 	willCreateWorktree := !inPlace && workItem != ""
-	launchPlan := applyLaunchPlanOpts(projectRoot, workItem, inPlace, willCreateWorktree, os.Stderr)
+	// Use canonical root for reading launch_isolation config (slice-9-canonical-root).
+	configRoot := wipnoteRoot
+	if configRoot == "" {
+		configRoot = projectRoot
+	}
+	launchPlan := applyLaunchPlanOpts(configRoot, projectRoot, workItem, inPlace, willCreateWorktree, os.Stderr)
 	if err := enforceLaunchPlan(launchPlan, os.Stderr); err != nil {
 		return err
 	}
-
-	// Resolve canonical main repo root when CWD is a linked worktree (slice-3).
-	// canonicalProjectRoot returns "" for the main worktree (no override needed).
-	wipnoteRoot := canonicalProjectRoot(projectRoot)
 
 	// Honor a managed-worktree plan: when isolation is enforced (devcontainer/CI
 	// or enforced host with a work item) create/reuse the managed worktree and

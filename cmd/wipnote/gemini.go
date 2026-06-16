@@ -242,12 +242,22 @@ func maybeEnsureGeminiExtensionOnLaunch(dryRun bool) {
 // Corresponds to: wipnote gemini
 func launchGeminiDefault(trackID, featureID, worktreePath, workItem string, noWorktree bool, extraArgs []string, dryRun bool) error {
 	projectRoot, _ := resolveProjectRoot()
+	// Resolve worktree path.
+	// canonicalProjectRoot detects when CWD is already a linked worktree (slice-3):
+	// returns the canonical main repo root, or "" when in the main worktree.
+	// canonicalRoot is the value injected as WIPNOTE_PROJECT_DIR AND used as the
+	// base for worktree creation — it must always be the canonical main root,
+	// never the linked worktree copy (slice-3 contract).
+	canonicalRoot := projectRoot
+	if c := canonicalProjectRoot(projectRoot); c != "" {
+		canonicalRoot = c
+	}
 	// Apply isolation plan and HONOR it (slice-9): a RefuseLaunch plan aborts
 	// before Gemini starts. noWorktree here is effectiveInPlace (--in-place || --no-worktree).
 	// When the plan will create a managed worktree, suppress the generic dirty-main
 	// advisory — we emit an accurate message after carryover instead (bug-938e56ae).
 	willCreateWorktree := !noWorktree && (trackID != "" || featureID != "" || workItem != "")
-	launchPlan := applyLaunchPlanOpts(projectRoot, workItem, noWorktree, willCreateWorktree, os.Stderr)
+	launchPlan := applyLaunchPlanOpts(canonicalRoot, projectRoot, workItem, noWorktree, willCreateWorktree, os.Stderr)
 	if err := enforceLaunchPlan(launchPlan, os.Stderr); err != nil {
 		return err
 	}
@@ -259,14 +269,6 @@ func launchGeminiDefault(trackID, featureID, worktreePath, workItem string, noWo
 			fmt.Fprintf(os.Stderr, "warning: could not start work item %s: %v\n", workItem, err)
 		}
 	}
-
-	// Resolve worktree path.
-	// canonicalProjectRoot detects when CWD is already a linked worktree (slice-3):
-	// returns the canonical main repo root, or "" when in the main worktree.
-	// canonicalRoot is the value injected as WIPNOTE_PROJECT_DIR AND used as the
-	// base for worktree creation — it must always be the canonical main root,
-	// never the linked worktree copy (slice-3 contract).
-	canonicalRoot := projectRoot
 	if c := canonicalProjectRoot(projectRoot); c != "" {
 		canonicalRoot = c
 	}

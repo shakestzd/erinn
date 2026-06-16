@@ -43,13 +43,19 @@ func computeLauncherMode(worktreePath string, devPlugin, generatedPort bool) Lau
 // caller emits an accurate message reflecting the worktree+carryover behavior
 // instead (bug-7d4b6c63). The returned plan still carries DirtyMainWarning so
 // enforceLaunchPlan can use it.
-func applyLaunchPlanOpts(repoRoot, workItemID string, inPlace, suppressDirtyWarning bool, w io.Writer) plan.LaunchPlan {
+//
+// canonicalRoot must be the canonical main repository root (from canonicalProjectRoot),
+// not a linked worktree path. It is used to read the launch_isolation config from
+// the main repo's .wipnote/ directory.
+func applyLaunchPlanOpts(canonicalRoot, repoRoot, workItemID string, inPlace, suppressDirtyWarning bool, w io.Writer) plan.LaunchPlan {
 	m := mode.Compute("", false, false, false)
 
 	// Resolve effective isolation from .wipnote/config.json ("launch_isolation")
 	// ORed with the legacy WIPNOTE_ENFORCE_ISOLATION env var. Absent config keeps
 	// today's warn-only behavior (backward compatible).
-	enforce, autoWorktree := resolveIsolationFlags(repoRoot)
+	// Always read from the canonical root so the project-level config is honored
+	// even when called from within an isolated worktree.
+	enforce, autoWorktree := resolveIsolationFlags(canonicalRoot)
 
 	// In auto mode with no work item, supply a deterministic ad-hoc branch slug so
 	// PlanLaunch can plan a managed worktree without reading the clock itself.

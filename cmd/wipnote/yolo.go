@@ -258,6 +258,11 @@ func launchYoloDefault(permMode, trackID, featureID string, noWorktree bool, res
 
 	// No work item provided — fall back to planning mode. The child cwd is the
 	// (un-rewritten) projectRoot per the slice-3 contract.
+	// NOTE: planning mode intentionally bypasses the isolation plan (applyLaunchPlanOpts).
+	// Planning mode is lightweight, designed to help create work items without enforcing
+	// the project's launch_isolation config. This means "launch_isolation: auto" does NOT
+	// create an ad-hoc managed worktree in planning mode. Once a work item is created,
+	// the user restarts with --track/--feature, and the isolation plan applies normally.
 	if trackID == "" && featureID == "" {
 		_ = computeLauncherMode("", false, false)
 		return launchYoloPlanningMode(projectRoot, extraArgs)
@@ -279,7 +284,7 @@ func launchYoloDefault(permMode, trackID, featureID string, noWorktree bool, res
 
 	// Honor the isolation plan (slice-9): a RefuseLaunch plan aborts before the
 	// harness starts. The validated work item id drives the dirty-main/enforce guard.
-	launchPlan := applyLaunchPlanOpts(canonicalRoot, id, noWorktree, willCreateWorktree, os.Stderr)
+	launchPlan := applyLaunchPlanOpts(canonicalRoot, projectRoot, id, noWorktree, willCreateWorktree, os.Stderr)
 	if err := enforceLaunchPlan(launchPlan, os.Stderr); err != nil {
 		return err
 	}
@@ -401,20 +406,26 @@ func launchYoloDev(trackID, featureID string, noWorktree bool, resumeID, name st
 		return launchYoloPlanningMode(projectRoot, extraArgs)
 	}
 
+	// Resolve canonical main repo root when CWD is a linked worktree (slice-3).
+	canonicalRoot := canonicalProjectRoot(projectRoot)
+	if canonicalRoot == "" {
+		canonicalRoot = projectRoot
+	}
+
 	// Validate the provided work item exists.
-	id, kind, err := validateWorkItem(trackID, featureID, projectRoot)
+	id, kind, err := validateWorkItem(trackID, featureID, canonicalRoot)
 	if err != nil {
 		return err
 	}
 
 	// Resolve track title once — used for both the session name and the worktree directory.
-	trackTitle := resolveTrackTitle(trackID, featureID, projectRoot)
+	trackTitle := resolveTrackTitle(trackID, featureID, canonicalRoot)
 
 	// Create a worktree for isolation (skip for --no-worktree). Mirror the
 	// default path: carry uncommitted tracked changes into a newly-created
 	// worktree and emit the accurate dirty-main advisory (bug-bcf8a311 / 7d4b6c63).
 	willCreateWorktree := !noWorktree && projectRoot != ""
-	devPlan := applyLaunchPlanOpts(projectRoot, id, noWorktree, willCreateWorktree, os.Stderr)
+	devPlan := applyLaunchPlanOpts(canonicalRoot, projectRoot, id, noWorktree, willCreateWorktree, os.Stderr)
 	workDir := projectRoot
 	worktreeCreated := false
 	if willCreateWorktree {

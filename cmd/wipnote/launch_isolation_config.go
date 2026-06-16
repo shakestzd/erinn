@@ -36,11 +36,16 @@ type launchIsolationConfig struct {
 }
 
 // readLaunchIsolationMode returns the launch_isolation mode declared in
-// <projectDir>/.wipnote/config.json. It returns LaunchIsolationWarnOnly (the
+// <canonicalRoot>/.wipnote/config.json. It returns LaunchIsolationWarnOnly (the
 // backward-compatible default) when the file is missing, unreadable, the key is
 // absent/empty, or the value is unrecognized.
-func readLaunchIsolationMode(projectDir string) LaunchIsolationMode {
-	data, err := os.ReadFile(filepath.Join(projectDir, ".wipnote", "config.json"))
+//
+// Always read from the canonical project root, never from a linked worktree.
+// This ensures the project-level launch_isolation config is honored even when
+// called from within an isolated worktree where .wipnote/ may be absent or
+// git-excluded.
+func readLaunchIsolationMode(canonicalRoot string) LaunchIsolationMode {
+	data, err := os.ReadFile(filepath.Join(canonicalRoot, ".wipnote", "config.json"))
 	if err != nil {
 		return LaunchIsolationWarnOnly
 	}
@@ -63,10 +68,14 @@ func readLaunchIsolationMode(projectDir string) LaunchIsolationMode {
 // inputs. The env var is preserved for backward compatibility and ORs with the
 // config: setting it implies at least enforce, never weakens an "auto" config.
 //
+// canonicalRoot must be the canonical main repository root, never a linked
+// worktree. This ensures the project-level launch_isolation config is read
+// from the canonical location.
+//
 //   - enforce = (mode == enforce || mode == auto) || envEnforce
 //   - autoWorktree = (mode == auto)
-func resolveIsolationFlags(projectDir string) (enforce, autoWorktree bool) {
-	m := readLaunchIsolationMode(projectDir)
+func resolveIsolationFlags(canonicalRoot string) (enforce, autoWorktree bool) {
+	m := readLaunchIsolationMode(canonicalRoot)
 	envEnforce := os.Getenv("WIPNOTE_ENFORCE_ISOLATION") == "true"
 	enforce = m == LaunchIsolationEnforce || m == LaunchIsolationAuto || envEnforce
 	autoWorktree = m == LaunchIsolationAuto

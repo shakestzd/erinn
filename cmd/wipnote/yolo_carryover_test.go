@@ -147,7 +147,7 @@ func TestApplyLaunchPlanOpts_SuppressesDirtyWarning(t *testing.T) {
 	}
 
 	var suppressed bytes.Buffer
-	p := applyLaunchPlanOpts(dir, "trk-suppress01", false, true, &suppressed)
+	p := applyLaunchPlanOpts(dir, dir, "trk-suppress01", false, true, &suppressed)
 	if strings.Contains(suppressed.String(), "--work-item") {
 		t.Errorf("suppressed path must not print the generic --work-item advisory; got %q", suppressed.String())
 	}
@@ -157,7 +157,7 @@ func TestApplyLaunchPlanOpts_SuppressesDirtyWarning(t *testing.T) {
 
 	// And the non-suppressed path (e.g. --in-place dirty) still shows the original advisory.
 	var shown bytes.Buffer
-	applyLaunchPlanOpts(dir, "trk-suppress01", false, false, &shown)
+	applyLaunchPlanOpts(dir, dir, "trk-suppress01", false, false, &shown)
 	if !strings.Contains(shown.String(), "--work-item") {
 		t.Errorf("non-suppressed dirty path should still show the original --work-item advisory; got %q", shown.String())
 	}

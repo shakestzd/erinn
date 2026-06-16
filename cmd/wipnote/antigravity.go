@@ -93,8 +93,13 @@ func ensureAntigravityExtensionLinked() {
 
 func launchAntigravityDefault(trackID, featureID, worktreePath, workItem string, noWorktree bool, continue_ bool, resumeID string, extraArgs []string, dryRun bool) error {
 	projectRoot, _ := resolveProjectRoot()
+	// Resolve canonical main repo root when CWD is a linked worktree (slice-3).
+	canonicalRoot := canonicalProjectRoot(projectRoot)
+	if canonicalRoot == "" {
+		canonicalRoot = projectRoot
+	}
 	willCreateWorktree := !noWorktree && (trackID != "" || featureID != "" || workItem != "")
-	launchPlan := applyLaunchPlanOpts(projectRoot, workItem, noWorktree, willCreateWorktree, os.Stderr)
+	launchPlan := applyLaunchPlanOpts(canonicalRoot, projectRoot, workItem, noWorktree, willCreateWorktree, os.Stderr)
 	if err := enforceLaunchPlan(launchPlan, os.Stderr); err != nil {
 		return err
 	}
@@ -109,12 +114,11 @@ func launchAntigravityDefault(trackID, featureID, worktreePath, workItem string,
 		}
 	}
 
-	canonicalRoot := projectRoot
-	if c := canonicalProjectRoot(projectRoot); c != "" {
-		canonicalRoot = c
-	}
+	// Note: canonicalRoot was already computed above at line 97 and used for
+	// the isolation plan. It is also the value injected as WIPNOTE_PROJECT_DIR
+	// AND used as the base for worktree creation.
 	workDir := projectRoot
-	wipnoteRoot := canonicalProjectRoot(projectRoot)
+	wipnoteRoot := canonicalRoot
 	resolved := false
 	worktreeCreated := false
 	switch {

@@ -1005,12 +1005,17 @@ func runCodexInit(yes, dryRun bool) error {
 // brew/curl-install bundled tree.
 func launchCodexDefault(resumeID, trackID, featureID, worktreePath, workItem string, noWorktree, yolo bool, extraArgs []string) error {
 	projectRoot, _ := resolveProjectRoot()
+	// Resolve canonical main repo root when CWD is a linked worktree (slice-3).
+	canonicalRoot := canonicalProjectRoot(projectRoot)
+	if canonicalRoot == "" {
+		canonicalRoot = projectRoot
+	}
 	// Apply isolation plan and HONOR it (slice-9): a RefuseLaunch plan aborts
 	// before Codex starts. noWorktree here is effectiveInPlace (--in-place || --no-worktree).
 	// When the plan will create a managed worktree, suppress the generic dirty-main
 	// advisory — we emit an accurate message after carryover instead (bug-938e56ae).
 	willCreateWorktree := !noWorktree && (trackID != "" || featureID != "" || workItem != "")
-	launchPlan := applyLaunchPlanOpts(projectRoot, workItem, noWorktree, willCreateWorktree, os.Stderr)
+	launchPlan := applyLaunchPlanOpts(canonicalRoot, projectRoot, workItem, noWorktree, willCreateWorktree, os.Stderr)
 	if err := enforceLaunchPlan(launchPlan, os.Stderr); err != nil {
 		return err
 	}
@@ -1072,17 +1077,11 @@ func launchCodexDefault(resumeID, trackID, featureID, worktreePath, workItem str
 	}
 
 	// Resolve worktree path.
-	// canonicalProjectRoot detects when CWD is already a linked worktree (slice-3):
-	// returns the canonical main repo root, or "" when in the main worktree.
-	// canonicalRoot is the value injected as WIPNOTE_PROJECT_DIR AND used as the
-	// base for worktree creation — it must always be the canonical main root,
-	// never the linked worktree copy (slice-3 contract).
-	canonicalRoot := projectRoot
-	if c := canonicalProjectRoot(projectRoot); c != "" {
-		canonicalRoot = c
-	}
+	// Note: canonicalRoot was already computed above at line 1009 and used for
+	// the isolation plan. It is also the value injected as WIPNOTE_PROJECT_DIR
+	// AND used as the base for worktree creation.
 	workDir := projectRoot
-	wipnoteRoot := canonicalProjectRoot(projectRoot)
+	wipnoteRoot := canonicalRoot
 	resolved := false
 	worktreeCreated := false
 	switch {

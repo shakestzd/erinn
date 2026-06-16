@@ -103,6 +103,11 @@ func applyAntigravitySkillInvocationFlags(skillsDir string) error {
 		path := filepath.Join(skillsDir, name, "SKILL.md")
 		raw, err := os.ReadFile(path)
 		if os.IsNotExist(err) {
+			// Fail loud, not silent: a listed explicit-only skill that no longer
+			// exists (renamed/removed in source) would otherwise lose its
+			// disable-model-invocation flag and become model-invocable again —
+			// the unsafe direction for destructive/high-cost workflows.
+			log.Printf("antigravity_skills: explicit-only skill %q not found at %s; disable-model-invocation NOT applied — update antigravityDisableModelInvocationSkills if it was renamed or removed", name, path)
 			continue
 		}
 		if err != nil {

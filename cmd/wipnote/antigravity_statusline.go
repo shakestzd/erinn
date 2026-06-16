@@ -30,14 +30,20 @@ func antigravityStatusLineCommand() string {
 	if err != nil || exe == "" {
 		return "wipnote statusline --cache"
 	}
-	return exe + " statusline --cache"
+	// Shell-quote the executable path: agy runs the statusLine command through a
+	// shell, so a path containing spaces would otherwise be split into multiple
+	// argv words and fail with ENOENT. shellQuote leaves space-free paths bare.
+	return shellQuote(exe) + " statusline --cache"
 }
 
 // isWipnoteStatusLineCommand reports whether cmd is a wipnote-managed statusline
 // command (so re-launch can refresh the binary path without clobbering a
-// user-authored custom statusLine).
+// user-authored custom statusLine). It anchors on the exact "statusline --cache"
+// command shape this launcher writes rather than a loose "wipnote" substring, so
+// an unrelated user command that merely mentions wipnote is never misclassified
+// as ours (CLAUDE.md "Hook State": anchor to the specific command shape).
 func isWipnoteStatusLineCommand(cmd string) bool {
-	return cmd != "" && (strings.Contains(cmd, "statusline --cache") || strings.Contains(cmd, "wipnote statusline"))
+	return strings.Contains(cmd, "statusline --cache")
 }
 
 // mergeAntigravityStatusLine sets a wipnote-managed statusLine into the given
@@ -105,12 +111,15 @@ func ensureAntigravityStatusLine(dryRun bool) {
 		fmt.Fprintf(os.Stderr, "warning: could not encode agy settings.json: %v\n", err)
 		return
 	}
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
-		fmt.Fprintf(os.Stderr, "warning: could not create agy settings dir: %v\n", err)
-		return
-	}
-	if err := os.WriteFile(path, out, 0o644); err != nil {
-		fmt.Fprintf(os.Stderr, "warning: could not write agy settings.json: %v\n", err)
-		return
-	}
+	// Atomic write (temp file + rename, via the shared helper) so a concurrent
+	// agy read or a parallel `wipnote antigravity` launch never observes a torn
+	// settings.json. MkdirAll is handled inside atomicWriteFile.
+	atomicWriteFile(path, out, 0o644)
+
+	// This only runs when the statusLine was absent or its path changed (the
+	// merge is a no-op otherwise), so it is not per-launch noise. Surface the
+	// one global-config mutation so it is not silent and is easy to opt out of.
+	fmt.Fprintf(os.Stderr,
+		"wipnote: configured agy status line in %s (active work item; set WIPNOTE_ANTIGRAVITY_STATUSLINE=0 to disable)\n",
+		path)
 }

@@ -5,11 +5,14 @@ import "testing"
 func TestIsWipnoteStatusLineCommand(t *testing.T) {
 	cases := map[string]bool{
 		"/home/u/.local/bin/wipnote statusline --cache": true,
-		"wipnote statusline --cache":                     true,
-		"wipnote statusline --session abc":               true,
-		"oh-my-posh print primary":                       false,
-		"":                                               false,
-		"some-other-status":                              false,
+		"'/home/u/with space/wipnote' statusline --cache": true,
+		"wipnote statusline --cache":                       true,
+		// --session is the Claude-managed command shape; the agy launcher only
+		// ever writes --cache, so a --session command is not ours to refresh.
+		"wipnote statusline --session abc": false,
+		"oh-my-posh print primary":         false,
+		"":                                 false,
+		"some-other-status":                false,
 	}
 	for cmd, want := range cases {
 		if got := isWipnoteStatusLineCommand(cmd); got != want {

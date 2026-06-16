@@ -28,6 +28,14 @@ func (antigravityAdapter) Name() string { return "antigravity" }
 // outside these subtrees and are never touched by stale-file cleanup.
 var antigravityOwnedSubtrees = []string{"commands", "agents", "skills", "templates", "static", "config"}
 
+// geminiToAntigravityTool renames Gemini-CLI tool names that differ in the
+// Antigravity CLI. Verified live against agy v1.0.8 (feat-c08b20a6): agy exposes
+// "run_command" and has no "run_shell_command". Tools not listed here are
+// assumed identical (agy is a Gemini-CLI descendant).
+var geminiToAntigravityTool = map[string]string{
+	"run_shell_command": "run_command",
+}
+
 func (a antigravityAdapter) Emit(m *Manifest, repoRoot, outDir string) error {
 	target, ok := m.Targets[a.Name()]
 	if !ok {
@@ -343,18 +351,25 @@ func translateAntigravityAgentFrontmatter(filename string, raw []byte) ([]byte, 
 
 	if toolsRaw, ok := claudeFM["tools"]; ok {
 		claudeTools := toStringSlice(toolsRaw)
-		geminiTools := make([]string, 0, len(claudeTools))
+		agyTools := make([]string, 0, len(claudeTools))
 		for _, ct := range claudeTools {
-			if gt, known := claudeToGeminiTool[ct]; known {
-				geminiTools = append(geminiTools, gt)
-			} else {
+			gt, known := claudeToGeminiTool[ct]
+			if !known {
 				log.Printf("antigravity_agents: agent %s: unknown tool %q dropped (not in claudeToGeminiTool map)", filename, ct)
+				continue
 			}
+			// agy renamed some Gemini-CLI tools (verified live vs agy v1.0.8:
+			// run_shell_command -> run_command). Apply the rename so agent
+			// frontmatter references tools agy actually exposes.
+			if at, renamed := geminiToAntigravityTool[gt]; renamed {
+				gt = at
+			}
+			agyTools = append(agyTools, gt)
 		}
-		if len(geminiTools) == 0 {
-			geminiTools = []string{"*"}
+		if len(agyTools) == 0 {
+			agyTools = []string{"*"}
 		}
-		gFM["tools"] = geminiTools
+		gFM["tools"] = agyTools
 	}
 
 	fmBytes, err := marshalAgentFrontmatterForHarness(gFM, "antigravity")
@@ -370,27 +385,56 @@ func translateAntigravityAgentFrontmatter(filename string, raw []byte) ([]byte, 
 	return buf.Bytes(), nil
 }
 
+// antigravityEventNames maps wipnote's canonical hook event names to the event
+// names the Antigravity CLI (agy) understands. Verified live against agy v1.0.8
+// (feat-c08b20a6): only these five register command handlers; AfterModel has no
+// agy equivalent and is dropped. agy does NOT understand the Gemini-CLI names
+// (BeforeTool/AfterTool/BeforeAgent/AfterAgent/SessionStart) — emitting those
+// produces zero handlers.
+//
+//	SessionStart  -> (no working command-hook in agy v1.0.8; dropped)
+//	UserPromptSubmit -> PreInvocation   (start of each agent invocation)
+//	AfterAgent    -> PostInvocation
+//	PreToolUse    -> PreToolUse
+//	PostToolUse   -> PostToolUse
+//	Stop          -> Stop
+var antigravityEventNames = map[string]string{
+	"UserPromptSubmit": "PreInvocation",
+	"AfterAgent":       "PostInvocation",
+	"PreToolUse":       "PreToolUse",
+	"PostToolUse":      "PostToolUse",
+	"Stop":             "Stop",
+}
+
+// writeAntigravityHooks emits hooks.json in the schema agy's jsonhook parser
+// requires (verified live against agy v1.0.8): a top-level map of named hooks,
+// each an object with an "enabled" flag and per-event arrays of matcher groups:
+//
+//	{ "wipnote": { "enabled": true,
+//	    "PreToolUse": [ { "matcher": "*", "hooks": [ {"type":"command","command":"..."} ] } ],
+//	    ... } }
+//
+// This differs from the Claude-Code schema ({ "hooks": { "<Event>": [...] } }),
+// which agy rejects with "cannot unmarshal array into JSONHookSpec". agy also
+// strict-decodes the spec, so only "enabled" + known event keys may appear.
 func writeAntigravityHooks(m *Manifest, path string) error {
-	hooks := map[string][]claudeMatcherGroup{}
+	events := map[string][]claudeMatcherGroup{}
 	order := []string{}
 
 	for _, e := range m.Hooks.Events {
 		if !e.AppliesTo("antigravity") {
 			continue
 		}
-
-		eventName := e.GeminiEventName
-		if eventName == "" {
-			eventName = e.Name
+		agyEvent, ok := antigravityEventNames[e.Name]
+		if !ok {
+			// No agy equivalent (e.g. SessionStart/AfterModel) — skip rather
+			// than emit a dead or parse-breaking key.
+			continue
 		}
 
 		cmd := e.Command
 		if cmd == "" {
-			handler := e.Handler
-			if e.GeminiHandler != "" {
-				handler = e.GeminiHandler
-			}
-			cmd = "WIPNOTE_AGENT_ID=antigravity WIPNOTE_AGENT_TYPE=antigravity wipnote hook " + handler
+			cmd = "WIPNOTE_AGENT_ID=antigravity WIPNOTE_AGENT_TYPE=antigravity wipnote hook " + e.Handler
 		}
 		cmd = strings.ReplaceAll(cmd, "$GEMINI_EXTENSION_DIR", "${extensionPath}")
 
@@ -407,14 +451,59 @@ func writeAntigravityHooks(m *Manifest, path string) error {
 				Timeout: e.Timeout,
 			}},
 		}
-		if _, seen := hooks[eventName]; !seen {
-			order = append(order, eventName)
+		if _, seen := events[agyEvent]; !seen {
+			order = append(order, agyEvent)
 		}
-		hooks[eventName] = append(hooks[eventName], group)
+		events[agyEvent] = append(events[agyEvent], group)
 	}
 
 	if len(order) == 0 {
 		return nil
 	}
-	return writeJSON(path, orderedHookMap{keys: order, values: hooks})
+	return writeJSON(path, antigravityHooksJSON{name: "wipnote", enabled: true, keys: order, values: events})
+}
+
+// antigravityHooksJSON renders the agy hooks.json shape:
+//
+//	{ "<name>": { "enabled": <bool>, "<Event>": [matcher groups], ... } }
+//
+// with the inner event keys serialized in the supplied order for stable diffs.
+type antigravityHooksJSON struct {
+	name    string
+	enabled bool
+	keys    []string
+	values  map[string][]claudeMatcherGroup
+}
+
+func (a antigravityHooksJSON) MarshalJSON() ([]byte, error) {
+	var buf []byte
+	buf = append(buf, '{')
+	nameB, err := jsonMarshal(a.name)
+	if err != nil {
+		return nil, err
+	}
+	buf = append(buf, nameB...)
+	buf = append(buf, ':', '{')
+	enabledB, err := jsonMarshal(a.enabled)
+	if err != nil {
+		return nil, err
+	}
+	buf = append(buf, `"enabled":`...)
+	buf = append(buf, enabledB...)
+	for _, k := range a.keys {
+		buf = append(buf, ',')
+		kb, err := jsonMarshal(k)
+		if err != nil {
+			return nil, err
+		}
+		vb, err := jsonMarshal(a.values[k])
+		if err != nil {
+			return nil, err
+		}
+		buf = append(buf, kb...)
+		buf = append(buf, ':')
+		buf = append(buf, vb...)
+	}
+	buf = append(buf, '}', '}')
+	return buf, nil
 }

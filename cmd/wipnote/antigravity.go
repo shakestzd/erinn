@@ -206,8 +206,9 @@ func antigravityCmd() *cobra.Command {
 	var trackID, featureID, worktreePath, workItem, baseBranch, resumeID string
 
 	cmd := &cobra.Command{
-		Use:   "antigravity",
-		Short: "Launch Antigravity CLI with wipnote context",
+		Use:     "antigravity",
+		Aliases: []string{"agy"},
+		Short:   "Launch Antigravity CLI with wipnote context",
 		Long: `Launch Antigravity CLI with wipnote observability context.
 
 Modes:

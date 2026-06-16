@@ -298,6 +298,139 @@ func TestAntigravityDisablesModelInvocationForExplicitSkills(t *testing.T) {
 	}
 }
 
+// agyHookSpec mirrors the Antigravity (agy) JSONHookSpec shape that agy's
+// parser accepts (verified live vs agy v1.0.8, feat-c08b20a6). It is used with
+// DisallowUnknownFields so the test fails if the generator emits any key agy
+// would reject — in particular the old Claude/Gemini event names
+// (BeforeTool/AfterTool/BeforeAgent/AfterAgent/SessionStart/SessionEnd), which
+// would surface as unknown fields and fail strict decode exactly as agy does.
+type agyHookSpec struct {
+	Enabled        bool                 `json:"enabled"`
+	PreToolUse     []claudeMatcherGroup `json:"PreToolUse,omitempty"`
+	PostToolUse    []claudeMatcherGroup `json:"PostToolUse,omitempty"`
+	PreInvocation  []claudeMatcherGroup `json:"PreInvocation,omitempty"`
+	PostInvocation []claudeMatcherGroup `json:"PostInvocation,omitempty"`
+	Stop           []claudeMatcherGroup `json:"Stop,omitempty"`
+}
+
+// TestAntigravityHooksSchema asserts the generated Antigravity hooks.json uses
+// the agy schema (named hook at top level with an "enabled" flag and per-event
+// matcher-group arrays) and agy event names — not the Claude/Gemini schema that
+// agy rejects with "cannot unmarshal array into JSONHookSpec".
+func TestAntigravityHooksSchema(t *testing.T) {
+	manifestPath, err := FindManifest(".")
+	if err != nil {
+		t.Skipf("no live manifest: %v", err)
+	}
+	m, err := Load(manifestPath)
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	repoRoot := filepath.Dir(filepath.Dir(filepath.Dir(manifestPath)))
+	target := m.Targets["antigravity"]
+
+	out := t.TempDir()
+	if err := (antigravityAdapter{}).Emit(m, repoRoot, out); err != nil {
+		t.Fatalf("emit antigravity: %v", err)
+	}
+	raw, err := os.ReadFile(filepath.Join(out, target.HooksPath))
+	if err != nil {
+		t.Fatalf("read hooks.json: %v", err)
+	}
+
+	// Strict decode into the agy shape: top-level map of named hooks -> spec.
+	// DisallowUnknownFields makes any stray key (e.g. a leaked Gemini event
+	// name) fail exactly like agy's strict parser.
+	dec := json.NewDecoder(strings.NewReader(string(raw)))
+	dec.DisallowUnknownFields()
+	var top map[string]agyHookSpec
+	if err := dec.Decode(&top); err != nil {
+		t.Fatalf("generated hooks.json does not match agy schema (strict decode failed): %v\n%s", err, raw)
+	}
+
+	spec, ok := top["wipnote"]
+	if !ok {
+		t.Fatalf("expected a top-level \"wipnote\" named hook; got keys %v", keysOf(top))
+	}
+	if !spec.Enabled {
+		t.Error("named hook \"wipnote\" must have enabled:true")
+	}
+	// The five agy events that register handlers must all be present and wired
+	// to a wipnote hook command.
+	for name, groups := range map[string][]claudeMatcherGroup{
+		"PreToolUse":     spec.PreToolUse,
+		"PostToolUse":    spec.PostToolUse,
+		"PreInvocation":  spec.PreInvocation,
+		"PostInvocation": spec.PostInvocation,
+		"Stop":           spec.Stop,
+	} {
+		if len(groups) == 0 {
+			t.Errorf("agy event %q missing from generated hooks.json", name)
+			continue
+		}
+		if len(groups[0].Hooks) == 0 || !strings.Contains(groups[0].Hooks[0].Command, "wipnote hook ") {
+			t.Errorf("agy event %q is not wired to a wipnote hook command: %+v", name, groups[0])
+		}
+	}
+
+	// No Gemini-CLI event names may appear anywhere in the output.
+	for _, bad := range []string{"BeforeTool", "AfterTool", "BeforeAgent", "AfterAgent", "AfterModel", "\"SessionStart\"", "\"SessionEnd\""} {
+		if strings.Contains(string(raw), bad) {
+			t.Errorf("generated antigravity hooks.json must not contain Gemini/Claude event name %q:\n%s", bad, raw)
+		}
+	}
+}
+
+// TestAntigravityAgentToolRename asserts the emitted agent frontmatter uses
+// agy's run_command, never the Gemini-CLI run_shell_command.
+func TestAntigravityAgentToolRename(t *testing.T) {
+	manifestPath, err := FindManifest(".")
+	if err != nil {
+		t.Skipf("no live manifest: %v", err)
+	}
+	m, err := Load(manifestPath)
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	repoRoot := filepath.Dir(filepath.Dir(filepath.Dir(manifestPath)))
+
+	out := t.TempDir()
+	if err := (antigravityAdapter{}).Emit(m, repoRoot, out); err != nil {
+		t.Fatalf("emit antigravity: %v", err)
+	}
+	entries, err := os.ReadDir(filepath.Join(out, "agents"))
+	if err != nil {
+		t.Fatalf("read agents dir: %v", err)
+	}
+	sawRunCommand := false
+	for _, e := range entries {
+		if e.IsDir() {
+			continue
+		}
+		body, err := os.ReadFile(filepath.Join(out, "agents", e.Name()))
+		if err != nil {
+			t.Fatalf("read agent %s: %v", e.Name(), err)
+		}
+		if strings.Contains(string(body), "run_shell_command") {
+			t.Errorf("agent %s contains Gemini tool run_shell_command; agy expects run_command", e.Name())
+		}
+		if strings.Contains(string(body), "run_command") {
+			sawRunCommand = true
+		}
+	}
+	if !sawRunCommand {
+		t.Error("expected at least one antigravity agent to reference run_command (Bash translation)")
+	}
+}
+
+func keysOf[V any](m map[string]V) []string {
+	ks := make([]string, 0, len(m))
+	for k := range m {
+		ks = append(ks, k)
+	}
+	return ks
+}
+
 func liveCommandNames(t *testing.T, dir string) []string {
 	t.Helper()
 	entries, err := os.ReadDir(dir)

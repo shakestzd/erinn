@@ -71,12 +71,12 @@
   "hooks": {
     "_comment": "Canonical event names follow Claude Code conventions. Each entry declares the CLI handler (a thin wrapper over `wipnote hook <name>`) and per-target availability. Events unsupported by a target are omitted from that target's hooks.json. Target-specific events (e.g. Codex TaskStarted/TurnAborted) are declared with `targets: [codex]`.",
     "events": [
-      { "name": "SessionStart",       "handler": "session-start",       "targets": ["claude", "codex", "gemini", "antigravity"] },
+      { "name": "SessionStart",       "handler": "session-start",       "targets": ["claude", "codex", "gemini"] },
       { "name": "SessionStart",       "handler": "session-resume",      "targets": ["claude"], "matcher": "resume" },
       { "name": "SessionEnd",         "handler": "session-end",         "targets": ["claude"], "timeout": 90 },
       { "name": "UserPromptSubmit",   "handler": "user-prompt",         "targets": ["claude", "codex", "gemini", "antigravity"], "geminiEventName": "BeforeAgent" },
       { "name": "AfterAgent",         "handler": "after-agent",         "targets": ["gemini", "antigravity"] },
-      { "name": "AfterModel",         "handler": "after-model",         "targets": ["gemini", "antigravity"] },
+      { "name": "AfterModel",         "handler": "after-model",         "targets": ["gemini"] },
       { "name": "UserPromptSubmit",   "handler": "timestamp",           "targets": ["claude"], "command": "date '+Current time: %Y-%m-%dT%H:%M:%S%z (%Z)'", "timeout": 2 },
       { "name": "PreToolUse",         "handler": "pretooluse",          "targets": ["claude", "codex", "gemini", "antigravity"], "geminiEventName": "BeforeTool" },
       { "name": "PostToolUse",        "handler": "posttooluse",         "targets": ["claude", "codex", "gemini", "antigravity"], "geminiEventName": "AfterTool" },

@@ -10,15 +10,15 @@
 <body>
     <article id="feat-eee1e9e2"
              data-type="feature"
-             data-status="todo"
+             data-status="in-progress"
              data-priority="medium"
              data-created="2026-06-15T22:31:51.176641"
-             data-updated="2026-06-15T22:51:42.057953" data-agent-assigned="claude-code" data-track-id="trk-6a1f5362" data-created-by-agent="claude-code" data-created-by-model="claude-opus-4-8[1m]" data-created-by-cli-version="dev">
+             data-updated="2026-06-16T21:58:03.994305" data-agent-assigned="claude-code" data-track-id="trk-6a1f5362" data-created-by-agent="claude-code" data-created-by-model="claude-opus-4-8[1m]" data-created-by-cli-version="dev">
 
         <header>
             <h1>Inject wipnote orchestrator system prompt into wipnote antigravity at runtime</h1>
             <div class="metadata">
-                <span class="badge status-todo">Todo</span>
+                <span class="badge status-in-progress">In Progress</span>
                 <span class="badge priority-medium">Medium Priority</span>
             </div>
         </header>
@@ -36,15 +36,21 @@
                     <li><a href="../spikes/spk-c928d70a.html" data-relationship="caused_by" data-since="2026-06-15T22:32:03.061741">Review Antigravity plugin parity vs Claude Code &#43; audit unused Antigravity extensibility</a></li>
                 </ul>
             </section>
+            <section data-edge-type="implemented_in">
+                <h3>Implemented In:</h3>
+                <ul>
+                    <li><a href="../sessions/31d1b5af-fe92-4b1b-a01b-3a9c639fbcdd.html" data-relationship="implemented_in" data-since="2026-06-16T21:58:03.994107">session 31d1b5af-fe92-4b1b-a01b-3a9c639fbcdd</a></li>
+                </ul>
+            </section>
         </nav>
 
         <section data-content>
             <h3>Description</h3>
-            <p>Headline parity gap: wipnote claude uses --append-system-prompt, codex uses -c model_instructions_file, gemini uses GEMINI_SYSTEM_MD; wipnote antigravity injects nothing at runtime (only a static GEMINI.md). agy has no --append-system-prompt flag. THREE candidate approaches: (A) set GEMINI_SYSTEM_MD to a temp file with the composed orchestrator prompt in the antigravity launcher (mirror the gemini launcher) — only covers sessions launched via wipnote antigravity; (B) SessionStart hook additionalContext — wipnote ALREADY injects a lighter CIGS block (work-item roster + CLI quick-ref + orchestrator-skill pointer) at SessionStart via hookSpecificOutput.additionalContext for Antigravity (core/hooks/session_start.go, harness.go emitGeminiResponseForEvent); expand it to carry the full orchestrator prompt — works for bare agy too; (C) plugin-bundled rules/ file. Approach B is gated on verifying agy fires SessionStart and honors additionalContext (community docs list only PreToolUse/PostToolUse/PreInvocation/PostInvocation/Stop and suggest context may flow via PreInvocation ephemeralMessage) — our wired Antigravity SessionStart hook may be a silent no-op. NOTE: skills cannot be force-activated by a hook (category mismatch); additionalContext is the channel, not a skill.</p>
-<h2>Acceptance Criteria</h2>
-<p>Orchestrator system prompt (or equivalent full directive content) is present in an agy session started via wipnote antigravity; chosen approach justified by spk-0698d585 findings; works for bare agy if approach B/C chosen.</p>
-<h2>Test Strategy</h2>
-<p>Launch agy via wipnote antigravity with hook/launch debug logging; confirm injected content includes orchestrator directives and the model honors them.</p>
+            <p>Headline parity gap: wipnote claude uses --append-system-prompt, codex uses -c model_instructions_file, gemini uses GEMINI_SYSTEM_MD; wipnote antigravity injects nothing at runtime (only a static GEMINI.md). agy has no --append-system-prompt flag. THREE candidate approaches: (A) set GEMINI_SYSTEM_MD to a temp file with the composed orchestrator prompt in the antigravity launcher (mirror the gemini launcher) — only covers sessions launched via wipnote antigravity; (B) SessionStart hook additionalContext — wipnote ALREADY injects a lighter CIGS block (work-item roster + CLI quick-ref + orchestrator-skill pointer) at SessionStart via hookSpecificOutput.additionalContext for Antigravity (core/hooks/session_start.go, harness.go emitGeminiResponseForEvent); expand it to carry the full orchestrator prompt — works for bare agy too; (C) plugin-bundled rules/ file. Approach B is gated on verifying agy fires SessionStart and honors additionalContext (community docs list only PreToolUse/PostToolUse/PreInvocation/PostInvocation/Stop and suggest context may flow via PreInvocation ephemeralMessage) — our wired Antigravity SessionStart hook may be a silent no-op. NOTE: skills cannot be force-activated by a hook (category mismatch); additionalContext is the channel, not a skill.
+Acceptance Criteria
+Orchestrator system prompt (or equivalent full directive content) is present in an agy session started via wipnote antigravity; chosen approach justified by spk-0698d585 findings; works for bare agy if approach B/C chosen.
+Test Strategy
+Launch agy via wipnote antigravity with hook/launch debug logging; confirm injected content includes orchestrator directives and the model honors them.</p>
         </section>
     </article>
 </body>

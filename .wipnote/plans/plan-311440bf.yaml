@@ -1,0 +1,18 @@
+meta:
+    id: plan-311440bf
+    track_id: trk-6a1f5362
+    title: 'Explicit-intent launch: daemon-backed session resume + work-item-keyed worktrees'
+    description: Replace auto-guessed worktree creation with a user-declared intent flow across all CLI launchers.
+    created_at: "2026-06-16"
+    status: draft
+    priority: medium
+    schema_version: v3
+    version: 2
+design:
+    problem: ""
+    goals: []
+    constraints: []
+    approved: false
+    comment: ""
+slices: []
+questions: []

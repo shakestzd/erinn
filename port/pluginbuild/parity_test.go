@@ -228,6 +228,76 @@ func TestAntigravityEmitsMCPConfig(t *testing.T) {
 	}
 }
 
+// TestInjectDisableModelInvocation unit-tests the frontmatter injector.
+func TestInjectDisableModelInvocation(t *testing.T) {
+	t.Run("inserts into frontmatter", func(t *testing.T) {
+		in := []byte("---\nname: deploy\ndescription: ship it\n---\nbody\n")
+		out, changed := injectDisableModelInvocation(in)
+		if !changed {
+			t.Fatal("expected changed=true")
+		}
+		if !strings.Contains(string(out), "disable-model-invocation: true") {
+			t.Errorf("missing flag; got:\n%s", out)
+		}
+		if !strings.Contains(string(out), "name: deploy") || !strings.Contains(string(out), "body") {
+			t.Errorf("original content not preserved; got:\n%s", out)
+		}
+	})
+	t.Run("idempotent when present", func(t *testing.T) {
+		in := []byte("---\ndisable-model-invocation: true\nname: deploy\n---\nbody\n")
+		_, changed := injectDisableModelInvocation(in)
+		if changed {
+			t.Error("expected changed=false when flag already present")
+		}
+	})
+	t.Run("no frontmatter — no change", func(t *testing.T) {
+		in := []byte("no frontmatter here\n")
+		_, changed := injectDisableModelInvocation(in)
+		if changed {
+			t.Error("expected changed=false when no frontmatter")
+		}
+	})
+}
+
+// TestAntigravityDisablesModelInvocationForExplicitSkills verifies that the
+// emitted antigravity skill tree carries disable-model-invocation on the
+// curated explicit-only skills and not on ordinary skills.
+func TestAntigravityDisablesModelInvocationForExplicitSkills(t *testing.T) {
+	manifestPath, err := FindManifest(".")
+	if err != nil {
+		t.Skipf("no live manifest: %v", err)
+	}
+	m, err := Load(manifestPath)
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	repoRoot := filepath.Dir(filepath.Dir(filepath.Dir(manifestPath)))
+
+	out := t.TempDir()
+	if err := (antigravityAdapter{}).Emit(m, repoRoot, out); err != nil {
+		t.Fatalf("emit antigravity: %v", err)
+	}
+
+	skillHasFlag := func(name string) bool {
+		raw, rerr := os.ReadFile(filepath.Join(out, "skills", name, "SKILL.md"))
+		if rerr != nil {
+			t.Fatalf("read skill %s: %v", name, rerr)
+		}
+		return strings.Contains(string(raw), "disable-model-invocation: true")
+	}
+
+	for name := range antigravityDisableModelInvocationSkills {
+		if !skillHasFlag(name) {
+			t.Errorf("explicit-only skill %q is missing disable-model-invocation", name)
+		}
+	}
+	// orchestrator-directives-skill is ambient (visibility: always) and must
+	// remain model-invocable.
+	if skillHasFlag("orchestrator-directives-skill") {
+		t.Error("ambient skill orchestrator-directives-skill should NOT be disabled")
+	}
+}
+
 func liveCommandNames(t *testing.T, dir string) []string {
 	t.Helper()
 	entries, err := os.ReadDir(dir)

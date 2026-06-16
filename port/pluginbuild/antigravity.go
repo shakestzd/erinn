@@ -70,7 +70,73 @@ func (a antigravityAdapter) Emit(m *Manifest, repoRoot, outDir string) error {
 		}
 	}
 
+	// Mark explicit-only skills with disable-model-invocation so agy never
+	// auto-activates destructive/high-cost workflows from description matching.
+	if err := applyAntigravitySkillInvocationFlags(filepath.Join(outDir, "skills")); err != nil {
+		return err
+	}
+
 	return nil
+}
+
+// antigravityDisableModelInvocationSkills lists wipnote skills that must only
+// run on explicit user invocation — never via autonomous model activation.
+// agy honors disable-model-invocation in SKILL.md frontmatter (verified live
+// against agy v1.0.8, spk-0698d585); it is the only wipnote target harness that
+// does, so the flag is injected here rather than in the shared skill source.
+// The set is deliberately conservative: destructive (deploy ships releases),
+// high-cost (execute fans out many agents), and externally-visible
+// (report-issue transmits data) workflows.
+var antigravityDisableModelInvocationSkills = map[string]bool{
+	"deploy":       true,
+	"execute":      true,
+	"report-issue": true,
+}
+
+// applyAntigravitySkillInvocationFlags injects "disable-model-invocation: true"
+// into the YAML frontmatter of each explicit-only skill's SKILL.md. It is a
+// no-op for skills not in the set and idempotent for skills that already carry
+// the flag. Skills without frontmatter or that are absent from the tree are
+// skipped silently.
+func applyAntigravitySkillInvocationFlags(skillsDir string) error {
+	for name := range antigravityDisableModelInvocationSkills {
+		path := filepath.Join(skillsDir, name, "SKILL.md")
+		raw, err := os.ReadFile(path)
+		if os.IsNotExist(err) {
+			continue
+		}
+		if err != nil {
+			return fmt.Errorf("read skill %s: %w", name, err)
+		}
+		patched, changed := injectDisableModelInvocation(raw)
+		if !changed {
+			continue
+		}
+		if err := os.WriteFile(path, patched, 0o644); err != nil {
+			return fmt.Errorf("write skill %s: %w", name, err)
+		}
+	}
+	return nil
+}
+
+// injectDisableModelInvocation inserts a "disable-model-invocation: true" line
+// at the top of the leading YAML frontmatter block. Returns (input, false) when
+// the file has no leading frontmatter delimiter or already contains the key.
+func injectDisableModelInvocation(raw []byte) ([]byte, bool) {
+	const key = "disable-model-invocation"
+	if !bytes.HasPrefix(raw, []byte("---\n")) {
+		return raw, false
+	}
+	if bytes.Contains(raw, []byte(key+":")) {
+		return raw, false
+	}
+	// Insert the key immediately after the opening delimiter line.
+	rest := raw[len("---\n"):]
+	var buf bytes.Buffer
+	buf.WriteString("---\n")
+	buf.WriteString(key + ": true\n")
+	buf.Write(rest)
+	return buf.Bytes(), true
 }
 
 type AntigravitySubEmitter func(m *Manifest, repoRoot, outDir string, target Target) error

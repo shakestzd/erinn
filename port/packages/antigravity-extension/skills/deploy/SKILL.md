@@ -1,4 +1,5 @@
 ---
+disable-model-invocation: true
 description: "Deploy and release wipnote — run quality gates, bump version, tag, push, and trigger GitHub release pipeline. Use when asked to deploy, release, publish, ship, or push a new version."
 argument-hint: "[VERSION]"
 allowed-tools: ["Bash", "Read", "Grep", "Glob"]

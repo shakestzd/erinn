@@ -92,6 +92,7 @@ func buildSingleProjectMux(database, writeDB *sql.DB, wipnoteDir string) *http.S
 	mux.Handle("/api/events/stream", sseHandler(database))
 	mux.Handle("/api/events/subagent", subagentEventsHandler(database))
 	mux.Handle("/api/sessions", sessionsHandler(database, projectDir, wipnoteDir))
+	mux.Handle("/api/sessions/resumable", resumableSessionsHandler(database, wipnoteDir))
 	mux.Handle("/api/sessions/adherence-trend", sessionAdherenceTrendHandler(database, projectDir, wipnoteDir))
 	mux.Handle("/api/features", featuresHandler(database, wipnoteDir))
 	mux.Handle("/api/stats", statsHandler(database, wipnoteDir))

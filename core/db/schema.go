@@ -174,6 +174,9 @@ func CreateAllTables(db *sql.DB) error {
 			model TEXT,
 			active_feature_id TEXT,
 			updated_at DATETIME,
+			exec_worktree_path TEXT,
+			branch TEXT,
+			harness TEXT,
 			FOREIGN KEY (parent_session_id) REFERENCES sessions(session_id) ON DELETE SET NULL ON UPDATE CASCADE,
 			FOREIGN KEY (parent_event_id) REFERENCES agent_events(event_id) ON DELETE SET NULL ON UPDATE CASCADE,
 			FOREIGN KEY (continued_from) REFERENCES sessions(session_id) ON DELETE SET NULL ON UPDATE CASCADE

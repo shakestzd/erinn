@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/shakestzd/wipnote/core/models"
@@ -17,14 +18,18 @@ func InsertSession(db *sql.DB, s *models.Session) error {
 	_, err := db.Exec(`
 		INSERT INTO sessions (session_id, agent_assigned, parent_session_id,
 			parent_event_id, created_at, status, start_commit,
-			is_subagent, model, active_feature_id, git_remote_url, project_dir)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+			is_subagent, model, active_feature_id, git_remote_url, project_dir,
+			exec_worktree_path, branch, harness)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		s.SessionID, s.AgentAssigned, nullStr(s.ParentSessionID),
 		nullStr(s.ParentEventID), s.CreatedAt.UTC().Format(time.RFC3339),
 		s.Status, nullStr(s.StartCommit),
 		s.IsSubagent, nullStr(s.Model), nullStr(s.ActiveFeatureID),
 		nullStr(s.GitRemoteURL),
 		nullStr(s.ProjectDir),
+		nullStr(s.ExecWorktreePath),
+		nullStr(s.Branch),
+		nullStr(s.Harness),
 	)
 	if err != nil {
 		return fmt.Errorf("insert session %s: %w", s.SessionID, err)
@@ -53,8 +58,9 @@ func UpsertSession(db *sql.DB, s *models.Session) error {
 	_, err := db.Exec(`
 		INSERT INTO sessions (session_id, agent_assigned, parent_session_id,
 			parent_event_id, created_at, status, start_commit,
-			is_subagent, model, active_feature_id, git_remote_url, project_dir)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+			is_subagent, model, active_feature_id, git_remote_url, project_dir,
+			exec_worktree_path, branch, harness)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		ON CONFLICT(session_id) DO UPDATE SET
 			agent_assigned=excluded.agent_assigned,
 			parent_session_id=excluded.parent_session_id,
@@ -65,7 +71,10 @@ func UpsertSession(db *sql.DB, s *models.Session) error {
 			model=excluded.model,
 			active_feature_id=excluded.active_feature_id,
 			git_remote_url=excluded.git_remote_url,
-			project_dir=excluded.project_dir
+			project_dir=excluded.project_dir,
+			exec_worktree_path=excluded.exec_worktree_path,
+			branch=excluded.branch,
+			harness=excluded.harness
 		WHERE sessions.agent_assigned = '__hook__'`,
 		s.SessionID, s.AgentAssigned, nullStr(s.ParentSessionID),
 		nullStr(s.ParentEventID), s.CreatedAt.UTC().Format(time.RFC3339),
@@ -73,6 +82,9 @@ func UpsertSession(db *sql.DB, s *models.Session) error {
 		s.IsSubagent, nullStr(s.Model), nullStr(s.ActiveFeatureID),
 		nullStr(s.GitRemoteURL),
 		nullStr(s.ProjectDir),
+		nullStr(s.ExecWorktreePath),
+		nullStr(s.Branch),
+		nullStr(s.Harness),
 	)
 	if err != nil {
 		return fmt.Errorf("upsert session %s: %w", s.SessionID, err)
@@ -86,11 +98,13 @@ func GetSession(db *sql.DB, sessionID string) (*models.Session, error) {
 		SELECT session_id, agent_assigned, parent_session_id,
 			parent_event_id, created_at, completed_at,
 			total_events, total_tokens_used, context_drift,
-			status, is_subagent, model, active_feature_id, project_dir
+			status, is_subagent, model, active_feature_id, project_dir,
+			exec_worktree_path, branch, harness
 		FROM sessions WHERE session_id = ?`, sessionID)
 
 	s := &models.Session{}
 	var parentSess, parentEvt, completedAt, model, activeFeat, projectDir sql.NullString
+	var execWorktreePath, branch, harness sql.NullString
 	var createdStr string
 
 	err := row.Scan(
@@ -98,6 +112,7 @@ func GetSession(db *sql.DB, sessionID string) (*models.Session, error) {
 		&parentEvt, &createdStr, &completedAt,
 		&s.TotalEvents, &s.TotalTokensUsed, &s.ContextDrift,
 		&s.Status, &s.IsSubagent, &model, &activeFeat, &projectDir,
+		&execWorktreePath, &branch, &harness,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("get session %s: %w", sessionID, err)
@@ -108,6 +123,9 @@ func GetSession(db *sql.DB, sessionID string) (*models.Session, error) {
 	s.Model = model.String
 	s.ActiveFeatureID = activeFeat.String
 	s.ProjectDir = projectDir.String
+	s.ExecWorktreePath = execWorktreePath.String
+	s.Branch = branch.String
+	s.Harness = harness.String
 	s.CreatedAt, _ = time.Parse(time.RFC3339, createdStr)
 
 	if completedAt.Valid {
@@ -454,6 +472,151 @@ func SessionLivenessByHeartbeat(db *sql.DB, sessionID string, threshold time.Dur
 	return time.Since(t) <= threshold
 }
 
+type ResumableSession struct {
+	WorkItemID       string `json:"work_item_id"`
+	Title            string `json:"title"`
+	Type             string `json:"type"`
+	Branch           string `json:"branch"`
+	ExecWorktreePath string `json:"exec_worktree_path"`
+	Harness          string `json:"harness"`
+	LastActivity     string `json:"last_activity"`
+	LastSessionID    string `json:"last_session_id"`
+	Live             bool   `json:"live"`
+}
+
+// ListResumableSessions returns the most-recent session per incomplete work
+// item, ranked by last activity descending.
+func ListResumableSessions(db *sql.DB, threshold time.Duration) ([]ResumableSession, error) {
+	if db == nil {
+		return nil, nil
+	}
+	cutoff := time.Now().UTC().Add(-threshold).Format(time.RFC3339)
+	rows, err := db.Query(`
+WITH session_work AS (
+	SELECT
+		s.session_id,
+		s.created_at,
+		COALESCE(s.exec_worktree_path, '') AS exec_worktree_path,
+		COALESCE(s.branch, '') AS branch,
+		COALESCE(s.harness, '') AS harness,
+		COALESCE(s.agent_assigned, '') AS agent_assigned,
+		COALESCE(
+			(SELECT awi.work_item_id
+			 FROM active_work_items awi
+			 WHERE awi.session_id = s.session_id
+			 ORDER BY awi.claimed_at DESC
+			 LIMIT 1),
+			s.active_feature_id,
+			''
+		) AS work_item_id
+	FROM sessions s
+),
+enriched AS (
+	SELECT
+		sw.session_id,
+		sw.work_item_id,
+		COALESCE(f.title, t.title, '') AS title,
+		COALESCE(NULLIF(f.type, ''), CASE WHEN t.id IS NOT NULL THEN 'track' ELSE '' END) AS type,
+		COALESCE(f.status, t.status, '') AS item_status,
+		sw.branch,
+		sw.exec_worktree_path,
+		sw.harness,
+		sw.agent_assigned,
+		COALESCE((
+			SELECT MAX(ts)
+			FROM (
+				SELECT MAX(ae.timestamp) AS ts FROM agent_events ae WHERE ae.session_id = sw.session_id
+				UNION ALL
+				SELECT MAX(m.timestamp) AS ts FROM messages m WHERE m.session_id = sw.session_id
+				UNION ALL
+				SELECT MAX(c.last_heartbeat_at) AS ts FROM claims c WHERE c.owner_session_id = sw.session_id
+				UNION ALL
+				SELECT sw.created_at AS ts
+			)
+		), sw.created_at) AS last_activity,
+		(SELECT MAX(c.last_heartbeat_at) FROM claims c WHERE c.owner_session_id = sw.session_id) AS last_heartbeat_at
+	FROM session_work sw
+	LEFT JOIN features f ON f.id = sw.work_item_id
+	LEFT JOIN tracks t ON t.id = sw.work_item_id
+	WHERE sw.work_item_id <> ''
+),
+ranked AS (
+	SELECT
+		*,
+		ROW_NUMBER() OVER (
+			PARTITION BY work_item_id
+			ORDER BY last_activity DESC, session_id DESC
+		) AS row_num
+	FROM enriched
+	WHERE item_status NOT IN ('done', 'completed')
+)
+SELECT
+	work_item_id,
+	title,
+	type,
+	branch,
+	exec_worktree_path,
+	harness,
+	last_activity,
+	session_id,
+	CASE
+		WHEN last_heartbeat_at IS NOT NULL AND last_heartbeat_at >= ? THEN 1
+		ELSE 0
+	END AS live,
+	agent_assigned
+FROM ranked
+WHERE row_num = 1
+ORDER BY last_activity DESC, work_item_id`, cutoff)
+	if err != nil {
+		return nil, fmt.Errorf("list resumable sessions: %w", err)
+	}
+	defer rows.Close()
+
+	var out []ResumableSession
+	for rows.Next() {
+		var item ResumableSession
+		var live int
+		var agentAssigned string
+		if err := rows.Scan(
+			&item.WorkItemID,
+			&item.Title,
+			&item.Type,
+			&item.Branch,
+			&item.ExecWorktreePath,
+			&item.Harness,
+			&item.LastActivity,
+			&item.LastSessionID,
+			&live,
+			&agentAssigned,
+		); err != nil {
+			return nil, fmt.Errorf("scan resumable session: %w", err)
+		}
+		item.Live = live != 0
+		item.Harness = normalizeSessionHarness(item.Harness, agentAssigned)
+		out = append(out, item)
+	}
+	return out, rows.Err()
+}
+
+func normalizeSessionHarness(raw, agentAssigned string) string {
+	if raw != "" {
+		return raw
+	}
+	v := strings.ToLower(strings.TrimSpace(agentAssigned))
+	switch {
+	case strings.Contains(v, "antigravity"):
+		return "antigravity"
+	case strings.Contains(v, "gemini"):
+		return "gemini"
+	case strings.Contains(v, "codex"):
+		return "codex"
+	case strings.Contains(v, "claude"):
+		return "claude"
+	default:
+		return ""
+	}
+}
+
 // sessionFilePathHash returns an 8-char hex digest of a file path, used to
 // build deterministic primary keys for session_files rows so an upsert keyed
 // on (session_id,file_path) stays a single statement.
@@ -516,4 +679,3 @@ func ListClaimlessFilesBySession(db *sql.DB, sessionID string) ([]SessionFile, e
 	}
 	return out, rows.Err()
 }
-

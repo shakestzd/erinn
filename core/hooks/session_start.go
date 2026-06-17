@@ -12,12 +12,12 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/shakestzd/wipnote/core/agent"
 	"github.com/shakestzd/wipnote/core/db"
 	"github.com/shakestzd/wipnote/core/eventsink"
 	"github.com/shakestzd/wipnote/core/models"
 	"github.com/shakestzd/wipnote/core/paths"
 	"github.com/shakestzd/wipnote/core/provenance"
-	"github.com/shakestzd/wipnote/core/agent"
 	"github.com/shakestzd/wipnote/core/worktree"
 )
 
@@ -103,6 +103,13 @@ type launchModeFile struct {
 	Mode      string `json:"mode"`
 	PID       int    `json:"pid"`
 	Timestamp string `json:"timestamp"`
+}
+
+var allowedHarnesses = map[string]struct{}{
+	"claude":      {},
+	"codex":       {},
+	"gemini":      {},
+	"antigravity": {},
 }
 
 // bareLaunchNudge returns a context nudge when Claude was started without
@@ -203,7 +210,10 @@ func SessionStart(event *CloudEvent, database *sql.DB, projectDir string) (*Hook
 		// sessions ingested from foreign machines (where the canonical root
 		// differs from the local repo) are stored with an "unresolved:" prefix
 		// so they are queryable without silently mangling the original path.
-		ProjectDir: paths.NormalizeProjectDir(projectDir),
+		ProjectDir:       paths.NormalizeProjectDir(projectDir),
+		ExecWorktreePath: execWorktreeRelPath(event.CWD, projectDir),
+		Branch:           gitBranch(execDirOrDefault(event.CWD, projectDir)),
+		Harness:          normalizeHarness(os.Getenv("WIPNOTE_HARNESS")),
 	}
 
 	// Prefer CloudEvent fields over env vars (more reliable).
@@ -414,8 +424,8 @@ func upsertSessionTx(tx *sql.Tx, s *models.Session) error {
 		INSERT OR IGNORE INTO sessions
 			(session_id, agent_assigned, parent_session_id, parent_event_id,
 			 created_at, status, start_commit, is_subagent, model, active_feature_id,
-			 git_remote_url, project_dir)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+			 git_remote_url, project_dir, exec_worktree_path, branch, harness)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		s.SessionID,
 		s.AgentAssigned,
 		nullableStr(s.ParentSessionID),
@@ -428,6 +438,9 @@ func upsertSessionTx(tx *sql.Tx, s *models.Session) error {
 		nullableStr(s.ActiveFeatureID),
 		nullableStr(s.GitRemoteURL),
 		nullableStr(s.ProjectDir),
+		nullableStr(s.ExecWorktreePath),
+		nullableStr(s.Branch),
+		nullableStr(s.Harness),
 	)
 	return err
 }
@@ -526,6 +539,51 @@ func headCommit(dir string) string {
 		return ""
 	}
 	return strings.TrimSpace(string(out))
+}
+
+func normalizeHarness(raw string) string {
+	h := strings.ToLower(strings.TrimSpace(raw))
+	if _, ok := allowedHarnesses[h]; ok {
+		return h
+	}
+	return ""
+}
+
+func execDirOrDefault(cwd, projectDir string) string {
+	if cwd != "" {
+		return cwd
+	}
+	return projectDir
+}
+
+func gitBranch(dir string) string {
+	if dir == "" {
+		return ""
+	}
+	cmd := exec.Command("git", "rev-parse", "--abbrev-ref", "HEAD")
+	cmd.Dir = dir
+	out, err := cmd.Output()
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(string(out))
+}
+
+func execWorktreeRelPath(cwd, projectDir string) string {
+	if cwd == "" || cwd == projectDir {
+		return ""
+	}
+	if !filepath.IsAbs(projectDir) || !filepath.IsAbs(cwd) {
+		return ""
+	}
+	rel, err := filepath.Rel(projectDir, cwd)
+	if err != nil {
+		return ""
+	}
+	if rel == "." || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+		return ""
+	}
+	return filepath.ToSlash(rel)
 }
 
 // isSubagent returns true when env vars indicate this is a spawned subagent.

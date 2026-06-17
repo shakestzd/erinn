@@ -15,7 +15,7 @@ import (
 // executes ZERO CREATE / ALTER / DROP / trigger / normalisation statements —
 // avoiding the write-lock acquisition that caused SQLITE_BUSY in short-lived
 // hook processes.
-const currentSchemaVersion = 13
+const currentSchemaVersion = 14
 
 // copySwapStepName is the name of the agent_events copy-and-swap migration
 // step. Exposed via CopySwapStepName() so tests can assert it runs at most
@@ -107,6 +107,11 @@ var migrations = []migrationStep{
 		version: 13,
 		name:    "013_arch_cards",
 		apply:   stepArchCards,
+	},
+	{
+		version: 14,
+		name:    "014_session_exec_context",
+		apply:   stepSessionExecContext,
 	},
 }
 
@@ -538,6 +543,21 @@ func stepArchCards(db *sql.DB) error {
 	} {
 		if _, err := db.Exec(stmt); err != nil {
 			return fmt.Errorf("create arch_cards index: %w", err)
+		}
+	}
+	return nil
+}
+
+func stepSessionExecContext(db *sql.DB) error {
+	for _, stmt := range []string{
+		`ALTER TABLE sessions ADD COLUMN exec_worktree_path TEXT`,
+		`ALTER TABLE sessions ADD COLUMN branch TEXT`,
+		`ALTER TABLE sessions ADD COLUMN harness TEXT`,
+	} {
+		if _, err := db.Exec(stmt); err != nil {
+			if !isDuplicateColumnError(err) {
+				return fmt.Errorf("add session exec-context column (%s): %w", stmt, err)
+			}
 		}
 	}
 	return nil

@@ -477,7 +477,7 @@ Plan to optimize token usage, prevent context bloat, support local subagent mode
 </p>
   <div class="meta">
     <span class="badge badge-pending">Draft</span>
-    <span style="font-size:.75rem;color:var(--text-muted)">v7 · 5 slices · Created 2026-06-17</span>
+    <span style="font-size:.75rem;color:var(--text-muted)">v8 · 5 slices · Created 2026-06-17</span>
   </div>
 </header>
 <button id="themeToggle" style="position:fixed;top:16px;right:16px;z-index:100;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:6px 12px;color:var(--text);font-family:var(--mono);font-size:0.75rem;cursor:pointer;">
@@ -1190,24 +1190,24 @@ Plan to optimize token usage, prevent context bloat, support local subagent mode
       <div style="display:flex;align-items:flex-start;gap:10px;margin-bottom:8px;padding:8px;background:var(--bg-input);border-radius:var(--radius)">
         <span class="badge badge-approved">verified</span>
         <div>
-          <p style="margin:0;font-size:.9rem">Per-subagent model selection is controllable by wipnote. CLAUDE_CODE_SUBAGENT_MODEL exists and overrides frontmatter, but the recommended design writes model into generated frontmatter (env var is a blunt global override unsuitable for role routing).</p>
-          <p style="margin:4px 0 0;font-size:.8rem;color:var(--text-muted)">https://code.claude.com/docs/en/sub-agents ; https://code.claude.com/docs/en/model-config ; gh anthropics/claude-code #9573 (env-var 404 hazard with plugin agents).</p>
+          <p style="margin:0;font-size:.9rem">Per-subagent model selection is controllable at generation time by writing model: into generated frontmatter (resolution-order priority 3); env var is a blunt global override unsuitable for role routing.</p>
+          <p style="margin:4px 0 0;font-size:.8rem;color:var(--text-muted)">https://code.claude.com/docs/en/sub-agents (fable alias &#43; maxTurns confirmed); https://code.claude.com/docs/en/model-config (order: 1 env &gt; 2 param &gt; 3 frontmatter &gt; 4 parent).</p>
         </div>
       </div>
       
       <div style="display:flex;align-items:flex-start;gap:10px;margin-bottom:8px;padding:8px;background:var(--bg-input);border-radius:var(--radius)">
-        <span class="badge badge-approved">verified</span>
+        <span class="badge badge-pending">plausible</span>
         <div>
-          <p style="margin:0;font-size:.9rem">maxTurns is an honored Claude Code subagent frontmatter field.</p>
-          <p style="margin:4px 0 0;font-size:.8rem;color:var(--text-muted)">https://code.claude.com/docs/en/sub-agents; present at plugin/agents/architect-coder.md:15, feature-coder.md:15, researcher.md:16.</p>
+          <p style="margin:0;font-size:.9rem">maxTurns is an honored subagent frontmatter field; but slice 1 proposed targets (architect 120-&gt;50, feature 100-&gt;40) are aggressive and unjustified.</p>
+          <p style="margin:4px 0 0;font-size:.8rem;color:var(--text-muted)">sub-agents docs (camelCase maxTurns); current values architect-coder.md:15=120, feature-coder.md:15=100, researcher.md:16=50. Reduction adequacy not analyzed.</p>
         </div>
       </div>
       
       <div style="display:flex;align-items:flex-start;gap:10px;margin-bottom:8px;padding:8px;background:var(--bg-input);border-radius:var(--radius)">
         <span class="badge badge-blocked">falsified</span>
         <div>
-          <p style="margin:0;font-size:.9rem">PostCompact/PostToolUse hook payloads carry a token/context-size count to threshold on.</p>
-          <p style="margin:4px 0 0;font-size:.8rem;color:var(--text-muted)">https://code.claude.com/docs/en/hooks — payloads expose session_id/transcript_path/cwd/permission_mode/hook_event_name only; no token count. RESOLUTION: slice 4 switched to statusLine.</p>
+          <p style="margin:0;font-size:.9rem">Hook payloads carry a token/context-size count to threshold on.</p>
+          <p style="margin:4px 0 0;font-size:.8rem;color:var(--text-muted)">https://code.claude.com/docs/en/hooks - no token field. Slice 4 correctly uses statusLine instead.</p>
         </div>
       </div>
       
@@ -1215,31 +1215,31 @@ Plan to optimize token usage, prevent context bloat, support local subagent mode
         <span class="badge badge-approved">verified</span>
         <div>
           <p style="margin:0;font-size:.9rem">The PostCompact hook event exists (now unused by slice 4).</p>
-          <p style="margin:4px 0 0;font-size:.8rem;color:var(--text-muted)">https://code.claude.com/docs/en/hooks; core/hooks/missing_events.go:253; packages/plugin-core/manifest.json:94.</p>
+          <p style="margin:4px 0 0;font-size:.8rem;color:var(--text-muted)">https://code.claude.com/docs/en/hooks.</p>
         </div>
       </div>
       
       <div style="display:flex;align-items:flex-start;gap:10px;margin-bottom:8px;padding:8px;background:var(--bg-input);border-radius:var(--radius)">
         <span class="badge badge-blocked">falsified</span>
         <div>
-          <p style="margin:0;font-size:.9rem">Hook handlers live in internal/hooks/ (original slice-4 files path).</p>
-          <p style="margin:4px 0 0;font-size:.8rem;color:var(--text-muted)">Handlers are in core/hooks/ (separate Go module). RESOLUTION: slice 4 redesigned around cmd/wipnote/statusline.go; the internal/hooks path is no longer used.</p>
+          <p style="margin:0;font-size:.9rem">Hook handlers live in internal/hooks/ (original slice-4 path).</p>
+          <p style="margin:4px 0 0;font-size:.8rem;color:var(--text-muted)">Handlers are in core/hooks/. Moot - slice 4 uses cmd/wipnote/statusline.go.</p>
         </div>
       </div>
       
       <div style="display:flex;align-items:flex-start;gap:10px;margin-bottom:8px;padding:8px;background:var(--bg-input);border-radius:var(--radius)">
-        <span class="badge badge-approved">verified</span>
+        <span class="badge badge-blocked">falsified</span>
         <div>
-          <p style="margin:0;font-size:.9rem">A reusable supervised-child-process pattern with idle GC already exists.</p>
-          <p style="margin:4px 0 0;font-size:.8rem;color:var(--text-muted)">internal/childproc/ Supervisor &#43; RunIdleReaper/IdleTimeout with crash &amp; orphan recovery.</p>
+          <p style="margin:0;font-size:.9rem">internal/childproc Supervisor &#43; RunIdleReaper can be reused as-is for slice 3 (worktree-agent spawn) and slice 5 (session-idle GC).</p>
+          <p style="margin:4px 0 0;font-size:.8rem;color:var(--text-muted)">childproc.go:237-240 spawnLocked hardcodes wipnote _serve-child &#43; HTTP handshake/reverse-proxy; childproc.go:33 RunIdleReaper reaps on HTTP-request idle, not user-session idle. Both slices need structural changes, not extension.</p>
         </div>
       </div>
       
       <div style="display:flex;align-items:flex-start;gap:10px;margin-bottom:8px;padding:8px;background:var(--bg-input);border-radius:var(--radius)">
-        <span class="badge badge-pending">questionable</span>
+        <span class="badge badge-blocked">falsified</span>
         <div>
-          <p style="margin:0;font-size:.9rem">The subagent `model:` frontmatter is honored at runtime.</p>
-          <p style="margin:4px 0 0;font-size:.8rem;color:var(--text-muted)">gh anthropics/claude-code #44385 reports model frontmatter currently ignored (subagents inherit parent). Documented contract is frontmatter; tracked as a slice-1 watch item.</p>
+          <p style="margin:0;font-size:.9rem">The subagent model: frontmatter (specifically the opus alias) is honored at runtime.</p>
+          <p style="margin:4px 0 0;font-size:.8rem;color:var(--text-muted)">gh anthropics/claude-code #44385 -&gt; dup of #18346 (unfixed, closed inactive): opus alias silently ignored, subagent runs as Sonnet; sonnet/haiku work. architect-coder=opus is the primary routing target, so this is a current regression.</p>
         </div>
       </div>
       
@@ -1247,7 +1247,15 @@ Plan to optimize token usage, prevent context bloat, support local subagent mode
         <span class="badge badge-approved">verified</span>
         <div>
           <p style="margin:0;font-size:.9rem">statusLine JSON exposes live context usage to plugin scripts.</p>
-          <p style="margin:4px 0 0;font-size:.8rem;color:var(--text-muted)">https://code.claude.com/docs/en/statusline — context_window.used_percentage, context_window.remaining_percentage, exceeds_200k_tokens, context_window.context_window_size.</p>
+          <p style="margin:4px 0 0;font-size:.8rem;color:var(--text-muted)">https://code.claude.com/docs/en/statusline - context_window.used_percentage present; exceeds_200k_tokens is a TOP-LEVEL field (not nested); used_percentage may be null before first API call.</p>
+        </div>
+      </div>
+      
+      <div style="display:flex;align-items:flex-start;gap:10px;margin-bottom:8px;padding:8px;background:var(--bg-input);border-radius:var(--radius)">
+        <span class="badge badge-approved">verified</span>
+        <div>
+          <p style="margin:0;font-size:.9rem">cmd/wipnote/statusline.go already exists as a work-item display command (not a new file); slice 4 must integrate into it without breaking existing paths.</p>
+          <p style="margin:4px 0 0;font-size:.8rem;color:var(--text-muted)">cmd/wipnote/statusline.go (331 lines): runStatuslineCache drains&#43;ignores stdin, runStatusline does work-item display; no context_window reference.</p>
         </div>
       </div>
       
@@ -1258,32 +1266,39 @@ Plan to optimize token usage, prevent context bloat, support local subagent mode
     <div class="sub-section" style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
       
       <div>
-        <h4>claude-design (role: design critic; runner: Claude Code wipnote:researcher subagent)</h4>
+        <h4>claude-design (role: design critic; runner: Claude Code wipnote:researcher subagent; RE-REVIEW pass of v7)</h4>
         <div style="font-size:.85rem;color:var(--text-dim)"><h5>Scope and cohesion</h5>
 <ul>
-  <li><span class="badge badge-warn">two-plans</span> Goals mix token/model optimization (slices 1, 4) with an execution engine (slices 2, 3) and lifecycle GC (slice 5); consider sequencing as two plans.</li>
+  <li><span class="badge badge-warn">two-plans</span> Still open: plan bundles model/token (1,4), execution engine (2,3), and lifecycle GC (5) with no cross-domain slice deps (only 3-&gt;2). Splitting into (1,4) and (2,3,5) gives two independently reviewable/shippable plans.</li>
 </ul>
-<h5>Safety and reviewability</h5>
+<h5>Specification completeness</h5>
 <ul>
-  <li><span class="badge badge-success">auto-merge</span> RESOLVED: slice 3 now merges only on green gates behind a single-writer lock, leaves failed branches unmerged (no force), and isolates per-wave failures.</li>
-  <li><span class="badge badge-success">completion-detection</span> RESOLVED: slice 3 commits to event-driven completion (exit codes + result file), not polling.</li>
+  <li><span class="badge badge-danger">statusline-integration</span> Slice 4 omits integration design with the EXISTING statusline command (work-item display); coder has nothing to safely modify from.</li>
+  <li><span class="badge badge-warn">session-state-undefined</span> Slice 5 suspended/archived session state is undefined in the data model (no table/column/enum).</li>
+  <li><span class="badge badge-warn">agentmodels-config</span> Slice 1 agentModels config key has no schema/validation/discovery and an unfinalized name; typos silently produce empty model in generated frontmatter.</li>
+  <li><span class="badge badge-warn">childproc-concurrency</span> Slices 3 and 5 share internal/childproc concurrently; serve idle-reaper could SIGTERM a worktree child slice 3 awaits -&gt; spurious wave failure. No boundary defined.</li>
 </ul>
 </div>
       </div>
       
       
       <div>
-        <h4>claude-feasibility (role: feasibility critic; runner: Claude Code wipnote:researcher subagent with file &#43; web verification)</h4>
-        <div style="font-size:.85rem;color:var(--text-dim)"><h5>External contract verification</h5>
+        <h4>claude-feasibility (role: feasibility critic; runner: Claude Code wipnote:researcher subagent with file &#43; web &#43; gh verification; RE-REVIEW pass of v7)</h4>
+        <div style="font-size:.85rem;color:var(--text-dim)"><h5>Reuse claims that do not hold</h5>
 <ul>
-  <li><span class="badge badge-success">context-usage</span> RESOLVED: slice 4 uses statusLine context_window.used_percentage / exceeds_200k_tokens instead of a non-existent hook token count.</li>
-  <li><span class="badge badge-success">model-routing</span> RESOLVED: slice 1 writes model into generated frontmatter at build time; avoids the blunt CLAUDE_CODE_SUBAGENT_MODEL env var (gh #9573).</li>
-  <li><span class="badge badge-warn">model-runtime-bug</span> Watch item: gh #44385 — model frontmatter may be ignored at runtime; tracked on slice 1.</li>
+  <li><span class="badge badge-danger">childproc-spawn</span> Slice 3: childproc Supervisor hardcodes _serve-child + HTTP proxy lifecycle; cannot spawn worktree agents without a new struct/refactor. Prior childproc-reuse:success was wrong.</li>
+  <li><span class="badge badge-danger">childproc-idle</span> Slice 5: RunIdleReaper tracks HTTP-request idle, not user-session idle; semantic mismatch - needs session-timestamp idle tracking.</li>
 </ul>
-<h5>Reuse vs reinvention</h5>
+<h5>External contract verification</h5>
 <ul>
-  <li><span class="badge badge-success">childproc-reuse</span> RESOLVED: slices 3 and 5 now explicitly extend internal/childproc (Supervisor + RunIdleReaper) instead of rebuilding.</li>
-  <li><span class="badge badge-success">overlap-defined</span> RESOLVED: slice 2 defines overlap as declared-file-set intersection (not git history) with a greedy independent-set wave partition.</li>
+  <li><span class="badge badge-danger">opus-runtime-ignored</span> Slice 1: gh #18346 - opus frontmatter alias silently ignored at runtime; architect-coder=opus routing has no effect until upstream fix. sonnet/haiku work.</li>
+  <li><span class="badge badge-warn">exceeds-200k-path</span> Slice 4: exceeds_200k_tokens is a TOP-LEVEL statusLine field, not nested under context_window; nested access returns nil. used_percentage may be null pre-first-call.</li>
+  <li><span class="badge badge-warn">dated-id-404</span> gh #9573 404 hazard is specific to DATED model-ID suffixes, not alias strings; generator must avoid dated IDs.</li>
+  <li><span class="badge badge-success">docs-confirmed</span> fable alias, maxTurns camelCase, resolution order, and statusLine used_percentage all confirmed against current docs. execute.go absent (correctly new); execute_preview.go, sh.go, serve_parent.go exist.</li>
+</ul>
+<h5>Testability / file-set hygiene</h5>
+<ul>
+  <li><span class="badge badge-warn">missing-test-files</span> Slices 2 and 3 done_when cite *_test.go files not present in their files: lists.</li>
 </ul>
 </div>
       </div>
@@ -1294,18 +1309,7 @@ Plan to optimize token usage, prevent context bloat, support local subagent mode
     
     <div class="sub-section">
       <h4>Synthesis</h4>
-      <div style="font-size:.85rem;color:var(--text-dim)">All four danger-level blockers from the first critique are resolved with doc-verified
-mechanisms. Slice 4 drops the impossible hook-payload token trigger and uses the
-statusLine context_window fields (A8 verified); its wrong internal/hooks path is moot
-(now cmd/wipnote/statusline.go). Slice 1 writes model aliases into generated frontmatter
-at build time (A1 verified) rather than the blunt CLAUDE_CODE_SUBAGENT_MODEL env var,
-with gh #44385 tracked as a runtime watch item (A7). Slice 3 commits to event-driven
-completion and a merge-lock + leave-unmerged-on-failure safety model, reusing
-internal/childproc. Slice 2 defines file overlap as declared-file-set intersection with a
-deterministic wave partition. Slice 5 adds a Conductor guard and a configurable idle
-threshold. Residual items for the human reviewer: the gh #44385 runtime caveat on slice 1,
-and whether to split the plan into two (token/model vs execution-engine) before promotion.
-</div>
+      <div style="font-size:.85rem;color:var(--text-dim)">RE-REVIEW VERDICT: the v7 critique over-claimed resolution. Three items it marked RESOLVED are in fact danger-level blockers. A6 is FALSIFIED for both slices that rely on it: internal/childproc.spawnLocked hardcodes wipnote _serve-child + an HTTP proxy lifecycle (slice 3 cannot extend it to spawn worktree agents) and RunIdleReaper reaps on HTTP-request idle, not user-session idle (slice 5 GC needs a different metric). A7 is FALSIFIED for the opus case (gh #18346, unfixed): architect-coder=opus frontmatter is silently ignored at runtime, so slice 1 primary routing has no effect even though the generation change itself is correct (sonnet/haiku aliases work; fable confirmed). New A9: slice 4 cmd/wipnote/statusline.go already exists as a work-item display command - it is an integration, not a new file - and exceeds_200k_tokens is a top-level field, not nested. Human reviewer should focus, in order: (1) childproc refactor scope for slices 3 and 5, (2) slice 4 integration design + top-level-field correction, (3) opus runtime caveat on slice 1, then (4) the agentModels config spec, session-state data model, maxTurns target justification, missing test files, and the still-open two-plans split. Recommend NOT promoting until the three danger items have revised slice designs.</div>
     </div>
     
 
@@ -1317,21 +1321,27 @@ and whether to split the plan into two (token/model vs execution-engine) before 
         <tbody>
           
           <tr>
-            <td>gh #44385 — subagent model frontmatter may be ignored at runtime, blunting slice 1&#39;s per-role routing.</td>
-            <td><span class="badge badge-revision">Medium</span></td>
-            <td>Track upstream; if regressed, fall back to orchestrator passing model in the Agent tool call. Documented contract remains frontmatter.</td>
+            <td>gh #18346 - opus subagent model frontmatter ignored at runtime; slice 1 highest-value routing (architect-coder=opus) has no effect until upstream fix.</td>
+            <td><span class="badge badge-blocked">High</span></td>
+            <td>Ship the generation change (it is correct), but document that opus routing is upstream-blocked; consider CLAUDE_CODE_SUBAGENT_MODEL only for the opus case despite the dated-ID 404 caveat, or keep architect-coder on a working alias until #18346 is fixed.</td>
           </tr>
           
           <tr>
-            <td>Slice 3 background runner &#43; auto-merge is high-complexity even with the safety model.</td>
-            <td><span class="badge badge-revision">Medium</span></td>
-            <td>Land slice 2 first; integration-test green-merge and red-isolation before enabling auto-merge by default.</td>
+            <td>Slices 3 and 5 claim to reuse internal/childproc but its API (hardcoded _serve-child spawn; HTTP-idle reaper) does not fit worktree-agent spawn or session-idle GC.</td>
+            <td><span class="badge badge-blocked">High</span></td>
+            <td>Add an explicit childproc refactor sub-slice (parameterize spawn command; add session-activity idle metric) as a dependency of slices 3 and 5, or redesign those slices around new mechanisms.</td>
           </tr>
           
           <tr>
-            <td>Two distinct domains in one plan increase review surface.</td>
+            <td>Slice 4 frames an existing command (cmd/wipnote/statusline.go) as new; integration could break the work-item statusline path.</td>
+            <td><span class="badge badge-revision">Medium</span></td>
+            <td>Rewrite slice 4 to describe modifying the existing command with a guarded second code path; add a regression test for the existing work-item display.</td>
+          </tr>
+          
+          <tr>
+            <td>Three unrelated domains in one plan increase review surface.</td>
             <td><span class="badge badge-pending">Low</span></td>
-            <td>Optionally split into a model/token plan (1,4) and an execution-engine plan (2,3,5) at promotion time.</td>
+            <td>Split into (1,4) and (2,3,5) before promotion.</td>
           </tr>
           
         </tbody>

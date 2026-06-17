@@ -15,7 +15,7 @@ meta:
     status: draft
     priority: medium
     schema_version: v3
-    version: 7
+    version: 8
 design:
     problem: Subagents and token usage (context sizes >150k, long sessions) exhaust users' token quotas too quickly.
     goals:
@@ -170,41 +170,45 @@ questions: []
 critique:
     reviewed_at: "2026-06-17"
     reviewers:
-        - 'claude-design (role: design critic; runner: Claude Code wipnote:researcher subagent)'
-        - 'claude-feasibility (role: feasibility critic; runner: Claude Code wipnote:researcher subagent with file + web verification)'
+        - 'claude-design (role: design critic; runner: Claude Code wipnote:researcher subagent; RE-REVIEW pass of v7)'
+        - 'claude-feasibility (role: feasibility critic; runner: Claude Code wipnote:researcher subagent with file + web + gh verification; RE-REVIEW pass of v7)'
     assumptions:
         - id: A1
           status: verified
-          text: Per-subagent model selection is controllable by wipnote. CLAUDE_CODE_SUBAGENT_MODEL exists and overrides frontmatter, but the recommended design writes model into generated frontmatter (env var is a blunt global override unsuitable for role routing).
-          evidence: 'https://code.claude.com/docs/en/sub-agents ; https://code.claude.com/docs/en/model-config ; gh anthropics/claude-code #9573 (env-var 404 hazard with plugin agents).'
+          text: 'Per-subagent model selection is controllable at generation time by writing model: into generated frontmatter (resolution-order priority 3); env var is a blunt global override unsuitable for role routing.'
+          evidence: 'https://code.claude.com/docs/en/sub-agents (fable alias + maxTurns confirmed); https://code.claude.com/docs/en/model-config (order: 1 env > 2 param > 3 frontmatter > 4 parent).'
         - id: A2
-          status: verified
-          text: maxTurns is an honored Claude Code subagent frontmatter field.
-          evidence: https://code.claude.com/docs/en/sub-agents; present at plugin/agents/architect-coder.md:15, feature-coder.md:15, researcher.md:16.
+          status: plausible
+          text: maxTurns is an honored subagent frontmatter field; but slice 1 proposed targets (architect 120->50, feature 100->40) are aggressive and unjustified.
+          evidence: sub-agents docs (camelCase maxTurns); current values architect-coder.md:15=120, feature-coder.md:15=100, researcher.md:16=50. Reduction adequacy not analyzed.
         - id: A3
           status: falsified
-          text: PostCompact/PostToolUse hook payloads carry a token/context-size count to threshold on.
-          evidence: 'https://code.claude.com/docs/en/hooks — payloads expose session_id/transcript_path/cwd/permission_mode/hook_event_name only; no token count. RESOLUTION: slice 4 switched to statusLine.'
+          text: Hook payloads carry a token/context-size count to threshold on.
+          evidence: https://code.claude.com/docs/en/hooks - no token field. Slice 4 correctly uses statusLine instead.
         - id: A4
           status: verified
           text: The PostCompact hook event exists (now unused by slice 4).
-          evidence: https://code.claude.com/docs/en/hooks; core/hooks/missing_events.go:253; packages/plugin-core/manifest.json:94.
+          evidence: https://code.claude.com/docs/en/hooks.
         - id: A5
           status: falsified
-          text: Hook handlers live in internal/hooks/ (original slice-4 files path).
-          evidence: 'Handlers are in core/hooks/ (separate Go module). RESOLUTION: slice 4 redesigned around cmd/wipnote/statusline.go; the internal/hooks path is no longer used.'
+          text: Hook handlers live in internal/hooks/ (original slice-4 path).
+          evidence: Handlers are in core/hooks/. Moot - slice 4 uses cmd/wipnote/statusline.go.
         - id: A6
-          status: verified
-          text: A reusable supervised-child-process pattern with idle GC already exists.
-          evidence: internal/childproc/ Supervisor + RunIdleReaper/IdleTimeout with crash & orphan recovery.
+          status: falsified
+          text: internal/childproc Supervisor + RunIdleReaper can be reused as-is for slice 3 (worktree-agent spawn) and slice 5 (session-idle GC).
+          evidence: childproc.go:237-240 spawnLocked hardcodes wipnote _serve-child + HTTP handshake/reverse-proxy; childproc.go:33 RunIdleReaper reaps on HTTP-request idle, not user-session idle. Both slices need structural changes, not extension.
         - id: A7
-          status: questionable
-          text: The subagent `model:` frontmatter is honored at runtime.
-          evidence: 'gh anthropics/claude-code #44385 reports model frontmatter currently ignored (subagents inherit parent). Documented contract is frontmatter; tracked as a slice-1 watch item.'
+          status: falsified
+          text: 'The subagent model: frontmatter (specifically the opus alias) is honored at runtime.'
+          evidence: 'gh anthropics/claude-code #44385 -> dup of #18346 (unfixed, closed inactive): opus alias silently ignored, subagent runs as Sonnet; sonnet/haiku work. architect-coder=opus is the primary routing target, so this is a current regression.'
         - id: A8
           status: verified
           text: statusLine JSON exposes live context usage to plugin scripts.
-          evidence: https://code.claude.com/docs/en/statusline — context_window.used_percentage, context_window.remaining_percentage, exceeds_200k_tokens, context_window.context_window_size.
+          evidence: https://code.claude.com/docs/en/statusline - context_window.used_percentage present; exceeds_200k_tokens is a TOP-LEVEL field (not nested); used_percentage may be null before first API call.
+        - id: A9
+          status: verified
+          text: cmd/wipnote/statusline.go already exists as a work-item display command (not a new file); slice 4 must integrate into it without breaking existing paths.
+          evidence: 'cmd/wipnote/statusline.go (331 lines): runStatuslineCache drains+ignores stdin, runStatusline does work-item display; no context_window reference.'
     critics:
         - title: DESIGN CRITIC
           sections:
@@ -212,55 +216,61 @@ critique:
               items:
                 - badge: two-plans
                   kind: warn
-                  text: Goals mix token/model optimization (slices 1, 4) with an execution engine (slices 2, 3) and lifecycle GC (slice 5); consider sequencing as two plans.
-            - heading: Safety and reviewability
+                  text: 'Still open: plan bundles model/token (1,4), execution engine (2,3), and lifecycle GC (5) with no cross-domain slice deps (only 3->2). Splitting into (1,4) and (2,3,5) gives two independently reviewable/shippable plans.'
+            - heading: Specification completeness
               items:
-                - badge: auto-merge
-                  kind: success
-                  text: 'RESOLVED: slice 3 now merges only on green gates behind a single-writer lock, leaves failed branches unmerged (no force), and isolates per-wave failures.'
-                - badge: completion-detection
-                  kind: success
-                  text: 'RESOLVED: slice 3 commits to event-driven completion (exit codes + result file), not polling.'
+                - badge: statusline-integration
+                  kind: danger
+                  text: Slice 4 omits integration design with the EXISTING statusline command (work-item display); coder has nothing to safely modify from.
+                - badge: session-state-undefined
+                  kind: warn
+                  text: Slice 5 suspended/archived session state is undefined in the data model (no table/column/enum).
+                - badge: agentmodels-config
+                  kind: warn
+                  text: Slice 1 agentModels config key has no schema/validation/discovery and an unfinalized name; typos silently produce empty model in generated frontmatter.
+                - badge: childproc-concurrency
+                  kind: warn
+                  text: Slices 3 and 5 share internal/childproc concurrently; serve idle-reaper could SIGTERM a worktree child slice 3 awaits -> spurious wave failure. No boundary defined.
         - title: FEASIBILITY CRITIC
           sections:
+            - heading: Reuse claims that do not hold
+              items:
+                - badge: childproc-spawn
+                  kind: danger
+                  text: 'Slice 3: childproc Supervisor hardcodes _serve-child + HTTP proxy lifecycle; cannot spawn worktree agents without a new struct/refactor. Prior childproc-reuse:success was wrong.'
+                - badge: childproc-idle
+                  kind: danger
+                  text: 'Slice 5: RunIdleReaper tracks HTTP-request idle, not user-session idle; semantic mismatch - needs session-timestamp idle tracking.'
             - heading: External contract verification
               items:
-                - badge: context-usage
-                  kind: success
-                  text: 'RESOLVED: slice 4 uses statusLine context_window.used_percentage / exceeds_200k_tokens instead of a non-existent hook token count.'
-                - badge: model-routing
-                  kind: success
-                  text: 'RESOLVED: slice 1 writes model into generated frontmatter at build time; avoids the blunt CLAUDE_CODE_SUBAGENT_MODEL env var (gh #9573).'
-                - badge: model-runtime-bug
+                - badge: opus-runtime-ignored
+                  kind: danger
+                  text: 'Slice 1: gh #18346 - opus frontmatter alias silently ignored at runtime; architect-coder=opus routing has no effect until upstream fix. sonnet/haiku work.'
+                - badge: exceeds-200k-path
                   kind: warn
-                  text: 'Watch item: gh #44385 — model frontmatter may be ignored at runtime; tracked on slice 1.'
-            - heading: Reuse vs reinvention
+                  text: 'Slice 4: exceeds_200k_tokens is a TOP-LEVEL statusLine field, not nested under context_window; nested access returns nil. used_percentage may be null pre-first-call.'
+                - badge: dated-id-404
+                  kind: warn
+                  text: 'gh #9573 404 hazard is specific to DATED model-ID suffixes, not alias strings; generator must avoid dated IDs.'
+                - badge: docs-confirmed
+                  kind: success
+                  text: fable alias, maxTurns camelCase, resolution order, and statusLine used_percentage all confirmed against current docs. execute.go absent (correctly new); execute_preview.go, sh.go, serve_parent.go exist.
+            - heading: Testability / file-set hygiene
               items:
-                - badge: childproc-reuse
-                  kind: success
-                  text: 'RESOLVED: slices 3 and 5 now explicitly extend internal/childproc (Supervisor + RunIdleReaper) instead of rebuilding.'
-                - badge: overlap-defined
-                  kind: success
-                  text: 'RESOLVED: slice 2 defines overlap as declared-file-set intersection (not git history) with a greedy independent-set wave partition.'
+                - badge: missing-test-files
+                  kind: warn
+                  text: 'Slices 2 and 3 done_when cite *_test.go files not present in their files: lists.'
     risks:
-        - risk: 'gh #44385 — subagent model frontmatter may be ignored at runtime, blunting slice 1''s per-role routing.'
+        - risk: 'gh #18346 - opus subagent model frontmatter ignored at runtime; slice 1 highest-value routing (architect-coder=opus) has no effect until upstream fix.'
+          severity: High
+          mitigation: 'Ship the generation change (it is correct), but document that opus routing is upstream-blocked; consider CLAUDE_CODE_SUBAGENT_MODEL only for the opus case despite the dated-ID 404 caveat, or keep architect-coder on a working alias until #18346 is fixed.'
+        - risk: Slices 3 and 5 claim to reuse internal/childproc but its API (hardcoded _serve-child spawn; HTTP-idle reaper) does not fit worktree-agent spawn or session-idle GC.
+          severity: High
+          mitigation: Add an explicit childproc refactor sub-slice (parameterize spawn command; add session-activity idle metric) as a dependency of slices 3 and 5, or redesign those slices around new mechanisms.
+        - risk: Slice 4 frames an existing command (cmd/wipnote/statusline.go) as new; integration could break the work-item statusline path.
           severity: Medium
-          mitigation: Track upstream; if regressed, fall back to orchestrator passing model in the Agent tool call. Documented contract remains frontmatter.
-        - risk: Slice 3 background runner + auto-merge is high-complexity even with the safety model.
-          severity: Medium
-          mitigation: Land slice 2 first; integration-test green-merge and red-isolation before enabling auto-merge by default.
-        - risk: Two distinct domains in one plan increase review surface.
+          mitigation: Rewrite slice 4 to describe modifying the existing command with a guarded second code path; add a regression test for the existing work-item display.
+        - risk: Three unrelated domains in one plan increase review surface.
           severity: Low
-          mitigation: Optionally split into a model/token plan (1,4) and an execution-engine plan (2,3,5) at promotion time.
-    synthesis: |
-        All four danger-level blockers from the first critique are resolved with doc-verified
-        mechanisms. Slice 4 drops the impossible hook-payload token trigger and uses the
-        statusLine context_window fields (A8 verified); its wrong internal/hooks path is moot
-        (now cmd/wipnote/statusline.go). Slice 1 writes model aliases into generated frontmatter
-        at build time (A1 verified) rather than the blunt CLAUDE_CODE_SUBAGENT_MODEL env var,
-        with gh #44385 tracked as a runtime watch item (A7). Slice 3 commits to event-driven
-        completion and a merge-lock + leave-unmerged-on-failure safety model, reusing
-        internal/childproc. Slice 2 defines file overlap as declared-file-set intersection with a
-        deterministic wave partition. Slice 5 adds a Conductor guard and a configurable idle
-        threshold. Residual items for the human reviewer: the gh #44385 runtime caveat on slice 1,
-        and whether to split the plan into two (token/model vs execution-engine) before promotion.
+          mitigation: Split into (1,4) and (2,3,5) before promotion.
+    synthesis: 'RE-REVIEW VERDICT: the v7 critique over-claimed resolution. Three items it marked RESOLVED are in fact danger-level blockers. A6 is FALSIFIED for both slices that rely on it: internal/childproc.spawnLocked hardcodes wipnote _serve-child + an HTTP proxy lifecycle (slice 3 cannot extend it to spawn worktree agents) and RunIdleReaper reaps on HTTP-request idle, not user-session idle (slice 5 GC needs a different metric). A7 is FALSIFIED for the opus case (gh #18346, unfixed): architect-coder=opus frontmatter is silently ignored at runtime, so slice 1 primary routing has no effect even though the generation change itself is correct (sonnet/haiku aliases work; fable confirmed). New A9: slice 4 cmd/wipnote/statusline.go already exists as a work-item display command - it is an integration, not a new file - and exceeds_200k_tokens is a top-level field, not nested. Human reviewer should focus, in order: (1) childproc refactor scope for slices 3 and 5, (2) slice 4 integration design + top-level-field correction, (3) opus runtime caveat on slice 1, then (4) the agentModels config spec, session-state data model, maxTurns target justification, missing test files, and the still-open two-plans split. Recommend NOT promoting until the three danger items have revised slice designs.'

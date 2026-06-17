@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>Chooser core &#43; intent flags &#43; Claude launcher</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="feat-a6f15eff"
+             data-type="feature"
+             data-status="in-progress"
+             data-priority="medium"
+             data-created="2026-06-16T23:17:32.965705"
+             data-updated="2026-06-17T03:21:59.319711" data-agent-assigned="claude-code" data-track-id="trk-6a1f5362">
+
+        <header>
+            <h1>Chooser core &#43; intent flags &#43; Claude launcher</h1>
+            <div class="metadata">
+                <span class="badge status-in-progress">In Progress</span>
+                <span class="badge priority-medium">Medium Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="planned_in">
+                <h3>Planned In:</h3>
+                <ul>
+                    <li><a href="../plans/plan-311440bf.html" data-relationship="planned_in" data-since="2026-06-16T23:17:32.970853">plan-311440bf</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="implemented_in">
+                <h3>Implemented In:</h3>
+                <ul>
+                    <li><a href="../sessions/019ed365-cfe1-7e91-910f-4cf17b1e13a0.html" data-relationship="implemented_in" data-since="2026-06-17T03:21:59.319532">session 019ed365-cfe1-7e91-910f-4cf17b1e13a0</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-6a1f5362.html" data-relationship="part_of" data-since="2026-06-16T23:17:32.973987">trk-6a1f5362</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="blocked_by">
+                <h3>Blocked By:</h3>
+                <ul>
+                    <li><a href="../features/feat-98096297.html" data-relationship="blocked_by">feat-98096297</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>Build the interactive continue-vs-new chooser (stdlib prompt for v1; mattn/go-isatty for TTY
+detection) and the shared intent-flag contract, wired into the Claude launcher first. Bare
+interactive launch (TTY, no intent flags) shows the chooser; &#34;new&#34; prompts for work TYPE — plan /
+spike / feature / bug — which deterministically selects isolation (plan =&gt; in-place, no worktree;
+spike/feature/bug =&gt; work-item-keyed worktree). Flags `--continue`, `--work-item &lt;id&gt;`,
+`--new &lt;type&gt; &#34;&lt;title&gt;&#34;`, `--in-place` all bypass the prompt. Non-TTY, piped, --yolo, CI ALWAYS bypass
+and fall back to the non-interactive policy. Print the resolved work item + worktree before exec.</p>
+        </section>
+    </article>
+</body>
+</html>

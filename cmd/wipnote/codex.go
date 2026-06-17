@@ -1028,6 +1028,22 @@ func launchCodexDefault(resumeID, trackID, featureID, worktreePath, workItem str
 	resumeID = intentResult.resumeID
 	worktreePath = intentResult.worktreePath
 	workItem = intentResult.workItem
+	continueCtx, err := resolveContinueLaunchContext(projectRoot, canonicalRoot, "codex", intent)
+	if err != nil {
+		return err
+	}
+	for _, warning := range continueCtx.Warnings {
+		fmt.Fprintln(os.Stderr, warning)
+	}
+	if workItem == "" && continueCtx.WorkItemID != "" {
+		workItem = continueCtx.WorkItemID
+	}
+	if worktreePath == "" && continueCtx.WorktreePath != "" {
+		worktreePath = continueCtx.WorktreePath
+	}
+	if resumeID == "" && continueCtx.TranscriptResumeID != "" {
+		resumeID = continueCtx.TranscriptResumeID
+	}
 
 	// Apply isolation plan and HONOR it (slice-9): a RefuseLaunch plan aborts
 	// before Codex starts. noWorktree here is effectiveInPlace (--in-place || --no-worktree).
@@ -1158,6 +1174,7 @@ func launchCodexDefault(resumeID, trackID, featureID, worktreePath, workItem str
 		WipnoteRoot:  wipnoteRoot,
 		Mode:         intentResult.mode,
 		Yolo:         yolo,
+		ExtraEnv:     continueCtx.ExtraEnv(),
 	})
 }
 
@@ -1434,6 +1451,9 @@ type codexLaunchOpts struct {
 	// WritableRoots are passed to Codex before any subcommand so resumed
 	// sessions and spawned subagents inherit required writable directories.
 	WritableRoots []string
+	// ExtraEnv is layered onto the child process after the launcher sets its
+	// standard wipnote and telemetry environment.
+	ExtraEnv []string
 }
 
 // execCodex builds the codex argv and execs it, replacing the current process.
@@ -1523,6 +1543,7 @@ func execCodex(opts codexLaunchOpts) error {
 	}
 	env = buildCodexOtelEnv(env, otelPort, otelSessionID)
 	env = buildCodexAgentEnv(env)
+	env = mergeLauncherEnv(env, opts.ExtraEnv...)
 
 	// Session-family continuity (slice-4, feat-a225ce7c):
 	// Resolve which family this Codex session belongs to, then inject

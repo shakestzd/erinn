@@ -29,6 +29,9 @@ type antigravityLaunchOpts struct {
 	WipnoteRoot string
 	// DryRun, when true, prints the command that would be executed without running it.
 	DryRun bool
+	// ExtraEnv is layered onto the child process after the launcher sets its
+	// standard wipnote and telemetry environment.
+	ExtraEnv []string
 }
 
 // spawnAntigravityOtelCollector spawns a per-session OTel collector.
@@ -175,6 +178,7 @@ func execAntigravity(opts antigravityLaunchOpts) error {
 	env = buildAntigravityAgentEnv(env)
 	env = append(env, "WIPNOTE_AGENT=antigravity")
 	env = buildAntigravityOtelEnv(env, otelPort, otelSessionID)
+	env = mergeLauncherEnv(env, opts.ExtraEnv...)
 
 	// Make the orchestrator system prompt available to the PreInvocation hook,
 	// which injects it via injectSteps[].systemMessage — the only channel agy

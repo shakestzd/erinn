@@ -19,8 +19,8 @@ func InsertSession(db *sql.DB, s *models.Session) error {
 		INSERT INTO sessions (session_id, agent_assigned, parent_session_id,
 			parent_event_id, created_at, status, start_commit,
 			is_subagent, model, active_feature_id, git_remote_url, project_dir,
-			exec_worktree_path, branch, harness)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+			exec_worktree_path, branch, harness, continued_from)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		s.SessionID, s.AgentAssigned, nullStr(s.ParentSessionID),
 		nullStr(s.ParentEventID), s.CreatedAt.UTC().Format(time.RFC3339),
 		s.Status, nullStr(s.StartCommit),
@@ -30,6 +30,7 @@ func InsertSession(db *sql.DB, s *models.Session) error {
 		nullStr(s.ExecWorktreePath),
 		nullStr(s.Branch),
 		nullStr(s.Harness),
+		nullStr(s.ContinuedFrom),
 	)
 	if err != nil {
 		return fmt.Errorf("insert session %s: %w", s.SessionID, err)
@@ -59,8 +60,8 @@ func UpsertSession(db *sql.DB, s *models.Session) error {
 		INSERT INTO sessions (session_id, agent_assigned, parent_session_id,
 			parent_event_id, created_at, status, start_commit,
 			is_subagent, model, active_feature_id, git_remote_url, project_dir,
-			exec_worktree_path, branch, harness)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+			exec_worktree_path, branch, harness, continued_from)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		ON CONFLICT(session_id) DO UPDATE SET
 			agent_assigned=excluded.agent_assigned,
 			parent_session_id=excluded.parent_session_id,
@@ -74,7 +75,8 @@ func UpsertSession(db *sql.DB, s *models.Session) error {
 			project_dir=excluded.project_dir,
 			exec_worktree_path=excluded.exec_worktree_path,
 			branch=excluded.branch,
-			harness=excluded.harness
+			harness=excluded.harness,
+			continued_from=excluded.continued_from
 		WHERE sessions.agent_assigned = '__hook__'`,
 		s.SessionID, s.AgentAssigned, nullStr(s.ParentSessionID),
 		nullStr(s.ParentEventID), s.CreatedAt.UTC().Format(time.RFC3339),
@@ -85,6 +87,7 @@ func UpsertSession(db *sql.DB, s *models.Session) error {
 		nullStr(s.ExecWorktreePath),
 		nullStr(s.Branch),
 		nullStr(s.Harness),
+		nullStr(s.ContinuedFrom),
 	)
 	if err != nil {
 		return fmt.Errorf("upsert session %s: %w", s.SessionID, err)

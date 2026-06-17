@@ -1,8 +1,10 @@
 package hooks
 
 import (
+	"encoding/base64"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -85,6 +87,53 @@ func TestSessionStartActiveSessionContainsProjectDir(t *testing.T) {
 	}
 	if active.ProjectDir != projectDir {
 		t.Errorf(".active-session project_dir mismatch: got %q, want %q", active.ProjectDir, projectDir)
+	}
+}
+
+func TestSessionStartContinueHandoffAdditionalContext(t *testing.T) {
+	projectDir := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(projectDir, ".wipnote"), 0o755); err != nil {
+		t.Fatalf("mkdir .wipnote: %v", err)
+	}
+
+	database, err := db.Open(filepath.Join(projectDir, ".wipnote", "wipnote.db"))
+	if err != nil {
+		t.Fatalf("db.Open: %v", err)
+	}
+	defer database.Close()
+	if err := db.InsertSession(database, &models.Session{
+		SessionID:     "sess-continue-old",
+		AgentAssigned: "claude-code",
+		Status:        "completed",
+		CreatedAt:     time.Now().UTC(),
+		ProjectDir:    paths.NormalizeProjectDir(projectDir),
+	}); err != nil {
+		t.Fatalf("InsertSession prior: %v", err)
+	}
+
+	event := &CloudEvent{SessionID: "sess-continue-new", CWD: projectDir}
+	t.Setenv("CLAUDE_SESSION_ID", "")
+	t.Setenv("WIPNOTE_PARENT_SESSION", "")
+	t.Setenv("WIPNOTE_NESTING_DEPTH", "")
+	t.Setenv("CLAUDE_ENV_FILE", "")
+	t.Setenv("WIPNOTE_CONTINUED_FROM", "sess-continue-old")
+	t.Setenv("WIPNOTE_CONTINUE_HANDOFF_B64",
+		base64.StdEncoding.EncodeToString([]byte("## Continued Session Handoff\n\nResume the existing worktree.")))
+
+	result, err := SessionStart(event, database, projectDir)
+	if err != nil {
+		t.Fatalf("SessionStart: %v", err)
+	}
+	if result == nil || !strings.Contains(result.AdditionalContext, "Continued Session Handoff") {
+		t.Fatalf("AdditionalContext missing continue handoff: %#v", result)
+	}
+
+	sess, err := db.GetSession(database, "sess-continue-new")
+	if err != nil {
+		t.Fatalf("GetSession: %v", err)
+	}
+	if sess.ContinuedFrom != "sess-continue-old" {
+		t.Fatalf("ContinuedFrom = %q, want sess-continue-old", sess.ContinuedFrom)
 	}
 }
 

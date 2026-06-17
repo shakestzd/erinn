@@ -267,6 +267,19 @@ func launchGeminiDefault(trackID, featureID, worktreePath, workItem string, noWo
 	intentResult := applyGeminiLaunchIntent(worktreePath, workItem, "", intent)
 	worktreePath = intentResult.worktreePath
 	workItem = intentResult.workItem
+	continueCtx, err := resolveContinueLaunchContext(projectRoot, canonicalRoot, "gemini", intent)
+	if err != nil {
+		return err
+	}
+	for _, warning := range continueCtx.Warnings {
+		fmt.Fprintln(os.Stderr, warning)
+	}
+	if workItem == "" && continueCtx.WorkItemID != "" {
+		workItem = continueCtx.WorkItemID
+	}
+	if worktreePath == "" && continueCtx.WorktreePath != "" {
+		worktreePath = continueCtx.WorktreePath
+	}
 
 	// Apply isolation plan and HONOR it (slice-9): a RefuseLaunch plan aborts
 	// before Gemini starts. noWorktree here is effectiveInPlace (--in-place || --no-worktree).
@@ -346,6 +359,7 @@ func launchGeminiDefault(trackID, featureID, worktreePath, workItem string, noWo
 		WipnoteRoot:  wipnoteRoot,
 		Mode:         intentResult.mode,
 		DryRun:       dryRun,
+		ExtraEnv:     continueCtx.ExtraEnv(),
 	})
 }
 

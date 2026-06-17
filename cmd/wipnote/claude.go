@@ -60,6 +60,9 @@ type LaunchOpts struct {
 	// Intent records whether the launcher is starting new work or continuing
 	// existing work. Harness-neutral contract for downstream launchers.
 	Intent launcher.LaunchIntent
+	// ExtraEnv is layered onto the child environment after the launcher builds
+	// its standard wipnote + telemetry overrides.
+	ExtraEnv []string
 }
 
 func claudeCmd() *cobra.Command {
@@ -461,6 +464,19 @@ func launchClaudeDefault(extraArgs []string, resumeID, name, workItem string, in
 	resumeID = intentResult.resumeID
 	workItem = intentResult.workItem
 	intent = intentResult.intent
+	continueCtx, err := resolveContinueLaunchContext(projectRoot, wipnoteRoot, "claude", intent)
+	if err != nil {
+		return err
+	}
+	for _, warning := range continueCtx.Warnings {
+		fmt.Fprintln(os.Stderr, warning)
+	}
+	if workItem == "" && continueCtx.WorkItemID != "" {
+		workItem = continueCtx.WorkItemID
+	}
+	if resumeID == "" && continueCtx.TranscriptResumeID != "" {
+		resumeID = continueCtx.TranscriptResumeID
+	}
 
 	// Run the isolation planner (slice-2). The plan is computed, any warning
 	// is printed, and the plan is now HONORED (slice-9): a RefuseLaunch plan
@@ -485,8 +501,16 @@ func launchClaudeDefault(extraArgs []string, resumeID, name, workItem string, in
 	// or enforced host with a work item) create/reuse the managed worktree and
 	// run the child there, while WIPNOTE_PROJECT_DIR stays the canonical root.
 	childDir := projectRoot
+	resolved := false
 	worktreeCreated := false
-	if wt, created, werr := resolveManagedWorktreeStatus(launchPlan, projectRoot, "", "", workItem, projectRoot, false, os.Stdout); werr != nil {
+	if continueCtx.WorktreePath != "" {
+		childDir = continueCtx.WorktreePath
+		resolved = true
+		if wipnoteRoot == "" {
+			wipnoteRoot = projectRoot
+		}
+	}
+	if wt, created, werr := resolveManagedWorktreeStatus(launchPlan, projectRoot, "", "", workItem, childDir, resolved, os.Stdout); werr != nil {
 		return werr
 	} else if wt != "" && wt != projectRoot {
 		childDir = wt
@@ -533,6 +557,7 @@ func launchClaudeDefault(extraArgs []string, resumeID, name, workItem string, in
 		ProjectRoot:        childDir,
 		WipnoteRoot:        wipnoteRoot,
 		Intent:             intent,
+		ExtraEnv:           continueCtx.ExtraEnv(),
 	})
 }
 
@@ -665,6 +690,7 @@ func launchClaude(opts LaunchOpts) error {
 		worktreeOverride = opts.WipnoteRoot
 	}
 	c.Env = buildClaudeLaunchEnv(worktreeOverride, &envOverrides)
+	c.Env = mergeLauncherEnv(c.Env, opts.ExtraEnv...)
 
 	// Set working directory to project root so Claude starts in the right place,
 	// even if this command is run from a subdirectory like packages/go.

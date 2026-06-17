@@ -3,6 +3,7 @@ package hooks
 import (
 	"context"
 	"database/sql"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -214,6 +215,7 @@ func SessionStart(event *CloudEvent, database *sql.DB, projectDir string) (*Hook
 		ExecWorktreePath: execWorktreeRelPath(event.CWD, projectDir),
 		Branch:           gitBranch(execDirOrDefault(event.CWD, projectDir)),
 		Harness:          normalizeHarness(os.Getenv("WIPNOTE_HARNESS")),
+		ContinuedFrom:    strings.TrimSpace(os.Getenv("WIPNOTE_CONTINUED_FROM")),
 	}
 
 	// Prefer CloudEvent fields over env vars (more reliable).
@@ -313,32 +315,55 @@ func SessionStart(event *CloudEvent, database *sql.DB, projectDir string) (*Hook
 	// non-blocking counterpart to the Claude exit-2 path: the user-never-
 	// returns case is recorded at session exit and rendered here on return.
 	reconcilePrefix := DrainReconcileWarnings(projectDir)
+	continuePrefix := continueHandoffContextFromEnv()
 
 	// Warn the user when the CLI and plugin versions have drifted.
 	warning := versionMismatchWarning()
 	if warning != "" {
 		debugLog(projectDir, "[session-start] version mismatch detected: %s", warning)
-		return &HookResult{AdditionalContext: joinReconcileContext(reconcilePrefix, warning)}, nil
+		return &HookResult{AdditionalContext: joinSessionStartContext(continuePrefix, reconcilePrefix, warning)}, nil
 	}
 
 	// Emit full attribution block at session start (once per session).
 	// This includes: intro + open work items roster + CLI quick-ref + required flags.
 	attribution := buildSessionStartAttribution(database)
 	if attribution != "" {
-		return &HookResult{AdditionalContext: joinReconcileContext(reconcilePrefix, attribution)}, nil
+		return &HookResult{AdditionalContext: joinSessionStartContext(continuePrefix, reconcilePrefix, attribution)}, nil
 	}
 
 	// Fallback nudge if no attribution block was generated (no open items).
 	// This nudge uses the same "wipnote plugin is active..." message.
 	if nudge := bareLaunchNudge(projectDir); nudge != "" {
-		return &HookResult{AdditionalContext: joinReconcileContext(reconcilePrefix, nudge)}, nil
+		return &HookResult{AdditionalContext: joinSessionStartContext(continuePrefix, reconcilePrefix, nudge)}, nil
 	}
 
-	if reconcilePrefix != "" {
-		return &HookResult{AdditionalContext: reconcilePrefix}, nil
+	if continuePrefix != "" || reconcilePrefix != "" {
+		return &HookResult{AdditionalContext: joinSessionStartContext(continuePrefix, reconcilePrefix)}, nil
 	}
 
 	return &HookResult{}, nil
+}
+
+func continueHandoffContextFromEnv() string {
+	raw := strings.TrimSpace(os.Getenv("WIPNOTE_CONTINUE_HANDOFF_B64"))
+	if raw == "" {
+		return ""
+	}
+	decoded, err := base64.StdEncoding.DecodeString(raw)
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(string(decoded))
+}
+
+func joinSessionStartContext(parts ...string) string {
+	filtered := make([]string, 0, len(parts))
+	for _, part := range parts {
+		if trimmed := strings.TrimSpace(part); trimmed != "" {
+			filtered = append(filtered, trimmed)
+		}
+	}
+	return strings.Join(filtered, "\n\n")
 }
 
 // joinReconcileContext prepends a non-empty durable-reconcile warning block to
@@ -424,8 +449,8 @@ func upsertSessionTx(tx *sql.Tx, s *models.Session) error {
 		INSERT OR IGNORE INTO sessions
 			(session_id, agent_assigned, parent_session_id, parent_event_id,
 			 created_at, status, start_commit, is_subagent, model, active_feature_id,
-			 git_remote_url, project_dir, exec_worktree_path, branch, harness)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+			 git_remote_url, project_dir, exec_worktree_path, branch, harness, continued_from)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		s.SessionID,
 		s.AgentAssigned,
 		nullableStr(s.ParentSessionID),
@@ -441,6 +466,7 @@ func upsertSessionTx(tx *sql.Tx, s *models.Session) error {
 		nullableStr(s.ExecWorktreePath),
 		nullableStr(s.Branch),
 		nullableStr(s.Harness),
+		nullableStr(s.ContinuedFrom),
 	)
 	return err
 }

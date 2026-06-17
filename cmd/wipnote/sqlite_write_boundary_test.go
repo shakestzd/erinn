@@ -273,7 +273,7 @@ var approvedWriteSites = []writeSite{
 	},
 	{
 		File:           "cmd/wipnote/serve_child.go",
-		Line:           383,
+		Line:           388,
 		Function:       "runServeChild",
 		OpenExpr:       "dbpkg.OpenWritable",
 		Classification: intentionalCLIMutation,
@@ -422,7 +422,7 @@ var approvedWriteSites = []writeSite{
 // migrated to the slice-6 writer service). Hook, collector, indexer, and
 // event-capture paths are the contention sources the plan targets.
 var forbiddenPathPrefixes = []string{
-	"cmd/wipnote/hook.go",      // hook event handlers
+	"cmd/wipnote/hook.go",     // hook event handlers
 	"core/hooks/",             // hook implementations (moved out of internal/ — feat-0e3f1b3f)
 	"observe/otel/indexer/",   // NDJSON→SQLite indexer (lifted into observe/ — feat-67f3ab7f)
 	"observe/otel/receiver/",  // OTLP HTTP receiver writer (lifted into observe/ — feat-67f3ab7f)

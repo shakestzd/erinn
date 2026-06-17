@@ -117,6 +117,19 @@ func launchAntigravityDefault(trackID, featureID, worktreePath, workItem string,
 	workItem = intentResult.workItem
 	resumeID = intentResult.resumeID
 	continue_ = intentResult.continue_
+	continueCtx, err := resolveContinueLaunchContext(projectRoot, canonicalRoot, "antigravity", intent)
+	if err != nil {
+		return err
+	}
+	for _, warning := range continueCtx.Warnings {
+		fmt.Fprintln(os.Stderr, warning)
+	}
+	if workItem == "" && continueCtx.WorkItemID != "" {
+		workItem = continueCtx.WorkItemID
+	}
+	if worktreePath == "" && continueCtx.WorktreePath != "" {
+		worktreePath = continueCtx.WorktreePath
+	}
 
 	willCreateWorktree := !noWorktree && (trackID != "" || featureID != "" || workItem != "")
 	launchPlan := applyLaunchPlanOpts(canonicalRoot, projectRoot, workItem, noWorktree, willCreateWorktree, os.Stderr)
@@ -187,6 +200,7 @@ func launchAntigravityDefault(trackID, featureID, worktreePath, workItem string,
 		WorktreeRoot: workDir,
 		WipnoteRoot:  wipnoteRoot,
 		DryRun:       dryRun,
+		ExtraEnv:     continueCtx.ExtraEnv(),
 	})
 }
 

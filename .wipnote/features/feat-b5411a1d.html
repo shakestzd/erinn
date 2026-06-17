@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>Session-end handoff capture (write the existing, unwritten handoff columns)</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="feat-b5411a1d"
+             data-type="feature"
+             data-status="in-progress"
+             data-priority="medium"
+             data-created="2026-06-16T23:17:32.948281"
+             data-updated="2026-06-17T03:38:04.602816" data-agent-assigned="claude-code" data-track-id="trk-6a1f5362">
+
+        <header>
+            <h1>Session-end handoff capture (write the existing, unwritten handoff columns)</h1>
+            <div class="metadata">
+                <span class="badge status-in-progress">In Progress</span>
+                <span class="badge priority-medium">Medium Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="planned_in">
+                <h3>Planned In:</h3>
+                <ul>
+                    <li><a href="../plans/plan-311440bf.html" data-relationship="planned_in" data-since="2026-06-16T23:17:32.954395">plan-311440bf</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-6a1f5362.html" data-relationship="part_of" data-since="2026-06-16T23:17:32.956953">trk-6a1f5362</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="blocked_by">
+                <h3>Blocked By:</h3>
+                <ul>
+                    <li><a href="../features/feat-9348de66.html" data-relationship="blocked_by">feat-9348de66</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="implemented_in">
+                <h3>Implemented In:</h3>
+                <ul>
+                    <li><a href="../sessions/019ed365-cfe1-7e91-910f-4cf17b1e13a0.html" data-relationship="implemented_in" data-since="2026-06-17T03:38:04.602702">session 019ed365-cfe1-7e91-910f-4cf17b1e13a0</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>On SessionEnd, write a structured handoff into the sessions columns that ALREADY EXIST but are
+never populated: handoff_notes (what was done / tried), recommended_next (next step),
+blockers (JSON), recommended_context (JSON — key files/paths/work-item refs, pointers not
+contents). This is the durable re-hydration artifact that &#39;continue&#39; (slice 6) loads. Keep
+failure traces verbatim (high-signal per the research). This owns the continuity promise the
+whole plan rests on.</p>
+        </section>
+    </article>
+</body>
+</html>

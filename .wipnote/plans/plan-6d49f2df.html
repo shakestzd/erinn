@@ -420,7 +420,7 @@ body.right-rail-collapsed .sidebar-reopen{display:flex}
   <p style="color:var(--text-dim)">Plan to optimize token usage, prevent context bloat, support local subagent model configurations, and move execute dispatch logic to the Go CLI.</p>
   <div class="meta">
     <span class="badge badge-pending">Draft</span>
-    <span style="font-size:.75rem;color:var(--text-muted)">v2 · 0 slices · Created 2026-06-17</span>
+    <span style="font-size:.75rem;color:var(--text-muted)">v3 · 0 slices · Created 2026-06-17</span>
   </div>
 </header>
 <button id="themeToggle" style="position:fixed;top:16px;right:16px;z-index:100;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:6px 12px;color:var(--text);font-family:var(--mono);font-size:0.75rem;cursor:pointer;">
@@ -452,17 +452,29 @@ body.right-rail-collapsed .sidebar-reopen{display:flex}
 <details id="design" class="section-card" open data-phase="design" data-status="pending">
   <summary><span>Design</span><span class="badge badge-pending" data-badge-for="design">Pending</span></summary>
   <div class="section-body">
-    <!--PLAN_DESIGN_CONTENT-->
-    <div class="sub-section">
-      <h4>Open Questions</h4>
-      <!--PLAN_QUESTIONS-->
-    </div>
+    <h4>Problem</h4>
+<div data-markdown>Subagents and token usage (context sizes &gt;150k, long sessions) exhaust users&#39; token quotas too quickly.</div>
+<h4>Goals</h4>
+<ol>
+<li data-markdown>Lower subagent token usage by dynamically downgrading default models and turns</li>
+<li data-markdown>Prevent context size accumulation through automated /compact prompts and CLI output limits</li>
+<li data-markdown>Move parallel execute dispatch loop from agent prompt/chat to Go CLI command execution</li>
+<li data-markdown>Implement session inactivity auto-timeouts and GC for empty worktrees</li>
+</ol>
+<h4>Constraints</h4>
+<ul>
+<li data-markdown>Backward compatibility with existing YAML plans and SQLite db</li>
+<li data-markdown>No new external runtime dependencies (keep standard library + existing go.mod)</li>
+<li data-markdown>Cross-harness portability (must generate correct ports for Claude; Codex; Gemini; and Antigravity)</li>
+</ul>
+
     <div class="approval-row">
       <label><input type="checkbox" data-section="design" data-action="approve"> Approve design</label>
       <textarea data-section="design" data-comment-for="design" placeholder="Comments on design decisions..."></textarea>
     </div>
   </div>
 </details>
+
 
 <!-- Structure Outline (hidden when empty) -->
 

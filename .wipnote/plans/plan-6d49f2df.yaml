@@ -7,11 +7,18 @@ meta:
     status: draft
     priority: medium
     schema_version: v3
-    version: 2
+    version: 3
 design:
-    problem: ""
-    goals: []
-    constraints: []
+    problem: Subagents and token usage (context sizes >150k, long sessions) exhaust users' token quotas too quickly.
+    goals:
+        - Lower subagent token usage by dynamically downgrading default models and turns
+        - Prevent context size accumulation through automated /compact prompts and CLI output limits
+        - Move parallel execute dispatch loop from agent prompt/chat to Go CLI command execution
+        - Implement session inactivity auto-timeouts and GC for empty worktrees
+    constraints:
+        - Backward compatibility with existing YAML plans and SQLite db
+        - No new external runtime dependencies (keep standard library + existing go.mod)
+        - Cross-harness portability (must generate correct ports for Claude; Codex; Gemini; and Antigravity)
     approved: false
     comment: ""
 slices: []

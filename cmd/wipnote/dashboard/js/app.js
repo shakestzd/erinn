@@ -2,6 +2,7 @@
 
 var events = [];
 var sessions = [];
+var resumableSessions = [];
 var features = [];
 var plans = [];
 var stats = {};
@@ -10,6 +11,8 @@ var currentView = 'activity';
 var seenEventIds = new Set();
 var groupByTrack = localStorage.getItem('wipnote-kanban-group-by-track') === 'true';
 var activityFeedError = '';
+var resumableSessionsError = '';
+var resumableSessionsLoading = false;
 
 // Global mode state — populated by detectMode() on init. In single-project
 // mode both values stay unset and buildProjectUrl() returns plain URLs.
@@ -34,6 +37,7 @@ document.querySelector('.nav').addEventListener('click', function(e) {
   document.querySelectorAll('.view').forEach(function(v) { v.classList.toggle('active', v.id === 'v-' + view); });
   if (view === 'sessions' && sessions.length === 0) fetchSessions();
   if (view === 'sessions') fetchSessionAdherenceTrend();
+  if (view === 'resume') fetchResumableSessions();
   if (view === 'work' && features.length === 0) fetchFeatures();
   if (view === 'plans') fetchPlans();
   if (view === 'graph') fetchGraph();
@@ -114,6 +118,27 @@ function fetchSessions() {
       renderSessions();
     });
   }).catch(function() {});
+}
+
+function fetchResumableSessions() {
+  resumableSessionsLoading = true;
+  resumableSessionsError = '';
+  renderResumableSessions();
+  return fetch(buildProjectUrl('sessions/resumable')).then(function(r) {
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    return r.json().then(function(data) {
+      resumableSessions = (data && data.sessions) || [];
+      resumableSessionsError = '';
+      renderResumableSessions();
+    });
+  }).catch(function() {
+    resumableSessions = [];
+    resumableSessionsError = 'Resume index unavailable right now.';
+    renderResumableSessions();
+  }).finally(function() {
+    resumableSessionsLoading = false;
+    renderResumableSessions();
+  });
 }
 
 function fetchSessionAdherenceTrend() {
@@ -570,6 +595,103 @@ function renderSessions() {
   });
   body.appendChild(frag);
   renderActiveSessionsFilesPanel();
+}
+
+function resumeHarnessMeta(harness) {
+  var raw = (harness || '').toLowerCase();
+  if (raw === 'claude-code' || raw === 'claude') return { label: 'Claude', className: 'badge-cli-claude-code', rowClass: 'harness-claude-code' };
+  if (raw === 'codex') return { label: 'Codex', className: 'badge-cli-codex', rowClass: 'harness-codex' };
+  if (raw === 'gemini') return { label: 'Gemini', className: 'badge-cli-gemini', rowClass: 'harness-gemini' };
+  if (raw === 'antigravity' || raw === 'openai') return { label: harness, className: 'badge-cli-openai', rowClass: '' };
+  return { label: harness || '--', className: '', rowClass: '' };
+}
+
+function resumeTypeBadge(type) {
+  var classes = {
+    feature: 'badge-ip',
+    bug: 'badge-blocked',
+    spike: 'badge-todo',
+    track: 'badge-done',
+  };
+  return createBadge(type || 'work', classes[type] || 'badge-todo');
+}
+
+function renderResumableSessions() {
+  var body = document.getElementById('resume-body');
+  var count = document.getElementById('resume-count');
+  var empty = document.getElementById('resume-empty');
+  var loading = document.getElementById('resume-loading');
+  var error = document.getElementById('resume-error');
+  var table = document.getElementById('resume-table');
+  if (!body || !count || !empty || !loading || !error || !table) return;
+
+  count.textContent = resumableSessions.length;
+  body.textContent = '';
+  empty.style.display = 'none';
+  loading.style.display = resumableSessionsLoading ? 'block' : 'none';
+  error.style.display = resumableSessionsError ? 'block' : 'none';
+  table.style.display = 'none';
+
+  if (resumableSessionsLoading) return;
+  if (resumableSessionsError) {
+    error.firstElementChild.textContent = resumableSessionsError;
+    return;
+  }
+  if (resumableSessions.length === 0) {
+    empty.style.display = 'block';
+    return;
+  }
+
+  table.style.display = '';
+  var frag = document.createDocumentFragment();
+  resumableSessions.forEach(function(item) {
+    var harnessMeta = resumeHarnessMeta(item.harness);
+    var tr = document.createElement('tr');
+    tr.className = 'resume-row' + (item.live ? ' live' : '') + (harnessMeta.rowClass ? ' ' + harnessMeta.rowClass : '');
+
+    var workTd = document.createElement('td');
+    var title = document.createElement('div');
+    title.className = 'resume-item-title';
+    title.textContent = item.title || item.work_item_id || 'Untitled';
+    workTd.appendChild(title);
+
+    var meta = document.createElement('div');
+    meta.className = 'resume-item-meta';
+    var workID = document.createElement('span');
+    workID.className = 'mono';
+    workID.textContent = item.work_item_id || '--';
+    meta.appendChild(workID);
+    meta.appendChild(resumeTypeBadge(item.type));
+    workTd.appendChild(meta);
+    tr.appendChild(workTd);
+
+    tr.appendChild(td(item.branch || '--', { className: 'mono' }));
+    tr.appendChild(td(item.exec_worktree_path || '--', { className: 'mono ellipsis resume-worktree', title: item.exec_worktree_path || '--' }));
+
+    var harnessTd = document.createElement('td');
+    if (harnessMeta.className) {
+      harnessTd.appendChild(createBadge(harnessMeta.label, 'badge-cli ' + harnessMeta.className));
+    } else {
+      harnessTd.textContent = harnessMeta.label;
+    }
+    tr.appendChild(harnessTd);
+
+    tr.appendChild(td(relTime(item.last_activity), { className: 'mono', title: item.last_activity || '--' }));
+    tr.appendChild(td(truncId(item.last_session_id), { className: 'mono', title: item.last_session_id || '--' }));
+
+    var stateTd = document.createElement('td');
+    if (item.live) {
+      var liveBadge = document.createElement('span');
+      liveBadge.className = 'badge-live';
+      liveBadge.textContent = 'LIVE';
+      stateTd.appendChild(liveBadge);
+    } else {
+      stateTd.appendChild(createBadge('Idle', 'badge-ended'));
+    }
+    tr.appendChild(stateTd);
+    frag.appendChild(tr);
+  });
+  body.appendChild(frag);
 }
 
 function renderActiveSessionsFilesPanel() {
@@ -1815,6 +1937,11 @@ var SESSIONS_REFRESH_MS = 15000;
 setInterval(function() {
   if (currentView === 'sessions' && (!isDoorwayLanding() || window.wipnoteMode === 'single')) {
     fetchSessions();
+  }
+}, SESSIONS_REFRESH_MS);
+setInterval(function() {
+  if (currentView === 'resume' && (!isDoorwayLanding() || window.wipnoteMode === 'single')) {
+    fetchResumableSessions();
   }
 }, SESSIONS_REFRESH_MS);
 

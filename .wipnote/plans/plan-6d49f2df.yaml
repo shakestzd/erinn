@@ -2,12 +2,17 @@ meta:
     id: plan-6d49f2df
     track_id: trk-6a1f5362
     title: Optimize wipnote subagent delegation and token usage
-    description: Plan to optimize token usage, prevent context bloat, support local subagent model configurations, and move execute dispatch logic to the Go CLI.
+    description: |
+        Research basis:
+        - https://github.com/anthropics/claude-code (checked 2026-06-17): Subagent model resolution order and CLAUDE_CODE_SUBAGENT_MODEL behavior.
+        - runtime: wipnote help (checked 2026-06-17): Verification of CLI hook mechanics and target extension templates.
+
+        Plan to optimize token usage, prevent context bloat, support local subagent model configurations, and move execute dispatch logic to the Go CLI.
     created_at: "2026-06-17"
     status: draft
     priority: medium
     schema_version: v3
-    version: 3
+    version: 4
 design:
     problem: Subagents and token usage (context sizes >150k, long sessions) exhaust users' token quotas too quickly.
     goals:
@@ -21,5 +26,126 @@ design:
         - Cross-harness portability (must generate correct ports for Claude; Codex; Gemini; and Antigravity)
     approved: false
     comment: ""
-slices: []
+slices:
+    - id: slice-1
+      num: 1
+      title: Dynamic subagent model override and local config mapping
+      what: |
+        Modify subagent port generation to support default model downgrading and load custom model configs from a new local config file or `.wipnote/config.json`. Let the user map roles (e.g. `architect-coder`, `researcher`) to specific models (`sonnet`, `haiku`, `gemini-flash`). Reduce default `maxTurns` across all subagents (`architect-coder` to 50, `feature-coder` to 40) in `plugin/agents/*.md` to prevent runaway loops.
+      why: Directly addresses high-cost default models and loops. Lowering default turns and mapping simpler tasks to Haiku/Flash will prevent quota depletion.
+      files:
+        - packages/plugin-core/manifest.json
+        - plugin/agents/architect-coder.md
+        - plugin/agents/feature-coder.md
+        - plugin/agents/researcher.md
+      deps: []
+      done_when:
+        - Subagents generate with the new default maxTurns limits
+        - Subagent generator respects user model overrides from the local configuration
+      effort: M
+      risk: Low
+      tests: Verify generator output with custom config mapping.
+      complexity: standard
+      approved: false
+      comment: ""
+      decisions_notes: |
+        **Trigger:** plugin build/generation phase and CLI subagent setup.
+        **State:** stored in `~/.config/wipnote/config.json` or `.wipnote/config.json`.
+        **Payload:** model configuration schema mapping role names to model names.
+        **Rejected:** hardcoding haiku globally (some users need Opus/Sonnet's reasoning for complex slices).
+    - id: slice-2
+      num: 2
+      title: Go CLI implementation of plan execution and file-overlap analysis
+      what: |
+        Implement a new subcommand `wipnote execute run --track <id>` (or similar) in the Go CLI. The command reads the track, checks unblocked tasks, runs the pairwise file-set overlap analysis (via git commit history / feature lineage), and groups features into parallel waves. It logs execution state to a file or prints a clean JSON summary.
+      why: Eliminates the token-heavy multi-turn orchestration loop in the parent chat session by delegating the math, graph query, and wave partitioning to the Go binary.
+      files:
+        - cmd/wipnote/execute.go
+      deps: []
+      done_when:
+        - Running wipnote execute run --track <id> output lists correct unblocked tasks and groups them by file overlap
+      effort: M
+      risk: Med
+      tests: Unit tests in cmd/wipnote/execute_test.go checking wave logic.
+      complexity: standard
+      approved: false
+      comment: ""
+      decisions_notes: |
+        **Trigger:** explicit CLI call `wipnote execute run` by the user or lead agent.
+        **State:** computed in memory from SQLite DB task and file trace records.
+        **Payload:** list of independent task waves with target branch names.
+        **Rejected:** shell-script wrapper (fragile, hard to maintain across OSes).
+    - id: slice-3
+      num: 3
+      title: Go CLI background execution manager and auto-merge
+      what: |
+        Extend `wipnote execute run` to run as a background/daemon runner that spawns worktree agents in parallel, monitors their completion/failure status via hooks or polling, automatically merges successful branches back to main, and runs the configured quality gates. The lead agent only fires this command once and receives a reactive wakeup when complete.
+      why: Keeps the lead agent's chat context completely quiet and clean while background work occurs, solving the >150k context size issue.
+      files:
+        - cmd/wipnote/execute.go
+        - internal/childproc/
+      deps:
+        - 2
+      done_when:
+        - Daemon launches parallel worktrees, runs them to completion, and merges back to main
+        - Quality gates run automatically on the merged main branch
+      effort: L
+      risk: High
+      tests: Integration test spawning a mock track and asserting correct git merge state.
+      complexity: standard
+      approved: false
+      comment: ""
+      decisions_notes: |
+        **Trigger:** background runner triggered by CLI execution start.
+        **State:** persists execution state in `.wipnote/execution-state.json`.
+        **Payload:** event notifications sent to the main session upon task completion.
+        **Rejected:** running the background tasks directly in the main shell (blocks the terminal and accumulates logs).
+    - id: slice-4
+      num: 4
+      title: Automated context compaction checks and output filters
+      what: |
+        Add a hook handler on `PostToolUse` / `PostCompact` that checks if the context token count exceeds a threshold (e.g. 50k tokens). If so, it injects a warning/hint proposing the user run `/compact` or `/clear`. Standardize all verbose CLI command outputs (like `wipnote trace`, `wipnote plan show`) to return highly compressed summaries or write full outputs to local files with clickable links, keeping the chat history clean.
+      why: Directly reduces the 81% usage at >150k context. Compacting early and preventing CLI output verbosity keeps the history size small.
+      files:
+        - internal/hooks/
+        - cmd/wipnote/sh.go
+      deps: []
+      done_when:
+        - Context size warning fires when token count exceeds the threshold
+        - Verbose outputs are written to local files and linked in the chat response
+      effort: M
+      risk: Low
+      tests: Assert output behavior on verbose commands and verify hook triggers.
+      complexity: standard
+      approved: false
+      comment: ""
+      decisions_notes: |
+        **Trigger:** post-tool or post-model hook events.
+        **State:** current session token count estimated from hooks/agent metrics.
+        **Payload:** warning message string injected into prompt or statusLine.
+        **Rejected:** auto-running /compact without user consent (could lose vital context if the user has not committed yet).
+    - id: slice-5
+      num: 5
+      title: Session Inactivity Auto-Timeout and GC
+      what: |
+        Implement an idle-timeout routine in `wipnote serve`'s supervisor. If a session is idle (no events or CLI calls) for longer than 30 minutes, mark it as suspended/archived. Run garbage collection on stale or empty worktrees associated with suspended sessions to free up disk and memory resources.
+      why: Directly addresses 88% of usage from sessions active for 8+ hours by ensuring inactive background processes and stale workspaces are cleaned up automatically.
+      files:
+        - internal/childproc/
+        - cmd/wipnote/serve_parent.go
+      deps: []
+      done_when:
+        - Stale sessions are automatically marked suspended
+        - Stale/empty worktrees are deleted after the TTL/timeout threshold
+      effort: M
+      risk: Med
+      tests: Test timeout ticks and verify worktree prune runs correctly.
+      complexity: standard
+      approved: false
+      comment: ""
+      decisions_notes: |
+        **Trigger:** cron or ticker running in the background supervisor process.
+        **State:** session last-seen timestamps stored in SQLite.
+        **Payload:** cleanup execution logs.
+        **Rejected:** human-only manual cleanup (users forget to clean up branches/worktrees, causing drift).
 questions: []

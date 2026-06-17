@@ -10,20 +10,26 @@
 <body>
     <article id="bug-8251b639"
              data-type="bug"
-             data-status="in-progress"
+             data-status="done"
              data-priority="medium"
              data-created="2026-06-17T10:56:06.670017"
-             data-updated="2026-06-17T11:05:11.138786" data-agent-assigned="claude-code" data-track-id="trk-6a1f5362" data-created-by-agent="claude-code" data-created-by-model="claude-opus-4-8[1m]" data-created-by-cli-version="0.62.2-237-g5d78fbe07">
+             data-updated="2026-06-17T12:25:38.339017" data-agent-assigned="claude-code" data-track-id="trk-6a1f5362" data-created-by-agent="claude-code" data-created-by-model="claude-opus-4-8[1m]" data-created-by-cli-version="0.62.2-237-g5d78fbe07">
 
         <header>
             <h1>Dev launcher (--dev) bypasses the explicit-intent chooser</h1>
             <div class="metadata">
-                <span class="badge status-in-progress">In Progress</span>
+                <span class="badge status-done">Done</span>
                 <span class="badge priority-medium">Medium Priority</span>
             </div>
         </header>
 
         <nav data-graph-edges>
+            <section data-edge-type="caused_by">
+                <h3>Caused By:</h3>
+                <ul>
+                    <li><a href="../features/feat-a6f15eff.html" data-relationship="caused_by" data-since="2026-06-17T10:56:19.804405">Chooser core &#43; intent flags &#43; Claude launcher</a></li>
+                </ul>
+            </section>
             <section data-edge-type="implemented_in">
                 <h3>Implemented In:</h3>
                 <ul>
@@ -36,18 +42,12 @@
                     <li><a href="../tracks/trk-6a1f5362.html" data-relationship="part_of" data-since="2026-06-17T10:56:06.693449">trk-6a1f5362</a></li>
                 </ul>
             </section>
-            <section data-edge-type="caused_by">
-                <h3>Caused By:</h3>
-                <ul>
-                    <li><a href="../features/feat-a6f15eff.html" data-relationship="caused_by" data-since="2026-06-17T10:56:19.804405">Chooser core &#43; intent flags &#43; Claude launcher</a></li>
-                </ul>
-            </section>
         </nav>
 
         <section data-steps>
             <h3>Implementation Steps</h3>
             <ol>
-                <li data-completed="false" data-step-id="task-1" data-agent="claude-code" data-created-by-agent="claude-code">⏳ Wire explicit-intent chooser into dev launcher</li>
+                <li data-completed="true" data-step-id="task-1" data-agent="claude-code" data-created-by-agent="claude-code">✅ Wire explicit-intent chooser into dev launcher</li>
             </ol>
         </section>
 

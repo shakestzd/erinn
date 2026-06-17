@@ -712,7 +712,7 @@ func TestRepairTrigger_AlreadyMigratedDB_TriggerDropped(t *testing.T) {
 	// Steps 10, 11 and 12 should have run (trigger repair + total_events
 	// backfill + gate_records profile columns).
 	calls := recorder.Calls()
-	want := []string{"010_repair_trigger_increment_total_events", "011_backfill_total_events", "012_gate_records_profile_signature", "013_arch_cards", "014_session_exec_context"}
+	want := []string{"010_repair_trigger_increment_total_events", "011_backfill_total_events", "012_gate_records_profile_signature", "013_arch_cards", "014_session_exec_context", "015_session_handoff_fields"}
 	if !slices.Equal(calls, want) {
 		t.Fatalf("expected steps %v, got %v", want, calls)
 	}
@@ -861,7 +861,7 @@ func TestBackfillTotalEvents_StaleCountsRepaired(t *testing.T) {
 
 	// Steps 11, 12 and 13 should have run (backfill + gate_records profile columns + arch_cards).
 	calls := recorder.Calls()
-	want := []string{"011_backfill_total_events", "012_gate_records_profile_signature", "013_arch_cards", "014_session_exec_context"}
+	want := []string{"011_backfill_total_events", "012_gate_records_profile_signature", "013_arch_cards", "014_session_exec_context", "015_session_handoff_fields"}
 	if !slices.Equal(calls, want) {
 		t.Fatalf("expected steps %v, got %v", want, calls)
 	}

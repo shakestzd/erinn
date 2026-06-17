@@ -1,8 +1,10 @@
 package hooks
 
 import (
+	"database/sql"
 	"encoding/json"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -56,6 +58,111 @@ func TestSessionEnd_SetsStatusCompleted(t *testing.T) {
 	}
 	if sess.CompletedAt == nil {
 		t.Error("completed_at must be set after SessionEnd")
+	}
+}
+
+func TestGC_SessionEnd_RemovesEmptySpike(t *testing.T) {
+	td := setupTestDB(t)
+	database := td.DB
+	projectDir := t.TempDir()
+	initSessionEndGitRepo(t, projectDir)
+
+	origComplete := completeIfInProgressFn
+	completeIfInProgressFn = func(id string, database *sql.DB) bool {
+		_, err := database.Exec(`UPDATE features SET status = 'done' WHERE id = ?`, id)
+		return err == nil
+	}
+	t.Cleanup(func() { completeIfInProgressFn = origComplete })
+
+	sessionID := "slim-spike-gc-001"
+	spikeID := "spk-a1b2c3d4"
+	worktreeRel := filepath.ToSlash(filepath.Join(".claude", "worktrees", spikeID))
+	worktreePath := filepath.Join(projectDir, filepath.FromSlash(worktreeRel))
+	createManagedSpikeWorktree(t, projectDir, worktreePath, "yolo-"+spikeID)
+
+	t.Setenv("WIPNOTE_SESSION_ID", sessionID)
+	t.Setenv("WIPNOTE_AGENT_ID", "claude-code")
+	t.Setenv("WIPNOTE_AGENT_TYPE", "")
+	t.Setenv("CLAUDE_ENV_FILE", "")
+	t.Setenv("CLAUDE_PROJECT_DIR", "")
+	t.Setenv("WIPNOTE_PROJECT_DIR", projectDir)
+
+	if err := os.MkdirAll(filepath.Join(projectDir, ".wipnote"), 0o755); err != nil {
+		t.Fatalf("mkdir .wipnote: %v", err)
+	}
+	if err := os.WriteFile(
+		filepath.Join(projectDir, ".wipnote", "config.json"),
+		[]byte(`{"empty_spike_worktree_cleanup":true,"empty_spike_worktree_ttl_days":7}`),
+		0o644,
+	); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+
+	if err := db.InsertSession(database, &models.Session{
+		SessionID:        sessionID,
+		AgentAssigned:    "claude-code",
+		Status:           "active",
+		CreatedAt:        time.Now().UTC(),
+		ProjectDir:       projectDir,
+		ExecWorktreePath: worktreeRel,
+		Branch:           "yolo-" + spikeID,
+		Harness:          "claude",
+		ActiveFeatureID:  spikeID,
+	}); err != nil {
+		t.Fatalf("InsertSession: %v", err)
+	}
+	td.addFeature(spikeID, "spike", "Empty spike", "in-progress")
+
+	if _, err := SessionEnd(&CloudEvent{SessionID: sessionID, CWD: projectDir, Reason: "prompt_input_exit"}, database, projectDir); err != nil {
+		t.Fatalf("SessionEnd: %v", err)
+	}
+
+	var status string
+	if err := database.QueryRow(`SELECT status FROM features WHERE id = ?`, spikeID).Scan(&status); err != nil {
+		t.Fatalf("feature status: %v", err)
+	}
+	if status != "done" {
+		t.Fatalf("spike status = %q, want done", status)
+	}
+	if _, err := os.Stat(worktreePath); !os.IsNotExist(err) {
+		t.Fatalf("expected worktree removed, stat err=%v", err)
+	}
+}
+
+func initSessionEndGitRepo(t *testing.T, dir string) {
+	t.Helper()
+	for _, args := range [][]string{
+		{"git", "init"},
+		{"git", "config", "user.email", "test@test.com"},
+		{"git", "config", "user.name", "Test"},
+	} {
+		cmd := exec.Command(args[0], args[1:]...)
+		cmd.Dir = dir
+		if out, err := cmd.CombinedOutput(); err != nil {
+			t.Fatalf("%v failed: %v\n%s", args, err, out)
+		}
+	}
+	if err := os.WriteFile(filepath.Join(dir, "README.md"), []byte("# test\n"), 0o644); err != nil {
+		t.Fatalf("write README: %v", err)
+	}
+	cmd := exec.Command("git", "-C", dir, "add", ".")
+	if out, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("git add: %v\n%s", err, out)
+	}
+	cmd = exec.Command("git", "-C", dir, "commit", "-m", "initial")
+	if out, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("git commit: %v\n%s", err, out)
+	}
+}
+
+func createManagedSpikeWorktree(t *testing.T, repoRoot, worktreePath, branch string) {
+	t.Helper()
+	if err := os.MkdirAll(filepath.Dir(worktreePath), 0o755); err != nil {
+		t.Fatalf("mkdir parent: %v", err)
+	}
+	cmd := exec.Command("git", "-C", repoRoot, "worktree", "add", worktreePath, "-b", branch)
+	if out, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("git worktree add: %v\n%s", err, out)
 	}
 }
 

@@ -15,6 +15,7 @@ import (
 
 	"github.com/shakestzd/wipnote/core/db"
 	"github.com/shakestzd/wipnote/core/paths"
+	"github.com/shakestzd/wipnote/core/worktree"
 )
 
 type sessionEndSnapshot struct {
@@ -158,6 +159,10 @@ func SessionEnd(event *CloudEvent, database *sql.DB, projectDir string) (*HookRe
 		}
 	}
 
+	if err := cleanupEmptySpikeWorktreeOnSessionEnd(database, projectDir, sessionID); err != nil {
+		debugLog(projectDir, "[error] handler=session-end session=%s: cleanup empty spike worktree: %v", sessionID[:minLen(sessionID, 8)], err)
+	}
+
 	// NOTE: FinalizeSessionHTML, backfillMissedUserPrompts, and
 	// runSessionExitReconcile are intentionally absent here — Stop already
 	// performs all three on every per-turn stop event, and port-drift
@@ -166,6 +171,45 @@ func SessionEnd(event *CloudEvent, database *sql.DB, projectDir string) (*HookRe
 	// this handler mid-flight.
 
 	return &HookResult{Continue: true}, nil
+}
+
+func cleanupEmptySpikeWorktreeOnSessionEnd(database *sql.DB, projectDir, sessionID string) error {
+	cfg := worktree.LoadCleanupConfig(projectDir)
+	if !cfg.Enabled() {
+		return nil
+	}
+
+	snapshot, err := loadSessionEndSnapshot(database, sessionID)
+	if err != nil {
+		return err
+	}
+	if inferTypeName(snapshot.ActiveFeatureID) != "spike" || snapshot.ExecWorktreePath == "" {
+		return nil
+	}
+
+	worktreePath := snapshot.ExecWorktreePath
+	if !filepath.IsAbs(worktreePath) {
+		worktreePath = filepath.Join(projectDir, filepath.FromSlash(worktreePath))
+	}
+
+	state, err := worktree.InspectCleanupState(projectDir, worktreePath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
+		return err
+	}
+	if state.Locked {
+		return nil
+	}
+	if !state.Removable() {
+		_, snapErr := worktree.SnapshotPreservedWorktree(projectDir, worktreePath, snapshot.ActiveFeatureID, state)
+		return snapErr
+	}
+	if !completeIfInProgress(snapshot.ActiveFeatureID, database) {
+		return nil
+	}
+	return worktree.RemoveManagedWorktree(projectDir, worktreePath)
 }
 
 func persistSessionEndHandoff(database *sql.DB, sessionID string, event *CloudEvent, projectDir string, featuresWorkedOn []string) error {

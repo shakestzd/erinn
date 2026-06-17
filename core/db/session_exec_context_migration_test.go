@@ -38,10 +38,18 @@ func TestSessionExecContextMigration_AddsColumnsNoDataLoss(t *testing.T) {
 	defer database.Close()
 
 	var execPath, branch, harness, projectDir interface{}
+	var lastUserQueryAt, lastUserQuery, handoffNotes, recommendedNext interface{}
+	var blockers, recommendedContext, continuedFrom interface{}
 	err = database.QueryRow(
-		`SELECT exec_worktree_path, branch, harness, project_dir
+		`SELECT exec_worktree_path, branch, harness, project_dir,
+		        last_user_query_at, last_user_query, handoff_notes,
+		        recommended_next, blockers, recommended_context, continued_from
 		   FROM sessions WHERE session_id = ?`, "legacy-session-001",
-	).Scan(&execPath, &branch, &harness, &projectDir)
+	).Scan(
+		&execPath, &branch, &harness, &projectDir,
+		&lastUserQueryAt, &lastUserQuery, &handoffNotes,
+		&recommendedNext, &blockers, &recommendedContext, &continuedFrom,
+	)
 	if err != nil {
 		t.Fatalf("select new columns after migration: %v", err)
 	}
@@ -53,6 +61,19 @@ func TestSessionExecContextMigration_AddsColumnsNoDataLoss(t *testing.T) {
 	}
 	if harness != nil {
 		t.Errorf("harness: got %v, want NULL", harness)
+	}
+	for name, value := range map[string]interface{}{
+		"last_user_query_at":  lastUserQueryAt,
+		"last_user_query":     lastUserQuery,
+		"handoff_notes":       handoffNotes,
+		"recommended_next":    recommendedNext,
+		"blockers":            blockers,
+		"recommended_context": recommendedContext,
+		"continued_from":      continuedFrom,
+	} {
+		if value != nil {
+			t.Errorf("%s: got %v, want NULL", name, value)
+		}
 	}
 	if pd, ok := projectDir.(string); !ok || pd != "." {
 		t.Errorf("project_dir after migration: got %v, want .", projectDir)

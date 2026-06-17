@@ -15,7 +15,7 @@ import (
 // executes ZERO CREATE / ALTER / DROP / trigger / normalisation statements —
 // avoiding the write-lock acquisition that caused SQLITE_BUSY in short-lived
 // hook processes.
-const currentSchemaVersion = 14
+const currentSchemaVersion = 15
 
 // copySwapStepName is the name of the agent_events copy-and-swap migration
 // step. Exposed via CopySwapStepName() so tests can assert it runs at most
@@ -112,6 +112,11 @@ var migrations = []migrationStep{
 		version: 14,
 		name:    "014_session_exec_context",
 		apply:   stepSessionExecContext,
+	},
+	{
+		version: 15,
+		name:    "015_session_handoff_fields",
+		apply:   stepSessionHandoffFields,
 	},
 }
 
@@ -557,6 +562,25 @@ func stepSessionExecContext(db *sql.DB) error {
 		if _, err := db.Exec(stmt); err != nil {
 			if !isDuplicateColumnError(err) {
 				return fmt.Errorf("add session exec-context column (%s): %w", stmt, err)
+			}
+		}
+	}
+	return nil
+}
+
+func stepSessionHandoffFields(db *sql.DB) error {
+	for _, stmt := range []string{
+		`ALTER TABLE sessions ADD COLUMN last_user_query_at DATETIME`,
+		`ALTER TABLE sessions ADD COLUMN last_user_query TEXT`,
+		`ALTER TABLE sessions ADD COLUMN handoff_notes TEXT`,
+		`ALTER TABLE sessions ADD COLUMN recommended_next TEXT`,
+		`ALTER TABLE sessions ADD COLUMN blockers JSON`,
+		`ALTER TABLE sessions ADD COLUMN recommended_context JSON`,
+		`ALTER TABLE sessions ADD COLUMN continued_from TEXT`,
+	} {
+		if _, err := db.Exec(stmt); err != nil {
+			if !isDuplicateColumnError(err) {
+				return fmt.Errorf("add session handoff column (%s): %w", stmt, err)
 			}
 		}
 	}

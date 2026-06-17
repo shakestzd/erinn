@@ -13,12 +13,15 @@ import (
 )
 
 type chooserEligibility struct {
-	TTY       bool
-	CI        bool
-	ResumeID  string
-	WorkItem  string
-	InPlace   bool
-	ExtraArgs []string
+	TTY              bool
+	CI               bool
+	ResumeID         string
+	WorkItem         string
+	Targeted         bool
+	InPlace          bool
+	ExplicitContinue bool
+	Yolo             bool
+	ExtraArgs        []string
 }
 
 type claudeIntentResult struct {
@@ -32,7 +35,7 @@ func shouldOfferLaunchIntentChooser(opts chooserEligibility) bool {
 	if !opts.TTY || opts.CI {
 		return false
 	}
-	if opts.ResumeID != "" || opts.WorkItem != "" || opts.InPlace {
+	if opts.ResumeID != "" || opts.WorkItem != "" || opts.Targeted || opts.InPlace || opts.ExplicitContinue || opts.Yolo {
 		return false
 	}
 	return len(opts.ExtraArgs) == 0
@@ -49,7 +52,13 @@ func isInteractiveTerminalFile(f *os.File) bool {
 	return (fi.Mode() & os.ModeCharDevice) != 0
 }
 
+var chooseLaunchIntentFn = chooseLaunchIntent
+
 func chooseClaudeLaunchIntent(projectRoot, canonicalRoot string, in io.Reader, out io.Writer) (launcher.LaunchIntent, error) {
+	return chooseLaunchIntent(projectRoot, canonicalRoot, "claude", in, out)
+}
+
+func chooseLaunchIntent(projectRoot, canonicalRoot, harness string, in io.Reader, out io.Writer) (launcher.LaunchIntent, error) {
 	rows, err := listResumableSessionsForRoot(projectRoot, canonicalRoot)
 	if err != nil {
 		return launcher.NewWorkIntent(), err
@@ -57,7 +66,14 @@ func chooseClaudeLaunchIntent(projectRoot, canonicalRoot string, in io.Reader, o
 	if len(rows) == 0 {
 		return launcher.NewWorkIntent(), nil
 	}
-	return promptLaunchIntent(in, out, "claude", rows)
+	return promptLaunchIntent(in, out, harness, rows)
+}
+
+func resolveLaunchIntentForDefaultLaunch(projectRoot, canonicalRoot, harness string, opts chooserEligibility, in io.Reader, out io.Writer) (launcher.LaunchIntent, error) {
+	if !shouldOfferLaunchIntentChooser(opts) {
+		return launcher.NewWorkIntent(), nil
+	}
+	return chooseLaunchIntentFn(projectRoot, canonicalRoot, harness, in, out)
 }
 
 func listResumableSessionsForRoot(projectRoot, canonicalRoot string) ([]dbpkg.ResumableSession, error) {

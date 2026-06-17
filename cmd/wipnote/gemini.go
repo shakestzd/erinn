@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/shakestzd/wipnote/internal/launcher"
 	"github.com/spf13/cobra"
 )
 
@@ -252,6 +253,21 @@ func launchGeminiDefault(trackID, featureID, worktreePath, workItem string, noWo
 	if c := canonicalProjectRoot(projectRoot); c != "" {
 		canonicalRoot = c
 	}
+	intent, err := resolveLaunchIntentForDefaultLaunch(projectRoot, canonicalRoot, "gemini", chooserEligibility{
+		TTY:       isInteractiveTerminalFile(os.Stdin) && isInteractiveTerminalFile(os.Stdout),
+		CI:        os.Getenv("CI") == "true" || os.Getenv("GITHUB_ACTIONS") != "",
+		WorkItem:  workItem,
+		Targeted:  trackID != "" || featureID != "" || worktreePath != "",
+		InPlace:   noWorktree,
+		ExtraArgs: extraArgs,
+	}, os.Stdin, os.Stdout)
+	if err != nil {
+		return err
+	}
+	intentResult := applyGeminiLaunchIntent(worktreePath, workItem, "", intent)
+	worktreePath = intentResult.worktreePath
+	workItem = intentResult.workItem
+
 	// Apply isolation plan and HONOR it (slice-9): a RefuseLaunch plan aborts
 	// before Gemini starts. noWorktree here is effectiveInPlace (--in-place || --no-worktree).
 	// When the plan will create a managed worktree, suppress the generic dirty-main
@@ -322,13 +338,46 @@ func launchGeminiDefault(trackID, featureID, worktreePath, workItem string, noWo
 
 	fmt.Println("Launching Gemini CLI with wipnote context...")
 	return execGemini(geminiLaunchOpts{
+		ResumeLast:   intentResult.resumeLast,
+		ResumeIndex:  intentResult.resumeIndex,
 		ExtraArgs:    extraArgs,
 		ProjectRoot:  workDir,
 		WorktreeRoot: workDir,
 		WipnoteRoot:  wipnoteRoot,
-		Mode:         geminiLaunchModeDefault,
+		Mode:         intentResult.mode,
 		DryRun:       dryRun,
 	})
+}
+
+type geminiIntentResult struct {
+	mode         geminiLaunchMode
+	resumeLast   bool
+	resumeIndex  string
+	worktreePath string
+	workItem     string
+}
+
+func applyGeminiLaunchIntent(worktreePath, workItem, resumeIndex string, intent launcher.LaunchIntent) geminiIntentResult {
+	result := geminiIntentResult{
+		mode:         geminiLaunchModeDefault,
+		resumeIndex:  resumeIndex,
+		worktreePath: worktreePath,
+		workItem:     workItem,
+	}
+	if !intent.WantsContinue() {
+		return result
+	}
+	result.mode = geminiLaunchModeContinue
+	if result.workItem == "" && intent.WorkItemID != "" {
+		result.workItem = intent.WorkItemID
+	}
+	if result.worktreePath == "" && intent.WorktreePath != "" {
+		result.worktreePath = intent.WorktreePath
+	}
+	// Gemini's launcher contract resumes by index/latest, not by stored session ID.
+	// Chooser-driven continue therefore preserves work-item/worktree context and
+	// continue-mode instructions without attempting a lossy session-ID conversion.
+	return result
 }
 
 // launchGeminiContinue resumes the latest Gemini session.

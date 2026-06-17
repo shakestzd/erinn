@@ -5,6 +5,8 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+
+	"github.com/shakestzd/wipnote/internal/launcher"
 )
 
 // TestWriteAntigravitySystemPrompt verifies the staged orchestrator prompt is
@@ -85,5 +87,42 @@ func TestBuildAntigravityArgs(t *testing.T) {
 					tc.continue_, tc.resumeID, tc.extraArgs, got, tc.want)
 			}
 		})
+	}
+}
+
+func TestApplyAntigravityLaunchIntent(t *testing.T) {
+	got := applyAntigravityLaunchIntent("", "", "", false, launcher.LaunchIntent{
+		Kind:            launcher.LaunchIntentContinue,
+		Explicit:        true,
+		WorkItemID:      "feat-agy",
+		SessionHarness:  "antigravity",
+		ResumeSessionID: "conv-123",
+		WorktreePath:    ".claude/worktrees/feat-agy",
+	})
+	if !got.continue_ {
+		t.Fatal("continue_ = false, want true")
+	}
+	if got.resumeID != "conv-123" {
+		t.Fatalf("resumeID = %q, want conv-123", got.resumeID)
+	}
+	if got.workItem != "feat-agy" {
+		t.Fatalf("workItem = %q, want feat-agy", got.workItem)
+	}
+	if got.worktreePath != ".claude/worktrees/feat-agy" {
+		t.Fatalf("worktreePath = %q, want .claude/worktrees/feat-agy", got.worktreePath)
+	}
+
+	cross := applyAntigravityLaunchIntent("/custom", "feat-existing", "keep-me", true, launcher.ContinueWorkIntent("feat-cross", "codex", "", ".claude/worktrees/feat-cross", true))
+	if !cross.continue_ {
+		t.Fatal("cross continue_ = false, want true")
+	}
+	if cross.resumeID != "keep-me" {
+		t.Fatalf("cross resumeID = %q, want keep-me", cross.resumeID)
+	}
+	if cross.worktreePath != "/custom" {
+		t.Fatalf("explicit worktreePath overwritten: got %q", cross.worktreePath)
+	}
+	if cross.workItem != "feat-existing" {
+		t.Fatalf("explicit workItem overwritten: got %q", cross.workItem)
 	}
 }

@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"io"
 	"strings"
 	"testing"
 
@@ -138,10 +139,34 @@ func TestShouldOfferLaunchIntentChooser(t *testing.T) {
 			wantShow: false,
 		},
 		{
+			name: "targeted launch bypasses chooser",
+			opts: chooserEligibility{
+				TTY:      true,
+				Targeted: true,
+			},
+			wantShow: false,
+		},
+		{
 			name: "in place bypasses chooser",
 			opts: chooserEligibility{
 				TTY:     true,
 				InPlace: true,
+			},
+			wantShow: false,
+		},
+		{
+			name: "explicit continue bypasses chooser",
+			opts: chooserEligibility{
+				TTY:              true,
+				ExplicitContinue: true,
+			},
+			wantShow: false,
+		},
+		{
+			name: "yolo bypasses chooser",
+			opts: chooserEligibility{
+				TTY:  true,
+				Yolo: true,
 			},
 			wantShow: false,
 		},
@@ -152,6 +177,72 @@ func TestShouldOfferLaunchIntentChooser(t *testing.T) {
 			got := shouldOfferLaunchIntentChooser(tt.opts)
 			if got != tt.wantShow {
 				t.Fatalf("shouldOfferLaunchIntentChooser() = %v, want %v", got, tt.wantShow)
+			}
+		})
+	}
+}
+
+func TestResolveLaunchIntentForDefaultLaunch_BypassesChooserWhenNonInteractive(t *testing.T) {
+	original := chooseLaunchIntentFn
+	defer func() { chooseLaunchIntentFn = original }()
+
+	for _, tc := range []struct {
+		name string
+		opts chooserEligibility
+	}{
+		{name: "codex non tty", opts: chooserEligibility{TTY: false}},
+		{name: "codex yolo", opts: chooserEligibility{TTY: true, Yolo: true}},
+		{name: "gemini ci", opts: chooserEligibility{TTY: true, CI: true}},
+		{name: "antigravity explicit continue", opts: chooserEligibility{TTY: true, ExplicitContinue: true}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			calls := 0
+			chooseLaunchIntentFn = func(projectRoot, canonicalRoot, harness string, in io.Reader, out io.Writer) (launcher.LaunchIntent, error) {
+				calls++
+				return launcher.ContinueWorkIntent("feat-picked", harness, "sess-picked", ".claude/worktrees/feat-picked", true), nil
+			}
+
+			intent, err := resolveLaunchIntentForDefaultLaunch("/repo", "/repo", "codex", tc.opts, strings.NewReader(""), io.Discard)
+			if err != nil {
+				t.Fatalf("resolveLaunchIntentForDefaultLaunch() error = %v", err)
+			}
+			if calls != 0 {
+				t.Fatalf("chooser called %d times, want 0", calls)
+			}
+			if intent.Kind != launcher.LaunchIntentNew {
+				t.Fatalf("intent.Kind = %q, want %q", intent.Kind, launcher.LaunchIntentNew)
+			}
+		})
+	}
+}
+
+func TestResolveLaunchIntentForDefaultLaunch_InteractiveUsesChooser(t *testing.T) {
+	original := chooseLaunchIntentFn
+	defer func() { chooseLaunchIntentFn = original }()
+
+	for _, harness := range []string{"codex", "gemini", "antigravity"} {
+		t.Run(harness, func(t *testing.T) {
+			calls := 0
+			chooseLaunchIntentFn = func(projectRoot, canonicalRoot, gotHarness string, in io.Reader, out io.Writer) (launcher.LaunchIntent, error) {
+				calls++
+				if gotHarness != harness {
+					t.Fatalf("harness = %q, want %q", gotHarness, harness)
+				}
+				return launcher.ContinueWorkIntent("feat-picked", harness, "sess-picked", ".claude/worktrees/feat-picked", true), nil
+			}
+
+			intent, err := resolveLaunchIntentForDefaultLaunch("/repo", "/repo", harness, chooserEligibility{TTY: true}, strings.NewReader(""), io.Discard)
+			if err != nil {
+				t.Fatalf("resolveLaunchIntentForDefaultLaunch() error = %v", err)
+			}
+			if calls != 1 {
+				t.Fatalf("chooser called %d times, want 1", calls)
+			}
+			if intent.Kind != launcher.LaunchIntentContinue {
+				t.Fatalf("intent.Kind = %q, want %q", intent.Kind, launcher.LaunchIntentContinue)
+			}
+			if intent.WorkItemID != "feat-picked" {
+				t.Fatalf("intent.WorkItemID = %q, want feat-picked", intent.WorkItemID)
 			}
 		})
 	}

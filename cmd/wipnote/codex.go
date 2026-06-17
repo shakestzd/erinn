@@ -12,6 +12,7 @@ import (
 
 	"github.com/pelletier/go-toml/v2"
 	"github.com/shakestzd/wipnote/core/storage"
+	"github.com/shakestzd/wipnote/internal/launcher"
 	"github.com/spf13/cobra"
 )
 
@@ -1010,6 +1011,24 @@ func launchCodexDefault(resumeID, trackID, featureID, worktreePath, workItem str
 	if canonicalRoot == "" {
 		canonicalRoot = projectRoot
 	}
+	intent, err := resolveLaunchIntentForDefaultLaunch(projectRoot, canonicalRoot, "codex", chooserEligibility{
+		TTY:       isInteractiveTerminalFile(os.Stdin) && isInteractiveTerminalFile(os.Stdout),
+		CI:        os.Getenv("CI") == "true" || os.Getenv("GITHUB_ACTIONS") != "",
+		ResumeID:  resumeID,
+		WorkItem:  workItem,
+		Targeted:  trackID != "" || featureID != "" || worktreePath != "",
+		InPlace:   noWorktree,
+		Yolo:      yolo,
+		ExtraArgs: extraArgs,
+	}, os.Stdin, os.Stdout)
+	if err != nil {
+		return err
+	}
+	intentResult := applyCodexLaunchIntent(worktreePath, workItem, resumeID, yolo, intent)
+	resumeID = intentResult.resumeID
+	worktreePath = intentResult.worktreePath
+	workItem = intentResult.workItem
+
 	// Apply isolation plan and HONOR it (slice-9): a RefuseLaunch plan aborts
 	// before Codex starts. noWorktree here is effectiveInPlace (--in-place || --no-worktree).
 	// When the plan will create a managed worktree, suppress the generic dirty-main
@@ -1137,9 +1156,47 @@ func launchCodexDefault(resumeID, trackID, featureID, worktreePath, workItem str
 		ProjectRoot:  workDir,
 		WorktreeRoot: workDir,
 		WipnoteRoot:  wipnoteRoot,
-		Mode:         codexLaunchModeDefault,
+		Mode:         intentResult.mode,
 		Yolo:         yolo,
 	})
+}
+
+type codexIntentResult struct {
+	mode         codexLaunchMode
+	resumeID     string
+	worktreePath string
+	workItem     string
+}
+
+func applyCodexLaunchIntent(worktreePath, workItem, resumeID string, yolo bool, intent launcher.LaunchIntent) codexIntentResult {
+	mode := codexLaunchModeDefault
+	if yolo {
+		mode = codexLaunchModeYolo
+	}
+	result := codexIntentResult{
+		mode:         mode,
+		resumeID:     resumeID,
+		worktreePath: worktreePath,
+		workItem:     workItem,
+	}
+	if !intent.WantsContinue() {
+		return result
+	}
+	if yolo {
+		result.mode = codexLaunchModeYoloCont
+	} else {
+		result.mode = codexLaunchModeContinue
+	}
+	if result.workItem == "" && intent.WorkItemID != "" {
+		result.workItem = intent.WorkItemID
+	}
+	if result.worktreePath == "" && intent.WorktreePath != "" {
+		result.worktreePath = intent.WorktreePath
+	}
+	if result.resumeID == "" {
+		result.resumeID = intent.ResumeForHarness("codex")
+	}
+	return result
 }
 
 // runFeatureStart runs `wipnote feature start <id>` for work item attribution.

@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/shakestzd/wipnote/internal/launcher"
 	"github.com/spf13/cobra"
 )
 
@@ -98,6 +99,25 @@ func launchAntigravityDefault(trackID, featureID, worktreePath, workItem string,
 	if canonicalRoot == "" {
 		canonicalRoot = projectRoot
 	}
+	intent, err := resolveLaunchIntentForDefaultLaunch(projectRoot, canonicalRoot, "antigravity", chooserEligibility{
+		TTY:              isInteractiveTerminalFile(os.Stdin) && isInteractiveTerminalFile(os.Stdout),
+		CI:               os.Getenv("CI") == "true" || os.Getenv("GITHUB_ACTIONS") != "",
+		ResumeID:         resumeID,
+		WorkItem:         workItem,
+		Targeted:         trackID != "" || featureID != "" || worktreePath != "",
+		InPlace:          noWorktree,
+		ExplicitContinue: continue_,
+		ExtraArgs:        extraArgs,
+	}, os.Stdin, os.Stdout)
+	if err != nil {
+		return err
+	}
+	intentResult := applyAntigravityLaunchIntent(worktreePath, workItem, resumeID, continue_, intent)
+	worktreePath = intentResult.worktreePath
+	workItem = intentResult.workItem
+	resumeID = intentResult.resumeID
+	continue_ = intentResult.continue_
+
 	willCreateWorktree := !noWorktree && (trackID != "" || featureID != "" || workItem != "")
 	launchPlan := applyLaunchPlanOpts(canonicalRoot, projectRoot, workItem, noWorktree, willCreateWorktree, os.Stderr)
 	if err := enforceLaunchPlan(launchPlan, os.Stderr); err != nil {
@@ -168,6 +188,36 @@ func launchAntigravityDefault(trackID, featureID, worktreePath, workItem string,
 		WipnoteRoot:  wipnoteRoot,
 		DryRun:       dryRun,
 	})
+}
+
+type antigravityIntentResult struct {
+	continue_    bool
+	resumeID     string
+	worktreePath string
+	workItem     string
+}
+
+func applyAntigravityLaunchIntent(worktreePath, workItem, resumeID string, continue_ bool, intent launcher.LaunchIntent) antigravityIntentResult {
+	result := antigravityIntentResult{
+		continue_:    continue_,
+		resumeID:     resumeID,
+		worktreePath: worktreePath,
+		workItem:     workItem,
+	}
+	if !intent.WantsContinue() {
+		return result
+	}
+	result.continue_ = true
+	if result.workItem == "" && intent.WorkItemID != "" {
+		result.workItem = intent.WorkItemID
+	}
+	if result.worktreePath == "" && intent.WorktreePath != "" {
+		result.worktreePath = intent.WorktreePath
+	}
+	if result.resumeID == "" {
+		result.resumeID = intent.ResumeForHarness("antigravity")
+	}
+	return result
 }
 
 func isAntigravityInitAlias(args []string) bool {

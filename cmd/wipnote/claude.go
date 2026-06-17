@@ -446,20 +446,16 @@ func launchClaudeDefault(extraArgs []string, resumeID, name, workItem string, in
 	// Resolve canonical main repo root when CWD is a linked worktree (slice-3).
 	// canonicalProjectRoot returns "" for the main worktree (no override needed).
 	wipnoteRoot := canonicalProjectRoot(projectRoot)
-	intent := launcher.NewWorkIntent()
-	if shouldOfferLaunchIntentChooser(chooserEligibility{
+	intent, err := resolveLaunchIntentForDefaultLaunch(projectRoot, wipnoteRoot, "claude", chooserEligibility{
 		TTY:       isInteractiveTerminalFile(os.Stdin) && isInteractiveTerminalFile(os.Stdout),
 		CI:        os.Getenv("CI") == "true" || os.Getenv("GITHUB_ACTIONS") != "",
 		ResumeID:  resumeID,
 		WorkItem:  workItem,
 		InPlace:   inPlace,
 		ExtraArgs: extraArgs,
-	}) {
-		chosen, err := chooseClaudeLaunchIntent(projectRoot, wipnoteRoot, os.Stdin, os.Stdout)
-		if err != nil {
-			return err
-		}
-		intent = chosen
+	}, os.Stdin, os.Stdout)
+	if err != nil {
+		return err
 	}
 	intentResult := applyClaudeLaunchIntent(resumeID, workItem, intent)
 	resumeID = intentResult.resumeID

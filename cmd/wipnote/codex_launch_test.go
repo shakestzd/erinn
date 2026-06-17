@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/shakestzd/wipnote/internal/launcher"
 )
 
 // TestAppendOrReplaceEnv_AppendsNew verifies that a key not present in env is appended.
@@ -152,6 +154,45 @@ func TestBuildCodexOtelConfigArgs_ConfiguresLogsTracesAndMetrics(t *testing.T) {
 		if got[i] != "-c" {
 			t.Fatalf("expected every config override to be prefixed by -c, got %v", got)
 		}
+	}
+}
+
+func TestApplyCodexLaunchIntent(t *testing.T) {
+	got := applyCodexLaunchIntent("", "", "", false, launcher.LaunchIntent{
+		Kind:            launcher.LaunchIntentContinue,
+		Explicit:        true,
+		WorkItemID:      "feat-cdx",
+		SessionHarness:  "codex",
+		ResumeSessionID: "sess-cdx",
+		WorktreePath:    ".claude/worktrees/feat-cdx",
+	})
+	if got.mode != codexLaunchModeContinue {
+		t.Fatalf("mode = %q, want %q", got.mode, codexLaunchModeContinue)
+	}
+	if got.resumeID != "sess-cdx" {
+		t.Fatalf("resumeID = %q, want sess-cdx", got.resumeID)
+	}
+	if got.workItem != "feat-cdx" {
+		t.Fatalf("workItem = %q, want feat-cdx", got.workItem)
+	}
+	if got.worktreePath != ".claude/worktrees/feat-cdx" {
+		t.Fatalf("worktreePath = %q, want .claude/worktrees/feat-cdx", got.worktreePath)
+	}
+
+	yolo := applyCodexLaunchIntent("", "", "", true, launcher.ContinueWorkIntent("feat-yolo", "codex", "sess-yolo", ".claude/worktrees/feat-yolo", true))
+	if yolo.mode != codexLaunchModeYoloCont {
+		t.Fatalf("yolo mode = %q, want %q", yolo.mode, codexLaunchModeYoloCont)
+	}
+
+	cross := applyCodexLaunchIntent("/custom", "feat-existing", "keep-me", false, launcher.ContinueWorkIntent("feat-cross", "gemini", "", ".claude/worktrees/feat-cross", true))
+	if cross.resumeID != "keep-me" {
+		t.Fatalf("cross resumeID = %q, want keep-me", cross.resumeID)
+	}
+	if cross.worktreePath != "/custom" {
+		t.Fatalf("explicit worktreePath overwritten: got %q", cross.worktreePath)
+	}
+	if cross.workItem != "feat-existing" {
+		t.Fatalf("explicit workItem overwritten: got %q", cross.workItem)
 	}
 }
 

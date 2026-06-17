@@ -10,37 +10,38 @@
 <body>
     <article id="feat-94b0ff20"
              data-type="feature"
-             data-status="in-progress"
+             data-status="done"
              data-priority="medium"
              data-created="2026-06-17T04:25:44.495064"
-             data-updated="2026-06-17T04:26:15.377837" data-agent-assigned="claude-code" data-track-id="trk-6a1f5362" data-created-by-agent="claude-code" data-created-by-model="claude-opus-4-8[1m]" data-created-by-cli-version="0.62.2-155-g04f353175">
+             data-updated="2026-06-17T04:29:00.666218" data-agent-assigned="claude-code" data-track-id="trk-6a1f5362" data-created-by-agent="claude-code" data-created-by-model="claude-opus-4-8[1m]" data-created-by-cli-version="0.62.2-155-g04f353175">
 
         <header>
             <h1>roborev-fix: plan-6d49f2df review findings (316,320)</h1>
             <div class="metadata">
-                <span class="badge status-in-progress">In Progress</span>
+                <span class="badge status-done">Done</span>
                 <span class="badge priority-medium">Medium Priority</span>
             </div>
         </header>
 
         <nav data-graph-edges>
-            <section data-edge-type="part_of">
-                <h3>Part Of:</h3>
-                <ul>
-                    <li><a href="../tracks/trk-6a1f5362.html" data-relationship="part_of" data-since="2026-06-17T04:25:44.504167">trk-6a1f5362</a></li>
-                </ul>
-            </section>
             <section data-edge-type="implemented_in">
                 <h3>Implemented In:</h3>
                 <ul>
                     <li><a href="../sessions/62ed16dd-98da-4e8b-a66d-7007928e4fe2.html" data-relationship="implemented_in" data-since="2026-06-17T04:25:56.608082">session 62ed16dd-98da-4e8b-a66d-7007928e4fe2</a></li>
                 </ul>
             </section>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-6a1f5362.html" data-relationship="part_of" data-since="2026-06-17T04:25:44.504167">trk-6a1f5362</a></li>
+                </ul>
+            </section>
         </nav>
 
         <section data-content>
             <h3>Description</h3>
-            <p>Address roborev failing reviews on plan-6d49f2df: job 316 (slice scope/path - already resolved by prior revision) and job 320 (de-escape HTML entities in YAML source to stop double-escaping in rendered HTML).</p>
+            <p>Address roborev failing reviews on plan-6d49f2df: job 316 (slice scope/path - already resolved by prior revision) and job 320 (de-escape HTML entities in YAML source to stop double-escaping in rendered HTML).
+[2026-06-17 04:29 claude-code] accepted-advisory (provenance override): roborev-fix plan pass: only artifact is .wipnote/plans/plan-6d49f2df.yaml (entity de-escape), committed via rewrite-yaml. Closed roborev jobs 316 (already resolved) and 320 (entity fix). No Go source changed.</p>
         </section>
     </article>
 </body>

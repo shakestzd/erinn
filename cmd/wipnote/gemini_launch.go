@@ -260,6 +260,7 @@ func execGemini(opts geminiLaunchOpts) error {
 		persistLauncherSessionFamily(effectiveProjDir, otelSessionID, "gemini", familyID)
 	}
 
+	env = withHarnessEnv(env, harnessGemini)
 	c.Env = env
 
 	return runHarnessWithCleanup(c, otelCleanup)

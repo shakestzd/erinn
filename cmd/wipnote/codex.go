@@ -1578,6 +1578,7 @@ func execCodex(opts codexLaunchOpts) error {
 	// so they don't silently suppress legitimate sandboxing errors.
 	env = applySandboxDegradedEnv(env, sandboxDegraded)
 
+	env = withHarnessEnv(env, harnessCodex)
 	c.Env = env
 	if workDir != "" {
 		c.Dir = workDir

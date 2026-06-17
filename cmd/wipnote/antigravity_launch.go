@@ -203,6 +203,7 @@ func execAntigravity(opts antigravityLaunchOpts) error {
 		persistLauncherSessionFamily(effectiveProjDir, otelSessionID, "antigravity", familyID)
 	}
 
+	env = withHarnessEnv(env, harnessAntigravity)
 	c.Env = env
 
 	return runHarnessWithCleanup(c, otelCleanup)

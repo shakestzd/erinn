@@ -701,6 +701,26 @@ func launchClaude(opts LaunchOpts) error {
 	return runHarnessWithCleanup(c, envOverrides.Cleanup)
 }
 
+// Harness identifiers for the WIPNOTE_HARNESS env var (feat-9348de66 slice 1).
+// These are the closed enum the SessionStart hook accepts; values outside it
+// are rejected at the write path. Each launcher stamps its own constant:
+// claude.go uses harnessClaude here; codex/gemini/antigravity launchers wire
+// their own in later slices.
+const (
+	harnessEnvKey      = "WIPNOTE_HARNESS"
+	harnessClaude      = "claude"
+	harnessCodex       = "codex"
+	harnessGemini      = "gemini"
+	harnessAntigravity = "antigravity"
+)
+
+// withHarnessEnv returns env with WIPNOTE_HARNESS set to harness, replacing any
+// inherited value (launcher-authoritative). Shared across launchers so each
+// harness stamps a single source of truth. Reuses setOrReplaceEnv (claude_env.go).
+func withHarnessEnv(env []string, harness string) []string {
+	return setOrReplaceEnv(env, harnessEnvKey, harness)
+}
+
 // writeLaunchMarker writes .wipnote/.launch-mode for hooks to detect the launch mode.
 // projectRoot must be non-empty; if it is empty the write is skipped to avoid
 // polluting whatever directory the user happens to be in.

@@ -11,6 +11,7 @@ package plantmpl
 import (
 	"bytes"
 	"embed"
+	htmlesc "html"
 	"html/template"
 	"io"
 	"strings"
@@ -19,16 +20,16 @@ import (
 	"github.com/microcosm-cc/bluemonday"
 	"github.com/yuin/goldmark"
 	"github.com/yuin/goldmark/extension"
-	"github.com/yuin/goldmark/renderer/html"
 )
 
 // mdParser is a shared goldmark instance with GFM extensions enabled.
-// It allows unsafe HTML so that goldmark renders raw HTML — bluemonday then
-// strips the dangerous bits. This ensures we get proper fenced-code blocks,
-// tables, and strikethrough while still sanitizing XSS vectors.
+// Raw HTML in plan content (e.g. literal "<id>" placeholders) is HTML-escaped
+// by goldmark rather than passed through as markup. This prevents unintended
+// element injection while still rendering fenced code, tables, and inline code
+// correctly. XSS protection is layered: goldmark escapes raw HTML first, then
+// bluemonday strips any remaining vectors (e.g. from Markdown link targets).
 var mdParser = goldmark.New(
 	goldmark.WithExtensions(extension.GFM),
-	goldmark.WithRendererOptions(html.WithUnsafe()),
 )
 
 // mdPolicy is the bluemonday policy used to sanitize goldmark output.
@@ -97,6 +98,9 @@ var planPageTmpl = texttemplate.Must(
 		"renderZone":   renderZone,
 		"renderSlices": renderSlices,
 		"hasPrefix":    strings.HasPrefix,
+		// htmlEscape escapes user-supplied text for safe emission in the
+		// text/template page shell where auto-escaping is NOT applied.
+		"htmlEscape": htmlesc.EscapeString,
 	}).ParseFS(templateFS, "templates/plan_page.gohtml"),
 )
 

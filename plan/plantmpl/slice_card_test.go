@@ -1162,3 +1162,79 @@ func TestSliceCardFromPlanSliceMapsComplexityAndDecisionsNotes(t *testing.T) {
 		t.Errorf("DecisionsNotes not mapped: got %q", sc.DecisionsNotes)
 	}
 }
+
+// ---------------------------------------------------------------------------
+// Bug-81ea68a6: IssueCount excludes SUCCESS and INFO severities (#330)
+// ---------------------------------------------------------------------------
+
+func TestSliceCard_IssueCount_ExcludesSuccessAndInfo(t *testing.T) {
+	sc := &plantmpl.SliceCard{
+		Num: 1,
+		ID:  "feat-ic",
+		CriticRevisions: []planyaml.CriticRevision{
+			{Source: "a", Severity: "SUCCESS", Summary: "Looks good"},
+			{Source: "b", Severity: "success", Summary: "Also fine"},
+			{Source: "c", Severity: "INFO",    Summary: "FYI note"},
+			{Source: "d", Severity: "info",    Summary: "Another note"},
+		},
+	}
+	if got := sc.IssueCount(); got != 0 {
+		t.Errorf("IssueCount with only SUCCESS/INFO: got %d, want 0", got)
+	}
+}
+
+func TestSliceCard_IssueCount_CountsWarnAndDanger(t *testing.T) {
+	sc := &plantmpl.SliceCard{
+		Num: 1,
+		ID:  "feat-ic2",
+		CriticRevisions: []planyaml.CriticRevision{
+			{Source: "a", Severity: "WARN",    Summary: "Fix this"},
+			{Source: "b", Severity: "DANGER",  Summary: "Critical issue"},
+			{Source: "c", Severity: "SUCCESS", Summary: "Looks good"},
+			{Source: "d", Severity: "INFO",    Summary: "FYI"},
+		},
+	}
+	// Only WARN and DANGER count; SUCCESS and INFO do not.
+	if got := sc.IssueCount(); got != 2 {
+		t.Errorf("IssueCount with WARN+DANGER+SUCCESS+INFO: got %d, want 2", got)
+	}
+}
+
+func TestSliceCard_IssueCount_CountsHighAndMed(t *testing.T) {
+	sc := &plantmpl.SliceCard{
+		Num: 1,
+		ID:  "feat-ic3",
+		CriticRevisions: []planyaml.CriticRevision{
+			{Source: "a", Severity: "High",   Summary: "Big issue"},
+			{Source: "b", Severity: "Med",    Summary: "Medium issue"},
+			{Source: "c", Severity: "Low",    Summary: "Minor issue"},
+			{Source: "d", Severity: "SUCCESS", Summary: "All good"},
+		},
+	}
+	// High/Med/Low all count; SUCCESS does not.
+	if got := sc.IssueCount(); got != 3 {
+		t.Errorf("IssueCount with High+Med+Low+SUCCESS: got %d, want 3", got)
+	}
+}
+
+func TestSliceCard_IssueCount_BadgeSuppressedWhenZero(t *testing.T) {
+	sc := &plantmpl.SliceCard{
+		Num: 1,
+		ID:  "feat-ic4",
+		CriticRevisions: []planyaml.CriticRevision{
+			{Source: "a", Severity: "SUCCESS", Summary: "All passed"},
+			{Source: "b", Severity: "INFO",    Summary: "Note"},
+		},
+	}
+
+	var buf bytes.Buffer
+	if err := sc.Render(&buf); err != nil {
+		t.Fatalf("Render: %v", err)
+	}
+
+	html := buf.String()
+	// When IssueCount == 0, the badge-issues element must not be rendered.
+	if strings.Contains(html, "badge-issues") {
+		t.Error("badge-issues must not appear when IssueCount is 0 (all revisions are SUCCESS/INFO)")
+	}
+}

@@ -39,6 +39,10 @@
 [data-theme="light"] .badge-discuss{background:rgba(167,139,250,.08);color:#7c3aed;border-color:rgba(167,139,250,.2)}
 [data-theme="light"] .badge-pending{background:rgba(107,114,128,.08);color:#4b5563;border-color:rgba(107,114,128,.2)}
 [data-theme="light"] .badge-blocked{background:rgba(239,68,68,.08);color:#dc2626;border-color:rgba(239,68,68,.2)}
+[data-theme="light"] .badge-success{background:rgba(34,197,94,.08);color:#16a34a;border-color:rgba(34,197,94,.2)}
+[data-theme="light"] .badge-warn{background:rgba(245,158,11,.08);color:#d97706;border-color:rgba(245,158,11,.2)}
+[data-theme="light"] .badge-danger{background:rgba(239,68,68,.08);color:#dc2626;border-color:rgba(239,68,68,.2)}
+[data-theme="light"] .badge-info{background:rgba(99,179,237,.08);color:#2563eb;border-color:rgba(99,179,237,.2)}
 [data-theme="light"] .btn-finalize{background:#4a6e00;color:#fff}
 [data-theme="light"] .section-card{--shadow-card:0 1px 2px rgba(0,0,0,.04),0 0 0 1px var(--border)}
 
@@ -107,6 +111,11 @@ a:hover{opacity:.8}
 .badge-discuss{background:rgba(167,139,250,.1);color:var(--discuss);border-color:rgba(167,139,250,.25)}.badge-discuss::before{background:var(--discuss)}
 .badge-pending{background:rgba(107,114,128,.1);color:var(--pending);border-color:rgba(107,114,128,.2)}.badge-pending::before{background:var(--pending)}
 .badge-blocked{background:rgba(239,68,68,.1);color:var(--blocked);border-color:rgba(239,68,68,.25)}.badge-blocked::before{background:var(--blocked)}
+/* Critic-item kind badges: success=green, warn=amber, danger=red, info=neutral/blue */
+.badge-success{background:rgba(34,197,94,.1);color:var(--approved);border-color:rgba(34,197,94,.25)}.badge-success::before{background:var(--approved)}
+.badge-warn{background:rgba(245,158,11,.1);color:var(--revision);border-color:rgba(245,158,11,.25)}.badge-warn::before{background:var(--revision)}
+.badge-danger{background:rgba(239,68,68,.1);color:var(--blocked);border-color:rgba(239,68,68,.25)}.badge-danger::before{background:var(--blocked)}
+.badge-info{background:rgba(99,179,237,.1);color:#63b3ed;border-color:rgba(99,179,237,.25)}.badge-info::before{background:#63b3ed}
 
 /* ── Dependency graph ── */
 .dep-graph{background:var(--bg-card);border-radius:var(--radius);padding:28px;margin-bottom:28px;box-shadow:var(--shadow-card);overflow-x:auto}
@@ -411,7 +420,7 @@ body.right-rail-collapsed .sidebar-reopen{display:flex}
       <a href="#slice-1" class="slice-nav-item" data-slice-nav="1">
         <span class="slice-nav-dot" data-approval="pending" data-dot-for="1"></span>
         <span>#1 Dynamic subagent model override and local config mapping</span>
-        <span class="nav-triage-badge nav-triage-issue" title="6 issue(s)">&#9888;6</span>
+        <span class="nav-triage-badge nav-triage-issue" title="5 issue(s)">&#9888;5</span>
         
       </a>
     </li>
@@ -420,7 +429,7 @@ body.right-rail-collapsed .sidebar-reopen{display:flex}
       <a href="#slice-2" class="slice-nav-item" data-slice-nav="2">
         <span class="slice-nav-dot" data-approval="pending" data-dot-for="2"></span>
         <span>#2 Go CLI implementation of plan execution and file-overlap analysis</span>
-        <span class="nav-triage-badge nav-triage-issue" title="3 issue(s)">&#9888;3</span>
+        <span class="nav-triage-badge nav-triage-issue" title="1 issue(s)">&#9888;1</span>
         
       </a>
     </li>
@@ -438,7 +447,7 @@ body.right-rail-collapsed .sidebar-reopen{display:flex}
       <a href="#slice-4" class="slice-nav-item" data-slice-nav="4">
         <span class="slice-nav-dot" data-approval="pending" data-dot-for="4"></span>
         <span>#4 Automated context compaction checks and output filters</span>
-        <span class="nav-triage-badge nav-triage-issue" title="5 issue(s)">&#9888;5</span>
+        <span class="nav-triage-badge nav-triage-issue" title="4 issue(s)">&#9888;4</span>
         
       </a>
     </li>
@@ -447,15 +456,15 @@ body.right-rail-collapsed .sidebar-reopen{display:flex}
       <a href="#slice-5" class="slice-nav-item" data-slice-nav="5">
         <span class="slice-nav-dot" data-approval="pending" data-dot-for="5"></span>
         <span>#5 Session Inactivity Auto-Timeout and GC</span>
-        <span class="nav-triage-badge nav-triage-issue" title="3 issue(s)">&#9888;3</span>
+        <span class="nav-triage-badge nav-triage-issue" title="2 issue(s)">&#9888;2</span>
         
       </a>
     </li>
     
   </ul>
   
-  <a href="#questions" class="nav-link" data-spy="questions" data-initial="Q">Decisions</a>
-  <a href="#critique" class="nav-link" data-spy="critique" data-initial="C">Critique</a>
+  
+  
   <a href="#feedback-summary" class="nav-link" data-spy="feedback-summary" data-initial="P">Progress</a>
   <a href="#chat-panel" class="nav-link" data-spy="chat-panel" data-initial="&#9825;">Chat</a>
 </nav>
@@ -557,7 +566,7 @@ Plan to optimize token usage, prevent context bloat, support local subagent mode
           <span class="badge badge-discuss badge-sm badge-complexity" title="Complexity: standard">Standard</span>
           
           <span class="badge badge-pending badge-sm slice-approval-badge" data-badge-for="slice-1">Pending</span>
-          <span class="badge badge-sm badge-issues" title="6 critic issue(s)">6 issues</span>
+          <span class="badge badge-sm badge-issues" title="5 critic issue(s)">5 issues</span>
           
         </span>
         <span class="slice-actions" onclick="event.stopPropagation()">
@@ -723,7 +732,7 @@ Plan to optimize token usage, prevent context bloat, support local subagent mode
           <span class="badge badge-discuss badge-sm badge-complexity" title="Complexity: standard">Standard</span>
           
           <span class="badge badge-pending badge-sm slice-approval-badge" data-badge-for="slice-2">Pending</span>
-          <span class="badge badge-sm badge-issues" title="3 critic issue(s)">3 issues</span>
+          <span class="badge badge-sm badge-issues" title="1 critic issue(s)">1 issue</span>
           
         </span>
         <span class="slice-actions" onclick="event.stopPropagation()">
@@ -1019,7 +1028,7 @@ Plan to optimize token usage, prevent context bloat, support local subagent mode
           <span class="badge badge-discuss badge-sm badge-complexity" title="Complexity: standard">Standard</span>
           
           <span class="badge badge-pending badge-sm slice-approval-badge" data-badge-for="slice-4">Pending</span>
-          <span class="badge badge-sm badge-issues" title="5 critic issue(s)">5 issues</span>
+          <span class="badge badge-sm badge-issues" title="4 critic issue(s)">4 issues</span>
           
         </span>
         <span class="slice-actions" onclick="event.stopPropagation()">
@@ -1179,7 +1188,7 @@ Plan to optimize token usage, prevent context bloat, support local subagent mode
           <span class="badge badge-discuss badge-sm badge-complexity" title="Complexity: standard">Standard</span>
           
           <span class="badge badge-pending badge-sm slice-approval-badge" data-badge-for="slice-5">Pending</span>
-          <span class="badge badge-sm badge-issues" title="3 critic issue(s)">3 issues</span>
+          <span class="badge badge-sm badge-issues" title="2 critic issue(s)">2 issues</span>
           
         </span>
         <span class="slice-actions" onclick="event.stopPropagation()">

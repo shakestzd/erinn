@@ -172,8 +172,21 @@ type SliceCard struct {
 	DecisionsNotes  string                    // free-text Markdown captured by elicit-decisions
 }
 
-// IssueCount returns the number of critic revisions (issues) for this slice.
-func (sc *SliceCard) IssueCount() int { return len(sc.CriticRevisions) }
+// IssueCount returns the number of actionable critic revisions for this slice.
+// Only DANGER and WARN severities (case-insensitive) count as issues; SUCCESS
+// and INFO are informational and must not inflate the badge counter.
+func (sc *SliceCard) IssueCount() int {
+	n := 0
+	for _, r := range sc.CriticRevisions {
+		switch strings.ToUpper(r.Severity) {
+		case "HIGH", "DANGER", "MED", "MEDIUM", "WARN", "WARNING", "LOW":
+			// LOW is debatable but traditionally counted so we keep it; only
+			// SUCCESS and INFO are excluded.
+			n++
+		}
+	}
+	return n
+}
 
 // QuestionCount returns the number of open questions for this slice.
 func (sc *SliceCard) QuestionCount() int { return len(sc.Questions) }

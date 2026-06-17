@@ -411,7 +411,7 @@ body.right-rail-collapsed .sidebar-reopen{display:flex}
       <a href="#slice-1" class="slice-nav-item" data-slice-nav="1">
         <span class="slice-nav-dot" data-approval="pending" data-dot-for="1"></span>
         <span>#1 Dynamic subagent model override and local config mapping</span>
-        
+        <span class="nav-triage-badge nav-triage-issue" title="6 issue(s)">&#9888;6</span>
         
       </a>
     </li>
@@ -420,7 +420,7 @@ body.right-rail-collapsed .sidebar-reopen{display:flex}
       <a href="#slice-2" class="slice-nav-item" data-slice-nav="2">
         <span class="slice-nav-dot" data-approval="pending" data-dot-for="2"></span>
         <span>#2 Go CLI implementation of plan execution and file-overlap analysis</span>
-        
+        <span class="nav-triage-badge nav-triage-issue" title="3 issue(s)">&#9888;3</span>
         
       </a>
     </li>
@@ -429,7 +429,7 @@ body.right-rail-collapsed .sidebar-reopen{display:flex}
       <a href="#slice-3" class="slice-nav-item" data-slice-nav="3">
         <span class="slice-nav-dot" data-approval="pending" data-dot-for="3"></span>
         <span>#3 Go CLI background execution manager and auto-merge</span>
-        
+        <span class="nav-triage-badge nav-triage-issue" title="3 issue(s)">&#9888;3</span>
         
       </a>
     </li>
@@ -438,7 +438,7 @@ body.right-rail-collapsed .sidebar-reopen{display:flex}
       <a href="#slice-4" class="slice-nav-item" data-slice-nav="4">
         <span class="slice-nav-dot" data-approval="pending" data-dot-for="4"></span>
         <span>#4 Automated context compaction checks and output filters</span>
-        
+        <span class="nav-triage-badge nav-triage-issue" title="5 issue(s)">&#9888;5</span>
         
       </a>
     </li>
@@ -447,7 +447,7 @@ body.right-rail-collapsed .sidebar-reopen{display:flex}
       <a href="#slice-5" class="slice-nav-item" data-slice-nav="5">
         <span class="slice-nav-dot" data-approval="pending" data-dot-for="5"></span>
         <span>#5 Session Inactivity Auto-Timeout and GC</span>
-        
+        <span class="nav-triage-badge nav-triage-issue" title="3 issue(s)">&#9888;3</span>
         
       </a>
     </li>
@@ -472,7 +472,6 @@ body.right-rail-collapsed .sidebar-reopen{display:flex}
 - https://code.claude.com/docs/en/statusline (checked 2026-06-17): statusLine JSON exposes context_window.used_percentage and exceeds_200k_tokens.
 - https://code.claude.com/docs/en/hooks (checked 2026-06-17): hook payloads carry NO token/context counts.
 - gh anthropics/claude-code #44385 (model frontmatter ignored at runtime), #9573 (CLAUDE_CODE_SUBAGENT_MODEL 404 with plugin agents).
-
 Plan to optimize token usage, prevent context bloat, support local subagent model configurations, and move execute dispatch logic to the Go CLI. Revised after dual-critic pass to use feasible, doc-verified mechanisms.
 </p>
   <div class="meta">
@@ -558,7 +557,7 @@ Plan to optimize token usage, prevent context bloat, support local subagent mode
           <span class="badge badge-discuss badge-sm badge-complexity" title="Complexity: standard">Standard</span>
           
           <span class="badge badge-pending badge-sm slice-approval-badge" data-badge-for="slice-1">Pending</span>
-          
+          <span class="badge badge-sm badge-issues" title="6 critic issue(s)">6 issues</span>
           
         </span>
         <span class="slice-actions" onclick="event.stopPropagation()">
@@ -633,7 +632,7 @@ Plan to optimize token usage, prevent context bloat, support local subagent mode
 <strong>Payload:</strong> <code>model:</code> (and <code>maxTurns:</code>) written into each generated agent frontmatter / TOML.
 <strong>Mechanism (verified):</strong> sub-agents docs accept sonnet/opus/haiku/fable/full-ID/inherit; resolution order puts frontmatter at priority 3 (model-config docs).
 <strong>Rejected:</strong> CLAUDE_CODE_SUBAGENT_MODEL env var (blunt global override; collapses role routing; gh #9573 404 hazard with plugin agents). Hardcoding haiku globally (some roles need opus reasoning).
-<strong>Watch item:</strong> gh #44385 — <code>model:</code> frontmatter may be ignored at runtime (subagents inherit parent). If it regresses, the only workaround is the orchestrator passing <code>model</code> in the Agent tool call, which generated files cannot control; track upstream.</p>
+<strong>Watch item:</strong> gh #44385 - <code>model:</code> frontmatter may be ignored at runtime (subagents inherit parent). If it regresses, the only workaround is the orchestrator passing <code>model</code> in the Agent tool call, which generated files cannot control; track upstream.</p>
 </div>
         <label for="slice-1-decisions-reveal" class="reveal-label">Show full decisions</label>
         
@@ -654,6 +653,49 @@ Plan to optimize token usage, prevent context bloat, support local subagent mode
     </div>
     
 
+    
+    <div class="slice-field slice-critic-revisions">
+      <div class="slice-field-label">Critic Revisions</div>
+      <div class="slice-field-value">
+        
+        <div class="critic-revision">
+          <span class="badge badge-blocked critic-revision-badge">DANGER</span>
+          <span class="critic-revision-source">claude-feasibility</span>
+          <span class="critic-revision-summary">A7 effectively falsified for opus: gh #44385 -&gt; dup of #18346 (unfixed, closed inactive) shows the opus model: frontmatter alias is silently ignored at runtime (subagent runs as Sonnet). architect-coder is model: opus today and is the highest-value routing target, so slice 1 opus path has no runtime effect until upstream fixes it. sonnet/haiku aliases DO work. Workaround is the CLAUDE_CODE_SUBAGENT_MODEL env var the plan rejects.</span>
+        </div>
+        
+        <div class="critic-revision">
+          <span class="badge badge-pending critic-revision-badge">WARN</span>
+          <span class="critic-revision-source">claude-feasibility</span>
+          <span class="critic-revision-summary">maxTurns reductions are aggressive with no adequacy analysis: architect-coder 120-&gt;50 (-58%), feature-coder 100-&gt;40 (-60%). Current values architect-coder.md:15=120, feature-coder.md:15=100, researcher.md:16=50. Risk: silently abandoned work items. Justify the targets or stage the cut.</span>
+        </div>
+        
+        <div class="critic-revision">
+          <span class="badge badge-pending critic-revision-badge">WARN</span>
+          <span class="critic-revision-source">claude-feasibility</span>
+          <span class="critic-revision-summary">gh #9573 404 hazard is specifically with DATED suffix model IDs (e.g. claude-opus-4-7-20260416), not alias strings; undated IDs/aliases work. Refine decisions_notes so the generator never emits dated IDs.</span>
+        </div>
+        
+        <div class="critic-revision">
+          <span class="badge badge-pending critic-revision-badge">SUCCESS</span>
+          <span class="critic-revision-source">claude-feasibility</span>
+          <span class="critic-revision-summary">Verified vs current docs: fable IS an accepted model: alias; maxTurns camelCase correct; resolution order priority 3 confirmed. All three agent files already carry model: (opus/sonnet/sonnet) so this updates existing values - generator must not clobber values it should not own.</span>
+        </div>
+        
+        <div class="critic-revision">
+          <span class="badge badge-pending critic-revision-badge">WARN</span>
+          <span class="critic-revision-source">claude-design</span>
+          <span class="critic-revision-summary">No config schema, validation, migration, or discovery path for the new .wipnote/config.json agentModels key (name not finalized). files: lists no config-reader; typos silently produce empty model in generated frontmatter. Pin the key name and add a validation/discovery done_when before promotion.</span>
+        </div>
+        
+        <div class="critic-revision">
+          <span class="badge badge-pending critic-revision-badge">WARN</span>
+          <span class="critic-revision-source">claude-design</span>
+          <span class="critic-revision-summary">done_when &#39;agent .md files carry the model alias from the config map&#39; is not observable while model: is already hardcoded - the unit test must feed an explicit config fixture with a NON-default model value and assert output changed, else it proves nothing about config-driven generation.</span>
+        </div>
+        
+      </div>
+    </div>
     
 
     
@@ -681,7 +723,7 @@ Plan to optimize token usage, prevent context bloat, support local subagent mode
           <span class="badge badge-discuss badge-sm badge-complexity" title="Complexity: standard">Standard</span>
           
           <span class="badge badge-pending badge-sm slice-approval-badge" data-badge-for="slice-2">Pending</span>
-          
+          <span class="badge badge-sm badge-issues" title="3 critic issue(s)">3 issues</span>
           
         </span>
         <span class="slice-actions" onclick="event.stopPropagation()">
@@ -713,7 +755,7 @@ Plan to optimize token usage, prevent context bloat, support local subagent mode
         <div class="slice-field-value">
           
           <input type="checkbox" id="slice-2-what-reveal" class="reveal-toggle">
-          <div class="markdown-block reveal-content serif-prose"><p>Implement a new subcommand <code>wipnote execute run --track &lt;id&gt;</code> in a NEW file <code>cmd/wipnote/execute.go</code>, reusing logic from the existing <code>cmd/wipnote/execute_preview.go</code> (do not duplicate). Derive file overlap from each unblocked feature&#39;s DECLARED file set (the plan slice <code>files:</code> list / feature spec) — NOT git commit history, since not-yet-implemented features have no history. Two features conflict when their declared file sets intersect (path-level; a directory path like <code>internal/childproc/</code> is treated as a prefix). Build a conflict graph and partition unblocked features into waves of mutually non-overlapping features (greedy independent-set). Print a deterministic JSON summary.</p>
+          <div class="markdown-block reveal-content serif-prose"><p>Implement a new subcommand <code>wipnote execute run --track &lt;id&gt;</code> in a NEW file <code>cmd/wipnote/execute.go</code>, reusing logic from the existing <code>cmd/wipnote/execute_preview.go</code> (do not duplicate). Derive file overlap from each unblocked feature&#39;s DECLARED file set (the plan slice <code>files:</code> list / feature spec) - NOT git commit history, since not-yet-implemented features have no history. Two features conflict when their declared file sets intersect (path-level; a directory path like <code>internal/childproc/</code> is treated as a prefix). Build a conflict graph and partition unblocked features into waves of mutually non-overlapping features (greedy independent-set). Print a deterministic JSON summary.</p>
 </div>
           <label for="slice-2-what-reveal" class="reveal-label">Show full description</label>
           
@@ -754,7 +796,7 @@ Plan to optimize token usage, prevent context bloat, support local subagent mode
         <div class="markdown-block reveal-content serif-prose"><p><strong>Trigger:</strong> explicit CLI call <code>wipnote execute run</code> by the user or lead agent.
 <strong>State:</strong> computed in memory from declared file sets (plan slices / feature specs) in the SQLite index.
 <strong>Payload:</strong> list of independent task waves with target branch names.
-<strong>Overlap definition (resolved):</strong> declared-file-set intersection, directories as prefixes, greedy independent-set partition — deterministic and unit-testable.
+<strong>Overlap definition (resolved):</strong> declared-file-set intersection, directories as prefixes, greedy independent-set partition - deterministic and unit-testable.
 <strong>Rejected:</strong> overlap via git commit history / feature lineage (unimplemented features have no commits). Shell-script wrapper (fragile across OSes).
 <strong>Note:</strong> execute.go is a NEW file; reuse execute_preview.go rather than re-implement.</p>
 </div>
@@ -777,6 +819,31 @@ Plan to optimize token usage, prevent context bloat, support local subagent mode
     </div>
     
 
+    
+    <div class="slice-field slice-critic-revisions">
+      <div class="slice-field-label">Critic Revisions</div>
+      <div class="slice-field-value">
+        
+        <div class="critic-revision">
+          <span class="badge badge-pending critic-revision-badge">SUCCESS</span>
+          <span class="critic-revision-source">claude-feasibility</span>
+          <span class="critic-revision-summary">Confirmed: cmd/wipnote/execute.go does NOT exist (correctly NEW); cmd/wipnote/execute_preview.go exists and offers real reuse (executePreview/buildExecutePreview, git-state helpers, track/feature node aggregation). Correct reuse target.</span>
+        </div>
+        
+        <div class="critic-revision">
+          <span class="badge badge-pending critic-revision-badge">WARN</span>
+          <span class="critic-revision-source">claude-feasibility</span>
+          <span class="critic-revision-summary">done_when cites cmd/wipnote/execute_test.go but that file is NOT in the slice files: list - assertion unverifiable from the declared file set. Add the test file to files:.</span>
+        </div>
+        
+        <div class="critic-revision">
+          <span class="badge badge-pending critic-revision-badge">INFO</span>
+          <span class="critic-revision-source">claude-design</span>
+          <span class="critic-revision-summary">Greedy independent-set partition is order-dependent and Go map iteration is random; done_when says &#39;deterministically&#39; but no tie-break is pinned. Specify a stable sort (e.g. alphabetical by slice/feature ID) before partitioning or the unit test will flap.</span>
+        </div>
+        
+      </div>
+    </div>
     
 
     
@@ -804,7 +871,7 @@ Plan to optimize token usage, prevent context bloat, support local subagent mode
           <span class="badge badge-discuss badge-sm badge-complexity" title="Complexity: standard">Standard</span>
           
           <span class="badge badge-pending badge-sm slice-approval-badge" data-badge-for="slice-3">Pending</span>
-          
+          <span class="badge badge-sm badge-issues" title="3 critic issue(s)">3 issues</span>
           
         </span>
         <span class="slice-actions" onclick="event.stopPropagation()">
@@ -836,7 +903,7 @@ Plan to optimize token usage, prevent context bloat, support local subagent mode
         <div class="slice-field-value">
           
           <input type="checkbox" id="slice-3-what-reveal" class="reveal-toggle">
-          <div class="markdown-block reveal-content serif-prose"><p>Extend <code>wipnote execute run</code> into a background runner that spawns worktree agents in parallel by EXTENDING the existing <code>internal/childproc</code> Supervisor (which already provides spawn, idle reaper, crash/orphan recovery) — do not build a new supervisor. Completion detection is EVENT-DRIVEN via child process exit codes plus a per-task result file (no polling/busy-wait). Merge a wave&#39;s successful branches to main only after that wave&#39;s quality gates pass; serialize all merges behind a single-writer merge lock. On gate failure or merge conflict, leave the branch unmerged and report it (no force operations, no rewrite of main). Independent waves are failure-isolated: a failed wave does not block others. The lead agent fires the command once and receives a reactive wakeup on completion.</p>
+          <div class="markdown-block reveal-content serif-prose"><p>Extend <code>wipnote execute run</code> into a background runner that spawns worktree agents in parallel by EXTENDING the existing <code>internal/childproc</code> Supervisor (which already provides spawn, idle reaper, crash/orphan recovery) - do not build a new supervisor. Completion detection is EVENT-DRIVEN via child process exit codes plus a per-task result file (no polling/busy-wait). Merge a wave&#39;s successful branches to main only after that wave&#39;s quality gates pass; serialize all merges behind a single-writer merge lock. On gate failure or merge conflict, leave the branch unmerged and report it (no force operations, no rewrite of main). Independent waves are failure-isolated: a failed wave does not block others. The lead agent fires the command once and receives a reactive wakeup on completion.</p>
 </div>
           <label for="slice-3-what-reveal" class="reveal-label">Show full description</label>
           
@@ -878,7 +945,7 @@ Plan to optimize token usage, prevent context bloat, support local subagent mode
 <strong>State:</strong> execution state in <code>.wipnote/execution-state.json</code>; per-task result files signal completion.
 <strong>Completion detection (resolved):</strong> event-driven via child exit codes + result file; NOT polling.
 <strong>Safety model (resolved):</strong> merge only on green gates; single-writer merge lock; leave-unmerged-on-failure recovery (no force, no main rewrite); per-wave failure isolation.
-<strong>Reuse (resolved):</strong> extend internal/childproc Supervisor (RunIdleReaper/spawn/crash recovery); ownership of childproc shared with slice 5 — slice 3 adds a worktree-task spawn path, slice 5 owns the serve-idle reaper path.
+<strong>Reuse (resolved):</strong> extend internal/childproc Supervisor (RunIdleReaper/spawn/crash recovery); ownership of childproc shared with slice 5 - slice 3 adds a worktree-task spawn path, slice 5 owns the serve-idle reaper path.
 <strong>Rejected:</strong> running background tasks directly in the main shell (blocks terminal, accumulates logs); polling/busy-wait completion detection.</p>
 </div>
         <label for="slice-3-decisions-reveal" class="reveal-label">Show full decisions</label>
@@ -900,6 +967,31 @@ Plan to optimize token usage, prevent context bloat, support local subagent mode
     </div>
     
 
+    
+    <div class="slice-field slice-critic-revisions">
+      <div class="slice-field-label">Critic Revisions</div>
+      <div class="slice-field-value">
+        
+        <div class="critic-revision">
+          <span class="badge badge-blocked critic-revision-badge">DANGER</span>
+          <span class="critic-revision-source">claude-feasibility</span>
+          <span class="critic-revision-summary">Reuse claim is wrong: internal/childproc Supervisor.spawnLocked (childproc.go:237-240) HARDCODES `wipnote _serve-child --port 0` and a stdout-handshake &#43; httputil.ReverseProxy lifecycle. It cannot be extended to spawn worktree agents (which exec claude/wipnote yolo, not _serve-child) without a new struct or significant refactor. A6 falsified for this use case; prior childproc-reuse:success was premature. Scope the refactor explicitly or pick a different mechanism.</span>
+        </div>
+        
+        <div class="critic-revision">
+          <span class="badge badge-pending critic-revision-badge">WARN</span>
+          <span class="critic-revision-source">claude-feasibility</span>
+          <span class="critic-revision-summary">Integration test file is not in the slice files: list (only cmd/wipnote/execute.go and internal/childproc/). Add the test target.</span>
+        </div>
+        
+        <div class="critic-revision">
+          <span class="badge badge-pending critic-revision-badge">WARN</span>
+          <span class="critic-revision-source">claude-design</span>
+          <span class="critic-revision-summary">Slice 3 (execute run) and slice 5 (serve idle-reaper) both extend internal/childproc and can run concurrently in dev. The reaper could SIGTERM a worktree child slice 3 is still awaiting -&gt; spurious exit marks a wave failed. No locking boundary described and slice 5 deps=[] ignores the interaction. Define the boundary.</span>
+        </div>
+        
+      </div>
+    </div>
     
 
     
@@ -927,7 +1019,7 @@ Plan to optimize token usage, prevent context bloat, support local subagent mode
           <span class="badge badge-discuss badge-sm badge-complexity" title="Complexity: standard">Standard</span>
           
           <span class="badge badge-pending badge-sm slice-approval-badge" data-badge-for="slice-4">Pending</span>
-          
+          <span class="badge badge-sm badge-issues" title="5 critic issue(s)">5 issues</span>
           
         </span>
         <span class="slice-actions" onclick="event.stopPropagation()">
@@ -959,7 +1051,7 @@ Plan to optimize token usage, prevent context bloat, support local subagent mode
         <div class="slice-field-value">
           
           <input type="checkbox" id="slice-4-what-reveal" class="reveal-toggle">
-          <div class="markdown-block reveal-content serif-prose"><p>Detect large context via a wipnote-provided statusLine script (new <code>cmd/wipnote/statusline.go</code>, wired through settings.json) that reads <code>context_window.used_percentage</code> and <code>exceeds_200k_tokens</code> from the statusLine JSON input. When <code>used_percentage</code> crosses a configurable threshold (e.g. 70%), emit a status-bar hint to run <code>/compact</code> or <code>/clear</code>. The previous PostToolUse/PostCompact token-count trigger is DROPPED — hook payloads carry no token/context counts (hooks docs). Separately, standardize verbose CLI outputs (<code>wipnote trace</code>, <code>wipnote plan show</code>) to compressed summaries or full output written to a local file with a link, in <code>cmd/wipnote/sh.go</code>.</p>
+          <div class="markdown-block reveal-content serif-prose"><p>Detect large context via a wipnote-provided statusLine script (new <code>cmd/wipnote/statusline.go</code>, wired through settings.json) that reads <code>context_window.used_percentage</code> and <code>exceeds_200k_tokens</code> from the statusLine JSON input. When <code>used_percentage</code> crosses a configurable threshold (e.g. 70%), emit a status-bar hint to run <code>/compact</code> or <code>/clear</code>. The previous PostToolUse/PostCompact token-count trigger is DROPPED - hook payloads carry no token/context counts (hooks docs). Separately, standardize verbose CLI outputs (<code>wipnote trace</code>, <code>wipnote plan show</code>) to compressed summaries or full output written to a local file with a link, in <code>cmd/wipnote/sh.go</code>.</p>
 </div>
           <label for="slice-4-what-reveal" class="reveal-label">Show full description</label>
           
@@ -1000,7 +1092,7 @@ Plan to optimize token usage, prevent context bloat, support local subagent mode
         <div class="markdown-block reveal-content serif-prose"><p><strong>Trigger:</strong> statusLine command invoked by Claude Code after each assistant turn (receives JSON on stdin).
 <strong>State:</strong> context usage read from statusLine JSON (context_window.used_percentage, exceeds_200k_tokens); threshold from <code>.wipnote/config.json</code>.
 <strong>Payload:</strong> warning line rendered in the status bar.
-<strong>Mechanism (resolved):</strong> statusLine JSON (statusline docs) — hooks carry no token counts (hooks docs), so PostCompact thresholding was infeasible and is dropped.
+<strong>Mechanism (resolved):</strong> statusLine JSON (statusline docs) - hooks carry no token counts (hooks docs), so PostCompact thresholding was infeasible and is dropped.
 <strong>Rejected:</strong> PostToolUse/PostCompact token-count trigger (no token field in payload); transcript-byte heuristic (imprecise); auto-running /compact without consent (could lose uncommitted context).
 <strong>Path correction:</strong> earlier draft cited a non-existent <code>internal/hooks/</code>; this design uses cmd/wipnote/statusline.go instead, so the path issue is moot.</p>
 </div>
@@ -1023,6 +1115,43 @@ Plan to optimize token usage, prevent context bloat, support local subagent mode
     </div>
     
 
+    
+    <div class="slice-field slice-critic-revisions">
+      <div class="slice-field-label">Critic Revisions</div>
+      <div class="slice-field-value">
+        
+        <div class="critic-revision">
+          <span class="badge badge-blocked critic-revision-badge">DANGER</span>
+          <span class="critic-revision-source">claude-design</span>
+          <span class="critic-revision-summary">cmd/wipnote/statusline.go ALREADY EXISTS (331 lines, work-item display via cache-mode/session-mode reading session_id); it does NOT read context_window. Slice describes it as a new file. The slice must specify how to add a context-window code path WITHOUT breaking the existing work-item statusline path: where the JSON is read, how output composes, and the threshold config key.</span>
+        </div>
+        
+        <div class="critic-revision">
+          <span class="badge badge-blocked critic-revision-badge">DANGER</span>
+          <span class="critic-revision-source">claude-feasibility</span>
+          <span class="critic-revision-summary">Corroborated: cmd/wipnote/statusline.go exists with a different purpose (runStatuslineCache drains&#43;ignores stdin; runStatusline does work-item display). The new file framing is wrong; this is an integration into an existing command.</span>
+        </div>
+        
+        <div class="critic-revision">
+          <span class="badge badge-pending critic-revision-badge">WARN</span>
+          <span class="critic-revision-source">claude-feasibility</span>
+          <span class="critic-revision-summary">exceeds_200k_tokens is a TOP-LEVEL statusLine JSON field, NOT nested under context_window (statusline docs). Code must read .exceeds_200k_tokens; .context_window.exceeds_200k_tokens returns nil. Also used_percentage may be null before the first API call - handle nil.</span>
+        </div>
+        
+        <div class="critic-revision">
+          <span class="badge badge-pending critic-revision-badge">SUCCESS</span>
+          <span class="critic-revision-source">claude-feasibility</span>
+          <span class="critic-revision-summary">Verified current docs: context_window.used_percentage and exceeds_200k_tokens exist; cmd/wipnote/sh.go exists and backs wipnote sh.</span>
+        </div>
+        
+        <div class="critic-revision">
+          <span class="badge badge-pending critic-revision-badge">WARN</span>
+          <span class="critic-revision-source">claude-design</span>
+          <span class="critic-revision-summary">Verbose-output-filter done_when (compressed or written to a local file and linked) is vague/untestable: doesn&#39;t name which commands, the line threshold, the output path, or what linked means. Specify e.g. output &gt;N lines is written to .wipnote/out/&lt;ts&gt;.txt and the command prints [output saved: &lt;path&gt;].</span>
+        </div>
+        
+      </div>
+    </div>
     
 
     
@@ -1050,7 +1179,7 @@ Plan to optimize token usage, prevent context bloat, support local subagent mode
           <span class="badge badge-discuss badge-sm badge-complexity" title="Complexity: standard">Standard</span>
           
           <span class="badge badge-pending badge-sm slice-approval-badge" data-badge-for="slice-5">Pending</span>
-          
+          <span class="badge badge-sm badge-issues" title="3 critic issue(s)">3 issues</span>
           
         </span>
         <span class="slice-actions" onclick="event.stopPropagation()">
@@ -1082,7 +1211,7 @@ Plan to optimize token usage, prevent context bloat, support local subagent mode
         <div class="slice-field-value">
           
           <input type="checkbox" id="slice-5-what-reveal" class="reveal-toggle">
-          <div class="markdown-block reveal-content serif-prose"><p>Implement an idle-timeout routine in <code>wipnote serve</code>&#39;s supervisor, reusing the existing <code>internal/childproc</code> RunIdleReaper. If a session is idle beyond a CONFIGURABLE threshold (config key in <code>.wipnote/config.json</code>, consistent with slice 1&#39;s config pattern; default 30 min), mark it suspended/archived. Garbage-collect ONLY worktrees that are clean AND empty AND not Conductor-managed AND have no uncommitted/unpushed work. Detect Conductor-managed worktrees via their per-worktree <code>.wipnote</code> gitignore marker / Conductor metadata and SKIP them — never prune in-flight or Conductor-archived worktrees.</p>
+          <div class="markdown-block reveal-content serif-prose"><p>Implement an idle-timeout routine in <code>wipnote serve</code>&#39;s supervisor, reusing the existing <code>internal/childproc</code> RunIdleReaper. If a session is idle beyond a CONFIGURABLE threshold (config key in <code>.wipnote/config.json</code>, consistent with slice 1&#39;s config pattern; default 30 min), mark it suspended/archived. Garbage-collect ONLY worktrees that are clean AND empty AND not Conductor-managed AND have no uncommitted/unpushed work. Detect Conductor-managed worktrees via their per-worktree <code>.wipnote</code> gitignore marker / Conductor metadata and SKIP them - never prune in-flight or Conductor-archived worktrees.</p>
 </div>
           <label for="slice-5-what-reveal" class="reveal-label">Show full description</label>
           
@@ -1147,6 +1276,31 @@ Plan to optimize token usage, prevent context bloat, support local subagent mode
     
 
     
+    <div class="slice-field slice-critic-revisions">
+      <div class="slice-field-label">Critic Revisions</div>
+      <div class="slice-field-value">
+        
+        <div class="critic-revision">
+          <span class="badge badge-blocked critic-revision-badge">DANGER</span>
+          <span class="critic-revision-source">claude-feasibility</span>
+          <span class="critic-revision-summary">internal/childproc RunIdleReaper reaps children by HTTP-request idle (no proxy request within IdleTimeout, childproc.go:33), NOT by user-session activity idle. Mapping session idle (no user turns) to child HTTP idle is a semantic mismatch - keepalive/health requests diverge them. Slice needs session-timestamp-keyed idle tracking (SQLite last-seen, already in the design notes), not RunIdleReaper reuse. A6 falsified for this use case.</span>
+        </div>
+        
+        <div class="critic-revision">
+          <span class="badge badge-pending critic-revision-badge">SUCCESS</span>
+          <span class="critic-revision-source">claude-feasibility</span>
+          <span class="critic-revision-summary">Confirmed cmd/wipnote/serve_parent.go exists and already imports internal/childproc.</span>
+        </div>
+        
+        <div class="critic-revision">
+          <span class="badge badge-pending critic-revision-badge">WARN</span>
+          <span class="critic-revision-source">claude-design</span>
+          <span class="critic-revision-summary">Session suspended/archived state is undefined in the data model - no sessions table / session_state column / enum in the codebase. Define what suspended writes to SQLite/HTML, its childproc lifecycle effect, and whether it can transition back to active, before a coder can implement it.</span>
+        </div>
+        
+      </div>
+    </div>
+    
 
     
 
@@ -1166,193 +1320,7 @@ Plan to optimize token usage, prevent context bloat, support local subagent mode
 </details>
 
 <!-- Design Decisions (hidden for v2 plans — slice cards carry their own questions) -->
-<details id="questions" class="section-card" data-phase="questions" data-status="pending">
-  <summary><span>Design Decisions</span><span class="badge badge-pending" data-badge-for="questions">Pending</span></summary>
-  <div class="section-body">
-    <table class="q-table">
-      <thead><tr><th>Question</th><th>Selected</th><th>Status</th></tr></thead>
-      <tbody id="questionsRecap">
-        <!--PLAN_QUESTIONS_RECAP-->
-      </tbody>
-    </table>
-  </div>
-</details>
 
-
-<details id="critique" class="section-card" data-phase="critique" data-status="pending">
-  <summary><span>Critique</span><span class="badge badge-pending" data-badge-for="critique">Review</span></summary>
-  <div class="section-body">
-
-    
-    <div class="sub-section">
-      <h4>Assumption Verification</h4>
-      
-      <div style="display:flex;align-items:flex-start;gap:10px;margin-bottom:8px;padding:8px;background:var(--bg-input);border-radius:var(--radius)">
-        <span class="badge badge-approved">verified</span>
-        <div>
-          <p style="margin:0;font-size:.9rem">Per-subagent model selection is controllable at generation time by writing model: into generated frontmatter (resolution-order priority 3); env var is a blunt global override unsuitable for role routing.</p>
-          <p style="margin:4px 0 0;font-size:.8rem;color:var(--text-muted)">https://code.claude.com/docs/en/sub-agents (fable alias &#43; maxTurns confirmed); https://code.claude.com/docs/en/model-config (order: 1 env &gt; 2 param &gt; 3 frontmatter &gt; 4 parent).</p>
-        </div>
-      </div>
-      
-      <div style="display:flex;align-items:flex-start;gap:10px;margin-bottom:8px;padding:8px;background:var(--bg-input);border-radius:var(--radius)">
-        <span class="badge badge-pending">plausible</span>
-        <div>
-          <p style="margin:0;font-size:.9rem">maxTurns is an honored subagent frontmatter field; but slice 1 proposed targets (architect 120-&gt;50, feature 100-&gt;40) are aggressive and unjustified.</p>
-          <p style="margin:4px 0 0;font-size:.8rem;color:var(--text-muted)">sub-agents docs (camelCase maxTurns); current values architect-coder.md:15=120, feature-coder.md:15=100, researcher.md:16=50. Reduction adequacy not analyzed.</p>
-        </div>
-      </div>
-      
-      <div style="display:flex;align-items:flex-start;gap:10px;margin-bottom:8px;padding:8px;background:var(--bg-input);border-radius:var(--radius)">
-        <span class="badge badge-blocked">falsified</span>
-        <div>
-          <p style="margin:0;font-size:.9rem">Hook payloads carry a token/context-size count to threshold on.</p>
-          <p style="margin:4px 0 0;font-size:.8rem;color:var(--text-muted)">https://code.claude.com/docs/en/hooks - no token field. Slice 4 correctly uses statusLine instead.</p>
-        </div>
-      </div>
-      
-      <div style="display:flex;align-items:flex-start;gap:10px;margin-bottom:8px;padding:8px;background:var(--bg-input);border-radius:var(--radius)">
-        <span class="badge badge-approved">verified</span>
-        <div>
-          <p style="margin:0;font-size:.9rem">The PostCompact hook event exists (now unused by slice 4).</p>
-          <p style="margin:4px 0 0;font-size:.8rem;color:var(--text-muted)">https://code.claude.com/docs/en/hooks.</p>
-        </div>
-      </div>
-      
-      <div style="display:flex;align-items:flex-start;gap:10px;margin-bottom:8px;padding:8px;background:var(--bg-input);border-radius:var(--radius)">
-        <span class="badge badge-blocked">falsified</span>
-        <div>
-          <p style="margin:0;font-size:.9rem">Hook handlers live in internal/hooks/ (original slice-4 path).</p>
-          <p style="margin:4px 0 0;font-size:.8rem;color:var(--text-muted)">Handlers are in core/hooks/. Moot - slice 4 uses cmd/wipnote/statusline.go.</p>
-        </div>
-      </div>
-      
-      <div style="display:flex;align-items:flex-start;gap:10px;margin-bottom:8px;padding:8px;background:var(--bg-input);border-radius:var(--radius)">
-        <span class="badge badge-blocked">falsified</span>
-        <div>
-          <p style="margin:0;font-size:.9rem">internal/childproc Supervisor &#43; RunIdleReaper can be reused as-is for slice 3 (worktree-agent spawn) and slice 5 (session-idle GC).</p>
-          <p style="margin:4px 0 0;font-size:.8rem;color:var(--text-muted)">childproc.go:237-240 spawnLocked hardcodes wipnote _serve-child &#43; HTTP handshake/reverse-proxy; childproc.go:33 RunIdleReaper reaps on HTTP-request idle, not user-session idle. Both slices need structural changes, not extension.</p>
-        </div>
-      </div>
-      
-      <div style="display:flex;align-items:flex-start;gap:10px;margin-bottom:8px;padding:8px;background:var(--bg-input);border-radius:var(--radius)">
-        <span class="badge badge-blocked">falsified</span>
-        <div>
-          <p style="margin:0;font-size:.9rem">The subagent model: frontmatter (specifically the opus alias) is honored at runtime.</p>
-          <p style="margin:4px 0 0;font-size:.8rem;color:var(--text-muted)">gh anthropics/claude-code #44385 -&gt; dup of #18346 (unfixed, closed inactive): opus alias silently ignored, subagent runs as Sonnet; sonnet/haiku work. architect-coder=opus is the primary routing target, so this is a current regression.</p>
-        </div>
-      </div>
-      
-      <div style="display:flex;align-items:flex-start;gap:10px;margin-bottom:8px;padding:8px;background:var(--bg-input);border-radius:var(--radius)">
-        <span class="badge badge-approved">verified</span>
-        <div>
-          <p style="margin:0;font-size:.9rem">statusLine JSON exposes live context usage to plugin scripts.</p>
-          <p style="margin:4px 0 0;font-size:.8rem;color:var(--text-muted)">https://code.claude.com/docs/en/statusline - context_window.used_percentage present; exceeds_200k_tokens is a TOP-LEVEL field (not nested); used_percentage may be null before first API call.</p>
-        </div>
-      </div>
-      
-      <div style="display:flex;align-items:flex-start;gap:10px;margin-bottom:8px;padding:8px;background:var(--bg-input);border-radius:var(--radius)">
-        <span class="badge badge-approved">verified</span>
-        <div>
-          <p style="margin:0;font-size:.9rem">cmd/wipnote/statusline.go already exists as a work-item display command (not a new file); slice 4 must integrate into it without breaking existing paths.</p>
-          <p style="margin:4px 0 0;font-size:.8rem;color:var(--text-muted)">cmd/wipnote/statusline.go (331 lines): runStatuslineCache drains&#43;ignores stdin, runStatusline does work-item display; no context_window reference.</p>
-        </div>
-      </div>
-      
-    </div>
-    
-
-    
-    <div class="sub-section" style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
-      
-      <div>
-        <h4>claude-design (role: design critic; runner: Claude Code wipnote:researcher subagent; RE-REVIEW pass of v7)</h4>
-        <div style="font-size:.85rem;color:var(--text-dim)"><h5>Scope and cohesion</h5>
-<ul>
-  <li><span class="badge badge-warn">two-plans</span> Still open: plan bundles model/token (1,4), execution engine (2,3), and lifecycle GC (5) with no cross-domain slice deps (only 3-&gt;2). Splitting into (1,4) and (2,3,5) gives two independently reviewable/shippable plans.</li>
-</ul>
-<h5>Specification completeness</h5>
-<ul>
-  <li><span class="badge badge-danger">statusline-integration</span> Slice 4 omits integration design with the EXISTING statusline command (work-item display); coder has nothing to safely modify from.</li>
-  <li><span class="badge badge-warn">session-state-undefined</span> Slice 5 suspended/archived session state is undefined in the data model (no table/column/enum).</li>
-  <li><span class="badge badge-warn">agentmodels-config</span> Slice 1 agentModels config key has no schema/validation/discovery and an unfinalized name; typos silently produce empty model in generated frontmatter.</li>
-  <li><span class="badge badge-warn">childproc-concurrency</span> Slices 3 and 5 share internal/childproc concurrently; serve idle-reaper could SIGTERM a worktree child slice 3 awaits -&gt; spurious wave failure. No boundary defined.</li>
-</ul>
-</div>
-      </div>
-      
-      
-      <div>
-        <h4>claude-feasibility (role: feasibility critic; runner: Claude Code wipnote:researcher subagent with file &#43; web &#43; gh verification; RE-REVIEW pass of v7)</h4>
-        <div style="font-size:.85rem;color:var(--text-dim)"><h5>Reuse claims that do not hold</h5>
-<ul>
-  <li><span class="badge badge-danger">childproc-spawn</span> Slice 3: childproc Supervisor hardcodes _serve-child + HTTP proxy lifecycle; cannot spawn worktree agents without a new struct/refactor. Prior childproc-reuse:success was wrong.</li>
-  <li><span class="badge badge-danger">childproc-idle</span> Slice 5: RunIdleReaper tracks HTTP-request idle, not user-session idle; semantic mismatch - needs session-timestamp idle tracking.</li>
-</ul>
-<h5>External contract verification</h5>
-<ul>
-  <li><span class="badge badge-danger">opus-runtime-ignored</span> Slice 1: gh #18346 - opus frontmatter alias silently ignored at runtime; architect-coder=opus routing has no effect until upstream fix. sonnet/haiku work.</li>
-  <li><span class="badge badge-warn">exceeds-200k-path</span> Slice 4: exceeds_200k_tokens is a TOP-LEVEL statusLine field, not nested under context_window; nested access returns nil. used_percentage may be null pre-first-call.</li>
-  <li><span class="badge badge-warn">dated-id-404</span> gh #9573 404 hazard is specific to DATED model-ID suffixes, not alias strings; generator must avoid dated IDs.</li>
-  <li><span class="badge badge-success">docs-confirmed</span> fable alias, maxTurns camelCase, resolution order, and statusLine used_percentage all confirmed against current docs. execute.go absent (correctly new); execute_preview.go, sh.go, serve_parent.go exist.</li>
-</ul>
-<h5>Testability / file-set hygiene</h5>
-<ul>
-  <li><span class="badge badge-warn">missing-test-files</span> Slices 2 and 3 done_when cite *_test.go files not present in their files: lists.</li>
-</ul>
-</div>
-      </div>
-      
-    </div>
-    
-
-    
-    <div class="sub-section">
-      <h4>Synthesis</h4>
-      <div style="font-size:.85rem;color:var(--text-dim)">RE-REVIEW VERDICT: the v7 critique over-claimed resolution. Three items it marked RESOLVED are in fact danger-level blockers. A6 is FALSIFIED for both slices that rely on it: internal/childproc.spawnLocked hardcodes wipnote _serve-child + an HTTP proxy lifecycle (slice 3 cannot extend it to spawn worktree agents) and RunIdleReaper reaps on HTTP-request idle, not user-session idle (slice 5 GC needs a different metric). A7 is FALSIFIED for the opus case (gh #18346, unfixed): architect-coder=opus frontmatter is silently ignored at runtime, so slice 1 primary routing has no effect even though the generation change itself is correct (sonnet/haiku aliases work; fable confirmed). New A9: slice 4 cmd/wipnote/statusline.go already exists as a work-item display command - it is an integration, not a new file - and exceeds_200k_tokens is a top-level field, not nested. Human reviewer should focus, in order: (1) childproc refactor scope for slices 3 and 5, (2) slice 4 integration design + top-level-field correction, (3) opus runtime caveat on slice 1, then (4) the agentModels config spec, session-state data model, maxTurns target justification, missing test files, and the still-open two-plans split. Recommend NOT promoting until the three danger items have revised slice designs.</div>
-    </div>
-    
-
-    
-    <div class="sub-section">
-      <h4>Risk Assessment</h4>
-      <table class="q-table">
-        <thead><tr><th>Risk</th><th>Severity</th><th>Mitigation</th></tr></thead>
-        <tbody>
-          
-          <tr>
-            <td>gh #18346 - opus subagent model frontmatter ignored at runtime; slice 1 highest-value routing (architect-coder=opus) has no effect until upstream fix.</td>
-            <td><span class="badge badge-blocked">High</span></td>
-            <td>Ship the generation change (it is correct), but document that opus routing is upstream-blocked; consider CLAUDE_CODE_SUBAGENT_MODEL only for the opus case despite the dated-ID 404 caveat, or keep architect-coder on a working alias until #18346 is fixed.</td>
-          </tr>
-          
-          <tr>
-            <td>Slices 3 and 5 claim to reuse internal/childproc but its API (hardcoded _serve-child spawn; HTTP-idle reaper) does not fit worktree-agent spawn or session-idle GC.</td>
-            <td><span class="badge badge-blocked">High</span></td>
-            <td>Add an explicit childproc refactor sub-slice (parameterize spawn command; add session-activity idle metric) as a dependency of slices 3 and 5, or redesign those slices around new mechanisms.</td>
-          </tr>
-          
-          <tr>
-            <td>Slice 4 frames an existing command (cmd/wipnote/statusline.go) as new; integration could break the work-item statusline path.</td>
-            <td><span class="badge badge-revision">Medium</span></td>
-            <td>Rewrite slice 4 to describe modifying the existing command with a guarded second code path; add a regression test for the existing work-item display.</td>
-          </tr>
-          
-          <tr>
-            <td>Three unrelated domains in one plan increase review surface.</td>
-            <td><span class="badge badge-pending">Low</span></td>
-            <td>Split into (1,4) and (2,3,5) before promotion.</td>
-          </tr>
-          
-        </tbody>
-      </table>
-    </div>
-    
-
-    
-
-  </div>
-</details>
 
 
 

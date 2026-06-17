@@ -477,7 +477,7 @@ Plan to optimize token usage, prevent context bloat, support local subagent mode
 </p>
   <div class="meta">
     <span class="badge badge-pending">Draft</span>
-    <span style="font-size:.75rem;color:var(--text-muted)">v6 · 5 slices · Created 2026-06-17</span>
+    <span style="font-size:.75rem;color:var(--text-muted)">v7 · 5 slices · Created 2026-06-17</span>
   </div>
 </header>
 <button id="themeToggle" style="position:fixed;top:16px;right:16px;z-index:100;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:6px 12px;color:var(--text);font-family:var(--mono);font-size:0.75rem;cursor:pointer;">
@@ -515,7 +515,7 @@ Plan to optimize token usage, prevent context bloat, support local subagent mode
   <summary><span>Design</span><span class="badge badge-pending" data-badge-for="design">Pending</span></summary>
   <div class="section-body">
     <h4>Problem</h4>
-<div data-markdown>Subagents and token usage (context sizes &amp;gt;150k, long sessions) exhaust users&#39; token quotas too quickly.</div>
+<div data-markdown>Subagents and token usage (context sizes &gt;150k, long sessions) exhaust users&#39; token quotas too quickly.</div>
 <h4>Goals</h4>
 <ol>
 <li data-markdown>Lower subagent token usage by mapping roles to cheaper models at generation time and cutting default turns</li>
@@ -617,7 +617,7 @@ Plan to optimize token usage, prevent context bloat, support local subagent mode
       
       <div class="slice-field">
         <div class="slice-field-label">Done when</div>
-        <ul class="slice-done-list"><li>Generated Claude agent .md files carry the model alias from the wipnote config map and the new default maxTurns</li><li>Codex TOML and Gemini frontmatter outputs carry the equivalent model field (cross-harness portability)</li><li>A generator unit test asserts the role-&amp;gt;model mapping for all three targets</li></ul>
+        <ul class="slice-done-list"><li>Generated Claude agent .md files carry the model alias from the wipnote config map and the new default maxTurns</li><li>Codex TOML and Gemini frontmatter outputs carry the equivalent model field (cross-harness portability)</li><li>A generator unit test asserts the role-&gt;model mapping for all three targets</li></ul>
       </div>
       
     
@@ -673,7 +673,7 @@ Plan to optimize token usage, prevent context bloat, support local subagent mode
     <span class="slice-num">#2</span>
     <span class="slice-title-col">
       <span class="slice-name">Go CLI implementation of plan execution and file-overlap analysis</span>
-      <span class="slice-preview">Implement a new subcommand wipnote execute run --track &amp;lt;id&amp;gt; in a NEW file cmd/wipnote/execute.go, reusing logic from the existing cmd/…</span>
+      <span class="slice-preview">Implement a new subcommand wipnote execute run --track  in a NEW file cmd/wipnote/execute.go, reusing logic from the existing cmd/wipnote/ex…</span>
       <span class="slice-meta-row">
         <span class="slice-summary-badges">
           <span class="badge badge-revision badge-sm">M</span>
@@ -713,7 +713,7 @@ Plan to optimize token usage, prevent context bloat, support local subagent mode
         <div class="slice-field-value">
           
           <input type="checkbox" id="slice-2-what-reveal" class="reveal-toggle">
-          <div class="markdown-block reveal-content serif-prose"><p>Implement a new subcommand <code>wipnote execute run --track &amp;lt;id&amp;gt;</code> in a NEW file <code>cmd/wipnote/execute.go</code>, reusing logic from the existing <code>cmd/wipnote/execute_preview.go</code> (do not duplicate). Derive file overlap from each unblocked feature&#39;s DECLARED file set (the plan slice <code>files:</code> list / feature spec) — NOT git commit history, since not-yet-implemented features have no history. Two features conflict when their declared file sets intersect (path-level; a directory path like <code>internal/childproc/</code> is treated as a prefix). Build a conflict graph and partition unblocked features into waves of mutually non-overlapping features (greedy independent-set). Print a deterministic JSON summary.</p>
+          <div class="markdown-block reveal-content serif-prose"><p>Implement a new subcommand <code>wipnote execute run --track &lt;id&gt;</code> in a NEW file <code>cmd/wipnote/execute.go</code>, reusing logic from the existing <code>cmd/wipnote/execute_preview.go</code> (do not duplicate). Derive file overlap from each unblocked feature&#39;s DECLARED file set (the plan slice <code>files:</code> list / feature spec) — NOT git commit history, since not-yet-implemented features have no history. Two features conflict when their declared file sets intersect (path-level; a directory path like <code>internal/childproc/</code> is treated as a prefix). Build a conflict graph and partition unblocked features into waves of mutually non-overlapping features (greedy independent-set). Print a deterministic JSON summary.</p>
 </div>
           <label for="slice-2-what-reveal" class="reveal-label">Show full description</label>
           
@@ -740,7 +740,7 @@ Plan to optimize token usage, prevent context bloat, support local subagent mode
       
       <div class="slice-field">
         <div class="slice-field-label">Done when</div>
-        <ul class="slice-done-list"><li>Running wipnote execute run --track &amp;lt;id&amp;gt; lists unblocked tasks and groups them into waves with no intra-wave declared-file-set overlap, deterministically</li><li>Unit test in cmd/wipnote/execute_test.go asserts wave partitioning for a fixture track with known overlaps</li></ul>
+        <ul class="slice-done-list"><li>Running wipnote execute run --track &lt;id&gt; lists unblocked tasks and groups them into waves with no intra-wave declared-file-set overlap, deterministically</li><li>Unit test in cmd/wipnote/execute_test.go asserts wave partitioning for a fixture track with known overlaps</li></ul>
       </div>
       
     

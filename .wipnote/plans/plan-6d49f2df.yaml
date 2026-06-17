@@ -15,9 +15,9 @@ meta:
     status: draft
     priority: medium
     schema_version: v3
-    version: 6
+    version: 7
 design:
-    problem: Subagents and token usage (context sizes &gt;150k, long sessions) exhaust users' token quotas too quickly.
+    problem: Subagents and token usage (context sizes >150k, long sessions) exhaust users' token quotas too quickly.
     goals:
         - Lower subagent token usage by mapping roles to cheaper models at generation time and cutting default turns
         - Prevent context size accumulation via a statusLine context-usage warning and CLI output limits
@@ -34,7 +34,7 @@ slices:
       num: 1
       title: Dynamic subagent model override and local config mapping
       what: |
-        Map roles (e.g. `architect-coder`, `researcher`, `patch-coder`) to models by WRITING the chosen `model:` value into generated subagent frontmatter at `wipnote plugin build-ports` time, sourced from a wipnote role-&gt;model map in `.wipnote/config.json`. Accepted Claude values: `sonnet`/`opus`/`haiku`/`fable`/full model IDs/`inherit` (per sub-agents docs). Translate the same map into Codex TOML `model` and Gemini frontmatter `model` during generation. Do NOT depend on the `CLAUDE_CODE_SUBAGENT_MODEL` env var: it is documented but a blunt global override that collapses per-role routing and has a known 404 hazard with plugin agents (gh #9573). Also reduce default `maxTurns` (`architect-coder` to 50, `feature-coder` to 40) in the generated `plugin/agents/*.md`.
+        Map roles (e.g. `architect-coder`, `researcher`, `patch-coder`) to models by WRITING the chosen `model:` value into generated subagent frontmatter at `wipnote plugin build-ports` time, sourced from a wipnote role->model map in `.wipnote/config.json`. Accepted Claude values: `sonnet`/`opus`/`haiku`/`fable`/full model IDs/`inherit` (per sub-agents docs). Translate the same map into Codex TOML `model` and Gemini frontmatter `model` during generation. Do NOT depend on the `CLAUDE_CODE_SUBAGENT_MODEL` env var: it is documented but a blunt global override that collapses per-role routing and has a known 404 hazard with plugin agents (gh #9573). Also reduce default `maxTurns` (`architect-coder` to 50, `feature-coder` to 40) in the generated `plugin/agents/*.md`.
       why: Generation-time frontmatter is the doc-supported per-role locus (resolution-order priority 3) and needs no runtime env machinery. Lowering default turns and routing simple roles to haiku/flash prevents quota depletion.
       files:
         - packages/plugin-core/manifest.json
@@ -46,16 +46,16 @@ slices:
       done_when:
         - Generated Claude agent .md files carry the model alias from the wipnote config map and the new default maxTurns
         - Codex TOML and Gemini frontmatter outputs carry the equivalent model field (cross-harness portability)
-        - A generator unit test asserts the role-&gt;model mapping for all three targets
+        - A generator unit test asserts the role->model mapping for all three targets
       effort: M
       risk: Low
-      tests: Generator unit test asserts role-&gt;model and maxTurns for Claude/Codex/Gemini output.
+      tests: Generator unit test asserts role->model and maxTurns for Claude/Codex/Gemini output.
       complexity: standard
       approved: false
       comment: ""
       decisions_notes: |
         **Trigger:** `wipnote plugin build-ports` generation phase.
-        **State:** role-&gt;model map in `.wipnote/config.json` (key e.g. `agentModels`); precedence: explicit config entry &gt; built-in default per role.
+        **State:** role->model map in `.wipnote/config.json` (key e.g. `agentModels`); precedence: explicit config entry > built-in default per role.
         **Payload:** `model:` (and `maxTurns:`) written into each generated agent frontmatter / TOML.
         **Mechanism (verified):** sub-agents docs accept sonnet/opus/haiku/fable/full-ID/inherit; resolution order puts frontmatter at priority 3 (model-config docs).
         **Rejected:** CLAUDE_CODE_SUBAGENT_MODEL env var (blunt global override; collapses role routing; gh #9573 404 hazard with plugin agents). Hardcoding haiku globally (some roles need opus reasoning).
@@ -64,14 +64,14 @@ slices:
       num: 2
       title: Go CLI implementation of plan execution and file-overlap analysis
       what: |
-        Implement a new subcommand `wipnote execute run --track &lt;id&gt;` in a NEW file `cmd/wipnote/execute.go`, reusing logic from the existing `cmd/wipnote/execute_preview.go` (do not duplicate). Derive file overlap from each unblocked feature's DECLARED file set (the plan slice `files:` list / feature spec) — NOT git commit history, since not-yet-implemented features have no history. Two features conflict when their declared file sets intersect (path-level; a directory path like `internal/childproc/` is treated as a prefix). Build a conflict graph and partition unblocked features into waves of mutually non-overlapping features (greedy independent-set). Print a deterministic JSON summary.
+        Implement a new subcommand `wipnote execute run --track <id>` in a NEW file `cmd/wipnote/execute.go`, reusing logic from the existing `cmd/wipnote/execute_preview.go` (do not duplicate). Derive file overlap from each unblocked feature's DECLARED file set (the plan slice `files:` list / feature spec) — NOT git commit history, since not-yet-implemented features have no history. Two features conflict when their declared file sets intersect (path-level; a directory path like `internal/childproc/` is treated as a prefix). Build a conflict graph and partition unblocked features into waves of mutually non-overlapping features (greedy independent-set). Print a deterministic JSON summary.
       why: Eliminates the token-heavy multi-turn orchestration loop by delegating wave partitioning to the Go binary, with a precise, testable overlap definition a reviewer can verify.
       files:
         - cmd/wipnote/execute.go
         - cmd/wipnote/execute_preview.go
       deps: []
       done_when:
-        - Running wipnote execute run --track &lt;id&gt; lists unblocked tasks and groups them into waves with no intra-wave declared-file-set overlap, deterministically
+        - Running wipnote execute run --track <id> lists unblocked tasks and groups them into waves with no intra-wave declared-file-set overlap, deterministically
         - Unit test in cmd/wipnote/execute_test.go asserts wave partitioning for a fixture track with known overlaps
       effort: M
       risk: Med
@@ -91,7 +91,7 @@ slices:
       title: Go CLI background execution manager and auto-merge
       what: |
         Extend `wipnote execute run` into a background runner that spawns worktree agents in parallel by EXTENDING the existing `internal/childproc` Supervisor (which already provides spawn, idle reaper, crash/orphan recovery) — do not build a new supervisor. Completion detection is EVENT-DRIVEN via child process exit codes plus a per-task result file (no polling/busy-wait). Merge a wave's successful branches to main only after that wave's quality gates pass; serialize all merges behind a single-writer merge lock. On gate failure or merge conflict, leave the branch unmerged and report it (no force operations, no rewrite of main). Independent waves are failure-isolated: a failed wave does not block others. The lead agent fires the command once and receives a reactive wakeup on completion.
-      why: Keeps the lead agent's chat context quiet while background work runs (the &gt;150k issue) with an explicit, reviewable safety and recovery model.
+      why: Keeps the lead agent's chat context quiet while background work runs (the >150k issue) with an explicit, reviewable safety and recovery model.
       files:
         - cmd/wipnote/execute.go
         - internal/childproc/
@@ -119,7 +119,7 @@ slices:
       title: Automated context compaction checks and output filters
       what: |
         Detect large context via a wipnote-provided statusLine script (new `cmd/wipnote/statusline.go`, wired through settings.json) that reads `context_window.used_percentage` and `exceeds_200k_tokens` from the statusLine JSON input. When `used_percentage` crosses a configurable threshold (e.g. 70%), emit a status-bar hint to run `/compact` or `/clear`. The previous PostToolUse/PostCompact token-count trigger is DROPPED — hook payloads carry no token/context counts (hooks docs). Separately, standardize verbose CLI outputs (`wipnote trace`, `wipnote plan show`) to compressed summaries or full output written to a local file with a link, in `cmd/wipnote/sh.go`.
-      why: statusLine is the only documented machine-readable surface exposing live context usage to plugin scripts, so the warning is authoritative and needs no token approximation. Output filters cut chat-history growth at &gt;150k.
+      why: statusLine is the only documented machine-readable surface exposing live context usage to plugin scripts, so the warning is authoritative and needs no token approximation. Output filters cut chat-history growth at >150k.
       files:
         - cmd/wipnote/statusline.go
         - cmd/wipnote/sh.go

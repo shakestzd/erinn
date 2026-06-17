@@ -1,6 +1,7 @@
 package db_test
 
 import (
+	"encoding/json"
 	"fmt"
 	"testing"
 	"time"
@@ -56,6 +57,14 @@ func TestSchemaCreationAndCRUD(t *testing.T) {
 	if err := db.InsertSession(database, sess); err != nil {
 		t.Fatalf("InsertSession: %v", err)
 	}
+	if err := db.InsertSession(database, &models.Session{
+		SessionID:     "test-sess-000",
+		AgentAssigned: "claude-code",
+		CreatedAt:     now.Add(-time.Minute),
+		Status:        "completed",
+	}); err != nil {
+		t.Fatalf("InsertSession continued_from parent: %v", err)
+	}
 	got, err := db.GetSession(database, "test-sess-001")
 	if err != nil {
 		t.Fatalf("GetSession: %v", err)
@@ -65,6 +74,52 @@ func TestSchemaCreationAndCRUD(t *testing.T) {
 	}
 	if got.Model != "opus-4.6" {
 		t.Errorf("model: got %q, want %q", got.Model, "opus-4.6")
+	}
+
+	if _, err := database.Exec(`
+		UPDATE sessions
+		SET last_user_query_at = ?,
+		    last_user_query = ?,
+		    handoff_notes = ?,
+		    recommended_next = ?,
+		    blockers = ?,
+		    recommended_context = ?,
+		    continued_from = ?
+		WHERE session_id = ?`,
+		now.Format(time.RFC3339),
+		"Investigate session handoff capture",
+		"Work item: feat-test-001.",
+		"Resume feat-test-001 in .codex/worktrees/feat-test-001",
+		`["need follow-up"]`,
+		`{"work_item_id":"feat-test-001"}`,
+		"test-sess-000",
+		"test-sess-001",
+	); err != nil {
+		t.Fatalf("seed handoff fields: %v", err)
+	}
+	got, err = db.GetSession(database, "test-sess-001")
+	if err != nil {
+		t.Fatalf("GetSession after handoff seed: %v", err)
+	}
+	if got.LastUserQuery != "Investigate session handoff capture" {
+		t.Errorf("last_user_query: got %q", got.LastUserQuery)
+	}
+	if got.HandoffNotes != "Work item: feat-test-001." {
+		t.Errorf("handoff_notes: got %q", got.HandoffNotes)
+	}
+	if got.RecommendedNext == "" {
+		t.Error("recommended_next should be populated")
+	}
+	var blockers []string
+	if err := json.Unmarshal(got.Blockers, &blockers); err != nil || len(blockers) != 1 || blockers[0] != "need follow-up" {
+		t.Errorf("blockers round-trip failed: raw=%s err=%v parsed=%v", string(got.Blockers), err, blockers)
+	}
+	var context map[string]string
+	if err := json.Unmarshal(got.RecommendedContext, &context); err != nil || context["work_item_id"] != "feat-test-001" {
+		t.Errorf("recommended_context round-trip failed: raw=%s err=%v parsed=%v", string(got.RecommendedContext), err, context)
+	}
+	if got.ContinuedFrom != "test-sess-000" {
+		t.Errorf("continued_from: got %q", got.ContinuedFrom)
 	}
 
 	// Insert track first (FK requirement for features).

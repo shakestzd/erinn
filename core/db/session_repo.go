@@ -99,11 +99,15 @@ func GetSession(db *sql.DB, sessionID string) (*models.Session, error) {
 			parent_event_id, created_at, completed_at,
 			total_events, total_tokens_used, context_drift,
 			status, is_subagent, model, active_feature_id, project_dir,
+			last_user_query_at, last_user_query, handoff_notes, recommended_next,
+			blockers, recommended_context, continued_from,
 			exec_worktree_path, branch, harness
 		FROM sessions WHERE session_id = ?`, sessionID)
 
 	s := &models.Session{}
 	var parentSess, parentEvt, completedAt, model, activeFeat, projectDir sql.NullString
+	var lastUserQueryAt, lastUserQuery, handoffNotes, recommendedNext sql.NullString
+	var blockers, recommendedContext, continuedFrom sql.NullString
 	var execWorktreePath, branch, harness sql.NullString
 	var createdStr string
 
@@ -112,6 +116,8 @@ func GetSession(db *sql.DB, sessionID string) (*models.Session, error) {
 		&parentEvt, &createdStr, &completedAt,
 		&s.TotalEvents, &s.TotalTokensUsed, &s.ContextDrift,
 		&s.Status, &s.IsSubagent, &model, &activeFeat, &projectDir,
+		&lastUserQueryAt, &lastUserQuery, &handoffNotes, &recommendedNext,
+		&blockers, &recommendedContext, &continuedFrom,
 		&execWorktreePath, &branch, &harness,
 	)
 	if err != nil {
@@ -123,6 +129,17 @@ func GetSession(db *sql.DB, sessionID string) (*models.Session, error) {
 	s.Model = model.String
 	s.ActiveFeatureID = activeFeat.String
 	s.ProjectDir = projectDir.String
+	s.LastUserQueryAt = lastUserQueryAt.String
+	s.LastUserQuery = lastUserQuery.String
+	s.HandoffNotes = handoffNotes.String
+	s.RecommendedNext = recommendedNext.String
+	if blockers.Valid && blockers.String != "" {
+		s.Blockers = json.RawMessage(blockers.String)
+	}
+	if recommendedContext.Valid && recommendedContext.String != "" {
+		s.RecommendedContext = json.RawMessage(recommendedContext.String)
+	}
+	s.ContinuedFrom = continuedFrom.String
 	s.ExecWorktreePath = execWorktreePath.String
 	s.Branch = branch.String
 	s.Harness = harness.String
@@ -133,6 +150,38 @@ func GetSession(db *sql.DB, sessionID string) (*models.Session, error) {
 		s.CompletedAt = &t
 	}
 	return s, nil
+}
+
+// UpdateSessionHandoff writes deterministic SessionEnd handoff fields onto a
+// session row without clobbering existing non-empty values with empty input.
+// Callers may pass empty strings for any field they do not want to change.
+func UpdateSessionHandoff(db *sql.DB, sessionID, handoffNotes, recommendedNext string, blockersJSON, recommendedContextJSON []byte) error {
+	if sessionID == "" {
+		return nil
+	}
+
+	var blockersArg any
+	if len(blockersJSON) > 0 {
+		blockersArg = string(blockersJSON)
+	}
+	var recommendedContextArg any
+	if len(recommendedContextJSON) > 0 {
+		recommendedContextArg = string(recommendedContextJSON)
+	}
+
+	_, err := db.Exec(`
+		UPDATE sessions
+		SET handoff_notes = COALESCE(NULLIF(?, ''), handoff_notes),
+		    recommended_next = COALESCE(NULLIF(?, ''), recommended_next),
+		    blockers = COALESCE(NULLIF(?, ''), blockers),
+		    recommended_context = COALESCE(NULLIF(?, ''), recommended_context)
+		WHERE session_id = ?`,
+		handoffNotes, recommendedNext, blockersArg, recommendedContextArg, sessionID,
+	)
+	if err != nil {
+		return fmt.Errorf("update session handoff %s: %w", sessionID, err)
+	}
+	return nil
 }
 
 // UpdateSessionStatus sets the status and optionally the completed_at timestamp.

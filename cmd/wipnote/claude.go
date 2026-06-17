@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/shakestzd/wipnote/core/slug"
+	"github.com/shakestzd/wipnote/internal/launcher"
 	"github.com/spf13/cobra"
 )
 
@@ -56,6 +57,9 @@ type LaunchOpts struct {
 	// Used when ProjectRoot is a worktree — all work item tracking resolves to this path
 	// instead of the worktree copy. Injected as WIPNOTE_PROJECT_DIR env var.
 	WipnoteRoot string
+	// Intent records whether the launcher is starting new work or continuing
+	// existing work. Harness-neutral contract for downstream launchers.
+	Intent launcher.LaunchIntent
 }
 
 func claudeCmd() *cobra.Command {
@@ -431,6 +435,7 @@ func launchClaudeContinue(extraArgs []string, resumeID string) error {
 		ExtraArgs:   extraArgs,
 		ProjectRoot: projectRoot,
 		WipnoteRoot: wipnoteRoot,
+		Intent:      launcher.ContinueWorkIntent("", "claude", resumeID, "", true),
 	})
 }
 
@@ -441,6 +446,25 @@ func launchClaudeDefault(extraArgs []string, resumeID, name, workItem string, in
 	// Resolve canonical main repo root when CWD is a linked worktree (slice-3).
 	// canonicalProjectRoot returns "" for the main worktree (no override needed).
 	wipnoteRoot := canonicalProjectRoot(projectRoot)
+	intent := launcher.NewWorkIntent()
+	if shouldOfferLaunchIntentChooser(chooserEligibility{
+		TTY:       isInteractiveTerminalFile(os.Stdin) && isInteractiveTerminalFile(os.Stdout),
+		CI:        os.Getenv("CI") == "true" || os.Getenv("GITHUB_ACTIONS") != "",
+		ResumeID:  resumeID,
+		WorkItem:  workItem,
+		InPlace:   inPlace,
+		ExtraArgs: extraArgs,
+	}) {
+		chosen, err := chooseClaudeLaunchIntent(projectRoot, wipnoteRoot, os.Stdin, os.Stdout)
+		if err != nil {
+			return err
+		}
+		intent = chosen
+	}
+	intentResult := applyClaudeLaunchIntent(resumeID, workItem, intent)
+	resumeID = intentResult.resumeID
+	workItem = intentResult.workItem
+	intent = intentResult.intent
 
 	// Run the isolation planner (slice-2). The plan is computed, any warning
 	// is printed, and the plan is now HONORED (slice-9): a RefuseLaunch plan
@@ -500,11 +524,11 @@ func launchClaudeDefault(extraArgs []string, resumeID, name, workItem string, in
 	if sessionName == "" && resumeID == "" {
 		sessionName = defaultSessionName(projectRoot)
 	}
-	fmt.Println("Launching Claude Code (default mode)...")
+	fmt.Printf("Launching Claude Code (%s mode)...\n", intentResult.mode)
 	fmt.Printf("  Plugin: %s\n", pluginDir)
 	fmt.Printf("  Session: %s\n", sessionName)
 	return launchClaude(LaunchOpts{
-		Mode:               "default",
+		Mode:               intentResult.mode,
 		PluginDir:          pluginDir,
 		ResumeID:           resumeID,
 		InjectSystemPrompt: true,
@@ -512,6 +536,7 @@ func launchClaudeDefault(extraArgs []string, resumeID, name, workItem string, in
 		ExtraArgs:          extraArgs,
 		ProjectRoot:        childDir,
 		WipnoteRoot:        wipnoteRoot,
+		Intent:             intent,
 	})
 }
 

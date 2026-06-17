@@ -54,10 +54,6 @@ func isInteractiveTerminalFile(f *os.File) bool {
 
 var chooseLaunchIntentFn = chooseLaunchIntent
 
-func chooseClaudeLaunchIntent(projectRoot, canonicalRoot string, in io.Reader, out io.Writer) (launcher.LaunchIntent, error) {
-	return chooseLaunchIntent(projectRoot, canonicalRoot, "claude", in, out)
-}
-
 func chooseLaunchIntent(projectRoot, canonicalRoot, harness string, in io.Reader, out io.Writer) (launcher.LaunchIntent, error) {
 	rows, err := listResumableSessionsForRoot(projectRoot, canonicalRoot)
 	if err != nil {

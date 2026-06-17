@@ -91,7 +91,7 @@ func claudeCmd() *cobra.Command {
 			_ = baseBranch // reserved for slice-3+; accepted but not yet acted on
 			switch {
 			case dev:
-				return launchClaudeDev(args, auto, resumeID, name)
+				return launchClaudeDev(args, auto, resumeID, name, workItem, effectiveInPlace)
 			case auto:
 				return launchClaudeAuto(args, resumeID, name)
 			case init_:
@@ -171,23 +171,14 @@ func removeMarketplaceWipnote() {
 	fmt.Println("Marketplace wipnote removed (uninstalled, disabled, cache wiped).")
 }
 
-func launchClaudeDev(extraArgs []string, auto bool, resumeID, name string) error {
-	// Dev mode resolves the plugin from local source, NOT the marketplace.
-	// resolveProjectPluginDir walks up from CWD to find plugin/.claude-plugin/plugin.json.
-	pluginDir := resolveProjectPluginDir()
-	if pluginDir == "" {
-		return fmt.Errorf("could not find plugin/ directory relative to project root. Run from the project directory containing .wipnote/ and plugin/")
-	}
-	// Verify expected plugin structure.
-	if _, err := os.Stat(filepath.Join(pluginDir, ".claude-plugin", "plugin.json")); os.IsNotExist(err) {
-		return fmt.Errorf("plugin.json not found at %s",
-			filepath.Join(pluginDir, ".claude-plugin", "plugin.json"))
-	}
+func launchClaudeDev(extraArgs []string, auto bool, resumeID, name, workItem string, inPlace bool) error {
 	if err := requireWipnoteOnPath(); err != nil {
 		return err
 	}
 
-	// Resolve project root so paths are anchored correctly regardless of CWD.
+	// Resolve the source project root (the wipnote repo with plugin/).
+	// This must happen BEFORE intent resolution so cleanupStaleDev and
+	// resolveProjectPluginDirFrom can anchor to the source tree, not CWD.
 	projectRoot := ""
 	if wipnoteDir, err := findWipnoteDir(); err == nil {
 		projectRoot = filepath.Dir(wipnoteDir)
@@ -198,6 +189,29 @@ func launchClaudeDev(extraArgs []string, auto bool, resumeID, name string) error
 
 	// Nuke marketplace plugin so it can't shadow the --plugin-dir agents/skills.
 	removeMarketplaceWipnote()
+
+	// Resolve the in-tree plugin/ from the source root NOW, before intent
+	// resolution might redirect childDir to a worktree. The plugin source always
+	// lives in the wipnote source tree, never in a linked worktree.
+	pluginDir, err := devLaunchPluginDir(projectRoot)
+	if err != nil {
+		return err
+	}
+	// Verify expected plugin structure.
+	if _, err := os.Stat(filepath.Join(pluginDir, ".claude-plugin", "plugin.json")); os.IsNotExist(err) {
+		return fmt.Errorf("plugin.json not found at %s",
+			filepath.Join(pluginDir, ".claude-plugin", "plugin.json"))
+	}
+
+	// Resolve canonical root (non-empty only when projectRoot is a linked worktree).
+	wipnoteRoot := canonicalProjectRoot(projectRoot)
+
+	// Run the intent chooser and isolation planner — same path as launchClaudeDefault.
+	lctx, err := resolveClaudeIntentIsolation(projectRoot, wipnoteRoot, resumeID, workItem, inPlace, extraArgs)
+	if err != nil {
+		return err
+	}
+	resumeID = lctx.intentResult.resumeID
 
 	sessionName := name
 	// Only synthesize a default name for new sessions. When resuming an existing
@@ -216,6 +230,10 @@ func launchClaudeDev(extraArgs []string, auto bool, resumeID, name string) error
 	fmt.Printf("  Session: %s\n", sessionName)
 
 	return launchClaude(LaunchOpts{
+		// Mode is always "go" for dev sessions: it identifies the dev-plugin
+		// launcher type (opts.PluginDir != "" && opts.Mode == "go") for
+		// computeLauncherMode and writeLaunchMarker. The intent's continue/new
+		// distinction is captured via ResumeID and Intent — not the mode string.
 		Mode:               "go",
 		PluginDir:          pluginDir,
 		ResumeID:           resumeID,
@@ -224,7 +242,13 @@ func launchClaudeDev(extraArgs []string, auto bool, resumeID, name string) error
 		PermissionMode:     autoPermissionMode(auto),
 		Name:               sessionName,
 		ExtraArgs:          extraArgs,
-		ProjectRoot:        projectRoot,
+		// childDir is the worktree (or projectRoot when in-place). Claude Code
+		// runs here so the agent works on the right branch, but WIPNOTE_PROJECT_DIR
+		// still points at the canonical source root via WipnoteRoot.
+		ProjectRoot: lctx.childDir,
+		WipnoteRoot: lctx.wipnoteRoot,
+		Intent:      lctx.intentResult.intent,
+		ExtraEnv:    lctx.continueEnv,
 	})
 }
 
@@ -449,89 +473,12 @@ func launchClaudeDefault(extraArgs []string, resumeID, name, workItem string, in
 	// Resolve canonical main repo root when CWD is a linked worktree (slice-3).
 	// canonicalProjectRoot returns "" for the main worktree (no override needed).
 	wipnoteRoot := canonicalProjectRoot(projectRoot)
-	intent, err := resolveLaunchIntentForDefaultLaunch(projectRoot, wipnoteRoot, "claude", chooserEligibility{
-		TTY:       isInteractiveTerminalFile(os.Stdin) && isInteractiveTerminalFile(os.Stdout),
-		CI:        os.Getenv("CI") == "true" || os.Getenv("GITHUB_ACTIONS") != "",
-		ResumeID:  resumeID,
-		WorkItem:  workItem,
-		InPlace:   inPlace,
-		ExtraArgs: extraArgs,
-	}, os.Stdin, os.Stdout)
+
+	lctx, err := resolveClaudeIntentIsolation(projectRoot, wipnoteRoot, resumeID, workItem, inPlace, extraArgs)
 	if err != nil {
 		return err
 	}
-	intentResult := applyClaudeLaunchIntent(resumeID, workItem, intent)
-	resumeID = intentResult.resumeID
-	workItem = intentResult.workItem
-	intent = intentResult.intent
-	continueCtx, err := resolveContinueLaunchContext(projectRoot, wipnoteRoot, "claude", intent)
-	if err != nil {
-		return err
-	}
-	for _, warning := range continueCtx.Warnings {
-		fmt.Fprintln(os.Stderr, warning)
-	}
-	if workItem == "" && continueCtx.WorkItemID != "" {
-		workItem = continueCtx.WorkItemID
-	}
-	if resumeID == "" && continueCtx.TranscriptResumeID != "" {
-		resumeID = continueCtx.TranscriptResumeID
-	}
-
-	// Run the isolation planner (slice-2). The plan is computed, any warning
-	// is printed, and the plan is now HONORED (slice-9): a RefuseLaunch plan
-	// aborts before the harness starts, and an IsolationManagedWorktree plan
-	// routes the child into a managed worktree.
-	//
-	// When the plan will create a managed worktree (IsolationManagedWorktree),
-	// suppress the generic dirty-main advisory — we emit an accurate message
-	// after carryover instead (mirrors yolo's approach, bug-c3483435).
-	willCreateWorktree := !inPlace && workItem != ""
-	// Use canonical root for reading launch_isolation config (slice-9-canonical-root).
-	configRoot := wipnoteRoot
-	if configRoot == "" {
-		configRoot = projectRoot
-	}
-	launchPlan := applyLaunchPlanOpts(configRoot, projectRoot, workItem, inPlace, willCreateWorktree, os.Stderr)
-	if err := enforceLaunchPlan(launchPlan, os.Stderr); err != nil {
-		return err
-	}
-
-	// Honor a managed-worktree plan: when isolation is enforced (devcontainer/CI
-	// or enforced host with a work item) create/reuse the managed worktree and
-	// run the child there, while WIPNOTE_PROJECT_DIR stays the canonical root.
-	childDir := projectRoot
-	resolved := false
-	worktreeCreated := false
-	if continueCtx.WorktreePath != "" {
-		childDir = continueCtx.WorktreePath
-		resolved = true
-		if wipnoteRoot == "" {
-			wipnoteRoot = projectRoot
-		}
-	}
-	if wt, created, werr := resolveManagedWorktreeStatus(launchPlan, projectRoot, "", "", workItem, childDir, resolved, os.Stdout); werr != nil {
-		return werr
-	} else if wt != "" && wt != projectRoot {
-		childDir = wt
-		worktreeCreated = created
-		if wipnoteRoot == "" {
-			wipnoteRoot = projectRoot
-		}
-	}
-
-	// Carry the canonical main repo's uncommitted tracked changes into the
-	// freshly-created worktree so the session builds on the user's latest
-	// working state (bug-c3483435). Only for newly-created worktrees: a reused
-	// worktree may already contain prior work and re-applying would double-apply
-	// or fail. Main is never mutated. Carryover failure is non-fatal.
-	if childDir != projectRoot {
-		effectiveRoot := projectRoot
-		if wipnoteRoot != "" {
-			effectiveRoot = wipnoteRoot
-		}
-		emitWorktreeCarryoverMessage(launchPlan, effectiveRoot, childDir, worktreeCreated, os.Stdout)
-	}
+	resumeID = lctx.intentResult.resumeID
 
 	pluginDir, err := resolveBundledPluginDir()
 	if err != nil {
@@ -544,20 +491,20 @@ func launchClaudeDefault(extraArgs []string, resumeID, name, workItem string, in
 	if sessionName == "" && resumeID == "" {
 		sessionName = defaultSessionName(projectRoot)
 	}
-	fmt.Printf("Launching Claude Code (%s mode)...\n", intentResult.mode)
+	fmt.Printf("Launching Claude Code (%s mode)...\n", lctx.intentResult.mode)
 	fmt.Printf("  Plugin: %s\n", pluginDir)
 	fmt.Printf("  Session: %s\n", sessionName)
 	return launchClaude(LaunchOpts{
-		Mode:               intentResult.mode,
+		Mode:               lctx.intentResult.mode,
 		PluginDir:          pluginDir,
 		ResumeID:           resumeID,
 		InjectSystemPrompt: true,
 		Name:               sessionName,
 		ExtraArgs:          extraArgs,
-		ProjectRoot:        childDir,
-		WipnoteRoot:        wipnoteRoot,
-		Intent:             intent,
-		ExtraEnv:           continueCtx.ExtraEnv(),
+		ProjectRoot:        lctx.childDir,
+		WipnoteRoot:        lctx.wipnoteRoot,
+		Intent:             lctx.intentResult.intent,
+		ExtraEnv:           lctx.continueEnv,
 	})
 }
 

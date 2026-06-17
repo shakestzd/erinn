@@ -12,9 +12,9 @@ meta:
     status: draft
     priority: medium
     schema_version: v3
-    version: 4
+    version: 5
 design:
-    problem: Subagents and token usage (context sizes >150k, long sessions) exhaust users' token quotas too quickly.
+    problem: Subagents and token usage (context sizes &gt;150k, long sessions) exhaust users' token quotas too quickly.
     goals:
         - Lower subagent token usage by dynamically downgrading default models and turns
         - Prevent context size accumulation through automated /compact prompts and CLI output limits
@@ -48,6 +48,19 @@ slices:
       complexity: standard
       approved: false
       comment: ""
+      critic_revisions:
+        - source: claude-feasibility
+          severity: WARN
+          summary: 'A1 unverified: no documented CLAUDE_CODE_SUBAGENT_MODEL env var or runtime per-subagent model override in Claude Code docs (https://code.claude.com/docs/en/sub-agents); `model` frontmatter is per-agent-definition only. Confirm an override mechanism or redesign the override path before promotion.'
+        - source: claude-feasibility
+          severity: LOW
+          summary: 'A2 verified: maxTurns IS a documented subagent frontmatter field (sub-agents docs) and already present at architect-coder.md:15, feature-coder.md:15, researcher.md:16; all four cited files exist.'
+        - source: claude-design
+          severity: WARN
+          summary: 'Config contract undefined: exact keys, JSON schema, and merge/override precedence between .wipnote/config.json and manifest.json are unspecified, leaving implementation ambiguous.'
+        - source: claude-design
+          severity: WARN
+          summary: 'done_when omits cross-harness portability: the constraint requires Codex TOML and Gemini frontmatter to honor overrides, but no acceptance test covers Codex/Gemini generator output.'
       decisions_notes: |
         **Trigger:** plugin build/generation phase and CLI subagent setup.
         **State:** stored in `~/.config/wipnote/config.json` or `.wipnote/config.json`.
@@ -57,19 +70,29 @@ slices:
       num: 2
       title: Go CLI implementation of plan execution and file-overlap analysis
       what: |
-        Implement a new subcommand `wipnote execute run --track <id>` (or similar) in the Go CLI. The command reads the track, checks unblocked tasks, runs the pairwise file-set overlap analysis (via git commit history / feature lineage), and groups features into parallel waves. It logs execution state to a file or prints a clean JSON summary.
+        Implement a new subcommand `wipnote execute run --track &lt;id&gt;` (or similar) in the Go CLI. The command reads the track, checks unblocked tasks, runs the pairwise file-set overlap analysis (via git commit history / feature lineage), and groups features into parallel waves. It logs execution state to a file or prints a clean JSON summary.
       why: Eliminates the token-heavy multi-turn orchestration loop in the parent chat session by delegating the math, graph query, and wave partitioning to the Go binary.
       files:
         - cmd/wipnote/execute.go
       deps: []
       done_when:
-        - Running wipnote execute run --track <id> output lists correct unblocked tasks and groups them by file overlap
+        - Running wipnote execute run --track &lt;id&gt; output lists correct unblocked tasks and groups them by file overlap
       effort: M
       risk: Med
       tests: Unit tests in cmd/wipnote/execute_test.go checking wave logic.
       complexity: standard
       approved: false
       comment: ""
+      critic_revisions:
+        - source: claude-design
+          severity: DANGER
+          summary: 'File-overlap algorithm underspecified: ''overlap via git commit history / feature lineage'' has no precise definition (which file sets, derived how), so done_when is not reviewer-verifiable. Define the overlap metric before promotion.'
+        - source: claude-feasibility
+          severity: WARN
+          summary: cmd/wipnote/execute.go does NOT exist yet but is listed under files as if present — mark it explicitly as a new file. Also cmd/wipnote/execute_preview.go + execute_preview_test.go already exist; verify the new file does not duplicate/conflict in the same package.
+        - source: claude-design
+          severity: WARN
+          summary: 'Hidden dependency on slice 1: if model overrides change which agent/model each wave spawns, execute must read that config — add an explicit dep on slice 1 or document independence.'
       decisions_notes: |
         **Trigger:** explicit CLI call `wipnote execute run` by the user or lead agent.
         **State:** computed in memory from SQLite DB task and file trace records.
@@ -80,7 +103,7 @@ slices:
       title: Go CLI background execution manager and auto-merge
       what: |
         Extend `wipnote execute run` to run as a background/daemon runner that spawns worktree agents in parallel, monitors their completion/failure status via hooks or polling, automatically merges successful branches back to main, and runs the configured quality gates. The lead agent only fires this command once and receives a reactive wakeup when complete.
-      why: Keeps the lead agent's chat context completely quiet and clean while background work occurs, solving the >150k context size issue.
+      why: Keeps the lead agent's chat context completely quiet and clean while background work occurs, solving the &gt;150k context size issue.
       files:
         - cmd/wipnote/execute.go
         - internal/childproc/
@@ -95,6 +118,22 @@ slices:
       complexity: standard
       approved: false
       comment: ""
+      critic_revisions:
+        - source: claude-design
+          severity: DANGER
+          summary: 'Auto-merge to main is destructive with no recovery model: no rollback, no partial-failure handling (some waves pass / some fail), no concurrency-safety/merge-lock model. Add a recovery path before this is shippable.'
+        - source: claude-design
+          severity: DANGER
+          summary: Completion detection 'hooks or polling' is uncommitted — event-driven vs busy-wait is a core architectural decision; pick one with rationale so the slice is reviewable.
+        - source: claude-feasibility
+          severity: LOW
+          summary: 'Reuse, don''t rebuild: internal/childproc already implements a Supervisor with idle reaper (RunIdleReaper/IdleTimeout), spawn timeout, and crash/orphan recovery — build on it.'
+        - source: claude-feasibility
+          severity: WARN
+          summary: 'Boundary undefined: the existing internal/childproc Supervisor targets serve-child HTTP proxying, not worktree-task dispatch — reuse needs API extension or a new type; specify which.'
+        - source: claude-design
+          severity: WARN
+          summary: 'Package ownership clash: slices 3 and 5 both target internal/childproc independently — define ownership/boundary to avoid merge conflicts.'
       decisions_notes: |
         **Trigger:** background runner triggered by CLI execution start.
         **State:** persists execution state in `.wipnote/execution-state.json`.
@@ -105,7 +144,7 @@ slices:
       title: Automated context compaction checks and output filters
       what: |
         Add a hook handler on `PostToolUse` / `PostCompact` that checks if the context token count exceeds a threshold (e.g. 50k tokens). If so, it injects a warning/hint proposing the user run `/compact` or `/clear`. Standardize all verbose CLI command outputs (like `wipnote trace`, `wipnote plan show`) to return highly compressed summaries or write full outputs to local files with clickable links, keeping the chat history clean.
-      why: Directly reduces the 81% usage at >150k context. Compacting early and preventing CLI output verbosity keeps the history size small.
+      why: Directly reduces the 81% usage at &gt;150k context. Compacting early and preventing CLI output verbosity keeps the history size small.
       files:
         - internal/hooks/
         - cmd/wipnote/sh.go
@@ -119,6 +158,19 @@ slices:
       complexity: standard
       approved: false
       comment: ""
+      critic_revisions:
+        - source: claude-feasibility
+          severity: DANGER
+          summary: 'A5 falsified — wrong files path: internal/hooks/ does NOT exist. Hook handlers live in core/hooks/ (separate Go module per CLAUDE.md two-modules note); cmd/wipnote imports core/hooks. As written this slice will not build. Retarget to core/hooks/ and account for the two-module build.'
+        - source: claude-feasibility
+          severity: DANGER
+          summary: 'A3 falsified — infeasible trigger: PostCompact (and all hook) payloads do NOT carry a token/context-size count per official docs (https://code.claude.com/docs/en/hooks); common fields are session_id/transcript_path/cwd/permission_mode/hook_event_name. A token-threshold check in a PostCompact handler cannot get the count from the payload. PreCompact exposes harness-provided context_stats (non-standard) — investigate that path instead.'
+        - source: claude-feasibility
+          severity: LOW
+          summary: 'A4 verified: PostCompact event exists (docs + core/hooks/missing_events.go:253, manifest.json:94). cmd/wipnote/sh.go exists.'
+        - source: claude-design
+          severity: WARN
+          summary: '''clickable links'' to local files assume a hyperlink-capable terminal; specify plain-stdout fallback behavior for CI/non-supporting terminals.'
       decisions_notes: |
         **Trigger:** post-tool or post-model hook events.
         **State:** current session token count estimated from hooks/agent metrics.
@@ -143,9 +195,112 @@ slices:
       complexity: standard
       approved: false
       comment: ""
+      critic_revisions:
+        - source: claude-design
+          severity: WARN
+          summary: 'Conductor interaction unaddressed: CLAUDE.md notes Conductor archives worktrees without invoking wipnote * complete — GC keyed on idle could destroy in-flight Conductor-managed work; add a guard/exclusion for Conductor-managed worktrees.'
+        - source: claude-feasibility
+          severity: LOW
+          summary: 'Reuse available: cmd/wipnote/serve_parent.go exists and internal/childproc has idle GC (RunIdleReaper) + crash recovery — extend rather than reinvent.'
+        - source: claude-design
+          severity: WARN
+          summary: Hardcoded 30-min idle threshold conflicts with the slice-1 user-overridable-config pattern; expose a config surface to avoid a follow-up pass.
+        - source: claude-feasibility
+          severity: WARN
+          summary: childproc Supervisor is built for serve-child HTTP proxying, not generic worktree task processes; reuse for a parallel task runner needs an API extension or a new supervisor type — unspecified in the slice.
       decisions_notes: |
         **Trigger:** cron or ticker running in the background supervisor process.
         **State:** session last-seen timestamps stored in SQLite.
         **Payload:** cleanup execution logs.
         **Rejected:** human-only manual cleanup (users forget to clean up branches/worktrees, causing drift).
 questions: []
+critique:
+    reviewed_at: "2026-06-16"
+    reviewers:
+        - 'claude-design (role: design critic; runner: Claude Code wipnote:researcher subagent)'
+        - 'claude-feasibility (role: feasibility critic; runner: Claude Code wipnote:researcher subagent with file + web verification)'
+    assumptions:
+        - id: A1
+          status: unverified
+          text: Claude Code supports a runtime per-subagent model override (e.g. a CLAUDE_CODE_SUBAGENT_MODEL env var).
+          evidence: https://code.claude.com/docs/en/sub-agents — only a per-definition `model` frontmatter field is documented; no override env var found.
+        - id: A2
+          status: verified
+          text: maxTurns is an honored Claude Code subagent frontmatter field.
+          evidence: https://code.claude.com/docs/en/sub-agents; present at plugin/agents/architect-coder.md:15, feature-coder.md:15, researcher.md:16.
+        - id: A3
+          status: falsified
+          text: PostCompact/PostToolUse hook payloads carry a token/context-size count to threshold on.
+          evidence: https://code.claude.com/docs/en/hooks — payloads expose session_id/transcript_path/cwd/permission_mode/hook_event_name only; no token count.
+        - id: A4
+          status: verified
+          text: The PostCompact hook event exists.
+          evidence: https://code.claude.com/docs/en/hooks; core/hooks/missing_events.go:253; packages/plugin-core/manifest.json:94.
+        - id: A5
+          status: falsified
+          text: Hook handlers live in internal/hooks/ (slice-4 files path).
+          evidence: Handlers are in core/hooks/ (separate Go module per CLAUDE.md); internal/hooks/ does not exist.
+        - id: A6
+          status: verified
+          text: A reusable supervised-child-process pattern with idle GC already exists.
+          evidence: internal/childproc/ Supervisor + RunIdleReaper/IdleTimeout with crash &amp; orphan recovery.
+    critics:
+        - title: DESIGN CRITIC
+          sections:
+            - heading: Scope and cohesion
+              items:
+                - badge: two-plans
+                  kind: warn
+                  text: Goals mix token/model optimization (slices 1, 4) with an execution engine (slices 2, 3) and lifecycle GC (slice 5); no unifying acceptance metric — consider sequencing as two plans.
+            - heading: Safety and reviewability
+              items:
+                - badge: auto-merge
+                  kind: danger
+                  text: Slice 3 auto-merge to main has no rollback, partial-failure, or concurrency model.
+                - badge: hooks-or-polling
+                  kind: danger
+                  text: Slice 3 leaves completion detection (event-driven vs polling) uncommitted.
+        - title: FEASIBILITY CRITIC
+          sections:
+            - heading: External contract verification
+              items:
+                - badge: no-token-count
+                  kind: danger
+                  text: 'Slice 4: hook payloads do not carry token counts; PostCompact thresholding is infeasible as written.'
+                - badge: wrong-path
+                  kind: danger
+                  text: 'Slice 4: internal/hooks/ does not exist; handlers are in core/hooks/ (separate module).'
+                - badge: model-override
+                  kind: warn
+                  text: 'Slice 1: per-subagent model-override env var is unverified against current docs.'
+            - heading: Reuse vs reinvention
+              items:
+                - badge: childproc-exists
+                  kind: warn
+                  text: Slices 2/3/5 rebuild parallel dispatch, supervisor, and idle GC that internal/childproc + launcher worktree code already provide.
+    risks:
+        - risk: Slice 4 context-threshold trigger is infeasible — no token count in any hook payload.
+          severity: High
+          mitigation: Redesign around PreCompact context_stats or an external token estimate; drop the PostCompact token-threshold promise.
+        - risk: Slice 3 auto-merge to main lacks rollback / partial-failure / concurrency model.
+          severity: High
+          mitigation: Define a recovery path, per-wave failure isolation, and a merge lock before promotion.
+        - risk: Slice 4 wrong files path (internal/hooks) will not compile.
+          severity: High
+          mitigation: Retarget to core/hooks/ and account for the two-module build.
+        - risk: Slices 2/3/5 reinvent existing worktree mgmt, childproc supervisor, and idle GC.
+          severity: Medium
+          mitigation: Anchor each slice to internal/childproc + existing launcher worktree code; state the reuse-vs-extend decision per slice.
+    synthesis: |
+        The plan targets real pain (token burn, context bloat) but is two plans wearing one
+        coat: a model/token-optimization track (slices 1, 4) and an execution-engine track
+        (slices 2, 3, 5). Three blockers must clear before human review. A3 and A5 sink slice 4
+        as written — no hook payload carries a token count (so PostCompact thresholding is
+        impossible) and internal/hooks/ does not exist (handlers are in core/hooks/ under a
+        separate module). Slice 3's auto-merge to main lacks any rollback or partial-failure
+        model and leaves completion detection uncommitted. Slice 2's file-overlap algorithm is
+        undefined and not reviewer-verifiable, and slices 2/3/5 should explicitly reuse
+        internal/childproc (Supervisor + RunIdleReaper) and existing launcher worktree code
+        rather than rebuild them. A1 (subagent model-override env var) is unverified and must be
+        confirmed or redesigned. Reviewer: start with slice 4 (feasibility-blocked) and slice 3
+        (safety-blocked).

@@ -411,7 +411,7 @@ body.right-rail-collapsed .sidebar-reopen{display:flex}
       <a href="#slice-1" class="slice-nav-item" data-slice-nav="1">
         <span class="slice-nav-dot" data-approval="pending" data-dot-for="1"></span>
         <span>#1 Dynamic subagent model override and local config mapping</span>
-        
+        <span class="nav-triage-badge nav-triage-issue" title="4 issue(s)">&#9888;4</span>
         
       </a>
     </li>
@@ -420,7 +420,7 @@ body.right-rail-collapsed .sidebar-reopen{display:flex}
       <a href="#slice-2" class="slice-nav-item" data-slice-nav="2">
         <span class="slice-nav-dot" data-approval="pending" data-dot-for="2"></span>
         <span>#2 Go CLI implementation of plan execution and file-overlap analysis</span>
-        
+        <span class="nav-triage-badge nav-triage-issue" title="3 issue(s)">&#9888;3</span>
         
       </a>
     </li>
@@ -429,7 +429,7 @@ body.right-rail-collapsed .sidebar-reopen{display:flex}
       <a href="#slice-3" class="slice-nav-item" data-slice-nav="3">
         <span class="slice-nav-dot" data-approval="pending" data-dot-for="3"></span>
         <span>#3 Go CLI background execution manager and auto-merge</span>
-        
+        <span class="nav-triage-badge nav-triage-issue" title="5 issue(s)">&#9888;5</span>
         
       </a>
     </li>
@@ -438,7 +438,7 @@ body.right-rail-collapsed .sidebar-reopen{display:flex}
       <a href="#slice-4" class="slice-nav-item" data-slice-nav="4">
         <span class="slice-nav-dot" data-approval="pending" data-dot-for="4"></span>
         <span>#4 Automated context compaction checks and output filters</span>
-        
+        <span class="nav-triage-badge nav-triage-issue" title="4 issue(s)">&#9888;4</span>
         
       </a>
     </li>
@@ -447,7 +447,7 @@ body.right-rail-collapsed .sidebar-reopen{display:flex}
       <a href="#slice-5" class="slice-nav-item" data-slice-nav="5">
         <span class="slice-nav-dot" data-approval="pending" data-dot-for="5"></span>
         <span>#5 Session Inactivity Auto-Timeout and GC</span>
-        
+        <span class="nav-triage-badge nav-triage-issue" title="4 issue(s)">&#9888;4</span>
         
       </a>
     </li>
@@ -474,7 +474,7 @@ Plan to optimize token usage, prevent context bloat, support local subagent mode
 </p>
   <div class="meta">
     <span class="badge badge-pending">Draft</span>
-    <span style="font-size:.75rem;color:var(--text-muted)">v4 · 5 slices · Created 2026-06-17</span>
+    <span style="font-size:.75rem;color:var(--text-muted)">v5 · 5 slices · Created 2026-06-17</span>
   </div>
 </header>
 <button id="themeToggle" style="position:fixed;top:16px;right:16px;z-index:100;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:6px 12px;color:var(--text);font-family:var(--mono);font-size:0.75rem;cursor:pointer;">
@@ -512,7 +512,7 @@ Plan to optimize token usage, prevent context bloat, support local subagent mode
   <summary><span>Design</span><span class="badge badge-pending" data-badge-for="design">Pending</span></summary>
   <div class="section-body">
     <h4>Problem</h4>
-<div data-markdown>Subagents and token usage (context sizes &gt;150k, long sessions) exhaust users&#39; token quotas too quickly.</div>
+<div data-markdown>Subagents and token usage (context sizes &amp;gt;150k, long sessions) exhaust users&#39; token quotas too quickly.</div>
 <h4>Goals</h4>
 <ol>
 <li data-markdown>Lower subagent token usage by dynamically downgrading default models and turns</li>
@@ -555,7 +555,7 @@ Plan to optimize token usage, prevent context bloat, support local subagent mode
           <span class="badge badge-discuss badge-sm badge-complexity" title="Complexity: standard">Standard</span>
           
           <span class="badge badge-pending badge-sm slice-approval-badge" data-badge-for="slice-1">Pending</span>
-          
+          <span class="badge badge-sm badge-issues" title="4 critic issue(s)">4 issues</span>
           
         </span>
         <span class="slice-actions" onclick="event.stopPropagation()">
@@ -648,6 +648,37 @@ Plan to optimize token usage, prevent context bloat, support local subagent mode
     
 
     
+    <div class="slice-field slice-critic-revisions">
+      <div class="slice-field-label">Critic Revisions</div>
+      <div class="slice-field-value">
+        
+        <div class="critic-revision">
+          <span class="badge badge-pending critic-revision-badge">WARN</span>
+          <span class="critic-revision-source">claude-feasibility</span>
+          <span class="critic-revision-summary">A1 unverified: no documented CLAUDE_CODE_SUBAGENT_MODEL env var or runtime per-subagent model override in Claude Code docs (https://code.claude.com/docs/en/sub-agents); `model` frontmatter is per-agent-definition only. Confirm an override mechanism or redesign the override path before promotion.</span>
+        </div>
+        
+        <div class="critic-revision">
+          <span class="badge badge-pending critic-revision-badge">LOW</span>
+          <span class="critic-revision-source">claude-feasibility</span>
+          <span class="critic-revision-summary">A2 verified: maxTurns IS a documented subagent frontmatter field (sub-agents docs) and already present at architect-coder.md:15, feature-coder.md:15, researcher.md:16; all four cited files exist.</span>
+        </div>
+        
+        <div class="critic-revision">
+          <span class="badge badge-pending critic-revision-badge">WARN</span>
+          <span class="critic-revision-source">claude-design</span>
+          <span class="critic-revision-summary">Config contract undefined: exact keys, JSON schema, and merge/override precedence between .wipnote/config.json and manifest.json are unspecified, leaving implementation ambiguous.</span>
+        </div>
+        
+        <div class="critic-revision">
+          <span class="badge badge-pending critic-revision-badge">WARN</span>
+          <span class="critic-revision-source">claude-design</span>
+          <span class="critic-revision-summary">done_when omits cross-harness portability: the constraint requires Codex TOML and Gemini frontmatter to honor overrides, but no acceptance test covers Codex/Gemini generator output.</span>
+        </div>
+        
+      </div>
+    </div>
+    
 
     
 
@@ -666,7 +697,7 @@ Plan to optimize token usage, prevent context bloat, support local subagent mode
     <span class="slice-num">#2</span>
     <span class="slice-title-col">
       <span class="slice-name">Go CLI implementation of plan execution and file-overlap analysis</span>
-      <span class="slice-preview">Implement a new subcommand wipnote execute run --track  (or similar) in the Go CLI.</span>
+      <span class="slice-preview">Implement a new subcommand wipnote execute run --track &amp;lt;id&amp;gt; (or similar) in the Go CLI.</span>
       <span class="slice-meta-row">
         <span class="slice-summary-badges">
           <span class="badge badge-revision badge-sm">M</span>
@@ -674,7 +705,7 @@ Plan to optimize token usage, prevent context bloat, support local subagent mode
           <span class="badge badge-discuss badge-sm badge-complexity" title="Complexity: standard">Standard</span>
           
           <span class="badge badge-pending badge-sm slice-approval-badge" data-badge-for="slice-2">Pending</span>
-          
+          <span class="badge badge-sm badge-issues" title="3 critic issue(s)">3 issues</span>
           
         </span>
         <span class="slice-actions" onclick="event.stopPropagation()">
@@ -705,7 +736,7 @@ Plan to optimize token usage, prevent context bloat, support local subagent mode
         <div class="slice-field-label">What</div>
         <div class="slice-field-value">
           
-          <div class="markdown-block serif-prose"><p>Implement a new subcommand <code>wipnote execute run --track &lt;id&gt;</code> (or similar) in the Go CLI. The command reads the track, checks unblocked tasks, runs the pairwise file-set overlap analysis (via git commit history / feature lineage), and groups features into parallel waves. It logs execution state to a file or prints a clean JSON summary.</p>
+          <div class="markdown-block serif-prose"><p>Implement a new subcommand <code>wipnote execute run --track &amp;lt;id&amp;gt;</code> (or similar) in the Go CLI. The command reads the track, checks unblocked tasks, runs the pairwise file-set overlap analysis (via git commit history / feature lineage), and groups features into parallel waves. It logs execution state to a file or prints a clean JSON summary.</p>
 </div>
           
         </div>
@@ -731,7 +762,7 @@ Plan to optimize token usage, prevent context bloat, support local subagent mode
       
       <div class="slice-field">
         <div class="slice-field-label">Done when</div>
-        <ul class="slice-done-list"><li>Running wipnote execute run --track &lt;id&gt; output lists correct unblocked tasks and groups them by file overlap</li></ul>
+        <ul class="slice-done-list"><li>Running wipnote execute run --track &amp;lt;id&amp;gt; output lists correct unblocked tasks and groups them by file overlap</li></ul>
       </div>
       
     
@@ -765,6 +796,31 @@ Plan to optimize token usage, prevent context bloat, support local subagent mode
     
 
     
+    <div class="slice-field slice-critic-revisions">
+      <div class="slice-field-label">Critic Revisions</div>
+      <div class="slice-field-value">
+        
+        <div class="critic-revision">
+          <span class="badge badge-blocked critic-revision-badge">DANGER</span>
+          <span class="critic-revision-source">claude-design</span>
+          <span class="critic-revision-summary">File-overlap algorithm underspecified: &#39;overlap via git commit history / feature lineage&#39; has no precise definition (which file sets, derived how), so done_when is not reviewer-verifiable. Define the overlap metric before promotion.</span>
+        </div>
+        
+        <div class="critic-revision">
+          <span class="badge badge-pending critic-revision-badge">WARN</span>
+          <span class="critic-revision-source">claude-feasibility</span>
+          <span class="critic-revision-summary">cmd/wipnote/execute.go does NOT exist yet but is listed under files as if present — mark it explicitly as a new file. Also cmd/wipnote/execute_preview.go &#43; execute_preview_test.go already exist; verify the new file does not duplicate/conflict in the same package.</span>
+        </div>
+        
+        <div class="critic-revision">
+          <span class="badge badge-pending critic-revision-badge">WARN</span>
+          <span class="critic-revision-source">claude-design</span>
+          <span class="critic-revision-summary">Hidden dependency on slice 1: if model overrides change which agent/model each wave spawns, execute must read that config — add an explicit dep on slice 1 or document independence.</span>
+        </div>
+        
+      </div>
+    </div>
+    
 
     
 
@@ -791,7 +847,7 @@ Plan to optimize token usage, prevent context bloat, support local subagent mode
           <span class="badge badge-discuss badge-sm badge-complexity" title="Complexity: standard">Standard</span>
           
           <span class="badge badge-pending badge-sm slice-approval-badge" data-badge-for="slice-3">Pending</span>
-          
+          <span class="badge badge-sm badge-issues" title="5 critic issue(s)">5 issues</span>
           
         </span>
         <span class="slice-actions" onclick="event.stopPropagation()">
@@ -882,6 +938,43 @@ Plan to optimize token usage, prevent context bloat, support local subagent mode
     
 
     
+    <div class="slice-field slice-critic-revisions">
+      <div class="slice-field-label">Critic Revisions</div>
+      <div class="slice-field-value">
+        
+        <div class="critic-revision">
+          <span class="badge badge-blocked critic-revision-badge">DANGER</span>
+          <span class="critic-revision-source">claude-design</span>
+          <span class="critic-revision-summary">Auto-merge to main is destructive with no recovery model: no rollback, no partial-failure handling (some waves pass / some fail), no concurrency-safety/merge-lock model. Add a recovery path before this is shippable.</span>
+        </div>
+        
+        <div class="critic-revision">
+          <span class="badge badge-blocked critic-revision-badge">DANGER</span>
+          <span class="critic-revision-source">claude-design</span>
+          <span class="critic-revision-summary">Completion detection &#39;hooks or polling&#39; is uncommitted — event-driven vs busy-wait is a core architectural decision; pick one with rationale so the slice is reviewable.</span>
+        </div>
+        
+        <div class="critic-revision">
+          <span class="badge badge-pending critic-revision-badge">LOW</span>
+          <span class="critic-revision-source">claude-feasibility</span>
+          <span class="critic-revision-summary">Reuse, don&#39;t rebuild: internal/childproc already implements a Supervisor with idle reaper (RunIdleReaper/IdleTimeout), spawn timeout, and crash/orphan recovery — build on it.</span>
+        </div>
+        
+        <div class="critic-revision">
+          <span class="badge badge-pending critic-revision-badge">WARN</span>
+          <span class="critic-revision-source">claude-feasibility</span>
+          <span class="critic-revision-summary">Boundary undefined: the existing internal/childproc Supervisor targets serve-child HTTP proxying, not worktree-task dispatch — reuse needs API extension or a new type; specify which.</span>
+        </div>
+        
+        <div class="critic-revision">
+          <span class="badge badge-pending critic-revision-badge">WARN</span>
+          <span class="critic-revision-source">claude-design</span>
+          <span class="critic-revision-summary">Package ownership clash: slices 3 and 5 both target internal/childproc independently — define ownership/boundary to avoid merge conflicts.</span>
+        </div>
+        
+      </div>
+    </div>
+    
 
     
 
@@ -908,7 +1001,7 @@ Plan to optimize token usage, prevent context bloat, support local subagent mode
           <span class="badge badge-discuss badge-sm badge-complexity" title="Complexity: standard">Standard</span>
           
           <span class="badge badge-pending badge-sm slice-approval-badge" data-badge-for="slice-4">Pending</span>
-          
+          <span class="badge badge-sm badge-issues" title="4 critic issue(s)">4 issues</span>
           
         </span>
         <span class="slice-actions" onclick="event.stopPropagation()">
@@ -1001,6 +1094,37 @@ Plan to optimize token usage, prevent context bloat, support local subagent mode
     
 
     
+    <div class="slice-field slice-critic-revisions">
+      <div class="slice-field-label">Critic Revisions</div>
+      <div class="slice-field-value">
+        
+        <div class="critic-revision">
+          <span class="badge badge-blocked critic-revision-badge">DANGER</span>
+          <span class="critic-revision-source">claude-feasibility</span>
+          <span class="critic-revision-summary">A5 falsified — wrong files path: internal/hooks/ does NOT exist. Hook handlers live in core/hooks/ (separate Go module per CLAUDE.md two-modules note); cmd/wipnote imports core/hooks. As written this slice will not build. Retarget to core/hooks/ and account for the two-module build.</span>
+        </div>
+        
+        <div class="critic-revision">
+          <span class="badge badge-blocked critic-revision-badge">DANGER</span>
+          <span class="critic-revision-source">claude-feasibility</span>
+          <span class="critic-revision-summary">A3 falsified — infeasible trigger: PostCompact (and all hook) payloads do NOT carry a token/context-size count per official docs (https://code.claude.com/docs/en/hooks); common fields are session_id/transcript_path/cwd/permission_mode/hook_event_name. A token-threshold check in a PostCompact handler cannot get the count from the payload. PreCompact exposes harness-provided context_stats (non-standard) — investigate that path instead.</span>
+        </div>
+        
+        <div class="critic-revision">
+          <span class="badge badge-pending critic-revision-badge">LOW</span>
+          <span class="critic-revision-source">claude-feasibility</span>
+          <span class="critic-revision-summary">A4 verified: PostCompact event exists (docs &#43; core/hooks/missing_events.go:253, manifest.json:94). cmd/wipnote/sh.go exists.</span>
+        </div>
+        
+        <div class="critic-revision">
+          <span class="badge badge-pending critic-revision-badge">WARN</span>
+          <span class="critic-revision-source">claude-design</span>
+          <span class="critic-revision-summary">&#39;clickable links&#39; to local files assume a hyperlink-capable terminal; specify plain-stdout fallback behavior for CI/non-supporting terminals.</span>
+        </div>
+        
+      </div>
+    </div>
+    
 
     
 
@@ -1027,7 +1151,7 @@ Plan to optimize token usage, prevent context bloat, support local subagent mode
           <span class="badge badge-discuss badge-sm badge-complexity" title="Complexity: standard">Standard</span>
           
           <span class="badge badge-pending badge-sm slice-approval-badge" data-badge-for="slice-5">Pending</span>
-          
+          <span class="badge badge-sm badge-issues" title="4 critic issue(s)">4 issues</span>
           
         </span>
         <span class="slice-actions" onclick="event.stopPropagation()">
@@ -1118,6 +1242,37 @@ Plan to optimize token usage, prevent context bloat, support local subagent mode
     
 
     
+    <div class="slice-field slice-critic-revisions">
+      <div class="slice-field-label">Critic Revisions</div>
+      <div class="slice-field-value">
+        
+        <div class="critic-revision">
+          <span class="badge badge-pending critic-revision-badge">WARN</span>
+          <span class="critic-revision-source">claude-design</span>
+          <span class="critic-revision-summary">Conductor interaction unaddressed: CLAUDE.md notes Conductor archives worktrees without invoking wipnote * complete — GC keyed on idle could destroy in-flight Conductor-managed work; add a guard/exclusion for Conductor-managed worktrees.</span>
+        </div>
+        
+        <div class="critic-revision">
+          <span class="badge badge-pending critic-revision-badge">LOW</span>
+          <span class="critic-revision-source">claude-feasibility</span>
+          <span class="critic-revision-summary">Reuse available: cmd/wipnote/serve_parent.go exists and internal/childproc has idle GC (RunIdleReaper) &#43; crash recovery — extend rather than reinvent.</span>
+        </div>
+        
+        <div class="critic-revision">
+          <span class="badge badge-pending critic-revision-badge">WARN</span>
+          <span class="critic-revision-source">claude-design</span>
+          <span class="critic-revision-summary">Hardcoded 30-min idle threshold conflicts with the slice-1 user-overridable-config pattern; expose a config surface to avoid a follow-up pass.</span>
+        </div>
+        
+        <div class="critic-revision">
+          <span class="badge badge-pending critic-revision-badge">WARN</span>
+          <span class="critic-revision-source">claude-feasibility</span>
+          <span class="critic-revision-summary">childproc Supervisor is built for serve-child HTTP proxying, not generic worktree task processes; reuse for a parallel task runner needs an API extension or a new supervisor type — unspecified in the slice.</span>
+        </div>
+        
+      </div>
+    </div>
+    
 
     
 
@@ -1137,17 +1292,7 @@ Plan to optimize token usage, prevent context bloat, support local subagent mode
 </details>
 
 <!-- Design Decisions (hidden for v2 plans — slice cards carry their own questions) -->
-<details id="questions" class="section-card" data-phase="questions" data-status="pending">
-  <summary><span>Design Decisions</span><span class="badge badge-pending" data-badge-for="questions">Pending</span></summary>
-  <div class="section-body">
-    <table class="q-table">
-      <thead><tr><th>Question</th><th>Selected</th><th>Status</th></tr></thead>
-      <tbody id="questionsRecap">
-        <!--PLAN_QUESTIONS_RECAP-->
-      </tbody>
-    </table>
-  </div>
-</details>
+
 
 
 

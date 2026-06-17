@@ -4,12 +4,16 @@ kind: hazard
 paths:
     - port/pluginbuild/antigravity.go
     - cmd/wipnote/antigravity.go
-verified_at: ""
+verified_at: bbf88c119bfec97eebffee6dabde3c1f2d09c7bf
 links:
     - spk-c928d70a
 created_by: claude-opus-4-8
 created_at: 2026-06-15T17:04:19.258710095Z
-updated_at: 2026-06-15T17:04:19.258710095Z
+updated_at: 2026-06-16T20:13:28.237709024Z
 ---
 
-ANTIGRAVITY HOOK SILENT-FAILURE RISKS (UNVERIFIED, June 2026). (1) wipnote emits hooks.json with Gemini event names (BeforeTool/BeforeAgent/AfterTool/AfterModel/AfterAgent/SessionEnd) via e.GeminiEventName; web docs say Antigravity events are PreToolUse/PostToolUse/PreInvocation/PostInvocation/Stop. If agy does not alias Gemini names, all Antigravity hooks are dead. (2) hooks.json emitted at bundle root + installed via 'agy plugin install'; docs locate hooks at .agents/hooks.json or ~/.gemini/config/hooks.json — remap unverified. (3) hook.go:322 returns Claude canonical names for Antigravity (open roborev job 267). (4) install dir and GEMINI_TELEMETRY_* env are Gemini-derived guesses. Verify against live agy before release.
+VERIFIED LIVE vs agy v1.0.8 (spk-0698d585, feat-c08b20a6, feat-eee1e9e2).
+HOOKS.JSON (FIXED): named-hook map {"wipnote":{"enabled":true,"<Event>":[{"matcher","hooks":[{"type":"command","command"}]}]}}; STRICT decode. Handler events: PreToolUse/PostToolUse/PreInvocation/PostInvocation/Stop. Loads "5 total handlers". Map: UserPromptSubmit->PreInvocation, AfterAgent->PostInvocation; tool run_shell_command->run_command.
+HOOK RESPONSE (FIXED): agy decodes hook stdout as protojson, STRICT-rejects unknowns — Gemini {"continue":true} fails "unknown field continue", discarding all output. Emit "{}" for allow; PreInvocation injects {"injectSteps":[{"systemMessage":"..."}]}.
+INJECTION: only channel = PreInvocation injectSteps[].systemMessage (GEMINI_SYSTEM_MD/additionalContext/plugin GEMINI.md DEAD). Launcher stages prompt to WIPNOTE_ANTIGRAVITY_SYSTEM_MD; hook injects it.
+RUNTIME GAP: hooks experiment-gated (enable_json_hooks); model consumption needs authed agy.

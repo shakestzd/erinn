@@ -221,14 +221,18 @@ func applyAntigravityLaunchIntent(worktreePath, workItem, resumeID string, conti
 	if !intent.WantsContinue() {
 		return result
 	}
-	result.continue_ = true
+	// Carry work-item and worktree context regardless of harness.
 	if result.workItem == "" && intent.WorkItemID != "" {
 		result.workItem = intent.WorkItemID
 	}
 	if result.worktreePath == "" && intent.WorktreePath != "" {
 		result.worktreePath = intent.WorktreePath
 	}
-	if result.resumeID == "" {
+	// Only enable native --continue/--resume for antigravity-harness sessions.
+	// Cross-harness rows (codex, gemini) carry work-item/worktree context but must
+	// NOT pass --continue, which would resume the most-recent agy conversation.
+	if strings.EqualFold(strings.TrimSpace(intent.SessionHarness), "antigravity") {
+		result.continue_ = true
 		result.resumeID = intent.ResumeForHarness("antigravity")
 	}
 	return result

@@ -45,8 +45,8 @@ func TestPlanBlocks_JSON(t *testing.T) {
 	if err := json.Unmarshal(buf.Bytes(), &entries); err != nil {
 		t.Fatalf("output is not valid JSON: %v\n%s", err, buf.String())
 	}
-	if len(entries) != 4 {
-		t.Fatalf("expected 4 catalog entries, got %d", len(entries))
+	if len(entries) != 6 {
+		t.Fatalf("expected 6 catalog entries, got %d", len(entries))
 	}
 
 	byType := map[string]blockCatalogEntry{}

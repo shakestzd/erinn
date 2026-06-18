@@ -95,6 +95,14 @@ func validatePlanFromYAML(wipnoteDir, planID string, plan *planyaml.PlanYAML) pl
 		addWarning(e)
 	}
 
+	// Research advisories: non-blocking nudges for legacy/v3 plans lacking a cited
+	// research basis. v4 plans enforce this in Validate above (so this adds
+	// nothing for them); for older plans it keeps web research visible before they
+	// opt into the hard gate.
+	for _, a := range planyaml.ValidateResearchAdvisories(plan) {
+		addWarning("research: " + a)
+	}
+
 	// Slice stats from YAML.
 	result.Stats.Slices = len(plan.Slices)
 	result.Stats.GraphNodes = len(plan.Slices)

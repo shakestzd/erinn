@@ -44,6 +44,24 @@ type PlanDesign struct {
 	Constraints []string `yaml:"constraints"`
 	Approved    bool     `yaml:"approved"`
 	Comment     string   `yaml:"comment"`
+
+	// Research is the plan-wide research basis: the sources that informed the
+	// overall design (current standards, prior art, candidate packages). For v4
+	// plans the validator requires at least one entry so the design itself is
+	// evidence-backed. Additive-optional for legacy/v3 plans.
+	Research []ResearchSource `yaml:"research,omitempty"`
+}
+
+// ResearchSource is one cited piece of web/doc research backing a plan or slice.
+// It makes the research basis machine-checkable instead of buried in prose, so
+// the validator can enforce that external claims are sourced.
+type ResearchSource struct {
+	// URL is the source location (must be http(s)). Required.
+	URL string `yaml:"url"`
+	// Claim is what this source substantiates (one line).
+	Claim string `yaml:"claim,omitempty"`
+	// Accessed is the YYYY-MM-DD the source was read (recency matters).
+	Accessed string `yaml:"accessed,omitempty"`
 }
 
 // PlanSlice is a vertical delivery slice with metadata for effort,
@@ -94,6 +112,19 @@ type PlanSlice struct {
 
 	Approved bool   `yaml:"approved"`
 	Comment  string `yaml:"comment"`
+
+	// Research holds the web/doc sources that substantiate this slice's external
+	// claims (libraries, SDKs, standards, "no existing package does X"). For v4
+	// plans, every standard/complex slice must carry at least one Research source
+	// (with a URL) OR a ResearchWaiver — the validator enforces it so plans are
+	// informed by current published information and battle-tested packages rather
+	// than reinventing the wheel. Additive-optional: legacy/v3 plans omit it.
+	Research []ResearchSource `yaml:"research,omitempty"`
+	// ResearchWaiver is an explicit, audited reason a slice carries no Research
+	// (e.g. "stdlib only — no external dependency or standard applies"). It
+	// satisfies the v4 research gate without sources, but records WHY research was
+	// unnecessary rather than letting it be silently skipped.
+	ResearchWaiver string `yaml:"research_waiver,omitempty"`
 
 	// V2 lifecycle fields (additive — legacy plans omit these and remain valid).
 	ApprovalStatus  string `yaml:"approval_status,omitempty"`  // pending | approved | rejected | changes_requested

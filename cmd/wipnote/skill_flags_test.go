@@ -116,8 +116,9 @@ func TestPlanningSkillsRequireResearchProvenance(t *testing.T) {
 	checks := map[string][]string{
 		filepath.Join(root, "plugin", "skills", "plan", "SKILL.md"): {
 			"Mandatory Research",
-			"Research basis",
-			"External technical claims have a visible research basis",
+			"research gate",       // the schema-enforced gate is documented
+			"research_waiver",     // the structured escape hatch is documented
+			"no reinventing the wheel",
 		},
 		filepath.Join(root, "plugin", "skills", "plan-critique", "SKILL.md"): {
 			"Verify external claims via web search / web fetch",

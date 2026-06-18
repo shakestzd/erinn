@@ -423,6 +423,22 @@ func CreateAllTables(db *sql.DB) error {
 			profile_signature TEXT NOT NULL DEFAULT '',
 			guards_run TEXT NOT NULL DEFAULT '[]'
 		)`,
+
+		// 18. recaps — read index for committed recap artifacts (.wipnote/recaps/*.html).
+		// Canonical store is the HTML files; this table is derived and never authoritative.
+		`CREATE TABLE IF NOT EXISTS recaps (
+			id            TEXT PRIMARY KEY,
+			kind          TEXT NOT NULL DEFAULT '',
+			input         TEXT NOT NULL DEFAULT '',
+			git_range     TEXT NOT NULL DEFAULT '',
+			grounded      INTEGER NOT NULL DEFAULT 0,
+			title         TEXT NOT NULL DEFAULT '',
+			outcome       TEXT NOT NULL DEFAULT '',
+			work_item_id  TEXT NOT NULL DEFAULT '',
+			created_at    DATETIME,
+			updated_at    DATETIME,
+			indexed_at    DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+		)`,
 	}
 
 	for _, stmt := range stmts {
@@ -509,6 +525,9 @@ func CreateAllIndexes(db *sql.DB) error {
 		// gate_records
 		"CREATE INDEX IF NOT EXISTS idx_gate_records_session_checked ON gate_records(session_id, checked_at DESC)",
 		"CREATE INDEX IF NOT EXISTS idx_gate_records_work_item_checked ON gate_records(work_item_id, checked_at DESC)",
+		// recaps
+		"CREATE INDEX IF NOT EXISTS idx_recaps_kind ON recaps(kind)",
+		"CREATE INDEX IF NOT EXISTS idx_recaps_work_item ON recaps(work_item_id)",
 	}
 
 	for _, idx := range indexes {

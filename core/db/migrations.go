@@ -15,7 +15,7 @@ import (
 // executes ZERO CREATE / ALTER / DROP / trigger / normalisation statements —
 // avoiding the write-lock acquisition that caused SQLITE_BUSY in short-lived
 // hook processes.
-const currentSchemaVersion = 16
+const currentSchemaVersion = 17
 
 // copySwapStepName is the name of the agent_events copy-and-swap migration
 // step. Exposed via CopySwapStepName() so tests can assert it runs at most
@@ -122,6 +122,11 @@ var migrations = []migrationStep{
 		version: 16,
 		name:    "016_plan_feedback_annotation_state",
 		apply:   stepPlanFeedbackAnnotationState,
+	},
+	{
+		version: 17,
+		name:    "017_recaps_table",
+		apply:   stepRecapsTable,
 	},
 }
 
@@ -553,6 +558,40 @@ func stepArchCards(db *sql.DB) error {
 	} {
 		if _, err := db.Exec(stmt); err != nil {
 			return fmt.Errorf("create arch_cards index: %w", err)
+		}
+	}
+	return nil
+}
+
+// stepRecapsTable creates the recaps read-index table and its indexes. Recaps
+// are committed HTML artifacts under .wipnote/recaps/; this table is a derived
+// read index (the HTML stays canonical). Recaps carry a distinct shape from
+// work items — grounding scope plus a source range/session — so they get a
+// dedicated table rather than extending the features index.
+// Idempotent: CREATE TABLE/INDEX IF NOT EXISTS are no-ops on a DB that already
+// has the table (e.g. a fresh DB where stepCreateBaseTables ran first).
+func stepRecapsTable(db *sql.DB) error {
+	if _, err := db.Exec(`CREATE TABLE IF NOT EXISTS recaps (
+		id            TEXT PRIMARY KEY,
+		kind          TEXT NOT NULL DEFAULT '',
+		input         TEXT NOT NULL DEFAULT '',
+		git_range     TEXT NOT NULL DEFAULT '',
+		grounded      INTEGER NOT NULL DEFAULT 0,
+		title         TEXT NOT NULL DEFAULT '',
+		outcome       TEXT NOT NULL DEFAULT '',
+		work_item_id  TEXT NOT NULL DEFAULT '',
+		created_at    DATETIME,
+		updated_at    DATETIME,
+		indexed_at    DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		return fmt.Errorf("create recaps: %w", err)
+	}
+	for _, stmt := range []string{
+		`CREATE INDEX IF NOT EXISTS idx_recaps_kind ON recaps(kind)`,
+		`CREATE INDEX IF NOT EXISTS idx_recaps_work_item ON recaps(work_item_id)`,
+	} {
+		if _, err := db.Exec(stmt); err != nil {
+			return fmt.Errorf("create recaps index: %w", err)
 		}
 	}
 	return nil

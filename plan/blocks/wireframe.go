@@ -16,6 +16,17 @@ import (
 // baked-in colors.
 var rawColorRe = regexp.MustCompile(`(?i)#[0-9a-f]{3,8}\b|\brgba?\(|\bhsla?\(`)
 
+// htmlEntityRe matches HTML character references (e.g. &#9670;, &#x25C6;, &amp;).
+// They are stripped before the raw-color check so a numeric entity like &#9670;
+// is not misread as a hex color (#9670…).
+var htmlEntityRe = regexp.MustCompile(`&#?[0-9a-zA-Z]+;`)
+
+// hasRawColor reports whether s contains a baked-in hex/rgb/hsl color, ignoring
+// HTML character references so legitimate entity usage is not flagged.
+func hasRawColor(s string) bool {
+	return rawColorRe.MatchString(htmlEntityRe.ReplaceAllString(s, ""))
+}
+
 // Wireframe style-value allowlists. bluemonday keeps a CSS declaration only when
 // its value matches; anything else (url(...), expression(...), javascript:, raw
 // colors) is dropped. Color properties accept ONLY var(--wf-*) tokens, so the
@@ -135,7 +146,7 @@ type Wireframe struct {
 // instead of the markup), keeping the renderer consistent with the schema
 // validator which rejects the same plans at author time.
 func (wf *Wireframe) RawColors() bool {
-	return rawColorRe.MatchString(wf.Body)
+	return hasRawColor(wf.Body)
 }
 
 // SafeBody returns the wireframe body sanitized through the strict wfPolicy

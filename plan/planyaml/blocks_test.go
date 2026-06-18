@@ -124,6 +124,11 @@ func TestValidate_BlockShapes(t *testing.T) {
 			block:     SliceBlock{Type: "wireframe", Fields: map[string]string{"html": `<div style="color:var(--color-fg)">x</div>`}},
 			wantError: false,
 		},
+		{
+			name:      "wireframe with HTML entities is not flagged as raw color",
+			block:     SliceBlock{Type: "wireframe", Fields: map[string]string{"html": `<div style="color:var(--wf-accent)">&#9670; &#x25C6; ok</div>`}},
+			wantError: false,
+		},
 	}
 
 	for _, tc := range cases {

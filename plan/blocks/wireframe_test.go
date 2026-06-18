@@ -138,6 +138,24 @@ func TestWireframe_NoUITakeover(t *testing.T) {
 	}
 }
 
+func TestWireframe_AllowsHTMLEntities(t *testing.T) {
+	// HTML numeric entities (e.g. &#9670; ◆) must not be misread as hex colors by
+	// the raw-color check — a token-only wireframe using entities is valid.
+	wf := &blocks.Wireframe{
+		Body: `<div style="color:var(--wf-accent)">&#9670; &#x25C6; status</div>`,
+	}
+	if wf.RawColors() {
+		t.Fatalf("entity-bearing token-only wireframe wrongly flagged as raw-color")
+	}
+	html := render(t, wf)
+	if strings.Contains(html, "wireframe-error") {
+		t.Errorf("entity wireframe must render, not error:\n%s", html)
+	}
+	if !strings.Contains(html, "status") {
+		t.Errorf("expected body content to survive:\n%s", html)
+	}
+}
+
 func TestWireframe_AnchorStamped(t *testing.T) {
 	wf := &blocks.Wireframe{
 		Body:   `<div style="color:var(--wf-fg)">x</div>`,

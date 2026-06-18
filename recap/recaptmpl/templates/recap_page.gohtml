@@ -50,8 +50,12 @@ h1{font-size:1.5rem;font-weight:700;margin-bottom:4px}
 .hunk-meta{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:6px 12px;background:rgba(255,255,255,.02)}
 .hunk-header{font-family:var(--mono);font-size:.74rem;color:var(--text-muted)}
 .hunk-summary{font-size:.72rem;color:var(--text-muted);font-family:var(--mono)}
-.diff-pre{margin:0;padding:10px 12px;overflow-x:auto;font-family:var(--mono);font-size:.8rem;line-height:1.5;white-space:pre}
+.diff-pre{margin:0;padding:10px 0;overflow-x:auto;font-family:var(--mono);font-size:.8rem;line-height:1.5;white-space:pre}
 .diff-pre code{font-family:var(--mono);background:none;padding:0}
+.dl{display:block;padding:0 12px}
+.dl-add{background:rgba(34,197,94,.12);color:var(--add)}
+.dl-del{background:rgba(239,68,68,.12);color:var(--delete)}
+.dl-ctx{color:var(--text-muted)}
 .hunk-cols{display:grid;grid-template-columns:1fr 1fr}
 .hunk-col-before{border-right:1px solid var(--border);background:rgba(239,68,68,.04)}
 .hunk-col-after{background:rgba(34,197,94,.04)}

@@ -98,13 +98,18 @@ func parseUnifiedDiff(diff string) []FileChange {
 		case curHunk == nil:
 			// Inside a file header but before the first hunk; ignore.
 		case strings.HasPrefix(line, "+"):
-			curHunk.After = append(curHunk.After, strings.TrimPrefix(line, "+"))
+			content := strings.TrimPrefix(line, "+")
+			curHunk.After = append(curHunk.After, content)
+			curHunk.Lines = append(curHunk.Lines, DiffLine{Kind: DiffAdd, Text: content})
 		case strings.HasPrefix(line, "-"):
-			curHunk.Before = append(curHunk.Before, strings.TrimPrefix(line, "-"))
+			content := strings.TrimPrefix(line, "-")
+			curHunk.Before = append(curHunk.Before, content)
+			curHunk.Lines = append(curHunk.Lines, DiffLine{Kind: DiffDel, Text: content})
 		case strings.HasPrefix(line, " "):
 			content := strings.TrimPrefix(line, " ")
 			curHunk.Before = append(curHunk.Before, content)
 			curHunk.After = append(curHunk.After, content)
+			curHunk.Lines = append(curHunk.Lines, DiffLine{Kind: DiffContext, Text: content})
 		}
 	}
 	flush()

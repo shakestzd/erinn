@@ -72,14 +72,38 @@ type FileChange struct {
 // the removed and added line content respectively so the renderer can show a
 // side-by-side or inline diff without re-running git.
 type Hunk struct {
-	OldStart int      `json:"old_start"`
-	OldLines int      `json:"old_lines"`
-	NewStart int      `json:"new_start"`
-	NewLines int      `json:"new_lines"`
-	Header   string   `json:"header,omitempty"`
-	Before   []string `json:"before,omitempty"`
-	After    []string `json:"after,omitempty"`
+	OldStart int    `json:"old_start"`
+	OldLines int    `json:"old_lines"`
+	NewStart int    `json:"new_start"`
+	NewLines int    `json:"new_lines"`
+	Header   string `json:"header,omitempty"`
+	// Before/After are the old- and new-side line sets (each includes context),
+	// used directly by the split (side-by-side) diff view.
+	Before []string `json:"before,omitempty"`
+	After  []string `json:"after,omitempty"`
+	// Lines is the interleaved, kind-tagged view of the hunk (context/add/del in
+	// source order). It is the authoritative source for unified rendering and for
+	// true add/remove counts — Before/After cannot distinguish context from change.
+	Lines []DiffLine `json:"lines,omitempty"`
 }
+
+// DiffLine is one line of a hunk tagged by kind.
+type DiffLine struct {
+	Kind DiffKind `json:"kind"`
+	Text string   `json:"text"`
+}
+
+// DiffKind classifies a diff line.
+type DiffKind string
+
+const (
+	// DiffContext is an unchanged line shown for context.
+	DiffContext DiffKind = "ctx"
+	// DiffAdd is an added line.
+	DiffAdd DiffKind = "add"
+	// DiffDel is a removed line.
+	DiffDel DiffKind = "del"
+)
 
 // Commit is one commit in the resolved change set.
 type Commit struct {

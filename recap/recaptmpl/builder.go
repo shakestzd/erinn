@@ -45,14 +45,19 @@ func titleFor(data recap.RecapData) string {
 func buildSpine(data recap.RecapData) *LineageSpine {
 	s := &LineageSpine{}
 
-	// Pivot + ancestry/related from the (optional) lineage walk.
-	if len(data.LineageChain) > 0 && data.Provenance.Input != "" {
+	// The pivot anchors any grounded recap (a work item or session), even when
+	// the graph walk found no neighbors — losing the anchor would make a grounded
+	// recap indistinguishable from a bare range. Ancestry/related are populated
+	// independently, only when lineage nodes actually exist.
+	if data.Provenance.Grounded && data.Provenance.Input != "" {
 		s.Pivot = &spineRef{
 			Glyph: glyphFor(kindFromID(data.Provenance.Input)),
 			Kind:  kindFromID(data.Provenance.Input),
 			ID:    data.Provenance.Input,
 			Title: data.Outcome,
 		}
+	}
+	if len(data.LineageChain) > 0 {
 		s.Ancestors = collectAncestors(data.LineageChain)
 		s.Related = collectRelated(data.LineageChain)
 	}
@@ -139,9 +144,23 @@ func refFromNode(n lineage.Node) spineRef {
 	}
 }
 
-// countChanges sums added/removed line counts across a file's hunks.
+// countChanges sums TRUE added/removed line counts across a file's hunks,
+// counting only +/- lines (not context). It prefers the kind-tagged Hunk.Lines
+// and falls back to Before/After lengths for fixtures that predate Lines (those
+// carry no context, so the lengths are already correct).
 func countChanges(hunks []recap.Hunk) (added, removed int) {
 	for _, h := range hunks {
+		if len(h.Lines) > 0 {
+			for _, l := range h.Lines {
+				switch l.Kind {
+				case recap.DiffAdd:
+					added++
+				case recap.DiffDel:
+					removed++
+				}
+			}
+			continue
+		}
 		added += len(h.After)
 		removed += len(h.Before)
 	}

@@ -129,6 +129,32 @@ func TestRecapPage_Render_Ungrounded(t *testing.T) {
 	}
 }
 
+func TestRecapPage_Render_GroundedWithoutLineageKeepsPivot(t *testing.T) {
+	// A grounded work-item recap with commits/files but NO graph neighbors must
+	// still anchor on its pivot — not degrade to a produced-only range view.
+	data := groundedData()
+	data.LineageChain = nil
+	html := mustRender(t, data)
+	if !strings.Contains(html, "lin-node pivot") {
+		t.Error("grounded recap without lineage neighbors must still render the pivot")
+	}
+	if !strings.Contains(html, "feat-2570725c") {
+		t.Error("expected the work-item id on the pivot")
+	}
+	if strings.Contains(html, "spine-produced-only") {
+		t.Error("grounded recap must not render as produced-only")
+	}
+}
+
+func mustRender(t *testing.T, data recap.RecapData) string {
+	t.Helper()
+	var buf bytes.Buffer
+	if err := recaptmpl.Build(data).Render(&buf); err != nil {
+		t.Fatalf("Render: %v", err)
+	}
+	return buf.String()
+}
+
 func TestRecapPage_Render_DegradesWithoutPrism(t *testing.T) {
 	// The standalone artifact must not inline the Prism bundle; diff code
 	// must sit in <pre><code class="language-..."> so it renders as plain

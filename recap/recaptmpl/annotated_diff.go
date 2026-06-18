@@ -31,8 +31,17 @@ type HunkView struct {
 	Summary string // e.g. "2 added, 1 removed"
 	Added   int
 	Removed int
-	Before  []string // removed lines (split left / unified top)
-	After   []string // added lines (split right / unified bottom)
+	Before  []string   // old-side lines incl. context (split left)
+	After   []string   // new-side lines incl. context (split right)
+	Lines   []LineView // interleaved kind-tagged lines (unified view)
+}
+
+// LineView is one unified-diff line: its kind class ("add"/"del"/"ctx"), the
+// gutter sign, and the text. Context lines are not marked as changes.
+type LineView struct {
+	Kind string
+	Sign string
+	Text string
 }
 
 // AnnotatedDiff renders the diff for a single file in either unified or split
@@ -83,8 +92,16 @@ func (d *AnnotatedDiff) Render(w io.Writer) error {
 func hunkViews(hunks []recap.Hunk) []HunkView {
 	views := make([]HunkView, 0, len(hunks))
 	for _, h := range hunks {
-		added := len(h.After)
-		removed := len(h.Before)
+		lines := lineViews(h)
+		added, removed := 0, 0
+		for _, l := range lines {
+			switch l.Kind {
+			case "add":
+				added++
+			case "del":
+				removed++
+			}
+		}
 		views = append(views, HunkView{
 			Header:  h.Header,
 			Summary: summarize(added, removed),
@@ -92,9 +109,43 @@ func hunkViews(hunks []recap.Hunk) []HunkView {
 			Removed: removed,
 			Before:  h.Before,
 			After:   h.After,
+			Lines:   lines,
 		})
 	}
 	return views
+}
+
+// lineViews returns the interleaved unified-diff lines for a hunk. It prefers the
+// kind-tagged Hunk.Lines from the parser; when absent (e.g. hand-built test
+// fixtures that only set Before/After), it synthesizes del-then-add lines, which
+// matches the no-context fixtures exactly.
+func lineViews(h recap.Hunk) []LineView {
+	if len(h.Lines) > 0 {
+		out := make([]LineView, 0, len(h.Lines))
+		for _, l := range h.Lines {
+			out = append(out, LineView{Kind: string(l.Kind), Sign: signFor(l.Kind), Text: l.Text})
+		}
+		return out
+	}
+	out := make([]LineView, 0, len(h.Before)+len(h.After))
+	for _, t := range h.Before {
+		out = append(out, LineView{Kind: "del", Sign: "-", Text: t})
+	}
+	for _, t := range h.After {
+		out = append(out, LineView{Kind: "add", Sign: "+", Text: t})
+	}
+	return out
+}
+
+func signFor(k recap.DiffKind) string {
+	switch k {
+	case recap.DiffAdd:
+		return "+"
+	case recap.DiffDel:
+		return "-"
+	default:
+		return " "
+	}
 }
 
 // summarize renders the add/remove counts for a hunk summary line. It always

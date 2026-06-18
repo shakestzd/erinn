@@ -69,6 +69,41 @@ func TestAnnotatedDiff_SplitVsUnified(t *testing.T) {
 	}
 }
 
+func TestAnnotatedDiff_ContextNotCountedOrMarked(t *testing.T) {
+	// A hunk with 2 context lines + 1 add + 1 del: counts must reflect only the
+	// real change (1 added, 1 removed), and context lines must render as ctx, not
+	// as add/del (the prior bug counted and marked context on both sides).
+	fc := recap.FileChange{
+		Path:   "x.go",
+		Change: recap.ChangeModify,
+		Hunks: []recap.Hunk{{
+			Header: "@@ -1,3 +1,3 @@",
+			Lines: []recap.DiffLine{
+				{Kind: recap.DiffContext, Text: "ctxA"},
+				{Kind: recap.DiffDel, Text: "old"},
+				{Kind: recap.DiffAdd, Text: "new"},
+				{Kind: recap.DiffContext, Text: "ctxB"},
+			},
+		}},
+	}
+	d := &recaptmpl.AnnotatedDiff{File: fc, Mode: recaptmpl.DiffUnified, Language: "go"}
+	var b bytes.Buffer
+	if err := d.Render(&b); err != nil {
+		t.Fatalf("Render: %v", err)
+	}
+	html := b.String()
+	if !strings.Contains(html, "1 added, 1 removed") {
+		t.Errorf("summary must count only real changes (1 added, 1 removed), got:\n%s", html)
+	}
+	if !strings.Contains(html, `class="dl dl-ctx"`) {
+		t.Errorf("context lines must render with the ctx class:\n%s", html)
+	}
+	// The context text must not be wrapped as add or del.
+	if strings.Contains(html, `dl-add">+ ctxA`) || strings.Contains(html, `dl-del">- ctxA`) {
+		t.Errorf("context line wrongly marked as a change:\n%s", html)
+	}
+}
+
 func TestAnnotatedDiff_Collapsible(t *testing.T) {
 	d := &recaptmpl.AnnotatedDiff{File: diffFixture(), Mode: recaptmpl.DiffUnified, Language: "go"}
 	var b bytes.Buffer

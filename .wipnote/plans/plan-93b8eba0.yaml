@@ -16,10 +16,10 @@ meta:
 
         Relates to plan-243e8713 (shares lineage data + D3/dashboard surface; does not overlap scope).
     created_at: ""
-    status: draft
+    status: finalized
     priority: medium
     schema_version: v3
-    version: 1
+    version: 2
 design:
     problem: |
         BuilderIO's /visual-plan and /visual-recap give agents rich, reviewable visual artifacts (block-structured plans; recaps that turn a diff into an interactive summary), but they depend on a hosted third-party MCP (Agent-Native Plans). wipnote already owns equivalent rendering surfaces (plantmpl, the serve dashboard, lineage) yet exposes plans as a single layout, has no recap surface at all, and emits lineage as text only. We want the same visual ergonomics, natively and local-first, with recap grounded in wipnote's unique causal lineage.
@@ -41,6 +41,7 @@ design:
     comment: ""
 slices:
     - id: slice-1
+      feature_id: feat-5cdb3732
       num: 1
       title: Recap collector core — resolve work-item / git-range / session into grounded diff data
       what: |
@@ -72,8 +73,9 @@ slices:
         Unit: TestCollect_FromFeature (fixture .wipnote + git repo), TestCollect_FromRange,
         TestCollect_FromSession. Assert deterministic file/hunk sets. Table-driven.
       complexity: complex
-      approved: false
+      approved: true
       comment: ""
+      execution_status: promoted
       questions:
         - id: q-range-no-lineage
           text: When input is a bare git range with no work-item, should recap still render a (degraded) lineage zone or omit it?
@@ -93,6 +95,7 @@ slices:
         **Module:** internal/recap and internal/lineage are ROOT-module packages (github.com/shakestzd/wipnote/internal/...). The BFS extraction is an intra-root-module refactor: move pure bfsWalk/forwardWalk/backwardWalk/annotateTimestamps + lineageNode types into internal/lineage; the cobra wiring (newLineageCmd, openReadOnlyDB, findWipnoteDir in cmd/wipnote/lineage.go) STAYS in cmd/ (import direction: internal must not import cmd). Verified extractable — BFS takes only *sql.DB (cmd/wipnote/lineage.go:294).
         **Diff acquisition:** shell out to `git diff --unified=3 -- <file>` and parse minimal unified-diff hunks (consistent with wipnote's existing git subprocess usage). No diff library added — none present in any of the 5 go.mod files; a hand-rolled go-diff dep is rejected as unnecessary.
     - id: slice-2
+      feature_id: feat-2570725c
       num: 2
       title: Recap renderer — recap/recaptmpl package + shared HTML block components
       what: |
@@ -123,8 +126,9 @@ slices:
         Unit: TestRecapPage_Render golden-file test; TestAnnotatedDiff_SplitVsUnified;
         TestBlocks_FileTree/DataModel render snapshots. Use go:embed templates.
       complexity: complex
-      approved: false
+      approved: true
       comment: ""
+      execution_status: promoted
       questions:
         - id: q-shared-pkg
           text: Where should the shared block renderers live so both recap and plan import them without an import cycle?
@@ -145,6 +149,7 @@ slices:
         **Lineage zone (citation fix):** standalone recap HTML uses a STATIC SVG / tabular lineage chain (the dashboard force-simulation at app.js:2558 needs the SPA runtime and cannot run in a committed file). The interactive force-graph is reserved for the dashboard /api/recaps/<id>/render injection path. Correction: dependency_graph.gohtml uses dagre-d3, not force-sim — do not cite it as the force-graph source.
         **Prism:** recap HTML is self-contained; opened directly (not via dashboard) Prism is absent, so the annotated diff degrades gracefully to plain <pre><code> (no inlining the full Prism bundle per artifact); full highlighting only on the dashboard injection path.
     - id: slice-3
+      feature_id: feat-1feacf19
       num: 3
       title: '`wipnote recap <id|--range|--session>` command + first-class recap-*.html artifact commit'
       what: |
@@ -173,8 +178,9 @@ slices:
         Integration: TestRecapCmd_Feature (spawn binary in fixture repo, assert file +
         commit + link), TestRecapCmd_Range. Guard slow ones behind testing.Short().
       complexity: standard
-      approved: false
+      approved: true
       comment: ""
+      execution_status: promoted
       critic_revisions:
         - source: local-feasibility
           severity: success
@@ -183,6 +189,7 @@ slices:
         **Trigger:** explicit CLI invocation only (not a hook). **State:** .wipnote/recaps/recap-*.html canonical, committed via git -C repoRoot (bypasses worktree .wipnote/ gitignore, like existing artifact commits). **Payload:** recap id scheme recap-<workitem-id> for items, recap-<short-hash> for bare ranges. **Rejected:** reusing plan-*.html pipeline (conflates plan vs recap semantics in store — user chose a distinct kind); dashboard-only no-artifact (not durable/shareable, not in canonical store).
         **ID scheme & lifecycle:** recap-<workitem-id> for work items (idempotent — regenerating overwrites in place); recap-r-<12-char hash of the range spec> for bare git ranges; recap-s-<session-short-id> for sessions. Work-item recaps are overwrite-on-regenerate. `wipnote recap list|show|delete` and discoverability live in slice-10.
     - id: slice-4
+      feature_id: feat-63676de5
       num: 4
       title: Dashboard Recaps view + /api/recaps endpoints
       what: |
@@ -210,8 +217,9 @@ slices:
         Integration: TestServeRecapsAPI (list + render endpoints return expected JSON/HTML).
         Manual smoke: open dashboard, view a recap.
       complexity: standard
-      approved: false
+      approved: true
       comment: ""
+      execution_status: promoted
       critic_revisions:
         - source: local-design
           severity: warn
@@ -223,6 +231,7 @@ slices:
         **Trigger:** dashboard navigation + fetch. **State:** read-only over committed recap HTML (no DB write path needed beyond a reindex of recap artifacts). **Payload:** /api/recaps -> [{id,title,workItem,created}]; /api/recaps/<id>/render -> scoped HTML. **Rejected:** a separate frontend framework (repo is vanilla JS + D3 — reuse openPlanDetail/scopePlanCSS verbatim).
         **Depends on slice-10's recaps table** — the list endpoint reads SQLite like every other list handler (no filesystem glob). Migration handled in slice-10, not here.
     - id: slice-5
+      feature_id: feat-ecc95e7e
       num: 5
       title: /visual-recap skill (prompt wrapper) + build-ports to all 3 harnesses
       what: |
@@ -247,11 +256,13 @@ slices:
         `wipnote plugin build-ports` succeeds; generated trees contain visual-recap.
         Frontmatter validated by port/pluginbuild checks.
       complexity: standard
-      approved: false
+      approved: true
       comment: ""
+      execution_status: promoted
       decisions_notes: |
         **Scope:** prompt-only skill; the engine is the Go command, not the skill (mirrors BuilderIO's zero-code skill design). **State:** none. **Rejected:** wiring the hosted Agent-Native Plans MCP (violates local-first non-negotiable); authoring AGENTS.md (plugin/project boundary — never own project instruction files).
     - id: slice-6
+      feature_id: feat-96b98270
       num: 6
       title: Slice-schema block enrichment — additive optional structured blocks on PlanSlice
       what: |
@@ -279,8 +290,9 @@ slices:
         Unit: TestValidate_BlocksOptional (old plan passes), TestValidate_BlockShapes
         (malformed block rejected). Round-trip marshal test.
       complexity: complex
-      approved: false
+      approved: true
       comment: ""
+      execution_status: promoted
       questions:
         - id: q-block-storage
           text: Should blocks be a flat slice-level list or nested under what/decisions?
@@ -292,6 +304,7 @@ slices:
       decisions_notes: |
         **Scope:** additive-optional schema; NO schema_version bump (back-compat preserved since fields are optional). **State:** stored in plan-*.yaml (canonical). **Payload:** blocks: list of typed entries reusing the shared block model from slice-2's plan/blocks package. **Rejected:** a v4 schema bump (unnecessary churn + migration risk for purely-optional additions); free-form markdown blocks (loses the structured/grounded property that makes blocks render well). **Dynamic catalog (web-verified 2026-06-18):** BuilderIO fetches block tags at runtime via get-plan-blocks ("tags drift, do not memorize"); `wipnote plan blocks` is the local equivalent — the renderer/skills must read the catalog, NOT hardcode tag names.
     - id: slice-7
+      feature_id: feat-bafd591f
       num: 7
       title: plantmpl block-zone rendering + before/after HTML wireframes
       what: |
@@ -322,8 +335,9 @@ slices:
         Unit: TestPlanPage_BlocksZone golden file; TestWireframe_TokensOnly (rejects raw
         hex/rgb). Snapshot the rendered block HTML.
       complexity: complex
-      approved: false
+      approved: true
       comment: ""
+      execution_status: promoted
       questions:
         - id: q-wireframe-tokens
           text: Reuse the dashboard's existing CSS token system or introduce --wf-* tokens?
@@ -332,6 +346,7 @@ slices:
         **Scope:** rendering only (schema is slice-6). Reuse plan/blocks from slice-2 — this slice adds the wireframe renderer + the plan Blocks zone wiring. **State:** none. **Payload:** HTML zone appended to PlanPage. **Rejected:** Playwright/screenshot wireframes (hard constraint — no headless infra; HTML/CSS wireframes are the BuilderIO approach too); a plan-only block renderer (DRY — must share with recap).
         **Module:** plantmpl blocks import plan/blocks (same plan module). Shared with recaptmpl (root module) per slice-2's resolution.
     - id: slice-8
+      feature_id: feat-4addaa6f
       num: 8
       title: Block-level annotation loop for PLANS (consumed/resolved) on plan_feedback — recap annotation explicitly out of scope
       what: |
@@ -362,8 +377,9 @@ slices:
         Integration: TestPlanFeedback_BlockAnchor (post anchored annotation, read back
         with state). Reuse existing api_plans feedback tests as a template.
       complexity: standard
-      approved: false
+      approved: true
       comment: ""
+      execution_status: promoted
       critic_revisions:
         - source: local-design
           severity: danger
@@ -375,6 +391,7 @@ slices:
         **Trigger:** reviewer action in dashboard chat. **State:** plan_feedback (existing), extended with anchor + two-axis fields; section-key contract (slice-<num>, design, questions) preserved. **Payload:** annotation{anchor, consumed, resolved, resolutionTarget}. **Rejected:** a new feedback table (feat-36566570 already provides the loop — extend it, don't fork it).
         **Scope (RESOLVED):** PLANS ONLY. Recap annotation deferred — incompatible with plan_feedback (plan_id FK + validSectionRe rejects non-plan keys at api_plans.go:370). **Migration:** new plan_feedback columns = a core/db migration (migrations_test.go want-list hazard applies). **validSectionRe:** extend with a tightly-bounded block-anchor pattern, not an open string.
     - id: slice-9
+      feature_id: feat-64e48b9a
       num: 9
       title: /visual-plan skill (prompt wrapper) + build-ports
       what: |
@@ -398,11 +415,13 @@ slices:
       tests: |
         `wipnote plugin build-ports` succeeds; generated trees contain visual-plan.
       complexity: standard
-      approved: false
+      approved: true
       comment: ""
+      execution_status: promoted
       decisions_notes: |
         **Scope:** prompt-only wrapper over /wipnote:plan + `wipnote plan blocks` + dashboard review. **State:** none. **Rejected:** a standalone planner that bypasses /wipnote:plan (would fork the interview/validation discipline — instead enrich the existing flow); hosted MCP block catalog (local `wipnote plan blocks` is the local-first equivalent).
     - id: slice-10
+      feature_id: feat-7bc6410b
       num: 10
       title: Register recap kind — reindex + SQLite recaps table + find/relevant + `wipnote recap list|show|delete`
       what: |
@@ -436,8 +455,9 @@ slices:
         Unit: TestReindexRecaps; TestInferNodeType_Recap. Integration: TestRecapListShowDelete.
         Migration: existing core/db migration tests pass with the appended want-list entries.
       complexity: complex
-      approved: false
+      approved: true
       comment: ""
+      execution_status: promoted
       questions:
         - id: q-recap-table
           text: Dedicated recaps table or extend the existing artifact/features index with type='recap'?

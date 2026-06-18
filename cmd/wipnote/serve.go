@@ -131,6 +131,12 @@ func buildSingleProjectMux(database, writeDB *sql.DB, wipnoteDir string) *http.S
 	// stay on the read-only handle. planRouter wires this internally.
 	mux.Handle("/api/plans/", planRouter(database, writeDB, wipnoteDir))
 
+	// Recap routes — read-only; list reads the SQLite recaps table,
+	// render serves the committed artifact HTML with scoped CSS.
+	// List route must precede the per-recap catch-all.
+	mux.Handle("/api/recaps", recapsListHandler(database))
+	mux.Handle("/api/recaps/", recapRouter(wipnoteDir))
+
 	// Terminal sidecar routes — spawn/stop ttyd processes for the embedded
 	// interactive terminal. Must be registered before the catch-all "/" below.
 	// Gated behind WIPNOTE_TERMINAL: the routes are only registered when the

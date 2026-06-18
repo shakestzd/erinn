@@ -147,6 +147,14 @@
       Plans
     </button>
     <div class="plan-subnav" id="plan-subnav"></div>
+    <button class="nav-btn" data-view="recaps">
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+        <path d="M2 4h12v2H2z"/>
+        <path d="M3 6v7a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V6"/>
+        <path d="M6 9l1.5 1.5L10 8"/>
+      </svg>
+      Recaps
+    </button>
     <button class="nav-btn" id="open-terminal-btn" title="Open interactive Claude terminal">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
         <rect x="2" y="3" width="20" height="16" rx="2"/><polyline points="8 9 12 13 8 17"/><line x1="16" y1="17" x2="16" y2="17"/>
@@ -340,6 +348,37 @@
           </aside>
         </div>
         <button class="dash-sidebar-reopen" id="dash-sidebar-reopen" title="Show review panel" aria-label="Show review panel">&#8249;</button>
+      </div>
+    </section>
+
+    <section class="view" id="v-recaps">
+      <div class="view-title" id="recaps-view-title">
+        Recaps <span class="count" id="recaps-count">0</span>
+      </div>
+      <div id="recaps-list-view">
+        <table class="tbl" id="recaps-table">
+          <thead>
+            <tr>
+              <th>Title</th>
+              <th>ID</th>
+              <th>Work Item</th>
+              <th>Created</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="recaps-body"></tbody>
+        </table>
+        <p class="empty" id="recaps-empty" style="display:none">No recaps yet. Create one with <code>wipnote recap &lt;feat-id&gt;</code></p>
+      </div>
+      <div class="recap-detail" id="recap-detail">
+        <div class="recap-detail-header">
+          <button class="transcript-back recap-detail-back" id="recap-detail-back">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+            Back to Recaps
+          </button>
+          <h3 id="recap-detail-title" style="margin:0;font-size:0.95rem"></h3>
+        </div>
+        <div class="recap-detail-body" id="recap-detail-body"></div>
       </div>
     </section>
 

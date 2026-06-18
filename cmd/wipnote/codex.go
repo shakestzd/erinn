@@ -13,6 +13,7 @@ import (
 	"github.com/pelletier/go-toml/v2"
 	"github.com/shakestzd/wipnote/core/storage"
 	"github.com/shakestzd/wipnote/internal/launcher"
+	"github.com/shakestzd/wipnote/internal/launcher/plan"
 	"github.com/spf13/cobra"
 )
 
@@ -1083,7 +1084,7 @@ func launchCodexDefaultWithMarketplace(resumeID, trackID, featureID, worktreePat
 	}
 
 	if source == codexMarketplaceSourceDev && dryRun {
-		previewTarget := plannedCodexLaunchTarget(worktreePath, trackID, featureID, workItem, noWorktree, canonicalRoot)
+		previewTarget := plannedCodexLaunchTarget(launchPlan, worktreePath, trackID, featureID, workItem, noWorktree, canonicalRoot)
 		fmt.Println("Launching Codex CLI with wipnote context...")
 		fmt.Printf("[dry-run] would exec: codex (resume=%q, target=%s) in %s\n", resumeID, previewTarget, projectRoot)
 		return nil
@@ -1226,7 +1227,10 @@ var (
 	resolveManagedWorktreeStatusFn = resolveManagedWorktreeStatus
 )
 
-func plannedCodexLaunchTarget(worktreePath, trackID, featureID, workItem string, noWorktree bool, canonicalRoot string) string {
+func plannedCodexLaunchTarget(launchPlan plan.LaunchPlan, worktreePath, trackID, featureID, workItem string, noWorktree bool, canonicalRoot string) string {
+	if launchPlan.IsolationMode == plan.IsolationManagedWorktree && launchPlan.PlannedWorktreePath != "" {
+		return fmt.Sprintf("worktree=%q", launchPlan.PlannedWorktreePath)
+	}
 	switch {
 	case worktreePath != "":
 		return fmt.Sprintf("worktree=%q", worktreePath)

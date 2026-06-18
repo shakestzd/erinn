@@ -7,6 +7,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/shakestzd/wipnote/internal/launcher/plan"
 )
 
 // TestCodexHelpRenders verifies that codexCmd().Execute() with --help
@@ -1428,8 +1430,8 @@ func TestLaunchCodexDevDryRunSkipsWorkItemStart(t *testing.T) {
 		t.Fatal("execCodex was called during dev dry-run")
 	}
 	got := out.String()
-	if !strings.Contains(got, "target=work-item=\"feat-dryrun01\"") {
-		t.Fatalf("dry-run output missing work-item preview:\n%s", got)
+	if !strings.Contains(got, `target=worktree="`) || !strings.Contains(got, `.claude/worktrees/feat-dryrun01`) {
+		t.Fatalf("dry-run output missing worktree preview:\n%s", got)
 	}
 }
 
@@ -1515,8 +1517,26 @@ func TestLaunchCodexDevDryRunSkipsWorktreeCreation(t *testing.T) {
 		t.Fatalf("dry-run created worktree state unexpectedly: %v", err)
 	}
 	got := out.String()
-	if !strings.Contains(got, "target=track=\"trk-dryrun01\"") {
-		t.Fatalf("dry-run output missing track preview:\n%s", got)
+	if !strings.Contains(got, `target=worktree="`) || !strings.Contains(got, `.claude/worktrees/trk-dryrun01`) {
+		t.Fatalf("dry-run output missing worktree preview:\n%s", got)
+	}
+}
+
+func TestPlannedCodexLaunchTargetPrefersManagedWorktreePath(t *testing.T) {
+	got := plannedCodexLaunchTarget(
+		plan.LaunchPlan{
+			IsolationMode:       plan.IsolationManagedWorktree,
+			PlannedWorktreePath: "/repo/.claude/worktrees/adhoc-20260618-120000",
+		},
+		"",
+		"",
+		"",
+		"",
+		false,
+		"/repo",
+	)
+	if got != `worktree="/repo/.claude/worktrees/adhoc-20260618-120000"` {
+		t.Fatalf("plannedCodexLaunchTarget = %q", got)
 	}
 }
 

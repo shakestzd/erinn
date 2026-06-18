@@ -15,11 +15,11 @@ meta:
         Phase 2 (slices 6-9): visual-plan block enrichment — additive slice-schema blocks, shared block renderers in plantmpl, annotation loop mapped onto existing critic_revisions/questions + plan-review chat, and the /visual-plan skill wrapper.
 
         Relates to plan-243e8713 (shares lineage data + D3/dashboard surface; does not overlap scope).
-    created_at: ""
+    created_at: "2026-06-18"
     status: finalized
     priority: medium
     schema_version: v3
-    version: 2
+    version: 3
 design:
     problem: |
         BuilderIO's /visual-plan and /visual-recap give agents rich, reviewable visual artifacts (block-structured plans; recaps that turn a diff into an interactive summary), but they depend on a hosted third-party MCP (Agent-Native Plans). wipnote already owns equivalent rendering surfaces (plantmpl, the serve dashboard, lineage) yet exposes plans as a single layout, has no recap surface at all, and emits lineage as text only. We want the same visual ergonomics, natively and local-first, with recap grounded in wipnote's unique causal lineage.
@@ -74,6 +74,7 @@ slices:
         TestCollect_FromSession. Assert deterministic file/hunk sets. Table-driven.
       complexity: complex
       approved: true
+      approval_status: approved
       comment: ""
       execution_status: promoted
       questions:
@@ -127,6 +128,7 @@ slices:
         TestBlocks_FileTree/DataModel render snapshots. Use go:embed templates.
       complexity: complex
       approved: true
+      approval_status: approved
       comment: ""
       execution_status: promoted
       questions:
@@ -179,6 +181,7 @@ slices:
         commit + link), TestRecapCmd_Range. Guard slow ones behind testing.Short().
       complexity: standard
       approved: true
+      approval_status: approved
       comment: ""
       execution_status: promoted
       critic_revisions:
@@ -218,6 +221,7 @@ slices:
         Manual smoke: open dashboard, view a recap.
       complexity: standard
       approved: true
+      approval_status: approved
       comment: ""
       execution_status: promoted
       critic_revisions:
@@ -257,6 +261,7 @@ slices:
         Frontmatter validated by port/pluginbuild checks.
       complexity: standard
       approved: true
+      approval_status: approved
       comment: ""
       execution_status: promoted
       decisions_notes: |
@@ -291,6 +296,7 @@ slices:
         (malformed block rejected). Round-trip marshal test.
       complexity: complex
       approved: true
+      approval_status: approved
       comment: ""
       execution_status: promoted
       questions:
@@ -336,6 +342,7 @@ slices:
         hex/rgb). Snapshot the rendered block HTML.
       complexity: complex
       approved: true
+      approval_status: approved
       comment: ""
       execution_status: promoted
       questions:
@@ -378,6 +385,7 @@ slices:
         with state). Reuse existing api_plans feedback tests as a template.
       complexity: standard
       approved: true
+      approval_status: approved
       comment: ""
       execution_status: promoted
       critic_revisions:
@@ -416,6 +424,7 @@ slices:
         `wipnote plugin build-ports` succeeds; generated trees contain visual-plan.
       complexity: standard
       approved: true
+      approval_status: approved
       comment: ""
       execution_status: promoted
       decisions_notes: |
@@ -456,6 +465,7 @@ slices:
         Migration: existing core/db migration tests pass with the appended want-list entries.
       complexity: complex
       approved: true
+      approval_status: approved
       comment: ""
       execution_status: promoted
       questions:

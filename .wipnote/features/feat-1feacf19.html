@@ -10,15 +10,15 @@
 <body>
     <article id="feat-1feacf19"
              data-type="feature"
-             data-status="in-progress"
+             data-status="done"
              data-priority="medium"
              data-created="2026-06-18T07:33:51.907083"
-             data-updated="2026-06-18T08:48:38.196944" data-agent-assigned="claude-code" data-track-id="trk-a951e3c0">
+             data-updated="2026-06-18T08:58:21.113183" data-agent-assigned="claude-code" data-track-id="trk-a951e3c0">
 
         <header>
             <h1>`wipnote recap &lt;id|--range|--session&gt;` command &#43; first-class recap-*.html artifact commit</h1>
             <div class="metadata">
-                <span class="badge status-in-progress">In Progress</span>
+                <span class="badge status-done">Done</span>
                 <span class="badge priority-medium">Medium Priority</span>
             </div>
         </header>
@@ -54,11 +54,12 @@
         <section data-content>
             <h3>Description</h3>
             <p>New cmd/wipnote/recap.go cobra command. Accepts a work-item id positional,
-or --range &lt;gitrange&gt;, or --session &lt;id&gt;. Calls the collector (slice-1),
-renders via recaptmpl (slice-2), writes .wipnote/recaps/recap-&lt;id&gt;.html, and
+or --range , or --session . Calls the collector (slice-1),
+renders via recaptmpl (slice-2), writes .wipnote/recaps/recap-.html, and
 commits it atomically via a commitRecapArtifact helper modeled on
-commitWipnoteArtifact/commitPlanChange (git -C &lt;repoRoot&gt; absolute path, no host
-paths in body). Wires a lineage edge recap relates_to/derived_from the work item.</p>
+commitWipnoteArtifact/commitPlanChange (git -C  absolute path, no host
+paths in body). Wires a lineage edge recap relates_to/derived_from the work item.
+[2026-06-18 08:58 claude-code] accepted-advisory (provenance override): Implementation committed in worktree agent-a4cf787759e2d7350 on branch agent-a4cf787759e2d7350; source paths are in a sibling worktree from the fast-forward merge of slices 1+2. Provenance links when the orchestrator merges.</p>
         </section>
     </article>
 </body>

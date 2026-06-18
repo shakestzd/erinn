@@ -78,7 +78,7 @@ func TestValidate_MalformedResearchURLIsRejected(t *testing.T) {
 }
 
 func TestValidate_ResearchURLMustHaveHost(t *testing.T) {
-	for _, bad := range []string{"https://", "http://", "https:///path", "notaurl", "ftp://x.com"} {
+	for _, bad := range []string{"https://", "http://", "https:///path", "http://:80", "notaurl", "ftp://x.com"} {
 		p := validV4Plan()
 		p.Slices[0].Research = []ResearchSource{{URL: bad}}
 		if !errsContain(Validate(p), "must be an http(s) URL") {

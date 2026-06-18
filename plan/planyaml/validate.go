@@ -408,7 +408,7 @@ func isResearchURL(u string) bool {
 	if err != nil {
 		return false
 	}
-	return (parsed.Scheme == "http" || parsed.Scheme == "https") && parsed.Host != ""
+	return (parsed.Scheme == "http" || parsed.Scheme == "https") && parsed.Hostname() != ""
 }
 
 // ValidateResearchAdvisories returns NON-BLOCKING advisories nudging research on

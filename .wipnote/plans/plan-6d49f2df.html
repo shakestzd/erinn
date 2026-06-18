@@ -872,7 +872,7 @@ Plan to optimize token usage, prevent context bloat, support local subagent mode
     <span class="slice-num">#3</span>
     <span class="slice-title-col">
       <span class="slice-name">Go CLI background execution manager and auto-merge</span>
-      <span class="slice-preview">Extend wipnote execute run into a background runner that spawns worktree agents in parallel by EXTENDING the existing internal/childproc Sup…</span>
+      <span class="slice-preview">Extend wipnote execute run into a background runner that spawns worktree agents in parallel.</span>
       <span class="slice-meta-row">
         <span class="slice-summary-badges">
           <span class="badge badge-blocked badge-sm">L</span>
@@ -912,7 +912,7 @@ Plan to optimize token usage, prevent context bloat, support local subagent mode
         <div class="slice-field-value">
           
           <input type="checkbox" id="slice-3-what-reveal" class="reveal-toggle">
-          <div class="markdown-block reveal-content serif-prose"><p>Extend <code>wipnote execute run</code> into a background runner that spawns worktree agents in parallel by EXTENDING the existing <code>internal/childproc</code> Supervisor (which already provides spawn, idle reaper, crash/orphan recovery) - do not build a new supervisor. Completion detection is EVENT-DRIVEN via child process exit codes plus a per-task result file (no polling/busy-wait). Merge a wave&#39;s successful branches to main only after that wave&#39;s quality gates pass; serialize all merges behind a single-writer merge lock. On gate failure or merge conflict, leave the branch unmerged and report it (no force operations, no rewrite of main). Independent waves are failure-isolated: a failed wave does not block others. The lead agent fires the command once and receives a reactive wakeup on completion.</p>
+          <div class="markdown-block reveal-content serif-prose"><p>Extend <code>wipnote execute run</code> into a background runner that spawns worktree agents in parallel. The existing <code>internal/childproc</code> Supervisor CANNOT be reused as-is: <code>spawnLocked</code> hardcodes <code>wipnote _serve-child --port 0</code> and an HTTP-proxy lifecycle unsuitable for worktree agents. Instead, add a new struct (e.g. <code>WorktreeRunner</code>) inside <code>internal/childproc</code> (or a new package) that parameterizes the spawned command and uses process-exit-based completion rather than HTTP-handshake. Completion detection is EVENT-DRIVEN via child process exit codes plus a per-task result file (no polling/busy-wait). Merge a wave&#39;s successful branches to main only after that wave&#39;s quality gates pass; serialize all merges behind a single-writer merge lock. On gate failure or merge conflict, leave the branch unmerged and report it (no force operations, no rewrite of main). Independent waves are failure-isolated: a failed wave does not block others. The lead agent fires the command once and receives a reactive wakeup on completion.</p>
 </div>
           <label for="slice-3-what-reveal" class="reveal-label">Show full description</label>
           
@@ -954,8 +954,8 @@ Plan to optimize token usage, prevent context bloat, support local subagent mode
 <strong>State:</strong> execution state in <code>.wipnote/execution-state.json</code>; per-task result files signal completion.
 <strong>Completion detection (resolved):</strong> event-driven via child exit codes + result file; NOT polling.
 <strong>Safety model (resolved):</strong> merge only on green gates; single-writer merge lock; leave-unmerged-on-failure recovery (no force, no main rewrite); per-wave failure isolation.
-<strong>Reuse (resolved):</strong> extend internal/childproc Supervisor (RunIdleReaper/spawn/crash recovery); ownership of childproc shared with slice 5 - slice 3 adds a worktree-task spawn path, slice 5 owns the serve-idle reaper path.
-<strong>Rejected:</strong> running background tasks directly in the main shell (blocks terminal, accumulates logs); polling/busy-wait completion detection.</p>
+<strong>Childproc reuse (corrected):</strong> internal/childproc Supervisor CANNOT spawn worktree agents as-is - spawnLocked hardcodes <code>wipnote _serve-child</code> + HTTP-proxy lifecycle (A6 falsified). Add a new WorktreeRunner struct (parameterized spawn command, exit-code-based lifecycle) inside internal/childproc or a sibling package. Do not attempt to extend spawnLocked.
+<strong>Rejected:</strong> running background tasks directly in the main shell (blocks terminal, accumulates logs); polling/busy-wait completion detection; reusing Supervisor.spawnLocked without refactor.</p>
 </div>
         <label for="slice-3-decisions-reveal" class="reveal-label">Show full decisions</label>
         
@@ -1020,7 +1020,7 @@ Plan to optimize token usage, prevent context bloat, support local subagent mode
     <span class="slice-num">#4</span>
     <span class="slice-title-col">
       <span class="slice-name">Automated context compaction checks and output filters</span>
-      <span class="slice-preview">Detect large context via a wipnote-provided statusLine script (new cmd/wipnote/statusline.go, wired through settings.json) that reads contex…</span>
+      <span class="slice-preview">Detect large context by extending the EXISTING cmd/wipnote/statusline.go (331 lines; already handles work-item display via session-mode/cach…</span>
       <span class="slice-meta-row">
         <span class="slice-summary-badges">
           <span class="badge badge-revision badge-sm">M</span>
@@ -1060,7 +1060,7 @@ Plan to optimize token usage, prevent context bloat, support local subagent mode
         <div class="slice-field-value">
           
           <input type="checkbox" id="slice-4-what-reveal" class="reveal-toggle">
-          <div class="markdown-block reveal-content serif-prose"><p>Detect large context via a wipnote-provided statusLine script (new <code>cmd/wipnote/statusline.go</code>, wired through settings.json) that reads <code>context_window.used_percentage</code> and <code>exceeds_200k_tokens</code> from the statusLine JSON input. When <code>used_percentage</code> crosses a configurable threshold (e.g. 70%), emit a status-bar hint to run <code>/compact</code> or <code>/clear</code>. The previous PostToolUse/PostCompact token-count trigger is DROPPED - hook payloads carry no token/context counts (hooks docs). Separately, standardize verbose CLI outputs (<code>wipnote trace</code>, <code>wipnote plan show</code>) to compressed summaries or full output written to a local file with a link, in <code>cmd/wipnote/sh.go</code>.</p>
+          <div class="markdown-block reveal-content serif-prose"><p>Detect large context by extending the EXISTING <code>cmd/wipnote/statusline.go</code> (331 lines; already handles work-item display via session-mode/cache-mode paths - do NOT create a new file). Add a guarded context-window code path: when the statusLine JSON input contains <code>context_window.used_percentage</code> (may be null before first API call - handle nil) at or above a configurable threshold (e.g. 70%), or when the top-level <code>exceeds_200k_tokens</code> field is true (NOTE: this is a TOP-LEVEL field, NOT nested under context_window), emit a status-bar hint to run <code>/compact</code> or <code>/clear</code>. Wire the context-window path through the statusLine setup wrapper in settings.json so the wrapper passes the Claude statusLine JSON through to the command; currently it calls <code>wipnote statusline --session</code> without forwarding stdin. The existing work-item display path must not be broken (regression test required). The previous PostToolUse/PostCompact token-count trigger is DROPPED - hook payloads carry no token/context counts (hooks docs). Separately, standardize verbose CLI outputs (<code>wipnote trace</code>, <code>wipnote plan show</code>) to compressed summaries or full output written to a local file with a link, in <code>cmd/wipnote/sh.go</code>.</p>
 </div>
           <label for="slice-4-what-reveal" class="reveal-label">Show full description</label>
           
@@ -1180,7 +1180,7 @@ Plan to optimize token usage, prevent context bloat, support local subagent mode
     <span class="slice-num">#5</span>
     <span class="slice-title-col">
       <span class="slice-name">Session Inactivity Auto-Timeout and GC</span>
-      <span class="slice-preview">Implement an idle-timeout routine in wipnote serve&#39;s supervisor, reusing the existing internal/childproc RunIdleReaper.</span>
+      <span class="slice-preview">Implement an idle-timeout routine in wipnote serve&#39;s supervisor using SESSION-TIMESTAMP-KEYED idle tracking.</span>
       <span class="slice-meta-row">
         <span class="slice-summary-badges">
           <span class="badge badge-revision badge-sm">M</span>
@@ -1220,7 +1220,7 @@ Plan to optimize token usage, prevent context bloat, support local subagent mode
         <div class="slice-field-value">
           
           <input type="checkbox" id="slice-5-what-reveal" class="reveal-toggle">
-          <div class="markdown-block reveal-content serif-prose"><p>Implement an idle-timeout routine in <code>wipnote serve</code>&#39;s supervisor, reusing the existing <code>internal/childproc</code> RunIdleReaper. If a session is idle beyond a CONFIGURABLE threshold (config key in <code>.wipnote/config.json</code>, consistent with slice 1&#39;s config pattern; default 30 min), mark it suspended/archived. Garbage-collect ONLY worktrees that are clean AND empty AND not Conductor-managed AND have no uncommitted/unpushed work. Detect Conductor-managed worktrees via their per-worktree <code>.wipnote</code> gitignore marker / Conductor metadata and SKIP them - never prune in-flight or Conductor-archived worktrees.</p>
+          <div class="markdown-block reveal-content serif-prose"><p>Implement an idle-timeout routine in <code>wipnote serve</code>&#39;s supervisor using SESSION-TIMESTAMP-KEYED idle tracking. The existing <code>internal/childproc</code> RunIdleReaper CANNOT be reused: it reaps children by HTTP-request idle (no proxy request within IdleTimeout), not by user-session activity - keepalive and health requests diverge the two metrics (A6 falsified). Instead, record a last-seen timestamp per session (e.g. in SQLite, updated on each user turn), and run a ticker in serve_parent.go that queries sessions idle beyond a CONFIGURABLE threshold (config key in <code>.wipnote/config.json</code>, consistent with slice 1&#39;s config pattern; default 30 min) and marks them suspended. Garbage-collect ONLY worktrees that are clean AND empty AND not Conductor-managed AND have no uncommitted/unpushed work. Detect Conductor-managed worktrees via their per-worktree <code>.wipnote</code> gitignore marker / Conductor metadata and SKIP them - never prune in-flight or Conductor-archived worktrees.</p>
 </div>
           <label for="slice-5-what-reveal" class="reveal-label">Show full description</label>
           

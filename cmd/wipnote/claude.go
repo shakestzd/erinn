@@ -221,7 +221,9 @@ func launchClaudeDev(extraArgs []string, auto bool, resumeID, name, workItem str
 	// Only synthesize a default name for new sessions. When resuming an existing
 	// session, skip default-name generation so we don't rename or conflict with
 	// the resumed session. The user can still override with an explicit --name.
-	if sessionName == "" && resumeID == "" {
+	// continue_ is also excluded: --continue resumes the most-recent session and
+	// must not get a synthesized --name emitted alongside the implicit resume.
+	if sessionName == "" && resumeID == "" && !continue_ {
 		sessionName = defaultSessionName(projectRoot)
 	}
 

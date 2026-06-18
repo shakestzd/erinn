@@ -55,13 +55,47 @@ h1{font-size:1.5rem;font-weight:700;margin-bottom:4px}
 .hunk-cols{display:grid;grid-template-columns:1fr 1fr}
 .hunk-col-before{border-right:1px solid var(--border);background:rgba(239,68,68,.04)}
 .hunk-col-after{background:rgba(34,197,94,.04)}
-/* lineage */
-.lineage-table{width:100%;border-collapse:collapse;font-size:.84rem}
-.lineage-table th,.lineage-table td{text-align:left;padding:6px 10px;border-bottom:1px solid var(--border)}
-.lineage-pivot{background:rgba(167,139,250,.06)}
-.lineage-type{font-size:.68rem;text-transform:uppercase;color:var(--text-muted);font-family:var(--mono);margin-right:6px}
-.lineage-id{font-family:var(--mono);color:var(--accent)}
-.lineage-title{color:var(--text-dim);margin-left:8px}
+/* embedded diff sits flush inside a file station */
+.annotated-diff.embedded{border:none;border-radius:0;margin:0;border-top:1px solid var(--border)}
+/* lineage spine */
+.lin-legend{display:flex;gap:16px;flex-wrap:wrap;font-family:var(--mono);font-size:.68rem;color:var(--text-muted);margin-bottom:16px}
+.lin-dir{display:flex;align-items:center;gap:6px}
+.lin-swatch{width:18px;height:2px;border-radius:2px}
+.lin-swatch.past{background:var(--border)}
+.lin-swatch.now{background:var(--accent)}
+.spine{position:relative;padding-left:34px}
+.spine::before{content:"";position:absolute;left:11px;top:8px;bottom:8px;width:2px;background:linear-gradient(var(--border) 0 38%,rgba(205,255,0,.45) 46% 100%)}
+.spine.spine-produced-only::before{background:rgba(205,255,0,.45)}
+.lin-node{position:relative;padding:7px 0;display:flex;align-items:flex-start;gap:14px}
+.lin-glyph{position:absolute;left:-34px;top:8px;width:24px;height:24px;display:grid;place-items:center;border-radius:50%;background:var(--bg-card);border:1px solid var(--border);color:var(--text-muted);z-index:2}
+.lin-glyph svg{width:13px;height:13px;display:block}
+.lin-edge{font-family:var(--mono);font-size:.64rem;color:var(--text-muted);text-transform:lowercase;white-space:nowrap;padding-top:3px;min-width:76px}
+.lin-edge.produced{color:var(--accent)}
+.lin-card{flex:1;min-width:0;background:var(--bg-card);border:1px solid var(--border);border-radius:6px;padding:9px 12px}
+.lin-id{font-family:var(--mono);font-size:.72rem;color:var(--text-muted);display:flex;align-items:center;gap:7px}
+.lin-id code{color:var(--text-dim)}
+.lin-kind{font-size:.6rem;text-transform:uppercase;letter-spacing:.08em;color:var(--text-muted);border:1px solid var(--border);border-radius:4px;padding:0 5px}
+.lin-ttl{font-size:.9rem;color:var(--text);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.lin-when{margin-left:auto;color:var(--text-muted)}
+.lin-node.up .lin-glyph{border-style:dashed}
+.lin-node.up .lin-card{background:transparent}
+.lin-node.up .lin-ttl{color:var(--text-muted)}
+.lin-node.pivot{padding:12px 0}
+.lin-node.pivot .lin-glyph{left:-37px;top:6px;width:30px;height:30px;background:var(--accent);border-color:var(--accent);color:#000;box-shadow:0 0 0 5px rgba(205,255,0,.14),0 0 20px rgba(205,255,0,.3)}
+.lin-node.pivot .lin-card{border-color:rgba(205,255,0,.45);box-shadow:0 0 0 1px rgba(205,255,0,.14)}
+.lin-node.pivot .lin-id code{color:var(--accent)}
+.lin-node.pivot .lin-ttl{white-space:normal;font-weight:600;font-size:.98rem}
+.lin-node.pivot .lin-kind{color:var(--accent);border-color:rgba(205,255,0,.45)}
+.lin-node.down .lin-glyph{border-color:rgba(205,255,0,.45);color:var(--accent)}
+.lin-file{flex:1;min-width:0;background:var(--bg-card);border:1px solid var(--border);border-radius:6px;overflow:hidden}
+.lin-file>summary{display:flex;align-items:center;gap:9px;padding:8px 12px;cursor:pointer;list-style:none;font-family:var(--mono);font-size:.78rem}
+.lin-file>summary::-webkit-details-marker{display:none}
+.lin-file>summary::before{content:"▸";color:var(--text-muted);font-size:.66rem;transition:transform .15s ease;display:inline-block}
+.lin-file[open]>summary::before{transform:rotate(90deg)}
+.lin-file>summary:hover{background:var(--bg-input)}
+.lin-file-path{color:var(--text-dim)}
+.lin-file-stat{margin-left:auto;color:var(--text-muted)}
+.lin-file-stat .plus{color:var(--add)}.lin-file-stat .minus{color:var(--delete)}
 code{font-family:var(--mono)}
 </style>
 </head>
@@ -79,33 +113,160 @@ code{font-family:var(--mono)}
   <h2 class="recap-zone-title">Outcome</h2>
   <p class="outcome-narrative">Recap collector core — resolve work-item / git-range / session into grounded diff data</p>
 </section>
-<section class="recap-zone recap-zone-files" id="files">
-  <h2 class="recap-zone-title">Files changed <span class="recap-count">9</span></h2>
-  <div class="block block-file-tree">
-  <ul class="file-list">
-    <li class="file-entry"><span class="file-change file-change-modify">modify</span> <code class="file-path">cmd/wipnote/lineage.go</code></li>
-    <li class="file-entry"><span class="file-change file-change-modify">modify</span> <code class="file-path">cmd/wipnote/lineage_busy_test.go</code></li>
-    <li class="file-entry"><span class="file-change file-change-add">add</span> <code class="file-path">internal/lineage/walk.go</code></li>
-    <li class="file-entry"><span class="file-change file-change-add">add</span> <code class="file-path">internal/lineage/walk_test.go</code></li>
-    <li class="file-entry"><span class="file-change file-change-add">add</span> <code class="file-path">internal/recap/collect.go</code></li>
-    <li class="file-entry"><span class="file-change file-change-add">add</span> <code class="file-path">internal/recap/collect_test.go</code></li>
-    <li class="file-entry"><span class="file-change file-change-add">add</span> <code class="file-path">internal/recap/git.go</code></li>
-    <li class="file-entry"><span class="file-change file-change-add">add</span> <code class="file-path">internal/recap/shared_walk_test.go</code></li>
-    <li class="file-entry"><span class="file-change file-change-add">add</span> <code class="file-path">internal/recap/types.go</code></li>
-    
-  </ul>
-</div>
-</section>
+<section class="recap-zone recap-zone-lineage" id="lineage">
+  <h2 class="recap-zone-title">Lineage</h2>
+  <p class="recap-zone-note">Causal provenance, top to bottom: where this work came from, then exactly what it changed.</p>
+  
+  <div class="lin-legend">
+    <span class="lin-dir"><span class="lin-swatch past"></span> ancestry — where it came from</span>
+    <span class="lin-dir"><span class="lin-swatch now"></span> produced — what it changed</span>
+  </div>
+  
 
-<section class="recap-zone recap-zone-diff" id="diff">
-  <h2 class="recap-zone-title">Annotated diff <span class="recap-count">9</span></h2>
-  <article class="annotated-diff diff-unified diff-unified" data-language="go">
-  <details class="diff-file" open>
-  <summary class="diff-file-header">
-    <span class="file-change file-change-modify">modify</span>
-    <code class="diff-file-path">cmd/wipnote/lineage.go</code>
-    <span class="diff-hunk-count">6 hunks</span>
-  </summary>
+  <div class="spine">
+    
+    <div class="lin-node up">
+      <span class="lin-glyph"><svg viewBox="0 0 24 24"><rect x="6.5" y="6.5" width="11" height="11" transform="rotate(45 12 12)" fill="currentColor"/></svg></span>
+      <span class="lin-edge">part of</span>
+      <div class="lin-card">
+        <div class="lin-id"><span class="lin-kind">feature</span><code>feat-63676de5</code></div>
+        <div class="lin-ttl">Dashboard Recaps view &#43; /api/recaps endpoints</div>
+      </div>
+    </div>
+    
+    <div class="lin-node up">
+      <span class="lin-glyph"><svg viewBox="0 0 24 24"><rect x="6.5" y="6.5" width="11" height="11" transform="rotate(45 12 12)" fill="currentColor"/></svg></span>
+      <span class="lin-edge">part of</span>
+      <div class="lin-card">
+        <div class="lin-id"><span class="lin-kind">feature</span><code>feat-ecc95e7e</code></div>
+        <div class="lin-ttl">/visual-recap skill (prompt wrapper) &#43; build-ports to all 3 harnesses</div>
+      </div>
+    </div>
+    
+    <div class="lin-node up">
+      <span class="lin-glyph"><svg viewBox="0 0 24 24"><rect x="6.5" y="6.5" width="11" height="11" transform="rotate(45 12 12)" fill="currentColor"/></svg></span>
+      <span class="lin-edge">part of</span>
+      <div class="lin-card">
+        <div class="lin-id"><span class="lin-kind">feature</span><code>feat-96b98270</code></div>
+        <div class="lin-ttl">Slice-schema block enrichment — additive optional structured blocks on PlanSlice</div>
+      </div>
+    </div>
+    
+    <div class="lin-node up">
+      <span class="lin-glyph"><svg viewBox="0 0 24 24"><rect x="6.5" y="6.5" width="11" height="11" transform="rotate(45 12 12)" fill="currentColor"/></svg></span>
+      <span class="lin-edge">part of</span>
+      <div class="lin-card">
+        <div class="lin-id"><span class="lin-kind">feature</span><code>feat-bafd591f</code></div>
+        <div class="lin-ttl">plantmpl block-zone rendering &#43; before/after HTML wireframes</div>
+      </div>
+    </div>
+    
+    <div class="lin-node up">
+      <span class="lin-glyph"><svg viewBox="0 0 24 24"><rect x="6.5" y="6.5" width="11" height="11" transform="rotate(45 12 12)" fill="currentColor"/></svg></span>
+      <span class="lin-edge">part of</span>
+      <div class="lin-card">
+        <div class="lin-id"><span class="lin-kind">feature</span><code>feat-4addaa6f</code></div>
+        <div class="lin-ttl">Block-level annotation loop for PLANS (consumed/resolved) on plan_feedback — recap annotation explicitly out of scope</div>
+      </div>
+    </div>
+    
+    <div class="lin-node up">
+      <span class="lin-glyph"><svg viewBox="0 0 24 24"><rect x="6.5" y="6.5" width="11" height="11" transform="rotate(45 12 12)" fill="currentColor"/></svg></span>
+      <span class="lin-edge">part of</span>
+      <div class="lin-card">
+        <div class="lin-id"><span class="lin-kind">feature</span><code>feat-64e48b9a</code></div>
+        <div class="lin-ttl">/visual-plan skill (prompt wrapper) &#43; build-ports</div>
+      </div>
+    </div>
+    
+    <div class="lin-node up">
+      <span class="lin-glyph"><svg viewBox="0 0 24 24"><rect x="6.5" y="6.5" width="11" height="11" transform="rotate(45 12 12)" fill="currentColor"/></svg></span>
+      <span class="lin-edge">part of</span>
+      <div class="lin-card">
+        <div class="lin-id"><span class="lin-kind">feature</span><code>feat-7bc6410b</code></div>
+        <div class="lin-ttl">Register recap kind — reindex &#43; SQLite recaps table &#43; find/relevant &#43; `wipnote recap list|show|delete`</div>
+      </div>
+    </div>
+    
+    <div class="lin-node up">
+      <span class="lin-glyph"><svg viewBox="0 0 24 24"><polygon points="12,3 20,7.5 20,16.5 12,21 4,16.5 4,7.5" fill="none" stroke="currentColor" stroke-width="2"/></svg></span>
+      <span class="lin-edge">implemented in</span>
+      <div class="lin-card">
+        <div class="lin-id"><span class="lin-kind">plan</span><code>plan-93b8eba0</code></div>
+        <div class="lin-ttl">Plan: Visual plan &amp; lineage-grounded recap (native port of BuilderIO visual-plan/visual-recap)</div>
+      </div>
+    </div>
+    
+    <div class="lin-node up">
+      <span class="lin-glyph"><svg viewBox="0 0 24 24"><rect x="4" y="6" width="16" height="12" rx="2" fill="none" stroke="currentColor" stroke-width="2"/></svg></span>
+      <span class="lin-edge">contains</span>
+      <div class="lin-card">
+        <div class="lin-id"><span class="lin-kind">track</span><code>trk-a951e3c0</code></div>
+        <div class="lin-ttl">Visual planning &amp; recap — native port of BuilderIO visual-plan/visual-recap concepts</div>
+      </div>
+    </div>
+    
+    <div class="lin-node up">
+      <span class="lin-glyph"><svg viewBox="0 0 24 24"><rect x="6.5" y="6.5" width="11" height="11" transform="rotate(45 12 12)" fill="currentColor"/></svg></span>
+      <span class="lin-edge">blocked by</span>
+      <div class="lin-card">
+        <div class="lin-id"><span class="lin-kind">feature</span><code>feat-2570725c</code></div>
+        <div class="lin-ttl">Recap renderer — recap/recaptmpl package &#43; shared HTML block components</div>
+      </div>
+    </div>
+    
+    <div class="lin-node up">
+      <span class="lin-glyph"><svg viewBox="0 0 24 24"><rect x="6.5" y="6.5" width="11" height="11" transform="rotate(45 12 12)" fill="currentColor"/></svg></span>
+      <span class="lin-edge">blocked by</span>
+      <div class="lin-card">
+        <div class="lin-id"><span class="lin-kind">feature</span><code>feat-1feacf19</code></div>
+        <div class="lin-ttl">`wipnote recap &lt;id|--range|--session&gt;` command &#43; first-class recap-*.html artifact commit</div>
+      </div>
+    </div>
+    
+    <div class="lin-node up">
+      <span class="lin-glyph"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="12" r="2.6" fill="currentColor"/></svg></span>
+      <span class="lin-edge">implements</span>
+      <div class="lin-card">
+        <div class="lin-id"><span class="lin-kind">session</span><code>7ad16954-7662-4d96-87ae-6eff3bd5739e</code></div>
+        <div class="lin-ttl">visual-planning-recap-native-yolo-20260618-03.35.27</div>
+      </div>
+    </div>
+    
+
+    
+    <div class="lin-node pivot">
+      <span class="lin-glyph"><svg viewBox="0 0 24 24"><rect x="6.5" y="6.5" width="11" height="11" transform="rotate(45 12 12)" fill="currentColor"/></svg></span>
+      <span class="lin-edge"></span>
+      <div class="lin-card">
+        <div class="lin-id"><span class="lin-kind">feature</span><code>feat-5cdb3732</code></div>
+        <div class="lin-ttl">Recap collector core — resolve work-item / git-range / session into grounded diff data</div>
+      </div>
+    </div>
+    
+
+    
+    <div class="lin-node down commit">
+      <span class="lin-glyph"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="6" fill="currentColor"/></svg></span>
+      <span class="lin-edge produced">produced</span>
+      <div class="lin-card">
+        <div class="lin-id"><span class="lin-kind">commit</span><code>412ef65cc</code><span class="lin-when">2026-06-18T08:20:45Z</span></div>
+        <div class="lin-ttl">feat(feat-5cdb3732): recap collector core &#43; shared lineage walk</div>
+      </div>
+    </div>
+    
+
+    
+    <div class="lin-node down file-node">
+      <span class="lin-glyph"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.4" fill="currentColor"/></svg></span>
+      <span class="lin-edge produced">touched</span>
+      <details class="lin-file">
+        <summary>
+          <span class="file-change file-change-modify">modify</span>
+          <code class="lin-file-path">cmd/wipnote/lineage.go</code>
+          <span class="lin-file-stat"><span class="plus">+57</span> <span class="minus">&minus;247</span></span>
+        </summary>
+        <div class="annotated-diff embedded diff-unified diff-unified" data-language="go">
   
   <div class="diff-hunk">
     <div class="hunk-meta">
@@ -471,15 +632,21 @@ code{font-family:var(--mono)}
     
   </div>
   
-  </details>
-</article>
-<article class="annotated-diff diff-unified diff-unified" data-language="go">
-  <details class="diff-file" open>
-  <summary class="diff-file-header">
-    <span class="file-change file-change-modify">modify</span>
-    <code class="diff-file-path">cmd/wipnote/lineage_busy_test.go</code>
-    <span class="diff-hunk-count">3 hunks</span>
-  </summary>
+</div>
+
+      </details>
+    </div>
+    
+    <div class="lin-node down file-node">
+      <span class="lin-glyph"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.4" fill="currentColor"/></svg></span>
+      <span class="lin-edge produced">touched</span>
+      <details class="lin-file">
+        <summary>
+          <span class="file-change file-change-modify">modify</span>
+          <code class="lin-file-path">cmd/wipnote/lineage_busy_test.go</code>
+          <span class="lin-file-stat"><span class="plus">+21</span> <span class="minus">&minus;20</span></span>
+        </summary>
+        <div class="annotated-diff embedded diff-unified diff-unified" data-language="go">
   
   <div class="diff-hunk">
     <div class="hunk-meta">
@@ -552,15 +719,21 @@ code{font-family:var(--mono)}
     
   </div>
   
-  </details>
-</article>
-<article class="annotated-diff diff-unified diff-unified" data-language="go">
-  <details class="diff-file" open>
-  <summary class="diff-file-header">
-    <span class="file-change file-change-add">add</span>
-    <code class="diff-file-path">internal/lineage/walk.go</code>
-    <span class="diff-hunk-count">1 hunk</span>
-  </summary>
+</div>
+
+      </details>
+    </div>
+    
+    <div class="lin-node down file-node">
+      <span class="lin-glyph"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.4" fill="currentColor"/></svg></span>
+      <span class="lin-edge produced">touched</span>
+      <details class="lin-file">
+        <summary>
+          <span class="file-change file-change-add">add</span>
+          <code class="lin-file-path">internal/lineage/walk.go</code>
+          <span class="lin-file-stat"><span class="plus">+235</span></span>
+        </summary>
+        <div class="annotated-diff embedded diff-unified diff-unified" data-language="go">
   
   <div class="diff-hunk">
     <div class="hunk-meta">
@@ -807,15 +980,21 @@ code{font-family:var(--mono)}
     
   </div>
   
-  </details>
-</article>
-<article class="annotated-diff diff-unified diff-unified" data-language="go">
-  <details class="diff-file" open>
-  <summary class="diff-file-header">
-    <span class="file-change file-change-add">add</span>
-    <code class="diff-file-path">internal/lineage/walk_test.go</code>
-    <span class="diff-hunk-count">1 hunk</span>
-  </summary>
+</div>
+
+      </details>
+    </div>
+    
+    <div class="lin-node down file-node">
+      <span class="lin-glyph"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.4" fill="currentColor"/></svg></span>
+      <span class="lin-edge produced">touched</span>
+      <details class="lin-file">
+        <summary>
+          <span class="file-change file-change-add">add</span>
+          <code class="lin-file-path">internal/lineage/walk_test.go</code>
+          <span class="lin-file-stat"><span class="plus">+48</span></span>
+        </summary>
+        <div class="annotated-diff embedded diff-unified diff-unified" data-language="go">
   
   <div class="diff-hunk">
     <div class="hunk-meta">
@@ -875,15 +1054,21 @@ code{font-family:var(--mono)}
     
   </div>
   
-  </details>
-</article>
-<article class="annotated-diff diff-unified diff-unified" data-language="go">
-  <details class="diff-file" open>
-  <summary class="diff-file-header">
-    <span class="file-change file-change-add">add</span>
-    <code class="diff-file-path">internal/recap/collect.go</code>
-    <span class="diff-hunk-count">1 hunk</span>
-  </summary>
+</div>
+
+      </details>
+    </div>
+    
+    <div class="lin-node down file-node">
+      <span class="lin-glyph"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.4" fill="currentColor"/></svg></span>
+      <span class="lin-edge produced">touched</span>
+      <details class="lin-file">
+        <summary>
+          <span class="file-change file-change-add">add</span>
+          <code class="lin-file-path">internal/recap/collect.go</code>
+          <span class="lin-file-stat"><span class="plus">+229</span></span>
+        </summary>
+        <div class="annotated-diff embedded diff-unified diff-unified" data-language="go">
   
   <div class="diff-hunk">
     <div class="hunk-meta">
@@ -1124,15 +1309,21 @@ code{font-family:var(--mono)}
     
   </div>
   
-  </details>
-</article>
-<article class="annotated-diff diff-unified diff-unified" data-language="go">
-  <details class="diff-file" open>
-  <summary class="diff-file-header">
-    <span class="file-change file-change-add">add</span>
-    <code class="diff-file-path">internal/recap/collect_test.go</code>
-    <span class="diff-hunk-count">1 hunk</span>
-  </summary>
+</div>
+
+      </details>
+    </div>
+    
+    <div class="lin-node down file-node">
+      <span class="lin-glyph"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.4" fill="currentColor"/></svg></span>
+      <span class="lin-edge produced">touched</span>
+      <details class="lin-file">
+        <summary>
+          <span class="file-change file-change-add">add</span>
+          <code class="lin-file-path">internal/recap/collect_test.go</code>
+          <span class="lin-file-stat"><span class="plus">+272</span></span>
+        </summary>
+        <div class="annotated-diff embedded diff-unified diff-unified" data-language="go">
   
   <div class="diff-hunk">
     <div class="hunk-meta">
@@ -1416,15 +1607,21 @@ code{font-family:var(--mono)}
     
   </div>
   
-  </details>
-</article>
-<article class="annotated-diff diff-unified diff-unified" data-language="go">
-  <details class="diff-file" open>
-  <summary class="diff-file-header">
-    <span class="file-change file-change-add">add</span>
-    <code class="diff-file-path">internal/recap/git.go</code>
-    <span class="diff-hunk-count">1 hunk</span>
-  </summary>
+</div>
+
+      </details>
+    </div>
+    
+    <div class="lin-node down file-node">
+      <span class="lin-glyph"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.4" fill="currentColor"/></svg></span>
+      <span class="lin-edge produced">touched</span>
+      <details class="lin-file">
+        <summary>
+          <span class="file-change file-change-add">add</span>
+          <code class="lin-file-path">internal/recap/git.go</code>
+          <span class="lin-file-stat"><span class="plus">+169</span></span>
+        </summary>
+        <div class="annotated-diff embedded diff-unified diff-unified" data-language="go">
   
   <div class="diff-hunk">
     <div class="hunk-meta">
@@ -1605,15 +1802,21 @@ code{font-family:var(--mono)}
     
   </div>
   
-  </details>
-</article>
-<article class="annotated-diff diff-unified diff-unified" data-language="go">
-  <details class="diff-file" open>
-  <summary class="diff-file-header">
-    <span class="file-change file-change-add">add</span>
-    <code class="diff-file-path">internal/recap/shared_walk_test.go</code>
-    <span class="diff-hunk-count">1 hunk</span>
-  </summary>
+</div>
+
+      </details>
+    </div>
+    
+    <div class="lin-node down file-node">
+      <span class="lin-glyph"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.4" fill="currentColor"/></svg></span>
+      <span class="lin-edge produced">touched</span>
+      <details class="lin-file">
+        <summary>
+          <span class="file-change file-change-add">add</span>
+          <code class="lin-file-path">internal/recap/shared_walk_test.go</code>
+          <span class="lin-file-stat"><span class="plus">+62</span></span>
+        </summary>
+        <div class="annotated-diff embedded diff-unified diff-unified" data-language="go">
   
   <div class="diff-hunk">
     <div class="hunk-meta">
@@ -1687,15 +1890,21 @@ code{font-family:var(--mono)}
     
   </div>
   
-  </details>
-</article>
-<article class="annotated-diff diff-unified diff-unified" data-language="go">
-  <details class="diff-file" open>
-  <summary class="diff-file-header">
-    <span class="file-change file-change-add">add</span>
-    <code class="diff-file-path">internal/recap/types.go</code>
-    <span class="diff-hunk-count">1 hunk</span>
-  </summary>
+</div>
+
+      </details>
+    </div>
+    
+    <div class="lin-node down file-node">
+      <span class="lin-glyph"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.4" fill="currentColor"/></svg></span>
+      <span class="lin-edge produced">touched</span>
+      <details class="lin-file">
+        <summary>
+          <span class="file-change file-change-add">add</span>
+          <code class="lin-file-path">internal/recap/types.go</code>
+          <span class="lin-file-stat"><span class="plus">+102</span></span>
+        </summary>
+        <div class="annotated-diff embedded diff-unified diff-unified" data-language="go">
   
   <div class="diff-hunk">
     <div class="hunk-meta">
@@ -1809,290 +2018,50 @@ code{font-family:var(--mono)}
     
   </div>
   
-  </details>
-</article>
+</div>
 
-</section>
+      </details>
+    </div>
+    
 
-<section class="recap-zone recap-zone-lineage" id="lineage">
-  <h2 class="recap-zone-title">Lineage <span class="recap-count">27</span></h2>
-  <p class="recap-zone-note">Static grounding chain. The interactive force-graph view is available on the dashboard.</p>
-  <table class="lineage-table">
-    <thead><tr><th>Depth</th><th>Node</th><th>Edge</th></tr></thead>
-    <tbody>
-      
-      <tr class="lineage-row">
-        <td class="lineage-depth">1</td>
-        <td class="lineage-node" style="padding-left:16px">
-          <span class="lineage-type">track</span>
-          <code class="lineage-id">trk-a951e3c0</code>
-          <span class="lineage-title">Visual planning &amp; recap — native port of BuilderIO visual-plan/visual-recap concepts</span>
-        </td>
-        <td class="lineage-edge"><code>contains</code></td>
-      </tr>
-      
-      <tr class="lineage-row">
-        <td class="lineage-depth">1</td>
-        <td class="lineage-node" style="padding-left:16px">
-          <span class="lineage-type">feature</span>
-          <code class="lineage-id">feat-2570725c</code>
-          <span class="lineage-title">Recap renderer — recap/recaptmpl package &#43; shared HTML block components</span>
-        </td>
-        <td class="lineage-edge"><code>blocked_by</code></td>
-      </tr>
-      
-      <tr class="lineage-row">
-        <td class="lineage-depth">1</td>
-        <td class="lineage-node" style="padding-left:16px">
-          <span class="lineage-type">feature</span>
-          <code class="lineage-id">feat-1feacf19</code>
-          <span class="lineage-title">`wipnote recap &lt;id|--range|--session&gt;` command &#43; first-class recap-*.html artifact commit</span>
-        </td>
-        <td class="lineage-edge"><code>blocked_by</code></td>
-      </tr>
-      
-      <tr class="lineage-row">
-        <td class="lineage-depth">1</td>
-        <td class="lineage-node" style="padding-left:16px">
-          <span class="lineage-type">session</span>
-          <code class="lineage-id">7ad16954-7662-4d96-87ae-6eff3bd5739e</code>
-          <span class="lineage-title">visual-planning-recap-native-yolo-20260618-03.35.27</span>
-        </td>
-        <td class="lineage-edge"><code>implements</code></td>
-      </tr>
-      
-      <tr class="lineage-row">
-        <td class="lineage-depth">2</td>
-        <td class="lineage-node" style="padding-left:32px">
-          <span class="lineage-type">feature</span>
-          <code class="lineage-id">feat-63676de5</code>
-          <span class="lineage-title">Dashboard Recaps view &#43; /api/recaps endpoints</span>
-        </td>
-        <td class="lineage-edge"><code>part_of</code></td>
-      </tr>
-      
-      <tr class="lineage-row">
-        <td class="lineage-depth">2</td>
-        <td class="lineage-node" style="padding-left:32px">
-          <span class="lineage-type">feature</span>
-          <code class="lineage-id">feat-ecc95e7e</code>
-          <span class="lineage-title">/visual-recap skill (prompt wrapper) &#43; build-ports to all 3 harnesses</span>
-        </td>
-        <td class="lineage-edge"><code>part_of</code></td>
-      </tr>
-      
-      <tr class="lineage-row">
-        <td class="lineage-depth">2</td>
-        <td class="lineage-node" style="padding-left:32px">
-          <span class="lineage-type">feature</span>
-          <code class="lineage-id">feat-96b98270</code>
-          <span class="lineage-title">Slice-schema block enrichment — additive optional structured blocks on PlanSlice</span>
-        </td>
-        <td class="lineage-edge"><code>part_of</code></td>
-      </tr>
-      
-      <tr class="lineage-row">
-        <td class="lineage-depth">2</td>
-        <td class="lineage-node" style="padding-left:32px">
-          <span class="lineage-type">feature</span>
-          <code class="lineage-id">feat-bafd591f</code>
-          <span class="lineage-title">plantmpl block-zone rendering &#43; before/after HTML wireframes</span>
-        </td>
-        <td class="lineage-edge"><code>part_of</code></td>
-      </tr>
-      
-      <tr class="lineage-row">
-        <td class="lineage-depth">2</td>
-        <td class="lineage-node" style="padding-left:32px">
-          <span class="lineage-type">feature</span>
-          <code class="lineage-id">feat-4addaa6f</code>
-          <span class="lineage-title">Block-level annotation loop for PLANS (consumed/resolved) on plan_feedback — recap annotation explicitly out of scope</span>
-        </td>
-        <td class="lineage-edge"><code>part_of</code></td>
-      </tr>
-      
-      <tr class="lineage-row">
-        <td class="lineage-depth">2</td>
-        <td class="lineage-node" style="padding-left:32px">
-          <span class="lineage-type">feature</span>
-          <code class="lineage-id">feat-64e48b9a</code>
-          <span class="lineage-title">/visual-plan skill (prompt wrapper) &#43; build-ports</span>
-        </td>
-        <td class="lineage-edge"><code>part_of</code></td>
-      </tr>
-      
-      <tr class="lineage-row">
-        <td class="lineage-depth">2</td>
-        <td class="lineage-node" style="padding-left:32px">
-          <span class="lineage-type">feature</span>
-          <code class="lineage-id">feat-7bc6410b</code>
-          <span class="lineage-title">Register recap kind — reindex &#43; SQLite recaps table &#43; find/relevant &#43; `wipnote recap list|show|delete`</span>
-        </td>
-        <td class="lineage-edge"><code>part_of</code></td>
-      </tr>
-      
-      <tr class="lineage-row">
-        <td class="lineage-depth">2</td>
-        <td class="lineage-node" style="padding-left:32px">
-          <span class="lineage-type">plan</span>
-          <code class="lineage-id">plan-93b8eba0</code>
-          <span class="lineage-title">Plan: Visual plan &amp; lineage-grounded recap (native port of BuilderIO visual-plan/visual-recap)</span>
-        </td>
-        <td class="lineage-edge"><code>implemented_in</code></td>
-      </tr>
-      
-      <tr class="lineage-row">
-        <td class="lineage-depth">1</td>
-        <td class="lineage-node" style="padding-left:16px">
-          <span class="lineage-type">plan</span>
-          <code class="lineage-id">plan-93b8eba0</code>
-          <span class="lineage-title">Plan: Visual plan &amp; lineage-grounded recap (native port of BuilderIO visual-plan/visual-recap)</span>
-        </td>
-        <td class="lineage-edge"><code>planned_in</code></td>
-      </tr>
-      
-      <tr class="lineage-row">
-        <td class="lineage-depth">1</td>
-        <td class="lineage-node" style="padding-left:16px">
-          <span class="lineage-type">track</span>
-          <code class="lineage-id">trk-a951e3c0</code>
-          <span class="lineage-title">Visual planning &amp; recap — native port of BuilderIO visual-plan/visual-recap concepts</span>
-        </td>
-        <td class="lineage-edge"><code>part_of</code></td>
-      </tr>
-      
-      <tr class="lineage-row">
-        <td class="lineage-depth">1</td>
-        <td class="lineage-node" style="padding-left:16px">
-          <span class="lineage-type">unknown</span>
-          <code class="lineage-id">7ad16954-7662-4d96-87ae-6eff3bd5739e</code>
-          <span class="lineage-title">visual-planning-recap-native-yolo-20260618-03.35.27</span>
-        </td>
-        <td class="lineage-edge"><code>implemented_in</code></td>
-      </tr>
-      
-      <tr class="lineage-row">
-        <td class="lineage-depth">1</td>
-        <td class="lineage-node" style="padding-left:16px">
-          <span class="lineage-type">unknown</span>
-          <code class="lineage-id">recap-feat-5cdb3732</code>
-          
-        </td>
-        <td class="lineage-edge"><code>relates_to</code></td>
-      </tr>
-      
-      <tr class="lineage-row">
-        <td class="lineage-depth">2</td>
-        <td class="lineage-node" style="padding-left:32px">
-          <span class="lineage-type">plan</span>
-          <code class="lineage-id">plan-243e8713</code>
-          
-        </td>
-        <td class="lineage-edge"><code>relates_to</code></td>
-      </tr>
-      
-      <tr class="lineage-row">
-        <td class="lineage-depth">2</td>
-        <td class="lineage-node" style="padding-left:32px">
-          <span class="lineage-type">feature</span>
-          <code class="lineage-id">feat-2570725c</code>
-          <span class="lineage-title">Recap renderer — recap/recaptmpl package &#43; shared HTML block components</span>
-        </td>
-        <td class="lineage-edge"><code>contains</code></td>
-      </tr>
-      
-      <tr class="lineage-row">
-        <td class="lineage-depth">2</td>
-        <td class="lineage-node" style="padding-left:32px">
-          <span class="lineage-type">feature</span>
-          <code class="lineage-id">feat-1feacf19</code>
-          <span class="lineage-title">`wipnote recap &lt;id|--range|--session&gt;` command &#43; first-class recap-*.html artifact commit</span>
-        </td>
-        <td class="lineage-edge"><code>contains</code></td>
-      </tr>
-      
-      <tr class="lineage-row">
-        <td class="lineage-depth">2</td>
-        <td class="lineage-node" style="padding-left:32px">
-          <span class="lineage-type">feature</span>
-          <code class="lineage-id">feat-63676de5</code>
-          <span class="lineage-title">Dashboard Recaps view &#43; /api/recaps endpoints</span>
-        </td>
-        <td class="lineage-edge"><code>contains</code></td>
-      </tr>
-      
-      <tr class="lineage-row">
-        <td class="lineage-depth">2</td>
-        <td class="lineage-node" style="padding-left:32px">
-          <span class="lineage-type">feature</span>
-          <code class="lineage-id">feat-ecc95e7e</code>
-          <span class="lineage-title">/visual-recap skill (prompt wrapper) &#43; build-ports to all 3 harnesses</span>
-        </td>
-        <td class="lineage-edge"><code>contains</code></td>
-      </tr>
-      
-      <tr class="lineage-row">
-        <td class="lineage-depth">2</td>
-        <td class="lineage-node" style="padding-left:32px">
-          <span class="lineage-type">feature</span>
-          <code class="lineage-id">feat-96b98270</code>
-          <span class="lineage-title">Slice-schema block enrichment — additive optional structured blocks on PlanSlice</span>
-        </td>
-        <td class="lineage-edge"><code>contains</code></td>
-      </tr>
-      
-      <tr class="lineage-row">
-        <td class="lineage-depth">2</td>
-        <td class="lineage-node" style="padding-left:32px">
-          <span class="lineage-type">feature</span>
-          <code class="lineage-id">feat-bafd591f</code>
-          <span class="lineage-title">plantmpl block-zone rendering &#43; before/after HTML wireframes</span>
-        </td>
-        <td class="lineage-edge"><code>contains</code></td>
-      </tr>
-      
-      <tr class="lineage-row">
-        <td class="lineage-depth">2</td>
-        <td class="lineage-node" style="padding-left:32px">
-          <span class="lineage-type">feature</span>
-          <code class="lineage-id">feat-4addaa6f</code>
-          <span class="lineage-title">Block-level annotation loop for PLANS (consumed/resolved) on plan_feedback — recap annotation explicitly out of scope</span>
-        </td>
-        <td class="lineage-edge"><code>contains</code></td>
-      </tr>
-      
-      <tr class="lineage-row">
-        <td class="lineage-depth">2</td>
-        <td class="lineage-node" style="padding-left:32px">
-          <span class="lineage-type">feature</span>
-          <code class="lineage-id">feat-64e48b9a</code>
-          <span class="lineage-title">/visual-plan skill (prompt wrapper) &#43; build-ports</span>
-        </td>
-        <td class="lineage-edge"><code>contains</code></td>
-      </tr>
-      
-      <tr class="lineage-row">
-        <td class="lineage-depth">2</td>
-        <td class="lineage-node" style="padding-left:32px">
-          <span class="lineage-type">feature</span>
-          <code class="lineage-id">feat-7bc6410b</code>
-          <span class="lineage-title">Register recap kind — reindex &#43; SQLite recaps table &#43; find/relevant &#43; `wipnote recap list|show|delete`</span>
-        </td>
-        <td class="lineage-edge"><code>contains</code></td>
-      </tr>
-      
-      <tr class="lineage-row">
-        <td class="lineage-depth">3</td>
-        <td class="lineage-node" style="padding-left:48px">
-          <span class="lineage-type">unknown</span>
-          <code class="lineage-id">recap-feat-bafd591f</code>
-          
-        </td>
-        <td class="lineage-edge"><code>relates_to</code></td>
-      </tr>
-      
-    </tbody>
-  </table>
+    
+    <div class="lin-node down">
+      <span class="lin-glyph"><svg viewBox="0 0 24 24"><polygon points="12,3 20,7.5 20,16.5 12,21 4,16.5 4,7.5" fill="none" stroke="currentColor" stroke-width="2"/></svg></span>
+      <span class="lin-edge produced">planned in</span>
+      <div class="lin-card">
+        <div class="lin-id"><span class="lin-kind">plan</span><code>plan-93b8eba0</code></div>
+        <div class="lin-ttl">Plan: Visual plan &amp; lineage-grounded recap (native port of BuilderIO visual-plan/visual-recap)</div>
+      </div>
+    </div>
+    
+    <div class="lin-node down">
+      <span class="lin-glyph"><svg viewBox="0 0 24 24"><rect x="4" y="6" width="16" height="12" rx="2" fill="none" stroke="currentColor" stroke-width="2"/></svg></span>
+      <span class="lin-edge produced">part of</span>
+      <div class="lin-card">
+        <div class="lin-id"><span class="lin-kind">track</span><code>trk-a951e3c0</code></div>
+        <div class="lin-ttl">Visual planning &amp; recap — native port of BuilderIO visual-plan/visual-recap concepts</div>
+      </div>
+    </div>
+    
+    <div class="lin-node down">
+      <span class="lin-glyph"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4" fill="currentColor"/></svg></span>
+      <span class="lin-edge produced">implemented in</span>
+      <div class="lin-card">
+        <div class="lin-id"><span class="lin-kind">unknown</span><code>7ad16954-7662-4d96-87ae-6eff3bd5739e</code></div>
+        <div class="lin-ttl">visual-planning-recap-native-yolo-20260618-03.35.27</div>
+      </div>
+    </div>
+    
+    <div class="lin-node down">
+      <span class="lin-glyph"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4" fill="currentColor"/></svg></span>
+      <span class="lin-edge produced">relates to</span>
+      <div class="lin-card">
+        <div class="lin-id"><span class="lin-kind">unknown</span><code>recap-feat-5cdb3732</code></div>
+        
+      </div>
+    </div>
+    
+  </div>
 </section>
 
 </body>

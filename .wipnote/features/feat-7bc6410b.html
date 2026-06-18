@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>Register recap kind — reindex &#43; SQLite recaps table &#43; find/relevant &#43; `wipnote recap list|show|delete`</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="feat-7bc6410b"
+             data-type="feature"
+             data-status="todo"
+             data-priority="medium"
+             data-created="2026-06-18T07:33:52.021404"
+             data-updated="2026-06-18T07:33:52.069863" data-agent-assigned="claude-code" data-track-id="trk-a951e3c0">
+
+        <header>
+            <h1>Register recap kind — reindex &#43; SQLite recaps table &#43; find/relevant &#43; `wipnote recap list|show|delete`</h1>
+            <div class="metadata">
+                <span class="badge status-todo">Todo</span>
+                <span class="badge priority-medium">Medium Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="planned_in">
+                <h3>Planned In:</h3>
+                <ul>
+                    <li><a href="../plans/plan-93b8eba0.html" data-relationship="planned_in" data-since="2026-06-18T07:33:52.024053">plan-93b8eba0</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-a951e3c0.html" data-relationship="part_of" data-since="2026-06-18T07:33:52.030161">trk-a951e3c0</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="blocked_by">
+                <h3>Blocked By:</h3>
+                <ul>
+                    <li><a href="../features/feat-1feacf19.html" data-relationship="blocked_by">feat-1feacf19</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>Make recap artifacts first-class &amp; discoverable. Add a recaps table (or a
+type=&#39;recap&#39; extension of the artifact index) via a core/db migration; teach
+reindex.go to ingest .wipnote/recaps/*.html; add &#34;recaps&#34; to the directory
+lists in reindex and resolveItemHTMLPath (relevant.go) so `wipnote find` and
+`wipnote relevant` surface recaps; extend inferNodeTypeFromID with the recap-
+prefix; add `wipnote recap list|show|delete` subcommands for headless/CI use.</p>
+        </section>
+    </article>
+</body>
+</html>

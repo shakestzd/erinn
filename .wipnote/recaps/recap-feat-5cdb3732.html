@@ -63,31 +63,36 @@ h1{font-size:1.5rem;font-weight:700;margin-bottom:4px}
 .lin-swatch{width:18px;height:2px;border-radius:2px}
 .lin-swatch.past{background:var(--border)}
 .lin-swatch.now{background:var(--accent)}
-.spine{position:relative;padding-left:34px}
-.spine::before{content:"";position:absolute;left:11px;top:8px;bottom:8px;width:2px;background:linear-gradient(var(--border) 0 38%,rgba(205,255,0,.45) 46% 100%)}
-.spine.spine-produced-only::before{background:rgba(205,255,0,.45)}
-.lin-node{position:relative;padding:7px 0;display:flex;align-items:flex-start;gap:14px}
-.lin-glyph{position:absolute;left:-34px;top:8px;width:24px;height:24px;display:grid;place-items:center;border-radius:50%;background:var(--bg-card);border:1px solid var(--border);color:var(--text-muted);z-index:2}
-.lin-glyph svg{width:13px;height:13px;display:block}
-.lin-edge{font-family:var(--mono);font-size:.64rem;color:var(--text-muted);text-transform:lowercase;white-space:nowrap;padding-top:3px;min-width:76px}
-.lin-edge.produced{color:var(--accent)}
-.lin-card{flex:1;min-width:0;background:var(--bg-card);border:1px solid var(--border);border-radius:6px;padding:9px 12px}
-.lin-id{font-family:var(--mono);font-size:.72rem;color:var(--text-muted);display:flex;align-items:center;gap:7px}
+/* nested tree: each branch indents under its parent with its own guide rail */
+.lin-tree{position:relative}
+.lin-branch{position:relative;margin-left:15px;padding-left:22px;border-left:2px solid var(--border)}
+.lin-branch.produced-branch{border-left-color:rgba(205,255,0,.4)}
+.lin-node{position:relative;padding:6px 0;display:flex;align-items:flex-start}
+/* connector tick from the branch rail to each node glyph */
+.lin-node::before{content:"";position:absolute;left:-22px;top:18px;width:18px;height:2px;background:var(--border)}
+.lin-branch.produced-branch>.lin-node::before{background:rgba(205,255,0,.4)}
+.lin-glyph{position:absolute;left:-33px;top:7px;width:22px;height:22px;display:grid;place-items:center;border-radius:50%;background:var(--bg-card);border:1px solid var(--border);color:var(--text-muted);z-index:2}
+.lin-glyph svg{width:12px;height:12px;display:block}
+.lin-card{flex:1;min-width:0;background:var(--bg-card);border:1px solid var(--border);border-radius:6px;padding:8px 12px;margin-left:4px}
+.lin-id{font-family:var(--mono);font-size:.72rem;color:var(--text-muted);display:flex;align-items:center;gap:7px;flex-wrap:wrap}
 .lin-id code{color:var(--text-dim)}
 .lin-kind{font-size:.6rem;text-transform:uppercase;letter-spacing:.08em;color:var(--text-muted);border:1px solid var(--border);border-radius:4px;padding:0 5px}
+.lin-rel{font-family:var(--mono);font-size:.62rem;color:var(--text-muted);text-transform:lowercase}
+.lin-rel.produced{color:var(--accent)}
 .lin-ttl{font-size:.9rem;color:var(--text);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.lin-when{margin-left:auto;color:var(--text-muted)}
+.lin-when{color:var(--text-muted)}
 .lin-node.up .lin-glyph{border-style:dashed}
 .lin-node.up .lin-card{background:transparent}
 .lin-node.up .lin-ttl{color:var(--text-muted)}
-.lin-node.pivot{padding:12px 0}
-.lin-node.pivot .lin-glyph{left:-37px;top:6px;width:30px;height:30px;background:var(--accent);border-color:var(--accent);color:#000;box-shadow:0 0 0 5px rgba(205,255,0,.14),0 0 20px rgba(205,255,0,.3)}
+.lin-node.pivot{padding:10px 0}
+.lin-node.pivot::before{background:var(--accent)}
+.lin-node.pivot .lin-glyph{left:-35px;top:6px;width:28px;height:28px;background:var(--accent);border-color:var(--accent);color:#000;box-shadow:0 0 0 4px rgba(205,255,0,.14),0 0 18px rgba(205,255,0,.3)}
 .lin-node.pivot .lin-card{border-color:rgba(205,255,0,.45);box-shadow:0 0 0 1px rgba(205,255,0,.14)}
 .lin-node.pivot .lin-id code{color:var(--accent)}
 .lin-node.pivot .lin-ttl{white-space:normal;font-weight:600;font-size:.98rem}
 .lin-node.pivot .lin-kind{color:var(--accent);border-color:rgba(205,255,0,.45)}
 .lin-node.down .lin-glyph{border-color:rgba(205,255,0,.45);color:var(--accent)}
-.lin-file{flex:1;min-width:0;background:var(--bg-card);border:1px solid var(--border);border-radius:6px;overflow:hidden}
+.lin-file{flex:1;min-width:0;margin-left:4px;background:var(--bg-card);border:1px solid var(--border);border-radius:6px;overflow:hidden}
 .lin-file>summary{display:flex;align-items:center;gap:9px;padding:8px 12px;cursor:pointer;list-style:none;font-family:var(--mono);font-size:.78rem}
 .lin-file>summary::-webkit-details-marker{display:none}
 .lin-file>summary::before{content:"▸";color:var(--text-muted);font-size:.66rem;transition:transform .15s ease;display:inline-block}
@@ -115,86 +120,89 @@ code{font-family:var(--mono)}
 </section>
 <section class="recap-zone recap-zone-lineage" id="lineage">
   <h2 class="recap-zone-title">Lineage</h2>
-  <p class="recap-zone-note">Causal provenance, top to bottom: where this work came from, then exactly what it changed.</p>
+  <p class="recap-zone-note">Causal provenance as a tree: containers hold the work item, which holds the commit it produced, which holds the files it changed.</p>
   
   <div class="lin-legend">
-    <span class="lin-dir"><span class="lin-swatch past"></span> ancestry — where it came from</span>
+    <span class="lin-dir"><span class="lin-swatch past"></span> ancestry — what holds this work</span>
     <span class="lin-dir"><span class="lin-swatch now"></span> produced — what it changed</span>
   </div>
   
 
-  <div class="spine">
+  <div class="lin-tree">
+  
+    <div class="lin-branch">
+    
     
     <div class="lin-node up">
       <span class="lin-glyph"><svg viewBox="0 0 24 24"><rect x="4" y="6" width="16" height="12" rx="2" fill="none" stroke="currentColor" stroke-width="2"/></svg></span>
-      <span class="lin-edge">contains</span>
       <div class="lin-card">
-        <div class="lin-id"><span class="lin-kind">track</span><code>trk-a951e3c0</code></div>
+        <div class="lin-id"><span class="lin-kind">track</span><code>trk-a951e3c0</code><span class="lin-rel">contains</span></div>
         <div class="lin-ttl">Visual planning &amp; recap — native port of BuilderIO visual-plan/visual-recap concepts</div>
       </div>
     </div>
     
     <div class="lin-node up">
       <span class="lin-glyph"><svg viewBox="0 0 24 24"><rect x="6.5" y="6.5" width="11" height="11" transform="rotate(45 12 12)" fill="currentColor"/></svg></span>
-      <span class="lin-edge">blocked by</span>
       <div class="lin-card">
-        <div class="lin-id"><span class="lin-kind">feature</span><code>feat-2570725c</code></div>
+        <div class="lin-id"><span class="lin-kind">feature</span><code>feat-2570725c</code><span class="lin-rel">blocked by</span></div>
         <div class="lin-ttl">Recap renderer — recap/recaptmpl package &#43; shared HTML block components</div>
       </div>
     </div>
     
     <div class="lin-node up">
       <span class="lin-glyph"><svg viewBox="0 0 24 24"><rect x="6.5" y="6.5" width="11" height="11" transform="rotate(45 12 12)" fill="currentColor"/></svg></span>
-      <span class="lin-edge">blocked by</span>
       <div class="lin-card">
-        <div class="lin-id"><span class="lin-kind">feature</span><code>feat-1feacf19</code></div>
+        <div class="lin-id"><span class="lin-kind">feature</span><code>feat-1feacf19</code><span class="lin-rel">blocked by</span></div>
         <div class="lin-ttl">`wipnote recap &lt;id|--range|--session&gt;` command &#43; first-class recap-*.html artifact commit</div>
       </div>
     </div>
     
     <div class="lin-node up">
       <span class="lin-glyph"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="12" r="2.6" fill="currentColor"/></svg></span>
-      <span class="lin-edge">implements</span>
       <div class="lin-card">
-        <div class="lin-id"><span class="lin-kind">session</span><code>7ad16954-7662-4d96-87ae-6eff3bd5739e</code></div>
+        <div class="lin-id"><span class="lin-kind">session</span><code>7ad16954-7662-4d96-87ae-6eff3bd5739e</code><span class="lin-rel">implements</span></div>
         <div class="lin-ttl">visual-planning-recap-native-yolo-20260618-03.35.27</div>
       </div>
     </div>
     
 
     
-    <div class="lin-node pivot">
-      <span class="lin-glyph"><svg viewBox="0 0 24 24"><rect x="6.5" y="6.5" width="11" height="11" transform="rotate(45 12 12)" fill="currentColor"/></svg></span>
-      <span class="lin-edge"></span>
-      <div class="lin-card">
-        <div class="lin-id"><span class="lin-kind">feature</span><code>feat-5cdb3732</code></div>
-        <div class="lin-ttl">Recap collector core — resolve work-item / git-range / session into grounded diff data</div>
+    <div class="lin-branch">
+      
+      <div class="lin-node pivot">
+        <span class="lin-glyph"><svg viewBox="0 0 24 24"><rect x="6.5" y="6.5" width="11" height="11" transform="rotate(45 12 12)" fill="currentColor"/></svg></span>
+        <div class="lin-card">
+          <div class="lin-id"><span class="lin-kind">feature</span><code>feat-5cdb3732</code></div>
+          <div class="lin-ttl">Recap collector core — resolve work-item / git-range / session into grounded diff data</div>
+        </div>
       </div>
-    </div>
-    
+      
 
-    
-    <div class="lin-node down commit">
-      <span class="lin-glyph"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="6" fill="currentColor"/></svg></span>
-      <span class="lin-edge produced">produced</span>
-      <div class="lin-card">
-        <div class="lin-id"><span class="lin-kind">commit</span><code>412ef65cc</code><span class="lin-when">2026-06-18T08:20:45Z</span></div>
-        <div class="lin-ttl">feat(feat-5cdb3732): recap collector core &#43; shared lineage walk</div>
-      </div>
-    </div>
-    
+      
+      <div class="lin-branch produced-branch">
+        
+        <div class="lin-node down commit">
+          <span class="lin-glyph"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="6" fill="currentColor"/></svg></span>
+          <div class="lin-card">
+            <div class="lin-id"><span class="lin-kind">commit</span><code>412ef65cc</code><span class="lin-when">2026-06-18T08:20:45Z</span><span class="lin-rel produced">produced</span></div>
+            <div class="lin-ttl">feat(feat-5cdb3732): recap collector core &#43; shared lineage walk</div>
+          </div>
+        </div>
+        
 
-    
-    <div class="lin-node down file-node">
-      <span class="lin-glyph"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.4" fill="currentColor"/></svg></span>
-      <span class="lin-edge produced">touched</span>
-      <details class="lin-file">
-        <summary>
-          <span class="file-change file-change-modify">modify</span>
-          <code class="lin-file-path">cmd/wipnote/lineage.go</code>
-          <span class="lin-file-stat"><span class="plus">+57</span> <span class="minus">&minus;247</span></span>
-        </summary>
-        <div class="annotated-diff embedded diff-unified diff-unified" data-language="go">
+        
+        
+        <div class="lin-branch produced-branch">
+          
+          <div class="lin-node down file-node">
+            <span class="lin-glyph"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.4" fill="currentColor"/></svg></span>
+            <details class="lin-file">
+              <summary>
+                <span class="file-change file-change-modify">modify</span>
+                <code class="lin-file-path">cmd/wipnote/lineage.go</code>
+                <span class="lin-file-stat"><span class="plus">+57</span> <span class="minus">&minus;247</span></span>
+              </summary>
+              <div class="annotated-diff embedded diff-unified diff-unified" data-language="go">
   
   <div class="diff-hunk">
     <div class="hunk-meta">
@@ -562,19 +570,18 @@ code{font-family:var(--mono)}
   
 </div>
 
-      </details>
-    </div>
-    
-    <div class="lin-node down file-node">
-      <span class="lin-glyph"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.4" fill="currentColor"/></svg></span>
-      <span class="lin-edge produced">touched</span>
-      <details class="lin-file">
-        <summary>
-          <span class="file-change file-change-modify">modify</span>
-          <code class="lin-file-path">cmd/wipnote/lineage_busy_test.go</code>
-          <span class="lin-file-stat"><span class="plus">+21</span> <span class="minus">&minus;20</span></span>
-        </summary>
-        <div class="annotated-diff embedded diff-unified diff-unified" data-language="go">
+            </details>
+          </div>
+          
+          <div class="lin-node down file-node">
+            <span class="lin-glyph"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.4" fill="currentColor"/></svg></span>
+            <details class="lin-file">
+              <summary>
+                <span class="file-change file-change-modify">modify</span>
+                <code class="lin-file-path">cmd/wipnote/lineage_busy_test.go</code>
+                <span class="lin-file-stat"><span class="plus">+21</span> <span class="minus">&minus;20</span></span>
+              </summary>
+              <div class="annotated-diff embedded diff-unified diff-unified" data-language="go">
   
   <div class="diff-hunk">
     <div class="hunk-meta">
@@ -649,19 +656,18 @@ code{font-family:var(--mono)}
   
 </div>
 
-      </details>
-    </div>
-    
-    <div class="lin-node down file-node">
-      <span class="lin-glyph"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.4" fill="currentColor"/></svg></span>
-      <span class="lin-edge produced">touched</span>
-      <details class="lin-file">
-        <summary>
-          <span class="file-change file-change-add">add</span>
-          <code class="lin-file-path">internal/lineage/walk.go</code>
-          <span class="lin-file-stat"><span class="plus">+235</span></span>
-        </summary>
-        <div class="annotated-diff embedded diff-unified diff-unified" data-language="go">
+            </details>
+          </div>
+          
+          <div class="lin-node down file-node">
+            <span class="lin-glyph"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.4" fill="currentColor"/></svg></span>
+            <details class="lin-file">
+              <summary>
+                <span class="file-change file-change-add">add</span>
+                <code class="lin-file-path">internal/lineage/walk.go</code>
+                <span class="lin-file-stat"><span class="plus">+235</span></span>
+              </summary>
+              <div class="annotated-diff embedded diff-unified diff-unified" data-language="go">
   
   <div class="diff-hunk">
     <div class="hunk-meta">
@@ -910,19 +916,18 @@ code{font-family:var(--mono)}
   
 </div>
 
-      </details>
-    </div>
-    
-    <div class="lin-node down file-node">
-      <span class="lin-glyph"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.4" fill="currentColor"/></svg></span>
-      <span class="lin-edge produced">touched</span>
-      <details class="lin-file">
-        <summary>
-          <span class="file-change file-change-add">add</span>
-          <code class="lin-file-path">internal/lineage/walk_test.go</code>
-          <span class="lin-file-stat"><span class="plus">+48</span></span>
-        </summary>
-        <div class="annotated-diff embedded diff-unified diff-unified" data-language="go">
+            </details>
+          </div>
+          
+          <div class="lin-node down file-node">
+            <span class="lin-glyph"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.4" fill="currentColor"/></svg></span>
+            <details class="lin-file">
+              <summary>
+                <span class="file-change file-change-add">add</span>
+                <code class="lin-file-path">internal/lineage/walk_test.go</code>
+                <span class="lin-file-stat"><span class="plus">+48</span></span>
+              </summary>
+              <div class="annotated-diff embedded diff-unified diff-unified" data-language="go">
   
   <div class="diff-hunk">
     <div class="hunk-meta">
@@ -984,19 +989,18 @@ code{font-family:var(--mono)}
   
 </div>
 
-      </details>
-    </div>
-    
-    <div class="lin-node down file-node">
-      <span class="lin-glyph"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.4" fill="currentColor"/></svg></span>
-      <span class="lin-edge produced">touched</span>
-      <details class="lin-file">
-        <summary>
-          <span class="file-change file-change-add">add</span>
-          <code class="lin-file-path">internal/recap/collect.go</code>
-          <span class="lin-file-stat"><span class="plus">+229</span></span>
-        </summary>
-        <div class="annotated-diff embedded diff-unified diff-unified" data-language="go">
+            </details>
+          </div>
+          
+          <div class="lin-node down file-node">
+            <span class="lin-glyph"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.4" fill="currentColor"/></svg></span>
+            <details class="lin-file">
+              <summary>
+                <span class="file-change file-change-add">add</span>
+                <code class="lin-file-path">internal/recap/collect.go</code>
+                <span class="lin-file-stat"><span class="plus">+229</span></span>
+              </summary>
+              <div class="annotated-diff embedded diff-unified diff-unified" data-language="go">
   
   <div class="diff-hunk">
     <div class="hunk-meta">
@@ -1239,19 +1243,18 @@ code{font-family:var(--mono)}
   
 </div>
 
-      </details>
-    </div>
-    
-    <div class="lin-node down file-node">
-      <span class="lin-glyph"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.4" fill="currentColor"/></svg></span>
-      <span class="lin-edge produced">touched</span>
-      <details class="lin-file">
-        <summary>
-          <span class="file-change file-change-add">add</span>
-          <code class="lin-file-path">internal/recap/collect_test.go</code>
-          <span class="lin-file-stat"><span class="plus">+272</span></span>
-        </summary>
-        <div class="annotated-diff embedded diff-unified diff-unified" data-language="go">
+            </details>
+          </div>
+          
+          <div class="lin-node down file-node">
+            <span class="lin-glyph"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.4" fill="currentColor"/></svg></span>
+            <details class="lin-file">
+              <summary>
+                <span class="file-change file-change-add">add</span>
+                <code class="lin-file-path">internal/recap/collect_test.go</code>
+                <span class="lin-file-stat"><span class="plus">+272</span></span>
+              </summary>
+              <div class="annotated-diff embedded diff-unified diff-unified" data-language="go">
   
   <div class="diff-hunk">
     <div class="hunk-meta">
@@ -1537,19 +1540,18 @@ code{font-family:var(--mono)}
   
 </div>
 
-      </details>
-    </div>
-    
-    <div class="lin-node down file-node">
-      <span class="lin-glyph"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.4" fill="currentColor"/></svg></span>
-      <span class="lin-edge produced">touched</span>
-      <details class="lin-file">
-        <summary>
-          <span class="file-change file-change-add">add</span>
-          <code class="lin-file-path">internal/recap/git.go</code>
-          <span class="lin-file-stat"><span class="plus">+169</span></span>
-        </summary>
-        <div class="annotated-diff embedded diff-unified diff-unified" data-language="go">
+            </details>
+          </div>
+          
+          <div class="lin-node down file-node">
+            <span class="lin-glyph"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.4" fill="currentColor"/></svg></span>
+            <details class="lin-file">
+              <summary>
+                <span class="file-change file-change-add">add</span>
+                <code class="lin-file-path">internal/recap/git.go</code>
+                <span class="lin-file-stat"><span class="plus">+169</span></span>
+              </summary>
+              <div class="annotated-diff embedded diff-unified diff-unified" data-language="go">
   
   <div class="diff-hunk">
     <div class="hunk-meta">
@@ -1732,19 +1734,18 @@ code{font-family:var(--mono)}
   
 </div>
 
-      </details>
-    </div>
-    
-    <div class="lin-node down file-node">
-      <span class="lin-glyph"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.4" fill="currentColor"/></svg></span>
-      <span class="lin-edge produced">touched</span>
-      <details class="lin-file">
-        <summary>
-          <span class="file-change file-change-add">add</span>
-          <code class="lin-file-path">internal/recap/shared_walk_test.go</code>
-          <span class="lin-file-stat"><span class="plus">+62</span></span>
-        </summary>
-        <div class="annotated-diff embedded diff-unified diff-unified" data-language="go">
+            </details>
+          </div>
+          
+          <div class="lin-node down file-node">
+            <span class="lin-glyph"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.4" fill="currentColor"/></svg></span>
+            <details class="lin-file">
+              <summary>
+                <span class="file-change file-change-add">add</span>
+                <code class="lin-file-path">internal/recap/shared_walk_test.go</code>
+                <span class="lin-file-stat"><span class="plus">+62</span></span>
+              </summary>
+              <div class="annotated-diff embedded diff-unified diff-unified" data-language="go">
   
   <div class="diff-hunk">
     <div class="hunk-meta">
@@ -1820,19 +1821,18 @@ code{font-family:var(--mono)}
   
 </div>
 
-      </details>
-    </div>
-    
-    <div class="lin-node down file-node">
-      <span class="lin-glyph"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.4" fill="currentColor"/></svg></span>
-      <span class="lin-edge produced">touched</span>
-      <details class="lin-file">
-        <summary>
-          <span class="file-change file-change-add">add</span>
-          <code class="lin-file-path">internal/recap/types.go</code>
-          <span class="lin-file-stat"><span class="plus">+102</span></span>
-        </summary>
-        <div class="annotated-diff embedded diff-unified diff-unified" data-language="go">
+            </details>
+          </div>
+          
+          <div class="lin-node down file-node">
+            <span class="lin-glyph"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.4" fill="currentColor"/></svg></span>
+            <details class="lin-file">
+              <summary>
+                <span class="file-change file-change-add">add</span>
+                <code class="lin-file-path">internal/recap/types.go</code>
+                <span class="lin-file-stat"><span class="plus">+102</span></span>
+              </summary>
+              <div class="annotated-diff embedded diff-unified diff-unified" data-language="go">
   
   <div class="diff-hunk">
     <div class="hunk-meta">
@@ -1948,47 +1948,49 @@ code{font-family:var(--mono)}
   
 </div>
 
-      </details>
-    </div>
-    
+            </details>
+          </div>
+          
+        </div>
+        
 
-    
-    <div class="lin-node down">
-      <span class="lin-glyph"><svg viewBox="0 0 24 24"><polygon points="12,3 20,7.5 20,16.5 12,21 4,16.5 4,7.5" fill="none" stroke="currentColor" stroke-width="2"/></svg></span>
-      <span class="lin-edge produced">planned in</span>
-      <div class="lin-card">
-        <div class="lin-id"><span class="lin-kind">plan</span><code>plan-93b8eba0</code></div>
-        <div class="lin-ttl">Plan: Visual plan &amp; lineage-grounded recap (native port of BuilderIO visual-plan/visual-recap)</div>
-      </div>
-    </div>
-    
-    <div class="lin-node down">
-      <span class="lin-glyph"><svg viewBox="0 0 24 24"><rect x="4" y="6" width="16" height="12" rx="2" fill="none" stroke="currentColor" stroke-width="2"/></svg></span>
-      <span class="lin-edge produced">part of</span>
-      <div class="lin-card">
-        <div class="lin-id"><span class="lin-kind">track</span><code>trk-a951e3c0</code></div>
-        <div class="lin-ttl">Visual planning &amp; recap — native port of BuilderIO visual-plan/visual-recap concepts</div>
-      </div>
-    </div>
-    
-    <div class="lin-node down">
-      <span class="lin-glyph"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4" fill="currentColor"/></svg></span>
-      <span class="lin-edge produced">implemented in</span>
-      <div class="lin-card">
-        <div class="lin-id"><span class="lin-kind">unknown</span><code>7ad16954-7662-4d96-87ae-6eff3bd5739e</code></div>
-        <div class="lin-ttl">visual-planning-recap-native-yolo-20260618-03.35.27</div>
-      </div>
-    </div>
-    
-    <div class="lin-node down">
-      <span class="lin-glyph"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4" fill="currentColor"/></svg></span>
-      <span class="lin-edge produced">relates to</span>
-      <div class="lin-card">
-        <div class="lin-id"><span class="lin-kind">unknown</span><code>recap-feat-5cdb3732</code></div>
+        
+        <div class="lin-node down">
+          <span class="lin-glyph"><svg viewBox="0 0 24 24"><polygon points="12,3 20,7.5 20,16.5 12,21 4,16.5 4,7.5" fill="none" stroke="currentColor" stroke-width="2"/></svg></span>
+          <div class="lin-card">
+            <div class="lin-id"><span class="lin-kind">plan</span><code>plan-93b8eba0</code><span class="lin-rel produced">planned in</span></div>
+            <div class="lin-ttl">Plan: Visual plan &amp; lineage-grounded recap (native port of BuilderIO visual-plan/visual-recap)</div>
+          </div>
+        </div>
+        
+        <div class="lin-node down">
+          <span class="lin-glyph"><svg viewBox="0 0 24 24"><rect x="4" y="6" width="16" height="12" rx="2" fill="none" stroke="currentColor" stroke-width="2"/></svg></span>
+          <div class="lin-card">
+            <div class="lin-id"><span class="lin-kind">track</span><code>trk-a951e3c0</code><span class="lin-rel produced">part of</span></div>
+            <div class="lin-ttl">Visual planning &amp; recap — native port of BuilderIO visual-plan/visual-recap concepts</div>
+          </div>
+        </div>
+        
+        <div class="lin-node down">
+          <span class="lin-glyph"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4" fill="currentColor"/></svg></span>
+          <div class="lin-card">
+            <div class="lin-id"><span class="lin-kind">unknown</span><code>7ad16954-7662-4d96-87ae-6eff3bd5739e</code><span class="lin-rel produced">implemented in</span></div>
+            <div class="lin-ttl">visual-planning-recap-native-yolo-20260618-03.35.27</div>
+          </div>
+        </div>
+        
+        <div class="lin-node down">
+          <span class="lin-glyph"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4" fill="currentColor"/></svg></span>
+          <div class="lin-card">
+            <div class="lin-id"><span class="lin-kind">unknown</span><code>recap-feat-5cdb3732</code><span class="lin-rel produced">relates to</span></div>
+            
+          </div>
+        </div>
         
       </div>
     </div>
-    
+    </div>
+  
   </div>
 </section>
 

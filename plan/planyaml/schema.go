@@ -145,6 +145,29 @@ type SliceBlock struct {
 	Entries []string            `yaml:"entries,omitempty"`
 }
 
+// PlanAnnotation is a block-anchored review note with two-axis state (slice-8).
+// It is the typed shape that `wipnote plan read-feedback-yaml` emits for the
+// block-level annotation loop, mirroring BuilderIO's get-plan-feedback contract:
+//
+//   - Section / Anchor pin the note to a specific plan block
+//     (e.g. "slice-3-block-data-model-1").
+//   - Consumed and Resolved are two INDEPENDENT axes: an agent may consume
+//     (ingest) a note without it being resolved (addressed), and vice-versa.
+//   - ResolutionTarget routes the note to "agent" or "human".
+//
+// It is OPTIONAL and read-only from the YAML's perspective — annotations are
+// stored in plan_feedback (SQLite), not serialized into the plan YAML body, so
+// this struct carries no yaml tags and is populated only when reading feedback.
+type PlanAnnotation struct {
+	Section          string `json:"section"`
+	Anchor           string `json:"anchor"`
+	Comment          string `json:"comment"`
+	QuestionID       string `json:"question_id,omitempty"`
+	Consumed         bool   `json:"consumed"`
+	Resolved         bool   `json:"resolved"`
+	ResolutionTarget string `json:"resolution_target,omitempty"`
+}
+
 // BlockSpec describes the required shape of one block Type. It is consumed by
 // both validate.go (to reject malformed blocks when present) and `wipnote plan
 // blocks` (to print the supported vocabulary), so the vocabulary has a single

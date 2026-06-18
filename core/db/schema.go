@@ -366,7 +366,12 @@ func CreateAllTables(db *sql.DB) error {
 			updated_at TEXT DEFAULT (datetime('now'))
 		)`,
 
-		// 15. plan_feedback — structured feedback from CRISPI plan review
+		// 15. plan_feedback — structured feedback from CRISPI plan review.
+		// anchor / consumed / resolved / resolution_target (migration 016)
+		// carry block-level annotation state: anchor pins a note to a specific
+		// plan block, and consumed vs resolved are two independent axes routed
+		// to agent|human via resolution_target. Non-annotation rows leave them
+		// at their zero defaults.
 		`CREATE TABLE IF NOT EXISTS plan_feedback (
 			id INTEGER PRIMARY KEY AUTOINCREMENT,
 			plan_id TEXT NOT NULL,
@@ -374,6 +379,10 @@ func CreateAllTables(db *sql.DB) error {
 			action TEXT NOT NULL,
 			value TEXT,
 			question_id TEXT NOT NULL DEFAULT '',
+			anchor TEXT NOT NULL DEFAULT '',
+			consumed INTEGER NOT NULL DEFAULT 0,
+			resolved INTEGER NOT NULL DEFAULT 0,
+			resolution_target TEXT NOT NULL DEFAULT '',
 			created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 			updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 			UNIQUE(plan_id, section, action, question_id)

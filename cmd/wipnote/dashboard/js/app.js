@@ -4216,12 +4216,66 @@ function renderFinalizeResult(data) {
   panel.innerHTML = html;
 }
 
-function dashSidebarSetupChat(planId) {
+// dashCollectBlockAnchors scans the loaded plan body for block-anchored
+// elements and returns an ordered list of {anchor, label} the reviewer can pin
+// a comment to (slice-8). Anchors come from elements carrying an explicit
+// data-block-anchor attribute, or whose id matches the tightly-bounded
+// slice-<n>-block-<name>-<idx> contract enforced server-side by validSectionRe.
+// Returns [] when the plan renders no blocks, so the affordance hides cleanly.
+function dashCollectBlockAnchors(body) {
+  if (!body) return [];
+  var seen = {};
+  var out = [];
+  var re = /^slice-\d+-block-[a-z0-9-]+-\d+$/;
+  var els = body.querySelectorAll('[data-block-anchor], [id^="slice-"]');
+  els.forEach(function(el) {
+    var anchor = el.getAttribute('data-block-anchor') || el.id || '';
+    if (!anchor || !re.test(anchor) || seen[anchor]) return;
+    seen[anchor] = true;
+    var label = el.getAttribute('data-block-label') ||
+      (el.querySelector('h2,h3,h4,.block-title') ? el.querySelector('h2,h3,h4,.block-title').textContent.trim() : '') ||
+      anchor;
+    out.push({ anchor: anchor, label: label });
+  });
+  return out;
+}
+
+function dashSidebarSetupChat(planId, body) {
   var messagesEl = document.getElementById('dash-chat-messages');
   var inputEl = document.getElementById('dash-chat-input');
   var sendBtn = document.getElementById('dash-chat-send');
   var emptyEl = document.getElementById('dash-chat-empty');
   if (!messagesEl || !inputEl || !sendBtn) return;
+
+  // Anchor affordance (slice-8): a select that lets the reviewer pin the next
+  // comment to a specific plan block. When an anchor is chosen, sending posts a
+  // block-level annotation (action='annotation') to /feedback instead of
+  // chatting. The select is injected dynamically so index.html stays untouched,
+  // and is hidden entirely when the plan renders no blocks.
+  var anchorSelect = document.getElementById('dash-chat-anchor');
+  var inputArea = inputEl.parentElement;
+  if (!anchorSelect && inputArea) {
+    anchorSelect = document.createElement('select');
+    anchorSelect.id = 'dash-chat-anchor';
+    anchorSelect.className = 'dash-chat-anchor';
+    anchorSelect.title = 'Pin this comment to a plan block (leave blank to chat)';
+    inputArea.insertBefore(anchorSelect, inputArea.firstChild);
+  }
+  if (anchorSelect) {
+    var anchors = dashCollectBlockAnchors(body);
+    anchorSelect.innerHTML = '';
+    var opt0 = document.createElement('option');
+    opt0.value = '';
+    opt0.textContent = anchors.length ? 'Chat (no anchor)' : 'No plan blocks to annotate';
+    anchorSelect.appendChild(opt0);
+    anchors.forEach(function(a) {
+      var o = document.createElement('option');
+      o.value = a.anchor;
+      o.textContent = 'Annotate: ' + a.label;
+      anchorSelect.appendChild(o);
+    });
+    anchorSelect.style.display = anchors.length ? '' : 'none';
+  }
 
   // Clear previous messages
   messagesEl.innerHTML = '';
@@ -4283,18 +4337,60 @@ function dashSidebarSetupChat(planId) {
   fetch(buildProjectUrl('plans/' + planId + '/feedback'))
     .then(function(r) { return r.ok ? r.json() : null; })
     .then(function(data) {
-      if (!data || !data.chat_messages || !data.chat_messages.length) return;
+      if (!data) return;
+      var hasChat = data.chat_messages && data.chat_messages.length;
+      var hasAnn = data.annotations && data.annotations.length;
+      if (!hasChat && !hasAnn) return;
       var emptyNotice = messagesEl.querySelector('.dash-chat-notice');
       if (emptyNotice) emptyNotice.style.display = 'none';
-      data.chat_messages.forEach(function(m) { addBubble(m.role, m.content); });
+      if (hasChat) data.chat_messages.forEach(function(m) { addBubble(m.role, m.content); });
+      // Replay block-level annotations with their two-axis state so the loop is
+      // visible on reload (slice-8).
+      if (hasAnn) data.annotations.forEach(function(a) {
+        var state = (a.consumed ? 'consumed' : 'new') + (a.resolved ? ' · resolved' : ' · open');
+        addBubble('user', '@' + (a.anchor || a.section) + ' [' + state + ' → ' + (a.resolution_target || 'agent') + ']: ' + (a.comment || ''));
+      });
     })
     .catch(function() {});
+
+  // sendAnnotation pins the reviewer's comment to a specific plan block and
+  // posts it as a block-level annotation (slice-8). consumed/resolved start
+  // false (a freshly-authored note is unaddressed) and resolution_target
+  // defaults to 'agent' — the loop's first reader is the executing agent.
+  function sendAnnotation(anchor, text) {
+    addBubble('user', '@' + anchor + ': ' + text);
+    fetch(buildProjectUrl('plans/' + planId + '/feedback'), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        section: anchor,
+        action: 'annotation',
+        value: text,
+        anchor: anchor,
+        consumed: false,
+        resolved: false,
+        resolution_target: 'agent'
+      })
+    }).then(function(r) {
+      if (!r.ok) { addBubble('assistant', 'Could not save annotation (' + r.status + ').'); }
+      setEnabled(true);
+    }).catch(function(err) {
+      addBubble('assistant', 'Network error saving annotation: ' + err.message);
+      setEnabled(true);
+    });
+  }
 
   function sendMessage() {
     var text = inputEl.value.trim();
     if (!text || !planId) return;
     inputEl.value = '';
     setEnabled(false);
+
+    var anchorVal = anchorSelect ? anchorSelect.value : '';
+    if (anchorVal) {
+      sendAnnotation(anchorVal, text);
+      return;
+    }
     addBubble('user', text);
 
     var emptyNotice = messagesEl.querySelector('.dash-chat-notice');
@@ -4374,8 +4470,8 @@ function dashSidebarSetup(planId, body) {
   // Build the review rail from slice cards in the loaded content
   dashSidebarBuildRail(planId, body);
 
-  // Set up chat panel
-  dashSidebarSetupChat(planId);
+  // Set up chat panel (body enables the block-anchor annotation affordance).
+  dashSidebarSetupChat(planId, body);
 
   // Listen for approval changes inside the plan content and sync the rail
   if (_dashApprovalListener) {

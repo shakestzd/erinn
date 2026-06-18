@@ -1349,6 +1349,177 @@ func TestLaunchCodexDevDryRunDoesNotExec(t *testing.T) {
 	}
 }
 
+func TestLaunchCodexDevDryRunSkipsWorkItemStart(t *testing.T) {
+	repo := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(repo, ".wipnote"), 0o755); err != nil {
+		t.Fatalf("mkdir .wipnote: %v", err)
+	}
+	marketplaceDir := filepath.Join(repo, "port", "packages", "codex-marketplace")
+	if err := os.MkdirAll(filepath.Join(marketplaceDir, ".agents", "plugins", ".codex-plugin"), 0o755); err != nil {
+		t.Fatalf("mkdir marketplace tree: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(marketplaceDir, "marketplace.json"), []byte(`{"plugins":[{"name":"wipnote","source":{"source":"local","path":"./.agents/plugins"}}]}`), 0o644); err != nil {
+		t.Fatalf("write marketplace.json: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(marketplaceDir, ".agents", "plugins", ".codex-plugin", "plugin.json"), []byte(`{"name":"wipnote"}`), 0o644); err != nil {
+		t.Fatalf("write plugin.json: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(marketplaceDir, ".agents", "plugins", "hooks.json"), []byte(`{"hooks":{}}`), 0o644); err != nil {
+		t.Fatalf("write hooks.json: %v", err)
+	}
+	home := filepath.Join(repo, "home")
+	if err := os.MkdirAll(filepath.Join(home, ".codex"), 0o755); err != nil {
+		t.Fatalf("mkdir home codex: %v", err)
+	}
+	binDir := filepath.Join(repo, "bin")
+	if err := os.MkdirAll(binDir, 0o755); err != nil {
+		t.Fatalf("mkdir bin: %v", err)
+	}
+	script := "#!/bin/sh\nset -eu\nif [ \"$1\" = plugin ] && [ \"$2\" = marketplace ] && [ \"$3\" = add ]; then\n  mkdir -p \"$HOME/.codex\"\n  printf '[marketplaces.wipnote]\\nsource = \"%s\"\\n' \"$4\" > \"$HOME/.codex/config.toml\"\n  exit 0\nfi\nexit 0\n"
+	if err := os.WriteFile(filepath.Join(binDir, "codex"), []byte(script), 0o755); err != nil {
+		t.Fatalf("write fake codex: %v", err)
+	}
+
+	t.Setenv("HOME", home)
+	t.Setenv("PATH", binDir+string(os.PathListSeparator)+os.Getenv("PATH"))
+	oldWD, _ := os.Getwd()
+	if err := os.Chdir(repo); err != nil {
+		t.Fatalf("chdir repo: %v", err)
+	}
+	t.Cleanup(func() { _ = os.Chdir(oldWD) })
+
+	startCalled := false
+	origStart := runCodexFeatureStartFn
+	runCodexFeatureStartFn = func(string) error {
+		startCalled = true
+		return nil
+	}
+	t.Cleanup(func() { runCodexFeatureStartFn = origStart })
+
+	execCalled := false
+	origExec := execCodexFn
+	execCodexFn = func(codexLaunchOpts) error {
+		execCalled = true
+		return nil
+	}
+	t.Cleanup(func() { execCodexFn = origExec })
+
+	out := &strings.Builder{}
+	oldStdout := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+	done := make(chan struct{})
+	go func() {
+		_, _ = io.Copy(out, r)
+		close(done)
+	}()
+	t.Cleanup(func() { os.Stdout = oldStdout })
+
+	if err := launchCodexDev("", false, true, false, nil, "", "", "", "feat-dryrun01", false); err != nil {
+		t.Fatalf("launchCodexDev dry-run with work item: %v", err)
+	}
+	_ = w.Close()
+	<-done
+
+	if startCalled {
+		t.Fatal("runCodexFeatureStart was called during dev dry-run")
+	}
+	if execCalled {
+		t.Fatal("execCodex was called during dev dry-run")
+	}
+	got := out.String()
+	if !strings.Contains(got, "target=work-item=\"feat-dryrun01\"") {
+		t.Fatalf("dry-run output missing work-item preview:\n%s", got)
+	}
+}
+
+func TestLaunchCodexDevDryRunSkipsWorktreeCreation(t *testing.T) {
+	repo := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(repo, ".wipnote"), 0o755); err != nil {
+		t.Fatalf("mkdir .wipnote: %v", err)
+	}
+	marketplaceDir := filepath.Join(repo, "port", "packages", "codex-marketplace")
+	if err := os.MkdirAll(filepath.Join(marketplaceDir, ".agents", "plugins", ".codex-plugin"), 0o755); err != nil {
+		t.Fatalf("mkdir marketplace tree: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(marketplaceDir, "marketplace.json"), []byte(`{"plugins":[{"name":"wipnote","source":{"source":"local","path":"./.agents/plugins"}}]}`), 0o644); err != nil {
+		t.Fatalf("write marketplace.json: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(marketplaceDir, ".agents", "plugins", ".codex-plugin", "plugin.json"), []byte(`{"name":"wipnote"}`), 0o644); err != nil {
+		t.Fatalf("write plugin.json: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(marketplaceDir, ".agents", "plugins", "hooks.json"), []byte(`{"hooks":{}}`), 0o644); err != nil {
+		t.Fatalf("write hooks.json: %v", err)
+	}
+	home := filepath.Join(repo, "home")
+	if err := os.MkdirAll(filepath.Join(home, ".codex"), 0o755); err != nil {
+		t.Fatalf("mkdir home codex: %v", err)
+	}
+	binDir := filepath.Join(repo, "bin")
+	if err := os.MkdirAll(binDir, 0o755); err != nil {
+		t.Fatalf("mkdir bin: %v", err)
+	}
+	script := "#!/bin/sh\nset -eu\nif [ \"$1\" = plugin ] && [ \"$2\" = marketplace ] && [ \"$3\" = add ]; then\n  mkdir -p \"$HOME/.codex\"\n  printf '[marketplaces.wipnote]\\nsource = \"%s\"\\n' \"$4\" > \"$HOME/.codex/config.toml\"\n  exit 0\nfi\nexit 0\n"
+	if err := os.WriteFile(filepath.Join(binDir, "codex"), []byte(script), 0o755); err != nil {
+		t.Fatalf("write fake codex: %v", err)
+	}
+
+	t.Setenv("HOME", home)
+	t.Setenv("PATH", binDir+string(os.PathListSeparator)+os.Getenv("PATH"))
+	oldWD, _ := os.Getwd()
+	if err := os.Chdir(repo); err != nil {
+		t.Fatalf("chdir repo: %v", err)
+	}
+	t.Cleanup(func() { _ = os.Chdir(oldWD) })
+
+	trackCalled := false
+	origTrack := ensureForTrackStatusFn
+	ensureForTrackStatusFn = func(string, string, io.Writer) (string, bool, error) {
+		trackCalled = true
+		return "", false, nil
+	}
+	t.Cleanup(func() { ensureForTrackStatusFn = origTrack })
+
+	execCalled := false
+	origExec := execCodexFn
+	execCodexFn = func(codexLaunchOpts) error {
+		execCalled = true
+		return nil
+	}
+	t.Cleanup(func() { execCodexFn = origExec })
+
+	out := &strings.Builder{}
+	oldStdout := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+	done := make(chan struct{})
+	go func() {
+		_, _ = io.Copy(out, r)
+		close(done)
+	}()
+	t.Cleanup(func() { os.Stdout = oldStdout })
+
+	if err := launchCodexDev("", false, true, false, nil, "trk-dryrun01", "", "", "", false); err != nil {
+		t.Fatalf("launchCodexDev dry-run with track: %v", err)
+	}
+	_ = w.Close()
+	<-done
+
+	if trackCalled {
+		t.Fatal("EnsureForTrackStatus was called during dev dry-run")
+	}
+	if execCalled {
+		t.Fatal("execCodex was called during dev dry-run")
+	}
+	if _, err := os.Stat(filepath.Join(repo, "worktrees")); !os.IsNotExist(err) {
+		t.Fatalf("dry-run created worktree state unexpectedly: %v", err)
+	}
+	got := out.String()
+	if !strings.Contains(got, "target=track=\"trk-dryrun01\"") {
+		t.Fatalf("dry-run output missing track preview:\n%s", got)
+	}
+}
+
 // TestCodexManifestPath verifies that codexManifestPath resolves the correct
 // marketplace.json path for both tarball flat and dev-source deep layouts.
 func TestCodexManifestPath(t *testing.T) {

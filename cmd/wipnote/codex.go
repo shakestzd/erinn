@@ -1082,9 +1082,15 @@ func launchCodexDefaultWithMarketplace(resumeID, trackID, featureID, worktreePat
 		return err
 	}
 
+	if source == codexMarketplaceSourceDev && dryRun {
+		previewTarget := plannedCodexLaunchTarget(worktreePath, trackID, featureID, workItem, noWorktree, canonicalRoot)
+		fmt.Println("Launching Codex CLI with wipnote context...")
+		fmt.Printf("[dry-run] would exec: codex (resume=%q, target=%s) in %s\n", resumeID, previewTarget, projectRoot)
+		return nil
+	}
 	// Work item attribution: emit `wipnote feature start <id>` before launching.
 	if workItem != "" {
-		if err := runCodexFeatureStart(workItem); err != nil {
+		if err := runCodexFeatureStartFn(workItem); err != nil {
 			fmt.Fprintf(os.Stderr, "warning: could not start work item %s: %v\n", workItem, err)
 		}
 	}
@@ -1104,7 +1110,7 @@ func launchCodexDefaultWithMarketplace(resumeID, trackID, featureID, worktreePat
 		wipnoteRoot = canonicalRoot
 		resolved = true
 	case !noWorktree && trackID != "":
-		wt, created, err := EnsureForTrackStatus(trackID, canonicalRoot, os.Stdout)
+		wt, created, err := ensureForTrackStatusFn(trackID, canonicalRoot, os.Stdout)
 		if err != nil {
 			return err
 		}
@@ -1113,7 +1119,7 @@ func launchCodexDefaultWithMarketplace(resumeID, trackID, featureID, worktreePat
 		worktreeCreated = created
 		resolved = true
 	case !noWorktree && featureID != "":
-		wt, created, err := EnsureForFeatureStatus(featureID, canonicalRoot, os.Stdout)
+		wt, created, err := ensureForFeatureStatusFn(featureID, canonicalRoot, os.Stdout)
 		if err != nil {
 			return err
 		}
@@ -1125,7 +1131,7 @@ func launchCodexDefaultWithMarketplace(resumeID, trackID, featureID, worktreePat
 
 	// Honor a managed-worktree plan (slice-9) when no explicit/track/feature
 	// worktree was resolved above. WIPNOTE_PROJECT_DIR stays the canonical root.
-	if wt, created, werr := resolveManagedWorktreeStatus(launchPlan, canonicalRoot, trackID, featureID, workItem, workDir, resolved, os.Stdout); werr != nil {
+	if wt, created, werr := resolveManagedWorktreeStatusFn(launchPlan, canonicalRoot, trackID, featureID, workItem, workDir, resolved, os.Stdout); werr != nil {
 		return werr
 	} else if wt != "" && wt != workDir {
 		workDir = wt
@@ -1144,10 +1150,6 @@ func launchCodexDefaultWithMarketplace(resumeID, trackID, featureID, worktreePat
 	}
 
 	fmt.Println("Launching Codex CLI with wipnote context...")
-	if source == codexMarketplaceSourceDev && dryRun {
-		fmt.Printf("[dry-run] would exec: codex (resume=%q) in %s\n", resumeID, projectRoot)
-		return nil
-	}
 	err = execCodexFn(codexLaunchOpts{
 		ResumeID:     resumeID,
 		ExtraArgs:    extraArgs,
@@ -1215,6 +1217,28 @@ func runFeatureStart(id string) error {
 
 func runCodexFeatureStart(id string) error {
 	return runFeatureStartWithEnv(id, buildCodexAgentEnv(nil))
+}
+
+var (
+	runCodexFeatureStartFn         = runCodexFeatureStart
+	ensureForTrackStatusFn         = EnsureForTrackStatus
+	ensureForFeatureStatusFn       = EnsureForFeatureStatus
+	resolveManagedWorktreeStatusFn = resolveManagedWorktreeStatus
+)
+
+func plannedCodexLaunchTarget(worktreePath, trackID, featureID, workItem string, noWorktree bool, canonicalRoot string) string {
+	switch {
+	case worktreePath != "":
+		return fmt.Sprintf("worktree=%q", worktreePath)
+	case !noWorktree && trackID != "":
+		return fmt.Sprintf("track=%q root=%q", trackID, canonicalRoot)
+	case !noWorktree && featureID != "":
+		return fmt.Sprintf("feature=%q root=%q", featureID, canonicalRoot)
+	case workItem != "":
+		return fmt.Sprintf("work-item=%q", workItem)
+	default:
+		return "project-root"
+	}
 }
 
 func runFeatureStartWithEnv(id string, extraEnv []string) error {

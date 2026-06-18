@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -1106,6 +1107,245 @@ func TestCodexFlagsParseWorktree(t *testing.T) {
 	yoloFlag := cmd.Flags().Lookup("yolo")
 	if yoloFlag == nil {
 		t.Fatal("codexCmd missing --yolo flag")
+	}
+}
+
+func TestPrepareCodexDevMarketplace_RefreshesLocalCache(t *testing.T) {
+	repo := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(repo, ".wipnote"), 0o755); err != nil {
+		t.Fatalf("mkdir .wipnote: %v", err)
+	}
+	marketplaceDir := filepath.Join(repo, "port", "packages", "codex-marketplace")
+	if err := os.MkdirAll(filepath.Join(marketplaceDir, ".agents", "plugins"), 0o755); err != nil {
+		t.Fatalf("mkdir marketplace tree: %v", err)
+	}
+	if err := os.MkdirAll(filepath.Join(marketplaceDir, ".agents", "plugins", ".codex-plugin"), 0o755); err != nil {
+		t.Fatalf("mkdir marketplace plugin dir: %v", err)
+	}
+	marketplaceJSON := `{"plugins":[{"name":"wipnote","source":{"source":"local","path":"./.agents/plugins"}}]}`
+	if err := os.WriteFile(filepath.Join(marketplaceDir, "marketplace.json"), []byte(marketplaceJSON), 0o644); err != nil {
+		t.Fatalf("write marketplace.json: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(marketplaceDir, ".agents", "plugins", ".codex-plugin", "plugin.json"), []byte(`{"name":"wipnote"}`), 0o644); err != nil {
+		t.Fatalf("write plugin.json: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(marketplaceDir, ".agents", "plugins", "hooks.json"), []byte(`{"hooks":{}}`), 0o644); err != nil {
+		t.Fatalf("write hooks.json: %v", err)
+	}
+
+	home := filepath.Join(repo, "home")
+	if err := os.MkdirAll(filepath.Join(home, ".codex"), 0o755); err != nil {
+		t.Fatalf("mkdir home codex: %v", err)
+	}
+	binDir := filepath.Join(repo, "bin")
+	if err := os.MkdirAll(binDir, 0o755); err != nil {
+		t.Fatalf("mkdir bin: %v", err)
+	}
+	script := "#!/bin/sh\nset -eu\nif [ \"$1\" = plugin ] && [ \"$2\" = marketplace ] && [ \"$3\" = add ]; then\n  mkdir -p \"$HOME/.codex\"\n  printf '[marketplaces.wipnote]\\nsource = \"%s\"\\n' \"$4\" > \"$HOME/.codex/config.toml\"\n  exit 0\nfi\nexit 0\n"
+	if err := os.WriteFile(filepath.Join(binDir, "codex"), []byte(script), 0o755); err != nil {
+		t.Fatalf("write fake codex: %v", err)
+	}
+
+	t.Setenv("HOME", home)
+	t.Setenv("PATH", binDir+string(os.PathListSeparator)+os.Getenv("PATH"))
+	oldWD, _ := os.Getwd()
+	if err := os.Chdir(repo); err != nil {
+		t.Fatalf("chdir repo: %v", err)
+	}
+	t.Cleanup(func() { _ = os.Chdir(oldWD) })
+
+	if err := prepareCodexDevMarketplace(filepath.Join(home, ".codex", "config.toml"), false); err != nil {
+		t.Fatalf("prepareCodexDevMarketplace: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(codexPluginCachePath(), codexLocalPluginCacheVersion, ".codex-plugin", "plugin.json")); err != nil {
+		t.Fatalf("expected local plugin cache refresh, stat err=%v", err)
+	}
+}
+
+func TestPrepareCodexDevMarketplace_DryRunDoesNotMutateCache(t *testing.T) {
+	repo := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(repo, ".wipnote"), 0o755); err != nil {
+		t.Fatalf("mkdir .wipnote: %v", err)
+	}
+	marketplaceDir := filepath.Join(repo, "port", "packages", "codex-marketplace")
+	if err := os.MkdirAll(filepath.Join(marketplaceDir, ".agents", "plugins", ".codex-plugin"), 0o755); err != nil {
+		t.Fatalf("mkdir marketplace tree: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(marketplaceDir, "marketplace.json"), []byte(`{"plugins":[{"name":"wipnote","source":{"source":"local","path":"./.agents/plugins"}}]}`), 0o644); err != nil {
+		t.Fatalf("write marketplace.json: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(marketplaceDir, ".agents", "plugins", ".codex-plugin", "plugin.json"), []byte(`{"name":"wipnote"}`), 0o644); err != nil {
+		t.Fatalf("write plugin.json: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(marketplaceDir, ".agents", "plugins", "hooks.json"), []byte(`{"hooks":{}}`), 0o644); err != nil {
+		t.Fatalf("write hooks.json: %v", err)
+	}
+
+	home := filepath.Join(repo, "home")
+	if err := os.MkdirAll(filepath.Join(home, ".codex"), 0o755); err != nil {
+		t.Fatalf("mkdir home codex: %v", err)
+	}
+	binDir := filepath.Join(repo, "bin")
+	if err := os.MkdirAll(binDir, 0o755); err != nil {
+		t.Fatalf("mkdir bin: %v", err)
+	}
+	script := "#!/bin/sh\nset -eu\nif [ \"$1\" = plugin ] && [ \"$2\" = marketplace ] && [ \"$3\" = add ]; then\n  mkdir -p \"$HOME/.codex\"\n  printf '[marketplaces.wipnote]\\nsource = \"%s\"\\n' \"$4\" > \"$HOME/.codex/config.toml\"\n  exit 0\nfi\nexit 0\n"
+	if err := os.WriteFile(filepath.Join(binDir, "codex"), []byte(script), 0o755); err != nil {
+		t.Fatalf("write fake codex: %v", err)
+	}
+
+	t.Setenv("HOME", home)
+	t.Setenv("PATH", binDir+string(os.PathListSeparator)+os.Getenv("PATH"))
+	oldWD, _ := os.Getwd()
+	if err := os.Chdir(repo); err != nil {
+		t.Fatalf("chdir repo: %v", err)
+	}
+	t.Cleanup(func() { _ = os.Chdir(oldWD) })
+
+	out := &strings.Builder{}
+	oldStdout := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+	done := make(chan struct{})
+	go func() {
+		_, _ = io.Copy(out, r)
+		close(done)
+	}()
+	t.Cleanup(func() { os.Stdout = oldStdout })
+
+	if err := prepareCodexDevMarketplace(filepath.Join(home, ".codex", "config.toml"), true); err != nil {
+		t.Fatalf("prepareCodexDevMarketplace dry-run: %v", err)
+	}
+	_ = w.Close()
+	<-done
+	got := out.String()
+	for _, want := range []string{
+		"[dry-run] would remove wipnote registrations",
+		"[dry-run] codex plugin marketplace add",
+		"[dry-run] would install local wipnote plugin cache",
+		"[dry-run] would remove mirrored wipnote hooks",
+		"[dry-run] would install wipnote Codex agents",
+	} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("dry-run output missing %q:\n%s", want, got)
+		}
+	}
+	if _, err := os.Stat(filepath.Join(codexPluginCachePath(), codexLocalPluginCacheVersion)); !os.IsNotExist(err) {
+		t.Fatalf("dry-run mutated cache unexpectedly, stat err=%v", err)
+	}
+}
+
+func TestPrepareCodexBundledMarketplace_RepairsWhenAlreadyInstalled(t *testing.T) {
+	repo := t.TempDir()
+	marketplaceDir := filepath.Join(repo, "marketplace")
+	if err := os.MkdirAll(filepath.Join(marketplaceDir, ".agents", "plugins", ".codex-plugin"), 0o755); err != nil {
+		t.Fatalf("mkdir marketplace tree: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(marketplaceDir, "marketplace.json"), []byte(`{"plugins":[{"name":"wipnote","source":{"source":"local","path":"./.agents/plugins"}}]}`), 0o644); err != nil {
+		t.Fatalf("write marketplace.json: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(marketplaceDir, ".agents", "plugins", ".codex-plugin", "plugin.json"), []byte(`{"name":"wipnote"}`), 0o644); err != nil {
+		t.Fatalf("write plugin.json: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(marketplaceDir, ".agents", "plugins", "hooks.json"), []byte(`{"hooks":{}}`), 0o644); err != nil {
+		t.Fatalf("write hooks.json: %v", err)
+	}
+	home := filepath.Join(repo, "home")
+	if err := os.MkdirAll(filepath.Join(home, ".codex"), 0o755); err != nil {
+		t.Fatalf("mkdir home codex: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(home, ".codex", "config.toml"), []byte("[marketplaces.wipnote]\nsource = \""+marketplaceDir+"\"\n"), 0o644); err != nil {
+		t.Fatalf("write config.toml: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(home, ".codex", "hooks.json"), []byte(`{"hooks":{}}`), 0o644); err != nil {
+		t.Fatalf("write hooks.json: %v", err)
+	}
+
+	t.Setenv("HOME", home)
+	t.Setenv("PATH", os.Getenv("PATH"))
+	oldWD, _ := os.Getwd()
+	if err := os.Chdir(repo); err != nil {
+		t.Fatalf("chdir repo: %v", err)
+	}
+	t.Cleanup(func() { _ = os.Chdir(oldWD) })
+
+	if err := prepareCodexBundledMarketplace(filepath.Join(home, ".codex", "config.toml")); err != nil {
+		t.Fatalf("prepareCodexBundledMarketplace: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(codexPluginCachePath(), codexLocalPluginCacheVersion, ".codex-plugin", "plugin.json")); err != nil {
+		t.Fatalf("expected bundled marketplace finalize cache install, stat err=%v", err)
+	}
+}
+
+func TestLaunchCodexDevDryRunDoesNotExec(t *testing.T) {
+	repo := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(repo, ".wipnote"), 0o755); err != nil {
+		t.Fatalf("mkdir .wipnote: %v", err)
+	}
+	marketplaceDir := filepath.Join(repo, "port", "packages", "codex-marketplace")
+	if err := os.MkdirAll(filepath.Join(marketplaceDir, ".agents", "plugins", ".codex-plugin"), 0o755); err != nil {
+		t.Fatalf("mkdir marketplace tree: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(marketplaceDir, "marketplace.json"), []byte(`{"plugins":[{"name":"wipnote","source":{"source":"local","path":"./.agents/plugins"}}]}`), 0o644); err != nil {
+		t.Fatalf("write marketplace.json: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(marketplaceDir, ".agents", "plugins", ".codex-plugin", "plugin.json"), []byte(`{"name":"wipnote"}`), 0o644); err != nil {
+		t.Fatalf("write plugin.json: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(marketplaceDir, ".agents", "plugins", "hooks.json"), []byte(`{"hooks":{}}`), 0o644); err != nil {
+		t.Fatalf("write hooks.json: %v", err)
+	}
+	home := filepath.Join(repo, "home")
+	if err := os.MkdirAll(filepath.Join(home, ".codex"), 0o755); err != nil {
+		t.Fatalf("mkdir home codex: %v", err)
+	}
+	binDir := filepath.Join(repo, "bin")
+	if err := os.MkdirAll(binDir, 0o755); err != nil {
+		t.Fatalf("mkdir bin: %v", err)
+	}
+	script := "#!/bin/sh\nset -eu\nif [ \"$1\" = plugin ] && [ \"$2\" = marketplace ] && [ \"$3\" = add ]; then\n  mkdir -p \"$HOME/.codex\"\n  printf '[marketplaces.wipnote]\\nsource = \"%s\"\\n' \"$4\" > \"$HOME/.codex/config.toml\"\n  exit 0\nfi\nexit 0\n"
+	if err := os.WriteFile(filepath.Join(binDir, "codex"), []byte(script), 0o755); err != nil {
+		t.Fatalf("write fake codex: %v", err)
+	}
+
+	t.Setenv("HOME", home)
+	t.Setenv("PATH", binDir+string(os.PathListSeparator)+os.Getenv("PATH"))
+	oldWD, _ := os.Getwd()
+	if err := os.Chdir(repo); err != nil {
+		t.Fatalf("chdir repo: %v", err)
+	}
+	t.Cleanup(func() { _ = os.Chdir(oldWD) })
+
+	execCalled := false
+	origExec := execCodexFn
+	execCodexFn = func(codexLaunchOpts) error {
+		execCalled = true
+		return nil
+	}
+	t.Cleanup(func() { execCodexFn = origExec })
+
+	out := &strings.Builder{}
+	oldStdout := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+	done := make(chan struct{})
+	go func() {
+		_, _ = io.Copy(out, r)
+		close(done)
+	}()
+	t.Cleanup(func() { os.Stdout = oldStdout })
+
+	if err := launchCodexDev("", false, true, false, nil, "", "", "", "", false); err != nil {
+		t.Fatalf("launchCodexDev dry-run: %v", err)
+	}
+	_ = w.Close()
+	<-done
+	if execCalled {
+		t.Fatal("execCodex was called during dev dry-run")
+	}
+	got := out.String()
+	if !strings.Contains(got, "[dry-run] would exec: codex") {
+		t.Fatalf("dry-run output missing exec preview:\n%s", got)
 	}
 }
 

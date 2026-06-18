@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>wipnote.test go test binary is not gitignored — leaks as untracked file</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="bug-2c9995a7"
+             data-type="bug"
+             data-status="todo"
+             data-priority="low"
+             data-created="2026-06-18T04:48:57.326594"
+             data-updated="2026-06-18T04:48:57.338073" data-agent-assigned="claude-code" data-track-id="trk-53f2ed24" data-created-by-agent="claude-code" data-created-by-model="claude-opus-4-8[1m]" data-created-by-cli-version="0.62.2-247-g9401cab2a">
+
+        <header>
+            <h1>wipnote.test go test binary is not gitignored — leaks as untracked file</h1>
+            <div class="metadata">
+                <span class="badge status-todo">Todo</span>
+                <span class="badge priority-low">Low Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-53f2ed24.html" data-relationship="part_of" data-since="2026-06-18T04:48:57.337925">trk-53f2ed24</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>A compiled go test binary named wipnote.test (from &#39;go test -c&#39; / cached test compilation of cmd/wipnote) is left in the repo root as an untracked file. .gitignore has Go test-scratch dirs (.test-exec/, .test-tmp/, .tmp-gotest/) but NO rule for compiled &#39;*.test&#39; binaries, so wipnote.test shows as &#39;?? wipnote.test&#39; in git status and the launcher reports it as an uncarried untracked file when copying changes into a worktree. Fix: add a &#39;*.test&#39; (and/or explicit &#39;wipnote.test&#39;) ignore rule to .gitignore. Confirm no legitimately-tracked file matches &#39;*.test&#39; before adding the glob. Provenance: surfaced from the wipnote continue worktree-copy step; searched &#39;wipnote relevant wipnote.test ... gitignore artifact&#39; — no track/plan covers compiled-test-binary hygiene, attached to portfolio-hygiene track.</p>
+        </section>
+    </article>
+</body>
+</html>

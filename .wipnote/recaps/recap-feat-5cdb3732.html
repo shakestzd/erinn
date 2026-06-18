@@ -40,7 +40,12 @@ h1{font-size:1.5rem;font-weight:700;margin-bottom:4px}
 .api-method{font-family:var(--mono);font-weight:700;font-size:.72rem;padding:1px 6px;border-radius:4px;background:var(--accent);color:#000}
 /* annotated diff */
 .annotated-diff{border:1px solid var(--border);border-radius:6px;margin-bottom:14px;overflow:hidden}
-.diff-file-header{display:flex;align-items:center;gap:8px;padding:8px 12px;background:var(--bg-input);font-family:var(--mono);font-size:.82rem}
+.diff-file-header{display:flex;align-items:center;gap:8px;padding:8px 12px;background:var(--bg-input);font-family:var(--mono);font-size:.82rem;cursor:pointer;user-select:none;list-style:none}
+.diff-file-header::-webkit-details-marker{display:none}
+.diff-file-header::before{content:"▾";font-size:.7rem;color:var(--text-muted);transition:transform .15s ease;display:inline-block}
+.diff-file:not([open])>.diff-file-header::before{transform:rotate(-90deg)}
+.diff-file-header:hover{background:var(--border)}
+.diff-hunk-count{margin-left:auto;font-size:.7rem;color:var(--text-muted);font-family:var(--mono)}
 .diff-hunk{border-top:1px solid var(--border)}
 .hunk-meta{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:6px 12px;background:rgba(255,255,255,.02)}
 .hunk-header{font-family:var(--mono);font-size:.74rem;color:var(--text-muted)}
@@ -95,10 +100,12 @@ code{font-family:var(--mono)}
 <section class="recap-zone recap-zone-diff" id="diff">
   <h2 class="recap-zone-title">Annotated diff <span class="recap-count">9</span></h2>
   <article class="annotated-diff diff-unified diff-unified" data-language="go">
-  <header class="diff-file-header">
+  <details class="diff-file" open>
+  <summary class="diff-file-header">
     <span class="file-change file-change-modify">modify</span>
     <code class="diff-file-path">cmd/wipnote/lineage.go</code>
-  </header>
+    <span class="diff-hunk-count">6 hunks</span>
+  </summary>
   
   <div class="diff-hunk">
     <div class="hunk-meta">
@@ -464,12 +471,15 @@ code{font-family:var(--mono)}
     
   </div>
   
+  </details>
 </article>
 <article class="annotated-diff diff-unified diff-unified" data-language="go">
-  <header class="diff-file-header">
+  <details class="diff-file" open>
+  <summary class="diff-file-header">
     <span class="file-change file-change-modify">modify</span>
     <code class="diff-file-path">cmd/wipnote/lineage_busy_test.go</code>
-  </header>
+    <span class="diff-hunk-count">3 hunks</span>
+  </summary>
   
   <div class="diff-hunk">
     <div class="hunk-meta">
@@ -542,12 +552,15 @@ code{font-family:var(--mono)}
     
   </div>
   
+  </details>
 </article>
 <article class="annotated-diff diff-unified diff-unified" data-language="go">
-  <header class="diff-file-header">
+  <details class="diff-file" open>
+  <summary class="diff-file-header">
     <span class="file-change file-change-add">add</span>
     <code class="diff-file-path">internal/lineage/walk.go</code>
-  </header>
+    <span class="diff-hunk-count">1 hunk</span>
+  </summary>
   
   <div class="diff-hunk">
     <div class="hunk-meta">
@@ -794,12 +807,15 @@ code{font-family:var(--mono)}
     
   </div>
   
+  </details>
 </article>
 <article class="annotated-diff diff-unified diff-unified" data-language="go">
-  <header class="diff-file-header">
+  <details class="diff-file" open>
+  <summary class="diff-file-header">
     <span class="file-change file-change-add">add</span>
     <code class="diff-file-path">internal/lineage/walk_test.go</code>
-  </header>
+    <span class="diff-hunk-count">1 hunk</span>
+  </summary>
   
   <div class="diff-hunk">
     <div class="hunk-meta">
@@ -859,12 +875,15 @@ code{font-family:var(--mono)}
     
   </div>
   
+  </details>
 </article>
 <article class="annotated-diff diff-unified diff-unified" data-language="go">
-  <header class="diff-file-header">
+  <details class="diff-file" open>
+  <summary class="diff-file-header">
     <span class="file-change file-change-add">add</span>
     <code class="diff-file-path">internal/recap/collect.go</code>
-  </header>
+    <span class="diff-hunk-count">1 hunk</span>
+  </summary>
   
   <div class="diff-hunk">
     <div class="hunk-meta">
@@ -1105,12 +1124,15 @@ code{font-family:var(--mono)}
     
   </div>
   
+  </details>
 </article>
 <article class="annotated-diff diff-unified diff-unified" data-language="go">
-  <header class="diff-file-header">
+  <details class="diff-file" open>
+  <summary class="diff-file-header">
     <span class="file-change file-change-add">add</span>
     <code class="diff-file-path">internal/recap/collect_test.go</code>
-  </header>
+    <span class="diff-hunk-count">1 hunk</span>
+  </summary>
   
   <div class="diff-hunk">
     <div class="hunk-meta">
@@ -1394,12 +1416,15 @@ code{font-family:var(--mono)}
     
   </div>
   
+  </details>
 </article>
 <article class="annotated-diff diff-unified diff-unified" data-language="go">
-  <header class="diff-file-header">
+  <details class="diff-file" open>
+  <summary class="diff-file-header">
     <span class="file-change file-change-add">add</span>
     <code class="diff-file-path">internal/recap/git.go</code>
-  </header>
+    <span class="diff-hunk-count">1 hunk</span>
+  </summary>
   
   <div class="diff-hunk">
     <div class="hunk-meta">
@@ -1580,12 +1605,15 @@ code{font-family:var(--mono)}
     
   </div>
   
+  </details>
 </article>
 <article class="annotated-diff diff-unified diff-unified" data-language="go">
-  <header class="diff-file-header">
+  <details class="diff-file" open>
+  <summary class="diff-file-header">
     <span class="file-change file-change-add">add</span>
     <code class="diff-file-path">internal/recap/shared_walk_test.go</code>
-  </header>
+    <span class="diff-hunk-count">1 hunk</span>
+  </summary>
   
   <div class="diff-hunk">
     <div class="hunk-meta">
@@ -1659,12 +1687,15 @@ code{font-family:var(--mono)}
     
   </div>
   
+  </details>
 </article>
 <article class="annotated-diff diff-unified diff-unified" data-language="go">
-  <header class="diff-file-header">
+  <details class="diff-file" open>
+  <summary class="diff-file-header">
     <span class="file-change file-change-add">add</span>
     <code class="diff-file-path">internal/recap/types.go</code>
-  </header>
+    <span class="diff-hunk-count">1 hunk</span>
+  </summary>
   
   <div class="diff-hunk">
     <div class="hunk-meta">
@@ -1778,12 +1809,13 @@ code{font-family:var(--mono)}
     
   </div>
   
+  </details>
 </article>
 
 </section>
 
 <section class="recap-zone recap-zone-lineage" id="lineage">
-  <h2 class="recap-zone-title">Lineage <span class="recap-count">26</span></h2>
+  <h2 class="recap-zone-title">Lineage <span class="recap-count">27</span></h2>
   <p class="recap-zone-note">Static grounding chain. The interactive force-graph view is available on the dashboard.</p>
   <table class="lineage-table">
     <thead><tr><th>Depth</th><th>Node</th><th>Edge</th></tr></thead>
@@ -1937,6 +1969,16 @@ code{font-family:var(--mono)}
           <span class="lineage-title">visual-planning-recap-native-yolo-20260618-03.35.27</span>
         </td>
         <td class="lineage-edge"><code>implemented_in</code></td>
+      </tr>
+      
+      <tr class="lineage-row">
+        <td class="lineage-depth">1</td>
+        <td class="lineage-node" style="padding-left:16px">
+          <span class="lineage-type">unknown</span>
+          <code class="lineage-id">recap-feat-5cdb3732</code>
+          
+        </td>
+        <td class="lineage-edge"><code>relates_to</code></td>
       </tr>
       
       <tr class="lineage-row">

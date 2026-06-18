@@ -10,26 +10,20 @@
 <body>
     <article id="feat-7bc6410b"
              data-type="feature"
-             data-status="in-progress"
+             data-status="done"
              data-priority="medium"
              data-created="2026-06-18T07:33:52.021404"
-             data-updated="2026-06-18T09:08:19.055118" data-agent-assigned="claude-code" data-track-id="trk-a951e3c0">
+             data-updated="2026-06-18T09:22:36.964226" data-agent-assigned="claude-code" data-track-id="trk-a951e3c0">
 
         <header>
             <h1>Register recap kind — reindex &#43; SQLite recaps table &#43; find/relevant &#43; `wipnote recap list|show|delete`</h1>
             <div class="metadata">
-                <span class="badge status-in-progress">In Progress</span>
+                <span class="badge status-done">Done</span>
                 <span class="badge priority-medium">Medium Priority</span>
             </div>
         </header>
 
         <nav data-graph-edges>
-            <section data-edge-type="planned_in">
-                <h3>Planned In:</h3>
-                <ul>
-                    <li><a href="../plans/plan-93b8eba0.html" data-relationship="planned_in" data-since="2026-06-18T07:33:52.024053">plan-93b8eba0</a></li>
-                </ul>
-            </section>
             <section data-edge-type="part_of">
                 <h3>Part Of:</h3>
                 <ul>
@@ -48,6 +42,12 @@
                     <li><a href="../sessions/7ad16954-7662-4d96-87ae-6eff3bd5739e.html" data-relationship="implemented_in" data-since="2026-06-18T09:08:19.054952">session 7ad16954-7662-4d96-87ae-6eff3bd5739e</a></li>
                 </ul>
             </section>
+            <section data-edge-type="planned_in">
+                <h3>Planned In:</h3>
+                <ul>
+                    <li><a href="../plans/plan-93b8eba0.html" data-relationship="planned_in" data-since="2026-06-18T07:33:52.024053">plan-93b8eba0</a></li>
+                </ul>
+            </section>
         </nav>
 
         <section data-content>
@@ -57,7 +57,8 @@ type=&#39;recap&#39; extension of the artifact index) via a core/db migration; t
 reindex.go to ingest .wipnote/recaps/*.html; add &#34;recaps&#34; to the directory
 lists in reindex and resolveItemHTMLPath (relevant.go) so `wipnote find` and
 `wipnote relevant` surface recaps; extend inferNodeTypeFromID with the recap-
-prefix; add `wipnote recap list|show|delete` subcommands for headless/CI use.</p>
+prefix; add `wipnote recap list|show|delete` subcommands for headless/CI use.
+[2026-06-18 09:22 claude-code] accepted-advisory (provenance override): Implementation committed in 3 parenthesized-ref commits (cd33bedba, 836bc65b6, 3ead36cb9) on nested agent worktree branch agent-a1cec795c6e81fa66; provenance auto-link cannot see them from this isolated worktree. Commits carry feat(feat-7bc6410b) refs and link on merge/reindex.</p>
         </section>
     </article>
 </body>

@@ -1,0 +1,18 @@
+meta:
+    id: plan-92a31aea
+    track_id: trk-6a1f5362
+    title: Dashboard-styled launcher choosers (huh TUI)
+    description: Redesign the wipnote claude/yolo/antigravity launch + session-resume choosers from plain numbered fmt prints into a charmbracelet/huh styled TUI that echoes the dashboard palette, with a preserved non-TTY scriptable fallback. Follow-on to the CLI-first resume chooser feature.
+    created_at: "2026-06-18"
+    status: draft
+    priority: medium
+    schema_version: v4
+    version: 2
+design:
+    problem: ""
+    goals: []
+    constraints: []
+    approved: false
+    comment: ""
+slices: []
+questions: []

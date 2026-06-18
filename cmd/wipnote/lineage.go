@@ -12,7 +12,7 @@ import (
 
 	dbpkg "github.com/shakestzd/wipnote/core/db"
 	"github.com/shakestzd/wipnote/core/graph"
-	"github.com/shakestzd/wipnote/core/models"
+	"github.com/shakestzd/wipnote/internal/lineage"
 	"github.com/spf13/cobra"
 )
 
@@ -107,23 +107,10 @@ type lineageOpts struct {
 	timelineSet bool
 }
 
-// lineageNode is one hop in a forward or backward chain. It is the wire format
-// for --json output and a convenient internal representation for tree rendering.
-type lineageNode struct {
-	ID       string `json:"id"`
-	Type     string `json:"type"`
-	Title    string `json:"title,omitempty"`
-	EdgeType string `json:"edge_type"`
-	Depth    int    `json:"depth"`
-	// Parent is the node ID that this hop was discovered from during BFS. For
-	// the pivot's direct neighbours it equals the pivot. Used by the tree
-	// renderer to build a real adjacency structure so branched walks don't
-	// visually attach grandchildren to the wrong parent.
-	Parent string `json:"parent,omitempty"`
-	// timestamp is populated for --timeline rendering by joining git_commits /
-	// agent_events. Empty when no temporal data is available.
-	Timestamp string `json:"timestamp,omitempty"`
-}
+// lineageNode is one hop in a forward or backward chain. It is an alias to the
+// shared internal/lineage.Node so the BFS walk has a single source of truth
+// while the CLI's rendering and --json code keeps its existing field access.
+type lineageNode = lineage.Node
 
 // lineageJSON is the stable schema emitted by `wipnote lineage --json`.
 //
@@ -147,20 +134,10 @@ type lineageJSON struct {
 	AgentTree string        `json:"agent_tree,omitempty"`
 }
 
-// allLineageRels lists all 10 relationship types we traverse. We do NOT subset:
-// any of these can carry causal meaning depending on the slice in question.
-var allLineageRels = []string{
-	string(models.RelBlocks),
-	string(models.RelBlockedBy),
-	string(models.RelRelatesTo),
-	string(models.RelImplements),
-	string(models.RelCausedBy),
-	string(models.RelSpawnedFrom),
-	string(models.RelImplementedIn),
-	string(models.RelPartOf),
-	string(models.RelContains),
-	string(models.RelPlannedIn),
-}
+// allLineageRels lists all 10 relationship types we traverse. It is the shared
+// list owned by internal/lineage; we do NOT subset because any of these can
+// carry causal meaning depending on the slice in question.
+var allLineageRels = lineage.AllRels
 
 // newLineageCmd registers `wipnote lineage <id>` — the headline unified
 // causal chain command. It auto-detects the input type, walks graph_edges in
@@ -237,18 +214,18 @@ func runLineage(w io.Writer, db *sql.DB, arg string, opts lineageOpts) error {
 		return runLineageFile(w, db, arg, opts)
 	}
 
-	forward, err := forwardWalk(db, arg, allLineageRels, opts.depth)
+	forward, err := lineage.ForwardWalk(db, arg, allLineageRels, opts.depth)
 	if err != nil {
 		return fmt.Errorf("forward walk: %w", err)
 	}
-	backward, err := backwardWalk(db, arg, allLineageRels, opts.depth)
+	backward, err := lineage.BackwardWalk(db, arg, allLineageRels, opts.depth)
 	if err != nil {
 		return fmt.Errorf("backward walk: %w", err)
 	}
 
 	if opts.timeline {
-		annotateTimestamps(db, forward)
-		annotateTimestamps(db, backward)
+		lineage.AnnotateTimestamps(db, forward)
+		lineage.AnnotateTimestamps(db, backward)
 	}
 
 	// Session roots carry an agent spawn tree as a secondary view. Render it
@@ -276,137 +253,6 @@ func runLineage(w io.Writer, db *sql.DB, arg string, opts lineageOpts) error {
 	return nil
 }
 
-// forwardWalk performs a BFS following from_node_id = current outward.
-// Returns nodes in BFS order, each annotated with the edge type that reached
-// it and the hop depth (1-indexed).
-func forwardWalk(db *sql.DB, root string, rels []string, maxDepth int) ([]lineageNode, error) {
-	return bfsWalk(db, root, rels, maxDepth, true)
-}
-
-// backwardWalk performs a BFS following to_node_id = current inward — i.e.
-// "who points at me?". This is the inline reverse query the plan calls for.
-func backwardWalk(db *sql.DB, root string, rels []string, maxDepth int) ([]lineageNode, error) {
-	return bfsWalk(db, root, rels, maxDepth, false)
-}
-
-// bfsWalk is the shared BFS engine for both directions. When forward=true it
-// follows from->to edges; when false it follows to->from edges.
-func bfsWalk(db *sql.DB, root string, rels []string, maxDepth int, forward bool) ([]lineageNode, error) {
-	if maxDepth <= 0 || len(rels) == 0 {
-		return nil, nil
-	}
-
-	placeholders := strings.Repeat("?,", len(rels))
-	placeholders = placeholders[:len(placeholders)-1]
-	var query string
-	if forward {
-		query = fmt.Sprintf(
-			`SELECT to_node_id, to_node_type, relationship_type
-			 FROM graph_edges
-			 WHERE from_node_id = ? AND relationship_type IN (%s)`,
-			placeholders,
-		)
-	} else {
-		query = fmt.Sprintf(
-			`SELECT from_node_id, from_node_type, relationship_type
-			 FROM graph_edges
-			 WHERE to_node_id = ? AND relationship_type IN (%s)`,
-			placeholders,
-		)
-	}
-
-	type queueEntry struct {
-		id    string
-		depth int
-	}
-	visited := map[string]bool{root: true}
-	queue := []queueEntry{{id: root, depth: 0}}
-	var result []lineageNode
-
-	for len(queue) > 0 {
-		cur := queue[0]
-		queue = queue[1:]
-		if cur.depth >= maxDepth {
-			continue
-		}
-		args := make([]any, 0, 1+len(rels))
-		args = append(args, cur.id)
-		for _, r := range rels {
-			args = append(args, r)
-		}
-		// bug-7dbaf552: the retry unit is THIS QUERY ONLY, never the BFS
-		// iteration. On a contended DELETE-journal DB a single neighbour
-		// query can transiently SQLITE_BUSY; without a retry the whole
-		// `wipnote lineage` invocation fails. RetryOnBusy re-runs only the
-		// db.Query call. Critical lock-hygiene: a *sql.Rows from a failed
-		// attempt holds a read lock until closed, so if the closure ever
-		// captured rows on a BUSY path we MUST close it before the next
-		// attempt. Here db.Query returns err WITHOUT a usable rows handle on
-		// BUSY (rows is nil / already finalised by the driver), so there is
-		// nothing to leak between attempts; rows is assigned only on the
-		// terminal (success or hard-error) attempt and is closed exactly
-		// once below after iteration. We defensively Close any non-nil rows
-		// from a BUSY attempt before retrying to make the invariant explicit
-		// and robust to driver changes.
-		var rows *sql.Rows
-		err := dbpkg.RetryOnBusy(dbpkg.DefaultBusyBackoff, func() error {
-			r, qerr := db.Query(query, args...)
-			if qerr != nil {
-				if r != nil { // defensive: never carry an open lock into a retry
-					r.Close()
-				}
-				return qerr
-			}
-			rows = r
-			return nil
-		})
-		if err != nil {
-			return nil, fmt.Errorf("query neighbors of %s: %w", cur.id, err)
-		}
-		for rows.Next() {
-			var nid, ntype, rel string
-			if err := rows.Scan(&nid, &ntype, &rel); err != nil {
-				rows.Close()
-				return nil, fmt.Errorf("scan neighbor: %w", err)
-			}
-			if visited[nid] {
-				continue
-			}
-			visited[nid] = true
-			node := lineageNode{
-				ID:       nid,
-				Type:     ntype,
-				EdgeType: rel,
-				Depth:    cur.depth + 1,
-				Parent:   cur.id,
-			}
-			result = append(result, node)
-			queue = append(queue, queueEntry{id: nid, depth: cur.depth + 1})
-		}
-		if err := rows.Err(); err != nil {
-			rows.Close()
-			return nil, fmt.Errorf("iterate neighbors of %s: %w", cur.id, err)
-		}
-		rows.Close()
-	}
-
-	// Resolve titles in one shot for display.
-	if len(result) > 0 {
-		ids := make([]string, len(result))
-		for i, n := range result {
-			ids[i] = n.ID
-		}
-		labels := graph.ResolveToMap(db, ids)
-		for i := range result {
-			if r, ok := labels[result[i].ID]; ok {
-				result[i].Title = r.Title
-			}
-		}
-	}
-
-	return result, nil
-}
-
 // sortLineageTimeline sorts nodes in place by ascending Timestamp, pushing
 // nodes without a timestamp to the END so "oldest first" rendering is honest
 // even when only part of the walk has temporal data.
@@ -424,42 +270,6 @@ func sortLineageTimeline(nodes []lineageNode) {
 		}
 		return ai < bj
 	})
-}
-
-// annotateTimestamps fills in lineageNode.Timestamp by joining git_commits
-// (commit_hash) and agent_events (session_id). Best-effort: missing rows
-// silently leave Timestamp empty so timeline rendering still includes them.
-func annotateTimestamps(db *sql.DB, nodes []lineageNode) {
-	for i := range nodes {
-		var ts sql.NullString
-		// bug-7dbaf552: best-effort timestamp lookups still wrapped in
-		// RetryOnBusy so a transient SQLITE_BUSY doesn't silently blank the
-		// timeline column under contention. QueryRow().Scan() consumes and
-		// closes its single row internally, so there is no *sql.Rows to leak
-		// across retries — the retry unit is naturally the whole Scan.
-		// sql.ErrNoRows is NOT a BusyError, so RetryOnBusy returns it
-		// immediately and we keep the original best-effort (ignore-error)
-		// behaviour.
-		// Try git_commits first (commit-shaped IDs).
-		_ = dbpkg.RetryOnBusy(dbpkg.DefaultBusyBackoff, func() error {
-			return db.QueryRow(
-				`SELECT timestamp FROM git_commits WHERE commit_hash = ? LIMIT 1`,
-				nodes[i].ID,
-			).Scan(&ts)
-		})
-		if !ts.Valid || ts.String == "" {
-			// Fall back to agent_events.timestamp via session_id.
-			_ = dbpkg.RetryOnBusy(dbpkg.DefaultBusyBackoff, func() error {
-				return db.QueryRow(
-					`SELECT MIN(timestamp) FROM agent_events WHERE session_id = ?`,
-					nodes[i].ID,
-				).Scan(&ts)
-			})
-		}
-		if ts.Valid {
-			nodes[i].Timestamp = ts.String
-		}
-	}
 }
 
 // renderLineageJSON emits the stable {root, kind, forward, backward, agent_tree?} schema.

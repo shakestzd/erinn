@@ -40,7 +40,12 @@ h1{font-size:1.5rem;font-weight:700;margin-bottom:4px}
 .api-method{font-family:var(--mono);font-weight:700;font-size:.72rem;padding:1px 6px;border-radius:4px;background:var(--accent);color:#000}
 /* annotated diff */
 .annotated-diff{border:1px solid var(--border);border-radius:6px;margin-bottom:14px;overflow:hidden}
-.diff-file-header{display:flex;align-items:center;gap:8px;padding:8px 12px;background:var(--bg-input);font-family:var(--mono);font-size:.82rem}
+.diff-file-header{display:flex;align-items:center;gap:8px;padding:8px 12px;background:var(--bg-input);font-family:var(--mono);font-size:.82rem;cursor:pointer;user-select:none;list-style:none}
+.diff-file-header::-webkit-details-marker{display:none}
+.diff-file-header::before{content:"▾";font-size:.7rem;color:var(--text-muted);transition:transform .15s ease;display:inline-block}
+.diff-file:not([open])>.diff-file-header::before{transform:rotate(-90deg)}
+.diff-file-header:hover{background:var(--border)}
+.diff-hunk-count{margin-left:auto;font-size:.7rem;color:var(--text-muted);font-family:var(--mono)}
 .diff-hunk{border-top:1px solid var(--border)}
 .hunk-meta{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:6px 12px;background:rgba(255,255,255,.02)}
 .hunk-header{font-family:var(--mono);font-size:.74rem;color:var(--text-muted)}

@@ -69,6 +69,30 @@ func TestAnnotatedDiff_SplitVsUnified(t *testing.T) {
 	}
 }
 
+func TestAnnotatedDiff_Collapsible(t *testing.T) {
+	d := &recaptmpl.AnnotatedDiff{File: diffFixture(), Mode: recaptmpl.DiffUnified, Language: "go"}
+	var b bytes.Buffer
+	if err := d.Render(&b); err != nil {
+		t.Fatalf("Render: %v", err)
+	}
+	html := b.String()
+	// Each file's diff is wrapped in a native <details>/<summary> so it can be
+	// collapsed with no JS (works in the standalone artifact and the dashboard).
+	if !strings.Contains(html, "<details class=\"diff-file\"") {
+		t.Errorf("diff file is not wrapped in <details>:\n%s", html)
+	}
+	if !strings.Contains(html, "<summary class=\"diff-file-header\"") {
+		t.Errorf("diff file header is not a <summary>:\n%s", html)
+	}
+	// Defaults to open so content is visible without a click, but is collapsible.
+	if !strings.Contains(html, "<details class=\"diff-file\" open>") {
+		t.Errorf("diff file should default to open:\n%s", html)
+	}
+	if !strings.Contains(html, "diff-hunk-count") {
+		t.Errorf("collapsed summary should show a hunk count:\n%s", html)
+	}
+}
+
 func TestAnnotatedDiff_PerHunkSummaryCounts(t *testing.T) {
 	fc := diffFixture() // 2 before lines, 3 after lines
 	d := &recaptmpl.AnnotatedDiff{File: fc, Mode: recaptmpl.DiffUnified, Language: "go"}

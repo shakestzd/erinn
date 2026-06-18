@@ -1,8 +1,10 @@
 <article class="annotated-diff diff-{{.ModeName}}{{if .IsSplit}} diff-split{{else}} diff-unified{{end}}" data-language="{{.Language}}">
-  <header class="diff-file-header">
+  <details class="diff-file" open>
+  <summary class="diff-file-header">
     <span class="file-change file-change-{{.Change}}">{{.Change}}</span>
     <code class="diff-file-path">{{.Path}}</code>
-  </header>
+    <span class="diff-hunk-count">{{len .Hunks}} hunk{{if ne (len .Hunks) 1}}s{{end}}</span>
+  </summary>
   {{range .Hunks}}
   <div class="diff-hunk">
     <div class="hunk-meta">
@@ -27,4 +29,5 @@
     {{end}}
   </div>
   {{end}}
+  </details>
 </article>

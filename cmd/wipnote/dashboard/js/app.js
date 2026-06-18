@@ -5,6 +5,7 @@ var sessions = [];
 var resumableSessions = [];
 var features = [];
 var plans = [];
+var recaps = [];
 var stats = {};
 var sessionAdherenceTrend = [];
 var currentView = 'activity';
@@ -40,6 +41,7 @@ document.querySelector('.nav').addEventListener('click', function(e) {
   if (view === 'resume') fetchResumableSessions();
   if (view === 'work' && features.length === 0) fetchFeatures();
   if (view === 'plans') fetchPlans();
+  if (view === 'recaps') fetchRecaps();
   if (view === 'graph') fetchGraph();
 });
 
@@ -4655,6 +4657,126 @@ function renderCollectorWarningBanner(sessionID, container) {
       });
     }
   };
+})();
+
+/* ── Recaps view ────────────────────────────────────────────── */
+
+function fetchRecaps() {
+  fetch(buildProjectUrl('recaps'))
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      recaps = data || [];
+      renderRecaps();
+    })
+    .catch(function() {
+      recaps = [];
+      renderRecaps();
+    });
+}
+
+function renderRecaps() {
+  var body = document.getElementById('recaps-body');
+  var empty = document.getElementById('recaps-empty');
+  var countEl = document.getElementById('recaps-count');
+  if (countEl) countEl.textContent = recaps.length;
+
+  if (recaps.length === 0) {
+    if (body) body.innerHTML = '';
+    if (empty) empty.style.display = 'block';
+    return;
+  }
+  if (empty) empty.style.display = 'none';
+  if (!body) return;
+
+  body.innerHTML = '';
+  recaps.forEach(function(rc) {
+    var tr = document.createElement('tr');
+    tr.style.cursor = 'pointer';
+    tr.addEventListener('click', function() {
+      openRecapDetail(rc.id, rc.title);
+    });
+
+    // Title
+    tr.appendChild(td(rc.title || rc.id));
+
+    // ID (monospace)
+    tr.appendChild(td(rc.id, { className: 'mono' }));
+
+    // Work item
+    tr.appendChild(td(rc.workItem || '—'));
+
+    // Created
+    tr.appendChild(td(rc.created ? relTime(rc.created) : '—'));
+
+    // Open button
+    var openTd = document.createElement('td');
+    var openBtn = document.createElement('button');
+    openBtn.className = 'plan-detail-back';
+    openBtn.style.cssText = 'font-size:0.75rem;padding:2px 8px;cursor:pointer;';
+    openBtn.textContent = 'View';
+    openBtn.addEventListener('click', function(e) {
+      e.stopPropagation();
+      openRecapDetail(rc.id, rc.title);
+    });
+    openTd.appendChild(openBtn);
+    tr.appendChild(openTd);
+
+    body.appendChild(tr);
+  });
+}
+
+function openRecapDetail(recapId, title) {
+  var detail = document.getElementById('recap-detail');
+  var listView = document.getElementById('recaps-list-view');
+  var body = document.getElementById('recap-detail-body');
+  var titleEl = document.getElementById('recap-detail-title');
+  var viewTitle = document.getElementById('recaps-view-title');
+
+  if (listView) listView.style.display = 'none';
+  if (viewTitle) viewTitle.style.display = 'none';
+  if (detail) detail.classList.add('active');
+  if (titleEl) titleEl.textContent = title || recapId;
+  if (body) body.innerHTML = '<div class="empty">Loading...</div>';
+
+  fetch(buildProjectUrl('recaps/' + recapId + '/render'))
+    .then(function(r) {
+      if (!r.ok) throw new Error('Not found');
+      return r.text();
+    })
+    .then(function(html) {
+      if (body) {
+        body.innerHTML = html;
+        // Re-execute inline scripts (same pattern as openPlanDetail).
+        var scripts = Array.from(body.querySelectorAll('script'));
+        scripts.forEach(function(s) { s.remove(); });
+        scripts.filter(function(s) { return !s.src && s.textContent.trim(); })
+          .forEach(function(oldScript) {
+            var s = document.createElement('script');
+            s.textContent = oldScript.textContent;
+            body.appendChild(s);
+          });
+        // Apply Prism syntax highlighting to any code blocks in the recap.
+        if (window.Prism) Prism.highlightAllUnder(body);
+      }
+    })
+    .catch(function() {
+      if (body) body.innerHTML = '<div class="empty">Could not load recap: ' + recapId + '</div>';
+    });
+}
+
+function closeRecapDetail() {
+  var detail = document.getElementById('recap-detail');
+  var listView = document.getElementById('recaps-list-view');
+  var viewTitle = document.getElementById('recaps-view-title');
+  if (detail) detail.classList.remove('active');
+  if (listView) listView.style.display = '';
+  if (viewTitle) viewTitle.style.display = '';
+}
+
+// Wire the back button for the recap detail panel.
+(function() {
+  var backBtn = document.getElementById('recap-detail-back');
+  if (backBtn) backBtn.addEventListener('click', closeRecapDetail);
 })();
 
 // _injectSlice7Badges walks the rendered session rows and adds family and

@@ -136,6 +136,14 @@ func runReindex(cmd *cobra.Command, _ []string) error {
 	}
 	errCount += archErrs
 
+	// Ingest recap artifacts (.wipnote/recaps/*.html) into the recaps read index.
+	recapTotal, recapUpserted, recapErrs := reindexRecaps(database, wipnoteDir, projectDir, verboseFlag)
+	if recapUpserted > 0 || recapErrs > 0 {
+		fmt.Printf("  recaps: %d upserted, %d errors (of %d recap files)\n",
+			recapUpserted, recapErrs, recapTotal)
+	}
+	errCount += recapErrs
+
 	// Slice 9 (feat-229f3333): rebuild graph_edges derived from plan YAML
 	// dependency lists. The HTML edge pass above only covers <a data-*-id>
 	// attributes; plan YAML slice deps are a separate canonical source.
@@ -614,6 +622,8 @@ func inferNodeTypeFromID(id string) string {
 		return "spec"
 	case len(id) > 5 && id[:5] == "sess-":
 		return "session"
+	case len(id) > 6 && id[:6] == "recap-":
+		return "recap"
 	default:
 		return "unknown"
 	}

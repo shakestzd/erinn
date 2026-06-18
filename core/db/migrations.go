@@ -15,7 +15,7 @@ import (
 // executes ZERO CREATE / ALTER / DROP / trigger / normalisation statements —
 // avoiding the write-lock acquisition that caused SQLITE_BUSY in short-lived
 // hook processes.
-const currentSchemaVersion = 15
+const currentSchemaVersion = 17
 
 // copySwapStepName is the name of the agent_events copy-and-swap migration
 // step. Exposed via CopySwapStepName() so tests can assert it runs at most
@@ -117,6 +117,16 @@ var migrations = []migrationStep{
 		version: 15,
 		name:    "015_session_handoff_fields",
 		apply:   stepSessionHandoffFields,
+	},
+	{
+		version: 16,
+		name:    "016_plan_feedback_annotation_state",
+		apply:   stepPlanFeedbackAnnotationState,
+	},
+	{
+		version: 17,
+		name:    "017_recaps_table",
+		apply:   stepRecapsTable,
 	},
 }
 
@@ -553,6 +563,40 @@ func stepArchCards(db *sql.DB) error {
 	return nil
 }
 
+// stepRecapsTable creates the recaps read-index table and its indexes. Recaps
+// are committed HTML artifacts under .wipnote/recaps/; this table is a derived
+// read index (the HTML stays canonical). Recaps carry a distinct shape from
+// work items — grounding scope plus a source range/session — so they get a
+// dedicated table rather than extending the features index.
+// Idempotent: CREATE TABLE/INDEX IF NOT EXISTS are no-ops on a DB that already
+// has the table (e.g. a fresh DB where stepCreateBaseTables ran first).
+func stepRecapsTable(db *sql.DB) error {
+	if _, err := db.Exec(`CREATE TABLE IF NOT EXISTS recaps (
+		id            TEXT PRIMARY KEY,
+		kind          TEXT NOT NULL DEFAULT '',
+		input         TEXT NOT NULL DEFAULT '',
+		git_range     TEXT NOT NULL DEFAULT '',
+		grounded      INTEGER NOT NULL DEFAULT 0,
+		title         TEXT NOT NULL DEFAULT '',
+		outcome       TEXT NOT NULL DEFAULT '',
+		work_item_id  TEXT NOT NULL DEFAULT '',
+		created_at    DATETIME,
+		updated_at    DATETIME,
+		indexed_at    DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		return fmt.Errorf("create recaps: %w", err)
+	}
+	for _, stmt := range []string{
+		`CREATE INDEX IF NOT EXISTS idx_recaps_kind ON recaps(kind)`,
+		`CREATE INDEX IF NOT EXISTS idx_recaps_work_item ON recaps(work_item_id)`,
+	} {
+		if _, err := db.Exec(stmt); err != nil {
+			return fmt.Errorf("create recaps index: %w", err)
+		}
+	}
+	return nil
+}
+
 func stepSessionExecContext(db *sql.DB) error {
 	for _, stmt := range []string{
 		`ALTER TABLE sessions ADD COLUMN exec_worktree_path TEXT`,
@@ -581,6 +625,43 @@ func stepSessionHandoffFields(db *sql.DB) error {
 		if _, err := db.Exec(stmt); err != nil {
 			if !isDuplicateColumnError(err) {
 				return fmt.Errorf("add session handoff column (%s): %w", stmt, err)
+			}
+		}
+	}
+	return nil
+}
+
+// stepPlanFeedbackAnnotationState adds the block-anchor + two-axis annotation
+// state columns to plan_feedback (slice-8). Annotations reuse the existing
+// plan_feedback table (action='annotation') rather than a new table: the FK to
+// plan_id and the per-plan SSE/read loop are already wired here. The two axes —
+// consumed (an agent has ingested the note) and resolved (the note has been
+// addressed) — are independent, and resolution_target routes the note to
+// 'agent' or 'human'. All columns are NULL-able / default-zero so existing rows
+// and existing writers (approve/comment/answer) are unaffected.
+func stepPlanFeedbackAnnotationState(db *sql.DB) error {
+	// Legacy/partial DBs may not yet have plan_feedback (e.g. a DB seeded before
+	// the table existed). The base schema creates it WITH these columns, so when
+	// the table is absent here there is nothing to ALTER — skip rather than fail.
+	var name string
+	err := db.QueryRow(
+		`SELECT name FROM sqlite_master WHERE type='table' AND name='plan_feedback'`,
+	).Scan(&name)
+	if err == sql.ErrNoRows {
+		return nil
+	}
+	if err != nil {
+		return fmt.Errorf("check plan_feedback existence: %w", err)
+	}
+	for _, stmt := range []string{
+		`ALTER TABLE plan_feedback ADD COLUMN anchor TEXT NOT NULL DEFAULT ''`,
+		`ALTER TABLE plan_feedback ADD COLUMN consumed INTEGER NOT NULL DEFAULT 0`,
+		`ALTER TABLE plan_feedback ADD COLUMN resolved INTEGER NOT NULL DEFAULT 0`,
+		`ALTER TABLE plan_feedback ADD COLUMN resolution_target TEXT NOT NULL DEFAULT ''`,
+	} {
+		if _, err := db.Exec(stmt); err != nil {
+			if !isDuplicateColumnError(err) {
+				return fmt.Errorf("add plan_feedback annotation column (%s): %w", stmt, err)
 			}
 		}
 	}

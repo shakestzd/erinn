@@ -53,6 +53,95 @@ func TestStorePlanFeedback(t *testing.T) {
 	}
 }
 
+func TestStorePlanAnnotation_TwoAxisState(t *testing.T) {
+	database, planID := setupPlanDB(t)
+	defer database.Close()
+
+	ann := db.PlanAnnotation{
+		Section:          "slice-3-block-data-model-1",
+		Anchor:           "slice-3-block-data-model-1",
+		Value:            "this column should be nullable",
+		QuestionID:       "note-1",
+		Consumed:         true,
+		Resolved:         false,
+		ResolutionTarget: "agent",
+	}
+	if err := db.StorePlanAnnotation(database, planID, ann); err != nil {
+		t.Fatalf("StorePlanAnnotation: %v", err)
+	}
+
+	entries, err := db.GetPlanFeedback(database, planID)
+	if err != nil {
+		t.Fatalf("GetPlanFeedback: %v", err)
+	}
+	if len(entries) != 1 {
+		t.Fatalf("expected 1 entry, got %d", len(entries))
+	}
+	got := entries[0]
+	if got.Action != "annotation" {
+		t.Errorf("Action: got %q, want %q", got.Action, "annotation")
+	}
+	if got.Anchor != ann.Anchor {
+		t.Errorf("Anchor: got %q, want %q", got.Anchor, ann.Anchor)
+	}
+	if !got.Consumed {
+		t.Errorf("Consumed: got false, want true")
+	}
+	if got.Resolved {
+		t.Errorf("Resolved: got true, want false")
+	}
+	if got.ResolutionTarget != "agent" {
+		t.Errorf("ResolutionTarget: got %q, want %q", got.ResolutionTarget, "agent")
+	}
+	if got.Value != ann.Value {
+		t.Errorf("Value: got %q, want %q", got.Value, ann.Value)
+	}
+
+	// Upsert: resolve the note and re-route to human. The two axes move
+	// independently — consumed stays true, resolved flips to true.
+	ann.Resolved = true
+	ann.ResolutionTarget = "human"
+	if err := db.StorePlanAnnotation(database, planID, ann); err != nil {
+		t.Fatalf("StorePlanAnnotation upsert: %v", err)
+	}
+	entries, err = db.GetPlanFeedback(database, planID)
+	if err != nil {
+		t.Fatalf("GetPlanFeedback after upsert: %v", err)
+	}
+	if len(entries) != 1 {
+		t.Fatalf("upsert created a duplicate row: got %d entries, want 1", len(entries))
+	}
+	got = entries[0]
+	if !got.Consumed || !got.Resolved {
+		t.Errorf("after upsert: consumed=%v resolved=%v, want both true", got.Consumed, got.Resolved)
+	}
+	if got.ResolutionTarget != "human" {
+		t.Errorf("after upsert ResolutionTarget: got %q, want %q", got.ResolutionTarget, "human")
+	}
+}
+
+// TestStorePlanFeedback_LeavesAnnotationColumnsZero verifies that the existing
+// approve/comment/answer writers do not disturb the new annotation columns.
+func TestStorePlanFeedback_LeavesAnnotationColumnsZero(t *testing.T) {
+	database, planID := setupPlanDB(t)
+	defer database.Close()
+
+	if err := db.StorePlanFeedback(database, planID, "slice-1", "approve", "true", ""); err != nil {
+		t.Fatalf("StorePlanFeedback: %v", err)
+	}
+	entries, err := db.GetPlanFeedback(database, planID)
+	if err != nil {
+		t.Fatalf("GetPlanFeedback: %v", err)
+	}
+	if len(entries) != 1 {
+		t.Fatalf("expected 1 entry, got %d", len(entries))
+	}
+	got := entries[0]
+	if got.Anchor != "" || got.Consumed || got.Resolved || got.ResolutionTarget != "" {
+		t.Errorf("non-annotation row carried annotation state: %+v", got)
+	}
+}
+
 func TestStorePlanFeedbackUpsert(t *testing.T) {
 	database, planID := setupPlanDB(t)
 	defer database.Close()

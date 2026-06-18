@@ -44,6 +44,24 @@ type PlanDesign struct {
 	Constraints []string `yaml:"constraints"`
 	Approved    bool     `yaml:"approved"`
 	Comment     string   `yaml:"comment"`
+
+	// Research is the plan-wide research basis: the sources that informed the
+	// overall design (current standards, prior art, candidate packages). For v4
+	// plans the validator requires at least one entry so the design itself is
+	// evidence-backed. Additive-optional for legacy/v3 plans.
+	Research []ResearchSource `yaml:"research,omitempty"`
+}
+
+// ResearchSource is one cited piece of web/doc research backing a plan or slice.
+// It makes the research basis machine-checkable instead of buried in prose, so
+// the validator can enforce that external claims are sourced.
+type ResearchSource struct {
+	// URL is the source location (must be http(s)). Required.
+	URL string `yaml:"url"`
+	// Claim is what this source substantiates (one line).
+	Claim string `yaml:"claim,omitempty"`
+	// Accessed is the YYYY-MM-DD the source was read (recency matters).
+	Accessed string `yaml:"accessed,omitempty"`
 }
 
 // PlanSlice is a vertical delivery slice with metadata for effort,
@@ -95,6 +113,19 @@ type PlanSlice struct {
 	Approved bool   `yaml:"approved"`
 	Comment  string `yaml:"comment"`
 
+	// Research holds the web/doc sources that substantiate this slice's external
+	// claims (libraries, SDKs, standards, "no existing package does X"). For v4
+	// plans, every standard/complex slice must carry at least one Research source
+	// (with a URL) OR a ResearchWaiver — the validator enforces it so plans are
+	// informed by current published information and battle-tested packages rather
+	// than reinventing the wheel. Additive-optional: legacy/v3 plans omit it.
+	Research []ResearchSource `yaml:"research,omitempty"`
+	// ResearchWaiver is an explicit, audited reason a slice carries no Research
+	// (e.g. "stdlib only — no external dependency or standard applies"). It
+	// satisfies the v4 research gate without sources, but records WHY research was
+	// unnecessary rather than letting it be silently skipped.
+	ResearchWaiver string `yaml:"research_waiver,omitempty"`
+
 	// V2 lifecycle fields (additive — legacy plans omit these and remain valid).
 	ApprovalStatus  string `yaml:"approval_status,omitempty"`  // pending | approved | rejected | changes_requested
 	ExecutionStatus string `yaml:"execution_status,omitempty"` // not_started | promoted | in_progress | done | blocked | superseded
@@ -109,6 +140,147 @@ type PlanSlice struct {
 	// generated spec's `## Decisions` section. Free text — not a typed schema.
 	// Empty/absent renders no Decisions section.
 	DecisionsNotes string `yaml:"decisions_notes,omitempty"`
+
+	// Blocks is an OPTIONAL flat list of structured visual blocks attached to
+	// the slice (the native equivalent of BuilderIO's block catalog). It is
+	// ADDITIVE-OPTIONAL: legacy plans omit it entirely and remain valid, and no
+	// schema_version bump is required (validate.go only enumerates meta enums,
+	// never the slice field set). Blocks render in declared order. Each entry is
+	// keyed by Type; per-type required fields are defined by BlockCatalog (the
+	// single source of truth shared with `wipnote plan blocks`). Shapes are
+	// validated ONLY when a block is present — see validate.go.
+	Blocks []SliceBlock `yaml:"blocks,omitempty"`
+}
+
+// SliceBlock is one structured visual block on a slice. The schema is
+// deliberately generic so new block types can be added to BlockCatalog without
+// changing this struct:
+//
+//   - Type    selects the block kind (data-model | api-endpoint | file-tree |
+//     wireframe). It MUST be a key in BlockCatalog.
+//   - Title   is an optional human-readable heading.
+//   - Fields  holds scalar key/value content (e.g. wireframe html, data-model
+//     name). Per-type required keys are declared by BlockCatalog[Type].Fields.
+//   - Rows    holds tabular content (e.g. data-model columns, api-endpoint
+//     params). Required when BlockCatalog[Type].RequiresRows is true.
+//   - Entries holds an ordered string list (e.g. file-tree paths). Required
+//     when BlockCatalog[Type].RequiresEntries is true.
+//
+// Only one of Rows/Entries is typically used per type; both are optional in the
+// struct and gated by the catalog so unused fields omitempty-out of the YAML.
+type SliceBlock struct {
+	Type    string              `yaml:"type"`
+	Title   string              `yaml:"title,omitempty"`
+	Fields  map[string]string   `yaml:"fields,omitempty"`
+	Rows    []map[string]string `yaml:"rows,omitempty"`
+	Entries []string            `yaml:"entries,omitempty"`
+}
+
+// PlanAnnotation is a block-anchored review note with two-axis state (slice-8).
+// It is the typed shape that `wipnote plan read-feedback-yaml` emits for the
+// block-level annotation loop, mirroring BuilderIO's get-plan-feedback contract:
+//
+//   - Section / Anchor pin the note to a specific plan block
+//     (e.g. "slice-3-block-data-model-1").
+//   - Consumed and Resolved are two INDEPENDENT axes: an agent may consume
+//     (ingest) a note without it being resolved (addressed), and vice-versa.
+//   - ResolutionTarget routes the note to "agent" or "human".
+//
+// It is OPTIONAL and read-only from the YAML's perspective — annotations are
+// stored in plan_feedback (SQLite), not serialized into the plan YAML body, so
+// this struct carries no yaml tags and is populated only when reading feedback.
+type PlanAnnotation struct {
+	Section          string `json:"section"`
+	Anchor           string `json:"anchor"`
+	Comment          string `json:"comment"`
+	QuestionID       string `json:"question_id,omitempty"`
+	Consumed         bool   `json:"consumed"`
+	Resolved         bool   `json:"resolved"`
+	ResolutionTarget string `json:"resolution_target,omitempty"`
+}
+
+// BlockSpec describes the required shape of one block Type. It is consumed by
+// both validate.go (to reject malformed blocks when present) and `wipnote plan
+// blocks` (to print the supported vocabulary), so the vocabulary has a single
+// source of truth and never drifts between the validator and the catalog
+// command.
+type BlockSpec struct {
+	// Type is the catalog key (matches SliceBlock.Type).
+	Type string
+	// Description is a one-line human summary shown by `wipnote plan blocks`.
+	Description string
+	// Fields lists the required scalar keys in SliceBlock.Fields.
+	Fields []string
+	// RowKeys, when non-empty, lists the keys every entry in SliceBlock.Rows
+	// must carry. Implies RequiresRows.
+	RowKeys []string
+	// RequiresRows requires at least one entry in SliceBlock.Rows.
+	RequiresRows bool
+	// RequiresEntries requires at least one entry in SliceBlock.Entries.
+	RequiresEntries bool
+}
+
+// BlockCatalog is the single source of truth for the supported block
+// vocabulary. It is intentionally a function (not a frozen package-level slice
+// referenced directly by a renderer) so the catalog command remains the one
+// authoritative enumeration of types + required fields — mirroring BuilderIO's
+// dynamic get-plan-blocks contract ("tags drift, do not memorize"). The
+// renderer and validator must read this catalog rather than hardcoding tags.
+//
+// Block types (the wipnote-native vocabulary):
+//
+//	data-model   — an entity/table with named typed columns (Rows: name/type)
+//	api-endpoint — an HTTP route with method+path and request/response params
+//	file-tree    — an ordered list of file paths touched by the slice
+//	wireframe    — an HTML/CSS sketch using design tokens (no raw colors)
+func BlockCatalog() []BlockSpec {
+	return []BlockSpec{
+		{
+			Type:         "data-model",
+			Description:  "An entity/table with named, typed columns.",
+			Fields:       []string{"name"},
+			RowKeys:      []string{"name", "type"},
+			RequiresRows: true,
+		},
+		{
+			Type:         "api-endpoint",
+			Description:  "An HTTP route (method + path) with request/response params.",
+			Fields:       []string{"method", "path"},
+			RowKeys:      []string{"name", "type"},
+			RequiresRows: false,
+		},
+		{
+			Type:            "file-tree",
+			Description:     "An ordered list of file paths the slice touches.",
+			RequiresEntries: true,
+		},
+		{
+			Type:        "wireframe",
+			Description: "An HTML/CSS sketch built from design tokens (no raw hex/rgb colors).",
+			Fields:      []string{"html"},
+		},
+		{
+			Type:            "diagram",
+			Description:     "A flow diagram: ordered steps connected by arrows (pure HTML/CSS, no Mermaid). Optional fields.direction = lr|tb.",
+			RequiresEntries: true,
+		},
+		{
+			Type:         "tabs",
+			Description:  "A tabbed panel set (pure CSS, no JS). Each row is a tab.",
+			RowKeys:      []string{"label", "body"},
+			RequiresRows: true,
+		},
+	}
+}
+
+// blockSpecFor returns the BlockSpec for a given type and whether it is known.
+func blockSpecFor(blockType string) (BlockSpec, bool) {
+	for _, spec := range BlockCatalog() {
+		if spec.Type == blockType {
+			return spec, true
+		}
+	}
+	return BlockSpec{}, false
 }
 
 // SliceQuestion is an open question scoped to a single slice. It supports two

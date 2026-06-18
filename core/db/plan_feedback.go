@@ -9,15 +9,30 @@ import (
 )
 
 // PlanFeedback represents a single feedback entry captured from a CRISPI plan review.
+//
+// Block-level annotations (slice-8) reuse this same row shape with
+// Action=="annotation". For those rows:
+//
+//   - Anchor pins the note to a specific plan block (e.g. "slice-3-block-data-model-1").
+//   - Consumed and Resolved are two INDEPENDENT axes: an agent may consume a
+//     note (ingest it) without it being resolved (addressed), and vice-versa.
+//   - ResolutionTarget routes the note to "agent" or "human".
+//
+// Non-annotation rows (approve / comment / answer) leave these at their zero
+// values, exactly as they were before the columns existed.
 type PlanFeedback struct {
-	ID         int64
-	PlanID     string
-	Section    string
-	Action     string
-	Value      string
-	QuestionID string
-	CreatedAt  time.Time
-	UpdatedAt  time.Time
+	ID               int64
+	PlanID           string
+	Section          string
+	Action           string
+	Value            string
+	QuestionID       string
+	Anchor           string
+	Consumed         bool
+	Resolved         bool
+	ResolutionTarget string
+	CreatedAt        time.Time
+	UpdatedAt        time.Time
 }
 
 // StorePlanFeedback upserts a feedback entry for a plan section.
@@ -39,10 +54,53 @@ func StorePlanFeedback(db *sql.DB, planID, section, action, value, questionID st
 	return nil
 }
 
+// PlanAnnotation is the block-anchored, two-axis annotation written by
+// StorePlanAnnotation. It is the typed input shape for the slice-8 annotation
+// loop; on disk it is just a plan_feedback row with Action=="annotation".
+type PlanAnnotation struct {
+	Section          string // block-anchor section key (e.g. slice-3-block-data-model-1)
+	Anchor           string // block/element anchor the note pins to
+	Value            string // the reviewer's comment text
+	QuestionID       string // optional stable id for upsert addressing
+	Consumed         bool   // axis 1: an agent has ingested the note
+	Resolved         bool   // axis 2: the note has been addressed
+	ResolutionTarget string // routed: "agent" | "human" | ""
+}
+
+// StorePlanAnnotation upserts a block-level annotation onto plan_feedback using
+// Action=="annotation". It carries the anchor + two-axis state (consumed,
+// resolved) and the routed resolution_target. Re-submitting for the same
+// (plan_id, section, "annotation", question_id) updates the existing row,
+// matching StorePlanFeedback's idempotent upsert contract.
+func StorePlanAnnotation(db *sql.DB, planID string, ann PlanAnnotation) error {
+	now := time.Now().UTC().Format(time.RFC3339)
+	_, err := db.Exec(`
+		INSERT INTO plan_feedback
+			(plan_id, section, action, value, question_id,
+			 anchor, consumed, resolved, resolution_target, created_at, updated_at)
+		VALUES (?, ?, 'annotation', ?, ?, ?, ?, ?, ?, ?, ?)
+		ON CONFLICT(plan_id, section, action, question_id) DO UPDATE SET
+			value             = excluded.value,
+			anchor            = excluded.anchor,
+			consumed          = excluded.consumed,
+			resolved          = excluded.resolved,
+			resolution_target = excluded.resolution_target,
+			updated_at        = excluded.updated_at`,
+		planID, ann.Section, nullStr(ann.Value), ann.QuestionID,
+		ann.Anchor, boolToInt(ann.Consumed), boolToInt(ann.Resolved),
+		ann.ResolutionTarget, now, now,
+	)
+	if err != nil {
+		return fmt.Errorf("store plan annotation (plan=%s section=%s): %w", planID, ann.Section, err)
+	}
+	return nil
+}
+
 // GetPlanFeedback retrieves all feedback entries for a plan, ordered by created_at.
 func GetPlanFeedback(db *sql.DB, planID string) ([]PlanFeedback, error) {
 	rows, err := db.Query(`
-		SELECT id, plan_id, section, action, value, question_id, created_at, updated_at
+		SELECT id, plan_id, section, action, value, question_id,
+		       anchor, consumed, resolved, resolution_target, created_at, updated_at
 		FROM plan_feedback
 		WHERE plan_id = ?
 		ORDER BY created_at ASC`, planID)
@@ -56,7 +114,8 @@ func GetPlanFeedback(db *sql.DB, planID string) ([]PlanFeedback, error) {
 // GetPlanFeedbackBySection retrieves feedback for a specific section of a plan.
 func GetPlanFeedbackBySection(db *sql.DB, planID, section string) ([]PlanFeedback, error) {
 	rows, err := db.Query(`
-		SELECT id, plan_id, section, action, value, question_id, created_at, updated_at
+		SELECT id, plan_id, section, action, value, question_id,
+		       anchor, consumed, resolved, resolution_target, created_at, updated_at
 		FROM plan_feedback
 		WHERE plan_id = ? AND section = ?
 		ORDER BY created_at ASC`, planID, section)
@@ -314,14 +373,18 @@ func scanPlanFeedbackRows(rows *sql.Rows) ([]PlanFeedback, error) {
 	for rows.Next() {
 		var pf PlanFeedback
 		var value sql.NullString
+		var consumed, resolved int
 		var createdStr, updatedStr string
 		if err := rows.Scan(
 			&pf.ID, &pf.PlanID, &pf.Section, &pf.Action,
-			&value, &pf.QuestionID, &createdStr, &updatedStr,
+			&value, &pf.QuestionID, &pf.Anchor, &consumed, &resolved,
+			&pf.ResolutionTarget, &createdStr, &updatedStr,
 		); err != nil {
 			return nil, fmt.Errorf("scan plan feedback row: %w", err)
 		}
 		pf.Value = value.String
+		pf.Consumed = consumed != 0
+		pf.Resolved = resolved != 0
 		pf.CreatedAt, _ = time.Parse(time.RFC3339, createdStr)
 		pf.UpdatedAt, _ = time.Parse(time.RFC3339, updatedStr)
 		results = append(results, pf)

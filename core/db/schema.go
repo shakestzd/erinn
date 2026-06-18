@@ -366,7 +366,12 @@ func CreateAllTables(db *sql.DB) error {
 			updated_at TEXT DEFAULT (datetime('now'))
 		)`,
 
-		// 15. plan_feedback — structured feedback from CRISPI plan review
+		// 15. plan_feedback — structured feedback from CRISPI plan review.
+		// anchor / consumed / resolved / resolution_target (migration 016)
+		// carry block-level annotation state: anchor pins a note to a specific
+		// plan block, and consumed vs resolved are two independent axes routed
+		// to agent|human via resolution_target. Non-annotation rows leave them
+		// at their zero defaults.
 		`CREATE TABLE IF NOT EXISTS plan_feedback (
 			id INTEGER PRIMARY KEY AUTOINCREMENT,
 			plan_id TEXT NOT NULL,
@@ -374,6 +379,10 @@ func CreateAllTables(db *sql.DB) error {
 			action TEXT NOT NULL,
 			value TEXT,
 			question_id TEXT NOT NULL DEFAULT '',
+			anchor TEXT NOT NULL DEFAULT '',
+			consumed INTEGER NOT NULL DEFAULT 0,
+			resolved INTEGER NOT NULL DEFAULT 0,
+			resolution_target TEXT NOT NULL DEFAULT '',
 			created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 			updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 			UNIQUE(plan_id, section, action, question_id)
@@ -413,6 +422,22 @@ func CreateAllTables(db *sql.DB) error {
 			output_summary TEXT,
 			profile_signature TEXT NOT NULL DEFAULT '',
 			guards_run TEXT NOT NULL DEFAULT '[]'
+		)`,
+
+		// 18. recaps — read index for committed recap artifacts (.wipnote/recaps/*.html).
+		// Canonical store is the HTML files; this table is derived and never authoritative.
+		`CREATE TABLE IF NOT EXISTS recaps (
+			id            TEXT PRIMARY KEY,
+			kind          TEXT NOT NULL DEFAULT '',
+			input         TEXT NOT NULL DEFAULT '',
+			git_range     TEXT NOT NULL DEFAULT '',
+			grounded      INTEGER NOT NULL DEFAULT 0,
+			title         TEXT NOT NULL DEFAULT '',
+			outcome       TEXT NOT NULL DEFAULT '',
+			work_item_id  TEXT NOT NULL DEFAULT '',
+			created_at    DATETIME,
+			updated_at    DATETIME,
+			indexed_at    DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 		)`,
 	}
 
@@ -500,6 +525,9 @@ func CreateAllIndexes(db *sql.DB) error {
 		// gate_records
 		"CREATE INDEX IF NOT EXISTS idx_gate_records_session_checked ON gate_records(session_id, checked_at DESC)",
 		"CREATE INDEX IF NOT EXISTS idx_gate_records_work_item_checked ON gate_records(work_item_id, checked_at DESC)",
+		// recaps
+		"CREATE INDEX IF NOT EXISTS idx_recaps_kind ON recaps(kind)",
+		"CREATE INDEX IF NOT EXISTS idx_recaps_work_item ON recaps(work_item_id)",
 	}
 
 	for _, idx := range indexes {

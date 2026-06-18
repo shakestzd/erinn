@@ -1,0 +1,10 @@
+{{define "data_model"}}<div class="block block-data-model">
+  <div class="block-header"><span class="block-kind">data-model</span><span class="block-title">{{.Name}}</span></div>
+  {{if .Columns}}<table class="block-table">
+    <thead><tr><th>Field</th><th>Type</th><th>Note</th></tr></thead>
+    <tbody>
+      {{range .Columns}}<tr><td><code>{{.Name}}</code></td><td><code>{{.Type}}</code></td><td>{{if .Note}}{{.Note}}{{else}}&mdash;{{end}}</td></tr>
+      {{end}}
+    </tbody>
+  </table>{{end}}
+</div>{{end}}

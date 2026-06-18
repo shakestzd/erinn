@@ -116,8 +116,9 @@ func TestPlanningSkillsRequireResearchProvenance(t *testing.T) {
 	checks := map[string][]string{
 		filepath.Join(root, "plugin", "skills", "plan", "SKILL.md"): {
 			"Mandatory Research",
-			"Research basis",
-			"External technical claims have a visible research basis",
+			"research gate",       // the schema-enforced gate is documented
+			"research_waiver",     // the structured escape hatch is documented
+			"no reinventing the wheel",
 		},
 		filepath.Join(root, "plugin", "skills", "plan-critique", "SKILL.md"): {
 			"Verify external claims via web search / web fetch",
@@ -307,6 +308,13 @@ func resolveCobraCommand(root *cobra.Command, path []string) *cobra.Command {
 // commandRegistersFlag returns true if cmd (or any of its parents) registers the
 // given flag via Flags() or PersistentFlags().
 func commandRegistersFlag(cmd *cobra.Command, flag string) bool {
+	// --help / -h are universal cobra flags added lazily (InitDefaultHelpFlag),
+	// so they never appear in Flags()/PersistentFlags() until Execute runs. Match
+	// the exact tokens (not a prefix-stripped name, which would wrongly accept the
+	// invalid "--h" and reject the valid "-h").
+	if flag == "--help" || flag == "-h" {
+		return true
+	}
 	name := strings.TrimPrefix(flag, "--")
 	for c := cmd; c != nil; c = c.Parent() {
 		if c.Flags().Lookup(name) != nil {

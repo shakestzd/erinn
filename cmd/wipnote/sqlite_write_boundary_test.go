@@ -205,7 +205,7 @@ var approvedWriteSites = []writeSite{
 	},
 	{
 		File:           "cmd/wipnote/plan_yaml_extras.go",
-		Line:           514,
+		Line:           519,
 		Function:       "applyAcceptedAmendments",
 		OpenExpr:       "dbpkg.Open",
 		Classification: intentionalCLIMutation,
@@ -221,7 +221,7 @@ var approvedWriteSites = []writeSite{
 	},
 	{
 		File:           "cmd/wipnote/plan_yaml_extras.go",
-		Line:           654,
+		Line:           659,
 		Function:       "runReadFeedbackYAML",
 		OpenExpr:       "dbpkg.Open",
 		Classification: intentionalCLIMutation,
@@ -378,6 +378,14 @@ var approvedWriteSites = []writeSite{
 		OpenExpr:       "dbpkg.Open",
 		Classification: reindexOnly,
 		Note:           "Slice 9 (feat-229f3333): bridge handle for the prompt_id correlation pass inside the OTel NDJSON replay. Reads orphans + writes UPDATE on agent_events.prompt_id only; the receiver.Writer owns the otel_signals write path. Disjoint tables, single-process reindex — no contention with the main writer.",
+	},
+	{
+		File:           "cmd/wipnote/recap_list.go",
+		Line:           103,
+		Function:       "openRecapsIndex",
+		OpenExpr:       "dbpkg.Open",
+		Classification: reindexOnly,
+		Note:           "feat-7bc6410b (slice-10): writable open for `wipnote recap list|show|delete` to refresh the recaps read-index (reindexRecaps) from the canonical .wipnote/recaps/*.html before querying. Same reindex family as the other reindex-only sites; single-process CLI invocation.",
 	},
 
 	// ----------------------------------------------------------------------

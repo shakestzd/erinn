@@ -1,0 +1,6 @@
+{{define "diagram"}}<div class="block block-diagram">
+  {{if .Title}}<div class="block-header"><span class="block-kind">diagram</span><span class="block-title">{{.Title}}</span></div>{{end}}
+  <div class="diagram-flow diagram-{{.Dir}}">
+    {{range $i, $s := .Steps}}{{if $i}}<span class="diagram-arrow" aria-hidden="true">{{if $.Vertical}}&#8595;{{else}}&#8594;{{end}}</span>{{end}}<div class="diagram-node">{{$s}}</div>{{end}}
+  </div>
+</div>{{end}}

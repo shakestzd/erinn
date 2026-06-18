@@ -23,7 +23,7 @@ Before any slice content, classify the work. The classification drives both the 
 
 Set `complexity: trivial|standard|complex` on each slice card. The field is read by `plan/planyaml/validate.go` via `effectiveComplexity`; an unset value defaults to `standard` for back-compat.
 
-Every plan you create must include `meta.schema_version: v3`. This enables strict validation including the decisions_notes requirement for standard/complex slices — even when `complexity` is omitted from a slice (which defaults to standard).
+Every plan you create must include `meta.schema_version: v4`. This enables strict validation including the decisions_notes requirement for standard/complex slices (even when `complexity` is omitted, which defaults to standard) **and the research gate** (below): every standard/complex slice must carry cited `research:` or an explicit `research_waiver:`, and `design.research` must cite at least one source. `v3` plans are still accepted (strict validation, research only advisory) for back-compat, but new plans must be `v4` so research is enforced, not optional.
 
 ### Triage question template
 
@@ -49,31 +49,43 @@ Before emitting any slice, ask this question with the native ask-user tool when 
 
 ---
 
-## Mandatory Research (standard and complex plans)
+## Mandatory Research (ENFORCED for v4 plans)
 
-Before drafting slices, run web research using your web search / web fetch tools:
+Before drafting slices, run live web research using your web search / web fetch tools — do not rely on training-data knowledge for version-sensitive details:
 
-1. **Latest official docs and standards** — for every technology the plan touches (libraries, protocols, APIs), fetch or search current documentation. Do not rely on training-data knowledge for version-sensitive details.
-2. **Existing OSS packages and tools** — before designing a custom implementation for any non-trivial component, search for well-maintained open-source alternatives that already solve the problem. Record the outcome in `decisions_notes` as an adopt-vs-build entry: if adopting, name the package and why; if building custom, state what was evaluated and rejected and why.
-3. **Provider docs for harness integration** — when the plan involves agent, hook, skill, or plugin work against Claude Code, Codex CLI, or Gemini CLI, check the relevant provider documentation for existing primitives (plugins, subagents, hooks, skills) that may already cover the requirement.
+1. **Latest official docs and standards** — for every technology the plan touches (libraries, protocols, APIs), fetch or search current documentation.
+2. **Existing OSS packages and tools** — before designing a custom implementation for any non-trivial component, search for well-maintained packages that already solve the problem (pkg.go.dev, npm, PyPI, crates.io). Capture the adopt-vs-build decision: if adopting, cite the package; if building custom, cite what you evaluated and why it was rejected. The goal is **no reinventing the wheel**.
+3. **Provider docs for harness integration** — for agent/hook/skill/plugin work against Claude Code, Codex CLI, or Gemini CLI, check the provider docs for existing primitives that may already cover the requirement.
 
-Trivial plans may skip this step unless they touch external APIs, libraries, or harness contracts.
+### The research gate (schema-enforced)
 
-Every standard or complex plan that relies on external technical claims must include a visible **Research basis** note before the slices. Persist it in existing schema-backed fields: put a compact summary at the start of `meta.description`, and copy slice-specific source/runtime evidence into each affected slice's `decisions_notes`.
+Research is **not optional discipline — the validator enforces it** for `v4` plans (`plan/planyaml/validate.go`):
 
-Research basis format in `meta.description`:
+- **`design.research`** must cite ≥1 source (the plan-wide research basis).
+- **Every standard/complex slice** must carry ≥1 `research:` source **or** an explicit `research_waiver:`. Trivial slices are exempt.
+- Every source `url` must be `http(s)`.
+
+A plan that violates this fails `wipnote plan validate-yaml` (and finalize). Record research in the **structured** `research:` field — not buried in prose:
 
 ```yaml
-meta:
-  description: |
-    Research basis:
-    - https://example.com/docs (checked YYYY-MM-DD): Short statement of what this source verifies.
-    - runtime: codex exec --help (checked YYYY-MM-DD): Short statement of the local CLI flag or behavior verified.
-
-    <plan description continues here>
+design:
+  research:
+    - url: https://example.com/docs
+      claim: Confirms the v2 API shape used in slice 3.
+      accessed: 2026-06-18
+slices:
+  - num: 3
+    complexity: standard
+    research:
+      - url: https://pkg.go.dev/github.com/x/y
+        claim: Battle-tested parser — adopted instead of hand-rolling (slice avoids reinventing).
+        accessed: 2026-06-18
+  - num: 4
+    complexity: standard
+    research_waiver: stdlib net/http only — no external dependency or standard applies.
 ```
 
-If research was skipped, state why in `meta.description` and `decisions_notes`, and mark affected external assumptions as `unverified`; do not present them as confirmed design facts.
+If research genuinely doesn't apply to a slice, use `research_waiver:` with the reason — never leave it silently empty. Mark any unverifiable external assumption as `unverified`; do not present it as a confirmed fact.
 
 ---
 
@@ -115,13 +127,14 @@ Codex may not expose `AskUserQuestion`, Task tools, or Claude-style agent dispat
 
 1. Ask triage and interview questions in plain chat, or infer answers from the supplied spec if the user explicitly asks you to proceed without more questions.
 2. Persist inferred/skipped answers in `decisions_notes` with labels such as `**Inferred:**` and `**Skipped:**` so reviewers can see where the interview was compressed.
-3. Run mandatory web research before drafting any slice with external technical claims. Include source links and runtime checks in the plan's research basis.
-4. Validate locally with `wipnote plan validate-yaml <plan-id>` before requesting human review.
+3. Run mandatory live web research before drafting slices, and record each finding in the structured `research:` fields (`design.research` + per-slice `research:`/`research_waiver:`).
+4. Validate locally with `wipnote plan validate-yaml <plan-id>` before requesting human review — for v4 plans this fails on any standard/complex slice missing `research:`/`research_waiver:` or a `design.research` basis.
 
 Acceptance criteria for generated plans:
 
 - No Codex-facing plan instructions depend on Claude-only model aliases or Claude-only Task/AUQ tools.
-- External technical claims have a visible research basis with links or runtime commands, or are explicitly marked unverified.
+- `meta.schema_version: v4`, and every standard/complex slice carries cited `research:` (http(s) URLs) or an explicit `research_waiver:`; `design.research` cites the plan-wide basis. Unverifiable assumptions are marked `unverified`, not asserted.
+- Adopt-vs-build was researched for every non-trivial component — a battle-tested package is cited when one fits, or the rejection reason is recorded (no reinventing the wheel).
 - Any skipped interview stage is named and explained in the slice's `decisions_notes`.
 
 
@@ -225,7 +238,7 @@ meta:
   id: plan-<generated>
   title: "Fix typo in serve.go log message"
   status: draft
-  schema_version: v3
+  schema_version: v4
 slices:
   - id: slice-1
     num: 1
@@ -248,7 +261,7 @@ meta:
   id: plan-<generated>
   title: "Rate-limit /api/ingest"
   status: draft
-  schema_version: v3
+  schema_version: v4
 slices:
   - id: slice-1
     num: 1

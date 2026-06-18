@@ -29,7 +29,7 @@ func NewPlan(id, title, description string) *PlanYAML {
 			CreatedAt:     time.Now().UTC().Format("2006-01-02"),
 			Status:        "draft",
 			Priority:      "medium",
-			SchemaVersion: "v3",
+			SchemaVersion: "v4",
 			Version:       1,
 		},
 		Design:    PlanDesign{},

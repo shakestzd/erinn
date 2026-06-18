@@ -5,6 +5,7 @@ var sessions = [];
 var resumableSessions = [];
 var features = [];
 var plans = [];
+var recaps = [];
 var stats = {};
 var sessionAdherenceTrend = [];
 var currentView = 'activity';
@@ -40,6 +41,7 @@ document.querySelector('.nav').addEventListener('click', function(e) {
   if (view === 'resume') fetchResumableSessions();
   if (view === 'work' && features.length === 0) fetchFeatures();
   if (view === 'plans') fetchPlans();
+  if (view === 'recaps') fetchRecaps();
   if (view === 'graph') fetchGraph();
 });
 
@@ -4216,12 +4218,66 @@ function renderFinalizeResult(data) {
   panel.innerHTML = html;
 }
 
-function dashSidebarSetupChat(planId) {
+// dashCollectBlockAnchors scans the loaded plan body for block-anchored
+// elements and returns an ordered list of {anchor, label} the reviewer can pin
+// a comment to (slice-8). Anchors come from elements carrying an explicit
+// data-block-anchor attribute, or whose id matches the tightly-bounded
+// slice-<n>-block-<name>-<idx> contract enforced server-side by validSectionRe.
+// Returns [] when the plan renders no blocks, so the affordance hides cleanly.
+function dashCollectBlockAnchors(body) {
+  if (!body) return [];
+  var seen = {};
+  var out = [];
+  var re = /^slice-\d+-block-[a-z0-9-]+-\d+$/;
+  var els = body.querySelectorAll('[data-block-anchor], [id^="slice-"]');
+  els.forEach(function(el) {
+    var anchor = el.getAttribute('data-block-anchor') || el.id || '';
+    if (!anchor || !re.test(anchor) || seen[anchor]) return;
+    seen[anchor] = true;
+    var label = el.getAttribute('data-block-label') ||
+      (el.querySelector('h2,h3,h4,.block-title') ? el.querySelector('h2,h3,h4,.block-title').textContent.trim() : '') ||
+      anchor;
+    out.push({ anchor: anchor, label: label });
+  });
+  return out;
+}
+
+function dashSidebarSetupChat(planId, body) {
   var messagesEl = document.getElementById('dash-chat-messages');
   var inputEl = document.getElementById('dash-chat-input');
   var sendBtn = document.getElementById('dash-chat-send');
   var emptyEl = document.getElementById('dash-chat-empty');
   if (!messagesEl || !inputEl || !sendBtn) return;
+
+  // Anchor affordance (slice-8): a select that lets the reviewer pin the next
+  // comment to a specific plan block. When an anchor is chosen, sending posts a
+  // block-level annotation (action='annotation') to /feedback instead of
+  // chatting. The select is injected dynamically so index.html stays untouched,
+  // and is hidden entirely when the plan renders no blocks.
+  var anchorSelect = document.getElementById('dash-chat-anchor');
+  var inputArea = inputEl.parentElement;
+  if (!anchorSelect && inputArea) {
+    anchorSelect = document.createElement('select');
+    anchorSelect.id = 'dash-chat-anchor';
+    anchorSelect.className = 'dash-chat-anchor';
+    anchorSelect.title = 'Pin this comment to a plan block (leave blank to chat)';
+    inputArea.insertBefore(anchorSelect, inputArea.firstChild);
+  }
+  if (anchorSelect) {
+    var anchors = dashCollectBlockAnchors(body);
+    anchorSelect.innerHTML = '';
+    var opt0 = document.createElement('option');
+    opt0.value = '';
+    opt0.textContent = anchors.length ? 'Chat (no anchor)' : 'No plan blocks to annotate';
+    anchorSelect.appendChild(opt0);
+    anchors.forEach(function(a) {
+      var o = document.createElement('option');
+      o.value = a.anchor;
+      o.textContent = 'Annotate: ' + a.label;
+      anchorSelect.appendChild(o);
+    });
+    anchorSelect.style.display = anchors.length ? '' : 'none';
+  }
 
   // Clear previous messages
   messagesEl.innerHTML = '';
@@ -4283,18 +4339,60 @@ function dashSidebarSetupChat(planId) {
   fetch(buildProjectUrl('plans/' + planId + '/feedback'))
     .then(function(r) { return r.ok ? r.json() : null; })
     .then(function(data) {
-      if (!data || !data.chat_messages || !data.chat_messages.length) return;
+      if (!data) return;
+      var hasChat = data.chat_messages && data.chat_messages.length;
+      var hasAnn = data.annotations && data.annotations.length;
+      if (!hasChat && !hasAnn) return;
       var emptyNotice = messagesEl.querySelector('.dash-chat-notice');
       if (emptyNotice) emptyNotice.style.display = 'none';
-      data.chat_messages.forEach(function(m) { addBubble(m.role, m.content); });
+      if (hasChat) data.chat_messages.forEach(function(m) { addBubble(m.role, m.content); });
+      // Replay block-level annotations with their two-axis state so the loop is
+      // visible on reload (slice-8).
+      if (hasAnn) data.annotations.forEach(function(a) {
+        var state = (a.consumed ? 'consumed' : 'new') + (a.resolved ? ' · resolved' : ' · open');
+        addBubble('user', '@' + (a.anchor || a.section) + ' [' + state + ' → ' + (a.resolution_target || 'agent') + ']: ' + (a.comment || ''));
+      });
     })
     .catch(function() {});
+
+  // sendAnnotation pins the reviewer's comment to a specific plan block and
+  // posts it as a block-level annotation (slice-8). consumed/resolved start
+  // false (a freshly-authored note is unaddressed) and resolution_target
+  // defaults to 'agent' — the loop's first reader is the executing agent.
+  function sendAnnotation(anchor, text) {
+    addBubble('user', '@' + anchor + ': ' + text);
+    fetch(buildProjectUrl('plans/' + planId + '/feedback'), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        section: anchor,
+        action: 'annotation',
+        value: text,
+        anchor: anchor,
+        consumed: false,
+        resolved: false,
+        resolution_target: 'agent'
+      })
+    }).then(function(r) {
+      if (!r.ok) { addBubble('assistant', 'Could not save annotation (' + r.status + ').'); }
+      setEnabled(true);
+    }).catch(function(err) {
+      addBubble('assistant', 'Network error saving annotation: ' + err.message);
+      setEnabled(true);
+    });
+  }
 
   function sendMessage() {
     var text = inputEl.value.trim();
     if (!text || !planId) return;
     inputEl.value = '';
     setEnabled(false);
+
+    var anchorVal = anchorSelect ? anchorSelect.value : '';
+    if (anchorVal) {
+      sendAnnotation(anchorVal, text);
+      return;
+    }
     addBubble('user', text);
 
     var emptyNotice = messagesEl.querySelector('.dash-chat-notice');
@@ -4374,8 +4472,8 @@ function dashSidebarSetup(planId, body) {
   // Build the review rail from slice cards in the loaded content
   dashSidebarBuildRail(planId, body);
 
-  // Set up chat panel
-  dashSidebarSetupChat(planId);
+  // Set up chat panel (body enables the block-anchor annotation affordance).
+  dashSidebarSetupChat(planId, body);
 
   // Listen for approval changes inside the plan content and sync the rail
   if (_dashApprovalListener) {
@@ -4559,6 +4657,126 @@ function renderCollectorWarningBanner(sessionID, container) {
       });
     }
   };
+})();
+
+/* ── Recaps view ────────────────────────────────────────────── */
+
+function fetchRecaps() {
+  fetch(buildProjectUrl('recaps'))
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      recaps = data || [];
+      renderRecaps();
+    })
+    .catch(function() {
+      recaps = [];
+      renderRecaps();
+    });
+}
+
+function renderRecaps() {
+  var body = document.getElementById('recaps-body');
+  var empty = document.getElementById('recaps-empty');
+  var countEl = document.getElementById('recaps-count');
+  if (countEl) countEl.textContent = recaps.length;
+
+  if (recaps.length === 0) {
+    if (body) body.innerHTML = '';
+    if (empty) empty.style.display = 'block';
+    return;
+  }
+  if (empty) empty.style.display = 'none';
+  if (!body) return;
+
+  body.innerHTML = '';
+  recaps.forEach(function(rc) {
+    var tr = document.createElement('tr');
+    tr.style.cursor = 'pointer';
+    tr.addEventListener('click', function() {
+      openRecapDetail(rc.id, rc.title);
+    });
+
+    // Title
+    tr.appendChild(td(rc.title || rc.id));
+
+    // ID (monospace)
+    tr.appendChild(td(rc.id, { className: 'mono' }));
+
+    // Work item
+    tr.appendChild(td(rc.workItem || '—'));
+
+    // Created
+    tr.appendChild(td(rc.created ? relTime(rc.created) : '—'));
+
+    // Open button
+    var openTd = document.createElement('td');
+    var openBtn = document.createElement('button');
+    openBtn.className = 'plan-detail-back';
+    openBtn.style.cssText = 'font-size:0.75rem;padding:2px 8px;cursor:pointer;';
+    openBtn.textContent = 'View';
+    openBtn.addEventListener('click', function(e) {
+      e.stopPropagation();
+      openRecapDetail(rc.id, rc.title);
+    });
+    openTd.appendChild(openBtn);
+    tr.appendChild(openTd);
+
+    body.appendChild(tr);
+  });
+}
+
+function openRecapDetail(recapId, title) {
+  var detail = document.getElementById('recap-detail');
+  var listView = document.getElementById('recaps-list-view');
+  var body = document.getElementById('recap-detail-body');
+  var titleEl = document.getElementById('recap-detail-title');
+  var viewTitle = document.getElementById('recaps-view-title');
+
+  if (listView) listView.style.display = 'none';
+  if (viewTitle) viewTitle.style.display = 'none';
+  if (detail) detail.classList.add('active');
+  if (titleEl) titleEl.textContent = title || recapId;
+  if (body) body.innerHTML = '<div class="empty">Loading...</div>';
+
+  fetch(buildProjectUrl('recaps/' + recapId + '/render'))
+    .then(function(r) {
+      if (!r.ok) throw new Error('Not found');
+      return r.text();
+    })
+    .then(function(html) {
+      if (body) {
+        body.innerHTML = html;
+        // Re-execute inline scripts (same pattern as openPlanDetail).
+        var scripts = Array.from(body.querySelectorAll('script'));
+        scripts.forEach(function(s) { s.remove(); });
+        scripts.filter(function(s) { return !s.src && s.textContent.trim(); })
+          .forEach(function(oldScript) {
+            var s = document.createElement('script');
+            s.textContent = oldScript.textContent;
+            body.appendChild(s);
+          });
+        // Apply Prism syntax highlighting to any code blocks in the recap.
+        if (window.Prism) Prism.highlightAllUnder(body);
+      }
+    })
+    .catch(function() {
+      if (body) body.innerHTML = '<div class="empty">Could not load recap: ' + recapId + '</div>';
+    });
+}
+
+function closeRecapDetail() {
+  var detail = document.getElementById('recap-detail');
+  var listView = document.getElementById('recaps-list-view');
+  var viewTitle = document.getElementById('recaps-view-title');
+  if (detail) detail.classList.remove('active');
+  if (listView) listView.style.display = '';
+  if (viewTitle) viewTitle.style.display = '';
+}
+
+// Wire the back button for the recap detail panel.
+(function() {
+  var backBtn = document.getElementById('recap-detail-back');
+  if (backBtn) backBtn.addEventListener('click', closeRecapDetail);
 })();
 
 // _injectSlice7Badges walks the rendered session rows and adds family and

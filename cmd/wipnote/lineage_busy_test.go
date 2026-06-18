@@ -31,6 +31,7 @@ import (
 	"time"
 
 	"github.com/shakestzd/wipnote/core/db"
+	"github.com/shakestzd/wipnote/internal/lineage"
 )
 
 // seedLineageGraph inserts a small graph_edges chain rooted at root so a
@@ -174,7 +175,7 @@ func TestLineageBfsWalk_NoBusyUnderContention(t *testing.T) {
 			deadline := time.Now().Add(3 * time.Second)
 			passes := 0
 			for time.Now().Before(deadline) {
-				nodes, walkErr := forwardWalk(ro, root, allLineageRels, 5)
+				nodes, walkErr := lineage.ForwardWalk(ro, root, allLineageRels, 5)
 				if walkErr != nil {
 					cancel()
 					writers.Wait()
@@ -238,7 +239,7 @@ func TestLineageBfsWalk_RetryBoundaryClosesRows(t *testing.T) {
 	}
 	defer ro.Close()
 
-	if _, err := forwardWalk(ro, root, allLineageRels, 5); err != nil {
+	if _, err := lineage.ForwardWalk(ro, root, allLineageRels, 5); err != nil {
 		t.Fatalf("forwardWalk: %v", err)
 	}
 

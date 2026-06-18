@@ -1,0 +1,12 @@
+{{define "tabs"}}<div class="block block-tabs">
+  {{if .Title}}<div class="block-header"><span class="block-kind">tabs</span><span class="block-title">{{.Title}}</span></div>{{end}}
+  <div class="tabs">
+    {{range .Tabs}}<input class="tab-radio" type="radio" name="{{$.Group}}" id="{{.ID}}"{{if .Checked}} checked{{end}}>
+    {{end}}<div class="tab-labels">
+      {{range .Tabs}}<label class="tab-label" for="{{.ID}}">{{.Label}}</label>
+      {{end}}</div>
+    <div class="tab-panels">
+      {{range .Tabs}}<div class="tab-panel">{{.Body}}</div>
+      {{end}}</div>
+  </div>
+</div>{{end}}

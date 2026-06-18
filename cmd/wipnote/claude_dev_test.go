@@ -206,7 +206,7 @@ func TestDevLaunchChooserSuppression_NonTTY(t *testing.T) {
 	// CI=true forces non-interactive path (TTY detection also false in tests)
 	t.Setenv("CI", "true")
 
-	lctx, err := resolveClaudeIntentIsolation(root, "", "", "", false, nil)
+	lctx, err := resolveClaudeIntentIsolation(root, "", "", "", false, false, nil)
 	if err != nil {
 		t.Fatalf("resolveClaudeIntentIsolation() error = %v", err)
 	}
@@ -235,7 +235,7 @@ func TestDevLaunchChooserSuppression_WithWorkItem(t *testing.T) {
 	root := makeGitDevProject(t)
 	t.Setenv("CI", "false")
 
-	lctx, err := resolveClaudeIntentIsolation(root, "", "", "feat-abc123", false, nil)
+	lctx, err := resolveClaudeIntentIsolation(root, "", "", "feat-abc123", false, false, nil)
 	if err != nil {
 		t.Fatalf("resolveClaudeIntentIsolation() error = %v", err)
 	}
@@ -261,7 +261,7 @@ func TestDevLaunchChooserSuppression_WithResumeID(t *testing.T) {
 	root := makeDevProject(t)
 	t.Setenv("CI", "false")
 
-	_, err := resolveClaudeIntentIsolation(root, "", "sess-abc123", "", false, nil)
+	_, err := resolveClaudeIntentIsolation(root, "", "sess-abc123", "", false, false, nil)
 	if err != nil {
 		t.Fatalf("resolveClaudeIntentIsolation() error = %v", err)
 	}
@@ -285,12 +285,48 @@ func TestDevLaunchChooserSuppression_InPlace(t *testing.T) {
 	root := makeDevProject(t)
 	t.Setenv("CI", "false")
 
-	_, err := resolveClaudeIntentIsolation(root, "", "", "", true /*inPlace*/, nil)
+	_, err := resolveClaudeIntentIsolation(root, "", "", "", true /*inPlace*/, false, nil)
 	if err != nil {
 		t.Fatalf("resolveClaudeIntentIsolation() error = %v", err)
 	}
 	if called {
 		t.Fatal("chooser was called with --in-place — should be suppressed")
+	}
+}
+
+// TestDevLaunchChooserSuppression_ExplicitContinue verifies that --dev --continue
+// suppresses the interactive chooser (the explicitContinue arg flows into
+// chooserEligibility.ExplicitContinue). Regression guard for bug-da10ac25 C1:
+// previously `case dev:` short-circuited before `case continue_:`, so --continue
+// was silently dropped in dev mode.
+func TestDevLaunchChooserSuppression_ExplicitContinue(t *testing.T) {
+	original := chooseLaunchIntentFn
+	defer func() { chooseLaunchIntentFn = original }()
+
+	called := false
+	chooseLaunchIntentFn = func(_, _, _ string, _ io.Reader, _ io.Writer) (launcher.LaunchIntent, error) {
+		called = true
+		return launcher.NewWorkIntent(), nil
+	}
+
+	root := makeDevProject(t)
+	t.Setenv("CI", "false")
+
+	_, err := resolveClaudeIntentIsolation(root, "", "", "", false, true /*explicitContinue*/, nil)
+	if err != nil {
+		t.Fatalf("resolveClaudeIntentIsolation() error = %v", err)
+	}
+	if called {
+		t.Fatal("chooser was called with --dev --continue — should be suppressed by explicitContinue")
+	}
+}
+
+// TestShouldOfferLaunchIntentChooser_ExplicitContinueSuppressed verifies the
+// eligibility gate treats ExplicitContinue as a chooser suppressor, matching the
+// other harness launchers (codex/gemini/antigravity).
+func TestShouldOfferLaunchIntentChooser_ExplicitContinueSuppressed(t *testing.T) {
+	if shouldOfferLaunchIntentChooser(chooserEligibility{TTY: true, ExplicitContinue: true}) {
+		t.Fatal("shouldOfferLaunchIntentChooser(ExplicitContinue) = true, want false")
 	}
 }
 

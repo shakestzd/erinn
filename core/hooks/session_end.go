@@ -186,6 +186,13 @@ func cleanupEmptySpikeWorktreeOnSessionEnd(database *sql.DB, projectDir, session
 	if inferTypeName(snapshot.ActiveFeatureID) != "spike" || snapshot.ExecWorktreePath == "" {
 		return nil
 	}
+	// Guard: only clean up the worktree when its path actually belongs to
+	// this spike. If the session ran in a shared track worktree (e.g.
+	// ".claude/worktrees/trk-…"), the path will not contain the spike ID —
+	// deleting it would destroy unrelated work.
+	if !strings.Contains(snapshot.ExecWorktreePath, snapshot.ActiveFeatureID) {
+		return nil
+	}
 
 	worktreePath := snapshot.ExecWorktreePath
 	if !filepath.IsAbs(worktreePath) {

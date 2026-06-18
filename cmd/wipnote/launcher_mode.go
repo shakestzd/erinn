@@ -168,3 +168,18 @@ func resolveManagedWorktreeStatus(p plan.LaunchPlan, projectRoot, trackID, featu
 func canonicalProjectRoot(projectRoot string) string {
 	return paths.ResolveViaGitCommonDir(projectRoot)
 }
+
+// effectiveWorkItemID returns the first non-empty ID from workItem, trackID,
+// featureID. This is the ID passed to applyLaunchPlanOpts so the isolation
+// planner knows a work item exists even when only --track/--feature was set
+// (workItem is empty in that case). Without this, EnforceIsolation=true would
+// fire a false RefuseLaunch before the track/feature worktree is resolved.
+func effectiveWorkItemID(workItem, trackID, featureID string) string {
+	if workItem != "" {
+		return workItem
+	}
+	if trackID != "" {
+		return trackID
+	}
+	return featureID
+}

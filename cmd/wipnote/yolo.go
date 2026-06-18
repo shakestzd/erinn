@@ -424,13 +424,15 @@ func launchYoloDev(trackID, featureID string, noWorktree bool, resumeID, name st
 	// Create a worktree for isolation (skip for --no-worktree). Mirror the
 	// default path: carry uncommitted tracked changes into a newly-created
 	// worktree and emit the accurate dirty-main advisory (bug-bcf8a311 / 7d4b6c63).
-	willCreateWorktree := !noWorktree && projectRoot != ""
+	// Use canonicalRoot for all worktree operations so that launching from a linked
+	// worktree doesn't create nested worktrees or set WipnoteRoot to the linked root.
+	willCreateWorktree := !noWorktree && canonicalRoot != ""
 	devPlan := applyLaunchPlanOpts(canonicalRoot, projectRoot, id, noWorktree, willCreateWorktree, os.Stderr)
 	workDir := projectRoot
 	worktreeCreated := false
 	if willCreateWorktree {
 		if trackID != "" {
-			worktreePath, created, wtErr := EnsureForTrackWithTitleStatus(trackTitle, trackID, projectRoot, os.Stdout)
+			worktreePath, created, wtErr := EnsureForTrackWithTitleStatus(trackTitle, trackID, canonicalRoot, os.Stdout)
 			if wtErr != nil {
 				return wtErr
 			}
@@ -438,17 +440,17 @@ func launchYoloDev(trackID, featureID string, noWorktree bool, resumeID, name st
 			worktreeCreated = created
 		} else if featureID != "" {
 			// Resolve the parent track so features use the titled track worktree.
-			parentTrackID := resolveTrackForFeature(featureID, projectRoot)
+			parentTrackID := resolveTrackForFeature(featureID, canonicalRoot)
 			if parentTrackID != "" {
-				parentTitle := resolveTrackTitle(parentTrackID, "", projectRoot)
-				worktreePath, created, wtErr := EnsureForTrackWithTitleStatus(parentTitle, parentTrackID, projectRoot, os.Stdout)
+				parentTitle := resolveTrackTitle(parentTrackID, "", canonicalRoot)
+				worktreePath, created, wtErr := EnsureForTrackWithTitleStatus(parentTitle, parentTrackID, canonicalRoot, os.Stdout)
 				if wtErr != nil {
 					return wtErr
 				}
 				workDir = worktreePath
 				worktreeCreated = created
 			} else {
-				worktreePath, created, wtErr := EnsureForFeatureStatus(featureID, projectRoot, os.Stdout)
+				worktreePath, created, wtErr := EnsureForFeatureStatus(featureID, canonicalRoot, os.Stdout)
 				if wtErr != nil {
 					return wtErr
 				}
@@ -456,7 +458,7 @@ func launchYoloDev(trackID, featureID string, noWorktree bool, resumeID, name st
 				worktreeCreated = created
 			}
 		}
-		emitYoloDirtyMainMessage(devPlan, projectRoot, workDir, worktreeCreated, os.Stdout)
+		emitYoloDirtyMainMessage(devPlan, canonicalRoot, workDir, worktreeCreated, os.Stdout)
 	}
 
 	// Nuke marketplace plugin so it can't shadow the --plugin-dir agents/skills.
@@ -467,7 +469,7 @@ func launchYoloDev(trackID, featureID string, noWorktree bool, resumeID, name st
 	// session, skip default-name generation so we don't rename or conflict with
 	// the resumed session. The user can still override with an explicit --name.
 	if sessionName == "" && resumeID == "" {
-		sessionName = yoloDefaultName(trackID, featureID, projectRoot)
+		sessionName = yoloDefaultName(trackID, featureID, canonicalRoot)
 	}
 	yoloPrompt := buildYoloSystemPrompt(id, kind)
 
@@ -495,7 +497,7 @@ func launchYoloDev(trackID, featureID string, noWorktree bool, resumeID, name st
 		Name:             sessionName,
 		ExtraArgs:        extraArgs,
 		ProjectRoot:      workDir,
-		WipnoteRoot:      projectRoot,
+		WipnoteRoot:      canonicalRoot,
 	})
 }
 

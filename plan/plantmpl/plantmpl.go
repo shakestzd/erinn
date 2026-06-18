@@ -19,17 +19,67 @@ import (
 
 	"github.com/microcosm-cc/bluemonday"
 	"github.com/yuin/goldmark"
+	gast "github.com/yuin/goldmark/ast"
 	"github.com/yuin/goldmark/extension"
+	"github.com/yuin/goldmark/parser"
+	"github.com/yuin/goldmark/text"
+	"github.com/yuin/goldmark/util"
 )
+
+// rawHTMLEscaper is a Goldmark AST transformer that converts inline RawHTML
+// nodes (e.g. "<id>" placeholders in prose) into escaped text nodes so they
+// render as visible &lt;id&gt; instead of being silently dropped by the default
+// goldmark renderer. Without WithUnsafe, goldmark's HTML renderer replaces
+// RawHTML nodes with "<!-- raw HTML omitted -->", which bluemonday then strips,
+// making the placeholder text invisible.
+//
+// This transformer runs before rendering: it walks the AST, finds RawHTML
+// nodes, extracts the raw source bytes, HTML-escapes them, and swaps each node
+// for an ast.String node. Code spans are unaffected — their content is parsed as
+// ast.Code, not ast.RawHTML, so they pass through unchanged.
+type rawHTMLEscaper struct{}
+
+func (rawHTMLEscaper) Transform(doc *gast.Document, reader text.Reader, _ parser.Context) {
+	src := reader.Source()
+	_ = gast.Walk(doc, func(n gast.Node, entering bool) (gast.WalkStatus, error) {
+		if !entering || n.Kind() != gast.KindRawHTML {
+			return gast.WalkContinue, nil
+		}
+		raw := n.(*gast.RawHTML)
+
+		// Collect the raw bytes of this inline HTML node (may span segments).
+		var b bytes.Buffer
+		for i := range raw.Segments.Len() {
+			seg := raw.Segments.At(i)
+			b.Write(seg.Value(src))
+		}
+		// Replace the RawHTML node with an escaped string node so the
+		// placeholder text becomes visible in the rendered output.
+		escaped := htmlesc.EscapeString(b.String())
+		replacement := gast.NewString([]byte(escaped))
+		replacement.SetCode(false)
+		parent := n.Parent()
+		if parent != nil {
+			parent.ReplaceChild(parent, n, replacement)
+		}
+		return gast.WalkSkipChildren, nil
+	})
+}
 
 // mdParser is a shared goldmark instance with GFM extensions enabled.
 // Raw HTML in plan content (e.g. literal "<id>" placeholders) is HTML-escaped
-// by goldmark rather than passed through as markup. This prevents unintended
-// element injection while still rendering fenced code, tables, and inline code
-// correctly. XSS protection is layered: goldmark escapes raw HTML first, then
+// by the rawHTMLEscaper AST transformer rather than passed through or silently
+// dropped. This makes bare angle-bracket placeholders in prose visible as
+// &lt;id&gt; while code spans and fenced code blocks remain unaffected.
+// XSS protection is layered: the AST transformer escapes raw HTML first, then
 // bluemonday strips any remaining vectors (e.g. from Markdown link targets).
 var mdParser = goldmark.New(
 	goldmark.WithExtensions(extension.GFM),
+	goldmark.WithParserOptions(
+		parser.WithASTTransformers(
+			util.Prioritized(rawHTMLEscaper{}, 50),
+		),
+	),
 )
 
 // mdPolicy is the bluemonday policy used to sanitize goldmark output.

@@ -214,7 +214,7 @@ func SessionStart(event *CloudEvent, database *sql.DB, projectDir string) (*Hook
 		ProjectDir:       paths.NormalizeProjectDir(projectDir),
 		ExecWorktreePath: execWorktreeRelPath(event.CWD, projectDir),
 		Branch:           gitBranch(execDirOrDefault(event.CWD, projectDir)),
-		Harness:          normalizeHarness(os.Getenv("WIPNOTE_HARNESS")),
+		Harness:          resolveHarness(),
 		ContinuedFrom:    strings.TrimSpace(os.Getenv("WIPNOTE_CONTINUED_FROM")),
 	}
 
@@ -575,6 +575,21 @@ func normalizeHarness(raw string) string {
 	return ""
 }
 
+// resolveHarness returns the effective harness for the current session.
+// Priority: WIPNOTE_HARNESS (launcher-stamped) → CLAUDE_CODE_ENTRYPOINT
+// (Claude Code sets this in every hook invocation; its presence means the
+// Claude launcher was used without stamping WIPNOTE_HARNESS, so default to
+// "claude").
+func resolveHarness() string {
+	if h := normalizeHarness(os.Getenv("WIPNOTE_HARNESS")); h != "" {
+		return h
+	}
+	if os.Getenv("CLAUDE_CODE_ENTRYPOINT") != "" {
+		return "claude"
+	}
+	return ""
+}
+
 func execDirOrDefault(cwd, projectDir string) string {
 	if cwd != "" {
 		return cwd
@@ -595,6 +610,24 @@ func gitBranch(dir string) string {
 	return strings.TrimSpace(string(out))
 }
 
+// gitTopLevel returns the git top-level directory for dir, or "" on error.
+func gitTopLevel(dir string) string {
+	if dir == "" {
+		return ""
+	}
+	cmd := exec.Command("git", "rev-parse", "--show-toplevel")
+	cmd.Dir = dir
+	out, err := cmd.Output()
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(string(out))
+}
+
+// execWorktreeRelPath returns the repo-relative path when cwd is a REAL linked
+// git worktree (i.e. its git top-level differs from projectDir). Plain
+// subdirectories of projectDir share the same git top-level and therefore get
+// an empty return so they are not misrecorded as worktrees.
 func execWorktreeRelPath(cwd, projectDir string) string {
 	if cwd == "" || cwd == projectDir {
 		return ""
@@ -602,7 +635,14 @@ func execWorktreeRelPath(cwd, projectDir string) string {
 	if !filepath.IsAbs(projectDir) || !filepath.IsAbs(cwd) {
 		return ""
 	}
-	rel, err := filepath.Rel(projectDir, cwd)
+	// Only record a path when cwd is a real linked worktree: its git
+	// top-level must differ from projectDir. A plain subdirectory of the
+	// main repo shares the same top-level and is NOT a worktree.
+	cwdTop := gitTopLevel(cwd)
+	if cwdTop == "" || cwdTop == projectDir {
+		return ""
+	}
+	rel, err := filepath.Rel(projectDir, cwdTop)
 	if err != nil {
 		return ""
 	}

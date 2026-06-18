@@ -679,5 +679,70 @@ func TestSliceCard_WhatEscapesAngleBracketsInCode(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
+// Bug-da10ac25 (job 331): RenderMd must not silently drop bare <id> placeholders
+// in prose (outside backtick code spans). Goldmark without WithUnsafe replaces
+// raw HTML nodes with "<!-- raw HTML omitted -->" which hides the placeholder text.
+// ---------------------------------------------------------------------------
+
+// TestRenderMd_BareAngleBracketInProse verifies that a literal "<id>" placeholder
+// appearing in plain prose (NOT inside backticks) is rendered as visible, escaped
+// text (&lt;id&gt;) rather than being silently dropped or replaced with an HTML
+// comment by goldmark's default raw-HTML handling.
+func TestRenderMd_BareAngleBracketInProse(t *testing.T) {
+	cases := []struct {
+		name  string
+		input string
+	}{
+		{
+			name:  "bare placeholder",
+			input: "Create feature feat-<id> now.",
+		},
+		{
+			name:  "placeholder at start",
+			input: "<id> is the feature ID.",
+		},
+		{
+			name:  "double placeholder",
+			input: "Link <source> to <dest>.",
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := string(plantmpl.RenderMd(tc.input))
+			// Must not contain a raw HTML element (goldmark would have dropped it).
+			if strings.Contains(got, "<!-- raw HTML omitted -->") {
+				t.Errorf("RenderMd(%q): goldmark dropped raw HTML node — placeholder is invisible; got:\n%s", tc.input, got)
+			}
+			// The angle-bracket content must appear as escaped text.
+			if !strings.Contains(got, "&lt;") || !strings.Contains(got, "&gt;") {
+				t.Errorf("RenderMd(%q): expected &lt;...&gt; escaped placeholders in output; got:\n%s", tc.input, got)
+			}
+		})
+	}
+}
+
+// TestRenderMd_CodeSpanPlaceholderUnaffected verifies that a placeholder inside a
+// backtick code span still renders correctly after the prose-escape fix (no
+// double-escaping inside <code> blocks).
+func TestRenderMd_CodeSpanPlaceholderUnaffected(t *testing.T) {
+	input := "Run `wipnote execute --track <id>` to start."
+	got := string(plantmpl.RenderMd(input))
+
+	// The <code> element must be present.
+	if !strings.Contains(got, "<code>") {
+		t.Errorf("RenderMd code span: expected <code> tag in output; got:\n%s", got)
+	}
+	// The placeholder text content ("id") must be visible inside the code span.
+	if !strings.Contains(got, "id") {
+		t.Errorf("RenderMd code span: 'id' text was stripped from <code>; got:\n%s", got)
+	}
+	// Must not contain raw unescaped element outside code context.
+	if strings.Contains(got, "<!-- raw HTML omitted -->") {
+		t.Errorf("RenderMd code span: unexpectedly contains 'raw HTML omitted' comment; got:\n%s", got)
+	}
+}
+
+// ---------------------------------------------------------------------------
 // Bug-81ea68a6: IssueCount excludes SUCCESS and INFO severities (#330)
 // ---------------------------------------------------------------------------

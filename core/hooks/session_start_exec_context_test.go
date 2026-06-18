@@ -30,6 +30,8 @@ func clearSessionEnv(t *testing.T) {
 	t.Setenv("CLAUDE_ENV_FILE", "")
 	t.Setenv("WIPNOTE_SESSION_ID", "")
 	t.Setenv("WIPNOTE_SESSION_FAMILY_ID", "")
+	t.Setenv("WIPNOTE_HARNESS", "")
+	t.Setenv("CLAUDE_CODE_ENTRYPOINT", "")
 }
 
 func TestSessionStart_RecordsExecWorktree(t *testing.T) {
@@ -54,12 +56,14 @@ func TestSessionStart_RecordsExecWorktree(t *testing.T) {
 		}
 	})
 
-	t.Run("linked worktree stores repo-relative subpath", func(t *testing.T) {
+	t.Run("plain subdirectory stores empty (not a real worktree)", func(t *testing.T) {
 		clearSessionEnv(t)
 		mainDir := t.TempDir()
 		database := newExecContextDB(t, mainDir)
 		defer database.Close()
 
+		// A plain subdirectory shares the same git top-level as mainDir.
+		// execWorktreeRelPath must return "" so it is not misrecorded as a worktree.
 		execDir := filepath.Join(mainDir, ".claude", "worktrees", "agent-xyz")
 		if err := os.MkdirAll(execDir, 0o755); err != nil {
 			t.Fatalf("mkdir execDir: %v", err)
@@ -75,30 +79,37 @@ func TestSessionStart_RecordsExecWorktree(t *testing.T) {
 		if err != nil {
 			t.Fatalf("GetSession: %v", err)
 		}
-		if got.ExecWorktreePath != ".claude/worktrees/agent-xyz" {
-			t.Errorf("exec_worktree_path = %q, want %q", got.ExecWorktreePath, ".claude/worktrees/agent-xyz")
+		// Not a real linked worktree — path must be empty.
+		if got.ExecWorktreePath != "" {
+			t.Errorf("exec_worktree_path = %q, want empty (plain subdirectory is not a worktree)", got.ExecWorktreePath)
 		}
 	})
 }
 
 func TestSessionStart_HarnessPersisted(t *testing.T) {
 	cases := []struct {
-		name string
-		env  string
-		want string
+		name              string
+		env               string
+		claudeEntrypoint  string
+		want              string
 	}{
-		{"claude accepted", "claude", "claude"},
-		{"codex accepted", "codex", "codex"},
-		{"gemini accepted", "gemini", "gemini"},
-		{"antigravity accepted", "antigravity", "antigravity"},
-		{"case-insensitive", "Claude", "claude"},
-		{"trimmed", "  codex  ", "codex"},
-		{"garbage rejected", "rogue-cli", ""},
+		{"claude accepted", "claude", "", "claude"},
+		{"codex accepted", "codex", "", "codex"},
+		{"gemini accepted", "gemini", "", "gemini"},
+		{"antigravity accepted", "antigravity", "", "antigravity"},
+		{"case-insensitive", "Claude", "", "claude"},
+		{"trimmed", "  codex  ", "", "codex"},
+		{"garbage rejected", "rogue-cli", "", ""},
+		// Finding C: WIPNOTE_HARNESS unset but CLAUDE_CODE_ENTRYPOINT set → "claude".
+		{"claude inferred from entrypoint", "", "hooks", "claude"},
+		// WIPNOTE_HARNESS wins over CLAUDE_CODE_ENTRYPOINT when both set.
+		{"wipnote_harness wins over entrypoint", "codex", "hooks", "codex"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			clearSessionEnv(t)
 			t.Setenv("WIPNOTE_HARNESS", tc.env)
+			t.Setenv("CLAUDE_CODE_ENTRYPOINT", tc.claudeEntrypoint)
 			projectDir := t.TempDir()
 			database := newExecContextDB(t, projectDir)
 			defer database.Close()
@@ -121,15 +132,25 @@ func TestSessionStart_HarnessPersisted(t *testing.T) {
 
 func TestExecWorktreeRelPath(t *testing.T) {
 	main := t.TempDir()
+	// Same dir: always empty.
 	if got := execWorktreeRelPath(main, main); got != "" {
 		t.Errorf("same dir got %q, want empty", got)
 	}
+	// Empty cwd: always empty.
 	if got := execWorktreeRelPath("", main); got != "" {
 		t.Errorf("empty cwd got %q, want empty", got)
 	}
-	if got := execWorktreeRelPath(filepath.Join(main, "wt", "a"), main); got != "wt/a" {
-		t.Errorf("nested worktree got %q, want wt/a", got)
+	// Plain subdirectory of main: shares the same git top-level (or no git
+	// at all in t.TempDir()), so must return empty — it is NOT a real linked
+	// worktree and must not be recorded as one (Finding A fix).
+	subdir := filepath.Join(main, "wt", "a")
+	if err := os.MkdirAll(subdir, 0o755); err != nil {
+		t.Fatalf("mkdir: %v", err)
 	}
+	if got := execWorktreeRelPath(subdir, main); got != "" {
+		t.Errorf("plain subdirectory got %q, want empty", got)
+	}
+	// Completely outside repo: empty.
 	if got := execWorktreeRelPath(t.TempDir(), main); got != "" {
 		t.Errorf("outside repo got %q, want empty", got)
 	}

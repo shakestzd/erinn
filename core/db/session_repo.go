@@ -545,6 +545,9 @@ func ListResumableSessions(db *sql.DB, threshold time.Duration) ([]ResumableSess
 	cutoff := time.Now().UTC().Add(-threshold).Format(time.RFC3339)
 	rows, err := db.Query(`
 WITH session_work AS (
+	-- One row per (session, work_item): JOIN against active_work_items so
+	-- parallel agents in the same session each get their own row. Fall back
+	-- to active_feature_id when no active_work_items row exists (legacy sessions).
 	SELECT
 		s.session_id,
 		s.created_at,
@@ -552,16 +555,9 @@ WITH session_work AS (
 		COALESCE(s.branch, '') AS branch,
 		COALESCE(s.harness, '') AS harness,
 		COALESCE(s.agent_assigned, '') AS agent_assigned,
-		COALESCE(
-			(SELECT awi.work_item_id
-			 FROM active_work_items awi
-			 WHERE awi.session_id = s.session_id
-			 ORDER BY awi.claimed_at DESC
-			 LIMIT 1),
-			s.active_feature_id,
-			''
-		) AS work_item_id
+		COALESCE(awi.work_item_id, s.active_feature_id, '') AS work_item_id
 	FROM sessions s
+	LEFT JOIN active_work_items awi ON awi.session_id = s.session_id
 ),
 enriched AS (
 	SELECT

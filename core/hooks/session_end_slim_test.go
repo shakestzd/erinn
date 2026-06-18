@@ -129,6 +129,74 @@ func TestGC_SessionEnd_RemovesEmptySpike(t *testing.T) {
 	}
 }
 
+// TestGC_SessionEnd_SkipsCleanupWhenSpikeRunsInTrackWorktree asserts that a
+// spike session running inside a shared track worktree (ExecWorktreePath
+// contains "trk-" not the spike ID) does NOT delete the track worktree when
+// the session ends (Finding D fix).
+func TestGC_SessionEnd_SkipsCleanupWhenSpikeRunsInTrackWorktree(t *testing.T) {
+	td := setupTestDB(t)
+	database := td.DB
+	projectDir := t.TempDir()
+	initSessionEndGitRepo(t, projectDir)
+
+	origComplete := completeIfInProgressFn
+	completeIfInProgressFn = func(id string, database *sql.DB) bool {
+		_, err := database.Exec(`UPDATE features SET status = 'done' WHERE id = ?`, id)
+		return err == nil
+	}
+	t.Cleanup(func() { completeIfInProgressFn = origComplete })
+
+	sessionID := "slim-spike-shared-track-001"
+	spikeID := "spk-eeee1111"
+	trackID := "trk-ffff2222"
+	// The session ran in a TRACK worktree, not the spike's own worktree.
+	trackWorktreeRel := filepath.ToSlash(filepath.Join(".claude", "worktrees", trackID))
+	trackWorktreePath := filepath.Join(projectDir, filepath.FromSlash(trackWorktreeRel))
+	createManagedSpikeWorktree(t, projectDir, trackWorktreePath, "trk-"+trackID)
+
+	t.Setenv("WIPNOTE_SESSION_ID", sessionID)
+	t.Setenv("WIPNOTE_AGENT_ID", "claude-code")
+	t.Setenv("WIPNOTE_AGENT_TYPE", "")
+	t.Setenv("CLAUDE_ENV_FILE", "")
+	t.Setenv("CLAUDE_PROJECT_DIR", "")
+	t.Setenv("WIPNOTE_PROJECT_DIR", projectDir)
+
+	if err := os.MkdirAll(filepath.Join(projectDir, ".wipnote"), 0o755); err != nil {
+		t.Fatalf("mkdir .wipnote: %v", err)
+	}
+	if err := os.WriteFile(
+		filepath.Join(projectDir, ".wipnote", "config.json"),
+		[]byte(`{"empty_spike_worktree_cleanup":true,"empty_spike_worktree_ttl_days":7}`),
+		0o644,
+	); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+
+	if err := db.InsertSession(database, &models.Session{
+		SessionID:        sessionID,
+		AgentAssigned:    "claude-code",
+		Status:           "active",
+		CreatedAt:        time.Now().UTC(),
+		ProjectDir:       projectDir,
+		ExecWorktreePath: trackWorktreeRel, // spike running in a track worktree
+		Branch:           "trk-" + trackID,
+		Harness:          "claude",
+		ActiveFeatureID:  spikeID,
+	}); err != nil {
+		t.Fatalf("InsertSession: %v", err)
+	}
+	td.addFeature(spikeID, "spike", "Spike in shared track worktree", "in-progress")
+
+	if _, err := SessionEnd(&CloudEvent{SessionID: sessionID, CWD: projectDir, Reason: "prompt_input_exit"}, database, projectDir); err != nil {
+		t.Fatalf("SessionEnd: %v", err)
+	}
+
+	// The track worktree must NOT be deleted — it belongs to the track, not the spike.
+	if _, err := os.Stat(trackWorktreePath); os.IsNotExist(err) {
+		t.Fatal("track worktree was incorrectly deleted by spike cleanup")
+	}
+}
+
 func initSessionEndGitRepo(t *testing.T, dir string) {
 	t.Helper()
 	for _, args := range [][]string{

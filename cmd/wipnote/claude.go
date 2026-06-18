@@ -91,7 +91,7 @@ func claudeCmd() *cobra.Command {
 			_ = baseBranch // reserved for slice-3+; accepted but not yet acted on
 			switch {
 			case dev:
-				return launchClaudeDev(args, auto, resumeID, name, workItem, effectiveInPlace)
+				return launchClaudeDev(args, auto, resumeID, name, workItem, effectiveInPlace, continue_)
 			case auto:
 				return launchClaudeAuto(args, resumeID, name)
 			case init_:
@@ -171,7 +171,7 @@ func removeMarketplaceWipnote() {
 	fmt.Println("Marketplace wipnote removed (uninstalled, disabled, cache wiped).")
 }
 
-func launchClaudeDev(extraArgs []string, auto bool, resumeID, name, workItem string, inPlace bool) error {
+func launchClaudeDev(extraArgs []string, auto bool, resumeID, name, workItem string, inPlace, continue_ bool) error {
 	if err := requireWipnoteOnPath(); err != nil {
 		return err
 	}
@@ -187,8 +187,10 @@ func launchClaudeDev(extraArgs []string, auto bool, resumeID, name, workItem str
 	// Clean up any leftover symlink state from a previous dev mode crash.
 	cleanupStaleDev(projectRoot)
 
-	// Nuke marketplace plugin so it can't shadow the --plugin-dir agents/skills.
-	removeMarketplaceWipnote()
+	// NOTE: removeMarketplaceWipnote() is intentionally deferred to just before
+	// launchClaude — wiping the marketplace plugin before intent/isolation
+	// resolution would leave the user without a working plugin if the launch
+	// aborts (e.g. enforceLaunchPlan RefuseLaunch). See bug-da10ac25 finding C2.
 
 	// Resolve the in-tree plugin/ from the source root NOW, before intent
 	// resolution might redirect childDir to a worktree. The plugin source always
@@ -207,7 +209,9 @@ func launchClaudeDev(extraArgs []string, auto bool, resumeID, name, workItem str
 	wipnoteRoot := canonicalProjectRoot(projectRoot)
 
 	// Run the intent chooser and isolation planner — same path as launchClaudeDefault.
-	lctx, err := resolveClaudeIntentIsolation(projectRoot, wipnoteRoot, resumeID, workItem, inPlace, extraArgs)
+	// continue_ suppresses the chooser (explicit "resume most recent" intent) and is
+	// honored below via Resume: true on the launch opts.
+	lctx, err := resolveClaudeIntentIsolation(projectRoot, wipnoteRoot, resumeID, workItem, inPlace, continue_, extraArgs)
 	if err != nil {
 		return err
 	}
@@ -229,13 +233,22 @@ func launchClaudeDev(extraArgs []string, auto bool, resumeID, name, workItem str
 	fmt.Printf("  Plugin source: %s\n", pluginDir)
 	fmt.Printf("  Session: %s\n", sessionName)
 
+	// Nuke marketplace plugin so it can't shadow the --plugin-dir agents/skills.
+	// Deferred to here (after intent + isolation resolution succeeded) so an
+	// aborted launch never leaves the user with a wiped plugin (bug-da10ac25 C2).
+	removeMarketplaceWipnote()
+
 	return launchClaude(LaunchOpts{
 		// Mode is always "go" for dev sessions: it identifies the dev-plugin
 		// launcher type (opts.PluginDir != "" && opts.Mode == "go") for
 		// computeLauncherMode and writeLaunchMarker. The intent's continue/new
 		// distinction is captured via ResumeID and Intent — not the mode string.
-		Mode:               "go",
-		PluginDir:          pluginDir,
+		Mode:      "go",
+		PluginDir: pluginDir,
+		// Resume the most recent session when --dev --continue was requested
+		// (mirrors launchClaudeContinue). ResumeID, when set, still takes
+		// precedence in launchClaude's arg construction.
+		Resume:             continue_,
 		ResumeID:           resumeID,
 		InjectSystemPrompt: true,
 		EnableAutoMode:     auto,
@@ -474,7 +487,7 @@ func launchClaudeDefault(extraArgs []string, resumeID, name, workItem string, in
 	// canonicalProjectRoot returns "" for the main worktree (no override needed).
 	wipnoteRoot := canonicalProjectRoot(projectRoot)
 
-	lctx, err := resolveClaudeIntentIsolation(projectRoot, wipnoteRoot, resumeID, workItem, inPlace, extraArgs)
+	lctx, err := resolveClaudeIntentIsolation(projectRoot, wipnoteRoot, resumeID, workItem, inPlace, false, extraArgs)
 	if err != nil {
 		return err
 	}

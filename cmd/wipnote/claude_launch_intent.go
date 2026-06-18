@@ -29,17 +29,22 @@ type claudeLaunchContext struct {
 // Parameters:
 //   - projectRoot: absolute path to the project containing .wipnote/
 //   - wipnoteRoot: canonical main-repo root (empty when projectRoot IS the main repo)
-//   - resumeID, workItem, inPlace, extraArgs: flags from the CLI
+//   - resumeID, workItem, inPlace, explicitContinue, extraArgs: flags from the CLI
+//
+// explicitContinue is true when the caller passed --continue ("resume most
+// recent"); it suppresses the interactive chooser. The caller is responsible
+// for honoring the continue semantics (e.g. Resume: true on the launch opts).
 //
 // The function prints warnings and carryover messages to os.Stderr/os.Stdout.
-func resolveClaudeIntentIsolation(projectRoot, wipnoteRoot, resumeID, workItem string, inPlace bool, extraArgs []string) (claudeLaunchContext, error) {
+func resolveClaudeIntentIsolation(projectRoot, wipnoteRoot, resumeID, workItem string, inPlace, explicitContinue bool, extraArgs []string) (claudeLaunchContext, error) {
 	intent, err := resolveLaunchIntentForDefaultLaunch(projectRoot, wipnoteRoot, "claude", chooserEligibility{
-		TTY:       isInteractiveTerminalFile(os.Stdin) && isInteractiveTerminalFile(os.Stdout),
-		CI:        os.Getenv("CI") == "true" || os.Getenv("GITHUB_ACTIONS") != "",
-		ResumeID:  resumeID,
-		WorkItem:  workItem,
-		InPlace:   inPlace,
-		ExtraArgs: extraArgs,
+		TTY:              isInteractiveTerminalFile(os.Stdin) && isInteractiveTerminalFile(os.Stdout),
+		CI:               os.Getenv("CI") == "true" || os.Getenv("GITHUB_ACTIONS") != "",
+		ResumeID:         resumeID,
+		WorkItem:         workItem,
+		InPlace:          inPlace,
+		ExplicitContinue: explicitContinue,
+		ExtraArgs:        extraArgs,
 	}, os.Stdin, os.Stdout)
 	if err != nil {
 		return claudeLaunchContext{}, err

@@ -125,4 +125,21 @@ func TestApplyAntigravityLaunchIntent(t *testing.T) {
 	if cross.workItem != "feat-existing" {
 		t.Fatalf("explicit workItem overwritten: got %q", cross.workItem)
 	}
+
+	// Regression: chooser row with SessionHarness=codex and no prior continue_ must
+	// NOT enable --continue on antigravity (would resume the most-recent agy session).
+	// Work-item and worktree context must still be carried across harnesses.
+	codexChooser := applyAntigravityLaunchIntent("", "", "", false, launcher.ContinueWorkIntent("feat-codex-row", "codex", "codex-session-id", ".claude/worktrees/feat-codex-row", true))
+	if codexChooser.continue_ {
+		t.Error("codex chooser row must not set continue_ on antigravity launcher")
+	}
+	if codexChooser.resumeID != "" {
+		t.Errorf("codex chooser row must not set resumeID; got %q", codexChooser.resumeID)
+	}
+	if codexChooser.workItem != "feat-codex-row" {
+		t.Errorf("codex chooser row: workItem = %q, want feat-codex-row", codexChooser.workItem)
+	}
+	if codexChooser.worktreePath != ".claude/worktrees/feat-codex-row" {
+		t.Errorf("codex chooser row: worktreePath = %q, want .claude/worktrees/feat-codex-row", codexChooser.worktreePath)
+	}
 }

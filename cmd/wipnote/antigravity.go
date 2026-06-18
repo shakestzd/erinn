@@ -127,12 +127,19 @@ func launchAntigravityDefault(trackID, featureID, worktreePath, workItem string,
 	if workItem == "" && continueCtx.WorkItemID != "" {
 		workItem = continueCtx.WorkItemID
 	}
-	if worktreePath == "" && continueCtx.WorktreePath != "" {
+	// When continuing, always prefer the validated/normalized worktree path from
+	// resolveContinueLaunchContext (which absolutizes relative paths and clears
+	// stale/missing ones). An empty continueCtx.WorktreePath means validation
+	// failed; we clear the stale chooser path rather than launching in a missing
+	// directory.
+	if intent.WantsContinue() {
+		worktreePath = continueCtx.WorktreePath
+	} else if worktreePath == "" && continueCtx.WorktreePath != "" {
 		worktreePath = continueCtx.WorktreePath
 	}
 
 	willCreateWorktree := !noWorktree && (trackID != "" || featureID != "" || workItem != "")
-	launchPlan := applyLaunchPlanOpts(canonicalRoot, projectRoot, workItem, noWorktree, willCreateWorktree, os.Stderr)
+	launchPlan := applyLaunchPlanOpts(canonicalRoot, projectRoot, effectiveWorkItemID(workItem, trackID, featureID), noWorktree, willCreateWorktree, os.Stderr)
 	if err := enforceLaunchPlan(launchPlan, os.Stderr); err != nil {
 		return err
 	}

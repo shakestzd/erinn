@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>Block-level annotation loop for PLANS (consumed/resolved) on plan_feedback — recap annotation explicitly out of scope</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="feat-4addaa6f"
+             data-type="feature"
+             data-status="in-progress"
+             data-priority="medium"
+             data-created="2026-06-18T07:33:51.987603"
+             data-updated="2026-06-18T08:13:46.338111" data-agent-assigned="claude-code" data-track-id="trk-a951e3c0">
+
+        <header>
+            <h1>Block-level annotation loop for PLANS (consumed/resolved) on plan_feedback — recap annotation explicitly out of scope</h1>
+            <div class="metadata">
+                <span class="badge status-in-progress">In Progress</span>
+                <span class="badge priority-medium">Medium Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="planned_in">
+                <h3>Planned In:</h3>
+                <ul>
+                    <li><a href="../plans/plan-93b8eba0.html" data-relationship="planned_in" data-since="2026-06-18T07:33:51.99024">plan-93b8eba0</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="implemented_in">
+                <h3>Implemented In:</h3>
+                <ul>
+                    <li><a href="../sessions/7ad16954-7662-4d96-87ae-6eff3bd5739e.html" data-relationship="implemented_in" data-since="2026-06-18T08:13:46.337905">session 7ad16954-7662-4d96-87ae-6eff3bd5739e</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-a951e3c0.html" data-relationship="part_of" data-since="2026-06-18T07:33:51.996024">trk-a951e3c0</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="blocked_by">
+                <h3>Blocked By:</h3>
+                <ul>
+                    <li><a href="../features/feat-96b98270.html" data-relationship="blocked_by">feat-96b98270</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>Extend the existing plan-review dashboard chat + critic_revisions/questions to
+support block/element-anchored annotations on PLANS with a two-axis state
+(consumed vs resolved, routed agent|human) modeled on BuilderIO get-plan-feedback.
+Extend validSectionRe (cmd/wipnote/api_plans.go:370) with a bounded block-anchor
+pattern (e.g. slice-\d+-block-[a-z0-9-]+-\d+) and add anchor + two-axis columns
+to plan_feedback via a core/db migration. RECAP annotation is OUT OF SCOPE: recaps
+are derived/mechanical/read-only, plan_feedback has a plan_id FK, and recap IDs are
+not in the plans table — forcing recaps through this plumbing would 400 / FK-fail.</p>
+        </section>
+    </article>
+</body>
+</html>

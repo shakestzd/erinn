@@ -1,0 +1,2057 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="wipnote-recap" content="1.0">
+<title>Recap: Recap collector core — resolve work-item / git-range / session into grounded diff data</title>
+<style>
+:root{
+  --bg:#0f0f13;--bg-card:#18181c;--bg-input:#222228;--text:#f0f0ed;--text-dim:#d0d0cc;
+  --text-muted:#9898a0;--border:#3a3a42;--accent:#cdff00;
+  --add:#22c55e;--modify:#f59e0b;--delete:#ef4444;--pivot:#a78bfa;
+  --mono:'JetBrains Mono',ui-monospace,'SF Mono','Cascadia Code',monospace;
+  --sans:'DM Sans','Inter',system-ui,-apple-system,sans-serif;
+  --radius:8px;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{font-family:var(--sans);background:var(--bg);color:var(--text);line-height:1.6;padding:32px;max-width:1100px;margin:0 auto}
+h1{font-size:1.5rem;font-weight:700;margin-bottom:4px}
+.recap-sub{color:var(--text-muted);font-size:.85rem;font-family:var(--mono);margin-bottom:24px}
+.recap-sub code{color:var(--text-dim)}
+.recap-zone{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:20px;margin-bottom:20px}
+.recap-zone-title{font-size:1.05rem;font-weight:600;margin-bottom:12px;display:flex;align-items:center;gap:8px}
+.recap-zone-note{color:var(--text-muted);font-size:.8rem;margin-bottom:12px;font-style:italic}
+.recap-count{background:var(--bg-input);color:var(--text-muted);font-size:.72rem;font-family:var(--mono);padding:1px 7px;border-radius:10px}
+.outcome-narrative{font-size:1rem;color:var(--text-dim)}
+/* shared block + file list */
+.block{margin:0}
+.file-list{list-style:none;display:flex;flex-direction:column;gap:4px}
+.file-entry{font-family:var(--mono);font-size:.85rem;display:flex;align-items:center;gap:8px}
+.file-path{color:var(--text-dim)}
+.file-change{font-size:.68rem;font-weight:700;text-transform:uppercase;padding:1px 6px;border-radius:4px;font-family:var(--mono)}
+.file-change-add{background:rgba(34,197,94,.12);color:var(--add)}
+.file-change-modify{background:rgba(245,158,11,.12);color:var(--modify)}
+.file-change-delete{background:rgba(239,68,68,.12);color:var(--delete)}
+.block-table{width:100%;border-collapse:collapse;font-size:.82rem;margin-top:8px}
+.block-table th,.block-table td{text-align:left;padding:6px 10px;border-bottom:1px solid var(--border)}
+.block-header{display:flex;align-items:center;gap:8px;font-size:.85rem}
+.block-kind{font-family:var(--mono);font-size:.68rem;text-transform:uppercase;color:var(--text-muted);background:var(--bg-input);padding:1px 6px;border-radius:4px}
+.api-method{font-family:var(--mono);font-weight:700;font-size:.72rem;padding:1px 6px;border-radius:4px;background:var(--accent);color:#000}
+/* annotated diff */
+.annotated-diff{border:1px solid var(--border);border-radius:6px;margin-bottom:14px;overflow:hidden}
+.diff-file-header{display:flex;align-items:center;gap:8px;padding:8px 12px;background:var(--bg-input);font-family:var(--mono);font-size:.82rem}
+.diff-hunk{border-top:1px solid var(--border)}
+.hunk-meta{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:6px 12px;background:rgba(255,255,255,.02)}
+.hunk-header{font-family:var(--mono);font-size:.74rem;color:var(--text-muted)}
+.hunk-summary{font-size:.72rem;color:var(--text-muted);font-family:var(--mono)}
+.diff-pre{margin:0;padding:10px 12px;overflow-x:auto;font-family:var(--mono);font-size:.8rem;line-height:1.5;white-space:pre}
+.diff-pre code{font-family:var(--mono);background:none;padding:0}
+.hunk-cols{display:grid;grid-template-columns:1fr 1fr}
+.hunk-col-before{border-right:1px solid var(--border);background:rgba(239,68,68,.04)}
+.hunk-col-after{background:rgba(34,197,94,.04)}
+/* lineage */
+.lineage-table{width:100%;border-collapse:collapse;font-size:.84rem}
+.lineage-table th,.lineage-table td{text-align:left;padding:6px 10px;border-bottom:1px solid var(--border)}
+.lineage-pivot{background:rgba(167,139,250,.06)}
+.lineage-type{font-size:.68rem;text-transform:uppercase;color:var(--text-muted);font-family:var(--mono);margin-right:6px}
+.lineage-id{font-family:var(--mono);color:var(--accent)}
+.lineage-title{color:var(--text-dim);margin-left:8px}
+code{font-family:var(--mono)}
+</style>
+</head>
+<body data-recap-kind="work-item" data-recap-input="feat-5cdb3732" data-recap-git-range="412ef65cc6b8b2730db3309e1371f4c3d4a45a78^..412ef65cc6b8b2730db3309e1371f4c3d4a45a78" data-recap-grounded="1" data-recap-outcome="Recap collector core — resolve work-item / git-range / session into grounded diff data" data-recap-title="Recap collector core — resolve work-item / git-range / session into grounded diff data">
+<header>
+  <h1>Recap collector core — resolve work-item / git-range / session into grounded diff data</h1>
+  <div class="recap-sub">
+    <code>work-item</code>
+    &middot; <code>feat-5cdb3732</code>
+    &middot; <code>412ef65cc6b8b2730db3309e1371f4c3d4a45a78^..412ef65cc6b8b2730db3309e1371f4c3d4a45a78</code>
+    &middot; grounded
+  </div>
+</header>
+<section class="recap-zone recap-zone-outcome" id="outcome">
+  <h2 class="recap-zone-title">Outcome</h2>
+  <p class="outcome-narrative">Recap collector core — resolve work-item / git-range / session into grounded diff data</p>
+</section>
+<section class="recap-zone recap-zone-files" id="files">
+  <h2 class="recap-zone-title">Files changed <span class="recap-count">9</span></h2>
+  <div class="block block-file-tree">
+  <ul class="file-list">
+    <li class="file-entry"><span class="file-change file-change-modify">modify</span> <code class="file-path">cmd/wipnote/lineage.go</code></li>
+    <li class="file-entry"><span class="file-change file-change-modify">modify</span> <code class="file-path">cmd/wipnote/lineage_busy_test.go</code></li>
+    <li class="file-entry"><span class="file-change file-change-add">add</span> <code class="file-path">internal/lineage/walk.go</code></li>
+    <li class="file-entry"><span class="file-change file-change-add">add</span> <code class="file-path">internal/lineage/walk_test.go</code></li>
+    <li class="file-entry"><span class="file-change file-change-add">add</span> <code class="file-path">internal/recap/collect.go</code></li>
+    <li class="file-entry"><span class="file-change file-change-add">add</span> <code class="file-path">internal/recap/collect_test.go</code></li>
+    <li class="file-entry"><span class="file-change file-change-add">add</span> <code class="file-path">internal/recap/git.go</code></li>
+    <li class="file-entry"><span class="file-change file-change-add">add</span> <code class="file-path">internal/recap/shared_walk_test.go</code></li>
+    <li class="file-entry"><span class="file-change file-change-add">add</span> <code class="file-path">internal/recap/types.go</code></li>
+    
+  </ul>
+</div>
+</section>
+
+<section class="recap-zone recap-zone-diff" id="diff">
+  <h2 class="recap-zone-title">Annotated diff <span class="recap-count">9</span></h2>
+  <article class="annotated-diff diff-unified diff-unified" data-language="go">
+  <header class="diff-file-header">
+    <span class="file-change file-change-modify">modify</span>
+    <code class="diff-file-path">cmd/wipnote/lineage.go</code>
+  </header>
+  
+  <div class="diff-hunk">
+    <div class="hunk-meta">
+      <code class="hunk-header">import (</code>
+      <span class="hunk-summary">7 added, 7 removed</span>
+    </div>
+    
+    <pre class="diff-pre"><code class="language-go">- 
+- 	dbpkg &#34;github.com/shakestzd/wipnote/core/db&#34;
+- 	&#34;github.com/shakestzd/wipnote/core/graph&#34;
+- 	&#34;github.com/shakestzd/wipnote/core/models&#34;
+- 	&#34;github.com/spf13/cobra&#34;
+- )
+- 
++ 
++ 	dbpkg &#34;github.com/shakestzd/wipnote/core/db&#34;
++ 	&#34;github.com/shakestzd/wipnote/core/graph&#34;
++ 	&#34;github.com/shakestzd/wipnote/internal/lineage&#34;
++ 	&#34;github.com/spf13/cobra&#34;
++ )
++ 
+</code></pre>
+    
+  </div>
+  
+  <div class="diff-hunk">
+    <div class="hunk-meta">
+      <code class="hunk-header">type lineageOpts struct {</code>
+      <span class="hunk-summary">10 added, 23 removed</span>
+    </div>
+    
+    <pre class="diff-pre"><code class="language-go">- 	timelineSet bool
+- }
+- 
+- // lineageNode is one hop in a forward or backward chain. It is the wire format
+- // for --json output and a convenient internal representation for tree rendering.
+- type lineageNode struct {
+- 	ID       string `json:&#34;id&#34;`
+- 	Type     string `json:&#34;type&#34;`
+- 	Title    string `json:&#34;title,omitempty&#34;`
+- 	EdgeType string `json:&#34;edge_type&#34;`
+- 	Depth    int    `json:&#34;depth&#34;`
+- 	// Parent is the node ID that this hop was discovered from during BFS. For
+- 	// the pivot&#39;s direct neighbours it equals the pivot. Used by the tree
+- 	// renderer to build a real adjacency structure so branched walks don&#39;t
+- 	// visually attach grandchildren to the wrong parent.
+- 	Parent string `json:&#34;parent,omitempty&#34;`
+- 	// timestamp is populated for --timeline rendering by joining git_commits /
+- 	// agent_events. Empty when no temporal data is available.
+- 	Timestamp string `json:&#34;timestamp,omitempty&#34;`
+- }
+- 
+- // lineageJSON is the stable schema emitted by `wipnote lineage --json`.
+- //
++ 	timelineSet bool
++ }
++ 
++ // lineageNode is one hop in a forward or backward chain. It is an alias to the
++ // shared internal/lineage.Node so the BFS walk has a single source of truth
++ // while the CLI&#39;s rendering and --json code keeps its existing field access.
++ type lineageNode = lineage.Node
++ 
++ // lineageJSON is the stable schema emitted by `wipnote lineage --json`.
++ //
+</code></pre>
+    
+  </div>
+  
+  <div class="diff-hunk">
+    <div class="hunk-meta">
+      <code class="hunk-header">type lineageJSON struct {</code>
+      <span class="hunk-summary">10 added, 20 removed</span>
+    </div>
+    
+    <pre class="diff-pre"><code class="language-go">- 	AgentTree string        `json:&#34;agent_tree,omitempty&#34;`
+- }
+- 
+- // allLineageRels lists all 10 relationship types we traverse. We do NOT subset:
+- // any of these can carry causal meaning depending on the slice in question.
+- var allLineageRels = []string{
+- 	string(models.RelBlocks),
+- 	string(models.RelBlockedBy),
+- 	string(models.RelRelatesTo),
+- 	string(models.RelImplements),
+- 	string(models.RelCausedBy),
+- 	string(models.RelSpawnedFrom),
+- 	string(models.RelImplementedIn),
+- 	string(models.RelPartOf),
+- 	string(models.RelContains),
+- 	string(models.RelPlannedIn),
+- }
+- 
+- // newLineageCmd registers `wipnote lineage &lt;id&gt;` — the headline unified
+- // causal chain command. It auto-detects the input type, walks graph_edges in
++ 	AgentTree string        `json:&#34;agent_tree,omitempty&#34;`
++ }
++ 
++ // allLineageRels lists all 10 relationship types we traverse. It is the shared
++ // list owned by internal/lineage; we do NOT subset because any of these can
++ // carry causal meaning depending on the slice in question.
++ var allLineageRels = lineage.AllRels
++ 
++ // newLineageCmd registers `wipnote lineage &lt;id&gt;` — the headline unified
++ // causal chain command. It auto-detects the input type, walks graph_edges in
+</code></pre>
+    
+  </div>
+  
+  <div class="diff-hunk">
+    <div class="hunk-meta">
+      <code class="hunk-header">func runLineage(w io.Writer, db *sql.DB, arg string, opts lineageOpts) error {</code>
+      <span class="hunk-summary">18 added, 18 removed</span>
+    </div>
+    
+    <pre class="diff-pre"><code class="language-go">- 		return runLineageFile(w, db, arg, opts)
+- 	}
+- 
+- 	forward, err := forwardWalk(db, arg, allLineageRels, opts.depth)
+- 	if err != nil {
+- 		return fmt.Errorf(&#34;forward walk: %w&#34;, err)
+- 	}
+- 	backward, err := backwardWalk(db, arg, allLineageRels, opts.depth)
+- 	if err != nil {
+- 		return fmt.Errorf(&#34;backward walk: %w&#34;, err)
+- 	}
+- 
+- 	if opts.timeline {
+- 		annotateTimestamps(db, forward)
+- 		annotateTimestamps(db, backward)
+- 	}
+- 
+- 	// Session roots carry an agent spawn tree as a secondary view. Render it
++ 		return runLineageFile(w, db, arg, opts)
++ 	}
++ 
++ 	forward, err := lineage.ForwardWalk(db, arg, allLineageRels, opts.depth)
++ 	if err != nil {
++ 		return fmt.Errorf(&#34;forward walk: %w&#34;, err)
++ 	}
++ 	backward, err := lineage.BackwardWalk(db, arg, allLineageRels, opts.depth)
++ 	if err != nil {
++ 		return fmt.Errorf(&#34;backward walk: %w&#34;, err)
++ 	}
++ 
++ 	if opts.timeline {
++ 		lineage.AnnotateTimestamps(db, forward)
++ 		lineage.AnnotateTimestamps(db, backward)
++ 	}
++ 
++ 	// Session roots carry an agent spawn tree as a secondary view. Render it
+</code></pre>
+    
+  </div>
+  
+  <div class="diff-hunk">
+    <div class="hunk-meta">
+      <code class="hunk-header">func runLineage(w io.Writer, db *sql.DB, arg string, opts lineageOpts) error {</code>
+      <span class="hunk-summary">6 added, 137 removed</span>
+    </div>
+    
+    <pre class="diff-pre"><code class="language-go">- 	return nil
+- }
+- 
+- // forwardWalk performs a BFS following from_node_id = current outward.
+- // Returns nodes in BFS order, each annotated with the edge type that reached
+- // it and the hop depth (1-indexed).
+- func forwardWalk(db *sql.DB, root string, rels []string, maxDepth int) ([]lineageNode, error) {
+- 	return bfsWalk(db, root, rels, maxDepth, true)
+- }
+- 
+- // backwardWalk performs a BFS following to_node_id = current inward — i.e.
+- // &#34;who points at me?&#34;. This is the inline reverse query the plan calls for.
+- func backwardWalk(db *sql.DB, root string, rels []string, maxDepth int) ([]lineageNode, error) {
+- 	return bfsWalk(db, root, rels, maxDepth, false)
+- }
+- 
+- // bfsWalk is the shared BFS engine for both directions. When forward=true it
+- // follows from-&gt;to edges; when false it follows to-&gt;from edges.
+- func bfsWalk(db *sql.DB, root string, rels []string, maxDepth int, forward bool) ([]lineageNode, error) {
+- 	if maxDepth &lt;= 0 || len(rels) == 0 {
+- 		return nil, nil
+- 	}
+- 
+- 	placeholders := strings.Repeat(&#34;?,&#34;, len(rels))
+- 	placeholders = placeholders[:len(placeholders)-1]
+- 	var query string
+- 	if forward {
+- 		query = fmt.Sprintf(
+- 			`SELECT to_node_id, to_node_type, relationship_type
+- 			 FROM graph_edges
+- 			 WHERE from_node_id = ? AND relationship_type IN (%s)`,
+- 			placeholders,
+- 		)
+- 	} else {
+- 		query = fmt.Sprintf(
+- 			`SELECT from_node_id, from_node_type, relationship_type
+- 			 FROM graph_edges
+- 			 WHERE to_node_id = ? AND relationship_type IN (%s)`,
+- 			placeholders,
+- 		)
+- 	}
+- 
+- 	type queueEntry struct {
+- 		id    string
+- 		depth int
+- 	}
+- 	visited := map[string]bool{root: true}
+- 	queue := []queueEntry{{id: root, depth: 0}}
+- 	var result []lineageNode
+- 
+- 	for len(queue) &gt; 0 {
+- 		cur := queue[0]
+- 		queue = queue[1:]
+- 		if cur.depth &gt;= maxDepth {
+- 			continue
+- 		}
+- 		args := make([]any, 0, 1&#43;len(rels))
+- 		args = append(args, cur.id)
+- 		for _, r := range rels {
+- 			args = append(args, r)
+- 		}
+- 		// bug-7dbaf552: the retry unit is THIS QUERY ONLY, never the BFS
+- 		// iteration. On a contended DELETE-journal DB a single neighbour
+- 		// query can transiently SQLITE_BUSY; without a retry the whole
+- 		// `wipnote lineage` invocation fails. RetryOnBusy re-runs only the
+- 		// db.Query call. Critical lock-hygiene: a *sql.Rows from a failed
+- 		// attempt holds a read lock until closed, so if the closure ever
+- 		// captured rows on a BUSY path we MUST close it before the next
+- 		// attempt. Here db.Query returns err WITHOUT a usable rows handle on
+- 		// BUSY (rows is nil / already finalised by the driver), so there is
+- 		// nothing to leak between attempts; rows is assigned only on the
+- 		// terminal (success or hard-error) attempt and is closed exactly
+- 		// once below after iteration. We defensively Close any non-nil rows
+- 		// from a BUSY attempt before retrying to make the invariant explicit
+- 		// and robust to driver changes.
+- 		var rows *sql.Rows
+- 		err := dbpkg.RetryOnBusy(dbpkg.DefaultBusyBackoff, func() error {
+- 			r, qerr := db.Query(query, args...)
+- 			if qerr != nil {
+- 				if r != nil { // defensive: never carry an open lock into a retry
+- 					r.Close()
+- 				}
+- 				return qerr
+- 			}
+- 			rows = r
+- 			return nil
+- 		})
+- 		if err != nil {
+- 			return nil, fmt.Errorf(&#34;query neighbors of %s: %w&#34;, cur.id, err)
+- 		}
+- 		for rows.Next() {
+- 			var nid, ntype, rel string
+- 			if err := rows.Scan(&amp;nid, &amp;ntype, &amp;rel); err != nil {
+- 				rows.Close()
+- 				return nil, fmt.Errorf(&#34;scan neighbor: %w&#34;, err)
+- 			}
+- 			if visited[nid] {
+- 				continue
+- 			}
+- 			visited[nid] = true
+- 			node := lineageNode{
+- 				ID:       nid,
+- 				Type:     ntype,
+- 				EdgeType: rel,
+- 				Depth:    cur.depth &#43; 1,
+- 				Parent:   cur.id,
+- 			}
+- 			result = append(result, node)
+- 			queue = append(queue, queueEntry{id: nid, depth: cur.depth &#43; 1})
+- 		}
+- 		if err := rows.Err(); err != nil {
+- 			rows.Close()
+- 			return nil, fmt.Errorf(&#34;iterate neighbors of %s: %w&#34;, cur.id, err)
+- 		}
+- 		rows.Close()
+- 	}
+- 
+- 	// Resolve titles in one shot for display.
+- 	if len(result) &gt; 0 {
+- 		ids := make([]string, len(result))
+- 		for i, n := range result {
+- 			ids[i] = n.ID
+- 		}
+- 		labels := graph.ResolveToMap(db, ids)
+- 		for i := range result {
+- 			if r, ok := labels[result[i].ID]; ok {
+- 				result[i].Title = r.Title
+- 			}
+- 		}
+- 	}
+- 
+- 	return result, nil
+- }
+- 
+- // sortLineageTimeline sorts nodes in place by ascending Timestamp, pushing
+- // nodes without a timestamp to the END so &#34;oldest first&#34; rendering is honest
+- // even when only part of the walk has temporal data.
++ 	return nil
++ }
++ 
++ // sortLineageTimeline sorts nodes in place by ascending Timestamp, pushing
++ // nodes without a timestamp to the END so &#34;oldest first&#34; rendering is honest
++ // even when only part of the walk has temporal data.
+</code></pre>
+    
+  </div>
+  
+  <div class="diff-hunk">
+    <div class="hunk-meta">
+      <code class="hunk-header">func sortLineageTimeline(nodes []lineageNode) {</code>
+      <span class="hunk-summary">6 added, 42 removed</span>
+    </div>
+    
+    <pre class="diff-pre"><code class="language-go">- 	})
+- }
+- 
+- // annotateTimestamps fills in lineageNode.Timestamp by joining git_commits
+- // (commit_hash) and agent_events (session_id). Best-effort: missing rows
+- // silently leave Timestamp empty so timeline rendering still includes them.
+- func annotateTimestamps(db *sql.DB, nodes []lineageNode) {
+- 	for i := range nodes {
+- 		var ts sql.NullString
+- 		// bug-7dbaf552: best-effort timestamp lookups still wrapped in
+- 		// RetryOnBusy so a transient SQLITE_BUSY doesn&#39;t silently blank the
+- 		// timeline column under contention. QueryRow().Scan() consumes and
+- 		// closes its single row internally, so there is no *sql.Rows to leak
+- 		// across retries — the retry unit is naturally the whole Scan.
+- 		// sql.ErrNoRows is NOT a BusyError, so RetryOnBusy returns it
+- 		// immediately and we keep the original best-effort (ignore-error)
+- 		// behaviour.
+- 		// Try git_commits first (commit-shaped IDs).
+- 		_ = dbpkg.RetryOnBusy(dbpkg.DefaultBusyBackoff, func() error {
+- 			return db.QueryRow(
+- 				`SELECT timestamp FROM git_commits WHERE commit_hash = ? LIMIT 1`,
+- 				nodes[i].ID,
+- 			).Scan(&amp;ts)
+- 		})
+- 		if !ts.Valid || ts.String == &#34;&#34; {
+- 			// Fall back to agent_events.timestamp via session_id.
+- 			_ = dbpkg.RetryOnBusy(dbpkg.DefaultBusyBackoff, func() error {
+- 				return db.QueryRow(
+- 					`SELECT MIN(timestamp) FROM agent_events WHERE session_id = ?`,
+- 					nodes[i].ID,
+- 				).Scan(&amp;ts)
+- 			})
+- 		}
+- 		if ts.Valid {
+- 			nodes[i].Timestamp = ts.String
+- 		}
+- 	}
+- }
+- 
+- // renderLineageJSON emits the stable {root, kind, forward, backward, agent_tree?} schema.
+- func renderLineageJSON(w io.Writer, root string, kind lineageKind, forward, backward []lineageNode, agentTree string) error {
+- 	out := lineageJSON{
++ 	})
++ }
++ 
++ // renderLineageJSON emits the stable {root, kind, forward, backward, agent_tree?} schema.
++ func renderLineageJSON(w io.Writer, root string, kind lineageKind, forward, backward []lineageNode, agentTree string) error {
++ 	out := lineageJSON{
+</code></pre>
+    
+  </div>
+  
+</article>
+<article class="annotated-diff diff-unified diff-unified" data-language="go">
+  <header class="diff-file-header">
+    <span class="file-change file-change-modify">modify</span>
+    <code class="diff-file-path">cmd/wipnote/lineage_busy_test.go</code>
+  </header>
+  
+  <div class="diff-hunk">
+    <div class="hunk-meta">
+      <code class="hunk-header">import (</code>
+      <span class="hunk-summary">7 added, 6 removed</span>
+    </div>
+    
+    <pre class="diff-pre"><code class="language-go">- 	&#34;time&#34;
+- 
+- 	&#34;github.com/shakestzd/wipnote/core/db&#34;
+- )
+- 
+- // seedLineageGraph inserts a small graph_edges chain rooted at root so a
++ 	&#34;time&#34;
++ 
++ 	&#34;github.com/shakestzd/wipnote/core/db&#34;
++ 	&#34;github.com/shakestzd/wipnote/internal/lineage&#34;
++ )
++ 
++ // seedLineageGraph inserts a small graph_edges chain rooted at root so a
+</code></pre>
+    
+  </div>
+  
+  <div class="diff-hunk">
+    <div class="hunk-meta">
+      <code class="hunk-header">func TestLineageBfsWalk_NoBusyUnderContention(t *testing.T) {</code>
+      <span class="hunk-summary">7 added, 7 removed</span>
+    </div>
+    
+    <pre class="diff-pre"><code class="language-go">- 			deadline := time.Now().Add(3 * time.Second)
+- 			passes := 0
+- 			for time.Now().Before(deadline) {
+- 				nodes, walkErr := forwardWalk(ro, root, allLineageRels, 5)
+- 				if walkErr != nil {
+- 					cancel()
+- 					writers.Wait()
++ 			deadline := time.Now().Add(3 * time.Second)
++ 			passes := 0
++ 			for time.Now().Before(deadline) {
++ 				nodes, walkErr := lineage.ForwardWalk(ro, root, allLineageRels, 5)
++ 				if walkErr != nil {
++ 					cancel()
++ 					writers.Wait()
+</code></pre>
+    
+  </div>
+  
+  <div class="diff-hunk">
+    <div class="hunk-meta">
+      <code class="hunk-header">func TestLineageBfsWalk_RetryBoundaryClosesRows(t *testing.T) {</code>
+      <span class="hunk-summary">7 added, 7 removed</span>
+    </div>
+    
+    <pre class="diff-pre"><code class="language-go">- 	}
+- 	defer ro.Close()
+- 
+- 	if _, err := forwardWalk(ro, root, allLineageRels, 5); err != nil {
+- 		t.Fatalf(&#34;forwardWalk: %v&#34;, err)
+- 	}
+- 
++ 	}
++ 	defer ro.Close()
++ 
++ 	if _, err := lineage.ForwardWalk(ro, root, allLineageRels, 5); err != nil {
++ 		t.Fatalf(&#34;forwardWalk: %v&#34;, err)
++ 	}
++ 
+</code></pre>
+    
+  </div>
+  
+</article>
+<article class="annotated-diff diff-unified diff-unified" data-language="go">
+  <header class="diff-file-header">
+    <span class="file-change file-change-add">add</span>
+    <code class="diff-file-path">internal/lineage/walk.go</code>
+  </header>
+  
+  <div class="diff-hunk">
+    <div class="hunk-meta">
+      <code class="hunk-header"></code>
+      <span class="hunk-summary">235 added, 0 removed</span>
+    </div>
+    
+    <pre class="diff-pre"><code class="language-go">+ // Package lineage holds the pure bidirectional BFS walk over the graph_edges
++ // table. It is the single source of truth for lineage traversal, consumed by
++ // both the `wipnote lineage` CLI command and the recap collector.
++ //
++ // The package takes only a *sql.DB; it performs no rendering and depends on no
++ // cobra/cmd wiring. Import direction is internal-only: cmd/wipnote and
++ // internal/recap import this; this imports core/db and core/graph.
++ package lineage
++ 
++ import (
++ 	&#34;database/sql&#34;
++ 	&#34;fmt&#34;
++ 	&#34;strings&#34;
++ 
++ 	dbpkg &#34;github.com/shakestzd/wipnote/core/db&#34;
++ 	&#34;github.com/shakestzd/wipnote/core/graph&#34;
++ 	&#34;github.com/shakestzd/wipnote/core/models&#34;
++ )
++ 
++ // Node is one hop in a forward or backward chain. It is the wire format for the
++ // CLI&#39;s --json output and a convenient internal representation for tree
++ // rendering and recap lineage chains.
++ type Node struct {
++ 	ID       string `json:&#34;id&#34;`
++ 	Type     string `json:&#34;type&#34;`
++ 	Title    string `json:&#34;title,omitempty&#34;`
++ 	EdgeType string `json:&#34;edge_type&#34;`
++ 	Depth    int    `json:&#34;depth&#34;`
++ 	// Parent is the node ID that this hop was discovered from during BFS. For
++ 	// the pivot&#39;s direct neighbours it equals the pivot. Used by the tree
++ 	// renderer to build a real adjacency structure so branched walks don&#39;t
++ 	// visually attach grandchildren to the wrong parent.
++ 	Parent string `json:&#34;parent,omitempty&#34;`
++ 	// Timestamp is populated for --timeline rendering by joining git_commits /
++ 	// agent_events. Empty when no temporal data is available.
++ 	Timestamp string `json:&#34;timestamp,omitempty&#34;`
++ }
++ 
++ // AllRels lists all 10 relationship types we traverse. We do NOT subset: any of
++ // these can carry causal meaning depending on the slice in question.
++ var AllRels = []string{
++ 	string(models.RelBlocks),
++ 	string(models.RelBlockedBy),
++ 	string(models.RelRelatesTo),
++ 	string(models.RelImplements),
++ 	string(models.RelCausedBy),
++ 	string(models.RelSpawnedFrom),
++ 	string(models.RelImplementedIn),
++ 	string(models.RelPartOf),
++ 	string(models.RelContains),
++ 	string(models.RelPlannedIn),
++ }
++ 
++ // ForwardWalk performs a BFS following from_node_id = current outward. Returns
++ // nodes in BFS order, each annotated with the edge type that reached it and the
++ // hop depth (1-indexed).
++ func ForwardWalk(db *sql.DB, root string, rels []string, maxDepth int) ([]Node, error) {
++ 	return BFSWalk(db, root, rels, maxDepth, true)
++ }
++ 
++ // BackwardWalk performs a BFS following to_node_id = current inward — i.e.
++ // &#34;who points at me?&#34;.
++ func BackwardWalk(db *sql.DB, root string, rels []string, maxDepth int) ([]Node, error) {
++ 	return BFSWalk(db, root, rels, maxDepth, false)
++ }
++ 
++ // BFSWalk is the shared BFS engine for both directions. When forward=true it
++ // follows from-&gt;to edges; when false it follows to-&gt;from edges.
++ func BFSWalk(db *sql.DB, root string, rels []string, maxDepth int, forward bool) ([]Node, error) {
++ 	if maxDepth &lt;= 0 || len(rels) == 0 {
++ 		return nil, nil
++ 	}
++ 
++ 	query := neighborQuery(rels, forward)
++ 
++ 	type queueEntry struct {
++ 		id    string
++ 		depth int
++ 	}
++ 	visited := map[string]bool{root: true}
++ 	queue := []queueEntry{{id: root, depth: 0}}
++ 	var result []Node
++ 
++ 	for len(queue) &gt; 0 {
++ 		cur := queue[0]
++ 		queue = queue[1:]
++ 		if cur.depth &gt;= maxDepth {
++ 			continue
++ 		}
++ 		nodes, err := queryNeighbors(db, query, cur.id, rels)
++ 		if err != nil {
++ 			return nil, err
++ 		}
++ 		for _, n := range nodes {
++ 			if visited[n.id] {
++ 				continue
++ 			}
++ 			visited[n.id] = true
++ 			result = append(result, Node{
++ 				ID:       n.id,
++ 				Type:     n.ntype,
++ 				EdgeType: n.rel,
++ 				Depth:    cur.depth &#43; 1,
++ 				Parent:   cur.id,
++ 			})
++ 			queue = append(queue, queueEntry{id: n.id, depth: cur.depth &#43; 1})
++ 		}
++ 	}
++ 
++ 	resolveTitles(db, result)
++ 	return result, nil
++ }
++ 
++ // neighborRow is a raw graph_edges neighbour before BFS bookkeeping.
++ type neighborRow struct {
++ 	id    string
++ 	ntype string
++ 	rel   string
++ }
++ 
++ // queryNeighbors runs the directional neighbour query for one node, with a
++ // SQLITE_BUSY retry around the query only.
++ //
++ // bug-7dbaf552: the retry unit is THIS QUERY ONLY, never the BFS iteration. On
++ // a contended DELETE-journal DB a single neighbour query can transiently
++ // SQLITE_BUSY; without a retry the whole walk fails. db.Query returns err
++ // WITHOUT a usable rows handle on BUSY, so there is nothing to leak between
++ // attempts; rows is closed exactly once after iteration. We defensively Close
++ // any non-nil rows from a BUSY attempt before retrying to make the invariant
++ // explicit and robust to driver changes.
++ func queryNeighbors(db *sql.DB, query, id string, rels []string) ([]neighborRow, error) {
++ 	args := make([]any, 0, 1&#43;len(rels))
++ 	args = append(args, id)
++ 	for _, r := range rels {
++ 		args = append(args, r)
++ 	}
++ 	var rows *sql.Rows
++ 	err := dbpkg.RetryOnBusy(dbpkg.DefaultBusyBackoff, func() error {
++ 		r, qerr := db.Query(query, args...)
++ 		if qerr != nil {
++ 			if r != nil { // defensive: never carry an open lock into a retry
++ 				r.Close()
++ 			}
++ 			return qerr
++ 		}
++ 		rows = r
++ 		return nil
++ 	})
++ 	if err != nil {
++ 		return nil, fmt.Errorf(&#34;query neighbors of %s: %w&#34;, id, err)
++ 	}
++ 	defer rows.Close()
++ 
++ 	var out []neighborRow
++ 	for rows.Next() {
++ 		var nr neighborRow
++ 		if err := rows.Scan(&amp;nr.id, &amp;nr.ntype, &amp;nr.rel); err != nil {
++ 			return nil, fmt.Errorf(&#34;scan neighbor: %w&#34;, err)
++ 		}
++ 		out = append(out, nr)
++ 	}
++ 	if err := rows.Err(); err != nil {
++ 		return nil, fmt.Errorf(&#34;iterate neighbors of %s: %w&#34;, id, err)
++ 	}
++ 	return out, nil
++ }
++ 
++ // neighborQuery builds the directional neighbour SELECT with one placeholder
++ // per relationship type.
++ func neighborQuery(rels []string, forward bool) string {
++ 	placeholders := strings.Repeat(&#34;?,&#34;, len(rels))
++ 	placeholders = placeholders[:len(placeholders)-1]
++ 	if forward {
++ 		return fmt.Sprintf(
++ 			`SELECT to_node_id, to_node_type, relationship_type
++ 			 FROM graph_edges
++ 			 WHERE from_node_id = ? AND relationship_type IN (%s)`,
++ 			placeholders,
++ 		)
++ 	}
++ 	return fmt.Sprintf(
++ 		`SELECT from_node_id, from_node_type, relationship_type
++ 		 FROM graph_edges
++ 		 WHERE to_node_id = ? AND relationship_type IN (%s)`,
++ 		placeholders,
++ 	)
++ }
++ 
++ // resolveTitles fills Node.Title in one shot for display.
++ func resolveTitles(db *sql.DB, nodes []Node) {
++ 	if len(nodes) == 0 {
++ 		return
++ 	}
++ 	ids := make([]string, len(nodes))
++ 	for i, n := range nodes {
++ 		ids[i] = n.ID
++ 	}
++ 	labels := graph.ResolveToMap(db, ids)
++ 	for i := range nodes {
++ 		if r, ok := labels[nodes[i].ID]; ok {
++ 			nodes[i].Title = r.Title
++ 		}
++ 	}
++ }
++ 
++ // AnnotateTimestamps fills in Node.Timestamp by joining git_commits
++ // (commit_hash) and agent_events (session_id). Best-effort: missing rows
++ // silently leave Timestamp empty so timeline rendering still includes them.
++ func AnnotateTimestamps(db *sql.DB, nodes []Node) {
++ 	for i := range nodes {
++ 		var ts sql.NullString
++ 		// bug-7dbaf552: best-effort timestamp lookups still wrapped in
++ 		// RetryOnBusy so a transient SQLITE_BUSY doesn&#39;t silently blank the
++ 		// timeline column under contention. sql.ErrNoRows is NOT a BusyError, so
++ 		// RetryOnBusy returns it immediately and we keep the best-effort
++ 		// (ignore-error) behaviour.
++ 		_ = dbpkg.RetryOnBusy(dbpkg.DefaultBusyBackoff, func() error {
++ 			return db.QueryRow(
++ 				`SELECT timestamp FROM git_commits WHERE commit_hash = ? LIMIT 1`,
++ 				nodes[i].ID,
++ 			).Scan(&amp;ts)
++ 		})
++ 		if !ts.Valid || ts.String == &#34;&#34; {
++ 			_ = dbpkg.RetryOnBusy(dbpkg.DefaultBusyBackoff, func() error {
++ 				return db.QueryRow(
++ 					`SELECT MIN(timestamp) FROM agent_events WHERE session_id = ?`,
++ 					nodes[i].ID,
++ 				).Scan(&amp;ts)
++ 			})
++ 		}
++ 		if ts.Valid {
++ 			nodes[i].Timestamp = ts.String
++ 		}
++ 	}
++ }
+</code></pre>
+    
+  </div>
+  
+</article>
+<article class="annotated-diff diff-unified diff-unified" data-language="go">
+  <header class="diff-file-header">
+    <span class="file-change file-change-add">add</span>
+    <code class="diff-file-path">internal/lineage/walk_test.go</code>
+  </header>
+  
+  <div class="diff-hunk">
+    <div class="hunk-meta">
+      <code class="hunk-header"></code>
+      <span class="hunk-summary">48 added, 0 removed</span>
+    </div>
+    
+    <pre class="diff-pre"><code class="language-go">+ package lineage
++ 
++ import (
++ 	&#34;database/sql&#34;
++ 	&#34;testing&#34;
++ 
++ 	dbpkg &#34;github.com/shakestzd/wipnote/core/db&#34;
++ )
++ 
++ func TestBFSWalk_Bidirectional(t *testing.T) {
++ 	db, err := dbpkg.Open(&#34;file::memory:?cache=shared&#34;)
++ 	if err != nil {
++ 		t.Fatalf(&#34;open: %v&#34;, err)
++ 	}
++ 	defer db.Close()
++ 
++ 	// feat -&gt; plan (part_of: feat is part of plan); feat -&gt; bug (relates_to).
++ 	mustEdge(t, db, &#34;e1&#34;, &#34;feat-1&#34;, &#34;feature&#34;, &#34;plan-1&#34;, &#34;plan&#34;, &#34;part_of&#34;)
++ 	mustEdge(t, db, &#34;e2&#34;, &#34;feat-1&#34;, &#34;feature&#34;, &#34;bug-1&#34;, &#34;bug&#34;, &#34;relates_to&#34;)
++ 
++ 	fwd, err := ForwardWalk(db, &#34;feat-1&#34;, AllRels, 5)
++ 	if err != nil {
++ 		t.Fatalf(&#34;ForwardWalk: %v&#34;, err)
++ 	}
++ 	if len(fwd) != 2 {
++ 		t.Fatalf(&#34;forward = %d nodes, want 2: %&#43;v&#34;, len(fwd), fwd)
++ 	}
++ 	for _, n := range fwd {
++ 		if n.Parent != &#34;feat-1&#34; || n.Depth != 1 {
++ 			t.Errorf(&#34;node %&#43;v: want parent feat-1 depth 1&#34;, n)
++ 		}
++ 	}
++ 
++ 	back, err := BackwardWalk(db, &#34;plan-1&#34;, AllRels, 5)
++ 	if err != nil {
++ 		t.Fatalf(&#34;BackwardWalk: %v&#34;, err)
++ 	}
++ 	if len(back) != 1 || back[0].ID != &#34;feat-1&#34; {
++ 		t.Fatalf(&#34;backward = %&#43;v, want [feat-1]&#34;, back)
++ 	}
++ }
++ 
++ func mustEdge(t *testing.T, db *sql.DB, id, fromID, fromType, toID, toType, rel string) {
++ 	t.Helper()
++ 	if err := dbpkg.InsertEdge(db, id, fromID, fromType, toID, toType, rel, nil); err != nil {
++ 		t.Fatalf(&#34;InsertEdge: %v&#34;, err)
++ 	}
++ }
+</code></pre>
+    
+  </div>
+  
+</article>
+<article class="annotated-diff diff-unified diff-unified" data-language="go">
+  <header class="diff-file-header">
+    <span class="file-change file-change-add">add</span>
+    <code class="diff-file-path">internal/recap/collect.go</code>
+  </header>
+  
+  <div class="diff-hunk">
+    <div class="hunk-meta">
+      <code class="hunk-header"></code>
+      <span class="hunk-summary">229 added, 0 removed</span>
+    </div>
+    
+    <pre class="diff-pre"><code class="language-go">+ package recap
++ 
++ import (
++ 	&#34;database/sql&#34;
++ 	&#34;fmt&#34;
++ 	&#34;sort&#34;
++ 	&#34;strings&#34;
++ 
++ 	dbpkg &#34;github.com/shakestzd/wipnote/core/db&#34;
++ 	&#34;github.com/shakestzd/wipnote/core/models&#34;
++ 	&#34;github.com/shakestzd/wipnote/internal/lineage&#34;
++ )
++ 
++ // defaultDepth is the lineage walk depth used when Options.Depth is unset.
++ const defaultDepth = 5
++ 
++ // Options configures a Collect call.
++ type Options struct {
++ 	// Input is the single resolvable input: a work-item id (feat-/bug-/spk-),
++ 	// a git range (e.g. &#34;main..HEAD&#34;), or a session id (sess-...).
++ 	Input string
++ 	// ProjectDir is the repository root used for all git subprocess calls.
++ 	ProjectDir string
++ 	// Depth bounds the lineage walk. Zero falls back to defaultDepth.
++ 	Depth int
++ }
++ 
++ // Collect resolves Options.Input into grounded RecapData. It dispatches on the
++ // input&#39;s shape — work-item ids and session ids walk the lineage graph and read
++ // the git_commits read index; a bare git range diffs directly with no work-item
++ // grounding (LineageChain is omitted).
++ func Collect(db *sql.DB, opts Options) (*RecapData, error) {
++ 	input := strings.TrimSpace(opts.Input)
++ 	if input == &#34;&#34; {
++ 		return nil, fmt.Errorf(&#34;recap: empty input&#34;)
++ 	}
++ 	if opts.Depth &lt;= 0 {
++ 		opts.Depth = defaultDepth
++ 	}
++ 
++ 	switch detectKind(input) {
++ 	case InputWorkItem:
++ 		return collectWorkItem(db, opts, input)
++ 	case InputSession:
++ 		return collectSession(db, opts, input)
++ 	default:
++ 		return collectRange(opts, input)
++ 	}
++ }
++ 
++ // detectKind classifies the input string. Work-item and session ids are prefix
++ // routed; everything else is treated as a git range.
++ func detectKind(input string) InputKind {
++ 	switch {
++ 	case strings.HasPrefix(input, &#34;feat-&#34;),
++ 		strings.HasPrefix(input, &#34;bug-&#34;),
++ 		strings.HasPrefix(input, &#34;spk-&#34;):
++ 		return InputWorkItem
++ 	case strings.HasPrefix(input, &#34;sess-&#34;):
++ 		return InputSession
++ 	default:
++ 		return InputRange
++ 	}
++ }
++ 
++ // collectWorkItem resolves a feat-/bug-/spk- id: its commits (from the
++ // git_commits read index, keyed type-agnostically by feature_id) plus the
++ // bidirectional lineage chain.
++ func collectWorkItem(db *sql.DB, opts Options, id string) (*RecapData, error) {
++ 	commits, err := dbpkg.GetCommitsByFeature(db, id)
++ 	if err != nil {
++ 		return nil, fmt.Errorf(&#34;recap: commits for %s: %w&#34;, id, err)
++ 	}
++ 	chain := walkLineage(db, id, opts.Depth)
++ 	data, gitRange, err := buildFromCommits(opts.ProjectDir, commits)
++ 	if err != nil {
++ 		return nil, err
++ 	}
++ 	data.Outcome = resolveTitle(db, id)
++ 	data.LineageChain = chain
++ 	data.Provenance = Provenance{Kind: InputWorkItem, Input: id, GitRange: gitRange, Grounded: true}
++ 	return data, nil
++ }
++ 
++ // collectSession resolves a session id: the commits produced in that session
++ // plus the lineage chain rooted at the session. Grounding is true only when at
++ // least one commit carries a feature_id.
++ func collectSession(db *sql.DB, opts Options, id string) (*RecapData, error) {
++ 	commits, err := dbpkg.GetCommitsBySession(db, id)
++ 	if err != nil {
++ 		return nil, fmt.Errorf(&#34;recap: commits for %s: %w&#34;, id, err)
++ 	}
++ 	chain := walkLineage(db, id, opts.Depth)
++ 	data, gitRange, err := buildFromCommits(opts.ProjectDir, commits)
++ 	if err != nil {
++ 		return nil, err
++ 	}
++ 	data.Outcome = fmt.Sprintf(&#34;Session %s&#34;, id)
++ 	data.LineageChain = chain
++ 	data.Provenance = Provenance{Kind: InputSession, Input: id, GitRange: gitRange, Grounded: hasFeature(commits)}
++ 	return data, nil
++ }
++ 
++ // collectRange resolves a bare git range with no work-item grounding. Lineage is
++ // omitted; only diff/file/commit data is returned.
++ func collectRange(opts Options, gitRange string) (*RecapData, error) {
++ 	commits, err := commitsInRange(opts.ProjectDir, gitRange)
++ 	if err != nil {
++ 		return nil, err
++ 	}
++ 	files, err := diffRange(opts.ProjectDir, gitRange)
++ 	if err != nil {
++ 		return nil, err
++ 	}
++ 	return &amp;RecapData{
++ 		Outcome: fmt.Sprintf(&#34;Changes in %s&#34;, gitRange),
++ 		Files:   files,
++ 		Commits: commits,
++ 		Provenance: Provenance{
++ 			Kind:     InputRange,
++ 			Input:    gitRange,
++ 			GitRange: gitRange,
++ 			Grounded: false,
++ 		},
++ 	}, nil
++ }
++ 
++ // walkLineage performs the bidirectional lineage walk and concatenates the
++ // backward (ancestors) and forward (descendants) chains. A walk failure is
++ // non-fatal: lineage is a value-add, so we degrade to an empty chain.
++ func walkLineage(db *sql.DB, root string, depth int) []lineage.Node {
++ 	backward, err := lineage.BackwardWalk(db, root, lineage.AllRels, depth)
++ 	if err != nil {
++ 		backward = nil
++ 	}
++ 	forward, err := lineage.ForwardWalk(db, root, lineage.AllRels, depth)
++ 	if err != nil {
++ 		forward = nil
++ 	}
++ 	if len(backward) == 0 &amp;&amp; len(forward) == 0 {
++ 		return nil
++ 	}
++ 	chain := make([]lineage.Node, 0, len(backward)&#43;len(forward))
++ 	chain = append(chain, backward...)
++ 	chain = append(chain, forward...)
++ 	return chain
++ }
++ 
++ // buildFromCommits converts read-index commits into RecapData commit entries and
++ // diffs the implied range. It returns the diffed range string (empty when no
++ // commit hashes resolve). When there are no commits the result has empty file
++ // and commit sets so callers can still emit a valid (empty) recap.
++ func buildFromCommits(projectDir string, commits []models.GitCommit) (*RecapData, string, error) {
++ 	data := &amp;RecapData{Commits: toCommits(commits)}
++ 	gitRange := rangeForCommits(projectDir, commits)
++ 	if gitRange == &#34;&#34; {
++ 		return data, &#34;&#34;, nil
++ 	}
++ 	files, err := diffRange(projectDir, gitRange)
++ 	if err != nil {
++ 		return nil, &#34;&#34;, err
++ 	}
++ 	data.Files = files
++ 	return data, gitRange, nil
++ }
++ 
++ // toCommits maps DB commit rows to the recap Commit shape.
++ func toCommits(commits []models.GitCommit) []Commit {
++ 	if len(commits) == 0 {
++ 		return nil
++ 	}
++ 	out := make([]Commit, 0, len(commits))
++ 	for _, c := range commits {
++ 		out = append(out, Commit{
++ 			Hash:      c.CommitHash,
++ 			Message:   c.Message,
++ 			SessionID: c.SessionID,
++ 			FeatureID: c.FeatureID,
++ 			Timestamp: c.Timestamp.UTC().Format(&#34;2006-01-02T15:04:05Z&#34;),
++ 		})
++ 	}
++ 	return out
++ }
++ 
++ // rangeForCommits derives a diffable range spanning the resolved commits:
++ // &#34;&lt;oldest&gt;^..&lt;newest&gt;&#34;. Commit rows are timestamp-DESC, so the newest is first.
++ // Returns &#34;&#34; when no commit hashes resolve in the repository.
++ func rangeForCommits(projectDir string, commits []models.GitCommit) string {
++ 	var hashes []string
++ 	for _, c := range commits {
++ 		if h := strings.TrimSpace(c.CommitHash); h != &#34;&#34; &amp;&amp; commitExists(projectDir, h) {
++ 			hashes = append(hashes, h)
++ 		}
++ 	}
++ 	if len(hashes) == 0 {
++ 		return &#34;&#34;
++ 	}
++ 	newest := hashes[0]
++ 	oldest := hashes[len(hashes)-1]
++ 	return oldest &#43; &#34;^..&#34; &#43; newest
++ }
++ 
++ // resolveTitle returns the work item&#39;s display title for the recap outcome.
++ // It uses the feature title from the read index when available, falling back to
++ // the id.
++ func resolveTitle(db *sql.DB, id string) string {
++ 	var title sql.NullString
++ 	_ = db.QueryRow(`SELECT title FROM features WHERE id = ? LIMIT 1`, id).Scan(&amp;title)
++ 	if title.Valid &amp;&amp; strings.TrimSpace(title.String) != &#34;&#34; {
++ 		return title.String
++ 	}
++ 	return id
++ }
++ 
++ // hasFeature reports whether any commit carries a feature_id (i.e. the session&#39;s
++ // work is grounded to a work item).
++ func hasFeature(commits []models.GitCommit) bool {
++ 	for _, c := range commits {
++ 		if strings.TrimSpace(c.FeatureID) != &#34;&#34; {
++ 			return true
++ 		}
++ 	}
++ 	return false
++ }
++ 
++ // sortFiles orders FileChange entries deterministically by path.
++ func sortFiles(files []FileChange) {
++ 	sort.Slice(files, func(i, j int) bool { return files[i].Path &lt; files[j].Path })
++ }
+</code></pre>
+    
+  </div>
+  
+</article>
+<article class="annotated-diff diff-unified diff-unified" data-language="go">
+  <header class="diff-file-header">
+    <span class="file-change file-change-add">add</span>
+    <code class="diff-file-path">internal/recap/collect_test.go</code>
+  </header>
+  
+  <div class="diff-hunk">
+    <div class="hunk-meta">
+      <code class="hunk-header"></code>
+      <span class="hunk-summary">272 added, 0 removed</span>
+    </div>
+    
+    <pre class="diff-pre"><code class="language-go">+ package recap
++ 
++ import (
++ 	&#34;database/sql&#34;
++ 	&#34;os&#34;
++ 	&#34;os/exec&#34;
++ 	&#34;path/filepath&#34;
++ 	&#34;testing&#34;
++ 	&#34;time&#34;
++ 
++ 	dbpkg &#34;github.com/shakestzd/wipnote/core/db&#34;
++ 	&#34;github.com/shakestzd/wipnote/core/models&#34;
++ )
++ 
++ // fixture bundles a temp git repo and an in-memory read index with helpers to
++ // stage realistic recap inputs.
++ type fixture struct {
++ 	t       *testing.T
++ 	dir     string
++ 	db      *sql.DB
++ 	commits []string // commit hashes, oldest first
++ }
++ 
++ func newFixture(t *testing.T) *fixture {
++ 	t.Helper()
++ 	dir := t.TempDir()
++ 	run(t, dir, &#34;git&#34;, &#34;init&#34;, &#34;-q&#34;)
++ 	run(t, dir, &#34;git&#34;, &#34;config&#34;, &#34;user.email&#34;, &#34;test@example.com&#34;)
++ 	run(t, dir, &#34;git&#34;, &#34;config&#34;, &#34;user.name&#34;, &#34;Test&#34;)
++ 	run(t, dir, &#34;git&#34;, &#34;config&#34;, &#34;commit.gpgsign&#34;, &#34;false&#34;)
++ 
++ 	database, err := dbpkg.Open(&#34;file::memory:?cache=shared&#34;)
++ 	if err != nil {
++ 		t.Fatalf(&#34;open db: %v&#34;, err)
++ 	}
++ 	t.Cleanup(func() { database.Close() })
++ 	return &amp;fixture{t: t, dir: dir, db: database}
++ }
++ 
++ // commit writes the given file contents and creates a commit, returning its hash.
++ func (f *fixture) commit(msg string, files map[string]string) string {
++ 	f.t.Helper()
++ 	for name, content := range files {
++ 		path := filepath.Join(f.dir, name)
++ 		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
++ 			f.t.Fatalf(&#34;mkdir: %v&#34;, err)
++ 		}
++ 		if content == &#34;&#34; {
++ 			os.Remove(path)
++ 		} else if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
++ 			f.t.Fatalf(&#34;write %s: %v&#34;, name, err)
++ 		}
++ 	}
++ 	run(f.t, f.dir, &#34;git&#34;, &#34;add&#34;, &#34;-A&#34;)
++ 	run(f.t, f.dir, &#34;git&#34;, &#34;commit&#34;, &#34;-q&#34;, &#34;-m&#34;, msg)
++ 	hash := output(f.t, f.dir, &#34;git&#34;, &#34;rev-parse&#34;, &#34;HEAD&#34;)
++ 	f.commits = append(f.commits, hash)
++ 	return hash
++ }
++ 
++ // recordCommit inserts a git_commits read-index row for a hash.
++ func (f *fixture) recordCommit(hash, session, feature, msg string, ts time.Time) {
++ 	f.t.Helper()
++ 	err := dbpkg.InsertGitCommit(f.db, &amp;models.GitCommit{
++ 		CommitHash: hash,
++ 		SessionID:  session,
++ 		FeatureID:  feature,
++ 		Message:    msg,
++ 		Timestamp:  ts,
++ 	})
++ 	if err != nil {
++ 		f.t.Fatalf(&#34;InsertGitCommit: %v&#34;, err)
++ 	}
++ }
++ 
++ func run(t *testing.T, dir string, name string, args ...string) {
++ 	t.Helper()
++ 	cmd := exec.Command(name, args...)
++ 	cmd.Dir = dir
++ 	if out, err := cmd.CombinedOutput(); err != nil {
++ 		t.Fatalf(&#34;%s %v: %v\n%s&#34;, name, args, err, out)
++ 	}
++ }
++ 
++ func output(t *testing.T, dir string, name string, args ...string) string {
++ 	t.Helper()
++ 	cmd := exec.Command(name, args...)
++ 	cmd.Dir = dir
++ 	out, err := cmd.Output()
++ 	if err != nil {
++ 		t.Fatalf(&#34;%s %v: %v&#34;, name, args, err)
++ 	}
++ 	return string(trimNL(out))
++ }
++ 
++ func trimNL(b []byte) []byte {
++ 	for len(b) &gt; 0 &amp;&amp; (b[len(b)-1] == &#39;\n&#39; || b[len(b)-1] == &#39;\r&#39;) {
++ 		b = b[:len(b)-1]
++ 	}
++ 	return b
++ }
++ 
++ func fileChange(data *RecapData, path string) *FileChange {
++ 	for i := range data.Files {
++ 		if data.Files[i].Path == path {
++ 			return &amp;data.Files[i]
++ 		}
++ 	}
++ 	return nil
++ }
++ 
++ func TestCollect_FromFeature(t *testing.T) {
++ 	f := newFixture(t)
++ 	now := time.Now().UTC()
++ 
++ 	f.commit(&#34;seed&#34;, map[string]string{&#34;a.go&#34;: &#34;package a\n\nfunc A() {}\n&#34;})
++ 	c1 := f.commit(&#34;feat: add b&#34;, map[string]string{
++ 		&#34;b.go&#34;: &#34;package b\n\nfunc B() {}\n&#34;,
++ 		&#34;a.go&#34;: &#34;package a\n\nfunc A() int { return 1 }\n&#34;,
++ 	})
++ 	c2 := f.commit(&#34;feat: drop a&#34;, map[string]string{&#34;a.go&#34;: &#34;&#34;})
++ 
++ 	if err := dbpkg.InsertFeature(f.db, &amp;dbpkg.Feature{
++ 		ID: &#34;feat-aaa&#34;, Type: &#34;feature&#34;, Title: &#34;Add B and prune A&#34;,
++ 		Status: &#34;done&#34;, Priority: &#34;medium&#34;, CreatedAt: now, UpdatedAt: now,
++ 	}); err != nil {
++ 		t.Fatalf(&#34;InsertFeature: %v&#34;, err)
++ 	}
++ 	f.recordCommit(c1, &#34;sess-1&#34;, &#34;feat-aaa&#34;, &#34;feat: add b&#34;, now)
++ 	f.recordCommit(c2, &#34;sess-1&#34;, &#34;feat-aaa&#34;, &#34;feat: drop a&#34;, now.Add(time.Second))
++ 
++ 	data, err := Collect(f.db, Options{Input: &#34;feat-aaa&#34;, ProjectDir: f.dir})
++ 	if err != nil {
++ 		t.Fatalf(&#34;Collect: %v&#34;, err)
++ 	}
++ 
++ 	if data.Outcome != &#34;Add B and prune A&#34; {
++ 		t.Errorf(&#34;Outcome = %q, want feature title&#34;, data.Outcome)
++ 	}
++ 	if data.Provenance.Kind != InputWorkItem || !data.Provenance.Grounded {
++ 		t.Errorf(&#34;Provenance = %&#43;v, want grounded work-item&#34;, data.Provenance)
++ 	}
++ 	if len(data.Commits) != 2 {
++ 		t.Fatalf(&#34;Commits = %d, want 2&#34;, len(data.Commits))
++ 	}
++ 
++ 	// Union of changed files across the range: a.go (modified then deleted),
++ 	// b.go (added). Deterministic, path-sorted.
++ 	if got := len(data.Files); got != 2 {
++ 		t.Fatalf(&#34;Files = %d, want 2: %&#43;v&#34;, got, data.Files)
++ 	}
++ 	if data.Files[0].Path != &#34;a.go&#34; || data.Files[1].Path != &#34;b.go&#34; {
++ 		t.Fatalf(&#34;files not path-sorted: %v %v&#34;, data.Files[0].Path, data.Files[1].Path)
++ 	}
++ 	if aChange := fileChange(data, &#34;a.go&#34;); aChange == nil || aChange.Change != ChangeDelete {
++ 		t.Errorf(&#34;a.go change = %v, want delete&#34;, aChange)
++ 	}
++ 	if bChange := fileChange(data, &#34;b.go&#34;); bChange == nil || bChange.Change != ChangeAdd {
++ 		t.Errorf(&#34;b.go change = %v, want add&#34;, bChange)
++ 	}
++ 	bChange := fileChange(data, &#34;b.go&#34;)
++ 	if len(bChange.Hunks) == 0 || len(bChange.Hunks[0].After) == 0 {
++ 		t.Errorf(&#34;b.go hunks missing after-content: %&#43;v&#34;, bChange.Hunks)
++ 	}
++ }
++ 
++ func TestCollect_FromFeature_Deterministic(t *testing.T) {
++ 	f := newFixture(t)
++ 	now := time.Now().UTC()
++ 	f.commit(&#34;seed&#34;, map[string]string{&#34;a.go&#34;: &#34;package a\n&#34;})
++ 	c1 := f.commit(&#34;feat&#34;, map[string]string{
++ 		&#34;z.go&#34;: &#34;package z\n&#34;, &#34;m.go&#34;: &#34;package m\n&#34;, &#34;a.go&#34;: &#34;package a\n// edit\n&#34;,
++ 	})
++ 	f.recordCommit(c1, &#34;sess-x&#34;, &#34;feat-det&#34;, &#34;feat&#34;, now)
++ 
++ 	var prev []string
++ 	for i := 0; i &lt; 3; i&#43;&#43; {
++ 		data, err := Collect(f.db, Options{Input: &#34;feat-det&#34;, ProjectDir: f.dir})
++ 		if err != nil {
++ 			t.Fatalf(&#34;Collect: %v&#34;, err)
++ 		}
++ 		var paths []string
++ 		for _, fc := range data.Files {
++ 			paths = append(paths, fc.Path)
++ 		}
++ 		if i &gt; 0 &amp;&amp; !equal(prev, paths) {
++ 			t.Fatalf(&#34;non-deterministic file set: %v vs %v&#34;, prev, paths)
++ 		}
++ 		prev = paths
++ 	}
++ 	if !equal(prev, []string{&#34;a.go&#34;, &#34;m.go&#34;, &#34;z.go&#34;}) {
++ 		t.Errorf(&#34;file set = %v, want sorted a,m,z&#34;, prev)
++ 	}
++ }
++ 
++ func TestCollect_FromRange(t *testing.T) {
++ 	f := newFixture(t)
++ 	base := f.commit(&#34;base&#34;, map[string]string{&#34;x.go&#34;: &#34;package x\n&#34;})
++ 	f.commit(&#34;change&#34;, map[string]string{
++ 		&#34;x.go&#34;: &#34;package x\n\nfunc X() {}\n&#34;,
++ 		&#34;y.go&#34;: &#34;package y\n&#34;,
++ 	})
++ 
++ 	data, err := Collect(f.db, Options{Input: base &#43; &#34;..HEAD&#34;, ProjectDir: f.dir})
++ 	if err != nil {
++ 		t.Fatalf(&#34;Collect: %v&#34;, err)
++ 	}
++ 
++ 	if data.Provenance.Kind != InputRange {
++ 		t.Errorf(&#34;Kind = %v, want range&#34;, data.Provenance.Kind)
++ 	}
++ 	if data.Provenance.Grounded {
++ 		t.Errorf(&#34;bare range must not be grounded&#34;)
++ 	}
++ 	if len(data.LineageChain) != 0 {
++ 		t.Errorf(&#34;bare range must omit lineage, got %d nodes&#34;, len(data.LineageChain))
++ 	}
++ 	if len(data.Commits) != 1 {
++ 		t.Errorf(&#34;Commits = %d, want 1 (the change commit)&#34;, len(data.Commits))
++ 	}
++ 	if len(data.Files) != 2 {
++ 		t.Fatalf(&#34;Files = %d, want 2&#34;, len(data.Files))
++ 	}
++ 	if data.Files[0].Path != &#34;x.go&#34; || data.Files[1].Path != &#34;y.go&#34; {
++ 		t.Errorf(&#34;range files not path-sorted: %&#43;v&#34;, data.Files)
++ 	}
++ }
++ 
++ func TestCollect_FromSession(t *testing.T) {
++ 	f := newFixture(t)
++ 	now := time.Now().UTC()
++ 	f.commit(&#34;seed&#34;, map[string]string{&#34;a.go&#34;: &#34;package a\n&#34;})
++ 	c1 := f.commit(&#34;work&#34;, map[string]string{&#34;s.go&#34;: &#34;package s\n&#34;})
++ 
++ 	f.recordCommit(c1, &#34;sess-work&#34;, &#34;feat-sess&#34;, &#34;work&#34;, now)
++ 	// A commit from a different session must not appear.
++ 	other := f.commit(&#34;other&#34;, map[string]string{&#34;o.go&#34;: &#34;package o\n&#34;})
++ 	f.recordCommit(other, &#34;sess-other&#34;, &#34;&#34;, &#34;other&#34;, now.Add(time.Second))
++ 
++ 	data, err := Collect(f.db, Options{Input: &#34;sess-work&#34;, ProjectDir: f.dir})
++ 	if err != nil {
++ 		t.Fatalf(&#34;Collect: %v&#34;, err)
++ 	}
++ 
++ 	if data.Provenance.Kind != InputSession {
++ 		t.Errorf(&#34;Kind = %v, want session&#34;, data.Provenance.Kind)
++ 	}
++ 	if !data.Provenance.Grounded {
++ 		t.Errorf(&#34;session with feature_id commit should be grounded&#34;)
++ 	}
++ 	if len(data.Commits) != 1 || data.Commits[0].Hash != c1 {
++ 		t.Fatalf(&#34;Commits = %&#43;v, want only c1&#34;, data.Commits)
++ 	}
++ 	if fc := fileChange(data, &#34;s.go&#34;); fc == nil || fc.Change != ChangeAdd {
++ 		t.Errorf(&#34;s.go = %v, want add&#34;, fc)
++ 	}
++ 	if fc := fileChange(data, &#34;o.go&#34;); fc != nil {
++ 		t.Errorf(&#34;o.go from another session must not appear&#34;)
++ 	}
++ }
++ 
++ func equal(a, b []string) bool {
++ 	if len(a) != len(b) {
++ 		return false
++ 	}
++ 	for i := range a {
++ 		if a[i] != b[i] {
++ 			return false
++ 		}
++ 	}
++ 	return true
++ }
+</code></pre>
+    
+  </div>
+  
+</article>
+<article class="annotated-diff diff-unified diff-unified" data-language="go">
+  <header class="diff-file-header">
+    <span class="file-change file-change-add">add</span>
+    <code class="diff-file-path">internal/recap/git.go</code>
+  </header>
+  
+  <div class="diff-hunk">
+    <div class="hunk-meta">
+      <code class="hunk-header"></code>
+      <span class="hunk-summary">169 added, 0 removed</span>
+    </div>
+    
+    <pre class="diff-pre"><code class="language-go">+ package recap
++ 
++ import (
++ 	&#34;fmt&#34;
++ 	&#34;os/exec&#34;
++ 	&#34;strconv&#34;
++ 	&#34;strings&#34;
++ )
++ 
++ // commitExists reports whether the given revision resolves to a commit object in
++ // the repository at projectDir.
++ func commitExists(projectDir, rev string) bool {
++ 	return exec.Command(&#34;git&#34;, &#34;-C&#34;, projectDir, &#34;cat-file&#34;, &#34;-e&#34;, rev&#43;&#34;^{commit}&#34;).Run() == nil
++ }
++ 
++ // commitsInRange lists the commits contained in a git range (newest first),
++ // returning lightweight Commit entries populated from git metadata. The DB read
++ // index is not consulted here — ranges are not necessarily work-item grounded.
++ func commitsInRange(projectDir, gitRange string) ([]Commit, error) {
++ 	out, err := exec.Command(
++ 		&#34;git&#34;, &#34;-C&#34;, projectDir,
++ 		&#34;log&#34;, &#34;--no-color&#34;, &#34;--format=%H%x1f%s%x1f%cI&#34;, gitRange,
++ 	).Output()
++ 	if err != nil {
++ 		return nil, fmt.Errorf(&#34;recap: git log %s: %w&#34;, gitRange, err)
++ 	}
++ 	var commits []Commit
++ 	for _, line := range strings.Split(strings.TrimSpace(string(out)), &#34;\n&#34;) {
++ 		if line == &#34;&#34; {
++ 			continue
++ 		}
++ 		parts := strings.Split(line, &#34;\x1f&#34;)
++ 		if len(parts) &lt; 3 {
++ 			continue
++ 		}
++ 		commits = append(commits, Commit{
++ 			Hash:      parts[0],
++ 			Message:   parts[1],
++ 			Timestamp: parts[2],
++ 		})
++ 	}
++ 	return commits, nil
++ }
++ 
++ // diffRange runs `git diff --unified=3` over a range, parses the unified diff,
++ // and returns a deterministic, path-sorted set of FileChange values with hunks.
++ func diffRange(projectDir, gitRange string) ([]FileChange, error) {
++ 	out, err := exec.Command(
++ 		&#34;git&#34;, &#34;-C&#34;, projectDir,
++ 		&#34;diff&#34;, &#34;--unified=3&#34;, &#34;--no-color&#34;, gitRange,
++ 	).Output()
++ 	if err != nil {
++ 		return nil, fmt.Errorf(&#34;recap: git diff %s: %w&#34;, gitRange, err)
++ 	}
++ 	files := parseUnifiedDiff(string(out))
++ 	sortFiles(files)
++ 	return files, nil
++ }
++ 
++ // parseUnifiedDiff parses `git diff --unified` output into FileChange entries.
++ // It tracks the add/modify/delete classification from the file header lines and
++ // accumulates before/after content per hunk.
++ func parseUnifiedDiff(diff string) []FileChange {
++ 	var (
++ 		files   []FileChange
++ 		cur     *FileChange
++ 		curHunk *Hunk
++ 	)
++ 	flush := func() {
++ 		if cur != nil &amp;&amp; curHunk != nil {
++ 			cur.Hunks = append(cur.Hunks, *curHunk)
++ 			curHunk = nil
++ 		}
++ 	}
++ 	for _, line := range strings.Split(diff, &#34;\n&#34;) {
++ 		switch {
++ 		case strings.HasPrefix(line, &#34;diff --git &#34;):
++ 			flush()
++ 			if cur != nil {
++ 				files = append(files, *cur)
++ 			}
++ 			cur = &amp;FileChange{Path: pathFromDiffHeader(line), Change: ChangeModify}
++ 		case cur == nil:
++ 			// Preamble before the first file header; ignore.
++ 		case strings.HasPrefix(line, &#34;new file mode&#34;):
++ 			cur.Change = ChangeAdd
++ 		case strings.HasPrefix(line, &#34;deleted file mode&#34;):
++ 			cur.Change = ChangeDelete
++ 		case strings.HasPrefix(line, &#34;rename to &#34;):
++ 			cur.Path = strings.TrimPrefix(line, &#34;rename to &#34;)
++ 		case strings.HasPrefix(line, &#34;&#43;&#43;&#43; &#34;):
++ 			if p := pathFromMarker(line); p != &#34;&#34; {
++ 				cur.Path = p
++ 			}
++ 		case strings.HasPrefix(line, &#34;@@&#34;):
++ 			flush()
++ 			curHunk = parseHunkHeader(line)
++ 		case curHunk == nil:
++ 			// Inside a file header but before the first hunk; ignore.
++ 		case strings.HasPrefix(line, &#34;&#43;&#34;):
++ 			curHunk.After = append(curHunk.After, strings.TrimPrefix(line, &#34;&#43;&#34;))
++ 		case strings.HasPrefix(line, &#34;-&#34;):
++ 			curHunk.Before = append(curHunk.Before, strings.TrimPrefix(line, &#34;-&#34;))
++ 		case strings.HasPrefix(line, &#34; &#34;):
++ 			content := strings.TrimPrefix(line, &#34; &#34;)
++ 			curHunk.Before = append(curHunk.Before, content)
++ 			curHunk.After = append(curHunk.After, content)
++ 		}
++ 	}
++ 	flush()
++ 	if cur != nil {
++ 		files = append(files, *cur)
++ 	}
++ 	return files
++ }
++ 
++ // pathFromDiffHeader extracts the new-side path from a &#34;diff --git a/x b/x&#34;
++ // line, falling back to the old-side path.
++ func pathFromDiffHeader(line string) string {
++ 	fields := strings.Fields(strings.TrimPrefix(line, &#34;diff --git &#34;))
++ 	if len(fields) != 2 {
++ 		return &#34;&#34;
++ 	}
++ 	if p := strings.TrimPrefix(fields[1], &#34;b/&#34;); p != fields[1] {
++ 		return p
++ 	}
++ 	return strings.TrimPrefix(fields[0], &#34;a/&#34;)
++ }
++ 
++ // pathFromMarker extracts the path from a &#34;&#43;&#43;&#43; b/x&#34; marker, ignoring /dev/null.
++ func pathFromMarker(line string) string {
++ 	p := strings.TrimSpace(strings.TrimPrefix(line, &#34;&#43;&#43;&#43; &#34;))
++ 	if p == &#34;/dev/null&#34; {
++ 		return &#34;&#34;
++ 	}
++ 	return strings.TrimPrefix(p, &#34;b/&#34;)
++ }
++ 
++ // parseHunkHeader parses an &#34;@@ -a,b &#43;c,d @@ context&#34; line into a Hunk. Counts
++ // default to 1 when omitted, matching unified-diff semantics.
++ func parseHunkHeader(line string) *Hunk {
++ 	h := &amp;Hunk{OldLines: 1, NewLines: 1}
++ 	body := line
++ 	if idx := strings.Index(line[2:], &#34;@@&#34;); idx &gt;= 0 {
++ 		body = line[2 : idx&#43;2]
++ 		h.Header = strings.TrimSpace(line[idx&#43;4:])
++ 	}
++ 	for _, tok := range strings.Fields(body) {
++ 		switch {
++ 		case strings.HasPrefix(tok, &#34;-&#34;):
++ 			h.OldStart, h.OldLines = parseRange(strings.TrimPrefix(tok, &#34;-&#34;))
++ 		case strings.HasPrefix(tok, &#34;&#43;&#34;):
++ 			h.NewStart, h.NewLines = parseRange(strings.TrimPrefix(tok, &#34;&#43;&#34;))
++ 		}
++ 	}
++ 	return h
++ }
++ 
++ // parseRange parses a &#34;start,count&#34; or &#34;start&#34; unified-diff range token.
++ func parseRange(tok string) (start, count int) {
++ 	count = 1
++ 	if comma := strings.IndexByte(tok, &#39;,&#39;); comma &gt;= 0 {
++ 		start, _ = strconv.Atoi(tok[:comma])
++ 		count, _ = strconv.Atoi(tok[comma&#43;1:])
++ 		return start, count
++ 	}
++ 	start, _ = strconv.Atoi(tok)
++ 	return start, count
++ }
+</code></pre>
+    
+  </div>
+  
+</article>
+<article class="annotated-diff diff-unified diff-unified" data-language="go">
+  <header class="diff-file-header">
+    <span class="file-change file-change-add">add</span>
+    <code class="diff-file-path">internal/recap/shared_walk_test.go</code>
+  </header>
+  
+  <div class="diff-hunk">
+    <div class="hunk-meta">
+      <code class="hunk-header"></code>
+      <span class="hunk-summary">62 added, 0 removed</span>
+    </div>
+    
+    <pre class="diff-pre"><code class="language-go">+ package recap
++ 
++ import (
++ 	&#34;os&#34;
++ 	&#34;path/filepath&#34;
++ 	&#34;strings&#34;
++ 	&#34;testing&#34;
++ )
++ 
++ // TestLineageWalkIsShared asserts the BFS traversal lives in exactly one place.
++ // cmd/wipnote/lineage.go must NOT carry a private copy of the walk (it should
++ // delegate to internal/lineage), and internal/recap must consume internal/lineage.
++ func TestLineageWalkIsShared(t *testing.T) {
++ 	root := repoRoot(t)
++ 
++ 	cmdLineage := readFile(t, filepath.Join(root, &#34;cmd&#34;, &#34;wipnote&#34;, &#34;lineage.go&#34;))
++ 	for _, banned := range []string{
++ 		&#34;func bfsWalk(&#34;,
++ 		&#34;func forwardWalk(&#34;,
++ 		&#34;func backwardWalk(&#34;,
++ 		&#34;func annotateTimestamps(&#34;,
++ 	} {
++ 		if strings.Contains(cmdLineage, banned) {
++ 			t.Errorf(&#34;cmd/wipnote/lineage.go retains a private BFS copy: %q&#34;, banned)
++ 		}
++ 	}
++ 	if !strings.Contains(cmdLineage, &#34;internal/lineage&#34;) {
++ 		t.Errorf(&#34;cmd/wipnote/lineage.go does not import internal/lineage&#34;)
++ 	}
++ 
++ 	collect := readFile(t, filepath.Join(root, &#34;internal&#34;, &#34;recap&#34;, &#34;collect.go&#34;))
++ 	if !strings.Contains(collect, &#34;internal/lineage&#34;) {
++ 		t.Errorf(&#34;internal/recap/collect.go does not consume internal/lineage&#34;)
++ 	}
++ }
++ 
++ func repoRoot(t *testing.T) string {
++ 	t.Helper()
++ 	dir, err := os.Getwd()
++ 	if err != nil {
++ 		t.Fatalf(&#34;getwd: %v&#34;, err)
++ 	}
++ 	for {
++ 		if _, err := os.Stat(filepath.Join(dir, &#34;go.mod&#34;)); err == nil {
++ 			return dir
++ 		}
++ 		parent := filepath.Dir(dir)
++ 		if parent == dir {
++ 			t.Fatalf(&#34;go.mod not found from working dir&#34;)
++ 		}
++ 		dir = parent
++ 	}
++ }
++ 
++ func readFile(t *testing.T, path string) string {
++ 	t.Helper()
++ 	b, err := os.ReadFile(path)
++ 	if err != nil {
++ 		t.Fatalf(&#34;read %s: %v&#34;, path, err)
++ 	}
++ 	return string(b)
++ }
+</code></pre>
+    
+  </div>
+  
+</article>
+<article class="annotated-diff diff-unified diff-unified" data-language="go">
+  <header class="diff-file-header">
+    <span class="file-change file-change-add">add</span>
+    <code class="diff-file-path">internal/recap/types.go</code>
+  </header>
+  
+  <div class="diff-hunk">
+    <div class="hunk-meta">
+      <code class="hunk-header"></code>
+      <span class="hunk-summary">102 added, 0 removed</span>
+    </div>
+    
+    <pre class="diff-pre"><code class="language-go">+ // Package recap collects grounded diff data for a recap. It resolves ONE of
++ // three inputs — a work-item id (feat/bug/spike), a git range (e.g. main..HEAD),
++ // or a session id — into a typed RecapData value describing the commits, the
++ // per-file changes, and (when grounding exists) the lineage chain that ties the
++ // change back to a work item.
++ //
++ // This package owns COLLECTION ONLY. It performs no rendering and emits no HTML;
++ // the recap renderer and the committed artifact are separate slices that consume
++ // RecapData. All data is derived from git &#43; the .wipnote read index — nothing
++ // external.
++ package recap
++ 
++ import &#34;github.com/shakestzd/wipnote/internal/lineage&#34;
++ 
++ // ChangeType classifies how a file changed across the resolved commit set.
++ type ChangeType string
++ 
++ const (
++ 	// ChangeAdd marks a file introduced by the change set.
++ 	ChangeAdd ChangeType = &#34;add&#34;
++ 	// ChangeModify marks a file whose contents changed.
++ 	ChangeModify ChangeType = &#34;modify&#34;
++ 	// ChangeDelete marks a file removed by the change set.
++ 	ChangeDelete ChangeType = &#34;delete&#34;
++ )
++ 
++ // InputKind records which of the three resolvable inputs produced a RecapData.
++ type InputKind string
++ 
++ const (
++ 	// InputWorkItem is a feat-/bug-/spk- work-item id.
++ 	InputWorkItem InputKind = &#34;work-item&#34;
++ 	// InputRange is a bare git revision range such as &#34;main..HEAD&#34;.
++ 	InputRange InputKind = &#34;range&#34;
++ 	// InputSession is a session id (sess-...).
++ 	InputSession InputKind = &#34;session&#34;
++ )
++ 
++ // RecapData is the typed payload emitted by the collector. It is grounded
++ // entirely in git &#43; .wipnote/*.html and carries everything the renderer needs:
++ // the outcome summary, the per-file diff data, the contributing commits, the
++ // lineage chain (when grounding exists), and provenance describing how the data
++ // was resolved.
++ type RecapData struct {
++ 	// Outcome is a human-readable summary of what the change set achieved. For
++ 	// work-item inputs it is the work item&#39;s title; for ranges/sessions it is a
++ 	// best-effort description derived from the inputs.
++ 	Outcome string `json:&#34;outcome&#34;`
++ 	// Files is the union of changed files across the resolved commit set, sorted
++ 	// deterministically by path.
++ 	Files []FileChange `json:&#34;files&#34;`
++ 	// Commits is the ordered list of commits that make up the change set.
++ 	Commits []Commit `json:&#34;commits&#34;`
++ 	// LineageChain is the bidirectional lineage walk rooted at the work item or
++ 	// session. It is nil/empty for bare git ranges with no work-item grounding —
++ 	// lineage is the value-add when grounding exists, not a hard requirement.
++ 	LineageChain []lineage.Node `json:&#34;lineage_chain,omitempty&#34;`
++ 	// Provenance records how this RecapData was resolved.
++ 	Provenance Provenance `json:&#34;provenance&#34;`
++ }
++ 
++ // FileChange describes one file in the change set: its path, how it changed, and
++ // the minimal diff hunks (with before/after content) for the renderer.
++ type FileChange struct {
++ 	Path   string     `json:&#34;path&#34;`
++ 	Change ChangeType `json:&#34;change&#34;`
++ 	Hunks  []Hunk     `json:&#34;hunks,omitempty&#34;`
++ }
++ 
++ // Hunk is one contiguous region of a unified diff. OldStart/OldLines and
++ // NewStart/NewLines mirror the @@ -a,b &#43;c,d @@ header. Before and After carry
++ // the removed and added line content respectively so the renderer can show a
++ // side-by-side or inline diff without re-running git.
++ type Hunk struct {
++ 	OldStart int      `json:&#34;old_start&#34;`
++ 	OldLines int      `json:&#34;old_lines&#34;`
++ 	NewStart int      `json:&#34;new_start&#34;`
++ 	NewLines int      `json:&#34;new_lines&#34;`
++ 	Header   string   `json:&#34;header,omitempty&#34;`
++ 	Before   []string `json:&#34;before,omitempty&#34;`
++ 	After    []string `json:&#34;after,omitempty&#34;`
++ }
++ 
++ // Commit is one commit in the resolved change set.
++ type Commit struct {
++ 	Hash      string `json:&#34;hash&#34;`
++ 	Message   string `json:&#34;message&#34;`
++ 	SessionID string `json:&#34;session_id,omitempty&#34;`
++ 	FeatureID string `json:&#34;feature_id,omitempty&#34;`
++ 	Timestamp string `json:&#34;timestamp,omitempty&#34;`
++ }
++ 
++ // Provenance records how a RecapData was resolved: which input kind, the literal
++ // input string, and the git range that was ultimately diffed (when one applies).
++ type Provenance struct {
++ 	Kind     InputKind `json:&#34;kind&#34;`
++ 	Input    string    `json:&#34;input&#34;`
++ 	GitRange string    `json:&#34;git_range,omitempty&#34;`
++ 	// Grounded is true when the recap is tied to a work item (directly, or via a
++ 	// session whose commits carry a feature_id). Bare ranges are not grounded.
++ 	Grounded bool `json:&#34;grounded&#34;`
++ }
+</code></pre>
+    
+  </div>
+  
+</article>
+
+</section>
+
+<section class="recap-zone recap-zone-lineage" id="lineage">
+  <h2 class="recap-zone-title">Lineage <span class="recap-count">26</span></h2>
+  <p class="recap-zone-note">Static grounding chain. The interactive force-graph view is available on the dashboard.</p>
+  <table class="lineage-table">
+    <thead><tr><th>Depth</th><th>Node</th><th>Edge</th></tr></thead>
+    <tbody>
+      
+      <tr class="lineage-row">
+        <td class="lineage-depth">1</td>
+        <td class="lineage-node" style="padding-left:16px">
+          <span class="lineage-type">track</span>
+          <code class="lineage-id">trk-a951e3c0</code>
+          <span class="lineage-title">Visual planning &amp; recap — native port of BuilderIO visual-plan/visual-recap concepts</span>
+        </td>
+        <td class="lineage-edge"><code>contains</code></td>
+      </tr>
+      
+      <tr class="lineage-row">
+        <td class="lineage-depth">1</td>
+        <td class="lineage-node" style="padding-left:16px">
+          <span class="lineage-type">feature</span>
+          <code class="lineage-id">feat-2570725c</code>
+          <span class="lineage-title">Recap renderer — recap/recaptmpl package &#43; shared HTML block components</span>
+        </td>
+        <td class="lineage-edge"><code>blocked_by</code></td>
+      </tr>
+      
+      <tr class="lineage-row">
+        <td class="lineage-depth">1</td>
+        <td class="lineage-node" style="padding-left:16px">
+          <span class="lineage-type">feature</span>
+          <code class="lineage-id">feat-1feacf19</code>
+          <span class="lineage-title">`wipnote recap &lt;id|--range|--session&gt;` command &#43; first-class recap-*.html artifact commit</span>
+        </td>
+        <td class="lineage-edge"><code>blocked_by</code></td>
+      </tr>
+      
+      <tr class="lineage-row">
+        <td class="lineage-depth">1</td>
+        <td class="lineage-node" style="padding-left:16px">
+          <span class="lineage-type">session</span>
+          <code class="lineage-id">7ad16954-7662-4d96-87ae-6eff3bd5739e</code>
+          <span class="lineage-title">visual-planning-recap-native-yolo-20260618-03.35.27</span>
+        </td>
+        <td class="lineage-edge"><code>implements</code></td>
+      </tr>
+      
+      <tr class="lineage-row">
+        <td class="lineage-depth">2</td>
+        <td class="lineage-node" style="padding-left:32px">
+          <span class="lineage-type">feature</span>
+          <code class="lineage-id">feat-63676de5</code>
+          <span class="lineage-title">Dashboard Recaps view &#43; /api/recaps endpoints</span>
+        </td>
+        <td class="lineage-edge"><code>part_of</code></td>
+      </tr>
+      
+      <tr class="lineage-row">
+        <td class="lineage-depth">2</td>
+        <td class="lineage-node" style="padding-left:32px">
+          <span class="lineage-type">feature</span>
+          <code class="lineage-id">feat-ecc95e7e</code>
+          <span class="lineage-title">/visual-recap skill (prompt wrapper) &#43; build-ports to all 3 harnesses</span>
+        </td>
+        <td class="lineage-edge"><code>part_of</code></td>
+      </tr>
+      
+      <tr class="lineage-row">
+        <td class="lineage-depth">2</td>
+        <td class="lineage-node" style="padding-left:32px">
+          <span class="lineage-type">feature</span>
+          <code class="lineage-id">feat-96b98270</code>
+          <span class="lineage-title">Slice-schema block enrichment — additive optional structured blocks on PlanSlice</span>
+        </td>
+        <td class="lineage-edge"><code>part_of</code></td>
+      </tr>
+      
+      <tr class="lineage-row">
+        <td class="lineage-depth">2</td>
+        <td class="lineage-node" style="padding-left:32px">
+          <span class="lineage-type">feature</span>
+          <code class="lineage-id">feat-bafd591f</code>
+          <span class="lineage-title">plantmpl block-zone rendering &#43; before/after HTML wireframes</span>
+        </td>
+        <td class="lineage-edge"><code>part_of</code></td>
+      </tr>
+      
+      <tr class="lineage-row">
+        <td class="lineage-depth">2</td>
+        <td class="lineage-node" style="padding-left:32px">
+          <span class="lineage-type">feature</span>
+          <code class="lineage-id">feat-4addaa6f</code>
+          <span class="lineage-title">Block-level annotation loop for PLANS (consumed/resolved) on plan_feedback — recap annotation explicitly out of scope</span>
+        </td>
+        <td class="lineage-edge"><code>part_of</code></td>
+      </tr>
+      
+      <tr class="lineage-row">
+        <td class="lineage-depth">2</td>
+        <td class="lineage-node" style="padding-left:32px">
+          <span class="lineage-type">feature</span>
+          <code class="lineage-id">feat-64e48b9a</code>
+          <span class="lineage-title">/visual-plan skill (prompt wrapper) &#43; build-ports</span>
+        </td>
+        <td class="lineage-edge"><code>part_of</code></td>
+      </tr>
+      
+      <tr class="lineage-row">
+        <td class="lineage-depth">2</td>
+        <td class="lineage-node" style="padding-left:32px">
+          <span class="lineage-type">feature</span>
+          <code class="lineage-id">feat-7bc6410b</code>
+          <span class="lineage-title">Register recap kind — reindex &#43; SQLite recaps table &#43; find/relevant &#43; `wipnote recap list|show|delete`</span>
+        </td>
+        <td class="lineage-edge"><code>part_of</code></td>
+      </tr>
+      
+      <tr class="lineage-row">
+        <td class="lineage-depth">2</td>
+        <td class="lineage-node" style="padding-left:32px">
+          <span class="lineage-type">plan</span>
+          <code class="lineage-id">plan-93b8eba0</code>
+          <span class="lineage-title">Plan: Visual plan &amp; lineage-grounded recap (native port of BuilderIO visual-plan/visual-recap)</span>
+        </td>
+        <td class="lineage-edge"><code>implemented_in</code></td>
+      </tr>
+      
+      <tr class="lineage-row">
+        <td class="lineage-depth">1</td>
+        <td class="lineage-node" style="padding-left:16px">
+          <span class="lineage-type">plan</span>
+          <code class="lineage-id">plan-93b8eba0</code>
+          <span class="lineage-title">Plan: Visual plan &amp; lineage-grounded recap (native port of BuilderIO visual-plan/visual-recap)</span>
+        </td>
+        <td class="lineage-edge"><code>planned_in</code></td>
+      </tr>
+      
+      <tr class="lineage-row">
+        <td class="lineage-depth">1</td>
+        <td class="lineage-node" style="padding-left:16px">
+          <span class="lineage-type">track</span>
+          <code class="lineage-id">trk-a951e3c0</code>
+          <span class="lineage-title">Visual planning &amp; recap — native port of BuilderIO visual-plan/visual-recap concepts</span>
+        </td>
+        <td class="lineage-edge"><code>part_of</code></td>
+      </tr>
+      
+      <tr class="lineage-row">
+        <td class="lineage-depth">1</td>
+        <td class="lineage-node" style="padding-left:16px">
+          <span class="lineage-type">unknown</span>
+          <code class="lineage-id">7ad16954-7662-4d96-87ae-6eff3bd5739e</code>
+          <span class="lineage-title">visual-planning-recap-native-yolo-20260618-03.35.27</span>
+        </td>
+        <td class="lineage-edge"><code>implemented_in</code></td>
+      </tr>
+      
+      <tr class="lineage-row">
+        <td class="lineage-depth">2</td>
+        <td class="lineage-node" style="padding-left:32px">
+          <span class="lineage-type">plan</span>
+          <code class="lineage-id">plan-243e8713</code>
+          
+        </td>
+        <td class="lineage-edge"><code>relates_to</code></td>
+      </tr>
+      
+      <tr class="lineage-row">
+        <td class="lineage-depth">2</td>
+        <td class="lineage-node" style="padding-left:32px">
+          <span class="lineage-type">feature</span>
+          <code class="lineage-id">feat-2570725c</code>
+          <span class="lineage-title">Recap renderer — recap/recaptmpl package &#43; shared HTML block components</span>
+        </td>
+        <td class="lineage-edge"><code>contains</code></td>
+      </tr>
+      
+      <tr class="lineage-row">
+        <td class="lineage-depth">2</td>
+        <td class="lineage-node" style="padding-left:32px">
+          <span class="lineage-type">feature</span>
+          <code class="lineage-id">feat-1feacf19</code>
+          <span class="lineage-title">`wipnote recap &lt;id|--range|--session&gt;` command &#43; first-class recap-*.html artifact commit</span>
+        </td>
+        <td class="lineage-edge"><code>contains</code></td>
+      </tr>
+      
+      <tr class="lineage-row">
+        <td class="lineage-depth">2</td>
+        <td class="lineage-node" style="padding-left:32px">
+          <span class="lineage-type">feature</span>
+          <code class="lineage-id">feat-63676de5</code>
+          <span class="lineage-title">Dashboard Recaps view &#43; /api/recaps endpoints</span>
+        </td>
+        <td class="lineage-edge"><code>contains</code></td>
+      </tr>
+      
+      <tr class="lineage-row">
+        <td class="lineage-depth">2</td>
+        <td class="lineage-node" style="padding-left:32px">
+          <span class="lineage-type">feature</span>
+          <code class="lineage-id">feat-ecc95e7e</code>
+          <span class="lineage-title">/visual-recap skill (prompt wrapper) &#43; build-ports to all 3 harnesses</span>
+        </td>
+        <td class="lineage-edge"><code>contains</code></td>
+      </tr>
+      
+      <tr class="lineage-row">
+        <td class="lineage-depth">2</td>
+        <td class="lineage-node" style="padding-left:32px">
+          <span class="lineage-type">feature</span>
+          <code class="lineage-id">feat-96b98270</code>
+          <span class="lineage-title">Slice-schema block enrichment — additive optional structured blocks on PlanSlice</span>
+        </td>
+        <td class="lineage-edge"><code>contains</code></td>
+      </tr>
+      
+      <tr class="lineage-row">
+        <td class="lineage-depth">2</td>
+        <td class="lineage-node" style="padding-left:32px">
+          <span class="lineage-type">feature</span>
+          <code class="lineage-id">feat-bafd591f</code>
+          <span class="lineage-title">plantmpl block-zone rendering &#43; before/after HTML wireframes</span>
+        </td>
+        <td class="lineage-edge"><code>contains</code></td>
+      </tr>
+      
+      <tr class="lineage-row">
+        <td class="lineage-depth">2</td>
+        <td class="lineage-node" style="padding-left:32px">
+          <span class="lineage-type">feature</span>
+          <code class="lineage-id">feat-4addaa6f</code>
+          <span class="lineage-title">Block-level annotation loop for PLANS (consumed/resolved) on plan_feedback — recap annotation explicitly out of scope</span>
+        </td>
+        <td class="lineage-edge"><code>contains</code></td>
+      </tr>
+      
+      <tr class="lineage-row">
+        <td class="lineage-depth">2</td>
+        <td class="lineage-node" style="padding-left:32px">
+          <span class="lineage-type">feature</span>
+          <code class="lineage-id">feat-64e48b9a</code>
+          <span class="lineage-title">/visual-plan skill (prompt wrapper) &#43; build-ports</span>
+        </td>
+        <td class="lineage-edge"><code>contains</code></td>
+      </tr>
+      
+      <tr class="lineage-row">
+        <td class="lineage-depth">2</td>
+        <td class="lineage-node" style="padding-left:32px">
+          <span class="lineage-type">feature</span>
+          <code class="lineage-id">feat-7bc6410b</code>
+          <span class="lineage-title">Register recap kind — reindex &#43; SQLite recaps table &#43; find/relevant &#43; `wipnote recap list|show|delete`</span>
+        </td>
+        <td class="lineage-edge"><code>contains</code></td>
+      </tr>
+      
+      <tr class="lineage-row">
+        <td class="lineage-depth">3</td>
+        <td class="lineage-node" style="padding-left:48px">
+          <span class="lineage-type">unknown</span>
+          <code class="lineage-id">recap-feat-bafd591f</code>
+          
+        </td>
+        <td class="lineage-edge"><code>relates_to</code></td>
+      </tr>
+      
+    </tbody>
+  </table>
+</section>
+
+</body>
+</html>

@@ -12,19 +12,24 @@ import (
 
 func TestPromptLaunchIntent_DefaultsToNewWork(t *testing.T) {
 	var out bytes.Buffer
-	intent, err := promptLaunchIntent(strings.NewReader("\n"), &out, "claude", []dbpkg.ResumableSession{{
-		WorkItemID:    "feat-a",
-		Title:         "Alpha",
-		Type:          "feature",
-		Harness:       "claude",
-		LastActivity:  "2026-06-16T12:00:00Z",
-		LastSessionID: "sess-a",
-	}})
+	intent, err := promptLaunchIntent(strings.NewReader("\n"), &out, "claude", dbpkg.HarnessGroupedResumableSessions{
+		SameHarness: []dbpkg.ResumableSession{{
+			WorkItemID:    "feat-a",
+			Title:         "Alpha",
+			Type:          "feature",
+			Harness:       "claude",
+			LastActivity:  "2026-06-16T12:00:00Z",
+			LastSessionID: "sess-a",
+		}},
+	})
 	if err != nil {
 		t.Fatalf("promptLaunchIntent() error = %v", err)
 	}
 	if intent.Kind != launcher.LaunchIntentNew {
 		t.Fatalf("intent.Kind = %q, want %q", intent.Kind, launcher.LaunchIntentNew)
+	}
+	if !strings.Contains(out.String(), "Choose how to launch Claude:") {
+		t.Fatalf("prompt output missing harness heading:\n%s", out.String())
 	}
 	if !strings.Contains(out.String(), "Start something new") {
 		t.Fatalf("prompt output missing new-work option:\n%s", out.String())
@@ -32,15 +37,17 @@ func TestPromptLaunchIntent_DefaultsToNewWork(t *testing.T) {
 }
 
 func TestPromptLaunchIntent_ClaudeResumeSelection(t *testing.T) {
-	intent, err := promptLaunchIntent(strings.NewReader("2\n"), &bytes.Buffer{}, "claude", []dbpkg.ResumableSession{{
-		WorkItemID:       "feat-a",
-		Title:            "Alpha",
-		Type:             "feature",
-		Harness:          "claude",
-		LastActivity:     "2026-06-16T12:00:00Z",
-		LastSessionID:    "sess-a",
-		ExecWorktreePath: ".claude/worktrees/feat-a",
-	}})
+	intent, err := promptLaunchIntent(strings.NewReader("2\n"), &bytes.Buffer{}, "claude", dbpkg.HarnessGroupedResumableSessions{
+		SameHarness: []dbpkg.ResumableSession{{
+			WorkItemID:       "feat-a",
+			Title:            "Alpha",
+			Type:             "feature",
+			Harness:          "claude",
+			LastActivity:     "2026-06-16T12:00:00Z",
+			LastSessionID:    "sess-a",
+			ExecWorktreePath: ".claude/worktrees/feat-a",
+		}},
+	})
 	if err != nil {
 		t.Fatalf("promptLaunchIntent() error = %v", err)
 	}
@@ -62,15 +69,17 @@ func TestPromptLaunchIntent_ClaudeResumeSelection(t *testing.T) {
 }
 
 func TestPromptLaunchIntent_CrossHarnessContinueDoesNotForceResume(t *testing.T) {
-	intent, err := promptLaunchIntent(strings.NewReader("2\n"), &bytes.Buffer{}, "claude", []dbpkg.ResumableSession{{
-		WorkItemID:       "feat-b",
-		Title:            "Bravo",
-		Type:             "bug",
-		Harness:          "codex",
-		LastActivity:     "2026-06-16T11:00:00Z",
-		LastSessionID:    "sess-b",
-		ExecWorktreePath: ".claude/worktrees/feat-b",
-	}})
+	intent, err := promptLaunchIntent(strings.NewReader("2\n"), &bytes.Buffer{}, "claude", dbpkg.HarnessGroupedResumableSessions{
+		CrossHarness: []dbpkg.ResumableSession{{
+			WorkItemID:       "feat-b",
+			Title:            "Bravo",
+			Type:             "bug",
+			Harness:          "codex",
+			LastActivity:     "2026-06-16T11:00:00Z",
+			LastSessionID:    "sess-b",
+			ExecWorktreePath: ".claude/worktrees/feat-b",
+		}},
+	})
 	if err != nil {
 		t.Fatalf("promptLaunchIntent() error = %v", err)
 	}
@@ -85,6 +94,47 @@ func TestPromptLaunchIntent_CrossHarnessContinueDoesNotForceResume(t *testing.T)
 	}
 	if intent.SessionHarness != "codex" {
 		t.Fatalf("intent.SessionHarness = %q, want codex", intent.SessionHarness)
+	}
+}
+
+func TestPromptLaunchIntent_GroupsSameHarnessBeforeCrossHarness(t *testing.T) {
+	var out bytes.Buffer
+	intent, err := promptLaunchIntent(strings.NewReader("2\n"), &out, "codex", dbpkg.HarnessGroupedResumableSessions{
+		SameHarness: []dbpkg.ResumableSession{{
+			WorkItemID:       "feat-codex",
+			Title:            "Codex Row",
+			Type:             "feature",
+			Harness:          "codex",
+			LastActivity:     "2026-06-16T10:00:00Z",
+			LastSessionID:    "sess-codex",
+			ExecWorktreePath: ".claude/worktrees/feat-codex",
+		}},
+		CrossHarness: []dbpkg.ResumableSession{{
+			WorkItemID:       "feat-cross",
+			Title:            "Cross Row",
+			Type:             "feature",
+			Harness:          "claude",
+			LastActivity:     "2026-06-16T11:00:00Z",
+			LastSessionID:    "sess-cross",
+			ExecWorktreePath: ".claude/worktrees/feat-cross",
+		}},
+	})
+	if err != nil {
+		t.Fatalf("promptLaunchIntent() error = %v", err)
+	}
+	if intent.WorkItemID != "feat-codex" || intent.ResumeSessionID != "sess-codex" {
+		t.Fatalf("picked intent = %+v, want same-harness transcript resume", intent)
+	}
+	rendered := out.String()
+	for _, want := range []string{
+		"Resume in Codex",
+		"Continue from other harnesses",
+		"Resume transcript for feat-codex",
+		"Fresh session with handoff for feat-cross",
+	} {
+		if !strings.Contains(rendered, want) {
+			t.Fatalf("prompt output missing %q:\n%s", want, rendered)
+		}
 	}
 }
 

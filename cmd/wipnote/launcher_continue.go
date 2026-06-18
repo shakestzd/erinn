@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -56,6 +57,7 @@ func resolveContinueLaunchContext(projectRoot, canonicalRoot, harness string, in
 	if root == "" {
 		return ctx, nil
 	}
+	emitLaunchPreparationStatus(os.Stderr, harness, "Loading continuation context...")
 
 	db, err := openReadOnlyDB(filepath.Join(root, ".wipnote"))
 	if err != nil {
@@ -127,20 +129,38 @@ func resolveContinueLaunchContext(projectRoot, canonicalRoot, harness string, in
 }
 
 func loadContinueSessionContext(db *sql.DB, projectRoot string, intent launcher.LaunchIntent) (*dbpkg.ResumableSession, *models.Session, error) {
-	rows, err := dbpkg.ListResumableSessions(db, dbpkg.LivenessStalenessThreshold(projectRoot))
+	sid := strings.TrimSpace(intent.ResumeSessionID)
+	if sid != "" {
+		sess, err := dbpkg.GetSession(db, sid)
+		if err == nil && sess != nil {
+			row, rowErr := dbpkg.GetResumableSessionForSessionAndWorkItem(
+				db,
+				dbpkg.LivenessStalenessThreshold(projectRoot),
+				sid,
+				intent.WorkItemID,
+			)
+			if rowErr != nil {
+				return nil, nil, rowErr
+			}
+			if row != nil {
+				return row, sess, nil
+			}
+		}
+	}
+
+	rows, err := dbpkg.ListHarnessGroupedResumableSessions(db, dbpkg.LivenessStalenessThreshold(projectRoot), intent.SessionHarness)
 	if err != nil {
 		return nil, nil, err
 	}
-	for i := range rows {
-		row := rows[i]
+	orderedRows := append([]dbpkg.ResumableSession{}, rows.SameHarness...)
+	orderedRows = append(orderedRows, rows.CrossHarness...)
+	for i := range orderedRows {
+		row := orderedRows[i]
 		if strings.TrimSpace(row.WorkItemID) != strings.TrimSpace(intent.WorkItemID) {
 			continue
 		}
-		sid := strings.TrimSpace(intent.ResumeSessionID)
-		if sid == "" {
-			sid = strings.TrimSpace(row.LastSessionID)
-		}
 		var sess *models.Session
+		sid := strings.TrimSpace(row.LastSessionID)
 		if sid != "" {
 			sess, err = dbpkg.GetSession(db, sid)
 			if err != nil {
@@ -241,6 +261,13 @@ func buildContinueHandoffMarkdown(ctx continueLaunchContext, previousHarness str
 	}
 	b.WriteString("\nReconcile this handoff with the current repo state before making new changes.")
 	return strings.TrimSpace(b.String())
+}
+
+func emitLaunchPreparationStatus(out io.Writer, harness, message string) {
+	if out == nil || strings.TrimSpace(message) == "" {
+		return
+	}
+	fmt.Fprintf(out, "wipnote: %s %s\n", formatHarnessName(harness), strings.TrimSpace(message))
 }
 
 func decodeStringList(raw json.RawMessage) []string {

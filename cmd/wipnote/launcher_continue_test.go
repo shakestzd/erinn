@@ -123,6 +123,64 @@ func TestResolveContinueLaunchContext_LiveCollisionDisablesTranscriptResume(t *t
 	}
 }
 
+func TestResolveContinueLaunchContext_HonorsSelectedResumeSessionID(t *testing.T) {
+	projectRoot, database := openContinueTestProject(t)
+	seedContinueFixture(t, database, projectRoot, "codex", "feat-picked", "sess-picked", ".claude/worktrees/feat-picked")
+	seedContinueFixture(t, database, projectRoot, "claude", "feat-picked", "sess-newer-cross", ".claude/worktrees/feat-cross")
+	if _, err := database.Exec(`UPDATE sessions SET created_at = ? WHERE session_id = ?`,
+		time.Now().UTC().Add(time.Minute).Format(time.RFC3339), "sess-newer-cross"); err != nil {
+		t.Fatalf("update cross session created_at: %v", err)
+	}
+
+	got, err := resolveContinueLaunchContext(projectRoot, projectRoot, "codex", launcher.ContinueWorkIntent(
+		"feat-picked", "codex", "sess-picked", ".claude/worktrees/feat-picked", true,
+	))
+	if err != nil {
+		t.Fatalf("resolveContinueLaunchContext: %v", err)
+	}
+	if got.ContinuedFrom != "sess-picked" {
+		t.Fatalf("ContinuedFrom = %q, want sess-picked", got.ContinuedFrom)
+	}
+	if got.TranscriptResumeID != "sess-picked" {
+		t.Fatalf("TranscriptResumeID = %q, want sess-picked", got.TranscriptResumeID)
+	}
+	if strings.Contains(got.HandoffMarkdown, "sess-newer-cross") {
+		t.Fatalf("handoff markdown used newer cross-harness session:\n%s", got.HandoffMarkdown)
+	}
+}
+
+func TestResolveContinueLaunchContext_HonorsSelectedResumeSessionIDFromActiveWorkItems(t *testing.T) {
+	projectRoot, database := openContinueTestProject(t)
+	seedContinueFixture(t, database, projectRoot, "codex", "feat-picked-awi", "sess-picked-awi", ".claude/worktrees/feat-picked-awi")
+	if _, err := database.Exec(`UPDATE sessions SET active_feature_id = '' WHERE session_id = ?`, "sess-picked-awi"); err != nil {
+		t.Fatalf("clear active_feature_id: %v", err)
+	}
+	if err := dbpkg.SetActiveWorkItem(database, "sess-picked-awi", dbpkg.AgentRootSentinel, "feat-picked-awi"); err != nil {
+		t.Fatalf("SetActiveWorkItem: %v", err)
+	}
+	seedContinueFixture(t, database, projectRoot, "claude", "feat-picked-awi", "sess-newer-cross-awi", ".claude/worktrees/feat-cross-awi")
+	if _, err := database.Exec(`UPDATE sessions SET created_at = ? WHERE session_id = ?`,
+		time.Now().UTC().Add(time.Minute).Format(time.RFC3339), "sess-newer-cross-awi"); err != nil {
+		t.Fatalf("update cross session created_at: %v", err)
+	}
+
+	got, err := resolveContinueLaunchContext(projectRoot, projectRoot, "codex", launcher.ContinueWorkIntent(
+		"feat-picked-awi", "codex", "sess-picked-awi", ".claude/worktrees/feat-picked-awi", true,
+	))
+	if err != nil {
+		t.Fatalf("resolveContinueLaunchContext: %v", err)
+	}
+	if got.ContinuedFrom != "sess-picked-awi" {
+		t.Fatalf("ContinuedFrom = %q, want sess-picked-awi", got.ContinuedFrom)
+	}
+	if got.TranscriptResumeID != "sess-picked-awi" {
+		t.Fatalf("TranscriptResumeID = %q, want sess-picked-awi", got.TranscriptResumeID)
+	}
+	if strings.Contains(got.HandoffMarkdown, "sess-newer-cross-awi") {
+		t.Fatalf("handoff markdown used newer cross-harness session:\n%s", got.HandoffMarkdown)
+	}
+}
+
 func openContinueTestProject(t *testing.T) (string, *sql.DB) {
 	t.Helper()
 	projectRoot := t.TempDir()
@@ -143,7 +201,8 @@ func seedContinueFixture(t *testing.T, database *sql.DB, projectRoot, harness, w
 	now := time.Now().UTC().Format(time.RFC3339)
 	if _, err := database.Exec(`
 		INSERT INTO features (id, title, type, status, created_at, updated_at)
-		VALUES (?, ?, ?, ?, ?, ?)`,
+		VALUES (?, ?, ?, ?, ?, ?)
+		ON CONFLICT(id) DO NOTHING`,
 		workItemID, "Continue Test", "feature", "in-progress", now, now,
 	); err != nil {
 		t.Fatalf("insert feature: %v", err)

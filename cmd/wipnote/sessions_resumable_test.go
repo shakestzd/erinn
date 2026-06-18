@@ -98,6 +98,49 @@ func TestListResumableSessions_RanksLatestPerWorkItemAndUsesHeartbeatLiveness(t 
 	}
 }
 
+func TestListHarnessGroupedResumableSessions_KeepsOlderSameHarnessRow(t *testing.T) {
+	database, err := dbpkg.Open(filepath.Join(t.TempDir(), "grouped_resumable.db"))
+	if err != nil {
+		t.Fatalf("open db: %v", err)
+	}
+	defer database.Close()
+
+	now := time.Now().UTC()
+	if _, err := database.Exec(`INSERT INTO features (id, type, title, status) VALUES ('feat-a', 'feature', 'Alpha', 'in-progress')`); err != nil {
+		t.Fatalf("insert feature: %v", err)
+	}
+	insertResumableSession(t, database, "sess-codex-old", "codex", "completed", now.Add(-2*time.Hour))
+	insertResumableSession(t, database, "sess-claude-new", "claude", "completed", now.Add(-time.Hour))
+	if _, err := database.Exec(`UPDATE sessions SET active_feature_id = ?, exec_worktree_path = ?, branch = ?, harness = ? WHERE session_id = ?`,
+		"feat-a", ".claude/worktrees/feat-a", "feat-a", "codex", "sess-codex-old"); err != nil {
+		t.Fatalf("update codex session: %v", err)
+	}
+	if _, err := database.Exec(`UPDATE sessions SET active_feature_id = ?, exec_worktree_path = ?, branch = ?, harness = ? WHERE session_id = ?`,
+		"feat-a", ".claude/worktrees/feat-a-cross", "feat-a", "claude", "sess-claude-new"); err != nil {
+		t.Fatalf("update claude session: %v", err)
+	}
+	if _, err := database.Exec(`INSERT INTO agent_events (event_id, agent_id, event_type, timestamp, session_id, status)
+		VALUES
+		('evt-codex-old', 'codex', 'tool_call', ?, 'sess-codex-old', 'completed'),
+		('evt-claude-new', 'claude', 'tool_call', ?, 'sess-claude-new', 'completed')`,
+		now.Add(-90*time.Minute).Format(time.RFC3339),
+		now.Add(-30*time.Minute).Format(time.RFC3339),
+	); err != nil {
+		t.Fatalf("insert agent events: %v", err)
+	}
+
+	grouped, err := dbpkg.ListHarnessGroupedResumableSessions(database, 2*time.Minute, "codex")
+	if err != nil {
+		t.Fatalf("ListHarnessGroupedResumableSessions: %v", err)
+	}
+	if len(grouped.SameHarness) != 1 || grouped.SameHarness[0].LastSessionID != "sess-codex-old" {
+		t.Fatalf("same-harness rows = %+v, want sess-codex-old", grouped.SameHarness)
+	}
+	if len(grouped.CrossHarness) != 1 || grouped.CrossHarness[0].LastSessionID != "sess-claude-new" {
+		t.Fatalf("cross-harness rows = %+v, want sess-claude-new", grouped.CrossHarness)
+	}
+}
+
 func TestResumableSessionsHandler_JSONContract(t *testing.T) {
 	database, err := dbpkg.Open(filepath.Join(t.TempDir(), "resumable_api.db"))
 	if err != nil {

@@ -55,14 +55,14 @@ func isInteractiveTerminalFile(f *os.File) bool {
 var chooseLaunchIntentFn = chooseLaunchIntent
 
 func chooseLaunchIntent(projectRoot, canonicalRoot, harness string, in io.Reader, out io.Writer) (launcher.LaunchIntent, error) {
-	rows, err := listResumableSessionsForRoot(projectRoot, canonicalRoot)
+	grouped, err := listGroupedResumableSessionsForRoot(projectRoot, canonicalRoot, harness)
 	if err != nil {
 		return launcher.NewWorkIntent(), err
 	}
-	if len(rows) == 0 {
+	if len(grouped.SameHarness) == 0 && len(grouped.CrossHarness) == 0 {
 		return launcher.NewWorkIntent(), nil
 	}
-	return promptLaunchIntent(in, out, harness, rows)
+	return promptLaunchIntent(in, out, harness, grouped)
 }
 
 func resolveLaunchIntentForDefaultLaunch(projectRoot, canonicalRoot, harness string, opts chooserEligibility, in io.Reader, out io.Writer) (launcher.LaunchIntent, error) {
@@ -89,19 +89,51 @@ func listResumableSessionsForRoot(projectRoot, canonicalRoot string) ([]dbpkg.Re
 	return dbpkg.ListResumableSessions(db, dbpkg.LivenessStalenessThreshold(root))
 }
 
-func promptLaunchIntent(in io.Reader, out io.Writer, harness string, rows []dbpkg.ResumableSession) (launcher.LaunchIntent, error) {
-	if len(rows) == 0 {
+func listGroupedResumableSessionsForRoot(projectRoot, canonicalRoot, harness string) (dbpkg.HarnessGroupedResumableSessions, error) {
+	root := canonicalRoot
+	if root == "" {
+		root = projectRoot
+	}
+	if root == "" {
+		return dbpkg.HarnessGroupedResumableSessions{}, nil
+	}
+	wipnoteDir := root + string(os.PathSeparator) + ".wipnote"
+	db, err := openReadOnlyDB(wipnoteDir)
+	if err != nil {
+		return dbpkg.HarnessGroupedResumableSessions{}, err
+	}
+	defer db.Close()
+	return dbpkg.ListHarnessGroupedResumableSessions(db, dbpkg.LivenessStalenessThreshold(root), harness)
+}
+
+func promptLaunchIntent(in io.Reader, out io.Writer, harness string, grouped dbpkg.HarnessGroupedResumableSessions) (launcher.LaunchIntent, error) {
+	totalRows := len(grouped.SameHarness) + len(grouped.CrossHarness)
+	if totalRows == 0 {
 		return launcher.NewWorkIntent(), nil
 	}
 
-	fmt.Fprintln(out, "Choose how to launch:")
+	fmt.Fprintf(out, "Choose how to launch %s:\n", formatHarnessName(harness))
 	fmt.Fprintln(out, "  1. Start something new")
-	for i, row := range rows {
-		fmt.Fprintf(out, "  %d. Continue %s\n", i+2, describeResumableSession(row))
+	optionNumber := 2
+	if len(grouped.SameHarness) > 0 {
+		fmt.Fprintf(out, "\nResume in %s\n", formatHarnessName(harness))
+		for _, row := range grouped.SameHarness {
+			fmt.Fprintf(out, "  %d. %s\n", optionNumber, describeResumableSession(row, true))
+			optionNumber++
+		}
 	}
-	fmt.Fprint(out, "Select [1-", len(rows)+1, "] (default 1): ")
+	if len(grouped.CrossHarness) > 0 {
+		fmt.Fprintln(out, "\nContinue from other harnesses")
+		for _, row := range grouped.CrossHarness {
+			fmt.Fprintf(out, "  %d. %s\n", optionNumber, describeResumableSession(row, false))
+			optionNumber++
+		}
+	}
+	fmt.Fprint(out, "Select [1-", totalRows+1, "] (default 1): ")
 
 	reader := bufio.NewReader(in)
+	orderedRows := append([]dbpkg.ResumableSession{}, grouped.SameHarness...)
+	orderedRows = append(orderedRows, grouped.CrossHarness...)
 	for attempts := 0; attempts < 3; attempts++ {
 		line, err := reader.ReadString('\n')
 		if err != nil && len(line) == 0 {
@@ -112,13 +144,13 @@ func promptLaunchIntent(in io.Reader, out io.Writer, harness string, rows []dbpk
 			return launcher.NewWorkIntent(), nil
 		}
 		n, convErr := strconv.Atoi(line)
-		if convErr == nil && n >= 2 && n <= len(rows)+1 {
-			return continueIntentForHarness(rows[n-2], harness), nil
+		if convErr == nil && n >= 2 && n <= totalRows+1 {
+			return continueIntentForHarness(orderedRows[n-2], harness), nil
 		}
 		if attempts == 2 {
 			return launcher.NewWorkIntent(), fmt.Errorf("invalid selection %q", line)
 		}
-		fmt.Fprint(out, "Enter a number from 1 to ", len(rows)+1, ": ")
+		fmt.Fprint(out, "Enter a number from 1 to ", totalRows+1, ": ")
 	}
 	return launcher.NewWorkIntent(), nil
 }
@@ -140,9 +172,13 @@ func resumeSessionIDForHarness(row dbpkg.ResumableSession, harness string) strin
 	return ""
 }
 
-func describeResumableSession(row dbpkg.ResumableSession) string {
+func describeResumableSession(row dbpkg.ResumableSession, sameHarness bool) string {
 	var parts []string
-	parts = append(parts, row.WorkItemID)
+	if sameHarness {
+		parts = append(parts, "Resume transcript for", row.WorkItemID)
+	} else {
+		parts = append(parts, "Fresh session with handoff for", row.WorkItemID)
+	}
 	if row.Title != "" {
 		parts = append(parts, strconv.Quote(row.Title))
 	}
@@ -163,6 +199,25 @@ func describeResumableSession(row dbpkg.ResumableSession) string {
 		parts = append(parts, "("+strings.Join(meta, ", ")+")")
 	}
 	return strings.Join(parts, " ")
+}
+
+func formatHarnessName(harness string) string {
+	switch strings.ToLower(strings.TrimSpace(harness)) {
+	case "claude":
+		return "Claude"
+	case "codex":
+		return "Codex"
+	case "gemini":
+		return "Gemini"
+	case "antigravity":
+		return "Antigravity"
+	default:
+		h := strings.TrimSpace(harness)
+		if h == "" {
+			return "Harness"
+		}
+		return strings.ToUpper(h[:1]) + h[1:]
+	}
 }
 
 func applyClaudeLaunchIntent(resumeID, workItem string, intent launcher.LaunchIntent) claudeIntentResult {

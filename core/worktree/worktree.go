@@ -7,14 +7,13 @@
 package worktree
 
 import (
-	"context"
 	"fmt"
 	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
-	"time"
+	"syscall"
 
 	"github.com/shakestzd/wipnote/core/htmlparse"
 	"github.com/shakestzd/wipnote/core/slug"
@@ -519,18 +518,23 @@ func reindexWorktree(worktreeDir string, w io.Writer) {
 }
 
 // runReindexSubprocess is the real implementation of reindexWorktree.
+// It starts `wipnote reindex` as a detached fire-and-forget subprocess so the
+// launcher is never blocked or SIGKILL-interrupted waiting for it to complete.
+// The child runs in its own process group (Setpgid) so it is not collateral-
+// killed by any signal delivered to the launcher's process group.
 func runReindexSubprocess(worktreeDir string, w io.Writer) {
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
-
 	exe, err := os.Executable()
 	if err != nil {
 		fmt.Fprintf(w, "  Warning: could not determine executable path for reindex: %v\n", err)
 		return
 	}
-	reindexCmd := exec.CommandContext(ctx, exe, "reindex")
+	reindexCmd := exec.Command(exe, "reindex")
 	reindexCmd.Dir = worktreeDir
-	if err := reindexCmd.Run(); err != nil {
-		fmt.Fprintf(w, "  Warning: reindex in worktree failed: %v\n", err)
+	reindexCmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+	if err := reindexCmd.Start(); err != nil {
+		fmt.Fprintf(w, "  Warning: reindex in worktree failed to start: %v\n", err)
+		return
 	}
+	fmt.Fprintf(w, "  Reindex started in background (pid %d); worktree index will populate shortly\n", reindexCmd.Process.Pid)
+	go func() { _ = reindexCmd.Wait() }()
 }

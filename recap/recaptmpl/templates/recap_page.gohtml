@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="wipnote-recap" content="1.0">
+<title>Recap: {{htmlEscape .Title}}</title>
+<style>
+:root{
+  --bg:#0f0f13;--bg-card:#18181c;--bg-input:#222228;--text:#f0f0ed;--text-dim:#d0d0cc;
+  --text-muted:#9898a0;--border:#3a3a42;--accent:#cdff00;
+  --add:#22c55e;--modify:#f59e0b;--delete:#ef4444;--pivot:#a78bfa;
+  --mono:'JetBrains Mono',ui-monospace,'SF Mono','Cascadia Code',monospace;
+  --sans:'DM Sans','Inter',system-ui,-apple-system,sans-serif;
+  --radius:8px;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{font-family:var(--sans);background:var(--bg);color:var(--text);line-height:1.6;padding:32px;max-width:1100px;margin:0 auto}
+h1{font-size:1.5rem;font-weight:700;margin-bottom:4px}
+.recap-sub{color:var(--text-muted);font-size:.85rem;font-family:var(--mono);margin-bottom:24px}
+.recap-sub code{color:var(--text-dim)}
+.recap-zone{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:20px;margin-bottom:20px}
+.recap-zone-title{font-size:1.05rem;font-weight:600;margin-bottom:12px;display:flex;align-items:center;gap:8px}
+.recap-zone-note{color:var(--text-muted);font-size:.8rem;margin-bottom:12px;font-style:italic}
+.recap-count{background:var(--bg-input);color:var(--text-muted);font-size:.72rem;font-family:var(--mono);padding:1px 7px;border-radius:10px}
+.outcome-narrative{font-size:1rem;color:var(--text-dim)}
+/* shared block + file list */
+.block{margin:0}
+.file-list{list-style:none;display:flex;flex-direction:column;gap:4px}
+.file-entry{font-family:var(--mono);font-size:.85rem;display:flex;align-items:center;gap:8px}
+.file-path{color:var(--text-dim)}
+.file-change{font-size:.68rem;font-weight:700;text-transform:uppercase;padding:1px 6px;border-radius:4px;font-family:var(--mono)}
+.file-change-add{background:rgba(34,197,94,.12);color:var(--add)}
+.file-change-modify{background:rgba(245,158,11,.12);color:var(--modify)}
+.file-change-delete{background:rgba(239,68,68,.12);color:var(--delete)}
+.block-table{width:100%;border-collapse:collapse;font-size:.82rem;margin-top:8px}
+.block-table th,.block-table td{text-align:left;padding:6px 10px;border-bottom:1px solid var(--border)}
+.block-header{display:flex;align-items:center;gap:8px;font-size:.85rem}
+.block-kind{font-family:var(--mono);font-size:.68rem;text-transform:uppercase;color:var(--text-muted);background:var(--bg-input);padding:1px 6px;border-radius:4px}
+.api-method{font-family:var(--mono);font-weight:700;font-size:.72rem;padding:1px 6px;border-radius:4px;background:var(--accent);color:#000}
+/* annotated diff */
+.annotated-diff{border:1px solid var(--border);border-radius:6px;margin-bottom:14px;overflow:hidden}
+.diff-file-header{display:flex;align-items:center;gap:8px;padding:8px 12px;background:var(--bg-input);font-family:var(--mono);font-size:.82rem}
+.diff-hunk{border-top:1px solid var(--border)}
+.hunk-meta{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:6px 12px;background:rgba(255,255,255,.02)}
+.hunk-header{font-family:var(--mono);font-size:.74rem;color:var(--text-muted)}
+.hunk-summary{font-size:.72rem;color:var(--text-muted);font-family:var(--mono)}
+.diff-pre{margin:0;padding:10px 12px;overflow-x:auto;font-family:var(--mono);font-size:.8rem;line-height:1.5;white-space:pre}
+.diff-pre code{font-family:var(--mono);background:none;padding:0}
+.hunk-cols{display:grid;grid-template-columns:1fr 1fr}
+.hunk-col-before{border-right:1px solid var(--border);background:rgba(239,68,68,.04)}
+.hunk-col-after{background:rgba(34,197,94,.04)}
+/* lineage */
+.lineage-table{width:100%;border-collapse:collapse;font-size:.84rem}
+.lineage-table th,.lineage-table td{text-align:left;padding:6px 10px;border-bottom:1px solid var(--border)}
+.lineage-pivot{background:rgba(167,139,250,.06)}
+.lineage-type{font-size:.68rem;text-transform:uppercase;color:var(--text-muted);font-family:var(--mono);margin-right:6px}
+.lineage-id{font-family:var(--mono);color:var(--accent)}
+.lineage-title{color:var(--text-dim);margin-left:8px}
+code{font-family:var(--mono)}
+</style>
+</head>
+<body>
+<header>
+  <h1>{{htmlEscape .Title}}</h1>
+  <div class="recap-sub">
+    <code>{{htmlEscape .Kind}}</code>
+    {{if .Input}}&middot; <code>{{htmlEscape .Input}}</code>{{end}}
+    {{if .GitRange}}&middot; <code>{{htmlEscape .GitRange}}</code>{{end}}
+    &middot; {{if .Grounded}}grounded{{else}}ungrounded{{end}}
+  </div>
+</header>
+<section class="recap-zone recap-zone-outcome" id="outcome">
+  <h2 class="recap-zone-title">Outcome</h2>
+  <p class="outcome-narrative">{{htmlEscape .Outcome}}</p>
+</section>
+{{renderZone .Files}}
+{{renderZone .Diff}}
+{{renderZone .Lineage}}
+</body>
+</html>

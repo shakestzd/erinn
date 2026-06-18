@@ -1,0 +1,30 @@
+<article class="annotated-diff diff-{{.ModeName}}{{if .IsSplit}} diff-split{{else}} diff-unified{{end}}" data-language="{{.Language}}">
+  <header class="diff-file-header">
+    <span class="file-change file-change-{{.Change}}">{{.Change}}</span>
+    <code class="diff-file-path">{{.Path}}</code>
+  </header>
+  {{range .Hunks}}
+  <div class="diff-hunk">
+    <div class="hunk-meta">
+      <code class="hunk-header">{{.Header}}</code>
+      <span class="hunk-summary">{{.Summary}}</span>
+    </div>
+    {{if $.IsSplit}}
+    <div class="hunk-cols">
+      <div class="hunk-col hunk-col-before">
+        <pre class="diff-pre"><code class="language-{{$.Language}}">{{range .Before}}{{.}}
+{{end}}</code></pre>
+      </div>
+      <div class="hunk-col hunk-col-after">
+        <pre class="diff-pre"><code class="language-{{$.Language}}">{{range .After}}{{.}}
+{{end}}</code></pre>
+      </div>
+    </div>
+    {{else}}
+    <pre class="diff-pre"><code class="language-{{$.Language}}">{{range .Before}}- {{.}}
+{{end}}{{range .After}}+ {{.}}
+{{end}}</code></pre>
+    {{end}}
+  </div>
+  {{end}}
+</article>

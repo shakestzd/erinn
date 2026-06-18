@@ -1,0 +1,10 @@
+{{define "api_endpoint"}}<div class="block block-api-endpoint">
+  <div class="block-header"><span class="block-kind">api-endpoint</span><span class="api-method api-method-{{.Method}}">{{.Method}}</span><code class="api-path">{{.Path}}</code></div>
+  {{if .Params}}<table class="block-table">
+    <thead><tr><th>Param</th><th>Type</th><th>Note</th></tr></thead>
+    <tbody>
+      {{range .Params}}<tr><td><code>{{.Name}}</code></td><td><code>{{.Type}}</code></td><td>{{if .Note}}{{.Note}}{{else}}&mdash;{{end}}</td></tr>
+      {{end}}
+    </tbody>
+  </table>{{end}}
+</div>{{end}}

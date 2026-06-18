@@ -1,0 +1,20 @@
+<section class="recap-zone recap-zone-lineage" id="lineage">
+  <h2 class="recap-zone-title">Lineage <span class="recap-count">{{.Count}}</span></h2>
+  <p class="recap-zone-note">Static grounding chain. The interactive force-graph view is available on the dashboard.</p>
+  <table class="lineage-table">
+    <thead><tr><th>Depth</th><th>Node</th><th>Edge</th></tr></thead>
+    <tbody>
+      {{range .Rows}}
+      <tr class="lineage-row{{if .IsPivot}} lineage-pivot{{end}}">
+        <td class="lineage-depth">{{.Depth}}</td>
+        <td class="lineage-node" style="padding-left:{{.Indent}}px">
+          <span class="lineage-type">{{.Type}}</span>
+          <code class="lineage-id">{{.ID}}</code>
+          {{if .Title}}<span class="lineage-title">{{.Title}}</span>{{end}}
+        </td>
+        <td class="lineage-edge">{{if .EdgeType}}<code>{{.EdgeType}}</code>{{else}}&mdash;{{end}}</td>
+      </tr>
+      {{end}}
+    </tbody>
+  </table>
+</section>

@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>Add charmbracelet huh/lipgloss deps &#43; shared dashboard tui theme package</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="feat-7c1c70bf"
+             data-type="feature"
+             data-status="in-progress"
+             data-priority="medium"
+             data-created="2026-06-18T21:52:45.812477"
+             data-updated="2026-06-18T22:38:06.587243" data-agent-assigned="claude-code" data-track-id="trk-6a1f5362">
+
+        <header>
+            <h1>Add charmbracelet huh/lipgloss deps &#43; shared dashboard tui theme package</h1>
+            <div class="metadata">
+                <span class="badge status-in-progress">In Progress</span>
+                <span class="badge priority-medium">Medium Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="planned_in">
+                <h3>Planned In:</h3>
+                <ul>
+                    <li><a href="../plans/plan-92a31aea.html" data-relationship="planned_in" data-since="2026-06-18T21:52:45.903276">plan-92a31aea</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-6a1f5362.html" data-relationship="part_of" data-since="2026-06-18T21:52:45.957266">trk-6a1f5362</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="implemented_in">
+                <h3>Implemented In:</h3>
+                <ul>
+                    <li><a href="../sessions/450fe1a1-83f9-4dca-b98a-31089b7682c2.html" data-relationship="implemented_in" data-since="2026-06-18T22:38:06.587088">session 450fe1a1-83f9-4dca-b98a-31089b7682c2</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>Add stable charmbracelet/huh (v1) + charmbracelet/lipgloss to the cmd module&#39;s
+go.mod. Create a small shared package (cmd/wipnote/launchtui or internal/launchtui)
+that encodes the dashboard palette as lipgloss styles and a huh theme constructor
+(e.g. wipnoteTheme() *huh.Theme) plus named lipgloss.Style helpers (accent, muted,
+title, sectionHeader, frame). Single source for colors: mirror plugin/static
+has-styles.css tokens (accent #CDFF00, accent-text #0A0A0A, bg #151518/#1C1C20,
+text #E0DED8, muted #707070, status blue/green/red). No behavior change yet —
+this is the foundation consumed by slices 2-4.</p>
+        </section>
+    </article>
+</body>
+</html>

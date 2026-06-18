@@ -1,7 +1,6 @@
 package recaptmpl
 
 import (
-	"bytes"
 	"html/template"
 	"io"
 	"strconv"
@@ -21,35 +20,9 @@ const (
 	DiffSplit DiffMode = "split"
 )
 
-var (
-	diffZoneTmpl = template.Must(
-		template.ParseFS(templateFS, "templates/diff_zone.gohtml"),
-	)
-	annotatedDiffTmpl = template.Must(
-		template.ParseFS(templateFS, "templates/annotated_diff.gohtml"),
-	)
+var annotatedDiffTmpl = template.Must(
+	template.ParseFS(templateFS, "templates/annotated_diff.gohtml"),
 )
-
-// DiffZone wraps the per-file annotated diffs in the recap zone shell.
-type DiffZone struct {
-	Diffs []AnnotatedDiff
-}
-
-// Render writes the diff zone HTML, concatenating each file's annotated diff.
-func (z *DiffZone) Render(w io.Writer) error {
-	var inner template.HTML
-	for i := range z.Diffs {
-		var buf bytes.Buffer
-		if err := z.Diffs[i].Render(&buf); err != nil {
-			return err
-		}
-		inner += template.HTML(buf.String())
-	}
-	return diffZoneTmpl.Execute(w, struct {
-		Count int
-		Inner template.HTML
-	}{Count: len(z.Diffs), Inner: inner})
-}
 
 // HunkView is the pre-computed render model for one hunk: its header context,
 // add/remove counts, and the lines for unified or split layout.
@@ -70,6 +43,10 @@ type AnnotatedDiff struct {
 	File     recap.FileChange
 	Mode     DiffMode
 	Language string // Prism language id, e.g. "go"; empty => "plaintext"
+	// Embedded renders only the hunks (no <article>/<details>/file-header), for
+	// when an outer container — the lineage spine's collapsible file row —
+	// already supplies the file header. Default renders the standalone block.
+	Embedded bool
 }
 
 // Render writes the annotated diff HTML for one file.
@@ -87,6 +64,7 @@ func (d *AnnotatedDiff) Render(w io.Writer) error {
 		Change   string
 		Language string
 		IsSplit  bool
+		Embedded bool
 		ModeName string
 		Hunks    []HunkView
 	}{
@@ -94,6 +72,7 @@ func (d *AnnotatedDiff) Render(w io.Writer) error {
 		Change:   string(d.File.Change),
 		Language: lang,
 		IsSplit:  mode == DiffSplit,
+		Embedded: d.Embedded,
 		ModeName: string(mode),
 		Hunks:    hunkViews(d.File.Hunks),
 	})

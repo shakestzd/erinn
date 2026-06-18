@@ -140,6 +140,14 @@ func walkLineage(db *sql.DB, root string, depth int) []lineage.Node {
 	if len(backward) == 0 && len(forward) == 0 {
 		return nil
 	}
+	// Tag direction so renderers can split ancestry (above the pivot) from
+	// what the work produced (below it). The pure walk leaves Direction empty.
+	for i := range backward {
+		backward[i].Direction = "ancestor"
+	}
+	for i := range forward {
+		forward[i].Direction = "descendant"
+	}
 	chain := make([]lineage.Node, 0, len(backward)+len(forward))
 	chain = append(chain, backward...)
 	chain = append(chain, forward...)

@@ -1,10 +1,10 @@
-<article class="annotated-diff diff-{{.ModeName}}{{if .IsSplit}} diff-split{{else}} diff-unified{{end}}" data-language="{{.Language}}">
+{{if .Embedded}}<div class="annotated-diff embedded diff-{{.ModeName}}{{if .IsSplit}} diff-split{{else}} diff-unified{{end}}" data-language="{{.Language}}">{{else}}<article class="annotated-diff diff-{{.ModeName}}{{if .IsSplit}} diff-split{{else}} diff-unified{{end}}" data-language="{{.Language}}">
   <details class="diff-file" open>
   <summary class="diff-file-header">
     <span class="file-change file-change-{{.Change}}">{{.Change}}</span>
     <code class="diff-file-path">{{.Path}}</code>
     <span class="diff-hunk-count">{{len .Hunks}} hunk{{if ne (len .Hunks) 1}}s{{end}}</span>
-  </summary>
+  </summary>{{end}}
   {{range .Hunks}}
   <div class="diff-hunk">
     <div class="hunk-meta">
@@ -29,5 +29,5 @@
     {{end}}
   </div>
   {{end}}
-  </details>
-</article>
+{{if .Embedded}}</div>{{else}}  </details>
+</article>{{end}}

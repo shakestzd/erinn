@@ -34,6 +34,11 @@ type Node struct {
 	// Timestamp is populated for --timeline rendering by joining git_commits /
 	// agent_events. Empty when no temporal data is available.
 	Timestamp string `json:"timestamp,omitempty"`
+	// Direction records which side of a bidirectional walk a node came from:
+	// "ancestor" (backward) or "descendant" (forward). The pure BFS walk leaves
+	// it empty; callers that combine both directions (e.g. internal/recap) tag it
+	// so consumers can render ancestry and consequences separately.
+	Direction string `json:"direction,omitempty"`
 }
 
 // AllRels lists all 10 relationship types we traverse. We do NOT subset: any of

@@ -1,31 +1,30 @@
 package recaptmpl
 
 import (
+	"bytes"
+	"html/template"
 	"path"
+	"sort"
 	"strings"
 
+	"github.com/shakestzd/wipnote/internal/lineage"
 	"github.com/shakestzd/wipnote/internal/recap"
 )
 
 // Build assembles a RecapPage from collected RecapData. It is a pure, stateless
-// transform: same input always yields the same page. When the recap is
-// ungrounded (LineageChain empty), the lineage zone is left nil so Render omits
-// it entirely.
+// transform: same input always yields the same page. The recap has two zones —
+// the outcome narrative and the unified lineage spine, which embeds the changed
+// files and their diffs as the "produced" half of the causal chain.
 func Build(data recap.RecapData) *RecapPage {
-	page := &RecapPage{
+	return &RecapPage{
 		Title:    titleFor(data),
 		Outcome:  data.Outcome,
 		Input:    data.Provenance.Input,
 		Kind:     string(data.Provenance.Kind),
 		GitRange: data.Provenance.GitRange,
 		Grounded: data.Provenance.Grounded,
-		Files:    buildFileTree(data.Files),
-		Diff:     buildDiffZone(data.Files),
+		Spine:    buildSpine(data),
 	}
-	if len(data.LineageChain) > 0 {
-		page.Lineage = &LineageChain{Nodes: data.LineageChain}
-	}
-	return page
 }
 
 // titleFor derives a short document title from the outcome, falling back to the
@@ -40,30 +39,156 @@ func titleFor(data recap.RecapData) string {
 	return "Recap"
 }
 
-// buildFileTree converts the change set into the shared file-tree zone.
-func buildFileTree(files []recap.FileChange) *FileTreeZone {
-	if len(files) == 0 {
-		return nil
-	}
-	return &FileTreeZone{Files: files}
-}
+// buildSpine assembles the unified lineage spine: ancestry above the pivot, then
+// the produced commits and files (with diffs embedded), then direct downstream
+// nodes. Returns nil when there is nothing to show.
+func buildSpine(data recap.RecapData) *LineageSpine {
+	s := &LineageSpine{}
 
-// buildDiffZone builds one AnnotatedDiff per changed file. Mode defaults to
-// unified (compact, degrade-safe); the dashboard injection path may re-render in
-// split mode. Language is inferred from each file's extension.
-func buildDiffZone(files []recap.FileChange) *DiffZone {
-	if len(files) == 0 {
-		return nil
+	// Pivot + ancestry/related from the (optional) lineage walk.
+	if len(data.LineageChain) > 0 && data.Provenance.Input != "" {
+		s.Pivot = &spineRef{
+			Glyph: glyphFor(kindFromID(data.Provenance.Input)),
+			Kind:  kindFromID(data.Provenance.Input),
+			ID:    data.Provenance.Input,
+			Title: data.Outcome,
+		}
+		s.Ancestors = collectAncestors(data.LineageChain)
+		s.Related = collectRelated(data.LineageChain)
 	}
-	diffs := make([]AnnotatedDiff, 0, len(files))
-	for _, f := range files {
-		diffs = append(diffs, AnnotatedDiff{
-			File:     f,
-			Mode:     DiffUnified,
-			Language: languageFor(f.Path),
+
+	// Produced commits.
+	for _, c := range data.Commits {
+		s.Commits = append(s.Commits, spineCommit{
+			Glyph:   svgDot,
+			Hash:    shortHash(c.Hash),
+			Message: firstLine(c.Message),
+			When:    c.Timestamp,
 		})
 	}
-	return &DiffZone{Diffs: diffs}
+
+	// Produced files, each carrying its embedded diff (hunks only).
+	for _, f := range data.Files {
+		added, removed := countChanges(f.Hunks)
+		ad := AnnotatedDiff{File: f, Mode: DiffUnified, Language: languageFor(f.Path), Embedded: true}
+		var buf bytes.Buffer
+		var diff template.HTML
+		if err := ad.Render(&buf); err == nil {
+			diff = template.HTML(buf.String())
+		}
+		s.Files = append(s.Files, spineFile{
+			Change:  string(f.Change),
+			Path:    f.Path,
+			Added:   added,
+			Removed: removed,
+			Diff:    diff,
+		})
+	}
+
+	if !s.has() {
+		return nil
+	}
+	return s
+}
+
+// collectAncestors returns ancestor nodes ordered origin-first (deepest at the
+// top), so ancestry reads as flowing down into the pivot.
+func collectAncestors(chain []lineage.Node) []spineRef {
+	type withDepth struct {
+		ref   spineRef
+		depth int
+	}
+	var items []withDepth
+	for _, n := range chain {
+		// Direct ancestry only (depth 1): the work item's own track, plan,
+		// blockers, and session. Deeper hops pull in sibling features via
+		// track→contains and read as noise in a recap; the full graph stays
+		// available through `wipnote lineage`.
+		if n.Direction != "ancestor" || n.Depth != 1 {
+			continue
+		}
+		items = append(items, withDepth{refFromNode(n), n.Depth})
+	}
+	sort.SliceStable(items, func(a, b int) bool { return items[a].depth > items[b].depth })
+	out := make([]spineRef, len(items))
+	for i, it := range items {
+		out[i] = it.ref
+	}
+	return out
+}
+
+// collectRelated returns only direct (depth-1) downstream nodes, avoiding the
+// sibling explosion that deeper part_of→contains traversal produces.
+func collectRelated(chain []lineage.Node) []spineRef {
+	var out []spineRef
+	for _, n := range chain {
+		if n.Direction == "descendant" && n.Depth == 1 {
+			out = append(out, refFromNode(n))
+		}
+	}
+	return out
+}
+
+func refFromNode(n lineage.Node) spineRef {
+	return spineRef{
+		Glyph: glyphFor(n.Type),
+		Kind:  n.Type,
+		ID:    n.ID,
+		Title: n.Title,
+		Edge:  humanEdge(n.EdgeType),
+	}
+}
+
+// countChanges sums added/removed line counts across a file's hunks.
+func countChanges(hunks []recap.Hunk) (added, removed int) {
+	for _, h := range hunks {
+		added += len(h.After)
+		removed += len(h.Before)
+	}
+	return added, removed
+}
+
+// kindFromID maps a work-item id prefix to a canonical kind.
+func kindFromID(id string) string {
+	switch {
+	case strings.HasPrefix(id, "feat-"):
+		return "feature"
+	case strings.HasPrefix(id, "bug-"):
+		return "bug"
+	case strings.HasPrefix(id, "spk-"):
+		return "spike"
+	case strings.HasPrefix(id, "trk-"):
+		return "track"
+	case strings.HasPrefix(id, "plan-"):
+		return "plan"
+	case strings.HasPrefix(id, "recap-"):
+		return "recap"
+	case strings.HasPrefix(id, "sess-"):
+		return "session"
+	default:
+		return "item"
+	}
+}
+
+// humanEdge turns a graph edge_type into a short connector label.
+func humanEdge(edge string) string {
+	return strings.ReplaceAll(edge, "_", " ")
+}
+
+// shortHash truncates a commit hash to 9 chars for display.
+func shortHash(h string) string {
+	if len(h) > 9 {
+		return h[:9]
+	}
+	return h
+}
+
+// firstLine returns the subject line of a commit message.
+func firstLine(msg string) string {
+	if i := strings.IndexByte(msg, '\n'); i >= 0 {
+		return strings.TrimSpace(msg[:i])
+	}
+	return strings.TrimSpace(msg)
 }
 
 // languageFor maps a file extension to a Prism language identifier. Unknown

@@ -76,10 +76,11 @@ type RecapPage struct {
 	GitRange string
 	Grounded bool
 
-	// Zone components. Lineage is nil for ungrounded recaps (omitted).
-	Files   *FileTreeZone
-	Diff    *DiffZone
-	Lineage *LineageChain
+	// Spine is the unified lineage zone: ancestry → pivot → produced commits and
+	// files (with diffs embedded). It replaces the former separate file-tree,
+	// annotated-diff, and lineage-table zones. Nil only when there is nothing to
+	// show (no files, commits, or lineage).
+	Spine *LineageSpine
 }
 
 // Render writes the complete recap HTML to w.
@@ -88,14 +89,10 @@ func (p *RecapPage) Render(w io.Writer) error {
 }
 
 // isNil reports whether a Component interface holds a typed nil pointer, so that
-// renderZone treats e.g. (*LineageChain)(nil) the same as an untyped nil.
+// renderZone treats e.g. (*LineageSpine)(nil) the same as an untyped nil.
 func isNil(c Component) bool {
 	switch v := c.(type) {
-	case *FileTreeZone:
-		return v == nil
-	case *DiffZone:
-		return v == nil
-	case *LineageChain:
+	case *LineageSpine:
 		return v == nil
 	default:
 		return false

@@ -43,8 +43,9 @@ func groundedData() recap.RecapData {
 			{Hash: "abc1234", Message: "feat: blocks", FeatureID: "feat-2570725c"},
 		},
 		LineageChain: []lineage.Node{
-			{ID: "feat-2570725c", Type: "feature", Title: "Recap renderer", EdgeType: "", Depth: 0},
-			{ID: "plan-93b8eba0", Type: "plan", Title: "Visual recap", EdgeType: "planned_in", Depth: 1, Parent: "feat-2570725c"},
+			{ID: "plan-93b8eba0", Type: "plan", Title: "Visual recap", EdgeType: "implemented_in", Depth: 1, Direction: "ancestor"},
+			{ID: "trk-a951e3c0", Type: "track", Title: "Visual planning track", EdgeType: "part_of", Depth: 1, Direction: "ancestor"},
+			{ID: "recap-feat-2570725c", Type: "recap", EdgeType: "relates_to", Depth: 1, Direction: "descendant", Parent: "feat-2570725c"},
 		},
 		Provenance: recap.Provenance{
 			Kind: recap.InputWorkItem, Input: "feat-2570725c",
@@ -79,16 +80,27 @@ func TestRecapPage_Render(t *testing.T) {
 		"<!DOCTYPE html>",
 		"</html>",
 		"Add recap renderer + shared block components", // outcome
-		"plan/blocks/blocks.go",                        // file tree
+		`class="recap-zone recap-zone-lineage"`,        // unified spine zone
+		`class="spine`,                                 // the causal spine
+		`lin-node pivot`,                               // pivot present when grounded
+		"feat-2570725c",                                // pivot id
+		"plan-93b8eba0",                                // ancestry node
+		"recap-feat-2570725c",                          // direct downstream node
+		"abc1234",                                      // produced commit
+		"plan/blocks/blocks.go",                        // produced file (station)
 		"internal/recap/types.go",
-		`class="block block-file-tree"`,         // shared block reuse
-		`class="recap-zone recap-zone-diff"`,    // annotated diff zone
-		`class="recap-zone recap-zone-lineage"`, // lineage zone present when grounded
-		"feat-2570725c",                         // lineage node
-		"plan-93b8eba0",
+		`class="lin-file"`,                  // file station is collapsible
+		`annotated-diff embedded`,           // diff embedded inside the file station
+		"package blocks",                    // embedded diff content (added line)
 	} {
 		if !strings.Contains(html, want) {
 			t.Errorf("recap page missing %q", want)
+		}
+	}
+	// The old separate file-tree and diff zones must be gone (unified into spine).
+	for _, gone := range []string{`recap-zone-diff`, `recap-zone-files`, `lineage-table`} {
+		if strings.Contains(html, gone) {
+			t.Errorf("obsolete zone %q should be removed (unified into the spine)", gone)
 		}
 	}
 }
@@ -103,11 +115,16 @@ func TestRecapPage_Render_Ungrounded(t *testing.T) {
 	if !strings.Contains(html, "<!DOCTYPE html>") {
 		t.Error("expected valid HTML document")
 	}
+	// Produced files still render (the spine's "produced" half works without grounding).
 	if !strings.Contains(html, "x.go") {
-		t.Error("expected file zone in ungrounded recap")
+		t.Error("expected produced files in ungrounded recap")
 	}
-	if strings.Contains(html, "recap-zone-lineage") {
-		t.Error("lineage zone must be OMITTED when ungrounded (LineageChain nil)")
+	if !strings.Contains(html, "spine-produced-only") {
+		t.Error("ungrounded spine should be marked produced-only")
+	}
+	// But there is no pivot or ancestry when ungrounded.
+	if strings.Contains(html, "lin-node pivot") {
+		t.Error("ungrounded recap must NOT render a pivot (no work-item grounding)")
 	}
 }
 

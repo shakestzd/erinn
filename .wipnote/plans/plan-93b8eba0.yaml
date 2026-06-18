@@ -1,0 +1,18 @@
+meta:
+    id: plan-93b8eba0
+    track_id: trk-a951e3c0
+    title: Visual plan & lineage-grounded recap (native port of BuilderIO visual-plan/visual-recap)
+    description: Augment wipnote planning with visual-plan block enrichment and a lineage-grounded visual recap, built natively on plantmpl + the serve dashboard.
+    created_at: "2026-06-18"
+    status: draft
+    priority: medium
+    schema_version: v3
+    version: 2
+design:
+    problem: ""
+    goals: []
+    constraints: []
+    approved: false
+    comment: ""
+slices: []
+questions: []

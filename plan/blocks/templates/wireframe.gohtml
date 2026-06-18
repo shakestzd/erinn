@@ -1,4 +1,4 @@
 {{define "wireframe"}}<div class="block block-wireframe"{{if .Anchor}} id="{{.Anchor}}" data-block-anchor="{{.Anchor}}"{{end}}>
   {{if .Title}}<div class="block-header"><span class="block-kind">wireframe</span><span class="block-title">{{.Title}}</span></div>{{end}}
-  {{if .RawColors}}<div class="wireframe-error">Wireframe rejected: html must use design tokens (var(--wf-*)), not raw hex/rgb/hsl colors.</div>{{else}}<div class="wireframe-canvas" style="{{.Tokens}}">{{.SafeBody}}</div>{{end}}
+  {{if .RawColors}}<div class="wireframe-error">Wireframe rejected: html must use design tokens (var(--...), e.g. var(--wf-fg)), not raw hex/rgb/hsl colors.</div>{{else}}<div class="wireframe-canvas" style="{{.Tokens}}">{{.SafeBody}}</div>{{end}}
 </div>{{end}}

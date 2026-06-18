@@ -117,8 +117,9 @@ const wireframeContainment = `position:relative;overflow:hidden;contain:layout p
 // shared verbatim between plan slice blocks and recap before/after panels so a
 // proposed UI and a shipped UI render through one code path.
 //
-// Body is raw author markup that may reference var(--wf-*) tokens; because the
-// whole point of a wireframe is structural HTML/CSS, Body is emitted unescaped —
+// Body is raw author markup that may reference any var(--...) design token (the
+// --wf-* set plus the base dashboard palette); because the whole point of a
+// wireframe is structural HTML/CSS, Body is sanitized then emitted unescaped —
 // but ONLY after RawColors() confirms it carries no baked-in colors. Title is an
 // optional caption (e.g. "Before", "After"). Anchor, when set, is stamped as the
 // element id and data-block-anchor so the dashboard annotation dropdown can

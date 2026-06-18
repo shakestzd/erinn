@@ -45,6 +45,7 @@ input is a work-item id.`,
 	}
 	cmd.Flags().StringVar(&rangeSpec, "range", "", "git revision range (e.g. main..HEAD)")
 	cmd.Flags().StringVar(&sessionID, "session", "", "session id (e.g. sess-abc123)")
+	cmd.AddCommand(recapListCmd(), recapShowCmd(), recapDeleteCmd())
 	return cmd
 }
 

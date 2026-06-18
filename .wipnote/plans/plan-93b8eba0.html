@@ -429,7 +429,7 @@ body.right-rail-collapsed .sidebar-reopen{display:flex}
   <p style="color:var(--text-dim)">Augment wipnote planning with visual-plan block enrichment and a lineage-grounded visual recap, built natively on plantmpl + the serve dashboard.</p>
   <div class="meta">
     <span class="badge badge-pending">Draft</span>
-    <span style="font-size:.75rem;color:var(--text-muted)">v2 · 0 slices · Created 2026-06-18</span>
+    <span style="font-size:.75rem;color:var(--text-muted)">v3 · 0 slices · Created 2026-06-18</span>
   </div>
 </header>
 <button id="themeToggle" style="position:fixed;top:16px;right:16px;z-index:100;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:6px 12px;color:var(--text);font-family:var(--mono);font-size:0.75rem;cursor:pointer;">
@@ -461,17 +461,30 @@ body.right-rail-collapsed .sidebar-reopen{display:flex}
 <details id="design" class="section-card" open data-phase="design" data-status="pending">
   <summary><span>Design</span><span class="badge badge-pending" data-badge-for="design">Pending</span></summary>
   <div class="section-body">
-    <!--PLAN_DESIGN_CONTENT-->
-    <div class="sub-section">
-      <h4>Open Questions</h4>
-      <!--PLAN_QUESTIONS-->
-    </div>
+    <h4>Problem</h4>
+<div data-markdown>BuilderIO&#39;s /visual-plan and /visual-recap give agents rich, reviewable visual artifacts (block-structured plans; recaps that turn a diff into an interactive summary), but they depend on a hosted third-party MCP (Agent-Native Plans). wipnote already owns equivalent rendering surfaces (plantmpl, the serve dashboard, lineage) yet exposes plans as a single layout and has no recap surface at all, and lineage output is text-only. We want the same visual ergonomics, natively and local-first, with recap grounded in wipnote&#39;s unique causal lineage.</div>
+<h4>Goals</h4>
+<ol>
+<li data-markdown>Ship a first-class lineage-grounded recap (wipnote recap -&gt; committed recap-*.html) accepting work-item / git-range / session inputs;Enrich plans with structured visual blocks (data-model</li>
+<li data-markdown>api-endpoint</li>
+<li data-markdown>file-tree</li>
+<li data-markdown>before/after HTML wireframes) reusing one shared renderer;Surface recaps and enriched plans in the existing dashboard with no new frontend deps;Expose /visual-recap and /visual-plan skills portable across Claude/Codex/Gemini via build-ports;Keep everything local-first — no hosted MCP</li>
+<li data-markdown>HTML stays canonical</li>
+</ol>
+<h4>Constraints</h4>
+<ul>
+<li data-markdown>Local-first: no hosted Agent-Native Plans MCP dependency</li>
+<li data-markdown>no data leaving .wipnote/;Single-source-of-truth: HTML is canonical/generated</li>
+<li data-markdown>never hand-edit recap-*.html or plan-*.html;Reuse existing D3 v7 + vanilla JS + Prism — no new frontend frameworks;Before/after wireframes are plain HTML/CSS with design tokens — no Playwright/screenshots/headless;Plan-schema additions must be additive-optional (existing v3 plans validate unchanged);Skills build across all 3 harnesses via wipnote plugin build-ports;Never author or overwrite project AGENTS.md/CLAUDE.md (plugin/project boundary)</li>
+</ul>
+
     <div class="approval-row">
       <label><input type="checkbox" data-section="design" data-action="approve"> Approve design</label>
       <textarea data-section="design" data-comment-for="design" placeholder="Comments on design decisions..."></textarea>
     </div>
   </div>
 </details>
+
 
 <!-- Structure Outline (hidden when empty) -->
 

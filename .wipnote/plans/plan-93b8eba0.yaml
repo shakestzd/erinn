@@ -7,11 +7,19 @@ meta:
     status: draft
     priority: medium
     schema_version: v3
-    version: 2
+    version: 3
 design:
-    problem: ""
-    goals: []
-    constraints: []
+    problem: BuilderIO's /visual-plan and /visual-recap give agents rich, reviewable visual artifacts (block-structured plans; recaps that turn a diff into an interactive summary), but they depend on a hosted third-party MCP (Agent-Native Plans). wipnote already owns equivalent rendering surfaces (plantmpl, the serve dashboard, lineage) yet exposes plans as a single layout and has no recap surface at all, and lineage output is text-only. We want the same visual ergonomics, natively and local-first, with recap grounded in wipnote's unique causal lineage.
+    goals:
+        - Ship a first-class lineage-grounded recap (wipnote recap -> committed recap-*.html) accepting work-item / git-range / session inputs;Enrich plans with structured visual blocks (data-model
+        - api-endpoint
+        - file-tree
+        - before/after HTML wireframes) reusing one shared renderer;Surface recaps and enriched plans in the existing dashboard with no new frontend deps;Expose /visual-recap and /visual-plan skills portable across Claude/Codex/Gemini via build-ports;Keep everything local-first — no hosted MCP
+        - HTML stays canonical
+    constraints:
+        - 'Local-first: no hosted Agent-Native Plans MCP dependency'
+        - 'no data leaving .wipnote/;Single-source-of-truth: HTML is canonical/generated'
+        - never hand-edit recap-*.html or plan-*.html;Reuse existing D3 v7 + vanilla JS + Prism — no new frontend frameworks;Before/after wireframes are plain HTML/CSS with design tokens — no Playwright/screenshots/headless;Plan-schema additions must be additive-optional (existing v3 plans validate unchanged);Skills build across all 3 harnesses via wipnote plugin build-ports;Never author or overwrite project AGENTS.md/CLAUDE.md (plugin/project boundary)
     approved: false
     comment: ""
 slices: []

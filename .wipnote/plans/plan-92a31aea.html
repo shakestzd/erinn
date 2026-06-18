@@ -465,7 +465,7 @@ body.right-rail-collapsed .sidebar-reopen{display:flex}
       <a href="#slice-2" class="slice-nav-item" data-slice-nav="2">
         <span class="slice-nav-dot" data-approval="pending" data-dot-for="2"></span>
         <span>#2 Styled huh Select chooser in promptLaunchIntent with non-TTY fallback</span>
-        
+        <span class="nav-triage-badge nav-triage-issue" title="2 issue(s)">&#9888;2</span>
         <span class="nav-triage-badge nav-triage-question" title="2 open question(s)">?2</span>
       </a>
     </li>
@@ -482,8 +482,8 @@ body.right-rail-collapsed .sidebar-reopen{display:flex}
     <li>
       <a href="#slice-4" class="slice-nav-item" data-slice-nav="4">
         <span class="slice-nav-dot" data-approval="pending" data-dot-for="4"></span>
-        <span>#4 Route yolo + antigravity launchers through the shared styled chooser/banner</span>
-        
+        <span>#4 Wire wipnote yolo through the shared chooser; confirm all harnesses inherit the styling</span>
+        <span class="nav-triage-badge nav-triage-issue" title="2 issue(s)">&#9888;2</span>
         
       </a>
     </li>
@@ -528,7 +528,7 @@ body.right-rail-collapsed .sidebar-reopen{display:flex}
     <div data-node="1" data-name="Add charmbracelet huh/lipgloss deps + shared dashboard tui theme package" data-status="pending" data-deps="" data-files="4"></div>
     <div data-node="2" data-name="Styled huh Select chooser in promptLaunchIntent with non-TTY fallback" data-status="pending" data-deps="1" data-files="2"></div>
     <div data-node="3" data-name="Restyle launch/warning/session banner into a framed dashboard block" data-status="pending" data-deps="1" data-files="4"></div>
-    <div data-node="4" data-name="Route yolo + antigravity launchers through the shared styled chooser/banner" data-status="pending" data-deps="2,3" data-files="3"></div>
+    <div data-node="4" data-name="Wire wipnote yolo through the shared chooser; confirm all harnesses inherit the styling" data-status="pending" data-deps="2,3" data-files="3"></div>
     
     <!--PLAN_GRAPH_NODES-->
   </div>
@@ -741,7 +741,7 @@ Exact v1 tag is pinned at implementation via <code>go get github.com/charmbracel
           <span class="badge badge-revision badge-sm badge-complexity" title="Complexity: complex">Complex</span>
           
           <span class="badge badge-pending badge-sm slice-approval-badge" data-badge-for="slice-2">Pending</span>
-          
+          <span class="badge badge-sm badge-issues" title="2 critic issue(s)">2 issues</span>
           <span class="badge badge-sm badge-questions" title="2 open question(s)">2 Q</span>
         </span>
         <span class="slice-actions" onclick="event.stopPropagation()">
@@ -871,6 +871,25 @@ confirmed via pkg.go.dev WithAccessible being explicit).</p>
     </div>
     
 
+    
+    <div class="slice-field slice-critic-revisions">
+      <div class="slice-field-label">Critic Revisions</div>
+      <div class="slice-field-value">
+        
+        <div class="critic-revision">
+          <span class="badge badge-pending critic-revision-badge">LOW</span>
+          <span class="critic-revision-source">local-feasibility</span>
+          <span class="critic-revision-summary">All cited anchors verified exact: promptLaunchIntent:109, shouldOfferLaunchIntentChooser:34, isInteractiveTerminalFile:44, describeResumableSession:175; ResumableSession:527 / HarnessGroupedResumableSessions:539 (session_repo.go).</span>
+        </div>
+        
+        <div class="critic-revision">
+          <span class="badge badge-pending critic-revision-badge">LOW</span>
+          <span class="critic-revision-source">local-design</span>
+          <span class="critic-revision-summary">High leverage: because codex/gemini/antigravity already call promptLaunchIntent, this single slice restyles four harnesses at once — note this so the reviewer sees slice 4 is mostly inheritance, not duplication.</span>
+        </div>
+        
+      </div>
+    </div>
     
 
     
@@ -1061,19 +1080,19 @@ warning to stdout (would change scrape/redirect behavior).</p>
   </div>
 </details>
 <details class="slice-card" id="slice-4" data-slice="4" data-slice-name="slice-4" data-status="pending" data-approval="pending">
-  <summary class="slice-summary" aria-label="Slice 4: Route yolo &#43; antigravity launchers through the shared styled chooser/banner">
+  <summary class="slice-summary" aria-label="Slice 4: Wire wipnote yolo through the shared chooser; confirm all harnesses inherit the styling">
     <span class="slice-num">#4</span>
     <span class="slice-title-col">
-      <span class="slice-name">Route yolo &#43; antigravity launchers through the shared styled chooser/banner</span>
-      <span class="slice-preview">Ensure wipnote yolo and wipnote antigravity (agy) launch entrypoints render the</span>
+      <span class="slice-name">Wire wipnote yolo through the shared chooser; confirm all harnesses inherit the styling</span>
+      <span class="slice-preview">Feasibility audit (already partially done): the shared chooser path</span>
       <span class="slice-meta-row">
         <span class="slice-summary-badges">
-          <span class="badge badge-revision badge-sm">M</span>
-          <span class="badge badge-revision badge-sm">Med</span>
+          <span class="badge badge-pending badge-sm">S</span>
+          <span class="badge badge-pending badge-sm">Low</span>
           <span class="badge badge-discuss badge-sm badge-complexity" title="Complexity: standard">Standard</span>
           
           <span class="badge badge-pending badge-sm slice-approval-badge" data-badge-for="slice-4">Pending</span>
-          
+          <span class="badge badge-sm badge-issues" title="2 critic issue(s)">2 issues</span>
           
         </span>
         <span class="slice-actions" onclick="event.stopPropagation()">
@@ -1105,13 +1124,21 @@ warning to stdout (would change scrape/redirect behavior).</p>
         <div class="slice-field-value">
           
           <input type="checkbox" id="slice-4-what-reveal" class="reveal-toggle">
-          <div class="markdown-block reveal-content serif-prose"><p>Ensure <code>wipnote yolo</code> and <code>wipnote antigravity</code> (agy) launch entrypoints render the
-same styled huh chooser (slice 2) and framed banner (slice 3) as <code>wipnote claude</code>.
-Audit how each entrypoint resolves launch intent today (whether it already calls the
-shared promptLaunchIntent / resolveLaunchIntentForDefaultLaunch path or has its own
-print code), and route all of them through the single shared renderer, passing the
-correct harness label via formatHarnessName. No new chooser logic — only wiring +
-harness-label correctness.</p>
+          <div class="markdown-block reveal-content serif-prose"><p>Feasibility audit (already partially done): the shared chooser path
+(promptLaunchIntent / shouldOfferLaunchIntentChooser) is ALREADY referenced by
+codex.go, gemini.go, antigravity.go, and claude_launch_intent.go — so once slice 2
+restyles promptLaunchIntent, claude/codex/gemini/antigravity inherit the styled huh
+chooser and slice-3 banner FOR FREE. The one gap: yolo.go does NOT reference the
+shared chooser path. So this slice&#39;s real work is:</p>
+<ol>
+<li>Confirm antigravity/codex/gemini render the styled chooser end-to-end (smoke +
+assert they call the shared path; correct harness label via formatHarnessName).</li>
+<li>Wire <code>wipnote yolo</code> to the shared chooser/banner — add the intent-resolution call
+if missing, or document why yolo intentionally skips the chooser (yolo is
+autonomous; if it shouldn&#39;t prompt, scope drops to applying the slice-3 banner
+only). Decide and record which.
+No new chooser UI logic — wiring + harness-label correctness + the yolo decision.</li>
+</ol>
 </div>
           <label for="slice-4-what-reveal" class="reveal-label">Show full description</label>
           
@@ -1123,9 +1150,9 @@ harness-label correctness.</p>
         <div class="slice-field-label">Why</div>
         <div class="slice-field-value">
           
-          <div class="markdown-block serif-prose"><p>User explicitly chose &#34;All launcher choosers (claude + yolo + antigravity).&#34; A
-consistent look across entrypoints is the point; divergence would reintroduce the
-&#34;terrible&#34; inconsistency for two of three launchers.</p>
+          <div class="markdown-block serif-prose"><p>User chose &#34;All launcher choosers (claude + yolo + antigravity).&#34; Audit shows three of
+them already route through the shared path; yolo is the genuine outlier and the only
+net-new wiring. Avoids the false assumption that all four need equal work.</p>
 </div>
           
         </div>
@@ -1134,13 +1161,13 @@ consistent look across entrypoints is the point; divergence would reintroduce th
       
       <div class="slice-field">
         <div class="slice-field-label">Files</div>
-        <div class="slice-field-value"><code>cmd/wipnote/yolo.go, cmd/wipnote/antigravity.go, cmd/wipnote/claude_chooser.go</code></div>
+        <div class="slice-field-value"><code>cmd/wipnote/yolo.go, cmd/wipnote/antigravity.go, cmd/wipnote/claude_chooser_test.go</code></div>
       </div>
       
       
       <div class="slice-field">
         <div class="slice-field-label">Done when</div>
-        <ul class="slice-done-list"><li>wipnote yolo and wipnote antigravity present the same styled huh chooser &#43; framed banner as wipnote claude, with the correct harness name in section headers.</li><li>Each entrypoint preserves its own non-TTY fallback (no TUI when stdin is not a char device).</li><li>go build ./... &amp;&amp; go vet ./... &amp;&amp; go test ./... pass across all five modules.</li></ul>
+        <ul class="slice-done-list"><li>wipnote antigravity/codex/gemini are confirmed to render the styled huh chooser &#43; framed banner via the shared path (no per-harness divergence).</li><li>wipnote yolo either presents the same styled chooser&#43;banner with the correct harness label, OR records an explicit decision that yolo skips the chooser by design and only adopts the slice-3 banner.</li><li>Each wired entrypoint preserves its non-TTY fallback (no TUI when stdin is not a char device).</li><li>go build ./... &amp;&amp; go vet ./... &amp;&amp; go test ./... pass across all five modules (run per-module per the quality gates).</li></ul>
       </div>
       
     
@@ -1151,14 +1178,18 @@ consistent look across entrypoints is the point; divergence would reintroduce th
       <div class="slice-field-value">
         
         <input type="checkbox" id="slice-4-decisions-reveal" class="reveal-toggle">
-        <div class="markdown-block reveal-content serif-prose"><p><strong>Scope:</strong> wiring only — point yolo/antigravity intent resolution at the shared
-promptLaunchIntent/resolveLaunchIntentForDefaultLaunch path; no new UI code.
+        <div class="markdown-block reveal-content serif-prose"><p><strong>Scope:</strong> wiring only — yolo.go is the sole net-new wiring; antigravity/codex/gemini
+already call the shared path (verified by grep) and inherit slices 2-3 automatically.
 <strong>State:</strong> none new.
-<strong>Decisions:</strong> Single shared chooser renderer for all three harnesses (DRY, matches
-user&#39;s &#34;all launchers&#34; choice). The file list for yolo.go/antigravity.go is a
-best-guess from the entrypoint naming convention and is UNVERIFIED — slice opens by
-confirming the real entrypoint files and intent-resolution call sites before editing.
-<strong>Rejected:</strong> per-harness chooser copies (reintroduces the inconsistency we&#39;re fixing).</p>
+<strong>Decisions:</strong> Single shared chooser renderer for all harnesses (DRY, matches user&#39;s
+&#34;all launchers&#34; choice). yolo.go&#39;s chooser participation is an open decision: yolo is
+autonomous, so it may intentionally not prompt — if so it still adopts the slice-3
+banner. Slice opens by resolving that yolo question, not by assuming a prompt.
+<strong>Verified (feasibility critic):</strong> yolo.go + antigravity.go exist; shared-path symbols
+(promptLaunchIntent/shouldOfferLaunchIntentChooser) are referenced by codex.go,
+gemini.go, antigravity.go, claude_launch_intent.go but NOT yolo.go.
+<strong>Rejected:</strong> per-harness chooser copies (reintroduces the inconsistency we&#39;re fixing);
+treating all four launchers as equal net-new work (audit disproved it).</p>
 </div>
         <label for="slice-4-decisions-reveal" class="reveal-label">Show full decisions</label>
         
@@ -1178,12 +1209,17 @@ confirming the real entrypoint files and intent-resolution call sites before edi
           
           <div class="test-group" data-kind="unit">
             <span class="test-chip">UNIT &middot; 1</span>
-            <ul><li>TestYoloChooser_UsesSharedRenderer / TestAntigravityChooser_UsesSharedRenderer —</li></ul>
+            <ul><li>TestYoloLaunch_ChooserWiring — assert yolo&#39;s chosen behavior (shared chooser, or</li></ul>
           </div>
           
           <div class="test-group" data-kind="other">
-            <span class="test-chip">OTHER &middot; 2</span>
-            <ul><li>assert the shared promptLaunchIntent path is invoked with the right harness, and</li><li>non-TTY bypass holds for each.</li></ul>
+            <span class="test-chip">OTHER &middot; 1</span>
+            <ul><li>banner-only with documented skip) and that non-TTY bypass holds.</li></ul>
+          </div>
+          
+          <div class="test-group" data-kind="smoke">
+            <span class="test-chip">SMOKE &middot; 1</span>
+            <ul><li>confirm antigravity/codex/gemini reach promptLaunchIntent with the right harness.</li></ul>
           </div>
           
         </div>
@@ -1192,6 +1228,25 @@ confirming the real entrypoint files and intent-resolution call sites before edi
     </div>
     
 
+    
+    <div class="slice-field slice-critic-revisions">
+      <div class="slice-field-label">Critic Revisions</div>
+      <div class="slice-field-value">
+        
+        <div class="critic-revision">
+          <span class="badge badge-blocked critic-revision-badge">HIGH</span>
+          <span class="critic-revision-source">local-feasibility</span>
+          <span class="critic-revision-summary">Rescoped: grep over cmd/wipnote/ shows codex/gemini/antigravity/claude_launch_intent already call the shared chooser path; only yolo.go does not. Slice 2 styles all four for free; yolo is the sole net-new wiring. Original &#39;all four equal&#39; framing was wrong.</span>
+        </div>
+        
+        <div class="critic-revision">
+          <span class="badge badge-pending critic-revision-badge">LOW</span>
+          <span class="critic-revision-source">local-feasibility</span>
+          <span class="critic-revision-summary">yolo.go &#43; antigravity.go confirmed present — slice-4 file list is verified, not guessed.</span>
+        </div>
+        
+      </div>
+    </div>
     
 
     

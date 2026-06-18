@@ -149,6 +149,13 @@ slices:
         - id: q-fallback-trigger
           text: When does the numeric bufio fallback fire instead of the huh TUI?
           answer: Only when stdin is interactive (passes the existing char-device gate) AND huh cannot run — i.e. ACCESSIBLE env is set or huh.Run returns an error. Pure non-TTY still bypasses the chooser entirely upstream, as today.
+      critic_revisions:
+        - source: local-feasibility
+          severity: LOW
+          summary: 'All cited anchors verified exact: promptLaunchIntent:109, shouldOfferLaunchIntentChooser:34, isInteractiveTerminalFile:44, describeResumableSession:175; ResumableSession:527 / HarnessGroupedResumableSessions:539 (session_repo.go).'
+        - source: local-design
+          severity: LOW
+          summary: 'High leverage: because codex/gemini/antigravity already call promptLaunchIntent, this single slice restyles four harnesses at once — note this so the reviewer sees slice 4 is mostly inheritance, not duplication.'
       decisions_notes: |
         **Trigger:** promptLaunchIntent is reached only after shouldOfferLaunchIntentChooser
           confirms an interactive char-device stdin (existing gate, unchanged).
@@ -213,47 +220,140 @@ slices:
           warning to stdout (would change scrape/redirect behavior).
     - id: slice-4
       num: 4
-      title: Route yolo + antigravity launchers through the shared styled chooser/banner
+      title: Wire wipnote yolo through the shared chooser; confirm all harnesses inherit the styling
       what: |
-        Ensure `wipnote yolo` and `wipnote antigravity` (agy) launch entrypoints render the
-        same styled huh chooser (slice 2) and framed banner (slice 3) as `wipnote claude`.
-        Audit how each entrypoint resolves launch intent today (whether it already calls the
-        shared promptLaunchIntent / resolveLaunchIntentForDefaultLaunch path or has its own
-        print code), and route all of them through the single shared renderer, passing the
-        correct harness label via formatHarnessName. No new chooser logic — only wiring +
-        harness-label correctness.
+        Feasibility audit (already partially done): the shared chooser path
+        (promptLaunchIntent / shouldOfferLaunchIntentChooser) is ALREADY referenced by
+        codex.go, gemini.go, antigravity.go, and claude_launch_intent.go — so once slice 2
+        restyles promptLaunchIntent, claude/codex/gemini/antigravity inherit the styled huh
+        chooser and slice-3 banner FOR FREE. The one gap: yolo.go does NOT reference the
+        shared chooser path. So this slice's real work is:
+          1. Confirm antigravity/codex/gemini render the styled chooser end-to-end (smoke +
+             assert they call the shared path; correct harness label via formatHarnessName).
+          2. Wire `wipnote yolo` to the shared chooser/banner — add the intent-resolution call
+             if missing, or document why yolo intentionally skips the chooser (yolo is
+             autonomous; if it shouldn't prompt, scope drops to applying the slice-3 banner
+             only). Decide and record which.
+        No new chooser UI logic — wiring + harness-label correctness + the yolo decision.
       why: |
-        User explicitly chose "All launcher choosers (claude + yolo + antigravity)." A
-        consistent look across entrypoints is the point; divergence would reintroduce the
-        "terrible" inconsistency for two of three launchers.
+        User chose "All launcher choosers (claude + yolo + antigravity)." Audit shows three of
+        them already route through the shared path; yolo is the genuine outlier and the only
+        net-new wiring. Avoids the false assumption that all four need equal work.
       files:
         - cmd/wipnote/yolo.go
         - cmd/wipnote/antigravity.go
-        - cmd/wipnote/claude_chooser.go
+        - cmd/wipnote/claude_chooser_test.go
       deps:
         - 2
         - 3
       done_when:
-        - wipnote yolo and wipnote antigravity present the same styled huh chooser + framed banner as wipnote claude, with the correct harness name in section headers.
-        - Each entrypoint preserves its own non-TTY fallback (no TUI when stdin is not a char device).
-        - go build ./... && go vet ./... && go test ./... pass across all five modules.
-      effort: M
-      risk: Med
+        - wipnote antigravity/codex/gemini are confirmed to render the styled huh chooser + framed banner via the shared path (no per-harness divergence).
+        - wipnote yolo either presents the same styled chooser+banner with the correct harness label, OR records an explicit decision that yolo skips the chooser by design and only adopts the slice-3 banner.
+        - Each wired entrypoint preserves its non-TTY fallback (no TUI when stdin is not a char device).
+        - go build ./... && go vet ./... && go test ./... pass across all five modules (run per-module per the quality gates).
+      effort: S
+      risk: Low
       tests: |
-        Unit: TestYoloChooser_UsesSharedRenderer / TestAntigravityChooser_UsesSharedRenderer —
-        assert the shared promptLaunchIntent path is invoked with the right harness, and
-        non-TTY bypass holds for each.
+        Unit: TestYoloLaunch_ChooserWiring — assert yolo's chosen behavior (shared chooser, or
+        banner-only with documented skip) and that non-TTY bypass holds.
+        Smoke: confirm antigravity/codex/gemini reach promptLaunchIntent with the right harness.
       complexity: standard
       approved: false
       comment: ""
-      research_waiver: Internal wiring of existing wipnote yolo/antigravity entrypoints to the shared chooser — no external library or standard applies beyond slices 1-3 (already cited). Exact current call paths for yolo/antigravity are unverified until the implementation audit; the slice begins with that audit.
+      research_waiver: Internal wiring of existing wipnote launcher entrypoints to the already-shared chooser path — no external library/standard beyond slices 1-3 (already cited). Feasibility audit (grep over cmd/wipnote/) already verified yolo.go/antigravity.go exist and that only yolo.go lacks the shared-path reference, so this is no longer unverified.
+      critic_revisions:
+        - source: local-feasibility
+          severity: HIGH
+          summary: 'Rescoped: grep over cmd/wipnote/ shows codex/gemini/antigravity/claude_launch_intent already call the shared chooser path; only yolo.go does not. Slice 2 styles all four for free; yolo is the sole net-new wiring. Original ''all four equal'' framing was wrong.'
+        - source: local-feasibility
+          severity: LOW
+          summary: yolo.go + antigravity.go confirmed present — slice-4 file list is verified, not guessed.
       decisions_notes: |
-        **Scope:** wiring only — point yolo/antigravity intent resolution at the shared
-          promptLaunchIntent/resolveLaunchIntentForDefaultLaunch path; no new UI code.
+        **Scope:** wiring only — yolo.go is the sole net-new wiring; antigravity/codex/gemini
+          already call the shared path (verified by grep) and inherit slices 2-3 automatically.
         **State:** none new.
-        **Decisions:** Single shared chooser renderer for all three harnesses (DRY, matches
-          user's "all launchers" choice). The file list for yolo.go/antigravity.go is a
-          best-guess from the entrypoint naming convention and is UNVERIFIED — slice opens by
-          confirming the real entrypoint files and intent-resolution call sites before editing.
-        **Rejected:** per-harness chooser copies (reintroduces the inconsistency we're fixing).
+        **Decisions:** Single shared chooser renderer for all harnesses (DRY, matches user's
+          "all launchers" choice). yolo.go's chooser participation is an open decision: yolo is
+          autonomous, so it may intentionally not prompt — if so it still adopts the slice-3
+          banner. Slice opens by resolving that yolo question, not by assuming a prompt.
+        **Verified (feasibility critic):** yolo.go + antigravity.go exist; shared-path symbols
+          (promptLaunchIntent/shouldOfferLaunchIntentChooser) are referenced by codex.go,
+          gemini.go, antigravity.go, claude_launch_intent.go but NOT yolo.go.
+        **Rejected:** per-harness chooser copies (reintroduces the inconsistency we're fixing);
+          treating all four launchers as equal net-new work (audit disproved it).
 questions: []
+critique:
+    reviewed_at: "2026-06-18"
+    reviewers:
+        - 'local-design (role: design critic; runner: Claude Code orchestrator, opus-4-8)'
+        - 'local-feasibility (role: feasibility critic; runner: Claude Code orchestrator, opus-4-8, with grep/web verification)'
+    assumptions:
+        - id: A1
+          status: verified
+          text: All cited source anchors for the chooser/banner exist at the stated lines.
+          evidence: grep cmd/wipnote/claude_chooser.go -> promptLaunchIntent:109, shouldOfferLaunchIntentChooser:34, isInteractiveTerminalFile:44, describeResumableSession:175; core/db/session_repo.go -> ResumableSession:527, HarnessGroupedResumableSessions:539; launcher_continue.go emitLaunchPreparationStatus:266.
+        - id: A2
+          status: verified
+          text: No TUI/color dependency exists in any of the five modules; go-isatty is present (indirect) in root go.mod; cmd is in the single root module (no cmd/go.mod).
+          evidence: researcher code map + grep go.mod -> only github.com/mattn/go-isatty v0.0.20 // indirect; ls cmd/go.mod -> not found.
+        - id: A3
+          status: verified
+          text: 'The shared chooser path is already multi-harness: codex.go/gemini.go/antigravity.go/claude_launch_intent.go reference it; yolo.go does not.'
+          evidence: grep -rln 'promptLaunchIntent|shouldOfferLaunchIntentChooser|...' cmd/wipnote/ -> hits exclude yolo.go.
+        - id: A4
+          status: verified
+          text: huh v2 (and bubbletea v2) are pre-release pseudo-versions; stable v1 is the correct adopt target.
+          evidence: https://pkg.go.dev/github.com/charmbracelet/huh/v2 shows v2.0.0-20251002... pseudo-version.
+        - id: A5
+          status: plausible
+          text: huh's non-TUI path is explicit (WithAccessible), not automatic TTY detection — so the code must retain its own TTY guard and numeric fallback.
+          evidence: https://pkg.go.dev/github.com/charmbracelet/huh/v2 documents WithAccessible(bool)/RunAccessible; lipgloss strips color on non-TTY (https://pkg.go.dev/github.com/charmbracelet/lipgloss). Exact v1 RunAccessible signature to confirm at implementation.
+    critics:
+        - title: DESIGN CRITIC
+          sections:
+            - heading: Slice decomposition & reviewer ergonomics
+              items:
+                - badge: foundation-first
+                  kind: success
+                  text: Theme package (slice 1) cleanly factors the palette so chooser + banner + yolo reuse one source of truth; slices read in dependency order.
+                - badge: free inheritance
+                  kind: info
+                  text: Slice 2 restyles four harnesses at once (they share promptLaunchIntent); worth making explicit to the reviewer so slice 4 isn't misread as 4x work.
+                - badge: yolo open question
+                  kind: warn
+                  text: Whether yolo should prompt at all is a genuine product decision (it's autonomous). Slice 4 now frames it as a decision, not an assumption — good, but the reviewer should weigh in.
+        - title: FEASIBILITY CRITIC
+          sections:
+            - heading: Citations & dependency reality
+              items:
+                - badge: anchors exact
+                  kind: success
+                  text: Every cited file:line verified (A1). ResumableSession already carries all display fields — no schema change needed.
+                - badge: dep target
+                  kind: success
+                  text: Single root go.mod gets huh v1 + lipgloss; go-isatty already indirect. Adopt-vs-build resolved toward charm (A4).
+                - badge: v2 pre-release
+                  kind: warn
+                  text: Pin stable huh v1, not v2 (A4). Exact v1 latest tag + RunAccessible signature confirmed at implementation (A5) — marked unverified in slice 1/2.
+                - badge: per-module gates
+                  kind: info
+                  text: go test must run per-module (root/core/port/plan/observe); root-only `go test ./...` will not exercise the others.
+    risks:
+        - risk: huh form takes over the terminal; a huh.Run error on an interactive TTY could strand the launch with no intent.
+          severity: Medium
+          mitigation: Slice 2 done_when requires the numeric bufio fallback to resolve an intent on huh.Run error / ACCESSIBLE — launch never hard-fails on TUI error.
+        - risk: Pinning a pre-release huh v2 would import unstable bubbletea v2.
+          severity: Medium
+          mitigation: A4 fixes the adopt target to stable v1; slice-1 done_when asserts the pin is NOT a v2 pseudo-version.
+        - risk: yolo scope ambiguity could balloon slice 4.
+          severity: Low
+          mitigation: 'Slice 4 reframed: yolo is a bounded decision (prompt vs banner-only); the other three harnesses inherit for free.'
+    synthesis: |
+        No DANGER findings; plan is ready for human review. Feasibility verified every cited
+        anchor (A1), the dependency target (A2/A4), and a scope-correcting discovery (A3): the
+        chooser is already shared across claude/codex/gemini/antigravity, so slice 2 styles all
+        four at once and slice 4 collapses to a single yolo-wiring decision — slice 4 was
+        rescoped accordingly (HIGH critic_revision). Two WARN items for the human to confirm:
+        (1) pin STABLE huh v1, not the v2 pre-release (A4/A5); (2) decide whether autonomous
+        `wipnote yolo` should present the chooser at all or adopt banner-only. Focus review on
+        slice 2's fallback contract and the yolo decision in slice 4.

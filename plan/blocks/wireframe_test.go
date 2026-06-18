@@ -96,6 +96,48 @@ func TestWireframe_SanitizesXSS(t *testing.T) {
 	}
 }
 
+func TestWireframe_AllowsGenericDesignTokens(t *testing.T) {
+	// The plan validator accepts any var(--token) (it only rejects raw colors), so
+	// the sanitizer must not silently strip non --wf-* tokens like var(--color-fg).
+	wf := &blocks.Wireframe{
+		Body: `<div style="color:var(--color-fg);background:var(--bg-card)">panel</div>`,
+	}
+	if wf.RawColors() {
+		t.Fatalf("generic-token wireframe wrongly flagged as raw-color")
+	}
+	html := render(t, wf)
+	for _, want := range []string{"var(--color-fg)", "var(--bg-card)", "panel"} {
+		if !strings.Contains(html, want) {
+			t.Errorf("sanitizer stripped a valid design token; missing %q\n%s", want, html)
+		}
+	}
+}
+
+func TestWireframe_NoUITakeover(t *testing.T) {
+	// Stored wireframe markup must not be able to cover the surrounding chrome:
+	// fixed/sticky positioning and viewport-sized overlays are stripped, and the
+	// canvas itself is contained + clipped.
+	wf := &blocks.Wireframe{
+		Body: `<div style="position:fixed;top:0;left:0;width:100vw;height:100vh;z-index:9999">overlay</div>`,
+	}
+	html := render(t, wf)
+	for _, banned := range []string{"position:fixed", "position: fixed", "100vw", "100vh", "sticky"} {
+		if strings.Contains(html, banned) {
+			t.Errorf("UI-takeover CSS survived sanitization: %q\n%s", banned, html)
+		}
+	}
+	// The canvas must clip/contain its descendants regardless of external CSS.
+	for _, want := range []string{"overflow:hidden", "contain:layout paint"} {
+		if !strings.Contains(html, want) {
+			t.Errorf("wireframe canvas missing containment %q\n%s", want, html)
+		}
+	}
+	// Benign content still renders.
+	if !strings.Contains(html, "overlay") {
+		t.Errorf("expected body text to survive\n%s", html)
+	}
+}
+
 func TestWireframe_AnchorStamped(t *testing.T) {
 	wf := &blocks.Wireframe{
 		Body:   `<div style="color:var(--wf-fg)">x</div>`,

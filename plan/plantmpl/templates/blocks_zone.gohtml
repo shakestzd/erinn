@@ -1,0 +1,7 @@
+{{define "blocks_zone"}}<div class="slice-field slice-blocks">
+  <div class="slice-field-label">Blocks</div>
+  <div class="slice-field-value block-zone">
+    {{range .Blocks}}<div class="block-anchor" id="{{.Anchor}}" data-block-anchor="{{.Anchor}}" data-block-kind="{{.Kind}}">{{.HTML}}</div>
+    {{end}}
+  </div>
+</div>{{end}}

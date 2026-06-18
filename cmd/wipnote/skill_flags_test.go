@@ -309,6 +309,12 @@ func resolveCobraCommand(root *cobra.Command, path []string) *cobra.Command {
 // given flag via Flags() or PersistentFlags().
 func commandRegistersFlag(cmd *cobra.Command, flag string) bool {
 	name := strings.TrimPrefix(flag, "--")
+	// --help / -h are universal cobra flags added lazily (InitDefaultHelpFlag),
+	// so they never appear in Flags()/PersistentFlags() until Execute runs.
+	// Treat them as always-registered on every command.
+	if name == "help" || name == "h" {
+		return true
+	}
 	for c := cmd; c != nil; c = c.Parent() {
 		if c.Flags().Lookup(name) != nil {
 			return true

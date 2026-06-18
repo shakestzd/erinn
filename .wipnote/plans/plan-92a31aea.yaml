@@ -4,9 +4,9 @@ meta:
     title: Dashboard-styled launcher choosers (huh TUI)
     description: ""
     created_at: ""
-    status: draft
+    status: finalized
     schema_version: v4
-    version: 1
+    version: 2
 design:
     problem: |
         The `wipnote claude` (and yolo/antigravity) launch + session-resume chooser is
@@ -39,6 +39,7 @@ design:
           accessed: "2026-06-18"
 slices:
     - id: slice-1
+      feature_id: feat-7c1c70bf
       num: 1
       title: Add charmbracelet huh/lipgloss deps + shared dashboard tui theme package
       what: |
@@ -70,7 +71,7 @@ slices:
         Unit: TestWipnoteTheme_PaletteTokens — construct the theme/styles and assert the
         accent + background hex values match the dashboard tokens.
       complexity: standard
-      approved: false
+      approved: true
       comment: ""
       research:
         - url: https://pkg.go.dev/github.com/charmbracelet/huh/v2
@@ -79,6 +80,7 @@ slices:
         - url: https://pkg.go.dev/github.com/charmbracelet/lipgloss
           claim: lipgloss.Color hex + Style.Foreground/Background is the API for encoding the palette; adopted instead of hand-rolling ANSI escape codes.
           accessed: "2026-06-18"
+      execution_status: promoted
       decisions_notes: |
         **Scope:** new launchtui package + go.mod dep only; no caller wired yet.
         **State:** none — pure style constructors, in-memory.
@@ -91,6 +93,7 @@ slices:
           user chose the full huh TUI); hand-rolled ANSI (fiddly, reinvents lipgloss).
         Exact v1 tag is pinned at implementation via `go get github.com/charmbracelet/huh@latest` (marked unverified until pinned).
     - id: slice-2
+      feature_id: feat-e668de65
       num: 2
       title: Styled huh Select chooser in promptLaunchIntent with non-TTY fallback
       what: |
@@ -133,7 +136,7 @@ slices:
         Unit: TestPromptLaunchIntent_FallbackOnTUIError — forced huh failure falls through to
         the numeric reader and still returns an intent.
       complexity: complex
-      approved: false
+      approved: true
       comment: ""
       research:
         - url: https://pkg.go.dev/github.com/charmbracelet/huh/v2
@@ -142,6 +145,7 @@ slices:
         - url: https://pkg.go.dev/github.com/charmbracelet/lipgloss
           claim: lipgloss strips color when output is not a TTY — safe for the fallback/redirect path.
           accessed: "2026-06-18"
+      execution_status: promoted
       questions:
         - id: q-select-type
           text: What type should huh.NewSelect carry — the resolved LaunchIntent value, or an index into the flattened option list that we map back afterward?
@@ -171,6 +175,7 @@ slices:
           keep scriptable fallback"); relying on huh to auto-detect non-TTY (it does not —
           confirmed via pkg.go.dev WithAccessible being explicit).
     - id: slice-3
+      feature_id: feat-71704981
       num: 3
       title: Restyle launch/warning/session banner into a framed dashboard block
       what: |
@@ -203,12 +208,13 @@ slices:
         contains the literal session id / warning text and no ANSI escape sequences.
         Unit: TestRenderLaunchBanner_AccentOnTTY — forced color profile includes the accent.
       complexity: standard
-      approved: false
+      approved: true
       comment: ""
       research:
         - url: https://pkg.go.dev/github.com/charmbracelet/lipgloss
           claim: lipgloss.Style.Border/Padding/Foreground compose a framed block; color is auto-stripped on non-TTY — covers both the styled and plain banner requirements.
           accessed: "2026-06-18"
+      execution_status: promoted
       decisions_notes: |
         **Scope:** banner-only restyle across the four launcher print sites; reuses slice-1
           launchtui styles.
@@ -219,6 +225,7 @@ slices:
         **Rejected:** styling each print site independently (duplication, drift); moving
           warning to stdout (would change scrape/redirect behavior).
     - id: slice-4
+      feature_id: feat-09de2260
       num: 4
       title: Wire wipnote yolo through the shared chooser; confirm all harnesses inherit the styling
       what: |
@@ -258,9 +265,10 @@ slices:
         banner-only with documented skip) and that non-TTY bypass holds.
         Smoke: confirm antigravity/codex/gemini reach promptLaunchIntent with the right harness.
       complexity: standard
-      approved: false
+      approved: true
       comment: ""
       research_waiver: Internal wiring of existing wipnote launcher entrypoints to the already-shared chooser path — no external library/standard beyond slices 1-3 (already cited). Feasibility audit (grep over cmd/wipnote/) already verified yolo.go/antigravity.go exist and that only yolo.go lacks the shared-path reference, so this is no longer unverified.
+      execution_status: promoted
       critic_revisions:
         - source: local-feasibility
           severity: HIGH

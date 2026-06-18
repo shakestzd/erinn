@@ -450,7 +450,47 @@ body.right-rail-collapsed .sidebar-reopen{display:flex}
   <a href="#design" class="nav-link active" data-spy="design" data-initial="D">Design</a>
   <a href="#slices" class="nav-link" data-spy="slices" data-initial="S">Slices</a>
   
-  <a href="#questions" class="nav-link" data-spy="questions" data-initial="Q">Decisions</a>
+  <ul class="slice-nav-list" id="slice-nav-list">
+    
+    <li>
+      <a href="#slice-1" class="slice-nav-item" data-slice-nav="1">
+        <span class="slice-nav-dot" data-approval="pending" data-dot-for="1"></span>
+        <span>#1 Add charmbracelet huh/lipgloss deps + shared dashboard tui theme package</span>
+        
+        
+      </a>
+    </li>
+    
+    <li>
+      <a href="#slice-2" class="slice-nav-item" data-slice-nav="2">
+        <span class="slice-nav-dot" data-approval="pending" data-dot-for="2"></span>
+        <span>#2 Styled huh Select chooser in promptLaunchIntent with non-TTY fallback</span>
+        
+        <span class="nav-triage-badge nav-triage-question" title="2 open question(s)">?2</span>
+      </a>
+    </li>
+    
+    <li>
+      <a href="#slice-3" class="slice-nav-item" data-slice-nav="3">
+        <span class="slice-nav-dot" data-approval="pending" data-dot-for="3"></span>
+        <span>#3 Restyle launch/warning/session banner into a framed dashboard block</span>
+        
+        
+      </a>
+    </li>
+    
+    <li>
+      <a href="#slice-4" class="slice-nav-item" data-slice-nav="4">
+        <span class="slice-nav-dot" data-approval="pending" data-dot-for="4"></span>
+        <span>#4 Route yolo + antigravity launchers through the shared styled chooser/banner</span>
+        
+        
+      </a>
+    </li>
+    
+  </ul>
+  
+  
   
   <a href="#feedback-summary" class="nav-link" data-spy="feedback-summary" data-initial="P">Progress</a>
   <a href="#chat-panel" class="nav-link" data-spy="chat-panel" data-initial="&#9825;">Chat</a>
@@ -462,10 +502,10 @@ body.right-rail-collapsed .sidebar-reopen{display:flex}
 <!-- Plan Header -->
 <header class="plan-header">
   <h1>Plan: Dashboard-styled launcher choosers (huh TUI)</h1>
-  <p style="color:var(--text-dim)">Redesign the wipnote claude/yolo/antigravity launch + session-resume choosers from plain numbered fmt prints into a charmbracelet/huh styled TUI that echoes the dashboard palette, with a preserved non-TTY scriptable fallback. Follow-on to the CLI-first resume chooser feature.</p>
+  
   <div class="meta">
     <span class="badge badge-pending">Draft</span>
-    <span style="font-size:.75rem;color:var(--text-muted)">v2 · 0 slices · Created 2026-06-18</span>
+    <span style="font-size:.75rem;color:var(--text-muted)">v1 · 4 slices · Created 2026-06-18</span>
   </div>
 </header>
 <button id="themeToggle" style="position:fixed;top:16px;right:16px;z-index:100;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:6px 12px;color:var(--text);font-family:var(--mono);font-size:0.75rem;cursor:pointer;">
@@ -485,6 +525,10 @@ body.right-rail-collapsed .sidebar-reopen{display:flex}
 <section class="dep-graph" data-zone="dependency-graph">
   <h2>Dependency Graph</h2>
   <div id="graph-data" style="display:none">
+    <div data-node="1" data-name="Add charmbracelet huh/lipgloss deps + shared dashboard tui theme package" data-status="pending" data-deps="" data-files="4"></div>
+    <div data-node="2" data-name="Styled huh Select chooser in promptLaunchIntent with non-TTY fallback" data-status="pending" data-deps="1" data-files="2"></div>
+    <div data-node="3" data-name="Restyle launch/warning/session banner into a framed dashboard block" data-status="pending" data-deps="1" data-files="4"></div>
+    <div data-node="4" data-name="Route yolo + antigravity launchers through the shared styled chooser/banner" data-status="pending" data-deps="2,3" data-files="3"></div>
     
     <!--PLAN_GRAPH_NODES-->
   </div>
@@ -497,17 +541,36 @@ body.right-rail-collapsed .sidebar-reopen{display:flex}
 <details id="design" class="section-card" open data-phase="design" data-status="pending">
   <summary><span>Design</span><span class="badge badge-pending" data-badge-for="design">Pending</span></summary>
   <div class="section-body">
-    <!--PLAN_DESIGN_CONTENT-->
-    <div class="sub-section">
-      <h4>Open Questions</h4>
-      <!--PLAN_QUESTIONS-->
-    </div>
+    <h4>Problem</h4>
+<div data-markdown>The `wipnote claude` (and yolo/antigravity) launch + session-resume chooser is
+rendered as a flat numbered list via ~24 lines of fmt.Fprintf in promptLaunchIntent
+(cmd/wipnote/claude_chooser.go:109-156). It reads &#34;terrible&#34;: no color, no visual
+hierarchy, section headers are bare strings, each row is a long flat parenthesized
+string, and the post-selection banner (&#34;Warning: dirty branch&#34;, &#34;Launching Claude
+Code&#34;, &#34;Session:&#34;) is an unstyled wall of prints. It looks nothing like the dashboard.
+</div>
+<h4>Goals</h4>
+<ol>
+<li data-markdown>Replace the numbered chooser with an arrow-key-navigable charmbracelet/huh Select that echoes the dashboard palette (accent #CDFF00 on dark #151518/#1C1C20).</li>
+<li data-markdown>Restyle the post-selection launch/warning/session banner into a consistent framed block.</li>
+<li data-markdown>Apply the same styled chooser + banner across ALL launcher entrypoints: claude, yolo, antigravity.</li>
+<li data-markdown>Preserve the existing non-TTY/scriptable fallback so piped-stdin tests, CI, and automation keep working unchanged.</li>
+</ol>
+<h4>Constraints</h4>
+<ul>
+<li data-markdown>New runtime dependency on charmbracelet is accepted (user-approved). Use STABLE huh v1 — v2 and bubbletea v2 are pre-release.</li>
+<li data-markdown>Non-TTY (no char-device stdin) MUST bypass the TUI and behave exactly as today (chooser skipped -&gt; NewWorkIntent, or numeric fallback).</li>
+<li data-markdown>Do not edit generated plugin trees, AGENTS.md, or CLAUDE.md.</li>
+<li data-markdown>Echo the dashboard&#39;s existing palette tokens; do not invent a new color scheme.</li>
+</ul>
+
     <div class="approval-row">
       <label><input type="checkbox" data-section="design" data-action="approve"> Approve design</label>
       <textarea data-section="design" data-comment-for="design" placeholder="Comments on design decisions..."></textarea>
     </div>
   </div>
 </details>
+
 
 <!-- Structure Outline (hidden when empty) -->
 
@@ -516,23 +579,640 @@ body.right-rail-collapsed .sidebar-reopen{display:flex}
 <details id="slices" class="section-card" open data-phase="slices" data-status="pending">
   <summary><span>Slices</span><span class="badge badge-pending" data-badge-for="slices">Pending</span></summary>
   <div class="section-body">
+    <details class="slice-card" id="slice-1" data-slice="1" data-slice-name="slice-1" data-status="pending" data-approval="pending">
+  <summary class="slice-summary" aria-label="Slice 1: Add charmbracelet huh/lipgloss deps &#43; shared dashboard tui theme package">
+    <span class="slice-num">#1</span>
+    <span class="slice-title-col">
+      <span class="slice-name">Add charmbracelet huh/lipgloss deps &#43; shared dashboard tui theme package</span>
+      <span class="slice-preview">Add stable charmbracelet/huh (v1) &#43; charmbracelet/lipgloss to the cmd module&#39;s</span>
+      <span class="slice-meta-row">
+        <span class="slice-summary-badges">
+          <span class="badge badge-pending badge-sm">S</span>
+          <span class="badge badge-pending badge-sm">Low</span>
+          <span class="badge badge-discuss badge-sm badge-complexity" title="Complexity: standard">Standard</span>
+          
+          <span class="badge badge-pending badge-sm slice-approval-badge" data-badge-for="slice-1">Pending</span>
+          
+          
+        </span>
+        <span class="slice-actions" onclick="event.stopPropagation()">
+          <span class="approval-segmented" role="group" aria-label="Approval action">
+            <label class="seg-btn seg-approve" title="Approve">
+              <input type="radio" name="slice-1-approval" value="approved" data-section="slice-1" data-action="approve" aria-label="Approve slice 1">
+              &#10003;
+            </label>
+            <label class="seg-btn seg-changes" title="Request changes">
+              <input type="radio" name="slice-1-approval" value="changes_requested" data-section="slice-1" data-action="approve" aria-label="Request changes for slice 1">
+              &#8635;
+            </label>
+            <label class="seg-btn seg-reject" title="Reject">
+              <input type="radio" name="slice-1-approval" value="rejected" data-section="slice-1" data-action="approve" aria-label="Reject slice 1">
+              &#10005;
+            </label>
+          </span>
+        </span>
+      </span>
+    </span>
+    <span class="slice-chevron" aria-hidden="true"></span>
+  </summary>
+
+  <div class="slice-body">
     
+      
+      <div class="slice-field slice-what">
+        <div class="slice-field-label">What</div>
+        <div class="slice-field-value">
+          
+          <input type="checkbox" id="slice-1-what-reveal" class="reveal-toggle">
+          <div class="markdown-block reveal-content serif-prose"><p>Add stable charmbracelet/huh (v1) + charmbracelet/lipgloss to the cmd module&#39;s
+go.mod. Create a small shared package (cmd/wipnote/launchtui or internal/launchtui)
+that encodes the dashboard palette as lipgloss styles and a huh theme constructor
+(e.g. wipnoteTheme() *huh.Theme) plus named lipgloss.Style helpers (accent, muted,
+title, sectionHeader, frame). Single source for colors: mirror plugin/static
+has-styles.css tokens (accent #CDFF00, accent-text #0A0A0A, bg #151518/#1C1C20,
+text #E0DED8, muted #707070, status blue/green/red). No behavior change yet —
+this is the foundation consumed by slices 2-4.</p>
+</div>
+          <label for="slice-1-what-reveal" class="reveal-label">Show full description</label>
+          
+        </div>
+      </div>
+      
+      
+      <div class="slice-field slice-why">
+        <div class="slice-field-label">Why</div>
+        <div class="slice-field-value">
+          
+          <div class="markdown-block serif-prose"><p>DRY: chooser (slice 2), banner (slice 3), and yolo/antigravity reuse (slice 4) all
+need the same palette + theme. Centralizing avoids three divergent copies of the
+color constants and keeps &#34;consistent with dashboard style&#34; enforceable in one file.</p>
+</div>
+          
+        </div>
+      </div>
+      
+      
+      <div class="slice-field">
+        <div class="slice-field-label">Files</div>
+        <div class="slice-field-value"><code>go.mod, go.sum, cmd/wipnote/launchtui/theme.go, cmd/wipnote/launchtui/theme_test.go</code></div>
+      </div>
+      
+      
+      <div class="slice-field">
+        <div class="slice-field-label">Done when</div>
+        <ul class="slice-done-list"><li>go.mod pins stable huh v1 (NOT a v2 pre-release pseudo-version) and lipgloss; go mod tidy is clean across affected modules.</li><li>launchtui exposes a wipnoteTheme()/Styles constructor returning the dashboard palette as lipgloss styles &#43; a huh theme.</li><li>A unit test asserts the key hex tokens (accent #CDFF00, bg #151518) are present in the produced styles so palette drift is caught.</li></ul>
+      </div>
+      
+    
+
+    
+    <div class="slice-field slice-decisions-notes">
+      <div class="slice-field-label">Decisions</div>
+      <div class="slice-field-value">
+        
+        <input type="checkbox" id="slice-1-decisions-reveal" class="reveal-toggle">
+        <div class="markdown-block reveal-content serif-prose"><p><strong>Scope:</strong> new launchtui package + go.mod dep only; no caller wired yet.
+<strong>State:</strong> none — pure style constructors, in-memory.
+<strong>Decisions:</strong> Adopt huh+lipgloss rather than hand-roll ANSI (user-approved new dep;
+adopt-vs-build resolved toward the battle-tested charm ecosystem). Pin huh v1
+STABLE because huh v2 + bubbletea v2 are pre-release pseudo-versions (unverified
+stability) — confirmed via pkg.go.dev showing v2.0.0-2025... .
+<strong>Rejected:</strong> raw bubbletea+lipgloss hand-built model (more code/maintenance for the
+same Select UX); lipgloss-only styling of the numbered menu (no arrow-key nav —
+user chose the full huh TUI); hand-rolled ANSI (fiddly, reinvents lipgloss).
+Exact v1 tag is pinned at implementation via <code>go get github.com/charmbracelet/huh@latest</code> (marked unverified until pinned).</p>
+</div>
+        <label for="slice-1-decisions-reveal" class="reveal-label">Show full decisions</label>
+        
+      </div>
+    </div>
+    
+
+    
+
+    
+    <div class="slice-field slice-tests-field">
+      <div class="slice-field-label">Test Strategy</div>
+      <div class="slice-field-value">
+        
+        
+        <div class="test-strategy">
+          
+          <div class="test-group" data-kind="unit">
+            <span class="test-chip">UNIT &middot; 1</span>
+            <ul><li>TestWipnoteTheme_PaletteTokens — construct the theme/styles and assert the</li></ul>
+          </div>
+          
+          <div class="test-group" data-kind="other">
+            <span class="test-chip">OTHER &middot; 1</span>
+            <ul><li>accent &#43; background hex values match the dashboard tokens.</li></ul>
+          </div>
+          
+        </div>
+        
+      </div>
+    </div>
+    
+
+    
+
+    
+
+    <div class="slice-deps">Dependencies: none</div>
+
+    <details class="comment-collapse">
+      <summary class="comment-collapse-trigger">+ Leave a comment</summary>
+      <div class="comment-collapse-body">
+        <textarea data-section="slice-1" data-comment-for="slice-1" placeholder="Comments on slice 1..."></textarea>
+      </div>
+    </details>
+  </div>
+</details>
+<details class="slice-card" id="slice-2" data-slice="2" data-slice-name="slice-2" data-status="pending" data-approval="pending">
+  <summary class="slice-summary" aria-label="Slice 2: Styled huh Select chooser in promptLaunchIntent with non-TTY fallback">
+    <span class="slice-num">#2</span>
+    <span class="slice-title-col">
+      <span class="slice-name">Styled huh Select chooser in promptLaunchIntent with non-TTY fallback</span>
+      <span class="slice-preview">Replace the fmt.Fprintf menu body of promptLaunchIntent (claudechooser.go:109-156)</span>
+      <span class="slice-meta-row">
+        <span class="slice-summary-badges">
+          <span class="badge badge-revision badge-sm">M</span>
+          <span class="badge badge-revision badge-sm">Med</span>
+          <span class="badge badge-revision badge-sm badge-complexity" title="Complexity: complex">Complex</span>
+          
+          <span class="badge badge-pending badge-sm slice-approval-badge" data-badge-for="slice-2">Pending</span>
+          
+          <span class="badge badge-sm badge-questions" title="2 open question(s)">2 Q</span>
+        </span>
+        <span class="slice-actions" onclick="event.stopPropagation()">
+          <span class="approval-segmented" role="group" aria-label="Approval action">
+            <label class="seg-btn seg-approve" title="Approve">
+              <input type="radio" name="slice-2-approval" value="approved" data-section="slice-2" data-action="approve" aria-label="Approve slice 2">
+              &#10003;
+            </label>
+            <label class="seg-btn seg-changes" title="Request changes">
+              <input type="radio" name="slice-2-approval" value="changes_requested" data-section="slice-2" data-action="approve" aria-label="Request changes for slice 2">
+              &#8635;
+            </label>
+            <label class="seg-btn seg-reject" title="Reject">
+              <input type="radio" name="slice-2-approval" value="rejected" data-section="slice-2" data-action="approve" aria-label="Reject slice 2">
+              &#10005;
+            </label>
+          </span>
+        </span>
+      </span>
+    </span>
+    <span class="slice-chevron" aria-hidden="true"></span>
+  </summary>
+
+  <div class="slice-body">
+    
+      
+      <div class="slice-field slice-what">
+        <div class="slice-field-label">What</div>
+        <div class="slice-field-value">
+          
+          <input type="checkbox" id="slice-2-what-reveal" class="reveal-toggle">
+          <div class="markdown-block reveal-content serif-prose"><p>Replace the fmt.Fprintf menu body of promptLaunchIntent (claude_chooser.go:109-156)
+with a huh Select form built from the same data: a &#34;Start something new&#34; option plus
+grouped &#34;Resume in &lt;harness&gt;&#34; (grouped.SameHarness) and &#34;Continue from other
+harnesses&#34; (grouped.CrossHarness) options. Render each ResumableSession row as a
+styled multi-field option (work-item id, title, type, harness, relative last-activity,
+Live badge, worktree) via launchtui styles instead of the flat describeresumablesession
+string. Map the selected option back to the existing LaunchIntent values
+(NewWorkIntent / resume / cross-harness handoff) with identical semantics.</p>
+<p>Fallback contract: the upstream TTY gate (shouldOfferLaunchIntentChooser -&gt;
+isInteractiveTerminalFile, claude_chooser.go:34/44) is preserved unchanged — non-TTY
+stdin still skips the chooser entirely. When interactive but huh cannot run (e.g.
+ACCESSIBLE env / huh.Run error), fall back to the existing bufio numeric-prompt path
+rather than failing the launch.</p>
+</div>
+          <label for="slice-2-what-reveal" class="reveal-label">Show full description</label>
+          
+        </div>
+      </div>
+      
+      
+      <div class="slice-field slice-why">
+        <div class="slice-field-label">Why</div>
+        <div class="slice-field-value">
+          
+          <div class="markdown-block serif-prose"><p>This is the core user request — the chooser &#34;looks terrible.&#34; huh gives arrow-key nav,
+sections, and dashboard styling while reusing the ResumableSession data that already
+carries every field needed (per code map).</p>
+</div>
+          
+        </div>
+      </div>
+      
+      
+      <div class="slice-field">
+        <div class="slice-field-label">Files</div>
+        <div class="slice-field-value"><code>cmd/wipnote/claude_chooser.go, cmd/wipnote/claude_chooser_test.go</code></div>
+      </div>
+      
+      
+      <div class="slice-field">
+        <div class="slice-field-label">Done when</div>
+        <ul class="slice-done-list"><li>On a real TTY, the chooser renders as a styled huh Select with grouped sections and dashboard accent coloring.</li><li>Selecting any option returns the SAME LaunchIntent the numbered menu returned for that row (new / resume / cross-harness handoff).</li><li>Non-TTY / piped stdin behaves exactly as before — chooser bypassed, no huh invoked, existing claude_chooser_test.go assertions pass unmodified or with only output-format updates.</li><li>When huh.Run errors or ACCESSIBLE is set, the numeric bufio fallback path still resolves an intent (launch never hard-fails on TUI error).</li></ul>
+      </div>
+      
+    
+
+    
+    <div class="slice-field slice-decisions-notes">
+      <div class="slice-field-label">Decisions</div>
+      <div class="slice-field-value">
+        
+        <input type="checkbox" id="slice-2-decisions-reveal" class="reveal-toggle">
+        <div class="markdown-block reveal-content serif-prose"><p><strong>Trigger:</strong> promptLaunchIntent is reached only after shouldOfferLaunchIntentChooser
+confirms an interactive char-device stdin (existing gate, unchanged).
+<strong>State:</strong> none new — reads existing HarnessGroupedResumableSessions
+(core/db/session_repo.go:527); selection maps to existing LaunchIntent type.
+<strong>Payload:</strong> huh Select[LaunchIntent or index] -&gt; resolved LaunchIntent; option labels
+built from ResumableSession fields via launchtui styles.
+<strong>Decisions:</strong> Keep the bufio numeric reader as an explicit fallback rather than
+deleting it (user requirement: scriptable/non-interactive must keep working; huh&#39;s
+accessible mode is opt-in, not automatic). Preserve describeResumableSession content
+but re-render it as styled fields; keep the function for the fallback path.
+<strong>Rejected:</strong> removing the numeric path (breaks tests + automation — user chose &#34;must
+keep scriptable fallback&#34;); relying on huh to auto-detect non-TTY (it does not —
+confirmed via pkg.go.dev WithAccessible being explicit).</p>
+</div>
+        <label for="slice-2-decisions-reveal" class="reveal-label">Show full decisions</label>
+        
+      </div>
+    </div>
+    
+
+    
+
+    
+    <div class="slice-field slice-tests-field">
+      <div class="slice-field-label">Test Strategy</div>
+      <div class="slice-field-value">
+        
+        
+        <div class="test-strategy">
+          
+          <div class="test-group" data-kind="unit">
+            <span class="test-chip">UNIT &middot; 3</span>
+            <ul><li>TestPromptLaunchIntent_NonTTYBypass — non-char-device input yields NewWorkIntent</li><li>TestPromptLaunchIntent_SelectionMapping — given a grouped session set, each</li><li>TestPromptLaunchIntent_FallbackOnTUIError — forced huh failure falls through to</li></ul>
+          </div>
+          
+          <div class="test-group" data-kind="other">
+            <span class="test-chip">OTHER &middot; 4</span>
+            <ul><li>with no huh invocation.</li><li>selectable index maps to the correct LaunchIntent (drive via accessible/programmable</li><li>input or a seam over the selection result).</li><li>the numeric reader and still returns an intent.</li></ul>
+          </div>
+          
+        </div>
+        
+      </div>
+    </div>
+    
+
+    
+
+    
+    <div class="slice-field slice-questions">
+      <div class="slice-field-label">Open Questions</div>
+      <div class="slice-field-value">
+        
+        <div class="question-block slice-question-block">
+          <p>What type should huh.NewSelect carry — the resolved LaunchIntent value, or an index into the flattened option list that we map back afterward?</p>
+          
+          
+          <textarea
+            data-section="slice-2-question-q-select-type"
+            data-comment-for="slice-2-question-q-select-type"
+            placeholder="Answer question q-select-type...">Index into the flattened [new &#43; SameHarness &#43; CrossHarness] option list, mapped back to LaunchIntent after Run. Keeps Select[int] simple/comparable and reuses the exact same ordering the numbered fallback uses, so both paths resolve identically.</textarea>
+          
+        </div>
+        
+        <div class="question-block slice-question-block">
+          <p>When does the numeric bufio fallback fire instead of the huh TUI?</p>
+          
+          
+          <textarea
+            data-section="slice-2-question-q-fallback-trigger"
+            data-comment-for="slice-2-question-q-fallback-trigger"
+            placeholder="Answer question q-fallback-trigger...">Only when stdin is interactive (passes the existing char-device gate) AND huh cannot run — i.e. ACCESSIBLE env is set or huh.Run returns an error. Pure non-TTY still bypasses the chooser entirely upstream, as today.</textarea>
+          
+        </div>
+        
+      </div>
+    </div>
+    
+
+    <div class="slice-deps">Dependencies: slices 1</div>
+
+    <details class="comment-collapse">
+      <summary class="comment-collapse-trigger">+ Leave a comment</summary>
+      <div class="comment-collapse-body">
+        <textarea data-section="slice-2" data-comment-for="slice-2" placeholder="Comments on slice 2..."></textarea>
+      </div>
+    </details>
+  </div>
+</details>
+<details class="slice-card" id="slice-3" data-slice="3" data-slice-name="slice-3" data-status="pending" data-approval="pending">
+  <summary class="slice-summary" aria-label="Slice 3: Restyle launch/warning/session banner into a framed dashboard block">
+    <span class="slice-num">#3</span>
+    <span class="slice-title-col">
+      <span class="slice-name">Restyle launch/warning/session banner into a framed dashboard block</span>
+      <span class="slice-preview">Wrap the post-selection banner lines into a consistent lipgloss-framed block via a</span>
+      <span class="slice-meta-row">
+        <span class="slice-summary-badges">
+          <span class="badge badge-revision badge-sm">M</span>
+          <span class="badge badge-pending badge-sm">Low</span>
+          <span class="badge badge-discuss badge-sm badge-complexity" title="Complexity: standard">Standard</span>
+          
+          <span class="badge badge-pending badge-sm slice-approval-badge" data-badge-for="slice-3">Pending</span>
+          
+          
+        </span>
+        <span class="slice-actions" onclick="event.stopPropagation()">
+          <span class="approval-segmented" role="group" aria-label="Approval action">
+            <label class="seg-btn seg-approve" title="Approve">
+              <input type="radio" name="slice-3-approval" value="approved" data-section="slice-3" data-action="approve" aria-label="Approve slice 3">
+              &#10003;
+            </label>
+            <label class="seg-btn seg-changes" title="Request changes">
+              <input type="radio" name="slice-3-approval" value="changes_requested" data-section="slice-3" data-action="approve" aria-label="Request changes for slice 3">
+              &#8635;
+            </label>
+            <label class="seg-btn seg-reject" title="Reject">
+              <input type="radio" name="slice-3-approval" value="rejected" data-section="slice-3" data-action="approve" aria-label="Reject slice 3">
+              &#10005;
+            </label>
+          </span>
+        </span>
+      </span>
+    </span>
+    <span class="slice-chevron" aria-hidden="true"></span>
+  </summary>
+
+  <div class="slice-body">
+    
+      
+      <div class="slice-field slice-what">
+        <div class="slice-field-label">What</div>
+        <div class="slice-field-value">
+          
+          <input type="checkbox" id="slice-3-what-reveal" class="reveal-toggle">
+          <div class="markdown-block reveal-content serif-prose"><p>Wrap the post-selection banner lines into a consistent lipgloss-framed block via a
+shared launchtui helper (e.g. RenderLaunchBanner). Covers: the dirty-protected-branch
+warning (launcher_mode.go:79-80/104-105), the &#34;Launching Claude Code ... / Plugin
+source / Session&#34; lines (claude.go:243-248 dev, 515-517 default, plus auto/init/continue
+banners), and emitLaunchPreparationStatus (launcher_continue.go:266-271). Use the
+dashboard accent for the launch headline, muted style for path/session detail, and a
+status color (amber/red) for the dirty-branch warning. Honor non-TTY: lipgloss
+degrades to plain text when output is not a terminal.</p>
+</div>
+          <label for="slice-3-what-reveal" class="reveal-label">Show full description</label>
+          
+        </div>
+      </div>
+      
+      
+      <div class="slice-field slice-why">
+        <div class="slice-field-label">Why</div>
+        <div class="slice-field-value">
+          
+          <div class="markdown-block serif-prose"><p>The user asked to make the whole launch surface &#34;consistent with our dashboard style,&#34;
+not just the chooser list. The banner is the other half of what reads as &#34;terrible.&#34;</p>
+</div>
+          
+        </div>
+      </div>
+      
+      
+      <div class="slice-field">
+        <div class="slice-field-label">Files</div>
+        <div class="slice-field-value"><code>cmd/wipnote/launchtui/banner.go, cmd/wipnote/claude.go, cmd/wipnote/launcher_mode.go, cmd/wipnote/launcher_continue.go</code></div>
+      </div>
+      
+      
+      <div class="slice-field">
+        <div class="slice-field-label">Done when</div>
+        <ul class="slice-done-list"><li>Launch/warning/session lines render as a single coherent framed block using dashboard accent &#43; muted &#43; status colors on a TTY.</li><li>On non-TTY output the banner degrades to readable plain text (no raw escape codes), preserving existing log-scrape behavior.</li><li>The dirty-branch warning remains clearly distinguished (status color) and is still emitted on the hard-block path.</li></ul>
+      </div>
+      
+    
+
+    
+    <div class="slice-field slice-decisions-notes">
+      <div class="slice-field-label">Decisions</div>
+      <div class="slice-field-value">
+        
+        <input type="checkbox" id="slice-3-decisions-reveal" class="reveal-toggle">
+        <div class="markdown-block reveal-content serif-prose"><p><strong>Scope:</strong> banner-only restyle across the four launcher print sites; reuses slice-1
+launchtui styles.
+<strong>State:</strong> none — pure rendering of strings already computed by plan.PlanLaunch.
+<strong>Decisions:</strong> Centralize banner rendering in launchtui (DRY) rather than inline
+lipgloss at each of the ~6 print sites. Keep stderr/stdout destinations as-is so
+existing redirection contracts hold.
+<strong>Rejected:</strong> styling each print site independently (duplication, drift); moving
+warning to stdout (would change scrape/redirect behavior).</p>
+</div>
+        <label for="slice-3-decisions-reveal" class="reveal-label">Show full decisions</label>
+        
+      </div>
+    </div>
+    
+
+    
+
+    
+    <div class="slice-field slice-tests-field">
+      <div class="slice-field-label">Test Strategy</div>
+      <div class="slice-field-value">
+        
+        
+        <div class="test-strategy">
+          
+          <div class="test-group" data-kind="unit">
+            <span class="test-chip">UNIT &middot; 2</span>
+            <ul><li>TestRenderLaunchBanner_PlainOnNonTTY — banner rendered to a non-TTY writer</li><li>TestRenderLaunchBanner_AccentOnTTY — forced color profile includes the accent.</li></ul>
+          </div>
+          
+          <div class="test-group" data-kind="other">
+            <span class="test-chip">OTHER &middot; 1</span>
+            <ul><li>contains the literal session id / warning text and no ANSI escape sequences.</li></ul>
+          </div>
+          
+        </div>
+        
+      </div>
+    </div>
+    
+
+    
+
+    
+
+    <div class="slice-deps">Dependencies: slices 1</div>
+
+    <details class="comment-collapse">
+      <summary class="comment-collapse-trigger">+ Leave a comment</summary>
+      <div class="comment-collapse-body">
+        <textarea data-section="slice-3" data-comment-for="slice-3" placeholder="Comments on slice 3..."></textarea>
+      </div>
+    </details>
+  </div>
+</details>
+<details class="slice-card" id="slice-4" data-slice="4" data-slice-name="slice-4" data-status="pending" data-approval="pending">
+  <summary class="slice-summary" aria-label="Slice 4: Route yolo &#43; antigravity launchers through the shared styled chooser/banner">
+    <span class="slice-num">#4</span>
+    <span class="slice-title-col">
+      <span class="slice-name">Route yolo &#43; antigravity launchers through the shared styled chooser/banner</span>
+      <span class="slice-preview">Ensure wipnote yolo and wipnote antigravity (agy) launch entrypoints render the</span>
+      <span class="slice-meta-row">
+        <span class="slice-summary-badges">
+          <span class="badge badge-revision badge-sm">M</span>
+          <span class="badge badge-revision badge-sm">Med</span>
+          <span class="badge badge-discuss badge-sm badge-complexity" title="Complexity: standard">Standard</span>
+          
+          <span class="badge badge-pending badge-sm slice-approval-badge" data-badge-for="slice-4">Pending</span>
+          
+          
+        </span>
+        <span class="slice-actions" onclick="event.stopPropagation()">
+          <span class="approval-segmented" role="group" aria-label="Approval action">
+            <label class="seg-btn seg-approve" title="Approve">
+              <input type="radio" name="slice-4-approval" value="approved" data-section="slice-4" data-action="approve" aria-label="Approve slice 4">
+              &#10003;
+            </label>
+            <label class="seg-btn seg-changes" title="Request changes">
+              <input type="radio" name="slice-4-approval" value="changes_requested" data-section="slice-4" data-action="approve" aria-label="Request changes for slice 4">
+              &#8635;
+            </label>
+            <label class="seg-btn seg-reject" title="Reject">
+              <input type="radio" name="slice-4-approval" value="rejected" data-section="slice-4" data-action="approve" aria-label="Reject slice 4">
+              &#10005;
+            </label>
+          </span>
+        </span>
+      </span>
+    </span>
+    <span class="slice-chevron" aria-hidden="true"></span>
+  </summary>
+
+  <div class="slice-body">
+    
+      
+      <div class="slice-field slice-what">
+        <div class="slice-field-label">What</div>
+        <div class="slice-field-value">
+          
+          <input type="checkbox" id="slice-4-what-reveal" class="reveal-toggle">
+          <div class="markdown-block reveal-content serif-prose"><p>Ensure <code>wipnote yolo</code> and <code>wipnote antigravity</code> (agy) launch entrypoints render the
+same styled huh chooser (slice 2) and framed banner (slice 3) as <code>wipnote claude</code>.
+Audit how each entrypoint resolves launch intent today (whether it already calls the
+shared promptLaunchIntent / resolveLaunchIntentForDefaultLaunch path or has its own
+print code), and route all of them through the single shared renderer, passing the
+correct harness label via formatHarnessName. No new chooser logic — only wiring +
+harness-label correctness.</p>
+</div>
+          <label for="slice-4-what-reveal" class="reveal-label">Show full description</label>
+          
+        </div>
+      </div>
+      
+      
+      <div class="slice-field slice-why">
+        <div class="slice-field-label">Why</div>
+        <div class="slice-field-value">
+          
+          <div class="markdown-block serif-prose"><p>User explicitly chose &#34;All launcher choosers (claude + yolo + antigravity).&#34; A
+consistent look across entrypoints is the point; divergence would reintroduce the
+&#34;terrible&#34; inconsistency for two of three launchers.</p>
+</div>
+          
+        </div>
+      </div>
+      
+      
+      <div class="slice-field">
+        <div class="slice-field-label">Files</div>
+        <div class="slice-field-value"><code>cmd/wipnote/yolo.go, cmd/wipnote/antigravity.go, cmd/wipnote/claude_chooser.go</code></div>
+      </div>
+      
+      
+      <div class="slice-field">
+        <div class="slice-field-label">Done when</div>
+        <ul class="slice-done-list"><li>wipnote yolo and wipnote antigravity present the same styled huh chooser &#43; framed banner as wipnote claude, with the correct harness name in section headers.</li><li>Each entrypoint preserves its own non-TTY fallback (no TUI when stdin is not a char device).</li><li>go build ./... &amp;&amp; go vet ./... &amp;&amp; go test ./... pass across all five modules.</li></ul>
+      </div>
+      
+    
+
+    
+    <div class="slice-field slice-decisions-notes">
+      <div class="slice-field-label">Decisions</div>
+      <div class="slice-field-value">
+        
+        <input type="checkbox" id="slice-4-decisions-reveal" class="reveal-toggle">
+        <div class="markdown-block reveal-content serif-prose"><p><strong>Scope:</strong> wiring only — point yolo/antigravity intent resolution at the shared
+promptLaunchIntent/resolveLaunchIntentForDefaultLaunch path; no new UI code.
+<strong>State:</strong> none new.
+<strong>Decisions:</strong> Single shared chooser renderer for all three harnesses (DRY, matches
+user&#39;s &#34;all launchers&#34; choice). The file list for yolo.go/antigravity.go is a
+best-guess from the entrypoint naming convention and is UNVERIFIED — slice opens by
+confirming the real entrypoint files and intent-resolution call sites before editing.
+<strong>Rejected:</strong> per-harness chooser copies (reintroduces the inconsistency we&#39;re fixing).</p>
+</div>
+        <label for="slice-4-decisions-reveal" class="reveal-label">Show full decisions</label>
+        
+      </div>
+    </div>
+    
+
+    
+
+    
+    <div class="slice-field slice-tests-field">
+      <div class="slice-field-label">Test Strategy</div>
+      <div class="slice-field-value">
+        
+        
+        <div class="test-strategy">
+          
+          <div class="test-group" data-kind="unit">
+            <span class="test-chip">UNIT &middot; 1</span>
+            <ul><li>TestYoloChooser_UsesSharedRenderer / TestAntigravityChooser_UsesSharedRenderer —</li></ul>
+          </div>
+          
+          <div class="test-group" data-kind="other">
+            <span class="test-chip">OTHER &middot; 2</span>
+            <ul><li>assert the shared promptLaunchIntent path is invoked with the right harness, and</li><li>non-TTY bypass holds for each.</li></ul>
+          </div>
+          
+        </div>
+        
+      </div>
+    </div>
+    
+
+    
+
+    
+
+    <div class="slice-deps">Dependencies: slices 2,3</div>
+
+    <details class="comment-collapse">
+      <summary class="comment-collapse-trigger">+ Leave a comment</summary>
+      <div class="comment-collapse-body">
+        <textarea data-section="slice-4" data-comment-for="slice-4" placeholder="Comments on slice 4..."></textarea>
+      </div>
+    </details>
+  </div>
+</details>
+
     <!--PLAN_SLICE_CARDS-->
   </div>
 </details>
 
 <!-- Design Decisions (hidden for v2 plans — slice cards carry their own questions) -->
-<details id="questions" class="section-card" data-phase="questions" data-status="pending">
-  <summary><span>Design Decisions</span><span class="badge badge-pending" data-badge-for="questions">Pending</span></summary>
-  <div class="section-body">
-    <table class="q-table">
-      <thead><tr><th>Question</th><th>Selected</th><th>Status</th></tr></thead>
-      <tbody id="questionsRecap">
-        <!--PLAN_QUESTIONS_RECAP-->
-      </tbody>
-    </table>
-  </div>
-</details>
+
 
 
 
@@ -543,8 +1223,8 @@ body.right-rail-collapsed .sidebar-reopen{display:flex}
   <h2>Feedback Summary</h2>
   <div class="progress-stats">
     <div class="progress-stat"><strong id="approvedCount">0</strong> approved</div>
-    <div class="progress-stat"><strong id="totalSections">1</strong> sections</div>
-    <div class="progress-stat"><strong id="pendingCount">1</strong> pending</div>
+    <div class="progress-stat"><strong id="totalSections">5</strong> sections</div>
+    <div class="progress-stat"><strong id="pendingCount">5</strong> pending</div>
   </div>
   <div class="progress-bar-track"><div class="progress-bar-fill" id="progressFill" style="width:0%"></div></div>
   <div class="comments-summary">
@@ -636,7 +1316,7 @@ var planId=(function(){var a=document.querySelector('article[id]');return a?a.id
 
 (function(){
   'use strict';
-  var SECTIONS=/*PLAN_SECTIONS_JSON*/["design"]/*END_PLAN_SECTIONS_JSON*/;
+  var SECTIONS=/*PLAN_SECTIONS_JSON*/["design","slice-1","slice-2","slice-3","slice-4"]/*END_PLAN_SECTIONS_JSON*/;
 
   function setBadge(el,ok){
     el.className='badge badge-'+(ok?'approved':'pending');

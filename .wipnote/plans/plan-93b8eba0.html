@@ -414,7 +414,92 @@ body.right-rail-collapsed .sidebar-reopen{display:flex}
   <a href="#design" class="nav-link active" data-spy="design" data-initial="D">Design</a>
   <a href="#slices" class="nav-link" data-spy="slices" data-initial="S">Slices</a>
   
-  <a href="#questions" class="nav-link" data-spy="questions" data-initial="Q">Decisions</a>
+  <ul class="slice-nav-list" id="slice-nav-list">
+    
+    <li>
+      <a href="#slice-1" class="slice-nav-item" data-slice-nav="1">
+        <span class="slice-nav-dot" data-approval="pending" data-dot-for="1"></span>
+        <span>#1 Recap collector core — resolve work-item / git-range / session into grounded diff data</span>
+        
+        <span class="nav-triage-badge nav-triage-question" title="1 open question(s)">?1</span>
+      </a>
+    </li>
+    
+    <li>
+      <a href="#slice-2" class="slice-nav-item" data-slice-nav="2">
+        <span class="slice-nav-dot" data-approval="pending" data-dot-for="2"></span>
+        <span>#2 Recap renderer — recap/recaptmpl package + shared HTML block components</span>
+        
+        <span class="nav-triage-badge nav-triage-question" title="1 open question(s)">?1</span>
+      </a>
+    </li>
+    
+    <li>
+      <a href="#slice-3" class="slice-nav-item" data-slice-nav="3">
+        <span class="slice-nav-dot" data-approval="pending" data-dot-for="3"></span>
+        <span>#3 `wipnote recap &lt;id|--range|--session&gt;` command + first-class recap-*.html artifact commit</span>
+        
+        
+      </a>
+    </li>
+    
+    <li>
+      <a href="#slice-4" class="slice-nav-item" data-slice-nav="4">
+        <span class="slice-nav-dot" data-approval="pending" data-dot-for="4"></span>
+        <span>#4 Dashboard Recaps view + /api/recaps endpoints</span>
+        
+        
+      </a>
+    </li>
+    
+    <li>
+      <a href="#slice-5" class="slice-nav-item" data-slice-nav="5">
+        <span class="slice-nav-dot" data-approval="pending" data-dot-for="5"></span>
+        <span>#5 /visual-recap skill (prompt wrapper) + build-ports to all 3 harnesses</span>
+        
+        
+      </a>
+    </li>
+    
+    <li>
+      <a href="#slice-6" class="slice-nav-item" data-slice-nav="6">
+        <span class="slice-nav-dot" data-approval="pending" data-dot-for="6"></span>
+        <span>#6 Slice-schema block enrichment — additive optional structured blocks on PlanSlice</span>
+        
+        <span class="nav-triage-badge nav-triage-question" title="1 open question(s)">?1</span>
+      </a>
+    </li>
+    
+    <li>
+      <a href="#slice-7" class="slice-nav-item" data-slice-nav="7">
+        <span class="slice-nav-dot" data-approval="pending" data-dot-for="7"></span>
+        <span>#7 plantmpl block-zone rendering + before/after HTML wireframes</span>
+        
+        <span class="nav-triage-badge nav-triage-question" title="1 open question(s)">?1</span>
+      </a>
+    </li>
+    
+    <li>
+      <a href="#slice-8" class="slice-nav-item" data-slice-nav="8">
+        <span class="slice-nav-dot" data-approval="pending" data-dot-for="8"></span>
+        <span>#8 Block-level annotation loop — map consumed/resolved onto critic_revisions/questions + plan-review chat</span>
+        
+        
+      </a>
+    </li>
+    
+    <li>
+      <a href="#slice-9" class="slice-nav-item" data-slice-nav="9">
+        <span class="slice-nav-dot" data-approval="pending" data-dot-for="9"></span>
+        <span>#9 /visual-plan skill (prompt wrapper) + build-ports</span>
+        
+        
+      </a>
+    </li>
+    
+  </ul>
+  
+  
   
   <a href="#feedback-summary" class="nav-link" data-spy="feedback-summary" data-initial="P">Progress</a>
   <a href="#chat-panel" class="nav-link" data-spy="chat-panel" data-initial="&#9825;">Chat</a>
@@ -426,10 +511,21 @@ body.right-rail-collapsed .sidebar-reopen{display:flex}
 <!-- Plan Header -->
 <header class="plan-header">
   <h1>Plan: Visual plan &amp; lineage-grounded recap (native port of BuilderIO visual-plan/visual-recap)</h1>
-  <p style="color:var(--text-dim)">Augment wipnote planning with visual-plan block enrichment and a lineage-grounded visual recap, built natively on plantmpl + the serve dashboard.</p>
+  <p style="color:var(--text-dim)">Research basis:
+- https://github.com/BuilderIO/skills/tree/main/skills/visual-plan (read 2026-06-18, SKILL.md sha df2235e5): visual-plan is a prompt-only skill; drives the agent to fetch a live block catalog (get-plan-blocks), author structured MDX blocks grounded in real files, and publish to the hosted Agent-Native Plans web app for human review. Blocks: data-model, api-endpoint, diff, annotated-code, file-tree, diagram, WireframeBlock, columns, Mermaid, tabs, rich-text, question-form.
+- https://github.com/BuilderIO/skills/tree/main/skills/visual-recap (read 2026-06-18, SKILL.md sha 0d53e8fd): visual-recap is the reverse — turns a PR/branch/commit/diff into an interactive recap (UI wireframes -&gt; outcome narrative -&gt; schema/contract blocks -&gt; file map -&gt; annotated diffs in tabs), derived MECHANICALLY from the real diff. No Playwright/screenshots; all visual output is MDX blocks rendered by the web app. Local-files privacy mode exists.
+- runtime: repo read 2026-06-18 (researcher): wipnote already owns the equivalent surfaces — plan-*.yaml-&gt;plan-*.html via commitPlanChange (cmd/wipnote/plan_yaml_cmds.go:42) + component-based renderer plan/plantmpl/ with a D3 dep-graph zone; dashboard SPA (cmd/wipnote/dashboard/, vanilla JS + D3 v7 + Prism + marked + DOMPurify) injects scoped plan HTML via /api/plans/&lt;id&gt;/render; lineage walk in cmd/wipnote/lineage.go (sessions-&gt;features-&gt;commits-&gt;files). No screenshot/headless/mermaid infra anywhere.
+
+Strategy: Path B (NATIVE PORT). Adopt BuilderIO&#39;s CONCEPTS (block catalog, recap-from-diff, before/after wireframes, annotation loop) onto wipnote&#39;s own pipeline. NO hosted Agent-Native Plans MCP dependency — local-first, single-source-of-truth (HTML canonical), reuse existing D3 + vanilla JS, wireframes are plain HTML/CSS (no Playwright). Recap&#39;s unique angle vs BuilderIO: grounded in wipnote LINEAGE, so it carries causal provenance a diff-only tool cannot.
+
+Phase 1 (slices 1-5): lineage-grounded recap vertical slice — new internal/recap collector, new recap/recaptmpl renderer, `wipnote recap` command writing a first-class .wipnote/recaps/recap-*.html artifact, dashboard Recaps view, and the /visual-recap skill wrapper.
+Phase 2 (slices 6-9): visual-plan block enrichment — additive slice-schema blocks, shared block renderers in plantmpl, annotation loop mapped onto existing critic_revisions/questions + plan-review chat, and the /visual-plan skill wrapper.
+
+Relates to plan-243e8713 (shares lineage data + D3/dashboard surface; does not overlap scope).
+</p>
   <div class="meta">
     <span class="badge badge-pending">Draft</span>
-    <span style="font-size:.75rem;color:var(--text-muted)">v3 · 0 slices · Created 2026-06-18</span>
+    <span style="font-size:.75rem;color:var(--text-muted)">v1 · 9 slices · Created 2026-06-18</span>
   </div>
 </header>
 <button id="themeToggle" style="position:fixed;top:16px;right:16px;z-index:100;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:6px 12px;color:var(--text);font-family:var(--mono);font-size:0.75rem;cursor:pointer;">
@@ -449,6 +545,15 @@ body.right-rail-collapsed .sidebar-reopen{display:flex}
 <section class="dep-graph" data-zone="dependency-graph">
   <h2>Dependency Graph</h2>
   <div id="graph-data" style="display:none">
+    <div data-node="1" data-name="Recap collector core — resolve work-item / git-range / session into grounded diff data" data-status="pending" data-deps="" data-files="4"></div>
+    <div data-node="2" data-name="Recap renderer — recap/recaptmpl package + shared HTML block components" data-status="pending" data-deps="1" data-files="5"></div>
+    <div data-node="3" data-name="`wipnote recap &lt;id|--range|--session&gt;` command + first-class recap-*.html artifact commit" data-status="pending" data-deps="1,2" data-files="2"></div>
+    <div data-node="4" data-name="Dashboard Recaps view + /api/recaps endpoints" data-status="pending" data-deps="3" data-files="5"></div>
+    <div data-node="5" data-name="/visual-recap skill (prompt wrapper) + build-ports to all 3 harnesses" data-status="pending" data-deps="3" data-files="1"></div>
+    <div data-node="6" data-name="Slice-schema block enrichment — additive optional structured blocks on PlanSlice" data-status="pending" data-deps="" data-files="3"></div>
+    <div data-node="7" data-name="plantmpl block-zone rendering + before/after HTML wireframes" data-status="pending" data-deps="6,2" data-files="4"></div>
+    <div data-node="8" data-name="Block-level annotation loop — map consumed/resolved onto critic_revisions/questions + plan-review chat" data-status="pending" data-deps="6" data-files="3"></div>
+    <div data-node="9" data-name="/visual-plan skill (prompt wrapper) + build-ports" data-status="pending" data-deps="7" data-files="1"></div>
     
     <!--PLAN_GRAPH_NODES-->
   </div>
@@ -462,20 +567,25 @@ body.right-rail-collapsed .sidebar-reopen{display:flex}
   <summary><span>Design</span><span class="badge badge-pending" data-badge-for="design">Pending</span></summary>
   <div class="section-body">
     <h4>Problem</h4>
-<div data-markdown>BuilderIO&#39;s /visual-plan and /visual-recap give agents rich, reviewable visual artifacts (block-structured plans; recaps that turn a diff into an interactive summary), but they depend on a hosted third-party MCP (Agent-Native Plans). wipnote already owns equivalent rendering surfaces (plantmpl, the serve dashboard, lineage) yet exposes plans as a single layout and has no recap surface at all, and lineage output is text-only. We want the same visual ergonomics, natively and local-first, with recap grounded in wipnote&#39;s unique causal lineage.</div>
+<div data-markdown>BuilderIO&#39;s /visual-plan and /visual-recap give agents rich, reviewable visual artifacts (block-structured plans; recaps that turn a diff into an interactive summary), but they depend on a hosted third-party MCP (Agent-Native Plans). wipnote already owns equivalent rendering surfaces (plantmpl, the serve dashboard, lineage) yet exposes plans as a single layout, has no recap surface at all, and emits lineage as text only. We want the same visual ergonomics, natively and local-first, with recap grounded in wipnote&#39;s unique causal lineage.
+</div>
 <h4>Goals</h4>
 <ol>
-<li data-markdown>Ship a first-class lineage-grounded recap (wipnote recap -&gt; committed recap-*.html) accepting work-item / git-range / session inputs;Enrich plans with structured visual blocks (data-model</li>
-<li data-markdown>api-endpoint</li>
-<li data-markdown>file-tree</li>
-<li data-markdown>before/after HTML wireframes) reusing one shared renderer;Surface recaps and enriched plans in the existing dashboard with no new frontend deps;Expose /visual-recap and /visual-plan skills portable across Claude/Codex/Gemini via build-ports;Keep everything local-first — no hosted MCP</li>
-<li data-markdown>HTML stays canonical</li>
+<li data-markdown>Ship a first-class lineage-grounded recap: `wipnote recap` writes a committed recap-*.html accepting work-item / git-range / session inputs</li>
+<li data-markdown>Enrich plans with structured visual blocks (data-model, api-endpoint, file-tree, before/after HTML wireframes) via one shared renderer</li>
+<li data-markdown>Surface recaps and enriched plans in the existing dashboard with no new frontend dependencies</li>
+<li data-markdown>Expose /visual-recap and /visual-plan skills portable across Claude/Codex/Gemini via build-ports</li>
+<li data-markdown>Keep everything local-first: no hosted MCP, HTML stays canonical</li>
 </ol>
 <h4>Constraints</h4>
 <ul>
-<li data-markdown>Local-first: no hosted Agent-Native Plans MCP dependency</li>
-<li data-markdown>no data leaving .wipnote/;Single-source-of-truth: HTML is canonical/generated</li>
-<li data-markdown>never hand-edit recap-*.html or plan-*.html;Reuse existing D3 v7 + vanilla JS + Prism — no new frontend frameworks;Before/after wireframes are plain HTML/CSS with design tokens — no Playwright/screenshots/headless;Plan-schema additions must be additive-optional (existing v3 plans validate unchanged);Skills build across all 3 harnesses via wipnote plugin build-ports;Never author or overwrite project AGENTS.md/CLAUDE.md (plugin/project boundary)</li>
+<li data-markdown>Local-first: no hosted Agent-Native Plans MCP dependency; no data leaves .wipnote/</li>
+<li data-markdown>Single-source-of-truth: HTML is generated/canonical; never hand-edit recap-*.html or plan-*.html</li>
+<li data-markdown>Reuse existing D3 v7 + vanilla JS + Prism; no new frontend frameworks</li>
+<li data-markdown>Before/after wireframes are plain HTML/CSS design tokens; no Playwright/screenshots/headless</li>
+<li data-markdown>Plan-schema additions must be additive-optional (existing v3 plans validate unchanged)</li>
+<li data-markdown>Skills build across all 3 harnesses via `wipnote plugin build-ports`</li>
+<li data-markdown>Never author or overwrite project AGENTS.md/CLAUDE.md (plugin/project boundary)</li>
 </ul>
 
     <div class="approval-row">
@@ -493,23 +603,1265 @@ body.right-rail-collapsed .sidebar-reopen{display:flex}
 <details id="slices" class="section-card" open data-phase="slices" data-status="pending">
   <summary><span>Slices</span><span class="badge badge-pending" data-badge-for="slices">Pending</span></summary>
   <div class="section-body">
+    <details class="slice-card" id="slice-1" data-slice="1" data-slice-name="slice-1" data-status="pending" data-approval="pending">
+  <summary class="slice-summary" aria-label="Slice 1: Recap collector core — resolve work-item / git-range / session into grounded diff data">
+    <span class="slice-num">#1</span>
+    <span class="slice-title-col">
+      <span class="slice-name">Recap collector core — resolve work-item / git-range / session into grounded diff data</span>
+      <span class="slice-preview">New internal/recap package.</span>
+      <span class="slice-meta-row">
+        <span class="slice-summary-badges">
+          <span class="badge badge-blocked badge-sm">L</span>
+          <span class="badge badge-revision badge-sm">Med</span>
+          <span class="badge badge-revision badge-sm badge-complexity" title="Complexity: complex">Complex</span>
+          
+          <span class="badge badge-pending badge-sm slice-approval-badge" data-badge-for="slice-1">Pending</span>
+          
+          <span class="badge badge-sm badge-questions" title="1 open question(s)">1 Q</span>
+        </span>
+        <span class="slice-actions" onclick="event.stopPropagation()">
+          <span class="approval-segmented" role="group" aria-label="Approval action">
+            <label class="seg-btn seg-approve" title="Approve">
+              <input type="radio" name="slice-1-approval" value="approved" data-section="slice-1" data-action="approve" aria-label="Approve slice 1">
+              &#10003;
+            </label>
+            <label class="seg-btn seg-changes" title="Request changes">
+              <input type="radio" name="slice-1-approval" value="changes_requested" data-section="slice-1" data-action="approve" aria-label="Request changes for slice 1">
+              &#8635;
+            </label>
+            <label class="seg-btn seg-reject" title="Reject">
+              <input type="radio" name="slice-1-approval" value="rejected" data-section="slice-1" data-action="approve" aria-label="Reject slice 1">
+              &#10005;
+            </label>
+          </span>
+        </span>
+      </span>
+    </span>
+    <span class="slice-chevron" aria-hidden="true"></span>
+  </summary>
+
+  <div class="slice-body">
     
+      
+      <div class="slice-field slice-what">
+        <div class="slice-field-label">What</div>
+        <div class="slice-field-value">
+          
+          <input type="checkbox" id="slice-1-what-reveal" class="reveal-toggle">
+          <div class="markdown-block reveal-content serif-prose"><p>New internal/recap package. A collector that, given one of three inputs
+(work-item id feat/bug/spike, a git range commit/branch/PR, or a session id),
+mechanically resolves the set of commits + changed files + per-file diff hunks.
+For work-item and session inputs, walk the existing lineage graph
+(extract the BFS walk from cmd/wipnote/lineage.go into internal/lineage so both
+the CLI and the collector consume it — DRY). Emit a typed RecapData struct
+(outcome facts, file list with change flags, hunks, lineage chain, provenance).</p>
+</div>
+          <label for="slice-1-what-reveal" class="reveal-label">Show full description</label>
+          
+        </div>
+      </div>
+      
+      
+      <div class="slice-field slice-why">
+        <div class="slice-field-label">Why</div>
+        <div class="slice-field-value">
+          
+          <div class="markdown-block serif-prose"><p>Recap&#39;s differentiator is causal grounding: every fact derived from real
+commits/files, never inferred. This is the data layer the whole feature stands on.</p>
+</div>
+          
+        </div>
+      </div>
+      
+      
+      <div class="slice-field">
+        <div class="slice-field-label">Files</div>
+        <div class="slice-field-value"><code>internal/recap/collect.go, internal/recap/types.go, internal/lineage/walk.go, cmd/wipnote/lineage.go</code></div>
+      </div>
+      
+      
+      <div class="slice-field">
+        <div class="slice-field-label">Done when</div>
+        <ul class="slice-done-list"><li>Given a feat-id, collector returns the commits linked via lineage and the union of changed files with add/modify/delete flags</li><li>Given a git range (e.g. main..HEAD), collector returns the same RecapData shape with no work-item grounding</li><li>Given a session id, collector returns files/commits produced in that session</li><li>Lineage BFS walk is shared between cmd/wipnote/lineage.go and internal/recap (no duplicated traversal)</li></ul>
+      </div>
+      
+    
+
+    
+    <div class="slice-field slice-decisions-notes">
+      <div class="slice-field-label">Decisions</div>
+      <div class="slice-field-value">
+        
+        <input type="checkbox" id="slice-1-decisions-reveal" class="reveal-toggle">
+        <div class="markdown-block reveal-content serif-prose"><p><strong>Scope:</strong> internal/recap owns collection only (no rendering). Extract lineage BFS to internal/lineage to avoid a second traversal implementation.
+<strong>State:</strong> RecapData is in-memory, derived; the committed artifact (slice-3) is canonical. Grounded entirely in git + .wipnote/*.html, nothing external.
+<strong>Payload:</strong> RecapData{Outcome, Files[]{Path,Change,Hunks}, Commits[], LineageChain, Provenance}. Hunks carry before/after for the diff renderer.
+<strong>Rejected:</strong> parsing <code>git diff</code> text in the renderer (re-parse risk + couples layers); a recap-specific lineage walk separate from the CLI&#39;s (DRY violation, drift risk).</p>
+</div>
+        <label for="slice-1-decisions-reveal" class="reveal-label">Show full decisions</label>
+        
+      </div>
+    </div>
+    
+
+    
+    <div class="slice-field slice-tests-field">
+      <div class="slice-field-label">Test Strategy</div>
+      <div class="slice-field-value">
+        
+        
+        <div class="test-strategy">
+          
+          <div class="test-group" data-kind="unit">
+            <span class="test-chip">UNIT &middot; 1</span>
+            <ul><li>TestCollect_FromFeature (fixture .wipnote &#43; git repo), TestCollect_FromRange,</li></ul>
+          </div>
+          
+          <div class="test-group" data-kind="other">
+            <span class="test-chip">OTHER &middot; 1</span>
+            <ul><li>TestCollect_FromSession. Assert deterministic file/hunk sets. Table-driven.</li></ul>
+          </div>
+          
+        </div>
+        
+      </div>
+    </div>
+    
+
+    
+
+    
+    <div class="slice-field slice-questions">
+      <div class="slice-field-label">Open Questions</div>
+      <div class="slice-field-value">
+        
+        <div class="question-block slice-question-block">
+          <p>When input is a bare git range with no work-item, should recap still render a (degraded) lineage zone or omit it?</p>
+          
+          
+          <textarea
+            data-section="slice-1-question-q-range-no-lineage"
+            data-comment-for="slice-1-question-q-range-no-lineage"
+            placeholder="Answer question q-range-no-lineage...">Omit the lineage zone gracefully when there is no work-item grounding; render only the diff/file/outcome zones. The lineage zone is the value-add when grounding exists, not a hard requirement.</textarea>
+          
+        </div>
+        
+      </div>
+    </div>
+    
+
+    <div class="slice-deps">Dependencies: none</div>
+
+    <details class="comment-collapse">
+      <summary class="comment-collapse-trigger">+ Leave a comment</summary>
+      <div class="comment-collapse-body">
+        <textarea data-section="slice-1" data-comment-for="slice-1" placeholder="Comments on slice 1..."></textarea>
+      </div>
+    </details>
+  </div>
+</details>
+<details class="slice-card" id="slice-2" data-slice="2" data-slice-name="slice-2" data-status="pending" data-approval="pending">
+  <summary class="slice-summary" aria-label="Slice 2: Recap renderer — recap/recaptmpl package &#43; shared HTML block components">
+    <span class="slice-num">#2</span>
+    <span class="slice-title-col">
+      <span class="slice-name">Recap renderer — recap/recaptmpl package &#43; shared HTML block components</span>
+      <span class="slice-preview">New recap/recaptmpl package mirroring plan/plantmpl: RecapPage.Render(io.Writer)</span>
+      <span class="slice-meta-row">
+        <span class="slice-summary-badges">
+          <span class="badge badge-blocked badge-sm">L</span>
+          <span class="badge badge-revision badge-sm">Med</span>
+          <span class="badge badge-revision badge-sm badge-complexity" title="Complexity: complex">Complex</span>
+          
+          <span class="badge badge-pending badge-sm slice-approval-badge" data-badge-for="slice-2">Pending</span>
+          
+          <span class="badge badge-sm badge-questions" title="1 open question(s)">1 Q</span>
+        </span>
+        <span class="slice-actions" onclick="event.stopPropagation()">
+          <span class="approval-segmented" role="group" aria-label="Approval action">
+            <label class="seg-btn seg-approve" title="Approve">
+              <input type="radio" name="slice-2-approval" value="approved" data-section="slice-2" data-action="approve" aria-label="Approve slice 2">
+              &#10003;
+            </label>
+            <label class="seg-btn seg-changes" title="Request changes">
+              <input type="radio" name="slice-2-approval" value="changes_requested" data-section="slice-2" data-action="approve" aria-label="Request changes for slice 2">
+              &#8635;
+            </label>
+            <label class="seg-btn seg-reject" title="Reject">
+              <input type="radio" name="slice-2-approval" value="rejected" data-section="slice-2" data-action="approve" aria-label="Reject slice 2">
+              &#10005;
+            </label>
+          </span>
+        </span>
+      </span>
+    </span>
+    <span class="slice-chevron" aria-hidden="true"></span>
+  </summary>
+
+  <div class="slice-body">
+    
+      
+      <div class="slice-field slice-what">
+        <div class="slice-field-label">What</div>
+        <div class="slice-field-value">
+          
+          <input type="checkbox" id="slice-2-what-reveal" class="reveal-toggle">
+          <div class="markdown-block reveal-content serif-prose"><p>New recap/recaptmpl package mirroring plan/plantmpl: RecapPage.Render(io.Writer)
+composed of zone Components — OutcomeNarrative, FileTree, AnnotatedDiff (split/unified,
+syntax-highlighted via the Prism classes the dashboard already loads, with per-hunk
+summaries), and LineageChain (reuse the D3 force-graph approach from dependency_graph.gohtml).
+Build the data-model/api-endpoint/file-tree/diff block renderers as a SHARED package
+(plan/blocks or internal/htmlblocks) so Phase 2&#39;s plantmpl blocks reuse them verbatim.</p>
+</div>
+          <label for="slice-2-what-reveal" class="reveal-label">Show full description</label>
+          
+        </div>
+      </div>
+      
+      
+      <div class="slice-field slice-why">
+        <div class="slice-field-label">Why</div>
+        <div class="slice-field-value">
+          
+          <div class="markdown-block serif-prose"><p>Renders RecapData into the canonical HTML artifact. Building blocks as shared
+components now prevents a DRY violation when visual-plan needs the same blocks (Phase 2).</p>
+</div>
+          
+        </div>
+      </div>
+      
+      
+      <div class="slice-field">
+        <div class="slice-field-label">Files</div>
+        <div class="slice-field-value"><code>recap/recaptmpl/recaptmpl.go, recap/recaptmpl/builder.go, recap/recaptmpl/templates/recap_page.gohtml, recap/recaptmpl/templates/annotated_diff.gohtml, plan/blocks/blocks.go</code></div>
+      </div>
+      
+      
+      <div class="slice-field">
+        <div class="slice-field-label">Done when</div>
+        <ul class="slice-done-list"><li>RecapPage.Render produces valid standalone HTML with outcome, file-tree, annotated-diff, and (when present) lineage zones</li><li>Annotated diff renders split &#43; unified modes with Prism-compatible markup and per-hunk summaries</li><li>data-model/api-endpoint/file-tree/diff block renderers live in a shared package consumed by recaptmpl (and ready for plantmpl)</li></ul>
+      </div>
+      
+    
+
+    
+    <div class="slice-field slice-decisions-notes">
+      <div class="slice-field-label">Decisions</div>
+      <div class="slice-field-value">
+        
+        <input type="checkbox" id="slice-2-decisions-reveal" class="reveal-toggle">
+        <div class="markdown-block reveal-content serif-prose"><p><strong>Scope:</strong> Pure rendering. recaptmpl mirrors plantmpl&#39;s Component interface (Render(io.Writer)); outer shell text/template, inner zones html/template (matches plantmpl&#39;s JS-safety split).
+<strong>State:</strong> none — stateless renderer over RecapData.
+<strong>Payload:</strong> HTML string artifact. Diff uses Prism classes (already CDN-loaded by dashboard) — no new highlighter dep.
+<strong>Rejected:</strong> Mermaid for the lineage zone (no mermaid infra in repo, new dep) — reuse the existing D3 force-graph instead; a recap-only block set (would force a Phase-2 rewrite — build shared from the start).</p>
+</div>
+        <label for="slice-2-decisions-reveal" class="reveal-label">Show full decisions</label>
+        
+      </div>
+    </div>
+    
+
+    
+    <div class="slice-field slice-tests-field">
+      <div class="slice-field-label">Test Strategy</div>
+      <div class="slice-field-value">
+        
+        
+        <div class="test-strategy">
+          
+          <div class="test-group" data-kind="unit">
+            <span class="test-chip">UNIT &middot; 1</span>
+            <ul><li>TestRecapPage_Render golden-file test; TestAnnotatedDiff_SplitVsUnified;</li></ul>
+          </div>
+          
+          <div class="test-group" data-kind="other">
+            <span class="test-chip">OTHER &middot; 1</span>
+            <ul><li>TestBlocks_FileTree/DataModel render snapshots. Use go:embed templates.</li></ul>
+          </div>
+          
+        </div>
+        
+      </div>
+    </div>
+    
+
+    
+
+    
+    <div class="slice-field slice-questions">
+      <div class="slice-field-label">Open Questions</div>
+      <div class="slice-field-value">
+        
+        <div class="question-block slice-question-block">
+          <p>Where should the shared block renderers live so both recap and plan import them without an import cycle?</p>
+          
+          
+          <textarea
+            data-section="slice-2-question-q-shared-pkg"
+            data-comment-for="slice-2-question-q-shared-pkg"
+            placeholder="Answer question q-shared-pkg...">A leaf package plan/blocks (or internal/htmlblocks) with no deps on plantmpl/recaptmpl; both renderers import it. Keeps import direction one-way and avoids a cycle.</textarea>
+          
+        </div>
+        
+      </div>
+    </div>
+    
+
+    <div class="slice-deps">Dependencies: slices 1</div>
+
+    <details class="comment-collapse">
+      <summary class="comment-collapse-trigger">+ Leave a comment</summary>
+      <div class="comment-collapse-body">
+        <textarea data-section="slice-2" data-comment-for="slice-2" placeholder="Comments on slice 2..."></textarea>
+      </div>
+    </details>
+  </div>
+</details>
+<details class="slice-card" id="slice-3" data-slice="3" data-slice-name="slice-3" data-status="pending" data-approval="pending">
+  <summary class="slice-summary" aria-label="Slice 3: `wipnote recap &lt;id|--range|--session&gt;` command &#43; first-class recap-*.html artifact commit">
+    <span class="slice-num">#3</span>
+    <span class="slice-title-col">
+      <span class="slice-name">`wipnote recap &lt;id|--range|--session&gt;` command &#43; first-class recap-*.html artifact commit</span>
+      <span class="slice-preview">New cmd/wipnote/recap.go cobra command.</span>
+      <span class="slice-meta-row">
+        <span class="slice-summary-badges">
+          <span class="badge badge-revision badge-sm">M</span>
+          <span class="badge badge-pending badge-sm">Low</span>
+          <span class="badge badge-discuss badge-sm badge-complexity" title="Complexity: standard">Standard</span>
+          
+          <span class="badge badge-pending badge-sm slice-approval-badge" data-badge-for="slice-3">Pending</span>
+          
+          
+        </span>
+        <span class="slice-actions" onclick="event.stopPropagation()">
+          <span class="approval-segmented" role="group" aria-label="Approval action">
+            <label class="seg-btn seg-approve" title="Approve">
+              <input type="radio" name="slice-3-approval" value="approved" data-section="slice-3" data-action="approve" aria-label="Approve slice 3">
+              &#10003;
+            </label>
+            <label class="seg-btn seg-changes" title="Request changes">
+              <input type="radio" name="slice-3-approval" value="changes_requested" data-section="slice-3" data-action="approve" aria-label="Request changes for slice 3">
+              &#8635;
+            </label>
+            <label class="seg-btn seg-reject" title="Reject">
+              <input type="radio" name="slice-3-approval" value="rejected" data-section="slice-3" data-action="approve" aria-label="Reject slice 3">
+              &#10005;
+            </label>
+          </span>
+        </span>
+      </span>
+    </span>
+    <span class="slice-chevron" aria-hidden="true"></span>
+  </summary>
+
+  <div class="slice-body">
+    
+      
+      <div class="slice-field slice-what">
+        <div class="slice-field-label">What</div>
+        <div class="slice-field-value">
+          
+          <input type="checkbox" id="slice-3-what-reveal" class="reveal-toggle">
+          <div class="markdown-block reveal-content serif-prose"><p>New cmd/wipnote/recap.go cobra command. Accepts a work-item id positional,
+or --range , or --session . Calls the collector (slice-1),
+renders via recaptmpl (slice-2), writes .wipnote/recaps/recap-.html, and
+commits it atomically via a commitRecapArtifact helper modeled on
+commitWipnoteArtifact/commitPlanChange (git -C  absolute path, no host
+paths in body). Wires a lineage edge recap relates_to/derived_from the work item.</p>
+</div>
+          <label for="slice-3-what-reveal" class="reveal-label">Show full description</label>
+          
+        </div>
+      </div>
+      
+      
+      <div class="slice-field slice-why">
+        <div class="slice-field-label">Why</div>
+        <div class="slice-field-value">
+          
+          <div class="markdown-block serif-prose"><p>Makes recap a durable, shareable, lineage-linked object in the canonical store —
+not an ephemeral view. Required before the dashboard and skill can surface it.</p>
+</div>
+          
+        </div>
+      </div>
+      
+      
+      <div class="slice-field">
+        <div class="slice-field-label">Files</div>
+        <div class="slice-field-value"><code>cmd/wipnote/recap.go, cmd/wipnote/recap_commit.go</code></div>
+      </div>
+      
+      
+      <div class="slice-field">
+        <div class="slice-field-label">Done when</div>
+        <ul class="slice-done-list"><li>`wipnote recap feat-XXX` writes and commits .wipnote/recaps/recap-feat-XXX.html</li><li>--range and --session inputs produce a recap artifact with a stable id scheme</li><li>Recap artifact is linked to its work item via a typed lineage edge visible in `wipnote lineage`</li></ul>
+      </div>
+      
+    
+
+    
+    <div class="slice-field slice-decisions-notes">
+      <div class="slice-field-label">Decisions</div>
+      <div class="slice-field-value">
+        
+        <input type="checkbox" id="slice-3-decisions-reveal" class="reveal-toggle">
+        <div class="markdown-block reveal-content serif-prose"><p><strong>Trigger:</strong> explicit CLI invocation only (not a hook). <strong>State:</strong> .wipnote/recaps/recap-<em>.html canonical, committed via git -C repoRoot (bypasses worktree .wipnote/ gitignore, like existing artifact commits). <strong>Payload:</strong> recap id scheme recap- for items, recap- for bare ranges. <strong>Rejected:</strong> reusing plan-</em>.html pipeline (conflates plan vs recap semantics in store — user chose a distinct kind); dashboard-only no-artifact (not durable/shareable, not in canonical store).</p>
+</div>
+        <label for="slice-3-decisions-reveal" class="reveal-label">Show full decisions</label>
+        
+      </div>
+    </div>
+    
+
+    
+    <div class="slice-field slice-tests-field">
+      <div class="slice-field-label">Test Strategy</div>
+      <div class="slice-field-value">
+        
+        
+        <div class="test-strategy">
+          
+          <div class="test-group" data-kind="integration">
+            <span class="test-chip">INTEGRATION &middot; 1</span>
+            <ul><li>TestRecapCmd_Feature (spawn binary in fixture repo, assert file &#43;</li></ul>
+          </div>
+          
+          <div class="test-group" data-kind="other">
+            <span class="test-chip">OTHER &middot; 1</span>
+            <ul><li>commit &#43; link), TestRecapCmd_Range. Guard slow ones behind testing.Short().</li></ul>
+          </div>
+          
+        </div>
+        
+      </div>
+    </div>
+    
+
+    
+
+    
+
+    <div class="slice-deps">Dependencies: slices 1,2</div>
+
+    <details class="comment-collapse">
+      <summary class="comment-collapse-trigger">+ Leave a comment</summary>
+      <div class="comment-collapse-body">
+        <textarea data-section="slice-3" data-comment-for="slice-3" placeholder="Comments on slice 3..."></textarea>
+      </div>
+    </details>
+  </div>
+</details>
+<details class="slice-card" id="slice-4" data-slice="4" data-slice-name="slice-4" data-status="pending" data-approval="pending">
+  <summary class="slice-summary" aria-label="Slice 4: Dashboard Recaps view &#43; /api/recaps endpoints">
+    <span class="slice-num">#4</span>
+    <span class="slice-title-col">
+      <span class="slice-name">Dashboard Recaps view &#43; /api/recaps endpoints</span>
+      <span class="slice-preview">Add /api/recaps (list) and /api/recaps//render (scoped HTML) to serve.go,</span>
+      <span class="slice-meta-row">
+        <span class="slice-summary-badges">
+          <span class="badge badge-revision badge-sm">M</span>
+          <span class="badge badge-pending badge-sm">Low</span>
+          <span class="badge badge-discuss badge-sm badge-complexity" title="Complexity: standard">Standard</span>
+          
+          <span class="badge badge-pending badge-sm slice-approval-badge" data-badge-for="slice-4">Pending</span>
+          
+          
+        </span>
+        <span class="slice-actions" onclick="event.stopPropagation()">
+          <span class="approval-segmented" role="group" aria-label="Approval action">
+            <label class="seg-btn seg-approve" title="Approve">
+              <input type="radio" name="slice-4-approval" value="approved" data-section="slice-4" data-action="approve" aria-label="Approve slice 4">
+              &#10003;
+            </label>
+            <label class="seg-btn seg-changes" title="Request changes">
+              <input type="radio" name="slice-4-approval" value="changes_requested" data-section="slice-4" data-action="approve" aria-label="Request changes for slice 4">
+              &#8635;
+            </label>
+            <label class="seg-btn seg-reject" title="Reject">
+              <input type="radio" name="slice-4-approval" value="rejected" data-section="slice-4" data-action="approve" aria-label="Reject slice 4">
+              &#10005;
+            </label>
+          </span>
+        </span>
+      </span>
+    </span>
+    <span class="slice-chevron" aria-hidden="true"></span>
+  </summary>
+
+  <div class="slice-body">
+    
+      
+      <div class="slice-field slice-what">
+        <div class="slice-field-label">What</div>
+        <div class="slice-field-value">
+          
+          <div class="markdown-block serif-prose"><p>Add /api/recaps (list) and /api/recaps//render (scoped HTML) to serve.go,
+mirroring the existing plans handlers. Add a Recaps view panel to the dashboard
+SPA (cmd/wipnote/dashboard/js/app.js + index.html + css) reusing the
+openPlanDetail pattern and scopePlanCSS scoping so recap HTML injects safely.</p>
+</div>
+          
+        </div>
+      </div>
+      
+      
+      <div class="slice-field slice-why">
+        <div class="slice-field-label">Why</div>
+        <div class="slice-field-value">
+          
+          <div class="markdown-block serif-prose"><p>Surfaces recaps in the same review surface as plans; reviewers see the visual
+recap without leaving the dashboard. Reuses proven plan-render plumbing.</p>
+</div>
+          
+        </div>
+      </div>
+      
+      
+      <div class="slice-field">
+        <div class="slice-field-label">Files</div>
+        <div class="slice-field-value"><code>cmd/wipnote/serve.go, cmd/wipnote/api_recaps.go, cmd/wipnote/dashboard/js/app.js, cmd/wipnote/dashboard/index.html, cmd/wipnote/dashboard/css/components.css</code></div>
+      </div>
+      
+      
+      <div class="slice-field">
+        <div class="slice-field-label">Done when</div>
+        <ul class="slice-done-list"><li>Recaps view lists committed recap artifacts and opens a detail panel with the rendered recap HTML</li><li>Recap CSS is scoped (no bleed into dashboard chrome), matching the plan-detail scoping approach</li></ul>
+      </div>
+      
+    
+
+    
+    <div class="slice-field slice-decisions-notes">
+      <div class="slice-field-label">Decisions</div>
+      <div class="slice-field-value">
+        
+        <div class="markdown-block serif-prose"><p><strong>Trigger:</strong> dashboard navigation + fetch. <strong>State:</strong> read-only over committed recap HTML (no DB write path needed beyond a reindex of recap artifacts). <strong>Payload:</strong> /api/recaps -&gt; [{id,title,workItem,created}]; /api/recaps//render -&gt; scoped HTML. <strong>Rejected:</strong> a separate frontend framework (repo is vanilla JS + D3 — reuse openPlanDetail/scopePlanCSS verbatim).</p>
+</div>
+        
+      </div>
+    </div>
+    
+
+    
+    <div class="slice-field slice-tests-field">
+      <div class="slice-field-label">Test Strategy</div>
+      <div class="slice-field-value">
+        
+        
+        <div class="test-strategy">
+          
+          <div class="test-group" data-kind="integration">
+            <span class="test-chip">INTEGRATION &middot; 1</span>
+            <ul><li>TestServeRecapsAPI (list &#43; render endpoints return expected JSON/HTML).</li></ul>
+          </div>
+          
+          <div class="test-group" data-kind="manual smoke">
+            <span class="test-chip">MANUAL SMOKE &middot; 1</span>
+            <ul><li>open dashboard, view a recap.</li></ul>
+          </div>
+          
+        </div>
+        
+      </div>
+    </div>
+    
+
+    
+
+    
+
+    <div class="slice-deps">Dependencies: slices 3</div>
+
+    <details class="comment-collapse">
+      <summary class="comment-collapse-trigger">+ Leave a comment</summary>
+      <div class="comment-collapse-body">
+        <textarea data-section="slice-4" data-comment-for="slice-4" placeholder="Comments on slice 4..."></textarea>
+      </div>
+    </details>
+  </div>
+</details>
+<details class="slice-card" id="slice-5" data-slice="5" data-slice-name="slice-5" data-status="pending" data-approval="pending">
+  <summary class="slice-summary" aria-label="Slice 5: /visual-recap skill (prompt wrapper) &#43; build-ports to all 3 harnesses">
+    <span class="slice-num">#5</span>
+    <span class="slice-title-col">
+      <span class="slice-name">/visual-recap skill (prompt wrapper) &#43; build-ports to all 3 harnesses</span>
+      <span class="slice-preview">Author plugin/skills/visual-recap/SKILL.md: a thin skill that runs</span>
+      <span class="slice-meta-row">
+        <span class="slice-summary-badges">
+          <span class="badge badge-pending badge-sm">S</span>
+          <span class="badge badge-pending badge-sm">Low</span>
+          <span class="badge badge-discuss badge-sm badge-complexity" title="Complexity: standard">Standard</span>
+          
+          <span class="badge badge-pending badge-sm slice-approval-badge" data-badge-for="slice-5">Pending</span>
+          
+          
+        </span>
+        <span class="slice-actions" onclick="event.stopPropagation()">
+          <span class="approval-segmented" role="group" aria-label="Approval action">
+            <label class="seg-btn seg-approve" title="Approve">
+              <input type="radio" name="slice-5-approval" value="approved" data-section="slice-5" data-action="approve" aria-label="Approve slice 5">
+              &#10003;
+            </label>
+            <label class="seg-btn seg-changes" title="Request changes">
+              <input type="radio" name="slice-5-approval" value="changes_requested" data-section="slice-5" data-action="approve" aria-label="Request changes for slice 5">
+              &#8635;
+            </label>
+            <label class="seg-btn seg-reject" title="Reject">
+              <input type="radio" name="slice-5-approval" value="rejected" data-section="slice-5" data-action="approve" aria-label="Reject slice 5">
+              &#10005;
+            </label>
+          </span>
+        </span>
+      </span>
+    </span>
+    <span class="slice-chevron" aria-hidden="true"></span>
+  </summary>
+
+  <div class="slice-body">
+    
+      
+      <div class="slice-field slice-what">
+        <div class="slice-field-label">What</div>
+        <div class="slice-field-value">
+          
+          <div class="markdown-block serif-prose"><p>Author plugin/skills/visual-recap/SKILL.md: a thin skill that runs
+<code>wipnote recap &lt;scope&gt;</code>, reads the produced RecapData/artifact, writes the outcome
+narrative grounded in the real diff (redacting secrets), and points the user to the
+dashboard recap URL. Then run <code>wipnote plugin build-ports</code> to fan out to
+Claude/Codex/Gemini trees. Do NOT touch project AGENTS.md/CLAUDE.md.</p>
+</div>
+          
+        </div>
+      </div>
+      
+      
+      <div class="slice-field slice-why">
+        <div class="slice-field-label">Why</div>
+        <div class="slice-field-value">
+          
+          <div class="markdown-block serif-prose"><p>Gives users the BuilderIO /visual-recap ergonomics on wipnote&#39;s native engine,
+portable across all three harnesses from a single source.</p>
+</div>
+          
+        </div>
+      </div>
+      
+      
+      <div class="slice-field">
+        <div class="slice-field-label">Files</div>
+        <div class="slice-field-value"><code>plugin/skills/visual-recap/SKILL.md</code></div>
+      </div>
+      
+      
+      <div class="slice-field">
+        <div class="slice-field-label">Done when</div>
+        <ul class="slice-done-list"><li>SKILL.md has valid frontmatter (name, description) and drives the wipnote recap flow</li><li>`wipnote plugin build-ports` regenerates Claude/Codex/Gemini trees with the new skill and the build passes</li></ul>
+      </div>
+      
+    
+
+    
+    <div class="slice-field slice-decisions-notes">
+      <div class="slice-field-label">Decisions</div>
+      <div class="slice-field-value">
+        
+        <div class="markdown-block serif-prose"><p><strong>Scope:</strong> prompt-only skill; the engine is the Go command, not the skill (mirrors BuilderIO&#39;s zero-code skill design). <strong>State:</strong> none. <strong>Rejected:</strong> wiring the hosted Agent-Native Plans MCP (violates local-first non-negotiable); authoring AGENTS.md (plugin/project boundary — never own project instruction files).</p>
+</div>
+        
+      </div>
+    </div>
+    
+
+    
+    <div class="slice-field slice-tests-field">
+      <div class="slice-field-label">Test Strategy</div>
+      <div class="slice-field-value">
+        
+        
+        <div class="markdown-block slice-tests"><p><code>wipnote plugin build-ports</code> succeeds; generated trees contain visual-recap.
+Frontmatter validated by port/pluginbuild checks.</p>
+</div>
+        
+      </div>
+    </div>
+    
+
+    
+
+    
+
+    <div class="slice-deps">Dependencies: slices 3</div>
+
+    <details class="comment-collapse">
+      <summary class="comment-collapse-trigger">+ Leave a comment</summary>
+      <div class="comment-collapse-body">
+        <textarea data-section="slice-5" data-comment-for="slice-5" placeholder="Comments on slice 5..."></textarea>
+      </div>
+    </details>
+  </div>
+</details>
+<details class="slice-card" id="slice-6" data-slice="6" data-slice-name="slice-6" data-status="pending" data-approval="pending">
+  <summary class="slice-summary" aria-label="Slice 6: Slice-schema block enrichment — additive optional structured blocks on PlanSlice">
+    <span class="slice-num">#6</span>
+    <span class="slice-title-col">
+      <span class="slice-name">Slice-schema block enrichment — additive optional structured blocks on PlanSlice</span>
+      <span class="slice-preview">Extend plan/planyaml/schema.go PlanSlice with optional structured block fields</span>
+      <span class="slice-meta-row">
+        <span class="slice-summary-badges">
+          <span class="badge badge-revision badge-sm">M</span>
+          <span class="badge badge-revision badge-sm">Med</span>
+          <span class="badge badge-revision badge-sm badge-complexity" title="Complexity: complex">Complex</span>
+          
+          <span class="badge badge-pending badge-sm slice-approval-badge" data-badge-for="slice-6">Pending</span>
+          
+          <span class="badge badge-sm badge-questions" title="1 open question(s)">1 Q</span>
+        </span>
+        <span class="slice-actions" onclick="event.stopPropagation()">
+          <span class="approval-segmented" role="group" aria-label="Approval action">
+            <label class="seg-btn seg-approve" title="Approve">
+              <input type="radio" name="slice-6-approval" value="approved" data-section="slice-6" data-action="approve" aria-label="Approve slice 6">
+              &#10003;
+            </label>
+            <label class="seg-btn seg-changes" title="Request changes">
+              <input type="radio" name="slice-6-approval" value="changes_requested" data-section="slice-6" data-action="approve" aria-label="Request changes for slice 6">
+              &#8635;
+            </label>
+            <label class="seg-btn seg-reject" title="Reject">
+              <input type="radio" name="slice-6-approval" value="rejected" data-section="slice-6" data-action="approve" aria-label="Reject slice 6">
+              &#10005;
+            </label>
+          </span>
+        </span>
+      </span>
+    </span>
+    <span class="slice-chevron" aria-hidden="true"></span>
+  </summary>
+
+  <div class="slice-body">
+    
+      
+      <div class="slice-field slice-what">
+        <div class="slice-field-label">What</div>
+        <div class="slice-field-value">
+          
+          <input type="checkbox" id="slice-6-what-reveal" class="reveal-toggle">
+          <div class="markdown-block reveal-content serif-prose"><p>Extend plan/planyaml/schema.go PlanSlice with optional structured block fields
+(e.g. blocks: [] holding data-model / api-endpoint / file-tree / wireframe entries),
+keeping them OPTIONAL so existing v3 plans validate unchanged. Update
+plan/planyaml/validate.go to validate block shapes only when present. Add a
+<code>wipnote plan blocks</code> helper that lists the available block vocabulary (wipnote&#39;s
+local equivalent of BuilderIO get-plan-blocks).</p>
+</div>
+          <label for="slice-6-what-reveal" class="reveal-label">Show full description</label>
+          
+        </div>
+      </div>
+      
+      
+      <div class="slice-field slice-why">
+        <div class="slice-field-label">Why</div>
+        <div class="slice-field-value">
+          
+          <div class="markdown-block serif-prose"><p>Gives /wipnote:plan a richer visual vocabulary (the BuilderIO block catalog idea)
+without breaking any existing plan or requiring a schema-version bump.</p>
+</div>
+          
+        </div>
+      </div>
+      
+      
+      <div class="slice-field">
+        <div class="slice-field-label">Files</div>
+        <div class="slice-field-value"><code>plan/planyaml/schema.go, plan/planyaml/validate.go, cmd/wipnote/plan_blocks.go</code></div>
+      </div>
+      
+      
+      <div class="slice-field">
+        <div class="slice-field-label">Done when</div>
+        <ul class="slice-done-list"><li>New block fields are optional; all existing plan YAML still passes validate-yaml</li><li>When a block is present, its shape is validated (e.g. data-model fields, wireframe html token usage)</li><li>`wipnote plan blocks` prints the supported block types and required fields</li></ul>
+      </div>
+      
+    
+
+    
+    <div class="slice-field slice-decisions-notes">
+      <div class="slice-field-label">Decisions</div>
+      <div class="slice-field-value">
+        
+        <input type="checkbox" id="slice-6-decisions-reveal" class="reveal-toggle">
+        <div class="markdown-block reveal-content serif-prose"><p><strong>Scope:</strong> additive-optional schema; NO schema_version bump (back-compat preserved since fields are optional). <strong>State:</strong> stored in plan-*.yaml (canonical). <strong>Payload:</strong> blocks: list of typed entries reusing the shared block model from slice-2&#39;s plan/blocks package. <strong>Rejected:</strong> a v4 schema bump (unnecessary churn + migration risk for purely-optional additions); free-form markdown blocks (loses the structured/grounded property that makes blocks render well).</p>
+</div>
+        <label for="slice-6-decisions-reveal" class="reveal-label">Show full decisions</label>
+        
+      </div>
+    </div>
+    
+
+    
+    <div class="slice-field slice-tests-field">
+      <div class="slice-field-label">Test Strategy</div>
+      <div class="slice-field-value">
+        
+        
+        <div class="test-strategy">
+          
+          <div class="test-group" data-kind="unit">
+            <span class="test-chip">UNIT &middot; 1</span>
+            <ul><li>TestValidate_BlocksOptional (old plan passes), TestValidate_BlockShapes</li></ul>
+          </div>
+          
+          <div class="test-group" data-kind="other">
+            <span class="test-chip">OTHER &middot; 1</span>
+            <ul><li>(malformed block rejected). Round-trip marshal test.</li></ul>
+          </div>
+          
+        </div>
+        
+      </div>
+    </div>
+    
+
+    
+
+    
+    <div class="slice-field slice-questions">
+      <div class="slice-field-label">Open Questions</div>
+      <div class="slice-field-value">
+        
+        <div class="question-block slice-question-block">
+          <p>Should blocks be a flat slice-level list or nested under what/decisions?</p>
+          
+          
+          <textarea
+            data-section="slice-6-question-q-block-storage"
+            data-comment-for="slice-6-question-q-block-storage"
+            placeholder="Answer question q-block-storage...">A flat optional slice-level `blocks: []` list keyed by type — keeps the schema flat, renders in declared order, and avoids overloading the prose fields.</textarea>
+          
+        </div>
+        
+      </div>
+    </div>
+    
+
+    <div class="slice-deps">Dependencies: none</div>
+
+    <details class="comment-collapse">
+      <summary class="comment-collapse-trigger">+ Leave a comment</summary>
+      <div class="comment-collapse-body">
+        <textarea data-section="slice-6" data-comment-for="slice-6" placeholder="Comments on slice 6..."></textarea>
+      </div>
+    </details>
+  </div>
+</details>
+<details class="slice-card" id="slice-7" data-slice="7" data-slice-name="slice-7" data-status="pending" data-approval="pending">
+  <summary class="slice-summary" aria-label="Slice 7: plantmpl block-zone rendering &#43; before/after HTML wireframes">
+    <span class="slice-num">#7</span>
+    <span class="slice-title-col">
+      <span class="slice-name">plantmpl block-zone rendering &#43; before/after HTML wireframes</span>
+      <span class="slice-preview">Render the new slice blocks in plan/plantmpl using the SHARED renderers from</span>
+      <span class="slice-meta-row">
+        <span class="slice-summary-badges">
+          <span class="badge badge-blocked badge-sm">L</span>
+          <span class="badge badge-revision badge-sm">Med</span>
+          <span class="badge badge-revision badge-sm badge-complexity" title="Complexity: complex">Complex</span>
+          
+          <span class="badge badge-pending badge-sm slice-approval-badge" data-badge-for="slice-7">Pending</span>
+          
+          <span class="badge badge-sm badge-questions" title="1 open question(s)">1 Q</span>
+        </span>
+        <span class="slice-actions" onclick="event.stopPropagation()">
+          <span class="approval-segmented" role="group" aria-label="Approval action">
+            <label class="seg-btn seg-approve" title="Approve">
+              <input type="radio" name="slice-7-approval" value="approved" data-section="slice-7" data-action="approve" aria-label="Approve slice 7">
+              &#10003;
+            </label>
+            <label class="seg-btn seg-changes" title="Request changes">
+              <input type="radio" name="slice-7-approval" value="changes_requested" data-section="slice-7" data-action="approve" aria-label="Request changes for slice 7">
+              &#8635;
+            </label>
+            <label class="seg-btn seg-reject" title="Reject">
+              <input type="radio" name="slice-7-approval" value="rejected" data-section="slice-7" data-action="approve" aria-label="Reject slice 7">
+              &#10005;
+            </label>
+          </span>
+        </span>
+      </span>
+    </span>
+    <span class="slice-chevron" aria-hidden="true"></span>
+  </summary>
+
+  <div class="slice-body">
+    
+      
+      <div class="slice-field slice-what">
+        <div class="slice-field-label">What</div>
+        <div class="slice-field-value">
+          
+          <input type="checkbox" id="slice-7-what-reveal" class="reveal-toggle">
+          <div class="markdown-block reveal-content serif-prose"><p>Render the new slice blocks in plan/plantmpl using the SHARED renderers from
+slice-2 (plan/blocks). Add a Blocks zone to PlanPage and per-block templates.
+Implement before/after HTML/CSS wireframes for UI-touching slices using
+design-token CSS custom properties (--wf-* style, no raw hex) — plain HTML, no
+Playwright/screenshots. Wireframes render in the plan detail and (via shared pkg)
+in recaps for UI changes.</p>
+</div>
+          <label for="slice-7-what-reveal" class="reveal-label">Show full description</label>
+          
+        </div>
+      </div>
+      
+      
+      <div class="slice-field slice-why">
+        <div class="slice-field-label">Why</div>
+        <div class="slice-field-value">
+          
+          <div class="markdown-block serif-prose"><p>Turns the enriched schema into visual output in the existing plan HTML + dashboard,
+matching BuilderIO&#39;s canvas/wireframe richness with wipnote&#39;s no-screenshot constraint.</p>
+</div>
+          
+        </div>
+      </div>
+      
+      
+      <div class="slice-field">
+        <div class="slice-field-label">Files</div>
+        <div class="slice-field-value"><code>plan/plantmpl/plantmpl.go, plan/plantmpl/templates/blocks_zone.gohtml, plan/plantmpl/templates/wireframe.gohtml, plan/blocks/wireframe.go</code></div>
+      </div>
+      
+      
+      <div class="slice-field">
+        <div class="slice-field-label">Done when</div>
+        <ul class="slice-done-list"><li>Slices with blocks render a Blocks zone in plan-*.html via the shared renderers</li><li>Before/after wireframes render from HTML/CSS design tokens with no external assets or screenshots</li><li>No DRY duplication: plan and recap share the same block render code path</li></ul>
+      </div>
+      
+    
+
+    
+    <div class="slice-field slice-decisions-notes">
+      <div class="slice-field-label">Decisions</div>
+      <div class="slice-field-value">
+        
+        <input type="checkbox" id="slice-7-decisions-reveal" class="reveal-toggle">
+        <div class="markdown-block reveal-content serif-prose"><p><strong>Scope:</strong> rendering only (schema is slice-6). Reuse plan/blocks from slice-2 — this slice adds the wireframe renderer + the plan Blocks zone wiring. <strong>State:</strong> none. <strong>Payload:</strong> HTML zone appended to PlanPage. <strong>Rejected:</strong> Playwright/screenshot wireframes (hard constraint — no headless infra; HTML/CSS wireframes are the BuilderIO approach too); a plan-only block renderer (DRY — must share with recap).</p>
+</div>
+        <label for="slice-7-decisions-reveal" class="reveal-label">Show full decisions</label>
+        
+      </div>
+    </div>
+    
+
+    
+    <div class="slice-field slice-tests-field">
+      <div class="slice-field-label">Test Strategy</div>
+      <div class="slice-field-value">
+        
+        
+        <div class="test-strategy">
+          
+          <div class="test-group" data-kind="unit">
+            <span class="test-chip">UNIT &middot; 1</span>
+            <ul><li>TestPlanPage_BlocksZone golden file; TestWireframe_TokensOnly (rejects raw</li></ul>
+          </div>
+          
+          <div class="test-group" data-kind="other">
+            <span class="test-chip">OTHER &middot; 1</span>
+            <ul><li>hex/rgb). Snapshot the rendered block HTML.</li></ul>
+          </div>
+          
+        </div>
+        
+      </div>
+    </div>
+    
+
+    
+
+    
+    <div class="slice-field slice-questions">
+      <div class="slice-field-label">Open Questions</div>
+      <div class="slice-field-value">
+        
+        <div class="question-block slice-question-block">
+          <p>Reuse the dashboard&#39;s existing CSS token system or introduce --wf-* tokens?</p>
+          
+          
+          <textarea
+            data-section="slice-7-question-q-wireframe-tokens"
+            data-comment-for="slice-7-question-q-wireframe-tokens"
+            placeholder="Answer question q-wireframe-tokens...">Introduce a small --wf-* wireframe token set scoped to wireframe markup (matches BuilderIO&#39;s tokens-not-hex rule) while pulling base palette values from the existing dashboard tokens to stay visually consistent.</textarea>
+          
+        </div>
+        
+      </div>
+    </div>
+    
+
+    <div class="slice-deps">Dependencies: slices 6,2</div>
+
+    <details class="comment-collapse">
+      <summary class="comment-collapse-trigger">+ Leave a comment</summary>
+      <div class="comment-collapse-body">
+        <textarea data-section="slice-7" data-comment-for="slice-7" placeholder="Comments on slice 7..."></textarea>
+      </div>
+    </details>
+  </div>
+</details>
+<details class="slice-card" id="slice-8" data-slice="8" data-slice-name="slice-8" data-status="pending" data-approval="pending">
+  <summary class="slice-summary" aria-label="Slice 8: Block-level annotation loop — map consumed/resolved onto critic_revisions/questions &#43; plan-review chat">
+    <span class="slice-num">#8</span>
+    <span class="slice-title-col">
+      <span class="slice-name">Block-level annotation loop — map consumed/resolved onto critic_revisions/questions &#43; plan-review chat</span>
+      <span class="slice-preview">Extend the existing plan-review dashboard chat &#43; criticrevisions/questions to</span>
+      <span class="slice-meta-row">
+        <span class="slice-summary-badges">
+          <span class="badge badge-revision badge-sm">M</span>
+          <span class="badge badge-revision badge-sm">Med</span>
+          <span class="badge badge-discuss badge-sm badge-complexity" title="Complexity: standard">Standard</span>
+          
+          <span class="badge badge-pending badge-sm slice-approval-badge" data-badge-for="slice-8">Pending</span>
+          
+          
+        </span>
+        <span class="slice-actions" onclick="event.stopPropagation()">
+          <span class="approval-segmented" role="group" aria-label="Approval action">
+            <label class="seg-btn seg-approve" title="Approve">
+              <input type="radio" name="slice-8-approval" value="approved" data-section="slice-8" data-action="approve" aria-label="Approve slice 8">
+              &#10003;
+            </label>
+            <label class="seg-btn seg-changes" title="Request changes">
+              <input type="radio" name="slice-8-approval" value="changes_requested" data-section="slice-8" data-action="approve" aria-label="Request changes for slice 8">
+              &#8635;
+            </label>
+            <label class="seg-btn seg-reject" title="Reject">
+              <input type="radio" name="slice-8-approval" value="rejected" data-section="slice-8" data-action="approve" aria-label="Reject slice 8">
+              &#10005;
+            </label>
+          </span>
+        </span>
+      </span>
+    </span>
+    <span class="slice-chevron" aria-hidden="true"></span>
+  </summary>
+
+  <div class="slice-body">
+    
+      
+      <div class="slice-field slice-what">
+        <div class="slice-field-label">What</div>
+        <div class="slice-field-value">
+          
+          <div class="markdown-block serif-prose"><p>Extend the existing plan-review dashboard chat + critic_revisions/questions to
+support block/element-anchored annotations with a two-axis state (consumed vs
+resolved, routed agent|human) modeled on BuilderIO get-plan-feedback. Persist via
+the existing plan_feedback section-key contract (cmd/wipnote/api_plans.go) and
+surface anchored comments in the rendered blocks.</p>
+</div>
+          
+        </div>
+      </div>
+      
+      
+      <div class="slice-field slice-why">
+        <div class="slice-field-label">Why</div>
+        <div class="slice-field-value">
+          
+          <div class="markdown-block serif-prose"><p>Closes the review loop on visual blocks the way BuilderIO does, but on wipnote&#39;s
+existing feedback plumbing (feat-36566570) — no new backend store.</p>
+</div>
+          
+        </div>
+      </div>
+      
+      
+      <div class="slice-field">
+        <div class="slice-field-label">Files</div>
+        <div class="slice-field-value"><code>cmd/wipnote/api_plans.go, plan/planyaml/schema.go, cmd/wipnote/dashboard/js/app.js</code></div>
+      </div>
+      
+      
+      <div class="slice-field">
+        <div class="slice-field-label">Done when</div>
+        <ul class="slice-done-list"><li>A reviewer can anchor a comment to a specific block/element and it persists via plan_feedback</li><li>Annotation carries a two-axis state (consumed/resolved &#43; agent|human target) readable by read-feedback-yaml</li></ul>
+      </div>
+      
+    
+
+    
+    <div class="slice-field slice-decisions-notes">
+      <div class="slice-field-label">Decisions</div>
+      <div class="slice-field-value">
+        
+        <div class="markdown-block serif-prose"><p><strong>Trigger:</strong> reviewer action in dashboard chat. <strong>State:</strong> plan_feedback (existing), extended with anchor + two-axis fields; section-key contract (slice-, design, questions) preserved. <strong>Payload:</strong> annotation{anchor, consumed, resolved, resolutionTarget}. <strong>Rejected:</strong> a new feedback table (feat-36566570 already provides the loop — extend it, don&#39;t fork it).</p>
+</div>
+        
+      </div>
+    </div>
+    
+
+    
+    <div class="slice-field slice-tests-field">
+      <div class="slice-field-label">Test Strategy</div>
+      <div class="slice-field-value">
+        
+        
+        <div class="test-strategy">
+          
+          <div class="test-group" data-kind="integration">
+            <span class="test-chip">INTEGRATION &middot; 1</span>
+            <ul><li>TestPlanFeedback_BlockAnchor (post anchored annotation, read back</li></ul>
+          </div>
+          
+          <div class="test-group" data-kind="other">
+            <span class="test-chip">OTHER &middot; 1</span>
+            <ul><li>with state). Reuse existing api_plans feedback tests as a template.</li></ul>
+          </div>
+          
+        </div>
+        
+      </div>
+    </div>
+    
+
+    
+
+    
+
+    <div class="slice-deps">Dependencies: slices 6</div>
+
+    <details class="comment-collapse">
+      <summary class="comment-collapse-trigger">+ Leave a comment</summary>
+      <div class="comment-collapse-body">
+        <textarea data-section="slice-8" data-comment-for="slice-8" placeholder="Comments on slice 8..."></textarea>
+      </div>
+    </details>
+  </div>
+</details>
+<details class="slice-card" id="slice-9" data-slice="9" data-slice-name="slice-9" data-status="pending" data-approval="pending">
+  <summary class="slice-summary" aria-label="Slice 9: /visual-plan skill (prompt wrapper) &#43; build-ports">
+    <span class="slice-num">#9</span>
+    <span class="slice-title-col">
+      <span class="slice-name">/visual-plan skill (prompt wrapper) &#43; build-ports</span>
+      <span class="slice-preview">Author plugin/skills/visual-plan/SKILL.md: drives /wipnote:plan to author the</span>
+      <span class="slice-meta-row">
+        <span class="slice-summary-badges">
+          <span class="badge badge-pending badge-sm">S</span>
+          <span class="badge badge-pending badge-sm">Low</span>
+          <span class="badge badge-discuss badge-sm badge-complexity" title="Complexity: standard">Standard</span>
+          
+          <span class="badge badge-pending badge-sm slice-approval-badge" data-badge-for="slice-9">Pending</span>
+          
+          
+        </span>
+        <span class="slice-actions" onclick="event.stopPropagation()">
+          <span class="approval-segmented" role="group" aria-label="Approval action">
+            <label class="seg-btn seg-approve" title="Approve">
+              <input type="radio" name="slice-9-approval" value="approved" data-section="slice-9" data-action="approve" aria-label="Approve slice 9">
+              &#10003;
+            </label>
+            <label class="seg-btn seg-changes" title="Request changes">
+              <input type="radio" name="slice-9-approval" value="changes_requested" data-section="slice-9" data-action="approve" aria-label="Request changes for slice 9">
+              &#8635;
+            </label>
+            <label class="seg-btn seg-reject" title="Reject">
+              <input type="radio" name="slice-9-approval" value="rejected" data-section="slice-9" data-action="approve" aria-label="Reject slice 9">
+              &#10005;
+            </label>
+          </span>
+        </span>
+      </span>
+    </span>
+    <span class="slice-chevron" aria-hidden="true"></span>
+  </summary>
+
+  <div class="slice-body">
+    
+      
+      <div class="slice-field slice-what">
+        <div class="slice-field-label">What</div>
+        <div class="slice-field-value">
+          
+          <div class="markdown-block serif-prose"><p>Author plugin/skills/visual-plan/SKILL.md: drives /wipnote:plan to author the
+enriched blocks (calling <code>wipnote plan blocks</code> for the vocabulary), produce
+before/after wireframes for UI slices, and route the user to the dashboard for
+block-level review. Run build-ports for all three harnesses. Do not touch
+project AGENTS.md/CLAUDE.md.</p>
+</div>
+          
+        </div>
+      </div>
+      
+      
+      <div class="slice-field slice-why">
+        <div class="slice-field-label">Why</div>
+        <div class="slice-field-value">
+          
+          <div class="markdown-block serif-prose"><p>Completes the BuilderIO /visual-plan ergonomics on wipnote&#39;s native pipeline,
+portable across harnesses from a single source.</p>
+</div>
+          
+        </div>
+      </div>
+      
+      
+      <div class="slice-field">
+        <div class="slice-field-label">Files</div>
+        <div class="slice-field-value"><code>plugin/skills/visual-plan/SKILL.md</code></div>
+      </div>
+      
+      
+      <div class="slice-field">
+        <div class="slice-field-label">Done when</div>
+        <ul class="slice-done-list"><li>SKILL.md frontmatter valid; skill drives the enriched-plan authoring flow over the local CLI</li><li>build-ports regenerates all three trees with visual-plan and the build passes</li></ul>
+      </div>
+      
+    
+
+    
+    <div class="slice-field slice-decisions-notes">
+      <div class="slice-field-label">Decisions</div>
+      <div class="slice-field-value">
+        
+        <div class="markdown-block serif-prose"><p><strong>Scope:</strong> prompt-only wrapper over /wipnote:plan + <code>wipnote plan blocks</code> + dashboard review. <strong>State:</strong> none. <strong>Rejected:</strong> a standalone planner that bypasses /wipnote:plan (would fork the interview/validation discipline — instead enrich the existing flow); hosted MCP block catalog (local <code>wipnote plan blocks</code> is the local-first equivalent).</p>
+</div>
+        
+      </div>
+    </div>
+    
+
+    
+    <div class="slice-field slice-tests-field">
+      <div class="slice-field-label">Test Strategy</div>
+      <div class="slice-field-value">
+        
+        
+        <div class="markdown-block slice-tests"><p><code>wipnote plugin build-ports</code> succeeds; generated trees contain visual-plan.</p>
+</div>
+        
+      </div>
+    </div>
+    
+
+    
+
+    
+
+    <div class="slice-deps">Dependencies: slices 7</div>
+
+    <details class="comment-collapse">
+      <summary class="comment-collapse-trigger">+ Leave a comment</summary>
+      <div class="comment-collapse-body">
+        <textarea data-section="slice-9" data-comment-for="slice-9" placeholder="Comments on slice 9..."></textarea>
+      </div>
+    </details>
+  </div>
+</details>
+
     <!--PLAN_SLICE_CARDS-->
   </div>
 </details>
 
 <!-- Design Decisions (hidden for v2 plans — slice cards carry their own questions) -->
-<details id="questions" class="section-card" data-phase="questions" data-status="pending">
-  <summary><span>Design Decisions</span><span class="badge badge-pending" data-badge-for="questions">Pending</span></summary>
-  <div class="section-body">
-    <table class="q-table">
-      <thead><tr><th>Question</th><th>Selected</th><th>Status</th></tr></thead>
-      <tbody id="questionsRecap">
-        <!--PLAN_QUESTIONS_RECAP-->
-      </tbody>
-    </table>
-  </div>
-</details>
+
 
 
 
@@ -520,8 +1872,8 @@ body.right-rail-collapsed .sidebar-reopen{display:flex}
   <h2>Feedback Summary</h2>
   <div class="progress-stats">
     <div class="progress-stat"><strong id="approvedCount">0</strong> approved</div>
-    <div class="progress-stat"><strong id="totalSections">1</strong> sections</div>
-    <div class="progress-stat"><strong id="pendingCount">1</strong> pending</div>
+    <div class="progress-stat"><strong id="totalSections">10</strong> sections</div>
+    <div class="progress-stat"><strong id="pendingCount">10</strong> pending</div>
   </div>
   <div class="progress-bar-track"><div class="progress-bar-fill" id="progressFill" style="width:0%"></div></div>
   <div class="comments-summary">
@@ -613,7 +1965,7 @@ var planId=(function(){var a=document.querySelector('article[id]');return a?a.id
 
 (function(){
   'use strict';
-  var SECTIONS=/*PLAN_SECTIONS_JSON*/["design"]/*END_PLAN_SECTIONS_JSON*/;
+  var SECTIONS=/*PLAN_SECTIONS_JSON*/["design","slice-1","slice-2","slice-3","slice-4","slice-5","slice-6","slice-7","slice-8","slice-9"]/*END_PLAN_SECTIONS_JSON*/;
 
   function setBadge(el,ok){
     el.className='badge badge-'+(ok?'approved':'pending');

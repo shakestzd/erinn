@@ -2,25 +2,353 @@ meta:
     id: plan-93b8eba0
     track_id: trk-a951e3c0
     title: Visual plan & lineage-grounded recap (native port of BuilderIO visual-plan/visual-recap)
-    description: Augment wipnote planning with visual-plan block enrichment and a lineage-grounded visual recap, built natively on plantmpl + the serve dashboard.
-    created_at: "2026-06-18"
+    description: |
+        Research basis:
+        - https://github.com/BuilderIO/skills/tree/main/skills/visual-plan (read 2026-06-18, SKILL.md sha df2235e5): visual-plan is a prompt-only skill; drives the agent to fetch a live block catalog (get-plan-blocks), author structured MDX blocks grounded in real files, and publish to the hosted Agent-Native Plans web app for human review. Blocks: data-model, api-endpoint, diff, annotated-code, file-tree, diagram, WireframeBlock, columns, Mermaid, tabs, rich-text, question-form.
+        - https://github.com/BuilderIO/skills/tree/main/skills/visual-recap (read 2026-06-18, SKILL.md sha 0d53e8fd): visual-recap is the reverse — turns a PR/branch/commit/diff into an interactive recap (UI wireframes -> outcome narrative -> schema/contract blocks -> file map -> annotated diffs in tabs), derived MECHANICALLY from the real diff. No Playwright/screenshots; all visual output is MDX blocks rendered by the web app. Local-files privacy mode exists.
+        - runtime: repo read 2026-06-18 (researcher): wipnote already owns the equivalent surfaces — plan-*.yaml->plan-*.html via commitPlanChange (cmd/wipnote/plan_yaml_cmds.go:42) + component-based renderer plan/plantmpl/ with a D3 dep-graph zone; dashboard SPA (cmd/wipnote/dashboard/, vanilla JS + D3 v7 + Prism + marked + DOMPurify) injects scoped plan HTML via /api/plans/<id>/render; lineage walk in cmd/wipnote/lineage.go (sessions->features->commits->files). No screenshot/headless/mermaid infra anywhere.
+
+        Strategy: Path B (NATIVE PORT). Adopt BuilderIO's CONCEPTS (block catalog, recap-from-diff, before/after wireframes, annotation loop) onto wipnote's own pipeline. NO hosted Agent-Native Plans MCP dependency — local-first, single-source-of-truth (HTML canonical), reuse existing D3 + vanilla JS, wireframes are plain HTML/CSS (no Playwright). Recap's unique angle vs BuilderIO: grounded in wipnote LINEAGE, so it carries causal provenance a diff-only tool cannot.
+
+        Phase 1 (slices 1-5): lineage-grounded recap vertical slice — new internal/recap collector, new recap/recaptmpl renderer, `wipnote recap` command writing a first-class .wipnote/recaps/recap-*.html artifact, dashboard Recaps view, and the /visual-recap skill wrapper.
+        Phase 2 (slices 6-9): visual-plan block enrichment — additive slice-schema blocks, shared block renderers in plantmpl, annotation loop mapped onto existing critic_revisions/questions + plan-review chat, and the /visual-plan skill wrapper.
+
+        Relates to plan-243e8713 (shares lineage data + D3/dashboard surface; does not overlap scope).
+    created_at: ""
     status: draft
     priority: medium
     schema_version: v3
-    version: 3
+    version: 1
 design:
-    problem: BuilderIO's /visual-plan and /visual-recap give agents rich, reviewable visual artifacts (block-structured plans; recaps that turn a diff into an interactive summary), but they depend on a hosted third-party MCP (Agent-Native Plans). wipnote already owns equivalent rendering surfaces (plantmpl, the serve dashboard, lineage) yet exposes plans as a single layout and has no recap surface at all, and lineage output is text-only. We want the same visual ergonomics, natively and local-first, with recap grounded in wipnote's unique causal lineage.
+    problem: |
+        BuilderIO's /visual-plan and /visual-recap give agents rich, reviewable visual artifacts (block-structured plans; recaps that turn a diff into an interactive summary), but they depend on a hosted third-party MCP (Agent-Native Plans). wipnote already owns equivalent rendering surfaces (plantmpl, the serve dashboard, lineage) yet exposes plans as a single layout, has no recap surface at all, and emits lineage as text only. We want the same visual ergonomics, natively and local-first, with recap grounded in wipnote's unique causal lineage.
     goals:
-        - Ship a first-class lineage-grounded recap (wipnote recap -> committed recap-*.html) accepting work-item / git-range / session inputs;Enrich plans with structured visual blocks (data-model
-        - api-endpoint
-        - file-tree
-        - before/after HTML wireframes) reusing one shared renderer;Surface recaps and enriched plans in the existing dashboard with no new frontend deps;Expose /visual-recap and /visual-plan skills portable across Claude/Codex/Gemini via build-ports;Keep everything local-first — no hosted MCP
-        - HTML stays canonical
+        - 'Ship a first-class lineage-grounded recap: `wipnote recap` writes a committed recap-*.html accepting work-item / git-range / session inputs'
+        - Enrich plans with structured visual blocks (data-model, api-endpoint, file-tree, before/after HTML wireframes) via one shared renderer
+        - Surface recaps and enriched plans in the existing dashboard with no new frontend dependencies
+        - Expose /visual-recap and /visual-plan skills portable across Claude/Codex/Gemini via build-ports
+        - 'Keep everything local-first: no hosted MCP, HTML stays canonical'
     constraints:
-        - 'Local-first: no hosted Agent-Native Plans MCP dependency'
-        - 'no data leaving .wipnote/;Single-source-of-truth: HTML is canonical/generated'
-        - never hand-edit recap-*.html or plan-*.html;Reuse existing D3 v7 + vanilla JS + Prism — no new frontend frameworks;Before/after wireframes are plain HTML/CSS with design tokens — no Playwright/screenshots/headless;Plan-schema additions must be additive-optional (existing v3 plans validate unchanged);Skills build across all 3 harnesses via wipnote plugin build-ports;Never author or overwrite project AGENTS.md/CLAUDE.md (plugin/project boundary)
+        - 'Local-first: no hosted Agent-Native Plans MCP dependency; no data leaves .wipnote/'
+        - 'Single-source-of-truth: HTML is generated/canonical; never hand-edit recap-*.html or plan-*.html'
+        - Reuse existing D3 v7 + vanilla JS + Prism; no new frontend frameworks
+        - Before/after wireframes are plain HTML/CSS design tokens; no Playwright/screenshots/headless
+        - Plan-schema additions must be additive-optional (existing v3 plans validate unchanged)
+        - Skills build across all 3 harnesses via `wipnote plugin build-ports`
+        - Never author or overwrite project AGENTS.md/CLAUDE.md (plugin/project boundary)
     approved: false
     comment: ""
-slices: []
+slices:
+    - id: slice-1
+      num: 1
+      title: Recap collector core — resolve work-item / git-range / session into grounded diff data
+      what: |
+        New internal/recap package. A collector that, given one of three inputs
+        (work-item id feat/bug/spike, a git range commit/branch/PR, or a session id),
+        mechanically resolves the set of commits + changed files + per-file diff hunks.
+        For work-item and session inputs, walk the existing lineage graph
+        (extract the BFS walk from cmd/wipnote/lineage.go into internal/lineage so both
+        the CLI and the collector consume it — DRY). Emit a typed RecapData struct
+        (outcome facts, file list with change flags, hunks, lineage chain, provenance).
+      why: |
+        Recap's differentiator is causal grounding: every fact derived from real
+        commits/files, never inferred. This is the data layer the whole feature stands on.
+      files:
+        - internal/recap/collect.go
+        - internal/recap/types.go
+        - internal/lineage/walk.go
+        - cmd/wipnote/lineage.go
+      deps: []
+      done_when:
+        - Given a feat-id, collector returns the commits linked via lineage and the union of changed files with add/modify/delete flags
+        - Given a git range (e.g. main..HEAD), collector returns the same RecapData shape with no work-item grounding
+        - Given a session id, collector returns files/commits produced in that session
+        - Lineage BFS walk is shared between cmd/wipnote/lineage.go and internal/recap (no duplicated traversal)
+      effort: L
+      risk: Med
+      tests: |
+        Unit: TestCollect_FromFeature (fixture .wipnote + git repo), TestCollect_FromRange,
+        TestCollect_FromSession. Assert deterministic file/hunk sets. Table-driven.
+      complexity: complex
+      approved: false
+      comment: ""
+      questions:
+        - id: q-range-no-lineage
+          text: When input is a bare git range with no work-item, should recap still render a (degraded) lineage zone or omit it?
+          answer: Omit the lineage zone gracefully when there is no work-item grounding; render only the diff/file/outcome zones. The lineage zone is the value-add when grounding exists, not a hard requirement.
+      decisions_notes: |
+        **Scope:** internal/recap owns collection only (no rendering). Extract lineage BFS to internal/lineage to avoid a second traversal implementation.
+        **State:** RecapData is in-memory, derived; the committed artifact (slice-3) is canonical. Grounded entirely in git + .wipnote/*.html, nothing external.
+        **Payload:** RecapData{Outcome, Files[]{Path,Change,Hunks}, Commits[], LineageChain, Provenance}. Hunks carry before/after for the diff renderer.
+        **Rejected:** parsing `git diff` text in the renderer (re-parse risk + couples layers); a recap-specific lineage walk separate from the CLI's (DRY violation, drift risk).
+    - id: slice-2
+      num: 2
+      title: Recap renderer — recap/recaptmpl package + shared HTML block components
+      what: |
+        New recap/recaptmpl package mirroring plan/plantmpl: RecapPage.Render(io.Writer)
+        composed of zone Components — OutcomeNarrative, FileTree, AnnotatedDiff (split/unified,
+        syntax-highlighted via the Prism classes the dashboard already loads, with per-hunk
+        summaries), and LineageChain (reuse the D3 force-graph approach from dependency_graph.gohtml).
+        Build the data-model/api-endpoint/file-tree/diff block renderers as a SHARED package
+        (plan/blocks or internal/htmlblocks) so Phase 2's plantmpl blocks reuse them verbatim.
+      why: |
+        Renders RecapData into the canonical HTML artifact. Building blocks as shared
+        components now prevents a DRY violation when visual-plan needs the same blocks (Phase 2).
+      files:
+        - recap/recaptmpl/recaptmpl.go
+        - recap/recaptmpl/builder.go
+        - recap/recaptmpl/templates/recap_page.gohtml
+        - recap/recaptmpl/templates/annotated_diff.gohtml
+        - plan/blocks/blocks.go
+      deps:
+        - 1
+      done_when:
+        - RecapPage.Render produces valid standalone HTML with outcome, file-tree, annotated-diff, and (when present) lineage zones
+        - Annotated diff renders split + unified modes with Prism-compatible markup and per-hunk summaries
+        - data-model/api-endpoint/file-tree/diff block renderers live in a shared package consumed by recaptmpl (and ready for plantmpl)
+      effort: L
+      risk: Med
+      tests: |
+        Unit: TestRecapPage_Render golden-file test; TestAnnotatedDiff_SplitVsUnified;
+        TestBlocks_FileTree/DataModel render snapshots. Use go:embed templates.
+      complexity: complex
+      approved: false
+      comment: ""
+      questions:
+        - id: q-shared-pkg
+          text: Where should the shared block renderers live so both recap and plan import them without an import cycle?
+          answer: A leaf package plan/blocks (or internal/htmlblocks) with no deps on plantmpl/recaptmpl; both renderers import it. Keeps import direction one-way and avoids a cycle.
+      decisions_notes: |
+        **Scope:** Pure rendering. recaptmpl mirrors plantmpl's Component interface (Render(io.Writer)); outer shell text/template, inner zones html/template (matches plantmpl's JS-safety split).
+        **State:** none — stateless renderer over RecapData.
+        **Payload:** HTML string artifact. Diff uses Prism classes (already CDN-loaded by dashboard) — no new highlighter dep.
+        **Rejected:** Mermaid for the lineage zone (no mermaid infra in repo, new dep) — reuse the existing D3 force-graph instead; a recap-only block set (would force a Phase-2 rewrite — build shared from the start).
+    - id: slice-3
+      num: 3
+      title: '`wipnote recap <id|--range|--session>` command + first-class recap-*.html artifact commit'
+      what: |
+        New cmd/wipnote/recap.go cobra command. Accepts a work-item id positional,
+        or --range <gitrange>, or --session <id>. Calls the collector (slice-1),
+        renders via recaptmpl (slice-2), writes .wipnote/recaps/recap-<id>.html, and
+        commits it atomically via a commitRecapArtifact helper modeled on
+        commitWipnoteArtifact/commitPlanChange (git -C <repoRoot> absolute path, no host
+        paths in body). Wires a lineage edge recap relates_to/derived_from the work item.
+      why: |
+        Makes recap a durable, shareable, lineage-linked object in the canonical store —
+        not an ephemeral view. Required before the dashboard and skill can surface it.
+      files:
+        - cmd/wipnote/recap.go
+        - cmd/wipnote/recap_commit.go
+      deps:
+        - 1
+        - 2
+      done_when:
+        - '`wipnote recap feat-XXX` writes and commits .wipnote/recaps/recap-feat-XXX.html'
+        - --range and --session inputs produce a recap artifact with a stable id scheme
+        - Recap artifact is linked to its work item via a typed lineage edge visible in `wipnote lineage`
+      effort: M
+      risk: Low
+      tests: |
+        Integration: TestRecapCmd_Feature (spawn binary in fixture repo, assert file +
+        commit + link), TestRecapCmd_Range. Guard slow ones behind testing.Short().
+      complexity: standard
+      approved: false
+      comment: ""
+      decisions_notes: |
+        **Trigger:** explicit CLI invocation only (not a hook). **State:** .wipnote/recaps/recap-*.html canonical, committed via git -C repoRoot (bypasses worktree .wipnote/ gitignore, like existing artifact commits). **Payload:** recap id scheme recap-<workitem-id> for items, recap-<short-hash> for bare ranges. **Rejected:** reusing plan-*.html pipeline (conflates plan vs recap semantics in store — user chose a distinct kind); dashboard-only no-artifact (not durable/shareable, not in canonical store).
+    - id: slice-4
+      num: 4
+      title: Dashboard Recaps view + /api/recaps endpoints
+      what: |
+        Add /api/recaps (list) and /api/recaps/<id>/render (scoped HTML) to serve.go,
+        mirroring the existing plans handlers. Add a Recaps view panel to the dashboard
+        SPA (cmd/wipnote/dashboard/js/app.js + index.html + css) reusing the
+        openPlanDetail pattern and scopePlanCSS scoping so recap HTML injects safely.
+      why: |
+        Surfaces recaps in the same review surface as plans; reviewers see the visual
+        recap without leaving the dashboard. Reuses proven plan-render plumbing.
+      files:
+        - cmd/wipnote/serve.go
+        - cmd/wipnote/api_recaps.go
+        - cmd/wipnote/dashboard/js/app.js
+        - cmd/wipnote/dashboard/index.html
+        - cmd/wipnote/dashboard/css/components.css
+      deps:
+        - 3
+      done_when:
+        - Recaps view lists committed recap artifacts and opens a detail panel with the rendered recap HTML
+        - Recap CSS is scoped (no bleed into dashboard chrome), matching the plan-detail scoping approach
+      effort: M
+      risk: Low
+      tests: |
+        Integration: TestServeRecapsAPI (list + render endpoints return expected JSON/HTML).
+        Manual smoke: open dashboard, view a recap.
+      complexity: standard
+      approved: false
+      comment: ""
+      decisions_notes: |
+        **Trigger:** dashboard navigation + fetch. **State:** read-only over committed recap HTML (no DB write path needed beyond a reindex of recap artifacts). **Payload:** /api/recaps -> [{id,title,workItem,created}]; /api/recaps/<id>/render -> scoped HTML. **Rejected:** a separate frontend framework (repo is vanilla JS + D3 — reuse openPlanDetail/scopePlanCSS verbatim).
+    - id: slice-5
+      num: 5
+      title: /visual-recap skill (prompt wrapper) + build-ports to all 3 harnesses
+      what: |
+        Author plugin/skills/visual-recap/SKILL.md: a thin skill that runs
+        `wipnote recap <scope>`, reads the produced RecapData/artifact, writes the outcome
+        narrative grounded in the real diff (redacting secrets), and points the user to the
+        dashboard recap URL. Then run `wipnote plugin build-ports` to fan out to
+        Claude/Codex/Gemini trees. Do NOT touch project AGENTS.md/CLAUDE.md.
+      why: |
+        Gives users the BuilderIO /visual-recap ergonomics on wipnote's native engine,
+        portable across all three harnesses from a single source.
+      files:
+        - plugin/skills/visual-recap/SKILL.md
+      deps:
+        - 3
+      done_when:
+        - SKILL.md has valid frontmatter (name, description) and drives the wipnote recap flow
+        - '`wipnote plugin build-ports` regenerates Claude/Codex/Gemini trees with the new skill and the build passes'
+      effort: S
+      risk: Low
+      tests: |
+        `wipnote plugin build-ports` succeeds; generated trees contain visual-recap.
+        Frontmatter validated by port/pluginbuild checks.
+      complexity: standard
+      approved: false
+      comment: ""
+      decisions_notes: |
+        **Scope:** prompt-only skill; the engine is the Go command, not the skill (mirrors BuilderIO's zero-code skill design). **State:** none. **Rejected:** wiring the hosted Agent-Native Plans MCP (violates local-first non-negotiable); authoring AGENTS.md (plugin/project boundary — never own project instruction files).
+    - id: slice-6
+      num: 6
+      title: Slice-schema block enrichment — additive optional structured blocks on PlanSlice
+      what: |
+        Extend plan/planyaml/schema.go PlanSlice with optional structured block fields
+        (e.g. blocks: [] holding data-model / api-endpoint / file-tree / wireframe entries),
+        keeping them OPTIONAL so existing v3 plans validate unchanged. Update
+        plan/planyaml/validate.go to validate block shapes only when present. Add a
+        `wipnote plan blocks` helper that lists the available block vocabulary (wipnote's
+        local equivalent of BuilderIO get-plan-blocks).
+      why: |
+        Gives /wipnote:plan a richer visual vocabulary (the BuilderIO block catalog idea)
+        without breaking any existing plan or requiring a schema-version bump.
+      files:
+        - plan/planyaml/schema.go
+        - plan/planyaml/validate.go
+        - cmd/wipnote/plan_blocks.go
+      deps: []
+      done_when:
+        - New block fields are optional; all existing plan YAML still passes validate-yaml
+        - When a block is present, its shape is validated (e.g. data-model fields, wireframe html token usage)
+        - '`wipnote plan blocks` prints the supported block types and required fields'
+      effort: M
+      risk: Med
+      tests: |
+        Unit: TestValidate_BlocksOptional (old plan passes), TestValidate_BlockShapes
+        (malformed block rejected). Round-trip marshal test.
+      complexity: complex
+      approved: false
+      comment: ""
+      questions:
+        - id: q-block-storage
+          text: Should blocks be a flat slice-level list or nested under what/decisions?
+          answer: 'A flat optional slice-level `blocks: []` list keyed by type — keeps the schema flat, renders in declared order, and avoids overloading the prose fields.'
+      decisions_notes: |
+        **Scope:** additive-optional schema; NO schema_version bump (back-compat preserved since fields are optional). **State:** stored in plan-*.yaml (canonical). **Payload:** blocks: list of typed entries reusing the shared block model from slice-2's plan/blocks package. **Rejected:** a v4 schema bump (unnecessary churn + migration risk for purely-optional additions); free-form markdown blocks (loses the structured/grounded property that makes blocks render well).
+    - id: slice-7
+      num: 7
+      title: plantmpl block-zone rendering + before/after HTML wireframes
+      what: |
+        Render the new slice blocks in plan/plantmpl using the SHARED renderers from
+        slice-2 (plan/blocks). Add a Blocks zone to PlanPage and per-block templates.
+        Implement before/after HTML/CSS wireframes for UI-touching slices using
+        design-token CSS custom properties (--wf-* style, no raw hex) — plain HTML, no
+        Playwright/screenshots. Wireframes render in the plan detail and (via shared pkg)
+        in recaps for UI changes.
+      why: |
+        Turns the enriched schema into visual output in the existing plan HTML + dashboard,
+        matching BuilderIO's canvas/wireframe richness with wipnote's no-screenshot constraint.
+      files:
+        - plan/plantmpl/plantmpl.go
+        - plan/plantmpl/templates/blocks_zone.gohtml
+        - plan/plantmpl/templates/wireframe.gohtml
+        - plan/blocks/wireframe.go
+      deps:
+        - 6
+        - 2
+      done_when:
+        - Slices with blocks render a Blocks zone in plan-*.html via the shared renderers
+        - Before/after wireframes render from HTML/CSS design tokens with no external assets or screenshots
+        - 'No DRY duplication: plan and recap share the same block render code path'
+      effort: L
+      risk: Med
+      tests: |
+        Unit: TestPlanPage_BlocksZone golden file; TestWireframe_TokensOnly (rejects raw
+        hex/rgb). Snapshot the rendered block HTML.
+      complexity: complex
+      approved: false
+      comment: ""
+      questions:
+        - id: q-wireframe-tokens
+          text: Reuse the dashboard's existing CSS token system or introduce --wf-* tokens?
+          answer: Introduce a small --wf-* wireframe token set scoped to wireframe markup (matches BuilderIO's tokens-not-hex rule) while pulling base palette values from the existing dashboard tokens to stay visually consistent.
+      decisions_notes: |
+        **Scope:** rendering only (schema is slice-6). Reuse plan/blocks from slice-2 — this slice adds the wireframe renderer + the plan Blocks zone wiring. **State:** none. **Payload:** HTML zone appended to PlanPage. **Rejected:** Playwright/screenshot wireframes (hard constraint — no headless infra; HTML/CSS wireframes are the BuilderIO approach too); a plan-only block renderer (DRY — must share with recap).
+    - id: slice-8
+      num: 8
+      title: Block-level annotation loop — map consumed/resolved onto critic_revisions/questions + plan-review chat
+      what: |
+        Extend the existing plan-review dashboard chat + critic_revisions/questions to
+        support block/element-anchored annotations with a two-axis state (consumed vs
+        resolved, routed agent|human) modeled on BuilderIO get-plan-feedback. Persist via
+        the existing plan_feedback section-key contract (cmd/wipnote/api_plans.go) and
+        surface anchored comments in the rendered blocks.
+      why: |
+        Closes the review loop on visual blocks the way BuilderIO does, but on wipnote's
+        existing feedback plumbing (feat-36566570) — no new backend store.
+      files:
+        - cmd/wipnote/api_plans.go
+        - plan/planyaml/schema.go
+        - cmd/wipnote/dashboard/js/app.js
+      deps:
+        - 6
+      done_when:
+        - A reviewer can anchor a comment to a specific block/element and it persists via plan_feedback
+        - Annotation carries a two-axis state (consumed/resolved + agent|human target) readable by read-feedback-yaml
+      effort: M
+      risk: Med
+      tests: |
+        Integration: TestPlanFeedback_BlockAnchor (post anchored annotation, read back
+        with state). Reuse existing api_plans feedback tests as a template.
+      complexity: standard
+      approved: false
+      comment: ""
+      decisions_notes: |
+        **Trigger:** reviewer action in dashboard chat. **State:** plan_feedback (existing), extended with anchor + two-axis fields; section-key contract (slice-<num>, design, questions) preserved. **Payload:** annotation{anchor, consumed, resolved, resolutionTarget}. **Rejected:** a new feedback table (feat-36566570 already provides the loop — extend it, don't fork it).
+    - id: slice-9
+      num: 9
+      title: /visual-plan skill (prompt wrapper) + build-ports
+      what: |
+        Author plugin/skills/visual-plan/SKILL.md: drives /wipnote:plan to author the
+        enriched blocks (calling `wipnote plan blocks` for the vocabulary), produce
+        before/after wireframes for UI slices, and route the user to the dashboard for
+        block-level review. Run build-ports for all three harnesses. Do not touch
+        project AGENTS.md/CLAUDE.md.
+      why: |
+        Completes the BuilderIO /visual-plan ergonomics on wipnote's native pipeline,
+        portable across harnesses from a single source.
+      files:
+        - plugin/skills/visual-plan/SKILL.md
+      deps:
+        - 7
+      done_when:
+        - SKILL.md frontmatter valid; skill drives the enriched-plan authoring flow over the local CLI
+        - build-ports regenerates all three trees with visual-plan and the build passes
+      effort: S
+      risk: Low
+      tests: |
+        `wipnote plugin build-ports` succeeds; generated trees contain visual-plan.
+      complexity: standard
+      approved: false
+      comment: ""
+      decisions_notes: |
+        **Scope:** prompt-only wrapper over /wipnote:plan + `wipnote plan blocks` + dashboard review. **State:** none. **Rejected:** a standalone planner that bypasses /wipnote:plan (would fork the interview/validation discipline — instead enrich the existing flow); hosted MCP block catalog (local `wipnote plan blocks` is the local-first equivalent).
 questions: []

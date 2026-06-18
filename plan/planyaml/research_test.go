@@ -77,6 +77,22 @@ func TestValidate_MalformedResearchURLIsRejected(t *testing.T) {
 	}
 }
 
+func TestValidate_ResearchURLMustHaveHost(t *testing.T) {
+	for _, bad := range []string{"https://", "http://", "https:///path", "notaurl", "ftp://x.com"} {
+		p := validV4Plan()
+		p.Slices[0].Research = []ResearchSource{{URL: bad}}
+		if !errsContain(Validate(p), "must be an http(s) URL") {
+			t.Errorf("research url %q must be rejected (needs scheme + host); got %v", bad, Validate(p))
+		}
+	}
+	// A real URL with a host passes.
+	p := validV4Plan()
+	p.Slices[0].Research = []ResearchSource{{URL: "https://pkg.go.dev/net/http"}}
+	if errsContain(Validate(p), "must be an http(s) URL") {
+		t.Errorf("a real http(s) URL with a host must pass; got %v", Validate(p))
+	}
+}
+
 func TestValidate_V3_ResearchNotHardEnforced(t *testing.T) {
 	p := validPlan()
 	p.Meta.SchemaVersion = "v3"

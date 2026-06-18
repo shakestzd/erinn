@@ -3,6 +3,7 @@ package planyaml
 import (
 	"fmt"
 	"html"
+	"net/url"
 	"regexp"
 	"strings"
 )
@@ -399,10 +400,15 @@ func validateSliceResearch(prefix string, s PlanSlice, enforced bool) []string {
 	return errs
 }
 
-// isResearchURL reports whether u is a usable http(s) source URL.
+// isResearchURL reports whether u is a usable http(s) source URL — it must parse,
+// carry an http/https scheme, AND have a non-empty host (so bare "https://" or a
+// scheme-only string does not satisfy the gate).
 func isResearchURL(u string) bool {
-	u = strings.TrimSpace(u)
-	return strings.HasPrefix(u, "http://") || strings.HasPrefix(u, "https://")
+	parsed, err := url.Parse(strings.TrimSpace(u))
+	if err != nil {
+		return false
+	}
+	return (parsed.Scheme == "http" || parsed.Scheme == "https") && parsed.Host != ""
 }
 
 // ValidateResearchAdvisories returns NON-BLOCKING advisories nudging research on

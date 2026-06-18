@@ -284,6 +284,11 @@ func runValidateYAML(planID string) error {
 		}
 		return fmt.Errorf("%d validation errors", len(errors))
 	}
+	// Non-fatal research advisories: nudge legacy/v3 plans toward a cited research
+	// basis. v4 plans enforce this in Validate above, so this is silent for them.
+	for _, a := range planyaml.ValidateResearchAdvisories(plan) {
+		fmt.Fprintf(os.Stderr, "  ! research advisory: %s\n", a)
+	}
 	fmt.Printf("Plan valid: %d slices, %d questions\n", len(plan.Slices), len(plan.Questions))
 	return nil
 }

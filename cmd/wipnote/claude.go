@@ -118,6 +118,26 @@ func claudeCmd() *cobra.Command {
 	return cmd
 }
 
+// resolveSessionName returns the session name to pass to Claude Code.
+//
+// Rules (in priority order):
+//  1. An explicitly provided sessionName is always kept as-is.
+//  2. When continue_ is true the caller is resuming the most-recent session via
+//     --continue; no synthesized name is emitted so it doesn't conflict with the
+//     implicit resume.
+//  3. When resumeID is non-empty the caller is resuming a specific session by ID;
+//     synthesizing a name would rename or conflict with the existing session.
+//  4. Otherwise (fresh launch) a default name is synthesized via defaultSessionName.
+func resolveSessionName(sessionName, resumeID string, continue_ bool, projectRoot string) string {
+	if sessionName != "" {
+		return sessionName
+	}
+	if continue_ || resumeID != "" {
+		return ""
+	}
+	return defaultSessionName(projectRoot)
+}
+
 // defaultSessionName builds a default session label: <project-slug>-<timestamp>.
 // projectRoot may be empty, in which case the label is just the timestamp.
 func defaultSessionName(projectRoot string) string {
@@ -217,15 +237,7 @@ func launchClaudeDev(extraArgs []string, auto bool, resumeID, name, workItem str
 	}
 	resumeID = lctx.intentResult.resumeID
 
-	sessionName := name
-	// Only synthesize a default name for new sessions. When resuming an existing
-	// session, skip default-name generation so we don't rename or conflict with
-	// the resumed session. The user can still override with an explicit --name.
-	// continue_ is also excluded: --continue resumes the most-recent session and
-	// must not get a synthesized --name emitted alongside the implicit resume.
-	if sessionName == "" && resumeID == "" && !continue_ {
-		sessionName = defaultSessionName(projectRoot)
-	}
+	sessionName := resolveSessionName(name, resumeID, continue_, projectRoot)
 
 	if auto {
 		fmt.Printf("Launching Claude Code with local plugin (--plugin-dir mode) + auto mode\n")
@@ -499,13 +511,7 @@ func launchClaudeDefault(extraArgs []string, resumeID, name, workItem string, in
 	if err != nil {
 		return err
 	}
-	sessionName := name
-	// Only synthesize a default name for new sessions. When resuming an existing
-	// session, skip default-name generation so we don't rename or conflict with
-	// the resumed session. The user can still override with an explicit --name.
-	if sessionName == "" && resumeID == "" {
-		sessionName = defaultSessionName(projectRoot)
-	}
+	sessionName := resolveSessionName(name, resumeID, false, projectRoot)
 	fmt.Printf("Launching Claude Code (%s mode)...\n", lctx.intentResult.mode)
 	fmt.Printf("  Plugin: %s\n", pluginDir)
 	fmt.Printf("  Session: %s\n", sessionName)

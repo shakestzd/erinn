@@ -1258,12 +1258,12 @@ Plan to optimize token usage, prevent context bloat, support local subagent mode
       <div class="slice-field-value">
         
         <input type="checkbox" id="slice-5-decisions-reveal" class="reveal-toggle">
-        <div class="markdown-block reveal-content serif-prose"><p><strong>Trigger:</strong> ticker in the background serve supervisor (reusing internal/childproc RunIdleReaper).
-<strong>State:</strong> session last-seen timestamps in SQLite; idle threshold from <code>.wipnote/config.json</code>.
-<strong>Payload:</strong> cleanup execution logs.
+        <div class="markdown-block reveal-content serif-prose"><p><strong>Trigger:</strong> a ticker in serve_parent.go&#39;s background supervisor — NOT internal/childproc RunIdleReaper (which reaps on HTTP-request idle, not user-session idle; A6 falsified). A dedicated ticker polls session last-seen timestamps.
+<strong>State:</strong> last-seen timestamp recorded per session (e.g. a column in SQLite), updated on each user turn; idle threshold read from <code>.wipnote/config.json</code> (consistent with slice 1&#39;s config pattern, default 30 min).
+<strong>Action:</strong> sessions idle beyond the threshold are marked suspended; the ticker drives this, no manual trigger.
 <strong>Conductor guard (resolved):</strong> skip worktrees with the Conductor per-worktree gitignore marker / metadata and any with uncommitted/unpushed work; GC only clean+empty non-Conductor worktrees.
 <strong>Config (resolved):</strong> idle threshold is configurable, consistent with slice 1.
-<strong>Rejected:</strong> human-only manual cleanup (users forget); pruning any worktree purely on idle (could destroy Conductor-archived or in-flight work).</p>
+<strong>Rejected:</strong> reuse of internal/childproc RunIdleReaper (semantic mismatch — HTTP-request idle diverges from user-session idle via keepalive/health traffic); human-only manual cleanup (users forget); pruning any worktree purely on idle (could destroy Conductor-archived or in-flight work).</p>
 </div>
         <label for="slice-5-decisions-reveal" class="reveal-label">Show full decisions</label>
         

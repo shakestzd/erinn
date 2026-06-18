@@ -224,12 +224,12 @@ slices:
           severity: WARN
           summary: Session suspended/archived state is undefined in the data model - no sessions table / session_state column / enum in the codebase. Define what suspended writes to SQLite/HTML, its childproc lifecycle effect, and whether it can transition back to active, before a coder can implement it.
       decisions_notes: |
-        **Trigger:** ticker in the background serve supervisor (reusing internal/childproc RunIdleReaper).
-        **State:** session last-seen timestamps in SQLite; idle threshold from `.wipnote/config.json`.
-        **Payload:** cleanup execution logs.
+        **Trigger:** a ticker in serve_parent.go's background supervisor — NOT internal/childproc RunIdleReaper (which reaps on HTTP-request idle, not user-session idle; A6 falsified). A dedicated ticker polls session last-seen timestamps.
+        **State:** last-seen timestamp recorded per session (e.g. a column in SQLite), updated on each user turn; idle threshold read from `.wipnote/config.json` (consistent with slice 1's config pattern, default 30 min).
+        **Action:** sessions idle beyond the threshold are marked suspended; the ticker drives this, no manual trigger.
         **Conductor guard (resolved):** skip worktrees with the Conductor per-worktree gitignore marker / metadata and any with uncommitted/unpushed work; GC only clean+empty non-Conductor worktrees.
         **Config (resolved):** idle threshold is configurable, consistent with slice 1.
-        **Rejected:** human-only manual cleanup (users forget); pruning any worktree purely on idle (could destroy Conductor-archived or in-flight work).
+        **Rejected:** reuse of internal/childproc RunIdleReaper (semantic mismatch — HTTP-request idle diverges from user-session idle via keepalive/health traffic); human-only manual cleanup (users forget); pruning any worktree purely on idle (could destroy Conductor-archived or in-flight work).
 questions: []
 critique:
     reviewed_at: "2026-06-17"

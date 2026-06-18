@@ -61,6 +61,41 @@ func TestWireframe_RejectsRawColors(t *testing.T) {
 	}
 }
 
+func TestWireframe_SanitizesXSS(t *testing.T) {
+	// None of these carry raw colors, so they pass the RawColors() gate and reach
+	// SafeBody() — exactly the path that must sanitize. Each payload must be
+	// neutralized while benign sibling content survives.
+	cases := []struct {
+		name    string
+		body    string
+		banned  []string
+		survive string
+	}{
+		{"script", `<script>alert(1)</script><div style="color:var(--wf-fg)">ok</div>`, []string{"<script", "alert(1)"}, "ok"},
+		{"event-handler", `<div onclick="steal()" style="color:var(--wf-fg)">cell</div>`, []string{"onclick", "steal()"}, "cell"},
+		{"iframe", `<iframe src="https://evil.example"></iframe><p>body</p>`, []string{"<iframe", "evil.example"}, "body"},
+		{"js-url", `<a href="javascript:alert(1)">link</a><span>txt</span>`, []string{"javascript:", "href"}, "txt"},
+		{"style-url", `<div style="background:url(javascript:alert(1))">shown</div>`, []string{"url(", "javascript:"}, "shown"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			wf := &blocks.Wireframe{Body: tc.body}
+			if wf.RawColors() {
+				t.Fatalf("test payload unexpectedly tripped RawColors(); rewrite without raw colors: %q", tc.body)
+			}
+			html := render(t, wf)
+			for _, banned := range tc.banned {
+				if strings.Contains(html, banned) {
+					t.Errorf("sanitized wireframe still contains %q\n%s", banned, html)
+				}
+			}
+			if !strings.Contains(html, tc.survive) {
+				t.Errorf("expected benign content %q to survive\n%s", tc.survive, html)
+			}
+		})
+	}
+}
+
 func TestWireframe_AnchorStamped(t *testing.T) {
 	wf := &blocks.Wireframe{
 		Body:   `<div style="color:var(--wf-fg)">x</div>`,

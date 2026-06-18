@@ -2,8 +2,71 @@ package planyaml
 
 import (
 	"fmt"
+	"regexp"
 	"strings"
 )
+
+// rawColorRe matches raw CSS colors (hex like #1a2b3c / #abc, or rgb()/rgba()
+// /hsl()/hsla() functions). Wireframe blocks must use design tokens (CSS custom
+// properties like var(--color-fg)) instead — see validateWireframeBlock.
+var rawColorRe = regexp.MustCompile(`(?i)#[0-9a-f]{3,8}\b|\brgba?\(|\bhsla?\(`)
+
+// validateBlock checks one SliceBlock's shape against BlockCatalog. The block's
+// type must be a known catalog entry; required scalar fields, row keys, and
+// entries are enforced per the spec. Returns a (possibly empty) error slice.
+func validateBlock(prefix string, b SliceBlock) []string {
+	var errs []string
+	spec, ok := blockSpecFor(b.Type)
+	if !ok {
+		known := make([]string, 0, len(BlockCatalog()))
+		for _, s := range BlockCatalog() {
+			known = append(known, s.Type)
+		}
+		return []string{fmt.Sprintf("%s.type %q is unknown; supported: %s", prefix, b.Type, strings.Join(known, "|"))}
+	}
+	for _, key := range spec.Fields {
+		if strings.TrimSpace(b.Fields[key]) == "" {
+			errs = append(errs, fmt.Sprintf("%s.fields.%s is required for %s blocks", prefix, key, b.Type))
+		}
+	}
+	errs = append(errs, validateBlockRows(prefix, b, spec)...)
+	if spec.RequiresEntries && len(b.Entries) == 0 {
+		errs = append(errs, fmt.Sprintf("%s.entries must have at least 1 entry for %s blocks", prefix, b.Type))
+	}
+	if b.Type == "wireframe" {
+		errs = append(errs, validateWireframeBlock(prefix, b)...)
+	}
+	return errs
+}
+
+// validateBlockRows enforces RequiresRows and per-row required keys (RowKeys).
+func validateBlockRows(prefix string, b SliceBlock, spec BlockSpec) []string {
+	var errs []string
+	if spec.RequiresRows && len(b.Rows) == 0 {
+		errs = append(errs, fmt.Sprintf("%s.rows must have at least 1 entry for %s blocks", prefix, b.Type))
+	}
+	if len(spec.RowKeys) == 0 {
+		return errs
+	}
+	for ri, row := range b.Rows {
+		for _, key := range spec.RowKeys {
+			if strings.TrimSpace(row[key]) == "" {
+				errs = append(errs, fmt.Sprintf("%s.rows[%d].%s is required for %s blocks", prefix, ri, key, b.Type))
+			}
+		}
+	}
+	return errs
+}
+
+// validateWireframeBlock rejects raw CSS colors in a wireframe's html field;
+// wireframes must use design tokens (CSS custom properties) so they inherit the
+// canonical palette rather than baking in hex/rgb values.
+func validateWireframeBlock(prefix string, b SliceBlock) []string {
+	if rawColorRe.MatchString(b.Fields["html"]) {
+		return []string{fmt.Sprintf("%s.fields.html must use design tokens (var(--...)), not raw hex/rgb/hsl colors", prefix)}
+	}
+	return nil
+}
 
 // effectiveComplexity returns the triage classification for a slice. Empty
 // string defaults to "standard" so v2 plans written before the Complexity
@@ -227,6 +290,13 @@ func Validate(plan *PlanYAML) []string {
 			if cr.Summary == "" {
 				errs = append(errs, crPrefix+".summary is required")
 			}
+		}
+
+		// Phase-2 (slice-6): optional structured blocks. Additive — slices that
+		// omit blocks validate unchanged. Shapes are validated ONLY when a block
+		// is present, using BlockCatalog as the single source of truth.
+		for j, b := range s.Blocks {
+			errs = append(errs, validateBlock(fmt.Sprintf("%s.blocks[%d]", prefix, j), b)...)
 		}
 	}
 

@@ -109,6 +109,113 @@ type PlanSlice struct {
 	// generated spec's `## Decisions` section. Free text — not a typed schema.
 	// Empty/absent renders no Decisions section.
 	DecisionsNotes string `yaml:"decisions_notes,omitempty"`
+
+	// Blocks is an OPTIONAL flat list of structured visual blocks attached to
+	// the slice (the native equivalent of BuilderIO's block catalog). It is
+	// ADDITIVE-OPTIONAL: legacy plans omit it entirely and remain valid, and no
+	// schema_version bump is required (validate.go only enumerates meta enums,
+	// never the slice field set). Blocks render in declared order. Each entry is
+	// keyed by Type; per-type required fields are defined by BlockCatalog (the
+	// single source of truth shared with `wipnote plan blocks`). Shapes are
+	// validated ONLY when a block is present — see validate.go.
+	Blocks []SliceBlock `yaml:"blocks,omitempty"`
+}
+
+// SliceBlock is one structured visual block on a slice. The schema is
+// deliberately generic so new block types can be added to BlockCatalog without
+// changing this struct:
+//
+//   - Type    selects the block kind (data-model | api-endpoint | file-tree |
+//     wireframe). It MUST be a key in BlockCatalog.
+//   - Title   is an optional human-readable heading.
+//   - Fields  holds scalar key/value content (e.g. wireframe html, data-model
+//     name). Per-type required keys are declared by BlockCatalog[Type].Fields.
+//   - Rows    holds tabular content (e.g. data-model columns, api-endpoint
+//     params). Required when BlockCatalog[Type].RequiresRows is true.
+//   - Entries holds an ordered string list (e.g. file-tree paths). Required
+//     when BlockCatalog[Type].RequiresEntries is true.
+//
+// Only one of Rows/Entries is typically used per type; both are optional in the
+// struct and gated by the catalog so unused fields omitempty-out of the YAML.
+type SliceBlock struct {
+	Type    string              `yaml:"type"`
+	Title   string              `yaml:"title,omitempty"`
+	Fields  map[string]string   `yaml:"fields,omitempty"`
+	Rows    []map[string]string `yaml:"rows,omitempty"`
+	Entries []string            `yaml:"entries,omitempty"`
+}
+
+// BlockSpec describes the required shape of one block Type. It is consumed by
+// both validate.go (to reject malformed blocks when present) and `wipnote plan
+// blocks` (to print the supported vocabulary), so the vocabulary has a single
+// source of truth and never drifts between the validator and the catalog
+// command.
+type BlockSpec struct {
+	// Type is the catalog key (matches SliceBlock.Type).
+	Type string
+	// Description is a one-line human summary shown by `wipnote plan blocks`.
+	Description string
+	// Fields lists the required scalar keys in SliceBlock.Fields.
+	Fields []string
+	// RowKeys, when non-empty, lists the keys every entry in SliceBlock.Rows
+	// must carry. Implies RequiresRows.
+	RowKeys []string
+	// RequiresRows requires at least one entry in SliceBlock.Rows.
+	RequiresRows bool
+	// RequiresEntries requires at least one entry in SliceBlock.Entries.
+	RequiresEntries bool
+}
+
+// BlockCatalog is the single source of truth for the supported block
+// vocabulary. It is intentionally a function (not a frozen package-level slice
+// referenced directly by a renderer) so the catalog command remains the one
+// authoritative enumeration of types + required fields — mirroring BuilderIO's
+// dynamic get-plan-blocks contract ("tags drift, do not memorize"). The
+// renderer and validator must read this catalog rather than hardcoding tags.
+//
+// Block types (the wipnote-native vocabulary):
+//
+//	data-model   — an entity/table with named typed columns (Rows: name/type)
+//	api-endpoint — an HTTP route with method+path and request/response params
+//	file-tree    — an ordered list of file paths touched by the slice
+//	wireframe    — an HTML/CSS sketch using design tokens (no raw colors)
+func BlockCatalog() []BlockSpec {
+	return []BlockSpec{
+		{
+			Type:         "data-model",
+			Description:  "An entity/table with named, typed columns.",
+			Fields:       []string{"name"},
+			RowKeys:      []string{"name", "type"},
+			RequiresRows: true,
+		},
+		{
+			Type:         "api-endpoint",
+			Description:  "An HTTP route (method + path) with request/response params.",
+			Fields:       []string{"method", "path"},
+			RowKeys:      []string{"name", "type"},
+			RequiresRows: false,
+		},
+		{
+			Type:            "file-tree",
+			Description:     "An ordered list of file paths the slice touches.",
+			RequiresEntries: true,
+		},
+		{
+			Type:        "wireframe",
+			Description: "An HTML/CSS sketch built from design tokens (no raw hex/rgb colors).",
+			Fields:      []string{"html"},
+		},
+	}
+}
+
+// blockSpecFor returns the BlockSpec for a given type and whether it is known.
+func blockSpecFor(blockType string) (BlockSpec, bool) {
+	for _, spec := range BlockCatalog() {
+		if spec.Type == blockType {
+			return spec, true
+		}
+	}
+	return BlockSpec{}, false
 }
 
 // SliceQuestion is an open question scoped to a single slice. It supports two

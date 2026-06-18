@@ -60,7 +60,7 @@ h1{font-size:1.5rem;font-weight:700;margin-bottom:4px}
 code{font-family:var(--mono)}
 </style>
 </head>
-<body>
+<body data-recap-kind="{{htmlEscape .Kind}}" data-recap-input="{{htmlEscape .Input}}" data-recap-git-range="{{htmlEscape .GitRange}}" data-recap-grounded="{{if .Grounded}}1{{else}}0{{end}}" data-recap-outcome="{{htmlEscape .Outcome}}" data-recap-title="{{htmlEscape .Title}}">
 <header>
   <h1>{{htmlEscape .Title}}</h1>
   <div class="recap-sub">

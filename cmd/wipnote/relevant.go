@@ -360,6 +360,11 @@ func parseHTMLWorkItem(filePath string) (*relevantResult, error) {
 
 	article := doc.Find("article[id]").First()
 	if article.Length() == 0 {
+		// Recap artifacts have no <article id> — they carry data-recap-* on <body>.
+		// Surface them so find/relevant can return committed recaps too.
+		if body := doc.Find("body[data-recap-kind]").First(); body.Length() > 0 {
+			return recapResultFromFile(filePath, body), nil
+		}
 		return nil, nil // not a work item file
 	}
 
@@ -379,6 +384,23 @@ func parseHTMLWorkItem(filePath string) (*relevantResult, error) {
 		Title:  title,
 		Status: attrOrEmpty(article, "data-status"),
 	}, nil
+}
+
+// recapResultFromFile builds a relevantResult for a recap artifact. The id is
+// derived from the filename (recaps embed their id in the path, not the HTML);
+// type is "recap" so callers can distinguish recaps from work items.
+func recapResultFromFile(filePath string, body *goquery.Selection) *relevantResult {
+	id := strings.TrimSuffix(filepath.Base(filePath), ".html")
+	title := attrOrEmpty(body, "data-recap-title")
+	if title == "" {
+		title = attrOrEmpty(body, "data-recap-outcome")
+	}
+	return &relevantResult{
+		ID:     id,
+		Type:   "recap",
+		Title:  title,
+		Status: "",
+	}
 }
 
 // attrOrEmpty returns an attribute value or empty string.
@@ -506,7 +528,7 @@ func extractHTMLGraphTrailers(body string) []string {
 
 // resolveItemHTMLPath finds the HTML file for a work-item ID by checking known subdirs.
 func resolveItemHTMLPath(hgDir, id string) string {
-	subdirs := []string{"features", "bugs", "spikes", "tracks", "plans", "specs", "metrics"}
+	subdirs := []string{"features", "bugs", "spikes", "tracks", "plans", "specs", "metrics", "recaps"}
 	for _, sub := range subdirs {
 		p := filepath.Join(hgDir, sub, id+".html")
 		if _, err := os.Stat(p); err == nil {

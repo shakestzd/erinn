@@ -201,6 +201,8 @@ chrome/*.zip
 tmp/go-tmp/
 tmp/gotmp.*/
 .build-cache/
+# Root-level compiled test binary from cmd/wipnote (go test -c cache)
+/wipnote.test
 # roborev snapshots
 /.roborev/
 # compiled binary — use `wipnote build` (installs to ~/.local/bin), never commit

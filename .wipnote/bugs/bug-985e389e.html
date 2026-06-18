@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>Compiled Go test binaries (db.test, hooks.test, tmp/hooks.test) are committed to git</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="bug-985e389e"
+             data-type="bug"
+             data-status="todo"
+             data-priority="low"
+             data-created="2026-06-18T05:03:39.015988"
+             data-updated="2026-06-18T05:03:39.220516" data-agent-assigned="claude-code" data-track-id="trk-53f2ed24" data-created-by-agent="claude-code" data-created-by-model="claude-opus-4-8[1m]" data-created-by-cli-version="0.62.2-247-g9401cab2a">
+
+        <header>
+            <h1>Compiled Go test binaries (db.test, hooks.test, tmp/hooks.test) are committed to git</h1>
+            <div class="metadata">
+                <span class="badge status-todo">Todo</span>
+                <span class="badge priority-low">Low Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-53f2ed24.html" data-relationship="part_of" data-since="2026-06-18T05:03:39.220358">trk-53f2ed24</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>Three compiled Go test binaries are tracked in git: db.test, hooks.test, and tmp/hooks.test. These are build artifacts (output of &#39;go test -c&#39;), not source — they should not be version-controlled. They were discovered while fixing bug-2c9995a7 (the wipnote.test untracked-binary gitignore gap); their tracked status is why a broad &#39;*.test&#39; gitignore glob was unsafe there. Fix: (1) VERIFY each is actually a compiled test binary (run &#39;file&#39; on them) and that nothing references them (e.g. a test or script that execs ./hooks.test, or a fixture) — git log --diff-filter=A to see when/why they were added; (2) if confirmed artifacts with no references, &#39;git rm --cached&#39; them (untrack, keep on disk); (3) once untracked, prefer switching .gitignore to a broad &#39;*.test&#39; glob (now safe) and remove the narrow &#39;/wipnote.test&#39; rule added in bug-2c9995a7 — OR add explicit rules for each. Relates to bug-2c9995a7.</p>
+        </section>
+    </article>
+</body>
+</html>

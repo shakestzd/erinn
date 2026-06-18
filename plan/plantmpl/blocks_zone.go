@@ -71,6 +71,14 @@ func adapt(b planyaml.SliceBlock) blocks.Block {
 		return &blocks.FileTree{Entries: entries}
 	case "wireframe":
 		return &blocks.Wireframe{Title: b.Title, Body: b.Fields["html"]}
+	case "diagram":
+		return &blocks.Diagram{Title: b.Title, Steps: b.Entries, Direction: b.Fields["direction"]}
+	case "tabs":
+		tabs := make([]blocks.Tab, 0, len(b.Rows))
+		for _, r := range b.Rows {
+			tabs = append(tabs, blocks.Tab{Label: r["label"], Body: r["body"]})
+		}
+		return &blocks.Tabs{Title: b.Title, Tabs: tabs}
 	default:
 		return nil
 	}

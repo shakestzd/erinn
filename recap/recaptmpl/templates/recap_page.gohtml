@@ -38,6 +38,23 @@ h1{font-size:1.5rem;font-weight:700;margin-bottom:4px}
 .block-header{display:flex;align-items:center;gap:8px;font-size:.85rem}
 .block-kind{font-family:var(--mono);font-size:.68rem;text-transform:uppercase;color:var(--text-muted);background:var(--bg-input);padding:1px 6px;border-radius:4px}
 .api-method{font-family:var(--mono);font-weight:700;font-size:.72rem;padding:1px 6px;border-radius:4px;background:var(--accent);color:#000}
+/* diagram block (pure HTML/CSS flow) */
+.block-diagram .diagram-flow{display:flex;gap:8px;flex-wrap:wrap}
+.diagram-lr{flex-direction:row;align-items:center}
+.diagram-tb{flex-direction:column;align-items:flex-start}
+.diagram-node{background:var(--bg-input);border:1px solid var(--border);border-radius:6px;padding:7px 13px;font-family:var(--mono);font-size:.8rem;color:var(--text);white-space:nowrap}
+.diagram-arrow{color:var(--accent);font-family:var(--mono)}
+.diagram-tb .diagram-arrow{margin-left:16px}
+/* tabs block (pure CSS, no JS; up to 8 tabs toggle) */
+.block-tabs .tabs{position:relative}
+.tab-radio{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}
+.tab-labels{display:flex;gap:2px;flex-wrap:wrap;border-bottom:1px solid var(--border)}
+.tab-label{padding:6px 12px;font-family:var(--mono);font-size:.78rem;color:var(--text-muted);cursor:pointer;border:1px solid transparent;border-bottom:none;border-radius:6px 6px 0 0;margin-bottom:-1px}
+.tab-label:hover{color:var(--text)}
+.tab-panels{padding:12px 2px}
+.tab-panel{display:none;font-size:.88rem;color:var(--text-dim);white-space:pre-wrap;font-family:var(--sans)}
+.tabs .tab-radio:nth-of-type(1):checked~.tab-labels .tab-label:nth-child(1),.tabs .tab-radio:nth-of-type(2):checked~.tab-labels .tab-label:nth-child(2),.tabs .tab-radio:nth-of-type(3):checked~.tab-labels .tab-label:nth-child(3),.tabs .tab-radio:nth-of-type(4):checked~.tab-labels .tab-label:nth-child(4),.tabs .tab-radio:nth-of-type(5):checked~.tab-labels .tab-label:nth-child(5),.tabs .tab-radio:nth-of-type(6):checked~.tab-labels .tab-label:nth-child(6),.tabs .tab-radio:nth-of-type(7):checked~.tab-labels .tab-label:nth-child(7),.tabs .tab-radio:nth-of-type(8):checked~.tab-labels .tab-label:nth-child(8){color:var(--text);border-color:var(--border);background:var(--bg-card)}
+.tabs .tab-radio:nth-of-type(1):checked~.tab-panels .tab-panel:nth-child(1),.tabs .tab-radio:nth-of-type(2):checked~.tab-panels .tab-panel:nth-child(2),.tabs .tab-radio:nth-of-type(3):checked~.tab-panels .tab-panel:nth-child(3),.tabs .tab-radio:nth-of-type(4):checked~.tab-panels .tab-panel:nth-child(4),.tabs .tab-radio:nth-of-type(5):checked~.tab-panels .tab-panel:nth-child(5),.tabs .tab-radio:nth-of-type(6):checked~.tab-panels .tab-panel:nth-child(6),.tabs .tab-radio:nth-of-type(7):checked~.tab-panels .tab-panel:nth-child(7),.tabs .tab-radio:nth-of-type(8):checked~.tab-panels .tab-panel:nth-child(8){display:block}
 /* annotated diff */
 .annotated-diff{border:1px solid var(--border);border-radius:6px;margin-bottom:14px;overflow:hidden}
 .diff-file-header{display:flex;align-items:center;gap:8px;padding:8px 12px;background:var(--bg-input);font-family:var(--mono);font-size:.82rem;cursor:pointer;user-select:none;list-style:none}

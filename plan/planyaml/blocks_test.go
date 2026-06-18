@@ -48,7 +48,7 @@ func TestValidate_BlockShapes(t *testing.T) {
 	}{
 		{
 			name:      "unknown type rejected",
-			block:     SliceBlock{Type: "diagram"},
+			block:     SliceBlock{Type: "not-a-real-block"},
 			wantError: true,
 			errSubstr: "is unknown",
 		},
@@ -127,6 +127,31 @@ func TestValidate_BlockShapes(t *testing.T) {
 		{
 			name:      "wireframe with HTML entities is not flagged as raw color",
 			block:     SliceBlock{Type: "wireframe", Fields: map[string]string{"html": `<div style="color:var(--wf-accent)">&#9670; &#x25C6; ok</div>`}},
+			wantError: false,
+		},
+		{
+			name:      "diagram requires entries",
+			block:     SliceBlock{Type: "diagram"},
+			wantError: true,
+		},
+		{
+			name:      "valid diagram with steps",
+			block:     SliceBlock{Type: "diagram", Entries: []string{"Collect", "Render", "Commit"}},
+			wantError: false,
+		},
+		{
+			name:      "tabs requires rows",
+			block:     SliceBlock{Type: "tabs"},
+			wantError: true,
+		},
+		{
+			name:      "tabs row missing body is rejected",
+			block:     SliceBlock{Type: "tabs", Rows: []map[string]string{{"label": "A"}}},
+			wantError: true,
+		},
+		{
+			name:      "valid tabs",
+			block:     SliceBlock{Type: "tabs", Rows: []map[string]string{{"label": "A", "body": "x"}, {"label": "B", "body": "y"}}},
 			wantError: false,
 		},
 	}
@@ -221,10 +246,10 @@ func TestBlocks_OmitEmptyWhenAbsent(t *testing.T) {
 	}
 }
 
-// TestBlockCatalog_CoversVocabulary confirms the catalog enumerates the four
+// TestBlockCatalog_CoversVocabulary confirms the catalog enumerates the
 // supported block types with stable descriptions.
 func TestBlockCatalog_CoversVocabulary(t *testing.T) {
-	want := map[string]bool{"data-model": false, "api-endpoint": false, "file-tree": false, "wireframe": false}
+	want := map[string]bool{"data-model": false, "api-endpoint": false, "file-tree": false, "wireframe": false, "diagram": false, "tabs": false}
 	for _, spec := range BlockCatalog() {
 		if _, ok := want[spec.Type]; !ok {
 			t.Errorf("unexpected catalog type %q", spec.Type)

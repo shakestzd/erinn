@@ -228,6 +228,17 @@ func BlockCatalog() []BlockSpec {
 			Description: "An HTML/CSS sketch built from design tokens (no raw hex/rgb colors).",
 			Fields:      []string{"html"},
 		},
+		{
+			Type:            "diagram",
+			Description:     "A flow diagram: ordered steps connected by arrows (pure HTML/CSS, no Mermaid). Optional fields.direction = lr|tb.",
+			RequiresEntries: true,
+		},
+		{
+			Type:         "tabs",
+			Description:  "A tabbed panel set (pure CSS, no JS). Each row is a tab.",
+			RowKeys:      []string{"label", "body"},
+			RequiresRows: true,
+		},
 	}
 }
 

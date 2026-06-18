@@ -1,71 +1,110 @@
 <section class="recap-zone recap-zone-lineage" id="lineage">
   <h2 class="recap-zone-title">Lineage</h2>
-  <p class="recap-zone-note">Causal provenance, top to bottom: where this work came from, then exactly what it changed.</p>
+  <p class="recap-zone-note">Causal provenance as a tree: containers hold the work item, which holds the commit it produced, which holds the files it changed.</p>
   {{if .Pivot}}
   <div class="lin-legend">
-    <span class="lin-dir"><span class="lin-swatch past"></span> ancestry — where it came from</span>
+    <span class="lin-dir"><span class="lin-swatch past"></span> ancestry — what holds this work</span>
     <span class="lin-dir"><span class="lin-swatch now"></span> produced — what it changed</span>
   </div>
   {{end}}
 
-  <div class="spine{{if not .Pivot}} spine-produced-only{{end}}">
+  <div class="lin-tree">
+  {{if .Pivot}}
+    <div class="lin-branch">
+    {{/* ancestry containers at the root level */}}
     {{range .Ancestors}}
     <div class="lin-node up">
       <span class="lin-glyph">{{.Glyph}}</span>
-      <span class="lin-edge">{{.Edge}}</span>
       <div class="lin-card">
-        <div class="lin-id"><span class="lin-kind">{{.Kind}}</span><code>{{.ID}}</code></div>
+        <div class="lin-id"><span class="lin-kind">{{.Kind}}</span><code>{{.ID}}</code>{{if .Edge}}<span class="lin-rel">{{.Edge}}</span>{{end}}</div>
         {{if .Title}}<div class="lin-ttl">{{.Title}}</div>{{end}}
       </div>
     </div>
     {{end}}
 
-    {{with .Pivot}}
-    <div class="lin-node pivot">
-      <span class="lin-glyph">{{.Glyph}}</span>
-      <span class="lin-edge"></span>
-      <div class="lin-card">
-        <div class="lin-id"><span class="lin-kind">{{.Kind}}</span><code>{{.ID}}</code></div>
-        {{if .Title}}<div class="lin-ttl">{{.Title}}</div>{{end}}
+    {{/* the work item, nested under its containers */}}
+    <div class="lin-branch">
+      {{with .Pivot}}
+      <div class="lin-node pivot">
+        <span class="lin-glyph">{{.Glyph}}</span>
+        <div class="lin-card">
+          <div class="lin-id"><span class="lin-kind">{{.Kind}}</span><code>{{.ID}}</code></div>
+          {{if .Title}}<div class="lin-ttl">{{.Title}}</div>{{end}}
+        </div>
+      </div>
+      {{end}}
+
+      {{/* what the work produced, nested under the work item */}}
+      <div class="lin-branch produced-branch">
+        {{range .Commits}}
+        <div class="lin-node down commit">
+          <span class="lin-glyph">{{.Glyph}}</span>
+          <div class="lin-card">
+            <div class="lin-id"><span class="lin-kind">commit</span><code>{{.Hash}}</code>{{if .When}}<span class="lin-when">{{.When}}</span>{{end}}<span class="lin-rel produced">produced</span></div>
+            {{if .Message}}<div class="lin-ttl">{{.Message}}</div>{{end}}
+          </div>
+        </div>
+        {{end}}
+
+        {{/* files, nested under the commit */}}
+        {{if .Files}}
+        <div class="lin-branch produced-branch">
+          {{range .Files}}
+          <div class="lin-node down file-node">
+            <span class="lin-glyph"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.4" fill="currentColor"/></svg></span>
+            <details class="lin-file">
+              <summary>
+                <span class="file-change file-change-{{.Change}}">{{.Change}}</span>
+                <code class="lin-file-path">{{.Path}}</code>
+                <span class="lin-file-stat">{{if .Added}}<span class="plus">+{{.Added}}</span>{{end}}{{if .Removed}} <span class="minus">&minus;{{.Removed}}</span>{{end}}</span>
+              </summary>
+              {{.Diff}}
+            </details>
+          </div>
+          {{end}}
+        </div>
+        {{end}}
+
+        {{range .Related}}
+        <div class="lin-node down">
+          <span class="lin-glyph">{{.Glyph}}</span>
+          <div class="lin-card">
+            <div class="lin-id"><span class="lin-kind">{{.Kind}}</span><code>{{.ID}}</code><span class="lin-rel produced">{{.Edge}}</span></div>
+            {{if .Title}}<div class="lin-ttl">{{.Title}}</div>{{end}}
+          </div>
+        </div>
+        {{end}}
       </div>
     </div>
-    {{end}}
-
-    {{range .Commits}}
-    <div class="lin-node down commit">
-      <span class="lin-glyph">{{.Glyph}}</span>
-      <span class="lin-edge produced">produced</span>
-      <div class="lin-card">
-        <div class="lin-id"><span class="lin-kind">commit</span><code>{{.Hash}}</code>{{if .When}}<span class="lin-when">{{.When}}</span>{{end}}</div>
-        {{if .Message}}<div class="lin-ttl">{{.Message}}</div>{{end}}
+    </div>
+  {{else}}
+    {{/* ungrounded range: no pivot — produced commits + files, still nested commit→files */}}
+    <div class="lin-branch produced-branch spine-produced-only">
+      {{range .Commits}}
+      <div class="lin-node down commit">
+        <span class="lin-glyph">{{.Glyph}}</span>
+        <div class="lin-card">
+          <div class="lin-id"><span class="lin-kind">commit</span><code>{{.Hash}}</code>{{if .When}}<span class="lin-when">{{.When}}</span>{{end}}</div>
+          {{if .Message}}<div class="lin-ttl">{{.Message}}</div>{{end}}
+        </div>
+      </div>
+      {{end}}
+      <div class="lin-branch produced-branch">
+        {{range .Files}}
+        <div class="lin-node down file-node">
+          <span class="lin-glyph"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.4" fill="currentColor"/></svg></span>
+          <details class="lin-file">
+            <summary>
+              <span class="file-change file-change-{{.Change}}">{{.Change}}</span>
+              <code class="lin-file-path">{{.Path}}</code>
+              <span class="lin-file-stat">{{if .Added}}<span class="plus">+{{.Added}}</span>{{end}}{{if .Removed}} <span class="minus">&minus;{{.Removed}}</span>{{end}}</span>
+            </summary>
+            {{.Diff}}
+          </details>
+        </div>
+        {{end}}
       </div>
     </div>
-    {{end}}
-
-    {{range .Files}}
-    <div class="lin-node down file-node">
-      <span class="lin-glyph"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.4" fill="currentColor"/></svg></span>
-      <span class="lin-edge produced">touched</span>
-      <details class="lin-file">
-        <summary>
-          <span class="file-change file-change-{{.Change}}">{{.Change}}</span>
-          <code class="lin-file-path">{{.Path}}</code>
-          <span class="lin-file-stat">{{if .Added}}<span class="plus">+{{.Added}}</span>{{end}}{{if .Removed}} <span class="minus">&minus;{{.Removed}}</span>{{end}}</span>
-        </summary>
-        {{.Diff}}
-      </details>
-    </div>
-    {{end}}
-
-    {{range .Related}}
-    <div class="lin-node down">
-      <span class="lin-glyph">{{.Glyph}}</span>
-      <span class="lin-edge produced">{{.Edge}}</span>
-      <div class="lin-card">
-        <div class="lin-id"><span class="lin-kind">{{.Kind}}</span><code>{{.ID}}</code></div>
-        {{if .Title}}<div class="lin-ttl">{{.Title}}</div>{{end}}
-      </div>
-    </div>
-    {{end}}
+  {{end}}
   </div>
 </section>

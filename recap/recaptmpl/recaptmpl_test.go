@@ -81,7 +81,8 @@ func TestRecapPage_Render(t *testing.T) {
 		"</html>",
 		"Add recap renderer + shared block components", // outcome
 		`class="recap-zone recap-zone-lineage"`,        // unified spine zone
-		`class="spine`,                                 // the causal spine
+		`class="lin-tree"`,                             // the causal tree
+		`class="lin-branch`,                            // nested indentation
 		`lin-node pivot`,                               // pivot present when grounded
 		"feat-2570725c",                                // pivot id
 		"plan-93b8eba0",                                // ancestry node

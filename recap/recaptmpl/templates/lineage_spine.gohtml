@@ -46,8 +46,15 @@
         </div>
         {{end}}
 
-        {{/* files, nested under the commit */}}
+        {{/* files are the UNION change set of the work item (the collector does
+             not attribute files per commit), so they hang off an explicit
+             "changed files" node — a sibling of the commits — rather than nesting
+             under whichever commit happened to render last. */}}
         {{if .Files}}
+        <div class="lin-node down changeset">
+          <span class="lin-glyph"><svg viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="3" fill="currentColor"/><rect x="4" y="10.5" width="16" height="3" fill="currentColor"/><rect x="4" y="16" width="16" height="3" fill="currentColor"/></svg></span>
+          <div class="lin-card"><div class="lin-id"><span class="lin-kind">changed files</span><code>{{len .Files}}</code></div></div>
+        </div>
         <div class="lin-branch produced-branch">
           {{range .Files}}
           <div class="lin-node down file-node">
@@ -78,7 +85,7 @@
     </div>
     </div>
   {{else}}
-    {{/* ungrounded range: no pivot — produced commits + files, still nested commit→files */}}
+    {{/* ungrounded range: no pivot — produced commits, then the change set */}}
     <div class="lin-branch produced-branch spine-produced-only">
       {{range .Commits}}
       <div class="lin-node down commit">
@@ -89,6 +96,11 @@
         </div>
       </div>
       {{end}}
+      {{if .Files}}
+      <div class="lin-node down changeset">
+        <span class="lin-glyph"><svg viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="3" fill="currentColor"/><rect x="4" y="10.5" width="16" height="3" fill="currentColor"/><rect x="4" y="16" width="16" height="3" fill="currentColor"/></svg></span>
+        <div class="lin-card"><div class="lin-id"><span class="lin-kind">changed files</span><code>{{len .Files}}</code></div></div>
+      </div>
       <div class="lin-branch produced-branch">
         {{range .Files}}
         <div class="lin-node down file-node">
@@ -104,6 +116,7 @@
         </div>
         {{end}}
       </div>
+      {{end}}
     </div>
   {{end}}
   </div>

@@ -23,7 +23,7 @@
       </div>
     </div>
     {{else}}
-    <pre class="diff-pre"><code class="language-{{$.Language}}">{{range .Lines}}<span class="dl dl-{{.Kind}}">{{.Sign}} {{.Text}}</span>
+    <pre class="diff-pre"><code class="diff-code" data-language="{{$.Language}}">{{range .Lines}}<span class="dl dl-{{.Kind}}">{{.Sign}} {{.Text}}</span>
 {{end}}</code></pre>
     {{end}}
   </div>

@@ -156,6 +156,21 @@ func TestWireframe_AllowsHTMLEntities(t *testing.T) {
 	}
 }
 
+func TestWireframe_EntityDecodeNoConcatenation(t *testing.T) {
+	// Decoding entities (not stripping them) must not concatenate neighbouring
+	// text into a fake hex color: "#12&amp;34" decodes to "#12&34" (not a color),
+	// whereas stripping the entity would have produced "#1234" (a false match).
+	wf := &blocks.Wireframe{Body: `<div style="color:var(--wf-fg)">id #12&amp;34 ok</div>`}
+	if wf.RawColors() {
+		t.Fatalf("entity-decoded content wrongly flagged as raw color")
+	}
+	// A genuine raw color is still caught.
+	bad := &blocks.Wireframe{Body: `<div style="x">#1a2b3c</div>`}
+	if !bad.RawColors() {
+		t.Errorf("real hex color must still be flagged")
+	}
+}
+
 func TestWireframe_AnchorStamped(t *testing.T) {
 	wf := &blocks.Wireframe{
 		Body:   `<div style="color:var(--wf-fg)">x</div>`,

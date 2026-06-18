@@ -2,6 +2,7 @@ package planyaml
 
 import (
 	"fmt"
+	"html"
 	"regexp"
 	"strings"
 )
@@ -10,11 +11,6 @@ import (
 // /hsl()/hsla() functions). Wireframe blocks must use design tokens (CSS custom
 // properties like var(--color-fg)) instead — see validateWireframeBlock.
 var rawColorRe = regexp.MustCompile(`(?i)#[0-9a-f]{3,8}\b|\brgba?\(|\bhsla?\(`)
-
-// htmlEntityRe matches HTML character references (e.g. &#9670;, &#x25C6;, &amp;),
-// stripped before the raw-color check so a numeric entity is not misread as a hex
-// color. Kept in sync with plan/blocks (the renderer applies the same rule).
-var htmlEntityRe = regexp.MustCompile(`&#?[0-9a-zA-Z]+;`)
 
 // validateBlock checks one SliceBlock's shape against BlockCatalog. The block's
 // type must be a known catalog entry; required scalar fields, row keys, and
@@ -67,7 +63,7 @@ func validateBlockRows(prefix string, b SliceBlock, spec BlockSpec) []string {
 // wireframes must use design tokens (CSS custom properties) so they inherit the
 // canonical palette rather than baking in hex/rgb values.
 func validateWireframeBlock(prefix string, b SliceBlock) []string {
-	if rawColorRe.MatchString(htmlEntityRe.ReplaceAllString(b.Fields["html"], "")) {
+	if rawColorRe.MatchString(html.UnescapeString(b.Fields["html"])) {
 		return []string{fmt.Sprintf("%s.fields.html must use design tokens (var(--...)), not raw hex/rgb/hsl colors", prefix)}
 	}
 	return nil

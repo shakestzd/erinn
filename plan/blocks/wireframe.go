@@ -1,6 +1,7 @@
 package blocks
 
 import (
+	"html"
 	"html/template"
 	"io"
 	"regexp"
@@ -16,15 +17,14 @@ import (
 // baked-in colors.
 var rawColorRe = regexp.MustCompile(`(?i)#[0-9a-f]{3,8}\b|\brgba?\(|\bhsla?\(`)
 
-// htmlEntityRe matches HTML character references (e.g. &#9670;, &#x25C6;, &amp;).
-// They are stripped before the raw-color check so a numeric entity like &#9670;
-// is not misread as a hex color (#9670…).
-var htmlEntityRe = regexp.MustCompile(`&#?[0-9a-zA-Z]+;`)
-
-// hasRawColor reports whether s contains a baked-in hex/rgb/hsl color, ignoring
-// HTML character references so legitimate entity usage is not flagged.
+// hasRawColor reports whether s contains a baked-in hex/rgb/hsl color. HTML
+// character references are decoded first (via html.UnescapeString) so a numeric
+// entity like &#9670; turns into its glyph (◆) rather than being misread as a hex
+// color — and, unlike stripping entities to "", decoding never concatenates
+// neighbouring text into a fake match (e.g. "#12&amp;34" decodes to "#12&34",
+// which is not a color, instead of "#1234", which would be).
 func hasRawColor(s string) bool {
-	return rawColorRe.MatchString(htmlEntityRe.ReplaceAllString(s, ""))
+	return rawColorRe.MatchString(html.UnescapeString(s))
 }
 
 // Wireframe style-value allowlists. bluemonday keeps a CSS declaration only when

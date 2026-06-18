@@ -41,11 +41,8 @@ func TestAnnotatedDiff_SplitVsUnified(t *testing.T) {
 	}
 	unifiedHTML := ub.String()
 
-	// Both modes: Prism-compatible markup + per-hunk summary + the hunk header.
+	// Both modes: degrade-safe <pre><code> + per-hunk summary + the hunk header.
 	for name, html := range map[string]string{"split": splitHTML, "unified": unifiedHTML} {
-		if !strings.Contains(html, "language-go") {
-			t.Errorf("%s: missing Prism language class", name)
-		}
 		if !strings.Contains(html, "<pre") || !strings.Contains(html, "<code") {
 			t.Errorf("%s: missing degrade-safe <pre><code>", name)
 		}
@@ -55,6 +52,18 @@ func TestAnnotatedDiff_SplitVsUnified(t *testing.T) {
 		if !strings.Contains(html, "func Collect()") {
 			t.Errorf("%s: missing hunk header context", name)
 		}
+	}
+	// Split mode is Prism-highlighted (language- class). Unified mode opts OUT of
+	// Prism (diff-code, no language- class) so its per-line dl-* change/context
+	// coloring survives Prism.highlightAllUnder on the dashboard.
+	if !strings.Contains(splitHTML, "language-go") {
+		t.Error("split mode must keep the Prism language class")
+	}
+	if strings.Contains(unifiedHTML, "language-go") {
+		t.Error("unified mode must NOT use a Prism language class (it would strip dl-* spans)")
+	}
+	if !strings.Contains(unifiedHTML, `class="diff-code"`) || !strings.Contains(unifiedHTML, "dl-") {
+		t.Error("unified mode must carry diff-code + dl-* line spans")
 	}
 
 	// Split mode carries side-by-side structure; unified does not.

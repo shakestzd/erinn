@@ -108,6 +108,11 @@ func (z *BlocksZone) rendered() ([]renderedBlock, error) {
 		if blk == nil {
 			continue
 		}
+		// Seed pure-CSS tabs with the per-block anchor so two tabs blocks with
+		// identical labels get distinct radio groups (no cross-toggling).
+		if t, ok := blk.(*blocks.Tabs); ok {
+			t.Seed = anchor
+		}
 		var sb strings.Builder
 		if err := blk.Render(&sb); err != nil {
 			return nil, err

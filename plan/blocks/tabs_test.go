@@ -50,6 +50,23 @@ func TestBlocks_Tabs_DistinctGroups(t *testing.T) {
 	}
 }
 
+func TestBlocks_Tabs_SeedDisambiguatesIdenticalLabels(t *testing.T) {
+	// Two tabs blocks with IDENTICAL labels must still get distinct radio groups
+	// when given distinct seeds (e.g. their slice block anchors), so selecting a
+	// tab in one block doesn't toggle the other.
+	labels := []blocks.Tab{{Label: "A", Body: "1"}, {Label: "B", Body: "2"}}
+	a := render(t, &blocks.Tabs{Tabs: labels, Seed: "slice-1-block-tabs-1"})
+	b := render(t, &blocks.Tabs{Tabs: labels, Seed: "slice-1-block-tabs-2"})
+	re := regexp.MustCompile(`name="(tabs-[a-z0-9]+)"`)
+	ga, gb := re.FindStringSubmatch(a), re.FindStringSubmatch(b)
+	if ga == nil || gb == nil {
+		t.Fatalf("could not find group names")
+	}
+	if ga[1] == gb[1] {
+		t.Errorf("same-labelled tabs with distinct seeds must differ, both = %q", ga[1])
+	}
+}
+
 func TestBlocks_Tabs_EscapesContent(t *testing.T) {
 	tb := &blocks.Tabs{Tabs: []blocks.Tab{{Label: `<b>x</b>`, Body: `<script>bad</script>`}}}
 	html := render(t, tb)

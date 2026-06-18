@@ -25,6 +25,11 @@ type Tab struct {
 type Tabs struct {
 	Title string
 	Tabs  []Tab
+	// Seed disambiguates the radio group when two Tabs blocks share identical
+	// labels. Callers should set it to a per-block-unique value (e.g. the slice
+	// block anchor). Empty is allowed (labels alone seed the group) but risks a
+	// collision between same-labelled blocks on one page.
+	Seed string
 }
 
 // Render writes the tabs block HTML to w.
@@ -56,6 +61,8 @@ func (t *Tabs) Render(w io.Writer) error {
 // Tabs blocks on the same page get distinct radio groups.
 func (t *Tabs) groupID() string {
 	h := fnv.New32a()
+	_, _ = h.Write([]byte(t.Seed))
+	_, _ = h.Write([]byte{0})
 	for _, tb := range t.Tabs {
 		_, _ = h.Write([]byte(tb.Label))
 		_, _ = h.Write([]byte{0})

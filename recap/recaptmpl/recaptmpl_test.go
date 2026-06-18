@@ -146,6 +146,38 @@ func TestRecapPage_Render_GroundedWithoutLineageKeepsPivot(t *testing.T) {
 	}
 }
 
+func TestRecapPage_Render_FilesUnderChangeset(t *testing.T) {
+	// Files are the union change set, so they hang off an explicit "changed files"
+	// node — not nested under whichever commit rendered last.
+	html := mustRender(t, groundedData())
+	if !strings.Contains(html, "lin-node down changeset") {
+		t.Error("expected an aggregate 'changed files' node above the file list")
+	}
+	if !strings.Contains(html, "changed files") {
+		t.Error("expected the 'changed files' label")
+	}
+}
+
+func TestRecapPage_Render_UngroundedCommitOnly(t *testing.T) {
+	// A commit-only ungrounded recap must NOT emit an empty file branch or a
+	// changeset node.
+	data := recap.RecapData{
+		Outcome:    "Range with no file diffs",
+		Commits:    []recap.Commit{{Hash: "abc1234", Message: "wip"}},
+		Provenance: recap.Provenance{Kind: recap.InputRange, Input: "main..HEAD", Grounded: false},
+	}
+	html := mustRender(t, data)
+	if !strings.Contains(html, "abc1234") {
+		t.Error("expected the commit to render")
+	}
+	if strings.Contains(html, "lin-node down file-node") {
+		t.Error("commit-only recap must not emit any file nodes")
+	}
+	if strings.Contains(html, "changeset") {
+		t.Error("commit-only recap must not emit a changed-files node")
+	}
+}
+
 func mustRender(t *testing.T, data recap.RecapData) string {
 	t.Helper()
 	var buf bytes.Buffer
@@ -156,9 +188,10 @@ func mustRender(t *testing.T, data recap.RecapData) string {
 }
 
 func TestRecapPage_Render_DegradesWithoutPrism(t *testing.T) {
-	// The standalone artifact must not inline the Prism bundle; diff code
-	// must sit in <pre><code class="language-..."> so it renders as plain
-	// text when Prism is absent.
+	// The standalone artifact must not inline the Prism bundle; diff code sits in
+	// <pre><code> so it renders as plain text when Prism is absent. The unified
+	// diff opts out of Prism (diff-code, no language- class) so its per-line dl-*
+	// coloring survives Prism on the dashboard.
 	page := recaptmpl.Build(groundedData())
 	var buf bytes.Buffer
 	if err := page.Render(&buf); err != nil {
@@ -168,10 +201,10 @@ func TestRecapPage_Render_DegradesWithoutPrism(t *testing.T) {
 	if strings.Contains(html, "prism.min.js") || strings.Contains(html, "Prism.highlightAll") {
 		t.Error("standalone recap must NOT inline the Prism bundle")
 	}
-	if !strings.Contains(html, "language-") {
-		t.Error("expected Prism-compatible language- class on code blocks")
-	}
 	if !strings.Contains(html, "<pre") || !strings.Contains(html, "<code") {
 		t.Error("expected <pre><code> degrade-safe diff markup")
+	}
+	if !strings.Contains(html, `class="diff-code"`) || !strings.Contains(html, "dl-") {
+		t.Error("expected unified diff to use diff-code + dl-* line spans (Prism-safe)")
 	}
 }

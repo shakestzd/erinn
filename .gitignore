@@ -191,6 +191,9 @@ chrome/*.zip
 # Subagent worktrees (transient; created by Claude Code Agent tool)
 .claude/worktrees/
 
+# Per-user Claude Code local settings (permission grants, etc.) — not shared
+.claude/settings.local.json
+
 # Go test scratch space (used to avoid /tmp noexec in devcontainers)
 .test-exec/
 .test-tmp/

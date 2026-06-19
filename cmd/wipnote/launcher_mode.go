@@ -7,10 +7,11 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/shakestzd/wipnote/internal/launcher/mode"
-	"github.com/shakestzd/wipnote/internal/launcher/plan"
+	"github.com/shakestzd/wipnote/cmd/wipnote/launchtui"
 	"github.com/shakestzd/wipnote/core/paths"
 	"github.com/shakestzd/wipnote/core/worktree"
+	"github.com/shakestzd/wipnote/internal/launcher/mode"
+	"github.com/shakestzd/wipnote/internal/launcher/plan"
 )
 
 // LauncherModeResult is the computed mode object exposed to preflight paths.
@@ -77,7 +78,10 @@ func applyLaunchPlanOpts(canonicalRoot, repoRoot, workItemID string, inPlace, su
 		return p
 	}
 	if p.DirtyMainWarning != "" && !suppressDirtyWarning {
-		fmt.Fprintln(w, p.DirtyMainWarning)
+		fmt.Fprintln(w, launchtui.RenderLaunchBanner(nil, launchtui.BannerInput{
+			Warning:         p.DirtyMainWarning,
+			WarningSeverity: "red",
+		}))
 	}
 	if os.Getenv("WIPNOTE_DEBUG") != "" {
 		fmt.Fprintf(os.Stderr,
@@ -102,7 +106,10 @@ func enforceLaunchPlan(p plan.LaunchPlan, w io.Writer) error {
 		return nil
 	}
 	if p.DirtyMainWarning != "" {
-		fmt.Fprintln(w, p.DirtyMainWarning)
+		fmt.Fprintln(w, launchtui.RenderLaunchBanner(nil, launchtui.BannerInput{
+			Warning:         p.DirtyMainWarning,
+			WarningSeverity: "red",
+		}))
 	}
 	return fmt.Errorf(
 		"launch refused: WIPNOTE_ENFORCE_ISOLATION=true and the protected branch is dirty.\n"+

@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/shakestzd/wipnote/cmd/wipnote/launchtui"
 	dbpkg "github.com/shakestzd/wipnote/core/db"
 	"github.com/shakestzd/wipnote/core/models"
 	"github.com/shakestzd/wipnote/internal/launcher"
@@ -267,7 +268,10 @@ func emitLaunchPreparationStatus(out io.Writer, harness, message string) {
 	if out == nil || strings.TrimSpace(message) == "" {
 		return
 	}
-	fmt.Fprintf(out, "wipnote: %s %s\n", formatHarnessName(harness), strings.TrimSpace(message))
+	headline := fmt.Sprintf("wipnote: %s %s", formatHarnessName(harness), strings.TrimSpace(message))
+	fmt.Fprintln(out, launchtui.RenderLaunchBanner(nil, launchtui.BannerInput{
+		Headline: headline,
+	}))
 }
 
 func decodeStringList(raw json.RawMessage) []string {

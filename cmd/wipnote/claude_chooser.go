@@ -10,8 +10,9 @@ import (
 	"strings"
 
 	"github.com/charmbracelet/huh"
-	dbpkg "github.com/shakestzd/wipnote/core/db"
 	"github.com/shakestzd/wipnote/cmd/wipnote/launchtui"
+	"github.com/shakestzd/wipnote/core/agent"
+	dbpkg "github.com/shakestzd/wipnote/core/db"
 	"github.com/shakestzd/wipnote/internal/launcher"
 )
 
@@ -62,7 +63,11 @@ func chooseLaunchIntent(projectRoot, canonicalRoot, harness string, in io.Reader
 	if err != nil {
 		return launcher.NewWorkIntent(), err
 	}
-	if len(grouped.SameHarness) == 0 && len(grouped.CrossHarness) == 0 {
+	// Skip the chooser only when there is genuinely nothing to resume. The
+	// current-session slot counts: it is the whole point of this path for a
+	// split-child session with no (or a completed) work item, which never
+	// appears in the same/cross-harness groups.
+	if !hasResumableOptions(grouped) {
 		return launcher.NewWorkIntent(), nil
 	}
 	return promptLaunchIntent(in, out, harness, grouped)
@@ -89,7 +94,128 @@ func listGroupedResumableSessionsForRoot(projectRoot, canonicalRoot, harness str
 		return dbpkg.HarnessGroupedResumableSessions{}, err
 	}
 	defer db.Close()
-	return dbpkg.ListHarnessGroupedResumableSessions(db, dbpkg.LivenessStalenessThreshold(root), harness)
+	threshold := dbpkg.LivenessStalenessThreshold(root)
+	grouped, err := dbpkg.ListHarnessGroupedResumableSessions(db, threshold, harness)
+	if err != nil {
+		return grouped, err
+	}
+	// Surface the session the user is launching from as a first-class slot. This
+	// bypasses the work_item_id <> '' gate the grouped listing applies, which
+	// otherwise hides session-split children that never got work-item attribution.
+	// Degrades cleanly: on any error or no resolvable current session, the grouped
+	// listing is returned unchanged.
+	if current, cerr := dbpkg.GetCurrentSessionResumable(db, threshold, resolveCurrentSessionIDs(root)); cerr == nil && current != nil && isActionableCurrentSession(*current, harness) {
+		grouped = withCurrentSession(grouped, current)
+	}
+	return grouped, nil
+}
+
+// harnessesWithNativeSessionResume lists the harnesses that can resume a prior
+// session directly from its stored wipnote session ID (e.g. `--resume <id>`).
+// Gemini resumes by a numeric index and Antigravity has no session-ID resume, so
+// a resume-ID-only current slot is not actionable for them — it would bail in the
+// continuation-context path and launch fresh despite offering "Resume this
+// session".
+var harnessesWithNativeSessionResume = map[string]struct{}{
+	"claude": {},
+	"codex":  {},
+}
+
+// isActionableCurrentSession reports whether the current-session slot would
+// resolve to a meaningful launch intent for the target harness.
+//
+//   - Same harness, resume-ID-only: actionable only when the harness resumes
+//     natively by session ID (claude/codex). Otherwise the resume ID is unusable
+//     and, with no work item, the continuation context bails — so require a work
+//     item for Gemini/Antigravity.
+//   - Cross harness: cross-harness resume IDs are suppressed and
+//     resolveContinueLaunchContext bails on an empty work item (dropping any
+//     worktree handoff), so a work item is required — matching every other
+//     cross-harness row.
+func isActionableCurrentSession(row dbpkg.ResumableSession, harness string) bool {
+	if strings.TrimSpace(row.WorkItemID) != "" {
+		return true
+	}
+	// No work item: only a same-harness, natively-resumable session is actionable.
+	if !strings.EqualFold(strings.TrimSpace(row.Harness), strings.TrimSpace(harness)) {
+		return false
+	}
+	if strings.TrimSpace(row.LastSessionID) == "" {
+		return false
+	}
+	_, ok := harnessesWithNativeSessionResume[strings.ToLower(strings.TrimSpace(harness))]
+	return ok
+}
+
+// resolveCurrentSessionIDs returns the candidate session IDs for "the session the
+// user is launching from": the harness/launcher session env vars plus every
+// member of that session's family. Including the family expands the short parent
+// stub to the long-running split-child IDs, so whichever one carries the live
+// transcript can be surfaced. Returns nil when nothing is resolvable.
+func resolveCurrentSessionIDs(projectRoot string) []string {
+	seen := map[string]bool{}
+	var ids []string
+	add := func(s string) {
+		s = strings.TrimSpace(s)
+		if s != "" && !seen[s] {
+			seen[s] = true
+			ids = append(ids, s)
+		}
+	}
+	for _, env := range []string{
+		"WIPNOTE_SESSION_ID",
+		"CLAUDE_CODE_SESSION_ID",
+		"CLAUDE_SESSION_ID",
+		"WIPNOTE_PARENT_SESSION",
+	} {
+		add(os.Getenv(env))
+	}
+
+	famID := strings.TrimSpace(os.Getenv("WIPNOTE_SESSION_FAMILY_ID"))
+	if famID == "" {
+		for _, id := range ids {
+			if f := agent.SessionFamilyFor(projectRoot, id); f != "" {
+				famID = f
+				break
+			}
+		}
+	}
+	if famID != "" {
+		add(famID)
+		if idx, err := agent.ReadSessionFamilyIndex(projectRoot); err == nil {
+			for sid, fid := range idx {
+				if fid == famID {
+					add(sid)
+				}
+			}
+		}
+	}
+	return ids
+}
+
+// withCurrentSession sets the current-session slot and removes any duplicate of
+// it from the same/cross-harness groups so it is never listed twice.
+func withCurrentSession(grouped dbpkg.HarnessGroupedResumableSessions, current *dbpkg.ResumableSession) dbpkg.HarnessGroupedResumableSessions {
+	grouped.Current = current
+	grouped.SameHarness = dropSessionByID(grouped.SameHarness, current.LastSessionID)
+	grouped.CrossHarness = dropSessionByID(grouped.CrossHarness, current.LastSessionID)
+	return grouped
+}
+
+// dropSessionByID returns rows with any entry whose LastSessionID equals
+// sessionID removed. Returns rows unchanged when sessionID is empty.
+func dropSessionByID(rows []dbpkg.ResumableSession, sessionID string) []dbpkg.ResumableSession {
+	if sessionID == "" {
+		return rows
+	}
+	out := make([]dbpkg.ResumableSession, 0, len(rows))
+	for _, r := range rows {
+		if r.LastSessionID == sessionID {
+			continue
+		}
+		out = append(out, r)
+	}
+	return out
 }
 
 // runSelectTUIFn is the seam for tests: replace it to drive selection without a live TTY.
@@ -119,13 +245,19 @@ func runSelectTUI(in io.Reader, out io.Writer, harness string, opts []huh.Option
 }
 
 // buildSelectOptions constructs the huh option list for the chooser.
-// Index 0 = NewWork; index i>=1 = orderedRows[i-1].
+// Index 0 = NewWork; index i>=1 = orderedRows[i-1], where orderedRows is
+// [Current?] + SameHarness + CrossHarness — matching orderedRowsFor below.
 func buildSelectOptions(harness string, grouped dbpkg.HarnessGroupedResumableSessions) []huh.Option[int] {
 	st := launchtui.NewStyles()
 	opts := []huh.Option[int]{
 		huh.NewOption(st.AccentText.Render("Start something new"), 0),
 	}
 	idx := 1
+	if grouped.Current != nil {
+		label := fmt.Sprintf("Resume this session: %s", describeCurrentSession(*grouped.Current))
+		opts = append(opts, huh.NewOption(st.AccentText.Render(label), idx))
+		idx++
+	}
 	for _, row := range grouped.SameHarness {
 		label := fmt.Sprintf("Resume in %s: %s", formatHarnessName(harness), describeResumableSession(row, true))
 		opts = append(opts, huh.NewOption(label, idx))
@@ -137,6 +269,27 @@ func buildSelectOptions(harness string, grouped dbpkg.HarnessGroupedResumableSes
 		idx++
 	}
 	return opts
+}
+
+// hasResumableOptions reports whether a grouped listing has anything the chooser
+// can offer. The current-session slot counts even when both harness groups are
+// empty — it lives outside them, so the gate must not be derived from group
+// emptiness alone (that would drop the slot in exactly the split-child case).
+func hasResumableOptions(grouped dbpkg.HarnessGroupedResumableSessions) bool {
+	return grouped.Current != nil || len(grouped.SameHarness) > 0 || len(grouped.CrossHarness) > 0
+}
+
+// orderedRowsFor flattens a grouped listing into the index order the chooser
+// uses: the current-session slot first (when present), then same-harness, then
+// cross-harness. mapIndexToIntent resolves option index i>=1 to orderedRows[i-1].
+func orderedRowsFor(grouped dbpkg.HarnessGroupedResumableSessions) []dbpkg.ResumableSession {
+	ordered := make([]dbpkg.ResumableSession, 0, len(grouped.SameHarness)+len(grouped.CrossHarness)+1)
+	if grouped.Current != nil {
+		ordered = append(ordered, *grouped.Current)
+	}
+	ordered = append(ordered, grouped.SameHarness...)
+	ordered = append(ordered, grouped.CrossHarness...)
+	return ordered
 }
 
 // mapIndexToIntent maps a 0-based option index to a LaunchIntent.
@@ -168,13 +321,11 @@ func isTTYWriter(w io.Writer) bool {
 // The upstream non-TTY gate (shouldOfferLaunchIntentChooser + isInteractiveTerminalFile)
 // already ensures this function is only reached on interactive char-device stdin.
 func promptLaunchIntent(in io.Reader, out io.Writer, harness string, grouped dbpkg.HarnessGroupedResumableSessions) (launcher.LaunchIntent, error) {
-	totalRows := len(grouped.SameHarness) + len(grouped.CrossHarness)
+	orderedRows := orderedRowsFor(grouped)
+	totalRows := len(orderedRows)
 	if totalRows == 0 {
 		return launcher.NewWorkIntent(), nil
 	}
-
-	orderedRows := append([]dbpkg.ResumableSession{}, grouped.SameHarness...)
-	orderedRows = append(orderedRows, grouped.CrossHarness...)
 
 	// Try the huh TUI only when out is a real terminal (bubbletea hangs otherwise).
 	if isTTYWriterFn(out) {
@@ -192,31 +343,38 @@ func promptLaunchIntent(in io.Reader, out io.Writer, harness string, grouped dbp
 	}
 
 	// Numeric text fallback: used for non-TTY out, accessible mode, or any TUI error.
-	return promptLaunchIntentNumeric(in, out, harness, orderedRows, totalRows)
+	return promptLaunchIntentNumeric(in, out, harness, grouped, orderedRows, totalRows)
 }
 
 // promptLaunchIntentNumeric is the legacy numbered-menu fallback used when the
 // huh TUI cannot render (e.g. non-TTY writer, ACCESSIBLE mode, or any Run error).
-func promptLaunchIntentNumeric(in io.Reader, out io.Writer, harness string, orderedRows []dbpkg.ResumableSession, totalRows int) (launcher.LaunchIntent, error) {
+func promptLaunchIntentNumeric(in io.Reader, out io.Writer, harness string, grouped dbpkg.HarnessGroupedResumableSessions, orderedRows []dbpkg.ResumableSession, totalRows int) (launcher.LaunchIntent, error) {
 	fmt.Fprintf(out, "Choose how to launch %s:\n", formatHarnessName(harness))
 	fmt.Fprintln(out, "  1. Start something new")
 	optionNumber := 2
+	// Current-session slot first, with its own header, so the session the user is
+	// launching from is unmistakable even in the numeric fallback path.
+	if grouped.Current != nil {
+		fmt.Fprintln(out, "\nResume this session")
+		fmt.Fprintf(out, "  %d. %s\n", optionNumber, describeCurrentSession(*grouped.Current))
+		optionNumber++
+	}
 	sameCount := 0
 	crossCount := 0
-	for _, row := range orderedRows {
-		if strings.EqualFold(strings.TrimSpace(row.Harness), strings.TrimSpace(harness)) {
-			if sameCount == 0 {
-				fmt.Fprintf(out, "\nResume in %s\n", formatHarnessName(harness))
-			}
-			fmt.Fprintf(out, "  %d. %s\n", optionNumber, describeResumableSession(row, true))
-			sameCount++
-		} else {
-			if crossCount == 0 {
-				fmt.Fprintln(out, "\nContinue from other harnesses")
-			}
-			fmt.Fprintf(out, "  %d. %s\n", optionNumber, describeResumableSession(row, false))
-			crossCount++
+	for _, row := range grouped.SameHarness {
+		if sameCount == 0 {
+			fmt.Fprintf(out, "\nResume in %s\n", formatHarnessName(harness))
 		}
+		fmt.Fprintf(out, "  %d. %s\n", optionNumber, describeResumableSession(row, true))
+		sameCount++
+		optionNumber++
+	}
+	for _, row := range grouped.CrossHarness {
+		if crossCount == 0 {
+			fmt.Fprintln(out, "\nContinue from other harnesses")
+		}
+		fmt.Fprintf(out, "  %d. %s\n", optionNumber, describeResumableSession(row, false))
+		crossCount++
 		optionNumber++
 	}
 	fmt.Fprint(out, "Select [1-", totalRows+1, "] (default 1): ")
@@ -258,6 +416,39 @@ func resumeSessionIDForHarness(row dbpkg.ResumableSession, harness string) strin
 		return row.LastSessionID
 	}
 	return ""
+}
+
+// describeCurrentSession renders the "Resume this session" slot. Unlike
+// describeResumableSession it tolerates a missing work item (the common
+// session-split case) and leads with the session identity rather than a work
+// item, since the whole point of the slot is "the session you're in right now".
+func describeCurrentSession(row dbpkg.ResumableSession) string {
+	var parts []string
+	if row.WorkItemID != "" {
+		parts = append(parts, "Resume transcript for", row.WorkItemID)
+		if row.Title != "" {
+			parts = append(parts, strconv.Quote(row.Title))
+		}
+	} else {
+		parts = append(parts, "Resume current transcript")
+	}
+	meta := []string{}
+	if row.Harness != "" {
+		meta = append(meta, row.Harness)
+	}
+	if row.Live {
+		meta = append(meta, "live")
+	}
+	if row.LastActivity != "" {
+		meta = append(meta, "last "+row.LastActivity)
+	}
+	if row.ExecWorktreePath != "" {
+		meta = append(meta, row.ExecWorktreePath)
+	}
+	if len(meta) > 0 {
+		parts = append(parts, "("+strings.Join(meta, ", ")+")")
+	}
+	return strings.Join(parts, " ")
 }
 
 func describeResumableSession(row dbpkg.ResumableSession, sameHarness bool) string {

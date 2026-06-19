@@ -104,10 +104,25 @@ func listGroupedResumableSessionsForRoot(projectRoot, canonicalRoot, harness str
 	// otherwise hides session-split children that never got work-item attribution.
 	// Degrades cleanly: on any error or no resolvable current session, the grouped
 	// listing is returned unchanged.
-	if current, cerr := dbpkg.GetCurrentSessionResumable(db, threshold, resolveCurrentSessionIDs(root)); cerr == nil && current != nil {
+	if current, cerr := dbpkg.GetCurrentSessionResumable(db, threshold, resolveCurrentSessionIDs(root)); cerr == nil && current != nil && isActionableCurrentSession(*current, harness) {
 		grouped = withCurrentSession(grouped, current)
 	}
 	return grouped, nil
+}
+
+// isActionableCurrentSession reports whether the current-session slot would
+// resolve to a meaningful launch intent for the target harness. A same-harness
+// row needs a resume session ID (it resumes the live transcript); a cross-harness
+// row is only useful as a handoff when it carries a work item or worktree, since
+// cross-harness resume IDs are intentionally suppressed. Offering a cross-harness
+// row with neither would yield a continue intent with empty resume ID AND empty
+// work item — which a launcher can misread as "continue latest" and resume an
+// unrelated session.
+func isActionableCurrentSession(row dbpkg.ResumableSession, harness string) bool {
+	if strings.EqualFold(strings.TrimSpace(row.Harness), strings.TrimSpace(harness)) {
+		return strings.TrimSpace(row.LastSessionID) != ""
+	}
+	return strings.TrimSpace(row.WorkItemID) != "" || strings.TrimSpace(row.ExecWorktreePath) != ""
 }
 
 // resolveCurrentSessionIDs returns the candidate session IDs for "the session the

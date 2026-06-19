@@ -51,6 +51,58 @@ func TestResolveCurrentSessionIDs_ExpandsFamily(t *testing.T) {
 	}
 }
 
+// TestIsActionableCurrentSession guards the slot from producing a degenerate
+// continue intent: a same-harness row is actionable only with a resume session
+// ID; a cross-harness row only when it carries a work item or worktree handoff
+// (cross-harness resume IDs are suppressed, so an empty-context row would resolve
+// to "continue latest" downstream and resume an unrelated session).
+func TestIsActionableCurrentSession(t *testing.T) {
+	cases := []struct {
+		name    string
+		row     dbpkg.ResumableSession
+		harness string
+		want    bool
+	}{
+		{
+			name:    "same harness with resume id",
+			row:     dbpkg.ResumableSession{Harness: "claude", LastSessionID: "sess-cur"},
+			harness: "claude",
+			want:    true,
+		},
+		{
+			name:    "same harness without resume id",
+			row:     dbpkg.ResumableSession{Harness: "claude", LastSessionID: ""},
+			harness: "claude",
+			want:    false,
+		},
+		{
+			name:    "cross harness with no context",
+			row:     dbpkg.ResumableSession{Harness: "codex", LastSessionID: "sess-x"},
+			harness: "claude",
+			want:    false,
+		},
+		{
+			name:    "cross harness with work item",
+			row:     dbpkg.ResumableSession{Harness: "codex", WorkItemID: "feat-a", LastSessionID: "sess-x"},
+			harness: "claude",
+			want:    true,
+		},
+		{
+			name:    "cross harness with worktree handoff",
+			row:     dbpkg.ResumableSession{Harness: "codex", ExecWorktreePath: ".claude/worktrees/feat-a"},
+			harness: "claude",
+			want:    true,
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := isActionableCurrentSession(tc.row, tc.harness); got != tc.want {
+				t.Fatalf("isActionableCurrentSession() = %v, want %v", got, tc.want)
+			}
+		})
+	}
+}
+
 // TestHasResumableOptions_CurrentOnlyCountsAsResumable is the regression guard
 // for the chooseLaunchIntent gate: when the current-session slot is the ONLY
 // resumable option (both harness groups empty — a split-child session with no or

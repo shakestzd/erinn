@@ -357,7 +357,7 @@ var approvedWriteSites = []writeSite{
 	},
 	{
 		File:           "cmd/wipnote/reindex.go",
-		Line:           51,
+		Line:           52,
 		Function:       "runReindex",
 		OpenExpr:       "dbpkg.Open",
 		Classification: reindexOnly,
@@ -381,7 +381,7 @@ var approvedWriteSites = []writeSite{
 	},
 	{
 		File:           "cmd/wipnote/recap_list.go",
-		Line:           103,
+		Line:           105,
 		Function:       "openRecapsIndex",
 		OpenExpr:       "dbpkg.Open",
 		Classification: reindexOnly,

@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>Wire wipnote yolo through the shared chooser; confirm all harnesses inherit the styling</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="feat-09de2260"
+             data-type="feature"
+             data-status="in-progress"
+             data-priority="medium"
+             data-created="2026-06-18T21:52:46.041612"
+             data-updated="2026-06-19T02:51:46.34017" data-agent-assigned="claude-code" data-track-id="trk-6a1f5362">
+
+        <header>
+            <h1>Wire wipnote yolo through the shared chooser; confirm all harnesses inherit the styling</h1>
+            <div class="metadata">
+                <span class="badge status-in-progress">In Progress</span>
+                <span class="badge priority-medium">Medium Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="blocked_by">
+                <h3>Blocked By:</h3>
+                <ul>
+                    <li><a href="../features/feat-e668de65.html" data-relationship="blocked_by">feat-e668de65</a></li>
+                    <li><a href="../features/feat-71704981.html" data-relationship="blocked_by">feat-71704981</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="planned_in">
+                <h3>Planned In:</h3>
+                <ul>
+                    <li><a href="../plans/plan-92a31aea.html" data-relationship="planned_in" data-since="2026-06-18T21:52:46.04733">plan-92a31aea</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-6a1f5362.html" data-relationship="part_of" data-since="2026-06-18T21:52:46.061241">trk-6a1f5362</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="implemented_in">
+                <h3>Implemented In:</h3>
+                <ul>
+                    <li><a href="../sessions/450fe1a1-83f9-4dca-b98a-31089b7682c2.html" data-relationship="implemented_in" data-since="2026-06-19T02:51:46.339977">session 450fe1a1-83f9-4dca-b98a-31089b7682c2</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>Feasibility audit (already partially done): the shared chooser path
+(promptLaunchIntent / shouldOfferLaunchIntentChooser) is ALREADY referenced by
+codex.go, gemini.go, antigravity.go, and claude_launch_intent.go — so once slice 2
+restyles promptLaunchIntent, claude/codex/gemini/antigravity inherit the styled huh
+chooser and slice-3 banner FOR FREE. The one gap: yolo.go does NOT reference the
+shared chooser path. So this slice&#39;s real work is:
+  1. Confirm antigravity/codex/gemini render the styled chooser end-to-end (smoke +
+     assert they call the shared path; correct harness label via formatHarnessName).
+  2. Wire `wipnote yolo` to the shared chooser/banner — add the intent-resolution call
+     if missing, or document why yolo intentionally skips the chooser (yolo is
+     autonomous; if it shouldn&#39;t prompt, scope drops to applying the slice-3 banner
+     only). Decide and record which.
+No new chooser UI logic — wiring + harness-label correctness + the yolo decision.</p>
+        </section>
+    </article>
+</body>
+</html>

@@ -13,7 +13,7 @@
              data-status="in-progress"
              data-priority="medium"
              data-created="2026-06-18T21:05:36.135315"
-             data-updated="2026-06-19T02:58:10.778051" data-agent-assigned="claude-code" data-track-id="trk-6a1f5362" data-created-by-agent="claude-code" data-created-by-model="claude-opus-4-8[1m]" data-created-by-role="codex" data-created-by-cli-version="0.62.2-247-g9401cab2a">
+             data-updated="2026-06-19T04:51:34.565374" data-agent-assigned="claude-code" data-track-id="trk-6a1f5362" data-created-by-agent="claude-code" data-created-by-model="claude-opus-4-8[1m]" data-created-by-role="codex" data-created-by-cli-version="0.62.2-247-g9401cab2a">
 
         <header>
             <h1>CLI-first resume chooser and continuation hydration redesign</h1>
@@ -47,7 +47,9 @@
 
         <section data-content>
             <h3>Description</h3>
-            <p>Follow-up to plan-311440bf: rank current CLI sessions first in the shared launch chooser; research Claude, Codex, Gemini, and Antigravity resume semantics; redesign continuation hydration and improve the terminal chooser/progress UX.</p>
+            <p>Follow-up to plan-311440bf: rank current CLI sessions first in the shared launch chooser; research Claude, Codex, Gemini, and Antigravity resume semantics; redesign continuation hydration and improve the terminal chooser/progress UX.
+
+Status reconciliation (2026-06-18): the parked working-tree checkpoint (was branch feat-4f5fafee-wip @ 6a37a6c4b) is SUBSUMED by main. Its grouped same/cross-harness resume plumbing landed on main via the trk-6a1f5362 restyle merge (merge be8e98d9; this feature&#39;s committed checkpoint 8ed99f9f9 is reachable from main). The parked NON-restyled chooser variant and its smaller test set are superseded by main&#39;s huh/launchtui restyle and were deliberately NOT brought forward — a delta analysis found zero net-new improvements in the parked work (only dead code: an unused listResumableSessionsForRoot wrapper). The feat-4f5fafee-wip branch was deleted (6a37a6c4b recoverable via reflog). Remaining feature scope (CLI-session-first ranking, cross-harness resume-semantics research, continuation-hydration redesign) should build on main&#39;s restyled code, not the parked checkpoint.</p>
         </section>
     </article>
 </body>

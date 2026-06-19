@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>Plan renderer strips literal angle-bracket placeholders and derives aggregate status from feedback API not baked radios</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="bug-37801e41"
+             data-type="bug"
+             data-status="todo"
+             data-priority="medium"
+             data-created="2026-06-19T04:40:01.006991"
+             data-updated="2026-06-19T04:40:01.016465" data-agent-assigned="claude-code" data-track-id="trk-a951e3c0" data-created-by-agent="claude-code" data-created-by-model="claude-opus-4-8[1m]" data-created-by-cli-version="dev">
+
+        <header>
+            <h1>Plan renderer strips literal angle-bracket placeholders and derives aggregate status from feedback API not baked radios</h1>
+            <div class="metadata">
+                <span class="badge status-todo">Todo</span>
+                <span class="badge priority-medium">Medium Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-a951e3c0.html" data-relationship="part_of" data-since="2026-06-19T04:40:01.016307">trk-a951e3c0</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>Two plan-render bugs from roborev #390: (1) re-rendering strips literal &lt;id&gt;/&lt;range&gt;/&lt;session&gt; placeholders (markdown treats them as HTML tags), corrupting prose like &#39;recap-&lt;id&gt;.html&#39;; fix by escaping/code-spanning in render. (2) Aggregate slice status shows Pending despite baked checked approved radios because progress init depends on feedback API load; init progress unconditionally from baked state. Surfaced re-rendering plan-93b8eba0.</p>
+        </section>
+    </article>
+</body>
+</html>

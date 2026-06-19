@@ -50,13 +50,20 @@ func PropagateFamilyAttribution(db *sql.DB, familyID string) (int, error) {
 		if GetActiveWorkItemWithFallback(db, sid, AgentRootSentinel) != "" {
 			continue // already attributed — never clobber.
 		}
-		if _, err := db.Exec(
-			`UPDATE sessions SET active_feature_id = ?, updated_at = ? WHERE session_id = ?`,
+		// Guard the write itself on the column still being empty so a concurrent
+		// SessionStart/claim that lands between the check above and this UPDATE is
+		// not overwritten (TOCTOU). RowsAffected reflects whether we actually wrote.
+		res, err := db.Exec(
+			`UPDATE sessions SET active_feature_id = ?, updated_at = ?
+			 WHERE session_id = ? AND (active_feature_id IS NULL OR active_feature_id = '')`,
 			donor, now, sid,
-		); err != nil {
+		)
+		if err != nil {
 			return updated, fmt.Errorf("propagate family attribution to %s: %w", sid, err)
 		}
-		updated++
+		if n, aerr := res.RowsAffected(); aerr == nil && n > 0 {
+			updated++
+		}
 	}
 	return updated, nil
 }

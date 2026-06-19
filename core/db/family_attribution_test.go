@@ -148,6 +148,48 @@ func TestPropagateFamilyAttribution_PropagatesViaActiveWorkItem(t *testing.T) {
 	}
 }
 
+// TestPropagateFamilyAttribution_CountReflectsRowsAffected verifies the updated
+// count is driven by rows actually written (conditional UPDATE), and that a
+// second pass is a no-op once every sibling is attributed — the idempotency that
+// the TOCTOU-safe WHERE guard provides.
+func TestPropagateFamilyAttribution_CountReflectsRowsAffected(t *testing.T) {
+	database := openIsolatedDB(t)
+
+	now := time.Now().UTC()
+	if _, err := database.Exec(
+		`INSERT INTO sessions (session_id, agent_assigned, created_at, status, session_family_id, active_feature_id)
+		 VALUES (?, 'claude-code', ?, 'active', 'fam-1', 'feat-x')`,
+		"sess-parent", now.Add(-3*time.Hour).Format(time.RFC3339),
+	); err != nil {
+		t.Fatalf("insert parent: %v", err)
+	}
+	for i, sid := range []string{"sess-child-a", "sess-child-b"} {
+		if _, err := database.Exec(
+			`INSERT INTO sessions (session_id, agent_assigned, created_at, status, session_family_id)
+			 VALUES (?, 'claude-code', ?, 'active', 'fam-1')`,
+			sid, now.Add(-time.Duration(i+1)*time.Hour).Format(time.RFC3339),
+		); err != nil {
+			t.Fatalf("insert %s: %v", sid, err)
+		}
+	}
+
+	n, err := db.PropagateFamilyAttribution(database, "fam-1")
+	if err != nil {
+		t.Fatalf("PropagateFamilyAttribution: %v", err)
+	}
+	if n != 2 {
+		t.Fatalf("first pass updated = %d, want 2", n)
+	}
+	// Second pass: every sibling now attributed → conditional UPDATE writes nothing.
+	n2, err := db.PropagateFamilyAttribution(database, "fam-1")
+	if err != nil {
+		t.Fatalf("second PropagateFamilyAttribution: %v", err)
+	}
+	if n2 != 0 {
+		t.Fatalf("second pass updated = %d, want 0 (idempotent)", n2)
+	}
+}
+
 func TestPropagateFamilyAttribution_EmptyFamilyIsNoOp(t *testing.T) {
 	database := openIsolatedDB(t)
 	n, err := db.PropagateFamilyAttribution(database, "")

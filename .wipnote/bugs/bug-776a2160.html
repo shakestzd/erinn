@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>Plan UI counts answered slice-local questions as open (false open-question badge)</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="bug-776a2160"
+             data-type="bug"
+             data-status="todo"
+             data-priority="medium"
+             data-created="2026-06-19T04:39:59.959457"
+             data-updated="2026-06-19T04:39:59.996508" data-agent-assigned="claude-code" data-track-id="trk-a951e3c0" data-created-by-agent="claude-code" data-created-by-model="claude-opus-4-8[1m]" data-created-by-cli-version="dev">
+
+        <header>
+            <h1>Plan UI counts answered slice-local questions as open (false open-question badge)</h1>
+            <div class="metadata">
+                <span class="badge status-todo">Todo</span>
+                <span class="badge priority-medium">Medium Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-a951e3c0.html" data-relationship="part_of" data-since="2026-06-19T04:39:59.996345">trk-a951e3c0</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>Adding an answered question under slices[].questions makes the generated plan UI count/display it as an open question, contradicting a resolved decision. Renderer/data-model should exclude answered slice questions from the open-question count. Surfaced by roborev #389 on plan-92a31aea slice-4 yolo decision.</p>
+        </section>
+    </article>
+</body>
+</html>

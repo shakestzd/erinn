@@ -88,10 +88,12 @@ func TestIsActionableCurrentSession(t *testing.T) {
 			want:    true,
 		},
 		{
-			name:    "cross harness with worktree handoff",
+			// Worktree without a work item is NOT actionable: the continue-context
+			// path drops the worktree when WorkItemID is empty.
+			name:    "cross harness with worktree but no work item",
 			row:     dbpkg.ResumableSession{Harness: "codex", ExecWorktreePath: ".claude/worktrees/feat-a"},
 			harness: "claude",
-			want:    true,
+			want:    false,
 		},
 	}
 	for _, tc := range cases {

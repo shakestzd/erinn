@@ -146,3 +146,17 @@ func TestInferNodeType_Recap(t *testing.T) {
 		}
 	}
 }
+
+func TestIsRecapHTMLPath(t *testing.T) {
+	root := t.TempDir()
+	wipnoteDir := filepath.Join(root, ".wipnote")
+	if !isRecapHTMLPath(filepath.Join(wipnoteDir, "recaps", "recap-feat-x.html"), wipnoteDir) {
+		t.Fatal("recap html path was not recognized")
+	}
+	if isRecapHTMLPath(filepath.Join(wipnoteDir, "features", "feat-x.html"), wipnoteDir) {
+		t.Fatal("feature html path must not be treated as recap")
+	}
+	if isRecapHTMLPath(filepath.Join(root, "other", "recap-feat-x.html"), wipnoteDir) {
+		t.Fatal("outside path must not be treated as recap")
+	}
+}

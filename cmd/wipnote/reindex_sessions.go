@@ -77,6 +77,7 @@ func parseSessionHTML(database *sql.DB, path, fallbackProjectDir string) (int, e
 	startedAt := parseSessionTimestamp(attrOrDefault(article, "data-started-at", ""))
 	isSubagent := attrOrDefault(article, "data-is-subagent", "false") == "true"
 	startCommit := attrOrDefault(article, "data-start-commit", "")
+	activeFeatureID := attrOrDefault(article, "data-active-feature-id", "")
 
 	// Prefer the article's data-project-dir (HTML canonical) and fall back
 	// to the directory the reindex walker is pointing at. The fallback
@@ -118,6 +119,12 @@ func parseSessionHTML(database *sql.DB, path, fallbackProjectDir string) (int, e
 		_, _ = database.Exec(
 			`UPDATE sessions SET project_dir = ? WHERE session_id = ? AND (project_dir IS NULL OR project_dir = '')`,
 			projectDir, sessionID,
+		)
+	}
+	if activeFeatureID != "" {
+		_, _ = database.Exec(
+			`UPDATE sessions SET active_feature_id = ?, updated_at = ? WHERE session_id = ? AND (active_feature_id IS NULL OR active_feature_id = '')`,
+			activeFeatureID, now.UTC().Format(time.RFC3339), sessionID,
 		)
 	}
 

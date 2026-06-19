@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -118,6 +119,30 @@ func TestReindexSessions_EventIDMapping(t *testing.T) {
 	}
 	if got.SessionID != sessionID {
 		t.Errorf("SessionID: got %q, want %q", got.SessionID, sessionID)
+	}
+}
+
+func TestReindexSessions_RestoresActiveFeatureFromHTML(t *testing.T) {
+	dir := t.TempDir()
+	database := setupSessionTestDB(t)
+
+	sessionID := "sess-active-feature"
+	path := writeSessionHTML(t, dir, sessionID, "claude-code", "2026-03-10T14:32:28Z", nil)
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read session html: %v", err)
+	}
+	updated := strings.Replace(string(data), `data-event-count="0"`, `data-event-count="0" data-active-feature-id="feat-durable"`, 1)
+	if err := os.WriteFile(path, []byte(updated), 0o644); err != nil {
+		t.Fatalf("write session html: %v", err)
+	}
+
+	total, _, errCount := reindexSessions(database, dir, "/test/project")
+	if total != 1 || errCount != 0 {
+		t.Fatalf("reindexSessions total=%d errCount=%d, want total=1 errCount=0", total, errCount)
+	}
+	if got := dbpkg.GetActiveFeatureIDForSession(database, sessionID); got != "feat-durable" {
+		t.Fatalf("active_feature_id = %q, want feat-durable", got)
 	}
 }
 

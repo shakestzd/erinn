@@ -88,4 +88,9 @@ func TestRecapListShowDelete(t *testing.T) {
 	if out, err := run("recap", "delete", recapID); err == nil {
 		t.Fatalf("expected non-zero exit for second delete, got: %s", out)
 	}
+
+	// traversal/separator ids must be rejected before any filesystem delete.
+	if out, err := run("recap", "delete", "../features/"+featureID); err == nil {
+		t.Fatalf("expected non-zero exit for traversal recap delete, got: %s", out)
+	}
 }

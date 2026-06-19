@@ -164,6 +164,57 @@ func TestCollect_FromFeature(t *testing.T) {
 	}
 }
 
+func TestCollect_FromFeature_DiffsOnlySelectedCommits(t *testing.T) {
+	f := newFixture(t)
+	now := time.Now().UTC()
+
+	selected := f.commit("selected root", map[string]string{"selected.txt": "root\n"})
+	unrelated := f.commit("unrelated", map[string]string{"unrelated.txt": "do not include\n"})
+	f.commit("selected followup", map[string]string{"selected.txt": "root\nfollowup\n"})
+
+	if err := dbpkg.InsertFeature(f.db, &dbpkg.Feature{
+		ID: "feat-selected", Type: "feature", Title: "Selected only",
+		Status: "done", Priority: "medium", CreatedAt: now, UpdatedAt: now,
+	}); err != nil {
+		t.Fatalf("InsertFeature: %v", err)
+	}
+	f.recordCommit(selected, "sess-1", "feat-selected", "selected root", now)
+	f.recordCommit(f.commits[2], "sess-1", "feat-selected", "selected followup", now.Add(time.Second))
+
+	data, err := Collect(f.db, Options{Input: "feat-selected", ProjectDir: f.dir})
+	if err != nil {
+		t.Fatalf("Collect: %v", err)
+	}
+	if fc := fileChange(data, "selected.txt"); fc == nil {
+		t.Fatalf("selected.txt missing from selected commit diffs: %+v", data.Files)
+	}
+	if fc := fileChange(data, "unrelated.txt"); fc != nil {
+		t.Fatalf("unrelated intervening commit leaked into recap diff after %s: %+v", unrelated, fc)
+	}
+}
+
+func TestCollect_FromFeature_RootCommitDoesNotRequireParent(t *testing.T) {
+	f := newFixture(t)
+	now := time.Now().UTC()
+
+	root := f.commit("root selected", map[string]string{"root.txt": "hello\n"})
+	if err := dbpkg.InsertFeature(f.db, &dbpkg.Feature{
+		ID: "feat-root", Type: "feature", Title: "Root",
+		Status: "done", Priority: "medium", CreatedAt: now, UpdatedAt: now,
+	}); err != nil {
+		t.Fatalf("InsertFeature: %v", err)
+	}
+	f.recordCommit(root, "sess-root", "feat-root", "root selected", now)
+
+	data, err := Collect(f.db, Options{Input: "feat-root", ProjectDir: f.dir})
+	if err != nil {
+		t.Fatalf("Collect root commit: %v", err)
+	}
+	if fc := fileChange(data, "root.txt"); fc == nil || fc.Change != ChangeAdd {
+		t.Fatalf("root.txt change = %+v, want added file", fc)
+	}
+}
+
 func TestCollect_FromFeature_Deterministic(t *testing.T) {
 	f := newFixture(t)
 	now := time.Now().UTC()

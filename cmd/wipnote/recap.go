@@ -81,6 +81,9 @@ func runRecap(args []string, rangeSpec, sessionID string) error {
 	}
 	data, collectErr := recap.Collect(db, opts)
 	if collectErr != nil {
+		if rangeSpec != "" || sessionID != "" {
+			return collectErr
+		}
 		// For work-item inputs, a collect error is non-fatal — render an empty
 		// recap so the artifact is still written and committed.
 		fmt.Fprintf(os.Stderr, "recap: collect (proceeding with empty): %v\n", collectErr)
@@ -107,6 +110,9 @@ func runRecap(args []string, rangeSpec, sessionID string) error {
 	artifactPath := filepath.Join(recapsDir, recapID+".html")
 	if writeErr := os.WriteFile(artifactPath, buf.Bytes(), 0o644); writeErr != nil {
 		return fmt.Errorf("recap: write artifact: %w", writeErr)
+	}
+	if indexErr := upsertRecapArtifact(wipnoteDir, repoRoot, recapID); indexErr != nil {
+		fmt.Fprintf(os.Stderr, "recap: update read index (non-fatal): %v\n", indexErr)
 	}
 
 	// Commit artifact.

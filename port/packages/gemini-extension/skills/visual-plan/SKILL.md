@@ -88,16 +88,17 @@ If the slice context does not justify a visual block, skip it — do not pad wit
 
 ---
 
-## Step 5: Add blocks to the plan slices
+## Step 5: Rewrite the plan YAML with blocks
 
-Add the authored blocks to each target slice:
+Edit the plan YAML in a temporary file and add the authored `blocks:` entries to
+the target slice objects. Preserve all existing fields and ordering unless the
+block insertion requires a local change.
 
 ```bash
-wipnote plan slice add-blocks <plan-id> <slice-index> --blocks '<json-array>'
+wipnote plan show <plan-id> --format yaml > /tmp/<plan-id>.yaml
+# edit /tmp/<plan-id>.yaml
+wipnote plan rewrite-yaml <plan-id> --file /tmp/<plan-id>.yaml
 ```
-
-If the CLI does not expose `add-blocks`, update the plan slice source directly using
-`wipnote plan edit` or by editing the plan file and running `wipnote plan regenerate <plan-id>`.
 
 Check which subcommands are available:
 
@@ -105,7 +106,7 @@ Check which subcommands are available:
 wipnote plan --help
 ```
 
-Use the available command that matches the current CLI. Do not guess or invent subcommands.
+Use the existing `rewrite-yaml` mutation path. Do not guess or invent subcommands.
 
 ---
 
@@ -114,7 +115,7 @@ Use the available command that matches the current CLI. Do not guess or invent s
 After adding blocks, regenerate the plan HTML so the dashboard reflects the changes:
 
 ```bash
-wipnote plan regenerate <plan-id>
+wipnote plan render <plan-id>
 ```
 
 If the command fails, report the error verbatim — do not attempt to construct the artifact manually.

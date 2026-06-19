@@ -57,6 +57,40 @@ func diffRange(projectDir, gitRange string) ([]FileChange, error) {
 	return files, nil
 }
 
+// diffCommits diffs each selected commit on its own via git show. This avoids
+// treating non-contiguous selected commits as one continuous oldest^..newest
+// range and handles root commits without requiring a parent revision.
+func diffCommits(projectDir string, hashes []string) ([]FileChange, error) {
+	byPath := make(map[string]*FileChange)
+	var order []string
+	for _, hash := range hashes {
+		out, err := exec.Command(
+			"git", "-C", projectDir,
+			"show", "--format=", "--unified=3", "--no-color", hash,
+		).Output()
+		if err != nil {
+			return nil, fmt.Errorf("recap: git show %s: %w", hash, err)
+		}
+		for _, fc := range parseUnifiedDiff(string(out)) {
+			existing := byPath[fc.Path]
+			if existing == nil {
+				copy := fc
+				byPath[fc.Path] = &copy
+				order = append(order, fc.Path)
+				continue
+			}
+			existing.Change = fc.Change
+			existing.Hunks = append(existing.Hunks, fc.Hunks...)
+		}
+	}
+	files := make([]FileChange, 0, len(order))
+	for _, path := range order {
+		files = append(files, *byPath[path])
+	}
+	sortFiles(files)
+	return files, nil
+}
+
 // parseUnifiedDiff parses `git diff --unified` output into FileChange entries.
 // It tracks the add/modify/delete classification from the file header lines and
 // accumulates before/after content per hunk.

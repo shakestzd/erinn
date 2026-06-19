@@ -8,6 +8,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/charmbracelet/huh"
 	"github.com/shakestzd/wipnote/cmd/wipnote/launchtui"
@@ -254,17 +255,17 @@ func buildSelectOptions(harness string, grouped dbpkg.HarnessGroupedResumableSes
 	}
 	idx := 1
 	if grouped.Current != nil {
-		label := fmt.Sprintf("Resume this session: %s", describeCurrentSession(*grouped.Current))
-		opts = append(opts, huh.NewOption(st.AccentText.Render(label), idx))
+		label := st.AccentText.Render("Resume this session") + "  " + describeCurrentSession(*grouped.Current)
+		opts = append(opts, huh.NewOption(label, idx))
 		idx++
 	}
 	for _, row := range grouped.SameHarness {
-		label := fmt.Sprintf("Resume in %s: %s", formatHarnessName(harness), describeResumableSession(row, true))
+		label := fmt.Sprintf("Resume in %s  %s", formatHarnessName(harness), describeResumableSession(row, true))
 		opts = append(opts, huh.NewOption(label, idx))
 		idx++
 	}
 	for _, row := range grouped.CrossHarness {
-		label := fmt.Sprintf("Continue from other harnesses: %s", describeResumableSession(row, false))
+		label := fmt.Sprintf("Continue from %s  %s", formatHarnessName(row.Harness), describeResumableSession(row, false))
 		opts = append(opts, huh.NewOption(label, idx))
 		idx++
 	}
@@ -373,7 +374,7 @@ func promptLaunchIntentNumeric(in io.Reader, out io.Writer, harness string, grou
 		if crossCount == 0 {
 			fmt.Fprintln(out, "\nContinue from other harnesses")
 		}
-		fmt.Fprintf(out, "  %d. %s\n", optionNumber, describeResumableSession(row, false))
+		fmt.Fprintf(out, "  %d. %s  %s\n", optionNumber, formatHarnessName(row.Harness), describeResumableSession(row, false))
 		crossCount++
 		optionNumber++
 	}
@@ -418,66 +419,107 @@ func resumeSessionIDForHarness(row dbpkg.ResumableSession, harness string) strin
 	return ""
 }
 
-// describeCurrentSession renders the "Resume this session" slot. Unlike
-// describeResumableSession it tolerates a missing work item (the common
-// session-split case) and leads with the session identity rather than a work
-// item, since the whole point of the slot is "the session you're in right now".
-func describeCurrentSession(row dbpkg.ResumableSession) string {
-	var parts []string
-	if row.WorkItemID != "" {
-		parts = append(parts, "Resume transcript for", row.WorkItemID)
-		if row.Title != "" {
-			parts = append(parts, strconv.Quote(row.Title))
-		}
-	} else {
-		parts = append(parts, "Resume current transcript")
+// maxChooserTitleLen bounds the work-item title shown in a chooser row so long
+// titles don't wrap and break the single-line scannability of the list.
+const maxChooserTitleLen = 44
+
+// shortSessionID returns the leading segment of a session ID (e.g. the first
+// UUID/ULID group) so a row is identifiable without printing the full ID.
+func shortSessionID(id string) string {
+	id = strings.TrimSpace(id)
+	if i := strings.IndexByte(id, '-'); i >= 4 && i <= 12 {
+		return id[:i]
 	}
-	meta := []string{}
-	if row.Harness != "" {
-		meta = append(meta, row.Harness)
+	if len(id) > 8 {
+		return id[:8]
 	}
-	if row.Live {
-		meta = append(meta, "live")
-	}
-	if row.LastActivity != "" {
-		meta = append(meta, "last "+row.LastActivity)
-	}
-	if row.ExecWorktreePath != "" {
-		meta = append(meta, row.ExecWorktreePath)
-	}
-	if len(meta) > 0 {
-		parts = append(parts, "("+strings.Join(meta, ", ")+")")
-	}
-	return strings.Join(parts, " ")
+	return id
 }
 
-func describeResumableSession(row dbpkg.ResumableSession, sameHarness bool) string {
-	var parts []string
-	if sameHarness {
-		parts = append(parts, "Resume transcript for", row.WorkItemID)
-	} else {
-		parts = append(parts, "Fresh session with handoff for", row.WorkItemID)
+// truncateTitle shortens s to at most n runes, appending an ellipsis when cut.
+func truncateTitle(s string, n int) string {
+	s = strings.TrimSpace(s)
+	r := []rune(s)
+	if len(r) <= n {
+		return s
 	}
-	if row.Title != "" {
-		parts = append(parts, strconv.Quote(row.Title))
+	return strings.TrimRight(string(r[:n-1]), " ") + "…"
+}
+
+// relativeTime renders an RFC3339 timestamp as a short, human delta
+// ("just now", "3m ago", "2h ago", "5d ago"), falling back to the calendar date
+// for older or unparseable values. Empty input yields an empty string.
+func relativeTime(iso string) string {
+	iso = strings.TrimSpace(iso)
+	if iso == "" {
+		return ""
 	}
-	meta := []string{row.Harness}
-	if row.Type != "" {
-		meta = append(meta, row.Type)
+	t, err := time.Parse(time.RFC3339, iso)
+	if err != nil {
+		if t2, e2 := time.Parse("2006-01-02T15:04:05.999999999Z07:00", iso); e2 == nil {
+			t = t2
+		} else if len(iso) >= 10 {
+			return iso[:10]
+		} else {
+			return iso
+		}
 	}
+	d := time.Since(t)
+	switch {
+	case d < time.Minute:
+		return "just now"
+	case d < time.Hour:
+		return fmt.Sprintf("%dm ago", int(d.Minutes()))
+	case d < 24*time.Hour:
+		return fmt.Sprintf("%dh ago", int(d.Hours()))
+	case d < 14*24*time.Hour:
+		return fmt.Sprintf("%dd ago", int(d.Hours()/24))
+	default:
+		return t.Format("2006-01-02")
+	}
+}
+
+// joinChooserSegments joins non-empty segments with a middot separator.
+func joinChooserSegments(segs ...string) string {
+	out := segs[:0]
+	for _, s := range segs {
+		if strings.TrimSpace(s) != "" {
+			out = append(out, s)
+		}
+	}
+	return strings.Join(out, " · ")
+}
+
+// describeCurrentSession renders the body of the "Resume this session" slot.
+// It leads with the short session ID (the slot's identity, since this session
+// often has no work item), then the work item and a relative timestamp.
+func describeCurrentSession(row dbpkg.ResumableSession) string {
+	id := shortSessionID(row.LastSessionID)
+	work := row.WorkItemID
+	if work != "" && row.Title != "" {
+		work += " " + truncateTitle(row.Title, maxChooserTitleLen)
+	}
+	when := relativeTime(row.LastActivity)
 	if row.Live {
-		meta = append(meta, "live")
+		when = joinChooserSegments("live", when)
 	}
-	if row.LastActivity != "" {
-		meta = append(meta, "last "+row.LastActivity)
+	return joinChooserSegments(id, work, when)
+}
+
+// describeResumableSession renders the body of a grouped resume row: work item,
+// truncated title, and a relative timestamp. The action verb and source harness
+// live in the row's group prefix/header, not here, to avoid the doubled
+// "Resume … Resume transcript for …" phrasing the old format produced.
+func describeResumableSession(row dbpkg.ResumableSession, sameHarness bool) string {
+	work := row.WorkItemID
+	if row.Type != "" {
+		work = fmt.Sprintf("%s (%s)", row.WorkItemID, row.Type)
 	}
-	if row.ExecWorktreePath != "" {
-		meta = append(meta, row.ExecWorktreePath)
+	when := relativeTime(row.LastActivity)
+	if row.Live {
+		when = joinChooserSegments("live", when)
 	}
-	if len(meta) > 0 {
-		parts = append(parts, "("+strings.Join(meta, ", ")+")")
-	}
-	return strings.Join(parts, " ")
+	return joinChooserSegments(work, truncateTitle(row.Title, maxChooserTitleLen), when)
 }
 
 func formatHarnessName(harness string) string {

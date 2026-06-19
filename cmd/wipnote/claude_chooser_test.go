@@ -132,8 +132,8 @@ func TestPromptLaunchIntent_GroupsSameHarnessBeforeCrossHarness(t *testing.T) {
 	for _, want := range []string{
 		"Resume in Codex",
 		"Continue from other harnesses",
-		"Resume transcript for feat-codex",
-		"Fresh session with handoff for feat-cross",
+		"feat-codex",
+		"feat-cross",
 	} {
 		if !strings.Contains(rendered, want) {
 			t.Fatalf("prompt output missing %q:\n%s", want, rendered)

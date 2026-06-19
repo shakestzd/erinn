@@ -74,23 +74,6 @@ func resolveLaunchIntentForDefaultLaunch(projectRoot, canonicalRoot, harness str
 	return chooseLaunchIntentFn(projectRoot, canonicalRoot, harness, in, out)
 }
 
-func listResumableSessionsForRoot(projectRoot, canonicalRoot string) ([]dbpkg.ResumableSession, error) {
-	root := canonicalRoot
-	if root == "" {
-		root = projectRoot
-	}
-	if root == "" {
-		return nil, nil
-	}
-	wipnoteDir := root + string(os.PathSeparator) + ".wipnote"
-	db, err := openReadOnlyDB(wipnoteDir)
-	if err != nil {
-		return nil, err
-	}
-	defer db.Close()
-	return dbpkg.ListResumableSessions(db, dbpkg.LivenessStalenessThreshold(root))
-}
-
 func listGroupedResumableSessionsForRoot(projectRoot, canonicalRoot, harness string) (dbpkg.HarnessGroupedResumableSessions, error) {
 	root := canonicalRoot
 	if root == "" {

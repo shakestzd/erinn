@@ -63,7 +63,11 @@ func chooseLaunchIntent(projectRoot, canonicalRoot, harness string, in io.Reader
 	if err != nil {
 		return launcher.NewWorkIntent(), err
 	}
-	if len(grouped.SameHarness) == 0 && len(grouped.CrossHarness) == 0 {
+	// Skip the chooser only when there is genuinely nothing to resume. The
+	// current-session slot counts: it is the whole point of this path for a
+	// split-child session with no (or a completed) work item, which never
+	// appears in the same/cross-harness groups.
+	if !hasResumableOptions(grouped) {
 		return launcher.NewWorkIntent(), nil
 	}
 	return promptLaunchIntent(in, out, harness, grouped)
@@ -228,6 +232,14 @@ func buildSelectOptions(harness string, grouped dbpkg.HarnessGroupedResumableSes
 		idx++
 	}
 	return opts
+}
+
+// hasResumableOptions reports whether a grouped listing has anything the chooser
+// can offer. The current-session slot counts even when both harness groups are
+// empty — it lives outside them, so the gate must not be derived from group
+// emptiness alone (that would drop the slot in exactly the split-child case).
+func hasResumableOptions(grouped dbpkg.HarnessGroupedResumableSessions) bool {
+	return grouped.Current != nil || len(grouped.SameHarness) > 0 || len(grouped.CrossHarness) > 0
 }
 
 // orderedRowsFor flattens a grouped listing into the index order the chooser

@@ -51,6 +51,52 @@ func TestResolveCurrentSessionIDs_ExpandsFamily(t *testing.T) {
 	}
 }
 
+// TestHasResumableOptions_CurrentOnlyCountsAsResumable is the regression guard
+// for the chooseLaunchIntent gate: when the current-session slot is the ONLY
+// resumable option (both harness groups empty — a split-child session with no or
+// a completed work item), the chooser must NOT short-circuit to new work.
+func TestHasResumableOptions_CurrentOnlyCountsAsResumable(t *testing.T) {
+	cases := []struct {
+		name    string
+		grouped dbpkg.HarnessGroupedResumableSessions
+		want    bool
+	}{
+		{
+			name:    "nothing resumable",
+			grouped: dbpkg.HarnessGroupedResumableSessions{},
+			want:    false,
+		},
+		{
+			name: "current slot only",
+			grouped: dbpkg.HarnessGroupedResumableSessions{
+				Current: &dbpkg.ResumableSession{Harness: "claude", LastSessionID: "sess-current"},
+			},
+			want: true,
+		},
+		{
+			name: "same-harness only",
+			grouped: dbpkg.HarnessGroupedResumableSessions{
+				SameHarness: []dbpkg.ResumableSession{{WorkItemID: "feat-a", Harness: "claude", LastSessionID: "sess-a"}},
+			},
+			want: true,
+		},
+		{
+			name: "cross-harness only",
+			grouped: dbpkg.HarnessGroupedResumableSessions{
+				CrossHarness: []dbpkg.ResumableSession{{WorkItemID: "feat-b", Harness: "codex", LastSessionID: "sess-b"}},
+			},
+			want: true,
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := hasResumableOptions(tc.grouped); got != tc.want {
+				t.Fatalf("hasResumableOptions() = %v, want %v", got, tc.want)
+			}
+		})
+	}
+}
+
 // TestPromptLaunchIntent_CurrentSessionSlotAtTop verifies the first-class
 // "Resume this session" entry: it renders above the same/cross-harness groups
 // (numeric option 2) and resolves to a continue intent that resumes the current

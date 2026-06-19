@@ -505,7 +505,7 @@ body.right-rail-collapsed .sidebar-reopen{display:flex}
   
   <div class="meta">
     <span class="badge badge-approved">Done</span>
-    <span style="font-size:.75rem;color:var(--text-muted)">v2 · 4 slices · Created 2026-06-18</span>
+    <span style="font-size:.75rem;color:var(--text-muted)">v2 · 4 slices · Created 2026-06-19</span>
   </div>
 </header>
 <button id="themeToggle" style="position:fixed;top:16px;right:16px;z-index:100;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:6px 12px;color:var(--text);font-family:var(--mono);font-size:0.75rem;cursor:pointer;">
@@ -688,7 +688,50 @@ Exact v1 tag is pinned at implementation via <code>go get github.com/charmbracel
     </div>
     
 
+    <div class="slice-field slice-blocks">
+  <div class="slice-field-label">Blocks</div>
+  <div class="slice-field-value block-zone">
+    <div class="block-anchor" id="slice-1-block-file-tree-1" data-block-anchor="slice-1-block-file-tree-1" data-block-kind="file-tree"><div class="block block-file-tree">
+  <ul class="file-list">
+    <li class="file-entry"><code class="file-path">go.mod</code></li>
+    <li class="file-entry"><code class="file-path">go.sum</code></li>
+    <li class="file-entry"><code class="file-path">cmd/wipnote/launchtui/theme.go</code></li>
+    <li class="file-entry"><code class="file-path">cmd/wipnote/launchtui/theme_test.go</code></li>
     
+  </ul>
+</div></div>
+    <div class="block-anchor" id="slice-1-block-data-model-1" data-block-anchor="slice-1-block-data-model-1" data-block-kind="data-model"><div class="block block-data-model">
+  <div class="block-header"><span class="block-kind">data-model</span><span class="block-title">launchtui palette</span></div>
+  <table class="block-table">
+    <thead><tr><th>Field</th><th>Type</th><th>Note</th></tr></thead>
+    <tbody>
+      <tr><td><code>accent</code></td><td><code>#CDFF00</code></td><td>&mdash;</td></tr>
+      <tr><td><code>accent-text</code></td><td><code>#0A0A0A</code></td><td>&mdash;</td></tr>
+      <tr><td><code>bg</code></td><td><code>#151518</code></td><td>&mdash;</td></tr>
+      <tr><td><code>bg-alt</code></td><td><code>#1C1C20</code></td><td>&mdash;</td></tr>
+      <tr><td><code>text</code></td><td><code>#E0DED8</code></td><td>&mdash;</td></tr>
+      <tr><td><code>muted</code></td><td><code>#707070</code></td><td>&mdash;</td></tr>
+      
+    </tbody>
+  </table>
+</div></div>
+    <div class="block-anchor" id="slice-1-block-data-model-2" data-block-anchor="slice-1-block-data-model-2" data-block-kind="data-model"><div class="block block-data-model">
+  <div class="block-header"><span class="block-kind">data-model</span><span class="block-title">launchtui.Styles</span></div>
+  <table class="block-table">
+    <thead><tr><th>Field</th><th>Type</th><th>Note</th></tr></thead>
+    <tbody>
+      <tr><td><code>Accent</code></td><td><code>lipgloss.Style</code></td><td>&mdash;</td></tr>
+      <tr><td><code>Muted</code></td><td><code>lipgloss.Style</code></td><td>&mdash;</td></tr>
+      <tr><td><code>Title</code></td><td><code>lipgloss.Style</code></td><td>&mdash;</td></tr>
+      <tr><td><code>SectionHeader</code></td><td><code>lipgloss.Style</code></td><td>&mdash;</td></tr>
+      <tr><td><code>Frame</code></td><td><code>lipgloss.Style</code></td><td>&mdash;</td></tr>
+      
+    </tbody>
+  </table>
+</div></div>
+    
+  </div>
+</div>
 
     
     <div class="slice-field slice-tests-field">
@@ -845,7 +888,41 @@ confirmed via pkg.go.dev WithAccessible being explicit).</p>
     </div>
     
 
+    <div class="slice-field slice-blocks">
+  <div class="slice-field-label">Blocks</div>
+  <div class="slice-field-value block-zone">
+    <div class="block-anchor" id="slice-2-block-file-tree-1" data-block-anchor="slice-2-block-file-tree-1" data-block-kind="file-tree"><div class="block block-file-tree">
+  <ul class="file-list">
+    <li class="file-entry"><code class="file-path">cmd/wipnote/claude_chooser.go</code></li>
+    <li class="file-entry"><code class="file-path">cmd/wipnote/claude_chooser_test.go</code></li>
     
+  </ul>
+</div></div>
+    <div class="block-anchor" id="slice-2-block-data-model-1" data-block-anchor="slice-2-block-data-model-1" data-block-kind="data-model"><div class="block block-data-model">
+  <div class="block-header"><span class="block-kind">data-model</span><span class="block-title">ResumableSession</span></div>
+  <table class="block-table">
+    <thead><tr><th>Field</th><th>Type</th><th>Note</th></tr></thead>
+    <tbody>
+      <tr><td><code>WorkItemID</code></td><td><code>string</code></td><td>&mdash;</td></tr>
+      <tr><td><code>Title</code></td><td><code>string</code></td><td>&mdash;</td></tr>
+      <tr><td><code>Type</code></td><td><code>string</code></td><td>&mdash;</td></tr>
+      <tr><td><code>Harness</code></td><td><code>string</code></td><td>&mdash;</td></tr>
+      <tr><td><code>LastActivity</code></td><td><code>relative-time</code></td><td>&mdash;</td></tr>
+      <tr><td><code>Live</code></td><td><code>badge</code></td><td>&mdash;</td></tr>
+      <tr><td><code>Worktree</code></td><td><code>path</code></td><td>&mdash;</td></tr>
+      
+    </tbody>
+  </table>
+</div></div>
+    <div class="block-anchor" id="slice-2-block-diagram-1" data-block-anchor="slice-2-block-diagram-1" data-block-kind="diagram"><div class="block block-diagram">
+  <div class="block-header"><span class="block-kind">diagram</span><span class="block-title">Chooser selection flow &#43; non-TTY/error fallback</span></div>
+  <div class="diagram-flow diagram-lr">
+    <div class="diagram-node">stdin char-device gate (shouldOfferLaunchIntentChooser :34)</div><span class="diagram-arrow" aria-hidden="true">&#8594;</span><div class="diagram-node">huh Select — groups New / Resume same-harness / Continue cross-harness</div><span class="diagram-arrow" aria-hidden="true">&#8594;</span><div class="diagram-node">selected index mapped back to LaunchIntent</div><span class="diagram-arrow" aria-hidden="true">&#8594;</span><div class="diagram-node">huh.Run error or ACCESSIBLE → numeric bufio fallback</div><span class="diagram-arrow" aria-hidden="true">&#8594;</span><div class="diagram-node">non-char-device stdin → bypass chooser → NewWorkIntent</div>
+  </div>
+</div></div>
+    
+  </div>
+</div>
 
     
     <div class="slice-field slice-tests-field">
@@ -1039,7 +1116,31 @@ warning to stdout (would change scrape/redirect behavior).</p>
     </div>
     
 
+    <div class="slice-field slice-blocks">
+  <div class="slice-field-label">Blocks</div>
+  <div class="slice-field-value block-zone">
+    <div class="block-anchor" id="slice-3-block-file-tree-1" data-block-anchor="slice-3-block-file-tree-1" data-block-kind="file-tree"><div class="block block-file-tree">
+  <ul class="file-list">
+    <li class="file-entry"><code class="file-path">cmd/wipnote/launchtui/banner.go</code></li>
+    <li class="file-entry"><code class="file-path">cmd/wipnote/claude.go</code></li>
+    <li class="file-entry"><code class="file-path">cmd/wipnote/launcher_mode.go</code></li>
+    <li class="file-entry"><code class="file-path">cmd/wipnote/launcher_continue.go</code></li>
     
+  </ul>
+</div></div>
+    <div class="block-anchor" id="slice-3-block-wireframe-1" data-block-anchor="slice-3-block-wireframe-1" data-block-kind="wireframe"><div class="block block-wireframe">
+  <div class="block-header"><span class="block-kind">wireframe</span><span class="block-title">Framed launch/warning/session banner (RenderLaunchBanner)</span></div>
+  <div class="wireframe-canvas" style="--wf-bg:var(--bg-card,#18181c);--wf-surface:var(--bg-input,#222228);--wf-fg:var(--text,#f0f0ed);--wf-muted:var(--text-muted,#9898a0);--wf-border:var(--border,#3a3a42);--wf-accent:var(--accent,#cdff00);--wf-radius:var(--radius,8px);position:relative;overflow:hidden;contain:layout paint;"><div style="background: var(--wf-bg); color: var(--wf-fg); border: 1px solid var(--wf-border); padding: 14px">
+  <div style="color: var(--wf-accent)">⚠ Warning: launching on dirty protected branch (main)</div>
+  <div style="color: var(--wf-fg); margin-top: 10px">▶ Launching Claude Code</div>
+  <div style="color: var(--wf-muted); margin-top: 2px">plugin source · ~/.local/share/wipnote/plugin</div>
+  <div style="color: var(--wf-muted)">session · 7ad16954…5739e</div>
+</div>
+</div>
+</div></div>
+    
+  </div>
+</div>
 
     
     <div class="slice-field slice-tests-field">
@@ -1197,7 +1298,44 @@ treating all four launchers as equal net-new work (audit disproved it).</p>
     </div>
     
 
+    <div class="slice-field slice-blocks">
+  <div class="slice-field-label">Blocks</div>
+  <div class="slice-field-value block-zone">
+    <div class="block-anchor" id="slice-4-block-file-tree-1" data-block-anchor="slice-4-block-file-tree-1" data-block-kind="file-tree"><div class="block block-file-tree">
+  <ul class="file-list">
+    <li class="file-entry"><code class="file-path">cmd/wipnote/yolo.go</code></li>
+    <li class="file-entry"><code class="file-path">cmd/wipnote/antigravity.go</code></li>
+    <li class="file-entry"><code class="file-path">cmd/wipnote/claude_chooser_test.go</code></li>
     
+  </ul>
+</div></div>
+    <div class="block-anchor" id="slice-4-block-tabs-1" data-block-anchor="slice-4-block-tabs-1" data-block-kind="tabs"><div class="block block-tabs">
+  <div class="block-header"><span class="block-kind">tabs</span><span class="block-title">Per-harness chooser routing (inherit-for-free vs net-new)</span></div>
+  <div class="tabs">
+    <input class="tab-radio" type="radio" name="tabs-1sy3uv8" id="tabs-1sy3uv8-0" checked>
+    <input class="tab-radio" type="radio" name="tabs-1sy3uv8" id="tabs-1sy3uv8-1">
+    <input class="tab-radio" type="radio" name="tabs-1sy3uv8" id="tabs-1sy3uv8-2">
+    <input class="tab-radio" type="radio" name="tabs-1sy3uv8" id="tabs-1sy3uv8-3">
+    <input class="tab-radio" type="radio" name="tabs-1sy3uv8" id="tabs-1sy3uv8-4">
+    <div class="tab-labels">
+      <label class="tab-label" for="tabs-1sy3uv8-0">claude</label>
+      <label class="tab-label" for="tabs-1sy3uv8-1">codex</label>
+      <label class="tab-label" for="tabs-1sy3uv8-2">gemini</label>
+      <label class="tab-label" for="tabs-1sy3uv8-3">antigravity</label>
+      <label class="tab-label" for="tabs-1sy3uv8-4">yolo</label>
+      </div>
+    <div class="tab-panels">
+      <div class="tab-panel">Already calls promptLaunchIntent → inherits styled chooser &#43; banner for free.</div>
+      <div class="tab-panel">Routes through the shared path (codex.go) → inherits; no per-harness work.</div>
+      <div class="tab-panel">Routes through the shared path (gemini.go) → inherits.</div>
+      <div class="tab-panel">Routes through the shared path (antigravity.go) → inherits; confirm harness label via formatHarnessName.</div>
+      <div class="tab-panel">Sole net-new wiring — decide present shared chooser vs banner-only (autonomous). Resolved in this slice.</div>
+      </div>
+  </div>
+</div></div>
+    
+  </div>
+</div>
 
     
     <div class="slice-field slice-tests-field">

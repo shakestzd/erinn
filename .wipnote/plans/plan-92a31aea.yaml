@@ -80,6 +80,46 @@ slices:
         - url: https://pkg.go.dev/github.com/charmbracelet/lipgloss
           claim: lipgloss.Color hex + Style.Foreground/Background is the API for encoding the palette; adopted instead of hand-rolling ANSI escape codes.
           accessed: "2026-06-18"
+      blocks:
+        - type: file-tree
+          title: Files this slice touches
+          entries:
+            - go.mod
+            - go.sum
+            - cmd/wipnote/launchtui/theme.go
+            - cmd/wipnote/launchtui/theme_test.go
+        - type: data-model
+          title: Dashboard palette tokens (mirrors plugin/static has-styles.css)
+          fields:
+            name: launchtui palette
+          rows:
+            - name: accent
+              type: "#CDFF00"
+            - name: accent-text
+              type: "#0A0A0A"
+            - name: bg
+              type: "#151518"
+            - name: bg-alt
+              type: "#1C1C20"
+            - name: text
+              type: "#E0DED8"
+            - name: muted
+              type: "#707070"
+        - type: data-model
+          title: launchtui.Styles (named lipgloss.Style helpers)
+          fields:
+            name: launchtui.Styles
+          rows:
+            - name: Accent
+              type: lipgloss.Style
+            - name: Muted
+              type: lipgloss.Style
+            - name: Title
+              type: lipgloss.Style
+            - name: SectionHeader
+              type: lipgloss.Style
+            - name: Frame
+              type: lipgloss.Style
       execution_status: promoted
       decisions_notes: |
         **Scope:** new launchtui package + go.mod dep only; no caller wired yet.
@@ -145,6 +185,41 @@ slices:
         - url: https://pkg.go.dev/github.com/charmbracelet/lipgloss
           claim: lipgloss strips color when output is not a TTY — safe for the fallback/redirect path.
           accessed: "2026-06-18"
+      blocks:
+        - type: file-tree
+          title: Files this slice touches
+          entries:
+            - cmd/wipnote/claude_chooser.go
+            - cmd/wipnote/claude_chooser_test.go
+        - type: data-model
+          title: ResumableSession display fields (core/db/session_repo.go:527)
+          fields:
+            name: ResumableSession
+          rows:
+            - name: WorkItemID
+              type: string
+            - name: Title
+              type: string
+            - name: Type
+              type: string
+            - name: Harness
+              type: string
+            - name: LastActivity
+              type: relative-time
+            - name: Live
+              type: badge
+            - name: Worktree
+              type: path
+        - type: diagram
+          title: Chooser selection flow + non-TTY/error fallback
+          fields:
+            direction: lr
+          entries:
+            - stdin char-device gate (shouldOfferLaunchIntentChooser :34)
+            - huh Select — groups New / Resume same-harness / Continue cross-harness
+            - selected index mapped back to LaunchIntent
+            - huh.Run error or ACCESSIBLE → numeric bufio fallback
+            - non-char-device stdin → bypass chooser → NewWorkIntent
       execution_status: promoted
       questions:
         - id: q-select-type
@@ -214,6 +289,24 @@ slices:
         - url: https://pkg.go.dev/github.com/charmbracelet/lipgloss
           claim: lipgloss.Style.Border/Padding/Foreground compose a framed block; color is auto-stripped on non-TTY — covers both the styled and plain banner requirements.
           accessed: "2026-06-18"
+      blocks:
+        - type: file-tree
+          title: Files this slice touches
+          entries:
+            - cmd/wipnote/launchtui/banner.go
+            - cmd/wipnote/claude.go
+            - cmd/wipnote/launcher_mode.go
+            - cmd/wipnote/launcher_continue.go
+        - type: wireframe
+          title: Framed launch/warning/session banner (RenderLaunchBanner)
+          fields:
+            html: |
+              <div style="background:var(--wf-bg);color:var(--wf-fg);border:1px solid var(--wf-border);border-radius:var(--wf-radius);padding:14px;font-family:monospace">
+                <div style="color:var(--wf-accent);font-weight:700">⚠ Warning: launching on dirty protected branch (main)</div>
+                <div style="color:var(--wf-fg);font-weight:700;margin-top:10px">▶ Launching Claude Code</div>
+                <div style="color:var(--wf-muted);margin-top:2px">plugin source · ~/.local/share/wipnote/plugin</div>
+                <div style="color:var(--wf-muted)">session · 7ad16954…5739e</div>
+              </div>
       execution_status: promoted
       decisions_notes: |
         **Scope:** banner-only restyle across the four launcher print sites; reuses slice-1
@@ -268,6 +361,26 @@ slices:
       approved: true
       comment: ""
       research_waiver: Internal wiring of existing wipnote launcher entrypoints to the already-shared chooser path — no external library/standard beyond slices 1-3 (already cited). Feasibility audit (grep over cmd/wipnote/) already verified yolo.go/antigravity.go exist and that only yolo.go lacks the shared-path reference, so this is no longer unverified.
+      blocks:
+        - type: file-tree
+          title: Files this slice touches
+          entries:
+            - cmd/wipnote/yolo.go
+            - cmd/wipnote/antigravity.go
+            - cmd/wipnote/claude_chooser_test.go
+        - type: tabs
+          title: Per-harness chooser routing (inherit-for-free vs net-new)
+          rows:
+            - label: claude
+              body: Already calls promptLaunchIntent → inherits styled chooser + banner for free.
+            - label: codex
+              body: Routes through the shared path (codex.go) → inherits; no per-harness work.
+            - label: gemini
+              body: Routes through the shared path (gemini.go) → inherits.
+            - label: antigravity
+              body: Routes through the shared path (antigravity.go) → inherits; confirm harness label via formatHarnessName.
+            - label: yolo
+              body: Sole net-new wiring — decide present shared chooser vs banner-only (autonomous). Resolved in this slice.
       execution_status: promoted
       critic_revisions:
         - source: local-feasibility

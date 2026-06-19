@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>PropagateFamilyAttribution TOCTOU: conditional UPDATE to avoid clobbering concurrent claims</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="bug-8012ff7d"
+             data-type="bug"
+             data-status="todo"
+             data-priority="medium"
+             data-created="2026-06-19T06:23:22.19244"
+             data-updated="2026-06-19T06:23:22.249316" data-agent-assigned="claude-code" data-track-id="trk-6a1f5362" data-created-by-agent="claude-code" data-created-by-model="claude-opus-4-8[1m]" data-created-by-cli-version="0.62.2-457-g1058236ce">
+
+        <header>
+            <h1>PropagateFamilyAttribution TOCTOU: conditional UPDATE to avoid clobbering concurrent claims</h1>
+            <div class="metadata">
+                <span class="badge status-todo">Todo</span>
+                <span class="badge priority-medium">Medium Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-6a1f5362.html" data-relationship="part_of" data-since="2026-06-19T06:23:22.248705">trk-6a1f5362</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>roborev review finding (job 396) on family_attribution.go:51: empty-check then unconditional UPDATE lets a concurrent SessionStart/claim write attribution between the read and the write, which the donor UPDATE then overwrites. Fix: make UPDATE conditional on active_feature_id still being NULL/empty and count RowsAffected.</p>
+        </section>
+    </article>
+</body>
+</html>

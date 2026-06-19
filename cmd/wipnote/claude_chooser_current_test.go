@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/shakestzd/wipnote/core/agent"
 	dbpkg "github.com/shakestzd/wipnote/core/db"
@@ -48,6 +49,77 @@ func TestResolveCurrentSessionIDs_ExpandsFamily(t *testing.T) {
 	}
 	if got["sess-other"] {
 		t.Errorf("unrelated-family session sess-other must not be included: %v", ids)
+	}
+}
+
+func TestShortSessionID(t *testing.T) {
+	cases := map[string]string{
+		"6ef24b5a-c9e2-4501-901e-b15de323782f": "6ef24b5a",
+		"019ede12-3456":                        "019ede12",
+		"abcdefghij":                           "abcdefgh", // no dash, first 8
+		"short":                                "short",
+		"":                                     "",
+	}
+	for in, want := range cases {
+		if got := shortSessionID(in); got != want {
+			t.Errorf("shortSessionID(%q) = %q, want %q", in, got, want)
+		}
+	}
+}
+
+func TestTruncateTitle(t *testing.T) {
+	if got := truncateTitle("short title", 44); got != "short title" {
+		t.Errorf("short unchanged: got %q", got)
+	}
+	long := "Plan renderer strips literal angle-bracket placeholders and derives status"
+	got := truncateTitle(long, 44)
+	if n := len([]rune(got)); n > 44 {
+		t.Errorf("truncated len = %d, want <= 44: %q", n, got)
+	}
+	if !strings.HasSuffix(got, "…") {
+		t.Errorf("truncated should end with ellipsis: %q", got)
+	}
+}
+
+func TestRelativeTime(t *testing.T) {
+	if got := relativeTime(""); got != "" {
+		t.Errorf("empty: got %q, want empty", got)
+	}
+	if got := relativeTime("not-a-timestamp"); got == "" {
+		t.Errorf("unparseable should fall back to raw, got empty")
+	}
+	// Far past → calendar date fallback.
+	if got := relativeTime("2000-01-02T03:04:05Z"); got != "2000-01-02" {
+		t.Errorf("old date: got %q, want 2000-01-02", got)
+	}
+	// Fractional-second RFC3339 (as messages.timestamp stores) must parse.
+	old := time.Now().UTC().Add(-3 * time.Hour).Format("2006-01-02T15:04:05.000Z07:00")
+	if got := relativeTime(old); got != "3h ago" {
+		t.Errorf("3h fractional: got %q, want 3h ago", got)
+	}
+	// SQLite CURRENT_TIMESTAMP form ("2006-01-02 15:04:05", UTC, no zone) must
+	// also render as a relative delta, not a bare date.
+	sqliteNow := time.Now().UTC().Add(-5 * time.Minute).Format("2006-01-02 15:04:05")
+	if got := relativeTime(sqliteNow); got != "5m ago" {
+		t.Errorf("sqlite datetime: got %q, want 5m ago", got)
+	}
+}
+
+// TestDescribeCurrentSession_ShowsSessionID is the direct fix for the "looks
+// hardwired" feedback: the current-session slot must surface its short session
+// ID so the user can see which session it resolves to.
+func TestDescribeCurrentSession_ShowsSessionID(t *testing.T) {
+	row := dbpkg.ResumableSession{
+		Harness:       "claude",
+		LastSessionID: "6ef24b5a-c9e2-4501-901e-b15de323782f",
+		LastActivity:  "2000-01-02T03:04:05Z",
+	}
+	got := describeCurrentSession(row)
+	if !strings.Contains(got, "6ef24b5a") {
+		t.Fatalf("current-session description missing short session id: %q", got)
+	}
+	if strings.Contains(got, "6ef24b5a-c9e2-4501") {
+		t.Fatalf("should show SHORT id, not the full UUID: %q", got)
 	}
 }
 

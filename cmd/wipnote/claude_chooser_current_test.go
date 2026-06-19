@@ -97,6 +97,12 @@ func TestRelativeTime(t *testing.T) {
 	if got := relativeTime(old); got != "3h ago" {
 		t.Errorf("3h fractional: got %q, want 3h ago", got)
 	}
+	// SQLite CURRENT_TIMESTAMP form ("2006-01-02 15:04:05", UTC, no zone) must
+	// also render as a relative delta, not a bare date.
+	sqliteNow := time.Now().UTC().Add(-5 * time.Minute).Format("2006-01-02 15:04:05")
+	if got := relativeTime(sqliteNow); got != "5m ago" {
+		t.Errorf("sqlite datetime: got %q, want 5m ago", got)
+	}
 }
 
 // TestDescribeCurrentSession_ShowsSessionID is the direct fix for the "looks

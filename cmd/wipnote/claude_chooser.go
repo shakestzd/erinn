@@ -454,15 +454,36 @@ func relativeTime(iso string) string {
 	if iso == "" {
 		return ""
 	}
-	t, err := time.Parse(time.RFC3339, iso)
-	if err != nil {
-		if t2, e2 := time.Parse("2006-01-02T15:04:05.999999999Z07:00", iso); e2 == nil {
-			t = t2
-		} else if len(iso) >= 10 {
-			return iso[:10]
+	// last_activity is a MAX() across several columns, so the layout varies:
+	// RFC3339 (with/without fractional seconds) from Go-written rows, and the
+	// SQLite CURRENT_TIMESTAMP / datetime('now') form ("2006-01-02 15:04:05",
+	// UTC, space-separated) from columns with DB-side defaults.
+	layouts := []string{
+		time.RFC3339,
+		"2006-01-02T15:04:05.999999999Z07:00",
+		"2006-01-02 15:04:05.999999999",
+		"2006-01-02 15:04:05",
+	}
+	var t time.Time
+	parsed := false
+	for i, layout := range layouts {
+		var err error
+		// The SQLite layouts have no zone; treat them as UTC (how SQLite writes them).
+		if i >= 2 {
+			t, err = time.ParseInLocation(layout, iso, time.UTC)
 		} else {
-			return iso
+			t, err = time.Parse(layout, iso)
 		}
+		if err == nil {
+			parsed = true
+			break
+		}
+	}
+	if !parsed {
+		if len(iso) >= 10 {
+			return iso[:10]
+		}
+		return iso
 	}
 	d := time.Since(t)
 	switch {

@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/shakestzd/wipnote/cmd/wipnote/launchtui"
 	"github.com/shakestzd/wipnote/core/slug"
 	"github.com/shakestzd/wipnote/internal/launcher"
 	"github.com/spf13/cobra"
@@ -239,13 +240,15 @@ func launchClaudeDev(extraArgs []string, auto bool, resumeID, name, workItem str
 
 	sessionName := resolveSessionName(name, resumeID, continue_, projectRoot)
 
+	devHeadline := "Launching Claude Code with local plugin (--plugin-dir mode)"
 	if auto {
-		fmt.Printf("Launching Claude Code with local plugin (--plugin-dir mode) + auto mode\n")
-	} else {
-		fmt.Printf("Launching Claude Code with local plugin (--plugin-dir mode)\n")
+		devHeadline += " + auto mode"
 	}
-	fmt.Printf("  Plugin source: %s\n", pluginDir)
-	fmt.Printf("  Session: %s\n", sessionName)
+	fmt.Println(launchtui.RenderLaunchBanner(nil, launchtui.BannerInput{
+		Headline:     devHeadline,
+		PluginSource: pluginDir,
+		Session:      sessionName,
+	}))
 
 	// Nuke marketplace plugin so it can't shadow the --plugin-dir agents/skills.
 	// Deferred to here (after intent + isolation resolution succeeded) so an
@@ -314,9 +317,13 @@ func launchClaudeAuto(extraArgs []string, resumeID, name string) error {
 	if sessionName == "" && resumeID == "" {
 		sessionName = defaultSessionName(projectRoot)
 	}
-	fmt.Println("Launching Claude Code in auto mode (autonomous operation)...")
-	fmt.Println("  Actions will be approved by the background classifier, not prompted.")
-	fmt.Printf("  Session: %s\n", sessionName)
+	fmt.Println(launchtui.RenderLaunchBanner(nil, launchtui.BannerInput{
+		Headline:     "Launching Claude Code in auto mode (autonomous operation)...",
+		PluginSource: pluginDir,
+		Session:      sessionName,
+		Warning:      "Actions will be approved by the background classifier, not prompted.",
+		WarningSeverity: "amber",
+	}))
 	return launchClaude(LaunchOpts{
 		Mode:               "auto",
 		PluginDir:          pluginDir,
@@ -456,9 +463,11 @@ func launchClaudeInit(extraArgs []string, resumeID, name string) error {
 	if sessionName == "" && resumeID == "" {
 		sessionName = defaultSessionName(projectRoot)
 	}
-	fmt.Println("Launching Claude Code with bundled wipnote plugin (init mode)...")
-	fmt.Printf("  Plugin: %s\n", pluginDir)
-	fmt.Printf("  Session: %s\n", sessionName)
+	fmt.Println(launchtui.RenderLaunchBanner(nil, launchtui.BannerInput{
+		Headline:     "Launching Claude Code with bundled wipnote plugin (init mode)...",
+		PluginSource: pluginDir,
+		Session:      sessionName,
+	}))
 	return launchClaude(LaunchOpts{
 		Mode:               "init",
 		PluginDir:          pluginDir,
@@ -480,7 +489,10 @@ func launchClaudeContinue(extraArgs []string, resumeID string) error {
 	if err != nil {
 		return err
 	}
-	fmt.Println("Resuming last Claude Code session (continue mode)...")
+	fmt.Println(launchtui.RenderLaunchBanner(nil, launchtui.BannerInput{
+		Headline:     "Resuming last Claude Code session (continue mode)...",
+		PluginSource: pluginDir,
+	}))
 	return launchClaude(LaunchOpts{
 		Mode:        "continue",
 		PluginDir:   pluginDir,
@@ -512,9 +524,11 @@ func launchClaudeDefault(extraArgs []string, resumeID, name, workItem string, in
 		return err
 	}
 	sessionName := resolveSessionName(name, resumeID, false, projectRoot)
-	fmt.Printf("Launching Claude Code (%s mode)...\n", lctx.intentResult.mode)
-	fmt.Printf("  Plugin: %s\n", pluginDir)
-	fmt.Printf("  Session: %s\n", sessionName)
+	fmt.Println(launchtui.RenderLaunchBanner(nil, launchtui.BannerInput{
+		Headline:     fmt.Sprintf("Launching Claude Code (%s mode)...", lctx.intentResult.mode),
+		PluginSource: pluginDir,
+		Session:      sessionName,
+	}))
 	return launchClaude(LaunchOpts{
 		Mode:               lctx.intentResult.mode,
 		PluginDir:          pluginDir,

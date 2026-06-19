@@ -109,6 +109,41 @@ func TestGetCurrentSessionResumable_PicksMostRecentAmongIDs(t *testing.T) {
 	}
 }
 
+// TestGetCurrentSessionResumable_UsesRootAgentWorkItem verifies the awi join is
+// scoped to the root agent: a session carrying both a subagent claim and a root
+// claim resolves to the ROOT work item (and appears once), not an arbitrary
+// subagent's item.
+func TestGetCurrentSessionResumable_UsesRootAgentWorkItem(t *testing.T) {
+	database := openIsolatedDB(t)
+
+	now := time.Now().UTC()
+	if _, err := database.Exec(
+		`INSERT INTO sessions (session_id, agent_assigned, created_at, status, harness)
+		 VALUES (?, 'claude-code', ?, 'active', 'claude')`,
+		"sess-cur", now.Add(-time.Minute).Format(time.RFC3339),
+	); err != nil {
+		t.Fatalf("insert session: %v", err)
+	}
+	// A subagent claim and a root claim coexist on the same session.
+	if err := db.SetActiveWorkItem(database, "sess-cur", "subagent-x", "feat-sub"); err != nil {
+		t.Fatalf("set subagent claim: %v", err)
+	}
+	if err := db.SetActiveWorkItem(database, "sess-cur", db.AgentRootSentinel, "feat-root"); err != nil {
+		t.Fatalf("set root claim: %v", err)
+	}
+
+	got, err := db.GetCurrentSessionResumable(database, time.Hour, []string{"sess-cur"})
+	if err != nil {
+		t.Fatalf("GetCurrentSessionResumable: %v", err)
+	}
+	if got == nil {
+		t.Fatal("got nil, want the current session")
+	}
+	if got.WorkItemID != "feat-root" {
+		t.Fatalf("WorkItemID = %q, want feat-root (root-agent scoped)", got.WorkItemID)
+	}
+}
+
 // TestGetCurrentSessionResumable_NilWhenUnknown verifies clean degradation: no
 // matching session row yields (nil, nil), so the chooser simply omits the slot.
 func TestGetCurrentSessionResumable_NilWhenUnknown(t *testing.T) {

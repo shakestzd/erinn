@@ -190,6 +190,49 @@ func TestPropagateFamilyAttribution_CountReflectsRowsAffected(t *testing.T) {
 	}
 }
 
+// TestPropagateFamilyAttribution_SkipsRecipientWithRootActiveWorkItem verifies a
+// sibling already attributed via a root active_work_items row (even with an empty
+// active_feature_id column) is neither counted nor clobbered — the UPDATE guard
+// requires no root awi row, matching the awi-wins read precedence.
+func TestPropagateFamilyAttribution_SkipsRecipientWithRootActiveWorkItem(t *testing.T) {
+	database := openIsolatedDB(t)
+
+	now := time.Now().UTC()
+	if _, err := database.Exec(
+		`INSERT INTO sessions (session_id, agent_assigned, created_at, status, session_family_id, active_feature_id)
+		 VALUES (?, 'claude-code', ?, 'active', 'fam-1', 'feat-x')`,
+		"sess-parent", now.Add(-2*time.Hour).Format(time.RFC3339),
+	); err != nil {
+		t.Fatalf("insert parent: %v", err)
+	}
+	// Child has an empty active_feature_id column but IS attributed via a root awi row.
+	if _, err := database.Exec(
+		`INSERT INTO sessions (session_id, agent_assigned, created_at, status, session_family_id)
+		 VALUES (?, 'claude-code', ?, 'active', 'fam-1')`,
+		"sess-child", now.Add(-time.Hour).Format(time.RFC3339),
+	); err != nil {
+		t.Fatalf("insert child: %v", err)
+	}
+	if err := db.SetActiveWorkItem(database, "sess-child", db.AgentRootSentinel, "feat-claimed"); err != nil {
+		t.Fatalf("set child claim: %v", err)
+	}
+
+	n, err := db.PropagateFamilyAttribution(database, "fam-1")
+	if err != nil {
+		t.Fatalf("PropagateFamilyAttribution: %v", err)
+	}
+	if n != 0 {
+		t.Fatalf("updated = %d, want 0 (child already attributed via awi)", n)
+	}
+	// The donor must not have shadowed the active claim.
+	if got := db.GetActiveWorkItemWithFallback(database, "sess-child", db.AgentRootSentinel); got != "feat-claimed" {
+		t.Fatalf("child resolved item = %q, want feat-claimed", got)
+	}
+	if got := db.GetActiveFeatureIDForSession(database, "sess-child"); got != "" {
+		t.Fatalf("child active_feature_id = %q, want empty (not shadowed by donor)", got)
+	}
+}
+
 func TestPropagateFamilyAttribution_EmptyFamilyIsNoOp(t *testing.T) {
 	database := openIsolatedDB(t)
 	n, err := db.PropagateFamilyAttribution(database, "")

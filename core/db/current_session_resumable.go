@@ -58,7 +58,13 @@ WITH session_work AS (
 		COALESCE(s.agent_assigned, '') AS agent_assigned,
 		COALESCE(awi.work_item_id, s.active_feature_id, '') AS work_item_id
 	FROM sessions s
-	LEFT JOIN active_work_items awi ON awi.session_id = s.session_id
+	-- Scope to the root agent's claim: a session may carry several
+	-- active_work_items rows (one per subagent); joining on session_id alone
+	-- would duplicate the session as a candidate and could surface a subagent's
+	-- work item. Root attribution is what "resume this session" means, matching
+	-- GetActiveWorkItemWithFallback's __root__ semantics.
+	LEFT JOIN active_work_items awi
+		ON awi.session_id = s.session_id AND awi.agent_id = '`+AgentRootSentinel+`'
 	WHERE s.session_id IN (`+placeholders+`)
 ),
 enriched AS (

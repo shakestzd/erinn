@@ -50,13 +50,22 @@ func PropagateFamilyAttribution(db *sql.DB, familyID string) (int, error) {
 		if GetActiveWorkItemWithFallback(db, sid, AgentRootSentinel) != "" {
 			continue // already attributed — never clobber.
 		}
-		// Guard the write itself on the column still being empty so a concurrent
-		// SessionStart/claim that lands between the check above and this UPDATE is
-		// not overwritten (TOCTOU). RowsAffected reflects whether we actually wrote.
+		// Guard the write itself on the recipient still being unattributed in BOTH
+		// stores so a concurrent SessionStart/claim landing between the check above
+		// and this UPDATE is not shadowed (TOCTOU). The read path
+		// (GetActiveWorkItemWithFallback) prefers a root active_work_items row over
+		// active_feature_id, so the predicate must also require no such row — else
+		// we could write a stale donor into active_feature_id behind a fresh claim.
+		// RowsAffected reflects whether we actually wrote.
 		res, err := db.Exec(
 			`UPDATE sessions SET active_feature_id = ?, updated_at = ?
-			 WHERE session_id = ? AND (active_feature_id IS NULL OR active_feature_id = '')`,
-			donor, now, sid,
+			 WHERE session_id = ?
+			   AND (active_feature_id IS NULL OR active_feature_id = '')
+			   AND NOT EXISTS (
+			       SELECT 1 FROM active_work_items awi
+			       WHERE awi.session_id = sessions.session_id AND awi.agent_id = ?
+			   )`,
+			donor, now, sid, AgentRootSentinel,
 		)
 		if err != nil {
 			return updated, fmt.Errorf("propagate family attribution to %s: %w", sid, err)

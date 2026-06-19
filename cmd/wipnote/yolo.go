@@ -2,20 +2,45 @@ package main
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
 	"time"
 
-	"io"
-
+	"github.com/shakestzd/wipnote/cmd/wipnote/launchtui"
 	"github.com/shakestzd/wipnote/core/htmlparse"
-	"github.com/shakestzd/wipnote/internal/launcher/plan"
 	"github.com/shakestzd/wipnote/core/slug"
 	"github.com/shakestzd/wipnote/core/workitem"
+	"github.com/shakestzd/wipnote/internal/launcher/plan"
 	"github.com/spf13/cobra"
 )
+
+// yoloEmitBannerFn is the seam for tests. In production it calls RenderLaunchBanner
+// and writes the framed block to w; tests replace it to assert the banner fires
+// without requiring a real terminal.
+//
+// Decision (slice 4, option b): yolo intentionally SKIPS the interactive chooser
+// (autonomous mode must not block on a prompt) but ADOPTS the framed banner for
+// all launch output, consistent with the claude/codex/gemini launch paths.
+var yoloEmitBannerFn = func(headline, session, workItem string, w io.Writer) {
+	banner := launchtui.RenderLaunchBanner(nil, launchtui.BannerInput{
+		Headline: headline,
+		Session:  session,
+	})
+	fmt.Fprintln(w, banner)
+	if workItem != "" {
+		fmt.Fprintf(w, "  Work item: %s\n", workItem)
+	}
+}
+
+// emitYoloBanner writes the framed launch banner to w via yoloEmitBannerFn.
+// The indirection through yoloEmitBannerFn allows tests to assert the banner
+// fires without requiring a real terminal.
+func emitYoloBanner(headline, session, workItem string, w io.Writer) {
+	yoloEmitBannerFn(headline, session, workItem, w)
+}
 
 func yoloCmd() *cobra.Command {
 	var dev, initMode, continueMode, noWorktree, inPlace, tmux bool
@@ -353,9 +378,7 @@ func launchYoloDefault(permMode, trackID, featureID string, noWorktree bool, res
 	}
 	yoloPrompt := buildYoloSystemPrompt(id, kind)
 
-	fmt.Printf("Launching Claude Code in YOLO mode (%s)...\n", permMode)
-	fmt.Printf("  Session: %s\n", sessionName)
-	fmt.Printf("  Work item: %s\n", id)
+	emitYoloBanner(fmt.Sprintf("Launching Claude Code in YOLO mode (%s)...", permMode), sessionName, id, os.Stdout)
 
 	// Write the combined prompt to a temp file so launchClaude can pass it via
 	// --append-system-prompt without needing a new field.
@@ -473,10 +496,8 @@ func launchYoloDev(trackID, featureID string, noWorktree bool, resumeID, name st
 	}
 	yoloPrompt := buildYoloSystemPrompt(id, kind)
 
-	fmt.Printf("Launching Claude Code in YOLO dev mode...\n")
 	fmt.Printf("  Plugin: %s\n", pluginDir)
-	fmt.Printf("  Session: %s\n", sessionName)
-	fmt.Printf("  Work item: %s\n", id)
+	emitYoloBanner("Launching Claude Code in YOLO dev mode...", sessionName, id, os.Stdout)
 
 	tmpFile, err := os.CreateTemp("", "yolo-prompt-*.md")
 	if err != nil {

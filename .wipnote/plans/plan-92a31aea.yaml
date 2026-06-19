@@ -348,7 +348,7 @@ slices:
         - 3
       done_when:
         - wipnote antigravity/codex/gemini are confirmed to render the styled huh chooser + framed banner via the shared path (no per-harness divergence).
-        - wipnote yolo either presents the same styled chooser+banner with the correct harness label, OR records an explicit decision that yolo skips the chooser by design and only adopts the slice-3 banner.
+        - wipnote yolo adopts the slice-3 framed banner only (no chooser — yolo is autonomous); the styled chooser stays exclusive to claude/codex/gemini/antigravity.
         - Each wired entrypoint preserves its non-TTY fallback (no TUI when stdin is not a char device).
         - go build ./... && go vet ./... && go test ./... pass across all five modules (run per-module per the quality gates).
       effort: S
@@ -382,6 +382,10 @@ slices:
             - label: yolo
               body: Sole net-new wiring — decide present shared chooser vs banner-only (autonomous). Resolved in this slice.
       execution_status: promoted
+      questions:
+        - id: q-yolo-chooser
+          text: Should autonomous `wipnote yolo` present the styled huh chooser, or only adopt the slice-3 framed banner?
+          answer: Banner-only. yolo is autonomous — there is no launch intent to select — so it does NOT present the chooser. It adopts the slice-3 framed launch/warning/session banner only, to style the preparation steps it prints as it opens. The chooser stays exclusive to the interactive claude/codex/gemini/antigravity entrypoints.
       critic_revisions:
         - source: local-feasibility
           severity: HIGH
@@ -394,9 +398,7 @@ slices:
           already call the shared path (verified by grep) and inherit slices 2-3 automatically.
         **State:** none new.
         **Decisions:** Single shared chooser renderer for all harnesses (DRY, matches user's
-          "all launchers" choice). yolo.go's chooser participation is an open decision: yolo is
-          autonomous, so it may intentionally not prompt — if so it still adopts the slice-3
-          banner. Slice opens by resolving that yolo question, not by assuming a prompt.
+          "all launchers" choice). yolo.go's chooser participation is RESOLVED (2026-06-18): yolo is autonomous — no intent to select — so it does NOT present the chooser; it adopts the slice-3 framed banner only, to style its launch/preparation steps. See answered question q-yolo-chooser.
         **Verified (feasibility critic):** yolo.go + antigravity.go exist; shared-path symbols
           (promptLaunchIntent/shouldOfferLaunchIntentChooser) are referenced by codex.go,
           gemini.go, antigravity.go, claude_launch_intent.go but NOT yolo.go.

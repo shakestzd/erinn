@@ -484,7 +484,7 @@ body.right-rail-collapsed .sidebar-reopen{display:flex}
         <span class="slice-nav-dot" data-approval="pending" data-dot-for="4"></span>
         <span>#4 Wire wipnote yolo through the shared chooser; confirm all harnesses inherit the styling</span>
         <span class="nav-triage-badge nav-triage-issue" title="2 issue(s)">&#9888;2</span>
-        
+        <span class="nav-triage-badge nav-triage-question" title="1 open question(s)">?1</span>
       </a>
     </li>
     
@@ -1194,7 +1194,7 @@ warning to stdout (would change scrape/redirect behavior).</p>
           <span class="badge badge-revision badge-sm" title="Execution: promoted">Promoted</span>
           <span class="badge badge-pending badge-sm slice-approval-badge" data-badge-for="slice-4">Pending</span>
           <span class="badge badge-sm badge-issues" title="2 critic issue(s)">2 issues</span>
-          
+          <span class="badge badge-sm badge-questions" title="1 open question(s)">1 Q</span>
         </span>
         <span class="slice-actions" onclick="event.stopPropagation()">
           <span class="approval-segmented" role="group" aria-label="Approval action">
@@ -1268,7 +1268,7 @@ net-new wiring. Avoids the false assumption that all four need equal work.</p>
       
       <div class="slice-field">
         <div class="slice-field-label">Done when</div>
-        <ul class="slice-done-list"><li>wipnote antigravity/codex/gemini are confirmed to render the styled huh chooser &#43; framed banner via the shared path (no per-harness divergence).</li><li>wipnote yolo either presents the same styled chooser&#43;banner with the correct harness label, OR records an explicit decision that yolo skips the chooser by design and only adopts the slice-3 banner.</li><li>Each wired entrypoint preserves its non-TTY fallback (no TUI when stdin is not a char device).</li><li>go build ./... &amp;&amp; go vet ./... &amp;&amp; go test ./... pass across all five modules (run per-module per the quality gates).</li></ul>
+        <ul class="slice-done-list"><li>wipnote antigravity/codex/gemini are confirmed to render the styled huh chooser &#43; framed banner via the shared path (no per-harness divergence).</li><li>wipnote yolo adopts the slice-3 framed banner only (no chooser — yolo is autonomous); the styled chooser stays exclusive to claude/codex/gemini/antigravity.</li><li>Each wired entrypoint preserves its non-TTY fallback (no TUI when stdin is not a char device).</li><li>go build ./... &amp;&amp; go vet ./... &amp;&amp; go test ./... pass across all five modules (run per-module per the quality gates).</li></ul>
       </div>
       
     
@@ -1283,9 +1283,7 @@ net-new wiring. Avoids the false assumption that all four need equal work.</p>
 already call the shared path (verified by grep) and inherit slices 2-3 automatically.
 <strong>State:</strong> none new.
 <strong>Decisions:</strong> Single shared chooser renderer for all harnesses (DRY, matches user&#39;s
-&#34;all launchers&#34; choice). yolo.go&#39;s chooser participation is an open decision: yolo is
-autonomous, so it may intentionally not prompt — if so it still adopts the slice-3
-banner. Slice opens by resolving that yolo question, not by assuming a prompt.
+&#34;all launchers&#34; choice). yolo.go&#39;s chooser participation is RESOLVED (2026-06-18): yolo is autonomous — no intent to select — so it does NOT present the chooser; it adopts the slice-3 framed banner only, to style its launch/preparation steps. See answered question q-yolo-chooser.
 <strong>Verified (feasibility critic):</strong> yolo.go + antigravity.go exist; shared-path symbols
 (promptLaunchIntent/shouldOfferLaunchIntentChooser) are referenced by codex.go,
 gemini.go, antigravity.go, claude_launch_intent.go but NOT yolo.go.
@@ -1387,6 +1385,24 @@ treating all four launchers as equal net-new work (audit disproved it).</p>
     </div>
     
 
+    
+    <div class="slice-field slice-questions">
+      <div class="slice-field-label">Open Questions</div>
+      <div class="slice-field-value">
+        
+        <div class="question-block slice-question-block">
+          <p>Should autonomous `wipnote yolo` present the styled huh chooser, or only adopt the slice-3 framed banner?</p>
+          
+          
+          <textarea
+            data-section="slice-4-question-q-yolo-chooser"
+            data-comment-for="slice-4-question-q-yolo-chooser"
+            placeholder="Answer question q-yolo-chooser...">Banner-only. yolo is autonomous — there is no launch intent to select — so it does NOT present the chooser. It adopts the slice-3 framed launch/warning/session banner only, to style the preparation steps it prints as it opens. The chooser stays exclusive to the interactive claude/codex/gemini/antigravity entrypoints.</textarea>
+          
+        </div>
+        
+      </div>
+    </div>
     
 
     <div class="slice-deps">Dependencies: slices 2,3</div>

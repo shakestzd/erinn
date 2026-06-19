@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>Agent-scope current-session awi join and family-attribution write guard</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="bug-3e20ffcf"
+             data-type="bug"
+             data-status="todo"
+             data-priority="medium"
+             data-created="2026-06-19T06:31:12.364599"
+             data-updated="2026-06-19T06:31:12.594075" data-agent-assigned="claude-code" data-track-id="trk-6a1f5362" data-created-by-agent="claude-code" data-created-by-model="claude-opus-4-8[1m]" data-created-by-cli-version="0.62.2-457-g1058236ce">
+
+        <header>
+            <h1>Agent-scope current-session awi join and family-attribution write guard</h1>
+            <div class="metadata">
+                <span class="badge status-todo">Todo</span>
+                <span class="badge priority-medium">Medium Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-6a1f5362.html" data-relationship="part_of" data-since="2026-06-19T06:31:12.593741">trk-6a1f5362</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>roborev job 398: (1) current_session_resumable.go awi join scoped only by session_id can duplicate candidates / pick a subagent work item — filter to root agent (__root__). (2) family_attribution.go conditional UPDATE only checks active_feature_id; also require no root active_work_items row so the write matches the awi-wins read precedence.</p>
+        </section>
+    </article>
+</body>
+</html>

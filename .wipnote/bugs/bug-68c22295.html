@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>Gate resume-ID-only current slot to native-session-resume harnesses; fix stale comment</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="bug-68c22295"
+             data-type="bug"
+             data-status="todo"
+             data-priority="medium"
+             data-created="2026-06-19T06:55:38.515047"
+             data-updated="2026-06-19T06:55:38.578319" data-agent-assigned="claude-code" data-track-id="trk-6a1f5362" data-created-by-agent="claude-code" data-created-by-model="claude-opus-4-8[1m]" data-created-by-cli-version="0.62.2-457-g1058236ce">
+
+        <header>
+            <h1>Gate resume-ID-only current slot to native-session-resume harnesses; fix stale comment</h1>
+            <div class="metadata">
+                <span class="badge status-todo">Todo</span>
+                <span class="badge priority-medium">Medium Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-6a1f5362.html" data-relationship="part_of" data-since="2026-06-19T06:55:38.578098">trk-6a1f5362</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>roborev job 404: (1) isActionableCurrentSession allows same-harness resume-ID-only for ALL harnesses, but only claude/codex resume natively by session id; Gemini (numeric index) / Antigravity with no work item would bail in continuation context. Gate resume-ID-only to {claude,codex}; others require WorkItemID. (2) Update stale test comment that still mentions worktree-only actionability. DEFERRED (out of scope): job 404 also flagged that propagation writes only to SQLite not canonical HTML — accepted as a known limitation; active_feature_id is a derived convenience re-established each SessionStart, not canonical for any session.</p>
+        </section>
+    </article>
+</body>
+</html>

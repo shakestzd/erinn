@@ -155,21 +155,22 @@ func walkLineage(db *sql.DB, root string, depth int) []lineage.Node {
 }
 
 // buildFromCommits converts read-index commits into RecapData commit entries and
-// diffs the implied range. It returns the diffed range string (empty when no
-// commit hashes resolve). When there are no commits the result has empty file
-// and commit sets so callers can still emit a valid (empty) recap.
+// diffs the selected commits individually. It returns a label for the selected
+// commits (empty when no commit hashes resolve). When there are no commits the
+// result has empty file and commit sets so callers can still emit a valid
+// (empty) recap.
 func buildFromCommits(projectDir string, commits []models.GitCommit) (*RecapData, string, error) {
 	data := &RecapData{Commits: toCommits(commits)}
-	gitRange := rangeForCommits(projectDir, commits)
-	if gitRange == "" {
+	hashes := existingCommitHashes(projectDir, commits)
+	if len(hashes) == 0 {
 		return data, "", nil
 	}
-	files, err := diffRange(projectDir, gitRange)
+	files, err := diffCommits(projectDir, hashes)
 	if err != nil {
 		return nil, "", err
 	}
 	data.Files = files
-	return data, gitRange, nil
+	return data, strings.Join(hashes, ","), nil
 }
 
 // toCommits maps DB commit rows to the recap Commit shape.
@@ -190,22 +191,20 @@ func toCommits(commits []models.GitCommit) []Commit {
 	return out
 }
 
-// rangeForCommits derives a diffable range spanning the resolved commits:
-// "<oldest>^..<newest>". Commit rows are timestamp-DESC, so the newest is first.
-// Returns "" when no commit hashes resolve in the repository.
-func rangeForCommits(projectDir string, commits []models.GitCommit) string {
+// existingCommitHashes returns selected commit hashes that resolve in the
+// repository. Commit rows are timestamp-DESC, so reverse them to diff oldest to
+// newest without constructing a continuous range across unrelated commits.
+func existingCommitHashes(projectDir string, commits []models.GitCommit) []string {
 	var hashes []string
 	for _, c := range commits {
 		if h := strings.TrimSpace(c.CommitHash); h != "" && commitExists(projectDir, h) {
 			hashes = append(hashes, h)
 		}
 	}
-	if len(hashes) == 0 {
-		return ""
+	for i, j := 0, len(hashes)-1; i < j; i, j = i+1, j-1 {
+		hashes[i], hashes[j] = hashes[j], hashes[i]
 	}
-	newest := hashes[0]
-	oldest := hashes[len(hashes)-1]
-	return oldest + "^.." + newest
+	return hashes
 }
 
 // resolveTitle returns the work item's display title for the recap outcome.

@@ -105,6 +105,12 @@ func CreateSessionHTML(projectDir string, s *models.Session) {
              data-start-commit="`)
 	b.WriteString(html.EscapeString(s.StartCommit))
 	b.WriteString(`"`)
+	if s.ActiveFeatureID != "" {
+		b.WriteString(`
+             data-active-feature-id="`)
+		b.WriteString(html.EscapeString(s.ActiveFeatureID))
+		b.WriteString(`"`)
+	}
 	// Provenance attributes — emitted only when populated so older sessions
 	// continue to round-trip with the same byte shape.
 	prov := provenance.Provenance{
@@ -194,6 +200,38 @@ func CreateSessionHTML(projectDir string, s *models.Session) {
 	if err := os.WriteFile(htmlPath, []byte(b.String()), 0o644); err != nil {
 		debugLog(projectDir, "[session-html] write %s: %v", htmlPath, err)
 	}
+}
+
+// SetSessionHTMLActiveFeature persists the session's current root work-item
+// attribution into the canonical session HTML article. SQLite is derived, so
+// this lets reindex/rebuild faithfully restore propagated family attribution.
+func SetSessionHTMLActiveFeature(projectDir, sessionID, featureID string) error {
+	if projectDir == "" || sessionID == "" || featureID == "" {
+		return nil
+	}
+	htmlPath := filepath.Join(projectDir, ".wipnote", "sessions", sessionID+".html")
+	data, err := os.ReadFile(htmlPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
+		return err
+	}
+	content := removeArticleDataAttr(string(data), "data-active-feature-id")
+	escaped := html.EscapeString(featureID)
+	re := regexp.MustCompile(`(<article\b[^>]*)>`)
+	updated := re.ReplaceAllStringFunc(content, func(match string) string {
+		return strings.TrimSuffix(match, ">") + ` data-active-feature-id="` + escaped + `">`
+	})
+	if updated == content {
+		return nil
+	}
+	return os.WriteFile(htmlPath, []byte(updated), 0o644)
+}
+
+func removeArticleDataAttr(htmlText, attr string) string {
+	re := regexp.MustCompile(`\s+` + regexp.QuoteMeta(attr) + `="[^"]*"`)
+	return re.ReplaceAllString(htmlText, "")
 }
 
 // AppendEventToSessionHTML appends a <li> element to the session's HTML

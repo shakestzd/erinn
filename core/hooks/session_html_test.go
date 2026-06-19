@@ -87,6 +87,59 @@ func TestCreateSessionHTML(t *testing.T) {
 	}
 }
 
+func TestCreateSessionHTML_ActiveFeatureID(t *testing.T) {
+	projectDir := t.TempDir()
+	now := time.Date(2026, 4, 8, 12, 0, 0, 0, time.UTC)
+	s := &models.Session{
+		SessionID:       "sess-active-feature",
+		AgentAssigned:   "claude-code",
+		Status:          "active",
+		CreatedAt:       now,
+		ActiveFeatureID: "feat-durable",
+	}
+
+	CreateSessionHTML(projectDir, s)
+
+	htmlPath := filepath.Join(projectDir, ".wipnote", "sessions", "sess-active-feature.html")
+	data, err := os.ReadFile(htmlPath)
+	if err != nil {
+		t.Fatalf("read session HTML: %v", err)
+	}
+	if !strings.Contains(string(data), `data-active-feature-id="feat-durable"`) {
+		t.Fatalf("missing data-active-feature-id in session HTML:\n%s", data)
+	}
+}
+
+func TestSetSessionHTMLActiveFeature(t *testing.T) {
+	projectDir := t.TempDir()
+	s := &models.Session{
+		SessionID:     "sess-set-active-feature",
+		AgentAssigned: "claude-code",
+		Status:        "active",
+		CreatedAt:     time.Now().UTC(),
+	}
+	CreateSessionHTML(projectDir, s)
+
+	if err := SetSessionHTMLActiveFeature(projectDir, s.SessionID, "feat-one"); err != nil {
+		t.Fatalf("SetSessionHTMLActiveFeature first: %v", err)
+	}
+	if err := SetSessionHTMLActiveFeature(projectDir, s.SessionID, "feat-two"); err != nil {
+		t.Fatalf("SetSessionHTMLActiveFeature second: %v", err)
+	}
+	htmlPath := filepath.Join(projectDir, ".wipnote", "sessions", s.SessionID+".html")
+	data, err := os.ReadFile(htmlPath)
+	if err != nil {
+		t.Fatalf("read session HTML: %v", err)
+	}
+	content := string(data)
+	if strings.Count(content, "data-active-feature-id=") != 1 {
+		t.Fatalf("active feature attr count = %d, want 1:\n%s", strings.Count(content, "data-active-feature-id="), content)
+	}
+	if !strings.Contains(content, `data-active-feature-id="feat-two"`) {
+		t.Fatalf("active feature attr was not updated:\n%s", content)
+	}
+}
+
 func TestCreateSessionHTMLSubagent(t *testing.T) {
 	projectDir := t.TempDir()
 	if err := os.MkdirAll(filepath.Join(projectDir, ".wipnote"), 0o755); err != nil {

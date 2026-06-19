@@ -318,6 +318,7 @@ func SessionStart(event *CloudEvent, database *sql.DB, projectDir string) (*Hook
 		if n, perr := db.PropagateFamilyAttribution(database, familyID); perr != nil {
 			debugLog(projectDir, "[session-start] propagate family attribution: %v", perr)
 		} else if n > 0 {
+			persistFamilyAttributionHTML(projectDir, database, familyID)
 			debugLog(projectDir, "[session-start] propagated work item to %d family sibling(s) of %s", n, shortID)
 		}
 	}
@@ -452,6 +453,22 @@ func runSessionTransaction(database *sql.DB, s *models.Session, inp *lineageInpu
 	}
 
 	return tx.Commit()
+}
+
+func persistFamilyAttributionHTML(projectDir string, database *sql.DB, familyID string) {
+	members, err := db.GetSessionsByFamily(database, familyID)
+	if err != nil {
+		return
+	}
+	for _, sid := range members {
+		featureID := db.GetActiveWorkItemWithFallback(database, sid, db.AgentRootSentinel)
+		if featureID == "" {
+			continue
+		}
+		if err := SetSessionHTMLActiveFeature(projectDir, sid, featureID); err != nil {
+			debugLog(projectDir, "[session-start] persist family attribution html %s: %v", sid, err)
+		}
+	}
 }
 
 // upsertSessionTx inserts the session row within a transaction,

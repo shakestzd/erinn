@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
+	"time"
 
 	dbpkg "github.com/shakestzd/wipnote/core/db"
 	"github.com/shakestzd/wipnote/core/storage"
@@ -222,6 +224,9 @@ func runRecapShow(id, format string) error {
 }
 
 func runRecapDelete(id string) error {
+	if err := validateRecapID(id); err != nil {
+		return err
+	}
 	wipnoteDir, err := findWipnoteDir()
 	if err != nil {
 		return err
@@ -236,20 +241,72 @@ func runRecapDelete(id string) error {
 	if err != nil {
 		return err
 	}
-	artifactPath := filepath.Join(wipnoteDir, "recaps", id+".html")
-	_, statErr := os.Stat(artifactPath)
-	if row == nil && statErr != nil {
+	if row == nil {
 		return fmt.Errorf("recap %q not found", id)
 	}
 
-	if statErr == nil {
-		if rmErr := os.Remove(artifactPath); rmErr != nil {
-			return fmt.Errorf("remove recap artifact: %w", rmErr)
-		}
+	artifactPath, err := recapArtifactPath(wipnoteDir, id)
+	if err != nil {
+		return err
+	}
+	if rmErr := os.Remove(artifactPath); rmErr != nil && !os.IsNotExist(rmErr) {
+		return fmt.Errorf("remove recap artifact: %w", rmErr)
 	}
 	if delErr := dbpkg.DeleteRecap(database, id); delErr != nil {
 		return fmt.Errorf("delete recap row: %w", delErr)
 	}
 	fmt.Printf("Deleted recap: %s\n", id)
 	return nil
+}
+
+func validateRecapID(id string) error {
+	if strings.TrimSpace(id) == "" {
+		return fmt.Errorf("recap id must not be empty")
+	}
+	if filepath.Base(id) != id || strings.ContainsAny(id, `/\`) || strings.Contains(id, "..") {
+		return fmt.Errorf("invalid recap id %q", id)
+	}
+	return nil
+}
+
+func recapArtifactPath(wipnoteDir, id string) (string, error) {
+	if err := validateRecapID(id); err != nil {
+		return "", err
+	}
+	recapsDir := filepath.Clean(filepath.Join(wipnoteDir, "recaps"))
+	path := filepath.Clean(filepath.Join(recapsDir, id+".html"))
+	rel, err := filepath.Rel(recapsDir, path)
+	if err != nil {
+		return "", fmt.Errorf("resolve recap artifact path: %w", err)
+	}
+	if rel == "." || strings.HasPrefix(rel, ".."+string(os.PathSeparator)) || rel == ".." || filepath.IsAbs(rel) {
+		return "", fmt.Errorf("recap path escapes .wipnote/recaps: %q", id)
+	}
+	return path, nil
+}
+
+func upsertRecapArtifact(wipnoteDir, projectDir, id string) error {
+	artifactPath, err := recapArtifactPath(wipnoteDir, id)
+	if err != nil {
+		return err
+	}
+	row, err := parseRecapHTML(artifactPath, id)
+	if err != nil {
+		return err
+	}
+	createdAt, updatedAt := applyGitTimestamps(projectDir, artifactPath, time.Time{}, time.Time{})
+	if !createdAt.IsZero() {
+		t := createdAt
+		row.CreatedAt = &t
+	}
+	if !updatedAt.IsZero() {
+		t := updatedAt
+		row.UpdatedAt = &t
+	}
+	database, err := openRecapsIndex(wipnoteDir)
+	if err != nil {
+		return err
+	}
+	defer database.Close()
+	return dbpkg.UpsertRecap(database, row)
 }

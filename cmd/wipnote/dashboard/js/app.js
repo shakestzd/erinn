@@ -4359,6 +4359,15 @@ function dashSidebarSetupChat(planId, body) {
   // posts it as a block-level annotation (slice-8). consumed/resolved start
   // false (a freshly-authored note is unaddressed) and resolution_target
   // defaults to 'agent' — the loop's first reader is the executing agent.
+  var annotationSeq = 0;
+  function makeAnnotationQuestionID(anchor) {
+    annotationSeq += 1;
+    if (window.crypto && window.crypto.randomUUID) {
+      return 'ann-' + anchor + '-' + window.crypto.randomUUID();
+    }
+    return 'ann-' + anchor + '-' + Date.now().toString(36) + '-' + annotationSeq.toString(36);
+  }
+
   function sendAnnotation(anchor, text) {
     addBubble('user', '@' + anchor + ': ' + text);
     fetch(buildProjectUrl('plans/' + planId + '/feedback'), {
@@ -4368,6 +4377,7 @@ function dashSidebarSetupChat(planId, body) {
         section: anchor,
         action: 'annotation',
         value: text,
+        question_id: makeAnnotationQuestionID(anchor),
         anchor: anchor,
         consumed: false,
         resolved: false,

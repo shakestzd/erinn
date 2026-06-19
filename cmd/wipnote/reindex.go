@@ -6,6 +6,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"time"
 
 	dbpkg "github.com/shakestzd/wipnote/core/db"
 	"github.com/shakestzd/wipnote/core/htmlparse"
@@ -208,8 +209,12 @@ func runIncrementalReindex(
 	for _, path := range deleted {
 		id := idFromHTMLPath(path)
 		if id != "" {
-			database.Exec(`DELETE FROM features WHERE id = ?`, id)
-			database.Exec(`DELETE FROM tracks WHERE id = ?`, id)
+			if isRecapHTMLPath(path, wipnoteDir) {
+				database.Exec(`DELETE FROM recaps WHERE id = ?`, id)
+			} else {
+				database.Exec(`DELETE FROM features WHERE id = ?`, id)
+				database.Exec(`DELETE FROM tracks WHERE id = ?`, id)
+			}
 		}
 	}
 
@@ -220,6 +225,35 @@ func runIncrementalReindex(
 	var total, upserted, errCount int
 	for _, path := range added {
 		total++
+		if isRecapHTMLPath(path, wipnoteDir) {
+			id := idFromHTMLPath(path)
+			row, parseErr := parseRecapHTML(path, id)
+			if parseErr != nil {
+				errCount++
+				if verbose {
+					fmt.Printf("reindex recaps: error: %s: %v\n", path, parseErr)
+				}
+				continue
+			}
+			createdAt, updatedAt := applyGitTimestamps(projectDir, path, time.Time{}, time.Time{})
+			if !createdAt.IsZero() {
+				t := createdAt
+				row.CreatedAt = &t
+			}
+			if !updatedAt.IsZero() {
+				t := updatedAt
+				row.UpdatedAt = &t
+			}
+			if err := dbpkg.UpsertRecap(database, row); err != nil {
+				errCount++
+				if verbose {
+					fmt.Printf("reindex recaps: error: %s: %v\n", path, err)
+				}
+				continue
+			}
+			upserted++
+			continue
+		}
 
 		node, parseErr := htmlparse.ParseFile(path)
 		if parseErr != nil {
@@ -288,6 +322,14 @@ func runIncrementalReindex(
 		upserted++
 	}
 	return total, upserted, errCount
+}
+
+func isRecapHTMLPath(path, wipnoteDir string) bool {
+	rel, err := filepath.Rel(filepath.Join(wipnoteDir, "recaps"), path)
+	if err != nil {
+		return false
+	}
+	return rel != "." && !filepath.IsAbs(rel) && !strings.HasPrefix(rel, ".."+string(filepath.Separator)) && rel != ".." && strings.HasSuffix(path, ".html")
 }
 
 func gitHeadCommit(projectDir string) string {

@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>claude launch UI is disjointed: fold dirty-branch warning into the launch banner</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="bug-62b4d0cf"
+             data-type="bug"
+             data-status="todo"
+             data-priority="medium"
+             data-created="2026-06-19T08:36:58.631183"
+             data-updated="2026-06-19T08:36:58.643625" data-agent-assigned="claude-code" data-track-id="trk-6a1f5362" data-created-by-agent="claude-code" data-created-by-model="claude-opus-4-8[1m]" data-created-by-cli-version="0.62.2-457-g1058236ce">
+
+        <header>
+            <h1>claude launch UI is disjointed: fold dirty-branch warning into the launch banner</h1>
+            <div class="metadata">
+                <span class="badge status-todo">Todo</span>
+                <span class="badge priority-medium">Medium Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-6a1f5362.html" data-relationship="part_of" data-since="2026-06-19T08:36:58.643486">trk-6a1f5362</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>wipnote claude --dev renders the dirty-protected-branch warning as its own box, then a separate launch-info box, then loose plain-text marketplace-removal lines — reads as disconnected fragments, not one coherent UI. Fold the warning into the launch banner (RenderLaunchBanner already has a Warning field) for both launchClaudeDev and launchClaudeDefault by suppressing applyLaunchPlanOpts&#39; standalone warning print and carrying DirtyMainWarning through claudeLaunchContext. Mute the marketplace-removal status lines so they read as subordinate. No banner.go change (avoids conflict with concurrent Details work).</p>
+        </section>
+    </article>
+</body>
+</html>

@@ -308,6 +308,18 @@ func SessionStart(event *CloudEvent, database *sql.DB, projectDir string) (*Hook
 		agentID := s.AgentAssigned
 		_ = agent.RegisterSessionFamily(projectDir, sessionID, familyID)
 		_ = agent.WriteSessionState(projectDir, sessionID, agentID, familyID)
+
+		// Forward-propagate work-item attribution across the family. Claude Code
+		// splits a session: this hook fires on the short parent stub (which holds
+		// active_feature_id), but the real long-running child session IDs never get
+		// a SessionStart the hook observes. Reconciling here on every launch copies
+		// the family's work item onto any sibling that still lacks one, so the
+		// chooser, dashboard, and analytics all attribute the split children.
+		if n, perr := db.PropagateFamilyAttribution(database, familyID); perr != nil {
+			debugLog(projectDir, "[session-start] propagate family attribution: %v", perr)
+		} else if n > 0 {
+			debugLog(projectDir, "[session-start] propagated work item to %d family sibling(s) of %s", n, shortID)
+		}
 	}
 
 	// Surface (and consume) any durable reconcile warnings persisted by a

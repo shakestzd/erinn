@@ -403,9 +403,10 @@ func TestPromptLaunchIntent_FallbackOnTUIError(t *testing.T) {
 		WorkItemID: "feat-fb", Harness: "claude", LastSessionID: "sess-fb",
 		ExecWorktreePath: ".claude/worktrees/feat-fb",
 	}
+	grouped := dbpkg.HarnessGroupedResumableSessions{SameHarness: []dbpkg.ResumableSession{same}}
 	orderedRows := []dbpkg.ResumableSession{same}
 	var out bytes.Buffer
-	intent, err := promptLaunchIntentNumeric(strings.NewReader("2\n"), &out, "claude", orderedRows, 1)
+	intent, err := promptLaunchIntentNumeric(strings.NewReader("2\n"), &out, "claude", grouped, orderedRows, 1)
 	if err != nil {
 		t.Fatalf("unexpected error from numeric fallback: %v", err)
 	}

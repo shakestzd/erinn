@@ -537,6 +537,13 @@ type ResumableSession struct {
 }
 
 type HarnessGroupedResumableSessions struct {
+	// Current, when non-nil, is the session the user is launching from (resolved
+	// from the harness/launcher env + its session family). It is surfaced as a
+	// first-class "Resume this session" slot at the top of the chooser and
+	// deliberately bypasses the work_item_id and item_status gates the grouped
+	// listings apply, so a current session with no (or completed) work item is
+	// still offered. Nil when no current session can be resolved.
+	Current      *ResumableSession  `json:"current,omitempty"`
 	SameHarness  []ResumableSession `json:"same_harness"`
 	CrossHarness []ResumableSession `json:"cross_harness"`
 }

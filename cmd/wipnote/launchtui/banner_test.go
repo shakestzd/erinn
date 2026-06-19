@@ -101,3 +101,25 @@ func TestRenderLaunchBanner_NilRenderer(t *testing.T) {
 		t.Errorf("nil-renderer output missing headline, got: %q", got)
 	}
 }
+
+// TestRenderLaunchBanner_NoDoubleWarningPrefix verifies that warning text which
+// already begins with "Warning:" (e.g. plan.DirtyMainWarning) is not rendered
+// with a doubled "Warning: Warning:" label.
+func TestRenderLaunchBanner_NoDoubleWarningPrefix(t *testing.T) {
+	t.Parallel()
+
+	r := launchtui.MakeRendererForProfile(termenv.Ascii)
+	for _, prefixed := range []string{
+		"Warning: launching on dirty protected branch \"main\".",
+		"warning: lowercase label should also be de-duplicated",
+	} {
+		got := launchtui.RenderLaunchBanner(r, launchtui.BannerInput{Warning: prefixed, WarningSeverity: "red"})
+		if strings.Contains(strings.ToLower(got), "warning: warning:") {
+			t.Errorf("doubled warning label in output for %q:\n%s", prefixed, got)
+		}
+		// The substantive message must survive.
+		if !strings.Contains(got, "launching on dirty") && !strings.Contains(got, "lowercase label") {
+			t.Errorf("warning body lost after prefix strip for %q:\n%s", prefixed, got)
+		}
+	}
+}

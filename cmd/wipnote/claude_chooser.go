@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -147,6 +148,10 @@ func mapIndexToIntent(idx int, orderedRows []dbpkg.ResumableSession, harness str
 	return continueIntentForHarness(orderedRows[idx-1], harness)
 }
 
+// isTTYWriterFn is the seam for tests: replace it to force the TUI path on a
+// non-terminal writer (e.g. bytes.Buffer) without a live char-device.
+var isTTYWriterFn = isTTYWriter
+
 // isTTYWriter returns true when w is a *os.File backed by a char-device terminal.
 // Used to guard TUI rendering: huh's bubbletea backend hangs on non-TTY writers.
 func isTTYWriter(w io.Writer) bool {
@@ -172,13 +177,18 @@ func promptLaunchIntent(in io.Reader, out io.Writer, harness string, grouped dbp
 	orderedRows = append(orderedRows, grouped.CrossHarness...)
 
 	// Try the huh TUI only when out is a real terminal (bubbletea hangs otherwise).
-	if isTTYWriter(out) {
+	if isTTYWriterFn(out) {
 		opts := buildSelectOptions(harness, grouped)
 		idx, tuiErr := runSelectTUIFn(in, out, harness, opts)
 		if tuiErr == nil {
 			return mapIndexToIntent(idx, orderedRows, harness), nil
 		}
-		// TUI errored — fall through to numeric reader.
+		// An explicit user abort (Ctrl-C / Esc) cancels the launch: propagate the
+		// error so the caller aborts, rather than silently starting new work.
+		if errors.Is(tuiErr, huh.ErrUserAborted) {
+			return launcher.NewWorkIntent(), tuiErr
+		}
+		// Other TUI errors (render / TTY failures) fall through to the numeric reader.
 	}
 
 	// Numeric text fallback: used for non-TTY out, accessible mode, or any TUI error.

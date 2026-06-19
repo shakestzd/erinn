@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"io"
 	"strings"
@@ -416,6 +417,40 @@ func TestPromptLaunchIntent_FallbackOnTUIError(t *testing.T) {
 	}
 	if intent.ResumeSessionID != "sess-fb" {
 		t.Fatalf("ResumeSessionID = %q, want sess-fb", intent.ResumeSessionID)
+	}
+}
+
+// TestPromptLaunchIntent_UserAbortCancels verifies that an explicit user abort
+// from the huh TUI (Ctrl-C / Esc -> huh.ErrUserAborted) cancels the launch by
+// propagating the error, rather than silently falling through to the numeric
+// reader and starting new work. Uses the isTTYWriterFn seam to force the TUI
+// path on a bytes.Buffer.
+func TestPromptLaunchIntent_UserAbortCancels(t *testing.T) {
+	origTUI := runSelectTUIFn
+	origTTY := isTTYWriterFn
+	defer func() { runSelectTUIFn = origTUI; isTTYWriterFn = origTTY }()
+
+	isTTYWriterFn = func(io.Writer) bool { return true }
+	runSelectTUIFn = func(_ io.Reader, _ io.Writer, _ string, _ []huh.Option[int]) (int, error) {
+		return 0, huh.ErrUserAborted
+	}
+
+	grouped := dbpkg.HarnessGroupedResumableSessions{
+		SameHarness: []dbpkg.ResumableSession{{
+			WorkItemID: "feat-abort", Harness: "claude", LastSessionID: "sess-abort",
+		}},
+	}
+	var out bytes.Buffer
+	intent, err := promptLaunchIntent(strings.NewReader(""), &out, "claude", grouped)
+	if !errors.Is(err, huh.ErrUserAborted) {
+		t.Fatalf("err = %v, want huh.ErrUserAborted (launch must cancel on abort)", err)
+	}
+	if intent.Kind == launcher.LaunchIntentContinue {
+		t.Fatalf("intent.Kind = %q; abort must NOT resolve to a continue intent", intent.Kind)
+	}
+	// The numeric menu must NOT have been printed (no fall-through on abort).
+	if strings.Contains(out.String(), "Choose how to launch") {
+		t.Fatalf("numeric fallback menu was printed after abort; want immediate cancel. out=%q", out.String())
 	}
 }
 

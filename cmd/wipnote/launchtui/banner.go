@@ -49,11 +49,22 @@ func RenderLaunchBanner(r *lipgloss.Renderer, in BannerInput) string {
 	}
 	if in.Warning != "" {
 		warnStyle := warnStyle(s, in.WarningSeverity)
-		lines = append(lines, warnStyle.Render("  Warning: "+in.Warning))
+		lines = append(lines, warnStyle.Render("  Warning: "+stripWarningPrefix(in.Warning)))
 	}
 
 	body := strings.Join(lines, "\n")
 	return s.Frame.Render(body)
+}
+
+// stripWarningPrefix removes a redundant leading "Warning:" label
+// (case-insensitive) from supplied text so RenderLaunchBanner's own "Warning: "
+// prefix is not doubled (e.g. plan.DirtyMainWarning already starts with "Warning:").
+func stripWarningPrefix(s string) string {
+	t := strings.TrimSpace(s)
+	if len(t) >= len("warning:") && strings.EqualFold(t[:len("warning:")], "warning:") {
+		return strings.TrimSpace(t[len("warning:"):])
+	}
+	return t
 }
 
 // warnStyle returns the appropriate status style for the given severity label.

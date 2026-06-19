@@ -110,19 +110,41 @@ func listGroupedResumableSessionsForRoot(projectRoot, canonicalRoot, harness str
 	return grouped, nil
 }
 
+// harnessesWithNativeSessionResume lists the harnesses that can resume a prior
+// session directly from its stored wipnote session ID (e.g. `--resume <id>`).
+// Gemini resumes by a numeric index and Antigravity has no session-ID resume, so
+// a resume-ID-only current slot is not actionable for them — it would bail in the
+// continuation-context path and launch fresh despite offering "Resume this
+// session".
+var harnessesWithNativeSessionResume = map[string]struct{}{
+	"claude": {},
+	"codex":  {},
+}
+
 // isActionableCurrentSession reports whether the current-session slot would
-// resolve to a meaningful launch intent for the target harness. A same-harness
-// row needs a resume session ID (it resumes the live transcript in place). A
-// cross-harness row needs a work item: cross-harness resume IDs are suppressed,
-// and the continue-context path (resolveContinueLaunchContext) bails when the
-// work item is empty — so a worktree-only handoff is silently dropped downstream.
-// Requiring a work item matches every other cross-harness row, which always
-// carries one.
+// resolve to a meaningful launch intent for the target harness.
+//
+//   - Same harness, resume-ID-only: actionable only when the harness resumes
+//     natively by session ID (claude/codex). Otherwise the resume ID is unusable
+//     and, with no work item, the continuation context bails — so require a work
+//     item for Gemini/Antigravity.
+//   - Cross harness: cross-harness resume IDs are suppressed and
+//     resolveContinueLaunchContext bails on an empty work item (dropping any
+//     worktree handoff), so a work item is required — matching every other
+//     cross-harness row.
 func isActionableCurrentSession(row dbpkg.ResumableSession, harness string) bool {
-	if strings.EqualFold(strings.TrimSpace(row.Harness), strings.TrimSpace(harness)) {
-		return strings.TrimSpace(row.LastSessionID) != ""
+	if strings.TrimSpace(row.WorkItemID) != "" {
+		return true
 	}
-	return strings.TrimSpace(row.WorkItemID) != ""
+	// No work item: only a same-harness, natively-resumable session is actionable.
+	if !strings.EqualFold(strings.TrimSpace(row.Harness), strings.TrimSpace(harness)) {
+		return false
+	}
+	if strings.TrimSpace(row.LastSessionID) == "" {
+		return false
+	}
+	_, ok := harnessesWithNativeSessionResume[strings.ToLower(strings.TrimSpace(harness))]
+	return ok
 }
 
 // resolveCurrentSessionIDs returns the candidate session IDs for "the session the

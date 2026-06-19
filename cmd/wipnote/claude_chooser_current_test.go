@@ -52,10 +52,10 @@ func TestResolveCurrentSessionIDs_ExpandsFamily(t *testing.T) {
 }
 
 // TestIsActionableCurrentSession guards the slot from producing a degenerate
-// continue intent: a same-harness row is actionable only with a resume session
-// ID; a cross-harness row only when it carries a work item or worktree handoff
-// (cross-harness resume IDs are suppressed, so an empty-context row would resolve
-// to "continue latest" downstream and resume an unrelated session).
+// continue intent. With no work item, only a same-harness session on a harness
+// that resumes natively by session ID (claude/codex) is actionable. Any row with
+// a work item is actionable. Cross-harness or non-native-resume rows without a
+// work item are not — their continuation context would bail and launch fresh.
 func TestIsActionableCurrentSession(t *testing.T) {
 	cases := []struct {
 		name    string
@@ -73,6 +73,32 @@ func TestIsActionableCurrentSession(t *testing.T) {
 			name:    "same harness without resume id",
 			row:     dbpkg.ResumableSession{Harness: "claude", LastSessionID: ""},
 			harness: "claude",
+			want:    false,
+		},
+		{
+			name:    "codex same harness with resume id (native resume)",
+			row:     dbpkg.ResumableSession{Harness: "codex", LastSessionID: "sess-cur"},
+			harness: "codex",
+			want:    true,
+		},
+		{
+			// Gemini resumes by numeric index, not the stored session ID — a
+			// resume-ID-only slot is not actionable without a work item.
+			name:    "gemini same harness resume-id-only not actionable",
+			row:     dbpkg.ResumableSession{Harness: "gemini", LastSessionID: "sess-cur"},
+			harness: "gemini",
+			want:    false,
+		},
+		{
+			name:    "gemini same harness with work item is actionable",
+			row:     dbpkg.ResumableSession{Harness: "gemini", LastSessionID: "sess-cur", WorkItemID: "feat-a"},
+			harness: "gemini",
+			want:    true,
+		},
+		{
+			name:    "antigravity same harness resume-id-only not actionable",
+			row:     dbpkg.ResumableSession{Harness: "antigravity", LastSessionID: "sess-cur"},
+			harness: "antigravity",
 			want:    false,
 		},
 		{

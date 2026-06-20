@@ -399,6 +399,25 @@ func TestResolveCodexSandboxMode_UsesDangerFullAccessOnBubblewrapFailure(t *test
 	}
 }
 
+func TestRenderCodexWarningBanner_FormatsSandboxNotice(t *testing.T) {
+	notice := "wipnote: Codex bubblewrap sandbox is unavailable in this devcontainer/Codespace; launching with `--sandbox danger-full-access` so tools do not fail one by one. Approvals remain enabled."
+	got := renderCodexWarningBanner(notice)
+
+	for _, want := range []string{
+		"Codex launch notice",
+		"Warning: wipnote: Codex bubblewrap sandbox is unavailable",
+		"`--sandbox danger-full-access`",
+		"Approvals remain enabled",
+	} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("warning banner missing %q:\n%s", want, got)
+		}
+	}
+	if strings.Contains(got, "Warning: Warning:") {
+		t.Fatalf("warning banner doubled the label:\n%s", got)
+	}
+}
+
 func TestResolveCodexSandboxMode_SkipsProbeOutsideDevcontainer(t *testing.T) {
 	orig := codexSandboxProbe
 	called := false

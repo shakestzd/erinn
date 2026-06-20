@@ -89,6 +89,32 @@ func TestRenderLaunchBanner_EmptyWarning(t *testing.T) {
 	}
 }
 
+func TestRenderLaunchBanner_Details(t *testing.T) {
+	t.Parallel()
+
+	r := launchtui.MakeRendererForProfile(termenv.Ascii)
+	got := launchtui.RenderLaunchBanner(r, launchtui.BannerInput{
+		Headline: "Codex wipnote setup",
+		Details: []launchtui.BannerDetail{
+			{Label: "Plugin cache", Value: "installed locally"},
+			{Label: "Mirrored hooks:", Value: "none found in ~/.codex/hooks.json"},
+		},
+	})
+
+	for _, want := range []string{
+		"Codex wipnote setup",
+		"Plugin cache: installed locally",
+		"Mirrored hooks: none found in ~/.codex/hooks.json",
+	} {
+		if !strings.Contains(got, want) {
+			t.Errorf("detail banner missing %q:\n%s", want, got)
+		}
+	}
+	if strings.Contains(got, "\x1b") {
+		t.Errorf("non-TTY detail banner contains ESC sequences:\n%s", got)
+	}
+}
+
 // TestRenderLaunchBanner_NilRenderer ensures RenderLaunchBanner does not panic
 // when passed a nil renderer (falls back to lipgloss default).
 func TestRenderLaunchBanner_NilRenderer(t *testing.T) {

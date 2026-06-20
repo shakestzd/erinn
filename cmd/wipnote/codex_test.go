@@ -1279,6 +1279,61 @@ func TestPrepareCodexBundledMarketplace_RepairsWhenAlreadyInstalled(t *testing.T
 	}
 }
 
+func TestRunCodexInit_RendersFramedSetupSummary(t *testing.T) {
+	home := filepath.Join(t.TempDir(), "home")
+	if err := os.MkdirAll(filepath.Join(home, ".codex"), 0o755); err != nil {
+		t.Fatalf("mkdir home codex: %v", err)
+	}
+	binDir := filepath.Join(t.TempDir(), "bin")
+	if err := os.MkdirAll(binDir, 0o755); err != nil {
+		t.Fatalf("mkdir bin: %v", err)
+	}
+	script := "#!/bin/sh\nset -eu\nif [ \"$1\" = plugin ] && [ \"$2\" = marketplace ] && [ \"$3\" = add ]; then\n  mkdir -p \"$HOME/.codex\"\n  printf '[marketplaces.wipnote]\\nsource = \"%s\"\\n' \"$4\" > \"$HOME/.codex/config.toml\"\n  exit 0\nfi\nexit 0\n"
+	if err := os.WriteFile(filepath.Join(binDir, "codex"), []byte(script), 0o755); err != nil {
+		t.Fatalf("write fake codex: %v", err)
+	}
+
+	t.Setenv("HOME", home)
+	t.Setenv("PATH", binDir+string(os.PathListSeparator)+os.Getenv("PATH"))
+
+	out := &strings.Builder{}
+	oldStdout := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+	done := make(chan struct{})
+	go func() {
+		_, _ = io.Copy(out, r)
+		close(done)
+	}()
+	t.Cleanup(func() { os.Stdout = oldStdout })
+
+	if err := runCodexInit(true, true); err != nil {
+		t.Fatalf("runCodexInit: %v", err)
+	}
+	_ = w.Close()
+	<-done
+
+	got := out.String()
+	for _, want := range []string{
+		"Codex wipnote setup",
+		"Marketplace:",
+		"Plugin cache:",
+		"Mirrored hooks:",
+		"Agents:",
+		"Setup complete. Run: wipnote codex",
+	} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("setup output missing %q:\n%s", want, got)
+		}
+	}
+	if strings.Contains(got, "wipnote Codex plugin installed in local cache.") {
+		t.Fatalf("expected framed summary instead of bare cache line:\n%s", got)
+	}
+	if strings.Contains(got, "no mirrored wipnote Codex hooks found in ~/.codex/hooks.json.") {
+		t.Fatalf("expected framed summary instead of bare hooks line:\n%s", got)
+	}
+}
+
 func TestLaunchCodexDevDryRunDoesNotExec(t *testing.T) {
 	repo := t.TempDir()
 	if err := os.MkdirAll(filepath.Join(repo, ".wipnote"), 0o755); err != nil {

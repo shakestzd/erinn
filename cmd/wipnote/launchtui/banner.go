@@ -17,12 +17,20 @@ type BannerInput struct {
 	PluginSource string
 	// Session is the session name/ID. Empty to omit the line.
 	Session string
+	// Details are optional label/value rows for launcher status summaries.
+	Details []BannerDetail
 	// Warning is optional advisory text (e.g. dirty-branch warning).
 	// Empty string means no warning row is rendered.
 	Warning string
 	// WarningSeverity controls which status color the warning uses.
 	// Accepted values: "red" (default when non-empty), "amber".
 	WarningSeverity string
+}
+
+// BannerDetail is a label/value row rendered inside a launch banner.
+type BannerDetail struct {
+	Label string
+	Value string
 }
 
 // RenderLaunchBanner renders a framed dashboard block containing the launch
@@ -46,6 +54,19 @@ func RenderLaunchBanner(r *lipgloss.Renderer, in BannerInput) string {
 	}
 	if in.Session != "" {
 		lines = append(lines, s.Muted.Render("  Session: ")+s.TextPrimary.Render(in.Session))
+	}
+	for _, detail := range in.Details {
+		if detail.Label == "" && detail.Value == "" {
+			continue
+		}
+		label := strings.TrimSpace(detail.Label)
+		if label != "" && !strings.HasSuffix(label, ":") {
+			label += ":"
+		}
+		if label != "" {
+			label += " "
+		}
+		lines = append(lines, s.Muted.Render("  "+label)+s.TextPrimary.Render(strings.TrimSpace(detail.Value)))
 	}
 	if in.Warning != "" {
 		warnStyle := warnStyle(s, in.WarningSeverity)

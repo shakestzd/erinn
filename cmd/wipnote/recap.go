@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"time"
@@ -194,6 +195,131 @@ func resolveInputKindStr(input, rangeSpec, sessionID string) string {
 	default:
 		return string(recap.InputRange)
 	}
+}
+
+// RunPlanRollupRecap generates a consolidated rollup recap for a finalized plan.
+// It resolves the git range anchored at the first commit of the plan's YAML file
+// (<first-commit>..HEAD), runs recap.Collect in range mode, renders and writes
+// .wipnote/recaps/recap-pln-<planID>.html, commits via commitRecapArtifact, and
+// wires a relates_to lineage edge from the recap to the plan.
+//
+// ALL errors are non-fatal by design: callers wrap this in a non-fatal block.
+// The function returns an error only when a step that can reasonably be reported
+// fails; it never calls os.Exit. Callers should print returned errors to stderr.
+func RunPlanRollupRecap(wipnoteDir, planID string) error {
+	recapID := "recap-pln-" + planID
+	repoRoot := filepath.Dir(wipnoteDir)
+
+	// Resolve the plan YAML path and find its first commit.
+	planYAMLRelPath := filepath.Join(".wipnote", "plans", planID+".yaml")
+	planYAMLAbsPath := filepath.Join(wipnoteDir, "plans", planID+".yaml")
+
+	firstSHA, err := planFirstCommitSHA(repoRoot, planYAMLAbsPath)
+	if err != nil {
+		return fmt.Errorf("cannot resolve first commit for %s (skipping recap): %w", planYAMLRelPath, err)
+	}
+	if firstSHA == "" {
+		return fmt.Errorf("cannot resolve first commit for %s (untracked, skipping recap)", planYAMLRelPath)
+	}
+
+	gitRange := firstSHA + "..HEAD"
+
+	db, dbErr := openReadOnlyDB(wipnoteDir)
+	if dbErr != nil {
+		fmt.Fprintf(os.Stderr, "recap (non-fatal): open read index (proceeding without): %v\n", dbErr)
+		db = nil
+	}
+	if db != nil {
+		defer db.Close()
+	}
+
+	opts := recap.Options{
+		Input:      gitRange,
+		ProjectDir: repoRoot,
+		Depth:      5,
+	}
+	data, collectErr := recap.Collect(db, opts)
+	if collectErr != nil {
+		fmt.Fprintf(os.Stderr, "recap (non-fatal): collect (proceeding with empty): %v\n", collectErr)
+		data = &recap.RecapData{
+			Outcome: fmt.Sprintf("Plan %s rollup", planID),
+			Provenance: recap.Provenance{
+				Kind:  recap.InputRange,
+				Input: gitRange,
+			},
+		}
+	}
+
+	page := recaptmpl.Build(*data)
+	var buf bytes.Buffer
+	if renderErr := page.Render(&buf); renderErr != nil {
+		return fmt.Errorf("recap render: %w", renderErr)
+	}
+
+	recapsDir := filepath.Join(wipnoteDir, "recaps")
+	if mkErr := os.MkdirAll(recapsDir, 0o755); mkErr != nil {
+		return fmt.Errorf("recap: create recaps dir: %w", mkErr)
+	}
+	artifactPath := filepath.Join(recapsDir, recapID+".html")
+	if writeErr := os.WriteFile(artifactPath, buf.Bytes(), 0o644); writeErr != nil {
+		return fmt.Errorf("recap: write artifact: %w", writeErr)
+	}
+
+	if commitErr := commitRecapArtifact(wipnoteDir, recapID); commitErr != nil {
+		fmt.Fprintf(os.Stderr, "recap (non-fatal): commit artifact: %v\n", commitErr)
+	}
+
+	// Wire relates_to lineage edge from recap to plan (non-fatal).
+	if edgeErr := addPlanRecapLineageEdge(wipnoteDir, recapID, planID); edgeErr != nil {
+		fmt.Fprintf(os.Stderr, "recap (non-fatal): add lineage edge: %v\n", edgeErr)
+	}
+
+	shortStart := firstSHA
+	if len(shortStart) > 7 {
+		shortStart = shortStart[:7]
+	}
+	fmt.Printf("  ✓ %s.html generated (range: %s..HEAD)\n", recapID, shortStart)
+	fmt.Printf("  Dashboard: wipnote serve then open http://127.0.0.1:8080 (or http://127.0.0.1:8088 in devcontainer)\n")
+	return nil
+}
+
+// planFirstCommitSHA returns the SHA of the first commit that introduced
+// planYAMLAbsPath in the repository at repoRoot. Returns "" when the file
+// is not tracked. Uses --diff-filter=A --follow to follow renames.
+func planFirstCommitSHA(repoRoot, planYAMLAbsPath string) (string, error) {
+	out, err := exec.Command(
+		"git", "-C", repoRoot,
+		"log", "--diff-filter=A", "--follow", "--format=%H", "--", planYAMLAbsPath,
+	).Output()
+	if err != nil {
+		return "", fmt.Errorf("git log --diff-filter=A: %w", err)
+	}
+	raw := strings.TrimSpace(string(out))
+	if raw == "" {
+		return "", fmt.Errorf("plan YAML %s has no git history (untracked)", planYAMLAbsPath)
+	}
+	// git log outputs newest-first; we want the oldest (last line).
+	lines := strings.Split(raw, "\n")
+	return strings.TrimSpace(lines[len(lines)-1]), nil
+}
+
+// addPlanRecapLineageEdge wires a relates_to edge from the recap artifact to
+// the plan work item so lineage queries surface the recap as a descendant.
+func addPlanRecapLineageEdge(wipnoteDir, recapID, planID string) error {
+	p, err := workitem.Open(wipnoteDir, "claude-code")
+	if err != nil {
+		return fmt.Errorf("open project: %w", err)
+	}
+	defer p.Close()
+
+	edge := models.Edge{
+		TargetID:     recapID,
+		Relationship: models.RelRelatesTo,
+		Title:        "recap",
+		Since:        time.Now().UTC(),
+	}
+	_, err = p.Plans.AddEdge(planID, edge)
+	return err
 }
 
 // addRecapLineageEdge writes a relates_to edge from the recap HTML artifact

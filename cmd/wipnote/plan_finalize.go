@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -393,6 +394,12 @@ func executePlanFinalizeFromYAML(p *workitem.Project, wipnoteDir, planID string)
 	commitMsg := fmt.Sprintf("plan(%s): finalize — %d features created on %s", planID, len(featureIDs), trackID)
 	if err := commitPlanChange(planPath, commitMsg); err != nil {
 		return nil, fmt.Errorf("autocommit finalize: %w", err)
+	}
+
+	// Generate consolidated rollup recap spanning the plan's git range (non-fatal).
+	// Any error is printed to stderr; it never fails the finalize itself.
+	if recapErr := RunPlanRollupRecap(wipnoteDir, planID); recapErr != nil {
+		fmt.Fprintf(os.Stderr, "recap (non-fatal): %v\n", recapErr)
 	}
 
 	return &finalizeResult{

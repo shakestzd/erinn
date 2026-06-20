@@ -104,6 +104,89 @@ func TestRecapCmd_Feature(t *testing.T) {
 	t.Logf("commit: %s", gitOut)
 }
 
+// TestRunPlanRollupRecap verifies that RunPlanRollupRecap produces a
+// recap-pln-<planID>.html artifact when the plan YAML is committed.
+func TestRunPlanRollupRecap(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping binary-spawning test in -short mode")
+	}
+
+	repo := initFixtureRepo(t)
+	wipDir := filepath.Join(repo, ".wipnote")
+
+	// Create and commit a minimal plan YAML so it has a git history entry.
+	planID := "plan-testabcd1234"
+	plansDir := filepath.Join(wipDir, "plans")
+	if err := os.MkdirAll(plansDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	planPath := filepath.Join(plansDir, planID+".yaml")
+	planContent := "meta:\n  id: " + planID + "\n  status: finalized\n  track_id: trk-test\n" +
+		"design:\n  problem: test\nslices: []\n"
+	if err := os.WriteFile(planPath, []byte(planContent), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	runIn := func(wd string, args ...string) {
+		t.Helper()
+		cmd := exec.Command(args[0], args[1:]...)
+		cmd.Dir = wd
+		out, err := cmd.CombinedOutput()
+		if err != nil {
+			t.Fatalf("cmd %v: %v\n%s", args, err, out)
+		}
+	}
+	runIn(repo, "git", "add", planPath)
+	runIn(repo, "git", "commit", "-m", "add plan YAML")
+
+	// Call RunPlanRollupRecap directly.
+	recapID := "recap-pln-" + planID
+	if err := RunPlanRollupRecap(wipDir, planID); err != nil {
+		t.Fatalf("RunPlanRollupRecap: %v", err)
+	}
+
+	// Assert the artifact was written.
+	artifactPath := filepath.Join(wipDir, "recaps", recapID+".html")
+	if _, statErr := os.Stat(artifactPath); statErr != nil {
+		t.Fatalf("artifact not found at %s: %v", artifactPath, statErr)
+	}
+
+	// Assert the recap-pln ID convention is correct.
+	if !strings.HasPrefix(recapID, "recap-pln-") {
+		t.Errorf("recapID %q does not start with recap-pln-", recapID)
+	}
+
+	t.Logf("recap-pln artifact written: %s", artifactPath)
+}
+
+// TestRunPlanRollupRecap_UntrackedYAML verifies that RunPlanRollupRecap returns
+// a non-nil error (non-fatal by contract) when the plan YAML has no git history.
+func TestRunPlanRollupRecap_UntrackedYAML(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping binary-spawning test in -short mode")
+	}
+
+	repo := initFixtureRepo(t)
+	wipDir := filepath.Join(repo, ".wipnote")
+
+	// Plan YAML exists on disk but is NOT committed — no git history.
+	planID := "plan-untracked9999"
+	plansDir := filepath.Join(wipDir, "plans")
+	if err := os.MkdirAll(plansDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	planPath := filepath.Join(plansDir, planID+".yaml")
+	if err := os.WriteFile(planPath, []byte("meta:\n  id: "+planID+"\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	err := RunPlanRollupRecap(wipDir, planID)
+	if err == nil {
+		t.Fatalf("expected error for untracked plan YAML, got nil")
+	}
+	t.Logf("got expected error: %v", err)
+}
+
 // TestRecapCmd_Range runs `wipnote recap --range HEAD~1..HEAD` and asserts
 // the artifact uses the recap-r-<12-char-hash> id scheme.
 func TestRecapCmd_Range(t *testing.T) {

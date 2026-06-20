@@ -13,7 +13,7 @@
              data-status="todo"
              data-priority="high"
              data-created="2026-04-09T20:45:55.987414"
-             data-updated="2026-06-06T19:45:28.894661" data-agent-assigned="claude-code">
+             data-updated="2026-06-20T17:43:59.987724" data-agent-assigned="claude-code">
 
         <header>
             <h1>Multi-Project Hardening — per-project process isolation</h1>
@@ -27,47 +27,48 @@
             <section data-edge-type="contains">
                 <h3>Contains:</h3>
                 <ul>
-                    <li><a href="feat-ee2db473.html" data-relationship="contains" data-since="2026-04-09T20:47:03.312484">Plan: Multi-Project Hardening</a></li>
-                    <li><a href="bug-50c7eed0.html" data-relationship="contains" data-since="2026-04-10T03:23:31.683159">Execute skill sub-agent attribution guard blocks legitimate dispatch</a></li>
-                    <li><a href="bug-31ff6dca.html" data-relationship="contains" data-since="2026-04-10T07:15:23.988985">Sessions list pollutes per-project view with ambient CWD-attributed sessions</a></li>
-                    <li><a href="bug-129042a4.html" data-relationship="contains" data-since="2026-04-10T07:52:46.971436">Activity feed feature badges show raw IDs instead of titles</a></li>
-                    <li><a href="bug-7f4a1a9c.html" data-relationship="contains" data-since="2026-04-10T07:55:33.771674">Feature create stores id as title in some code path</a></li>
-                    <li><a href="bug-a52d5bf9.html" data-relationship="contains" data-since="2026-04-10T08:14:54.784918">Session ingest writes rows with empty project_dir, pollutes every project DB</a></li>
-                    <li><a href="feat-e7670adb.html" data-relationship="contains" data-since="2026-04-10T09:17:12.930051">Plan: Session HTML canonical store via live-append</a></li>
-                    <li><a href="bug-f0eff9b7.html" data-relationship="contains" data-since="2026-04-25T23:31:35.669933">Host registry accumulates thousands of ghost projects</a></li>
-                    <li><a href="bug-ccf8b887.html" data-relationship="contains" data-since="2026-04-29T03:40:05.470586">Address PR #62 review feedback (registry hardening &#43; indexer removal)</a></li>
-                    <li><a href="feat-ac7532be.html" data-relationship="contains" data-since="2026-04-29T16:43:57.370454">Resilient harness-agnostic telemetry capture (collector hardening &#43; Codex/Gemini support)</a></li>
-                    <li><a href="feat-dcf3d618.html" data-relationship="contains" data-since="2026-04-29T18:49:24.19559">Fail-loud OTel collector spawn failure (RESILIENCE-1)</a></li>
-                    <li><a href="feat-6286f19f.html" data-relationship="contains" data-since="2026-04-29T18:50:29.364987">Retry OTel collector spawn with exponential backoff (RESILIENCE-2)</a></li>
-                    <li><a href="feat-7b195a56.html" data-relationship="contains" data-since="2026-04-29T18:50:29.407061">Watchdog respawns dead session collector (RESILIENCE-3)</a></li>
-                    <li><a href="feat-1c3ebad9.html" data-relationship="contains" data-since="2026-04-29T18:50:29.440192">Expose collector health via htmlgraph status &#43; /api/otel/status (STATUS-1)</a></li>
-                    <li><a href="feat-35519ac2.html" data-relationship="contains" data-since="2026-04-29T18:50:29.474235">Extract CollectorLifecycle interface to internal/otel/collector (REFACTOR-1)</a></li>
-                    <li><a href="feat-9104fb56.html" data-relationship="contains" data-since="2026-04-29T18:50:29.519682">Per-session collector spawn for Codex CLI (CODEX-1)</a></li>
-                    <li><a href="feat-7b094d00.html" data-relationship="contains" data-since="2026-04-29T18:50:29.584106">Per-session collector spawn for Gemini CLI (GEMINI-1)</a></li>
-                    <li><a href="feat-75426991.html" data-relationship="contains" data-since="2026-04-29T18:50:29.626152">Canonical attribute set &#43; Codex/Gemini adapter conformance (SCHEMA-1)</a></li>
-                    <li><a href="feat-e195d658.html" data-relationship="contains" data-since="2026-04-29T18:50:29.671236">Watchdog and handshake-timeout integration tests (TEST-1)</a></li>
-                    <li><a href="feat-c6b3d956.html" data-relationship="contains" data-since="2026-04-29T18:50:29.71982">Multi-harness collector ingestion integration test (TEST-2)</a></li>
-                    <li><a href="feat-bc3c0067.html" data-relationship="contains" data-since="2026-04-29T18:50:29.774666">ADR: harness-agnostic collector lifecycle &#43; canonical attrs (DOC-1)</a></li>
-                    <li><a href="bug-ac25cf0a.html" data-relationship="contains" data-since="2026-05-03T18:47:21.010248">DB write lock: SQLITE_BUSY on PRAGMA journal_mode under long sessions</a></li>
-                    <li><a href="bug-6f3f876c.html" data-relationship="contains" data-since="2026-05-03T19:15:00.588627">WriteBatch uses DEFERRED transaction instead of IMMEDIATE — masks lock contention</a></li>
-                    <li><a href="bug-d842d5e6.html" data-relationship="contains" data-since="2026-05-03T19:49:28.078951">Dashboard Plans tab strips project context — shows 0 plans for active project</a></li>
-                    <li><a href="bug-07722c9c.html" data-relationship="contains" data-since="2026-05-03T19:54:31.014374">Dashboard renders slice-local questions as free-text input, ignoring options/recommended</a></li>
-                    <li><a href="bug-55ee53a9.html" data-relationship="contains" data-since="2026-05-04T16:46:05.867571">Port 8088 default leaks to production; should be devcontainer-only</a></li>
-                    <li><a href="bug-5b5611c2.html" data-relationship="contains" data-since="2026-05-04T16:46:05.918018">Legacy SQLite warning fires in production projects; should be dev-only</a></li>
-                    <li><a href="bug-00611dba.html" data-relationship="contains" data-since="2026-05-04T18:30:46.566635">Execute skill dispatches parallel features without checking file overlap</a></li>
-                    <li><a href="bug-5e3e57a6.html" data-relationship="contains" data-since="2026-05-04T22:47:08.957212">Pre-migration plans missing canonical HTML files (e.g., plan-14772c97)</a></li>
-                    <li><a href="bug-53917a13.html" data-relationship="contains" data-since="2026-05-05T03:34:27.373229">Project registry pollution: test temp dirs registered &#43; no auto-cleanup</a></li>
-                    <li><a href="feat-d2d2be20.html" data-relationship="contains" data-since="2026-05-05T03:44:10.950313">Project registry hardening: skip-on-tempdir &#43; 3-day TTL &#43; prune flags</a></li>
-                    <li><a href="bug-0413c3c4.html" data-relationship="contains" data-since="2026-05-05T03:47:55.969043">Subagent feature attribution hook blocks file writes — claim ownership tied to wrong session ID</a></li>
-                    <li><a href="bug-730c0f19.html" data-relationship="contains" data-since="2026-05-05T03:47:56.040876">Dispatched sub-agents commit directly to main instead of isolated branch</a></li>
-                    <li><a href="bug-19276d4b.html" data-relationship="contains" data-since="2026-05-05T15:02:22.135082">yolo-guard SQL misses screenshots taken via mcp__claude-in-chrome__browser_batch</a></li>
-                    <li><a href="bug-8ff540a7.html" data-relationship="contains" data-since="2026-05-05T15:02:22.249703">Subagents inherit non-YOLO permission mode — Edit/Write blocked despite parent in YOLO</a></li>
-                    <li><a href="feat-ecd82f68.html" data-relationship="contains" data-since="2026-05-05T15:49:58.147965">PreToolUse claim check walks parent session chain (fixes #87 / bug-0413c3c4)</a></li>
-                    <li><a href="feat-9cef857b.html" data-relationship="contains" data-since="2026-05-05T15:50:03.263443">PreToolUse guard refuses sub-agent git commit on main (fixes #88 / bug-730c0f19)</a></li>
-                    <li><a href="feat-72876845.html" data-relationship="contains" data-since="2026-05-05T15:50:07.77782">YOLO permission inheritance via parent-session chain (fixes #90 / bug-8ff540a7)</a></li>
-                    <li><a href="feat-060b396d.html" data-relationship="contains" data-since="2026-05-05T15:58:12.40211">Diagnostic spike: dispatch failure root-cause investigation (slice-0 of plan-ff425b9f)</a></li>
-                    <li><a href="bug-c6c54edc.html" data-relationship="contains" data-since="2026-05-05T17:48:38.115154">/htmlgraph:execute paused agents unrecoverable when SendMessage tool unavailable</a></li>
-                    <li><a href="bug-774ee9c8.html" data-relationship="contains" data-since="2026-06-06T19:45:28.883811">daemon still hits SQLITE_BUSY at runtime under DELETE-journal/overlayfs despite single-writer fix</a></li>
+                    <li><a href="../features/feat-ee2db473.html" data-relationship="contains" data-since="2026-04-09T20:47:03.312484">Plan: Multi-Project Hardening</a></li>
+                    <li><a href="../bugs/bug-50c7eed0.html" data-relationship="contains" data-since="2026-04-10T03:23:31.683159">Execute skill sub-agent attribution guard blocks legitimate dispatch</a></li>
+                    <li><a href="../bugs/bug-31ff6dca.html" data-relationship="contains" data-since="2026-04-10T07:15:23.988985">Sessions list pollutes per-project view with ambient CWD-attributed sessions</a></li>
+                    <li><a href="../bugs/bug-129042a4.html" data-relationship="contains" data-since="2026-04-10T07:52:46.971436">Activity feed feature badges show raw IDs instead of titles</a></li>
+                    <li><a href="../bugs/bug-7f4a1a9c.html" data-relationship="contains" data-since="2026-04-10T07:55:33.771674">Feature create stores id as title in some code path</a></li>
+                    <li><a href="../bugs/bug-a52d5bf9.html" data-relationship="contains" data-since="2026-04-10T08:14:54.784918">Session ingest writes rows with empty project_dir, pollutes every project DB</a></li>
+                    <li><a href="../features/feat-e7670adb.html" data-relationship="contains" data-since="2026-04-10T09:17:12.930051">Plan: Session HTML canonical store via live-append</a></li>
+                    <li><a href="../bugs/bug-f0eff9b7.html" data-relationship="contains" data-since="2026-04-25T23:31:35.669933">Host registry accumulates thousands of ghost projects</a></li>
+                    <li><a href="../bugs/bug-ccf8b887.html" data-relationship="contains" data-since="2026-04-29T03:40:05.470586">Address PR #62 review feedback (registry hardening &#43; indexer removal)</a></li>
+                    <li><a href="../features/feat-ac7532be.html" data-relationship="contains" data-since="2026-04-29T16:43:57.370454">Resilient harness-agnostic telemetry capture (collector hardening &#43; Codex/Gemini support)</a></li>
+                    <li><a href="../features/feat-dcf3d618.html" data-relationship="contains" data-since="2026-04-29T18:49:24.19559">Fail-loud OTel collector spawn failure (RESILIENCE-1)</a></li>
+                    <li><a href="../features/feat-6286f19f.html" data-relationship="contains" data-since="2026-04-29T18:50:29.364987">Retry OTel collector spawn with exponential backoff (RESILIENCE-2)</a></li>
+                    <li><a href="../features/feat-7b195a56.html" data-relationship="contains" data-since="2026-04-29T18:50:29.407061">Watchdog respawns dead session collector (RESILIENCE-3)</a></li>
+                    <li><a href="../features/feat-1c3ebad9.html" data-relationship="contains" data-since="2026-04-29T18:50:29.440192">Expose collector health via htmlgraph status &#43; /api/otel/status (STATUS-1)</a></li>
+                    <li><a href="../features/feat-35519ac2.html" data-relationship="contains" data-since="2026-04-29T18:50:29.474235">Extract CollectorLifecycle interface to internal/otel/collector (REFACTOR-1)</a></li>
+                    <li><a href="../features/feat-9104fb56.html" data-relationship="contains" data-since="2026-04-29T18:50:29.519682">Per-session collector spawn for Codex CLI (CODEX-1)</a></li>
+                    <li><a href="../features/feat-7b094d00.html" data-relationship="contains" data-since="2026-04-29T18:50:29.584106">Per-session collector spawn for Gemini CLI (GEMINI-1)</a></li>
+                    <li><a href="../features/feat-75426991.html" data-relationship="contains" data-since="2026-04-29T18:50:29.626152">Canonical attribute set &#43; Codex/Gemini adapter conformance (SCHEMA-1)</a></li>
+                    <li><a href="../features/feat-e195d658.html" data-relationship="contains" data-since="2026-04-29T18:50:29.671236">Watchdog and handshake-timeout integration tests (TEST-1)</a></li>
+                    <li><a href="../features/feat-c6b3d956.html" data-relationship="contains" data-since="2026-04-29T18:50:29.71982">Multi-harness collector ingestion integration test (TEST-2)</a></li>
+                    <li><a href="../features/feat-bc3c0067.html" data-relationship="contains" data-since="2026-04-29T18:50:29.774666">ADR: harness-agnostic collector lifecycle &#43; canonical attrs (DOC-1)</a></li>
+                    <li><a href="../bugs/bug-ac25cf0a.html" data-relationship="contains" data-since="2026-05-03T18:47:21.010248">DB write lock: SQLITE_BUSY on PRAGMA journal_mode under long sessions</a></li>
+                    <li><a href="../bugs/bug-6f3f876c.html" data-relationship="contains" data-since="2026-05-03T19:15:00.588627">WriteBatch uses DEFERRED transaction instead of IMMEDIATE — masks lock contention</a></li>
+                    <li><a href="../bugs/bug-d842d5e6.html" data-relationship="contains" data-since="2026-05-03T19:49:28.078951">Dashboard Plans tab strips project context — shows 0 plans for active project</a></li>
+                    <li><a href="../bugs/bug-07722c9c.html" data-relationship="contains" data-since="2026-05-03T19:54:31.014374">Dashboard renders slice-local questions as free-text input, ignoring options/recommended</a></li>
+                    <li><a href="../bugs/bug-55ee53a9.html" data-relationship="contains" data-since="2026-05-04T16:46:05.867571">Port 8088 default leaks to production; should be devcontainer-only</a></li>
+                    <li><a href="../bugs/bug-5b5611c2.html" data-relationship="contains" data-since="2026-05-04T16:46:05.918018">Legacy SQLite warning fires in production projects; should be dev-only</a></li>
+                    <li><a href="../bugs/bug-00611dba.html" data-relationship="contains" data-since="2026-05-04T18:30:46.566635">Execute skill dispatches parallel features without checking file overlap</a></li>
+                    <li><a href="../bugs/bug-5e3e57a6.html" data-relationship="contains" data-since="2026-05-04T22:47:08.957212">Pre-migration plans missing canonical HTML files (e.g., plan-14772c97)</a></li>
+                    <li><a href="../bugs/bug-53917a13.html" data-relationship="contains" data-since="2026-05-05T03:34:27.373229">Project registry pollution: test temp dirs registered &#43; no auto-cleanup</a></li>
+                    <li><a href="../features/feat-d2d2be20.html" data-relationship="contains" data-since="2026-05-05T03:44:10.950313">Project registry hardening: skip-on-tempdir &#43; 3-day TTL &#43; prune flags</a></li>
+                    <li><a href="../bugs/bug-0413c3c4.html" data-relationship="contains" data-since="2026-05-05T03:47:55.969043">Subagent feature attribution hook blocks file writes — claim ownership tied to wrong session ID</a></li>
+                    <li><a href="../bugs/bug-730c0f19.html" data-relationship="contains" data-since="2026-05-05T03:47:56.040876">Dispatched sub-agents commit directly to main instead of isolated branch</a></li>
+                    <li><a href="../bugs/bug-19276d4b.html" data-relationship="contains" data-since="2026-05-05T15:02:22.135082">yolo-guard SQL misses screenshots taken via mcp__claude-in-chrome__browser_batch</a></li>
+                    <li><a href="../bugs/bug-8ff540a7.html" data-relationship="contains" data-since="2026-05-05T15:02:22.249703">Subagents inherit non-YOLO permission mode — Edit/Write blocked despite parent in YOLO</a></li>
+                    <li><a href="../features/feat-ecd82f68.html" data-relationship="contains" data-since="2026-05-05T15:49:58.147965">PreToolUse claim check walks parent session chain (fixes #87 / bug-0413c3c4)</a></li>
+                    <li><a href="../features/feat-9cef857b.html" data-relationship="contains" data-since="2026-05-05T15:50:03.263443">PreToolUse guard refuses sub-agent git commit on main (fixes #88 / bug-730c0f19)</a></li>
+                    <li><a href="../features/feat-72876845.html" data-relationship="contains" data-since="2026-05-05T15:50:07.77782">YOLO permission inheritance via parent-session chain (fixes #90 / bug-8ff540a7)</a></li>
+                    <li><a href="../features/feat-060b396d.html" data-relationship="contains" data-since="2026-05-05T15:58:12.40211">Diagnostic spike: dispatch failure root-cause investigation (slice-0 of plan-ff425b9f)</a></li>
+                    <li><a href="../bugs/bug-c6c54edc.html" data-relationship="contains" data-since="2026-05-05T17:48:38.115154">/htmlgraph:execute paused agents unrecoverable when SendMessage tool unavailable</a></li>
+                    <li><a href="../bugs/bug-774ee9c8.html" data-relationship="contains" data-since="2026-06-06T19:45:28.883811">daemon still hits SQLITE_BUSY at runtime under DELETE-journal/overlayfs despite single-writer fix</a></li>
+                    <li><a href="../spikes/spk-9ee2a8ca.html" data-relationship="contains" data-since="2026-06-20T17:43:59.815003">Diagnose workspace disk usage</a></li>
                 </ul>
             </section>
         </nav>

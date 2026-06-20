@@ -12,7 +12,7 @@ links:
     - bug-b262d303
 created_by: wipnote-completion
 created_at: 2026-06-20T09:09:38.598841592Z
-updated_at: 2026-06-20T09:09:38.598841592Z
+updated_at: 2026-06-20T09:59:37.701944031Z
 ---
 
-OTel collector session ID must travel under WIPNOTE_OTEL_SESSION_ID, never WIPNOTE_SESSION_ID — the latter is wipnote canonical current-session identity used for work-item attribution; conflating them made claude --resume receive a phantom 28-char hex ID with no Claude transcript.
+checkYoloWorkItemGuard (core/hooks/yolo_guard.go) blocks subagent Edit/Write unless THAT subagent's session row has active_feature_id; in nested sessions 'wipnote bug start' writes to a stale/dead session row so fresh subagents get false-blocked. The hasAnyActiveWorkItem fallback that prevented this is now unused (dead code) — likely a regression.

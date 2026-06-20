@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>wipnote claude launch latency &#43; silent gap: skip clean marketplace cleanup, non-blocking collector, progress feedback</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="bug-1af3c3d9"
+             data-type="bug"
+             data-status="todo"
+             data-priority="high"
+             data-created="2026-06-20T10:00:49.190646"
+             data-updated="2026-06-20T10:00:49.253868" data-agent-assigned="claude-code" data-track-id="trk-0677c709" data-created-by-agent="claude-code" data-created-by-model="claude-opus-4-8[1m]" data-created-by-cli-version="dev">
+
+        <header>
+            <h1>wipnote claude launch latency &#43; silent gap: skip clean marketplace cleanup, non-blocking collector, progress feedback</h1>
+            <div class="metadata">
+                <span class="badge status-todo">Todo</span>
+                <span class="badge priority-high">High Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-0677c709.html" data-relationship="part_of" data-since="2026-06-20T10:00:49.253718">trk-0677c709</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>Profiling found ~4s every --dev launch in removeMarketplaceWipnote (8 sequential &#39;claude plugin&#39; subprocess calls even when nothing installed), plus up to 4.4s blocking collector spawn, all with zero feedback after the banner. Three fixes: (1) skip removeMarketplaceWipnote when marketplace plugin not installed via isPluginInstalled() + dir checks (and parallelize the calls); (2) make spawnSessionCollector non-blocking / cap retries 3-&gt;1; (3) add progress status lines in the silent gap between banner and claude exec.</p>
+        </section>
+    </article>
+</body>
+</html>

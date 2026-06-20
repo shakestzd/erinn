@@ -153,11 +153,24 @@ func defaultSessionName(projectRoot string) string {
 	return projectSlug + "-" + ts
 }
 
+// marketplaceArtifactDirs returns all artifact directories that may be removed
+// by removeMarketplaceWipnote (wipnote and legacy htmlgraph scopes).
+func marketplaceArtifactDirs() []string {
+	home, _ := os.UserHomeDir()
+	return []string{
+		filepath.Join(home, ".claude", "plugins", "marketplaces", "wipnote"),
+		filepath.Join(home, ".claude", "plugins", "cache", "wipnote"),
+		filepath.Join(home, ".claude", "plugins", "cache", "local-marketplace", "wipnote"),
+		filepath.Join(home, ".claude", "plugins", "marketplaces", "htmlgraph"),
+		filepath.Join(home, ".claude", "plugins", "cache", "htmlgraph"),
+		filepath.Join(home, ".claude", "plugins", "cache", "local-marketplace", "htmlgraph"),
+	}
+}
+
 // marketplaceWipnotePresent reports whether any marketplace wipnote artifact
 // exists that would need removing before a dev-mode launch. It checks:
 //   - isPluginInstalled() (installed_plugins.json entry)
-//   - ~/.claude/plugins/marketplaces/wipnote (cloned marketplace dir)
-//   - ~/.claude/plugins/cache/wipnote (cached plugin dir)
+//   - all artifact directories that removeMarketplaceWipnote would remove
 //
 // When this returns false, removeMarketplaceWipnote can skip all subprocess
 // calls immediately. Pure-ish (reads files + os.Stat) so it is unit-testable.
@@ -165,12 +178,7 @@ func marketplaceWipnotePresent() bool {
 	if isPluginInstalled() {
 		return true
 	}
-	home, _ := os.UserHomeDir()
-	checkDirs := []string{
-		filepath.Join(home, ".claude", "plugins", "marketplaces", "wipnote"),
-		filepath.Join(home, ".claude", "plugins", "cache", "wipnote"),
-	}
-	for _, dir := range checkDirs {
+	for _, dir := range marketplaceArtifactDirs() {
 		if _, err := os.Stat(dir); err == nil {
 			return true
 		}
@@ -214,16 +222,7 @@ func removeMarketplaceWipnote() {
 		}
 	}
 	fmt.Fprintln(os.Stderr) // terminate the \r line
-	home, _ := os.UserHomeDir()
-	marketplaceDirs := []string{
-		filepath.Join(home, ".claude", "plugins", "marketplaces", "wipnote"),
-		filepath.Join(home, ".claude", "plugins", "cache", "wipnote"),
-		filepath.Join(home, ".claude", "plugins", "cache", "local-marketplace", "wipnote"),
-		filepath.Join(home, ".claude", "plugins", "marketplaces", "htmlgraph"),
-		filepath.Join(home, ".claude", "plugins", "cache", "htmlgraph"),
-		filepath.Join(home, ".claude", "plugins", "cache", "local-marketplace", "htmlgraph"),
-	}
-	for _, dir := range marketplaceDirs {
+	for _, dir := range marketplaceArtifactDirs() {
 		if err := os.RemoveAll(dir); err != nil {
 			fmt.Fprintf(os.Stdout, "warning: could not remove %s: %v\n", dir, err)
 		}

@@ -167,3 +167,41 @@ func TestMarketplaceWipnotePresent_TrueWhenPluginInstalled(t *testing.T) {
 		t.Error("marketplaceWipnotePresent() = false, want true when plugin entry exists in installed_plugins.json")
 	}
 }
+
+// TestMarketplaceWipnotePresent_TrueWhenLocalMarketplaceDirExists verifies that
+// marketplaceWipnotePresent returns true when the cache/local-marketplace/wipnote dir is present.
+// This detects a local-marketplace-only install that would otherwise be missed.
+func TestMarketplaceWipnotePresent_TrueWhenLocalMarketplaceDirExists(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+
+	// Create the local-marketplace dir that indicates a cached local plugin.
+	mktDir := filepath.Join(home, ".claude", "plugins", "cache", "local-marketplace", "wipnote")
+	if err := os.MkdirAll(mktDir, 0755); err != nil {
+		t.Fatalf("mkdir cache/local-marketplace/wipnote: %v", err)
+	}
+
+	got := marketplaceWipnotePresent()
+	if !got {
+		t.Error("marketplaceWipnotePresent() = false, want true when cache/local-marketplace/wipnote dir exists")
+	}
+}
+
+// TestMarketplaceWipnotePresent_TrueWhenHtmlgraphDirExists verifies that
+// marketplaceWipnotePresent returns true when legacy htmlgraph artifact dirs exist.
+// This detects old htmlgraph installs that need cleanup.
+func TestMarketplaceWipnotePresent_TrueWhenHtmlgraphDirExists(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+
+	// Create a legacy htmlgraph cache dir.
+	mktDir := filepath.Join(home, ".claude", "plugins", "cache", "htmlgraph")
+	if err := os.MkdirAll(mktDir, 0755); err != nil {
+		t.Fatalf("mkdir cache/htmlgraph: %v", err)
+	}
+
+	got := marketplaceWipnotePresent()
+	if !got {
+		t.Error("marketplaceWipnotePresent() = false, want true when cache/htmlgraph dir exists")
+	}
+}

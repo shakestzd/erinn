@@ -38,6 +38,8 @@ func clearOtelEnv(t *testing.T) {
 		"WIPNOTE_OTEL_ENABLED",
 		"WIPNOTE_OTEL_HTTP_PORT",
 		"WIPNOTE_OTEL_BIND",
+		"WIPNOTE_OTEL_SESSION_ID",
+		"WIPNOTE_SESSION_ID",
 		"WIPNOTE_PROJECT_DIR",
 		"CLAUDE_PROJECT_DIR",
 		"CLAUDE_CODE_ENABLE_TELEMETRY",
@@ -89,7 +91,9 @@ func TestBuildClaudeLaunchEnv_WithCollector(t *testing.T) {
 	assertEnvContains(t, env, "CLAUDE_CODE_ENABLE_TELEMETRY", "1")
 	assertEnvContains(t, env, "OTEL_TRACES_EXPORTER", "otlp")
 	assertEnvContains(t, env, "OTEL_EXPORTER_OTLP_ENDPOINT", "http://127.0.0.1:12345")
-	assertEnvContains(t, env, "WIPNOTE_SESSION_ID", "test-session")
+	// OTel session ID goes to its own var; WIPNOTE_SESSION_ID must NOT carry it.
+	assertEnvContains(t, env, "WIPNOTE_OTEL_SESSION_ID", "test-session")
+	assertEnvEmptyOrUnset(t, env, "WIPNOTE_SESSION_ID")
 }
 
 func TestBuildClaudeLaunchEnv_InjectsWhenCollectorActive(t *testing.T) {

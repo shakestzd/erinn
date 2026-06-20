@@ -8,6 +8,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 
 	"github.com/shakestzd/wipnote/cmd/wipnote/launchtui"
@@ -15,6 +16,22 @@ import (
 	"github.com/shakestzd/wipnote/core/models"
 	"github.com/shakestzd/wipnote/internal/launcher"
 )
+
+// claudeCodeSessionIDRe matches a Claude Code native session ID: a UUID in
+// 8-4-4-4-12 hyphenated hex form (36 characters total). The wipnote OTel
+// session ID (28-char hex, no hyphens) does NOT match this pattern, so this
+// regex is an effective firewall against passing the wrong ID to claude --resume.
+var claudeCodeSessionIDRe = regexp.MustCompile(
+	`^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`,
+)
+
+// isClaudeCodeSessionID reports whether s is a valid Claude Code native session
+// ID (UUID, 36-char, 8-4-4-4-12 hyphenated hex). Used as a defense-in-depth
+// guard before passing a session ID to `claude --resume` so that wipnote's
+// internal OTel collector IDs (28-char unhyphenated hex) are never forwarded.
+func isClaudeCodeSessionID(s string) bool {
+	return claudeCodeSessionIDRe.MatchString(strings.ToLower(strings.TrimSpace(s)))
+}
 
 const (
 	continueHandoffEnvVar = "WIPNOTE_CONTINUE_HANDOFF_B64"
@@ -106,8 +123,17 @@ func resolveContinueLaunchContext(projectRoot, canonicalRoot, harness string, in
 		switch harness {
 		case "claude", "codex":
 			if prevHarness == harness && ctx.ContinuedFrom != "" {
-				ctx.TranscriptResumeID = ctx.ContinuedFrom
-				ctx.TranscriptResumeOK = true
+				// Defense-in-depth guard (bug-b262d303): only pass a session ID to
+				// `claude --resume` when it looks like a native Claude Code session
+				// ID (UUID, 36-char, 8-4-4-4-12 hyphenated). The wipnote OTel
+				// collector mints 28-char unhyphenated hex IDs that would cause
+				// Claude Code to open its "No sessions match" picker.
+				if isClaudeCodeSessionID(ctx.ContinuedFrom) {
+					ctx.TranscriptResumeID = ctx.ContinuedFrom
+					ctx.TranscriptResumeOK = true
+				} else {
+					ctx.transcriptSkipCause = fmt.Sprintf("session ID %q is not a valid Claude Code UUID — skipping --resume to avoid 'No sessions match'", ctx.ContinuedFrom)
+				}
 			} else {
 				ctx.transcriptSkipCause = continueTranscriptSkipCause(harness, prevHarness, ctx.ContinuedFrom)
 			}

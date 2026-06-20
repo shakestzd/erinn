@@ -57,9 +57,14 @@ func buildClaudeLaunchEnv(wipnoteProjectDir string, overrides *otelEnvOverrides)
 		env = setOrReplaceEnv(env, "WIPNOTE_PROJECT_DIR", projectDir)
 	}
 
-	// Inject session ID when provided by the collector spawn path.
+	// Inject OTel session ID under its own var — NOT WIPNOTE_SESSION_ID.
+	// WIPNOTE_SESSION_ID carries the real Claude Code session identity
+	// (populated by the SessionStart hook via writeEnvVars). Mixing the
+	// OTel collector's 28-char hex ID into WIPNOTE_SESSION_ID caused
+	// launcher_continue.go to pass that ID to `claude --resume`, which
+	// has no transcript for it (bug-b262d303).
 	if overrides != nil && overrides.SessionID != "" {
-		env = setOrReplaceEnv(env, "WIPNOTE_SESSION_ID", overrides.SessionID)
+		env = setOrReplaceEnv(env, "WIPNOTE_OTEL_SESSION_ID", overrides.SessionID)
 	}
 
 	// Layer harness-specific launch env vars from the registry. User-set values

@@ -184,9 +184,12 @@ func SessionStart(event *CloudEvent, database *sql.DB, projectDir string) (*Hook
 	// Propagate session ID to downstream hooks while git is running.
 	writeEnvVars(sessionID, projectDir)
 
-	// Emit the Rosetta correlation event: maps launcher-minted WIPNOTE_SESSION_ID
+	// Emit the Rosetta correlation event: maps launcher-minted OTel session ID
 	// to Claude Code's own session_id so the dashboard can follow --resume flows.
-	emitRosettaEvent(projectDir, os.Getenv("WIPNOTE_SESSION_ID"), event.SessionID)
+	// WIPNOTE_OTEL_SESSION_ID carries the OTel collector's 28-char hex ID minted
+	// by the launcher; WIPNOTE_SESSION_ID is now reserved for the real Claude Code
+	// session identity (set by writeEnvVars after this point). See bug-b262d303.
+	emitRosettaEvent(projectDir, os.Getenv("WIPNOTE_OTEL_SESSION_ID"), event.SessionID)
 
 	// Wait for git result — upsertSession needs the commit hash.
 	startCommit := <-commitCh
@@ -756,13 +759,14 @@ func buildSessionStartAttribution(database *sql.DB) string {
 }
 
 // emitRosettaEvent writes a session_start NDJSON line correlating the
-// launcher-minted WIPNOTE_SESSION_ID with Claude Code's own session_id.
-// This is the "Rosetta stone" record that lets the dashboard map a
-// `claude --resume <id>` back to the originating wipnote session.
+// launcher-minted OTel session ID (WIPNOTE_OTEL_SESSION_ID) with Claude Code's
+// own session_id. This is the "Rosetta stone" record that lets the dashboard
+// map a `claude --resume <id>` back to the originating wipnote session.
 //
-// The event is written only when WIPNOTE_SESSION_ID is set (i.e. the
-// session was started via `wipnote claude`). If it is unset, or if the
-// session directory cannot be created, the function returns silently.
+// The event is written only when wipnoteSID is set (i.e. WIPNOTE_OTEL_SESSION_ID
+// was populated by the launcher, meaning the session was started via `wipnote
+// claude`). If it is unset, or if the session directory cannot be created, the
+// function returns silently.
 func emitRosettaEvent(projectDir, wipnoteSID, claudeSessionID string) {
 	if wipnoteSID == "" {
 		return // not a launcher-managed session; skip silently

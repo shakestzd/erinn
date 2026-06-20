@@ -205,7 +205,7 @@ var approvedWriteSites = []writeSite{
 	},
 	{
 		File:           "cmd/wipnote/plan_yaml_extras.go",
-		Line:           519,
+		Line:           524,
 		Function:       "applyAcceptedAmendments",
 		OpenExpr:       "dbpkg.Open",
 		Classification: intentionalCLIMutation,
@@ -221,7 +221,7 @@ var approvedWriteSites = []writeSite{
 	},
 	{
 		File:           "cmd/wipnote/plan_yaml_extras.go",
-		Line:           659,
+		Line:           664,
 		Function:       "runReadFeedbackYAML",
 		OpenExpr:       "dbpkg.Open",
 		Classification: intentionalCLIMutation,

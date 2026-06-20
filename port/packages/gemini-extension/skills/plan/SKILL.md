@@ -308,7 +308,7 @@ wipnote plan create-yaml "<title>" --description "<description>" --track <trk-id
 
 Note the returned plan ID. Write the YAML to `.wipnote/plans/<plan-id>.yaml` via `wipnote plan rewrite-yaml <plan-id> --file /tmp/plan.yaml`.
 
-## Step 2: Validate, Critique, Review, Promote
+## Step 2: Validate, Critique, Visual-Plan Enrichment, Review, Promote
 
 ```bash
 wipnote plan validate-yaml <plan-id>
@@ -317,6 +317,23 @@ wipnote plan validate-yaml <plan-id>
 Fix schema errors before continuing.
 
 After the plan is drafted, run `/wipnote:plan-critique <plan-id>` for the dual role-based design/feasibility review pass. See `plugin/skills/plan-critique/SKILL.md`.
+
+### Step 2b: Complexity-gated visual-plan enrichment (after critique, before human review)
+
+After critique so block content reflects post-critique design decisions, run the `wipnote:visual-plan` skill to author grounded visual blocks for qualifying slices. The gate preserves the grounding rule — blocks must reference real or will-exist fields, routes, and files; never fabricate.
+
+**For each slice:**
+
+| Complexity | `what` + `files` detail | Action |
+|---|---|---|
+| `complex` | any | Run `wipnote:visual-plan` — author grounded blocks |
+| `standard` | detailed enough to ground blocks | Run `wipnote:visual-plan` — author grounded blocks |
+| `standard` | underspecified (vague `what`, no concrete `files`) | Skip — blocks would require invention; note the skip |
+| `trivial` | any | Always skip — trivial slices have no design surface to visualise |
+
+**Grounding rule (enforced):** A block is grounded when every field, route, and file path it names either already exists in the codebase or will exist as a direct output of the slice. If you cannot ground a block without inventing data, skip that block type for that slice and note why.
+
+**Invocation:** For each qualifying slice, call `/wipnote:visual-plan` with the plan ID and slice number. The skill authors blocks directly into the slice's `blocks:` field via `wipnote plan rewrite-yaml`. Unqualifying slices are left as-is; `wipnote plan validate-yaml` emits a non-blocking advisory for any standard/complex slice that still has no blocks after this step — informational only, not a gate.
 
 Then:
 
@@ -369,4 +386,5 @@ The `answer-slice-question` command maps `<slice-num>` and `<question-id>` to th
 ## Related Skills
 
 - `plugin/skills/plan-critique/SKILL.md` — dual-critic review pass (run after the plan is drafted)
+- `plugin/skills/visual-plan/SKILL.md` — complexity-gated grounded visual-block authorship (data-model / api-endpoint / file-tree / wireframe); invoked in Step 2b above
 - `plugin/skills/plan/LEGACY.md` — v1 plan compatibility notes (referenced by validator errors when an old plan is loaded)

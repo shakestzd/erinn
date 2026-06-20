@@ -433,3 +433,34 @@ func ValidateResearchAdvisories(plan *PlanYAML) []string {
 	}
 	return adv
 }
+
+// ValidateBlockAdvisories returns NON-BLOCKING advisories nudging visual-block
+// authorship for standard and complex slices that have no blocks. Trivial slices
+// are always exempt — they have minimal field requirements and no design surface
+// worth visualising. The advisory is informational only and never fails validation.
+//
+// Callers surface these the same way research advisories are surfaced: as
+// warnings in the validate-yaml / validate CLI paths.
+func ValidateBlockAdvisories(plan *PlanYAML) []string {
+	if plan == nil {
+		return nil
+	}
+	var adv []string
+	for i, s := range plan.Slices {
+		complexity := effectiveComplexity(s)
+		if complexity == "trivial" {
+			continue
+		}
+		if len(s.Blocks) == 0 {
+			id := s.ID
+			if id == "" {
+				id = fmt.Sprintf("num=%d", s.Num)
+			}
+			adv = append(adv, fmt.Sprintf(
+				"slices[%d] (%s, %s) has no visual blocks — consider `wipnote:visual-plan` to add grounded data-model/api-endpoint/file-tree/wireframe blocks",
+				i, id, complexity,
+			))
+		}
+	}
+	return adv
+}

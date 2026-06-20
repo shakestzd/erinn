@@ -103,6 +103,12 @@ func validatePlanFromYAML(wipnoteDir, planID string, plan *planyaml.PlanYAML) pl
 		addWarning("research: " + a)
 	}
 
+	// Block advisories: non-blocking nudges for standard/complex slices with no
+	// visual blocks. Trivial slices are exempt. Never a hard error.
+	for _, a := range planyaml.ValidateBlockAdvisories(plan) {
+		addWarning("blocks: " + a)
+	}
+
 	// Slice stats from YAML.
 	result.Stats.Slices = len(plan.Slices)
 	result.Stats.GraphNodes = len(plan.Slices)

@@ -289,6 +289,11 @@ func runValidateYAML(planID string) error {
 	for _, a := range planyaml.ValidateResearchAdvisories(plan) {
 		fmt.Fprintf(os.Stderr, "  ! research advisory: %s\n", a)
 	}
+	// Non-fatal block advisories: nudge standard/complex slices toward visual-block
+	// authorship. Trivial slices are always exempt. Never fails validation.
+	for _, a := range planyaml.ValidateBlockAdvisories(plan) {
+		fmt.Fprintf(os.Stderr, "  ! blocks advisory: %s\n", a)
+	}
 	fmt.Printf("Plan valid: %d slices, %d questions\n", len(plan.Slices), len(plan.Questions))
 	return nil
 }

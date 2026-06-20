@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>Remove vestigial marketplace-plugin cleanup (bundled-plugin migration complete)</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="bug-064137c0"
+             data-type="bug"
+             data-status="todo"
+             data-priority="medium"
+             data-created="2026-06-20T18:23:57.415919"
+             data-updated="2026-06-20T18:23:57.772359" data-agent-assigned="claude-code" data-track-id="trk-0677c709" data-created-by-agent="claude-code" data-created-by-model="claude-opus-4-8[1m]" data-created-by-cli-version="dev">
+
+        <header>
+            <h1>Remove vestigial marketplace-plugin cleanup (bundled-plugin migration complete)</h1>
+            <div class="metadata">
+                <span class="badge status-todo">Todo</span>
+                <span class="badge priority-medium">Medium Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-0677c709.html" data-relationship="part_of" data-since="2026-06-20T18:23:57.771937">trk-0677c709</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>Post marketplace-to-bundled-plugin migration (deploy-all.sh Phase B), wipnote always loads via bundled --plugin-dir; no marketplace install exists for clean installs. removeMarketplaceWipnote + marketplaceWipnotePresent are now dead-weight legacy cleanup. Remove both functions, their two call sites (launchClaudeDev, yolo dev), the 3 presence tests, and stale comments. Moots roborev #418 (incomplete detection).</p>
+        </section>
+    </article>
+</body>
+</html>

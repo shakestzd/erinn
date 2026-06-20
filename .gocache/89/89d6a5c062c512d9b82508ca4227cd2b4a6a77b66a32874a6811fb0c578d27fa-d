@@ -1,9 +1,0 @@
-./claim.go
-./commit.go
-./enums.go
-./event.go
-./feature_file.go
-./lineage.go
-./message.go
-./node.go
-./session.go

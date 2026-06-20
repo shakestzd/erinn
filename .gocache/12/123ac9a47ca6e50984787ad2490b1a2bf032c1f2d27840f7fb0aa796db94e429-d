@@ -1,6 +1,0 @@
-./algorithms_test.go
-./dsl_commit_file_test.go
-./dsl_test.go
-./pattern_test.go
-./querybuilder_test.go
-./sessions_test.go

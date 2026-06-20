@@ -24,6 +24,7 @@ wheels/
 # Testing
 .coverage
 .pytest_cache/
+.gocache/
 htmlcov/
 tests/benchmarks/baseline.json
 

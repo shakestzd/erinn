@@ -23,7 +23,7 @@ type claudeLaunchContext struct {
 // resolveClaudeIntentIsolation runs the full intent-chooser → isolation-planner
 // pipeline shared between launchClaudeDefault and launchClaudeDev. Callers
 // supply the already-resolved projectRoot and wipnoteRoot so they can each do
-// their own preliminary setup (cleanupStaleDev, etc.)
+// their own preliminary setup (cleanupStaleDev, removeMarketplaceWipnote, etc.)
 // before calling this.
 //
 // Parameters:

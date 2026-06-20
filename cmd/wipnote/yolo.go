@@ -484,6 +484,10 @@ func launchYoloDev(trackID, featureID string, noWorktree bool, resumeID, name st
 		emitYoloDirtyMainMessage(devPlan, canonicalRoot, workDir, worktreeCreated, os.Stdout)
 	}
 
+	// Remove any installed marketplace plugin after isolation resolution succeeds
+	// so --plugin-dir cannot be shadowed by a stale install.
+	removeMarketplaceWipnote()
+
 	sessionName := name
 	// Only synthesize a default name for new sessions. When resuming an existing
 	// session, skip default-name generation so we don't rename or conflict with

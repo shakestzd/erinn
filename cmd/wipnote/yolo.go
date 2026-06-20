@@ -484,9 +484,6 @@ func launchYoloDev(trackID, featureID string, noWorktree bool, resumeID, name st
 		emitYoloDirtyMainMessage(devPlan, canonicalRoot, workDir, worktreeCreated, os.Stdout)
 	}
 
-	// Nuke marketplace plugin so it can't shadow the --plugin-dir agents/skills.
-	removeMarketplaceWipnote()
-
 	sessionName := name
 	// Only synthesize a default name for new sessions. When resuming an existing
 	// session, skip default-name generation so we don't rename or conflict with

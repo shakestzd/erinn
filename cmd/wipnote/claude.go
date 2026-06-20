@@ -153,84 +153,6 @@ func defaultSessionName(projectRoot string) string {
 	return projectSlug + "-" + ts
 }
 
-// marketplaceWipnotePresent reports whether any marketplace wipnote artifact
-// exists that would need removing before a dev-mode launch. It checks:
-//   - isPluginInstalled() (installed_plugins.json entry)
-//   - ~/.claude/plugins/marketplaces/wipnote (cloned marketplace dir)
-//   - ~/.claude/plugins/cache/wipnote (cached plugin dir)
-//
-// When this returns false, removeMarketplaceWipnote can skip all subprocess
-// calls immediately. Pure-ish (reads files + os.Stat) so it is unit-testable.
-func marketplaceWipnotePresent() bool {
-	if isPluginInstalled() {
-		return true
-	}
-	home, _ := os.UserHomeDir()
-	checkDirs := []string{
-		filepath.Join(home, ".claude", "plugins", "marketplaces", "wipnote"),
-		filepath.Join(home, ".claude", "plugins", "cache", "wipnote"),
-	}
-	for _, dir := range checkDirs {
-		if _, err := os.Stat(dir); err == nil {
-			return true
-		}
-	}
-	return false
-}
-
-// removeMarketplaceWipnote fully removes the wipnote marketplace plugin so it
-// cannot shadow --plugin-dir agents/skills during dev mode. Belt-and-braces:
-// uninstall removes the install record, disable flips the enabled flag, and
-// RemoveAll wipes any cloned/cached files that linger even after uninstall.
-//
-// Fast-path: when marketplaceWipnotePresent() is false all subprocess calls
-// are skipped entirely (~4s saved on every --dev launch when never installed).
-func removeMarketplaceWipnote() {
-	if !marketplaceWipnotePresent() {
-		return
-	}
-	fmt.Println("Removing marketplace wipnote plugin for dev mode...")
-	// Legacy htmlgraph scopes are still removed so old marketplace installs
-	// cannot shadow local wipnote dev plugins.
-	scopes := []string{"wipnote@wipnote", "wipnote@local-marketplace", "htmlgraph@htmlgraph", "htmlgraph@local-marketplace"}
-	total := len(scopes) * 2 // uninstall + disable per scope
-	step := 0
-	for _, scope := range scopes {
-		step++
-		fmt.Fprintf(os.Stderr, "wipnote: cleaning legacy marketplace plugin (%d/%d)...\r", step, total)
-		if out, err := exec.Command("claude", "plugin", "uninstall", scope).CombinedOutput(); err != nil {
-			msg := strings.ToLower(strings.TrimSpace(string(out)))
-			if !strings.Contains(msg, "not found") && !strings.Contains(msg, "not installed") && !strings.Contains(msg, "already uninstalled") {
-				fmt.Fprintf(os.Stdout, "warning: plugin uninstall %s: %v (%s)\n", scope, err, strings.TrimSpace(string(out)))
-			}
-		}
-		step++
-		fmt.Fprintf(os.Stderr, "wipnote: cleaning legacy marketplace plugin (%d/%d)...\r", step, total)
-		if out, err := exec.Command("claude", "plugin", "disable", scope).CombinedOutput(); err != nil {
-			msg := strings.ToLower(strings.TrimSpace(string(out)))
-			if !strings.Contains(msg, "not found") && !strings.Contains(msg, "not installed") && !strings.Contains(msg, "already disabled") {
-				fmt.Fprintf(os.Stdout, "warning: plugin disable %s: %v (%s)\n", scope, err, strings.TrimSpace(string(out)))
-			}
-		}
-	}
-	fmt.Fprintln(os.Stderr) // terminate the \r line
-	home, _ := os.UserHomeDir()
-	marketplaceDirs := []string{
-		filepath.Join(home, ".claude", "plugins", "marketplaces", "wipnote"),
-		filepath.Join(home, ".claude", "plugins", "cache", "wipnote"),
-		filepath.Join(home, ".claude", "plugins", "cache", "local-marketplace", "wipnote"),
-		filepath.Join(home, ".claude", "plugins", "marketplaces", "htmlgraph"),
-		filepath.Join(home, ".claude", "plugins", "cache", "htmlgraph"),
-		filepath.Join(home, ".claude", "plugins", "cache", "local-marketplace", "htmlgraph"),
-	}
-	for _, dir := range marketplaceDirs {
-		if err := os.RemoveAll(dir); err != nil {
-			fmt.Fprintf(os.Stdout, "warning: could not remove %s: %v\n", dir, err)
-		}
-	}
-	fmt.Println("Marketplace wipnote removed (uninstalled, disabled, cache wiped).")
-}
-
 func launchClaudeDev(extraArgs []string, auto bool, resumeID, name, workItem string, inPlace, continue_ bool) error {
 	if err := requireWipnoteOnPath(); err != nil {
 		return err
@@ -246,11 +168,6 @@ func launchClaudeDev(extraArgs []string, auto bool, resumeID, name, workItem str
 
 	// Clean up any leftover symlink state from a previous dev mode crash.
 	cleanupStaleDev(projectRoot)
-
-	// NOTE: removeMarketplaceWipnote() is intentionally deferred to just before
-	// launchClaude — wiping the marketplace plugin before intent/isolation
-	// resolution would leave the user without a working plugin if the launch
-	// aborts (e.g. enforceLaunchPlan RefuseLaunch). See bug-da10ac25 finding C2.
 
 	// Resolve the in-tree plugin/ from the source root NOW, before intent
 	// resolution might redirect childDir to a worktree. The plugin source always
@@ -288,11 +205,6 @@ func launchClaudeDev(extraArgs []string, auto bool, resumeID, name, workItem str
 		PluginSource: pluginDir,
 		Session:      sessionName,
 	}))
-
-	// Nuke marketplace plugin so it can't shadow the --plugin-dir agents/skills.
-	// Deferred to here (after intent + isolation resolution succeeded) so an
-	// aborted launch never leaves the user with a wiped plugin (bug-da10ac25 C2).
-	removeMarketplaceWipnote()
 
 	return launchClaude(LaunchOpts{
 		// Mode is always "go" for dev sessions: it identifies the dev-plugin
@@ -357,10 +269,10 @@ func launchClaudeAuto(extraArgs []string, resumeID, name string) error {
 		sessionName = defaultSessionName(projectRoot)
 	}
 	fmt.Println(launchtui.RenderLaunchBanner(nil, launchtui.BannerInput{
-		Headline:     "Launching Claude Code in auto mode (autonomous operation)...",
-		PluginSource: pluginDir,
-		Session:      sessionName,
-		Warning:      "Actions will be approved by the background classifier, not prompted.",
+		Headline:        "Launching Claude Code in auto mode (autonomous operation)...",
+		PluginSource:    pluginDir,
+		Session:         sessionName,
+		Warning:         "Actions will be approved by the background classifier, not prompted.",
 		WarningSeverity: "amber",
 	}))
 	return launchClaude(LaunchOpts{

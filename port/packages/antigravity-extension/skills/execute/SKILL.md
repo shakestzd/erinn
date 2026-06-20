@@ -1,4 +1,5 @@
 ---
+disable-model-invocation: true
 name: wipnote:execute
 description: Execute a parallel plan using dependency-driven dispatch. Checks file overlap among unblocked tasks, partitions into non-conflicting waves, and dispatches simultaneously. Merges completed work, then dispatches newly unblocked tasks. No manual wave sequencing.
 ---

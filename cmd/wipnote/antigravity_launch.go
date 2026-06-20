@@ -12,6 +12,12 @@ import (
 
 // antigravityLaunchOpts controls how the Antigravity CLI is launched.
 type antigravityLaunchOpts struct {
+	// Continue, when true, passes --continue to agy (resume most recent
+	// conversation).
+	Continue bool
+	// ResumeID, if non-empty, passes --conversation <id> to agy (resume by
+	// conversation ID). Takes precedence over Continue.
+	ResumeID string
 	// ExtraArgs are forwarded to the agy process.
 	ExtraArgs []string
 	// ProjectRoot is the absolute path to the project root (or worktree path).
@@ -23,6 +29,9 @@ type antigravityLaunchOpts struct {
 	WipnoteRoot string
 	// DryRun, when true, prints the command that would be executed without running it.
 	DryRun bool
+	// ExtraEnv is layered onto the child process after the launcher sets its
+	// standard wipnote and telemetry environment.
+	ExtraEnv []string
 }
 
 // spawnAntigravityOtelCollector spawns a per-session OTel collector.
@@ -60,10 +69,49 @@ func buildAntigravityAgentEnv(base []string) []string {
 	return launcher.BuildHarnessAgentEnv(base, "antigravity_cli")
 }
 
+// buildAntigravityArgs builds the agy argv for resume/continue plus any
+// forwarded extra args. Resume-by-id (--conversation <id>) takes precedence
+// over --continue. Flag names verified live against agy v1.0.8: agy has no
+// --resume flag; resume-by-id is --conversation <id>, and -c/--continue
+// resumes the most recent conversation.
+func buildAntigravityArgs(continue_ bool, resumeID string, extraArgs []string) []string {
+	var args []string
+	switch {
+	case resumeID != "":
+		args = append(args, "--conversation", resumeID)
+	case continue_:
+		args = append(args, "--continue")
+	}
+	args = append(args, extraArgs...)
+	return args
+}
+
+// writeAntigravitySystemPrompt renders the embedded wipnote orchestrator system
+// prompt for Antigravity, writes it to a temp file, and returns the absolute
+// path. The PreInvocation hook reads this file (via WIPNOTE_ANTIGRAVITY_SYSTEM_MD)
+// and injects it into agy through injectSteps[].systemMessage. It reuses the
+// Gemini rendering, then applies agy's tool rename (run_shell_command ->
+// run_command) so tool references match what agy exposes.
+func writeAntigravitySystemPrompt() (string, error) {
+	f, err := os.CreateTemp("", "wipnote-antigravity-system-*.md")
+	if err != nil {
+		return "", fmt.Errorf("creating temp file: %w", err)
+	}
+	rendered := renderGeminiSystemPrompt(geminiSystemPrompt, geminiLaunchModeDefault)
+	rendered = strings.ReplaceAll(rendered, "run_shell_command", "run_command")
+	if _, err := f.WriteString(rendered); err != nil {
+		f.Close()
+		return "", fmt.Errorf("writing antigravity system prompt: %w", err)
+	}
+	if err := f.Close(); err != nil {
+		return "", fmt.Errorf("closing temp file: %w", err)
+	}
+	return f.Name(), nil
+}
+
 // execAntigravity builds the agy argv and runs it.
 func execAntigravity(opts antigravityLaunchOpts) error {
-	var agyArgs []string
-	agyArgs = append(agyArgs, opts.ExtraArgs...)
+	agyArgs := buildAntigravityArgs(opts.Continue, opts.ResumeID, opts.ExtraArgs)
 
 	if opts.DryRun {
 		fmt.Printf("[dry-run] agy %s\n", strings.Join(agyArgs, " "))
@@ -130,13 +178,32 @@ func execAntigravity(opts antigravityLaunchOpts) error {
 	env = buildAntigravityAgentEnv(env)
 	env = append(env, "WIPNOTE_AGENT=antigravity")
 	env = buildAntigravityOtelEnv(env, otelPort, otelSessionID)
+	env = mergeLauncherEnv(env, opts.ExtraEnv...)
+
+	// Make the orchestrator system prompt available to the PreInvocation hook,
+	// which injects it via injectSteps[].systemMessage — the only channel agy
+	// honors (GEMINI_SYSTEM_MD / additionalContext / plugin context are ignored).
+	// Non-fatal: without it, hooks still fire and the agent runs unguided.
+	if smdPath, smdErr := writeAntigravitySystemPrompt(); smdErr == nil {
+		env = setOrReplaceEnv(env, "WIPNOTE_ANTIGRAVITY_SYSTEM_MD", smdPath)
+	} else {
+		fmt.Fprintf(os.Stderr, "wipnote: warning: could not stage Antigravity orchestrator prompt: %v\n", smdErr)
+	}
 
 	if otelSessionID != "" && effectiveProjDir != "" {
-		familyID := resolveSessionFamilyID(effectiveProjDir, otelSessionID, "", false)
+		// A resumed launch (--continue or --resume <id>) must join the existing
+		// session family, not start a new one, so dashboard/observability
+		// grouping matches the other resume-capable launchers. agy's --resume ID
+		// is a conversation ID, not a wipnote session ID, so pass "" as the
+		// resumed session ID and rely on resolveSessionFamilyID's most-recent
+		// path (mirrors gemini_launch.go).
+		isResume := opts.Continue || opts.ResumeID != ""
+		familyID := resolveSessionFamilyID(effectiveProjDir, otelSessionID, "", isResume)
 		env = setOrReplaceEnv(env, "WIPNOTE_SESSION_FAMILY_ID", familyID)
 		persistLauncherSessionFamily(effectiveProjDir, otelSessionID, "antigravity", familyID)
 	}
 
+	env = withHarnessEnv(env, harnessAntigravity)
 	c.Env = env
 
 	return runHarnessWithCleanup(c, otelCleanup)

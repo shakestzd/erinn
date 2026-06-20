@@ -92,6 +92,7 @@ func buildSingleProjectMux(database, writeDB *sql.DB, wipnoteDir string) *http.S
 	mux.Handle("/api/events/stream", sseHandler(database))
 	mux.Handle("/api/events/subagent", subagentEventsHandler(database))
 	mux.Handle("/api/sessions", sessionsHandler(database, projectDir, wipnoteDir))
+	mux.Handle("/api/sessions/resumable", resumableSessionsHandler(database, wipnoteDir))
 	mux.Handle("/api/sessions/adherence-trend", sessionAdherenceTrendHandler(database, projectDir, wipnoteDir))
 	mux.Handle("/api/features", featuresHandler(database, wipnoteDir))
 	mux.Handle("/api/stats", statsHandler(database, wipnoteDir))
@@ -129,6 +130,12 @@ func buildSingleProjectMux(database, writeDB *sql.DB, wipnoteDir string) *http.S
 	// read-only ones (status/render/events/amendments/yaml/feedback GET)
 	// stay on the read-only handle. planRouter wires this internally.
 	mux.Handle("/api/plans/", planRouter(database, writeDB, wipnoteDir))
+
+	// Recap routes — read-only; list reads the SQLite recaps table,
+	// render serves the committed artifact HTML with scoped CSS.
+	// List route must precede the per-recap catch-all.
+	mux.Handle("/api/recaps", recapsListHandler(database))
+	mux.Handle("/api/recaps/", recapRouter(wipnoteDir))
 
 	// Terminal sidecar routes — spawn/stop ttyd processes for the embedded
 	// interactive terminal. Must be registered before the catch-all "/" below.
@@ -222,9 +229,16 @@ func resolveProjectPluginDir() string {
 	if err != nil {
 		return ""
 	}
+	return resolveProjectPluginDirFrom(cwd)
+}
 
-	// Walk up at most 5 levels looking for the project root.
-	dir := cwd
+// resolveProjectPluginDirFrom walks up from startDir (at most 5 levels) looking
+// for a directory that contains both .wipnote/ and plugin/.claude-plugin/plugin.json.
+// Returns the absolute path to the plugin/ directory, or "" if not found.
+// This variant accepts an explicit starting path so dev-mode callers can anchor
+// the search to the source repo root rather than CWD (which may be a worktree).
+func resolveProjectPluginDirFrom(startDir string) string {
+	dir := startDir
 	for range 5 {
 		// Check if this directory has both .wipnote/ and plugin/
 		pluginDir := filepath.Join(dir, "plugin")

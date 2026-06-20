@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>Snapshot-safe empty-spike and worktree GC (SessionEnd &#43; TTL, both covered)</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="feat-e3005c7f"
+             data-type="feature"
+             data-status="done"
+             data-priority="medium"
+             data-created="2026-06-16T23:17:33.038134"
+             data-updated="2026-06-17T04:14:30.188739" data-agent-assigned="claude-code" data-track-id="trk-6a1f5362">
+
+        <header>
+            <h1>Snapshot-safe empty-spike and worktree GC (SessionEnd &#43; TTL, both covered)</h1>
+            <div class="metadata">
+                <span class="badge status-done">Done</span>
+                <span class="badge priority-medium">Medium Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="blocked_by">
+                <h3>Blocked By:</h3>
+                <ul>
+                    <li><a href="../features/feat-9348de66.html" data-relationship="blocked_by">feat-9348de66</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="implemented_in">
+                <h3>Implemented In:</h3>
+                <ul>
+                    <li><a href="../sessions/03e4f451-629b-48f0-895c-7ab073b99884.html" data-relationship="implemented_in" data-since="2026-06-17T00:02:17.74513">session 03e4f451-629b-48f0-895c-7ab073b99884</a></li>
+                    <li><a href="../sessions/019ed365-cfe1-7e91-910f-4cf17b1e13a0.html" data-relationship="implemented_in" data-since="2026-06-17T03:50:50.095462">session 019ed365-cfe1-7e91-910f-4cf17b1e13a0</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="planned_in">
+                <h3>Planned In:</h3>
+                <ul>
+                    <li><a href="../plans/plan-311440bf.html" data-relationship="planned_in" data-since="2026-06-16T23:17:33.042681">plan-311440bf</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-6a1f5362.html" data-relationship="part_of" data-since="2026-06-16T23:17:33.04659">trk-6a1f5362</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>Two cleanup paths, both tested. (a) SessionEnd path: if the session ran a spike whose worktree has
+no commits, no staged/unstaged changes, and no untracked files, auto-complete the spike and remove
+its worktree. (b) Periodic daemon TTL sweep: same emptiness check, gated on the git worktree lock
+/ heartbeat liveness so live worktrees are never swept. CRITICAL: NEVER remove a worktree with
+uncommitted or unpushed work without first creating a recoverable snapshot (a deterministically
+named retained ref; patch under .wipnote as fallback), explicitly avoiding Claude Code #46444.</p>
+        </section>
+    </article>
+</body>
+</html>

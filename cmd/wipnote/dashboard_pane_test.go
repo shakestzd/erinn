@@ -69,6 +69,49 @@ func TestDashboardHTMLUsesWipnoteBranding(t *testing.T) {
 	}
 }
 
+func TestResumeViewPresentInHTML(t *testing.T) {
+	data, err := os.ReadFile("dashboard/index.html")
+	if err != nil {
+		t.Fatalf("read dashboard/index.html: %v", err)
+	}
+	html := string(data)
+
+	for _, want := range []string{
+		`data-view="resume"`,
+		`id="v-resume"`,
+		`id="resume-count"`,
+		`id="resume-body"`,
+		`id="resume-empty"`,
+		`id="resume-loading"`,
+		`id="resume-error"`,
+	} {
+		if !strings.Contains(html, want) {
+			t.Errorf("dashboard HTML missing resume view marker %q", want)
+		}
+	}
+}
+
+func TestResumeViewJSHooksPresent(t *testing.T) {
+	data, err := os.ReadFile("dashboard/js/app.js")
+	if err != nil {
+		t.Fatalf("read dashboard/js/app.js: %v", err)
+	}
+	js := string(data)
+
+	for _, want := range []string{
+		"var resumableSessions = [];",
+		"function fetchResumableSessions()",
+		"function renderResumableSessions()",
+		"buildProjectUrl('sessions/resumable')",
+		"resume-loading",
+		"resume-error",
+	} {
+		if !strings.Contains(js, want) {
+			t.Errorf("app.js missing resume view marker %q", want)
+		}
+	}
+}
+
 // TestPaneStyles verifies the required CSS classes for floating panes exist in
 // components.css.
 func TestPaneStyles(t *testing.T) {

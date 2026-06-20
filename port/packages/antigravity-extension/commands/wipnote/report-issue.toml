@@ -18,7 +18,7 @@ Report a bug or issue with wipnote directly to the development team.
 /wipnote:report-issue [title]
 ```
 
-## Instructions for Claude
+## Instructions
 
 When the user invokes this command:
 
@@ -27,7 +27,7 @@ When the user invokes this command:
    - wipnote version: `wipnote version`
    - Go version: `go version`
    - OS: `uname -s -r`
-   - Claude Code version: check `claude --version` if available
+   - Harness version: check the active CLI version when available, such as `claude --version`, `codex --version`, `gemini --version`, or `agy --version`
    - Recent errors: check last 20 lines of any relevant error output the user shared
 3. Ask the user if they want to include:
    - Steps to reproduce
@@ -47,7 +47,7 @@ gh issue create --repo shakestzd/wipnote \
 - wipnote version: <version>
 - Go version: <version>
 - OS: <os>
-- Claude Code version: <version>
+- Harness version: <version>
 
 ### Steps to Reproduce
 <steps>

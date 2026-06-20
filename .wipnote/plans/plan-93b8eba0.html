@@ -1,0 +1,3292 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="wipnote-version" content="1.0">
+<title>Plan: Visual plan &amp; lineage-grounded recap (native port of BuilderIO visual-plan/visual-recap)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=Source+Serif+4:ital,opsz,wght@0,8..60,300;0,8..60,400;0,8..60,500;1,8..60,300;1,8..60,400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/styles/github-dark.min.css" id="hljs-dark">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/styles/github.min.css" id="hljs-light" disabled>
+<script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/highlight.min.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/languages/go.min.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/languages/yaml.min.js"></script>
+<style>
+:root {
+  --bg:#0f0f13; --bg-card:#18181c; --bg-input:#222228; --bg-hover:#2c2c32;
+  --text:#f0f0ed; --text-dim:#d0d0cc; --text-muted:#9898a0; --border:#3a3a42;
+  --accent:#cdff00; --accent-dim:rgba(205,255,0,.1); --accent-glow:rgba(205,255,0,.25);
+  --approved:#22c55e; --revision:#f59e0b; --discuss:#a78bfa; --pending:#6b7280; --blocked:#ef4444;
+  --radius:8px; --radius-sm:5px;
+  --mono:'JetBrains Mono',ui-monospace,'SF Mono','Cascadia Code',monospace;
+  --sans:'DM Sans','Inter',system-ui,-apple-system,sans-serif;
+  --serif:'Source Serif 4',Georgia,serif;
+  --shadow-card:0 2px 8px rgba(0,0,0,.5), 0 0 0 1px var(--border);
+  --shadow-elevated:0 8px 32px rgba(0,0,0,.6), 0 0 0 1px var(--border);
+  --transition:150ms cubic-bezier(.4,0,.2,1);
+}
+[data-theme="light"] {
+  --bg:#f4f3ef; --bg-card:#ffffff; --bg-input:#eeeee8; --bg-hover:#e4e4de;
+  --text:#1a1a1e; --text-dim:#4a4a50; --text-muted:#8a8a90; --border:#d4d4cc;
+  --accent:#4a6e00; --accent-dim:rgba(74,110,0,.08); --accent-glow:rgba(74,110,0,.2);
+  --shadow-card:0 1px 3px rgba(0,0,0,.06), 0 0 0 1px var(--border);
+  --shadow-elevated:0 4px 24px rgba(0,0,0,.1), 0 0 0 1px var(--border);
+}
+[data-theme="light"] .badge-approved{background:rgba(34,197,94,.08);color:#16a34a;border-color:rgba(34,197,94,.2)}
+[data-theme="light"] .badge-revision{background:rgba(245,158,11,.08);color:#d97706;border-color:rgba(245,158,11,.2)}
+[data-theme="light"] .badge-discuss{background:rgba(167,139,250,.08);color:#7c3aed;border-color:rgba(167,139,250,.2)}
+[data-theme="light"] .badge-pending{background:rgba(107,114,128,.08);color:#4b5563;border-color:rgba(107,114,128,.2)}
+[data-theme="light"] .badge-blocked{background:rgba(239,68,68,.08);color:#dc2626;border-color:rgba(239,68,68,.2)}
+[data-theme="light"] .badge-success{background:rgba(34,197,94,.08);color:#16a34a;border-color:rgba(34,197,94,.2)}
+[data-theme="light"] .badge-warn{background:rgba(245,158,11,.08);color:#d97706;border-color:rgba(245,158,11,.2)}
+[data-theme="light"] .badge-danger{background:rgba(239,68,68,.08);color:#dc2626;border-color:rgba(239,68,68,.2)}
+[data-theme="light"] .badge-info{background:rgba(99,179,237,.08);color:#2563eb;border-color:rgba(99,179,237,.2)}
+[data-theme="light"] .btn-finalize{background:#4a6e00;color:#fff}
+[data-theme="light"] .section-card{--shadow-card:0 1px 2px rgba(0,0,0,.04),0 0 0 1px var(--border)}
+
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{font-size:15px;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale}
+body{font-family:var(--sans);background:var(--bg);color:var(--text);line-height:1.6;margin:0;padding:0;display:grid;grid-template-columns:200px 1fr;min-height:100vh}
+
+/* ── Sidebar ── */
+.plan-sidebar{background:var(--bg-card);border-right:1px solid var(--border);padding:20px 0;display:flex;flex-direction:column;gap:1px;position:sticky;top:0;height:100vh;overflow-y:auto}
+.plan-sidebar .brand{padding:16px 20px 20px;font-weight:700;font-size:1rem;color:var(--accent);text-decoration:none;display:block;border-bottom:1px solid var(--border);margin-bottom:8px;font-family:var(--mono);letter-spacing:-.02em}
+.plan-sidebar a.nav-link{display:flex;align-items:center;gap:10px;padding:9px 20px;color:var(--text-muted);text-decoration:none;font-size:.82rem;font-weight:500;border-right:2px solid transparent;transition:all var(--transition)}
+.plan-sidebar a.nav-link:hover{color:var(--text);background:var(--bg-hover)}
+.plan-sidebar a.nav-link.active{color:var(--accent);background:var(--accent-dim);border-right-color:var(--accent);font-weight:600}
+
+/* ── Plan layout (content + chat sidebar) ── */
+.plan-layout{display:flex;flex:1;min-width:0;overflow:hidden;height:100vh}
+.plan-content{flex:1;min-width:0;padding:32px 40px 80px;overflow-y:auto;max-width:960px}
+
+/* ── Chat sidebar ── */
+.chat-sidebar{width:360px;min-width:280px;max-width:600px;border-left:1px solid var(--border);display:flex;flex-direction:column;background:var(--bg-card);overflow-y:auto;overflow-x:hidden;height:100vh;position:sticky;top:0;flex-shrink:0;transition:width 200ms ease,opacity 150ms ease}
+.chat-resize-handle{width:4px;cursor:col-resize;background:transparent;transition:background .15s;flex-shrink:0;position:relative}
+.chat-resize-handle:hover,.chat-resize-handle.dragging{background:var(--accent);opacity:.5}
+.chat-resize-handle::after{content:'';position:absolute;top:50%;left:-4px;width:12px;height:32px;transform:translateY(-50%);border-radius:4px}
+
+/* ── Typography ── */
+h1{font-family:var(--sans);font-size:1.65rem;font-weight:700;color:var(--text);margin-bottom:6px;letter-spacing:-.03em;line-height:1.3}
+h1::first-letter{color:var(--accent)}
+h2{font-family:var(--sans);font-size:1.15rem;font-weight:600;letter-spacing:-.01em}
+h3{font-family:var(--mono);font-size:.72rem;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:10px}
+h4{font-family:var(--sans);font-size:.88rem;font-weight:600;margin-bottom:8px;color:var(--text)}
+p,li{color:var(--text-dim);line-height:1.7;font-size:.95rem}
+ul,ol{padding-left:1.5em;margin:8px 0}
+ul{list-style:disc}
+ol{list-style:decimal}
+li{padding:3px 0}
+li::marker{color:var(--text-muted)}
+code{font-family:var(--mono);font-size:.82em;background:var(--bg-input);padding:2px 6px;border-radius:var(--radius-sm);border:1px solid var(--border)}
+pre{font-family:var(--mono);font-size:.78rem;background:var(--bg-input);border:1px solid var(--border);border-radius:var(--radius);padding:14px 16px;overflow-x:auto;line-height:1.6;color:var(--text);margin:10px 0}
+a{color:var(--accent);text-decoration:none;transition:opacity var(--transition)}
+a:hover{opacity:.8}
+
+/* ── Plan header ── */
+.plan-header{margin-bottom:36px;padding-bottom:20px;border-bottom:1px solid var(--border);position:relative}
+.plan-header::after{content:'';position:absolute;bottom:-1px;left:0;width:120px;height:1px;background:var(--accent);opacity:.5}
+.plan-header .meta{display:flex;gap:12px;flex-wrap:wrap;margin-top:10px;align-items:center}
+
+/* ── Related Work ── */
+.related-work{margin-bottom:24px;padding:16px 20px;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);display:flex;flex-direction:column;gap:12px}
+.related-track{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.related-label{font-family:var(--mono);font-size:.72rem;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.06em;min-width:70px}
+.related-link{color:var(--accent);font-weight:600;font-size:.9rem;text-decoration:none}
+.related-link:hover{text-decoration:underline}
+.related-features{display:flex;flex-direction:column;gap:6px}
+.related-feature-list{display:flex;flex-direction:column;gap:4px}
+.related-feature{display:flex;align-items:center;gap:10px;padding:6px 10px;background:var(--bg-input);border:1px solid var(--border);border-radius:var(--radius-sm);text-decoration:none;transition:border-color var(--transition)}
+.related-feature:hover{border-color:var(--accent)}
+.related-feature-id{font-family:var(--mono);font-size:.75rem;color:var(--text-muted);min-width:110px}
+.related-feature-title{flex:1;font-size:.85rem;color:var(--text-dim)}
+.related-feature .badge{flex-shrink:0}
+
+/* ── Badges ── */
+.badge{display:inline-flex;align-items:center;gap:6px;font-family:var(--mono);font-size:.75rem;font-weight:600;text-transform:uppercase;letter-spacing:.05em;padding:4px 12px;border-radius:9999px;border:1px solid transparent;transition:all var(--transition)}
+.badge::before{content:'';width:5px;height:5px;border-radius:50%;flex-shrink:0}
+.badge-approved{background:rgba(34,197,94,.1);color:var(--approved);border-color:rgba(34,197,94,.25)}.badge-approved::before{background:var(--approved);box-shadow:0 0 6px var(--approved)}
+.badge-revision{background:rgba(245,158,11,.1);color:var(--revision);border-color:rgba(245,158,11,.25)}.badge-revision::before{background:var(--revision)}
+.badge-discuss{background:rgba(167,139,250,.1);color:var(--discuss);border-color:rgba(167,139,250,.25)}.badge-discuss::before{background:var(--discuss)}
+.badge-pending{background:rgba(107,114,128,.1);color:var(--pending);border-color:rgba(107,114,128,.2)}.badge-pending::before{background:var(--pending)}
+.badge-blocked{background:rgba(239,68,68,.1);color:var(--blocked);border-color:rgba(239,68,68,.25)}.badge-blocked::before{background:var(--blocked)}
+/* Critic-item kind badges: success=green, warn=amber, danger=red, info=neutral/blue */
+.badge-success{background:rgba(34,197,94,.1);color:var(--approved);border-color:rgba(34,197,94,.25)}.badge-success::before{background:var(--approved)}
+.badge-warn{background:rgba(245,158,11,.1);color:var(--revision);border-color:rgba(245,158,11,.25)}.badge-warn::before{background:var(--revision)}
+.badge-danger{background:rgba(239,68,68,.1);color:var(--blocked);border-color:rgba(239,68,68,.25)}.badge-danger::before{background:var(--blocked)}
+.badge-info{background:rgba(99,179,237,.1);color:#63b3ed;border-color:rgba(99,179,237,.25)}.badge-info::before{background:#63b3ed}
+
+/* ── Dependency graph ── */
+.dep-graph{background:var(--bg-card);border-radius:var(--radius);padding:28px;margin-bottom:28px;box-shadow:var(--shadow-card);overflow-x:auto}
+.dep-graph h2{margin-bottom:20px;padding-bottom:12px;border-bottom:1px solid var(--border)}
+.dep-graph svg{display:block;height:auto}
+#dep-graph-svg .node rect{rx:8;ry:8;fill:var(--bg-input);stroke:var(--border);stroke-width:2px}
+#dep-graph-svg .node text{fill:var(--text) !important;font-family:var(--sans);font-size:13px}
+#dep-graph-svg .edgePath path{stroke:var(--text-muted);stroke-dasharray:5 4;fill:none;stroke-width:1.5}
+#dep-graph-svg .edgePath marker path{fill:var(--text-muted)}
+
+/* ── Section cards ── */
+.section-card{background:var(--bg-card);border-radius:var(--radius);margin-bottom:14px;box-shadow:var(--shadow-card);overflow:hidden;transition:box-shadow var(--transition)}
+.section-card:hover{box-shadow:var(--shadow-elevated)}
+.section-card summary{display:flex;align-items:center;gap:12px;padding:16px 24px;cursor:pointer;font-weight:600;font-size:1rem;list-style:none;user-select:none;color:var(--text);font-family:var(--sans);transition:background var(--transition)}
+.section-card summary:hover{background:var(--bg-hover)}
+.section-card summary::-webkit-details-marker{display:none}
+.section-card summary::before{content:'';width:6px;height:6px;border-right:2px solid var(--text-muted);border-bottom:2px solid var(--text-muted);transform:rotate(-45deg);transition:transform .2s ease;flex-shrink:0}
+.section-card[open] summary::before{transform:rotate(45deg)}
+.section-card summary .badge{margin-left:auto}
+.section-body{padding:16px 24px 24px;animation:slideDown .2s ease}
+@keyframes slideDown{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:translateY(0)}}
+.sub-section{margin-bottom:20px}.sub-section:last-child{margin-bottom:0}
+
+/* ── Approval row ── */
+.approval-row{display:flex;align-items:center;gap:16px;margin-top:20px;padding-top:16px;border-top:1px solid var(--border)}
+.approval-row label{font-size:.9rem;color:var(--text);cursor:pointer;display:flex;align-items:center;gap:8px;font-weight:500;white-space:nowrap;transition:color var(--transition)}
+.approval-row label:hover{color:var(--accent)}
+.approval-row input[type="checkbox"]{accent-color:var(--approved);width:18px;height:18px;cursor:pointer;border-radius:4px;flex-shrink:0}
+
+/* ── Textarea ── */
+textarea{width:100%;min-height:52px;resize:vertical;background:var(--bg-input);color:var(--text);border:1px solid var(--border);border-radius:var(--radius);padding:10px 12px;font-family:var(--sans);font-size:.84rem;line-height:1.5;transition:border-color var(--transition),box-shadow var(--transition)}
+textarea:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-dim)}
+textarea::placeholder{color:var(--text-muted)}
+
+/* ── Question blocks ── */
+.question-block{margin-bottom:16px;padding:14px 16px;background:var(--bg-input);border-radius:var(--radius);border-left:3px solid var(--discuss)}
+.question-block p{font-size:.88rem;color:var(--text);margin-bottom:8px;font-weight:500}
+.question-block label{display:block;font-size:.84rem;color:var(--text-dim);padding:5px 8px;cursor:pointer;transition:color var(--transition);border-radius:var(--radius-sm)}
+.question-block label:hover{color:var(--text);background:var(--bg-hover)}
+.question-block label.recommended{border-left:2px solid var(--accent);padding-left:10px;background:var(--accent-dim)}
+.question-block input[type="radio"]{accent-color:var(--accent);margin-right:8px;cursor:pointer}
+.rec-tag{font-family:var(--mono);font-size:.65rem;color:var(--accent);text-transform:uppercase;letter-spacing:.05em;margin-left:6px;opacity:.8}
+
+/* ── Slice cards (collapsible) ── */
+.slice-card{background:var(--bg-input);border:1px solid var(--border);border-left:3px solid var(--border);border-radius:var(--radius);margin-bottom:12px;transition:border-color var(--transition);scroll-margin-top:64px}
+.slice-card:hover{border-color:rgba(205,255,0,.2)}
+/* Status stripe — keyed to data-approval attribute */
+.slice-card[data-approval="approved"]{border-left-color:var(--approved)}
+.slice-card[data-approval="rejected"]{border-left-color:var(--revision)}
+.slice-card[data-approval="changes_requested"]{border-left-color:var(--revision)}
+.slice-card[data-approval="pending"]{border-left-color:var(--border)}
+.slice-card[data-status="done"]{border-left-color:var(--discuss)}
+/* Summary / header — flex row: [#N] [title-col grows] [chevron]; title-col stacks title/preview/meta-row */
+.slice-card > summary.slice-summary{display:flex;align-items:flex-start;gap:12px;padding:12px 16px;cursor:pointer;list-style:none;user-select:none;font-weight:400;font-size:.94rem}
+.slice-card > summary.slice-summary::-webkit-details-marker{display:none}
+.slice-card > summary.slice-summary::marker{content:""}
+.slice-card > summary.slice-summary:hover{background:var(--bg-hover);border-radius:calc(var(--radius) - 1px)}
+.slice-num{margin-top:2px;font-family:var(--mono);font-size:.78rem;color:var(--bg);background:var(--accent);padding:2px 8px;border-radius:4px;font-weight:700;min-width:28px;text-align:center;flex:0 0 auto;align-self:flex-start}
+.slice-title-col{flex:1 1 auto;display:flex;flex-direction:column;gap:4px;min-width:0}
+.slice-name{font-weight:600;font-size:.94rem;font-family:var(--sans);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.slice-preview{color:var(--text-muted);font-size:.82rem;line-height:1.4;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.slice-meta-row{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:4px;flex-wrap:wrap}
+.slice-summary-badges{display:flex;align-items:center;gap:4px;flex-wrap:wrap}
+.badge-sm{font-size:.68rem;padding:2px 7px;letter-spacing:.04em}
+.badge-issues{background:rgba(239,68,68,.12);color:#f87171;border-color:rgba(239,68,68,.25)}
+.badge-questions{background:rgba(167,139,250,.12);color:var(--discuss);border-color:rgba(167,139,250,.25)}
+/* Segmented approval control */
+.slice-actions{display:flex;align-items:center;gap:6px;flex-shrink:0;margin-left:auto}
+.approval-segmented{display:inline-flex;border:1px solid var(--border);border-radius:var(--radius-sm);overflow:hidden;gap:0}
+.seg-btn{display:inline-flex;align-items:center;justify-content:center;padding:4px 9px;font-size:.82rem;cursor:pointer;line-height:1;color:var(--text-muted);transition:background var(--transition),color var(--transition);user-select:none}
+.seg-btn:hover{background:var(--bg-hover);color:var(--text)}
+.seg-btn input[type="radio"]{position:absolute;opacity:0;width:0;height:0;pointer-events:none}
+.seg-btn:has(input:checked){background:var(--bg-hover)}
+.seg-approve:has(input:checked){background:rgba(34,197,94,.15);color:var(--approved);border-right:1px solid var(--border)}
+.seg-changes:has(input:checked){background:rgba(245,158,11,.15);color:var(--revision);border-right:1px solid var(--border)}
+.seg-reject:has(input:checked){background:rgba(239,68,68,.15);color:var(--blocked)}
+/* Chevron */
+.slice-chevron{flex:0 0 auto;align-self:flex-start;width:16px;height:16px;position:relative;margin-top:6px}
+.slice-chevron::after{content:'';position:absolute;top:50%;left:50%;width:7px;height:7px;border-right:2px solid var(--text-muted);border-bottom:2px solid var(--text-muted);transform:translate(-60%,-60%) rotate(-45deg);transition:transform .2s ease}
+.slice-card[open] .slice-chevron::after{transform:translate(-60%,-30%) rotate(45deg)}
+/* Slice body (expanded content) */
+.slice-body{padding:4px 18px 16px}
+.slice-meta{font-size:.82rem;color:var(--text-muted);margin-bottom:6px;font-family:var(--mono)}
+.slice-meta span{margin-right:14px}
+.slice-field{margin-top:14px;padding-bottom:10px;border-bottom:1px solid rgba(51,51,56,.4)}
+.slice-field:last-of-type{border-bottom:none}
+.slice-field-label{font-family:var(--mono);font-size:.7rem;font-weight:600;color:var(--accent);text-transform:uppercase;letter-spacing:.08em;margin-bottom:5px;opacity:.85}
+.slice-field-value{font-size:.92rem;color:var(--text-dim);line-height:1.7}
+.slice-field-value code{font-size:.82rem;word-break:break-all}
+/* Serif prose for WHAT/WHY/description */
+.serif-prose{font-family:var(--serif);font-size:.96rem;line-height:1.6}
+/* Reveal toggle (CSS-only) */
+.reveal-toggle{position:absolute;opacity:0;width:0;height:0;pointer-events:none}
+.reveal-content{max-height:8.5em;overflow:hidden;mask-image:linear-gradient(to bottom, black 60%, transparent 100%);-webkit-mask-image:linear-gradient(to bottom, black 60%, transparent 100%)}
+.reveal-toggle:checked~.reveal-content{max-height:none;mask-image:none;-webkit-mask-image:none}
+.reveal-label{display:inline-block;margin-top:4px;font-size:.78rem;color:var(--accent);cursor:pointer;font-family:var(--mono);opacity:.8;transition:opacity var(--transition)}
+.reveal-label:hover{opacity:1}
+.reveal-toggle:checked~.reveal-content~.reveal-label{display:none}
+/* Test strategy chips */
+.test-strategy{display:flex;flex-direction:column;gap:6px}
+.test-group{display:flex;align-items:flex-start;gap:10px}
+.test-chip{font-family:var(--mono);font-size:.65rem;font-weight:700;letter-spacing:.06em;background:var(--bg-card);border:1px solid var(--border);border-radius:4px;padding:3px 8px;white-space:nowrap;color:var(--text-muted);flex-shrink:0;margin-top:2px}
+.test-group[data-kind="unit"] .test-chip{border-color:rgba(34,197,94,.3);color:var(--approved)}
+.test-group[data-kind="integration"] .test-chip{border-color:rgba(167,139,250,.3);color:var(--discuss)}
+.test-group[data-kind="regression"] .test-chip,.test-group[data-kind="e2e"] .test-chip{border-color:rgba(245,158,11,.3);color:var(--revision)}
+.test-group ul{margin:0;padding-left:1.2em;display:flex;flex-direction:column;gap:2px}
+.test-group ul li{font-size:.84rem;padding:2px 0;color:var(--text-dim)}
+/* Done when list */
+.slice-done-list{list-style:none;padding-left:0;margin:0}
+.slice-done-list li{font-size:.88rem;color:var(--text-dim);padding:3px 0;padding-left:18px;position:relative}
+.slice-done-list li::before{content:'\2713';position:absolute;left:0;color:var(--approved);font-weight:700}
+.slice-done-list--grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:4px 24px}
+/* Slice deps */
+.slice-deps{font-size:.78rem;color:var(--text-muted);margin-top:10px;font-family:var(--mono)}
+/* Comment collapse */
+.comment-collapse{margin-top:10px;border-top:1px solid var(--border)}
+.comment-collapse-trigger{cursor:pointer;font-size:.8rem;color:var(--text-muted);padding:8px 0;font-family:var(--mono);list-style:none;user-select:none;transition:color var(--transition)}
+.comment-collapse-trigger::-webkit-details-marker{display:none}
+.comment-collapse-trigger:hover{color:var(--accent)}
+.comment-collapse-body{padding:8px 0 0}
+/* Old approval-row (design section etc) */
+.slice-card .approval-row{margin-top:16px}
+
+/* ── Progress zone ── */
+.progress-zone{background:var(--bg-card);border-radius:var(--radius);padding:24px;margin-top:28px;box-shadow:var(--shadow-card)}
+.progress-bar-track{height:6px;background:var(--bg-input);border-radius:3px;overflow:hidden;margin:12px 0 20px;position:relative}
+.progress-bar-fill{height:100%;background:linear-gradient(90deg,var(--accent),var(--approved));border-radius:3px;transition:width .4s cubic-bezier(.4,0,.2,1);position:relative}
+.progress-bar-fill::after{content:'';position:absolute;right:0;top:-1px;width:8px;height:8px;background:var(--approved);border-radius:50%;box-shadow:0 0 8px var(--approved);opacity:0;transition:opacity .3s}
+.progress-bar-fill[style*="width:100"]::after,.progress-bar-fill[style*="width: 100"]::after{opacity:1}
+.progress-stats{display:flex;gap:24px;flex-wrap:wrap;margin-bottom:16px}
+.progress-stat{font-size:.82rem;color:var(--text-dim);font-family:var(--sans)}.progress-stat strong{color:var(--text);font-size:1.2rem;margin-right:4px;font-weight:700}
+.comments-summary{border-top:1px solid var(--border);padding-top:16px;margin-top:4px}.comments-summary h3{margin-bottom:10px}
+.comment-entry{font-size:.82rem;color:var(--text-dim);padding:6px 0;border-bottom:1px solid var(--border)}
+.comment-entry:last-child{border-bottom:none}
+.comment-entry .comment-source{font-family:var(--mono);color:var(--accent);font-weight:600;margin-right:8px;font-size:.75rem}
+.finalize-area{margin-top:20px;text-align:center}
+.btn-finalize{background:var(--accent);color:#0a0a0a;border:none;border-radius:var(--radius);padding:12px 36px;font-weight:700;font-size:.88rem;cursor:pointer;font-family:var(--sans);letter-spacing:.01em;transition:all var(--transition);box-shadow:0 0 0 0 var(--accent-glow)}
+.btn-finalize:hover:not(:disabled){filter:brightness(.92);box-shadow:0 0 20px var(--accent-glow)}
+.btn-finalize:disabled{opacity:.3;cursor:not-allowed}
+
+/* ── Critique zone lists (badge-aligned, no bullets) ── */
+#critique ul{list-style:none;padding-left:0;margin:0}
+#critique ul li{display:flex;align-items:flex-start;gap:10px;padding:6px 0;border-bottom:1px solid var(--border)}
+#critique ul li:last-child{border-bottom:none}
+#critique ul li .badge{flex-shrink:0;margin-top:2px}
+
+/* ── Questions table ── */
+.q-table{width:100%;font-size:.84rem;border-collapse:collapse}
+.q-table th{text-align:left;padding:8px 10px;border-bottom:1px solid var(--border);color:var(--text-muted);font-family:var(--mono);font-size:.68rem;text-transform:uppercase;letter-spacing:.06em}
+.q-table td{padding:8px 10px;border-bottom:1px solid var(--border)}
+
+/* ── Chat panel (inside sidebar) ── */
+.chat-panel{display:flex;flex-direction:column;flex:1;overflow:hidden;border-radius:0;box-shadow:none;background:transparent}
+.chat-panel h2{padding:16px 20px 12px;margin-bottom:0;font-size:.95rem;border-bottom:1px solid var(--border);flex-shrink:0}
+.chat-messages{flex:1;overflow-y:auto;padding:16px 20px;display:flex;flex-direction:column;gap:8px}
+.chat-bubble{padding:14px 18px;border-radius:12px;max-width:88%;word-wrap:break-word;font-size:.88rem;line-height:1.65;white-space:normal;animation:bubbleIn .2s ease;overflow:visible}
+@keyframes bubbleIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+.chat-bubble[data-role="user"]{background:var(--accent-dim);border:1px solid rgba(205,255,0,.12);margin-left:auto;color:var(--text);border-bottom-right-radius:4px}
+.chat-bubble[data-role="assistant"]{background:var(--bg-input);border:1px solid var(--border);color:var(--text-dim);border-bottom-left-radius:4px}
+.chat-bubble h3,.chat-bubble h4{font-size:.92rem;margin:16px 0 6px;color:var(--text);font-family:var(--sans)}
+.chat-bubble h3:first-child,.chat-bubble h4:first-child,.chat-bubble p:first-child{margin-top:0}
+.chat-bubble p{margin:8px 0;font-size:inherit;color:inherit;line-height:1.65}
+.chat-bubble p:last-child{margin-bottom:0}
+.chat-bubble strong{color:var(--text);font-weight:600}
+.chat-bubble em{font-style:italic}
+.chat-bubble code{font-size:.82em;padding:2px 5px;background:rgba(255,255,255,.06);border-radius:3px}
+.chat-bubble pre{margin:10px 0;padding:12px 14px;font-size:.8rem;border-radius:var(--radius-sm);background:rgba(0,0,0,.2);overflow-x:auto;white-space:pre;line-height:1.5}
+.chat-bubble pre code{background:none;padding:0;font-size:inherit}
+.chat-bubble ul,.chat-bubble ol{margin:8px 0;padding-left:1.4em}
+.chat-bubble li{padding:3px 0;font-size:inherit;line-height:1.6}
+.chat-bubble table{margin:10px 0;font-size:.82rem;border-collapse:collapse;width:100%;display:block;overflow-x:auto}
+.chat-bubble table th{text-align:left;padding:6px 10px;border-bottom:2px solid var(--border);color:var(--text-muted);font-family:var(--mono);font-size:.75rem;text-transform:uppercase;letter-spacing:.04em;white-space:nowrap}
+.chat-bubble table td{padding:8px 10px;border-bottom:1px solid var(--border);vertical-align:top}
+.chat-input-area{display:flex;gap:8px;padding:14px 20px;border-top:1px solid var(--border);background:var(--bg-input);flex-shrink:0}
+#chat-input{flex:1;background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:var(--radius);padding:10px 12px;resize:none;font-family:var(--sans);font-size:.84rem;line-height:1.5;transition:border-color var(--transition),box-shadow var(--transition)}
+#chat-input:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-dim)}
+#chat-input::placeholder{color:var(--text-muted)}
+#chat-send{background:var(--accent);color:#0a0a0a;border:none;border-radius:var(--radius);padding:10px 18px;cursor:pointer;font-weight:600;font-family:var(--sans);font-size:.84rem;transition:all var(--transition)}
+#chat-send:hover:not(:disabled){box-shadow:0 0 16px var(--accent-glow)}
+#chat-send:disabled{opacity:.3;cursor:not-allowed}
+.chat-notice{font-size:.82rem;color:var(--text-muted);padding:20px;text-align:center;line-height:1.6}
+
+/* ── Review rail (sticky sidebar top) ── */
+.review-rail{padding:16px 18px;border-bottom:1px solid var(--border);background:var(--bg-card)}
+.review-rail h3{font-family:var(--sans);font-size:.82rem;font-weight:600;color:var(--text);margin-bottom:10px;text-transform:none;letter-spacing:0}
+.rail-dots{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:8px}
+.rail-dot{width:12px;height:12px;border-radius:50%;background:var(--border);border:2px solid transparent;cursor:pointer;transition:transform .12s;text-decoration:none;display:inline-block}
+.rail-dot:hover{transform:scale(1.3)}
+.rail-dot[data-approval="approved"]{background:var(--approved);border-color:rgba(34,197,94,.3)}
+.rail-dot[data-approval="rejected"]{background:var(--revision);border-color:rgba(245,158,11,.3)}
+.rail-dot[data-approval="changes_requested"]{background:var(--revision);border-color:rgba(245,158,11,.3)}
+.rail-dot[data-approval="pending"]{background:var(--border)}
+.rail-counter{font-size:.78rem;color:var(--text-dim);margin-bottom:6px;font-family:var(--sans)}
+.rail-counter strong{color:var(--text)}
+.rail-progress{height:5px;background:var(--bg-input);border-radius:3px;overflow:hidden;margin-bottom:12px}
+.rail-progress-fill{height:100%;background:linear-gradient(90deg,var(--accent),var(--approved));border-radius:3px;transition:width .4s cubic-bezier(.4,0,.2,1)}
+.rail-pending-list{font-size:.78rem;color:var(--text-dim);margin-bottom:12px}
+.rail-pending-list strong{display:block;font-size:.7rem;font-family:var(--mono);color:var(--text-muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px}
+.rail-pending-list li{list-style:none;padding:2px 0;display:flex;align-items:center;gap:6px}
+.rail-pending-list li::before{content:'';width:6px;height:6px;border-radius:50%;background:var(--border);flex-shrink:0}
+.rail-pending-list li[data-has-issues]::before{background:var(--blocked)}
+.rail-pending-list li[data-has-questions]::before{background:var(--discuss)}
+.btn-finalize-rail{width:100%;background:var(--accent);color:#0a0a0a;border:none;border-radius:var(--radius);padding:10px 16px;font-weight:700;font-size:.82rem;cursor:pointer;font-family:var(--sans);transition:all var(--transition)}
+.btn-finalize-rail:hover:not(:disabled){filter:brightness(.92)}
+.btn-finalize-rail:disabled{opacity:.3;cursor:not-allowed}
+.rail-finalize-hint{font-size:.7rem;color:var(--text-muted);margin-top:4px;text-align:center}
+/* Chat section inside sidebar now collapsible */
+.chat-collapsible{border-top:1px solid var(--border)}
+.chat-collapsible>summary{cursor:pointer;font-size:.82rem;font-weight:600;color:var(--text-muted);padding:10px 18px;list-style:none;user-select:none;font-family:var(--mono);text-transform:uppercase;letter-spacing:.04em;transition:color var(--transition)}
+.chat-collapsible>summary::-webkit-details-marker{display:none}
+.chat-collapsible>summary:hover{color:var(--accent)}
+/* sidebar slice nav */
+.slice-nav-list{padding:0;margin:0;list-style:none}
+.slice-nav-item{display:flex;align-items:center;gap:6px;padding:4px 20px 4px 28px;font-size:.75rem;color:var(--text-muted);text-decoration:none;cursor:pointer;transition:color var(--transition)}
+.slice-nav-item:hover{color:var(--text)}
+.slice-nav-dot{width:8px;height:8px;border-radius:50%;background:var(--border);flex-shrink:0;transition:background .2s}
+.slice-nav-dot[data-approval="approved"]{background:var(--approved)}
+.slice-nav-dot[data-approval="rejected"]{background:var(--revision)}
+.slice-nav-dot[data-approval="changes_requested"]{background:var(--revision)}
+.nav-triage-badge{font-size:.65rem;font-family:var(--mono);font-weight:700;border-radius:3px;padding:0 3px;line-height:1.4;flex-shrink:0}
+.nav-triage-issue{background:#7c2d12;color:#fde68a}
+.nav-triage-question{background:#1e3a5f;color:#bfdbfe}
+/* graph node highlight ring (added by JS on nav hover/click) */
+.graph-node-ring rect{stroke-width:4px !important;filter:drop-shadow(0 0 4px currentColor)}
+/* dep-chain dim/highlight */
+.dep-graph-dimmed{opacity:.25;transition:opacity .15s}
+.dep-graph-highlighted rect{stroke-width:3px !important}
+
+/* ── Amendments ── */
+.amendments-panel{margin-top:28px;background:var(--bg-card);border-radius:var(--radius);padding:20px;box-shadow:var(--shadow-card)}
+.amendments-panel h3{margin:0 0 14px;font-size:.92rem;color:var(--text);font-family:var(--sans);font-weight:600}
+.amendment-item{display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--border);transition:background var(--transition)}
+.amendment-item:last-child{border-bottom:none}
+.amendment-item:hover{background:var(--bg-hover);margin:0 -8px;padding-left:8px;padding-right:8px;border-radius:var(--radius-sm)}
+.amendment-desc{flex:1;font-size:.84rem;color:var(--text-dim)}
+.amendment-desc .op{color:var(--accent);font-weight:600;font-family:var(--mono);font-size:.78rem}
+.amendment-desc .field{color:var(--text-muted);font-family:var(--mono);font-size:.78rem}
+.amendment-select{background:var(--bg-input);color:var(--text);border:1px solid var(--border);border-radius:var(--radius-sm);padding:5px 10px;font-size:.8rem;font-family:var(--sans);cursor:pointer;transition:border-color var(--transition)}
+.amendment-select:focus{border-color:var(--accent);outline:none}
+.amendments-summary{font-size:.82rem;color:var(--text-muted);margin-top:14px;font-family:var(--mono);padding-top:10px;border-top:1px solid var(--border)}
+
+/* ── YAML viewer ── */
+.yaml-viewer{margin:20px 0}
+.yaml-viewer summary{cursor:pointer;color:var(--accent);font-weight:600;font-size:.84rem;padding:8px 0;font-family:var(--mono);transition:opacity var(--transition)}
+.yaml-viewer summary:hover{opacity:.7}
+.yaml-viewer pre{background:var(--bg-input);border:1px solid var(--border);border-radius:var(--radius);padding:16px;overflow-x:auto;max-height:500px;overflow-y:auto;font-size:.78rem;line-height:1.5;margin-top:8px}
+.yaml-viewer code{font-family:var(--mono);color:var(--text)}
+
+
+/* ── Sidebar toggle buttons ── */
+.sidebar-toggle{display:flex;align-items:center;justify-content:center;width:28px;height:28px;background:transparent;border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-muted);cursor:pointer;font-size:.9rem;line-height:1;transition:background var(--transition),color var(--transition);flex-shrink:0;padding:0}
+.sidebar-toggle:hover{background:var(--bg-hover);color:var(--text)}
+/* Left sidebar toggle — sits beside the brand */
+.plan-sidebar .brand-row{display:flex;align-items:center;justify-content:space-between;padding:16px 20px 20px;border-bottom:1px solid var(--border);margin-bottom:8px}
+.plan-sidebar .brand-row .brand{padding:0;border-bottom:none;margin-bottom:0}
+/* Right sidebar toggle header */
+.chat-sidebar-header{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-bottom:1px solid var(--border);flex-shrink:0}
+.chat-sidebar-header-title{font-family:var(--mono);font-size:.72rem;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.06em}
+/* Collapsed states */
+body.left-nav-collapsed .plan-sidebar{width:48px;min-width:48px;overflow:hidden}
+body.left-nav-collapsed .plan-sidebar .brand-row{padding:12px 10px}
+body.left-nav-collapsed .plan-sidebar .brand-row .brand{display:none}
+body.left-nav-collapsed .plan-sidebar .nav-link{padding:10px;justify-content:center;font-size:0;gap:0}
+body.left-nav-collapsed .plan-sidebar .nav-link::after{content:attr(data-initial);font-size:.7rem;font-family:var(--mono);font-weight:700}
+body.left-nav-collapsed .plan-sidebar .slice-nav-list{display:none}
+body.left-nav-collapsed{grid-template-columns:48px 1fr}
+body.right-rail-collapsed .chat-sidebar{width:0;min-width:0;opacity:0;pointer-events:none;overflow:hidden;border-left:none}
+body.right-rail-collapsed .chat-resize-handle{display:none}
+.sidebar-reopen{display:none;position:fixed;top:14px;right:14px;z-index:50;width:32px;height:32px;align-items:center;justify-content:center;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-muted);cursor:pointer;font-size:1rem;line-height:1;padding:0;box-shadow:0 2px 8px rgba(0,0,0,.35);transition:background var(--transition),color var(--transition)}
+.sidebar-reopen:hover{background:var(--bg-hover);color:var(--text)}
+body.right-rail-collapsed .sidebar-reopen{display:flex}
+
+/* ── Print ── */
+@media print{body{background:#fff;color:#111;max-width:100%;display:block}.plan-sidebar{display:none}.section-card,.dep-graph,.progress-zone,.slice-card{border-color:#ccc;background:#fafafa;box-shadow:none}details[open] summary~*{display:block}.btn-finalize,.chat-panel,.amendments-panel{display:none}}
+
+/* ── Responsive ── */
+@media(max-width:1024px){.chat-sidebar{width:300px;min-width:240px}}
+@media(max-width:768px){
+  body{grid-template-columns:1fr}
+  .plan-sidebar{display:none}
+  .plan-layout{flex-direction:column;height:auto}
+  .plan-content{padding:20px 16px 40px;max-width:none}
+  .chat-resize-handle{display:none}
+  .chat-sidebar{width:100% !important;min-width:0;max-width:none;border-left:none;border-top:1px solid var(--border);height:400px;flex-shrink:0}
+}
+
+</style>
+</head>
+<body>
+
+<nav class="plan-sidebar" id="plan-sidebar">
+  <div class="brand-row">
+    <a href="/" class="brand">wipnote</a>
+    <button class="sidebar-toggle" id="left-sidebar-toggle" title="Collapse sidebar" aria-label="Toggle left sidebar">&#8249;</button>
+  </div>
+  <a href="#design" class="nav-link active" data-spy="design" data-initial="D">Design</a>
+  <a href="#slices" class="nav-link" data-spy="slices" data-initial="S">Slices</a>
+  
+  <ul class="slice-nav-list" id="slice-nav-list">
+    
+    <li>
+      <a href="#slice-1" class="slice-nav-item" data-slice-nav="1">
+        <span class="slice-nav-dot" data-approval="pending" data-dot-for="1"></span>
+        <span>#1 Recap collector core — resolve work-item / git-range / session into grounded diff data</span>
+        
+        <span class="nav-triage-badge nav-triage-question" title="1 open question(s)">?1</span>
+      </a>
+    </li>
+    
+    <li>
+      <a href="#slice-2" class="slice-nav-item" data-slice-nav="2">
+        <span class="slice-nav-dot" data-approval="pending" data-dot-for="2"></span>
+        <span>#2 Recap renderer — recap/recaptmpl package + shared HTML block components</span>
+        <span class="nav-triage-badge nav-triage-issue" title="1 issue(s)">&#9888;1</span>
+        <span class="nav-triage-badge nav-triage-question" title="1 open question(s)">?1</span>
+      </a>
+    </li>
+    
+    <li>
+      <a href="#slice-3" class="slice-nav-item" data-slice-nav="3">
+        <span class="slice-nav-dot" data-approval="pending" data-dot-for="3"></span>
+        <span>#3 `wipnote recap &lt;id|--range|--session&gt;` command + first-class recap-*.html artifact commit</span>
+        
+        
+      </a>
+    </li>
+    
+    <li>
+      <a href="#slice-4" class="slice-nav-item" data-slice-nav="4">
+        <span class="slice-nav-dot" data-approval="pending" data-dot-for="4"></span>
+        <span>#4 Dashboard Recaps view + /api/recaps endpoints</span>
+        <span class="nav-triage-badge nav-triage-issue" title="1 issue(s)">&#9888;1</span>
+        
+      </a>
+    </li>
+    
+    <li>
+      <a href="#slice-5" class="slice-nav-item" data-slice-nav="5">
+        <span class="slice-nav-dot" data-approval="pending" data-dot-for="5"></span>
+        <span>#5 /visual-recap skill (prompt wrapper) + build-ports to all 3 harnesses</span>
+        
+        
+      </a>
+    </li>
+    
+    <li>
+      <a href="#slice-6" class="slice-nav-item" data-slice-nav="6">
+        <span class="slice-nav-dot" data-approval="pending" data-dot-for="6"></span>
+        <span>#6 Slice-schema block enrichment — additive optional structured blocks on PlanSlice</span>
+        
+        <span class="nav-triage-badge nav-triage-question" title="1 open question(s)">?1</span>
+      </a>
+    </li>
+    
+    <li>
+      <a href="#slice-7" class="slice-nav-item" data-slice-nav="7">
+        <span class="slice-nav-dot" data-approval="pending" data-dot-for="7"></span>
+        <span>#7 plantmpl block-zone rendering + before/after HTML wireframes</span>
+        
+        <span class="nav-triage-badge nav-triage-question" title="1 open question(s)">?1</span>
+      </a>
+    </li>
+    
+    <li>
+      <a href="#slice-8" class="slice-nav-item" data-slice-nav="8">
+        <span class="slice-nav-dot" data-approval="pending" data-dot-for="8"></span>
+        <span>#8 Block-level annotation loop for PLANS (consumed/resolved) on plan_feedback — recap annotation explicitly out of scope</span>
+        <span class="nav-triage-badge nav-triage-issue" title="2 issue(s)">&#9888;2</span>
+        
+      </a>
+    </li>
+    
+    <li>
+      <a href="#slice-9" class="slice-nav-item" data-slice-nav="9">
+        <span class="slice-nav-dot" data-approval="pending" data-dot-for="9"></span>
+        <span>#9 /visual-plan skill (prompt wrapper) + build-ports</span>
+        
+        
+      </a>
+    </li>
+    
+    <li>
+      <a href="#slice-10" class="slice-nav-item" data-slice-nav="10">
+        <span class="slice-nav-dot" data-approval="pending" data-dot-for="10"></span>
+        <span>#10 Register recap kind — reindex + SQLite recaps table + find/relevant + `wipnote recap list|show|delete`</span>
+        
+        <span class="nav-triage-badge nav-triage-question" title="1 open question(s)">?1</span>
+      </a>
+    </li>
+    
+  </ul>
+  
+  
+  
+  <a href="#feedback-summary" class="nav-link" data-spy="feedback-summary" data-initial="P">Progress</a>
+  <a href="#chat-panel" class="nav-link" data-spy="chat-panel" data-initial="&#9825;">Chat</a>
+</nav>
+<div class="plan-layout">
+<div class="plan-content">
+<article id="plan-93b8eba0" data-type="plan" data-plan-id="plan-93b8eba0" data-feature-id="trk-a951e3c0" data-status="finalized" data-priority="medium">
+
+<!-- Plan Header -->
+<header class="plan-header">
+  <h1>Plan: Visual plan &amp; lineage-grounded recap (native port of BuilderIO visual-plan/visual-recap)</h1>
+  <p style="color:var(--text-dim)">Research basis:
+- https://github.com/BuilderIO/skills/tree/main/skills/visual-plan (read 2026-06-18, SKILL.md sha df2235e5): visual-plan&#39;s skill logic is prompt-only BUT depends on a HOSTED Agent-Native Plans web app + MCP connector (plan.agent-native.com) to render/store output — exactly the third-party dependency Path B removes. It drives the agent to fetch a live block catalog (get-plan-blocks), author structured MDX blocks grounded in real files, and publish to the hosted Agent-Native Plans web app for human review. Blocks: data-model, api-endpoint, diff, annotated-code, file-tree, diagram, WireframeBlock, columns, Mermaid, tabs, rich-text, question-form.
+- https://github.com/BuilderIO/skills/tree/main/skills/visual-recap (read 2026-06-18, SKILL.md sha 0d53e8fd): visual-recap is the reverse — turns a PR/branch/commit/diff into an interactive recap (UI wireframes -&gt; outcome narrative -&gt; schema/contract blocks -&gt; file map -&gt; annotated diffs in tabs), derived MECHANICALLY from the real diff. No Playwright/screenshots; all visual output is MDX blocks rendered by the web app. Local-files privacy mode exists.
+- web-verified 2026-06-18 (WebSearch/WebFetch, live sources): (a) BuilderIO skills HARD-DEPEND on the hosted plan.agent-native.com MCP connector; local-files mode CONFIRMED via AGENT_NATIVE_PLANS_MODE=local-files -&gt; writes MDX to .agent-native/plans/&lt;slug&gt;/ served by `plan local serve` (proof a local-first port is viable — this is what Path B internalizes). (b) SKILL PORTABILITY VERIFIED across all three harnesses: Claude Code, Codex CLI, and Gemini CLI all implement the Agent Skills open standard (agentskills.io; name+description required, allowed-tools/metadata/compatibility optional) — so slices 5/9 build-ports fan-out needs NO skill-&gt;agent/command translation. Sources (accessed 2026-06-18): https://raw.githubusercontent.com/BuilderIO/skills/main/skills/visual-recap/SKILL.md, https://code.claude.com/docs/en/skills, https://developers.openai.com/codex/skills, https://geminicli.com/docs/cli/skills/, https://agentskills.io/specification. (c) BuilderIO block catalog is DYNAMIC (get-plan-blocks; &#34;tags drift, do not memorize&#34;) — wipnote&#39;s `wipnote plan blocks` (slice-6) is the correct native equivalent; the port must NOT hardcode block tags.
+- runtime: repo read 2026-06-18 (researcher): wipnote already owns the equivalent surfaces — plan-*.yaml-&gt;plan-*.html via commitPlanChange (cmd/wipnote/plan_yaml_cmds.go:42) + component-based renderer plan/plantmpl/ with a D3 dep-graph zone; dashboard SPA (cmd/wipnote/dashboard/, vanilla JS + D3 v7 + Prism + marked + DOMPurify) injects scoped plan HTML via /api/plans/&lt;id&gt;/render; lineage walk in cmd/wipnote/lineage.go (sessions-&gt;features-&gt;commits-&gt;files). No screenshot/headless/mermaid infra anywhere.
+
+Strategy: Path B (NATIVE PORT). Adopt BuilderIO&#39;s CONCEPTS (block catalog, recap-from-diff, before/after wireframes, annotation loop) onto wipnote&#39;s own pipeline. NO hosted Agent-Native Plans MCP dependency — local-first, single-source-of-truth (HTML canonical), reuse existing D3 + vanilla JS, wireframes are plain HTML/CSS (no Playwright). Recap&#39;s unique angle vs BuilderIO: grounded in wipnote LINEAGE, so it carries causal provenance a diff-only tool cannot.
+
+Phase 1 (slices 1-5): lineage-grounded recap vertical slice — new internal/recap collector, new recap/recaptmpl renderer, `wipnote recap` command writing a first-class .wipnote/recaps/recap-*.html artifact, dashboard Recaps view, and the /visual-recap skill wrapper.
+Phase 2 (slices 6-9): visual-plan block enrichment — additive slice-schema blocks, shared block renderers in plantmpl, annotation loop mapped onto existing critic_revisions/questions + plan-review chat, and the /visual-plan skill wrapper.
+
+Relates to plan-243e8713 (shares lineage data + D3/dashboard surface; does not overlap scope).
+</p>
+  <div class="meta">
+    <span class="badge badge-approved">Done</span>
+    <span style="font-size:.75rem;color:var(--text-muted)">v2 · 10 slices · Created 2026-06-18</span>
+  </div>
+</header>
+<button id="themeToggle" style="position:fixed;top:16px;right:16px;z-index:100;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:6px 12px;color:var(--text);font-family:var(--mono);font-size:0.75rem;cursor:pointer;">
+  &#9728; Light
+</button>
+
+<!-- Related Work -->
+
+
+<!-- Plan YAML source (collapsible) -->
+<details class="yaml-viewer" id="yaml-viewer">
+    <summary>View Plan YAML</summary>
+    <pre><code class="language-yaml" id="yaml-content">Loading&#x2026;</code></pre>
+</details>
+
+<!-- ZONE 1: Dependency Graph -->
+<section class="dep-graph" data-zone="dependency-graph">
+  <h2>Dependency Graph</h2>
+  <div id="graph-data" style="display:none">
+    <div data-node="1" data-name="Recap collector core — resolve work-item / git-range / session into grounded diff data" data-status="approved" data-deps="" data-files="4"></div>
+    <div data-node="2" data-name="Recap renderer — recap/recaptmpl package + shared HTML block components" data-status="approved" data-deps="1" data-files="5"></div>
+    <div data-node="3" data-name="`wipnote recap &lt;id|--range|--session&gt;` command + first-class recap-*.html artifact commit" data-status="approved" data-deps="1,2" data-files="2"></div>
+    <div data-node="4" data-name="Dashboard Recaps view + /api/recaps endpoints" data-status="approved" data-deps="10" data-files="5"></div>
+    <div data-node="5" data-name="/visual-recap skill (prompt wrapper) + build-ports to all 3 harnesses" data-status="approved" data-deps="3" data-files="1"></div>
+    <div data-node="6" data-name="Slice-schema block enrichment — additive optional structured blocks on PlanSlice" data-status="approved" data-deps="" data-files="3"></div>
+    <div data-node="7" data-name="plantmpl block-zone rendering + before/after HTML wireframes" data-status="approved" data-deps="6,2" data-files="4"></div>
+    <div data-node="8" data-name="Block-level annotation loop for PLANS (consumed/resolved) on plan_feedback — recap annotation explicitly out of scope" data-status="approved" data-deps="6" data-files="3"></div>
+    <div data-node="9" data-name="/visual-plan skill (prompt wrapper) + build-ports" data-status="approved" data-deps="7" data-files="1"></div>
+    <div data-node="10" data-name="Register recap kind — reindex + SQLite recaps table + find/relevant + `wipnote recap list|show|delete`" data-status="approved" data-deps="3" data-files="5"></div>
+    
+    <!--PLAN_GRAPH_NODES-->
+  </div>
+  <svg id="dep-graph-svg" width="100%"></svg>
+</section>
+
+<!-- ZONE 2: Interactive Sections -->
+
+<!-- Design -->
+<details id="design" class="section-card" open data-phase="design" data-status="pending">
+  <summary><span>Design</span><span class="badge badge-approved" data-badge-for="design">Approved</span></summary>
+  <div class="section-body">
+    <h4>Problem</h4>
+<div data-markdown>BuilderIO&#39;s /visual-plan and /visual-recap give agents rich, reviewable visual artifacts (block-structured plans; recaps that turn a diff into an interactive summary), but they depend on a hosted third-party MCP (Agent-Native Plans). wipnote already owns equivalent rendering surfaces (plantmpl, the serve dashboard, lineage) yet exposes plans as a single layout, has no recap surface at all, and emits lineage as text only. We want the same visual ergonomics, natively and local-first, with recap grounded in wipnote&#39;s unique causal lineage.
+</div>
+<h4>Goals</h4>
+<ol>
+<li data-markdown>Ship a first-class lineage-grounded recap: `wipnote recap` writes a committed recap-*.html accepting work-item / git-range / session inputs</li>
+<li data-markdown>Enrich plans with structured visual blocks (data-model, api-endpoint, file-tree, before/after HTML wireframes) via one shared renderer</li>
+<li data-markdown>Surface recaps and enriched plans in the existing dashboard with no new frontend dependencies</li>
+<li data-markdown>Expose /visual-recap and /visual-plan skills portable across Claude/Codex/Gemini via build-ports</li>
+<li data-markdown>Keep everything local-first: no hosted MCP, HTML stays canonical</li>
+</ol>
+<h4>Constraints</h4>
+<ul>
+<li data-markdown>Local-first: no hosted Agent-Native Plans MCP dependency; no data leaves .wipnote/</li>
+<li data-markdown>Single-source-of-truth: HTML is generated/canonical; never hand-edit recap-*.html or plan-*.html</li>
+<li data-markdown>Reuse existing D3 v7 + vanilla JS + Prism; no new frontend frameworks</li>
+<li data-markdown>Before/after wireframes are plain HTML/CSS design tokens; no Playwright/screenshots/headless</li>
+<li data-markdown>Plan-schema additions must be additive-optional (existing v3 plans validate unchanged)</li>
+<li data-markdown>Skills build across all 3 harnesses via `wipnote plugin build-ports`</li>
+<li data-markdown>Never author or overwrite project AGENTS.md/CLAUDE.md (plugin/project boundary)</li>
+</ul>
+
+    <div class="approval-row">
+      <label><input type="checkbox" data-section="design" data-action="approve"> Approve design</label>
+      <textarea data-section="design" data-comment-for="design" placeholder="Comments on design decisions..."></textarea>
+    </div>
+  </div>
+</details>
+
+
+<!-- Structure Outline (hidden when empty) -->
+
+
+<!-- Slices -->
+<details id="slices" class="section-card" open data-phase="slices" data-status="pending">
+  <summary><span>Slices</span><span class="badge badge-approved" data-badge-for="slices">Approved</span></summary>
+  <div class="section-body">
+    <details class="slice-card" id="slice-1" data-slice="1" data-slice-name="slice-1" data-status="approved" data-approval="approved">
+  <summary class="slice-summary" aria-label="Slice 1: Recap collector core — resolve work-item / git-range / session into grounded diff data">
+    <span class="slice-num">#1</span>
+    <span class="slice-title-col">
+      <span class="slice-name">Recap collector core — resolve work-item / git-range / session into grounded diff data</span>
+      <span class="slice-preview">New internal/recap package.</span>
+      <span class="slice-meta-row">
+        <span class="slice-summary-badges">
+          <span class="badge badge-blocked badge-sm">L</span>
+          <span class="badge badge-revision badge-sm">Med</span>
+          <span class="badge badge-revision badge-sm badge-complexity" title="Complexity: complex">Complex</span>
+          <span class="badge badge-revision badge-sm" title="Execution: promoted">Promoted</span>
+          <span class="badge badge-approved badge-sm slice-approval-badge" data-badge-for="slice-1">Approved</span>
+          
+          <span class="badge badge-sm badge-questions" title="1 open question(s)">1 Q</span>
+        </span>
+        <span class="slice-actions" onclick="event.stopPropagation()">
+          <span class="approval-segmented" role="group" aria-label="Approval action">
+            <label class="seg-btn seg-approve" title="Approve">
+              <input type="radio" name="slice-1-approval" value="approved" data-section="slice-1" data-action="approve" aria-label="Approve slice 1">
+              &#10003;
+            </label>
+            <label class="seg-btn seg-changes" title="Request changes">
+              <input type="radio" name="slice-1-approval" value="changes_requested" data-section="slice-1" data-action="approve" aria-label="Request changes for slice 1">
+              &#8635;
+            </label>
+            <label class="seg-btn seg-reject" title="Reject">
+              <input type="radio" name="slice-1-approval" value="rejected" data-section="slice-1" data-action="approve" aria-label="Reject slice 1">
+              &#10005;
+            </label>
+          </span>
+        </span>
+      </span>
+    </span>
+    <span class="slice-chevron" aria-hidden="true"></span>
+  </summary>
+
+  <div class="slice-body">
+    
+      
+      <div class="slice-field slice-what">
+        <div class="slice-field-label">What</div>
+        <div class="slice-field-value">
+          
+          <input type="checkbox" id="slice-1-what-reveal" class="reveal-toggle">
+          <div class="markdown-block reveal-content serif-prose"><p>New internal/recap package. A collector that, given one of three inputs
+(work-item id feat/bug/spike, a git range commit/branch/PR, or a session id),
+mechanically resolves the set of commits + changed files + per-file diff hunks.
+For work-item and session inputs, walk the existing lineage graph
+(extract the BFS walk from cmd/wipnote/lineage.go into internal/lineage so both
+the CLI and the collector consume it — DRY). Emit a typed RecapData struct
+(outcome facts, file list with change flags, hunks, lineage chain, provenance).</p>
+</div>
+          <label for="slice-1-what-reveal" class="reveal-label">Show full description</label>
+          
+        </div>
+      </div>
+      
+      
+      <div class="slice-field slice-why">
+        <div class="slice-field-label">Why</div>
+        <div class="slice-field-value">
+          
+          <div class="markdown-block serif-prose"><p>Recap&#39;s differentiator is causal grounding: every fact derived from real
+commits/files, never inferred. This is the data layer the whole feature stands on.</p>
+</div>
+          
+        </div>
+      </div>
+      
+      
+      <div class="slice-field">
+        <div class="slice-field-label">Files</div>
+        <div class="slice-field-value"><code>internal/recap/collect.go, internal/recap/types.go, internal/lineage/walk.go, cmd/wipnote/lineage.go</code></div>
+      </div>
+      
+      
+      <div class="slice-field">
+        <div class="slice-field-label">Done when</div>
+        <ul class="slice-done-list"><li>Given a feat-id, collector returns the commits linked via lineage and the union of changed files with add/modify/delete flags</li><li>Given a git range (e.g. main..HEAD), collector returns the same RecapData shape with no work-item grounding</li><li>Given a session id, collector returns files/commits produced in that session</li><li>Lineage BFS walk is shared between cmd/wipnote/lineage.go and internal/recap (no duplicated traversal)</li><li>TestCollect consumes the shared internal/lineage walk — cmd/wipnote/lineage.go retains no private BFS copy (DRY enforced)</li></ul>
+      </div>
+      
+    
+
+    
+    <div class="slice-field slice-decisions-notes">
+      <div class="slice-field-label">Decisions</div>
+      <div class="slice-field-value">
+        
+        <input type="checkbox" id="slice-1-decisions-reveal" class="reveal-toggle">
+        <div class="markdown-block reveal-content serif-prose"><p><strong>Scope:</strong> internal/recap owns collection only (no rendering). Extract lineage BFS to internal/lineage to avoid a second traversal implementation.
+<strong>State:</strong> RecapData is in-memory, derived; the committed artifact (slice-3) is canonical. Grounded entirely in git + .wipnote/*.html, nothing external.
+<strong>Payload:</strong> RecapData{Outcome, Files[]{Path,Change,Hunks}, Commits[], LineageChain, Provenance}. Hunks carry before/after for the diff renderer.
+<strong>Rejected:</strong> parsing <code>git diff</code> text in the renderer (re-parse risk + couples layers); a recap-specific lineage walk separate from the CLI&#39;s (DRY violation, drift risk).
+<strong>Module:</strong> internal/recap and internal/lineage are ROOT-module packages (github.com/shakestzd/wipnote/internal/...). The BFS extraction is an intra-root-module refactor: move pure bfsWalk/forwardWalk/backwardWalk/annotateTimestamps + lineageNode types into internal/lineage; the cobra wiring (newLineageCmd, openReadOnlyDB, findWipnoteDir in cmd/wipnote/lineage.go) STAYS in cmd/ (import direction: internal must not import cmd). Verified extractable — BFS takes only *sql.DB (cmd/wipnote/lineage.go:294).
+<strong>Diff acquisition:</strong> shell out to <code>git diff --unified=3 -- &lt;file&gt;</code> and parse minimal unified-diff hunks (consistent with wipnote&#39;s existing git subprocess usage). No diff library added — none present in any of the 5 go.mod files; a hand-rolled go-diff dep is rejected as unnecessary.</p>
+</div>
+        <label for="slice-1-decisions-reveal" class="reveal-label">Show full decisions</label>
+        
+      </div>
+    </div>
+    
+
+    
+    <div class="slice-field slice-tests-field">
+      <div class="slice-field-label">Test Strategy</div>
+      <div class="slice-field-value">
+        
+        
+        <div class="test-strategy">
+          
+          <div class="test-group" data-kind="unit">
+            <span class="test-chip">UNIT &middot; 1</span>
+            <ul><li>TestCollect_FromFeature (fixture .wipnote &#43; git repo), TestCollect_FromRange,</li></ul>
+          </div>
+          
+          <div class="test-group" data-kind="other">
+            <span class="test-chip">OTHER &middot; 1</span>
+            <ul><li>TestCollect_FromSession. Assert deterministic file/hunk sets. Table-driven.</li></ul>
+          </div>
+          
+        </div>
+        
+      </div>
+    </div>
+    
+
+    
+    <div class="slice-field slice-critic-revisions">
+      <div class="slice-field-label">Critic Revisions</div>
+      <div class="slice-field-value">
+        
+        <div class="critic-revision">
+          <span class="badge badge-pending critic-revision-badge">success</span>
+          <span class="critic-revision-source">local-feasibility</span>
+          <span class="critic-revision-summary">BFS extraction to internal/lineage is a clean intra-root-module refactor; pure walk takes only *sql.DB (lineage.go:294), cobra wiring stays in cmd/.</span>
+        </div>
+        
+        <div class="critic-revision">
+          <span class="badge badge-pending critic-revision-badge">info</span>
+          <span class="critic-revision-source">local-feasibility</span>
+          <span class="critic-revision-summary">No diff lib in any go.mod — decided: shell out to git diff --unified=3 (no new dep).</span>
+        </div>
+        
+      </div>
+    </div>
+    
+
+    
+    <div class="slice-field slice-questions">
+      <div class="slice-field-label">Open Questions</div>
+      <div class="slice-field-value">
+        
+        <div class="question-block slice-question-block">
+          <p>When input is a bare git range with no work-item, should recap still render a (degraded) lineage zone or omit it?</p>
+          
+          
+          <textarea
+            data-section="slice-1-question-q-range-no-lineage"
+            data-comment-for="slice-1-question-q-range-no-lineage"
+            placeholder="Answer question q-range-no-lineage...">Omit the lineage zone gracefully when there is no work-item grounding; render only the diff/file/outcome zones. The lineage zone is the value-add when grounding exists, not a hard requirement.</textarea>
+          
+        </div>
+        
+      </div>
+    </div>
+    
+
+    <div class="slice-deps">Dependencies: none</div>
+
+    <details class="comment-collapse">
+      <summary class="comment-collapse-trigger">+ Leave a comment</summary>
+      <div class="comment-collapse-body">
+        <textarea data-section="slice-1" data-comment-for="slice-1" placeholder="Comments on slice 1..."></textarea>
+      </div>
+    </details>
+  </div>
+</details>
+<details class="slice-card" id="slice-2" data-slice="2" data-slice-name="slice-2" data-status="approved" data-approval="approved">
+  <summary class="slice-summary" aria-label="Slice 2: Recap renderer — recap/recaptmpl package &#43; shared HTML block components">
+    <span class="slice-num">#2</span>
+    <span class="slice-title-col">
+      <span class="slice-name">Recap renderer — recap/recaptmpl package &#43; shared HTML block components</span>
+      <span class="slice-preview">New recap/recaptmpl package mirroring plan/plantmpl: RecapPage.Render(io.Writer)</span>
+      <span class="slice-meta-row">
+        <span class="slice-summary-badges">
+          <span class="badge badge-blocked badge-sm">L</span>
+          <span class="badge badge-revision badge-sm">Med</span>
+          <span class="badge badge-revision badge-sm badge-complexity" title="Complexity: complex">Complex</span>
+          <span class="badge badge-revision badge-sm" title="Execution: promoted">Promoted</span>
+          <span class="badge badge-approved badge-sm slice-approval-badge" data-badge-for="slice-2">Approved</span>
+          <span class="badge badge-sm badge-issues" title="1 critic issue(s)">1 issue</span>
+          <span class="badge badge-sm badge-questions" title="1 open question(s)">1 Q</span>
+        </span>
+        <span class="slice-actions" onclick="event.stopPropagation()">
+          <span class="approval-segmented" role="group" aria-label="Approval action">
+            <label class="seg-btn seg-approve" title="Approve">
+              <input type="radio" name="slice-2-approval" value="approved" data-section="slice-2" data-action="approve" aria-label="Approve slice 2">
+              &#10003;
+            </label>
+            <label class="seg-btn seg-changes" title="Request changes">
+              <input type="radio" name="slice-2-approval" value="changes_requested" data-section="slice-2" data-action="approve" aria-label="Request changes for slice 2">
+              &#8635;
+            </label>
+            <label class="seg-btn seg-reject" title="Reject">
+              <input type="radio" name="slice-2-approval" value="rejected" data-section="slice-2" data-action="approve" aria-label="Reject slice 2">
+              &#10005;
+            </label>
+          </span>
+        </span>
+      </span>
+    </span>
+    <span class="slice-chevron" aria-hidden="true"></span>
+  </summary>
+
+  <div class="slice-body">
+    
+      
+      <div class="slice-field slice-what">
+        <div class="slice-field-label">What</div>
+        <div class="slice-field-value">
+          
+          <input type="checkbox" id="slice-2-what-reveal" class="reveal-toggle">
+          <div class="markdown-block reveal-content serif-prose"><p>New recap/recaptmpl package mirroring plan/plantmpl: RecapPage.Render(io.Writer)
+composed of zone Components — OutcomeNarrative, FileTree, AnnotatedDiff (split/unified,
+syntax-highlighted via the Prism classes the dashboard already loads, with per-hunk
+summaries), and LineageChain (reuse the D3 force-graph approach from dependency_graph.gohtml).
+Build the data-model/api-endpoint/file-tree/diff block renderers as a SHARED package
+(plan/blocks or internal/htmlblocks) so Phase 2&#39;s plantmpl blocks reuse them verbatim.</p>
+</div>
+          <label for="slice-2-what-reveal" class="reveal-label">Show full description</label>
+          
+        </div>
+      </div>
+      
+      
+      <div class="slice-field slice-why">
+        <div class="slice-field-label">Why</div>
+        <div class="slice-field-value">
+          
+          <div class="markdown-block serif-prose"><p>Renders RecapData into the canonical HTML artifact. Building blocks as shared
+components now prevents a DRY violation when visual-plan needs the same blocks (Phase 2).</p>
+</div>
+          
+        </div>
+      </div>
+      
+      
+      <div class="slice-field">
+        <div class="slice-field-label">Files</div>
+        <div class="slice-field-value"><code>recap/recaptmpl/recaptmpl.go, recap/recaptmpl/builder.go, recap/recaptmpl/templates/recap_page.gohtml, recap/recaptmpl/templates/annotated_diff.gohtml, plan/blocks/blocks.go</code></div>
+      </div>
+      
+      
+      <div class="slice-field">
+        <div class="slice-field-label">Done when</div>
+        <ul class="slice-done-list"><li>RecapPage.Render produces valid standalone HTML with outcome, file-tree, annotated-diff, and (when present) lineage zones</li><li>Annotated diff renders split &#43; unified modes with Prism-compatible markup and per-hunk summaries</li><li>data-model/api-endpoint/file-tree/diff block renderers live in a shared package consumed by recaptmpl (and ready for plantmpl)</li></ul>
+      </div>
+      
+    
+
+    
+    <div class="slice-field slice-decisions-notes">
+      <div class="slice-field-label">Decisions</div>
+      <div class="slice-field-value">
+        
+        <input type="checkbox" id="slice-2-decisions-reveal" class="reveal-toggle">
+        <div class="markdown-block reveal-content serif-prose"><p><strong>Scope:</strong> Pure rendering. recaptmpl mirrors plantmpl&#39;s Component interface (Render(io.Writer)); outer shell text/template, inner zones html/template (matches plantmpl&#39;s JS-safety split).
+<strong>State:</strong> none — stateless renderer over RecapData.
+<strong>Payload:</strong> HTML string artifact. Diff uses Prism classes (already CDN-loaded by dashboard) — no new highlighter dep.
+<strong>Rejected:</strong> Mermaid for the lineage zone (no mermaid infra in repo, new dep) — reuse the existing D3 force-graph instead; a recap-only block set (would force a Phase-2 rewrite — build shared from the start).
+<strong>Module (RESOLVED):</strong> recap/recaptmpl is a ROOT-module package (github.com/shakestzd/wipnote/recap/recaptmpl) — NOT a new 6th module: no recap/go.mod, no root replace directive. The shared block package is plan/blocks, a package in the EXISTING plan module (github.com/shakestzd/wipnote/plan); the root module already depends on plan, so recaptmpl-&gt;plan/blocks is legal. plan/blocks MUST be a leaf (no deps on plantmpl or recaptmpl). NOTE: internal/htmlblocks is REJECTED — root&#39;s internal/ cannot be imported by the separate plan module (plantmpl needs it too), so the shared pkg must live under plan/.
+<strong>Lineage zone (citation fix):</strong> standalone recap HTML uses a STATIC SVG / tabular lineage chain (the dashboard force-simulation at app.js:2558 needs the SPA runtime and cannot run in a committed file). The interactive force-graph is reserved for the dashboard /api/recaps/&lt;id&gt;/render injection path. Correction: dependency_graph.gohtml uses dagre-d3, not force-sim — do not cite it as the force-graph source.
+<strong>Prism:</strong> recap HTML is self-contained; opened directly (not via dashboard) Prism is absent, so the annotated diff degrades gracefully to plain &lt;pre&gt;&lt;code&gt; (no inlining the full Prism bundle per artifact); full highlighting only on the dashboard injection path.</p>
+</div>
+        <label for="slice-2-decisions-reveal" class="reveal-label">Show full decisions</label>
+        
+      </div>
+    </div>
+    
+
+    
+    <div class="slice-field slice-tests-field">
+      <div class="slice-field-label">Test Strategy</div>
+      <div class="slice-field-value">
+        
+        
+        <div class="test-strategy">
+          
+          <div class="test-group" data-kind="unit">
+            <span class="test-chip">UNIT &middot; 1</span>
+            <ul><li>TestRecapPage_Render golden-file test; TestAnnotatedDiff_SplitVsUnified;</li></ul>
+          </div>
+          
+          <div class="test-group" data-kind="other">
+            <span class="test-chip">OTHER &middot; 1</span>
+            <ul><li>TestBlocks_FileTree/DataModel render snapshots. Use go:embed templates.</li></ul>
+          </div>
+          
+        </div>
+        
+      </div>
+    </div>
+    
+
+    
+    <div class="slice-field slice-critic-revisions">
+      <div class="slice-field-label">Critic Revisions</div>
+      <div class="slice-field-value">
+        
+        <div class="critic-revision">
+          <span class="badge badge-blocked critic-revision-badge">danger</span>
+          <span class="critic-revision-source">local-feasibility</span>
+          <span class="critic-revision-summary">RESOLVED: recap/recaptmpl = root-module package (no 6th module); plan/blocks = package in existing plan module. internal/htmlblocks rejected (cross-module internal import illegal).</span>
+        </div>
+        
+        <div class="critic-revision">
+          <span class="badge badge-pending critic-revision-badge">info</span>
+          <span class="critic-revision-source">local-feasibility</span>
+          <span class="critic-revision-summary">Citation fix: lineage force-graph is app.js:2558 (dashboard SPA), not dependency_graph.gohtml (dagre-d3). Standalone recap uses static SVG; interactive graph only via dashboard injection.</span>
+        </div>
+        
+      </div>
+    </div>
+    
+
+    
+    <div class="slice-field slice-questions">
+      <div class="slice-field-label">Open Questions</div>
+      <div class="slice-field-value">
+        
+        <div class="question-block slice-question-block">
+          <p>Where should the shared block renderers live so both recap and plan import them without an import cycle?</p>
+          
+          
+          <textarea
+            data-section="slice-2-question-q-shared-pkg"
+            data-comment-for="slice-2-question-q-shared-pkg"
+            placeholder="Answer question q-shared-pkg...">plan/blocks — a leaf package in the existing plan module. Both plantmpl (same module) and recaptmpl (root module, which already depends on plan) import it one-way. internal/htmlblocks is rejected: the separate plan module cannot import root&#39;s internal/.</textarea>
+          
+        </div>
+        
+      </div>
+    </div>
+    
+
+    <div class="slice-deps">Dependencies: slices 1</div>
+
+    <details class="comment-collapse">
+      <summary class="comment-collapse-trigger">+ Leave a comment</summary>
+      <div class="comment-collapse-body">
+        <textarea data-section="slice-2" data-comment-for="slice-2" placeholder="Comments on slice 2..."></textarea>
+      </div>
+    </details>
+  </div>
+</details>
+    <details class="slice-card" id="slice-3" data-slice="3" data-slice-name="slice-3" data-status="approved" data-approval="approved">
+  <summary class="slice-summary" aria-label="Slice 3: `wipnote recap &lt;id|--range|--session&gt;` command &#43; first-class recap-*.html artifact commit">
+    <span class="slice-num">#3</span>
+    <span class="slice-title-col">
+      <span class="slice-name">`wipnote recap &lt;id|--range|--session&gt;` command &#43; first-class recap-*.html artifact commit</span>
+      <span class="slice-preview">New cmd/wipnote/recap.go cobra command.</span>
+      <span class="slice-meta-row">
+        <span class="slice-summary-badges">
+          <span class="badge badge-revision badge-sm">M</span>
+          <span class="badge badge-pending badge-sm">Low</span>
+          <span class="badge badge-discuss badge-sm badge-complexity" title="Complexity: standard">Standard</span>
+          <span class="badge badge-revision badge-sm" title="Execution: promoted">Promoted</span>
+          <span class="badge badge-approved badge-sm slice-approval-badge" data-badge-for="slice-3">Approved</span>
+          
+          
+        </span>
+        <span class="slice-actions" onclick="event.stopPropagation()">
+          <span class="approval-segmented" role="group" aria-label="Approval action">
+            <label class="seg-btn seg-approve" title="Approve">
+              <input type="radio" name="slice-3-approval" value="approved" data-section="slice-3" data-action="approve" aria-label="Approve slice 3">
+              &#10003;
+            </label>
+            <label class="seg-btn seg-changes" title="Request changes">
+              <input type="radio" name="slice-3-approval" value="changes_requested" data-section="slice-3" data-action="approve" aria-label="Request changes for slice 3">
+              &#8635;
+            </label>
+            <label class="seg-btn seg-reject" title="Reject">
+              <input type="radio" name="slice-3-approval" value="rejected" data-section="slice-3" data-action="approve" aria-label="Reject slice 3">
+              &#10005;
+            </label>
+          </span>
+        </span>
+      </span>
+    </span>
+    <span class="slice-chevron" aria-hidden="true"></span>
+  </summary>
+
+  <div class="slice-body">
+    
+      
+      <div class="slice-field slice-what">
+        <div class="slice-field-label">What</div>
+        <div class="slice-field-value">
+          
+          <input type="checkbox" id="slice-3-what-reveal" class="reveal-toggle">
+          <div class="markdown-block reveal-content serif-prose"><p>New cmd/wipnote/recap.go cobra command. Accepts a work-item id positional,
+or --range &lt;gitrange&gt;, or --session &lt;id&gt;. Calls the collector (slice-1),
+renders via recaptmpl (slice-2), writes .wipnote/recaps/recap-&lt;workitem-id&gt;.html, and
+commits it atomically via a commitRecapArtifact helper modeled on
+commitWipnoteArtifact/commitPlanChange (git -C repoRoot absolute path, no host
+paths in body). Wires a lineage edge recap relates_to/derived_from the work item.</p>
+</div>
+          <label for="slice-3-what-reveal" class="reveal-label">Show full description</label>
+          
+        </div>
+      </div>
+      
+      
+      <div class="slice-field slice-why">
+        <div class="slice-field-label">Why</div>
+        <div class="slice-field-value">
+          
+          <div class="markdown-block serif-prose"><p>Makes recap a durable, shareable, lineage-linked object in the canonical store —
+not an ephemeral view. Required before the dashboard and skill can surface it.</p>
+</div>
+          
+        </div>
+      </div>
+      
+      
+      <div class="slice-field">
+        <div class="slice-field-label">Files</div>
+        <div class="slice-field-value"><code>cmd/wipnote/recap.go, cmd/wipnote/recap_commit.go</code></div>
+      </div>
+      
+      
+      <div class="slice-field">
+        <div class="slice-field-label">Done when</div>
+        <ul class="slice-done-list"><li>`wipnote recap feat-XXX` writes and commits .wipnote/recaps/recap-feat-XXX.html</li><li>--range and --session inputs produce a recap artifact with a stable id scheme</li><li>Recap artifact is linked to its work item via a typed lineage edge visible in `wipnote lineage`</li></ul>
+      </div>
+      
+    
+
+    
+    <div class="slice-field slice-decisions-notes">
+      <div class="slice-field-label">Decisions</div>
+      <div class="slice-field-value">
+        
+        <input type="checkbox" id="slice-3-decisions-reveal" class="reveal-toggle">
+        <div class="markdown-block reveal-content serif-prose"><p><strong>Trigger:</strong> explicit CLI invocation only (not a hook). <strong>State:</strong> .wipnote/recaps/recap-&lt;workitem-id&gt;.html canonical, committed via git -C repoRoot (bypasses worktree .wipnote/ gitignore, like existing artifact commits). <strong>Payload:</strong> recap id scheme recap-&lt;workitem-id&gt; for items, recap-&lt;short-hash&gt; for bare ranges. <strong>Rejected:</strong> reusing plan-&lt;*.html&gt; pipeline (conflates plan vs recap semantics in store — user chose a distinct kind); dashboard-only no-artifact (not durable/shareable, not in canonical store).
+<strong>ID scheme &amp; lifecycle:</strong> recap-&lt;workitem-id&gt; for work items (idempotent — regenerating overwrites in place); recap-r-&lt;12-char hash of the range spec&gt; for bare git ranges; recap-s-&lt;session-short-id&gt; for sessions. Work-item recaps are overwrite-on-regenerate. <code>wipnote recap list|show|delete</code> and discoverability live in slice-10.</p>
+</div>
+        <label for="slice-3-decisions-reveal" class="reveal-label">Show full decisions</label>
+        
+      </div>
+    </div>
+    
+
+    
+    <div class="slice-field slice-tests-field">
+      <div class="slice-field-label">Test Strategy</div>
+      <div class="slice-field-value">
+        
+        
+        <div class="test-strategy">
+          
+          <div class="test-group" data-kind="integration">
+            <span class="test-chip">INTEGRATION &middot; 1</span>
+            <ul><li>TestRecapCmd_Feature (spawn binary in fixture repo, assert file &#43;</li></ul>
+          </div>
+          
+          <div class="test-group" data-kind="other">
+            <span class="test-chip">OTHER &middot; 1</span>
+            <ul><li>commit &#43; link), TestRecapCmd_Range. Guard slow ones behind testing.Short().</li></ul>
+          </div>
+          
+        </div>
+        
+      </div>
+    </div>
+    
+
+    
+    <div class="slice-field slice-critic-revisions">
+      <div class="slice-field-label">Critic Revisions</div>
+      <div class="slice-field-value">
+        
+        <div class="critic-revision">
+          <span class="badge badge-pending critic-revision-badge">success</span>
+          <span class="critic-revision-source">local-feasibility</span>
+          <span class="critic-revision-summary">commitRecapArtifact is feasible — model on commitWipnoteArtifact (workitem_commit.go:67): git -C repoRoot &#43; absolute paths &#43; advisory lock; no YAML re-render step needed.</span>
+        </div>
+        
+      </div>
+    </div>
+    
+
+    
+
+    <div class="slice-deps">Dependencies: slices 1,2</div>
+
+    <details class="comment-collapse">
+      <summary class="comment-collapse-trigger">+ Leave a comment</summary>
+      <div class="comment-collapse-body">
+        <textarea data-section="slice-3" data-comment-for="slice-3" placeholder="Comments on slice 3..."></textarea>
+      </div>
+    </details>
+  </div>
+</details>
+    <details class="slice-card" id="slice-4" data-slice="4" data-slice-name="slice-4" data-status="approved" data-approval="approved">
+  <summary class="slice-summary" aria-label="Slice 4: Dashboard Recaps view &#43; /api/recaps endpoints">
+    <span class="slice-num">#4</span>
+    <span class="slice-title-col">
+      <span class="slice-name">Dashboard Recaps view &#43; /api/recaps endpoints</span>
+      <span class="slice-preview">Add /api/recaps (list) and /api/recaps/&lt;id&gt;/render (scoped HTML) to serve.go,</span>
+      <span class="slice-meta-row">
+        <span class="slice-summary-badges">
+          <span class="badge badge-revision badge-sm">M</span>
+          <span class="badge badge-pending badge-sm">Low</span>
+          <span class="badge badge-discuss badge-sm badge-complexity" title="Complexity: standard">Standard</span>
+          <span class="badge badge-revision badge-sm" title="Execution: promoted">Promoted</span>
+          <span class="badge badge-approved badge-sm slice-approval-badge" data-badge-for="slice-4">Approved</span>
+          <span class="badge badge-sm badge-issues" title="1 critic issue(s)">1 issue</span>
+          
+        </span>
+        <span class="slice-actions" onclick="event.stopPropagation()">
+          <span class="approval-segmented" role="group" aria-label="Approval action">
+            <label class="seg-btn seg-approve" title="Approve">
+              <input type="radio" name="slice-4-approval" value="approved" data-section="slice-4" data-action="approve" aria-label="Approve slice 4">
+              &#10003;
+            </label>
+            <label class="seg-btn seg-changes" title="Request changes">
+              <input type="radio" name="slice-4-approval" value="changes_requested" data-section="slice-4" data-action="approve" aria-label="Request changes for slice 4">
+              &#8635;
+            </label>
+            <label class="seg-btn seg-reject" title="Reject">
+              <input type="radio" name="slice-4-approval" value="rejected" data-section="slice-4" data-action="approve" aria-label="Reject slice 4">
+              &#10005;
+            </label>
+          </span>
+        </span>
+      </span>
+    </span>
+    <span class="slice-chevron" aria-hidden="true"></span>
+  </summary>
+
+  <div class="slice-body">
+    
+      
+      <div class="slice-field slice-what">
+        <div class="slice-field-label">What</div>
+        <div class="slice-field-value">
+          
+          <div class="markdown-block serif-prose"><p>Add /api/recaps (list) and /api/recaps/&lt;id&gt;/render (scoped HTML) to serve.go,
+mirroring the existing plans handlers. Add a Recaps view panel to the dashboard
+SPA (cmd/wipnote/dashboard/js/app.js + index.html + css) reusing the
+openPlanDetail pattern and scopePlanCSS scoping so recap HTML injects safely.</p>
+</div>
+          
+        </div>
+      </div>
+      
+      
+      <div class="slice-field slice-why">
+        <div class="slice-field-label">Why</div>
+        <div class="slice-field-value">
+          
+          <div class="markdown-block serif-prose"><p>Surfaces recaps in the same review surface as plans; reviewers see the visual
+recap without leaving the dashboard. Reuses proven plan-render plumbing.</p>
+</div>
+          
+        </div>
+      </div>
+      
+      
+      <div class="slice-field">
+        <div class="slice-field-label">Files</div>
+        <div class="slice-field-value"><code>cmd/wipnote/serve.go, cmd/wipnote/api_recaps.go, cmd/wipnote/dashboard/js/app.js, cmd/wipnote/dashboard/index.html, cmd/wipnote/dashboard/css/components.css</code></div>
+      </div>
+      
+      
+      <div class="slice-field">
+        <div class="slice-field-label">Done when</div>
+        <ul class="slice-done-list"><li>Recaps view lists committed recap artifacts and opens a detail panel with the rendered recap HTML</li><li>Recap CSS is scoped (no bleed into dashboard chrome), matching the plan-detail scoping approach</li></ul>
+      </div>
+      
+    
+
+    
+    <div class="slice-field slice-decisions-notes">
+      <div class="slice-field-label">Decisions</div>
+      <div class="slice-field-value">
+        
+        <input type="checkbox" id="slice-4-decisions-reveal" class="reveal-toggle">
+        <div class="markdown-block reveal-content serif-prose"><p><strong>Trigger:</strong> dashboard navigation + fetch. <strong>State:</strong> read-only over committed recap HTML (no DB write path needed beyond a reindex of recap artifacts). <strong>Payload:</strong> /api/recaps -&gt; [{id,title,workItem,created}]; /api/recaps/&lt;id&gt;/render -&gt; scoped HTML. <strong>Rejected:</strong> a separate frontend framework (repo is vanilla JS + D3 — reuse openPlanDetail/scopePlanCSS verbatim).
+<strong>Depends on slice-10&#39;s recaps table</strong> — the list endpoint reads SQLite like every other list handler (no filesystem glob). Migration handled in slice-10, not here.</p>
+</div>
+        <label for="slice-4-decisions-reveal" class="reveal-label">Show full decisions</label>
+        
+      </div>
+    </div>
+    
+
+    
+    <div class="slice-field slice-tests-field">
+      <div class="slice-field-label">Test Strategy</div>
+      <div class="slice-field-value">
+        
+        
+        <div class="test-strategy">
+          
+          <div class="test-group" data-kind="integration">
+            <span class="test-chip">INTEGRATION &middot; 1</span>
+            <ul><li>TestServeRecapsAPI (list &#43; render endpoints return expected JSON/HTML).</li></ul>
+          </div>
+          
+          <div class="test-group" data-kind="manual smoke">
+            <span class="test-chip">MANUAL SMOKE &middot; 1</span>
+            <ul><li>open dashboard, view a recap.</li></ul>
+          </div>
+          
+        </div>
+        
+      </div>
+    </div>
+    
+
+    
+    <div class="slice-field slice-critic-revisions">
+      <div class="slice-field-label">Critic Revisions</div>
+      <div class="slice-field-value">
+        
+        <div class="critic-revision">
+          <span class="badge badge-pending critic-revision-badge">warn</span>
+          <span class="critic-revision-source">local-design</span>
+          <span class="critic-revision-summary">List endpoint requires the recaps SQLite table (slice-10); without it the handler would return empty or need a glob that diverges from plan/feature handlers.</span>
+        </div>
+        
+        <div class="critic-revision">
+          <span class="badge badge-pending critic-revision-badge">success</span>
+          <span class="critic-revision-source">local-feasibility</span>
+          <span class="critic-revision-summary">scopePlanCSS/openPlanDetail (api_plans.go:892, app.js:2002) &#43; /api/plans/&lt;id&gt;/render (serve.go:132) are real and directly mirrorable for recaps.</span>
+        </div>
+        
+      </div>
+    </div>
+    
+
+    
+
+    <div class="slice-deps">Dependencies: slices 10</div>
+
+    <details class="comment-collapse">
+      <summary class="comment-collapse-trigger">+ Leave a comment</summary>
+      <div class="comment-collapse-body">
+        <textarea data-section="slice-4" data-comment-for="slice-4" placeholder="Comments on slice 4..."></textarea>
+      </div>
+    </details>
+  </div>
+</details>
+<details class="slice-card" id="slice-5" data-slice="5" data-slice-name="slice-5" data-status="approved" data-approval="approved">
+  <summary class="slice-summary" aria-label="Slice 5: /visual-recap skill (prompt wrapper) &#43; build-ports to all 3 harnesses">
+    <span class="slice-num">#5</span>
+    <span class="slice-title-col">
+      <span class="slice-name">/visual-recap skill (prompt wrapper) &#43; build-ports to all 3 harnesses</span>
+      <span class="slice-preview">Author plugin/skills/visual-recap/SKILL.md: a thin skill that runs</span>
+      <span class="slice-meta-row">
+        <span class="slice-summary-badges">
+          <span class="badge badge-pending badge-sm">S</span>
+          <span class="badge badge-pending badge-sm">Low</span>
+          <span class="badge badge-discuss badge-sm badge-complexity" title="Complexity: standard">Standard</span>
+          <span class="badge badge-revision badge-sm" title="Execution: promoted">Promoted</span>
+          <span class="badge badge-approved badge-sm slice-approval-badge" data-badge-for="slice-5">Approved</span>
+          
+          
+        </span>
+        <span class="slice-actions" onclick="event.stopPropagation()">
+          <span class="approval-segmented" role="group" aria-label="Approval action">
+            <label class="seg-btn seg-approve" title="Approve">
+              <input type="radio" name="slice-5-approval" value="approved" data-section="slice-5" data-action="approve" aria-label="Approve slice 5">
+              &#10003;
+            </label>
+            <label class="seg-btn seg-changes" title="Request changes">
+              <input type="radio" name="slice-5-approval" value="changes_requested" data-section="slice-5" data-action="approve" aria-label="Request changes for slice 5">
+              &#8635;
+            </label>
+            <label class="seg-btn seg-reject" title="Reject">
+              <input type="radio" name="slice-5-approval" value="rejected" data-section="slice-5" data-action="approve" aria-label="Reject slice 5">
+              &#10005;
+            </label>
+          </span>
+        </span>
+      </span>
+    </span>
+    <span class="slice-chevron" aria-hidden="true"></span>
+  </summary>
+
+  <div class="slice-body">
+    
+      
+      <div class="slice-field slice-what">
+        <div class="slice-field-label">What</div>
+        <div class="slice-field-value">
+          
+          <div class="markdown-block serif-prose"><p>Author plugin/skills/visual-recap/SKILL.md: a thin skill that runs
+<code>wipnote recap &lt;scope&gt;</code>, reads the produced RecapData/artifact, writes the outcome
+narrative grounded in the real diff (redacting secrets), and points the user to the
+dashboard recap URL. Then run <code>wipnote plugin build-ports</code> to fan out to
+Claude/Codex/Gemini trees. Do NOT touch project AGENTS.md/CLAUDE.md.</p>
+</div>
+          
+        </div>
+      </div>
+      
+      
+      <div class="slice-field slice-why">
+        <div class="slice-field-label">Why</div>
+        <div class="slice-field-value">
+          
+          <div class="markdown-block serif-prose"><p>Gives users the BuilderIO /visual-recap ergonomics on wipnote&#39;s native engine,
+portable across all three harnesses from a single source.</p>
+</div>
+          
+        </div>
+      </div>
+      
+      
+      <div class="slice-field">
+        <div class="slice-field-label">Files</div>
+        <div class="slice-field-value"><code>plugin/skills/visual-recap/SKILL.md</code></div>
+      </div>
+      
+      
+      <div class="slice-field">
+        <div class="slice-field-label">Done when</div>
+        <ul class="slice-done-list"><li>SKILL.md has valid frontmatter (name, description) and drives the wipnote recap flow</li><li>`wipnote plugin build-ports` regenerates Claude/Codex/Gemini trees with the new skill and the build passes</li></ul>
+      </div>
+      
+    
+
+    
+    <div class="slice-field slice-decisions-notes">
+      <div class="slice-field-label">Decisions</div>
+      <div class="slice-field-value">
+        
+        <div class="markdown-block serif-prose"><p><strong>Scope:</strong> prompt-only skill; the engine is the Go command, not the skill (mirrors BuilderIO&#39;s zero-code skill design). <strong>State:</strong> none. <strong>Rejected:</strong> wiring the hosted Agent-Native Plans MCP (violates local-first non-negotiable); authoring AGENTS.md (plugin/project boundary — never own project instruction files).</p>
+</div>
+        
+      </div>
+    </div>
+    
+
+    
+    <div class="slice-field slice-tests-field">
+      <div class="slice-field-label">Test Strategy</div>
+      <div class="slice-field-value">
+        
+        
+        <div class="markdown-block slice-tests"><p><code>wipnote plugin build-ports</code> succeeds; generated trees contain visual-recap.
+Frontmatter validated by port/pluginbuild checks.</p>
+</div>
+        
+      </div>
+    </div>
+    
+
+    
+
+    
+
+    <div class="slice-deps">Dependencies: slices 3</div>
+
+    <details class="comment-collapse">
+      <summary class="comment-collapse-trigger">+ Leave a comment</summary>
+      <div class="comment-collapse-body">
+        <textarea data-section="slice-5" data-comment-for="slice-5" placeholder="Comments on slice 5..."></textarea>
+      </div>
+    </details>
+  </div>
+</details>
+<details class="slice-card" id="slice-6" data-slice="6" data-slice-name="slice-6" data-status="approved" data-approval="approved">
+  <summary class="slice-summary" aria-label="Slice 6: Slice-schema block enrichment — additive optional structured blocks on PlanSlice">
+    <span class="slice-num">#6</span>
+    <span class="slice-title-col">
+      <span class="slice-name">Slice-schema block enrichment — additive optional structured blocks on PlanSlice</span>
+      <span class="slice-preview">Extend plan/planyaml/schema.go PlanSlice with optional structured block fields</span>
+      <span class="slice-meta-row">
+        <span class="slice-summary-badges">
+          <span class="badge badge-revision badge-sm">M</span>
+          <span class="badge badge-revision badge-sm">Med</span>
+          <span class="badge badge-revision badge-sm badge-complexity" title="Complexity: complex">Complex</span>
+          <span class="badge badge-revision badge-sm" title="Execution: promoted">Promoted</span>
+          <span class="badge badge-approved badge-sm slice-approval-badge" data-badge-for="slice-6">Approved</span>
+          
+          <span class="badge badge-sm badge-questions" title="1 open question(s)">1 Q</span>
+        </span>
+        <span class="slice-actions" onclick="event.stopPropagation()">
+          <span class="approval-segmented" role="group" aria-label="Approval action">
+            <label class="seg-btn seg-approve" title="Approve">
+              <input type="radio" name="slice-6-approval" value="approved" data-section="slice-6" data-action="approve" aria-label="Approve slice 6">
+              &#10003;
+            </label>
+            <label class="seg-btn seg-changes" title="Request changes">
+              <input type="radio" name="slice-6-approval" value="changes_requested" data-section="slice-6" data-action="approve" aria-label="Request changes for slice 6">
+              &#8635;
+            </label>
+            <label class="seg-btn seg-reject" title="Reject">
+              <input type="radio" name="slice-6-approval" value="rejected" data-section="slice-6" data-action="approve" aria-label="Reject slice 6">
+              &#10005;
+            </label>
+          </span>
+        </span>
+      </span>
+    </span>
+    <span class="slice-chevron" aria-hidden="true"></span>
+  </summary>
+
+  <div class="slice-body">
+    
+      
+      <div class="slice-field slice-what">
+        <div class="slice-field-label">What</div>
+        <div class="slice-field-value">
+          
+          <input type="checkbox" id="slice-6-what-reveal" class="reveal-toggle">
+          <div class="markdown-block reveal-content serif-prose"><p>Extend plan/planyaml/schema.go PlanSlice with optional structured block fields
+(e.g. blocks: [] holding data-model / api-endpoint / file-tree / wireframe entries),
+keeping them OPTIONAL so existing v3 plans validate unchanged. Update
+plan/planyaml/validate.go to validate block shapes only when present. Add a
+<code>wipnote plan blocks</code> helper that lists the available block vocabulary (wipnote&#39;s
+local equivalent of BuilderIO get-plan-blocks).</p>
+</div>
+          <label for="slice-6-what-reveal" class="reveal-label">Show full description</label>
+          
+        </div>
+      </div>
+      
+      
+      <div class="slice-field slice-why">
+        <div class="slice-field-label">Why</div>
+        <div class="slice-field-value">
+          
+          <div class="markdown-block serif-prose"><p>Gives /wipnote:plan a richer visual vocabulary (the BuilderIO block catalog idea)
+without breaking any existing plan or requiring a schema-version bump.</p>
+</div>
+          
+        </div>
+      </div>
+      
+      
+      <div class="slice-field">
+        <div class="slice-field-label">Files</div>
+        <div class="slice-field-value"><code>plan/planyaml/schema.go, plan/planyaml/validate.go, cmd/wipnote/plan_blocks.go</code></div>
+      </div>
+      
+      
+      <div class="slice-field">
+        <div class="slice-field-label">Done when</div>
+        <ul class="slice-done-list"><li>New block fields are optional; all existing plan YAML still passes validate-yaml</li><li>When a block is present, its shape is validated (e.g. data-model fields, wireframe html token usage)</li><li>`wipnote plan blocks` prints the supported block types and required fields</li></ul>
+      </div>
+      
+    
+
+    
+    <div class="slice-field slice-decisions-notes">
+      <div class="slice-field-label">Decisions</div>
+      <div class="slice-field-value">
+        
+        <input type="checkbox" id="slice-6-decisions-reveal" class="reveal-toggle">
+        <div class="markdown-block reveal-content serif-prose"><p><strong>Scope:</strong> additive-optional schema; NO schema_version bump (back-compat preserved since fields are optional). <strong>State:</strong> stored in plan-*.yaml (canonical). <strong>Payload:</strong> blocks: list of typed entries reusing the shared block model from slice-2&#39;s plan/blocks package. <strong>Rejected:</strong> a v4 schema bump (unnecessary churn + migration risk for purely-optional additions); free-form markdown blocks (loses the structured/grounded property that makes blocks render well). <strong>Dynamic catalog (web-verified 2026-06-18):</strong> BuilderIO fetches block tags at runtime via get-plan-blocks (&#34;tags drift, do not memorize&#34;); <code>wipnote plan blocks</code> is the local equivalent — the renderer/skills must read the catalog, NOT hardcode tag names.</p>
+</div>
+        <label for="slice-6-decisions-reveal" class="reveal-label">Show full decisions</label>
+        
+      </div>
+    </div>
+    
+
+    
+    <div class="slice-field slice-tests-field">
+      <div class="slice-field-label">Test Strategy</div>
+      <div class="slice-field-value">
+        
+        
+        <div class="test-strategy">
+          
+          <div class="test-group" data-kind="unit">
+            <span class="test-chip">UNIT &middot; 1</span>
+            <ul><li>TestValidate_BlocksOptional (old plan passes), TestValidate_BlockShapes</li></ul>
+          </div>
+          
+          <div class="test-group" data-kind="other">
+            <span class="test-chip">OTHER &middot; 1</span>
+            <ul><li>(malformed block rejected). Round-trip marshal test.</li></ul>
+          </div>
+          
+        </div>
+        
+      </div>
+    </div>
+    
+
+    
+    <div class="slice-field slice-critic-revisions">
+      <div class="slice-field-label">Critic Revisions</div>
+      <div class="slice-field-value">
+        
+        <div class="critic-revision">
+          <span class="badge badge-pending critic-revision-badge">success</span>
+          <span class="critic-revision-source">local-feasibility</span>
+          <span class="critic-revision-summary">Additive-optional blocks via yaml:omitempty are safe — validate.go:63-65 only checks schema_version is v3/empty, doesn&#39;t enumerate fields; no version bump needed.</span>
+        </div>
+        
+      </div>
+    </div>
+    
+
+    
+    <div class="slice-field slice-questions">
+      <div class="slice-field-label">Open Questions</div>
+      <div class="slice-field-value">
+        
+        <div class="question-block slice-question-block">
+          <p>Should blocks be a flat slice-level list or nested under what/decisions?</p>
+          
+          
+          <textarea
+            data-section="slice-6-question-q-block-storage"
+            data-comment-for="slice-6-question-q-block-storage"
+            placeholder="Answer question q-block-storage...">A flat optional slice-level `blocks: []` list keyed by type — keeps the schema flat, renders in declared order, and avoids overloading the prose fields.</textarea>
+          
+        </div>
+        
+      </div>
+    </div>
+    
+
+    <div class="slice-deps">Dependencies: none</div>
+
+    <details class="comment-collapse">
+      <summary class="comment-collapse-trigger">+ Leave a comment</summary>
+      <div class="comment-collapse-body">
+        <textarea data-section="slice-6" data-comment-for="slice-6" placeholder="Comments on slice 6..."></textarea>
+      </div>
+    </details>
+  </div>
+</details>
+<details class="slice-card" id="slice-7" data-slice="7" data-slice-name="slice-7" data-status="approved" data-approval="approved">
+  <summary class="slice-summary" aria-label="Slice 7: plantmpl block-zone rendering &#43; before/after HTML wireframes">
+    <span class="slice-num">#7</span>
+    <span class="slice-title-col">
+      <span class="slice-name">plantmpl block-zone rendering &#43; before/after HTML wireframes</span>
+      <span class="slice-preview">Render the new slice blocks in plan/plantmpl using the SHARED renderers from</span>
+      <span class="slice-meta-row">
+        <span class="slice-summary-badges">
+          <span class="badge badge-blocked badge-sm">L</span>
+          <span class="badge badge-revision badge-sm">Med</span>
+          <span class="badge badge-revision badge-sm badge-complexity" title="Complexity: complex">Complex</span>
+          <span class="badge badge-revision badge-sm" title="Execution: promoted">Promoted</span>
+          <span class="badge badge-approved badge-sm slice-approval-badge" data-badge-for="slice-7">Approved</span>
+          
+          <span class="badge badge-sm badge-questions" title="1 open question(s)">1 Q</span>
+        </span>
+        <span class="slice-actions" onclick="event.stopPropagation()">
+          <span class="approval-segmented" role="group" aria-label="Approval action">
+            <label class="seg-btn seg-approve" title="Approve">
+              <input type="radio" name="slice-7-approval" value="approved" data-section="slice-7" data-action="approve" aria-label="Approve slice 7">
+              &#10003;
+            </label>
+            <label class="seg-btn seg-changes" title="Request changes">
+              <input type="radio" name="slice-7-approval" value="changes_requested" data-section="slice-7" data-action="approve" aria-label="Request changes for slice 7">
+              &#8635;
+            </label>
+            <label class="seg-btn seg-reject" title="Reject">
+              <input type="radio" name="slice-7-approval" value="rejected" data-section="slice-7" data-action="approve" aria-label="Reject slice 7">
+              &#10005;
+            </label>
+          </span>
+        </span>
+      </span>
+    </span>
+    <span class="slice-chevron" aria-hidden="true"></span>
+  </summary>
+
+  <div class="slice-body">
+    
+      
+      <div class="slice-field slice-what">
+        <div class="slice-field-label">What</div>
+        <div class="slice-field-value">
+          
+          <input type="checkbox" id="slice-7-what-reveal" class="reveal-toggle">
+          <div class="markdown-block reveal-content serif-prose"><p>Render the new slice blocks in plan/plantmpl using the SHARED renderers from
+slice-2 (plan/blocks). Add a Blocks zone to PlanPage and per-block templates.
+Implement before/after HTML/CSS wireframes for UI-touching slices using
+design-token CSS custom properties (--wf-* style, no raw hex) — plain HTML, no
+Playwright/screenshots. Wireframes render in the plan detail and (via shared pkg)
+in recaps for UI changes.</p>
+</div>
+          <label for="slice-7-what-reveal" class="reveal-label">Show full description</label>
+          
+        </div>
+      </div>
+      
+      
+      <div class="slice-field slice-why">
+        <div class="slice-field-label">Why</div>
+        <div class="slice-field-value">
+          
+          <div class="markdown-block serif-prose"><p>Turns the enriched schema into visual output in the existing plan HTML + dashboard,
+matching BuilderIO&#39;s canvas/wireframe richness with wipnote&#39;s no-screenshot constraint.</p>
+</div>
+          
+        </div>
+      </div>
+      
+      
+      <div class="slice-field">
+        <div class="slice-field-label">Files</div>
+        <div class="slice-field-value"><code>plan/plantmpl/plantmpl.go, plan/plantmpl/templates/blocks_zone.gohtml, plan/plantmpl/templates/wireframe.gohtml, plan/blocks/wireframe.go</code></div>
+      </div>
+      
+      
+      <div class="slice-field">
+        <div class="slice-field-label">Done when</div>
+        <ul class="slice-done-list"><li>Slices with blocks render a Blocks zone in plan-*.html via the shared renderers</li><li>Before/after wireframes render from HTML/CSS design tokens with no external assets or screenshots</li><li>No DRY duplication: plan and recap share the same block render code path</li></ul>
+      </div>
+      
+    
+
+    
+    <div class="slice-field slice-decisions-notes">
+      <div class="slice-field-label">Decisions</div>
+      <div class="slice-field-value">
+        
+        <input type="checkbox" id="slice-7-decisions-reveal" class="reveal-toggle">
+        <div class="markdown-block reveal-content serif-prose"><p><strong>Scope:</strong> rendering only (schema is slice-6). Reuse plan/blocks from slice-2 — this slice adds the wireframe renderer + the plan Blocks zone wiring. <strong>State:</strong> none. <strong>Payload:</strong> HTML zone appended to PlanPage. <strong>Rejected:</strong> Playwright/screenshot wireframes (hard constraint — no headless infra; HTML/CSS wireframes are the BuilderIO approach too); a plan-only block renderer (DRY — must share with recap).
+<strong>Module:</strong> plantmpl blocks import plan/blocks (same plan module). Shared with recaptmpl (root module) per slice-2&#39;s resolution.</p>
+</div>
+        <label for="slice-7-decisions-reveal" class="reveal-label">Show full decisions</label>
+        
+      </div>
+    </div>
+    
+
+    
+    <div class="slice-field slice-tests-field">
+      <div class="slice-field-label">Test Strategy</div>
+      <div class="slice-field-value">
+        
+        
+        <div class="test-strategy">
+          
+          <div class="test-group" data-kind="unit">
+            <span class="test-chip">UNIT &middot; 1</span>
+            <ul><li>TestPlanPage_BlocksZone golden file; TestWireframe_TokensOnly (rejects raw</li></ul>
+          </div>
+          
+          <div class="test-group" data-kind="other">
+            <span class="test-chip">OTHER &middot; 1</span>
+            <ul><li>hex/rgb). Snapshot the rendered block HTML.</li></ul>
+          </div>
+          
+        </div>
+        
+      </div>
+    </div>
+    
+
+    
+
+    
+    <div class="slice-field slice-questions">
+      <div class="slice-field-label">Open Questions</div>
+      <div class="slice-field-value">
+        
+        <div class="question-block slice-question-block">
+          <p>Reuse the dashboard&#39;s existing CSS token system or introduce --wf-* tokens?</p>
+          
+          
+          <textarea
+            data-section="slice-7-question-q-wireframe-tokens"
+            data-comment-for="slice-7-question-q-wireframe-tokens"
+            placeholder="Answer question q-wireframe-tokens...">Introduce a small --wf-* wireframe token set scoped to wireframe markup (matches BuilderIO&#39;s tokens-not-hex rule) while pulling base palette values from the existing dashboard tokens to stay visually consistent.</textarea>
+          
+        </div>
+        
+      </div>
+    </div>
+    
+
+    <div class="slice-deps">Dependencies: slices 6,2</div>
+
+    <details class="comment-collapse">
+      <summary class="comment-collapse-trigger">+ Leave a comment</summary>
+      <div class="comment-collapse-body">
+        <textarea data-section="slice-7" data-comment-for="slice-7" placeholder="Comments on slice 7..."></textarea>
+      </div>
+    </details>
+  </div>
+</details>
+<details class="slice-card" id="slice-8" data-slice="8" data-slice-name="slice-8" data-status="approved" data-approval="approved">
+  <summary class="slice-summary" aria-label="Slice 8: Block-level annotation loop for PLANS (consumed/resolved) on plan_feedback — recap annotation explicitly out of scope">
+    <span class="slice-num">#8</span>
+    <span class="slice-title-col">
+      <span class="slice-name">Block-level annotation loop for PLANS (consumed/resolved) on plan_feedback — recap annotation explicitly out of scope</span>
+      <span class="slice-preview">Extend the existing plan-review dashboard chat &#43; criticrevisions/questions to</span>
+      <span class="slice-meta-row">
+        <span class="slice-summary-badges">
+          <span class="badge badge-revision badge-sm">M</span>
+          <span class="badge badge-revision badge-sm">Med</span>
+          <span class="badge badge-discuss badge-sm badge-complexity" title="Complexity: standard">Standard</span>
+          <span class="badge badge-revision badge-sm" title="Execution: promoted">Promoted</span>
+          <span class="badge badge-approved badge-sm slice-approval-badge" data-badge-for="slice-8">Approved</span>
+          <span class="badge badge-sm badge-issues" title="2 critic issue(s)">2 issues</span>
+          
+        </span>
+        <span class="slice-actions" onclick="event.stopPropagation()">
+          <span class="approval-segmented" role="group" aria-label="Approval action">
+            <label class="seg-btn seg-approve" title="Approve">
+              <input type="radio" name="slice-8-approval" value="approved" data-section="slice-8" data-action="approve" aria-label="Approve slice 8">
+              &#10003;
+            </label>
+            <label class="seg-btn seg-changes" title="Request changes">
+              <input type="radio" name="slice-8-approval" value="changes_requested" data-section="slice-8" data-action="approve" aria-label="Request changes for slice 8">
+              &#8635;
+            </label>
+            <label class="seg-btn seg-reject" title="Reject">
+              <input type="radio" name="slice-8-approval" value="rejected" data-section="slice-8" data-action="approve" aria-label="Reject slice 8">
+              &#10005;
+            </label>
+          </span>
+        </span>
+      </span>
+    </span>
+    <span class="slice-chevron" aria-hidden="true"></span>
+  </summary>
+
+  <div class="slice-body">
+    
+      
+      <div class="slice-field slice-what">
+        <div class="slice-field-label">What</div>
+        <div class="slice-field-value">
+          
+          <input type="checkbox" id="slice-8-what-reveal" class="reveal-toggle">
+          <div class="markdown-block reveal-content serif-prose"><p>Extend the existing plan-review dashboard chat + critic_revisions/questions to
+support block/element-anchored annotations on PLANS with a two-axis state
+(consumed vs resolved, routed agent|human) modeled on BuilderIO get-plan-feedback.
+Extend validSectionRe (cmd/wipnote/api_plans.go:370) with a bounded block-anchor
+pattern (e.g. slice-\d+-block-[a-z0-9-]+-\d+) and add anchor + two-axis columns
+to plan_feedback via a core/db migration. RECAP annotation is OUT OF SCOPE: recaps
+are derived/mechanical/read-only, plan_feedback has a plan_id FK, and recap IDs are
+not in the plans table — forcing recaps through this plumbing would 400 / FK-fail.</p>
+</div>
+          <label for="slice-8-what-reveal" class="reveal-label">Show full description</label>
+          
+        </div>
+      </div>
+      
+      
+      <div class="slice-field slice-why">
+        <div class="slice-field-label">Why</div>
+        <div class="slice-field-value">
+          
+          <div class="markdown-block serif-prose"><p>Closes the review loop on visual blocks the way BuilderIO does, but on wipnote&#39;s
+existing feedback plumbing (feat-36566570) — no new backend store.</p>
+</div>
+          
+        </div>
+      </div>
+      
+      
+      <div class="slice-field">
+        <div class="slice-field-label">Files</div>
+        <div class="slice-field-value"><code>cmd/wipnote/api_plans.go, plan/planyaml/schema.go, cmd/wipnote/dashboard/js/app.js</code></div>
+      </div>
+      
+      
+      <div class="slice-field">
+        <div class="slice-field-label">Done when</div>
+        <ul class="slice-done-list"><li>A reviewer can anchor a comment to a specific PLAN block/element; it persists via plan_feedback and is accepted by validSectionRe</li><li>Annotation carries two-axis state (consumed/resolved &#43; agent|human target) readable by read-feedback-yaml</li><li>The new core/db migration name is appended to BOTH want-lists in migrations_test.go</li></ul>
+      </div>
+      
+    
+
+    
+    <div class="slice-field slice-decisions-notes">
+      <div class="slice-field-label">Decisions</div>
+      <div class="slice-field-value">
+        
+        <input type="checkbox" id="slice-8-decisions-reveal" class="reveal-toggle">
+        <div class="markdown-block reveal-content serif-prose"><p><strong>Trigger:</strong> reviewer action in dashboard chat. <strong>State:</strong> plan_feedback (existing), extended with anchor + two-axis fields; section-key contract (slice-, design, questions) preserved. <strong>Payload:</strong> annotation{anchor, consumed, resolved, resolutionTarget}. <strong>Rejected:</strong> a new feedback table (feat-36566570 already provides the loop — extend it, don&#39;t fork it).
+<strong>Scope (RESOLVED):</strong> PLANS ONLY. Recap annotation deferred — incompatible with plan_feedback (plan_id FK + validSectionRe rejects non-plan keys at api_plans.go:370). <strong>Migration:</strong> new plan_feedback columns = a core/db migration (migrations_test.go want-list hazard applies). <strong>validSectionRe:</strong> extend with a tightly-bounded block-anchor pattern, not an open string.</p>
+</div>
+        <label for="slice-8-decisions-reveal" class="reveal-label">Show full decisions</label>
+        
+      </div>
+    </div>
+    
+
+    
+    <div class="slice-field slice-tests-field">
+      <div class="slice-field-label">Test Strategy</div>
+      <div class="slice-field-value">
+        
+        
+        <div class="test-strategy">
+          
+          <div class="test-group" data-kind="integration">
+            <span class="test-chip">INTEGRATION &middot; 1</span>
+            <ul><li>TestPlanFeedback_BlockAnchor (post anchored annotation, read back</li></ul>
+          </div>
+          
+          <div class="test-group" data-kind="other">
+            <span class="test-chip">OTHER &middot; 1</span>
+            <ul><li>with state). Reuse existing api_plans feedback tests as a template.</li></ul>
+          </div>
+          
+        </div>
+        
+      </div>
+    </div>
+    
+
+    
+    <div class="slice-field slice-critic-revisions">
+      <div class="slice-field-label">Critic Revisions</div>
+      <div class="slice-field-value">
+        
+        <div class="critic-revision">
+          <span class="badge badge-blocked critic-revision-badge">danger</span>
+          <span class="critic-revision-source">local-design</span>
+          <span class="critic-revision-summary">RESOLVED by scoping to plans-only: validSectionRe (api_plans.go:370) rejects non-plan section keys and plan_feedback.plan_id FK excludes recap IDs — recap annotation removed from scope.</span>
+        </div>
+        
+        <div class="critic-revision">
+          <span class="badge badge-pending critic-revision-badge">warn</span>
+          <span class="critic-revision-source">local-feasibility</span>
+          <span class="critic-revision-summary">plan_feedback gains anchor &#43; consumed/resolved/resolution_target columns = a core/db migration; update migrations_test.go want-lists. Extend validSectionRe with bounded slice-\d&#43;-block-... pattern.</span>
+        </div>
+        
+      </div>
+    </div>
+    
+
+    
+
+    <div class="slice-deps">Dependencies: slices 6</div>
+
+    <details class="comment-collapse">
+      <summary class="comment-collapse-trigger">+ Leave a comment</summary>
+      <div class="comment-collapse-body">
+        <textarea data-section="slice-8" data-comment-for="slice-8" placeholder="Comments on slice 8..."></textarea>
+      </div>
+    </details>
+  </div>
+</details>
+<details class="slice-card" id="slice-9" data-slice="9" data-slice-name="slice-9" data-status="approved" data-approval="approved">
+  <summary class="slice-summary" aria-label="Slice 9: /visual-plan skill (prompt wrapper) &#43; build-ports">
+    <span class="slice-num">#9</span>
+    <span class="slice-title-col">
+      <span class="slice-name">/visual-plan skill (prompt wrapper) &#43; build-ports</span>
+      <span class="slice-preview">Author plugin/skills/visual-plan/SKILL.md: drives /wipnote:plan to author the</span>
+      <span class="slice-meta-row">
+        <span class="slice-summary-badges">
+          <span class="badge badge-pending badge-sm">S</span>
+          <span class="badge badge-pending badge-sm">Low</span>
+          <span class="badge badge-discuss badge-sm badge-complexity" title="Complexity: standard">Standard</span>
+          <span class="badge badge-revision badge-sm" title="Execution: promoted">Promoted</span>
+          <span class="badge badge-approved badge-sm slice-approval-badge" data-badge-for="slice-9">Approved</span>
+          
+          
+        </span>
+        <span class="slice-actions" onclick="event.stopPropagation()">
+          <span class="approval-segmented" role="group" aria-label="Approval action">
+            <label class="seg-btn seg-approve" title="Approve">
+              <input type="radio" name="slice-9-approval" value="approved" data-section="slice-9" data-action="approve" aria-label="Approve slice 9">
+              &#10003;
+            </label>
+            <label class="seg-btn seg-changes" title="Request changes">
+              <input type="radio" name="slice-9-approval" value="changes_requested" data-section="slice-9" data-action="approve" aria-label="Request changes for slice 9">
+              &#8635;
+            </label>
+            <label class="seg-btn seg-reject" title="Reject">
+              <input type="radio" name="slice-9-approval" value="rejected" data-section="slice-9" data-action="approve" aria-label="Reject slice 9">
+              &#10005;
+            </label>
+          </span>
+        </span>
+      </span>
+    </span>
+    <span class="slice-chevron" aria-hidden="true"></span>
+  </summary>
+
+  <div class="slice-body">
+    
+      
+      <div class="slice-field slice-what">
+        <div class="slice-field-label">What</div>
+        <div class="slice-field-value">
+          
+          <div class="markdown-block serif-prose"><p>Author plugin/skills/visual-plan/SKILL.md: drives /wipnote:plan to author the
+enriched blocks (calling <code>wipnote plan blocks</code> for the vocabulary), produce
+before/after wireframes for UI slices, and route the user to the dashboard for
+block-level review. Run build-ports for all three harnesses. Do not touch
+project AGENTS.md/CLAUDE.md.</p>
+</div>
+          
+        </div>
+      </div>
+      
+      
+      <div class="slice-field slice-why">
+        <div class="slice-field-label">Why</div>
+        <div class="slice-field-value">
+          
+          <div class="markdown-block serif-prose"><p>Completes the BuilderIO /visual-plan ergonomics on wipnote&#39;s native pipeline,
+portable across harnesses from a single source.</p>
+</div>
+          
+        </div>
+      </div>
+      
+      
+      <div class="slice-field">
+        <div class="slice-field-label">Files</div>
+        <div class="slice-field-value"><code>plugin/skills/visual-plan/SKILL.md</code></div>
+      </div>
+      
+      
+      <div class="slice-field">
+        <div class="slice-field-label">Done when</div>
+        <ul class="slice-done-list"><li>SKILL.md frontmatter valid; skill drives the enriched-plan authoring flow over the local CLI</li><li>build-ports regenerates all three trees with visual-plan and the build passes</li></ul>
+      </div>
+      
+    
+
+    
+    <div class="slice-field slice-decisions-notes">
+      <div class="slice-field-label">Decisions</div>
+      <div class="slice-field-value">
+        
+        <div class="markdown-block serif-prose"><p><strong>Scope:</strong> prompt-only wrapper over /wipnote:plan + <code>wipnote plan blocks</code> + dashboard review. <strong>State:</strong> none. <strong>Rejected:</strong> a standalone planner that bypasses /wipnote:plan (would fork the interview/validation discipline — instead enrich the existing flow); hosted MCP block catalog (local <code>wipnote plan blocks</code> is the local-first equivalent).</p>
+</div>
+        
+      </div>
+    </div>
+    
+
+    
+    <div class="slice-field slice-tests-field">
+      <div class="slice-field-label">Test Strategy</div>
+      <div class="slice-field-value">
+        
+        
+        <div class="markdown-block slice-tests"><p><code>wipnote plugin build-ports</code> succeeds; generated trees contain visual-plan.</p>
+</div>
+        
+      </div>
+    </div>
+    
+
+    
+
+    
+
+    <div class="slice-deps">Dependencies: slices 7</div>
+
+    <details class="comment-collapse">
+      <summary class="comment-collapse-trigger">+ Leave a comment</summary>
+      <div class="comment-collapse-body">
+        <textarea data-section="slice-9" data-comment-for="slice-9" placeholder="Comments on slice 9..."></textarea>
+      </div>
+    </details>
+  </div>
+</details>
+<details class="slice-card" id="slice-10" data-slice="10" data-slice-name="slice-10" data-status="approved" data-approval="approved">
+  <summary class="slice-summary" aria-label="Slice 10: Register recap kind — reindex &#43; SQLite recaps table &#43; find/relevant &#43; `wipnote recap list|show|delete`">
+    <span class="slice-num">#10</span>
+    <span class="slice-title-col">
+      <span class="slice-name">Register recap kind — reindex &#43; SQLite recaps table &#43; find/relevant &#43; `wipnote recap list|show|delete`</span>
+      <span class="slice-preview">Make recap artifacts first-class &amp; discoverable.</span>
+      <span class="slice-meta-row">
+        <span class="slice-summary-badges">
+          <span class="badge badge-blocked badge-sm">L</span>
+          <span class="badge badge-revision badge-sm">Med</span>
+          <span class="badge badge-revision badge-sm badge-complexity" title="Complexity: complex">Complex</span>
+          <span class="badge badge-revision badge-sm" title="Execution: promoted">Promoted</span>
+          <span class="badge badge-approved badge-sm slice-approval-badge" data-badge-for="slice-10">Approved</span>
+          
+          <span class="badge badge-sm badge-questions" title="1 open question(s)">1 Q</span>
+        </span>
+        <span class="slice-actions" onclick="event.stopPropagation()">
+          <span class="approval-segmented" role="group" aria-label="Approval action">
+            <label class="seg-btn seg-approve" title="Approve">
+              <input type="radio" name="slice-10-approval" value="approved" data-section="slice-10" data-action="approve" aria-label="Approve slice 10">
+              &#10003;
+            </label>
+            <label class="seg-btn seg-changes" title="Request changes">
+              <input type="radio" name="slice-10-approval" value="changes_requested" data-section="slice-10" data-action="approve" aria-label="Request changes for slice 10">
+              &#8635;
+            </label>
+            <label class="seg-btn seg-reject" title="Reject">
+              <input type="radio" name="slice-10-approval" value="rejected" data-section="slice-10" data-action="approve" aria-label="Reject slice 10">
+              &#10005;
+            </label>
+          </span>
+        </span>
+      </span>
+    </span>
+    <span class="slice-chevron" aria-hidden="true"></span>
+  </summary>
+
+  <div class="slice-body">
+    
+      
+      <div class="slice-field slice-what">
+        <div class="slice-field-label">What</div>
+        <div class="slice-field-value">
+          
+          <input type="checkbox" id="slice-10-what-reveal" class="reveal-toggle">
+          <div class="markdown-block reveal-content serif-prose"><p>Make recap artifacts first-class &amp; discoverable. Add a recaps table (or a
+type=&#39;recap&#39; extension of the artifact index) via a core/db migration; teach
+reindex.go to ingest .wipnote/recaps/*.html; add &#34;recaps&#34; to the directory
+lists in reindex and resolveItemHTMLPath (relevant.go) so <code>wipnote find</code> and
+<code>wipnote relevant</code> surface recaps; extend inferNodeTypeFromID with the recap-
+prefix; add <code>wipnote recap list|show|delete</code> subcommands for headless/CI use.</p>
+</div>
+          <label for="slice-10-what-reveal" class="reveal-label">Show full description</label>
+          
+        </div>
+      </div>
+      
+      
+      <div class="slice-field slice-why">
+        <div class="slice-field-label">Why</div>
+        <div class="slice-field-value">
+          
+          <div class="markdown-block serif-prose"><p>Without this, recaps are committed but invisible to every SQLite-backed surface
+(find, relevant, list APIs, graph edges) and there is no CLI to inspect/clean them.
+DESIGN+FEASIBILITY both flagged this as a danger-level blocker.</p>
+</div>
+          
+        </div>
+      </div>
+      
+      
+      <div class="slice-field">
+        <div class="slice-field-label">Files</div>
+        <div class="slice-field-value"><code>cmd/wipnote/reindex.go, cmd/wipnote/relevant.go, cmd/wipnote/recap.go, core/db/migrations.go, core/db/migrations_test.go</code></div>
+      </div>
+      
+      
+      <div class="slice-field">
+        <div class="slice-field-label">Done when</div>
+        <ul class="slice-done-list"><li>reindex ingests .wipnote/recaps/*.html into the recaps table/index</li><li>`wipnote find` and `wipnote relevant` return recap artifacts</li><li>`wipnote recap list`, `wipnote recap show &lt;id&gt;`, `wipnote recap delete &lt;id&gt;` work headlessly</li><li>inferNodeTypeFromID maps the recap- prefix to a recap node type</li><li>the new core/db migration name is appended to BOTH hardcoded want-lists in migrations_test.go</li></ul>
+      </div>
+      
+    
+
+    
+    <div class="slice-field slice-decisions-notes">
+      <div class="slice-field-label">Decisions</div>
+      <div class="slice-field-value">
+        
+        <input type="checkbox" id="slice-10-decisions-reveal" class="reveal-toggle">
+        <div class="markdown-block reveal-content serif-prose"><p><strong>Scope:</strong> discoverability + lifecycle for the recap kind (the blocker the original plan missed). <strong>State:</strong> new core/db recaps table (derived read-index; HTML stays canonical). <strong>Migration HAZARD (project memory):</strong> adding a core/db migration breaks two hardcoded want-lists in migrations_test.go — appending the new name to both is a required done_when, not optional. <strong>Rejected:</strong> a filesystem-glob list endpoint (diverges from every other SQLite-backed list handler — DESIGN warn).</p>
+</div>
+        <label for="slice-10-decisions-reveal" class="reveal-label">Show full decisions</label>
+        
+      </div>
+    </div>
+    
+
+    
+    <div class="slice-field slice-tests-field">
+      <div class="slice-field-label">Test Strategy</div>
+      <div class="slice-field-value">
+        
+        
+        <div class="test-strategy">
+          
+          <div class="test-group" data-kind="unit">
+            <span class="test-chip">UNIT &middot; 1</span>
+            <ul><li>TestReindexRecaps; TestInferNodeType_Recap. Integration: TestRecapListShowDelete.</li></ul>
+          </div>
+          
+          <div class="test-group" data-kind="migration">
+            <span class="test-chip">MIGRATION &middot; 1</span>
+            <ul><li>existing core/db migration tests pass with the appended want-list entries.</li></ul>
+          </div>
+          
+        </div>
+        
+      </div>
+    </div>
+    
+
+    
+
+    
+    <div class="slice-field slice-questions">
+      <div class="slice-field-label">Open Questions</div>
+      <div class="slice-field-value">
+        
+        <div class="question-block slice-question-block">
+          <p>Dedicated recaps table or extend the existing artifact/features index with type=&#39;recap&#39;?</p>
+          
+          
+          <textarea
+            data-section="slice-10-question-q-recap-table"
+            data-comment-for="slice-10-question-q-recap-table"
+            placeholder="Answer question q-recap-table...">Dedicated recaps table — recaps have a distinct shape (grounding scope, source range/session) and a clean table avoids overloading the features schema; still one migration.</textarea>
+          
+        </div>
+        
+      </div>
+    </div>
+    
+
+    <div class="slice-deps">Dependencies: slices 3</div>
+
+    <details class="comment-collapse">
+      <summary class="comment-collapse-trigger">+ Leave a comment</summary>
+      <div class="comment-collapse-body">
+        <textarea data-section="slice-10" data-comment-for="slice-10" placeholder="Comments on slice 10..."></textarea>
+      </div>
+    </details>
+  </div>
+</details>
+
+    <!--PLAN_SLICE_CARDS-->
+  </div>
+</details>
+
+<!-- Design Decisions (hidden for v2 plans — slice cards carry their own questions) -->
+
+
+
+
+
+
+<!-- ZONE 3: Feedback Summary -->
+<section id="feedback-summary" class="progress-zone" data-zone="feedback-summary">
+  <h2>Feedback Summary</h2>
+  <div class="progress-stats">
+    <div class="progress-stat"><strong id="approvedCount">0</strong> approved</div>
+    <div class="progress-stat"><strong id="totalSections">11</strong> sections</div>
+    <div class="progress-stat"><strong id="pendingCount">11</strong> pending</div>
+  </div>
+  <div class="progress-bar-track"><div class="progress-bar-fill" id="progressFill" style="width:0%"></div></div>
+  <div class="comments-summary">
+    <h3>Decisions &amp; Comments</h3>
+    <div id="commentsFeed"><p style="font-size:.8rem;color:var(--text-muted);font-style:italic">No comments yet.</p></div>
+  </div>
+  <div class="finalize-area">
+    <button class="btn-finalize" id="finalizeBtn" disabled>Finalize Plan</button>
+    <p style="font-size:.75rem;color:var(--text-muted);margin-top:6px">All sections must be approved before finalizing.</p>
+  </div>
+</section>
+
+</article>
+</div><!-- /.plan-content -->
+<aside class="chat-sidebar" id="chat-panel">
+  <section class="chat-panel">
+    <h2>Chat</h2>
+    <div class="chat-messages" id="chat-messages">
+      <p class="chat-notice" id="chat-empty">No messages yet.</p>
+    </div>
+    <div class="chat-input-area">
+      <textarea id="chat-input" rows="2" placeholder="Ask about this plan..."></textarea>
+      <button id="chat-send" type="button">Send</button>
+    </div>
+  </section>
+</aside>
+</div><!-- /.plan-layout -->
+
+<script src="https://d3js.org/d3.v7.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/dagre-d3@0.6.4/dist/dagre-d3.min.js"></script>
+<script>
+// Plan base path — derived from window.location.pathname so the same
+// rendered HTML works whether the file is served at the legacy
+// /plans/<id>.html path (single-project server) or at /p/<id>/plans/<id>.html
+// (via the parent-doorway reverse proxy). Every fetch() on this page
+// prefixes window.wipnotePlanBase, which is '' at the root and
+// '/p/<id>' under the proxy. This is the per-project routing fix for
+// the multi-project hardening re-architecture (plan-237fb251).
+window.wipnotePlanBase = (function() {
+  var p = window.location.pathname || '';
+  if (p.indexOf('/p/') !== 0) return '';
+  var segs = p.split('/').filter(function(s) { return s !== ''; });
+  if (segs.length >= 2 && segs[0] === 'p') return '/p/' + segs[1];
+  return '';
+})();
+</script>
+<script>
+// Theme toggle (skip when embedded — dashboard manages its own theme)
+(function(){
+  var themeBtn = document.getElementById('themeToggle');
+  if (!themeBtn) return;
+  var html = document.documentElement;
+
+  var saved = localStorage.getItem('crispi-theme');
+  function syncHljsTheme(theme) {
+    var dark = document.getElementById('hljs-dark');
+    var light = document.getElementById('hljs-light');
+    if (theme === 'light') {
+      dark.disabled = true; light.disabled = false;
+    } else {
+      dark.disabled = false; light.disabled = true;
+    }
+  }
+
+  if (saved) {
+    html.dataset.theme = saved;
+    themeBtn.textContent = saved === 'light' ? '\u263E Dark' : '\u2600 Light';
+    syncHljsTheme(saved);
+  } else if (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches) {
+    html.dataset.theme = 'light';
+    themeBtn.textContent = '\u263E Dark';
+    syncHljsTheme('light');
+  }
+
+  themeBtn.addEventListener('click', function() {
+    var current = html.dataset.theme || 'dark';
+    var next = current === 'dark' ? 'light' : 'dark';
+    html.dataset.theme = next;
+    localStorage.setItem('crispi-theme', next);
+    themeBtn.textContent = next === 'light' ? '\u263E Dark' : '\u2600 Light';
+    syncHljsTheme(next);
+  });
+
+  hljs.highlightAll();
+})();
+
+// Global plan ID — accessible to all script blocks when embedded
+var planId=(function(){var a=document.querySelector('article[id]');return a?a.id:null;})();
+
+(function(){
+  'use strict';
+  var SECTIONS=/*PLAN_SECTIONS_JSON*/["design","slice-1","slice-2","slice-3","slice-4","slice-5","slice-6","slice-7","slice-8","slice-9","slice-10"]/*END_PLAN_SECTIONS_JSON*/;
+
+  function setBadge(el,ok){
+    el.className='badge badge-'+(ok?'approved':'pending');
+    el.textContent=ok?'Approved':'Pending';
+  }
+
+  function escHtml(s){var d=document.createElement('div');d.textContent=s;return d.innerHTML}
+
+  // showFeedbackError: display a visible toast near the top of the page for
+  // any feedback write that returns non-2xx. The toast auto-dismisses after
+  // 8 seconds but can be dismissed early by clicking. Uses inline styles so
+  // it works whether the plan page is loaded standalone or embedded.
+  function showFeedbackError(msg){
+    var toast=document.createElement('div');
+    toast.setAttribute('role','alert');
+    toast.style.cssText='position:fixed;top:16px;right:16px;z-index:9999;max-width:420px;padding:12px 16px;background:rgba(239,68,68,.95);color:#fff;border-radius:8px;font-size:.85rem;line-height:1.4;box-shadow:0 4px 16px rgba(0,0,0,.5);display:flex;align-items:flex-start;gap:10px;cursor:pointer';
+    var icon=document.createElement('span');
+    icon.textContent='⚠️';
+    icon.style.flexShrink='0';
+    var text=document.createElement('span');
+    text.textContent='Feedback not saved: '+msg;
+    var close=document.createElement('span');
+    close.textContent='×';
+    close.style.cssText='margin-left:auto;font-size:1.1rem;line-height:1;flex-shrink:0;opacity:.8';
+    toast.appendChild(icon);
+    toast.appendChild(text);
+    toast.appendChild(close);
+    document.body.appendChild(toast);
+    var tid=setTimeout(function(){if(toast.parentNode)toast.parentNode.removeChild(toast);},8000);
+    toast.addEventListener('click',function(){clearTimeout(tid);if(toast.parentNode)toast.parentNode.removeChild(toast);});
+  }
+
+  // revertApproval: restore a section's approval control to prevVal after a
+  // failed POST, then re-run all downstream UI updates without firing another
+  // network request. Temporarily suppresses change events to prevent re-POST.
+  function revertApproval(sec,prevVal){
+    var radio=document.querySelector('input[type="radio"][data-section="'+sec+'"][data-action="approve"][value="'+prevVal+'"]');
+    if(radio){
+      radio.checked=true;
+    } else {
+      document.querySelectorAll('input[type="radio"][data-section="'+sec+'"][data-action="approve"]').forEach(function(r){
+        r.checked=false;
+      });
+      var cb=document.querySelector('input[type="checkbox"][data-section="'+sec+'"][data-action="approve"]');
+      if(cb) cb.checked=(prevVal==='approved'||prevVal==='true');
+    }
+    // Re-run downstream visual updates without a new fetch
+    var dummy=document.querySelector('[data-section="'+sec+'"][data-action="approve"]');
+    if(dummy) handleApprovalVisuals(sec,prevVal);
+  }
+
+  // handleApprovalVisuals: apply all downstream visual state changes for a
+  // section approval value WITHOUT firing a network request (used both by
+  // handleApprovalChange and revertApproval).
+  function handleApprovalVisuals(sec,val){
+    var isApproved=(val==='approved');
+    var badge=document.querySelector('[data-badge-for="'+sec+'"]');
+    if(badge) setBadge(badge,isApproved);
+    var phaseDetails=document.querySelector('[data-action="approve"][data-section="'+sec+'"]');
+    var pd=phaseDetails&&phaseDetails.closest('details[data-phase]');
+    if(pd) pd.dataset.status=isApproved?'approved':'pending';
+    if(sec.startsWith('slice-')&&sec.split('-').length===2){
+      var n=sec.split('-')[1];
+      var sliceCard=document.getElementById('slice-'+n);
+      if(sliceCard) sliceCard.dataset.approval=val;
+      var node=document.getElementById('node-'+n);
+      if(node) node.dataset.status=isApproved?'approved':'pending';
+      document.querySelectorAll('[data-dot-for="'+n+'"]').forEach(function(dot){
+        dot.dataset.approval=val;
+      });
+      var allSliceInputs=document.querySelectorAll('input[data-section^="slice-"][data-action="approve"]');
+      var sliceNums={};
+      Array.prototype.forEach.call(allSliceInputs,function(inp){
+        sliceNums[inp.dataset.section]=true;
+      });
+      var allOk=Object.keys(sliceNums).every(function(s){
+        return getApprovalValue(s)==='approved';
+      });
+      var sb=document.querySelector('[data-badge-for="slices"]');
+      if(sb) setBadge(sb,allOk);
+      var sd=document.querySelector('[data-phase="slices"]');
+      if(sd) sd.dataset.status=allOk?'approved':'pending';
+    }
+    updateProgress();
+  }
+
+  // Helper: get effective approval value for a slice section.
+  // For radio-based slice controls, returns the selected value or 'pending'.
+  // For checkbox-based controls (design, outline), returns 'approved' or 'pending'.
+  function getApprovalValue(sec){
+    // Try radio group first (slice-N approval segmented control)
+    var checked=document.querySelector('input[type="radio"][data-section="'+sec+'"][data-action="approve"]:checked');
+    if(checked) return checked.value;
+    // Fallback: checkbox
+    var cb=document.querySelector('input[type="checkbox"][data-section="'+sec+'"][data-action="approve"]');
+    if(cb) return cb.checked?'approved':'pending';
+    return 'pending';
+  }
+
+  // approvalServerState: tracks the last server-confirmed approval value per
+  // section key. Populated by loadExistingFeedback (GET) and successful POSTs.
+  // Used to revert optimistic UI updates when a POST fails.
+  var approvalServerState={};
+
+  function handleApprovalChange(el){
+    var sec=el.dataset.section;
+    var val=getApprovalValue(sec);
+    // Capture the last server-confirmed value for this section (or 'pending'
+    // if we have never seen a confirmed server value — i.e. the page just
+    // loaded with baked-in checked state and the first POST fails).
+    var prevVal=approvalServerState.hasOwnProperty(sec)?approvalServerState[sec]:'pending';
+    // Apply optimistic UI update
+    handleApprovalVisuals(sec,val);
+    // During initial hydration from the server GET, suppress POST — the change
+    // events are synthetic (we are restoring server state, not recording new input).
+    if(planId&&!_loadingFeedback){
+      fetch((window.wipnotePlanBase||'')+'/api/plans/'+planId+'/feedback',{
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({section:sec,action:'approve',value:val,question_id:''})
+      }).then(function(r){
+        if(r.ok){
+          // Record the now-confirmed server state so we can revert correctly
+          // if a subsequent POST fails.
+          approvalServerState[sec]=val;
+          return;
+        }
+        return r.text().then(function(body){
+          console.error('[wipnote] feedback POST '+sec+' returned '+r.status+': '+body);
+          showFeedbackError((body&&body.trim())||('HTTP '+r.status));
+          revertApproval(sec,prevVal);
+        });
+      }).catch(function(err){
+        console.error('[wipnote] feedback POST '+sec+' network error:',err);
+        showFeedbackError('Could not reach server. Is wipnote serve running?');
+        revertApproval(sec,prevVal);
+      });
+    }
+  }
+
+  document.querySelectorAll('input[data-action="approve"]').forEach(function(el){
+    el.addEventListener('change',function(){ handleApprovalChange(this); });
+  });
+
+  document.querySelectorAll('input[type="radio"][data-question]').forEach(function(r){
+    r.addEventListener('change',function(){
+      var row=document.querySelector('[data-recap-for="'+this.dataset.question+'"]');
+      if(row){
+        var c=row.querySelector('.recap-answer');
+        if(c) c.textContent=this.value.charAt(0).toUpperCase()+this.value.slice(1);
+        var badge=row.querySelector('.badge');
+        if(badge) setBadge(badge,true);
+      }
+      var allRows=document.querySelectorAll('[data-recap-for]');
+      var allAnswered=Array.prototype.every.call(allRows,function(r){
+        var b=r.querySelector('.badge');
+        return b&&b.className.indexOf('badge-approved')>=0;
+      });
+      var headerBadge=document.querySelector('[data-badge-for="questions"]');
+      if(headerBadge) setBadge(headerBadge,allAnswered);
+      var details=document.querySelector('[data-phase="questions"]');
+      if(details) details.dataset.status=allAnswered?'approved':'pending';
+      // Suppress POST during hydration (bug-fddf5820, finding 8): loadExistingFeedback
+      // dispatches synthetic change events to restore answers from the server GET;
+      // re-POSTing them echoes server state back as new writes.
+      if(planId&&!_loadingFeedback){
+        var qVal=this.value,qId=this.dataset.question;
+        fetch((window.wipnotePlanBase||'')+'/api/plans/'+planId+'/feedback',{
+          method:'POST',
+          headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({section:'questions',action:'answer',value:qVal,question_id:qId})
+        }).then(function(r){
+          if(r.ok) return;
+          return r.text().then(function(body){
+            console.error('[wipnote] feedback POST questions/'+qId+' returned '+r.status+': '+body);
+            showFeedbackError((body&&body.trim())||('HTTP '+r.status+' saving answer'));
+          });
+        }).catch(function(err){
+          console.error('[wipnote] feedback POST questions network error:',err);
+          showFeedbackError('Could not reach server. Is wipnote serve running?');
+        });
+      }
+    });
+  });
+
+  document.querySelectorAll('input[type="radio"][data-question]:checked').forEach(function(r){
+    var row=document.querySelector('[data-recap-for="'+r.dataset.question+'"]');
+    if(row){
+      var badge=row.querySelector('.badge');
+      if(badge) setBadge(badge,true);
+    }
+  });
+
+  // Slice-local question radio chips (data-action="answer", data-section=slice-N-question-<id>)
+  document.querySelectorAll('input[type="radio"][data-action="answer"]').forEach(function(r){
+    r.addEventListener('change',function(){
+      var sec=this.dataset.section,ansVal=this.value;
+      // Suppress POST during hydration (bug-fddf5820, finding 8) — same reason
+      // as the design/outline question radios above.
+      if(planId&&!_loadingFeedback){
+        fetch((window.wipnotePlanBase||'')+'/api/plans/'+planId+'/feedback',{
+          method:'POST',
+          headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({section:sec,action:'answer',value:ansVal,question_id:sec})
+        }).then(function(r){
+          if(r.ok) return;
+          return r.text().then(function(body){
+            console.error('[wipnote] feedback POST slice-question '+sec+' returned '+r.status+': '+body);
+            showFeedbackError((body&&body.trim())||('HTTP '+r.status+' saving answer'));
+          });
+        }).catch(function(err){
+          console.error('[wipnote] feedback POST slice-question network error:',err);
+          showFeedbackError('Could not reach server. Is wipnote serve running?');
+        });
+      }
+    });
+  });
+
+  var allRows=document.querySelectorAll('[data-recap-for]');
+  var allAnswered=Array.prototype.every.call(allRows,function(r){
+    var b=r.querySelector('.badge');
+    return b&&b.className.indexOf('badge-approved')>=0;
+  });
+  var qBadge=document.querySelector('[data-badge-for="questions"]');
+  if(qBadge) setBadge(qBadge,allAnswered);
+  var qDetails=document.querySelector('[data-phase="questions"]');
+  if(qDetails) qDetails.dataset.status=allAnswered?'approved':'pending';
+
+  function updateProgress(){
+    var approved=0;
+    SECTIONS.forEach(function(sec){
+      if(getApprovalValue(sec)==='approved') approved++;
+    });
+    var pct=SECTIONS.length>0?Math.round(approved/SECTIONS.length*100):0;
+    // Main progress bar
+    var ac=document.getElementById('approvedCount');
+    if(ac) ac.textContent=approved;
+    var pc=document.getElementById('pendingCount');
+    if(pc) pc.textContent=SECTIONS.length-approved;
+    var pf=document.getElementById('progressFill');
+    if(pf) pf.style.width=pct+'%';
+    // Finalize gates on SLICES only — every slice-N section approved — matching
+    // the dashboard review rail and the backend. design/outline are still
+    // reviewed (and counted in the progress bar above) but do not block
+    // finalize. Legacy plans with no slices fall back to the all-sections gate.
+    var sliceSecs=SECTIONS.filter(function(s){return /^slice-\d+$/.test(s);});
+    var canFinalize=sliceSecs.length>0
+      ? sliceSecs.every(function(s){return getApprovalValue(s)==='approved';})
+      : (SECTIONS.length>0 && approved===SECTIONS.length);
+    var fb=document.getElementById('finalizeBtn');
+    if(fb) fb.disabled=!canFinalize;
+    // Review rail
+    var ra=document.getElementById('railApproved');
+    if(ra) ra.textContent=approved;
+    var rf=document.getElementById('railFill');
+    if(rf) rf.style.width=pct+'%';
+    var frb=document.getElementById('finalizeRailBtn');
+    if(frb) frb.disabled=!canFinalize;
+    updateRailPending();
+    updateComments();
+  }
+
+  function updateRailPending(){
+    var list=document.getElementById('railPendingList');
+    if(!list) return;
+    // Keep the "Pending" header strong
+    list.innerHTML='<strong>Pending</strong>';
+    SECTIONS.forEach(function(sec){
+      if(getApprovalValue(sec)!=='approved'){
+        var li=document.createElement('li');
+        var sliceNum=sec.startsWith('slice-')?sec.split('-')[1]:null;
+        var issueCount=0,qCount=0;
+        if(sliceNum){
+          var card=document.getElementById('slice-'+sliceNum);
+          if(card){
+            var issueBadge=card.querySelector('.badge-issues');
+            var qBadge=card.querySelector('.badge-questions');
+            if(issueBadge) issueCount=parseInt(issueBadge.textContent)||0;
+            if(qBadge) qCount=parseInt(qBadge.textContent)||0;
+          }
+        }
+        if(issueCount>0) li.dataset.hasIssues='1';
+        if(qCount>0) li.dataset.hasQuestions='1';
+        var label=sec;
+        if(sliceNum){
+          var nameEl=document.querySelector('#slice-'+sliceNum+' .slice-name');
+          label='Slice '+sliceNum+(nameEl?' ('+nameEl.textContent.trim().substring(0,20)+(nameEl.textContent.trim().length>20?'…':'')+')':'');
+        }
+        if(issueCount>0) label+=' · '+issueCount+' issue'+(issueCount>1?'s':'');
+        if(qCount>0) label+=' · '+qCount+' Q';
+        li.textContent=label;
+        list.appendChild(li);
+      }
+    });
+  }
+
+  function updateComments(){
+    var feed=document.getElementById('commentsFeed'),html='';
+    SECTIONS.forEach(function(sec){
+      var ta=document.querySelector('textarea[data-section="'+sec+'"]');
+      if(ta&&ta.value.trim()) html+='<div class="comment-entry"><span class="comment-source">'+sec+'</span>'+escHtml(ta.value.trim())+'</div>';
+    });
+    feed.innerHTML=html||'<p style="font-size:.8rem;color:var(--text-muted);font-style:italic">No comments yet.</p>';
+  }
+
+  var timer;
+  document.querySelectorAll('textarea[data-section]').forEach(function(ta){
+    ta.addEventListener('input',function(){clearTimeout(timer);timer=setTimeout(updateComments,400)});
+    ta.addEventListener('blur',function(){
+      if(planId&&this.value.trim()){
+        var cSec=this.dataset.section,cVal=this.value.trim();
+        fetch((window.wipnotePlanBase||'')+'/api/plans/'+planId+'/feedback',{
+          method:'POST',
+          headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({section:cSec,action:'comment',value:cVal,question_id:''})
+        }).then(function(r){
+          if(r.ok) return;
+          return r.text().then(function(body){
+            console.error('[wipnote] feedback POST comment '+cSec+' returned '+r.status+': '+body);
+            showFeedbackError((body&&body.trim())||('HTTP '+r.status+' saving comment'));
+          });
+        }).catch(function(err){
+          console.error('[wipnote] feedback POST comment network error:',err);
+          showFeedbackError('Could not reach server. Is wipnote serve running?');
+        });
+      }
+    });
+  });
+
+  var finalizeMsg=document.createElement('p');
+  finalizeMsg.style.cssText='font-size:.85rem;margin-top:8px;text-align:center;display:none';
+  var finalizeBtn=document.getElementById('finalizeBtn');
+  if(finalizeBtn){
+    finalizeBtn.parentNode.insertBefore(finalizeMsg,finalizeBtn.nextSibling);
+    finalizeBtn.addEventListener('click',function(){
+      if(!planId){return;}
+      var btn=this;
+      btn.disabled=true;
+      btn.textContent='Finalizing...';
+      finalizeMsg.style.display='none';
+      fetch((window.wipnotePlanBase||'')+'/api/plans/'+planId+'/finalize',{
+        method:'POST',
+        headers:{'Content-Type':'application/json'}
+      })
+      .then(function(r){
+        if(r.ok){
+          r.json().then(function(data){
+            var art=document.querySelector('article[id]');if(art)art.dataset.status='finalized';
+            btn.textContent='Plan Finalized';
+            btn.style.background='var(--approved)';
+            btn.style.color='#fff';
+            // Render the same rich result as the dashboard review rail: created
+            // features + the agentic next/yolo commands (data.next_command /
+            // data.yolo_command — NOT the legacy data.next_steps, which the
+            // backend never returns).
+            data=data||{};
+            var preCss='margin:4px 0 0;padding:8px 12px;background:var(--bg-input);border:1px solid var(--border);border-radius:var(--radius);font-family:var(--mono);font-size:.76rem;text-align:left;white-space:pre-wrap;word-break:break-all;color:var(--text);user-select:text';
+            var html='<span style="color:var(--approved);font-weight:600">Plan finalized.</span>';
+            var feats=data.created_features||[];
+            if(feats.length){
+              html+='<div style="margin-top:8px;font-size:.78rem;color:var(--text-muted)">Features created ('+feats.length+'):</div>';
+              html+='<ul style="margin:4px 0 0;padding-left:18px;font-size:.78rem;font-family:var(--mono);color:var(--text-muted)">';
+              feats.forEach(function(f){html+='<li>'+escHtml(f)+'</li>';});
+              html+='</ul>';
+            }
+            if(data.failures&&data.failures.length){
+              html+='<div style="margin-top:6px;font-size:.78rem;color:var(--blocked)">'+data.failures.length+' slice(s) failed to create — see server log.</div>';
+            }
+            if(data.next_command){
+              html+='<div style="margin-top:8px;font-size:.76rem;color:var(--text-muted)">Next — agentic generation (integrates review feedback):</div>';
+              html+='<pre style="'+preCss+'">'+escHtml(data.next_command)+'</pre>';
+            }
+            if(data.yolo_command){
+              html+='<div style="margin-top:6px;font-size:.76rem;color:var(--text-muted)">Or autonomous mode:</div>';
+              html+='<pre style="'+preCss+'">'+escHtml(data.yolo_command)+'</pre>';
+            }
+            finalizeMsg.innerHTML=html;
+            finalizeMsg.style.color='';
+            finalizeMsg.style.display='block';
+          });
+        } else {
+          return r.text().then(function(body){
+            btn.textContent='Finalize Plan';
+            btn.disabled=false;
+            finalizeMsg.textContent=body||'Not all sections approved.';
+            finalizeMsg.style.color='var(--blocked)';
+            finalizeMsg.style.display='block';
+          });
+        }
+      })
+      .catch(function(){
+        btn.textContent='Finalize Plan';
+        btn.disabled=false;
+        finalizeMsg.textContent='Could not reach server. Is wipnote serve running?';
+        finalizeMsg.style.color='var(--revision)';
+        finalizeMsg.style.display='block';
+      });
+    });
+  }
+
+  // Wire the rail finalize button to the same handler
+  var finalizeRailBtn=document.getElementById('finalizeRailBtn');
+  if(finalizeRailBtn){
+    finalizeRailBtn.addEventListener('click',function(){
+      var mainBtn=document.getElementById('finalizeBtn');
+      if(mainBtn) mainBtn.click();
+    });
+  }
+
+  // _loadingFeedback: true while loadExistingFeedback is hydrating controls
+  // from the server GET. handleApprovalChange skips POST during this window
+  // to avoid echoing server state back as new writes.
+  var _loadingFeedback=false;
+
+  function loadExistingFeedback(){
+    if(!planId){return;}
+    fetch((window.wipnotePlanBase||'')+'/api/plans/'+planId+'/feedback')
+      .then(function(r){return r.ok?r.json():null;})
+      .then(function(data){
+        if(!data){return;}
+        _loadingFeedback=true;
+        if(data.sections){
+          Object.keys(data.sections).forEach(function(sec){
+            var info=data.sections[sec];
+            if(info.approved||info.value){
+              var val=info.value||'approved';
+              // Record server-confirmed state so revert logic has a baseline.
+              approvalServerState[sec]=val;
+              // Try radio first (slice controls)
+              var radio=document.querySelector('input[type="radio"][data-section="'+sec+'"][data-action="approve"][value="'+val+'"]');
+              if(radio&&!radio.checked){radio.checked=true;radio.dispatchEvent(new Event('change'));}
+              else if(val==='approved'||val==='true'){
+                // Fallback checkbox (design, outline)
+                var cb=document.querySelector('input[type="checkbox"][data-section="'+sec+'"][data-action="approve"]');
+                if(cb&&!cb.checked){cb.checked=true;cb.dispatchEvent(new Event('change'));}
+              }
+            } else {
+              // Section exists in server data but is not approved — record as
+              // 'pending' so a subsequent approval revert has a valid baseline.
+              approvalServerState[sec]='pending';
+              // If baked HTML had this section checked (stale render), clear it.
+              var radio=document.querySelector('input[type="radio"][data-section="'+sec+'"][data-action="approve"][value="pending"]');
+              if(radio&&!radio.checked){radio.checked=true;radio.dispatchEvent(new Event('change'));}
+              else {
+                document.querySelectorAll('input[type="radio"][data-section="'+sec+'"][data-action="approve"]').forEach(function(r){
+                  if(r.checked){r.checked=false;r.dispatchEvent(new Event('change'));}
+                });
+                var cbPend=document.querySelector('input[type="checkbox"][data-section="'+sec+'"][data-action="approve"]');
+                if(cbPend&&cbPend.checked){cbPend.checked=false;cbPend.dispatchEvent(new Event('change'));}
+              }
+            }
+            if(info.comment){
+              // Comment textarea is inside a details.comment-collapse — open it first
+              var ta=document.querySelector('textarea[data-section="'+sec+'"]');
+              if(ta){
+                ta.value=info.comment;
+                var collapse=ta.closest('details.comment-collapse');
+                if(collapse) collapse.open=true;
+                var trigger=collapse&&collapse.querySelector('.comment-collapse-trigger');
+                if(trigger) trigger.textContent='Edit comment';
+              }
+            }
+          });
+        }
+        if(data.questions){
+          Object.keys(data.questions).forEach(function(qid){
+            var val=data.questions[qid];
+            var radio=document.querySelector('input[type="radio"][data-question="'+qid+'"][value="'+val+'"]');
+            if(radio&&!radio.checked){radio.checked=true;radio.dispatchEvent(new Event('change'));}
+          });
+        }
+        _loadingFeedback=false;
+        updateProgress();
+      })
+      .catch(function(){
+        _loadingFeedback=false;
+      });
+  }
+
+  loadExistingFeedback();
+
+  document.querySelectorAll('input[data-action="approve"]').forEach(function(cb){
+    cb.addEventListener('change',function(){
+      var sec=this.dataset.section;
+      if(sec.startsWith('slice-')&&sec.split('-').length===2){
+        var n=sec.split('-')[1];
+        var nodeRect=d3.select('#dep-graph-svg .node[id="'+n+'"] rect');
+        if(!nodeRect.empty()){
+          var val=getApprovalValue(sec);
+          var SC={pending:'#6b7280',approved:'#16a34a',revision:'#f59e0b',discuss:'#8b5cf6',blocked:'#dc2626'};
+          var graphStatus=val==='approved'?'approved':val==='rejected'||val==='changes_requested'?'revision':val==='discuss'?'discuss':val==='blocked'?'blocked':'pending';
+          var color=SC[graphStatus]||SC.pending;
+          var cs=getComputedStyle(document.querySelector('.dep-graph')||document.documentElement);
+          nodeRect.style('stroke',color).style('fill',cs.getPropertyValue('--bg-input').trim()||'#222228');
+        }
+      }
+    });
+  });
+})();
+
+// Render dagre-d3 dependency graph
+(function(){
+  'use strict';
+
+  var STATUS_COLORS={pending:'#6b7280',approved:'#16a34a',revision:'#f59e0b',discuss:'#8b5cf6',blocked:'#dc2626'};
+
+  // nodeDataMap: id -> {status, issues, questions, deps:[]}  — populated during render
+  var nodeDataMap={};
+  // graphRef: the dagreD3 graph object — stored for dep-chain queries
+  var graphRef=null;
+
+  // Build ancestor set for a node (all transitive prerequisites)
+  function ancestors(g,id){
+    var visited={};
+    var queue=[id];
+    while(queue.length){
+      var cur=queue.shift();
+      (g.predecessors(cur)||[]).forEach(function(p){
+        if(!visited[p]){visited[p]=true;queue.push(p);}
+      });
+    }
+    return visited;
+  }
+
+  // Build descendant set for a node (all transitive dependents)
+  function descendants(g,id){
+    var visited={};
+    var queue=[id];
+    while(queue.length){
+      var cur=queue.shift();
+      (g.successors(cur)||[]).forEach(function(s){
+        if(!visited[s]){visited[s]=true;queue.push(s);}
+      });
+    }
+    return visited;
+  }
+
+  // Apply dep-chain highlight: dim unrelated nodes/edges, highlight related ones.
+  // Pass null to clear.
+  function applyDepHighlight(inner,g,focusId){
+    var allNodes=inner.selectAll('g.node');
+    var allEdges=inner.selectAll('g.edgePath');
+    if(!focusId){
+      allNodes.classed('dep-graph-dimmed',false).classed('dep-graph-highlighted',false);
+      allEdges.classed('dep-graph-dimmed',false);
+      return;
+    }
+    var anc=ancestors(g,focusId);
+    var desc=descendants(g,focusId);
+    allNodes.each(function(id){
+      var related=(id===focusId||anc[id]||desc[id]);
+      d3.select(this).classed('dep-graph-dimmed',!related).classed('dep-graph-highlighted',related);
+    });
+    allEdges.each(function(e){
+      var related=(anc[e.v]||e.v===focusId||desc[e.v])&&(anc[e.w]||e.w===focusId||desc[e.w]);
+      d3.select(this).classed('dep-graph-dimmed',!related);
+    });
+  }
+
+  function renderGraph(){
+    var container=document.getElementById('graph-data');
+    if(!container) return;
+
+    var g=new dagreD3.graphlib.Graph().setGraph({rankdir:'TB',marginx:24,marginy:24,ranksep:48,nodesep:32});
+    g.setDefaultEdgeLabel(function(){return{};});
+    graphRef=g;
+    nodeDataMap={};
+
+    var nodeEls=container.querySelectorAll('[data-node]');
+    nodeEls.forEach(function(el){
+      var id=el.dataset.node;
+      var name=el.dataset.name;
+      var files=el.dataset.files;
+      var status=el.dataset.status||'pending';
+      var issues=parseInt(el.dataset.issues||'0',10);
+      var questions=parseInt(el.dataset.questions||'0',10);
+      // Build badge suffix appended to node label
+      var badge='';
+      if(issues>0) badge+=' ⚠'+issues;
+      if(questions>0) badge+=' ?'+questions;
+      nodeDataMap[id]={status:status,issues:issues,questions:questions};
+      g.setNode(id,{
+        label: name+(badge?badge:'')+'\n'+(files||'0')+' files',
+        rx: 6,
+        ry: 6,
+        paddingX: 36,
+        paddingY: 16,
+        status: status,
+        issues: issues,
+        questions: questions
+      });
+    });
+
+    nodeEls.forEach(function(el){
+      var id=el.dataset.node;
+      var deps=el.dataset.deps?el.dataset.deps.split(',').map(function(d){return d.trim();}).filter(Boolean):[];
+      deps.forEach(function(dep){g.setEdge(dep,id);});
+    });
+
+    var svg=d3.select('#dep-graph-svg');
+    var inner=svg.append('g');
+    var render=new dagreD3.render();
+    render(inner,g);
+
+    // Read CSS vars from the plan container so graph respects light/dark theme
+    var cs=getComputedStyle(document.querySelector('.dep-graph')||document.documentElement);
+    var nodeFill=cs.getPropertyValue('--bg-input').trim()||'#222228';
+    var nodeText=cs.getPropertyValue('--text').trim()||'#ededea';
+    var edgeColor=cs.getPropertyValue('--text-muted').trim()||'#707070';
+
+    inner.selectAll('g.node').each(function(id){
+      var nodeData=g.node(id);
+      var status=nodeData?nodeData.status:'pending';
+      var color=STATUS_COLORS[status]||STATUS_COLORS.pending;
+      d3.select(this).select('rect')
+        .style('fill',nodeFill)
+        .style('stroke',color)
+        .style('stroke-width','2px');
+      d3.select(this).select('text').style('fill',nodeText).style('font-size','13px');
+    });
+
+    inner.selectAll('g.edgePath path')
+      .style('stroke',edgeColor)
+      .style('stroke-dasharray','4 3')
+      .style('fill','none');
+    inner.selectAll('g.edgePath marker path')
+      .style('fill','#707070');
+
+    var svgEl=document.getElementById('dep-graph-svg');
+    var graphWidth=g.graph().width;
+    var graphHeight=g.graph().height;
+    var pad=24;
+    inner.attr('transform','translate('+pad+','+pad+')');
+    svgEl.setAttribute('width',graphWidth+pad*2);
+    svgEl.setAttribute('height',graphHeight+pad*2);
+    svgEl.removeAttribute('viewBox');
+
+    // Improvement 3: click a graph node → scroll to + open its slice card
+    var selectedNode=null;
+    inner.selectAll('g.node').on('click',function(event,id){
+      // Dep-chain highlight toggle
+      if(selectedNode===id){
+        selectedNode=null;
+        applyDepHighlight(inner,g,null);
+      } else {
+        selectedNode=id;
+        applyDepHighlight(inner,g,id);
+      }
+      // Navigate to slice card
+      var target=document.getElementById('slice-'+id);
+      if(target){
+        target.setAttribute('open','');
+        target.scrollIntoView({behavior:'smooth',block:'start'});
+      }
+    });
+
+    // Improvement 4: hover highlights dep-chain (without overriding click selection)
+    inner.selectAll('g.node')
+      .on('mouseover',function(event,id){
+        if(!selectedNode) applyDepHighlight(inner,g,id);
+      })
+      .on('mouseout',function(event){
+        if(!selectedNode) applyDepHighlight(inner,g,null);
+      });
+
+    // Improvement 3 (reverse): clicking a slice nav item highlights the graph node
+    document.querySelectorAll('[data-slice-nav]').forEach(function(link){
+      link.addEventListener('mouseenter',function(){
+        var num=this.dataset.sliceNav;
+        var nodeEl=inner.select('g.node[id="'+num+'"]');
+        if(!nodeEl.empty()) nodeEl.classed('graph-node-ring',true);
+      });
+      link.addEventListener('mouseleave',function(){
+        var num=this.dataset.sliceNav;
+        var nodeEl=inner.select('g.node[id="'+num+'"]');
+        if(!nodeEl.empty()) nodeEl.classed('graph-node-ring',false);
+      });
+    });
+  }
+
+  if(document.readyState==='loading'){
+    document.addEventListener('DOMContentLoaded',renderGraph);
+  } else {
+    renderGraph();
+  }
+})();
+
+// Chat panel
+// Global markdown renderer — shared by chat bubbles and data-markdown elements
+function escHtml(s){var d=document.createElement('div');d.textContent=s;return d.innerHTML;}
+function renderMd(text){
+  var s=escHtml(text);
+  s=s.replace(/```(\w*)\n([\s\S]*?)```/g,function(_,lang,code){
+    return '<pre><code'+(lang?' class="language-'+lang+'"':'')+'>'+code.trim()+'</code></pre>';
+  });
+  s=s.replace(/`([^`]+)`/g,'<code>$1</code>');
+  s=s.replace(/\*\*([^*]+)\*\*/g,'<strong>$1</strong>');
+  s=s.replace(/\*([^*]+)\*/g,'<em>$1</em>');
+  s=s.replace(/^### (.+)$/gm,'<h4>$1</h4>');
+  s=s.replace(/^## (.+)$/gm,'<h3>$1</h3>');
+  s=s.replace(/^(\|.+\|)\n(\|[-| :]+\|)\n((?:\|.+\|\n?)+)/gm,function(_,hdr,sep,body){
+    var ths=hdr.split('|').filter(Boolean).map(function(c){return '<th>'+c.trim()+'</th>';}).join('');
+    var rows=body.trim().split('\n').map(function(row){
+      var tds=row.split('|').filter(Boolean).map(function(c){return '<td>'+c.trim()+'</td>';}).join('');
+      return '<tr>'+tds+'</tr>';
+    }).join('');
+    return '<table class="q-table"><thead><tr>'+ths+'</tr></thead><tbody>'+rows+'</tbody></table>';
+  });
+  s=s.replace(/^[*-] (.+)$/gm,'<li>$1</li>');
+  s=s.replace(/(<li>.*<\/li>\n?)+/g,'<ul>$&</ul>');
+  s=s.replace(/^\d+\. (.+)$/gm,'<li data-ol>$1</li>');
+  s=s.replace(/(<li data-ol>.*<\/li>\n?)+/g,'<ol>$&</ol>');
+  s=s.replace(/ data-ol/g,'');
+  // Split on paragraph boundaries and wrap each block.
+  var blocks=s.split(/\n\n/);
+  var html=blocks.map(function(block){
+    var trimmed=block.trim();
+    if(!trimmed) return '';
+    return '<p>'+trimmed.replace(/\n/g,'<br>')+'</p>';
+  }).filter(Boolean).join('');
+  return html||'<p></p>';
+}
+// Render inline markdown for elements with data-markdown attribute.
+// For block elements (div/p) replaces innerHTML; for inline (li/span)
+// renders without wrapping <p> tags.
+(function(){
+  document.querySelectorAll('[data-markdown]').forEach(function(el){
+    var raw=el.textContent;
+    if(!raw.trim()) return;
+    var tag=el.tagName.toLowerCase();
+    if(tag==='li'||tag==='span'||tag==='td'){
+      // Inline context — just apply bold/italic/code, no block transforms
+      var s=escHtml(raw);
+      s=s.replace(/`([^`]+)`/g,'<code>$1</code>');
+      s=s.replace(/\*\*([^*]+)\*\*/g,'<strong>$1</strong>');
+      s=s.replace(/\*([^*]+)\*/g,'<em>$1</em>');
+      el.innerHTML=s;
+    } else {
+      el.innerHTML=renderMd(raw);
+    }
+    el.removeAttribute('data-markdown');
+  });
+})();
+
+(function(){
+  'use strict';
+  var chatMessages=document.getElementById('chat-messages');
+  var chatInput=document.getElementById('chat-input');
+  var chatSend=document.getElementById('chat-send');
+  var chatEmpty=document.getElementById('chat-empty');
+  if(!chatMessages||!chatInput||!chatSend) return;
+
+  function addBubble(role,content){
+    if(!content||!content.trim()) return null; // skip empty messages
+    if(chatEmpty) chatEmpty.style.display='none';
+    var div=document.createElement('div');
+    div.className='chat-bubble';
+    div.dataset.role=role;
+    if(role==='assistant'){
+      div.innerHTML=renderMd(content);
+    } else {
+      div.textContent=content;
+    }
+    chatMessages.appendChild(div);
+    chatMessages.scrollTop=chatMessages.scrollHeight;
+    return div;
+  }
+
+  function setInputEnabled(enabled){
+    chatInput.disabled=!enabled;
+    chatSend.disabled=!enabled;
+    if(enabled) chatInput.focus();
+  }
+
+  // Load previous messages directly into the chat thread.
+  if(planId){
+    fetch((window.wipnotePlanBase||'')+'/api/plans/'+planId+'/feedback')
+      .then(function(r){return r.ok?r.json():null;})
+      .then(function(data){
+        if(!data||!data.chat_messages||!data.chat_messages.length) return;
+        if(chatEmpty) chatEmpty.style.display='none';
+        data.chat_messages.forEach(function(m){
+          addBubble(m.role,m.content);
+        });
+      })
+      .catch(function(){});
+  }
+
+  function sendMessage(){
+    var text=chatInput.value.trim();
+    if(!text||!planId) return;
+    chatInput.value='';
+    setInputEnabled(false);
+
+    addBubble('user',text);
+    // Create streaming bubble directly (addBubble skips empty content)
+    if(chatEmpty) chatEmpty.style.display='none';
+    var assistantBubble=document.createElement('div');
+    assistantBubble.className='chat-bubble';
+    assistantBubble.dataset.role='assistant';
+    chatMessages.appendChild(assistantBubble);
+    var rawResponse='';
+
+    fetch((window.wipnotePlanBase||'')+'/api/plans/'+planId+'/chat',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({message:text})
+    }).then(function(response){
+      if(response.status===503){
+        assistantBubble.textContent='Chat unavailable \u2014 Claude CLI not found and no API key configured.';
+        assistantBubble.style.color='var(--text-muted)';
+        assistantBubble.style.fontStyle='italic';
+        setInputEnabled(true);
+        return;
+      }
+      if(!response.ok){
+        assistantBubble.textContent='Error: '+response.statusText;
+        setInputEnabled(true);
+        return;
+      }
+      var reader=response.body.getReader();
+      var decoder=new TextDecoder();
+      var buffer='';
+
+      function processStream(){
+        reader.read().then(function(result){
+          if(result.done){
+            // Stream complete — render accumulated text as markdown
+            if(rawResponse) assistantBubble.innerHTML=renderMd(rawResponse);
+            setInputEnabled(true);
+            return;
+          }
+          buffer+=decoder.decode(result.value,{stream:true});
+          var lines=buffer.split('\n');
+          buffer=lines.pop()||'';
+          lines.forEach(function(line){
+            line=line.trim();
+            if(!line.startsWith('data: ')) return;
+            var jsonStr=line.substring(6);
+            try{
+              var evt=JSON.parse(jsonStr);
+              if(evt.type==='chunk'&&evt.text){
+                rawResponse+=evt.text;
+                assistantBubble.textContent=rawResponse; // show raw while streaming
+                chatMessages.scrollTop=chatMessages.scrollHeight;
+              } else if(evt.type==='error'){
+                assistantBubble.textContent+=' [Error: '+evt.error+']';
+              } else if(evt.type==='done'){
+                if(rawResponse) assistantBubble.innerHTML=renderMd(rawResponse);
+                setInputEnabled(true);
+              }
+            }catch(e){}
+          });
+          processStream();
+        }).catch(function(){
+          setInputEnabled(true);
+        });
+      }
+      processStream();
+    }).catch(function(err){
+      assistantBubble.textContent='Network error: '+err.message;
+      setInputEnabled(true);
+    });
+  }
+
+  chatSend.addEventListener('click',sendMessage);
+  chatInput.addEventListener('keydown',function(e){
+    if(e.key==='Enter'&&!e.shiftKey){
+      e.preventDefault();
+      sendMessage();
+    }
+  });
+})();
+
+// Scroll-spy (uses plan-content scroll, not window)
+(function(){
+  'use strict';
+  var links=document.querySelectorAll('.plan-sidebar a[data-spy]');
+  if(!links.length) return;
+  var ids=Array.prototype.map.call(links,function(a){return a.dataset.spy;});
+  var scrollContainer=document.querySelector('.plan-content')||window;
+  function update(){
+    var current='';
+    ids.forEach(function(id){
+      var el=document.getElementById(id);
+      if(el&&el.getBoundingClientRect().top<=80) current=id;
+    });
+    links.forEach(function(a){
+      a.classList.toggle('active',a.dataset.spy===current);
+    });
+  }
+  scrollContainer.addEventListener('scroll',update,{passive:true});
+  window.addEventListener('scroll',update,{passive:true});
+  update();
+})();
+
+// Left nav collapse toggle
+(function(){
+  'use strict';
+  var KEY_L='wipnote-plan-left-collapsed';
+  var body=document.body;
+  var btnL=document.getElementById('left-sidebar-toggle');
+
+  function applyLeft(collapsed){
+    body.classList.toggle('left-nav-collapsed',collapsed);
+    if(btnL) btnL.textContent=collapsed?'›':'‹';
+    if(btnL) btnL.title=collapsed?'Expand sidebar':'Collapse sidebar';
+  }
+
+  applyLeft(localStorage.getItem(KEY_L)==='1');
+
+  if(btnL){
+    btnL.addEventListener('click',function(){
+      var collapsed=!body.classList.contains('left-nav-collapsed');
+      applyLeft(collapsed);
+      localStorage.setItem(KEY_L,collapsed?'1':'0');
+    });
+  }
+})();
+
+
+// Sync highlight.js theme with current dark/light mode
+function syncHljsTheme(){
+  var isLight=document.documentElement.dataset.theme==='light';
+  var dark=document.getElementById('hljs-dark');
+  var light=document.getElementById('hljs-light');
+  if(dark) dark.disabled=isLight;
+  if(light) light.disabled=!isLight;
+}
+syncHljsTheme();
+
+// YAML viewer — lazy-loads plan YAML on first open or re-highlights on reopen
+(function(){
+  var viewer=document.getElementById('yaml-viewer');
+  var codeEl=document.getElementById('yaml-content');
+  if(!viewer||!codeEl)return;
+
+  function loadAndHighlight(){
+    var planEl=document.querySelector('[data-plan-id]');
+    if(!planEl)return;
+    var id=planEl.getAttribute('data-plan-id');
+    fetch((window.wipnotePlanBase||'')+'/api/plans/'+id+'/yaml')
+      .then(function(r){if(!r.ok)throw new Error('err');return r.text();})
+      .then(function(t){
+        codeEl.textContent=t;
+        delete codeEl.dataset.highlighted; // allow re-highlighting
+        syncHljsTheme();
+        function tryHighlight(){
+          if(window.hljs&&hljs.getLanguage&&hljs.getLanguage('yaml')){
+            hljs.highlightElement(codeEl);
+          } else {
+            setTimeout(tryHighlight,200);
+          }
+        }
+        tryHighlight();
+      })
+      .catch(function(){codeEl.textContent='YAML not available';});
+  }
+
+  var loaded=false;
+  viewer.addEventListener('toggle',function(){
+    if(!viewer.open||loaded)return;
+    loaded=true;
+    loadAndHighlight();
+  });
+  // If already open (e.g. re-rendered in embedded view), load immediately
+  if(viewer.open){loaded=true;loadAndHighlight();}
+})();
+
+// Amendments panel
+(function(){
+  var panel=document.getElementById('amendments-panel');
+  var list=document.getElementById('amendments-list');
+  var summary=document.getElementById('amendments-summary');
+  if(!panel||!list)return;
+
+  var article=document.querySelector('article[id]');
+  var planId=article?article.id:null;
+  if(!planId)return;
+
+  function escapeHtml(s){var d=document.createElement('div');d.textContent=s;return d.innerHTML;}
+
+  function updateSummary(){
+    var selects=list.querySelectorAll('select');
+    var accepted=0,pending=0;
+    selects.forEach(function(s){
+      if(s.value==='accepted')accepted++;
+      else if(s.value==='pending')pending++;
+    });
+    summary.textContent=selects.length+' amendments — '+accepted+' accepted, '+pending+' pending';
+  }
+
+  fetch((window.wipnotePlanBase||'')+'/api/plans/'+planId+'/amendments')
+    .then(function(r){return r.json();})
+    .then(function(amendments){
+      if(!amendments||!amendments.length)return;
+      panel.style.display='';
+      amendments.forEach(function(a,i){
+        var item=document.createElement('div');
+        item.className='amendment-item';
+        var desc=document.createElement('div');
+        desc.className='amendment-desc';
+        desc.innerHTML='<span class="op">'+escapeHtml(a.operation)+'</span> '+
+          '<span class="field">'+escapeHtml(a.field)+'</span> on slice-'+a.slice_num+': '+
+          escapeHtml(a.content);
+        var sel=document.createElement('select');
+        sel.className='amendment-select';
+        ['pending','accepted','rejected'].forEach(function(s){
+          var opt=document.createElement('option');
+          opt.value=s;
+          opt.textContent=s.charAt(0).toUpperCase()+s.slice(1);
+          if(s===a.status)opt.selected=true;
+          sel.appendChild(opt);
+        });
+        sel.addEventListener('change',function(){
+          fetch((window.wipnotePlanBase||'')+'/api/plans/'+planId+'/feedback',{
+            method:'POST',
+            headers:{'Content-Type':'application/json'},
+            body:JSON.stringify({
+              section:'amendment',
+              action:'amendment_status',
+              value:sel.value,
+              question_id:'amend-'+i
+            })
+          });
+          updateSummary();
+        });
+        item.appendChild(desc);
+        item.appendChild(sel);
+        list.appendChild(item);
+      });
+      updateSummary();
+    })
+    .catch(function(){});
+})();
+</script>
+</div><!-- .plan-content -->
+</body>
+</html>

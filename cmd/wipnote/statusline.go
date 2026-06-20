@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/hex"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -17,16 +18,47 @@ import (
 
 func statuslineCmd() *cobra.Command {
 	var sessionID string
+	var cacheMode bool
 
 	cmd := &cobra.Command{
 		Use:   "statusline",
-		Short: "Print the active work item for Claude Code status line",
+		Short: "Print the active work item for a harness status line",
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if cacheMode {
+				return runStatuslineCache()
+			}
 			return runStatusline(sessionID)
 		},
 	}
 	cmd.Flags().StringVar(&sessionID, "session", "", "Session ID to scope the active work item lookup")
+	cmd.Flags().BoolVar(&cacheMode, "cache", false, "Render the project-scoped active work item from the launch cache (session-independent; used by harnesses like Antigravity that do not key statusline commands to a wipnote session)")
 	return cmd
+}
+
+// runStatuslineCache renders the project-scoped active work item from the
+// launch cache written by `wipnote feature start`. It is session-independent:
+// the cache is keyed by a hash of the project's .wipnote/ dir, so the value is
+// correct for whichever project the current working directory belongs to and
+// never bleeds across projects. Any piped stdin (harness agent-state JSON) is
+// drained and ignored — the work item comes from the cache, not the session.
+func runStatuslineCache() error {
+	// Drain any piped agent-state JSON in the BACKGROUND so a large writer never
+	// blocks on a full pipe buffer — but never block our own exit waiting for
+	// EOF. A harness that holds the status-line command's stdin open (agy
+	// streams and does not close it) would otherwise hang a synchronous read
+	// forever and leave the status line blank. We print the cached work item and
+	// exit immediately; the goroutine is reaped on process exit.
+	if fi, err := os.Stdin.Stat(); err == nil && (fi.Mode()&os.ModeCharDevice) == 0 {
+		go func() { _, _ = io.Copy(io.Discard, os.Stdin) }()
+	}
+	dir, err := findWipnoteDir()
+	if err != nil {
+		return nil
+	}
+	if line := ReadStatuslineCache(dir); line != "" {
+		fmt.Println(line)
+	}
+	return nil
 }
 
 func runStatusline(sessionID string) error {
@@ -187,36 +219,39 @@ func WriteStatuslineCache(wipnoteDir, featureID string) {
 	if featureID != "" {
 		payload = []byte(buildCacheLine(wipnoteDir, featureID))
 	}
-	atomicWriteFile(cachePath, payload, 0o644)
+	_ = atomicWriteFile(cachePath, payload, 0o644) // best-effort cache write
 }
 
 // atomicWriteFile writes data to path via a temp file in the same directory
-// followed by os.Rename. Errors are silently dropped — callers treat cache
-// writes as best-effort.
-func atomicWriteFile(path string, data []byte, mode os.FileMode) {
+// followed by os.Rename, and returns any error. Best-effort callers (e.g. cache
+// writes) may ignore the result; callers that report success to the user should
+// check it so a permission/disk-full/rename failure is not mistaken for success.
+func atomicWriteFile(path string, data []byte, mode os.FileMode) error {
 	dir := filepath.Dir(path)
 	if err := os.MkdirAll(dir, 0o755); err != nil {
-		return
+		return err
 	}
 	base := filepath.Base(path)
 	tmp, err := os.CreateTemp(dir, base+".tmp-*")
 	if err != nil {
-		return
+		return err
 	}
 	tmpPath := tmp.Name()
 	if _, err := tmp.Write(data); err != nil {
 		tmp.Close()
 		_ = os.Remove(tmpPath)
-		return
+		return err
 	}
 	if err := tmp.Close(); err != nil {
 		_ = os.Remove(tmpPath)
-		return
+		return err
 	}
 	_ = os.Chmod(tmpPath, mode)
 	if err := os.Rename(tmpPath, path); err != nil {
 		_ = os.Remove(tmpPath)
+		return err
 	}
+	return nil
 }
 
 // buildCacheLine produces the display string for a work item, including

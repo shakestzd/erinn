@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>PreToolUse write hook rejects active feature claim</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="bug-b1f32b99"
+             data-type="bug"
+             data-status="in-progress"
+             data-priority="medium"
+             data-created="2026-06-20T18:46:37.160853"
+             data-updated="2026-06-20T18:46:43.976822" data-agent-assigned="claude-code" data-track-id="trk-cb36e595" data-created-by-agent="claude-code" data-created-by-model="claude-opus-4-8[1m]" data-created-by-role="codex" data-created-by-cli-version="0.62.2-432-g97cc865c4">
+
+        <header>
+            <h1>PreToolUse write hook rejects active feature claim</h1>
+            <div class="metadata">
+                <span class="badge status-in-progress">In Progress</span>
+                <span class="badge priority-medium">Medium Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-cb36e595.html" data-relationship="part_of" data-since="2026-06-20T18:46:37.193589">trk-cb36e595</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="implemented_in">
+                <h3>Implemented In:</h3>
+                <ul>
+                    <li><a href="../sessions/d4cc0257-acb4-4c7d-a1c6-9d9ef42668b7.html" data-relationship="implemented_in" data-since="2026-06-20T18:46:43.976694">session d4cc0257-acb4-4c7d-a1c6-9d9ef42668b7</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>Observed during devcontainer cleanup on 2026-06-20: after running wipnote feature start feat-ea6a9ded, wipnote feature show reported Status in-progress and an implemented_in edge for the current session, but apply_patch was blocked by the PreToolUse hook with &#39;An active work item is required before writing code.&#39; This indicates the hook&#39;s active-work detection can disagree with CLI work-item state in Codex/apply_patch context. Related lineage: plan-c3bbb1ed PreToolUse/claim machinery.</p>
+        </section>
+    </article>
+</body>
+</html>

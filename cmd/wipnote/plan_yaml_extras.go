@@ -284,6 +284,16 @@ func runValidateYAML(planID string) error {
 		}
 		return fmt.Errorf("%d validation errors", len(errors))
 	}
+	// Non-fatal research advisories: nudge legacy/v3 plans toward a cited research
+	// basis. v4 plans enforce this in Validate above, so this is silent for them.
+	for _, a := range planyaml.ValidateResearchAdvisories(plan) {
+		fmt.Fprintf(os.Stderr, "  ! research advisory: %s\n", a)
+	}
+	// Non-fatal block advisories: nudge standard/complex slices toward visual-block
+	// authorship. Trivial slices are always exempt. Never fails validation.
+	for _, a := range planyaml.ValidateBlockAdvisories(plan) {
+		fmt.Fprintf(os.Stderr, "  ! blocks advisory: %s\n", a)
+	}
 	fmt.Printf("Plan valid: %d slices, %d questions\n", len(plan.Slices), len(plan.Questions))
 	return nil
 }
@@ -656,20 +666,20 @@ func runReadFeedbackYAML(planID string) error {
 		return fmt.Errorf("open db: %w", err)
 	}
 	defer db.Close()
-	rows, err := db.Query("SELECT section, action, value, question_id FROM plan_feedback WHERE plan_id = ?", planID)
+	entries, err := dbpkg.GetPlanFeedback(db, planID)
 	if err != nil {
 		return fmt.Errorf("query feedback: %w", err)
 	}
-	defer rows.Close()
 
 	type feedbackResult struct {
-		PlanID          string            `json:"plan_id"`
-		Status          string            `json:"status"`
-		DesignApproved  bool              `json:"design_approved"`
-		DesignComment   string            `json:"design_comment,omitempty"`
-		SliceApprovals  map[string]bool   `json:"slice_approvals"`
-		QuestionAnswers map[string]string `json:"question_answers"`
-		Comments        map[string]string `json:"comments"`
+		PlanID          string                    `json:"plan_id"`
+		Status          string                    `json:"status"`
+		DesignApproved  bool                      `json:"design_approved"`
+		DesignComment   string                    `json:"design_comment,omitempty"`
+		SliceApprovals  map[string]bool           `json:"slice_approvals"`
+		QuestionAnswers map[string]string         `json:"question_answers"`
+		Comments        map[string]string         `json:"comments"`
+		Annotations     []planyaml.PlanAnnotation `json:"annotations"`
 	}
 	result := feedbackResult{
 		PlanID:          planID,
@@ -677,31 +687,35 @@ func runReadFeedbackYAML(planID string) error {
 		SliceApprovals:  make(map[string]bool),
 		QuestionAnswers: make(map[string]string),
 		Comments:        make(map[string]string),
+		Annotations:     []planyaml.PlanAnnotation{},
 	}
-	for rows.Next() {
-		var section, action, value, qid string
-		if err := rows.Scan(&section, &action, &value, &qid); err != nil {
-			return fmt.Errorf("scan feedback row: %w", err)
-		}
-		switch action {
+	for _, e := range entries {
+		switch e.Action {
 		case "approve":
-			if section == "design" {
-				result.DesignApproved = dbpkg.IsPlanApprovalValueApproved(value)
+			if e.Section == "design" {
+				result.DesignApproved = dbpkg.IsPlanApprovalValueApproved(e.Value)
 			} else {
-				result.SliceApprovals[section] = dbpkg.IsPlanApprovalValueApproved(value)
+				result.SliceApprovals[e.Section] = dbpkg.IsPlanApprovalValueApproved(e.Value)
 			}
 		case "comment":
-			if section == "design" {
-				result.DesignComment = value
+			if e.Section == "design" {
+				result.DesignComment = e.Value
 			} else {
-				result.Comments[section] = value
+				result.Comments[e.Section] = e.Value
 			}
 		case "answer":
-			result.QuestionAnswers[qid] = value
+			result.QuestionAnswers[e.QuestionID] = e.Value
+		case "annotation":
+			result.Annotations = append(result.Annotations, planyaml.PlanAnnotation{
+				Section:          e.Section,
+				Anchor:           e.Anchor,
+				Comment:          e.Value,
+				QuestionID:       e.QuestionID,
+				Consumed:         e.Consumed,
+				Resolved:         e.Resolved,
+				ResolutionTarget: e.ResolutionTarget,
+			})
 		}
-	}
-	if err := rows.Err(); err != nil {
-		return fmt.Errorf("iterate feedback rows: %w", err)
 	}
 	enc := json.NewEncoder(os.Stdout)
 	enc.SetIndent("", "  ")

@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>plan-92a31aea HTML bakes in render-time date (roborev #385)</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="bug-6fd9f1c8"
+             data-type="bug"
+             data-status="done"
+             data-priority="medium"
+             data-created="2026-06-19T03:15:33.082819"
+             data-updated="2026-06-19T03:17:48.53351" data-agent-assigned="claude-code" data-track-id="trk-6a1f5362" data-created-by-agent="claude-code" data-created-by-model="claude-opus-4-8[1m]" data-created-by-cli-version="dev">
+
+        <header>
+            <h1>plan-92a31aea HTML bakes in render-time date (roborev #385)</h1>
+            <div class="metadata">
+                <span class="badge status-done">Done</span>
+                <span class="badge priority-medium">Medium Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-6a1f5362.html" data-relationship="part_of" data-since="2026-06-19T03:15:33.27355">trk-6a1f5362</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="implemented_in">
+                <h3>Implemented In:</h3>
+                <ul>
+                    <li><a href="../sessions/16d73141-da14-4f6b-814c-a9340bbca4b0.html" data-relationship="implemented_in" data-since="2026-06-19T03:15:50.8928">session 16d73141-da14-4f6b-814c-a9340bbca4b0</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>meta.created_at empty in plan-92a31aea.yaml so rendered HTML header uses render-time date and drifts each regeneration. Fix: pin created_at to 2026-06-18 and re-render.</p>
+        </section>
+    </article>
+</body>
+</html>

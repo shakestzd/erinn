@@ -394,10 +394,10 @@ func TestWatchdog_IntervalEnvOverride(t *testing.T) {
 	}
 }
 
-// TestSpawnSessionCollectorTo_RetriesOnTransientFailure verifies that the
-// higher-level spawnSessionCollectorTo succeeds when the underlying spawn
-// fails on the first attempt but succeeds on the second.
-func TestSpawnSessionCollectorTo_RetriesOnTransientFailure(t *testing.T) {
+// TestSpawnSessionCollectorTo_SingleAttempt verifies that spawnSessionCollectorTo
+// makes exactly 1 spawn attempt (maxAttempts=1, bug-1af3c3d9 Fix 2).
+// A spawn that succeeds on the first call returns valid overrides with wantExit=false.
+func TestSpawnSessionCollectorTo_SingleAttempt(t *testing.T) {
 	t.Setenv("WIPNOTE_OTEL_STRICT", "")
 
 	callCount := 0
@@ -406,9 +406,6 @@ func TestSpawnSessionCollectorTo_RetriesOnTransientFailure(t *testing.T) {
 
 	spawnCollectorFn = func(binPath, sessionID, projectDir string, requestedPort int) (int, *os.Process, error) {
 		callCount++
-		if callCount < 2 {
-			return 0, nil, fmt.Errorf("transient error")
-		}
 		return 8888, &os.Process{Pid: 99999}, nil
 	}
 
@@ -418,7 +415,7 @@ func TestSpawnSessionCollectorTo_RetriesOnTransientFailure(t *testing.T) {
 	overrides, wantExit := spawnSessionCollectorTo(projectDir, "/fake/bin", &buf)
 
 	if wantExit {
-		t.Error("expected wantExit=false on eventual success")
+		t.Error("expected wantExit=false on success")
 	}
 	if overrides.CollectorPort != 8888 {
 		t.Errorf("CollectorPort = %d, want 8888", overrides.CollectorPort)
@@ -429,7 +426,42 @@ func TestSpawnSessionCollectorTo_RetriesOnTransientFailure(t *testing.T) {
 	if overrides.Cleanup == nil {
 		t.Error("expected non-nil Cleanup")
 	}
-	if callCount != 2 {
-		t.Errorf("callCount = %d, want 2", callCount)
+	// maxAttempts=1: exactly one spawn call is made.
+	if callCount != 1 {
+		t.Errorf("callCount = %d, want 1 (maxAttempts reduced to 1 in bug-1af3c3d9)", callCount)
+	}
+}
+
+// TestSpawnSessionCollectorTo_FailsOnTransientError verifies that with
+// maxAttempts=1 (bug-1af3c3d9 Fix 2), a single spawn failure causes
+// spawnSessionCollectorTo to return zero-value overrides without retrying.
+// Previously (maxAttempts=3) the function would have retried up to 3 times.
+func TestSpawnSessionCollectorTo_FailsOnTransientError(t *testing.T) {
+	t.Setenv("WIPNOTE_OTEL_STRICT", "")
+
+	callCount := 0
+	origFn := spawnCollectorFn
+	t.Cleanup(func() { spawnCollectorFn = origFn })
+
+	spawnCollectorFn = func(binPath, sessionID, projectDir string, requestedPort int) (int, *os.Process, error) {
+		callCount++
+		return 0, nil, fmt.Errorf("transient error attempt %d", callCount)
+	}
+
+	var buf bytes.Buffer
+	projectDir := t.TempDir()
+
+	overrides, wantExit := spawnSessionCollectorTo(projectDir, "/fake/bin", &buf)
+
+	// With maxAttempts=1, failure is silent-degraded (wantExit=false without STRICT).
+	if wantExit {
+		t.Error("expected wantExit=false when WIPNOTE_OTEL_STRICT is unset")
+	}
+	if overrides.CollectorPort != 0 || overrides.SessionID != "" || overrides.Cleanup != nil {
+		t.Errorf("expected zero-value overrides on failure, got: %+v", overrides)
+	}
+	// maxAttempts=1: exactly one call, no retries.
+	if callCount != 1 {
+		t.Errorf("callCount = %d, want 1 (no retries with maxAttempts=1)", callCount)
 	}
 }

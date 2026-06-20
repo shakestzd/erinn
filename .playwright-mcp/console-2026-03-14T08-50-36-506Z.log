@@ -1,5 +1,0 @@
-[    7268ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://localhost:8080/favicon.ico:0
-[    7271ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:8080/api/initial-stats:0
-[    7272ms] [ERROR] Failed to load initial stats: SyntaxError: Unexpected token 'I', "Internal S"... is not valid JSON @ http://localhost:8080/:117
-[    7285ms] [ERROR] Failed to load resource: the server responded with a status of 500 (Internal Server Error) @ http://localhost:8080/views/activity-feed:0
-[    7286ms] [ERROR] Response Status Error Code 500 from /views/activity-feed @ http://localhost:8080/static/htmx.min.js:0

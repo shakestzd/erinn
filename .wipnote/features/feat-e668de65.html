@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>Styled huh Select chooser in promptLaunchIntent with non-TTY fallback</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="feat-e668de65"
+             data-type="feature"
+             data-status="done"
+             data-priority="medium"
+             data-created="2026-06-18T21:52:45.993365"
+             data-updated="2026-06-19T02:48:44.73722" data-agent-assigned="claude-code" data-track-id="trk-6a1f5362">
+
+        <header>
+            <h1>Styled huh Select chooser in promptLaunchIntent with non-TTY fallback</h1>
+            <div class="metadata">
+                <span class="badge status-done">Done</span>
+                <span class="badge priority-medium">Medium Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="blocked_by">
+                <h3>Blocked By:</h3>
+                <ul>
+                    <li><a href="../features/feat-7c1c70bf.html" data-relationship="blocked_by">feat-7c1c70bf</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="planned_in">
+                <h3>Planned In:</h3>
+                <ul>
+                    <li><a href="../plans/plan-92a31aea.html" data-relationship="planned_in" data-since="2026-06-18T21:52:45.996883">plan-92a31aea</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="implemented_in">
+                <h3>Implemented In:</h3>
+                <ul>
+                    <li><a href="../sessions/450fe1a1-83f9-4dca-b98a-31089b7682c2.html" data-relationship="implemented_in" data-since="2026-06-18T22:46:12.759453">session 450fe1a1-83f9-4dca-b98a-31089b7682c2</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-6a1f5362.html" data-relationship="part_of" data-since="2026-06-18T21:52:46.008724">trk-6a1f5362</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>Replace the fmt.Fprintf menu body of promptLaunchIntent (claude_chooser.go:109-156)
+with a huh Select form built from the same data: a &#34;Start something new&#34; option plus
+grouped &#34;Resume in &lt;harness&gt;&#34; (grouped.SameHarness) and &#34;Continue from other
+harnesses&#34; (grouped.CrossHarness) options. Render each ResumableSession row as a
+styled multi-field option (work-item id, title, type, harness, relative last-activity,
+Live badge, worktree) via launchtui styles instead of the flat describeresumablesession
+string. Map the selected option back to the existing LaunchIntent values
+(NewWorkIntent / resume / cross-harness handoff) with identical semantics.
+
+Fallback contract: the upstream TTY gate (shouldOfferLaunchIntentChooser -&gt;
+isInteractiveTerminalFile, claude_chooser.go:34/44) is preserved unchanged — non-TTY
+stdin still skips the chooser entirely. When interactive but huh cannot run (e.g.
+ACCESSIBLE env / huh.Run error), fall back to the existing bufio numeric-prompt path
+rather than failing the launch.</p>
+        </section>
+    </article>
+</body>
+</html>

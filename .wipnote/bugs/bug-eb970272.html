@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>Launch chooser omits current session: session-split children lose work-item attribution</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="bug-eb970272"
+             data-type="bug"
+             data-status="done"
+             data-priority="medium"
+             data-created="2026-06-19T05:41:22.264368"
+             data-updated="2026-06-19T06:11:46.583667" data-agent-assigned="claude-code" data-track-id="trk-6a1f5362" data-created-by-agent="claude-code" data-created-by-model="claude-opus-4-8[1m]" data-created-by-cli-version="dev">
+
+        <header>
+            <h1>Launch chooser omits current session: session-split children lose work-item attribution</h1>
+            <div class="metadata">
+                <span class="badge status-done">Done</span>
+                <span class="badge priority-medium">Medium Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="implemented_in">
+                <h3>Implemented In:</h3>
+                <ul>
+                    <li><a href="../sessions/6ef24b5a-c9e2-4501-901e-b15de323782f.html" data-relationship="implemented_in" data-since="2026-06-19T05:45:48.95007">session 6ef24b5a-c9e2-4501-901e-b15de323782f</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="relates_to">
+                <h3>Relates To:</h3>
+                <ul>
+                    <li><a href="../features/feat-4f5fafee.html" data-relationship="relates_to" data-since="2026-06-19T05:41:24.273524">CLI-first resume chooser and continuation hydration redesign</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-6a1f5362.html" data-relationship="part_of" data-since="2026-06-19T05:41:22.612913">trk-6a1f5362</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-steps>
+            <h3>Implementation Steps</h3>
+            <ol>
+                <li data-completed="true" data-step-id="task-1" data-agent="claude-code" data-created-by-agent="claude-code">✅ Research</li>
+                <li data-completed="true" data-step-id="task-2" data-agent="claude-code" data-created-by-agent="claude-code">✅ Spec</li>
+                <li data-completed="true" data-step-id="task-3" data-agent="claude-code" data-created-by-agent="claude-code">✅ Tests First</li>
+                <li data-completed="true" data-step-id="task-4" data-agent="claude-code" data-created-by-agent="claude-code">✅ Implement</li>
+                <li data-completed="true" data-step-id="task-5" data-agent="claude-code" data-created-by-agent="claude-code">✅ Quality Gate</li>
+                <li data-completed="true" data-step-id="task-6" data-agent="claude-code" data-created-by-agent="claude-code">✅ Diff Review</li>
+                <li data-completed="true" data-step-id="task-7" data-agent="claude-code" data-created-by-agent="claude-code">✅ Commit and Complete</li>
+            </ol>
+        </section>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>Symptom: the styled launch chooser (wipnote claude --dev) does not list the user&#39;s CURRENT session on main. Root cause (verified): the resumable-session query ListHarnessGroupedResumableSessions in core/db/session_repo.go filters at line 705 with &#39;WHERE sw.work_item_id &lt;&gt; &#39;&#39;&#39; — only sessions carrying a work item are shown. Claude Code splits a session internally: the SessionStart hook fires on the short parent stub (which gets active_feature_id), but the real long-running child session IDs never receive a SessionStart the hook sees, so their active_feature_id / active_work_items are never written and work_item_id resolves to &#39;&#39; — eliminated at :705 before any other filter. Secondary: the parent stub&#39;s work item can be completed, hitting the second filter at :728 &#39;item_status NOT IN (done, completed)&#39;. Net: the current main session is structurally absent, not merely ranked low. Two fix paths (both in feat-4f5fafee scope): (1) forward-propagate work-item attribution from the parent stub to its split-child session IDs (fixes the data pipeline; the more correct fix); (2) add a first-class &#39;current session&#39; slot in the chooser (cmd/wipnote/claude_chooser.go listGroupedResumableSessionsForRoot) that bypasses the work_item_id gate. Anchors: core/db/session_repo.go:705 and :728; cmd/wipnote/claude_chooser.go. NOT a regression from the trk-6a1f5362 restyle merge — pre-existing data-pipeline gap.</p>
+        </section>
+    </article>
+</body>
+</html>

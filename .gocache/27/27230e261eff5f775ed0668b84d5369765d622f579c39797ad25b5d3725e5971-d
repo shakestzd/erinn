@@ -1,5 +1,0 @@
-./hostpattern.go
-./normalize.go
-./projecttype.go
-./resolve.go
-./projecttype_test.go

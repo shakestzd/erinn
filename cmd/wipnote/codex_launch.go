@@ -14,6 +14,33 @@ import (
 
 type codexLaunchMode string
 
+// codexSandboxProbe exercises the same user-namespace path that Codex's
+// bubblewrap sandbox requires. Codex uses --unshare-user (and --unshare-pid,
+// --unshare-net) plus --ro-bind / / to create its sandbox environment. In
+// Codespaces/devcontainers the kernel capabilities required to create user
+// namespaces are absent, so this probe fails with "operation not permitted"
+// or similar. We probe bwrap directly (not codex --help, which never exercises
+// bwrap) so detection reliably fires on the real failure path.
+//
+// The probe resolves the bwrap binary via exec.LookPath. If bwrap is not on
+// PATH at all, the probe returns ("bwrap not found", non-nil error) so the
+// caller treats absence as "unavailable" — the same degraded outcome.
+//
+// The probe is a package-level var so tests can replace it without running
+// a real bwrap process.
+var codexSandboxProbe = func(_ string) ([]byte, error) {
+	bwrapPath, err := exec.LookPath("bwrap")
+	if err != nil {
+		// bwrap binary absent from PATH → treat as unavailable.
+		return []byte("bwrap not found on PATH"), err
+	}
+	// Minimal invocation matching Codex's namespace-isolation requirement:
+	// --unshare-user exercises the user-namespace path that fails in
+	// Codespaces; --ro-bind / / provides the read-only root Codex requires;
+	// `true` is the no-op command so the process exits immediately.
+	return exec.Command(bwrapPath, "--unshare-user", "--ro-bind", "/", "/", "true").CombinedOutput()
+}
+
 const (
 	codexLaunchModeDefault  codexLaunchMode = "default"
 	codexLaunchModeDev      codexLaunchMode = "dev"
@@ -71,6 +98,95 @@ func buildCodexOtelEnv(base []string, port int, sessionID string) []string {
 
 func buildCodexAgentEnv(base []string) []string {
 	return launcher.BuildHarnessAgentEnv(base, "codex")
+}
+
+// applySandboxDegradedEnv sets WIPNOTE_CODEX_SANDBOX=degraded in env when
+// degraded is true, signalling that the bwrap sandbox is unavailable and
+// agents should stop retrying nested codex exec / sandbox paths. It is a
+// no-op when degraded is false, so normal and user-overridden launches are
+// not polluted.
+func applySandboxDegradedEnv(env []string, degraded bool) []string {
+	if !degraded {
+		return env
+	}
+	return appendOrReplaceEnv(env, "WIPNOTE_CODEX_SANDBOX=degraded")
+}
+
+func resolveCodexSandboxMode(codexPath string, opts codexLaunchOpts, devcontainer bool) (mode string, notice string) {
+	if !devcontainer || opts.Yolo || codexRequestedSandbox(opts.ExtraArgs) != "" || codexBypassesSandbox(opts.ExtraArgs) {
+		return "", ""
+	}
+
+	out, err := codexSandboxProbe(codexPath)
+	if err == nil {
+		return "", ""
+	}
+	if !isCodexBubblewrapFailure(out, err) {
+		return "", ""
+	}
+
+	return "danger-full-access",
+		"wipnote: Codex bubblewrap sandbox is unavailable in this devcontainer/Codespace; launching with `--sandbox danger-full-access` so tools do not fail one by one. Approvals remain enabled. Override with `wipnote codex --sandbox <mode>` or use `--yolo` only when you intentionally want to bypass approvals too."
+}
+
+func codexRequestedSandbox(args []string) string {
+	for i, arg := range args {
+		if arg == "--sandbox" {
+			if i+1 < len(args) {
+				return args[i+1]
+			}
+			return ""
+		}
+		if strings.HasPrefix(arg, "--sandbox=") {
+			return strings.TrimPrefix(arg, "--sandbox=")
+		}
+	}
+	return ""
+}
+
+func codexBypassesSandbox(args []string) bool {
+	for _, arg := range args {
+		if arg == "--dangerously-bypass-approvals-and-sandbox" {
+			return true
+		}
+	}
+	return false
+}
+
+// namespaceContextWords are terms that indicate a failure is specifically
+// related to Linux namespace/bubblewrap setup rather than an unrelated EPERM.
+var namespaceContextWords = []string{
+	"bwrap", "bubblewrap", "namespace", "unshare",
+}
+
+func isCodexBubblewrapFailure(out []byte, err error) bool {
+	text := strings.ToLower(string(out))
+	if err != nil {
+		text += "\n" + strings.ToLower(err.Error())
+	}
+
+	// Direct bwrap/namespace error indicators — unambiguous on their own.
+	if strings.Contains(text, "bwrap") ||
+		strings.Contains(text, "bubblewrap") ||
+		strings.Contains(text, "failed to make / slave") ||
+		strings.Contains(text, "cannot create namespace") {
+		return true
+	}
+
+	// "operation not permitted" (EPERM) is too broad to match alone: many
+	// unrelated failures surface the same errno string (e.g. file-permission
+	// errors, capability drops). Only count it as a bwrap failure when it
+	// co-occurs with a namespace/unshare/bwrap context word, indicating the
+	// EPERM arose during namespace setup rather than from something else.
+	if strings.Contains(text, "operation not permitted") {
+		for _, word := range namespaceContextWords {
+			if strings.Contains(text, word) {
+				return true
+			}
+		}
+	}
+
+	return false
 }
 
 func buildCodexOtelConfigArgs(port int) []string {

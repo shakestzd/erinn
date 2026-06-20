@@ -73,6 +73,8 @@ func planCmdWithExtras() *cobra.Command {
 	// Cross-harness web-form interview prototype (feat-2852d0c8)
 	cmd.AddCommand(planInterviewCmd())
 	cmd.AddCommand(planInterviewQuestionsCmd())
+	// slice-6: visual-block catalog (native get-plan-blocks equivalent)
+	cmd.AddCommand(planBlocksCmd())
 	return cmd
 }
 

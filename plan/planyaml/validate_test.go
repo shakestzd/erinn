@@ -907,3 +907,148 @@ func TestValidate_LegacyPlanRegression(t *testing.T) {
 		t.Errorf("legacy plan should validate without errors, got: %v", errs)
 	}
 }
+
+// ---- ValidateBlockAdvisories tests ----
+
+// blockAdvisoryPlan returns a minimal plan with a single slice of the given
+// complexity and the given blocks list. Non-finalized so all required fields
+// must be populated; only Complexity and Blocks vary between test cases.
+func blockAdvisoryPlan(complexity string, blocks []SliceBlock) *PlanYAML {
+	s := PlanSlice{
+		Num:            1,
+		What:           "Implement the thing.",
+		Why:            "Because it matters.",
+		Files:          []string{"internal/foo/bar.go"},
+		DoneWhen:       []string{"Tests pass"},
+		Tests:          "Unit: it works",
+		Effort:         "M",
+		Risk:           "Med",
+		Complexity:     complexity,
+		Blocks:         blocks,
+		DecisionsNotes: fiftyCharsNotes,
+	}
+	// Complex slices also require >=2 done_when and >=1 answered question.
+	if complexity == "complex" {
+		s.DoneWhen = []string{"Criterion 1", "Criterion 2"}
+		s.Questions = []SliceQuestion{{ID: "q1", Text: "Which approach?", Answer: "option-a"}}
+	}
+	return &PlanYAML{
+		Meta: PlanMeta{
+			ID:     "plan-blockadv01",
+			Title:  "Block Advisory Test",
+			Status: "draft",
+		},
+		Design: PlanDesign{
+			Problem:     "A problem.",
+			Goals:       []string{"Goal 1"},
+			Constraints: []string{"Constraint 1"},
+		},
+		Slices:    []PlanSlice{s},
+		Questions: []PlanQuestion{},
+	}
+}
+
+func TestValidateBlockAdvisories_ComplexSliceNoBlocks_EmitsAdvisory(t *testing.T) {
+	plan := blockAdvisoryPlan("complex", nil)
+	adv := ValidateBlockAdvisories(plan)
+	if len(adv) == 0 {
+		t.Fatal("expected at least one block advisory for complex slice with no blocks, got none")
+	}
+	found := false
+	for _, a := range adv {
+		if strings.Contains(a, "visual blocks") && strings.Contains(a, "complex") {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Errorf("expected advisory to mention visual blocks and complexity, got: %v", adv)
+	}
+}
+
+func TestValidateBlockAdvisories_StandardSliceNoBlocks_EmitsAdvisory(t *testing.T) {
+	plan := blockAdvisoryPlan("standard", nil)
+	adv := ValidateBlockAdvisories(plan)
+	if len(adv) == 0 {
+		t.Fatal("expected at least one block advisory for standard slice with no blocks, got none")
+	}
+	found := false
+	for _, a := range adv {
+		if strings.Contains(a, "visual blocks") && strings.Contains(a, "standard") {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Errorf("expected advisory to mention visual blocks and complexity, got: %v", adv)
+	}
+}
+
+func TestValidateBlockAdvisories_TrivialSliceNoBlocks_NoAdvisory(t *testing.T) {
+	// Trivial slices are always exempt from block advisories.
+	plan := blockAdvisoryPlan("trivial", nil)
+	adv := ValidateBlockAdvisories(plan)
+	if len(adv) != 0 {
+		t.Errorf("trivial slice should produce no block advisory, got: %v", adv)
+	}
+}
+
+func TestValidateBlockAdvisories_SliceWithBlocks_NoAdvisory(t *testing.T) {
+	// A standard slice that already has at least one block must not trigger an advisory.
+	plan := blockAdvisoryPlan("standard", []SliceBlock{
+		{
+			Type:  "file-tree",
+			Title: "Files changed",
+			Entries: []string{
+				"internal/foo/bar.go",
+			},
+		},
+	})
+	adv := ValidateBlockAdvisories(plan)
+	if len(adv) != 0 {
+		t.Errorf("standard slice with blocks should produce no advisory, got: %v", adv)
+	}
+}
+
+func TestValidateBlockAdvisories_NilPlan_NilReturn(t *testing.T) {
+	adv := ValidateBlockAdvisories(nil)
+	if adv != nil {
+		t.Errorf("nil plan should return nil advisories, got: %v", adv)
+	}
+}
+
+func TestValidateBlockAdvisories_EmptyComplexityDefaultsToStandard_EmitsAdvisory(t *testing.T) {
+	// A slice with empty Complexity (defaults to "standard" via effectiveComplexity)
+	// and no blocks should emit a block advisory.
+	plan := &PlanYAML{
+		Meta: PlanMeta{
+			ID:     "plan-blockadv02",
+			Title:  "Empty Complexity Block Test",
+			Status: "draft",
+		},
+		Design: PlanDesign{
+			Problem:     "A problem.",
+			Goals:       []string{"Goal 1"},
+			Constraints: []string{"Constraint 1"},
+		},
+		Slices: []PlanSlice{
+			{
+				Num:            1,
+				What:           "Do the thing.",
+				Why:            "It matters.",
+				Files:          []string{"internal/foo/bar.go"},
+				DoneWhen:       []string{"It works"},
+				Tests:          "Unit: works",
+				Effort:         "S",
+				Risk:           "Low",
+				DecisionsNotes: fiftyCharsNotes,
+				// Complexity intentionally empty — defaults to "standard".
+			},
+		},
+		Questions: []PlanQuestion{},
+	}
+	adv := ValidateBlockAdvisories(plan)
+	if len(adv) == 0 {
+		t.Fatal("expected block advisory for slice with empty complexity (defaults to standard) and no blocks, got none")
+	}
+}

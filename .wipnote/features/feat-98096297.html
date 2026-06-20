@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>Daemon resumable-session index (query &#43; CLI &#43; API)</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="feat-98096297"
+             data-type="feature"
+             data-status="done"
+             data-priority="medium"
+             data-created="2026-06-16T23:17:32.864916"
+             data-updated="2026-06-17T03:21:30.180945" data-agent-assigned="claude-code" data-track-id="trk-6a1f5362">
+
+        <header>
+            <h1>Daemon resumable-session index (query &#43; CLI &#43; API)</h1>
+            <div class="metadata">
+                <span class="badge status-done">Done</span>
+                <span class="badge priority-medium">Medium Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="implemented_in">
+                <h3>Implemented In:</h3>
+                <ul>
+                    <li><a href="../sessions/03e4f451-629b-48f0-895c-7ab073b99884.html" data-relationship="implemented_in" data-since="2026-06-17T00:02:15.099836">session 03e4f451-629b-48f0-895c-7ab073b99884</a></li>
+                    <li><a href="../sessions/019ed365-cfe1-7e91-910f-4cf17b1e13a0.html" data-relationship="implemented_in" data-since="2026-06-17T03:00:58.074796">session 019ed365-cfe1-7e91-910f-4cf17b1e13a0</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-6a1f5362.html" data-relationship="part_of" data-since="2026-06-16T23:17:32.929404">trk-6a1f5362</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="planned_in">
+                <h3>Planned In:</h3>
+                <ul>
+                    <li><a href="../plans/plan-311440bf.html" data-relationship="planned_in" data-since="2026-06-16T23:17:32.904924">plan-311440bf</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="blocked_by">
+                <h3>Blocked By:</h3>
+                <ul>
+                    <li><a href="../features/feat-9348de66.html" data-relationship="blocked_by">feat-9348de66</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>Build a harness-neutral resumable-session index served by the persistent daemon: a query joining
+sessions to their work item returning {work_item_id, title, type, branch, exec_worktree_path,
+harness, last_activity, last_session_id, live?}. Expose as `wipnote sessions resumable [--json]`
+plus a daemon HTTP endpoint the dashboard and TUI consume. Rank by recency; mark items with a
+currently-live claim, covering the multi-harness liveness cases (a crashed Codex/Gemini session
+that never emitted its terminal event must not appear falsely live).</p>
+        </section>
+    </article>
+</body>
+</html>

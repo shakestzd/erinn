@@ -35,6 +35,72 @@ func makeSessionDB(t *testing.T, sessionID, projectDir string) *sql.DB {
 	return database
 }
 
+func TestCheckOrchestratorResearchDelegationAdvisory_WarnsForRootWebBeforeDelegation(t *testing.T) {
+	projectDir := t.TempDir()
+	database := makeSessionDB(t, "sess-orch-web", projectDir)
+
+	got := checkOrchestratorResearchDelegationAdvisory(
+		&CloudEvent{ToolName: "web.search_query"},
+		&toolUseContext{SessionID: "sess-orch-web"},
+		database,
+	)
+	if got == "" {
+		t.Fatal("expected advisory for root-session web research before delegation")
+	}
+	if !strings.Contains(got, "delegate web/docs research") {
+		t.Fatalf("expected delegation guidance, got %q", got)
+	}
+}
+
+// TestCheckOrchestratorResearchDelegationAdvisory_SkipsAfterSidecarEvidence
+// verifies that a real sidecar spawn (Task tool) suppresses the advisory.
+// The test was updated as part of bug-60107613 (roborev finding 266): the
+// previous version used TaskStarted as evidence, which was incorrect — that
+// is a Codex progress checkpoint, not a spawn. See pretooluse_delegation_test.go
+// for the regression tests that now pin the correct per-token behaviour.
+func TestCheckOrchestratorResearchDelegationAdvisory_SkipsAfterSidecarEvidence(t *testing.T) {
+	projectDir := t.TempDir()
+	database := makeSessionDB(t, "sess-orch-sidecar", projectDir)
+	now := time.Now().UTC()
+	if err := db.InsertEvent(database, &models.AgentEvent{
+		EventID:   "ev-task-spawn",
+		AgentID:   "claude-code",
+		EventType: models.EventToolCall,
+		Timestamp: now,
+		ToolName:  "Task",
+		SessionID: "sess-orch-sidecar",
+		Status:    "completed",
+		Source:    "hook",
+		CreatedAt: now,
+		UpdatedAt: now,
+	}); err != nil {
+		t.Fatalf("InsertEvent: %v", err)
+	}
+
+	got := checkOrchestratorResearchDelegationAdvisory(
+		&CloudEvent{ToolName: "web.search_query"},
+		&toolUseContext{SessionID: "sess-orch-sidecar"},
+		database,
+	)
+	if got != "" {
+		t.Fatalf("expected no advisory after Task spawn evidence, got %q", got)
+	}
+}
+
+func TestCheckOrchestratorResearchDelegationAdvisory_SkipsForSubagent(t *testing.T) {
+	projectDir := t.TempDir()
+	database := makeSessionDB(t, "sess-subagent-web", projectDir)
+
+	got := checkOrchestratorResearchDelegationAdvisory(
+		&CloudEvent{ToolName: "web.search_query"},
+		&toolUseContext{SessionID: "sess-subagent-web", IsSubagent: true},
+		database,
+	)
+	if got != "" {
+		t.Fatalf("expected no advisory for subagent research, got %q", got)
+	}
+}
+
 func TestCheckProjectDivergence_SameProject(t *testing.T) {
 	projectDir := t.TempDir()
 	if err := os.MkdirAll(filepath.Join(projectDir, ".wipnote"), 0o755); err != nil {

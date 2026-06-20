@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>Codex dev dry-run plannedCodexLaunchTarget diverges from real launch resolution order (roborev #374)</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="bug-a254502e"
+             data-type="bug"
+             data-status="todo"
+             data-priority="medium"
+             data-created="2026-06-19T03:40:06.753284"
+             data-updated="2026-06-19T03:40:06.834194" data-agent-assigned="claude-code" data-track-id="trk-6a1f5362" data-created-by-agent="claude-code" data-created-by-model="claude-opus-4-8[1m]" data-created-by-cli-version="dev">
+
+        <header>
+            <h1>Codex dev dry-run plannedCodexLaunchTarget diverges from real launch resolution order (roborev #374)</h1>
+            <div class="metadata">
+                <span class="badge status-todo">Todo</span>
+                <span class="badge priority-medium">Medium Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-6a1f5362.html" data-relationship="part_of" data-since="2026-06-19T03:40:06.834007">trk-6a1f5362</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>cmd/wipnote/codex.go:1231 dry-run preview unconditionally prefers launchPlan.PlannedWorktreePath, but real launch lets an explicit --worktree win and creates managed worktrees from canonicalRoot. From a linked worktree or with explicit --worktree, dry-run reports a different target than the actual launch. Fix: make plannedCodexLaunchTarget mirror the real resolution order/root source. Deferred to Codex dev-launch cycle.</p>
+        </section>
+    </article>
+</body>
+</html>

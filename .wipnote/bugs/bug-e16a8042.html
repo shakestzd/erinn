@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>core/db migration tests fail: 015_session_handoff_fields missing from expected step lists</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="bug-e16a8042"
+             data-type="bug"
+             data-status="done"
+             data-priority="medium"
+             data-created="2026-06-17T06:34:26.782078"
+             data-updated="2026-06-17T06:39:49.636973" data-agent-assigned="claude-code" data-track-id="trk-6a1f5362" data-created-by-agent="claude-code" data-created-by-model="claude-opus-4-8[1m]" data-created-by-cli-version="0.62.2-155-g04f353175">
+
+        <header>
+            <h1>core/db migration tests fail: 015_session_handoff_fields missing from expected step lists</h1>
+            <div class="metadata">
+                <span class="badge status-done">Done</span>
+                <span class="badge priority-medium">Medium Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-6a1f5362.html" data-relationship="part_of" data-since="2026-06-17T06:34:26.850032">trk-6a1f5362</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="implemented_in">
+                <h3>Implemented In:</h3>
+                <ul>
+                    <li><a href="../sessions/76effecd-0cd2-4978-92ca-87133f015e79.html" data-relationship="implemented_in" data-since="2026-06-17T06:34:31.154575">session 76effecd-0cd2-4978-92ca-87133f015e79</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>feat-b5411a1d added migration 015_session_handoff_fields but two warm-open migration-step assertions in core/db/migrations_test.go (TestRepairTrigger_AlreadyMigratedDB_TriggerDropped, TestBackfillTotalEvents_StaleCountsRepaired) still hardcode the tail ending at 014, so core go test ./... fails. Track was marked 21/21 done with the core module RED.
+[2026-06-17 06:39 claude-code] accepted-advisory (provenance override): Fix committed on main as c66642600 (fix(core/db): add 015_session_handoff_fields to migration step assertions). Auto-link missed because the commit touched core/db/migrations_test.go, not the bug .html, and was authored in a transient worktree off main rather than the track session&#39;s active worktree. Verified: core go test ./db passes; full core module build/vet/test green.</p>
+        </section>
+    </article>
+</body>
+</html>

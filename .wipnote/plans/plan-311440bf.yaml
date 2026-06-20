@@ -1,0 +1,555 @@
+meta:
+    id: plan-311440bf
+    track_id: trk-6a1f5362
+    title: 'Explicit-intent launch: daemon-backed session resume + work-item-keyed worktrees'
+    description: |
+        Research basis:
+        - https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents (checked 2026-06-16): continuity belongs in a curated, always-loaded artifact layer, not raw transcript replay.
+        - https://tessl.io/blog/amp-retires-compaction-for-a-cleaner-handoff-in-the-coding-agent-context-race/ (checked 2026-06-16): Amp replaced auto-compaction with an explicit, user-reviewed /handoff — the field is moving toward declared intent.
+        - https://manus.im/blog/Context-Engineering-for-AI-Agents-Lessons-from-Building-Manus (checked 2026-06-16): file/path-as-memory (reversible compaction) + todo.md; keep pointers in context, not contents.
+        - https://code.claude.com/docs/en/worktrees (checked 2026-06-16): native --worktree, cleanupPeriodDays TTL sweep (skips dirty/untracked/unpushed), git worktree lock during run.
+        - https://github.com/anthropics/claude-code/issues/46444 (checked 2026-06-16): VERIFIED open issue — Claude Code auto-cleanup silently deleted 10 days of uncommitted work. GC here MUST be snapshot-safe.
+        - https://code.claude.com/docs/en/sessions (checked 2026-06-16): `claude --resume <id>`. Codex `codex resume <id>|--last`, Gemini `gemini --resume <N>`, agy `--conversation=<id>`/`-c` all verified (and already wired in antigravity.go:247, codex.go:849).
+        - runtime: core/db/schema.go (read 2026-06-16): sessions table ALREADY has handoff_notes/recommended_next/recommended_context/blockers columns (lines 165-168) that NOTHING writes; a `harness TEXT` column already exists (line 401). The genuinely-missing fields are exec_worktree_path + branch.
+        - runtime: core/hooks/session_start.go:153-155 (read 2026-06-16): event.CWD is used only for gitdir repair and then discarded — the missing link for routed resume.
+        - runtime: core/worktree/worktree.go:95-150 (read 2026-06-16): EnsureForFeature/TrackStatus REUSE an existing worktree on os.Stat hit (created=false). The actual reuse call lives in launcher callers (launcher_mode.go resolveManagedWorktreeStatus), not in PlanLaunch.
+        - runtime: go.mod (read 2026-06-16): no TUI lib vendored (cobra + mattn/go-isatty only) — stdlib prompt for v1 is the correct adopt-vs-build call; isatty already available for TTY detection.
+
+        BASELINE NOTE: feat-d805d64f is now MERGED to main (cherry-picked as commit 4ea6598a0, 2026-06-16; build/vet + feature tests verified green against current main). It introduced the `launch_isolation` config key and `EnsureForAdhocStatus` (`adhoc-<timestamp>` worktrees). This plan REPOSITIONS that auto/adhoc mode as the non-interactive fallback — the dependency is SATISFIED, and slice 5 builds on it directly. HARNESS-SOURCE DECISION (settled): per-session durability analysis chose `WIPNOTE_HARNESS` env as the primary source (process-scoped, race-free, no staleness, rides the proven WIPNOTE_PROJECT_DIR injection channel) over the `.launch-mode` file field (shared-file last-writer-wins race — the same churn class we just untracked). See slice 1 q-harness-source.
+
+        Replace auto-guessed worktree creation with a USER-DECLARED intent flow shared by all four CLI
+        launchers (claude/codex/gemini/antigravity). Bare interactive launch asks "continue prior work or
+        start new?"; the persistent daemon stores per-session exec state and serves a resumable-session
+        index to a TUI chooser and the web dashboard. "Continue" re-hydrates the durable WORK ITEM (its
+        handoff fields — not the transcript) and reuses its work-item-keyed worktree; "new" creates a typed
+        work item (plan=in-place/no-worktree; spike/feature/bug=managed worktree). Cleanup is snapshot-safe.
+        Three-layer model enforced throughout: session (ephemeral context) != worktree (ephemeral fs, GC'd)
+        != work item (durable continuity).
+    created_at: ""
+    status: finalized
+    schema_version: v3
+    version: 3
+design:
+    problem: |
+        wipnote can launch the CLIs but cannot help a user RESUME coherently or isolate predictably.
+        Today: (1) the only resume is the harness's own transcript replay (directory-scoped, bloats
+        context); (2) isolation is auto-inferred and the (now-merged) feat-d805d64f auto mode mints
+        non-deterministic `adhoc-<timestamp>` worktrees that are unresumable and accumulate; (3) the sessions
+        table records transcript_path + canonical project_dir but NOT the exec worktree/branch, so nothing
+        can route a resume back; and (4) the handoff columns that should carry continuity exist in the
+        schema but are never written. Concurrent sessions on one shared checkout therefore collide (dirty
+        main, stray commits on the wrong branch) — observed live during this design session. The fix:
+        make the user DECLARE intent, persist the durable handoff + exec state in the daemon, and implement
+        exactly what was chosen.
+    goals:
+        - Explicit intent over inference — the user declares continue-vs-new and the work type; wipnote never silently guesses worktree behavior.
+        - Continuity without context bloat — resume re-hydrates the durable work item + a written handoff, not the raw transcript (transcript resume is an optional same-day convenience).
+        - Worktree keyed by WORK ITEM — reused across sessions, never per-session or per-CLI; planning runs in-place; bare exploration becomes a typed spike.
+        - Daemon-backed resumable index — one harness-neutral source of truth surfaced by both a launch-time TUI and the web dashboard.
+        - 'Snapshot-safe cleanup — empty spikes/worktrees are GC''d, but a worktree with uncommitted or unpushed work is NEVER removed without a recoverable snapshot (avoid Claude Code #46444 data loss).'
+        - Backward compatible — flags and non-interactive/yolo/CI paths bypass the prompt; existing launch behavior is preserved when no intent is declared.
+    constraints:
+        - Canonical observability identity stays anchored to the main repo root via WIPNOTE_PROJECT_DIR + git-common-dir; worktrees are execution dirs only (delivered by plan-1670cacd / plan-2133adf2).
+        - 'Builds on feat-d805d64f (MERGED to main as commit 4ea6598a0, 2026-06-16): the non-interactive fallback reuses its launch_isolation config + EnsureForAdhocStatus, now in the baseline.'
+        - No new mandatory runtime dependency for the TUI — go.mod has no TUI lib; v1 uses a stdlib prompt + the already-available mattn/go-isatty.
+        - The interactive prompt must never block non-TTY, piped, yolo, or CI invocations; flags always win over the prompt.
+        - 'Cross-harness: the chooser and daemon index are harness-neutral; only the final exec wiring differs per CLI.'
+        - Claims layer (LiveCollision) remains the concurrency guard — two live sessions on one work item are handled at the claim level, not by spawning extra worktrees.
+    approved: false
+    comment: ""
+slices:
+    - id: slice-1
+      feature_id: feat-9348de66
+      num: 1
+      title: Persist exec worktree path + branch per session (reconcile existing harness column)
+      what: |
+        Record, at SessionStart, the session's execution context: exec_worktree_path (from the CloudEvent
+        CWD, normalized repo-relative) and branch. Add these two nullable columns to the sessions table
+        and populate them in the SessionStart handler, which already has event.CWD (today used only for
+        gitdir repair, then discarded). Reconcile the harness value: a `harness` column already exists at
+        schema.go:401 — verify which table owns it and either reuse it for sessions or add a sessions-level
+        harness, sourced correctly (the .launch-mode Mode field is launch-mode, NOT the CLI, so the source
+        must be a new marker field or a WIPNOTE_HARNESS env set by each launcher). Canonical project_dir
+        stays ".".
+      why: |
+        The missing link for routed resume. Without exec_worktree_path + branch (+ a correct harness),
+        nothing can send a resume back into the right directory and the chooser cannot render meaningful
+        rows.
+      files:
+        - core/db/schema.go
+        - core/db/migrations.go
+        - core/hooks/session_start.go
+        - core/db/session_repo.go
+        - cmd/wipnote/claude.go
+      deps: []
+      done_when:
+        - A new session row records exec_worktree_path (repo-relative) and branch.
+        - harness is persisted from a reliable source (new .launch-mode field or WIPNOTE_HARNESS env), constrained to {claude,codex,gemini,antigravity}; the existing schema.go:401 harness column is reconciled (reused or distinguished), not duplicated.
+        - 'Existing rows/DBs upgrade cleanly: columns nullable; reindex of old HTML leaves them empty without error; project_dir stays canonical (".").'
+      effort: M
+      risk: Med
+      tests: |
+        Unit: TestSessionStart_RecordsExecWorktree — event.CWD inside a linked worktree stored repo-relative; main-worktree launch stores empty/".".
+        Unit: TestSessionStart_HarnessPersisted — harness sourced from marker/env, rejects values outside the enum.
+        Migration: opening a pre-migration DB adds columns without data loss.
+      complexity: complex
+      approved: true
+      comment: ""
+      approval_status: approved
+      execution_status: promoted
+      questions:
+        - id: q-harness-source
+          text: Harness from a new .launch-mode field or a WIPNOTE_HARNESS env set per launcher?
+          answer: WIPNOTE_HARNESS env set by each launcher is the primary source (deterministic, available to the SessionStart hook); a new harness field in the launch marker is the fallback. The original 'marker Mode is the source' answer was wrong — Mode stores launch mode, not the CLI.
+      critic_revisions:
+        - source: local-feasibility
+          severity: HIGH
+          summary: .launch-mode Mode stores launch mode (yolo/dev/auto), not the harness; harness source corrected to WIPNOTE_HARNESS env primary (A4). schema.go:401 already has a harness column to reconcile (A2).
+        - source: local-design
+          severity: LOW
+          summary: Added harness enum constraint to done_when so the chooser never renders garbled rows.
+      decisions_notes: |
+        **State:** two new nullable columns (exec_worktree_path, branch) on the sessions read-index table,
+        backfilled from event.CWD at SessionStart; canonical project_dir untouched. Harness reconciled
+        against the existing schema.go:401 column.
+        **Payload:** exec_worktree_path (repo-relative), branch, harness enum.
+        **Source correction (A4):** harness CANNOT come from .launch-mode Mode (stores yolo/dev/auto).
+        Add a harness field to the launch marker OR set WIPNOTE_HARNESS in each launcher's env — the env
+        is the primary source, the marker a fallback (inverse of the original draft).
+        **Rejected:** absolute paths (fail check-host-paths, break cross-host); a separate sessions_exec
+        table (needless join at this cardinality).
+    - id: slice-2
+      feature_id: feat-98096297
+      num: 2
+      title: Daemon resumable-session index (query + CLI + API)
+      what: |
+        Build a harness-neutral resumable-session index served by the persistent daemon: a query joining
+        sessions to their work item returning {work_item_id, title, type, branch, exec_worktree_path,
+        harness, last_activity, last_session_id, live?}. Expose as `wipnote sessions resumable [--json]`
+        plus a daemon HTTP endpoint the dashboard and TUI consume. Rank by recency; mark items with a
+        currently-live claim, covering the multi-harness liveness cases (a crashed Codex/Gemini session
+        that never emitted its terminal event must not appear falsely live).
+      why: |
+        The chooser (slice 4) and dashboard (slice 8) need one authoritative, fast list. Centralizing it
+        in the daemon avoids each launcher reimplementing the query and keeps it consistent with the
+        claim/liveness state already tracked there.
+      files:
+        - core/db/session_repo.go
+        - cmd/wipnote/sessions.go
+        - cmd/wipnote/api_sessions.go
+      deps:
+        - 1
+      done_when:
+        - '`wipnote sessions resumable --json` returns ranked rows with work item, branch, worktree, harness, last activity, and live flag.'
+        - A daemon HTTP endpoint returns the same payload for dashboard/TUI.
+        - 'Liveness is correct across harnesses: a session that crashed without a terminal event resolves via heartbeat staleness (not falsely live); a heartbeating claim shows live.'
+      effort: M
+      risk: Med
+      tests: |
+        Unit: TestResumableIndex_RanksByRecency — most-recent first.
+        Unit: TestResumableIndex_LiveFlag_MultiHarness — heartbeating claim live; stale Codex/Gemini crash not live.
+        Integration: TestSessionsResumableCLI — seed sessions, assert JSON shape + ordering.
+      complexity: complex
+      approved: true
+      comment: ""
+      approval_status: approved
+      execution_status: promoted
+      questions:
+        - id: q-index-grain
+          text: Index rows keyed by work item or by individual session?
+          answer: By work item (the durable continuity unit), with last_session_id attached for the optional transcript-level resume — matches the two-level resume model in slice 6.
+      critic_revisions:
+        - source: local-design
+          severity: LOW
+          summary: done_when tightened to require multi-harness liveness scenarios (crashed Codex/Gemini without terminal event).
+        - source: local-feasibility
+          severity: LOW
+          summary: TestResumableIndex_LiveFlag needs the claims package, not in session_repo's file list — noted in decisions.
+      decisions_notes: |
+        **Trigger:** explicit CLI invocation + a read-only daemon endpoint (not a hook).
+        **State:** derived from sessions + claims/liveness; no new persistent state.
+        **Payload:** array of resumable rows keyed by work item, newest first, with a live boolean.
+        **Test dep (A-feasibility):** liveness needs the claims package (separate from session_repo) —
+        include it or a test double; TestResumableIndex_LiveFlag cannot be satisfied from session_repo alone.
+        **Rejected:** per-launcher index computation (drift); a materialized table (cheap join here; must
+        not get stale vs liveness).
+    - id: slice-3
+      feature_id: feat-b5411a1d
+      num: 3
+      title: Session-end handoff capture (write the existing, unwritten handoff columns)
+      what: |
+        On SessionEnd, write a structured handoff into the sessions columns that ALREADY EXIST but are
+        never populated: handoff_notes (what was done / tried), recommended_next (next step),
+        blockers (JSON), recommended_context (JSON — key files/paths/work-item refs, pointers not
+        contents). This is the durable re-hydration artifact that 'continue' (slice 6) loads. Keep
+        failure traces verbatim (high-signal per the research). This owns the continuity promise the
+        whole plan rests on.
+      why: |
+        The plan's continuity goal is undeliverable without this: re-hydrating empty handoff fields is a
+        cold start. The columns exist (schema.go:165-168) — this slice is the missing writer, not a
+        schema change.
+      files:
+        - core/hooks/session_end.go
+        - core/db/session_repo.go
+      deps:
+        - 1
+      done_when:
+        - SessionEnd writes a non-empty handoff_notes + recommended_next for a session that did work; recommended_context carries pointers (paths/work-item ids), not file contents.
+        - A session launched via 'continue' can read back a non-empty handoff for its work item (assertable end-to-end).
+        - Failure traces are retained verbatim in the handoff, not summarized away.
+      effort: M
+      risk: Med
+      tests: |
+        Unit: TestSessionEnd_WritesHandoff — populates handoff_notes/recommended_next/recommended_context.
+        Unit: TestHandoff_PointersNotContents — recommended_context stores paths/ids, not file bodies.
+        Integration: TestContinueReadsHandoff — write at end, read non-empty on the next 'continue'.
+      complexity: complex
+      approved: true
+      comment: ""
+      approval_status: approved
+      execution_status: promoted
+      questions:
+        - id: q-handoff-author
+          text: Who composes the handoff content at SessionEnd — the harness via a final structured write, or a deterministic snapshot of work-item step state + git status?
+          answer: 'v1: deterministic snapshot (current step, remaining steps, git status/branch, recently touched files as pointers) — no model call, always fires. A richer harness-authored handoff can layer on later. Deterministic-first guarantees non-empty re-hydration.'
+      critic_revisions:
+        - source: local-design
+          severity: DANGER
+          summary: 'RESOLVED: original plan had no owning slice for the handoff/re-hydration artifact, so ''continue'' would load empty fields. This slice writes the existing handoff columns and asserts non-empty re-hydration.'
+      decisions_notes: |
+        **Trigger:** SessionEnd hook (per-session).
+        **State:** writes the EXISTING handoff_notes/recommended_next/blockers/recommended_context columns
+        (schema.go:165-168) — currently declared and never written (A1).
+        **Payload:** structured handoff = {did, tried/failed (verbatim), next, blockers, context-pointers}.
+        **Rejected:** lossy LLM summary into a prose blob (research: summaries drift and poison resume);
+        a new table (columns already exist); storing file contents (bloat — keep pointers per Manus).
+    - id: slice-4
+      feature_id: feat-a6f15eff
+      num: 4
+      title: Chooser core + intent flags + Claude launcher
+      what: |
+        Build the interactive continue-vs-new chooser (stdlib prompt for v1; mattn/go-isatty for TTY
+        detection) and the shared intent-flag contract, wired into the Claude launcher first. Bare
+        interactive launch (TTY, no intent flags) shows the chooser; "new" prompts for work TYPE — plan /
+        spike / feature / bug — which deterministically selects isolation (plan => in-place, no worktree;
+        spike/feature/bug => work-item-keyed worktree). Flags `--continue`, `--work-item <id>`,
+        `--new <type> "<title>"`, `--in-place` all bypass the prompt. Non-TTY, piped, --yolo, CI ALWAYS bypass
+        and fall back to the non-interactive policy. Print the resolved work item + worktree before exec.
+      why: |
+        Implements the user-declared intent model on the primary harness. Splitting Claude from the other
+        three launchers keeps this high-risk slice testable and prevents a per-launcher gap (a slice that
+        'passes' with only Claude wired).
+      files:
+        - cmd/wipnote/launcher_chooser.go
+        - cmd/wipnote/launcher_mode.go
+        - cmd/wipnote/claude.go
+      deps:
+        - 2
+      done_when:
+        - Bare interactive Claude launch with no flags shows continue-vs-new; choosing new asks the work type.
+        - --continue / --work-item / --new / --in-place each bypass the prompt deterministically.
+        - Non-TTY, piped, --yolo, and CI never block on the prompt (asserted with a non-TTY test).
+        - type=plan launches in-place with no worktree; spike/feature/bug create/enter a work-item-keyed worktree; the resolved target is printed before exec.
+      effort: L
+      risk: High
+      tests: |
+        Unit: TestChooser_NonTTYBypass — no TTY => no prompt, falls back to policy.
+        Unit: TestChooser_NewTypeSelectsIsolation — plan=>in-place, others=>managed worktree.
+        Unit: TestIntentFlags_BypassPrompt — each flag short-circuits the chooser.
+        Integration: TestClaudeLaunchChooser_PrintsResolvedTarget — transparency line on the Claude path.
+      complexity: complex
+      approved: true
+      comment: ""
+      approval_status: approved
+      execution_status: promoted
+      questions:
+        - id: q-split-rationale
+          text: Why split the chooser from the other three launchers?
+          answer: Original single slice (6 files, 4 launchers) with harness-neutral done_when could pass CI with only Claude wired. Core+Claude here; codex/gemini/antigravity in slice 5 with per-launcher non-TTY-bypass criteria. Also shortens the critical path (slice 6 resume can proceed against Claude while others catch up).
+      critic_revisions:
+        - source: local-design
+          severity: DANGER
+          summary: 'RESOLVED (split): original chooser slice bundled all four launchers with no per-launcher criterion. Split into 4 (core+Claude) and 5 (other launchers).'
+      decisions_notes: |
+        **Trigger:** bare interactive launch (isatty on stdin/stdout, no intent flag) of the Claude launcher.
+        **State:** reads the slice-2 index; writes the chosen/created work item via existing work-item APIs.
+        **Payload:** chooser returns {action: continue|new, work_item_id, type}; launcher maps to isolation.
+        **Adopt-vs-build (A-feasibility):** no TUI lib in go.mod — v1 uses a stdlib prompt + mattn/go-isatty
+        (already available); a richer TUI is a deferred follow-up.
+        **Rejected:** always-on prompt with no bypass (breaks scripts/yolo/CI); infer-then-confirm
+        (reintroduces guessing the user rejected); per-CLI worktree axis (item x CLI explosion).
+    - id: slice-5
+      feature_id: feat-f63672dd
+      num: 5
+      title: Wire chooser into codex / gemini / antigravity + define auto-config reposition
+      what: |
+        Apply the slice-4 chooser + intent-flag contract to the remaining three launchers
+        (codex/gemini/antigravity), each with its own non-TTY-bypass coverage. Define the feat-d805d64f
+        `launch_isolation: auto` reposition precisely: on a TTY, auto invokes the chooser; on non-TTY/
+        yolo/CI, auto falls back to the deterministic adhoc/spike worktree (EnsureForAdhocStatus from
+        feat-d805d64f, now merged to main as commit 4ea6598a0).
+      why: |
+        Cross-harness parity is the whole point — the chooser must be harness-neutral in practice, not
+        just in the core. The auto-config semantics must be deterministic so the transition from
+        feat-d805d64f is not surprising.
+      files:
+        - cmd/wipnote/codex.go
+        - cmd/wipnote/gemini.go
+        - cmd/wipnote/antigravity.go
+        - cmd/wipnote/launcher_mode.go
+      deps:
+        - 4
+      done_when:
+        - Bare interactive codex, gemini, and antigravity launches each show the chooser; each has a non-TTY-bypass test.
+        - 'launch_isolation=auto resolves deterministically: chooser on TTY, adhoc/spike fallback on non-TTY/yolo/CI.'
+        - All four launchers share one chooser/flag implementation (no per-launcher divergence in the contract).
+      effort: M
+      risk: High
+      tests: |
+        Unit: TestCodexChooser_NonTTYBypass / TestGeminiChooser_NonTTYBypass / TestAntigravityChooser_NonTTYBypass.
+        Unit: TestAutoConfig_TTYvsNonTTY — auto => chooser on TTY, adhoc/spike on non-TTY.
+      complexity: complex
+      approved: true
+      comment: ""
+      approval_status: approved
+      execution_status: promoted
+      questions:
+        - id: q-auto-supersede
+          text: When the chooser ships and config still says launch_isolation=auto, does auto invoke the chooser or get superseded?
+          answer: auto invokes the chooser on a TTY and uses the adhoc/spike fallback on non-TTY — auto is NOT silently superseded, preserving the feat-d805d64f contract for existing config while gaining the interactive path.
+      critic_revisions:
+        - source: local-design
+          severity: HIGH
+          summary: feat-d805d64f auto-mode reposition was hand-wavy; now defined as TTY=>chooser, non-TTY=>adhoc/spike; dependency RESOLVED — feat-d805d64f merged to main 4ea6598a0 (A3).
+      decisions_notes: |
+        **Trigger:** bare interactive launch of codex/gemini/antigravity; auto-config resolution at launch.
+        **State:** same chooser + index as slice 4; reads launch_isolation from .wipnote/config.json.
+        **Dependency (A3 resolved):** EnsureForAdhocStatus + launch_isolation are now MERGED to main
+        (commit 4ea6598a0) — this slice builds on them directly.
+        **Rejected:** duplicating chooser logic per launcher (drift); leaving auto-config semantics
+        implicit (non-deterministic transition).
+    - id: slice-6
+      feature_id: feat-56b5319e
+      num: 6
+      title: Two-level resume with worktree reuse, re-hydration, and failure-edge handling
+      what: |
+        Implement "continue": pick a work item from the index, REUSE its existing worktree (EnsureFor*
+        reuse path via launcher_mode.go resolveManagedWorktreeStatus — never create a second), route exec
+        into the recorded exec_worktree_path (slice 1) with canonical WIPNOTE_PROJECT_DIR, and re-hydrate
+        the slice-3 handoff into the new session. This MUST work for ALL FOUR launchers, not just Claude:
+        continue/resume routing, handoff re-hydration, and live-claim blocking apply uniformly across
+        claude/codex/gemini/antigravity, each using its own transcript-resume flag for the optional
+        second level (`claude --resume <id>`, `codex resume <id>`, `gemini --resume <N>`,
+        `agy --conversation=<id>`). Default is a fresh session re-hydrated from the work item. Define the
+        three failure edges explicitly.
+      why: |
+        Closes the continuity loop without bloat (durable work item primary, transcript optional) and
+        makes resume robust to the normal passage of time between sessions — and it must be harness-neutral
+        so resume is not a Claude-only privilege.
+      files:
+        - cmd/wipnote/launcher_mode.go
+        - cmd/wipnote/claude.go
+        - cmd/wipnote/codex.go
+        - cmd/wipnote/gemini.go
+        - cmd/wipnote/antigravity.go
+        - core/worktree/worktree.go
+      deps:
+        - 3
+        - 4
+        - 5
+      done_when:
+        - 'Continuing a work item re-enters its EXISTING worktree (asserted: created=false, no second worktree).'
+        - Resume routes into the recorded exec_worktree_path even when invoked elsewhere, with canonical WIPNOTE_PROJECT_DIR, and re-hydrates a non-empty handoff.
+        - 'Failure edge — GC''d/missing worktree: ''continue'' recreates it from the recorded branch (or errors with guidance if the branch is gone), never silently lands on the wrong dir.'
+        - 'Failure edge — deleted/merged branch: ''continue'' detects the missing branch and offers to branch from the merged base (or errors), rather than failing opaquely.'
+        - 'Failure edge — concurrent live claim: when the chosen item is flagged live, the chooser warns and blocks by default (claims layer), with a clear message; it does not silently hijack.'
+        - 'Cross-harness: continue/resume routing, handoff re-hydration, and live-claim blocking are verified for ALL FOUR launchers (claude/codex/gemini/antigravity), each invoking its own transcript-resume flag — not Claude-only.'
+      effort: M
+      risk: High
+      tests: |
+        Unit: TestContinue_ReusesWorktree — second continue reuses, created=false.
+        Unit: TestResume_RoutesToRecordedWorktree_AndHandoff — exec dir matches stored path; project_dir canonical; handoff non-empty.
+        Unit: TestContinue_MissingWorktreeRecreates / TestContinue_DeletedBranch / TestContinue_LiveClaimBlocks — the three edges.
+        Cross-harness: TestContinue_AllLaunchers — table test asserting continue routing + handoff re-hydration for claude/codex/gemini/antigravity (shared code path; per-launcher transcript flag mapping).
+      complexity: complex
+      approved: true
+      comment: ""
+      approval_status: approved
+      execution_status: promoted
+      questions:
+        - id: q-resume-default
+          text: Default continue = fresh session re-hydrated from the work item, or transcript replay?
+          answer: Fresh session re-hydrated from the work item (durable-artifact continuity, no bloat); transcript replay is an explicit opt-in for same-day pickups.
+      critic_revisions:
+        - source: local-design
+          severity: DANGER
+          summary: 'RESOLVED: three undefined ''continue'' failure edges (GC''d worktree, deleted branch, concurrent live claim) now have explicit done_when + decisions.'
+        - source: roborev-301
+          severity: MEDIUM
+          summary: 'RESOLVED: continue/resume was Claude-only. Now depends on slice 5, covers all four launchers (files + per-launcher transcript flags + TestContinue_AllLaunchers), so resume is harness-neutral.'
+      decisions_notes: |
+        **Trigger:** chooser "continue" or --continue/--work-item on an item with recorded exec state.
+        **State:** reads slice-1 exec path + slice-2 index + slice-3 handoff; reuses worktree via existing Ensure* reuse.
+        **Failure edges (A-design DANGER):** missing worktree => recreate from branch or error; deleted
+        branch => offer branch-from-merged-base or error; live claim => warn+block (claims), no silent hijack.
+        **Note (A-feasibility):** PlanLaunch only PLANS; the reuse call is in launcher_mode.go callers, not plan.go.
+        **Rejected:** transcript replay as default (bloat per Anthropic/Amp); fresh worktree on resume
+        (defeats reuse, causes base divergence).
+    - id: slice-7
+      feature_id: feat-e3005c7f
+      num: 7
+      title: Snapshot-safe empty-spike and worktree GC (SessionEnd + TTL, both covered)
+      what: |
+        Two cleanup paths, both tested. (a) SessionEnd path: if the session ran a spike whose worktree has
+        no commits, no staged/unstaged changes, and no untracked files, auto-complete the spike and remove
+        its worktree. (b) Periodic daemon TTL sweep: same emptiness check, gated on the git worktree lock
+        / heartbeat liveness so live worktrees are never swept. CRITICAL: NEVER remove a worktree with
+        uncommitted or unpushed work without first creating a recoverable snapshot (a deterministically
+        named retained ref; patch under .wipnote as fallback), explicitly avoiding Claude Code #46444.
+      why: |
+        The anti-bloat half of "bare session = spike" — without data loss. Bounds worktree/spike count
+        while guaranteeing nothing dirty is ever silently deleted.
+      files:
+        - core/hooks/session_end.go
+        - core/worktree/cleanup.go
+        - cmd/wipnote/config.go
+      deps:
+        - 1
+      done_when:
+        - 'SessionEnd path: a spike ending with a clean worktree auto-completes the spike and removes the worktree.'
+        - A worktree with uncommitted/unpushed work is preserved AND snapshotted (recoverable ref/patch); never silently deleted.
+        - TTL sweep path respects the worktree lock + heartbeat liveness; live worktrees are never swept; both paths have separate tests.
+        - Cleanup is opt-in/tunable via .wipnote/config.json (cmd/wipnote/config.go is new) and defaults conservatively.
+      effort: M
+      risk: High
+      tests: |
+        Unit: TestGC_SessionEnd_RemovesEmptySpike — clean spike worktree => removed + completed.
+        Unit: TestGC_PreservesDirtyWorktree_WithSnapshot — uncommitted change => kept + snapshot ref created.
+        Unit: TestGC_TTLSweep_RespectsLockAndLiveness — locked/live worktree skipped (distinct from the SessionEnd path).
+      complexity: complex
+      approved: true
+      comment: ""
+      approval_status: approved
+      execution_status: promoted
+      questions:
+        - id: q-snapshot-form
+          text: Snapshot dirty worktrees as a git ref/branch or a patch file under .wipnote?
+          answer: A deterministically named retained ref (durable, git-restorable) is preferred; fall back to a patch under .wipnote only when a ref cannot be created. Never delete without a recoverable snapshot.
+      critic_revisions:
+        - source: local-design
+          severity: WARN
+          summary: SessionEnd GC and TTL sweep are two distinct code paths — both now have separate tests; detached-HEAD snapshot naming defined.
+        - source: local-feasibility
+          severity: INFO
+          summary: 'cmd/wipnote/config.go is a NEW file; Claude #46444 + cleanupPeriodDays + lock-during-run all web-verified.'
+      decisions_notes: |
+        **Trigger:** SessionEnd hook (per-session) AND a periodic daemon TTL sweep — two code paths, both tested.
+        **State:** reads git status of the worktree; writes spike completion + removes dir; snapshot ref/patch under .wipnote on the dirty path.
+        **Safety (A-feasibility verified #46444):** never delete dirty/unpushed without a recoverable snapshot.
+        **Detached-HEAD (A-design):** managed worktrees may be detached; snapshot uses a deterministic name
+        (e.g. `wipnote-snapshot/<workitem>-<shortsha>`) to avoid branch-name collisions; patch fallback if the ref exists.
+        **Rejected:** unconditional TTL deletion (#46444 class bug); summarizing/discarding dirty worktrees;
+        GC keyed on session rather than worktree emptiness (races live reuse).
+    - id: slice-8
+      feature_id: feat-d0ba5f2d
+      num: 8
+      title: Web dashboard resume view
+      what: |
+        Surface the slice-2 resumable index in the wipnote serve dashboard: a "Resume" panel listing
+        resumable work items with branch, worktree, harness, last activity, and live status, each row
+        showing the exact copy-paste launch command (e.g. `wipnote claude --work-item feat-X`). Read-only;
+        reuses the slice-2 daemon endpoint. The JS lives in the embedded dashboard tree
+        (cmd/wipnote/dashboard/js/app.js), NOT plugin/static.
+      why: |
+        A richer browse/management surface on the same single source of truth as the TUI, so terminal and
+        web never disagree.
+      files:
+        - cmd/wipnote/api_sessions.go
+        - cmd/wipnote/dashboard/js/app.js
+      deps:
+        - 2
+      done_when:
+        - The dashboard shows a Resume panel populated from the slice-2 daemon endpoint.
+        - Each row displays the copy-paste launch command and live/idle status.
+      effort: S
+      risk: Low
+      tests: |
+        Integration: TestDashboardResumePanel — endpoint returns rows; panel renders them.
+        Manual: smoke-test in `wipnote serve --bind 0.0.0.0 --port 8088`.
+      complexity: standard
+      approved: true
+      comment: ""
+      approval_status: approved
+      execution_status: promoted
+      questions:
+        - id: q-web-actions
+          text: Read-only command display, or actionable launch buttons?
+          answer: Read-only copy-paste command for v1 (launching a terminal CLI from a browser is an attack/UX surface); revisit later.
+      critic_revisions:
+        - source: local-feasibility
+          severity: DANGER
+          summary: 'RESOLVED: file path corrected from non-existent plugin/static/dashboard.js to the embedded cmd/wipnote/dashboard/js/app.js (A5).'
+      decisions_notes: |
+        **Trigger:** dashboard page load fetching the slice-2 endpoint.
+        **State:** none new; pure read view over the daemon index.
+        **Path correction (A5):** dashboard JS is embedded from cmd/wipnote/dashboard/js/ via go:embed —
+        the original plugin/static/dashboard.js path was wrong and would create a dead file.
+        **Rejected:** a second query path for the web (must share slice-2's endpoint so TUI and web agree);
+        browser-initiated launch (attack/UX surface — copy-paste command for v1).
+questions: []
+critique:
+    reviewed_at: "2026-06-16"
+    reviewers:
+        - 'local-design (role: design critic; runner: wipnote:researcher on Claude Opus 4.8)'
+        - 'local-feasibility (role: feasibility critic; runner: wipnote:researcher on Claude Opus 4.8; external claims web-verified)'
+    assumptions:
+        - id: A1
+          status: verified
+          text: sessions table already has handoff_notes/recommended_next/recommended_context/blockers columns, currently never written.
+          evidence: 'core/db/schema.go:165-168; grep: no writer in core/hooks or cmd/'
+        - id: A2
+          status: verified
+          text: sessions table lacks exec_worktree_path and branch; a harness column already exists at schema.go:401.
+          evidence: core/db/schema.go:142-180,401; core/db/migrations.go:298
+        - id: A3
+          status: verified
+          text: 'RESOLVED: the original draft wrongly assumed feat-d805d64f (EnsureForAdhocStatus/launch_isolation) was in the baseline. It has since been MERGED to main (cherry-pick 4ea6598a0, 2026-06-16), making the assumption true; build/vet + feature tests pass against current main.'
+          evidence: 'git log main: commit 4ea6598a0; go build ./... + go test ./internal/launcher/... ./cmd/wipnote/ green 2026-06-16'
+        - id: A4
+          status: falsified
+          text: Original q-harness-source claimed .launch-mode is the harness source. The marker's Mode field stores launch mode (yolo/dev/auto), not the CLI name.
+          evidence: cmd/wipnote/claude.go:655-680; codex_launch.go:46-50; yolo.go:368
+        - id: A5
+          status: falsified
+          text: Original slice 6 named plugin/static/dashboard.js. Dashboard JS is embedded from cmd/wipnote/dashboard/js/ (app.js, helpers.js) via go:embed.
+          evidence: cmd/wipnote/dashboard.go:8-9; ls cmd/wipnote/dashboard/js/
+        - id: A6
+          status: verified
+          text: All four harness resume flags exist and are already wired (claude --resume, codex resume, gemini --resume, agy --conversation).
+          evidence: code.claude.com/docs/en/sessions; cmd/wipnote/antigravity.go:247; codex.go:849
+    critics: []
+    risks:
+        - risk: Slice for the handoff/re-hydration artifact was missing — 'continue' would re-hydrate empty fields (cold start masquerading as continuity).
+          severity: High
+          mitigation: Added slice 3 (session-end handoff capture) that writes the existing handoff columns; slice 6 re-hydration asserts non-empty.
+        - risk: Slice 4 'continue' had undefined behavior for GC'd worktree / deleted branch / concurrent live claim — the normal consequences of time passing.
+          severity: High
+          mitigation: Slice 6 adds explicit done_when + decisions for all three edges.
+        - risk: Original chooser slice bundled all four launchers with harness-neutral done_when — could pass with only Claude wired.
+          severity: Medium
+          mitigation: Split into slice 4 (core+Claude) and slice 5 (codex/gemini/antigravity) with per-launcher non-TTY bypass criteria.
+        - risk: 'feat-d805d64f reposition under-specified (was: dep unmerged — now RESOLVED, merged to main 4ea6598a0).'
+          severity: Low
+          mitigation: Dependency merged into baseline (A3); slice 5 defines auto-config semantics (TTY→chooser, non-TTY→adhoc/spike).
+        - risk: Snapshot of a detached-HEAD managed worktree needs collision-safe naming.
+          severity: Low
+          mitigation: 'Slice 7 q-snapshot-form: deterministic snapshot ref name + patch fallback; never delete without a recoverable snapshot.'
+    synthesis: |
+        Both DANGER blockers are resolved by structure changes, not hand-waving: the handoff artifact now
+        has an owning slice (slice 3) that writes columns the schema already declares (A1), and slice 6
+        enumerates the three real 'continue' failure edges. Feasibility falsified three baseline claims
+        (A3 feat-d805d64f baseline, A4 harness source, A5 dashboard path) — all corrected in this revision.
+        Both prior open decisions are now SETTLED: feat-d805d64f is merged to main (A3, commit 4ea6598a0),
+        and the harness source is WIPNOTE_HARNESS env (slice 1 q-harness-source). Remaining reviewer focus:
+        sanity-check the slice 4/5 split keeps the critical path short, and approve slices 1-3 (the unblocked
+        foundation: persist exec state, resumable index, handoff capture) for promotion first.

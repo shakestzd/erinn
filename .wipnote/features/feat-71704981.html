@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>Restyle launch/warning/session banner into a framed dashboard block</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="feat-71704981"
+             data-type="feature"
+             data-status="done"
+             data-priority="medium"
+             data-created="2026-06-18T21:52:46.019447"
+             data-updated="2026-06-19T02:49:22.307957" data-agent-assigned="claude-code" data-track-id="trk-6a1f5362">
+
+        <header>
+            <h1>Restyle launch/warning/session banner into a framed dashboard block</h1>
+            <div class="metadata">
+                <span class="badge status-done">Done</span>
+                <span class="badge priority-medium">Medium Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-6a1f5362.html" data-relationship="part_of" data-since="2026-06-18T21:52:46.025577">trk-6a1f5362</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="blocked_by">
+                <h3>Blocked By:</h3>
+                <ul>
+                    <li><a href="../features/feat-7c1c70bf.html" data-relationship="blocked_by">feat-7c1c70bf</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="implemented_in">
+                <h3>Implemented In:</h3>
+                <ul>
+                    <li><a href="../sessions/450fe1a1-83f9-4dca-b98a-31089b7682c2.html" data-relationship="implemented_in" data-since="2026-06-18T22:47:53.165255">session 450fe1a1-83f9-4dca-b98a-31089b7682c2</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="planned_in">
+                <h3>Planned In:</h3>
+                <ul>
+                    <li><a href="../plans/plan-92a31aea.html" data-relationship="planned_in" data-since="2026-06-18T21:52:46.022581">plan-92a31aea</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>Wrap the post-selection banner lines into a consistent lipgloss-framed block via a
+shared launchtui helper (e.g. RenderLaunchBanner). Covers: the dirty-protected-branch
+warning (launcher_mode.go:79-80/104-105), the &#34;Launching Claude Code ... / Plugin
+source / Session&#34; lines (claude.go:243-248 dev, 515-517 default, plus auto/init/continue
+banners), and emitLaunchPreparationStatus (launcher_continue.go:266-271). Use the
+dashboard accent for the launch headline, muted style for path/session detail, and a
+status color (amber/red) for the dirty-branch warning. Honor non-TTY: lipgloss
+degrades to plain text when output is not a terminal.</p>
+        </section>
+    </article>
+</body>
+</html>

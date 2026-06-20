@@ -1,0 +1,355 @@
+meta:
+    id: plan-6d49f2df
+    track_id: trk-6a1f5362
+    title: Optimize wipnote subagent delegation and token usage
+    description: |
+        Research basis:
+        - https://code.claude.com/docs/en/sub-agents (checked 2026-06-17): subagent `model` frontmatter values (sonnet/opus/haiku/fable/full-ID/inherit) and maxTurns field.
+        - https://code.claude.com/docs/en/model-config (checked 2026-06-17): CLAUDE_CODE_SUBAGENT_MODEL resolution order (env var overrides frontmatter).
+        - https://code.claude.com/docs/en/statusline (checked 2026-06-17): statusLine JSON exposes context_window.used_percentage and exceeds_200k_tokens.
+        - https://code.claude.com/docs/en/hooks (checked 2026-06-17): hook payloads carry NO token/context counts.
+        - gh anthropics/claude-code #44385 (model frontmatter ignored at runtime), #9573 (CLAUDE_CODE_SUBAGENT_MODEL 404 with plugin agents).
+        Plan to optimize token usage, prevent context bloat, support local subagent model configurations, and move execute dispatch logic to the Go CLI. Revised after dual-critic pass to use feasible, doc-verified mechanisms.
+    created_at: "2026-06-17"
+    status: draft
+    priority: medium
+    schema_version: v3
+    version: 8
+design:
+    problem: Subagents and token usage (context sizes >150k, long sessions) exhaust users' token quotas too quickly.
+    goals:
+        - Lower subagent token usage by mapping roles to cheaper models at generation time and cutting default turns
+        - Prevent context size accumulation via a statusLine context-usage warning and CLI output limits
+        - Move parallel execute dispatch loop from agent prompt/chat to Go CLI command execution
+        - Implement session inactivity auto-timeouts and GC for empty worktrees
+    constraints:
+        - Backward compatibility with existing YAML plans and SQLite db
+        - No new external runtime dependencies (keep standard library + existing go.mod)
+        - Cross-harness portability (must generate correct ports for Claude; Codex; Gemini; and Antigravity)
+    approved: false
+    comment: ""
+slices:
+    - id: slice-1
+      num: 1
+      title: Dynamic subagent model override and local config mapping
+      what: |
+        Map roles (e.g. `architect-coder`, `researcher`, `patch-coder`) to models by WRITING the chosen `model:` value into generated subagent frontmatter at `wipnote plugin build-ports` time, sourced from a wipnote role->model map in `.wipnote/config.json`. Accepted Claude values: `sonnet`/`opus`/`haiku`/`fable`/full model IDs/`inherit` (per sub-agents docs). Translate the same map into Codex TOML `model` and Gemini frontmatter `model` during generation. Do NOT depend on the `CLAUDE_CODE_SUBAGENT_MODEL` env var: it is documented but a blunt global override that collapses per-role routing and has a known 404 hazard with plugin agents (gh #9573). Also reduce default `maxTurns` (`architect-coder` to 50, `feature-coder` to 40) in the generated `plugin/agents/*.md`.
+      why: Generation-time frontmatter is the doc-supported per-role locus (resolution-order priority 3) and needs no runtime env machinery. Lowering default turns and routing simple roles to haiku/flash prevents quota depletion.
+      files:
+        - packages/plugin-core/manifest.json
+        - port/pluginbuild/agent_frontmatter.go
+        - plugin/agents/architect-coder.md
+        - plugin/agents/feature-coder.md
+        - plugin/agents/researcher.md
+      deps: []
+      done_when:
+        - Generated Claude agent .md files carry the model alias from the wipnote config map and the new default maxTurns
+        - Codex TOML and Gemini frontmatter outputs carry the equivalent model field (cross-harness portability)
+        - A generator unit test asserts the role->model mapping for all three targets
+      effort: M
+      risk: Low
+      tests: Generator unit test asserts role->model and maxTurns for Claude/Codex/Gemini output.
+      complexity: standard
+      approved: false
+      comment: ""
+      critic_revisions:
+        - source: claude-feasibility
+          severity: DANGER
+          summary: 'A7 effectively falsified for opus: gh #44385 -> dup of #18346 (unfixed, closed inactive) shows the opus model: frontmatter alias is silently ignored at runtime (subagent runs as Sonnet). architect-coder is model: opus today and is the highest-value routing target, so slice 1 opus path has no runtime effect until upstream fixes it. sonnet/haiku aliases DO work. Workaround is the CLAUDE_CODE_SUBAGENT_MODEL env var the plan rejects.'
+        - source: claude-feasibility
+          severity: WARN
+          summary: 'maxTurns reductions are aggressive with no adequacy analysis: architect-coder 120->50 (-58%), feature-coder 100->40 (-60%). Current values architect-coder.md:15=120, feature-coder.md:15=100, researcher.md:16=50. Risk: silently abandoned work items. Justify the targets or stage the cut.'
+        - source: claude-feasibility
+          severity: WARN
+          summary: 'gh #9573 404 hazard is specifically with DATED suffix model IDs (e.g. claude-opus-4-7-20260416), not alias strings; undated IDs/aliases work. Refine decisions_notes so the generator never emits dated IDs.'
+        - source: claude-feasibility
+          severity: SUCCESS
+          summary: 'Verified vs current docs: fable IS an accepted model: alias; maxTurns camelCase correct; resolution order priority 3 confirmed. All three agent files already carry model: (opus/sonnet/sonnet) so this updates existing values - generator must not clobber values it should not own.'
+        - source: claude-design
+          severity: WARN
+          summary: 'No config schema, validation, migration, or discovery path for the new .wipnote/config.json agentModels key (name not finalized). files: lists no config-reader; typos silently produce empty model in generated frontmatter. Pin the key name and add a validation/discovery done_when before promotion.'
+        - source: claude-design
+          severity: WARN
+          summary: 'done_when ''agent .md files carry the model alias from the config map'' is not observable while model: is already hardcoded - the unit test must feed an explicit config fixture with a NON-default model value and assert output changed, else it proves nothing about config-driven generation.'
+      decisions_notes: |
+        **Trigger:** `wipnote plugin build-ports` generation phase.
+        **State:** role->model map in `.wipnote/config.json` (key e.g. `agentModels`); precedence: explicit config entry > built-in default per role.
+        **Payload:** `model:` (and `maxTurns:`) written into each generated agent frontmatter / TOML.
+        **Mechanism (verified):** sub-agents docs accept sonnet/opus/haiku/fable/full-ID/inherit; resolution order puts frontmatter at priority 3 (model-config docs).
+        **Rejected:** CLAUDE_CODE_SUBAGENT_MODEL env var (blunt global override; collapses role routing; gh #9573 404 hazard with plugin agents). Hardcoding haiku globally (some roles need opus reasoning).
+        **Watch item:** gh #44385 - `model:` frontmatter may be ignored at runtime (subagents inherit parent). If it regresses, the only workaround is the orchestrator passing `model` in the Agent tool call, which generated files cannot control; track upstream.
+    - id: slice-2
+      num: 2
+      title: Go CLI implementation of plan execution and file-overlap analysis
+      what: |
+        Implement a new subcommand `wipnote execute run --track <id>` in a NEW file `cmd/wipnote/execute.go`, reusing logic from the existing `cmd/wipnote/execute_preview.go` (do not duplicate). Derive file overlap from each unblocked feature's DECLARED file set (the plan slice `files:` list / feature spec) - NOT git commit history, since not-yet-implemented features have no history. Two features conflict when their declared file sets intersect (path-level; a directory path like `internal/childproc/` is treated as a prefix). Build a conflict graph and partition unblocked features into waves of mutually non-overlapping features (greedy independent-set). Print a deterministic JSON summary.
+      why: Eliminates the token-heavy multi-turn orchestration loop by delegating wave partitioning to the Go binary, with a precise, testable overlap definition a reviewer can verify.
+      files:
+        - cmd/wipnote/execute.go
+        - cmd/wipnote/execute_preview.go
+      deps: []
+      done_when:
+        - Running wipnote execute run --track <id> lists unblocked tasks and groups them into waves with no intra-wave declared-file-set overlap, deterministically
+        - Unit test in cmd/wipnote/execute_test.go asserts wave partitioning for a fixture track with known overlaps
+      effort: M
+      risk: Med
+      tests: Unit tests in cmd/wipnote/execute_test.go checking deterministic wave logic on a known-overlap fixture.
+      complexity: standard
+      approved: false
+      comment: ""
+      critic_revisions:
+        - source: claude-feasibility
+          severity: SUCCESS
+          summary: 'Confirmed: cmd/wipnote/execute.go does NOT exist (correctly NEW); cmd/wipnote/execute_preview.go exists and offers real reuse (executePreview/buildExecutePreview, git-state helpers, track/feature node aggregation). Correct reuse target.'
+        - source: claude-feasibility
+          severity: WARN
+          summary: 'done_when cites cmd/wipnote/execute_test.go but that file is NOT in the slice files: list - assertion unverifiable from the declared file set. Add the test file to files:.'
+        - source: claude-design
+          severity: INFO
+          summary: Greedy independent-set partition is order-dependent and Go map iteration is random; done_when says 'deterministically' but no tie-break is pinned. Specify a stable sort (e.g. alphabetical by slice/feature ID) before partitioning or the unit test will flap.
+      decisions_notes: |
+        **Trigger:** explicit CLI call `wipnote execute run` by the user or lead agent.
+        **State:** computed in memory from declared file sets (plan slices / feature specs) in the SQLite index.
+        **Payload:** list of independent task waves with target branch names.
+        **Overlap definition (resolved):** declared-file-set intersection, directories as prefixes, greedy independent-set partition - deterministic and unit-testable.
+        **Rejected:** overlap via git commit history / feature lineage (unimplemented features have no commits). Shell-script wrapper (fragile across OSes).
+        **Note:** execute.go is a NEW file; reuse execute_preview.go rather than re-implement.
+    - id: slice-3
+      num: 3
+      title: Go CLI background execution manager and auto-merge
+      what: |
+        Extend `wipnote execute run` into a background runner that spawns worktree agents in parallel. The existing `internal/childproc` Supervisor CANNOT be reused as-is: `spawnLocked` hardcodes `wipnote _serve-child --port 0` and an HTTP-proxy lifecycle unsuitable for worktree agents. Instead, add a new struct (e.g. `WorktreeRunner`) inside `internal/childproc` (or a new package) that parameterizes the spawned command and uses process-exit-based completion rather than HTTP-handshake. Completion detection is EVENT-DRIVEN via child process exit codes plus a per-task result file (no polling/busy-wait). Merge a wave's successful branches to main only after that wave's quality gates pass; serialize all merges behind a single-writer merge lock. On gate failure or merge conflict, leave the branch unmerged and report it (no force operations, no rewrite of main). Independent waves are failure-isolated: a failed wave does not block others. The lead agent fires the command once and receives a reactive wakeup on completion.
+      why: Keeps the lead agent's chat context quiet while background work runs (the >150k issue) with an explicit, reviewable safety and recovery model.
+      files:
+        - cmd/wipnote/execute.go
+        - internal/childproc/
+      deps:
+        - 2
+      done_when:
+        - Background runner spawns parallel worktrees via the childproc Supervisor and detects completion via process exit codes (no polling)
+        - Successful waves merge to main behind a serialized merge lock only after quality gates pass; failed/conflicting waves are reported and left unmerged
+        - Integration test asserts a green wave merges and a red wave is isolated and NOT merged
+      effort: L
+      risk: High
+      tests: Integration test spawning a mock track; asserts green-wave merge and red-wave isolation (no merge, branch preserved).
+      complexity: standard
+      approved: false
+      comment: ""
+      critic_revisions:
+        - source: claude-feasibility
+          severity: DANGER
+          summary: 'Reuse claim is wrong: internal/childproc Supervisor.spawnLocked (childproc.go:237-240) HARDCODES `wipnote _serve-child --port 0` and a stdout-handshake + httputil.ReverseProxy lifecycle. It cannot be extended to spawn worktree agents (which exec claude/wipnote yolo, not _serve-child) without a new struct or significant refactor. A6 falsified for this use case; prior childproc-reuse:success was premature. Scope the refactor explicitly or pick a different mechanism.'
+        - source: claude-feasibility
+          severity: WARN
+          summary: 'Integration test file is not in the slice files: list (only cmd/wipnote/execute.go and internal/childproc/). Add the test target.'
+        - source: claude-design
+          severity: WARN
+          summary: Slice 3 (execute run) and slice 5 (serve idle-reaper) both extend internal/childproc and can run concurrently in dev. The reaper could SIGTERM a worktree child slice 3 is still awaiting -> spurious exit marks a wave failed. No locking boundary described and slice 5 deps=[] ignores the interaction. Define the boundary.
+      decisions_notes: |
+        **Trigger:** background runner started by CLI execution.
+        **State:** execution state in `.wipnote/execution-state.json`; per-task result files signal completion.
+        **Completion detection (resolved):** event-driven via child exit codes + result file; NOT polling.
+        **Safety model (resolved):** merge only on green gates; single-writer merge lock; leave-unmerged-on-failure recovery (no force, no main rewrite); per-wave failure isolation.
+        **Childproc reuse (corrected):** internal/childproc Supervisor CANNOT spawn worktree agents as-is - spawnLocked hardcodes `wipnote _serve-child` + HTTP-proxy lifecycle (A6 falsified). Add a new WorktreeRunner struct (parameterized spawn command, exit-code-based lifecycle) inside internal/childproc or a sibling package. Do not attempt to extend spawnLocked.
+        **Rejected:** running background tasks directly in the main shell (blocks terminal, accumulates logs); polling/busy-wait completion detection; reusing Supervisor.spawnLocked without refactor.
+    - id: slice-4
+      num: 4
+      title: Automated context compaction checks and output filters
+      what: |
+        Detect large context by extending the EXISTING `cmd/wipnote/statusline.go` (331 lines; already handles work-item display via session-mode/cache-mode paths - do NOT create a new file). Add a guarded context-window code path: when the statusLine JSON input contains `context_window.used_percentage` (may be null before first API call - handle nil) at or above a configurable threshold (e.g. 70%), or when the top-level `exceeds_200k_tokens` field is true (NOTE: this is a TOP-LEVEL field, NOT nested under context_window), emit a status-bar hint to run `/compact` or `/clear`. Wire the context-window path through the statusLine setup wrapper in settings.json so the wrapper passes the Claude statusLine JSON through to the command; currently it calls `wipnote statusline --session` without forwarding stdin. The existing work-item display path must not be broken (regression test required). The previous PostToolUse/PostCompact token-count trigger is DROPPED - hook payloads carry no token/context counts (hooks docs). Separately, standardize verbose CLI outputs (`wipnote trace`, `wipnote plan show`) to compressed summaries or full output written to a local file with a link, in `cmd/wipnote/sh.go`.
+      why: statusLine is the only documented machine-readable surface exposing live context usage to plugin scripts, so the warning is authoritative and needs no token approximation. Output filters cut chat-history growth at >150k.
+      files:
+        - cmd/wipnote/statusline.go
+        - cmd/wipnote/sh.go
+      deps: []
+      done_when:
+        - statusLine output includes a /compact hint when context_window.used_percentage is at or above the configured threshold (unit-tested by feeding sample statusLine JSON)
+        - Verbose command outputs are compressed or written to a local file and linked in the response
+      effort: M
+      risk: Low
+      tests: Unit test feeds sample statusLine JSON and asserts the warning fires at/above threshold; assert verbose-output filtering on wipnote trace/plan show.
+      complexity: standard
+      approved: false
+      comment: ""
+      critic_revisions:
+        - source: claude-design
+          severity: DANGER
+          summary: 'cmd/wipnote/statusline.go ALREADY EXISTS (331 lines, work-item display via cache-mode/session-mode reading session_id); it does NOT read context_window. Slice describes it as a new file. The slice must specify how to add a context-window code path WITHOUT breaking the existing work-item statusline path: where the JSON is read, how output composes, and the threshold config key.'
+        - source: claude-feasibility
+          severity: DANGER
+          summary: 'Corroborated: cmd/wipnote/statusline.go exists with a different purpose (runStatuslineCache drains+ignores stdin; runStatusline does work-item display). The new file framing is wrong; this is an integration into an existing command.'
+        - source: claude-feasibility
+          severity: WARN
+          summary: exceeds_200k_tokens is a TOP-LEVEL statusLine JSON field, NOT nested under context_window (statusline docs). Code must read .exceeds_200k_tokens; .context_window.exceeds_200k_tokens returns nil. Also used_percentage may be null before the first API call - handle nil.
+        - source: claude-feasibility
+          severity: SUCCESS
+          summary: 'Verified current docs: context_window.used_percentage and exceeds_200k_tokens exist; cmd/wipnote/sh.go exists and backs wipnote sh.'
+        - source: claude-design
+          severity: WARN
+          summary: 'Verbose-output-filter done_when (compressed or written to a local file and linked) is vague/untestable: doesn''t name which commands, the line threshold, the output path, or what linked means. Specify e.g. output >N lines is written to .wipnote/out/<ts>.txt and the command prints [output saved: <path>].'
+      decisions_notes: |
+        **Trigger:** statusLine command invoked by Claude Code after each assistant turn (receives JSON on stdin).
+        **State:** context usage read from statusLine JSON (context_window.used_percentage, exceeds_200k_tokens); threshold from `.wipnote/config.json`.
+        **Payload:** warning line rendered in the status bar.
+        **Mechanism (resolved):** statusLine JSON (statusline docs) - hooks carry no token counts (hooks docs), so PostCompact thresholding was infeasible and is dropped.
+        **Rejected:** PostToolUse/PostCompact token-count trigger (no token field in payload); transcript-byte heuristic (imprecise); auto-running /compact without consent (could lose uncommitted context).
+        **Path correction:** earlier draft cited a non-existent `internal/hooks/`; this design uses cmd/wipnote/statusline.go instead, so the path issue is moot.
+    - id: slice-5
+      num: 5
+      title: Session Inactivity Auto-Timeout and GC
+      what: |
+        Implement an idle-timeout routine in `wipnote serve`'s supervisor using SESSION-TIMESTAMP-KEYED idle tracking. The existing `internal/childproc` RunIdleReaper CANNOT be reused: it reaps children by HTTP-request idle (no proxy request within IdleTimeout), not by user-session activity - keepalive and health requests diverge the two metrics (A6 falsified). Instead, record a last-seen timestamp per session (e.g. in SQLite, updated on each user turn), and run a ticker in serve_parent.go that queries sessions idle beyond a CONFIGURABLE threshold (config key in `.wipnote/config.json`, consistent with slice 1's config pattern; default 30 min) and marks them suspended. Garbage-collect ONLY worktrees that are clean AND empty AND not Conductor-managed AND have no uncommitted/unpushed work. Detect Conductor-managed worktrees via their per-worktree `.wipnote` gitignore marker / Conductor metadata and SKIP them - never prune in-flight or Conductor-archived worktrees.
+      why: Addresses long-session usage by cleaning up inactive processes and stale workspaces, without destroying in-flight or Conductor-managed work.
+      files:
+        - internal/childproc/
+        - cmd/wipnote/serve_parent.go
+      deps: []
+      done_when:
+        - Sessions idle beyond the configurable threshold are marked suspended (ticker-driven; test asserts tick logic)
+        - GC prunes only clean+empty, non-Conductor, no-uncommitted-work worktrees; Conductor-managed or dirty worktrees are skipped (test asserts the skip)
+      effort: M
+      risk: Med
+      tests: Test timeout ticks; test asserts GC skips Conductor-managed/dirty worktrees and prunes only clean+empty ones.
+      complexity: standard
+      approved: false
+      comment: ""
+      critic_revisions:
+        - source: claude-feasibility
+          severity: DANGER
+          summary: internal/childproc RunIdleReaper reaps children by HTTP-request idle (no proxy request within IdleTimeout, childproc.go:33), NOT by user-session activity idle. Mapping session idle (no user turns) to child HTTP idle is a semantic mismatch - keepalive/health requests diverge them. Slice needs session-timestamp-keyed idle tracking (SQLite last-seen, already in the design notes), not RunIdleReaper reuse. A6 falsified for this use case.
+        - source: claude-feasibility
+          severity: SUCCESS
+          summary: Confirmed cmd/wipnote/serve_parent.go exists and already imports internal/childproc.
+        - source: claude-design
+          severity: WARN
+          summary: Session suspended/archived state is undefined in the data model - no sessions table / session_state column / enum in the codebase. Define what suspended writes to SQLite/HTML, its childproc lifecycle effect, and whether it can transition back to active, before a coder can implement it.
+      decisions_notes: |
+        **Trigger:** a ticker in serve_parent.go's background supervisor — NOT internal/childproc RunIdleReaper (which reaps on HTTP-request idle, not user-session idle; A6 falsified). A dedicated ticker polls session last-seen timestamps.
+        **State:** last-seen timestamp recorded per session (e.g. a column in SQLite), updated on each user turn; idle threshold read from `.wipnote/config.json` (consistent with slice 1's config pattern, default 30 min).
+        **Action:** sessions idle beyond the threshold are marked suspended; the ticker drives this, no manual trigger.
+        **Conductor guard (resolved):** skip worktrees with the Conductor per-worktree gitignore marker / metadata and any with uncommitted/unpushed work; GC only clean+empty non-Conductor worktrees.
+        **Config (resolved):** idle threshold is configurable, consistent with slice 1.
+        **Rejected:** reuse of internal/childproc RunIdleReaper (semantic mismatch — HTTP-request idle diverges from user-session idle via keepalive/health traffic); human-only manual cleanup (users forget); pruning any worktree purely on idle (could destroy Conductor-archived or in-flight work).
+questions: []
+critique:
+    reviewed_at: "2026-06-17"
+    reviewers:
+        - 'claude-design (role: design critic; runner: Claude Code wipnote:researcher subagent; RE-REVIEW pass of v7)'
+        - 'claude-feasibility (role: feasibility critic; runner: Claude Code wipnote:researcher subagent with file + web + gh verification; RE-REVIEW pass of v7)'
+    assumptions:
+        - id: A1
+          status: verified
+          text: 'Per-subagent model selection is controllable at generation time by writing model: into generated frontmatter (resolution-order priority 3); env var is a blunt global override unsuitable for role routing.'
+          evidence: https://code.claude.com/docs/en/sub-agents ; https://code.claude.com/docs/en/model-config (order 1 env > 2 param > 3 frontmatter > 4 parent).
+        - id: A2
+          status: plausible
+          text: maxTurns is an honored subagent frontmatter field; but slice 1 proposed targets (architect 120->50, feature 100->40) are aggressive and unjustified.
+          evidence: sub-agents docs; current values architect-coder.md:15=120, feature-coder.md:15=100, researcher.md:16=50. Reduction adequacy not analyzed.
+        - id: A3
+          status: falsified
+          text: Hook payloads carry a token/context-size count to threshold on.
+          evidence: https://code.claude.com/docs/en/hooks - no token field. Slice 4 correctly uses statusLine instead.
+        - id: A4
+          status: verified
+          text: The PostCompact hook event exists (now unused by slice 4).
+          evidence: https://code.claude.com/docs/en/hooks.
+        - id: A5
+          status: falsified
+          text: Hook handlers live in internal/hooks/ (original slice-4 path).
+          evidence: Handlers are in core/hooks/. Moot - slice 4 uses cmd/wipnote/statusline.go.
+        - id: A6
+          status: falsified
+          text: internal/childproc Supervisor + RunIdleReaper can be reused as-is for slice 3 (worktree-agent spawn) and slice 5 (session-idle GC).
+          evidence: childproc.go:237-240 spawnLocked hardcodes wipnote _serve-child + HTTP handshake/reverse-proxy; childproc.go:33 RunIdleReaper reaps on HTTP-request idle, not user-session idle.
+        - id: A7
+          status: falsified
+          text: 'The subagent model: frontmatter (specifically the opus alias) is honored at runtime.'
+          evidence: 'gh #44385 -> dup of #18346 (unfixed, closed inactive): opus alias silently ignored, subagent runs as Sonnet; sonnet/haiku work. architect-coder=opus is the primary routing target.'
+        - id: A8
+          status: verified
+          text: statusLine JSON exposes live context usage to plugin scripts.
+          evidence: https://code.claude.com/docs/en/statusline - context_window.used_percentage present; exceeds_200k_tokens is a TOP-LEVEL field (not nested); used_percentage may be null before first API call.
+        - id: A9
+          status: verified
+          text: cmd/wipnote/statusline.go already exists as a work-item display command (not a new file); slice 4 must integrate into it without breaking existing paths.
+          evidence: 'cmd/wipnote/statusline.go (331 lines): runStatuslineCache drains+ignores stdin, runStatusline does work-item display; no context_window reference.'
+    critics:
+        - title: DESIGN CRITIC
+          sections:
+            - heading: Scope and cohesion
+              items:
+                - badge: two-plans
+                  kind: warn
+                  text: 'Still open: plan bundles model/token (1,4), execution engine (2,3), and lifecycle GC (5) with no cross-domain slice deps (only 3->2). Splitting into (1,4) and (2,3,5) gives two independently reviewable/shippable plans.'
+            - heading: Specification completeness
+              items:
+                - badge: statusline-integration
+                  kind: danger
+                  text: Slice 4 omits integration design with the EXISTING statusline command (work-item display); coder has nothing to safely modify from.
+                - badge: session-state-undefined
+                  kind: warn
+                  text: Slice 5 suspended/archived session state is undefined in the data model (no table/column/enum).
+                - badge: agentmodels-config
+                  kind: warn
+                  text: Slice 1 agentModels config key has no schema/validation/discovery and an unfinalized name.
+                - badge: childproc-concurrency
+                  kind: warn
+                  text: Slices 3 and 5 share internal/childproc concurrently; serve idle-reaper could SIGTERM a worktree child slice 3 awaits -> spurious wave failure. No boundary defined.
+        - title: FEASIBILITY CRITIC
+          sections:
+            - heading: Reuse claims that do not hold
+              items:
+                - badge: childproc-spawn
+                  kind: danger
+                  text: 'Slice 3: childproc Supervisor hardcodes _serve-child + HTTP proxy lifecycle; cannot spawn worktree agents without a new struct/refactor. Prior childproc-reuse:success was wrong.'
+                - badge: childproc-idle
+                  kind: danger
+                  text: 'Slice 5: RunIdleReaper tracks HTTP-request idle, not user-session idle; semantic mismatch - needs session-timestamp idle tracking.'
+            - heading: External contract verification
+              items:
+                - badge: opus-runtime-ignored
+                  kind: danger
+                  text: 'Slice 1: gh #18346 - opus frontmatter alias silently ignored at runtime; architect-coder=opus routing has no effect until upstream fix. sonnet/haiku work.'
+                - badge: exceeds-200k-path
+                  kind: warn
+                  text: 'Slice 4: exceeds_200k_tokens is a TOP-LEVEL statusLine field, not nested under context_window; nested access returns nil. used_percentage may be null pre-first-call.'
+                - badge: dated-id-404
+                  kind: warn
+                  text: 'gh #9573 404 hazard is specific to DATED model-ID suffixes, not alias strings; generator must avoid dated IDs.'
+                - badge: docs-confirmed
+                  kind: success
+                  text: fable alias, maxTurns camelCase, resolution order, and statusLine used_percentage all confirmed against current docs.
+            - heading: Testability / file-set hygiene
+              items:
+                - badge: missing-test-files
+                  kind: warn
+                  text: 'Slices 2 and 3 done_when cite *_test.go files not present in their files: lists.'
+    risks:
+        - risk: 'gh #18346 - opus subagent model frontmatter ignored at runtime; slice 1 highest-value routing (architect-coder=opus) has no effect until upstream fix.'
+          severity: High
+          mitigation: 'Ship the generation change (it is correct) but document that opus routing is upstream-blocked. Do NOT use CLAUDE_CODE_SUBAGENT_MODEL as a workaround: it is a blunt global override that affects ALL Claude subagents, not just opus, collapsing per-role routing. Instead, keep architect-coder on a working model alias (e.g. sonnet) until gh #18346 is fixed upstream.'
+        - risk: Slices 3 and 5 claim to reuse internal/childproc but its API (hardcoded _serve-child spawn; HTTP-idle reaper) does not fit worktree-agent spawn or session-idle GC.
+          severity: High
+          mitigation: Add an explicit childproc refactor sub-slice (parameterize spawn command; add session-activity idle metric) as a dependency of slices 3 and 5, or redesign those slices around new mechanisms.
+        - risk: Slice 4 frames an existing command (cmd/wipnote/statusline.go) as new; integration could break the work-item statusline path.
+          severity: Medium
+          mitigation: Rewrite slice 4 to describe modifying the existing command with a guarded second code path; add a regression test for the existing work-item display.
+        - risk: Three unrelated domains in one plan increase review surface.
+          severity: Low
+          mitigation: Split into (1,4) and (2,3,5) before promotion.
+    synthesis: |
+        RE-REVIEW VERDICT: the v7 critique over-claimed resolution. Three items it marked RESOLVED
+        are in fact danger-level blockers. A6 is FALSIFIED for both slices that rely on it:
+        internal/childproc.spawnLocked hardcodes wipnote _serve-child + an HTTP proxy lifecycle
+        (slice 3 cannot extend it to spawn worktree agents) and RunIdleReaper reaps on HTTP-request
+        idle, not user-session idle (slice 5 GC needs a different metric). A7 is FALSIFIED for the
+        opus case (gh #18346, unfixed): architect-coder=opus frontmatter is silently ignored at
+        runtime, so slice 1 primary routing has no effect even though the generation change itself
+        is correct (sonnet/haiku aliases work; fable confirmed). New A9: slice 4
+        cmd/wipnote/statusline.go already exists as a work-item display command - it is an
+        integration, not a new file - and exceeds_200k_tokens is a top-level field, not nested.
+        Human reviewer should focus, in order: (1) childproc refactor scope for slices 3 and 5,
+        (2) slice 4 integration design + top-level-field correction, (3) opus runtime caveat on
+        slice 1, then (4) the agentModels config spec, session-state data model, maxTurns target
+        justification, missing test files, and the still-open two-plans split. Recommend NOT
+        promoting until the three danger items have revised slice designs.

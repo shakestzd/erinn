@@ -386,6 +386,103 @@ func TestPlanFeedbackReadHandler_StructuredResponse(t *testing.T) {
 	}
 }
 
+// ---- block-level annotations (slice-8) --------------------------------------
+
+// TestPlanFeedback_BlockAnchor POSTs a block-anchored annotation with its
+// two-axis state, then reads it back through the GET /feedback path.
+func TestPlanFeedback_BlockAnchor(t *testing.T) {
+	database, planID := setupPlanTestDB(t)
+	submit := planFeedbackSubmitHandler(database)
+
+	body, _ := json.Marshal(planFeedbackRequest{
+		Section:          "slice-3-block-data-model-1",
+		Action:           "annotation",
+		Value:            "this column should be nullable",
+		QuestionID:       "note-1",
+		Anchor:           "slice-3-block-data-model-1",
+		Consumed:         true,
+		Resolved:         false,
+		ResolutionTarget: "agent",
+	})
+	req := httptest.NewRequest(http.MethodPost, "/api/plans/"+planID+"/feedback", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	submit(w, req)
+	if w.Code != http.StatusOK {
+		t.Fatalf("submit status: got %d, want 200; body: %s", w.Code, w.Body.String())
+	}
+
+	read := planFeedbackReadHandler(database)
+	rreq := httptest.NewRequest(http.MethodGet, "/api/plans/"+planID+"/feedback", nil)
+	rw := httptest.NewRecorder()
+	read(rw, rreq)
+	if rw.Code != http.StatusOK {
+		t.Fatalf("read status: got %d, want 200; body: %s", rw.Code, rw.Body.String())
+	}
+
+	var resp planFeedbackResponse
+	if err := json.NewDecoder(rw.Body).Decode(&resp); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if len(resp.Annotations) != 1 {
+		t.Fatalf("annotations: got %d, want 1", len(resp.Annotations))
+	}
+	a := resp.Annotations[0]
+	if a.Anchor != "slice-3-block-data-model-1" {
+		t.Errorf("anchor: got %q", a.Anchor)
+	}
+	if !a.Consumed {
+		t.Errorf("consumed: got false, want true")
+	}
+	if a.Resolved {
+		t.Errorf("resolved: got true, want false")
+	}
+	if a.ResolutionTarget != "agent" {
+		t.Errorf("resolution_target: got %q, want agent", a.ResolutionTarget)
+	}
+	if a.Comment != "this column should be nullable" {
+		t.Errorf("comment: got %q", a.Comment)
+	}
+}
+
+func TestValidSectionRe_AcceptsBlockAnchorAndExistingKeys(t *testing.T) {
+	// Block anchors and all pre-existing section-key contracts must be accepted.
+	accept := []string{
+		"slice-3-block-data-model-1",
+		"slice-12-block-wireframe-2",
+		"slice-3",
+		"slice-3-question-delivery-mode",
+		"design",
+		"outline",
+		"meta",
+		"critique",
+		"chat",
+		"q-some-name",
+	}
+	for _, s := range accept {
+		if !validSectionRe.MatchString(s) {
+			t.Errorf("validSectionRe should ACCEPT %q but rejected it", s)
+		}
+	}
+
+	// Malformed / unbounded anchors must be rejected — the pattern is tightly
+	// bounded and must not degrade into an arbitrary-string matcher.
+	reject := []string{
+		"slice-3-block-",                  // empty block name + missing index
+		"slice-3-block-data-model",        // missing trailing index
+		"slice-block-data-model-1",        // missing slice number
+		"slice-3-block-Data_Model-1",      // uppercase / underscore not allowed
+		"slice-3-block-data model-1",      // space not allowed
+		"arbitrary-string",                // not a recognized key at all
+		"slice-3-block-data-model-1; DROP", // injection-ish suffix
+	}
+	for _, s := range reject {
+		if validSectionRe.MatchString(s) {
+			t.Errorf("validSectionRe should REJECT %q but accepted it", s)
+		}
+	}
+}
+
 // ---- buildFeedbackResponse --------------------------------------------------
 
 func TestBuildFeedbackResponse_AllApproved(t *testing.T) {

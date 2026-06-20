@@ -14,17 +14,17 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/shakestzd/wipnote/internal/childproc"
 	"github.com/shakestzd/wipnote/core/daemon"
 	"github.com/shakestzd/wipnote/core/daemon/apply"
 	dbpkg "github.com/shakestzd/wipnote/core/db"
 	"github.com/shakestzd/wipnote/core/db/writequeue"
+	"github.com/shakestzd/wipnote/core/storage"
+	"github.com/shakestzd/wipnote/internal/childproc"
+	"github.com/shakestzd/wipnote/internal/registry"
 	"github.com/shakestzd/wipnote/observe/otel/indexer"
 	otelreceiver "github.com/shakestzd/wipnote/observe/otel/receiver"
 	"github.com/shakestzd/wipnote/observe/otel/retention"
 	sqls "github.com/shakestzd/wipnote/observe/otel/sink/sqlite"
-	"github.com/shakestzd/wipnote/internal/registry"
-	"github.com/shakestzd/wipnote/core/storage"
 	"github.com/spf13/cobra"
 )
 
@@ -268,6 +268,8 @@ func runWriterOnly(serveManaged bool) error {
 //
 // ctx cancellation (from SIGTERM/SIGINT or idle-exit) stops every loop.
 func startWriterMaintenance(ctx context.Context, writeDB *sql.DB, wipnoteDir string, q *writequeue.Queue, writer *otelreceiver.Writer) {
+	projectRoot := filepath.Dir(wipnoteDir)
+
 	// Auto-ingest + one-time ai-title backfill. These issue INSERT/UPDATE/
 	// DELETE on sessions/messages/tool_calls directly on the writable handle.
 	go autoIngestLoop(writeDB, wipnoteDir, func() {
@@ -291,6 +293,9 @@ func startWriterMaintenance(ctx context.Context, writeDB *sql.DB, wipnoteDir str
 	// Retention archival: archive sessions older than the retention window at
 	// startup and every 24h.
 	retention.StartLoop(ctx, writeDB, wipnoteDir)
+
+	// Empty spike worktree GC: opt-in, conservative, and liveness-aware.
+	startEmptySpikeWorktreeSweepLoop(ctx, writeDB, projectRoot)
 }
 
 // writerIdleTimeout resolves the headless writer's idle-exit window. It honours

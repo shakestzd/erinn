@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>roborev-fix: resolve 4 failed main reviews (jobs 333/330/329/322)</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="bug-e8a8f805"
+             data-type="bug"
+             data-status="done"
+             data-priority="medium"
+             data-created="2026-06-18T05:14:37.641391"
+             data-updated="2026-06-18T05:43:35.979701" data-agent-assigned="claude-code" data-track-id="trk-6a1f5362" data-created-by-agent="claude-code" data-created-by-model="claude-opus-4-8[1m]" data-created-by-cli-version="0.62.2-247-g9401cab2a">
+
+        <header>
+            <h1>roborev-fix: resolve 4 failed main reviews (jobs 333/330/329/322)</h1>
+            <div class="metadata">
+                <span class="badge status-done">Done</span>
+                <span class="badge priority-medium">Medium Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-6a1f5362.html" data-relationship="part_of" data-since="2026-06-18T05:14:37.728664">trk-6a1f5362</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="implemented_in">
+                <h3>Implemented In:</h3>
+                <ul>
+                    <li><a href="../sessions/5a4e281f-7282-4df5-8270-bcf2493315a0.html" data-relationship="implemented_in" data-since="2026-06-18T05:15:09.878406">session 5a4e281f-7282-4df5-8270-bcf2493315a0</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>Resolve the still-present findings from 4 failed roborev reviews on main (jobs 333, 330, 329, 322). A read-only verification pass found 4 of 8 findings already fixed by later work; 4 remain: (job333/finding2) cmd/wipnote/claude.go:224 default-session-name guard fires under --dev --continue when no prior transcript exists because guard checks only resumeID==&#34;&#34; not continue_; (job330/finding3) plan-6d49f2df.yaml slices 3/4/5 what/decisions_notes still contain instructions the DANGER critic_revisions falsify (extend internal/childproc Supervisor, reuse RunIdleReaper, &#39;new&#39; statusline.go); (job329/finding6) plan-6d49f2df.yaml mitigation line ~330 recommends CLAUDE_CODE_SUBAGENT_MODEL &#39;only for the opus case&#39; though it is a blunt global override; (job322/finding7) plan-6d49f2df.yaml slice 4 what line ~158 calls statusline.go &#39;new&#39; and omits the wrapper+settings integration path. Fix the code guard and fold the critic_revisions conclusions into the slice bodies + correct the mitigation.</p>
+        </section>
+    </article>
+</body>
+</html>

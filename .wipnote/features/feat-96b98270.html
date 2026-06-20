@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>Slice-schema block enrichment — additive optional structured blocks on PlanSlice</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="feat-96b98270"
+             data-type="feature"
+             data-status="done"
+             data-priority="medium"
+             data-created="2026-06-18T07:33:51.946356"
+             data-updated="2026-06-18T08:06:35.693416" data-agent-assigned="claude-code" data-track-id="trk-a951e3c0">
+
+        <header>
+            <h1>Slice-schema block enrichment — additive optional structured blocks on PlanSlice</h1>
+            <div class="metadata">
+                <span class="badge status-done">Done</span>
+                <span class="badge priority-medium">Medium Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="implemented_in">
+                <h3>Implemented In:</h3>
+                <ul>
+                    <li><a href="../sessions/7ad16954-7662-4d96-87ae-6eff3bd5739e.html" data-relationship="implemented_in" data-since="2026-06-18T07:40:57.736939">session 7ad16954-7662-4d96-87ae-6eff3bd5739e</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="planned_in">
+                <h3>Planned In:</h3>
+                <ul>
+                    <li><a href="../plans/plan-93b8eba0.html" data-relationship="planned_in" data-since="2026-06-18T07:33:51.949653">plan-93b8eba0</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-a951e3c0.html" data-relationship="part_of" data-since="2026-06-18T07:33:51.962674">trk-a951e3c0</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>Extend plan/planyaml/schema.go PlanSlice with optional structured block fields
+(e.g. blocks: [] holding data-model / api-endpoint / file-tree / wireframe entries),
+keeping them OPTIONAL so existing v3 plans validate unchanged. Update
+plan/planyaml/validate.go to validate block shapes only when present. Add a
+`wipnote plan blocks` helper that lists the available block vocabulary (wipnote&#39;s
+local equivalent of BuilderIO get-plan-blocks).</p>
+        </section>
+    </article>
+</body>
+</html>

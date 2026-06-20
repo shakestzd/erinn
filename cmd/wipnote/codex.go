@@ -11,7 +11,10 @@ import (
 	"strings"
 
 	"github.com/pelletier/go-toml/v2"
+	"github.com/shakestzd/wipnote/cmd/wipnote/launchtui"
 	"github.com/shakestzd/wipnote/core/storage"
+	"github.com/shakestzd/wipnote/internal/launcher"
+	"github.com/shakestzd/wipnote/internal/launcher/plan"
 	"github.com/spf13/cobra"
 )
 
@@ -51,6 +54,28 @@ func codexProjectAgentsPath(projectRoot string) string {
 const codexMarketplaceSection = `[marketplaces.wipnote]`
 const codexPluginID = "wipnote@wipnote"
 const codexLocalPluginCacheVersion = "local"
+
+func printCodexLaunchBanner(headline string) {
+	fmt.Println(launchtui.RenderLaunchBanner(nil, launchtui.BannerInput{Headline: headline}))
+}
+
+func printCodexSetupSummary(details []launchtui.BannerDetail) {
+	if len(details) == 0 {
+		return
+	}
+	fmt.Println(launchtui.RenderLaunchBanner(nil, launchtui.BannerInput{
+		Headline: "Codex wipnote setup",
+		Details:  details,
+	}))
+}
+
+func renderCodexWarningBanner(warning string) string {
+	return launchtui.RenderLaunchBanner(nil, launchtui.BannerInput{
+		Headline:        "Codex launch notice",
+		Warning:         warning,
+		WarningSeverity: "amber",
+	})
+}
 
 // codexPluginCachePath returns Codex's cache location for the wipnote plugin.
 func codexPluginCachePath() string {
@@ -541,8 +566,95 @@ func codexHookGroupInstalled(existing []codexHookGroup, want codexHookGroup) boo
 	return true
 }
 
-func ensureCodexGlobalHooksFromCache() (bool, error) {
-	return ensureCodexGlobalHooksInstalled(codexHooksPath(), codexInstalledPluginDirAt(codexPluginCachePath()))
+func pruneCodexGlobalHooksInstalled(hooksPath, pluginDir string) (bool, error) {
+	if pluginDir == "" {
+		return false, nil
+	}
+	sourcePath := filepath.Join(pluginDir, "hooks.json")
+	sourceData, err := os.ReadFile(sourcePath)
+	if err != nil {
+		return false, fmt.Errorf("reading plugin hooks %s: %w", sourcePath, err)
+	}
+	var source codexHooksFile
+	if err := json.Unmarshal(sourceData, &source); err != nil {
+		return false, fmt.Errorf("parsing plugin hooks %s: %w", sourcePath, err)
+	}
+	commands := map[string]struct{}{}
+	for _, groups := range source.Hooks {
+		for _, group := range groups {
+			for _, hook := range group.Hooks {
+				cmd := strings.TrimSpace(hook.Command)
+				if cmd != "" {
+					commands[cmd] = struct{}{}
+				}
+			}
+		}
+	}
+	if len(commands) == 0 {
+		return false, nil
+	}
+
+	targetData, err := os.ReadFile(hooksPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return false, nil
+		}
+		return false, fmt.Errorf("reading %s: %w", hooksPath, err)
+	}
+	var target codexHooksFile
+	if len(targetData) > 0 {
+		if err := json.Unmarshal(targetData, &target); err != nil {
+			return false, fmt.Errorf("parsing %s: %w", hooksPath, err)
+		}
+	}
+	if len(target.Hooks) == 0 {
+		return false, nil
+	}
+
+	changed := false
+	for eventName, groups := range target.Hooks {
+		keptGroups := make([]codexHookGroup, 0, len(groups))
+		for _, group := range groups {
+			keptHooks := make([]codexHookEntry, 0, len(group.Hooks))
+			for _, hook := range group.Hooks {
+				if _, remove := commands[strings.TrimSpace(hook.Command)]; remove {
+					changed = true
+					continue
+				}
+				keptHooks = append(keptHooks, hook)
+			}
+			if len(keptHooks) == 0 {
+				if len(group.Hooks) > 0 {
+					changed = true
+				}
+				continue
+			}
+			group.Hooks = keptHooks
+			keptGroups = append(keptGroups, group)
+		}
+		if len(keptGroups) == 0 {
+			delete(target.Hooks, eventName)
+		} else {
+			target.Hooks[eventName] = keptGroups
+		}
+	}
+	if !changed {
+		return false, nil
+	}
+
+	out, err := json.MarshalIndent(target, "", "  ")
+	if err != nil {
+		return false, fmt.Errorf("marshaling %s: %w", hooksPath, err)
+	}
+	out = append(out, '\n')
+	if err := os.WriteFile(hooksPath, out, 0644); err != nil {
+		return false, fmt.Errorf("writing %s: %w", hooksPath, err)
+	}
+	return true, nil
+}
+
+func pruneCodexGlobalHooksFromCache() (bool, error) {
+	return pruneCodexGlobalHooksInstalled(codexHooksPath(), codexInstalledPluginDirAt(codexPluginCachePath()))
 }
 
 type codexCustomAgentHeader struct {
@@ -747,7 +859,9 @@ Session IDs come from ~/.codex/session_index.jsonl.`,
 			case init_:
 				return runCodexInit(yes, dryRun)
 			case dev:
-				return launchCodexDev(resumeID, cleanup, dryRun, yolo, args)
+				effectiveInPlace := inPlace || noWorktree
+				_ = baseBranch // reserved for slice-3+
+				return launchCodexDev(resumeID, cleanup, dryRun, yolo, args, trackID, featureID, worktreePath, workItem, effectiveInPlace)
 			case continue_:
 				return launchCodexContinue(resumeID, yolo, args)
 			default:
@@ -789,6 +903,7 @@ Session IDs come from ~/.codex/session_index.jsonl.`,
 // (in the release tarball or via brew install) and mirrored by `wipnote build`.
 func runCodexInit(yes, dryRun bool) error {
 	configPath := codexConfigPath()
+	var setup []launchtui.BannerDetail
 
 	bundledMarketplace, bundleErr := resolveSharedTreePath("codex-marketplace")
 	if bundleErr != nil {
@@ -809,9 +924,9 @@ func runCodexInit(yes, dryRun bool) error {
 	bundledAbs, _ := filepath.Abs(bundledDir)
 
 	if registeredAbs != "" && registeredAbs != bundledAbs {
-		fmt.Printf("Replacing existing Codex marketplace registration (%s)\n", registeredPath)
 		if dryRun {
-			fmt.Printf("[dry-run] would remove wipnote registrations from %s\n", configPath)
+			setup = append(setup, launchtui.BannerDetail{Label: "Marketplace", Value: "would replace existing registration (" + registeredPath + ")"})
+			setup = append(setup, launchtui.BannerDetail{Label: "Registration", Value: "[dry-run] would remove wipnote registrations from " + configPath})
 		} else if _, rmErr := removeCodexWipnoteRegistrations(configPath); rmErr != nil {
 			return fmt.Errorf("removing stale Codex marketplace registration: %w", rmErr)
 		}
@@ -821,18 +936,16 @@ func runCodexInit(yes, dryRun bool) error {
 
 	if registeredAbs != bundledAbs {
 		addArgs := []string{"plugin", "marketplace", "add", bundledDir}
-		fmt.Printf("Installing wipnote Codex marketplace (bundled)...\n")
-		fmt.Printf("  path: %s\n", bundledDir)
 		if dryRun {
-			fmt.Printf("[dry-run] codex %s\n", strings.Join(addArgs, " "))
+			setup = append(setup, launchtui.BannerDetail{Label: "Marketplace", Value: "[dry-run] codex " + strings.Join(addArgs, " ")})
 		} else {
 			if out, err := exec.Command("codex", addArgs...).CombinedOutput(); err != nil {
 				return fmt.Errorf("codex marketplace add failed: %w\n%s", err, strings.TrimSpace(string(out)))
 			}
-			fmt.Println("wipnote Codex marketplace installed.")
+			setup = append(setup, launchtui.BannerDetail{Label: "Marketplace", Value: "installed (bundled): " + bundledDir})
 		}
 	} else {
-		fmt.Println("wipnote Codex marketplace is already installed (bundled).")
+		setup = append(setup, launchtui.BannerDetail{Label: "Marketplace", Value: "already installed (bundled)"})
 	}
 
 	// Phase 2: Check and optionally enable the hooks feature flag.
@@ -840,33 +953,33 @@ func runCodexInit(yes, dryRun bool) error {
 	if !isCodexHooksEnabledAt(configPath) {
 		if promptYesNo("Enable the hooks feature flag in ~/.codex/config.toml?", yes) {
 			if dryRun {
-				fmt.Println("[dry-run] would enable hooks = true in ~/.codex/config.toml")
+				setup = append(setup, launchtui.BannerDetail{Label: "Hooks flag", Value: "[dry-run] would enable hooks = true in ~/.codex/config.toml"})
 			} else {
 				if err := ensureCodexHooksEnabled(configPath); err != nil {
 					fmt.Fprintf(os.Stderr, "warning: could not enable hooks feature flag: %v\n", err)
 				} else {
-					fmt.Println("hooks feature flag enabled.")
+					setup = append(setup, launchtui.BannerDetail{Label: "Hooks flag", Value: "enabled"})
 				}
 			}
 		}
 	} else {
-		fmt.Println("hooks feature flag is already enabled.")
+		setup = append(setup, launchtui.BannerDetail{Label: "Hooks flag", Value: "already enabled"})
 	}
 
 	// Phase 3: enable the actual plugin. Without this, the marketplace is
 	// registered but skills/commands are not loaded in Codex sessions.
 	if !isCodexPluginEnabledAt(configPath) {
 		if dryRun {
-			fmt.Println("[dry-run] would enable plugin wipnote@wipnote in ~/.codex/config.toml")
+			setup = append(setup, launchtui.BannerDetail{Label: "Plugin", Value: "[dry-run] would enable plugin wipnote@wipnote in ~/.codex/config.toml"})
 		} else {
 			if err := ensureCodexPluginEnabled(configPath); err != nil {
 				fmt.Fprintf(os.Stderr, "warning: could not enable wipnote plugin: %v\n", err)
 			} else {
-				fmt.Println("wipnote Codex plugin enabled.")
+				setup = append(setup, launchtui.BannerDetail{Label: "Plugin", Value: "enabled"})
 			}
 		}
 	} else {
-		fmt.Println("wipnote Codex plugin is already enabled.")
+		setup = append(setup, launchtui.BannerDetail{Label: "Plugin", Value: "already enabled"})
 	}
 
 	// Phase 4: ensure Codex has an installed plugin tree behind the enabled
@@ -874,36 +987,37 @@ func runCodexInit(yes, dryRun bool) error {
 	// dev marketplaces are materialized directly into Codex's cache.
 	if !isCodexPluginInstalledAt(codexPluginCachePath()) {
 		if dryRun {
-			fmt.Println("[dry-run] would install plugin wipnote@wipnote into Codex plugin cache")
+			setup = append(setup, launchtui.BannerDetail{Label: "Plugin cache", Value: "[dry-run] would install plugin wipnote@wipnote into Codex plugin cache"})
 		} else if installed, err := ensureCodexLocalPluginInstalled(configPath, false); err != nil {
 			fmt.Fprintf(os.Stderr, "warning: could not install local wipnote plugin cache: %v\n", err)
 		} else if installed {
-			fmt.Println("wipnote Codex plugin installed in local cache.")
+			setup = append(setup, launchtui.BannerDetail{Label: "Plugin cache", Value: "installed in local cache"})
 		} else if out, err := exec.Command("codex", "plugin", "marketplace", "upgrade", "wipnote").CombinedOutput(); err != nil {
 			fmt.Fprintf(os.Stderr, "warning: could not install wipnote plugin cache from marketplace: %v\n%s\n", err, strings.TrimSpace(string(out)))
 		} else {
-			fmt.Println("wipnote Codex plugin cache installed.")
+			setup = append(setup, launchtui.BannerDetail{Label: "Plugin cache", Value: "installed"})
 		}
 	}
 	if dryRun {
-		fmt.Println("[dry-run] would install wipnote hooks into ~/.codex/hooks.json")
-	} else if changed, err := ensureCodexGlobalHooksFromCache(); err != nil {
-		fmt.Fprintf(os.Stderr, "warning: could not install wipnote Codex hooks: %v\n", err)
+		setup = append(setup, launchtui.BannerDetail{Label: "Mirrored hooks", Value: "[dry-run] would remove mirrored wipnote hooks from ~/.codex/hooks.json"})
+	} else if changed, err := pruneCodexGlobalHooksFromCache(); err != nil {
+		fmt.Fprintf(os.Stderr, "warning: could not remove mirrored wipnote Codex hooks: %v\n", err)
 	} else if changed {
-		fmt.Println("wipnote Codex hooks installed in ~/.codex/hooks.json.")
+		setup = append(setup, launchtui.BannerDetail{Label: "Mirrored hooks", Value: "removed from ~/.codex/hooks.json"})
 	} else {
-		fmt.Println("wipnote Codex hooks are already installed.")
+		setup = append(setup, launchtui.BannerDetail{Label: "Mirrored hooks", Value: "none found in ~/.codex/hooks.json"})
 	}
 	if dryRun {
-		fmt.Println("[dry-run] would install wipnote Codex agents into ~/.codex/agents")
+		setup = append(setup, launchtui.BannerDetail{Label: "Agents", Value: "[dry-run] would install wipnote Codex agents into ~/.codex/agents"})
 	} else if changed, err := ensureCodexAgentsFromCache(); err != nil {
 		fmt.Fprintf(os.Stderr, "warning: could not install wipnote Codex agents: %v\n", err)
 	} else if changed {
-		fmt.Println("wipnote Codex agents installed in ~/.codex/agents.")
+		setup = append(setup, launchtui.BannerDetail{Label: "Agents", Value: "installed in ~/.codex/agents"})
 	} else {
-		fmt.Println("wipnote Codex agents are already installed.")
+		setup = append(setup, launchtui.BannerDetail{Label: "Agents", Value: "already installed"})
 	}
 
+	printCodexSetupSummary(setup)
 	fmt.Println()
 	fmt.Println("Setup complete. Run: wipnote codex")
 	return nil
@@ -916,86 +1030,101 @@ func runCodexInit(yes, dryRun bool) error {
 // marketplace tree resolved via resolveSharedTreePath("codex-marketplace").
 // This replaces the historical "user must run --init first" path with the
 // brew/curl-install bundled tree.
+type codexMarketplaceSource int
+
+const (
+	codexMarketplaceSourceBundled codexMarketplaceSource = iota
+	codexMarketplaceSourceDev
+)
+
 func launchCodexDefault(resumeID, trackID, featureID, worktreePath, workItem string, noWorktree, yolo bool, extraArgs []string) error {
+	return launchCodexDefaultWithMarketplace(resumeID, trackID, featureID, worktreePath, workItem, noWorktree, yolo, extraArgs, codexMarketplaceSourceBundled, false, false)
+}
+
+func launchCodexDefaultWithMarketplace(resumeID, trackID, featureID, worktreePath, workItem string, noWorktree, yolo bool, extraArgs []string, source codexMarketplaceSource, cleanup, dryRun bool) error {
 	projectRoot, _ := resolveProjectRoot()
+	// Resolve canonical main repo root when CWD is a linked worktree (slice-3).
+	canonicalRoot := canonicalProjectRoot(projectRoot)
+	if canonicalRoot == "" {
+		canonicalRoot = projectRoot
+	}
+	intent, err := resolveLaunchIntentForDefaultLaunch(projectRoot, canonicalRoot, "codex", chooserEligibility{
+		TTY:       isInteractiveTerminalFile(os.Stdin) && isInteractiveTerminalFile(os.Stdout),
+		CI:        os.Getenv("CI") == "true" || os.Getenv("GITHUB_ACTIONS") != "",
+		ResumeID:  resumeID,
+		WorkItem:  workItem,
+		Targeted:  trackID != "" || featureID != "" || worktreePath != "",
+		InPlace:   noWorktree,
+		Yolo:      yolo,
+		ExtraArgs: extraArgs,
+	}, os.Stdin, os.Stdout)
+	if err != nil {
+		return err
+	}
+	intentResult := applyCodexLaunchIntent(worktreePath, workItem, resumeID, yolo, intent)
+	resumeID = intentResult.resumeID
+	worktreePath = intentResult.worktreePath
+	workItem = intentResult.workItem
+	continueCtx, err := resolveContinueLaunchContext(projectRoot, canonicalRoot, "codex", intent)
+	if err != nil {
+		return err
+	}
+	for _, warning := range continueCtx.Warnings {
+		fmt.Fprintln(os.Stderr, warning)
+	}
+	if workItem == "" && continueCtx.WorkItemID != "" {
+		workItem = continueCtx.WorkItemID
+	}
+	// When continuing, always prefer the validated/normalized worktree path from
+	// resolveContinueLaunchContext (which absolutizes relative paths and clears
+	// stale/missing ones). The chooser-derived worktreePath may be relative or
+	// stale — resolveContinueLaunchContext has already validated it as one of its
+	// inputs, so its result is authoritative. An empty continueCtx.WorktreePath
+	// means validation failed; we clear the stale chooser path rather than
+	// launching in a missing directory.
+	if intent.WantsContinue() {
+		worktreePath = continueCtx.WorktreePath
+	} else if worktreePath == "" && continueCtx.WorktreePath != "" {
+		worktreePath = continueCtx.WorktreePath
+	}
+	if resumeID == "" && continueCtx.TranscriptResumeID != "" {
+		resumeID = continueCtx.TranscriptResumeID
+	}
+
 	// Apply isolation plan and HONOR it (slice-9): a RefuseLaunch plan aborts
 	// before Codex starts. noWorktree here is effectiveInPlace (--in-place || --no-worktree).
 	// When the plan will create a managed worktree, suppress the generic dirty-main
 	// advisory — we emit an accurate message after carryover instead (bug-938e56ae).
 	willCreateWorktree := !noWorktree && (trackID != "" || featureID != "" || workItem != "")
-	launchPlan := applyLaunchPlanOpts(projectRoot, workItem, noWorktree, willCreateWorktree, os.Stderr)
+	launchPlan := applyLaunchPlanOpts(canonicalRoot, projectRoot, effectiveWorkItemID(workItem, trackID, featureID), noWorktree, willCreateWorktree, os.Stderr)
 	if err := enforceLaunchPlan(launchPlan, os.Stderr); err != nil {
 		return err
 	}
 	configPath := codexConfigPath()
 
-	// Auto-register the bundled marketplace if not registered.
-	if !isCodexMarketplaceInstalledAt(configPath) {
-		bundled, err := resolveSharedTreePath("codex-marketplace")
-		if err != nil {
-			return fmt.Errorf("resolving bundled Codex marketplace: %w", err)
-		}
-		bundledDir := codexMarketplaceAddArg(bundled)
-		if out, addErr := exec.Command("codex", "plugin", "marketplace", "add", bundledDir).CombinedOutput(); addErr != nil {
-			outStr := strings.TrimSpace(string(out))
-			return fmt.Errorf("WIPNOTE AGENTS NOT LOADED\n─────────────────────────\nFailed to register the wipnote marketplace with Codex CLI:\n  %v\n\nThe Codex session will run WITHOUT wipnote agents (researcher, feature-coder, etc.).\n\nTry:\n  - Run `wipnote codex --init` manually to retry the setup\n  - Check ~/.codex/config.toml for a stale marketplace entry under [plugins.\"wipnote@wipnote\"]\n  - Report this at https://github.com/shakestzd/wipnote/issues\n\nOutput:\n%s", addErr, outStr)
-		}
-		fmt.Printf("wipnote Codex marketplace registered (bundled): %s\n", bundledDir)
+	if err := prepareCodexMarketplace(configPath, source, dryRun); err != nil {
+		return err
 	}
 
-	if isCodexMarketplaceInstalledAt(configPath) && !isCodexHooksEnabledAt(configPath) {
-		if err := ensureCodexHooksEnabled(configPath); err != nil {
-			fmt.Fprintf(os.Stderr, "warning: could not enable hooks feature flag: %v\n", err)
-		} else {
-			fmt.Println("hooks feature flag enabled.")
-		}
+	if source == codexMarketplaceSourceDev && dryRun {
+		previewTarget := plannedCodexLaunchTarget(launchPlan, worktreePath, trackID, featureID, workItem, noWorktree, canonicalRoot)
+		printCodexLaunchBanner("Launching Codex CLI with wipnote context...")
+		fmt.Printf("[dry-run] would exec: codex (resume=%q, target=%s) in %s\n", resumeID, previewTarget, projectRoot)
+		return nil
 	}
-	if isCodexMarketplaceInstalledAt(configPath) && !isCodexPluginEnabledAt(configPath) {
-		if err := ensureCodexPluginEnabled(configPath); err != nil {
-			fmt.Fprintf(os.Stderr, "warning: could not enable wipnote Codex plugin: %v\n", err)
-		} else {
-			fmt.Println("wipnote Codex plugin enabled.")
-		}
-	}
-	if isCodexMarketplaceInstalledAt(configPath) && !isCodexPluginInstalledAt(codexPluginCachePath()) {
-		if installed, err := ensureCodexLocalPluginInstalled(configPath, false); err != nil {
-			fmt.Fprintf(os.Stderr, "warning: could not install local wipnote Codex plugin cache: %v\n", err)
-		} else if installed {
-			fmt.Println("wipnote Codex plugin installed in local cache.")
-		}
-	}
-	if isCodexPluginInstalledAt(codexPluginCachePath()) {
-		if changed, err := ensureCodexGlobalHooksFromCache(); err != nil {
-			fmt.Fprintf(os.Stderr, "warning: could not install wipnote Codex hooks: %v\n", err)
-		} else if changed {
-			fmt.Println("wipnote Codex hooks installed in ~/.codex/hooks.json.")
-		}
-		if changed, err := ensureCodexAgentsFromCache(); err != nil {
-			fmt.Fprintf(os.Stderr, "warning: could not install wipnote Codex agents: %v\n", err)
-		} else if changed {
-			fmt.Println("wipnote Codex agents installed in ~/.codex/agents.")
-		}
-	}
-
 	// Work item attribution: emit `wipnote feature start <id>` before launching.
 	if workItem != "" {
-		if err := runCodexFeatureStart(workItem); err != nil {
+		if err := runCodexFeatureStartFn(workItem); err != nil {
 			fmt.Fprintf(os.Stderr, "warning: could not start work item %s: %v\n", workItem, err)
 		}
 	}
 
 	// Resolve worktree path.
-	// canonicalProjectRoot detects when CWD is already a linked worktree (slice-3):
-	// returns the canonical main repo root, or "" when in the main worktree.
-	// canonicalRoot is the value injected as WIPNOTE_PROJECT_DIR AND used as the
-	// base for worktree creation — it must always be the canonical main root,
-	// never the linked worktree copy (slice-3 contract).
-	canonicalRoot := projectRoot
-	if c := canonicalProjectRoot(projectRoot); c != "" {
-		canonicalRoot = c
-	}
+	// Note: canonicalRoot was already computed above at line 1009 and used for
+	// the isolation plan. It is also the value injected as WIPNOTE_PROJECT_DIR
+	// AND used as the base for worktree creation.
 	workDir := projectRoot
-	wipnoteRoot := canonicalProjectRoot(projectRoot)
+	wipnoteRoot := canonicalRoot
 	resolved := false
 	worktreeCreated := false
 	switch {
@@ -1005,7 +1134,7 @@ func launchCodexDefault(resumeID, trackID, featureID, worktreePath, workItem str
 		wipnoteRoot = canonicalRoot
 		resolved = true
 	case !noWorktree && trackID != "":
-		wt, created, err := EnsureForTrackStatus(trackID, canonicalRoot, os.Stdout)
+		wt, created, err := ensureForTrackStatusFn(trackID, canonicalRoot, os.Stdout)
 		if err != nil {
 			return err
 		}
@@ -1014,7 +1143,7 @@ func launchCodexDefault(resumeID, trackID, featureID, worktreePath, workItem str
 		worktreeCreated = created
 		resolved = true
 	case !noWorktree && featureID != "":
-		wt, created, err := EnsureForFeatureStatus(featureID, canonicalRoot, os.Stdout)
+		wt, created, err := ensureForFeatureStatusFn(featureID, canonicalRoot, os.Stdout)
 		if err != nil {
 			return err
 		}
@@ -1026,7 +1155,7 @@ func launchCodexDefault(resumeID, trackID, featureID, worktreePath, workItem str
 
 	// Honor a managed-worktree plan (slice-9) when no explicit/track/feature
 	// worktree was resolved above. WIPNOTE_PROJECT_DIR stays the canonical root.
-	if wt, created, werr := resolveManagedWorktreeStatus(launchPlan, canonicalRoot, trackID, featureID, workItem, workDir, resolved, os.Stdout); werr != nil {
+	if wt, created, werr := resolveManagedWorktreeStatusFn(launchPlan, canonicalRoot, trackID, featureID, workItem, workDir, resolved, os.Stdout); werr != nil {
 		return werr
 	} else if wt != "" && wt != workDir {
 		workDir = wt
@@ -1044,16 +1173,65 @@ func launchCodexDefault(resumeID, trackID, featureID, worktreePath, workItem str
 		emitWorktreeCarryoverMessage(launchPlan, effectiveRoot, workDir, worktreeCreated, os.Stdout)
 	}
 
-	fmt.Println("Launching Codex CLI with wipnote context...")
-	return execCodex(codexLaunchOpts{
+	printCodexLaunchBanner("Launching Codex CLI with wipnote context...")
+	err = execCodexFn(codexLaunchOpts{
 		ResumeID:     resumeID,
 		ExtraArgs:    extraArgs,
 		ProjectRoot:  workDir,
 		WorktreeRoot: workDir,
 		WipnoteRoot:  wipnoteRoot,
-		Mode:         codexLaunchModeDefault,
+		Mode:         intentResult.mode,
 		Yolo:         yolo,
+		ExtraEnv:     continueCtx.ExtraEnv(),
 	})
+	if source == codexMarketplaceSourceDev && cleanup && !dryRun {
+		fmt.Println("Cleaning up local marketplace registration...")
+		removed, rmErr := removeCodexWipnoteRegistrations(configPath)
+		if rmErr != nil {
+			fmt.Fprintf(os.Stderr, "warning: could not remove marketplace registration: %v\n", rmErr)
+		} else if !removed {
+			fmt.Println("No wipnote registrations found to clean up.")
+		}
+	}
+	return err
+}
+
+type codexIntentResult struct {
+	mode         codexLaunchMode
+	resumeID     string
+	worktreePath string
+	workItem     string
+}
+
+func applyCodexLaunchIntent(worktreePath, workItem, resumeID string, yolo bool, intent launcher.LaunchIntent) codexIntentResult {
+	mode := codexLaunchModeDefault
+	if yolo {
+		mode = codexLaunchModeYolo
+	}
+	result := codexIntentResult{
+		mode:         mode,
+		resumeID:     resumeID,
+		worktreePath: worktreePath,
+		workItem:     workItem,
+	}
+	if !intent.WantsContinue() {
+		return result
+	}
+	if yolo {
+		result.mode = codexLaunchModeYoloCont
+	} else {
+		result.mode = codexLaunchModeContinue
+	}
+	if result.workItem == "" && intent.WorkItemID != "" {
+		result.workItem = intent.WorkItemID
+	}
+	if result.worktreePath == "" && intent.WorktreePath != "" {
+		result.worktreePath = intent.WorktreePath
+	}
+	if result.resumeID == "" {
+		result.resumeID = intent.ResumeForHarness("codex")
+	}
+	return result
 }
 
 // runFeatureStart runs `wipnote feature start <id>` for work item attribution.
@@ -1063,6 +1241,31 @@ func runFeatureStart(id string) error {
 
 func runCodexFeatureStart(id string) error {
 	return runFeatureStartWithEnv(id, buildCodexAgentEnv(nil))
+}
+
+var (
+	runCodexFeatureStartFn         = runCodexFeatureStart
+	ensureForTrackStatusFn         = EnsureForTrackStatus
+	ensureForFeatureStatusFn       = EnsureForFeatureStatus
+	resolveManagedWorktreeStatusFn = resolveManagedWorktreeStatus
+)
+
+func plannedCodexLaunchTarget(launchPlan plan.LaunchPlan, worktreePath, trackID, featureID, workItem string, noWorktree bool, canonicalRoot string) string {
+	if launchPlan.IsolationMode == plan.IsolationManagedWorktree && launchPlan.PlannedWorktreePath != "" {
+		return fmt.Sprintf("worktree=%q", launchPlan.PlannedWorktreePath)
+	}
+	switch {
+	case worktreePath != "":
+		return fmt.Sprintf("worktree=%q", worktreePath)
+	case !noWorktree && trackID != "":
+		return fmt.Sprintf("track=%q root=%q", trackID, canonicalRoot)
+	case !noWorktree && featureID != "":
+		return fmt.Sprintf("feature=%q root=%q", featureID, canonicalRoot)
+	case workItem != "":
+		return fmt.Sprintf("work-item=%q", workItem)
+	default:
+		return "project-root"
+	}
 }
 
 func runFeatureStartWithEnv(id string, extraEnv []string) error {
@@ -1094,34 +1297,98 @@ func launchCodexContinue(resumeID string, yolo bool, extraArgs []string) error {
 	})
 }
 
-// launchCodexDev registers the local packages/codex-marketplace/ and launches Codex.
-// Corresponds to: wipnote codex --dev [--cleanup]
-// If a mismatched marketplace is already registered (e.g., from a prior --init),
-// it is removed and replaced with the local path.
-func launchCodexDev(resumeID string, cleanup, dryRun, yolo bool, extraArgs []string) error {
-	// Compute launcher mode for preflight logging/inspection (no behavior change).
+func launchCodexDev(resumeID string, cleanup, dryRun, yolo bool, extraArgs []string, trackID, featureID, worktreePath, workItem string, noWorktree bool) error {
 	_ = computeLauncherMode("", true, false)
+	return launchCodexDefaultWithMarketplace(resumeID, trackID, featureID, worktreePath, workItem, noWorktree, yolo, extraArgs, codexMarketplaceSourceDev, cleanup, dryRun)
+}
 
-	// Resolve the local marketplace path relative to the project root.
+func prepareCodexMarketplace(configPath string, source codexMarketplaceSource, dryRun bool) error {
+	switch source {
+	case codexMarketplaceSourceDev:
+		return prepareCodexDevMarketplace(configPath, dryRun)
+	default:
+		return prepareCodexBundledMarketplace(configPath)
+	}
+}
+
+func prepareCodexBundledMarketplace(configPath string) error {
+	var setup []launchtui.BannerDetail
+	if !isCodexMarketplaceInstalledAt(configPath) {
+		bundled, err := resolveSharedTreePath("codex-marketplace")
+		if err != nil {
+			return fmt.Errorf("resolving bundled Codex marketplace: %w", err)
+		}
+		bundledDir := codexMarketplaceAddArg(bundled)
+		if out, addErr := exec.Command("codex", "plugin", "marketplace", "add", bundledDir).CombinedOutput(); addErr != nil {
+			outStr := strings.TrimSpace(string(out))
+			return fmt.Errorf("WIPNOTE AGENTS NOT LOADED\n─────────────────────────\nFailed to register the wipnote marketplace with Codex CLI:\n  %v\n\nThe Codex session will run WITHOUT wipnote agents (researcher, feature-coder, etc.).\n\nTry:\n  - Run `wipnote codex --init` manually to retry the setup\n  - Check ~/.codex/config.toml for a stale marketplace entry under [plugins.\"wipnote@wipnote\"]\n  - Report this at https://github.com/shakestzd/wipnote/issues\n\nOutput:\n%s", addErr, outStr)
+		}
+		setup = append(setup, launchtui.BannerDetail{Label: "Marketplace", Value: "registered (bundled): " + bundledDir})
+	}
+	if !isCodexHooksEnabledAt(configPath) {
+		if err := ensureCodexHooksEnabled(configPath); err != nil {
+			fmt.Fprintf(os.Stderr, "warning: could not enable hooks feature flag: %v\n", err)
+		} else {
+			setup = append(setup, launchtui.BannerDetail{Label: "Hooks flag", Value: "enabled"})
+		}
+	}
+	if !isCodexPluginEnabledAt(configPath) {
+		if err := ensureCodexPluginEnabled(configPath); err != nil {
+			fmt.Fprintf(os.Stderr, "warning: could not enable wipnote Codex plugin: %v\n", err)
+		} else {
+			setup = append(setup, launchtui.BannerDetail{Label: "Plugin", Value: "enabled"})
+		}
+	}
+	if err := refreshCodexPluginCacheBestEffort(configPath, &setup); err != nil {
+		return err
+	}
+	printCodexSetupSummary(setup)
+	return nil
+}
+
+func refreshCodexPluginCacheBestEffort(configPath string, setup *[]launchtui.BannerDetail) error {
+	if !isCodexPluginInstalledAt(codexPluginCachePath()) {
+		if installed, err := ensureCodexLocalPluginInstalled(configPath, false); err != nil {
+			fmt.Fprintf(os.Stderr, "warning: could not install local wipnote Codex plugin cache: %v\n", err)
+		} else if installed {
+			*setup = append(*setup, launchtui.BannerDetail{Label: "Plugin cache", Value: "installed locally"})
+		}
+	}
+	if changed, err := pruneCodexGlobalHooksFromCache(); err != nil {
+		fmt.Fprintf(os.Stderr, "warning: could not remove mirrored wipnote Codex hooks: %v\n", err)
+	} else if changed {
+		*setup = append(*setup, launchtui.BannerDetail{Label: "Mirrored hooks", Value: "removed from ~/.codex/hooks.json"})
+	} else {
+		*setup = append(*setup, launchtui.BannerDetail{Label: "Mirrored hooks", Value: "none found in ~/.codex/hooks.json"})
+	}
+	pluginDir := codexInstalledPluginDirAt(codexPluginCachePath())
+	if changed, err := ensureCodexCustomAgentsInstalled(pluginDir, codexAgentsPath()); err != nil {
+		fmt.Fprintf(os.Stderr, "warning: could not install wipnote Codex agents: %v\n", err)
+	} else if changed {
+		*setup = append(*setup, launchtui.BannerDetail{Label: "User agents", Value: "installed in ~/.codex/agents"})
+	}
+	projectRoot, _ := resolveProjectRoot()
+	if changed, err := ensureCodexCustomAgentsInstalled(pluginDir, codexProjectAgentsPath(projectRoot)); err != nil {
+		fmt.Fprintf(os.Stderr, "warning: could not install project wipnote Codex agents: %v\n", err)
+	} else if changed {
+		*setup = append(*setup, launchtui.BannerDetail{Label: "Project agents", Value: "installed in .codex/agents"})
+	}
+	return nil
+}
+
+func prepareCodexDevMarketplace(configPath string, dryRun bool) error {
 	localMarketplace, err := resolveLocalCodexMarketplace()
 	if err != nil {
 		return err
 	}
-	projectRoot, _ := resolveProjectRoot()
-
-	fmt.Printf("Launching Codex CLI in dev mode...\n")
-	fmt.Printf("  Local marketplace: %s\n", localMarketplace)
-
-	// Ensure the local marketplace is registered (replace mismatched registrations).
-	configPath := codexConfigPath()
+	fmt.Println(launchtui.RenderLaunchBanner(nil, launchtui.BannerInput{
+		Headline: "Preparing Codex CLI dev mode",
+		Details:  []launchtui.BannerDetail{{Label: "Local marketplace", Value: localMarketplace}},
+	}))
 	registeredPath := getCodexMarketplacePathAt(configPath)
-
-	// Convert to absolute paths for comparison
 	localAbs, _ := filepath.Abs(localMarketplace)
 	registeredAbs, _ := filepath.Abs(registeredPath)
-
 	if registeredAbs != "" && registeredAbs != localAbs {
-		// Mismatched registration: remove the old one via direct TOML editing
 		oldPathDisplay := registeredPath
 		if oldPathDisplay == "" {
 			oldPathDisplay = "(unknown previous path)"
@@ -1138,102 +1405,71 @@ func launchCodexDev(resumeID string, cleanup, dryRun, yolo bool, extraArgs []str
 				fmt.Println("Mismatched registration removed from config.toml.")
 			}
 		}
-		registeredPath = "" // Force re-add
+		registeredPath = ""
 	}
-
-	// Add the local marketplace if not already registered at the correct path.
-	// Codex requires the marketplace ROOT DIRECTORY, not the manifest file.
 	localDir := codexMarketplaceAddArg(localMarketplace)
 	localDirAbs, _ := filepath.Abs(localDir)
 	if registeredAbs != localDirAbs {
 		addArgs := []string{"plugin", "marketplace", "add", localDir}
 		if dryRun {
 			fmt.Printf("[dry-run] codex %s\n", strings.Join(addArgs, " "))
+		} else if out, err := exec.Command("codex", addArgs...).CombinedOutput(); err != nil {
+			return fmt.Errorf("registering local marketplace failed: %w\n%s", err, strings.TrimSpace(string(out)))
 		} else {
-			if out, err := exec.Command("codex", addArgs...).CombinedOutput(); err != nil {
-				return fmt.Errorf("registering local marketplace failed: %w\n%s", err, strings.TrimSpace(string(out)))
-			}
 			fmt.Println("Local marketplace registered.")
 		}
 	} else {
 		fmt.Println("Local marketplace already registered — proceeding.")
 	}
-
-	if dryRun {
-		if !isCodexHooksEnabledAt(configPath) {
-			fmt.Println("[dry-run] would enable hooks = true in ~/.codex/config.toml")
-		}
-	} else if !isCodexHooksEnabledAt(configPath) {
+	if !dryRun && !isCodexHooksEnabledAt(configPath) {
 		if err := ensureCodexHooksEnabled(configPath); err != nil {
 			return fmt.Errorf("enabling hooks feature flag in %s: %w", configPath, err)
 		}
 		fmt.Println("hooks feature flag enabled.")
 	}
-
-	if dryRun {
-		if !isCodexPluginEnabledAt(configPath) {
-			fmt.Println("[dry-run] would enable plugin wipnote@wipnote in ~/.codex/config.toml")
-		}
-	} else if !isCodexPluginEnabledAt(configPath) {
+	if !dryRun && !isCodexPluginEnabledAt(configPath) {
 		if err := ensureCodexPluginEnabled(configPath); err != nil {
 			return fmt.Errorf("enabling local wipnote plugin in %s: %w", configPath, err)
 		}
 		fmt.Println("Local wipnote plugin enabled.")
 	}
-	if !dryRun {
-		if installed, err := ensureCodexLocalPluginInstalled(configPath, true); err != nil {
-			return fmt.Errorf("installing local wipnote plugin cache: %w", err)
-		} else if installed {
-			fmt.Println("Local wipnote plugin installed in Codex cache.")
-		}
-		if changed, err := ensureCodexGlobalHooksFromCache(); err != nil {
-			return fmt.Errorf("installing wipnote Codex hooks: %w", err)
-		} else if changed {
-			fmt.Println("wipnote Codex hooks installed in ~/.codex/hooks.json.")
-		} else {
-			fmt.Println("wipnote Codex hooks are already installed.")
-		}
-		pluginDir := codexInstalledPluginDirAt(codexPluginCachePath())
-		if changed, err := ensureCodexCustomAgentsInstalled(pluginDir, codexAgentsPath()); err != nil {
-			return fmt.Errorf("installing wipnote Codex agents: %w", err)
-		} else if changed {
-			fmt.Println("wipnote Codex agents installed in ~/.codex/agents.")
-		}
-		if changed, err := ensureCodexCustomAgentsInstalled(pluginDir, codexProjectAgentsPath(projectRoot)); err != nil {
-			return fmt.Errorf("installing project wipnote Codex agents: %w", err)
-		} else if changed {
-			fmt.Println("wipnote Codex agents installed in .codex/agents.")
-		}
-	} else {
-		fmt.Println("[dry-run] would install wipnote hooks into ~/.codex/hooks.json")
-		fmt.Println("[dry-run] would install wipnote Codex agents into ~/.codex/agents and .codex/agents")
-	}
-
 	if dryRun {
-		fmt.Printf("[dry-run] would exec: codex (resume=%q) in %s\n", resumeID, projectRoot)
+		fmt.Println("[dry-run] would install local wipnote plugin cache")
+		fmt.Println("[dry-run] would remove mirrored wipnote hooks from ~/.codex/hooks.json")
+		fmt.Println("[dry-run] would install wipnote Codex agents into ~/.codex/agents")
 		return nil
 	}
+	return refreshCodexPluginCacheDev(configPath)
+}
 
-	err = execCodex(codexLaunchOpts{
-		ResumeID:    resumeID,
-		ExtraArgs:   extraArgs,
-		ProjectRoot: projectRoot,
-		Mode:        codexLaunchModeDev,
-		Yolo:        yolo,
-	})
-
-	// --cleanup: unregister the local marketplace after session ends.
-	if cleanup && !dryRun {
-		fmt.Println("Cleaning up local marketplace registration...")
-		removed, rmErr := removeCodexWipnoteRegistrations(configPath)
-		if rmErr != nil {
-			fmt.Fprintf(os.Stderr, "warning: could not remove marketplace registration: %v\n", rmErr)
-		} else if !removed {
-			fmt.Println("No wipnote registrations found to clean up.")
-		}
+func refreshCodexPluginCacheDev(configPath string) error {
+	var setup []launchtui.BannerDetail
+	if installed, err := ensureCodexLocalPluginInstalled(configPath, true); err != nil {
+		return fmt.Errorf("installing local wipnote plugin cache: %w", err)
+	} else if installed {
+		setup = append(setup, launchtui.BannerDetail{Label: "Plugin cache", Value: "installed locally"})
 	}
-
-	return err
+	if changed, err := pruneCodexGlobalHooksFromCache(); err != nil {
+		return fmt.Errorf("removing mirrored wipnote Codex hooks: %w", err)
+	} else if changed {
+		setup = append(setup, launchtui.BannerDetail{Label: "Mirrored hooks", Value: "removed from ~/.codex/hooks.json"})
+	} else {
+		setup = append(setup, launchtui.BannerDetail{Label: "Mirrored hooks", Value: "none found in ~/.codex/hooks.json"})
+	}
+	pluginDir := codexInstalledPluginDirAt(codexPluginCachePath())
+	if changed, err := ensureCodexCustomAgentsInstalled(pluginDir, codexAgentsPath()); err != nil {
+		return fmt.Errorf("installing wipnote Codex agents: %w", err)
+	} else if changed {
+		setup = append(setup, launchtui.BannerDetail{Label: "User agents", Value: "installed in ~/.codex/agents"})
+	}
+	projectRoot, _ := resolveProjectRoot()
+	if changed, err := ensureCodexCustomAgentsInstalled(pluginDir, codexProjectAgentsPath(projectRoot)); err != nil {
+		return fmt.Errorf("installing project wipnote Codex agents: %w", err)
+	} else if changed {
+		setup = append(setup, launchtui.BannerDetail{Label: "Project agents", Value: "installed in .codex/agents"})
+	}
+	printCodexSetupSummary(setup)
+	return nil
 }
 
 // resolveLocalCodexMarketplace returns the absolute path to packages/codex-marketplace/
@@ -1285,9 +1521,15 @@ type codexLaunchOpts struct {
 	// Yolo passes Codex's explicit approvals/sandbox bypass flag before any
 	// subcommand, matching Claude's bypassPermissions launcher behavior.
 	Yolo bool
+	// SandboxMode overrides Codex's default sandbox selection for this launch.
+	// Empty means inherit Codex's own config/default behavior.
+	SandboxMode string
 	// WritableRoots are passed to Codex before any subcommand so resumed
 	// sessions and spawned subagents inherit required writable directories.
 	WritableRoots []string
+	// ExtraEnv is layered onto the child process after the launcher sets its
+	// standard wipnote and telemetry environment.
+	ExtraEnv []string
 }
 
 // execCodex builds the codex argv and execs it, replacing the current process.
@@ -1337,6 +1579,12 @@ func execCodex(opts codexLaunchOpts) error {
 	if instructionErr != nil {
 		fmt.Fprintf(os.Stderr, "wipnote: warning: codex orchestrator instructions skipped: %v\n", instructionErr)
 	}
+	sandboxDegraded := false
+	if sandboxMode, notice := resolveCodexSandboxMode(codexPath, opts, isDevcontainer()); sandboxMode != "" {
+		opts.SandboxMode = sandboxMode
+		sandboxDegraded = true
+		fmt.Fprintln(os.Stderr, renderCodexWarningBanner(notice))
+	}
 	configArgs := append([]string{}, instructionArgs...)
 	configArgs = append(configArgs, buildCodexAgentConfigArgs(codexAgentsPath())...)
 	if opts.ProjectRoot != "" {
@@ -1371,6 +1619,7 @@ func execCodex(opts codexLaunchOpts) error {
 	}
 	env = buildCodexOtelEnv(env, otelPort, otelSessionID)
 	env = buildCodexAgentEnv(env)
+	env = mergeLauncherEnv(env, opts.ExtraEnv...)
 
 	// Session-family continuity (slice-4, feat-a225ce7c):
 	// Resolve which family this Codex session belongs to, then inject
@@ -1395,6 +1644,17 @@ func execCodex(opts codexLaunchOpts) error {
 		env = setOrReplaceEnv(env, "WIPNOTE_YOLO", "1")
 	}
 
+	// When the bwrap sandbox probe determined that Bubblewrap is unavailable
+	// and we automatically degraded to danger-full-access, record that outcome
+	// in the session environment. WIPNOTE_CODEX_SANDBOX=degraded signals
+	// agents and hooks running inside this Codex session to stop retrying
+	// nested codex exec / sandbox paths after the first failure — the
+	// devcontainer is already the isolation boundary. Only set this in the
+	// auto-degraded case; explicit --sandbox and --yolo launches do not set it
+	// so they don't silently suppress legitimate sandboxing errors.
+	env = applySandboxDegradedEnv(env, sandboxDegraded)
+
+	env = withHarnessEnv(env, harnessCodex)
 	c.Env = env
 	if workDir != "" {
 		c.Dir = workDir
@@ -1402,6 +1662,8 @@ func execCodex(opts codexLaunchOpts) error {
 
 	return runHarnessWithCleanup(c, otelCleanup)
 }
+
+var execCodexFn = execCodex
 
 func prepareCodexWritableDB(projectDir string) (dbPath string, dbDir string, err error) {
 	dbPath, err = storage.CanonicalDBPath(projectDir)
@@ -1433,6 +1695,8 @@ func buildCodexArgs(opts codexLaunchOpts, otelPort int, instructionArgs []string
 	args = append(args, instructionArgs...)
 	if opts.Yolo {
 		args = append(args, "--dangerously-bypass-approvals-and-sandbox")
+	} else if opts.SandboxMode != "" {
+		args = append(args, "--sandbox", opts.SandboxMode)
 	}
 	for _, root := range opts.WritableRoots {
 		if root != "" {

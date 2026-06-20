@@ -11,6 +11,7 @@ func TestShellAliasSnippet_ContainsExpectedAliases(t *testing.T) {
 		"alias claude='wipnote claude'",
 		"alias codex='wipnote codex'",
 		"alias gemini='wipnote gemini'",
+		"alias agy='wipnote antigravity'",
 	} {
 		if !strings.Contains(out, want) {
 			t.Errorf("shellAliasSnippet missing %q. Got:\n%s", want, out)

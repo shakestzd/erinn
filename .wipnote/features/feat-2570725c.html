@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>Recap renderer — recap/recaptmpl package &#43; shared HTML block components</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="feat-2570725c"
+             data-type="feature"
+             data-status="in-progress"
+             data-priority="medium"
+             data-created="2026-06-18T07:33:51.88865"
+             data-updated="2026-06-18T20:26:40.600194" data-agent-assigned="claude-code" data-track-id="trk-a951e3c0">
+
+        <header>
+            <h1>Recap renderer — recap/recaptmpl package &#43; shared HTML block components</h1>
+            <div class="metadata">
+                <span class="badge status-in-progress">In Progress</span>
+                <span class="badge priority-medium">Medium Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="blocked_by">
+                <h3>Blocked By:</h3>
+                <ul>
+                    <li><a href="../features/feat-5cdb3732.html" data-relationship="blocked_by">feat-5cdb3732</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="implemented_in">
+                <h3>Implemented In:</h3>
+                <ul>
+                    <li><a href="../sessions/7ad16954-7662-4d96-87ae-6eff3bd5739e.html" data-relationship="implemented_in" data-since="2026-06-18T08:30:02.40542">session 7ad16954-7662-4d96-87ae-6eff3bd5739e</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="planned_in">
+                <h3>Planned In:</h3>
+                <ul>
+                    <li><a href="../plans/plan-93b8eba0.html" data-relationship="planned_in" data-since="2026-06-18T07:33:51.892134">plan-93b8eba0</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-a951e3c0.html" data-relationship="part_of" data-since="2026-06-18T07:33:51.902088">trk-a951e3c0</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-steps>
+            <h3>Implementation Steps</h3>
+            <ol>
+                <li data-completed="true" data-step-id="task-1" data-agent="claude-code" data-created-by-agent="claude-code">✅ Tag lineage direction (ancestor/descendant)</li>
+                <li data-completed="true" data-step-id="task-2" data-agent="claude-code" data-created-by-agent="claude-code">✅ AnnotatedDiff embedded mode</li>
+                <li data-completed="true" data-step-id="task-3" data-agent="claude-code" data-created-by-agent="claude-code">✅ Build LineageSpine component &#43; template</li>
+                <li data-completed="true" data-step-id="task-4" data-agent="claude-code" data-created-by-agent="claude-code">✅ Rewire RecapPage &#43; builder &#43; page CSS</li>
+                <li data-completed="true" data-step-id="task-5" data-agent="claude-code" data-created-by-agent="claude-code">✅ Update tests &#43; gates &#43; regenerate &#43; screenshot</li>
+                <li data-completed="true" data-step-id="task-6" data-agent="claude-code" data-created-by-agent="claude-code">✅ Add diagram &#43; tabs to BlockCatalog &#43; validation</li>
+                <li data-completed="true" data-step-id="task-7" data-agent="claude-code" data-created-by-agent="claude-code">✅ Implement diagram &#43; tabs renderers in plan/blocks</li>
+                <li data-completed="true" data-step-id="task-8" data-agent="claude-code" data-created-by-agent="claude-code">✅ Wire adapt() &#43; CSS &#43; gates &#43; screenshot</li>
+            </ol>
+        </section>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>New recap/recaptmpl package mirroring plan/plantmpl: RecapPage.Render(io.Writer)
+composed of zone Components — OutcomeNarrative, FileTree, AnnotatedDiff (split/unified,
+syntax-highlighted via the Prism classes the dashboard already loads, with per-hunk
+summaries), and LineageChain (reuse the D3 force-graph approach from dependency_graph.gohtml).
+Build the data-model/api-endpoint/file-tree/diff block renderers as a SHARED package
+(plan/blocks or internal/htmlblocks) so Phase 2&#39;s plantmpl blocks reuse them verbatim.
+[2026-06-18 08:43 claude-code] accepted-advisory (provenance override): Implementation committed as cd7737421 on this agent worktree branch (agent-aadb8a6fe88a6841e) with a correctly-formatted parenthesized ref &#39;feat(feat-2570725c):&#39;. The provenance gate reads git_commits populated by reindex&#39;s git-log walk of the main repo state dir (/workspaces/wipnote), whose HEAD is the main branch and does not contain this worktree-only commit yet; the link will resolve once the branch is merged. Source commit is real and verifiable via &#39;git log cd7737421&#39;.</p>
+        </section>
+    </article>
+</body>
+</html>

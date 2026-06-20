@@ -1,4 +1,5 @@
 ---
+disable-model-invocation: true
 description: "Deploy and release wipnote — run quality gates, bump version, tag, push, and trigger GitHub release pipeline. Use when asked to deploy, release, publish, ship, or push a new version."
 argument-hint: "[VERSION]"
 allowed-tools: ["Bash", "Read", "Grep", "Glob"]
@@ -30,7 +31,7 @@ Run the full deployment pipeline for wipnote.
 5. **Push** — Push commits and tags to origin/main
 6. **GitHub Release** — Triggered automatically by `release-go.yml` workflow on `v*` tag
 
-## Instructions for Claude
+## Instructions
 
 When the user asks to deploy or release:
 

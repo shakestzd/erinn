@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/shakestzd/wipnote/internal/launcher"
 	"github.com/spf13/cobra"
 )
 
@@ -91,16 +92,61 @@ func ensureAntigravityExtensionLinked() {
 	fmt.Printf("wipnote Antigravity extension installed (bundled): %s\n", bundled)
 }
 
-func launchAntigravityDefault(trackID, featureID, worktreePath, workItem string, noWorktree bool, extraArgs []string, dryRun bool) error {
+func launchAntigravityDefault(trackID, featureID, worktreePath, workItem string, noWorktree bool, continue_ bool, resumeID string, extraArgs []string, dryRun bool) error {
 	projectRoot, _ := resolveProjectRoot()
+	// Resolve canonical main repo root when CWD is a linked worktree (slice-3).
+	canonicalRoot := canonicalProjectRoot(projectRoot)
+	if canonicalRoot == "" {
+		canonicalRoot = projectRoot
+	}
+	intent, err := resolveLaunchIntentForDefaultLaunch(projectRoot, canonicalRoot, "antigravity", chooserEligibility{
+		TTY:              isInteractiveTerminalFile(os.Stdin) && isInteractiveTerminalFile(os.Stdout),
+		CI:               os.Getenv("CI") == "true" || os.Getenv("GITHUB_ACTIONS") != "",
+		ResumeID:         resumeID,
+		WorkItem:         workItem,
+		Targeted:         trackID != "" || featureID != "" || worktreePath != "",
+		InPlace:          noWorktree,
+		ExplicitContinue: continue_,
+		ExtraArgs:        extraArgs,
+	}, os.Stdin, os.Stdout)
+	if err != nil {
+		return err
+	}
+	intentResult := applyAntigravityLaunchIntent(worktreePath, workItem, resumeID, continue_, intent)
+	worktreePath = intentResult.worktreePath
+	workItem = intentResult.workItem
+	resumeID = intentResult.resumeID
+	continue_ = intentResult.continue_
+	continueCtx, err := resolveContinueLaunchContext(projectRoot, canonicalRoot, "antigravity", intent)
+	if err != nil {
+		return err
+	}
+	for _, warning := range continueCtx.Warnings {
+		fmt.Fprintln(os.Stderr, warning)
+	}
+	if workItem == "" && continueCtx.WorkItemID != "" {
+		workItem = continueCtx.WorkItemID
+	}
+	// When continuing, always prefer the validated/normalized worktree path from
+	// resolveContinueLaunchContext (which absolutizes relative paths and clears
+	// stale/missing ones). An empty continueCtx.WorktreePath means validation
+	// failed; we clear the stale chooser path rather than launching in a missing
+	// directory.
+	if intent.WantsContinue() {
+		worktreePath = continueCtx.WorktreePath
+	} else if worktreePath == "" && continueCtx.WorktreePath != "" {
+		worktreePath = continueCtx.WorktreePath
+	}
+
 	willCreateWorktree := !noWorktree && (trackID != "" || featureID != "" || workItem != "")
-	launchPlan := applyLaunchPlanOpts(projectRoot, workItem, noWorktree, willCreateWorktree, os.Stderr)
+	launchPlan := applyLaunchPlanOpts(canonicalRoot, projectRoot, effectiveWorkItemID(workItem, trackID, featureID), noWorktree, willCreateWorktree, os.Stderr)
 	if err := enforceLaunchPlan(launchPlan, os.Stderr); err != nil {
 		return err
 	}
 	if !dryRun {
 		ensureAntigravityExtensionLinked()
 	}
+	ensureAntigravityStatusLine(dryRun)
 
 	if workItem != "" && !dryRun {
 		if err := runFeatureStart(workItem); err != nil {
@@ -108,12 +154,11 @@ func launchAntigravityDefault(trackID, featureID, worktreePath, workItem string,
 		}
 	}
 
-	canonicalRoot := projectRoot
-	if c := canonicalProjectRoot(projectRoot); c != "" {
-		canonicalRoot = c
-	}
+	// Note: canonicalRoot was already computed above at line 97 and used for
+	// the isolation plan. It is also the value injected as WIPNOTE_PROJECT_DIR
+	// AND used as the base for worktree creation.
 	workDir := projectRoot
-	wipnoteRoot := canonicalProjectRoot(projectRoot)
+	wipnoteRoot := canonicalRoot
 	resolved := false
 	worktreeCreated := false
 	switch {
@@ -155,19 +200,56 @@ func launchAntigravityDefault(trackID, featureID, worktreePath, workItem string,
 
 	fmt.Println("Launching Antigravity CLI with wipnote context...")
 	return execAntigravity(antigravityLaunchOpts{
+		Continue:     continue_,
+		ResumeID:     resumeID,
 		ExtraArgs:    extraArgs,
 		ProjectRoot:  workDir,
 		WorktreeRoot: workDir,
 		WipnoteRoot:  wipnoteRoot,
 		DryRun:       dryRun,
+		ExtraEnv:     continueCtx.ExtraEnv(),
 	})
+}
+
+type antigravityIntentResult struct {
+	continue_    bool
+	resumeID     string
+	worktreePath string
+	workItem     string
+}
+
+func applyAntigravityLaunchIntent(worktreePath, workItem, resumeID string, continue_ bool, intent launcher.LaunchIntent) antigravityIntentResult {
+	result := antigravityIntentResult{
+		continue_:    continue_,
+		resumeID:     resumeID,
+		worktreePath: worktreePath,
+		workItem:     workItem,
+	}
+	if !intent.WantsContinue() {
+		return result
+	}
+	// Carry work-item and worktree context regardless of harness.
+	if result.workItem == "" && intent.WorkItemID != "" {
+		result.workItem = intent.WorkItemID
+	}
+	if result.worktreePath == "" && intent.WorktreePath != "" {
+		result.worktreePath = intent.WorktreePath
+	}
+	// Only enable native --continue/--resume for antigravity-harness sessions.
+	// Cross-harness rows (codex, gemini) carry work-item/worktree context but must
+	// NOT pass --continue, which would resume the most-recent agy conversation.
+	if strings.EqualFold(strings.TrimSpace(intent.SessionHarness), "antigravity") {
+		result.continue_ = true
+		result.resumeID = intent.ResumeForHarness("antigravity")
+	}
+	return result
 }
 
 func isAntigravityInitAlias(args []string) bool {
 	return len(args) == 1 && args[0] == "init"
 }
 
-func launchAntigravityDev(dryRun bool, extraArgs []string) error {
+func launchAntigravityDev(dryRun bool, continue_ bool, resumeID string, extraArgs []string) error {
 	wipnoteDir, err := findWipnoteDir()
 	if err != nil {
 		return fmt.Errorf("could not find project root (.wipnote/ directory not found)")
@@ -190,6 +272,8 @@ func launchAntigravityDev(dryRun bool, extraArgs []string) error {
 	}
 
 	return execAntigravity(antigravityLaunchOpts{
+		Continue:    continue_,
+		ResumeID:    resumeID,
 		ExtraArgs:   extraArgs,
 		ProjectRoot: projectRoot,
 		DryRun:      dryRun,
@@ -197,35 +281,49 @@ func launchAntigravityDev(dryRun bool, extraArgs []string) error {
 }
 
 func antigravityCmd() *cobra.Command {
-	var init_, dev, force, dryRun, noWorktree, inPlace bool
-	var trackID, featureID, worktreePath, workItem, baseBranch string
+	var init_, dev, force, dryRun, noWorktree, inPlace, tmux, continue_ bool
+	var trackID, featureID, worktreePath, workItem, baseBranch, resumeID string
 
 	cmd := &cobra.Command{
-		Use:   "antigravity",
-		Short: "Launch Antigravity CLI with wipnote context",
+		Use:     "antigravity",
+		Aliases: []string{"agy"},
+		Short:   "Launch Antigravity CLI with wipnote context",
 		Long: `Launch Antigravity CLI with wipnote observability context.
 
 Modes:
   wipnote antigravity                  Launch Antigravity interactively with wipnote env.
   wipnote antigravity --init           Install the wipnote Antigravity extension (idempotent).
   wipnote antigravity init             Alias for --init.
-  wipnote antigravity --dev            Link port/packages/antigravity-extension/ and launch.`,
+  wipnote antigravity --dev            Link port/packages/antigravity-extension/ and launch.
+  wipnote antigravity --tmux           Wrap in a tmux session (survives Codespaces disconnects).`,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			// Tmux wrap must happen before any side-effecting work. When --tmux
+			// is set and we are not already inside tmux, this replaces the
+			// current process with tmux new-session -A -s wipnote-antigravity
+			// and never returns. No-op when already inside tmux; errors when the
+			// tmux binary is missing.
+			_ = tmux // consumed via os.Args inspection in maybeTmuxWrap
+			if err := maybeTmuxWrap("wipnote-antigravity"); err != nil {
+				return err
+			}
 			switch {
 			case init_ || isAntigravityInitAlias(args):
 				return runAntigravityInit(force, dryRun)
 			case dev:
-				return launchAntigravityDev(dryRun, args)
+				return launchAntigravityDev(dryRun, continue_, resumeID, args)
 			default:
 				effectiveInPlace := inPlace || noWorktree
 				_ = baseBranch
-				return launchAntigravityDefault(trackID, featureID, worktreePath, workItem, effectiveInPlace, args, dryRun)
+				return launchAntigravityDefault(trackID, featureID, worktreePath, workItem, effectiveInPlace, continue_, resumeID, args, dryRun)
 			}
 		},
 	}
 
 	cmd.Flags().BoolVar(&init_, "init", false, "Install the wipnote Antigravity extension (idempotent)")
 	cmd.Flags().BoolVar(&dev, "dev", false, "Link port/packages/antigravity-extension/ and launch")
+	cmd.Flags().BoolVar(&tmux, "tmux", false, "Wrap in a tmux session named 'wipnote-antigravity' (survives disconnects; reattaches on re-run)")
+	cmd.Flags().BoolVarP(&continue_, "continue", "c", false, "Resume the most recent Antigravity conversation (agy --continue)")
+	cmd.Flags().StringVar(&resumeID, "resume", "", "Resume a specific Antigravity conversation by ID (maps to agy --conversation <id>)")
 	cmd.Flags().BoolVar(&force, "force", false, "With --init: reinstall even if already installed")
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Print what would happen without executing")
 	cmd.Flags().BoolVar(&noWorktree, "no-worktree", false, "Skip worktree creation; run in project root")

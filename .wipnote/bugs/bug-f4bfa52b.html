@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>checkYoloWorkItemGuard false-blocks subagent edits (session-attribution gate; dead hasAnyActiveWorkItem fallback)</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="bug-f4bfa52b"
+             data-type="bug"
+             data-status="done"
+             data-priority="high"
+             data-created="2026-06-20T10:03:34.051462"
+             data-updated="2026-06-20T17:39:00.429634" data-agent-assigned="claude-code" data-track-id="trk-0677c709" data-created-by-agent="claude-code" data-created-by-model="claude-opus-4-8[1m]" data-created-by-cli-version="dev">
+
+        <header>
+            <h1>checkYoloWorkItemGuard false-blocks subagent edits (session-attribution gate; dead hasAnyActiveWorkItem fallback)</h1>
+            <div class="metadata">
+                <span class="badge status-done">Done</span>
+                <span class="badge priority-high">High Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-0677c709.html" data-relationship="part_of" data-since="2026-06-20T10:03:34.10127">trk-0677c709</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>checkYoloWorkItemGuard (core/hooks/yolo_guard.go) gates Edit/Write on the session row active_feature_id (or sessionHasLinkedFeature on the same session). In nested/subagent sessions &#39;wipnote bug start&#39; writes active_feature_id to a session row the PreToolUse hook does not resolve, so legitimate edits are false-blocked with &#39;An active work item is required&#39;. hasAnyActiveWorkItem (the old fallback) is now unused dead code. Fix must avoid the old global-any-in-progress false-pass while restoring lineage/durable-state correctness, per the repo rule &#39;prefer file/branch/staged state over session state&#39;.</p>
+        </section>
+    </article>
+</body>
+</html>

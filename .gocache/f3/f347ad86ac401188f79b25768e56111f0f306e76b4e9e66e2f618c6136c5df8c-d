@@ -1,7 +1,0 @@
-./analytics_test.go
-./claim_test.go
-./concurrency_test.go
-./crud_test.go
-./edit_test.go
-./plan_patch_test.go
-./project_test.go

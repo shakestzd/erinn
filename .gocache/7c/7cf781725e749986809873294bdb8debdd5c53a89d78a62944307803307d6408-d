@@ -1,7 +1,0 @@
-./discover.go
-./gemini_discover.go
-./gemini_parser.go
-./parser.go
-./discover_test.go
-./gemini_parser_test.go
-./parser_test.go

@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>roborev-fix follow-up (job 337): finish slice-5 decisions_notes &#43; add claude.go continue-guard test</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="bug-983e9130"
+             data-type="bug"
+             data-status="done"
+             data-priority="medium"
+             data-created="2026-06-18T05:44:37.221322"
+             data-updated="2026-06-18T05:56:50.443292" data-agent-assigned="claude-code" data-track-id="trk-6a1f5362" data-created-by-agent="claude-code" data-created-by-model="claude-opus-4-8[1m]" data-created-by-cli-version="0.62.2-247-g9401cab2a">
+
+        <header>
+            <h1>roborev-fix follow-up (job 337): finish slice-5 decisions_notes &#43; add claude.go continue-guard test</h1>
+            <div class="metadata">
+                <span class="badge status-done">Done</span>
+                <span class="badge priority-medium">Medium Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="caused_by">
+                <h3>Caused By:</h3>
+                <ul>
+                    <li><a href="../features/feat-9348de66.html" data-relationship="caused_by" data-since="2026-06-18T05:44:37.454857">feat-9348de66</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-6a1f5362.html" data-relationship="part_of" data-since="2026-06-18T05:44:37.502188">trk-6a1f5362</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="implemented_in">
+                <h3>Implemented In:</h3>
+                <ul>
+                    <li><a href="../sessions/5a4e281f-7282-4df5-8270-bcf2493315a0.html" data-relationship="implemented_in" data-since="2026-06-18T05:45:03.35313">session 5a4e281f-7282-4df5-8270-bcf2493315a0</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>Auto-review (roborev job 337) of fix commit c0af04acc found 2 valid findings: (MED) plan-6d49f2df.yaml slice-5 decisions_notes (~line 227) still says the idle trigger reuses internal/childproc RunIdleReaper, contradicting the just-corrected slice-5 what which says RunIdleReaper canNOT be reused — the decisions_notes must be updated to the session-timestamp-keyed ticker path and the HTML regenerated; (LOW) the claude.go default-session-name guard fix (line ~226, added !continue_) has no unit coverage. Add a focused test for the session-name synthesis decision covering continue_=true, explicit resumeID, explicit name, and a fresh dev launch.</p>
+        </section>
+    </article>
+</body>
+</html>

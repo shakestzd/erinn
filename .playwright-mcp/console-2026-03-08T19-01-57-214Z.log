@@ -1,2 +1,0 @@
-[     210ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://localhost:8080/favicon.ico:0
-[  202008ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://localhost:8080/api/activity-feed-children?event_id=evt-9b95dfd0&limit=10:0

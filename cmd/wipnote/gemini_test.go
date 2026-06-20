@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/shakestzd/wipnote/internal/launcher"
 )
 
 func TestExecGeminiDryRunDoesNotWriteLaunchMarker(t *testing.T) {
@@ -230,6 +232,40 @@ func TestGeminiListSessionsPassThrough(t *testing.T) {
 	}
 	if opts.ResumeIndex != "" {
 		t.Errorf("expected ResumeIndex empty when ListSessions=true")
+	}
+}
+
+func TestApplyGeminiLaunchIntent(t *testing.T) {
+	got := applyGeminiLaunchIntent("", "", "", launcher.LaunchIntent{
+		Kind:            launcher.LaunchIntentContinue,
+		Explicit:        true,
+		WorkItemID:      "feat-gem",
+		SessionHarness:  "gemini",
+		ResumeSessionID: "sess-gem",
+		WorktreePath:    ".claude/worktrees/feat-gem",
+	})
+	if got.mode != geminiLaunchModeContinue {
+		t.Fatalf("mode = %q, want %q", got.mode, geminiLaunchModeContinue)
+	}
+	if got.workItem != "feat-gem" {
+		t.Fatalf("workItem = %q, want feat-gem", got.workItem)
+	}
+	if got.worktreePath != ".claude/worktrees/feat-gem" {
+		t.Fatalf("worktreePath = %q, want .claude/worktrees/feat-gem", got.worktreePath)
+	}
+	if got.resumeLast {
+		t.Fatal("resumeLast = true, want false")
+	}
+	if got.resumeIndex != "" {
+		t.Fatalf("resumeIndex = %q, want empty", got.resumeIndex)
+	}
+
+	cross := applyGeminiLaunchIntent("/custom", "feat-existing", "/repo", launcher.ContinueWorkIntent("feat-cross", "codex", "", ".claude/worktrees/feat-cross", true))
+	if cross.worktreePath != "/custom" {
+		t.Fatalf("explicit worktreePath overwritten: got %q", cross.worktreePath)
+	}
+	if cross.workItem != "feat-existing" {
+		t.Fatalf("explicit workItem overwritten: got %q", cross.workItem)
 	}
 }
 

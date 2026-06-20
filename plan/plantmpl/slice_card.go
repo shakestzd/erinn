@@ -170,10 +170,40 @@ type SliceCard struct {
 	Questions       []planyaml.SliceQuestion  // slice-local open questions
 	CriticRevisions []planyaml.CriticRevision // critic feedback specific to this slice
 	DecisionsNotes  string                    // free-text Markdown captured by elicit-decisions
+
+	// Blocks is the slice's optional structured visual blocks (data-model,
+	// api-endpoint, file-tree, wireframe). They render via the shared plan/blocks
+	// renderers in the Blocks zone — see BlocksZoneHTML. Empty = no Blocks zone.
+	Blocks []planyaml.SliceBlock
 }
 
-// IssueCount returns the number of critic revisions (issues) for this slice.
-func (sc *SliceCard) IssueCount() int { return len(sc.CriticRevisions) }
+// BlocksZoneHTML renders the slice's Blocks zone via the shared plan/blocks
+// renderers. Returns empty when the slice has no blocks (back-compat: legacy
+// slices emit no Blocks zone at all). Each block element carries a stable
+// slice-<num>-block-<name>-<idx> anchor for the dashboard annotation dropdown.
+func (sc *SliceCard) BlocksZoneHTML() template.HTML {
+	if len(sc.Blocks) == 0 {
+		return ""
+	}
+	zone := &BlocksZone{SliceNum: sc.Num, Blocks: sc.Blocks}
+	return renderZone(zone)
+}
+
+// IssueCount returns the number of actionable critic revisions for this slice.
+// Only DANGER and WARN severities (case-insensitive) count as issues; SUCCESS
+// and INFO are informational and must not inflate the badge counter.
+func (sc *SliceCard) IssueCount() int {
+	n := 0
+	for _, r := range sc.CriticRevisions {
+		switch strings.ToUpper(r.Severity) {
+		case "HIGH", "DANGER", "MED", "MEDIUM", "WARN", "WARNING", "LOW":
+			// LOW is debatable but traditionally counted so we keep it; only
+			// SUCCESS and INFO are excluded.
+			n++
+		}
+	}
+	return n
+}
 
 // QuestionCount returns the number of open questions for this slice.
 func (sc *SliceCard) QuestionCount() int { return len(sc.Questions) }
@@ -411,5 +441,6 @@ func SliceCardFromPlanSlice(s planyaml.PlanSlice) SliceCard {
 		Questions:       s.Questions,
 		CriticRevisions: s.CriticRevisions,
 		DecisionsNotes:  s.DecisionsNotes,
+		Blocks:          s.Blocks,
 	}
 }

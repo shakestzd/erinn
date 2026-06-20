@@ -2,20 +2,45 @@ package main
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
 	"time"
 
-	"io"
-
+	"github.com/shakestzd/wipnote/cmd/wipnote/launchtui"
 	"github.com/shakestzd/wipnote/core/htmlparse"
-	"github.com/shakestzd/wipnote/internal/launcher/plan"
 	"github.com/shakestzd/wipnote/core/slug"
 	"github.com/shakestzd/wipnote/core/workitem"
+	"github.com/shakestzd/wipnote/internal/launcher/plan"
 	"github.com/spf13/cobra"
 )
+
+// yoloEmitBannerFn is the seam for tests. In production it calls RenderLaunchBanner
+// and writes the framed block to w; tests replace it to assert the banner fires
+// without requiring a real terminal.
+//
+// Decision (slice 4, option b): yolo intentionally SKIPS the interactive chooser
+// (autonomous mode must not block on a prompt) but ADOPTS the framed banner for
+// all launch output, consistent with the claude/codex/gemini launch paths.
+var yoloEmitBannerFn = func(headline, session, workItem string, w io.Writer) {
+	banner := launchtui.RenderLaunchBanner(nil, launchtui.BannerInput{
+		Headline: headline,
+		Session:  session,
+	})
+	fmt.Fprintln(w, banner)
+	if workItem != "" {
+		fmt.Fprintf(w, "  Work item: %s\n", workItem)
+	}
+}
+
+// emitYoloBanner writes the framed launch banner to w via yoloEmitBannerFn.
+// The indirection through yoloEmitBannerFn allows tests to assert the banner
+// fires without requiring a real terminal.
+func emitYoloBanner(headline, session, workItem string, w io.Writer) {
+	yoloEmitBannerFn(headline, session, workItem, w)
+}
 
 func yoloCmd() *cobra.Command {
 	var dev, initMode, continueMode, noWorktree, inPlace, tmux bool
@@ -258,6 +283,11 @@ func launchYoloDefault(permMode, trackID, featureID string, noWorktree bool, res
 
 	// No work item provided — fall back to planning mode. The child cwd is the
 	// (un-rewritten) projectRoot per the slice-3 contract.
+	// NOTE: planning mode intentionally bypasses the isolation plan (applyLaunchPlanOpts).
+	// Planning mode is lightweight, designed to help create work items without enforcing
+	// the project's launch_isolation config. This means "launch_isolation: auto" does NOT
+	// create an ad-hoc managed worktree in planning mode. Once a work item is created,
+	// the user restarts with --track/--feature, and the isolation plan applies normally.
 	if trackID == "" && featureID == "" {
 		_ = computeLauncherMode("", false, false)
 		return launchYoloPlanningMode(projectRoot, extraArgs)
@@ -279,7 +309,7 @@ func launchYoloDefault(permMode, trackID, featureID string, noWorktree bool, res
 
 	// Honor the isolation plan (slice-9): a RefuseLaunch plan aborts before the
 	// harness starts. The validated work item id drives the dirty-main/enforce guard.
-	launchPlan := applyLaunchPlanOpts(canonicalRoot, id, noWorktree, willCreateWorktree, os.Stderr)
+	launchPlan := applyLaunchPlanOpts(canonicalRoot, projectRoot, id, noWorktree, willCreateWorktree, os.Stderr)
 	if err := enforceLaunchPlan(launchPlan, os.Stderr); err != nil {
 		return err
 	}
@@ -348,9 +378,7 @@ func launchYoloDefault(permMode, trackID, featureID string, noWorktree bool, res
 	}
 	yoloPrompt := buildYoloSystemPrompt(id, kind)
 
-	fmt.Printf("Launching Claude Code in YOLO mode (%s)...\n", permMode)
-	fmt.Printf("  Session: %s\n", sessionName)
-	fmt.Printf("  Work item: %s\n", id)
+	emitYoloBanner(fmt.Sprintf("Launching Claude Code in YOLO mode (%s)...", permMode), sessionName, id, os.Stdout)
 
 	// Write the combined prompt to a temp file so launchClaude can pass it via
 	// --append-system-prompt without needing a new field.
@@ -401,25 +429,33 @@ func launchYoloDev(trackID, featureID string, noWorktree bool, resumeID, name st
 		return launchYoloPlanningMode(projectRoot, extraArgs)
 	}
 
+	// Resolve canonical main repo root when CWD is a linked worktree (slice-3).
+	canonicalRoot := canonicalProjectRoot(projectRoot)
+	if canonicalRoot == "" {
+		canonicalRoot = projectRoot
+	}
+
 	// Validate the provided work item exists.
-	id, kind, err := validateWorkItem(trackID, featureID, projectRoot)
+	id, kind, err := validateWorkItem(trackID, featureID, canonicalRoot)
 	if err != nil {
 		return err
 	}
 
 	// Resolve track title once — used for both the session name and the worktree directory.
-	trackTitle := resolveTrackTitle(trackID, featureID, projectRoot)
+	trackTitle := resolveTrackTitle(trackID, featureID, canonicalRoot)
 
 	// Create a worktree for isolation (skip for --no-worktree). Mirror the
 	// default path: carry uncommitted tracked changes into a newly-created
 	// worktree and emit the accurate dirty-main advisory (bug-bcf8a311 / 7d4b6c63).
-	willCreateWorktree := !noWorktree && projectRoot != ""
-	devPlan := applyLaunchPlanOpts(projectRoot, id, noWorktree, willCreateWorktree, os.Stderr)
+	// Use canonicalRoot for all worktree operations so that launching from a linked
+	// worktree doesn't create nested worktrees or set WipnoteRoot to the linked root.
+	willCreateWorktree := !noWorktree && canonicalRoot != ""
+	devPlan := applyLaunchPlanOpts(canonicalRoot, projectRoot, id, noWorktree, willCreateWorktree, os.Stderr)
 	workDir := projectRoot
 	worktreeCreated := false
 	if willCreateWorktree {
 		if trackID != "" {
-			worktreePath, created, wtErr := EnsureForTrackWithTitleStatus(trackTitle, trackID, projectRoot, os.Stdout)
+			worktreePath, created, wtErr := EnsureForTrackWithTitleStatus(trackTitle, trackID, canonicalRoot, os.Stdout)
 			if wtErr != nil {
 				return wtErr
 			}
@@ -427,17 +463,17 @@ func launchYoloDev(trackID, featureID string, noWorktree bool, resumeID, name st
 			worktreeCreated = created
 		} else if featureID != "" {
 			// Resolve the parent track so features use the titled track worktree.
-			parentTrackID := resolveTrackForFeature(featureID, projectRoot)
+			parentTrackID := resolveTrackForFeature(featureID, canonicalRoot)
 			if parentTrackID != "" {
-				parentTitle := resolveTrackTitle(parentTrackID, "", projectRoot)
-				worktreePath, created, wtErr := EnsureForTrackWithTitleStatus(parentTitle, parentTrackID, projectRoot, os.Stdout)
+				parentTitle := resolveTrackTitle(parentTrackID, "", canonicalRoot)
+				worktreePath, created, wtErr := EnsureForTrackWithTitleStatus(parentTitle, parentTrackID, canonicalRoot, os.Stdout)
 				if wtErr != nil {
 					return wtErr
 				}
 				workDir = worktreePath
 				worktreeCreated = created
 			} else {
-				worktreePath, created, wtErr := EnsureForFeatureStatus(featureID, projectRoot, os.Stdout)
+				worktreePath, created, wtErr := EnsureForFeatureStatus(featureID, canonicalRoot, os.Stdout)
 				if wtErr != nil {
 					return wtErr
 				}
@@ -445,10 +481,11 @@ func launchYoloDev(trackID, featureID string, noWorktree bool, resumeID, name st
 				worktreeCreated = created
 			}
 		}
-		emitYoloDirtyMainMessage(devPlan, projectRoot, workDir, worktreeCreated, os.Stdout)
+		emitYoloDirtyMainMessage(devPlan, canonicalRoot, workDir, worktreeCreated, os.Stdout)
 	}
 
-	// Nuke marketplace plugin so it can't shadow the --plugin-dir agents/skills.
+	// Remove any installed marketplace plugin after isolation resolution succeeds
+	// so --plugin-dir cannot be shadowed by a stale install.
 	removeMarketplaceWipnote()
 
 	sessionName := name
@@ -456,14 +493,12 @@ func launchYoloDev(trackID, featureID string, noWorktree bool, resumeID, name st
 	// session, skip default-name generation so we don't rename or conflict with
 	// the resumed session. The user can still override with an explicit --name.
 	if sessionName == "" && resumeID == "" {
-		sessionName = yoloDefaultName(trackID, featureID, projectRoot)
+		sessionName = yoloDefaultName(trackID, featureID, canonicalRoot)
 	}
 	yoloPrompt := buildYoloSystemPrompt(id, kind)
 
-	fmt.Printf("Launching Claude Code in YOLO dev mode...\n")
 	fmt.Printf("  Plugin: %s\n", pluginDir)
-	fmt.Printf("  Session: %s\n", sessionName)
-	fmt.Printf("  Work item: %s\n", id)
+	emitYoloBanner("Launching Claude Code in YOLO dev mode...", sessionName, id, os.Stdout)
 
 	tmpFile, err := os.CreateTemp("", "yolo-prompt-*.md")
 	if err != nil {
@@ -484,7 +519,7 @@ func launchYoloDev(trackID, featureID string, noWorktree bool, resumeID, name st
 		Name:             sessionName,
 		ExtraArgs:        extraArgs,
 		ProjectRoot:      workDir,
-		WipnoteRoot:      projectRoot,
+		WipnoteRoot:      canonicalRoot,
 	})
 }
 

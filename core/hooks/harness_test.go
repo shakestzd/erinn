@@ -520,15 +520,22 @@ func TestEmitCodexSessionStartResponse(t *testing.T) {
 		t.Fatalf("unmarshal codex response: %v", err)
 	}
 
-	if got["systemMessage"] != "foo" {
-		t.Errorf("systemMessage = %v, want foo", got["systemMessage"])
+	if _, ok := got["systemMessage"]; ok {
+		t.Errorf("systemMessage should not carry model-visible context, got %v", got["systemMessage"])
+	}
+	hso, ok := got["hookSpecificOutput"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected hookSpecificOutput, got %#v", got["hookSpecificOutput"])
+	}
+	if hso["additionalContext"] != "foo" {
+		t.Errorf("additionalContext = %v, want foo", hso["additionalContext"])
 	}
 	if got["continue"] != true {
 		t.Errorf("continue = %v, want true", got["continue"])
 	}
-	// "additionalContext" must NOT appear in Codex output.
+	// "additionalContext" must NOT appear at top level.
 	if _, ok := got["additionalContext"]; ok {
-		t.Error("additionalContext should not appear in Codex response (it's Claude-only)")
+		t.Error("additionalContext should not appear at top level")
 	}
 }
 
@@ -538,7 +545,7 @@ func TestEmitCodexBlockResponse(t *testing.T) {
 		Decision: "block",
 		Reason:   "no active work item",
 	}
-	if err := emitCodexResponse(&buf, result); err != nil {
+	if err := emitCodexResponseForEvent(&buf, "PreToolUse", result); err != nil {
 		t.Fatalf("emitCodexResponse: %v", err)
 	}
 
@@ -550,11 +557,24 @@ func TestEmitCodexBlockResponse(t *testing.T) {
 	if _, ok := got["continue"]; ok {
 		t.Errorf("continue = %v, want omitted for Codex block decision", got["continue"])
 	}
-	if got["decision"] != "block" {
-		t.Errorf("decision = %v, want block", got["decision"])
+	if _, ok := got["decision"]; ok {
+		t.Errorf("decision should be omitted for Codex PreToolUse block, got %v", got["decision"])
 	}
-	if got["reason"] != "no active work item" {
-		t.Errorf("reason = %v, want no active work item", got["reason"])
+	if _, ok := got["reason"]; ok {
+		t.Errorf("reason should be omitted for Codex PreToolUse block, got %v", got["reason"])
+	}
+	hso, ok := got["hookSpecificOutput"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected hookSpecificOutput, got %#v", got["hookSpecificOutput"])
+	}
+	if hso["permissionDecision"] != "deny" {
+		t.Errorf("permissionDecision = %v, want deny", hso["permissionDecision"])
+	}
+	if hso["permissionDecisionReason"] != "no active work item" {
+		t.Errorf("permissionDecisionReason = %v, want no active work item", hso["permissionDecisionReason"])
+	}
+	if _, ok := got["stopReason"]; ok {
+		t.Errorf("stopReason must be omitted for Codex PreToolUse block responses, got %v", got["stopReason"])
 	}
 }
 
@@ -583,7 +603,7 @@ func TestEmitGeminiSessionStartResponse(t *testing.T) {
 	result := &HookResult{
 		AdditionalContext: "hello from gemini handler",
 	}
-	if err := emitGeminiResponse(&buf, result); err != nil {
+	if err := emitGeminiResponseForEvent(&buf, "SessionStart", result); err != nil {
 		t.Fatalf("emitGeminiResponse: %v", err)
 	}
 
@@ -592,8 +612,15 @@ func TestEmitGeminiSessionStartResponse(t *testing.T) {
 		t.Fatalf("unmarshal gemini response: %v", err)
 	}
 
-	if got["systemPrompt"] != "hello from gemini handler" {
-		t.Errorf("systemPrompt = %v, want 'hello from gemini handler'", got["systemPrompt"])
+	if _, ok := got["systemPrompt"]; ok {
+		t.Errorf("systemPrompt should not be emitted for Gemini context injection, got %v", got["systemPrompt"])
+	}
+	hso, ok := got["hookSpecificOutput"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected hookSpecificOutput, got %#v", got["hookSpecificOutput"])
+	}
+	if hso["additionalContext"] != "hello from gemini handler" {
+		t.Errorf("additionalContext = %v, want 'hello from gemini handler'", hso["additionalContext"])
 	}
 	if got["continue"] != true {
 		t.Errorf("continue = %v, want true", got["continue"])
@@ -733,21 +760,25 @@ func TestParseEventForHarnessGemini(t *testing.T) {
 // WriteResultForHarness function routes Codex payloads correctly. Since it
 // writes to os.Stdout we test the underlying emitter directly.
 func TestWriteResultForHarnessCodexEmitter(t *testing.T) {
-	// Verify Codex emitter produces systemMessage (not additionalContext).
+	// Verify Codex emitter produces hookSpecificOutput.additionalContext (not top-level additionalContext).
 	var buf bytes.Buffer
 	result := &HookResult{AdditionalContext: "test context"}
-	if err := emitCodexResponse(&buf, result); err != nil {
+	if err := emitCodexResponseForEvent(&buf, "SessionStart", result); err != nil {
 		t.Fatalf("emitCodexResponse: %v", err)
 	}
 	var got map[string]any
 	if err := json.Unmarshal(buf.Bytes(), &got); err != nil {
 		t.Fatalf("json unmarshal: %v", err)
 	}
-	if _, ok := got["systemMessage"]; !ok {
-		t.Error("expected systemMessage key in Codex response")
+	hso, ok := got["hookSpecificOutput"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected hookSpecificOutput key in Codex response, got %#v", got)
+	}
+	if hso["additionalContext"] != "test context" {
+		t.Errorf("additionalContext = %v, want test context", hso["additionalContext"])
 	}
 	if _, ok := got["additionalContext"]; ok {
-		t.Error("additionalContext must not appear in Codex response")
+		t.Error("additionalContext must not appear at top level")
 	}
 }
 

@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>Dev launcher (--dev) bypasses the explicit-intent chooser</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="bug-8251b639"
+             data-type="bug"
+             data-status="done"
+             data-priority="medium"
+             data-created="2026-06-17T10:56:06.670017"
+             data-updated="2026-06-17T12:25:38.339017" data-agent-assigned="claude-code" data-track-id="trk-6a1f5362" data-created-by-agent="claude-code" data-created-by-model="claude-opus-4-8[1m]" data-created-by-cli-version="0.62.2-237-g5d78fbe07">
+
+        <header>
+            <h1>Dev launcher (--dev) bypasses the explicit-intent chooser</h1>
+            <div class="metadata">
+                <span class="badge status-done">Done</span>
+                <span class="badge priority-medium">Medium Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="caused_by">
+                <h3>Caused By:</h3>
+                <ul>
+                    <li><a href="../features/feat-a6f15eff.html" data-relationship="caused_by" data-since="2026-06-17T10:56:19.804405">Chooser core &#43; intent flags &#43; Claude launcher</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="implemented_in">
+                <h3>Implemented In:</h3>
+                <ul>
+                    <li><a href="../sessions/a5485759-d337-4b91-b890-49f379d903ef.html" data-relationship="implemented_in" data-since="2026-06-17T10:56:19.934625">session a5485759-d337-4b91-b890-49f379d903ef</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-6a1f5362.html" data-relationship="part_of" data-since="2026-06-17T10:56:06.693449">trk-6a1f5362</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-steps>
+            <h3>Implementation Steps</h3>
+            <ol>
+                <li data-completed="true" data-step-id="task-1" data-agent="claude-code" data-created-by-agent="claude-code">✅ Wire explicit-intent chooser into dev launcher</li>
+            </ol>
+        </section>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>wipnote claude --dev short-circuits to launchClaudeDev (cmd/wipnote/claude.go case dev:) and never invokes resolveLaunchIntentForDefaultLaunch, which lives only in launchClaudeDefault. So dev sessions always launch in-place on the current branch with no intent prompt, defeating plan-311440bf&#39;s intentionality guarantee (separate planning/research from code-change sessions; no plan-&gt;code transition within one session). Likely also affects yolo and the codex/gemini/antigravity dev paths. Fix: route dev launches through the same intent resolution as the default launcher.</p>
+        </section>
+    </article>
+</body>
+</html>

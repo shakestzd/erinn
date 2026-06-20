@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>Verify live agy runtime contracts (GEMINI_SYSTEM_MD, statusLine, hooks.json path&#43;event names, resume, mcp_config)</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="spk-0698d585"
+             data-type="spike"
+             data-status="done"
+             data-priority="medium"
+             data-created="2026-06-15T22:31:50.556505"
+             data-updated="2026-06-16T22:01:22.5816" data-agent-assigned="claude-code" data-track-id="trk-6a1f5362" data-created-by-agent="claude-code" data-created-by-model="claude-opus-4-8[1m]" data-created-by-cli-version="dev">
+
+        <header>
+            <h1>Verify live agy runtime contracts (GEMINI_SYSTEM_MD, statusLine, hooks.json path&#43;event names, resume, mcp_config)</h1>
+            <div class="metadata">
+                <span class="badge status-done">Done</span>
+                <span class="badge priority-medium">Medium Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="implemented_in">
+                <h3>Implemented In:</h3>
+                <ul>
+                    <li><a href="../sessions/31d1b5af-fe92-4b1b-a01b-3a9c639fbcdd.html" data-relationship="implemented_in" data-since="2026-06-16T22:01:21.398492">session 31d1b5af-fe92-4b1b-a01b-3a9c639fbcdd</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-6a1f5362.html" data-relationship="part_of" data-since="2026-06-15T22:31:50.675693">trk-6a1f5362</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="relates_to">
+                <h3>Relates To:</h3>
+                <ul>
+                    <li><a href="../spikes/spk-c928d70a.html" data-relationship="relates_to" data-since="2026-06-15T22:32:03.017095">Review Antigravity plugin parity vs Claude Code &#43; audit unused Antigravity extensibility</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="blocks">
+                <h3>Blocks:</h3>
+                <ul>
+                    <li><a href="../features/feat-eee1e9e2.html" data-relationship="blocks" data-since="2026-06-15T22:32:02.930351">Inject wipnote orchestrator system prompt into wipnote antigravity at runtime</a></li>
+                    <li><a href="../features/feat-4f98f706.html" data-relationship="blocks" data-since="2026-06-15T22:32:02.962656">statusLine integration for wipnote antigravity (surface active work item)</a></li>
+                    <li><a href="../features/feat-ea1dd851.html" data-relationship="blocks" data-since="2026-06-15T22:32:02.991235">Add --resume &lt;session-id&gt; and --continue to wipnote antigravity</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>Web research on Antigravity extensibility was all secondary-source. Before building contract-dependent features, verify against a live agy install: (1) GEMINI_SYSTEM_MD env honored as full system-prompt override? (2) statusLine.command read from settings.json, and which file? (3) where does agy load hooks.json and which event names fire (Gemini BeforeTool names vs documented PreToolUse names)? (4) --resume &lt;id&gt; / --continue support? (5) mcp_config.json location. (6) CRITICAL for feat-eee1e9e2 approach B: does agy actually FIRE a SessionStart event and honor hookSpecificOutput.additionalContext, or is context injected only via PreInvocation as ephemeralMessage? Community docs list only PreToolUse/PostToolUse/PreInvocation/PostInvocation/Stop (no SessionStart) — our wired Antigravity SessionStart hook may be a silent no-op. Resolves arch hazard antigravity-hook-naming-install-risks. Gates the system-prompt, statusLine, and resume features.</p>
+        </section>
+    </article>
+</body>
+</html>

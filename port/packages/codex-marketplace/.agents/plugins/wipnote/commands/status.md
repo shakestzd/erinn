@@ -21,7 +21,7 @@ Show project progress and current feature
 
 
 
-## Instructions for Claude
+## Instructions
 
 ### Implementation:
 

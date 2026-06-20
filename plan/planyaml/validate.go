@@ -2,8 +2,73 @@ package planyaml
 
 import (
 	"fmt"
+	"html"
+	"net/url"
+	"regexp"
 	"strings"
 )
+
+// rawColorRe matches raw CSS colors (hex like #1a2b3c / #abc, or rgb()/rgba()
+// /hsl()/hsla() functions). Wireframe blocks must use design tokens (CSS custom
+// properties like var(--color-fg)) instead — see validateWireframeBlock.
+var rawColorRe = regexp.MustCompile(`(?i)#[0-9a-f]{3,8}\b|\brgba?\(|\bhsla?\(`)
+
+// validateBlock checks one SliceBlock's shape against BlockCatalog. The block's
+// type must be a known catalog entry; required scalar fields, row keys, and
+// entries are enforced per the spec. Returns a (possibly empty) error slice.
+func validateBlock(prefix string, b SliceBlock) []string {
+	var errs []string
+	spec, ok := blockSpecFor(b.Type)
+	if !ok {
+		known := make([]string, 0, len(BlockCatalog()))
+		for _, s := range BlockCatalog() {
+			known = append(known, s.Type)
+		}
+		return []string{fmt.Sprintf("%s.type %q is unknown; supported: %s", prefix, b.Type, strings.Join(known, "|"))}
+	}
+	for _, key := range spec.Fields {
+		if strings.TrimSpace(b.Fields[key]) == "" {
+			errs = append(errs, fmt.Sprintf("%s.fields.%s is required for %s blocks", prefix, key, b.Type))
+		}
+	}
+	errs = append(errs, validateBlockRows(prefix, b, spec)...)
+	if spec.RequiresEntries && len(b.Entries) == 0 {
+		errs = append(errs, fmt.Sprintf("%s.entries must have at least 1 entry for %s blocks", prefix, b.Type))
+	}
+	if b.Type == "wireframe" {
+		errs = append(errs, validateWireframeBlock(prefix, b)...)
+	}
+	return errs
+}
+
+// validateBlockRows enforces RequiresRows and per-row required keys (RowKeys).
+func validateBlockRows(prefix string, b SliceBlock, spec BlockSpec) []string {
+	var errs []string
+	if spec.RequiresRows && len(b.Rows) == 0 {
+		errs = append(errs, fmt.Sprintf("%s.rows must have at least 1 entry for %s blocks", prefix, b.Type))
+	}
+	if len(spec.RowKeys) == 0 {
+		return errs
+	}
+	for ri, row := range b.Rows {
+		for _, key := range spec.RowKeys {
+			if strings.TrimSpace(row[key]) == "" {
+				errs = append(errs, fmt.Sprintf("%s.rows[%d].%s is required for %s blocks", prefix, ri, key, b.Type))
+			}
+		}
+	}
+	return errs
+}
+
+// validateWireframeBlock rejects raw CSS colors in a wireframe's html field;
+// wireframes must use design tokens (CSS custom properties) so they inherit the
+// canonical palette rather than baking in hex/rgb values.
+func validateWireframeBlock(prefix string, b SliceBlock) []string {
+	if rawColorRe.MatchString(html.UnescapeString(b.Fields["html"])) {
+		return []string{fmt.Sprintf("%s.fields.html must use design tokens (var(--...)), not raw hex/rgb/hsl colors", prefix)}
+	}
+	return nil
+}
 
 // effectiveComplexity returns the triage classification for a slice. Empty
 // string defaults to "standard" so v2 plans written before the Complexity
@@ -60,9 +125,10 @@ func Validate(plan *PlanYAML) []string {
 	default:
 		errs = append(errs, fmt.Sprintf("meta.status %q must be draft|review|finalized|active|completed", plan.Meta.Status))
 	}
-	// Validate SchemaVersion enum when non-empty: only "v3" is accepted.
-	if plan.Meta.SchemaVersion != "" && plan.Meta.SchemaVersion != "v3" {
-		errs = append(errs, fmt.Sprintf("meta.schema_version %q is invalid; accepted values: \"v3\" (or omit for legacy)", plan.Meta.SchemaVersion))
+	// Validate SchemaVersion enum when non-empty: "v3" (strict) and "v4" (strict +
+	// research-enforced) are accepted; empty is legacy.
+	if v := plan.Meta.SchemaVersion; v != "" && v != "v3" && v != "v4" {
+		errs = append(errs, fmt.Sprintf("meta.schema_version %q is invalid; accepted values: \"v3\", \"v4\" (or omit for legacy)", v))
 	}
 	if plan.Design.Problem == "" {
 		errs = append(errs, "design.problem is required")
@@ -72,6 +138,16 @@ func Validate(plan *PlanYAML) []string {
 	}
 	if len(plan.Design.Constraints) == 0 {
 		errs = append(errs, "design.constraints must have at least 1 entry")
+	}
+	// v4: the design itself must carry a cited research basis. Source URLs are
+	// shape-checked for any plan that provides them.
+	for i, r := range plan.Design.Research {
+		if !isResearchURL(r.URL) {
+			errs = append(errs, fmt.Sprintf("design.research[%d].url %q must be an http(s) URL", i, r.URL))
+		}
+	}
+	if plan.Meta.SchemaVersion == "v4" && len(plan.Design.Research) == 0 {
+		errs = append(errs, "design.research must cite at least 1 web/doc source for v4 plans (the design's research basis)")
 	}
 
 	// Collect slice nums and IDs for duplicate/dep checks.
@@ -138,7 +214,7 @@ func Validate(plan *PlanYAML) []string {
 			//   - schema_version == "v3" (strict model: catches omitted Complexity
 			//     which defaults to "standard"), OR
 			//   - slice.Complexity is explicitly set (legacy behaviour).
-			isStrictModel := plan.Meta.SchemaVersion == "v3"
+			isStrictModel := plan.Meta.SchemaVersion == "v3" || plan.Meta.SchemaVersion == "v4"
 			requiresDecisionsNotes := plan.Meta.Status != "finalized" &&
 				(isStrictModel || s.Complexity != "")
 			if requiresDecisionsNotes {
@@ -228,6 +304,18 @@ func Validate(plan *PlanYAML) []string {
 				errs = append(errs, crPrefix+".summary is required")
 			}
 		}
+
+		// Phase-2 (slice-6): optional structured blocks. Additive — slices that
+		// omit blocks validate unchanged. Shapes are validated ONLY when a block
+		// is present, using BlockCatalog as the single source of truth.
+		for j, b := range s.Blocks {
+			errs = append(errs, validateBlock(fmt.Sprintf("%s.blocks[%d]", prefix, j), b)...)
+		}
+
+		// Research gate (v4): non-trivial slices must cite web/doc research or
+		// record an explicit waiver, so plans are evidence-backed and don't
+		// reinvent battle-tested packages. Source URLs are always shape-checked.
+		errs = append(errs, validateSliceResearch(prefix, s, plan.Meta.SchemaVersion == "v4")...)
 	}
 
 	// Check dep references after collecting all nums.
@@ -289,4 +377,90 @@ func Validate(plan *PlanYAML) []string {
 		}
 	}
 	return errs
+}
+
+// validateSliceResearch enforces a slice's research basis. Source URLs are always
+// shape-checked (http/https). When enforced (v4) and the slice is non-trivial,
+// the slice must carry at least one research source OR a non-empty
+// research_waiver, so external claims are evidence-backed and battle-tested
+// packages are considered before building custom.
+func validateSliceResearch(prefix string, s PlanSlice, enforced bool) []string {
+	var errs []string
+	for i, r := range s.Research {
+		if !isResearchURL(r.URL) {
+			errs = append(errs, fmt.Sprintf("%s.research[%d].url %q must be an http(s) URL", prefix, i, r.URL))
+		}
+	}
+	if !enforced || s.Complexity == "trivial" {
+		return errs
+	}
+	if len(s.Research) == 0 && strings.TrimSpace(s.ResearchWaiver) == "" {
+		errs = append(errs, prefix+".research must cite at least 1 web/doc source (or set research_waiver) for standard/complex slices")
+	}
+	return errs
+}
+
+// isResearchURL reports whether u is a usable http(s) source URL — it must parse,
+// carry an http/https scheme, AND have a non-empty host (so bare "https://" or a
+// scheme-only string does not satisfy the gate).
+func isResearchURL(u string) bool {
+	parsed, err := url.Parse(strings.TrimSpace(u))
+	if err != nil {
+		return false
+	}
+	return (parsed.Scheme == "http" || parsed.Scheme == "https") && parsed.Hostname() != ""
+}
+
+// ValidateResearchAdvisories returns NON-BLOCKING advisories nudging research on
+// plans that do not yet enforce it (legacy/v3). It mirrors the v4 gate so the
+// validate-yaml CLI and the critique pass can surface research gaps without
+// failing the build. v4 plans return nil — the hard gate in Validate covers them.
+func ValidateResearchAdvisories(plan *PlanYAML) []string {
+	if plan == nil || plan.Meta.SchemaVersion == "v4" {
+		return nil
+	}
+	var adv []string
+	if len(plan.Design.Research) == 0 {
+		adv = append(adv, "design.research: no cited research basis; web research is expected for non-trivial plans (set schema_version: v4 to enforce)")
+	}
+	for i, s := range plan.Slices {
+		if s.Complexity == "trivial" {
+			continue
+		}
+		if len(s.Research) == 0 && strings.TrimSpace(s.ResearchWaiver) == "" {
+			adv = append(adv, fmt.Sprintf("slices[%d] (%s): no research sources cited and no research_waiver", i, s.ID))
+		}
+	}
+	return adv
+}
+
+// ValidateBlockAdvisories returns NON-BLOCKING advisories nudging visual-block
+// authorship for standard and complex slices that have no blocks. Trivial slices
+// are always exempt — they have minimal field requirements and no design surface
+// worth visualising. The advisory is informational only and never fails validation.
+//
+// Callers surface these the same way research advisories are surfaced: as
+// warnings in the validate-yaml / validate CLI paths.
+func ValidateBlockAdvisories(plan *PlanYAML) []string {
+	if plan == nil {
+		return nil
+	}
+	var adv []string
+	for i, s := range plan.Slices {
+		complexity := effectiveComplexity(s)
+		if complexity == "trivial" {
+			continue
+		}
+		if len(s.Blocks) == 0 {
+			id := s.ID
+			if id == "" {
+				id = fmt.Sprintf("num=%d", s.Num)
+			}
+			adv = append(adv, fmt.Sprintf(
+				"slices[%d] (%s, %s) has no visual blocks — consider `wipnote:visual-plan` to add grounded data-model/api-endpoint/file-tree/wireframe blocks",
+				i, id, complexity,
+			))
+		}
+	}
+	return adv
 }

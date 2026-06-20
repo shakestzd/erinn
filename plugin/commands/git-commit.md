@@ -10,7 +10,7 @@ Commit changes using Bash-copilot first, patch-coder as fallback.
 
 ## Parameters
 
-- `message` (optional): Commit message. If omitted, Claude analyzes the diff and drafts one.
+- `message` (optional): Commit message. If omitted, the active agent analyzes the diff and drafts one.
 - `--push`: Also push after committing.
 - `--files <list>`: Specific files to stage. Default: analyze git diff and select source files, excluding `.wipnote/`.
 
@@ -22,7 +22,7 @@ Commit changes using Bash-copilot first, patch-coder as fallback.
 /wipnote:git-commit --files internal/foo.go internal/foo_test.go "fix: resolve null pointer"
 ```
 
-## Instructions for Claude
+## Instructions
 
 **MANDATORY: You MUST follow these steps in order. Do NOT skip to direct git.**
 
@@ -80,7 +80,7 @@ git add <files> && git commit -m "<message>"
 
 [optional body]
 
-Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>
+Co-Authored-By: <agent name> <noreply@example.com>
 ```
 
 Types: `feat`, `fix`, `docs`, `refactor`, `test`, `chore`

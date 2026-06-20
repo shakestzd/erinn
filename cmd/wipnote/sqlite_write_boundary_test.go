@@ -205,7 +205,7 @@ var approvedWriteSites = []writeSite{
 	},
 	{
 		File:           "cmd/wipnote/plan_yaml_extras.go",
-		Line:           514,
+		Line:           524,
 		Function:       "applyAcceptedAmendments",
 		OpenExpr:       "dbpkg.Open",
 		Classification: intentionalCLIMutation,
@@ -221,7 +221,7 @@ var approvedWriteSites = []writeSite{
 	},
 	{
 		File:           "cmd/wipnote/plan_yaml_extras.go",
-		Line:           654,
+		Line:           664,
 		Function:       "runReadFeedbackYAML",
 		OpenExpr:       "dbpkg.Open",
 		Classification: intentionalCLIMutation,
@@ -273,7 +273,7 @@ var approvedWriteSites = []writeSite{
 	},
 	{
 		File:           "cmd/wipnote/serve_child.go",
-		Line:           383,
+		Line:           388,
 		Function:       "runServeChild",
 		OpenExpr:       "dbpkg.OpenWritable",
 		Classification: intentionalCLIMutation,
@@ -357,7 +357,7 @@ var approvedWriteSites = []writeSite{
 	},
 	{
 		File:           "cmd/wipnote/reindex.go",
-		Line:           51,
+		Line:           52,
 		Function:       "runReindex",
 		OpenExpr:       "dbpkg.Open",
 		Classification: reindexOnly,
@@ -378,6 +378,14 @@ var approvedWriteSites = []writeSite{
 		OpenExpr:       "dbpkg.Open",
 		Classification: reindexOnly,
 		Note:           "Slice 9 (feat-229f3333): bridge handle for the prompt_id correlation pass inside the OTel NDJSON replay. Reads orphans + writes UPDATE on agent_events.prompt_id only; the receiver.Writer owns the otel_signals write path. Disjoint tables, single-process reindex — no contention with the main writer.",
+	},
+	{
+		File:           "cmd/wipnote/recap_list.go",
+		Line:           105,
+		Function:       "openRecapsIndex",
+		OpenExpr:       "dbpkg.Open",
+		Classification: reindexOnly,
+		Note:           "feat-7bc6410b (slice-10): writable open for `wipnote recap list|show|delete` to refresh the recaps read-index (reindexRecaps) from the canonical .wipnote/recaps/*.html before querying. Same reindex family as the other reindex-only sites; single-process CLI invocation.",
 	},
 
 	// ----------------------------------------------------------------------
@@ -422,7 +430,7 @@ var approvedWriteSites = []writeSite{
 // migrated to the slice-6 writer service). Hook, collector, indexer, and
 // event-capture paths are the contention sources the plan targets.
 var forbiddenPathPrefixes = []string{
-	"cmd/wipnote/hook.go",      // hook event handlers
+	"cmd/wipnote/hook.go",     // hook event handlers
 	"core/hooks/",             // hook implementations (moved out of internal/ — feat-0e3f1b3f)
 	"observe/otel/indexer/",   // NDJSON→SQLite indexer (lifted into observe/ — feat-67f3ab7f)
 	"observe/otel/receiver/",  // OTLP HTTP receiver writer (lifted into observe/ — feat-67f3ab7f)

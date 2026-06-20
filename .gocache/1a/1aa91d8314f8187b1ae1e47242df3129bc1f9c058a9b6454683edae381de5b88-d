@@ -1,5 +1,0 @@
-./io.go
-./schema.go
-./validate.go
-./schema_test.go
-./validate_test.go

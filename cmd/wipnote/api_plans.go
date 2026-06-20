@@ -267,7 +267,22 @@ type planFeedbackResponse struct {
 	Status       string                     `json:"status"`
 	Sections     map[string]sectionFeedback `json:"sections"`
 	Questions    map[string]string          `json:"questions"`
+	Annotations  []planAnnotationEntry      `json:"annotations,omitempty"`
 	ChatMessages []chatMessageEntry         `json:"chat_messages,omitempty"`
+}
+
+// planAnnotationEntry is a single block-anchored annotation in the feedback
+// response (slice-8). It surfaces the two-axis state so a reviewer's UI (and
+// the read-feedback-yaml path) can render which notes have been consumed by an
+// agent vs resolved, and where each is routed.
+type planAnnotationEntry struct {
+	Section          string `json:"section"`
+	Anchor           string `json:"anchor"`
+	Comment          string `json:"comment"`
+	QuestionID       string `json:"question_id,omitempty"`
+	Consumed         bool   `json:"consumed"`
+	Resolved         bool   `json:"resolved"`
+	ResolutionTarget string `json:"resolution_target,omitempty"`
 }
 
 type sectionFeedback struct {
@@ -283,11 +298,20 @@ type chatMessageEntry struct {
 }
 
 // planFeedbackRequest is the body for POST /api/plans/{id}/feedback.
+//
+// When Action == "annotation" (slice-8 block-level annotations), the Anchor,
+// Consumed, Resolved and ResolutionTarget fields carry the two-axis state.
+// They are ignored for all other actions, so legacy approve/comment/answer
+// requests are unaffected.
 type planFeedbackRequest struct {
-	Section    string `json:"section"`
-	Action     string `json:"action"`
-	Value      string `json:"value"`
-	QuestionID string `json:"question_id"`
+	Section          string `json:"section"`
+	Action           string `json:"action"`
+	Value            string `json:"value"`
+	QuestionID       string `json:"question_id"`
+	Anchor           string `json:"anchor,omitempty"`
+	Consumed         bool   `json:"consumed,omitempty"`
+	Resolved         bool   `json:"resolved,omitempty"`
+	ResolutionTarget string `json:"resolution_target,omitempty"`
 }
 
 // planFileHandler serves HTML plan files from .wipnote/plans/{id}.html.
@@ -367,7 +391,14 @@ func planStatusHandler(database *sql.DB, wipnoteDir string) http.HandlerFunc {
 //	q-<name>                        — question answers (legacy)
 //	slice-<num>                     — slice-level approval (slice-4)
 //	slice-<num>-question-<id>       — slice-local question answer (slice-4)
-var validSectionRe = regexp.MustCompile(`^(design|outline|meta|critique|chat|slice-\d+-question-[a-z0-9-]+|slice-\d+|q-[a-z0-9-]+)$`)
+//	slice-<num>-block-<name>-<idx>  — block-anchored annotation (slice-8)
+//
+// The block-anchor alternative is TIGHTLY BOUNDED: it requires the literal
+// "slice-N-block-" prefix, a lowercase-kebab block name, and a trailing numeric
+// index. It deliberately does NOT open the section key to an arbitrary string —
+// the existing approval/answer contract must stay exact so finalize-yaml and the
+// slice-approval gates keep matching only the keys they expect.
+var validSectionRe = regexp.MustCompile(`^(design|outline|meta|critique|chat|slice-\d+-block-[a-z0-9-]+-\d+|slice-\d+-question-[a-z0-9-]+|slice-\d+|q-[a-z0-9-]+)$`)
 
 // planFeedbackSubmitHandler stores a feedback entry for a plan section.
 // POST /api/plans/{id}/feedback
@@ -399,6 +430,27 @@ func planFeedbackSubmitHandler(database *sql.DB) http.HandlerFunc {
 		planID, err := extractPlanID(r.URL.Path, "/feedback")
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+
+		// Block-level annotations (slice-8) carry the anchor + two-axis state
+		// (consumed/resolved/resolution_target) and are persisted via the
+		// dedicated StorePlanAnnotation upsert. All other actions
+		// (approve/comment/answer/finalize) use the original feedback path.
+		if req.Action == "annotation" {
+			if err := dbpkg.StorePlanAnnotation(database, planID, dbpkg.PlanAnnotation{
+				Section:          req.Section,
+				Anchor:           req.Anchor,
+				Value:            req.Value,
+				QuestionID:       req.QuestionID,
+				Consumed:         req.Consumed,
+				Resolved:         req.Resolved,
+				ResolutionTarget: req.ResolutionTarget,
+			}); err != nil {
+				http.Error(w, fmt.Sprintf("storing annotation: %v", err), http.StatusInternalServerError)
+				return
+			}
+			respondJSON(w, map[string]string{"status": "ok"})
 			return
 		}
 
@@ -1279,9 +1331,20 @@ func buildFeedbackResponse(planID string, entries []dbpkg.PlanFeedback) planFeed
 	questions := make(map[string]string)
 	approvedSections := make(map[string]bool)
 	var chatMessages []chatMessageEntry
+	var annotations []planAnnotationEntry
 
 	for _, e := range entries {
 		switch e.Action {
+		case "annotation":
+			annotations = append(annotations, planAnnotationEntry{
+				Section:          e.Section,
+				Anchor:           e.Anchor,
+				Comment:          e.Value,
+				QuestionID:       e.QuestionID,
+				Consumed:         e.Consumed,
+				Resolved:         e.Resolved,
+				ResolutionTarget: e.ResolutionTarget,
+			})
 		case "approve":
 			sf := sections[e.Section]
 			sf.Approved = dbpkg.IsPlanApprovalValueApproved(e.Value)
@@ -1324,6 +1387,7 @@ func buildFeedbackResponse(planID string, entries []dbpkg.PlanFeedback) planFeed
 		Status:       status,
 		Sections:     sections,
 		Questions:    questions,
+		Annotations:  annotations,
 		ChatMessages: chatMessages,
 	}
 }

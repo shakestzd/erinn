@@ -235,6 +235,94 @@ func TestPlanAddEdge_GenericPlan(t *testing.T) {
 	}
 }
 
+// richSlicePlanHTML is a plan file that has slice-card markers but NOT
+// data-zone=, so it would previously slip through isCRISPIPlanFile detection.
+// This tests the broadened rich-plan guard (Guard 2 / bug-17a49c83).
+const richSlicePlanHTML = `<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><title>Plan: Slice Only</title></head>
+<body>
+<article id="PLAN_ID" data-feature-id="feat-sliceonly" data-status="draft">
+<header><h1>Slice Only Plan</h1></header>
+<nav data-graph-edges></nav>
+<section class="slices">
+  <div class="slice-card" data-slice="1">
+    <span class="slice-name">Alpha Slice</span>
+    <div class="slice-body">SLICE_BODY_MARKER</div>
+  </div>
+  <div class="slice-card" data-slice="2">
+    <span class="slice-name">Beta Slice</span>
+    <div class="slice-body">SLICE_BODY_MARKER_2</div>
+  </div>
+</section>
+</article>
+</body>
+</html>
+`
+
+// writeSlicePlanFile writes a plan HTML that has slice-card markers
+// but not data-zone= — the old code would NOT detect this as CRISPI.
+func writeSlicePlanFile(t *testing.T, dir, planID string) {
+	t.Helper()
+	plansDir := filepath.Join(dir, "plans")
+	if err := os.MkdirAll(plansDir, 0o755); err != nil {
+		t.Fatalf("mkdir plans: %v", err)
+	}
+	content := strings.ReplaceAll(richSlicePlanHTML, "PLAN_ID", planID)
+	if err := os.WriteFile(filepath.Join(plansDir, planID+".html"), []byte(content), 0o644); err != nil {
+		t.Fatalf("write slice plan: %v", err)
+	}
+}
+
+// TestPlanAddEdge_SliceOnlyPreservation is the Guard 2 regression test.
+// A plan file that contains slice-card markers (but NOT data-zone=) must
+// NOT be collapsed to a minimal WriteNodeHTML shell on metadata updates.
+func TestPlanAddEdge_SliceOnlyPreservation(t *testing.T) {
+	p := newTestProject(t)
+	dir := p.ProjectDir
+
+	node, err := p.Plans.Create("Slice Only Plan")
+	if err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+	planID := node.ID
+
+	// Replace generic HTML with slice-only (no data-zone=) content.
+	writeSlicePlanFile(t, dir, planID)
+
+	before := readPlanFile(t, dir, planID)
+	if !strings.Contains(before, "SLICE_BODY_MARKER") {
+		t.Fatal("setup: slice body marker missing before AddEdge")
+	}
+	if !strings.Contains(before, `class="slice-card"`) {
+		t.Fatal("setup: slice-card missing before AddEdge")
+	}
+
+	// AddEdge triggers writeNode — previously this would call WriteNodeHTML
+	// (full regen) and destroy the slice cards.
+	edge := models.Edge{
+		TargetID:     "trk-slice-guard",
+		Relationship: models.RelImplementedIn,
+		Title:        "Guard Track",
+		Since:        time.Now().UTC(),
+	}
+	if _, err := p.Plans.AddEdge(planID, edge); err != nil {
+		t.Fatalf("AddEdge: %v", err)
+	}
+
+	after := readPlanFile(t, dir, planID)
+
+	if !strings.Contains(after, "SLICE_BODY_MARKER") {
+		t.Error("Guard 2 failed: slice body marker was destroyed by AddEdge (minimal regen path taken)")
+	}
+	if !strings.Contains(after, `class="slice-card"`) {
+		t.Error("Guard 2 failed: slice-card class destroyed by AddEdge")
+	}
+	if !strings.Contains(after, "trk-slice-guard") {
+		t.Error("edge not written into slice-only plan file")
+	}
+}
+
 // TestPlanAddEdge_MultipleEdges verifies that calling AddEdge multiple times
 // accumulates edges without overwriting previous ones.
 func TestPlanAddEdge_MultipleEdges(t *testing.T) {

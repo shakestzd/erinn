@@ -3,6 +3,7 @@ package hooks
 import (
 	"context"
 	"database/sql"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -12,12 +13,12 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/shakestzd/wipnote/core/agent"
 	"github.com/shakestzd/wipnote/core/db"
 	"github.com/shakestzd/wipnote/core/eventsink"
 	"github.com/shakestzd/wipnote/core/models"
 	"github.com/shakestzd/wipnote/core/paths"
 	"github.com/shakestzd/wipnote/core/provenance"
-	"github.com/shakestzd/wipnote/core/agent"
 	"github.com/shakestzd/wipnote/core/worktree"
 )
 
@@ -105,6 +106,13 @@ type launchModeFile struct {
 	Timestamp string `json:"timestamp"`
 }
 
+var allowedHarnesses = map[string]struct{}{
+	"claude":      {},
+	"codex":       {},
+	"gemini":      {},
+	"antigravity": {},
+}
+
 // bareLaunchNudge returns a context nudge when Claude was started without
 // `wipnote claude` (i.e. .launch-mode is missing or older than 30 seconds).
 // Returns an empty string when the orchestrator system prompt is already active.
@@ -176,9 +184,12 @@ func SessionStart(event *CloudEvent, database *sql.DB, projectDir string) (*Hook
 	// Propagate session ID to downstream hooks while git is running.
 	writeEnvVars(sessionID, projectDir)
 
-	// Emit the Rosetta correlation event: maps launcher-minted WIPNOTE_SESSION_ID
+	// Emit the Rosetta correlation event: maps launcher-minted OTel session ID
 	// to Claude Code's own session_id so the dashboard can follow --resume flows.
-	emitRosettaEvent(projectDir, os.Getenv("WIPNOTE_SESSION_ID"), event.SessionID)
+	// WIPNOTE_OTEL_SESSION_ID carries the OTel collector's 28-char hex ID minted
+	// by the launcher; WIPNOTE_SESSION_ID is now reserved for the real Claude Code
+	// session identity (set by writeEnvVars after this point). See bug-b262d303.
+	emitRosettaEvent(projectDir, os.Getenv("WIPNOTE_OTEL_SESSION_ID"), event.SessionID)
 
 	// Wait for git result — upsertSession needs the commit hash.
 	startCommit := <-commitCh
@@ -203,7 +214,11 @@ func SessionStart(event *CloudEvent, database *sql.DB, projectDir string) (*Hook
 		// sessions ingested from foreign machines (where the canonical root
 		// differs from the local repo) are stored with an "unresolved:" prefix
 		// so they are queryable without silently mangling the original path.
-		ProjectDir: paths.NormalizeProjectDir(projectDir),
+		ProjectDir:       paths.NormalizeProjectDir(projectDir),
+		ExecWorktreePath: execWorktreeRelPath(event.CWD, projectDir),
+		Branch:           gitBranch(execDirOrDefault(event.CWD, projectDir)),
+		Harness:          resolveHarness(),
+		ContinuedFrom:    strings.TrimSpace(os.Getenv("WIPNOTE_CONTINUED_FROM")),
 	}
 
 	// Prefer CloudEvent fields over env vars (more reliable).
@@ -296,6 +311,19 @@ func SessionStart(event *CloudEvent, database *sql.DB, projectDir string) (*Hook
 		agentID := s.AgentAssigned
 		_ = agent.RegisterSessionFamily(projectDir, sessionID, familyID)
 		_ = agent.WriteSessionState(projectDir, sessionID, agentID, familyID)
+
+		// Forward-propagate work-item attribution across the family. Claude Code
+		// splits a session: this hook fires on the short parent stub (which holds
+		// active_feature_id), but the real long-running child session IDs never get
+		// a SessionStart the hook observes. Reconciling here on every launch copies
+		// the family's work item onto any sibling that still lacks one, so the
+		// chooser, dashboard, and analytics all attribute the split children.
+		if n, perr := db.PropagateFamilyAttribution(database, familyID); perr != nil {
+			debugLog(projectDir, "[session-start] propagate family attribution: %v", perr)
+		} else if n > 0 {
+			persistFamilyAttributionHTML(projectDir, database, familyID)
+			debugLog(projectDir, "[session-start] propagated work item to %d family sibling(s) of %s", n, shortID)
+		}
 	}
 
 	// Surface (and consume) any durable reconcile warnings persisted by a
@@ -303,32 +331,55 @@ func SessionStart(event *CloudEvent, database *sql.DB, projectDir string) (*Hook
 	// non-blocking counterpart to the Claude exit-2 path: the user-never-
 	// returns case is recorded at session exit and rendered here on return.
 	reconcilePrefix := DrainReconcileWarnings(projectDir)
+	continuePrefix := continueHandoffContextFromEnv()
 
 	// Warn the user when the CLI and plugin versions have drifted.
 	warning := versionMismatchWarning()
 	if warning != "" {
 		debugLog(projectDir, "[session-start] version mismatch detected: %s", warning)
-		return &HookResult{AdditionalContext: joinReconcileContext(reconcilePrefix, warning)}, nil
+		return &HookResult{AdditionalContext: joinSessionStartContext(continuePrefix, reconcilePrefix, warning)}, nil
 	}
 
 	// Emit full attribution block at session start (once per session).
 	// This includes: intro + open work items roster + CLI quick-ref + required flags.
 	attribution := buildSessionStartAttribution(database)
 	if attribution != "" {
-		return &HookResult{AdditionalContext: joinReconcileContext(reconcilePrefix, attribution)}, nil
+		return &HookResult{AdditionalContext: joinSessionStartContext(continuePrefix, reconcilePrefix, attribution)}, nil
 	}
 
 	// Fallback nudge if no attribution block was generated (no open items).
 	// This nudge uses the same "wipnote plugin is active..." message.
 	if nudge := bareLaunchNudge(projectDir); nudge != "" {
-		return &HookResult{AdditionalContext: joinReconcileContext(reconcilePrefix, nudge)}, nil
+		return &HookResult{AdditionalContext: joinSessionStartContext(continuePrefix, reconcilePrefix, nudge)}, nil
 	}
 
-	if reconcilePrefix != "" {
-		return &HookResult{AdditionalContext: reconcilePrefix}, nil
+	if continuePrefix != "" || reconcilePrefix != "" {
+		return &HookResult{AdditionalContext: joinSessionStartContext(continuePrefix, reconcilePrefix)}, nil
 	}
 
 	return &HookResult{}, nil
+}
+
+func continueHandoffContextFromEnv() string {
+	raw := strings.TrimSpace(os.Getenv("WIPNOTE_CONTINUE_HANDOFF_B64"))
+	if raw == "" {
+		return ""
+	}
+	decoded, err := base64.StdEncoding.DecodeString(raw)
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(string(decoded))
+}
+
+func joinSessionStartContext(parts ...string) string {
+	filtered := make([]string, 0, len(parts))
+	for _, part := range parts {
+		if trimmed := strings.TrimSpace(part); trimmed != "" {
+			filtered = append(filtered, trimmed)
+		}
+	}
+	return strings.Join(filtered, "\n\n")
 }
 
 // joinReconcileContext prepends a non-empty durable-reconcile warning block to
@@ -407,6 +458,22 @@ func runSessionTransaction(database *sql.DB, s *models.Session, inp *lineageInpu
 	return tx.Commit()
 }
 
+func persistFamilyAttributionHTML(projectDir string, database *sql.DB, familyID string) {
+	members, err := db.GetSessionsByFamily(database, familyID)
+	if err != nil {
+		return
+	}
+	for _, sid := range members {
+		featureID := db.GetActiveWorkItemWithFallback(database, sid, db.AgentRootSentinel)
+		if featureID == "" {
+			continue
+		}
+		if err := SetSessionHTMLActiveFeature(projectDir, sid, featureID); err != nil {
+			debugLog(projectDir, "[session-start] persist family attribution html %s: %v", sid, err)
+		}
+	}
+}
+
 // upsertSessionTx inserts the session row within a transaction,
 // ignoring duplicate-key conflicts (session may already exist on resume).
 func upsertSessionTx(tx *sql.Tx, s *models.Session) error {
@@ -414,8 +481,8 @@ func upsertSessionTx(tx *sql.Tx, s *models.Session) error {
 		INSERT OR IGNORE INTO sessions
 			(session_id, agent_assigned, parent_session_id, parent_event_id,
 			 created_at, status, start_commit, is_subagent, model, active_feature_id,
-			 git_remote_url, project_dir)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+			 git_remote_url, project_dir, exec_worktree_path, branch, harness, continued_from)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		s.SessionID,
 		s.AgentAssigned,
 		nullableStr(s.ParentSessionID),
@@ -428,6 +495,10 @@ func upsertSessionTx(tx *sql.Tx, s *models.Session) error {
 		nullableStr(s.ActiveFeatureID),
 		nullableStr(s.GitRemoteURL),
 		nullableStr(s.ProjectDir),
+		nullableStr(s.ExecWorktreePath),
+		nullableStr(s.Branch),
+		nullableStr(s.Harness),
+		nullableStr(s.ContinuedFrom),
 	)
 	return err
 }
@@ -528,6 +599,91 @@ func headCommit(dir string) string {
 	return strings.TrimSpace(string(out))
 }
 
+func normalizeHarness(raw string) string {
+	h := strings.ToLower(strings.TrimSpace(raw))
+	if _, ok := allowedHarnesses[h]; ok {
+		return h
+	}
+	return ""
+}
+
+// resolveHarness returns the effective harness for the current session.
+// Priority: WIPNOTE_HARNESS (launcher-stamped) → CLAUDE_CODE_ENTRYPOINT
+// (Claude Code sets this in every hook invocation; its presence means the
+// Claude launcher was used without stamping WIPNOTE_HARNESS, so default to
+// "claude").
+func resolveHarness() string {
+	if h := normalizeHarness(os.Getenv("WIPNOTE_HARNESS")); h != "" {
+		return h
+	}
+	if os.Getenv("CLAUDE_CODE_ENTRYPOINT") != "" {
+		return "claude"
+	}
+	return ""
+}
+
+func execDirOrDefault(cwd, projectDir string) string {
+	if cwd != "" {
+		return cwd
+	}
+	return projectDir
+}
+
+func gitBranch(dir string) string {
+	if dir == "" {
+		return ""
+	}
+	cmd := exec.Command("git", "rev-parse", "--abbrev-ref", "HEAD")
+	cmd.Dir = dir
+	out, err := cmd.Output()
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(string(out))
+}
+
+// gitTopLevel returns the git top-level directory for dir, or "" on error.
+func gitTopLevel(dir string) string {
+	if dir == "" {
+		return ""
+	}
+	cmd := exec.Command("git", "rev-parse", "--show-toplevel")
+	cmd.Dir = dir
+	out, err := cmd.Output()
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(string(out))
+}
+
+// execWorktreeRelPath returns the repo-relative path when cwd is a REAL linked
+// git worktree (i.e. its git top-level differs from projectDir). Plain
+// subdirectories of projectDir share the same git top-level and therefore get
+// an empty return so they are not misrecorded as worktrees.
+func execWorktreeRelPath(cwd, projectDir string) string {
+	if cwd == "" || cwd == projectDir {
+		return ""
+	}
+	if !filepath.IsAbs(projectDir) || !filepath.IsAbs(cwd) {
+		return ""
+	}
+	// Only record a path when cwd is a real linked worktree: its git
+	// top-level must differ from projectDir. A plain subdirectory of the
+	// main repo shares the same top-level and is NOT a worktree.
+	cwdTop := gitTopLevel(cwd)
+	if cwdTop == "" || cwdTop == projectDir {
+		return ""
+	}
+	rel, err := filepath.Rel(projectDir, cwdTop)
+	if err != nil {
+		return ""
+	}
+	if rel == "." || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+		return ""
+	}
+	return filepath.ToSlash(rel)
+}
+
 // isSubagent returns true when env vars indicate this is a spawned subagent.
 // Falls back to checking .active-session when env vars are absent (worktrees).
 func isSubagent() bool {
@@ -603,13 +759,14 @@ func buildSessionStartAttribution(database *sql.DB) string {
 }
 
 // emitRosettaEvent writes a session_start NDJSON line correlating the
-// launcher-minted WIPNOTE_SESSION_ID with Claude Code's own session_id.
-// This is the "Rosetta stone" record that lets the dashboard map a
-// `claude --resume <id>` back to the originating wipnote session.
+// launcher-minted OTel session ID (WIPNOTE_OTEL_SESSION_ID) with Claude Code's
+// own session_id. This is the "Rosetta stone" record that lets the dashboard
+// map a `claude --resume <id>` back to the originating wipnote session.
 //
-// The event is written only when WIPNOTE_SESSION_ID is set (i.e. the
-// session was started via `wipnote claude`). If it is unset, or if the
-// session directory cannot be created, the function returns silently.
+// The event is written only when wipnoteSID is set (i.e. WIPNOTE_OTEL_SESSION_ID
+// was populated by the launcher, meaning the session was started via `wipnote
+// claude`). If it is unset, or if the session directory cannot be created, the
+// function returns silently.
 func emitRosettaEvent(projectDir, wipnoteSID, claudeSessionID string) {
 	if wipnoteSID == "" {
 		return // not a launcher-managed session; skip silently

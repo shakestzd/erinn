@@ -4,11 +4,14 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
+	"time"
 
-	"github.com/shakestzd/wipnote/internal/launcher/mode"
-	"github.com/shakestzd/wipnote/internal/launcher/plan"
+	"github.com/shakestzd/wipnote/cmd/wipnote/launchtui"
 	"github.com/shakestzd/wipnote/core/paths"
 	"github.com/shakestzd/wipnote/core/worktree"
+	"github.com/shakestzd/wipnote/internal/launcher/mode"
+	"github.com/shakestzd/wipnote/internal/launcher/plan"
 )
 
 // LauncherModeResult is the computed mode object exposed to preflight paths.
@@ -41,20 +44,44 @@ func computeLauncherMode(worktreePath string, devPlugin, generatedPort bool) Lau
 // caller emits an accurate message reflecting the worktree+carryover behavior
 // instead (bug-7d4b6c63). The returned plan still carries DirtyMainWarning so
 // enforceLaunchPlan can use it.
-func applyLaunchPlanOpts(repoRoot, workItemID string, inPlace, suppressDirtyWarning bool, w io.Writer) plan.LaunchPlan {
+//
+// canonicalRoot must be the canonical main repository root (from canonicalProjectRoot),
+// not a linked worktree path. It is used to read the launch_isolation config from
+// the main repo's .wipnote/ directory.
+func applyLaunchPlanOpts(canonicalRoot, repoRoot, workItemID string, inPlace, suppressDirtyWarning bool, w io.Writer) plan.LaunchPlan {
 	m := mode.Compute("", false, false, false)
+
+	// Resolve effective isolation from .wipnote/config.json ("launch_isolation")
+	// ORed with the legacy WIPNOTE_ENFORCE_ISOLATION env var. Absent config keeps
+	// today's warn-only behavior (backward compatible).
+	// Always read from the canonical root so the project-level config is honored
+	// even when called from within an isolated worktree.
+	enforce, autoWorktree := resolveIsolationFlags(canonicalRoot)
+
+	// In auto mode with no work item, supply a deterministic ad-hoc branch slug so
+	// PlanLaunch can plan a managed worktree without reading the clock itself.
+	var adhoc string
+	if autoWorktree && workItemID == "" && !inPlace {
+		adhoc = adhocBranchName(time.Now())
+	}
+
 	p, err := plan.PlanLaunch(plan.Input{
-		RepoRoot:    repoRoot,
-		WorkItemID:  workItemID,
-		RuntimeMode: m.Runtime,
-		InPlace:     inPlace,
-		EnforceIsolation: os.Getenv("WIPNOTE_ENFORCE_ISOLATION") == "true",
+		RepoRoot:         repoRoot,
+		WorkItemID:       workItemID,
+		RuntimeMode:      m.Runtime,
+		InPlace:          inPlace,
+		EnforceIsolation: enforce,
+		AutoWorktree:     autoWorktree,
+		AdhocBranchName:  adhoc,
 	})
 	if err != nil {
 		return p
 	}
 	if p.DirtyMainWarning != "" && !suppressDirtyWarning {
-		fmt.Fprintln(w, p.DirtyMainWarning)
+		fmt.Fprintln(w, launchtui.RenderLaunchBanner(nil, launchtui.BannerInput{
+			Warning:         p.DirtyMainWarning,
+			WarningSeverity: "red",
+		}))
 	}
 	if os.Getenv("WIPNOTE_DEBUG") != "" {
 		fmt.Fprintf(os.Stderr,
@@ -79,7 +106,10 @@ func enforceLaunchPlan(p plan.LaunchPlan, w io.Writer) error {
 		return nil
 	}
 	if p.DirtyMainWarning != "" {
-		fmt.Fprintln(w, p.DirtyMainWarning)
+		fmt.Fprintln(w, launchtui.RenderLaunchBanner(nil, launchtui.BannerInput{
+			Warning:         p.DirtyMainWarning,
+			WarningSeverity: "red",
+		}))
 	}
 	return fmt.Errorf(
 		"launch refused: WIPNOTE_ENFORCE_ISOLATION=true and the protected branch is dirty.\n"+
@@ -121,6 +151,13 @@ func resolveManagedWorktreeStatus(p plan.LaunchPlan, projectRoot, trackID, featu
 	case workItemID != "":
 		path, created, err := worktree.EnsureForFeatureStatus(workItemID, projectRoot, w)
 		return path, created, err
+	case p.PlannedWorktreePath != "":
+		// Auto mode with no work item: the plan named an ad-hoc worktree (its
+		// directory basename is the deterministic adhoc slug). Create it under
+		// .claude/worktrees/<slug> consistent with plannedWorktreePath.
+		slug := filepath.Base(p.PlannedWorktreePath)
+		path, created, err := worktree.EnsureForAdhocStatus(slug, projectRoot, w)
+		return path, created, err
 	}
 	return fallbackDir, false, nil
 }
@@ -137,4 +174,19 @@ func resolveManagedWorktreeStatus(p plan.LaunchPlan, projectRoot, trackID, featu
 // process; only WIPNOTE_PROJECT_DIR (controlled via WipnoteRoot) is changed.
 func canonicalProjectRoot(projectRoot string) string {
 	return paths.ResolveViaGitCommonDir(projectRoot)
+}
+
+// effectiveWorkItemID returns the first non-empty ID from workItem, trackID,
+// featureID. This is the ID passed to applyLaunchPlanOpts so the isolation
+// planner knows a work item exists even when only --track/--feature was set
+// (workItem is empty in that case). Without this, EnforceIsolation=true would
+// fire a false RefuseLaunch before the track/feature worktree is resolved.
+func effectiveWorkItemID(workItem, trackID, featureID string) string {
+	if workItem != "" {
+		return workItem
+	}
+	if trackID != "" {
+		return trackID
+	}
+	return featureID
 }

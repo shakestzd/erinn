@@ -189,32 +189,74 @@ func TestCheckYoloWorkItemGuard(t *testing.T) {
 	}
 }
 
-// TestHasAnyActiveWorkItem verifies the DB-backed fallback used when session ID
-// propagation is broken in YOLO mode (CLAUDE_ENV_FILE unset).
-func TestHasAnyActiveWorkItem(t *testing.T) {
+// TestAncestorHasActiveWorkItem verifies the one-hop parent-chain fallback that
+// lets nested/subagent sessions inherit the orchestrator's active work item
+// without reintroducing the global "any in-progress item" false-pass.
+func TestAncestorHasActiveWorkItem(t *testing.T) {
 	tdb := setupTestDB(t)
 	defer tdb.DB.Close()
 
-	// No work items → false
-	if hasAnyActiveWorkItem(tdb.DB) {
-		t.Error("expected false with no work items")
+	if ancestorHasActiveWorkItem(nil, "x") {
+		t.Error("nil DB → false")
+	}
+	if ancestorHasActiveWorkItem(tdb.DB, "") {
+		t.Error("empty session → false")
 	}
 
-	// Add a todo feature — still false
-	tdb.addFeature("feat-todo", "feature", "Todo feature", "todo")
-	if hasAnyActiveWorkItem(tdb.DB) {
-		t.Error("expected false with only todo feature")
+	// Session with no parent → false.
+	tdb.addSession("child-noparent", "", "")
+	if ancestorHasActiveWorkItem(tdb.DB, "child-noparent") {
+		t.Error("no parent → false")
 	}
 
-	// Add an in-progress bug → true
-	tdb.addFeature("bug-active", "bug", "Active bug", "in-progress")
-	if !hasAnyActiveWorkItem(tdb.DB) {
-		t.Error("expected true with in-progress bug")
+	// Parent has an in-progress active feature → true.
+	tdb.addFeature("feat-live", "feature", "Live", "in-progress")
+	tdb.addSession("parent-live", "", "feat-live")
+	tdb.addSession("child-live", "parent-live", "")
+	if !ancestorHasActiveWorkItem(tdb.DB, "child-live") {
+		t.Error("parent with in-progress feature → true")
 	}
 
-	// nil DB → false (safe guard)
-	if hasAnyActiveWorkItem(nil) {
-		t.Error("expected false for nil db")
+	// Parent's active feature is completed → false (no stale false-pass).
+	tdb.addFeature("feat-done", "feature", "Done", "done")
+	tdb.addSession("parent-done", "", "feat-done")
+	tdb.addSession("child-done", "parent-done", "")
+	if ancestorHasActiveWorkItem(tdb.DB, "child-done") {
+		t.Error("parent with completed feature → false")
+	}
+}
+
+// TestCheckYoloWorkItemGuard_NestedSessionInheritsParent verifies that a
+// subagent whose own session row has no active_feature_id is allowed to write
+// when its parent (orchestrator) session holds an in-progress work item.
+func TestCheckYoloWorkItemGuard_NestedSessionInheritsParent(t *testing.T) {
+	tdb := setupTestDB(t)
+	defer tdb.DB.Close()
+
+	tdb.addFeature("feat-nest", "feature", "Nested", "in-progress")
+	tdb.addSession("orch", "", "feat-nest")
+	tdb.addSession("sub", "orch", "")
+
+	for _, tool := range []string{"Write", "Edit", "MultiEdit", "apply_patch"} {
+		if got := checkYoloWorkItemGuard(tool, "", true, "sub", tdb.DB, "", ""); got != "" {
+			t.Errorf("%s in nested session should be allowed via parent, got block: %s", tool, got)
+		}
+	}
+}
+
+// TestCheckYoloWorkItemGuard_UnrelatedSessionStillBlocked verifies that an
+// in-progress work item on a session OUTSIDE the parent chain does not satisfy
+// the guard (the false-pass the removed hasAnyActiveWorkItem caused).
+func TestCheckYoloWorkItemGuard_UnrelatedSessionStillBlocked(t *testing.T) {
+	tdb := setupTestDB(t)
+	defer tdb.DB.Close()
+
+	tdb.addFeature("feat-other", "feature", "Other", "in-progress")
+	tdb.addSession("unrelated", "", "feat-other")
+	tdb.addSession("lonely", "", "") // no parent, no feature of its own
+
+	if got := checkYoloWorkItemGuard("Write", "", true, "lonely", tdb.DB, "", ""); got == "" {
+		t.Error("unrelated in-progress feature must NOT satisfy a different session")
 	}
 }
 

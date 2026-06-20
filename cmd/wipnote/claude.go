@@ -9,7 +9,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/shakestzd/wipnote/cmd/wipnote/launchtui"
 	"github.com/shakestzd/wipnote/core/slug"
+	"github.com/shakestzd/wipnote/internal/launcher"
 	"github.com/spf13/cobra"
 )
 
@@ -56,6 +58,12 @@ type LaunchOpts struct {
 	// Used when ProjectRoot is a worktree — all work item tracking resolves to this path
 	// instead of the worktree copy. Injected as WIPNOTE_PROJECT_DIR env var.
 	WipnoteRoot string
+	// Intent records whether the launcher is starting new work or continuing
+	// existing work. Harness-neutral contract for downstream launchers.
+	Intent launcher.LaunchIntent
+	// ExtraEnv is layered onto the child environment after the launcher builds
+	// its standard wipnote + telemetry overrides.
+	ExtraEnv []string
 }
 
 func claudeCmd() *cobra.Command {
@@ -84,7 +92,7 @@ func claudeCmd() *cobra.Command {
 			_ = baseBranch // reserved for slice-3+; accepted but not yet acted on
 			switch {
 			case dev:
-				return launchClaudeDev(args, auto, resumeID, name)
+				return launchClaudeDev(args, auto, resumeID, name, workItem, effectiveInPlace, continue_)
 			case auto:
 				return launchClaudeAuto(args, resumeID, name)
 			case init_:
@@ -111,6 +119,26 @@ func claudeCmd() *cobra.Command {
 	return cmd
 }
 
+// resolveSessionName returns the session name to pass to Claude Code.
+//
+// Rules (in priority order):
+//  1. An explicitly provided sessionName is always kept as-is.
+//  2. When continue_ is true the caller is resuming the most-recent session via
+//     --continue; no synthesized name is emitted so it doesn't conflict with the
+//     implicit resume.
+//  3. When resumeID is non-empty the caller is resuming a specific session by ID;
+//     synthesizing a name would rename or conflict with the existing session.
+//  4. Otherwise (fresh launch) a default name is synthesized via defaultSessionName.
+func resolveSessionName(sessionName, resumeID string, continue_ bool, projectRoot string) string {
+	if sessionName != "" {
+		return sessionName
+	}
+	if continue_ || resumeID != "" {
+		return ""
+	}
+	return defaultSessionName(projectRoot)
+}
+
 // defaultSessionName builds a default session label: <project-slug>-<timestamp>.
 // projectRoot may be empty, in which case the label is just the timestamp.
 func defaultSessionName(projectRoot string) string {
@@ -125,30 +153,11 @@ func defaultSessionName(projectRoot string) string {
 	return projectSlug + "-" + ts
 }
 
-// removeMarketplaceWipnote fully removes the wipnote marketplace plugin so it
-// cannot shadow --plugin-dir agents/skills during dev mode. Belt-and-braces:
-// uninstall removes the install record, disable flips the enabled flag, and
-// RemoveAll wipes any cloned/cached files that linger even after uninstall.
-func removeMarketplaceWipnote() {
-	fmt.Println("Removing marketplace wipnote plugin for dev mode...")
-	// Legacy htmlgraph scopes are still removed so old marketplace installs
-	// cannot shadow local wipnote dev plugins.
-	for _, scope := range []string{"wipnote@wipnote", "wipnote@local-marketplace", "htmlgraph@htmlgraph", "htmlgraph@local-marketplace"} {
-		if out, err := exec.Command("claude", "plugin", "uninstall", scope).CombinedOutput(); err != nil {
-			msg := strings.ToLower(strings.TrimSpace(string(out)))
-			if !strings.Contains(msg, "not found") && !strings.Contains(msg, "not installed") && !strings.Contains(msg, "already uninstalled") {
-				fmt.Fprintf(os.Stdout, "warning: plugin uninstall %s: %v (%s)\n", scope, err, strings.TrimSpace(string(out)))
-			}
-		}
-		if out, err := exec.Command("claude", "plugin", "disable", scope).CombinedOutput(); err != nil {
-			msg := strings.ToLower(strings.TrimSpace(string(out)))
-			if !strings.Contains(msg, "not found") && !strings.Contains(msg, "not installed") && !strings.Contains(msg, "already disabled") {
-				fmt.Fprintf(os.Stdout, "warning: plugin disable %s: %v (%s)\n", scope, err, strings.TrimSpace(string(out)))
-			}
-		}
-	}
+// marketplaceArtifactDirs returns all artifact directories that may be removed
+// by removeMarketplaceWipnote (wipnote and legacy htmlgraph scopes).
+func marketplaceArtifactDirs() []string {
 	home, _ := os.UserHomeDir()
-	marketplaceDirs := []string{
+	return []string{
 		filepath.Join(home, ".claude", "plugins", "marketplaces", "wipnote"),
 		filepath.Join(home, ".claude", "plugins", "cache", "wipnote"),
 		filepath.Join(home, ".claude", "plugins", "cache", "local-marketplace", "wipnote"),
@@ -156,7 +165,64 @@ func removeMarketplaceWipnote() {
 		filepath.Join(home, ".claude", "plugins", "cache", "htmlgraph"),
 		filepath.Join(home, ".claude", "plugins", "cache", "local-marketplace", "htmlgraph"),
 	}
-	for _, dir := range marketplaceDirs {
+}
+
+// marketplaceWipnotePresent reports whether any marketplace wipnote artifact
+// exists that would need removing before a dev-mode launch. It checks:
+//   - isPluginInstalled() (installed_plugins.json entry)
+//   - all artifact directories that removeMarketplaceWipnote would remove
+//
+// When this returns false, removeMarketplaceWipnote can skip all subprocess
+// calls immediately. Pure-ish (reads files + os.Stat) so it is unit-testable.
+func marketplaceWipnotePresent() bool {
+	if isPluginInstalled() {
+		return true
+	}
+	for _, dir := range marketplaceArtifactDirs() {
+		if _, err := os.Stat(dir); err == nil {
+			return true
+		}
+	}
+	return false
+}
+
+// removeMarketplaceWipnote fully removes the wipnote marketplace plugin so it
+// cannot shadow --plugin-dir agents/skills during dev mode. Belt-and-braces:
+// uninstall removes the install record, disable flips the enabled flag, and
+// RemoveAll wipes any cloned/cached files that linger even after uninstall.
+//
+// Fast-path: when marketplaceWipnotePresent() is false all subprocess calls
+// are skipped entirely (~4s saved on every --dev launch when never installed).
+func removeMarketplaceWipnote() {
+	if !marketplaceWipnotePresent() {
+		return
+	}
+	fmt.Println("Removing marketplace wipnote plugin for dev mode...")
+	// Legacy htmlgraph scopes are still removed so old marketplace installs
+	// cannot shadow local wipnote dev plugins.
+	scopes := []string{"wipnote@wipnote", "wipnote@local-marketplace", "htmlgraph@htmlgraph", "htmlgraph@local-marketplace"}
+	total := len(scopes) * 2 // uninstall + disable per scope
+	step := 0
+	for _, scope := range scopes {
+		step++
+		fmt.Fprintf(os.Stderr, "wipnote: cleaning legacy marketplace plugin (%d/%d)...\r", step, total)
+		if out, err := exec.Command("claude", "plugin", "uninstall", scope).CombinedOutput(); err != nil {
+			msg := strings.ToLower(strings.TrimSpace(string(out)))
+			if !strings.Contains(msg, "not found") && !strings.Contains(msg, "not installed") && !strings.Contains(msg, "already uninstalled") {
+				fmt.Fprintf(os.Stdout, "warning: plugin uninstall %s: %v (%s)\n", scope, err, strings.TrimSpace(string(out)))
+			}
+		}
+		step++
+		fmt.Fprintf(os.Stderr, "wipnote: cleaning legacy marketplace plugin (%d/%d)...\r", step, total)
+		if out, err := exec.Command("claude", "plugin", "disable", scope).CombinedOutput(); err != nil {
+			msg := strings.ToLower(strings.TrimSpace(string(out)))
+			if !strings.Contains(msg, "not found") && !strings.Contains(msg, "not installed") && !strings.Contains(msg, "already disabled") {
+				fmt.Fprintf(os.Stdout, "warning: plugin disable %s: %v (%s)\n", scope, err, strings.TrimSpace(string(out)))
+			}
+		}
+	}
+	fmt.Fprintln(os.Stderr) // terminate the \r line
+	for _, dir := range marketplaceArtifactDirs() {
 		if err := os.RemoveAll(dir); err != nil {
 			fmt.Fprintf(os.Stdout, "warning: could not remove %s: %v\n", dir, err)
 		}
@@ -164,23 +230,14 @@ func removeMarketplaceWipnote() {
 	fmt.Println("Marketplace wipnote removed (uninstalled, disabled, cache wiped).")
 }
 
-func launchClaudeDev(extraArgs []string, auto bool, resumeID, name string) error {
-	// Dev mode resolves the plugin from local source, NOT the marketplace.
-	// resolveProjectPluginDir walks up from CWD to find plugin/.claude-plugin/plugin.json.
-	pluginDir := resolveProjectPluginDir()
-	if pluginDir == "" {
-		return fmt.Errorf("could not find plugin/ directory relative to project root. Run from the project directory containing .wipnote/ and plugin/")
-	}
-	// Verify expected plugin structure.
-	if _, err := os.Stat(filepath.Join(pluginDir, ".claude-plugin", "plugin.json")); os.IsNotExist(err) {
-		return fmt.Errorf("plugin.json not found at %s",
-			filepath.Join(pluginDir, ".claude-plugin", "plugin.json"))
-	}
+func launchClaudeDev(extraArgs []string, auto bool, resumeID, name, workItem string, inPlace, continue_ bool) error {
 	if err := requireWipnoteOnPath(); err != nil {
 		return err
 	}
 
-	// Resolve project root so paths are anchored correctly regardless of CWD.
+	// Resolve the source project root (the wipnote repo with plugin/).
+	// This must happen BEFORE intent resolution so cleanupStaleDev and
+	// resolveProjectPluginDirFrom can anchor to the source tree, not CWD.
 	projectRoot := ""
 	if wipnoteDir, err := findWipnoteDir(); err == nil {
 		projectRoot = filepath.Dir(wipnoteDir)
@@ -189,35 +246,71 @@ func launchClaudeDev(extraArgs []string, auto bool, resumeID, name string) error
 	// Clean up any leftover symlink state from a previous dev mode crash.
 	cleanupStaleDev(projectRoot)
 
-	// Nuke marketplace plugin so it can't shadow the --plugin-dir agents/skills.
+	// Resolve the in-tree plugin/ from the source root NOW, before intent
+	// resolution might redirect childDir to a worktree. The plugin source always
+	// lives in the wipnote source tree, never in a linked worktree.
+	pluginDir, err := devLaunchPluginDir(projectRoot)
+	if err != nil {
+		return err
+	}
+	// Verify expected plugin structure.
+	if _, err := os.Stat(filepath.Join(pluginDir, ".claude-plugin", "plugin.json")); os.IsNotExist(err) {
+		return fmt.Errorf("plugin.json not found at %s",
+			filepath.Join(pluginDir, ".claude-plugin", "plugin.json"))
+	}
+
+	// Resolve canonical root (non-empty only when projectRoot is a linked worktree).
+	wipnoteRoot := canonicalProjectRoot(projectRoot)
+
+	// Run the intent chooser and isolation planner — same path as launchClaudeDefault.
+	// continue_ suppresses the chooser (explicit "resume most recent" intent) and is
+	// honored below via Resume: true on the launch opts.
+	lctx, err := resolveClaudeIntentIsolation(projectRoot, wipnoteRoot, resumeID, workItem, inPlace, continue_, extraArgs)
+	if err != nil {
+		return err
+	}
+	resumeID = lctx.intentResult.resumeID
+
+	sessionName := resolveSessionName(name, resumeID, continue_, projectRoot)
+
+	devHeadline := "Launching Claude Code with local plugin (--plugin-dir mode)"
+	if auto {
+		devHeadline += " + auto mode"
+	}
+	fmt.Println(launchtui.RenderLaunchBanner(nil, launchtui.BannerInput{
+		Headline:     devHeadline,
+		PluginSource: pluginDir,
+		Session:      sessionName,
+	}))
+
+	// Remove any installed marketplace plugin after intent and isolation resolution
+	// succeeds so --plugin-dir cannot be shadowed by a stale install.
 	removeMarketplaceWipnote()
 
-	sessionName := name
-	// Only synthesize a default name for new sessions. When resuming an existing
-	// session, skip default-name generation so we don't rename or conflict with
-	// the resumed session. The user can still override with an explicit --name.
-	if sessionName == "" && resumeID == "" {
-		sessionName = defaultSessionName(projectRoot)
-	}
-
-	if auto {
-		fmt.Printf("Launching Claude Code with local plugin (--plugin-dir mode) + auto mode\n")
-	} else {
-		fmt.Printf("Launching Claude Code with local plugin (--plugin-dir mode)\n")
-	}
-	fmt.Printf("  Plugin source: %s\n", pluginDir)
-	fmt.Printf("  Session: %s\n", sessionName)
-
 	return launchClaude(LaunchOpts{
-		Mode:               "go",
-		PluginDir:          pluginDir,
+		// Mode is always "go" for dev sessions: it identifies the dev-plugin
+		// launcher type (opts.PluginDir != "" && opts.Mode == "go") for
+		// computeLauncherMode and writeLaunchMarker. The intent's continue/new
+		// distinction is captured via ResumeID and Intent — not the mode string.
+		Mode:      "go",
+		PluginDir: pluginDir,
+		// Resume the most recent session when --dev --continue was requested
+		// (mirrors launchClaudeContinue). ResumeID, when set, still takes
+		// precedence in launchClaude's arg construction.
+		Resume:             continue_,
 		ResumeID:           resumeID,
 		InjectSystemPrompt: true,
 		EnableAutoMode:     auto,
 		PermissionMode:     autoPermissionMode(auto),
 		Name:               sessionName,
 		ExtraArgs:          extraArgs,
-		ProjectRoot:        projectRoot,
+		// childDir is the worktree (or projectRoot when in-place). Claude Code
+		// runs here so the agent works on the right branch, but WIPNOTE_PROJECT_DIR
+		// still points at the canonical source root via WipnoteRoot.
+		ProjectRoot: lctx.childDir,
+		WipnoteRoot: lctx.wipnoteRoot,
+		Intent:      lctx.intentResult.intent,
+		ExtraEnv:    lctx.continueEnv,
 	})
 }
 
@@ -256,9 +349,13 @@ func launchClaudeAuto(extraArgs []string, resumeID, name string) error {
 	if sessionName == "" && resumeID == "" {
 		sessionName = defaultSessionName(projectRoot)
 	}
-	fmt.Println("Launching Claude Code in auto mode (autonomous operation)...")
-	fmt.Println("  Actions will be approved by the background classifier, not prompted.")
-	fmt.Printf("  Session: %s\n", sessionName)
+	fmt.Println(launchtui.RenderLaunchBanner(nil, launchtui.BannerInput{
+		Headline:        "Launching Claude Code in auto mode (autonomous operation)...",
+		PluginSource:    pluginDir,
+		Session:         sessionName,
+		Warning:         "Actions will be approved by the background classifier, not prompted.",
+		WarningSeverity: "amber",
+	}))
 	return launchClaude(LaunchOpts{
 		Mode:               "auto",
 		PluginDir:          pluginDir,
@@ -398,9 +495,11 @@ func launchClaudeInit(extraArgs []string, resumeID, name string) error {
 	if sessionName == "" && resumeID == "" {
 		sessionName = defaultSessionName(projectRoot)
 	}
-	fmt.Println("Launching Claude Code with bundled wipnote plugin (init mode)...")
-	fmt.Printf("  Plugin: %s\n", pluginDir)
-	fmt.Printf("  Session: %s\n", sessionName)
+	fmt.Println(launchtui.RenderLaunchBanner(nil, launchtui.BannerInput{
+		Headline:     "Launching Claude Code with bundled wipnote plugin (init mode)...",
+		PluginSource: pluginDir,
+		Session:      sessionName,
+	}))
 	return launchClaude(LaunchOpts{
 		Mode:               "init",
 		PluginDir:          pluginDir,
@@ -422,7 +521,10 @@ func launchClaudeContinue(extraArgs []string, resumeID string) error {
 	if err != nil {
 		return err
 	}
-	fmt.Println("Resuming last Claude Code session (continue mode)...")
+	fmt.Println(launchtui.RenderLaunchBanner(nil, launchtui.BannerInput{
+		Headline:     "Resuming last Claude Code session (continue mode)...",
+		PluginSource: pluginDir,
+	}))
 	return launchClaude(LaunchOpts{
 		Mode:        "continue",
 		PluginDir:   pluginDir,
@@ -431,6 +533,7 @@ func launchClaudeContinue(extraArgs []string, resumeID string) error {
 		ExtraArgs:   extraArgs,
 		ProjectRoot: projectRoot,
 		WipnoteRoot: wipnoteRoot,
+		Intent:      launcher.ContinueWorkIntent("", "claude", resumeID, "", true),
 	})
 }
 
@@ -438,75 +541,37 @@ func launchClaudeDefault(extraArgs []string, resumeID, name, workItem string, in
 	projectRoot, _ := resolveProjectRoot()
 	cleanupStaleDev(projectRoot)
 
-	// Run the isolation planner (slice-2). The plan is computed, any warning
-	// is printed, and the plan is now HONORED (slice-9): a RefuseLaunch plan
-	// aborts before the harness starts, and an IsolationManagedWorktree plan
-	// routes the child into a managed worktree.
-	//
-	// When the plan will create a managed worktree (IsolationManagedWorktree),
-	// suppress the generic dirty-main advisory — we emit an accurate message
-	// after carryover instead (mirrors yolo's approach, bug-c3483435).
-	willCreateWorktree := !inPlace && workItem != ""
-	launchPlan := applyLaunchPlanOpts(projectRoot, workItem, inPlace, willCreateWorktree, os.Stderr)
-	if err := enforceLaunchPlan(launchPlan, os.Stderr); err != nil {
-		return err
-	}
-
 	// Resolve canonical main repo root when CWD is a linked worktree (slice-3).
 	// canonicalProjectRoot returns "" for the main worktree (no override needed).
 	wipnoteRoot := canonicalProjectRoot(projectRoot)
 
-	// Honor a managed-worktree plan: when isolation is enforced (devcontainer/CI
-	// or enforced host with a work item) create/reuse the managed worktree and
-	// run the child there, while WIPNOTE_PROJECT_DIR stays the canonical root.
-	childDir := projectRoot
-	worktreeCreated := false
-	if wt, created, werr := resolveManagedWorktreeStatus(launchPlan, projectRoot, "", "", workItem, projectRoot, false, os.Stdout); werr != nil {
-		return werr
-	} else if wt != "" && wt != projectRoot {
-		childDir = wt
-		worktreeCreated = created
-		if wipnoteRoot == "" {
-			wipnoteRoot = projectRoot
-		}
+	lctx, err := resolveClaudeIntentIsolation(projectRoot, wipnoteRoot, resumeID, workItem, inPlace, false, extraArgs)
+	if err != nil {
+		return err
 	}
-
-	// Carry the canonical main repo's uncommitted tracked changes into the
-	// freshly-created worktree so the session builds on the user's latest
-	// working state (bug-c3483435). Only for newly-created worktrees: a reused
-	// worktree may already contain prior work and re-applying would double-apply
-	// or fail. Main is never mutated. Carryover failure is non-fatal.
-	if childDir != projectRoot {
-		effectiveRoot := projectRoot
-		if wipnoteRoot != "" {
-			effectiveRoot = wipnoteRoot
-		}
-		emitWorktreeCarryoverMessage(launchPlan, effectiveRoot, childDir, worktreeCreated, os.Stdout)
-	}
+	resumeID = lctx.intentResult.resumeID
 
 	pluginDir, err := resolveBundledPluginDir()
 	if err != nil {
 		return err
 	}
-	sessionName := name
-	// Only synthesize a default name for new sessions. When resuming an existing
-	// session, skip default-name generation so we don't rename or conflict with
-	// the resumed session. The user can still override with an explicit --name.
-	if sessionName == "" && resumeID == "" {
-		sessionName = defaultSessionName(projectRoot)
-	}
-	fmt.Println("Launching Claude Code (default mode)...")
-	fmt.Printf("  Plugin: %s\n", pluginDir)
-	fmt.Printf("  Session: %s\n", sessionName)
+	sessionName := resolveSessionName(name, resumeID, false, projectRoot)
+	fmt.Println(launchtui.RenderLaunchBanner(nil, launchtui.BannerInput{
+		Headline:     fmt.Sprintf("Launching Claude Code (%s mode)...", lctx.intentResult.mode),
+		PluginSource: pluginDir,
+		Session:      sessionName,
+	}))
 	return launchClaude(LaunchOpts{
-		Mode:               "default",
+		Mode:               lctx.intentResult.mode,
 		PluginDir:          pluginDir,
 		ResumeID:           resumeID,
 		InjectSystemPrompt: true,
 		Name:               sessionName,
 		ExtraArgs:          extraArgs,
-		ProjectRoot:        childDir,
-		WipnoteRoot:        wipnoteRoot,
+		ProjectRoot:        lctx.childDir,
+		WipnoteRoot:        lctx.wipnoteRoot,
+		Intent:             lctx.intentResult.intent,
+		ExtraEnv:           lctx.continueEnv,
 	})
 }
 
@@ -617,6 +682,7 @@ func launchClaude(opts LaunchOpts) error {
 	// existing serve-based receiver is used as fallback.
 	var envOverrides otelEnvOverrides
 	if opts.ProjectRoot != "" && !isExplicitlyDisabled(os.Getenv("WIPNOTE_OTEL_ENABLED")) {
+		fmt.Fprintln(os.Stderr, "wipnote: starting session telemetry collector...")
 		envOverrides = spawnSessionCollector(opts.ProjectRoot)
 		if envOverrides.Cleanup != nil {
 			defer envOverrides.Cleanup()
@@ -639,6 +705,7 @@ func launchClaude(opts LaunchOpts) error {
 		worktreeOverride = opts.WipnoteRoot
 	}
 	c.Env = buildClaudeLaunchEnv(worktreeOverride, &envOverrides)
+	c.Env = mergeLauncherEnv(c.Env, opts.ExtraEnv...)
 
 	// Set working directory to project root so Claude starts in the right place,
 	// even if this command is run from a subdirectory like packages/go.
@@ -647,6 +714,26 @@ func launchClaude(opts LaunchOpts) error {
 	}
 
 	return runHarnessWithCleanup(c, envOverrides.Cleanup)
+}
+
+// Harness identifiers for the WIPNOTE_HARNESS env var (feat-9348de66 slice 1).
+// These are the closed enum the SessionStart hook accepts; values outside it
+// are rejected at the write path. Each launcher stamps its own constant:
+// claude.go uses harnessClaude here; codex/gemini/antigravity launchers wire
+// their own in later slices.
+const (
+	harnessEnvKey      = "WIPNOTE_HARNESS"
+	harnessClaude      = "claude"
+	harnessCodex       = "codex"
+	harnessGemini      = "gemini"
+	harnessAntigravity = "antigravity"
+)
+
+// withHarnessEnv returns env with WIPNOTE_HARNESS set to harness, replacing any
+// inherited value (launcher-authoritative). Shared across launchers so each
+// harness stamps a single source of truth. Reuses setOrReplaceEnv (claude_env.go).
+func withHarnessEnv(env []string, harness string) []string {
+	return setOrReplaceEnv(env, harnessEnvKey, harness)
 }
 
 // writeLaunchMarker writes .wipnote/.launch-mode for hooks to detect the launch mode.

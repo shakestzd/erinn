@@ -82,10 +82,12 @@ func TestProcessCollector_Spawn_CleanupIdempotent(t *testing.T) {
 	cleanup()
 }
 
-// TestProcessCollector_Spawn_RetriesOnTransientFailure verifies that when the
-// fake SpawnFn fails on the first 2 calls and succeeds on the 3rd, Spawn
-// returns success and stderr has captured 2 warning lines.
-func TestProcessCollector_Spawn_RetriesOnTransientFailure(t *testing.T) {
+// TestProcessCollector_Spawn_SingleAttemptNoRetry verifies that Spawn makes a
+// single attempt and does NOT retry on a transient failure. maxAttempts was
+// reduced from 3 to 1 to bound launch latency (bug-1af3c3d9): a failing/slow
+// collector must not add retry-backoff delay to every launch, and a dropped
+// collector only costs a few early spans.
+func TestProcessCollector_Spawn_SingleAttemptNoRetry(t *testing.T) {
 	var buf bytes.Buffer
 	callCount := 0
 
@@ -93,29 +95,23 @@ func TestProcessCollector_Spawn_RetriesOnTransientFailure(t *testing.T) {
 		Stderr: &buf,
 		SpawnFn: func(binPath, sessionID, projectDir string, requestedPort int) (int, *os.Process, error) {
 			callCount++
-			if callCount < 3 {
-				return 0, nil, fmt.Errorf("transient error attempt %d", callCount)
-			}
-			return 9001, startSleepProc(t), nil
+			return 0, nil, fmt.Errorf("transient error attempt %d", callCount)
 		},
 	})
 
 	projectDir := t.TempDir()
-	port, cleanup, err := lc.Spawn("/fake/bin", "test-sess-retry", projectDir)
-	if err != nil {
-		t.Fatalf("expected success on 3rd attempt, got: %v", err)
+	port, cleanup, err := lc.Spawn("/fake/bin", "test-sess-single", projectDir)
+	if err == nil {
+		t.Fatal("expected error: a single transient failure must not be retried")
 	}
-	if port != 9001 {
-		t.Errorf("port = %d, want 9001", port)
+	if callCount != 1 {
+		t.Errorf("callCount = %d, want 1 (no retry)", callCount)
+	}
+	if port != 0 {
+		t.Errorf("port = %d, want 0 on failure", port)
 	}
 	if cleanup != nil {
-		cleanup()
-	}
-
-	stderr := buf.String()
-	warnCount := strings.Count(stderr, "wipnote: warning: collector spawn attempt")
-	if warnCount != 2 {
-		t.Errorf("expected 2 warning lines, got %d; stderr=%q", warnCount, stderr)
+		t.Error("cleanup should be nil on failure")
 	}
 }
 

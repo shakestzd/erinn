@@ -27,7 +27,7 @@ Prompt the user for a feature title
 
 
 
-## Instructions for Claude
+## Instructions
 
 ### Implementation:
 

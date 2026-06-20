@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>Fix Antigravity hooks.json schema &#43; event-name/tool-name translation in port generation</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="feat-c08b20a6"
+             data-type="feature"
+             data-status="done"
+             data-priority="medium"
+             data-created="2026-06-16T14:26:52.745969"
+             data-updated="2026-06-16T14:42:47.676813" data-agent-assigned="claude-code" data-track-id="trk-6a1f5362" data-created-by-agent="claude-code" data-created-by-model="claude-opus-4-8[1m]" data-created-by-cli-version="0.62.2-46-gdc8886628">
+
+        <header>
+            <h1>Fix Antigravity hooks.json schema &#43; event-name/tool-name translation in port generation</h1>
+            <div class="metadata">
+                <span class="badge status-done">Done</span>
+                <span class="badge priority-medium">Medium Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="implemented_in">
+                <h3>Implemented In:</h3>
+                <ul>
+                    <li><a href="../sessions/31d1b5af-fe92-4b1b-a01b-3a9c639fbcdd.html" data-relationship="implemented_in" data-since="2026-06-16T14:29:30.674823">session 31d1b5af-fe92-4b1b-a01b-3a9c639fbcdd</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-6a1f5362.html" data-relationship="part_of" data-since="2026-06-16T14:26:53.009059">trk-6a1f5362</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>wipnote&#39;s generated Antigravity hooks.json fails to parse on agy: (1) wrong top-level schema — emits Claude-style {event:[specs]} but agy wants named-hook-at-top-level with enabled key (error: cannot unmarshal array into JSONHookSpec); (2) wrong event names — emits Gemini-CLI names (BeforeTool/AfterTool/SessionStart/BeforeAgent/AfterAgent/AfterModel/SessionEnd) but agy uses PreToolUse/PostToolUse/PreInvocation/PostInvocation/Stop; plus tool rename run_shell_command-&gt;run_command. Fix the Antigravity hook emitter in the port pluginbuild layer + manifest hook event matrix, add a parse-level regression test on the generated hooks.json, regenerate ports. Runtime behavior is experiment-gated (enable_json_hooks) and needs an authenticated agy session to fully verify — flag that gap. Refs arch card gemini-cli-sunset-antigravity-hook-bugs and antigravity-hook-naming-install-risks.md.</p>
+        </section>
+    </article>
+</body>
+</html>

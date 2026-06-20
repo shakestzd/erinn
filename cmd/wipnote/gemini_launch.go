@@ -46,6 +46,9 @@ type geminiLaunchOpts struct {
 	Mode geminiLaunchMode
 	// DryRun, when true, prints the command that would be executed without running it.
 	DryRun bool
+	// ExtraEnv is layered onto the child process after the launcher sets its
+	// standard wipnote and telemetry environment.
+	ExtraEnv []string
 }
 
 // spawnGeminiOtelCollector spawns a per-session OTel collector and returns the
@@ -240,6 +243,7 @@ func execGemini(opts geminiLaunchOpts) error {
 	env = append(env, "WIPNOTE_AGENT=gemini")
 	env = append(env, "GEMINI_SYSTEM_MD="+systemMdPath)
 	env = buildGeminiOtelEnv(env, otelPort, otelSessionID)
+	env = mergeLauncherEnv(env, opts.ExtraEnv...)
 
 	// Session-family continuity (slice-4, feat-a225ce7c):
 	// Resolve which family this Gemini session belongs to, then inject
@@ -256,6 +260,7 @@ func execGemini(opts geminiLaunchOpts) error {
 		persistLauncherSessionFamily(effectiveProjDir, otelSessionID, "gemini", familyID)
 	}
 
+	env = withHarnessEnv(env, harnessGemini)
 	c.Env = env
 
 	return runHarnessWithCleanup(c, otelCleanup)

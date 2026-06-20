@@ -301,11 +301,11 @@ func runHookNamed(subcommand string, handler func(*hooks.CloudEvent) (*hooks.Hoo
 			os.Exit(2)
 		}
 		hooks.LogError("runHook", event.SessionID, fmt.Sprintf("handler error: %v", err))
-		return hooks.WriteResultForHarness(harness, hooks.AllowForHarness(harness))
+		return hooks.WriteResultForHarnessEvent(harness, hookEventNameForResponse(subcommand, event), hooks.AllowForHarness(harness))
 	}
 	if result == nil {
 		hooks.LogError("runHook", event.SessionID, "handler returned nil result")
-		return hooks.WriteResultForHarness(harness, hooks.AllowForHarness(harness))
+		return hooks.WriteResultForHarnessEvent(harness, hookEventNameForResponse(subcommand, event), hooks.AllowForHarness(harness))
 	}
 
 	projectDir := hooks.ResolveProjectDir(event.CWD, event.SessionID)
@@ -316,5 +316,43 @@ func runHookNamed(subcommand string, handler func(*hooks.CloudEvent) (*hooks.Hoo
 	}, start, "completed")
 
 	// Emit the result in the harness-appropriate wire format.
-	return hooks.WriteResultForHarness(harness, result)
+	return hooks.WriteResultForHarnessEvent(harness, hookEventNameForResponse(subcommand, event), result)
+}
+
+// hookEventNameForResponse returns the hook event name that should be echoed in
+// the response's hookSpecificOutput. It first checks the incoming CloudEvent's
+// HookEventName field (populated by parseGeminiEvent, parseAntigravityEvent, and
+// parseCodexEvent from the payload's hook_event_name). When that is present, it
+// is echoed directly — ensuring Gemini/Antigravity receive their own native event
+// names (BeforeAgent, BeforeTool, AfterTool) rather than Claude canonical names.
+// When HookEventName is absent (Claude payloads lack hook_event_name), the
+// subcommand-to-event-name mapping provides the Claude/Codex canonical name.
+func hookEventNameForResponse(subcommand string, event *hooks.CloudEvent) string {
+	// Prefer the harness-native event name echoed from the incoming payload.
+	if event != nil && event.HookEventName != "" {
+		return event.HookEventName
+	}
+	// Fall back to Claude/Codex canonical event names by subcommand.
+	switch subcommand {
+	case "session-start":
+		return "SessionStart"
+	case "session-end":
+		return "SessionEnd"
+	case "user-prompt":
+		return "UserPromptSubmit"
+	case "pretooluse":
+		return "PreToolUse"
+	case "posttooluse":
+		return "PostToolUse"
+	case "after-agent":
+		return "AfterAgent"
+	case "after-model":
+		return "AfterModel"
+	case "task-started":
+		return "TaskStarted"
+	case "task-aborted":
+		return "TurnAborted"
+	default:
+		return ""
+	}
 }

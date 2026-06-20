@@ -47,6 +47,13 @@ type Session struct {
 	GitRemoteURL          string   `json:"git_remote_url,omitempty"`
 	ProjectDir            string   `json:"project_dir,omitempty"`
 
+	// Execution context: the worktree path and branch the session ran in, plus
+	// the launcher harness that started it. project_dir above remains the
+	// canonical project anchor; these record the ephemeral execution location.
+	ExecWorktreePath string `json:"exec_worktree_path,omitempty"`
+	Branch           string `json:"branch,omitempty"`
+	Harness          string `json:"harness,omitempty"`
+
 	// Provenance — who/what created this session. Populated at SessionStart
 	// from harness env vars and the wipnote binary version. Sessions written
 	// before this feature was added leave these empty (rendered as "unknown").
@@ -92,14 +99,14 @@ type SessionAdherence struct {
 }
 
 type SessionAdherenceTrendPoint struct {
-	SessionID  string    `json:"session_id"`
-	Harness    string    `json:"harness"`
-	CreatedAt  time.Time `json:"created_at"`
+	SessionID   string    `json:"session_id"`
+	Harness     string    `json:"harness"`
+	CreatedAt   time.Time `json:"created_at"`
 	CompletedAt time.Time `json:"completed_at,omitempty"`
-	Score      int       `json:"score"`
-	Passed     int       `json:"passed"`
-	Warned     int       `json:"warned"`
-	Failed     int       `json:"failed"`
+	Score       int       `json:"score"`
+	Passed      int       `json:"passed"`
+	Warned      int       `json:"warned"`
+	Failed      int       `json:"failed"`
 }
 
 // ActivityEntry is a lightweight view used in dashboard activity feeds.

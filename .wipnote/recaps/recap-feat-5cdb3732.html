@@ -1,0 +1,1940 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="wipnote-recap" content="1.0">
+<title>Recap: Recap collector core — resolve work-item / git-range / session into grounded diff data</title>
+<style>
+:root{
+  --bg:#0f0f13;--bg-card:#18181c;--bg-input:#222228;--text:#f0f0ed;--text-dim:#d0d0cc;
+  --text-muted:#9898a0;--border:#3a3a42;--accent:#cdff00;
+  --add:#22c55e;--modify:#f59e0b;--delete:#ef4444;--pivot:#a78bfa;
+  --mono:'JetBrains Mono',ui-monospace,'SF Mono','Cascadia Code',monospace;
+  --sans:'DM Sans','Inter',system-ui,-apple-system,sans-serif;
+  --radius:8px;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{font-family:var(--sans);background:var(--bg);color:var(--text);line-height:1.6;padding:32px;max-width:1100px;margin:0 auto}
+h1{font-size:1.5rem;font-weight:700;margin-bottom:4px}
+.recap-sub{color:var(--text-muted);font-size:.85rem;font-family:var(--mono);margin-bottom:24px}
+.recap-sub code{color:var(--text-dim)}
+.recap-zone{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:20px;margin-bottom:20px}
+.recap-zone-title{font-size:1.05rem;font-weight:600;margin-bottom:12px;display:flex;align-items:center;gap:8px}
+.recap-zone-note{color:var(--text-muted);font-size:.8rem;margin-bottom:12px;font-style:italic}
+.recap-count{background:var(--bg-input);color:var(--text-muted);font-size:.72rem;font-family:var(--mono);padding:1px 7px;border-radius:10px}
+.outcome-narrative{font-size:1rem;color:var(--text-dim)}
+/* shared block + file list */
+.block{margin:0}
+.file-list{list-style:none;display:flex;flex-direction:column;gap:4px}
+.file-entry{font-family:var(--mono);font-size:.85rem;display:flex;align-items:center;gap:8px}
+.file-path{color:var(--text-dim)}
+.file-change{font-size:.68rem;font-weight:700;text-transform:uppercase;padding:1px 6px;border-radius:4px;font-family:var(--mono)}
+.file-change-add{background:rgba(34,197,94,.12);color:var(--add)}
+.file-change-modify{background:rgba(245,158,11,.12);color:var(--modify)}
+.file-change-delete{background:rgba(239,68,68,.12);color:var(--delete)}
+.block-table{width:100%;border-collapse:collapse;font-size:.82rem;margin-top:8px}
+.block-table th,.block-table td{text-align:left;padding:6px 10px;border-bottom:1px solid var(--border)}
+.block-header{display:flex;align-items:center;gap:8px;font-size:.85rem}
+.block-kind{font-family:var(--mono);font-size:.68rem;text-transform:uppercase;color:var(--text-muted);background:var(--bg-input);padding:1px 6px;border-radius:4px}
+.api-method{font-family:var(--mono);font-weight:700;font-size:.72rem;padding:1px 6px;border-radius:4px;background:var(--accent);color:#000}
+/* annotated diff */
+.annotated-diff{border:1px solid var(--border);border-radius:6px;margin-bottom:14px;overflow:hidden}
+.diff-file-header{display:flex;align-items:center;gap:8px;padding:8px 12px;background:var(--bg-input);font-family:var(--mono);font-size:.82rem;cursor:pointer;user-select:none;list-style:none}
+.diff-file-header::-webkit-details-marker{display:none}
+.diff-file-header::before{content:"▾";font-size:.7rem;color:var(--text-muted);transition:transform .15s ease;display:inline-block}
+.diff-file:not([open])>.diff-file-header::before{transform:rotate(-90deg)}
+.diff-file-header:hover{background:var(--border)}
+.diff-hunk-count{margin-left:auto;font-size:.7rem;color:var(--text-muted);font-family:var(--mono)}
+.diff-hunk{border-top:1px solid var(--border)}
+.hunk-meta{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:6px 12px;background:rgba(255,255,255,.02)}
+.hunk-header{font-family:var(--mono);font-size:.74rem;color:var(--text-muted)}
+.hunk-summary{font-size:.72rem;color:var(--text-muted);font-family:var(--mono)}
+.diff-pre{margin:0;padding:10px 0;overflow-x:auto;font-family:var(--mono);font-size:.8rem;line-height:1.5;white-space:pre}
+.diff-pre code{font-family:var(--mono);background:none;padding:0}
+.dl{display:block;padding:0 12px}
+.dl-add{background:rgba(34,197,94,.12);color:var(--add)}
+.dl-del{background:rgba(239,68,68,.12);color:var(--delete)}
+.dl-ctx{color:var(--text-muted)}
+.hunk-cols{display:grid;grid-template-columns:1fr 1fr}
+.hunk-col-before{border-right:1px solid var(--border);background:rgba(239,68,68,.04)}
+.hunk-col-after{background:rgba(34,197,94,.04)}
+/* embedded diff sits flush inside a file station */
+.annotated-diff.embedded{border:none;border-radius:0;margin:0;border-top:1px solid var(--border)}
+/* lineage spine */
+.lin-legend{display:flex;gap:16px;flex-wrap:wrap;font-family:var(--mono);font-size:.68rem;color:var(--text-muted);margin-bottom:16px}
+.lin-dir{display:flex;align-items:center;gap:6px}
+.lin-swatch{width:18px;height:2px;border-radius:2px}
+.lin-swatch.past{background:var(--border)}
+.lin-swatch.now{background:var(--accent)}
+/* nested tree: each branch indents under its parent with its own guide rail */
+.lin-tree{position:relative}
+.lin-branch{position:relative;margin-left:15px;padding-left:22px;border-left:2px solid var(--border)}
+.lin-branch.produced-branch{border-left-color:rgba(205,255,0,.4)}
+.lin-node{position:relative;padding:6px 0;display:flex;align-items:flex-start}
+/* connector tick from the branch rail to each node glyph */
+.lin-node::before{content:"";position:absolute;left:-22px;top:18px;width:18px;height:2px;background:var(--border)}
+.lin-branch.produced-branch>.lin-node::before{background:rgba(205,255,0,.4)}
+.lin-glyph{position:absolute;left:-33px;top:7px;width:22px;height:22px;display:grid;place-items:center;border-radius:50%;background:var(--bg-card);border:1px solid var(--border);color:var(--text-muted);z-index:2}
+.lin-glyph svg{width:12px;height:12px;display:block}
+.lin-card{flex:1;min-width:0;background:var(--bg-card);border:1px solid var(--border);border-radius:6px;padding:8px 12px;margin-left:4px}
+.lin-id{font-family:var(--mono);font-size:.72rem;color:var(--text-muted);display:flex;align-items:center;gap:7px;flex-wrap:wrap}
+.lin-id code{color:var(--text-dim)}
+.lin-kind{font-size:.6rem;text-transform:uppercase;letter-spacing:.08em;color:var(--text-muted);border:1px solid var(--border);border-radius:4px;padding:0 5px}
+.lin-rel{font-family:var(--mono);font-size:.62rem;color:var(--text-muted);text-transform:lowercase}
+.lin-rel.produced{color:var(--accent)}
+.lin-ttl{font-size:.9rem;color:var(--text);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.lin-when{color:var(--text-muted)}
+.lin-node.up .lin-glyph{border-style:dashed}
+.lin-node.up .lin-card{background:transparent}
+.lin-node.up .lin-ttl{color:var(--text-muted)}
+.lin-node.pivot{padding:10px 0}
+.lin-node.pivot::before{background:var(--accent)}
+.lin-node.pivot .lin-glyph{left:-35px;top:6px;width:28px;height:28px;background:var(--accent);border-color:var(--accent);color:#000;box-shadow:0 0 0 4px rgba(205,255,0,.14),0 0 18px rgba(205,255,0,.3)}
+.lin-node.pivot .lin-card{border-color:rgba(205,255,0,.45);box-shadow:0 0 0 1px rgba(205,255,0,.14)}
+.lin-node.pivot .lin-id code{color:var(--accent)}
+.lin-node.pivot .lin-ttl{white-space:normal;font-weight:600;font-size:.98rem}
+.lin-node.pivot .lin-kind{color:var(--accent);border-color:rgba(205,255,0,.45)}
+.lin-node.down .lin-glyph{border-color:rgba(205,255,0,.45);color:var(--accent)}
+.lin-file{flex:1;min-width:0;margin-left:4px;background:var(--bg-card);border:1px solid var(--border);border-radius:6px;overflow:hidden}
+.lin-file>summary{display:flex;align-items:center;gap:9px;padding:8px 12px;cursor:pointer;list-style:none;font-family:var(--mono);font-size:.78rem}
+.lin-file>summary::-webkit-details-marker{display:none}
+.lin-file>summary::before{content:"▸";color:var(--text-muted);font-size:.66rem;transition:transform .15s ease;display:inline-block}
+.lin-file[open]>summary::before{transform:rotate(90deg)}
+.lin-file>summary:hover{background:var(--bg-input)}
+.lin-file-path{color:var(--text-dim)}
+.lin-file-stat{margin-left:auto;color:var(--text-muted)}
+.lin-file-stat .plus{color:var(--add)}.lin-file-stat .minus{color:var(--delete)}
+code{font-family:var(--mono)}
+</style>
+</head>
+<body data-recap-kind="work-item" data-recap-input="feat-5cdb3732" data-recap-git-range="412ef65cc6b8b2730db3309e1371f4c3d4a45a78^..412ef65cc6b8b2730db3309e1371f4c3d4a45a78" data-recap-grounded="1" data-recap-outcome="Recap collector core — resolve work-item / git-range / session into grounded diff data" data-recap-title="Recap collector core — resolve work-item / git-range / session into grounded diff data">
+<header>
+  <h1>Recap collector core — resolve work-item / git-range / session into grounded diff data</h1>
+  <div class="recap-sub">
+    <code>work-item</code>
+    &middot; <code>feat-5cdb3732</code>
+    &middot; <code>412ef65cc6b8b2730db3309e1371f4c3d4a45a78^..412ef65cc6b8b2730db3309e1371f4c3d4a45a78</code>
+    &middot; grounded
+  </div>
+</header>
+<section class="recap-zone recap-zone-outcome" id="outcome">
+  <h2 class="recap-zone-title">Outcome</h2>
+  <p class="outcome-narrative">Recap collector core — resolve work-item / git-range / session into grounded diff data</p>
+</section>
+<section class="recap-zone recap-zone-lineage" id="lineage">
+  <h2 class="recap-zone-title">Lineage</h2>
+  <p class="recap-zone-note">Causal provenance as a tree: containers hold the work item, which holds the commit it produced, which holds the files it changed.</p>
+  
+  <div class="lin-legend">
+    <span class="lin-dir"><span class="lin-swatch past"></span> ancestry — what holds this work</span>
+    <span class="lin-dir"><span class="lin-swatch now"></span> produced — what it changed</span>
+  </div>
+  
+
+  <div class="lin-tree">
+  
+    <div class="lin-branch">
+    
+    
+    <div class="lin-node up">
+      <span class="lin-glyph"><svg viewBox="0 0 24 24"><rect x="4" y="6" width="16" height="12" rx="2" fill="none" stroke="currentColor" stroke-width="2"/></svg></span>
+      <div class="lin-card">
+        <div class="lin-id"><span class="lin-kind">track</span><code>trk-a951e3c0</code><span class="lin-rel">contains</span></div>
+        <div class="lin-ttl">Visual planning &amp; recap — native port of BuilderIO visual-plan/visual-recap concepts</div>
+      </div>
+    </div>
+    
+    <div class="lin-node up">
+      <span class="lin-glyph"><svg viewBox="0 0 24 24"><rect x="6.5" y="6.5" width="11" height="11" transform="rotate(45 12 12)" fill="currentColor"/></svg></span>
+      <div class="lin-card">
+        <div class="lin-id"><span class="lin-kind">feature</span><code>feat-2570725c</code><span class="lin-rel">blocked by</span></div>
+        <div class="lin-ttl">Recap renderer — recap/recaptmpl package &#43; shared HTML block components</div>
+      </div>
+    </div>
+    
+    <div class="lin-node up">
+      <span class="lin-glyph"><svg viewBox="0 0 24 24"><rect x="6.5" y="6.5" width="11" height="11" transform="rotate(45 12 12)" fill="currentColor"/></svg></span>
+      <div class="lin-card">
+        <div class="lin-id"><span class="lin-kind">feature</span><code>feat-1feacf19</code><span class="lin-rel">blocked by</span></div>
+        <div class="lin-ttl">`wipnote recap &lt;id|--range|--session&gt;` command &#43; first-class recap-*.html artifact commit</div>
+      </div>
+    </div>
+    
+    <div class="lin-node up">
+      <span class="lin-glyph"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="12" r="2.6" fill="currentColor"/></svg></span>
+      <div class="lin-card">
+        <div class="lin-id"><span class="lin-kind">session</span><code>7ad16954-7662-4d96-87ae-6eff3bd5739e</code><span class="lin-rel">implements</span></div>
+        <div class="lin-ttl">visual-planning-recap-native-yolo-20260618-03.35.27</div>
+      </div>
+    </div>
+    
+
+    
+    <div class="lin-branch">
+      
+      <div class="lin-node pivot">
+        <span class="lin-glyph"><svg viewBox="0 0 24 24"><rect x="6.5" y="6.5" width="11" height="11" transform="rotate(45 12 12)" fill="currentColor"/></svg></span>
+        <div class="lin-card">
+          <div class="lin-id"><span class="lin-kind">feature</span><code>feat-5cdb3732</code></div>
+          <div class="lin-ttl">Recap collector core — resolve work-item / git-range / session into grounded diff data</div>
+        </div>
+      </div>
+      
+
+      
+      <div class="lin-branch produced-branch">
+        
+        <div class="lin-node down commit">
+          <span class="lin-glyph"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="6" fill="currentColor"/></svg></span>
+          <div class="lin-card">
+            <div class="lin-id"><span class="lin-kind">commit</span><code>412ef65cc</code><span class="lin-when">2026-06-18T08:20:45Z</span><span class="lin-rel produced">produced</span></div>
+            <div class="lin-ttl">feat(feat-5cdb3732): recap collector core &#43; shared lineage walk</div>
+          </div>
+        </div>
+        
+
+        
+        
+        <div class="lin-branch produced-branch">
+          
+          <div class="lin-node down file-node">
+            <span class="lin-glyph"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.4" fill="currentColor"/></svg></span>
+            <details class="lin-file">
+              <summary>
+                <span class="file-change file-change-modify">modify</span>
+                <code class="lin-file-path">cmd/wipnote/lineage.go</code>
+                <span class="lin-file-stat"><span class="plus">+13</span> <span class="minus">&minus;203</span></span>
+              </summary>
+              <div class="annotated-diff embedded diff-unified diff-unified" data-language="go">
+  
+  <div class="diff-hunk">
+    <div class="hunk-meta">
+      <code class="hunk-header">import (</code>
+      <span class="hunk-summary">1 added, 1 removed</span>
+    </div>
+    
+    <pre class="diff-pre"><code class="language-go"><span class="dl dl-ctx">  </span>
+<span class="dl dl-ctx">  	dbpkg &#34;github.com/shakestzd/wipnote/core/db&#34;</span>
+<span class="dl dl-ctx">  	&#34;github.com/shakestzd/wipnote/core/graph&#34;</span>
+<span class="dl dl-del">- 	&#34;github.com/shakestzd/wipnote/core/models&#34;</span>
+<span class="dl dl-add">&#43; 	&#34;github.com/shakestzd/wipnote/internal/lineage&#34;</span>
+<span class="dl dl-ctx">  	&#34;github.com/spf13/cobra&#34;</span>
+<span class="dl dl-ctx">  )</span>
+<span class="dl dl-ctx">  </span>
+</code></pre>
+    
+  </div>
+  
+  <div class="diff-hunk">
+    <div class="hunk-meta">
+      <code class="hunk-header">type lineageOpts struct {</code>
+      <span class="hunk-summary">4 added, 17 removed</span>
+    </div>
+    
+    <pre class="diff-pre"><code class="language-go"><span class="dl dl-ctx">  	timelineSet bool</span>
+<span class="dl dl-ctx">  }</span>
+<span class="dl dl-ctx">  </span>
+<span class="dl dl-del">- // lineageNode is one hop in a forward or backward chain. It is the wire format</span>
+<span class="dl dl-del">- // for --json output and a convenient internal representation for tree rendering.</span>
+<span class="dl dl-del">- type lineageNode struct {</span>
+<span class="dl dl-del">- 	ID       string `json:&#34;id&#34;`</span>
+<span class="dl dl-del">- 	Type     string `json:&#34;type&#34;`</span>
+<span class="dl dl-del">- 	Title    string `json:&#34;title,omitempty&#34;`</span>
+<span class="dl dl-del">- 	EdgeType string `json:&#34;edge_type&#34;`</span>
+<span class="dl dl-del">- 	Depth    int    `json:&#34;depth&#34;`</span>
+<span class="dl dl-del">- 	// Parent is the node ID that this hop was discovered from during BFS. For</span>
+<span class="dl dl-del">- 	// the pivot&#39;s direct neighbours it equals the pivot. Used by the tree</span>
+<span class="dl dl-del">- 	// renderer to build a real adjacency structure so branched walks don&#39;t</span>
+<span class="dl dl-del">- 	// visually attach grandchildren to the wrong parent.</span>
+<span class="dl dl-del">- 	Parent string `json:&#34;parent,omitempty&#34;`</span>
+<span class="dl dl-del">- 	// timestamp is populated for --timeline rendering by joining git_commits /</span>
+<span class="dl dl-del">- 	// agent_events. Empty when no temporal data is available.</span>
+<span class="dl dl-del">- 	Timestamp string `json:&#34;timestamp,omitempty&#34;`</span>
+<span class="dl dl-del">- }</span>
+<span class="dl dl-add">&#43; // lineageNode is one hop in a forward or backward chain. It is an alias to the</span>
+<span class="dl dl-add">&#43; // shared internal/lineage.Node so the BFS walk has a single source of truth</span>
+<span class="dl dl-add">&#43; // while the CLI&#39;s rendering and --json code keeps its existing field access.</span>
+<span class="dl dl-add">&#43; type lineageNode = lineage.Node</span>
+<span class="dl dl-ctx">  </span>
+<span class="dl dl-ctx">  // lineageJSON is the stable schema emitted by `wipnote lineage --json`.</span>
+<span class="dl dl-ctx">  //</span>
+</code></pre>
+    
+  </div>
+  
+  <div class="diff-hunk">
+    <div class="hunk-meta">
+      <code class="hunk-header">type lineageJSON struct {</code>
+      <span class="hunk-summary">4 added, 14 removed</span>
+    </div>
+    
+    <pre class="diff-pre"><code class="language-go"><span class="dl dl-ctx">  	AgentTree string        `json:&#34;agent_tree,omitempty&#34;`</span>
+<span class="dl dl-ctx">  }</span>
+<span class="dl dl-ctx">  </span>
+<span class="dl dl-del">- // allLineageRels lists all 10 relationship types we traverse. We do NOT subset:</span>
+<span class="dl dl-del">- // any of these can carry causal meaning depending on the slice in question.</span>
+<span class="dl dl-del">- var allLineageRels = []string{</span>
+<span class="dl dl-del">- 	string(models.RelBlocks),</span>
+<span class="dl dl-del">- 	string(models.RelBlockedBy),</span>
+<span class="dl dl-del">- 	string(models.RelRelatesTo),</span>
+<span class="dl dl-del">- 	string(models.RelImplements),</span>
+<span class="dl dl-del">- 	string(models.RelCausedBy),</span>
+<span class="dl dl-del">- 	string(models.RelSpawnedFrom),</span>
+<span class="dl dl-del">- 	string(models.RelImplementedIn),</span>
+<span class="dl dl-del">- 	string(models.RelPartOf),</span>
+<span class="dl dl-del">- 	string(models.RelContains),</span>
+<span class="dl dl-del">- 	string(models.RelPlannedIn),</span>
+<span class="dl dl-del">- }</span>
+<span class="dl dl-add">&#43; // allLineageRels lists all 10 relationship types we traverse. It is the shared</span>
+<span class="dl dl-add">&#43; // list owned by internal/lineage; we do NOT subset because any of these can</span>
+<span class="dl dl-add">&#43; // carry causal meaning depending on the slice in question.</span>
+<span class="dl dl-add">&#43; var allLineageRels = lineage.AllRels</span>
+<span class="dl dl-ctx">  </span>
+<span class="dl dl-ctx">  // newLineageCmd registers `wipnote lineage &lt;id&gt;` — the headline unified</span>
+<span class="dl dl-ctx">  // causal chain command. It auto-detects the input type, walks graph_edges in</span>
+</code></pre>
+    
+  </div>
+  
+  <div class="diff-hunk">
+    <div class="hunk-meta">
+      <code class="hunk-header">func runLineage(w io.Writer, db *sql.DB, arg string, opts lineageOpts) error {</code>
+      <span class="hunk-summary">4 added, 4 removed</span>
+    </div>
+    
+    <pre class="diff-pre"><code class="language-go"><span class="dl dl-ctx">  		return runLineageFile(w, db, arg, opts)</span>
+<span class="dl dl-ctx">  	}</span>
+<span class="dl dl-ctx">  </span>
+<span class="dl dl-del">- 	forward, err := forwardWalk(db, arg, allLineageRels, opts.depth)</span>
+<span class="dl dl-add">&#43; 	forward, err := lineage.ForwardWalk(db, arg, allLineageRels, opts.depth)</span>
+<span class="dl dl-ctx">  	if err != nil {</span>
+<span class="dl dl-ctx">  		return fmt.Errorf(&#34;forward walk: %w&#34;, err)</span>
+<span class="dl dl-ctx">  	}</span>
+<span class="dl dl-del">- 	backward, err := backwardWalk(db, arg, allLineageRels, opts.depth)</span>
+<span class="dl dl-add">&#43; 	backward, err := lineage.BackwardWalk(db, arg, allLineageRels, opts.depth)</span>
+<span class="dl dl-ctx">  	if err != nil {</span>
+<span class="dl dl-ctx">  		return fmt.Errorf(&#34;backward walk: %w&#34;, err)</span>
+<span class="dl dl-ctx">  	}</span>
+<span class="dl dl-ctx">  </span>
+<span class="dl dl-ctx">  	if opts.timeline {</span>
+<span class="dl dl-del">- 		annotateTimestamps(db, forward)</span>
+<span class="dl dl-del">- 		annotateTimestamps(db, backward)</span>
+<span class="dl dl-add">&#43; 		lineage.AnnotateTimestamps(db, forward)</span>
+<span class="dl dl-add">&#43; 		lineage.AnnotateTimestamps(db, backward)</span>
+<span class="dl dl-ctx">  	}</span>
+<span class="dl dl-ctx">  </span>
+<span class="dl dl-ctx">  	// Session roots carry an agent spawn tree as a secondary view. Render it</span>
+</code></pre>
+    
+  </div>
+  
+  <div class="diff-hunk">
+    <div class="hunk-meta">
+      <code class="hunk-header">func runLineage(w io.Writer, db *sql.DB, arg string, opts lineageOpts) error {</code>
+      <span class="hunk-summary">0 added, 131 removed</span>
+    </div>
+    
+    <pre class="diff-pre"><code class="language-go"><span class="dl dl-ctx">  	return nil</span>
+<span class="dl dl-ctx">  }</span>
+<span class="dl dl-ctx">  </span>
+<span class="dl dl-del">- // forwardWalk performs a BFS following from_node_id = current outward.</span>
+<span class="dl dl-del">- // Returns nodes in BFS order, each annotated with the edge type that reached</span>
+<span class="dl dl-del">- // it and the hop depth (1-indexed).</span>
+<span class="dl dl-del">- func forwardWalk(db *sql.DB, root string, rels []string, maxDepth int) ([]lineageNode, error) {</span>
+<span class="dl dl-del">- 	return bfsWalk(db, root, rels, maxDepth, true)</span>
+<span class="dl dl-del">- }</span>
+<span class="dl dl-del">- </span>
+<span class="dl dl-del">- // backwardWalk performs a BFS following to_node_id = current inward — i.e.</span>
+<span class="dl dl-del">- // &#34;who points at me?&#34;. This is the inline reverse query the plan calls for.</span>
+<span class="dl dl-del">- func backwardWalk(db *sql.DB, root string, rels []string, maxDepth int) ([]lineageNode, error) {</span>
+<span class="dl dl-del">- 	return bfsWalk(db, root, rels, maxDepth, false)</span>
+<span class="dl dl-del">- }</span>
+<span class="dl dl-del">- </span>
+<span class="dl dl-del">- // bfsWalk is the shared BFS engine for both directions. When forward=true it</span>
+<span class="dl dl-del">- // follows from-&gt;to edges; when false it follows to-&gt;from edges.</span>
+<span class="dl dl-del">- func bfsWalk(db *sql.DB, root string, rels []string, maxDepth int, forward bool) ([]lineageNode, error) {</span>
+<span class="dl dl-del">- 	if maxDepth &lt;= 0 || len(rels) == 0 {</span>
+<span class="dl dl-del">- 		return nil, nil</span>
+<span class="dl dl-del">- 	}</span>
+<span class="dl dl-del">- </span>
+<span class="dl dl-del">- 	placeholders := strings.Repeat(&#34;?,&#34;, len(rels))</span>
+<span class="dl dl-del">- 	placeholders = placeholders[:len(placeholders)-1]</span>
+<span class="dl dl-del">- 	var query string</span>
+<span class="dl dl-del">- 	if forward {</span>
+<span class="dl dl-del">- 		query = fmt.Sprintf(</span>
+<span class="dl dl-del">- 			`SELECT to_node_id, to_node_type, relationship_type</span>
+<span class="dl dl-del">- 			 FROM graph_edges</span>
+<span class="dl dl-del">- 			 WHERE from_node_id = ? AND relationship_type IN (%s)`,</span>
+<span class="dl dl-del">- 			placeholders,</span>
+<span class="dl dl-del">- 		)</span>
+<span class="dl dl-del">- 	} else {</span>
+<span class="dl dl-del">- 		query = fmt.Sprintf(</span>
+<span class="dl dl-del">- 			`SELECT from_node_id, from_node_type, relationship_type</span>
+<span class="dl dl-del">- 			 FROM graph_edges</span>
+<span class="dl dl-del">- 			 WHERE to_node_id = ? AND relationship_type IN (%s)`,</span>
+<span class="dl dl-del">- 			placeholders,</span>
+<span class="dl dl-del">- 		)</span>
+<span class="dl dl-del">- 	}</span>
+<span class="dl dl-del">- </span>
+<span class="dl dl-del">- 	type queueEntry struct {</span>
+<span class="dl dl-del">- 		id    string</span>
+<span class="dl dl-del">- 		depth int</span>
+<span class="dl dl-del">- 	}</span>
+<span class="dl dl-del">- 	visited := map[string]bool{root: true}</span>
+<span class="dl dl-del">- 	queue := []queueEntry{{id: root, depth: 0}}</span>
+<span class="dl dl-del">- 	var result []lineageNode</span>
+<span class="dl dl-del">- </span>
+<span class="dl dl-del">- 	for len(queue) &gt; 0 {</span>
+<span class="dl dl-del">- 		cur := queue[0]</span>
+<span class="dl dl-del">- 		queue = queue[1:]</span>
+<span class="dl dl-del">- 		if cur.depth &gt;= maxDepth {</span>
+<span class="dl dl-del">- 			continue</span>
+<span class="dl dl-del">- 		}</span>
+<span class="dl dl-del">- 		args := make([]any, 0, 1&#43;len(rels))</span>
+<span class="dl dl-del">- 		args = append(args, cur.id)</span>
+<span class="dl dl-del">- 		for _, r := range rels {</span>
+<span class="dl dl-del">- 			args = append(args, r)</span>
+<span class="dl dl-del">- 		}</span>
+<span class="dl dl-del">- 		// bug-7dbaf552: the retry unit is THIS QUERY ONLY, never the BFS</span>
+<span class="dl dl-del">- 		// iteration. On a contended DELETE-journal DB a single neighbour</span>
+<span class="dl dl-del">- 		// query can transiently SQLITE_BUSY; without a retry the whole</span>
+<span class="dl dl-del">- 		// `wipnote lineage` invocation fails. RetryOnBusy re-runs only the</span>
+<span class="dl dl-del">- 		// db.Query call. Critical lock-hygiene: a *sql.Rows from a failed</span>
+<span class="dl dl-del">- 		// attempt holds a read lock until closed, so if the closure ever</span>
+<span class="dl dl-del">- 		// captured rows on a BUSY path we MUST close it before the next</span>
+<span class="dl dl-del">- 		// attempt. Here db.Query returns err WITHOUT a usable rows handle on</span>
+<span class="dl dl-del">- 		// BUSY (rows is nil / already finalised by the driver), so there is</span>
+<span class="dl dl-del">- 		// nothing to leak between attempts; rows is assigned only on the</span>
+<span class="dl dl-del">- 		// terminal (success or hard-error) attempt and is closed exactly</span>
+<span class="dl dl-del">- 		// once below after iteration. We defensively Close any non-nil rows</span>
+<span class="dl dl-del">- 		// from a BUSY attempt before retrying to make the invariant explicit</span>
+<span class="dl dl-del">- 		// and robust to driver changes.</span>
+<span class="dl dl-del">- 		var rows *sql.Rows</span>
+<span class="dl dl-del">- 		err := dbpkg.RetryOnBusy(dbpkg.DefaultBusyBackoff, func() error {</span>
+<span class="dl dl-del">- 			r, qerr := db.Query(query, args...)</span>
+<span class="dl dl-del">- 			if qerr != nil {</span>
+<span class="dl dl-del">- 				if r != nil { // defensive: never carry an open lock into a retry</span>
+<span class="dl dl-del">- 					r.Close()</span>
+<span class="dl dl-del">- 				}</span>
+<span class="dl dl-del">- 				return qerr</span>
+<span class="dl dl-del">- 			}</span>
+<span class="dl dl-del">- 			rows = r</span>
+<span class="dl dl-del">- 			return nil</span>
+<span class="dl dl-del">- 		})</span>
+<span class="dl dl-del">- 		if err != nil {</span>
+<span class="dl dl-del">- 			return nil, fmt.Errorf(&#34;query neighbors of %s: %w&#34;, cur.id, err)</span>
+<span class="dl dl-del">- 		}</span>
+<span class="dl dl-del">- 		for rows.Next() {</span>
+<span class="dl dl-del">- 			var nid, ntype, rel string</span>
+<span class="dl dl-del">- 			if err := rows.Scan(&amp;nid, &amp;ntype, &amp;rel); err != nil {</span>
+<span class="dl dl-del">- 				rows.Close()</span>
+<span class="dl dl-del">- 				return nil, fmt.Errorf(&#34;scan neighbor: %w&#34;, err)</span>
+<span class="dl dl-del">- 			}</span>
+<span class="dl dl-del">- 			if visited[nid] {</span>
+<span class="dl dl-del">- 				continue</span>
+<span class="dl dl-del">- 			}</span>
+<span class="dl dl-del">- 			visited[nid] = true</span>
+<span class="dl dl-del">- 			node := lineageNode{</span>
+<span class="dl dl-del">- 				ID:       nid,</span>
+<span class="dl dl-del">- 				Type:     ntype,</span>
+<span class="dl dl-del">- 				EdgeType: rel,</span>
+<span class="dl dl-del">- 				Depth:    cur.depth &#43; 1,</span>
+<span class="dl dl-del">- 				Parent:   cur.id,</span>
+<span class="dl dl-del">- 			}</span>
+<span class="dl dl-del">- 			result = append(result, node)</span>
+<span class="dl dl-del">- 			queue = append(queue, queueEntry{id: nid, depth: cur.depth &#43; 1})</span>
+<span class="dl dl-del">- 		}</span>
+<span class="dl dl-del">- 		if err := rows.Err(); err != nil {</span>
+<span class="dl dl-del">- 			rows.Close()</span>
+<span class="dl dl-del">- 			return nil, fmt.Errorf(&#34;iterate neighbors of %s: %w&#34;, cur.id, err)</span>
+<span class="dl dl-del">- 		}</span>
+<span class="dl dl-del">- 		rows.Close()</span>
+<span class="dl dl-del">- 	}</span>
+<span class="dl dl-del">- </span>
+<span class="dl dl-del">- 	// Resolve titles in one shot for display.</span>
+<span class="dl dl-del">- 	if len(result) &gt; 0 {</span>
+<span class="dl dl-del">- 		ids := make([]string, len(result))</span>
+<span class="dl dl-del">- 		for i, n := range result {</span>
+<span class="dl dl-del">- 			ids[i] = n.ID</span>
+<span class="dl dl-del">- 		}</span>
+<span class="dl dl-del">- 		labels := graph.ResolveToMap(db, ids)</span>
+<span class="dl dl-del">- 		for i := range result {</span>
+<span class="dl dl-del">- 			if r, ok := labels[result[i].ID]; ok {</span>
+<span class="dl dl-del">- 				result[i].Title = r.Title</span>
+<span class="dl dl-del">- 			}</span>
+<span class="dl dl-del">- 		}</span>
+<span class="dl dl-del">- 	}</span>
+<span class="dl dl-del">- </span>
+<span class="dl dl-del">- 	return result, nil</span>
+<span class="dl dl-del">- }</span>
+<span class="dl dl-del">- </span>
+<span class="dl dl-ctx">  // sortLineageTimeline sorts nodes in place by ascending Timestamp, pushing</span>
+<span class="dl dl-ctx">  // nodes without a timestamp to the END so &#34;oldest first&#34; rendering is honest</span>
+<span class="dl dl-ctx">  // even when only part of the walk has temporal data.</span>
+</code></pre>
+    
+  </div>
+  
+  <div class="diff-hunk">
+    <div class="hunk-meta">
+      <code class="hunk-header">func sortLineageTimeline(nodes []lineageNode) {</code>
+      <span class="hunk-summary">0 added, 36 removed</span>
+    </div>
+    
+    <pre class="diff-pre"><code class="language-go"><span class="dl dl-ctx">  	})</span>
+<span class="dl dl-ctx">  }</span>
+<span class="dl dl-ctx">  </span>
+<span class="dl dl-del">- // annotateTimestamps fills in lineageNode.Timestamp by joining git_commits</span>
+<span class="dl dl-del">- // (commit_hash) and agent_events (session_id). Best-effort: missing rows</span>
+<span class="dl dl-del">- // silently leave Timestamp empty so timeline rendering still includes them.</span>
+<span class="dl dl-del">- func annotateTimestamps(db *sql.DB, nodes []lineageNode) {</span>
+<span class="dl dl-del">- 	for i := range nodes {</span>
+<span class="dl dl-del">- 		var ts sql.NullString</span>
+<span class="dl dl-del">- 		// bug-7dbaf552: best-effort timestamp lookups still wrapped in</span>
+<span class="dl dl-del">- 		// RetryOnBusy so a transient SQLITE_BUSY doesn&#39;t silently blank the</span>
+<span class="dl dl-del">- 		// timeline column under contention. QueryRow().Scan() consumes and</span>
+<span class="dl dl-del">- 		// closes its single row internally, so there is no *sql.Rows to leak</span>
+<span class="dl dl-del">- 		// across retries — the retry unit is naturally the whole Scan.</span>
+<span class="dl dl-del">- 		// sql.ErrNoRows is NOT a BusyError, so RetryOnBusy returns it</span>
+<span class="dl dl-del">- 		// immediately and we keep the original best-effort (ignore-error)</span>
+<span class="dl dl-del">- 		// behaviour.</span>
+<span class="dl dl-del">- 		// Try git_commits first (commit-shaped IDs).</span>
+<span class="dl dl-del">- 		_ = dbpkg.RetryOnBusy(dbpkg.DefaultBusyBackoff, func() error {</span>
+<span class="dl dl-del">- 			return db.QueryRow(</span>
+<span class="dl dl-del">- 				`SELECT timestamp FROM git_commits WHERE commit_hash = ? LIMIT 1`,</span>
+<span class="dl dl-del">- 				nodes[i].ID,</span>
+<span class="dl dl-del">- 			).Scan(&amp;ts)</span>
+<span class="dl dl-del">- 		})</span>
+<span class="dl dl-del">- 		if !ts.Valid || ts.String == &#34;&#34; {</span>
+<span class="dl dl-del">- 			// Fall back to agent_events.timestamp via session_id.</span>
+<span class="dl dl-del">- 			_ = dbpkg.RetryOnBusy(dbpkg.DefaultBusyBackoff, func() error {</span>
+<span class="dl dl-del">- 				return db.QueryRow(</span>
+<span class="dl dl-del">- 					`SELECT MIN(timestamp) FROM agent_events WHERE session_id = ?`,</span>
+<span class="dl dl-del">- 					nodes[i].ID,</span>
+<span class="dl dl-del">- 				).Scan(&amp;ts)</span>
+<span class="dl dl-del">- 			})</span>
+<span class="dl dl-del">- 		}</span>
+<span class="dl dl-del">- 		if ts.Valid {</span>
+<span class="dl dl-del">- 			nodes[i].Timestamp = ts.String</span>
+<span class="dl dl-del">- 		}</span>
+<span class="dl dl-del">- 	}</span>
+<span class="dl dl-del">- }</span>
+<span class="dl dl-del">- </span>
+<span class="dl dl-ctx">  // renderLineageJSON emits the stable {root, kind, forward, backward, agent_tree?} schema.</span>
+<span class="dl dl-ctx">  func renderLineageJSON(w io.Writer, root string, kind lineageKind, forward, backward []lineageNode, agentTree string) error {</span>
+<span class="dl dl-ctx">  	out := lineageJSON{</span>
+</code></pre>
+    
+  </div>
+  
+</div>
+
+            </details>
+          </div>
+          
+          <div class="lin-node down file-node">
+            <span class="lin-glyph"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.4" fill="currentColor"/></svg></span>
+            <details class="lin-file">
+              <summary>
+                <span class="file-change file-change-modify">modify</span>
+                <code class="lin-file-path">cmd/wipnote/lineage_busy_test.go</code>
+                <span class="lin-file-stat"><span class="plus">+3</span> <span class="minus">&minus;2</span></span>
+              </summary>
+              <div class="annotated-diff embedded diff-unified diff-unified" data-language="go">
+  
+  <div class="diff-hunk">
+    <div class="hunk-meta">
+      <code class="hunk-header">import (</code>
+      <span class="hunk-summary">1 added, 0 removed</span>
+    </div>
+    
+    <pre class="diff-pre"><code class="language-go"><span class="dl dl-ctx">  	&#34;time&#34;</span>
+<span class="dl dl-ctx">  </span>
+<span class="dl dl-ctx">  	&#34;github.com/shakestzd/wipnote/core/db&#34;</span>
+<span class="dl dl-add">&#43; 	&#34;github.com/shakestzd/wipnote/internal/lineage&#34;</span>
+<span class="dl dl-ctx">  )</span>
+<span class="dl dl-ctx">  </span>
+<span class="dl dl-ctx">  // seedLineageGraph inserts a small graph_edges chain rooted at root so a</span>
+</code></pre>
+    
+  </div>
+  
+  <div class="diff-hunk">
+    <div class="hunk-meta">
+      <code class="hunk-header">func TestLineageBfsWalk_NoBusyUnderContention(t *testing.T) {</code>
+      <span class="hunk-summary">1 added, 1 removed</span>
+    </div>
+    
+    <pre class="diff-pre"><code class="language-go"><span class="dl dl-ctx">  			deadline := time.Now().Add(3 * time.Second)</span>
+<span class="dl dl-ctx">  			passes := 0</span>
+<span class="dl dl-ctx">  			for time.Now().Before(deadline) {</span>
+<span class="dl dl-del">- 				nodes, walkErr := forwardWalk(ro, root, allLineageRels, 5)</span>
+<span class="dl dl-add">&#43; 				nodes, walkErr := lineage.ForwardWalk(ro, root, allLineageRels, 5)</span>
+<span class="dl dl-ctx">  				if walkErr != nil {</span>
+<span class="dl dl-ctx">  					cancel()</span>
+<span class="dl dl-ctx">  					writers.Wait()</span>
+</code></pre>
+    
+  </div>
+  
+  <div class="diff-hunk">
+    <div class="hunk-meta">
+      <code class="hunk-header">func TestLineageBfsWalk_RetryBoundaryClosesRows(t *testing.T) {</code>
+      <span class="hunk-summary">1 added, 1 removed</span>
+    </div>
+    
+    <pre class="diff-pre"><code class="language-go"><span class="dl dl-ctx">  	}</span>
+<span class="dl dl-ctx">  	defer ro.Close()</span>
+<span class="dl dl-ctx">  </span>
+<span class="dl dl-del">- 	if _, err := forwardWalk(ro, root, allLineageRels, 5); err != nil {</span>
+<span class="dl dl-add">&#43; 	if _, err := lineage.ForwardWalk(ro, root, allLineageRels, 5); err != nil {</span>
+<span class="dl dl-ctx">  		t.Fatalf(&#34;forwardWalk: %v&#34;, err)</span>
+<span class="dl dl-ctx">  	}</span>
+<span class="dl dl-ctx">  </span>
+</code></pre>
+    
+  </div>
+  
+</div>
+
+            </details>
+          </div>
+          
+          <div class="lin-node down file-node">
+            <span class="lin-glyph"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.4" fill="currentColor"/></svg></span>
+            <details class="lin-file">
+              <summary>
+                <span class="file-change file-change-add">add</span>
+                <code class="lin-file-path">internal/lineage/walk.go</code>
+                <span class="lin-file-stat"><span class="plus">+235</span></span>
+              </summary>
+              <div class="annotated-diff embedded diff-unified diff-unified" data-language="go">
+  
+  <div class="diff-hunk">
+    <div class="hunk-meta">
+      <code class="hunk-header"></code>
+      <span class="hunk-summary">235 added, 0 removed</span>
+    </div>
+    
+    <pre class="diff-pre"><code class="language-go"><span class="dl dl-add">&#43; // Package lineage holds the pure bidirectional BFS walk over the graph_edges</span>
+<span class="dl dl-add">&#43; // table. It is the single source of truth for lineage traversal, consumed by</span>
+<span class="dl dl-add">&#43; // both the `wipnote lineage` CLI command and the recap collector.</span>
+<span class="dl dl-add">&#43; //</span>
+<span class="dl dl-add">&#43; // The package takes only a *sql.DB; it performs no rendering and depends on no</span>
+<span class="dl dl-add">&#43; // cobra/cmd wiring. Import direction is internal-only: cmd/wipnote and</span>
+<span class="dl dl-add">&#43; // internal/recap import this; this imports core/db and core/graph.</span>
+<span class="dl dl-add">&#43; package lineage</span>
+<span class="dl dl-add">&#43; </span>
+<span class="dl dl-add">&#43; import (</span>
+<span class="dl dl-add">&#43; 	&#34;database/sql&#34;</span>
+<span class="dl dl-add">&#43; 	&#34;fmt&#34;</span>
+<span class="dl dl-add">&#43; 	&#34;strings&#34;</span>
+<span class="dl dl-add">&#43; </span>
+<span class="dl dl-add">&#43; 	dbpkg &#34;github.com/shakestzd/wipnote/core/db&#34;</span>
+<span class="dl dl-add">&#43; 	&#34;github.com/shakestzd/wipnote/core/graph&#34;</span>
+<span class="dl dl-add">&#43; 	&#34;github.com/shakestzd/wipnote/core/models&#34;</span>
+<span class="dl dl-add">&#43; )</span>
+<span class="dl dl-add">&#43; </span>
+<span class="dl dl-add">&#43; // Node is one hop in a forward or backward chain. It is the wire format for the</span>
+<span class="dl dl-add">&#43; // CLI&#39;s --json output and a convenient internal representation for tree</span>
+<span class="dl dl-add">&#43; // rendering and recap lineage chains.</span>
+<span class="dl dl-add">&#43; type Node struct {</span>
+<span class="dl dl-add">&#43; 	ID       string `json:&#34;id&#34;`</span>
+<span class="dl dl-add">&#43; 	Type     string `json:&#34;type&#34;`</span>
+<span class="dl dl-add">&#43; 	Title    string `json:&#34;title,omitempty&#34;`</span>
+<span class="dl dl-add">&#43; 	EdgeType string `json:&#34;edge_type&#34;`</span>
+<span class="dl dl-add">&#43; 	Depth    int    `json:&#34;depth&#34;`</span>
+<span class="dl dl-add">&#43; 	// Parent is the node ID that this hop was discovered from during BFS. For</span>
+<span class="dl dl-add">&#43; 	// the pivot&#39;s direct neighbours it equals the pivot. Used by the tree</span>
+<span class="dl dl-add">&#43; 	// renderer to build a real adjacency structure so branched walks don&#39;t</span>
+<span class="dl dl-add">&#43; 	// visually attach grandchildren to the wrong parent.</span>
+<span class="dl dl-add">&#43; 	Parent string `json:&#34;parent,omitempty&#34;`</span>
+<span class="dl dl-add">&#43; 	// Timestamp is populated for --timeline rendering by joining git_commits /</span>
+<span class="dl dl-add">&#43; 	// agent_events. Empty when no temporal data is available.</span>
+<span class="dl dl-add">&#43; 	Timestamp string `json:&#34;timestamp,omitempty&#34;`</span>
+<span class="dl dl-add">&#43; }</span>
+<span class="dl dl-add">&#43; </span>
+<span class="dl dl-add">&#43; // AllRels lists all 10 relationship types we traverse. We do NOT subset: any of</span>
+<span class="dl dl-add">&#43; // these can carry causal meaning depending on the slice in question.</span>
+<span class="dl dl-add">&#43; var AllRels = []string{</span>
+<span class="dl dl-add">&#43; 	string(models.RelBlocks),</span>
+<span class="dl dl-add">&#43; 	string(models.RelBlockedBy),</span>
+<span class="dl dl-add">&#43; 	string(models.RelRelatesTo),</span>
+<span class="dl dl-add">&#43; 	string(models.RelImplements),</span>
+<span class="dl dl-add">&#43; 	string(models.RelCausedBy),</span>
+<span class="dl dl-add">&#43; 	string(models.RelSpawnedFrom),</span>
+<span class="dl dl-add">&#43; 	string(models.RelImplementedIn),</span>
+<span class="dl dl-add">&#43; 	string(models.RelPartOf),</span>
+<span class="dl dl-add">&#43; 	string(models.RelContains),</span>
+<span class="dl dl-add">&#43; 	string(models.RelPlannedIn),</span>
+<span class="dl dl-add">&#43; }</span>
+<span class="dl dl-add">&#43; </span>
+<span class="dl dl-add">&#43; // ForwardWalk performs a BFS following from_node_id = current outward. Returns</span>
+<span class="dl dl-add">&#43; // nodes in BFS order, each annotated with the edge type that reached it and the</span>
+<span class="dl dl-add">&#43; // hop depth (1-indexed).</span>
+<span class="dl dl-add">&#43; func ForwardWalk(db *sql.DB, root string, rels []string, maxDepth int) ([]Node, error) {</span>
+<span class="dl dl-add">&#43; 	return BFSWalk(db, root, rels, maxDepth, true)</span>
+<span class="dl dl-add">&#43; }</span>
+<span class="dl dl-add">&#43; </span>
+<span class="dl dl-add">&#43; // BackwardWalk performs a BFS following to_node_id = current inward — i.e.</span>
+<span class="dl dl-add">&#43; // &#34;who points at me?&#34;.</span>
+<span class="dl dl-add">&#43; func BackwardWalk(db *sql.DB, root string, rels []string, maxDepth int) ([]Node, error) {</span>
+<span class="dl dl-add">&#43; 	return BFSWalk(db, root, rels, maxDepth, false)</span>
+<span class="dl dl-add">&#43; }</span>
+<span class="dl dl-add">&#43; </span>
+<span class="dl dl-add">&#43; // BFSWalk is the shared BFS engine for both directions. When forward=true it</span>
+<span class="dl dl-add">&#43; // follows from-&gt;to edges; when false it follows to-&gt;from edges.</span>
+<span class="dl dl-add">&#43; func BFSWalk(db *sql.DB, root string, rels []string, maxDepth int, forward bool) ([]Node, error) {</span>
+<span class="dl dl-add">&#43; 	if maxDepth &lt;= 0 || len(rels) == 0 {</span>
+<span class="dl dl-add">&#43; 		return nil, nil</span>
+<span class="dl dl-add">&#43; 	}</span>
+<span class="dl dl-add">&#43; </span>
+<span class="dl dl-add">&#43; 	query := neighborQuery(rels, forward)</span>
+<span class="dl dl-add">&#43; </span>
+<span class="dl dl-add">&#43; 	type queueEntry struct {</span>
+<span class="dl dl-add">&#43; 		id    string</span>
+<span class="dl dl-add">&#43; 		depth int</span>
+<span class="dl dl-add">&#43; 	}</span>
+<span class="dl dl-add">&#43; 	visited := map[string]bool{root: true}</span>
+<span class="dl dl-add">&#43; 	queue := []queueEntry{{id: root, depth: 0}}</span>
+<span class="dl dl-add">&#43; 	var result []Node</span>
+<span class="dl dl-add">&#43; </span>
+<span class="dl dl-add">&#43; 	for len(queue) &gt; 0 {</span>
+<span class="dl dl-add">&#43; 		cur := queue[0]</span>
+<span class="dl dl-add">&#43; 		queue = queue[1:]</span>
+<span class="dl dl-add">&#43; 		if cur.depth &gt;= maxDepth {</span>
+<span class="dl dl-add">&#43; 			continue</span>
+<span class="dl dl-add">&#43; 		}</span>
+<span class="dl dl-add">&#43; 		nodes, err := queryNeighbors(db, query, cur.id, rels)</span>
+<span class="dl dl-add">&#43; 		if err != nil {</span>
+<span class="dl dl-add">&#43; 			return nil, err</span>
+<span class="dl dl-add">&#43; 		}</span>
+<span class="dl dl-add">&#43; 		for _, n := range nodes {</span>
+<span class="dl dl-add">&#43; 			if visited[n.id] {</span>
+<span class="dl dl-add">&#43; 				continue</span>
+<span class="dl dl-add">&#43; 			}</span>
+<span class="dl dl-add">&#43; 			visited[n.id] = true</span>
+<span class="dl dl-add">&#43; 			result = append(result, Node{</span>
+<span class="dl dl-add">&#43; 				ID:       n.id,</span>
+<span class="dl dl-add">&#43; 				Type:     n.ntype,</span>
+<span class="dl dl-add">&#43; 				EdgeType: n.rel,</span>
+<span class="dl dl-add">&#43; 				Depth:    cur.depth &#43; 1,</span>
+<span class="dl dl-add">&#43; 				Parent:   cur.id,</span>
+<span class="dl dl-add">&#43; 			})</span>
+<span class="dl dl-add">&#43; 			queue = append(queue, queueEntry{id: n.id, depth: cur.depth &#43; 1})</span>
+<span class="dl dl-add">&#43; 		}</span>
+<span class="dl dl-add">&#43; 	}</span>
+<span class="dl dl-add">&#43; </span>
+<span class="dl dl-add">&#43; 	resolveTitles(db, result)</span>
+<span class="dl dl-add">&#43; 	return result, nil</span>
+<span class="dl dl-add">&#43; }</span>
+<span class="dl dl-add">&#43; </span>
+<span class="dl dl-add">&#43; // neighborRow is a raw graph_edges neighbour before BFS bookkeeping.</span>
+<span class="dl dl-add">&#43; type neighborRow struct {</span>
+<span class="dl dl-add">&#43; 	id    string</span>
+<span class="dl dl-add">&#43; 	ntype string</span>
+<span class="dl dl-add">&#43; 	rel   string</span>
+<span class="dl dl-add">&#43; }</span>
+<span class="dl dl-add">&#43; </span>
+<span class="dl dl-add">&#43; // queryNeighbors runs the directional neighbour query for one node, with a</span>
+<span class="dl dl-add">&#43; // SQLITE_BUSY retry around the query only.</span>
+<span class="dl dl-add">&#43; //</span>
+<span class="dl dl-add">&#43; // bug-7dbaf552: the retry unit is THIS QUERY ONLY, never the BFS iteration. On</span>
+<span class="dl dl-add">&#43; // a contended DELETE-journal DB a single neighbour query can transiently</span>
+<span class="dl dl-add">&#43; // SQLITE_BUSY; without a retry the whole walk fails. db.Query returns err</span>
+<span class="dl dl-add">&#43; // WITHOUT a usable rows handle on BUSY, so there is nothing to leak between</span>
+<span class="dl dl-add">&#43; // attempts; rows is closed exactly once after iteration. We defensively Close</span>
+<span class="dl dl-add">&#43; // any non-nil rows from a BUSY attempt before retrying to make the invariant</span>
+<span class="dl dl-add">&#43; // explicit and robust to driver changes.</span>
+<span class="dl dl-add">&#43; func queryNeighbors(db *sql.DB, query, id string, rels []string) ([]neighborRow, error) {</span>
+<span class="dl dl-add">&#43; 	args := make([]any, 0, 1&#43;len(rels))</span>
+<span class="dl dl-add">&#43; 	args = append(args, id)</span>
+<span class="dl dl-add">&#43; 	for _, r := range rels {</span>
+<span class="dl dl-add">&#43; 		args = append(args, r)</span>
+<span class="dl dl-add">&#43; 	}</span>
+<span class="dl dl-add">&#43; 	var rows *sql.Rows</span>
+<span class="dl dl-add">&#43; 	err := dbpkg.RetryOnBusy(dbpkg.DefaultBusyBackoff, func() error {</span>
+<span class="dl dl-add">&#43; 		r, qerr := db.Query(query, args...)</span>
+<span class="dl dl-add">&#43; 		if qerr != nil {</span>
+<span class="dl dl-add">&#43; 			if r != nil { // defensive: never carry an open lock into a retry</span>
+<span class="dl dl-add">&#43; 				r.Close()</span>
+<span class="dl dl-add">&#43; 			}</span>
+<span class="dl dl-add">&#43; 			return qerr</span>
+<span class="dl dl-add">&#43; 		}</span>
+<span class="dl dl-add">&#43; 		rows = r</span>
+<span class="dl dl-add">&#43; 		return nil</span>
+<span class="dl dl-add">&#43; 	})</span>
+<span class="dl dl-add">&#43; 	if err != nil {</span>
+<span class="dl dl-add">&#43; 		return nil, fmt.Errorf(&#34;query neighbors of %s: %w&#34;, id, err)</span>
+<span class="dl dl-add">&#43; 	}</span>
+<span class="dl dl-add">&#43; 	defer rows.Close()</span>
+<span class="dl dl-add">&#43; </span>
+<span class="dl dl-add">&#43; 	var out []neighborRow</span>
+<span class="dl dl-add">&#43; 	for rows.Next() {</span>
+<span class="dl dl-add">&#43; 		var nr neighborRow</span>
+<span class="dl dl-add">&#43; 		if err := rows.Scan(&amp;nr.id, &amp;nr.ntype, &amp;nr.rel); err != nil {</span>
+<span class="dl dl-add">&#43; 			return nil, fmt.Errorf(&#34;scan neighbor: %w&#34;, err)</span>
+<span class="dl dl-add">&#43; 		}</span>
+<span class="dl dl-add">&#43; 		out = append(out, nr)</span>
+<span class="dl dl-add">&#43; 	}</span>
+<span class="dl dl-add">&#43; 	if err := rows.Err(); err != nil {</span>
+<span class="dl dl-add">&#43; 		return nil, fmt.Errorf(&#34;iterate neighbors of %s: %w&#34;, id, err)</span>
+<span class="dl dl-add">&#43; 	}</span>
+<span class="dl dl-add">&#43; 	return out, nil</span>
+<span class="dl dl-add">&#43; }</span>
+<span class="dl dl-add">&#43; </span>
+<span class="dl dl-add">&#43; // neighborQuery builds the directional neighbour SELECT with one placeholder</span>
+<span class="dl dl-add">&#43; // per relationship type.</span>
+<span class="dl dl-add">&#43; func neighborQuery(rels []string, forward bool) string {</span>
+<span class="dl dl-add">&#43; 	placeholders := strings.Repeat(&#34;?,&#34;, len(rels))</span>
+<span class="dl dl-add">&#43; 	placeholders = placeholders[:len(placeholders)-1]</span>
+<span class="dl dl-add">&#43; 	if forward {</span>
+<span class="dl dl-add">&#43; 		return fmt.Sprintf(</span>
+<span class="dl dl-add">&#43; 			`SELECT to_node_id, to_node_type, relationship_type</span>
+<span class="dl dl-add">&#43; 			 FROM graph_edges</span>
+<span class="dl dl-add">&#43; 			 WHERE from_node_id = ? AND relationship_type IN (%s)`,</span>
+<span class="dl dl-add">&#43; 			placeholders,</span>
+<span class="dl dl-add">&#43; 		)</span>
+<span class="dl dl-add">&#43; 	}</span>
+<span class="dl dl-add">&#43; 	return fmt.Sprintf(</span>
+<span class="dl dl-add">&#43; 		`SELECT from_node_id, from_node_type, relationship_type</span>
+<span class="dl dl-add">&#43; 		 FROM graph_edges</span>
+<span class="dl dl-add">&#43; 		 WHERE to_node_id = ? AND relationship_type IN (%s)`,</span>
+<span class="dl dl-add">&#43; 		placeholders,</span>
+<span class="dl dl-add">&#43; 	)</span>
+<span class="dl dl-add">&#43; }</span>
+<span class="dl dl-add">&#43; </span>
+<span class="dl dl-add">&#43; // resolveTitles fills Node.Title in one shot for display.</span>
+<span class="dl dl-add">&#43; func resolveTitles(db *sql.DB, nodes []Node) {</span>
+<span class="dl dl-add">&#43; 	if len(nodes) == 0 {</span>
+<span class="dl dl-add">&#43; 		return</span>
+<span class="dl dl-add">&#43; 	}</span>
+<span class="dl dl-add">&#43; 	ids := make([]string, len(nodes))</span>
+<span class="dl dl-add">&#43; 	for i, n := range nodes {</span>
+<span class="dl dl-add">&#43; 		ids[i] = n.ID</span>
+<span class="dl dl-add">&#43; 	}</span>
+<span class="dl dl-add">&#43; 	labels := graph.ResolveToMap(db, ids)</span>
+<span class="dl dl-add">&#43; 	for i := range nodes {</span>
+<span class="dl dl-add">&#43; 		if r, ok := labels[nodes[i].ID]; ok {</span>
+<span class="dl dl-add">&#43; 			nodes[i].Title = r.Title</span>
+<span class="dl dl-add">&#43; 		}</span>
+<span class="dl dl-add">&#43; 	}</span>
+<span class="dl dl-add">&#43; }</span>
+<span class="dl dl-add">&#43; </span>
+<span class="dl dl-add">&#43; // AnnotateTimestamps fills in Node.Timestamp by joining git_commits</span>
+<span class="dl dl-add">&#43; // (commit_hash) and agent_events (session_id). Best-effort: missing rows</span>
+<span class="dl dl-add">&#43; // silently leave Timestamp empty so timeline rendering still includes them.</span>
+<span class="dl dl-add">&#43; func AnnotateTimestamps(db *sql.DB, nodes []Node) {</span>
+<span class="dl dl-add">&#43; 	for i := range nodes {</span>
+<span class="dl dl-add">&#43; 		var ts sql.NullString</span>
+<span class="dl dl-add">&#43; 		// bug-7dbaf552: best-effort timestamp lookups still wrapped in</span>
+<span class="dl dl-add">&#43; 		// RetryOnBusy so a transient SQLITE_BUSY doesn&#39;t silently blank the</span>
+<span class="dl dl-add">&#43; 		// timeline column under contention. sql.ErrNoRows is NOT a BusyError, so</span>
+<span class="dl dl-add">&#43; 		// RetryOnBusy returns it immediately and we keep the best-effort</span>
+<span class="dl dl-add">&#43; 		// (ignore-error) behaviour.</span>
+<span class="dl dl-add">&#43; 		_ = dbpkg.RetryOnBusy(dbpkg.DefaultBusyBackoff, func() error {</span>
+<span class="dl dl-add">&#43; 			return db.QueryRow(</span>
+<span class="dl dl-add">&#43; 				`SELECT timestamp FROM git_commits WHERE commit_hash = ? LIMIT 1`,</span>
+<span class="dl dl-add">&#43; 				nodes[i].ID,</span>
+<span class="dl dl-add">&#43; 			).Scan(&amp;ts)</span>
+<span class="dl dl-add">&#43; 		})</span>
+<span class="dl dl-add">&#43; 		if !ts.Valid || ts.String == &#34;&#34; {</span>
+<span class="dl dl-add">&#43; 			_ = dbpkg.RetryOnBusy(dbpkg.DefaultBusyBackoff, func() error {</span>
+<span class="dl dl-add">&#43; 				return db.QueryRow(</span>
+<span class="dl dl-add">&#43; 					`SELECT MIN(timestamp) FROM agent_events WHERE session_id = ?`,</span>
+<span class="dl dl-add">&#43; 					nodes[i].ID,</span>
+<span class="dl dl-add">&#43; 				).Scan(&amp;ts)</span>
+<span class="dl dl-add">&#43; 			})</span>
+<span class="dl dl-add">&#43; 		}</span>
+<span class="dl dl-add">&#43; 		if ts.Valid {</span>
+<span class="dl dl-add">&#43; 			nodes[i].Timestamp = ts.String</span>
+<span class="dl dl-add">&#43; 		}</span>
+<span class="dl dl-add">&#43; 	}</span>
+<span class="dl dl-add">&#43; }</span>
+</code></pre>
+    
+  </div>
+  
+</div>
+
+            </details>
+          </div>
+          
+          <div class="lin-node down file-node">
+            <span class="lin-glyph"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.4" fill="currentColor"/></svg></span>
+            <details class="lin-file">
+              <summary>
+                <span class="file-change file-change-add">add</span>
+                <code class="lin-file-path">internal/lineage/walk_test.go</code>
+                <span class="lin-file-stat"><span class="plus">+48</span></span>
+              </summary>
+              <div class="annotated-diff embedded diff-unified diff-unified" data-language="go">
+  
+  <div class="diff-hunk">
+    <div class="hunk-meta">
+      <code class="hunk-header"></code>
+      <span class="hunk-summary">48 added, 0 removed</span>
+    </div>
+    
+    <pre class="diff-pre"><code class="language-go"><span class="dl dl-add">&#43; package lineage</span>
+<span class="dl dl-add">&#43; </span>
+<span class="dl dl-add">&#43; import (</span>
+<span class="dl dl-add">&#43; 	&#34;database/sql&#34;</span>
+<span class="dl dl-add">&#43; 	&#34;testing&#34;</span>
+<span class="dl dl-add">&#43; </span>
+<span class="dl dl-add">&#43; 	dbpkg &#34;github.com/shakestzd/wipnote/core/db&#34;</span>
+<span class="dl dl-add">&#43; )</span>
+<span class="dl dl-add">&#43; </span>
+<span class="dl dl-add">&#43; func TestBFSWalk_Bidirectional(t *testing.T) {</span>
+<span class="dl dl-add">&#43; 	db, err := dbpkg.Open(&#34;file::memory:?cache=shared&#34;)</span>
+<span class="dl dl-add">&#43; 	if err != nil {</span>
+<span class="dl dl-add">&#43; 		t.Fatalf(&#34;open: %v&#34;, err)</span>
+<span class="dl dl-add">&#43; 	}</span>
+<span class="dl dl-add">&#43; 	defer db.Close()</span>
+<span class="dl dl-add">&#43; </span>
+<span class="dl dl-add">&#43; 	// feat -&gt; plan (part_of: feat is part of plan); feat -&gt; bug (relates_to).</span>
+<span class="dl dl-add">&#43; 	mustEdge(t, db, &#34;e1&#34;, &#34;feat-1&#34;, &#34;feature&#34;, &#34;plan-1&#34;, &#34;plan&#34;, &#34;part_of&#34;)</span>
+<span class="dl dl-add">&#43; 	mustEdge(t, db, &#34;e2&#34;, &#34;feat-1&#34;, &#34;feature&#34;, &#34;bug-1&#34;, &#34;bug&#34;, &#34;relates_to&#34;)</span>
+<span class="dl dl-add">&#43; </span>
+<span class="dl dl-add">&#43; 	fwd, err := ForwardWalk(db, &#34;feat-1&#34;, AllRels, 5)</span>
+<span class="dl dl-add">&#43; 	if err != nil {</span>
+<span class="dl dl-add">&#43; 		t.Fatalf(&#34;ForwardWalk: %v&#34;, err)</span>
+<span class="dl dl-add">&#43; 	}</span>
+<span class="dl dl-add">&#43; 	if len(fwd) != 2 {</span>
+<span class="dl dl-add">&#43; 		t.Fatalf(&#34;forward = %d nodes, want 2: %&#43;v&#34;, len(fwd), fwd)</span>
+<span class="dl dl-add">&#43; 	}</span>
+<span class="dl dl-add">&#43; 	for _, n := range fwd {</span>
+<span class="dl dl-add">&#43; 		if n.Parent != &#34;feat-1&#34; || n.Depth != 1 {</span>
+<span class="dl dl-add">&#43; 			t.Errorf(&#34;node %&#43;v: want parent feat-1 depth 1&#34;, n)</span>
+<span class="dl dl-add">&#43; 		}</span>
+<span class="dl dl-add">&#43; 	}</span>
+<span class="dl dl-add">&#43; </span>
+<span class="dl dl-add">&#43; 	back, err := BackwardWalk(db, &#34;plan-1&#34;, AllRels, 5)</span>
+<span class="dl dl-add">&#43; 	if err != nil {</span>
+<span class="dl dl-add">&#43; 		t.Fatalf(&#34;BackwardWalk: %v&#34;, err)</span>
+<span class="dl dl-add">&#43; 	}</span>
+<span class="dl dl-add">&#43; 	if len(back) != 1 || back[0].ID != &#34;feat-1&#34; {</span>
+<span class="dl dl-add">&#43; 		t.Fatalf(&#34;backward = %&#43;v, want [feat-1]&#34;, back)</span>
+<span class="dl dl-add">&#43; 	}</span>
+<span class="dl dl-add">&#43; }</span>
+<span class="dl dl-add">&#43; </span>
+<span class="dl dl-add">&#43; func mustEdge(t *testing.T, db *sql.DB, id, fromID, fromType, toID, toType, rel string) {</span>
+<span class="dl dl-add">&#43; 	t.Helper()</span>
+<span class="dl dl-add">&#43; 	if err := dbpkg.InsertEdge(db, id, fromID, fromType, toID, toType, rel, nil); err != nil {</span>
+<span class="dl dl-add">&#43; 		t.Fatalf(&#34;InsertEdge: %v&#34;, err)</span>
+<span class="dl dl-add">&#43; 	}</span>
+<span class="dl dl-add">&#43; }</span>
+</code></pre>
+    
+  </div>
+  
+</div>
+
+            </details>
+          </div>
+          
+          <div class="lin-node down file-node">
+            <span class="lin-glyph"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.4" fill="currentColor"/></svg></span>
+            <details class="lin-file">
+              <summary>
+                <span class="file-change file-change-add">add</span>
+                <code class="lin-file-path">internal/recap/collect.go</code>
+                <span class="lin-file-stat"><span class="plus">+229</span></span>
+              </summary>
+              <div class="annotated-diff embedded diff-unified diff-unified" data-language="go">
+  
+  <div class="diff-hunk">
+    <div class="hunk-meta">
+      <code class="hunk-header"></code>
+      <span class="hunk-summary">229 added, 0 removed</span>
+    </div>
+    
+    <pre class="diff-pre"><code class="language-go"><span class="dl dl-add">&#43; package recap</span>
+<span class="dl dl-add">&#43; </span>
+<span class="dl dl-add">&#43; import (</span>
+<span class="dl dl-add">&#43; 	&#34;database/sql&#34;</span>
+<span class="dl dl-add">&#43; 	&#34;fmt&#34;</span>
+<span class="dl dl-add">&#43; 	&#34;sort&#34;</span>
+<span class="dl dl-add">&#43; 	&#34;strings&#34;</span>
+<span class="dl dl-add">&#43; </span>
+<span class="dl dl-add">&#43; 	dbpkg &#34;github.com/shakestzd/wipnote/core/db&#34;</span>
+<span class="dl dl-add">&#43; 	&#34;github.com/shakestzd/wipnote/core/models&#34;</span>
+<span class="dl dl-add">&#43; 	&#34;github.com/shakestzd/wipnote/internal/lineage&#34;</span>
+<span class="dl dl-add">&#43; )</span>
+<span class="dl dl-add">&#43; </span>
+<span class="dl dl-add">&#43; // defaultDepth is the lineage walk depth used when Options.Depth is unset.</span>
+<span class="dl dl-add">&#43; const defaultDepth = 5</span>
+<span class="dl dl-add">&#43; </span>
+<span class="dl dl-add">&#43; // Options configures a Collect call.</span>
+<span class="dl dl-add">&#43; type Options struct {</span>
+<span class="dl dl-add">&#43; 	// Input is the single resolvable input: a work-item id (feat-/bug-/spk-),</span>
+<span class="dl dl-add">&#43; 	// a git range (e.g. &#34;main..HEAD&#34;), or a session id (sess-...).</span>
+<span class="dl dl-add">&#43; 	Input string</span>
+<span class="dl dl-add">&#43; 	// ProjectDir is the repository root used for all git subprocess calls.</span>
+<span class="dl dl-add">&#43; 	ProjectDir string</span>
+<span class="dl dl-add">&#43; 	// Depth bounds the lineage walk. Zero falls back to defaultDepth.</span>
+<span class="dl dl-add">&#43; 	Depth int</span>
+<span class="dl dl-add">&#43; }</span>
+<span class="dl dl-add">&#43; </span>
+<span class="dl dl-add">&#43; // Collect resolves Options.Input into grounded RecapData. It dispatches on the</span>
+<span class="dl dl-add">&#43; // input&#39;s shape — work-item ids and session ids walk the lineage graph and read</span>
+<span class="dl dl-add">&#43; // the git_commits read index; a bare git range diffs directly with no work-item</span>
+<span class="dl dl-add">&#43; // grounding (LineageChain is omitted).</span>
+<span class="dl dl-add">&#43; func Collect(db *sql.DB, opts Options) (*RecapData, error) {</span>
+<span class="dl dl-add">&#43; 	input := strings.TrimSpace(opts.Input)</span>
+<span class="dl dl-add">&#43; 	if input == &#34;&#34; {</span>
+<span class="dl dl-add">&#43; 		return nil, fmt.Errorf(&#34;recap: empty input&#34;)</span>
+<span class="dl dl-add">&#43; 	}</span>
+<span class="dl dl-add">&#43; 	if opts.Depth &lt;= 0 {</span>
+<span class="dl dl-add">&#43; 		opts.Depth = defaultDepth</span>
+<span class="dl dl-add">&#43; 	}</span>
+<span class="dl dl-add">&#43; </span>
+<span class="dl dl-add">&#43; 	switch detectKind(input) {</span>
+<span class="dl dl-add">&#43; 	case InputWorkItem:</span>
+<span class="dl dl-add">&#43; 		return collectWorkItem(db, opts, input)</span>
+<span class="dl dl-add">&#43; 	case InputSession:</span>
+<span class="dl dl-add">&#43; 		return collectSession(db, opts, input)</span>
+<span class="dl dl-add">&#43; 	default:</span>
+<span class="dl dl-add">&#43; 		return collectRange(opts, input)</span>
+<span class="dl dl-add">&#43; 	}</span>
+<span class="dl dl-add">&#43; }</span>
+<span class="dl dl-add">&#43; </span>
+<span class="dl dl-add">&#43; // detectKind classifies the input string. Work-item and session ids are prefix</span>
+<span class="dl dl-add">&#43; // routed; everything else is treated as a git range.</span>
+<span class="dl dl-add">&#43; func detectKind(input string) InputKind {</span>
+<span class="dl dl-add">&#43; 	switch {</span>
+<span class="dl dl-add">&#43; 	case strings.HasPrefix(input, &#34;feat-&#34;),</span>
+<span class="dl dl-add">&#43; 		strings.HasPrefix(input, &#34;bug-&#34;),</span>
+<span class="dl dl-add">&#43; 		strings.HasPrefix(input, &#34;spk-&#34;):</span>
+<span class="dl dl-add">&#43; 		return InputWorkItem</span>
+<span class="dl dl-add">&#43; 	case strings.HasPrefix(input, &#34;sess-&#34;):</span>
+<span class="dl dl-add">&#43; 		return InputSession</span>
+<span class="dl dl-add">&#43; 	default:</span>
+<span class="dl dl-add">&#43; 		return InputRange</span>
+<span class="dl dl-add">&#43; 	}</span>
+<span class="dl dl-add">&#43; }</span>
+<span class="dl dl-add">&#43; </span>
+<span class="dl dl-add">&#43; // collectWorkItem resolves a feat-/bug-/spk- id: its commits (from the</span>
+<span class="dl dl-add">&#43; // git_commits read index, keyed type-agnostically by feature_id) plus the</span>
+<span class="dl dl-add">&#43; // bidirectional lineage chain.</span>
+<span class="dl dl-add">&#43; func collectWorkItem(db *sql.DB, opts Options, id string) (*RecapData, error) {</span>
+<span class="dl dl-add">&#43; 	commits, err := dbpkg.GetCommitsByFeature(db, id)</span>
+<span class="dl dl-add">&#43; 	if err != nil {</span>
+<span class="dl dl-add">&#43; 		return nil, fmt.Errorf(&#34;recap: commits for %s: %w&#34;, id, err)</span>
+<span class="dl dl-add">&#43; 	}</span>
+<span class="dl dl-add">&#43; 	chain := walkLineage(db, id, opts.Depth)</span>
+<span class="dl dl-add">&#43; 	data, gitRange, err := buildFromCommits(opts.ProjectDir, commits)</span>
+<span class="dl dl-add">&#43; 	if err != nil {</span>
+<span class="dl dl-add">&#43; 		return nil, err</span>
+<span class="dl dl-add">&#43; 	}</span>
+<span class="dl dl-add">&#43; 	data.Outcome = resolveTitle(db, id)</span>
+<span class="dl dl-add">&#43; 	data.LineageChain = chain</span>
+<span class="dl dl-add">&#43; 	data.Provenance = Provenance{Kind: InputWorkItem, Input: id, GitRange: gitRange, Grounded: true}</span>
+<span class="dl dl-add">&#43; 	return data, nil</span>
+<span class="dl dl-add">&#43; }</span>
+<span class="dl dl-add">&#43; </span>
+<span class="dl dl-add">&#43; // collectSession resolves a session id: the commits produced in that session</span>
+<span class="dl dl-add">&#43; // plus the lineage chain rooted at the session. Grounding is true only when at</span>
+<span class="dl dl-add">&#43; // least one commit carries a feature_id.</span>
+<span class="dl dl-add">&#43; func collectSession(db *sql.DB, opts Options, id string) (*RecapData, error) {</span>
+<span class="dl dl-add">&#43; 	commits, err := dbpkg.GetCommitsBySession(db, id)</span>
+<span class="dl dl-add">&#43; 	if err != nil {</span>
+<span class="dl dl-add">&#43; 		return nil, fmt.Errorf(&#34;recap: commits for %s: %w&#34;, id, err)</span>
+<span class="dl dl-add">&#43; 	}</span>
+<span class="dl dl-add">&#43; 	chain := walkLineage(db, id, opts.Depth)</span>
+<span class="dl dl-add">&#43; 	data, gitRange, err := buildFromCommits(opts.ProjectDir, commits)</span>
+<span class="dl dl-add">&#43; 	if err != nil {</span>
+<span class="dl dl-add">&#43; 		return nil, err</span>
+<span class="dl dl-add">&#43; 	}</span>
+<span class="dl dl-add">&#43; 	data.Outcome = fmt.Sprintf(&#34;Session %s&#34;, id)</span>
+<span class="dl dl-add">&#43; 	data.LineageChain = chain</span>
+<span class="dl dl-add">&#43; 	data.Provenance = Provenance{Kind: InputSession, Input: id, GitRange: gitRange, Grounded: hasFeature(commits)}</span>
+<span class="dl dl-add">&#43; 	return data, nil</span>
+<span class="dl dl-add">&#43; }</span>
+<span class="dl dl-add">&#43; </span>
+<span class="dl dl-add">&#43; // collectRange resolves a bare git range with no work-item grounding. Lineage is</span>
+<span class="dl dl-add">&#43; // omitted; only diff/file/commit data is returned.</span>
+<span class="dl dl-add">&#43; func collectRange(opts Options, gitRange string) (*RecapData, error) {</span>
+<span class="dl dl-add">&#43; 	commits, err := commitsInRange(opts.ProjectDir, gitRange)</span>
+<span class="dl dl-add">&#43; 	if err != nil {</span>
+<span class="dl dl-add">&#43; 		return nil, err</span>
+<span class="dl dl-add">&#43; 	}</span>
+<span class="dl dl-add">&#43; 	files, err := diffRange(opts.ProjectDir, gitRange)</span>
+<span class="dl dl-add">&#43; 	if err != nil {</span>
+<span class="dl dl-add">&#43; 		return nil, err</span>
+<span class="dl dl-add">&#43; 	}</span>
+<span class="dl dl-add">&#43; 	return &amp;RecapData{</span>
+<span class="dl dl-add">&#43; 		Outcome: fmt.Sprintf(&#34;Changes in %s&#34;, gitRange),</span>
+<span class="dl dl-add">&#43; 		Files:   files,</span>
+<span class="dl dl-add">&#43; 		Commits: commits,</span>
+<span class="dl dl-add">&#43; 		Provenance: Provenance{</span>
+<span class="dl dl-add">&#43; 			Kind:     InputRange,</span>
+<span class="dl dl-add">&#43; 			Input:    gitRange,</span>
+<span class="dl dl-add">&#43; 			GitRange: gitRange,</span>
+<span class="dl dl-add">&#43; 			Grounded: false,</span>
+<span class="dl dl-add">&#43; 		},</span>
+<span class="dl dl-add">&#43; 	}, nil</span>
+<span class="dl dl-add">&#43; }</span>
+<span class="dl dl-add">&#43; </span>
+<span class="dl dl-add">&#43; // walkLineage performs the bidirectional lineage walk and concatenates the</span>
+<span class="dl dl-add">&#43; // backward (ancestors) and forward (descendants) chains. A walk failure is</span>
+<span class="dl dl-add">&#43; // non-fatal: lineage is a value-add, so we degrade to an empty chain.</span>
+<span class="dl dl-add">&#43; func walkLineage(db *sql.DB, root string, depth int) []lineage.Node {</span>
+<span class="dl dl-add">&#43; 	backward, err := lineage.BackwardWalk(db, root, lineage.AllRels, depth)</span>
+<span class="dl dl-add">&#43; 	if err != nil {</span>
+<span class="dl dl-add">&#43; 		backward = nil</span>
+<span class="dl dl-add">&#43; 	}</span>
+<span class="dl dl-add">&#43; 	forward, err := lineage.ForwardWalk(db, root, lineage.AllRels, depth)</span>
+<span class="dl dl-add">&#43; 	if err != nil {</span>
+<span class="dl dl-add">&#43; 		forward = nil</span>
+<span class="dl dl-add">&#43; 	}</span>
+<span class="dl dl-add">&#43; 	if len(backward) == 0 &amp;&amp; len(forward) == 0 {</span>
+<span class="dl dl-add">&#43; 		return nil</span>
+<span class="dl dl-add">&#43; 	}</span>
+<span class="dl dl-add">&#43; 	chain := make([]lineage.Node, 0, len(backward)&#43;len(forward))</span>
+<span class="dl dl-add">&#43; 	chain = append(chain, backward...)</span>
+<span class="dl dl-add">&#43; 	chain = append(chain, forward...)</span>
+<span class="dl dl-add">&#43; 	return chain</span>
+<span class="dl dl-add">&#43; }</span>
+<span class="dl dl-add">&#43; </span>
+<span class="dl dl-add">&#43; // buildFromCommits converts read-index commits into RecapData commit entries and</span>
+<span class="dl dl-add">&#43; // diffs the implied range. It returns the diffed range string (empty when no</span>
+<span class="dl dl-add">&#43; // commit hashes resolve). When there are no commits the result has empty file</span>
+<span class="dl dl-add">&#43; // and commit sets so callers can still emit a valid (empty) recap.</span>
+<span class="dl dl-add">&#43; func buildFromCommits(projectDir string, commits []models.GitCommit) (*RecapData, string, error) {</span>
+<span class="dl dl-add">&#43; 	data := &amp;RecapData{Commits: toCommits(commits)}</span>
+<span class="dl dl-add">&#43; 	gitRange := rangeForCommits(projectDir, commits)</span>
+<span class="dl dl-add">&#43; 	if gitRange == &#34;&#34; {</span>
+<span class="dl dl-add">&#43; 		return data, &#34;&#34;, nil</span>
+<span class="dl dl-add">&#43; 	}</span>
+<span class="dl dl-add">&#43; 	files, err := diffRange(projectDir, gitRange)</span>
+<span class="dl dl-add">&#43; 	if err != nil {</span>
+<span class="dl dl-add">&#43; 		return nil, &#34;&#34;, err</span>
+<span class="dl dl-add">&#43; 	}</span>
+<span class="dl dl-add">&#43; 	data.Files = files</span>
+<span class="dl dl-add">&#43; 	return data, gitRange, nil</span>
+<span class="dl dl-add">&#43; }</span>
+<span class="dl dl-add">&#43; </span>
+<span class="dl dl-add">&#43; // toCommits maps DB commit rows to the recap Commit shape.</span>
+<span class="dl dl-add">&#43; func toCommits(commits []models.GitCommit) []Commit {</span>
+<span class="dl dl-add">&#43; 	if len(commits) == 0 {</span>
+<span class="dl dl-add">&#43; 		return nil</span>
+<span class="dl dl-add">&#43; 	}</span>
+<span class="dl dl-add">&#43; 	out := make([]Commit, 0, len(commits))</span>
+<span class="dl dl-add">&#43; 	for _, c := range commits {</span>
+<span class="dl dl-add">&#43; 		out = append(out, Commit{</span>
+<span class="dl dl-add">&#43; 			Hash:      c.CommitHash,</span>
+<span class="dl dl-add">&#43; 			Message:   c.Message,</span>
+<span class="dl dl-add">&#43; 			SessionID: c.SessionID,</span>
+<span class="dl dl-add">&#43; 			FeatureID: c.FeatureID,</span>
+<span class="dl dl-add">&#43; 			Timestamp: c.Timestamp.UTC().Format(&#34;2006-01-02T15:04:05Z&#34;),</span>
+<span class="dl dl-add">&#43; 		})</span>
+<span class="dl dl-add">&#43; 	}</span>
+<span class="dl dl-add">&#43; 	return out</span>
+<span class="dl dl-add">&#43; }</span>
+<span class="dl dl-add">&#43; </span>
+<span class="dl dl-add">&#43; // rangeForCommits derives a diffable range spanning the resolved commits:</span>
+<span class="dl dl-add">&#43; // &#34;&lt;oldest&gt;^..&lt;newest&gt;&#34;. Commit rows are timestamp-DESC, so the newest is first.</span>
+<span class="dl dl-add">&#43; // Returns &#34;&#34; when no commit hashes resolve in the repository.</span>
+<span class="dl dl-add">&#43; func rangeForCommits(projectDir string, commits []models.GitCommit) string {</span>
+<span class="dl dl-add">&#43; 	var hashes []string</span>
+<span class="dl dl-add">&#43; 	for _, c := range commits {</span>
+<span class="dl dl-add">&#43; 		if h := strings.TrimSpace(c.CommitHash); h != &#34;&#34; &amp;&amp; commitExists(projectDir, h) {</span>
+<span class="dl dl-add">&#43; 			hashes = append(hashes, h)</span>
+<span class="dl dl-add">&#43; 		}</span>
+<span class="dl dl-add">&#43; 	}</span>
+<span class="dl dl-add">&#43; 	if len(hashes) == 0 {</span>
+<span class="dl dl-add">&#43; 		return &#34;&#34;</span>
+<span class="dl dl-add">&#43; 	}</span>
+<span class="dl dl-add">&#43; 	newest := hashes[0]</span>
+<span class="dl dl-add">&#43; 	oldest := hashes[len(hashes)-1]</span>
+<span class="dl dl-add">&#43; 	return oldest &#43; &#34;^..&#34; &#43; newest</span>
+<span class="dl dl-add">&#43; }</span>
+<span class="dl dl-add">&#43; </span>
+<span class="dl dl-add">&#43; // resolveTitle returns the work item&#39;s display title for the recap outcome.</span>
+<span class="dl dl-add">&#43; // It uses the feature title from the read index when available, falling back to</span>
+<span class="dl dl-add">&#43; // the id.</span>
+<span class="dl dl-add">&#43; func resolveTitle(db *sql.DB, id string) string {</span>
+<span class="dl dl-add">&#43; 	var title sql.NullString</span>
+<span class="dl dl-add">&#43; 	_ = db.QueryRow(`SELECT title FROM features WHERE id = ? LIMIT 1`, id).Scan(&amp;title)</span>
+<span class="dl dl-add">&#43; 	if title.Valid &amp;&amp; strings.TrimSpace(title.String) != &#34;&#34; {</span>
+<span class="dl dl-add">&#43; 		return title.String</span>
+<span class="dl dl-add">&#43; 	}</span>
+<span class="dl dl-add">&#43; 	return id</span>
+<span class="dl dl-add">&#43; }</span>
+<span class="dl dl-add">&#43; </span>
+<span class="dl dl-add">&#43; // hasFeature reports whether any commit carries a feature_id (i.e. the session&#39;s</span>
+<span class="dl dl-add">&#43; // work is grounded to a work item).</span>
+<span class="dl dl-add">&#43; func hasFeature(commits []models.GitCommit) bool {</span>
+<span class="dl dl-add">&#43; 	for _, c := range commits {</span>
+<span class="dl dl-add">&#43; 		if strings.TrimSpace(c.FeatureID) != &#34;&#34; {</span>
+<span class="dl dl-add">&#43; 			return true</span>
+<span class="dl dl-add">&#43; 		}</span>
+<span class="dl dl-add">&#43; 	}</span>
+<span class="dl dl-add">&#43; 	return false</span>
+<span class="dl dl-add">&#43; }</span>
+<span class="dl dl-add">&#43; </span>
+<span class="dl dl-add">&#43; // sortFiles orders FileChange entries deterministically by path.</span>
+<span class="dl dl-add">&#43; func sortFiles(files []FileChange) {</span>
+<span class="dl dl-add">&#43; 	sort.Slice(files, func(i, j int) bool { return files[i].Path &lt; files[j].Path })</span>
+<span class="dl dl-add">&#43; }</span>
+</code></pre>
+    
+  </div>
+  
+</div>
+
+            </details>
+          </div>
+          
+          <div class="lin-node down file-node">
+            <span class="lin-glyph"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.4" fill="currentColor"/></svg></span>
+            <details class="lin-file">
+              <summary>
+                <span class="file-change file-change-add">add</span>
+                <code class="lin-file-path">internal/recap/collect_test.go</code>
+                <span class="lin-file-stat"><span class="plus">+272</span></span>
+              </summary>
+              <div class="annotated-diff embedded diff-unified diff-unified" data-language="go">
+  
+  <div class="diff-hunk">
+    <div class="hunk-meta">
+      <code class="hunk-header"></code>
+      <span class="hunk-summary">272 added, 0 removed</span>
+    </div>
+    
+    <pre class="diff-pre"><code class="language-go"><span class="dl dl-add">&#43; package recap</span>
+<span class="dl dl-add">&#43; </span>
+<span class="dl dl-add">&#43; import (</span>
+<span class="dl dl-add">&#43; 	&#34;database/sql&#34;</span>
+<span class="dl dl-add">&#43; 	&#34;os&#34;</span>
+<span class="dl dl-add">&#43; 	&#34;os/exec&#34;</span>
+<span class="dl dl-add">&#43; 	&#34;path/filepath&#34;</span>
+<span class="dl dl-add">&#43; 	&#34;testing&#34;</span>
+<span class="dl dl-add">&#43; 	&#34;time&#34;</span>
+<span class="dl dl-add">&#43; </span>
+<span class="dl dl-add">&#43; 	dbpkg &#34;github.com/shakestzd/wipnote/core/db&#34;</span>
+<span class="dl dl-add">&#43; 	&#34;github.com/shakestzd/wipnote/core/models&#34;</span>
+<span class="dl dl-add">&#43; )</span>
+<span class="dl dl-add">&#43; </span>
+<span class="dl dl-add">&#43; // fixture bundles a temp git repo and an in-memory read index with helpers to</span>
+<span class="dl dl-add">&#43; // stage realistic recap inputs.</span>
+<span class="dl dl-add">&#43; type fixture struct {</span>
+<span class="dl dl-add">&#43; 	t       *testing.T</span>
+<span class="dl dl-add">&#43; 	dir     string</span>
+<span class="dl dl-add">&#43; 	db      *sql.DB</span>
+<span class="dl dl-add">&#43; 	commits []string // commit hashes, oldest first</span>
+<span class="dl dl-add">&#43; }</span>
+<span class="dl dl-add">&#43; </span>
+<span class="dl dl-add">&#43; func newFixture(t *testing.T) *fixture {</span>
+<span class="dl dl-add">&#43; 	t.Helper()</span>
+<span class="dl dl-add">&#43; 	dir := t.TempDir()</span>
+<span class="dl dl-add">&#43; 	run(t, dir, &#34;git&#34;, &#34;init&#34;, &#34;-q&#34;)</span>
+<span class="dl dl-add">&#43; 	run(t, dir, &#34;git&#34;, &#34;config&#34;, &#34;user.email&#34;, &#34;test@example.com&#34;)</span>
+<span class="dl dl-add">&#43; 	run(t, dir, &#34;git&#34;, &#34;config&#34;, &#34;user.name&#34;, &#34;Test&#34;)</span>
+<span class="dl dl-add">&#43; 	run(t, dir, &#34;git&#34;, &#34;config&#34;, &#34;commit.gpgsign&#34;, &#34;false&#34;)</span>
+<span class="dl dl-add">&#43; </span>
+<span class="dl dl-add">&#43; 	database, err := dbpkg.Open(&#34;file::memory:?cache=shared&#34;)</span>
+<span class="dl dl-add">&#43; 	if err != nil {</span>
+<span class="dl dl-add">&#43; 		t.Fatalf(&#34;open db: %v&#34;, err)</span>
+<span class="dl dl-add">&#43; 	}</span>
+<span class="dl dl-add">&#43; 	t.Cleanup(func() { database.Close() })</span>
+<span class="dl dl-add">&#43; 	return &amp;fixture{t: t, dir: dir, db: database}</span>
+<span class="dl dl-add">&#43; }</span>
+<span class="dl dl-add">&#43; </span>
+<span class="dl dl-add">&#43; // commit writes the given file contents and creates a commit, returning its hash.</span>
+<span class="dl dl-add">&#43; func (f *fixture) commit(msg string, files map[string]string) string {</span>
+<span class="dl dl-add">&#43; 	f.t.Helper()</span>
+<span class="dl dl-add">&#43; 	for name, content := range files {</span>
+<span class="dl dl-add">&#43; 		path := filepath.Join(f.dir, name)</span>
+<span class="dl dl-add">&#43; 		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {</span>
+<span class="dl dl-add">&#43; 			f.t.Fatalf(&#34;mkdir: %v&#34;, err)</span>
+<span class="dl dl-add">&#43; 		}</span>
+<span class="dl dl-add">&#43; 		if content == &#34;&#34; {</span>
+<span class="dl dl-add">&#43; 			os.Remove(path)</span>
+<span class="dl dl-add">&#43; 		} else if err := os.WriteFile(path, []byte(content), 0o644); err != nil {</span>
+<span class="dl dl-add">&#43; 			f.t.Fatalf(&#34;write %s: %v&#34;, name, err)</span>
+<span class="dl dl-add">&#43; 		}</span>
+<span class="dl dl-add">&#43; 	}</span>
+<span class="dl dl-add">&#43; 	run(f.t, f.dir, &#34;git&#34;, &#34;add&#34;, &#34;-A&#34;)</span>
+<span class="dl dl-add">&#43; 	run(f.t, f.dir, &#34;git&#34;, &#34;commit&#34;, &#34;-q&#34;, &#34;-m&#34;, msg)</span>
+<span class="dl dl-add">&#43; 	hash := output(f.t, f.dir, &#34;git&#34;, &#34;rev-parse&#34;, &#34;HEAD&#34;)</span>
+<span class="dl dl-add">&#43; 	f.commits = append(f.commits, hash)</span>
+<span class="dl dl-add">&#43; 	return hash</span>
+<span class="dl dl-add">&#43; }</span>
+<span class="dl dl-add">&#43; </span>
+<span class="dl dl-add">&#43; // recordCommit inserts a git_commits read-index row for a hash.</span>
+<span class="dl dl-add">&#43; func (f *fixture) recordCommit(hash, session, feature, msg string, ts time.Time) {</span>
+<span class="dl dl-add">&#43; 	f.t.Helper()</span>
+<span class="dl dl-add">&#43; 	err := dbpkg.InsertGitCommit(f.db, &amp;models.GitCommit{</span>
+<span class="dl dl-add">&#43; 		CommitHash: hash,</span>
+<span class="dl dl-add">&#43; 		SessionID:  session,</span>
+<span class="dl dl-add">&#43; 		FeatureID:  feature,</span>
+<span class="dl dl-add">&#43; 		Message:    msg,</span>
+<span class="dl dl-add">&#43; 		Timestamp:  ts,</span>
+<span class="dl dl-add">&#43; 	})</span>
+<span class="dl dl-add">&#43; 	if err != nil {</span>
+<span class="dl dl-add">&#43; 		f.t.Fatalf(&#34;InsertGitCommit: %v&#34;, err)</span>
+<span class="dl dl-add">&#43; 	}</span>
+<span class="dl dl-add">&#43; }</span>
+<span class="dl dl-add">&#43; </span>
+<span class="dl dl-add">&#43; func run(t *testing.T, dir string, name string, args ...string) {</span>
+<span class="dl dl-add">&#43; 	t.Helper()</span>
+<span class="dl dl-add">&#43; 	cmd := exec.Command(name, args...)</span>
+<span class="dl dl-add">&#43; 	cmd.Dir = dir</span>
+<span class="dl dl-add">&#43; 	if out, err := cmd.CombinedOutput(); err != nil {</span>
+<span class="dl dl-add">&#43; 		t.Fatalf(&#34;%s %v: %v\n%s&#34;, name, args, err, out)</span>
+<span class="dl dl-add">&#43; 	}</span>
+<span class="dl dl-add">&#43; }</span>
+<span class="dl dl-add">&#43; </span>
+<span class="dl dl-add">&#43; func output(t *testing.T, dir string, name string, args ...string) string {</span>
+<span class="dl dl-add">&#43; 	t.Helper()</span>
+<span class="dl dl-add">&#43; 	cmd := exec.Command(name, args...)</span>
+<span class="dl dl-add">&#43; 	cmd.Dir = dir</span>
+<span class="dl dl-add">&#43; 	out, err := cmd.Output()</span>
+<span class="dl dl-add">&#43; 	if err != nil {</span>
+<span class="dl dl-add">&#43; 		t.Fatalf(&#34;%s %v: %v&#34;, name, args, err)</span>
+<span class="dl dl-add">&#43; 	}</span>
+<span class="dl dl-add">&#43; 	return string(trimNL(out))</span>
+<span class="dl dl-add">&#43; }</span>
+<span class="dl dl-add">&#43; </span>
+<span class="dl dl-add">&#43; func trimNL(b []byte) []byte {</span>
+<span class="dl dl-add">&#43; 	for len(b) &gt; 0 &amp;&amp; (b[len(b)-1] == &#39;\n&#39; || b[len(b)-1] == &#39;\r&#39;) {</span>
+<span class="dl dl-add">&#43; 		b = b[:len(b)-1]</span>
+<span class="dl dl-add">&#43; 	}</span>
+<span class="dl dl-add">&#43; 	return b</span>
+<span class="dl dl-add">&#43; }</span>
+<span class="dl dl-add">&#43; </span>
+<span class="dl dl-add">&#43; func fileChange(data *RecapData, path string) *FileChange {</span>
+<span class="dl dl-add">&#43; 	for i := range data.Files {</span>
+<span class="dl dl-add">&#43; 		if data.Files[i].Path == path {</span>
+<span class="dl dl-add">&#43; 			return &amp;data.Files[i]</span>
+<span class="dl dl-add">&#43; 		}</span>
+<span class="dl dl-add">&#43; 	}</span>
+<span class="dl dl-add">&#43; 	return nil</span>
+<span class="dl dl-add">&#43; }</span>
+<span class="dl dl-add">&#43; </span>
+<span class="dl dl-add">&#43; func TestCollect_FromFeature(t *testing.T) {</span>
+<span class="dl dl-add">&#43; 	f := newFixture(t)</span>
+<span class="dl dl-add">&#43; 	now := time.Now().UTC()</span>
+<span class="dl dl-add">&#43; </span>
+<span class="dl dl-add">&#43; 	f.commit(&#34;seed&#34;, map[string]string{&#34;a.go&#34;: &#34;package a\n\nfunc A() {}\n&#34;})</span>
+<span class="dl dl-add">&#43; 	c1 := f.commit(&#34;feat: add b&#34;, map[string]string{</span>
+<span class="dl dl-add">&#43; 		&#34;b.go&#34;: &#34;package b\n\nfunc B() {}\n&#34;,</span>
+<span class="dl dl-add">&#43; 		&#34;a.go&#34;: &#34;package a\n\nfunc A() int { return 1 }\n&#34;,</span>
+<span class="dl dl-add">&#43; 	})</span>
+<span class="dl dl-add">&#43; 	c2 := f.commit(&#34;feat: drop a&#34;, map[string]string{&#34;a.go&#34;: &#34;&#34;})</span>
+<span class="dl dl-add">&#43; </span>
+<span class="dl dl-add">&#43; 	if err := dbpkg.InsertFeature(f.db, &amp;dbpkg.Feature{</span>
+<span class="dl dl-add">&#43; 		ID: &#34;feat-aaa&#34;, Type: &#34;feature&#34;, Title: &#34;Add B and prune A&#34;,</span>
+<span class="dl dl-add">&#43; 		Status: &#34;done&#34;, Priority: &#34;medium&#34;, CreatedAt: now, UpdatedAt: now,</span>
+<span class="dl dl-add">&#43; 	}); err != nil {</span>
+<span class="dl dl-add">&#43; 		t.Fatalf(&#34;InsertFeature: %v&#34;, err)</span>
+<span class="dl dl-add">&#43; 	}</span>
+<span class="dl dl-add">&#43; 	f.recordCommit(c1, &#34;sess-1&#34;, &#34;feat-aaa&#34;, &#34;feat: add b&#34;, now)</span>
+<span class="dl dl-add">&#43; 	f.recordCommit(c2, &#34;sess-1&#34;, &#34;feat-aaa&#34;, &#34;feat: drop a&#34;, now.Add(time.Second))</span>
+<span class="dl dl-add">&#43; </span>
+<span class="dl dl-add">&#43; 	data, err := Collect(f.db, Options{Input: &#34;feat-aaa&#34;, ProjectDir: f.dir})</span>
+<span class="dl dl-add">&#43; 	if err != nil {</span>
+<span class="dl dl-add">&#43; 		t.Fatalf(&#34;Collect: %v&#34;, err)</span>
+<span class="dl dl-add">&#43; 	}</span>
+<span class="dl dl-add">&#43; </span>
+<span class="dl dl-add">&#43; 	if data.Outcome != &#34;Add B and prune A&#34; {</span>
+<span class="dl dl-add">&#43; 		t.Errorf(&#34;Outcome = %q, want feature title&#34;, data.Outcome)</span>
+<span class="dl dl-add">&#43; 	}</span>
+<span class="dl dl-add">&#43; 	if data.Provenance.Kind != InputWorkItem || !data.Provenance.Grounded {</span>
+<span class="dl dl-add">&#43; 		t.Errorf(&#34;Provenance = %&#43;v, want grounded work-item&#34;, data.Provenance)</span>
+<span class="dl dl-add">&#43; 	}</span>
+<span class="dl dl-add">&#43; 	if len(data.Commits) != 2 {</span>
+<span class="dl dl-add">&#43; 		t.Fatalf(&#34;Commits = %d, want 2&#34;, len(data.Commits))</span>
+<span class="dl dl-add">&#43; 	}</span>
+<span class="dl dl-add">&#43; </span>
+<span class="dl dl-add">&#43; 	// Union of changed files across the range: a.go (modified then deleted),</span>
+<span class="dl dl-add">&#43; 	// b.go (added). Deterministic, path-sorted.</span>
+<span class="dl dl-add">&#43; 	if got := len(data.Files); got != 2 {</span>
+<span class="dl dl-add">&#43; 		t.Fatalf(&#34;Files = %d, want 2: %&#43;v&#34;, got, data.Files)</span>
+<span class="dl dl-add">&#43; 	}</span>
+<span class="dl dl-add">&#43; 	if data.Files[0].Path != &#34;a.go&#34; || data.Files[1].Path != &#34;b.go&#34; {</span>
+<span class="dl dl-add">&#43; 		t.Fatalf(&#34;files not path-sorted: %v %v&#34;, data.Files[0].Path, data.Files[1].Path)</span>
+<span class="dl dl-add">&#43; 	}</span>
+<span class="dl dl-add">&#43; 	if aChange := fileChange(data, &#34;a.go&#34;); aChange == nil || aChange.Change != ChangeDelete {</span>
+<span class="dl dl-add">&#43; 		t.Errorf(&#34;a.go change = %v, want delete&#34;, aChange)</span>
+<span class="dl dl-add">&#43; 	}</span>
+<span class="dl dl-add">&#43; 	if bChange := fileChange(data, &#34;b.go&#34;); bChange == nil || bChange.Change != ChangeAdd {</span>
+<span class="dl dl-add">&#43; 		t.Errorf(&#34;b.go change = %v, want add&#34;, bChange)</span>
+<span class="dl dl-add">&#43; 	}</span>
+<span class="dl dl-add">&#43; 	bChange := fileChange(data, &#34;b.go&#34;)</span>
+<span class="dl dl-add">&#43; 	if len(bChange.Hunks) == 0 || len(bChange.Hunks[0].After) == 0 {</span>
+<span class="dl dl-add">&#43; 		t.Errorf(&#34;b.go hunks missing after-content: %&#43;v&#34;, bChange.Hunks)</span>
+<span class="dl dl-add">&#43; 	}</span>
+<span class="dl dl-add">&#43; }</span>
+<span class="dl dl-add">&#43; </span>
+<span class="dl dl-add">&#43; func TestCollect_FromFeature_Deterministic(t *testing.T) {</span>
+<span class="dl dl-add">&#43; 	f := newFixture(t)</span>
+<span class="dl dl-add">&#43; 	now := time.Now().UTC()</span>
+<span class="dl dl-add">&#43; 	f.commit(&#34;seed&#34;, map[string]string{&#34;a.go&#34;: &#34;package a\n&#34;})</span>
+<span class="dl dl-add">&#43; 	c1 := f.commit(&#34;feat&#34;, map[string]string{</span>
+<span class="dl dl-add">&#43; 		&#34;z.go&#34;: &#34;package z\n&#34;, &#34;m.go&#34;: &#34;package m\n&#34;, &#34;a.go&#34;: &#34;package a\n// edit\n&#34;,</span>
+<span class="dl dl-add">&#43; 	})</span>
+<span class="dl dl-add">&#43; 	f.recordCommit(c1, &#34;sess-x&#34;, &#34;feat-det&#34;, &#34;feat&#34;, now)</span>
+<span class="dl dl-add">&#43; </span>
+<span class="dl dl-add">&#43; 	var prev []string</span>
+<span class="dl dl-add">&#43; 	for i := 0; i &lt; 3; i&#43;&#43; {</span>
+<span class="dl dl-add">&#43; 		data, err := Collect(f.db, Options{Input: &#34;feat-det&#34;, ProjectDir: f.dir})</span>
+<span class="dl dl-add">&#43; 		if err != nil {</span>
+<span class="dl dl-add">&#43; 			t.Fatalf(&#34;Collect: %v&#34;, err)</span>
+<span class="dl dl-add">&#43; 		}</span>
+<span class="dl dl-add">&#43; 		var paths []string</span>
+<span class="dl dl-add">&#43; 		for _, fc := range data.Files {</span>
+<span class="dl dl-add">&#43; 			paths = append(paths, fc.Path)</span>
+<span class="dl dl-add">&#43; 		}</span>
+<span class="dl dl-add">&#43; 		if i &gt; 0 &amp;&amp; !equal(prev, paths) {</span>
+<span class="dl dl-add">&#43; 			t.Fatalf(&#34;non-deterministic file set: %v vs %v&#34;, prev, paths)</span>
+<span class="dl dl-add">&#43; 		}</span>
+<span class="dl dl-add">&#43; 		prev = paths</span>
+<span class="dl dl-add">&#43; 	}</span>
+<span class="dl dl-add">&#43; 	if !equal(prev, []string{&#34;a.go&#34;, &#34;m.go&#34;, &#34;z.go&#34;}) {</span>
+<span class="dl dl-add">&#43; 		t.Errorf(&#34;file set = %v, want sorted a,m,z&#34;, prev)</span>
+<span class="dl dl-add">&#43; 	}</span>
+<span class="dl dl-add">&#43; }</span>
+<span class="dl dl-add">&#43; </span>
+<span class="dl dl-add">&#43; func TestCollect_FromRange(t *testing.T) {</span>
+<span class="dl dl-add">&#43; 	f := newFixture(t)</span>
+<span class="dl dl-add">&#43; 	base := f.commit(&#34;base&#34;, map[string]string{&#34;x.go&#34;: &#34;package x\n&#34;})</span>
+<span class="dl dl-add">&#43; 	f.commit(&#34;change&#34;, map[string]string{</span>
+<span class="dl dl-add">&#43; 		&#34;x.go&#34;: &#34;package x\n\nfunc X() {}\n&#34;,</span>
+<span class="dl dl-add">&#43; 		&#34;y.go&#34;: &#34;package y\n&#34;,</span>
+<span class="dl dl-add">&#43; 	})</span>
+<span class="dl dl-add">&#43; </span>
+<span class="dl dl-add">&#43; 	data, err := Collect(f.db, Options{Input: base &#43; &#34;..HEAD&#34;, ProjectDir: f.dir})</span>
+<span class="dl dl-add">&#43; 	if err != nil {</span>
+<span class="dl dl-add">&#43; 		t.Fatalf(&#34;Collect: %v&#34;, err)</span>
+<span class="dl dl-add">&#43; 	}</span>
+<span class="dl dl-add">&#43; </span>
+<span class="dl dl-add">&#43; 	if data.Provenance.Kind != InputRange {</span>
+<span class="dl dl-add">&#43; 		t.Errorf(&#34;Kind = %v, want range&#34;, data.Provenance.Kind)</span>
+<span class="dl dl-add">&#43; 	}</span>
+<span class="dl dl-add">&#43; 	if data.Provenance.Grounded {</span>
+<span class="dl dl-add">&#43; 		t.Errorf(&#34;bare range must not be grounded&#34;)</span>
+<span class="dl dl-add">&#43; 	}</span>
+<span class="dl dl-add">&#43; 	if len(data.LineageChain) != 0 {</span>
+<span class="dl dl-add">&#43; 		t.Errorf(&#34;bare range must omit lineage, got %d nodes&#34;, len(data.LineageChain))</span>
+<span class="dl dl-add">&#43; 	}</span>
+<span class="dl dl-add">&#43; 	if len(data.Commits) != 1 {</span>
+<span class="dl dl-add">&#43; 		t.Errorf(&#34;Commits = %d, want 1 (the change commit)&#34;, len(data.Commits))</span>
+<span class="dl dl-add">&#43; 	}</span>
+<span class="dl dl-add">&#43; 	if len(data.Files) != 2 {</span>
+<span class="dl dl-add">&#43; 		t.Fatalf(&#34;Files = %d, want 2&#34;, len(data.Files))</span>
+<span class="dl dl-add">&#43; 	}</span>
+<span class="dl dl-add">&#43; 	if data.Files[0].Path != &#34;x.go&#34; || data.Files[1].Path != &#34;y.go&#34; {</span>
+<span class="dl dl-add">&#43; 		t.Errorf(&#34;range files not path-sorted: %&#43;v&#34;, data.Files)</span>
+<span class="dl dl-add">&#43; 	}</span>
+<span class="dl dl-add">&#43; }</span>
+<span class="dl dl-add">&#43; </span>
+<span class="dl dl-add">&#43; func TestCollect_FromSession(t *testing.T) {</span>
+<span class="dl dl-add">&#43; 	f := newFixture(t)</span>
+<span class="dl dl-add">&#43; 	now := time.Now().UTC()</span>
+<span class="dl dl-add">&#43; 	f.commit(&#34;seed&#34;, map[string]string{&#34;a.go&#34;: &#34;package a\n&#34;})</span>
+<span class="dl dl-add">&#43; 	c1 := f.commit(&#34;work&#34;, map[string]string{&#34;s.go&#34;: &#34;package s\n&#34;})</span>
+<span class="dl dl-add">&#43; </span>
+<span class="dl dl-add">&#43; 	f.recordCommit(c1, &#34;sess-work&#34;, &#34;feat-sess&#34;, &#34;work&#34;, now)</span>
+<span class="dl dl-add">&#43; 	// A commit from a different session must not appear.</span>
+<span class="dl dl-add">&#43; 	other := f.commit(&#34;other&#34;, map[string]string{&#34;o.go&#34;: &#34;package o\n&#34;})</span>
+<span class="dl dl-add">&#43; 	f.recordCommit(other, &#34;sess-other&#34;, &#34;&#34;, &#34;other&#34;, now.Add(time.Second))</span>
+<span class="dl dl-add">&#43; </span>
+<span class="dl dl-add">&#43; 	data, err := Collect(f.db, Options{Input: &#34;sess-work&#34;, ProjectDir: f.dir})</span>
+<span class="dl dl-add">&#43; 	if err != nil {</span>
+<span class="dl dl-add">&#43; 		t.Fatalf(&#34;Collect: %v&#34;, err)</span>
+<span class="dl dl-add">&#43; 	}</span>
+<span class="dl dl-add">&#43; </span>
+<span class="dl dl-add">&#43; 	if data.Provenance.Kind != InputSession {</span>
+<span class="dl dl-add">&#43; 		t.Errorf(&#34;Kind = %v, want session&#34;, data.Provenance.Kind)</span>
+<span class="dl dl-add">&#43; 	}</span>
+<span class="dl dl-add">&#43; 	if !data.Provenance.Grounded {</span>
+<span class="dl dl-add">&#43; 		t.Errorf(&#34;session with feature_id commit should be grounded&#34;)</span>
+<span class="dl dl-add">&#43; 	}</span>
+<span class="dl dl-add">&#43; 	if len(data.Commits) != 1 || data.Commits[0].Hash != c1 {</span>
+<span class="dl dl-add">&#43; 		t.Fatalf(&#34;Commits = %&#43;v, want only c1&#34;, data.Commits)</span>
+<span class="dl dl-add">&#43; 	}</span>
+<span class="dl dl-add">&#43; 	if fc := fileChange(data, &#34;s.go&#34;); fc == nil || fc.Change != ChangeAdd {</span>
+<span class="dl dl-add">&#43; 		t.Errorf(&#34;s.go = %v, want add&#34;, fc)</span>
+<span class="dl dl-add">&#43; 	}</span>
+<span class="dl dl-add">&#43; 	if fc := fileChange(data, &#34;o.go&#34;); fc != nil {</span>
+<span class="dl dl-add">&#43; 		t.Errorf(&#34;o.go from another session must not appear&#34;)</span>
+<span class="dl dl-add">&#43; 	}</span>
+<span class="dl dl-add">&#43; }</span>
+<span class="dl dl-add">&#43; </span>
+<span class="dl dl-add">&#43; func equal(a, b []string) bool {</span>
+<span class="dl dl-add">&#43; 	if len(a) != len(b) {</span>
+<span class="dl dl-add">&#43; 		return false</span>
+<span class="dl dl-add">&#43; 	}</span>
+<span class="dl dl-add">&#43; 	for i := range a {</span>
+<span class="dl dl-add">&#43; 		if a[i] != b[i] {</span>
+<span class="dl dl-add">&#43; 			return false</span>
+<span class="dl dl-add">&#43; 		}</span>
+<span class="dl dl-add">&#43; 	}</span>
+<span class="dl dl-add">&#43; 	return true</span>
+<span class="dl dl-add">&#43; }</span>
+</code></pre>
+    
+  </div>
+  
+</div>
+
+            </details>
+          </div>
+          
+          <div class="lin-node down file-node">
+            <span class="lin-glyph"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.4" fill="currentColor"/></svg></span>
+            <details class="lin-file">
+              <summary>
+                <span class="file-change file-change-add">add</span>
+                <code class="lin-file-path">internal/recap/git.go</code>
+                <span class="lin-file-stat"><span class="plus">+169</span></span>
+              </summary>
+              <div class="annotated-diff embedded diff-unified diff-unified" data-language="go">
+  
+  <div class="diff-hunk">
+    <div class="hunk-meta">
+      <code class="hunk-header"></code>
+      <span class="hunk-summary">169 added, 0 removed</span>
+    </div>
+    
+    <pre class="diff-pre"><code class="language-go"><span class="dl dl-add">&#43; package recap</span>
+<span class="dl dl-add">&#43; </span>
+<span class="dl dl-add">&#43; import (</span>
+<span class="dl dl-add">&#43; 	&#34;fmt&#34;</span>
+<span class="dl dl-add">&#43; 	&#34;os/exec&#34;</span>
+<span class="dl dl-add">&#43; 	&#34;strconv&#34;</span>
+<span class="dl dl-add">&#43; 	&#34;strings&#34;</span>
+<span class="dl dl-add">&#43; )</span>
+<span class="dl dl-add">&#43; </span>
+<span class="dl dl-add">&#43; // commitExists reports whether the given revision resolves to a commit object in</span>
+<span class="dl dl-add">&#43; // the repository at projectDir.</span>
+<span class="dl dl-add">&#43; func commitExists(projectDir, rev string) bool {</span>
+<span class="dl dl-add">&#43; 	return exec.Command(&#34;git&#34;, &#34;-C&#34;, projectDir, &#34;cat-file&#34;, &#34;-e&#34;, rev&#43;&#34;^{commit}&#34;).Run() == nil</span>
+<span class="dl dl-add">&#43; }</span>
+<span class="dl dl-add">&#43; </span>
+<span class="dl dl-add">&#43; // commitsInRange lists the commits contained in a git range (newest first),</span>
+<span class="dl dl-add">&#43; // returning lightweight Commit entries populated from git metadata. The DB read</span>
+<span class="dl dl-add">&#43; // index is not consulted here — ranges are not necessarily work-item grounded.</span>
+<span class="dl dl-add">&#43; func commitsInRange(projectDir, gitRange string) ([]Commit, error) {</span>
+<span class="dl dl-add">&#43; 	out, err := exec.Command(</span>
+<span class="dl dl-add">&#43; 		&#34;git&#34;, &#34;-C&#34;, projectDir,</span>
+<span class="dl dl-add">&#43; 		&#34;log&#34;, &#34;--no-color&#34;, &#34;--format=%H%x1f%s%x1f%cI&#34;, gitRange,</span>
+<span class="dl dl-add">&#43; 	).Output()</span>
+<span class="dl dl-add">&#43; 	if err != nil {</span>
+<span class="dl dl-add">&#43; 		return nil, fmt.Errorf(&#34;recap: git log %s: %w&#34;, gitRange, err)</span>
+<span class="dl dl-add">&#43; 	}</span>
+<span class="dl dl-add">&#43; 	var commits []Commit</span>
+<span class="dl dl-add">&#43; 	for _, line := range strings.Split(strings.TrimSpace(string(out)), &#34;\n&#34;) {</span>
+<span class="dl dl-add">&#43; 		if line == &#34;&#34; {</span>
+<span class="dl dl-add">&#43; 			continue</span>
+<span class="dl dl-add">&#43; 		}</span>
+<span class="dl dl-add">&#43; 		parts := strings.Split(line, &#34;\x1f&#34;)</span>
+<span class="dl dl-add">&#43; 		if len(parts) &lt; 3 {</span>
+<span class="dl dl-add">&#43; 			continue</span>
+<span class="dl dl-add">&#43; 		}</span>
+<span class="dl dl-add">&#43; 		commits = append(commits, Commit{</span>
+<span class="dl dl-add">&#43; 			Hash:      parts[0],</span>
+<span class="dl dl-add">&#43; 			Message:   parts[1],</span>
+<span class="dl dl-add">&#43; 			Timestamp: parts[2],</span>
+<span class="dl dl-add">&#43; 		})</span>
+<span class="dl dl-add">&#43; 	}</span>
+<span class="dl dl-add">&#43; 	return commits, nil</span>
+<span class="dl dl-add">&#43; }</span>
+<span class="dl dl-add">&#43; </span>
+<span class="dl dl-add">&#43; // diffRange runs `git diff --unified=3` over a range, parses the unified diff,</span>
+<span class="dl dl-add">&#43; // and returns a deterministic, path-sorted set of FileChange values with hunks.</span>
+<span class="dl dl-add">&#43; func diffRange(projectDir, gitRange string) ([]FileChange, error) {</span>
+<span class="dl dl-add">&#43; 	out, err := exec.Command(</span>
+<span class="dl dl-add">&#43; 		&#34;git&#34;, &#34;-C&#34;, projectDir,</span>
+<span class="dl dl-add">&#43; 		&#34;diff&#34;, &#34;--unified=3&#34;, &#34;--no-color&#34;, gitRange,</span>
+<span class="dl dl-add">&#43; 	).Output()</span>
+<span class="dl dl-add">&#43; 	if err != nil {</span>
+<span class="dl dl-add">&#43; 		return nil, fmt.Errorf(&#34;recap: git diff %s: %w&#34;, gitRange, err)</span>
+<span class="dl dl-add">&#43; 	}</span>
+<span class="dl dl-add">&#43; 	files := parseUnifiedDiff(string(out))</span>
+<span class="dl dl-add">&#43; 	sortFiles(files)</span>
+<span class="dl dl-add">&#43; 	return files, nil</span>
+<span class="dl dl-add">&#43; }</span>
+<span class="dl dl-add">&#43; </span>
+<span class="dl dl-add">&#43; // parseUnifiedDiff parses `git diff --unified` output into FileChange entries.</span>
+<span class="dl dl-add">&#43; // It tracks the add/modify/delete classification from the file header lines and</span>
+<span class="dl dl-add">&#43; // accumulates before/after content per hunk.</span>
+<span class="dl dl-add">&#43; func parseUnifiedDiff(diff string) []FileChange {</span>
+<span class="dl dl-add">&#43; 	var (</span>
+<span class="dl dl-add">&#43; 		files   []FileChange</span>
+<span class="dl dl-add">&#43; 		cur     *FileChange</span>
+<span class="dl dl-add">&#43; 		curHunk *Hunk</span>
+<span class="dl dl-add">&#43; 	)</span>
+<span class="dl dl-add">&#43; 	flush := func() {</span>
+<span class="dl dl-add">&#43; 		if cur != nil &amp;&amp; curHunk != nil {</span>
+<span class="dl dl-add">&#43; 			cur.Hunks = append(cur.Hunks, *curHunk)</span>
+<span class="dl dl-add">&#43; 			curHunk = nil</span>
+<span class="dl dl-add">&#43; 		}</span>
+<span class="dl dl-add">&#43; 	}</span>
+<span class="dl dl-add">&#43; 	for _, line := range strings.Split(diff, &#34;\n&#34;) {</span>
+<span class="dl dl-add">&#43; 		switch {</span>
+<span class="dl dl-add">&#43; 		case strings.HasPrefix(line, &#34;diff --git &#34;):</span>
+<span class="dl dl-add">&#43; 			flush()</span>
+<span class="dl dl-add">&#43; 			if cur != nil {</span>
+<span class="dl dl-add">&#43; 				files = append(files, *cur)</span>
+<span class="dl dl-add">&#43; 			}</span>
+<span class="dl dl-add">&#43; 			cur = &amp;FileChange{Path: pathFromDiffHeader(line), Change: ChangeModify}</span>
+<span class="dl dl-add">&#43; 		case cur == nil:</span>
+<span class="dl dl-add">&#43; 			// Preamble before the first file header; ignore.</span>
+<span class="dl dl-add">&#43; 		case strings.HasPrefix(line, &#34;new file mode&#34;):</span>
+<span class="dl dl-add">&#43; 			cur.Change = ChangeAdd</span>
+<span class="dl dl-add">&#43; 		case strings.HasPrefix(line, &#34;deleted file mode&#34;):</span>
+<span class="dl dl-add">&#43; 			cur.Change = ChangeDelete</span>
+<span class="dl dl-add">&#43; 		case strings.HasPrefix(line, &#34;rename to &#34;):</span>
+<span class="dl dl-add">&#43; 			cur.Path = strings.TrimPrefix(line, &#34;rename to &#34;)</span>
+<span class="dl dl-add">&#43; 		case strings.HasPrefix(line, &#34;&#43;&#43;&#43; &#34;):</span>
+<span class="dl dl-add">&#43; 			if p := pathFromMarker(line); p != &#34;&#34; {</span>
+<span class="dl dl-add">&#43; 				cur.Path = p</span>
+<span class="dl dl-add">&#43; 			}</span>
+<span class="dl dl-add">&#43; 		case strings.HasPrefix(line, &#34;@@&#34;):</span>
+<span class="dl dl-add">&#43; 			flush()</span>
+<span class="dl dl-add">&#43; 			curHunk = parseHunkHeader(line)</span>
+<span class="dl dl-add">&#43; 		case curHunk == nil:</span>
+<span class="dl dl-add">&#43; 			// Inside a file header but before the first hunk; ignore.</span>
+<span class="dl dl-add">&#43; 		case strings.HasPrefix(line, &#34;&#43;&#34;):</span>
+<span class="dl dl-add">&#43; 			curHunk.After = append(curHunk.After, strings.TrimPrefix(line, &#34;&#43;&#34;))</span>
+<span class="dl dl-add">&#43; 		case strings.HasPrefix(line, &#34;-&#34;):</span>
+<span class="dl dl-add">&#43; 			curHunk.Before = append(curHunk.Before, strings.TrimPrefix(line, &#34;-&#34;))</span>
+<span class="dl dl-add">&#43; 		case strings.HasPrefix(line, &#34; &#34;):</span>
+<span class="dl dl-add">&#43; 			content := strings.TrimPrefix(line, &#34; &#34;)</span>
+<span class="dl dl-add">&#43; 			curHunk.Before = append(curHunk.Before, content)</span>
+<span class="dl dl-add">&#43; 			curHunk.After = append(curHunk.After, content)</span>
+<span class="dl dl-add">&#43; 		}</span>
+<span class="dl dl-add">&#43; 	}</span>
+<span class="dl dl-add">&#43; 	flush()</span>
+<span class="dl dl-add">&#43; 	if cur != nil {</span>
+<span class="dl dl-add">&#43; 		files = append(files, *cur)</span>
+<span class="dl dl-add">&#43; 	}</span>
+<span class="dl dl-add">&#43; 	return files</span>
+<span class="dl dl-add">&#43; }</span>
+<span class="dl dl-add">&#43; </span>
+<span class="dl dl-add">&#43; // pathFromDiffHeader extracts the new-side path from a &#34;diff --git a/x b/x&#34;</span>
+<span class="dl dl-add">&#43; // line, falling back to the old-side path.</span>
+<span class="dl dl-add">&#43; func pathFromDiffHeader(line string) string {</span>
+<span class="dl dl-add">&#43; 	fields := strings.Fields(strings.TrimPrefix(line, &#34;diff --git &#34;))</span>
+<span class="dl dl-add">&#43; 	if len(fields) != 2 {</span>
+<span class="dl dl-add">&#43; 		return &#34;&#34;</span>
+<span class="dl dl-add">&#43; 	}</span>
+<span class="dl dl-add">&#43; 	if p := strings.TrimPrefix(fields[1], &#34;b/&#34;); p != fields[1] {</span>
+<span class="dl dl-add">&#43; 		return p</span>
+<span class="dl dl-add">&#43; 	}</span>
+<span class="dl dl-add">&#43; 	return strings.TrimPrefix(fields[0], &#34;a/&#34;)</span>
+<span class="dl dl-add">&#43; }</span>
+<span class="dl dl-add">&#43; </span>
+<span class="dl dl-add">&#43; // pathFromMarker extracts the path from a &#34;&#43;&#43;&#43; b/x&#34; marker, ignoring /dev/null.</span>
+<span class="dl dl-add">&#43; func pathFromMarker(line string) string {</span>
+<span class="dl dl-add">&#43; 	p := strings.TrimSpace(strings.TrimPrefix(line, &#34;&#43;&#43;&#43; &#34;))</span>
+<span class="dl dl-add">&#43; 	if p == &#34;/dev/null&#34; {</span>
+<span class="dl dl-add">&#43; 		return &#34;&#34;</span>
+<span class="dl dl-add">&#43; 	}</span>
+<span class="dl dl-add">&#43; 	return strings.TrimPrefix(p, &#34;b/&#34;)</span>
+<span class="dl dl-add">&#43; }</span>
+<span class="dl dl-add">&#43; </span>
+<span class="dl dl-add">&#43; // parseHunkHeader parses an &#34;@@ -a,b &#43;c,d @@ context&#34; line into a Hunk. Counts</span>
+<span class="dl dl-add">&#43; // default to 1 when omitted, matching unified-diff semantics.</span>
+<span class="dl dl-add">&#43; func parseHunkHeader(line string) *Hunk {</span>
+<span class="dl dl-add">&#43; 	h := &amp;Hunk{OldLines: 1, NewLines: 1}</span>
+<span class="dl dl-add">&#43; 	body := line</span>
+<span class="dl dl-add">&#43; 	if idx := strings.Index(line[2:], &#34;@@&#34;); idx &gt;= 0 {</span>
+<span class="dl dl-add">&#43; 		body = line[2 : idx&#43;2]</span>
+<span class="dl dl-add">&#43; 		h.Header = strings.TrimSpace(line[idx&#43;4:])</span>
+<span class="dl dl-add">&#43; 	}</span>
+<span class="dl dl-add">&#43; 	for _, tok := range strings.Fields(body) {</span>
+<span class="dl dl-add">&#43; 		switch {</span>
+<span class="dl dl-add">&#43; 		case strings.HasPrefix(tok, &#34;-&#34;):</span>
+<span class="dl dl-add">&#43; 			h.OldStart, h.OldLines = parseRange(strings.TrimPrefix(tok, &#34;-&#34;))</span>
+<span class="dl dl-add">&#43; 		case strings.HasPrefix(tok, &#34;&#43;&#34;):</span>
+<span class="dl dl-add">&#43; 			h.NewStart, h.NewLines = parseRange(strings.TrimPrefix(tok, &#34;&#43;&#34;))</span>
+<span class="dl dl-add">&#43; 		}</span>
+<span class="dl dl-add">&#43; 	}</span>
+<span class="dl dl-add">&#43; 	return h</span>
+<span class="dl dl-add">&#43; }</span>
+<span class="dl dl-add">&#43; </span>
+<span class="dl dl-add">&#43; // parseRange parses a &#34;start,count&#34; or &#34;start&#34; unified-diff range token.</span>
+<span class="dl dl-add">&#43; func parseRange(tok string) (start, count int) {</span>
+<span class="dl dl-add">&#43; 	count = 1</span>
+<span class="dl dl-add">&#43; 	if comma := strings.IndexByte(tok, &#39;,&#39;); comma &gt;= 0 {</span>
+<span class="dl dl-add">&#43; 		start, _ = strconv.Atoi(tok[:comma])</span>
+<span class="dl dl-add">&#43; 		count, _ = strconv.Atoi(tok[comma&#43;1:])</span>
+<span class="dl dl-add">&#43; 		return start, count</span>
+<span class="dl dl-add">&#43; 	}</span>
+<span class="dl dl-add">&#43; 	start, _ = strconv.Atoi(tok)</span>
+<span class="dl dl-add">&#43; 	return start, count</span>
+<span class="dl dl-add">&#43; }</span>
+</code></pre>
+    
+  </div>
+  
+</div>
+
+            </details>
+          </div>
+          
+          <div class="lin-node down file-node">
+            <span class="lin-glyph"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.4" fill="currentColor"/></svg></span>
+            <details class="lin-file">
+              <summary>
+                <span class="file-change file-change-add">add</span>
+                <code class="lin-file-path">internal/recap/shared_walk_test.go</code>
+                <span class="lin-file-stat"><span class="plus">+62</span></span>
+              </summary>
+              <div class="annotated-diff embedded diff-unified diff-unified" data-language="go">
+  
+  <div class="diff-hunk">
+    <div class="hunk-meta">
+      <code class="hunk-header"></code>
+      <span class="hunk-summary">62 added, 0 removed</span>
+    </div>
+    
+    <pre class="diff-pre"><code class="language-go"><span class="dl dl-add">&#43; package recap</span>
+<span class="dl dl-add">&#43; </span>
+<span class="dl dl-add">&#43; import (</span>
+<span class="dl dl-add">&#43; 	&#34;os&#34;</span>
+<span class="dl dl-add">&#43; 	&#34;path/filepath&#34;</span>
+<span class="dl dl-add">&#43; 	&#34;strings&#34;</span>
+<span class="dl dl-add">&#43; 	&#34;testing&#34;</span>
+<span class="dl dl-add">&#43; )</span>
+<span class="dl dl-add">&#43; </span>
+<span class="dl dl-add">&#43; // TestLineageWalkIsShared asserts the BFS traversal lives in exactly one place.</span>
+<span class="dl dl-add">&#43; // cmd/wipnote/lineage.go must NOT carry a private copy of the walk (it should</span>
+<span class="dl dl-add">&#43; // delegate to internal/lineage), and internal/recap must consume internal/lineage.</span>
+<span class="dl dl-add">&#43; func TestLineageWalkIsShared(t *testing.T) {</span>
+<span class="dl dl-add">&#43; 	root := repoRoot(t)</span>
+<span class="dl dl-add">&#43; </span>
+<span class="dl dl-add">&#43; 	cmdLineage := readFile(t, filepath.Join(root, &#34;cmd&#34;, &#34;wipnote&#34;, &#34;lineage.go&#34;))</span>
+<span class="dl dl-add">&#43; 	for _, banned := range []string{</span>
+<span class="dl dl-add">&#43; 		&#34;func bfsWalk(&#34;,</span>
+<span class="dl dl-add">&#43; 		&#34;func forwardWalk(&#34;,</span>
+<span class="dl dl-add">&#43; 		&#34;func backwardWalk(&#34;,</span>
+<span class="dl dl-add">&#43; 		&#34;func annotateTimestamps(&#34;,</span>
+<span class="dl dl-add">&#43; 	} {</span>
+<span class="dl dl-add">&#43; 		if strings.Contains(cmdLineage, banned) {</span>
+<span class="dl dl-add">&#43; 			t.Errorf(&#34;cmd/wipnote/lineage.go retains a private BFS copy: %q&#34;, banned)</span>
+<span class="dl dl-add">&#43; 		}</span>
+<span class="dl dl-add">&#43; 	}</span>
+<span class="dl dl-add">&#43; 	if !strings.Contains(cmdLineage, &#34;internal/lineage&#34;) {</span>
+<span class="dl dl-add">&#43; 		t.Errorf(&#34;cmd/wipnote/lineage.go does not import internal/lineage&#34;)</span>
+<span class="dl dl-add">&#43; 	}</span>
+<span class="dl dl-add">&#43; </span>
+<span class="dl dl-add">&#43; 	collect := readFile(t, filepath.Join(root, &#34;internal&#34;, &#34;recap&#34;, &#34;collect.go&#34;))</span>
+<span class="dl dl-add">&#43; 	if !strings.Contains(collect, &#34;internal/lineage&#34;) {</span>
+<span class="dl dl-add">&#43; 		t.Errorf(&#34;internal/recap/collect.go does not consume internal/lineage&#34;)</span>
+<span class="dl dl-add">&#43; 	}</span>
+<span class="dl dl-add">&#43; }</span>
+<span class="dl dl-add">&#43; </span>
+<span class="dl dl-add">&#43; func repoRoot(t *testing.T) string {</span>
+<span class="dl dl-add">&#43; 	t.Helper()</span>
+<span class="dl dl-add">&#43; 	dir, err := os.Getwd()</span>
+<span class="dl dl-add">&#43; 	if err != nil {</span>
+<span class="dl dl-add">&#43; 		t.Fatalf(&#34;getwd: %v&#34;, err)</span>
+<span class="dl dl-add">&#43; 	}</span>
+<span class="dl dl-add">&#43; 	for {</span>
+<span class="dl dl-add">&#43; 		if _, err := os.Stat(filepath.Join(dir, &#34;go.mod&#34;)); err == nil {</span>
+<span class="dl dl-add">&#43; 			return dir</span>
+<span class="dl dl-add">&#43; 		}</span>
+<span class="dl dl-add">&#43; 		parent := filepath.Dir(dir)</span>
+<span class="dl dl-add">&#43; 		if parent == dir {</span>
+<span class="dl dl-add">&#43; 			t.Fatalf(&#34;go.mod not found from working dir&#34;)</span>
+<span class="dl dl-add">&#43; 		}</span>
+<span class="dl dl-add">&#43; 		dir = parent</span>
+<span class="dl dl-add">&#43; 	}</span>
+<span class="dl dl-add">&#43; }</span>
+<span class="dl dl-add">&#43; </span>
+<span class="dl dl-add">&#43; func readFile(t *testing.T, path string) string {</span>
+<span class="dl dl-add">&#43; 	t.Helper()</span>
+<span class="dl dl-add">&#43; 	b, err := os.ReadFile(path)</span>
+<span class="dl dl-add">&#43; 	if err != nil {</span>
+<span class="dl dl-add">&#43; 		t.Fatalf(&#34;read %s: %v&#34;, path, err)</span>
+<span class="dl dl-add">&#43; 	}</span>
+<span class="dl dl-add">&#43; 	return string(b)</span>
+<span class="dl dl-add">&#43; }</span>
+</code></pre>
+    
+  </div>
+  
+</div>
+
+            </details>
+          </div>
+          
+          <div class="lin-node down file-node">
+            <span class="lin-glyph"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.4" fill="currentColor"/></svg></span>
+            <details class="lin-file">
+              <summary>
+                <span class="file-change file-change-add">add</span>
+                <code class="lin-file-path">internal/recap/types.go</code>
+                <span class="lin-file-stat"><span class="plus">+102</span></span>
+              </summary>
+              <div class="annotated-diff embedded diff-unified diff-unified" data-language="go">
+  
+  <div class="diff-hunk">
+    <div class="hunk-meta">
+      <code class="hunk-header"></code>
+      <span class="hunk-summary">102 added, 0 removed</span>
+    </div>
+    
+    <pre class="diff-pre"><code class="language-go"><span class="dl dl-add">&#43; // Package recap collects grounded diff data for a recap. It resolves ONE of</span>
+<span class="dl dl-add">&#43; // three inputs — a work-item id (feat/bug/spike), a git range (e.g. main..HEAD),</span>
+<span class="dl dl-add">&#43; // or a session id — into a typed RecapData value describing the commits, the</span>
+<span class="dl dl-add">&#43; // per-file changes, and (when grounding exists) the lineage chain that ties the</span>
+<span class="dl dl-add">&#43; // change back to a work item.</span>
+<span class="dl dl-add">&#43; //</span>
+<span class="dl dl-add">&#43; // This package owns COLLECTION ONLY. It performs no rendering and emits no HTML;</span>
+<span class="dl dl-add">&#43; // the recap renderer and the committed artifact are separate slices that consume</span>
+<span class="dl dl-add">&#43; // RecapData. All data is derived from git &#43; the .wipnote read index — nothing</span>
+<span class="dl dl-add">&#43; // external.</span>
+<span class="dl dl-add">&#43; package recap</span>
+<span class="dl dl-add">&#43; </span>
+<span class="dl dl-add">&#43; import &#34;github.com/shakestzd/wipnote/internal/lineage&#34;</span>
+<span class="dl dl-add">&#43; </span>
+<span class="dl dl-add">&#43; // ChangeType classifies how a file changed across the resolved commit set.</span>
+<span class="dl dl-add">&#43; type ChangeType string</span>
+<span class="dl dl-add">&#43; </span>
+<span class="dl dl-add">&#43; const (</span>
+<span class="dl dl-add">&#43; 	// ChangeAdd marks a file introduced by the change set.</span>
+<span class="dl dl-add">&#43; 	ChangeAdd ChangeType = &#34;add&#34;</span>
+<span class="dl dl-add">&#43; 	// ChangeModify marks a file whose contents changed.</span>
+<span class="dl dl-add">&#43; 	ChangeModify ChangeType = &#34;modify&#34;</span>
+<span class="dl dl-add">&#43; 	// ChangeDelete marks a file removed by the change set.</span>
+<span class="dl dl-add">&#43; 	ChangeDelete ChangeType = &#34;delete&#34;</span>
+<span class="dl dl-add">&#43; )</span>
+<span class="dl dl-add">&#43; </span>
+<span class="dl dl-add">&#43; // InputKind records which of the three resolvable inputs produced a RecapData.</span>
+<span class="dl dl-add">&#43; type InputKind string</span>
+<span class="dl dl-add">&#43; </span>
+<span class="dl dl-add">&#43; const (</span>
+<span class="dl dl-add">&#43; 	// InputWorkItem is a feat-/bug-/spk- work-item id.</span>
+<span class="dl dl-add">&#43; 	InputWorkItem InputKind = &#34;work-item&#34;</span>
+<span class="dl dl-add">&#43; 	// InputRange is a bare git revision range such as &#34;main..HEAD&#34;.</span>
+<span class="dl dl-add">&#43; 	InputRange InputKind = &#34;range&#34;</span>
+<span class="dl dl-add">&#43; 	// InputSession is a session id (sess-...).</span>
+<span class="dl dl-add">&#43; 	InputSession InputKind = &#34;session&#34;</span>
+<span class="dl dl-add">&#43; )</span>
+<span class="dl dl-add">&#43; </span>
+<span class="dl dl-add">&#43; // RecapData is the typed payload emitted by the collector. It is grounded</span>
+<span class="dl dl-add">&#43; // entirely in git &#43; .wipnote/*.html and carries everything the renderer needs:</span>
+<span class="dl dl-add">&#43; // the outcome summary, the per-file diff data, the contributing commits, the</span>
+<span class="dl dl-add">&#43; // lineage chain (when grounding exists), and provenance describing how the data</span>
+<span class="dl dl-add">&#43; // was resolved.</span>
+<span class="dl dl-add">&#43; type RecapData struct {</span>
+<span class="dl dl-add">&#43; 	// Outcome is a human-readable summary of what the change set achieved. For</span>
+<span class="dl dl-add">&#43; 	// work-item inputs it is the work item&#39;s title; for ranges/sessions it is a</span>
+<span class="dl dl-add">&#43; 	// best-effort description derived from the inputs.</span>
+<span class="dl dl-add">&#43; 	Outcome string `json:&#34;outcome&#34;`</span>
+<span class="dl dl-add">&#43; 	// Files is the union of changed files across the resolved commit set, sorted</span>
+<span class="dl dl-add">&#43; 	// deterministically by path.</span>
+<span class="dl dl-add">&#43; 	Files []FileChange `json:&#34;files&#34;`</span>
+<span class="dl dl-add">&#43; 	// Commits is the ordered list of commits that make up the change set.</span>
+<span class="dl dl-add">&#43; 	Commits []Commit `json:&#34;commits&#34;`</span>
+<span class="dl dl-add">&#43; 	// LineageChain is the bidirectional lineage walk rooted at the work item or</span>
+<span class="dl dl-add">&#43; 	// session. It is nil/empty for bare git ranges with no work-item grounding —</span>
+<span class="dl dl-add">&#43; 	// lineage is the value-add when grounding exists, not a hard requirement.</span>
+<span class="dl dl-add">&#43; 	LineageChain []lineage.Node `json:&#34;lineage_chain,omitempty&#34;`</span>
+<span class="dl dl-add">&#43; 	// Provenance records how this RecapData was resolved.</span>
+<span class="dl dl-add">&#43; 	Provenance Provenance `json:&#34;provenance&#34;`</span>
+<span class="dl dl-add">&#43; }</span>
+<span class="dl dl-add">&#43; </span>
+<span class="dl dl-add">&#43; // FileChange describes one file in the change set: its path, how it changed, and</span>
+<span class="dl dl-add">&#43; // the minimal diff hunks (with before/after content) for the renderer.</span>
+<span class="dl dl-add">&#43; type FileChange struct {</span>
+<span class="dl dl-add">&#43; 	Path   string     `json:&#34;path&#34;`</span>
+<span class="dl dl-add">&#43; 	Change ChangeType `json:&#34;change&#34;`</span>
+<span class="dl dl-add">&#43; 	Hunks  []Hunk     `json:&#34;hunks,omitempty&#34;`</span>
+<span class="dl dl-add">&#43; }</span>
+<span class="dl dl-add">&#43; </span>
+<span class="dl dl-add">&#43; // Hunk is one contiguous region of a unified diff. OldStart/OldLines and</span>
+<span class="dl dl-add">&#43; // NewStart/NewLines mirror the @@ -a,b &#43;c,d @@ header. Before and After carry</span>
+<span class="dl dl-add">&#43; // the removed and added line content respectively so the renderer can show a</span>
+<span class="dl dl-add">&#43; // side-by-side or inline diff without re-running git.</span>
+<span class="dl dl-add">&#43; type Hunk struct {</span>
+<span class="dl dl-add">&#43; 	OldStart int      `json:&#34;old_start&#34;`</span>
+<span class="dl dl-add">&#43; 	OldLines int      `json:&#34;old_lines&#34;`</span>
+<span class="dl dl-add">&#43; 	NewStart int      `json:&#34;new_start&#34;`</span>
+<span class="dl dl-add">&#43; 	NewLines int      `json:&#34;new_lines&#34;`</span>
+<span class="dl dl-add">&#43; 	Header   string   `json:&#34;header,omitempty&#34;`</span>
+<span class="dl dl-add">&#43; 	Before   []string `json:&#34;before,omitempty&#34;`</span>
+<span class="dl dl-add">&#43; 	After    []string `json:&#34;after,omitempty&#34;`</span>
+<span class="dl dl-add">&#43; }</span>
+<span class="dl dl-add">&#43; </span>
+<span class="dl dl-add">&#43; // Commit is one commit in the resolved change set.</span>
+<span class="dl dl-add">&#43; type Commit struct {</span>
+<span class="dl dl-add">&#43; 	Hash      string `json:&#34;hash&#34;`</span>
+<span class="dl dl-add">&#43; 	Message   string `json:&#34;message&#34;`</span>
+<span class="dl dl-add">&#43; 	SessionID string `json:&#34;session_id,omitempty&#34;`</span>
+<span class="dl dl-add">&#43; 	FeatureID string `json:&#34;feature_id,omitempty&#34;`</span>
+<span class="dl dl-add">&#43; 	Timestamp string `json:&#34;timestamp,omitempty&#34;`</span>
+<span class="dl dl-add">&#43; }</span>
+<span class="dl dl-add">&#43; </span>
+<span class="dl dl-add">&#43; // Provenance records how a RecapData was resolved: which input kind, the literal</span>
+<span class="dl dl-add">&#43; // input string, and the git range that was ultimately diffed (when one applies).</span>
+<span class="dl dl-add">&#43; type Provenance struct {</span>
+<span class="dl dl-add">&#43; 	Kind     InputKind `json:&#34;kind&#34;`</span>
+<span class="dl dl-add">&#43; 	Input    string    `json:&#34;input&#34;`</span>
+<span class="dl dl-add">&#43; 	GitRange string    `json:&#34;git_range,omitempty&#34;`</span>
+<span class="dl dl-add">&#43; 	// Grounded is true when the recap is tied to a work item (directly, or via a</span>
+<span class="dl dl-add">&#43; 	// session whose commits carry a feature_id). Bare ranges are not grounded.</span>
+<span class="dl dl-add">&#43; 	Grounded bool `json:&#34;grounded&#34;`</span>
+<span class="dl dl-add">&#43; }</span>
+</code></pre>
+    
+  </div>
+  
+</div>
+
+            </details>
+          </div>
+          
+        </div>
+        
+
+        
+        <div class="lin-node down">
+          <span class="lin-glyph"><svg viewBox="0 0 24 24"><polygon points="12,3 20,7.5 20,16.5 12,21 4,16.5 4,7.5" fill="none" stroke="currentColor" stroke-width="2"/></svg></span>
+          <div class="lin-card">
+            <div class="lin-id"><span class="lin-kind">plan</span><code>plan-93b8eba0</code><span class="lin-rel produced">planned in</span></div>
+            <div class="lin-ttl">Plan: Visual plan &amp; lineage-grounded recap (native port of BuilderIO visual-plan/visual-recap)</div>
+          </div>
+        </div>
+        
+        <div class="lin-node down">
+          <span class="lin-glyph"><svg viewBox="0 0 24 24"><rect x="4" y="6" width="16" height="12" rx="2" fill="none" stroke="currentColor" stroke-width="2"/></svg></span>
+          <div class="lin-card">
+            <div class="lin-id"><span class="lin-kind">track</span><code>trk-a951e3c0</code><span class="lin-rel produced">part of</span></div>
+            <div class="lin-ttl">Visual planning &amp; recap — native port of BuilderIO visual-plan/visual-recap concepts</div>
+          </div>
+        </div>
+        
+        <div class="lin-node down">
+          <span class="lin-glyph"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4" fill="currentColor"/></svg></span>
+          <div class="lin-card">
+            <div class="lin-id"><span class="lin-kind">unknown</span><code>7ad16954-7662-4d96-87ae-6eff3bd5739e</code><span class="lin-rel produced">implemented in</span></div>
+            <div class="lin-ttl">visual-planning-recap-native-yolo-20260618-03.35.27</div>
+          </div>
+        </div>
+        
+        <div class="lin-node down">
+          <span class="lin-glyph"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4" fill="currentColor"/></svg></span>
+          <div class="lin-card">
+            <div class="lin-id"><span class="lin-kind">unknown</span><code>recap-feat-5cdb3732</code><span class="lin-rel produced">relates to</span></div>
+            
+          </div>
+        </div>
+        
+      </div>
+    </div>
+    </div>
+  
+  </div>
+</section>
+
+</body>
+</html>

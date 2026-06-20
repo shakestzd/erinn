@@ -50,6 +50,15 @@ func effectiveProjectDir(explicit string) string {
 func buildClaudeLaunchEnv(wipnoteProjectDir string, overrides *otelEnvOverrides) []string {
 	env := os.Environ()
 
+	// Strip stale inherited launcher session vars before layering fresh ones.
+	// A parent Claude shell may export WIPNOTE_SESSION_ID / WIPNOTE_OTEL_SESSION_ID;
+	// passing those through would leak a stale identity into the child. The
+	// SessionStart hook repopulates WIPNOTE_SESSION_ID with the real session, and
+	// WIPNOTE_OTEL_SESSION_ID is set below only for a freshly spawned collector
+	// (bug-b262d303).
+	env = removeEnv(env, "WIPNOTE_SESSION_ID")
+	env = removeEnv(env, "WIPNOTE_OTEL_SESSION_ID")
+
 	// Resolve an effective projectDir for OTel port derivation.
 	// Priority chain: explicit arg → CLAUDE_PROJECT_DIR → WIPNOTE_PROJECT_DIR → os.Getwd.
 	projectDir := effectiveProjectDir(wipnoteProjectDir)
@@ -57,9 +66,14 @@ func buildClaudeLaunchEnv(wipnoteProjectDir string, overrides *otelEnvOverrides)
 		env = setOrReplaceEnv(env, "WIPNOTE_PROJECT_DIR", projectDir)
 	}
 
-	// Inject session ID when provided by the collector spawn path.
+	// Inject OTel session ID under its own var — NOT WIPNOTE_SESSION_ID.
+	// WIPNOTE_SESSION_ID carries the real Claude Code session identity
+	// (populated by the SessionStart hook via writeEnvVars). Mixing the
+	// OTel collector's 28-char hex ID into WIPNOTE_SESSION_ID caused
+	// launcher_continue.go to pass that ID to `claude --resume`, which
+	// has no transcript for it (bug-b262d303).
 	if overrides != nil && overrides.SessionID != "" {
-		env = setOrReplaceEnv(env, "WIPNOTE_SESSION_ID", overrides.SessionID)
+		env = setOrReplaceEnv(env, "WIPNOTE_OTEL_SESSION_ID", overrides.SessionID)
 	}
 
 	// Layer harness-specific launch env vars from the registry. User-set values
@@ -152,6 +166,19 @@ func setOrReplaceEnv(env []string, key, value string) []string {
 		}
 	}
 	return append(env, prefix+value)
+}
+
+// removeEnv returns env with every "KEY=..." entry for key removed. Used to
+// strip stale inherited vars before layering fresh launcher values.
+func removeEnv(env []string, key string) []string {
+	prefix := key + "="
+	result := make([]string, 0, len(env))
+	for _, kv := range env {
+		if !strings.HasPrefix(kv, prefix) {
+			result = append(result, kv)
+		}
+	}
+	return result
 }
 
 // isTruthy matches the parsing used by receiver.LoadConfigFromEnv.

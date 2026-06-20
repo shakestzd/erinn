@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>Codex orchestrator should not invoke nested Codex sidecars</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="bug-8800a502"
+             data-type="bug"
+             data-status="todo"
+             data-priority="medium"
+             data-created="2026-06-19T07:49:29.949195"
+             data-updated="2026-06-19T07:49:29.960034" data-agent-assigned="claude-code" data-track-id="trk-6a1f5362" data-created-by-agent="codex" data-created-by-role="codex" data-created-by-cli-version="0.62.2-418-g80f3fcd3f">
+
+        <header>
+            <h1>Codex orchestrator should not invoke nested Codex sidecars</h1>
+            <div class="metadata">
+                <span class="badge status-todo">Todo</span>
+                <span class="badge priority-medium">Medium Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-6a1f5362.html" data-relationship="part_of" data-since="2026-06-19T07:49:29.959916">trk-6a1f5362</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>In Codex CLI sessions, orchestration guidance attempted to use &#39;codex exec&#39; as a sidecar for code edits. That sidecar fallback is intended for Claude Code or other harnesses, not for Codex launching another Codex from inside itself. Update Codex launcher/orchestrator behavior or injected guidance so Codex sessions delegate through available wipnote agents/fallbacks instead of nested codex exec.</p>
+        </section>
+    </article>
+</body>
+</html>

@@ -38,6 +38,27 @@ Task(
 
 ---
 
+## Harness-Aware Research Delegation Contract
+
+In orchestrator mode, web/docs research and multi-file codebase exploration are tactical work. They **MUST run in a sidecar context**, not in the main orchestrator context, whenever a sidecar dispatch surface is available. Research-first does not mean the orchestrator personally performs broad research; it means the orchestrator dispatches a researcher, codebase reader, or external CLI sidecar before committing to an implementation path.
+
+Before starting research, inspect the available dispatch surface in the active harness:
+
+- **Claude Code** — use `Task` / subagent dispatch when exposed.
+- **Codex / Antigravity** — use harness-native multi-agent or custom-agent spawn when exposed.
+- **External CLI sidecar** — use `gemini`, `codex exec`, or another documented sidecar CLI when it is available and appropriate.
+- **No dispatch surface available** — stop and report `delegation unavailable in this harness/session`; do not silently convert broad research into main-context work.
+
+Do not use main-context `web.search_query`, `web.open`, or broad local glob/search loops for docs gathering or repository exploration when a researcher sidecar is expected. Narrow exceptions are allowed only when:
+
+1. The user explicitly asks the orchestrator to browse or verify one fact directly.
+2. A higher-priority instruction requires latest/high-stakes fact verification and no sidecar is available.
+3. A sidecar failed or is unavailable, and the orchestrator performs a one-shot confirmation before reporting the limitation.
+
+When using an exception, keep the main-context research minimal and record why sidecar delegation was unavailable or skipped.
+
+---
+
 ## Batching wipnote CLI Calls (IMPERATIVE)
 
 Each Bash tool call spends one agent turn from the user's quota. **Chain wipnote bookkeeping commands with `&&` into a single Bash invocation whenever possible.** wipnote exists to reduce agent overhead — do not add it back by issuing one Bash call per `wipnote link add`.

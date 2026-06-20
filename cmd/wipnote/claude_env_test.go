@@ -38,6 +38,8 @@ func clearOtelEnv(t *testing.T) {
 		"WIPNOTE_OTEL_ENABLED",
 		"WIPNOTE_OTEL_HTTP_PORT",
 		"WIPNOTE_OTEL_BIND",
+		"WIPNOTE_OTEL_SESSION_ID",
+		"WIPNOTE_SESSION_ID",
 		"WIPNOTE_PROJECT_DIR",
 		"CLAUDE_PROJECT_DIR",
 		"CLAUDE_CODE_ENABLE_TELEMETRY",
@@ -89,7 +91,9 @@ func TestBuildClaudeLaunchEnv_WithCollector(t *testing.T) {
 	assertEnvContains(t, env, "CLAUDE_CODE_ENABLE_TELEMETRY", "1")
 	assertEnvContains(t, env, "OTEL_TRACES_EXPORTER", "otlp")
 	assertEnvContains(t, env, "OTEL_EXPORTER_OTLP_ENDPOINT", "http://127.0.0.1:12345")
-	assertEnvContains(t, env, "WIPNOTE_SESSION_ID", "test-session")
+	// OTel session ID goes to its own var; WIPNOTE_SESSION_ID must NOT carry it.
+	assertEnvContains(t, env, "WIPNOTE_OTEL_SESSION_ID", "test-session")
+	assertEnvEmptyOrUnset(t, env, "WIPNOTE_SESSION_ID")
 }
 
 func TestBuildClaudeLaunchEnv_InjectsWhenCollectorActive(t *testing.T) {
@@ -179,4 +183,25 @@ func TestBuildClaudeLaunchEnv_UserOverrideOfAgentTeamsWins(t *testing.T) {
 
 	env := buildClaudeLaunchEnv("", nil)
 	assertEnvContains(t, env, "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS", "0")
+}
+
+// TestBuildClaudeLaunchEnv_StripsStaleInheritedSessionVars verifies that a
+// parent shell's stale WIPNOTE_SESSION_ID / WIPNOTE_OTEL_SESSION_ID are not
+// passed through to the child Claude process (bug-b262d303, roborev #416).
+func TestBuildClaudeLaunchEnv_StripsStaleInheritedSessionVars(t *testing.T) {
+	clearOtelEnv(t)
+	// Simulate a parent Claude shell exporting stale launcher session vars.
+	t.Setenv("WIPNOTE_SESSION_ID", "stale-parent")
+	t.Setenv("WIPNOTE_OTEL_SESSION_ID", "stale-otel")
+
+	// No collector: neither inherited var should survive into the child env.
+	env := buildClaudeLaunchEnv("", nil)
+	assertEnvEmptyOrUnset(t, env, "WIPNOTE_SESSION_ID")
+	assertEnvEmptyOrUnset(t, env, "WIPNOTE_OTEL_SESSION_ID")
+
+	// With a fresh collector session ID: only the fresh OTel var survives, and
+	// the stale inherited WIPNOTE_SESSION_ID is still stripped.
+	env = buildClaudeLaunchEnv("", testOverrides(12345))
+	assertEnvContains(t, env, "WIPNOTE_OTEL_SESSION_ID", "test-session")
+	assertEnvEmptyOrUnset(t, env, "WIPNOTE_SESSION_ID")
 }

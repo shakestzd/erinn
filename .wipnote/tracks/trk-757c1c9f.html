@@ -13,7 +13,7 @@
              data-status="todo"
              data-priority="medium"
              data-created="2026-06-10T05:00:01.541304"
-             data-updated="2026-06-11T08:30:37.432766" data-agent-assigned="claude-code" data-created-by-agent="claude-code" data-created-by-model="claude-fable-5[1m]" data-created-by-cli-version="0.60.21-111-g2c00119b4">
+             data-updated="2026-06-18T06:03:44.95104" data-agent-assigned="claude-code" data-created-by-agent="claude-code" data-created-by-model="claude-fable-5[1m]" data-created-by-cli-version="0.60.21-111-g2c00119b4">
 
         <header>
             <h1>Test tiering: fast inner-loop gates for agent iteration</h1>
@@ -27,18 +27,24 @@
             <section data-edge-type="contains">
                 <h3>Contains:</h3>
                 <ul>
-                    <li><a href="feat-0e8657ff.html" data-relationship="contains" data-since="2026-06-10T05:00:16.837121">Split slow integration tests behind a fast/full tier boundary</a></li>
-                    <li><a href="feat-9164accb.html" data-relationship="contains" data-since="2026-06-10T05:00:17.701972">Teach agents the tiered loop: targeted tests inner-loop, full gate pre-commit</a></li>
-                    <li><a href="feat-cecb2f2b.html" data-relationship="contains" data-since="2026-06-10T05:00:18.806512">Fix completion-gate record staleness that forces redundant full re-runs</a></li>
-                    <li><a href="bug-8e2cd7f4.html" data-relationship="contains" data-since="2026-06-10T16:11:41.408664">core/daemon lease tests false-fail on CI: require &#39;wipnote&#39; in temp path</a></li>
-                    <li><a href="bug-0bbc6dbb.html" data-relationship="contains" data-since="2026-06-11T08:30:37.426474">33MB compiled wipnote binary is tracked at repo root</a></li>
+                    <li><a href="../features/feat-0e8657ff.html" data-relationship="contains" data-since="2026-06-10T05:00:16.837121">Split slow integration tests behind a fast/full tier boundary</a></li>
+                    <li><a href="../features/feat-9164accb.html" data-relationship="contains" data-since="2026-06-10T05:00:17.701972">Teach agents the tiered loop: targeted tests inner-loop, full gate pre-commit</a></li>
+                    <li><a href="../features/feat-cecb2f2b.html" data-relationship="contains" data-since="2026-06-10T05:00:18.806512">Fix completion-gate record staleness that forces redundant full re-runs</a></li>
+                    <li><a href="../bugs/bug-8e2cd7f4.html" data-relationship="contains" data-since="2026-06-10T16:11:41.408664">core/daemon lease tests false-fail on CI: require &#39;wipnote&#39; in temp path</a></li>
+                    <li><a href="../bugs/bug-0bbc6dbb.html" data-relationship="contains" data-since="2026-06-11T08:30:37.426474">33MB compiled wipnote binary is tracked at repo root</a></li>
+                    <li><a href="../features/feat-26d9059e.html" data-relationship="contains" data-since="2026-06-14T03:26:25.66725">Implement selective package testing in completion gate</a></li>
+                    <li><a href="../features/feat-e5aff36e.html" data-relationship="contains" data-since="2026-06-14T03:26:27.776417">Modularize cmd/wipnote CLI package to leverage test caching</a></li>
+                    <li><a href="../features/feat-23b7a7a6.html" data-relationship="contains" data-since="2026-06-14T05:33:01.511247">Extract cli and commands sub-packages</a></li>
+                    <li><a href="../features/feat-0fb5dd76.html" data-relationship="contains" data-since="2026-06-14T05:33:01.519229">Extract launcher and daemon sub-packages</a></li>
+                    <li><a href="../features/feat-723af8ef.html" data-relationship="contains" data-since="2026-06-14T05:33:01.527164">Extract quality and completion gate runners</a></li>
+                    <li><a href="../spikes/spk-6c9f9368.html" data-relationship="contains" data-since="2026-06-18T06:03:44.901168">Investigate slow cmd/wipnote Go test gate</a></li>
                 </ul>
             </section>
         </nav>
 
         <section data-content>
             <h3>Description</h3>
-            <p>Cut agent iteration cost ~80% without weakening the quality bar. Evidence 2026-06-10: full root+core gate pass is ~8min (cmd/wipnote tests alone ~5min, integration-heavy: SQLite contention stress, daemon leases, archive extraction, real git ops); coder agents re-run it every fix iteration, so module-carve work spent ~3h mostly on test wall-clock. Industry guidance (Anthropic Claude Code best practices: prefer single tests over whole suite in inner loop; verification-bottleneck discourse per InfoQ/Agoda + Opslane) endorses tiered loops: targeted tests inner-loop, full enforced suite at the pre-commit/completion gate only. Keep wipnote's enforced completion gate exactly as strong as today.</p>
+            <p>Cut agent iteration cost ~80% without weakening the quality bar. Evidence 2026-06-10: full root+core gate pass is ~8min (cmd/wipnote tests alone ~5min, integration-heavy: SQLite contention stress, daemon leases, archive extraction, real git ops); coder agents re-run it every fix iteration, so module-carve work spent ~3h mostly on test wall-clock. Industry guidance (Anthropic Claude Code best practices: prefer single tests over whole suite in inner loop; verification-bottleneck discourse per InfoQ/Agoda + Opslane) endorses tiered loops: targeted tests inner-loop, full enforced suite at the pre-commit/completion gate only. Keep wipnote&#39;s enforced completion gate exactly as strong as today.</p>
         </section>
     </article>
 </body>

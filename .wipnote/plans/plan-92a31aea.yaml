@@ -1,0 +1,482 @@
+meta:
+    id: plan-92a31aea
+    track_id: trk-6a1f5362
+    title: Dashboard-styled launcher choosers (huh TUI)
+    description: ""
+    created_at: "2026-06-18"
+    status: finalized
+    schema_version: v4
+    version: 2
+design:
+    problem: |
+        The `wipnote claude` (and yolo/antigravity) launch + session-resume chooser is
+        rendered as a flat numbered list via ~24 lines of fmt.Fprintf in promptLaunchIntent
+        (cmd/wipnote/claude_chooser.go:109-156). It reads "terrible": no color, no visual
+        hierarchy, section headers are bare strings, each row is a long flat parenthesized
+        string, and the post-selection banner ("Warning: dirty branch", "Launching Claude
+        Code", "Session:") is an unstyled wall of prints. It looks nothing like the dashboard.
+    goals:
+        - 'Replace the numbered chooser with an arrow-key-navigable charmbracelet/huh Select that echoes the dashboard palette (accent #CDFF00 on dark #151518/#1C1C20).'
+        - Restyle the post-selection launch/warning/session banner into a consistent framed block.
+        - 'Apply the same styled chooser + banner across ALL launcher entrypoints: claude, yolo, antigravity.'
+        - Preserve the existing non-TTY/scriptable fallback so piped-stdin tests, CI, and automation keep working unchanged.
+    constraints:
+        - New runtime dependency on charmbracelet is accepted (user-approved). Use STABLE huh v1 — v2 and bubbletea v2 are pre-release.
+        - Non-TTY (no char-device stdin) MUST bypass the TUI and behave exactly as today (chooser skipped -> NewWorkIntent, or numeric fallback).
+        - Do not edit generated plugin trees, AGENTS.md, or CLAUDE.md.
+        - Echo the dashboard's existing palette tokens; do not invent a new color scheme.
+    approved: false
+    comment: ""
+    research:
+        - url: https://pkg.go.dev/github.com/charmbracelet/huh/v2
+          claim: huh Select form API (NewSelect/NewGroup/NewForm), WithTheme, and WithAccessible(bool); confirms v2 is pre-release (v2.0.0-2025... pseudo-version) so stable v1 is the adopt target.
+          accessed: "2026-06-18"
+        - url: https://pkg.go.dev/github.com/charmbracelet/lipgloss
+          claim: lipgloss auto-degrades colors to the best the terminal supports and strips color entirely when output is not a TTY — basis for the dashboard-palette terminal styling and safe non-TTY behavior.
+          accessed: "2026-06-18"
+        - url: https://www.inngest.com/blog/interactive-clis-with-bubbletea
+          claim: Confirms huh/bubbletea is the mainstream, battle-tested Go path for interactive CLI selection lists — adopt-vs-build favors adopting rather than hand-rolling a TUI.
+          accessed: "2026-06-18"
+slices:
+    - id: slice-1
+      feature_id: feat-7c1c70bf
+      num: 1
+      title: Add charmbracelet huh/lipgloss deps + shared dashboard tui theme package
+      what: |
+        Add stable charmbracelet/huh (v1) + charmbracelet/lipgloss to the cmd module's
+        go.mod. Create a small shared package (cmd/wipnote/launchtui or internal/launchtui)
+        that encodes the dashboard palette as lipgloss styles and a huh theme constructor
+        (e.g. wipnoteTheme() *huh.Theme) plus named lipgloss.Style helpers (accent, muted,
+        title, sectionHeader, frame). Single source for colors: mirror plugin/static
+        has-styles.css tokens (accent #CDFF00, accent-text #0A0A0A, bg #151518/#1C1C20,
+        text #E0DED8, muted #707070, status blue/green/red). No behavior change yet —
+        this is the foundation consumed by slices 2-4.
+      why: |
+        DRY: chooser (slice 2), banner (slice 3), and yolo/antigravity reuse (slice 4) all
+        need the same palette + theme. Centralizing avoids three divergent copies of the
+        color constants and keeps "consistent with dashboard style" enforceable in one file.
+      files:
+        - go.mod
+        - go.sum
+        - cmd/wipnote/launchtui/theme.go
+        - cmd/wipnote/launchtui/theme_test.go
+      deps: []
+      done_when:
+        - go.mod pins stable huh v1 (NOT a v2 pre-release pseudo-version) and lipgloss; go mod tidy is clean across affected modules.
+        - launchtui exposes a wipnoteTheme()/Styles constructor returning the dashboard palette as lipgloss styles + a huh theme.
+        - 'A unit test asserts the key hex tokens (accent #CDFF00, bg #151518) are present in the produced styles so palette drift is caught.'
+      effort: S
+      risk: Low
+      tests: |
+        Unit: TestWipnoteTheme_PaletteTokens — construct the theme/styles and assert the
+        accent + background hex values match the dashboard tokens.
+      complexity: standard
+      approved: true
+      comment: ""
+      research:
+        - url: https://pkg.go.dev/github.com/charmbracelet/huh/v2
+          claim: huh.ThemeBase/ThemeCharm + custom Styles struct (FieldStyles with SelectSelector/Option lipgloss.Style) is the supported way to theme a Select; v2 pseudo-version confirms v1 is the stable pin.
+          accessed: "2026-06-18"
+        - url: https://pkg.go.dev/github.com/charmbracelet/lipgloss
+          claim: lipgloss.Color hex + Style.Foreground/Background is the API for encoding the palette; adopted instead of hand-rolling ANSI escape codes.
+          accessed: "2026-06-18"
+      blocks:
+        - type: file-tree
+          title: Files this slice touches
+          entries:
+            - go.mod
+            - go.sum
+            - cmd/wipnote/launchtui/theme.go
+            - cmd/wipnote/launchtui/theme_test.go
+        - type: data-model
+          title: Dashboard palette tokens (mirrors plugin/static has-styles.css)
+          fields:
+            name: launchtui palette
+          rows:
+            - name: accent
+              type: "#CDFF00"
+            - name: accent-text
+              type: "#0A0A0A"
+            - name: bg
+              type: "#151518"
+            - name: bg-alt
+              type: "#1C1C20"
+            - name: text
+              type: "#E0DED8"
+            - name: muted
+              type: "#707070"
+        - type: data-model
+          title: launchtui.Styles (named lipgloss.Style helpers)
+          fields:
+            name: launchtui.Styles
+          rows:
+            - name: Accent
+              type: lipgloss.Style
+            - name: Muted
+              type: lipgloss.Style
+            - name: Title
+              type: lipgloss.Style
+            - name: SectionHeader
+              type: lipgloss.Style
+            - name: Frame
+              type: lipgloss.Style
+      execution_status: promoted
+      decisions_notes: |
+        **Scope:** new launchtui package + go.mod dep only; no caller wired yet.
+        **State:** none — pure style constructors, in-memory.
+        **Decisions:** Adopt huh+lipgloss rather than hand-roll ANSI (user-approved new dep;
+          adopt-vs-build resolved toward the battle-tested charm ecosystem). Pin huh v1
+          STABLE because huh v2 + bubbletea v2 are pre-release pseudo-versions (unverified
+          stability) — confirmed via pkg.go.dev showing v2.0.0-2025... .
+        **Rejected:** raw bubbletea+lipgloss hand-built model (more code/maintenance for the
+          same Select UX); lipgloss-only styling of the numbered menu (no arrow-key nav —
+          user chose the full huh TUI); hand-rolled ANSI (fiddly, reinvents lipgloss).
+        Exact v1 tag is pinned at implementation via `go get github.com/charmbracelet/huh@latest` (marked unverified until pinned).
+    - id: slice-2
+      feature_id: feat-e668de65
+      num: 2
+      title: Styled huh Select chooser in promptLaunchIntent with non-TTY fallback
+      what: |
+        Replace the fmt.Fprintf menu body of promptLaunchIntent (claude_chooser.go:109-156)
+        with a huh Select form built from the same data: a "Start something new" option plus
+        grouped "Resume in <harness>" (grouped.SameHarness) and "Continue from other
+        harnesses" (grouped.CrossHarness) options. Render each ResumableSession row as a
+        styled multi-field option (work-item id, title, type, harness, relative last-activity,
+        Live badge, worktree) via launchtui styles instead of the flat describeresumablesession
+        string. Map the selected option back to the existing LaunchIntent values
+        (NewWorkIntent / resume / cross-harness handoff) with identical semantics.
+
+        Fallback contract: the upstream TTY gate (shouldOfferLaunchIntentChooser ->
+        isInteractiveTerminalFile, claude_chooser.go:34/44) is preserved unchanged — non-TTY
+        stdin still skips the chooser entirely. When interactive but huh cannot run (e.g.
+        ACCESSIBLE env / huh.Run error), fall back to the existing bufio numeric-prompt path
+        rather than failing the launch.
+      why: |
+        This is the core user request — the chooser "looks terrible." huh gives arrow-key nav,
+        sections, and dashboard styling while reusing the ResumableSession data that already
+        carries every field needed (per code map).
+      files:
+        - cmd/wipnote/claude_chooser.go
+        - cmd/wipnote/claude_chooser_test.go
+      deps:
+        - 1
+      done_when:
+        - On a real TTY, the chooser renders as a styled huh Select with grouped sections and dashboard accent coloring.
+        - Selecting any option returns the SAME LaunchIntent the numbered menu returned for that row (new / resume / cross-harness handoff).
+        - Non-TTY / piped stdin behaves exactly as before — chooser bypassed, no huh invoked, existing claude_chooser_test.go assertions pass unmodified or with only output-format updates.
+        - When huh.Run errors or ACCESSIBLE is set, the numeric bufio fallback path still resolves an intent (launch never hard-fails on TUI error).
+      effort: M
+      risk: Med
+      tests: |
+        Unit: TestPromptLaunchIntent_NonTTYBypass — non-char-device input yields NewWorkIntent
+        with no huh invocation.
+        Unit: TestPromptLaunchIntent_SelectionMapping — given a grouped session set, each
+        selectable index maps to the correct LaunchIntent (drive via accessible/programmable
+        input or a seam over the selection result).
+        Unit: TestPromptLaunchIntent_FallbackOnTUIError — forced huh failure falls through to
+        the numeric reader and still returns an intent.
+      complexity: complex
+      approved: true
+      comment: ""
+      research:
+        - url: https://pkg.go.dev/github.com/charmbracelet/huh/v2
+          claim: WithAccessible(bool) + RunAccessible(w,r) is the documented non-TUI path; accessible mode is explicit (NOT automatic TTY detection) — so the code must keep its own TTY guard, confirming the preserved-fallback design.
+          accessed: "2026-06-18"
+        - url: https://pkg.go.dev/github.com/charmbracelet/lipgloss
+          claim: lipgloss strips color when output is not a TTY — safe for the fallback/redirect path.
+          accessed: "2026-06-18"
+      blocks:
+        - type: file-tree
+          title: Files this slice touches
+          entries:
+            - cmd/wipnote/claude_chooser.go
+            - cmd/wipnote/claude_chooser_test.go
+        - type: data-model
+          title: ResumableSession display fields (core/db/session_repo.go:527)
+          fields:
+            name: ResumableSession
+          rows:
+            - name: WorkItemID
+              type: string
+            - name: Title
+              type: string
+            - name: Type
+              type: string
+            - name: Harness
+              type: string
+            - name: LastActivity
+              type: relative-time
+            - name: Live
+              type: badge
+            - name: Worktree
+              type: path
+        - type: diagram
+          title: Chooser selection flow + non-TTY/error fallback
+          fields:
+            direction: lr
+          entries:
+            - stdin char-device gate (shouldOfferLaunchIntentChooser :34)
+            - huh Select — groups New / Resume same-harness / Continue cross-harness
+            - selected index mapped back to LaunchIntent
+            - huh.Run error or ACCESSIBLE → numeric bufio fallback
+            - non-char-device stdin → bypass chooser → NewWorkIntent
+      execution_status: promoted
+      questions:
+        - id: q-select-type
+          text: What type should huh.NewSelect carry — the resolved LaunchIntent value, or an index into the flattened option list that we map back afterward?
+          answer: Index into the flattened [new + SameHarness + CrossHarness] option list, mapped back to LaunchIntent after Run. Keeps Select[int] simple/comparable and reuses the exact same ordering the numbered fallback uses, so both paths resolve identically.
+        - id: q-fallback-trigger
+          text: When does the numeric bufio fallback fire instead of the huh TUI?
+          answer: Only when stdin is interactive (passes the existing char-device gate) AND huh cannot run — i.e. ACCESSIBLE env is set or huh.Run returns an error. Pure non-TTY still bypasses the chooser entirely upstream, as today.
+      critic_revisions:
+        - source: local-feasibility
+          severity: LOW
+          summary: 'All cited anchors verified exact: promptLaunchIntent:109, shouldOfferLaunchIntentChooser:34, isInteractiveTerminalFile:44, describeResumableSession:175; ResumableSession:527 / HarnessGroupedResumableSessions:539 (session_repo.go).'
+        - source: local-design
+          severity: LOW
+          summary: 'High leverage: because codex/gemini/antigravity already call promptLaunchIntent, this single slice restyles four harnesses at once — note this so the reviewer sees slice 4 is mostly inheritance, not duplication.'
+      decisions_notes: |
+        **Trigger:** promptLaunchIntent is reached only after shouldOfferLaunchIntentChooser
+          confirms an interactive char-device stdin (existing gate, unchanged).
+        **State:** none new — reads existing HarnessGroupedResumableSessions
+          (core/db/session_repo.go:527); selection maps to existing LaunchIntent type.
+        **Payload:** huh Select[LaunchIntent or index] -> resolved LaunchIntent; option labels
+          built from ResumableSession fields via launchtui styles.
+        **Decisions:** Keep the bufio numeric reader as an explicit fallback rather than
+          deleting it (user requirement: scriptable/non-interactive must keep working; huh's
+          accessible mode is opt-in, not automatic). Preserve describeResumableSession content
+          but re-render it as styled fields; keep the function for the fallback path.
+        **Rejected:** removing the numeric path (breaks tests + automation — user chose "must
+          keep scriptable fallback"); relying on huh to auto-detect non-TTY (it does not —
+          confirmed via pkg.go.dev WithAccessible being explicit).
+    - id: slice-3
+      feature_id: feat-71704981
+      num: 3
+      title: Restyle launch/warning/session banner into a framed dashboard block
+      what: |
+        Wrap the post-selection banner lines into a consistent lipgloss-framed block via a
+        shared launchtui helper (e.g. RenderLaunchBanner). Covers: the dirty-protected-branch
+        warning (launcher_mode.go:79-80/104-105), the "Launching Claude Code ... / Plugin
+        source / Session" lines (claude.go:243-248 dev, 515-517 default, plus auto/init/continue
+        banners), and emitLaunchPreparationStatus (launcher_continue.go:266-271). Use the
+        dashboard accent for the launch headline, muted style for path/session detail, and a
+        status color (amber/red) for the dirty-branch warning. Honor non-TTY: lipgloss
+        degrades to plain text when output is not a terminal.
+      why: |
+        The user asked to make the whole launch surface "consistent with our dashboard style,"
+        not just the chooser list. The banner is the other half of what reads as "terrible."
+      files:
+        - cmd/wipnote/launchtui/banner.go
+        - cmd/wipnote/claude.go
+        - cmd/wipnote/launcher_mode.go
+        - cmd/wipnote/launcher_continue.go
+      deps:
+        - 1
+      done_when:
+        - Launch/warning/session lines render as a single coherent framed block using dashboard accent + muted + status colors on a TTY.
+        - On non-TTY output the banner degrades to readable plain text (no raw escape codes), preserving existing log-scrape behavior.
+        - The dirty-branch warning remains clearly distinguished (status color) and is still emitted on the hard-block path.
+      effort: M
+      risk: Low
+      tests: |
+        Unit: TestRenderLaunchBanner_PlainOnNonTTY — banner rendered to a non-TTY writer
+        contains the literal session id / warning text and no ANSI escape sequences.
+        Unit: TestRenderLaunchBanner_AccentOnTTY — forced color profile includes the accent.
+      complexity: standard
+      approved: true
+      comment: ""
+      research:
+        - url: https://pkg.go.dev/github.com/charmbracelet/lipgloss
+          claim: lipgloss.Style.Border/Padding/Foreground compose a framed block; color is auto-stripped on non-TTY — covers both the styled and plain banner requirements.
+          accessed: "2026-06-18"
+      blocks:
+        - type: file-tree
+          title: Files this slice touches
+          entries:
+            - cmd/wipnote/launchtui/banner.go
+            - cmd/wipnote/claude.go
+            - cmd/wipnote/launcher_mode.go
+            - cmd/wipnote/launcher_continue.go
+        - type: wireframe
+          title: Framed launch/warning/session banner (RenderLaunchBanner)
+          fields:
+            html: |
+              <div style="background:var(--wf-bg);color:var(--wf-fg);border:1px solid var(--wf-border);border-radius:var(--wf-radius);padding:14px;font-family:monospace">
+                <div style="color:var(--wf-accent);font-weight:700">⚠ Warning: launching on dirty protected branch (main)</div>
+                <div style="color:var(--wf-fg);font-weight:700;margin-top:10px">▶ Launching Claude Code</div>
+                <div style="color:var(--wf-muted);margin-top:2px">plugin source · ~/.local/share/wipnote/plugin</div>
+                <div style="color:var(--wf-muted)">session · 7ad16954…5739e</div>
+              </div>
+      execution_status: promoted
+      decisions_notes: |
+        **Scope:** banner-only restyle across the four launcher print sites; reuses slice-1
+          launchtui styles.
+        **State:** none — pure rendering of strings already computed by plan.PlanLaunch.
+        **Decisions:** Centralize banner rendering in launchtui (DRY) rather than inline
+          lipgloss at each of the ~6 print sites. Keep stderr/stdout destinations as-is so
+          existing redirection contracts hold.
+        **Rejected:** styling each print site independently (duplication, drift); moving
+          warning to stdout (would change scrape/redirect behavior).
+    - id: slice-4
+      feature_id: feat-09de2260
+      num: 4
+      title: Wire wipnote yolo through the shared chooser; confirm all harnesses inherit the styling
+      what: |
+        Feasibility audit (already partially done): the shared chooser path
+        (promptLaunchIntent / shouldOfferLaunchIntentChooser) is ALREADY referenced by
+        codex.go, gemini.go, antigravity.go, and claude_launch_intent.go — so once slice 2
+        restyles promptLaunchIntent, claude/codex/gemini/antigravity inherit the styled huh
+        chooser and slice-3 banner FOR FREE. The one gap: yolo.go does NOT reference the
+        shared chooser path. So this slice's real work is:
+          1. Confirm antigravity/codex/gemini render the styled chooser end-to-end (smoke +
+             assert they call the shared path; correct harness label via formatHarnessName).
+          2. Wire `wipnote yolo` to the shared chooser/banner — add the intent-resolution call
+             if missing, or document why yolo intentionally skips the chooser (yolo is
+             autonomous; if it shouldn't prompt, scope drops to applying the slice-3 banner
+             only). Decide and record which.
+        No new chooser UI logic — wiring + harness-label correctness + the yolo decision.
+      why: |
+        User chose "All launcher choosers (claude + yolo + antigravity)." Audit shows three of
+        them already route through the shared path; yolo is the genuine outlier and the only
+        net-new wiring. Avoids the false assumption that all four need equal work.
+      files:
+        - cmd/wipnote/yolo.go
+        - cmd/wipnote/antigravity.go
+        - cmd/wipnote/claude_chooser_test.go
+      deps:
+        - 2
+        - 3
+      done_when:
+        - wipnote antigravity/codex/gemini are confirmed to render the styled huh chooser + framed banner via the shared path (no per-harness divergence).
+        - wipnote yolo adopts the slice-3 framed banner only (no chooser — yolo is autonomous); the styled chooser stays exclusive to claude/codex/gemini/antigravity.
+        - Each wired entrypoint preserves its non-TTY fallback (no TUI when stdin is not a char device).
+        - go build ./... && go vet ./... && go test ./... pass across all five modules (run per-module per the quality gates).
+      effort: S
+      risk: Low
+      tests: |
+        Unit: TestYoloLaunch_ChooserWiring — assert yolo's chosen behavior (shared chooser, or
+        banner-only with documented skip) and that non-TTY bypass holds.
+        Smoke: confirm antigravity/codex/gemini reach promptLaunchIntent with the right harness.
+      complexity: standard
+      approved: true
+      comment: ""
+      research_waiver: Internal wiring of existing wipnote launcher entrypoints to the already-shared chooser path — no external library/standard beyond slices 1-3 (already cited). Feasibility audit (grep over cmd/wipnote/) already verified yolo.go/antigravity.go exist and that only yolo.go lacks the shared-path reference, so this is no longer unverified.
+      blocks:
+        - type: file-tree
+          title: Files this slice touches
+          entries:
+            - cmd/wipnote/yolo.go
+            - cmd/wipnote/antigravity.go
+            - cmd/wipnote/claude_chooser_test.go
+        - type: tabs
+          title: Per-harness chooser routing (inherit-for-free vs net-new)
+          rows:
+            - label: claude
+              body: Already calls promptLaunchIntent → inherits styled chooser + banner for free.
+            - label: codex
+              body: Routes through the shared path (codex.go) → inherits; no per-harness work.
+            - label: gemini
+              body: Routes through the shared path (gemini.go) → inherits.
+            - label: antigravity
+              body: Routes through the shared path (antigravity.go) → inherits; confirm harness label via formatHarnessName.
+            - label: yolo
+              body: Sole net-new wiring — decide present shared chooser vs banner-only (autonomous). Resolved in this slice.
+      execution_status: promoted
+      questions:
+        - id: q-yolo-chooser
+          text: Should autonomous `wipnote yolo` present the styled huh chooser, or only adopt the slice-3 framed banner?
+          answer: Banner-only. yolo is autonomous — there is no launch intent to select — so it does NOT present the chooser. It adopts the slice-3 framed launch/warning/session banner only, to style the preparation steps it prints as it opens. The chooser stays exclusive to the interactive claude/codex/gemini/antigravity entrypoints.
+      critic_revisions:
+        - source: local-feasibility
+          severity: HIGH
+          summary: 'Rescoped: grep over cmd/wipnote/ shows codex/gemini/antigravity/claude_launch_intent already call the shared chooser path; only yolo.go does not. Slice 2 styles all four for free; yolo is the sole net-new wiring. Original ''all four equal'' framing was wrong.'
+        - source: local-feasibility
+          severity: LOW
+          summary: yolo.go + antigravity.go confirmed present — slice-4 file list is verified, not guessed.
+      decisions_notes: |
+        **Scope:** wiring only — yolo.go is the sole net-new wiring; antigravity/codex/gemini
+          already call the shared path (verified by grep) and inherit slices 2-3 automatically.
+        **State:** none new.
+        **Decisions:** Single shared chooser renderer for all harnesses (DRY, matches user's
+          "all launchers" choice). yolo.go's chooser participation is RESOLVED (2026-06-18): yolo is autonomous — no intent to select — so it does NOT present the chooser; it adopts the slice-3 framed banner only, to style its launch/preparation steps. See answered question q-yolo-chooser.
+        **Verified (feasibility critic):** yolo.go + antigravity.go exist; shared-path symbols
+          (promptLaunchIntent/shouldOfferLaunchIntentChooser) are referenced by codex.go,
+          gemini.go, antigravity.go, claude_launch_intent.go but NOT yolo.go.
+        **Rejected:** per-harness chooser copies (reintroduces the inconsistency we're fixing);
+          treating all four launchers as equal net-new work (audit disproved it).
+questions: []
+critique:
+    reviewed_at: "2026-06-18"
+    reviewers:
+        - 'local-design (role: design critic; runner: Claude Code orchestrator, opus-4-8)'
+        - 'local-feasibility (role: feasibility critic; runner: Claude Code orchestrator, opus-4-8, with grep/web verification)'
+    assumptions:
+        - id: A1
+          status: verified
+          text: All cited source anchors for the chooser/banner exist at the stated lines.
+          evidence: grep cmd/wipnote/claude_chooser.go -> promptLaunchIntent:109, shouldOfferLaunchIntentChooser:34, isInteractiveTerminalFile:44, describeResumableSession:175; core/db/session_repo.go -> ResumableSession:527, HarnessGroupedResumableSessions:539; launcher_continue.go emitLaunchPreparationStatus:266.
+        - id: A2
+          status: verified
+          text: No TUI/color dependency exists in any of the five modules; go-isatty is present (indirect) in root go.mod; cmd is in the single root module (no cmd/go.mod).
+          evidence: researcher code map + grep go.mod -> only github.com/mattn/go-isatty v0.0.20 // indirect; ls cmd/go.mod -> not found.
+        - id: A3
+          status: verified
+          text: 'The shared chooser path is already multi-harness: codex.go/gemini.go/antigravity.go/claude_launch_intent.go reference it; yolo.go does not.'
+          evidence: grep -rln 'promptLaunchIntent|shouldOfferLaunchIntentChooser|...' cmd/wipnote/ -> hits exclude yolo.go.
+        - id: A4
+          status: verified
+          text: huh v2 (and bubbletea v2) are pre-release pseudo-versions; stable v1 is the correct adopt target.
+          evidence: https://pkg.go.dev/github.com/charmbracelet/huh/v2 shows v2.0.0-20251002... pseudo-version.
+        - id: A5
+          status: plausible
+          text: huh's non-TUI path is explicit (WithAccessible), not automatic TTY detection — so the code must retain its own TTY guard and numeric fallback.
+          evidence: https://pkg.go.dev/github.com/charmbracelet/huh/v2 documents WithAccessible(bool)/RunAccessible; lipgloss strips color on non-TTY (https://pkg.go.dev/github.com/charmbracelet/lipgloss). Exact v1 RunAccessible signature to confirm at implementation.
+    critics:
+        - title: DESIGN CRITIC
+          sections:
+            - heading: Slice decomposition & reviewer ergonomics
+              items:
+                - badge: foundation-first
+                  kind: success
+                  text: Theme package (slice 1) cleanly factors the palette so chooser + banner + yolo reuse one source of truth; slices read in dependency order.
+                - badge: free inheritance
+                  kind: info
+                  text: Slice 2 restyles four harnesses at once (they share promptLaunchIntent); worth making explicit to the reviewer so slice 4 isn't misread as 4x work.
+                - badge: yolo open question
+                  kind: warn
+                  text: Whether yolo should prompt at all is a genuine product decision (it's autonomous). Slice 4 now frames it as a decision, not an assumption — good, but the reviewer should weigh in.
+        - title: FEASIBILITY CRITIC
+          sections:
+            - heading: Citations & dependency reality
+              items:
+                - badge: anchors exact
+                  kind: success
+                  text: Every cited file:line verified (A1). ResumableSession already carries all display fields — no schema change needed.
+                - badge: dep target
+                  kind: success
+                  text: Single root go.mod gets huh v1 + lipgloss; go-isatty already indirect. Adopt-vs-build resolved toward charm (A4).
+                - badge: v2 pre-release
+                  kind: warn
+                  text: Pin stable huh v1, not v2 (A4). Exact v1 latest tag + RunAccessible signature confirmed at implementation (A5) — marked unverified in slice 1/2.
+                - badge: per-module gates
+                  kind: info
+                  text: go test must run per-module (root/core/port/plan/observe); root-only `go test ./...` will not exercise the others.
+    risks:
+        - risk: huh form takes over the terminal; a huh.Run error on an interactive TTY could strand the launch with no intent.
+          severity: Medium
+          mitigation: Slice 2 done_when requires the numeric bufio fallback to resolve an intent on huh.Run error / ACCESSIBLE — launch never hard-fails on TUI error.
+        - risk: Pinning a pre-release huh v2 would import unstable bubbletea v2.
+          severity: Medium
+          mitigation: A4 fixes the adopt target to stable v1; slice-1 done_when asserts the pin is NOT a v2 pseudo-version.
+        - risk: yolo scope ambiguity could balloon slice 4.
+          severity: Low
+          mitigation: 'Slice 4 reframed: yolo is a bounded decision (prompt vs banner-only); the other three harnesses inherit for free.'
+    synthesis: |
+        No DANGER findings; plan is ready for human review. Feasibility verified every cited
+        anchor (A1), the dependency target (A2/A4), and a scope-correcting discovery (A3): the
+        chooser is already shared across claude/codex/gemini/antigravity, so slice 2 styles all
+        four at once and slice 4 collapses to a single yolo-wiring decision — slice 4 was
+        rescoped accordingly (HIGH critic_revision). Two WARN items for the human to confirm:
+        (1) pin STABLE huh v1, not the v2 pre-release (A4/A5); (2) decide whether autonomous
+        `wipnote yolo` should present the chooser at all or adopt banner-only. Focus review on
+        slice 2's fallback contract and the yolo decision in slice 4.

@@ -83,7 +83,11 @@ func (c *ProcessCollector) Spawn(binPath, sessionID, projectDir string) (int, fu
 		spawnFn = DefaultSpawnFn
 	}
 
-	port, proc, attempts, err := RetrySpawn(binPath, sessionID, projectDir, 0, 3, spawnFn, c.opts.Stderr)
+	// maxAttempts=1: a single handshake attempt caps the launch-time wait at
+	// ~3s (readHandshake timeout) instead of up to ~4.4s with the 3-attempt
+	// backoff (100ms+300ms+700ms+3×3s). A failed collector only means a few
+	// early spans are dropped; the watchdog covers respawn after launch.
+	port, proc, attempts, err := RetrySpawn(binPath, sessionID, projectDir, 0, 1, spawnFn, c.opts.Stderr)
 	if err != nil {
 		fmt.Fprintf(c.opts.Stderr, "wipnote: FATAL: collector spawn failed after %d attempts: %v\n", attempts, err)
 		return 0, nil, err

@@ -7,7 +7,7 @@ tools:
     - read_file
     - grep_search
     - glob
-    - run_shell_command
+    - run_command
 ---
 
 # Test Runner Agent

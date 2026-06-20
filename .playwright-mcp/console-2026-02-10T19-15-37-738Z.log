@@ -1,8 +1,0 @@
-[     194ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://localhost:8765/favicon.ico:0
-[   32783ms] SyntaxError: Failed to execute 'insertBefore' on 'Node': Identifier 'activeSpawners' has already been declared
-    at At (http://localhost:8765/static/htmx.min.js:1:23205)
-    at Nt (http://localhost:8765/static/htmx.min.js:1:23332)
-    at http://localhost:8765/static/htmx.min.js:1:10573
-    at http://localhost:8765/static/htmx.min.js:1:45022
-    at oe (http://localhost:8765/static/htmx.min.js:1:4868)
-    at s (http://localhost:8765/static/htmx.min.js:1:44997)

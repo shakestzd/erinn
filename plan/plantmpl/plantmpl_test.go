@@ -129,12 +129,63 @@ func TestPlanPageSidebarNavLinks(t *testing.T) {
 	}
 
 	html := buf.String()
+	// Always-present sections.
 	for _, section := range []string{
-		"Design", "Outline", "Slices", "Questions", "Critique", "Progress",
+		"Design", "Slices", "Progress",
 	} {
 		if !strings.Contains(html, section) {
 			t.Errorf("sidebar missing nav link for %q", section)
 		}
+	}
+	// Decisions nav link is present for non-v2 plans.
+	if !strings.Contains(html, `href="#questions"`) {
+		t.Error("sidebar missing #questions nav link for non-v2 plan")
+	}
+	// Critique nav link is conditional: absent when Critique zone is nil.
+	if strings.Contains(html, `href="#critique"`) {
+		t.Error("sidebar must not show #critique nav link when Critique zone is nil (dead anchor)")
+	}
+}
+
+func TestPlanPageSidebarNavLinks_WithCritique(t *testing.T) {
+	page := &plantmpl.PlanPage{
+		PlanID:  "plan-nav-crit",
+		Title:   "Nav Critique Test",
+		Critique: &plantmpl.CritiqueZone{},
+	}
+
+	var buf bytes.Buffer
+	if err := page.Render(&buf); err != nil {
+		t.Fatalf("Render: %v", err)
+	}
+
+	html := buf.String()
+	// When Critique is set, the nav link must appear.
+	if !strings.Contains(html, `href="#critique"`) {
+		t.Error("sidebar missing #critique nav link when Critique zone is set")
+	}
+}
+
+func TestPlanPageSidebarNavLinks_V2HidesQuestionsAndCritique(t *testing.T) {
+	page := &plantmpl.PlanPage{
+		PlanID:   "plan-nav-v2",
+		Title:    "V2 Nav Test",
+		IsV2:     true,
+		Critique: &plantmpl.CritiqueZone{},
+	}
+
+	var buf bytes.Buffer
+	if err := page.Render(&buf); err != nil {
+		t.Fatalf("Render: %v", err)
+	}
+
+	html := buf.String()
+	// V2 plans suppress both nav links regardless of Critique being set.
+	if strings.Contains(html, `href="#questions"`) {
+		t.Error("v2 plan sidebar must not show #questions nav link")
+	}
+	if strings.Contains(html, `href="#critique"`) {
+		t.Error("v2 plan sidebar must not show #critique nav link")
 	}
 }
 
@@ -509,3 +560,189 @@ func TestPlanPage_RadioPendingClearsSelectionAndChatPanelExists(t *testing.T) {
 		t.Error("rendered page is missing chat panel markup targeted by navigation and chat script")
 	}
 }
+
+// ---------------------------------------------------------------------------
+// Bug-81ea68a6: HTML escaping of plan text fields (#323)
+// ---------------------------------------------------------------------------
+
+// TestPlanPageRenderEscapesTitle verifies that angle-bracket placeholders in
+// the plan Title are HTML-escaped wherever the title appears in the rendered
+// HTML (h1, <title>, and sidebar nav). The JavaScript comments in the page
+// template legitimately contain the literal text "<id>" as documentation and
+// are not affected by this fix.
+func TestPlanPageRenderEscapesTitle(t *testing.T) {
+	page := plantmpl.BuildFromTopic("plan-esc01", "Deploy --track <id> param", "desc", "2026-06-17")
+
+	var buf bytes.Buffer
+	if err := page.Render(&buf); err != nil {
+		t.Fatalf("Render: %v", err)
+	}
+
+	html := buf.String()
+	// The <h1> and <title> must contain the escaped form.
+	if !strings.Contains(html, "&lt;id&gt;") {
+		t.Errorf("Title with <id> placeholder must appear as &lt;id&gt; in rendered HTML output")
+	}
+	// The <h1> heading specifically must not contain raw <id>.
+	if idx := strings.Index(html, "<h1>"); idx >= 0 {
+		end := strings.Index(html[idx:], "</h1>")
+		if end >= 0 {
+			h1 := html[idx : idx+end+5]
+			if strings.Contains(h1, "<id>") {
+				t.Errorf("h1 title must be HTML-escaped, got raw <id> in: %s", h1)
+			}
+		}
+	}
+}
+
+// TestPlanPageRenderEscapesDescription verifies angle-bracket text in
+// Description is HTML-escaped.
+func TestPlanPageRenderEscapesDescription(t *testing.T) {
+	page := plantmpl.BuildFromTopic("plan-esc02", "Some Plan", "Use --track <id> to specify target", "2026-06-17")
+
+	var buf bytes.Buffer
+	if err := page.Render(&buf); err != nil {
+		t.Fatalf("Render: %v", err)
+	}
+
+	html := buf.String()
+	// The description paragraph must contain the escaped form.
+	if !strings.Contains(html, "&lt;id&gt;") {
+		t.Errorf("Description with <id> placeholder must appear as &lt;id&gt; in rendered HTML output")
+	}
+	// The <p> tag containing the description must not have raw <id> as an element.
+	// Find the first occurrence of the plan header paragraph.
+	if idx := strings.Index(html, `color:var(--text-dim)">`); idx >= 0 {
+		end := strings.Index(html[idx:], "</p>")
+		if end >= 0 {
+			para := html[idx : idx+end+4]
+			if strings.Contains(para, "<id>") {
+				t.Errorf("description paragraph must be HTML-escaped, got raw <id> in: %s", para)
+			}
+		}
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Bug-81ea68a6: Markdown field escaping for raw HTML in What/DoneWhen (#323)
+// ---------------------------------------------------------------------------
+
+// TestSliceCard_DoneWhenEscapesAngleBrackets verifies that angle-bracket
+// text in DoneWhen items is HTML-escaped (not treated as HTML tags).
+func TestSliceCard_DoneWhenEscapesAngleBrackets(t *testing.T) {
+	sc := &plantmpl.SliceCard{
+		Num:      1,
+		ID:       "feat-dw-esc",
+		What:     "Implement it",
+		DoneWhen: []string{"Run wipnote execute --track <id>", "All tests pass"},
+	}
+
+	var buf bytes.Buffer
+	if err := sc.Render(&buf); err != nil {
+		t.Fatalf("Render: %v", err)
+	}
+
+	html := buf.String()
+	if strings.Contains(html, "<id>") {
+		t.Error("DoneWhen item with <id> must be HTML-escaped, got raw <id>")
+	}
+	if !strings.Contains(html, "&lt;id&gt;") {
+		t.Errorf("DoneWhen item with <id> must appear as &lt;id&gt; in output:\n%s", html)
+	}
+}
+
+// TestSliceCard_WhatEscapesAngleBracketsInCode verifies that a literal
+// angle-bracket placeholder in the What markdown field survives as visible text
+// (not silently stripped as an unknown HTML tag).
+func TestSliceCard_WhatEscapesAngleBracketsInCode(t *testing.T) {
+	sc := &plantmpl.SliceCard{
+		Num:  2,
+		ID:   "feat-what-esc",
+		What: "Use `wipnote execute --track <id>` to run.",
+	}
+
+	var buf bytes.Buffer
+	if err := sc.Render(&buf); err != nil {
+		t.Fatalf("Render: %v", err)
+	}
+
+	html := buf.String()
+	// The text "<id>" inside a code span must be visible (escaped or inside <code>).
+	// It must NOT be silently stripped as if it were a real HTML element.
+	if !strings.Contains(html, "id") {
+		t.Error("What field: '<id>' text content was silently stripped — placeholder is invisible to the user")
+	}
+	// The literal angle brackets must not form an unescaped raw element.
+	if strings.Contains(html, "<id>") {
+		t.Error("What field: <id> must not appear as a raw HTML element")
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Bug-da10ac25 (job 331): RenderMd must not silently drop bare <id> placeholders
+// in prose (outside backtick code spans). Goldmark without WithUnsafe replaces
+// raw HTML nodes with "<!-- raw HTML omitted -->" which hides the placeholder text.
+// ---------------------------------------------------------------------------
+
+// TestRenderMd_BareAngleBracketInProse verifies that a literal "<id>" placeholder
+// appearing in plain prose (NOT inside backticks) is rendered as visible, escaped
+// text (&lt;id&gt;) rather than being silently dropped or replaced with an HTML
+// comment by goldmark's default raw-HTML handling.
+func TestRenderMd_BareAngleBracketInProse(t *testing.T) {
+	cases := []struct {
+		name  string
+		input string
+	}{
+		{
+			name:  "bare placeholder",
+			input: "Create feature feat-<id> now.",
+		},
+		{
+			name:  "placeholder at start",
+			input: "<id> is the feature ID.",
+		},
+		{
+			name:  "double placeholder",
+			input: "Link <source> to <dest>.",
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := string(plantmpl.RenderMd(tc.input))
+			// Must not contain a raw HTML element (goldmark would have dropped it).
+			if strings.Contains(got, "<!-- raw HTML omitted -->") {
+				t.Errorf("RenderMd(%q): goldmark dropped raw HTML node — placeholder is invisible; got:\n%s", tc.input, got)
+			}
+			// The angle-bracket content must appear as escaped text.
+			if !strings.Contains(got, "&lt;") || !strings.Contains(got, "&gt;") {
+				t.Errorf("RenderMd(%q): expected &lt;...&gt; escaped placeholders in output; got:\n%s", tc.input, got)
+			}
+		})
+	}
+}
+
+// TestRenderMd_CodeSpanPlaceholderUnaffected verifies that a placeholder inside a
+// backtick code span still renders correctly after the prose-escape fix (no
+// double-escaping inside <code> blocks).
+func TestRenderMd_CodeSpanPlaceholderUnaffected(t *testing.T) {
+	input := "Run `wipnote execute --track <id>` to start."
+	got := string(plantmpl.RenderMd(input))
+
+	// The <code> element must be present.
+	if !strings.Contains(got, "<code>") {
+		t.Errorf("RenderMd code span: expected <code> tag in output; got:\n%s", got)
+	}
+	// The placeholder text content ("id") must be visible inside the code span.
+	if !strings.Contains(got, "id") {
+		t.Errorf("RenderMd code span: 'id' text was stripped from <code>; got:\n%s", got)
+	}
+	// Must not contain raw unescaped element outside code context.
+	if strings.Contains(got, "<!-- raw HTML omitted -->") {
+		t.Errorf("RenderMd code span: unexpectedly contains 'raw HTML omitted' comment; got:\n%s", got)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Bug-81ea68a6: IssueCount excludes SUCCESS and INFO severities (#330)
+// ---------------------------------------------------------------------------

@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>`wipnote recap &lt;id|--range|--session&gt;` command &#43; first-class recap-*.html artifact commit</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="feat-1feacf19"
+             data-type="feature"
+             data-status="done"
+             data-priority="medium"
+             data-created="2026-06-18T07:33:51.907083"
+             data-updated="2026-06-18T08:58:21.113183" data-agent-assigned="claude-code" data-track-id="trk-a951e3c0">
+
+        <header>
+            <h1>`wipnote recap &lt;id|--range|--session&gt;` command &#43; first-class recap-*.html artifact commit</h1>
+            <div class="metadata">
+                <span class="badge status-done">Done</span>
+                <span class="badge priority-medium">Medium Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="planned_in">
+                <h3>Planned In:</h3>
+                <ul>
+                    <li><a href="../plans/plan-93b8eba0.html" data-relationship="planned_in" data-since="2026-06-18T07:33:51.91018">plan-93b8eba0</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="implemented_in">
+                <h3>Implemented In:</h3>
+                <ul>
+                    <li><a href="../sessions/7ad16954-7662-4d96-87ae-6eff3bd5739e.html" data-relationship="implemented_in" data-since="2026-06-18T08:48:38.196754">session 7ad16954-7662-4d96-87ae-6eff3bd5739e</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-a951e3c0.html" data-relationship="part_of" data-since="2026-06-18T07:33:51.912143">trk-a951e3c0</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="blocked_by">
+                <h3>Blocked By:</h3>
+                <ul>
+                    <li><a href="../features/feat-5cdb3732.html" data-relationship="blocked_by">feat-5cdb3732</a></li>
+                    <li><a href="../features/feat-2570725c.html" data-relationship="blocked_by">feat-2570725c</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>New cmd/wipnote/recap.go cobra command. Accepts a work-item id positional,
+or --range , or --session . Calls the collector (slice-1),
+renders via recaptmpl (slice-2), writes .wipnote/recaps/recap-.html, and
+commits it atomically via a commitRecapArtifact helper modeled on
+commitWipnoteArtifact/commitPlanChange (git -C  absolute path, no host
+paths in body). Wires a lineage edge recap relates_to/derived_from the work item.
+[2026-06-18 08:58 claude-code] accepted-advisory (provenance override): Implementation committed in worktree agent-a4cf787759e2d7350 on branch agent-a4cf787759e2d7350; source paths are in a sibling worktree from the fast-forward merge of slices 1+2. Provenance links when the orchestrator merges.</p>
+        </section>
+    </article>
+</body>
+</html>

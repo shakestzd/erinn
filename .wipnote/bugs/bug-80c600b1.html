@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>roborev-386 fixes: launcher chooser abort &#43; double Warning prefix</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="bug-80c600b1"
+             data-type="bug"
+             data-status="done"
+             data-priority="medium"
+             data-created="2026-06-19T03:22:07.389469"
+             data-updated="2026-06-19T03:24:01.665786" data-agent-assigned="claude-code" data-track-id="trk-6a1f5362" data-created-by-agent="claude-code" data-created-by-model="claude-opus-4-8[1m]" data-created-by-cli-version="dev">
+
+        <header>
+            <h1>roborev-386 fixes: launcher chooser abort &#43; double Warning prefix</h1>
+            <div class="metadata">
+                <span class="badge status-done">Done</span>
+                <span class="badge priority-medium">Medium Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-6a1f5362.html" data-relationship="part_of" data-since="2026-06-19T03:22:07.452001">trk-6a1f5362</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>Code-review findings from /roborev-review-branch (job 386) on plan-92a31aea: (1) Medium — promptLaunchIntent treated every huh error as recoverable, so Ctrl-C/Esc abort did not cancel the launch; (2) Low — DirtyMainWarning double &#39;Warning:&#39; prefix via RenderLaunchBanner.</p>
+        </section>
+    </article>
+</body>
+</html>

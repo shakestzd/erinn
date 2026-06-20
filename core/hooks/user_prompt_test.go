@@ -80,6 +80,27 @@ func (td *testDB) addFeature(id, ftype, title, status string) {
 	}
 }
 
+// addSession inserts a bare session row, optionally linked to a parent and an
+// active feature. Empty parentID / activeFeatureID are stored as NULL.
+func (td *testDB) addSession(id, parentID, activeFeatureID string) {
+	td.t.Helper()
+	var parent, feat interface{}
+	if parentID != "" {
+		parent = parentID
+	}
+	if activeFeatureID != "" {
+		feat = activeFeatureID
+	}
+	_, err := td.DB.Exec(
+		`INSERT INTO sessions (session_id, agent_assigned, parent_session_id, active_feature_id, created_at, status)
+		 VALUES (?,?,?,?,?,?)`,
+		id, "claude-code", parent, feat, td.now.Format(time.RFC3339), "active",
+	)
+	if err != nil {
+		td.t.Fatalf("addSession(%s): %v", id, err)
+	}
+}
+
 func (td *testDB) setActiveFeature(sessionID, featureID string) {
 	td.t.Helper()
 	_, err := td.DB.Exec(

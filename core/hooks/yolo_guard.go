@@ -158,7 +158,7 @@ func isYoloFromDB(wipnoteDir, sessionID string) bool {
 // writes to external locations like ~/.claude/ memory files.
 // projectRoot is the resolved project directory (ctx.ProjectDir); when empty
 // the guard applies unconditionally (conservative).
-func checkYoloWorkItemGuard(toolName, featureID string, _ bool, sessionID string, db *sql.DB, targetFile, projectRoot string) string {
+func checkYoloWorkItemGuard(toolName, featureID string, _ bool, sessionID string, database *sql.DB, targetFile, projectRoot string) string {
 	switch toolName {
 	case "Write", "Edit", "MultiEdit", "apply_patch":
 	default:
@@ -168,12 +168,21 @@ func checkYoloWorkItemGuard(toolName, featureID string, _ bool, sessionID string
 	if targetFile != "" && pathIsOutsideProject(targetFile, projectRoot) {
 		return ""
 	}
+	// Check 1: this session's own active work item (set at session-start or via
+	// lineage attribution promoted into featureID at the call site).
 	if featureID != "" {
 		return ""
 	}
-	// Fallback: check if a feature was started mid-session and linked to this
-	// session via the sessions table or a recent feature start command.
-	if sessionID != "" && db != nil && sessionHasLinkedFeature(db, sessionID) {
+	// Check 2: a feature started mid-session and linked to THIS exact session row.
+	if sessionID != "" && database != nil && sessionHasLinkedFeature(database, sessionID) {
+		return ""
+	}
+	// Check 3: parent-chain fallback for nested/subagent sessions. A subagent's
+	// `wipnote bug start` writes active_feature_id to the orchestrator's session
+	// row, not the subagent's own row, so checks 1-2 miss even though the work is
+	// legitimately attributed. One hop only (getSessionAndParent) keeps this tied
+	// to direct lineage and avoids the global "any in-progress item" false-pass.
+	if sessionID != "" && database != nil && ancestorHasActiveWorkItem(database, sessionID) {
 		return ""
 	}
 	return "An active work item is required before writing code. " +
@@ -217,27 +226,39 @@ func sessionHasLinkedFeature(db *sql.DB, sessionID string) bool {
 	return featureID.Valid && featureID.String != ""
 }
 
-// hasAnyActiveWorkItem returns true when at least one work item (feature, bug,
-// or spike) is in-progress in the project. All work item types are stored in
-// the features table, distinguished by the type column.
+// ancestorHasActiveWorkItem returns true when sessionID's direct parent session
+// has a non-empty active_feature_id pointing at an in-progress feature. This
+// lets a nested/subagent session inherit the orchestrator's work-item context:
+// subagents don't write their own sessions.active_feature_id, so a legitimately
+// attributed edit would otherwise be false-blocked.
 //
-// This is used as a YOLO-mode fallback when CLAUDE_ENV_FILE is unset (typical
-// in YOLO mode), causing WIPNOTE_SESSION_ID to not be exported. In that case
-// `bug start` falls back to the .active-session file and writes
-// active_feature_id to a different session row than the one the PreToolUse
-// hook resolves from the CloudEvent payload. The fallback allows the edit when
-// any work item is in-progress, preventing false blocks after `bug start`.
-func hasAnyActiveWorkItem(database *sql.DB) bool {
-	if database == nil {
+// One hop only (getSessionAndParent) — tied to direct lineage so it does NOT
+// reintroduce the global "any in-progress work item" false-pass that the removed
+// hasAnyActiveWorkItem caused. The JOIN to features enforces status =
+// 'in-progress', matching GetToolUseContext semantics so a stale pointer to a
+// completed feature does not pass. Returns false on nil DB / empty sessionID /
+// no parent.
+func ancestorHasActiveWorkItem(database *sql.DB, sessionID string) bool {
+	if database == nil || sessionID == "" {
 		return false
 	}
-	var count int
-	database.QueryRow(`
-		SELECT COUNT(*) FROM features
-		WHERE status = 'in-progress'
-		  AND type IN ('feature', 'bug', 'spike')
-		LIMIT 1`).Scan(&count)
-	return count > 0
+	sessionIDs := getSessionAndParent(database, sessionID)
+	if len(sessionIDs) < 2 {
+		return false // no parent
+	}
+	for _, parentID := range sessionIDs[1:] {
+		var count int
+		database.QueryRow(`
+			SELECT COUNT(*) FROM sessions s
+			JOIN features f ON f.id = s.active_feature_id
+			WHERE s.session_id = ?
+			  AND f.status = 'in-progress'
+			LIMIT 1`, parentID).Scan(&count)
+		if count > 0 {
+			return true
+		}
+	}
+	return false
 }
 
 // featureStartPattern matches wipnote feature/bug start commands.

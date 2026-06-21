@@ -58,13 +58,28 @@ type Question struct {
 	Placeholder string     `json:"placeholder,omitempty"`
 }
 
+// BlockPrompt is a blocks-first authoring instruction attached to a stage. It
+// names a visual block type (a key from planyaml.BlockCatalog) the agent should
+// author INLINE during that stage, before deriving prose. Description is the
+// catalog's one-line summary of the type; Prompt is the stage-specific nudge for
+// what to capture in it. Renderers (web form, native ask-user, plain chat) show
+// these so block elicitation drives the interview rather than being a post-pass.
+type BlockPrompt struct {
+	Type        string `json:"type"`
+	Description string `json:"description,omitempty"`
+	Prompt      string `json:"prompt"`
+}
+
 // Stage is one interview round. Bucket says which decisions_notes section its
-// answers (and the stage's free-text note) are composed into.
+// answers (and the stage's free-text note) are composed into. Blocks, when
+// present, are the visual artifacts to author FIRST in that stage; prose answers
+// are then derived from them (blocks-first planning).
 type Stage struct {
-	Key       string     `json:"key"`
-	Title     string     `json:"title"`
-	Bucket    Bucket     `json:"bucket"`
-	Questions []Question `json:"questions"`
+	Key       string        `json:"key"`
+	Title     string        `json:"title"`
+	Bucket    Bucket        `json:"bucket"`
+	Questions []Question    `json:"questions"`
+	Blocks    []BlockPrompt `json:"blocks,omitempty"`
 }
 
 // Definition is an agent-supplied interview: the staged question set the
@@ -240,7 +255,7 @@ func classifyComplexity(label string) string {
 
 func splitLines(s string) []string {
 	var out []string
-	for _, ln := range strings.Split(s, "\n") {
+	for ln := range strings.SplitSeq(s, "\n") {
 		if t := strings.TrimSpace(ln); t != "" {
 			out = append(out, t)
 		}
@@ -265,6 +280,48 @@ func BuildForSlice(complexity string, openQuestions []Question) []Stage {
 		})
 	}
 	return stages
+}
+
+// StageBlockPlan maps a stage key to the blocks-first authoring prompts for
+// that stage: the visual block type(s) to author INLINE during the stage and
+// what to capture in each. The Type values are keys expected to exist in
+// planyaml.BlockCatalog; callers (e.g. `wipnote plan interview-questions`)
+// should cross-check each Type against the live catalog and drop/annotate any
+// that the catalog no longer defines, so the catalog stays the source of truth
+// for WHICH block types exist while this stays the source of truth for WHEN to
+// author them. Returns nil for stages with no natural visual artifact.
+func StageBlockPlan(stageKey string) []BlockPrompt {
+	switch stageKey {
+	case "scope":
+		return []BlockPrompt{{
+			Type:   "file-tree",
+			Prompt: "FIRST author a file-tree block of the real files this slice touches (new + edited). Derive `files` and the scope half of `what` from it. Every path must already exist or be a direct output of this slice — never invent paths.",
+		}}
+	case "contract":
+		return []BlockPrompt{
+			{
+				Type:   "api-endpoint",
+				Prompt: "If the slice exposes an HTTP route or CLI/command surface, author an api-endpoint block (method + path + request/response params) FIRST, then derive the contract half of `what` from it. Only for routes the slice actually implements.",
+			},
+			{
+				Type:   "data-model",
+				Prompt: "If the slice introduces or changes a stored entity, author a data-model block (named, typed columns) FIRST, then derive `what`/`done_when` from it. Columns must be real or will-exist fields — never invented schema.",
+			},
+		}
+	case "requirements":
+		return []BlockPrompt{
+			{
+				Type:   "wireframe",
+				Prompt: "For UI/flow work, author a wireframe block FIRST (HTML/CSS using `var(--wf-*)` tokens only, no raw colors). Derive `why`/`what` from it. Skip if the slice has no user-visible surface.",
+			},
+			{
+				Type:   "diagram",
+				Prompt: "For process/data-flow work, author a diagram block FIRST (ordered steps connected by arrows, pure HTML/CSS). Derive `why`/`what` from it. Skip if the slice has no multi-step flow.",
+			},
+		}
+	default:
+		return nil
+	}
 }
 
 func requirementsStage() Stage {

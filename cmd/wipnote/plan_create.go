@@ -236,6 +236,9 @@ func enrichPageFromYAML(wipnoteDir, planID string, page *plantmpl.PlanPage) {
 			})
 		}
 		page.IsV2 = isV2
+
+		// Build the visual overview zone from all slices' blocks.
+		page.VisualOverview = &plantmpl.VisualOverviewZone{Slices: plan.Slices}
 	}
 
 	// Map questions to DecisionCards.

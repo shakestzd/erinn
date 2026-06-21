@@ -18,6 +18,31 @@ func TestForComplexity_StageCounts(t *testing.T) {
 	}
 }
 
+func TestStageBlockPlan_MapsStagesToBlockTypes(t *testing.T) {
+	cases := map[string][]string{
+		"scope":        {"file-tree"},
+		"contract":     {"api-endpoint", "data-model"},
+		"requirements": {"wireframe", "diagram"},
+		"donewhen":     nil,
+		"unknown":      nil,
+	}
+	for key, want := range cases {
+		got := StageBlockPlan(key)
+		if len(got) != len(want) {
+			t.Errorf("StageBlockPlan(%q): got %d prompts, want %d", key, len(got), len(want))
+			continue
+		}
+		for i, ty := range want {
+			if got[i].Type != ty {
+				t.Errorf("StageBlockPlan(%q)[%d].Type = %q, want %q", key, i, got[i].Type, ty)
+			}
+			if got[i].Prompt == "" {
+				t.Errorf("StageBlockPlan(%q)[%d] has empty prompt", key, i)
+			}
+		}
+	}
+}
+
 func TestForComplexity_BucketsCoverThreeFields(t *testing.T) {
 	// Complex runs all stages; every stage must target a known decisions bucket.
 	valid := map[Bucket]bool{BucketScope: true, BucketDecisions: true, BucketContext: true}

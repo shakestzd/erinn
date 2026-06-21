@@ -143,7 +143,7 @@ func planInterviewQuestionsCmd() *cobra.Command {
 				if err != nil {
 					return err
 				}
-				stages = interview.BuildForSlice(slice.Complexity, sliceOpenQuestions(slice))
+				stages = attachBlockPrompts(interview.BuildForSlice(slice.Complexity, sliceOpenQuestions(slice)))
 			}
 			out, err := json.MarshalIndent(interview.Definition{Stages: stages}, "", "  ")
 			if err != nil {
@@ -153,6 +153,33 @@ func planInterviewQuestionsCmd() *cobra.Command {
 			return nil
 		},
 	}
+}
+
+// attachBlockPrompts decorates each stage with its blocks-first authoring
+// prompts (interview.StageBlockPlan), keeping planyaml.BlockCatalog as the
+// source of truth for WHICH block types exist: any prompt naming a type the live
+// catalog no longer defines is dropped, and each surviving prompt is annotated
+// with the catalog's own one-line description. This is how blocks drive the
+// interview across every renderer (web form, native ask-user, plain chat) —
+// block elicitation is folded into the stages, not bolted on in a post-pass.
+func attachBlockPrompts(stages []interview.Stage) []interview.Stage {
+	catalog := map[string]string{}
+	for _, spec := range planyaml.BlockCatalog() {
+		catalog[spec.Type] = spec.Description
+	}
+	for i := range stages {
+		var prompts []interview.BlockPrompt
+		for _, bp := range interview.StageBlockPlan(stages[i].Key) {
+			desc, known := catalog[bp.Type]
+			if !known {
+				continue // catalog dropped this type — never emit a stale tag
+			}
+			bp.Description = desc
+			prompts = append(prompts, bp)
+		}
+		stages[i].Blocks = prompts
+	}
+	return stages
 }
 
 // runPlanInterview is the per-slice decisions mode: fill an existing slice's
@@ -403,7 +430,7 @@ func intakeChatContext(planID string, plan *planyaml.PlanYAML, stages []intervie
 // the slice's unanswered open questions).
 func loadInterviewStages(questionsPath string, slice planyaml.PlanSlice) ([]interview.Stage, error) {
 	if questionsPath == "" {
-		return interview.BuildForSlice(slice.Complexity, sliceOpenQuestions(slice)), nil
+		return attachBlockPrompts(interview.BuildForSlice(slice.Complexity, sliceOpenQuestions(slice))), nil
 	}
 	var data []byte
 	var err error
@@ -543,6 +570,9 @@ func interviewChatContext(planID string, sliceNum int, slice planyaml.PlanSlice,
 			here = "   <-- the user is on this stage"
 		}
 		fmt.Fprintf(&b, "\nStage %d — %s (feeds %s)%s\n", i+1, st.Title, st.Bucket, here)
+		for _, bp := range st.Blocks {
+			b.WriteString("  ▸ AUTHOR FIRST — " + bp.Type + " block: " + bp.Prompt + "\n")
+		}
 		for _, q := range st.Questions {
 			b.WriteString("  • " + q.Prompt + "\n")
 			for _, o := range q.Options {

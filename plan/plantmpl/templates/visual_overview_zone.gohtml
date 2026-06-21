@@ -1,0 +1,17 @@
+{{define "visual_overview_zone"}}<section class="visual-overview" id="visual-overview" data-zone="visual-overview">
+  <h2>Visual Overview</h2>
+  {{range .Groups}}<div class="overview-group" data-block-kind="{{.Kind}}">
+    <h3>{{.TypeLabel}}</h3>
+    <div class="overview-group-blocks">
+      {{range .Blocks}}<div class="overview-block-entry">
+        <a class="overview-slice-label" href="#{{.Anchor}}" title="Jump to slice {{.SliceNum}}">
+          <span class="slice-num">#{{.SliceNum}}</span>
+          <span class="overview-slice-title">{{html .SliceTitle}}</span>
+        </a>
+        <div class="block-anchor" id="overview-{{.Anchor}}" data-block-anchor="{{.Anchor}}" data-block-kind="{{.Kind}}">{{.HTML}}</div>
+      </div>
+      {{end}}
+    </div>
+  </div>
+  {{end}}
+</section>{{end}}

@@ -224,14 +224,15 @@ type PlanPage struct {
 	IsV2 bool
 
 	// Zone components
-	Graph     *DependencyGraph
-	Design    *DesignSection
-	Outline   *OutlineSection
-	Slices    []SliceCard
-	Questions *QuestionsSection
-	Critique  *CritiqueZone
-	Preview   *FinalizePreview
-	Progress  *ProgressBar
+	VisualOverview *VisualOverviewZone
+	Graph          *DependencyGraph
+	Design         *DesignSection
+	Outline        *OutlineSection
+	Slices         []SliceCard
+	Questions      *QuestionsSection
+	Critique       *CritiqueZone
+	Preview        *FinalizePreview
+	Progress       *ProgressBar
 
 	// Related work items (track, generated features)
 	RelatedTrack    *RelatedWorkItem

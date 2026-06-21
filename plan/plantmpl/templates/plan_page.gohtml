@@ -437,6 +437,19 @@ body.right-rail-collapsed .sidebar-reopen{display:flex}
 .block-tabs .tab-panel{display:none;font-size:.88rem;color:var(--text-dim);white-space:pre-wrap;font-family:var(--sans)}
 .block-tabs .tabs .tab-radio:nth-of-type(1):checked~.tab-labels .tab-label:nth-child(1),.block-tabs .tabs .tab-radio:nth-of-type(2):checked~.tab-labels .tab-label:nth-child(2),.block-tabs .tabs .tab-radio:nth-of-type(3):checked~.tab-labels .tab-label:nth-child(3),.block-tabs .tabs .tab-radio:nth-of-type(4):checked~.tab-labels .tab-label:nth-child(4),.block-tabs .tabs .tab-radio:nth-of-type(5):checked~.tab-labels .tab-label:nth-child(5),.block-tabs .tabs .tab-radio:nth-of-type(6):checked~.tab-labels .tab-label:nth-child(6),.block-tabs .tabs .tab-radio:nth-of-type(7):checked~.tab-labels .tab-label:nth-child(7),.block-tabs .tabs .tab-radio:nth-of-type(8):checked~.tab-labels .tab-label:nth-child(8){color:var(--text);border-color:var(--border);background:var(--bg-card)}
 .block-tabs .tabs .tab-radio:nth-of-type(1):checked~.tab-panels .tab-panel:nth-child(1),.block-tabs .tabs .tab-radio:nth-of-type(2):checked~.tab-panels .tab-panel:nth-child(2),.block-tabs .tabs .tab-radio:nth-of-type(3):checked~.tab-panels .tab-panel:nth-child(3),.block-tabs .tabs .tab-radio:nth-of-type(4):checked~.tab-panels .tab-panel:nth-child(4),.block-tabs .tabs .tab-radio:nth-of-type(5):checked~.tab-panels .tab-panel:nth-child(5),.block-tabs .tabs .tab-radio:nth-of-type(6):checked~.tab-panels .tab-panel:nth-child(6),.block-tabs .tabs .tab-radio:nth-of-type(7):checked~.tab-panels .tab-panel:nth-child(7),.block-tabs .tabs .tab-radio:nth-of-type(8):checked~.tab-panels .tab-panel:nth-child(8){display:block}
+
+/* ── Visual Overview Zone ── */
+.visual-overview{background:var(--bg-card);border-radius:var(--radius);padding:28px;margin-bottom:28px;box-shadow:var(--shadow-card)}
+.visual-overview>h2{margin-bottom:20px;padding-bottom:12px;border-bottom:1px solid var(--border)}
+.overview-group{margin-bottom:28px}.overview-group:last-child{margin-bottom:0}
+.overview-group>h3{margin-bottom:14px;padding-bottom:8px;border-bottom:1px solid var(--border);font-family:var(--mono);font-size:.72rem;font-weight:600;color:var(--accent);text-transform:uppercase;letter-spacing:.08em}
+.overview-group-blocks{display:flex;flex-direction:column;gap:16px}
+.overview-block-entry{display:flex;flex-direction:column;gap:6px}
+.overview-slice-label{display:inline-flex;align-items:center;gap:8px;text-decoration:none;color:var(--text-muted);font-size:.8rem;transition:color var(--transition)}
+.overview-slice-label:hover{color:var(--text)}
+.overview-slice-label .slice-num{font-size:.7rem;padding:1px 6px}
+.overview-slice-title{font-family:var(--sans);font-size:.8rem;font-weight:500}
+
 {{range .Assets.CSS}}{{.}}
 {{end}}
 </style>
@@ -448,6 +461,7 @@ body.right-rail-collapsed .sidebar-reopen{display:flex}
     <a href="/" class="brand">wipnote</a>
     <button class="sidebar-toggle" id="left-sidebar-toggle" title="Collapse sidebar" aria-label="Toggle left sidebar">&#8249;</button>
   </div>
+  {{if .VisualOverview}}{{if .VisualOverview.HasBlocks}}<a href="#visual-overview" class="nav-link" data-spy="visual-overview" data-initial="V">Visual</a>{{end}}{{end}}
   <a href="#design" class="nav-link active" data-spy="design" data-initial="D">Design</a>
   <a href="#slices" class="nav-link" data-spy="slices" data-initial="S">Slices</a>
   {{if .Slices}}
@@ -520,6 +534,9 @@ body.right-rail-collapsed .sidebar-reopen{display:flex}
     <summary>View Plan YAML</summary>
     <pre><code class="language-yaml" id="yaml-content">Loading&#x2026;</code></pre>
 </details>
+
+<!-- ZONE 0: Visual Overview (blocks-first headline — expanded, above dependency graph) -->
+{{if .VisualOverview}}{{renderZone .VisualOverview}}{{end}}
 
 <!-- ZONE 1: Dependency Graph -->
 <section class="dep-graph" data-zone="dependency-graph">

@@ -1,0 +1,892 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="wipnote-recap" content="1.0">
+<title>Recap: Fix-forward v0.63.0: recap.go + claude.go Medium review findings</title>
+<style>
+:root{
+  --bg:#0f0f13;--bg-card:#18181c;--bg-input:#222228;--text:#f0f0ed;--text-dim:#d0d0cc;
+  --text-muted:#9898a0;--border:#3a3a42;--accent:#cdff00;
+  --add:#22c55e;--modify:#f59e0b;--delete:#ef4444;--pivot:#a78bfa;
+  --mono:'JetBrains Mono',ui-monospace,'SF Mono','Cascadia Code',monospace;
+  --sans:'DM Sans','Inter',system-ui,-apple-system,sans-serif;
+  --radius:8px;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{font-family:var(--sans);background:var(--bg);color:var(--text);line-height:1.6;padding:32px;max-width:1100px;margin:0 auto}
+h1{font-size:1.5rem;font-weight:700;margin-bottom:4px}
+.recap-sub{color:var(--text-muted);font-size:.85rem;font-family:var(--mono);margin-bottom:24px}
+.recap-sub code{color:var(--text-dim)}
+.recap-zone{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:20px;margin-bottom:20px}
+.recap-zone-title{font-size:1.05rem;font-weight:600;margin-bottom:12px;display:flex;align-items:center;gap:8px}
+.recap-zone-note{color:var(--text-muted);font-size:.8rem;margin-bottom:12px;font-style:italic}
+.recap-count{background:var(--bg-input);color:var(--text-muted);font-size:.72rem;font-family:var(--mono);padding:1px 7px;border-radius:10px}
+.outcome-narrative{font-size:1rem;color:var(--text-dim)}
+/* shared block + file list */
+.block{margin:0}
+.file-list{list-style:none;display:flex;flex-direction:column;gap:4px}
+.file-entry{font-family:var(--mono);font-size:.85rem;display:flex;align-items:center;gap:8px}
+.file-path{color:var(--text-dim)}
+.file-change{font-size:.68rem;font-weight:700;text-transform:uppercase;padding:1px 6px;border-radius:4px;font-family:var(--mono)}
+.file-change-add{background:rgba(34,197,94,.12);color:var(--add)}
+.file-change-modify{background:rgba(245,158,11,.12);color:var(--modify)}
+.file-change-delete{background:rgba(239,68,68,.12);color:var(--delete)}
+.block-table{width:100%;border-collapse:collapse;font-size:.82rem;margin-top:8px}
+.block-table th,.block-table td{text-align:left;padding:6px 10px;border-bottom:1px solid var(--border)}
+.block-header{display:flex;align-items:center;gap:8px;font-size:.85rem}
+.block-kind{font-family:var(--mono);font-size:.68rem;text-transform:uppercase;color:var(--text-muted);background:var(--bg-input);padding:1px 6px;border-radius:4px}
+.api-method{font-family:var(--mono);font-weight:700;font-size:.72rem;padding:1px 6px;border-radius:4px;background:var(--accent);color:#000}
+/* diagram block (pure HTML/CSS flow) */
+.block-diagram .diagram-flow{display:flex;gap:8px;flex-wrap:wrap}
+.diagram-lr{flex-direction:row;align-items:center}
+.diagram-tb{flex-direction:column;align-items:flex-start}
+.diagram-node{background:var(--bg-input);border:1px solid var(--border);border-radius:6px;padding:7px 13px;font-family:var(--mono);font-size:.8rem;color:var(--text);white-space:nowrap}
+.diagram-arrow{color:var(--accent);font-family:var(--mono)}
+.diagram-tb .diagram-arrow{margin-left:16px}
+/* tabs block (pure CSS, no JS; up to 8 tabs toggle) */
+.block-tabs .tabs{position:relative}
+.tab-radio{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}
+.tab-labels{display:flex;gap:2px;flex-wrap:wrap;border-bottom:1px solid var(--border)}
+.tab-label{padding:6px 12px;font-family:var(--mono);font-size:.78rem;color:var(--text-muted);cursor:pointer;border:1px solid transparent;border-bottom:none;border-radius:6px 6px 0 0;margin-bottom:-1px}
+.tab-label:hover{color:var(--text)}
+.tab-panels{padding:12px 2px}
+.tab-panel{display:none;font-size:.88rem;color:var(--text-dim);white-space:pre-wrap;font-family:var(--sans)}
+.tabs .tab-radio:nth-of-type(1):checked~.tab-labels .tab-label:nth-child(1),.tabs .tab-radio:nth-of-type(2):checked~.tab-labels .tab-label:nth-child(2),.tabs .tab-radio:nth-of-type(3):checked~.tab-labels .tab-label:nth-child(3),.tabs .tab-radio:nth-of-type(4):checked~.tab-labels .tab-label:nth-child(4),.tabs .tab-radio:nth-of-type(5):checked~.tab-labels .tab-label:nth-child(5),.tabs .tab-radio:nth-of-type(6):checked~.tab-labels .tab-label:nth-child(6),.tabs .tab-radio:nth-of-type(7):checked~.tab-labels .tab-label:nth-child(7),.tabs .tab-radio:nth-of-type(8):checked~.tab-labels .tab-label:nth-child(8){color:var(--text);border-color:var(--border);background:var(--bg-card)}
+.tabs .tab-radio:nth-of-type(1):checked~.tab-panels .tab-panel:nth-child(1),.tabs .tab-radio:nth-of-type(2):checked~.tab-panels .tab-panel:nth-child(2),.tabs .tab-radio:nth-of-type(3):checked~.tab-panels .tab-panel:nth-child(3),.tabs .tab-radio:nth-of-type(4):checked~.tab-panels .tab-panel:nth-child(4),.tabs .tab-radio:nth-of-type(5):checked~.tab-panels .tab-panel:nth-child(5),.tabs .tab-radio:nth-of-type(6):checked~.tab-panels .tab-panel:nth-child(6),.tabs .tab-radio:nth-of-type(7):checked~.tab-panels .tab-panel:nth-child(7),.tabs .tab-radio:nth-of-type(8):checked~.tab-panels .tab-panel:nth-child(8){display:block}
+/* annotated diff */
+.annotated-diff{border:1px solid var(--border);border-radius:6px;margin-bottom:14px;overflow:hidden}
+.diff-file-header{display:flex;align-items:center;gap:8px;padding:8px 12px;background:var(--bg-input);font-family:var(--mono);font-size:.82rem;cursor:pointer;user-select:none;list-style:none}
+.diff-file-header::-webkit-details-marker{display:none}
+.diff-file-header::before{content:"▾";font-size:.7rem;color:var(--text-muted);transition:transform .15s ease;display:inline-block}
+.diff-file:not([open])>.diff-file-header::before{transform:rotate(-90deg)}
+.diff-file-header:hover{background:var(--border)}
+.diff-hunk-count{margin-left:auto;font-size:.7rem;color:var(--text-muted);font-family:var(--mono)}
+.diff-hunk{border-top:1px solid var(--border)}
+.hunk-meta{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:6px 12px;background:rgba(255,255,255,.02)}
+.hunk-header{font-family:var(--mono);font-size:.74rem;color:var(--text-muted)}
+.hunk-summary{font-size:.72rem;color:var(--text-muted);font-family:var(--mono)}
+.diff-pre{margin:0;padding:10px 0;overflow-x:auto;font-family:var(--mono);font-size:.8rem;line-height:1.5;white-space:pre}
+.diff-pre code{font-family:var(--mono);background:none;padding:0}
+.dl{display:block;padding:0 12px}
+.dl-add{background:rgba(34,197,94,.12);color:var(--add)}
+.dl-del{background:rgba(239,68,68,.12);color:var(--delete)}
+.dl-ctx{color:var(--text-muted)}
+.hunk-cols{display:grid;grid-template-columns:1fr 1fr}
+.hunk-col-before{border-right:1px solid var(--border);background:rgba(239,68,68,.04)}
+.hunk-col-after{background:rgba(34,197,94,.04)}
+/* embedded diff sits flush inside a file station */
+.annotated-diff.embedded{border:none;border-radius:0;margin:0;border-top:1px solid var(--border)}
+/* lineage spine */
+.lin-legend{display:flex;gap:16px;flex-wrap:wrap;font-family:var(--mono);font-size:.68rem;color:var(--text-muted);margin-bottom:16px}
+.lin-dir{display:flex;align-items:center;gap:6px}
+.lin-swatch{width:18px;height:2px;border-radius:2px}
+.lin-swatch.past{background:var(--border)}
+.lin-swatch.now{background:var(--accent)}
+/* nested tree: each branch indents under its parent with its own guide rail */
+.lin-tree{position:relative}
+.lin-branch{position:relative;margin-left:15px;padding-left:22px;border-left:2px solid var(--border)}
+.lin-branch.produced-branch{border-left-color:rgba(205,255,0,.4)}
+.lin-node{position:relative;padding:6px 0;display:flex;align-items:flex-start}
+/* connector tick from the branch rail to each node glyph */
+.lin-node::before{content:"";position:absolute;left:-22px;top:18px;width:18px;height:2px;background:var(--border)}
+.lin-branch.produced-branch>.lin-node::before{background:rgba(205,255,0,.4)}
+.lin-glyph{position:absolute;left:-33px;top:7px;width:22px;height:22px;display:grid;place-items:center;border-radius:50%;background:var(--bg-card);border:1px solid var(--border);color:var(--text-muted);z-index:2}
+.lin-glyph svg{width:12px;height:12px;display:block}
+.lin-card{flex:1;min-width:0;background:var(--bg-card);border:1px solid var(--border);border-radius:6px;padding:8px 12px;margin-left:4px}
+.lin-id{font-family:var(--mono);font-size:.72rem;color:var(--text-muted);display:flex;align-items:center;gap:7px;flex-wrap:wrap}
+.lin-id code{color:var(--text-dim)}
+.lin-kind{font-size:.6rem;text-transform:uppercase;letter-spacing:.08em;color:var(--text-muted);border:1px solid var(--border);border-radius:4px;padding:0 5px}
+.lin-rel{font-family:var(--mono);font-size:.62rem;color:var(--text-muted);text-transform:lowercase}
+.lin-rel.produced{color:var(--accent)}
+.lin-ttl{font-size:.9rem;color:var(--text);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.lin-when{color:var(--text-muted)}
+.lin-node.up .lin-glyph{border-style:dashed}
+.lin-node.up .lin-card{background:transparent}
+.lin-node.up .lin-ttl{color:var(--text-muted)}
+.lin-node.pivot{padding:10px 0}
+.lin-node.pivot::before{background:var(--accent)}
+.lin-node.pivot .lin-glyph{left:-35px;top:6px;width:28px;height:28px;background:var(--accent);border-color:var(--accent);color:#000;box-shadow:0 0 0 4px rgba(205,255,0,.14),0 0 18px rgba(205,255,0,.3)}
+.lin-node.pivot .lin-card{border-color:rgba(205,255,0,.45);box-shadow:0 0 0 1px rgba(205,255,0,.14)}
+.lin-node.pivot .lin-id code{color:var(--accent)}
+.lin-node.pivot .lin-ttl{white-space:normal;font-weight:600;font-size:.98rem}
+.lin-node.pivot .lin-kind{color:var(--accent);border-color:rgba(205,255,0,.45)}
+.lin-node.down .lin-glyph{border-color:rgba(205,255,0,.45);color:var(--accent)}
+.lin-file{flex:1;min-width:0;margin-left:4px;background:var(--bg-card);border:1px solid var(--border);border-radius:6px;overflow:hidden}
+.lin-file>summary{display:flex;align-items:center;gap:9px;padding:8px 12px;cursor:pointer;list-style:none;font-family:var(--mono);font-size:.78rem}
+.lin-file>summary::-webkit-details-marker{display:none}
+.lin-file>summary::before{content:"▸";color:var(--text-muted);font-size:.66rem;transition:transform .15s ease;display:inline-block}
+.lin-file[open]>summary::before{transform:rotate(90deg)}
+.lin-file>summary:hover{background:var(--bg-input)}
+.lin-file-path{color:var(--text-dim)}
+.lin-file-stat{margin-left:auto;color:var(--text-muted)}
+.lin-file-stat .plus{color:var(--add)}.lin-file-stat .minus{color:var(--delete)}
+code{font-family:var(--mono)}
+</style>
+</head>
+<body data-recap-kind="work-item" data-recap-input="bug-2623b061" data-recap-git-range="de3ff239bd625288f8276cb9c5eac390b58ddb1d,c2f615d0edc462d1697a5d1e06cb4f56326bb020,ff97b39dabde22c4c1d7a53bb1a764959b90a299" data-recap-grounded="1" data-recap-outcome="Fix-forward v0.63.0: recap.go + claude.go Medium review findings" data-recap-title="Fix-forward v0.63.0: recap.go + claude.go Medium review findings">
+<header>
+  <h1>Fix-forward v0.63.0: recap.go + claude.go Medium review findings</h1>
+  <div class="recap-sub">
+    <code>work-item</code>
+    &middot; <code>bug-2623b061</code>
+    &middot; <code>de3ff239bd625288f8276cb9c5eac390b58ddb1d,c2f615d0edc462d1697a5d1e06cb4f56326bb020,ff97b39dabde22c4c1d7a53bb1a764959b90a299</code>
+    &middot; grounded
+  </div>
+</header>
+<section class="recap-zone recap-zone-outcome" id="outcome">
+  <h2 class="recap-zone-title">Outcome</h2>
+  <p class="outcome-narrative">Fix-forward v0.63.0: recap.go + claude.go Medium review findings</p>
+</section>
+<section class="recap-zone recap-zone-lineage" id="lineage">
+  <h2 class="recap-zone-title">Lineage</h2>
+  <p class="recap-zone-note">Causal provenance as a tree: containers hold the work item, which holds the commit it produced, which holds the files it changed.</p>
+  
+  <div class="lin-legend">
+    <span class="lin-dir"><span class="lin-swatch past"></span> ancestry — what holds this work</span>
+    <span class="lin-dir"><span class="lin-swatch now"></span> produced — what it changed</span>
+  </div>
+  
+
+  <div class="lin-tree">
+  
+    <div class="lin-branch">
+    
+    
+    <div class="lin-node up">
+      <span class="lin-glyph"><svg viewBox="0 0 24 24"><rect x="4" y="6" width="16" height="12" rx="2" fill="none" stroke="currentColor" stroke-width="2"/></svg></span>
+      <div class="lin-card">
+        <div class="lin-id"><span class="lin-kind">track</span><code>trk-a951e3c0</code><span class="lin-rel">contains</span></div>
+        <div class="lin-ttl">Visual planning &amp; recap — native port of BuilderIO visual-plan/visual-recap concepts</div>
+      </div>
+    </div>
+    
+
+    
+    <div class="lin-branch">
+      
+      <div class="lin-node pivot">
+        <span class="lin-glyph"><svg viewBox="0 0 24 24"><rect x="6.5" y="6.5" width="11" height="11" transform="rotate(45 12 12)" fill="currentColor"/></svg></span>
+        <div class="lin-card">
+          <div class="lin-id"><span class="lin-kind">bug</span><code>bug-2623b061</code></div>
+          <div class="lin-ttl">Fix-forward v0.63.0: recap.go &#43; claude.go Medium review findings</div>
+        </div>
+      </div>
+      
+
+      
+      <div class="lin-branch produced-branch">
+        
+        <div class="lin-node down commit">
+          <span class="lin-glyph"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="6" fill="currentColor"/></svg></span>
+          <div class="lin-card">
+            <div class="lin-id"><span class="lin-kind">commit</span><code>ff97b39da</code><span class="lin-when">2026-06-21T04:43:20Z</span><span class="lin-rel produced">produced</span></div>
+            <div class="lin-ttl">bug-2623b061: include plan-introducing commit in rollup recap range</div>
+          </div>
+        </div>
+        
+        <div class="lin-node down commit">
+          <span class="lin-glyph"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="6" fill="currentColor"/></svg></span>
+          <div class="lin-card">
+            <div class="lin-id"><span class="lin-kind">commit</span><code>c2f615d0e</code><span class="lin-when">2026-06-21T01:00:32Z</span><span class="lin-rel produced">produced</span></div>
+            <div class="lin-ttl">bug-2623b061: commit plan lineage edges via commitWipnoteArtifact</div>
+          </div>
+        </div>
+        
+        <div class="lin-node down commit">
+          <span class="lin-glyph"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="6" fill="currentColor"/></svg></span>
+          <div class="lin-card">
+            <div class="lin-id"><span class="lin-kind">commit</span><code>de3ff239b</code><span class="lin-when">2026-06-21T00:42:45Z</span><span class="lin-rel produced">produced</span></div>
+            <div class="lin-ttl">bug-2623b061: fix recap read-index/lineage &#43; marketplace detection scope</div>
+          </div>
+        </div>
+        
+
+        
+        
+        <div class="lin-node down changeset">
+          <span class="lin-glyph"><svg viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="3" fill="currentColor"/><rect x="4" y="10.5" width="16" height="3" fill="currentColor"/><rect x="4" y="16" width="16" height="3" fill="currentColor"/></svg></span>
+          <div class="lin-card"><div class="lin-id"><span class="lin-kind">changed files</span><code>5</code></div></div>
+        </div>
+        <div class="lin-branch produced-branch">
+          
+          <div class="lin-node down file-node">
+            <span class="lin-glyph"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.4" fill="currentColor"/></svg></span>
+            <details class="lin-file">
+              <summary>
+                <span class="file-change file-change-modify">modify</span>
+                <code class="lin-file-path">cmd/wipnote/claude.go</code>
+                <span class="lin-file-stat"><span class="plus">+4</span> <span class="minus">&minus;2</span></span>
+              </summary>
+              <div class="annotated-diff embedded diff-unified diff-unified" data-language="go">
+  
+  <div class="diff-hunk">
+    <div class="hunk-meta">
+      <code class="hunk-header">func marketplaceArtifactDirs() []string {</code>
+      <span class="hunk-summary">4 added, 2 removed</span>
+    </div>
+    
+    <pre class="diff-pre"><code class="diff-code" data-language="go"><span class="dl dl-ctx">  </span>
+<span class="dl dl-ctx">  // marketplaceWipnotePresent reports whether any marketplace wipnote artifact</span>
+<span class="dl dl-ctx">  // exists that would need removing before a dev-mode launch. It checks:</span>
+<span class="dl dl-del">- //   - isPluginInstalled() (installed_plugins.json entry)</span>
+<span class="dl dl-add">&#43; //   - isAnyMarketplacePluginInstalledAt() — all registry scopes that</span>
+<span class="dl dl-add">&#43; //     removeMarketplaceWipnote handles (wipnote@wipnote, wipnote@local-marketplace,</span>
+<span class="dl dl-add">&#43; //     htmlgraph@htmlgraph, htmlgraph@local-marketplace)</span>
+<span class="dl dl-ctx">  //   - all artifact directories that removeMarketplaceWipnote would remove</span>
+<span class="dl dl-ctx">  //</span>
+<span class="dl dl-ctx">  // When this returns false, removeMarketplaceWipnote can skip all subprocess</span>
+<span class="dl dl-ctx">  // calls immediately. Pure-ish (reads files &#43; os.Stat) so it is unit-testable.</span>
+<span class="dl dl-ctx">  func marketplaceWipnotePresent() bool {</span>
+<span class="dl dl-del">- 	if isPluginInstalled() {</span>
+<span class="dl dl-add">&#43; 	if isAnyMarketplacePluginInstalledAt(installedPluginsJSONPath()) {</span>
+<span class="dl dl-ctx">  		return true</span>
+<span class="dl dl-ctx">  	}</span>
+<span class="dl dl-ctx">  	for _, dir := range marketplaceArtifactDirs() {</span>
+</code></pre>
+    
+  </div>
+  
+</div>
+
+            </details>
+          </div>
+          
+          <div class="lin-node down file-node">
+            <span class="lin-glyph"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.4" fill="currentColor"/></svg></span>
+            <details class="lin-file">
+              <summary>
+                <span class="file-change file-change-modify">modify</span>
+                <code class="lin-file-path">cmd/wipnote/plugin_ensure.go</code>
+                <span class="lin-file-stat"><span class="plus">+40</span></span>
+              </summary>
+              <div class="annotated-diff embedded diff-unified diff-unified" data-language="go">
+  
+  <div class="diff-hunk">
+    <div class="hunk-meta">
+      <code class="hunk-header">func isPluginInstalledAt(path string) bool {</code>
+      <span class="hunk-summary">40 added, 0 removed</span>
+    </div>
+    
+    <pre class="diff-pre"><code class="diff-code" data-language="go"><span class="dl dl-ctx">  	return true</span>
+<span class="dl dl-ctx">  }</span>
+<span class="dl dl-ctx">  </span>
+<span class="dl dl-add">&#43; // marketplacePluginRegistryScopes lists all registry keys that</span>
+<span class="dl dl-add">&#43; // removeMarketplaceWipnote handles. Detection scope must match removal scope</span>
+<span class="dl dl-add">&#43; // so marketplaceWipnotePresent() doesn&#39;t miss registry-only installs that</span>
+<span class="dl dl-add">&#43; // lack artifact directories (e.g. wipnote@local-marketplace or legacy</span>
+<span class="dl dl-add">&#43; // htmlgraph scopes).</span>
+<span class="dl dl-add">&#43; var marketplacePluginRegistryScopes = []string{</span>
+<span class="dl dl-add">&#43; 	&#34;wipnote@wipnote&#34;,</span>
+<span class="dl dl-add">&#43; 	&#34;wipnote@local-marketplace&#34;,</span>
+<span class="dl dl-add">&#43; 	&#34;htmlgraph@htmlgraph&#34;,</span>
+<span class="dl dl-add">&#43; 	&#34;htmlgraph@local-marketplace&#34;,</span>
+<span class="dl dl-add">&#43; }</span>
+<span class="dl dl-add">&#43; </span>
+<span class="dl dl-add">&#43; // isAnyMarketplacePluginInstalledAt returns true when installed_plugins.json</span>
+<span class="dl dl-add">&#43; // at path contains a non-empty entry for ANY of the registry scopes that</span>
+<span class="dl dl-add">&#43; // removeMarketplaceWipnote handles. Testable core used by</span>
+<span class="dl dl-add">&#43; // marketplaceWipnotePresent.</span>
+<span class="dl dl-add">&#43; func isAnyMarketplacePluginInstalledAt(path string) bool {</span>
+<span class="dl dl-add">&#43; 	data, err := os.ReadFile(path)</span>
+<span class="dl dl-add">&#43; 	if err != nil {</span>
+<span class="dl dl-add">&#43; 		return false</span>
+<span class="dl dl-add">&#43; 	}</span>
+<span class="dl dl-add">&#43; 	var outer struct {</span>
+<span class="dl dl-add">&#43; 		Plugins map[string]json.RawMessage `json:&#34;plugins&#34;`</span>
+<span class="dl dl-add">&#43; 	}</span>
+<span class="dl dl-add">&#43; 	if json.Unmarshal(data, &amp;outer) != nil {</span>
+<span class="dl dl-add">&#43; 		return false</span>
+<span class="dl dl-add">&#43; 	}</span>
+<span class="dl dl-add">&#43; 	for _, scope := range marketplacePluginRegistryScopes {</span>
+<span class="dl dl-add">&#43; 		raw, ok := outer.Plugins[scope]</span>
+<span class="dl dl-add">&#43; 		if !ok {</span>
+<span class="dl dl-add">&#43; 			continue</span>
+<span class="dl dl-add">&#43; 		}</span>
+<span class="dl dl-add">&#43; 		var entries []json.RawMessage</span>
+<span class="dl dl-add">&#43; 		if json.Unmarshal(raw, &amp;entries) == nil &amp;&amp; len(entries) &gt; 0 {</span>
+<span class="dl dl-add">&#43; 			return true</span>
+<span class="dl dl-add">&#43; 		}</span>
+<span class="dl dl-add">&#43; 	}</span>
+<span class="dl dl-add">&#43; 	return false</span>
+<span class="dl dl-add">&#43; }</span>
+<span class="dl dl-add">&#43; </span>
+<span class="dl dl-ctx">  // installedPluginVersionAt is the testable core.</span>
+<span class="dl dl-ctx">  func installedPluginVersionAt(path string) string {</span>
+<span class="dl dl-ctx">  	data, err := os.ReadFile(path)</span>
+</code></pre>
+    
+  </div>
+  
+</div>
+
+            </details>
+          </div>
+          
+          <div class="lin-node down file-node">
+            <span class="lin-glyph"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.4" fill="currentColor"/></svg></span>
+            <details class="lin-file">
+              <summary>
+                <span class="file-change file-change-modify">modify</span>
+                <code class="lin-file-path">cmd/wipnote/plugin_ensure_test.go</code>
+                <span class="lin-file-stat"><span class="plus">+122</span></span>
+              </summary>
+              <div class="annotated-diff embedded diff-unified diff-unified" data-language="go">
+  
+  <div class="diff-hunk">
+    <div class="hunk-meta">
+      <code class="hunk-header">func TestMarketplaceWipnotePresent_TrueWhenHtmlgraphDirExists(t *testing.T) {</code>
+      <span class="hunk-summary">122 added, 0 removed</span>
+    </div>
+    
+    <pre class="diff-pre"><code class="diff-code" data-language="go"><span class="dl dl-ctx">  		t.Error(&#34;marketplaceWipnotePresent() = false, want true when cache/htmlgraph dir exists&#34;)</span>
+<span class="dl dl-ctx">  	}</span>
+<span class="dl dl-ctx">  }</span>
+<span class="dl dl-add">&#43; </span>
+<span class="dl dl-add">&#43; // TestIsAnyMarketplacePluginInstalledAt_LocalMarketplaceScope verifies that</span>
+<span class="dl dl-add">&#43; // isAnyMarketplacePluginInstalledAt detects a wipnote@local-marketplace entry</span>
+<span class="dl dl-add">&#43; // that isPluginInstalledAt (which only checks wipnote@wipnote) would miss.</span>
+<span class="dl dl-add">&#43; func TestIsAnyMarketplacePluginInstalledAt_LocalMarketplaceScope(t *testing.T) {</span>
+<span class="dl dl-add">&#43; 	tmpDir := t.TempDir()</span>
+<span class="dl dl-add">&#43; 	pluginsFile := filepath.Join(tmpDir, &#34;installed_plugins.json&#34;)</span>
+<span class="dl dl-add">&#43; </span>
+<span class="dl dl-add">&#43; 	data := map[string]any{</span>
+<span class="dl dl-add">&#43; 		&#34;version&#34;: 1,</span>
+<span class="dl dl-add">&#43; 		&#34;plugins&#34;: map[string]any{</span>
+<span class="dl dl-add">&#43; 			&#34;wipnote@local-marketplace&#34;: []map[string]string{</span>
+<span class="dl dl-add">&#43; 				{&#34;scope&#34;: &#34;local-marketplace&#34;, &#34;installPath&#34;: &#34;/some/path&#34;, &#34;version&#34;: &#34;0.63.0&#34;},</span>
+<span class="dl dl-add">&#43; 			},</span>
+<span class="dl dl-add">&#43; 		},</span>
+<span class="dl dl-add">&#43; 	}</span>
+<span class="dl dl-add">&#43; 	b, _ := json.Marshal(data)</span>
+<span class="dl dl-add">&#43; 	os.WriteFile(pluginsFile, b, 0644)</span>
+<span class="dl dl-add">&#43; </span>
+<span class="dl dl-add">&#43; 	// isPluginInstalledAt only checks wipnote@wipnote — must miss this.</span>
+<span class="dl dl-add">&#43; 	if isPluginInstalledAt(pluginsFile) {</span>
+<span class="dl dl-add">&#43; 		t.Error(&#34;isPluginInstalledAt() = true for local-marketplace scope, expected false (it only checks wipnote@wipnote)&#34;)</span>
+<span class="dl dl-add">&#43; 	}</span>
+<span class="dl dl-add">&#43; </span>
+<span class="dl dl-add">&#43; 	// isAnyMarketplacePluginInstalledAt must detect the local-marketplace scope.</span>
+<span class="dl dl-add">&#43; 	if !isAnyMarketplacePluginInstalledAt(pluginsFile) {</span>
+<span class="dl dl-add">&#43; 		t.Error(&#34;isAnyMarketplacePluginInstalledAt() = false for wipnote@local-marketplace, want true&#34;)</span>
+<span class="dl dl-add">&#43; 	}</span>
+<span class="dl dl-add">&#43; }</span>
+<span class="dl dl-add">&#43; </span>
+<span class="dl dl-add">&#43; // TestIsAnyMarketplacePluginInstalledAt_HtmlgraphScope verifies that</span>
+<span class="dl dl-add">&#43; // isAnyMarketplacePluginInstalledAt detects legacy htmlgraph@htmlgraph registry entries.</span>
+<span class="dl dl-add">&#43; func TestIsAnyMarketplacePluginInstalledAt_HtmlgraphScope(t *testing.T) {</span>
+<span class="dl dl-add">&#43; 	tmpDir := t.TempDir()</span>
+<span class="dl dl-add">&#43; 	pluginsFile := filepath.Join(tmpDir, &#34;installed_plugins.json&#34;)</span>
+<span class="dl dl-add">&#43; </span>
+<span class="dl dl-add">&#43; 	data := map[string]any{</span>
+<span class="dl dl-add">&#43; 		&#34;version&#34;: 1,</span>
+<span class="dl dl-add">&#43; 		&#34;plugins&#34;: map[string]any{</span>
+<span class="dl dl-add">&#43; 			&#34;htmlgraph@htmlgraph&#34;: []map[string]string{</span>
+<span class="dl dl-add">&#43; 				{&#34;scope&#34;: &#34;htmlgraph&#34;, &#34;installPath&#34;: &#34;/old/path&#34;, &#34;version&#34;: &#34;0.30.0&#34;},</span>
+<span class="dl dl-add">&#43; 			},</span>
+<span class="dl dl-add">&#43; 		},</span>
+<span class="dl dl-add">&#43; 	}</span>
+<span class="dl dl-add">&#43; 	b, _ := json.Marshal(data)</span>
+<span class="dl dl-add">&#43; 	os.WriteFile(pluginsFile, b, 0644)</span>
+<span class="dl dl-add">&#43; </span>
+<span class="dl dl-add">&#43; 	if !isAnyMarketplacePluginInstalledAt(pluginsFile) {</span>
+<span class="dl dl-add">&#43; 		t.Error(&#34;isAnyMarketplacePluginInstalledAt() = false for htmlgraph@htmlgraph, want true&#34;)</span>
+<span class="dl dl-add">&#43; 	}</span>
+<span class="dl dl-add">&#43; }</span>
+<span class="dl dl-add">&#43; </span>
+<span class="dl dl-add">&#43; // TestIsAnyMarketplacePluginInstalledAt_HtmlgraphLocalMarketplaceScope verifies</span>
+<span class="dl dl-add">&#43; // that isAnyMarketplacePluginInstalledAt detects legacy htmlgraph@local-marketplace entries.</span>
+<span class="dl dl-add">&#43; func TestIsAnyMarketplacePluginInstalledAt_HtmlgraphLocalMarketplaceScope(t *testing.T) {</span>
+<span class="dl dl-add">&#43; 	tmpDir := t.TempDir()</span>
+<span class="dl dl-add">&#43; 	pluginsFile := filepath.Join(tmpDir, &#34;installed_plugins.json&#34;)</span>
+<span class="dl dl-add">&#43; </span>
+<span class="dl dl-add">&#43; 	data := map[string]any{</span>
+<span class="dl dl-add">&#43; 		&#34;version&#34;: 1,</span>
+<span class="dl dl-add">&#43; 		&#34;plugins&#34;: map[string]any{</span>
+<span class="dl dl-add">&#43; 			&#34;htmlgraph@local-marketplace&#34;: []map[string]string{</span>
+<span class="dl dl-add">&#43; 				{&#34;scope&#34;: &#34;local-marketplace&#34;, &#34;installPath&#34;: &#34;/old/path&#34;, &#34;version&#34;: &#34;0.30.0&#34;},</span>
+<span class="dl dl-add">&#43; 			},</span>
+<span class="dl dl-add">&#43; 		},</span>
+<span class="dl dl-add">&#43; 	}</span>
+<span class="dl dl-add">&#43; 	b, _ := json.Marshal(data)</span>
+<span class="dl dl-add">&#43; 	os.WriteFile(pluginsFile, b, 0644)</span>
+<span class="dl dl-add">&#43; </span>
+<span class="dl dl-add">&#43; 	if !isAnyMarketplacePluginInstalledAt(pluginsFile) {</span>
+<span class="dl dl-add">&#43; 		t.Error(&#34;isAnyMarketplacePluginInstalledAt() = false for htmlgraph@local-marketplace, want true&#34;)</span>
+<span class="dl dl-add">&#43; 	}</span>
+<span class="dl dl-add">&#43; }</span>
+<span class="dl dl-add">&#43; </span>
+<span class="dl dl-add">&#43; // TestIsAnyMarketplacePluginInstalledAt_FalseWhenEmpty verifies that</span>
+<span class="dl dl-add">&#43; // isAnyMarketplacePluginInstalledAt returns false when no known scopes are present.</span>
+<span class="dl dl-add">&#43; func TestIsAnyMarketplacePluginInstalledAt_FalseWhenEmpty(t *testing.T) {</span>
+<span class="dl dl-add">&#43; 	tmpDir := t.TempDir()</span>
+<span class="dl dl-add">&#43; 	pluginsFile := filepath.Join(tmpDir, &#34;installed_plugins.json&#34;)</span>
+<span class="dl dl-add">&#43; </span>
+<span class="dl dl-add">&#43; 	data := map[string]any{&#34;version&#34;: 1, &#34;plugins&#34;: map[string]any{}}</span>
+<span class="dl dl-add">&#43; 	b, _ := json.Marshal(data)</span>
+<span class="dl dl-add">&#43; 	os.WriteFile(pluginsFile, b, 0644)</span>
+<span class="dl dl-add">&#43; </span>
+<span class="dl dl-add">&#43; 	if isAnyMarketplacePluginInstalledAt(pluginsFile) {</span>
+<span class="dl dl-add">&#43; 		t.Error(&#34;isAnyMarketplacePluginInstalledAt() = true for empty plugins, want false&#34;)</span>
+<span class="dl dl-add">&#43; 	}</span>
+<span class="dl dl-add">&#43; }</span>
+<span class="dl dl-add">&#43; </span>
+<span class="dl dl-add">&#43; // TestMarketplaceWipnotePresent_TrueWhenLocalMarketplaceRegistryOnly verifies</span>
+<span class="dl dl-add">&#43; // that marketplaceWipnotePresent returns true when installed_plugins.json</span>
+<span class="dl dl-add">&#43; // contains only a wipnote@local-marketplace entry and no artifact dirs exist.</span>
+<span class="dl dl-add">&#43; // This is the bug that the Finding 4 fix addresses: registry-only detection</span>
+<span class="dl dl-add">&#43; // now covers all four removal scopes, not just wipnote@wipnote.</span>
+<span class="dl dl-add">&#43; func TestMarketplaceWipnotePresent_TrueWhenLocalMarketplaceRegistryOnly(t *testing.T) {</span>
+<span class="dl dl-add">&#43; 	home := t.TempDir()</span>
+<span class="dl dl-add">&#43; 	t.Setenv(&#34;HOME&#34;, home)</span>
+<span class="dl dl-add">&#43; </span>
+<span class="dl dl-add">&#43; 	// Write installed_plugins.json with only wipnote@local-marketplace.</span>
+<span class="dl dl-add">&#43; 	pluginsDir := filepath.Join(home, &#34;.claude&#34;, &#34;plugins&#34;)</span>
+<span class="dl dl-add">&#43; 	if err := os.MkdirAll(pluginsDir, 0755); err != nil {</span>
+<span class="dl dl-add">&#43; 		t.Fatalf(&#34;mkdir plugins: %v&#34;, err)</span>
+<span class="dl dl-add">&#43; 	}</span>
+<span class="dl dl-add">&#43; 	data := map[string]any{</span>
+<span class="dl dl-add">&#43; 		&#34;version&#34;: 1,</span>
+<span class="dl dl-add">&#43; 		&#34;plugins&#34;: map[string]any{</span>
+<span class="dl dl-add">&#43; 			&#34;wipnote@local-marketplace&#34;: []map[string]string{</span>
+<span class="dl dl-add">&#43; 				{&#34;scope&#34;: &#34;local-marketplace&#34;, &#34;installPath&#34;: &#34;/some/path&#34;, &#34;version&#34;: &#34;0.63.0&#34;},</span>
+<span class="dl dl-add">&#43; 			},</span>
+<span class="dl dl-add">&#43; 		},</span>
+<span class="dl dl-add">&#43; 	}</span>
+<span class="dl dl-add">&#43; 	b, _ := json.Marshal(data)</span>
+<span class="dl dl-add">&#43; 	if err := os.WriteFile(filepath.Join(pluginsDir, &#34;installed_plugins.json&#34;), b, 0644); err != nil {</span>
+<span class="dl dl-add">&#43; 		t.Fatalf(&#34;write installed_plugins.json: %v&#34;, err)</span>
+<span class="dl dl-add">&#43; 	}</span>
+<span class="dl dl-add">&#43; 	// No artifact dirs — registry entry alone must trigger true.</span>
+<span class="dl dl-add">&#43; </span>
+<span class="dl dl-add">&#43; 	got := marketplaceWipnotePresent()</span>
+<span class="dl dl-add">&#43; 	if !got {</span>
+<span class="dl dl-add">&#43; 		t.Error(&#34;marketplaceWipnotePresent() = false, want true for registry-only wipnote@local-marketplace (no artifact dirs)&#34;)</span>
+<span class="dl dl-add">&#43; 	}</span>
+<span class="dl dl-add">&#43; }</span>
+</code></pre>
+    
+  </div>
+  
+</div>
+
+            </details>
+          </div>
+          
+          <div class="lin-node down file-node">
+            <span class="lin-glyph"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.4" fill="currentColor"/></svg></span>
+            <details class="lin-file">
+              <summary>
+                <span class="file-change file-change-modify">modify</span>
+                <code class="lin-file-path">cmd/wipnote/recap.go</code>
+                <span class="lin-file-stat"><span class="plus">+100</span> <span class="minus">&minus;21</span></span>
+              </summary>
+              <div class="annotated-diff embedded diff-unified diff-unified" data-language="go">
+  
+  <div class="diff-hunk">
+    <div class="hunk-meta">
+      <code class="hunk-header">func RunPlanRollupRecap(wipnoteDir, planID string) error {</code>
+      <span class="hunk-summary">5 added, 0 removed</span>
+    </div>
+    
+    <pre class="diff-pre"><code class="diff-code" data-language="go"><span class="dl dl-ctx">  		return fmt.Errorf(&#34;recap: write artifact: %w&#34;, writeErr)</span>
+<span class="dl dl-ctx">  	}</span>
+<span class="dl dl-ctx">  </span>
+<span class="dl dl-add">&#43; 	// Update read index so a running dashboard sees the recap immediately (non-fatal).</span>
+<span class="dl dl-add">&#43; 	if indexErr := upsertRecapArtifact(wipnoteDir, repoRoot, recapID); indexErr != nil {</span>
+<span class="dl dl-add">&#43; 		fmt.Fprintf(os.Stderr, &#34;recap (non-fatal): update read index: %v\n&#34;, indexErr)</span>
+<span class="dl dl-add">&#43; 	}</span>
+<span class="dl dl-add">&#43; </span>
+<span class="dl dl-ctx">  	if commitErr := commitRecapArtifact(wipnoteDir, recapID); commitErr != nil {</span>
+<span class="dl dl-ctx">  		fmt.Fprintf(os.Stderr, &#34;recap (non-fatal): commit artifact: %v\n&#34;, commitErr)</span>
+<span class="dl dl-ctx">  	}</span>
+</code></pre>
+    
+  </div>
+  
+  <div class="diff-hunk">
+    <div class="hunk-meta">
+      <code class="hunk-header">func RunPlanRollupRecap(wipnoteDir, planID string) error {</code>
+      <span class="hunk-summary">17 added, 0 removed</span>
+    </div>
+    
+    <pre class="diff-pre"><code class="diff-code" data-language="go"><span class="dl dl-ctx">  		fmt.Fprintf(os.Stderr, &#34;recap (non-fatal): add lineage edge: %v\n&#34;, edgeErr)</span>
+<span class="dl dl-ctx">  	}</span>
+<span class="dl dl-ctx">  </span>
+<span class="dl dl-add">&#43; 	// Commit the plan HTML after the lineage edge mutates it (non-fatal).</span>
+<span class="dl dl-add">&#43; 	// addPlanRecapLineageEdge writes into the plan HTML; without this commit</span>
+<span class="dl dl-add">&#43; 	// the edge is only on disk and the plan HTML is left dirty in git.</span>
+<span class="dl dl-add">&#43; 	// commitPlanChange takes the YAML path and derives the HTML path from it.</span>
+<span class="dl dl-add">&#43; 	planYAMLCommitPath := filepath.Join(wipnoteDir, &#34;plans&#34;, planID&#43;&#34;.yaml&#34;)</span>
+<span class="dl dl-add">&#43; 	commitMsg := fmt.Sprintf(&#34;plan(%s): add recap lineage edge&#34;, planID)</span>
+<span class="dl dl-add">&#43; 	if planCommitErr := commitPlanChange(planYAMLCommitPath, commitMsg); planCommitErr != nil {</span>
+<span class="dl dl-add">&#43; 		fmt.Fprintf(os.Stderr, &#34;recap (non-fatal): commit plan HTML: %v\n&#34;, planCommitErr)</span>
+<span class="dl dl-add">&#43; 	}</span>
+<span class="dl dl-add">&#43; </span>
+<span class="dl dl-add">&#43; 	// Wire a relates_to edge from the plan to its introducing commit SHA so</span>
+<span class="dl dl-add">&#43; 	// lineage queries can surface the plan&#39;s origin commit. firstSHA is the</span>
+<span class="dl dl-add">&#43; 	// oldest commit that added the plan YAML (resolved via planFirstCommitSHA).</span>
+<span class="dl dl-add">&#43; 	if addIntroErr := addPlanIntroducingCommitEdge(wipnoteDir, planID, firstSHA); addIntroErr != nil {</span>
+<span class="dl dl-add">&#43; 		fmt.Fprintf(os.Stderr, &#34;recap (non-fatal): add introducing commit edge: %v\n&#34;, addIntroErr)</span>
+<span class="dl dl-add">&#43; 	}</span>
+<span class="dl dl-add">&#43; </span>
+<span class="dl dl-ctx">  	shortStart := firstSHA</span>
+<span class="dl dl-ctx">  	if len(shortStart) &gt; 7 {</span>
+<span class="dl dl-ctx">  		shortStart = shortStart[:7]</span>
+</code></pre>
+    
+  </div>
+  
+  <div class="diff-hunk">
+    <div class="hunk-meta">
+      <code class="hunk-header">func addPlanRecapLineageEdge(wipnoteDir, recapID, planID string) error {</code>
+      <span class="hunk-summary">24 added, 0 removed</span>
+    </div>
+    
+    <pre class="diff-pre"><code class="diff-code" data-language="go"><span class="dl dl-ctx">  	return err</span>
+<span class="dl dl-ctx">  }</span>
+<span class="dl dl-ctx">  </span>
+<span class="dl dl-add">&#43; // addPlanIntroducingCommitEdge wires a relates_to edge from the plan HTML</span>
+<span class="dl dl-add">&#43; // artifact to its introducing commit SHA. This lets lineage queries surface</span>
+<span class="dl dl-add">&#43; // the commit that first added the plan YAML as the plan&#39;s origin point.</span>
+<span class="dl dl-add">&#43; // introducingSHA is the full commit hash returned by planFirstCommitSHA.</span>
+<span class="dl dl-add">&#43; func addPlanIntroducingCommitEdge(wipnoteDir, planID, introducingSHA string) error {</span>
+<span class="dl dl-add">&#43; 	if introducingSHA == &#34;&#34; {</span>
+<span class="dl dl-add">&#43; 		return nil</span>
+<span class="dl dl-add">&#43; 	}</span>
+<span class="dl dl-add">&#43; 	p, err := workitem.Open(wipnoteDir, &#34;claude-code&#34;)</span>
+<span class="dl dl-add">&#43; 	if err != nil {</span>
+<span class="dl dl-add">&#43; 		return fmt.Errorf(&#34;open project: %w&#34;, err)</span>
+<span class="dl dl-add">&#43; 	}</span>
+<span class="dl dl-add">&#43; 	defer p.Close()</span>
+<span class="dl dl-add">&#43; </span>
+<span class="dl dl-add">&#43; 	edge := models.Edge{</span>
+<span class="dl dl-add">&#43; 		TargetID:     introducingSHA,</span>
+<span class="dl dl-add">&#43; 		Relationship: models.RelRelatesTo,</span>
+<span class="dl dl-add">&#43; 		Title:        &#34;introducing-commit&#34;,</span>
+<span class="dl dl-add">&#43; 		Since:        time.Now().UTC(),</span>
+<span class="dl dl-add">&#43; 	}</span>
+<span class="dl dl-add">&#43; 	_, err = p.Plans.AddEdge(planID, edge)</span>
+<span class="dl dl-add">&#43; 	return err</span>
+<span class="dl dl-add">&#43; }</span>
+<span class="dl dl-add">&#43; </span>
+<span class="dl dl-ctx">  // addRecapLineageEdge writes a relates_to edge from the recap HTML artifact</span>
+<span class="dl dl-ctx">  // into the work item&#39;s edge list so `wipnote lineage &lt;workItemID&gt;` surfaces</span>
+<span class="dl dl-ctx">  // the recap as a forward descendant.</span>
+</code></pre>
+    
+  </div>
+  
+  <div class="diff-hunk">
+    <div class="hunk-meta">
+      <code class="hunk-header">func RunPlanRollupRecap(wipnoteDir, planID string) error {</code>
+      <span class="hunk-summary">17 added, 15 removed</span>
+    </div>
+    
+    <pre class="diff-pre"><code class="diff-code" data-language="go"><span class="dl dl-ctx">  		fmt.Fprintf(os.Stderr, &#34;recap (non-fatal): commit artifact: %v\n&#34;, commitErr)</span>
+<span class="dl dl-ctx">  	}</span>
+<span class="dl dl-ctx">  </span>
+<span class="dl dl-del">- 	// Wire relates_to lineage edge from recap to plan (non-fatal).</span>
+<span class="dl dl-del">- 	if edgeErr := addPlanRecapLineageEdge(wipnoteDir, recapID, planID); edgeErr != nil {</span>
+<span class="dl dl-del">- 		fmt.Fprintf(os.Stderr, &#34;recap (non-fatal): add lineage edge: %v\n&#34;, edgeErr)</span>
+<span class="dl dl-del">- 	}</span>
+<span class="dl dl-add">&#43; 	// Wire both lineage edges into the plan HTML FIRST (AddEdge writes to disk</span>
+<span class="dl dl-add">&#43; 	// immediately), then commit the mutated HTML once. This avoids the re-render</span>
+<span class="dl dl-add">&#43; 	// trap of commitPlanChange (which regenerates HTML from YAML and would wipe</span>
+<span class="dl dl-add">&#43; 	// the just-written edge data). commitWipnoteArtifact stages the existing</span>
+<span class="dl dl-add">&#43; 	// .wipnote/plans/&lt;planID&gt;.html directly — no YAML re-render.</span>
+<span class="dl dl-ctx">  </span>
+<span class="dl dl-del">- 	// Commit the plan HTML after the lineage edge mutates it (non-fatal).</span>
+<span class="dl dl-del">- 	// addPlanRecapLineageEdge writes into the plan HTML; without this commit</span>
+<span class="dl dl-del">- 	// the edge is only on disk and the plan HTML is left dirty in git.</span>
+<span class="dl dl-del">- 	// commitPlanChange takes the YAML path and derives the HTML path from it.</span>
+<span class="dl dl-del">- 	planYAMLCommitPath := filepath.Join(wipnoteDir, &#34;plans&#34;, planID&#43;&#34;.yaml&#34;)</span>
+<span class="dl dl-del">- 	commitMsg := fmt.Sprintf(&#34;plan(%s): add recap lineage edge&#34;, planID)</span>
+<span class="dl dl-del">- 	if planCommitErr := commitPlanChange(planYAMLCommitPath, commitMsg); planCommitErr != nil {</span>
+<span class="dl dl-del">- 		fmt.Fprintf(os.Stderr, &#34;recap (non-fatal): commit plan HTML: %v\n&#34;, planCommitErr)</span>
+<span class="dl dl-add">&#43; 	// (a) relates_to edge: plan → recap (non-fatal).</span>
+<span class="dl dl-add">&#43; 	if edgeErr := addPlanRecapLineageEdge(wipnoteDir, recapID, planID); edgeErr != nil {</span>
+<span class="dl dl-add">&#43; 		fmt.Fprintf(os.Stderr, &#34;recap (non-fatal): add recap lineage edge: %v\n&#34;, edgeErr)</span>
+<span class="dl dl-ctx">  	}</span>
+<span class="dl dl-ctx">  </span>
+<span class="dl dl-del">- 	// Wire a relates_to edge from the plan to its introducing commit SHA so</span>
+<span class="dl dl-del">- 	// lineage queries can surface the plan&#39;s origin commit. firstSHA is the</span>
+<span class="dl dl-del">- 	// oldest commit that added the plan YAML (resolved via planFirstCommitSHA).</span>
+<span class="dl dl-add">&#43; 	// (b) relates_to edge: plan → introducing commit SHA (non-fatal).</span>
+<span class="dl dl-add">&#43; 	// firstSHA is the oldest commit that added the plan YAML, resolved above.</span>
+<span class="dl dl-ctx">  	if addIntroErr := addPlanIntroducingCommitEdge(wipnoteDir, planID, firstSHA); addIntroErr != nil {</span>
+<span class="dl dl-ctx">  		fmt.Fprintf(os.Stderr, &#34;recap (non-fatal): add introducing commit edge: %v\n&#34;, addIntroErr)</span>
+<span class="dl dl-ctx">  	}</span>
+<span class="dl dl-ctx">  </span>
+<span class="dl dl-add">&#43; 	// (c) Commit the mutated plan HTML once, after both edges are on disk.</span>
+<span class="dl dl-add">&#43; 	// commitWipnoteArtifact commits .wipnote/plans/&lt;planID&gt;.html directly</span>
+<span class="dl dl-add">&#43; 	// without re-rendering from YAML — preserving both edge mutations.</span>
+<span class="dl dl-add">&#43; 	if planCommitErr := commitWipnoteArtifact(wipnoteDir, &#34;plan&#34;, planID, &#34;update&#34;); planCommitErr != nil {</span>
+<span class="dl dl-add">&#43; 		fmt.Fprintf(os.Stderr, &#34;recap (non-fatal): commit plan HTML: %v\n&#34;, planCommitErr)</span>
+<span class="dl dl-add">&#43; 	}</span>
+<span class="dl dl-add">&#43; </span>
+<span class="dl dl-ctx">  	shortStart := firstSHA</span>
+<span class="dl dl-ctx">  	if len(shortStart) &gt; 7 {</span>
+<span class="dl dl-ctx">  		shortStart = shortStart[:7]</span>
+</code></pre>
+    
+  </div>
+  
+  <div class="diff-hunk">
+    <div class="hunk-meta">
+      <code class="hunk-header">func resolveInputKindStr(input, rangeSpec, sessionID string) string {</code>
+      <span class="hunk-summary">4 added, 4 removed</span>
+    </div>
+    
+    <pre class="diff-pre"><code class="diff-code" data-language="go"><span class="dl dl-ctx">  }</span>
+<span class="dl dl-ctx">  </span>
+<span class="dl dl-ctx">  // RunPlanRollupRecap generates a consolidated rollup recap for a finalized plan.</span>
+<span class="dl dl-del">- // It resolves the git range anchored at the first commit of the plan&#39;s YAML file</span>
+<span class="dl dl-del">- // (&lt;first-commit&gt;..HEAD), runs recap.Collect in range mode, renders and writes</span>
+<span class="dl dl-del">- // .wipnote/recaps/recap-pln-&lt;planID&gt;.html, commits via commitRecapArtifact, and</span>
+<span class="dl dl-del">- // wires a relates_to lineage edge from the recap to the plan.</span>
+<span class="dl dl-add">&#43; // It resolves the git range anchored at (and including) the first commit of the</span>
+<span class="dl dl-add">&#43; // plan&#39;s YAML file through HEAD, runs recap.Collect in range mode, renders and</span>
+<span class="dl dl-add">&#43; // writes .wipnote/recaps/recap-pln-&lt;planID&gt;.html, commits via commitRecapArtifact,</span>
+<span class="dl dl-add">&#43; // and wires lineage edges from the recap and introducing commit back to the plan.</span>
+<span class="dl dl-ctx">  //</span>
+<span class="dl dl-ctx">  // ALL errors are non-fatal by design: callers wrap this in a non-fatal block.</span>
+<span class="dl dl-ctx">  // The function returns an error only when a step that can reasonably be reported</span>
+</code></pre>
+    
+  </div>
+  
+  <div class="diff-hunk">
+    <div class="hunk-meta">
+      <code class="hunk-header">func RunPlanRollupRecap(wipnoteDir, planID string) error {</code>
+      <span class="hunk-summary">4 added, 1 removed</span>
+    </div>
+    
+    <pre class="diff-pre"><code class="diff-code" data-language="go"><span class="dl dl-ctx">  		return fmt.Errorf(&#34;cannot resolve first commit for %s (untracked, skipping recap)&#34;, planYAMLRelPath)</span>
+<span class="dl dl-ctx">  	}</span>
+<span class="dl dl-ctx">  </span>
+<span class="dl dl-del">- 	gitRange := firstSHA &#43; &#34;..HEAD&#34;</span>
+<span class="dl dl-add">&#43; 	// Build an INCLUSIVE range: firstSHA~1..HEAD includes firstSHA&#39;s own changes.</span>
+<span class="dl dl-add">&#43; 	// When firstSHA is the root commit (no parent), fall back to the well-known</span>
+<span class="dl dl-add">&#43; 	// git empty-tree SHA so the range covers all history from the beginning.</span>
+<span class="dl dl-add">&#43; 	gitRange := planRollupGitRange(repoRoot, firstSHA)</span>
+<span class="dl dl-ctx">  </span>
+<span class="dl dl-ctx">  	db, dbErr := openReadOnlyDB(wipnoteDir)</span>
+<span class="dl dl-ctx">  	if dbErr != nil {</span>
+</code></pre>
+    
+  </div>
+  
+  <div class="diff-hunk">
+    <div class="hunk-meta">
+      <code class="hunk-header">func RunPlanRollupRecap(wipnoteDir, planID string) error {</code>
+      <span class="hunk-summary">1 added, 1 removed</span>
+    </div>
+    
+    <pre class="diff-pre"><code class="diff-code" data-language="go"><span class="dl dl-ctx">  	if len(shortStart) &gt; 7 {</span>
+<span class="dl dl-ctx">  		shortStart = shortStart[:7]</span>
+<span class="dl dl-ctx">  	}</span>
+<span class="dl dl-del">- 	fmt.Printf(&#34;  ✓ %s.html generated (range: %s..HEAD)\n&#34;, recapID, shortStart)</span>
+<span class="dl dl-add">&#43; 	fmt.Printf(&#34;  ✓ %s.html generated (range: %s~1..HEAD inclusive)\n&#34;, recapID, shortStart)</span>
+<span class="dl dl-ctx">  	fmt.Printf(&#34;  Dashboard: wipnote serve then open http://127.0.0.1:8080 (or http://127.0.0.1:8088 in devcontainer)\n&#34;)</span>
+<span class="dl dl-ctx">  	return nil</span>
+<span class="dl dl-ctx">  }</span>
+</code></pre>
+    
+  </div>
+  
+  <div class="diff-hunk">
+    <div class="hunk-meta">
+      <code class="hunk-header">func addRecapLineageEdge(wipnoteDir, recapID, workItemID string) error {</code>
+      <span class="hunk-summary">28 added, 0 removed</span>
+    </div>
+    
+    <pre class="diff-pre"><code class="diff-code" data-language="go"><span class="dl dl-ctx">  	_, err = col.AddEdge(workItemID, edge)</span>
+<span class="dl dl-ctx">  	return err</span>
+<span class="dl dl-ctx">  }</span>
+<span class="dl dl-add">&#43; </span>
+<span class="dl dl-add">&#43; // gitHasParent reports whether the commit at sha has at least one parent in</span>
+<span class="dl dl-add">&#43; // the repository at repoRoot. Returns false for root commits and on any error.</span>
+<span class="dl dl-add">&#43; // Uses the same cat-file pattern as gitCommitExists in reindex.go.</span>
+<span class="dl dl-add">&#43; func gitHasParent(repoRoot, sha string) bool {</span>
+<span class="dl dl-add">&#43; 	return exec.Command(&#34;git&#34;, &#34;-C&#34;, repoRoot, &#34;cat-file&#34;, &#34;-e&#34;, sha&#43;&#34;^1&#34;).Run() == nil</span>
+<span class="dl dl-add">&#43; }</span>
+<span class="dl dl-add">&#43; </span>
+<span class="dl dl-add">&#43; // planRollupGitRange builds the git range string for RunPlanRollupRecap so</span>
+<span class="dl dl-add">&#43; // that firstSHA&#39;s own changes are INCLUDED in the recap:</span>
+<span class="dl dl-add">&#43; //</span>
+<span class="dl dl-add">&#43; //   - Normal case: firstSHA~1..HEAD  (parent-of-first .. HEAD, inclusive of firstSHA)</span>
+<span class="dl dl-add">&#43; //   - Root-commit case: &lt;empty-tree&gt;..HEAD (covers all history from the beginning)</span>
+<span class="dl dl-add">&#43; //</span>
+<span class="dl dl-add">&#43; // The empty-tree SHA (4b825dc642cb6eb9a060e54bf8d69288fbee4904) is a permanent</span>
+<span class="dl dl-add">&#43; // git object that precedes every commit, so the range always includes firstSHA</span>
+<span class="dl dl-add">&#43; // even when it is also HEAD (the firstSHA==HEAD case that produced an empty recap</span>
+<span class="dl dl-add">&#43; // with the old exclusive form firstSHA..HEAD).</span>
+<span class="dl dl-add">&#43; func planRollupGitRange(repoRoot, firstSHA string) string {</span>
+<span class="dl dl-add">&#43; 	if gitHasParent(repoRoot, firstSHA) {</span>
+<span class="dl dl-add">&#43; 		return firstSHA &#43; &#34;~1..HEAD&#34;</span>
+<span class="dl dl-add">&#43; 	}</span>
+<span class="dl dl-add">&#43; 	// Root commit: use the empty-tree SHA as the exclusive lower bound.</span>
+<span class="dl dl-add">&#43; 	// This is a well-known constant in git; it always exists and precedes</span>
+<span class="dl dl-add">&#43; 	// every real commit, so the range covers the entire history up to HEAD.</span>
+<span class="dl dl-add">&#43; 	const emptyTreeSHA = &#34;4b825dc642cb6eb9a060e54bf8d69288fbee4904&#34;</span>
+<span class="dl dl-add">&#43; 	return emptyTreeSHA &#43; &#34;..HEAD&#34;</span>
+<span class="dl dl-add">&#43; }</span>
+</code></pre>
+    
+  </div>
+  
+</div>
+
+            </details>
+          </div>
+          
+          <div class="lin-node down file-node">
+            <span class="lin-glyph"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.4" fill="currentColor"/></svg></span>
+            <details class="lin-file">
+              <summary>
+                <span class="file-change file-change-modify">modify</span>
+                <code class="lin-file-path">cmd/wipnote/recap_test.go</code>
+                <span class="lin-file-stat"><span class="plus">+88</span></span>
+              </summary>
+              <div class="annotated-diff embedded diff-unified diff-unified" data-language="go">
+  
+  <div class="diff-hunk">
+    <div class="hunk-meta">
+      <code class="hunk-header">func TestRunPlanRollupRecap_UntrackedYAML(t *testing.T) {</code>
+      <span class="hunk-summary">88 added, 0 removed</span>
+    </div>
+    
+    <pre class="diff-pre"><code class="diff-code" data-language="go"><span class="dl dl-ctx">  	t.Logf(&#34;got expected error: %v&#34;, err)</span>
+<span class="dl dl-ctx">  }</span>
+<span class="dl dl-ctx">  </span>
+<span class="dl dl-add">&#43; // TestRunPlanRollupRecap_EdgesPersistedInPlanHTML is a regression test for the</span>
+<span class="dl dl-add">&#43; // fix that replaced commitPlanChange (which re-renders from YAML and drops</span>
+<span class="dl dl-add">&#43; // HTML-only edge mutations) with commitWipnoteArtifact (which commits the</span>
+<span class="dl dl-add">&#43; // already-mutated plan HTML directly). It asserts that both the recap lineage</span>
+<span class="dl dl-add">&#43; // edge AND the introducing-commit edge survive in the on-disk plan HTML after</span>
+<span class="dl dl-add">&#43; // RunPlanRollupRecap runs. A regression back to commitPlanChange would wipe</span>
+<span class="dl dl-add">&#43; // both edges (YAML has no graph-edge fields), causing this test to fail.</span>
+<span class="dl dl-add">&#43; func TestRunPlanRollupRecap_EdgesPersistedInPlanHTML(t *testing.T) {</span>
+<span class="dl dl-add">&#43; 	if testing.Short() {</span>
+<span class="dl dl-add">&#43; 		t.Skip(&#34;skipping binary-spawning test in -short mode&#34;)</span>
+<span class="dl dl-add">&#43; 	}</span>
+<span class="dl dl-add">&#43; </span>
+<span class="dl dl-add">&#43; 	repo := initFixtureRepo(t)</span>
+<span class="dl dl-add">&#43; 	wipDir := filepath.Join(repo, &#34;.wipnote&#34;)</span>
+<span class="dl dl-add">&#43; </span>
+<span class="dl dl-add">&#43; 	planID := &#34;plan-edgetest5678&#34;</span>
+<span class="dl dl-add">&#43; 	plansDir := filepath.Join(wipDir, &#34;plans&#34;)</span>
+<span class="dl dl-add">&#43; 	if err := os.MkdirAll(plansDir, 0o755); err != nil {</span>
+<span class="dl dl-add">&#43; 		t.Fatal(err)</span>
+<span class="dl dl-add">&#43; 	}</span>
+<span class="dl dl-add">&#43; </span>
+<span class="dl dl-add">&#43; 	// Write a minimal plan YAML.</span>
+<span class="dl dl-add">&#43; 	planYAMLPath := filepath.Join(plansDir, planID&#43;&#34;.yaml&#34;)</span>
+<span class="dl dl-add">&#43; 	planContent := &#34;meta:\n  id: &#34; &#43; planID &#43; &#34;\n  status: finalized\n  track_id: trk-test\n&#34; &#43;</span>
+<span class="dl dl-add">&#43; 		&#34;design:\n  problem: edge regression test\nslices: []\n&#34;</span>
+<span class="dl dl-add">&#43; 	if err := os.WriteFile(planYAMLPath, []byte(planContent), 0o644); err != nil {</span>
+<span class="dl dl-add">&#43; 		t.Fatal(err)</span>
+<span class="dl dl-add">&#43; 	}</span>
+<span class="dl dl-add">&#43; </span>
+<span class="dl dl-add">&#43; 	// Render the plan HTML so PlanCollection.AddEdge (called inside</span>
+<span class="dl dl-add">&#43; 	// RunPlanRollupRecap) can read and mutate it via htmlparse.ParseFile.</span>
+<span class="dl dl-add">&#43; 	if err := renderPlanToFileQuiet(wipDir, planID); err != nil {</span>
+<span class="dl dl-add">&#43; 		t.Fatalf(&#34;renderPlanToFileQuiet: %v&#34;, err)</span>
+<span class="dl dl-add">&#43; 	}</span>
+<span class="dl dl-add">&#43; </span>
+<span class="dl dl-add">&#43; 	runIn := func(wd string, args ...string) string {</span>
+<span class="dl dl-add">&#43; 		t.Helper()</span>
+<span class="dl dl-add">&#43; 		cmd := exec.Command(args[0], args[1:]...)</span>
+<span class="dl dl-add">&#43; 		cmd.Dir = wd</span>
+<span class="dl dl-add">&#43; 		out, err := cmd.CombinedOutput()</span>
+<span class="dl dl-add">&#43; 		if err != nil {</span>
+<span class="dl dl-add">&#43; 			t.Fatalf(&#34;cmd %v: %v\n%s&#34;, args, err, out)</span>
+<span class="dl dl-add">&#43; 		}</span>
+<span class="dl dl-add">&#43; 		return strings.TrimSpace(string(out))</span>
+<span class="dl dl-add">&#43; 	}</span>
+<span class="dl dl-add">&#43; </span>
+<span class="dl dl-add">&#43; 	// Commit both YAML and HTML so planFirstCommitSHA resolves the introducing SHA.</span>
+<span class="dl dl-add">&#43; 	planHTMLPath := filepath.Join(plansDir, planID&#43;&#34;.html&#34;)</span>
+<span class="dl dl-add">&#43; 	runIn(repo, &#34;git&#34;, &#34;add&#34;, planYAMLPath, planHTMLPath)</span>
+<span class="dl dl-add">&#43; 	runIn(repo, &#34;git&#34;, &#34;commit&#34;, &#34;-m&#34;, &#34;add plan files&#34;)</span>
+<span class="dl dl-add">&#43; </span>
+<span class="dl dl-add">&#43; 	// Capture the introducing commit SHA (oldest commit for the plan YAML).</span>
+<span class="dl dl-add">&#43; 	firstSHA := runIn(repo, &#34;git&#34;, &#34;log&#34;, &#34;--diff-filter=A&#34;, &#34;--follow&#34;, &#34;--format=%H&#34;, &#34;--&#34;, planYAMLPath)</span>
+<span class="dl dl-add">&#43; 	if firstSHA == &#34;&#34; {</span>
+<span class="dl dl-add">&#43; 		t.Fatal(&#34;could not resolve introducing commit SHA for plan YAML&#34;)</span>
+<span class="dl dl-add">&#43; 	}</span>
+<span class="dl dl-add">&#43; 	firstSHA = strings.Split(firstSHA, &#34;\n&#34;)[len(strings.Split(firstSHA, &#34;\n&#34;))-1]</span>
+<span class="dl dl-add">&#43; 	firstSHA = strings.TrimSpace(firstSHA)</span>
+<span class="dl dl-add">&#43; </span>
+<span class="dl dl-add">&#43; 	// Run the function under test.</span>
+<span class="dl dl-add">&#43; 	if err := RunPlanRollupRecap(wipDir, planID); err != nil {</span>
+<span class="dl dl-add">&#43; 		t.Fatalf(&#34;RunPlanRollupRecap: %v&#34;, err)</span>
+<span class="dl dl-add">&#43; 	}</span>
+<span class="dl dl-add">&#43; </span>
+<span class="dl dl-add">&#43; 	// Read the plan HTML after RunPlanRollupRecap.</span>
+<span class="dl dl-add">&#43; 	planHTMLBytes, err := os.ReadFile(planHTMLPath)</span>
+<span class="dl dl-add">&#43; 	if err != nil {</span>
+<span class="dl dl-add">&#43; 		t.Fatalf(&#34;read plan HTML: %v&#34;, err)</span>
+<span class="dl dl-add">&#43; 	}</span>
+<span class="dl dl-add">&#43; 	planHTML := string(planHTMLBytes)</span>
+<span class="dl dl-add">&#43; </span>
+<span class="dl dl-add">&#43; 	// Assert recap lineage edge: the plan HTML must contain a link to the recap artifact.</span>
+<span class="dl dl-add">&#43; 	recapID := &#34;recap-pln-&#34; &#43; planID</span>
+<span class="dl dl-add">&#43; 	if !strings.Contains(planHTML, recapID) {</span>
+<span class="dl dl-add">&#43; 		t.Errorf(&#34;plan HTML does not contain recap lineage edge target %q\n&#34;&#43;</span>
+<span class="dl dl-add">&#43; 			&#34;This is the regression: commitPlanChange re-renders from YAML and drops HTML-only edges.\n&#34;&#43;</span>
+<span class="dl dl-add">&#43; 			&#34;plan HTML snippet:\n%s&#34;, recapID, truncate(planHTML, 2000))</span>
+<span class="dl dl-add">&#43; 	}</span>
+<span class="dl dl-add">&#43; </span>
+<span class="dl dl-add">&#43; 	// Assert introducing-commit edge: the plan HTML must contain the first commit SHA.</span>
+<span class="dl dl-add">&#43; 	if !strings.Contains(planHTML, firstSHA) {</span>
+<span class="dl dl-add">&#43; 		t.Errorf(&#34;plan HTML does not contain introducing-commit edge target %q\n&#34;&#43;</span>
+<span class="dl dl-add">&#43; 			&#34;plan HTML snippet:\n%s&#34;, firstSHA, truncate(planHTML, 2000))</span>
+<span class="dl dl-add">&#43; 	}</span>
+<span class="dl dl-add">&#43; </span>
+<span class="dl dl-add">&#43; 	t.Logf(&#34;plan HTML contains recap edge (%s) and introducing-commit edge (%s)&#34;, recapID, firstSHA[:7])</span>
+<span class="dl dl-add">&#43; }</span>
+<span class="dl dl-add">&#43; </span>
+<span class="dl dl-ctx">  // TestRecapCmd_Range runs `wipnote recap --range HEAD~1..HEAD` and asserts</span>
+<span class="dl dl-ctx">  // the artifact uses the recap-r-&lt;12-char-hash&gt; id scheme.</span>
+<span class="dl dl-ctx">  func TestRecapCmd_Range(t *testing.T) {</span>
+</code></pre>
+    
+  </div>
+  
+</div>
+
+            </details>
+          </div>
+          
+        </div>
+        
+
+        
+        <div class="lin-node down">
+          <span class="lin-glyph"><svg viewBox="0 0 24 24"><rect x="6.5" y="6.5" width="11" height="11" transform="rotate(45 12 12)" fill="currentColor"/></svg></span>
+          <div class="lin-card">
+            <div class="lin-id"><span class="lin-kind">feature</span><code>feat-06907fff</code><span class="lin-rel produced">caused by</span></div>
+            <div class="lin-ttl">Auto-recap: plan-rollup on finalize &#43; feature-complete nudge</div>
+          </div>
+        </div>
+        
+        <div class="lin-node down">
+          <span class="lin-glyph"><svg viewBox="0 0 24 24"><rect x="4" y="6" width="16" height="12" rx="2" fill="none" stroke="currentColor" stroke-width="2"/></svg></span>
+          <div class="lin-card">
+            <div class="lin-id"><span class="lin-kind">track</span><code>trk-a951e3c0</code><span class="lin-rel produced">part of</span></div>
+            <div class="lin-ttl">Visual planning &amp; recap — native port of BuilderIO visual-plan/visual-recap concepts</div>
+          </div>
+        </div>
+        
+      </div>
+    </div>
+    </div>
+  
+  </div>
+</section>
+
+</body>
+</html>

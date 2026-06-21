@@ -26,16 +26,35 @@ func commitExists(projectDir, rev string) bool {
 	return exec.Command("git", "-C", projectDir, "cat-file", "-e", rev+"^{commit}").Run() == nil
 }
 
-// commitsToHead lists every commit reachable from HEAD (newest first).
+// rootRangeUpper returns the revision to log for an empty-tree-based range.
+// Git log cannot accept the empty tree as a lower endpoint, so
+// EmptyTreeSHA..rev is equivalent to listing every commit reachable from rev.
+func rootRangeUpper(gitRange string) string {
+	if gitRange == EmptyTreeSHA {
+		return "HEAD"
+	}
+	if strings.HasPrefix(gitRange, EmptyTreeSHA+"..") {
+		upper := strings.TrimSpace(strings.TrimPrefix(gitRange, EmptyTreeSHA+".."))
+		if upper != "" {
+			return upper
+		}
+	}
+	return "HEAD"
+}
+
+// commitsToRevision lists every commit reachable from rev (newest first).
 // Used for the root-commit case where the lower bound of the range is the
 // empty-tree object (not a commit), which git log cannot accept.
-func commitsToHead(projectDir string) ([]Commit, error) {
+func commitsToRevision(projectDir, rev string) ([]Commit, error) {
+	if strings.TrimSpace(rev) == "" {
+		rev = "HEAD"
+	}
 	out, err := exec.Command(
 		"git", "-C", projectDir,
-		"log", "--no-color", "--format=%H%x1f%s%x1f%cI", "HEAD",
+		"log", "--no-color", "--format=%H%x1f%s%x1f%cI", rev,
 	).Output()
 	if err != nil {
-		return nil, fmt.Errorf("recap: git log HEAD: %w", err)
+		return nil, fmt.Errorf("recap: git log %s: %w", rev, err)
 	}
 	var commits []Commit
 	for _, line := range strings.Split(strings.TrimSpace(string(out)), "\n") {

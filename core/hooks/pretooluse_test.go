@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/shakestzd/wipnote/core/agent"
 	"github.com/shakestzd/wipnote/core/db"
 	"github.com/shakestzd/wipnote/core/models"
 )
@@ -656,6 +657,7 @@ func TestResolveToolUseContext_FallsBackToProjectClaimedSession(t *testing.T) {
 	}
 	t.Setenv("CLAUDE_PROJECT_DIR", projectDir)
 	t.Setenv("WIPNOTE_PROJECT_DIR", projectDir)
+	t.Setenv("WIPNOTE_SESSION_FAMILY_ID", "family-codex-desktop")
 	const claimedSession = "sess-project-claim"
 	if err := db.InsertSession(tdb.DB, &models.Session{
 		SessionID:     claimedSession,
@@ -665,6 +667,12 @@ func TestResolveToolUseContext_FallsBackToProjectClaimedSession(t *testing.T) {
 		ProjectDir:    projectDir,
 	}); err != nil {
 		t.Fatalf("InsertSession: %v", err)
+	}
+	if err := db.SetSessionFamilyID(tdb.DB, claimedSession, "family-codex-desktop"); err != nil {
+		t.Fatalf("SetSessionFamilyID claimed: %v", err)
+	}
+	if err := agent.RegisterSessionFamily(projectDir, "codex-desktop-invocation", "family-codex-desktop"); err != nil {
+		t.Fatalf("RegisterSessionFamily: %v", err)
 	}
 	tdb.addFeature("bug-codex-claim", "bug", "Codex claimed bug", "in-progress")
 	claim := &models.Claim{
@@ -694,6 +702,66 @@ func TestResolveToolUseContext_FallsBackToProjectClaimedSession(t *testing.T) {
 	}
 	if ctx.FeatureID != "bug-codex-claim" || ctx.ClaimedItem != "bug-codex-claim" {
 		t.Fatalf("FeatureID/ClaimedItem = %q/%q, want bug-codex-claim", ctx.FeatureID, ctx.ClaimedItem)
+	}
+}
+
+func TestResolveToolUseContext_DoesNotUseUnrelatedProjectClaim(t *testing.T) {
+	tdb := setupTestDB(t)
+	projectDir := t.TempDir()
+	t.Setenv("CLAUDE_PROJECT_DIR", projectDir)
+	t.Setenv("WIPNOTE_PROJECT_DIR", projectDir)
+
+	if err := db.InsertSession(tdb.DB, &models.Session{
+		SessionID:     "sess-current-unclaimed",
+		AgentAssigned: "codex",
+		Status:        "active",
+		CreatedAt:     time.Now().UTC(),
+		ProjectDir:    projectDir,
+	}); err != nil {
+		t.Fatalf("InsertSession current: %v", err)
+	}
+	if err := db.SetSessionFamilyID(tdb.DB, "sess-current-unclaimed", "family-current"); err != nil {
+		t.Fatalf("SetSessionFamilyID current: %v", err)
+	}
+	if err := db.InsertSession(tdb.DB, &models.Session{
+		SessionID:     "sess-unrelated-claim",
+		AgentAssigned: "codex",
+		Status:        "active",
+		CreatedAt:     time.Now().UTC().Add(time.Second),
+		ProjectDir:    projectDir,
+	}); err != nil {
+		t.Fatalf("InsertSession unrelated: %v", err)
+	}
+	if err := db.SetSessionFamilyID(tdb.DB, "sess-unrelated-claim", "family-other"); err != nil {
+		t.Fatalf("SetSessionFamilyID unrelated: %v", err)
+	}
+	tdb.addFeature("bug-other-claim", "bug", "Other claimed bug", "in-progress")
+	if err := db.ClaimItemOrRenew(tdb.DB, &models.Claim{
+		ClaimID:          "clm-other-claim",
+		WorkItemID:       "bug-other-claim",
+		OwnerSessionID:   "sess-unrelated-claim",
+		OwnerAgent:       "codex",
+		ClaimedByAgentID: "codex",
+		Status:           models.ClaimInProgress,
+	}, 30*time.Minute); err != nil {
+		t.Fatalf("ClaimItemOrRenew: %v", err)
+	}
+
+	ctx := resolveToolUseContext(&CloudEvent{
+		AgentID:   "codex",
+		SessionID: "sess-current-unclaimed",
+		CWD:       projectDir,
+		ToolName:  "apply_patch",
+		ToolInput: map[string]any{"patch": "*** Begin Patch\n*** End Patch\n"},
+	}, tdb.DB, false)
+	if ctx == nil {
+		t.Fatal("resolveToolUseContext returned nil")
+	}
+	if ctx.SessionID != "sess-current-unclaimed" {
+		t.Fatalf("SessionID = %q, want current session", ctx.SessionID)
+	}
+	if ctx.FeatureID != "" || ctx.ClaimedItem != "" {
+		t.Fatalf("FeatureID/ClaimedItem = %q/%q, want no unrelated claim", ctx.FeatureID, ctx.ClaimedItem)
 	}
 }
 

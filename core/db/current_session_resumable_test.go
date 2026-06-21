@@ -416,9 +416,11 @@ func TestSessionPromptLabelPrefersLastUserQueryThenMessagesThenOTel(t *testing.T
 		`INSERT INTO otel_signals (signal_id, session_id, harness, kind, canonical, native, ts_micros, attrs_json)
 		 VALUES
 			('sig-old', 'sess-otel', 'codex', 'log', 'user_prompt', 'codex.user_prompt', 1000, ?),
-			('sig-new', 'sess-otel', 'codex', 'log', 'user_prompt', 'codex.user_prompt', 2000, ?)`,
+			('sig-new', 'sess-otel', 'codex', 'log', 'user_prompt', 'codex.user_prompt', 2000, ?),
+			('sig-assistant-newer', 'sess-otel', 'codex', 'log', 'assistant_text', 'codex.assistant_text', 3000, ?)`,
 		`{"prompt":"old otel prompt","event.timestamp":"2026-06-21T05:01:00Z"}`,
 		`{"prompt":"new otel prompt","event.timestamp":"2026-06-21T05:02:00Z"}`,
+		`{"text":"newer assistant text","event.timestamp":"2026-06-21T05:03:00Z"}`,
 	); err != nil {
 		t.Fatalf("insert otel prompts: %v", err)
 	}

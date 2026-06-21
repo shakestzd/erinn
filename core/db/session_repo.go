@@ -970,6 +970,7 @@ WITH candidates AS (
 		2 AS source_rank
 	FROM otel_signals
 	WHERE session_id = ?
+	  AND canonical = 'user_prompt'
 	  AND TRIM(COALESCE(
 		json_extract(attrs_json, '$.prompt'),
 		json_extract(attrs_json, '$.text'),

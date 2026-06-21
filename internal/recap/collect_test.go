@@ -305,6 +305,28 @@ func TestCollect_FromRange_RootCommit(t *testing.T) {
 	}
 }
 
+func TestCollect_FromRange_EmptyTreeToOldCommitUsesUpper(t *testing.T) {
+	f := newFixture(t)
+	root := f.commit("root", map[string]string{"root.go": "package root\n"})
+	head := f.commit("head", map[string]string{"head.go": "package head\n"})
+
+	gitRange := EmptyTreeSHA + ".." + root
+	data, err := Collect(f.db, Options{Input: gitRange, ProjectDir: f.dir})
+	if err != nil {
+		t.Fatalf("Collect with empty-tree old-commit range: %v", err)
+	}
+
+	if len(data.Commits) != 1 || data.Commits[0].Hash != root {
+		t.Fatalf("Commits = %+v, want only root commit %s (not HEAD %s)", data.Commits, root, head)
+	}
+	if fc := fileChange(data, "root.go"); fc == nil || fc.Change != ChangeAdd {
+		t.Errorf("root.go = %+v, want added file", fc)
+	}
+	if fc := fileChange(data, "head.go"); fc != nil {
+		t.Errorf("head.go = %+v, want absent from old-commit range", fc)
+	}
+}
+
 func TestCollect_FromSession(t *testing.T) {
 	f := newFixture(t)
 	now := time.Now().UTC()

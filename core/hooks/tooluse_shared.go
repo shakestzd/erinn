@@ -118,10 +118,8 @@ func resolveToolUseContext(event *CloudEvent, database *sql.DB, trustParentEnvVa
 		// Fallback: session not in DB yet (race during session-start), or a
 		// harness supplied an invocation/session token that differs from the
 		// wipnote session row. Codex Desktop can do this for apply_patch, while
-		// `wipnote who` still sees the active project claim through the latest
-		// active session. Prefer a project-scoped active session only when it
-		// has an actual work item claim, so unrelated active sessions do not
-		// satisfy the write guard.
+		// `wipnote who` still sees the active claim on a sibling in the same
+		// session family. Never use an arbitrary project-level claim here.
 		if fallbackSessionID, row := projectClaimedToolUseContext(database, projectDir, agentID, sessionID); row != nil {
 			sessionID = fallbackSessionID
 			featureID = row.ActiveFeatureID
@@ -176,12 +174,17 @@ func projectClaimedToolUseContext(database *sql.DB, projectDir, agentID, skipSes
 	if database == nil || projectDir == "" {
 		return "", nil
 	}
+	familyID := sessionFamilyForToolUse(database, projectDir, skipSessionID)
+	if familyID == "" {
+		return "", nil
+	}
 	rows, err := database.Query(`
 		SELECT session_id FROM sessions
 		WHERE status = 'active'
 		  AND COALESCE(project_dir, '') = ?
+		  AND COALESCE(NULLIF(session_family_id, ''), session_id) = ?
 		ORDER BY created_at DESC
-		LIMIT 5`, projectDir)
+		LIMIT 5`, projectDir, familyID)
 	if err != nil {
 		return "", nil
 	}
@@ -203,6 +206,26 @@ func projectClaimedToolUseContext(database *sql.DB, projectDir, agentID, skipSes
 		}
 	}
 	return "", nil
+}
+
+func sessionFamilyForToolUse(database *sql.DB, projectDir, sessionID string) string {
+	if sessionID == "" {
+		return ""
+	}
+	var familyID string
+	if database != nil {
+		_ = database.QueryRow(`
+			SELECT COALESCE(NULLIF(session_family_id, ''), session_id)
+			FROM sessions
+			WHERE session_id = ?`, sessionID).Scan(&familyID)
+		if familyID != "" {
+			return familyID
+		}
+	}
+	if envFamily := os.Getenv("WIPNOTE_SESSION_FAMILY_ID"); envFamily != "" {
+		return envFamily
+	}
+	return agent.SessionFamilyFor(projectDir, sessionID)
 }
 
 // isSubagentEvent returns true when the event originates from a subagent.

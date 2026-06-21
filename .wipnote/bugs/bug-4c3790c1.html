@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>Launcher chooser conflates sessions, work items, and worktrees</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="bug-4c3790c1"
+             data-type="bug"
+             data-status="todo"
+             data-priority="high"
+             data-created="2026-06-21T06:25:06.352795"
+             data-updated="2026-06-21T06:25:06.387335" data-agent-assigned="claude-code" data-track-id="trk-93178cf4" data-created-by-agent="claude-code" data-created-by-model="claude-opus-4-8[1m]" data-created-by-role="codex" data-created-by-cli-version="0.62.2-577-g399735bbf">
+
+        <header>
+            <h1>Launcher chooser conflates sessions, work items, and worktrees</h1>
+            <div class="metadata">
+                <span class="badge status-todo">Todo</span>
+                <span class="badge priority-high">High Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-93178cf4.html" data-relationship="part_of" data-since="2026-06-21T06:25:06.387198">trk-93178cf4</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>Chooser design bug across Claude, Codex, Gemini, and Antigravity: the &#39;Resume this session&#39; row presents stale/current work-item labels as if they identify the session, even though sessions are CLI conversation/runtime identities, claims are mutable attribution, and worktrees are workspace continuity (often track/work-item keyed). This caused a completed/stale bug label (bug-2623b061) to appear under &#39;Resume this session&#39; for Codex. Future fix should redesign chooser groups/labels/actions so session resume, work-item continue, and worktree/track workspace reuse are distinct concepts across all supported CLIs. Related lineage: plan-311440bf explicit-intent launch/resume chooser.</p>
+        </section>
+    </article>
+</body>
+</html>

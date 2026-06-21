@@ -24,4 +24,4 @@ created_at: 2026-06-21T07:51:16.618871713Z
 updated_at: 2026-06-21T08:56:38.011458132Z
 ---
 
-v0.64.0 released after roborev pass; PR-only main protection required publishing tag first, then PR #133 to backfill main after rerunning bootstrap once release assets existed.
+Planning is now blocks-first: each interview stage authors the visual block (file-tree at Scope, api-endpoint+data-model at API/contract, wireframe/diagram for UI) BEFORE deriving prose fields; the separate visual-plan Step 2b round-trip is removed; wipnote:visual-plan is demoted to enrichment-only for legacy/existing plans. Plan HTML leads with a plan-level visual overview zone (blocks grouped by type) above the dependency graph.

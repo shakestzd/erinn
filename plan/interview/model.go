@@ -309,10 +309,16 @@ func StageBlockPlan(stageKey string) []BlockPrompt {
 			},
 		}
 	case "requirements":
-		return []BlockPrompt{{
-			Type:   "wireframe",
-			Prompt: "For UI/flow work, sketch the user-visible surface FIRST: a wireframe block (HTML/CSS using `var(--wf-*)` tokens only, no raw colors) or a diagram block (ordered steps/arrows). Derive `why`/`what` from the sketch. Skip for non-visual slices.",
-		}}
+		return []BlockPrompt{
+			{
+				Type:   "wireframe",
+				Prompt: "For UI/flow work, author a wireframe block FIRST (HTML/CSS using `var(--wf-*)` tokens only, no raw colors). Derive `why`/`what` from it. Skip if the slice has no user-visible surface.",
+			},
+			{
+				Type:   "diagram",
+				Prompt: "For process/data-flow work, author a diagram block FIRST (ordered steps connected by arrows, pure HTML/CSS). Derive `why`/`what` from it. Skip if the slice has no multi-step flow.",
+			},
+		}
 	default:
 		return nil
 	}

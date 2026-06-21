@@ -11,7 +11,7 @@ import (
 // the exclusive lower bound of a range that must cover all commits from the
 // very beginning of the repository (root-commit case). It is valid for git diff
 // but NOT for git log (tree object, not a commit), so callers that need to list
-// commits from the beginning must use commitsToHead instead.
+// commits from the beginning must use commitsToRevision (via collectRange) instead.
 const EmptyTreeSHA = "4b825dc642cb6eb9a060e54bf8d69288fbee4904"
 
 // IsRootRange reports whether gitRange uses the empty-tree lower bound,

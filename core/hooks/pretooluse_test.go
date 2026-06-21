@@ -705,6 +705,71 @@ func TestResolveToolUseContext_FallsBackToProjectClaimedSession(t *testing.T) {
 	}
 }
 
+// TestResolveToolUseContext_FallsBackViaFileMappingWithoutEnvVar exercises the
+// file-backed agent.SessionFamilyFor fallback path. The previous test
+// (FallsBackToProjectClaimedSession) sets WIPNOTE_SESSION_FAMILY_ID, which
+// short-circuits to the env-var branch and never reaches the file lookup.
+// This test clears the env var so sessionFamilyForToolUse must consult the
+// session-family file written by agent.RegisterSessionFamily.
+func TestResolveToolUseContext_FallsBackViaFileMappingWithoutEnvVar(t *testing.T) {
+	tdb := setupTestDB(t)
+	projectDir := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(projectDir, ".wipnote"), 0o755); err != nil {
+		t.Fatalf("mkdir .wipnote: %v", err)
+	}
+	t.Setenv("CLAUDE_PROJECT_DIR", projectDir)
+	t.Setenv("WIPNOTE_PROJECT_DIR", projectDir)
+	// Explicitly unset the env var so the file-backed path must be used.
+	t.Setenv("WIPNOTE_SESSION_FAMILY_ID", "")
+
+	const claimedSession = "sess-file-backed-claim"
+	if err := db.InsertSession(tdb.DB, &models.Session{
+		SessionID:     claimedSession,
+		AgentAssigned: "codex",
+		Status:        "active",
+		CreatedAt:     time.Now().UTC(),
+		ProjectDir:    projectDir,
+	}); err != nil {
+		t.Fatalf("InsertSession: %v", err)
+	}
+	if err := db.SetSessionFamilyID(tdb.DB, claimedSession, "family-file-backed"); err != nil {
+		t.Fatalf("SetSessionFamilyID claimed: %v", err)
+	}
+	// Register the invocation session → family mapping in the file (this is the
+	// path exercised by agent.SessionFamilyFor when the env var is absent).
+	if err := agent.RegisterSessionFamily(projectDir, "codex-file-invocation", "family-file-backed"); err != nil {
+		t.Fatalf("RegisterSessionFamily: %v", err)
+	}
+	tdb.addFeature("bug-file-backed-claim", "bug", "File-backed claimed bug", "in-progress")
+	if err := db.ClaimItemOrRenew(tdb.DB, &models.Claim{
+		ClaimID:          "clm-file-backed-claim",
+		WorkItemID:       "bug-file-backed-claim",
+		OwnerSessionID:   claimedSession,
+		OwnerAgent:       "codex",
+		ClaimedByAgentID: "codex",
+		Status:           models.ClaimInProgress,
+	}, 30*time.Minute); err != nil {
+		t.Fatalf("ClaimItemOrRenew: %v", err)
+	}
+
+	ctx := resolveToolUseContext(&CloudEvent{
+		AgentID:   "codex",
+		SessionID: "codex-file-invocation",
+		CWD:       projectDir,
+		ToolName:  "apply_patch",
+		ToolInput: map[string]any{"patch": "*** Begin Patch\n*** End Patch\n"},
+	}, tdb.DB, false)
+	if ctx == nil {
+		t.Fatal("resolveToolUseContext returned nil")
+	}
+	if ctx.SessionID != claimedSession {
+		t.Fatalf("SessionID = %q, want %q (file-backed family lookup)", ctx.SessionID, claimedSession)
+	}
+	if ctx.FeatureID != "bug-file-backed-claim" || ctx.ClaimedItem != "bug-file-backed-claim" {
+		t.Fatalf("FeatureID/ClaimedItem = %q/%q, want bug-file-backed-claim", ctx.FeatureID, ctx.ClaimedItem)
+	}
+}
+
 func TestResolveToolUseContext_DoesNotUseUnrelatedProjectClaim(t *testing.T) {
 	tdb := setupTestDB(t)
 	projectDir := t.TempDir()

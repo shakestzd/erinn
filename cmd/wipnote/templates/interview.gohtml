@@ -154,6 +154,18 @@
       {{range $i, $s := .Stages}}
       <section class="stage" data-i="{{$i}}" data-key="{{$s.Key}}">
         <div class="stage-bucket">Stage {{add $i 1}} · feeds <b>{{$s.Bucket}}</b></div>
+        {{if $s.Blocks}}
+        <div class="blocks-first">
+          <div class="hdr">Author these blocks first</div>
+          {{range $s.Blocks}}
+          <div class="block-prompt">
+            <span class="block-type">{{.Type}}</span>
+            {{if .Description}}<span class="block-desc">{{.Description}}</span>{{end}}
+            <div class="block-instr">{{.Prompt}}</div>
+          </div>
+          {{end}}
+        </div>
+        {{end}}
         {{range $s.Questions}}
         <div class="q">
           <span class="hdr">{{.Header}}</span>

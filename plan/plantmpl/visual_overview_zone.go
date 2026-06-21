@@ -108,10 +108,13 @@ func (z *VisualOverviewZone) groups() ([]overviewGroup, error) {
 			if blk == nil {
 				continue
 			}
-			// Seed pure-CSS tabs with the anchor so radio groups stay distinct
-			// across all tabs blocks on the page — same logic as BlocksZone.rendered().
+			// Seed the overview copy of a tabs block with a DISTINCT seed so
+			// its radio name/id values do not collide with the per-slice copy
+			// rendered by BlocksZone lower on the same page. The data-block-anchor
+			// and href link still point at the ORIGINAL slice anchor so the
+			// overview card links down to the right block.
 			if t, ok := blk.(*blocks.Tabs); ok {
-				t.Seed = anchor
+				t.Seed = "overview-" + anchor
 			}
 			var sb strings.Builder
 			if err := blk.Render(&sb); err != nil {

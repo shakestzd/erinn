@@ -22,7 +22,7 @@ func TestStageBlockPlan_MapsStagesToBlockTypes(t *testing.T) {
 	cases := map[string][]string{
 		"scope":        {"file-tree"},
 		"contract":     {"api-endpoint", "data-model"},
-		"requirements": {"wireframe"},
+		"requirements": {"wireframe", "diagram"},
 		"donewhen":     nil,
 		"unknown":      nil,
 	}

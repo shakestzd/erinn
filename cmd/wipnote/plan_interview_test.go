@@ -160,6 +160,78 @@ func TestInterviewChatContext_IncludesFormState(t *testing.T) {
 	}
 }
 
+// TestInterviewTemplate_RendersBlockPrompts verifies that the interview web form
+// renders Stage.Blocks before the stage questions so the blocks-first authoring
+// step is visible to users on the web-form path. It parses and executes the
+// embedded template directly, avoiding an HTTP server.
+func TestInterviewTemplate_RendersBlockPrompts(t *testing.T) {
+	stages := []interview.Stage{
+		{
+			Key:    "requirements",
+			Title:  "Requirements",
+			Bucket: interview.BucketDecisions,
+			Blocks: []interview.BlockPrompt{
+				{
+					Type:        "wireframe",
+					Description: "An HTML/CSS sketch built from design tokens (no raw hex/rgb colors).",
+					Prompt:      "For UI/flow work, sketch the user-visible surface FIRST.",
+				},
+				{
+					Type:        "diagram",
+					Description: "A flow diagram: ordered steps connected by arrows.",
+					Prompt:      "Author whichever fits the UI/flow.",
+				},
+			},
+			Questions: []interview.Question{
+				{ID: "requirements.0", Header: "Goal", Type: interview.Choice,
+					Prompt:  "What's the user-visible behavior we're after?",
+					Options: []interview.Option{{Label: "New capability"}},
+				},
+			},
+		},
+	}
+	page := interviewPage{
+		PlanID:     "plan-test",
+		SliceNum:   1,
+		SliceTitle: "Test slice",
+		Stages:     stages,
+	}
+	var buf strings.Builder
+	if err := interviewTmpl.Execute(&buf, page); err != nil {
+		t.Fatalf("template.Execute: %v", err)
+	}
+	html := buf.String()
+
+	// Block type labels must appear.
+	if !strings.Contains(html, "wireframe") {
+		t.Error("expected block type 'wireframe' in rendered HTML")
+	}
+	if !strings.Contains(html, "diagram") {
+		t.Error("expected block type 'diagram' in rendered HTML")
+	}
+	// Block prompt text must appear.
+	if !strings.Contains(html, "sketch the user-visible surface FIRST") {
+		t.Error("expected wireframe prompt text in rendered HTML")
+	}
+	if !strings.Contains(html, "Author whichever fits the UI/flow") {
+		t.Error("expected diagram prompt text in rendered HTML")
+	}
+	// Blocks must render BEFORE questions within the same stage section.
+	// Use "blocks-first" container and the question header class as anchors
+	// (avoiding the apostrophe in the question prompt, which html/template escapes).
+	blocksIdx := strings.Index(html, "blocks-first")
+	questionsIdx := strings.Index(html, `class="hdr"`)
+	if blocksIdx < 0 {
+		t.Fatal("blocks-first container not found")
+	}
+	if questionsIdx < 0 {
+		t.Fatal("question header not found")
+	}
+	if blocksIdx > questionsIdx {
+		t.Error("blocks must appear BEFORE questions in the stage section")
+	}
+}
+
 func lineContaining(s, sub string) string {
 	for ln := range strings.SplitSeq(s, "\n") {
 		if strings.Contains(ln, sub) {

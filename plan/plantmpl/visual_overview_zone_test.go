@@ -2,6 +2,7 @@ package plantmpl
 
 import (
 	"bytes"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -228,6 +229,65 @@ func TestVisualOverviewZone_PlanPage_NoBlocks(t *testing.T) {
 	html := buf.String()
 	if strings.Contains(html, `id="visual-overview"`) {
 		t.Error("page render must not include visual-overview section when no blocks exist")
+	}
+}
+
+// TestVisualOverviewZone_TabsSeedNoCollision verifies that a tabs block rendered
+// in both the slice content (via BlocksZone) and the visual overview on the
+// same page uses DISTINCT radio name/id values, preventing cross-toggle. The
+// data-block-anchor on the overview block must still point at the original
+// per-slice anchor, not the overview-prefixed seed.
+func TestVisualOverviewZone_TabsSeedNoCollision(t *testing.T) {
+	tabsBlock := planyaml.SliceBlock{
+		Type:  "tabs",
+		Title: "How it works",
+		Rows: []map[string]string{
+			{"label": "Step 1", "body": "Do the first thing."},
+			{"label": "Step 2", "body": "Do the second thing."},
+		},
+	}
+	slices := []planyaml.PlanSlice{{
+		Num:    5,
+		Title:  "Tabs slice",
+		Blocks: []planyaml.SliceBlock{tabsBlock},
+	}}
+
+	// Render the BlocksZone (per-slice copy).
+	bz := &BlocksZone{SliceNum: 5, Blocks: slices[0].Blocks}
+	var sliceBuf bytes.Buffer
+	if err := bz.Render(&sliceBuf); err != nil {
+		t.Fatalf("BlocksZone.Render: %v", err)
+	}
+	sliceHTML := sliceBuf.String()
+
+	// Render the VisualOverviewZone (overview copy).
+	oz := &VisualOverviewZone{Slices: slices}
+	overviewHTML := renderOverview(t, oz)
+
+	// Extract the first radio `name` attribute from each copy.
+	nameRe := regexp.MustCompile(`name="([^"]+)"`)
+	sliceMatches := nameRe.FindStringSubmatch(sliceHTML)
+	overviewMatches := nameRe.FindStringSubmatch(overviewHTML)
+	if len(sliceMatches) < 2 {
+		t.Fatal("no radio name found in slice HTML")
+	}
+	if len(overviewMatches) < 2 {
+		t.Fatal("no radio name found in overview HTML")
+	}
+	sliceName := sliceMatches[1]
+	overviewName := overviewMatches[1]
+	if sliceName == overviewName {
+		t.Errorf("tabs radio name collision: both copies use name=%q — selecting a tab in one copy would toggle the other", sliceName)
+	}
+
+	// The overview block must still carry data-block-anchor pointing at the
+	// ORIGINAL slice anchor (slice-5-block-tabs-1), not the overview-prefixed seed.
+	const originalAnchor = "slice-5-block-tabs-1"
+	if !strings.Contains(overviewHTML, `data-block-anchor="`+originalAnchor+`"`) {
+		t.Errorf("overview block anchor should reference original slice anchor %q, got overview HTML:\n%s", originalAnchor, overviewHTML)
+	}
+	if !strings.Contains(overviewHTML, `href="#`+originalAnchor+`"`) {
+		t.Errorf("overview href should link to original slice anchor %q", originalAnchor)
 	}
 }
 

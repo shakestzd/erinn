@@ -265,6 +265,11 @@ func RunPlanRollupRecap(wipnoteDir, planID string) error {
 		return fmt.Errorf("recap: write artifact: %w", writeErr)
 	}
 
+	// Update read index so a running dashboard sees the recap immediately (non-fatal).
+	if indexErr := upsertRecapArtifact(wipnoteDir, repoRoot, recapID); indexErr != nil {
+		fmt.Fprintf(os.Stderr, "recap (non-fatal): update read index: %v\n", indexErr)
+	}
+
 	if commitErr := commitRecapArtifact(wipnoteDir, recapID); commitErr != nil {
 		fmt.Fprintf(os.Stderr, "recap (non-fatal): commit artifact: %v\n", commitErr)
 	}
@@ -272,6 +277,23 @@ func RunPlanRollupRecap(wipnoteDir, planID string) error {
 	// Wire relates_to lineage edge from recap to plan (non-fatal).
 	if edgeErr := addPlanRecapLineageEdge(wipnoteDir, recapID, planID); edgeErr != nil {
 		fmt.Fprintf(os.Stderr, "recap (non-fatal): add lineage edge: %v\n", edgeErr)
+	}
+
+	// Commit the plan HTML after the lineage edge mutates it (non-fatal).
+	// addPlanRecapLineageEdge writes into the plan HTML; without this commit
+	// the edge is only on disk and the plan HTML is left dirty in git.
+	// commitPlanChange takes the YAML path and derives the HTML path from it.
+	planYAMLCommitPath := filepath.Join(wipnoteDir, "plans", planID+".yaml")
+	commitMsg := fmt.Sprintf("plan(%s): add recap lineage edge", planID)
+	if planCommitErr := commitPlanChange(planYAMLCommitPath, commitMsg); planCommitErr != nil {
+		fmt.Fprintf(os.Stderr, "recap (non-fatal): commit plan HTML: %v\n", planCommitErr)
+	}
+
+	// Wire a relates_to edge from the plan to its introducing commit SHA so
+	// lineage queries can surface the plan's origin commit. firstSHA is the
+	// oldest commit that added the plan YAML (resolved via planFirstCommitSHA).
+	if addIntroErr := addPlanIntroducingCommitEdge(wipnoteDir, planID, firstSHA); addIntroErr != nil {
+		fmt.Fprintf(os.Stderr, "recap (non-fatal): add introducing commit edge: %v\n", addIntroErr)
 	}
 
 	shortStart := firstSHA
@@ -316,6 +338,30 @@ func addPlanRecapLineageEdge(wipnoteDir, recapID, planID string) error {
 		TargetID:     recapID,
 		Relationship: models.RelRelatesTo,
 		Title:        "recap",
+		Since:        time.Now().UTC(),
+	}
+	_, err = p.Plans.AddEdge(planID, edge)
+	return err
+}
+
+// addPlanIntroducingCommitEdge wires a relates_to edge from the plan HTML
+// artifact to its introducing commit SHA. This lets lineage queries surface
+// the commit that first added the plan YAML as the plan's origin point.
+// introducingSHA is the full commit hash returned by planFirstCommitSHA.
+func addPlanIntroducingCommitEdge(wipnoteDir, planID, introducingSHA string) error {
+	if introducingSHA == "" {
+		return nil
+	}
+	p, err := workitem.Open(wipnoteDir, "claude-code")
+	if err != nil {
+		return fmt.Errorf("open project: %w", err)
+	}
+	defer p.Close()
+
+	edge := models.Edge{
+		TargetID:     introducingSHA,
+		Relationship: models.RelRelatesTo,
+		Title:        "introducing-commit",
 		Since:        time.Now().UTC(),
 	}
 	_, err = p.Plans.AddEdge(planID, edge)

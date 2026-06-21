@@ -198,10 +198,10 @@ func resolveInputKindStr(input, rangeSpec, sessionID string) string {
 }
 
 // RunPlanRollupRecap generates a consolidated rollup recap for a finalized plan.
-// It resolves the git range anchored at the first commit of the plan's YAML file
-// (<first-commit>..HEAD), runs recap.Collect in range mode, renders and writes
-// .wipnote/recaps/recap-pln-<planID>.html, commits via commitRecapArtifact, and
-// wires a relates_to lineage edge from the recap to the plan.
+// It resolves the git range anchored at (and including) the first commit of the
+// plan's YAML file through HEAD, runs recap.Collect in range mode, renders and
+// writes .wipnote/recaps/recap-pln-<planID>.html, commits via commitRecapArtifact,
+// and wires lineage edges from the recap and introducing commit back to the plan.
 //
 // ALL errors are non-fatal by design: callers wrap this in a non-fatal block.
 // The function returns an error only when a step that can reasonably be reported
@@ -222,7 +222,10 @@ func RunPlanRollupRecap(wipnoteDir, planID string) error {
 		return fmt.Errorf("cannot resolve first commit for %s (untracked, skipping recap)", planYAMLRelPath)
 	}
 
-	gitRange := firstSHA + "..HEAD"
+	// Build an INCLUSIVE range: firstSHA~1..HEAD includes firstSHA's own changes.
+	// When firstSHA is the root commit (no parent), fall back to the well-known
+	// git empty-tree SHA so the range covers all history from the beginning.
+	gitRange := planRollupGitRange(repoRoot, firstSHA)
 
 	db, dbErr := openReadOnlyDB(wipnoteDir)
 	if dbErr != nil {
@@ -302,7 +305,7 @@ func RunPlanRollupRecap(wipnoteDir, planID string) error {
 	if len(shortStart) > 7 {
 		shortStart = shortStart[:7]
 	}
-	fmt.Printf("  ✓ %s.html generated (range: %s..HEAD)\n", recapID, shortStart)
+	fmt.Printf("  ✓ %s.html generated (range: %s~1..HEAD inclusive)\n", recapID, shortStart)
 	fmt.Printf("  Dashboard: wipnote serve then open http://127.0.0.1:8080 (or http://127.0.0.1:8088 in devcontainer)\n")
 	return nil
 }
@@ -393,4 +396,32 @@ func addRecapLineageEdge(wipnoteDir, recapID, workItemID string) error {
 	}
 	_, err = col.AddEdge(workItemID, edge)
 	return err
+}
+
+// gitHasParent reports whether the commit at sha has at least one parent in
+// the repository at repoRoot. Returns false for root commits and on any error.
+// Uses the same cat-file pattern as gitCommitExists in reindex.go.
+func gitHasParent(repoRoot, sha string) bool {
+	return exec.Command("git", "-C", repoRoot, "cat-file", "-e", sha+"^1").Run() == nil
+}
+
+// planRollupGitRange builds the git range string for RunPlanRollupRecap so
+// that firstSHA's own changes are INCLUDED in the recap:
+//
+//   - Normal case: firstSHA~1..HEAD  (parent-of-first .. HEAD, inclusive of firstSHA)
+//   - Root-commit case: <empty-tree>..HEAD (covers all history from the beginning)
+//
+// The empty-tree SHA (4b825dc642cb6eb9a060e54bf8d69288fbee4904) is a permanent
+// git object that precedes every commit, so the range always includes firstSHA
+// even when it is also HEAD (the firstSHA==HEAD case that produced an empty recap
+// with the old exclusive form firstSHA..HEAD).
+func planRollupGitRange(repoRoot, firstSHA string) string {
+	if gitHasParent(repoRoot, firstSHA) {
+		return firstSHA + "~1..HEAD"
+	}
+	// Root commit: use the empty-tree SHA as the exclusive lower bound.
+	// This is a well-known constant in git; it always exists and precedes
+	// every real commit, so the range covers the entire history up to HEAD.
+	const emptyTreeSHA = "4b825dc642cb6eb9a060e54bf8d69288fbee4904"
+	return emptyTreeSHA + "..HEAD"
 }

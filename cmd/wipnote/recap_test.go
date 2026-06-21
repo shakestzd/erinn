@@ -187,6 +187,94 @@ func TestRunPlanRollupRecap_UntrackedYAML(t *testing.T) {
 	t.Logf("got expected error: %v", err)
 }
 
+// TestRunPlanRollupRecap_EdgesPersistedInPlanHTML is a regression test for the
+// fix that replaced commitPlanChange (which re-renders from YAML and drops
+// HTML-only edge mutations) with commitWipnoteArtifact (which commits the
+// already-mutated plan HTML directly). It asserts that both the recap lineage
+// edge AND the introducing-commit edge survive in the on-disk plan HTML after
+// RunPlanRollupRecap runs. A regression back to commitPlanChange would wipe
+// both edges (YAML has no graph-edge fields), causing this test to fail.
+func TestRunPlanRollupRecap_EdgesPersistedInPlanHTML(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping binary-spawning test in -short mode")
+	}
+
+	repo := initFixtureRepo(t)
+	wipDir := filepath.Join(repo, ".wipnote")
+
+	planID := "plan-edgetest5678"
+	plansDir := filepath.Join(wipDir, "plans")
+	if err := os.MkdirAll(plansDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	// Write a minimal plan YAML.
+	planYAMLPath := filepath.Join(plansDir, planID+".yaml")
+	planContent := "meta:\n  id: " + planID + "\n  status: finalized\n  track_id: trk-test\n" +
+		"design:\n  problem: edge regression test\nslices: []\n"
+	if err := os.WriteFile(planYAMLPath, []byte(planContent), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	// Render the plan HTML so PlanCollection.AddEdge (called inside
+	// RunPlanRollupRecap) can read and mutate it via htmlparse.ParseFile.
+	if err := renderPlanToFileQuiet(wipDir, planID); err != nil {
+		t.Fatalf("renderPlanToFileQuiet: %v", err)
+	}
+
+	runIn := func(wd string, args ...string) string {
+		t.Helper()
+		cmd := exec.Command(args[0], args[1:]...)
+		cmd.Dir = wd
+		out, err := cmd.CombinedOutput()
+		if err != nil {
+			t.Fatalf("cmd %v: %v\n%s", args, err, out)
+		}
+		return strings.TrimSpace(string(out))
+	}
+
+	// Commit both YAML and HTML so planFirstCommitSHA resolves the introducing SHA.
+	planHTMLPath := filepath.Join(plansDir, planID+".html")
+	runIn(repo, "git", "add", planYAMLPath, planHTMLPath)
+	runIn(repo, "git", "commit", "-m", "add plan files")
+
+	// Capture the introducing commit SHA (oldest commit for the plan YAML).
+	firstSHA := runIn(repo, "git", "log", "--diff-filter=A", "--follow", "--format=%H", "--", planYAMLPath)
+	if firstSHA == "" {
+		t.Fatal("could not resolve introducing commit SHA for plan YAML")
+	}
+	firstSHA = strings.Split(firstSHA, "\n")[len(strings.Split(firstSHA, "\n"))-1]
+	firstSHA = strings.TrimSpace(firstSHA)
+
+	// Run the function under test.
+	if err := RunPlanRollupRecap(wipDir, planID); err != nil {
+		t.Fatalf("RunPlanRollupRecap: %v", err)
+	}
+
+	// Read the plan HTML after RunPlanRollupRecap.
+	planHTMLBytes, err := os.ReadFile(planHTMLPath)
+	if err != nil {
+		t.Fatalf("read plan HTML: %v", err)
+	}
+	planHTML := string(planHTMLBytes)
+
+	// Assert recap lineage edge: the plan HTML must contain a link to the recap artifact.
+	recapID := "recap-pln-" + planID
+	if !strings.Contains(planHTML, recapID) {
+		t.Errorf("plan HTML does not contain recap lineage edge target %q\n"+
+			"This is the regression: commitPlanChange re-renders from YAML and drops HTML-only edges.\n"+
+			"plan HTML snippet:\n%s", recapID, truncate(planHTML, 2000))
+	}
+
+	// Assert introducing-commit edge: the plan HTML must contain the first commit SHA.
+	if !strings.Contains(planHTML, firstSHA) {
+		t.Errorf("plan HTML does not contain introducing-commit edge target %q\n"+
+			"plan HTML snippet:\n%s", firstSHA, truncate(planHTML, 2000))
+	}
+
+	t.Logf("plan HTML contains recap edge (%s) and introducing-commit edge (%s)", recapID, firstSHA[:7])
+}
+
 // TestRecapCmd_Range runs `wipnote recap --range HEAD~1..HEAD` and asserts
 // the artifact uses the recap-r-<12-char-hash> id scheme.
 func TestRecapCmd_Range(t *testing.T) {

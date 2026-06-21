@@ -1,0 +1,864 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="wipnote-recap" content="1.0">
+<title>Recap: Auto-recap: plan-rollup on finalize + feature-complete nudge</title>
+<style>
+:root{
+  --bg:#0f0f13;--bg-card:#18181c;--bg-input:#222228;--text:#f0f0ed;--text-dim:#d0d0cc;
+  --text-muted:#9898a0;--border:#3a3a42;--accent:#cdff00;
+  --add:#22c55e;--modify:#f59e0b;--delete:#ef4444;--pivot:#a78bfa;
+  --mono:'JetBrains Mono',ui-monospace,'SF Mono','Cascadia Code',monospace;
+  --sans:'DM Sans','Inter',system-ui,-apple-system,sans-serif;
+  --radius:8px;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{font-family:var(--sans);background:var(--bg);color:var(--text);line-height:1.6;padding:32px;max-width:1100px;margin:0 auto}
+h1{font-size:1.5rem;font-weight:700;margin-bottom:4px}
+.recap-sub{color:var(--text-muted);font-size:.85rem;font-family:var(--mono);margin-bottom:24px}
+.recap-sub code{color:var(--text-dim)}
+.recap-zone{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:20px;margin-bottom:20px}
+.recap-zone-title{font-size:1.05rem;font-weight:600;margin-bottom:12px;display:flex;align-items:center;gap:8px}
+.recap-zone-note{color:var(--text-muted);font-size:.8rem;margin-bottom:12px;font-style:italic}
+.recap-count{background:var(--bg-input);color:var(--text-muted);font-size:.72rem;font-family:var(--mono);padding:1px 7px;border-radius:10px}
+.outcome-narrative{font-size:1rem;color:var(--text-dim)}
+/* shared block + file list */
+.block{margin:0}
+.file-list{list-style:none;display:flex;flex-direction:column;gap:4px}
+.file-entry{font-family:var(--mono);font-size:.85rem;display:flex;align-items:center;gap:8px}
+.file-path{color:var(--text-dim)}
+.file-change{font-size:.68rem;font-weight:700;text-transform:uppercase;padding:1px 6px;border-radius:4px;font-family:var(--mono)}
+.file-change-add{background:rgba(34,197,94,.12);color:var(--add)}
+.file-change-modify{background:rgba(245,158,11,.12);color:var(--modify)}
+.file-change-delete{background:rgba(239,68,68,.12);color:var(--delete)}
+.block-table{width:100%;border-collapse:collapse;font-size:.82rem;margin-top:8px}
+.block-table th,.block-table td{text-align:left;padding:6px 10px;border-bottom:1px solid var(--border)}
+.block-header{display:flex;align-items:center;gap:8px;font-size:.85rem}
+.block-kind{font-family:var(--mono);font-size:.68rem;text-transform:uppercase;color:var(--text-muted);background:var(--bg-input);padding:1px 6px;border-radius:4px}
+.api-method{font-family:var(--mono);font-weight:700;font-size:.72rem;padding:1px 6px;border-radius:4px;background:var(--accent);color:#000}
+/* diagram block (pure HTML/CSS flow) */
+.block-diagram .diagram-flow{display:flex;gap:8px;flex-wrap:wrap}
+.diagram-lr{flex-direction:row;align-items:center}
+.diagram-tb{flex-direction:column;align-items:flex-start}
+.diagram-node{background:var(--bg-input);border:1px solid var(--border);border-radius:6px;padding:7px 13px;font-family:var(--mono);font-size:.8rem;color:var(--text);white-space:nowrap}
+.diagram-arrow{color:var(--accent);font-family:var(--mono)}
+.diagram-tb .diagram-arrow{margin-left:16px}
+/* tabs block (pure CSS, no JS; up to 8 tabs toggle) */
+.block-tabs .tabs{position:relative}
+.tab-radio{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}
+.tab-labels{display:flex;gap:2px;flex-wrap:wrap;border-bottom:1px solid var(--border)}
+.tab-label{padding:6px 12px;font-family:var(--mono);font-size:.78rem;color:var(--text-muted);cursor:pointer;border:1px solid transparent;border-bottom:none;border-radius:6px 6px 0 0;margin-bottom:-1px}
+.tab-label:hover{color:var(--text)}
+.tab-panels{padding:12px 2px}
+.tab-panel{display:none;font-size:.88rem;color:var(--text-dim);white-space:pre-wrap;font-family:var(--sans)}
+.tabs .tab-radio:nth-of-type(1):checked~.tab-labels .tab-label:nth-child(1),.tabs .tab-radio:nth-of-type(2):checked~.tab-labels .tab-label:nth-child(2),.tabs .tab-radio:nth-of-type(3):checked~.tab-labels .tab-label:nth-child(3),.tabs .tab-radio:nth-of-type(4):checked~.tab-labels .tab-label:nth-child(4),.tabs .tab-radio:nth-of-type(5):checked~.tab-labels .tab-label:nth-child(5),.tabs .tab-radio:nth-of-type(6):checked~.tab-labels .tab-label:nth-child(6),.tabs .tab-radio:nth-of-type(7):checked~.tab-labels .tab-label:nth-child(7),.tabs .tab-radio:nth-of-type(8):checked~.tab-labels .tab-label:nth-child(8){color:var(--text);border-color:var(--border);background:var(--bg-card)}
+.tabs .tab-radio:nth-of-type(1):checked~.tab-panels .tab-panel:nth-child(1),.tabs .tab-radio:nth-of-type(2):checked~.tab-panels .tab-panel:nth-child(2),.tabs .tab-radio:nth-of-type(3):checked~.tab-panels .tab-panel:nth-child(3),.tabs .tab-radio:nth-of-type(4):checked~.tab-panels .tab-panel:nth-child(4),.tabs .tab-radio:nth-of-type(5):checked~.tab-panels .tab-panel:nth-child(5),.tabs .tab-radio:nth-of-type(6):checked~.tab-panels .tab-panel:nth-child(6),.tabs .tab-radio:nth-of-type(7):checked~.tab-panels .tab-panel:nth-child(7),.tabs .tab-radio:nth-of-type(8):checked~.tab-panels .tab-panel:nth-child(8){display:block}
+/* annotated diff */
+.annotated-diff{border:1px solid var(--border);border-radius:6px;margin-bottom:14px;overflow:hidden}
+.diff-file-header{display:flex;align-items:center;gap:8px;padding:8px 12px;background:var(--bg-input);font-family:var(--mono);font-size:.82rem;cursor:pointer;user-select:none;list-style:none}
+.diff-file-header::-webkit-details-marker{display:none}
+.diff-file-header::before{content:"▾";font-size:.7rem;color:var(--text-muted);transition:transform .15s ease;display:inline-block}
+.diff-file:not([open])>.diff-file-header::before{transform:rotate(-90deg)}
+.diff-file-header:hover{background:var(--border)}
+.diff-hunk-count{margin-left:auto;font-size:.7rem;color:var(--text-muted);font-family:var(--mono)}
+.diff-hunk{border-top:1px solid var(--border)}
+.hunk-meta{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:6px 12px;background:rgba(255,255,255,.02)}
+.hunk-header{font-family:var(--mono);font-size:.74rem;color:var(--text-muted)}
+.hunk-summary{font-size:.72rem;color:var(--text-muted);font-family:var(--mono)}
+.diff-pre{margin:0;padding:10px 0;overflow-x:auto;font-family:var(--mono);font-size:.8rem;line-height:1.5;white-space:pre}
+.diff-pre code{font-family:var(--mono);background:none;padding:0}
+.dl{display:block;padding:0 12px}
+.dl-add{background:rgba(34,197,94,.12);color:var(--add)}
+.dl-del{background:rgba(239,68,68,.12);color:var(--delete)}
+.dl-ctx{color:var(--text-muted)}
+.hunk-cols{display:grid;grid-template-columns:1fr 1fr}
+.hunk-col-before{border-right:1px solid var(--border);background:rgba(239,68,68,.04)}
+.hunk-col-after{background:rgba(34,197,94,.04)}
+/* embedded diff sits flush inside a file station */
+.annotated-diff.embedded{border:none;border-radius:0;margin:0;border-top:1px solid var(--border)}
+/* lineage spine */
+.lin-legend{display:flex;gap:16px;flex-wrap:wrap;font-family:var(--mono);font-size:.68rem;color:var(--text-muted);margin-bottom:16px}
+.lin-dir{display:flex;align-items:center;gap:6px}
+.lin-swatch{width:18px;height:2px;border-radius:2px}
+.lin-swatch.past{background:var(--border)}
+.lin-swatch.now{background:var(--accent)}
+/* nested tree: each branch indents under its parent with its own guide rail */
+.lin-tree{position:relative}
+.lin-branch{position:relative;margin-left:15px;padding-left:22px;border-left:2px solid var(--border)}
+.lin-branch.produced-branch{border-left-color:rgba(205,255,0,.4)}
+.lin-node{position:relative;padding:6px 0;display:flex;align-items:flex-start}
+/* connector tick from the branch rail to each node glyph */
+.lin-node::before{content:"";position:absolute;left:-22px;top:18px;width:18px;height:2px;background:var(--border)}
+.lin-branch.produced-branch>.lin-node::before{background:rgba(205,255,0,.4)}
+.lin-glyph{position:absolute;left:-33px;top:7px;width:22px;height:22px;display:grid;place-items:center;border-radius:50%;background:var(--bg-card);border:1px solid var(--border);color:var(--text-muted);z-index:2}
+.lin-glyph svg{width:12px;height:12px;display:block}
+.lin-card{flex:1;min-width:0;background:var(--bg-card);border:1px solid var(--border);border-radius:6px;padding:8px 12px;margin-left:4px}
+.lin-id{font-family:var(--mono);font-size:.72rem;color:var(--text-muted);display:flex;align-items:center;gap:7px;flex-wrap:wrap}
+.lin-id code{color:var(--text-dim)}
+.lin-kind{font-size:.6rem;text-transform:uppercase;letter-spacing:.08em;color:var(--text-muted);border:1px solid var(--border);border-radius:4px;padding:0 5px}
+.lin-rel{font-family:var(--mono);font-size:.62rem;color:var(--text-muted);text-transform:lowercase}
+.lin-rel.produced{color:var(--accent)}
+.lin-ttl{font-size:.9rem;color:var(--text);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.lin-when{color:var(--text-muted)}
+.lin-node.up .lin-glyph{border-style:dashed}
+.lin-node.up .lin-card{background:transparent}
+.lin-node.up .lin-ttl{color:var(--text-muted)}
+.lin-node.pivot{padding:10px 0}
+.lin-node.pivot::before{background:var(--accent)}
+.lin-node.pivot .lin-glyph{left:-35px;top:6px;width:28px;height:28px;background:var(--accent);border-color:var(--accent);color:#000;box-shadow:0 0 0 4px rgba(205,255,0,.14),0 0 18px rgba(205,255,0,.3)}
+.lin-node.pivot .lin-card{border-color:rgba(205,255,0,.45);box-shadow:0 0 0 1px rgba(205,255,0,.14)}
+.lin-node.pivot .lin-id code{color:var(--accent)}
+.lin-node.pivot .lin-ttl{white-space:normal;font-weight:600;font-size:.98rem}
+.lin-node.pivot .lin-kind{color:var(--accent);border-color:rgba(205,255,0,.45)}
+.lin-node.down .lin-glyph{border-color:rgba(205,255,0,.45);color:var(--accent)}
+.lin-file{flex:1;min-width:0;margin-left:4px;background:var(--bg-card);border:1px solid var(--border);border-radius:6px;overflow:hidden}
+.lin-file>summary{display:flex;align-items:center;gap:9px;padding:8px 12px;cursor:pointer;list-style:none;font-family:var(--mono);font-size:.78rem}
+.lin-file>summary::-webkit-details-marker{display:none}
+.lin-file>summary::before{content:"▸";color:var(--text-muted);font-size:.66rem;transition:transform .15s ease;display:inline-block}
+.lin-file[open]>summary::before{transform:rotate(90deg)}
+.lin-file>summary:hover{background:var(--bg-input)}
+.lin-file-path{color:var(--text-dim)}
+.lin-file-stat{margin-left:auto;color:var(--text-muted)}
+.lin-file-stat .plus{color:var(--add)}.lin-file-stat .minus{color:var(--delete)}
+code{font-family:var(--mono)}
+</style>
+</head>
+<body data-recap-kind="work-item" data-recap-input="feat-06907fff" data-recap-git-range="2cc724d29e43540f032791a9902732c9e17613c3" data-recap-grounded="1" data-recap-outcome="Auto-recap: plan-rollup on finalize + feature-complete nudge" data-recap-title="Auto-recap: plan-rollup on finalize + feature-complete nudge">
+<header>
+  <h1>Auto-recap: plan-rollup on finalize + feature-complete nudge</h1>
+  <div class="recap-sub">
+    <code>work-item</code>
+    &middot; <code>feat-06907fff</code>
+    &middot; <code>2cc724d29e43540f032791a9902732c9e17613c3</code>
+    &middot; grounded
+  </div>
+</header>
+<section class="recap-zone recap-zone-outcome" id="outcome">
+  <h2 class="recap-zone-title">Outcome</h2>
+  <p class="outcome-narrative">Auto-recap: plan-rollup on finalize + feature-complete nudge</p>
+</section>
+<section class="recap-zone recap-zone-lineage" id="lineage">
+  <h2 class="recap-zone-title">Lineage</h2>
+  <p class="recap-zone-note">Causal provenance as a tree: containers hold the work item, which holds the commit it produced, which holds the files it changed.</p>
+  
+  <div class="lin-legend">
+    <span class="lin-dir"><span class="lin-swatch past"></span> ancestry — what holds this work</span>
+    <span class="lin-dir"><span class="lin-swatch now"></span> produced — what it changed</span>
+  </div>
+  
+
+  <div class="lin-tree">
+  
+    <div class="lin-branch">
+    
+    
+    <div class="lin-node up">
+      <span class="lin-glyph"><svg viewBox="0 0 24 24"><rect x="4" y="6" width="16" height="12" rx="2" fill="none" stroke="currentColor" stroke-width="2"/></svg></span>
+      <div class="lin-card">
+        <div class="lin-id"><span class="lin-kind">track</span><code>trk-a951e3c0</code><span class="lin-rel">contains</span></div>
+        <div class="lin-ttl">Visual planning &amp; recap — native port of BuilderIO visual-plan/visual-recap concepts</div>
+      </div>
+    </div>
+    
+    <div class="lin-node up">
+      <span class="lin-glyph"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="12" r="2.6" fill="currentColor"/></svg></span>
+      <div class="lin-card">
+        <div class="lin-id"><span class="lin-kind">session</span><code>28e77ff6-44b6-4bb1-bf8b-dd2634b75ecc</code><span class="lin-rel">implements</span></div>
+        <div class="lin-ttl">wipnote-20260619-09.52.11</div>
+      </div>
+    </div>
+    
+    <div class="lin-node up">
+      <span class="lin-glyph"><svg viewBox="0 0 24 24"><rect x="6.5" y="6.5" width="11" height="11" transform="rotate(45 12 12)" fill="currentColor"/></svg></span>
+      <div class="lin-card">
+        <div class="lin-id"><span class="lin-kind">bug</span><code>bug-2623b061</code><span class="lin-rel">caused by</span></div>
+        <div class="lin-ttl">Fix-forward v0.63.0: recap.go &#43; claude.go Medium review findings</div>
+      </div>
+    </div>
+    
+
+    
+    <div class="lin-branch">
+      
+      <div class="lin-node pivot">
+        <span class="lin-glyph"><svg viewBox="0 0 24 24"><rect x="6.5" y="6.5" width="11" height="11" transform="rotate(45 12 12)" fill="currentColor"/></svg></span>
+        <div class="lin-card">
+          <div class="lin-id"><span class="lin-kind">feature</span><code>feat-06907fff</code></div>
+          <div class="lin-ttl">Auto-recap: plan-rollup on finalize &#43; feature-complete nudge</div>
+        </div>
+      </div>
+      
+
+      
+      <div class="lin-branch produced-branch">
+        
+        <div class="lin-node down commit">
+          <span class="lin-glyph"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="6" fill="currentColor"/></svg></span>
+          <div class="lin-card">
+            <div class="lin-id"><span class="lin-kind">commit</span><code>2cc724d29</code><span class="lin-when">2026-06-20T22:45:01Z</span><span class="lin-rel produced">produced</span></div>
+            <div class="lin-ttl">feat-06907fff: auto-recap on plan finalize &#43; feature-complete nudge</div>
+          </div>
+        </div>
+        
+
+        
+        
+        <div class="lin-node down changeset">
+          <span class="lin-glyph"><svg viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="3" fill="currentColor"/><rect x="4" y="10.5" width="16" height="3" fill="currentColor"/><rect x="4" y="16" width="16" height="3" fill="currentColor"/></svg></span>
+          <div class="lin-card"><div class="lin-id"><span class="lin-kind">changed files</span><code>8</code></div></div>
+        </div>
+        <div class="lin-branch produced-branch">
+          
+          <div class="lin-node down file-node">
+            <span class="lin-glyph"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.4" fill="currentColor"/></svg></span>
+            <details class="lin-file">
+              <summary>
+                <span class="file-change file-change-modify">modify</span>
+                <code class="lin-file-path">cmd/wipnote/plan_finalize.go</code>
+                <span class="lin-file-stat"><span class="plus">+7</span></span>
+              </summary>
+              <div class="annotated-diff embedded diff-unified diff-unified" data-language="go">
+  
+  <div class="diff-hunk">
+    <div class="hunk-meta">
+      <code class="hunk-header">package main</code>
+      <span class="hunk-summary">1 added, 0 removed</span>
+    </div>
+    
+    <pre class="diff-pre"><code class="diff-code" data-language="go"><span class="dl dl-ctx">  </span>
+<span class="dl dl-ctx">  import (</span>
+<span class="dl dl-ctx">  	&#34;fmt&#34;</span>
+<span class="dl dl-add">&#43; 	&#34;os&#34;</span>
+<span class="dl dl-ctx">  	&#34;path/filepath&#34;</span>
+<span class="dl dl-ctx">  	&#34;strconv&#34;</span>
+<span class="dl dl-ctx">  	&#34;strings&#34;</span>
+</code></pre>
+    
+  </div>
+  
+  <div class="diff-hunk">
+    <div class="hunk-meta">
+      <code class="hunk-header">func executePlanFinalizeFromYAML(p *workitem.Project, wipnoteDir, planID string)</code>
+      <span class="hunk-summary">6 added, 0 removed</span>
+    </div>
+    
+    <pre class="diff-pre"><code class="diff-code" data-language="go"><span class="dl dl-ctx">  		return nil, fmt.Errorf(&#34;autocommit finalize: %w&#34;, err)</span>
+<span class="dl dl-ctx">  	}</span>
+<span class="dl dl-ctx">  </span>
+<span class="dl dl-add">&#43; 	// Generate consolidated rollup recap spanning the plan&#39;s git range (non-fatal).</span>
+<span class="dl dl-add">&#43; 	// Any error is printed to stderr; it never fails the finalize itself.</span>
+<span class="dl dl-add">&#43; 	if recapErr := RunPlanRollupRecap(wipnoteDir, planID); recapErr != nil {</span>
+<span class="dl dl-add">&#43; 		fmt.Fprintf(os.Stderr, &#34;recap (non-fatal): %v\n&#34;, recapErr)</span>
+<span class="dl dl-add">&#43; 	}</span>
+<span class="dl dl-add">&#43; </span>
+<span class="dl dl-ctx">  	return &amp;finalizeResult{</span>
+<span class="dl dl-ctx">  		TrackID:    trackID,</span>
+<span class="dl dl-ctx">  		FeatureIDs: featureIDs,</span>
+</code></pre>
+    
+  </div>
+  
+</div>
+
+            </details>
+          </div>
+          
+          <div class="lin-node down file-node">
+            <span class="lin-glyph"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.4" fill="currentColor"/></svg></span>
+            <details class="lin-file">
+              <summary>
+                <span class="file-change file-change-modify">modify</span>
+                <code class="lin-file-path">cmd/wipnote/recap.go</code>
+                <span class="lin-file-stat"><span class="plus">+126</span></span>
+              </summary>
+              <div class="annotated-diff embedded diff-unified diff-unified" data-language="go">
+  
+  <div class="diff-hunk">
+    <div class="hunk-meta">
+      <code class="hunk-header">import (</code>
+      <span class="hunk-summary">1 added, 0 removed</span>
+    </div>
+    
+    <pre class="diff-pre"><code class="diff-code" data-language="go"><span class="dl dl-ctx">  	&#34;crypto/sha256&#34;</span>
+<span class="dl dl-ctx">  	&#34;fmt&#34;</span>
+<span class="dl dl-ctx">  	&#34;os&#34;</span>
+<span class="dl dl-add">&#43; 	&#34;os/exec&#34;</span>
+<span class="dl dl-ctx">  	&#34;path/filepath&#34;</span>
+<span class="dl dl-ctx">  	&#34;strings&#34;</span>
+<span class="dl dl-ctx">  	&#34;time&#34;</span>
+</code></pre>
+    
+  </div>
+  
+  <div class="diff-hunk">
+    <div class="hunk-meta">
+      <code class="hunk-header">func resolveInputKindStr(input, rangeSpec, sessionID string) string {</code>
+      <span class="hunk-summary">125 added, 0 removed</span>
+    </div>
+    
+    <pre class="diff-pre"><code class="diff-code" data-language="go"><span class="dl dl-ctx">  	}</span>
+<span class="dl dl-ctx">  }</span>
+<span class="dl dl-ctx">  </span>
+<span class="dl dl-add">&#43; // RunPlanRollupRecap generates a consolidated rollup recap for a finalized plan.</span>
+<span class="dl dl-add">&#43; // It resolves the git range anchored at the first commit of the plan&#39;s YAML file</span>
+<span class="dl dl-add">&#43; // (&lt;first-commit&gt;..HEAD), runs recap.Collect in range mode, renders and writes</span>
+<span class="dl dl-add">&#43; // .wipnote/recaps/recap-pln-&lt;planID&gt;.html, commits via commitRecapArtifact, and</span>
+<span class="dl dl-add">&#43; // wires a relates_to lineage edge from the recap to the plan.</span>
+<span class="dl dl-add">&#43; //</span>
+<span class="dl dl-add">&#43; // ALL errors are non-fatal by design: callers wrap this in a non-fatal block.</span>
+<span class="dl dl-add">&#43; // The function returns an error only when a step that can reasonably be reported</span>
+<span class="dl dl-add">&#43; // fails; it never calls os.Exit. Callers should print returned errors to stderr.</span>
+<span class="dl dl-add">&#43; func RunPlanRollupRecap(wipnoteDir, planID string) error {</span>
+<span class="dl dl-add">&#43; 	recapID := &#34;recap-pln-&#34; &#43; planID</span>
+<span class="dl dl-add">&#43; 	repoRoot := filepath.Dir(wipnoteDir)</span>
+<span class="dl dl-add">&#43; </span>
+<span class="dl dl-add">&#43; 	// Resolve the plan YAML path and find its first commit.</span>
+<span class="dl dl-add">&#43; 	planYAMLRelPath := filepath.Join(&#34;.wipnote&#34;, &#34;plans&#34;, planID&#43;&#34;.yaml&#34;)</span>
+<span class="dl dl-add">&#43; 	planYAMLAbsPath := filepath.Join(wipnoteDir, &#34;plans&#34;, planID&#43;&#34;.yaml&#34;)</span>
+<span class="dl dl-add">&#43; </span>
+<span class="dl dl-add">&#43; 	firstSHA, err := planFirstCommitSHA(repoRoot, planYAMLAbsPath)</span>
+<span class="dl dl-add">&#43; 	if err != nil {</span>
+<span class="dl dl-add">&#43; 		return fmt.Errorf(&#34;cannot resolve first commit for %s (skipping recap): %w&#34;, planYAMLRelPath, err)</span>
+<span class="dl dl-add">&#43; 	}</span>
+<span class="dl dl-add">&#43; 	if firstSHA == &#34;&#34; {</span>
+<span class="dl dl-add">&#43; 		return fmt.Errorf(&#34;cannot resolve first commit for %s (untracked, skipping recap)&#34;, planYAMLRelPath)</span>
+<span class="dl dl-add">&#43; 	}</span>
+<span class="dl dl-add">&#43; </span>
+<span class="dl dl-add">&#43; 	gitRange := firstSHA &#43; &#34;..HEAD&#34;</span>
+<span class="dl dl-add">&#43; </span>
+<span class="dl dl-add">&#43; 	db, dbErr := openReadOnlyDB(wipnoteDir)</span>
+<span class="dl dl-add">&#43; 	if dbErr != nil {</span>
+<span class="dl dl-add">&#43; 		fmt.Fprintf(os.Stderr, &#34;recap (non-fatal): open read index (proceeding without): %v\n&#34;, dbErr)</span>
+<span class="dl dl-add">&#43; 		db = nil</span>
+<span class="dl dl-add">&#43; 	}</span>
+<span class="dl dl-add">&#43; 	if db != nil {</span>
+<span class="dl dl-add">&#43; 		defer db.Close()</span>
+<span class="dl dl-add">&#43; 	}</span>
+<span class="dl dl-add">&#43; </span>
+<span class="dl dl-add">&#43; 	opts := recap.Options{</span>
+<span class="dl dl-add">&#43; 		Input:      gitRange,</span>
+<span class="dl dl-add">&#43; 		ProjectDir: repoRoot,</span>
+<span class="dl dl-add">&#43; 		Depth:      5,</span>
+<span class="dl dl-add">&#43; 	}</span>
+<span class="dl dl-add">&#43; 	data, collectErr := recap.Collect(db, opts)</span>
+<span class="dl dl-add">&#43; 	if collectErr != nil {</span>
+<span class="dl dl-add">&#43; 		fmt.Fprintf(os.Stderr, &#34;recap (non-fatal): collect (proceeding with empty): %v\n&#34;, collectErr)</span>
+<span class="dl dl-add">&#43; 		data = &amp;recap.RecapData{</span>
+<span class="dl dl-add">&#43; 			Outcome: fmt.Sprintf(&#34;Plan %s rollup&#34;, planID),</span>
+<span class="dl dl-add">&#43; 			Provenance: recap.Provenance{</span>
+<span class="dl dl-add">&#43; 				Kind:  recap.InputRange,</span>
+<span class="dl dl-add">&#43; 				Input: gitRange,</span>
+<span class="dl dl-add">&#43; 			},</span>
+<span class="dl dl-add">&#43; 		}</span>
+<span class="dl dl-add">&#43; 	}</span>
+<span class="dl dl-add">&#43; </span>
+<span class="dl dl-add">&#43; 	page := recaptmpl.Build(*data)</span>
+<span class="dl dl-add">&#43; 	var buf bytes.Buffer</span>
+<span class="dl dl-add">&#43; 	if renderErr := page.Render(&amp;buf); renderErr != nil {</span>
+<span class="dl dl-add">&#43; 		return fmt.Errorf(&#34;recap render: %w&#34;, renderErr)</span>
+<span class="dl dl-add">&#43; 	}</span>
+<span class="dl dl-add">&#43; </span>
+<span class="dl dl-add">&#43; 	recapsDir := filepath.Join(wipnoteDir, &#34;recaps&#34;)</span>
+<span class="dl dl-add">&#43; 	if mkErr := os.MkdirAll(recapsDir, 0o755); mkErr != nil {</span>
+<span class="dl dl-add">&#43; 		return fmt.Errorf(&#34;recap: create recaps dir: %w&#34;, mkErr)</span>
+<span class="dl dl-add">&#43; 	}</span>
+<span class="dl dl-add">&#43; 	artifactPath := filepath.Join(recapsDir, recapID&#43;&#34;.html&#34;)</span>
+<span class="dl dl-add">&#43; 	if writeErr := os.WriteFile(artifactPath, buf.Bytes(), 0o644); writeErr != nil {</span>
+<span class="dl dl-add">&#43; 		return fmt.Errorf(&#34;recap: write artifact: %w&#34;, writeErr)</span>
+<span class="dl dl-add">&#43; 	}</span>
+<span class="dl dl-add">&#43; </span>
+<span class="dl dl-add">&#43; 	if commitErr := commitRecapArtifact(wipnoteDir, recapID); commitErr != nil {</span>
+<span class="dl dl-add">&#43; 		fmt.Fprintf(os.Stderr, &#34;recap (non-fatal): commit artifact: %v\n&#34;, commitErr)</span>
+<span class="dl dl-add">&#43; 	}</span>
+<span class="dl dl-add">&#43; </span>
+<span class="dl dl-add">&#43; 	// Wire relates_to lineage edge from recap to plan (non-fatal).</span>
+<span class="dl dl-add">&#43; 	if edgeErr := addPlanRecapLineageEdge(wipnoteDir, recapID, planID); edgeErr != nil {</span>
+<span class="dl dl-add">&#43; 		fmt.Fprintf(os.Stderr, &#34;recap (non-fatal): add lineage edge: %v\n&#34;, edgeErr)</span>
+<span class="dl dl-add">&#43; 	}</span>
+<span class="dl dl-add">&#43; </span>
+<span class="dl dl-add">&#43; 	shortStart := firstSHA</span>
+<span class="dl dl-add">&#43; 	if len(shortStart) &gt; 7 {</span>
+<span class="dl dl-add">&#43; 		shortStart = shortStart[:7]</span>
+<span class="dl dl-add">&#43; 	}</span>
+<span class="dl dl-add">&#43; 	fmt.Printf(&#34;  ✓ %s.html generated (range: %s..HEAD)\n&#34;, recapID, shortStart)</span>
+<span class="dl dl-add">&#43; 	fmt.Printf(&#34;  Dashboard: wipnote serve then open http://127.0.0.1:8080 (or http://127.0.0.1:8088 in devcontainer)\n&#34;)</span>
+<span class="dl dl-add">&#43; 	return nil</span>
+<span class="dl dl-add">&#43; }</span>
+<span class="dl dl-add">&#43; </span>
+<span class="dl dl-add">&#43; // planFirstCommitSHA returns the SHA of the first commit that introduced</span>
+<span class="dl dl-add">&#43; // planYAMLAbsPath in the repository at repoRoot. Returns &#34;&#34; when the file</span>
+<span class="dl dl-add">&#43; // is not tracked. Uses --diff-filter=A --follow to follow renames.</span>
+<span class="dl dl-add">&#43; func planFirstCommitSHA(repoRoot, planYAMLAbsPath string) (string, error) {</span>
+<span class="dl dl-add">&#43; 	out, err := exec.Command(</span>
+<span class="dl dl-add">&#43; 		&#34;git&#34;, &#34;-C&#34;, repoRoot,</span>
+<span class="dl dl-add">&#43; 		&#34;log&#34;, &#34;--diff-filter=A&#34;, &#34;--follow&#34;, &#34;--format=%H&#34;, &#34;--&#34;, planYAMLAbsPath,</span>
+<span class="dl dl-add">&#43; 	).Output()</span>
+<span class="dl dl-add">&#43; 	if err != nil {</span>
+<span class="dl dl-add">&#43; 		return &#34;&#34;, fmt.Errorf(&#34;git log --diff-filter=A: %w&#34;, err)</span>
+<span class="dl dl-add">&#43; 	}</span>
+<span class="dl dl-add">&#43; 	raw := strings.TrimSpace(string(out))</span>
+<span class="dl dl-add">&#43; 	if raw == &#34;&#34; {</span>
+<span class="dl dl-add">&#43; 		return &#34;&#34;, fmt.Errorf(&#34;plan YAML %s has no git history (untracked)&#34;, planYAMLAbsPath)</span>
+<span class="dl dl-add">&#43; 	}</span>
+<span class="dl dl-add">&#43; 	// git log outputs newest-first; we want the oldest (last line).</span>
+<span class="dl dl-add">&#43; 	lines := strings.Split(raw, &#34;\n&#34;)</span>
+<span class="dl dl-add">&#43; 	return strings.TrimSpace(lines[len(lines)-1]), nil</span>
+<span class="dl dl-add">&#43; }</span>
+<span class="dl dl-add">&#43; </span>
+<span class="dl dl-add">&#43; // addPlanRecapLineageEdge wires a relates_to edge from the recap artifact to</span>
+<span class="dl dl-add">&#43; // the plan work item so lineage queries surface the recap as a descendant.</span>
+<span class="dl dl-add">&#43; func addPlanRecapLineageEdge(wipnoteDir, recapID, planID string) error {</span>
+<span class="dl dl-add">&#43; 	p, err := workitem.Open(wipnoteDir, &#34;claude-code&#34;)</span>
+<span class="dl dl-add">&#43; 	if err != nil {</span>
+<span class="dl dl-add">&#43; 		return fmt.Errorf(&#34;open project: %w&#34;, err)</span>
+<span class="dl dl-add">&#43; 	}</span>
+<span class="dl dl-add">&#43; 	defer p.Close()</span>
+<span class="dl dl-add">&#43; </span>
+<span class="dl dl-add">&#43; 	edge := models.Edge{</span>
+<span class="dl dl-add">&#43; 		TargetID:     recapID,</span>
+<span class="dl dl-add">&#43; 		Relationship: models.RelRelatesTo,</span>
+<span class="dl dl-add">&#43; 		Title:        &#34;recap&#34;,</span>
+<span class="dl dl-add">&#43; 		Since:        time.Now().UTC(),</span>
+<span class="dl dl-add">&#43; 	}</span>
+<span class="dl dl-add">&#43; 	_, err = p.Plans.AddEdge(planID, edge)</span>
+<span class="dl dl-add">&#43; 	return err</span>
+<span class="dl dl-add">&#43; }</span>
+<span class="dl dl-add">&#43; </span>
+<span class="dl dl-ctx">  // addRecapLineageEdge writes a relates_to edge from the recap HTML artifact</span>
+<span class="dl dl-ctx">  // into the work item&#39;s edge list so `wipnote lineage &lt;workItemID&gt;` surfaces</span>
+<span class="dl dl-ctx">  // the recap as a forward descendant.</span>
+</code></pre>
+    
+  </div>
+  
+</div>
+
+            </details>
+          </div>
+          
+          <div class="lin-node down file-node">
+            <span class="lin-glyph"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.4" fill="currentColor"/></svg></span>
+            <details class="lin-file">
+              <summary>
+                <span class="file-change file-change-modify">modify</span>
+                <code class="lin-file-path">cmd/wipnote/recap_test.go</code>
+                <span class="lin-file-stat"><span class="plus">+83</span></span>
+              </summary>
+              <div class="annotated-diff embedded diff-unified diff-unified" data-language="go">
+  
+  <div class="diff-hunk">
+    <div class="hunk-meta">
+      <code class="hunk-header">func TestRecapCmd_Feature(t *testing.T) {</code>
+      <span class="hunk-summary">83 added, 0 removed</span>
+    </div>
+    
+    <pre class="diff-pre"><code class="diff-code" data-language="go"><span class="dl dl-ctx">  	t.Logf(&#34;commit: %s&#34;, gitOut)</span>
+<span class="dl dl-ctx">  }</span>
+<span class="dl dl-ctx">  </span>
+<span class="dl dl-add">&#43; // TestRunPlanRollupRecap verifies that RunPlanRollupRecap produces a</span>
+<span class="dl dl-add">&#43; // recap-pln-&lt;planID&gt;.html artifact when the plan YAML is committed.</span>
+<span class="dl dl-add">&#43; func TestRunPlanRollupRecap(t *testing.T) {</span>
+<span class="dl dl-add">&#43; 	if testing.Short() {</span>
+<span class="dl dl-add">&#43; 		t.Skip(&#34;skipping binary-spawning test in -short mode&#34;)</span>
+<span class="dl dl-add">&#43; 	}</span>
+<span class="dl dl-add">&#43; </span>
+<span class="dl dl-add">&#43; 	repo := initFixtureRepo(t)</span>
+<span class="dl dl-add">&#43; 	wipDir := filepath.Join(repo, &#34;.wipnote&#34;)</span>
+<span class="dl dl-add">&#43; </span>
+<span class="dl dl-add">&#43; 	// Create and commit a minimal plan YAML so it has a git history entry.</span>
+<span class="dl dl-add">&#43; 	planID := &#34;plan-testabcd1234&#34;</span>
+<span class="dl dl-add">&#43; 	plansDir := filepath.Join(wipDir, &#34;plans&#34;)</span>
+<span class="dl dl-add">&#43; 	if err := os.MkdirAll(plansDir, 0o755); err != nil {</span>
+<span class="dl dl-add">&#43; 		t.Fatal(err)</span>
+<span class="dl dl-add">&#43; 	}</span>
+<span class="dl dl-add">&#43; 	planPath := filepath.Join(plansDir, planID&#43;&#34;.yaml&#34;)</span>
+<span class="dl dl-add">&#43; 	planContent := &#34;meta:\n  id: &#34; &#43; planID &#43; &#34;\n  status: finalized\n  track_id: trk-test\n&#34; &#43;</span>
+<span class="dl dl-add">&#43; 		&#34;design:\n  problem: test\nslices: []\n&#34;</span>
+<span class="dl dl-add">&#43; 	if err := os.WriteFile(planPath, []byte(planContent), 0o644); err != nil {</span>
+<span class="dl dl-add">&#43; 		t.Fatal(err)</span>
+<span class="dl dl-add">&#43; 	}</span>
+<span class="dl dl-add">&#43; </span>
+<span class="dl dl-add">&#43; 	runIn := func(wd string, args ...string) {</span>
+<span class="dl dl-add">&#43; 		t.Helper()</span>
+<span class="dl dl-add">&#43; 		cmd := exec.Command(args[0], args[1:]...)</span>
+<span class="dl dl-add">&#43; 		cmd.Dir = wd</span>
+<span class="dl dl-add">&#43; 		out, err := cmd.CombinedOutput()</span>
+<span class="dl dl-add">&#43; 		if err != nil {</span>
+<span class="dl dl-add">&#43; 			t.Fatalf(&#34;cmd %v: %v\n%s&#34;, args, err, out)</span>
+<span class="dl dl-add">&#43; 		}</span>
+<span class="dl dl-add">&#43; 	}</span>
+<span class="dl dl-add">&#43; 	runIn(repo, &#34;git&#34;, &#34;add&#34;, planPath)</span>
+<span class="dl dl-add">&#43; 	runIn(repo, &#34;git&#34;, &#34;commit&#34;, &#34;-m&#34;, &#34;add plan YAML&#34;)</span>
+<span class="dl dl-add">&#43; </span>
+<span class="dl dl-add">&#43; 	// Call RunPlanRollupRecap directly.</span>
+<span class="dl dl-add">&#43; 	recapID := &#34;recap-pln-&#34; &#43; planID</span>
+<span class="dl dl-add">&#43; 	if err := RunPlanRollupRecap(wipDir, planID); err != nil {</span>
+<span class="dl dl-add">&#43; 		t.Fatalf(&#34;RunPlanRollupRecap: %v&#34;, err)</span>
+<span class="dl dl-add">&#43; 	}</span>
+<span class="dl dl-add">&#43; </span>
+<span class="dl dl-add">&#43; 	// Assert the artifact was written.</span>
+<span class="dl dl-add">&#43; 	artifactPath := filepath.Join(wipDir, &#34;recaps&#34;, recapID&#43;&#34;.html&#34;)</span>
+<span class="dl dl-add">&#43; 	if _, statErr := os.Stat(artifactPath); statErr != nil {</span>
+<span class="dl dl-add">&#43; 		t.Fatalf(&#34;artifact not found at %s: %v&#34;, artifactPath, statErr)</span>
+<span class="dl dl-add">&#43; 	}</span>
+<span class="dl dl-add">&#43; </span>
+<span class="dl dl-add">&#43; 	// Assert the recap-pln ID convention is correct.</span>
+<span class="dl dl-add">&#43; 	if !strings.HasPrefix(recapID, &#34;recap-pln-&#34;) {</span>
+<span class="dl dl-add">&#43; 		t.Errorf(&#34;recapID %q does not start with recap-pln-&#34;, recapID)</span>
+<span class="dl dl-add">&#43; 	}</span>
+<span class="dl dl-add">&#43; </span>
+<span class="dl dl-add">&#43; 	t.Logf(&#34;recap-pln artifact written: %s&#34;, artifactPath)</span>
+<span class="dl dl-add">&#43; }</span>
+<span class="dl dl-add">&#43; </span>
+<span class="dl dl-add">&#43; // TestRunPlanRollupRecap_UntrackedYAML verifies that RunPlanRollupRecap returns</span>
+<span class="dl dl-add">&#43; // a non-nil error (non-fatal by contract) when the plan YAML has no git history.</span>
+<span class="dl dl-add">&#43; func TestRunPlanRollupRecap_UntrackedYAML(t *testing.T) {</span>
+<span class="dl dl-add">&#43; 	if testing.Short() {</span>
+<span class="dl dl-add">&#43; 		t.Skip(&#34;skipping binary-spawning test in -short mode&#34;)</span>
+<span class="dl dl-add">&#43; 	}</span>
+<span class="dl dl-add">&#43; </span>
+<span class="dl dl-add">&#43; 	repo := initFixtureRepo(t)</span>
+<span class="dl dl-add">&#43; 	wipDir := filepath.Join(repo, &#34;.wipnote&#34;)</span>
+<span class="dl dl-add">&#43; </span>
+<span class="dl dl-add">&#43; 	// Plan YAML exists on disk but is NOT committed — no git history.</span>
+<span class="dl dl-add">&#43; 	planID := &#34;plan-untracked9999&#34;</span>
+<span class="dl dl-add">&#43; 	plansDir := filepath.Join(wipDir, &#34;plans&#34;)</span>
+<span class="dl dl-add">&#43; 	if err := os.MkdirAll(plansDir, 0o755); err != nil {</span>
+<span class="dl dl-add">&#43; 		t.Fatal(err)</span>
+<span class="dl dl-add">&#43; 	}</span>
+<span class="dl dl-add">&#43; 	planPath := filepath.Join(plansDir, planID&#43;&#34;.yaml&#34;)</span>
+<span class="dl dl-add">&#43; 	if err := os.WriteFile(planPath, []byte(&#34;meta:\n  id: &#34;&#43;planID&#43;&#34;\n&#34;), 0o644); err != nil {</span>
+<span class="dl dl-add">&#43; 		t.Fatal(err)</span>
+<span class="dl dl-add">&#43; 	}</span>
+<span class="dl dl-add">&#43; </span>
+<span class="dl dl-add">&#43; 	err := RunPlanRollupRecap(wipDir, planID)</span>
+<span class="dl dl-add">&#43; 	if err == nil {</span>
+<span class="dl dl-add">&#43; 		t.Fatalf(&#34;expected error for untracked plan YAML, got nil&#34;)</span>
+<span class="dl dl-add">&#43; 	}</span>
+<span class="dl dl-add">&#43; 	t.Logf(&#34;got expected error: %v&#34;, err)</span>
+<span class="dl dl-add">&#43; }</span>
+<span class="dl dl-add">&#43; </span>
+<span class="dl dl-ctx">  // TestRecapCmd_Range runs `wipnote recap --range HEAD~1..HEAD` and asserts</span>
+<span class="dl dl-ctx">  // the artifact uses the recap-r-&lt;12-char-hash&gt; id scheme.</span>
+<span class="dl dl-ctx">  func TestRecapCmd_Range(t *testing.T) {</span>
+</code></pre>
+    
+  </div>
+  
+</div>
+
+            </details>
+          </div>
+          
+          <div class="lin-node down file-node">
+            <span class="lin-glyph"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.4" fill="currentColor"/></svg></span>
+            <details class="lin-file">
+              <summary>
+                <span class="file-change file-change-modify">modify</span>
+                <code class="lin-file-path">cmd/wipnote/workitem.go</code>
+                <span class="lin-file-stat"><span class="plus">+6</span></span>
+              </summary>
+              <div class="annotated-diff embedded diff-unified diff-unified" data-language="go">
+  
+  <div class="diff-hunk">
+    <div class="hunk-meta">
+      <code class="hunk-header">func wiSetStatusWithAgent(typeName, id, status, sessionID, agentID string) error</code>
+      <span class="hunk-summary">6 added, 0 removed</span>
+    </div>
+    
+    <pre class="diff-pre"><code class="diff-code" data-language="go"><span class="dl dl-ctx">  		emitDriftNudge(os.Stderr, touchedPaths, dir, iarch.GitDiffNameOnly)</span>
+<span class="dl dl-ctx">  	}</span>
+<span class="dl dl-ctx">  </span>
+<span class="dl dl-add">&#43; 	// Recap nudge: for code-bearing completions, remind the agent to run recap.</span>
+<span class="dl dl-add">&#43; 	// Non-fatal, stderr only, consistent with the emitDriftNudge pattern above.</span>
+<span class="dl dl-add">&#43; 	if status == &#34;done&#34; &amp;&amp; shouldAutocommitWorkitemArtifact(typeName) {</span>
+<span class="dl dl-add">&#43; 		fmt.Fprintf(os.Stderr, &#34;  ! recap: wipnote recap %s   (grounded diff recap of this work)\n&#34;, id)</span>
+<span class="dl dl-add">&#43; 	}</span>
+<span class="dl dl-add">&#43; </span>
+<span class="dl dl-ctx">  	// On start, print a session-label hint tailored to the active harness.</span>
+<span class="dl dl-ctx">  	if status == &#34;in-progress&#34; {</span>
+<span class="dl dl-ctx">  		printStartTip(typeName, node.Title)</span>
+</code></pre>
+    
+  </div>
+  
+</div>
+
+            </details>
+          </div>
+          
+          <div class="lin-node down file-node">
+            <span class="lin-glyph"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.4" fill="currentColor"/></svg></span>
+            <details class="lin-file">
+              <summary>
+                <span class="file-change file-change-modify">modify</span>
+                <code class="lin-file-path">plugin/skills/visual-recap/SKILL.md</code>
+                <span class="lin-file-stat"><span class="plus">+31</span></span>
+              </summary>
+              <div class="annotated-diff embedded diff-unified diff-unified" data-language="markdown">
+  
+  <div class="diff-hunk">
+    <div class="hunk-meta">
+      <code class="hunk-header">Keep the narrative tight — 5-10 lines. The full artifact is in the dashboard f</code>
+      <span class="hunk-summary">31 added, 0 removed</span>
+    </div>
+    
+    <pre class="diff-pre"><code class="diff-code" data-language="markdown"><span class="dl dl-ctx">  - **Dashboard URL:** default port is `8080`; devcontainer port is `8088` (see AGENTS.md).</span>
+<span class="dl dl-ctx">    Tell the user which applies based on their environment.</span>
+<span class="dl dl-ctx">  - **Secrets:** always redact before displaying any diff content in the narrative.</span>
+<span class="dl dl-add">&#43; </span>
+<span class="dl dl-add">&#43; ---</span>
+<span class="dl dl-add">&#43; </span>
+<span class="dl dl-add">&#43; ## Auto-triggers</span>
+<span class="dl dl-add">&#43; </span>
+<span class="dl dl-add">&#43; Recap generation fires automatically at two points in the lifecycle — no manual invocation needed.</span>
+<span class="dl dl-add">&#43; </span>
+<span class="dl dl-add">&#43; ### 1. Plan finalize auto-rollup</span>
+<span class="dl dl-add">&#43; </span>
+<span class="dl dl-add">&#43; `wipnote plan finalize &lt;plan-id&gt;` automatically generates a consolidated rollup recap after</span>
+<span class="dl dl-add">&#43; locking the plan. The artifact ID is `recap-pln-&lt;plan-id&gt;` and the git range spans from the</span>
+<span class="dl dl-add">&#43; first commit that introduced the plan YAML (`&lt;first-commit&gt;..HEAD`), covering the full</span>
+<span class="dl dl-add">&#43; planning-to-finalize arc. The recap is written to `.wipnote/recaps/recap-pln-&lt;plan-id&gt;.html`</span>
+<span class="dl dl-add">&#43; and committed. A `relates_to` lineage edge is wired from the plan to the recap so it appears</span>
+<span class="dl dl-add">&#43; in `wipnote lineage &lt;plan-id&gt;`.</span>
+<span class="dl dl-add">&#43; </span>
+<span class="dl dl-add">&#43; This step is non-fatal: if the plan YAML has no git history yet (untracked) or any other</span>
+<span class="dl dl-add">&#43; error occurs, a warning is printed to stderr and finalize continues normally.</span>
+<span class="dl dl-add">&#43; </span>
+<span class="dl dl-add">&#43; ### 2. Feature/bug complete recap nudge</span>
+<span class="dl dl-add">&#43; </span>
+<span class="dl dl-add">&#43; `wipnote feature complete &lt;id&gt;` (and `wipnote bug complete &lt;id&gt;`) print a one-line nudge to</span>
+<span class="dl dl-add">&#43; stderr after a successful code-bearing completion:</span>
+<span class="dl dl-add">&#43; </span>
+<span class="dl dl-add">&#43; ```</span>
+<span class="dl dl-add">&#43;   ! recap: wipnote recap &lt;id&gt;   (grounded diff recap of this work)</span>
+<span class="dl dl-add">&#43; ```</span>
+<span class="dl dl-add">&#43; </span>
+<span class="dl dl-add">&#43; This is a reminder only — no recap is generated automatically. Run the suggested command to</span>
+<span class="dl dl-add">&#43; produce a grounded diff recap grounded in the real committed diff. The nudge is consistent</span>
+<span class="dl dl-add">&#43; with the adjacent drift nudge and is non-fatal.</span>
+</code></pre>
+    
+  </div>
+  
+</div>
+
+            </details>
+          </div>
+          
+          <div class="lin-node down file-node">
+            <span class="lin-glyph"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.4" fill="currentColor"/></svg></span>
+            <details class="lin-file">
+              <summary>
+                <span class="file-change file-change-modify">modify</span>
+                <code class="lin-file-path">port/packages/antigravity-extension/skills/visual-recap/SKILL.md</code>
+                <span class="lin-file-stat"><span class="plus">+31</span></span>
+              </summary>
+              <div class="annotated-diff embedded diff-unified diff-unified" data-language="markdown">
+  
+  <div class="diff-hunk">
+    <div class="hunk-meta">
+      <code class="hunk-header">Keep the narrative tight — 5-10 lines. The full artifact is in the dashboard f</code>
+      <span class="hunk-summary">31 added, 0 removed</span>
+    </div>
+    
+    <pre class="diff-pre"><code class="diff-code" data-language="markdown"><span class="dl dl-ctx">  - **Dashboard URL:** default port is `8080`; devcontainer port is `8088` (see AGENTS.md).</span>
+<span class="dl dl-ctx">    Tell the user which applies based on their environment.</span>
+<span class="dl dl-ctx">  - **Secrets:** always redact before displaying any diff content in the narrative.</span>
+<span class="dl dl-add">&#43; </span>
+<span class="dl dl-add">&#43; ---</span>
+<span class="dl dl-add">&#43; </span>
+<span class="dl dl-add">&#43; ## Auto-triggers</span>
+<span class="dl dl-add">&#43; </span>
+<span class="dl dl-add">&#43; Recap generation fires automatically at two points in the lifecycle — no manual invocation needed.</span>
+<span class="dl dl-add">&#43; </span>
+<span class="dl dl-add">&#43; ### 1. Plan finalize auto-rollup</span>
+<span class="dl dl-add">&#43; </span>
+<span class="dl dl-add">&#43; `wipnote plan finalize &lt;plan-id&gt;` automatically generates a consolidated rollup recap after</span>
+<span class="dl dl-add">&#43; locking the plan. The artifact ID is `recap-pln-&lt;plan-id&gt;` and the git range spans from the</span>
+<span class="dl dl-add">&#43; first commit that introduced the plan YAML (`&lt;first-commit&gt;..HEAD`), covering the full</span>
+<span class="dl dl-add">&#43; planning-to-finalize arc. The recap is written to `.wipnote/recaps/recap-pln-&lt;plan-id&gt;.html`</span>
+<span class="dl dl-add">&#43; and committed. A `relates_to` lineage edge is wired from the plan to the recap so it appears</span>
+<span class="dl dl-add">&#43; in `wipnote lineage &lt;plan-id&gt;`.</span>
+<span class="dl dl-add">&#43; </span>
+<span class="dl dl-add">&#43; This step is non-fatal: if the plan YAML has no git history yet (untracked) or any other</span>
+<span class="dl dl-add">&#43; error occurs, a warning is printed to stderr and finalize continues normally.</span>
+<span class="dl dl-add">&#43; </span>
+<span class="dl dl-add">&#43; ### 2. Feature/bug complete recap nudge</span>
+<span class="dl dl-add">&#43; </span>
+<span class="dl dl-add">&#43; `wipnote feature complete &lt;id&gt;` (and `wipnote bug complete &lt;id&gt;`) print a one-line nudge to</span>
+<span class="dl dl-add">&#43; stderr after a successful code-bearing completion:</span>
+<span class="dl dl-add">&#43; </span>
+<span class="dl dl-add">&#43; ```</span>
+<span class="dl dl-add">&#43;   ! recap: wipnote recap &lt;id&gt;   (grounded diff recap of this work)</span>
+<span class="dl dl-add">&#43; ```</span>
+<span class="dl dl-add">&#43; </span>
+<span class="dl dl-add">&#43; This is a reminder only — no recap is generated automatically. Run the suggested command to</span>
+<span class="dl dl-add">&#43; produce a grounded diff recap grounded in the real committed diff. The nudge is consistent</span>
+<span class="dl dl-add">&#43; with the adjacent drift nudge and is non-fatal.</span>
+</code></pre>
+    
+  </div>
+  
+</div>
+
+            </details>
+          </div>
+          
+          <div class="lin-node down file-node">
+            <span class="lin-glyph"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.4" fill="currentColor"/></svg></span>
+            <details class="lin-file">
+              <summary>
+                <span class="file-change file-change-modify">modify</span>
+                <code class="lin-file-path">port/packages/codex-marketplace/.agents/plugins/wipnote/skills/visual-recap/SKILL.md</code>
+                <span class="lin-file-stat"><span class="plus">+31</span></span>
+              </summary>
+              <div class="annotated-diff embedded diff-unified diff-unified" data-language="markdown">
+  
+  <div class="diff-hunk">
+    <div class="hunk-meta">
+      <code class="hunk-header">Keep the narrative tight — 5-10 lines. The full artifact is in the dashboard f</code>
+      <span class="hunk-summary">31 added, 0 removed</span>
+    </div>
+    
+    <pre class="diff-pre"><code class="diff-code" data-language="markdown"><span class="dl dl-ctx">  - **Dashboard URL:** default port is `8080`; devcontainer port is `8088` (see AGENTS.md).</span>
+<span class="dl dl-ctx">    Tell the user which applies based on their environment.</span>
+<span class="dl dl-ctx">  - **Secrets:** always redact before displaying any diff content in the narrative.</span>
+<span class="dl dl-add">&#43; </span>
+<span class="dl dl-add">&#43; ---</span>
+<span class="dl dl-add">&#43; </span>
+<span class="dl dl-add">&#43; ## Auto-triggers</span>
+<span class="dl dl-add">&#43; </span>
+<span class="dl dl-add">&#43; Recap generation fires automatically at two points in the lifecycle — no manual invocation needed.</span>
+<span class="dl dl-add">&#43; </span>
+<span class="dl dl-add">&#43; ### 1. Plan finalize auto-rollup</span>
+<span class="dl dl-add">&#43; </span>
+<span class="dl dl-add">&#43; `wipnote plan finalize &lt;plan-id&gt;` automatically generates a consolidated rollup recap after</span>
+<span class="dl dl-add">&#43; locking the plan. The artifact ID is `recap-pln-&lt;plan-id&gt;` and the git range spans from the</span>
+<span class="dl dl-add">&#43; first commit that introduced the plan YAML (`&lt;first-commit&gt;..HEAD`), covering the full</span>
+<span class="dl dl-add">&#43; planning-to-finalize arc. The recap is written to `.wipnote/recaps/recap-pln-&lt;plan-id&gt;.html`</span>
+<span class="dl dl-add">&#43; and committed. A `relates_to` lineage edge is wired from the plan to the recap so it appears</span>
+<span class="dl dl-add">&#43; in `wipnote lineage &lt;plan-id&gt;`.</span>
+<span class="dl dl-add">&#43; </span>
+<span class="dl dl-add">&#43; This step is non-fatal: if the plan YAML has no git history yet (untracked) or any other</span>
+<span class="dl dl-add">&#43; error occurs, a warning is printed to stderr and finalize continues normally.</span>
+<span class="dl dl-add">&#43; </span>
+<span class="dl dl-add">&#43; ### 2. Feature/bug complete recap nudge</span>
+<span class="dl dl-add">&#43; </span>
+<span class="dl dl-add">&#43; `wipnote feature complete &lt;id&gt;` (and `wipnote bug complete &lt;id&gt;`) print a one-line nudge to</span>
+<span class="dl dl-add">&#43; stderr after a successful code-bearing completion:</span>
+<span class="dl dl-add">&#43; </span>
+<span class="dl dl-add">&#43; ```</span>
+<span class="dl dl-add">&#43;   ! recap: wipnote recap &lt;id&gt;   (grounded diff recap of this work)</span>
+<span class="dl dl-add">&#43; ```</span>
+<span class="dl dl-add">&#43; </span>
+<span class="dl dl-add">&#43; This is a reminder only — no recap is generated automatically. Run the suggested command to</span>
+<span class="dl dl-add">&#43; produce a grounded diff recap grounded in the real committed diff. The nudge is consistent</span>
+<span class="dl dl-add">&#43; with the adjacent drift nudge and is non-fatal.</span>
+</code></pre>
+    
+  </div>
+  
+</div>
+
+            </details>
+          </div>
+          
+          <div class="lin-node down file-node">
+            <span class="lin-glyph"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.4" fill="currentColor"/></svg></span>
+            <details class="lin-file">
+              <summary>
+                <span class="file-change file-change-modify">modify</span>
+                <code class="lin-file-path">port/packages/gemini-extension/skills/visual-recap/SKILL.md</code>
+                <span class="lin-file-stat"><span class="plus">+31</span></span>
+              </summary>
+              <div class="annotated-diff embedded diff-unified diff-unified" data-language="markdown">
+  
+  <div class="diff-hunk">
+    <div class="hunk-meta">
+      <code class="hunk-header">Keep the narrative tight — 5-10 lines. The full artifact is in the dashboard f</code>
+      <span class="hunk-summary">31 added, 0 removed</span>
+    </div>
+    
+    <pre class="diff-pre"><code class="diff-code" data-language="markdown"><span class="dl dl-ctx">  - **Dashboard URL:** default port is `8080`; devcontainer port is `8088` (see AGENTS.md).</span>
+<span class="dl dl-ctx">    Tell the user which applies based on their environment.</span>
+<span class="dl dl-ctx">  - **Secrets:** always redact before displaying any diff content in the narrative.</span>
+<span class="dl dl-add">&#43; </span>
+<span class="dl dl-add">&#43; ---</span>
+<span class="dl dl-add">&#43; </span>
+<span class="dl dl-add">&#43; ## Auto-triggers</span>
+<span class="dl dl-add">&#43; </span>
+<span class="dl dl-add">&#43; Recap generation fires automatically at two points in the lifecycle — no manual invocation needed.</span>
+<span class="dl dl-add">&#43; </span>
+<span class="dl dl-add">&#43; ### 1. Plan finalize auto-rollup</span>
+<span class="dl dl-add">&#43; </span>
+<span class="dl dl-add">&#43; `wipnote plan finalize &lt;plan-id&gt;` automatically generates a consolidated rollup recap after</span>
+<span class="dl dl-add">&#43; locking the plan. The artifact ID is `recap-pln-&lt;plan-id&gt;` and the git range spans from the</span>
+<span class="dl dl-add">&#43; first commit that introduced the plan YAML (`&lt;first-commit&gt;..HEAD`), covering the full</span>
+<span class="dl dl-add">&#43; planning-to-finalize arc. The recap is written to `.wipnote/recaps/recap-pln-&lt;plan-id&gt;.html`</span>
+<span class="dl dl-add">&#43; and committed. A `relates_to` lineage edge is wired from the plan to the recap so it appears</span>
+<span class="dl dl-add">&#43; in `wipnote lineage &lt;plan-id&gt;`.</span>
+<span class="dl dl-add">&#43; </span>
+<span class="dl dl-add">&#43; This step is non-fatal: if the plan YAML has no git history yet (untracked) or any other</span>
+<span class="dl dl-add">&#43; error occurs, a warning is printed to stderr and finalize continues normally.</span>
+<span class="dl dl-add">&#43; </span>
+<span class="dl dl-add">&#43; ### 2. Feature/bug complete recap nudge</span>
+<span class="dl dl-add">&#43; </span>
+<span class="dl dl-add">&#43; `wipnote feature complete &lt;id&gt;` (and `wipnote bug complete &lt;id&gt;`) print a one-line nudge to</span>
+<span class="dl dl-add">&#43; stderr after a successful code-bearing completion:</span>
+<span class="dl dl-add">&#43; </span>
+<span class="dl dl-add">&#43; ```</span>
+<span class="dl dl-add">&#43;   ! recap: wipnote recap &lt;id&gt;   (grounded diff recap of this work)</span>
+<span class="dl dl-add">&#43; ```</span>
+<span class="dl dl-add">&#43; </span>
+<span class="dl dl-add">&#43; This is a reminder only — no recap is generated automatically. Run the suggested command to</span>
+<span class="dl dl-add">&#43; produce a grounded diff recap grounded in the real committed diff. The nudge is consistent</span>
+<span class="dl dl-add">&#43; with the adjacent drift nudge and is non-fatal.</span>
+</code></pre>
+    
+  </div>
+  
+</div>
+
+            </details>
+          </div>
+          
+        </div>
+        
+
+        
+        <div class="lin-node down">
+          <span class="lin-glyph"><svg viewBox="0 0 24 24"><polygon points="12,3 20,7.5 20,16.5 12,21 4,16.5 4,7.5" fill="none" stroke="currentColor" stroke-width="2"/></svg></span>
+          <div class="lin-card">
+            <div class="lin-id"><span class="lin-kind">plan</span><code>plan-93b8eba0</code><span class="lin-rel produced">planned in</span></div>
+            <div class="lin-ttl">Plan: Visual plan &amp; lineage-grounded recap (native port of BuilderIO visual-plan/visual-recap)</div>
+          </div>
+        </div>
+        
+        <div class="lin-node down">
+          <span class="lin-glyph"><svg viewBox="0 0 24 24"><rect x="4" y="6" width="16" height="12" rx="2" fill="none" stroke="currentColor" stroke-width="2"/></svg></span>
+          <div class="lin-card">
+            <div class="lin-id"><span class="lin-kind">track</span><code>trk-a951e3c0</code><span class="lin-rel produced">part of</span></div>
+            <div class="lin-ttl">Visual planning &amp; recap — native port of BuilderIO visual-plan/visual-recap concepts</div>
+          </div>
+        </div>
+        
+        <div class="lin-node down">
+          <span class="lin-glyph"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4" fill="currentColor"/></svg></span>
+          <div class="lin-card">
+            <div class="lin-id"><span class="lin-kind">unknown</span><code>28e77ff6-44b6-4bb1-bf8b-dd2634b75ecc</code><span class="lin-rel produced">implemented in</span></div>
+            <div class="lin-ttl">wipnote-20260619-09.52.11</div>
+          </div>
+        </div>
+        
+      </div>
+    </div>
+    </div>
+  
+  </div>
+</section>
+
+</body>
+</html>

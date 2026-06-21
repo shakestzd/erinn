@@ -169,13 +169,15 @@ func marketplaceArtifactDirs() []string {
 
 // marketplaceWipnotePresent reports whether any marketplace wipnote artifact
 // exists that would need removing before a dev-mode launch. It checks:
-//   - isPluginInstalled() (installed_plugins.json entry)
+//   - isAnyMarketplacePluginInstalledAt() — all registry scopes that
+//     removeMarketplaceWipnote handles (wipnote@wipnote, wipnote@local-marketplace,
+//     htmlgraph@htmlgraph, htmlgraph@local-marketplace)
 //   - all artifact directories that removeMarketplaceWipnote would remove
 //
 // When this returns false, removeMarketplaceWipnote can skip all subprocess
 // calls immediately. Pure-ish (reads files + os.Stat) so it is unit-testable.
 func marketplaceWipnotePresent() bool {
-	if isPluginInstalled() {
+	if isAnyMarketplacePluginInstalledAt(installedPluginsJSONPath()) {
 		return true
 	}
 	for _, dir := range marketplaceArtifactDirs() {

@@ -295,14 +295,17 @@ type ToolUseContextRow struct {
 // in-progress — a stale pointer to a completed feature is treated as empty,
 // so guards correctly block edits without an active work item.
 func GetToolUseContext(db *sql.DB, sessionID, agentID string) (*ToolUseContextRow, error) {
-	// Claim lookup uses two paths, tried in order:
+	// Claim lookup uses three paths, tried in order:
 	//   1. claimed_by_agent_id = agentID  — the direct per-agent claim
 	//   2. owner_session_id   = sessionID — fallback for subagent tool calls,
 	//      which share the orchestrator's session_id but carry a distinct
 	//      agent_id that never had its own claim row (bug-cb4918d8). The
 	//      orchestrator's claim is keyed on owner_session_id, so this resolves
 	//      the parent's claim for any subagent running under it.
-	// Both paths are expressed as correlated subqueries so the outer row
+	//   3. session_family_id sibling — fallback for harnesses that invoke hooks
+	//      with a sibling/root session token while CLI attribution landed on
+	//      another member of the same logical session family.
+	// All claim paths are expressed as correlated subqueries so the outer row
 	// remains a single sessions row (LIMIT 1 stays exact) and the primary
 	// agent-id match wins over the session-id fallback via COALESCE ordering.
 	row := db.QueryRow(`
@@ -323,6 +326,14 @@ func GetToolUseContext(db *sql.DB, sessionID, agentID string) (*ToolUseContextRo
 		           LIMIT 1),
 		         (SELECT c.work_item_id FROM claims c
 		           WHERE c.owner_session_id = ?
+		             AND c.status IN ('proposed','claimed','in_progress','blocked','handoff_pending')
+		           ORDER BY c.leased_at DESC
+		           LIMIT 1),
+		         (SELECT c.work_item_id FROM claims c
+		           JOIN sessions cs ON cs.session_id = c.owner_session_id
+		           WHERE c.owner_session_id != s.session_id
+		             AND cs.status = 'active'
+		             AND COALESCE(NULLIF(cs.session_family_id, ''), cs.session_id) = COALESCE(NULLIF(s.session_family_id, ''), s.session_id)
 		             AND c.status IN ('proposed','claimed','in_progress','blocked','handoff_pending')
 		           ORDER BY c.leased_at DESC
 		           LIMIT 1),
@@ -528,6 +539,7 @@ type ResumableSession struct {
 	WorkItemID       string `json:"work_item_id"`
 	Title            string `json:"title"`
 	Type             string `json:"type"`
+	PromptLabel      string `json:"prompt_label"`
 	Branch           string `json:"branch"`
 	ExecWorktreePath string `json:"exec_worktree_path"`
 	Harness          string `json:"harness"`
@@ -653,6 +665,7 @@ ORDER BY last_activity DESC, work_item_id`, cutoff)
 		}
 		item.Live = live != 0
 		item.Harness = normalizeSessionHarness(item.Harness, agentAssigned)
+		item.PromptLabel = SessionPromptLabel(db, item.LastSessionID)
 		out = append(out, item)
 	}
 	return out, rows.Err()
@@ -793,6 +806,7 @@ ORDER BY harness_group ASC, last_activity DESC, work_item_id`, targetHarness, ta
 		}
 		item.Live = live != 0
 		item.Harness = normalizeSessionHarness(item.Harness, agentAssigned)
+		item.PromptLabel = SessionPromptLabel(db, item.LastSessionID)
 		if harnessGroup == 0 {
 			grouped.SameHarness = append(grouped.SameHarness, item)
 		} else {
@@ -899,7 +913,79 @@ LIMIT 1`, sessionID, workItemID, cutoff)
 	}
 	item.Live = live != 0
 	item.Harness = normalizeSessionHarness(item.Harness, agentAssigned)
+	item.PromptLabel = SessionPromptLabel(db, item.LastSessionID)
 	return &item, nil
+}
+
+// SessionPromptLabel returns a human session label suitable for resume choosers.
+// Prefer explicit session handoff metadata, then the latest user transcript
+// message, and finally the first user transcript message. Empty means no prompt
+// label is available and callers should fall back to work-item metadata.
+func SessionPromptLabel(db *sql.DB, sessionID string) string {
+	label, _ := sessionPromptLabel(db, sessionID)
+	return label
+}
+
+// SessionPromptLabelAt returns the timestamp/order key of the prompt selected
+// by SessionPromptLabel. It is intended for comparing prompt-bearing sessions
+// in chooser ranking. Empty means no prompt label is available.
+func SessionPromptLabelAt(db *sql.DB, sessionID string) string {
+	_, at := sessionPromptLabel(db, sessionID)
+	return at
+}
+
+func sessionPromptLabel(db *sql.DB, sessionID string) (string, string) {
+	if db == nil || strings.TrimSpace(sessionID) == "" {
+		return "", ""
+	}
+	var label string
+	var labelAt string
+	err := db.QueryRow(`
+WITH candidates AS (
+	SELECT
+		NULLIF(TRIM(last_user_query), '') AS label,
+		COALESCE(last_user_query_at, '') AS label_at,
+		0 AS source_rank
+	FROM sessions
+	WHERE session_id = ? AND TRIM(COALESCE(last_user_query, '')) <> ''
+	UNION ALL
+	SELECT
+		NULLIF(TRIM(content), '') AS label,
+		COALESCE(timestamp, '') AS label_at,
+		1 AS source_rank
+	FROM messages
+	WHERE session_id = ? AND role = 'user' AND TRIM(content) <> ''
+	UNION ALL
+	SELECT
+		NULLIF(TRIM(COALESCE(
+			json_extract(attrs_json, '$.prompt'),
+			json_extract(attrs_json, '$.text'),
+			json_extract(attrs_json, '$.user_prompt')
+		)), '') AS label,
+		COALESCE(
+			json_extract(attrs_json, '$."event.timestamp"'),
+			CAST(ts_micros AS TEXT),
+			''
+		) AS label_at,
+		2 AS source_rank
+	FROM otel_signals
+	WHERE session_id = ?
+	  AND TRIM(COALESCE(
+		json_extract(attrs_json, '$.prompt'),
+		json_extract(attrs_json, '$.text'),
+		json_extract(attrs_json, '$.user_prompt'),
+		''
+	  )) <> ''
+)
+SELECT COALESCE(label, ''), COALESCE(label_at, '')
+FROM candidates
+WHERE label IS NOT NULL AND label <> ''
+ORDER BY label_at DESC, source_rank ASC
+LIMIT 1`, sessionID, sessionID, sessionID).Scan(&label, &labelAt)
+	if err != nil {
+		return "", ""
+	}
+	return label, labelAt
 }
 
 func normalizeSessionHarness(raw, agentAssigned string) string {

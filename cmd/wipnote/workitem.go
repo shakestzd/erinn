@@ -543,6 +543,12 @@ func wiSetStatusWithAgent(typeName, id, status, sessionID, agentID string) error
 		emitDriftNudge(os.Stderr, touchedPaths, dir, iarch.GitDiffNameOnly)
 	}
 
+	// Recap nudge: for code-bearing completions, remind the agent to run recap.
+	// Non-fatal, stderr only, consistent with the emitDriftNudge pattern above.
+	if status == "done" && shouldAutocommitWorkitemArtifact(typeName) {
+		fmt.Fprintf(os.Stderr, "  ! recap: wipnote recap %s   (grounded diff recap of this work)\n", id)
+	}
+
 	// On start, print a session-label hint tailored to the active harness.
 	if status == "in-progress" {
 		printStartTip(typeName, node.Title)

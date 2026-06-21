@@ -648,6 +648,92 @@ func TestPreToolUseRecordsClaimedWorkItemFeatureID(t *testing.T) {
 	}
 }
 
+func TestResolveToolUseContext_FallsBackToProjectClaimedSession(t *testing.T) {
+	tdb := setupTestDB(t)
+	projectDir := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(projectDir, ".wipnote"), 0o755); err != nil {
+		t.Fatalf("mkdir .wipnote: %v", err)
+	}
+	t.Setenv("CLAUDE_PROJECT_DIR", projectDir)
+	t.Setenv("WIPNOTE_PROJECT_DIR", projectDir)
+	const claimedSession = "sess-project-claim"
+	if err := db.InsertSession(tdb.DB, &models.Session{
+		SessionID:     claimedSession,
+		AgentAssigned: "codex",
+		Status:        "active",
+		CreatedAt:     time.Now().UTC(),
+		ProjectDir:    projectDir,
+	}); err != nil {
+		t.Fatalf("InsertSession: %v", err)
+	}
+	tdb.addFeature("bug-codex-claim", "bug", "Codex claimed bug", "in-progress")
+	claim := &models.Claim{
+		ClaimID:          "clm-codex-claim",
+		WorkItemID:       "bug-codex-claim",
+		OwnerSessionID:   claimedSession,
+		OwnerAgent:       "codex",
+		ClaimedByAgentID: "codex",
+		Status:           models.ClaimInProgress,
+	}
+	if err := db.ClaimItemOrRenew(tdb.DB, claim, 30*time.Minute); err != nil {
+		t.Fatalf("ClaimItemOrRenew: %v", err)
+	}
+
+	ctx := resolveToolUseContext(&CloudEvent{
+		AgentID:   "codex",
+		SessionID: "codex-desktop-invocation",
+		CWD:       projectDir,
+		ToolName:  "apply_patch",
+		ToolInput: map[string]any{"patch": "*** Begin Patch\n*** End Patch\n"},
+	}, tdb.DB, false)
+	if ctx == nil {
+		t.Fatal("resolveToolUseContext returned nil")
+	}
+	if ctx.SessionID != claimedSession {
+		t.Fatalf("SessionID = %q, want %q", ctx.SessionID, claimedSession)
+	}
+	if ctx.FeatureID != "bug-codex-claim" || ctx.ClaimedItem != "bug-codex-claim" {
+		t.Fatalf("FeatureID/ClaimedItem = %q/%q, want bug-codex-claim", ctx.FeatureID, ctx.ClaimedItem)
+	}
+}
+
+func TestCheckYoloWorkItemGuard_DiagnosticsIncludeCheckedAndNearestClaim(t *testing.T) {
+	tdb := setupTestDB(t)
+	projectDir := t.TempDir()
+	const claimedSession = "sess-nearest-claim"
+	if err := db.InsertSession(tdb.DB, &models.Session{
+		SessionID:     claimedSession,
+		AgentAssigned: "codex",
+		Status:        "active",
+		CreatedAt:     time.Now().UTC(),
+		ProjectDir:    projectDir,
+	}); err != nil {
+		t.Fatalf("InsertSession: %v", err)
+	}
+	tdb.addFeature("bug-nearest-claim", "bug", "Nearest claim", "in-progress")
+	if err := db.ClaimItemOrRenew(tdb.DB, &models.Claim{
+		ClaimID:          "clm-nearest-claim",
+		WorkItemID:       "bug-nearest-claim",
+		OwnerSessionID:   claimedSession,
+		OwnerAgent:       "codex",
+		ClaimedByAgentID: "codex",
+		Status:           models.ClaimInProgress,
+	}, 30*time.Minute); err != nil {
+		t.Fatalf("ClaimItemOrRenew: %v", err)
+	}
+
+	got := checkYoloWorkItemGuard(
+		"apply_patch", "", false, "codex-desktop-invocation",
+		tdb.DB, filepath.Join(projectDir, "main.go"), projectDir,
+	)
+	if !strings.Contains(got, "Checked session: codex-desktop-invocation") {
+		t.Fatalf("missing checked session diagnostic:\n%s", got)
+	}
+	if !strings.Contains(got, "Nearest active claim: session=sess-nearest-claim work_item=bug-nearest-claim") {
+		t.Fatalf("missing nearest claim diagnostic:\n%s", got)
+	}
+}
+
 // TestIsBashFileWrite_NewPatterns verifies the write-intent patterns added in
 // the roborev-job-14 fix: explicit fd-1 redirect (1>), combined redirects (&>, &>>),
 // find -delete, and the negative case cat ... 2>/dev/null (must NOT block).

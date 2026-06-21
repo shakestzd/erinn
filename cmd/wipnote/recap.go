@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"time"
@@ -196,6 +197,182 @@ func resolveInputKindStr(input, rangeSpec, sessionID string) string {
 	}
 }
 
+// RunPlanRollupRecap generates a consolidated rollup recap for a finalized plan.
+// It resolves the git range anchored at (and including) the first commit of the
+// plan's YAML file through HEAD, runs recap.Collect in range mode, renders and
+// writes .wipnote/recaps/recap-pln-<planID>.html, commits via commitRecapArtifact,
+// and wires lineage edges from the recap and introducing commit back to the plan.
+//
+// ALL errors are non-fatal by design: callers wrap this in a non-fatal block.
+// The function returns an error only when a step that can reasonably be reported
+// fails; it never calls os.Exit. Callers should print returned errors to stderr.
+func RunPlanRollupRecap(wipnoteDir, planID string) error {
+	recapID := "recap-pln-" + planID
+	repoRoot := filepath.Dir(wipnoteDir)
+
+	// Resolve the plan YAML path and find its first commit.
+	planYAMLRelPath := filepath.Join(".wipnote", "plans", planID+".yaml")
+	planYAMLAbsPath := filepath.Join(wipnoteDir, "plans", planID+".yaml")
+
+	firstSHA, err := planFirstCommitSHA(repoRoot, planYAMLAbsPath)
+	if err != nil {
+		return fmt.Errorf("cannot resolve first commit for %s (skipping recap): %w", planYAMLRelPath, err)
+	}
+	if firstSHA == "" {
+		return fmt.Errorf("cannot resolve first commit for %s (untracked, skipping recap)", planYAMLRelPath)
+	}
+
+	// Build an INCLUSIVE range: firstSHA~1..HEAD includes firstSHA's own changes.
+	// When firstSHA is the root commit (no parent), fall back to the well-known
+	// git empty-tree SHA so the range covers all history from the beginning.
+	gitRange := planRollupGitRange(repoRoot, firstSHA)
+
+	db, dbErr := openReadOnlyDB(wipnoteDir)
+	if dbErr != nil {
+		fmt.Fprintf(os.Stderr, "recap (non-fatal): open read index (proceeding without): %v\n", dbErr)
+		db = nil
+	}
+	if db != nil {
+		defer db.Close()
+	}
+
+	opts := recap.Options{
+		Input:      gitRange,
+		ProjectDir: repoRoot,
+		Depth:      5,
+	}
+	data, collectErr := recap.Collect(db, opts)
+	if collectErr != nil {
+		fmt.Fprintf(os.Stderr, "recap (non-fatal): collect (proceeding with empty): %v\n", collectErr)
+		data = &recap.RecapData{
+			Outcome: fmt.Sprintf("Plan %s rollup", planID),
+			Provenance: recap.Provenance{
+				Kind:  recap.InputRange,
+				Input: gitRange,
+			},
+		}
+	}
+
+	page := recaptmpl.Build(*data)
+	var buf bytes.Buffer
+	if renderErr := page.Render(&buf); renderErr != nil {
+		return fmt.Errorf("recap render: %w", renderErr)
+	}
+
+	recapsDir := filepath.Join(wipnoteDir, "recaps")
+	if mkErr := os.MkdirAll(recapsDir, 0o755); mkErr != nil {
+		return fmt.Errorf("recap: create recaps dir: %w", mkErr)
+	}
+	artifactPath := filepath.Join(recapsDir, recapID+".html")
+	if writeErr := os.WriteFile(artifactPath, buf.Bytes(), 0o644); writeErr != nil {
+		return fmt.Errorf("recap: write artifact: %w", writeErr)
+	}
+
+	// Update read index so a running dashboard sees the recap immediately (non-fatal).
+	if indexErr := upsertRecapArtifact(wipnoteDir, repoRoot, recapID); indexErr != nil {
+		fmt.Fprintf(os.Stderr, "recap (non-fatal): update read index: %v\n", indexErr)
+	}
+
+	if commitErr := commitRecapArtifact(wipnoteDir, recapID); commitErr != nil {
+		fmt.Fprintf(os.Stderr, "recap (non-fatal): commit artifact: %v\n", commitErr)
+	}
+
+	// Wire both lineage edges into the plan HTML FIRST (AddEdge writes to disk
+	// immediately), then commit the mutated HTML once. This avoids the re-render
+	// trap of commitPlanChange (which regenerates HTML from YAML and would wipe
+	// the just-written edge data). commitWipnoteArtifact stages the existing
+	// .wipnote/plans/<planID>.html directly — no YAML re-render.
+
+	// (a) relates_to edge: plan → recap (non-fatal).
+	if edgeErr := addPlanRecapLineageEdge(wipnoteDir, recapID, planID); edgeErr != nil {
+		fmt.Fprintf(os.Stderr, "recap (non-fatal): add recap lineage edge: %v\n", edgeErr)
+	}
+
+	// (b) relates_to edge: plan → introducing commit SHA (non-fatal).
+	// firstSHA is the oldest commit that added the plan YAML, resolved above.
+	if addIntroErr := addPlanIntroducingCommitEdge(wipnoteDir, planID, firstSHA); addIntroErr != nil {
+		fmt.Fprintf(os.Stderr, "recap (non-fatal): add introducing commit edge: %v\n", addIntroErr)
+	}
+
+	// (c) Commit the mutated plan HTML once, after both edges are on disk.
+	// commitWipnoteArtifact commits .wipnote/plans/<planID>.html directly
+	// without re-rendering from YAML — preserving both edge mutations.
+	if planCommitErr := commitWipnoteArtifact(wipnoteDir, "plan", planID, "update"); planCommitErr != nil {
+		fmt.Fprintf(os.Stderr, "recap (non-fatal): commit plan HTML: %v\n", planCommitErr)
+	}
+
+	shortStart := firstSHA
+	if len(shortStart) > 7 {
+		shortStart = shortStart[:7]
+	}
+	fmt.Printf("  ✓ %s.html generated (range: %s~1..HEAD inclusive)\n", recapID, shortStart)
+	fmt.Printf("  Dashboard: wipnote serve then open http://127.0.0.1:8080 (or http://127.0.0.1:8088 in devcontainer)\n")
+	return nil
+}
+
+// planFirstCommitSHA returns the SHA of the first commit that introduced
+// planYAMLAbsPath in the repository at repoRoot. Returns "" when the file
+// is not tracked. Uses --diff-filter=A --follow to follow renames.
+func planFirstCommitSHA(repoRoot, planYAMLAbsPath string) (string, error) {
+	out, err := exec.Command(
+		"git", "-C", repoRoot,
+		"log", "--diff-filter=A", "--follow", "--format=%H", "--", planYAMLAbsPath,
+	).Output()
+	if err != nil {
+		return "", fmt.Errorf("git log --diff-filter=A: %w", err)
+	}
+	raw := strings.TrimSpace(string(out))
+	if raw == "" {
+		return "", fmt.Errorf("plan YAML %s has no git history (untracked)", planYAMLAbsPath)
+	}
+	// git log outputs newest-first; we want the oldest (last line).
+	lines := strings.Split(raw, "\n")
+	return strings.TrimSpace(lines[len(lines)-1]), nil
+}
+
+// addPlanRecapLineageEdge wires a relates_to edge from the recap artifact to
+// the plan work item so lineage queries surface the recap as a descendant.
+func addPlanRecapLineageEdge(wipnoteDir, recapID, planID string) error {
+	p, err := workitem.Open(wipnoteDir, "claude-code")
+	if err != nil {
+		return fmt.Errorf("open project: %w", err)
+	}
+	defer p.Close()
+
+	edge := models.Edge{
+		TargetID:     recapID,
+		Relationship: models.RelRelatesTo,
+		Title:        "recap",
+		Since:        time.Now().UTC(),
+	}
+	_, err = p.Plans.AddEdge(planID, edge)
+	return err
+}
+
+// addPlanIntroducingCommitEdge wires a relates_to edge from the plan HTML
+// artifact to its introducing commit SHA. This lets lineage queries surface
+// the commit that first added the plan YAML as the plan's origin point.
+// introducingSHA is the full commit hash returned by planFirstCommitSHA.
+func addPlanIntroducingCommitEdge(wipnoteDir, planID, introducingSHA string) error {
+	if introducingSHA == "" {
+		return nil
+	}
+	p, err := workitem.Open(wipnoteDir, "claude-code")
+	if err != nil {
+		return fmt.Errorf("open project: %w", err)
+	}
+	defer p.Close()
+
+	edge := models.Edge{
+		TargetID:     introducingSHA,
+		Relationship: models.RelRelatesTo,
+		Title:        "introducing-commit",
+		Since:        time.Now().UTC(),
+	}
+	_, err = p.Plans.AddEdge(planID, edge)
+	return err
+}
+
 // addRecapLineageEdge writes a relates_to edge from the recap HTML artifact
 // into the work item's edge list so `wipnote lineage <workItemID>` surfaces
 // the recap as a forward descendant.
@@ -219,4 +396,32 @@ func addRecapLineageEdge(wipnoteDir, recapID, workItemID string) error {
 	}
 	_, err = col.AddEdge(workItemID, edge)
 	return err
+}
+
+// gitHasParent reports whether the commit at sha has at least one parent in
+// the repository at repoRoot. Returns false for root commits and on any error.
+// Uses the same cat-file pattern as gitCommitExists in reindex.go.
+func gitHasParent(repoRoot, sha string) bool {
+	return exec.Command("git", "-C", repoRoot, "cat-file", "-e", sha+"^1").Run() == nil
+}
+
+// planRollupGitRange builds the git range string for RunPlanRollupRecap so
+// that firstSHA's own changes are INCLUDED in the recap:
+//
+//   - Normal case: firstSHA~1..HEAD  (parent-of-first .. HEAD, inclusive of firstSHA)
+//   - Root-commit case: <empty-tree>..HEAD (covers all history from the beginning)
+//
+// The empty-tree SHA (4b825dc642cb6eb9a060e54bf8d69288fbee4904) is a permanent
+// git object that precedes every commit, so the range always includes firstSHA
+// even when it is also HEAD (the firstSHA==HEAD case that produced an empty recap
+// with the old exclusive form firstSHA..HEAD).
+func planRollupGitRange(repoRoot, firstSHA string) string {
+	if gitHasParent(repoRoot, firstSHA) {
+		return firstSHA + "~1..HEAD"
+	}
+	// Root commit: use the well-known empty-tree SHA as the exclusive lower
+	// bound. recap.EmptyTreeSHA is a tree object (not a commit), so git diff
+	// accepts it but git log does not. recap.collectRange detects this sentinel
+	// via IsRootRange and substitutes commitsToHead for the log step.
+	return recap.EmptyTreeSHA + "..HEAD"
 }

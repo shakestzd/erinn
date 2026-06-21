@@ -103,8 +103,22 @@ func collectSession(db *sql.DB, opts Options, id string) (*RecapData, error) {
 
 // collectRange resolves a bare git range with no work-item grounding. Lineage is
 // omitted; only diff/file/commit data is returned.
+//
+// Special case: when gitRange uses the empty-tree SHA as its lower bound
+// (IsRootRange returns true), git log cannot accept the tree object as a
+// revision endpoint. In that case commitsToHead is used for the commit listing
+// while diffRange still uses the original range string (git diff handles tree
+// endpoints correctly).
 func collectRange(opts Options, gitRange string) (*RecapData, error) {
-	commits, err := commitsInRange(opts.ProjectDir, gitRange)
+	var (
+		commits []Commit
+		err     error
+	)
+	if IsRootRange(gitRange) {
+		commits, err = commitsToHead(opts.ProjectDir)
+	} else {
+		commits, err = commitsInRange(opts.ProjectDir, gitRange)
+	}
 	if err != nil {
 		return nil, err
 	}

@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>Fix-forward v0.63.0: recap.go &#43; claude.go Medium review findings</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="bug-2623b061"
+             data-type="bug"
+             data-status="done"
+             data-priority="medium"
+             data-created="2026-06-21T00:30:00.524264"
+             data-updated="2026-06-21T06:11:16.839865" data-agent-assigned="claude-code" data-track-id="trk-a951e3c0" data-created-by-agent="claude-code" data-created-by-model="claude-opus-4-8[1m]" data-created-by-cli-version="0.62.2-577-g399735bbf">
+
+        <header>
+            <h1>Fix-forward v0.63.0: recap.go &#43; claude.go Medium review findings</h1>
+            <div class="metadata">
+                <span class="badge status-done">Done</span>
+                <span class="badge priority-medium">Medium Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="caused_by">
+                <h3>Caused By:</h3>
+                <ul>
+                    <li><a href="../features/feat-06907fff.html" data-relationship="caused_by" data-since="2026-06-21T00:30:00.591357">feat-06907fff</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-a951e3c0.html" data-relationship="part_of" data-since="2026-06-21T00:30:00.621958">trk-a951e3c0</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="relates_to">
+                <h3>Relates To:</h3>
+                <ul>
+                    <li><a href="recap-bug-2623b061.html" data-relationship="relates_to" data-since="2026-06-21T04:53:43.340544">recap</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="implemented_in">
+                <h3>Implemented In:</h3>
+                <ul>
+                    <li><a href="../sessions/1e97ab5e-4af4-4f89-b428-f098dd05a57b.html" data-relationship="implemented_in" data-since="2026-06-21T06:07:40.57737">session 1e97ab5e-4af4-4f89-b428-f098dd05a57b</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>Roborev (#424,#425) and GitHub Codex flagged 4 Medium findings in code shipped in v0.63.0. recap.go RunPlanRollupRecap: (1) never calls upsertRecapArtifact so dashboard /api/recaps is stale; (2) adds plan lineage edge but never commits mutated plan HTML; (3) lineage should include the plan introducing commit. claude.go marketplaceWipnotePresent: registry detection only matches wipnote@wipnote, misses local-marketplace and legacy htmlgraph scopes. Fold all into a single 0.63.1 release.</p>
+        </section>
+    </article>
+</body>
+</html>

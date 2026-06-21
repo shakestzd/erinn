@@ -98,3 +98,34 @@ Keep the narrative tight — 5-10 lines. The full artifact is in the dashboard f
 - **Dashboard URL:** default port is `8080`; devcontainer port is `8088` (see AGENTS.md).
   Tell the user which applies based on their environment.
 - **Secrets:** always redact before displaying any diff content in the narrative.
+
+---
+
+## Auto-triggers
+
+Recap generation fires automatically at two points in the lifecycle — no manual invocation needed.
+
+### 1. Plan finalize auto-rollup
+
+`wipnote plan finalize <plan-id>` automatically generates a consolidated rollup recap after
+locking the plan. The artifact ID is `recap-pln-<plan-id>` and the git range spans from the
+first commit that introduced the plan YAML (`<first-commit>..HEAD`), covering the full
+planning-to-finalize arc. The recap is written to `.wipnote/recaps/recap-pln-<plan-id>.html`
+and committed. A `relates_to` lineage edge is wired from the plan to the recap so it appears
+in `wipnote lineage <plan-id>`.
+
+This step is non-fatal: if the plan YAML has no git history yet (untracked) or any other
+error occurs, a warning is printed to stderr and finalize continues normally.
+
+### 2. Feature/bug complete recap nudge
+
+`wipnote feature complete <id>` (and `wipnote bug complete <id>`) print a one-line nudge to
+stderr after a successful code-bearing completion:
+
+```
+  ! recap: wipnote recap <id>   (grounded diff recap of this work)
+```
+
+This is a reminder only — no recap is generated automatically. Run the suggested command to
+produce a grounded diff recap grounded in the real committed diff. The nudge is consistent
+with the adjacent drift nudge and is non-fatal.

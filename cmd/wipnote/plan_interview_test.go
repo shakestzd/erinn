@@ -73,6 +73,64 @@ func TestSliceOpenQuestions_MapsUnansweredOnly(t *testing.T) {
 	}
 }
 
+func TestAttachBlockPrompts_BlocksFirstStagesCarryCatalogGroundedPrompts(t *testing.T) {
+	// Complex slice -> all four stages; blocks-first attaches authoring prompts
+	// to scope (file-tree), contract (api-endpoint + data-model), and
+	// requirements (wireframe). Descriptions come from BlockCatalog, not hardcode.
+	stages := attachBlockPrompts(interview.BuildForSlice("complex", nil))
+
+	byKey := map[string]interview.Stage{}
+	for _, st := range stages {
+		byKey[st.Key] = st
+	}
+
+	scope, ok := byKey["scope"]
+	if !ok || len(scope.Blocks) != 1 || scope.Blocks[0].Type != "file-tree" {
+		t.Fatalf("scope stage should carry a file-tree block prompt, got %+v", scope.Blocks)
+	}
+	if strings.TrimSpace(scope.Blocks[0].Description) == "" {
+		t.Errorf("file-tree prompt should be annotated with the catalog description")
+	}
+
+	contract := byKey["contract"]
+	types := []string{}
+	for _, bp := range contract.Blocks {
+		types = append(types, bp.Type)
+		if strings.TrimSpace(bp.Description) == "" {
+			t.Errorf("contract block %q missing catalog description", bp.Type)
+		}
+	}
+	wantContract := map[string]bool{"api-endpoint": false, "data-model": false}
+	for _, ty := range types {
+		if _, ok := wantContract[ty]; ok {
+			wantContract[ty] = true
+		}
+	}
+	for ty, seen := range wantContract {
+		if !seen {
+			t.Errorf("contract stage missing %q block prompt; got %v", ty, types)
+		}
+	}
+
+	// Done-when has no natural visual artifact -> no block prompts.
+	if dw := byKey["donewhen"]; len(dw.Blocks) != 0 {
+		t.Errorf("donewhen stage should carry no block prompts, got %+v", dw.Blocks)
+	}
+
+	// Every attached prompt's Type must be a real catalog key (no stale tags).
+	known := map[string]bool{}
+	for _, spec := range planyaml.BlockCatalog() {
+		known[spec.Type] = true
+	}
+	for _, st := range stages {
+		for _, bp := range st.Blocks {
+			if !known[bp.Type] {
+				t.Errorf("stage %q emitted non-catalog block type %q", st.Key, bp.Type)
+			}
+		}
+	}
+}
+
 func TestInterviewChatContext_IncludesFormState(t *testing.T) {
 	stages := interview.ForComplexity("complex")
 	slice := planyaml.PlanSlice{Num: 2, Title: "Apply guard profiles", What: "Wire guards into all gate sites."}
@@ -103,7 +161,7 @@ func TestInterviewChatContext_IncludesFormState(t *testing.T) {
 }
 
 func lineContaining(s, sub string) string {
-	for _, ln := range strings.Split(s, "\n") {
+	for ln := range strings.SplitSeq(s, "\n") {
 		if strings.Contains(ln, sub) {
 			return ln
 		}

@@ -1,15 +1,28 @@
 ---
 name: wipnote:visual-plan
-description: Enrich a wipnote plan with structured visual blocks (data-model, api-endpoint, file-tree, wireframe). Reads the live block catalog from wipnote plan blocks, guides the author to add grounded blocks to plan slices, regenerates the plan HTML, and links to the dashboard plan view. Use when asked to add visual blocks, enrich a plan, or visualize a plan slice.
+description: SECONDARY enrichment path — add or revise structured visual blocks (data-model, api-endpoint, file-tree, wireframe, diagram, tabs) on an EXISTING wipnote plan. Use for legacy plans drafted before blocks-first existed, or for ad-hoc later block additions/revisions — NOT for primary planning. New plans get blocks authored inline during the wipnote:plan interview (blocks-first); only reach for this skill when a plan already exists and needs blocks added or changed after the fact. Reads the live block catalog from wipnote plan blocks, adds grounded blocks to slices, regenerates the plan HTML, and links to the dashboard.
 ---
 
-# wipnote Visual Plan
+# wipnote Visual Plan (after-the-fact enrichment)
 
-Use this skill to add grounded visual blocks to plan slices — tables, API routes, file
-trees, and wireframes — then regenerate the plan HTML and surface the dashboard link.
+**This is the SECONDARY path.** Blocks-first is now built into `wipnote:plan`: during the
+plan interview, each stage authors its visual block FIRST and derives the prose from it, so
+freshly planned slices already carry grounded blocks. Use THIS skill only to **enrich an
+EXISTING plan** — a legacy plan drafted before blocks-first, or a slice that needs a block
+added or revised after the plan was written. For new plans, run `wipnote:plan`; do not use
+this skill as the entry point for planning.
 
-**Trigger keywords:** enrich plan, add visual blocks, add blocks to plan, visualize plan,
-visual plan, add wireframe, add data model to plan, add api endpoint to plan, add file tree to plan
+Use this skill to add grounded visual blocks to existing plan slices — tables, API routes,
+file trees, wireframes, diagrams — then regenerate the plan HTML and surface the dashboard link.
+
+**Trigger keywords:** enrich existing plan, add visual blocks to existing plan, add blocks to
+a plan that already exists, revise blocks on a plan, backfill blocks on a legacy plan,
+visualize an existing plan slice, add wireframe to existing plan, add data model to existing
+plan, add api endpoint to existing plan, add file tree to existing plan
+
+> Routing note: if the user is asking to CREATE a plan, use `wipnote:plan` (blocks-first)
+> instead — that interview authors blocks inline. Only route here for after-the-fact block
+> work on a plan that already exists.
 
 ---
 

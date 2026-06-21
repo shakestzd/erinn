@@ -1,11 +1,13 @@
 ---
 name: wipnote:plan
-description: Plan development work using a triage-gated interview. Classify scope as trivial/standard/complex, then run 0/2/4 staged interview rounds through the current harness native ask-user tool when available, or plain conversation when it is not, to earn each slice field. Produces slice-card YAML with visible research provenance for external claims; pauses for human review; promotes approved slices to features. Use when asked to plan, create a development plan, or build a feature with design clarity first.
+description: Plan development work using a triage-gated, blocks-first interview. Classify scope as trivial/standard/complex, then run 0/3/4 staged interview rounds through the current harness native ask-user tool when available, or plain conversation when it is not. Each stage elicits the VISUAL block first (file-tree, api-endpoint, data-model, wireframe/diagram) and derives the prose slice fields (what/why/done_when) from it — blocks are authored inline as the YAML is built, not in a post-pass. Produces slice-card YAML with grounded visual blocks and visible research provenance for external claims; pauses for human review; promotes approved slices to features. Use when asked to plan, create a development plan, or build a feature with design clarity first.
 ---
 
 # wipnote Plan
 
-Treat plan creation as a system design interview. You are the candidate; the user is the interviewer with requirements. Extract requirements via staged questions before producing slice YAML. Prefer the current harness native ask-user tool when one is available; otherwise ask the same questions in plain chat. Do not jump to a 9-field worksheet — earn each field through the interview, or explicitly mark fields as inferred/skipped when the user has supplied a complete spec and the harness lacks interactive tools.
+Treat plan creation as a **blocks-first** system design interview. You are the candidate; the user is the interviewer with requirements. Extract requirements via staged questions before producing slice YAML. Prefer the current harness native ask-user tool when one is available; otherwise ask the same questions in plain chat. Do not jump to a 9-field worksheet — earn each field through the interview, or explicitly mark fields as inferred/skipped when the user has supplied a complete spec and the harness lacks interactive tools.
+
+**Blocks-first is the defining discipline.** In each interview stage, author the VISUAL artifact FIRST — the file-tree of files the slice touches, the api-endpoint and data-model of its contract, the wireframe/diagram of its UI/flow — then DERIVE the prose fields (`what`/`why`/`done_when`) from those blocks. Blocks are written into the slice YAML INLINE as it is built; there is no separate visual pass. The blocks drive the design. (The separate `wipnote:visual-plan` skill is now only for after-the-fact enrichment of existing/legacy plans — never the primary path.)
 
 **Trigger keywords:** create plan, development plan, parallel plan, plan tasks, plan this feature, review before building, generate plan, scaffold plan, slice plan, crispi
 
@@ -89,16 +91,49 @@ If research genuinely doesn't apply to a slice, use `research_waiver:` with the 
 
 ---
 
-## The Interview (standard = stages 1, 2, 4; complex = all 4)
+## The Interview — Blocks-First (standard = stages 1, 2, 4; complex = all 4)
 
-| Stage | Goal | Slice fields it populates | Typical AUQ shape |
+Each stage elicits the VISUAL block FIRST, then derives prose from it. The block is authored INLINE into the slice's `blocks:` field as the YAML is built — never as a later pass.
+
+| Stage | Author this block FIRST | Then derive these prose fields | Typical AUQ shape |
 |---|---|---|---|
-| 1. Requirements | Functional + non-functional + constraints | `why`, `decisions_notes` (rationale half) | "What problem? Who's the user? What's a hard constraint?" |
-| 2. Scope & state | Where the change lives; what state it owns | `files`, `deps`, `what` (scope half) | "Which files? Where does the state live? Any cross-slice ordering?" |
-| 3. API / contract | Public-facing surface, payload, return shape | `what` (contract half), `decisions_notes` (interface picks) | "What's the firing rule for this event? What does the response carry?" |
-| 4. Done-when | Acceptance criteria, tests, effort, risk | `done_when`, `tests`, `effort`, `risk` | "How will you tell it works? Which existing tests must still pass?" |
+| 1. Requirements | `wireframe`/`diagram` (UI/flow work only; skip for non-visual slices) | `why`, `what` (from the sketched surface/flow), `decisions_notes` (rationale half) | "Sketch the user-visible surface/flow. What problem does it solve, for whom?" |
+| 2. Scope & state | `file-tree` of the real files this slice touches (new + edited) | `files`, `what` (scope half) — read straight off the tree | "List the files. Where does the state live? Any cross-slice ordering?" |
+| 3. API / contract | `api-endpoint` (method+path+params) and/or `data-model` (typed columns) | `what` (contract half), `done_when` (per route/entity), `decisions_notes` (interface picks) | "Author the route/entity. What's the firing rule? What does the response carry?" |
+| 4. Done-when | (no new block — anchor acceptance criteria to the blocks above) | `done_when`, `tests`, `effort`, `risk` | "How will you tell each block's behavior works? Which existing tests must still pass?" |
 
-Each stage = 1-3 questions in a single native ask-user call where available, or one compact chat question set where it is not.
+**Derivation, not duplication:** the prose fields restate the block in narrative form for the slice card; they must stay consistent with the block. If a stage has no natural visual artifact (e.g. a pure non-visual standard slice), say so and proceed to prose directly — do not invent a block to satisfy the form.
+
+Each stage = the block authoring step + 1-3 questions, in a single native ask-user call where available, or one compact chat question set where it is not.
+
+### Block-authoring prep (read the live catalog ONCE, up front)
+
+Block elicitation is folded into the interview — but the **vocabulary** of block types still has a single source of truth. Before the first slice, read the live catalog so you author with current tags/fields and never hardcode them:
+
+```bash
+wipnote plan blocks            # the supported block types + required fields/row keys
+```
+
+The per-slice interview question set already carries the blocks-first prompts for you — `wipnote plan interview-questions <plan-id> <slice-num>` emits, per stage, a `blocks` array (each with `type`, the catalog `description`, and a `prompt` for what to capture). Render those prompts alongside the stage questions so the authoring step is explicit in whatever surface you use.
+
+### Grounding rule (enforced discipline)
+
+A block is grounded when every field, route, and file path it names either ALREADY exists in the codebase or WILL exist as a direct output of this slice. Never invent schema, routes, or files to fill a block. If you cannot ground a block type for a slice without inventing data, skip that block type for that slice and note why in `decisions_notes`.
+
+- `data-model` rows: real or will-exist field names/types.
+- `api-endpoint` method/path: routes the slice will actually implement.
+- `file-tree` entries: real files the slice touches.
+- `wireframe` HTML: `var(--wf-*)` design tokens only — never raw hex/rgb.
+
+### Triage gating for blocks
+
+| Complexity | Blocks expected |
+|---|---|
+| `trivial` | Minimal or none — trivial slices have no design surface to visualise; skip blocks. |
+| `standard` | Blocks expected when the slice is concrete enough to ground them (a real file-tree at minimum; api-endpoint/data-model where a contract exists). If the slice is genuinely underspecified, note the skip rather than invent. |
+| `complex` | Blocks expected — author every block type the slice justifies (file-tree always; api-endpoint/data-model/wireframe/diagram as the design warrants). |
+
+`wipnote plan validate-yaml` emits a NON-BLOCKING advisory for any standard/complex slice that still has no blocks — a signal the blocks-first interview was skipped or compressed for that slice, not a gate.
 
 ### Rendering the interview (cross-harness)
 
@@ -141,21 +176,26 @@ Acceptance criteria for generated plans:
 **`--questions` JSON schema:**
 
     {"stages": [
-      {"key": "requirements", "title": "Requirements", "bucket": "Decisions",
+      {"key": "scope", "title": "Scope & state", "bucket": "Scope",
+       "blocks": [
+         {"type": "file-tree", "description": "An ordered list of file paths the slice touches.",
+          "prompt": "FIRST author a file-tree block of the real files this slice touches; derive `files` and the scope half of `what` from it."}
+       ],
        "questions": [
-         {"id": "requirements.0", "header": "Goal", "type": "choice",
-          "prompt": "What's the user-visible behavior?",
-          "options": [{"label": "New capability", "description": "user can do X"}]},
-         {"id": "requirements.1", "header": "Payload", "type": "text",
-          "prompt": "Input/output contract?", "placeholder": "in: … out: …"}
+         {"id": "scope.0", "header": "State", "type": "choice",
+          "prompt": "Where does the state live?",
+          "options": [{"label": "In SQLite (read index)", "description": "rebuildable cache"}]}
        ]}
     ]}
 
+- `blocks` (optional, per stage) — the blocks-first authoring prompts: `type` (a key from `wipnote plan blocks`), the catalog `description`, and a `prompt` for what to capture. Author the block(s) FIRST, then answer the questions to sharpen the derived prose. `wipnote plan interview-questions` populates this array from the live catalog.
 - `bucket` ∈ `Scope` | `Decisions` | `Context` — routes the stage's answers into that `decisions_notes` subsection.
 - `type` ∈ `choice` (needs `options`, optional `multiSelect`) | `text` | `yesno`.
 - Question `id`s must be unique; the form posts answers back under them and composes into the same `### Scope` / `### Decisions` / `### Context` markdown the AUQ path produces — so downstream (`validate-yaml`, `spec generate --insert`, `promote-slice`, `finalize`) is identical regardless of renderer.
 
 ### Example AUQs
+
+In each stage, lead with the block-authoring step (per `wipnote plan interview-questions`' `blocks` array), then render these questions. The questions sharpen the prose you derive from the block.
 
 **Stage 1 — Requirements:**
 
@@ -276,6 +316,21 @@ slices:
       - internal/ratelimit/limiter.go
       - cmd/wipnote/serve.go
     deps: []
+    blocks:
+      # Authored FIRST during the Scope stage — `files` was read off this tree.
+      - type: file-tree
+        title: Files touched
+        entries:
+          - internal/ratelimit/limiter.go
+          - cmd/wipnote/serve.go
+      # Authored FIRST during the API/contract stage — `done_when` derived from it.
+      - type: api-endpoint
+        fields:
+          method: POST
+          path: /api/ingest
+        rows:
+          - name: "429 body"
+            type: '{"error":"rate_limited","retry_after":1}'
     done_when:
       - "Requests above the configured limit receive HTTP 429"
       - "Requests within the limit pass through unchanged"
@@ -308,32 +363,15 @@ wipnote plan create-yaml "<title>" --description "<description>" --track <trk-id
 
 Note the returned plan ID. Write the YAML to `.wipnote/plans/<plan-id>.yaml` via `wipnote plan rewrite-yaml <plan-id> --file /tmp/plan.yaml`.
 
-## Step 2: Validate, Critique, Visual-Plan Enrichment, Review, Promote
+## Step 2: Validate, Critique, Review, Promote
 
 ```bash
 wipnote plan validate-yaml <plan-id>
 ```
 
-Fix schema errors before continuing.
+Fix schema errors before continuing. Because blocks were authored inline during the interview (Step 0/the interview above), the YAML you wrote already carries grounded `blocks:` for qualifying slices — there is **no separate visual pass**. `validate-yaml` will emit a non-blocking advisory for any standard/complex slice that still has no blocks; treat it as a prompt to revisit the blocks-first interview for that slice (or, for a legacy/already-drafted plan, run `wipnote:visual-plan` to enrich it after the fact).
 
-After the plan is drafted, run `/wipnote:plan-critique <plan-id>` for the dual role-based design/feasibility review pass. See `plugin/skills/plan-critique/SKILL.md`.
-
-### Step 2b: Complexity-gated visual-plan enrichment (after critique, before human review)
-
-After critique so block content reflects post-critique design decisions, run the `wipnote:visual-plan` skill to author grounded visual blocks for qualifying slices. The gate preserves the grounding rule — blocks must reference real or will-exist fields, routes, and files; never fabricate.
-
-**For each slice:**
-
-| Complexity | `what` + `files` detail | Action |
-|---|---|---|
-| `complex` | any | Run `wipnote:visual-plan` — author grounded blocks |
-| `standard` | detailed enough to ground blocks | Run `wipnote:visual-plan` — author grounded blocks |
-| `standard` | underspecified (vague `what`, no concrete `files`) | Skip — blocks would require invention; note the skip |
-| `trivial` | any | Always skip — trivial slices have no design surface to visualise |
-
-**Grounding rule (enforced):** A block is grounded when every field, route, and file path it names either already exists in the codebase or will exist as a direct output of the slice. If you cannot ground a block without inventing data, skip that block type for that slice and note why.
-
-**Invocation:** For each qualifying slice, call `/wipnote:visual-plan` with the plan ID and slice number. The skill authors blocks directly into the slice's `blocks:` field via `wipnote plan rewrite-yaml`. Unqualifying slices are left as-is; `wipnote plan validate-yaml` emits a non-blocking advisory for any standard/complex slice that still has no blocks after this step — informational only, not a gate.
+After the plan is drafted, run `/wipnote:plan-critique <plan-id>` for the dual role-based design/feasibility review pass. See `plugin/skills/plan-critique/SKILL.md`. If critique changes a slice's design, update its blocks-first in the same edit (re-author the block, then re-derive the prose) so blocks and prose stay consistent.
 
 Then:
 
@@ -386,5 +424,5 @@ The `answer-slice-question` command maps `<slice-num>` and `<question-id>` to th
 ## Related Skills
 
 - `plugin/skills/plan-critique/SKILL.md` — dual-critic review pass (run after the plan is drafted)
-- `plugin/skills/visual-plan/SKILL.md` — complexity-gated grounded visual-block authorship (data-model / api-endpoint / file-tree / wireframe); invoked in Step 2b above
+- `plugin/skills/visual-plan/SKILL.md` — SECONDARY/enrichment path: add or revise grounded visual blocks on an EXISTING plan (including legacy plans drafted before blocks-first, or ad-hoc later additions). Blocks-first is now built into THIS skill's interview; use visual-plan only for after-the-fact enrichment, not primary planning.
 - `plugin/skills/plan/LEGACY.md` — v1 plan compatibility notes (referenced by validator errors when an old plan is loaded)

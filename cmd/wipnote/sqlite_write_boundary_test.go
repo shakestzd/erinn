@@ -265,7 +265,7 @@ var approvedWriteSites = []writeSite{
 	},
 	{
 		File:           "cmd/wipnote/plan_interview.go",
-		Line:           289,
+		Line:           316,
 		Function:       "serveInterviewForm",
 		OpenExpr:       "dbpkg.Open",
 		Classification: intentionalCLIMutation,

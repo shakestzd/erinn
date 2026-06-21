@@ -7,11 +7,36 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"time"
 
 	"github.com/shakestzd/wipnote/core/models"
 )
+
+// rePairedTag matches a paired open/close tag and its entire content, e.g.
+// <task-id>abc123</task-id>. The (?s) flag makes . match newlines so
+// multi-line injected blocks are consumed in one pass.
+var rePairedTag = regexp.MustCompile(`(?s)<[a-zA-Z][\w-]*\b[^>]*>.*?</[a-zA-Z][\w-]*\s*>`)
+
+// reLoneTag matches any remaining unpaired angle-bracket tag after paired tags
+// have been removed, e.g. a self-closing or malformed tag.
+var reLoneTag = regexp.MustCompile(`<[^>]*>`)
+
+// reWhitespaceRun matches one or more whitespace characters including newlines
+// and tabs. Compiled once at package init.
+var reWhitespaceRun = regexp.MustCompile(`\s+`)
+
+// sanitizePromptLabel removes injected markup tags (and their content) from a
+// raw session prompt and collapses whitespace runs to a single space.
+// Steps: (1) remove paired tags+content, (2) remove lone/unpaired tags,
+// (3) collapse all whitespace to single space, (4) trim.
+func sanitizePromptLabel(s string) string {
+	s = rePairedTag.ReplaceAllString(s, "")
+	s = reLoneTag.ReplaceAllString(s, "")
+	s = reWhitespaceRun.ReplaceAllString(s, " ")
+	return strings.TrimSpace(s)
+}
 
 // InsertSession creates a new session row.
 func InsertSession(db *sql.DB, s *models.Session) error {
@@ -938,9 +963,7 @@ func sessionPromptLabel(db *sql.DB, sessionID string) (string, string) {
 	if db == nil || strings.TrimSpace(sessionID) == "" {
 		return "", ""
 	}
-	var label string
-	var labelAt string
-	err := db.QueryRow(`
+	rows, err := db.Query(`
 WITH candidates AS (
 	SELECT
 		NULLIF(TRIM(last_user_query), '') AS label,
@@ -982,11 +1005,21 @@ SELECT COALESCE(label, ''), COALESCE(label_at, '')
 FROM candidates
 WHERE label IS NOT NULL AND label <> ''
 ORDER BY label_at DESC, source_rank ASC
-LIMIT 1`, sessionID, sessionID, sessionID).Scan(&label, &labelAt)
+LIMIT 10`, sessionID, sessionID, sessionID)
 	if err != nil {
 		return "", ""
 	}
-	return label, labelAt
+	defer rows.Close()
+	for rows.Next() {
+		var label, labelAt string
+		if err := rows.Scan(&label, &labelAt); err != nil {
+			continue
+		}
+		if clean := sanitizePromptLabel(label); clean != "" {
+			return clean, labelAt
+		}
+	}
+	return "", ""
 }
 
 func normalizeSessionHarness(raw, agentAssigned string) string {

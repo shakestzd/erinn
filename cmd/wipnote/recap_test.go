@@ -159,6 +159,89 @@ func TestRunPlanRollupRecap(t *testing.T) {
 	t.Logf("recap-pln artifact written: %s", artifactPath)
 }
 
+// initRootOnlyRepo initialises a git repo whose FIRST and only commit adds the
+// given files. This simulates a plan whose introducing commit is the repo's root
+// commit (no parent), which exercises the empty-tree sentinel path in
+// planRollupGitRange / collectRange.
+func initRootOnlyRepo(t *testing.T, files map[string]string) string {
+	t.Helper()
+	dir := t.TempDir()
+	runIn := func(args ...string) {
+		t.Helper()
+		cmd := exec.Command(args[0], args[1:]...)
+		cmd.Dir = dir
+		if out, err := cmd.CombinedOutput(); err != nil {
+			t.Fatalf("cmd %v: %v\n%s", args, err, out)
+		}
+	}
+	runIn("git", "init", "--initial-branch=main")
+	runIn("git", "config", "user.email", "test@wipnote.test")
+	runIn("git", "config", "user.name", "Test")
+	runIn("git", "config", "commit.gpgsign", "false")
+	for name, content := range files {
+		path := filepath.Join(dir, name)
+		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+			t.Fatalf("mkdir %s: %v", filepath.Dir(path), err)
+		}
+		if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+			t.Fatalf("write %s: %v", name, err)
+		}
+	}
+	runIn("git", "add", "-A")
+	runIn("git", "commit", "-m", "root: add plan files")
+	return dir
+}
+
+// TestRunPlanRollupRecap_RootCommit verifies that RunPlanRollupRecap produces a
+// non-empty recap (including the root commit) when the plan YAML's introducing
+// commit is the repo's root commit. The old emptyTreeSHA..HEAD range caused
+// `git log` to error (tree object, not a commit), resulting in an empty recap.
+func TestRunPlanRollupRecap_RootCommit(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping binary-spawning test in -short mode")
+	}
+
+	planID := "plan-rootcommit01"
+	planYAMLContent := "meta:\n  id: " + planID + "\n  status: finalized\n  track_id: trk-test\n" +
+		"design:\n  problem: root commit test\nslices: []\n"
+
+	wipRelYAML := filepath.Join(".wipnote", "plans", planID+".yaml")
+	wipRelHTML := filepath.Join(".wipnote", "plans", planID+".html")
+
+	// repo has exactly one commit that adds the plan files.
+	repo := initRootOnlyRepo(t, map[string]string{
+		wipRelYAML: planYAMLContent,
+		// Minimal plan HTML so PlanCollection.AddEdge can read it.
+		wipRelHTML: `<!DOCTYPE html><html><body><article id="` + planID + `" data-type="plan" data-status="finalized"></article></body></html>`,
+	})
+	wipDir := filepath.Join(repo, ".wipnote")
+
+	recapID := "recap-pln-" + planID
+	if err := RunPlanRollupRecap(wipDir, planID); err != nil {
+		t.Fatalf("RunPlanRollupRecap (root commit): %v", err)
+	}
+
+	// Artifact must be written.
+	artifactPath := filepath.Join(wipDir, "recaps", recapID+".html")
+	if _, err := os.Stat(artifactPath); err != nil {
+		t.Fatalf("recap artifact not found: %v", err)
+	}
+
+	// The recap must include the root commit in its Commits list — read the HTML
+	// and check it contains a non-trivial recap (not an empty-collect fallback).
+	// The simplest proxy: the recap HTML file is non-empty and the plan HTML
+	// contains the recap lineage edge (both would be absent on an error path).
+	planHTMLPath := filepath.Join(wipDir, "plans", planID+".html")
+	planHTMLBytes, err := os.ReadFile(planHTMLPath)
+	if err != nil {
+		t.Fatalf("read plan HTML: %v", err)
+	}
+	if !strings.Contains(string(planHTMLBytes), recapID) {
+		t.Errorf("plan HTML missing recap lineage edge %q — root-commit rollup may have produced an empty recap", recapID)
+	}
+	t.Logf("root-commit plan recap written: %s", recapID)
+}
+
 // TestRunPlanRollupRecap_UntrackedYAML verifies that RunPlanRollupRecap returns
 // a non-nil error (non-fatal by contract) when the plan YAML has no git history.
 func TestRunPlanRollupRecap_UntrackedYAML(t *testing.T) {

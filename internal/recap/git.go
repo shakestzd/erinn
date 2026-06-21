@@ -7,10 +7,52 @@ import (
 	"strings"
 )
 
+// EmptyTreeSHA is the SHA of git's well-known empty tree object. It is used as
+// the exclusive lower bound of a range that must cover all commits from the
+// very beginning of the repository (root-commit case). It is valid for git diff
+// but NOT for git log (tree object, not a commit), so callers that need to list
+// commits from the beginning must use commitsToHead instead.
+const EmptyTreeSHA = "4b825dc642cb6eb9a060e54bf8d69288fbee4904"
+
+// IsRootRange reports whether gitRange uses the empty-tree lower bound,
+// indicating "all commits from the very beginning through HEAD".
+func IsRootRange(gitRange string) bool {
+	return strings.HasPrefix(gitRange, EmptyTreeSHA+"..") || gitRange == EmptyTreeSHA
+}
+
 // commitExists reports whether the given revision resolves to a commit object in
 // the repository at projectDir.
 func commitExists(projectDir, rev string) bool {
 	return exec.Command("git", "-C", projectDir, "cat-file", "-e", rev+"^{commit}").Run() == nil
+}
+
+// commitsToHead lists every commit reachable from HEAD (newest first).
+// Used for the root-commit case where the lower bound of the range is the
+// empty-tree object (not a commit), which git log cannot accept.
+func commitsToHead(projectDir string) ([]Commit, error) {
+	out, err := exec.Command(
+		"git", "-C", projectDir,
+		"log", "--no-color", "--format=%H%x1f%s%x1f%cI", "HEAD",
+	).Output()
+	if err != nil {
+		return nil, fmt.Errorf("recap: git log HEAD: %w", err)
+	}
+	var commits []Commit
+	for _, line := range strings.Split(strings.TrimSpace(string(out)), "\n") {
+		if line == "" {
+			continue
+		}
+		parts := strings.Split(line, "\x1f")
+		if len(parts) < 3 {
+			continue
+		}
+		commits = append(commits, Commit{
+			Hash:      parts[0],
+			Message:   parts[1],
+			Timestamp: parts[2],
+		})
+	}
+	return commits, nil
 }
 
 // commitsInRange lists the commits contained in a git range (newest first),

@@ -31,6 +31,11 @@ func TestResolveCurrentSessionIDs_ExpandsFamily(t *testing.T) {
 
 	// Only the parent stub is known from the harness env.
 	t.Setenv("WIPNOTE_SESSION_ID", "sess-parent")
+	t.Setenv("WIPNOTE_HARNESS", "")
+	t.Setenv("CODEX_THREAD_ID", "")
+	t.Setenv("WIPNOTE_OTEL_SESSION", "")
+	t.Setenv("GEMINI_SESSION_ID", "")
+	t.Setenv("ANTIGRAVITY_SESSION_ID", "")
 	t.Setenv("CLAUDE_CODE_SESSION_ID", "")
 	t.Setenv("CLAUDE_SESSION_ID", "")
 	t.Setenv("WIPNOTE_PARENT_SESSION", "")
@@ -49,6 +54,54 @@ func TestResolveCurrentSessionIDs_ExpandsFamily(t *testing.T) {
 	}
 	if got["sess-other"] {
 		t.Errorf("unrelated-family session sess-other must not be included: %v", ids)
+	}
+}
+
+func TestResolveCurrentSessionIDs_CodexThreadBeatsInheritedParent(t *testing.T) {
+	root := t.TempDir()
+	if err := agent.RegisterSessionFamily(root, "codex-thread", "codex-family"); err != nil {
+		t.Fatalf("register codex: %v", err)
+	}
+	if err := agent.RegisterSessionFamily(root, "stale-claude-parent", "claude-family"); err != nil {
+		t.Fatalf("register stale parent: %v", err)
+	}
+
+	t.Setenv("WIPNOTE_HARNESS", "codex")
+	t.Setenv("CODEX_THREAD_ID", "codex-thread")
+	t.Setenv("WIPNOTE_OTEL_SESSION", "")
+	t.Setenv("WIPNOTE_SESSION_ID", "stale-claude-parent")
+	t.Setenv("CLAUDE_CODE_SESSION_ID", "")
+	t.Setenv("CLAUDE_SESSION_ID", "")
+	t.Setenv("WIPNOTE_PARENT_SESSION", "")
+	t.Setenv("WIPNOTE_SESSION_FAMILY_ID", "")
+
+	ids := resolveCurrentSessionIDs(root)
+	got := map[string]bool{}
+	for _, id := range ids {
+		got[id] = true
+	}
+	if !got["codex-thread"] {
+		t.Fatalf("missing codex native thread ID in %v", ids)
+	}
+	if got["stale-claude-parent"] {
+		t.Fatalf("inherited WIPNOTE_SESSION_ID should not compete with codex native ID: %v", ids)
+	}
+}
+
+func TestResolveCurrentSessionIDs_UsesGenericSessionWhenNoHarnessNativeID(t *testing.T) {
+	root := t.TempDir()
+	t.Setenv("WIPNOTE_HARNESS", "codex")
+	t.Setenv("CODEX_THREAD_ID", "")
+	t.Setenv("WIPNOTE_OTEL_SESSION", "")
+	t.Setenv("WIPNOTE_SESSION_ID", "generic-session")
+	t.Setenv("CLAUDE_CODE_SESSION_ID", "")
+	t.Setenv("CLAUDE_SESSION_ID", "")
+	t.Setenv("WIPNOTE_PARENT_SESSION", "")
+	t.Setenv("WIPNOTE_SESSION_FAMILY_ID", "")
+
+	ids := resolveCurrentSessionIDs(root)
+	if len(ids) == 0 || ids[0] != "generic-session" {
+		t.Fatalf("generic session should remain fallback when no native ID exists: %v", ids)
 	}
 }
 
@@ -123,11 +176,67 @@ func TestDescribeCurrentSession_ShowsSessionID(t *testing.T) {
 	}
 }
 
+func TestDescribeCurrentSession_UsesSessionFactsNotWorkItemTitle(t *testing.T) {
+	row := dbpkg.ResumableSession{
+		WorkItemID:       "bug-stale",
+		Title:            "Stale work item label",
+		PromptLabel:      "review and fix this issue",
+		Branch:           "main",
+		ExecWorktreePath: ".wipnote/worktrees/bug-active",
+		Harness:          "codex",
+		LastSessionID:    "1e97ab5e-4af4-4f89-b428-f098dd05a57b",
+		LastActivity:     "2000-01-02T03:04:05Z",
+	}
+	got := describeCurrentSession(row)
+	for _, bad := range []string{"bug-stale", "Stale work item label"} {
+		if strings.Contains(got, bad) {
+			t.Fatalf("current-session description should not include work-item attribution %q: %q", bad, got)
+		}
+	}
+	for _, want := range []string{"1e97ab5e", "review and fix this issue", "Codex", "branch main", ".wipnote/worktrees/bug-active"} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("current-session description missing %q: %q", want, got)
+		}
+	}
+}
+
+func TestDescribeResumableSession_UsesPromptLabelBeforeWorkItemTitle(t *testing.T) {
+	row := dbpkg.ResumableSession{
+		WorkItemID:    "feat-abc123",
+		Title:         "Work item title fallback",
+		Type:          "feature",
+		PromptLabel:   "last user prompt from the session",
+		Harness:       "codex",
+		LastSessionID: "sess-codex",
+		LastActivity:  "2000-01-02T03:04:05Z",
+	}
+	got := describeResumableSession(row, true)
+	if !strings.Contains(got, "last user prompt from the session") {
+		t.Fatalf("resumable row missing prompt label: %q", got)
+	}
+	if strings.Contains(got, "Work item title fallback") {
+		t.Fatalf("resumable row should prefer prompt label over title: %q", got)
+	}
+	if !strings.Contains(got, "feat-abc123 (feature)") {
+		t.Fatalf("resumable row should still include work item context: %q", got)
+	}
+}
+
+func TestCurrentSessionActionLabel(t *testing.T) {
+	row := dbpkg.ResumableSession{Harness: "claude"}
+	if got := currentSessionActionLabel(row, "claude"); got != "Resume this session" {
+		t.Fatalf("same harness label = %q, want Resume this session", got)
+	}
+	if got := currentSessionActionLabel(row, "codex"); got != "Resume this session" {
+		t.Fatalf("current slot label = %q, want Resume this session", got)
+	}
+}
+
 // TestIsActionableCurrentSession guards the slot from producing a degenerate
 // continue intent. With no work item, only a same-harness session on a harness
 // that resumes natively by session ID (claude/codex) is actionable. Any row with
-// a work item is actionable. Cross-harness or non-native-resume rows without a
-// work item are not — their continuation context would bail and launch fresh.
+// a work item is actionable. Cross-harness rows are not valid for the special
+// current-session slot; those belong in the grouped "Continue from" list.
 func TestIsActionableCurrentSession(t *testing.T) {
 	cases := []struct {
 		name    string
@@ -180,10 +289,10 @@ func TestIsActionableCurrentSession(t *testing.T) {
 			want:    false,
 		},
 		{
-			name:    "cross harness with work item",
+			name:    "cross harness with work item is grouped, not current",
 			row:     dbpkg.ResumableSession{Harness: "codex", WorkItemID: "feat-a", LastSessionID: "sess-x"},
 			harness: "claude",
-			want:    true,
+			want:    false,
 		},
 		{
 			// Worktree without a work item is NOT actionable: the continue-context
@@ -250,7 +359,7 @@ func TestHasResumableOptions_CurrentOnlyCountsAsResumable(t *testing.T) {
 }
 
 // TestPromptLaunchIntent_CurrentSessionSlotAtTop verifies the first-class
-// "Resume this session" entry: it renders above the same/cross-harness groups
+// current-session entry: it renders above the same/cross-harness groups
 // (numeric option 2) and resolves to a continue intent that resumes the current
 // session ID, even when that session carries no work item.
 func TestPromptLaunchIntent_CurrentSessionSlotAtTop(t *testing.T) {
@@ -285,6 +394,40 @@ func TestPromptLaunchIntent_CurrentSessionSlotAtTop(t *testing.T) {
 	}
 	if intent.ResumeSessionID != "sess-current" {
 		t.Fatalf("intent.ResumeSessionID = %q, want sess-current", intent.ResumeSessionID)
+	}
+}
+
+func TestPromptLaunchIntent_CurrentSessionCrossHarnessRowNeverInserted(t *testing.T) {
+	var out bytes.Buffer
+	grouped := dbpkg.HarnessGroupedResumableSessions{
+		CrossHarness: []dbpkg.ResumableSession{{
+			WorkItemID:    "feat-a",
+			Title:         "Alpha",
+			Harness:       "claude",
+			LastSessionID: "sess-claude",
+			LastActivity:  "2026-06-19T01:00:00Z",
+		}},
+	}
+
+	intent, err := promptLaunchIntent(strings.NewReader("2\n"), &out, "codex", grouped)
+	if err != nil {
+		t.Fatalf("promptLaunchIntent() error = %v", err)
+	}
+	rendered := out.String()
+	if strings.Contains(rendered, "Resume this session") {
+		t.Fatalf("cross-harness row should not be rendered as current session:\n%s", rendered)
+	}
+	if !strings.Contains(rendered, "Continue from other harnesses") {
+		t.Fatalf("cross-harness continuation should stay in grouped section:\n%s", rendered)
+	}
+	if intent.Kind != launcher.LaunchIntentContinue {
+		t.Fatalf("intent.Kind = %q, want continue", intent.Kind)
+	}
+	if intent.WorkItemID != "feat-a" {
+		t.Fatalf("intent.WorkItemID = %q, want feat-a", intent.WorkItemID)
+	}
+	if intent.ResumeSessionID != "" {
+		t.Fatalf("intent.ResumeSessionID = %q, want empty for cross-harness continue", intent.ResumeSessionID)
 	}
 }
 

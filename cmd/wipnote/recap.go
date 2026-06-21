@@ -419,9 +419,9 @@ func planRollupGitRange(repoRoot, firstSHA string) string {
 	if gitHasParent(repoRoot, firstSHA) {
 		return firstSHA + "~1..HEAD"
 	}
-	// Root commit: use the empty-tree SHA as the exclusive lower bound.
-	// This is a well-known constant in git; it always exists and precedes
-	// every real commit, so the range covers the entire history up to HEAD.
-	const emptyTreeSHA = "4b825dc642cb6eb9a060e54bf8d69288fbee4904"
-	return emptyTreeSHA + "..HEAD"
+	// Root commit: use the well-known empty-tree SHA as the exclusive lower
+	// bound. recap.EmptyTreeSHA is a tree object (not a commit), so git diff
+	// accepts it but git log does not. recap.collectRange detects this sentinel
+	// via IsRootRange and substitutes commitsToHead for the log step.
+	return recap.EmptyTreeSHA + "..HEAD"
 }

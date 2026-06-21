@@ -79,6 +79,7 @@ func resolveToolUseContext(event *CloudEvent, database *sql.DB, trustParentEnvVa
 
 	agentID := resolveAgentID(event)
 	isSubagent := isSubagentEvent(event)
+	projectDir := ResolveProjectDir(event.CWD, event.SessionID)
 
 	// Batch fetch: session row + active claim in one query (Item 1).
 	var (
@@ -95,6 +96,18 @@ func resolveToolUseContext(event *CloudEvent, database *sql.DB, trustParentEnvVa
 		if featureID == "" {
 			featureID = claimedItem
 		}
+		if featureID == "" {
+			if fallbackSessionID, fallback := projectClaimedToolUseContext(database, projectDir, agentID, sessionID); fallback != nil {
+				sessionID = fallbackSessionID
+				featureID = fallback.ActiveFeatureID
+				parentSessionID = fallback.ParentSessionID
+				sessionCreatedAt = fallback.CreatedAt
+				claimedItem = fallback.ClaimedItem
+				if featureID == "" {
+					featureID = claimedItem
+				}
+			}
+		}
 		// Keep the process-level cache warm for other callers (missing_events etc.)
 		featureIDCache = featureIDCacheEntry{
 			sessionID: sessionID,
@@ -102,8 +115,30 @@ func resolveToolUseContext(event *CloudEvent, database *sql.DB, trustParentEnvVa
 			populated: true,
 		}
 	} else {
-		// Fallback: session not in DB yet (race during session-start).
-		featureID = cachedGetActiveFeatureID(database, sessionID)
+		// Fallback: session not in DB yet (race during session-start), or a
+		// harness supplied an invocation/session token that differs from the
+		// wipnote session row. Codex Desktop can do this for apply_patch, while
+		// `wipnote who` still sees the active project claim through the latest
+		// active session. Prefer a project-scoped active session only when it
+		// has an actual work item claim, so unrelated active sessions do not
+		// satisfy the write guard.
+		if fallbackSessionID, row := projectClaimedToolUseContext(database, projectDir, agentID, sessionID); row != nil {
+			sessionID = fallbackSessionID
+			featureID = row.ActiveFeatureID
+			parentSessionID = row.ParentSessionID
+			sessionCreatedAt = row.CreatedAt
+			claimedItem = row.ClaimedItem
+			if featureID == "" {
+				featureID = claimedItem
+			}
+			featureIDCache = featureIDCacheEntry{
+				sessionID: sessionID,
+				featureID: featureID,
+				populated: true,
+			}
+		} else {
+			featureID = cachedGetActiveFeatureID(database, sessionID)
+		}
 	}
 
 	agentType := event.AgentType
@@ -111,7 +146,6 @@ func resolveToolUseContext(event *CloudEvent, database *sql.DB, trustParentEnvVa
 		agentType = os.Getenv("WIPNOTE_AGENT_TYPE")
 	}
 
-	projectDir := ResolveProjectDir(event.CWD, event.SessionID)
 	hgDir := filepath.Join(projectDir, ".wipnote")
 	yolo := isYoloWithInheritance(event, hgDir, database, sessionID, projectDir, isSubagent)
 	parentEventID := resolveParentEventID(database, sessionID, agentID, isSubagent, trustParentEnvVar)
@@ -136,6 +170,39 @@ func resolveToolUseContext(event *CloudEvent, database *sql.DB, trustParentEnvVa
 		SessionCreatedAt: sessionCreatedAt,
 		ClaimedItem:      claimedItem,
 	}
+}
+
+func projectClaimedToolUseContext(database *sql.DB, projectDir, agentID, skipSessionID string) (string, *db.ToolUseContextRow) {
+	if database == nil || projectDir == "" {
+		return "", nil
+	}
+	rows, err := database.Query(`
+		SELECT session_id FROM sessions
+		WHERE status = 'active'
+		  AND COALESCE(project_dir, '') = ?
+		ORDER BY created_at DESC
+		LIMIT 5`, projectDir)
+	if err != nil {
+		return "", nil
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var sid string
+		if err := rows.Scan(&sid); err != nil || sid == "" {
+			continue
+		}
+		if sid == skipSessionID {
+			continue
+		}
+		row, err := db.GetToolUseContext(database, sid, agentID)
+		if err != nil || row == nil {
+			continue
+		}
+		if row.ActiveFeatureID != "" || row.ClaimedItem != "" {
+			return sid, row
+		}
+	}
+	return "", nil
 }
 
 // isSubagentEvent returns true when the event originates from a subagent.

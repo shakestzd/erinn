@@ -277,6 +277,34 @@ func TestCollect_FromRange(t *testing.T) {
 	}
 }
 
+// TestCollect_FromRange_RootCommit verifies that collectRange handles the
+// EmptyTreeSHA..HEAD sentinel correctly: the root commit appears in Commits and
+// its added files appear in Files. Previously, `git log EmptyTreeSHA..HEAD`
+// errored because EmptyTreeSHA is a tree object (not a commit).
+func TestCollect_FromRange_RootCommit(t *testing.T) {
+	f := newFixture(t)
+	// Single root commit — no prior commits exist.
+	f.commit("root", map[string]string{"root.go": "package root\n"})
+
+	gitRange := EmptyTreeSHA + "..HEAD"
+	data, err := Collect(f.db, Options{Input: gitRange, ProjectDir: f.dir})
+	if err != nil {
+		t.Fatalf("Collect with root-commit range: %v", err)
+	}
+
+	if data.Provenance.Kind != InputRange {
+		t.Errorf("Kind = %v, want range", data.Provenance.Kind)
+	}
+	// Must include the root commit.
+	if len(data.Commits) == 0 {
+		t.Fatalf("Commits is empty — root commit was dropped by git log error path")
+	}
+	// Must include the file added by the root commit.
+	if fc := fileChange(data, "root.go"); fc == nil || fc.Change != ChangeAdd {
+		t.Errorf("root.go = %+v, want added file", fc)
+	}
+}
+
 func TestCollect_FromSession(t *testing.T) {
 	f := newFixture(t)
 	now := time.Now().UTC()

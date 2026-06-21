@@ -116,6 +116,108 @@ func TestGetToolUseContext_DirectClaimScopedToSession(t *testing.T) {
 	}
 }
 
+func TestGetToolUseContext_ClaimLookupBySessionFamilyFallback(t *testing.T) {
+	database := setupTestDB(t)
+	defer database.Close()
+
+	now := time.Now().UTC()
+	if _, err := database.Exec(
+		`UPDATE sessions SET session_family_id = ? WHERE session_id = ?`,
+		"family-codex", "sess-test",
+	); err != nil {
+		t.Fatalf("set family: %v", err)
+	}
+	if err := db.InsertSession(database, &models.Session{
+		SessionID:     "sess-family-owner",
+		AgentAssigned: "codex",
+		CreatedAt:     now.Add(time.Second),
+		Status:        "active",
+	}); err != nil {
+		t.Fatalf("InsertSession sibling: %v", err)
+	}
+	if err := db.SetSessionFamilyID(database, "sess-family-owner", "family-codex"); err != nil {
+		t.Fatalf("set sibling family: %v", err)
+	}
+	insertTestFeatures(t, database, "feat-family")
+	if err := db.ClaimItem(database, &models.Claim{
+		ClaimID:          "claim-family",
+		WorkItemID:       "feat-family",
+		OwnerSessionID:   "sess-family-owner",
+		OwnerAgent:       "codex",
+		ClaimedByAgentID: "codex",
+		Status:           models.ClaimInProgress,
+	}, 30*time.Minute); err != nil {
+		t.Fatalf("ClaimItem: %v", err)
+	}
+
+	row, err := db.GetToolUseContext(database, "sess-test", "codex")
+	if err != nil {
+		t.Fatalf("GetToolUseContext: %v", err)
+	}
+	if row == nil {
+		t.Fatal("expected row, got nil")
+	}
+	if row.ClaimedItem != "feat-family" {
+		t.Fatalf("ClaimedItem = %q, want feat-family", row.ClaimedItem)
+	}
+}
+
+func TestGetToolUseContext_DirectSessionClaimBeatsFamilyFallback(t *testing.T) {
+	database := setupTestDB(t)
+	defer database.Close()
+
+	now := time.Now().UTC()
+	if _, err := database.Exec(
+		`UPDATE sessions SET session_family_id = ? WHERE session_id = ?`,
+		"family-precedence", "sess-test",
+	); err != nil {
+		t.Fatalf("set family: %v", err)
+	}
+	if err := db.InsertSession(database, &models.Session{
+		SessionID:     "sess-family-owner",
+		AgentAssigned: "codex",
+		CreatedAt:     now.Add(time.Second),
+		Status:        "active",
+	}); err != nil {
+		t.Fatalf("InsertSession sibling: %v", err)
+	}
+	if err := db.SetSessionFamilyID(database, "sess-family-owner", "family-precedence"); err != nil {
+		t.Fatalf("set sibling family: %v", err)
+	}
+	insertTestFeatures(t, database, "feat-direct", "feat-family")
+	if err := db.ClaimItem(database, &models.Claim{
+		ClaimID:          "claim-family",
+		WorkItemID:       "feat-family",
+		OwnerSessionID:   "sess-family-owner",
+		OwnerAgent:       "codex",
+		ClaimedByAgentID: "codex",
+		Status:           models.ClaimInProgress,
+	}, 30*time.Minute); err != nil {
+		t.Fatalf("ClaimItem family: %v", err)
+	}
+	if err := db.ClaimItem(database, &models.Claim{
+		ClaimID:          "claim-direct",
+		WorkItemID:       "feat-direct",
+		OwnerSessionID:   "sess-test",
+		OwnerAgent:       "codex",
+		ClaimedByAgentID: "",
+		Status:           models.ClaimInProgress,
+	}, 30*time.Minute); err != nil {
+		t.Fatalf("ClaimItem direct: %v", err)
+	}
+
+	row, err := db.GetToolUseContext(database, "sess-test", "different-agent")
+	if err != nil {
+		t.Fatalf("GetToolUseContext: %v", err)
+	}
+	if row == nil {
+		t.Fatal("expected row, got nil")
+	}
+	if row.ClaimedItem != "feat-direct" {
+		t.Fatalf("ClaimedItem = %q, want feat-direct", row.ClaimedItem)
+	}
+}
+
 func TestGetToolUseContext_DirectClaimUsesLatestLease(t *testing.T) {
 	database := setupTestDB(t)
 	defer database.Close()

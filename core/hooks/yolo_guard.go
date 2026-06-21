@@ -185,8 +185,37 @@ func checkYoloWorkItemGuard(toolName, featureID string, _ bool, sessionID string
 	if sessionID != "" && database != nil && ancestorHasActiveWorkItem(database, sessionID) {
 		return ""
 	}
-	return "An active work item is required before writing code. " +
+	msg := "An active work item is required before writing code. " +
 		"Run: wipnote feature start <id>  or  wipnote feature create \"title\" --track <trk-id>"
+	if sessionID != "" {
+		msg += fmt.Sprintf("\nChecked session: %s", sessionID)
+	}
+	if database != nil {
+		if claimSession, workItem := latestProjectClaim(database, projectRoot); claimSession != "" && workItem != "" {
+			msg += fmt.Sprintf("\nNearest active claim: session=%s work_item=%s", claimSession, workItem)
+		}
+	}
+	return msg
+}
+
+func latestProjectClaim(database *sql.DB, projectRoot string) (string, string) {
+	if database == nil || projectRoot == "" {
+		return "", ""
+	}
+	var sessionID, workItemID string
+	err := database.QueryRow(`
+		SELECT c.owner_session_id, c.work_item_id
+		FROM claims c
+		JOIN sessions s ON s.session_id = c.owner_session_id
+		WHERE s.status = 'active'
+		  AND COALESCE(s.project_dir, '') = ?
+		  AND c.status IN ('proposed','claimed','in_progress','blocked','handoff_pending')
+		ORDER BY c.leased_at DESC
+		LIMIT 1`, projectRoot).Scan(&sessionID, &workItemID)
+	if err != nil {
+		return "", ""
+	}
+	return sessionID, workItemID
 }
 
 // yoloSubagentGracePeriod is the window after session start during which a

@@ -107,6 +107,8 @@ func listGroupedResumableSessionsForRoot(projectRoot, canonicalRoot, harness str
 	// listing is returned unchanged.
 	if current, cerr := dbpkg.GetCurrentSessionResumable(db, threshold, resolveCurrentSessionIDs(root)); cerr == nil && current != nil && isActionableCurrentSession(*current, harness) {
 		grouped = withCurrentSession(grouped, current)
+	} else if current, cerr := dbpkg.GetLatestHarnessSessionResumable(db, threshold, harness); cerr == nil && current != nil && isActionableCurrentSession(*current, harness) {
+		grouped = withCurrentSession(grouped, current)
 	}
 	return grouped, nil
 }
@@ -129,18 +131,19 @@ var harnessesWithNativeSessionResume = map[string]struct{}{
 //     natively by session ID (claude/codex). Otherwise the resume ID is unusable
 //     and, with no work item, the continuation context bails — so require a work
 //     item for Gemini/Antigravity.
-//   - Cross harness: cross-harness resume IDs are suppressed and
-//     resolveContinueLaunchContext bails on an empty work item (dropping any
-//     worktree handoff), so a work item is required — matching every other
-//     cross-harness row.
+//   - Cross harness: never actionable for the special current-session slot.
+//     Cross-harness continuation is represented by the grouped "Continue from"
+//     work-item rows; the current-session slot is reserved for resuming the
+//     target harness's own runtime session.
 func isActionableCurrentSession(row dbpkg.ResumableSession, harness string) bool {
+	sameHarness := strings.EqualFold(strings.TrimSpace(row.Harness), strings.TrimSpace(harness))
+	if !sameHarness {
+		return false
+	}
 	if strings.TrimSpace(row.WorkItemID) != "" {
 		return true
 	}
 	// No work item: only a same-harness, natively-resumable session is actionable.
-	if !strings.EqualFold(strings.TrimSpace(row.Harness), strings.TrimSpace(harness)) {
-		return false
-	}
 	if strings.TrimSpace(row.LastSessionID) == "" {
 		return false
 	}
@@ -156,19 +159,51 @@ func isActionableCurrentSession(row dbpkg.ResumableSession, harness string) bool
 func resolveCurrentSessionIDs(projectRoot string) []string {
 	seen := map[string]bool{}
 	var ids []string
-	add := func(s string) {
+	add := func(s string) bool {
 		s = strings.TrimSpace(s)
 		if s != "" && !seen[s] {
 			seen[s] = true
 			ids = append(ids, s)
+			return true
 		}
+		return false
 	}
+	nativeIDFound := false
+
+	// Prefer the native session/thread ID for the harness we are currently
+	// running inside. WIPNOTE_SESSION_ID can be inherited from a parent harness
+	// during nested launches (for example Claude -> `wipnote codex --dev`), so
+	// it is a fallback, not the primary identity, when a launcher stamps a
+	// more specific harness marker.
+	currentHarness := strings.ToLower(strings.TrimSpace(os.Getenv(harnessEnvKey)))
+	switch currentHarness {
+	case harnessCodex:
+		nativeIDFound = add(os.Getenv("CODEX_THREAD_ID")) || nativeIDFound
+		nativeIDFound = add(os.Getenv("WIPNOTE_OTEL_SESSION")) || nativeIDFound
+	case harnessGemini:
+		nativeIDFound = add(os.Getenv("GEMINI_SESSION_ID")) || nativeIDFound
+		nativeIDFound = add(os.Getenv("WIPNOTE_OTEL_SESSION")) || nativeIDFound
+	case harnessAntigravity:
+		nativeIDFound = add(os.Getenv("ANTIGRAVITY_SESSION_ID")) || nativeIDFound
+		nativeIDFound = add(os.Getenv("WIPNOTE_OTEL_SESSION")) || nativeIDFound
+	case harnessClaude:
+		nativeIDFound = add(os.Getenv("CLAUDE_CODE_SESSION_ID")) || nativeIDFound
+		nativeIDFound = add(os.Getenv("CLAUDE_SESSION_ID")) || nativeIDFound
+	}
+
 	for _, env := range []string{
 		"WIPNOTE_SESSION_ID",
 		"CLAUDE_CODE_SESSION_ID",
 		"CLAUDE_SESSION_ID",
+		"CODEX_THREAD_ID",
+		"GEMINI_SESSION_ID",
+		"ANTIGRAVITY_SESSION_ID",
+		"WIPNOTE_OTEL_SESSION",
 		"WIPNOTE_PARENT_SESSION",
 	} {
+		if nativeIDFound && env == "WIPNOTE_SESSION_ID" && currentHarness != "" {
+			continue
+		}
 		add(os.Getenv(env))
 	}
 
@@ -255,7 +290,7 @@ func buildSelectOptions(harness string, grouped dbpkg.HarnessGroupedResumableSes
 	}
 	idx := 1
 	if grouped.Current != nil {
-		label := st.AccentText.Render("Resume this session") + "  " + describeCurrentSession(*grouped.Current)
+		label := st.AccentText.Render(currentSessionActionLabel(*grouped.Current, harness)) + "  " + describeCurrentSession(*grouped.Current)
 		opts = append(opts, huh.NewOption(label, idx))
 		idx++
 	}
@@ -353,10 +388,11 @@ func promptLaunchIntentNumeric(in io.Reader, out io.Writer, harness string, grou
 	fmt.Fprintf(out, "Choose how to launch %s:\n", formatHarnessName(harness))
 	fmt.Fprintln(out, "  1. Start something new")
 	optionNumber := 2
-	// Current-session slot first, with its own header, so the session the user is
-	// launching from is unmistakable even in the numeric fallback path.
+	// Current-session slot first, with its own header, so the session or work
+	// context the user is launching from is unmistakable even in the numeric
+	// fallback path.
 	if grouped.Current != nil {
-		fmt.Fprintln(out, "\nResume this session")
+		fmt.Fprintln(out, "\n"+currentSessionActionLabel(*grouped.Current, harness))
 		fmt.Fprintf(out, "  %d. %s\n", optionNumber, describeCurrentSession(*grouped.Current))
 		optionNumber++
 	}
@@ -422,6 +458,10 @@ func resumeSessionIDForHarness(row dbpkg.ResumableSession, harness string) strin
 // maxChooserTitleLen bounds the work-item title shown in a chooser row so long
 // titles don't wrap and break the single-line scannability of the list.
 const maxChooserTitleLen = 44
+
+// maxChooserPromptLen gives transcript-derived labels more room than work-item
+// titles while keeping chooser rows compact.
+const maxChooserPromptLen = 76
 
 // shortSessionID returns the leading segment of a session ID (e.g. the first
 // UUID/ULID group) so a row is identifiable without printing the full ID.
@@ -511,20 +551,33 @@ func joinChooserSegments(segs ...string) string {
 	return strings.Join(out, " · ")
 }
 
+func currentSessionActionLabel(row dbpkg.ResumableSession, targetHarness string) string {
+	return "Resume this session"
+}
+
 // describeCurrentSession renders the body of the "Resume this session" slot.
-// It leads with the short session ID (the slot's identity, since this session
-// often has no work item), then the work item and a relative timestamp.
+// It leads with the short session ID (the runtime identity), then stable
+// session/worktree facts and a relative timestamp. It intentionally does not
+// render work-item attribution: claims and active_work_items are mutable, and a
+// stale attribution row should not make the current runtime session look like a
+// different bug or feature.
 func describeCurrentSession(row dbpkg.ResumableSession) string {
 	id := shortSessionID(row.LastSessionID)
-	work := row.WorkItemID
-	if work != "" && row.Title != "" {
-		work += " " + truncateTitle(row.Title, maxChooserTitleLen)
+	prompt := truncateTitle(row.PromptLabel, maxChooserPromptLen)
+	harness := formatHarnessName(row.Harness)
+	branch := strings.TrimSpace(row.Branch)
+	if branch != "" {
+		branch = "branch " + branch
+	}
+	worktree := strings.TrimSpace(row.ExecWorktreePath)
+	if worktree != "" {
+		worktree = truncateTitle(worktree, maxChooserTitleLen)
 	}
 	when := relativeTime(row.LastActivity)
 	if row.Live {
 		when = joinChooserSegments("live", when)
 	}
-	return joinChooserSegments(id, work, when)
+	return joinChooserSegments(id, prompt, harness, branch, worktree, when)
 }
 
 // describeResumableSession renders the body of a grouped resume row: work item,
@@ -532,15 +585,19 @@ func describeCurrentSession(row dbpkg.ResumableSession) string {
 // live in the row's group prefix/header, not here, to avoid the doubled
 // "Resume … Resume transcript for …" phrasing the old format produced.
 func describeResumableSession(row dbpkg.ResumableSession, sameHarness bool) string {
+	label := truncateTitle(row.PromptLabel, maxChooserPromptLen)
+	if label == "" {
+		label = truncateTitle(row.Title, maxChooserTitleLen)
+	}
 	work := row.WorkItemID
-	if row.Type != "" {
+	if work != "" && row.Type != "" {
 		work = fmt.Sprintf("%s (%s)", row.WorkItemID, row.Type)
 	}
 	when := relativeTime(row.LastActivity)
 	if row.Live {
 		when = joinChooserSegments("live", when)
 	}
-	return joinChooserSegments(work, truncateTitle(row.Title, maxChooserTitleLen), when)
+	return joinChooserSegments(label, work, when)
 }
 
 func formatHarnessName(harness string) string {

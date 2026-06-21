@@ -274,26 +274,28 @@ func RunPlanRollupRecap(wipnoteDir, planID string) error {
 		fmt.Fprintf(os.Stderr, "recap (non-fatal): commit artifact: %v\n", commitErr)
 	}
 
-	// Wire relates_to lineage edge from recap to plan (non-fatal).
+	// Wire both lineage edges into the plan HTML FIRST (AddEdge writes to disk
+	// immediately), then commit the mutated HTML once. This avoids the re-render
+	// trap of commitPlanChange (which regenerates HTML from YAML and would wipe
+	// the just-written edge data). commitWipnoteArtifact stages the existing
+	// .wipnote/plans/<planID>.html directly — no YAML re-render.
+
+	// (a) relates_to edge: plan → recap (non-fatal).
 	if edgeErr := addPlanRecapLineageEdge(wipnoteDir, recapID, planID); edgeErr != nil {
-		fmt.Fprintf(os.Stderr, "recap (non-fatal): add lineage edge: %v\n", edgeErr)
+		fmt.Fprintf(os.Stderr, "recap (non-fatal): add recap lineage edge: %v\n", edgeErr)
 	}
 
-	// Commit the plan HTML after the lineage edge mutates it (non-fatal).
-	// addPlanRecapLineageEdge writes into the plan HTML; without this commit
-	// the edge is only on disk and the plan HTML is left dirty in git.
-	// commitPlanChange takes the YAML path and derives the HTML path from it.
-	planYAMLCommitPath := filepath.Join(wipnoteDir, "plans", planID+".yaml")
-	commitMsg := fmt.Sprintf("plan(%s): add recap lineage edge", planID)
-	if planCommitErr := commitPlanChange(planYAMLCommitPath, commitMsg); planCommitErr != nil {
-		fmt.Fprintf(os.Stderr, "recap (non-fatal): commit plan HTML: %v\n", planCommitErr)
-	}
-
-	// Wire a relates_to edge from the plan to its introducing commit SHA so
-	// lineage queries can surface the plan's origin commit. firstSHA is the
-	// oldest commit that added the plan YAML (resolved via planFirstCommitSHA).
+	// (b) relates_to edge: plan → introducing commit SHA (non-fatal).
+	// firstSHA is the oldest commit that added the plan YAML, resolved above.
 	if addIntroErr := addPlanIntroducingCommitEdge(wipnoteDir, planID, firstSHA); addIntroErr != nil {
 		fmt.Fprintf(os.Stderr, "recap (non-fatal): add introducing commit edge: %v\n", addIntroErr)
+	}
+
+	// (c) Commit the mutated plan HTML once, after both edges are on disk.
+	// commitWipnoteArtifact commits .wipnote/plans/<planID>.html directly
+	// without re-rendering from YAML — preserving both edge mutations.
+	if planCommitErr := commitWipnoteArtifact(wipnoteDir, "plan", planID, "update"); planCommitErr != nil {
+		fmt.Fprintf(os.Stderr, "recap (non-fatal): commit plan HTML: %v\n", planCommitErr)
 	}
 
 	shortStart := firstSHA

@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>roborev-482 round-5 (final/capped): async in-flight-duplicate dedup &#43; bounded-open migration retry exceeds &lt;1s</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="bug-b0a36bda"
+             data-type="bug"
+             data-status="todo"
+             data-priority="medium"
+             data-created="2026-06-22T21:37:45.08487"
+             data-updated="2026-06-22T21:37:45.094539" data-agent-assigned="claude-code" data-track-id="trk-6a1f5362" data-created-by-agent="claude-code" data-created-by-model="claude-opus-4-8[1m]" data-created-by-cli-version="0.64.0-17-gac4898ffa">
+
+        <header>
+            <h1>roborev-482 round-5 (final/capped): async in-flight-duplicate dedup &#43; bounded-open migration retry exceeds &lt;1s</h1>
+            <div class="metadata">
+                <span class="badge status-todo">Todo</span>
+                <span class="badge priority-medium">Medium Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-6a1f5362.html" data-relationship="part_of" data-since="2026-06-22T21:37:45.094398">trk-6a1f5362</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>Re-review job 482 (F, 2 Med, plateaued). (1) core/daemon/socket.go async dedup: an in-flight duplicate (2nd client, same op_id, while 1st pending) gets AckDuplicate and skips fallback; if 1st apply fails the duplicate is lost. Fix: track pending vs applied op_ids separately; do NOT return durable AckDuplicate for a still-pending op (re-enqueue it / treat as non-durable so caller falls back); only confirmed-applied ops dedup durably. (2) core/db/open_modes.go OpenWithBusyTimeout wraps runMigrations in RetryOnBusy(DefaultBusyBackoff ~2.6s), so a bounded hook open (OpenHookDBWithBusyTimeout) on a stale/unmigrated DB under a held lock exceeds &lt;1s. Fix: skip migration when DB schema already current (cheap read check), and for the bounded open keep migration within the bounded timeout (no separate 2.6s retry). LAST capped fix pass per user.</p>
+        </section>
+    </article>
+</body>
+</html>

@@ -352,19 +352,55 @@ func (l *Listener) submitAndAwaitApply(ctx context.Context, env Envelope, op wri
 // submitEnqueueOnly is the ENQUEUE-ONLY (Envelope.Async) path: it hands the op
 // to the queue via the non-blocking Submit and acks AckEnqueued the instant the
 // op is durably queued — it does NOT wait for apply. A queue rejection
-// (ErrQueueFull / writer-unavailable) is the ONLY failure surface here; it
-// becomes an error ack so the caller falls back (canonical NDJSON + reindex is
-// the backstop). The single-writer worker still applies the op in FIFO order
-// after this returns. roborev 451/452: this is what keeps a hot hook under its
-// <1s bound when another writer holds the lock.
+// (ErrQueueFull / writer-unavailable) is the ONLY synchronous failure surface
+// here; it becomes an error ack so the caller falls back (canonical NDJSON +
+// reindex is the backstop). The single-writer worker still applies the op in
+// FIFO order after this returns. roborev 451/452: this is what keeps a hot hook
+// under its <1s bound when another writer holds the lock.
+//
+// Dedup-on-enqueue vs dedup-on-apply (roborev-480 finding 1): we record the
+// op_id BEFORE the worker commits so an in-flight duplicate (a resubmit that
+// arrives while this op is still queued/applying) is collapsed — promoting to
+// dedup only on successful apply would open an in-flight-duplicate window for a
+// non-idempotent op. The cost of recording early is that an apply FAILURE would
+// otherwise leave a dedup entry for a write that never landed, silently
+// swallowing every retry until the next reindex. We close that by wrapping the
+// op so that when its apply returns an error the enqueue-time dedup entry is
+// REMOVED — a resubmit of the same op_id then re-runs. A successful apply leaves
+// the entry in place, so a post-success duplicate is still ignored.
 func (l *Listener) submitEnqueueOnly(ctx context.Context, env Envelope, op writequeue.WriteOp) Ack {
-	if err := l.queue.Submit(ctx, op); err != nil {
+	// Record the dedup entry BEFORE submitting, not after. The worker runs on
+	// its own goroutine and may apply (and, on failure, call unrecordDedup)
+	// before this function returns; recording first means the failure-rollback
+	// can never lose its race against the record (which previously happened
+	// after Submit). If Submit itself fails we roll the entry back below.
+	l.recordDedup(env.OpID)
+
+	wrapped := op
+	if env.OpID != "" {
+		opID := env.OpID
+		wrapped = func(opCtx context.Context) error {
+			err := op(opCtx)
+			if err != nil {
+				// Apply failed: drop the enqueue-time dedup entry so a resubmit
+				// of this op_id re-applies instead of being acked AckDuplicate
+				// and silently lost (roborev-480 finding 1).
+				l.unrecordDedup(opID)
+			}
+			return err
+		}
+	}
+	if err := l.queue.Submit(ctx, wrapped); err != nil {
+		// Never durably queued — undo the speculative dedup record so the
+		// caller's resubmit (after its direct-write fallback) is not deduped.
+		l.unrecordDedup(env.OpID)
 		return Ack{Status: AckError, Seq: l.seq.Add(1), Error: "writequeue: " + err.Error()}
 	}
-	// Durably queued — record op_id so a replayed async op dedups against this
-	// enqueue, then ack enqueued WITHOUT waiting for the worker to commit.
+	// Durably queued — the op_id is already recorded so a replayed async op
+	// dedups against this enqueue; ack enqueued WITHOUT waiting for the worker
+	// to commit. The wrapper above rolls the entry back if the deferred apply
+	// fails.
 	seq := l.seq.Add(1)
-	l.recordDedup(env.OpID)
 	return Ack{Status: AckEnqueued, Seq: seq}
 }
 
@@ -376,6 +412,21 @@ func (l *Listener) recordDedup(opID string) {
 	}
 	l.dedupMu.Lock()
 	l.dedup.add(opID)
+	l.dedupMu.Unlock()
+}
+
+// unrecordDedup removes opID from the in-memory dedup set (no-op for an empty
+// id). It is the rollback for the async enqueue-time recordDedup: the
+// single-writer worker calls it from inside the op wrapper when an async op's
+// apply FAILS, so a resubmit of the same op_id is no longer deduped and runs
+// again (roborev-480 finding 1). It is invoked on the worker goroutine, so it
+// takes dedupMu exactly like recordDedup.
+func (l *Listener) unrecordDedup(opID string) {
+	if opID == "" {
+		return
+	}
+	l.dedupMu.Lock()
+	l.dedup.remove(opID)
 	l.dedupMu.Unlock()
 }
 

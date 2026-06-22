@@ -99,6 +99,20 @@ func submitViaDaemon(projectRoot, opID, opType string, op DerivedOp, async bool,
 	if err != nil {
 		return false // ErrWriterUnavailable / ctx deadline → fall back
 	}
+	return ackMeansDurable(ack, async)
+}
+
+// ackMeansDurable maps a daemon ack to the route decision: true means the
+// derived write is durable (applied, deduped, or — for an async caller —
+// enqueued) and the caller can skip its direct-open fallback; false means the
+// caller MUST fall back to the bounded direct write.
+//
+// An AckError is always false. The most important error case is op_format_version
+// SKEW (roborev-480 finding 2): a new client talking to a stale OLD daemon (or
+// vice-versa) is error-acked by the daemon's version check rather than risking a
+// mis-applied write, and this maps it to a route-miss so the caller degrades to
+// the direct path with NO silent misbehavior.
+func ackMeansDurable(ack daemon.Ack, async bool) bool {
 	switch ack.Status {
 	case daemon.AckApplied, daemon.AckDuplicate:
 		// Applied (sync) or deduped — durable either way. AckApplied can also
@@ -110,7 +124,7 @@ func submitViaDaemon(projectRoot, opID, opType string, op DerivedOp, async bool,
 		// after any op ahead of it. Only valid to accept when we asked for it.
 		return async
 	default:
-		return false // error ack (e.g. queue full) → fall back to direct write
+		return false // error ack (version skew / queue full) → fall back to direct write
 	}
 }
 

@@ -1,0 +1,18 @@
+meta:
+    id: plan-2390966a
+    track_id: trk-6a1f5362
+    title: 'Durable fix: eliminate multi-process SQLite write contention via single-writer daemon'
+    description: 'Replace the bounded-busy-timeout band-aids with the durable architecture: route ALL hot writers (every hook + the launcher pre-run) through the single writer daemon so non-daemon processes stop opening writable SQLite handles. Add a generic SQL-envelope DerivedOp so any write can route over IPC; keep canonical NDJSON + reindex as the durability backstop and a short-bounded direct open only as a rare last resort. Acceptance: zero first-party SQLITE_BUSY under contention stress, every hot hook <1s under a held external write lock, and the hot-path write-site inventory collapses to the daemon. Also fixes the ~5.45s uncontended stop-hook baseline.'
+    created_at: "2026-06-22"
+    status: draft
+    priority: medium
+    schema_version: v4
+    version: 2
+design:
+    problem: ""
+    goals: []
+    constraints: []
+    approved: false
+    comment: ""
+slices: []
+questions: []

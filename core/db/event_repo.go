@@ -368,9 +368,14 @@ func FindOrphanedEventsLimited(db *sql.DB, sessionID string, olderThan time.Dura
 // long-running tool in a live session (e.g. a multi-minute test run) from being
 // falsely marked aborted by the periodic project-wide drain (roborev job 448).
 // Sessions carry no heartbeat, so terminal-state + a hard cutoff is the available
-// liveness proxy; terminal sessions are swept at the normal olderThan threshold.
-// limit > 0 caps the rows (oldest-first). Used only by the project-wide sweeps;
-// the per-session sweep deliberately stays unprotected (it cleans its own session).
+// liveness proxy. "Terminal" is completed_at IS NOT NULL — the DURABLE end marker
+// set only by an explicit SessionEnd (UpdateSessionStatus). It deliberately does
+// NOT trust sessions.status = 'completed', because serve.go marks sessions
+// completed purely from JSONL mtime after 5min (a raw UPDATE that sets status but
+// NOT completed_at); a live tool that is quiet for 5min (e.g. a long test run with
+// no transcript writes) would otherwise be treated as terminal and falsely swept
+// (roborev job 455). limit > 0 caps the rows (oldest-first). Used only by the
+// project-wide sweeps; the per-session sweep deliberately stays unprotected.
 func FindStaleProjectOrphans(db *sql.DB, olderThan, hardCutoff time.Duration, limit int) ([]OrphanEvent, error) {
 	normalCutoff := time.Now().UTC().Add(-olderThan).Format(time.RFC3339)
 	hardCutoffStr := time.Now().UTC().Add(-hardCutoff).Format(time.RFC3339)
@@ -387,7 +392,7 @@ func FindStaleProjectOrphans(db *sql.DB, olderThan, hardCutoff time.Duration, li
 		    created_at < ?
 		    OR session_id IN (
 		      SELECT session_id FROM sessions
-		      WHERE status IN ('completed', 'failed') OR completed_at IS NOT NULL
+		      WHERE completed_at IS NOT NULL
 		    )
 		  )
 		ORDER BY created_at ASC`+limitClause, normalCutoff, hardCutoffStr)

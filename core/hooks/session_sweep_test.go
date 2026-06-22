@@ -83,17 +83,21 @@ func TestSweepOrphanedEventsForProjectCapped(t *testing.T) {
 	const total = 5
 	for i := 0; i < total; i++ {
 		sid := "sess-capped-" + string(rune('a'+i))
-		completed := time.Now().UTC().Add(-time.Hour)
 		s := &models.Session{
 			SessionID:     sid,
 			AgentAssigned: "claude-code",
-			Status:        "completed",
+			Status:        "active",
 			CreatedAt:     time.Now().UTC().Add(-2 * time.Hour),
-			CompletedAt:   &completed,
 		}
 		CreateSessionHTML(projectDir, s)
 		if err := db.InsertSession(database, s); err != nil {
 			t.Fatalf("InsertSession %s: %v", sid, err)
+		}
+		// Durable terminal marker (sets completed_at) via a real status transition,
+		// so the live-protected project sweep treats these as ended (roborev 455:
+		// completed_at, not status, is the trusted terminal signal).
+		if err := db.UpdateSessionStatus(database, sid, "completed"); err != nil {
+			t.Fatalf("UpdateSessionStatus %s: %v", sid, err)
 		}
 		created := time.Now().UTC().Add(-time.Duration(10+i) * time.Minute)
 		ev := &models.AgentEvent{

@@ -793,13 +793,16 @@ func TestFindStaleProjectOrphans(t *testing.T) {
 	now := time.Now().UTC()
 	mkSession := func(id, status string) {
 		t.Helper()
-		s := &models.Session{SessionID: id, Status: status, CreatedAt: now.Add(-26 * time.Hour)}
-		if status == "completed" {
-			c := now.Add(-1 * time.Hour)
-			s.CompletedAt = &c
-		}
+		s := &models.Session{SessionID: id, Status: "active", CreatedAt: now.Add(-26 * time.Hour)}
 		if err := db.UpsertSession(database, s); err != nil {
 			t.Fatalf("seed session %s: %v", id, err)
+		}
+		// Durable terminal marker via a real status transition (sets completed_at);
+		// UpsertSession's upgrade branch intentionally omits completed_at.
+		if status == "completed" || status == "failed" {
+			if err := db.UpdateSessionStatus(database, id, status); err != nil {
+				t.Fatalf("complete session %s: %v", id, err)
+			}
 		}
 	}
 	mkEvent := func(id, sid string, age time.Duration) {
@@ -816,10 +819,20 @@ func TestFindStaleProjectOrphans(t *testing.T) {
 	}
 
 	mkSession("sess-live", "active")    // non-terminal: protected until hard cutoff
-	mkSession("sess-done", "completed") // terminal: swept at normal threshold
+	mkSession("sess-done", "completed") // terminal (completed_at set): swept at normal threshold
 	mkEvent("evt-live-recent", "sess-live", 10*time.Minute) // protected (no heartbeat, but < hard cutoff)
 	mkEvent("evt-live-ancient", "sess-live", 25*time.Hour)  // past hard cutoff → swept anyway
 	mkEvent("evt-done-recent", "sess-done", 10*time.Minute) // terminal → swept
+
+	// roborev 455: serve.go marks sessions 'completed' from JSONL mtime via a raw
+	// UPDATE that sets status but NOT completed_at. Such a session may still be
+	// live (a quiet long-running tool) and must stay PROTECTED — only completed_at
+	// (durable SessionEnd) counts as terminal.
+	mkSession("sess-mtime", "active")
+	if _, err := database.Exec(`UPDATE sessions SET status='completed' WHERE session_id=?`, "sess-mtime"); err != nil {
+		t.Fatalf("simulate mtime completion: %v", err)
+	}
+	mkEvent("evt-mtime-recent", "sess-mtime", 10*time.Minute) // status=completed but completed_at NULL → protected
 
 	got, err := db.FindStaleProjectOrphans(database, 5*time.Minute, 24*time.Hour, 0)
 	if err != nil {
@@ -837,6 +850,9 @@ func TestFindStaleProjectOrphans(t *testing.T) {
 	}
 	if !found["evt-live-ancient"] {
 		t.Errorf("evt-live-ancient (past 24h hard cutoff) should be swept even for a live session")
+	}
+	if found["evt-mtime-recent"] {
+		t.Errorf("evt-mtime-recent should be PROTECTED: status='completed' via mtime heuristic but completed_at IS NULL is not a durable terminal signal (roborev 455)")
 	}
 }
 

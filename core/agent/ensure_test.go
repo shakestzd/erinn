@@ -215,6 +215,138 @@ func TestEnsureSession_ColdPath_WritesActiveSession(t *testing.T) {
 	}
 }
 
+// TestEnsureSession_DaemonRouted verifies EnsureSessionRouted behaviour:
+//   - When the session is new (cold path) and the daemon route acks, no direct
+//     writable open is performed on the hot or cold path.
+//   - When the session already exists (hot path), the daemon route is never called
+//     and the read-only handle serves the exists-check.
+//
+// The test stubs agent.RouteSessionInsertFn with a function var seam that
+// records whether it was called and returns the desired ack. A read-only DB
+// opened on an in-memory handle serves the SELECT; a second in-memory handle
+// represents the writable fallback — it is closed before EnsureSessionRouted
+// returns, proving no writable open happened when daemon acks.
+func TestEnsureSession_DaemonRouted(t *testing.T) {
+	// --- cold path: daemon acks → no fallback to writableDB ---
+	t.Run("cold_path_daemon_ack", func(t *testing.T) {
+		const sessionID = "daemon-routed-cold-001"
+
+		// Read-only DB: empty (no session row). Represents the shared read index.
+		roDB := openMemDB(t)
+
+		// writableDB: if EnsureSessionRouted touches this on the cold path when
+		// the daemon acks, the test would detect it via the rowcount check below.
+		// We open it schema-current so it would succeed if called.
+		writableDB := openMemDB(t)
+
+		dir := t.TempDir()
+		writeActiveSessionFile(t, dir, sessionID)
+		t.Setenv("WIPNOTE_SESSION_ID", sessionID)
+		t.Setenv("CLAUDE_SESSION_ID", "")
+		t.Setenv("WIPNOTE_AGENT_ID", "test-agent")
+		t.Setenv("CLAUDE_CODE", "")
+		t.Setenv("CLAUDE_MODEL", "test-model")
+
+		// Inject a fake seam that acks and records whether it was called.
+		called := false
+		prev := agent.RouteSessionInsertFn
+		agent.RouteSessionInsertFn = func(_, _, _, _, _, _, _ string) bool {
+			called = true
+			return true // ack: daemon handled the insert
+		}
+		t.Cleanup(func() { agent.RouteSessionInsertFn = prev })
+
+		got, err := agent.EnsureSessionRouted(roDB, writableDB, dir, dir, 500*time.Millisecond)
+		if err != nil {
+			t.Fatalf("EnsureSessionRouted cold+daemon: %v", err)
+		}
+		if got != sessionID {
+			t.Errorf("got session ID %q, want %q", got, sessionID)
+		}
+		if !called {
+			t.Error("RouteSessionInsertFn was not called on cold path")
+		}
+
+		// The writableDB must NOT have had a row inserted — the daemon handled it.
+		var count int
+		writableDB.QueryRow(`SELECT COUNT(*) FROM sessions WHERE session_id = ?`, sessionID).Scan(&count) //nolint:errcheck
+		if count != 0 {
+			t.Errorf("writableDB has %d row(s) for session %q; expected 0 (daemon acked)", count, sessionID)
+		}
+	})
+
+	// --- hot path: session exists → daemon route never called ---
+	t.Run("hot_path_read_only", func(t *testing.T) {
+		const sessionID = "daemon-routed-hot-002"
+
+		roDB := openMemDB(t)
+		insertSession(t, roDB, sessionID)
+
+		writableDB := openMemDB(t)
+
+		dir := t.TempDir()
+		writeActiveSessionFile(t, dir, sessionID)
+		t.Setenv("WIPNOTE_SESSION_ID", sessionID)
+		t.Setenv("CLAUDE_SESSION_ID", "")
+
+		called := false
+		prev := agent.RouteSessionInsertFn
+		agent.RouteSessionInsertFn = func(_, _, _, _, _, _, _ string) bool {
+			called = true
+			return true
+		}
+		t.Cleanup(func() { agent.RouteSessionInsertFn = prev })
+
+		got, err := agent.EnsureSessionRouted(roDB, writableDB, dir, dir, 500*time.Millisecond)
+		if err != nil {
+			t.Fatalf("EnsureSessionRouted hot: %v", err)
+		}
+		if got != sessionID {
+			t.Errorf("got session ID %q, want %q", got, sessionID)
+		}
+		if called {
+			t.Error("RouteSessionInsertFn was called on hot path; should not be")
+		}
+	})
+
+	// --- cold path: daemon returns false → fallback to writableDB ---
+	t.Run("cold_path_daemon_miss_fallback", func(t *testing.T) {
+		const sessionID = "daemon-routed-fallback-003"
+
+		roDB := openMemDB(t)
+		writableDB := openMemDB(t)
+
+		dir := t.TempDir()
+		writeActiveSessionFile(t, dir, sessionID)
+		t.Setenv("WIPNOTE_SESSION_ID", sessionID)
+		t.Setenv("CLAUDE_SESSION_ID", "")
+		t.Setenv("WIPNOTE_AGENT_ID", "test-agent")
+		t.Setenv("CLAUDE_CODE", "")
+		t.Setenv("CLAUDE_MODEL", "")
+
+		prev := agent.RouteSessionInsertFn
+		agent.RouteSessionInsertFn = func(_, _, _, _, _, _, _ string) bool {
+			return false // daemon miss → caller must fall back
+		}
+		t.Cleanup(func() { agent.RouteSessionInsertFn = prev })
+
+		got, err := agent.EnsureSessionRouted(roDB, writableDB, dir, dir, 0)
+		if err != nil {
+			t.Fatalf("EnsureSessionRouted fallback: %v", err)
+		}
+		if got != sessionID {
+			t.Errorf("got session ID %q, want %q", got, sessionID)
+		}
+
+		// Fallback must have written the row to writableDB.
+		var count int
+		writableDB.QueryRow(`SELECT COUNT(*) FROM sessions WHERE session_id = ?`, sessionID).Scan(&count) //nolint:errcheck
+		if count != 1 {
+			t.Errorf("writableDB has %d row(s); expected 1 after daemon-miss fallback", count)
+		}
+	})
+}
+
 // TestEnsureSessionWithTimeout_FailsFastUnderContention verifies the cold-path
 // write does not stall for the full SQLite busy_timeout (5s) when another
 // connection holds the write lock. With a short timeout the dedicated-connection

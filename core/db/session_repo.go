@@ -14,26 +14,38 @@ import (
 	"github.com/shakestzd/wipnote/core/models"
 )
 
-// rePairedTag matches a paired open/close tag and its entire content, e.g.
-// <task-id>abc123</task-id>. The (?s) flag makes . match newlines so
-// multi-line injected blocks are consumed in one pass.
-var rePairedTag = regexp.MustCompile(`(?s)<[a-zA-Z][\w-]*\b[^>]*>.*?</[a-zA-Z][\w-]*\s*>`)
+// knownInjectedTagAlt is the regex alternation of harness-injected metadata tag
+// names that leak into captured user-prompt text — Claude Code task-notification
+// blocks, tool-use wrappers, and system reminders. Sanitization is restricted to
+// THESE tags so ordinary user prompt text containing JSX/XML/HTML (e.g.
+// "Fix <Button>Save</Button> alignment") is preserved rather than mangled.
+const knownInjectedTagAlt = `task-notification|task-id|tool-use-id|tool-use-error|output-file|status|summary|note|result|system-reminder`
 
-// reLoneTag matches any remaining unpaired angle-bracket tag after paired tags
-// have been removed, e.g. a self-closing or malformed tag.
-var reLoneTag = regexp.MustCompile(`<[^>]*>`)
+// rePairedInjectedTag matches a known injected paired tag and its entire
+// content, e.g. <task-id>abc123</task-id>. The (?s) flag makes . match newlines
+// so multi-line injected blocks are consumed in one pass. RE2 has no
+// backreferences, so the open and close names are independent alternations of
+// the known set — sufficient for the injected blocks we strip.
+var rePairedInjectedTag = regexp.MustCompile(`(?s)<(?:` + knownInjectedTagAlt + `)\b[^>]*>.*?</(?:` + knownInjectedTagAlt + `)\s*>`)
+
+// reLoneInjectedTag matches a remaining lone/unclosed known injected tag (open
+// or close), e.g. a bare <task-notification> whose closing tag was truncated
+// out of the captured fragment.
+var reLoneInjectedTag = regexp.MustCompile(`</?(?:` + knownInjectedTagAlt + `)\b[^>]*>`)
 
 // reWhitespaceRun matches one or more whitespace characters including newlines
 // and tabs. Compiled once at package init.
 var reWhitespaceRun = regexp.MustCompile(`\s+`)
 
-// sanitizePromptLabel removes injected markup tags (and their content) from a
-// raw session prompt and collapses whitespace runs to a single space.
-// Steps: (1) remove paired tags+content, (2) remove lone/unpaired tags,
+// sanitizePromptLabel strips harness-injected metadata markup from a raw session
+// prompt and collapses whitespace runs to a single space. Only KNOWN injected
+// tags (knownInjectedTagAlt) are removed, so ordinary user prompt text — even
+// when it contains XML/JSX/HTML snippets — is preserved.
+// Steps: (1) remove known paired tags+content, (2) remove known lone tags,
 // (3) collapse all whitespace to single space, (4) trim.
 func sanitizePromptLabel(s string) string {
-	s = rePairedTag.ReplaceAllString(s, "")
-	s = reLoneTag.ReplaceAllString(s, "")
+	s = rePairedInjectedTag.ReplaceAllString(s, "")
+	s = reLoneInjectedTag.ReplaceAllString(s, "")
 	s = reWhitespaceRun.ReplaceAllString(s, " ")
 	return strings.TrimSpace(s)
 }

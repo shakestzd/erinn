@@ -67,6 +67,19 @@ func EnsureSessionWithTimeout(database *sql.DB, projectDir string, timeout time.
 			return sessionID, cerr
 		}
 		defer conn.Close()
+		// Capture the connection's current busy_timeout so we can restore it
+		// before conn.Close() returns this physical connection to the *sql.DB
+		// pool. PRAGMA busy_timeout is per-connection state that persists in the
+		// pool; without restoration a later op reusing this connection would
+		// inherit the short timeout and fail under normal contention.
+		var prevBusyMS int64
+		if qerr := conn.QueryRowContext(ctx, "PRAGMA busy_timeout").Scan(&prevBusyMS); qerr != nil {
+			return sessionID, qerr
+		}
+		// Restore runs before conn.Close() (defers are LIFO) and uses a fresh
+		// context so it fires even when ctx already hit its deadline.
+		defer conn.ExecContext(context.Background(), //nolint:errcheck
+			fmt.Sprintf("PRAGMA busy_timeout=%d", prevBusyMS))
 		ms := max(timeout.Milliseconds(), 1)
 		if _, perr := conn.ExecContext(ctx, fmt.Sprintf("PRAGMA busy_timeout=%d", ms)); perr != nil {
 			return sessionID, perr

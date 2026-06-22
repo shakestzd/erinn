@@ -653,6 +653,17 @@ const heldLockWindow = 800 * time.Millisecond
 // assert a hard 1s (the plan's done_when bound).
 const hotHookWallBound = time.Second
 
+// appliedAckWallBound is the LOOSE per-hook ceiling for the two consumer-coupled
+// writes that roborev-473 (findings 3 & 5) route APPLIED-ack instead of
+// enqueue-only: subagent-start's pending_subagent_starts upsert and session-start's
+// session_family_id update. Under a held external write lock the daemon cannot
+// apply, so apply.RouteSQL waits the full CLISubmitBudget (2s) then the hook falls
+// back to a bounded (~750ms) direct write. The bound is 4s — comfortably above
+// that worst case (≈2.75s) yet still proof the hook never HANGS — and it is
+// deliberately NOT sub-second: correctness (the consumer reads the row
+// synchronously) wins over the <1s target for these rare writes.
+const appliedAckWallBound = 4 * time.Second
+
 // hotHookBusyTimeout is the busy_timeout applied to the BOUNDED writable handle
 // that hooks with bounded-but-non-contending reuse-the-handle residuals run
 // against (mirroring core/hooks/hook_contention_test.go's runHotHookBusyTimeout).
@@ -740,19 +751,30 @@ func TestSQLiteContentionStress_MigratedHotHooksUnderHeldLock(t *testing.T) {
 			t.Fatalf("run %d: FirstPartyBusyTotal = %d, want 0 (durable enqueue-only gate failed)", run, fp)
 		}
 
-		// (b) Each hot hook's wall-clock under the held lock. pretooluse
-		// (bug-d792aee6) and subagent-start (bug-c9ec25a4) — whose LAST residual
-		// unrouted writes were each routed through the enqueue-only seam — now run
-		// against the PRODUCTION 5s-busy_timeout handle and MUST complete <1s: that
-		// is positive proof every one of their writes is enqueue-only (a single
-		// direct Exec on the held lock would stall ~5s on the 5s handle).
-		// user-prompt / stop / session-start run on the SHORT bounded handle and
-		// keep their established <1s assertions (their non-routed residuals never
-		// contend the held write lock).
+		// (b) Each hot hook's wall-clock under the held lock.
+		//
+		// ENQUEUE-ONLY, ASSERTED <1s: pretooluse (bug-d792aee6) and user-prompt run
+		// against the PRODUCTION 5s-busy_timeout / read-only handle and MUST complete
+		// <1s — positive proof every one of their writes is enqueue-only (a single
+		// direct Exec on the held lock would stall ~5s). stop runs on the SHORT
+		// bounded handle and keeps its established <1s assertion (its non-routed
+		// residuals never contend the held write lock — they reuse the handle but the
+		// lock is released before they run).
+		//
+		// APPLIED-ACK, NOT <1s (roborev-473 findings 3 & 5): subagent-start
+		// (pending_subagent_starts → OTLP receiver) and session-start
+		// (session_family_id → family attribution) deliberately route their
+		// consumer-coupled write APPLIED-ack. Under a held lock the daemon cannot
+		// apply, so these wait ~CLISubmitBudget then fall back — they are asserted
+		// only against a LOOSE bound (appliedAckWallBound), documenting that
+		// CORRECTNESS (synchronous visibility for the consumer) wins over <1s here.
 		for _, h := range perHook {
 			bound := "no <1s assertion (documented residual — see note)"
-			if h.assertSubSecond {
+			switch {
+			case h.assertSubSecond:
 				bound = fmt.Sprintf("MUST be <%v", hotHookWallBound)
+			case h.appliedAck:
+				bound = fmt.Sprintf("applied-ack (consumer-coupled): synchronous visibility required, NOT <1s; loose bound <%v", appliedAckWallBound)
 			}
 			t.Logf("run %d: hook %-14s completed in %v under held lock on %s handle (%s)",
 				run, h.name, h.elapsed.Round(time.Millisecond), h.handleKind, bound)
@@ -760,6 +782,11 @@ func TestSQLiteContentionStress_MigratedHotHooksUnderHeldLock(t *testing.T) {
 				t.Fatalf("run %d: hook %s took %v under held lock on the %s handle; bound is <%v "+
 					"(every write of this hook must route enqueue-only, never a direct writable Exec)",
 					run, h.name, h.elapsed, h.handleKind, hotHookWallBound)
+			}
+			if h.appliedAck && h.elapsed >= appliedAckWallBound {
+				t.Fatalf("run %d: applied-ack hook %s took %v under held lock; loose bound is <%v "+
+					"(it must wait at most ~CLISubmitBudget for the daemon, then fall back — never hang)",
+					run, h.name, h.elapsed, appliedAckWallBound)
 			}
 		}
 	}
@@ -825,6 +852,7 @@ type hookTiming struct {
 	elapsed         time.Duration
 	handleKind      string
 	assertSubSecond bool
+	appliedAck      bool
 }
 
 // runHotHooksUnderHeldLock drives each migrated hot hook exactly once while a
@@ -854,6 +882,7 @@ func runHotHooksUnderHeldLock(t *testing.T, run int, projectRoot string, lockDB 
 			elapsed:         elapsed,
 			handleKind:      hc.handleKind,
 			assertSubSecond: hc.assertSubSecond,
+			appliedAck:      hc.appliedAck,
 		})
 	}
 	return timings
@@ -876,31 +905,37 @@ func runOneHookUnderHeldLock(t *testing.T, run int, lockDB *sql.DB, dbPath strin
 		conn.Close()
 		t.Fatalf("run %d: %s: BEGIN IMMEDIATE: %v", run, hc.name, err)
 	}
-	released := false
+	// release is sync.Once-guarded because applied-ack hooks release the lock from a
+	// CONCURRENT goroutine (so the daemon can apply mid-call) while the deferred
+	// release and the post-measure release also fire — all three must be race-free.
+	var releaseOnce sync.Once
 	release := func() {
-		if released {
-			return
-		}
-		released = true
-		_, _ = conn.ExecContext(context.Background(), "ROLLBACK")
-		conn.Close()
+		releaseOnce.Do(func() {
+			_, _ = conn.ExecContext(context.Background(), "ROLLBACK")
+			conn.Close()
+		})
 	}
 	defer release()
 
-	// Handle selection is FAITHFUL per hook (bug-d792aee6, bug-c9ec25a4):
+	// Handle selection is FAITHFUL per hook (bug-d792aee6, bug-c9ec25a4, roborev-473):
+	//   - readonly: hooks.OpenHookDBReadOnly — the real handle the hot hooks that
+	//     route EVERY write through the daemon and read-only-dispatch in production
+	//     open (roborev-473 finding 1: pretooluse, user-prompt). A read-only handle
+	//     never contends the held write lock, and any daemon-miss write transparently
+	//     opens its own bounded handle (routeViaOwnBoundedHandle) — so a sub-second
+	//     result here is genuine proof the primary write routed enqueue-only.
 	//   - production: hooks.OpenHookDB (5s busy_timeout) — the real handle a
-	//     production hook subprocess opens. Used for hooks whose EVERY contended
-	//     write is now routed enqueue-only (pretooluse after its claim writes were
-	//     routed; subagent-start after its lineage writes were routed), so a
-	//     sub-second result on the 5s handle is genuine proof no write took the
-	//     direct lock-contending path.
+	//     production hook subprocess opens for hooks that STILL hold a writable handle
+	//     (subagent-start: its finding-3 applied-ack pending fallback writes through
+	//     it).
 	//   - bounded: hooks.OpenHookDBWithBusyTimeout(250ms) — used for hooks whose
-	//     established <1s assertion runs on a short busy_timeout (user-prompt,
-	//     stop, session-start); their non-routed residuals never contend the held
-	//     write lock, and the short busy_timeout keeps the determinism window
-	//     bounded.
+	//     assertion runs on a short busy_timeout (stop, session-start); their
+	//     non-routed residuals never contend the held write lock, and the short
+	//     busy_timeout keeps the determinism window bounded.
 	var hookDB *sql.DB
 	switch hc.handleKind {
+	case "readonly":
+		hookDB, _ = hooks.OpenHookDBReadOnly(hc.name, hc.sessionID, dbPath)
 	case "production":
 		hookDB, _ = hooks.OpenHookDB(hc.name, hc.sessionID, dbPath)
 	default: // "bounded"
@@ -911,19 +946,38 @@ func runOneHookUnderHeldLock(t *testing.T, run int, lockDB *sql.DB, dbPath strin
 	}
 	defer hookDB.Close()
 
-	// The hook runs ENTIRELY while the BEGIN IMMEDIATE lock above is held: we
-	// acquired it before this call and only release after measuring. Its primary
-	// derived-index write therefore enqueues against the daemon while a foreign
-	// writer genuinely holds the file lock — the exact condition the <1s
-	// enqueue-only guarantee is about.
+	// APPLIED-ACK hooks (subagent-start, session-start — roborev-473 findings 3 & 5)
+	// wait for the daemon to COMMIT their consumer-coupled write. The daemon cannot
+	// apply while this lock is held, so for them we release the lock CONCURRENTLY
+	// after heldLockWindow — long enough to prove the routed write was attempted
+	// while the lock was genuinely held, but BEFORE apply.RouteSQL's CLISubmitBudget
+	// expires — so the daemon then applies the write cleanly (no terminal BUSY, no
+	// bounded-fallback contention) and the hook returns once it is committed. The
+	// measured elapsed (~heldLockWindow + a few ms) proves synchronous visibility
+	// without first-party BUSY. ENQUEUE-ONLY hooks keep the lock held for the whole
+	// call (released below) — they ack instantly regardless.
+	if hc.appliedAck {
+		go func() {
+			time.Sleep(heldLockWindow)
+			release()
+		}()
+	}
+
+	// The hook runs while the BEGIN IMMEDIATE lock above is held. Its primary
+	// derived-index write therefore routes against the daemon while a foreign writer
+	// genuinely holds the file lock — the exact condition the routing guarantees are
+	// about.
 	start := time.Now()
 	hc.invoke(t, hookDB)
 	elapsed := time.Since(start)
 
-	// Guard the determinism contract: the hook MUST have returned before the
-	// fixed window elapsed (i.e. it never stalled on the held lock). If it ran
-	// past the window, a write took the direct path and blocked — fail loudly.
-	if time.Since(start) > heldLockWindow {
+	// Guard the determinism contract: an ENQUEUE-ONLY hook MUST return before the
+	// fixed window elapsed (it never stalled on the held lock). If it ran past the
+	// window a write took the direct lock-contending path and blocked — fail
+	// loudly. APPLIED-ACK hooks are EXEMPT (they intentionally wait for the daemon
+	// commit after the concurrent release above); their elapsed is measured +
+	// reported and checked only against the loose appliedAckWallBound by the caller.
+	if !hc.appliedAck && time.Since(start) > heldLockWindow {
 		t.Fatalf("run %d: %s ran %v under the held lock — exceeded the %v window; "+
 			"a hot write took the direct lock-contending path instead of enqueue-only",
 			run, hc.name, elapsed, heldLockWindow)
@@ -959,6 +1013,15 @@ type hotHookCase struct {
 	invoke          func(t *testing.T, database *sql.DB)
 	handleKind      string
 	assertSubSecond bool
+	// appliedAck marks the LOW-FREQUENCY, consumer-coupled writes that
+	// roborev-473 (findings 3 & 5) deliberately route APPLIED-ack
+	// (apply.RouteSQL) instead of enqueue-only, because their consumer reads the
+	// row synchronously: subagent-start's pending_subagent_starts (OTLP receiver)
+	// and session-start's session_family_id (family attribution). Correctness
+	// requires synchronous visibility, so these are NOT <1s under a held lock —
+	// the determinism window guard is skipped for them and their elapsed is
+	// reported, not asserted.
+	appliedAck bool
 }
 
 // hotHookCases returns the five migrated hot hooks with minimal-but-valid
@@ -989,15 +1052,15 @@ func hotHookCases(run int, projectRoot string) []hotHookCase {
 	ss.Model = "sonnet-4"
 
 	return []hotHookCase{
-		// pretooluse: bug-d792aee6 routed its LAST residual unrouted claim writes
-		// (HeartbeatClaimByWorkItem + ReapExpiredClaims) through the enqueue-only
-		// seam, so EVERY pretooluse write is now routed. It therefore runs on the
-		// PRODUCTION 5s-busy_timeout handle and its <1s bound is ASSERTED — the
-		// faithful proof of the fix (a single direct Exec on the held lock would
-		// stall ~5s on this handle and fail the gate).
+		// pretooluse: every pretooluse write routes enqueue-only (bug-d792aee6) and
+		// the handler uses its DB handle ONLY for reads, so roborev-473 finding 1
+		// dispatches it with a READ-ONLY handle. It MUST complete <1s under the held
+		// lock — a read-only handle never contends the write lock, and any daemon-miss
+		// write opens its own bounded handle, so a sub-second result is proof every
+		// write routed enqueue-only.
 		{
 			name: "pretooluse", sessionID: sess,
-			handleKind: "production", assertSubSecond: true,
+			handleKind: "readonly", assertSubSecond: true,
 			invoke: func(t *testing.T, db *sql.DB) {
 				ev := pre
 				if _, err := hooks.PreToolUse(&ev, db); err != nil {
@@ -1005,11 +1068,12 @@ func hotHookCases(run int, projectRoot string) []hotHookCase {
 				}
 			},
 		},
-		// user-prompt: fully routed (slice-4); keeps its established <1s assertion
-		// on a bounded handle.
+		// user-prompt: fully routed (slice-4) and read-only-dispatched (roborev-473
+		// finding 1 — it uses its handle only for reads). Keeps its <1s assertion on
+		// the read-only handle.
 		{
 			name: "user-prompt", sessionID: sess,
-			handleKind: "bounded", assertSubSecond: true,
+			handleKind: "readonly", assertSubSecond: true,
 			invoke: func(t *testing.T, db *sql.DB) {
 				ev := up
 				if _, err := hooks.UserPrompt(&ev, db); err != nil {
@@ -1017,17 +1081,21 @@ func hotHookCases(run int, projectRoot string) []hotHookCase {
 				}
 			},
 		},
-		// subagent-start: bug-c9ec25a4 routed its LAST residual unrouted lineage
-		// writes (BackfillParentSession / InsertLineageTrace /
-		// UpsertPendingSubagentStart) through the enqueue-only seam, so EVERY
-		// subagent-start write is now routed. It therefore runs on the PRODUCTION
-		// 5s-busy_timeout handle and its <1s bound is ASSERTED — the faithful proof
-		// of the fix (a single direct Exec on the held lock would stall ~5s on this
-		// handle and fail the gate). This completes plan-2390966a's "<1s under
-		// contention" bar across every hot hook.
+		// subagent-start: roborev-473 finding 3 flipped its pending_subagent_starts
+		// upsert from ENQUEUE-only to APPLIED-ack (apply.RouteSQL), because the OTLP
+		// receiver reads that row the instant the first subagent span arrives — an
+		// enqueue-only write opens a miss window. Its lineage / synthetic-sessions
+		// writes stay enqueue-only. Because the pending write is applied-ack and the
+		// daemon cannot apply while the lock is held, subagent-start is NO LONGER <1s
+		// under the held lock: it waits ~CLISubmitBudget then falls back. We measure
+		// + document that applied-ack reality (appliedAck=true, loose bound) instead
+		// of asserting <1s — correctness (synchronous visibility) wins for this rare,
+		// once-per-subagent write. It stays on the writable handle because the
+		// finding-3 daemon-miss fallback (db.UpsertPendingSubagentStart) writes
+		// directly through it.
 		{
 			name: "subagent-start", sessionID: sess,
-			handleKind: "production", assertSubSecond: true,
+			handleKind: "production", assertSubSecond: false, appliedAck: true,
 			invoke: func(t *testing.T, db *sql.DB) {
 				ev := sub
 				if _, err := hooks.SubagentStart(&ev, db); err != nil {
@@ -1047,11 +1115,19 @@ func hotHookCases(run int, projectRoot string) []hotHookCase {
 				}
 			},
 		},
-		// session-start: routed (slice-3); keeps its established <1s assertion on
-		// a bounded handle.
+		// session-start: roborev-473 finding 5 flipped its session_family_id update
+		// from ENQUEUE-only to APPLIED-ack (apply.RouteSQL), because
+		// routeFamilyAttribution reads the family members (selecting on
+		// session_family_id) IMMEDIATELY after — an enqueue-only write would not be
+		// visible to that read, silently skipping sibling attribution. Its remaining
+		// writes stay enqueue-only. Because the family-id write is applied-ack and the
+		// daemon cannot apply under the held lock, session-start is NO LONGER <1s
+		// under the held lock for the family path: it waits ~CLISubmitBudget then
+		// falls back to a bounded direct write. We measure + document that applied-ack
+		// reality (appliedAck=true, loose bound) instead of asserting <1s.
 		{
 			name: "session-start", sessionID: sess,
-			handleKind: "bounded", assertSubSecond: true,
+			handleKind: "bounded", assertSubSecond: false, appliedAck: true,
 			invoke: func(t *testing.T, db *sql.DB) {
 				ev := ss
 				if _, err := hooks.SessionStart(&ev, db, projectRoot); err != nil {
@@ -1107,11 +1183,15 @@ func assertNewSessionLauncherUnderHeldLock(t *testing.T, projectRoot, dbPath str
 		t.Fatalf("launcher measure: OpenReadOnly: %v", err)
 	}
 	defer roDB.Close()
-	wrDB, err := dbpkg.Open(dbPath)
-	if err != nil {
-		t.Fatalf("launcher measure: Open writable: %v", err)
+
+	// roborev-473 finding 2: the writable handle is now a LAZY thunk. On the
+	// daemon-acked cold insert it must NEVER be opened (no writable open + migration
+	// under contention); we assert that.
+	lazyOpened := false
+	openWritable := func() (*sql.DB, error) {
+		lazyOpened = true
+		return dbpkg.Open(dbPath)
 	}
-	defer wrDB.Close()
 
 	// Hold the external lock for a window LONGER than the OLD applied-ack budget
 	// (CLISubmitBudget=2s) so the test deterministically reproduces the worst case
@@ -1139,9 +1219,14 @@ func assertNewSessionLauncherUnderHeldLock(t *testing.T, projectRoot, dbPath str
 	// ensureSessionPreRunTimeout in main.go is 500ms; mirror it here.
 	const launcherTimeout = 500 * time.Millisecond
 	start := time.Now()
-	_, _ = agent.EnsureSessionRouted(roDB, wrDB, projectRoot, projectRoot, launcherTimeout)
+	_, _ = agent.EnsureSessionRouted(roDB, openWritable, projectRoot, projectRoot, launcherTimeout)
 	elapsed := time.Since(start)
 	close(done)
+
+	if lazyOpened {
+		t.Errorf("finding 2: the lazy writable opener was invoked on the daemon-acked " +
+			"cold insert; persistentPreRunE must NOT open the writable handle when the daemon acks")
+	}
 
 	t.Logf("new-session launcher EnsureSessionRouted (enqueue-only cold insert) "+
 		"under a held external write lock: %v (bound <%v)",

@@ -2,6 +2,7 @@
 package main
 
 import (
+	"database/sql"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -321,17 +322,17 @@ func persistentPreRunE(cmd *cobra.Command, _ []string) error {
 			if roErr == nil {
 				// Read-only open succeeded — warm DB. Use the routed path which
 				// opens NO writable handle when the daemon acks (hot or acked-cold).
-				wrDB, wrErr := openDB(hgDir)
-				launchTiming("persistentPreRunE: after openDB (before EnsureSession)")
-				if wrErr == nil {
-					_, _ = agent.EnsureSessionRouted(roDB, wrDB, projectDir, projectDir, ensureSessionPreRunTimeout)
-					wrDB.Close()
-				} else {
-					// writable open failed but read-only succeeded — unusual (race
-					// between schema initialisation runs). Use the read-only DB as a
-					// best-effort exists-check only; cold path will be skipped.
-					_, _ = agent.EnsureSessionRouted(roDB, roDB, projectDir, projectDir, ensureSessionPreRunTimeout)
-				}
+				//
+				// roborev-473 finding 2: pass a LAZY writable opener instead of
+				// eagerly opening the writable handle here. The warm/exists path and
+				// the daemon-acked cold path never invoke it, so we no longer pay a
+				// writable open + migration under contention for the common case;
+				// EnsureSessionRouted opens (and closes) the handle ONLY on a daemon
+				// miss where the direct fallback is actually needed.
+				_, _ = agent.EnsureSessionRouted(roDB, func() (*sql.DB, error) {
+					launchTiming("persistentPreRunE: lazy openDB (daemon-miss fallback)")
+					return openDB(hgDir)
+				}, projectDir, projectDir, ensureSessionPreRunTimeout)
 				roDB.Close()
 			} else {
 				// Read-only open failed (DB not yet created on first launch).

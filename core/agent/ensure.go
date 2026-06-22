@@ -55,14 +55,26 @@ func EnsureSession(database *sql.DB, projectDir string) (string, error) {
 //     handle is opened.
 //
 //  3. Last-resort fallback: if RouteSessionInsertFn is nil or returns false
-//     (daemon unreachable / queue-full / timeout), EnsureSessionWithTimeout is
-//     called on writableDB with the caller-supplied timeout. This mirrors the
-//     pre-slice-5 behaviour exactly, preserving busy_timeout-restore semantics.
+//     (daemon unreachable / queue-full / timeout), openWritable is invoked to
+//     LAZILY open the writable handle and EnsureSessionWithTimeout is called on
+//     it with the caller-supplied timeout. This mirrors the pre-slice-5
+//     behaviour exactly, preserving busy_timeout-restore semantics.
 //
-// The caller is responsible for opening readOnlyDB (db.OpenReadOnly) and
-// writableDB (db.Open / openDB) before calling this function, and for closing
-// both handles. projectRoot is the parent of the .wipnote directory.
-func EnsureSessionRouted(readOnlyDB, writableDB *sql.DB, projectDir, projectRoot string, timeout time.Duration) (string, error) {
+// LAZY WRITABLE OPEN (roborev-473 finding 2): the writable handle is supplied as
+// a thunk (openWritable func() (*sql.DB, error)) rather than an already-open
+// *sql.DB. On the HOT/warm path (session already exists, or the daemon acks the
+// cold insert) the thunk is NEVER called, so persistentPreRunE no longer pays a
+// writable open + migration under contention for the common case. The thunk is
+// invoked ONLY when the direct-write fallback is actually needed (daemon miss on
+// a brand-new session). EnsureSessionRouted closes the handle the thunk returns;
+// the caller must NOT pre-open or close it. openWritable may be nil — that is
+// treated as "no writable fallback available" (the cold insert is skipped and the
+// session id is still returned; SessionStart's idempotent upsert + reindex are
+// the backstop).
+//
+// The caller is responsible for opening readOnlyDB (db.OpenReadOnly) and for
+// closing it. projectRoot is the parent of the .wipnote directory.
+func EnsureSessionRouted(readOnlyDB *sql.DB, openWritable func() (*sql.DB, error), projectDir, projectRoot string, timeout time.Duration) (string, error) {
 	sessionID := ResolveSessionID(projectDir)
 	info := Detect()
 
@@ -76,7 +88,7 @@ func EnsureSessionRouted(readOnlyDB, writableDB *sql.DB, projectDir, projectRoot
 
 	// Hot path: exists-check on the read-only handle — no write lock acquired.
 	// A WAL reader never blocks the writer and vice versa, so this is safe even
-	// under a concurrently held RESERVED lock.
+	// under a concurrently held RESERVED lock. No writable handle is opened here.
 	var count int
 	if err := readOnlyDB.QueryRowContext(ctx,
 		`SELECT COUNT(*) FROM sessions WHERE session_id = ?`, sessionID,
@@ -90,7 +102,8 @@ func EnsureSessionRouted(readOnlyDB, writableDB *sql.DB, projectDir, projectRoot
 		return sessionID, nil
 	}
 
-	// Cold path: session row is missing. Try daemon route first.
+	// Cold path: session row is missing. Try daemon route first — still NO
+	// writable handle opened when the daemon acks.
 	now := time.Now().UTC().Format(time.RFC3339)
 	gitRemoteURL := paths.GetGitRemoteURL(projectDir)
 	if RouteSessionInsertFn != nil && RouteSessionInsertFn(projectRoot, sessionID, info.ID, now, info.Model, projectDir, gitRemoteURL) {
@@ -100,9 +113,22 @@ func EnsureSessionRouted(readOnlyDB, writableDB *sql.DB, projectDir, projectRoot
 		return sessionID, nil
 	}
 
-	// Last-resort fallback: daemon unreachable or RouteSessionInsertFn nil.
-	// Use the writable handle with the caller's timeout, matching pre-slice-5
-	// behaviour (busy_timeout-bounded, INSERT OR IGNORE idempotent).
+	// Last-resort fallback: daemon unreachable / RouteSessionInsertFn nil / queue
+	// full. ONLY NOW do we lazily open the writable handle and write directly
+	// (busy_timeout-bounded, INSERT OR IGNORE idempotent), matching pre-slice-5
+	// behaviour. A nil thunk or an open error means no writable fallback is
+	// available — return the resolved session id so the launcher proceeds; the
+	// SessionStart upsert + reindex recover the row.
+	if openWritable == nil {
+		os.Setenv("WIPNOTE_SESSION_ID", sessionID) //nolint:errcheck
+		return sessionID, nil
+	}
+	writableDB, err := openWritable()
+	if err != nil || writableDB == nil {
+		os.Setenv("WIPNOTE_SESSION_ID", sessionID) //nolint:errcheck
+		return sessionID, err
+	}
+	defer writableDB.Close()
 	return EnsureSessionWithTimeout(writableDB, projectDir, timeout)
 }
 

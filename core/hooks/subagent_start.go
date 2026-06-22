@@ -85,12 +85,24 @@ func SubagentStart(event *CloudEvent, database *sql.DB) (*HookResult, error) {
 			ParentAgentID: os.Getenv("WIPNOTE_AGENT_ID"),
 			CreatedAt:     time.Now().UnixMicro(),
 		}
-		// Route the pending_subagent_starts upsert through the daemon-first
-		// enqueue-only seam (bug-c9ec25a4) so it never opens a direct contended
-		// writable handle when the daemon is reachable; <1s bounded fallback
-		// otherwise. Best-effort/advisory like the prior db.UpsertPendingSubagentStart.
+		// roborev-473 finding 3: the OTLP receiver reads this pending row the
+		// instant the subagent's first span arrives, so an ENQUEUE-ONLY write
+		// opens a miss window (the row isn't applied yet when the receiver looks).
+		// This is a once-per-subagent, low-frequency write whose consumer is
+		// coupled to it, so CORRECTNESS WINS over the <1s hot-hook target here:
+		// route it APPLIED-ACK via apply.RouteSQL so the row is durably committed
+		// (and therefore visible) before SubagentStart returns. apply.RouteSQL is
+		// bounded by CLISubmitBudget (~2s) — acceptable for a once-per-subagent
+		// write. On a daemon miss (RouteSQL returns false) fall back to the direct
+		// applied write db.UpsertPendingSubagentStart so the row is still committed
+		// synchronously; canonical NDJSON + reindex remain the durability backstop.
 		upSQL, upArgs := db.UpsertPendingSubagentStartStmt(pending)
-		_ = RouteHookWrite("subagent-start", projectDir, sessionID, upSQL, upArgs...)
+		if !routeSQLApplied(projectDir, upSQL, upArgs...) {
+			if err := db.UpsertPendingSubagentStart(database, pending); err != nil {
+				debugLog(projectDir, "[warn] handler=subagent-start session=%s: applied-ack pending upsert fallback: %v",
+					sessionID[:minSessionLen(sessionID)], err)
+			}
+		}
 	}
 
 	return &HookResult{Continue: true}, nil
@@ -222,22 +234,26 @@ func insertSubagentLineage(database *sql.DB, parentSessionID, agentID, agentType
 	}
 }
 
-// closeSubagentLineage marks the lineage row completed. Missing rows (e.g.
-// hook started firing mid-session) log a warn and return — never fail.
+// closeSubagentLineage marks the lineage row completed, keyed on
+// trace_id = agentID (see insertSubagentLineage).
+//
+// roborev-473 finding 4: this close is routed ENQUEUE-ONLY through the daemon
+// (RouteHookWrite) instead of a DIRECT Exec on the passed handle. The matching
+// SubagentStart lineage INSERT is ALSO enqueue-only (insertSubagentLineage), and
+// the daemon applies ops on a single writer in FIFO order. Because SubagentStart
+// always fires before SubagentStop, the start insert is enqueued first and this
+// close UPDATE applies AFTER it — so a fast stop can no longer update 0 rows and
+// leave an orphaned `active` lineage row that the later-landing insert created.
+// The enqueue-only ack carries no RowsAffected, so the prior "no open lineage
+// trace" diagnostic is dropped; the daemon applies the UPDATE in FIFO order and
+// canonical NDJSON + reindex remain the durability backstop.
+//
+// Routing through RouteHookWrite (which opens its OWN bounded writable handle on a
+// daemon miss) also means the close no longer needs the passed `database` handle
+// to be writable — a prerequisite for switching the Stop dispatch to a read-only
+// handle (roborev-473 finding 1).
 func closeSubagentLineage(database *sql.DB, agentID, projectDir, sessionID string) {
-	res, err := database.Exec(`
-		UPDATE agent_lineage_trace
-		   SET completed_at = ?, status = 'completed'
-		 WHERE trace_id = ? AND completed_at IS NULL`,
-		time.Now().UTC().Format(time.RFC3339), agentID,
-	)
-	if err != nil {
-		debugLog(projectDir, "[warn] handler=subagent-stop session=%s: close lineage trace: %v",
-			sessionID[:minSessionLen(sessionID)], err)
-		return
-	}
-	if n, _ := res.RowsAffected(); n == 0 {
-		debugLog(projectDir, "[warn] handler=subagent-stop session=%s: no open lineage trace for agent_id=%s",
-			sessionID[:minSessionLen(sessionID)], agentID)
-	}
+	_ = database // reads happen elsewhere in SubagentStop; the close routes via the daemon
+	clSQL, clArgs := db.CloseLineageTraceByTraceIDStmt(agentID)
+	_ = RouteHookWrite("subagent-stop", projectDir, sessionID, clSQL, clArgs...)
 }

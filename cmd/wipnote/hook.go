@@ -52,10 +52,25 @@ Usage in hooks.json:
 		hookSubcmdWithProject("session-resume", "Handle SessionResume event", continueResult, hooks.SessionResume),
 
 		// Standard two-arg handlers (event + db only).
-		hookSubcmd("user-prompt", "Handle UserPromptSubmit event", emptyResult, hooks.UserPrompt),
+		// roborev-473 finding 1 (VERIFIED per-handler): user-prompt and pretooluse
+		// route EVERY derived-index WRITE through the daemon and use their DB handle
+		// ONLY for READS, so they dispatch with a READ-ONLY handle
+		// (hookSubcmdReadOnly) — avoiding the writable open + cold-DB migration that
+		// blocked the hot hooks under contention.
+		//
+		// The following hot hooks KEEP a writable handle because grep confirmed they
+		// still issue DIRECT writes on the passed handle (correctness-first — forcing
+		// read-only would cause "readonly database" errors):
+		//   - subagent-start: finding-3 applied-ack pending fallback
+		//     (db.UpsertPendingSubagentStart) + synthetic-sessions via-fallback.
+		//   - subagent-stop: db.UpdateEventFields direct write.
+		//   - stop: insertAssistantTextSignal, backfillMissedUserPrompts,
+		//     runSessionExitReconcile, db.UpdateSessionHandoff — all direct writes on
+		//     the passed handle that are not (yet) daemon-routable.
+		hookSubcmdReadOnly("user-prompt", "Handle UserPromptSubmit event", emptyResult, hooks.UserPrompt),
 		hookSubcmd("after-agent", "Handle Gemini AfterAgent event", continueResult, hooks.AfterAgent),
 		hookSubcmd("after-model", "Handle Gemini AfterModel event", continueResult, hooks.AfterModel),
-		hookSubcmd("pretooluse", "Handle PreToolUse event", allowResult, hooks.PreToolUse),
+		hookSubcmdReadOnly("pretooluse", "Handle PreToolUse event", allowResult, hooks.PreToolUse),
 		hookSubcmd("posttooluse", "Handle PostToolUse event", continueResult, hooks.PostToolUse),
 		hookSubcmd("subagent-start", "Handle SubagentStart event", continueResult, hooks.SubagentStart),
 		hookSubcmd("subagent-stop", "Handle SubagentStop event", continueResult, hooks.SubagentStop),
@@ -179,6 +194,48 @@ func hookSubcmd(
 				// copy; the dashboard indexer rebuilds the derived index
 				// on its next cycle.
 				database, reason := hooks.OpenHookDB(use, event.SessionID, dbPath)
+				if database == nil {
+					_ = reason
+					return fallback, nil
+				}
+				defer database.Close()
+				return handler(event, database)
+			})
+		},
+	}
+}
+
+// hookSubcmdReadOnly is hookSubcmd for the hot hooks that route EVERY
+// derived-index write through the daemon and use their DB handle ONLY for reads
+// (roborev-473 finding 1: user-prompt, pretooluse, stop). It opens the project DB
+// READ-ONLY (hooks.OpenHookDBReadOnly) instead of the writable OpenHookDB, so the
+// hot path never pays a writable open + cold-DB migration under contention. On a
+// genuine daemon miss the handlers' write routing (routeHookWriteVia /
+// RouteHookWrite) transparently opens its own bounded writable handle, so the
+// derived write is still persisted; canonical NDJSON + reindex remain the
+// backstop. A read-only open failure is logged + counted as writer_unavailable
+// and falls through to the fallback HookResult (Claude Code sees SUCCESS).
+func hookSubcmdReadOnly(
+	use, short string,
+	fallback *hooks.HookResult,
+	handler func(*hooks.CloudEvent, *sql.DB) (*hooks.HookResult, error),
+) *cobra.Command {
+	return &cobra.Command{
+		Use:   use,
+		Short: short,
+		RunE: func(_ *cobra.Command, _ []string) error {
+			return runHookNamed(use, func(event *hooks.CloudEvent) (*hooks.HookResult, error) {
+				projectDir := hooks.ResolveProjectDir(event.CWD, event.SessionID)
+				if !hooks.IswipnoteProject(projectDir) {
+					return fallback, nil
+				}
+				dbPath, err := hooks.DBPath(projectDir)
+				if err != nil {
+					hooks.LogError(use, event.SessionID,
+						fmt.Sprintf("DBPath failed: %v", err))
+					return fallback, nil
+				}
+				database, reason := hooks.OpenHookDBReadOnly(use, event.SessionID, dbPath)
 				if database == nil {
 					_ = reason
 					return fallback, nil

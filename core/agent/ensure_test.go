@@ -234,11 +234,6 @@ func TestEnsureSession_DaemonRouted(t *testing.T) {
 		// Read-only DB: empty (no session row). Represents the shared read index.
 		roDB := openMemDB(t)
 
-		// writableDB: if EnsureSessionRouted touches this on the cold path when
-		// the daemon acks, the test would detect it via the rowcount check below.
-		// We open it schema-current so it would succeed if called.
-		writableDB := openMemDB(t)
-
 		dir := t.TempDir()
 		writeActiveSessionFile(t, dir, sessionID)
 		t.Setenv("WIPNOTE_SESSION_ID", sessionID)
@@ -256,7 +251,14 @@ func TestEnsureSession_DaemonRouted(t *testing.T) {
 		}
 		t.Cleanup(func() { agent.RouteSessionInsertFn = prev })
 
-		got, err := agent.EnsureSessionRouted(roDB, writableDB, dir, dir, 500*time.Millisecond)
+		// roborev-473 finding 2: the writable handle is now a LAZY thunk.
+		// When the daemon acks the cold insert, the thunk must NEVER be invoked
+		// (no writable open + migration paid). We assert that directly.
+		opened := false
+		got, err := agent.EnsureSessionRouted(roDB, func() (*sql.DB, error) {
+			opened = true
+			return openMemDB(t), nil
+		}, dir, dir, 500*time.Millisecond)
 		if err != nil {
 			t.Fatalf("EnsureSessionRouted cold+daemon: %v", err)
 		}
@@ -266,12 +268,8 @@ func TestEnsureSession_DaemonRouted(t *testing.T) {
 		if !called {
 			t.Error("RouteSessionInsertFn was not called on cold path")
 		}
-
-		// The writableDB must NOT have had a row inserted — the daemon handled it.
-		var count int
-		writableDB.QueryRow(`SELECT COUNT(*) FROM sessions WHERE session_id = ?`, sessionID).Scan(&count) //nolint:errcheck
-		if count != 0 {
-			t.Errorf("writableDB has %d row(s) for session %q; expected 0 (daemon acked)", count, sessionID)
+		if opened {
+			t.Error("lazy writable opener was invoked on the daemon-acked cold path; expected NO writable open")
 		}
 	})
 
@@ -281,8 +279,6 @@ func TestEnsureSession_DaemonRouted(t *testing.T) {
 
 		roDB := openMemDB(t)
 		insertSession(t, roDB, sessionID)
-
-		writableDB := openMemDB(t)
 
 		dir := t.TempDir()
 		writeActiveSessionFile(t, dir, sessionID)
@@ -297,7 +293,13 @@ func TestEnsureSession_DaemonRouted(t *testing.T) {
 		}
 		t.Cleanup(func() { agent.RouteSessionInsertFn = prev })
 
-		got, err := agent.EnsureSessionRouted(roDB, writableDB, dir, dir, 500*time.Millisecond)
+		// roborev-473 finding 2: on the warm/exists path the lazy writable opener
+		// must NEVER be invoked — the read-only exists-check short-circuits first.
+		opened := false
+		got, err := agent.EnsureSessionRouted(roDB, func() (*sql.DB, error) {
+			opened = true
+			return openMemDB(t), nil
+		}, dir, dir, 500*time.Millisecond)
 		if err != nil {
 			t.Fatalf("EnsureSessionRouted hot: %v", err)
 		}
@@ -307,6 +309,9 @@ func TestEnsureSession_DaemonRouted(t *testing.T) {
 		if called {
 			t.Error("RouteSessionInsertFn was called on hot path; should not be")
 		}
+		if opened {
+			t.Error("lazy writable opener was invoked on the warm/exists path; expected NO writable open")
+		}
 	})
 
 	// --- cold path: daemon returns false → fallback to writableDB ---
@@ -314,7 +319,6 @@ func TestEnsureSession_DaemonRouted(t *testing.T) {
 		const sessionID = "daemon-routed-fallback-003"
 
 		roDB := openMemDB(t)
-		writableDB := openMemDB(t)
 
 		dir := t.TempDir()
 		writeActiveSessionFile(t, dir, sessionID)
@@ -330,19 +334,36 @@ func TestEnsureSession_DaemonRouted(t *testing.T) {
 		}
 		t.Cleanup(func() { agent.RouteSessionInsertFn = prev })
 
-		got, err := agent.EnsureSessionRouted(roDB, writableDB, dir, dir, 0)
+		// roborev-473 finding 2: on a daemon MISS the lazy writable opener IS
+		// invoked and EnsureSessionRouted writes the row through (and then closes)
+		// the handle it returns. We back the fallback with an on-disk DB so the row
+		// survives that close, then re-open it to assert the insert landed.
+		fallbackPath := filepath.Join(dir, "fallback.db")
+		opened := false
+		got, err := agent.EnsureSessionRouted(roDB, func() (*sql.DB, error) {
+			opened = true
+			return db.Open(fallbackPath)
+		}, dir, dir, 0)
 		if err != nil {
 			t.Fatalf("EnsureSessionRouted fallback: %v", err)
 		}
 		if got != sessionID {
 			t.Errorf("got session ID %q, want %q", got, sessionID)
 		}
+		if !opened {
+			t.Error("lazy writable opener was NOT invoked on the daemon-miss fallback path")
+		}
 
-		// Fallback must have written the row to writableDB.
+		// Fallback must have written the row through the lazily-opened handle.
+		verify, err := db.Open(fallbackPath)
+		if err != nil {
+			t.Fatalf("re-open fallback DB: %v", err)
+		}
+		defer verify.Close()
 		var count int
-		writableDB.QueryRow(`SELECT COUNT(*) FROM sessions WHERE session_id = ?`, sessionID).Scan(&count) //nolint:errcheck
+		verify.QueryRow(`SELECT COUNT(*) FROM sessions WHERE session_id = ?`, sessionID).Scan(&count) //nolint:errcheck
 		if count != 1 {
-			t.Errorf("writableDB has %d row(s); expected 1 after daemon-miss fallback", count)
+			t.Errorf("fallback DB has %d row(s); expected 1 after daemon-miss fallback", count)
 		}
 	})
 }

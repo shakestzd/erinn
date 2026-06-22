@@ -462,7 +462,12 @@ func recordEventAndAllow(event *CloudEvent, ctx *toolUseContext, database *sql.D
 		UpdatedAt:     time.Now().UTC(),
 	}
 
-	_ = db.InsertEvent(database, ev)
+	// Route the tool_call agent_events INSERT through the daemon-first enqueue
+	// path (plan-2390966a slice-4). This is the hot write that stalled 5–14s
+	// under a held lock; RouteInsertEvent opens NO direct writable handle when
+	// the daemon is reachable and degrades to a <1s bounded fallback otherwise.
+	// Best-effort/advisory like the prior db.InsertEvent — never blocks the hook.
+	_ = RouteInsertEvent("pretooluse", ctx.ProjectDir, ctx.SessionID, ev, database)
 
 	if ctx.FeatureID != "" {
 		writePath := paths.MustNormalize(extractFilePath(event.ToolInput), "")

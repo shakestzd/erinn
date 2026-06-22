@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>roborev-478 round-3: read-only hook dispatch bypasses DB-independent guards &#43; reconcile drain still capped at 500 &#43; envelope float64-&gt;int coercion</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="bug-69da0ee7"
+             data-type="bug"
+             data-status="todo"
+             data-priority="medium"
+             data-created="2026-06-22T20:46:15.679571"
+             data-updated="2026-06-22T20:46:15.76006" data-agent-assigned="claude-code" data-track-id="trk-6a1f5362" data-created-by-agent="claude-code" data-created-by-model="claude-opus-4-8[1m]" data-created-by-cli-version="0.64.0-17-gac4898ffa">
+
+        <header>
+            <h1>roborev-478 round-3: read-only hook dispatch bypasses DB-independent guards &#43; reconcile drain still capped at 500 &#43; envelope float64-&gt;int coercion</h1>
+            <div class="metadata">
+                <span class="badge status-todo">Todo</span>
+                <span class="badge priority-medium">Medium Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-6a1f5362.html" data-relationship="part_of" data-since="2026-06-22T20:46:15.759889">trk-6a1f5362</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>Re-review job 478 (F, converging: 2 Med + 1 Low). (1) Med cmd/wipnote/hook.go hookSubcmdReadOnly returns fallback when read-only DB missing -&gt; pretooluse DB-independent safety guards (block direct .wipnote writes etc.) never run on first-run/deleted-cache. Fix: invoke handler with nil DB so guards run; make handler nil-DB-safe. (2) Med core/hooks/session_end.go ReconcileDoneButUncommittedForProject documented uncapped but delegates to reconcileDoneButUncommitted capped at newest 500/status -&gt; older dirty terminal artifacts skipped. Fix: uncapped/paginated scan for serve-drain path + test &gt;500. (3) Low core/daemon/apply/apply.go NormalizeArgs coerces integral float64-&gt;int64 -&gt; RouteSQL float64(1.0) applies as int. Fix: type-preserving arg serialization (round-trip int64 exact AND float64 as float), type-tagged sqlOpID.</p>
+        </section>
+    </article>
+</body>
+</html>

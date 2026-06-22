@@ -993,6 +993,12 @@ func sessionOrAgentFilter(inClause string, inArgs []any, useAgentID bool, agentI
 // getClaimFromParentChain) that only need one level of parent resolution.
 func getSessionAndParent(database *sql.DB, sessionID string) []string {
 	sessionIDs := []string{sessionID}
+	// Nil-DB-safe (roborev-478 finding 1): guard-only hook dispatch may pass a
+	// nil DB; return just the current session (no parent walk) instead of
+	// panicking on QueryRow.
+	if database == nil {
+		return sessionIDs
+	}
 	var parentID string
 	database.QueryRow(
 		`SELECT COALESCE(parent_session_id, '') FROM sessions WHERE session_id = ?`,
@@ -1042,6 +1048,9 @@ func getClaimFromParentChain(database *sql.DB, sessionID, claimedItem string) (s
 // parent session. Worktree subagents inherit diff reviews from the outer
 // orchestrator session that spawned them.
 func hasRecentDiffReview(database *sql.DB, sessionID string) bool {
+	if database == nil {
+		return false
+	}
 	for _, sid := range getSessionAndParent(database, sessionID) {
 		var count int
 		database.QueryRow(`
@@ -1091,6 +1100,9 @@ var testPattern = regexp.MustCompile(`\bgo test\b|\bpytest\b|\buv run pytest\b|\
 // matching test patterns. Worktree subagents inherit test runs from the
 // outer orchestrator session that spawned them.
 func hasRecentTestRun(database *sql.DB, sessionID string) bool {
+	if database == nil {
+		return false
+	}
 	for _, sid := range getSessionAndParent(database, sessionID) {
 		var count int
 		database.QueryRow(`
@@ -1162,6 +1174,12 @@ func hasStagedUIFiles() bool {
 //     take_screenshot patterns are retained for other MCP server flavours.
 func checkYoloUIValidationGuard(event *CloudEvent, yolo bool, database *sql.DB, sessionID string) string {
 	if !yolo || !isShellTool(event.ToolName) {
+		return ""
+	}
+	// Nil-DB-safe (roborev-478 finding 1): guard-only dispatch may pass a nil
+	// DB. Without the derived index we cannot confirm UI work was screenshotted,
+	// so fail-open (don't block) rather than panic on QueryRow.
+	if database == nil {
 		return ""
 	}
 	cmd := shellCommand(event.ToolInput)

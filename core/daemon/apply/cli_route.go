@@ -119,13 +119,15 @@ func submitViaDaemon(projectRoot, opID, opType string, op DerivedOp, async bool,
 // within the daemon's dedup window collapses to a single application; a
 // different statement or different args yields a distinct key.
 //
-// The args are hashed via a TYPE-TAGGED canonical serialization, NOT %v
-// (roborev-473 finding 7): %v renders the string "1" and the int 1 identically,
-// so a later distinct SQL op could collide with an earlier one and be wrongly
-// deduped/dropped. Each arg is first normalized to the SAME primitive the wire
-// payload carries (NormalizeArgs — int64 integers preserved exactly) and then
-// JSON-encoded, which distinguishes "1" (a JSON string) from 1 (a JSON number)
-// and keeps the key stable across encode→decode. Args are still bound as SQL
+// The args are hashed via the SAME type-tagged wire serialization the payload
+// carries (encodeArgs), NOT %v and NOT a plain json.Marshal of the args. Plain
+// JSON renders the string "1" and the int 1 identically, AND renders int64(1)
+// and float64(1.0) identically (both bare `1`) — so a later distinct SQL op
+// could collide with an earlier one and be wrongly deduped/dropped (roborev-473
+// finding 7; roborev-478 finding 3). encodeArgs normalizes each arg (int kinds →
+// int64 with full precision; float64 kept AS float64) and tags it by concrete
+// type, so "1" (string), 1 (int64) and 1.0 (float64) all hash DISTINCTLY while
+// the key stays stable across encode→decode. Args are still bound as SQL
 // parameters when the op is applied (never interpolated).
 func sqlOpID(sqlStmt string, args ...any) string {
 	h := sha256.New()
@@ -133,10 +135,11 @@ func sqlOpID(sqlStmt string, args ...any) string {
 	// Length-frame the statement so it cannot run together with the arg block
 	// (e.g. sql="a", arg="b" must not collide with sql="ab", no args).
 	_, _ = io.WriteString(h, "\x00")
-	// JSON-encode the normalized args slice as one canonical, type-tagged blob.
+	// JSON-encode the type-tagged args slice as one canonical blob — the exact
+	// wire form the daemon decodes, so the dedup key matches what is applied.
 	// On the rare encode error fall back to a stable type-tagged fmt rendering so
 	// the key stays distinct rather than silently empty.
-	if blob, err := json.Marshal(NormalizeArgs(args)); err == nil {
+	if blob, err := json.Marshal(encodeArgs(args)); err == nil {
 		_, _ = h.Write(blob)
 	} else {
 		for _, a := range args {

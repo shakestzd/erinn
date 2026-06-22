@@ -148,6 +148,73 @@ func TestDerivedOp_SQLEnvelope_Int64PrecisionRoundTrip(t *testing.T) {
 	}
 }
 
+// TestDerivedOp_SQLEnvelope_Float64Preserved proves an INTEGRAL float64 bind
+// arg (1.0) round-trips as float64 and binds as REAL — it is NOT coerced to an
+// integer by the envelope (roborev-478 finding 3). It also proves a large int64
+// still round-trips EXACTLY in the same envelope, and that the two yield
+// DISTINCT op_ids (so float64(1.0) and int64(1) are never wrongly deduped).
+func TestDerivedOp_SQLEnvelope_Float64Preserved(t *testing.T) {
+	wDB := openTempWriterDB(t)
+	// A REAL-typed scratch column so we can observe the stored affinity.
+	if _, err := wDB.Exec(`CREATE TABLE rk (k TEXT PRIMARY KEY, r)`); err != nil {
+		t.Fatalf("create rk: %v", err)
+	}
+
+	const one = float64(1.0)
+	op := DerivedOp{Type: OpTypeSQL, SQL: `INSERT INTO rk (k, r) VALUES (?, ?)`, Args: []any{"one", one}}
+	payload, err := Encode(op)
+	if err != nil {
+		t.Fatalf("encode: %v", err)
+	}
+	decoded, err := Decode(payload)
+	if err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	// The decoded arg must STAY a float64 (not collapse to int64).
+	f, ok := decoded.Args[1].(float64)
+	if !ok {
+		t.Fatalf("decoded float arg has type %T, want float64 (must not coerce 1.0 to int)", decoded.Args[1])
+	}
+	if f != one {
+		t.Fatalf("decoded float arg = %v, want %v", f, one)
+	}
+
+	applier := NewApplier(wDB)
+	writeOp, err := applier(daemon.Envelope{OpType: OpTypeSQL, Payload: payload})
+	if err != nil {
+		t.Fatalf("applier build: %v", err)
+	}
+	if err := writeOp(context.Background()); err != nil {
+		t.Fatalf("apply OpTypeSQL: %v", err)
+	}
+	// typeof() must report 'real' — proving the value bound as a float, not an int.
+	var typ string
+	if err := wDB.QueryRow(`SELECT typeof(r) FROM rk WHERE k = ?`, "one").Scan(&typ); err != nil {
+		t.Fatalf("read back typeof: %v", err)
+	}
+	if typ != "real" {
+		t.Fatalf("stored typeof(r) = %q, want \"real\" (float64 must bind as REAL, not INTEGER)", typ)
+	}
+
+	// A large int64 still round-trips exact in the same envelope.
+	const bigInt = int64(1)<<53 + 1
+	op2 := DerivedOp{Type: OpTypeSQL, SQL: `INSERT INTO rk (k, r) VALUES (?, ?)`, Args: []any{"big", bigInt}}
+	payload2, _ := Encode(op2)
+	decoded2, err := Decode(payload2)
+	if err != nil {
+		t.Fatalf("decode big: %v", err)
+	}
+	if got, ok := decoded2.Args[1].(int64); !ok || got != bigInt {
+		t.Fatalf("decoded big int arg = %#v (type %T), want int64(%d)", decoded2.Args[1], decoded2.Args[1], bigInt)
+	}
+
+	// float64(1.0) and int64(1) must produce DISTINCT op_ids.
+	const sql = `INSERT INTO rk (k, r) VALUES (?, ?)`
+	if sqlOpID(sql, "x", float64(1.0)) == sqlOpID(sql, "x", int64(1)) {
+		t.Fatal("sqlOpID(.., float64(1.0)) collides with sqlOpID(.., int64(1)) — REAL vs INTEGER not distinguished")
+	}
+}
+
 // TestDerivedOp_SQLEnvelope_EmptySQLErrors asserts a malformed OpTypeSQL (no
 // statement) yields an applier error rather than a silent no-op.
 func TestDerivedOp_SQLEnvelope_EmptySQLErrors(t *testing.T) {

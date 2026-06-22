@@ -151,6 +151,67 @@ func TestOpenWritable_NoMigrations(t *testing.T) {
 	}
 }
 
+// TestOpenWithBusyTimeout_CurrentSchemaSkipsMigrationUnderLock is the
+// roborev-482 round-5 finding 2 regression. The BOUNDED hot-hook open
+// (OpenWithBusyTimeout with a sub-second busy_timeout) on an ALREADY-CURRENT DB
+// must (a) perform NO migration write and (b) return well under 1s EVEN while a
+// competing writer holds the RESERVED write lock — because the cheap read-only
+// PRAGMA user_version check short-circuits before any DDL / write-lock
+// acquisition. Before this fix, runMigrations was wrapped in
+// RetryOnBusy(DefaultBusyBackoff) (~2.6s), which could blow the bound under
+// contention even though the warm path runs zero DDL.
+func TestOpenWithBusyTimeout_CurrentSchemaSkipsMigrationUnderLock(t *testing.T) {
+	dir := t.TempDir()
+	dbPath := filepath.Join(dir, "bounded-current.db")
+
+	// Seed a fully-migrated (schema-current) DB.
+	seed, err := db.Open(dbPath)
+	if err != nil {
+		t.Fatalf("seed Open: %v", err)
+	}
+	seed.Close()
+
+	// Hold the RESERVED write lock with a competing writer for the duration of
+	// the bounded open. BEGIN IMMEDIATE acquires the write lock up front.
+	competitor, err := db.OpenWritable(dbPath)
+	if err != nil {
+		t.Fatalf("competitor OpenWritable: %v", err)
+	}
+	defer competitor.Close()
+	tx, err := competitor.Begin()
+	if err != nil {
+		t.Fatalf("competitor Begin (acquire write lock): %v", err)
+	}
+	defer tx.Rollback() //nolint:errcheck
+	// Touch a row so the RESERVED lock is genuinely held.
+	if _, err := tx.Exec(`INSERT OR IGNORE INTO metadata (key, value) VALUES ('lock_probe', '1')`); err != nil {
+		t.Fatalf("competitor write to hold lock: %v", err)
+	}
+
+	// Install a migration observer: it MUST NOT fire on the warm bounded open.
+	recorder := &migrationCallRecorder{}
+	db.SetMigrationObserver(recorder.Record)
+	defer db.SetMigrationObserver(nil)
+
+	start := time.Now()
+	bounded, err := db.OpenWithBusyTimeout(dbPath, 750*time.Millisecond)
+	elapsed := time.Since(start)
+	if err != nil {
+		t.Fatalf("OpenWithBusyTimeout on current DB under held write lock: %v", err)
+	}
+	defer bounded.Close()
+
+	// Hard bound: a warm bounded open must be well under 1s even with the write
+	// lock held — it never touches the write lock because no migration runs.
+	if elapsed >= time.Second {
+		t.Fatalf("bounded open took %v under held write lock, want < 1s (no migration should run)", elapsed)
+	}
+	// And it performed ZERO migration writes.
+	if calls := recorder.Calls(); len(calls) != 0 {
+		t.Fatalf("bounded open on current DB ran migrations %v, want none (schema already current)", calls)
+	}
+}
+
 // TestOpenMigrated_RunsMigrations verifies that Open (the migrated writable mode)
 // does invoke migration hooks.
 func TestOpenMigrated_RunsMigrations(t *testing.T) {

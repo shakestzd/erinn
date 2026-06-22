@@ -57,6 +57,27 @@ func TestSanitizePromptLabel(t *testing.T) {
 			input: "render <Foo>bar</Foo> please",
 			want:  "render <Foo>bar</Foo> please",
 		},
+		{
+			// Regression (roborev job 449): generic HTML tag names that are ALSO
+			// injected-metadata names (summary/status/note/result) must be
+			// preserved in ordinary user prompts — they are only stripped when
+			// nested inside an injected wrapper block.
+			name:  "generic_html_summary_tag_preserved",
+			input: "add a <summary>View Plan YAML</summary> toggle",
+			want:  "add a <summary>View Plan YAML</summary> toggle",
+		},
+		{
+			name:  "status_note_result_tags_preserved_standalone",
+			input: "show <status>ok</status> and <result>42</result>",
+			want:  "show <status>ok</status> and <result>42</result>",
+		},
+		{
+			// A real injected wrapper block (with nested generic tags) IS stripped
+			// wholesale, including the nested <status>/<summary>/<result>.
+			name:  "wrapper_block_with_nested_generic_tags_stripped",
+			input: "do X <task-notification><task-id>z</task-id><status>completed</status><summary>done</summary></task-notification> now",
+			want:  "do X now",
+		},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

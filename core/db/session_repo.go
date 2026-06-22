@@ -14,24 +14,36 @@ import (
 	"github.com/shakestzd/wipnote/core/models"
 )
 
-// knownInjectedTagAlt is the regex alternation of harness-injected metadata tag
-// names that leak into captured user-prompt text — Claude Code task-notification
-// blocks, tool-use wrappers, and system reminders. Sanitization is restricted to
-// THESE tags so ordinary user prompt text containing JSX/XML/HTML (e.g.
-// "Fix <Button>Save</Button> alignment") is preserved rather than mangled.
-const knownInjectedTagAlt = `task-notification|task-id|tool-use-id|tool-use-error|output-file|status|summary|note|result|system-reminder`
+// Injected-markup vocabulary, split by stripping strategy so ordinary user
+// prompt text — including JSX/XML/HTML such as <Button> or <summary> — is
+// preserved, and ONLY harness-injected metadata is removed (roborev jobs 446, 449).
 
-// rePairedInjectedTag matches a known injected paired tag and its entire
-// content, e.g. <task-id>abc123</task-id>. The (?s) flag makes . match newlines
-// so multi-line injected blocks are consumed in one pass. RE2 has no
-// backreferences, so the open and close names are independent alternations of
-// the known set — sufficient for the injected blocks we strip.
-var rePairedInjectedTag = regexp.MustCompile(`(?s)<(?:` + knownInjectedTagAlt + `)\b[^>]*>.*?</(?:` + knownInjectedTagAlt + `)\s*>`)
+// reWrapperInjectedBlock strips a harness-injected WRAPPER block and its entire
+// content. These wrappers contain nested metadata (<status>/<summary>/<note>/
+// <result>/<task-id>…), so removing the whole <tag>…</tag> also removes the
+// nested generic-named tags WITHOUT stripping those generic names globally
+// (which would mangle real prompts like "<summary>View Plan YAML</summary>").
+// RE2 has no backreferences, so each alternative closes on its OWN tag — that is
+// what makes a nested </task-id> not terminate a <task-notification> match early.
+var reWrapperInjectedBlock = regexp.MustCompile(
+	`(?s)<task-notification\b[^>]*>.*?</task-notification\s*>` +
+		`|<system-reminder\b[^>]*>.*?</system-reminder\s*>` +
+		`|<tool-use-error\b[^>]*>.*?</tool-use-error\s*>`)
 
-// reLoneInjectedTag matches a remaining lone/unclosed known injected tag (open
-// or close), e.g. a bare <task-notification> whose closing tag was truncated
-// out of the captured fragment.
-var reLoneInjectedTag = regexp.MustCompile(`</?(?:` + knownInjectedTagAlt + `)\b[^>]*>`)
+// standaloneInjectedTagAlt are unambiguous injected tags (ids, file paths) whose
+// paired content is pure noise. Deliberately EXCLUDES status/summary/note/result:
+// those are common HTML tag names and are injected only INSIDE a wrapper block
+// (handled above), so they must not be stripped globally.
+const standaloneInjectedTagAlt = `task-id|tool-use-id|output-file`
+
+// rePairedInjectedTag strips a standalone injected paired tag + its content,
+// e.g. <task-id>abc123</task-id>, for fragments outside any wrapper.
+var rePairedInjectedTag = regexp.MustCompile(`(?s)<(?:` + standaloneInjectedTagAlt + `)\b[^>]*>.*?</(?:` + standaloneInjectedTagAlt + `)\s*>`)
+
+// reLoneInjectedTag strips a lone/unclosed injected tag (wrapper or standalone),
+// e.g. a bare <task-notification> whose closing tag was truncated out of the
+// captured fragment. Generic names are intentionally absent here too.
+var reLoneInjectedTag = regexp.MustCompile(`</?(?:task-notification|system-reminder|tool-use-error|task-id|tool-use-id|output-file)\b[^>]*>`)
 
 // reWhitespaceRun matches one or more whitespace characters including newlines
 // and tabs. Compiled once at package init.
@@ -44,8 +56,9 @@ var reWhitespaceRun = regexp.MustCompile(`\s+`)
 // Steps: (1) remove known paired tags+content, (2) remove known lone tags,
 // (3) collapse all whitespace to single space, (4) trim.
 func sanitizePromptLabel(s string) string {
-	s = rePairedInjectedTag.ReplaceAllString(s, "")
-	s = reLoneInjectedTag.ReplaceAllString(s, "")
+	s = reWrapperInjectedBlock.ReplaceAllString(s, "") // whole injected blocks (+ nested generic tags)
+	s = rePairedInjectedTag.ReplaceAllString(s, "")    // standalone injected paired tags
+	s = reLoneInjectedTag.ReplaceAllString(s, "")      // lone/unclosed injected tags
 	s = reWhitespaceRun.ReplaceAllString(s, " ")
 	return strings.TrimSpace(s)
 }

@@ -217,19 +217,19 @@ func hookSubcmdWithProject(
 					return fallback, nil
 				}
 				// Canonical-first contract — see hookSubcmd above.
-				// bug-504095f2: session-start runs on the launcher's
-				// post-selection critical path (Claude blocks on the hook's
-				// additionalContext), so its writable handle uses a SHORT
-				// busy_timeout to fail fast under contention instead of
-				// stalling ~5s. session-end / session-resume are not on the
-				// interactive path and keep the default-timeout open.
-				var database *sql.DB
-				var reason hooks.FallbackReason
-				if use == "session-start" {
-					database, reason = hooks.OpenHookDBWithBusyTimeout(use, event.SessionID, dbPath, hooks.SessionStartBusyTimeout)
-				} else {
-					database, reason = hooks.OpenHookDB(use, event.SessionID, dbPath)
-				}
+				//
+				// bug-504095f2 history: session-start used to take a SHORT
+				// busy_timeout writable handle (OpenHookDBWithBusyTimeout) because
+				// it ran ALL its derived writes directly on this handle on the
+				// launcher's post-selection critical path. As of plan-2390966a
+				// slice-3 SessionStart routes every writable Exec through the
+				// daemon (RouteHookWrite — daemon-first enqueue-only with a bounded
+				// ~750ms direct fallback baked in), so the handle passed here is
+				// used only for READS (lineage/family lookups), which do not
+				// contend a held write lock. The session-start special-case is
+				// therefore retired: all three session handlers take the standard
+				// default-timeout open, identical to every other hook.
+				database, reason := hooks.OpenHookDB(use, event.SessionID, dbPath)
 				if database == nil {
 					_ = reason
 					return fallback, nil

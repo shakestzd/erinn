@@ -22,7 +22,12 @@ func setupLifecycleDB(t *testing.T) (*sql.DB, string) {
 	if err := os.MkdirAll(hgDir, 0o755); err != nil {
 		t.Fatalf("mkdir .wipnote: %v", err)
 	}
-	database, err := db.Open(filepath.Join(hgDir, "wipnote.db"))
+	dbPath := filepath.Join(hgDir, "wipnote.db")
+	// Pin WIPNOTE_DB_PATH so SessionStart's daemon-routed writes (which fall back
+	// to a direct write at DBPath(projectRoot) when no daemon is running) land in
+	// the same file this handle reads back from. See openWipnoteTestDB.
+	t.Setenv("WIPNOTE_DB_PATH", dbPath)
+	database, err := db.Open(dbPath)
 	if err != nil {
 		t.Fatalf("db.Open: %v", err)
 	}

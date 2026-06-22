@@ -6,7 +6,7 @@ meta:
     created_at: ""
     status: finalized
     schema_version: v4
-    version: 2
+    version: 3
 design:
     problem: |
         The launcher's two ~5s stalls (bug-504095f2) were SQLite busy_timeout(5000)
@@ -60,6 +60,15 @@ slices:
         that wraps WriterClient.SubmitOrSpawn (auto-spawns the daemon, ~2s bounded)
         and returns true on ack. Keep the existing typed routes
         (RouteSessionInsert/Status, SubmitDerivedEvent) untouched for the hot paths.
+        AMENDMENT (roborev 451/452): the existing SubmitOrSpawn acks only AFTER the
+        queued write is APPLIED (~2s budget), so a hot hook waiting on it can blow the
+        <1s bound while another writer (operator CLI, or a not-yet-migrated path) holds
+        the lock. Slice 1 must therefore add an ENQUEUE-ONLY (async) submit mode that
+        acks as soon as the op is durably handed to the writequeue — NOT after apply.
+        First check core/daemon for an existing enqueue/Ack-on-receipt mode before
+        adding one (do not reinvent). Expose it as e.g. apply.RouteSQLAsync /
+        SubmitEnqueue; the single-writer worker still applies it in FIFO order, so
+        ordering and the canonical-first/reindex backstop are preserved.
       why: |
         Closures cannot cross process boundaries, so SubmitDerivedOp's generic path
         only works in-process. A serializable {sql,args} envelope lets the long
@@ -100,6 +109,9 @@ slices:
         - source: local-feasibility
           severity: SUCCESS
           summary: 'Verified DerivedOp/Encode/Decode/NewApplier (core/daemon/apply/apply.go:70-160): Applier dispatches op.Type to a writequeue.WriteOp, so OpTypeSQL is a clean additive op. RouteSessionInsert confirmed (cli_route.go:110). No reinvented wheel — reuses the existing daemon IPC.'
+        - source: roborev-451-452
+          severity: HIGH
+          summary: 'AMENDED: SubmitOrSpawn acks only after the queued write APPLIES (~2s), so a hot hook waiting on it can exceed the <1s bound when another writer holds the lock. Slice 1 must add an enqueue-only (Ack-on-receipt) submit mode; slice 2 uses it for hot hooks. FIFO single-writer preserves order; canonical NDJSON + reindex remains the backstop.'
       decisions_notes: |
         **Trigger:** any hot-path write that today opens a writable handle directly.
         **State:** SQLite derived index, written only by the daemon's single handle.
@@ -148,12 +160,16 @@ slices:
       title: 'Hook write primitive: RouteHookWrite (daemon-first, bounded-direct last resort)'
       what: |
         Add hooks.RouteHookWrite(handler, projectRoot, sessionID, sql string, args ...any)
-        in core/hooks/dbgate.go: (1) try apply.RouteSQL (daemon); (2) on daemon miss,
+        in core/hooks/dbgate.go: (1) try the ENQUEUE-ONLY daemon submit from slice 1
+        (apply.RouteSQLAsync — Ack-on-receipt, sub-second; NOT the applied-ack
+        SubmitOrSpawn, whose ~2s budget can blow the <1s bound — roborev 451/452);
+        (2) only if the op cannot be ENQUEUED (daemon truly unreachable / queue full),
         fall back to a SHORT-bounded direct write via OpenHookDBWithBusyTimeout (the
         existing 750ms path) executed best-effort; (3) on any failure, log+count the
         canonical-first fallback (writer_unavailable) and return — never error. This
         is the ONE primitive every hot hook write migrates to, so the daemon-first /
-        bounded-fallback policy lives in a single place.
+        bounded-fallback policy lives in a single place. Bound the enqueue itself with
+        a short deadline so a full queue degrades to the fallback rather than blocking.
       why: |
         Centralizes the durable policy (daemon eliminates contention; bounded direct
         open is a rare last resort; NDJSON+reindex is the backstop) so individual
@@ -167,6 +183,7 @@ slices:
         - RouteHookWrite returns success even when both the daemon and the bounded direct open fail (canonical-first)
         - When the daemon is reachable, no direct writable handle is opened by the hook
         - A held external write lock does not make RouteHookWrite block longer than the bounded fallback (<1s)
+        - Even when the daemon IS reachable but its writer is busy, RouteHookWrite returns <1s (enqueue-only ack, not applied-ack) — roborev 451/452
       effort: M
       risk: Med
       tests: |
@@ -182,6 +199,10 @@ slices:
         - id: q-fallback-keep
           text: Keep the bounded direct-open fallback long-term or remove it once all hooks route through the daemon?
           answer: Keep it permanently as a rare last resort (per the approved fallback policy). It only fires when the daemon truly cannot be spawned; removing it would make a daemon-spawn failure silently drop the write until the next reindex. The daemon path makes it effectively never fire in steady state.
+      critic_revisions:
+        - source: roborev-451-452
+          severity: HIGH
+          summary: 'AMENDED: step (1) now uses the enqueue-only (Ack-on-receipt) submit, not the applied-ack SubmitOrSpawn — so a reachable-but-busy daemon cannot push RouteHookWrite past the <1s bound. Bounded direct open is the fallback only when enqueue itself fails. Added a 4th done_when for the reachable-busy-daemon case.'
       decisions_notes: |
         **Trigger:** every hot hook write (replaces direct database.Exec in handlers).
         **State:** daemon's single writable handle (primary); bounded direct open (rare).

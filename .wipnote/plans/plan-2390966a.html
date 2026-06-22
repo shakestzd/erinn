@@ -470,7 +470,7 @@ body.right-rail-collapsed .sidebar-reopen{display:flex}
       <a href="#slice-1" class="slice-nav-item" data-slice-nav="1">
         <span class="slice-nav-dot" data-approval="pending" data-dot-for="1"></span>
         <span>#1 Generic SQL-envelope DerivedOp + RouteSQL daemon client (foundation)</span>
-        
+        <span class="nav-triage-badge nav-triage-issue" title="1 issue(s)">&#9888;1</span>
         <span class="nav-triage-badge nav-triage-question" title="1 open question(s)">?1</span>
       </a>
     </li>
@@ -479,7 +479,7 @@ body.right-rail-collapsed .sidebar-reopen{display:flex}
       <a href="#slice-2" class="slice-nav-item" data-slice-nav="2">
         <span class="slice-nav-dot" data-approval="pending" data-dot-for="2"></span>
         <span>#2 Hook write primitive: RouteHookWrite (daemon-first, bounded-direct last resort)</span>
-        
+        <span class="nav-triage-badge nav-triage-issue" title="1 issue(s)">&#9888;1</span>
         <span class="nav-triage-badge nav-triage-question" title="1 open question(s)">?1</span>
       </a>
     </li>
@@ -555,7 +555,7 @@ body.right-rail-collapsed .sidebar-reopen{display:flex}
   
   <div class="meta">
     <span class="badge badge-approved">Done</span>
-    <span style="font-size:.75rem;color:var(--text-muted)">v2 · 8 slices · Created 2026-06-22</span>
+    <span style="font-size:.75rem;color:var(--text-muted)">v3 · 8 slices · Created 2026-06-22</span>
   </div>
 </header>
 <button id="themeToggle" style="position:fixed;top:16px;right:16px;z-index:100;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:6px 12px;color:var(--text);font-family:var(--mono);font-size:0.75rem;cursor:pointer;">
@@ -839,7 +839,7 @@ shows the same stall in pretooluse (10s), user-prompt (14s), subagent-start
           <span class="badge badge-revision badge-sm badge-complexity" title="Complexity: complex">Complex</span>
           <span class="badge badge-revision badge-sm" title="Execution: promoted">Promoted</span>
           <span class="badge badge-pending badge-sm slice-approval-badge" data-badge-for="slice-1">Pending</span>
-          
+          <span class="badge badge-sm badge-issues" title="1 critic issue(s)">1 issue</span>
           <span class="badge badge-sm badge-questions" title="1 open question(s)">1 Q</span>
         </span>
         <span class="slice-actions" onclick="event.stopPropagation()">
@@ -879,7 +879,16 @@ RetryOnBusy-wrapped) on its single writable handle. Add a client helper
 apply.RouteSQL(projectRoot, sql, args...) bool (core/daemon/apply/cli_route.go)
 that wraps WriterClient.SubmitOrSpawn (auto-spawns the daemon, ~2s bounded)
 and returns true on ack. Keep the existing typed routes
-(RouteSessionInsert/Status, SubmitDerivedEvent) untouched for the hot paths.</p>
+(RouteSessionInsert/Status, SubmitDerivedEvent) untouched for the hot paths.
+AMENDMENT (roborev 451/452): the existing SubmitOrSpawn acks only AFTER the
+queued write is APPLIED (~2s budget), so a hot hook waiting on it can blow the
+&lt;1s bound while another writer (operator CLI, or a not-yet-migrated path) holds
+the lock. Slice 1 must therefore add an ENQUEUE-ONLY (async) submit mode that
+acks as soon as the op is durably handed to the writequeue — NOT after apply.
+First check core/daemon for an existing enqueue/Ack-on-receipt mode before
+adding one (do not reinvent). Expose it as e.g. apply.RouteSQLAsync /
+SubmitEnqueue; the single-writer worker still applies it in FIFO order, so
+ordering and the canonical-first/reindex backstop are preserved.</p>
 </div>
           <label for="slice-1-what-reveal" class="reveal-label">Show full description</label>
           
@@ -997,6 +1006,12 @@ RouteSQL returns false without error.</p>
           <span class="critic-revision-summary">Verified DerivedOp/Encode/Decode/NewApplier (core/daemon/apply/apply.go:70-160): Applier dispatches op.Type to a writequeue.WriteOp, so OpTypeSQL is a clean additive op. RouteSessionInsert confirmed (cli_route.go:110). No reinvented wheel — reuses the existing daemon IPC.</span>
         </div>
         
+        <div class="critic-revision">
+          <span class="badge badge-blocked critic-revision-badge">HIGH</span>
+          <span class="critic-revision-source">roborev-451-452</span>
+          <span class="critic-revision-summary">AMENDED: SubmitOrSpawn acks only after the queued write APPLIES (~2s), so a hot hook waiting on it can exceed the &lt;1s bound when another writer holds the lock. Slice 1 must add an enqueue-only (Ack-on-receipt) submit mode; slice 2 uses it for hot hooks. FIFO single-writer preserves order; canonical NDJSON &#43; reindex remains the backstop.</span>
+        </div>
+        
       </div>
     </div>
     
@@ -1044,7 +1059,7 @@ RouteSQL returns false without error.</p>
           <span class="badge badge-revision badge-sm badge-complexity" title="Complexity: complex">Complex</span>
           <span class="badge badge-revision badge-sm" title="Execution: promoted">Promoted</span>
           <span class="badge badge-pending badge-sm slice-approval-badge" data-badge-for="slice-2">Pending</span>
-          
+          <span class="badge badge-sm badge-issues" title="1 critic issue(s)">1 issue</span>
           <span class="badge badge-sm badge-questions" title="1 open question(s)">1 Q</span>
         </span>
         <span class="slice-actions" onclick="event.stopPropagation()">
@@ -1077,12 +1092,16 @@ RouteSQL returns false without error.</p>
           
           <input type="checkbox" id="slice-2-what-reveal" class="reveal-toggle">
           <div class="markdown-block reveal-content serif-prose"><p>Add hooks.RouteHookWrite(handler, projectRoot, sessionID, sql string, args ...any)
-in core/hooks/dbgate.go: (1) try apply.RouteSQL (daemon); (2) on daemon miss,
+in core/hooks/dbgate.go: (1) try the ENQUEUE-ONLY daemon submit from slice 1
+(apply.RouteSQLAsync — Ack-on-receipt, sub-second; NOT the applied-ack
+SubmitOrSpawn, whose ~2s budget can blow the &lt;1s bound — roborev 451/452);
+(2) only if the op cannot be ENQUEUED (daemon truly unreachable / queue full),
 fall back to a SHORT-bounded direct write via OpenHookDBWithBusyTimeout (the
 existing 750ms path) executed best-effort; (3) on any failure, log+count the
 canonical-first fallback (writer_unavailable) and return — never error. This
 is the ONE primitive every hot hook write migrates to, so the daemon-first /
-bounded-fallback policy lives in a single place.</p>
+bounded-fallback policy lives in a single place. Bound the enqueue itself with
+a short deadline so a full queue degrades to the fallback rather than blocking.</p>
 </div>
           <label for="slice-2-what-reveal" class="reveal-label">Show full description</label>
           
@@ -1111,7 +1130,7 @@ hooks don&#39;t re-implement it and can&#39;t regress to a 5s direct stall.</p>
       
       <div class="slice-field">
         <div class="slice-field-label">Done when</div>
-        <ul class="slice-done-list"><li>RouteHookWrite returns success even when both the daemon and the bounded direct open fail (canonical-first)</li><li>When the daemon is reachable, no direct writable handle is opened by the hook</li><li>A held external write lock does not make RouteHookWrite block longer than the bounded fallback (&lt;1s)</li></ul>
+        <ul class="slice-done-list"><li>RouteHookWrite returns success even when both the daemon and the bounded direct open fail (canonical-first)</li><li>When the daemon is reachable, no direct writable handle is opened by the hook</li><li>A held external write lock does not make RouteHookWrite block longer than the bounded fallback (&lt;1s)</li><li>Even when the daemon IS reachable but its writer is busy, RouteHookWrite returns &lt;1s (enqueue-only ack, not applied-ack) — roborev 451/452</li></ul>
       </div>
       
     
@@ -1170,6 +1189,19 @@ returns &lt;1s, no error), TestRouteHookWrite_AllFail_StillSucceeds.</p>
     </div>
     
 
+    
+    <div class="slice-field slice-critic-revisions">
+      <div class="slice-field-label">Critic Revisions</div>
+      <div class="slice-field-value">
+        
+        <div class="critic-revision">
+          <span class="badge badge-blocked critic-revision-badge">HIGH</span>
+          <span class="critic-revision-source">roborev-451-452</span>
+          <span class="critic-revision-summary">AMENDED: step (1) now uses the enqueue-only (Ack-on-receipt) submit, not the applied-ack SubmitOrSpawn — so a reachable-but-busy daemon cannot push RouteHookWrite past the &lt;1s bound. Bounded direct open is the fallback only when enqueue itself fails. Added a 4th done_when for the reachable-busy-daemon case.</span>
+        </div>
+        
+      </div>
+    </div>
     
 
     

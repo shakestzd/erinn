@@ -324,23 +324,59 @@ func (l *Listener) process(ctx context.Context, line []byte) Ack {
 		return Ack{Status: AckError, Seq: l.seq.Add(1), Error: "apply " + env.OpType + ": " + err.Error()}
 	}
 
-	// Funnel through the SAME single-writer queue serve_child uses.
-	// SubmitSync blocks until the writer goroutine commits the op so the
-	// ack reflects the real outcome. Queue rejections (full/unavailable)
-	// surface as an error ack — the caller (MVP-3/4) decides whether to
-	// fall back to direct-open.
+	// Both modes funnel through the SAME single-writer queue serve_child uses,
+	// preserving FIFO ordering and the structural single-writer guarantee; they
+	// differ ONLY in when the ack is sent relative to apply.
+	if env.Async {
+		return l.submitEnqueueOnly(ctx, env, op)
+	}
+	return l.submitAndAwaitApply(ctx, env, op)
+}
+
+// submitAndAwaitApply is the SYNCHRONOUS (default) path: it blocks on
+// SubmitSync until the writer goroutine commits the op, so the ack reflects the
+// real outcome. Queue rejections (full/unavailable) surface as an error ack —
+// the caller (MVP-3/4 typed routes, applied-ack RouteSQL) decides whether to
+// fall back to direct-open. This preserves the pre-existing typed-route
+// semantics exactly.
+func (l *Listener) submitAndAwaitApply(ctx context.Context, env Envelope, op writequeue.WriteOp) Ack {
 	if err := l.queue.SubmitSync(ctx, op); err != nil {
 		return Ack{Status: AckError, Seq: l.seq.Add(1), Error: "writequeue: " + err.Error()}
 	}
-
 	// Commit succeeded — record op_id so retries dedup, then ack applied.
 	seq := l.seq.Add(1)
-	if env.OpID != "" {
-		l.dedupMu.Lock()
-		l.dedup.add(env.OpID)
-		l.dedupMu.Unlock()
-	}
+	l.recordDedup(env.OpID)
 	return Ack{Status: AckApplied, Seq: seq}
+}
+
+// submitEnqueueOnly is the ENQUEUE-ONLY (Envelope.Async) path: it hands the op
+// to the queue via the non-blocking Submit and acks AckEnqueued the instant the
+// op is durably queued — it does NOT wait for apply. A queue rejection
+// (ErrQueueFull / writer-unavailable) is the ONLY failure surface here; it
+// becomes an error ack so the caller falls back (canonical NDJSON + reindex is
+// the backstop). The single-writer worker still applies the op in FIFO order
+// after this returns. roborev 451/452: this is what keeps a hot hook under its
+// <1s bound when another writer holds the lock.
+func (l *Listener) submitEnqueueOnly(ctx context.Context, env Envelope, op writequeue.WriteOp) Ack {
+	if err := l.queue.Submit(ctx, op); err != nil {
+		return Ack{Status: AckError, Seq: l.seq.Add(1), Error: "writequeue: " + err.Error()}
+	}
+	// Durably queued — record op_id so a replayed async op dedups against this
+	// enqueue, then ack enqueued WITHOUT waiting for the worker to commit.
+	seq := l.seq.Add(1)
+	l.recordDedup(env.OpID)
+	return Ack{Status: AckEnqueued, Seq: seq}
+}
+
+// recordDedup adds opID to the in-memory dedup set (no-op for an empty id).
+// Used by both ack paths after the op is accepted (applied or enqueued).
+func (l *Listener) recordDedup(opID string) {
+	if opID == "" {
+		return
+	}
+	l.dedupMu.Lock()
+	l.dedup.add(opID)
+	l.dedupMu.Unlock()
 }
 
 // Close stops accepting connections, waits briefly for in-flight handlers,

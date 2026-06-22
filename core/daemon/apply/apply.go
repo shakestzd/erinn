@@ -58,6 +58,21 @@ const (
 	OpTypeSessionStatus = "session.status"
 )
 
+// OpTypeSQL is the GENERIC SQL-envelope op (plan-2390966a slice-1, the
+// foundation): it carries an arbitrary PARAMETERIZED statement (DerivedOp.SQL)
+// plus its bind arguments (DerivedOp.Args) so the long tail of hot-path
+// derived-index writes can route to the single writer WITHOUT hand-defining a
+// typed op per write kind. The applier Execs the statement on the daemon's
+// existing writable handle with the args bound as parameters (NEVER
+// interpolated), wrapped in the shared RetryOnBusy backoff.
+//
+// SAFETY (constraint q-sql-safety): the daemon socket is a LOCAL, per-project,
+// per-user Unix socket; only first-party wipnote code constructs OpTypeSQL ops;
+// nothing crosses a network boundary. Args are always bound as SQL parameters,
+// so even though the statement text is arbitrary, untrusted *values* cannot
+// alter statement structure.
+const OpTypeSQL = "sql.exec"
+
 // DerivedOp is the serializable representation of one derived index write.
 // Type selects the apply dispatch; the type-specific body lives in the
 // remaining fields. The agent_events upsert (Event) is the hook-tree op;
@@ -78,6 +93,14 @@ type DerivedOp struct {
 	SessionID string          `json:"session_id,omitempty"`
 	Status    string          `json:"status,omitempty"`
 	Session   *models.Session `json:"session,omitempty"`
+
+	// OpTypeSQL fields (plan-2390966a slice-1). SQL is the parameterized
+	// statement; Args are its bind parameters, JSON-encoded for transport.
+	// On decode, JSON numbers arrive as float64 and strings/bools/nil round-trip
+	// as-is — all of which the SQLite driver binds directly. Args are bound as
+	// SQL parameters and are NEVER interpolated into SQL.
+	SQL  string `json:"sql,omitempty"`
+	Args []any  `json:"args,omitempty"`
 }
 
 // Encode marshals a DerivedOp for Envelope.Payload.
@@ -158,6 +181,27 @@ func NewApplier(database *sql.DB) daemon.Applier {
 			sid, status := op.SessionID, op.Status
 			return func(_ context.Context) error {
 				return db.UpdateSessionStatus(database, sid, status)
+			}, nil
+		case OpTypeSQL:
+			if op.SQL == "" {
+				return nil, fmt.Errorf("%s: empty sql", OpTypeSQL)
+			}
+			// Capture statement + args by value so the WriteOp is
+			// self-contained on the single-writer worker. Args are passed as
+			// bind parameters to ExecContext — NEVER interpolated into the
+			// statement text (constraint q-sql-safety).
+			stmt, args := op.SQL, op.Args
+			return func(ctx context.Context) error {
+				// Run on the daemon's EXISTING writable handle, wrapped in the
+				// shared bounded busy-backoff so a transient SHARED→RESERVED
+				// race on a DELETE-journal host resolves transparently (the
+				// same protection the direct CLI/hook writers get). The whole
+				// statement is idempotent-or-safely-re-runnable as far as the
+				// retry budget is concerned: only BUSY/locked errors retry.
+				return db.RetryOnBusy(db.DefaultBusyBackoff, func() error {
+					_, execErr := database.ExecContext(ctx, stmt, args...)
+					return execErr
+				})
 			}, nil
 		default:
 			return nil, fmt.Errorf("unknown derived op_type %q", op.Type)

@@ -460,11 +460,87 @@ body.right-rail-collapsed .sidebar-reopen{display:flex}
     <a href="/" class="brand">wipnote</a>
     <button class="sidebar-toggle" id="left-sidebar-toggle" title="Collapse sidebar" aria-label="Toggle left sidebar">&#8249;</button>
   </div>
-  
+  <a href="#visual-overview" class="nav-link" data-spy="visual-overview" data-initial="V">Visual</a>
   <a href="#design" class="nav-link active" data-spy="design" data-initial="D">Design</a>
   <a href="#slices" class="nav-link" data-spy="slices" data-initial="S">Slices</a>
   
-  <a href="#questions" class="nav-link" data-spy="questions" data-initial="Q">Decisions</a>
+  <ul class="slice-nav-list" id="slice-nav-list">
+    
+    <li>
+      <a href="#slice-1" class="slice-nav-item" data-slice-nav="1">
+        <span class="slice-nav-dot" data-approval="pending" data-dot-for="1"></span>
+        <span>#1 Generic SQL-envelope DerivedOp + RouteSQL daemon client (foundation)</span>
+        
+        <span class="nav-triage-badge nav-triage-question" title="1 open question(s)">?1</span>
+      </a>
+    </li>
+    
+    <li>
+      <a href="#slice-2" class="slice-nav-item" data-slice-nav="2">
+        <span class="slice-nav-dot" data-approval="pending" data-dot-for="2"></span>
+        <span>#2 Hook write primitive: RouteHookWrite (daemon-first, bounded-direct last resort)</span>
+        
+        <span class="nav-triage-badge nav-triage-question" title="1 open question(s)">?1</span>
+      </a>
+    </li>
+    
+    <li>
+      <a href="#slice-3" class="slice-nav-item" data-slice-nav="3">
+        <span class="slice-nav-dot" data-approval="pending" data-dot-for="3"></span>
+        <span>#3 Migrate SessionStart writes to the daemon</span>
+        
+        <span class="nav-triage-badge nav-triage-question" title="1 open question(s)">?1</span>
+      </a>
+    </li>
+    
+    <li>
+      <a href="#slice-4" class="slice-nav-item" data-slice-nav="4">
+        <span class="slice-nav-dot" data-approval="pending" data-dot-for="4"></span>
+        <span>#4 Migrate pretooluse / user-prompt / subagent-start / stop writes to the daemon</span>
+        
+        <span class="nav-triage-badge nav-triage-question" title="1 open question(s)">?1</span>
+      </a>
+    </li>
+    
+    <li>
+      <a href="#slice-5" class="slice-nav-item" data-slice-nav="5">
+        <span class="slice-nav-dot" data-approval="pending" data-dot-for="5"></span>
+        <span>#5 Route launcher persistentPreRunE EnsureSession through the daemon</span>
+        
+        <span class="nav-triage-badge nav-triage-question" title="1 open question(s)">?1</span>
+      </a>
+    </li>
+    
+    <li>
+      <a href="#slice-6" class="slice-nav-item" data-slice-nav="6">
+        <span class="slice-nav-dot" data-approval="pending" data-dot-for="6"></span>
+        <span>#6 Fix the ~5.45s uncontended stop-hook baseline</span>
+        
+        <span class="nav-triage-badge nav-triage-question" title="1 open question(s)">?1</span>
+      </a>
+    </li>
+    
+    <li>
+      <a href="#slice-7" class="slice-nav-item" data-slice-nav="7">
+        <span class="slice-nav-dot" data-approval="pending" data-dot-for="7"></span>
+        <span>#7 Collapse the hot-path write-site inventory + retire band-aid scaffolding</span>
+        
+        <span class="nav-triage-badge nav-triage-question" title="1 open question(s)">?1</span>
+      </a>
+    </li>
+    
+    <li>
+      <a href="#slice-8" class="slice-nav-item" data-slice-nav="8">
+        <span class="slice-nav-dot" data-approval="pending" data-dot-for="8"></span>
+        <span>#8 CI durability gate: contention stress + no-stall assertions</span>
+        
+        <span class="nav-triage-badge nav-triage-question" title="1 open question(s)">?1</span>
+      </a>
+    </li>
+    
+  </ul>
+  
+  
   
   <a href="#feedback-summary" class="nav-link" data-spy="feedback-summary" data-initial="P">Progress</a>
   <a href="#chat-panel" class="nav-link" data-spy="chat-panel" data-initial="&#9825;">Chat</a>
@@ -476,10 +552,10 @@ body.right-rail-collapsed .sidebar-reopen{display:flex}
 <!-- Plan Header -->
 <header class="plan-header">
   <h1>Plan: Durable fix: eliminate multi-process SQLite write contention via single-writer daemon</h1>
-  <p style="color:var(--text-dim)">Replace the bounded-busy-timeout band-aids with the durable architecture: route ALL hot writers (every hook + the launcher pre-run) through the single writer daemon so non-daemon processes stop opening writable SQLite handles. Add a generic SQL-envelope DerivedOp so any write can route over IPC; keep canonical NDJSON + reindex as the durability backstop and a short-bounded direct open only as a rare last resort. Acceptance: zero first-party SQLITE_BUSY under contention stress, every hot hook &lt;1s under a held external write lock, and the hot-path write-site inventory collapses to the daemon. Also fixes the ~5.45s uncontended stop-hook baseline.</p>
+  
   <div class="meta">
     <span class="badge badge-pending">Draft</span>
-    <span style="font-size:.75rem;color:var(--text-muted)">v2 · 0 slices · Created 2026-06-22</span>
+    <span style="font-size:.75rem;color:var(--text-muted)">v1 · 8 slices · Created 2026-06-22</span>
   </div>
 </header>
 <button id="themeToggle" style="position:fixed;top:16px;right:16px;z-index:100;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:6px 12px;color:var(--text);font-family:var(--mono);font-size:0.75rem;cursor:pointer;">
@@ -496,12 +572,205 @@ body.right-rail-collapsed .sidebar-reopen{display:flex}
 </details>
 
 <!-- ZONE 0: Visual Overview (blocks-first headline — expanded, above dependency graph) -->
-
+<section class="visual-overview" id="visual-overview" data-zone="visual-overview">
+  <h2>Visual Overview</h2>
+  <div class="overview-group" data-block-kind="data-model">
+    <h3>Data Models</h3>
+    <div class="overview-group-blocks">
+      <div class="overview-block-entry">
+        <a class="overview-slice-label" href="#slice-1-block-data-model-1" title="Jump to slice 1">
+          <span class="slice-num">#1</span>
+          <span class="overview-slice-title">Generic SQL-envelope DerivedOp + RouteSQL daemon client (foundation)</span>
+        </a>
+        <div class="block-anchor" id="overview-slice-1-block-data-model-1" data-block-anchor="slice-1-block-data-model-1" data-block-kind="data-model"><div class="block block-data-model">
+  <div class="block-header"><span class="block-kind">data-model</span><span class="block-title">DerivedOp</span></div>
+  <table class="block-table">
+    <thead><tr><th>Field</th><th>Type</th><th>Note</th></tr></thead>
+    <tbody>
+      <tr><td><code>Type</code></td><td><code>string (OpTypeSessionInsert|OpTypeSessionStatus|OpTypeFeatureStatus|OpTypeSQL)</code></td><td>&mdash;</td></tr>
+      <tr><td><code>SQL</code></td><td><code>string (parameterized statement; OpTypeSQL only)</code></td><td>&mdash;</td></tr>
+      <tr><td><code>Args</code></td><td><code>[]any (JSON-encoded bind params; OpTypeSQL only)</code></td><td>&mdash;</td></tr>
+      <tr><td><code>Session</code></td><td><code>*models.Session (existing; OpTypeSessionInsert)</code></td><td>&mdash;</td></tr>
+      <tr><td><code>SessionID</code></td><td><code>string (existing)</code></td><td>&mdash;</td></tr>
+      <tr><td><code>Status</code></td><td><code>string (existing)</code></td><td>&mdash;</td></tr>
+      
+    </tbody>
+  </table>
+</div></div>
+      </div>
+      
+    </div>
+  </div>
+  <div class="overview-group" data-block-kind="file-tree">
+    <h3>File Trees</h3>
+    <div class="overview-group-blocks">
+      <div class="overview-block-entry">
+        <a class="overview-slice-label" href="#slice-1-block-file-tree-1" title="Jump to slice 1">
+          <span class="slice-num">#1</span>
+          <span class="overview-slice-title">Generic SQL-envelope DerivedOp + RouteSQL daemon client (foundation)</span>
+        </a>
+        <div class="block-anchor" id="overview-slice-1-block-file-tree-1" data-block-anchor="slice-1-block-file-tree-1" data-block-kind="file-tree"><div class="block block-file-tree">
+  <ul class="file-list">
+    <li class="file-entry"><code class="file-path">core/daemon/apply/apply.go</code></li>
+    <li class="file-entry"><code class="file-path">core/daemon/apply/cli_route.go</code></li>
+    <li class="file-entry"><code class="file-path">core/daemon/apply/apply_test.go</code></li>
+    
+  </ul>
+</div></div>
+      </div>
+      <div class="overview-block-entry">
+        <a class="overview-slice-label" href="#slice-2-block-file-tree-1" title="Jump to slice 2">
+          <span class="slice-num">#2</span>
+          <span class="overview-slice-title">Hook write primitive: RouteHookWrite (daemon-first, bounded-direct last resort)</span>
+        </a>
+        <div class="block-anchor" id="overview-slice-2-block-file-tree-1" data-block-anchor="slice-2-block-file-tree-1" data-block-kind="file-tree"><div class="block block-file-tree">
+  <ul class="file-list">
+    <li class="file-entry"><code class="file-path">core/hooks/dbgate.go</code></li>
+    <li class="file-entry"><code class="file-path">core/hooks/dbgate_test.go</code></li>
+    
+  </ul>
+</div></div>
+      </div>
+      <div class="overview-block-entry">
+        <a class="overview-slice-label" href="#slice-3-block-file-tree-1" title="Jump to slice 3">
+          <span class="slice-num">#3</span>
+          <span class="overview-slice-title">Migrate SessionStart writes to the daemon</span>
+        </a>
+        <div class="block-anchor" id="overview-slice-3-block-file-tree-1" data-block-anchor="slice-3-block-file-tree-1" data-block-kind="file-tree"><div class="block block-file-tree">
+  <ul class="file-list">
+    <li class="file-entry"><code class="file-path">core/hooks/session_start.go</code></li>
+    <li class="file-entry"><code class="file-path">cmd/wipnote/hook.go</code></li>
+    
+  </ul>
+</div></div>
+      </div>
+      <div class="overview-block-entry">
+        <a class="overview-slice-label" href="#slice-4-block-file-tree-1" title="Jump to slice 4">
+          <span class="slice-num">#4</span>
+          <span class="overview-slice-title">Migrate pretooluse / user-prompt / subagent-start / stop writes to the daemon</span>
+        </a>
+        <div class="block-anchor" id="overview-slice-4-block-file-tree-1" data-block-anchor="slice-4-block-file-tree-1" data-block-kind="file-tree"><div class="block block-file-tree">
+  <ul class="file-list">
+    <li class="file-entry"><code class="file-path">core/hooks/pretooluse.go</code></li>
+    <li class="file-entry"><code class="file-path">core/hooks/user_prompt.go</code></li>
+    <li class="file-entry"><code class="file-path">core/hooks/subagent_start.go</code></li>
+    <li class="file-entry"><code class="file-path">core/hooks/stop.go</code></li>
+    
+  </ul>
+</div></div>
+      </div>
+      <div class="overview-block-entry">
+        <a class="overview-slice-label" href="#slice-5-block-file-tree-1" title="Jump to slice 5">
+          <span class="slice-num">#5</span>
+          <span class="overview-slice-title">Route launcher persistentPreRunE EnsureSession through the daemon</span>
+        </a>
+        <div class="block-anchor" id="overview-slice-5-block-file-tree-1" data-block-anchor="slice-5-block-file-tree-1" data-block-kind="file-tree"><div class="block block-file-tree">
+  <ul class="file-list">
+    <li class="file-entry"><code class="file-path">cmd/wipnote/main.go</code></li>
+    <li class="file-entry"><code class="file-path">core/agent/ensure.go</code></li>
+    
+  </ul>
+</div></div>
+      </div>
+      <div class="overview-block-entry">
+        <a class="overview-slice-label" href="#slice-6-block-file-tree-1" title="Jump to slice 6">
+          <span class="slice-num">#6</span>
+          <span class="overview-slice-title">Fix the ~5.45s uncontended stop-hook baseline</span>
+        </a>
+        <div class="block-anchor" id="overview-slice-6-block-file-tree-1" data-block-anchor="slice-6-block-file-tree-1" data-block-kind="file-tree"><div class="block block-file-tree">
+  <ul class="file-list">
+    <li class="file-entry"><code class="file-path">core/hooks/stop.go</code></li>
+    
+  </ul>
+</div></div>
+      </div>
+      <div class="overview-block-entry">
+        <a class="overview-slice-label" href="#slice-7-block-file-tree-1" title="Jump to slice 7">
+          <span class="slice-num">#7</span>
+          <span class="overview-slice-title">Collapse the hot-path write-site inventory + retire band-aid scaffolding</span>
+        </a>
+        <div class="block-anchor" id="overview-slice-7-block-file-tree-1" data-block-anchor="slice-7-block-file-tree-1" data-block-kind="file-tree"><div class="block block-file-tree">
+  <ul class="file-list">
+    <li class="file-entry"><code class="file-path">cmd/wipnote/sqlite_write_boundary_test.go</code></li>
+    <li class="file-entry"><code class="file-path">core/hooks/dbgate.go</code></li>
+    <li class="file-entry"><code class="file-path">cmd/wipnote/claude_launch_timing.go</code></li>
+    
+  </ul>
+</div></div>
+      </div>
+      <div class="overview-block-entry">
+        <a class="overview-slice-label" href="#slice-8-block-file-tree-1" title="Jump to slice 8">
+          <span class="slice-num">#8</span>
+          <span class="overview-slice-title">CI durability gate: contention stress + no-stall assertions</span>
+        </a>
+        <div class="block-anchor" id="overview-slice-8-block-file-tree-1" data-block-anchor="slice-8-block-file-tree-1" data-block-kind="file-tree"><div class="block block-file-tree">
+  <ul class="file-list">
+    <li class="file-entry"><code class="file-path">cmd/wipnote/sqlite_contention_stress_test.go</code></li>
+    <li class="file-entry"><code class="file-path">internal/gate/check.go</code></li>
+    
+  </ul>
+</div></div>
+      </div>
+      
+    </div>
+  </div>
+  <div class="overview-group" data-block-kind="diagram">
+    <h3>Diagrams</h3>
+    <div class="overview-group-blocks">
+      <div class="overview-block-entry">
+        <a class="overview-slice-label" href="#slice-1-block-diagram-1" title="Jump to slice 1">
+          <span class="slice-num">#1</span>
+          <span class="overview-slice-title">Generic SQL-envelope DerivedOp + RouteSQL daemon client (foundation)</span>
+        </a>
+        <div class="block-anchor" id="overview-slice-1-block-diagram-1" data-block-anchor="slice-1-block-diagram-1" data-block-kind="diagram"><div class="block block-diagram">
+  <div class="block-header"><span class="block-kind">diagram</span><span class="block-title">Write routing</span></div>
+  <div class="diagram-flow diagram-lr">
+    <div class="diagram-node">caller builds {sql,args}</div><span class="diagram-arrow" aria-hidden="true">&#8594;</span><div class="diagram-node">apply.RouteSQL</div><span class="diagram-arrow" aria-hidden="true">&#8594;</span><div class="diagram-node">WriterClient.SubmitOrSpawn (auto-spawn daemon)</div><span class="diagram-arrow" aria-hidden="true">&#8594;</span><div class="diagram-node">daemon apply loop: Apply(DerivedOp)</div><span class="diagram-arrow" aria-hidden="true">&#8594;</span><div class="diagram-node">single writable handle: Exec(sql,args) RetryOnBusy</div>
+  </div>
+</div></div>
+      </div>
+      <div class="overview-block-entry">
+        <a class="overview-slice-label" href="#slice-2-block-diagram-1" title="Jump to slice 2">
+          <span class="slice-num">#2</span>
+          <span class="overview-slice-title">Hook write primitive: RouteHookWrite (daemon-first, bounded-direct last resort)</span>
+        </a>
+        <div class="block-anchor" id="overview-slice-2-block-diagram-1" data-block-anchor="slice-2-block-diagram-1" data-block-kind="diagram"><div class="block block-diagram">
+  <div class="block-header"><span class="block-kind">diagram</span><span class="block-title">RouteHookWrite policy</span></div>
+  <div class="diagram-flow diagram-tb">
+    <div class="diagram-node">RouteHookWrite(sql,args)</div><span class="diagram-arrow" aria-hidden="true">&#8595;</span><div class="diagram-node">apply.RouteSQL -&gt; daemon? yes: done (no contention)</div><span class="diagram-arrow" aria-hidden="true">&#8595;</span><div class="diagram-node">no: OpenHookDBWithBusyTimeout (750ms) best-effort Exec</div><span class="diagram-arrow" aria-hidden="true">&#8595;</span><div class="diagram-node">busy/err: RecordFallback(writer_unavailable) &#43; return success</div><span class="diagram-arrow" aria-hidden="true">&#8595;</span><div class="diagram-node">backstop: canonical NDJSON already on disk -&gt; reindex restores row</div>
+  </div>
+</div></div>
+      </div>
+      <div class="overview-block-entry">
+        <a class="overview-slice-label" href="#slice-6-block-diagram-1" title="Jump to slice 6">
+          <span class="slice-num">#6</span>
+          <span class="overview-slice-title">Fix the ~5.45s uncontended stop-hook baseline</span>
+        </a>
+        <div class="block-anchor" id="overview-slice-6-block-diagram-1" data-block-anchor="slice-6-block-diagram-1" data-block-kind="diagram"><div class="block block-diagram">
+  <div class="block-header"><span class="block-kind">diagram</span><span class="block-title">Profile-then-debottleneck</span></div>
+  <div class="diagram-flow diagram-lr">
+    <div class="diagram-node">instrument Stop phases (LogTimed)</div><span class="diagram-arrow" aria-hidden="true">&#8594;</span><div class="diagram-node">identify synchronous slow phase</div><span class="diagram-arrow" aria-hidden="true">&#8594;</span><div class="diagram-node">cap/defer/background off hot path</div><span class="diagram-arrow" aria-hidden="true">&#8594;</span><div class="diagram-node">Stop hook &lt;1s baseline</div>
+  </div>
+</div></div>
+      </div>
+      
+    </div>
+  </div>
+  
+</section>
 
 <!-- ZONE 1: Dependency Graph -->
 <section class="dep-graph" data-zone="dependency-graph">
   <h2>Dependency Graph</h2>
   <div id="graph-data" style="display:none">
+    <div data-node="1" data-name="Generic SQL-envelope DerivedOp + RouteSQL daemon client (foundation)" data-status="pending" data-deps="" data-files="3"></div>
+    <div data-node="2" data-name="Hook write primitive: RouteHookWrite (daemon-first, bounded-direct last resort)" data-status="pending" data-deps="1" data-files="2"></div>
+    <div data-node="3" data-name="Migrate SessionStart writes to the daemon" data-status="pending" data-deps="2" data-files="2"></div>
+    <div data-node="4" data-name="Migrate pretooluse / user-prompt / subagent-start / stop writes to the daemon" data-status="pending" data-deps="2" data-files="4"></div>
+    <div data-node="5" data-name="Route launcher persistentPreRunE EnsureSession through the daemon" data-status="pending" data-deps="1" data-files="2"></div>
+    <div data-node="6" data-name="Fix the ~5.45s uncontended stop-hook baseline" data-status="pending" data-deps="4" data-files="1"></div>
+    <div data-node="7" data-name="Collapse the hot-path write-site inventory + retire band-aid scaffolding" data-status="pending" data-deps="3,4,5" data-files="3"></div>
+    <div data-node="8" data-name="CI durability gate: contention stress + no-stall assertions" data-status="pending" data-deps="3,4,5,6" data-files="2"></div>
     
     <!--PLAN_GRAPH_NODES-->
   </div>
@@ -514,17 +783,41 @@ body.right-rail-collapsed .sidebar-reopen{display:flex}
 <details id="design" class="section-card" open data-phase="design" data-status="pending">
   <summary><span>Design</span><span class="badge badge-pending" data-badge-for="design">Pending</span></summary>
   <div class="section-body">
-    <!--PLAN_DESIGN_CONTENT-->
-    <div class="sub-section">
-      <h4>Open Questions</h4>
-      <!--PLAN_QUESTIONS-->
-    </div>
+    <h4>Problem</h4>
+<div data-markdown>The launcher&#39;s two ~5s stalls (bug-504095f2) were SQLite busy_timeout(5000)
+write-lock contention: many wipnote PROCESSES (launcher, serve, per-session
+otel collector, every hook subprocess) open writable handles on the same
+.db file, and SQLite is fundamentally single-writer. The shipped fixes
+(EnsureSessionWithTimeout, OpenHookDBWithBusyTimeout) only BOUND the stall —
+a contended write fails fast and relies on reindex recovery. That is a
+band-aid: it tolerates contention instead of eliminating it, and profiling
+shows the same stall in pretooluse (10s), user-prompt (14s), subagent-start
+(5s), and stop (10s) under a held lock.
+</div>
+<h4>Goals</h4>
+<ol>
+<li data-markdown>Eliminate multi-process write contention by routing ALL hot writers (every hook + the launcher pre-run) through the single writer daemon, which already owns the one writable handle (feat-f3bcbcef) — the single-serializing-writer pattern Turso (sqld), DuckDB (Quack), and Livebook (per-session GenServer) all converge on.</li>
+<li data-markdown>Keep the system local-first and pure-Go (modernc, no CGo) — do NOT swap the engine (Turso/libSQL/DuckDB rejected; see research).</li>
+<li data-markdown>Durability backstop unchanged: canonical NDJSON + reindex recover any derived write the daemon could not take; a short-bounded direct open remains only as a rare last resort so nothing ever blocks claude.</li>
+<li data-markdown>Prove durability in CI: zero first-party SQLITE_BUSY under contention stress, every hot hook &lt;1s under a held external write lock, and the hot-path write-site inventory collapses to the daemon.</li>
+<li data-markdown>Remove the ~5.45s UNCONTENDED stop-hook baseline cost.</li>
+</ol>
+<h4>Constraints</h4>
+<ul>
+<li data-markdown>Pure Go / no CGo (single static cross-compiled binary) — hard constraint.</li>
+<li data-markdown>Canonical-first contract preserved: hook writes stay best-effort; a failed derived write is logged+counted and recovered by reindex, never surfaced as a Claude hook error.</li>
+<li data-markdown>Generic SQL envelope travels only over the LOCAL trusted daemon IPC (unix socket); no remote/untrusted SQL.</li>
+<li data-markdown>No regression to the &#39;zero first-party SQLITE_BUSY&#39; launch-readiness gate.</li>
+<li data-markdown>Operator-invoked CLI write commands (reindex, ingest, plan ops) legitimately own the DB when run and are OUT of scope — only hot/contended writers migrate.</li>
+</ul>
+
     <div class="approval-row">
       <label><input type="checkbox" data-section="design" data-action="approve"> Approve design</label>
       <textarea data-section="design" data-comment-for="design" placeholder="Comments on design decisions..."></textarea>
     </div>
   </div>
 </details>
+
 
 <!-- Structure Outline (hidden when empty) -->
 
@@ -533,23 +826,1334 @@ body.right-rail-collapsed .sidebar-reopen{display:flex}
 <details id="slices" class="section-card" open data-phase="slices" data-status="pending">
   <summary><span>Slices</span><span class="badge badge-pending" data-badge-for="slices">Pending</span></summary>
   <div class="section-body">
+    <details class="slice-card" id="slice-1" data-slice="1" data-slice-name="slice-1" data-status="pending" data-approval="pending">
+  <summary class="slice-summary" aria-label="Slice 1: Generic SQL-envelope DerivedOp &#43; RouteSQL daemon client (foundation)">
+    <span class="slice-num">#1</span>
+    <span class="slice-title-col">
+      <span class="slice-name">Generic SQL-envelope DerivedOp &#43; RouteSQL daemon client (foundation)</span>
+      <span class="slice-preview">Extend the daemon write protocol so any non-daemon process can submit an</span>
+      <span class="slice-meta-row">
+        <span class="slice-summary-badges">
+          <span class="badge badge-revision badge-sm">M</span>
+          <span class="badge badge-revision badge-sm">Med</span>
+          <span class="badge badge-revision badge-sm badge-complexity" title="Complexity: complex">Complex</span>
+          
+          <span class="badge badge-pending badge-sm slice-approval-badge" data-badge-for="slice-1">Pending</span>
+          
+          <span class="badge badge-sm badge-questions" title="1 open question(s)">1 Q</span>
+        </span>
+        <span class="slice-actions" onclick="event.stopPropagation()">
+          <span class="approval-segmented" role="group" aria-label="Approval action">
+            <label class="seg-btn seg-approve" title="Approve">
+              <input type="radio" name="slice-1-approval" value="approved" data-section="slice-1" data-action="approve" aria-label="Approve slice 1">
+              &#10003;
+            </label>
+            <label class="seg-btn seg-changes" title="Request changes">
+              <input type="radio" name="slice-1-approval" value="changes_requested" data-section="slice-1" data-action="approve" aria-label="Request changes for slice 1">
+              &#8635;
+            </label>
+            <label class="seg-btn seg-reject" title="Reject">
+              <input type="radio" name="slice-1-approval" value="rejected" data-section="slice-1" data-action="approve" aria-label="Reject slice 1">
+              &#10005;
+            </label>
+          </span>
+        </span>
+      </span>
+    </span>
+    <span class="slice-chevron" aria-hidden="true"></span>
+  </summary>
+
+  <div class="slice-body">
     
+      
+      <div class="slice-field slice-what">
+        <div class="slice-field-label">What</div>
+        <div class="slice-field-value">
+          
+          <input type="checkbox" id="slice-1-what-reveal" class="reveal-toggle">
+          <div class="markdown-block reveal-content serif-prose"><p>Extend the daemon write protocol so any non-daemon process can submit an
+arbitrary parameterized write over the local IPC. Add OpTypeSQL to the
+DerivedOp struct (core/daemon/apply/apply.go) carrying SQL string + Args
+([]any, JSON-encoded). The daemon&#39;s apply loop executes it (parameterized,
+RetryOnBusy-wrapped) on its single writable handle. Add a client helper
+apply.RouteSQL(projectRoot, sql, args...) bool (core/daemon/apply/cli_route.go)
+that wraps WriterClient.SubmitOrSpawn (auto-spawns the daemon, ~2s bounded)
+and returns true on ack. Keep the existing typed routes
+(RouteSessionInsert/Status, SubmitDerivedEvent) untouched for the hot paths.</p>
+</div>
+          <label for="slice-1-what-reveal" class="reveal-label">Show full description</label>
+          
+        </div>
+      </div>
+      
+      
+      <div class="slice-field slice-why">
+        <div class="slice-field-label">Why</div>
+        <div class="slice-field-value">
+          
+          <div class="markdown-block serif-prose"><p>Closures cannot cross process boundaries, so SubmitDerivedOp&#39;s generic path
+only works in-process. A serializable {sql,args} envelope lets the long
+tail of hot-hook writes route to the single writer without hand-defining a
+typed op per write kind — the foundation every later slice builds on.</p>
+</div>
+          
+        </div>
+      </div>
+      
+      
+      <div class="slice-field">
+        <div class="slice-field-label">Files</div>
+        <div class="slice-field-value"><code>core/daemon/apply/apply.go, core/daemon/apply/cli_route.go, core/daemon/apply/apply_test.go</code></div>
+      </div>
+      
+      
+      <div class="slice-field">
+        <div class="slice-field-label">Done when</div>
+        <ul class="slice-done-list"><li>OpTypeSQL DerivedOp round-trips: encode -&gt; decode -&gt; Apply executes the parameterized statement on the writer handle</li><li>apply.RouteSQL returns true when the daemon acks and false (no panic) when it cannot be reached</li><li>Existing typed routes (RouteSessionInsert/Status, SubmitDerivedEvent) and their tests are unchanged</li></ul>
+      </div>
+      
+    
+
+    
+    <div class="slice-field slice-decisions-notes">
+      <div class="slice-field-label">Decisions</div>
+      <div class="slice-field-value">
+        
+        <input type="checkbox" id="slice-1-decisions-reveal" class="reveal-toggle">
+        <div class="markdown-block reveal-content serif-prose"><p><strong>Trigger:</strong> any hot-path write that today opens a writable handle directly.
+<strong>State:</strong> SQLite derived index, written only by the daemon&#39;s single handle.
+<strong>Payload:</strong> DerivedOp{Type:OpTypeSQL, SQL, Args} over the existing unix-socket
+SubmitOrSpawn protocol (local, trusted).
+<strong>Rejected:</strong> typed op per write kind (per-write boilerplate, many more slices);
+generic-envelope-only that retires the typed routes (needless churn/risk to
+already-working hot paths). Chose generic-envelope ADDED ALONGSIDE typed routes.</p>
+</div>
+        <label for="slice-1-decisions-reveal" class="reveal-label">Show full decisions</label>
+        
+      </div>
+    </div>
+    
+
+    <div class="slice-field slice-blocks">
+  <div class="slice-field-label">Blocks</div>
+  <div class="slice-field-value block-zone">
+    <div class="block-anchor" id="slice-1-block-data-model-1" data-block-anchor="slice-1-block-data-model-1" data-block-kind="data-model"><div class="block block-data-model">
+  <div class="block-header"><span class="block-kind">data-model</span><span class="block-title">DerivedOp</span></div>
+  <table class="block-table">
+    <thead><tr><th>Field</th><th>Type</th><th>Note</th></tr></thead>
+    <tbody>
+      <tr><td><code>Type</code></td><td><code>string (OpTypeSessionInsert|OpTypeSessionStatus|OpTypeFeatureStatus|OpTypeSQL)</code></td><td>&mdash;</td></tr>
+      <tr><td><code>SQL</code></td><td><code>string (parameterized statement; OpTypeSQL only)</code></td><td>&mdash;</td></tr>
+      <tr><td><code>Args</code></td><td><code>[]any (JSON-encoded bind params; OpTypeSQL only)</code></td><td>&mdash;</td></tr>
+      <tr><td><code>Session</code></td><td><code>*models.Session (existing; OpTypeSessionInsert)</code></td><td>&mdash;</td></tr>
+      <tr><td><code>SessionID</code></td><td><code>string (existing)</code></td><td>&mdash;</td></tr>
+      <tr><td><code>Status</code></td><td><code>string (existing)</code></td><td>&mdash;</td></tr>
+      
+    </tbody>
+  </table>
+</div></div>
+    <div class="block-anchor" id="slice-1-block-file-tree-1" data-block-anchor="slice-1-block-file-tree-1" data-block-kind="file-tree"><div class="block block-file-tree">
+  <ul class="file-list">
+    <li class="file-entry"><code class="file-path">core/daemon/apply/apply.go</code></li>
+    <li class="file-entry"><code class="file-path">core/daemon/apply/cli_route.go</code></li>
+    <li class="file-entry"><code class="file-path">core/daemon/apply/apply_test.go</code></li>
+    
+  </ul>
+</div></div>
+    <div class="block-anchor" id="slice-1-block-diagram-1" data-block-anchor="slice-1-block-diagram-1" data-block-kind="diagram"><div class="block block-diagram">
+  <div class="block-header"><span class="block-kind">diagram</span><span class="block-title">Write routing</span></div>
+  <div class="diagram-flow diagram-lr">
+    <div class="diagram-node">caller builds {sql,args}</div><span class="diagram-arrow" aria-hidden="true">&#8594;</span><div class="diagram-node">apply.RouteSQL</div><span class="diagram-arrow" aria-hidden="true">&#8594;</span><div class="diagram-node">WriterClient.SubmitOrSpawn (auto-spawn daemon)</div><span class="diagram-arrow" aria-hidden="true">&#8594;</span><div class="diagram-node">daemon apply loop: Apply(DerivedOp)</div><span class="diagram-arrow" aria-hidden="true">&#8594;</span><div class="diagram-node">single writable handle: Exec(sql,args) RetryOnBusy</div>
+  </div>
+</div></div>
+    
+  </div>
+</div>
+
+    
+    <div class="slice-field slice-tests-field">
+      <div class="slice-field-label">Test Strategy</div>
+      <div class="slice-field-value">
+        
+        
+        <div class="markdown-block slice-tests"><p>Unit (core/daemon/apply/apply_test.go): TestDerivedOp_SQLEnvelope_RoundTrip
+— encode an OpTypeSQL with args, decode, Apply against a temp file DB,
+assert the row is written. TestRouteSQL_NoDaemon_ReturnsFalse — no daemon,
+RouteSQL returns false without error.</p>
+</div>
+        
+      </div>
+    </div>
+    
+
+    
+
+    
+    <div class="slice-field slice-questions">
+      <div class="slice-field-label">Open Questions</div>
+      <div class="slice-field-value">
+        
+        <div class="question-block slice-question-block">
+          <p>Is arbitrary SQL over the daemon IPC acceptable from a safety standpoint?</p>
+          
+          
+          <textarea
+            data-section="slice-1-question-q-sql-safety"
+            data-comment-for="slice-1-question-q-sql-safety"
+            placeholder="Answer question q-sql-safety...">Yes — the daemon socket is a local, per-project unix socket owned by the same user; only first-party wipnote code constructs ops, statements are parameterized (args never interpolated), and nothing crosses a network boundary. Documented as a constraint.</textarea>
+          
+        </div>
+        
+      </div>
+    </div>
+    
+
+    <div class="slice-deps">Dependencies: none</div>
+
+    <details class="comment-collapse">
+      <summary class="comment-collapse-trigger">+ Leave a comment</summary>
+      <div class="comment-collapse-body">
+        <textarea data-section="slice-1" data-comment-for="slice-1" placeholder="Comments on slice 1..."></textarea>
+      </div>
+    </details>
+  </div>
+</details>
+<details class="slice-card" id="slice-2" data-slice="2" data-slice-name="slice-2" data-status="pending" data-approval="pending">
+  <summary class="slice-summary" aria-label="Slice 2: Hook write primitive: RouteHookWrite (daemon-first, bounded-direct last resort)">
+    <span class="slice-num">#2</span>
+    <span class="slice-title-col">
+      <span class="slice-name">Hook write primitive: RouteHookWrite (daemon-first, bounded-direct last resort)</span>
+      <span class="slice-preview">Add hooks.RouteHookWrite(handler, projectRoot, sessionID, sql string, args ...any)</span>
+      <span class="slice-meta-row">
+        <span class="slice-summary-badges">
+          <span class="badge badge-revision badge-sm">M</span>
+          <span class="badge badge-revision badge-sm">Med</span>
+          <span class="badge badge-revision badge-sm badge-complexity" title="Complexity: complex">Complex</span>
+          
+          <span class="badge badge-pending badge-sm slice-approval-badge" data-badge-for="slice-2">Pending</span>
+          
+          <span class="badge badge-sm badge-questions" title="1 open question(s)">1 Q</span>
+        </span>
+        <span class="slice-actions" onclick="event.stopPropagation()">
+          <span class="approval-segmented" role="group" aria-label="Approval action">
+            <label class="seg-btn seg-approve" title="Approve">
+              <input type="radio" name="slice-2-approval" value="approved" data-section="slice-2" data-action="approve" aria-label="Approve slice 2">
+              &#10003;
+            </label>
+            <label class="seg-btn seg-changes" title="Request changes">
+              <input type="radio" name="slice-2-approval" value="changes_requested" data-section="slice-2" data-action="approve" aria-label="Request changes for slice 2">
+              &#8635;
+            </label>
+            <label class="seg-btn seg-reject" title="Reject">
+              <input type="radio" name="slice-2-approval" value="rejected" data-section="slice-2" data-action="approve" aria-label="Reject slice 2">
+              &#10005;
+            </label>
+          </span>
+        </span>
+      </span>
+    </span>
+    <span class="slice-chevron" aria-hidden="true"></span>
+  </summary>
+
+  <div class="slice-body">
+    
+      
+      <div class="slice-field slice-what">
+        <div class="slice-field-label">What</div>
+        <div class="slice-field-value">
+          
+          <input type="checkbox" id="slice-2-what-reveal" class="reveal-toggle">
+          <div class="markdown-block reveal-content serif-prose"><p>Add hooks.RouteHookWrite(handler, projectRoot, sessionID, sql string, args ...any)
+in core/hooks/dbgate.go: (1) try apply.RouteSQL (daemon); (2) on daemon miss,
+fall back to a SHORT-bounded direct write via OpenHookDBWithBusyTimeout (the
+existing 750ms path) executed best-effort; (3) on any failure, log+count the
+canonical-first fallback (writer_unavailable) and return — never error. This
+is the ONE primitive every hot hook write migrates to, so the daemon-first /
+bounded-fallback policy lives in a single place.</p>
+</div>
+          <label for="slice-2-what-reveal" class="reveal-label">Show full description</label>
+          
+        </div>
+      </div>
+      
+      
+      <div class="slice-field slice-why">
+        <div class="slice-field-label">Why</div>
+        <div class="slice-field-value">
+          
+          <div class="markdown-block serif-prose"><p>Centralizes the durable policy (daemon eliminates contention; bounded direct
+open is a rare last resort; NDJSON+reindex is the backstop) so individual
+hooks don&#39;t re-implement it and can&#39;t regress to a 5s direct stall.</p>
+</div>
+          
+        </div>
+      </div>
+      
+      
+      <div class="slice-field">
+        <div class="slice-field-label">Files</div>
+        <div class="slice-field-value"><code>core/hooks/dbgate.go, core/hooks/dbgate_test.go</code></div>
+      </div>
+      
+      
+      <div class="slice-field">
+        <div class="slice-field-label">Done when</div>
+        <ul class="slice-done-list"><li>RouteHookWrite returns success even when both the daemon and the bounded direct open fail (canonical-first)</li><li>When the daemon is reachable, no direct writable handle is opened by the hook</li><li>A held external write lock does not make RouteHookWrite block longer than the bounded fallback (&lt;1s)</li></ul>
+      </div>
+      
+    
+
+    
+    <div class="slice-field slice-decisions-notes">
+      <div class="slice-field-label">Decisions</div>
+      <div class="slice-field-value">
+        
+        <input type="checkbox" id="slice-2-decisions-reveal" class="reveal-toggle">
+        <div class="markdown-block reveal-content serif-prose"><p><strong>Trigger:</strong> every hot hook write (replaces direct database.Exec in handlers).
+<strong>State:</strong> daemon&#39;s single writable handle (primary); bounded direct open (rare).
+<strong>Payload:</strong> {sql,args} via slice 1&#39;s RouteSQL.
+<strong>Rejected:</strong> leaving each hook to call RouteSQL directly (policy duplicated,
+easy to regress); removing the direct fallback entirely (slice-3..5 land
+incrementally, so the fallback must exist during migration).</p>
+</div>
+        <label for="slice-2-decisions-reveal" class="reveal-label">Show full decisions</label>
+        
+      </div>
+    </div>
+    
+
+    <div class="slice-field slice-blocks">
+  <div class="slice-field-label">Blocks</div>
+  <div class="slice-field-value block-zone">
+    <div class="block-anchor" id="slice-2-block-file-tree-1" data-block-anchor="slice-2-block-file-tree-1" data-block-kind="file-tree"><div class="block block-file-tree">
+  <ul class="file-list">
+    <li class="file-entry"><code class="file-path">core/hooks/dbgate.go</code></li>
+    <li class="file-entry"><code class="file-path">core/hooks/dbgate_test.go</code></li>
+    
+  </ul>
+</div></div>
+    <div class="block-anchor" id="slice-2-block-diagram-1" data-block-anchor="slice-2-block-diagram-1" data-block-kind="diagram"><div class="block block-diagram">
+  <div class="block-header"><span class="block-kind">diagram</span><span class="block-title">RouteHookWrite policy</span></div>
+  <div class="diagram-flow diagram-tb">
+    <div class="diagram-node">RouteHookWrite(sql,args)</div><span class="diagram-arrow" aria-hidden="true">&#8595;</span><div class="diagram-node">apply.RouteSQL -&gt; daemon? yes: done (no contention)</div><span class="diagram-arrow" aria-hidden="true">&#8595;</span><div class="diagram-node">no: OpenHookDBWithBusyTimeout (750ms) best-effort Exec</div><span class="diagram-arrow" aria-hidden="true">&#8595;</span><div class="diagram-node">busy/err: RecordFallback(writer_unavailable) &#43; return success</div><span class="diagram-arrow" aria-hidden="true">&#8595;</span><div class="diagram-node">backstop: canonical NDJSON already on disk -&gt; reindex restores row</div>
+  </div>
+</div></div>
+    
+  </div>
+</div>
+
+    
+    <div class="slice-field slice-tests-field">
+      <div class="slice-field-label">Test Strategy</div>
+      <div class="slice-field-value">
+        
+        
+        <div class="markdown-block slice-tests"><p>Unit (core/hooks/dbgate_test.go): TestRouteHookWrite_DaemonPath (fake ack -&gt;
+no direct open), TestRouteHookWrite_FallbackBounded (no daemon + held lock -&gt;
+returns &lt;1s, no error), TestRouteHookWrite_AllFail_StillSucceeds.</p>
+</div>
+        
+      </div>
+    </div>
+    
+
+    
+
+    
+    <div class="slice-field slice-questions">
+      <div class="slice-field-label">Open Questions</div>
+      <div class="slice-field-value">
+        
+        <div class="question-block slice-question-block">
+          <p>Keep the bounded direct-open fallback long-term or remove it once all hooks route through the daemon?</p>
+          
+          
+          <textarea
+            data-section="slice-2-question-q-fallback-keep"
+            data-comment-for="slice-2-question-q-fallback-keep"
+            placeholder="Answer question q-fallback-keep...">Keep it permanently as a rare last resort (per the approved fallback policy). It only fires when the daemon truly cannot be spawned; removing it would make a daemon-spawn failure silently drop the write until the next reindex. The daemon path makes it effectively never fire in steady state.</textarea>
+          
+        </div>
+        
+      </div>
+    </div>
+    
+
+    <div class="slice-deps">Dependencies: slices 1</div>
+
+    <details class="comment-collapse">
+      <summary class="comment-collapse-trigger">+ Leave a comment</summary>
+      <div class="comment-collapse-body">
+        <textarea data-section="slice-2" data-comment-for="slice-2" placeholder="Comments on slice 2..."></textarea>
+      </div>
+    </details>
+  </div>
+</details>
+<details class="slice-card" id="slice-3" data-slice="3" data-slice-name="slice-3" data-status="pending" data-approval="pending">
+  <summary class="slice-summary" aria-label="Slice 3: Migrate SessionStart writes to the daemon">
+    <span class="slice-num">#3</span>
+    <span class="slice-title-col">
+      <span class="slice-name">Migrate SessionStart writes to the daemon</span>
+      <span class="slice-preview">Replace SessionStart&#39;s direct writes (runSessionTransaction session upsert &#43;</span>
+      <span class="slice-meta-row">
+        <span class="slice-summary-badges">
+          <span class="badge badge-revision badge-sm">M</span>
+          <span class="badge badge-revision badge-sm">Med</span>
+          <span class="badge badge-revision badge-sm badge-complexity" title="Complexity: complex">Complex</span>
+          
+          <span class="badge badge-pending badge-sm slice-approval-badge" data-badge-for="slice-3">Pending</span>
+          
+          <span class="badge badge-sm badge-questions" title="1 open question(s)">1 Q</span>
+        </span>
+        <span class="slice-actions" onclick="event.stopPropagation()">
+          <span class="approval-segmented" role="group" aria-label="Approval action">
+            <label class="seg-btn seg-approve" title="Approve">
+              <input type="radio" name="slice-3-approval" value="approved" data-section="slice-3" data-action="approve" aria-label="Approve slice 3">
+              &#10003;
+            </label>
+            <label class="seg-btn seg-changes" title="Request changes">
+              <input type="radio" name="slice-3-approval" value="changes_requested" data-section="slice-3" data-action="approve" aria-label="Request changes for slice 3">
+              &#8635;
+            </label>
+            <label class="seg-btn seg-reject" title="Reject">
+              <input type="radio" name="slice-3-approval" value="rejected" data-section="slice-3" data-action="approve" aria-label="Reject slice 3">
+              &#10005;
+            </label>
+          </span>
+        </span>
+      </span>
+    </span>
+    <span class="slice-chevron" aria-hidden="true"></span>
+  </summary>
+
+  <div class="slice-body">
+    
+      
+      <div class="slice-field slice-what">
+        <div class="slice-field-label">What</div>
+        <div class="slice-field-value">
+          
+          <input type="checkbox" id="slice-3-what-reveal" class="reveal-toggle">
+          <div class="markdown-block reveal-content serif-prose"><p>Replace SessionStart&#39;s direct writes (runSessionTransaction session upsert +
+lineage, transcript_path UPDATE, InsertEvent, SetSessionFamilyID,
+PropagateFamilyAttribution) with the existing typed routes where present
+(RouteSessionInsert) and RouteHookWrite for the long tail. Retire the
+session-start-only OpenHookDBWithBusyTimeout special-case in
+cmd/wipnote/hook.go (the policy now lives in RouteHookWrite). Keep the
+capped orphan sweep + serve drain from the prior fix.</p>
+</div>
+          <label for="slice-3-what-reveal" class="reveal-label">Show full description</label>
+          
+        </div>
+      </div>
+      
+      
+      <div class="slice-field slice-why">
+        <div class="slice-field-label">Why</div>
+        <div class="slice-field-value">
+          
+          <div class="markdown-block serif-prose"><p>SessionStart is the post-selection stall on the hot launch path; routing its
+writes through the daemon eliminates the contention rather than bounding it.</p>
+</div>
+          
+        </div>
+      </div>
+      
+      
+      <div class="slice-field">
+        <div class="slice-field-label">Files</div>
+        <div class="slice-field-value"><code>core/hooks/session_start.go, cmd/wipnote/hook.go</code></div>
+      </div>
+      
+      
+      <div class="slice-field">
+        <div class="slice-field-label">Done when</div>
+        <ul class="slice-done-list"><li>SessionStart performs no direct writable Exec when the daemon is reachable</li><li>SessionStart completes &lt;1s under a held external write lock</li><li>The session row, family id, event, and transcript path are all present after a daemon-routed run (verified via read-back)</li></ul>
+      </div>
+      
+    
+
+    
+    <div class="slice-field slice-decisions-notes">
+      <div class="slice-field-label">Decisions</div>
+      <div class="slice-field-value">
+        
+        <div class="markdown-block serif-prose"><p><strong>Trigger:</strong> SessionStart hook (runs as claude starts).
+<strong>State:</strong> daemon single writer.
+<strong>Rejected:</strong> keeping the 750ms bounded special-case as the primary mechanism
+(it is the band-aid this plan replaces). It survives only inside
+RouteHookWrite as the last-resort fallback.</p>
+</div>
+        
+      </div>
+    </div>
+    
+
+    <div class="slice-field slice-blocks">
+  <div class="slice-field-label">Blocks</div>
+  <div class="slice-field-value block-zone">
+    <div class="block-anchor" id="slice-3-block-file-tree-1" data-block-anchor="slice-3-block-file-tree-1" data-block-kind="file-tree"><div class="block block-file-tree">
+  <ul class="file-list">
+    <li class="file-entry"><code class="file-path">core/hooks/session_start.go</code></li>
+    <li class="file-entry"><code class="file-path">cmd/wipnote/hook.go</code></li>
+    
+  </ul>
+</div></div>
+    
+  </div>
+</div>
+
+    
+    <div class="slice-field slice-tests-field">
+      <div class="slice-field-label">Test Strategy</div>
+      <div class="slice-field-value">
+        
+        
+        <div class="markdown-block slice-tests"><p>core/hooks/session_start_contention_test.go: extend
+TestSessionStartFailsFastUnderContention to assert daemon-path writes (fake
+ack) leave NO direct-open fallback log, and that all rows land. Reuse the
+held-lock harness for the &lt;1s assertion.</p>
+</div>
+        
+      </div>
+    </div>
+    
+
+    
+
+    
+    <div class="slice-field slice-questions">
+      <div class="slice-field-label">Open Questions</div>
+      <div class="slice-field-value">
+        
+        <div class="question-block slice-question-block">
+          <p>runSessionTransaction batches several writes in one tx — how is that preserved over the SQL envelope?</p>
+          
+          
+          <textarea
+            data-section="slice-3-question-q-tx-atomicity"
+            data-comment-for="slice-3-question-q-tx-atomicity"
+            placeholder="Answer question q-tx-atomicity...">Route the batch as a single OpTypeSQL op carrying a multi-statement transaction (BEGIN..COMMIT) executed atomically on the daemon handle, OR a typed multi-row op; the daemon applies it in one transaction so atomicity is preserved. Confirmed the apply loop runs each DerivedOp in its own transaction.</textarea>
+          
+        </div>
+        
+      </div>
+    </div>
+    
+
+    <div class="slice-deps">Dependencies: slices 2</div>
+
+    <details class="comment-collapse">
+      <summary class="comment-collapse-trigger">+ Leave a comment</summary>
+      <div class="comment-collapse-body">
+        <textarea data-section="slice-3" data-comment-for="slice-3" placeholder="Comments on slice 3..."></textarea>
+      </div>
+    </details>
+  </div>
+</details>
+<details class="slice-card" id="slice-4" data-slice="4" data-slice-name="slice-4" data-status="pending" data-approval="pending">
+  <summary class="slice-summary" aria-label="Slice 4: Migrate pretooluse / user-prompt / subagent-start / stop writes to the daemon">
+    <span class="slice-num">#4</span>
+    <span class="slice-title-col">
+      <span class="slice-name">Migrate pretooluse / user-prompt / subagent-start / stop writes to the daemon</span>
+      <span class="slice-preview">Replace the direct writable Exec calls in PreToolUse, UserPrompt,</span>
+      <span class="slice-meta-row">
+        <span class="slice-summary-badges">
+          <span class="badge badge-blocked badge-sm">L</span>
+          <span class="badge badge-revision badge-sm">Med</span>
+          <span class="badge badge-revision badge-sm badge-complexity" title="Complexity: complex">Complex</span>
+          
+          <span class="badge badge-pending badge-sm slice-approval-badge" data-badge-for="slice-4">Pending</span>
+          
+          <span class="badge badge-sm badge-questions" title="1 open question(s)">1 Q</span>
+        </span>
+        <span class="slice-actions" onclick="event.stopPropagation()">
+          <span class="approval-segmented" role="group" aria-label="Approval action">
+            <label class="seg-btn seg-approve" title="Approve">
+              <input type="radio" name="slice-4-approval" value="approved" data-section="slice-4" data-action="approve" aria-label="Approve slice 4">
+              &#10003;
+            </label>
+            <label class="seg-btn seg-changes" title="Request changes">
+              <input type="radio" name="slice-4-approval" value="changes_requested" data-section="slice-4" data-action="approve" aria-label="Request changes for slice 4">
+              &#8635;
+            </label>
+            <label class="seg-btn seg-reject" title="Reject">
+              <input type="radio" name="slice-4-approval" value="rejected" data-section="slice-4" data-action="approve" aria-label="Reject slice 4">
+              &#10005;
+            </label>
+          </span>
+        </span>
+      </span>
+    </span>
+    <span class="slice-chevron" aria-hidden="true"></span>
+  </summary>
+
+  <div class="slice-body">
+    
+      
+      <div class="slice-field slice-what">
+        <div class="slice-field-label">What</div>
+        <div class="slice-field-value">
+          
+          <div class="markdown-block serif-prose"><p>Replace the direct writable Exec calls in PreToolUse, UserPrompt,
+SubagentStart, and Stop with RouteHookWrite / existing typed routes. These
+are the hot hooks that stalled 5-14s under a held lock in profiling
+(posttooluse already routes through the queue and is the reference).</p>
+</div>
+          
+        </div>
+      </div>
+      
+      
+      <div class="slice-field slice-why">
+        <div class="slice-field-label">Why</div>
+        <div class="slice-field-value">
+          
+          <div class="markdown-block serif-prose"><p>PreToolUse/PostToolUse run on EVERY tool call; a contended direct write there
+is a per-tool-call multi-second stall. Routing them removes the contention.</p>
+</div>
+          
+        </div>
+      </div>
+      
+      
+      <div class="slice-field">
+        <div class="slice-field-label">Files</div>
+        <div class="slice-field-value"><code>core/hooks/pretooluse.go, core/hooks/user_prompt.go, core/hooks/subagent_start.go, core/hooks/stop.go</code></div>
+      </div>
+      
+      
+      <div class="slice-field">
+        <div class="slice-field-label">Done when</div>
+        <ul class="slice-done-list"><li>pretooluse, user-prompt, subagent-start, and stop each complete &lt;1s under a held external write lock</li><li>None open a direct writable handle when the daemon is reachable</li><li>posttooluse behavior is unchanged (already queue-routed)</li></ul>
+      </div>
+      
+    
+
+    
+    <div class="slice-field slice-decisions-notes">
+      <div class="slice-field-label">Decisions</div>
+      <div class="slice-field-value">
+        
+        <div class="markdown-block serif-prose"><p><strong>Trigger:</strong> four hot hooks doing direct derived-index writes.
+<strong>State:</strong> daemon single writer.
+<strong>Payload:</strong> each handler&#39;s existing writes as {sql,args} via RouteHookWrite.
+<strong>Rejected:</strong> bounding each hook&#39;s own open (band-aid; duplicates policy).</p>
+</div>
+        
+      </div>
+    </div>
+    
+
+    <div class="slice-field slice-blocks">
+  <div class="slice-field-label">Blocks</div>
+  <div class="slice-field-value block-zone">
+    <div class="block-anchor" id="slice-4-block-file-tree-1" data-block-anchor="slice-4-block-file-tree-1" data-block-kind="file-tree"><div class="block block-file-tree">
+  <ul class="file-list">
+    <li class="file-entry"><code class="file-path">core/hooks/pretooluse.go</code></li>
+    <li class="file-entry"><code class="file-path">core/hooks/user_prompt.go</code></li>
+    <li class="file-entry"><code class="file-path">core/hooks/subagent_start.go</code></li>
+    <li class="file-entry"><code class="file-path">core/hooks/stop.go</code></li>
+    
+  </ul>
+</div></div>
+    
+  </div>
+</div>
+
+    
+    <div class="slice-field slice-tests-field">
+      <div class="slice-field-label">Test Strategy</div>
+      <div class="slice-field-value">
+        
+        
+        <div class="markdown-block slice-tests"><p>core/hooks/hook_contention_test.go (new): table test holding BEGIN IMMEDIATE
+on a file DB, asserting each of the four hooks returns &lt;1s with a daemon ack
+and &lt;1s via bounded fallback without a daemon, and never errors.</p>
+</div>
+        
+      </div>
+    </div>
+    
+
+    
+
+    
+    <div class="slice-field slice-questions">
+      <div class="slice-field-label">Open Questions</div>
+      <div class="slice-field-value">
+        
+        <div class="question-block slice-question-block">
+          <p>PreToolUse is the most latency-sensitive (every tool call) — is the daemon round-trip itself cheap enough?</p>
+          
+          
+          <textarea
+            data-section="slice-4-question-q-pretooluse-latency"
+            data-comment-for="slice-4-question-q-pretooluse-latency"
+            placeholder="Answer question q-pretooluse-latency...">Yes — the daemon ack is a local unix-socket round-trip (sub-ms once the daemon is warm; it is already running from the launcher&#39;s serve autostart). posttooluse already demonstrates this at 0.03s. SubmitOrSpawn&#39;s ~2s cost is only the one-time auto-spawn.</textarea>
+          
+        </div>
+        
+      </div>
+    </div>
+    
+
+    <div class="slice-deps">Dependencies: slices 2</div>
+
+    <details class="comment-collapse">
+      <summary class="comment-collapse-trigger">+ Leave a comment</summary>
+      <div class="comment-collapse-body">
+        <textarea data-section="slice-4" data-comment-for="slice-4" placeholder="Comments on slice 4..."></textarea>
+      </div>
+    </details>
+  </div>
+</details>
+<details class="slice-card" id="slice-5" data-slice="5" data-slice-name="slice-5" data-status="pending" data-approval="pending">
+  <summary class="slice-summary" aria-label="Slice 5: Route launcher persistentPreRunE EnsureSession through the daemon">
+    <span class="slice-num">#5</span>
+    <span class="slice-title-col">
+      <span class="slice-name">Route launcher persistentPreRunE EnsureSession through the daemon</span>
+      <span class="slice-preview">Replace the launcher&#39;s bounded EnsureSessionWithTimeout direct write</span>
+      <span class="slice-meta-row">
+        <span class="slice-summary-badges">
+          <span class="badge badge-revision badge-sm">M</span>
+          <span class="badge badge-revision badge-sm">Med</span>
+          <span class="badge badge-revision badge-sm badge-complexity" title="Complexity: complex">Complex</span>
+          
+          <span class="badge badge-pending badge-sm slice-approval-badge" data-badge-for="slice-5">Pending</span>
+          
+          <span class="badge badge-sm badge-questions" title="1 open question(s)">1 Q</span>
+        </span>
+        <span class="slice-actions" onclick="event.stopPropagation()">
+          <span class="approval-segmented" role="group" aria-label="Approval action">
+            <label class="seg-btn seg-approve" title="Approve">
+              <input type="radio" name="slice-5-approval" value="approved" data-section="slice-5" data-action="approve" aria-label="Approve slice 5">
+              &#10003;
+            </label>
+            <label class="seg-btn seg-changes" title="Request changes">
+              <input type="radio" name="slice-5-approval" value="changes_requested" data-section="slice-5" data-action="approve" aria-label="Request changes for slice 5">
+              &#8635;
+            </label>
+            <label class="seg-btn seg-reject" title="Reject">
+              <input type="radio" name="slice-5-approval" value="rejected" data-section="slice-5" data-action="approve" aria-label="Reject slice 5">
+              &#10005;
+            </label>
+          </span>
+        </span>
+      </span>
+    </span>
+    <span class="slice-chevron" aria-hidden="true"></span>
+  </summary>
+
+  <div class="slice-body">
+    
+      
+      <div class="slice-field slice-what">
+        <div class="slice-field-label">What</div>
+        <div class="slice-field-value">
+          
+          <input type="checkbox" id="slice-5-what-reveal" class="reveal-toggle">
+          <div class="markdown-block reveal-content serif-prose"><p>Replace the launcher&#39;s bounded EnsureSessionWithTimeout direct write
+(cmd/wipnote/main.go persistentPreRunE) with the daemon path: the
+session-exists check stays a read (OpenReadOnly), and the cold-path insert
+routes via apply.RouteSessionInsert (already exists) with the bounded direct
+open kept only as last resort. EnsureSessionWithTimeout&#39;s
+restore-busy_timeout logic remains for that last-resort path.</p>
+</div>
+          <label for="slice-5-what-reveal" class="reveal-label">Show full description</label>
+          
+        </div>
+      </div>
+      
+      
+      <div class="slice-field slice-why">
+        <div class="slice-field-label">Why</div>
+        <div class="slice-field-value">
+          
+          <div class="markdown-block serif-prose"><p>This is the pre-render stall source. Routing the insert removes the launcher&#39;s
+direct writable open from the hot chooser path entirely.</p>
+</div>
+          
+        </div>
+      </div>
+      
+      
+      <div class="slice-field">
+        <div class="slice-field-label">Files</div>
+        <div class="slice-field-value"><code>cmd/wipnote/main.go, core/agent/ensure.go</code></div>
+      </div>
+      
+      
+      <div class="slice-field">
+        <div class="slice-field-label">Done when</div>
+        <ul class="slice-done-list"><li>persistentPreRunE opens no writable handle when the daemon is reachable</li><li>The launch chooser renders &lt;1s under a held external write lock</li><li>A new session row still appears after launch (daemon-routed or last-resort fallback)</li></ul>
+      </div>
+      
+    
+
+    
+    <div class="slice-field slice-decisions-notes">
+      <div class="slice-field-label">Decisions</div>
+      <div class="slice-field-value">
+        
+        <div class="markdown-block serif-prose"><p><strong>Trigger:</strong> persistentPreRunE before every command, incl. the launch chooser.
+<strong>State:</strong> daemon single writer; read-only handle for the exists-check.
+<strong>Rejected:</strong> keeping the 500ms bounded direct write as primary (band-aid).
+It remains only as the last-resort fallback.</p>
+</div>
+        
+      </div>
+    </div>
+    
+
+    <div class="slice-field slice-blocks">
+  <div class="slice-field-label">Blocks</div>
+  <div class="slice-field-value block-zone">
+    <div class="block-anchor" id="slice-5-block-file-tree-1" data-block-anchor="slice-5-block-file-tree-1" data-block-kind="file-tree"><div class="block block-file-tree">
+  <ul class="file-list">
+    <li class="file-entry"><code class="file-path">cmd/wipnote/main.go</code></li>
+    <li class="file-entry"><code class="file-path">core/agent/ensure.go</code></li>
+    
+  </ul>
+</div></div>
+    
+  </div>
+</div>
+
+    
+    <div class="slice-field slice-tests-field">
+      <div class="slice-field-label">Test Strategy</div>
+      <div class="slice-field-value">
+        
+        
+        <div class="markdown-block slice-tests"><p>core/agent/ensure_test.go: add TestEnsureSession_DaemonRouted (fake route fn
+-&gt; no direct open) alongside the existing
+TestEnsureSessionWithTimeout_FailsFastUnderContention.</p>
+</div>
+        
+      </div>
+    </div>
+    
+
+    
+
+    
+    <div class="slice-field slice-questions">
+      <div class="slice-field-label">Open Questions</div>
+      <div class="slice-field-value">
+        
+        <div class="question-block slice-question-block">
+          <p>Does the session-exists check need the writable handle at all?</p>
+          
+          
+          <textarea
+            data-section="slice-5-question-q-readonly-check"
+            data-comment-for="slice-5-question-q-readonly-check"
+            placeholder="Answer question q-readonly-check...">No — it is a SELECT COUNT, so it moves to OpenReadOnly (no write-lock contention in WAL). Only the cold-path insert needs the writer, and that routes to the daemon.</textarea>
+          
+        </div>
+        
+      </div>
+    </div>
+    
+
+    <div class="slice-deps">Dependencies: slices 1</div>
+
+    <details class="comment-collapse">
+      <summary class="comment-collapse-trigger">+ Leave a comment</summary>
+      <div class="comment-collapse-body">
+        <textarea data-section="slice-5" data-comment-for="slice-5" placeholder="Comments on slice 5..."></textarea>
+      </div>
+    </details>
+  </div>
+</details>
+<details class="slice-card" id="slice-6" data-slice="6" data-slice-name="slice-6" data-status="pending" data-approval="pending">
+  <summary class="slice-summary" aria-label="Slice 6: Fix the ~5.45s uncontended stop-hook baseline">
+    <span class="slice-num">#6</span>
+    <span class="slice-title-col">
+      <span class="slice-name">Fix the ~5.45s uncontended stop-hook baseline</span>
+      <span class="slice-preview">Profile the Stop hook&#39;s ~5.45s cost with NO lock held (a baseline cost, like</span>
+      <span class="slice-meta-row">
+        <span class="slice-summary-badges">
+          <span class="badge badge-revision badge-sm">M</span>
+          <span class="badge badge-revision badge-sm">Med</span>
+          <span class="badge badge-revision badge-sm badge-complexity" title="Complexity: complex">Complex</span>
+          
+          <span class="badge badge-pending badge-sm slice-approval-badge" data-badge-for="slice-6">Pending</span>
+          
+          <span class="badge badge-sm badge-questions" title="1 open question(s)">1 Q</span>
+        </span>
+        <span class="slice-actions" onclick="event.stopPropagation()">
+          <span class="approval-segmented" role="group" aria-label="Approval action">
+            <label class="seg-btn seg-approve" title="Approve">
+              <input type="radio" name="slice-6-approval" value="approved" data-section="slice-6" data-action="approve" aria-label="Approve slice 6">
+              &#10003;
+            </label>
+            <label class="seg-btn seg-changes" title="Request changes">
+              <input type="radio" name="slice-6-approval" value="changes_requested" data-section="slice-6" data-action="approve" aria-label="Request changes for slice 6">
+              &#8635;
+            </label>
+            <label class="seg-btn seg-reject" title="Reject">
+              <input type="radio" name="slice-6-approval" value="rejected" data-section="slice-6" data-action="approve" aria-label="Reject slice 6">
+              &#10005;
+            </label>
+          </span>
+        </span>
+      </span>
+    </span>
+    <span class="slice-chevron" aria-hidden="true"></span>
+  </summary>
+
+  <div class="slice-body">
+    
+      
+      <div class="slice-field slice-what">
+        <div class="slice-field-label">What</div>
+        <div class="slice-field-value">
+          
+          <div class="markdown-block serif-prose"><p>Profile the Stop hook&#39;s ~5.45s cost with NO lock held (a baseline cost, like
+session-start&#39;s synchronous orphan sweep was) using the launch-timing /
+LogTimed instrumentation, identify the synchronous slow phase, and take it
+off the hot path (cap + defer to the serve drain, or background via the
+daemon) so session end is not gated on it.</p>
+</div>
+          
+        </div>
+      </div>
+      
+      
+      <div class="slice-field slice-why">
+        <div class="slice-field-label">Why</div>
+        <div class="slice-field-value">
+          
+          <div class="markdown-block serif-prose"><p>5.45s at baseline is pure per-session overhead independent of contention; the
+durable fix must remove it, not just bound the contended case.</p>
+</div>
+          
+        </div>
+      </div>
+      
+      
+      <div class="slice-field">
+        <div class="slice-field-label">Files</div>
+        <div class="slice-field-value"><code>core/hooks/stop.go</code></div>
+      </div>
+      
+      
+      <div class="slice-field">
+        <div class="slice-field-label">Done when</div>
+        <ul class="slice-done-list"><li>The Stop hook completes well under 1s with no lock held</li><li>The deferred/backgrounded work still happens (verified) — nothing is silently dropped</li></ul>
+      </div>
+      
+    
+
+    
+    <div class="slice-field slice-decisions-notes">
+      <div class="slice-field-label">Decisions</div>
+      <div class="slice-field-value">
+        
+        <div class="markdown-block serif-prose"><p><strong>Trigger:</strong> Stop hook (session end).
+<strong>State:</strong> depends on the phase found; likely a sweep/flush over derived index.
+<strong>Rejected:</strong> ignoring it as out-of-the-hot-launch-path — it is still a
+consistent multi-second cost the user feels and the plan&#39;s mandate is durable.
+<strong>Note:</strong> depends on slice 4 to avoid conflicting edits to stop.go.</p>
+</div>
+        
+      </div>
+    </div>
+    
+
+    <div class="slice-field slice-blocks">
+  <div class="slice-field-label">Blocks</div>
+  <div class="slice-field-value block-zone">
+    <div class="block-anchor" id="slice-6-block-file-tree-1" data-block-anchor="slice-6-block-file-tree-1" data-block-kind="file-tree"><div class="block block-file-tree">
+  <ul class="file-list">
+    <li class="file-entry"><code class="file-path">core/hooks/stop.go</code></li>
+    
+  </ul>
+</div></div>
+    <div class="block-anchor" id="slice-6-block-diagram-1" data-block-anchor="slice-6-block-diagram-1" data-block-kind="diagram"><div class="block block-diagram">
+  <div class="block-header"><span class="block-kind">diagram</span><span class="block-title">Profile-then-debottleneck</span></div>
+  <div class="diagram-flow diagram-lr">
+    <div class="diagram-node">instrument Stop phases (LogTimed)</div><span class="diagram-arrow" aria-hidden="true">&#8594;</span><div class="diagram-node">identify synchronous slow phase</div><span class="diagram-arrow" aria-hidden="true">&#8594;</span><div class="diagram-node">cap/defer/background off hot path</div><span class="diagram-arrow" aria-hidden="true">&#8594;</span><div class="diagram-node">Stop hook &lt;1s baseline</div>
+  </div>
+</div></div>
+    
+  </div>
+</div>
+
+    
+    <div class="slice-field slice-tests-field">
+      <div class="slice-field-label">Test Strategy</div>
+      <div class="slice-field-value">
+        
+        
+        <div class="markdown-block slice-tests"><p>A timing assertion test for the Stop hook baseline (&lt;1s) on a warm DB, plus a
+correctness test that the previously-synchronous work still completes
+(out-of-band or capped).</p>
+</div>
+        
+      </div>
+    </div>
+    
+
+    
+
+    
+    <div class="slice-field slice-questions">
+      <div class="slice-field-label">Open Questions</div>
+      <div class="slice-field-value">
+        
+        <div class="question-block slice-question-block">
+          <p>What is the likely 5.45s baseline cause in Stop?</p>
+          
+          
+          <textarea
+            data-section="slice-6-question-q-stop-cause"
+            data-comment-for="slice-6-question-q-stop-cause"
+            placeholder="Answer question q-stop-cause...">Most likely a synchronous sweep/flush analogous to session-start&#39;s project-wide orphan sweep (Stop finalizes the session and may sweep/close its events &#43; write canonical HTML). Profiling in this slice confirms before fixing — no fix is committed on assumption.</textarea>
+          
+        </div>
+        
+      </div>
+    </div>
+    
+
+    <div class="slice-deps">Dependencies: slices 4</div>
+
+    <details class="comment-collapse">
+      <summary class="comment-collapse-trigger">+ Leave a comment</summary>
+      <div class="comment-collapse-body">
+        <textarea data-section="slice-6" data-comment-for="slice-6" placeholder="Comments on slice 6..."></textarea>
+      </div>
+    </details>
+  </div>
+</details>
+<details class="slice-card" id="slice-7" data-slice="7" data-slice-name="slice-7" data-status="pending" data-approval="pending">
+  <summary class="slice-summary" aria-label="Slice 7: Collapse the hot-path write-site inventory &#43; retire band-aid scaffolding">
+    <span class="slice-num">#7</span>
+    <span class="slice-title-col">
+      <span class="slice-name">Collapse the hot-path write-site inventory &#43; retire band-aid scaffolding</span>
+      <span class="slice-preview">After migration, the hook tree and launcher no longer open writable handles</span>
+      <span class="slice-meta-row">
+        <span class="slice-summary-badges">
+          <span class="badge badge-revision badge-sm">M</span>
+          <span class="badge badge-pending badge-sm">Low</span>
+          <span class="badge badge-revision badge-sm badge-complexity" title="Complexity: complex">Complex</span>
+          
+          <span class="badge badge-pending badge-sm slice-approval-badge" data-badge-for="slice-7">Pending</span>
+          
+          <span class="badge badge-sm badge-questions" title="1 open question(s)">1 Q</span>
+        </span>
+        <span class="slice-actions" onclick="event.stopPropagation()">
+          <span class="approval-segmented" role="group" aria-label="Approval action">
+            <label class="seg-btn seg-approve" title="Approve">
+              <input type="radio" name="slice-7-approval" value="approved" data-section="slice-7" data-action="approve" aria-label="Approve slice 7">
+              &#10003;
+            </label>
+            <label class="seg-btn seg-changes" title="Request changes">
+              <input type="radio" name="slice-7-approval" value="changes_requested" data-section="slice-7" data-action="approve" aria-label="Request changes for slice 7">
+              &#8635;
+            </label>
+            <label class="seg-btn seg-reject" title="Reject">
+              <input type="radio" name="slice-7-approval" value="rejected" data-section="slice-7" data-action="approve" aria-label="Reject slice 7">
+              &#10005;
+            </label>
+          </span>
+        </span>
+      </span>
+    </span>
+    <span class="slice-chevron" aria-hidden="true"></span>
+  </summary>
+
+  <div class="slice-body">
+    
+      
+      <div class="slice-field slice-what">
+        <div class="slice-field-label">What</div>
+        <div class="slice-field-value">
+          
+          <input type="checkbox" id="slice-7-what-reveal" class="reveal-toggle">
+          <div class="markdown-block reveal-content serif-prose"><p>After migration, the hook tree and launcher no longer open writable handles
+on the hot path except via the documented last-resort fallback. Update
+approvedWriteSites (cmd/wipnote/sqlite_write_boundary_test.go) so the hot-path
+entries are reclassified as daemon-routed (fallback-only), tighten the
+boundary test to assert no NEW hot-path direct opens, remove the now-dead
+launch-timing scaffolding (or keep behind WIPNOTE_LAUNCH_TIMING), and ensure
+the inventory documents the remaining legitimate operator-CLI write sites.</p>
+</div>
+          <label for="slice-7-what-reveal" class="reveal-label">Show full description</label>
+          
+        </div>
+      </div>
+      
+      
+      <div class="slice-field slice-why">
+        <div class="slice-field-label">Why</div>
+        <div class="slice-field-value">
+          
+          <div class="markdown-block serif-prose"><p>The acceptance bar requires the hot-path inventory to collapse to the daemon;
+this slice makes that auditable and prevents regressions.</p>
+</div>
+          
+        </div>
+      </div>
+      
+      
+      <div class="slice-field">
+        <div class="slice-field-label">Files</div>
+        <div class="slice-field-value"><code>cmd/wipnote/sqlite_write_boundary_test.go, core/hooks/dbgate.go, cmd/wipnote/claude_launch_timing.go</code></div>
+      </div>
+      
+      
+      <div class="slice-field">
+        <div class="slice-field-label">Done when</div>
+        <ul class="slice-done-list"><li>approvedWriteSites marks every hot-path/hook write site as daemon-routed (fallback-only) with an updated Note</li><li>The boundary test fails if a hook handler adds a new unrouted direct writable open</li><li>Remaining direct write sites are all explicit operator-CLI mutations, each documented as such</li></ul>
+      </div>
+      
+    
+
+    
+    <div class="slice-field slice-decisions-notes">
+      <div class="slice-field-label">Decisions</div>
+      <div class="slice-field-value">
+        
+        <div class="markdown-block serif-prose"><p><strong>Trigger:</strong> post-migration cleanup + governance.
+<strong>State:</strong> inventory test (source of truth for write sites).
+<strong>Rejected:</strong> deleting the OpenHookDB entry entirely (the bounded fallback
+still legitimately exists); collapsing operator-CLI sites (they are
+intentional single-owner writes, not contended).</p>
+</div>
+        
+      </div>
+    </div>
+    
+
+    <div class="slice-field slice-blocks">
+  <div class="slice-field-label">Blocks</div>
+  <div class="slice-field-value block-zone">
+    <div class="block-anchor" id="slice-7-block-file-tree-1" data-block-anchor="slice-7-block-file-tree-1" data-block-kind="file-tree"><div class="block block-file-tree">
+  <ul class="file-list">
+    <li class="file-entry"><code class="file-path">cmd/wipnote/sqlite_write_boundary_test.go</code></li>
+    <li class="file-entry"><code class="file-path">core/hooks/dbgate.go</code></li>
+    <li class="file-entry"><code class="file-path">cmd/wipnote/claude_launch_timing.go</code></li>
+    
+  </ul>
+</div></div>
+    
+  </div>
+</div>
+
+    
+    <div class="slice-field slice-tests-field">
+      <div class="slice-field-label">Test Strategy</div>
+      <div class="slice-field-value">
+        
+        
+        <div class="markdown-block slice-tests"><p>The existing TestWritableDBOpenBoundary / sqlite_write_boundary_test.go
+updated to the new classifications; a guard assertion that hook-tree handlers
+route through the daemon.</p>
+</div>
+        
+      </div>
+    </div>
+    
+
+    
+
+    
+    <div class="slice-field slice-questions">
+      <div class="slice-field-label">Open Questions</div>
+      <div class="slice-field-value">
+        
+        <div class="question-block slice-question-block">
+          <p>What is the realistic inventory end-state — literally one site?</p>
+          
+          
+          <textarea
+            data-section="slice-7-question-q-inventory-target"
+            data-comment-for="slice-7-question-q-inventory-target"
+            placeholder="Answer question q-inventory-target...">No — one site for the HOT/CONTENDED path (the daemon writer), plus the documented last-resort hook fallback and the legitimate operator-CLI mutation sites (reindex, ingest, plan ops) which own the DB when invoked and are not concurrent. The acceptance is &#39;hot-path collapses to the daemon&#39;, not &#39;global count == 1&#39;.</textarea>
+          
+        </div>
+        
+      </div>
+    </div>
+    
+
+    <div class="slice-deps">Dependencies: slices 3,4,5</div>
+
+    <details class="comment-collapse">
+      <summary class="comment-collapse-trigger">+ Leave a comment</summary>
+      <div class="comment-collapse-body">
+        <textarea data-section="slice-7" data-comment-for="slice-7" placeholder="Comments on slice 7..."></textarea>
+      </div>
+    </details>
+  </div>
+</details>
+<details class="slice-card" id="slice-8" data-slice="8" data-slice-name="slice-8" data-status="pending" data-approval="pending">
+  <summary class="slice-summary" aria-label="Slice 8: CI durability gate: contention stress &#43; no-stall assertions">
+    <span class="slice-num">#8</span>
+    <span class="slice-title-col">
+      <span class="slice-name">CI durability gate: contention stress &#43; no-stall assertions</span>
+      <span class="slice-preview">Extend TestSQLiteContentionStress (cmd/wipnote) to drive the migrated hot</span>
+      <span class="slice-meta-row">
+        <span class="slice-summary-badges">
+          <span class="badge badge-revision badge-sm">M</span>
+          <span class="badge badge-pending badge-sm">Low</span>
+          <span class="badge badge-revision badge-sm badge-complexity" title="Complexity: complex">Complex</span>
+          
+          <span class="badge badge-pending badge-sm slice-approval-badge" data-badge-for="slice-8">Pending</span>
+          
+          <span class="badge badge-sm badge-questions" title="1 open question(s)">1 Q</span>
+        </span>
+        <span class="slice-actions" onclick="event.stopPropagation()">
+          <span class="approval-segmented" role="group" aria-label="Approval action">
+            <label class="seg-btn seg-approve" title="Approve">
+              <input type="radio" name="slice-8-approval" value="approved" data-section="slice-8" data-action="approve" aria-label="Approve slice 8">
+              &#10003;
+            </label>
+            <label class="seg-btn seg-changes" title="Request changes">
+              <input type="radio" name="slice-8-approval" value="changes_requested" data-section="slice-8" data-action="approve" aria-label="Request changes for slice 8">
+              &#8635;
+            </label>
+            <label class="seg-btn seg-reject" title="Reject">
+              <input type="radio" name="slice-8-approval" value="rejected" data-section="slice-8" data-action="approve" aria-label="Reject slice 8">
+              &#10005;
+            </label>
+          </span>
+        </span>
+      </span>
+    </span>
+    <span class="slice-chevron" aria-hidden="true"></span>
+  </summary>
+
+  <div class="slice-body">
+    
+      
+      <div class="slice-field slice-what">
+        <div class="slice-field-label">What</div>
+        <div class="slice-field-value">
+          
+          <input type="checkbox" id="slice-8-what-reveal" class="reveal-toggle">
+          <div class="markdown-block reveal-content serif-prose"><p>Extend TestSQLiteContentionStress (cmd/wipnote) to drive the migrated hot
+hooks + launcher pre-run while an external connection holds BEGIN IMMEDIATE,
+asserting (a) zero first-party SQLITE_BUSY across 3 consecutive runs and
+(b) every hot hook + the chooser path completes &lt;1s under the held lock.
+Wire it into the quality gate / launch-readiness check so the durable
+property is enforced, not just observed.</p>
+</div>
+          <label for="slice-8-what-reveal" class="reveal-label">Show full description</label>
+          
+        </div>
+      </div>
+      
+      
+      <div class="slice-field slice-why">
+        <div class="slice-field-label">Why</div>
+        <div class="slice-field-value">
+          
+          <div class="markdown-block serif-prose"><p>Turns &#39;durable, not band-aid&#39; into a regression-proof CI invariant.</p>
+</div>
+          
+        </div>
+      </div>
+      
+      
+      <div class="slice-field">
+        <div class="slice-field-label">Files</div>
+        <div class="slice-field-value"><code>cmd/wipnote/sqlite_contention_stress_test.go, internal/gate/check.go</code></div>
+      </div>
+      
+      
+      <div class="slice-field">
+        <div class="slice-field-label">Done when</div>
+        <ul class="slice-done-list"><li>TestSQLiteContentionStress exercises the migrated hooks &#43; launcher and passes with zero first-party SQLITE_BUSY across 3 consecutive runs</li><li>The test asserts each hot hook &#43; the chooser path completes &lt;1s under a held external write lock</li><li>The gate/launch-readiness check references the stress fixture so a regression fails CI</li></ul>
+      </div>
+      
+    
+
+    
+    <div class="slice-field slice-decisions-notes">
+      <div class="slice-field-label">Decisions</div>
+      <div class="slice-field-value">
+        
+        <div class="markdown-block serif-prose"><p><strong>Trigger:</strong> CI / launch-readiness gate.
+<strong>State:</strong> test fixture + gate config.
+<strong>Rejected:</strong> functional-only verification (no CI gate) — would let the
+contention regress silently, which is exactly how the band-aid era started.</p>
+</div>
+        
+      </div>
+    </div>
+    
+
+    <div class="slice-field slice-blocks">
+  <div class="slice-field-label">Blocks</div>
+  <div class="slice-field-value block-zone">
+    <div class="block-anchor" id="slice-8-block-file-tree-1" data-block-anchor="slice-8-block-file-tree-1" data-block-kind="file-tree"><div class="block block-file-tree">
+  <ul class="file-list">
+    <li class="file-entry"><code class="file-path">cmd/wipnote/sqlite_contention_stress_test.go</code></li>
+    <li class="file-entry"><code class="file-path">internal/gate/check.go</code></li>
+    
+  </ul>
+</div></div>
+    
+  </div>
+</div>
+
+    
+    <div class="slice-field slice-tests-field">
+      <div class="slice-field-label">Test Strategy</div>
+      <div class="slice-field-value">
+        
+        
+        <div class="markdown-block slice-tests"><p>The slice IS the test; plus a meta-assertion that the gate wiring invokes it.</p>
+</div>
+        
+      </div>
+    </div>
+    
+
+    
+
+    
+    <div class="slice-field slice-questions">
+      <div class="slice-field-label">Open Questions</div>
+      <div class="slice-field-value">
+        
+        <div class="question-block slice-question-block">
+          <p>How is the contention stress made deterministic across CI machines?</p>
+          
+          
+          <textarea
+            data-section="slice-8-question-q-stress-determinism"
+            data-comment-for="slice-8-question-q-stress-determinism"
+            placeholder="Answer question q-stress-determinism...">Hold the write lock from a controlled in-test connection (BEGIN IMMEDIATE) for a fixed window while driving the hooks, rather than racing real processes; assert zero first-party SQLITE_BUSY (via the existing db.Record/SubsystemHookWriter counter) and sub-second completion. Counters &#43; held-lock make it deterministic.</textarea>
+          
+        </div>
+        
+      </div>
+    </div>
+    
+
+    <div class="slice-deps">Dependencies: slices 3,4,5,6</div>
+
+    <details class="comment-collapse">
+      <summary class="comment-collapse-trigger">+ Leave a comment</summary>
+      <div class="comment-collapse-body">
+        <textarea data-section="slice-8" data-comment-for="slice-8" placeholder="Comments on slice 8..."></textarea>
+      </div>
+    </details>
+  </div>
+</details>
+
     <!--PLAN_SLICE_CARDS-->
   </div>
 </details>
 
 <!-- Design Decisions (hidden for v2 plans — slice cards carry their own questions) -->
-<details id="questions" class="section-card" data-phase="questions" data-status="pending">
-  <summary><span>Design Decisions</span><span class="badge badge-pending" data-badge-for="questions">Pending</span></summary>
-  <div class="section-body">
-    <table class="q-table">
-      <thead><tr><th>Question</th><th>Selected</th><th>Status</th></tr></thead>
-      <tbody id="questionsRecap">
-        <!--PLAN_QUESTIONS_RECAP-->
-      </tbody>
-    </table>
-  </div>
-</details>
+
 
 
 
@@ -560,8 +2164,8 @@ body.right-rail-collapsed .sidebar-reopen{display:flex}
   <h2>Feedback Summary</h2>
   <div class="progress-stats">
     <div class="progress-stat"><strong id="approvedCount">0</strong> approved</div>
-    <div class="progress-stat"><strong id="totalSections">1</strong> sections</div>
-    <div class="progress-stat"><strong id="pendingCount">1</strong> pending</div>
+    <div class="progress-stat"><strong id="totalSections">9</strong> sections</div>
+    <div class="progress-stat"><strong id="pendingCount">9</strong> pending</div>
   </div>
   <div class="progress-bar-track"><div class="progress-bar-fill" id="progressFill" style="width:0%"></div></div>
   <div class="comments-summary">
@@ -653,7 +2257,7 @@ var planId=(function(){var a=document.querySelector('article[id]');return a?a.id
 
 (function(){
   'use strict';
-  var SECTIONS=/*PLAN_SECTIONS_JSON*/["design"]/*END_PLAN_SECTIONS_JSON*/;
+  var SECTIONS=/*PLAN_SECTIONS_JSON*/["design","slice-1","slice-2","slice-3","slice-4","slice-5","slice-6","slice-7","slice-8"]/*END_PLAN_SECTIONS_JSON*/;
 
   function setBadge(el,ok){
     el.className='badge badge-'+(ok?'approved':'pending');

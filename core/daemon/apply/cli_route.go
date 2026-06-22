@@ -20,6 +20,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"io"
 	"os"
@@ -116,16 +117,40 @@ func submitViaDaemon(projectRoot, opID, opType string, op DerivedOp, async bool,
 // sqlOpID derives a deterministic, bounded dedup key for a generic SQL op from
 // the statement text plus its bind args. Replaying the identical statement+args
 // within the daemon's dedup window collapses to a single application; a
-// different statement or different args yields a distinct key. The args are
-// rendered with %v purely to form the key — they are still bound as SQL
+// different statement or different args yields a distinct key.
+//
+// The args are hashed via a TYPE-TAGGED canonical serialization, NOT %v
+// (roborev-473 finding 7): %v renders the string "1" and the int 1 identically,
+// so a later distinct SQL op could collide with an earlier one and be wrongly
+// deduped/dropped. Each arg is first normalized to the SAME primitive the wire
+// payload carries (NormalizeArgs — int64 integers preserved exactly) and then
+// JSON-encoded, which distinguishes "1" (a JSON string) from 1 (a JSON number)
+// and keeps the key stable across encode→decode. Args are still bound as SQL
 // parameters when the op is applied (never interpolated).
-func sqlOpID(sql string, args ...any) string {
+func sqlOpID(sqlStmt string, args ...any) string {
 	h := sha256.New()
-	_, _ = io.WriteString(h, sql)
-	for _, a := range args {
-		_, _ = fmt.Fprintf(h, "\x00%v", a)
+	_, _ = io.WriteString(h, sqlStmt)
+	// Length-frame the statement so it cannot run together with the arg block
+	// (e.g. sql="a", arg="b" must not collide with sql="ab", no args).
+	_, _ = io.WriteString(h, "\x00")
+	// JSON-encode the normalized args slice as one canonical, type-tagged blob.
+	// On the rare encode error fall back to a stable type-tagged fmt rendering so
+	// the key stays distinct rather than silently empty.
+	if blob, err := json.Marshal(NormalizeArgs(args)); err == nil {
+		_, _ = h.Write(blob)
+	} else {
+		for _, a := range args {
+			_, _ = io.WriteString(h, "\x00")
+			_, _ = io.WriteString(h, typeTaggedFallback(a))
+		}
 	}
 	return hex.EncodeToString(h.Sum(nil)[:16])
+}
+
+// typeTaggedFallback renders an arg with a type prefix for the (practically
+// unreachable) json.Marshal-error path, so "1" and 1 still hash differently.
+func typeTaggedFallback(a any) string {
+	return fmt.Sprintf("%T:%v", a, a)
 }
 
 // RouteSQL routes an arbitrary PARAMETERIZED statement through the writer

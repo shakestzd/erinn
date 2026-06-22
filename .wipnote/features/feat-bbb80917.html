@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>CI durability gate: contention stress &#43; no-stall assertions</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="feat-bbb80917"
+             data-type="feature"
+             data-status="in-progress"
+             data-priority="medium"
+             data-created="2026-06-22T03:49:10.166688"
+             data-updated="2026-06-22T08:37:19.398883" data-agent-assigned="claude-code" data-track-id="trk-6a1f5362">
+
+        <header>
+            <h1>CI durability gate: contention stress &#43; no-stall assertions</h1>
+            <div class="metadata">
+                <span class="badge status-in-progress">In Progress</span>
+                <span class="badge priority-medium">Medium Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="planned_in">
+                <h3>Planned In:</h3>
+                <ul>
+                    <li><a href="../plans/plan-2390966a.html" data-relationship="planned_in" data-since="2026-06-22T03:49:10.174869">plan-2390966a</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-6a1f5362.html" data-relationship="part_of" data-since="2026-06-22T03:49:10.177224">trk-6a1f5362</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="blocked_by">
+                <h3>Blocked By:</h3>
+                <ul>
+                    <li><a href="../features/feat-597bbf26.html" data-relationship="blocked_by">feat-597bbf26</a></li>
+                    <li><a href="../features/feat-8a4d2955.html" data-relationship="blocked_by">feat-8a4d2955</a></li>
+                    <li><a href="../features/feat-1ad54813.html" data-relationship="blocked_by">feat-1ad54813</a></li>
+                    <li><a href="../features/feat-c08d1ba1.html" data-relationship="blocked_by">feat-c08d1ba1</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="implemented_in">
+                <h3>Implemented In:</h3>
+                <ul>
+                    <li><a href="../sessions/1ea41959-b6de-447b-b615-4de675ac89b5.html" data-relationship="implemented_in" data-since="2026-06-22T08:37:19.398622">session 1ea41959-b6de-447b-b615-4de675ac89b5</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>Extend TestSQLiteContentionStress (cmd/wipnote) to drive the migrated hot
+hooks + launcher pre-run while an external connection holds BEGIN IMMEDIATE,
+asserting (a) zero first-party SQLITE_BUSY across 3 consecutive runs and
+(b) every hot hook + the chooser path completes &lt;1s under the held lock.
+Wire it into the quality gate / launch-readiness check so the durable
+property is enforced, not just observed.</p>
+        </section>
+    </article>
+</body>
+</html>

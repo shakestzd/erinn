@@ -27,25 +27,50 @@ func InsertLineageTraceExecer(ex Execer, trace *models.LineageTrace) error {
 }
 
 func insertLineageTrace(ex Execer, trace *models.LineageTrace) error {
-	pathJSON, err := json.Marshal(trace.Path)
+	query, args, err := InsertLineageTraceStmt(trace)
 	if err != nil {
-		return fmt.Errorf("marshal lineage path: %w", err)
+		return err
 	}
-	_, err = ex.Exec(`
-		INSERT INTO agent_lineage_trace
-			(trace_id, root_session_id, session_id, agent_name, depth, path,
-			 feature_id, started_at, status)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-		trace.TraceID, trace.RootSessionID, nullStr(trace.SessionID),
-		nullStr(trace.AgentName), trace.Depth, string(pathJSON),
-		nullStr(trace.FeatureID),
-		trace.StartedAt.UTC().Format(time.RFC3339),
-		trace.Status,
-	)
-	if err != nil {
+	if _, err := ex.Exec(query, args...); err != nil {
 		return fmt.Errorf("insert lineage trace %s: %w", trace.TraceID, err)
 	}
 	return nil
+}
+
+// InsertLineageTraceStmt builds the parameterized INSERT that insertLineageTrace
+// Execs, WITHOUT executing it, so the hot-path subagent-start hook can route the
+// exact same statement through the daemon's enqueue-only seam instead of
+// blocking a direct writable handle under a held external write lock
+// (bug-c9ec25a4). The (sql, args) produces the SAME database effect as the
+// direct Exec. The error is the json.Marshal(trace.Path) failure; on a non-nil
+// error the caller MUST skip routing (never enqueue a half-built statement).
+//
+// JSON-TRANSPORT SAFETY: the direct path binds session_id / agent_name /
+// feature_id as sql.NullString (nullStr) — which the daemon CANNOT JSON-encode
+// and re-bind. Here those three are normalized through nullableStr, which
+// returns nil for the empty string and the plain string otherwise — the exact
+// same SQLite NULL-vs-text binding the sql.NullString produces, but a
+// transport-safe primitive over the wire. depth is an int, path is a JSON
+// STRING (string(pathJSON)), and started_at is an RFC3339 STRING — all
+// transport-safe. No sql.NullString / time.Time crosses the wire.
+func InsertLineageTraceStmt(trace *models.LineageTrace) (string, []any, error) {
+	pathJSON, err := json.Marshal(trace.Path)
+	if err != nil {
+		return "", nil, fmt.Errorf("marshal lineage path: %w", err)
+	}
+	query := `
+		INSERT INTO agent_lineage_trace
+			(trace_id, root_session_id, session_id, agent_name, depth, path,
+			 feature_id, started_at, status)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+	args := []any{
+		trace.TraceID, trace.RootSessionID, nullableStr(trace.SessionID),
+		nullableStr(trace.AgentName), trace.Depth, string(pathJSON),
+		nullableStr(trace.FeatureID),
+		trace.StartedAt.UTC().Format(time.RFC3339),
+		trace.Status,
+	}
+	return query, args, nil
 }
 
 // GetLineageByRoot returns all lineage traces rooted at a given session,
@@ -92,6 +117,31 @@ func CompleteLineageTrace(db *sql.DB, sessionID string) error {
 		now, sessionID,
 	)
 	return err
+}
+
+// CloseLineageTraceByTraceIDStmt builds the parameterized UPDATE that closes
+// the lineage row keyed by trace_id (the subagent's agent_id — see
+// insertSubagentLineage), WITHOUT executing it, so the subagent-STOP hook can
+// route the close through the daemon's enqueue-only seam instead of issuing a
+// DIRECT Exec (roborev-473 finding 4). Routing the close enqueue-only — like the
+// subagent-START insert — makes both writes land on the daemon's single writer
+// in FIFO order: SubagentStart fires before SubagentStop, so the start insert is
+// enqueued first and the close UPDATE applies AFTER it. That eliminates the
+// orphaned-`active`-row race where a DIRECT close UPDATE ran before the still-
+// queued start insert had applied (the UPDATE matched 0 rows, then the insert
+// landed an `active` row that nothing ever closed).
+//
+// JSON-TRANSPORT SAFETY: completed_at is an RFC3339 STRING and trace_id a plain
+// string — both transport-safe primitives the daemon can JSON-encode and re-bind
+// identically. The statement produces the SAME effect as the direct Exec in
+// closeSubagentLineage.
+func CloseLineageTraceByTraceIDStmt(traceID string) (string, []any) {
+	query := `
+		UPDATE agent_lineage_trace
+		   SET completed_at = ?, status = 'completed'
+		 WHERE trace_id = ? AND completed_at IS NULL`
+	args := []any{time.Now().UTC().Format(time.RFC3339), traceID}
+	return query, args
 }
 
 // scanLineageRows scans a set of lineage rows into a slice of LineageTrace.

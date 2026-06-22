@@ -189,6 +189,44 @@ func ListFeaturesByStatus(db *sql.DB, status string, limit int) ([]Feature, erro
 	}
 	defer rows.Close()
 
+	return scanFeatureRows(rows)
+}
+
+// ListFeaturesByStatusPaged returns one page of features matching the given
+// status, ordered by created_at DESC, id ASC (a TOTAL order so successive
+// pages never overlap or skip a row). It exists for the serve-side reconcile
+// drain (roborev-478 finding 2): the capped ListFeaturesByStatus only sees the
+// newest `limit` terminal items, so once those are clean, an OLDER dirty
+// artifact is permanently hidden. Paging by (limit, offset) over a stable sort
+// lets the drain eventually visit EVERY terminal item without loading them all
+// at once. A page shorter than `limit` signals the last page.
+func ListFeaturesByStatusPaged(db *sql.DB, status string, limit, offset int) ([]Feature, error) {
+	if db == nil {
+		return nil, nil
+	}
+	if limit <= 0 {
+		limit = 50
+	}
+	if offset < 0 {
+		offset = 0
+	}
+	rows, err := db.Query(`
+		SELECT id, type, title, status, priority, track_id,
+			created_at, updated_at, steps_total, steps_completed
+		FROM features
+		WHERE status = ?
+		ORDER BY created_at DESC, id ASC
+		LIMIT ? OFFSET ?`, status, limit, offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	return scanFeatureRows(rows)
+}
+
+// scanFeatureRows scans the shared feature column projection used by
+// ListFeaturesByStatus and ListFeaturesByStatusPaged.
+func scanFeatureRows(rows *sql.Rows) ([]Feature, error) {
 	var features []Feature
 	for rows.Next() {
 		var f Feature

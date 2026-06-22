@@ -56,5 +56,18 @@ func (s *lruSet) add(id string) {
 	}
 }
 
+// remove deletes id from the set if present (no-op otherwise). Used to roll
+// back an enqueue-time dedup entry when the async op's apply later FAILS, so a
+// resubmit of the same op_id re-runs rather than being swallowed as a duplicate
+// (roborev-480 finding 1).
+func (s *lruSet) remove(id string) {
+	el, ok := s.index[id]
+	if !ok {
+		return
+	}
+	s.ll.Remove(el)
+	delete(s.index, id)
+}
+
 // len returns the current number of tracked ids (for tests).
 func (s *lruSet) len() int { return s.ll.Len() }

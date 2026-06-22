@@ -2,6 +2,7 @@
 package main
 
 import (
+	"database/sql"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -9,6 +10,9 @@ import (
 	"time"
 
 	"github.com/shakestzd/wipnote/core/agent"
+	"github.com/shakestzd/wipnote/core/daemon/apply"
+	dbpkg "github.com/shakestzd/wipnote/core/db"
+	"github.com/shakestzd/wipnote/core/models"
 	"github.com/shakestzd/wipnote/core/paths"
 	"github.com/shakestzd/wipnote/core/provenance"
 	"github.com/shakestzd/wipnote/core/storage"
@@ -217,6 +221,35 @@ func versionCmd() *cobra.Command {
 // fast skip on contention is safe. See bug-504095f2.
 const ensureSessionPreRunTimeout = 500 * time.Millisecond
 
+func init() {
+	// Wire the daemon-route seam for the cold-path session INSERT so
+	// EnsureSessionRouted can route through the per-project writer daemon
+	// without importing apply directly in core/agent (which is kept
+	// dependency-free to avoid import cycles). The adapter builds the minimal
+	// models.Session needed by RouteSessionInsert from the flat field args.
+	agent.RouteSessionInsertFn = func(projectRoot, sessionID, agentID, now, model, projectDir, gitRemoteURL string) bool {
+		s := &models.Session{
+			SessionID:     sessionID,
+			AgentAssigned: agentID,
+			Status:        "active",
+			Model:         model,
+			ProjectDir:    projectDir,
+			GitRemoteURL:  gitRemoteURL,
+		}
+		if t, err := time.Parse(time.RFC3339, now); err == nil {
+			s.CreatedAt = t
+		}
+		// ENQUEUE-ONLY (bug-d792aee6 finding 1): the launcher's new-session cold
+		// insert runs on the interactive critical path. The applied-ack
+		// RouteSessionInsert waited the full CLISubmitBudget (~2.4s) under a held
+		// external write lock because the daemon cannot apply while the lock is
+		// held. Enqueue-only acks sub-millisecond once the daemon is warm; the
+		// op applies FIFO afterwards, and SessionStart's idempotent INSERT OR
+		// IGNORE upsert (slice-3) + canonical NDJSON reindex are the backstop.
+		return apply.RouteSessionInsertAsync(projectRoot, s)
+	}
+}
+
 // persistentPreRunE is attached to rootCmd and runs before every command. It
 // performs two side-effects: (1) ensures a session row exists for the current
 // agent attribution chain, and (2) upserts the current project into the
@@ -271,16 +304,47 @@ func persistentPreRunE(cmd *cobra.Command, _ []string) error {
 		}
 	}
 	launchTiming("persistentPreRunE: before openDB+EnsureSession")
-	if database, dberr := openDB(hgDir); dberr == nil {
-		launchTiming("persistentPreRunE: after openDB (before EnsureSession)")
-		// Best-effort session attribution with a short wall-clock bound. This
-		// runs before every command (including the interactive `wipnote claude`
-		// launch chooser); a contended write lock must not stall it for the full
-		// SQLite busy_timeout (5s). On contention the row write is skipped and
-		// re-created later by an uncontended call or a hook (INSERT OR IGNORE is
-		// idempotent). See bug-504095f2.
-		_, _ = agent.EnsureSessionWithTimeout(database, projectDir, ensureSessionPreRunTimeout)
-		database.Close()
+	// slice-5 (feat-1ad54813): split-handle daemon-routed session ensure.
+	//   • Hot path (session exists): read-only SELECT — never acquires a write
+	//     lock. WAL readers and writers never block each other, so the launch
+	//     chooser renders <1s even under a held external write lock.
+	//   • Cold path (new session): routed through the per-project writer daemon
+	//     via agent.RouteSessionInsertFn (ENQUEUE-ONLY, bounded AsyncEnqueueBudget
+	//     — bug-d792aee6 finding 1: applied-ack stalled ~2.4s under a held lock).
+	//     No writable handle is opened when the daemon acks.
+	//   • Last-resort fallback: daemon unreachable → EnsureSessionWithTimeout on
+	//     the writable handle with ensureSessionPreRunTimeout, matching pre-slice-5
+	//     behaviour (busy_timeout-bounded, INSERT OR IGNORE idempotent).
+	{
+		dbPath, pathErr := storage.CanonicalDBPath(projectDir)
+		if pathErr == nil {
+			roDB, roErr := dbpkg.OpenReadOnly(dbPath)
+			if roErr == nil {
+				// Read-only open succeeded — warm DB. Use the routed path which
+				// opens NO writable handle when the daemon acks (hot or acked-cold).
+				//
+				// roborev-473 finding 2: pass a LAZY writable opener instead of
+				// eagerly opening the writable handle here. The warm/exists path and
+				// the daemon-acked cold path never invoke it, so we no longer pay a
+				// writable open + migration under contention for the common case;
+				// EnsureSessionRouted opens (and closes) the handle ONLY on a daemon
+				// miss where the direct fallback is actually needed.
+				_, _ = agent.EnsureSessionRouted(roDB, func() (*sql.DB, error) {
+					launchTiming("persistentPreRunE: lazy openDB (daemon-miss fallback)")
+					return openDB(hgDir)
+				}, projectDir, projectDir, ensureSessionPreRunTimeout)
+				roDB.Close()
+			} else {
+				// Read-only open failed (DB not yet created on first launch).
+				// Fall back to the original writable-open path so the schema is
+				// created and the session row is inserted.
+				if database, dberr := openDB(hgDir); dberr == nil {
+					launchTiming("persistentPreRunE: after openDB (before EnsureSession)")
+					_, _ = agent.EnsureSessionWithTimeout(database, projectDir, ensureSessionPreRunTimeout)
+					database.Close()
+				}
+			}
+		}
 	}
 	launchTiming("persistentPreRunE: after openDB+EnsureSession")
 	// Registry upsert — silent, cached git remote lookup.

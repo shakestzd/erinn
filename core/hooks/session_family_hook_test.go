@@ -16,7 +16,7 @@ func TestEventTree_SessionFamilyGrouping(t *testing.T) {
 	if err := os.MkdirAll(filepath.Join(projectDir, ".wipnote"), 0o755); err != nil {
 		t.Fatalf("mkdir: %v", err)
 	}
-	database, err := db.Open(filepath.Join(projectDir, ".wipnote", "wipnote.db"))
+	database, err := openWipnoteTestDB(t, projectDir)
 	if err != nil {
 		t.Fatalf("db.Open: %v", err)
 	}
@@ -74,7 +74,7 @@ func TestSessionStart_FamilyFallback(t *testing.T) {
 	if err := os.MkdirAll(filepath.Join(projectDir, ".wipnote"), 0o755); err != nil {
 		t.Fatalf("mkdir: %v", err)
 	}
-	database, err := db.Open(filepath.Join(projectDir, ".wipnote", "wipnote.db"))
+	database, err := openWipnoteTestDB(t, projectDir)
 	if err != nil {
 		t.Fatalf("db.Open: %v", err)
 	}

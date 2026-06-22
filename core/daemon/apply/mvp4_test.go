@@ -550,3 +550,125 @@ func TestRouteSession_FallbackBounded(t *testing.T) {
 		t.Fatal("RouteSessionInsert(nil) returned true")
 	}
 }
+
+// startGatedSessionListener brings up a writer daemon over a FULLY-MIGRATED DB
+// (sessions schema present) whose single-writer worker blocks on `gate` before
+// applying each op. This wedges the writer so the SECOND op can only be acked
+// enqueue-only — the fixture for RouteSessionInsertAsync's timing contract.
+func startGatedSessionListener(t *testing.T, gate <-chan struct{}) (wDB *sql.DB, projectRoot string) {
+	t.Helper()
+	projectRoot = t.TempDir()
+	var err error
+	wDB, err = db.Open(filepath.Join(projectRoot, "writer.db"))
+	if err != nil {
+		t.Fatalf("open writer db: %v", err)
+	}
+	t.Cleanup(func() { wDB.Close() })
+
+	q := writequeue.New(writequeue.Config{Capacity: 16})
+	if err := q.Start(context.Background()); err != nil {
+		t.Fatalf("queue start: %v", err)
+	}
+	t.Cleanup(func() { q.Stop(time.Second) })
+
+	if err := os.MkdirAll(filepath.Join(projectRoot, ".wipnote"), 0o755); err != nil {
+		t.Fatalf("mkdir .wipnote: %v", err)
+	}
+
+	base := NewApplier(wDB)
+	wrapped := func(env daemon.Envelope) (writequeue.WriteOp, error) {
+		op, err := base(env)
+		if err != nil {
+			return nil, err
+		}
+		if gate == nil {
+			return op, nil
+		}
+		return func(ctx context.Context) error {
+			<-gate
+			return op(ctx)
+		}, nil
+	}
+
+	ln, err := daemon.NewListener(daemon.ListenerConfig{
+		SocketPath: daemon.SocketPath(projectRoot), Queue: q, Applier: wrapped,
+	})
+	if err != nil {
+		t.Fatalf("new listener: %v", err)
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	t.Cleanup(cancel)
+	go func() { _ = ln.Serve(ctx) }()
+	t.Cleanup(func() { ln.Close() })
+	waitForSocket(t, daemon.SocketPath(projectRoot))
+	return wDB, projectRoot
+}
+
+// TestRouteSessionInsertAsync_AcksOnEnqueue_NotApply wedges the daemon's single
+// writer with a blocked first op, then routes a SECOND session insert via
+// RouteSessionInsertAsync. The helper must return true in WELL under the
+// applied-ack (~2s CLISubmitBudget) budget — proving it acks on enqueue, not on
+// apply. This is bug-d792aee6 finding 1: the launcher cold insert must not wait
+// the full applied-ack budget under a held lock. Mirrors
+// TestRouteSQLAsync_AcksOnEnqueue_NotApply.
+func TestRouteSessionInsertAsync_AcksOnEnqueue_NotApply(t *testing.T) {
+	now := time.Now().UTC().Truncate(time.Second)
+	gate := make(chan struct{})
+	_, projectRoot := startGatedSessionListener(t, gate)
+
+	// Op 1: enters the worker and blocks on the gate, occupying the writer.
+	occupy := &models.Session{SessionID: "async-occupy", AgentAssigned: "a", CreatedAt: now, Status: "active"}
+	if !RouteSessionInsertAsync(projectRoot, occupy) {
+		close(gate)
+		t.Fatal("RouteSessionInsertAsync(occupy) returned false with a live daemon")
+	}
+
+	// Op 2: the writer is now wedged applying op 1, so op 2 is enqueued-only.
+	// Must return true promptly (enqueue-only), nowhere near the applied budget.
+	busy := &models.Session{SessionID: "async-while-busy", AgentAssigned: "a", CreatedAt: now, Status: "active"}
+	start := time.Now()
+	ok := RouteSessionInsertAsync(projectRoot, busy)
+	elapsed := time.Since(start)
+	if !ok {
+		close(gate)
+		t.Fatal("RouteSessionInsertAsync(while-busy) returned false; enqueue should still succeed")
+	}
+	if elapsed >= CLISubmitBudget {
+		close(gate)
+		t.Fatalf("RouteSessionInsertAsync took %v (>= applied-ack budget %v) — it waited for apply, not enqueue", elapsed, CLISubmitBudget)
+	}
+
+	// Release the writer; both ops should eventually apply (FIFO).
+	close(gate)
+
+	// Nil session must be a safe false (no panic), matching RouteSessionInsert.
+	if RouteSessionInsertAsync(projectRoot, nil) {
+		t.Fatal("RouteSessionInsertAsync(nil) returned true")
+	}
+}
+
+// TestRouteSessionInsertAsync_LiveDaemon_Applies confirms the enqueue-only path
+// still ultimately APPLIES the session row through the single writer when it is
+// NOT wedged: the row lands in the DB shortly after the (immediate) enqueue ack.
+func TestRouteSessionInsertAsync_LiveDaemon_Applies(t *testing.T) {
+	now := time.Now().UTC().Truncate(time.Second)
+	wDB, projectRoot := startGatedSessionListener(t, nil)
+
+	s := &models.Session{SessionID: "async-live", AgentAssigned: "a", CreatedAt: now, Status: "active"}
+	if !RouteSessionInsertAsync(projectRoot, s) {
+		t.Fatal("RouteSessionInsertAsync returned false with a live unblocked daemon")
+	}
+	// The ack is enqueue-only, so poll briefly for the async apply to land.
+	deadline := time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) {
+		var status string
+		if err := wDB.QueryRow(`SELECT status FROM sessions WHERE session_id = ?`, "async-live").Scan(&status); err == nil {
+			if status != "active" {
+				t.Fatalf("session status = %q, want active", status)
+			}
+			return
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
+	t.Fatal("RouteSessionInsertAsync session row never applied within deadline")
+}

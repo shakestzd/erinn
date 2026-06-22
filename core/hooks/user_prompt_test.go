@@ -19,6 +19,13 @@ import (
 func setupTestDB(t *testing.T) *testDB {
 	t.Helper()
 
+	// plan-2390966a slice-4: the hot hooks now route their derived-index writes
+	// through the daemon-first enqueue seam. Disable auto-spawn so the route
+	// fast-fails to the in-handler direct fallback (writing to the *sql.DB this
+	// helper returns) instead of forking a headless writer + dial-waiting in a
+	// unit test. The rows the tests assert on land on the returned handle.
+	t.Setenv("WIPNOTE_NO_AUTO_WRITER", "1")
+
 	// Reset the global feature ID cache to prevent interference between tests
 	// (each test may use the same session ID "test-sess" but with different
 	// active features or no active feature).

@@ -13,6 +13,18 @@ import (
 	"github.com/shakestzd/wipnote/core/paths"
 )
 
+// RouteSessionInsertFn is a package-level seam that callers (e.g. main.go
+// persistentPreRunE) may inject to route the cold-path session INSERT through
+// the writer daemon instead of a direct writable open. The function receives
+// the project root and the fields of the session row; it returns true when the
+// daemon accepted and applied (or deduped) the insert. Returning false means
+// the caller should fall back to the direct-write path.
+//
+// The seam is a plain function var (not an interface) so tests can stub it
+// without registering a mock type. The zero value (nil) means "no daemon
+// routing" — EnsureSessionRouted falls back to EnsureSessionWithTimeout.
+var RouteSessionInsertFn func(projectRoot, sessionID, agentID, now, model, projectDir, gitRemoteURL string) bool
+
 // EnsureSession ensures a session row exists in the database for the current
 // agent invocation. It is designed to be called on every CLI command via
 // PersistentPreRunE, self-healing attribution chains when hooks fail.
@@ -25,6 +37,99 @@ import (
 // called so that downstream EnvSessionID() calls work automatically.
 func EnsureSession(database *sql.DB, projectDir string) (string, error) {
 	return EnsureSessionWithTimeout(database, projectDir, 0)
+}
+
+// EnsureSessionRouted is the daemon-first variant used by persistentPreRunE.
+// It uses a split-handle strategy to eliminate write-lock contention on the hot
+// path:
+//
+//  1. Exists-check (SELECT COUNT) runs on readOnlyDB — never acquires a write
+//     lock, so the launch chooser renders <1s even when another process holds
+//     the writer lock (WAL readers and writers do not block each other).
+//
+//  2. Cold path (session missing): tries RouteSessionInsertFn first (daemon
+//     ENQUEUE-ONLY ack, bounded AsyncEnqueueBudget — bug-d792aee6 finding 1
+//     flipped this from applied-ack so it stays <1s under a held external lock).
+//     On a true ack the insert is durably queued (applies FIFO; SessionStart's
+//     idempotent upsert + reindex are the backstop) and no direct writable
+//     handle is opened.
+//
+//  3. Last-resort fallback: if RouteSessionInsertFn is nil or returns false
+//     (daemon unreachable / queue-full / timeout), openWritable is invoked to
+//     LAZILY open the writable handle and EnsureSessionWithTimeout is called on
+//     it with the caller-supplied timeout. This mirrors the pre-slice-5
+//     behaviour exactly, preserving busy_timeout-restore semantics.
+//
+// LAZY WRITABLE OPEN (roborev-473 finding 2): the writable handle is supplied as
+// a thunk (openWritable func() (*sql.DB, error)) rather than an already-open
+// *sql.DB. On the HOT/warm path (session already exists, or the daemon acks the
+// cold insert) the thunk is NEVER called, so persistentPreRunE no longer pays a
+// writable open + migration under contention for the common case. The thunk is
+// invoked ONLY when the direct-write fallback is actually needed (daemon miss on
+// a brand-new session). EnsureSessionRouted closes the handle the thunk returns;
+// the caller must NOT pre-open or close it. openWritable may be nil — that is
+// treated as "no writable fallback available" (the cold insert is skipped and the
+// session id is still returned; SessionStart's idempotent upsert + reindex are
+// the backstop).
+//
+// The caller is responsible for opening readOnlyDB (db.OpenReadOnly) and for
+// closing it. projectRoot is the parent of the .wipnote directory.
+func EnsureSessionRouted(readOnlyDB *sql.DB, openWritable func() (*sql.DB, error), projectDir, projectRoot string, timeout time.Duration) (string, error) {
+	sessionID := ResolveSessionID(projectDir)
+	info := Detect()
+
+	// Transient sessions (human CLI) skip the database entirely to avoid
+	// polluting the sessions table with ephemeral PID-based IDs.
+	if strings.HasPrefix(sessionID, "cli-") {
+		return sessionID, nil
+	}
+
+	ctx := context.Background()
+
+	// Hot path: exists-check on the read-only handle — no write lock acquired.
+	// A WAL reader never blocks the writer and vice versa, so this is safe even
+	// under a concurrently held RESERVED lock. No writable handle is opened here.
+	var count int
+	if err := readOnlyDB.QueryRowContext(ctx,
+		`SELECT COUNT(*) FROM sessions WHERE session_id = ?`, sessionID,
+	).Scan(&count); err != nil {
+		// Read failed (e.g. DB not yet initialised). Fall through to the
+		// writable path which will create the schema on first open.
+		count = 0
+	}
+	if count > 0 {
+		os.Setenv("WIPNOTE_SESSION_ID", sessionID) //nolint:errcheck
+		return sessionID, nil
+	}
+
+	// Cold path: session row is missing. Try daemon route first — still NO
+	// writable handle opened when the daemon acks.
+	now := time.Now().UTC().Format(time.RFC3339)
+	gitRemoteURL := paths.GetGitRemoteURL(projectDir)
+	if RouteSessionInsertFn != nil && RouteSessionInsertFn(projectRoot, sessionID, info.ID, now, info.Model, projectDir, gitRemoteURL) {
+		// Daemon applied (or deduped) the insert — row is durable.
+		writeEnsuredActiveSession(sessionID, projectDir, info.ID)
+		os.Setenv("WIPNOTE_SESSION_ID", sessionID) //nolint:errcheck
+		return sessionID, nil
+	}
+
+	// Last-resort fallback: daemon unreachable / RouteSessionInsertFn nil / queue
+	// full. ONLY NOW do we lazily open the writable handle and write directly
+	// (busy_timeout-bounded, INSERT OR IGNORE idempotent), matching pre-slice-5
+	// behaviour. A nil thunk or an open error means no writable fallback is
+	// available — return the resolved session id so the launcher proceeds; the
+	// SessionStart upsert + reindex recover the row.
+	if openWritable == nil {
+		os.Setenv("WIPNOTE_SESSION_ID", sessionID) //nolint:errcheck
+		return sessionID, nil
+	}
+	writableDB, err := openWritable()
+	if err != nil || writableDB == nil {
+		os.Setenv("WIPNOTE_SESSION_ID", sessionID) //nolint:errcheck
+		return sessionID, err
+	}
+	defer writableDB.Close()
+	return EnsureSessionWithTimeout(writableDB, projectDir, timeout)
 }
 
 // EnsureSessionWithTimeout is EnsureSession with a wall-clock bound on the

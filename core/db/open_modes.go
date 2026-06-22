@@ -159,9 +159,30 @@ func OpenWritable(dbPath string) (*sql.DB, error) {
 // pooled connection thereafter. busyTimeout <= 0 falls back to the default Open
 // behaviour (preserving the 5000ms timeout for all existing callers).
 //
-// Like Open, the migration step is wrapped in RetryOnBusy so a transient
-// SHARED→RESERVED BUSY during a (rare, version-gated) migration is absorbed; the
-// warm-open fast path runs zero DDL and so is not subject to that retry.
+// BOUNDED MIGRATION (roborev-482 round-5 finding 2): unlike Open, this BOUNDED
+// variant does NOT wrap migrations in RetryOnBusy(DefaultBusyBackoff) (~2.6s of
+// added backoff). That retry budget alone could blow the sub-second bound this
+// path exists to hold (bug-504095f2) when a stale/unmigrated DB is opened under
+// a held write lock. Instead:
+//
+//   - STEADY STATE (warm DB): a cheap read-only PRAGMA user_version check runs
+//     first. When the schema is already current, migrations are SKIPPED entirely
+//     — no DDL, no write-lock acquisition — so the open is fast even while
+//     another writer holds the lock.
+//
+//   - MIGRATION NEEDED: runMigrations runs exactly ONCE, bounded only by the
+//     connection's busy_timeout (the DSN/PRAGMA ms above), NOT the separate
+//     DefaultBusyBackoff retry. If a held write lock prevents it from completing
+//     within that bound it FAILS FAST. That is acceptable here: every bounded
+//     hot-hook write is best-effort (canonical NDJSON is authoritative) and the
+//     daemon/reindex path migrates the DB out of band, so a single contended
+//     open degrades to canonical-only persistence instead of stalling the
+//     interactive session.
+//
+// The UNBOUNDED Open path (CLI/init/serve) is untouched and still runs the
+// RetryOnBusy-wrapped migration — those callers legitimately need migration to
+// complete and are not on a sub-second budget. Only this bounded variant skips
+// the backoff retry.
 //
 // This is a core/db primitive (core/db is excluded from the writable-open
 // boundary scan, and "OpenWithBusyTimeout" is not one of the scanned method
@@ -196,11 +217,24 @@ func OpenWithBusyTimeout(dbPath string, busyTimeout time.Duration) (*sql.DB, err
 		return nil, fmt.Errorf("OpenWithBusyTimeout: applying pragmas: %w", err)
 	}
 
-	if err := RetryOnBusy(DefaultBusyBackoff, func() error {
-		return runMigrations(database)
-	}); err != nil {
+	// Cheap read-only schema check FIRST. PRAGMA user_version is a pure read —
+	// it never acquires the write (RESERVED) lock — so in steady state (warm DB)
+	// it returns instantly even while another writer holds the lock, and we skip
+	// the migration write entirely.
+	current, err := readUserVersion(database)
+	if err != nil {
 		database.Close()
-		return nil, fmt.Errorf("OpenWithBusyTimeout: running migrations: %w", err)
+		return nil, fmt.Errorf("OpenWithBusyTimeout: reading schema version: %w", err)
+	}
+	if current < currentSchemaVersion {
+		// Migration genuinely needed. Run it ONCE, bounded only by the
+		// connection's busy_timeout — NOT the DefaultBusyBackoff retry — so the
+		// sub-second bound holds under contention. A BUSY here fails fast; the
+		// daemon/reindex path covers the out-of-band migration.
+		if err := runMigrations(database); err != nil {
+			database.Close()
+			return nil, fmt.Errorf("OpenWithBusyTimeout: running migrations: %w", err)
+		}
 	}
 
 	return database, nil

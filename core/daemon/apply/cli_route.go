@@ -20,6 +20,9 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
+	"fmt"
+	"io"
 	"os"
 	"time"
 
@@ -44,12 +47,35 @@ func cliOpID(opType, id, status string) string {
 	return hex.EncodeToString(h[:16])
 }
 
-// routeViaDaemon performs the bounded daemon round-trip for an already-built
-// DerivedOp. opID is the dedup key; projectRoot is the project root (the
-// PARENT of .wipnote/). It returns true ONLY when the writer applied (or
-// deduped) the op. Empty projectRoot, encode failure, unavailability, ctx
-// deadline, or an error ack all return false so the caller falls back.
+// AsyncEnqueueBudget is the TOTAL wall-clock budget for an ENQUEUE-ONLY
+// daemon-routed write (RouteSQLAsync). It is the failure boundary for the hot
+// path: once the daemon is warm the op is acked on a sub-millisecond local
+// round-trip (enqueue, not apply), so this budget exists only to bound the
+// cold/auto-spawn window and to degrade a wedged-or-full queue to false rather
+// than blocking. It deliberately matches CLISubmitBudget so a one-time
+// auto-spawn still fits; the steady-state cost is nowhere near it. roborev
+// 451/452: because the ack is enqueue-only, a reachable-but-busy writer never
+// pushes this toward the budget — that is the whole point of the async mode.
+const AsyncEnqueueBudget = 2 * time.Second
+
+// routeViaDaemon performs the bounded SYNCHRONOUS (applied-ack) daemon
+// round-trip for an already-built DerivedOp. opID is the dedup key; projectRoot
+// is the project root (the PARENT of .wipnote/). It returns true ONLY when the
+// writer APPLIED (or deduped) the op. This is the path every existing typed
+// route (RouteFeatureStatus/RouteSessionStatus/RouteSessionInsert) uses; its
+// semantics are unchanged.
 func routeViaDaemon(projectRoot, opID, opType string, op DerivedOp) bool {
+	return submitViaDaemon(projectRoot, opID, opType, op, false, CLISubmitBudget)
+}
+
+// submitViaDaemon is the shared bounded round-trip for both ack modes. When
+// async is false it requests an applied-ack (AckApplied/AckDuplicate ⇒ true);
+// when async is true it requests an enqueue-only ack (AckEnqueued/AckDuplicate,
+// and also AckApplied for a warm fast-path, all ⇒ true). budget bounds the
+// whole dial+spawn+submit. Empty projectRoot, encode failure, unavailability,
+// ctx deadline, queue-full, or any error ack all return false so the caller
+// falls back to its direct write.
+func submitViaDaemon(projectRoot, opID, opType string, op DerivedOp, async bool, budget time.Duration) bool {
 	if projectRoot == "" {
 		return false
 	}
@@ -61,9 +87,10 @@ func routeViaDaemon(projectRoot, opID, opType string, op DerivedOp) bool {
 		OpID:    opID,
 		OpType:  opType,
 		Payload: payload,
+		Async:   async,
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), CLISubmitBudget)
+	ctx, cancel := context.WithTimeout(context.Background(), budget)
 	defer cancel()
 
 	selfExe, _ := os.Executable()
@@ -72,12 +99,127 @@ func routeViaDaemon(projectRoot, opID, opType string, op DerivedOp) bool {
 	if err != nil {
 		return false // ErrWriterUnavailable / ctx deadline → fall back
 	}
+	return ackMeansDurable(ack, async)
+}
+
+// ackMeansDurable maps a daemon ack to the route decision: true means the
+// derived write is durable (applied, deduped, or — for an async caller —
+// enqueued) and the caller can skip its direct-open fallback; false means the
+// caller MUST fall back to the bounded direct write.
+//
+// An AckError is always false. The most important error case is op_format_version
+// SKEW (roborev-480 finding 2): a new client talking to a stale OLD daemon (or
+// vice-versa) is error-acked by the daemon's version check rather than risking a
+// mis-applied write, and this maps it to a route-miss so the caller degrades to
+// the direct path with NO silent misbehavior.
+func ackMeansDurable(ack daemon.Ack, async bool) bool {
 	switch ack.Status {
 	case daemon.AckApplied, daemon.AckDuplicate:
+		// Applied (sync) or deduped — durable either way. AckApplied can also
+		// surface on the async path if the warm writer happened to commit
+		// before replying; still a success for the enqueue-only caller.
 		return true
+	case daemon.AckEnqueued:
+		// Enqueue-only success: the op is durably queued (FIFO) and will apply
+		// after any op ahead of it. Only valid to accept when we asked for it.
+		return async
 	default:
-		return false // error ack → fall back to direct-open
+		return false // error ack (version skew / queue full) → fall back to direct write
 	}
+}
+
+// sqlOpID derives a deterministic, bounded dedup key for a generic SQL op from
+// the statement text plus its bind args. Replaying the identical statement+args
+// within the daemon's dedup window collapses to a single application; a
+// different statement or different args yields a distinct key.
+//
+// The args are hashed via the SAME type-tagged wire serialization the payload
+// carries (encodeArgs), NOT %v and NOT a plain json.Marshal of the args. Plain
+// JSON renders the string "1" and the int 1 identically, AND renders int64(1)
+// and float64(1.0) identically (both bare `1`) — so a later distinct SQL op
+// could collide with an earlier one and be wrongly deduped/dropped (roborev-473
+// finding 7; roborev-478 finding 3). encodeArgs normalizes each arg (int kinds →
+// int64 with full precision; float64 kept AS float64) and tags it by concrete
+// type, so "1" (string), 1 (int64) and 1.0 (float64) all hash DISTINCTLY while
+// the key stays stable across encode→decode. Args are still bound as SQL
+// parameters when the op is applied (never interpolated).
+func sqlOpID(sqlStmt string, args ...any) string {
+	h := sha256.New()
+	_, _ = io.WriteString(h, sqlStmt)
+	// Length-frame the statement so it cannot run together with the arg block
+	// (e.g. sql="a", arg="b" must not collide with sql="ab", no args).
+	_, _ = io.WriteString(h, "\x00")
+	// JSON-encode the type-tagged args slice as one canonical blob — the exact
+	// wire form the daemon decodes, so the dedup key matches what is applied.
+	// On the rare encode error fall back to a stable type-tagged fmt rendering so
+	// the key stays distinct rather than silently empty.
+	if blob, err := json.Marshal(encodeArgs(args)); err == nil {
+		_, _ = h.Write(blob)
+	} else {
+		for _, a := range args {
+			_, _ = io.WriteString(h, "\x00")
+			_, _ = io.WriteString(h, typeTaggedFallback(a))
+		}
+	}
+	return hex.EncodeToString(h.Sum(nil)[:16])
+}
+
+// typeTaggedFallback renders an arg with a type prefix for the (practically
+// unreachable) json.Marshal-error path, so "1" and 1 still hash differently.
+func typeTaggedFallback(a any) string {
+	return fmt.Sprintf("%T:%v", a, a)
+}
+
+// RouteSQL routes an arbitrary PARAMETERIZED statement through the writer
+// daemon with APPLIED-ack semantics (synchronous): it returns true only when
+// the writer committed (or deduped) the statement, false — with NO error and NO
+// panic — when the daemon is unreachable / the op is rejected, so the caller
+// falls back to a direct write. Bounded by CLISubmitBudget. Mirrors
+// RouteSessionInsert. args are bound as SQL parameters and MUST NOT be
+// interpolated into sql by the caller.
+//
+// Use this for CLI / cold paths that want apply confirmation. Hot hooks that
+// must stay under a sub-second bound should use RouteSQLAsync instead (roborev
+// 451/452).
+func RouteSQL(projectRoot, sql string, args ...any) bool {
+	if sql == "" {
+		return false
+	}
+	return submitViaDaemon(
+		projectRoot,
+		sqlOpID(sql, args...),
+		OpTypeSQL,
+		DerivedOp{Type: OpTypeSQL, SQL: sql, Args: args},
+		false,
+		CLISubmitBudget,
+	)
+}
+
+// RouteSQLAsync routes an arbitrary PARAMETERIZED statement through the writer
+// daemon with ENQUEUE-ONLY ack semantics: it returns true the instant the op is
+// durably handed to the single-writer queue — WITHOUT waiting for it to apply —
+// and false when the enqueue itself fails (daemon unreachable OR queue full).
+// Bounded by AsyncEnqueueBudget so a full/wedged queue degrades to false rather
+// than blocking. The op still applies in FIFO order on the single writer after
+// this returns; durability of the not-yet-applied op rests on the caller's
+// canonical NDJSON write + reindex backstop.
+//
+// This is the foundation hot-path primitive (slice-2 builds RouteHookWrite on
+// it): even when the daemon is reachable but its writer is busy holding the
+// lock, RouteSQLAsync returns in well under the applied-ack budget. args are
+// bound as SQL parameters and MUST NOT be interpolated into sql by the caller.
+func RouteSQLAsync(projectRoot, sql string, args ...any) bool {
+	if sql == "" {
+		return false
+	}
+	return submitViaDaemon(
+		projectRoot,
+		sqlOpID(sql, args...),
+		OpTypeSQL,
+		DerivedOp{Type: OpTypeSQL, SQL: sql, Args: args},
+		true,
+		AsyncEnqueueBudget,
+	)
 }
 
 // RouteFeatureStatus routes a work-item status transition (db.UpdateFeatureStatus)
@@ -116,5 +258,38 @@ func RouteSessionInsert(projectRoot string, s *models.Session) bool {
 		cliOpID(OpTypeSessionInsert, s.SessionID, s.Status),
 		OpTypeSessionInsert,
 		DerivedOp{Type: OpTypeSessionInsert, Session: s},
+	)
+}
+
+// RouteSessionInsertAsync routes a session-row insert (db.InsertSession) through
+// the writer daemon with ENQUEUE-ONLY ack semantics — identical to
+// RouteSessionInsert except it returns true the instant the op is durably handed
+// to the single-writer queue, WITHOUT waiting for the daemon to APPLY it. The
+// op_id is keyed on the unique session_id so a replay dedups; the op applies in
+// FIFO order on the single writer after this returns.
+//
+// This is the launcher new-session COLD-INSERT primitive (bug-d792aee6 finding
+// 1): under a held external write lock the daemon cannot apply, so the
+// applied-ack RouteSessionInsert waits the full CLISubmitBudget (~2.4s observed),
+// exceeding the launcher's <1s bound. Enqueue-only acks sub-millisecond once the
+// daemon is warm — bringing the cold insert under 1s even under contention.
+//
+// SAFETY (verified by slice-3): SessionStart later performs an idempotent
+// INSERT OR IGNORE upsert of the same row (routeSessionUpsert), and ops apply
+// FIFO on the single writer, so an enqueued-but-not-yet-applied cold insert is
+// harmless; canonical NDJSON + reindex is the durability backstop. Returns true
+// on enqueue/dedup/(warm) apply; false → caller performs the direct insert.
+// Bounded by AsyncEnqueueBudget.
+func RouteSessionInsertAsync(projectRoot string, s *models.Session) bool {
+	if s == nil {
+		return false
+	}
+	return submitViaDaemon(
+		projectRoot,
+		cliOpID(OpTypeSessionInsert, s.SessionID, s.Status),
+		OpTypeSessionInsert,
+		DerivedOp{Type: OpTypeSessionInsert, Session: s},
+		true,
+		AsyncEnqueueBudget,
 	)
 }

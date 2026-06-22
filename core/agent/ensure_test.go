@@ -215,6 +215,159 @@ func TestEnsureSession_ColdPath_WritesActiveSession(t *testing.T) {
 	}
 }
 
+// TestEnsureSession_DaemonRouted verifies EnsureSessionRouted behaviour:
+//   - When the session is new (cold path) and the daemon route acks, no direct
+//     writable open is performed on the hot or cold path.
+//   - When the session already exists (hot path), the daemon route is never called
+//     and the read-only handle serves the exists-check.
+//
+// The test stubs agent.RouteSessionInsertFn with a function var seam that
+// records whether it was called and returns the desired ack. A read-only DB
+// opened on an in-memory handle serves the SELECT; a second in-memory handle
+// represents the writable fallback — it is closed before EnsureSessionRouted
+// returns, proving no writable open happened when daemon acks.
+func TestEnsureSession_DaemonRouted(t *testing.T) {
+	// --- cold path: daemon acks → no fallback to writableDB ---
+	t.Run("cold_path_daemon_ack", func(t *testing.T) {
+		const sessionID = "daemon-routed-cold-001"
+
+		// Read-only DB: empty (no session row). Represents the shared read index.
+		roDB := openMemDB(t)
+
+		dir := t.TempDir()
+		writeActiveSessionFile(t, dir, sessionID)
+		t.Setenv("WIPNOTE_SESSION_ID", sessionID)
+		t.Setenv("CLAUDE_SESSION_ID", "")
+		t.Setenv("WIPNOTE_AGENT_ID", "test-agent")
+		t.Setenv("CLAUDE_CODE", "")
+		t.Setenv("CLAUDE_MODEL", "test-model")
+
+		// Inject a fake seam that acks and records whether it was called.
+		called := false
+		prev := agent.RouteSessionInsertFn
+		agent.RouteSessionInsertFn = func(_, _, _, _, _, _, _ string) bool {
+			called = true
+			return true // ack: daemon handled the insert
+		}
+		t.Cleanup(func() { agent.RouteSessionInsertFn = prev })
+
+		// roborev-473 finding 2: the writable handle is now a LAZY thunk.
+		// When the daemon acks the cold insert, the thunk must NEVER be invoked
+		// (no writable open + migration paid). We assert that directly.
+		opened := false
+		got, err := agent.EnsureSessionRouted(roDB, func() (*sql.DB, error) {
+			opened = true
+			return openMemDB(t), nil
+		}, dir, dir, 500*time.Millisecond)
+		if err != nil {
+			t.Fatalf("EnsureSessionRouted cold+daemon: %v", err)
+		}
+		if got != sessionID {
+			t.Errorf("got session ID %q, want %q", got, sessionID)
+		}
+		if !called {
+			t.Error("RouteSessionInsertFn was not called on cold path")
+		}
+		if opened {
+			t.Error("lazy writable opener was invoked on the daemon-acked cold path; expected NO writable open")
+		}
+	})
+
+	// --- hot path: session exists → daemon route never called ---
+	t.Run("hot_path_read_only", func(t *testing.T) {
+		const sessionID = "daemon-routed-hot-002"
+
+		roDB := openMemDB(t)
+		insertSession(t, roDB, sessionID)
+
+		dir := t.TempDir()
+		writeActiveSessionFile(t, dir, sessionID)
+		t.Setenv("WIPNOTE_SESSION_ID", sessionID)
+		t.Setenv("CLAUDE_SESSION_ID", "")
+
+		called := false
+		prev := agent.RouteSessionInsertFn
+		agent.RouteSessionInsertFn = func(_, _, _, _, _, _, _ string) bool {
+			called = true
+			return true
+		}
+		t.Cleanup(func() { agent.RouteSessionInsertFn = prev })
+
+		// roborev-473 finding 2: on the warm/exists path the lazy writable opener
+		// must NEVER be invoked — the read-only exists-check short-circuits first.
+		opened := false
+		got, err := agent.EnsureSessionRouted(roDB, func() (*sql.DB, error) {
+			opened = true
+			return openMemDB(t), nil
+		}, dir, dir, 500*time.Millisecond)
+		if err != nil {
+			t.Fatalf("EnsureSessionRouted hot: %v", err)
+		}
+		if got != sessionID {
+			t.Errorf("got session ID %q, want %q", got, sessionID)
+		}
+		if called {
+			t.Error("RouteSessionInsertFn was called on hot path; should not be")
+		}
+		if opened {
+			t.Error("lazy writable opener was invoked on the warm/exists path; expected NO writable open")
+		}
+	})
+
+	// --- cold path: daemon returns false → fallback to writableDB ---
+	t.Run("cold_path_daemon_miss_fallback", func(t *testing.T) {
+		const sessionID = "daemon-routed-fallback-003"
+
+		roDB := openMemDB(t)
+
+		dir := t.TempDir()
+		writeActiveSessionFile(t, dir, sessionID)
+		t.Setenv("WIPNOTE_SESSION_ID", sessionID)
+		t.Setenv("CLAUDE_SESSION_ID", "")
+		t.Setenv("WIPNOTE_AGENT_ID", "test-agent")
+		t.Setenv("CLAUDE_CODE", "")
+		t.Setenv("CLAUDE_MODEL", "")
+
+		prev := agent.RouteSessionInsertFn
+		agent.RouteSessionInsertFn = func(_, _, _, _, _, _, _ string) bool {
+			return false // daemon miss → caller must fall back
+		}
+		t.Cleanup(func() { agent.RouteSessionInsertFn = prev })
+
+		// roborev-473 finding 2: on a daemon MISS the lazy writable opener IS
+		// invoked and EnsureSessionRouted writes the row through (and then closes)
+		// the handle it returns. We back the fallback with an on-disk DB so the row
+		// survives that close, then re-open it to assert the insert landed.
+		fallbackPath := filepath.Join(dir, "fallback.db")
+		opened := false
+		got, err := agent.EnsureSessionRouted(roDB, func() (*sql.DB, error) {
+			opened = true
+			return db.Open(fallbackPath)
+		}, dir, dir, 0)
+		if err != nil {
+			t.Fatalf("EnsureSessionRouted fallback: %v", err)
+		}
+		if got != sessionID {
+			t.Errorf("got session ID %q, want %q", got, sessionID)
+		}
+		if !opened {
+			t.Error("lazy writable opener was NOT invoked on the daemon-miss fallback path")
+		}
+
+		// Fallback must have written the row through the lazily-opened handle.
+		verify, err := db.Open(fallbackPath)
+		if err != nil {
+			t.Fatalf("re-open fallback DB: %v", err)
+		}
+		defer verify.Close()
+		var count int
+		verify.QueryRow(`SELECT COUNT(*) FROM sessions WHERE session_id = ?`, sessionID).Scan(&count) //nolint:errcheck
+		if count != 1 {
+			t.Errorf("fallback DB has %d row(s); expected 1 after daemon-miss fallback", count)
+		}
+	})
+}
+
 // TestEnsureSessionWithTimeout_FailsFastUnderContention verifies the cold-path
 // write does not stall for the full SQLite busy_timeout (5s) when another
 // connection holds the write lock. With a short timeout the dedicated-connection

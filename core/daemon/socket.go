@@ -59,8 +59,29 @@ type Listener struct {
 
 	seq atomic.Int64
 
-	dedupMu sync.Mutex
-	dedup   *lruSet
+	// dedup tracks op_ids in TWO disjoint states under dedupMu (roborev-482
+	// round-5 finding 1):
+	//
+	//   dedupApplied — op_ids whose apply has CONFIRMED-committed. A duplicate
+	//     submit of an applied op_id returns a DURABLE AckDuplicate: the write is
+	//     known to have landed, so collapsing the resubmit is correct.
+	//
+	//   dedupPending — async op_ids enqueued but NOT yet confirmed-applied. A
+	//     duplicate submit of a PENDING op_id must NOT be acked as a durable
+	//     duplicate: the first apply might still FAIL, and an already-acked
+	//     duplicate that skipped its fallback would then be silently lost. Such a
+	//     duplicate is RE-ENQUEUED instead (every async-routed op is idempotent —
+	//     INSERT OR IGNORE / INSERT OR REPLACE / UPDATE / upsert — so a second
+	//     apply of an identical op is harmless and guarantees the write lands even
+	//     if the first apply fails).
+	//
+	// Lifecycle (async): enqueue → add to dedupPending. Apply success → move
+	// pending→applied. Apply failure → drop from pending (a resubmit re-runs).
+	// The sync path only ever touches dedupApplied (after SubmitSync confirms the
+	// commit), so it has nothing pending to roll back.
+	dedupMu      sync.Mutex
+	dedupApplied *lruSet
+	dedupPending *lruSet
 
 	closeOnce sync.Once
 	wg        sync.WaitGroup
@@ -115,11 +136,12 @@ func NewListener(cfg ListenerConfig) (*Listener, error) {
 		return nil, fmt.Errorf("listen unix %s: %w", cfg.SocketPath, err)
 	}
 	l := &Listener{
-		ln:       ln,
-		queue:    cfg.Queue,
-		applier:  cfg.Applier,
-		sockPath: cfg.SocketPath,
-		dedup:    newLRUSet(dedupCapacity),
+		ln:           ln,
+		queue:        cfg.Queue,
+		applier:      cfg.Applier,
+		sockPath:     cfg.SocketPath,
+		dedupApplied: newLRUSet(dedupCapacity),
+		dedupPending: newLRUSet(dedupCapacity),
 	}
 	l.lastActivity.Store(time.Now().UnixNano())
 	return l, nil
@@ -308,13 +330,19 @@ func (l *Listener) process(ctx context.Context, line []byte) Ack {
 		}
 	}
 
-	// In-memory dedup: a previously-applied op_id is acked duplicate
-	// without re-running. (Durable dedup across restart is slice-3.)
+	// In-memory dedup (roborev-482 round-5 finding 1): ONLY a CONFIRMED-APPLIED
+	// op_id returns a durable AckDuplicate without re-running. A still-PENDING
+	// async op_id (enqueued but not yet confirmed-applied) is deliberately NOT
+	// short-circuited here — if we acked it duplicate the caller would skip its
+	// fallback, and a subsequent apply FAILURE of the first op would silently lose
+	// this submission. Instead a pending duplicate falls through and is
+	// RE-ENQUEUED below (every async-routed op is idempotent), giving it its own
+	// apply attempt. (Durable dedup across restart is slice-3.)
 	if env.OpID != "" {
 		l.dedupMu.Lock()
-		dup := l.dedup.contains(env.OpID)
+		applied := l.dedupApplied.contains(env.OpID)
 		l.dedupMu.Unlock()
-		if dup {
+		if applied {
 			return Ack{Status: AckDuplicate, Seq: l.seq.Add(1)}
 		}
 	}
@@ -324,23 +352,157 @@ func (l *Listener) process(ctx context.Context, line []byte) Ack {
 		return Ack{Status: AckError, Seq: l.seq.Add(1), Error: "apply " + env.OpType + ": " + err.Error()}
 	}
 
-	// Funnel through the SAME single-writer queue serve_child uses.
-	// SubmitSync blocks until the writer goroutine commits the op so the
-	// ack reflects the real outcome. Queue rejections (full/unavailable)
-	// surface as an error ack — the caller (MVP-3/4) decides whether to
-	// fall back to direct-open.
+	// Both modes funnel through the SAME single-writer queue serve_child uses,
+	// preserving FIFO ordering and the structural single-writer guarantee; they
+	// differ ONLY in when the ack is sent relative to apply.
+	if env.Async {
+		return l.submitEnqueueOnly(ctx, env, op)
+	}
+	return l.submitAndAwaitApply(ctx, env, op)
+}
+
+// submitAndAwaitApply is the SYNCHRONOUS (default) path: it blocks on
+// SubmitSync until the writer goroutine commits the op, so the ack reflects the
+// real outcome. Queue rejections (full/unavailable) surface as an error ack —
+// the caller (MVP-3/4 typed routes, applied-ack RouteSQL) decides whether to
+// fall back to direct-open. This preserves the pre-existing typed-route
+// semantics exactly.
+func (l *Listener) submitAndAwaitApply(ctx context.Context, env Envelope, op writequeue.WriteOp) Ack {
 	if err := l.queue.SubmitSync(ctx, op); err != nil {
 		return Ack{Status: AckError, Seq: l.seq.Add(1), Error: "writequeue: " + err.Error()}
 	}
-
-	// Commit succeeded — record op_id so retries dedup, then ack applied.
+	// Commit succeeded — record op_id in the APPLIED set so a later duplicate
+	// durably dedups, then ack applied. The sync path never touches the pending
+	// set: it records only AFTER the commit is confirmed, so there is nothing to
+	// roll back (roborev-482 round-5 finding 1).
 	seq := l.seq.Add(1)
-	if env.OpID != "" {
-		l.dedupMu.Lock()
-		l.dedup.add(env.OpID)
-		l.dedupMu.Unlock()
-	}
+	l.recordApplied(env.OpID)
 	return Ack{Status: AckApplied, Seq: seq}
+}
+
+// submitEnqueueOnly is the ENQUEUE-ONLY (Envelope.Async) path: it hands the op
+// to the queue via the non-blocking Submit and acks AckEnqueued the instant the
+// op is durably queued — it does NOT wait for apply. A queue rejection
+// (ErrQueueFull / writer-unavailable) is the ONLY synchronous failure surface
+// here; it becomes an error ack so the caller falls back (canonical NDJSON +
+// reindex is the backstop). The single-writer worker still applies the op in
+// FIFO order after this returns. roborev 451/452: this is what keeps a hot hook
+// under its <1s bound when another writer holds the lock.
+//
+// Pending-vs-applied dedup (roborev-482 round-5 finding 1, refining roborev-480
+// finding 1): on enqueue we record the op_id in the PENDING set, NOT the applied
+// set. A duplicate that arrives while this op is still queued/applying is found
+// in pending and is RE-ENQUEUED by process() (it gets its own apply attempt)
+// rather than acked as a durable AckDuplicate — so if THIS op's apply later
+// FAILS, the duplicate's own attempt still lands the write instead of being
+// silently lost. The op is wrapped so that:
+//   - on apply SUCCESS the op_id is PROMOTED pending→applied, so a post-success
+//     duplicate durably dedups (no needless re-apply);
+//   - on apply FAILURE the op_id is DROPPED from pending, so a resubmit re-runs.
+// Recording in pending BEFORE Submit means the worker's success-promotion /
+// failure-drop can never lose its race against the record. If Submit itself
+// fails we roll the pending entry back below.
+//
+// Idempotency justification: every async-routed op type is idempotent —
+// agent_event.upsert is INSERT OR IGNORE (EnsureSession) + INSERT OR REPLACE
+// (UpsertEvent); session.insert is an upsert; feature.status / session.status
+// are UPDATEs; sql.exec carries a content-derived op_id (sqlOpID = hash of
+// statement+args) so any two ops sharing an op_id run byte-identical
+// parameterized SQL. Re-enqueueing a pending duplicate can therefore at worst
+// apply the same idempotent mutation twice, never double-insert a distinct row.
+func (l *Listener) submitEnqueueOnly(ctx context.Context, env Envelope, op writequeue.WriteOp) Ack {
+	// Record the PENDING entry BEFORE submitting, not after. The worker runs on
+	// its own goroutine and may apply (promoting on success / dropping on
+	// failure) before this function returns; recording first means that
+	// transition can never lose its race against the record. If Submit itself
+	// fails we roll the pending entry back below.
+	l.recordPending(env.OpID)
+
+	wrapped := op
+	if env.OpID != "" {
+		opID := env.OpID
+		wrapped = func(opCtx context.Context) error {
+			err := op(opCtx)
+			if err != nil {
+				// Apply failed: drop the pending entry so a resubmit of this
+				// op_id re-applies instead of being swallowed (roborev-480
+				// finding 1).
+				l.dropPending(opID)
+				return err
+			}
+			// Apply succeeded: promote pending→applied so a later duplicate
+			// durably dedups (roborev-482 round-5 finding 1).
+			l.promotePendingToApplied(opID)
+			return nil
+		}
+	}
+	if err := l.queue.Submit(ctx, wrapped); err != nil {
+		// Never durably queued — undo the speculative pending record so the
+		// caller's resubmit (after its direct-write fallback) is not affected.
+		l.dropPending(env.OpID)
+		return Ack{Status: AckError, Seq: l.seq.Add(1), Error: "writequeue: " + err.Error()}
+	}
+	// Durably queued — the op_id is in pending so a replayed async op that
+	// arrives before this one commits is re-enqueued (not durably deduped); ack
+	// enqueued WITHOUT waiting for the worker to commit. The wrapper above
+	// promotes the entry on success / drops it on failure.
+	seq := l.seq.Add(1)
+	return Ack{Status: AckEnqueued, Seq: seq}
+}
+
+// recordApplied adds opID to the APPLIED dedup set (no-op for an empty id). Used
+// by the sync path AFTER SubmitSync confirms the commit, so a later duplicate of
+// a known-committed op durably dedups (AckDuplicate). It also defensively clears
+// any stale pending entry for the same id.
+func (l *Listener) recordApplied(opID string) {
+	if opID == "" {
+		return
+	}
+	l.dedupMu.Lock()
+	l.dedupPending.remove(opID)
+	l.dedupApplied.add(opID)
+	l.dedupMu.Unlock()
+}
+
+// recordPending adds opID to the PENDING dedup set (no-op for an empty id). Used
+// by the async path on ENQUEUE, before the worker commits. A pending op_id is
+// NOT durably deduped — a duplicate that arrives while it is pending is
+// re-enqueued (roborev-482 round-5 finding 1).
+func (l *Listener) recordPending(opID string) {
+	if opID == "" {
+		return
+	}
+	l.dedupMu.Lock()
+	l.dedupPending.add(opID)
+	l.dedupMu.Unlock()
+}
+
+// dropPending removes opID from the PENDING set (no-op for an empty id). The
+// single-writer worker calls it from the op wrapper when an async op's apply
+// FAILS (so a resubmit re-runs), and submitEnqueueOnly calls it when Submit
+// itself fails. Invoked on the worker goroutine, so it takes dedupMu.
+func (l *Listener) dropPending(opID string) {
+	if opID == "" {
+		return
+	}
+	l.dedupMu.Lock()
+	l.dedupPending.remove(opID)
+	l.dedupMu.Unlock()
+}
+
+// promotePendingToApplied moves opID from the PENDING set to the APPLIED set
+// (no-op for an empty id). The single-writer worker calls it from the op wrapper
+// when an async op's apply SUCCEEDS, so a post-success duplicate durably dedups
+// instead of needlessly re-applying (roborev-482 round-5 finding 1). Invoked on
+// the worker goroutine, so it takes dedupMu.
+func (l *Listener) promotePendingToApplied(opID string) {
+	if opID == "" {
+		return
+	}
+	l.dedupMu.Lock()
+	l.dedupPending.remove(opID)
+	l.dedupApplied.add(opID)
+	l.dedupMu.Unlock()
 }
 
 // Close stops accepting connections, waits briefly for in-flight handlers,

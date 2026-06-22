@@ -70,6 +70,9 @@ func InsertEvent(db *sql.DB, e *models.AgentEvent) error {
 // the database. It is cheaper than GetEvent when the caller only needs to
 // validate existence (e.g. to guard against using a stale env-var ID).
 func EventExists(database *sql.DB, eventID string) bool {
+	if database == nil {
+		return false
+	}
 	var count int
 	err := database.QueryRow(
 		`SELECT COUNT(1) FROM agent_events WHERE event_id = ?`, eventID,
@@ -480,6 +483,9 @@ func FindStartedDelegation(db *sql.DB, sessionID string) (string, error) {
 // FindDelegationByAgent returns the most recent delegation event for the agent
 // (any status). Returns ("", sql.ErrNoRows) when not found.
 func FindDelegationByAgent(db *sql.DB, sessionID, agentID string) (string, error) {
+	if db == nil {
+		return "", sql.ErrNoRows
+	}
 	var eventID string
 	err := db.QueryRow(`
 		SELECT event_id FROM agent_events
@@ -511,6 +517,9 @@ func FindStartedDelegationByAgent(db *sql.DB, sessionID, agentID string) (string
 // LatestEventByTool returns the event_id of the most recent event for the given
 // session and tool_name, regardless of status. Returns ("", sql.ErrNoRows) when not found.
 func LatestEventByTool(db *sql.DB, sessionID, toolName string) (string, error) {
+	if db == nil {
+		return "", sql.ErrNoRows
+	}
 	var eventID string
 	err := db.QueryRow(`
 		SELECT event_id FROM agent_events
@@ -524,6 +533,9 @@ func LatestEventByTool(db *sql.DB, sessionID, toolName string) (string, error) {
 // CountEventsByTool returns a map of tool_name → count for all non-empty
 // tool_name events in the given session, ordered by count DESC.
 func CountEventsByTool(db *sql.DB, sessionID string) (map[string]int, error) {
+	if db == nil {
+		return map[string]int{}, nil
+	}
 	rows, err := db.Query(`
 		SELECT tool_name, COUNT(*) FROM agent_events
 		WHERE session_id = ? AND tool_name != ''
@@ -645,6 +657,9 @@ func SetPromptID(database *sql.DB, sessionID, promptID string, ts time.Time) err
 // CountRecentDuplicates returns the count of events matching tool_name and
 // input_summary within the last windowSeconds. Used for dedup checks.
 func CountRecentDuplicates(db *sql.DB, sessionID, toolName, inputSummary string, windowSeconds int) (int, error) {
+	if db == nil {
+		return 0, nil
+	}
 	var count int
 	err := db.QueryRow(
 		`SELECT COUNT(*) FROM agent_events

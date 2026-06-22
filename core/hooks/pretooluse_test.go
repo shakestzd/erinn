@@ -477,6 +477,74 @@ func TestCheckProjectDivergence_BlocksDifferentWipnoteProject(t *testing.T) {
 	}
 }
 
+// TestPreToolUse_NilDB_RunsDBIndependentGuards is the roborev-478 finding 1
+// regression test: the read-only hot-hook dispatch may invoke PreToolUse with a
+// nil DB (first run, deleted cache, DB not yet created, transient lock). The
+// handler must NOT panic and must still run its DB-INDEPENDENT safety guards —
+// in particular the .wipnote/-write block. Before the fix, a nil/unopenable DB
+// caused the dispatch to skip the handler entirely, so direct .wipnote/ writes
+// were silently allowed.
+func TestPreToolUse_NilDB_RunsDBIndependentGuards(t *testing.T) {
+	clearNestedEnv(t)
+	projectDir := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(projectDir, ".wipnote"), 0o755); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+	t.Setenv("CLAUDE_PROJECT_DIR", "")
+	t.Setenv("WIPNOTE_PROJECT_DIR", projectDir)
+	t.Setenv("WIPNOTE_SESSION_ID", "sess-nildb-guard")
+
+	// A structured Write targeting .wipnote/ must be BLOCKED even with a nil DB.
+	writeEvent := &CloudEvent{
+		ToolName: "Write",
+		CWD:      projectDir,
+		ToolInput: map[string]any{
+			"file_path": filepath.Join(projectDir, ".wipnote", "features", "feat-x.html"),
+			"content":   "<html>tamper</html>",
+		},
+	}
+	result, err := PreToolUse(writeEvent, nil) // nil DB: must not panic
+	if err != nil {
+		t.Fatalf("PreToolUse(nil DB) returned error: %v", err)
+	}
+	if result == nil || result.Decision != "block" {
+		t.Fatalf("nil-DB PreToolUse must BLOCK a direct .wipnote/ Write; got %+v", result)
+	}
+
+	// A Bash command writing into .wipnote/ must also be blocked with a nil DB.
+	bashEvent := &CloudEvent{
+		ToolName:  "Bash",
+		CWD:       projectDir,
+		ToolInput: map[string]any{"command": "rm -f .wipnote/features/feat-x.html"},
+	}
+	bashResult, err := PreToolUse(bashEvent, nil)
+	if err != nil {
+		t.Fatalf("PreToolUse(nil DB, bash) returned error: %v", err)
+	}
+	if bashResult == nil || bashResult.Decision != "block" {
+		t.Fatalf("nil-DB PreToolUse must BLOCK a Bash .wipnote/ write; got %+v", bashResult)
+	}
+
+	// A normal source-file Write with a nil DB must NOT panic. (It may still be
+	// blocked by the DB-independent work-item guard when no work item is active —
+	// that is correct guard behaviour; the point here is that the handler runs to
+	// completion against a nil DB rather than panicking on a QueryRow.)
+	okEvent := &CloudEvent{
+		ToolName: "Read",
+		CWD:      projectDir,
+		ToolInput: map[string]any{
+			"file_path": filepath.Join(projectDir, "main.go"),
+		},
+	}
+	okResult, err := PreToolUse(okEvent, nil) // Read is not a write tool — guards allow
+	if err != nil {
+		t.Fatalf("PreToolUse(nil DB, read) returned error: %v", err)
+	}
+	if okResult != nil && okResult.Decision == "block" {
+		t.Fatalf("nil-DB PreToolUse wrongly blocked a Read: %q", okResult.Reason)
+	}
+}
+
 func TestIsWriteTool(t *testing.T) {
 	writeTools := []string{"Write", "Edit", "MultiEdit", "apply_patch", "Bash", "exec_command", "functions.exec_command", "NotebookEdit", "Agent"}
 	for _, name := range writeTools {

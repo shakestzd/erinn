@@ -30,10 +30,15 @@ func UserPrompt(event *CloudEvent, database *sql.DB) (*HookResult, error) {
 		return &HookResult{Continue: true}, nil
 	}
 
+	// Resolve the project root once for daemon-first write routing (plan-2390966a
+	// slice-4). It is the parent of .wipnote/ and feeds RouteHookWrite's daemon
+	// enqueue + bounded-fallback DBPath resolution.
+	projectDir := ResolveProjectDir(event.CWD, event.SessionID)
+
 	// Backfill: ensure this session has a row in SQLite. The SessionStart hook
 	// may not have fired (session started before plugin loaded, or hook failed).
 	// This is idempotent — INSERT OR IGNORE won't overwrite existing rows.
-	ensureSessionExists(database, sessionID, event)
+	ensureSessionExists(database, projectDir, sessionID, event)
 
 	featureID := cachedGetActiveFeatureID(database, sessionID)
 
@@ -69,12 +74,14 @@ func UserPrompt(event *CloudEvent, database *sql.DB) (*HookResult, error) {
 		UpdatedAt:    time.Now().UTC(),
 	}
 
-	if err := db.InsertEvent(database, ev); err != nil {
-		debugLog(ResolveProjectDir(event.CWD, event.SessionID), "[error] handler=user-prompt session=%s: insert event: %v", sessionID[:minSessionLen(sessionID)], err)
-	}
+	// Route the UserQuery agent_events INSERT through the daemon-first enqueue
+	// path (plan-2390966a slice-4): no direct writable handle when the daemon is
+	// reachable, <1s bounded fallback otherwise. Best-effort like the prior
+	// db.InsertEvent — the canonical NDJSON + reindex backstop recovers the row.
+	_ = RouteInsertEvent("user-prompt", projectDir, sessionID, ev, database)
 
 	// Update session last_user_query fields.
-	updateLastQuery(database, sessionID, event.Prompt)
+	updateLastQuery(database, projectDir, sessionID, event.Prompt)
 
 	// Classify the prompt intent for CIGS guidance.
 	intent := ClassifyPrompt(event.Prompt)
@@ -102,7 +109,12 @@ func UserPrompt(event *CloudEvent, database *sql.DB) (*HookResult, error) {
 // the SessionStart hook failed. The INSERT OR IGNORE is idempotent.
 // agent_assigned is set from the incoming event so that Codex/Gemini sessions
 // are correctly attributed (not hardcoded to 'claude-code').
-func ensureSessionExists(database *sql.DB, sessionID string, event *CloudEvent) {
+//
+// The existence probe is a READ (no lock contention); the backfill INSERT is
+// routed through the daemon-first enqueue path (plan-2390966a slice-4) so it
+// never opens a direct writable handle when the daemon is reachable and degrades
+// to a <1s bounded fallback otherwise.
+func ensureSessionExists(database *sql.DB, projectDir, sessionID string, event *CloudEvent) {
 	if sessionID == "" || database == nil {
 		return
 	}
@@ -113,20 +125,22 @@ func ensureSessionExists(database *sql.DB, sessionID string, event *CloudEvent) 
 	}
 	now := time.Now().UTC().Format(time.RFC3339)
 	agentID := resolveEventAgentID(event)
-	_, _ = database.Exec(`
+	_ = routeHookWriteVia("user-prompt", projectDir, sessionID, database, `
 		INSERT OR IGNORE INTO sessions (session_id, agent_assigned, status, created_at, project_dir)
 		VALUES (?, ?, 'active', ?, ?)`,
 		sessionID, agentID, now, ResolveProjectDir(event.CWD, event.SessionID))
 }
 
-// updateLastQuery refreshes last_user_query_at and last_user_query on the session.
-func updateLastQuery(database *sql.DB, sessionID, prompt string) {
+// updateLastQuery refreshes last_user_query_at and last_user_query on the
+// session. The UPDATE is routed through the daemon-first enqueue path
+// (plan-2390966a slice-4) — best-effort, never blocking the hook.
+func updateLastQuery(database *sql.DB, projectDir, sessionID, prompt string) {
 	summary := prompt
 	if len(summary) > sessionQueryMaxLen {
 		summary = summary[:sessionQueryMaxLen] + "…"
 	}
 	now := time.Now().UTC().Format(time.RFC3339)
-	_, _ = database.Exec(`
+	_ = routeHookWriteVia("user-prompt", projectDir, sessionID, database, `
 		UPDATE sessions
 		SET last_user_query_at = ?,
 		    last_user_query = ?

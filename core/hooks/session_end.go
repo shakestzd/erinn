@@ -648,11 +648,72 @@ func Reconcile(database *sql.DB, projectDir string, strict bool, skipPortDrift .
 	return rep, nil
 }
 
-// reconcileDoneButUncommitted finds work items in a terminal "done" state whose
+// reconcileCheapClasses runs ONLY the latency-cheap reconcile classes — the
+// pure-SQL orphan scan and (unless skipped) the delegated port-drift check —
+// and deliberately OMITS reconcileDoneButUncommitted, whose per-item git fork
+// loop (git status/add/diff/commit over every dirty terminal artifact) is the
+// ~5.45s synchronous cost the Stop hot path used to pay on EVERY model response
+// (feat-c08d1ba1 slice-6, profiled at ~7.2s for 200 dirty done-features).
+//
+// This is sound for the Stop discriminator contract: per runSessionExitReconcile,
+// only ambiguous PortDrift can block (Claude) or warn (Gemini/Codex), and the
+// done-but-uncommitted auto-commit "never blocks any harness" — it is purely a
+// deterministic side effect. Deferring it loses nothing as long as it still runs
+// eventually, which ReconcileDoneButUncommittedForProject guarantees via the
+// serve-side drain loop (mirrors the bug-504095f2 orphan-drain split). On the
+// per-turn Stop path skipPortDrift is also true, so this reduces to a single
+// pure-SQL query.
+func reconcileCheapClasses(database *sql.DB, projectDir string, skipPortDrift bool) (*ReconcileReport, error) {
+	rep := &ReconcileReport{}
+	if database != nil {
+		rep.Orphaned = reconcileStartedButOrphaned(database, projectDir)
+	}
+	if !skipPortDrift {
+		rep.PortDrift = reconcilePortDrift(projectDir)
+	}
+	sort.Strings(rep.PortDrift)
+	sort.Strings(rep.Orphaned)
+	return rep, nil
+}
+
+// ReconcileDoneButUncommittedForProject runs ONLY the done-but-uncommitted
+// auto-commit class across the project, with NO cap. It is the deferred,
+// off-hot-path counterpart to the class reconcileCheapClasses omits: the
+// serve-side writer daemon calls it on a low-frequency loop (startReconcileDrainLoop)
+// so the deterministic artifact auto-commit the Stop hook no longer performs
+// synchronously still completes — exactly the split bug-504095f2 used for the
+// orphan sweep. Best-effort: a nil DB is a no-op. Returns the list of work-item
+// IDs whose artifacts were committed this pass.
+//
+// Finding 2 (roborev-478 round-3): the doc says "no cap" but it formerly
+// delegated to reconcileDoneButUncommitted, which scans only the newest 500
+// terminal items per status — so once the newest 500 are clean, an OLDER dirty
+// artifact was permanently hidden on this serve-drain path. The serve drain now
+// uses the PAGINATED scan (reconcileDoneButUncommittedPaged) so every dirty
+// terminal artifact is eventually reconciled, regardless of how many terminal
+// items exist. The hot Stop path is unchanged (it never calls this — it runs
+// reconcileCheapClasses), so the "Stop hot path stays cheap" guarantee holds.
+func ReconcileDoneButUncommittedForProject(database *sql.DB, projectDir string) []string {
+	if database == nil {
+		return nil
+	}
+	return reconcileDoneButUncommittedPaged(database, projectDir)
+}
+
+// reconcileTerminalArtifactPageSize is the page size used by the serve-side
+// paginated drain. It matches the historical synchronous cap so per-query cost
+// is unchanged; the difference is the drain keeps paging until a status is
+// exhausted rather than stopping after the first (newest) page.
+const reconcileTerminalArtifactPageSize = 500
+
+// reconcileDoneButUncommitted finds work items in a terminal state whose
 // canonical artifact (.wipnote/<type>s/<id>.html) is dirty in git, and
-// auto-commits each one. The auto-commit is deterministic bookkeeping: the
-// "done" decision was already made by the agent; we are only persisting the
-// durable record it forgot to commit. Returns the list of committed item IDs.
+// auto-commits each one. It scans only the newest 500 terminal items per status
+// — a BOUNDED cost suitable for the SYNCHRONOUS `wipnote reconcile` CLI /
+// Reconcile() callers, where unbounded interactive latency would be worse than
+// deferring an old dirty artifact to the serve drain. The deferred serve drain
+// (ReconcileDoneButUncommittedForProject) uses the uncapped paginated scan so
+// nothing is permanently hidden. Returns the list of committed item IDs.
 func reconcileDoneButUncommitted(database *sql.DB, projectDir string) []string {
 	repoRoot := reconcileRepoRoot(projectDir)
 	if repoRoot == "" {
@@ -662,20 +723,58 @@ func reconcileDoneButUncommitted(database *sql.DB, projectDir string) []string {
 
 	var committed []string
 	for _, status := range []string{"done", "ended"} {
-		feats, err := db.ListFeaturesByStatus(database, status, 500)
+		feats, err := db.ListFeaturesByStatus(database, status, reconcileTerminalArtifactPageSize)
 		if err != nil {
 			continue
 		}
-		for _, f := range feats {
-			sub := f.Type + "s"
-			rel := filepath.Join(".wipnote", sub, f.ID+".html")
-			abs := filepath.Join(wipnoteDir, sub, f.ID+".html")
-			if !reconcilePathDirty(repoRoot, abs) {
-				continue
+		committed = append(committed, commitDirtyTerminalArtifacts(repoRoot, wipnoteDir, feats)...)
+	}
+	return committed
+}
+
+// reconcileDoneButUncommittedPaged is the UNCAPPED serve-drain scan: it pages
+// through EVERY terminal item per status (created_at DESC, id ASC) committing
+// each dirty artifact, so an old dirty terminal artifact below the newest-500
+// window is no longer permanently skipped (roborev-478 finding 2). Only the
+// low-frequency serve drain uses it; the Stop hot path never reaches here.
+func reconcileDoneButUncommittedPaged(database *sql.DB, projectDir string) []string {
+	repoRoot := reconcileRepoRoot(projectDir)
+	if repoRoot == "" {
+		return nil
+	}
+	wipnoteDir := filepath.Join(repoRoot, ".wipnote")
+
+	var committed []string
+	for _, status := range []string{"done", "ended"} {
+		for offset := 0; ; offset += reconcileTerminalArtifactPageSize {
+			feats, err := db.ListFeaturesByStatusPaged(database, status, reconcileTerminalArtifactPageSize, offset)
+			if err != nil {
+				break
 			}
-			if reconcileArtifactCommitFn(repoRoot, abs, rel, f.ID) {
-				committed = append(committed, f.ID)
+			committed = append(committed, commitDirtyTerminalArtifacts(repoRoot, wipnoteDir, feats)...)
+			if len(feats) < reconcileTerminalArtifactPageSize {
+				break // last (short) page — status exhausted
 			}
+		}
+	}
+	return committed
+}
+
+// commitDirtyTerminalArtifacts auto-commits the canonical artifact of each
+// terminal feature whose .wipnote/<type>s/<id>.html is dirty in git. Shared by
+// the capped synchronous scan and the uncapped paginated serve drain. Returns
+// the IDs whose artifacts were committed this call.
+func commitDirtyTerminalArtifacts(repoRoot, wipnoteDir string, feats []db.Feature) []string {
+	var committed []string
+	for _, f := range feats {
+		sub := f.Type + "s"
+		rel := filepath.Join(".wipnote", sub, f.ID+".html")
+		abs := filepath.Join(wipnoteDir, sub, f.ID+".html")
+		if !reconcilePathDirty(repoRoot, abs) {
+			continue
+		}
+		if reconcileArtifactCommitFn(repoRoot, abs, rel, f.ID) {
+			committed = append(committed, f.ID)
 		}
 	}
 	return committed
@@ -893,8 +992,19 @@ func DrainReconcileWarnings(projectDir string) string {
 // regeneration on every model response. The commit-time
 // checkPortDriftCommitGuard (commit_portdrift_guard.go) enforces port-drift
 // correctness instead, firing only when generator-input files are staged.
+//
+// HOT-PATH SPLIT (feat-c08d1ba1 slice-6): this entry point runs only
+// reconcileCheapClasses — the pure-SQL orphan scan plus (unless skipped) the
+// delegated port-drift check. It NO LONGER runs the done-but-uncommitted
+// auto-commit, whose per-item git fork loop was the ~5.45s synchronous cost the
+// Stop hook paid on every model response. That class is now drained off the hot
+// path by the serve-side writer daemon (startReconcileDrainLoop →
+// ReconcileDoneButUncommittedForProject), so the deterministic artifact
+// auto-commit still completes — just not on the interactive path. This is sound
+// because only ambiguous PortDrift gates the discriminator below; the
+// auto-commit class never blocked any harness.
 func runSessionExitReconcile(database *sql.DB, projectDir, harness, sessionID string, skipPortDrift bool) error {
-	rep, err := Reconcile(database, projectDir, false, skipPortDrift)
+	rep, err := reconcileCheapClasses(database, projectDir, skipPortDrift)
 	if err != nil || rep.Empty() {
 		return nil
 	}

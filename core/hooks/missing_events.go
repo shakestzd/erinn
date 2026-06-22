@@ -112,6 +112,44 @@ func recordSimpleEventWithOutput(
 	return &HookResult{Continue: true}, nil
 }
 
+// recordSimpleEventRouted is recordSimpleEvent for the hot Stop hook: it builds
+// the same single agent_event row but routes the INSERT through the daemon-first
+// enqueue path (plan-2390966a slice-4) instead of the direct db.InsertEvent.
+// Only the Stop handler uses it — the shared recordSimpleEvent stays on the
+// direct path for the many cold observational hooks (PreCompact, WorktreeRemove,
+// …) that are out of this slice's scope. handler labels the fallback metrics;
+// projectRoot (parent of .wipnote/) feeds RouteHookWrite's daemon + DBPath
+// resolution. Best-effort: it never blocks and always returns Continue.
+func recordSimpleEventRouted(
+	handler string,
+	eventType models.EventType,
+	toolName, inputSummary, status string,
+	projectRoot, sessionID string,
+	event *CloudEvent,
+	database *sql.DB,
+) (*HookResult, error) {
+	if sessionID == "" {
+		return &HookResult{Continue: true}, nil
+	}
+	now := time.Now().UTC()
+	ev := &models.AgentEvent{
+		EventID:      uuid.New().String(),
+		AgentID:      resolveEventAgentID(event),
+		EventType:    eventType,
+		Timestamp:    now,
+		ToolName:     toolName,
+		InputSummary: inputSummary,
+		SessionID:    sessionID,
+		FeatureID:    cachedGetActiveFeatureID(database, sessionID),
+		Status:       status,
+		Source:       "hook",
+		CreatedAt:    now,
+		UpdatedAt:    now,
+	}
+	_ = RouteInsertEvent(handler, projectRoot, sessionID, ev, database)
+	return &HookResult{Continue: true}, nil
+}
+
 // Stop handles the Stop Claude Code hook event (agent/session stopped).
 // Records a checkpoint event and captures the last assistant message as output.
 // Also reads the transcript JSONL to persist the assistant reply text as an
@@ -178,7 +216,26 @@ func Stop(event *CloudEvent, database *sql.DB) (*HookResult, error) {
 		}
 	}
 
-	return recordSimpleEvent(models.EventEnd, "Stop", summary, "recorded", event, database)
+	// Route the terminal Stop agent_events INSERT through the daemon-first
+	// enqueue path (plan-2390966a slice-4). Stop fires on EVERY model response,
+	// so this is a hot write: routing it keeps the handler under 1s even when an
+	// external writer holds the lock. Best-effort — canonical NDJSON + reindex
+	// recover the row if the write degrades.
+	return recordSimpleEventRouted("stop", models.EventEnd, "Stop", summary, "recorded",
+		ResolveProjectDir(event.CWD, event.SessionID), resolveStopSessionID(event), event, database)
+}
+
+// resolveStopSessionID mirrors the Stop handler's session-id resolution
+// (resolveSessionIDWithHarness with the EnvSessionID fallback) so the routed
+// terminal-event recorder labels and routes under the same session ID the rest
+// of the Stop handler used. Returns "" when no session can be resolved (the
+// routed recorder then no-ops with Continue, matching recordSimpleEvent).
+func resolveStopSessionID(event *CloudEvent) string {
+	sessionID := resolveSessionIDWithHarness(event)
+	if sessionID == "" {
+		sessionID = EnvSessionID(event.SessionID)
+	}
+	return sessionID
 }
 
 // currentHarness resolves the active harness inside a hook handler. Handlers

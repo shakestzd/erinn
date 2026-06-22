@@ -462,13 +462,27 @@ func recordEventAndAllow(event *CloudEvent, ctx *toolUseContext, database *sql.D
 		UpdatedAt:     time.Now().UTC(),
 	}
 
-	_ = db.InsertEvent(database, ev)
+	// Route the tool_call agent_events INSERT through the daemon-first enqueue
+	// path (plan-2390966a slice-4). This is the hot write that stalled 5–14s
+	// under a held lock; RouteInsertEvent opens NO direct writable handle when
+	// the daemon is reachable and degrades to a <1s bounded fallback otherwise.
+	// Best-effort/advisory like the prior db.InsertEvent — never blocks the hook.
+	_ = RouteInsertEvent("pretooluse", ctx.ProjectDir, ctx.SessionID, ev, database)
 
+	// Claim bookkeeping (bug-d792aee6 finding 2): route BOTH claim writes through
+	// the daemon-first enqueue-only seam (RouteHookWrite) instead of issuing them
+	// directly on the 5s-busy_timeout hook handle. Under a held external write
+	// lock the direct path stalled ~5s, defeating the <1s hot-hook bound; the
+	// builders return the exact (sql, args) the originals Exec, JSON-transport-safe
+	// so the daemon can re-bind them. Both stay best-effort: the advisory bool is
+	// ignored, and canonical NDJSON + reindex are the durability backstop.
 	if ctx.FeatureID != "" {
 		writePath := paths.MustNormalize(extractFilePath(event.ToolInput), "")
-		_ = db.HeartbeatClaimByWorkItem(database, ctx.FeatureID, ctx.SessionID, writePath, 30*time.Minute)
+		hbSQL, hbArgs := db.HeartbeatClaimByWorkItemStmt(ctx.FeatureID, ctx.SessionID, writePath, 30*time.Minute)
+		_ = RouteHookWrite("pretooluse", ctx.ProjectDir, ctx.SessionID, hbSQL, hbArgs...)
 	}
-	_, _ = db.ReapExpiredClaims(database)
+	reapSQL, reapArgs := db.ReapExpiredClaimsStmt()
+	_ = RouteHookWrite("pretooluse", ctx.ProjectDir, ctx.SessionID, reapSQL, reapArgs...)
 
 	os.Setenv("WIPNOTE_CURRENT_EVENT_ID", ev.EventID)
 

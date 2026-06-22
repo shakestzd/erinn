@@ -15,7 +15,12 @@ func newExecContextDB(t *testing.T, projectDir string) *sql.DB {
 	if err := os.MkdirAll(filepath.Join(projectDir, ".wipnote"), 0o755); err != nil {
 		t.Fatalf("mkdir .wipnote: %v", err)
 	}
-	database, err := db.Open(filepath.Join(projectDir, ".wipnote", "wipnote.db"))
+	// Pin WIPNOTE_DB_PATH so SessionStart's daemon-routed writes (which fall back
+	// to a direct write at DBPath(projectRoot) when no daemon is running) land in
+	// the same file this handle reads back from. See openWipnoteTestDB.
+	dbPath := filepath.Join(projectDir, ".wipnote", "wipnote.db")
+	t.Setenv("WIPNOTE_DB_PATH", dbPath)
+	database, err := db.Open(dbPath)
 	if err != nil {
 		t.Fatalf("db.Open: %v", err)
 	}

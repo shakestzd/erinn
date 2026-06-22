@@ -27,6 +27,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strconv"
+	"strings"
 
 	"github.com/shakestzd/wipnote/core/daemon"
 	"github.com/shakestzd/wipnote/core/db"
@@ -58,6 +59,21 @@ const (
 	OpTypeSessionStatus = "session.status"
 )
 
+// OpTypeSQL is the GENERIC SQL-envelope op (plan-2390966a slice-1, the
+// foundation): it carries an arbitrary PARAMETERIZED statement (DerivedOp.SQL)
+// plus its bind arguments (DerivedOp.Args) so the long tail of hot-path
+// derived-index writes can route to the single writer WITHOUT hand-defining a
+// typed op per write kind. The applier Execs the statement on the daemon's
+// existing writable handle with the args bound as parameters (NEVER
+// interpolated), wrapped in the shared RetryOnBusy backoff.
+//
+// SAFETY (constraint q-sql-safety): the daemon socket is a LOCAL, per-project,
+// per-user Unix socket; only first-party wipnote code constructs OpTypeSQL ops;
+// nothing crosses a network boundary. Args are always bound as SQL parameters,
+// so even though the statement text is arbitrary, untrusted *values* cannot
+// alter statement structure.
+const OpTypeSQL = "sql.exec"
+
 // DerivedOp is the serializable representation of one derived index write.
 // Type selects the apply dispatch; the type-specific body lives in the
 // remaining fields. The agent_events upsert (Event) is the hook-tree op;
@@ -78,20 +94,232 @@ type DerivedOp struct {
 	SessionID string          `json:"session_id,omitempty"`
 	Status    string          `json:"status,omitempty"`
 	Session   *models.Session `json:"session,omitempty"`
+
+	// OpTypeSQL fields (plan-2390966a slice-1). SQL is the parameterized
+	// statement; Args are its bind parameters. On the wire each Arg carries a
+	// TYPE TAG (see encodeArgs / decodeArgs) so its SQLite affinity round-trips
+	// EXACTLY: an int64 stays int64 (preserving precision above 2^53 —
+	// roborev-473 finding 6) AND a float64 stays float64 (binds as REAL —
+	// roborev-478 finding 3). Plain JSON would collapse both to one number and
+	// lose the int-vs-float distinction; the tag keeps them apart through
+	// encode→decode and in the dedup key (sqlOpID). strings/bools/nil round-trip
+	// as-is. Args are bound as SQL parameters and are NEVER interpolated.
+	SQL  string `json:"sql,omitempty"`
+	Args []any  `json:"args,omitempty"`
 }
 
-// Encode marshals a DerivedOp for Envelope.Payload.
+// derivedOpWire is the on-the-wire shape of DerivedOp. It mirrors every field
+// EXCEPT Args, which is replaced by a type-tagged encoding (taggedArg) so the
+// numeric affinity of each bind arg survives JSON transport. The alias avoids a
+// recursive MarshalJSON/UnmarshalJSON call on DerivedOp itself.
+type derivedOpWire struct {
+	Type      string             `json:"type"`
+	Event     *models.AgentEvent `json:"event,omitempty"`
+	FeatureID string             `json:"feature_id,omitempty"`
+	SessionID string             `json:"session_id,omitempty"`
+	Status    string             `json:"status,omitempty"`
+	Session   *models.Session    `json:"session,omitempty"`
+	SQL       string             `json:"sql,omitempty"`
+	Args      []taggedArg        `json:"args,omitempty"`
+}
+
+// taggedArg is the type-tagged wire form of one bind argument. Exactly one of
+// the value fields is populated, selected by Kind. Numeric args are split into
+// Int (int64) and Float (float64) so REAL vs INTEGER affinity is preserved
+// across the SQL envelope — the core of roborev-478 finding 3. The integer is
+// carried as a json.Number-backed string-free int64 (Go marshals int64 as a
+// bare JSON integer, exact for the full int64 range).
+type taggedArg struct {
+	Kind  string  `json:"k"`           // "i" int64, "f" float64, "s" string, "b" bool, "n" null
+	Int   int64   `json:"i,omitempty"` // Kind=="i"
+	Float float64 `json:"f,omitempty"` // Kind=="f"
+	Str   string  `json:"s,omitempty"` // Kind=="s"
+	Bool  bool    `json:"b,omitempty"` // Kind=="b"
+}
+
+// MarshalJSON renders DerivedOp with its Args type-tagged (roborev-478 finding 3).
+func (op DerivedOp) MarshalJSON() ([]byte, error) {
+	return json.Marshal(derivedOpWire{
+		Type:      op.Type,
+		Event:     op.Event,
+		FeatureID: op.FeatureID,
+		SessionID: op.SessionID,
+		Status:    op.Status,
+		Session:   op.Session,
+		SQL:       op.SQL,
+		Args:      encodeArgs(op.Args),
+	})
+}
+
+// UnmarshalJSON decodes the type-tagged wire form back into plain Go primitives
+// in Args, preserving the int64-vs-float64 distinction (roborev-478 finding 3)
+// and int64 precision above 2^53 (roborev-473 finding 6).
+func (op *DerivedOp) UnmarshalJSON(data []byte) error {
+	var w derivedOpWire
+	if err := json.Unmarshal(data, &w); err != nil {
+		return err
+	}
+	op.Type = w.Type
+	op.Event = w.Event
+	op.FeatureID = w.FeatureID
+	op.SessionID = w.SessionID
+	op.Status = w.Status
+	op.Session = w.Session
+	op.SQL = w.SQL
+	op.Args = decodeArgs(w.Args)
+	return nil
+}
+
+// Encode marshals a DerivedOp for Envelope.Payload (type-tagged Args).
 func Encode(op DerivedOp) ([]byte, error) {
 	return json.Marshal(op)
 }
 
-// Decode unmarshals an Envelope.Payload back into a DerivedOp.
+// Decode unmarshals an Envelope.Payload back into a DerivedOp. The type-tagged
+// Args wire form (UnmarshalJSON → decodeArgs) preserves int64 precision above
+// 2^53 (roborev-473 finding 6) AND keeps float64 args as float64 so they bind
+// as REAL rather than being coerced to INTEGER (roborev-478 finding 3).
 func Decode(payload []byte) (DerivedOp, error) {
 	var op DerivedOp
 	if err := json.Unmarshal(payload, &op); err != nil {
 		return DerivedOp{}, fmt.Errorf("decode derived op: %w", err)
 	}
+	op.Args = NormalizeArgs(op.Args)
 	return op, nil
+}
+
+// encodeArgs converts a slice of raw bind args into their type-tagged wire form.
+// Each arg is first normalized (so int kinds collapse to int64 and a
+// json.Number resolves to int64/float64) and then tagged by its concrete type.
+func encodeArgs(args []any) []taggedArg {
+	if args == nil {
+		return nil
+	}
+	out := make([]taggedArg, len(args))
+	for i, a := range args {
+		out[i] = tagArg(normalizeArg(a))
+	}
+	return out
+}
+
+// decodeArgs converts the type-tagged wire form back into plain Go primitives.
+func decodeArgs(tagged []taggedArg) []any {
+	if tagged == nil {
+		return nil
+	}
+	out := make([]any, len(tagged))
+	for i, t := range tagged {
+		out[i] = t.value()
+	}
+	return out
+}
+
+// tagArg builds the type-tagged wire form for a single normalized arg.
+func tagArg(a any) taggedArg {
+	switch v := a.(type) {
+	case int64:
+		return taggedArg{Kind: "i", Int: v}
+	case float64:
+		return taggedArg{Kind: "f", Float: v}
+	case string:
+		return taggedArg{Kind: "s", Str: v}
+	case bool:
+		return taggedArg{Kind: "b", Bool: v}
+	case nil:
+		return taggedArg{Kind: "n"}
+	default:
+		// Any other primitive (e.g. []byte) is rendered as its string form so
+		// the value still binds rather than vanishing.
+		return taggedArg{Kind: "s", Str: fmt.Sprintf("%v", v)}
+	}
+}
+
+// value reconstructs the plain Go primitive a taggedArg carries.
+func (t taggedArg) value() any {
+	switch t.Kind {
+	case "i":
+		return t.Int
+	case "f":
+		return t.Float
+	case "s":
+		return t.Str
+	case "b":
+		return t.Bool
+	case "n":
+		return nil
+	default:
+		return nil
+	}
+}
+
+// NormalizeArgs returns args with every element coerced to a stable,
+// JSON-transport-safe primitive the SQLite driver binds losslessly. Its job is
+// to give each arg a canonical Go type so the SAME value always hashes/binds the
+// same way: every integer kind (int, int32, int64, json.Number integer text)
+// becomes int64 — preserving precision above 2^53 (roborev-473 finding 6) — while
+// a fractional or float64 value STAYS float64 so it binds as REAL, never coerced
+// to INTEGER (roborev-478 finding 3). strings/bools/nil pass through unchanged.
+// This is the canonical form both the wire encoder (encodeArgs) and sqlOpID hash,
+// keeping the dedup key stable across encode→decode and distinct across types.
+func NormalizeArgs(args []any) []any {
+	if args == nil {
+		return nil
+	}
+	out := make([]any, len(args))
+	for i, a := range args {
+		out[i] = normalizeArg(a)
+	}
+	return out
+}
+
+// normalizeArg coerces a single decoded/raw arg to its canonical primitive.
+// Integer kinds collapse to int64; float64 is preserved AS float64 (roborev-478
+// finding 3: an integral float like 1.0 must remain a REAL, not become an
+// INTEGER). A json.Number resolves to int64 for integer text, float64 otherwise.
+func normalizeArg(a any) any {
+	switch v := a.(type) {
+	case json.Number:
+		return numberFromString(v.String())
+	case int:
+		return int64(v)
+	case int8:
+		return int64(v)
+	case int16:
+		return int64(v)
+	case int32:
+		return int64(v)
+	case int64:
+		return v
+	case float32:
+		return float64(v)
+	case float64:
+		// Preserve float64 EXACTLY — do NOT coerce an integral float to int64.
+		// float64(1.0) must bind as REAL and hash distinctly from int64(1)
+		// (roborev-478 finding 3).
+		return v
+	default:
+		return a
+	}
+}
+
+// numberFromString parses a json.Number's textual form into int64 when it is an
+// integer within int64 range, else float64. Using the ORIGINAL text (not a
+// float intermediate) is what preserves precision for integers above 2^53 — a
+// detour through float64 would already have rounded. Integer-shaped text yields
+// int64; text with a fractional part or exponent yields float64 (so a JSON
+// number that was a float64 on the sending side decodes back as float64).
+func numberFromString(s string) any {
+	if !strings.ContainsAny(s, ".eE") {
+		if i, err := strconv.ParseInt(s, 10, 64); err == nil {
+			return i
+		}
+	}
+	if f, err := strconv.ParseFloat(s, 64); err == nil {
+		return f
+	}
+	// Unparseable as a number (should not happen for a json.Number); keep the
+	// string so the value still binds rather than vanishing.
+	return s
 }
 
 // OpID derives the dedup key for an event op from the session ID and a
@@ -158,6 +386,29 @@ func NewApplier(database *sql.DB) daemon.Applier {
 			sid, status := op.SessionID, op.Status
 			return func(_ context.Context) error {
 				return db.UpdateSessionStatus(database, sid, status)
+			}, nil
+		case OpTypeSQL:
+			if op.SQL == "" {
+				return nil, fmt.Errorf("%s: empty sql", OpTypeSQL)
+			}
+			// Capture statement + args by value so the WriteOp is
+			// self-contained on the single-writer worker. Args are passed as
+			// bind parameters to ExecContext — NEVER interpolated into the
+			// statement text (constraint q-sql-safety). op.Args were already
+			// normalized in Decode (int64 integers preserved exactly), so the
+			// values bound here match what the caller sent (roborev-473 finding 6).
+			stmt, args := op.SQL, op.Args
+			return func(ctx context.Context) error {
+				// Run on the daemon's EXISTING writable handle, wrapped in the
+				// shared bounded busy-backoff so a transient SHARED→RESERVED
+				// race on a DELETE-journal host resolves transparently (the
+				// same protection the direct CLI/hook writers get). The whole
+				// statement is idempotent-or-safely-re-runnable as far as the
+				// retry budget is concerned: only BUSY/locked errors retry.
+				return db.RetryOnBusy(db.DefaultBusyBackoff, func() error {
+					_, execErr := database.ExecContext(ctx, stmt, args...)
+					return execErr
+				})
 			}, nil
 		default:
 			return nil, fmt.Errorf("unknown derived op_type %q", op.Type)

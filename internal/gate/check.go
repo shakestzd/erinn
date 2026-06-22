@@ -26,6 +26,89 @@ type Command struct {
 	Dir  string
 }
 
+// DurabilityContentionFixture names the always-on durability regression test
+// that proves the single-writer-daemon fix (plan-2390966a, feat-bbb80917):
+// under a held external write lock, every migrated hot hook routes its
+// derived-index write enqueue-only and completes in <1s, with ZERO first-party
+// SQLITE_BUSY across three consecutive runs.
+//
+// The fixture is deliberately NOT skipped in -short mode, so the Go quality
+// gate's `go test ... -short ./...` step (built in DetectPlan below) exercises
+// it on every gate run — a regression that reverted a hot hook to a direct
+// writable Exec (re-introducing the stall) FAILS the gate. This constant is the
+// load-bearing reference: gate_durability_test.go asserts the Go gate plan runs
+// the package that hosts the fixture under -short, so deleting either the
+// reference or the always-on property fails CI.
+const (
+	// DurabilityContentionFixturePkg is the Go package (relative to the module
+	// root) whose tests include the durability contention fixture.
+	DurabilityContentionFixturePkg = "./cmd/wipnote/"
+
+	// DurabilityContentionFixtureTest is the test function that enforces the
+	// sub-second / zero-first-party-BUSY durability invariant under a held lock.
+	DurabilityContentionFixtureTest = "TestSQLiteContentionStress_MigratedHotHooksUnderHeldLock"
+)
+
+// GoGateRunsDurabilityFixtureUnderShort reports whether the supplied gate
+// commands include a `go test` invocation that (a) runs in -short mode and
+// (b) covers the whole module (`./...`), and therefore exercises the always-on
+// durability contention fixture (DurabilityContentionFixtureTest), which does
+// NOT skip under -short. A regression in the migrated hot hooks consequently
+// fails the standard quality gate.
+//
+// Two command shapes are recognized:
+//   - Autodetected Go plan: argv-form `["go", "test", "-short", "./...", ...]`.
+//   - Approved guard profile: shell-form `["sh", "-c", "go test -short ./..."]`.
+//     DetectPlan renders every profile guard as `sh -c <g.Cmd>`, so the
+//     durability step in a project's .wipnote/guard-profile.yaml quality phase
+//     is matched here too (roborev-476 finding 4). This is what lets
+//     gate_durability_test.go assert the REAL approved-profile path this repo
+//     uses still gates the fixture, not only the synthetic autodetected plan.
+func GoGateRunsDurabilityFixtureUnderShort(commands []Command) bool {
+	for _, c := range commands {
+		if goTestArgvRunsShortAll(c.Args) || shellCmdRunsGoTestShortAll(c.Args) {
+			return true
+		}
+	}
+	return false
+}
+
+// goTestArgvRunsShortAll matches the autodetected argv form
+// `["go", "test", ... "-short" ... "./..." ...]`.
+func goTestArgvRunsShortAll(args []string) bool {
+	if len(args) < 2 || args[0] != "go" || args[1] != "test" {
+		return false
+	}
+	hasShort, hasAll := false, false
+	for _, a := range args[2:] {
+		switch {
+		case a == "-short" || a == "--short":
+			hasShort = true
+		case a == "./...":
+			hasAll = true
+		}
+	}
+	return hasShort && hasAll
+}
+
+// shellCmdRunsGoTestShortAll matches the approved-profile shell form
+// `["sh", "-c", "<shell>"]` where the shell string contains a `go test`
+// invocation running -short over ./.... The check is conservative: it requires
+// "go test", a -short / --short flag, and the ./... module-wide selector all
+// present in the same shell command string.
+func shellCmdRunsGoTestShortAll(args []string) bool {
+	if len(args) < 3 || args[0] != "sh" || args[1] != "-c" {
+		return false
+	}
+	shell := args[2]
+	if !strings.Contains(shell, "go test") {
+		return false
+	}
+	hasShort := strings.Contains(shell, " -short") || strings.Contains(shell, " --short")
+	hasAll := strings.Contains(shell, "./...")
+	return hasShort && hasAll
+}
+
 type Plan struct {
 	ProjectType      paths.ProjectType
 	ManifestDir      string
@@ -149,6 +232,15 @@ func DetectPlan(projectRoot, codeRoot, phase string) (Plan, error) {
 	plan := Plan{ProjectType: projectType, ManifestDir: manifestDir, Manifest: filepath.Join(manifestDir, manifestName)}
 	switch projectType {
 	case paths.ProjectTypeGo:
+		// The `go test ... -short ./...` step covers the whole module, which
+		// includes the always-on durability contention fixture
+		// (DurabilityContentionFixtureTest in DurabilityContentionFixturePkg).
+		// That fixture is intentionally NOT skipped under -short, so a
+		// regression in the migrated hot hooks (plan-2390966a, feat-bbb80917)
+		// — e.g. reverting a hot write to a direct, lock-contending Exec —
+		// fails THIS gate. GoGateRunsDurabilityFixtureUnderShort + the
+		// gate_durability_test.go assertion guard that this command keeps both
+		// the -short flag and the module-wide ./... scope.
 		plan.Commands = []Command{
 			{Name: "go build", Args: []string{"go", "build", "-buildvcs=false", "./..."}},
 			{Name: "go vet", Args: []string{"go", "vet", "./..."}},

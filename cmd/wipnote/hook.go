@@ -52,10 +52,25 @@ Usage in hooks.json:
 		hookSubcmdWithProject("session-resume", "Handle SessionResume event", continueResult, hooks.SessionResume),
 
 		// Standard two-arg handlers (event + db only).
-		hookSubcmd("user-prompt", "Handle UserPromptSubmit event", emptyResult, hooks.UserPrompt),
+		// roborev-473 finding 1 (VERIFIED per-handler): user-prompt and pretooluse
+		// route EVERY derived-index WRITE through the daemon and use their DB handle
+		// ONLY for READS, so they dispatch with a READ-ONLY handle
+		// (hookSubcmdReadOnly) — avoiding the writable open + cold-DB migration that
+		// blocked the hot hooks under contention.
+		//
+		// The following hot hooks KEEP a writable handle because grep confirmed they
+		// still issue DIRECT writes on the passed handle (correctness-first — forcing
+		// read-only would cause "readonly database" errors):
+		//   - subagent-start: finding-3 applied-ack pending fallback
+		//     (db.UpsertPendingSubagentStart) + synthetic-sessions via-fallback.
+		//   - subagent-stop: db.UpdateEventFields direct write.
+		//   - stop: insertAssistantTextSignal, backfillMissedUserPrompts,
+		//     runSessionExitReconcile, db.UpdateSessionHandoff — all direct writes on
+		//     the passed handle that are not (yet) daemon-routable.
+		hookSubcmdReadOnly("user-prompt", "Handle UserPromptSubmit event", emptyResult, hooks.UserPrompt),
 		hookSubcmd("after-agent", "Handle Gemini AfterAgent event", continueResult, hooks.AfterAgent),
 		hookSubcmd("after-model", "Handle Gemini AfterModel event", continueResult, hooks.AfterModel),
-		hookSubcmd("pretooluse", "Handle PreToolUse event", allowResult, hooks.PreToolUse),
+		hookSubcmdReadOnly("pretooluse", "Handle PreToolUse event", allowResult, hooks.PreToolUse),
 		hookSubcmd("posttooluse", "Handle PostToolUse event", continueResult, hooks.PostToolUse),
 		hookSubcmd("subagent-start", "Handle SubagentStart event", continueResult, hooks.SubagentStart),
 		hookSubcmd("subagent-stop", "Handle SubagentStop event", continueResult, hooks.SubagentStop),
@@ -190,6 +205,59 @@ func hookSubcmd(
 	}
 }
 
+// hookSubcmdReadOnly is hookSubcmd for the hot hooks that route EVERY
+// derived-index write through the daemon and use their DB handle ONLY for reads
+// (roborev-473 finding 1: user-prompt, pretooluse, stop). It opens the project DB
+// READ-ONLY (hooks.OpenHookDBReadOnly) instead of the writable OpenHookDB, so the
+// hot path never pays a writable open + cold-DB migration under contention. On a
+// genuine daemon miss the handlers' write routing (routeHookWriteVia /
+// RouteHookWrite) transparently opens its own bounded writable handle, so the
+// derived write is still persisted; canonical NDJSON + reindex remain the
+// backstop. A read-only open failure is logged + counted as writer_unavailable
+// and falls through to the fallback HookResult (Claude Code sees SUCCESS).
+func hookSubcmdReadOnly(
+	use, short string,
+	fallback *hooks.HookResult,
+	handler func(*hooks.CloudEvent, *sql.DB) (*hooks.HookResult, error),
+) *cobra.Command {
+	return &cobra.Command{
+		Use:   use,
+		Short: short,
+		RunE: func(_ *cobra.Command, _ []string) error {
+			return runHookNamed(use, func(event *hooks.CloudEvent) (*hooks.HookResult, error) {
+				projectDir := hooks.ResolveProjectDir(event.CWD, event.SessionID)
+				if !hooks.IswipnoteProject(projectDir) {
+					return fallback, nil
+				}
+				dbPath, err := hooks.DBPath(projectDir)
+				if err != nil {
+					hooks.LogError(use, event.SessionID,
+						fmt.Sprintf("DBPath failed: %v", err))
+					return fallback, nil
+				}
+				// Finding 1 (roborev-478 round-3): when the truly-read-only open
+				// yields no usable handle (first run, deleted cache, DB not yet
+				// created, or a transient lock), do NOT skip the handler — that
+				// would silently bypass the DB-INDEPENDENT safety guards
+				// (pretooluse's .wipnote/-write block, the cd/divergence guards,
+				// the yolo work-item guard). Instead invoke the handler with a
+				// nil DB so those guards still run in guard-only mode; the
+				// read-only-dispatched handlers (user-prompt, pretooluse) are
+				// nil-DB-safe — every DB-dependent read no-ops / returns empty
+				// when database == nil — and route any write through the daemon
+				// regardless of this handle.
+				database, reason := hooks.OpenHookDBReadOnly(use, event.SessionID, dbPath)
+				if database != nil {
+					defer database.Close()
+				} else {
+					_ = reason // already logged + counted inside OpenHookDBReadOnly
+				}
+				return handler(event, database)
+			})
+		},
+	}
+}
+
 // hookSubcmdWithProject is like hookSubcmd but also passes projectDir to the
 // handler (needed by session-start, session-end, session-resume).
 func hookSubcmdWithProject(
@@ -217,19 +285,25 @@ func hookSubcmdWithProject(
 					return fallback, nil
 				}
 				// Canonical-first contract — see hookSubcmd above.
-				// bug-504095f2: session-start runs on the launcher's
-				// post-selection critical path (Claude blocks on the hook's
-				// additionalContext), so its writable handle uses a SHORT
-				// busy_timeout to fail fast under contention instead of
-				// stalling ~5s. session-end / session-resume are not on the
-				// interactive path and keep the default-timeout open.
-				var database *sql.DB
-				var reason hooks.FallbackReason
-				if use == "session-start" {
-					database, reason = hooks.OpenHookDBWithBusyTimeout(use, event.SessionID, dbPath, hooks.SessionStartBusyTimeout)
-				} else {
-					database, reason = hooks.OpenHookDB(use, event.SessionID, dbPath)
-				}
+				//
+				// Handle selection is PER-HANDLER (roborev-476 finding 3):
+				//   - session-start runs on the launcher's post-selection critical
+				//     path. It routes every session/lineage/event/family write through
+				//     the daemon (RouteHookWrite / routeSQLApplied) and uses this handle
+				//     for READS plus ONE residual direct write — the bounded orphan sweep
+				//     (SweepOrphanedEventsForProjectCapped → db.MarkEventAborted), whose
+				//     atomic started→aborted transition needs RowsAffected and so cannot
+				//     be routed enqueue-only. Because that write still touches this
+				//     handle, session-start takes a BOUNDED handle
+				//     (SessionStartBusyTimeout ~750ms): under a held external write lock
+				//     the orphan-sweep UPDATE fail-fasts in well under a second (the
+				//     residual orphan drains out-of-band via serve) instead of stalling
+				//     the interactive launcher ~5s.
+				//   - session-end / session-resume / exit-plan-mode keep the default 5s
+				//     OpenHookDB: they are not on the post-selection critical path and
+				//     their residual writes (FinalizeSessionHTML, runSessionExitReconcile)
+				//     are tolerant of the default busy_timeout.
+				database, reason := openSessionHookDB(use, event.SessionID, dbPath)
 				if database == nil {
 					_ = reason
 					return fallback, nil
@@ -239,6 +313,25 @@ func hookSubcmdWithProject(
 			})
 		},
 	}
+}
+
+// openSessionHookDB selects the writable hook handle for the three session
+// handlers dispatched by hookSubcmdWithProject (roborev-476 finding 3).
+//
+// session-start runs on the launcher's post-selection critical path and its only
+// remaining direct write (the bounded orphan sweep db.MarkEventAborted, which
+// needs RowsAffected and so cannot be routed enqueue-only) must fail-fast under a
+// held external write lock — so it takes a SHORT bounded busy_timeout
+// (SessionStartBusyTimeout ~750ms) rather than stalling the interactive launcher
+// on the default 5s. Every other session-phase handler (session-end,
+// session-resume, exit-plan-mode) keeps the default 5s OpenHookDB; they are not
+// on the post-selection critical path. A nil handle is treated as
+// canonical-success by the caller exactly as for OpenHookDB.
+func openSessionHookDB(use, sessionID, dbPath string) (*sql.DB, hooks.FallbackReason) {
+	if use == "session-start" {
+		return hooks.OpenHookDBWithBusyTimeout(use, sessionID, dbPath, hooks.SessionStartBusyTimeout)
+	}
+	return hooks.OpenHookDB(use, sessionID, dbPath)
 }
 
 // hookTrackEventCmd returns the track-event subcommand, which accepts an

@@ -302,6 +302,13 @@ func startWriterMaintenance(ctx context.Context, writeDB *sql.DB, wipnoteDir str
 	// loop clears any remaining crash backlog using the daemon's single writable
 	// handle, off the interactive path.
 	startOrphanDrainLoop(ctx, writeDB, projectRoot)
+
+	// Out-of-band reconcile drain (feat-c08d1ba1 slice-6): the Stop hook stopped
+	// auto-committing done-but-uncommitted artifacts synchronously (its per-item
+	// git fork loop was a ~5.45s per-turn cost); this low-frequency loop performs
+	// that deterministic auto-commit off the interactive path so the durable
+	// record still lands in git.
+	startReconcileDrainLoop(ctx, writeDB, projectRoot)
 }
 
 // writerIdleTimeout resolves the headless writer's idle-exit window. It honours

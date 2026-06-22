@@ -243,15 +243,28 @@ func SessionStart(event *CloudEvent, database *sql.DB, projectDir string) (*Hook
 		inp = resolveParentLineage(event, database, s.ParentSessionID, featureID)
 	}
 
-	// Batch all writes into a single transaction: session upsert + lineage inserts.
+	// Persist the session row and (for subagents) its lineage traces through the
+	// writer daemon (enqueue-only) instead of a direct writable transaction.
+	//
+	// TX-atomicity note (plan-2390966a slice-3): the old code wrapped the session
+	// upsert + lineage inserts in ONE SQLite transaction. The daemon apply loop
+	// does NOT auto-wrap a transaction, and a multi-statement batch cannot be a
+	// single OpTypeSQL op, so we route each statement as its OWN enqueue-only op.
+	// Atomicity-of-effect is preserved differently: every op lands on the SINGLE
+	// writer in FIFO order, so the session insert always applies before the
+	// lineage traces that reference it — a reader never sees a lineage row whose
+	// session is missing. The all-or-nothing guarantee of a SQL transaction is
+	// relaxed to "FIFO-ordered single-writer + canonical NDJSON/reindex backstop",
+	// which is the established hot-hook contract (RouteHookWrite, slice-2).
 	txStart := time.Now()
-	if err := runSessionTransaction(database, s, inp); err != nil {
-		debugLog(projectDir, "[session-start] transaction failed (session=%s): %v", shortID, err)
+	routeSessionUpsert(projectDir, sessionID, s)
+	if inp != nil {
+		routeLineageTraces(projectDir, sessionID, inp)
 	}
 	LogTimed(projectDir, "session-start", map[string]string{
 		"phase":   "db-tx",
 		"session": shortID,
-	}, txStart, "transaction complete")
+	}, txStart, "session+lineage routed")
 
 	// Write canonical session HTML file (non-critical, errors silently logged).
 	CreateSessionHTML(projectDir, s)
@@ -271,13 +284,18 @@ func SessionStart(event *CloudEvent, database *sql.DB, projectDir string) (*Hook
 		"session": shortID,
 	}, handlerStart, "handler complete")
 
-	// Store transcript path if provided by CloudEvent.
+	// Store transcript path if provided by CloudEvent. Routed enqueue-only so a
+	// held write lock never stalls the post-selection critical path.
 	if event.TranscriptPath != "" {
-		_, _ = database.Exec(`UPDATE sessions SET transcript_path = ? WHERE session_id = ?`,
+		RouteHookWrite("session-start", projectDir, sessionID,
+			`UPDATE sessions SET transcript_path = ? WHERE session_id = ?`,
 			event.TranscriptPath, sessionID)
 	}
 
 	// Persist the session-start event to agent_events for dashboard activity feed.
+	// Routed enqueue-only through the daemon (no direct writable Exec). The event
+	// has no ParentEventID, so db.InsertEvent's parent-agent lookup is a no-op and
+	// the plain parameterized INSERT below is equivalent.
 	ev := &models.AgentEvent{
 		EventID:      uuid.New().String(),
 		AgentID:      s.AgentAssigned,
@@ -291,9 +309,7 @@ func SessionStart(event *CloudEvent, database *sql.DB, projectDir string) (*Hook
 		CreatedAt:    now,
 		UpdatedAt:    now,
 	}
-	if err := db.InsertEvent(database, ev); err != nil {
-		debugLog(projectDir, "[error] handler=session-start session=%s: insert event: %v", shortID, err)
-	}
+	routeInsertEvent(projectDir, sessionID, ev)
 
 	// Session-family continuity (slice-4, feat-a225ce7c):
 	// Wire the harness-neutral session_family_id for Claude, Codex, and Gemini.
@@ -307,8 +323,32 @@ func SessionStart(event *CloudEvent, database *sql.DB, projectDir string) (*Hook
 			familyID = sessionID
 		}
 		// DB write: set session_family_id on this session row.
-		if err := db.SetSessionFamilyID(database, sessionID, familyID); err != nil {
-			debugLog(projectDir, "[session-start] set session_family_id: %v", err)
+		//
+		// roborev-473 finding 5: this update has an IMMEDIATE in-process consumer —
+		// routeFamilyAttribution (below) reads the family's members via
+		// db.GetSessionsByFamily, which selects on session_family_id. An ENQUEUE-ONLY
+		// write would not yet be applied when that read runs, so this row would be
+		// missing from the member set and sibling work-item attribution would be
+		// silently skipped. This is a once-per-subagent-session, low-frequency write
+		// whose consumer is coupled to it, so CORRECTNESS WINS over the <1s target:
+		// route it APPLIED-ACK via apply.RouteSQL so the row is committed (and thus
+		// visible to the propagation read) before we proceed. apply.RouteSQL is
+		// bounded by CLISubmitBudget (~2s) — acceptable here. On a daemon miss
+		// (RouteSQL returns false) fall back to the direct applied write through the
+		// already-held handle so the row is still committed synchronously before the
+		// read; canonical NDJSON + reindex remain the durability backstop.
+		// familyID is already non-empty (defaulted to sessionID above).
+		//
+		// On a daemon MISS (RouteSQL returns false) the applied-ack guarantee can't
+		// come from the daemon, so we write directly through a BOUNDED own handle
+		// (routeFamilyIDDirectBounded, ~750ms busy_timeout) rather than the passed
+		// handle's default 5s busy_timeout — under a held external write lock the
+		// applied write can't land anyway, and the immediately-following family read
+		// would not see it either way, so failing fast keeps session-start responsive
+		// instead of stalling 5s. canonical NDJSON + reindex remain the backstop.
+		const setFamilySQL = `UPDATE sessions SET session_family_id = ? WHERE session_id = ?`
+		if !routeSQLApplied(projectDir, setFamilySQL, familyID, sessionID) {
+			routeViaOwnBoundedHandle("session-start", projectDir, sessionID, setFamilySQL, familyID, sessionID)
 		}
 		// File writes: family index + per-session state (harness-neutral).
 		agentID := s.AgentAssigned
@@ -321,9 +361,13 @@ func SessionStart(event *CloudEvent, database *sql.DB, projectDir string) (*Hook
 		// a SessionStart the hook observes. Reconciling here on every launch copies
 		// the family's work item onto any sibling that still lacks one, so the
 		// chooser, dashboard, and analytics all attribute the split children.
-		if n, perr := db.PropagateFamilyAttribution(database, familyID); perr != nil {
-			debugLog(projectDir, "[session-start] propagate family attribution: %v", perr)
-		} else if n > 0 {
+		//
+		// The reconcile reads members + donor directly (reads stay direct) and
+		// routes each recipient UPDATE through the daemon enqueue-only path. We use
+		// the count of routed recipients to gate the (best-effort, idempotent) HTML
+		// persistence; enqueue-only acks carry no RowsAffected, so this is the
+		// would-update count rather than the applied count.
+		if n := routeFamilyAttribution(projectDir, database, familyID); n > 0 {
 			persistFamilyAttributionHTML(projectDir, database, familyID)
 			debugLog(projectDir, "[session-start] propagated work item to %d family sibling(s) of %s", n, shortID)
 		}
@@ -428,26 +472,177 @@ func resolveParentLineage(event *CloudEvent, database *sql.DB, parentSessionID, 
 	return inp
 }
 
-// runSessionTransaction batches the session upsert and optional lineage inserts
-// into a single SQLite transaction, reducing per-operation journal sync overhead.
-func runSessionTransaction(database *sql.DB, s *models.Session, inp *lineageInputs) error {
-	tx, err := database.Begin()
+// routeSessionUpsert enqueues the session-row upsert through the writer daemon
+// (RouteHookWrite, enqueue-only). The statement is the exact INSERT OR IGNORE the
+// pre-daemon upsertSessionTx ran, so a replay/resume is idempotent (the writer
+// IGNOREs the conflicting row). NO direct writable Exec is performed when the
+// daemon is reachable; a held lock degrades to the bounded direct fallback inside
+// RouteHookWrite (<1s) and ultimately to canonical NDJSON + reindex.
+func routeSessionUpsert(projectDir, sessionID string, s *models.Session) {
+	RouteHookWrite("session-start", projectDir, sessionID, `
+		INSERT OR IGNORE INTO sessions
+			(session_id, agent_assigned, parent_session_id, parent_event_id,
+			 created_at, status, start_commit, is_subagent, model, active_feature_id,
+			 git_remote_url, project_dir, exec_worktree_path, branch, harness, continued_from)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		s.SessionID,
+		s.AgentAssigned,
+		nullableStr(s.ParentSessionID),
+		nullableStr(s.ParentEventID),
+		s.CreatedAt.UTC().Format(time.RFC3339),
+		s.Status,
+		nullableStr(s.StartCommit),
+		s.IsSubagent,
+		nullableStr(s.Model),
+		nullableStr(s.ActiveFeatureID),
+		nullableStr(s.GitRemoteURL),
+		nullableStr(s.ProjectDir),
+		nullableStr(s.ExecWorktreePath),
+		nullableStr(s.Branch),
+		nullableStr(s.Harness),
+		nullableStr(s.ContinuedFrom),
+	)
+}
+
+// routeLineageTraces enqueues the subagent lineage trace inserts through the
+// writer daemon, in the SAME order the transactional path wrote them (root seed
+// first, then the child trace). FIFO ordering on the single writer guarantees
+// they apply after routeSessionUpsert's session row. Each insert is its own
+// enqueue-only op (RouteHookWrite) — no direct writable Exec.
+func routeLineageTraces(projectDir, sessionID string, inp *lineageInputs) {
+	now := time.Now().UTC()
+	if inp.needsRootSeed {
+		routeLineageTrace(projectDir, sessionID, &models.LineageTrace{
+			TraceID:       inp.parentSessionID,
+			RootSessionID: inp.parentSessionID,
+			SessionID:     inp.parentSessionID,
+			AgentName:     inp.parentAgent,
+			Depth:         0,
+			Path:          []string{inp.parentAgent},
+			FeatureID:     inp.featureID,
+			StartedAt:     now,
+			Status:        "active",
+		})
+	}
+	routeLineageTrace(projectDir, sessionID, &models.LineageTrace{
+		TraceID:       sessionID,
+		RootSessionID: inp.rootSessionID,
+		SessionID:     sessionID,
+		AgentName:     inp.myAgent,
+		Depth:         inp.depth,
+		Path:          inp.path,
+		FeatureID:     inp.featureID,
+		StartedAt:     now,
+		Status:        "active",
+	})
+}
+
+// routeLineageTrace enqueues a single agent_lineage_trace INSERT, mirroring
+// db.insertLineageTrace's statement and arg marshalling (path → JSON).
+func routeLineageTrace(projectDir, sessionID string, trace *models.LineageTrace) {
+	pathJSON, err := json.Marshal(trace.Path)
 	if err != nil {
-		return err
+		debugLog(projectDir, "[session-start] marshal lineage path (trace=%s): %v", trace.TraceID, err)
+		return
 	}
-	defer tx.Rollback() //nolint:errcheck
+	RouteHookWrite("session-start", projectDir, sessionID, `
+		INSERT INTO agent_lineage_trace
+			(trace_id, root_session_id, session_id, agent_name, depth, path,
+			 feature_id, started_at, status)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		trace.TraceID,
+		trace.RootSessionID,
+		nullableStr(trace.SessionID),
+		nullableStr(trace.AgentName),
+		trace.Depth,
+		string(pathJSON),
+		nullableStr(trace.FeatureID),
+		trace.StartedAt.UTC().Format(time.RFC3339),
+		trace.Status,
+	)
+}
 
-	if err := upsertSessionTx(tx, s); err != nil {
-		return err
+// routeInsertEvent enqueues the session-start agent_events row through the writer
+// daemon, mirroring db.InsertEvent's statement. The session-start event has no
+// ParentEventID, so InsertEvent's parent-agent lookup is skipped here (it would
+// be a no-op). No direct writable Exec.
+func routeInsertEvent(projectDir, sessionID string, e *models.AgentEvent) {
+	RouteHookWrite("session-start", projectDir, sessionID, `
+		INSERT INTO agent_events (
+			event_id, agent_id, event_type, timestamp, tool_name,
+			input_summary, tool_input, output_summary, session_id, feature_id,
+			parent_agent_id, parent_event_id, subagent_type,
+			cost_tokens, execution_duration_seconds, status,
+			model, claude_task_id, source, step_id,
+			created_at, updated_at
+		) VALUES (?,?,?,?,?, ?,?,?,?,?, ?,?,?,?,?, ?,?,?,?,?, ?,?)`,
+		e.EventID, e.AgentID, string(e.EventType),
+		e.Timestamp.UTC().Format(time.RFC3339), nullableStr(e.ToolName),
+		nullableStr(e.InputSummary), nullableStr(e.ToolInput), nullableStr(e.OutputSummary),
+		e.SessionID, nullableStr(e.FeatureID),
+		nullableStr(e.ParentAgentID), nullableStr(e.ParentEventID),
+		nullableStr(e.SubagentType),
+		e.CostTokens, e.ExecDuration, e.Status,
+		nullableStr(e.Model), nullableStr(e.ClaudeTaskID),
+		e.Source, nullableStr(e.StepID),
+		e.CreatedAt.UTC().Format(time.RFC3339),
+		e.UpdatedAt.UTC().Format(time.RFC3339),
+	)
+}
+
+// routeFamilyAttribution is the daemon-routed analogue of
+// db.PropagateFamilyAttribution. It performs the read-modify-write reconcile with
+// reads against the read handle and routes each recipient UPDATE through the
+// writer daemon (enqueue-only) instead of writing directly. It returns the number
+// of recipients it ROUTED an update for (the would-update count) so the caller can
+// gate best-effort HTML persistence; because enqueue-only acks carry no
+// RowsAffected, this is not guaranteed to equal the applied-row count, but the
+// reconcile and HTML persist are both idempotent.
+func routeFamilyAttribution(projectDir string, database *sql.DB, familyID string) int {
+	if database == nil || strings.TrimSpace(familyID) == "" {
+		return 0
 	}
-
-	if inp != nil {
-		if err := insertLineageTracesTx(tx, inp, s.SessionID); err != nil {
-			return err
+	members, err := db.GetSessionsByFamily(database, familyID)
+	if err != nil {
+		debugLog(projectDir, "[session-start] propagate family attribution (members): %v", err)
+		return 0
+	}
+	if len(members) < 2 {
+		return 0 // a family of one has no sibling to donate to or from
+	}
+	donor := ""
+	for _, sid := range members {
+		if wi := db.GetActiveWorkItemWithFallback(database, sid, db.AgentRootSentinel); wi != "" {
+			donor = wi
+			break
 		}
 	}
-
-	return tx.Commit()
+	if donor == "" {
+		return 0
+	}
+	now := time.Now().UTC().Format(time.RFC3339)
+	routed := 0
+	for _, sid := range members {
+		if db.GetActiveWorkItemWithFallback(database, sid, db.AgentRootSentinel) != "" {
+			continue // already attributed — never clobber
+		}
+		// Same TOCTOU-guarded predicate as db.PropagateFamilyAttribution: only
+		// write when the recipient is still unattributed in BOTH stores. The
+		// daemon Execs this as one parameterized statement; the guard runs at
+		// apply time so a claim landing between our read and the apply is honored.
+		RouteHookWrite("session-start", projectDir, sid,
+			`UPDATE sessions SET active_feature_id = ?, updated_at = ?
+			 WHERE session_id = ?
+			   AND (active_feature_id IS NULL OR active_feature_id = '')
+			   AND NOT EXISTS (
+			       SELECT 1 FROM active_work_items awi
+			       WHERE awi.session_id = sessions.session_id AND awi.agent_id = ?
+			   )`,
+			donor, now, sid, db.AgentRootSentinel,
+		)
+		routed++
+	}
+	return routed
 }
 
 func persistFamilyAttributionHTML(projectDir string, database *sql.DB, familyID string) {
@@ -493,41 +688,6 @@ func upsertSessionTx(tx *sql.Tx, s *models.Session) error {
 		nullableStr(s.ContinuedFrom),
 	)
 	return err
-}
-
-// insertLineageTracesTx inserts lineage trace rows within an existing transaction.
-func insertLineageTracesTx(tx *sql.Tx, inp *lineageInputs, sessionID string) error {
-	now := time.Now().UTC()
-
-	if inp.needsRootSeed {
-		rootTrace := &models.LineageTrace{
-			TraceID:       inp.parentSessionID,
-			RootSessionID: inp.parentSessionID,
-			SessionID:     inp.parentSessionID,
-			AgentName:     inp.parentAgent,
-			Depth:         0,
-			Path:          []string{inp.parentAgent},
-			FeatureID:     inp.featureID,
-			StartedAt:     now,
-			Status:        "active",
-		}
-		if err := db.InsertLineageTraceExecer(tx, rootTrace); err != nil {
-			return err
-		}
-	}
-
-	trace := &models.LineageTrace{
-		TraceID:       sessionID,
-		RootSessionID: inp.rootSessionID,
-		SessionID:     sessionID,
-		AgentName:     inp.myAgent,
-		Depth:         inp.depth,
-		Path:          inp.path,
-		FeatureID:     inp.featureID,
-		StartedAt:     now,
-		Status:        "active",
-	}
-	return db.InsertLineageTraceExecer(tx, trace)
 }
 
 // upsertSession inserts the session row, ignoring duplicate-key conflicts.
@@ -688,18 +848,36 @@ func isSubagent() bool {
 	return false
 }
 
-// nullableStr converts an empty string to a typed nil for sql.NullString use.
-// We pass the raw string and rely on the db.nullStr helper via the db package;
-// here we return sql.NullString directly for convenience.
-func nullableStr(s string) sql.NullString {
+// nullableStr maps an empty string to a typed SQL NULL (nil) and any non-empty
+// string to itself, returning `any`.
+//
+// CRITICAL JSON-transport contract (bug-a782badf, roborev-476 finding 1): this
+// helper feeds BOTH the in-process transactional path (upsertSessionTx) AND the
+// daemon-routed path (routeSessionUpsert / routeLineageTrace / routeInsertEvent
+// → RouteHookWrite → apply.RouteSQLAsync). The routed path JSON-encodes every
+// bind arg (core/daemon/apply.DerivedOp.Args) and the daemon decodes it back. A
+// sql.NullString JSON-marshals to the OBJECT {"String":...,"Valid":...}, which
+// decodes to a map the SQLite driver CANNOT bind — so the routed Exec silently
+// FAILS and the session/lineage/event row never applies via the daemon (only a
+// reindex recovers it). A plain string / nil binds identically on the daemon's
+// ExecContext AND on any direct-fallback Exec, so it is the only
+// JSON-transport-safe choice. This mirrors core/db/otel_schema.go's nullableStr
+// and core/hooks/dbgate.go's nullableArg (same NULL semantics across the process
+// boundary). NEVER change this back to returning sql.NullString.
+func nullableStr(s string) any {
 	if s == "" {
-		return sql.NullString{}
+		return nil
 	}
-	return sql.NullString{String: s, Valid: true}
+	return s
 }
 
 // GetActiveFeatureID looks up the active_feature_id for a session.
 func GetActiveFeatureID(database *sql.DB, sessionID string) string {
+	// Nil-DB-safe (roborev-478 finding 1): the read-only hook dispatch may run
+	// the handler with a nil DB so the DB-independent guards still execute.
+	if database == nil {
+		return ""
+	}
 	var featID sql.NullString
 	row := database.QueryRow(
 		`SELECT active_feature_id FROM sessions WHERE session_id = ?`, sessionID,

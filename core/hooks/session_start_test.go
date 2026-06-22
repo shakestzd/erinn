@@ -21,7 +21,7 @@ func TestSessionStartStoresProjectDir(t *testing.T) {
 	}
 
 	// Open an in-memory SQLite database.
-	database, err := db.Open(filepath.Join(projectDir, ".wipnote", "wipnote.db"))
+	database, err := openWipnoteTestDB(t, projectDir)
 	if err != nil {
 		t.Fatalf("db.Open: %v", err)
 	}
@@ -59,7 +59,7 @@ func TestSessionStartActiveSessionContainsProjectDir(t *testing.T) {
 		t.Fatalf("mkdir .wipnote: %v", err)
 	}
 
-	database, err := db.Open(filepath.Join(projectDir, ".wipnote", "wipnote.db"))
+	database, err := openWipnoteTestDB(t, projectDir)
 	if err != nil {
 		t.Fatalf("db.Open: %v", err)
 	}
@@ -96,7 +96,7 @@ func TestSessionStartContinueHandoffAdditionalContext(t *testing.T) {
 		t.Fatalf("mkdir .wipnote: %v", err)
 	}
 
-	database, err := db.Open(filepath.Join(projectDir, ".wipnote", "wipnote.db"))
+	database, err := openWipnoteTestDB(t, projectDir)
 	if err != nil {
 		t.Fatalf("db.Open: %v", err)
 	}
@@ -308,7 +308,7 @@ func TestSessionStartUsesOnDemandAttributionGuidance(t *testing.T) {
 		t.Fatalf("mkdir .wipnote: %v", err)
 	}
 
-	database, err := db.Open(filepath.Join(projectDir, ".wipnote", "wipnote.db"))
+	database, err := openWipnoteTestDB(t, projectDir)
 	if err != nil {
 		t.Fatalf("db.Open: %v", err)
 	}
@@ -379,7 +379,7 @@ func TestSessionStartNoOpenItemsNonBareLaunch(t *testing.T) {
 		t.Fatalf("mkdir .wipnote: %v", err)
 	}
 
-	database, err := db.Open(filepath.Join(projectDir, ".wipnote", "wipnote.db"))
+	database, err := openWipnoteTestDB(t, projectDir)
 	if err != nil {
 		t.Fatalf("db.Open: %v", err)
 	}
@@ -429,7 +429,7 @@ func TestSessionStartNoOpenItemsBareLaunch(t *testing.T) {
 		t.Fatalf("mkdir .wipnote: %v", err)
 	}
 
-	database, err := db.Open(filepath.Join(projectDir, ".wipnote", "wipnote.db"))
+	database, err := openWipnoteTestDB(t, projectDir)
 	if err != nil {
 		t.Fatalf("db.Open: %v", err)
 	}

@@ -44,7 +44,7 @@ func makeTestRepo(t *testing.T) string {
 func TestCWDNormalize_MainWorktree_StoresRelative(t *testing.T) {
 	projectDir := makeTestRepo(t)
 
-	database, err := db.Open(filepath.Join(projectDir, ".wipnote", "wipnote.db"))
+	database, err := openWipnoteTestDB(t, projectDir)
 	if err != nil {
 		t.Fatalf("db.Open: %v", err)
 	}
@@ -100,7 +100,13 @@ func TestCWDNormalize_LinkedWorktree_CollapsesToRoot(t *testing.T) {
 	}
 	paths.ResetNormalizeCacheForTesting()
 
-	database, err := db.Open(filepath.Join(mainRepo, ".wipnote", "wipnote.db"))
+	dbPath := filepath.Join(mainRepo, ".wipnote", "wipnote.db")
+	// Pin WIPNOTE_DB_PATH so SessionStart's daemon-routed writes land in the same
+	// file we read back from (see openWipnoteTestDB); the projectDir passed below
+	// (mainRepo) is the canonical root, so DBPath would otherwise resolve the host
+	// cache DB, not this handle's file.
+	t.Setenv("WIPNOTE_DB_PATH", dbPath)
+	database, err := db.Open(dbPath)
 	if err != nil {
 		t.Fatalf("db.Open: %v", err)
 	}
@@ -145,7 +151,13 @@ func TestCWDNormalize_ForeignCWD_StoredWithUnresolvedPrefix(t *testing.T) {
 	// The local project dir (where our DB lives).
 	localProjectDir := makeTestRepo(t)
 
-	database, err := db.Open(filepath.Join(localProjectDir, ".wipnote", "wipnote.db"))
+	dbPath := filepath.Join(localProjectDir, ".wipnote", "wipnote.db")
+	// Pin WIPNOTE_DB_PATH to the LOCAL db: SessionStart is called below with a
+	// FOREIGN projectDir, so DBPath(foreignDir) would resolve an unrelated path.
+	// The daemon-routed writes must land in this local handle's file (see
+	// openWipnoteTestDB).
+	t.Setenv("WIPNOTE_DB_PATH", dbPath)
+	database, err := db.Open(dbPath)
 	if err != nil {
 		t.Fatalf("db.Open: %v", err)
 	}
@@ -221,7 +233,7 @@ func TestCWDNormalize_AlreadyRelative_PassThrough(t *testing.T) {
 func TestCWDNormalize_SubagentStart_StoresRelativeCWD(t *testing.T) {
 	projectDir := makeTestRepo(t)
 
-	database, err := db.Open(filepath.Join(projectDir, ".wipnote", "wipnote.db"))
+	database, err := openWipnoteTestDB(t, projectDir)
 	if err != nil {
 		t.Fatalf("db.Open: %v", err)
 	}

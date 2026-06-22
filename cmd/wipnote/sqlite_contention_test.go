@@ -654,16 +654,16 @@ const heldLockWindow = 800 * time.Millisecond
 const hotHookWallBound = time.Second
 
 // hotHookBusyTimeout is the busy_timeout applied to the BOUNDED writable handle
-// the hooks WITH a documented unrouted residual run against (mirroring
-// core/hooks/hook_contention_test.go's runHotHookBusyTimeout). After
-// bug-d792aee6 routed PreToolUse's last claim writes, the only such residual
-// among the hot hooks is subagent-start's typed multi-statement lineage writes
-// (BackfillParentSession / InsertLineageTrace / UpsertPendingSubagentStart),
-// which still Exec directly on this handle. The short busy_timeout makes those
-// fail-fast under the held lock rather than stalling on the connection-default
-// 5s busy_timeout. pretooluse no longer uses this handle — it runs on the
-// PRODUCTION 5s handle (hooks.OpenHookDB) and asserts <1s, which is only
-// possible because EVERY pretooluse write is now enqueue-only.
+// that hooks with bounded-but-non-contending reuse-the-handle residuals run
+// against (mirroring core/hooks/hook_contention_test.go's runHotHookBusyTimeout).
+// The short busy_timeout keeps those secondary writes fail-fast under the held
+// lock rather than stalling on the connection-default 5s busy_timeout. After
+// bug-d792aee6 (pretooluse) and bug-c9ec25a4 (subagent-start), BOTH of those hot
+// hooks route EVERY contended write enqueue-only and therefore run on the
+// PRODUCTION 5s handle (hooks.OpenHookDB) with an ASSERTED <1s bound — possible
+// only because no write takes the direct lock-contending path. user-prompt /
+// stop / session-start still use this bounded handle for their established
+// sub-second assertions (their non-routed residuals never contend the held lock).
 const hotHookBusyTimeout = 250 * time.Millisecond
 
 // contentionRunCount bakes the plan's "3 consecutive runs" criterion into the
@@ -740,16 +740,15 @@ func TestSQLiteContentionStress_MigratedHotHooksUnderHeldLock(t *testing.T) {
 			t.Fatalf("run %d: FirstPartyBusyTotal = %d, want 0 (durable enqueue-only gate failed)", run, fp)
 		}
 
-		// (b) Each hot hook's wall-clock under the held lock. pretooluse — whose
-		// LAST residual unrouted claim writes were routed through the enqueue-only
-		// seam in bug-d792aee6 — now runs against the PRODUCTION 5s-busy_timeout
-		// handle and MUST complete <1s: that is positive proof every one of its
-		// writes is enqueue-only (a single direct Exec on the held lock would
-		// stall ~5s on the 5s handle). subagent-start still issues typed
-		// multi-statement lineage writes directly on its handle (a documented
-		// residual NOT yet routed — see hotHookCases), so it runs on a SHORT
-		// bounded handle and is measured/reported but NOT asserted <1s; masking it
-		// with the production handle would hide that honestly-residual stall.
+		// (b) Each hot hook's wall-clock under the held lock. pretooluse
+		// (bug-d792aee6) and subagent-start (bug-c9ec25a4) — whose LAST residual
+		// unrouted writes were each routed through the enqueue-only seam — now run
+		// against the PRODUCTION 5s-busy_timeout handle and MUST complete <1s: that
+		// is positive proof every one of their writes is enqueue-only (a single
+		// direct Exec on the held lock would stall ~5s on the 5s handle).
+		// user-prompt / stop / session-start run on the SHORT bounded handle and
+		// keep their established <1s assertions (their non-routed residuals never
+		// contend the held write lock).
 		for _, h := range perHook {
 			bound := "no <1s assertion (documented residual — see note)"
 			if h.assertSubSecond {
@@ -888,17 +887,18 @@ func runOneHookUnderHeldLock(t *testing.T, run int, lockDB *sql.DB, dbPath strin
 	}
 	defer release()
 
-	// Handle selection is FAITHFUL per hook (bug-d792aee6):
+	// Handle selection is FAITHFUL per hook (bug-d792aee6, bug-c9ec25a4):
 	//   - production: hooks.OpenHookDB (5s busy_timeout) — the real handle a
-	//     production hook subprocess opens. Used for hooks whose EVERY write is
-	//     now routed enqueue-only (pretooluse, after its claim writes were
-	//     routed), so a sub-second result on the 5s handle is genuine proof no
-	//     write took the direct lock-contending path.
-	//   - bounded: hooks.OpenHookDBWithBusyTimeout(250ms) — used only for hooks
-	//     with a documented unrouted residual (subagent-start's typed
-	//     multi-statement lineage writes). The short busy_timeout keeps the run
-	//     bounded for the determinism window WITHOUT pretending the residual is
-	//     sub-second; we measure + report it but do NOT assert <1s.
+	//     production hook subprocess opens. Used for hooks whose EVERY contended
+	//     write is now routed enqueue-only (pretooluse after its claim writes were
+	//     routed; subagent-start after its lineage writes were routed), so a
+	//     sub-second result on the 5s handle is genuine proof no write took the
+	//     direct lock-contending path.
+	//   - bounded: hooks.OpenHookDBWithBusyTimeout(250ms) — used for hooks whose
+	//     established <1s assertion runs on a short busy_timeout (user-prompt,
+	//     stop, session-start); their non-routed residuals never contend the held
+	//     write lock, and the short busy_timeout keeps the determinism window
+	//     bounded.
 	var hookDB *sql.DB
 	switch hc.handleKind {
 	case "production":
@@ -941,12 +941,18 @@ func runOneHookUnderHeldLock(t *testing.T, run int, lockDB *sql.DB, dbPath strin
 
 // hotHookCase is one migrated hot hook invocation: a label, the session ID it
 // labels its hook handle/fallback counter with, the closure that drives it, and
-// — per bug-d792aee6 — which writable handle it runs against and whether its <1s
-// bound is ASSERTED (the faithful gate) or merely measured/reported (a hook with
-// a documented unrouted residual).
+// — per bug-d792aee6 / bug-c9ec25a4 — which writable handle it runs against
+// (handleKind) and whether its <1s bound is ASSERTED (assertSubSecond). The two
+// are independent: handleKind selects the fallback busy_timeout, assertSubSecond
+// gates the <1s check.
 //
-//	handleKind == "production"  → hooks.OpenHookDB (5s busy_timeout), assert <1s.
-//	handleKind == "bounded"     → 250ms busy_timeout, measure/report only.
+//	handleKind == "production"  → hooks.OpenHookDB (5s busy_timeout). Used for
+//	  hooks whose EVERY contended write is enqueue-only (pretooluse, subagent-start),
+//	  so a sub-second result on the 5s handle is genuine proof of the fix.
+//	handleKind == "bounded"     → 250ms busy_timeout (user-prompt, stop,
+//	  session-start), whose non-routed residuals never contend the held lock.
+//	assertSubSecond == true      → the run MUST complete <hotHookWallBound.
+//	assertSubSecond == false     → measured/reported only (no current hot hook).
 type hotHookCase struct {
 	name            string
 	sessionID       string
@@ -1011,17 +1017,17 @@ func hotHookCases(run int, projectRoot string) []hotHookCase {
 				}
 			},
 		},
-		// subagent-start: OUT OF SCOPE for bug-d792aee6. Its lineage writes
-		// (BackfillParentSession / InsertLineageTrace / UpsertPendingSubagentStart)
-		// are typed multi-statement, lower-frequency, and remain DIRECT on the
-		// handle — a documented residual NOT yet routed. We run it on a SHORT
-		// bounded handle so the determinism window stays bounded, MEASURE and
-		// REPORT its timing, but deliberately do NOT assert <1s: masking this
-		// residual with the production handle or a false assertion would be
-		// dishonest. Routing these typed writes is a tracked follow-up.
+		// subagent-start: bug-c9ec25a4 routed its LAST residual unrouted lineage
+		// writes (BackfillParentSession / InsertLineageTrace /
+		// UpsertPendingSubagentStart) through the enqueue-only seam, so EVERY
+		// subagent-start write is now routed. It therefore runs on the PRODUCTION
+		// 5s-busy_timeout handle and its <1s bound is ASSERTED — the faithful proof
+		// of the fix (a single direct Exec on the held lock would stall ~5s on this
+		// handle and fail the gate). This completes plan-2390966a's "<1s under
+		// contention" bar across every hot hook.
 		{
 			name: "subagent-start", sessionID: sess,
-			handleKind: "bounded", assertSubSecond: false,
+			handleKind: "production", assertSubSecond: true,
 			invoke: func(t *testing.T, db *sql.DB) {
 				ev := sub
 				if _, err := hooks.SubagentStart(&ev, db); err != nil {

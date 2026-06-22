@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"strconv"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -200,5 +201,141 @@ func TestVersionSkew_MixedVersionRoundTrip(t *testing.T) {
 	}
 	if got := calls.Load(); got != 1 {
 		t.Fatalf("applier ran %d times, want 1 (skewed ops must not apply, matched op must)", got)
+	}
+}
+
+// gatedApplier returns an applier whose WriteOp blocks on a release channel
+// before returning the (per-call) result of outcome(). It records the number of
+// apply attempts and the number that started-but-not-finished, so a test can:
+//   - wedge the single worker so the first op stays PENDING (started, blocked),
+//   - submit a duplicate while op1 is in flight, then
+//   - release the gate and control each apply's success/failure independently.
+//
+// This is the roborev-482 round-5 finding 1 fixture: it proves a duplicate of a
+// still-PENDING op_id is re-enqueued (not durably deduped), and that the write
+// survives even if the FIRST op's apply fails.
+func gatedApplier(release <-chan struct{}, outcome func() error) (Applier, *atomic.Int64) {
+	var calls atomic.Int64
+	a := func(_ Envelope) (writequeue.WriteOp, error) {
+		return func(_ context.Context) error {
+			calls.Add(1)
+			<-release // hold the op in PENDING until the test releases it
+			return outcome()
+		}, nil
+	}
+	return a, &calls
+}
+
+// TestAsyncDedup_PendingDupReEnqueued is the roborev-482 round-5 finding 1 core
+// regression. A SECOND submit of the same op_id that arrives while the FIRST
+// async op is still PENDING (queued/applying, not yet confirmed-committed) must
+// NOT be acked as a durable AckDuplicate — it must be RE-ENQUEUED (AckEnqueued)
+// so it gets its own apply attempt. Before this fix the pending duplicate was
+// durably deduped, so if the first apply later failed the duplicate (which had
+// skipped its fallback) was silently lost.
+func TestAsyncDedup_PendingDupReEnqueued(t *testing.T) {
+	release := make(chan struct{})
+	applier, calls := gatedApplier(release, func() error { return nil })
+	_, sock, cleanup := newTestListener(t, applier)
+	defer cleanup()
+
+	client := NewWriterClientForSocket(sock)
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+
+	// Submit 1 (async): the worker starts applying and blocks on the gate, so
+	// op_id "in-flight-dup" is now PENDING (not yet promoted to applied).
+	ack1, err := client.Submit(ctx, Envelope{OpID: "in-flight-dup", OpType: "test", Async: true})
+	if err != nil {
+		t.Fatalf("first async submit: %v", err)
+	}
+	if ack1.Status != AckEnqueued {
+		t.Fatalf("first ack = %q, want %q", ack1.Status, AckEnqueued)
+	}
+	waitForCalls(t, calls, 1) // apply STARTED (blocked in the gate) → op1 is pending
+
+	// Submit 2 (same op_id) WHILE op1 is still pending: must NOT be durably
+	// deduped. The pending-vs-applied split re-enqueues it instead.
+	ack2, err := client.Submit(ctx, Envelope{OpID: "in-flight-dup", OpType: "test", Async: true})
+	if err != nil {
+		t.Fatalf("in-flight duplicate submit: %v", err)
+	}
+	if ack2.Status == AckDuplicate {
+		t.Fatalf("in-flight duplicate was durably deduped (%q) — the lost-write window this fix closes", ack2.Status)
+	}
+	if ack2.Status != AckEnqueued {
+		t.Fatalf("in-flight duplicate ack = %q, want %q (must re-enqueue)", ack2.Status, AckEnqueued)
+	}
+
+	// Release the worker; both ops drain. Both apply (idempotently) — the second
+	// got its own attempt rather than being collapsed away.
+	close(release)
+	waitForCalls(t, calls, 2)
+	if got := calls.Load(); got != 2 {
+		t.Fatalf("applier ran %d times, want 2 (in-flight duplicate must re-apply, not dedup)", got)
+	}
+}
+
+// TestAsyncDedup_InflightDupSurvivesFail is the correctness payoff of the
+// pending-vs-applied split (roborev-482 round-5 finding 1). The FIRST op's apply
+// FAILS; a duplicate that was submitted while the first was PENDING was
+// re-enqueued (not durably deduped), so its own apply SUCCEEDS and the write
+// LANDS. Before the fix the duplicate would have been acked AckDuplicate,
+// skipped its fallback, and then been silently lost when op1 failed — leaving NO
+// successful apply at all.
+func TestAsyncDedup_InflightDupSurvivesFail(t *testing.T) {
+	release := make(chan struct{})
+	// First apply fails; every subsequent apply succeeds.
+	var failedOnce sync.Once
+	outcome := func() error {
+		var err error
+		failedOnce.Do(func() { err = errors.New("simulated first-apply failure") })
+		return err
+	}
+	applier, calls := gatedApplier(release, outcome)
+	_, sock, cleanup := newTestListener(t, applier)
+	defer cleanup()
+
+	client := NewWriterClientForSocket(sock)
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+
+	// Op1 (async): starts applying, blocks → pending.
+	if ack, err := client.Submit(ctx, Envelope{OpID: "fail-then-dup", OpType: "test", Async: true}); err != nil {
+		t.Fatalf("first async submit: %v", err)
+	} else if ack.Status != AckEnqueued {
+		t.Fatalf("first ack = %q, want %q", ack.Status, AckEnqueued)
+	}
+	waitForCalls(t, calls, 1) // op1 apply started (pending)
+
+	// Duplicate submitted WHILE op1 is pending → re-enqueued, not deduped.
+	ack2, err := client.Submit(ctx, Envelope{OpID: "fail-then-dup", OpType: "test", Async: true})
+	if err != nil {
+		t.Fatalf("in-flight duplicate submit: %v", err)
+	}
+	if ack2.Status != AckEnqueued {
+		t.Fatalf("in-flight duplicate ack = %q, want %q (must re-enqueue while pending)", ack2.Status, AckEnqueued)
+	}
+
+	// Release: op1 applies and FAILS (dropping pending); the duplicate then
+	// applies and SUCCEEDS — the write lands. Two attempts total.
+	close(release)
+	waitForCalls(t, calls, 2)
+	if got := calls.Load(); got != 2 {
+		t.Fatalf("applier ran %d times, want 2 (failed op1 + successful duplicate re-apply)", got)
+	}
+
+	// After the successful apply, the op_id is now APPLIED — a later duplicate
+	// must durably dedup (proves promotion happened and we did not over-correct).
+	ack3, err := client.Submit(ctx, Envelope{OpID: "fail-then-dup", OpType: "test", Async: true})
+	if err != nil {
+		t.Fatalf("post-success duplicate submit: %v", err)
+	}
+	if ack3.Status != AckDuplicate {
+		t.Fatalf("post-success duplicate ack = %q, want %q (a confirmed-applied op must durably dedup)", ack3.Status, AckDuplicate)
+	}
+	time.Sleep(20 * time.Millisecond) // give any (incorrect) re-apply a chance
+	if got := calls.Load(); got != 2 {
+		t.Fatalf("applier ran %d times after post-success duplicate, want 2 (must not re-apply)", got)
 	}
 }

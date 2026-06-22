@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>Address roborev-473 branch-review findings: daemon-routing correctness (ordering races &#43; envelope hardening &#43; writable-open contention)</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="bug-2451e2a0"
+             data-type="bug"
+             data-status="todo"
+             data-priority="medium"
+             data-created="2026-06-22T18:26:28.500447"
+             data-updated="2026-06-22T18:26:28.516823" data-agent-assigned="claude-code" data-track-id="trk-6a1f5362" data-created-by-agent="claude-code" data-created-by-model="claude-opus-4-8[1m]" data-created-by-cli-version="0.64.0-17-gac4898ffa">
+
+        <header>
+            <h1>Address roborev-473 branch-review findings: daemon-routing correctness (ordering races &#43; envelope hardening &#43; writable-open contention)</h1>
+            <div class="metadata">
+                <span class="badge status-todo">Todo</span>
+                <span class="badge priority-medium">Medium Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-6a1f5362.html" data-relationship="part_of" data-since="2026-06-22T18:26:28.51667">trk-6a1f5362</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>roborev job 473 (verdict F, 7 Medium) on exec-plan-2390966a. Envelope: (6) apply.go JSON args decode to float64 -&gt; int64 precision loss; (7) sqlOpID %v hash collides across types. Ordering races from async conversion: (3) pending_subagent_starts enqueue-only but OTLP receiver reads it immediately -&gt; make applied-ack; (4) lineage insert enqueue-only vs SubagentStop direct close -&gt; route stop-close FIFO; (5) session_family_id async vs routeFamilyAttribution immediate read -&gt; applied-ack family-id. Writable-open contention: (1) hot hooks open writable OpenHookDB -&gt; read-only handles (writes are routed); (2) persistentPreRunE opens writable before EnsureSessionRouted -&gt; lazy fallback opener.</p>
+        </section>
+    </article>
+</body>
+</html>

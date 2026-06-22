@@ -76,15 +76,20 @@ func TestSweepOrphanedEventsForProjectCapped(t *testing.T) {
 	}
 	t.Cleanup(func() { database.Close() })
 
-	// Five separate crashed sessions, each with one old started orphan.
+	// Five separate ENDED (terminal) sessions, each with one old started orphan.
+	// Post-roborev-448 the project-wide sweep only reaps orphans from terminal
+	// sessions at the normal threshold; non-terminal (possibly-live) sessions are
+	// protected until the 24h hard cutoff (covered by TestFindStaleProjectOrphans).
 	const total = 5
 	for i := 0; i < total; i++ {
 		sid := "sess-capped-" + string(rune('a'+i))
+		completed := time.Now().UTC().Add(-time.Hour)
 		s := &models.Session{
 			SessionID:     sid,
 			AgentAssigned: "claude-code",
-			Status:        "active",
-			CreatedAt:     time.Now().UTC(),
+			Status:        "completed",
+			CreatedAt:     time.Now().UTC().Add(-2 * time.Hour),
+			CompletedAt:   &completed,
 		}
 		CreateSessionHTML(projectDir, s)
 		if err := db.InsertSession(database, s); err != nil {

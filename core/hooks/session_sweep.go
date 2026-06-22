@@ -44,7 +44,7 @@ func SweepOrphanedEventsForSession(database *sql.DB, projectDir, sessionID strin
 // not user-visible. The latency-sensitive session-start hook path MUST use
 // SweepOrphanedEventsForProjectCapped instead.
 func SweepOrphanedEventsForProject(database *sql.DB, projectDir string) int {
-	orphans, err := db.FindOrphanedEvents(database, "", OrphanThreshold)
+	orphans, err := db.FindStaleProjectOrphans(database, OrphanThreshold, OrphanHardCutoff, 0)
 	if err != nil {
 		debugLog(projectDir, "[sweep] find orphans for project: %v", err)
 		return 0
@@ -73,7 +73,7 @@ const SessionStartSweepCap = 8
 // likely remains, which the caller can surface for observability. cap <= 0 is
 // treated as unlimited.
 func SweepOrphanedEventsForProjectCapped(database *sql.DB, projectDir string, cap int) (appended, discovered int) {
-	orphans, err := db.FindOrphanedEventsLimited(database, "", OrphanThreshold, cap)
+	orphans, err := db.FindStaleProjectOrphans(database, OrphanThreshold, OrphanHardCutoff, cap)
 	if err != nil {
 		debugLog(projectDir, "[sweep] find orphans for project (capped): %v", err)
 		return 0, 0

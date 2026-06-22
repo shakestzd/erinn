@@ -361,6 +361,58 @@ func FindOrphanedEventsLimited(db *sql.DB, sessionID string, olderThan time.Dura
 	return out, rows.Err()
 }
 
+// FindStaleProjectOrphans returns project-wide 'started' agent_events older than
+// olderThan, but PROTECTS sessions that may still be live: an event from a
+// non-terminal session (status not completed/failed and completed_at IS NULL) is
+// only returned once it is older than hardCutoff. This prevents a legitimately
+// long-running tool in a live session (e.g. a multi-minute test run) from being
+// falsely marked aborted by the periodic project-wide drain (roborev job 448).
+// Sessions carry no heartbeat, so terminal-state + a hard cutoff is the available
+// liveness proxy; terminal sessions are swept at the normal olderThan threshold.
+// limit > 0 caps the rows (oldest-first). Used only by the project-wide sweeps;
+// the per-session sweep deliberately stays unprotected (it cleans its own session).
+func FindStaleProjectOrphans(db *sql.DB, olderThan, hardCutoff time.Duration, limit int) ([]OrphanEvent, error) {
+	normalCutoff := time.Now().UTC().Add(-olderThan).Format(time.RFC3339)
+	hardCutoffStr := time.Now().UTC().Add(-hardCutoff).Format(time.RFC3339)
+	limitClause := ""
+	if limit > 0 {
+		limitClause = fmt.Sprintf(" LIMIT %d", limit)
+	}
+	rows, err := db.Query(`
+		SELECT event_id, session_id, COALESCE(tool_name, ''), agent_id,
+		       COALESCE(feature_id, ''), created_at
+		FROM agent_events
+		WHERE status = 'started' AND created_at < ?
+		  AND (
+		    created_at < ?
+		    OR session_id IN (
+		      SELECT session_id FROM sessions
+		      WHERE status IN ('completed', 'failed') OR completed_at IS NOT NULL
+		    )
+		  )
+		ORDER BY created_at ASC`+limitClause, normalCutoff, hardCutoffStr)
+	if err != nil {
+		return nil, fmt.Errorf("find stale project orphans: %w", err)
+	}
+	defer rows.Close()
+
+	var out []OrphanEvent
+	for rows.Next() {
+		var o OrphanEvent
+		var createdStr string
+		if err := rows.Scan(&o.EventID, &o.SessionID, &o.ToolName, &o.AgentID, &o.FeatureID, &createdStr); err != nil {
+			return nil, fmt.Errorf("scan orphaned event: %w", err)
+		}
+		if t, perr := time.Parse(time.RFC3339, createdStr); perr == nil {
+			o.CreatedAt = t.UTC()
+		} else if t, perr := time.Parse("2006-01-02 15:04:05", createdStr); perr == nil {
+			o.CreatedAt = t.UTC()
+		}
+		out = append(out, o)
+	}
+	return out, rows.Err()
+}
+
 // MarkEventAborted transitions an agent_event row to status='aborted' and
 // records a reason marker. Used by the orphan sweep to close out started
 // rows whose PostToolUse never fired. Returns the number of rows updated —

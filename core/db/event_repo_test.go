@@ -782,6 +782,64 @@ func TestFindOrphanedEventsLimited(t *testing.T) {
 	}
 }
 
+// TestFindStaleProjectOrphans verifies the live-session protection (roborev 448):
+// a started event in a NON-terminal (possibly live) session is not returned until
+// it crosses the hard cutoff, while a terminal session's event is returned at the
+// normal threshold.
+func TestFindStaleProjectOrphans(t *testing.T) {
+	database := setupTestDB(t)
+	defer database.Close()
+
+	now := time.Now().UTC()
+	mkSession := func(id, status string) {
+		t.Helper()
+		s := &models.Session{SessionID: id, Status: status, CreatedAt: now.Add(-26 * time.Hour)}
+		if status == "completed" {
+			c := now.Add(-1 * time.Hour)
+			s.CompletedAt = &c
+		}
+		if err := db.UpsertSession(database, s); err != nil {
+			t.Fatalf("seed session %s: %v", id, err)
+		}
+	}
+	mkEvent := func(id, sid string, age time.Duration) {
+		t.Helper()
+		created := now.Add(-age)
+		ev := &models.AgentEvent{
+			EventID: id, AgentID: "claude-code", EventType: models.EventToolCall,
+			Timestamp: created, ToolName: "Bash", SessionID: sid, Status: "started",
+			Source: "hook", CreatedAt: created, UpdatedAt: created,
+		}
+		if err := db.UpsertEvent(database, ev); err != nil {
+			t.Fatalf("seed event %s: %v", id, err)
+		}
+	}
+
+	mkSession("sess-live", "active")    // non-terminal: protected until hard cutoff
+	mkSession("sess-done", "completed") // terminal: swept at normal threshold
+	mkEvent("evt-live-recent", "sess-live", 10*time.Minute) // protected (no heartbeat, but < hard cutoff)
+	mkEvent("evt-live-ancient", "sess-live", 25*time.Hour)  // past hard cutoff → swept anyway
+	mkEvent("evt-done-recent", "sess-done", 10*time.Minute) // terminal → swept
+
+	got, err := db.FindStaleProjectOrphans(database, 5*time.Minute, 24*time.Hour, 0)
+	if err != nil {
+		t.Fatalf("FindStaleProjectOrphans: %v", err)
+	}
+	found := map[string]bool{}
+	for _, o := range got {
+		found[o.EventID] = true
+	}
+	if found["evt-live-recent"] {
+		t.Errorf("evt-live-recent should be PROTECTED (live session, < hard cutoff) but was returned")
+	}
+	if !found["evt-done-recent"] {
+		t.Errorf("evt-done-recent (terminal session) should be swept at the normal threshold")
+	}
+	if !found["evt-live-ancient"] {
+		t.Errorf("evt-live-ancient (past 24h hard cutoff) should be swept even for a live session")
+	}
+}
+
 func TestMarkEventAborted(t *testing.T) {
 	database := setupTestDB(t)
 	defer database.Close()

@@ -11,11 +11,48 @@ import (
 	"time"
 
 	dbpkg "github.com/shakestzd/wipnote/core/db"
+	"github.com/shakestzd/wipnote/core/hooks"
 	"github.com/shakestzd/wipnote/core/models"
 	"github.com/shakestzd/wipnote/core/worktree"
 )
 
 const emptySpikeSweepInterval = time.Hour
+
+// orphanDrainInterval is how often the serve-side writer daemon runs the
+// UNCAPPED project-wide orphan sweep. The session-start hook only drains a
+// small capped batch (SessionStartSweepCap) so the launcher stays fast
+// (bug-504095f2); this out-of-band loop clears any remaining backlog from
+// crashed sessions without blocking an interactive launch.
+const orphanDrainInterval = 5 * time.Minute
+
+// startOrphanDrainLoop runs the uncapped project-wide orphan sweep on a low
+// frequency inside the headless writer daemon, where its wall-clock cost is not
+// user-visible. Best-effort: it shares the daemon's single writable handle, runs
+// once at startup and then on a ticker, and stops on ctx cancellation. A panic
+// in the sweep is recovered so a malformed session HTML file can never crash the
+// writer daemon.
+func startOrphanDrainLoop(ctx context.Context, writeDB *sql.DB, projectRoot string) {
+	if writeDB == nil || projectRoot == "" {
+		return
+	}
+	drain := func() {
+		defer func() { _ = recover() }()
+		hooks.SweepOrphanedEventsForProject(writeDB, projectRoot)
+	}
+	go func() {
+		drain()
+		ticker := time.NewTicker(orphanDrainInterval)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				drain()
+			}
+		}
+	}()
+}
 
 var completeWorkItemIfInProgressFn = completeWorkItemIfInProgress
 

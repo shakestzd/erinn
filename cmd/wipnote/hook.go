@@ -217,7 +217,19 @@ func hookSubcmdWithProject(
 					return fallback, nil
 				}
 				// Canonical-first contract — see hookSubcmd above.
-				database, reason := hooks.OpenHookDB(use, event.SessionID, dbPath)
+				// bug-504095f2: session-start runs on the launcher's
+				// post-selection critical path (Claude blocks on the hook's
+				// additionalContext), so its writable handle uses a SHORT
+				// busy_timeout to fail fast under contention instead of
+				// stalling ~5s. session-end / session-resume are not on the
+				// interactive path and keep the default-timeout open.
+				var database *sql.DB
+				var reason hooks.FallbackReason
+				if use == "session-start" {
+					database, reason = hooks.OpenHookDBWithBusyTimeout(use, event.SessionID, dbPath, hooks.SessionStartBusyTimeout)
+				} else {
+					database, reason = hooks.OpenHookDB(use, event.SessionID, dbPath)
+				}
 				if database == nil {
 					_ = reason
 					return fallback, nil

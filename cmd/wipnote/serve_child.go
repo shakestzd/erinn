@@ -296,6 +296,12 @@ func startWriterMaintenance(ctx context.Context, writeDB *sql.DB, wipnoteDir str
 
 	// Empty spike worktree GC: opt-in, conservative, and liveness-aware.
 	startEmptySpikeWorktreeSweepLoop(ctx, writeDB, projectRoot)
+
+	// Out-of-band orphan drain (bug-504095f2): the session-start hook only
+	// sweeps a small capped batch so the launcher stays fast; this low-frequency
+	// loop clears any remaining crash backlog using the daemon's single writable
+	// handle, off the interactive path.
+	startOrphanDrainLoop(ctx, writeDB, projectRoot)
 }
 
 // writerIdleTimeout resolves the headless writer's idle-exit window. It honours

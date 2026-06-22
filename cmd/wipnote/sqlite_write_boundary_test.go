@@ -273,7 +273,7 @@ var approvedWriteSites = []writeSite{
 	},
 	{
 		File:           "cmd/wipnote/serve_child.go",
-		Line:           388,
+		Line:           394,
 		Function:       "runServeChild",
 		OpenExpr:       "dbpkg.OpenWritable",
 		Classification: intentionalCLIMutation,

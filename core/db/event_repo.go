@@ -297,8 +297,29 @@ type OrphanEvent struct {
 // FindOrphanedEvents returns 'started' agent_events older than olderThan.
 // When sessionID is non-empty, scopes the query to that session. The index
 // idx_agent_events_session_ts_desc already covers this access pattern.
+//
+// This is the UNLIMITED variant — it returns every matching orphan. Callers on
+// a latency-sensitive path (e.g. the session-start hook) MUST use
+// FindOrphanedEventsLimited so a large crash backlog cannot stall the hot path.
 func FindOrphanedEvents(db *sql.DB, sessionID string, olderThan time.Duration) ([]OrphanEvent, error) {
+	return FindOrphanedEventsLimited(db, sessionID, olderThan, 0)
+}
+
+// FindOrphanedEventsLimited is FindOrphanedEvents with an optional row cap.
+// When limit > 0 the query returns at most limit rows, oldest-first
+// (ORDER BY created_at ASC), so a bounded sweep drains the longest-stale
+// orphans first. limit <= 0 means unlimited (identical to FindOrphanedEvents).
+//
+// Bounding the discovery is the cheap half of taking the project-wide orphan
+// sweep off the synchronous session-start hook path (bug-504095f2): each
+// returned orphan costs a goquery parse + flock append + SQL UPDATE downstream,
+// so capping the row count caps the hot-path cost regardless of backlog size.
+func FindOrphanedEventsLimited(db *sql.DB, sessionID string, olderThan time.Duration, limit int) ([]OrphanEvent, error) {
 	cutoff := time.Now().UTC().Add(-olderThan).Format(time.RFC3339)
+	limitClause := ""
+	if limit > 0 {
+		limitClause = fmt.Sprintf(" LIMIT %d", limit)
+	}
 	var (
 		rows *sql.Rows
 		err  error
@@ -309,14 +330,14 @@ func FindOrphanedEvents(db *sql.DB, sessionID string, olderThan time.Duration) (
 			       COALESCE(feature_id, ''), created_at
 			FROM agent_events
 			WHERE session_id = ? AND status = 'started' AND created_at < ?
-			ORDER BY created_at ASC`, sessionID, cutoff)
+			ORDER BY created_at ASC`+limitClause, sessionID, cutoff)
 	} else {
 		rows, err = db.Query(`
 			SELECT event_id, session_id, COALESCE(tool_name, ''), agent_id,
 			       COALESCE(feature_id, ''), created_at
 			FROM agent_events
 			WHERE status = 'started' AND created_at < ?
-			ORDER BY created_at ASC`, cutoff)
+			ORDER BY created_at ASC`+limitClause, cutoff)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("find orphaned events: %w", err)

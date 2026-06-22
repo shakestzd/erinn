@@ -715,6 +715,73 @@ func TestFindOrphanedEvents(t *testing.T) {
 	}
 }
 
+// TestFindOrphanedEventsLimited verifies the LIMIT variant returns at most N
+// orphans, oldest-first, so the session-start hot path drains a bounded batch
+// (bug-504095f2) while leaving the rest for the serve-side drain.
+func TestFindOrphanedEventsLimited(t *testing.T) {
+	database := setupTestDB(t)
+	defer database.Close()
+
+	now := time.Now().UTC()
+	insert := func(id string, minutesAgo int) {
+		t.Helper()
+		created := now.Add(-time.Duration(minutesAgo) * time.Minute)
+		ev := &models.AgentEvent{
+			EventID:   id,
+			AgentID:   "claude-code",
+			EventType: models.EventToolCall,
+			Timestamp: created,
+			ToolName:  "Bash",
+			SessionID: "sess-test",
+			Status:    "started",
+			Source:    "hook",
+			CreatedAt: created,
+			UpdatedAt: created,
+		}
+		if err := db.UpsertEvent(database, ev); err != nil {
+			t.Fatalf("insert %s: %v", id, err)
+		}
+	}
+
+	// Five orphans, all past the 5m threshold, distinct ages.
+	insert("evt-o-10", 10)
+	insert("evt-o-40", 40)
+	insert("evt-o-20", 20)
+	insert("evt-o-50", 50) // oldest
+	insert("evt-o-30", 30)
+
+	// Cap at 2 → must return exactly 2, the oldest two (50m, 40m).
+	limited, err := db.FindOrphanedEventsLimited(database, "", 5*time.Minute, 2)
+	if err != nil {
+		t.Fatalf("FindOrphanedEventsLimited: %v", err)
+	}
+	if len(limited) != 2 {
+		t.Fatalf("expected exactly 2 capped orphans, got %d", len(limited))
+	}
+	if limited[0].EventID != "evt-o-50" || limited[1].EventID != "evt-o-40" {
+		t.Errorf("expected oldest-first [evt-o-50, evt-o-40], got [%s, %s]",
+			limited[0].EventID, limited[1].EventID)
+	}
+
+	// limit <= 0 means unlimited — returns all 5.
+	all, err := db.FindOrphanedEventsLimited(database, "", 5*time.Minute, 0)
+	if err != nil {
+		t.Fatalf("FindOrphanedEventsLimited unlimited: %v", err)
+	}
+	if len(all) != 5 {
+		t.Errorf("expected 5 unlimited orphans, got %d", len(all))
+	}
+
+	// A cap larger than the population returns everything.
+	big, err := db.FindOrphanedEventsLimited(database, "", 5*time.Minute, 100)
+	if err != nil {
+		t.Fatalf("FindOrphanedEventsLimited big cap: %v", err)
+	}
+	if len(big) != 5 {
+		t.Errorf("expected 5 orphans under a big cap, got %d", len(big))
+	}
+}
+
 func TestMarkEventAborted(t *testing.T) {
 	database := setupTestDB(t)
 	defer database.Close()

@@ -262,7 +262,14 @@ func SessionStart(event *CloudEvent, database *sql.DB, projectDir string) (*Hook
 
 	// Sweep orphans from any previous sessions in this project — closes out
 	// tool calls that crashed mid-flight so session history stays consistent.
-	SweepOrphanedEventsForProject(database, projectDir)
+	// BOUNDED on the hot path (bug-504095f2): cap the number of orphans
+	// processed so a large crash backlog cannot stall the launcher behind a
+	// multi-second sweep. The serve-side periodic drain clears any remainder
+	// out-of-band; when the cap is hit we log the residual for observability.
+	if appended, discovered := SweepOrphanedEventsForProjectCapped(database, projectDir, SessionStartSweepCap); discovered >= SessionStartSweepCap {
+		debugLog(projectDir, "[session-start] capped orphan sweep at %d (appended=%d); backlog drains via serve",
+			SessionStartSweepCap, appended)
+	}
 
 	LogTimed(projectDir, "session-start", map[string]string{
 		"session": shortID,

@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>roborev-476 round-2: SessionStart routed args use sql.NullString (HIGH, silent daemon apply failure) &#43; read-only-open gaps &#43; gate not in approved profile</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="bug-a782badf"
+             data-type="bug"
+             data-status="todo"
+             data-priority="medium"
+             data-created="2026-06-22T19:16:49.153096"
+             data-updated="2026-06-22T19:16:49.267104" data-agent-assigned="claude-code" data-track-id="trk-6a1f5362" data-created-by-agent="claude-code" data-created-by-model="claude-opus-4-8[1m]" data-created-by-cli-version="0.64.0-17-gac4898ffa">
+
+        <header>
+            <h1>roborev-476 round-2: SessionStart routed args use sql.NullString (HIGH, silent daemon apply failure) &#43; read-only-open gaps &#43; gate not in approved profile</h1>
+            <div class="metadata">
+                <span class="badge status-todo">Todo</span>
+                <span class="badge priority-medium">Medium Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-6a1f5362.html" data-relationship="part_of" data-since="2026-06-22T19:16:49.266748">trk-6a1f5362</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>Re-review job 476 (verdict F). HIGH: core/hooks/session_start.go local nullableStr (line 854) returns sql.NullString; routeSessionUpsert + other routed writes pass it through RouteHookWrite -&gt; JSON-encodes as object -&gt; daemon Exec fails to bind -&gt; session/lineage writes silently never apply via daemon (enqueue-only acked, no fallback). Fix: nullableStr -&gt; any (nil/string); verify ALL routed session_start args JSON-safe; add real daemon-round-trip test asserting the session ROW lands. Med: dbgate.go OpenHookDBReadOnly uses OpenReadOnlyMigrated which opens writable to migrate first -&gt; use truly read-only open for hot hooks when DB exists. Med: hook.go session-start still opens writable OpenHookDB -&gt; read-only/bounded. Med: gate_durability_test.go verifies synthetic plan but .wipnote/guard-profile.yaml only runs build+vet -&gt; wire the contention fixture into the real approved gate or assert the real profile path.</p>
+        </section>
+    </article>
+</body>
+</html>

@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>Manual &#39;wipnote sweep orphaned-events&#39; should bypass live-session protection</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="bug-aaf25c77"
+             data-type="bug"
+             data-status="todo"
+             data-priority="medium"
+             data-created="2026-06-22T06:00:21.122921"
+             data-updated="2026-06-22T06:00:21.282987" data-agent-assigned="claude-code" data-track-id="trk-6a1f5362" data-created-by-agent="claude-code" data-created-by-model="claude-opus-4-8[1m]" data-created-by-cli-version="0.63.4-16-g7709d2ddd">
+
+        <header>
+            <h1>Manual &#39;wipnote sweep orphaned-events&#39; should bypass live-session protection</h1>
+            <div class="metadata">
+                <span class="badge status-todo">Todo</span>
+                <span class="badge priority-medium">Medium Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="caused_by">
+                <h3>Caused By:</h3>
+                <ul>
+                    <li><a href="../features/feat-98096297.html" data-relationship="caused_by" data-since="2026-06-22T06:00:21.231586">feat-98096297</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-6a1f5362.html" data-relationship="part_of" data-since="2026-06-22T06:00:21.282738">trk-6a1f5362</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>Follow-up to roborev P2 on PR #135 (bug-504095f2/#448/#455). FindStaleProjectOrphans protects non-terminal sessions (completed_at NULL) until the 24h hard cutoff to avoid false-aborting live long-running tools (sessions have no heartbeat). Correct for the AUTOMATIC drain + session-start cap, but the EXPLICIT manual path (cmd/wipnote/sweep.go -&gt; SweepOrphanedEventsForProject) is over-protected: a user who runs &#39;wipnote sweep orphaned-events&#39; has opted in and expects crashed-session orphans swept at the 5m threshold, not 24h. Fix: give the manual sweep an unprotected variant (or a --all/--include-active flag) that uses the pre-448 behavior, while keeping the automatic paths protected. Also consider adding a session heartbeat so live vs crashed can be distinguished (would remove the tradeoff entirely).</p>
+        </section>
+    </article>
+</body>
+</html>

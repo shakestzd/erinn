@@ -4,9 +4,9 @@ meta:
     title: 'Durable fix: eliminate multi-process SQLite write contention via single-writer daemon'
     description: ""
     created_at: ""
-    status: draft
+    status: finalized
     schema_version: v4
-    version: 1
+    version: 2
 design:
     problem: |
         The launcher's two ~5s stalls (bug-504095f2) were SQLite busy_timeout(5000)
@@ -47,6 +47,7 @@ design:
           accessed: "2026-06-21"
 slices:
     - id: slice-1
+      feature_id: feat-842b24c8
       num: 1
       title: Generic SQL-envelope DerivedOp + RouteSQL daemon client (foundation)
       what: |
@@ -81,7 +82,7 @@ slices:
         assert the row is written. TestRouteSQL_NoDaemon_ReturnsFalse — no daemon,
         RouteSQL returns false without error.
       complexity: complex
-      approved: false
+      approved: true
       comment: ""
       research:
         - url: https://www.sqlite.org/wal.html
@@ -90,6 +91,7 @@ slices:
         - url: https://duckdb.org/2026/05/12/quack-remote-protocol
           claim: Precedent for a {statement}-over-IPC client-server write path where one server serializes; validates the SQL-envelope-to-daemon design.
           accessed: "2026-06-21"
+      execution_status: promoted
       questions:
         - id: q-sql-safety
           text: Is arbitrary SQL over the daemon IPC acceptable from a safety standpoint?
@@ -141,6 +143,7 @@ slices:
             - 'daemon apply loop: Apply(DerivedOp)'
             - 'single writable handle: Exec(sql,args) RetryOnBusy'
     - id: slice-2
+      feature_id: feat-9710753b
       num: 2
       title: 'Hook write primitive: RouteHookWrite (daemon-first, bounded-direct last resort)'
       what: |
@@ -171,9 +174,10 @@ slices:
         no direct open), TestRouteHookWrite_FallbackBounded (no daemon + held lock ->
         returns <1s, no error), TestRouteHookWrite_AllFail_StillSucceeds.
       complexity: complex
-      approved: false
+      approved: true
       comment: ""
       research_waiver: Internal composition over wipnote's own daemon IPC (slice 1) and existing OpenHookDBWithBusyTimeout; no external library or standard applies.
+      execution_status: promoted
       questions:
         - id: q-fallback-keep
           text: Keep the bounded direct-open fallback long-term or remove it once all hooks route through the daemon?
@@ -202,6 +206,7 @@ slices:
             - 'busy/err: RecordFallback(writer_unavailable) + return success'
             - 'backstop: canonical NDJSON already on disk -> reindex restores row'
     - id: slice-3
+      feature_id: feat-597bbf26
       num: 3
       title: Migrate SessionStart writes to the daemon
       what: |
@@ -232,9 +237,10 @@ slices:
         ack) leave NO direct-open fallback log, and that all rows land. Reuse the
         held-lock harness for the <1s assertion.
       complexity: complex
-      approved: false
+      approved: true
       comment: ""
       research_waiver: Internal migration of existing handler writes onto the slice-2 primitive; no external dependency.
+      execution_status: promoted
       questions:
         - id: q-tx-atomicity
           text: runSessionTransaction batches several writes in one tx — how is that preserved over the SQL envelope?
@@ -256,6 +262,7 @@ slices:
             - core/hooks/session_start.go
             - cmd/wipnote/hook.go
     - id: slice-4
+      feature_id: feat-8a4d2955
       num: 4
       title: Migrate pretooluse / user-prompt / subagent-start / stop writes to the daemon
       what: |
@@ -284,9 +291,10 @@ slices:
         on a file DB, asserting each of the four hooks returns <1s with a daemon ack
         and <1s via bounded fallback without a daemon, and never errors.
       complexity: complex
-      approved: false
+      approved: true
       comment: ""
       research_waiver: Internal migration of existing handler writes onto the slice-2 primitive; no external dependency.
+      execution_status: promoted
       questions:
         - id: q-pretooluse-latency
           text: PreToolUse is the most latency-sensitive (every tool call) — is the daemon round-trip itself cheap enough?
@@ -312,6 +320,7 @@ slices:
             - core/hooks/subagent_start.go
             - core/hooks/missing_events.go
     - id: slice-5
+      feature_id: feat-1ad54813
       num: 5
       title: Route launcher persistentPreRunE EnsureSession through the daemon
       what: |
@@ -340,9 +349,10 @@ slices:
         -> no direct open) alongside the existing
         TestEnsureSessionWithTimeout_FailsFastUnderContention.
       complexity: complex
-      approved: false
+      approved: true
       comment: ""
       research_waiver: Internal migration onto the existing apply.RouteSessionInsert route; no external dependency.
+      execution_status: promoted
       questions:
         - id: q-readonly-check
           text: Does the session-exists check need the writable handle at all?
@@ -359,6 +369,7 @@ slices:
             - cmd/wipnote/main.go
             - core/agent/ensure.go
     - id: slice-6
+      feature_id: feat-c08d1ba1
       num: 6
       title: Fix the ~5.45s uncontended stop-hook baseline
       what: |
@@ -384,9 +395,10 @@ slices:
         correctness test that the previously-synchronous work still completes
         (out-of-band or capped).
       complexity: complex
-      approved: false
+      approved: true
       comment: ""
       research_waiver: Profiling + debottlenecking of internal hook code; no external dependency.
+      execution_status: promoted
       questions:
         - id: q-stop-cause
           text: What is the likely 5.45s baseline cause in Stop?
@@ -420,6 +432,7 @@ slices:
             - cap/defer/background off hot path
             - Stop hook <1s baseline
     - id: slice-7
+      feature_id: feat-41b2aa52
       num: 7
       title: Collapse the hot-path write-site inventory + retire band-aid scaffolding
       what: |
@@ -452,9 +465,10 @@ slices:
         updated to the new classifications; a guard assertion that hook-tree handlers
         route through the daemon.
       complexity: complex
-      approved: false
+      approved: true
       comment: ""
       research_waiver: Internal governance/test update; no external dependency.
+      execution_status: promoted
       questions:
         - id: q-inventory-target
           text: What is the realistic inventory end-state — literally one site?
@@ -473,6 +487,7 @@ slices:
             - core/hooks/dbgate.go
             - cmd/wipnote/claude_launch_timing.go
     - id: slice-8
+      feature_id: feat-bbb80917
       num: 8
       title: 'CI durability gate: contention stress + no-stall assertions'
       what: |
@@ -501,12 +516,13 @@ slices:
       tests: |
         The slice IS the test; plus a meta-assertion that the gate wiring invokes it.
       complexity: complex
-      approved: false
+      approved: true
       comment: ""
       research:
         - url: https://www.sqlite.org/pragma.html#pragma_busy_timeout
           claim: busy_timeout governs how long a contended writer blocks before SQLITE_BUSY; the stress test asserts the daemon routing makes that path effectively unreachable for hot writers (zero first-party BUSY).
           accessed: "2026-06-21"
+      execution_status: promoted
       questions:
         - id: q-stress-determinism
           text: How is the contention stress made deterministic across CI machines?

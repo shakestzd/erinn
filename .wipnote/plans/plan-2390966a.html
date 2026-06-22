@@ -547,15 +547,15 @@ body.right-rail-collapsed .sidebar-reopen{display:flex}
 </nav>
 <div class="plan-layout">
 <div class="plan-content">
-<article id="plan-2390966a" data-type="plan" data-plan-id="plan-2390966a" data-feature-id="trk-6a1f5362" data-status="draft" data-priority="medium">
+<article id="plan-2390966a" data-type="plan" data-plan-id="plan-2390966a" data-feature-id="trk-6a1f5362" data-status="finalized" data-priority="medium">
 
 <!-- Plan Header -->
 <header class="plan-header">
   <h1>Plan: Durable fix: eliminate multi-process SQLite write contention via single-writer daemon</h1>
   
   <div class="meta">
-    <span class="badge badge-pending">Draft</span>
-    <span style="font-size:.75rem;color:var(--text-muted)">v1 · 8 slices · Created 2026-06-22</span>
+    <span class="badge badge-approved">Done</span>
+    <span style="font-size:.75rem;color:var(--text-muted)">v2 · 8 slices · Created 2026-06-22</span>
   </div>
 </header>
 <button id="themeToggle" style="position:fixed;top:16px;right:16px;z-index:100;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:6px 12px;color:var(--text);font-family:var(--mono);font-size:0.75rem;cursor:pointer;">
@@ -837,7 +837,7 @@ shows the same stall in pretooluse (10s), user-prompt (14s), subagent-start
           <span class="badge badge-revision badge-sm">M</span>
           <span class="badge badge-revision badge-sm">Med</span>
           <span class="badge badge-revision badge-sm badge-complexity" title="Complexity: complex">Complex</span>
-          
+          <span class="badge badge-revision badge-sm" title="Execution: promoted">Promoted</span>
           <span class="badge badge-pending badge-sm slice-approval-badge" data-badge-for="slice-1">Pending</span>
           
           <span class="badge badge-sm badge-questions" title="1 open question(s)">1 Q</span>
@@ -1042,7 +1042,7 @@ RouteSQL returns false without error.</p>
           <span class="badge badge-revision badge-sm">M</span>
           <span class="badge badge-revision badge-sm">Med</span>
           <span class="badge badge-revision badge-sm badge-complexity" title="Complexity: complex">Complex</span>
-          
+          <span class="badge badge-revision badge-sm" title="Execution: promoted">Promoted</span>
           <span class="badge badge-pending badge-sm slice-approval-badge" data-badge-for="slice-2">Pending</span>
           
           <span class="badge badge-sm badge-questions" title="1 open question(s)">1 Q</span>
@@ -1213,7 +1213,7 @@ returns &lt;1s, no error), TestRouteHookWrite_AllFail_StillSucceeds.</p>
           <span class="badge badge-revision badge-sm">M</span>
           <span class="badge badge-revision badge-sm">Med</span>
           <span class="badge badge-revision badge-sm badge-complexity" title="Complexity: complex">Complex</span>
-          
+          <span class="badge badge-revision badge-sm" title="Execution: promoted">Promoted</span>
           <span class="badge badge-pending badge-sm slice-approval-badge" data-badge-for="slice-3">Pending</span>
           <span class="badge badge-sm badge-issues" title="1 critic issue(s)">1 issue</span>
           <span class="badge badge-sm badge-questions" title="1 open question(s)">1 Q</span>
@@ -1388,7 +1388,7 @@ held-lock harness for the &lt;1s assertion.</p>
           <span class="badge badge-blocked badge-sm">L</span>
           <span class="badge badge-revision badge-sm">Med</span>
           <span class="badge badge-revision badge-sm badge-complexity" title="Complexity: complex">Complex</span>
-          
+          <span class="badge badge-revision badge-sm" title="Execution: promoted">Promoted</span>
           <span class="badge badge-pending badge-sm slice-approval-badge" data-badge-for="slice-4">Pending</span>
           <span class="badge badge-sm badge-issues" title="1 critic issue(s)">1 issue</span>
           <span class="badge badge-sm badge-questions" title="1 open question(s)">1 Q</span>
@@ -1564,7 +1564,7 @@ and &lt;1s via bounded fallback without a daemon, and never errors.</p>
           <span class="badge badge-revision badge-sm">M</span>
           <span class="badge badge-revision badge-sm">Med</span>
           <span class="badge badge-revision badge-sm badge-complexity" title="Complexity: complex">Complex</span>
-          
+          <span class="badge badge-revision badge-sm" title="Execution: promoted">Promoted</span>
           <span class="badge badge-pending badge-sm slice-approval-badge" data-badge-for="slice-5">Pending</span>
           
           <span class="badge badge-sm badge-questions" title="1 open question(s)">1 Q</span>
@@ -1723,7 +1723,7 @@ TestEnsureSessionWithTimeout_FailsFastUnderContention.</p>
           <span class="badge badge-revision badge-sm">M</span>
           <span class="badge badge-revision badge-sm">Med</span>
           <span class="badge badge-revision badge-sm badge-complexity" title="Complexity: complex">Complex</span>
-          
+          <span class="badge badge-revision badge-sm" title="Execution: promoted">Promoted</span>
           <span class="badge badge-pending badge-sm slice-approval-badge" data-badge-for="slice-6">Pending</span>
           <span class="badge badge-sm badge-issues" title="1 critic issue(s)">1 issue</span>
           <span class="badge badge-sm badge-questions" title="1 open question(s)">1 Q</span>
@@ -1907,7 +1907,7 @@ correctness test that the previously-synchronous work still completes
           <span class="badge badge-revision badge-sm">M</span>
           <span class="badge badge-pending badge-sm">Low</span>
           <span class="badge badge-revision badge-sm badge-complexity" title="Complexity: complex">Complex</span>
-          
+          <span class="badge badge-revision badge-sm" title="Execution: promoted">Promoted</span>
           <span class="badge badge-pending badge-sm slice-approval-badge" data-badge-for="slice-7">Pending</span>
           
           <span class="badge badge-sm badge-questions" title="1 open question(s)">1 Q</span>
@@ -2069,7 +2069,7 @@ route through the daemon.</p>
           <span class="badge badge-revision badge-sm">M</span>
           <span class="badge badge-pending badge-sm">Low</span>
           <span class="badge badge-revision badge-sm badge-complexity" title="Complexity: complex">Complex</span>
-          
+          <span class="badge badge-revision badge-sm" title="Execution: promoted">Promoted</span>
           <span class="badge badge-pending badge-sm slice-approval-badge" data-badge-for="slice-8">Pending</span>
           <span class="badge badge-sm badge-issues" title="1 critic issue(s)">1 issue</span>
           <span class="badge badge-sm badge-questions" title="1 open question(s)">1 Q</span>

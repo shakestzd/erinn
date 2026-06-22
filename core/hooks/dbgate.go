@@ -330,3 +330,86 @@ func safeSessionID(s string) string {
 	}
 	return s[:minSessionLen(s)]
 }
+
+// routeSQLAsync is the daemon enqueue-only seam used by RouteHookWrite. It is a
+// package-level var (not a direct call) ONLY so tests can stub the daemon hop —
+// production always binds it to apply.RouteSQLAsync. Mirrors the indirection the
+// daemon-routing tests rely on elsewhere; do not call it directly from other
+// hook code (use apply.RouteSQLAsync) so the override stays test-local.
+var routeSQLAsync = apply.RouteSQLAsync
+
+// RouteHookWrite is THE single primitive every hot hook write migrates to. It
+// applies a parameterized derived-index statement under a daemon-first,
+// bounded-direct-fallback, canonical-first policy and ALWAYS returns success —
+// it never errors and never blocks beyond the bounded fallback. The boolean
+// return is advisory (true ⇒ the op was durably handled by one of the two
+// paths, OR degraded cleanly to canonical-only); callers MUST NOT propagate a
+// failure to the Claude Code hook protocol regardless.
+//
+// Policy, in order (plan-2390966a slice-2, v4 enqueue-only amendment):
+//
+//  1. ENQUEUE-ONLY daemon route: routeSQLAsync(projectRoot, sql, args...). On
+//     true → DONE. No direct writable handle is opened. Because the ack is
+//     enqueue-only (apply.RouteSQLAsync / daemon.AckEnqueued, roborev 451/452),
+//     a reachable-but-BUSY writer still returns in well under a second — the
+//     whole point of routing hot hooks through the async mode. The op applies
+//     in FIFO order after this returns; a crash-lost async op is recovered by
+//     the canonical NDJSON + reindex backstop the caller already wrote.
+//
+//  2. BOUNDED direct fallback (only when step 1 returns false — daemon
+//     unreachable / spawn-forbidden / queue full): resolve the per-project DB
+//     path and open a SHORT-bounded (SessionStartBusyTimeout, ~750ms) writable
+//     handle via OpenHookDBWithBusyTimeout — the existing single inventoried
+//     hook write site. A held external write lock therefore degrades to
+//     canonical-only in <1s instead of stalling on the default 5s busy_timeout.
+//     The statement is Exec'd best-effort with bounded BUSY retry; a terminal
+//     BUSY is classified under hook_writer for the launch gate, then swallowed.
+//
+//  3. ANY failure (DBPath error, nil handle, Exec error) → the canonical-first
+//     fallback is already logged + counted as writer_unavailable; return success
+//     anyway. Canonical NDJSON upstream is authoritative and reindex recovers
+//     the row.
+//
+// args are bound as SQL parameters by every path and MUST NOT be interpolated
+// into sql by the caller. handler labels the fallback counter/log line;
+// sessionID correlates the log with the rest of the hook trace.
+func RouteHookWrite(handler, projectRoot, sessionID, sql string, args ...any) bool {
+	// Step 1: enqueue-only daemon route. A true ack means the op is durably
+	// queued; we open NO direct handle.
+	if routeSQLAsync(projectRoot, sql, args...) {
+		return true
+	}
+
+	// Step 2: bounded direct fallback. Resolve the canonical DB path; a resolve
+	// failure is itself a writer_unavailable degradation (canonical NDJSON is
+	// authoritative).
+	dbPath, err := DBPath(projectRoot)
+	if err != nil {
+		RecordFallback(handler, sessionID, FallbackWriterUnavailable, "dbpath: "+err.Error())
+		return true
+	}
+
+	database, _ := OpenHookDBWithBusyTimeout(handler, sessionID, dbPath, SessionStartBusyTimeout)
+	if database == nil {
+		// Open failed: already classified under hook_writer, logged + counted as
+		// writer_unavailable inside OpenHookDBWithBusyTimeout. Degrade to
+		// canonical-only.
+		return true
+	}
+	defer database.Close()
+
+	// Best-effort SINGLE Exec — the handle's SessionStartBusyTimeout (~750ms) IS
+	// the failure bound, so a held write lock fails fast in <1s. We deliberately
+	// do NOT layer RetryOnBusy here (unlike the cold SubmitDerivedEvent path):
+	// each BUSY retry would re-wait the full busy_timeout and could push past the
+	// sub-second bound this hot-hook primitive guarantees. A terminal BUSY is
+	// classified under hook_writer for the launch gate, then swallowed —
+	// canonical NDJSON + reindex recover any row this path could not write.
+	_, execErr := database.Exec(sql, args...)
+	db.Record(db.SubsystemHookWriter, execErr)
+	if execErr != nil {
+		RecordFallback(handler, sessionID, FallbackWriterUnavailable, "exec: "+execErr.Error())
+	}
+	// Step 3: always success — never error, never block the hook protocol.
+	return true
+}

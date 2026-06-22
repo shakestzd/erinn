@@ -488,7 +488,7 @@ body.right-rail-collapsed .sidebar-reopen{display:flex}
       <a href="#slice-3" class="slice-nav-item" data-slice-nav="3">
         <span class="slice-nav-dot" data-approval="pending" data-dot-for="3"></span>
         <span>#3 Migrate SessionStart writes to the daemon</span>
-        
+        <span class="nav-triage-badge nav-triage-issue" title="1 issue(s)">&#9888;1</span>
         <span class="nav-triage-badge nav-triage-question" title="1 open question(s)">?1</span>
       </a>
     </li>
@@ -497,7 +497,7 @@ body.right-rail-collapsed .sidebar-reopen{display:flex}
       <a href="#slice-4" class="slice-nav-item" data-slice-nav="4">
         <span class="slice-nav-dot" data-approval="pending" data-dot-for="4"></span>
         <span>#4 Migrate pretooluse / user-prompt / subagent-start / stop writes to the daemon</span>
-        
+        <span class="nav-triage-badge nav-triage-issue" title="1 issue(s)">&#9888;1</span>
         <span class="nav-triage-badge nav-triage-question" title="1 open question(s)">?1</span>
       </a>
     </li>
@@ -515,7 +515,7 @@ body.right-rail-collapsed .sidebar-reopen{display:flex}
       <a href="#slice-6" class="slice-nav-item" data-slice-nav="6">
         <span class="slice-nav-dot" data-approval="pending" data-dot-for="6"></span>
         <span>#6 Fix the ~5.45s uncontended stop-hook baseline</span>
-        
+        <span class="nav-triage-badge nav-triage-issue" title="1 issue(s)">&#9888;1</span>
         <span class="nav-triage-badge nav-triage-question" title="1 open question(s)">?1</span>
       </a>
     </li>
@@ -533,7 +533,7 @@ body.right-rail-collapsed .sidebar-reopen{display:flex}
       <a href="#slice-8" class="slice-nav-item" data-slice-nav="8">
         <span class="slice-nav-dot" data-approval="pending" data-dot-for="8"></span>
         <span>#8 CI durability gate: contention stress + no-stall assertions</span>
-        
+        <span class="nav-triage-badge nav-triage-issue" title="1 issue(s)">&#9888;1</span>
         <span class="nav-triage-badge nav-triage-question" title="1 open question(s)">?1</span>
       </a>
     </li>
@@ -654,7 +654,7 @@ body.right-rail-collapsed .sidebar-reopen{display:flex}
     <li class="file-entry"><code class="file-path">core/hooks/pretooluse.go</code></li>
     <li class="file-entry"><code class="file-path">core/hooks/user_prompt.go</code></li>
     <li class="file-entry"><code class="file-path">core/hooks/subagent_start.go</code></li>
-    <li class="file-entry"><code class="file-path">core/hooks/stop.go</code></li>
+    <li class="file-entry"><code class="file-path">core/hooks/missing_events.go</code></li>
     
   </ul>
 </div></div>
@@ -679,7 +679,7 @@ body.right-rail-collapsed .sidebar-reopen{display:flex}
         </a>
         <div class="block-anchor" id="overview-slice-6-block-file-tree-1" data-block-anchor="slice-6-block-file-tree-1" data-block-kind="file-tree"><div class="block block-file-tree">
   <ul class="file-list">
-    <li class="file-entry"><code class="file-path">core/hooks/stop.go</code></li>
+    <li class="file-entry"><code class="file-path">core/hooks/missing_events.go</code></li>
     
   </ul>
 </div></div>
@@ -705,7 +705,7 @@ body.right-rail-collapsed .sidebar-reopen{display:flex}
         </a>
         <div class="block-anchor" id="overview-slice-8-block-file-tree-1" data-block-anchor="slice-8-block-file-tree-1" data-block-kind="file-tree"><div class="block block-file-tree">
   <ul class="file-list">
-    <li class="file-entry"><code class="file-path">cmd/wipnote/sqlite_contention_stress_test.go</code></li>
+    <li class="file-entry"><code class="file-path">cmd/wipnote/sqlite_contention_test.go</code></li>
     <li class="file-entry"><code class="file-path">internal/gate/check.go</code></li>
     
   </ul>
@@ -987,6 +987,19 @@ RouteSQL returns false without error.</p>
     
 
     
+    <div class="slice-field slice-critic-revisions">
+      <div class="slice-field-label">Critic Revisions</div>
+      <div class="slice-field-value">
+        
+        <div class="critic-revision">
+          <span class="badge badge-pending critic-revision-badge">SUCCESS</span>
+          <span class="critic-revision-source">local-feasibility</span>
+          <span class="critic-revision-summary">Verified DerivedOp/Encode/Decode/NewApplier (core/daemon/apply/apply.go:70-160): Applier dispatches op.Type to a writequeue.WriteOp, so OpTypeSQL is a clean additive op. RouteSessionInsert confirmed (cli_route.go:110). No reinvented wheel — reuses the existing daemon IPC.</span>
+        </div>
+        
+      </div>
+    </div>
+    
 
     
     <div class="slice-field slice-questions">
@@ -1202,7 +1215,7 @@ returns &lt;1s, no error), TestRouteHookWrite_AllFail_StillSucceeds.</p>
           <span class="badge badge-revision badge-sm badge-complexity" title="Complexity: complex">Complex</span>
           
           <span class="badge badge-pending badge-sm slice-approval-badge" data-badge-for="slice-3">Pending</span>
-          
+          <span class="badge badge-sm badge-issues" title="1 critic issue(s)">1 issue</span>
           <span class="badge badge-sm badge-questions" title="1 open question(s)">1 Q</span>
         </span>
         <span class="slice-actions" onclick="event.stopPropagation()">
@@ -1320,6 +1333,19 @@ held-lock harness for the &lt;1s assertion.</p>
     
 
     
+    <div class="slice-field slice-critic-revisions">
+      <div class="slice-field-label">Critic Revisions</div>
+      <div class="slice-field-value">
+        
+        <div class="critic-revision">
+          <span class="badge badge-pending critic-revision-badge">LOW</span>
+          <span class="critic-revision-source">local-feasibility</span>
+          <span class="critic-revision-summary">Corrected q-tx-atomicity: NewApplier returns a writequeue.WriteOp on the single-writer worker; the loop does NOT auto-wrap a transaction, so an OpTypeSQL batch must open its own BeginTx/Commit. Answer updated.</span>
+        </div>
+        
+      </div>
+    </div>
+    
 
     
     <div class="slice-field slice-questions">
@@ -1333,7 +1359,7 @@ held-lock harness for the &lt;1s assertion.</p>
           <textarea
             data-section="slice-3-question-q-tx-atomicity"
             data-comment-for="slice-3-question-q-tx-atomicity"
-            placeholder="Answer question q-tx-atomicity...">Route the batch as a single OpTypeSQL op carrying a multi-statement transaction (BEGIN..COMMIT) executed atomically on the daemon handle, OR a typed multi-row op; the daemon applies it in one transaction so atomicity is preserved. Confirmed the apply loop runs each DerivedOp in its own transaction.</textarea>
+            placeholder="Answer question q-tx-atomicity...">Verified against core/daemon/apply/apply.go: NewApplier dispatches an op.Type to a writequeue.WriteOp (func(ctx) error) that runs on the single-writer queue worker; the loop does NOT auto-wrap the op in a transaction. So atomicity is the WriteOp&#39;s responsibility: the OpTypeSQL applier for a batch opens its own database.BeginTx, Execs each statement, and Commits (rolling back on error). Alternatively keep runSessionTransaction&#39;s batch as one typed op. Either way the single-writer worker serializes it; no cross-process tx is needed.</textarea>
           
         </div>
         
@@ -1364,7 +1390,7 @@ held-lock harness for the &lt;1s assertion.</p>
           <span class="badge badge-revision badge-sm badge-complexity" title="Complexity: complex">Complex</span>
           
           <span class="badge badge-pending badge-sm slice-approval-badge" data-badge-for="slice-4">Pending</span>
-          
+          <span class="badge badge-sm badge-issues" title="1 critic issue(s)">1 issue</span>
           <span class="badge badge-sm badge-questions" title="1 open question(s)">1 Q</span>
         </span>
         <span class="slice-actions" onclick="event.stopPropagation()">
@@ -1419,7 +1445,7 @@ is a per-tool-call multi-second stall. Routing them removes the contention.</p>
       
       <div class="slice-field">
         <div class="slice-field-label">Files</div>
-        <div class="slice-field-value"><code>core/hooks/pretooluse.go, core/hooks/user_prompt.go, core/hooks/subagent_start.go, core/hooks/stop.go</code></div>
+        <div class="slice-field-value"><code>core/hooks/pretooluse.go, core/hooks/user_prompt.go, core/hooks/subagent_start.go, core/hooks/missing_events.go</code></div>
       </div>
       
       
@@ -1453,7 +1479,7 @@ is a per-tool-call multi-second stall. Routing them removes the contention.</p>
     <li class="file-entry"><code class="file-path">core/hooks/pretooluse.go</code></li>
     <li class="file-entry"><code class="file-path">core/hooks/user_prompt.go</code></li>
     <li class="file-entry"><code class="file-path">core/hooks/subagent_start.go</code></li>
-    <li class="file-entry"><code class="file-path">core/hooks/stop.go</code></li>
+    <li class="file-entry"><code class="file-path">core/hooks/missing_events.go</code></li>
     
   </ul>
 </div></div>
@@ -1476,6 +1502,25 @@ and &lt;1s via bounded fallback without a daemon, and never errors.</p>
     </div>
     
 
+    
+    <div class="slice-field slice-critic-revisions">
+      <div class="slice-field-label">Critic Revisions</div>
+      <div class="slice-field-value">
+        
+        <div class="critic-revision">
+          <span class="badge badge-blocked critic-revision-badge">HIGH</span>
+          <span class="critic-revision-source">local-feasibility</span>
+          <span class="critic-revision-summary">RESOLVED: func Stop lives in core/hooks/missing_events.go, not core/hooks/stop.go (which does not exist). files &#43; file-tree corrected.</span>
+        </div>
+        
+        <div class="critic-revision">
+          <span class="badge badge-pending critic-revision-badge">SUCCESS</span>
+          <span class="critic-revision-source">local-feasibility</span>
+          <span class="critic-revision-summary">posttooluse is the contention-immune reference because its agent_events write routes through the daemon op (OpTypeAgentEventUpsert in apply.go NewApplier) — the exact pattern this slice generalizes to the four hot hooks.</span>
+        </div>
+        
+      </div>
+    </div>
     
 
     
@@ -1680,7 +1725,7 @@ TestEnsureSessionWithTimeout_FailsFastUnderContention.</p>
           <span class="badge badge-revision badge-sm badge-complexity" title="Complexity: complex">Complex</span>
           
           <span class="badge badge-pending badge-sm slice-approval-badge" data-badge-for="slice-6">Pending</span>
-          
+          <span class="badge badge-sm badge-issues" title="1 critic issue(s)">1 issue</span>
           <span class="badge badge-sm badge-questions" title="1 open question(s)">1 Q</span>
         </span>
         <span class="slice-actions" onclick="event.stopPropagation()">
@@ -1736,7 +1781,7 @@ durable fix must remove it, not just bound the contended case.</p>
       
       <div class="slice-field">
         <div class="slice-field-label">Files</div>
-        <div class="slice-field-value"><code>core/hooks/stop.go</code></div>
+        <div class="slice-field-value"><code>core/hooks/missing_events.go</code></div>
       </div>
       
       
@@ -1752,12 +1797,15 @@ durable fix must remove it, not just bound the contended case.</p>
       <div class="slice-field-label">Decisions</div>
       <div class="slice-field-value">
         
-        <div class="markdown-block serif-prose"><p><strong>Trigger:</strong> Stop hook (session end).
+        <input type="checkbox" id="slice-6-decisions-reveal" class="reveal-toggle">
+        <div class="markdown-block reveal-content serif-prose"><p><strong>Trigger:</strong> Stop hook (session end).
 <strong>State:</strong> depends on the phase found; likely a sweep/flush over derived index.
 <strong>Rejected:</strong> ignoring it as out-of-the-hot-launch-path — it is still a
 consistent multi-second cost the user feels and the plan&#39;s mandate is durable.
-<strong>Note:</strong> depends on slice 4 to avoid conflicting edits to stop.go.</p>
+<strong>Note:</strong> the Stop handler lives in core/hooks/missing_events.go (not stop.go);
+depends on slice 4 to avoid conflicting edits to that file.</p>
 </div>
+        <label for="slice-6-decisions-reveal" class="reveal-label">Show full decisions</label>
         
       </div>
     </div>
@@ -1768,7 +1816,7 @@ consistent multi-second cost the user feels and the plan&#39;s mandate is durabl
   <div class="slice-field-value block-zone">
     <div class="block-anchor" id="slice-6-block-file-tree-1" data-block-anchor="slice-6-block-file-tree-1" data-block-kind="file-tree"><div class="block block-file-tree">
   <ul class="file-list">
-    <li class="file-entry"><code class="file-path">core/hooks/stop.go</code></li>
+    <li class="file-entry"><code class="file-path">core/hooks/missing_events.go</code></li>
     
   </ul>
 </div></div>
@@ -1797,6 +1845,25 @@ correctness test that the previously-synchronous work still completes
     </div>
     
 
+    
+    <div class="slice-field slice-critic-revisions">
+      <div class="slice-field-label">Critic Revisions</div>
+      <div class="slice-field-value">
+        
+        <div class="critic-revision">
+          <span class="badge badge-blocked critic-revision-badge">HIGH</span>
+          <span class="critic-revision-source">local-feasibility</span>
+          <span class="critic-revision-summary">RESOLVED: Stop handler path corrected to core/hooks/missing_events.go (slice 6 shares the file with slice 4; dep [4] preserved to serialize edits).</span>
+        </div>
+        
+        <div class="critic-revision">
+          <span class="badge badge-pending critic-revision-badge">SUCCESS</span>
+          <span class="critic-revision-source">local-design</span>
+          <span class="critic-revision-summary">Profiling-first correctly mandated (no fix on assumption); done_when verifies the deferred/backgrounded work still completes — nothing silently dropped.</span>
+        </div>
+        
+      </div>
+    </div>
     
 
     
@@ -2004,7 +2071,7 @@ route through the daemon.</p>
           <span class="badge badge-revision badge-sm badge-complexity" title="Complexity: complex">Complex</span>
           
           <span class="badge badge-pending badge-sm slice-approval-badge" data-badge-for="slice-8">Pending</span>
-          
+          <span class="badge badge-sm badge-issues" title="1 critic issue(s)">1 issue</span>
           <span class="badge badge-sm badge-questions" title="1 open question(s)">1 Q</span>
         </span>
         <span class="slice-actions" onclick="event.stopPropagation()">
@@ -2062,7 +2129,7 @@ property is enforced, not just observed.</p>
       
       <div class="slice-field">
         <div class="slice-field-label">Files</div>
-        <div class="slice-field-value"><code>cmd/wipnote/sqlite_contention_stress_test.go, internal/gate/check.go</code></div>
+        <div class="slice-field-value"><code>cmd/wipnote/sqlite_contention_test.go, internal/gate/check.go</code></div>
       </div>
       
       
@@ -2093,7 +2160,7 @@ contention regress silently, which is exactly how the band-aid era started.</p>
   <div class="slice-field-value block-zone">
     <div class="block-anchor" id="slice-8-block-file-tree-1" data-block-anchor="slice-8-block-file-tree-1" data-block-kind="file-tree"><div class="block block-file-tree">
   <ul class="file-list">
-    <li class="file-entry"><code class="file-path">cmd/wipnote/sqlite_contention_stress_test.go</code></li>
+    <li class="file-entry"><code class="file-path">cmd/wipnote/sqlite_contention_test.go</code></li>
     <li class="file-entry"><code class="file-path">internal/gate/check.go</code></li>
     
   </ul>
@@ -2115,6 +2182,19 @@ contention regress silently, which is exactly how the band-aid era started.</p>
     </div>
     
 
+    
+    <div class="slice-field slice-critic-revisions">
+      <div class="slice-field-label">Critic Revisions</div>
+      <div class="slice-field-value">
+        
+        <div class="critic-revision">
+          <span class="badge badge-pending critic-revision-badge">LOW</span>
+          <span class="critic-revision-source">local-feasibility</span>
+          <span class="critic-revision-summary">RESOLVED: stress fixture is cmd/wipnote/sqlite_contention_test.go (TestSQLiteContentionStress at :132), not sqlite_contention_stress_test.go. files corrected. db.Record &#43; SubsystemHookWriter confirmed (core/db/busy_counter.go:139/74).</span>
+        </div>
+        
+      </div>
+    </div>
     
 
     

@@ -94,6 +94,10 @@ slices:
         - id: q-sql-safety
           text: Is arbitrary SQL over the daemon IPC acceptable from a safety standpoint?
           answer: Yes — the daemon socket is a local, per-project unix socket owned by the same user; only first-party wipnote code constructs ops, statements are parameterized (args never interpolated), and nothing crosses a network boundary. Documented as a constraint.
+      critic_revisions:
+        - source: local-feasibility
+          severity: SUCCESS
+          summary: 'Verified DerivedOp/Encode/Decode/NewApplier (core/daemon/apply/apply.go:70-160): Applier dispatches op.Type to a writequeue.WriteOp, so OpTypeSQL is a clean additive op. RouteSessionInsert confirmed (cli_route.go:110). No reinvented wheel — reuses the existing daemon IPC.'
       decisions_notes: |
         **Trigger:** any hot-path write that today opens a writable handle directly.
         **State:** SQLite derived index, written only by the daemon's single handle.
@@ -234,7 +238,11 @@ slices:
       questions:
         - id: q-tx-atomicity
           text: runSessionTransaction batches several writes in one tx — how is that preserved over the SQL envelope?
-          answer: Route the batch as a single OpTypeSQL op carrying a multi-statement transaction (BEGIN..COMMIT) executed atomically on the daemon handle, OR a typed multi-row op; the daemon applies it in one transaction so atomicity is preserved. Confirmed the apply loop runs each DerivedOp in its own transaction.
+          answer: 'Verified against core/daemon/apply/apply.go: NewApplier dispatches an op.Type to a writequeue.WriteOp (func(ctx) error) that runs on the single-writer queue worker; the loop does NOT auto-wrap the op in a transaction. So atomicity is the WriteOp''s responsibility: the OpTypeSQL applier for a batch opens its own database.BeginTx, Execs each statement, and Commits (rolling back on error). Alternatively keep runSessionTransaction''s batch as one typed op. Either way the single-writer worker serializes it; no cross-process tx is needed.'
+      critic_revisions:
+        - source: local-feasibility
+          severity: LOW
+          summary: 'Corrected q-tx-atomicity: NewApplier returns a writequeue.WriteOp on the single-writer worker; the loop does NOT auto-wrap a transaction, so an OpTypeSQL batch must open its own BeginTx/Commit. Answer updated.'
       decisions_notes: |
         **Trigger:** SessionStart hook (runs as claude starts).
         **State:** daemon single writer.
@@ -262,7 +270,7 @@ slices:
         - core/hooks/pretooluse.go
         - core/hooks/user_prompt.go
         - core/hooks/subagent_start.go
-        - core/hooks/stop.go
+        - core/hooks/missing_events.go
       deps:
         - 2
       done_when:
@@ -283,6 +291,13 @@ slices:
         - id: q-pretooluse-latency
           text: PreToolUse is the most latency-sensitive (every tool call) — is the daemon round-trip itself cheap enough?
           answer: Yes — the daemon ack is a local unix-socket round-trip (sub-ms once the daemon is warm; it is already running from the launcher's serve autostart). posttooluse already demonstrates this at 0.03s. SubmitOrSpawn's ~2s cost is only the one-time auto-spawn.
+      critic_revisions:
+        - source: local-feasibility
+          severity: HIGH
+          summary: 'RESOLVED: func Stop lives in core/hooks/missing_events.go, not core/hooks/stop.go (which does not exist). files + file-tree corrected.'
+        - source: local-feasibility
+          severity: SUCCESS
+          summary: posttooluse is the contention-immune reference because its agent_events write routes through the daemon op (OpTypeAgentEventUpsert in apply.go NewApplier) — the exact pattern this slice generalizes to the four hot hooks.
       decisions_notes: |
         **Trigger:** four hot hooks doing direct derived-index writes.
         **State:** daemon single writer.
@@ -295,7 +310,7 @@ slices:
             - core/hooks/pretooluse.go
             - core/hooks/user_prompt.go
             - core/hooks/subagent_start.go
-            - core/hooks/stop.go
+            - core/hooks/missing_events.go
     - id: slice-5
       num: 5
       title: Route launcher persistentPreRunE EnsureSession through the daemon
@@ -356,7 +371,7 @@ slices:
         5.45s at baseline is pure per-session overhead independent of contention; the
         durable fix must remove it, not just bound the contended case.
       files:
-        - core/hooks/stop.go
+        - core/hooks/missing_events.go
       deps:
         - 4
       done_when:
@@ -376,17 +391,25 @@ slices:
         - id: q-stop-cause
           text: What is the likely 5.45s baseline cause in Stop?
           answer: Most likely a synchronous sweep/flush analogous to session-start's project-wide orphan sweep (Stop finalizes the session and may sweep/close its events + write canonical HTML). Profiling in this slice confirms before fixing — no fix is committed on assumption.
+      critic_revisions:
+        - source: local-feasibility
+          severity: HIGH
+          summary: 'RESOLVED: Stop handler path corrected to core/hooks/missing_events.go (slice 6 shares the file with slice 4; dep [4] preserved to serialize edits).'
+        - source: local-design
+          severity: SUCCESS
+          summary: Profiling-first correctly mandated (no fix on assumption); done_when verifies the deferred/backgrounded work still completes — nothing silently dropped.
       decisions_notes: |
         **Trigger:** Stop hook (session end).
         **State:** depends on the phase found; likely a sweep/flush over derived index.
         **Rejected:** ignoring it as out-of-the-hot-launch-path — it is still a
           consistent multi-second cost the user feels and the plan's mandate is durable.
-        **Note:** depends on slice 4 to avoid conflicting edits to stop.go.
+        **Note:** the Stop handler lives in core/hooks/missing_events.go (not stop.go);
+          depends on slice 4 to avoid conflicting edits to that file.
       blocks:
         - type: file-tree
           title: Files touched
           entries:
-            - core/hooks/stop.go
+            - core/hooks/missing_events.go
         - type: diagram
           title: Profile-then-debottleneck
           fields:
@@ -462,7 +485,7 @@ slices:
       why: |
         Turns 'durable, not band-aid' into a regression-proof CI invariant.
       files:
-        - cmd/wipnote/sqlite_contention_stress_test.go
+        - cmd/wipnote/sqlite_contention_test.go
         - internal/gate/check.go
       deps:
         - 3
@@ -488,6 +511,10 @@ slices:
         - id: q-stress-determinism
           text: How is the contention stress made deterministic across CI machines?
           answer: Hold the write lock from a controlled in-test connection (BEGIN IMMEDIATE) for a fixed window while driving the hooks, rather than racing real processes; assert zero first-party SQLITE_BUSY (via the existing db.Record/SubsystemHookWriter counter) and sub-second completion. Counters + held-lock make it deterministic.
+      critic_revisions:
+        - source: local-feasibility
+          severity: LOW
+          summary: 'RESOLVED: stress fixture is cmd/wipnote/sqlite_contention_test.go (TestSQLiteContentionStress at :132), not sqlite_contention_stress_test.go. files corrected. db.Record + SubsystemHookWriter confirmed (core/db/busy_counter.go:139/74).'
       decisions_notes: |
         **Trigger:** CI / launch-readiness gate.
         **State:** test fixture + gate config.
@@ -497,6 +524,84 @@ slices:
         - type: file-tree
           title: Files touched
           entries:
-            - cmd/wipnote/sqlite_contention_stress_test.go
+            - cmd/wipnote/sqlite_contention_test.go
             - internal/gate/check.go
 questions: []
+critique:
+    reviewed_at: "2026-06-21"
+    reviewers:
+        - 'local-design (role: design critic; runner: this session, Opus 4.8)'
+        - 'local-feasibility (role: feasibility critic; runner: this session, Opus 4.8 + live web verification)'
+    assumptions:
+        - id: A1
+          status: verified
+          text: The writer daemon already exposes a typed-op IPC (DerivedOp + WriterClient.SubmitOrSpawn) that auto-spawns and serializes writes; the durable fix extends coverage rather than building new infra.
+          evidence: core/daemon/apply/apply.go:70-160 (DerivedOp, NewApplier), core/daemon/apply/cli_route.go:110 (RouteSessionInsert), core/daemon/spawn.go:52 (SubmitOrSpawn)
+        - id: A2
+          status: verified
+          text: posttooluse is contention-immune (0.03s under a held lock) because its agent_events write routes through the daemon op, proving the pattern slice 4 generalizes.
+          evidence: 'runtime: profiling this session (posttooluse 0.03s locked vs pretooluse 10s); apply.go OpTypeAgentEventUpsert'
+        - id: A3
+          status: verified
+          text: 'Swapping the engine (Turso/libSQL/DuckDB) is rejected: the only contention-removing feature (Turso MVCC) is preview/not-prod and multi-thread-not-multi-process; libSQL keeps single-writer; both threaten the pure-Go/no-CGo build.'
+          evidence: https://turso.tech/blog/beyond-the-single-writer-limitation-with-tursos-concurrent-writes ; https://duckdb.org/2026/05/12/quack-remote-protocol ; https://www.sqlite.org/wal.html
+        - id: A4
+          status: plausible
+          text: The ~5.45s uncontended stop-hook baseline is a synchronous sweep/flush analogous to session-start's orphan sweep.
+          evidence: 'runtime: stop hook 5.45s with no lock held; slice 6 mandates profiling to confirm before fixing (unverified until then)'
+    critics:
+        - title: DESIGN CRITIC
+          sections:
+            - heading: Scope & sequencing
+              items:
+                - badge: DAG clean
+                  kind: success
+                  text: 8 slices form a clean dependency DAG (1->2->{3,4}; 1->5; 4->6; {3,4,5}->7; {3,4,5,6}->8). Foundation-first, acceptance-last.
+                - badge: Durable not band-aid
+                  kind: success
+                  text: Goals correctly distinguish eliminating contention (daemon routing) from the shipped bounded-timeout band-aids, which survive only as the documented last-resort fallback.
+            - heading: Reviewer ergonomics
+              items:
+                - badge: Inventory target clarified
+                  kind: info
+                  text: q-inventory-target rightly scopes 'collapse to the daemon' to HOT-PATH writers; operator-CLI write sites (reindex/ingest/plan) legitimately remain. Prevents a misread of acceptance slice 7/8.
+        - title: FEASIBILITY CRITIC
+          sections:
+            - heading: File/citation accuracy
+              items:
+                - badge: stop.go path
+                  kind: danger
+                  text: 'RESOLVED: func Stop is in core/hooks/missing_events.go, not core/hooks/stop.go. Slices 4 & 6 corrected.'
+                - badge: stress fixture path
+                  kind: warn
+                  text: 'RESOLVED: slice 8 corrected to cmd/wipnote/sqlite_contention_test.go (TestSQLiteContentionStress:132).'
+            - heading: Protocol semantics
+              items:
+                - badge: tx atomicity
+                  kind: warn
+                  text: 'RESOLVED: apply loop does NOT auto-wrap a tx; OpTypeSQL batch must open its own BeginTx/Commit. Slice 3 answer corrected.'
+                - badge: infra reuse
+                  kind: success
+                  text: Reuses DerivedOp/NewApplier/SubmitOrSpawn + writequeue; no reinvented wheel. Research gate satisfied (design.research x4, per-slice research/waivers; validate-yaml passes).
+    risks:
+        - risk: Daemon auto-spawn (~2s) on first write could add one-time latency if serve is not already running at launch.
+          severity: Low
+          mitigation: Launcher already starts serve before exec; SubmitOrSpawn's spawn cost is one-time, and the bounded direct-open fallback covers the cold window. Slice 4 q-pretooluse-latency confirms warm round-trip is sub-ms.
+        - risk: Generic SQL envelope executes arbitrary statements on the writer handle.
+          severity: Low
+          mitigation: Local per-user unix socket, first-party callers only, parameterized args (slice 1 q-sql-safety). No remote/untrusted path.
+        - risk: Slice 6 fix is profiling-dependent; root cause is only plausible (A4).
+          severity: Medium
+          mitigation: Slice 6 mandates profile-before-fix and a done_when that verifies deferred work still completes; no fix committed on assumption.
+    synthesis: |
+        Plan is ready for human review. All feasibility blockers are resolved: the
+        Stop-handler path (HIGH — was a non-existent core/hooks/stop.go, now
+        core/hooks/missing_events.go), the stress-fixture filename, and the
+        transaction-atomicity claim (apply loop returns a writequeue.WriteOp that does
+        not auto-wrap a tx). The architecture is verified against real code
+        (A1/A2 — DerivedOp + NewApplier + SubmitOrSpawn already exist; posttooluse
+        proves the pattern) and the engine-swap rejection is web-verified (A3). The
+        one residual unknown is A4 (the stop-hook baseline cause), correctly gated
+        behind profiling in slice 6. Reviewer should focus first on slice 1 (the
+        OpTypeSQL envelope + its trust boundary) and slice 7 (inventory acceptance
+        scope), since those define the durable end-state and what "done" means.

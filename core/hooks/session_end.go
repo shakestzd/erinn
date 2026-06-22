@@ -648,6 +648,49 @@ func Reconcile(database *sql.DB, projectDir string, strict bool, skipPortDrift .
 	return rep, nil
 }
 
+// reconcileCheapClasses runs ONLY the latency-cheap reconcile classes — the
+// pure-SQL orphan scan and (unless skipped) the delegated port-drift check —
+// and deliberately OMITS reconcileDoneButUncommitted, whose per-item git fork
+// loop (git status/add/diff/commit over every dirty terminal artifact) is the
+// ~5.45s synchronous cost the Stop hot path used to pay on EVERY model response
+// (feat-c08d1ba1 slice-6, profiled at ~7.2s for 200 dirty done-features).
+//
+// This is sound for the Stop discriminator contract: per runSessionExitReconcile,
+// only ambiguous PortDrift can block (Claude) or warn (Gemini/Codex), and the
+// done-but-uncommitted auto-commit "never blocks any harness" — it is purely a
+// deterministic side effect. Deferring it loses nothing as long as it still runs
+// eventually, which ReconcileDoneButUncommittedForProject guarantees via the
+// serve-side drain loop (mirrors the bug-504095f2 orphan-drain split). On the
+// per-turn Stop path skipPortDrift is also true, so this reduces to a single
+// pure-SQL query.
+func reconcileCheapClasses(database *sql.DB, projectDir string, skipPortDrift bool) (*ReconcileReport, error) {
+	rep := &ReconcileReport{}
+	if database != nil {
+		rep.Orphaned = reconcileStartedButOrphaned(database, projectDir)
+	}
+	if !skipPortDrift {
+		rep.PortDrift = reconcilePortDrift(projectDir)
+	}
+	sort.Strings(rep.PortDrift)
+	sort.Strings(rep.Orphaned)
+	return rep, nil
+}
+
+// ReconcileDoneButUncommittedForProject runs ONLY the done-but-uncommitted
+// auto-commit class across the project, with no cap. It is the deferred,
+// off-hot-path counterpart to the class reconcileCheapClasses omits: the
+// serve-side writer daemon calls it on a low-frequency loop (startReconcileDrainLoop)
+// so the deterministic artifact auto-commit the Stop hook no longer performs
+// synchronously still completes — exactly the split bug-504095f2 used for the
+// orphan sweep. Best-effort: a nil DB is a no-op. Returns the list of work-item
+// IDs whose artifacts were committed this pass.
+func ReconcileDoneButUncommittedForProject(database *sql.DB, projectDir string) []string {
+	if database == nil {
+		return nil
+	}
+	return reconcileDoneButUncommitted(database, projectDir)
+}
+
 // reconcileDoneButUncommitted finds work items in a terminal "done" state whose
 // canonical artifact (.wipnote/<type>s/<id>.html) is dirty in git, and
 // auto-commits each one. The auto-commit is deterministic bookkeeping: the
@@ -893,8 +936,19 @@ func DrainReconcileWarnings(projectDir string) string {
 // regeneration on every model response. The commit-time
 // checkPortDriftCommitGuard (commit_portdrift_guard.go) enforces port-drift
 // correctness instead, firing only when generator-input files are staged.
+//
+// HOT-PATH SPLIT (feat-c08d1ba1 slice-6): this entry point runs only
+// reconcileCheapClasses — the pure-SQL orphan scan plus (unless skipped) the
+// delegated port-drift check. It NO LONGER runs the done-but-uncommitted
+// auto-commit, whose per-item git fork loop was the ~5.45s synchronous cost the
+// Stop hook paid on every model response. That class is now drained off the hot
+// path by the serve-side writer daemon (startReconcileDrainLoop →
+// ReconcileDoneButUncommittedForProject), so the deterministic artifact
+// auto-commit still completes — just not on the interactive path. This is sound
+// because only ambiguous PortDrift gates the discriminator below; the
+// auto-commit class never blocked any harness.
 func runSessionExitReconcile(database *sql.DB, projectDir, harness, sessionID string, skipPortDrift bool) error {
-	rep, err := Reconcile(database, projectDir, false, skipPortDrift)
+	rep, err := reconcileCheapClasses(database, projectDir, skipPortDrift)
 	if err != nil || rep.Empty() {
 		return nil
 	}

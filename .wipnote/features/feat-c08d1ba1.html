@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>Fix the ~5.45s uncontended stop-hook baseline</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="feat-c08d1ba1"
+             data-type="feature"
+             data-status="in-progress"
+             data-priority="medium"
+             data-created="2026-06-22T03:49:10.028746"
+             data-updated="2026-06-22T06:22:16.238948" data-agent-assigned="claude-code" data-track-id="trk-6a1f5362">
+
+        <header>
+            <h1>Fix the ~5.45s uncontended stop-hook baseline</h1>
+            <div class="metadata">
+                <span class="badge status-in-progress">In Progress</span>
+                <span class="badge priority-medium">Medium Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="planned_in">
+                <h3>Planned In:</h3>
+                <ul>
+                    <li><a href="../plans/plan-2390966a.html" data-relationship="planned_in" data-since="2026-06-22T03:49:10.04057">plan-2390966a</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-6a1f5362.html" data-relationship="part_of" data-since="2026-06-22T03:49:10.063396">trk-6a1f5362</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="blocked_by">
+                <h3>Blocked By:</h3>
+                <ul>
+                    <li><a href="../features/feat-8a4d2955.html" data-relationship="blocked_by">feat-8a4d2955</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="implemented_in">
+                <h3>Implemented In:</h3>
+                <ul>
+                    <li><a href="../sessions/1ea41959-b6de-447b-b615-4de675ac89b5.html" data-relationship="implemented_in" data-since="2026-06-22T06:22:16.23877">session 1ea41959-b6de-447b-b615-4de675ac89b5</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>Profile the Stop hook&#39;s ~5.45s cost with NO lock held (a baseline cost, like
+session-start&#39;s synchronous orphan sweep was) using the launch-timing /
+LogTimed instrumentation, identify the synchronous slow phase, and take it
+off the hot path (cap + defer to the serve drain, or background via the
+daemon) so session end is not gated on it.</p>
+        </section>
+    </article>
+</body>
+</html>

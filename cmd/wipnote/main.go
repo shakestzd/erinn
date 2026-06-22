@@ -238,7 +238,14 @@ func init() {
 		if t, err := time.Parse(time.RFC3339, now); err == nil {
 			s.CreatedAt = t
 		}
-		return apply.RouteSessionInsert(projectRoot, s)
+		// ENQUEUE-ONLY (bug-d792aee6 finding 1): the launcher's new-session cold
+		// insert runs on the interactive critical path. The applied-ack
+		// RouteSessionInsert waited the full CLISubmitBudget (~2.4s) under a held
+		// external write lock because the daemon cannot apply while the lock is
+		// held. Enqueue-only acks sub-millisecond once the daemon is warm; the
+		// op applies FIFO afterwards, and SessionStart's idempotent INSERT OR
+		// IGNORE upsert (slice-3) + canonical NDJSON reindex are the backstop.
+		return apply.RouteSessionInsertAsync(projectRoot, s)
 	}
 }
 
@@ -301,7 +308,8 @@ func persistentPreRunE(cmd *cobra.Command, _ []string) error {
 	//     lock. WAL readers and writers never block each other, so the launch
 	//     chooser renders <1s even under a held external write lock.
 	//   • Cold path (new session): routed through the per-project writer daemon
-	//     via agent.RouteSessionInsertFn (applied-ack, bounded CLISubmitBudget).
+	//     via agent.RouteSessionInsertFn (ENQUEUE-ONLY, bounded AsyncEnqueueBudget
+	//     — bug-d792aee6 finding 1: applied-ack stalled ~2.4s under a held lock).
 	//     No writable handle is opened when the daemon acks.
 	//   • Last-resort fallback: daemon unreachable → EnsureSessionWithTimeout on
 	//     the writable handle with ensureSessionPreRunTimeout, matching pre-slice-5

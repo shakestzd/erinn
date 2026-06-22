@@ -229,26 +229,52 @@ const writeScopePathsCap = 200
 // with empty write_scope.paths; paths re-accumulate as the session fires heartbeats.
 // No extra reset logic is needed.
 func HeartbeatClaimByWorkItem(db *sql.DB, workItemID, sessionID, writePath string, leaseDuration time.Duration) error {
+	query, args := HeartbeatClaimByWorkItemStmt(workItemID, sessionID, writePath, leaseDuration)
+	result, err := db.Exec(query, args...)
+	if err != nil {
+		return fmt.Errorf("heartbeat claim for work item %s: %w", workItemID, err)
+	}
+	rows, _ := result.RowsAffected()
+	if rows == 0 {
+		return fmt.Errorf("no active claim for work item %s owned by session %s", workItemID, sessionID)
+	}
+	return nil
+}
+
+// HeartbeatClaimByWorkItemStmt builds the parameterized UPDATE that
+// HeartbeatClaimByWorkItem Execs, WITHOUT executing it, so the hot-path
+// PreToolUse hook can route the exact same statement through the daemon's
+// enqueue-only seam instead of blocking a direct writable handle under a held
+// external write lock (bug-d792aee6 finding 2). The returned (sql, args) is
+// byte-for-byte equivalent to what HeartbeatClaimByWorkItem binds today.
+//
+// JSON-TRANSPORT SAFETY: the daemon JSON-encodes args over the wire
+// (core/daemon/apply.DerivedOp), so every arg here MUST be a transport-safe
+// primitive — string / number / nil. Times are rendered as RFC3339 STRINGS
+// (never time.Time), and there are no sql.NullString args. A plain string binds
+// identically on the daemon's ExecContext and the direct fallback Exec.
+//
+// The write_scope SET expression is a single CASE: no-op when writePath is
+// empty (?4 = ''), otherwise merges + dedupes + FIFO-caps to writeScopePathsCap.
+//
+// Implementation note: modernc.org/sqlite rejects a correlated reference to
+// the UPDATE target column (write_scope) inside a subquery used as an OFFSET
+// expression. The workaround is ORDER BY mo DESC LIMIT cap (keeps the newest
+// 'cap' entries) followed by an outer ORDER BY mo ASC to restore FIFO order.
+// This avoids the second correlated json_each call that would have been needed
+// to compute the COUNT for the OFFSET. All other correlated json_each refs to
+// write_scope (inside the CASE ELSE body, not inside OFFSET) are accepted.
+//
+// Dedup: GROUP BY value with MIN(key) preserves the original FIFO slot for a
+// re-appended existing path; a new path gets sentinel key 1000000000 so it
+// always sorts last. ORDER BY mo DESC LIMIT writeScopePathsCap drops the
+// oldest entries (smallest mo). The outer ORDER BY mo ASC restores FIFO order.
+// json_set preserves sibling keys (branch, worktree, directories).
+func HeartbeatClaimByWorkItemStmt(workItemID, sessionID, writePath string, leaseDuration time.Duration) (string, []any) {
 	now := time.Now().UTC()
 	newExpiry := now.Add(leaseDuration)
 	activeList := activeStatusList()
 
-	// The write_scope SET expression is a single CASE: no-op when writePath is
-	// empty (?4 = ''), otherwise merges + dedupes + FIFO-caps to writeScopePathsCap.
-	//
-	// Implementation note: modernc.org/sqlite rejects a correlated reference to
-	// the UPDATE target column (write_scope) inside a subquery used as an OFFSET
-	// expression. The workaround is ORDER BY mo DESC LIMIT cap (keeps the newest
-	// 'cap' entries) followed by an outer ORDER BY mo ASC to restore FIFO order.
-	// This avoids the second correlated json_each call that would have been needed
-	// to compute the COUNT for the OFFSET. All other correlated json_each refs to
-	// write_scope (inside the CASE ELSE body, not inside OFFSET) are accepted.
-	//
-	// Dedup: GROUP BY value with MIN(key) preserves the original FIFO slot for a
-	// re-appended existing path; a new path gets sentinel key 1000000000 so it
-	// always sorts last. ORDER BY mo DESC LIMIT writeScopePathsCap drops the
-	// oldest entries (smallest mo). The outer ORDER BY mo ASC restores FIFO order.
-	// json_set preserves sibling keys (branch, worktree, directories).
 	query := fmt.Sprintf(`
 		UPDATE claims
 		SET last_heartbeat_at = ?1,
@@ -279,19 +305,12 @@ func HeartbeatClaimByWorkItem(db *sql.DB, workItemID, sessionID, writePath strin
 		  AND status IN (%s)`,
 		writeScopePathsCap, activeList)
 
-	result, err := db.Exec(query,
+	args := []any{
 		now.Format(time.RFC3339), newExpiry.Format(time.RFC3339),
 		now.Format(time.RFC3339), writePath,
 		workItemID, sessionID,
-	)
-	if err != nil {
-		return fmt.Errorf("heartbeat claim for work item %s: %w", workItemID, err)
 	}
-	rows, _ := result.RowsAffected()
-	if rows == 0 {
-		return fmt.Errorf("no active claim for work item %s owned by session %s", workItemID, sessionID)
-	}
-	return nil
+	return query, args
 }
 
 // TransitionClaim moves a claim to a new status, enforcing the state machine.
@@ -359,6 +378,26 @@ func ReleaseAllClaimsForSession(db *sql.DB, sessionID string) (int, error) {
 // ReapExpiredClaims transitions all expired-lease active claims to ClaimExpired.
 // Returns the number of claims reaped.
 func ReapExpiredClaims(db *sql.DB) (int, error) {
+	query, args := ReapExpiredClaimsStmt()
+	result, err := db.Exec(query, args...)
+	if err != nil {
+		return 0, fmt.Errorf("reap expired claims: %w", err)
+	}
+	rows, _ := result.RowsAffected()
+	return int(rows), nil
+}
+
+// ReapExpiredClaimsStmt builds the parameterized UPDATE that ReapExpiredClaims
+// Execs, WITHOUT executing it, so the hot-path PreToolUse hook can route the
+// exact same statement through the daemon's enqueue-only seam instead of
+// blocking a direct writable handle under a held external write lock
+// (bug-d792aee6 finding 2). The returned (sql, args) is byte-for-byte
+// equivalent to what ReapExpiredClaims binds today.
+//
+// JSON-TRANSPORT SAFETY: both args are the SAME RFC3339 time STRING (now), a
+// transport-safe primitive the daemon can JSON-encode and re-bind identically.
+// No sql.NullString / time.Time crosses the wire.
+func ReapExpiredClaimsStmt() (string, []any) {
 	now := time.Now().UTC()
 	activeList := activeStatusList()
 
@@ -367,12 +406,8 @@ func ReapExpiredClaims(db *sql.DB) (int, error) {
 		WHERE lease_expires_at < ?
 		  AND status IN (%s)`, activeList)
 
-	result, err := db.Exec(query, now.Format(time.RFC3339), now.Format(time.RFC3339))
-	if err != nil {
-		return 0, fmt.Errorf("reap expired claims: %w", err)
-	}
-	rows, _ := result.RowsAffected()
-	return int(rows), nil
+	nowStr := now.Format(time.RFC3339)
+	return query, []any{nowStr, nowStr}
 }
 
 // GetActiveClaim returns the active claim for a work item, or nil if none.

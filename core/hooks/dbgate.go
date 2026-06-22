@@ -29,11 +29,13 @@
 //
 //	Residual direct writes that REUSE the already-held hook handle (not new
 //	opens, not new boundary entries — documented known residuals):
-//	  - pretooluse: HeartbeatClaimByWorkItem, ReapExpiredClaims
 //	  - subagent-start: BackfillParentSession, InsertLineageTrace,
 //	    UpsertPendingSubagentStart
 //	  - Stop: FinalizeSessionHTML, runSessionExitReconcile
 //	Each uses an existing handle only; none opens a fresh writable one.
+//	(pretooluse's claim writes — HeartbeatClaimByWorkItem, ReapExpiredClaims —
+//	were routed through RouteHookWrite's enqueue-only seam in bug-d792aee6, so
+//	they no longer touch a direct writable handle under contention.)
 //
 // OPENING THIS DB FROM THE HOOK TREE STAYS A "FORBIDDEN PATH" by the slice-5
 // boundary (reclassified from daemon-routed-pending-slice-6 to

@@ -413,3 +413,136 @@ func RouteHookWrite(handler, projectRoot, sessionID, sql string, args ...any) bo
 	// Step 3: always success — never error, never block the hook protocol.
 	return true
 }
+
+// routeHookWriteVia applies RouteHookWrite's daemon-first, canonical-first
+// policy but binds the bounded fallback to the writable handle the hook ALREADY
+// holds (the one cmd/wipnote/hook.go opened from DBPath(projectRoot)) instead of
+// re-opening a second handle. It is the hot-hook adaptation of RouteHookWrite for
+// handlers that are already holding their per-project *sql.DB:
+//
+//  1. ENQUEUE-ONLY daemon route: routeSQLAsync(projectRoot, sql, args...). On
+//     true → DONE; NO direct writable Exec is issued. Because the ack is
+//     enqueue-only, a reachable-but-busy writer still returns in well under a
+//     second (roborev 451/452) — this is what delivers the hot hooks' <1s bound
+//     under the realistic single-writer-daemon contention.
+//
+//  2. BOUNDED direct fallback (only when step 1 returns false — daemon
+//     unreachable / spawn-forbidden / queue full): Exec the SAME parameterized
+//     statement against `database`. The handle's own busy_timeout is the failure
+//     bound (the session-start path passes a SHORT one); we do NOT layer
+//     RetryOnBusy so a held lock degrades fast rather than re-waiting the full
+//     timeout. A nil handle is itself a writer_unavailable degradation.
+//
+//  3. ANY failure (nil handle, Exec error) → logged + counted as
+//     writer_unavailable; canonical NDJSON upstream is authoritative and reindex
+//     recovers the row.
+//
+// Like RouteHookWrite it ALWAYS returns advisory-true: it never errors and never
+// blocks the hook protocol. args are bound as SQL parameters and MUST NOT be
+// interpolated into sql by the caller.
+//
+// Why this and not RouteHookWrite directly: RouteHookWrite re-opens a fresh
+// bounded handle at DBPath(projectRoot). For an in-handler caller that is a
+// redundant second open (same file in production) and, in unit tests that pass
+// an ad-hoc *sql.DB without a matching DBPath, would write to a DIFFERENT file.
+// Binding the fallback to the caller's handle keeps the write on the one DB the
+// hook is already using.
+func routeHookWriteVia(handler, projectRoot, sessionID string, database *sql.DB, sqlStmt string, args ...any) bool {
+	// Step 1: enqueue-only daemon route — no direct handle when reachable.
+	if routeSQLAsync(projectRoot, sqlStmt, args...) {
+		return true
+	}
+	// Step 2: bounded direct fallback against the handle the hook already holds.
+	if database == nil {
+		RecordFallback(handler, sessionID, FallbackWriterUnavailable, "no daemon and nil db")
+		return true
+	}
+	_, execErr := database.Exec(sqlStmt, args...)
+	db.Record(db.SubsystemHookWriter, execErr)
+	if execErr != nil {
+		RecordFallback(handler, sessionID, FallbackWriterUnavailable, "exec: "+execErr.Error())
+	}
+	// Step 3: always success — never error, never block the hook protocol.
+	return true
+}
+
+// agentEventInsertSQL is the parameterized INSERT for an agent_events row. It is
+// the EXACT statement db.InsertEvent issues (core/db/event_repo.go) — kept
+// byte-identical here so the hot hooks (pretooluse tool_call insert, Stop
+// terminal event) can route the same write through RouteHookWrite's daemon-first
+// enqueue path instead of opening a direct writable handle. Column order and the
+// 22 placeholders MUST stay in lock-step with db.InsertEvent.
+const agentEventInsertSQL = `
+	INSERT INTO agent_events (
+		event_id, agent_id, event_type, timestamp, tool_name,
+		input_summary, tool_input, output_summary, session_id, feature_id,
+		parent_agent_id, parent_event_id, subagent_type,
+		cost_tokens, execution_duration_seconds, status,
+		model, claude_task_id, source, step_id,
+		created_at, updated_at
+	) VALUES (?,?,?,?,?, ?,?,?,?,?, ?,?,?,?,?, ?,?,?,?,?, ?,?)`
+
+// nullableArg maps an empty string to a typed SQL NULL (nil) and any non-empty
+// string to itself. Unlike sql.NullString it is JSON-transport-safe: the daemon
+// enqueue path JSON-encodes RouteHookWrite's args (core/daemon/apply.DerivedOp),
+// and a plain string / nil binds identically on BOTH the daemon's ExecContext
+// and the direct-fallback Exec — whereas a sql.NullString would JSON-marshal to
+// an object the SQLite driver cannot bind. This reproduces db.nullStr's NULL
+// semantics across the process boundary (parity with db.InsertEvent's columns).
+func nullableArg(s string) any {
+	if s == "" {
+		return nil
+	}
+	return s
+}
+
+// agentEventInsertArgs renders an AgentEvent into the 22 bind parameters for
+// agentEventInsertSQL, matching db.InsertEvent's argument order and NULL
+// handling exactly. Timestamps are RFC3339 strings; absent text columns become
+// typed NULLs via nullableArg so the row is indistinguishable from one written
+// by the direct db.InsertEvent path.
+func agentEventInsertArgs(e *models.AgentEvent) []any {
+	return []any{
+		e.EventID, e.AgentID, string(e.EventType),
+		e.Timestamp.UTC().Format(time.RFC3339), nullableArg(e.ToolName),
+		nullableArg(e.InputSummary), nullableArg(e.ToolInput), nullableArg(e.OutputSummary),
+		e.SessionID, nullableArg(e.FeatureID),
+		nullableArg(e.ParentAgentID), nullableArg(e.ParentEventID),
+		nullableArg(e.SubagentType),
+		e.CostTokens, e.ExecDuration, e.Status,
+		nullableArg(e.Model), nullableArg(e.ClaudeTaskID),
+		e.Source, nullableArg(e.StepID),
+		e.CreatedAt.UTC().Format(time.RFC3339),
+		e.UpdatedAt.UTC().Format(time.RFC3339),
+	}
+}
+
+// RouteInsertEvent routes an agent_events INSERT through RouteHookWrite's
+// daemon-first, bounded-direct-fallback policy — the hot-hook equivalent of
+// db.InsertEvent. It mirrors db.InsertEvent's one pre-write read: when
+// ParentEventID is set but ParentAgentID is empty, the parent row's agent_id is
+// resolved from `database` first so the lineage edge is materialised at insert
+// time. That lookup is a READ (it never contends the write lock that stalled the
+// hot hooks) and is skipped when `database` is nil (daemon-only callers).
+//
+// Like every RouteHookWrite caller this is best-effort and ALWAYS succeeds from
+// the hook's perspective: a held write lock degrades to canonical-only in <1s,
+// and canonical NDJSON + reindex recover the row. The return value is advisory
+// (RouteHookWrite never errors); callers MUST NOT propagate it to the hook
+// protocol.
+func RouteInsertEvent(handler, projectRoot, sessionID string, ev *models.AgentEvent, database *sql.DB) bool {
+	if ev == nil {
+		return true
+	}
+	// Materialise the parent_agent_id lineage edge exactly as db.InsertEvent
+	// does — a pure read, safe to run direct even under write contention.
+	if ev.ParentEventID != "" && ev.ParentAgentID == "" && database != nil {
+		var parentAgentID string
+		if err := database.QueryRow(
+			`SELECT agent_id FROM agent_events WHERE event_id = ?`, ev.ParentEventID,
+		).Scan(&parentAgentID); err == nil {
+			ev.ParentAgentID = parentAgentID
+		}
+	}
+	return routeHookWriteVia(handler, projectRoot, sessionID, database, agentEventInsertSQL, agentEventInsertArgs(ev)...)
+}

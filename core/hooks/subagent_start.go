@@ -59,9 +59,11 @@ func SubagentStart(event *CloudEvent, database *sql.DB) (*HookResult, error) {
 		UpdatedAt:     time.Now().UTC(),
 	}
 
-	if err := db.InsertEvent(database, ev); err != nil {
-		debugLog(projectDir, "[error] handler=subagent-start session=%s: insert event: %v", sessionID[:minSessionLen(sessionID)], err)
-	}
+	// Route the task_delegation agent_events INSERT through the daemon-first
+	// enqueue path (plan-2390966a slice-4): no direct writable handle when the
+	// daemon is reachable, <1s bounded fallback otherwise. Best-effort like the
+	// prior db.InsertEvent — canonical NDJSON + reindex recover the row.
+	_ = RouteInsertEvent("subagent-start", projectDir, sessionID, ev, database)
 
 	// Write traceparent so the subagent's session-start can claim it.
 	writeTraceparent(sessionID, eventID)
@@ -166,17 +168,20 @@ func insertSubagentLineage(database *sql.DB, parentSessionID, agentID, agentType
 	now := time.Now().UTC().Format(time.RFC3339)
 	metadata := fmt.Sprintf(`{"agent_type":%q,"created_via":"subagent-start-hook"}`, agentType)
 
-	if _, err := database.Exec(`
+	// Route the synthetic subagent sessions INSERT through the daemon-first
+	// enqueue path (plan-2390966a slice-4) so it never opens a direct writable
+	// handle when the daemon is reachable and degrades to a <1s bounded fallback
+	// otherwise. Best-effort: a degraded write is recovered by reindex, so we no
+	// longer abort the remaining lineage backfill on a write failure (the prior
+	// direct Exec returned early on error). The subsequent BackfillParentSession /
+	// InsertLineageTrace are independently idempotent.
+	_ = routeHookWriteVia("subagent-start", projectDir, parentSessionID, database, `
 		INSERT OR IGNORE INTO sessions
 			(session_id, agent_assigned, parent_session_id, created_at,
 			 status, is_subagent, metadata)
 		VALUES (?, ?, ?, ?, 'active', 1, ?)`,
 		agentID, agentType, parentSessionID, now, metadata,
-	); err != nil {
-		debugLog(projectDir, "[error] handler=subagent-start session=%s: insert subagent session row: %v",
-			parentSessionID[:minSessionLen(parentSessionID)], err)
-		return
-	}
+	)
 	// Out-of-order attribution: if the child session row already existed
 	// (created by a prior hook before SubagentStart fired), backfill the
 	// parent_session_id so the lineage chain is complete regardless of

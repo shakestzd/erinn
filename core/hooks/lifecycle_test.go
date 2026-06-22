@@ -17,6 +17,13 @@ import (
 // SQLite DB. Returns the database and the project dir.
 func setupLifecycleDB(t *testing.T) (*sql.DB, string) {
 	t.Helper()
+	// plan-2390966a slice-4: the hot hooks now route their derived-index writes
+	// through the daemon-first enqueue seam. With no auto-writer disabled the
+	// routed write would try to fork a headless writer (this test binary) and
+	// dial-wait its socket — slow and stray-process-prone in a unit test. Disable
+	// auto-spawn so the route fast-fails to the in-handler direct fallback, which
+	// writes to the *sql.DB this helper returns (the row the tests assert on).
+	t.Setenv("WIPNOTE_NO_AUTO_WRITER", "1")
 	projectDir := t.TempDir()
 	hgDir := filepath.Join(projectDir, ".wipnote")
 	if err := os.MkdirAll(hgDir, 0o755); err != nil {

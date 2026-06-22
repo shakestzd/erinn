@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>Generic SQL-envelope DerivedOp &#43; RouteSQL daemon client (foundation)</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="feat-842b24c8"
+             data-type="feature"
+             data-status="in-progress"
+             data-priority="medium"
+             data-created="2026-06-22T03:49:09.774744"
+             data-updated="2026-06-22T04:03:31.85812" data-agent-assigned="claude-code" data-track-id="trk-6a1f5362">
+
+        <header>
+            <h1>Generic SQL-envelope DerivedOp &#43; RouteSQL daemon client (foundation)</h1>
+            <div class="metadata">
+                <span class="badge status-in-progress">In Progress</span>
+                <span class="badge priority-medium">Medium Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="planned_in">
+                <h3>Planned In:</h3>
+                <ul>
+                    <li><a href="../plans/plan-2390966a.html" data-relationship="planned_in" data-since="2026-06-22T03:49:09.798141">plan-2390966a</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-6a1f5362.html" data-relationship="part_of" data-since="2026-06-22T03:49:09.841776">trk-6a1f5362</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="implemented_in">
+                <h3>Implemented In:</h3>
+                <ul>
+                    <li><a href="../sessions/1ea41959-b6de-447b-b615-4de675ac89b5.html" data-relationship="implemented_in" data-since="2026-06-22T04:03:31.857967">session 1ea41959-b6de-447b-b615-4de675ac89b5</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>Extend the daemon write protocol so any non-daemon process can submit an
+arbitrary parameterized write over the local IPC. Add OpTypeSQL to the
+DerivedOp struct (core/daemon/apply/apply.go) carrying SQL string + Args
+([]any, JSON-encoded). The daemon&#39;s apply loop executes it (parameterized,
+RetryOnBusy-wrapped) on its single writable handle. Add a client helper
+apply.RouteSQL(projectRoot, sql, args...) bool (core/daemon/apply/cli_route.go)
+that wraps WriterClient.SubmitOrSpawn (auto-spawns the daemon, ~2s bounded)
+and returns true on ack. Keep the existing typed routes
+(RouteSessionInsert/Status, SubmitDerivedEvent) untouched for the hot paths.</p>
+        </section>
+    </article>
+</body>
+</html>

@@ -229,7 +229,7 @@ var approvedWriteSites = []writeSite{
 	},
 	{
 		File:           "internal/gate/check.go",
-		Line:           361,
+		Line:           421,
 		Function:       "PersistRecord",
 		OpenExpr:       "dbpkg.Open",
 		Classification: intentionalCLIMutation,

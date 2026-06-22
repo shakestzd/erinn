@@ -119,6 +119,31 @@ func CompleteLineageTrace(db *sql.DB, sessionID string) error {
 	return err
 }
 
+// CloseLineageTraceByTraceIDStmt builds the parameterized UPDATE that closes
+// the lineage row keyed by trace_id (the subagent's agent_id — see
+// insertSubagentLineage), WITHOUT executing it, so the subagent-STOP hook can
+// route the close through the daemon's enqueue-only seam instead of issuing a
+// DIRECT Exec (roborev-473 finding 4). Routing the close enqueue-only — like the
+// subagent-START insert — makes both writes land on the daemon's single writer
+// in FIFO order: SubagentStart fires before SubagentStop, so the start insert is
+// enqueued first and the close UPDATE applies AFTER it. That eliminates the
+// orphaned-`active`-row race where a DIRECT close UPDATE ran before the still-
+// queued start insert had applied (the UPDATE matched 0 rows, then the insert
+// landed an `active` row that nothing ever closed).
+//
+// JSON-TRANSPORT SAFETY: completed_at is an RFC3339 STRING and trace_id a plain
+// string — both transport-safe primitives the daemon can JSON-encode and re-bind
+// identically. The statement produces the SAME effect as the direct Exec in
+// closeSubagentLineage.
+func CloseLineageTraceByTraceIDStmt(traceID string) (string, []any) {
+	query := `
+		UPDATE agent_lineage_trace
+		   SET completed_at = ?, status = 'completed'
+		 WHERE trace_id = ? AND completed_at IS NULL`
+	args := []any{time.Now().UTC().Format(time.RFC3339), traceID}
+	return query, args
+}
+
 // scanLineageRows scans a set of lineage rows into a slice of LineageTrace.
 func scanLineageRows(rows lineageScanner) ([]models.LineageTrace, error) {
 	var traces []models.LineageTrace

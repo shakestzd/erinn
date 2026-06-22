@@ -322,12 +322,34 @@ func SessionStart(event *CloudEvent, database *sql.DB, projectDir string) (*Hook
 			// No family env — treat this session as its own family.
 			familyID = sessionID
 		}
-		// DB write: set session_family_id on this session row. Routed enqueue-only
-		// (no direct writable Exec) — mirrors db.SetSessionFamilyID's statement.
+		// DB write: set session_family_id on this session row.
+		//
+		// roborev-473 finding 5: this update has an IMMEDIATE in-process consumer —
+		// routeFamilyAttribution (below) reads the family's members via
+		// db.GetSessionsByFamily, which selects on session_family_id. An ENQUEUE-ONLY
+		// write would not yet be applied when that read runs, so this row would be
+		// missing from the member set and sibling work-item attribution would be
+		// silently skipped. This is a once-per-subagent-session, low-frequency write
+		// whose consumer is coupled to it, so CORRECTNESS WINS over the <1s target:
+		// route it APPLIED-ACK via apply.RouteSQL so the row is committed (and thus
+		// visible to the propagation read) before we proceed. apply.RouteSQL is
+		// bounded by CLISubmitBudget (~2s) — acceptable here. On a daemon miss
+		// (RouteSQL returns false) fall back to the direct applied write through the
+		// already-held handle so the row is still committed synchronously before the
+		// read; canonical NDJSON + reindex remain the durability backstop.
 		// familyID is already non-empty (defaulted to sessionID above).
-		RouteHookWrite("session-start", projectDir, sessionID,
-			`UPDATE sessions SET session_family_id = ? WHERE session_id = ?`,
-			familyID, sessionID)
+		//
+		// On a daemon MISS (RouteSQL returns false) the applied-ack guarantee can't
+		// come from the daemon, so we write directly through a BOUNDED own handle
+		// (routeFamilyIDDirectBounded, ~750ms busy_timeout) rather than the passed
+		// handle's default 5s busy_timeout — under a held external write lock the
+		// applied write can't land anyway, and the immediately-following family read
+		// would not see it either way, so failing fast keeps session-start responsive
+		// instead of stalling 5s. canonical NDJSON + reindex remain the backstop.
+		const setFamilySQL = `UPDATE sessions SET session_family_id = ? WHERE session_id = ?`
+		if !routeSQLApplied(projectDir, setFamilySQL, familyID, sessionID) {
+			routeViaOwnBoundedHandle("session-start", projectDir, sessionID, setFamilySQL, familyID, sessionID)
+		}
 		// File writes: family index + per-session state (harness-neutral).
 		agentID := s.AgentAssigned
 		_ = agent.RegisterSessionFamily(projectDir, sessionID, familyID)

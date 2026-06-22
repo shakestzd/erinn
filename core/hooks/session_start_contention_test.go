@@ -119,6 +119,17 @@ func TestSessionStartRoutesAllWritesViaDaemon(t *testing.T) {
 		return true // daemon acked the enqueue
 	}
 	t.Cleanup(func() { routeSQLAsync = prev })
+	// roborev-473 finding 5: the session_family_id update now routes APPLIED-ack
+	// (routeSQLApplied) so it is visible before routeFamilyAttribution reads the
+	// family. Stub it the same way — capture the op and ack instantly — so this
+	// daemon-reachable proof still observes a single-writer FIFO apply and zero
+	// canonical-first fallbacks.
+	prevApplied := routeSQLApplied
+	routeSQLApplied = func(_ string, sqlStmt string, args ...any) bool {
+		captured = append(captured, routedOp{sql: sqlStmt, args: args})
+		return true // daemon committed (applied-ack)
+	}
+	t.Cleanup(func() { routeSQLApplied = prevApplied })
 
 	ResetFallbackCounts()
 
@@ -227,6 +238,13 @@ func TestSessionStartFailsFastUnderContention(t *testing.T) {
 	prev := routeSQLAsync
 	routeSQLAsync = func(_ string, _ string, _ ...any) bool { return false }
 	t.Cleanup(func() { routeSQLAsync = prev })
+	// roborev-473 finding 5: the applied-ack family-id seam must also miss so its
+	// fallback takes the bounded own-handle write (routeViaOwnBoundedHandle,
+	// ~750ms) rather than the passed handle's default 5s busy_timeout — proving the
+	// applied-ack path ALSO fails fast under contention when the daemon is gone.
+	prevApplied := routeSQLApplied
+	routeSQLApplied = func(_ string, _ string, _ ...any) bool { return false }
+	t.Cleanup(func() { routeSQLApplied = prevApplied })
 
 	ResetFallbackCounts()
 

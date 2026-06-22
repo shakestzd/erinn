@@ -160,6 +160,32 @@ func OpenHookDB(handler, sessionID, dbPath string) (*sql.DB, FallbackReason) {
 	return database, ""
 }
 
+// OpenHookDBReadOnly returns a READ-ONLY DB handle for the hot hooks that route
+// every derived-index WRITE through the daemon and use the handle ONLY for reads
+// (roborev-473 finding 1: pretooluse, user-prompt, stop). A read-only open never
+// acquires the write lock and never runs the cold-DB migration that the writable
+// OpenHookDB (db.Open) does — so under contention these hot hooks no longer block
+// on a writable open + migration. It bootstraps the schema via
+// db.OpenReadOnlyMigrated (a brief writable Open INSIDE core/db — out of the
+// writable-open boundary scan — then a read-only handle), so a first-launch hook
+// firing before the DB exists still gets a usable handle instead of failing.
+//
+// Failure semantics mirror OpenHookDB: a failed open is classified under
+// hook_writer, logged + counted as writer_unavailable, and returns a nil handle
+// the caller MUST treat as a signal to return canonical-success. Any derived
+// WRITE attempted on the returned handle via routeHookWriteVia on a daemon miss
+// transparently opens its own bounded writable handle (see routeViaOwnBoundedHandle),
+// so correctness is preserved even though this handle itself cannot write.
+func OpenHookDBReadOnly(handler, sessionID, dbPath string) (*sql.DB, FallbackReason) {
+	database, err := db.OpenReadOnlyMigrated(dbPath)
+	if err != nil {
+		db.Record(db.SubsystemHookWriter, err)
+		RecordFallback(handler, sessionID, FallbackWriterUnavailable, err.Error())
+		return nil, FallbackWriterUnavailable
+	}
+	return database, ""
+}
+
 // SessionStartBusyTimeout bounds how long the session-start hook's writable DB
 // handle waits on a held write lock before failing fast. The session-start hook
 // runs on the launcher's POST-selection critical path: Claude blocks on the
@@ -359,6 +385,18 @@ func safeSessionID(s string) string {
 // hook code (use apply.RouteSQLAsync) so the override stays test-local.
 var routeSQLAsync = apply.RouteSQLAsync
 
+// routeSQLApplied is the daemon APPLIED-ack seam (synchronous: returns true only
+// once the writer has committed the statement). Like routeSQLAsync it is a
+// package-level var ONLY so tests can stub the daemon hop — production always
+// binds it to apply.RouteSQL. It is used by the few LOW-FREQUENCY hot-hook writes
+// whose consumer is coupled to them and therefore require synchronous visibility
+// (roborev-473): subagent-start's pending_subagent_starts upsert (the OTLP
+// receiver reads it the instant the first span arrives) and session-start's
+// session_family_id update (routeFamilyAttribution reads the family the instant
+// after). Do not call it directly from other hook code (use apply.RouteSQL) so
+// the override stays test-local.
+var routeSQLApplied = apply.RouteSQL
+
 // RouteHookWrite is THE single primitive every hot hook write migrates to. It
 // applies a parameterized derived-index statement under a daemon-first,
 // bounded-direct-fallback, canonical-first policy and ALWAYS returns success —
@@ -474,17 +512,75 @@ func routeHookWriteVia(handler, projectRoot, sessionID string, database *sql.DB,
 		return true
 	}
 	// Step 2: bounded direct fallback against the handle the hook already holds.
-	if database == nil {
-		RecordFallback(handler, sessionID, FallbackWriterUnavailable, "no daemon and nil db")
+	// roborev-473 finding 1: the hot hooks that now dispatch with a READ-ONLY
+	// handle (pretooluse, user-prompt, stop — they route every write through the
+	// daemon and use the handle only for reads) pass a read-only *sql.DB here.
+	// A read-only handle's Exec fails at the engine level (query_only=ON), so on a
+	// genuine daemon miss the direct fallback against it cannot persist the row.
+	// Rather than silently drop the write (losing it until reindex), fall through
+	// to opening OUR OWN bounded writable handle — exactly what RouteHookWrite's
+	// step 2 does — so the row is still written on a daemon miss. A writable handle
+	// passed by the still-writable hooks (subagent-start, session-start) executes
+	// directly as before; only a nil or read-only handle takes the own-open path.
+	if database != nil && !isReadOnlyDB(database) {
+		_, execErr := database.Exec(sqlStmt, args...)
+		db.Record(db.SubsystemHookWriter, execErr)
+		if execErr == nil {
+			return true
+		}
+		// A non-nil writable handle that still errored: degrade to canonical-only
+		// (the original behaviour); do NOT re-attempt via an own handle to avoid a
+		// double write under a transient error.
+		RecordFallback(handler, sessionID, FallbackWriterUnavailable, "exec: "+execErr.Error())
 		return true
 	}
+	// Read-only or nil handle on a daemon miss: open our own bounded writable
+	// handle (the single inventoried hook write site) and exec there.
+	return routeViaOwnBoundedHandle(handler, projectRoot, sessionID, sqlStmt, args...)
+}
+
+// routeViaOwnBoundedHandle opens the single inventoried bounded writable hook
+// handle (OpenHookDBWithBusyTimeout) at the project's canonical DB path and Execs
+// the statement once, best-effort. It is the daemon-miss fallback for callers
+// holding a read-only (or nil) handle (roborev-473 finding 1). Mirrors
+// RouteHookWrite's step 2/3: a held write lock fails fast on the short
+// busy_timeout, a terminal BUSY is classified under hook_writer then swallowed,
+// and the canonical NDJSON + reindex backstop recovers any unwritten row. ALWAYS
+// returns advisory-true; never blocks the hook protocol.
+func routeViaOwnBoundedHandle(handler, projectRoot, sessionID, sqlStmt string, args ...any) bool {
+	dbPath, err := DBPath(projectRoot)
+	if err != nil {
+		RecordFallback(handler, sessionID, FallbackWriterUnavailable, "dbpath: "+err.Error())
+		return true
+	}
+	database, _ := OpenHookDBWithBusyTimeout(handler, sessionID, dbPath, SessionStartBusyTimeout)
+	if database == nil {
+		// Open failed: already classified + counted inside OpenHookDBWithBusyTimeout.
+		return true
+	}
+	defer database.Close()
 	_, execErr := database.Exec(sqlStmt, args...)
 	db.Record(db.SubsystemHookWriter, execErr)
 	if execErr != nil {
 		RecordFallback(handler, sessionID, FallbackWriterUnavailable, "exec: "+execErr.Error())
 	}
-	// Step 3: always success — never error, never block the hook protocol.
 	return true
+}
+
+// isReadOnlyDB reports whether handle was opened read-only (query_only=ON), so
+// the via-fallback knows it must open its own writable handle instead of issuing
+// a doomed Exec. It runs a one-row PRAGMA query_only read (cheap, never contends
+// the write lock). On any error it conservatively returns false (treat as
+// writable) so writable callers keep the existing direct-Exec fast path.
+func isReadOnlyDB(database *sql.DB) bool {
+	if database == nil {
+		return false
+	}
+	var queryOnly int
+	if err := database.QueryRow("PRAGMA query_only").Scan(&queryOnly); err != nil {
+		return false
+	}
+	return queryOnly != 0
 }
 
 // agentEventInsertSQL is the parameterized INSERT for an agent_events row. It is

@@ -11,7 +11,21 @@ package daemon
 // newer client hitting an older daemon (or vice-versa) is rejected with an
 // error ack rather than risking a mis-applied write (slice-1 version-skew
 // decision). Bump this only on a breaking envelope/ack change.
-const OpFormatVersion = 1
+//
+// Version history:
+//   - 1: original synchronous applied-ack envelope (slice-1).
+//   - 2: async ack semantics (Envelope.Async / AckEnqueued, slice-1) PLUS the
+//     type-tagged DerivedOp.Args wire shape (round-3, roborev-478 finding 3).
+//     Both changed how a peer must interpret the payload/ack contract: an old
+//     (v1) daemon has no AckEnqueued path, so it would apply an async op
+//     synchronously and a hot caller waiting on the ack could blow its <1s
+//     budget; and it decodes DerivedOp.Args with the pre-round-3 untagged
+//     shape, mis-typing the bind args. Bumping to 2 makes the daemon's
+//     existing version-skew check (process, socket.go) reject any v1-vs-v2
+//     mismatch with an AckError, so the client treats it as a route-miss and
+//     falls back to the bounded direct write — never a silent mis-apply
+//     (roborev-480 finding 2).
+const OpFormatVersion = 2
 
 // AckStatus is the outcome the daemon reports for a submitted op.
 type AckStatus string

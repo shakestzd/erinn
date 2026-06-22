@@ -235,12 +235,23 @@ func hookSubcmdReadOnly(
 						fmt.Sprintf("DBPath failed: %v", err))
 					return fallback, nil
 				}
+				// Finding 1 (roborev-478 round-3): when the truly-read-only open
+				// yields no usable handle (first run, deleted cache, DB not yet
+				// created, or a transient lock), do NOT skip the handler — that
+				// would silently bypass the DB-INDEPENDENT safety guards
+				// (pretooluse's .wipnote/-write block, the cd/divergence guards,
+				// the yolo work-item guard). Instead invoke the handler with a
+				// nil DB so those guards still run in guard-only mode; the
+				// read-only-dispatched handlers (user-prompt, pretooluse) are
+				// nil-DB-safe — every DB-dependent read no-ops / returns empty
+				// when database == nil — and route any write through the daemon
+				// regardless of this handle.
 				database, reason := hooks.OpenHookDBReadOnly(use, event.SessionID, dbPath)
-				if database == nil {
-					_ = reason
-					return fallback, nil
+				if database != nil {
+					defer database.Close()
+				} else {
+					_ = reason // already logged + counted inside OpenHookDBReadOnly
 				}
-				defer database.Close()
 				return handler(event, database)
 			})
 		},

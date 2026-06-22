@@ -873,6 +873,11 @@ func nullableStr(s string) any {
 
 // GetActiveFeatureID looks up the active_feature_id for a session.
 func GetActiveFeatureID(database *sql.DB, sessionID string) string {
+	// Nil-DB-safe (roborev-478 finding 1): the read-only hook dispatch may run
+	// the handler with a nil DB so the DB-independent guards still execute.
+	if database == nil {
+		return ""
+	}
 	var featID sql.NullString
 	row := database.QueryRow(
 		`SELECT active_feature_id FROM sessions WHERE session_id = ?`, sessionID,

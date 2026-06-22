@@ -147,6 +147,9 @@ func UpsertSession(db *sql.DB, s *models.Session) error {
 
 // GetSession retrieves a session by ID.
 func GetSession(db *sql.DB, sessionID string) (*models.Session, error) {
+	if db == nil {
+		return nil, sql.ErrNoRows
+	}
 	row := db.QueryRow(`
 		SELECT session_id, agent_assigned, parent_session_id,
 			parent_event_id, created_at, completed_at,
@@ -345,6 +348,13 @@ type ToolUseContextRow struct {
 // in-progress — a stale pointer to a completed feature is treated as empty,
 // so guards correctly block edits without an active work item.
 func GetToolUseContext(db *sql.DB, sessionID, agentID string) (*ToolUseContextRow, error) {
+	// Nil-DB-safe (roborev-478 finding 1): the read-only hook dispatch may
+	// invoke the handler with a nil DB so the DB-INDEPENDENT guards still run.
+	// Treat a nil handle as "no session row" (nil, nil — same shape as
+	// sql.ErrNoRows here) rather than panicking on QueryRow.
+	if db == nil {
+		return nil, nil
+	}
 	// Claim lookup uses three paths, tried in order:
 	//   1. claimed_by_agent_id = agentID  — the direct per-agent claim
 	//   2. owner_session_id   = sessionID — fallback for subagent tool calls,
@@ -420,7 +430,7 @@ func GetToolUseContext(db *sql.DB, sessionID, agentID string) (*ToolUseContextRo
 // "" when the session has none. Lightweight single-column lookup used by the
 // parent-session fallback in autoCompleteFromCommit.
 func GetActiveFeatureIDForSession(db *sql.DB, sessionID string) string {
-	if sessionID == "" {
+	if db == nil || sessionID == "" {
 		return ""
 	}
 	var id sql.NullString

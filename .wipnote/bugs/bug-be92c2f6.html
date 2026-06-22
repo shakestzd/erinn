@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>Hot-hook bounded-open/fallback &lt;1s tail under contention (roborev-484, deferred per loop cap)</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="bug-be92c2f6"
+             data-type="bug"
+             data-status="todo"
+             data-priority="medium"
+             data-created="2026-06-22T21:57:52.288823"
+             data-updated="2026-06-22T21:57:52.297415" data-agent-assigned="claude-code" data-track-id="trk-6a1f5362" data-created-by-agent="claude-code" data-created-by-model="claude-opus-4-8[1m]" data-created-by-cli-version="0.64.0-17-gac4898ffa">
+
+        <header>
+            <h1>Hot-hook bounded-open/fallback &lt;1s tail under contention (roborev-484, deferred per loop cap)</h1>
+            <div class="metadata">
+                <span class="badge status-todo">Todo</span>
+                <span class="badge priority-medium">Medium Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-6a1f5362.html" data-relationship="part_of" data-since="2026-06-22T21:57:52.297273">trk-6a1f5362</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>Deferred follow-up from roborev-484 (loop capped after round 6 per user). The high-frequency hot-path writes are routed enqueue-only and &lt;1s; these are the rare fallback/cold-open edge cases that can still exceed &lt;1s under a held lock. (1) core/hooks/subagent_start.go:100 applied-ack pending fallback uses the production 5s handle -&gt; ~7s worst case; route fallback through a short-timeout handle. (2) cmd/wipnote/hook.go:77 production stop dispatches via 5s hookSubcmd while the contention gate measures a bounded handle -&gt; gate/prod mismatch; bound stop dispatch or route residual otel_signals writes + update gate. (3) core/db/open_modes.go:215 OpenWithBusyTimeout ApplyPragmas still RetryOnBusy(DefaultBusyBackoff) for journal_mode change under a held lock; add a bounded/no-retry pragma path. All recoverable/edge, no HIGH.</p>
+        </section>
+    </article>
+</body>
+</html>

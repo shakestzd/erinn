@@ -76,6 +76,78 @@ func TestDerivedOp_SQLEnvelope_RoundTrip(t *testing.T) {
 	}
 }
 
+// TestDerivedOp_SQLEnvelope_Int64PrecisionRoundTrip proves a large int64 bind
+// arg survives encode→decode→apply EXACTLY (roborev-473 finding 6). A plain
+// json.Unmarshal would widen the JSON number to float64, truncating any integer
+// above 2^53 before it reaches the SQLite INTEGER bind; Decode's UseNumber()+
+// NormalizeArgs path preserves it. The fractional case asserts non-integral
+// numbers still bind as float64.
+func TestDerivedOp_SQLEnvelope_Int64PrecisionRoundTrip(t *testing.T) {
+	wDB := openTempWriterDB(t)
+
+	const bigInt = int64(1)<<53 + 1 // 9007199254740993 — NOT representable as float64
+	if float64(bigInt) == float64(bigInt-1) {
+		// Sanity: confirm the value genuinely loses precision through float64,
+		// so this test would actually catch a regression.
+		t.Logf("note: %d collapses under float64 — exactly what we must avoid", bigInt)
+	}
+
+	op := DerivedOp{
+		Type: OpTypeSQL,
+		SQL:  `INSERT INTO kv (k, n) VALUES (?, ?)`,
+		Args: []any{"big", bigInt},
+	}
+	payload, err := Encode(op)
+	if err != nil {
+		t.Fatalf("encode: %v", err)
+	}
+	decoded, err := Decode(payload)
+	if err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	// The decoded arg must be an int64 carrying the exact value (not a float64).
+	gotArg, ok := decoded.Args[1].(int64)
+	if !ok {
+		t.Fatalf("decoded big int arg has type %T, want int64 (precision-preserving)", decoded.Args[1])
+	}
+	if gotArg != bigInt {
+		t.Fatalf("decoded big int arg = %d, want %d", gotArg, bigInt)
+	}
+
+	applier := NewApplier(wDB)
+	writeOp, err := applier(daemon.Envelope{OpType: OpTypeSQL, Payload: payload})
+	if err != nil {
+		t.Fatalf("applier build: %v", err)
+	}
+	if err := writeOp(context.Background()); err != nil {
+		t.Fatalf("apply OpTypeSQL: %v", err)
+	}
+
+	var n int64
+	if err := wDB.QueryRow(`SELECT n FROM kv WHERE k = ?`, "big").Scan(&n); err != nil {
+		t.Fatalf("read back row: %v", err)
+	}
+	if n != bigInt {
+		t.Fatalf("row n = %d, want %d (int64 precision must survive the SQL envelope)", n, bigInt)
+	}
+
+	// Fractional case: a non-integral number must bind as float64, not be
+	// coerced to an integer.
+	const frac = 3.5
+	op2 := DerivedOp{Type: OpTypeSQL, SQL: `INSERT INTO kv (k, n) VALUES (?, ?)`, Args: []any{"frac", frac}}
+	payload2, err := Encode(op2)
+	if err != nil {
+		t.Fatalf("encode frac: %v", err)
+	}
+	decoded2, err := Decode(payload2)
+	if err != nil {
+		t.Fatalf("decode frac: %v", err)
+	}
+	if f, ok := decoded2.Args[1].(float64); !ok || f != frac {
+		t.Fatalf("decoded fractional arg = %#v (type %T), want float64(%v)", decoded2.Args[1], decoded2.Args[1], frac)
+	}
+}
+
 // TestDerivedOp_SQLEnvelope_EmptySQLErrors asserts a malformed OpTypeSQL (no
 // statement) yields an applier error rather than a silent no-op.
 func TestDerivedOp_SQLEnvelope_EmptySQLErrors(t *testing.T) {
@@ -236,6 +308,43 @@ func TestRouteSQLAsync_LiveDaemon_Applies(t *testing.T) {
 		time.Sleep(5 * time.Millisecond)
 	}
 	t.Fatal("RouteSQLAsync row never applied within deadline")
+}
+
+// TestSQLOpID_TypeTagged proves sqlOpID hashes a TYPE-TAGGED serialization of
+// (sql, args) so cross-type values cannot collide (roborev-473 finding 7). The
+// old %v rendering hashed the string "1" and the int 1 identically, letting a
+// later distinct SQL op be wrongly deduped against an earlier one and dropped.
+func TestSQLOpID_TypeTagged(t *testing.T) {
+	const sql1 = `INSERT INTO kv (k, n) VALUES (?, ?)`
+	const sql2 = `UPDATE kv SET n = ? WHERE k = ?`
+
+	// String "1" must NOT collide with int 1.
+	if sqlOpID(sql1, "1") == sqlOpID(sql1, 1) {
+		t.Fatal(`sqlOpID(sql, "1") collides with sqlOpID(sql, 1) — args not type-tagged`)
+	}
+	// Different statement, same arg → distinct key.
+	if sqlOpID(sql1, 1) == sqlOpID(sql2, 1) {
+		t.Fatal("sqlOpID(sql1, 1) collides with sqlOpID(sql2, 1) — statement not in key")
+	}
+	// Determinism: same (sql, args) yields the same key across calls.
+	if sqlOpID(sql1, "a", 2, true) != sqlOpID(sql1, "a", 2, true) {
+		t.Fatal("sqlOpID not deterministic for identical (sql, args)")
+	}
+	// int vs int64 of the SAME value collapse to the same key (both bind
+	// identically and JSON-encode as the same number) — so a retry that happens
+	// to widen an int to int64 still dedups.
+	if sqlOpID(sql1, 1) != sqlOpID(sql1, int64(1)) {
+		t.Fatal("sqlOpID(sql, int(1)) != sqlOpID(sql, int64(1)) — same value must dedup")
+	}
+	// A large int64 (beyond float64 exactness) still produces a stable key —
+	// guarding the finding-6 normalization path through the op_id too.
+	big := int64(1)<<53 + 1
+	if sqlOpID(sql1, big) != sqlOpID(sql1, big) {
+		t.Fatal("sqlOpID not stable for a large int64 arg")
+	}
+	if sqlOpID(sql1, big) == sqlOpID(sql1, big-1) {
+		t.Fatal("sqlOpID collides for distinct large int64 args — precision lost in key")
+	}
 }
 
 // TestRouteSQL_LiveDaemon_Applies confirms the APPLIED-ack helper returns true

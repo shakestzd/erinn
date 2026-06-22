@@ -20,6 +20,7 @@
 package apply
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"database/sql"
@@ -27,6 +28,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strconv"
+	"strings"
 
 	"github.com/shakestzd/wipnote/core/daemon"
 	"github.com/shakestzd/wipnote/core/db"
@@ -96,9 +98,13 @@ type DerivedOp struct {
 
 	// OpTypeSQL fields (plan-2390966a slice-1). SQL is the parameterized
 	// statement; Args are its bind parameters, JSON-encoded for transport.
-	// On decode, JSON numbers arrive as float64 and strings/bools/nil round-trip
-	// as-is — all of which the SQLite driver binds directly. Args are bound as
-	// SQL parameters and are NEVER interpolated into SQL.
+	// On decode, JSON numbers are read with json.Decoder.UseNumber() and
+	// NORMALIZED (NormalizeArgs) so an integral value within int64 range arrives
+	// as int64 (NOT float64) — preserving exact integer precision for values
+	// above 2^53 (roborev-473 finding 6). Non-integral or out-of-range numbers
+	// become float64; strings/bools/nil round-trip as-is. All are JSON-transport
+	// -safe primitives the SQLite driver binds directly. Args are bound as SQL
+	// parameters and are NEVER interpolated into SQL.
 	SQL  string `json:"sql,omitempty"`
 	Args []any  `json:"args,omitempty"`
 }
@@ -108,13 +114,74 @@ func Encode(op DerivedOp) ([]byte, error) {
 	return json.Marshal(op)
 }
 
-// Decode unmarshals an Envelope.Payload back into a DerivedOp.
+// Decode unmarshals an Envelope.Payload back into a DerivedOp. JSON numbers in
+// OpTypeSQL Args are decoded with UseNumber() and normalized so int64-range
+// integers survive the round-trip exactly (roborev-473 finding 6): a plain
+// json.Unmarshal would widen every JSON number to float64, silently truncating
+// int64 values above 2^53 before they reach the SQLite bind.
 func Decode(payload []byte) (DerivedOp, error) {
 	var op DerivedOp
-	if err := json.Unmarshal(payload, &op); err != nil {
+	dec := json.NewDecoder(bytes.NewReader(payload))
+	dec.UseNumber()
+	if err := dec.Decode(&op); err != nil {
 		return DerivedOp{}, fmt.Errorf("decode derived op: %w", err)
 	}
+	op.Args = NormalizeArgs(op.Args)
 	return op, nil
+}
+
+// NormalizeArgs returns args with every element coerced to a stable,
+// JSON-transport-safe primitive the SQLite driver binds losslessly. Its job is
+// to undo JSON's "all numbers are float64" widening: a json.Number (produced by
+// UseNumber()) or a float64 that is integral and fits int64 becomes an int64 so
+// large integers bind EXACTLY; a number with a fractional part or outside int64
+// range becomes float64; all other kinds (string, bool, nil, []byte) pass
+// through unchanged. The result is also the canonical form sqlOpID hashes, so
+// the dedup key is stable across encode→decode (roborev-473 findings 6 & 7).
+func NormalizeArgs(args []any) []any {
+	if args == nil {
+		return nil
+	}
+	out := make([]any, len(args))
+	for i, a := range args {
+		out[i] = normalizeArg(a)
+	}
+	return out
+}
+
+// normalizeArg coerces a single decoded/raw arg to its canonical primitive.
+func normalizeArg(a any) any {
+	switch v := a.(type) {
+	case json.Number:
+		return numberFromString(v.String())
+	case float64:
+		// json.Unmarshal without UseNumber yields float64; preserve integral
+		// values exactly when they fit int64.
+		if i := int64(v); float64(i) == v {
+			return i
+		}
+		return v
+	default:
+		return a
+	}
+}
+
+// numberFromString parses a json.Number's textual form into int64 when it is an
+// integer within int64 range, else float64. Using the ORIGINAL text (not a
+// float intermediate) is what preserves precision for integers above 2^53 — a
+// detour through float64 would already have rounded.
+func numberFromString(s string) any {
+	if !strings.ContainsAny(s, ".eE") {
+		if i, err := strconv.ParseInt(s, 10, 64); err == nil {
+			return i
+		}
+	}
+	if f, err := strconv.ParseFloat(s, 64); err == nil {
+		return f
+	}
+	// Unparseable as a number (should not happen for a json.Number); keep the
+	// string so the value still binds rather than vanishing.
+	return s
 }
 
 // OpID derives the dedup key for an event op from the session ID and a
@@ -189,7 +256,9 @@ func NewApplier(database *sql.DB) daemon.Applier {
 			// Capture statement + args by value so the WriteOp is
 			// self-contained on the single-writer worker. Args are passed as
 			// bind parameters to ExecContext — NEVER interpolated into the
-			// statement text (constraint q-sql-safety).
+			// statement text (constraint q-sql-safety). op.Args were already
+			// normalized in Decode (int64 integers preserved exactly), so the
+			// values bound here match what the caller sent (roborev-473 finding 6).
 			stmt, args := op.SQL, op.Args
 			return func(ctx context.Context) error {
 				// Run on the daemon's EXISTING writable handle, wrapped in the

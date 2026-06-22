@@ -48,8 +48,11 @@ func EnsureSession(database *sql.DB, projectDir string) (string, error) {
 //     the writer lock (WAL readers and writers do not block each other).
 //
 //  2. Cold path (session missing): tries RouteSessionInsertFn first (daemon
-//     applied-ack, bounded CLISubmitBudget). On success the session row is
-//     durable and no direct writable handle is opened.
+//     ENQUEUE-ONLY ack, bounded AsyncEnqueueBudget — bug-d792aee6 finding 1
+//     flipped this from applied-ack so it stays <1s under a held external lock).
+//     On a true ack the insert is durably queued (applies FIFO; SessionStart's
+//     idempotent upsert + reindex are the backstop) and no direct writable
+//     handle is opened.
 //
 //  3. Last-resort fallback: if RouteSessionInsertFn is nil or returns false
 //     (daemon unreachable / queue-full / timeout), EnsureSessionWithTimeout is

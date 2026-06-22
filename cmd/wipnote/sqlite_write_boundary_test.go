@@ -153,7 +153,7 @@ var approvedWriteSites = []writeSite{
 	// rarely on healthy systems.
 	{
 		File:           "core/hooks/dbgate.go",
-		Line:           147,
+		Line:           149,
 		Function:       "OpenHookDB",
 		OpenExpr:       "db.Open",
 		Classification: canonicalFirstHookFallback,

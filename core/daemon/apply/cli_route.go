@@ -218,3 +218,36 @@ func RouteSessionInsert(projectRoot string, s *models.Session) bool {
 		DerivedOp{Type: OpTypeSessionInsert, Session: s},
 	)
 }
+
+// RouteSessionInsertAsync routes a session-row insert (db.InsertSession) through
+// the writer daemon with ENQUEUE-ONLY ack semantics — identical to
+// RouteSessionInsert except it returns true the instant the op is durably handed
+// to the single-writer queue, WITHOUT waiting for the daemon to APPLY it. The
+// op_id is keyed on the unique session_id so a replay dedups; the op applies in
+// FIFO order on the single writer after this returns.
+//
+// This is the launcher new-session COLD-INSERT primitive (bug-d792aee6 finding
+// 1): under a held external write lock the daemon cannot apply, so the
+// applied-ack RouteSessionInsert waits the full CLISubmitBudget (~2.4s observed),
+// exceeding the launcher's <1s bound. Enqueue-only acks sub-millisecond once the
+// daemon is warm — bringing the cold insert under 1s even under contention.
+//
+// SAFETY (verified by slice-3): SessionStart later performs an idempotent
+// INSERT OR IGNORE upsert of the same row (routeSessionUpsert), and ops apply
+// FIFO on the single writer, so an enqueued-but-not-yet-applied cold insert is
+// harmless; canonical NDJSON + reindex is the durability backstop. Returns true
+// on enqueue/dedup/(warm) apply; false → caller performs the direct insert.
+// Bounded by AsyncEnqueueBudget.
+func RouteSessionInsertAsync(projectRoot string, s *models.Session) bool {
+	if s == nil {
+		return false
+	}
+	return submitViaDaemon(
+		projectRoot,
+		cliOpID(OpTypeSessionInsert, s.SessionID, s.Status),
+		OpTypeSessionInsert,
+		DerivedOp{Type: OpTypeSessionInsert, Session: s},
+		true,
+		AsyncEnqueueBudget,
+	)
+}

@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>Make orphan-sweep cap and serve drain interval env-tunable</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="feat-705754b2"
+             data-type="feature"
+             data-status="todo"
+             data-priority="medium"
+             data-created="2026-06-22T03:14:38.956836"
+             data-updated="2026-06-22T03:14:38.966373" data-agent-assigned="claude-code" data-track-id="trk-6a1f5362" data-created-by-agent="claude-code" data-created-by-model="claude-opus-4-8[1m]" data-created-by-cli-version="0.63.4-16-g7709d2ddd">
+
+        <header>
+            <h1>Make orphan-sweep cap and serve drain interval env-tunable</h1>
+            <div class="metadata">
+                <span class="badge status-todo">Todo</span>
+                <span class="badge priority-medium">Medium Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-6a1f5362.html" data-relationship="part_of" data-since="2026-06-22T03:14:38.96624">trk-6a1f5362</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>Follow-up to bug-504095f2. Make SessionStartSweepCap (currently 8) and orphanDrainInterval (currently 5m) configurable via env vars with the current values as defaults, so very large multi-session backlogs can be tuned without a rebuild. Validate/clamp to sane ranges.</p>
+        </section>
+    </article>
+</body>
+</html>

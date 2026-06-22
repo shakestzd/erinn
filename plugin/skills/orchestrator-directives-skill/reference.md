@@ -183,7 +183,11 @@ gemini -p "Find all auth-related code in src/: What library is used? Where is va
   --output-format json --yolo --include-directories . 2>&1
 # fallback → Agent(subagent_type="wipnote:patch-coder", ...)
 ```
-```bash
+```text
+# In Codex when native subagents are available
+spawn native `wipnote-feature-coder` to implement the OAuth flow based on research findings
+
+# Only if native Codex subagents are unavailable
 codex exec "Implement OAuth flow based on research findings" \
   --full-auto --json -m gpt-4.1-mini -C . 2>&1
 # fallback → Agent(subagent_type="wipnote:feature-coder", ...)
@@ -197,8 +201,13 @@ codex exec "Implement OAuth flow based on research findings" \
 
 **Solution:** Dispatch all tasks in a single message — Claude Code runs them in parallel automatically.
 
+```text
+# In Codex when native subagents are available, dispatch in parallel:
+- `wipnote-feature-coder` → add JWT auth to API endpoints
+- `wipnote-test-runner` or `wipnote-patch-coder` → write unit + integration tests
+```
 ```bash
-# Dispatch 3 parallel Bash calls in a single message (CLI-first pattern)
+# Only if native Codex subagents are unavailable, use nested codex exec
 codex exec "Add JWT auth to API endpoints..." --full-auto --json -m gpt-4.1-mini -C . 2>&1
 # fallback → Agent(subagent_type="wipnote:feature-coder", ...)
 ```
@@ -277,10 +286,9 @@ gemini -p "Research existing auth patterns: What library is used? Where is valid
 ```
 
 ```bash
-# 3. Implement (try codex CLI first, after research completes)
-codex exec "Implement OAuth flow: Add JWT auth to API endpoints, create middleware for token validation, support Google and GitHub OAuth" \
-  --full-auto --json -m gpt-4.1-mini -C . 2>&1
-# fallback → Agent(subagent_type="wipnote:feature-coder", ...)
+# 3. Implement
+# In Codex native sessions: spawn `wipnote-feature-coder`
+# Otherwise: try codex CLI first, then fallback → Agent(subagent_type="wipnote:feature-coder", ...)
 ```
 
 ```bash
@@ -310,10 +318,9 @@ gemini -p "Debug session timeout: expected 30min, observed ~5min. Find config, c
 ```
 
 ```bash
-# Fix (try codex CLI first, after investigation)
-codex exec "Fix session timeout to 30 minutes. Add regression test. Verify fix works." \
-  --full-auto --json -m gpt-4.1-mini -C . 2>&1
-# fallback → Agent(subagent_type="wipnote:feature-coder", ...)
+# Fix
+# In Codex native sessions: spawn `wipnote-feature-coder`
+# Otherwise: try codex CLI first, then fallback → Agent(subagent_type="wipnote:feature-coder", ...)
 ```
 
 ```bash
@@ -336,11 +343,15 @@ wipnote feature create "Refactor API layer" --track <trk-id>
 ```
 
 ```bash
-# Dispatch 3 parallel Bash calls in a single message
+# Dispatch 3 parallel delegations in a single message
 gemini -p "Update API documentation to reflect new endpoints" --output-format json --yolo --include-directories . 2>&1
 # fallback → Agent(subagent_type="wipnote:patch-coder", ...)
 ```
-```bash
+```text
+# In Codex native sessions
+spawn `wipnote-test-runner` or `wipnote-feature-coder` to update the test suite for refactored API endpoints
+
+# Otherwise
 codex exec "Update test suite for refactored API endpoints" --full-auto --json -m gpt-4.1-mini -C . 2>&1
 # fallback → Agent(subagent_type="wipnote:feature-coder", ...)
 ```

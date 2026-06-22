@@ -26,6 +26,57 @@ type Command struct {
 	Dir  string
 }
 
+// DurabilityContentionFixture names the always-on durability regression test
+// that proves the single-writer-daemon fix (plan-2390966a, feat-bbb80917):
+// under a held external write lock, every migrated hot hook routes its
+// derived-index write enqueue-only and completes in <1s, with ZERO first-party
+// SQLITE_BUSY across three consecutive runs.
+//
+// The fixture is deliberately NOT skipped in -short mode, so the Go quality
+// gate's `go test ... -short ./...` step (built in DetectPlan below) exercises
+// it on every gate run — a regression that reverted a hot hook to a direct
+// writable Exec (re-introducing the stall) FAILS the gate. This constant is the
+// load-bearing reference: gate_durability_test.go asserts the Go gate plan runs
+// the package that hosts the fixture under -short, so deleting either the
+// reference or the always-on property fails CI.
+const (
+	// DurabilityContentionFixturePkg is the Go package (relative to the module
+	// root) whose tests include the durability contention fixture.
+	DurabilityContentionFixturePkg = "./cmd/wipnote/"
+
+	// DurabilityContentionFixtureTest is the test function that enforces the
+	// sub-second / zero-first-party-BUSY durability invariant under a held lock.
+	DurabilityContentionFixtureTest = "TestSQLiteContentionStress_MigratedHotHooksUnderHeldLock"
+)
+
+// GoGateRunsDurabilityFixtureUnderShort reports whether the supplied Go gate
+// commands include a `go test` invocation that (a) runs in -short mode and
+// (b) covers the whole module (`./...`), and therefore exercises the always-on
+// durability contention fixture (DurabilityContentionFixtureTest), which does
+// NOT skip under -short. A regression in the migrated hot hooks consequently
+// fails the standard quality gate. gate_durability_test.go asserts this holds
+// for the Go plan DetectPlan produces.
+func GoGateRunsDurabilityFixtureUnderShort(commands []Command) bool {
+	for _, c := range commands {
+		if len(c.Args) < 2 || c.Args[0] != "go" || c.Args[1] != "test" {
+			continue
+		}
+		hasShort, hasAll := false, false
+		for _, a := range c.Args[2:] {
+			switch {
+			case a == "-short" || a == "--short":
+				hasShort = true
+			case a == "./...":
+				hasAll = true
+			}
+		}
+		if hasShort && hasAll {
+			return true
+		}
+	}
+	return false
+}
+
 type Plan struct {
 	ProjectType      paths.ProjectType
 	ManifestDir      string
@@ -149,6 +200,15 @@ func DetectPlan(projectRoot, codeRoot, phase string) (Plan, error) {
 	plan := Plan{ProjectType: projectType, ManifestDir: manifestDir, Manifest: filepath.Join(manifestDir, manifestName)}
 	switch projectType {
 	case paths.ProjectTypeGo:
+		// The `go test ... -short ./...` step covers the whole module, which
+		// includes the always-on durability contention fixture
+		// (DurabilityContentionFixtureTest in DurabilityContentionFixturePkg).
+		// That fixture is intentionally NOT skipped under -short, so a
+		// regression in the migrated hot hooks (plan-2390966a, feat-bbb80917)
+		// — e.g. reverting a hot write to a direct, lock-contending Exec —
+		// fails THIS gate. GoGateRunsDurabilityFixtureUnderShort + the
+		// gate_durability_test.go assertion guard that this command keeps both
+		// the -short flag and the module-wide ./... scope.
 		plan.Commands = []Command{
 			{Name: "go build", Args: []string{"go", "build", "-buildvcs=false", "./..."}},
 			{Name: "go vet", Args: []string{"go", "vet", "./..."}},

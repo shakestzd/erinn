@@ -302,7 +302,7 @@ func TestInsertAndGetSessionProjectDir(t *testing.T) {
 	}
 }
 
-func TestSessionStartIncludesFullAttribution(t *testing.T) {
+func TestSessionStartUsesOnDemandAttributionGuidance(t *testing.T) {
 	projectDir := t.TempDir()
 	if err := os.MkdirAll(filepath.Join(projectDir, ".wipnote"), 0o755); err != nil {
 		t.Fatalf("mkdir .wipnote: %v", err)
@@ -314,7 +314,7 @@ func TestSessionStartIncludesFullAttribution(t *testing.T) {
 	}
 	defer database.Close()
 
-	// Add some open work items so attribution block is generated.
+	// Add an open work item to verify SessionStart does not eagerly list it.
 	now := time.Now().UTC()
 	if err := db.InsertFeature(database, &db.Feature{
 		ID:        "feat-001",
@@ -335,41 +335,44 @@ func TestSessionStartIncludesFullAttribution(t *testing.T) {
 	t.Setenv("WIPNOTE_PARENT_SESSION", "")
 	t.Setenv("WIPNOTE_NESTING_DEPTH", "")
 	t.Setenv("CLAUDE_ENV_FILE", "")
+	if err := os.WriteFile(filepath.Join(projectDir, ".wipnote", ".launch-mode"), []byte(`{"mode":"wipnote-claude"}`), 0o644); err != nil {
+		t.Fatalf("write .launch-mode: %v", err)
+	}
 
 	result, err := SessionStart(event, database, projectDir)
 	if err != nil {
 		t.Fatalf("SessionStart: %v", err)
 	}
 
-	// SessionStart should return full attribution block as additionalContext.
+	// SessionStart should return concise retrieval guidance.
 	if result.AdditionalContext == "" {
-		t.Fatal("expected AdditionalContext with full attribution block")
+		t.Fatal("expected AdditionalContext with startup guidance")
 	}
 
-	// Should contain open work items listing.
-	if !testContainsStr(result.AdditionalContext, "Open work items") {
-		t.Errorf("attribution should list 'Open work items', got: %s", result.AdditionalContext)
+	if testContainsStr(result.AdditionalContext, "Open work items") {
+		t.Errorf("startup guidance should not list open work items, got: %s", result.AdditionalContext)
 	}
 
-	// Should contain the open feature.
-	if !testContainsStr(result.AdditionalContext, "feat-001") {
-		t.Errorf("attribution should list feat-001, got: %s", result.AdditionalContext)
+	if testContainsStr(result.AdditionalContext, "Auth system") {
+		t.Errorf("startup guidance should not include open item titles, got: %s", result.AdditionalContext)
 	}
 
-	// Should contain CLI quick-reference.
-	if !testContainsStr(result.AdditionalContext, "wipnote CLI") {
-		t.Errorf("attribution should mention 'wipnote CLI', got: %s", result.AdditionalContext)
+	if !testContainsStr(result.AdditionalContext, "`wipnote wip`") {
+		t.Errorf("startup guidance should mention 'wipnote wip', got: %s", result.AdditionalContext)
 	}
 
-	// Should contain required flags reminder.
-	if !testContainsStr(result.AdditionalContext, "--track") {
-		t.Errorf("attribution should mention '--track' requirement, got: %s", result.AdditionalContext)
+	if !testContainsStr(result.AdditionalContext, "`wipnote relevant <topic>`") {
+		t.Errorf("startup guidance should mention 'wipnote relevant <topic>', got: %s", result.AdditionalContext)
+	}
+
+	if !testContainsStr(result.AdditionalContext, "`wipnote help --compact`") {
+		t.Errorf("startup guidance should mention 'wipnote help --compact', got: %s", result.AdditionalContext)
 	}
 }
 
-// TestSessionStartNoOpenItemsNonBareLaunch verifies that when there are no open
-// work items AND the session was launched via wipnote claude (launch mode is
-// recent), SessionStart returns empty AdditionalContext (no banner shown).
+// TestSessionStartNoOpenItemsNonBareLaunch verifies that startup guidance still
+// appears even when there are no open work items, but the bare-launch nudge
+// stays suppressed for launcher-managed sessions.
 func TestSessionStartNoOpenItemsNonBareLaunch(t *testing.T) {
 	projectDir := t.TempDir()
 	if err := os.MkdirAll(filepath.Join(projectDir, ".wipnote"), 0o755); err != nil {
@@ -404,17 +407,22 @@ func TestSessionStartNoOpenItemsNonBareLaunch(t *testing.T) {
 		t.Fatalf("SessionStart: %v", err)
 	}
 
-	// With no open items and non-bare launch, AdditionalContext should be empty.
-	// bareLaunchNudge returns empty (launch was via wipnote claude), and
-	// buildSessionStartAttribution returns empty (no open items).
-	if result.AdditionalContext != "" {
-		t.Errorf("AdditionalContext should be empty for non-bare launch with no open items, got: %q", result.AdditionalContext)
+	if result.AdditionalContext == "" {
+		t.Fatal("AdditionalContext should contain startup guidance for non-bare launch with no open items")
+	}
+
+	if testContainsStr(result.AdditionalContext, "wipnote claude") {
+		t.Errorf("non-bare launch guidance should not include the bare-launch nudge, got: %s", result.AdditionalContext)
+	}
+
+	if !testContainsStr(result.AdditionalContext, "`wipnote wip`") {
+		t.Errorf("startup guidance should mention 'wipnote wip', got: %s", result.AdditionalContext)
 	}
 }
 
 // TestSessionStartNoOpenItemsBareLaunch verifies that when there are no open
 // work items but the session was started bare (no .launch-mode or stale),
-// SessionStart returns the bareLaunchNudge text as AdditionalContext.
+// SessionStart returns startup guidance plus the bare-launch nudge.
 func TestSessionStartNoOpenItemsBareLaunch(t *testing.T) {
 	projectDir := t.TempDir()
 	if err := os.MkdirAll(filepath.Join(projectDir, ".wipnote"), 0o755); err != nil {
@@ -445,14 +453,16 @@ func TestSessionStartNoOpenItemsBareLaunch(t *testing.T) {
 		t.Fatalf("SessionStart: %v", err)
 	}
 
-	// With no open items but bare launch, AdditionalContext should contain
-	// the bareLaunchNudge text (which suggests using wipnote claude).
 	if result.AdditionalContext == "" {
-		t.Fatal("AdditionalContext should contain bareLaunchNudge text for bare launch with no open items")
+		t.Fatal("AdditionalContext should contain startup guidance for bare launch with no open items")
 	}
 
 	if !testContainsStr(result.AdditionalContext, "wipnote claude") {
 		t.Errorf("bareLaunchNudge text should mention 'wipnote claude', got: %s", result.AdditionalContext)
+	}
+
+	if !testContainsStr(result.AdditionalContext, "`wipnote help --compact`") {
+		t.Errorf("startup guidance should mention 'wipnote help --compact', got: %s", result.AdditionalContext)
 	}
 }
 

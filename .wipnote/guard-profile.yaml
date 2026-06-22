@@ -7,7 +7,9 @@ guards:
           cmd: go build ./...
         - name: go-vet
           cmd: go vet ./...
+        - name: go-test-durability-short
+          cmd: go test -buildvcs=false -short ./...
 approved:
-    signature: sha256:12420651f4d83781866d8ff941aeefcb45b58e43fb805ae90470c45cd05a1a38
+    signature: sha256:b9b8a7ab440736c9e98e1ffd8442323bacebea4bd4c284c073790ad72e31d48a
     by: Thandolwethu Shakes Dlamini
     at: "2026-06-14T03:52:09Z"

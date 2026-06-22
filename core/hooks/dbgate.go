@@ -160,24 +160,33 @@ func OpenHookDB(handler, sessionID, dbPath string) (*sql.DB, FallbackReason) {
 	return database, ""
 }
 
-// OpenHookDBReadOnly returns a READ-ONLY DB handle for the hot hooks that route
-// every derived-index WRITE through the daemon and use the handle ONLY for reads
-// (roborev-473 finding 1: pretooluse, user-prompt, stop). A read-only open never
-// acquires the write lock and never runs the cold-DB migration that the writable
-// OpenHookDB (db.Open) does — so under contention these hot hooks no longer block
-// on a writable open + migration. It bootstraps the schema via
-// db.OpenReadOnlyMigrated (a brief writable Open INSIDE core/db — out of the
-// writable-open boundary scan — then a read-only handle), so a first-launch hook
-// firing before the DB exists still gets a usable handle instead of failing.
+// OpenHookDBReadOnly returns a TRULY read-only DB handle for the hot hooks that
+// route every derived-index WRITE through the daemon and use the handle ONLY for
+// reads (roborev-473 finding 1: pretooluse, user-prompt, stop). A read-only open
+// never acquires the write lock — so under contention these hot hooks never block
+// on a writable open.
+//
+// roborev-476 finding 2: this path now uses the GENUINELY read-only db.OpenReadOnly
+// and DELIBERATELY does NOT migrate. The prior db.OpenReadOnlyMigrated first ran a
+// writable db.Open (schema/migration) which, under a held external write lock, can
+// itself stall on the writable pragma/migration — re-introducing the exact hot-hook
+// contention the read-only dispatch was meant to remove. In steady state the DB is
+// migrated by session-start/serve, so the file already exists and is up to date; a
+// truly read-only open of an existing file is contention-free.
+//
+// When the DB file does NOT yet exist (very first launch before any writer created
+// it), we DEGRADE BEST-EFFORT rather than migrate on the hot path: db.OpenReadOnly
+// fails fast (it never creates a file), and we return a nil handle classified as
+// writer_unavailable. The caller treats a nil handle as canonical-success — reads
+// simply see empty results — and every derived WRITE is routed through the daemon
+// regardless (a daemon miss transparently opens its own bounded writable handle via
+// routeViaOwnBoundedHandle), so correctness is preserved without a hot-path migration.
 //
 // Failure semantics mirror OpenHookDB: a failed open is classified under
 // hook_writer, logged + counted as writer_unavailable, and returns a nil handle
-// the caller MUST treat as a signal to return canonical-success. Any derived
-// WRITE attempted on the returned handle via routeHookWriteVia on a daemon miss
-// transparently opens its own bounded writable handle (see routeViaOwnBoundedHandle),
-// so correctness is preserved even though this handle itself cannot write.
+// the caller MUST treat as a signal to return canonical-success.
 func OpenHookDBReadOnly(handler, sessionID, dbPath string) (*sql.DB, FallbackReason) {
-	database, err := db.OpenReadOnlyMigrated(dbPath)
+	database, err := db.OpenReadOnly(dbPath)
 	if err != nil {
 		db.Record(db.SubsystemHookWriter, err)
 		RecordFallback(handler, sessionID, FallbackWriterUnavailable, err.Error())

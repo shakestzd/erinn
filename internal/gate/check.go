@@ -49,32 +49,64 @@ const (
 	DurabilityContentionFixtureTest = "TestSQLiteContentionStress_MigratedHotHooksUnderHeldLock"
 )
 
-// GoGateRunsDurabilityFixtureUnderShort reports whether the supplied Go gate
+// GoGateRunsDurabilityFixtureUnderShort reports whether the supplied gate
 // commands include a `go test` invocation that (a) runs in -short mode and
 // (b) covers the whole module (`./...`), and therefore exercises the always-on
 // durability contention fixture (DurabilityContentionFixtureTest), which does
 // NOT skip under -short. A regression in the migrated hot hooks consequently
-// fails the standard quality gate. gate_durability_test.go asserts this holds
-// for the Go plan DetectPlan produces.
+// fails the standard quality gate.
+//
+// Two command shapes are recognized:
+//   - Autodetected Go plan: argv-form `["go", "test", "-short", "./...", ...]`.
+//   - Approved guard profile: shell-form `["sh", "-c", "go test -short ./..."]`.
+//     DetectPlan renders every profile guard as `sh -c <g.Cmd>`, so the
+//     durability step in a project's .wipnote/guard-profile.yaml quality phase
+//     is matched here too (roborev-476 finding 4). This is what lets
+//     gate_durability_test.go assert the REAL approved-profile path this repo
+//     uses still gates the fixture, not only the synthetic autodetected plan.
 func GoGateRunsDurabilityFixtureUnderShort(commands []Command) bool {
 	for _, c := range commands {
-		if len(c.Args) < 2 || c.Args[0] != "go" || c.Args[1] != "test" {
-			continue
-		}
-		hasShort, hasAll := false, false
-		for _, a := range c.Args[2:] {
-			switch {
-			case a == "-short" || a == "--short":
-				hasShort = true
-			case a == "./...":
-				hasAll = true
-			}
-		}
-		if hasShort && hasAll {
+		if goTestArgvRunsShortAll(c.Args) || shellCmdRunsGoTestShortAll(c.Args) {
 			return true
 		}
 	}
 	return false
+}
+
+// goTestArgvRunsShortAll matches the autodetected argv form
+// `["go", "test", ... "-short" ... "./..." ...]`.
+func goTestArgvRunsShortAll(args []string) bool {
+	if len(args) < 2 || args[0] != "go" || args[1] != "test" {
+		return false
+	}
+	hasShort, hasAll := false, false
+	for _, a := range args[2:] {
+		switch {
+		case a == "-short" || a == "--short":
+			hasShort = true
+		case a == "./...":
+			hasAll = true
+		}
+	}
+	return hasShort && hasAll
+}
+
+// shellCmdRunsGoTestShortAll matches the approved-profile shell form
+// `["sh", "-c", "<shell>"]` where the shell string contains a `go test`
+// invocation running -short over ./.... The check is conservative: it requires
+// "go test", a -short / --short flag, and the ./... module-wide selector all
+// present in the same shell command string.
+func shellCmdRunsGoTestShortAll(args []string) bool {
+	if len(args) < 3 || args[0] != "sh" || args[1] != "-c" {
+		return false
+	}
+	shell := args[2]
+	if !strings.Contains(shell, "go test") {
+		return false
+	}
+	hasShort := strings.Contains(shell, " -short") || strings.Contains(shell, " --short")
+	hasAll := strings.Contains(shell, "./...")
+	return hasShort && hasAll
 }
 
 type Plan struct {

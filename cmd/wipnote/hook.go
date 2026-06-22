@@ -275,18 +275,24 @@ func hookSubcmdWithProject(
 				}
 				// Canonical-first contract — see hookSubcmd above.
 				//
-				// bug-504095f2 history: session-start used to take a SHORT
-				// busy_timeout writable handle (OpenHookDBWithBusyTimeout) because
-				// it ran ALL its derived writes directly on this handle on the
-				// launcher's post-selection critical path. As of plan-2390966a
-				// slice-3 SessionStart routes every writable Exec through the
-				// daemon (RouteHookWrite — daemon-first enqueue-only with a bounded
-				// ~750ms direct fallback baked in), so the handle passed here is
-				// used only for READS (lineage/family lookups), which do not
-				// contend a held write lock. The session-start special-case is
-				// therefore retired: all three session handlers take the standard
-				// default-timeout open, identical to every other hook.
-				database, reason := hooks.OpenHookDB(use, event.SessionID, dbPath)
+				// Handle selection is PER-HANDLER (roborev-476 finding 3):
+				//   - session-start runs on the launcher's post-selection critical
+				//     path. It routes every session/lineage/event/family write through
+				//     the daemon (RouteHookWrite / routeSQLApplied) and uses this handle
+				//     for READS plus ONE residual direct write — the bounded orphan sweep
+				//     (SweepOrphanedEventsForProjectCapped → db.MarkEventAborted), whose
+				//     atomic started→aborted transition needs RowsAffected and so cannot
+				//     be routed enqueue-only. Because that write still touches this
+				//     handle, session-start takes a BOUNDED handle
+				//     (SessionStartBusyTimeout ~750ms): under a held external write lock
+				//     the orphan-sweep UPDATE fail-fasts in well under a second (the
+				//     residual orphan drains out-of-band via serve) instead of stalling
+				//     the interactive launcher ~5s.
+				//   - session-end / session-resume / exit-plan-mode keep the default 5s
+				//     OpenHookDB: they are not on the post-selection critical path and
+				//     their residual writes (FinalizeSessionHTML, runSessionExitReconcile)
+				//     are tolerant of the default busy_timeout.
+				database, reason := openSessionHookDB(use, event.SessionID, dbPath)
 				if database == nil {
 					_ = reason
 					return fallback, nil
@@ -296,6 +302,25 @@ func hookSubcmdWithProject(
 			})
 		},
 	}
+}
+
+// openSessionHookDB selects the writable hook handle for the three session
+// handlers dispatched by hookSubcmdWithProject (roborev-476 finding 3).
+//
+// session-start runs on the launcher's post-selection critical path and its only
+// remaining direct write (the bounded orphan sweep db.MarkEventAborted, which
+// needs RowsAffected and so cannot be routed enqueue-only) must fail-fast under a
+// held external write lock — so it takes a SHORT bounded busy_timeout
+// (SessionStartBusyTimeout ~750ms) rather than stalling the interactive launcher
+// on the default 5s. Every other session-phase handler (session-end,
+// session-resume, exit-plan-mode) keeps the default 5s OpenHookDB; they are not
+// on the post-selection critical path. A nil handle is treated as
+// canonical-success by the caller exactly as for OpenHookDB.
+func openSessionHookDB(use, sessionID, dbPath string) (*sql.DB, hooks.FallbackReason) {
+	if use == "session-start" {
+		return hooks.OpenHookDBWithBusyTimeout(use, sessionID, dbPath, hooks.SessionStartBusyTimeout)
+	}
+	return hooks.OpenHookDB(use, sessionID, dbPath)
 }
 
 // hookTrackEventCmd returns the track-event subcommand, which accepts an

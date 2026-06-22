@@ -848,14 +848,27 @@ func isSubagent() bool {
 	return false
 }
 
-// nullableStr converts an empty string to a typed nil for sql.NullString use.
-// We pass the raw string and rely on the db.nullStr helper via the db package;
-// here we return sql.NullString directly for convenience.
-func nullableStr(s string) sql.NullString {
+// nullableStr maps an empty string to a typed SQL NULL (nil) and any non-empty
+// string to itself, returning `any`.
+//
+// CRITICAL JSON-transport contract (bug-a782badf, roborev-476 finding 1): this
+// helper feeds BOTH the in-process transactional path (upsertSessionTx) AND the
+// daemon-routed path (routeSessionUpsert / routeLineageTrace / routeInsertEvent
+// → RouteHookWrite → apply.RouteSQLAsync). The routed path JSON-encodes every
+// bind arg (core/daemon/apply.DerivedOp.Args) and the daemon decodes it back. A
+// sql.NullString JSON-marshals to the OBJECT {"String":...,"Valid":...}, which
+// decodes to a map the SQLite driver CANNOT bind — so the routed Exec silently
+// FAILS and the session/lineage/event row never applies via the daemon (only a
+// reindex recovers it). A plain string / nil binds identically on the daemon's
+// ExecContext AND on any direct-fallback Exec, so it is the only
+// JSON-transport-safe choice. This mirrors core/db/otel_schema.go's nullableStr
+// and core/hooks/dbgate.go's nullableArg (same NULL semantics across the process
+// boundary). NEVER change this back to returning sql.NullString.
+func nullableStr(s string) any {
 	if s == "" {
-		return sql.NullString{}
+		return nil
 	}
-	return sql.NullString{String: s, Valid: true}
+	return s
 }
 
 // GetActiveFeatureID looks up the active_feature_id for a session.

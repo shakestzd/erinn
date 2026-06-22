@@ -85,10 +85,12 @@ func SubagentStart(event *CloudEvent, database *sql.DB) (*HookResult, error) {
 			ParentAgentID: os.Getenv("WIPNOTE_AGENT_ID"),
 			CreatedAt:     time.Now().UnixMicro(),
 		}
-		if err := db.UpsertPendingSubagentStart(database, pending); err != nil {
-			debugLog(projectDir, "[warn] handler=subagent-start session=%s: upsert pending_subagent_starts: %v",
-				sessionID[:minSessionLen(sessionID)], err)
-		}
+		// Route the pending_subagent_starts upsert through the daemon-first
+		// enqueue-only seam (bug-c9ec25a4) so it never opens a direct contended
+		// writable handle when the daemon is reachable; <1s bounded fallback
+		// otherwise. Best-effort/advisory like the prior db.UpsertPendingSubagentStart.
+		upSQL, upArgs := db.UpsertPendingSubagentStartStmt(pending)
+		_ = RouteHookWrite("subagent-start", projectDir, sessionID, upSQL, upArgs...)
 	}
 
 	return &HookResult{Continue: true}, nil
@@ -186,10 +188,14 @@ func insertSubagentLineage(database *sql.DB, parentSessionID, agentID, agentType
 	// (created by a prior hook before SubagentStart fired), backfill the
 	// parent_session_id so the lineage chain is complete regardless of
 	// arrival order. BackfillParentSession is idempotent (no-op when already set).
-	if err := db.BackfillParentSession(database, agentID, parentSessionID); err != nil {
-		debugLog(projectDir, "[warn] handler=subagent-start session=%s: backfill parent: %v",
-			parentSessionID[:minSessionLen(parentSessionID)], err)
-	}
+	//
+	// Route the UPDATE through the daemon-first enqueue-only seam (bug-c9ec25a4)
+	// so it never opens a direct contended writable handle when the daemon is
+	// reachable. FIFO single-writer ordering guarantees the already-enqueued
+	// synthetic-sessions INSERT above applies before this UPDATE of that row.
+	// Best-effort/advisory like the prior db.BackfillParentSession.
+	bfSQL, bfArgs := db.BackfillParentSessionStmt(agentID, parentSessionID)
+	_ = RouteHookWrite("subagent-start", projectDir, parentSessionID, bfSQL, bfArgs...)
 
 	trace := &models.LineageTrace{
 		TraceID:       agentID,
@@ -202,10 +208,17 @@ func insertSubagentLineage(database *sql.DB, parentSessionID, agentID, agentType
 		StartedAt:     time.Now().UTC(),
 		Status:        "active",
 	}
-	if err := db.InsertLineageTrace(database, trace); err != nil {
-		// Duplicate-PK on re-delivered events is expected; only warn.
-		debugLog(projectDir, "[warn] handler=subagent-start session=%s: insert lineage trace: %v",
+	// Route the lineage-trace INSERT through the same enqueue-only seam. The
+	// builder's args are JSON-transport-safe (nullableStr → nil/string, RFC3339
+	// time string, int depth, JSON path string) so the daemon can re-bind them.
+	// json.Marshal(trace.Path) can fail — if it does, skip routing entirely
+	// (never enqueue a half-built statement) and log; canonical NDJSON + reindex
+	// recover the row. Best-effort/advisory like the prior db.InsertLineageTrace.
+	if ltSQL, ltArgs, err := db.InsertLineageTraceStmt(trace); err != nil {
+		debugLog(projectDir, "[warn] handler=subagent-start session=%s: build lineage trace stmt: %v",
 			parentSessionID[:minSessionLen(parentSessionID)], err)
+	} else {
+		_ = RouteHookWrite("subagent-start", projectDir, parentSessionID, ltSQL, ltArgs...)
 	}
 }
 

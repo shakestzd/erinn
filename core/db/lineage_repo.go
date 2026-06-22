@@ -27,25 +27,50 @@ func InsertLineageTraceExecer(ex Execer, trace *models.LineageTrace) error {
 }
 
 func insertLineageTrace(ex Execer, trace *models.LineageTrace) error {
-	pathJSON, err := json.Marshal(trace.Path)
+	query, args, err := InsertLineageTraceStmt(trace)
 	if err != nil {
-		return fmt.Errorf("marshal lineage path: %w", err)
+		return err
 	}
-	_, err = ex.Exec(`
-		INSERT INTO agent_lineage_trace
-			(trace_id, root_session_id, session_id, agent_name, depth, path,
-			 feature_id, started_at, status)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-		trace.TraceID, trace.RootSessionID, nullStr(trace.SessionID),
-		nullStr(trace.AgentName), trace.Depth, string(pathJSON),
-		nullStr(trace.FeatureID),
-		trace.StartedAt.UTC().Format(time.RFC3339),
-		trace.Status,
-	)
-	if err != nil {
+	if _, err := ex.Exec(query, args...); err != nil {
 		return fmt.Errorf("insert lineage trace %s: %w", trace.TraceID, err)
 	}
 	return nil
+}
+
+// InsertLineageTraceStmt builds the parameterized INSERT that insertLineageTrace
+// Execs, WITHOUT executing it, so the hot-path subagent-start hook can route the
+// exact same statement through the daemon's enqueue-only seam instead of
+// blocking a direct writable handle under a held external write lock
+// (bug-c9ec25a4). The (sql, args) produces the SAME database effect as the
+// direct Exec. The error is the json.Marshal(trace.Path) failure; on a non-nil
+// error the caller MUST skip routing (never enqueue a half-built statement).
+//
+// JSON-TRANSPORT SAFETY: the direct path binds session_id / agent_name /
+// feature_id as sql.NullString (nullStr) — which the daemon CANNOT JSON-encode
+// and re-bind. Here those three are normalized through nullableStr, which
+// returns nil for the empty string and the plain string otherwise — the exact
+// same SQLite NULL-vs-text binding the sql.NullString produces, but a
+// transport-safe primitive over the wire. depth is an int, path is a JSON
+// STRING (string(pathJSON)), and started_at is an RFC3339 STRING — all
+// transport-safe. No sql.NullString / time.Time crosses the wire.
+func InsertLineageTraceStmt(trace *models.LineageTrace) (string, []any, error) {
+	pathJSON, err := json.Marshal(trace.Path)
+	if err != nil {
+		return "", nil, fmt.Errorf("marshal lineage path: %w", err)
+	}
+	query := `
+		INSERT INTO agent_lineage_trace
+			(trace_id, root_session_id, session_id, agent_name, depth, path,
+			 feature_id, started_at, status)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+	args := []any{
+		trace.TraceID, trace.RootSessionID, nullableStr(trace.SessionID),
+		nullableStr(trace.AgentName), trace.Depth, string(pathJSON),
+		nullableStr(trace.FeatureID),
+		trace.StartedAt.UTC().Format(time.RFC3339),
+		trace.Status,
+	}
+	return query, args, nil
 }
 
 // GetLineageByRoot returns all lineage traces rooted at a given session,

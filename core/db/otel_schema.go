@@ -191,17 +191,35 @@ type PendingSubagentStart struct {
 // UpsertPendingSubagentStart inserts or replaces a pending_subagent_starts row.
 // INSERT OR REPLACE tolerates re-delivery of SubagentStart events.
 func UpsertPendingSubagentStart(db *sql.DB, p *PendingSubagentStart) error {
-	_, err := db.Exec(`
-		INSERT OR REPLACE INTO pending_subagent_starts
-			(agent_id, agent_type, session_id, cwd, parent_agent_id, created_at)
-		VALUES (?, ?, ?, ?, ?, ?)`,
-		p.AgentID, p.AgentType, p.SessionID,
-		nullableStr(p.CWD), nullableStr(p.ParentAgentID), p.CreatedAt,
-	)
-	if err != nil {
+	query, args := UpsertPendingSubagentStartStmt(p)
+	if _, err := db.Exec(query, args...); err != nil {
 		return fmt.Errorf("upsert pending_subagent_starts: %w", err)
 	}
 	return nil
+}
+
+// UpsertPendingSubagentStartStmt builds the parameterized INSERT OR REPLACE that
+// UpsertPendingSubagentStart Execs, WITHOUT executing it, so the hot-path
+// subagent-start hook can route the exact same statement through the daemon's
+// enqueue-only seam instead of blocking a direct writable handle under a held
+// external write lock (bug-c9ec25a4). The returned (sql, args) is byte-for-byte
+// equivalent to what UpsertPendingSubagentStart binds today.
+//
+// JSON-TRANSPORT SAFETY: cwd / parent_agent_id are normalized through
+// nullableStr — which returns nil or a plain string — and created_at is an int64.
+// Every arg is therefore a transport-safe primitive (string / number / nil) the
+// daemon can JSON-encode and re-bind identically. No sql.NullString crosses the
+// wire.
+func UpsertPendingSubagentStartStmt(p *PendingSubagentStart) (string, []any) {
+	query := `
+		INSERT OR REPLACE INTO pending_subagent_starts
+			(agent_id, agent_type, session_id, cwd, parent_agent_id, created_at)
+		VALUES (?, ?, ?, ?, ?, ?)`
+	args := []any{
+		p.AgentID, p.AgentType, p.SessionID,
+		nullableStr(p.CWD), nullableStr(p.ParentAgentID), p.CreatedAt,
+	}
+	return query, args
 }
 
 // GetPendingSubagentStart fetches the row for agentID, or returns nil if not found.

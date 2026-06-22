@@ -555,7 +555,7 @@ body.right-rail-collapsed .sidebar-reopen{display:flex}
   
   <div class="meta">
     <span class="badge badge-approved">Done</span>
-    <span style="font-size:.75rem;color:var(--text-muted)">v3 · 8 slices · Created 2026-06-22</span>
+    <span style="font-size:.75rem;color:var(--text-muted)">v4 · 8 slices · Created 2026-06-22</span>
   </div>
 </header>
 <button id="themeToggle" style="position:fixed;top:16px;right:16px;z-index:100;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:6px 12px;color:var(--text);font-family:var(--mono);font-size:0.75rem;cursor:pointer;">
@@ -1130,7 +1130,7 @@ hooks don&#39;t re-implement it and can&#39;t regress to a 5s direct stall.</p>
       
       <div class="slice-field">
         <div class="slice-field-label">Done when</div>
-        <ul class="slice-done-list"><li>RouteHookWrite returns success even when both the daemon and the bounded direct open fail (canonical-first)</li><li>When the daemon is reachable, no direct writable handle is opened by the hook</li><li>A held external write lock does not make RouteHookWrite block longer than the bounded fallback (&lt;1s)</li><li>Even when the daemon IS reachable but its writer is busy, RouteHookWrite returns &lt;1s (enqueue-only ack, not applied-ack) — roborev 451/452</li></ul>
+        <ul class="slice-done-list"><li>RouteHookWrite returns success even when both the daemon and the bounded direct open fail (canonical-first)</li><li>When the enqueue succeeds, no direct writable handle is opened by the hook (bounded direct fallback fires only when enqueue itself fails — daemon unreachable or queue full) [roborev 456]</li><li>A held external write lock does not make RouteHookWrite block longer than the bounded fallback (&lt;1s)</li><li>Even when the daemon IS reachable but its writer is busy, RouteHookWrite returns &lt;1s (enqueue-only ack, not applied-ack) — roborev 451/452</li></ul>
       </div>
       
     

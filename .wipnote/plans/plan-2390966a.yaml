@@ -6,7 +6,7 @@ meta:
     created_at: ""
     status: finalized
     schema_version: v4
-    version: 3
+    version: 4
 design:
     problem: |
         The launcher's two ~5s stalls (bug-504095f2) were SQLite busy_timeout(5000)
@@ -181,7 +181,7 @@ slices:
         - 1
       done_when:
         - RouteHookWrite returns success even when both the daemon and the bounded direct open fail (canonical-first)
-        - When the daemon is reachable, no direct writable handle is opened by the hook
+        - When the enqueue succeeds, no direct writable handle is opened by the hook (bounded direct fallback fires only when enqueue itself fails — daemon unreachable or queue full) [roborev 456]
         - A held external write lock does not make RouteHookWrite block longer than the bounded fallback (<1s)
         - Even when the daemon IS reachable but its writer is busy, RouteHookWrite returns <1s (enqueue-only ack, not applied-ack) — roborev 451/452
       effort: M

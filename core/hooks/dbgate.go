@@ -1,26 +1,44 @@
-// Package hooks — dbgate.go: canonical-first DB-open gate for hook handlers.
+// Package hooks — dbgate.go: daemon-first derived-write gate for hook handlers.
 //
-// SLICE-7 CONTRACT (plan-ae0c37b2, feat-33c26c74):
+// CURRENT ARCHITECTURE (plan-2390966a, slices 3-7):
 //
-//	Hook subprocesses are short-lived processes spawned by Claude Code per
-//	event. They CANNOT reach the in-process write queue that lives inside a
-//	separate `wipnote serve` process. The architectural answer for the
-//	hook tree is "canonical-first with graceful fallback":
+//	Hot hooks (SessionStart, pretooluse, user-prompt, subagent-start, Stop)
+//	route their derived-index writes through the ENQUEUE-ONLY daemon seam
+//	(RouteHookWrite / RouteInsertEvent → apply.RouteSQLAsync). The primary
+//	path NEVER opens a writable DB handle:
 //
-//	  1. Canonical NDJSON/HTML is written first by the handler (the indexer
-//	     in `wipnote serve` will pick it up and rebuild the SQLite index).
-//	  2. The hook also opens a writable DB handle to update the derived
-//	     index synchronously while the data is fresh — this is the existing
-//	     contention-prone path. If the open fails (lock held by another
-//	     writer, disk full, FS race), the hook MUST return SUCCESS to the
-//	     caller and emit a structured fallback log line. Reindex recovers
-//	     the missing rows from canonical NDJSON on the next serve cycle.
+//	  1. Canonical NDJSON/HTML is written first by the handler. The indexer
+//	     in `wipnote serve` picks it up and rebuilds the SQLite index.
+//	  2. RouteHookWrite / RouteInsertEvent enqueue the derived-index upsert
+//	     to the per-project writer daemon via apply.RouteSQLAsync (enqueue-
+//	     only, no new writable open). The ack is enqueue-only — the op
+//	     applies in FIFO order after the hook returns; a crash-lost async op
+//	     is recovered by the canonical NDJSON + reindex backstop.
+//	  3. ONLY when the daemon is unavailable / spawn-forbidden / queue-full
+//	     does the fallback path open a writable handle — via
+//	     OpenHookDBWithBusyTimeout (bounded ~750ms) — and write
+//	     synchronously. If even that open fails, the hook returns SUCCESS and
+//	     canonical NDJSON guarantees reindex recovery.
+//
+//	OpenHookDB (below) is therefore the RARE LAST-RESORT FALLBACK — the
+//	daemon-miss path — not the primary write path. It is the single auditable
+//	writable open in the hook tree (class canonicalFirstHookFallback in the
+//	sqlite_write_boundary_test.go inventory), kept here so the
+//	failure-tolerance contract lives at ONE auditable boundary. Do NOT add
+//	new db.Open call sites in core/hooks/ or cmd/wipnote/hook.go.
+//
+//	Residual direct writes that REUSE the already-held hook handle (not new
+//	opens, not new boundary entries — documented known residuals):
+//	  - pretooluse: HeartbeatClaimByWorkItem, ReapExpiredClaims
+//	  - subagent-start: BackfillParentSession, InsertLineageTrace,
+//	    UpsertPendingSubagentStart
+//	  - Stop: FinalizeSessionHTML, runSessionExitReconcile
+//	Each uses an existing handle only; none opens a fresh writable one.
 //
 // OPENING THIS DB FROM THE HOOK TREE STAYS A "FORBIDDEN PATH" by the slice-5
-// boundary, but it is now centralised behind ONE call site (this file) so
-// reviewers can audit the failure-tolerance contract in one place. The
-// slice-5 inventory reclassifies the hook entries to point at THIS file
-// rather than the three call sites in cmd/wipnote/hook.go.
+// boundary (reclassified from daemon-routed-pending-slice-6 to
+// canonical-first-hook-fallback), centralised behind ONE call site (this
+// file) so reviewers can audit the failure-tolerance contract in one place.
 package hooks
 
 import (
@@ -110,20 +128,21 @@ func RecordFallback(handler, sessionID string, reason FallbackReason, detail str
 	debugLogFields(projectDir, handler, fields, "canonical-first fallback engaged")
 }
 
-// OpenHookDB returns a writable DB handle for the hook subprocess to use
-// when applying derived-index updates. On open failure it returns (nil, reason).
-// The reason is logged + counted; callers MUST treat a nil DB as a signal
-// to skip DB-dependent work and return a success HookResult.
+// OpenHookDB returns a writable DB handle for the hook subprocess to use as
+// the daemon-miss fallback for derived-index updates. On open failure it
+// returns (nil, reason). The reason is logged + counted; callers MUST treat
+// a nil DB as a signal to skip DB-dependent work and return success.
 //
-// The current implementation opens the DB exactly like the pre-slice-7 code
-// did — short-lived hook subprocesses still need to write to SQLite while
-// canonical NDJSON exists on the same disk. The contract change is at the
-// FAILURE BOUNDARY: a failed open no longer cascades into a hook error,
-// and the canonical NDJSON write upstream guarantees reindex recovery.
+// This open is the DAEMON-MISS FALLBACK ONLY (plan-2390966a slices 3-7):
+// the hot hook write path (RouteHookWrite / RouteInsertEvent) reaches here
+// only when apply.RouteSQLAsync returns false (daemon unreachable / spawn-
+// forbidden / queue full). On a reachable-daemon system this open is rarely
+// or never called. The canonical NDJSON write upstream is always
+// authoritative; reindex recovers any rows neither path could write.
 //
-// This is the ONLY allowed direct writable open in the hook tree.
-// `cmd/wipnote/hook.go` now calls this helper exclusively; do not add
-// new db.Open call sites in internal/hooks/ or cmd/wipnote/hook.go.
+// This is the ONLY allowed direct writable open in the hook tree
+// (class canonicalFirstHookFallback). Do not add new db.Open call sites in
+// core/hooks/ or cmd/wipnote/hook.go.
 func OpenHookDB(handler, sessionID, dbPath string) (*sql.DB, FallbackReason) {
 	database, err := db.Open(dbPath)
 	if err != nil {

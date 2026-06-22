@@ -807,10 +807,20 @@ func TestSQLiteContentionStress_MigratedHotHooksUnderHeldLock(t *testing.T) {
 }
 
 // assertDaemonAppliedHotHookWrites verifies the daemon's single writer actually
-// applied the migrated hot hooks' routed agent_events writes for every run, so a
+// applied the migrated hot hooks' routed writes for every run, so a
 // zero-first-party-BUSY pass cannot be vacuous (i.e. cannot pass merely because
 // the routed writes silently degraded to canonical-only). It waits briefly for
-// FIFO drain, then asserts each run's session has at least one agent_events row.
+// FIFO drain, then asserts each run's session has at least one agent_events row
+// AND that the session-start hook's routeSessionUpsert row actually landed.
+//
+// The sessions-row assertion is the bug-a782badf / roborev-476 finding-1 guard:
+// SessionStart routes the session upsert through RouteHookWrite, whose bind args
+// JSON-cross the daemon boundary. A regression that reverts session_start.go's
+// nullableStr to sql.NullString makes that routed Exec FAIL on the daemon side
+// (the decoded arg is a map the SQLite driver cannot bind), so the session row
+// silently never applies — while agent_events (which builds its NULLs via the
+// already-correct nullableArg) keeps landing. Checking only agent_events would
+// miss that class entirely; asserting the sessions row lands closes the gap.
 func assertDaemonAppliedHotHookWrites(t *testing.T, dbPath string) {
 	t.Helper()
 	roDB, err := dbpkg.OpenReadOnly(dbPath)
@@ -841,6 +851,32 @@ func assertDaemonAppliedHotHookWrites(t *testing.T, dbPath string) {
 				"zero-first-party-BUSY result is vacuous", run, sess)
 		}
 		t.Logf("workload guard: run %d session %s applied %d agent_events row(s) via the daemon", run, sess, n)
+
+		// Finding-1 guard (bug-a782badf): the session-start routeSessionUpsert row
+		// must land via the daemon transport too. Pre-fix (sql.NullString) this
+		// INSERT's bind FAILED across the JSON boundary and the row silently never
+		// applied — yet agent_events still landed, so the agent_events-only check
+		// above would pass vacuously. Asserting the sessions row catches that.
+		var sessN int
+		sessDeadline := time.Now().Add(2 * time.Second)
+		for {
+			if err := roDB.QueryRow(
+				`SELECT COUNT(*) FROM sessions WHERE session_id = ?`, sess,
+			).Scan(&sessN); err != nil {
+				t.Fatalf("workload guard: count sessions for %s: %v", sess, err)
+			}
+			if sessN > 0 || time.Now().After(sessDeadline) {
+				break
+			}
+			time.Sleep(25 * time.Millisecond)
+		}
+		if sessN == 0 {
+			t.Fatalf("workload guard: run %d session-start routeSessionUpsert row for %s never "+
+				"applied via the daemon — the session-upsert bind FAILED across the JSON "+
+				"transport (bug-a782badf: session_start.go nullableStr must return nil/string, "+
+				"NOT sql.NullString)", run, sess)
+		}
+		t.Logf("workload guard: run %d session %s session-upsert row applied via the daemon", run, sess)
 	}
 }
 

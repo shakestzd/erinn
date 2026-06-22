@@ -667,9 +667,11 @@ func launchClaude(opts LaunchOpts) error {
 	// server so users see the explanation before any server output.
 	MaybeShowOtelNotice(opts.ProjectRoot)
 
+	launchTiming("launchClaude: before ensureGuardProfile")
 	// Launch-time guard-profile initialization (peer to the OTel collector
 	// bootstrap). No-op when already approved or non-interactive; never blocks.
 	ensureGuardProfile(opts.ProjectRoot)
+	launchTiming("launchClaude: after ensureGuardProfile")
 
 	// Auto-start a detached `wipnote serve` for the dashboard and
 	// semantic-ops (AI-title backfill, etc.). The serve process is now a
@@ -677,6 +679,7 @@ func launchClaude(opts LaunchOpts) error {
 	// per-session collector spawned below. See claude_serve_autostart.go
 	// for the probe + spawn logic.
 	ensureServeForDashboard(opts.ProjectRoot)
+	launchTiming("launchClaude: after ensureServeForDashboard")
 
 	// Generate a per-session ID and spawn a per-session OTel collector.
 	// The collector writes NDJSON to .wipnote/sessions/<sid>/ and
@@ -690,6 +693,7 @@ func launchClaude(opts LaunchOpts) error {
 			defer envOverrides.Cleanup()
 		}
 	}
+	launchTiming("launchClaude: after spawnSessionCollector (before exec)")
 
 	c := exec.Command(claudePath, claudeArgs...)
 	c.Stdin = os.Stdin

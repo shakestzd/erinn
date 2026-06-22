@@ -37,6 +37,7 @@ type claudeLaunchContext struct {
 //
 // The function prints warnings and carryover messages to os.Stderr/os.Stdout.
 func resolveClaudeIntentIsolation(projectRoot, wipnoteRoot, resumeID, workItem string, inPlace, explicitContinue bool, extraArgs []string) (claudeLaunchContext, error) {
+	launchTiming("resolveClaudeIntentIsolation: before chooser/intent resolution")
 	intent, err := resolveLaunchIntentForDefaultLaunch(projectRoot, wipnoteRoot, "claude", chooserEligibility{
 		TTY:              isInteractiveTerminalFile(os.Stdin) && isInteractiveTerminalFile(os.Stdout),
 		CI:               os.Getenv("CI") == "true" || os.Getenv("GITHUB_ACTIONS") != "",
@@ -50,10 +51,12 @@ func resolveClaudeIntentIsolation(projectRoot, wipnoteRoot, resumeID, workItem s
 		return claudeLaunchContext{}, err
 	}
 
+	launchTiming("resolveClaudeIntentIsolation: after chooser/intent resolution")
 	intentResult := applyClaudeLaunchIntent(resumeID, workItem, intent)
 	resumeID = intentResult.resumeID
 	workItem = intentResult.workItem
 
+	launchTiming("resolveClaudeIntentIsolation: before resolveContinueLaunchContext")
 	continueCtx, err := resolveContinueLaunchContext(projectRoot, wipnoteRoot, "claude", intentResult.intent)
 	if err != nil {
 		return claudeLaunchContext{}, err

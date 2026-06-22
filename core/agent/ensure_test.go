@@ -1,12 +1,14 @@
 package agent_test
 
 import (
+	"context"
 	"database/sql"
 	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/shakestzd/wipnote/core/agent"
 	"github.com/shakestzd/wipnote/core/db"
@@ -210,5 +212,57 @@ func TestEnsureSession_ColdPath_WritesActiveSession(t *testing.T) {
 	}
 	if data["session_id"] != sessionID {
 		t.Errorf(".active-session session_id=%q, want %q", data["session_id"], sessionID)
+	}
+}
+
+// TestEnsureSessionWithTimeout_FailsFastUnderContention verifies the cold-path
+// write does not stall for the full SQLite busy_timeout (5s) when another
+// connection holds the write lock. With a short timeout the dedicated-connection
+// busy_timeout bounds the wait, so EnsureSessionWithTimeout returns a busy error
+// quickly instead of blocking the launcher's interactive path. Regression test
+// for bug-504095f2.
+func TestEnsureSessionWithTimeout_FailsFastUnderContention(t *testing.T) {
+	const sessionID = "contention-session-005"
+	dir := t.TempDir()
+	dbPath := filepath.Join(dir, "wipnote.db")
+
+	// Primary handle (schema-current) used by EnsureSessionWithTimeout.
+	d1, err := db.Open(dbPath)
+	if err != nil {
+		t.Fatalf("open d1: %v", err)
+	}
+	defer d1.Close()
+
+	// Second connection holds the RESERVED write lock for the whole test.
+	d2, err := db.Open(dbPath)
+	if err != nil {
+		t.Fatalf("open d2: %v", err)
+	}
+	defer d2.Close()
+	holder, err := d2.Conn(context.Background())
+	if err != nil {
+		t.Fatalf("acquire holder conn: %v", err)
+	}
+	defer holder.Close()
+	if _, err := holder.ExecContext(context.Background(), "BEGIN IMMEDIATE"); err != nil {
+		t.Fatalf("acquire write lock: %v", err)
+	}
+	defer holder.ExecContext(context.Background(), "ROLLBACK") //nolint:errcheck
+
+	writeActiveSessionFile(t, dir, sessionID)
+	t.Setenv("WIPNOTE_SESSION_ID", sessionID)
+	t.Setenv("CLAUDE_SESSION_ID", "")
+
+	start := time.Now()
+	_, err = agent.EnsureSessionWithTimeout(d1, dir, 300*time.Millisecond)
+	elapsed := time.Since(start)
+
+	// Must fail fast — well under the 5s busy_timeout. Allow generous slack for
+	// slow CI, but anything near 5s means the bound was not applied.
+	if elapsed > 2*time.Second {
+		t.Fatalf("EnsureSessionWithTimeout blocked %v under contention; expected fast-fail near 300ms", elapsed)
+	}
+	if err == nil {
+		t.Fatalf("expected a busy error while the write lock was held, got nil")
 	}
 }

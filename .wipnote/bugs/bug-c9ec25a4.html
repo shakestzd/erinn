@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>Route subagent-start lineage writes through the daemon (last hot-hook contention residual)</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="bug-c9ec25a4"
+             data-type="bug"
+             data-status="todo"
+             data-priority="medium"
+             data-created="2026-06-22T17:56:49.945311"
+             data-updated="2026-06-22T17:56:50.033435" data-agent-assigned="claude-code" data-track-id="trk-6a1f5362" data-created-by-agent="claude-code" data-created-by-model="claude-opus-4-8[1m]" data-created-by-cli-version="0.64.0-17-gac4898ffa">
+
+        <header>
+            <h1>Route subagent-start lineage writes through the daemon (last hot-hook contention residual)</h1>
+            <div class="metadata">
+                <span class="badge status-todo">Todo</span>
+                <span class="badge priority-medium">Medium Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-6a1f5362.html" data-relationship="part_of" data-since="2026-06-22T17:56:50.033154">trk-6a1f5362</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>Final hot-hook contention residual after plan-2390966a + bug-d792aee6. subagent-start still does 3 direct best-effort writes on the 5s OpenHookDB handle: BackfillParentSession (single UPDATE), InsertLineageTrace (single INSERT; args use nullStr=sql.NullString, NOT JSON-safe -&gt; must convert to nil/string for wire transport), UpsertPendingSubagentStart (single INSERT OR REPLACE; nullableStr args already JSON-safe). All errors are best-effort (debugLog only). Fix: expose Stmt builders from core/db, route via RouteHookWrite (enqueue-only; FIFO preserves order after the already-routed sessions insert). Make slice-8 gate faithful for subagent-start (production handle, assert &lt;1s; drop the documented-residual note).</p>
+        </section>
+    </article>
+</body>
+</html>

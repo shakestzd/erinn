@@ -715,6 +715,147 @@ func TestFindOrphanedEvents(t *testing.T) {
 	}
 }
 
+// TestFindOrphanedEventsLimited verifies the LIMIT variant returns at most N
+// orphans, oldest-first, so the session-start hot path drains a bounded batch
+// (bug-504095f2) while leaving the rest for the serve-side drain.
+func TestFindOrphanedEventsLimited(t *testing.T) {
+	database := setupTestDB(t)
+	defer database.Close()
+
+	now := time.Now().UTC()
+	insert := func(id string, minutesAgo int) {
+		t.Helper()
+		created := now.Add(-time.Duration(minutesAgo) * time.Minute)
+		ev := &models.AgentEvent{
+			EventID:   id,
+			AgentID:   "claude-code",
+			EventType: models.EventToolCall,
+			Timestamp: created,
+			ToolName:  "Bash",
+			SessionID: "sess-test",
+			Status:    "started",
+			Source:    "hook",
+			CreatedAt: created,
+			UpdatedAt: created,
+		}
+		if err := db.UpsertEvent(database, ev); err != nil {
+			t.Fatalf("insert %s: %v", id, err)
+		}
+	}
+
+	// Five orphans, all past the 5m threshold, distinct ages.
+	insert("evt-o-10", 10)
+	insert("evt-o-40", 40)
+	insert("evt-o-20", 20)
+	insert("evt-o-50", 50) // oldest
+	insert("evt-o-30", 30)
+
+	// Cap at 2 → must return exactly 2, the oldest two (50m, 40m).
+	limited, err := db.FindOrphanedEventsLimited(database, "", 5*time.Minute, 2)
+	if err != nil {
+		t.Fatalf("FindOrphanedEventsLimited: %v", err)
+	}
+	if len(limited) != 2 {
+		t.Fatalf("expected exactly 2 capped orphans, got %d", len(limited))
+	}
+	if limited[0].EventID != "evt-o-50" || limited[1].EventID != "evt-o-40" {
+		t.Errorf("expected oldest-first [evt-o-50, evt-o-40], got [%s, %s]",
+			limited[0].EventID, limited[1].EventID)
+	}
+
+	// limit <= 0 means unlimited — returns all 5.
+	all, err := db.FindOrphanedEventsLimited(database, "", 5*time.Minute, 0)
+	if err != nil {
+		t.Fatalf("FindOrphanedEventsLimited unlimited: %v", err)
+	}
+	if len(all) != 5 {
+		t.Errorf("expected 5 unlimited orphans, got %d", len(all))
+	}
+
+	// A cap larger than the population returns everything.
+	big, err := db.FindOrphanedEventsLimited(database, "", 5*time.Minute, 100)
+	if err != nil {
+		t.Fatalf("FindOrphanedEventsLimited big cap: %v", err)
+	}
+	if len(big) != 5 {
+		t.Errorf("expected 5 orphans under a big cap, got %d", len(big))
+	}
+}
+
+// TestFindStaleProjectOrphans verifies the live-session protection (roborev 448):
+// a started event in a NON-terminal (possibly live) session is not returned until
+// it crosses the hard cutoff, while a terminal session's event is returned at the
+// normal threshold.
+func TestFindStaleProjectOrphans(t *testing.T) {
+	database := setupTestDB(t)
+	defer database.Close()
+
+	now := time.Now().UTC()
+	mkSession := func(id, status string) {
+		t.Helper()
+		s := &models.Session{SessionID: id, Status: "active", CreatedAt: now.Add(-26 * time.Hour)}
+		if err := db.UpsertSession(database, s); err != nil {
+			t.Fatalf("seed session %s: %v", id, err)
+		}
+		// Durable terminal marker via a real status transition (sets completed_at);
+		// UpsertSession's upgrade branch intentionally omits completed_at.
+		if status == "completed" || status == "failed" {
+			if err := db.UpdateSessionStatus(database, id, status); err != nil {
+				t.Fatalf("complete session %s: %v", id, err)
+			}
+		}
+	}
+	mkEvent := func(id, sid string, age time.Duration) {
+		t.Helper()
+		created := now.Add(-age)
+		ev := &models.AgentEvent{
+			EventID: id, AgentID: "claude-code", EventType: models.EventToolCall,
+			Timestamp: created, ToolName: "Bash", SessionID: sid, Status: "started",
+			Source: "hook", CreatedAt: created, UpdatedAt: created,
+		}
+		if err := db.UpsertEvent(database, ev); err != nil {
+			t.Fatalf("seed event %s: %v", id, err)
+		}
+	}
+
+	mkSession("sess-live", "active")    // non-terminal: protected until hard cutoff
+	mkSession("sess-done", "completed") // terminal (completed_at set): swept at normal threshold
+	mkEvent("evt-live-recent", "sess-live", 10*time.Minute) // protected (no heartbeat, but < hard cutoff)
+	mkEvent("evt-live-ancient", "sess-live", 25*time.Hour)  // past hard cutoff → swept anyway
+	mkEvent("evt-done-recent", "sess-done", 10*time.Minute) // terminal → swept
+
+	// roborev 455: serve.go marks sessions 'completed' from JSONL mtime via a raw
+	// UPDATE that sets status but NOT completed_at. Such a session may still be
+	// live (a quiet long-running tool) and must stay PROTECTED — only completed_at
+	// (durable SessionEnd) counts as terminal.
+	mkSession("sess-mtime", "active")
+	if _, err := database.Exec(`UPDATE sessions SET status='completed' WHERE session_id=?`, "sess-mtime"); err != nil {
+		t.Fatalf("simulate mtime completion: %v", err)
+	}
+	mkEvent("evt-mtime-recent", "sess-mtime", 10*time.Minute) // status=completed but completed_at NULL → protected
+
+	got, err := db.FindStaleProjectOrphans(database, 5*time.Minute, 24*time.Hour, 0)
+	if err != nil {
+		t.Fatalf("FindStaleProjectOrphans: %v", err)
+	}
+	found := map[string]bool{}
+	for _, o := range got {
+		found[o.EventID] = true
+	}
+	if found["evt-live-recent"] {
+		t.Errorf("evt-live-recent should be PROTECTED (live session, < hard cutoff) but was returned")
+	}
+	if !found["evt-done-recent"] {
+		t.Errorf("evt-done-recent (terminal session) should be swept at the normal threshold")
+	}
+	if !found["evt-live-ancient"] {
+		t.Errorf("evt-live-ancient (past 24h hard cutoff) should be swept even for a live session")
+	}
+	if found["evt-mtime-recent"] {
+		t.Errorf("evt-mtime-recent should be PROTECTED: status='completed' via mtime heuristic but completed_at IS NULL is not a durable terminal signal (roborev 455)")
+	}
+}
+
 func TestMarkEventAborted(t *testing.T) {
 	database := setupTestDB(t)
 	defer database.Close()

@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>Launcher chooser has ~5s delay before render and ~5s after selection</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="bug-504095f2"
+             data-type="bug"
+             data-status="done"
+             data-priority="high"
+             data-created="2026-06-22T01:23:45.298229"
+             data-updated="2026-06-22T02:44:12.109937" data-agent-assigned="claude-code" data-track-id="trk-6a1f5362" data-created-by-agent="claude-code" data-created-by-model="claude-opus-4-8[1m]" data-created-by-cli-version="0.63.4-16-g7709d2ddd">
+
+        <header>
+            <h1>Launcher chooser has ~5s delay before render and ~5s after selection</h1>
+            <div class="metadata">
+                <span class="badge status-done">Done</span>
+                <span class="badge priority-high">High Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="caused_by">
+                <h3>Caused By:</h3>
+                <ul>
+                    <li><a href="../features/feat-a6f15eff.html" data-relationship="caused_by" data-since="2026-06-22T01:23:45.315898">feat-a6f15eff</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-6a1f5362.html" data-relationship="part_of" data-since="2026-06-22T01:23:45.327371">trk-6a1f5362</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="implemented_in">
+                <h3>Implemented In:</h3>
+                <ul>
+                    <li><a href="../sessions/e062bfef-8d0b-4619-9c80-13d801aecad6.html" data-relationship="implemented_in" data-since="2026-06-22T02:24:08.254158">session e062bfef-8d0b-4619-9c80-13d801aecad6</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-steps>
+            <h3>Implementation Steps</h3>
+            <ol>
+                <li data-completed="true" data-step-id="task-1" data-agent="claude-code" data-created-by-agent="claude-code">✅ Ungate launcher from blocking DB writes</li>
+                <li data-completed="true" data-step-id="step-bug-504095f2-1" data-agent="claude-code" data-created-by-agent="claude-code">✅ Pre-render: persistentPreRunE (main.go:217) -&gt; openDB (session.go:229 uses dbpkg.Open, runs migrations &#43; BEGIN IMMEDIATE) -&gt; agent.EnsureSession. Make this best-effort non-blocking: short busy_timeout / fast-fail-on-contention, or skip session write on the interactive claude launch path so the chooser is never gated. EnsureSession already degrades gracefully.</li>
+                <li data-completed="true" data-step-id="step-bug-504095f2-2" data-agent="claude-code" data-created-by-agent="claude-code">✅ Post-selection: claude.go tail (ensureServeForDashboard :679 &#43; spawnSessionCollector) — ensure the launcher does not synchronously block on a contended writable open before exec(claude). Prefer routing session/derived writes through the running serve writer daemon (feat-f3bcbcef / internal/db/writequeue) instead of a direct contended Open.</li>
+                <li data-completed="true" data-step-id="step-bug-504095f2-3" data-agent="claude-code" data-created-by-agent="claude-code">✅ Governance: changes touch sqlite_write_boundary_test.go (approvedWriteSites: File/Line/Function/OpenExpr must match), TestWritableDBOpenBoundary (line-pinning), zero-first-party-SQLITE_BUSY invariant, and migration step-lists. Update inventories if a new open callsite is added. Run per-module gates (go -C core ...; root go build ./cmd/...).</li>
+                <li data-completed="true" data-step-id="step-bug-504095f2-4" data-agent="claude-code" data-created-by-agent="claude-code">✅ POST-SELECTION root cause (distinct from pre-render): the SessionStart hook (&#39;wipnote hook session-start&#39;) takes 5.44s at BASELINE (no contention) and 14.94s under a held write lock. Claude waits for SessionStart&#39;s additionalContext before the session is ready, so this is the ~5s-after-choice delay. Two sub-problems: (a) 5.4s baseline cost — profile what session-start does (OpenHookDB/db.Open pragmas, writer-daemon auto-spawn ~2s, possible reindex, git, daemon routing); (b) &#43;9.5s contention = ~2 busy_timeout stalls in the hook&#39;s writable opens (core/hooks/dbgate.go OpenHookDB &#43; derived-index write) — governed writer-service path. Pre-render stall fixed in 0244d25d3 (EnsureSessionWithTimeout 500ms bound).</li>
+                <li data-completed="true" data-step-id="step-bug-504095f2-5" data-agent="claude-code" data-created-by-agent="claude-code">✅ POST-SELECTION profiled: SessionStart&#39;s OpenHookDB&#43;db-tx are fast (~10-70ms warm). The ~4.8s spike is the SYNCHRONOUS SweepOrphanedEventsForProject (core/hooks/session_sweep.go:44, called at session_start.go:265) looping over orphaned agent_events — each orphan parses a session HTML file &#43; appends &#43; SQL update. Slow with a backlog (heavy/crashed prior session); warm runs are 0.12s. Cannot be naively go-backgrounded (hook is a short-lived subprocess; goroutine dies on exit) — needs detached spawn, a per-invocation cap, or move to the serve daemon cycle. CONTENTION component: SessionStart does several DIRECT writes (runSessionTransaction, transcript UPDATE @273, InsertEvent @291, SetSessionFamilyID @307) each with busy_timeout=5000 -&gt; ~5s stall apiece when the just-spawned serve/collector hold the write lock (observed SQLITE_BUSY on set_session_family_id; hook 14.9s under held lock). Fix options: (a) take orphan sweep off the synchronous hook path; (b) bound the hook&#39;s writes (governed dbgate/writer-service path).</li>
+                <li data-completed="true" data-step-id="task-2" data-agent="claude-code" data-created-by-agent="claude-code">✅ Fix SessionStart hook post-selection latency</li>
+            </ol>
+        </section>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>wipnote claude --dev: ~5s delay before the session chooser TUI appears, and another ~5s after a choice is made (before Claude launches). Suspect N+1 SQL (per-session SessionPromptLabel query in ListGroupedResumableSessions), per-session git branch/age computation, DB open/reindex on startup, or a daemon HTTP call hitting a timeout. Diagnose root cause for both the pre-render and post-selection delays, then fix.</p>
+        </section>
+    </article>
+</body>
+</html>

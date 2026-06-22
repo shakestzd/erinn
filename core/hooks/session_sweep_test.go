@@ -61,6 +61,83 @@ func setupSweepEnv(t *testing.T, sessionID string, eventID string, age time.Dura
 	return projectDir, database
 }
 
+// TestSweepOrphanedEventsForProjectCapped verifies the capped sweep used on the
+// session-start hot path processes at most `cap` orphans and reports the number
+// discovered under the cap, while the uncapped variant drains the rest
+// (bug-504095f2, Driver A).
+func TestSweepOrphanedEventsForProjectCapped(t *testing.T) {
+	projectDir := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(projectDir, ".wipnote", "sessions"), 0o755); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+	database, err := db.Open("file::memory:?cache=shared&_uniq=" + t.Name())
+	if err != nil {
+		t.Fatalf("open db: %v", err)
+	}
+	t.Cleanup(func() { database.Close() })
+
+	// Five separate ENDED (terminal) sessions, each with one old started orphan.
+	// Post-roborev-448 the project-wide sweep only reaps orphans from terminal
+	// sessions at the normal threshold; non-terminal (possibly-live) sessions are
+	// protected until the 24h hard cutoff (covered by TestFindStaleProjectOrphans).
+	const total = 5
+	for i := 0; i < total; i++ {
+		sid := "sess-capped-" + string(rune('a'+i))
+		s := &models.Session{
+			SessionID:     sid,
+			AgentAssigned: "claude-code",
+			Status:        "active",
+			CreatedAt:     time.Now().UTC().Add(-2 * time.Hour),
+		}
+		CreateSessionHTML(projectDir, s)
+		if err := db.InsertSession(database, s); err != nil {
+			t.Fatalf("InsertSession %s: %v", sid, err)
+		}
+		// Durable terminal marker (sets completed_at) via a real status transition,
+		// so the live-protected project sweep treats these as ended (roborev 455:
+		// completed_at, not status, is the trusted terminal signal).
+		if err := db.UpdateSessionStatus(database, sid, "completed"); err != nil {
+			t.Fatalf("UpdateSessionStatus %s: %v", sid, err)
+		}
+		created := time.Now().UTC().Add(-time.Duration(10+i) * time.Minute)
+		ev := &models.AgentEvent{
+			EventID:   "evt-capped-" + sid,
+			AgentID:   "claude-code",
+			EventType: models.EventToolCall,
+			Timestamp: created,
+			ToolName:  "Bash",
+			SessionID: sid,
+			Status:    "started",
+			Source:    "hook",
+			CreatedAt: created,
+			UpdatedAt: created,
+		}
+		if err := db.UpsertEvent(database, ev); err != nil {
+			t.Fatalf("UpsertEvent %s: %v", sid, err)
+		}
+	}
+
+	// Capped at 2: appends at most 2 and reports discovered==2 (backlog remains).
+	appended, discovered := SweepOrphanedEventsForProjectCapped(database, projectDir, 2)
+	if appended != 2 {
+		t.Errorf("capped appended: got %d, want 2", appended)
+	}
+	if discovered != 2 {
+		t.Errorf("capped discovered: got %d, want 2 (signals residual backlog)", discovered)
+	}
+
+	// Uncapped sweep drains the remaining 3 orphans.
+	rest := SweepOrphanedEventsForProject(database, projectDir)
+	if rest != total-2 {
+		t.Errorf("uncapped drain: got %d, want %d", rest, total-2)
+	}
+
+	// A second uncapped sweep finds nothing left.
+	if again := SweepOrphanedEventsForProject(database, projectDir); again != 0 {
+		t.Errorf("expected 0 orphans after full drain, got %d", again)
+	}
+}
+
 func TestSweepOrphanedEventsForSession_AppendsAbortedLi(t *testing.T) {
 	projectDir, database := setupSweepEnv(t, "sess-sweep-001", "evt-orphan-1", 10*time.Minute)
 

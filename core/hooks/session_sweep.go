@@ -39,15 +39,46 @@ func SweepOrphanedEventsForSession(database *sql.DB, projectDir, sessionID strin
 }
 
 // SweepOrphanedEventsForProject runs the orphan sweep across every session
-// in the project. Intended to be called from SessionStart so a freshly
-// launched session closes out the previous session's stale started rows.
+// in the project, with NO cap on the number of orphans processed. Intended for
+// out-of-band drains (the serve-side periodic loop) where wall-clock latency is
+// not user-visible. The latency-sensitive session-start hook path MUST use
+// SweepOrphanedEventsForProjectCapped instead.
 func SweepOrphanedEventsForProject(database *sql.DB, projectDir string) int {
-	orphans, err := db.FindOrphanedEvents(database, "", OrphanThreshold)
+	orphans, err := db.FindStaleProjectOrphans(database, OrphanThreshold, OrphanHardCutoff, 0)
 	if err != nil {
 		debugLog(projectDir, "[sweep] find orphans for project: %v", err)
 		return 0
 	}
 	return sweepOrphans(database, projectDir, orphans)
+}
+
+// SessionStartSweepCap bounds how many project-wide orphans the synchronous
+// session-start hook sweep will process. Each orphan costs a goquery parse +
+// flock append + SQL UPDATE, so an uncapped sweep over a large crash backlog
+// could block the hook (and thus the launcher) for multiple seconds
+// (bug-504095f2). The active session's own orphans are already swept
+// incrementally by PostToolUse; this project-wide sweep only cleans OTHER
+// (crashed) sessions, so draining a small batch per launch is sufficient — the
+// serve-side periodic drain clears any remaining backlog out-of-band.
+//
+// Sized for the hot path: measured ~200ms per orphan (HTML parse + flock), so a
+// cap of 8 bounds the synchronous worst case to ~1.5s even on a cold launch with
+// a full crash backlog, while the serve-side drain clears the remainder.
+const SessionStartSweepCap = 8
+
+// SweepOrphanedEventsForProjectCapped is the bounded counterpart to
+// SweepOrphanedEventsForProject: it processes at most cap orphans (oldest
+// first). It returns the number of synthetic aborted entries appended and the
+// number of orphans discovered under the cap — when discovered == cap a backlog
+// likely remains, which the caller can surface for observability. cap <= 0 is
+// treated as unlimited.
+func SweepOrphanedEventsForProjectCapped(database *sql.DB, projectDir string, cap int) (appended, discovered int) {
+	orphans, err := db.FindStaleProjectOrphans(database, OrphanThreshold, OrphanHardCutoff, cap)
+	if err != nil {
+		debugLog(projectDir, "[sweep] find orphans for project (capped): %v", err)
+		return 0, 0
+	}
+	return sweepOrphans(database, projectDir, orphans), len(orphans)
 }
 
 // sweepOrphans is the shared implementation used by both sweep entry points.

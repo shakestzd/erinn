@@ -1,0 +1,644 @@
+meta:
+    id: plan-2390966a
+    track_id: trk-6a1f5362
+    title: 'Durable fix: eliminate multi-process SQLite write contention via single-writer daemon'
+    description: ""
+    created_at: ""
+    status: finalized
+    schema_version: v4
+    version: 4
+design:
+    problem: |
+        The launcher's two ~5s stalls (bug-504095f2) were SQLite busy_timeout(5000)
+        write-lock contention: many wipnote PROCESSES (launcher, serve, per-session
+        otel collector, every hook subprocess) open writable handles on the same
+        .db file, and SQLite is fundamentally single-writer. The shipped fixes
+        (EnsureSessionWithTimeout, OpenHookDBWithBusyTimeout) only BOUND the stall —
+        a contended write fails fast and relies on reindex recovery. That is a
+        band-aid: it tolerates contention instead of eliminating it, and profiling
+        shows the same stall in pretooluse (10s), user-prompt (14s), subagent-start
+        (5s), and stop (10s) under a held lock.
+    goals:
+        - Eliminate multi-process write contention by routing ALL hot writers (every hook + the launcher pre-run) through the single writer daemon, which already owns the one writable handle (feat-f3bcbcef) — the single-serializing-writer pattern Turso (sqld), DuckDB (Quack), and Livebook (per-session GenServer) all converge on.
+        - Keep the system local-first and pure-Go (modernc, no CGo) — do NOT swap the engine (Turso/libSQL/DuckDB rejected; see research).
+        - 'Durability backstop unchanged: canonical NDJSON + reindex recover any derived write the daemon could not take; a short-bounded direct open remains only as a rare last resort so nothing ever blocks claude.'
+        - 'Prove durability in CI: zero first-party SQLITE_BUSY under contention stress, every hot hook <1s under a held external write lock, and the hot-path write-site inventory collapses to the daemon.'
+        - Remove the ~5.45s UNCONTENDED stop-hook baseline cost.
+    constraints:
+        - Pure Go / no CGo (single static cross-compiled binary) — hard constraint.
+        - 'Canonical-first contract preserved: hook writes stay best-effort; a failed derived write is logged+counted and recovered by reindex, never surfaced as a Claude hook error.'
+        - Generic SQL envelope travels only over the LOCAL trusted daemon IPC (unix socket); no remote/untrusted SQL.
+        - No regression to the 'zero first-party SQLITE_BUSY' launch-readiness gate.
+        - Operator-invoked CLI write commands (reindex, ingest, plan ops) legitimately own the DB when run and are OUT of scope — only hot/contended writers migrate.
+    approved: false
+    comment: ""
+    research:
+        - url: https://www.sqlite.org/wal.html
+          claim: SQLite WAL allows many readers but exactly one writer at a time; multi-writer is not a WAL feature — confirms the contention is inherent and must be solved by serialization, not configuration.
+          accessed: "2026-06-21"
+        - url: https://turso.tech/blog/beyond-the-single-writer-limitation-with-tursos-concurrent-writes
+          claim: Turso's MVCC concurrent-writes (the only thing that would remove single-writer) is an early technology preview, not for production, and benchmarked multi-threaded within one process — not multi-process file sharing. Justifies NOT swapping the engine.
+          accessed: "2026-06-21"
+        - url: https://duckdb.org/2026/05/12/quack-remote-protocol
+          claim: DuckDB's new multi-writer story (Quack) is itself a client-server protocol where ONE server instance serializes all writes — the same single-serializing-writer pattern wipnote already has in its writer daemon.
+          accessed: "2026-06-21"
+        - url: https://slab.com/blog/announcing-delta-for-elixir/
+          claim: Livebook/Slab collaborative editing serializes all mutations through one per-document GenServer (actor). Validates the daemon-as-single-writer architecture; OT/CRDT merge is for same-field concurrent edits, which wipnote does not have.
+          accessed: "2026-06-21"
+slices:
+    - id: slice-1
+      feature_id: feat-842b24c8
+      num: 1
+      title: Generic SQL-envelope DerivedOp + RouteSQL daemon client (foundation)
+      what: |
+        Extend the daemon write protocol so any non-daemon process can submit an
+        arbitrary parameterized write over the local IPC. Add OpTypeSQL to the
+        DerivedOp struct (core/daemon/apply/apply.go) carrying SQL string + Args
+        ([]any, JSON-encoded). The daemon's apply loop executes it (parameterized,
+        RetryOnBusy-wrapped) on its single writable handle. Add a client helper
+        apply.RouteSQL(projectRoot, sql, args...) bool (core/daemon/apply/cli_route.go)
+        that wraps WriterClient.SubmitOrSpawn (auto-spawns the daemon, ~2s bounded)
+        and returns true on ack. Keep the existing typed routes
+        (RouteSessionInsert/Status, SubmitDerivedEvent) untouched for the hot paths.
+        AMENDMENT (roborev 451/452): the existing SubmitOrSpawn acks only AFTER the
+        queued write is APPLIED (~2s budget), so a hot hook waiting on it can blow the
+        <1s bound while another writer (operator CLI, or a not-yet-migrated path) holds
+        the lock. Slice 1 must therefore add an ENQUEUE-ONLY (async) submit mode that
+        acks as soon as the op is durably handed to the writequeue — NOT after apply.
+        First check core/daemon for an existing enqueue/Ack-on-receipt mode before
+        adding one (do not reinvent). Expose it as e.g. apply.RouteSQLAsync /
+        SubmitEnqueue; the single-writer worker still applies it in FIFO order, so
+        ordering and the canonical-first/reindex backstop are preserved.
+      why: |
+        Closures cannot cross process boundaries, so SubmitDerivedOp's generic path
+        only works in-process. A serializable {sql,args} envelope lets the long
+        tail of hot-hook writes route to the single writer without hand-defining a
+        typed op per write kind — the foundation every later slice builds on.
+      files:
+        - core/daemon/apply/apply.go
+        - core/daemon/apply/cli_route.go
+        - core/daemon/apply/apply_test.go
+      deps: []
+      done_when:
+        - 'OpTypeSQL DerivedOp round-trips: encode -> decode -> Apply executes the parameterized statement on the writer handle'
+        - apply.RouteSQL returns true when the daemon acks and false (no panic) when it cannot be reached
+        - Existing typed routes (RouteSessionInsert/Status, SubmitDerivedEvent) and their tests are unchanged
+      effort: M
+      risk: Med
+      tests: |
+        Unit (core/daemon/apply/apply_test.go): TestDerivedOp_SQLEnvelope_RoundTrip
+        — encode an OpTypeSQL with args, decode, Apply against a temp file DB,
+        assert the row is written. TestRouteSQL_NoDaemon_ReturnsFalse — no daemon,
+        RouteSQL returns false without error.
+      complexity: complex
+      approved: true
+      comment: ""
+      research:
+        - url: https://www.sqlite.org/wal.html
+          claim: Single-writer is inherent to SQLite/WAL — the envelope routes writes to the one serializing writer rather than fighting the lock.
+          accessed: "2026-06-21"
+        - url: https://duckdb.org/2026/05/12/quack-remote-protocol
+          claim: Precedent for a {statement}-over-IPC client-server write path where one server serializes; validates the SQL-envelope-to-daemon design.
+          accessed: "2026-06-21"
+      execution_status: promoted
+      questions:
+        - id: q-sql-safety
+          text: Is arbitrary SQL over the daemon IPC acceptable from a safety standpoint?
+          answer: Yes — the daemon socket is a local, per-project unix socket owned by the same user; only first-party wipnote code constructs ops, statements are parameterized (args never interpolated), and nothing crosses a network boundary. Documented as a constraint.
+      critic_revisions:
+        - source: local-feasibility
+          severity: SUCCESS
+          summary: 'Verified DerivedOp/Encode/Decode/NewApplier (core/daemon/apply/apply.go:70-160): Applier dispatches op.Type to a writequeue.WriteOp, so OpTypeSQL is a clean additive op. RouteSessionInsert confirmed (cli_route.go:110). No reinvented wheel — reuses the existing daemon IPC.'
+        - source: roborev-451-452
+          severity: HIGH
+          summary: 'AMENDED: SubmitOrSpawn acks only after the queued write APPLIES (~2s), so a hot hook waiting on it can exceed the <1s bound when another writer holds the lock. Slice 1 must add an enqueue-only (Ack-on-receipt) submit mode; slice 2 uses it for hot hooks. FIFO single-writer preserves order; canonical NDJSON + reindex remains the backstop.'
+      decisions_notes: |
+        **Trigger:** any hot-path write that today opens a writable handle directly.
+        **State:** SQLite derived index, written only by the daemon's single handle.
+        **Payload:** DerivedOp{Type:OpTypeSQL, SQL, Args} over the existing unix-socket
+          SubmitOrSpawn protocol (local, trusted).
+        **Rejected:** typed op per write kind (per-write boilerplate, many more slices);
+          generic-envelope-only that retires the typed routes (needless churn/risk to
+          already-working hot paths). Chose generic-envelope ADDED ALONGSIDE typed routes.
+      blocks:
+        - type: data-model
+          title: DerivedOp (extended)
+          fields:
+            name: DerivedOp
+          rows:
+            - name: Type
+              type: string (OpTypeSessionInsert|OpTypeSessionStatus|OpTypeFeatureStatus|OpTypeSQL)
+            - name: SQL
+              type: string (parameterized statement; OpTypeSQL only)
+            - name: Args
+              type: '[]any (JSON-encoded bind params; OpTypeSQL only)'
+            - name: Session
+              type: '*models.Session (existing; OpTypeSessionInsert)'
+            - name: SessionID
+              type: string (existing)
+            - name: Status
+              type: string (existing)
+        - type: file-tree
+          title: Files touched
+          entries:
+            - core/daemon/apply/apply.go
+            - core/daemon/apply/cli_route.go
+            - core/daemon/apply/apply_test.go
+        - type: diagram
+          title: Write routing
+          fields:
+            direction: lr
+          entries:
+            - caller builds {sql,args}
+            - apply.RouteSQL
+            - WriterClient.SubmitOrSpawn (auto-spawn daemon)
+            - 'daemon apply loop: Apply(DerivedOp)'
+            - 'single writable handle: Exec(sql,args) RetryOnBusy'
+    - id: slice-2
+      feature_id: feat-9710753b
+      num: 2
+      title: 'Hook write primitive: RouteHookWrite (daemon-first, bounded-direct last resort)'
+      what: |
+        Add hooks.RouteHookWrite(handler, projectRoot, sessionID, sql string, args ...any)
+        in core/hooks/dbgate.go: (1) try the ENQUEUE-ONLY daemon submit from slice 1
+        (apply.RouteSQLAsync — Ack-on-receipt, sub-second; NOT the applied-ack
+        SubmitOrSpawn, whose ~2s budget can blow the <1s bound — roborev 451/452);
+        (2) only if the op cannot be ENQUEUED (daemon truly unreachable / queue full),
+        fall back to a SHORT-bounded direct write via OpenHookDBWithBusyTimeout (the
+        existing 750ms path) executed best-effort; (3) on any failure, log+count the
+        canonical-first fallback (writer_unavailable) and return — never error. This
+        is the ONE primitive every hot hook write migrates to, so the daemon-first /
+        bounded-fallback policy lives in a single place. Bound the enqueue itself with
+        a short deadline so a full queue degrades to the fallback rather than blocking.
+      why: |
+        Centralizes the durable policy (daemon eliminates contention; bounded direct
+        open is a rare last resort; NDJSON+reindex is the backstop) so individual
+        hooks don't re-implement it and can't regress to a 5s direct stall.
+      files:
+        - core/hooks/dbgate.go
+        - core/hooks/dbgate_test.go
+      deps:
+        - 1
+      done_when:
+        - RouteHookWrite returns success even when both the daemon and the bounded direct open fail (canonical-first)
+        - When the enqueue succeeds, no direct writable handle is opened by the hook (bounded direct fallback fires only when enqueue itself fails — daemon unreachable or queue full) [roborev 456]
+        - A held external write lock does not make RouteHookWrite block longer than the bounded fallback (<1s)
+        - Even when the daemon IS reachable but its writer is busy, RouteHookWrite returns <1s (enqueue-only ack, not applied-ack) — roborev 451/452
+      effort: M
+      risk: Med
+      tests: |
+        Unit (core/hooks/dbgate_test.go): TestRouteHookWrite_DaemonPath (fake ack ->
+        no direct open), TestRouteHookWrite_FallbackBounded (no daemon + held lock ->
+        returns <1s, no error), TestRouteHookWrite_AllFail_StillSucceeds.
+      complexity: complex
+      approved: true
+      comment: ""
+      research_waiver: Internal composition over wipnote's own daemon IPC (slice 1) and existing OpenHookDBWithBusyTimeout; no external library or standard applies.
+      execution_status: promoted
+      questions:
+        - id: q-fallback-keep
+          text: Keep the bounded direct-open fallback long-term or remove it once all hooks route through the daemon?
+          answer: Keep it permanently as a rare last resort (per the approved fallback policy). It only fires when the daemon truly cannot be spawned; removing it would make a daemon-spawn failure silently drop the write until the next reindex. The daemon path makes it effectively never fire in steady state.
+      critic_revisions:
+        - source: roborev-451-452
+          severity: HIGH
+          summary: 'AMENDED: step (1) now uses the enqueue-only (Ack-on-receipt) submit, not the applied-ack SubmitOrSpawn — so a reachable-but-busy daemon cannot push RouteHookWrite past the <1s bound. Bounded direct open is the fallback only when enqueue itself fails. Added a 4th done_when for the reachable-busy-daemon case.'
+      decisions_notes: |
+        **Trigger:** every hot hook write (replaces direct database.Exec in handlers).
+        **State:** daemon's single writable handle (primary); bounded direct open (rare).
+        **Payload:** {sql,args} via slice 1's RouteSQL.
+        **Rejected:** leaving each hook to call RouteSQL directly (policy duplicated,
+          easy to regress); removing the direct fallback entirely (slice-3..5 land
+          incrementally, so the fallback must exist during migration).
+      blocks:
+        - type: file-tree
+          title: Files touched
+          entries:
+            - core/hooks/dbgate.go
+            - core/hooks/dbgate_test.go
+        - type: diagram
+          title: RouteHookWrite policy
+          fields:
+            direction: tb
+          entries:
+            - RouteHookWrite(sql,args)
+            - 'apply.RouteSQL -> daemon? yes: done (no contention)'
+            - 'no: OpenHookDBWithBusyTimeout (750ms) best-effort Exec'
+            - 'busy/err: RecordFallback(writer_unavailable) + return success'
+            - 'backstop: canonical NDJSON already on disk -> reindex restores row'
+    - id: slice-3
+      feature_id: feat-597bbf26
+      num: 3
+      title: Migrate SessionStart writes to the daemon
+      what: |
+        Replace SessionStart's direct writes (runSessionTransaction session upsert +
+        lineage, transcript_path UPDATE, InsertEvent, SetSessionFamilyID,
+        PropagateFamilyAttribution) with the existing typed routes where present
+        (RouteSessionInsert) and RouteHookWrite for the long tail. Retire the
+        session-start-only OpenHookDBWithBusyTimeout special-case in
+        cmd/wipnote/hook.go (the policy now lives in RouteHookWrite). Keep the
+        capped orphan sweep + serve drain from the prior fix.
+      why: |
+        SessionStart is the post-selection stall on the hot launch path; routing its
+        writes through the daemon eliminates the contention rather than bounding it.
+      files:
+        - core/hooks/session_start.go
+        - cmd/wipnote/hook.go
+      deps:
+        - 2
+      done_when:
+        - SessionStart performs no direct writable Exec when the daemon is reachable
+        - SessionStart completes <1s under a held external write lock
+        - The session row, family id, event, and transcript path are all present after a daemon-routed run (verified via read-back)
+      effort: M
+      risk: Med
+      tests: |
+        core/hooks/session_start_contention_test.go: extend
+        TestSessionStartFailsFastUnderContention to assert daemon-path writes (fake
+        ack) leave NO direct-open fallback log, and that all rows land. Reuse the
+        held-lock harness for the <1s assertion.
+      complexity: complex
+      approved: true
+      comment: ""
+      research_waiver: Internal migration of existing handler writes onto the slice-2 primitive; no external dependency.
+      execution_status: promoted
+      questions:
+        - id: q-tx-atomicity
+          text: runSessionTransaction batches several writes in one tx — how is that preserved over the SQL envelope?
+          answer: 'Verified against core/daemon/apply/apply.go: NewApplier dispatches an op.Type to a writequeue.WriteOp (func(ctx) error) that runs on the single-writer queue worker; the loop does NOT auto-wrap the op in a transaction. So atomicity is the WriteOp''s responsibility: the OpTypeSQL applier for a batch opens its own database.BeginTx, Execs each statement, and Commits (rolling back on error). Alternatively keep runSessionTransaction''s batch as one typed op. Either way the single-writer worker serializes it; no cross-process tx is needed.'
+      critic_revisions:
+        - source: local-feasibility
+          severity: LOW
+          summary: 'Corrected q-tx-atomicity: NewApplier returns a writequeue.WriteOp on the single-writer worker; the loop does NOT auto-wrap a transaction, so an OpTypeSQL batch must open its own BeginTx/Commit. Answer updated.'
+      decisions_notes: |
+        **Trigger:** SessionStart hook (runs as claude starts).
+        **State:** daemon single writer.
+        **Rejected:** keeping the 750ms bounded special-case as the primary mechanism
+          (it is the band-aid this plan replaces). It survives only inside
+          RouteHookWrite as the last-resort fallback.
+      blocks:
+        - type: file-tree
+          title: Files touched
+          entries:
+            - core/hooks/session_start.go
+            - cmd/wipnote/hook.go
+    - id: slice-4
+      feature_id: feat-8a4d2955
+      num: 4
+      title: Migrate pretooluse / user-prompt / subagent-start / stop writes to the daemon
+      what: |
+        Replace the direct writable Exec calls in PreToolUse, UserPrompt,
+        SubagentStart, and Stop with RouteHookWrite / existing typed routes. These
+        are the hot hooks that stalled 5-14s under a held lock in profiling
+        (posttooluse already routes through the queue and is the reference).
+      why: |
+        PreToolUse/PostToolUse run on EVERY tool call; a contended direct write there
+        is a per-tool-call multi-second stall. Routing them removes the contention.
+      files:
+        - core/hooks/pretooluse.go
+        - core/hooks/user_prompt.go
+        - core/hooks/subagent_start.go
+        - core/hooks/missing_events.go
+      deps:
+        - 2
+      done_when:
+        - pretooluse, user-prompt, subagent-start, and stop each complete <1s under a held external write lock
+        - None open a direct writable handle when the daemon is reachable
+        - posttooluse behavior is unchanged (already queue-routed)
+      effort: L
+      risk: Med
+      tests: |
+        core/hooks/hook_contention_test.go (new): table test holding BEGIN IMMEDIATE
+        on a file DB, asserting each of the four hooks returns <1s with a daemon ack
+        and <1s via bounded fallback without a daemon, and never errors.
+      complexity: complex
+      approved: true
+      comment: ""
+      research_waiver: Internal migration of existing handler writes onto the slice-2 primitive; no external dependency.
+      execution_status: promoted
+      questions:
+        - id: q-pretooluse-latency
+          text: PreToolUse is the most latency-sensitive (every tool call) — is the daemon round-trip itself cheap enough?
+          answer: Yes — the daemon ack is a local unix-socket round-trip (sub-ms once the daemon is warm; it is already running from the launcher's serve autostart). posttooluse already demonstrates this at 0.03s. SubmitOrSpawn's ~2s cost is only the one-time auto-spawn.
+      critic_revisions:
+        - source: local-feasibility
+          severity: HIGH
+          summary: 'RESOLVED: func Stop lives in core/hooks/missing_events.go, not core/hooks/stop.go (which does not exist). files + file-tree corrected.'
+        - source: local-feasibility
+          severity: SUCCESS
+          summary: posttooluse is the contention-immune reference because its agent_events write routes through the daemon op (OpTypeAgentEventUpsert in apply.go NewApplier) — the exact pattern this slice generalizes to the four hot hooks.
+      decisions_notes: |
+        **Trigger:** four hot hooks doing direct derived-index writes.
+        **State:** daemon single writer.
+        **Payload:** each handler's existing writes as {sql,args} via RouteHookWrite.
+        **Rejected:** bounding each hook's own open (band-aid; duplicates policy).
+      blocks:
+        - type: file-tree
+          title: Files touched
+          entries:
+            - core/hooks/pretooluse.go
+            - core/hooks/user_prompt.go
+            - core/hooks/subagent_start.go
+            - core/hooks/missing_events.go
+    - id: slice-5
+      feature_id: feat-1ad54813
+      num: 5
+      title: Route launcher persistentPreRunE EnsureSession through the daemon
+      what: |
+        Replace the launcher's bounded EnsureSessionWithTimeout direct write
+        (cmd/wipnote/main.go persistentPreRunE) with the daemon path: the
+        session-exists check stays a read (OpenReadOnly), and the cold-path insert
+        routes via apply.RouteSessionInsert (already exists) with the bounded direct
+        open kept only as last resort. EnsureSessionWithTimeout's
+        restore-busy_timeout logic remains for that last-resort path.
+      why: |
+        This is the pre-render stall source. Routing the insert removes the launcher's
+        direct writable open from the hot chooser path entirely.
+      files:
+        - cmd/wipnote/main.go
+        - core/agent/ensure.go
+      deps:
+        - 1
+      done_when:
+        - persistentPreRunE opens no writable handle when the daemon is reachable
+        - The launch chooser renders <1s under a held external write lock
+        - A new session row still appears after launch (daemon-routed or last-resort fallback)
+      effort: M
+      risk: Med
+      tests: |
+        core/agent/ensure_test.go: add TestEnsureSession_DaemonRouted (fake route fn
+        -> no direct open) alongside the existing
+        TestEnsureSessionWithTimeout_FailsFastUnderContention.
+      complexity: complex
+      approved: true
+      comment: ""
+      research_waiver: Internal migration onto the existing apply.RouteSessionInsert route; no external dependency.
+      execution_status: promoted
+      questions:
+        - id: q-readonly-check
+          text: Does the session-exists check need the writable handle at all?
+          answer: No — it is a SELECT COUNT, so it moves to OpenReadOnly (no write-lock contention in WAL). Only the cold-path insert needs the writer, and that routes to the daemon.
+      decisions_notes: |
+        **Trigger:** persistentPreRunE before every command, incl. the launch chooser.
+        **State:** daemon single writer; read-only handle for the exists-check.
+        **Rejected:** keeping the 500ms bounded direct write as primary (band-aid).
+          It remains only as the last-resort fallback.
+      blocks:
+        - type: file-tree
+          title: Files touched
+          entries:
+            - cmd/wipnote/main.go
+            - core/agent/ensure.go
+    - id: slice-6
+      feature_id: feat-c08d1ba1
+      num: 6
+      title: Fix the ~5.45s uncontended stop-hook baseline
+      what: |
+        Profile the Stop hook's ~5.45s cost with NO lock held (a baseline cost, like
+        session-start's synchronous orphan sweep was) using the launch-timing /
+        LogTimed instrumentation, identify the synchronous slow phase, and take it
+        off the hot path (cap + defer to the serve drain, or background via the
+        daemon) so session end is not gated on it.
+      why: |
+        5.45s at baseline is pure per-session overhead independent of contention; the
+        durable fix must remove it, not just bound the contended case.
+      files:
+        - core/hooks/missing_events.go
+      deps:
+        - 4
+      done_when:
+        - The Stop hook completes well under 1s with no lock held
+        - The deferred/backgrounded work still happens (verified) — nothing is silently dropped
+      effort: M
+      risk: Med
+      tests: |
+        A timing assertion test for the Stop hook baseline (<1s) on a warm DB, plus a
+        correctness test that the previously-synchronous work still completes
+        (out-of-band or capped).
+      complexity: complex
+      approved: true
+      comment: ""
+      research_waiver: Profiling + debottlenecking of internal hook code; no external dependency.
+      execution_status: promoted
+      questions:
+        - id: q-stop-cause
+          text: What is the likely 5.45s baseline cause in Stop?
+          answer: Most likely a synchronous sweep/flush analogous to session-start's project-wide orphan sweep (Stop finalizes the session and may sweep/close its events + write canonical HTML). Profiling in this slice confirms before fixing — no fix is committed on assumption.
+      critic_revisions:
+        - source: local-feasibility
+          severity: HIGH
+          summary: 'RESOLVED: Stop handler path corrected to core/hooks/missing_events.go (slice 6 shares the file with slice 4; dep [4] preserved to serialize edits).'
+        - source: local-design
+          severity: SUCCESS
+          summary: Profiling-first correctly mandated (no fix on assumption); done_when verifies the deferred/backgrounded work still completes — nothing silently dropped.
+      decisions_notes: |
+        **Trigger:** Stop hook (session end).
+        **State:** depends on the phase found; likely a sweep/flush over derived index.
+        **Rejected:** ignoring it as out-of-the-hot-launch-path — it is still a
+          consistent multi-second cost the user feels and the plan's mandate is durable.
+        **Note:** the Stop handler lives in core/hooks/missing_events.go (not stop.go);
+          depends on slice 4 to avoid conflicting edits to that file.
+      blocks:
+        - type: file-tree
+          title: Files touched
+          entries:
+            - core/hooks/missing_events.go
+        - type: diagram
+          title: Profile-then-debottleneck
+          fields:
+            direction: lr
+          entries:
+            - instrument Stop phases (LogTimed)
+            - identify synchronous slow phase
+            - cap/defer/background off hot path
+            - Stop hook <1s baseline
+    - id: slice-7
+      feature_id: feat-41b2aa52
+      num: 7
+      title: Collapse the hot-path write-site inventory + retire band-aid scaffolding
+      what: |
+        After migration, the hook tree and launcher no longer open writable handles
+        on the hot path except via the documented last-resort fallback. Update
+        approvedWriteSites (cmd/wipnote/sqlite_write_boundary_test.go) so the hot-path
+        entries are reclassified as daemon-routed (fallback-only), tighten the
+        boundary test to assert no NEW hot-path direct opens, remove the now-dead
+        launch-timing scaffolding (or keep behind WIPNOTE_LAUNCH_TIMING), and ensure
+        the inventory documents the remaining legitimate operator-CLI write sites.
+      why: |
+        The acceptance bar requires the hot-path inventory to collapse to the daemon;
+        this slice makes that auditable and prevents regressions.
+      files:
+        - cmd/wipnote/sqlite_write_boundary_test.go
+        - core/hooks/dbgate.go
+        - cmd/wipnote/claude_launch_timing.go
+      deps:
+        - 3
+        - 4
+        - 5
+      done_when:
+        - approvedWriteSites marks every hot-path/hook write site as daemon-routed (fallback-only) with an updated Note
+        - The boundary test fails if a hook handler adds a new unrouted direct writable open
+        - Remaining direct write sites are all explicit operator-CLI mutations, each documented as such
+      effort: M
+      risk: Low
+      tests: |
+        The existing TestWritableDBOpenBoundary / sqlite_write_boundary_test.go
+        updated to the new classifications; a guard assertion that hook-tree handlers
+        route through the daemon.
+      complexity: complex
+      approved: true
+      comment: ""
+      research_waiver: Internal governance/test update; no external dependency.
+      execution_status: promoted
+      questions:
+        - id: q-inventory-target
+          text: What is the realistic inventory end-state — literally one site?
+          answer: No — one site for the HOT/CONTENDED path (the daemon writer), plus the documented last-resort hook fallback and the legitimate operator-CLI mutation sites (reindex, ingest, plan ops) which own the DB when invoked and are not concurrent. The acceptance is 'hot-path collapses to the daemon', not 'global count == 1'.
+      decisions_notes: |
+        **Trigger:** post-migration cleanup + governance.
+        **State:** inventory test (source of truth for write sites).
+        **Rejected:** deleting the OpenHookDB entry entirely (the bounded fallback
+          still legitimately exists); collapsing operator-CLI sites (they are
+          intentional single-owner writes, not contended).
+      blocks:
+        - type: file-tree
+          title: Files touched
+          entries:
+            - cmd/wipnote/sqlite_write_boundary_test.go
+            - core/hooks/dbgate.go
+            - cmd/wipnote/claude_launch_timing.go
+    - id: slice-8
+      feature_id: feat-bbb80917
+      num: 8
+      title: 'CI durability gate: contention stress + no-stall assertions'
+      what: |
+        Extend TestSQLiteContentionStress (cmd/wipnote) to drive the migrated hot
+        hooks + launcher pre-run while an external connection holds BEGIN IMMEDIATE,
+        asserting (a) zero first-party SQLITE_BUSY across 3 consecutive runs and
+        (b) every hot hook + the chooser path completes <1s under the held lock.
+        Wire it into the quality gate / launch-readiness check so the durable
+        property is enforced, not just observed.
+      why: |
+        Turns 'durable, not band-aid' into a regression-proof CI invariant.
+      files:
+        - cmd/wipnote/sqlite_contention_test.go
+        - internal/gate/check.go
+      deps:
+        - 3
+        - 4
+        - 5
+        - 6
+      done_when:
+        - TestSQLiteContentionStress exercises the migrated hooks + launcher and passes with zero first-party SQLITE_BUSY across 3 consecutive runs
+        - The test asserts each hot hook + the chooser path completes <1s under a held external write lock
+        - The gate/launch-readiness check references the stress fixture so a regression fails CI
+      effort: M
+      risk: Low
+      tests: |
+        The slice IS the test; plus a meta-assertion that the gate wiring invokes it.
+      complexity: complex
+      approved: true
+      comment: ""
+      research:
+        - url: https://www.sqlite.org/pragma.html#pragma_busy_timeout
+          claim: busy_timeout governs how long a contended writer blocks before SQLITE_BUSY; the stress test asserts the daemon routing makes that path effectively unreachable for hot writers (zero first-party BUSY).
+          accessed: "2026-06-21"
+      execution_status: promoted
+      questions:
+        - id: q-stress-determinism
+          text: How is the contention stress made deterministic across CI machines?
+          answer: Hold the write lock from a controlled in-test connection (BEGIN IMMEDIATE) for a fixed window while driving the hooks, rather than racing real processes; assert zero first-party SQLITE_BUSY (via the existing db.Record/SubsystemHookWriter counter) and sub-second completion. Counters + held-lock make it deterministic.
+      critic_revisions:
+        - source: local-feasibility
+          severity: LOW
+          summary: 'RESOLVED: stress fixture is cmd/wipnote/sqlite_contention_test.go (TestSQLiteContentionStress at :132), not sqlite_contention_stress_test.go. files corrected. db.Record + SubsystemHookWriter confirmed (core/db/busy_counter.go:139/74).'
+      decisions_notes: |
+        **Trigger:** CI / launch-readiness gate.
+        **State:** test fixture + gate config.
+        **Rejected:** functional-only verification (no CI gate) — would let the
+          contention regress silently, which is exactly how the band-aid era started.
+      blocks:
+        - type: file-tree
+          title: Files touched
+          entries:
+            - cmd/wipnote/sqlite_contention_test.go
+            - internal/gate/check.go
+questions: []
+critique:
+    reviewed_at: "2026-06-21"
+    reviewers:
+        - 'local-design (role: design critic; runner: this session, Opus 4.8)'
+        - 'local-feasibility (role: feasibility critic; runner: this session, Opus 4.8 + live web verification)'
+    assumptions:
+        - id: A1
+          status: verified
+          text: The writer daemon already exposes a typed-op IPC (DerivedOp + WriterClient.SubmitOrSpawn) that auto-spawns and serializes writes; the durable fix extends coverage rather than building new infra.
+          evidence: core/daemon/apply/apply.go:70-160 (DerivedOp, NewApplier), core/daemon/apply/cli_route.go:110 (RouteSessionInsert), core/daemon/spawn.go:52 (SubmitOrSpawn)
+        - id: A2
+          status: verified
+          text: posttooluse is contention-immune (0.03s under a held lock) because its agent_events write routes through the daemon op, proving the pattern slice 4 generalizes.
+          evidence: 'runtime: profiling this session (posttooluse 0.03s locked vs pretooluse 10s); apply.go OpTypeAgentEventUpsert'
+        - id: A3
+          status: verified
+          text: 'Swapping the engine (Turso/libSQL/DuckDB) is rejected: the only contention-removing feature (Turso MVCC) is preview/not-prod and multi-thread-not-multi-process; libSQL keeps single-writer; both threaten the pure-Go/no-CGo build.'
+          evidence: https://turso.tech/blog/beyond-the-single-writer-limitation-with-tursos-concurrent-writes ; https://duckdb.org/2026/05/12/quack-remote-protocol ; https://www.sqlite.org/wal.html
+        - id: A4
+          status: plausible
+          text: The ~5.45s uncontended stop-hook baseline is a synchronous sweep/flush analogous to session-start's orphan sweep.
+          evidence: 'runtime: stop hook 5.45s with no lock held; slice 6 mandates profiling to confirm before fixing (unverified until then)'
+    critics:
+        - title: DESIGN CRITIC
+          sections:
+            - heading: Scope & sequencing
+              items:
+                - badge: DAG clean
+                  kind: success
+                  text: 8 slices form a clean dependency DAG (1->2->{3,4}; 1->5; 4->6; {3,4,5}->7; {3,4,5,6}->8). Foundation-first, acceptance-last.
+                - badge: Durable not band-aid
+                  kind: success
+                  text: Goals correctly distinguish eliminating contention (daemon routing) from the shipped bounded-timeout band-aids, which survive only as the documented last-resort fallback.
+            - heading: Reviewer ergonomics
+              items:
+                - badge: Inventory target clarified
+                  kind: info
+                  text: q-inventory-target rightly scopes 'collapse to the daemon' to HOT-PATH writers; operator-CLI write sites (reindex/ingest/plan) legitimately remain. Prevents a misread of acceptance slice 7/8.
+        - title: FEASIBILITY CRITIC
+          sections:
+            - heading: File/citation accuracy
+              items:
+                - badge: stop.go path
+                  kind: danger
+                  text: 'RESOLVED: func Stop is in core/hooks/missing_events.go, not core/hooks/stop.go. Slices 4 & 6 corrected.'
+                - badge: stress fixture path
+                  kind: warn
+                  text: 'RESOLVED: slice 8 corrected to cmd/wipnote/sqlite_contention_test.go (TestSQLiteContentionStress:132).'
+            - heading: Protocol semantics
+              items:
+                - badge: tx atomicity
+                  kind: warn
+                  text: 'RESOLVED: apply loop does NOT auto-wrap a tx; OpTypeSQL batch must open its own BeginTx/Commit. Slice 3 answer corrected.'
+                - badge: infra reuse
+                  kind: success
+                  text: Reuses DerivedOp/NewApplier/SubmitOrSpawn + writequeue; no reinvented wheel. Research gate satisfied (design.research x4, per-slice research/waivers; validate-yaml passes).
+    risks:
+        - risk: Daemon auto-spawn (~2s) on first write could add one-time latency if serve is not already running at launch.
+          severity: Low
+          mitigation: Launcher already starts serve before exec; SubmitOrSpawn's spawn cost is one-time, and the bounded direct-open fallback covers the cold window. Slice 4 q-pretooluse-latency confirms warm round-trip is sub-ms.
+        - risk: Generic SQL envelope executes arbitrary statements on the writer handle.
+          severity: Low
+          mitigation: Local per-user unix socket, first-party callers only, parameterized args (slice 1 q-sql-safety). No remote/untrusted path.
+        - risk: Slice 6 fix is profiling-dependent; root cause is only plausible (A4).
+          severity: Medium
+          mitigation: Slice 6 mandates profile-before-fix and a done_when that verifies deferred work still completes; no fix committed on assumption.
+    synthesis: |
+        Plan is ready for human review. All feasibility blockers are resolved: the
+        Stop-handler path (HIGH — was a non-existent core/hooks/stop.go, now
+        core/hooks/missing_events.go), the stress-fixture filename, and the
+        transaction-atomicity claim (apply loop returns a writequeue.WriteOp that does
+        not auto-wrap a tx). The architecture is verified against real code
+        (A1/A2 — DerivedOp + NewApplier + SubmitOrSpawn already exist; posttooluse
+        proves the pattern) and the engine-swap rejection is web-verified (A3). The
+        one residual unknown is A4 (the stop-hook baseline cause), correctly gated
+        behind profiling in slice 6. Reviewer should focus first on slice 1 (the
+        OpTypeSQL envelope + its trust boundary) and slice 7 (inventory acceptance
+        scope), since those define the durable end-state and what "done" means.

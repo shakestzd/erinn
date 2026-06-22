@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>Session chooser leaks raw task-notification/tool-use-id tags and newlines in resume labels</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="bug-178dc150"
+             data-type="bug"
+             data-status="done"
+             data-priority="high"
+             data-created="2026-06-21T18:10:15.188752"
+             data-updated="2026-06-22T01:19:40.102259" data-agent-assigned="claude-code" data-track-id="trk-6a1f5362" data-created-by-agent="claude-code" data-created-by-model="claude-opus-4-8[1m]" data-created-by-cli-version="0.63.4-16-g7709d2ddd">
+
+        <header>
+            <h1>Session chooser leaks raw task-notification/tool-use-id tags and newlines in resume labels</h1>
+            <div class="metadata">
+                <span class="badge status-done">Done</span>
+                <span class="badge priority-high">High Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="caused_by">
+                <h3>Caused By:</h3>
+                <ul>
+                    <li><a href="../features/feat-98096297.html" data-relationship="caused_by" data-since="2026-06-21T18:10:15.197824">feat-98096297</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-6a1f5362.html" data-relationship="part_of" data-since="2026-06-21T18:10:15.20106">trk-6a1f5362</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="implemented_in">
+                <h3>Implemented In:</h3>
+                <ul>
+                    <li><a href="../sessions/e062bfef-8d0b-4619-9c80-13d801aecad6.html" data-relationship="implemented_in" data-since="2026-06-21T18:10:57.715851">session e062bfef-8d0b-4619-9c80-13d801aecad6</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-steps>
+            <h3>Implementation Steps</h3>
+            <ol>
+                <li data-completed="true" data-step-id="task-1" data-agent="claude-code" data-created-by-agent="claude-code">✅ Sanitize resumable-session chooser labels</li>
+            </ol>
+        </section>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>sessionPromptLabel in core/db/session_repo.go returns the verbatim raw user prompt. When a prompt contains injected markup (task-notification, task-id, tool-use-id XML tags) or hook-injected timestamp newlines, that raw text becomes the resumable-session PromptLabel. The huh chooser (cmd/wipnote/claude_chooser.go) only trims+truncates via truncateTitle, so tags render literally and embedded newlines break the single-line menu layout. Fix: sanitize at retrieval (strip angle-bracket tags, collapse whitespace to single space, trim), pick first non-empty sanitized candidate, so all callers (TUI, text fallback, sessions resumable --json, dashboard) get clean single-line labels.</p>
+        </section>
+    </article>
+</body>
+</html>

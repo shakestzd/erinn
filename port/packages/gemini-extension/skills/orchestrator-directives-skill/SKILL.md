@@ -44,8 +44,9 @@ In orchestrator mode, web/docs research and multi-file codebase exploration are 
 Before starting research, inspect the available dispatch surface in the active harness:
 
 - **Claude Code** — use `Task` / subagent dispatch when exposed.
-- **Codex / Antigravity** — use harness-native multi-agent or custom-agent spawn when exposed.
-- **External CLI sidecar** — use `gemini`, `codex exec`, or another documented sidecar CLI when it is available and appropriate.
+- **Codex** — when `multi_agent_v1` or native `wipnote-*` custom agents are exposed, prefer native subagents such as `wipnote-researcher`, `wipnote-patch-coder`, `wipnote-feature-coder`, and `wipnote-test-runner`. Use nested `codex exec` only when those native subagents are unavailable.
+- **Antigravity** — use harness-native multi-agent or custom-agent spawn when exposed.
+- **External CLI sidecar** — use `gemini`, `codex exec`, or another documented sidecar CLI when native or harness-local dispatch is unavailable and the sidecar is appropriate.
 - **No dispatch surface available** — stop and report `delegation unavailable in this harness/session`; do not silently convert broad research into main-context work.
 
 Do not use main-context `web.search_query`, `web.open`, or broad local glob/search loops for docs gathering or repository exploration when a researcher sidecar is expected. Narrow exceptions are allowed only when:
@@ -129,7 +130,7 @@ Ask these questions IN ORDER:
    - YES = MUST try `Bash("gemini ...")` first (FREE - 2M tokens/min), fallback to patch-coder
 
 2. **Is this code work?** → Implementation, fixes, tests, refactoring
-   - YES = MUST try `Bash("codex ...")` first (70% cheaper than Claude), fallback to feature-coder
+   - YES = In Codex, prefer native `wipnote-patch-coder` / `wipnote-feature-coder` / `wipnote-test-runner` when available; otherwise try `Bash("codex ...")` first (70% cheaper than Claude), fallback to feature-coder
 
 3. **Is this git/GitHub?** → Commits, PRs, issues, branches
    - YES = MUST try `Bash("copilot ...")` first (60% cheaper, GitHub-native), fallback to patch-coder
@@ -161,12 +162,12 @@ WRONG (wastes Claude quota):
 - Research → use the appropriate Gemini agent invocation                          # USE Bash("gemini ...") (FREE!)
 
 CORRECT (cost-optimized):
-- Code implementation → Bash("codex ...")         # Cheap, sandboxed; fallback feature-coder
+- Code implementation → Codex native `wipnote-feature-coder` when available; else Bash("codex ...")
 - Git commits → Bash("copilot ...")               # Cheap, GitHub-native; fallback patch-coder
 - File search → Bash("gemini ...")                # FREE!; fallback patch-coder
 - Research → Bash("gemini ...")                   # FREE!; fallback patch-coder
 - Strategic decisions → Claude Opus               # Expensive, but needed
-- Coder agents → FALLBACK ONLY                    # When CLI tools fail or aren't installed
+- Coder agents → Primary in Codex native multi-agent sessions; fallback elsewhere when CLI tools fail or aren't installed
 ```
 
 </details>
@@ -384,7 +385,7 @@ codex exec "Implement OAuth authentication:
 - Write unit tests" --full-auto --json -m gpt-4.1-mini -C . 2>&1
 ```
 
-**If codex fails/unavailable → fallback to feature-coder**
+**In Codex, prefer native `wipnote-feature-coder` / `wipnote-patch-coder` / `wipnote-test-runner` first. If native subagents are unavailable or fail → use `codex exec`, then fallback to feature-coder.**
 
 **Best for:**
 - Code generation
@@ -451,6 +452,12 @@ codex exec "Implement OAuth authentication endpoint with JWT support" \
 # fallback → use @feature-coder
 ```
 
+**Code implementation (Codex-native preferred when available):**
+```text
+Spawn the native `wipnote-feature-coder` subagent for implementation work.
+Use nested `codex exec` only when the native Codex subagent surface is unavailable.
+```
+
 **Git operations (try CLI first):**
 ```bash
 copilot -p "Commit changes with message: 'feat: add OAuth authentication'. Do NOT push." \
@@ -489,20 +496,20 @@ Use Gemini agent invocation with:
 **For implementation, refactoring, and structured output tasks:**
 
 ```bash
-# Priority 1: Bash-codex (preferred)
+# Priority 1 outside Codex-native sessions: Bash-codex
 codex exec "TASK_DESCRIPTION" --full-auto --json -m gpt-4.1-mini -C . 2>&1
 ```
 
 ```python
-# Priority 2: feature-coder fallback (if codex fails or not installed)
+# Priority 1 in Codex-native sessions, or Priority 2 elsewhere
 Use Gemini agent invocation with:
     agent="@feature-coder",
     description="Implement feature X",
     message="Add OAuth authentication to the login endpoint.",
 ```
 
-**Pattern:** orchestrator tries the CLI directly, falls back to a coder agent.
-Always use `-m gpt-4.1-mini` for codex (never expensive gpt-5.4 default).
+**Pattern:** in Codex native multi-agent sessions, use `wipnote-feature-coder` first; otherwise try the CLI directly, then fall back to a coder agent.
+Always use `-m gpt-4.1-mini` for nested `codex exec` (never expensive gpt-5.4 default).
 
 </details>
 
@@ -645,9 +652,9 @@ gemini -p "Find all authentication patterns..." --output-format json --yolo --in
 # 2. The subagent creates a spike with findings
 # Read findings via: wipnote spike list (then spike show <id>)
 
-# 3. Use findings in next delegation (try codex CLI first)
-codex exec "Implement authentication based on auth pattern research findings..." --full-auto --json -m gpt-4.1-mini -C . 2>&1
-# fallback → use @feature-coder
+# 3. Use findings in next delegation
+# In Codex native sessions: spawn `wipnote-feature-coder`
+# Otherwise: try codex CLI first, then fallback → use @feature-coder
 ```
 
 </details>

@@ -297,8 +297,29 @@ type OrphanEvent struct {
 // FindOrphanedEvents returns 'started' agent_events older than olderThan.
 // When sessionID is non-empty, scopes the query to that session. The index
 // idx_agent_events_session_ts_desc already covers this access pattern.
+//
+// This is the UNLIMITED variant — it returns every matching orphan. Callers on
+// a latency-sensitive path (e.g. the session-start hook) MUST use
+// FindOrphanedEventsLimited so a large crash backlog cannot stall the hot path.
 func FindOrphanedEvents(db *sql.DB, sessionID string, olderThan time.Duration) ([]OrphanEvent, error) {
+	return FindOrphanedEventsLimited(db, sessionID, olderThan, 0)
+}
+
+// FindOrphanedEventsLimited is FindOrphanedEvents with an optional row cap.
+// When limit > 0 the query returns at most limit rows, oldest-first
+// (ORDER BY created_at ASC), so a bounded sweep drains the longest-stale
+// orphans first. limit <= 0 means unlimited (identical to FindOrphanedEvents).
+//
+// Bounding the discovery is the cheap half of taking the project-wide orphan
+// sweep off the synchronous session-start hook path (bug-504095f2): each
+// returned orphan costs a goquery parse + flock append + SQL UPDATE downstream,
+// so capping the row count caps the hot-path cost regardless of backlog size.
+func FindOrphanedEventsLimited(db *sql.DB, sessionID string, olderThan time.Duration, limit int) ([]OrphanEvent, error) {
 	cutoff := time.Now().UTC().Add(-olderThan).Format(time.RFC3339)
+	limitClause := ""
+	if limit > 0 {
+		limitClause = fmt.Sprintf(" LIMIT %d", limit)
+	}
 	var (
 		rows *sql.Rows
 		err  error
@@ -309,17 +330,74 @@ func FindOrphanedEvents(db *sql.DB, sessionID string, olderThan time.Duration) (
 			       COALESCE(feature_id, ''), created_at
 			FROM agent_events
 			WHERE session_id = ? AND status = 'started' AND created_at < ?
-			ORDER BY created_at ASC`, sessionID, cutoff)
+			ORDER BY created_at ASC`+limitClause, sessionID, cutoff)
 	} else {
 		rows, err = db.Query(`
 			SELECT event_id, session_id, COALESCE(tool_name, ''), agent_id,
 			       COALESCE(feature_id, ''), created_at
 			FROM agent_events
 			WHERE status = 'started' AND created_at < ?
-			ORDER BY created_at ASC`, cutoff)
+			ORDER BY created_at ASC`+limitClause, cutoff)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("find orphaned events: %w", err)
+	}
+	defer rows.Close()
+
+	var out []OrphanEvent
+	for rows.Next() {
+		var o OrphanEvent
+		var createdStr string
+		if err := rows.Scan(&o.EventID, &o.SessionID, &o.ToolName, &o.AgentID, &o.FeatureID, &createdStr); err != nil {
+			return nil, fmt.Errorf("scan orphaned event: %w", err)
+		}
+		if t, perr := time.Parse(time.RFC3339, createdStr); perr == nil {
+			o.CreatedAt = t.UTC()
+		} else if t, perr := time.Parse("2006-01-02 15:04:05", createdStr); perr == nil {
+			o.CreatedAt = t.UTC()
+		}
+		out = append(out, o)
+	}
+	return out, rows.Err()
+}
+
+// FindStaleProjectOrphans returns project-wide 'started' agent_events older than
+// olderThan, but PROTECTS sessions that may still be live: an event from a
+// non-terminal session (status not completed/failed and completed_at IS NULL) is
+// only returned once it is older than hardCutoff. This prevents a legitimately
+// long-running tool in a live session (e.g. a multi-minute test run) from being
+// falsely marked aborted by the periodic project-wide drain (roborev job 448).
+// Sessions carry no heartbeat, so terminal-state + a hard cutoff is the available
+// liveness proxy. "Terminal" is completed_at IS NOT NULL — the DURABLE end marker
+// set only by an explicit SessionEnd (UpdateSessionStatus). It deliberately does
+// NOT trust sessions.status = 'completed', because serve.go marks sessions
+// completed purely from JSONL mtime after 5min (a raw UPDATE that sets status but
+// NOT completed_at); a live tool that is quiet for 5min (e.g. a long test run with
+// no transcript writes) would otherwise be treated as terminal and falsely swept
+// (roborev job 455). limit > 0 caps the rows (oldest-first). Used only by the
+// project-wide sweeps; the per-session sweep deliberately stays unprotected.
+func FindStaleProjectOrphans(db *sql.DB, olderThan, hardCutoff time.Duration, limit int) ([]OrphanEvent, error) {
+	normalCutoff := time.Now().UTC().Add(-olderThan).Format(time.RFC3339)
+	hardCutoffStr := time.Now().UTC().Add(-hardCutoff).Format(time.RFC3339)
+	limitClause := ""
+	if limit > 0 {
+		limitClause = fmt.Sprintf(" LIMIT %d", limit)
+	}
+	rows, err := db.Query(`
+		SELECT event_id, session_id, COALESCE(tool_name, ''), agent_id,
+		       COALESCE(feature_id, ''), created_at
+		FROM agent_events
+		WHERE status = 'started' AND created_at < ?
+		  AND (
+		    created_at < ?
+		    OR session_id IN (
+		      SELECT session_id FROM sessions
+		      WHERE completed_at IS NOT NULL
+		    )
+		  )
+		ORDER BY created_at ASC`+limitClause, normalCutoff, hardCutoffStr)
+	if err != nil {
+		return nil, fmt.Errorf("find stale project orphans: %w", err)
 	}
 	defer rows.Close()
 

@@ -1,8 +1,10 @@
 package agent
 
 import (
+	"context"
 	"database/sql"
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -22,6 +24,20 @@ import (
 // On success (non-transient), os.Setenv("WIPNOTE_SESSION_ID", sessionID) is
 // called so that downstream EnvSessionID() calls work automatically.
 func EnsureSession(database *sql.DB, projectDir string) (string, error) {
+	return EnsureSessionWithTimeout(database, projectDir, 0)
+}
+
+// EnsureSessionWithTimeout is EnsureSession with a wall-clock bound on the
+// SQLite operations. When timeout > 0 the SELECT/INSERT run under a context
+// deadline, so a write lock held by another wipnote process cannot stall the
+// caller for the full SQLite busy_timeout (5s). On deadline-exceeded the
+// cold-path INSERT is abandoned and the error is returned; because the row
+// write is best-effort and idempotent (INSERT OR IGNORE), a later uncontended
+// call (or a hook) re-creates it. The launcher's persistentPreRunE uses a short
+// timeout so the interactive launch chooser is never gated on lock contention
+// (bug-504095f2). timeout == 0 preserves the original unbounded behavior for
+// the writer daemon and other correctness-sensitive callers.
+func EnsureSessionWithTimeout(database *sql.DB, projectDir string, timeout time.Duration) (string, error) {
 	sessionID := ResolveSessionID(projectDir)
 	info := Detect()
 
@@ -31,9 +47,49 @@ func EnsureSession(database *sql.DB, projectDir string) (string, error) {
 		return sessionID, nil
 	}
 
+	ctx := context.Background()
+
+	// dbq is the handle used for the SELECT/INSERT below — the shared pool by
+	// default. When a timeout is requested we acquire a dedicated connection and
+	// lower its busy_timeout so a contended write lock fails fast (~timeout)
+	// rather than stalling for the connection-default busy_timeout (5s).
+	// IMPORTANT: modernc.org/sqlite does NOT abort an in-progress busy-wait on
+	// context cancellation, so the busy_timeout PRAGMA — not a ctx deadline — is
+	// what actually bounds the wait. busy_timeout is per-connection, so we must
+	// run the write on the same dedicated conn that received the lowered pragma.
+	var dbq interface {
+		QueryRowContext(context.Context, string, ...any) *sql.Row
+		ExecContext(context.Context, string, ...any) (sql.Result, error)
+	} = database
+	if timeout > 0 {
+		conn, cerr := database.Conn(ctx)
+		if cerr != nil {
+			return sessionID, cerr
+		}
+		defer conn.Close()
+		// Capture the connection's current busy_timeout so we can restore it
+		// before conn.Close() returns this physical connection to the *sql.DB
+		// pool. PRAGMA busy_timeout is per-connection state that persists in the
+		// pool; without restoration a later op reusing this connection would
+		// inherit the short timeout and fail under normal contention.
+		var prevBusyMS int64
+		if qerr := conn.QueryRowContext(ctx, "PRAGMA busy_timeout").Scan(&prevBusyMS); qerr != nil {
+			return sessionID, qerr
+		}
+		// Restore runs before conn.Close() (defers are LIFO) and uses a fresh
+		// context so it fires even when ctx already hit its deadline.
+		defer conn.ExecContext(context.Background(), //nolint:errcheck
+			fmt.Sprintf("PRAGMA busy_timeout=%d", prevBusyMS))
+		ms := max(timeout.Milliseconds(), 1)
+		if _, perr := conn.ExecContext(ctx, fmt.Sprintf("PRAGMA busy_timeout=%d", ms)); perr != nil {
+			return sessionID, perr
+		}
+		dbq = conn
+	}
+
 	// Hot path: session already registered — single indexed PK lookup.
 	var count int
-	err := database.QueryRow(
+	err := dbq.QueryRowContext(ctx,
 		`SELECT COUNT(*) FROM sessions WHERE session_id = ?`, sessionID,
 	).Scan(&count)
 	if err != nil {
@@ -47,7 +103,7 @@ func EnsureSession(database *sql.DB, projectDir string) (string, error) {
 	// Cold path: insert a minimal session row so attribution hooks can
 	// reference it immediately. INSERT OR IGNORE makes this idempotent.
 	now := time.Now().UTC().Format(time.RFC3339)
-	_, err = database.Exec(`
+	_, err = dbq.ExecContext(ctx, `
 		INSERT OR IGNORE INTO sessions
 			(session_id, agent_assigned, created_at, status, model, project_dir, git_remote_url)
 		VALUES (?, ?, ?, 'active', ?, ?, ?)`,

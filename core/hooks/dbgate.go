@@ -139,6 +139,47 @@ func OpenHookDB(handler, sessionID, dbPath string) (*sql.DB, FallbackReason) {
 	return database, ""
 }
 
+// SessionStartBusyTimeout bounds how long the session-start hook's writable DB
+// handle waits on a held write lock before failing fast. The session-start hook
+// runs on the launcher's POST-selection critical path: Claude blocks on the
+// hook's additionalContext, so a write that stalls for the default 5s
+// busy_timeout (under contention from a freshly-spawned `wipnote serve` /
+// `_serve-child` / per-session `otel-collect`) directly delays the interactive
+// session by that long (bug-504095f2).
+//
+// 750ms is the chosen bound: long enough to ride out the brief lock overlap a
+// healthy single writer produces, short enough that a genuinely contended lock
+// degrades to canonical-only persistence (logged + counted) in well under a
+// second instead of stalling ~5s. Every session-start derived write is
+// best-effort — failures are swallowed via the canonical-first fallback and
+// recovered by reindex from canonical NDJSON — so failing fast here only skips a
+// derived-index write, never user data.
+const SessionStartBusyTimeout = 750 * time.Millisecond
+
+// OpenHookDBWithBusyTimeout is OpenHookDB with a caller-chosen busy_timeout on
+// the returned writable handle, so contention-prone writes fail fast instead of
+// stalling for the connection-default 5s. It exists for the session-start hook
+// path (see SessionStartBusyTimeout); other hooks keep OpenHookDB's default
+// timeout. busyTimeout <= 0 is identical to OpenHookDB.
+//
+// Failure semantics are unchanged from OpenHookDB: a failed open is classified
+// under hook_writer, logged + counted as writer_unavailable, and returns a nil
+// handle the caller MUST treat as a signal to return canonical-success.
+//
+// Boundary note: this routes through db.OpenWithBusyTimeout (a core/db
+// primitive, excluded from the writable-open scan and not a scanned method
+// name), so it adds NO new approvedWriteSites entry — the single inventoried
+// hook write site (OpenHookDB → db.Open) is unchanged.
+func OpenHookDBWithBusyTimeout(handler, sessionID, dbPath string, busyTimeout time.Duration) (*sql.DB, FallbackReason) {
+	database, err := db.OpenWithBusyTimeout(dbPath, busyTimeout)
+	if err != nil {
+		db.Record(db.SubsystemHookWriter, err)
+		RecordFallback(handler, sessionID, FallbackWriterUnavailable, err.Error())
+		return nil, FallbackWriterUnavailable
+	}
+	return database, ""
+}
+
 // SubmitDerivedOp routes a derived-index write through the writer queue when
 // one is supplied (in-process hook callers — `wipnote claude` / `wipnote yolo`
 // embedding scenarios) and otherwise runs op synchronously against db.

@@ -5,7 +5,6 @@ import (
 	"database/sql"
 	"encoding/base64"
 	"encoding/json"
-	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -113,7 +112,7 @@ var allowedHarnesses = map[string]struct{}{
 	"antigravity": {},
 }
 
-// bareLaunchNudge returns a context nudge when Claude was started without
+// bareLaunchNudge returns an extra startup hint when Claude was started without
 // `wipnote claude` (i.e. .launch-mode is missing or older than 30 seconds).
 // Returns an empty string when the orchestrator system prompt is already active.
 func bareLaunchNudge(projectDir string) string {
@@ -128,10 +127,7 @@ func bareLaunchNudge(projectDir string) string {
 			return ""
 		}
 	}
-	return "wipnote plugin is active in this project. For the best experience with orchestrated delegation, " +
-		"work tracking, and quality gates, use the /wipnote:orchestrator-directives-skill for guidance " +
-		"on how to delegate work, select models, and manage tasks. You can also start sessions with " +
-		"`wipnote claude` for automatic orchestrator mode."
+	return "Start sessions with `wipnote claude` for automatic orchestrator mode."
 }
 
 // SessionStart handles the SessionStart Claude Code hook event.
@@ -262,7 +258,14 @@ func SessionStart(event *CloudEvent, database *sql.DB, projectDir string) (*Hook
 
 	// Sweep orphans from any previous sessions in this project — closes out
 	// tool calls that crashed mid-flight so session history stays consistent.
-	SweepOrphanedEventsForProject(database, projectDir)
+	// BOUNDED on the hot path (bug-504095f2): cap the number of orphans
+	// processed so a large crash backlog cannot stall the launcher behind a
+	// multi-second sweep. The serve-side periodic drain clears any remainder
+	// out-of-band; when the cap is hit we log the residual for observability.
+	if appended, discovered := SweepOrphanedEventsForProjectCapped(database, projectDir, SessionStartSweepCap); discovered >= SessionStartSweepCap {
+		debugLog(projectDir, "[session-start] capped orphan sweep at %d (appended=%d); backlog drains via serve",
+			SessionStartSweepCap, appended)
+	}
 
 	LogTimed(projectDir, "session-start", map[string]string{
 		"session": shortID,
@@ -340,24 +343,13 @@ func SessionStart(event *CloudEvent, database *sql.DB, projectDir string) (*Hook
 		return &HookResult{AdditionalContext: joinSessionStartContext(continuePrefix, reconcilePrefix, warning)}, nil
 	}
 
-	// Emit full attribution block at session start (once per session).
-	// This includes: intro + open work items roster + CLI quick-ref + required flags.
-	attribution := buildSessionStartAttribution(database)
-	if attribution != "" {
-		return &HookResult{AdditionalContext: joinSessionStartContext(continuePrefix, reconcilePrefix, attribution)}, nil
-	}
-
-	// Fallback nudge if no attribution block was generated (no open items).
-	// This nudge uses the same "wipnote plugin is active..." message.
+	// Emit concise startup guidance at session start. Open-item rosters stay
+	// on-demand via the CLI to keep startup context quiet.
+	attribution := buildSessionStartAttribution()
 	if nudge := bareLaunchNudge(projectDir); nudge != "" {
-		return &HookResult{AdditionalContext: joinSessionStartContext(continuePrefix, reconcilePrefix, nudge)}, nil
+		attribution = joinSessionStartContext(attribution, nudge)
 	}
-
-	if continuePrefix != "" || reconcilePrefix != "" {
-		return &HookResult{AdditionalContext: joinSessionStartContext(continuePrefix, reconcilePrefix)}, nil
-	}
-
-	return &HookResult{}, nil
+	return &HookResult{AdditionalContext: joinSessionStartContext(continuePrefix, reconcilePrefix, attribution)}, nil
 }
 
 func continueHandoffContextFromEnv() string {
@@ -725,36 +717,20 @@ func UpdateActiveFeature(database *sql.DB, sessionID, featureID string) error {
 	return err
 }
 
-// buildSessionStartAttribution returns the full attribution block: open work
-// items roster, CLI quick-ref, and required flags reminder. Emitted once per
-// session in SessionStart. Returns empty string if there are no open work items
-// to reference, allowing bareLaunchNudge to decide whether to emit a nudge.
-func buildSessionStartAttribution(database *sql.DB) string {
-	// List all open work items.
-	open := listOpenWorkItems(database)
-	if len(open) == 0 {
-		// No open items — return empty to let SessionStart fall through to
-		// bareLaunchNudge, which decides whether to emit the nudge based on
-		// launch-mode detection.
-		return ""
-	}
-
-	// Build the intro.
+// buildSessionStartAttribution returns concise session-start guidance. It keeps
+// startup context quiet by directing agents to fetch work context on demand
+// rather than eagerly listing open items and titles.
+func buildSessionStartAttribution() string {
 	lines := []string{
-		"wipnote plugin is active in this project. For the best experience with orchestrated delegation, " +
-			"work tracking, and quality gates, use the /wipnote:orchestrator-directives-skill for guidance " +
-			"on how to delegate work, select models, and manage tasks. You can also start sessions with " +
-			"`wipnote claude` for automatic orchestrator mode.",
+		"wipnote plugin is active in this project.",
 		"",
+		"Retrieve context on demand:",
+		"- `wipnote wip` for open and in-progress items",
+		"- `wipnote relevant <topic>` before creating new work so you search open and completed lineage first",
+		"- `wipnote help --compact` for a command overview",
+		"",
+		"For orchestrated delegation, work tracking, and quality gates, use `/wipnote:orchestrator-directives-skill`.",
 	}
-
-	lines = append(lines, "## Work Item Attribution (CIGS)", "")
-	lines = append(lines, "**Open work items** — run `wipnote feature start <id>`:")
-	for _, item := range open {
-		lines = append(lines, fmt.Sprintf("  `%s` — %s [%s]", item.id, item.title, item.status))
-	}
-	lines = append(lines, "", compactCLIRef)
-
 	return joinLines(lines)
 }
 

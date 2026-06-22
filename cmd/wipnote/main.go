@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/shakestzd/wipnote/core/agent"
 	"github.com/shakestzd/wipnote/core/paths"
@@ -208,6 +209,14 @@ func versionCmd() *cobra.Command {
 	}
 }
 
+// ensureSessionPreRunTimeout bounds the best-effort session-row write done in
+// persistentPreRunE. It must be short enough that a contended SQLite write lock
+// (held by serve / a per-session otel collector / a concurrent session) cannot
+// stall an interactive command — notably the `wipnote claude` launch chooser —
+// for the full 5s busy_timeout. The write is idempotent and self-healing, so a
+// fast skip on contention is safe. See bug-504095f2.
+const ensureSessionPreRunTimeout = 500 * time.Millisecond
+
 // persistentPreRunE is attached to rootCmd and runs before every command. It
 // performs two side-effects: (1) ensures a session row exists for the current
 // agent attribution chain, and (2) upserts the current project into the
@@ -261,10 +270,19 @@ func persistentPreRunE(cmd *cobra.Command, _ []string) error {
 			storage.OpportunisticPrune(cacheRoot, projectDir, os.Stderr)
 		}
 	}
+	launchTiming("persistentPreRunE: before openDB+EnsureSession")
 	if database, dberr := openDB(hgDir); dberr == nil {
-		_, _ = agent.EnsureSession(database, projectDir)
+		launchTiming("persistentPreRunE: after openDB (before EnsureSession)")
+		// Best-effort session attribution with a short wall-clock bound. This
+		// runs before every command (including the interactive `wipnote claude`
+		// launch chooser); a contended write lock must not stall it for the full
+		// SQLite busy_timeout (5s). On contention the row write is skipped and
+		// re-created later by an uncontended call or a hook (INSERT OR IGNORE is
+		// idempotent). See bug-504095f2.
+		_, _ = agent.EnsureSessionWithTimeout(database, projectDir, ensureSessionPreRunTimeout)
 		database.Close()
 	}
+	launchTiming("persistentPreRunE: after openDB+EnsureSession")
 	// Registry upsert — silent, cached git remote lookup.
 	if reg, regErr := registry.Load(defaultRegistryPath()); regErr == nil {
 		var cachedRemote string

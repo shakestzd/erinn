@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	_ "modernc.org/sqlite"
 )
@@ -140,6 +141,66 @@ func OpenWritable(dbPath string) (*sql.DB, error) {
 	if err := ApplyPragmas(database, BuildPragmas(dbPath)); err != nil {
 		database.Close()
 		return nil, fmt.Errorf("OpenWritable: applying pragmas: %w", err)
+	}
+
+	return database, nil
+}
+
+// OpenWithBusyTimeout is Open (writable, runs schema/migrations) with a
+// caller-chosen busy_timeout instead of the baked-in 5000ms. A SHORT timeout
+// makes every write on the returned handle FAIL FAST under contention (a held
+// write lock) rather than stalling for the full default 5s — the launcher's
+// session-start hook path uses this so an interactive launch is never gated on
+// lock contention (bug-504095f2).
+//
+// The timeout is threaded into BOTH the DSN (_pragma=busy_timeout) and the
+// dedicated-connection PRAGMA via ApplyPragmas, mirroring Open's two-layer
+// approach, so it covers the very first connection before pragmas run AND every
+// pooled connection thereafter. busyTimeout <= 0 falls back to the default Open
+// behaviour (preserving the 5000ms timeout for all existing callers).
+//
+// Like Open, the migration step is wrapped in RetryOnBusy so a transient
+// SHARED→RESERVED BUSY during a (rare, version-gated) migration is absorbed; the
+// warm-open fast path runs zero DDL and so is not subject to that retry.
+//
+// This is a core/db primitive (core/db is excluded from the writable-open
+// boundary scan, and "OpenWithBusyTimeout" is not one of the scanned method
+// names), so adding a caller of it does NOT require a new approvedWriteSites
+// entry — only direct db.Open / db.OpenWritable / sql.Open calls are inventoried.
+func OpenWithBusyTimeout(dbPath string, busyTimeout time.Duration) (*sql.DB, error) {
+	if busyTimeout <= 0 {
+		return Open(dbPath)
+	}
+	ms := max(busyTimeout.Milliseconds(), 1)
+
+	dir := filepath.Dir(dbPath)
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return nil, fmt.Errorf("OpenWithBusyTimeout: creating db directory: %w", err)
+	}
+
+	dsn := dbPath
+	isInMemory := strings.Contains(dbPath, ":memory:")
+	if !isInMemory {
+		dsn = fmt.Sprintf("%s?_pragma=busy_timeout(%d)&_txlock=immediate", dsn, ms)
+	}
+
+	database, err := sql.Open("sqlite", dsn)
+	if err != nil {
+		return nil, fmt.Errorf("OpenWithBusyTimeout: sql.Open: %w", err)
+	}
+
+	pragmas := BuildPragmas(dbPath)
+	pragmas["busy_timeout"] = fmt.Sprintf("%d", ms)
+	if err := ApplyPragmas(database, pragmas); err != nil {
+		database.Close()
+		return nil, fmt.Errorf("OpenWithBusyTimeout: applying pragmas: %w", err)
+	}
+
+	if err := RetryOnBusy(DefaultBusyBackoff, func() error {
+		return runMigrations(database)
+	}); err != nil {
+		database.Close()
+		return nil, fmt.Errorf("OpenWithBusyTimeout: running migrations: %w", err)
 	}
 
 	return database, nil

@@ -25,23 +25,27 @@ const emptySpikeSweepInterval = time.Hour
 // crashed sessions without blocking an interactive launch.
 const orphanDrainInterval = 5 * time.Minute
 
-// startOrphanDrainLoop runs the uncapped project-wide orphan sweep on a low
-// frequency inside the headless writer daemon, where its wall-clock cost is not
-// user-visible. Best-effort: it shares the daemon's single writable handle, runs
-// once at startup and then on a ticker, and stops on ctx cancellation. A panic
-// in the sweep is recovered so a malformed session HTML file can never crash the
-// writer daemon.
-func startOrphanDrainLoop(ctx context.Context, writeDB *sql.DB, projectRoot string) {
-	if writeDB == nil || projectRoot == "" {
-		return
-	}
+// reconcileDrainInterval is how often the serve-side writer daemon auto-commits
+// done-but-uncommitted work-item artifacts (feat-c08d1ba1 slice-6). The Stop
+// hook stopped running this class synchronously because its per-item git fork
+// loop was a ~5.45s per-turn cost; this out-of-band loop performs the same
+// deterministic auto-commit off the interactive path so the durable record is
+// still committed, just not on a model-response boundary.
+const reconcileDrainInterval = 5 * time.Minute
+
+// startDrainLoop runs fn once at startup and then on every interval tick inside
+// the headless writer daemon, where wall-clock cost is not user-visible. A panic
+// in fn is recovered so one malformed artifact can never crash the writer daemon.
+// The loop stops on ctx cancellation. Shared by the orphan- and reconcile-drain
+// loops (bug-504095f2, feat-c08d1ba1).
+func startDrainLoop(ctx context.Context, interval time.Duration, fn func()) {
 	drain := func() {
 		defer func() { _ = recover() }()
-		hooks.SweepOrphanedEventsForProject(writeDB, projectRoot)
+		fn()
 	}
 	go func() {
 		drain()
-		ticker := time.NewTicker(orphanDrainInterval)
+		ticker := time.NewTicker(interval)
 		defer ticker.Stop()
 		for {
 			select {
@@ -52,6 +56,34 @@ func startOrphanDrainLoop(ctx context.Context, writeDB *sql.DB, projectRoot stri
 			}
 		}
 	}()
+}
+
+// startOrphanDrainLoop runs the uncapped project-wide orphan sweep on a low
+// frequency inside the headless writer daemon, where its wall-clock cost is not
+// user-visible. Best-effort: it shares the daemon's single writable handle, runs
+// once at startup and then on a ticker, and stops on ctx cancellation.
+func startOrphanDrainLoop(ctx context.Context, writeDB *sql.DB, projectRoot string) {
+	if writeDB == nil || projectRoot == "" {
+		return
+	}
+	startDrainLoop(ctx, orphanDrainInterval, func() {
+		hooks.SweepOrphanedEventsForProject(writeDB, projectRoot)
+	})
+}
+
+// startReconcileDrainLoop auto-commits done-but-uncommitted work-item artifacts
+// off the hot path (feat-c08d1ba1 slice-6). The Stop hook no longer runs this
+// per-item git fork loop synchronously (it was the ~5.45s per-turn cost); this
+// loop guarantees the deferred deterministic auto-commit still completes, using
+// the daemon's single writable handle. Best-effort and idempotent: a pass with
+// nothing dirty is a no-op, and an already-committed artifact does not re-commit.
+func startReconcileDrainLoop(ctx context.Context, writeDB *sql.DB, projectRoot string) {
+	if writeDB == nil || projectRoot == "" {
+		return
+	}
+	startDrainLoop(ctx, reconcileDrainInterval, func() {
+		hooks.ReconcileDoneButUncommittedForProject(writeDB, projectRoot)
+	})
 }
 
 var completeWorkItemIfInProgressFn = completeWorkItemIfInProgress

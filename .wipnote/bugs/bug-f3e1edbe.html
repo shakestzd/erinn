@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>GH#137: check --gate fails when uv cache is sandbox-blocked</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="bug-f3e1edbe"
+             data-type="bug"
+             data-status="todo"
+             data-priority="high"
+             data-created="2026-06-23T18:06:46.893372"
+             data-updated="2026-06-23T18:06:46.939008" data-agent-assigned="claude-code" data-track-id="trk-b1d06a84" data-created-by-agent="claude-code" data-created-by-model="claude-opus-4-8[1m]" data-created-by-role="codex" data-created-by-cli-version="0.64.0-17-gac4898ffa">
+
+        <header>
+            <h1>GH#137: check --gate fails when uv cache is sandbox-blocked</h1>
+            <div class="metadata">
+                <span class="badge status-todo">Todo</span>
+                <span class="badge priority-high">High Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-b1d06a84.html" data-relationship="part_of" data-since="2026-06-23T18:06:46.938736">trk-b1d06a84</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-steps>
+            <h3>Implementation Steps</h3>
+            <ol>
+                <li data-completed="false" data-step-id="step-bug-f3e1edbe-0" data-agent="claude-code" data-created-by-agent="claude-code">⏳ Reproduce uv cache permission failure in a sandboxed check --gate path</li>
+                <li data-completed="false" data-step-id="step-bug-f3e1edbe-1" data-agent="claude-code" data-created-by-agent="claude-code">⏳ Set UV_CACHE_DIR or equivalent workspace-local cache for uv-invoked gates</li>
+                <li data-completed="false" data-step-id="step-bug-f3e1edbe-2" data-agent="claude-code" data-created-by-agent="claude-code">⏳ Classify uv cache permission failures with targeted remediation and avoid misleading project-failure records</li>
+            </ol>
+        </section>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>GitHub #137: In Codex managed sandboxes, wipnote check --gate can fail before running the project lint because uv attempts to read a user-level cache outside the workspace. Direct uv run ruff check passes, but the wipnote-mediated gate records a failed gate caused by sandbox cache access. Fix should make uv-based checks use a workspace/wipnote-local cache or emit targeted remediation, and distinguish environment setup failure from project lint failure. Source: https://github.com/shakestzd/wipnote/issues/137</p>
+        </section>
+    </article>
+</body>
+</html>

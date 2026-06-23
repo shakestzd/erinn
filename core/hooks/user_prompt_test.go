@@ -19,12 +19,12 @@ import (
 func setupTestDB(t *testing.T) *testDB {
 	t.Helper()
 
-	// plan-2390966a slice-4: the hot hooks now route their derived-index writes
-	// through the daemon-first enqueue seam. Disable auto-spawn so the route
-	// fast-fails to the in-handler direct fallback (writing to the *sql.DB this
-	// helper returns) instead of forking a headless writer + dial-waiting in a
-	// unit test. The rows the tests assert on land on the returned handle.
+	// plan-2390966a slice-4: the hot hooks route derived-index writes through an
+	// enqueue-only daemon seam. These unit tests assert immediate SQLite
+	// visibility, so force the direct fallback instead of depending on whether an
+	// ambient writer daemon happens to be reachable.
 	t.Setenv("WIPNOTE_NO_AUTO_WRITER", "1")
+	stubRouteSQLAsync(t, false)
 
 	// Reset the global feature ID cache to prevent interference between tests
 	// (each test may use the same session ID "test-sess" but with different
@@ -32,6 +32,7 @@ func setupTestDB(t *testing.T) *testDB {
 	featureIDCache = featureIDCacheEntry{}
 
 	dbPath := filepath.Join(t.TempDir(), "wipnote.db")
+	t.Setenv("WIPNOTE_DB_PATH", dbPath)
 	database, err := db.Open(dbPath)
 	if err != nil {
 		t.Fatalf("db.Open: %v", err)

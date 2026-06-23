@@ -1156,7 +1156,7 @@ func TestPrepareCodexDevMarketplace_RefreshesLocalCache(t *testing.T) {
 	}
 	t.Cleanup(func() { _ = os.Chdir(oldWD) })
 
-	if err := prepareCodexDevMarketplace(filepath.Join(home, ".codex", "config.toml"), false); err != nil {
+	if _, err := prepareCodexDevMarketplace(filepath.Join(home, ".codex", "config.toml"), false); err != nil {
 		t.Fatalf("prepareCodexDevMarketplace: %v", err)
 	}
 	if _, err := os.Stat(filepath.Join(codexPluginCachePath(), codexLocalPluginCacheVersion, ".codex-plugin", "plugin.json")); err != nil {
@@ -1204,32 +1204,26 @@ func TestPrepareCodexDevMarketplace_DryRunDoesNotMutateCache(t *testing.T) {
 	}
 	t.Cleanup(func() { _ = os.Chdir(oldWD) })
 
-	out := &strings.Builder{}
-	oldStdout := os.Stdout
-	r, w, _ := os.Pipe()
-	os.Stdout = w
-	done := make(chan struct{})
-	go func() {
-		_, _ = io.Copy(out, r)
-		close(done)
-	}()
-	t.Cleanup(func() { os.Stdout = oldStdout })
-
-	if err := prepareCodexDevMarketplace(filepath.Join(home, ".codex", "config.toml"), true); err != nil {
+	// prepareCodexDevMarketplace now returns BannerDetail rows instead of printing
+	// them directly; the caller folds them into the single launch banner.
+	details, err := prepareCodexDevMarketplace(filepath.Join(home, ".codex", "config.toml"), true)
+	if err != nil {
 		t.Fatalf("prepareCodexDevMarketplace dry-run: %v", err)
 	}
-	_ = w.Close()
-	<-done
-	got := out.String()
+	// Flatten all returned detail values for substring matching.
+	var detailValues strings.Builder
+	for _, d := range details {
+		detailValues.WriteString(d.Label + ": " + d.Value + "\n")
+	}
+	got := detailValues.String()
 	for _, want := range []string{
-		"[dry-run] would remove wipnote registrations",
 		"[dry-run] codex plugin marketplace add",
-		"[dry-run] would install local wipnote plugin cache",
-		"[dry-run] would remove mirrored wipnote hooks",
-		"[dry-run] would install wipnote Codex agents",
+		"[dry-run] would install locally",
+		"[dry-run] would remove mirrored hooks",
+		"[dry-run] would install wipnote agents",
 	} {
 		if !strings.Contains(got, want) {
-			t.Fatalf("dry-run output missing %q:\n%s", want, got)
+			t.Fatalf("dry-run details missing %q:\n%s", want, got)
 		}
 	}
 	if _, err := os.Stat(filepath.Join(codexPluginCachePath(), codexLocalPluginCacheVersion)); !os.IsNotExist(err) {
@@ -1271,7 +1265,7 @@ func TestPrepareCodexBundledMarketplace_RepairsWhenAlreadyInstalled(t *testing.T
 	}
 	t.Cleanup(func() { _ = os.Chdir(oldWD) })
 
-	if err := prepareCodexBundledMarketplace(filepath.Join(home, ".codex", "config.toml")); err != nil {
+	if _, err := prepareCodexBundledMarketplace(filepath.Join(home, ".codex", "config.toml")); err != nil {
 		t.Fatalf("prepareCodexBundledMarketplace: %v", err)
 	}
 	if _, err := os.Stat(filepath.Join(codexPluginCachePath(), codexLocalPluginCacheVersion, ".codex-plugin", "plugin.json")); err != nil {

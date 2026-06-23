@@ -497,17 +497,60 @@ func copyDirRecursive(src, dst string) error {
 	})
 }
 
-// atomicReplace replaces dest with src. Tries os.Rename first (atomic on same
-// filesystem), falls back to copy + chmod + remove on cross-device.
+// atomicInstallBinary installs the binary at src to dest using the
+// sibling-temp + rename pattern. A temp file is created in the same directory
+// as dest (same filesystem), so os.Rename always succeeds without crossing a
+// device boundary. Rename replaces the directory entry atomically: a running
+// process keeps its old inode until exit, so this succeeds even when dest is a
+// busy/executing binary (avoids ETXTBSY from in-place O_TRUNC writes).
+func atomicInstallBinary(src, dest string) error {
+	destDir := filepath.Dir(dest)
+	tmp, err := os.CreateTemp(destDir, ".wipnote-upgrade-*.tmp")
+	if err != nil {
+		return fmt.Errorf("creating sibling temp: %w", err)
+	}
+	tmpPath := tmp.Name()
+
+	// Cleanup on any error so we never leave a .tmp turd behind.
+	success := false
+	defer func() {
+		if !success {
+			_ = os.Remove(tmpPath)
+		}
+	}()
+
+	in, err := os.Open(src)
+	if err != nil {
+		tmp.Close()
+		return fmt.Errorf("opening source binary: %w", err)
+	}
+	defer in.Close()
+
+	if _, err := io.Copy(tmp, in); err != nil {
+		tmp.Close()
+		return fmt.Errorf("writing temp binary: %w", err)
+	}
+	if err := tmp.Sync(); err != nil {
+		tmp.Close()
+		return fmt.Errorf("syncing temp binary: %w", err)
+	}
+	if err := tmp.Close(); err != nil {
+		return fmt.Errorf("closing temp binary: %w", err)
+	}
+	if err := os.Chmod(tmpPath, 0o755); err != nil {
+		return fmt.Errorf("chmod temp binary: %w", err)
+	}
+	if err := os.Rename(tmpPath, dest); err != nil {
+		return fmt.Errorf("renaming temp to dest: %w", err)
+	}
+	success = true
+	return nil
+}
+
+// atomicReplace replaces dest with src using atomicInstallBinary (sibling-temp
+// + rename), which avoids ETXTBSY when dest is a currently-running executable.
 func atomicReplace(src, dest string) error {
-	if err := os.Rename(src, dest); err == nil {
-		return nil
-	}
-	// Cross-device fallback.
-	if err := copyBinary(src, dest); err != nil {
-		return err
-	}
-	return os.Remove(src)
+	return atomicInstallBinary(src, dest)
 }
 
 // checkWritable verifies the directory is writable by attempting to create a

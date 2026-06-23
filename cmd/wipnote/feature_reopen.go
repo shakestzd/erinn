@@ -66,7 +66,7 @@ func executeFeatureReopen(featureID string) error {
 	// Auto-commit the reopened HTML so the state transition is durable
 	// (feat-712f9194 / roborev #1678). Non-fatal — failures log to stderr.
 	if shouldAutocommitWorkitemArtifact("feature") {
-		if commitErr := commitWipnoteArtifact(wipnoteDir, "feature", featureID, "reopen"); commitErr != nil {
+		if commitErr := persistWorkitemArtifactTransition(wipnoteDir, "feature", featureID, "reopen"); commitErr != nil {
 			fmt.Fprintf(os.Stderr, "autocommit warning: %v\n", commitErr)
 		}
 	}

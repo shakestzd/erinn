@@ -341,7 +341,12 @@ func wiSetStatusWithAgent(typeName, id, status, sessionID, agentID string) error
 	// Capture the artifact's pre-commit HEAD BEFORE col.Complete flushes the
 	// canonical HTML to disk. The transactional complete path compares this
 	// against the post-commit HEAD to assert the commit actually advanced.
-	transactionalComplete := status == "done" && shouldAutocommitWorkitemArtifact(typeName)
+	transactionalComplete := status == "done" &&
+		shouldAutocommitWorkitemArtifact(typeName) &&
+		workitemArtifactCommitPolicyForEnv() == workitemArtifactCommitPolicySeparate
+	deferredComplete := status == "done" &&
+		shouldAutocommitWorkitemArtifact(typeName) &&
+		workitemArtifactCommitPolicyForEnv() == workitemArtifactCommitPolicyDefer
 	var artifactPreHead string
 	if transactionalComplete {
 		repoRoot := filepath.Dir(dir)
@@ -502,9 +507,34 @@ func wiSetStatusWithAgent(typeName, id, status, sessionID, agentID string) error
 					"Resolve the commit blocker (e.g. unlock the git index, fix a rejecting hook, or commit manually), then rerun:\n  %s",
 				id, cerr, remediation)
 		}
+	} else if deferredComplete {
+		if err := persistWorkitemArtifactTransition(dir, typeName, id, "complete"); err != nil {
+			_, reopenErr := col.Start(id)
+			if p.DB != nil {
+				_, _ = p.DB.Exec(
+					`UPDATE sessions SET active_feature_id = '' WHERE active_feature_id = ?`,
+					id,
+				)
+			}
+			WriteStatuslineCache(dir, id)
+			remediation := fmt.Sprintf("wipnote %s complete %s", typeName, id)
+			if reopenErr != nil {
+				return fmt.Errorf(
+					"completion aborted: failed to queue deferred artifact commit for %s (%v) and the compensating re-open ALSO failed (%v).\n"+
+						"The item may be left in an inconsistent state — inspect with 'wipnote %s show %s', then rerun:\n  %s",
+					id, err, reopenErr, typeName, id, remediation)
+			}
+			return fmt.Errorf(
+				"completion aborted: failed to queue deferred artifact commit for %s: %v\n"+
+					"The item has been re-opened (status: in-progress). Resolve the queue/outbox problem, then rerun:\n  %s",
+				id, err, remediation)
+		}
+		fmt.Fprintf(os.Stderr,
+			"artifact commit deferred by WIPNOTE_ARTIFACT_COMMIT_POLICY=defer for %s.\n  pending intent recorded; run: wipnote commit-queue flush\n",
+			id)
 	} else if shouldAutocommitWorkitemArtifact(typeName) {
 		action := actionFromStatus(status)
-		if err := commitWipnoteArtifact(dir, typeName, id, action); err != nil {
+		if err := persistWorkitemArtifactTransition(dir, typeName, id, action); err != nil {
 			fmt.Fprintf(os.Stderr, "autocommit warning: %v\n", err)
 		}
 	}

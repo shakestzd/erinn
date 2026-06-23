@@ -205,7 +205,7 @@ func runWiCreate(typeName, title string, o *wiCreateOpts) error {
 	// that gates the complete-time commit; plans use commitPlanChange instead.
 	// Non-fatal: failures log to stderr and continue.
 	if shouldAutocommitWorkitemArtifact(typeName) {
-		if err := commitWipnoteArtifact(dir, typeName, node.ID, "create"); err != nil {
+		if err := persistWorkitemArtifactTransition(dir, typeName, node.ID, "create"); err != nil {
 			fmt.Fprintf(os.Stderr, "autocommit warning: %v\n", err)
 		}
 	}
@@ -226,7 +226,7 @@ func runWiCreate(typeName, title string, o *wiCreateOpts) error {
 		// "create --start" invocation is intentional — each captures a
 		// distinct state in HTML and gives git log a clean transition trail.
 		if shouldAutocommitWorkitemArtifact(typeName) {
-			if err := commitWipnoteArtifact(dir, typeName, node.ID, "start"); err != nil {
+			if err := persistWorkitemArtifactTransition(dir, typeName, node.ID, "start"); err != nil {
 				fmt.Fprintf(os.Stderr, "autocommit warning: %v\n", err)
 			}
 		}

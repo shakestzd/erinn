@@ -14,6 +14,7 @@ import (
 	"github.com/shakestzd/wipnote/core/guardprofile"
 	"github.com/shakestzd/wipnote/core/hooks"
 	"github.com/shakestzd/wipnote/core/models"
+	"github.com/shakestzd/wipnote/internal/commitqueue"
 	"github.com/spf13/cobra"
 )
 
@@ -64,6 +65,9 @@ Returns exit code 0 if all gates pass, 1 if any fail.`,
 			if gateOnly {
 				if goOnly || pythonOnly || skipTests {
 					return fmt.Errorf("--gate runs the full project gate and cannot be combined with --go-only, --python-only, or --skip-tests")
+				}
+				if err := failIfPendingDeferredArtifactCommits(projectRoot); err != nil {
+					return err
 				}
 				sessionID := hooks.EnvSessionID("")
 				agentID := dbpkg.NormaliseAgentID(os.Getenv("WIPNOTE_AGENT_ID"))
@@ -134,6 +138,49 @@ Returns exit code 0 if all gates pass, 1 if any fail.`,
 	cmd.AddCommand(checkDupsCmd())
 	cmd.AddCommand(checkAcceptedAdvisoryCmd())
 	return cmd
+}
+
+func failIfPendingDeferredArtifactCommits(projectRoot string) error {
+	ob, err := openCommitOutbox(projectRoot)
+	if err != nil {
+		return err
+	}
+	pending, err := ob.Pending()
+	if err != nil {
+		return err
+	}
+	var workItemIntents []commitqueue.Intent
+	for _, intent := range pending {
+		if isWorkitemArtifactCommitIntent(intent) {
+			workItemIntents = append(workItemIntents, intent)
+		}
+	}
+	if len(workItemIntents) == 0 {
+		return nil
+	}
+	var details []string
+	for _, intent := range workItemIntents {
+		if intent.WorkItemID != "" {
+			details = append(details, intent.WorkItemID)
+			continue
+		}
+		details = append(details, strings.Join(intent.RelPaths, ", "))
+	}
+	return fmt.Errorf(
+		"quality gate blocked by %d pending deferred work-item artifact commit intent(s): %s\nResolve by running `wipnote commit-queue flush`, or commit the artifact changes together with the work item.",
+		len(workItemIntents), strings.Join(details, ", "),
+	)
+}
+
+func isWorkitemArtifactCommitIntent(intent commitqueue.Intent) bool {
+	for _, rel := range intent.RelPaths {
+		if strings.HasPrefix(rel, ".wipnote/features/") ||
+			strings.HasPrefix(rel, ".wipnote/bugs/") ||
+			strings.HasPrefix(rel, ".wipnote/spikes/") {
+			return true
+		}
+	}
+	return false
 }
 
 // checkAcceptedAdvisoryCmd surfaces work items that were completed via the

@@ -12,6 +12,78 @@ import (
 	"strings"
 )
 
+type workitemArtifactCommitPolicy string
+
+const (
+	workitemArtifactCommitPolicySeparate workitemArtifactCommitPolicy = "separate"
+	workitemArtifactCommitPolicyDefer    workitemArtifactCommitPolicy = "defer"
+)
+
+// workitemArtifactCommitPolicyForEnv returns the commit policy requested by
+// WIPNOTE_ARTIFACT_COMMIT_POLICY. defer is the default so deferred artifact
+// commits are on by default; "separate" is an explicit legacy opt-in.
+func workitemArtifactCommitPolicyForEnv() workitemArtifactCommitPolicy {
+	switch strings.ToLower(strings.TrimSpace(os.Getenv("WIPNOTE_ARTIFACT_COMMIT_POLICY"))) {
+	case "", string(workitemArtifactCommitPolicyDefer):
+		return workitemArtifactCommitPolicyDefer
+	case string(workitemArtifactCommitPolicySeparate):
+		return workitemArtifactCommitPolicySeparate
+	default:
+		return workitemArtifactCommitPolicyDefer
+	}
+}
+
+func workitemArtifactRelPath(typeName, id string) string {
+	return filepath.Join(".wipnote", typeName+"s", id+".html")
+}
+
+func workitemArtifactCommitMessage(id, action string) string {
+	if action == "" {
+		action = "update"
+	}
+	return "wipnote: " + action + " " + id
+}
+
+// persistWorkitemArtifactTransition applies the configured artifact commit
+// policy for non-transactional work-item transitions. "separate" preserves the
+// legacy direct autocommit behavior; "defer" records a durable commit intent in
+// the outbox and leaves git mutation for `wipnote commit-queue flush`.
+func persistWorkitemArtifactTransition(wipnoteDir, typeName, id, action string) error {
+	switch workitemArtifactCommitPolicyForEnv() {
+	case workitemArtifactCommitPolicyDefer:
+		return enqueueWorkitemArtifactCommitIntent(wipnoteDir, typeName, id, action)
+	default:
+		return commitWipnoteArtifact(wipnoteDir, typeName, id, action)
+	}
+}
+
+func enqueueWorkitemArtifactCommitIntent(wipnoteDir, typeName, id, action string) error {
+	repoRoot := filepath.Dir(wipnoteDir)
+
+	absWipnote, err := filepath.Abs(wipnoteDir)
+	if err != nil {
+		absWipnote = wipnoteDir
+	}
+	if isTestTmpPath(absWipnote) {
+		if os.Getenv("WIPNOTE_DEBUG") == "1" {
+			fmt.Fprintf(stderr, "artifact commit defer skipped: path looks like a test temp dir: %s\n", absWipnote)
+		}
+		return nil
+	}
+
+	if !isGitRepo(repoRoot) {
+		fmt.Fprintf(stderr, "artifact commit defer skipped: %s is not inside a git repository\n", repoRoot)
+		return nil
+	}
+
+	relPath := workitemArtifactRelPath(typeName, id)
+	msg := workitemArtifactCommitMessage(id, action)
+	if err := recordCommitIntent(repoRoot, []string{relPath}, msg, id, action); err != nil {
+		return fmt.Errorf("artifact commit defer: record intent for %s: %w", id, err)
+	}
+	return nil
+}
+
 // testTmpComponentRe matches any single path component that looks like a Go
 // test scratch directory name. These directories live inside the project tree
 // (to avoid /tmp noexec in devcontainers) but must never trigger real git
@@ -88,14 +160,9 @@ func commitWipnoteArtifact(wipnoteDir, typeName, id, action string) error {
 		return nil
 	}
 
-	subDir := typeName + "s"
-	relPath := filepath.Join(".wipnote", subDir, id+".html")
-	absPath := filepath.Join(wipnoteDir, subDir, id+".html")
-
-	if action == "" {
-		action = "update"
-	}
-	msg := "wipnote: " + action + " " + id
+	relPath := workitemArtifactRelPath(typeName, id)
+	absPath := filepath.Join(repoRoot, relPath)
+	msg := workitemArtifactCommitMessage(id, action)
 
 	// Hold ONE advisory lock across the whole add → diff → commit sequence so no
 	// other wipnote git mutation can interleave between staging and committing
@@ -179,14 +246,9 @@ func commitWipnoteArtifactStrict(wipnoteDir, typeName, id, action string) (commi
 		return false, nil
 	}
 
-	subDir := typeName + "s"
-	relPath := filepath.Join(".wipnote", subDir, id+".html")
-	absPath := filepath.Join(wipnoteDir, subDir, id+".html")
-
-	if action == "" {
-		action = "update"
-	}
-	msg := "wipnote: " + action + " " + id
+	relPath := workitemArtifactRelPath(typeName, id)
+	absPath := filepath.Join(repoRoot, relPath)
+	msg := workitemArtifactCommitMessage(id, action)
 
 	// Hold ONE advisory lock across add → diff → commit so the staged-index
 	// transaction cannot interleave with another wipnote git mutation (roborev
@@ -430,9 +492,9 @@ func shellQuote(path string) string {
 	return "'" + strings.ReplaceAll(path, "'", "'\"'\"'") + "'"
 }
 
-// shouldAutocommitWorkitemArtifact returns true when commitWipnoteArtifact
-// should run for the given typeName. Plans are excluded because they have
-// their own atomic YAML+HTML commit path (commitPlanChange in plan_yaml_cmds.go);
+// shouldAutocommitWorkitemArtifact returns true when a work-item type supports
+// the artifact commit policy flow. Plans are excluded because they have their
+// own atomic YAML+HTML commit path (commitPlanChange in plan_yaml_cmds.go);
 // auto-committing only the rendered HTML would leave the authoritative YAML
 // out of sync (roborev #1662). Future work-item types must opt in explicitly.
 func shouldAutocommitWorkitemArtifact(typeName string) bool {

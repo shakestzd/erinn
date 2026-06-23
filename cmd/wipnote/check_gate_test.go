@@ -10,6 +10,7 @@ import (
 	dbpkg "github.com/shakestzd/wipnote/core/db"
 	"github.com/shakestzd/wipnote/core/guardprofile"
 	"github.com/shakestzd/wipnote/core/storage"
+	"github.com/shakestzd/wipnote/internal/commitqueue"
 )
 
 func setupGateTestProject(t *testing.T) string {
@@ -247,6 +248,83 @@ func TestCheckCompletionGateRecord_RequiresCurrentSessionRecord(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "wipnote check --gate") {
 		t.Fatalf("expected remediation command, got: %v", err)
+	}
+}
+
+func TestFailIfPendingDeferredArtifactCommits(t *testing.T) {
+	projectRoot := setupGateTestProject(t)
+	tmpOutbox := t.TempDir()
+	origOutboxPath := commitOutboxPath
+	commitOutboxPath = func(string) (string, error) {
+		return filepath.Join(tmpOutbox, "commit-outbox.ndjson"), nil
+	}
+	t.Cleanup(func() { commitOutboxPath = origOutboxPath })
+
+	ob, err := openCommitOutbox(projectRoot)
+	if err != nil {
+		t.Fatalf("openCommitOutbox: %v", err)
+	}
+	if err := ob.Append(commitqueue.Intent{
+		RepoRoot:   projectRoot,
+		RelPaths:   []string{".wipnote/features/feat-gate.html"},
+		Message:    "wipnote: complete feat-gate",
+		WorkItemID: "feat-gate",
+		Action:     "complete",
+	}); err != nil {
+		t.Fatalf("Append: %v", err)
+	}
+
+	err = failIfPendingDeferredArtifactCommits(projectRoot)
+	if err == nil {
+		t.Fatal("expected pending deferred artifact commit to block the gate")
+	}
+	if !strings.Contains(err.Error(), "wipnote commit-queue flush") {
+		t.Fatalf("error should suggest flush remediation, got: %v", err)
+	}
+	if !strings.Contains(err.Error(), "feat-gate") {
+		t.Fatalf("error should mention the pending work item, got: %v", err)
+	}
+}
+
+func TestCheckCmd_GateFailsWhenDeferredArtifactIntentPending(t *testing.T) {
+	projectRoot := setupGateTestProject(t)
+	tmpOutbox := t.TempDir()
+	origOutboxPath := commitOutboxPath
+	commitOutboxPath = func(string) (string, error) {
+		return filepath.Join(tmpOutbox, "commit-outbox.ndjson"), nil
+	}
+	t.Cleanup(func() { commitOutboxPath = origOutboxPath })
+
+	ob, err := openCommitOutbox(projectRoot)
+	if err != nil {
+		t.Fatalf("openCommitOutbox: %v", err)
+	}
+	if err := ob.Append(commitqueue.Intent{
+		RepoRoot:   projectRoot,
+		RelPaths:   []string{".wipnote/features/feat-gate.html"},
+		Message:    "wipnote: complete feat-gate",
+		WorkItemID: "feat-gate",
+		Action:     "complete",
+	}); err != nil {
+		t.Fatalf("Append: %v", err)
+	}
+
+	projectDirFlag = projectRoot
+	t.Cleanup(func() { projectDirFlag = "" })
+	cmd := checkCmd()
+	var out strings.Builder
+	cmd.SetOut(&out)
+	cmd.SetErr(&out)
+	cmd.SetArgs([]string{"--gate"})
+	err = cmd.Execute()
+	if err == nil {
+		t.Fatal("expected --gate to fail when deferred artifact intents are pending")
+	}
+	if !strings.Contains(err.Error(), "quality gate blocked by 1 pending deferred work-item artifact commit intent") {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !strings.Contains(err.Error(), "wipnote commit-queue flush") {
+		t.Fatalf("error should suggest flush remediation, got: %v", err)
 	}
 }
 

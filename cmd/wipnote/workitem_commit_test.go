@@ -549,6 +549,83 @@ func TestCompleteCommitsWipnoteArtifact_SkipsWhenNoGitRepo(t *testing.T) {
 	}
 }
 
+func TestWorkitemArtifactCommitPolicyForEnv(t *testing.T) {
+	t.Setenv("WIPNOTE_ARTIFACT_COMMIT_POLICY", "")
+	if got := workitemArtifactCommitPolicyForEnv(); got != workitemArtifactCommitPolicyDefer {
+		t.Fatalf("empty policy = %q, want default %q", got, workitemArtifactCommitPolicyDefer)
+	}
+
+	t.Setenv("WIPNOTE_ARTIFACT_COMMIT_POLICY", "defer")
+	if got := workitemArtifactCommitPolicyForEnv(); got != workitemArtifactCommitPolicyDefer {
+		t.Fatalf("defer policy = %q, want %q", got, workitemArtifactCommitPolicyDefer)
+	}
+
+	t.Setenv("WIPNOTE_ARTIFACT_COMMIT_POLICY", "separate")
+	if got := workitemArtifactCommitPolicyForEnv(); got != workitemArtifactCommitPolicySeparate {
+		t.Fatalf("separate policy = %q, want explicit legacy %q", got, workitemArtifactCommitPolicySeparate)
+	}
+
+	t.Setenv("WIPNOTE_ARTIFACT_COMMIT_POLICY", "bogus")
+	if got := workitemArtifactCommitPolicyForEnv(); got != workitemArtifactCommitPolicyDefer {
+		t.Fatalf("unknown policy = %q, want default fallback %q", got, workitemArtifactCommitPolicyDefer)
+	}
+}
+
+func TestPersistWorkitemArtifactTransition_DeferRecordsIntentWithoutGitCommit(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("/tmp", "wipnote-defer-intent-*")
+	if err != nil {
+		t.Fatalf("MkdirTemp /tmp: %v", err)
+	}
+	t.Cleanup(func() { os.RemoveAll(tmpDir) })
+
+	repoRoot := setupWorktreeGitRepoIn(t, tmpDir)
+	gitMustCommitInitial(t, repoRoot)
+	wipnoteDir := filepath.Join(repoRoot, ".wipnote")
+	if err := os.MkdirAll(filepath.Join(wipnoteDir, "features"), 0o755); err != nil {
+		t.Fatalf("mkdir features: %v", err)
+	}
+
+	const featureID = "feat-defer-intent"
+	featureHTML := filepath.Join(wipnoteDir, "features", featureID+".html")
+	if err := os.WriteFile(featureHTML, []byte(`<article id="`+featureID+`" data-status="in-progress"></article>`), 0o644); err != nil {
+		t.Fatalf("write feature HTML: %v", err)
+	}
+
+	origOutboxPath := commitOutboxPath
+	commitOutboxPath = func(string) (string, error) {
+		return filepath.Join(tmpDir, "commit-outbox.ndjson"), nil
+	}
+	t.Cleanup(func() { commitOutboxPath = origOutboxPath })
+	t.Setenv("WIPNOTE_ARTIFACT_COMMIT_POLICY", "defer")
+
+	countBefore := gitCommitCount(t, repoRoot)
+	if err := persistWorkitemArtifactTransition(wipnoteDir, "feature", featureID, "start"); err != nil {
+		t.Fatalf("persistWorkitemArtifactTransition: %v", err)
+	}
+	countAfter := gitCommitCount(t, repoRoot)
+	if countAfter != countBefore {
+		t.Fatalf("defer policy should not create a git commit, count changed from %d to %d", countBefore, countAfter)
+	}
+
+	ob, err := openCommitOutbox(repoRoot)
+	if err != nil {
+		t.Fatalf("openCommitOutbox: %v", err)
+	}
+	pending, err := ob.Pending()
+	if err != nil {
+		t.Fatalf("Pending: %v", err)
+	}
+	if len(pending) != 1 {
+		t.Fatalf("expected 1 pending intent, got %d", len(pending))
+	}
+	if pending[0].Message != "wipnote: start "+featureID {
+		t.Fatalf("intent message = %q, want %q", pending[0].Message, "wipnote: start "+featureID)
+	}
+	if len(pending[0].RelPaths) != 1 || pending[0].RelPaths[0] != ".wipnote/features/"+featureID+".html" {
+		t.Fatalf("intent rel paths = %#v", pending[0].RelPaths)
+	}
+}
+
 // TestShouldAutocommitWorkitemArtifact verifies the allowlist that gates the
 // auto-commit call site in wiSetStatusWithAgent (workitem.go). Plans are
 // excluded because they use commitPlanChange (plan_yaml_cmds.go:42-90) to
@@ -575,6 +652,71 @@ func TestShouldAutocommitWorkitemArtifact(t *testing.T) {
 		if got := shouldAutocommitWorkitemArtifact(c.typeName); got != c.want {
 			t.Errorf("shouldAutocommitWorkitemArtifact(%q) = %v, want %v", c.typeName, got, c.want)
 		}
+	}
+}
+
+func TestTransactionalComplete_DeferQueuesIntentAndWarns(t *testing.T) {
+	if testing.Short() {
+		t.Skip("drives real git-backed work-item completion")
+	}
+
+	repoRoot, wipnoteDir, featID, sessionID, agentID := setupTransactionalCompleteRepo(t)
+
+	tmpOutbox := t.TempDir()
+	origOutboxPath := commitOutboxPath
+	commitOutboxPath = func(string) (string, error) {
+		return filepath.Join(tmpOutbox, "commit-outbox.ndjson"), nil
+	}
+	t.Cleanup(func() { commitOutboxPath = origOutboxPath })
+	t.Setenv("WIPNOTE_ARTIFACT_COMMIT_POLICY", "defer")
+
+	origStderr := os.Stderr
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatalf("os.Pipe: %v", err)
+	}
+	os.Stderr = w
+	t.Cleanup(func() { os.Stderr = origStderr })
+
+	runErr := wiSetStatusWithAgent("feature", featID, "done", sessionID, agentID)
+	_ = w.Close()
+	stderrBytes, readErr := io.ReadAll(r)
+	_ = r.Close()
+	if readErr != nil {
+		t.Fatalf("ReadAll(stderr): %v", readErr)
+	}
+	if runErr != nil {
+		t.Fatalf("expected defer-mode complete to succeed, got: %v", runErr)
+	}
+
+	if got := diskStatus(t, wipnoteDir, featID); got != "done" {
+		t.Fatalf("on-disk status after defer completion = %q, want done", got)
+	}
+
+	ob, err := openCommitOutbox(repoRoot)
+	if err != nil {
+		t.Fatalf("openCommitOutbox: %v", err)
+	}
+	pending, err := ob.Pending()
+	if err != nil {
+		t.Fatalf("Pending: %v", err)
+	}
+	if len(pending) != 1 {
+		t.Fatalf("expected 1 pending deferred intent, got %d", len(pending))
+	}
+	if pending[0].Message != "wipnote: complete "+featID {
+		t.Fatalf("deferred completion intent message = %q", pending[0].Message)
+	}
+
+	logOut, _ := exec.Command("git", "-C", repoRoot, "log", "--format=%s").CombinedOutput()
+	if strings.Contains(string(logOut), "wipnote: complete "+featID) {
+		t.Fatalf("repo must not contain a separate 'complete' commit in defer mode:\n%s", logOut)
+	}
+
+	stderrText := string(stderrBytes)
+	if !strings.Contains(stderrText, "WIPNOTE_ARTIFACT_COMMIT_POLICY=defer") ||
+		!strings.Contains(stderrText, "wipnote commit-queue flush") {
+		t.Fatalf("expected explicit deferred-commit guidance on stderr, got:\n%s", stderrText)
 	}
 }
 

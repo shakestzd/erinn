@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>Stop scaffolding dead init artifacts &#43; remove vestigial metrics literal</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="feat-6cacaaa4"
+             data-type="feature"
+             data-status="todo"
+             data-priority="medium"
+             data-created="2026-06-23T23:46:56.386798"
+             data-updated="2026-06-23T23:46:56.433624" data-agent-assigned="claude-code" data-track-id="trk-4a78a9b7" data-created-by-agent="claude-code" data-created-by-model="claude-opus-4-8[1m]" data-created-by-cli-version="0.64.2-42-g2e55032c8">
+
+        <header>
+            <h1>Stop scaffolding dead init artifacts &#43; remove vestigial metrics literal</h1>
+            <div class="metadata">
+                <span class="badge status-todo">Todo</span>
+                <span class="badge priority-medium">Medium Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-4a78a9b7.html" data-relationship="part_of" data-since="2026-06-23T23:46:56.433439">trk-4a78a9b7</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>init.go writes refs.json ({}) that nothing ever reads — stop scaffolding it. Remove the vestigial metrics string from the subdirs slice in relevant.go (no such work-item type exists). Reconcile specs/ absence from init eager-create list (document intentional or add). Small, surgical; no behavior change beyond removing dead artifacts.</p>
+        </section>
+    </article>
+</body>
+</html>

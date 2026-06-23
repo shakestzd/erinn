@@ -3,6 +3,7 @@ package graph_test
 import (
 	"testing"
 
+	corearch "github.com/shakestzd/wipnote/core/arch"
 	"github.com/shakestzd/wipnote/core/graph"
 )
 
@@ -314,6 +315,22 @@ func TestNormalizeNodeType_Agent(t *testing.T) {
 	}
 }
 
+func TestIsNodeType_Arch(t *testing.T) {
+	for _, s := range []string{"arch", "architecture", "architectures"} {
+		if !graph.IsNodeType(s) {
+			t.Errorf("expected IsNodeType(%q) to be true", s)
+		}
+	}
+}
+
+func TestNormalizeNodeType_Arch(t *testing.T) {
+	for _, s := range []string{"arch", "architecture", "architectures"} {
+		if got := graph.NormalizeNodeType(s); got != "arch" {
+			t.Errorf("NormalizeNodeType(%q) = %q, want arch", s, got)
+		}
+	}
+}
+
 // Regression: ExecuteDSL(..., "agents") must return actual agent names,
 // not fall through to the features table and silently return nothing.
 func TestExecuteDSL_AgentType(t *testing.T) {
@@ -374,6 +391,78 @@ func TestExecuteDSL_AgentTypeSingular(t *testing.T) {
 	}
 	if results[0].Type != "agent" {
 		t.Errorf("expected type 'agent', got %q", results[0].Type)
+	}
+}
+
+func TestExecuteDSL_ArchTypeAndAliases(t *testing.T) {
+	database := openTestDB(t)
+	_, err := database.Exec(
+		`INSERT INTO arch_cards (slug, kind, created_by, retired, body) VALUES (?, ?, ?, ?, ?)`,
+		"auth-learning", "decision", "agent", 0, "Prefer explicit auth boundaries.",
+	)
+	if err != nil {
+		t.Fatalf("seed arch card: %v", err)
+	}
+
+	for _, query := range []string{"arch", "architecture", "architectures"} {
+		results, err := graph.ExecuteDSL(database, query)
+		if err != nil {
+			t.Fatalf("unexpected error for %q: %v", query, err)
+		}
+		if len(results) != 1 {
+			t.Fatalf("%s: expected 1 result, got %d", query, len(results))
+		}
+		if results[0].ID != corearch.ArchNodeID("auth-learning") {
+			t.Fatalf("%s: expected arch node id, got %q", query, results[0].ID)
+		}
+		if results[0].Type != "arch" {
+			t.Fatalf("%s: expected arch type, got %q", query, results[0].Type)
+		}
+		if results[0].Title != "auth-learning" {
+			t.Fatalf("%s: expected slug title, got %q", query, results[0].Title)
+		}
+	}
+}
+
+func TestExecuteDSL_ArchFilters(t *testing.T) {
+	database := openTestDB(t)
+	_, err := database.Exec(
+		`INSERT INTO arch_cards (slug, kind, created_by, retired, body) VALUES (?, ?, ?, ?, ?)`,
+		"auth-learning", "decision", "agent", 0, "Prefer explicit auth boundaries.",
+	)
+	if err != nil {
+		t.Fatalf("seed active arch card: %v", err)
+	}
+	_, err = database.Exec(
+		`INSERT INTO arch_cards (slug, kind, created_by, retired, body) VALUES (?, ?, ?, ?, ?)`,
+		"old-learning", "hazard", "reviewer", 1, "This guidance is retired.",
+	)
+	if err != nil {
+		t.Fatalf("seed retired arch card: %v", err)
+	}
+
+	results, err := graph.ExecuteDSL(database, "arch[kind=decision]")
+	if err != nil {
+		t.Fatalf("arch[kind=decision]: %v", err)
+	}
+	if len(results) != 1 || results[0].ID != corearch.ArchNodeID("auth-learning") {
+		t.Fatalf("arch[kind=decision] = %+v, want auth-learning", results)
+	}
+
+	results, err = graph.ExecuteDSL(database, "arch[status=retired]")
+	if err != nil {
+		t.Fatalf("arch[status=retired]: %v", err)
+	}
+	if len(results) != 1 || results[0].ID != corearch.ArchNodeID("old-learning") {
+		t.Fatalf("arch[status=retired] = %+v, want old-learning", results)
+	}
+
+	results, err = graph.ExecuteDSL(database, "arch[created_by=agent]")
+	if err != nil {
+		t.Fatalf("arch[created_by=agent]: %v", err)
+	}
+	if len(results) != 1 || results[0].ID != corearch.ArchNodeID("auth-learning") {
+		t.Fatalf("arch[created_by=agent] = %+v, want auth-learning", results)
 	}
 }
 

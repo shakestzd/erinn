@@ -194,7 +194,7 @@ func failIfPendingDeferredArtifactCommits(projectRoot string) error {
 
 func isWorkitemArtifactCommitIntent(intent commitqueue.Intent) bool {
 	for _, rel := range intent.RelPaths {
-		rel = strings.ReplaceAll(filepath.ToSlash(rel), "\\", "/")
+		rel = normalizeIntentRelPath(rel)
 		if strings.HasPrefix(rel, ".wipnote/features/") ||
 			strings.HasPrefix(rel, ".wipnote/bugs/") ||
 			strings.HasPrefix(rel, ".wipnote/spikes/") {
@@ -209,12 +209,17 @@ func deadLetteredArtifactIntentResolved(projectRoot string, intent commitqueue.I
 		return false
 	}
 	for _, rel := range intent.RelPaths {
+		rel = normalizeIntentRelPath(rel)
 		out, err := exec.Command("git", "-C", projectRoot, "status", "--porcelain", "--", rel).Output()
 		if err != nil || len(strings.TrimSpace(string(out))) > 0 {
 			return false
 		}
 	}
 	return true
+}
+
+func normalizeIntentRelPath(rel string) string {
+	return strings.ReplaceAll(filepath.ToSlash(rel), "\\", "/")
 }
 
 // checkAcceptedAdvisoryCmd surfaces work items that were completed via the

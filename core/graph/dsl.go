@@ -4,6 +4,8 @@ import (
 	"database/sql"
 	"fmt"
 	"strings"
+
+	corearch "github.com/shakestzd/wipnote/core/arch"
 )
 
 // ExecuteDSL parses and executes a DSL query, returning matched nodes.
@@ -146,26 +148,29 @@ func parseNodeSelector(s string) (nodeSelector, error) {
 
 // isNodeType checks if a string is a known node type plural.
 var knownNodeTypes = map[string]string{
-	"features": "feature",
-	"feature":  "feature",
-	"bugs":     "bug",
-	"bug":      "bug",
-	"spikes":   "spike",
-	"spike":    "spike",
-	"tracks":   "track",
-	"track":    "track",
-	"plans":    "plan",
-	"plan":     "plan",
-	"specs":    "spec",
-	"spec":     "spec",
-	"commits":  "commit",
-	"commit":   "commit",
-	"files":    "file",
-	"file":     "file",
-	"sessions": "session",
-	"session":  "session",
-	"agents":   "agent",
-	"agent":    "agent",
+	"features":      "feature",
+	"feature":       "feature",
+	"bugs":          "bug",
+	"bug":           "bug",
+	"spikes":        "spike",
+	"spike":         "spike",
+	"tracks":        "track",
+	"track":         "track",
+	"plans":         "plan",
+	"plan":          "plan",
+	"specs":         "spec",
+	"spec":          "spec",
+	"commits":       "commit",
+	"commit":        "commit",
+	"files":         "file",
+	"file":          "file",
+	"sessions":      "session",
+	"session":       "session",
+	"agents":        "agent",
+	"agent":         "agent",
+	"arch":          "arch",
+	"architecture":  "arch",
+	"architectures": "arch",
 }
 
 func isNodeType(s string) bool {
@@ -261,6 +266,17 @@ func resolveTypeSelector(db *sql.DB, sel nodeSelector) ([]string, error) {
 			args = append(args, sel.value)
 		} else {
 			query = `SELECT id FROM tracks`
+		}
+	case "arch":
+		if sel.field != "" {
+			col, ok := allowedColumnFor(nodeType, sel.field)
+			if !ok {
+				return nil, fmt.Errorf("dsl: unsupported filter field %q for %s", sel.field, nodeType)
+			}
+			query = fmt.Sprintf(`SELECT 'arch:' || slug FROM arch_cards WHERE %s = ?`, col)
+			args = append(args, sel.value)
+		} else {
+			query = `SELECT 'arch:' || slug FROM arch_cards`
 		}
 	default:
 		// features, bugs, spikes, plans, specs — all stored in features table
@@ -417,6 +433,33 @@ func filterBySelectorDSL(db *sql.DB, ids []string, sel nodeSelector) ([]string, 
 			args = append(args, sel.value)
 		} else {
 			query = fmt.Sprintf(`SELECT id FROM tracks WHERE id IN (%s)`, inClause)
+		}
+	case "arch":
+		archSlugs := make([]string, 0, len(ids))
+		for _, id := range ids {
+			if slug, ok := corearch.ArchSlugFromNodeID(id); ok {
+				archSlugs = append(archSlugs, slug)
+			}
+		}
+		if len(archSlugs) == 0 {
+			return nil, nil
+		}
+		archPlaceholders := make([]string, len(archSlugs))
+		args = make([]any, len(archSlugs), len(archSlugs)+1)
+		for i, slug := range archSlugs {
+			archPlaceholders[i] = "?"
+			args[i] = slug
+		}
+		archInClause := strings.Join(archPlaceholders, ",")
+		if sel.field != "" {
+			col, ok := allowedColumnFor(nodeType, sel.field)
+			if !ok {
+				return nil, fmt.Errorf("dsl: unsupported filter field %q for %s", sel.field, nodeType)
+			}
+			query = fmt.Sprintf(`SELECT 'arch:' || slug FROM arch_cards WHERE slug IN (%s) AND %s = ?`, archInClause, col)
+			args = append(args, sel.value)
+		} else {
+			query = fmt.Sprintf(`SELECT 'arch:' || slug FROM arch_cards WHERE slug IN (%s)`, archInClause)
 		}
 	default:
 		// features, bugs, spikes, plans, specs

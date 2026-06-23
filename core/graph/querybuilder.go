@@ -287,6 +287,7 @@ var typeFilterColumns = map[string]map[string]string{
 	"file":    {"file_path": "file_path", "session_id": "session_id"},
 	"session": {"status": "status", "session_id": "session_id"},
 	"agent":   {}, // agent is a synthetic type; only identity equality via the UNION works
+	"arch":    {"status": "CASE retired WHEN 1 THEN 'retired' ELSE 'active' END", "kind": "kind", "created_by": "created_by"},
 }
 
 // allowedColumnFor resolves a filter field against the per-type whitelist.
@@ -343,7 +344,7 @@ func (q *QueryBuilder) resolveNodes(ids []string) ([]NodeResult, error) {
 		UNION ALL
 		SELECT session_id AS id, 'session' AS type, COALESCE(title,'') AS title, COALESCE(status,'') AS status FROM sessions WHERE session_id IN (%s)
 		UNION ALL
-		SELECT 'arch:' || slug AS id, 'arch' AS type, '' AS title,
+		SELECT 'arch:' || slug AS id, 'arch' AS type, slug AS title,
 			CASE retired WHEN 1 THEN 'retired' ELSE 'active' END AS status
 		FROM arch_cards WHERE slug IN (%s)
 		UNION ALL

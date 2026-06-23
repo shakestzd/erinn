@@ -404,6 +404,66 @@ func TestFailIfPendingDeferredArtifactCommits_IgnoresCleanDeadLetteredArtifactIn
 	}
 }
 
+func TestFailIfPendingDeferredArtifactCommits_BlocksDeadLetteredArtifactIntentWithWindowsPathWhenSlashPathDirty(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("/tmp", "wipnote-deadletter-win-*")
+	if err != nil {
+		t.Fatalf("MkdirTemp /tmp: %v", err)
+	}
+	t.Cleanup(func() { os.RemoveAll(tmpDir) })
+
+	projectRoot := setupWorktreeGitRepoIn(t, tmpDir)
+	wipnoteDir := filepath.Join(projectRoot, ".wipnote")
+	if err := os.MkdirAll(filepath.Join(wipnoteDir, "features"), 0o755); err != nil {
+		t.Fatalf("mkdir features: %v", err)
+	}
+	artifactPath := filepath.Join(wipnoteDir, "features", "feat-win.html")
+	if err := os.WriteFile(artifactPath, []byte(`<article id="feat-win">clean</article>`), 0o644); err != nil {
+		t.Fatalf("write artifact: %v", err)
+	}
+	gitMustCommitInitial(t, projectRoot)
+	if err := os.WriteFile(artifactPath, []byte(`<article id="feat-win">dirty</article>`), 0o644); err != nil {
+		t.Fatalf("rewrite artifact: %v", err)
+	}
+
+	tmpOutbox := t.TempDir()
+	origOutboxPath := commitOutboxPath
+	commitOutboxPath = func(string) (string, error) {
+		return filepath.Join(tmpOutbox, "commit-outbox.ndjson"), nil
+	}
+	t.Cleanup(func() { commitOutboxPath = origOutboxPath })
+
+	ob, err := openCommitOutbox(projectRoot)
+	if err != nil {
+		t.Fatalf("openCommitOutbox: %v", err)
+	}
+	if err := ob.Append(commitqueue.Intent{
+		RepoRoot:   projectRoot,
+		RelPaths:   []string{`.wipnote\features\feat-win.html`},
+		Message:    "wipnote: complete feat-win",
+		WorkItemID: "feat-win",
+		Action:     "complete",
+	}); err != nil {
+		t.Fatalf("Append: %v", err)
+	}
+	res, err := ob.Flush(func(commitqueue.Intent) error {
+		return fmt.Errorf("forced failure")
+	}, 1)
+	if err != nil {
+		t.Fatalf("Flush: %v", err)
+	}
+	if res.DeadLettered != 1 {
+		t.Fatalf("DeadLettered = %d, want 1", res.DeadLettered)
+	}
+
+	err = failIfPendingDeferredArtifactCommits(projectRoot)
+	if err == nil {
+		t.Fatal("expected dirty slash-path artifact to block the dead-letter gate even when the intent path uses backslashes")
+	}
+	if !strings.Contains(err.Error(), "feat-win") {
+		t.Fatalf("error should mention the dead-lettered work item, got: %v", err)
+	}
+}
+
 func TestCheckCmd_GateFailsWhenDeferredArtifactIntentPending(t *testing.T) {
 	projectRoot := setupGateTestProject(t)
 	tmpOutbox := t.TempDir()

@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+
+	corearch "github.com/shakestzd/wipnote/core/arch"
 )
 
 // graphNode represents a work item node in the graph response.
@@ -14,6 +16,7 @@ type graphNode struct {
 	Type     string `json:"type"`
 	Title    string `json:"title"`
 	Status   string `json:"status"`
+	Kind     string `json:"kind,omitempty"`
 	Edges    int    `json:"edges"`
 	Activity int    `json:"activity"` // agent_events count for this node
 }
@@ -296,6 +299,29 @@ func loadGraphNodes(database *sql.DB) ([]graphNode, []string, error) {
 		}
 		nodes = append(nodes, n)
 		trackIDs = append(trackIDs, "") // tracks don't have a parent track
+	}
+
+	// Architecture memory cards from arch_cards.
+	arows, aerr := database.Query(`
+		SELECT slug, COALESCE(kind, ''), CASE retired WHEN 1 THEN 'retired' ELSE 'active' END
+		FROM arch_cards
+		ORDER BY COALESCE(updated_at, created_at, indexed_at) DESC, slug`)
+	if aerr == nil {
+		defer arows.Close()
+		for arows.Next() {
+			var slug, kind, status string
+			if err := arows.Scan(&slug, &kind, &status); err != nil {
+				continue
+			}
+			nodes = append(nodes, graphNode{
+				ID:     corearch.ArchNodeID(slug),
+				Type:   "arch",
+				Title:  slug,
+				Status: status,
+				Kind:   kind,
+			})
+			trackIDs = append(trackIDs, "")
+		}
 	}
 
 	// Sessions: include sessions with meaningful activity (>5 events and

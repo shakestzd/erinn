@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>Roborev: arch nodes missing from graph API/DSL and dead-letter paths need normalization</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="bug-cd10350e"
+             data-type="bug"
+             data-status="in-progress"
+             data-priority="medium"
+             data-created="2026-06-23T22:51:54.773781"
+             data-updated="2026-06-23T22:52:30.507475" data-agent-assigned="claude-code" data-track-id="trk-08dcbb33" data-created-by-agent="claude-code" data-created-by-model="claude-opus-4-8[1m]" data-created-by-role="codex" data-created-by-cli-version="0.64.2-2-g62a60aac3">
+
+        <header>
+            <h1>Roborev: arch nodes missing from graph API/DSL and dead-letter paths need normalization</h1>
+            <div class="metadata">
+                <span class="badge status-in-progress">In Progress</span>
+                <span class="badge priority-medium">Medium Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="relates_to">
+                <h3>Relates To:</h3>
+                <ul>
+                    <li><a href="../plans/plan-243e8713.html" data-relationship="relates_to" data-since="2026-06-23T22:52:02.482838">Plan: Rich work graph — commit, file, and agent lineage nodes with unified provenance view</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="caused_by">
+                <h3>Caused By:</h3>
+                <ul>
+                    <li><a href="../features/feat-02158923.html" data-relationship="caused_by" data-since="2026-06-23T22:52:02.585869">Architecture memory as an HTML ledger with lineage edges</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="implemented_in">
+                <h3>Implemented In:</h3>
+                <ul>
+                    <li><a href="../sessions/33134325-8d56-4612-8c81-0a39fbce9b72.html" data-relationship="implemented_in" data-since="2026-06-23T22:52:30.507273">session 33134325-8d56-4612-8c81-0a39fbce9b72</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-08dcbb33.html" data-relationship="part_of" data-since="2026-06-23T22:51:54.842005">trk-08dcbb33</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>Fix Roborev jobs 502/504/506/507. Remaining actionable issues: normalize dead-lettered artifact paths before git status resolution; include arch_cards as graph nodes when arch edges are emitted; add arch/architecture node type support to the graph query DSL. Close the superseded dead-letter review jobs once verified.</p>
+        </section>
+    </article>
+</body>
+</html>

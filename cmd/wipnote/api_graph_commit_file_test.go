@@ -129,6 +129,42 @@ func TestLoadGraphNodes_FileDeduplication(t *testing.T) {
 	}
 }
 
+func TestLoadGraphNodes_ArchNodesReturned(t *testing.T) {
+	db := openGraphTestDB(t)
+
+	_, err := db.Exec(`INSERT INTO arch_cards (slug, kind, created_by, retired, body)
+		VALUES ('auth-learning', 'decision', 'agent', 0, 'Prefer explicit auth boundaries.')`)
+	if err != nil {
+		t.Fatalf("insert arch card: %v", err)
+	}
+
+	nodes, _, err := loadGraphNodes(db)
+	if err != nil {
+		t.Fatalf("loadGraphNodes: %v", err)
+	}
+
+	for _, n := range nodes {
+		if n.ID != "arch:auth-learning" {
+			continue
+		}
+		if n.Type != "arch" {
+			t.Fatalf("arch node type = %q, want arch", n.Type)
+		}
+		if n.Title != "auth-learning" {
+			t.Fatalf("arch node title = %q, want auth-learning", n.Title)
+		}
+		if n.Status != "active" {
+			t.Fatalf("arch node status = %q, want active", n.Status)
+		}
+		if n.Kind != "decision" {
+			t.Fatalf("arch node kind = %q, want decision", n.Kind)
+		}
+		return
+	}
+
+	t.Fatal("expected arch:auth-learning node in graph nodes")
+}
+
 // TestLoadCommitEdges_CommittedFor verifies that commit->feature edges
 // (committed_for) are returned for commits with a feature_id.
 func TestLoadCommitEdges_CommittedFor(t *testing.T) {

@@ -150,6 +150,65 @@ func TestExtractArchive_RejectsPathTraversal(t *testing.T) {
 	}
 }
 
+// TestAtomicInstallBinary verifies the sibling-temp + rename install path used
+// by atomicReplace. It confirms:
+//   - Correct content is written to the destination.
+//   - Destination is executable (0755).
+//   - Renaming over an existing file succeeds (simulates the "busy binary" case
+//     on Linux where O_TRUNC would return ETXTBSY).
+//   - No leftover .wipnote-upgrade-*.tmp turd in the install dir.
+func TestAtomicInstallBinary(t *testing.T) {
+	srcDir := t.TempDir()
+	installDir := t.TempDir()
+
+	// Write a fake binary in a separate source directory.
+	src := filepath.Join(srcDir, "wipnote")
+	wantContent := []byte("fake-binary-content-v2")
+	if err := os.WriteFile(src, wantContent, 0o755); err != nil {
+		t.Fatalf("write src: %v", err)
+	}
+
+	dest := filepath.Join(installDir, "wipnote")
+
+	// Pre-populate dest so rename-over-existing is exercised.
+	if err := os.WriteFile(dest, []byte("old-content"), 0o755); err != nil {
+		t.Fatalf("write old dest: %v", err)
+	}
+
+	if err := atomicInstallBinary(src, dest); err != nil {
+		t.Fatalf("atomicInstallBinary: %v", err)
+	}
+
+	// Content must be the new binary.
+	got, err := os.ReadFile(dest)
+	if err != nil {
+		t.Fatalf("read dest: %v", err)
+	}
+	if string(got) != string(wantContent) {
+		t.Errorf("dest content = %q, want %q", got, wantContent)
+	}
+
+	// Must be executable.
+	info, err := os.Stat(dest)
+	if err != nil {
+		t.Fatalf("stat dest: %v", err)
+	}
+	if info.Mode().Perm()&0o111 == 0 {
+		t.Errorf("dest not executable: mode=%o", info.Mode().Perm())
+	}
+
+	// No .wipnote-upgrade-*.tmp turds must be left behind.
+	entries, err := os.ReadDir(installDir)
+	if err != nil {
+		t.Fatalf("readdir: %v", err)
+	}
+	for _, e := range entries {
+		if e.Name() != "wipnote" {
+			t.Errorf("unexpected leftover file in install dir: %s", e.Name())
+		}
+	}
+}
+
 // TestCopyDirRecursive_PreservesModes ensures that the cross-device fallback
 // in installPluginTree preserves executable permissions (e.g. for hooks/bin/*.sh).
 func TestCopyDirRecursive_PreservesModes(t *testing.T) {

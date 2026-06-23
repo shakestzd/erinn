@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>GH#125: work-item gate mismatches harness and wipnote session ids</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="bug-705c7525"
+             data-type="bug"
+             data-status="todo"
+             data-priority="high"
+             data-created="2026-06-23T18:06:47.581141"
+             data-updated="2026-06-23T18:06:47.591241" data-agent-assigned="claude-code" data-track-id="trk-08dcbb33" data-created-by-agent="claude-code" data-created-by-model="claude-opus-4-8[1m]" data-created-by-role="codex" data-created-by-cli-version="0.64.0-17-gac4898ffa">
+
+        <header>
+            <h1>GH#125: work-item gate mismatches harness and wipnote session ids</h1>
+            <div class="metadata">
+                <span class="badge status-todo">Todo</span>
+                <span class="badge priority-high">High Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-08dcbb33.html" data-relationship="part_of" data-since="2026-06-23T18:06:47.591074">trk-08dcbb33</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-steps>
+            <h3>Implementation Steps</h3>
+            <ol>
+                <li data-completed="false" data-step-id="step-bug-705c7525-0" data-agent="claude-code" data-created-by-agent="claude-code">⏳ Reproduce mismatched WIPNOTE_SESSION_ID versus harness session id claim lookup</li>
+                <li data-completed="false" data-step-id="step-bug-705c7525-1" data-agent="claude-code" data-created-by-agent="claude-code">⏳ Reconcile claim start and PreToolUse lookup for root and child sessions</li>
+                <li data-completed="false" data-step-id="step-bug-705c7525-2" data-agent="claude-code" data-created-by-agent="claude-code">⏳ Clarify research-gate messaging about which tool evidence satisfies it</li>
+            </ol>
+        </section>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>GitHub #125: PreToolUse work-item gate can block edits after feature start because feature start records the claim under WIPNOTE_SESSION_ID while the hook checks the harness session id. The same issue can strand delegated subagents whose session does not own the orchestrator claim, and the research-gate message is unclear that only harness Read/Grep/Glob evidence counts. Fix should reconcile harness and wipnote session ids, handle child/subagent ownership, and clarify the gate message. Source: https://github.com/shakestzd/wipnote/issues/125</p>
+        </section>
+    </article>
+</body>
+</html>

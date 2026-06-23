@@ -305,7 +305,8 @@ func loadGraphNodes(database *sql.DB) ([]graphNode, []string, error) {
 	arows, aerr := database.Query(`
 		SELECT slug, COALESCE(kind, ''), CASE retired WHEN 1 THEN 'retired' ELSE 'active' END
 		FROM arch_cards
-		ORDER BY COALESCE(updated_at, created_at, indexed_at) DESC, slug`)
+		ORDER BY COALESCE(updated_at, created_at, indexed_at) DESC, slug
+		LIMIT 500`)
 	if aerr == nil {
 		defer arows.Close()
 		for arows.Next() {

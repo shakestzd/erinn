@@ -286,6 +286,24 @@ func TestFailIfPendingDeferredArtifactCommits(t *testing.T) {
 	}
 }
 
+func TestFailIfPendingDeferredArtifactCommits_NormalizesWindowsPaths(t *testing.T) {
+	err := failIfPendingDeferredArtifactCommitsWithIntentForTest(
+		t,
+		commitqueue.Intent{
+			RelPaths:   []string{`.wipnote\features\feat-win.html`},
+			Message:    "wipnote: complete feat-win",
+			WorkItemID: "feat-win",
+			Action:     "complete",
+		},
+	)
+	if err == nil {
+		t.Fatal("expected Windows-style deferred artifact path to block the gate")
+	}
+	if !strings.Contains(err.Error(), "feat-win") {
+		t.Fatalf("error should mention the pending work item, got: %v", err)
+	}
+}
+
 func TestCheckCmd_GateFailsWhenDeferredArtifactIntentPending(t *testing.T) {
 	projectRoot := setupGateTestProject(t)
 	tmpOutbox := t.TempDir()
@@ -326,6 +344,27 @@ func TestCheckCmd_GateFailsWhenDeferredArtifactIntentPending(t *testing.T) {
 	if !strings.Contains(err.Error(), "wipnote commit-queue flush") {
 		t.Fatalf("error should suggest flush remediation, got: %v", err)
 	}
+}
+
+func failIfPendingDeferredArtifactCommitsWithIntentForTest(t *testing.T, intent commitqueue.Intent) error {
+	t.Helper()
+	projectRoot := setupGateTestProject(t)
+	tmpOutbox := t.TempDir()
+	origOutboxPath := commitOutboxPath
+	commitOutboxPath = func(string) (string, error) {
+		return filepath.Join(tmpOutbox, "commit-outbox.ndjson"), nil
+	}
+	t.Cleanup(func() { commitOutboxPath = origOutboxPath })
+
+	ob, err := openCommitOutbox(projectRoot)
+	if err != nil {
+		t.Fatalf("openCommitOutbox: %v", err)
+	}
+	intent.RepoRoot = projectRoot
+	if err := ob.Append(intent); err != nil {
+		t.Fatalf("Append: %v", err)
+	}
+	return failIfPendingDeferredArtifactCommits(projectRoot)
 }
 
 func TestCheckCompletionGateRecord_AcceptsMatchingSessionAfterRecheck(t *testing.T) {

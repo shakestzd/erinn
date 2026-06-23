@@ -6,6 +6,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 	"syscall"
 )
 
@@ -99,6 +100,54 @@ func (o *Outbox) Append(i Intent) error {
 		}
 		return appendLineLocked(o.path, line)
 	})
+}
+
+// AppendCoalescingByRelPath records an intent after dropping older pending
+// intents for the same repo-relative artifact path. Deferred work-item
+// transitions rewrite one canonical HTML file in place, so flushing an older
+// "create" intent after a later "complete" write would commit the latest file
+// contents with a stale transition message. Coalescing keeps the queue honest:
+// the newest transition is the one that will be committed.
+func (o *Outbox) AppendCoalescingByRelPath(i Intent) error {
+	if err := i.Validate(); err != nil {
+		return err
+	}
+	return o.withLock(func() error {
+		pending, err := readIntents(o.path)
+		if err != nil {
+			return err
+		}
+		keys := intentRelPathKeys(i)
+		kept := pending[:0]
+		for _, existing := range pending {
+			if !intentSharesRelPath(existing, keys) {
+				kept = append(kept, existing)
+			}
+		}
+		kept = append(kept, i)
+		return o.rewrite(kept)
+	})
+}
+
+func intentRelPathKeys(i Intent) map[string]struct{} {
+	keys := make(map[string]struct{}, len(i.RelPaths))
+	for _, rel := range i.RelPaths {
+		keys[normaliseIntentRelPath(rel)] = struct{}{}
+	}
+	return keys
+}
+
+func intentSharesRelPath(i Intent, keys map[string]struct{}) bool {
+	for _, rel := range i.RelPaths {
+		if _, ok := keys[normaliseIntentRelPath(rel)]; ok {
+			return true
+		}
+	}
+	return false
+}
+
+func normaliseIntentRelPath(rel string) string {
+	return strings.ReplaceAll(filepath.ToSlash(filepath.Clean(rel)), "\\", "/")
 }
 
 // Pending reads and returns all intents currently queued, in FIFO order. A

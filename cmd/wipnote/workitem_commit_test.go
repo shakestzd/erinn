@@ -626,6 +626,55 @@ func TestPersistWorkitemArtifactTransition_DeferRecordsIntentWithoutGitCommit(t 
 	}
 }
 
+func TestPersistWorkitemArtifactTransition_DeferCoalescesLatestIntent(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("/tmp", "wipnote-defer-coalesce-*")
+	if err != nil {
+		t.Fatalf("MkdirTemp /tmp: %v", err)
+	}
+	t.Cleanup(func() { os.RemoveAll(tmpDir) })
+
+	repoRoot := setupWorktreeGitRepoIn(t, tmpDir)
+	gitMustCommitInitial(t, repoRoot)
+	wipnoteDir := filepath.Join(repoRoot, ".wipnote")
+	if err := os.MkdirAll(filepath.Join(wipnoteDir, "features"), 0o755); err != nil {
+		t.Fatalf("mkdir features: %v", err)
+	}
+
+	const featureID = "feat-defer-coalesce"
+	featureHTML := filepath.Join(wipnoteDir, "features", featureID+".html")
+	if err := os.WriteFile(featureHTML, []byte(`<article id="`+featureID+`" data-status="done"></article>`), 0o644); err != nil {
+		t.Fatalf("write feature HTML: %v", err)
+	}
+
+	origOutboxPath := commitOutboxPath
+	commitOutboxPath = func(string) (string, error) {
+		return filepath.Join(tmpDir, "commit-outbox.ndjson"), nil
+	}
+	t.Cleanup(func() { commitOutboxPath = origOutboxPath })
+	t.Setenv("WIPNOTE_ARTIFACT_COMMIT_POLICY", "defer")
+
+	for _, action := range []string{"create", "start", "complete"} {
+		if err := persistWorkitemArtifactTransition(wipnoteDir, "feature", featureID, action); err != nil {
+			t.Fatalf("persistWorkitemArtifactTransition(%s): %v", action, err)
+		}
+	}
+
+	ob, err := openCommitOutbox(repoRoot)
+	if err != nil {
+		t.Fatalf("openCommitOutbox: %v", err)
+	}
+	pending, err := ob.Pending()
+	if err != nil {
+		t.Fatalf("Pending: %v", err)
+	}
+	if len(pending) != 1 {
+		t.Fatalf("expected coalesced 1 pending intent, got %d: %#v", len(pending), pending)
+	}
+	if pending[0].Action != "complete" || pending[0].Message != "wipnote: complete "+featureID {
+		t.Fatalf("latest intent not preserved: action=%q message=%q", pending[0].Action, pending[0].Message)
+	}
+}
+
 // TestShouldAutocommitWorkitemArtifact verifies the allowlist that gates the
 // auto-commit call site in wiSetStatusWithAgent (workitem.go). Plans are
 // excluded because they use commitPlanChange (plan_yaml_cmds.go:42-90) to

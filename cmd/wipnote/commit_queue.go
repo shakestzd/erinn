@@ -7,8 +7,8 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/shakestzd/wipnote/internal/commitqueue"
 	"github.com/shakestzd/wipnote/core/storage"
+	"github.com/shakestzd/wipnote/internal/commitqueue"
 )
 
 // commitOutboxPath returns the absolute path to the per-repo commit outbox.
@@ -43,7 +43,7 @@ func recordCommitIntent(repoRoot string, relPaths []string, message, workItemID,
 	if err != nil {
 		return err
 	}
-	return ob.Append(commitqueue.Intent{
+	return ob.AppendCoalescingByRelPath(commitqueue.Intent{
 		RepoRoot:   repoRoot,
 		RelPaths:   relPaths,
 		Message:    message,

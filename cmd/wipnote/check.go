@@ -174,6 +174,7 @@ func failIfPendingDeferredArtifactCommits(projectRoot string) error {
 
 func isWorkitemArtifactCommitIntent(intent commitqueue.Intent) bool {
 	for _, rel := range intent.RelPaths {
+		rel = strings.ReplaceAll(filepath.ToSlash(rel), "\\", "/")
 		if strings.HasPrefix(rel, ".wipnote/features/") ||
 			strings.HasPrefix(rel, ".wipnote/bugs/") ||
 			strings.HasPrefix(rel, ".wipnote/spikes/") {

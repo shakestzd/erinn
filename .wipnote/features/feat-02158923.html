@@ -4,22 +4,22 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="wipnote-version" content="1.0">
-    <title>Arch cards as causal lineage nodes with YAML canonical storage</title>
+    <title>Architecture memory as an HTML ledger with lineage edges</title>
     <link rel="stylesheet" href="../styles.css">
 </head>
 <body>
     <article id="feat-02158923"
              data-type="feature"
              data-status="in-progress"
-             data-priority="medium"
+             data-priority="high"
              data-created="2026-06-23T22:17:29.203831"
-             data-updated="2026-06-23T22:18:14.612836" data-agent-assigned="claude-code" data-track-id="trk-08dcbb33" data-created-by-agent="claude-code" data-created-by-model="claude-opus-4-8[1m]" data-created-by-role="codex" data-created-by-cli-version="0.64.2-2-g62a60aac3">
+             data-updated="2026-06-23T22:26:46.740421" data-agent-assigned="claude-code" data-track-id="trk-08dcbb33" data-created-by-agent="claude-code" data-created-by-model="claude-opus-4-8[1m]" data-created-by-role="codex" data-created-by-cli-version="0.64.2-2-g62a60aac3">
 
         <header>
-            <h1>Arch cards as causal lineage nodes with YAML canonical storage</h1>
+            <h1>Architecture memory as an HTML ledger with lineage edges</h1>
             <div class="metadata">
                 <span class="badge status-in-progress">In Progress</span>
-                <span class="badge priority-medium">Medium Priority</span>
+                <span class="badge priority-high">High Priority</span>
             </div>
         </header>
 
@@ -46,7 +46,11 @@
 
         <section data-content>
             <h3>Description</h3>
-            <p>Make architectural memory part of the causal lineage graph instead of a side-channel. Migrate arch cards from Markdown+frontmatter toward YAML canonical artifacts, preserve compatibility for existing .md cards, reindex card-work-item relationships into graph_edges, and surface arch-card nodes/edges in lineage/graph APIs.</p>
+            <p>Replace scattered architecture-card files with a canonical HTML ledger table for architecture memory. Each row is a structured arch fact with data attributes for id, kind, status, paths, work-item links, verification, timestamps, and body. Reindex rows into arch_cards and graph_edges so architecture memory participates in wipnote lineage instead of remaining a side channel. Preserve compatibility with existing .wipnote/arch/*.md during migration.
+Acceptance Criteria
+New arch cards can be written to the HTML ledger; legacy md cards still reindex; graph_edges include arch learned_from/has_learning relationships; wipnote lineage for a linked work item can traverse to arch facts.
+Test Strategy
+Focused arch add/reindex/lineage tests covering HTML ledger rows, legacy md compatibility, and graph_edges output.</p>
         </section>
     </article>
 </body>

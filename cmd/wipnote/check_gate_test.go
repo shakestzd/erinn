@@ -2,6 +2,7 @@ package main
 
 import (
 	"database/sql"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -304,6 +305,105 @@ func TestFailIfPendingDeferredArtifactCommits_NormalizesWindowsPaths(t *testing.
 	}
 }
 
+func TestFailIfPendingDeferredArtifactCommits_BlocksDeadLetteredArtifactIntent(t *testing.T) {
+	projectRoot := setupGateTestProject(t)
+	tmpOutbox := t.TempDir()
+	origOutboxPath := commitOutboxPath
+	commitOutboxPath = func(string) (string, error) {
+		return filepath.Join(tmpOutbox, "commit-outbox.ndjson"), nil
+	}
+	t.Cleanup(func() { commitOutboxPath = origOutboxPath })
+
+	ob, err := openCommitOutbox(projectRoot)
+	if err != nil {
+		t.Fatalf("openCommitOutbox: %v", err)
+	}
+	if err := ob.Append(commitqueue.Intent{
+		RepoRoot:   projectRoot,
+		RelPaths:   []string{".wipnote/features/feat-dead.html"},
+		Message:    "wipnote: complete feat-dead",
+		WorkItemID: "feat-dead",
+		Action:     "complete",
+	}); err != nil {
+		t.Fatalf("Append: %v", err)
+	}
+	res, err := ob.Flush(func(commitqueue.Intent) error {
+		return fmt.Errorf("forced failure")
+	}, 1)
+	if err != nil {
+		t.Fatalf("Flush: %v", err)
+	}
+	if res.DeadLettered != 1 {
+		t.Fatalf("DeadLettered = %d, want 1", res.DeadLettered)
+	}
+
+	err = failIfPendingDeferredArtifactCommits(projectRoot)
+	if err == nil {
+		t.Fatal("expected dead-lettered deferred artifact commit to block the gate")
+	}
+	if !strings.Contains(err.Error(), "feat-dead") {
+		t.Fatalf("error should mention the dead-lettered work item, got: %v", err)
+	}
+	if strings.Contains(err.Error(), "commit-queue flush") {
+		t.Fatalf("dead-letter-only error should not suggest flush remediation, got: %v", err)
+	}
+	if !strings.Contains(err.Error(), "clear the dead-letter entry") {
+		t.Fatalf("dead-letter error should explain dead-letter remediation, got: %v", err)
+	}
+}
+
+func TestFailIfPendingDeferredArtifactCommits_IgnoresCleanDeadLetteredArtifactIntent(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("/tmp", "wipnote-deadletter-clean-*")
+	if err != nil {
+		t.Fatalf("MkdirTemp /tmp: %v", err)
+	}
+	t.Cleanup(func() { os.RemoveAll(tmpDir) })
+
+	projectRoot := setupWorktreeGitRepoIn(t, tmpDir)
+	wipnoteDir := filepath.Join(projectRoot, ".wipnote")
+	if err := os.MkdirAll(filepath.Join(wipnoteDir, "features"), 0o755); err != nil {
+		t.Fatalf("mkdir features: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(wipnoteDir, "features", "feat-clean.html"), []byte(`<article id="feat-clean"></article>`), 0o644); err != nil {
+		t.Fatalf("write artifact: %v", err)
+	}
+	gitMustCommitInitial(t, projectRoot)
+
+	tmpOutbox := t.TempDir()
+	origOutboxPath := commitOutboxPath
+	commitOutboxPath = func(string) (string, error) {
+		return filepath.Join(tmpOutbox, "commit-outbox.ndjson"), nil
+	}
+	t.Cleanup(func() { commitOutboxPath = origOutboxPath })
+
+	ob, err := openCommitOutbox(projectRoot)
+	if err != nil {
+		t.Fatalf("openCommitOutbox: %v", err)
+	}
+	if err := ob.Append(commitqueue.Intent{
+		RepoRoot:   projectRoot,
+		RelPaths:   []string{".wipnote/features/feat-clean.html"},
+		Message:    "wipnote: complete feat-clean",
+		WorkItemID: "feat-clean",
+		Action:     "complete",
+	}); err != nil {
+		t.Fatalf("Append: %v", err)
+	}
+	res, err := ob.Flush(func(commitqueue.Intent) error {
+		return fmt.Errorf("forced failure")
+	}, 1)
+	if err != nil {
+		t.Fatalf("Flush: %v", err)
+	}
+	if res.DeadLettered != 1 {
+		t.Fatalf("DeadLettered = %d, want 1", res.DeadLettered)
+	}
+
+	if err := failIfPendingDeferredArtifactCommits(projectRoot); err != nil {
+		t.Fatalf("clean dead-lettered artifact should not block the gate: %v", err)
+	}
+}
+
 func TestCheckCmd_GateFailsWhenDeferredArtifactIntentPending(t *testing.T) {
 	projectRoot := setupGateTestProject(t)
 	tmpOutbox := t.TempDir()
@@ -338,7 +438,7 @@ func TestCheckCmd_GateFailsWhenDeferredArtifactIntentPending(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected --gate to fail when deferred artifact intents are pending")
 	}
-	if !strings.Contains(err.Error(), "quality gate blocked by 1 pending deferred work-item artifact commit intent") {
+	if !strings.Contains(err.Error(), "quality gate blocked by 1 unresolved deferred work-item artifact commit intent") {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	if !strings.Contains(err.Error(), "wipnote commit-queue flush") {

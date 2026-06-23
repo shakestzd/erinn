@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -149,12 +150,24 @@ func failIfPendingDeferredArtifactCommits(projectRoot string) error {
 	if err != nil {
 		return err
 	}
-	var workItemIntents []commitqueue.Intent
+	deadLettered, err := ob.DeadLettered()
+	if err != nil {
+		return err
+	}
+	var pendingWorkItemIntents []commitqueue.Intent
 	for _, intent := range pending {
 		if isWorkitemArtifactCommitIntent(intent) {
-			workItemIntents = append(workItemIntents, intent)
+			pendingWorkItemIntents = append(pendingWorkItemIntents, intent)
 		}
 	}
+	var deadLetteredWorkItemIntents []commitqueue.Intent
+	for _, intent := range deadLettered {
+		if isWorkitemArtifactCommitIntent(intent) && !deadLetteredArtifactIntentResolved(projectRoot, intent) {
+			deadLetteredWorkItemIntents = append(deadLetteredWorkItemIntents, intent)
+		}
+	}
+	workItemIntents := append([]commitqueue.Intent{}, pendingWorkItemIntents...)
+	workItemIntents = append(workItemIntents, deadLetteredWorkItemIntents...)
 	if len(workItemIntents) == 0 {
 		return nil
 	}
@@ -166,9 +179,16 @@ func failIfPendingDeferredArtifactCommits(projectRoot string) error {
 		}
 		details = append(details, strings.Join(intent.RelPaths, ", "))
 	}
+	var remediation []string
+	if len(pendingWorkItemIntents) > 0 {
+		remediation = append(remediation, "run `wipnote commit-queue flush` for pending intents")
+	}
+	if len(deadLetteredWorkItemIntents) > 0 {
+		remediation = append(remediation, "manually commit or revert the dead-lettered artifact changes, then clear the dead-letter entry")
+	}
 	return fmt.Errorf(
-		"quality gate blocked by %d pending deferred work-item artifact commit intent(s): %s\nResolve by running `wipnote commit-queue flush`, or commit the artifact changes together with the work item.",
-		len(workItemIntents), strings.Join(details, ", "),
+		"quality gate blocked by %d unresolved deferred work-item artifact commit intent(s): %s\nResolve: %s.",
+		len(workItemIntents), strings.Join(details, ", "), strings.Join(remediation, "; "),
 	)
 }
 
@@ -182,6 +202,19 @@ func isWorkitemArtifactCommitIntent(intent commitqueue.Intent) bool {
 		}
 	}
 	return false
+}
+
+func deadLetteredArtifactIntentResolved(projectRoot string, intent commitqueue.Intent) bool {
+	if !isGitRepo(projectRoot) {
+		return false
+	}
+	for _, rel := range intent.RelPaths {
+		out, err := exec.Command("git", "-C", projectRoot, "status", "--porcelain", "--", rel).Output()
+		if err != nil || len(strings.TrimSpace(string(out))) > 0 {
+			return false
+		}
+	}
+	return true
 }
 
 // checkAcceptedAdvisoryCmd surfaces work items that were completed via the

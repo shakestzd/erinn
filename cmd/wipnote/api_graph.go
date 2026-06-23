@@ -303,7 +303,8 @@ func loadGraphNodes(database *sql.DB) ([]graphNode, []string, error) {
 
 	// Architecture memory cards from arch_cards.
 	arows, aerr := database.Query(`
-		SELECT slug, COALESCE(kind, ''), CASE retired WHEN 1 THEN 'retired' ELSE 'active' END
+		SELECT slug, COALESCE(kind, ''),
+			CASE WHEN retired = 1 OR COALESCE(superseded_by, '') != '' THEN 'retired' ELSE 'active' END
 		FROM arch_cards
 		ORDER BY COALESCE(updated_at, created_at, indexed_at) DESC, slug
 		LIMIT 500`)

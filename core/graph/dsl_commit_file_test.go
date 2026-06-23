@@ -434,8 +434,8 @@ func TestExecuteDSL_ArchFilters(t *testing.T) {
 		t.Fatalf("seed active arch card: %v", err)
 	}
 	_, err = database.Exec(
-		`INSERT INTO arch_cards (slug, kind, created_by, retired, body) VALUES (?, ?, ?, ?, ?)`,
-		"old-learning", "hazard", "reviewer", 1, "This guidance is retired.",
+		`INSERT INTO arch_cards (slug, kind, created_by, superseded_by, retired, body) VALUES (?, ?, ?, ?, ?, ?)`,
+		"old-learning", "hazard", "reviewer", "new-learning", 0, "This guidance is retired.",
 	)
 	if err != nil {
 		t.Fatalf("seed retired arch card: %v", err)

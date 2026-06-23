@@ -164,6 +164,41 @@ func TestReindexArchCards_ImportedYAMLAndLineageEdges(t *testing.T) {
 	}
 }
 
+func TestReindexArchCards_SpecPrefixLineageEdges(t *testing.T) {
+	dir := t.TempDir()
+	card := &corearch.Card{
+		Name:      "spec-learning",
+		Kind:      corearch.KindDecision,
+		CreatedBy: "agent",
+		Links:     []string{"spec-12345678"},
+		Body:      "Spec-linked learning should participate in lineage.",
+	}
+	if err := corearch.WriteLedger(filepath.Join(dir, corearch.LedgerFilename), []*corearch.Card{card}); err != nil {
+		t.Fatalf("write architecture ledger: %v", err)
+	}
+
+	db, err := dbpkg.Open(":memory:")
+	if err != nil {
+		t.Fatalf("open db: %v", err)
+	}
+	defer db.Close()
+
+	total, upserted, errs := reindexArchCards(db, dir, false)
+	if total != 1 || upserted != 1 || errs != 0 {
+		t.Fatalf("reindex = (%d,%d,%d), want (1,1,0)", total, upserted, errs)
+	}
+
+	var toType string
+	if err := db.QueryRow(`SELECT to_node_type FROM graph_edges WHERE from_node_id = ? AND to_node_id = ?`,
+		corearch.ArchNodeID("spec-learning"), "spec-12345678",
+	).Scan(&toType); err != nil {
+		t.Fatalf("query spec graph edge: %v", err)
+	}
+	if toType != "spec" {
+		t.Fatalf("spec edge to_node_type = %q, want spec", toType)
+	}
+}
+
 func TestReindexArchCards_HTMLLedgerRow(t *testing.T) {
 	dir := t.TempDir()
 	card := &corearch.Card{

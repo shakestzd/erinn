@@ -1,9 +1,11 @@
 package arch
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 )
@@ -544,6 +546,44 @@ func TestStore_Update_LegacyCardMigratesToLedger(t *testing.T) {
 	}
 	if _, err := os.Stat(legacyPath); !os.IsNotExist(err) {
 		t.Fatalf("legacy markdown card should be removed, stat err=%v", err)
+	}
+}
+
+func TestStore_CreateConcurrentLedgerWritesPreserveCards(t *testing.T) {
+	dir := t.TempDir()
+	store, err := NewStore(dir)
+	if err != nil {
+		t.Fatalf("NewStore: %v", err)
+	}
+
+	const count = 12
+	var wg sync.WaitGroup
+	errs := make(chan error, count)
+	for i := 0; i < count; i++ {
+		i := i
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			card := validCard()
+			card.Name = fmt.Sprintf("card-%02d", i)
+			card.Paths = []string{fmt.Sprintf("internal/card-%02d/**", i)}
+			errs <- store.Create(card)
+		}()
+	}
+	wg.Wait()
+	close(errs)
+	for err := range errs {
+		if err != nil {
+			t.Fatalf("Create: %v", err)
+		}
+	}
+
+	cards, err := ReadLedger(filepath.Join(dir, LedgerFilename))
+	if err != nil {
+		t.Fatalf("ReadLedger: %v", err)
+	}
+	if len(cards) != count {
+		t.Fatalf("ledger card count = %d, want %d", len(cards), count)
 	}
 }
 

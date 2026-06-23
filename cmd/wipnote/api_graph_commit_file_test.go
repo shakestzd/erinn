@@ -165,6 +165,31 @@ func TestLoadGraphNodes_ArchNodesReturned(t *testing.T) {
 	t.Fatal("expected arch:auth-learning node in graph nodes")
 }
 
+func TestLoadGraphNodes_SupersededArchNodeIsRetired(t *testing.T) {
+	db := openGraphTestDB(t)
+
+	_, err := db.Exec(`INSERT INTO arch_cards (slug, kind, created_by, superseded_by, retired, body)
+		VALUES ('old-learning', 'decision', 'agent', 'new-learning', 0, 'Older guidance.')`)
+	if err != nil {
+		t.Fatalf("insert arch card: %v", err)
+	}
+
+	nodes, _, err := loadGraphNodes(db)
+	if err != nil {
+		t.Fatalf("loadGraphNodes: %v", err)
+	}
+
+	for _, n := range nodes {
+		if n.ID == "arch:old-learning" {
+			if n.Status != "retired" {
+				t.Fatalf("superseded arch status = %q, want retired", n.Status)
+			}
+			return
+		}
+	}
+	t.Fatal("expected arch:old-learning node in graph nodes")
+}
+
 // TestLoadCommitEdges_CommittedFor verifies that commit->feature edges
 // (committed_for) are returned for commits with a feature_id.
 func TestLoadCommitEdges_CommittedFor(t *testing.T) {

@@ -210,7 +210,7 @@ func archLinkNodeType(id string) string {
 		return "track"
 	case strings.HasPrefix(id, "plan-"):
 		return "plan"
-	case strings.HasPrefix(id, "spc-"):
+	case strings.HasPrefix(id, "spec-"), strings.HasPrefix(id, "spc-"):
 		return "spec"
 	default:
 		return ""

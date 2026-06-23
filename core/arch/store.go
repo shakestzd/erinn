@@ -7,6 +7,8 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"sync"
+	"syscall"
 	"time"
 )
 
@@ -14,6 +16,8 @@ const (
 	importYAMLCardExt = ".yaml"
 	legacyMDCardExt   = ".md"
 )
+
+var ledgerWriteMu sync.Map
 
 // Store manages import-compatible arch cards on disk under <wipnoteDir>/arch/.
 type Store struct {
@@ -262,6 +266,9 @@ func (s *Store) Deprecate(slug, supersededBy string) error {
 // write upserts a card into the canonical HTML ledger and removes any migrated
 // legacy/import file when previousPath points at one.
 func (s *Store) write(card *Card, previousPath string) error {
+	release := lockLedgerForWrite(s.ledgerPath)
+	defer release()
+
 	ledgerCards, err := s.ledgerCards()
 	if err != nil {
 		return err
@@ -276,6 +283,27 @@ func (s *Store) write(card *Card, previousPath string) error {
 		}
 	}
 	return nil
+}
+
+func lockLedgerForWrite(ledgerPath string) func() {
+	muVal, _ := ledgerWriteMu.LoadOrStore(ledgerPath, &sync.Mutex{})
+	mu := muVal.(*sync.Mutex)
+	mu.Lock()
+
+	lockPath := ledgerPath + ".lock"
+	f, err := os.OpenFile(lockPath, os.O_CREATE|os.O_RDWR, 0o644)
+	if err != nil {
+		return mu.Unlock
+	}
+	if err := syscall.Flock(int(f.Fd()), syscall.LOCK_EX); err != nil {
+		_ = f.Close()
+		return mu.Unlock
+	}
+	return func() {
+		_ = syscall.Flock(int(f.Fd()), syscall.LOCK_UN)
+		_ = f.Close()
+		mu.Unlock()
+	}
 }
 
 // ValidateAll parses and validates every card in the store.

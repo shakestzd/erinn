@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>Disjointed codex launch banners — 4 independently-sized launchtui boxes at inconsistent widths</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="bug-2a6a8076"
+             data-type="bug"
+             data-status="todo"
+             data-priority="medium"
+             data-created="2026-06-23T18:13:41.653349"
+             data-updated="2026-06-23T18:13:41.673822" data-agent-assigned="claude-code" data-track-id="trk-6a1f5362" data-created-by-agent="claude-code" data-created-by-model="claude-opus-4-8[1m]" data-created-by-cli-version="0.64.0-17-gac4898ffa">
+
+        <header>
+            <h1>Disjointed codex launch banners — 4 independently-sized launchtui boxes at inconsistent widths</h1>
+            <div class="metadata">
+                <span class="badge status-todo">Todo</span>
+                <span class="badge priority-medium">Medium Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-6a1f5362.html" data-relationship="part_of" data-since="2026-06-23T18:13:41.673517">trk-6a1f5362</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>wipnote codex --dev prints 4 separate launchtui.BannerDetail boxes — Preparing Codex CLI dev mode (refreshCodexPluginCacheBestEffort), Codex wipnote setup (printCodexSetupSummary), Launching Codex CLI with wipnote context (printCodexLaunchBanner), Codex launch notice (renderCodexWarningBanner) in cmd/wipnote/codex.go — each auto-sized to its content, so they stack at wildly different widths and look disjointed. Same family as bug-62b4d0cf (claude launch UI unification), which was never applied to codex.go. Fix: render all codex launch banners at one consistent terminal-aware width and/or fold the preparing/setup/launching boxes into one coherent banner.</p>
+        </section>
+    </article>
+</body>
+</html>

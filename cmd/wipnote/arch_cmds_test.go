@@ -50,7 +50,7 @@ func runArchCapture(t *testing.T, args ...string) (string, error) {
 }
 
 func TestArchAdd_HappyPath(t *testing.T) {
-	setupArchTestDir(t)
+	dir := setupArchTestDir(t)
 
 	err := runArch(t,
 		"add", "auth-invariant",
@@ -60,6 +60,9 @@ func TestArchAdd_HappyPath(t *testing.T) {
 	)
 	if err != nil {
 		t.Fatalf("arch add: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, ".wipnote", corearch.LedgerFilename)); err != nil {
+		t.Fatalf("expected architecture ledger: %v", err)
 	}
 }
 
@@ -271,11 +274,11 @@ func TestArchVerify_RePinsHead(t *testing.T) {
 		t.Fatalf("arch verify: %v", err)
 	}
 
-	// The card should exist (file readable).
+	// The ledger should exist and remain readable after verify.
 	wipnoteDir := filepath.Join(dir, ".wipnote")
-	cardPath := filepath.Join(wipnoteDir, "arch", "verify-test.md")
-	if _, err := os.Stat(cardPath); err != nil {
-		t.Fatalf("card file missing after verify: %v", err)
+	ledgerPath := filepath.Join(wipnoteDir, corearch.LedgerFilename)
+	if _, err := os.Stat(ledgerPath); err != nil {
+		t.Fatalf("architecture ledger missing after verify: %v", err)
 	}
 }
 
@@ -348,14 +351,16 @@ func TestCompletionLearning_HappyPath(t *testing.T) {
 		t.Fatalf("complete feature with --learning: %v", err)
 	}
 
-	// Verify a card was created in .wipnote/arch/.
-	archDir := filepath.Join(hgDir, "arch")
-	entries, err := os.ReadDir(archDir)
+	// Verify the learning landed in the canonical architecture ledger.
+	ledgerCards, err := corearch.ReadLedger(filepath.Join(hgDir, corearch.LedgerFilename))
 	if err != nil {
-		t.Fatalf("read arch dir: %v", err)
+		t.Fatalf("read architecture ledger: %v", err)
 	}
-	if len(entries) == 0 {
-		t.Fatal("expected at least one arch card created by --learning")
+	if len(ledgerCards) == 0 {
+		t.Fatal("expected at least one ledger row created by --learning")
+	}
+	if ledgerCards[0].Links[0] != featID {
+		t.Fatalf("ledger link = %q, want %q", ledgerCards[0].Links[0], featID)
 	}
 }
 
@@ -402,10 +407,9 @@ func TestCompletionLearning_InvalidBody(t *testing.T) {
 		t.Errorf("error should mention 'learning', got: %v", err)
 	}
 
-	// Verify no arch card was created.
-	archDir := filepath.Join(hgDir, "arch")
-	if entries, readErr := os.ReadDir(archDir); readErr == nil && len(entries) > 0 {
-		t.Fatal("no arch card should exist after a failed --learning completion")
+	// Verify no ledger was created.
+	if _, statErr := os.Stat(filepath.Join(hgDir, corearch.LedgerFilename)); !os.IsNotExist(statErr) {
+		t.Fatal("no architecture ledger should exist after a failed --learning completion")
 	}
 
 	// Verify the feature is still in-progress (not done).
@@ -461,10 +465,9 @@ func TestCompletionLearning_InvalidKind(t *testing.T) {
 		t.Errorf("error should mention the invalid kind value, got: %v", err)
 	}
 
-	// Verify no arch card was created.
-	archDir := filepath.Join(hgDir, "arch")
-	if entries, readErr := os.ReadDir(archDir); readErr == nil && len(entries) > 0 {
-		t.Fatal("no arch card should exist after a failed --learning-kind completion")
+	// Verify no ledger was created.
+	if _, statErr := os.Stat(filepath.Join(hgDir, corearch.LedgerFilename)); !os.IsNotExist(statErr) {
+		t.Fatal("no architecture ledger should exist after a failed --learning-kind completion")
 	}
 
 	// Verify the feature is still in-progress (not done).

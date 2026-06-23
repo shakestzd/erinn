@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 )
 
 // ---- helpers ----------------------------------------------------------------
@@ -46,6 +47,20 @@ func TestParse_ValidCard(t *testing.T) {
 	}
 	if card.Kind != KindSubsystemMap {
 		t.Errorf("kind = %q, want %q", card.Kind, KindSubsystemMap)
+	}
+	if card.Body != "Body text here." {
+		t.Errorf("body = %q, want %q", card.Body, "Body text here.")
+	}
+}
+
+func TestParse_ImportYAMLCard(t *testing.T) {
+	data := []byte("name: auth-subsystem\nkind: subsystem-map\ncreated_by: agent\npaths:\n  - internal/auth/**\nbody: |\n  Body text here.\n")
+	card, err := Parse(data)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if card.Name != "auth-subsystem" {
+		t.Errorf("name = %q, want %q", card.Name, "auth-subsystem")
 	}
 	if card.Body != "Body text here." {
 		t.Errorf("body = %q, want %q", card.Body, "Body text here.")
@@ -262,6 +277,9 @@ func TestMarshal_RoundTrip(t *testing.T) {
 	if parsed.Body != c.Body {
 		t.Errorf("body: got %q, want %q", parsed.Body, c.Body)
 	}
+	if !strings.Contains(string(data), "body:") {
+		t.Errorf("marshal should emit explicit body field, got:\n%s", string(data))
+	}
 }
 
 // ---- Store tests ------------------------------------------------------------
@@ -277,6 +295,9 @@ func TestStore_CreateAndGet(t *testing.T) {
 	if err := store.Create(card); err != nil {
 		t.Fatalf("Create: %v", err)
 	}
+	if _, err := os.Stat(filepath.Join(dir, LedgerFilename)); err != nil {
+		t.Fatalf("expected canonical ledger file: %v", err)
+	}
 
 	got, err := store.Get(card.Name)
 	if err != nil {
@@ -284,6 +305,27 @@ func TestStore_CreateAndGet(t *testing.T) {
 	}
 	if got.Name != card.Name {
 		t.Errorf("name: got %q, want %q", got.Name, card.Name)
+	}
+}
+
+func TestStore_Get_LegacyMarkdownCard(t *testing.T) {
+	dir := t.TempDir()
+	store, err := NewStore(dir)
+	if err != nil {
+		t.Fatalf("NewStore: %v", err)
+	}
+
+	raw := []byte(validFrontmatter())
+	if err := os.WriteFile(filepath.Join(store.Dir(), "auth-subsystem.md"), raw, 0o644); err != nil {
+		t.Fatalf("write legacy card: %v", err)
+	}
+
+	got, err := store.Get("auth-subsystem")
+	if err != nil {
+		t.Fatalf("Get legacy card: %v", err)
+	}
+	if got.Body != "Body text here." {
+		t.Errorf("body = %q, want %q", got.Body, "Body text here.")
 	}
 }
 
@@ -473,6 +515,57 @@ func TestStore_Update(t *testing.T) {
 	got, _ := store.Get(card.Name)
 	if got.Body != "Updated body content." {
 		t.Errorf("body = %q, want %q", got.Body, "Updated body content.")
+	}
+}
+
+func TestStore_Update_LegacyCardMigratesToLedger(t *testing.T) {
+	dir := t.TempDir()
+	store, err := NewStore(dir)
+	if err != nil {
+		t.Fatalf("NewStore: %v", err)
+	}
+
+	legacyPath := filepath.Join(store.Dir(), "auth-subsystem.md")
+	if err := os.WriteFile(legacyPath, []byte(validFrontmatter()), 0o644); err != nil {
+		t.Fatalf("write legacy card: %v", err)
+	}
+
+	card, err := store.Get("auth-subsystem")
+	if err != nil {
+		t.Fatalf("Get: %v", err)
+	}
+	card.Body = "Updated body content."
+	if err := store.Update(card); err != nil {
+		t.Fatalf("Update: %v", err)
+	}
+
+	if _, err := os.Stat(filepath.Join(dir, LedgerFilename)); err != nil {
+		t.Fatalf("expected canonical ledger after update: %v", err)
+	}
+	if _, err := os.Stat(legacyPath); !os.IsNotExist(err) {
+		t.Fatalf("legacy markdown card should be removed, stat err=%v", err)
+	}
+}
+
+func TestReadLedger_RoundTrip(t *testing.T) {
+	dir := t.TempDir()
+	card := validCard()
+	card.Links = []string{"feat-abc12345"}
+	card.CreatedAt = time.Now().UTC().Round(0)
+	card.UpdatedAt = card.CreatedAt
+	if err := WriteLedger(filepath.Join(dir, LedgerFilename), []*Card{card}); err != nil {
+		t.Fatalf("WriteLedger: %v", err)
+	}
+
+	cards, err := ReadLedger(filepath.Join(dir, LedgerFilename))
+	if err != nil {
+		t.Fatalf("ReadLedger: %v", err)
+	}
+	if len(cards) != 1 {
+		t.Fatalf("len(cards) = %d, want 1", len(cards))
+	}
+	if got := cards[0]; got.Name != card.Name || got.Body != card.Body {
+		t.Fatalf("round-trip card mismatch: got %+v want %+v", got, card)
 	}
 }
 

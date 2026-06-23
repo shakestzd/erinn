@@ -55,6 +55,8 @@ func TestIsValidRelationship(t *testing.T) {
 		models.RelPartOf,
 		models.RelContains,
 		models.RelPlannedIn,
+		models.RelLearnedFrom,
+		models.RelHasLearning,
 	}
 	for _, r := range valid {
 		if !models.IsValidRelationship(r) {

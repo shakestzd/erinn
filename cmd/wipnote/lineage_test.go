@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	corearch "github.com/shakestzd/wipnote/core/arch"
 	dbpkg "github.com/shakestzd/wipnote/core/db"
 	"github.com/shakestzd/wipnote/core/models"
 )
@@ -131,6 +132,24 @@ func TestLineageIncludesPlannedIn(t *testing.T) {
 	out := buf.String()
 	if !strings.Contains(out, "plan-aaaaaaaa") {
 		t.Errorf("lineage on feature should surface plan ancestor via planned_in\n%s", out)
+	}
+}
+
+func TestLineageIncludesArchLearning(t *testing.T) {
+	db := setupLineageDB(t)
+
+	if _, err := db.Exec(`INSERT INTO arch_cards (slug, kind, created_by, body) VALUES (?, 'decision', 'agent', 'Architecture memory belongs in lineage.')`, "auth-learning"); err != nil {
+		t.Fatalf("insert arch card: %v", err)
+	}
+	seedEdge(t, db, "e-arch", corearch.ArchNodeID("auth-learning"), "arch", "feat-77777777", "feature", "learned_from")
+
+	var buf bytes.Buffer
+	if err := runLineage(&buf, db, "feat-77777777", lineageOpts{depth: 5}); err != nil {
+		t.Fatalf("runLineage: %v", err)
+	}
+	out := buf.String()
+	if !strings.Contains(out, corearch.ArchNodeID("auth-learning")) {
+		t.Errorf("lineage on feature should surface linked arch card via learned_from\n%s", out)
 	}
 }
 

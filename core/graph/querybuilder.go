@@ -4,6 +4,8 @@ import (
 	"database/sql"
 	"fmt"
 	"strings"
+
+	corearch "github.com/shakestzd/wipnote/core/arch"
 )
 
 // NodeResult holds a node ID with optional metadata from a query.
@@ -30,8 +32,8 @@ func (whereStep) kind() string  { return "where" }
 func (depthStep) kind() string  { return "depth" }
 
 // QueryBuilder chains graph traversal operations into a fluent API.
-// It reads from the graph_edges table and resolves node metadata from
-// features and tracks tables.
+// It reads from the graph_edges table and resolves node metadata from the
+// derived node indexes.
 type QueryBuilder struct {
 	db       *sql.DB
 	steps    []queryStep
@@ -308,15 +310,28 @@ func (q *QueryBuilder) resolveNodes(ids []string) ([]NodeResult, error) {
 		return nil, nil
 	}
 
-	placeholders := make([]string, len(ids))
-	args := make([]any, len(ids))
+	allPlaceholders := make([]string, len(ids))
+	allArgs := make([]any, len(ids))
+	archSlugs := make([]string, 0, len(ids))
 	for i, id := range ids {
-		placeholders[i] = "?"
-		args[i] = id
+		allPlaceholders[i] = "?"
+		allArgs[i] = id
+		if slug, ok := corearch.ArchSlugFromNodeID(id); ok {
+			archSlugs = append(archSlugs, slug)
+		}
 	}
-	inClause := strings.Join(placeholders, ",")
+	allInClause := strings.Join(allPlaceholders, ",")
+	archInClause := "NULL"
+	archArgs := make([]any, 0, len(archSlugs))
+	if len(archSlugs) > 0 {
+		archPlaceholders := make([]string, len(archSlugs))
+		for i, slug := range archSlugs {
+			archPlaceholders[i] = "?"
+			archArgs = append(archArgs, slug)
+		}
+		archInClause = strings.Join(archPlaceholders, ",")
+	}
 
-	// Each UNION arm needs its own copy of the id args.
 	query := fmt.Sprintf(`
 		SELECT id, type, title, status FROM features WHERE id IN (%s)
 		UNION ALL
@@ -328,17 +343,23 @@ func (q *QueryBuilder) resolveNodes(ids []string) ([]NodeResult, error) {
 		UNION ALL
 		SELECT session_id AS id, 'session' AS type, COALESCE(title,'') AS title, COALESCE(status,'') AS status FROM sessions WHERE session_id IN (%s)
 		UNION ALL
+		SELECT 'arch:' || slug AS id, 'arch' AS type, '' AS title,
+			CASE retired WHEN 1 THEN 'retired' ELSE 'active' END AS status
+		FROM arch_cards WHERE slug IN (%s)
+		UNION ALL
 		SELECT DISTINCT name AS id, 'agent' AS type, name AS title, '' AS status FROM (
 			SELECT agent_name AS name FROM agent_lineage_trace WHERE agent_name != ''
 			UNION
 			SELECT agent_assigned AS name FROM sessions WHERE agent_assigned != ''
 		) WHERE name IN (%s)`,
-		inClause, inClause, inClause, inClause, inClause, inClause)
+		allInClause, allInClause, allInClause, allInClause, allInClause, archInClause, allInClause)
 
-	fullArgs := make([]any, 0, len(args)*6)
-	for i := 0; i < 6; i++ {
-		fullArgs = append(fullArgs, args...)
+	fullArgs := make([]any, 0, len(allArgs)*6+len(archArgs))
+	for i := 0; i < 5; i++ {
+		fullArgs = append(fullArgs, allArgs...)
 	}
+	fullArgs = append(fullArgs, archArgs...)
+	fullArgs = append(fullArgs, allArgs...)
 
 	rows, err := q.db.Query(query, fullArgs...)
 	if err != nil {

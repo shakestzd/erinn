@@ -1,6 +1,7 @@
 package arch
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -9,9 +10,15 @@ import (
 	"time"
 )
 
-// Store manages arch cards on disk under <wipnoteDir>/arch/.
+const (
+	importYAMLCardExt = ".yaml"
+	legacyMDCardExt   = ".md"
+)
+
+// Store manages import-compatible arch cards on disk under <wipnoteDir>/arch/.
 type Store struct {
-	dir string // absolute path to .wipnote/arch/
+	dir        string // absolute path to .wipnote/arch/
+	ledgerPath string // absolute path to .wipnote/architecture.html
 }
 
 // NewStore returns a Store rooted at the arch subdirectory of wipnoteDir.
@@ -21,15 +28,45 @@ func NewStore(wipnoteDir string) (*Store, error) {
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return nil, fmt.Errorf("create arch dir: %w", err)
 	}
-	return &Store{dir: dir}, nil
+	return &Store{
+		dir:        dir,
+		ledgerPath: LedgerPath(wipnoteDir),
+	}, nil
 }
 
 // Dir returns the absolute path to the arch directory.
 func (s *Store) Dir() string { return s.dir }
 
-// cardPath returns the file path for a card slug.
+// cardPath returns the import-compatible YAML file path for a card slug.
 func (s *Store) cardPath(slug string) string {
-	return filepath.Join(s.dir, slug+".md")
+	return filepath.Join(s.dir, slug+importYAMLCardExt)
+}
+
+func isCardFile(name string) bool {
+	ext := filepath.Ext(name)
+	return ext == importYAMLCardExt || ext == legacyMDCardExt
+}
+
+func cardSlugFromName(name string) string {
+	return strings.TrimSuffix(name, filepath.Ext(name))
+}
+
+// resolveCardPath prefers import-compatible YAML cards but falls back to
+// legacy .md cards.
+func (s *Store) resolveCardPath(slug string) (string, error) {
+	yamlPath := filepath.Join(s.dir, slug+importYAMLCardExt)
+	if _, err := os.Stat(yamlPath); err == nil {
+		return yamlPath, nil
+	} else if err != nil && !os.IsNotExist(err) {
+		return "", fmt.Errorf("stat card: %w", err)
+	}
+	mdPath := filepath.Join(s.dir, slug+legacyMDCardExt)
+	if _, err := os.Stat(mdPath); err == nil {
+		return mdPath, nil
+	} else if err != nil && !os.IsNotExist(err) {
+		return "", fmt.Errorf("stat card: %w", err)
+	}
+	return "", fmt.Errorf("%w: %s", ErrNotFound, slug)
 }
 
 // Get reads and parses the card with the given slug.
@@ -39,36 +76,64 @@ func (s *Store) Get(slug string) (*Card, error) {
 	if !isValidSlug(slug) {
 		return nil, fmt.Errorf("invalid slug %q: must contain only lowercase letters, digits, and hyphens", slug)
 	}
-	return ParseFile(s.cardPath(slug))
+	if card, ok, err := s.getLedgerCard(slug); err != nil {
+		return nil, err
+	} else if ok {
+		return card, nil
+	}
+	path, err := s.resolveCardPath(slug)
+	if err != nil {
+		return nil, err
+	}
+	return ParseFile(path)
 }
 
 // List returns all cards in the store.
 // When includeRetired is false, superseded/retired cards are omitted.
 func (s *Store) List(includeRetired bool) ([]*Card, error) {
+	cardsBySlug := make(map[string]*Card)
+	if ledgerCards, err := ReadLedger(s.ledgerPath); err == nil {
+		for _, card := range ledgerCards {
+			cardsBySlug[card.Name] = card
+		}
+	} else if !os.IsNotExist(err) {
+		return nil, fmt.Errorf("read architecture ledger: %w", err)
+	}
+
 	entries, err := os.ReadDir(s.dir)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return nil, nil
+			return filterRetired(cardsBySlug, includeRetired), nil
 		}
 		return nil, fmt.Errorf("read arch dir: %w", err)
 	}
 
-	var cards []*Card
+	pathsBySlug := make(map[string]string)
 	for _, e := range entries {
-		if e.IsDir() || !strings.HasSuffix(e.Name(), ".md") {
+		if e.IsDir() || !isCardFile(e.Name()) {
 			continue
 		}
+		slug := cardSlugFromName(e.Name())
 		path := filepath.Join(s.dir, e.Name())
+		existing, ok := pathsBySlug[slug]
+		if ok && filepath.Ext(existing) == importYAMLCardExt {
+			continue
+		}
+		if filepath.Ext(path) == importYAMLCardExt || !ok {
+			pathsBySlug[slug] = path
+		}
+	}
+
+	for _, path := range pathsBySlug {
 		card, err := ParseFile(path)
 		if err != nil {
-			return nil, fmt.Errorf("parse %s: %w", e.Name(), err)
+			return nil, fmt.Errorf("parse %s: %w", filepath.Base(path), err)
 		}
-		if !includeRetired && card.IsRetired() {
-			continue
+		if _, exists := cardsBySlug[card.Name]; !exists {
+			cardsBySlug[card.Name] = card
 		}
-		cards = append(cards, card)
 	}
-	return cards, nil
+	return filterRetired(cardsBySlug, includeRetired), nil
 }
 
 // Create validates and writes a new card.
@@ -79,9 +144,15 @@ func (s *Store) Create(card *Card) error {
 	if err := Validate(card); err != nil {
 		return err
 	}
-	path := s.cardPath(card.Name)
-	if _, err := os.Stat(path); err == nil {
+	if _, ok, err := s.getLedgerCard(card.Name); err != nil {
+		return err
+	} else if ok {
 		return fmt.Errorf("%w: %s", ErrDuplicateSlug, card.Name)
+	}
+	if _, err := s.resolveCardPath(card.Name); err == nil {
+		return fmt.Errorf("%w: %s", ErrDuplicateSlug, card.Name)
+	} else if err != nil && !errors.Is(err, ErrNotFound) {
+		return err
 	}
 	if len(card.Paths) > 0 {
 		if dup, err := s.findGlobSetDuplicate(card); err != nil {
@@ -93,7 +164,7 @@ func (s *Store) Create(card *Card) error {
 	now := time.Now().UTC()
 	card.CreatedAt = now
 	card.UpdatedAt = now
-	return s.write(card)
+	return s.write(card, "")
 }
 
 // findGlobSetDuplicate returns the slug of an existing active card whose path
@@ -135,9 +206,15 @@ func (s *Store) Update(card *Card) error {
 	if err := Validate(card); err != nil {
 		return err
 	}
-	path := s.cardPath(card.Name)
-	if _, err := os.Stat(path); os.IsNotExist(err) {
-		return fmt.Errorf("%w: %s", ErrNotFound, card.Name)
+	existingPath := ""
+	if _, ok, err := s.getLedgerCard(card.Name); err != nil {
+		return err
+	} else if !ok {
+		var resolveErr error
+		existingPath, resolveErr = s.resolveCardPath(card.Name)
+		if resolveErr != nil {
+			return resolveErr
+		}
 	}
 	if len(card.Paths) > 0 {
 		if dup, err := s.findGlobSetDuplicate(card); err != nil {
@@ -147,7 +224,7 @@ func (s *Store) Update(card *Card) error {
 		}
 	}
 	card.UpdatedAt = time.Now().UTC()
-	return s.write(card)
+	return s.write(card, existingPath)
 }
 
 // Deprecate retires the named card.
@@ -170,23 +247,33 @@ func (s *Store) Deprecate(slug, supersededBy string) error {
 		card.Retired = true
 	}
 	card.UpdatedAt = time.Now().UTC()
-	return s.write(card)
+	existingPath := ""
+	if _, ok, getErr := s.getLedgerCard(card.Name); getErr != nil {
+		return getErr
+	} else if !ok {
+		existingPath, err = s.resolveCardPath(card.Name)
+		if err != nil {
+			return err
+		}
+	}
+	return s.write(card, existingPath)
 }
 
-// write marshals a card and writes it to disk atomically (write temp + rename).
-func (s *Store) write(card *Card) error {
-	data, err := Marshal(card)
+// write upserts a card into the canonical HTML ledger and removes any migrated
+// legacy/import file when previousPath points at one.
+func (s *Store) write(card *Card, previousPath string) error {
+	ledgerCards, err := s.ledgerCards()
 	if err != nil {
 		return err
 	}
-	path := s.cardPath(card.Name)
-	tmp := path + ".tmp"
-	if err := os.WriteFile(tmp, data, 0o644); err != nil {
-		return fmt.Errorf("write card: %w", err)
+	ledgerCards[card.Name] = card
+	if err := WriteLedger(s.ledgerPath, mapCardsToSlice(ledgerCards)); err != nil {
+		return err
 	}
-	if err := os.Rename(tmp, path); err != nil {
-		os.Remove(tmp)
-		return fmt.Errorf("rename card: %w", err)
+	if previousPath != "" && previousPath != s.ledgerPath {
+		if err := os.Remove(previousPath); err != nil && !os.IsNotExist(err) {
+			return fmt.Errorf("remove legacy/import card: %w", err)
+		}
 	}
 	return nil
 }
@@ -197,33 +284,66 @@ func (s *Store) write(card *Card) error {
 //   - warnings: map from slug to warning strings for cards with advisory path issues.
 //   - err: a non-nil error only when the store directory cannot be read.
 func (s *Store) ValidateAll() (errs map[string]error, warnings map[string][]string, err error) {
-	entries, readErr := os.ReadDir(s.dir)
-	if readErr != nil {
-		if os.IsNotExist(readErr) {
-			return nil, nil, nil
-		}
-		return nil, nil, fmt.Errorf("read arch dir: %w", readErr)
-	}
-
 	errs = make(map[string]error)
 	warnings = make(map[string][]string)
-	for _, e := range entries {
-		if e.IsDir() || !strings.HasSuffix(e.Name(), ".md") {
-			continue
-		}
-		slug := strings.TrimSuffix(e.Name(), ".md")
-		path := filepath.Join(s.dir, e.Name())
-		card, parseErr := ParseFile(path)
-		if parseErr != nil {
-			errs[slug] = parseErr
-			continue
-		}
+
+	cards, loadErr := s.List(true)
+	if loadErr != nil {
+		return nil, nil, loadErr
+	}
+	for _, card := range cards {
 		if valErr := Validate(card); valErr != nil {
-			errs[slug] = valErr
+			errs[card.Name] = valErr
 		}
 		if ws := ValidatePaths(card.Paths); len(ws) > 0 {
-			warnings[slug] = ws
+			warnings[card.Name] = ws
 		}
 	}
 	return errs, warnings, nil
+}
+
+func (s *Store) ledgerCards() (map[string]*Card, error) {
+	cards := make(map[string]*Card)
+	ledgerCards, err := ReadLedger(s.ledgerPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return cards, nil
+		}
+		return nil, fmt.Errorf("read architecture ledger: %w", err)
+	}
+	for _, card := range ledgerCards {
+		cards[card.Name] = card
+	}
+	return cards, nil
+}
+
+func (s *Store) getLedgerCard(slug string) (*Card, bool, error) {
+	cards, err := s.ledgerCards()
+	if err != nil {
+		return nil, false, err
+	}
+	card, ok := cards[slug]
+	return card, ok, nil
+}
+
+func mapCardsToSlice(cards map[string]*Card) []*Card {
+	out := make([]*Card, 0, len(cards))
+	for _, card := range cards {
+		out = append(out, card)
+	}
+	return out
+}
+
+func filterRetired(cards map[string]*Card, includeRetired bool) []*Card {
+	list := make([]*Card, 0, len(cards))
+	for _, card := range cards {
+		if !includeRetired && card.IsRetired() {
+			continue
+		}
+		list = append(list, card)
+	}
+	sort.Slice(list, func(i, j int) bool {
+		return list[i].Name < list[j].Name
+	})
+	return list
 }

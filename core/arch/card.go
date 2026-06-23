@@ -1,5 +1,7 @@
 // Package arch provides parse, validate, and lifecycle operations for
-// architectural memory cards stored as .wipnote/arch/<slug>.md files.
+// architectural memory cards that are canonically stored in
+// .wipnote/architecture.html, while remaining backward-compatible with
+// legacy/import file formats under .wipnote/arch/.
 //
 // Design constraints (slice 1):
 //   - No internal/ imports — pure core package.
@@ -8,7 +10,6 @@
 package arch
 
 import (
-	"bytes"
 	"errors"
 	"fmt"
 	"os"
@@ -43,7 +44,7 @@ const MaxBodyWords = 120
 
 // Card represents a parsed and validated architectural memory card.
 type Card struct {
-	// Frontmatter fields.
+	// Structured fields.
 	Name         string    `yaml:"name"`
 	Kind         Kind      `yaml:"kind"`
 	Paths        []string  `yaml:"paths"`
@@ -55,8 +56,9 @@ type Card struct {
 	CreatedAt    time.Time `yaml:"created_at,omitempty"`
 	UpdatedAt    time.Time `yaml:"updated_at,omitempty"`
 
-	// Body is the markdown content after the frontmatter.
-	Body string `yaml:"-"`
+	// Body is markdown content stored explicitly in the canonical HTML ledger and
+	// synthesized from the trailing markdown section in legacy/import frontmatter cards.
+	Body string `yaml:"body"`
 }
 
 // IsRetired reports whether the card has been superseded or explicitly retired.
@@ -82,8 +84,8 @@ func ParseFile(path string) (*Card, error) {
 	return card, nil
 }
 
-// Parse parses a card from raw markdown bytes with YAML frontmatter.
-// The expected format is:
+// Parse parses either a canonical ledger-backed card or a legacy/import
+// markdown card with YAML frontmatter. The legacy format is:
 //
 //	---
 //	name: slug
@@ -92,6 +94,16 @@ func ParseFile(path string) (*Card, error) {
 //	---
 //	Body text here.
 func Parse(data []byte) (*Card, error) {
+	content := strings.TrimSpace(string(data))
+	if !strings.HasPrefix(content, "---") {
+		var card Card
+		if err := yaml.Unmarshal(data, &card); err != nil {
+			return nil, fmt.Errorf("parse yaml card: %w", err)
+		}
+		card.Body = strings.TrimSpace(card.Body)
+		return &card, nil
+	}
+
 	fm, body, err := splitFrontmatter(data)
 	if err != nil {
 		return nil, err
@@ -110,15 +122,15 @@ func Parse(data []byte) (*Card, error) {
 //
 // Path validation rules (per bug-c06a0457):
 //
-//   ERROR (fails validation):
-//   - filepath.IsAbs(path) — absolute paths are host-local and not portable
-//   - strings.HasPrefix(path, "unresolved:") — outside-repo sentinel
-//   - path == ".." or strings.HasPrefix(path, "../") — repo-escape via traversal
+//	ERROR (fails validation):
+//	- filepath.IsAbs(path) — absolute paths are host-local and not portable
+//	- strings.HasPrefix(path, "unresolved:") — outside-repo sentinel
+//	- path == ".." or strings.HasPrefix(path, "../") — repo-escape via traversal
 //
-//   WARN (advisory, not an error — use ValidatePaths for warnings):
-//   - path contains /tmp/ — temp file captured by mistake
-//   - path contains agent-memory — agent session artifact
-//   - path contains .claude/worktrees — dead worktree path
+//	WARN (advisory, not an error — use ValidatePaths for warnings):
+//	- path contains /tmp/ — temp file captured by mistake
+//	- path contains agent-memory — agent session artifact
+//	- path contains .claude/worktrees — dead worktree path
 func Validate(c *Card) error {
 	var errs []string
 
@@ -221,23 +233,14 @@ func ParseAndValidate(data []byte) (*Card, error) {
 	return card, nil
 }
 
-// Marshal renders a card back to its canonical markdown-with-frontmatter format.
+// Marshal renders a card to the import-compatible YAML representation used by
+// the legacy file-based arch format.
 func Marshal(c *Card) ([]byte, error) {
-	fm, err := yaml.Marshal(c)
+	data, err := yaml.Marshal(c)
 	if err != nil {
-		return nil, fmt.Errorf("marshal frontmatter: %w", err)
+		return nil, fmt.Errorf("marshal yaml card: %w", err)
 	}
-
-	var buf bytes.Buffer
-	buf.WriteString("---\n")
-	buf.Write(fm)
-	buf.WriteString("---\n")
-	if c.Body != "" {
-		buf.WriteString("\n")
-		buf.WriteString(c.Body)
-		buf.WriteString("\n")
-	}
-	return buf.Bytes(), nil
+	return data, nil
 }
 
 // splitFrontmatter separates YAML frontmatter from body.

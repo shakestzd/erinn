@@ -54,6 +54,8 @@ var AllRels = []string{
 	string(models.RelPartOf),
 	string(models.RelContains),
 	string(models.RelPlannedIn),
+	string(models.RelLearnedFrom),
+	string(models.RelHasLearning),
 }
 
 // ForwardWalk performs a BFS following from_node_id = current outward. Returns

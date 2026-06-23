@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	corearch "github.com/shakestzd/wipnote/core/arch"
 	dbpkg "github.com/shakestzd/wipnote/core/db"
 )
 
@@ -114,5 +115,84 @@ func TestReindexArchCards_Idempotent(t *testing.T) {
 	db.QueryRow("SELECT COUNT(*) FROM arch_cards").Scan(&count)
 	if count != 1 {
 		t.Errorf("arch_cards row count = %d, want 1", count)
+	}
+}
+
+func TestReindexArchCards_ImportedYAMLAndLineageEdges(t *testing.T) {
+	dir := t.TempDir()
+	archDir := filepath.Join(dir, "arch")
+	if err := os.MkdirAll(archDir, 0o755); err != nil {
+		t.Fatalf("mkdir arch: %v", err)
+	}
+
+	card := []byte("name: auth-learning\nkind: decision\ncreated_by: agent\nlinks:\n  - feat-12345678\nbody: |\n  Prefer the import-compatible YAML arch format.\n")
+	if err := os.WriteFile(filepath.Join(archDir, "auth-learning.yaml"), card, 0o644); err != nil {
+		t.Fatalf("write import-compatible yaml arch card: %v", err)
+	}
+
+	db, err := dbpkg.Open(":memory:")
+	if err != nil {
+		t.Fatalf("open db: %v", err)
+	}
+	defer db.Close()
+
+	total, upserted, errs := reindexArchCards(db, dir, false)
+	if total != 1 || upserted != 1 || errs != 0 {
+		t.Fatalf("reindex = (%d,%d,%d), want (1,1,0)", total, upserted, errs)
+	}
+
+	var relType, fromType, toType string
+	if err := db.QueryRow(`SELECT relationship_type, from_node_type, to_node_type
+		FROM graph_edges WHERE from_node_id = ? AND to_node_id = ?`,
+		corearch.ArchNodeID("auth-learning"), "feat-12345678",
+	).Scan(&relType, &fromType, &toType); err != nil {
+		t.Fatalf("query graph edge: %v", err)
+	}
+	if relType != "learned_from" || fromType != "arch" || toType != "feature" {
+		t.Fatalf("edge = (%s,%s,%s), want (learned_from,arch,feature)", relType, fromType, toType)
+	}
+
+	var reverseRel, reverseToType string
+	if err := db.QueryRow(`SELECT relationship_type, to_node_type
+		FROM graph_edges WHERE from_node_id = ? AND to_node_id = ?`,
+		"feat-12345678", corearch.ArchNodeID("auth-learning"),
+	).Scan(&reverseRel, &reverseToType); err != nil {
+		t.Fatalf("query reverse graph edge: %v", err)
+	}
+	if reverseRel != "has_learning" || reverseToType != "arch" {
+		t.Fatalf("reverse edge = (%s,%s), want (has_learning,arch)", reverseRel, reverseToType)
+	}
+}
+
+func TestReindexArchCards_HTMLLedgerRow(t *testing.T) {
+	dir := t.TempDir()
+	card := &corearch.Card{
+		Name:      "html-ledger-card",
+		Kind:      corearch.KindDecision,
+		CreatedBy: "agent",
+		Links:     []string{"feat-87654321"},
+		Body:      "HTML ledger rows should reindex into arch_cards.",
+	}
+	if err := corearch.WriteLedger(filepath.Join(dir, corearch.LedgerFilename), []*corearch.Card{card}); err != nil {
+		t.Fatalf("write architecture ledger: %v", err)
+	}
+
+	db, err := dbpkg.Open(":memory:")
+	if err != nil {
+		t.Fatalf("open db: %v", err)
+	}
+	defer db.Close()
+
+	total, upserted, errs := reindexArchCards(db, dir, false)
+	if total != 1 || upserted != 1 || errs != 0 {
+		t.Fatalf("reindex = (%d,%d,%d), want (1,1,0)", total, upserted, errs)
+	}
+
+	var slug, createdBy string
+	if err := db.QueryRow(`SELECT slug, created_by FROM arch_cards WHERE slug = ?`, "html-ledger-card").Scan(&slug, &createdBy); err != nil {
+		t.Fatalf("query arch_cards: %v", err)
+	}
+	if slug != "html-ledger-card" || createdBy != "agent" {
+		t.Fatalf("arch_cards row = (%s,%s), want (html-ledger-card,agent)", slug, createdBy)
 	}
 }

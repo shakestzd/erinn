@@ -16,7 +16,7 @@ title: wipnote
 <h1 class="hg-hero__headline">wipnote</h1>
 
 <p class="hg-hero__sub">
-Local-first observability and coordination platform for AI-assisted development.
+Local-first causal lineage and observability for AI-assisted development.
 </p>
 
 <p class="hg-hero__solution">

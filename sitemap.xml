@@ -1,111 +1,67 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
     <url>
-         <loc>https://shakestzd.github.io/erinn/</loc>
-         <lastmod>2026-05-05</lastmod>
+         <loc>https://shakestzd.github.io/wipnote/</loc>
+         <lastmod>2026-06-24</lastmod>
     </url>
     <url>
-         <loc>https://shakestzd.github.io/erinn/GEMINI_INTEGRATION_PLAN/</loc>
-         <lastmod>2026-05-05</lastmod>
+         <loc>https://shakestzd.github.io/wipnote/INSTALL/</loc>
+         <lastmod>2026-06-24</lastmod>
     </url>
     <url>
-         <loc>https://shakestzd.github.io/erinn/INSTALL/</loc>
-         <lastmod>2026-05-05</lastmod>
+         <loc>https://shakestzd.github.io/wipnote/guard-profiles/</loc>
+         <lastmod>2026-06-24</lastmod>
     </url>
     <url>
-         <loc>https://shakestzd.github.io/erinn/adr-001-harness-agnostic-collector/</loc>
-         <lastmod>2026-05-05</lastmod>
+         <loc>https://shakestzd.github.io/wipnote/blog/</loc>
+         <lastmod>2026-06-24</lastmod>
     </url>
     <url>
-         <loc>https://shakestzd.github.io/erinn/code-areas/</loc>
-         <lastmod>2026-05-05</lastmod>
+         <loc>https://shakestzd.github.io/wipnote/blog/introducing-wipnote/</loc>
+         <lastmod>2026-06-24</lastmod>
     </url>
     <url>
-         <loc>https://shakestzd.github.io/erinn/codex-cli-integration-plan/</loc>
-         <lastmod>2026-05-05</lastmod>
+         <loc>https://shakestzd.github.io/wipnote/blog/plan-mode-structured-plans/</loc>
+         <lastmod>2026-06-24</lastmod>
     </url>
     <url>
-         <loc>https://shakestzd.github.io/erinn/codex-interoperability-review/</loc>
-         <lastmod>2026-05-05</lastmod>
+         <loc>https://shakestzd.github.io/wipnote/blog/python-to-go/</loc>
+         <lastmod>2026-06-24</lastmod>
     </url>
     <url>
-         <loc>https://shakestzd.github.io/erinn/cross-env-path-drift-audit/</loc>
-         <lastmod>2026-05-05</lastmod>
+         <loc>https://shakestzd.github.io/wipnote/blog/sub-agent-orchestration/</loc>
+         <lastmod>2026-06-24</lastmod>
     </url>
     <url>
-         <loc>https://shakestzd.github.io/erinn/internal-plan-system-analysis/</loc>
-         <lastmod>2026-05-05</lastmod>
+         <loc>https://shakestzd.github.io/wipnote/blog/yolo-mode-autonomous-guardrails/</loc>
+         <lastmod>2026-06-24</lastmod>
     </url>
     <url>
-         <loc>https://shakestzd.github.io/erinn/security-review-2026-04-15/</loc>
-         <lastmod>2026-05-05</lastmod>
+         <loc>https://shakestzd.github.io/wipnote/cli/blame/</loc>
+         <lastmod>2026-06-24</lastmod>
     </url>
     <url>
-         <loc>https://shakestzd.github.io/erinn/blog/</loc>
-         <lastmod>2026-05-05</lastmod>
+         <loc>https://shakestzd.github.io/wipnote/cli/migrate-tracks/</loc>
+         <lastmod>2026-06-24</lastmod>
     </url>
     <url>
-         <loc>https://shakestzd.github.io/erinn/blog/introducing-htmlgraph/</loc>
-         <lastmod>2026-05-05</lastmod>
+         <loc>https://shakestzd.github.io/wipnote/reference/cli/</loc>
+         <lastmod>2026-06-24</lastmod>
     </url>
     <url>
-         <loc>https://shakestzd.github.io/erinn/blog/plan-mode-structured-plans/</loc>
-         <lastmod>2026-05-05</lastmod>
+         <loc>https://shakestzd.github.io/wipnote/blog/archive/2026/</loc>
+         <lastmod>2026-06-24</lastmod>
     </url>
     <url>
-         <loc>https://shakestzd.github.io/erinn/blog/python-to-go/</loc>
-         <lastmod>2026-05-05</lastmod>
+         <loc>https://shakestzd.github.io/wipnote/blog/category/architecture/</loc>
+         <lastmod>2026-06-24</lastmod>
     </url>
     <url>
-         <loc>https://shakestzd.github.io/erinn/blog/sub-agent-orchestration/</loc>
-         <lastmod>2026-05-05</lastmod>
+         <loc>https://shakestzd.github.io/wipnote/blog/category/features/</loc>
+         <lastmod>2026-06-24</lastmod>
     </url>
     <url>
-         <loc>https://shakestzd.github.io/erinn/blog/yolo-mode-autonomous-guardrails/</loc>
-         <lastmod>2026-05-05</lastmod>
-    </url>
-    <url>
-         <loc>https://shakestzd.github.io/erinn/cli/blame/</loc>
-         <lastmod>2026-05-05</lastmod>
-    </url>
-    <url>
-         <loc>https://shakestzd.github.io/erinn/cli/migrate-tracks/</loc>
-         <lastmod>2026-05-05</lastmod>
-    </url>
-    <url>
-         <loc>https://shakestzd.github.io/erinn/reference/cli/</loc>
-         <lastmod>2026-05-05</lastmod>
-    </url>
-    <url>
-         <loc>https://shakestzd.github.io/erinn/research/claude_feedback/</loc>
-         <lastmod>2026-05-05</lastmod>
-    </url>
-    <url>
-         <loc>https://shakestzd.github.io/erinn/research/git_native_features/</loc>
-         <lastmod>2026-05-05</lastmod>
-    </url>
-    <url>
-         <loc>https://shakestzd.github.io/erinn/research/reference-site-snapshot/</loc>
-         <lastmod>2026-05-05</lastmod>
-    </url>
-    <url>
-         <loc>https://shakestzd.github.io/erinn/spikes/dispatch-hardening-spike/</loc>
-         <lastmod>2026-05-05</lastmod>
-    </url>
-    <url>
-         <loc>https://shakestzd.github.io/erinn/blog/archive/2026/</loc>
-         <lastmod>2026-05-05</lastmod>
-    </url>
-    <url>
-         <loc>https://shakestzd.github.io/erinn/blog/category/architecture/</loc>
-         <lastmod>2026-05-05</lastmod>
-    </url>
-    <url>
-         <loc>https://shakestzd.github.io/erinn/blog/category/features/</loc>
-         <lastmod>2026-05-05</lastmod>
-    </url>
-    <url>
-         <loc>https://shakestzd.github.io/erinn/blog/category/engineering/</loc>
-         <lastmod>2026-05-05</lastmod>
+         <loc>https://shakestzd.github.io/wipnote/blog/category/engineering/</loc>
+         <lastmod>2026-06-24</lastmod>
     </url>
 </urlset>

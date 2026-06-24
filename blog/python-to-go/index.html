@@ -6,14 +6,14 @@
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width,initial-scale=1">
       
-        <meta name="description" content="Local-first observability and coordination platform for AI-assisted development">
+        <meta name="description" content="Local-first causal lineage and observability for AI-assisted development">
       
       
       
-        <link rel="canonical" href="https://shakestzd.github.io/erinn/blog/python-to-go/">
+        <link rel="canonical" href="https://shakestzd.github.io/wipnote/blog/python-to-go/">
       
       
-        <link rel="prev" href="../introducing-htmlgraph/">
+        <link rel="prev" href="../introducing-wipnote/">
       
       
         <link rel="next" href="../plan-mode-structured-plans/">
@@ -27,7 +27,7 @@
     
     
       
-        <title>Why I Switched from Python to Go for AI Development Tooling - erinn</title>
+        <title>Why I Switched from Python to Go for AI Development Tooling - wipnote</title>
       
     
     
@@ -90,7 +90,7 @@
 
 <header class="md-header md-header--shadow" data-md-component="header">
   <nav class="md-header__inner md-grid" aria-label="Header">
-    <a href="../.." title="erinn" class="md-header__button md-logo" aria-label="erinn" data-md-component="logo">
+    <a href="../.." title="wipnote" class="md-header__button md-logo" aria-label="wipnote" data-md-component="logo">
       
   <img src="../../assets/logo.png" alt="logo">
 
@@ -103,7 +103,7 @@
       <div class="md-header__ellipsis">
         <div class="md-header__topic">
           <span class="md-ellipsis">
-            erinn
+            wipnote
           </span>
         </div>
         <div class="md-header__topic" data-md-component="header-topic">
@@ -191,13 +191,13 @@
     
     
       <div class="md-header__source">
-        <a href="https://github.com/shakestzd/erinn" title="Go to repository" class="md-source" data-md-component="source">
+        <a href="https://github.com/shakestzd/wipnote" title="Go to repository" class="md-source" data-md-component="source">
   <div class="md-source__icon md-icon">
     
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
   </div>
   <div class="md-source__repository">
-    shakestzd/erinn
+    shakestzd/wipnote
   </div>
 </a>
       </div>
@@ -229,22 +229,22 @@
 
 <nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
   <label class="md-nav__title" for="__drawer">
-    <a href="../.." title="erinn" class="md-nav__button md-logo" aria-label="erinn" data-md-component="logo">
+    <a href="../.." title="wipnote" class="md-nav__button md-logo" aria-label="wipnote" data-md-component="logo">
       
   <img src="../../assets/logo.png" alt="logo">
 
     </a>
-    erinn
+    wipnote
   </label>
   
     <div class="md-nav__source">
-      <a href="https://github.com/shakestzd/erinn" title="Go to repository" class="md-source" data-md-component="source">
+      <a href="https://github.com/shakestzd/wipnote" title="Go to repository" class="md-source" data-md-component="source">
   <div class="md-source__icon md-icon">
     
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
   </div>
   <div class="md-source__repository">
-    shakestzd/erinn
+    shakestzd/wipnote
   </div>
 </a>
     </div>
@@ -569,7 +569,7 @@
 
 
 <h1 id="why-i-switched-from-python-to-go-for-ai-development-tooling">Why I Switched from Python to Go for AI Development Tooling<a class="headerlink" href="#why-i-switched-from-python-to-go-for-ai-development-tooling" title="Permanent link">&para;</a></h1>
-<p>HtmlGraph started in Python. The Claude Code SDK was Python-based, the hook system used Python scripts, and I was comfortable in the ecosystem. It worked — until the project outgrew it.</p>
+<p>wipnote started in Python. The Claude Code SDK was Python-based, the hook system used Python scripts, and I was comfortable in the ecosystem. It worked — until the project outgrew it.</p>
 <p>The breaking point people ask about is latency, and that was real: every Claude Code hook invocation spawned a fresh Python process with a ~500ms cold start. A session with 200 tool calls meant 100 seconds of pure hook overhead. The agent would visibly pause between actions.</p>
 <p>But latency wasn't the only friction. Running tests was slow. Distribution meant explaining virtualenvs and Python versions. As the codebase grew, the development experience itself was becoming a drag, not just for the tool's users, but for me building it every day.</p>
 <!-- more -->
@@ -592,16 +592,16 @@
 <p>The difference is night and day. Hook processing becomes invisible. The agent doesn't pause between actions. The development experience goes from "noticeably laggy" to "I forget hooks are even running."</p>
 <h2 id="the-single-binary-advantage">The single-binary advantage<a class="headerlink" href="#the-single-binary-advantage" title="Permanent link">&para;</a></h2>
 <p>Go's compilation model produces a single standalone binary with no runtime dependencies. No virtualenv, no pip install, no Docker container, no "which Python version do you have?" conversations.</p>
-<p>For HtmlGraph, this means installation is:</p>
+<p>For wipnote, this means installation is:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="c1"># Download the binary for your platform</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>curl<span class="w"> </span>-fsSL<span class="w"> </span>https://github.com/shakestzd/htmlgraph/raw/main/install.sh<span class="w"> </span><span class="p">|</span><span class="w"> </span>bash
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>curl<span class="w"> </span>-fsSL<span class="w"> </span>https://github.com/shakestzd/wipnote/raw/main/install.sh<span class="w"> </span><span class="p">|</span><span class="w"> </span>bash
 </code></pre></div>
 <p>Or as a Claude Code plugin:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>claude<span class="w"> </span>plugin<span class="w"> </span>install<span class="w"> </span>htmlgraph
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>claude<span class="w"> </span>plugin<span class="w"> </span>install<span class="w"> </span>wipnote
 </code></pre></div>
 <p>Either way, users get one file that works. No runtime to configure, no dependency conflicts to resolve. This matters enormously for developer tools; the install friction determines whether anyone actually uses it.</p>
 <h2 id="minimal-dependencies">Minimal dependencies<a class="headerlink" href="#minimal-dependencies" title="Permanent link">&para;</a></h2>
-<p>I'm deliberately minimal about dependencies. HtmlGraph's <code>go.mod</code> has three chosen production dependencies:</p>
+<p>I'm deliberately minimal about dependencies. wipnote's <code>go.mod</code> has three chosen production dependencies:</p>
 <table>
 <thead>
 <tr>
@@ -625,9 +625,9 @@
 </tbody>
 </table>
 <p>Two additional direct dependencies (cascadia and golang.org/x/net/html) support the HTML parsing layer, but the core design choices were these three. No web framework, no ORM, no logging library, no configuration framework. The standard library handles HTTP serving, JSON encoding, file I/O, and most everything else.</p>
-<p>The SQLite dependency deserves special mention: <code>modernc.org/sqlite</code> is a pure Go implementation: no CGO, no C compiler required. This means the binary cross-compiles cleanly for any platform Go supports. A contributor on Windows can build HtmlGraph without installing a C toolchain.</p>
+<p>The SQLite dependency deserves special mention: <code>modernc.org/sqlite</code> is a pure Go implementation: no CGO, no C compiler required. This means the binary cross-compiles cleanly for any platform Go supports. A contributor on Windows can build wipnote without installing a C toolchain.</p>
 <h2 id="the-no-infrastructure-constraint">The "no infrastructure" constraint<a class="headerlink" href="#the-no-infrastructure-constraint" title="Permanent link">&para;</a></h2>
-<p>One of HtmlGraph's core constraints is "no external infrastructure required." No Postgres, no Redis, no cloud sync, no message queues. Everything runs locally.</p>
+<p>One of wipnote's core constraints is "no external infrastructure required." No Postgres, no Redis, no cloud sync, no message queues. Everything runs locally.</p>
 <p>This constraint drove the architecture: HTML files as the canonical store (they're just files in your repo), SQLite as a derived read index (it's embedded in the binary), and the Go binary as the only runtime component.</p>
 <p>In Python, achieving this would have been possible but awkward. You'd need to bundle a virtualenv or use something like PyInstaller to create a standalone package. In Go, it's the default. The binary IS the application; there's nothing else to install, configure, or run.</p>
 <h2 id="what-i-lost">What I lost<a class="headerlink" href="#what-i-lost" title="Permanent link">&para;</a></h2>
@@ -636,13 +636,13 @@
 <p>I wrote more about this prototyping story in a separate post on the CRISPI plan system.</p>
 <h2 id="why-i-actually-made-the-switch">Why I actually made the switch<a class="headerlink" href="#why-i-actually-made-the-switch" title="Permanent link">&para;</a></h2>
 <p>The latency numbers and distribution model were the rational arguments. But what actually pushed me over the edge was watching other developers build similar tools in Go. Wes McKinney's work on Go-based developer tools, and the broader pattern of "compiled binary + embedded SQLite + no external deps" showing up repeatedly in the AI tooling space; it was clear this wasn't theoretical. The pattern keeps appearing because it works.</p>
-<p>The other factor: AI agents write solid Go. I was already using Claude Code to build HtmlGraph, and Go's type system, standard library, and explicit error handling give agents clear guardrails. The code they produce tends to be correct on the first pass in a way that Python code often isn't.</p>
+<p>The other factor: AI agents write solid Go. I was already using Claude Code to build wipnote, and Go's type system, standard library, and explicit error handling give agents clear guardrails. The code they produce tends to be correct on the first pass in a way that Python code often isn't.</p>
 <h2 id="the-switch-was-faster-than-expected">The switch was faster than expected<a class="headerlink" href="#the-switch-was-faster-than-expected" title="Permanent link">&para;</a></h2>
 <p>I expected the migration to take weeks. It took days.</p>
 <p>Months of Python development (the hook system, the HTML parser, the SQLite indexer, the CLI) converted quickly. More surprising: problems that had been technically painful in Python became straightforward in Go. Concurrency handling that required careful asyncio choreography in Python was natural with goroutines. The binary just compiled and ran, no environment to configure.</p>
 <h2 id="the-result">The result<a class="headerlink" href="#the-result" title="Permanent link">&para;</a></h2>
-<p>HtmlGraph today is ~33K lines of production Go code (~50K including tests) across 19 packages with 770+ test files. It compiles in seconds, cross-compiles for every major platform, and installs without friction. The hook system processes hundreds of events per session without perceptible latency. And when something breaks, <code>go build &amp;&amp; go vet &amp;&amp; go test</code> catches it before it ships.</p>
-<p>I don't regret starting in Python; it let me prove the concept quickly and iterate on the design. But the move to Go was the decision that made HtmlGraph viable as a tool other people could actually use.</p>
+<p>wipnote today is ~33K lines of production Go code (~50K including tests) across 19 packages with 770+ test files. It compiles in seconds, cross-compiles for every major platform, and installs without friction. The hook system processes hundreds of events per session without perceptible latency. And when something breaks, <code>go build &amp;&amp; go vet &amp;&amp; go test</code> catches it before it ships.</p>
+<p>I don't regret starting in Python; it let me prove the concept quickly and iterate on the design. But the move to Go was the decision that made wipnote viable as a tool other people could actually use.</p>
 
 
 
@@ -685,7 +685,7 @@
       <nav class="md-footer__inner md-grid" aria-label="Footer" >
         
           
-          <a href="../introducing-htmlgraph/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Introducing HtmlGraph: Local-First Observability for AI-Assisted Development">
+          <a href="../introducing-wipnote/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Introducing wipnote: Local-First Observability for AI-Assisted Development">
             <div class="md-footer__button md-icon">
               
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
@@ -695,7 +695,7 @@
                 Previous
               </span>
               <div class="md-ellipsis">
-                Introducing HtmlGraph: Local-First Observability for AI-Assisted Development
+                Introducing wipnote: Local-First Observability for AI-Assisted Development
               </div>
             </div>
           </a>
@@ -746,7 +746,7 @@
       
       
     
-    <a href="https://github.com/shakestzd/erinn" target="_blank" rel="noopener" title="github.com" class="md-social__link">
+    <a href="https://github.com/shakestzd/wipnote" target="_blank" rel="noopener" title="github.com" class="md-social__link">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
     </a>
   

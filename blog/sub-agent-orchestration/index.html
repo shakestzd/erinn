@@ -6,11 +6,11 @@
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width,initial-scale=1">
       
-        <meta name="description" content="Local-first observability and coordination platform for AI-assisted development">
+        <meta name="description" content="Local-first causal lineage and observability for AI-assisted development">
       
       
       
-        <link rel="canonical" href="https://shakestzd.github.io/erinn/blog/sub-agent-orchestration/">
+        <link rel="canonical" href="https://shakestzd.github.io/wipnote/blog/sub-agent-orchestration/">
       
       
         <link rel="prev" href="../yolo-mode-autonomous-guardrails/">
@@ -25,7 +25,7 @@
     
     
       
-        <title>Sub-Agent Orchestration: Cost-Aware Delegation With Work Attribution - erinn</title>
+        <title>Sub-Agent Orchestration: Cost-Aware Delegation With Work Attribution - wipnote</title>
       
     
     
@@ -88,7 +88,7 @@
 
 <header class="md-header md-header--shadow" data-md-component="header">
   <nav class="md-header__inner md-grid" aria-label="Header">
-    <a href="../.." title="erinn" class="md-header__button md-logo" aria-label="erinn" data-md-component="logo">
+    <a href="../.." title="wipnote" class="md-header__button md-logo" aria-label="wipnote" data-md-component="logo">
       
   <img src="../../assets/logo.png" alt="logo">
 
@@ -101,7 +101,7 @@
       <div class="md-header__ellipsis">
         <div class="md-header__topic">
           <span class="md-ellipsis">
-            erinn
+            wipnote
           </span>
         </div>
         <div class="md-header__topic" data-md-component="header-topic">
@@ -189,13 +189,13 @@
     
     
       <div class="md-header__source">
-        <a href="https://github.com/shakestzd/erinn" title="Go to repository" class="md-source" data-md-component="source">
+        <a href="https://github.com/shakestzd/wipnote" title="Go to repository" class="md-source" data-md-component="source">
   <div class="md-source__icon md-icon">
     
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
   </div>
   <div class="md-source__repository">
-    shakestzd/erinn
+    shakestzd/wipnote
   </div>
 </a>
       </div>
@@ -227,22 +227,22 @@
 
 <nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
   <label class="md-nav__title" for="__drawer">
-    <a href="../.." title="erinn" class="md-nav__button md-logo" aria-label="erinn" data-md-component="logo">
+    <a href="../.." title="wipnote" class="md-nav__button md-logo" aria-label="wipnote" data-md-component="logo">
       
   <img src="../../assets/logo.png" alt="logo">
 
     </a>
-    erinn
+    wipnote
   </label>
   
     <div class="md-nav__source">
-      <a href="https://github.com/shakestzd/erinn" title="Go to repository" class="md-source" data-md-component="source">
+      <a href="https://github.com/shakestzd/wipnote" title="Go to repository" class="md-source" data-md-component="source">
   <div class="md-source__icon md-icon">
     
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
   </div>
   <div class="md-source__repository">
-    shakestzd/erinn
+    shakestzd/wipnote
   </div>
 </a>
     </div>
@@ -546,11 +546,11 @@
 
 <h1 id="sub-agent-orchestration-cost-aware-delegation-with-work-attribution">Sub-Agent Orchestration: Cost-Aware Delegation With Work Attribution<a class="headerlink" href="#sub-agent-orchestration-cost-aware-delegation-with-work-attribution" title="Permanent link">&para;</a></h1>
 <p>Claude Code recently shipped Agent Teams, an experimental feature where fully independent Claude Code instances communicate with each other via mailboxes and shared task lists. Teammates can challenge each other's findings, collaborate on problems, and coordinate through a team lead.</p>
-<p>HtmlGraph's orchestration system solves a different problem. It's not about agents talking to each other; it's about dispatching the right agent for each task at the right cost, tracking what each one produces, and merging the results with quality gates.</p>
+<p>wipnote's orchestration system solves a different problem. It's not about agents talking to each other; it's about dispatching the right agent for each task at the right cost, tracking what each one produces, and merging the results with quality gates.</p>
 <!-- more -->
 
 <h2 id="the-5-agent-system">The 5-agent system<a class="headerlink" href="#the-5-agent-system" title="Permanent link">&para;</a></h2>
-<p>HtmlGraph ships five specialized sub-agents, each scoped to a specific role:</p>
+<p>wipnote ships five specialized sub-agents, each scoped to a specific role:</p>
 <table>
 <thead>
 <tr>
@@ -566,17 +566,17 @@
 <td>Investigation, debugging, visual QA. Evidence-first: documentation before trial-and-error.</td>
 </tr>
 <tr>
-<td><code>haiku-coder</code></td>
+<td><code>patch-coder</code></td>
 <td>Haiku</td>
 <td>Quick fixes, 1-2 files, clear requirements. Fast and cheap.</td>
 </tr>
 <tr>
-<td><code>sonnet-coder</code></td>
+<td><code>feature-coder</code></td>
 <td>Sonnet</td>
 <td>Feature implementation, 3-8 files, moderate complexity. The default.</td>
 </tr>
 <tr>
-<td><code>opus-coder</code></td>
+<td><code>architect-coder</code></td>
 <td>Opus</td>
 <td>Complex architecture, 10+ files, ambiguous requirements, design decisions.</td>
 </tr>
@@ -595,8 +595,8 @@
 <li><strong>Moderate</strong> (Sonnet): Feature implementation, bug fixes, refactors across a few files</li>
 <li><strong>Complex</strong> (Opus): Architecture decisions, large refactors, ambiguous scope requiring judgment</li>
 </ul>
-<p>This isn't just about saving money, though that matters when you're running dozens of sub-agents per day. It's about using the right tool for the job. A haiku-coder that finishes a config change in 30 seconds is better than an opus-coder that spends 3 minutes on the same task and produces the same result.</p>
-<p>The orchestrator directives skill encodes these patterns. It includes fallback logic: try external CLIs first (Gemini CLI for research, Codex for code generation), fall back to HtmlGraph agents if those aren't available.</p>
+<p>This isn't just about saving money, though that matters when you're running dozens of sub-agents per day. It's about using the right tool for the job. A patch-coder that finishes a config change in 30 seconds is better than an architect-coder that spends 3 minutes on the same task and produces the same result.</p>
+<p>The orchestrator directives skill encodes these patterns. It includes fallback logic: try external CLIs first (Gemini CLI for research, Codex for code generation), fall back to wipnote agents if those aren't available.</p>
 <h2 id="the-orchestrator-pattern">The orchestrator pattern<a class="headerlink" href="#the-orchestrator-pattern" title="Permanent link">&para;</a></h2>
 <p>The main session (the orchestrator) decides WHAT to do and WHO should do it. It does not implement directly. This is a deliberate architectural choice.</p>
 <p>When a user asks the orchestrator to implement a feature, the flow is:</p>
@@ -608,10 +608,10 @@
 <li>Agent returns results to the orchestrator</li>
 <li>Orchestrator verifies the work, runs quality gates, and marks the item complete</li>
 </ol>
-<p>The orchestrator's prompt explicitly says: "Do NOT use Read, Edit, Write, Grep, or Glob directly. Delegate to HtmlGraph subagents." The only tools the orchestrator uses directly are Bash (for <code>htmlgraph</code> CLI commands) and the Agent tool (for dispatching sub-agents).</p>
+<p>The orchestrator's prompt explicitly says: "Do NOT use Read, Edit, Write, Grep, or Glob directly. Delegate to wipnote subagents." The only tools the orchestrator uses directly are Bash (for <code>wipnote</code> CLI commands) and the Agent tool (for dispatching sub-agents).</p>
 <h2 id="work-attribution">Work attribution<a class="headerlink" href="#work-attribution" title="Permanent link">&para;</a></h2>
-<p>Every sub-agent must register its work item before writing code. The <code>PreToolUse</code> hook blocks multi-file writes from any agent that hasn't called <code>htmlgraph feature start &lt;id&gt;</code>. This prevents anonymous modifications: every line of code traces to a tracked feature, a responsible agent, and a session.</p>
-<p>When the orchestrator dispatches a sub-agent, it includes the work item ID in the prompt: "Feature: feat-123. Run <code>htmlgraph feature start feat-123</code> before writing code." The sub-agent registers itself, does the work, and the session record captures every tool call attributed to that feature.</p>
+<p>Every sub-agent must register its work item before writing code. The <code>PreToolUse</code> hook blocks multi-file writes from any agent that hasn't called <code>wipnote feature start &lt;id&gt;</code>. This prevents anonymous modifications: every line of code traces to a tracked feature, a responsible agent, and a session.</p>
+<p>When the orchestrator dispatches a sub-agent, it includes the work item ID in the prompt: "Feature: feat-123. Run <code>wipnote feature start feat-123</code> before writing code." The sub-agent registers itself, does the work, and the session record captures every tool call attributed to that feature.</p>
 <p>After the agent returns, the orchestrator checks whether the work item was completed. If it's still in-progress, the orchestrator marks it complete as a safety net.</p>
 <h2 id="parallel-dispatch-with-worktrees">Parallel dispatch with worktrees<a class="headerlink" href="#parallel-dispatch-with-worktrees" title="Permanent link">&para;</a></h2>
 <p>The <code>execute</code> skill takes this further. Given an approved CRISPI plan with dependency-tracked slices, it:</p>
@@ -626,13 +626,13 @@
 <p>This is dependency-driven dispatch, not manual sequencing. You don't specify Wave 1 and Wave 2; the execute skill reads the dependency graph and figures out what can run in parallel.</p>
 <p>Conflict resolution for shared files (like import registrations or config files) is handled by instructing agents to use additive operations rather than replacing file contents.</p>
 <h2 id="how-it-differs-from-agent-teams">How it differs from Agent Teams<a class="headerlink" href="#how-it-differs-from-agent-teams" title="Permanent link">&para;</a></h2>
-<p>Claude Code's Agent Teams and HtmlGraph's orchestration address distinctly different coordination problems:</p>
+<p>Claude Code's Agent Teams and wipnote's orchestration address distinctly different coordination problems:</p>
 <table>
 <thead>
 <tr>
 <th>Dimension</th>
 <th>Agent Teams</th>
-<th>HtmlGraph Orchestration</th>
+<th>wipnote Orchestration</th>
 </tr>
 </thead>
 <tbody>
@@ -663,10 +663,10 @@
 </tr>
 </tbody>
 </table>
-<p>Agent Teams shine when you need agents to challenge each other, when the interaction between agents produces better results than either would alone. HtmlGraph's orchestration shines when you need predictable, attributed, cost-controlled parallel execution with quality gates.</p>
-<p>They're complementary. You could run an Agent Teams session where the team lead uses HtmlGraph's orchestration patterns, getting both inter-agent collaboration and cost-aware delegation. The two approaches operate at different layers.</p>
+<p>Agent Teams shine when you need agents to challenge each other, when the interaction between agents produces better results than either would alone. wipnote's orchestration shines when you need predictable, attributed, cost-controlled parallel execution with quality gates.</p>
+<p>They're complementary. You could run an Agent Teams session where the team lead uses wipnote's orchestration patterns, getting both inter-agent collaboration and cost-aware delegation. The two approaches operate at different layers.</p>
 <h2 id="the-result">The result<a class="headerlink" href="#the-result" title="Permanent link">&para;</a></h2>
-<p>This system has been used to build HtmlGraph itself. 850+ features completed across 11 tracks, each one dispatched through this orchestration layer. The researcher investigates, the haiku-coder handles simple fixes, the sonnet-coder implements features, and the opus-coder makes architectural decisions. Every change is attributed, every commit passes quality gates, and the dashboard shows exactly what each agent contributed.</p>
+<p>This system has been used to build wipnote itself. 850+ features completed across 11 tracks, each one dispatched through this orchestration layer. The researcher investigates, the patch-coder handles simple fixes, the feature-coder implements features, and the architect-coder makes architectural decisions. Every change is attributed, every commit passes quality gates, and the dashboard shows exactly what each agent contributed.</p>
 <p>The numbers validate the approach. But more than that, the experience of using it daily, watching the right agent handle the right task efficiently, seeing attribution chains from plan to feature to commit, makes AI-assisted development feel less like working with a black box and more like managing a team.</p>
 
 
@@ -755,7 +755,7 @@
       
       
     
-    <a href="https://github.com/shakestzd/erinn" target="_blank" rel="noopener" title="github.com" class="md-social__link">
+    <a href="https://github.com/shakestzd/wipnote" target="_blank" rel="noopener" title="github.com" class="md-social__link">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
     </a>
   

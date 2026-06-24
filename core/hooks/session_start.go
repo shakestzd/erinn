@@ -278,6 +278,15 @@ func SessionStart(event *CloudEvent, database *sql.DB, projectDir string) (*Hook
 		}
 	}
 
+	// Self-heal: reap stale-active SESSIONS left by a prior abnormal exit. Sessions
+	// only (includeCollectors=false) — marking ended is cheap and synchronous and
+	// completes before the short-lived hook process exits. Collectors are reaped by
+	// the long-lived daemon (a fire-and-forget goroutine here would be killed on
+	// hook exit — roborev #542). Own sid passed for self-exclusion; not report-only.
+	if database != nil {
+		_ = ReapStaleSessionsAndCollectors(database, projectDir, sessionID, false, false)
+	}
+
 	// Write canonical session HTML file (non-critical, errors silently logged).
 	CreateSessionHTML(projectDir, s)
 

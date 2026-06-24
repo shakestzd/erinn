@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>.wipnote hygiene — migrate arch cards, trim init bloat, add clean command (v0.66.0)</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="trk-4a78a9b7"
+             data-type="track"
+             data-status="done"
+             data-priority="medium"
+             data-created="2026-06-23T23:46:43.434747"
+             data-updated="2026-06-24T01:05:50.980501" data-agent-assigned="claude-code" data-created-by-agent="claude-code" data-created-by-model="claude-opus-4-8[1m]" data-created-by-cli-version="0.64.2-42-g2e55032c8">
+
+        <header>
+            <h1>.wipnote hygiene — migrate arch cards, trim init bloat, add clean command (v0.66.0)</h1>
+            <div class="metadata">
+                <span class="badge status-done">Done</span>
+                <span class="badge priority-medium">Medium Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="contains">
+                <h3>Contains:</h3>
+                <ul>
+                    <li><a href="../features/feat-7f62a570.html" data-relationship="contains" data-since="2026-06-23T23:46:55.452336">wipnote migrate arch-cards — ingest legacy arch markdown into architecture.html</a></li>
+                    <li><a href="../features/feat-53c0e871.html" data-relationship="contains" data-since="2026-06-23T23:46:56.118558">wipnote clean — reusable project cleanup, dry-run by default</a></li>
+                    <li><a href="../features/feat-6cacaaa4.html" data-relationship="contains" data-since="2026-06-23T23:46:56.433439">Stop scaffolding dead init artifacts &#43; remove vestigial metrics literal</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>Follow-up to the arch HTML ledger feature. Three parts: (1) wipnote migrate arch-cards — idempotent, dry-run-capable ingestion of 121 legacy arch markdown cards into canonical architecture.html via arch.ParseFile + store.Create, then remove the .md; (2) wipnote clean — reusable project cleanup runnable in any wipnote test repo, dry-run by default with --apply, deletes only known-dead wipnote artifacts (refs.json) and REPORTS unknown orphans (research/, agents.json, stale backup dirs) rather than blind-deleting; (3) stop scaffolding dead init artifacts (refs.json written by init but never read) and remove the vestigial metrics literal in relevant.go. Scope chosen: Standard (no full 8-file type-list DRY consolidation this round).</p>
+        </section>
+    </article>
+</body>
+</html>

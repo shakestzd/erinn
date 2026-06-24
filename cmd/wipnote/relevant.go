@@ -528,7 +528,7 @@ func extractHTMLGraphTrailers(body string) []string {
 
 // resolveItemHTMLPath finds the HTML file for a work-item ID by checking known subdirs.
 func resolveItemHTMLPath(hgDir, id string) string {
-	subdirs := []string{"features", "bugs", "spikes", "tracks", "plans", "specs", "metrics", "recaps"}
+	subdirs := []string{"features", "bugs", "spikes", "tracks", "plans", "specs", "recaps"}
 	for _, sub := range subdirs {
 		p := filepath.Join(hgDir, sub, id+".html")
 		if _, err := os.Stat(p); err == nil {

@@ -45,10 +45,6 @@ func runInit(_ *cobra.Command, _ []string) error {
 		return err
 	}
 
-	if err := writeRefsJSON(graphDir); err != nil {
-		return err
-	}
-
 	if err := writeStylesCSS(graphDir); err != nil {
 		return err
 	}
@@ -61,7 +57,6 @@ func runInit(_ *cobra.Command, _ []string) error {
 	fmt.Println("  .wipnote/tracks/")
 	fmt.Println("  .wipnote/sessions/")
 	fmt.Printf("  %s\n", dbPath)
-	fmt.Println("  .wipnote/refs.json")
 	fmt.Println("  .wipnote/styles.css")
 	fmt.Println()
 	fmt.Println("Run 'wipnote status' to verify.")
@@ -86,10 +81,6 @@ func initDatabase(dbPath string) error {
 		return fmt.Errorf("initialize database: %w", err)
 	}
 	return conn.Close()
-}
-
-func writeRefsJSON(graphDir string) error {
-	return writeFileIfAbsent(filepath.Join(graphDir, "refs.json"), []byte("{}\n"))
 }
 
 func writeStylesCSS(graphDir string) error {

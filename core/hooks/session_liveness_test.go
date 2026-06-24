@@ -80,6 +80,54 @@ func TestIsSessionProcessAlive(t *testing.T) {
 	})
 }
 
+// TestResolveOwningPIDStaleMarkerOmits proves the launch-marker freshness gate
+// (FIX A): a FRESH .launch-mode with a valid pid resolves to ok=true, but once
+// the marker's mtime is aged past launchMarkerFreshWindow it belongs to a PRIOR
+// session and resolveOwningPID returns ok=false (so the caller omits the anchor
+// and the live session safe-degrades to LIVE instead of being false-reaped).
+func TestResolveOwningPIDStaleMarkerOmits(t *testing.T) {
+	projectDir := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(projectDir, ".wipnote"), 0o755); err != nil {
+		t.Fatalf("mkdir .wipnote: %v", err)
+	}
+	markerPath := filepath.Join(projectDir, ".wipnote", ".launch-mode")
+	marker := launchModeFile{Mode: "claude", PID: 12345, Timestamp: time.Now().UTC().Format(time.RFC3339)}
+	data, err := json.Marshal(marker)
+	if err != nil {
+		t.Fatalf("marshal launch-mode: %v", err)
+	}
+	if err := os.WriteFile(markerPath, data, 0o644); err != nil {
+		t.Fatalf("write .launch-mode: %v", err)
+	}
+
+	// Fresh marker → resolves the recorded pid.
+	if pid, ok := resolveOwningPID(projectDir); !ok || pid != 12345 {
+		t.Fatalf("fresh marker: got (pid=%d, ok=%v), want (12345, true)", pid, ok)
+	}
+
+	// Age the marker ~1h into the past → stale → ok=false (omit anchor).
+	old := time.Now().Add(-time.Hour)
+	if err := os.Chtimes(markerPath, old, old); err != nil {
+		t.Fatalf("chtimes: %v", err)
+	}
+	if pid, ok := resolveOwningPID(projectDir); ok {
+		t.Fatalf("stale marker must NOT resolve an owner: got (pid=%d, ok=%v), want ok=false", pid, ok)
+	}
+}
+
+// TestIsSessionProcessAliveEPERM proves FIX H1: pid 1 (init) is root-owned, so a
+// non-root test process gets EPERM from kill(1,0) — which means the process
+// EXISTS (alive), not dead. IsSessionProcessAlive must return true (safe-degrade
+// to LIVE) rather than false-reaping. If the test happens to run as root it
+// returns true via the normal alive path; either way the assertion is true.
+func TestIsSessionProcessAliveEPERM(t *testing.T) {
+	sessDir := t.TempDir()
+	writeSessionPIDRaw(t, sessDir, "1") // pid 1 = init, root-owned, always running
+	if !IsSessionProcessAlive(sessDir) {
+		t.Fatalf("pid 1 (init) must read as ALIVE (EPERM=exists-under-other-uid), got dead")
+	}
+}
+
 func TestSessionReapEligible(t *testing.T) {
 	self := os.Getpid()
 	selfStart, hasStart := readProcStartTime(self)
@@ -192,5 +240,54 @@ func TestSessionResumeRefreshesPid(t *testing.T) {
 	// And the refreshed anchor must now read as ALIVE.
 	if !IsSessionProcessAlive(sessDir) {
 		t.Fatalf("expected refreshed session anchor to be alive")
+	}
+}
+
+// TestSessionResumeRemovesStaleAnchor proves the stale-anchor removal arm of FIX
+// A: when resume cannot resolve a fresh owner (no .launch-mode at all), any
+// pre-existing .session-pid is REMOVED so the resumed session degrades to LIVE
+// rather than carrying a dead pid that would false-reap it.
+func TestSessionResumeRemovesStaleAnchor(t *testing.T) {
+	clearNestedSessionEnv(t)
+
+	projectDir := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(projectDir, ".wipnote"), 0o755); err != nil {
+		t.Fatalf("mkdir .wipnote: %v", err)
+	}
+
+	database, err := openWipnoteTestDB(t, projectDir)
+	if err != nil {
+		t.Fatalf("db.Open: %v", err)
+	}
+	defer database.Close()
+
+	sessionID := "test-resume-remove-stale-001"
+	if err := db.InsertSession(database, &models.Session{
+		SessionID:     sessionID,
+		AgentAssigned: "claude-code",
+		Status:        "completed",
+		CreatedAt:     time.Now().UTC(),
+		ProjectDir:    paths.NormalizeProjectDir(projectDir),
+	}); err != nil {
+		t.Fatalf("InsertSession: %v", err)
+	}
+
+	sessDir := filepath.Join(projectDir, ".wipnote", "sessions", sessionID)
+	// Pre-write a STALE dead pid anchor.
+	writeSessionPIDRaw(t, sessDir, "2147483647\n999999")
+
+	// No .launch-mode written → resolveOwningPID returns ok=false → the anchor
+	// must be REMOVED, not left in place.
+	event := &CloudEvent{SessionID: sessionID, CWD: projectDir}
+	if _, err := SessionResume(event, database, projectDir); err != nil {
+		t.Fatalf("SessionResume: %v", err)
+	}
+
+	if _, err := os.Stat(filepath.Join(sessDir, ".session-pid")); !os.IsNotExist(err) {
+		t.Fatalf("stale .session-pid must be removed on resume with unresolvable owner (stat err=%v)", err)
+	}
+	// With no anchor, the session safe-degrades to LIVE (never reaped).
+	if !IsSessionProcessAlive(sessDir) {
+		t.Fatalf("session with removed anchor must degrade to LIVE")
 	}
 }

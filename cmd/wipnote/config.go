@@ -82,7 +82,7 @@ func startReaperLoop(ctx context.Context, writeDB *sql.DB, projectRoot string) {
 		return
 	}
 	startDrainLoop(ctx, orphanDrainInterval, func() {
-		hooks.ReapStaleSessionsAndCollectors(writeDB, projectRoot, "", true, hooks.ReaperDaemonReportOnly(projectRoot))
+		hooks.ReapStaleSessionsAndCollectors(writeDB, projectRoot, "", true, hooks.ReaperDaemonReportOnly(projectRoot), 0 /*unbounded*/)
 	})
 }
 

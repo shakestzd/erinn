@@ -551,13 +551,11 @@ func SessionResume(event *CloudEvent, database *sql.DB, projectDir string) (*Hoo
 	// On resume the new launcher rewrote .launch-mode with the LIVE pid, so
 	// re-resolving picks it up. Without this the resumed session would carry the
 	// dead pre-resume pid and be false-reaped. Best-effort: a write failure must
-	// NEVER block the hook; an unresolvable owner leaves the anchor untouched.
-	if ownerPID, ok := resolveOwningPID(projectDir); ok {
-		sessDir := filepath.Join(projectDir, ".wipnote", "sessions", sessionID)
-		if err := writeSessionPID(sessDir, ownerPID); err != nil {
-			debugLog(projectDir, "[session-resume] writeSessionPID failed (session=%s pid=%d): %v", sessionID[:minLen(sessionID, 8)], ownerPID, err)
-		}
-	}
+	// NEVER block the hook; when NO fresh owner resolves, updateSessionPIDAnchor
+	// REMOVES any stale pre-existing anchor (degrade to LIVE) rather than leaving
+	// a dead pid in place.
+	sessDir := filepath.Join(projectDir, ".wipnote", "sessions", sessionID)
+	updateSessionPIDAnchor(projectDir, sessDir)
 
 	// Re-export env vars so downstream hooks have the session ID.
 	writeEnvVars(sessionID, projectDir)
@@ -1107,7 +1105,14 @@ func ReaperDaemonReportOnly(projectDir string) bool {
 // flag itself is NOT read here; slice 4's daemon passes the resolved bool.
 //
 // currentSessionID is always excluded from both phases.
-func ReapStaleSessionsAndCollectors(database *sql.DB, projectDir, currentSessionID string, includeCollectors bool, reportOnly bool) *ReconcileReport {
+//
+// maxSessions caps the SESSION-reap phase: when > 0, the loop stops once that
+// many sessions have been reaped (counting both real reaps and reportOnly
+// would-reaps), so the synchronous hook path cannot stall behind a large stale
+// backlog under write contention — the daemon catches the remainder within one
+// interval. maxSessions <= 0 ⇒ unbounded (daemon callers pass 0). The cap
+// applies ONLY to the session phase; the collector phase is daemon-only.
+func ReapStaleSessionsAndCollectors(database *sql.DB, projectDir, currentSessionID string, includeCollectors bool, reportOnly bool, maxSessions int) *ReconcileReport {
 	rep := &ReconcileReport{}
 	if database == nil {
 		return rep
@@ -1121,7 +1126,12 @@ func ReapStaleSessionsAndCollectors(database *sql.DB, projectDir, currentSession
 		debugLog(projectDir, "[reaper] list active sessions: %v", err)
 		sessions = nil
 	}
+	reapedCount := 0
 	for _, s := range sessions {
+		if maxSessions > 0 && reapedCount >= maxSessions {
+			// Hook-path cap reached: leave the remainder for the daemon.
+			break
+		}
 		sid := s.SessionID
 		if sid == "" || sid == currentSessionID {
 			continue
@@ -1134,6 +1144,7 @@ func ReapStaleSessionsAndCollectors(database *sql.DB, projectDir, currentSession
 		if reportOnly {
 			// Dry-run: record the would-reap set; perform no UPDATE.
 			rep.ReapedSessions = append(rep.ReapedSessions, sid)
+			reapedCount++
 			debugLog(projectDir, "[reaper] report-only: would reap stale session %s (heartbeat stale, owner process dead)", sid[:minLen(sid, 8)])
 			continue
 		}
@@ -1147,16 +1158,34 @@ func ReapStaleSessionsAndCollectors(database *sql.DB, projectDir, currentSession
 		}
 		if n, _ := res.RowsAffected(); n == 1 {
 			rep.ReapedSessions = append(rep.ReapedSessions, sid)
+			reapedCount++
 			debugLog(projectDir, "[reaper] reaped stale session %s → completed (heartbeat stale, owner process dead)", sid[:minLen(sid, 8)])
+			// Release any active claims the reaped session still held. Normal
+			// SessionEnd does this (db.ReleaseAllClaimsForSession); the reaper
+			// must mirror it or a crashed session's claims block claim paths
+			// forever. Only on a REAL reap — never in the reportOnly branch.
+			if released, relErr := db.ReleaseAllClaimsForSession(database, sid); relErr != nil {
+				debugLog(projectDir, "[reaper] release claims for reaped session %s: %v", sid[:minLen(sid, 8)], relErr)
+			} else if released > 0 {
+				debugLog(projectDir, "[reaper] released %d claims for reaped session %s", released, sid[:minLen(sid, 8)])
+			}
 		}
 	}
 
 	// --- (b) reap orphaned collectors ---
 	if includeCollectors && ReapCollectorFn != nil {
 		grace := ReaperCollectorGrace(projectDir)
-		dirs, _ := filepath.Glob(filepath.Join(projectDir, ".wipnote", "sessions", "*"))
-		for _, sessDir := range dirs {
-			sid := filepath.Base(sessDir)
+		// os.ReadDir (not filepath.Glob) so session ids / paths containing glob
+		// metacharacters ([ * ?) are scanned correctly — Glob would silently
+		// skip or mis-match them.
+		sessionsDir := filepath.Join(projectDir, ".wipnote", "sessions")
+		entries, _ := os.ReadDir(sessionsDir)
+		for _, e := range entries {
+			if !e.IsDir() {
+				continue
+			}
+			sid := e.Name()
+			sessDir := filepath.Join(sessionsDir, sid)
 			if sid == "" || sid == currentSessionID {
 				continue
 			}

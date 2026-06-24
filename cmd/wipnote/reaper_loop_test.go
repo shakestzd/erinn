@@ -95,7 +95,7 @@ func TestDaemonPassReapsOrphanCollector(t *testing.T) {
 	}
 
 	// Run the daemon-loop body directly: sessions + collectors, remediate.
-	rep := hooks.ReapStaleSessionsAndCollectors(database, projectRoot, "", true, false)
+	rep := hooks.ReapStaleSessionsAndCollectors(database, projectRoot, "", true, false, 0)
 	if rep == nil {
 		t.Fatal("ReapStaleSessionsAndCollectors returned nil report")
 	}

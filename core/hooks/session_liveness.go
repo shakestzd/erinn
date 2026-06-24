@@ -2,13 +2,25 @@ package hooks
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
 	"syscall"
+	"time"
 )
+
+// launchMarkerFreshWindow bounds how recently .wipnote/.launch-mode must have
+// been written for its recorded pid to be trusted as THIS session's owner. A
+// bare/old launch leaves a stale marker from a PRIOR wipnote session; its
+// dead-or-reused pid must NOT be written into a live session's .session-pid
+// anchor (which would false-reap the live session once its heartbeat goes
+// stale). Mirrors bareLaunchNudge's 30s staleness window (session_start.go).
+// A tighter window is the SAFE direction: worst case a legit session degrades
+// to LIVE and is simply never auto-reaped — never false-reaped.
+const launchMarkerFreshWindow = 30 * time.Second
 
 // Session process-liveness anchor (feat-0a7db952, slice-1).
 //
@@ -60,7 +72,10 @@ func readProcStartTime(pid int) (uint64, bool) {
 // liveness can be polled directly. Resolution order:
 //
 //  1. .wipnote/.launch-mode (written by `wipnote claude` with os.Getpid() of the
-//     launcher) — authoritative for wipnote-launched sessions.
+//     launcher) — authoritative for wipnote-launched sessions, but ONLY when the
+//     marker is FRESH (written within launchMarkerFreshWindow). A stale marker is
+//     a leftover from a PRIOR session; its pid is dead/reused and trusting it
+//     would false-reap THIS live session.
 //  2. Subagents (WIPNOTE_PARENT_SESSION set) without a usable launch-mode pid:
 //     fall through — we do not have a confidently-resolvable stable harness pid
 //     here, and a wrong pid is worse than none.
@@ -69,6 +84,16 @@ func readProcStartTime(pid int) (uint64, bool) {
 //     never the reverse.
 func resolveOwningPID(projectDir string) (pid int, ok bool) {
 	markerPath := filepath.Join(projectDir, ".wipnote", ".launch-mode")
+	info, statErr := os.Stat(markerPath)
+	if statErr != nil {
+		return 0, false
+	}
+	// Freshness gate: a marker older than the window belongs to a PRIOR session.
+	// Its recorded pid is dead or reused; do NOT anchor this session to it.
+	// Mirrors bareLaunchNudge's "not this session" staleness check.
+	if time.Since(info.ModTime()) > launchMarkerFreshWindow {
+		return 0, false
+	}
 	b, err := os.ReadFile(markerPath)
 	if err != nil {
 		return 0, false
@@ -84,6 +109,26 @@ func resolveOwningPID(projectDir string) (pid int, ok bool) {
 	// deliberately fall through rather than guess a harness parent pid — a
 	// missing anchor degrades safely to LIVE.
 	return 0, false
+}
+
+// updateSessionPIDAnchor refreshes (or, when no fresh owner resolves, REMOVES)
+// the .session-pid anchor for sessDir. Best-effort: never blocks/fails the hook.
+//
+// The removal arm is the FIX for stale-anchor false-reaps on resume: if the old
+// code only WROTE when an owner resolved, an unresolvable owner (stale/absent
+// .launch-mode) left a DEAD pre-existing .session-pid in place, which the reaper
+// would then treat as a provably-dead owner and false-reap. Dropping the anchor
+// degrades the session to LIVE instead.
+func updateSessionPIDAnchor(projectDir, sessDir string) {
+	if pid, ok := resolveOwningPID(projectDir); ok {
+		if err := writeSessionPID(sessDir, pid); err != nil {
+			debugLog(projectDir, "[session] writeSessionPID failed (%s pid=%d): %v", filepath.Base(sessDir), pid, err)
+		}
+		return
+	}
+	// No fresh owner: drop any stale anchor so the session degrades to LIVE
+	// rather than carrying a dead/foreign pid.
+	_ = os.Remove(filepath.Join(sessDir, ".session-pid"))
 }
 
 // writeSessionPID writes the owning pid (and, on Linux, its /proc start time) to
@@ -135,7 +180,8 @@ func readSessionPIDFile(sessDir string) (pid int, starttime uint64, hasStart boo
 // never reaped.
 //
 //   - .session-pid missing / unreadable → true (legacy or unresolved owner).
-//   - process gone (kill(pid,0) -> ESRCH/error) → false.
+//   - process gone (kill(pid,0) -> ESRCH) → false.
+//   - kill(pid,0) -> EPERM → process exists under another uid → true (ALIVE).
 //   - start-time recorded AND readable now AND mismatched → PID reuse → false.
 //   - otherwise → true.
 func IsSessionProcessAlive(sessDir string) bool {
@@ -148,11 +194,14 @@ func IsSessionProcessAlive(sessDir string) bool {
 		return true
 	}
 	if err := syscall.Kill(pid, 0); err != nil {
-		// ESRCH (no such process) or EPERM-less error → treat as dead. We do
-		// not special-case EPERM here: a wipnote-launched owner is the same
-		// user, so EPERM is not expected; defaulting EPERM to dead is still the
-		// conservative choice only when the process truly differs, but in
-		// practice Kill(pid,0) returns nil when the process exists regardless.
+		// EPERM means the process EXISTS but is owned by a different uid (e.g. a
+		// root process that reused the recorded pid). The process is ALIVE — we
+		// must NOT report it dead, or a live session whose pid was reused under
+		// another uid would be false-reaped. Safe-degrade to LIVE.
+		if errors.Is(err, syscall.EPERM) {
+			return true
+		}
+		// ESRCH (or any other error) → no such process → provably dead.
 		return false
 	}
 	if !hasStart {

@@ -1,6 +1,6 @@
 # wipnote
 
-**Causal lineage and observability for AI-assisted development.**
+**Local-first causal lineage and observability for AI-assisted development.**
 
 Answer "why does this code exist?" in one command. wipnote traces causal chains across work items, commits, sessions, and agent spawns — then stores everything as HTML files in your repo. No external infrastructure required.
 

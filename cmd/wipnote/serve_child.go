@@ -309,6 +309,11 @@ func startWriterMaintenance(ctx context.Context, writeDB *sql.DB, wipnoteDir str
 	// that deterministic auto-commit off the interactive path so the durable
 	// record still lands in git.
 	startReconcileDrainLoop(ctx, writeDB, projectRoot)
+
+	// Periodic session/collector reaper (plan-5748e9a8): converts liveness detection
+	// into remediation — marks heartbeat-stale+process-dead active sessions ended and
+	// reaps identity-verified orphaned collectors. Dedicated pass, NOT full Reconcile.
+	startReaperLoop(ctx, writeDB, projectRoot)
 }
 
 // writerIdleTimeout resolves the headless writer's idle-exit window. It honours

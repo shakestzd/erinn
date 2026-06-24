@@ -112,6 +112,14 @@ var allowedHarnesses = map[string]struct{}{
 	"antigravity": {},
 }
 
+// sessionStartReapCap bounds how many stale sessions the SYNCHRONOUS SessionStart
+// self-heal reaper will transition per launch. The reaper runs on the hot hook
+// path; under write contention each candidate can cost ~one busy-timeout, so an
+// uncapped pass over a large stale backlog could stall the launcher. 64 keeps the
+// worst case bounded while the long-lived daemon (which passes 0 ⇒ unbounded)
+// catches any remainder within one interval.
+const sessionStartReapCap = 64
+
 // bareLaunchNudge returns an extra startup hint when Claude was started without
 // `wipnote claude` (i.e. .launch-mode is missing or older than 30 seconds).
 // Returns an empty string when the orchestrator system prompt is already active.
@@ -122,8 +130,9 @@ func bareLaunchNudge(projectDir string) string {
 	path := filepath.Join(projectDir, ".wipnote", ".launch-mode")
 	info, err := os.Stat(path)
 	if err == nil {
-		// File exists — check if it was written within the last 30 seconds.
-		if time.Since(info.ModTime()) <= 30*time.Second {
+		// File exists — check if it was written within the freshness window
+		// (shared with resolveOwningPID so both agree on "this session").
+		if time.Since(info.ModTime()) <= launchMarkerFreshWindow {
 			return ""
 		}
 	}
@@ -265,6 +274,23 @@ func SessionStart(event *CloudEvent, database *sql.DB, projectDir string) (*Hook
 		"phase":   "db-tx",
 		"session": shortID,
 	}, txStart, "session+lineage routed")
+
+	// Record the session process-liveness anchor (feat-0a7db952, slice-1).
+	// Writing the owning pid (+ /proc start-time) lets the reaper distinguish a
+	// crashed session from a long-idle LIVE one. Best-effort: a write failure
+	// must NEVER block or fail the hook — when the owner is unresolvable we omit
+	// .session-pid entirely so the session safe-degrades to LIVE (never reaped).
+	sessDir := filepath.Join(projectDir, ".wipnote", "sessions", sessionID)
+	updateSessionPIDAnchor(projectDir, sessDir)
+
+	// Self-heal: reap stale-active SESSIONS left by a prior abnormal exit. Sessions
+	// only (includeCollectors=false) — marking ended is cheap and synchronous and
+	// completes before the short-lived hook process exits. Collectors are reaped by
+	// the long-lived daemon (a fire-and-forget goroutine here would be killed on
+	// hook exit — roborev #542). Own sid passed for self-exclusion; not report-only.
+	if database != nil {
+		_ = ReapStaleSessionsAndCollectors(database, projectDir, sessionID, false, false, sessionStartReapCap)
+	}
 
 	// Write canonical session HTML file (non-critical, errors silently logged).
 	CreateSessionHTML(projectDir, s)

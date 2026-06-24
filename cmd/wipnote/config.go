@@ -71,6 +71,21 @@ func startOrphanDrainLoop(ctx context.Context, writeDB *sql.DB, projectRoot stri
 	})
 }
 
+// startReaperLoop runs the session/collector reaper on a low frequency inside the
+// headless writer daemon. currentSessionID="" — the daemon owns no interactive
+// session (excludes nothing extra). includeCollectors=true — the daemon is the
+// ONLY place orphaned collectors are reaped. reportOnly is driven by the
+// reaper_daemon_report_only config knob (default false ⇒ remediate). Best-effort;
+// shares the single writable handle; stops on ctx cancellation.
+func startReaperLoop(ctx context.Context, writeDB *sql.DB, projectRoot string) {
+	if writeDB == nil || projectRoot == "" {
+		return
+	}
+	startDrainLoop(ctx, orphanDrainInterval, func() {
+		hooks.ReapStaleSessionsAndCollectors(writeDB, projectRoot, "", true, hooks.ReaperDaemonReportOnly(projectRoot), 0 /*unbounded*/)
+	})
+}
+
 // startReconcileDrainLoop auto-commits done-but-uncommitted work-item artifacts
 // off the hot path (feat-c08d1ba1 slice-6). The Stop hook no longer runs this
 // per-item git fork loop synchronously (it was the ~5.45s per-turn cost); this

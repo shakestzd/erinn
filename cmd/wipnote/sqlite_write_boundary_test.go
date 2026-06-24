@@ -409,7 +409,7 @@ var approvedWriteSites = []writeSite{
 	// ----------------------------------------------------------------------
 	{
 		File:           "cmd/wipnote/init.go",
-		Line:           84,
+		Line:           79,
 		Function:       "initDatabase",
 		OpenExpr:       "db.Open",
 		Classification: migrationOnly,
@@ -417,7 +417,7 @@ var approvedWriteSites = []writeSite{
 	},
 	{
 		File:           "cmd/wipnote/migrate.go",
-		Line:           59,
+		Line:           62,
 		Function:       "runMigrateSessions",
 		OpenExpr:       "dbpkg.Open",
 		Classification: migrationOnly,

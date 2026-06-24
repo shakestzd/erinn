@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	corearch "github.com/shakestzd/wipnote/core/arch"
 )
@@ -167,4 +168,92 @@ func TestMigrateArchCards_DryRun(t *testing.T) {
 			t.Error("expected test-hazard to be absent from ledger after dry run, but it was found")
 		}
 	}
+}
+
+// sampleMDCardWithTimestamps is a legacy frontmatter card that carries explicit
+// created_at / updated_at timestamps (as a real on-disk card does).
+const sampleMDCardWithTimestamps = `---
+name: ts-hazard
+kind: hazard
+created_by: test-agent
+paths:
+  - cmd/wipnote/migrate.go
+created_at: 2026-01-15T10:00:00Z
+updated_at: 2026-02-20T15:30:00Z
+---
+Body text for timestamp preservation test.
+`
+
+// TestMigrateArchCards_PreservesTimestamps verifies that:
+//  1. Migration preserves the original created_at / updated_at from frontmatter.
+//  2. A brand-new store.Create with unset timestamps still gets now() (not zero).
+func TestMigrateArchCards_PreservesTimestamps(t *testing.T) {
+	projectDir := t.TempDir()
+	wipnoteDir := filepath.Join(projectDir, ".wipnote")
+	archDir := filepath.Join(wipnoteDir, "arch")
+	if err := os.MkdirAll(archDir, 0o755); err != nil {
+		t.Fatalf("create arch dir: %v", err)
+	}
+	t.Setenv("WIPNOTE_PROJECT_DIR", projectDir)
+
+	wantCreated := time.Date(2026, 1, 15, 10, 0, 0, 0, time.UTC)
+	wantUpdated := time.Date(2026, 2, 20, 15, 30, 0, 0, time.UTC)
+
+	// Write a legacy .md card with explicit timestamps.
+	mdPath := filepath.Join(archDir, "ts-hazard.md")
+	if err := os.WriteFile(mdPath, []byte(sampleMDCardWithTimestamps), 0o644); err != nil {
+		t.Fatalf("write md card: %v", err)
+	}
+
+	before := time.Now().UTC()
+	if err := runMigrateArchCards(false); err != nil {
+		t.Fatalf("runMigrateArchCards: %v", err)
+	}
+
+	store, err := corearch.NewStore(wipnoteDir)
+	if err != nil {
+		t.Fatalf("NewStore: %v", err)
+	}
+	card, err := store.Get("ts-hazard")
+	if err != nil {
+		t.Fatalf("store.Get: %v", err)
+	}
+
+	// Timestamps must be the originals from the .md frontmatter, not migration-time.
+	if !card.CreatedAt.Equal(wantCreated) {
+		t.Errorf("CreatedAt: got %v, want %v (migration overwrote original timestamp)", card.CreatedAt, wantCreated)
+	}
+	if !card.UpdatedAt.Equal(wantUpdated) {
+		t.Errorf("UpdatedAt: got %v, want %v (migration overwrote original timestamp)", card.UpdatedAt, wantUpdated)
+	}
+
+	// Verify that a brand-new Create (no timestamps set) gets now(), not zero.
+	t.Run("new card gets now()", func(t *testing.T) {
+		newCard := &corearch.Card{
+			Name:      "brand-new-card",
+			Kind:      corearch.KindInvariant,
+			CreatedBy: "test-agent",
+			Body:      "A brand new card with no timestamps.",
+		}
+		if err := store.Create(newCard); err != nil {
+			t.Fatalf("store.Create: %v", err)
+		}
+		got, err := store.Get("brand-new-card")
+		if err != nil {
+			t.Fatalf("store.Get: %v", err)
+		}
+		if got.CreatedAt.IsZero() {
+			t.Error("CreatedAt is zero for new card; expected now()")
+		}
+		if got.UpdatedAt.IsZero() {
+			t.Error("UpdatedAt is zero for new card; expected now()")
+		}
+		// Timestamps must be at or after the moment before the Create call.
+		if got.CreatedAt.Before(before) {
+			t.Errorf("CreatedAt %v is before test start %v", got.CreatedAt, before)
+		}
+		if got.UpdatedAt.Before(before) {
+			t.Errorf("UpdatedAt %v is before test start %v", got.UpdatedAt, before)
+		}
+	})
 }

@@ -3,6 +3,7 @@ package main
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 )
 
@@ -151,5 +152,62 @@ func TestClean_Idempotent(t *testing.T) {
 	// agents.json must still be intact.
 	if !exists(agentsJSON) {
 		t.Error("idempotent: agents.json was deleted")
+	}
+}
+
+// TestClean_NoWipnoteDir verifies that runClean returns an error (not success)
+// when the resolved .wipnote path is not a directory, rather than silently
+// reporting a clean project outside any wipnote checkout.
+//
+// Strategy: place a regular FILE at <projectDir>/.wipnote so findWipnoteDir
+// returns a path that exists but is not a directory — our stat guard must
+// reject it with a clear error rather than proceeding.
+func TestClean_NoWipnoteDir(t *testing.T) {
+	fake := t.TempDir()
+	// Write a regular file named ".wipnote" — not a directory.
+	if err := os.WriteFile(filepath.Join(fake, ".wipnote"), []byte("not a dir"), 0o644); err != nil {
+		t.Fatalf("write fake .wipnote file: %v", err)
+	}
+	t.Setenv("WIPNOTE_PROJECT_DIR", fake)
+
+	err := runClean(false)
+	if err == nil {
+		t.Error("expected an error when .wipnote is not a directory, got nil")
+	}
+}
+
+// TestClean_ApplyUnremovableArtifactReturnsError verifies that when --apply
+// fails to remove a known-dead artifact, runClean returns a non-nil error
+// (in addition to printing the per-item error line).
+//
+// On Linux we simulate an un-removable file by making refs.json a directory
+// (os.Remove returns an error for non-empty paths that are directories).
+// On Windows this approach is unreliable, so we skip there.
+func TestClean_ApplyUnremovableArtifactReturnsError(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("chmod-based unremovable test not reliable on Windows")
+	}
+
+	projectDir := t.TempDir()
+	wipnoteDir := filepath.Join(projectDir, ".wipnote")
+	if err := os.MkdirAll(wipnoteDir, 0o755); err != nil {
+		t.Fatalf("mkdir wipnoteDir: %v", err)
+	}
+	t.Setenv("WIPNOTE_PROJECT_DIR", projectDir)
+
+	// Create refs.json as a non-empty directory so os.Remove fails on it.
+	// (os.Remove only removes empty dirs; a non-empty one causes ENOTEMPTY.)
+	refsDir := filepath.Join(wipnoteDir, "refs.json")
+	if err := os.MkdirAll(refsDir, 0o755); err != nil {
+		t.Fatalf("mkdir refs.json-as-dir: %v", err)
+	}
+	// Put a file inside so it's non-empty.
+	if err := os.WriteFile(filepath.Join(refsDir, "sentinel"), []byte("x"), 0o644); err != nil {
+		t.Fatalf("write sentinel: %v", err)
+	}
+
+	err := runClean(true /* apply */)
+	if err == nil {
+		t.Error("expected non-nil error when a known-dead artifact cannot be removed, got nil")
 	}
 }

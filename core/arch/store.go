@@ -165,8 +165,16 @@ func (s *Store) Create(card *Card) error {
 		}
 	}
 	now := time.Now().UTC()
-	card.CreatedAt = now
-	card.UpdatedAt = now
+	// Preserve non-zero incoming timestamps (e.g. from legacy .md frontmatter
+	// migration). Only stamp now() when the caller has not set a timestamp —
+	// this lets runArchCardMigration preserve the original card audit history
+	// while normal/new card creation still gets now().
+	if card.CreatedAt.IsZero() {
+		card.CreatedAt = now
+	}
+	if card.UpdatedAt.IsZero() {
+		card.UpdatedAt = now
+	}
 	return s.write(card, "")
 }
 

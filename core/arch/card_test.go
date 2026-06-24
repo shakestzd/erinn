@@ -806,3 +806,79 @@ func TestStore_ValidateAll_WithWarnings(t *testing.T) {
 		t.Error("warn-card should not appear in errs (warn-only path)")
 	}
 }
+
+// ---- Store.Create timestamp-preservation tests --------------------------------
+
+// TestStore_Create_PreservesNonZeroTimestamps verifies that when a Card is
+// passed to store.Create with explicit non-zero CreatedAt / UpdatedAt (e.g.
+// from legacy .md frontmatter migration), those timestamps are preserved in
+// the ledger unchanged. This is the core requirement of roborev finding 524.
+func TestStore_Create_PreservesNonZeroTimestamps(t *testing.T) {
+	dir := t.TempDir()
+	store, err := NewStore(dir)
+	if err != nil {
+		t.Fatalf("NewStore: %v", err)
+	}
+
+	wantCreated := time.Date(2025, 6, 1, 12, 0, 0, 0, time.UTC)
+	wantUpdated := time.Date(2025, 9, 15, 8, 30, 0, 0, time.UTC)
+
+	card := validCard()
+	card.CreatedAt = wantCreated
+	card.UpdatedAt = wantUpdated
+
+	if err := store.Create(card); err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+
+	got, err := store.Get(card.Name)
+	if err != nil {
+		t.Fatalf("Get: %v", err)
+	}
+	if !got.CreatedAt.Equal(wantCreated) {
+		t.Errorf("CreatedAt: got %v, want %v (Create overwrote frontmatter timestamp)", got.CreatedAt, wantCreated)
+	}
+	if !got.UpdatedAt.Equal(wantUpdated) {
+		t.Errorf("UpdatedAt: got %v, want %v (Create overwrote frontmatter timestamp)", got.UpdatedAt, wantUpdated)
+	}
+}
+
+// TestStore_Create_StampsNowWhenTimestampsUnset verifies that when a Card has
+// zero CreatedAt / UpdatedAt (normal new-card creation), store.Create assigns
+// the current time — not the zero value. This ensures the timestamp-preservation
+// fix in finding 524 does not regress normal creation.
+func TestStore_Create_StampsNowWhenTimestampsUnset(t *testing.T) {
+	dir := t.TempDir()
+	store, err := NewStore(dir)
+	if err != nil {
+		t.Fatalf("NewStore: %v", err)
+	}
+
+	before := time.Now().UTC()
+	card := validCard()
+	// Explicitly zero — simulates normal `wipnote arch add` path.
+	card.CreatedAt = time.Time{}
+	card.UpdatedAt = time.Time{}
+
+	if err := store.Create(card); err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+
+	got, err := store.Get(card.Name)
+	if err != nil {
+		t.Fatalf("Get: %v", err)
+	}
+	if got.CreatedAt.IsZero() {
+		t.Error("CreatedAt is zero after Create with unset timestamp; expected now()")
+	}
+	if got.UpdatedAt.IsZero() {
+		t.Error("UpdatedAt is zero after Create with unset timestamp; expected now()")
+	}
+	if got.CreatedAt.Before(before) {
+		t.Errorf("CreatedAt %v is before test-start %v", got.CreatedAt, before)
+	}
+	if got.UpdatedAt.Before(before) {
+		t.Errorf("UpdatedAt %v is before test-start %v", got.UpdatedAt, before)
+	}
+}
+

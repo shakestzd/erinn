@@ -63,6 +63,12 @@ func runClean(apply bool) error {
 	if err != nil {
 		return err
 	}
+	// Verify the resolved .wipnote directory actually exists. findWipnoteDir
+	// can fall back to cwd/.wipnote even when no such directory is present,
+	// causing clean to report success outside any wipnote checkout.
+	if info, statErr := os.Stat(wipnoteDir); statErr != nil || !info.IsDir() {
+		return fmt.Errorf(".wipnote directory not found at %s: not inside a wipnote project", wipnoteDir)
+	}
 	printProjectHeaderIfDifferent(wipnoteDir)
 
 	dryRun := !apply
@@ -147,6 +153,20 @@ func runClean(apply bool) error {
 
 	// Summary footer.
 	printCleanSummary(dryRun, migrated, skipped, errCount, deadResults, reportItems)
+
+	// Count removal errors in --apply mode and propagate as a non-nil error so
+	// scripts and callers see the failure (per-item lines are already printed above).
+	if apply {
+		var deadErrCount int
+		for _, r := range deadResults {
+			if r.disposition == "error" {
+				deadErrCount++
+			}
+		}
+		if deadErrCount > 0 {
+			return fmt.Errorf("clean: %d known-dead artifact(s) could not be removed", deadErrCount)
+		}
+	}
 	return nil
 }
 

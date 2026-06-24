@@ -13,6 +13,7 @@ import (
 	"path/filepath"
 
 	"github.com/shakestzd/wipnote/core/hooks"
+	"github.com/shakestzd/wipnote/observe/otel/collector"
 	"github.com/shakestzd/wipnote/observe/otel/materialize"
 	"github.com/shakestzd/wipnote/observe/otel/retention"
 	"github.com/shakestzd/wipnote/port/pluginbuild"
@@ -22,6 +23,7 @@ func init() {
 	hooks.RetentionSweepFn = runRetentionSweep
 	hooks.SessionMaterializeFn = materialize.Materialize
 	hooks.PortDriftPathsFn = portDriftPaths
+	hooks.ReapCollectorFn = collector.ReapCollector
 }
 
 // runRetentionSweep performs a disk-retention pass for the project: rotate

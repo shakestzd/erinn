@@ -602,6 +602,16 @@ type ReconcileReport struct {
 	AutoCommitted []string `json:"auto_committed,omitempty"`
 	PortDrift     []string `json:"port_drift,omitempty"`
 	Orphaned      []string `json:"orphaned,omitempty"`
+
+	// ReapedSessions and ReapedCollectors are the forced-reap audit trail
+	// produced by ReapStaleSessionsAndCollectors (feat-88f92f44). They are
+	// deliberately report-only JSON fields with NO backing schema/DB column —
+	// this struct IS the audit trail; a migration would break migrations_test.go
+	// and there is no query that needs them indexed. ReapedSessions holds the
+	// session ids transitioned active→completed; ReapedCollectors holds
+	// "<sid>:<pid>" entries for each identity-verified orphan collector killed.
+	ReapedSessions   []string `json:"reaped_sessions,omitempty"`
+	ReapedCollectors []string `json:"reaped_collectors,omitempty"`
 }
 
 // HasAmbiguousDrift reports whether the pass found unresolved source-ambiguous
@@ -617,7 +627,8 @@ func (r *ReconcileReport) HasAmbiguousDrift() bool {
 // Empty reports whether the pass found nothing actionable at all.
 func (r *ReconcileReport) Empty() bool {
 	return r == nil ||
-		(len(r.AutoCommitted) == 0 && len(r.PortDrift) == 0 && len(r.Orphaned) == 0)
+		(len(r.AutoCommitted) == 0 && len(r.PortDrift) == 0 && len(r.Orphaned) == 0 &&
+			len(r.ReapedSessions) == 0 && len(r.ReapedCollectors) == 0)
 }
 
 // reconcileArtifactCommitFn is the injection seam for the deterministic
@@ -1063,6 +1074,115 @@ func ReaperCollectorGrace(projectDir string) time.Duration {
 // defaults to false (absence == false). projectDir=="" → false.
 func ReaperDaemonReportOnly(projectDir string) bool {
 	return readReaperConfig(projectDir).ReaperDaemonReportOnly
+}
+
+// ReapStaleSessionsAndCollectors is the idempotent, identity-verified reaper
+// pass (feat-88f92f44). It transitions crashed/abandoned sessions to completed
+// and (optionally) terminates orphaned per-session OTel collectors whose owning
+// session is provably dead. It NEVER touches the current session and NEVER
+// reaps a session it cannot positively prove dead — the safe-degrade direction
+// is always "leave active".
+//
+// (a) Sessions: a status='active' row is reaped only when its heartbeat is
+// stale (no claim heartbeat within ttl) AND its owning process is provably not
+// alive (SessionReapEligible, which folds the .session-pid kill(pid,0)+
+// start-time anchor). A long-IDLE but LIVE session (process alive) and a legacy
+// session with no .session-pid anchor both safe-degrade to LIVE and are left
+// active. Idempotency is the UPDATE's own `status='active'` guard plus a
+// RowsAffected()==1 check — a concurrent pass that already reaped a row sees 0.
+//
+// (b) Collectors (only when includeCollectors): for every session dir carrying
+// a .collector-pid, the OWNER-liveness gate fires first (never kill a live
+// session's collector): skip when the owner is heartbeat-fresh OR its process
+// is alive. Otherwise delegate to the injected ReapCollectorFn (observe's
+// ReapCollector), which itself gates the kill on IsCollectorAlive — so a
+// reused/dead collector pid is cleared without ever being signalled. A nil
+// ReapCollectorFn (telemetry not wired) degrades the whole collector phase to a
+// no-op.
+//
+// reportOnly drives the slice-3 reaper_daemon_report_only dry-run knob: when
+// true, the FULL detection still runs and rep.ReapedSessions/ReapedCollectors
+// are populated with the would-reap set, but NO side effects occur — the
+// session UPDATE is skipped and ReapCollectorFn is never called. The config
+// flag itself is NOT read here; slice 4's daemon passes the resolved bool.
+//
+// currentSessionID is always excluded from both phases.
+func ReapStaleSessionsAndCollectors(database *sql.DB, projectDir, currentSessionID string, includeCollectors bool, reportOnly bool) *ReconcileReport {
+	rep := &ReconcileReport{}
+	if database == nil {
+		return rep
+	}
+	ttl := ReaperSessionTTL(projectDir)
+	now := time.Now().UTC().Format(time.RFC3339)
+
+	// --- (a) reap stale sessions ---
+	sessions, err := db.ListSessions(database, true /*activeOnly*/, 1_000_000)
+	if err != nil {
+		debugLog(projectDir, "[reaper] list active sessions: %v", err)
+		sessions = nil
+	}
+	for _, s := range sessions {
+		sid := s.SessionID
+		if sid == "" || sid == currentSessionID {
+			continue
+		}
+		heartbeatStale := !db.SessionLivenessByHeartbeat(database, sid, ttl)
+		sessDir := filepath.Join(projectDir, ".wipnote", "sessions", sid)
+		if !SessionReapEligible(heartbeatStale, sessDir) {
+			continue
+		}
+		if reportOnly {
+			// Dry-run: record the would-reap set; perform no UPDATE.
+			rep.ReapedSessions = append(rep.ReapedSessions, sid)
+			debugLog(projectDir, "[reaper] report-only: would reap stale session %s (heartbeat stale, owner process dead)", sid[:minLen(sid, 8)])
+			continue
+		}
+		res, execErr := database.Exec(
+			`UPDATE sessions SET status='completed', completed_at=? WHERE session_id=? AND status='active'`,
+			now, sid,
+		)
+		if execErr != nil {
+			debugLog(projectDir, "[reaper] reap session %s: %v", sid[:minLen(sid, 8)], execErr)
+			continue
+		}
+		if n, _ := res.RowsAffected(); n == 1 {
+			rep.ReapedSessions = append(rep.ReapedSessions, sid)
+			debugLog(projectDir, "[reaper] reaped stale session %s → completed (heartbeat stale, owner process dead)", sid[:minLen(sid, 8)])
+		}
+	}
+
+	// --- (b) reap orphaned collectors ---
+	if includeCollectors && ReapCollectorFn != nil {
+		grace := ReaperCollectorGrace(projectDir)
+		dirs, _ := filepath.Glob(filepath.Join(projectDir, ".wipnote", "sessions", "*"))
+		for _, sessDir := range dirs {
+			sid := filepath.Base(sessDir)
+			if sid == "" || sid == currentSessionID {
+				continue
+			}
+			if _, statErr := os.Stat(filepath.Join(sessDir, ".collector-pid")); statErr != nil {
+				continue // no collector record for this session
+			}
+			// Owner-liveness gate: never kill a live session's collector.
+			heartbeatStale := !db.SessionLivenessByHeartbeat(database, sid, ttl)
+			if !heartbeatStale || IsSessionProcessAlive(sessDir) {
+				continue
+			}
+			if reportOnly {
+				rep.ReapedCollectors = append(rep.ReapedCollectors, sid)
+				debugLog(projectDir, "[reaper] report-only: would reap orphan collector for session %s", sid[:minLen(sid, 8)])
+				continue
+			}
+			pid, reaped := ReapCollectorFn(sessDir, grace)
+			if reaped {
+				rep.ReapedCollectors = append(rep.ReapedCollectors, fmt.Sprintf("%s:%d", sid, pid))
+				debugLog(projectDir, "[reaper] reaped orphan collector pid=%d for session %s", pid, sid[:minLen(sid, 8)])
+			}
+			// !reaped ⇒ ReapCollector cleared a dead/reused record; not a kill.
+		}
+	}
+
+	return rep
 }
 
 // runSessionExitReconcile is the shared Stop/SessionEnd entry point. It runs a

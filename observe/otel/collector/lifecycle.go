@@ -458,6 +458,52 @@ func RemoveCollectorPID(projectDir, sessionID string) {
 	_ = os.Remove(pidPath)
 }
 
+// ReapCollector terminates an identity-verified orphaned collector for the
+// session at sessDir and clears its .collector-pid. It is the reaper's
+// collector-killer and the identity-verified counterpart of the legacy
+// signalCollector (core/hooks/session_end.go), which reads the pid as a RAW int
+// with no start-time check. ReapCollector gates EVERY kill on IsCollectorAlive,
+// so a dead pid, a reused pid (start-time mismatch), or a missing record is
+// never signalled.
+//
+// Returns the pid found in the record (0 when none) and whether a live wipnote
+// collector was actually reaped:
+//
+//   - !alive (pid dead, start-time mismatch/reused, or no record): no signal is
+//     sent. The (possibly stale/reused) .collector-pid is removed idempotently.
+//     Returns (pid, false).
+//   - alive (verified wipnote collector): SIGTERM, then poll kill(pid,0) up to
+//     grace; if still alive, SIGKILL; then remove .collector-pid. Returns
+//     (pid, true).
+//
+// Best-effort and never blocks beyond grace. Wired into core/hooks via
+// hooks.ReapCollectorFn by observe/register.
+func ReapCollector(sessDir string, grace time.Duration) (pid int, reaped bool) {
+	alive, pid := IsCollectorAlive(sessDir)
+	pidPath := filepath.Join(sessDir, ".collector-pid")
+	if !alive {
+		// Dead, reused, or no record — never signal a pid we can't positively
+		// prove is the wipnote collector. Just clear the stale record.
+		_ = os.Remove(pidPath)
+		return pid, false
+	}
+
+	// Verified-live wipnote collector: graceful drain then escalate.
+	_ = syscall.Kill(pid, syscall.SIGTERM)
+	deadline := time.Now().Add(grace)
+	for time.Now().Before(deadline) {
+		if err := syscall.Kill(pid, 0); err != nil {
+			break // process exited
+		}
+		time.Sleep(50 * time.Millisecond)
+	}
+	if err := syscall.Kill(pid, 0); err == nil {
+		_ = syscall.Kill(pid, syscall.SIGKILL)
+	}
+	_ = os.Remove(pidPath)
+	return pid, true
+}
+
 // WriteCollectorPID writes the collector PID to the session directory.
 // On Linux, also appends the process start time (clock ticks from
 // /proc/<pid>/stat field 22) on a second line so future liveness checks

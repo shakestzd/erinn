@@ -975,6 +975,84 @@ func DrainReconcileWarnings(projectDir string) string {
 		strings.Join(lines, "\n")
 }
 
+// --- Reaper config knobs ---
+
+// defaultReaperSessionTTLSeconds is the heartbeat-stale cutoff (in seconds) beyond
+// which a session is eligible for reaping. Distinct from liveness_staleness_threshold_seconds
+// (defaultLivenessStalenessSeconds = 120s in core/db): that controls the liveness
+// query used by the serve-path claim reaper; this TTL controls the reaper's own
+// eligibility window (30m = 1800s).
+const (
+	defaultReaperSessionTTLSeconds     = 1800 // 30m heartbeat-stale cutoff for reap eligibility
+	defaultReaperCollectorGraceSeconds = 10   // SIGTERM→SIGKILL grace window
+)
+
+// reaperConfig decodes ONLY the three reaper-specific fields from .wipnote/config.json.
+// Everything else in config.json is ignored. This is the 3rd independent reader of
+// config.json in this codebase (the others are livenessConfig in core/db/session_repo.go
+// and readTaskCompletionConfig in core/hooks/task_completion_gate.go). There is no
+// shared config package; each call site reads independently. Accepted debt, NOT a
+// refactor target.
+type reaperConfig struct {
+	ReaperSessionTTLSeconds     int  `json:"reaper_session_ttl_seconds"`
+	ReaperCollectorGraceSeconds int  `json:"reaper_collector_grace_seconds"`
+	ReaperDaemonReportOnly      bool `json:"reaper_daemon_report_only"`
+}
+
+// readReaperConfig loads .wipnote/config.json from projectDir and decodes the
+// reaper fields. Returns a zero-value reaperConfig on projectDir=="" or any
+// read/parse error; callers apply their own per-field defaults.
+func readReaperConfig(projectDir string) reaperConfig {
+	if projectDir == "" {
+		return reaperConfig{}
+	}
+	data, err := os.ReadFile(filepath.Join(projectDir, ".wipnote", "config.json"))
+	if err != nil {
+		return reaperConfig{}
+	}
+	var cfg reaperConfig
+	if err := json.Unmarshal(data, &cfg); err != nil {
+		return reaperConfig{}
+	}
+	return cfg
+}
+
+// ReaperSessionTTL returns the duration beyond which a session with a stale
+// heartbeat is eligible for reaping. Reads reaper_session_ttl_seconds from
+// .wipnote/config.json under projectDir; falls back to the 30m default when
+// the file is missing, unreadable, unparseable, or the value is non-positive.
+// projectDir=="" → default.
+func ReaperSessionTTL(projectDir string) time.Duration {
+	def := time.Duration(defaultReaperSessionTTLSeconds) * time.Second
+	cfg := readReaperConfig(projectDir)
+	if cfg.ReaperSessionTTLSeconds <= 0 {
+		return def
+	}
+	return time.Duration(cfg.ReaperSessionTTLSeconds) * time.Second
+}
+
+// ReaperCollectorGrace returns the SIGTERM→SIGKILL grace window for the
+// per-session OTel collector process during a reaper pass. Reads
+// reaper_collector_grace_seconds from .wipnote/config.json under projectDir;
+// falls back to the 10s default when the file is missing, unreadable,
+// unparseable, or the value is non-positive. projectDir=="" → default.
+func ReaperCollectorGrace(projectDir string) time.Duration {
+	def := time.Duration(defaultReaperCollectorGraceSeconds) * time.Second
+	cfg := readReaperConfig(projectDir)
+	if cfg.ReaperCollectorGraceSeconds <= 0 {
+		return def
+	}
+	return time.Duration(cfg.ReaperCollectorGraceSeconds) * time.Second
+}
+
+// ReaperDaemonReportOnly returns whether the reaper daemon should run in
+// report-only mode (log reap candidates without actually killing them). Reads
+// reaper_daemon_report_only from .wipnote/config.json under projectDir;
+// defaults to false (absence == false). projectDir=="" → false.
+func ReaperDaemonReportOnly(projectDir string) bool {
+	return readReaperConfig(projectDir).ReaperDaemonReportOnly
+}
+
 // runSessionExitReconcile is the shared Stop/SessionEnd entry point. It runs a
 // reconcile pass and applies the harness discriminator:
 //

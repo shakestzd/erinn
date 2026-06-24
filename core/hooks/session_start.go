@@ -266,6 +266,18 @@ func SessionStart(event *CloudEvent, database *sql.DB, projectDir string) (*Hook
 		"session": shortID,
 	}, txStart, "session+lineage routed")
 
+	// Record the session process-liveness anchor (feat-0a7db952, slice-1).
+	// Writing the owning pid (+ /proc start-time) lets the reaper distinguish a
+	// crashed session from a long-idle LIVE one. Best-effort: a write failure
+	// must NEVER block or fail the hook — when the owner is unresolvable we omit
+	// .session-pid entirely so the session safe-degrades to LIVE (never reaped).
+	if ownerPID, ok := resolveOwningPID(projectDir); ok {
+		sessDir := filepath.Join(projectDir, ".wipnote", "sessions", sessionID)
+		if err := writeSessionPID(sessDir, ownerPID); err != nil {
+			debugLog(projectDir, "[session-start] writeSessionPID failed (session=%s pid=%d): %v", shortID, ownerPID, err)
+		}
+	}
+
 	// Write canonical session HTML file (non-critical, errors silently logged).
 	CreateSessionHTML(projectDir, s)
 

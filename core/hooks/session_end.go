@@ -547,6 +547,18 @@ func SessionResume(event *CloudEvent, database *sql.DB, projectDir string) (*Hoo
 		debugLog(projectDir, "[error] handler=session-resume session=%s: update sessions: %v", sessionID[:minLen(sessionID, 8)], err)
 	}
 
+	// Refresh the session process-liveness anchor (feat-0a7db952, slice-1).
+	// On resume the new launcher rewrote .launch-mode with the LIVE pid, so
+	// re-resolving picks it up. Without this the resumed session would carry the
+	// dead pre-resume pid and be false-reaped. Best-effort: a write failure must
+	// NEVER block the hook; an unresolvable owner leaves the anchor untouched.
+	if ownerPID, ok := resolveOwningPID(projectDir); ok {
+		sessDir := filepath.Join(projectDir, ".wipnote", "sessions", sessionID)
+		if err := writeSessionPID(sessDir, ownerPID); err != nil {
+			debugLog(projectDir, "[session-resume] writeSessionPID failed (session=%s pid=%d): %v", sessionID[:minLen(sessionID, 8)], ownerPID, err)
+		}
+	}
+
 	// Re-export env vars so downstream hooks have the session ID.
 	writeEnvVars(sessionID, projectDir)
 

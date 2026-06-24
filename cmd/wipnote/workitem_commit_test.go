@@ -66,6 +66,7 @@ func setupTransactionalCompleteRepo(t *testing.T) (repoRoot, wipnoteDir, featID,
 	t.Cleanup(func() { projectDirFlag = "" })
 	t.Setenv("WIPNOTE_SESSION_ID", sessionID)
 	t.Setenv("WIPNOTE_CACHE_DIR", tmpParent)
+	t.Setenv("WIPNOTE_ARTIFACT_COMMIT_POLICY", "separate")
 
 	trackID := testSetupTrack(t, wipnoteDir)
 	if err := testCreate("feature", "Txn Complete Feature", trackID, "medium", false, false); err != nil {

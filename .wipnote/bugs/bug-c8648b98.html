@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>roborev findings 523/524: clean.go silent removal-failure &#43; arch migration drops card timestamps</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="bug-c8648b98"
+             data-type="bug"
+             data-status="in-progress"
+             data-priority="medium"
+             data-created="2026-06-24T01:12:01.299339"
+             data-updated="2026-06-24T01:13:08.582322" data-agent-assigned="claude-code" data-track-id="trk-4a78a9b7" data-created-by-agent="claude-code" data-created-by-model="claude-opus-4-8[1m]" data-created-by-cli-version="0.65.0-5-gb8ca0c743">
+
+        <header>
+            <h1>roborev findings 523/524: clean.go silent removal-failure &#43; arch migration drops card timestamps</h1>
+            <div class="metadata">
+                <span class="badge status-in-progress">In Progress</span>
+                <span class="badge priority-medium">Medium Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="implemented_in">
+                <h3>Implemented In:</h3>
+                <ul>
+                    <li><a href="../sessions/1f86cc2f-991d-4a62-b71e-9d9d32c63b01.html" data-relationship="implemented_in" data-since="2026-06-24T01:12:08.362711">session 1f86cc2f-991d-4a62-b71e-9d9d32c63b01</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-4a78a9b7.html" data-relationship="part_of" data-since="2026-06-24T01:12:01.401912">trk-4a78a9b7</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-steps>
+            <h3>Implementation Steps</h3>
+            <ol>
+                <li data-completed="false" data-step-id="task-4" data-agent="claude-code" data-created-by-agent="claude-code">⏳ Fix roborev findings 523/524 (bug-c8648b98)</li>
+            </ol>
+        </section>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>Two Medium roborev findings on v0.66.0 commits. (523, clean.go) --apply mode prints/records removal errors but runClean returns nil, so scripts see success on failed mutation; also findWipnoteDir falls back to cwd/.wipnote so clean reports clean outside any wipnote checkout. (524, migration) store.Create stamps migration-time created_at/updated_at instead of preserving the legacy frontmatter timestamps, losing per-card audit history for all 121 migrated cards — and wipnote clean propagates this to other repos. Fix: preserve frontmatter timestamps through ParseFile-&gt;Create-&gt;ledger; return non-nil error/error-count on removal failure; stat wipnoteDir up front.</p>
+        </section>
+    </article>
+</body>
+</html>

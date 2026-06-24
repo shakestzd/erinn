@@ -200,7 +200,7 @@ The lineage command family covers work items, commits, sessions, and files withi
 wipnote help --compact
 ```
 
-See full CLI documentation at [wipnote.dev/reference/cli](https://wipnote.dev/reference/cli/).
+See full CLI documentation at [shakestzd.github.io/wipnote/reference/cli](https://shakestzd.github.io/wipnote/reference/cli/).
 
 ## Contributing
 
@@ -221,5 +221,5 @@ MIT
 
 ## Links
 
-- [Documentation](https://wipnote.dev/)
+- [Documentation](https://shakestzd.github.io/wipnote/)
 - [GitHub](https://github.com/shakestzd/wipnote)

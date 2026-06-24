@@ -1,5 +1,5 @@
 site_name: wipnote
-site_description: Local-first observability and coordination platform for AI-assisted development
+site_description: Causal lineage and observability for AI-assisted development
 site_url: https://shakestzd.github.io/wipnote/
 repo_url: https://github.com/shakestzd/wipnote
 repo_name: shakestzd/wipnote
@@ -7,6 +7,21 @@ copyright: Copyright &copy; 2025 TZDLabs
 
 exclude_docs: |
   archive/
+  architecture-review-2026-06-12.md
+  internal-plan-system-analysis.md
+  codex-interoperability-review.md
+  cross-env-path-drift-audit.md
+  code-areas.md
+  commit-outbox-design.md
+  arch-measurement-protocol.md
+  codex-cli-integration-plan.md
+  GEMINI_INTEGRATION_PLAN.md
+  security-review-2026-04-15.md
+  adr-001-harness-agnostic-collector.md
+  research/
+  spikes/
+  launch/
+  runbook/
 
 theme:
   name: material

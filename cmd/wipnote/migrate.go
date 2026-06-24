@@ -300,115 +300,116 @@ func runMigrateArchCards(dryRun bool) error {
 		return err
 	}
 	printProjectHeaderIfDifferent(wipnoteDir)
-
-	archDir := filepath.Join(wipnoteDir, "arch")
-	entries, err := os.ReadDir(archDir)
+	migrated, skipped, errCount, err := runArchCardMigration(wipnoteDir, dryRun)
 	if err != nil {
-		if os.IsNotExist(err) {
-			fmt.Println("No .wipnote/arch/ directory — nothing to migrate.")
-			return nil
-		}
-		return fmt.Errorf("read arch dir: %w", err)
+		return err
 	}
-
-	var mdFiles []string
-	for _, e := range entries {
-		if e.IsDir() {
-			continue
-		}
-		if filepath.Ext(e.Name()) == ".md" {
-			mdFiles = append(mdFiles, filepath.Join(archDir, e.Name()))
-		}
-	}
-
-	if len(mdFiles) == 0 {
-		fmt.Println("No .md arch cards found — nothing to migrate.")
-		return nil
-	}
-
-	// Build the set of slugs already in the ledger for idempotency checks.
-	// We read this once upfront so we don't re-scan on every card.
-	ledgerSlugs := make(map[string]bool)
-	if existing, readErr := corearch.ReadLedger(corearch.LedgerPath(wipnoteDir)); readErr == nil {
-		for _, c := range existing {
-			ledgerSlugs[c.Name] = true
-		}
-	}
-	// If ReadLedger errors (e.g. no ledger yet), we proceed with an empty map —
-	// all cards will be treated as needing migration.
-
-	store, err := corearch.NewStore(wipnoteDir)
-	if err != nil {
-		return fmt.Errorf("open arch store: %w", err)
-	}
-
-	var migrated, skipped, errCount int
-	for _, path := range mdFiles {
-		card, parseErr := corearch.ParseFile(path)
-		if parseErr != nil {
-			errCount++
-			fmt.Printf("  %s: ERROR parsing: %v\n", filepath.Base(path), parseErr)
-			continue
-		}
-
-		// Emit advisory path warnings (non-blocking).
-		if ws := corearch.ValidatePaths(card.Paths); len(ws) > 0 {
-			for _, w := range ws {
-				fmt.Printf("  %s: WARNING %s\n", card.Name, w)
-			}
-		}
-
-		// Idempotency: if the slug is already in the ledger, skip.
-		if ledgerSlugs[card.Name] {
-			skipped++
-			fmt.Printf("  %s: skipped (already in ledger)\n", card.Name)
-			continue
-		}
-
-		if dryRun {
-			fmt.Printf("  %s: would migrate -> architecture.html\n", card.Name)
-			migrated++
-			continue
-		}
-
-		// Remove the .md file BEFORE calling store.Create so the store's
-		// duplicate-file check (resolveCardPath) does not mistake the source
-		// .md for a pre-existing card. The card content is already parsed
-		// into `card`, so removal is safe. On store.Create failure we attempt
-		// to restore the file so data is not silently lost.
-		mdContent, readErr := os.ReadFile(path)
-		if readErr != nil {
-			errCount++
-			fmt.Printf("  %s: ERROR reading .md for backup: %v\n", card.Name, readErr)
-			continue
-		}
-		if removeErr := os.Remove(path); removeErr != nil && !os.IsNotExist(removeErr) {
-			errCount++
-			fmt.Printf("  %s: ERROR removing .md before create: %v\n", card.Name, removeErr)
-			continue
-		}
-
-		createErr := store.Create(card)
-		if createErr != nil {
-			// Restore the .md file so the operator can retry.
-			if restoreErr := os.WriteFile(path, mdContent, 0o644); restoreErr != nil {
-				fmt.Printf("  %s: ERROR %v (also failed to restore .md: %v)\n", card.Name, createErr, restoreErr)
-			} else {
-				fmt.Printf("  %s: ERROR %v (.md restored)\n", card.Name, createErr)
-			}
-			errCount++
-			continue
-		}
-
-		migrated++
-		ledgerSlugs[card.Name] = true // update for subsequent iterations
-		fmt.Printf("  %s: migrated\n", card.Name)
-	}
-
 	if dryRun {
 		fmt.Printf("\nDry run: %d card(s) would be migrated\n", migrated)
 		return nil
 	}
 	fmt.Printf("\nMigrated %d / skipped %d / errors %d\n", migrated, skipped, errCount)
 	return nil
+}
+
+// runArchCardMigration is the reusable core for arch-card migration.
+// It walks wipnoteDir/arch/*.md, ingests each card into the HTML ledger, and
+// removes the .md file on success. It is called by both `wipnote migrate
+// arch-cards` and `wipnote clean`. Returns per-item counts; progress lines are
+// printed to stdout as each card is processed.
+func runArchCardMigration(wipnoteDir string, dryRun bool) (migrated, skipped, errCount int, err error) {
+	archDir := filepath.Join(wipnoteDir, "arch")
+	entries, rdErr := os.ReadDir(archDir)
+	if rdErr != nil {
+		if os.IsNotExist(rdErr) {
+			fmt.Println("  arch-cards: no .wipnote/arch/ directory — nothing to migrate.")
+			return 0, 0, 0, nil
+		}
+		return 0, 0, 0, fmt.Errorf("read arch dir: %w", rdErr)
+	}
+
+	var mdFiles []string
+	for _, e := range entries {
+		if !e.IsDir() && filepath.Ext(e.Name()) == ".md" {
+			mdFiles = append(mdFiles, filepath.Join(archDir, e.Name()))
+		}
+	}
+
+	if len(mdFiles) == 0 {
+		fmt.Println("  arch-cards: no .md arch cards found — nothing to migrate.")
+		return 0, 0, 0, nil
+	}
+
+	// Build the set of slugs already in the ledger for idempotency.
+	ledgerSlugs := make(map[string]bool)
+	if existing, readErr := corearch.ReadLedger(corearch.LedgerPath(wipnoteDir)); readErr == nil {
+		for _, c := range existing {
+			ledgerSlugs[c.Name] = true
+		}
+	}
+
+	store, openErr := corearch.NewStore(wipnoteDir)
+	if openErr != nil {
+		return 0, 0, 0, fmt.Errorf("open arch store: %w", openErr)
+	}
+
+	for _, path := range mdFiles {
+		card, parseErr := corearch.ParseFile(path)
+		if parseErr != nil {
+			errCount++
+			fmt.Printf("  arch-cards  %s: ERROR parsing: %v\n", filepath.Base(path), parseErr)
+			continue
+		}
+
+		// Emit advisory path warnings (non-blocking).
+		if ws := corearch.ValidatePaths(card.Paths); len(ws) > 0 {
+			for _, w := range ws {
+				fmt.Printf("  arch-cards  %s: WARNING %s\n", card.Name, w)
+			}
+		}
+
+		if ledgerSlugs[card.Name] {
+			skipped++
+			fmt.Printf("  arch-cards  %s: skipped (already in ledger)\n", card.Name)
+			continue
+		}
+
+		if dryRun {
+			fmt.Printf("  arch-cards  %s: would-migrate -> architecture.html\n", card.Name)
+			migrated++
+			continue
+		}
+
+		// Remove the .md BEFORE store.Create so the store's duplicate-file
+		// check does not mistake the source .md for a pre-existing card.
+		mdContent, readErr := os.ReadFile(path)
+		if readErr != nil {
+			errCount++
+			fmt.Printf("  arch-cards  %s: ERROR reading .md for backup: %v\n", card.Name, readErr)
+			continue
+		}
+		if removeErr := os.Remove(path); removeErr != nil && !os.IsNotExist(removeErr) {
+			errCount++
+			fmt.Printf("  arch-cards  %s: ERROR removing .md before create: %v\n", card.Name, removeErr)
+			continue
+		}
+
+		createErr := store.Create(card)
+		if createErr != nil {
+			// Restore the .md so the operator can retry.
+			if restoreErr := os.WriteFile(path, mdContent, 0o644); restoreErr != nil {
+				fmt.Printf("  arch-cards  %s: ERROR %v (also failed to restore .md: %v)\n", card.Name, createErr, restoreErr)
+			} else {
+				fmt.Printf("  arch-cards  %s: ERROR %v (.md restored)\n", card.Name, createErr)
+			}
+			errCount++
+			continue
+		}
+
+		migrated++
+		ledgerSlugs[card.Name] = true
+		fmt.Printf("  arch-cards  %s: migrated\n", card.Name)
+	}
+
+	return migrated, skipped, errCount, nil
 }

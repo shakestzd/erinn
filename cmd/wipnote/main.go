@@ -151,6 +151,7 @@ func buildRoot() *cobra.Command {
 			{GroupID: "data", Command: reindexCmd()},
 			{GroupID: "data", Command: migrateCmd()},
 			{GroupID: "data", Command: migrateTracksCmd()},
+			{GroupID: "data", Command: cleanCmd()},
 			{GroupID: "data", Command: cleanupCmd()},
 			{GroupID: "data", Command: cacheCmd()},
 			{GroupID: "data", Command: syncCmd()},

@@ -19,12 +19,11 @@ import (
 // permanently hidden on the drain path. The drain now pages through EVERY
 // terminal item, so the old dirty artifact is eventually reconciled.
 
-// commitArtifact stages and commits a single work-item artifact so it counts as
-// CLEAN for the reconcile dirty-scan. Used to fill the newest-500 window with
-// clean items, leaving exactly one OLD dirty item below the cap.
-func commitArtifact(t *testing.T, root, typeName, id string) {
+// gitCommitAllArtifacts commits seeded work-item artifacts so they count as
+// CLEAN for the reconcile dirty-scan. The test needs committed clean artifacts,
+// not hundreds of individual git commits.
+func gitCommitAllArtifacts(t *testing.T, root, msg string) {
 	t.Helper()
-	rel := filepath.Join(".wipnote", typeName+"s", id+".html")
 	run := func(args ...string) {
 		cmd := exec.Command("git", args...)
 		cmd.Dir = root
@@ -35,8 +34,8 @@ func commitArtifact(t *testing.T, root, typeName, id string) {
 			t.Fatalf("git %v: %s: %v", args, out, err)
 		}
 	}
-	run("add", "--", rel)
-	run("commit", "-q", "-m", "seed clean "+id)
+	run("add", "--all")
+	run("commit", "-q", "-m", msg)
 }
 
 // TestReconcileDrain_Uncapped_ReconcilesOldDirtyBeyond500 seeds >500 clean
@@ -59,15 +58,15 @@ func TestReconcileDrain_Uncapped_ReconcilesOldDirtyBeyond500(t *testing.T) {
 	}
 
 	// 510 CLEAN done features at priority "medium" — these fill (and overflow)
-	// the newest-500 capped window. Each artifact is written AND committed, so
-	// none are dirty.
+	// the newest-500 capped window. The artifacts are written and then committed
+	// in one batch, so none are dirty without creating hundreds of git commits.
 	const nClean = 510
 	for i := 0; i < nClean; i++ {
 		id := fmt.Sprintf("feat-clean-%06d", i)
 		td.addFeature(id, "feature", "clean done", "done")
 		writeArtifact(t, root, "feature", id)
-		commitArtifact(t, root, "feature", id)
 	}
+	gitCommitAllArtifacts(t, root, "seed clean artifacts")
 
 	// One OLD dirty done feature at priority "low". The capped scan orders by
 	// priority DESC (low sorts AFTER medium) then created_at DESC and stops at

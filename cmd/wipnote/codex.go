@@ -1184,8 +1184,10 @@ func launchCodexDefaultWithMarketplace(resumeID, trackID, featureID, worktreePat
 	// (bug-2a6a8076). The sandbox-degradation warning fires inside execCodexFn
 	// and is the only banner that may follow (conditional, visually distinct).
 	fmt.Println(launchtui.RenderLaunchBanner(nil, launchtui.BannerInput{
-		Headline: "Launching Codex CLI with wipnote context...",
-		Details:  setupDetails,
+		Headline:        "Launching Codex CLI with wipnote context...",
+		Details:         setupDetails,
+		Warning:         bannerDirtyWarning(launchPlan, willCreateWorktree),
+		WarningSeverity: "amber",
 	}))
 	err = execCodexFn(codexLaunchOpts{
 		ResumeID:     resumeID,
@@ -1299,7 +1301,9 @@ func runFeatureStartWithEnv(id string, extraEnv []string) error {
 // Corresponds to: wipnote codex --continue
 func launchCodexContinue(resumeID string, yolo bool, extraArgs []string) error {
 	projectRoot, _ := resolveProjectRoot()
-	fmt.Println("Resuming last Codex session...")
+	fmt.Println(launchtui.RenderLaunchBanner(nil, launchtui.BannerInput{
+		Headline: "Resuming last Codex session...",
+	}))
 	return execCodex(codexLaunchOpts{
 		ResumeLast:  resumeID == "", // only pass --last when no specific ID
 		ResumeID:    resumeID,

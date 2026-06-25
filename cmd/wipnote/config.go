@@ -33,6 +33,12 @@ const orphanDrainInterval = 5 * time.Minute
 // still committed, just not on a model-response boundary.
 const reconcileDrainInterval = 5 * time.Minute
 
+// recapsReindexInterval is how often the serve-side writer daemon reindexes
+// recap HTML artifacts into the recaps SQLite table (bug-95d2d493). After a
+// container or DB restart the table is empty; without a serve-time reindex the
+// dashboard Recap tab stays blank until the user manually runs `wipnote reindex`.
+const recapsReindexInterval = 5 * time.Minute
+
 // startDrainLoop runs fn once at startup and then on every interval tick inside
 // the headless writer daemon, where wall-clock cost is not user-visible. A panic
 // in fn is recovered so one malformed artifact can never crash the writer daemon.
@@ -98,6 +104,21 @@ func startReconcileDrainLoop(ctx context.Context, writeDB *sql.DB, projectRoot s
 	}
 	startDrainLoop(ctx, reconcileDrainInterval, func() {
 		hooks.ReconcileDoneButUncommittedForProject(writeDB, projectRoot)
+	})
+}
+
+// startRecapsReindexLoop keeps the recaps SQLite table in sync with committed
+// recap HTML artifacts (bug-95d2d493). reindexRecaps is called once at startup
+// (so the Recap tab is populated immediately after a container/DB restart) and
+// then on every recapsReindexInterval tick. Runs inside the headless writer
+// daemon so it shares the single writable handle.
+func startRecapsReindexLoop(ctx context.Context, writeDB *sql.DB, wipnoteDir string) {
+	if writeDB == nil || wipnoteDir == "" {
+		return
+	}
+	projectDir := filepath.Dir(wipnoteDir)
+	startDrainLoop(ctx, recapsReindexInterval, func() {
+		reindexRecaps(writeDB, wipnoteDir, projectDir, false)
 	})
 }
 

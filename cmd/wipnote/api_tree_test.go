@@ -12,6 +12,18 @@ import (
 )
 
 // openTreeTestDB creates an in-memory database with schema and a test session.
+//
+// Shared-cache in-memory DSN (NOT plain ":memory:"): buildEventTree issues nested
+// queries while an outer *sql.Rows is still open (e.g. inside a rows.Next() loop),
+// so database/sql may open a second connection. "file::memory:?cache=shared" makes
+// every connection share ONE in-memory DB; plain ":memory:" would give the second
+// connection a private empty DB and drop rows.
+//
+// SERIAL-ONLY: this DSN names a PROCESS-GLOBAL shared in-memory DB and is the
+// IDENTICAL name openGraphTestDB uses, so it is safe only while every caller runs
+// serially (no t.Parallel) and closes before the next opens. Before slice-3
+// (feat-6ce99108) adds t.Parallel, give each test a UNIQUE shared-cache name,
+// e.g. fmt.Sprintf("file:treetest_%s?mode=memory&cache=shared", t.Name()).
 func openTreeTestDB(t *testing.T) *sql.DB {
 	t.Helper()
 	database, err := db.Open("file::memory:?cache=shared")

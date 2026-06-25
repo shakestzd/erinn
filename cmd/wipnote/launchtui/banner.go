@@ -1,7 +1,6 @@
 package launchtui
 
 import (
-	"fmt"
 	"strings"
 
 	"github.com/charmbracelet/lipgloss"
@@ -23,7 +22,7 @@ type BannerInput struct {
 	// Empty string means no warning row is rendered.
 	Warning string
 	// WarningSeverity controls which status color the warning uses.
-	// Accepted values: "red" (default when non-empty), "amber".
+	// Accepted values: "red", "amber" (default when empty: advisory/amber).
 	WarningSeverity string
 }
 
@@ -33,113 +32,143 @@ type BannerDetail struct {
 	Value string
 }
 
-// RenderLaunchBanner renders a framed dashboard block containing the launch
-// banner fields. It uses the provided lipgloss.Renderer so callers can inject
-// a specific color profile for tests. Pass nil to use the lipgloss default
-// renderer (auto-detected from the real terminal).
+// Session-thread glyphs. The launch is the opening node of the session's
+// lineage thread; an accent rail threads the rows; the continuation tick says
+// the thread continues into the session. These are intentionally NOT a box —
+// there is no enclosing frame.
+const (
+	glyphNode  = "◇" // the launch node (and the warning node)
+	glyphTick  = "╵" // continuation tick: the thread runs on into the session
+	glyphWarn  = "⚠" // warning marker — must survive a monochrome terminal
+	railGap    = "   "
+	railIndent = "│" + railGap // gutter for detail rows
+	valueGap   = "   "
+)
+
+// AdaptiveColor tokens for the session-thread layout. AdaptiveColor picks the
+// Light or Dark hex at render time from the terminal background so the output
+// reads on light AND dark terminals.
+var (
+	threadAccent = lipgloss.AdaptiveColor{Light: "#0D9488", Dark: "#2DD4BF"} // teal — node/rail/headline
+	threadLabel  = lipgloss.AdaptiveColor{Light: "#6B7280", Dark: "#9CA3AF"} // dim — detail labels
+	threadWarn   = lipgloss.AdaptiveColor{Light: "#B45309", Dark: "#F59E0B"} // amber — advisory
+	threadDanger = lipgloss.AdaptiveColor{Light: "#DC2626", Dark: "#EF4444"} // red — refusal
+)
+
+// RenderLaunchBanner renders the launch as a BOXLESS "session-thread" block:
+// an accent node opens the thread, dim-labelled rows hang off an accent rail,
+// and a lone continuation tick closes it. There is no enclosing frame.
 //
-// lipgloss strips ANSI codes automatically when the renderer's output is not a
-// TTY (Ascii profile), so log-scrape contracts are preserved without any extra
-// conditional logic here.
+// It uses the provided lipgloss.Renderer so callers can inject a specific color
+// profile for tests. Pass nil to use the lipgloss default renderer (auto-
+// detected from the real terminal). lipgloss strips ANSI codes automatically
+// when the renderer's output is not a TTY (Ascii profile), so log-scrape
+// contracts are preserved — the glyphs and words remain, only color is dropped.
 func RenderLaunchBanner(r *lipgloss.Renderer, in BannerInput) string {
-	s := newStylesForRenderer(r)
-
-	var lines []string
-
-	if in.Headline != "" {
-		lines = append(lines, s.Accent.Render(in.Headline))
+	newStyle := lipgloss.NewStyle
+	if r != nil {
+		newStyle = r.NewStyle
 	}
+
+	accent := newStyle().Foreground(threadAccent)
+	headline := newStyle().Foreground(threadAccent).Bold(true)
+	label := newStyle().Foreground(threadLabel)
+
+	// SPECIAL CASE — standalone warning / refuse render (no headline). There is
+	// no launch following, so the warning itself becomes the lead node line.
+	if in.Headline == "" && in.Warning != "" {
+		sev := newStyle().Foreground(warnColor(in.WarningSeverity))
+		var b strings.Builder
+		b.WriteString(sev.Render(glyphNode+" "+glyphWarn+" ") + sev.Render(warningText(in.Warning)))
+		b.WriteString("\n")
+		b.WriteString(accent.Render(glyphTick))
+		return b.String()
+	}
+
+	if in.Headline == "" {
+		// Nothing to render (no headline, no warning).
+		return ""
+	}
+
+	// Gather detail rows (label + value) so we can align values in a column.
+	type row struct{ label, value string }
+	var rows []row
 	if in.PluginSource != "" {
-		lines = append(lines, s.Muted.Render("  Plugin: ")+s.TextPrimary.Render(in.PluginSource))
+		rows = append(rows, row{"plugin", in.PluginSource})
 	}
 	if in.Session != "" {
-		lines = append(lines, s.Muted.Render("  Session: ")+s.TextPrimary.Render(in.Session))
+		rows = append(rows, row{"session", in.Session})
 	}
-	for _, detail := range in.Details {
-		if detail.Label == "" && detail.Value == "" {
+	for _, d := range in.Details {
+		l := strings.TrimSpace(strings.TrimSuffix(strings.TrimSpace(d.Label), ":"))
+		v := strings.TrimSpace(d.Value)
+		if l == "" && v == "" {
 			continue
 		}
-		label := strings.TrimSpace(detail.Label)
-		if label != "" && !strings.HasSuffix(label, ":") {
-			label += ":"
-		}
-		if label != "" {
-			label += " "
-		}
-		lines = append(lines, s.Muted.Render("  "+label)+s.TextPrimary.Render(strings.TrimSpace(detail.Value)))
-	}
-	if in.Warning != "" {
-		warnStyle := warnStyle(s, in.WarningSeverity)
-		lines = append(lines, warnStyle.Render("  Warning: "+stripWarningPrefix(in.Warning)))
+		rows = append(rows, row{l, v})
 	}
 
-	body := strings.Join(lines, "\n")
-	return s.Frame.Render(body)
+	// Compute the max label width so all values align in a column.
+	maxLabel := 0
+	for _, rw := range rows {
+		if w := lipgloss.Width(rw.label); w > maxLabel {
+			maxLabel = w
+		}
+	}
+
+	var b strings.Builder
+
+	// Node line: accent node + accent bold headline.
+	b.WriteString(headline.Render(glyphNode + " " + in.Headline))
+
+	// Detail rows: accent rail gutter, dim padded label, gap, plain value.
+	for _, rw := range rows {
+		pad := maxLabel - lipgloss.Width(rw.label)
+		if pad < 0 {
+			pad = 0
+		}
+		b.WriteString("\n")
+		b.WriteString(accent.Render(railIndent))
+		b.WriteString(label.Render(rw.label + strings.Repeat(" ", pad)))
+		b.WriteString(valueGap)
+		b.WriteString(rw.value) // plain / default fg
+	}
+
+	// Warning row (advisory): severity-colored node + ⚠ + words. The glyph AND
+	// the words are always present so the warning survives a monochrome terminal.
+	if in.Warning != "" {
+		sev := newStyle().Foreground(warnColor(in.WarningSeverity))
+		b.WriteString("\n")
+		b.WriteString(sev.Render(glyphNode+railGap) + sev.Render(glyphWarn+" "+warningText(in.Warning)))
+	}
+
+	// Continuation tick: the thread runs on into the session.
+	b.WriteString("\n")
+	b.WriteString(accent.Render(glyphTick))
+
+	return b.String()
 }
 
-// stripWarningPrefix removes a redundant leading "Warning:" label
-// (case-insensitive) from supplied text so RenderLaunchBanner's own "Warning: "
-// prefix is not doubled (e.g. plan.DirtyMainWarning already starts with "Warning:").
-func stripWarningPrefix(s string) string {
+// warnColor maps a severity label to its thread color. "red" → danger;
+// anything else (including the empty default) is an advisory → amber.
+func warnColor(severity string) lipgloss.AdaptiveColor {
+	if strings.EqualFold(severity, "red") {
+		return threadDanger
+	}
+	return threadWarn
+}
+
+// warningText strips a redundant leading "Warning:" label (case-insensitive)
+// and collapses internal newlines into a single tight line so the advisory
+// renders as one threaded row rather than a multi-line block.
+func warningText(s string) string {
 	t := strings.TrimSpace(s)
 	if len(t) >= len("warning:") && strings.EqualFold(t[:len("warning:")], "warning:") {
-		return strings.TrimSpace(t[len("warning:"):])
+		t = strings.TrimSpace(t[len("warning:"):])
 	}
-	return t
-}
-
-// warnStyle returns the appropriate status style for the given severity label.
-func warnStyle(s Styles, severity string) lipgloss.Style {
-	if strings.EqualFold(severity, "amber") {
-		return s.StatusRed.Bold(true) // lipgloss has no amber token; red bold reads as warning
-	}
-	return s.StatusRed
-}
-
-// newStylesForRenderer constructs Styles bound to r. When r is nil the default
-// global renderer (auto-detected terminal) is used.
-func newStylesForRenderer(r *lipgloss.Renderer) Styles {
-	if r == nil {
-		return NewStyles()
-	}
-	return newStylesWithRenderer(r)
-}
-
-// newStylesWithRenderer is like NewStyles but every style is derived from r so
-// the color profile (and therefore ANSI stripping) is controlled by the caller.
-func newStylesWithRenderer(r *lipgloss.Renderer) Styles {
-	newStyle := r.NewStyle
-
-	return Styles{
-		BgPrimary:   newStyle().Background(lipgloss.Color(ColBgPrimary)),
-		BgSecondary: newStyle().Background(lipgloss.Color(ColBgSecondary)),
-		Frame: newStyle().
-			Border(lipgloss.RoundedBorder()).
-			BorderForeground(lipgloss.Color(ColBorder)).
-			Background(lipgloss.Color(ColBgPrimary)).
-			Padding(0, 1),
-
-		Title: newStyle().
-			Foreground(lipgloss.Color(ColAccent)).
-			Bold(true),
-		SectionHeader: newStyle().
-			Foreground(lipgloss.Color(ColTextPrimary)).
-			Bold(true).
-			Underline(true),
-		TextPrimary: newStyle().
-			Foreground(lipgloss.Color(ColTextPrimary)),
-		Muted: newStyle().
-			Foreground(lipgloss.Color(ColTextMuted)),
-
-		Accent: newStyle().
-			Foreground(lipgloss.Color(ColAccent)),
-		AccentText: newStyle().
-			Foreground(lipgloss.Color(ColAccentText)),
-
-		StatusBlue:  newStyle().Foreground(lipgloss.Color(ColStatusBlue)),
-		StatusGreen: newStyle().Foreground(lipgloss.Color(ColStatusGreen)),
-		StatusRed:   newStyle().Foreground(lipgloss.Color(ColStatusRed)),
-	}
+	// Collapse any embedded newlines/indentation into single spaces.
+	fields := strings.Fields(t)
+	return strings.Join(fields, " ")
 }
 
 // MakeRendererForProfile is a test helper (also usable from callers) that
@@ -151,10 +180,4 @@ func MakeRendererForProfile(profile termenv.Profile) *lipgloss.Renderer {
 	r := lipgloss.NewRenderer(&strings.Builder{}, termenv.WithProfile(profile))
 	r.SetColorProfile(profile)
 	return r
-}
-
-// formatBannerLabel formats a label+value pair using muted label and primary value.
-// Exported for use by yolo launcher (slice 4) so it can assemble custom lines.
-func formatBannerLabel(s Styles, label, value string) string {
-	return fmt.Sprintf("%s%s", s.Muted.Render(label), s.TextPrimary.Render(value))
 }

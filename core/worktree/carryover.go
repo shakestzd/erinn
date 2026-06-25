@@ -79,10 +79,12 @@ func CarryUncommittedChanges(canonicalRoot, worktreePath string, w io.Writer) (C
 	}
 
 	res.Carried = true
-	fmt.Fprintf(w, "  Copied %d uncommitted file(s) into the worktree; main left unchanged.\n", res.ChangedFiles)
-	if len(res.UntrackedFiles) > 0 {
-		fmt.Fprintf(w, "  Untracked files NOT carried (copy manually if needed): %s\n", strings.Join(res.UntrackedFiles, ", "))
-	}
+	// Success messaging is owned by the cmd-layer emitWorktreeCarryoverMessage
+	// (worktree_helpers.go): it renders ONE richer dirty-main advisory from the
+	// returned CarryResult — including the "main left unchanged" reassurance and
+	// the untracked-files list. Printing a "Copied N file(s)…" line here too would
+	// double-announce the carryover (feat-f5fe2056). The fail-safe warnings above
+	// stay: they cover the capture/apply-error path the cmd advisory may not reach.
 	return res, nil
 }
 

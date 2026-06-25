@@ -115,10 +115,6 @@
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
       Sessions
     </button>
-    <button class="nav-btn" data-view="resume">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 3v6h6"/><path d="M12 7v5l3 3"/></svg>
-      Resume
-    </button>
     <button class="nav-btn" data-view="work">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
       Work
@@ -217,7 +213,38 @@
         <div class="empty" id="sessions-empty" style="display:none">
           <div>No sessions recorded.</div>
         </div>
+
+        <!-- Resumable Work Items — folded into the Sessions tab (feat-021786c9) -->
+        <div id="resumable-section" style="margin-top:24px">
+          <div class="view-title" style="font-size:0.9rem;margin-bottom:8px;">
+            Resumable Work Items <span class="count" id="resume-count">0</span>
+          </div>
+          <div class="empty" id="resume-loading" style="display:none">
+            <div>Loading resumable sessions...</div>
+          </div>
+          <div class="empty" id="resume-error" style="display:none">
+            <div>Resume index unavailable right now.</div>
+          </div>
+          <div style="overflow-x:auto">
+            <table class="tbl" id="resume-table">
+              <thead><tr>
+                <th>Work Item</th>
+                <th style="width:110px">Branch</th>
+                <th>Worktree</th>
+                <th style="width:92px">Harness</th>
+                <th style="width:100px">Last Activity</th>
+                <th style="width:120px">Session</th>
+                <th style="width:84px">State</th>
+              </tr></thead>
+              <tbody id="resume-body"></tbody>
+            </table>
+          </div>
+          <div class="empty" id="resume-empty" style="display:none">
+            <div>No resumable sessions.</div>
+          </div>
+        </div>
       </div>
+
       <div class="transcript-detail" id="transcript-detail">
         <button class="transcript-back" id="transcript-back">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
@@ -250,33 +277,6 @@
           </button>
         </div>
         <div id="work-detail-content"></div>
-      </div>
-    </section>
-
-    <section class="view" id="v-resume">
-      <div class="view-title">Resume <span class="count" id="resume-count">0</span></div>
-      <div class="empty" id="resume-loading" style="display:none">
-        <div>Loading resumable sessions...</div>
-      </div>
-      <div class="empty" id="resume-error" style="display:none">
-        <div>Resume index unavailable right now.</div>
-      </div>
-      <div style="overflow-x:auto">
-        <table class="tbl" id="resume-table">
-          <thead><tr>
-            <th>Work Item</th>
-            <th style="width:110px">Branch</th>
-            <th>Worktree</th>
-            <th style="width:92px">Harness</th>
-            <th style="width:100px">Last Activity</th>
-            <th style="width:120px">Session</th>
-            <th style="width:84px">State</th>
-          </tr></thead>
-          <tbody id="resume-body"></tbody>
-        </table>
-      </div>
-      <div class="empty" id="resume-empty" style="display:none">
-        <div>No resumable sessions.</div>
       </div>
     </section>
 

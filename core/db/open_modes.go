@@ -266,6 +266,44 @@ func OpenReadOnlyMigrated(dbPath string) (*sql.DB, error) {
 	return OpenReadOnly(dbPath)
 }
 
+// OpenReadOnlyFast opens a wipnote SQLite database in read-only mode with a
+// short busy_timeout. It is identical to OpenReadOnly except the busy_timeout
+// DSN parameter is capped at timeoutMs milliseconds instead of the default
+// 5000ms. Use this on interactive launcher paths where a stalled open under
+// WAL contention (running serve daemon) must fail fast rather than block the
+// user for 5s (feat-caa02f9a).
+//
+// timeoutMs <= 0 falls back to the default 5000ms behaviour (identical to
+// OpenReadOnly). Returns an error if the database file does not exist.
+func OpenReadOnlyFast(dbPath string, timeoutMs int) (*sql.DB, error) {
+	if timeoutMs <= 0 {
+		return OpenReadOnly(dbPath)
+	}
+	// Fail fast if the file doesn't exist — we never create a new file here.
+	if _, err := os.Stat(dbPath); err != nil {
+		return nil, fmt.Errorf("OpenReadOnlyFast: database file not found: %w", err)
+	}
+
+	dsn := buildReadOnlyDSNWithTimeout(dbPath, timeoutMs)
+	database, err := sql.Open("sqlite", dsn)
+	if err != nil {
+		return nil, fmt.Errorf("OpenReadOnlyFast: sql.Open: %w", err)
+	}
+
+	pragmas := buildReadOnlyPragmas()
+	if err := applyReadOnlyPragmas(database, pragmas); err != nil {
+		database.Close()
+		return nil, fmt.Errorf("OpenReadOnlyFast: apply pragmas: %w", err)
+	}
+
+	if _, err := database.Exec("SELECT 1"); err != nil {
+		database.Close()
+		return nil, fmt.Errorf("OpenReadOnlyFast: smoke check failed: %w", err)
+	}
+
+	return database, nil
+}
+
 // buildReadOnlyDSN builds a URI DSN for the read-only connection.
 // We use mode=rw (not mode=ro) so that SQLite can create the WAL -shm
 // coordination file when it is absent — a routine state after a clean
@@ -283,15 +321,22 @@ func OpenReadOnlyMigrated(dbPath string) (*sql.DB, error) {
 // retained as belt-and-suspenders (it fires on the first connection only) but
 // the DSN parameter is the authoritative per-connection guard.
 func buildReadOnlyDSN(dbPath string) string {
+	return buildReadOnlyDSNWithTimeout(dbPath, 5000)
+}
+
+// buildReadOnlyDSNWithTimeout is the parameterized DSN builder used by both
+// OpenReadOnly (5000ms) and OpenReadOnlyFast (caller-chosen ms). Keeping the
+// busy_timeout value in one place prevents silent divergence.
+func buildReadOnlyDSNWithTimeout(dbPath string, timeoutMs int) string {
 	if strings.Contains(dbPath, ":memory:") {
 		// In-memory databases cannot use file URI mode; keep as-is.
 		return dbPath
 	}
 	// mode=rw: allow WAL sidecar creation.
-	// _pragma=busy_timeout(5000): protect first lock acquisition.
+	// _pragma=busy_timeout(N): protect first lock acquisition.
 	// _pragma=query_only(1): applied on EVERY physical connection by the driver;
 	//   prevents all DML/DDL at the engine level on every pooled connection.
-	return "file:" + dbPath + "?mode=rw&_pragma=busy_timeout(5000)&_pragma=query_only(1)"
+	return fmt.Sprintf("file:%s?mode=rw&_pragma=busy_timeout(%d)&_pragma=query_only(1)", dbPath, timeoutMs)
 }
 
 // buildReadOnlyPragmas returns the pragma set appropriate for a query-only

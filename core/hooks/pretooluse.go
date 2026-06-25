@@ -141,6 +141,15 @@ func PreToolUse(event *CloudEvent, database *sql.DB) (*HookResult, error) {
 		return &HookResult{Decision: "block", Reason: warn}, nil
 	}
 
+	// Guard: block git commit when the staged diff changes a dependency manifest
+	// (go.mod/package.json/…) but no web research happened this session. Always-on,
+	// complements the pre-edit external-tech guard by catching deps introduced via
+	// Bash (`go get`/`npm install`). Fast path: the same single
+	// `git diff --cached --name-only` shape (feat-af4ae1c3).
+	if warn := checkDependencyResearchCommitGuard(event, database, ctx); warn != "" {
+		return &HookResult{Decision: "block", Reason: warn}, nil
+	}
+
 	// Always-on guards: work item and research required regardless of YOLO mode.
 	// Skipped during subagent grace period (subagent just spawned, needs time to claim).
 	if !subagentGrace {
@@ -160,6 +169,30 @@ func PreToolUse(event *CloudEvent, database *sql.DB) (*HookResult, error) {
 		hasResearch := hasRecentResearch(database, ctx.SessionID, ctx.AgentID, ctx.ProjectDir)
 		if warn := checkYoloResearchGuard(event.ToolName, ctx.IsYoloMode, hasResearch, targetFile, ctx.ProjectDir); warn != "" {
 			return &HookResult{Decision: "block", Reason: warn}, nil
+		}
+		// Specificity-aware research: an external-technology change requires WEB/docs
+		// research — a local read does not suffice (spk-0a982f70). Two trigger sets:
+		//   - dependency-manifest edits (go.mod/package.json/…)        → feat-868c752b
+		//   - harness-contract edits (agent manifests, hook matrix, …) → feat-ff62b911
+		// editTargetPaths covers apply_patch (which bundles multiple paths in its
+		// payload, not a file_path field — roborev #563/#566). hasRecentWebResearch
+		// is queried once and only when a trigger path is present, so the normal
+		// Write/Edit hot path is unaffected.
+		editPaths := editTargetPaths(event)
+		manifestPath := firstPathMatching(editPaths, isExternalTechEdit)
+		harnessPath := firstPathMatching(editPaths, isHarnessContractEdit)
+		if manifestPath != "" || harnessPath != "" {
+			hasWebResearch := hasRecentWebResearch(database, ctx.SessionID, ctx.AgentID, ctx.ProjectDir)
+			if manifestPath != "" {
+				if warn := checkExternalTechResearchGuard(event.ToolName, hasWebResearch, manifestPath, ctx.ProjectDir); warn != "" {
+					return &HookResult{Decision: "block", Reason: warn}, nil
+				}
+			}
+			if harnessPath != "" {
+				if warn := checkHarnessContractResearchGuard(event.ToolName, hasWebResearch, harnessPath, ctx.ProjectDir); warn != "" {
+					return &HookResult{Decision: "block", Reason: warn}, nil
+				}
+			}
 		}
 		if warn := checkYoloBashResearchGuard(event, ctx.IsYoloMode, hasResearch); warn != "" {
 			return &HookResult{Decision: "block", Reason: warn}, nil

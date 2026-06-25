@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -365,7 +366,8 @@ func TestCompletionLearning_HappyPath(t *testing.T) {
 }
 
 // TestCompletionLearning_InvalidBody tests that --learning with an invalid body
-// aborts the completion with a clear error and does NOT create a card.
+// does NOT abort completion — the item completes successfully and a warning is
+// emitted to stderr. The learning card is not attached (non-fatal contract).
 func TestCompletionLearning_InvalidBody(t *testing.T) {
 	if testing.Short() {
 		t.Skip("drives architecture card creation lifecycle")
@@ -394,33 +396,49 @@ func TestCompletionLearning_InvalidBody(t *testing.T) {
 		t.Fatalf("start feature: %v", err)
 	}
 
-	// Too many words (> 120) — should abort.
+	// Too many words (> 120) — validation fails but completion is non-fatal.
 	wiLearning = strings.Repeat("word ", 121)
 	wiLearningKind = "decision"
 	defer func() { wiLearning = ""; wiLearningKind = "" }()
 
+	// Capture stderr to verify the warning is emitted.
+	stderrR, stderrW, _ := os.Pipe()
+	origStderr := os.Stderr
+	os.Stderr = stderrW
+
 	err := wiSetStatusWithAgent("feature", featID, "done", "", "")
-	if err == nil {
-		t.Fatal("expected error: --learning validation should abort completion")
-	}
-	if !strings.Contains(err.Error(), "learning") {
-		t.Errorf("error should mention 'learning', got: %v", err)
+
+	stderrW.Close()
+	var stderrBuf bytes.Buffer
+	io.Copy(&stderrBuf, stderrR)
+	os.Stderr = origStderr
+
+	// Completion must SUCCEED despite the invalid learning body.
+	if err != nil {
+		t.Fatalf("completion should succeed even with invalid --learning: %v", err)
 	}
 
-	// Verify no ledger was created.
+	// Verify a warning was emitted mentioning "learning".
+	stderrStr := stderrBuf.String()
+	if !strings.Contains(stderrStr, "learning") {
+		t.Errorf("warning should mention 'learning', stderr was: %q", stderrStr)
+	}
+
+	// Verify no ledger was created (learning was skipped, not attached).
 	if _, statErr := os.Stat(filepath.Join(hgDir, corearch.LedgerFilename)); !os.IsNotExist(statErr) {
-		t.Fatal("no architecture ledger should exist after a failed --learning completion")
+		t.Fatal("no architecture ledger should exist when --learning validation fails")
 	}
 
-	// Verify the feature is still in-progress (not done).
+	// Verify the feature IS done (completion succeeded).
 	nodeAfter, _ := parseNodeFile(files[len(files)-1])
-	if string(nodeAfter.Status) == "done" {
-		t.Fatal("feature should NOT be done after aborted completion")
+	if string(nodeAfter.Status) != "done" {
+		t.Fatal("feature should be done even when --learning validation fails (non-fatal)")
 	}
 }
 
 // TestCompletionLearning_InvalidKind tests that --learning-kind with an invalid kind
-// aborts the completion with a clear error and does NOT complete the work item.
+// does NOT abort completion — the item completes successfully and a warning is
+// emitted to stderr. The learning card is not attached (non-fatal contract).
 func TestCompletionLearning_InvalidKind(t *testing.T) {
 	if testing.Short() {
 		t.Skip("drives architecture card creation lifecycle")
@@ -449,31 +467,43 @@ func TestCompletionLearning_InvalidKind(t *testing.T) {
 		t.Fatalf("start feature: %v", err)
 	}
 
-	// Invalid learning kind — should abort completion.
+	// Invalid learning kind — validation fails but completion is non-fatal.
 	wiLearning = "This is a valid learning body."
 	wiLearningKind = "invalid-kind"
 	defer func() { wiLearning = ""; wiLearningKind = "" }()
 
+	// Capture stderr to verify the warning is emitted.
+	stderrR, stderrW, _ := os.Pipe()
+	origStderr := os.Stderr
+	os.Stderr = stderrW
+
 	err := wiSetStatusWithAgent("feature", featID, "done", "", "")
-	if err == nil {
-		t.Fatal("expected error: invalid --learning-kind should abort completion")
-	}
-	if !strings.Contains(err.Error(), "learning-kind") {
-		t.Errorf("error should mention 'learning-kind', got: %v", err)
-	}
-	if !strings.Contains(err.Error(), "invalid-kind") {
-		t.Errorf("error should mention the invalid kind value, got: %v", err)
+
+	stderrW.Close()
+	var stderrBuf bytes.Buffer
+	io.Copy(&stderrBuf, stderrR)
+	os.Stderr = origStderr
+
+	// Completion must SUCCEED despite the invalid learning kind.
+	if err != nil {
+		t.Fatalf("completion should succeed even with invalid --learning-kind: %v", err)
 	}
 
-	// Verify no ledger was created.
+	// Verify a warning was emitted mentioning the invalid kind.
+	stderrStr := stderrBuf.String()
+	if !strings.Contains(stderrStr, "invalid-kind") {
+		t.Errorf("warning should mention the invalid kind value, stderr was: %q", stderrStr)
+	}
+
+	// Verify no ledger was created (learning was skipped, not attached).
 	if _, statErr := os.Stat(filepath.Join(hgDir, corearch.LedgerFilename)); !os.IsNotExist(statErr) {
-		t.Fatal("no architecture ledger should exist after a failed --learning-kind completion")
+		t.Fatal("no architecture ledger should exist when --learning-kind validation fails")
 	}
 
-	// Verify the feature is still in-progress (not done).
+	// Verify the feature IS done (completion succeeded).
 	nodeAfter, _ := parseNodeFile(files[len(files)-1])
-	if string(nodeAfter.Status) == "done" {
-		t.Fatal("feature should NOT be done after aborted completion due to invalid --learning-kind")
+	if string(nodeAfter.Status) != "done" {
+		t.Fatal("feature should be done even when --learning-kind validation fails (non-fatal)")
 	}
 }
 

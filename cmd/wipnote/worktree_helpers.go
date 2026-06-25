@@ -5,6 +5,7 @@ import (
 	"io"
 	"strings"
 
+	"github.com/shakestzd/wipnote/cmd/wipnote/launchtui"
 	"github.com/shakestzd/wipnote/internal/launcher/plan"
 	"github.com/shakestzd/wipnote/core/worktree"
 )
@@ -76,23 +77,45 @@ func EnsureForTrackWithTitle(trackTitle, trackID, repoRoot string, w io.Writer) 
 	return worktree.EnsureForTrackTitled(trackTitle, trackID, repoRoot, w)
 }
 
+// ensureWorktreeWithSpinner runs a worktree-prep function under an animated
+// spinner (feat-e97607b3) so the user sees live feedback during the sometimes-
+// slow `git worktree add` instead of a frozen line, resolving to a final ✓.
+// Off a TTY it is a transparent passthrough: fn writes straight to w with no
+// animation and no extra chrome, so log/CI/test output is unchanged.
+func ensureWorktreeWithSpinner(label string, w io.Writer, fn func(io.Writer) (string, bool, error)) (string, bool, error) {
+	var path string
+	var created bool
+	err := launchtui.RunWithSpinner(w, label, func(bw io.Writer) error {
+		var e error
+		path, created, e = fn(bw)
+		return e
+	})
+	return path, created, err
+}
+
 // EnsureForTrackWithTitleStatus is EnsureForTrackWithTitle plus a "created vs
 // reused" signal. created is true only when a NEW worktree was created on disk.
 // Used by the yolo launch path to gate uncommitted-change carryover (bug-bcf8a311).
 func EnsureForTrackWithTitleStatus(trackTitle, trackID, repoRoot string, w io.Writer) (string, bool, error) {
-	return worktree.EnsureForTrackTitledStatus(trackTitle, trackID, repoRoot, w)
+	return ensureWorktreeWithSpinner("Preparing worktree", w, func(bw io.Writer) (string, bool, error) {
+		return worktree.EnsureForTrackTitledStatus(trackTitle, trackID, repoRoot, bw)
+	})
 }
 
 // EnsureForTrackStatus is EnsureForTrack plus a "created vs reused" signal.
 // created is true only when a NEW worktree was created on disk.
 // Used by the codex/gemini launch paths to gate uncommitted-change carryover (bug-938e56ae).
 func EnsureForTrackStatus(trackID, repoRoot string, w io.Writer) (string, bool, error) {
-	return worktree.EnsureForTrackStatus(trackID, repoRoot, w)
+	return ensureWorktreeWithSpinner("Preparing worktree", w, func(bw io.Writer) (string, bool, error) {
+		return worktree.EnsureForTrackStatus(trackID, repoRoot, bw)
+	})
 }
 
 // EnsureForFeatureStatus is EnsureForFeature plus a "created vs reused" signal.
 func EnsureForFeatureStatus(featureID, repoRoot string, w io.Writer) (string, bool, error) {
-	return worktree.EnsureForFeatureStatus(featureID, repoRoot, w)
+	return ensureWorktreeWithSpinner("Preparing worktree", w, func(bw io.Writer) (string, bool, error) {
+		return worktree.EnsureForFeatureStatus(featureID, repoRoot, bw)
+	})
 }
 
 // EnsureForAgent ensures a git worktree exists for the given agent task and returns its path.

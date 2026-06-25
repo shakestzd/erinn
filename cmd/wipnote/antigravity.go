@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/shakestzd/wipnote/cmd/wipnote/launchtui"
 	"github.com/shakestzd/wipnote/internal/launcher"
 	"github.com/spf13/cobra"
 )
@@ -30,44 +31,70 @@ func runAntigravityInit(force, dryRun bool) error {
 	}
 
 	if !force && isAntigravityExtensionInstalled() {
-		fmt.Printf("wipnote Antigravity extension is already installed at: %s\n", installDir)
-		fmt.Println("To reinstall: wipnote antigravity --init --force")
-		fmt.Println("To launch:    wipnote antigravity")
+		fmt.Println(launchtui.RenderLaunchBanner(nil, launchtui.BannerInput{
+			Headline: "wipnote Antigravity extension already installed",
+			Details: []launchtui.BannerDetail{
+				{Label: "Install path", Value: installDir},
+				{Label: "Reinstall", Value: "wipnote antigravity --init --force"},
+				{Label: "Launch", Value: "wipnote antigravity"},
+			},
+		}))
 		return nil
 	}
 
+	// Accumulate setup actions as banner rows, mirroring codex --init's
+	// printCodexSetupSummary so all harnesses render one framed setup banner.
+	var setup []launchtui.BannerDetail
+
+	replaced := false
 	if isAntigravityExtensionInstalled() && !dryRun {
 		agyPath, gErr := exec.LookPath("agy")
 		if gErr != nil {
 			return fmt.Errorf("agy not found in PATH: %w", gErr)
 		}
-		fmt.Printf("Replacing existing wipnote Antigravity extension install at %s\n", installDir)
 		if out, uErr := exec.Command(agyPath, "plugin", "uninstall", "wipnote").CombinedOutput(); uErr != nil {
 			return fmt.Errorf("agy plugin uninstall failed: %w\n%s", uErr, strings.TrimSpace(string(out)))
 		}
+		replaced = true
+		setup = append(setup, launchtui.BannerDetail{Label: "Replaced", Value: "existing install at " + installDir})
 	}
 
-	fmt.Printf("Installing wipnote Antigravity extension (bundled)...\n")
-	fmt.Printf("  path: %s\n", bundled)
+	// replacedNote surfaces, on any post-uninstall failure, that the previous
+	// install was already removed — the setup banner is only rendered on success,
+	// so without this the user would never learn the extension is now gone.
+	replacedNote := replacedExtensionNote(replaced, "Antigravity", installDir, "wipnote antigravity --init --force")
 
 	if dryRun {
-		fmt.Printf("[dry-run] agy plugin install %s\n", bundled)
+		setup = append(setup,
+			launchtui.BannerDetail{Label: "Bundled path", Value: bundled},
+			launchtui.BannerDetail{Label: "Extension", Value: "[dry-run] agy plugin install " + bundled},
+		)
+		fmt.Println(launchtui.RenderLaunchBanner(nil, launchtui.BannerInput{
+			Headline: "Installing wipnote Antigravity extension (bundled, dry-run)...",
+			Details:  setup,
+		}))
 		return nil
 	}
 
 	agyPath, err := exec.LookPath("agy")
 	if err != nil {
-		return fmt.Errorf("agy not found in PATH: %w", err)
+		return fmt.Errorf("agy not found in PATH: %w%s", err, replacedNote)
 	}
 
 	out, runErr := exec.Command(agyPath, "plugin", "install", bundled).CombinedOutput()
 	if runErr != nil {
-		return fmt.Errorf("agy plugin install failed: %w\n%s", runErr, strings.TrimSpace(string(out)))
+		return fmt.Errorf("agy plugin install failed: %w\n%s%s", runErr, strings.TrimSpace(string(out)), replacedNote)
 	}
 
-	fmt.Println("wipnote Antigravity extension installed (bundled).")
-	fmt.Println()
-	fmt.Println("Setup complete. Run: wipnote antigravity")
+	setup = append(setup,
+		launchtui.BannerDetail{Label: "Extension", Value: "installed (bundled)"},
+		launchtui.BannerDetail{Label: "Bundled path", Value: bundled},
+		launchtui.BannerDetail{Label: "Next", Value: "wipnote antigravity"},
+	)
+	fmt.Println(launchtui.RenderLaunchBanner(nil, launchtui.BannerInput{
+		Headline: "wipnote Antigravity extension setup complete",
+		Details:  setup,
+	}))
 	return nil
 }
 
@@ -198,7 +225,11 @@ func launchAntigravityDefault(trackID, featureID, worktreePath, workItem string,
 		emitWorktreeCarryoverMessage(launchPlan, canonicalRoot, workDir, worktreeCreated, os.Stdout)
 	}
 
-	fmt.Println("Launching Antigravity CLI with wipnote context...")
+	fmt.Println(launchtui.RenderLaunchBanner(nil, launchtui.BannerInput{
+		Headline:        "Launching Antigravity CLI with wipnote context...",
+		Warning:         bannerDirtyWarning(launchPlan, willCreateWorktree),
+		WarningSeverity: "amber",
+	}))
 	return execAntigravity(antigravityLaunchOpts{
 		Continue:     continue_,
 		ResumeID:     resumeID,
@@ -257,8 +288,10 @@ func launchAntigravityDev(dryRun bool, continue_ bool, resumeID string, extraArg
 	projectRoot := filepath.Dir(wipnoteDir)
 	localExtPath := filepath.Join(projectRoot, "port", "packages", "antigravity-extension")
 
-	fmt.Printf("Launching Antigravity CLI in dev mode...\n")
-	fmt.Printf("  Local extension: %s\n", localExtPath)
+	fmt.Println(launchtui.RenderLaunchBanner(nil, launchtui.BannerInput{
+		Headline: "Launching Antigravity CLI in dev mode...",
+		Details:  []launchtui.BannerDetail{{Label: "Local extension", Value: localExtPath}},
+	}))
 
 	if !dryRun {
 		agyPath, err := exec.LookPath("agy")

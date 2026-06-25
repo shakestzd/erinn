@@ -152,8 +152,16 @@ func runFind(collection string, opts findOpts) error {
 	return nil
 }
 
-// loadFindNodes loads nodes from HTML files for the given collection.
-// collection == "all" loads across all standard collections.
+// loadFindNodes loads nodes from HTML files for the given collection, merged
+// with any archived rows for that collection. collection == "all" loads across
+// all standard collections (LoadAll is already archive-aware). Scoped lookups
+// (e.g. `find features <q>`) merge live files with the collection's archive
+// ledger so archived items remain findable; live files win on ID collisions.
+//
+// NOTE: this is the canonical `find` read path, NOT `feature list`. The default
+// `wipnote <type> list` (runWiList) deliberately stays file-only / curated-active
+// and does NOT surface archived items — that decluttering is the archive feature's
+// purpose.
 func loadFindNodes(wipnoteDir, collection string) ([]*models.Node, error) {
 	if collection == "all" {
 		return graph.LoadAll(wipnoteDir)
@@ -162,6 +170,20 @@ func loadFindNodes(wipnoteDir, collection string) ([]*models.Node, error) {
 	nodes, err := graph.LoadDir(dir)
 	if err != nil {
 		return nil, fmt.Errorf("load %s: %w", collection, err)
+	}
+	seen := make(map[string]bool, len(nodes))
+	for _, n := range nodes {
+		seen[n.ID] = true
+	}
+	archived, err := graph.LoadArchivedNodesForCollection(wipnoteDir, collection)
+	if err != nil {
+		return nil, fmt.Errorf("load archived %s: %w", collection, err)
+	}
+	for _, n := range archived {
+		if !seen[n.ID] {
+			seen[n.ID] = true
+			nodes = append(nodes, n)
+		}
 	}
 	return nodes, nil
 }
@@ -234,6 +256,16 @@ func priorityRank(p models.Priority) int {
 func runFindByID(dir, id string) error {
 	path := resolveNodePath(dir, id)
 	if path == "" {
+		// Fall back to the archive ledgers before declaring the item missing —
+		// archived items have no individual file but remain queryable by ID.
+		archived, archErr := resolveArchivedNode(dir, id)
+		if archErr != nil {
+			return archErr
+		}
+		if archived != nil {
+			printFindResults([]*models.Node{archived})
+			return nil
+		}
 		kind := kindFromPrefix(id)
 		return fmt.Errorf("find: no item found with ID %q\nRun 'wipnote %s list' to see valid IDs, or 'wipnote find all --title <keyword>' to search by title", id, kind)
 	}

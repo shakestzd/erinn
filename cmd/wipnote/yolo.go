@@ -24,22 +24,35 @@ import (
 // Decision (slice 4, option b): yolo intentionally SKIPS the interactive chooser
 // (autonomous mode must not block on a prompt) but ADOPTS the framed banner for
 // all launch output, consistent with the claude/codex/gemini launch paths.
-var yoloEmitBannerFn = func(headline, session, workItem string, w io.Writer) {
-	banner := launchtui.RenderLaunchBanner(nil, launchtui.BannerInput{
-		Headline: headline,
-		Session:  session,
-	})
-	fmt.Fprintln(w, banner)
-	if workItem != "" {
-		fmt.Fprintf(w, "  Work item: %s\n", workItem)
+var yoloEmitBannerFn = func(headline, pluginSource, session, workItem, warning string, w io.Writer) {
+	in := launchtui.BannerInput{
+		Headline:     headline,
+		PluginSource: pluginSource,
+		Session:      session,
 	}
+	// Fold the work item INTO the block as a detail row rather than printing a
+	// separate "  Work item:" line outside the banner (feat-4cc98c24).
+	if workItem != "" {
+		in.Details = append(in.Details, launchtui.BannerDetail{Label: "Work item", Value: workItem})
+	}
+	// Fold the dirty-main advisory into the SAME boxless block (amber) so no
+	// separate warning prints (bug-0f6af202). Only set on the --no-worktree path;
+	// when a worktree is created the carryover message covers it and the plan's
+	// DirtyMainWarning was already cleared by applyLaunchPlanOpts.
+	if warning != "" {
+		in.Warning = warning
+		in.WarningSeverity = "amber"
+	}
+	fmt.Fprintln(w, launchtui.RenderLaunchBanner(nil, in))
 }
 
-// emitYoloBanner writes the framed launch banner to w via yoloEmitBannerFn.
+// emitYoloBanner writes the boxless launch banner to w via yoloEmitBannerFn.
 // The indirection through yoloEmitBannerFn allows tests to assert the banner
-// fires without requiring a real terminal.
-func emitYoloBanner(headline, session, workItem string, w io.Writer) {
-	yoloEmitBannerFn(headline, session, workItem, w)
+// fires without requiring a real terminal. pluginSource, workItem, and the
+// dirty-main advisory are folded into the single block so no raw fmt lines leak
+// around the banner.
+func emitYoloBanner(headline, pluginSource, session, workItem, warning string, w io.Writer) {
+	yoloEmitBannerFn(headline, pluginSource, session, workItem, warning, w)
 }
 
 func yoloCmd() *cobra.Command {
@@ -238,12 +251,14 @@ func buildYoloSystemPrompt(id, kind string) string {
 // launchYoloPlanningMode launches Claude in planning mode (no bypass permissions)
 // when no --track or --feature is provided. Prints guidance before launching.
 func launchYoloPlanningMode(projectRoot string, extraArgs []string) error {
-	fmt.Println("No --track or --feature specified.")
-	fmt.Println("Launching in planning mode to help you create a track or feature first.")
-	fmt.Println("Once you have a track/feature, restart with:")
-	fmt.Println("  wipnote yolo --track <track-id>")
-	fmt.Println("  wipnote yolo --feature <feature-id>")
-	fmt.Println()
+	fmt.Println(launchtui.RenderLaunchBanner(nil, launchtui.BannerInput{
+		Headline: "No --track/--feature — launching YOLO planning mode...",
+		Details: []launchtui.BannerDetail{
+			{Value: "Create a track or feature first, then restart with:"},
+			{Value: "wipnote yolo --track <track-id>"},
+			{Value: "wipnote yolo --feature <feature-id>"},
+		},
+	}))
 	return launchClaude(LaunchOpts{
 		Mode:               "yolo-planning",
 		InjectSystemPrompt: true,
@@ -378,7 +393,7 @@ func launchYoloDefault(permMode, trackID, featureID string, noWorktree bool, res
 	}
 	yoloPrompt := buildYoloSystemPrompt(id, kind)
 
-	emitYoloBanner(fmt.Sprintf("Launching Claude Code in YOLO mode (%s)...", permMode), sessionName, id, os.Stdout)
+	emitYoloBanner(fmt.Sprintf("Launching Claude Code in YOLO mode (%s)...", permMode), pluginDir, sessionName, id, bannerDirtyWarning(launchPlan, willCreateWorktree), os.Stdout)
 
 	// Write the combined prompt to a temp file so launchClaude can pass it via
 	// --append-system-prompt without needing a new field.
@@ -497,8 +512,7 @@ func launchYoloDev(trackID, featureID string, noWorktree bool, resumeID, name st
 	}
 	yoloPrompt := buildYoloSystemPrompt(id, kind)
 
-	fmt.Printf("  Plugin: %s\n", pluginDir)
-	emitYoloBanner("Launching Claude Code in YOLO dev mode...", sessionName, id, os.Stdout)
+	emitYoloBanner("Launching Claude Code in YOLO dev mode...", pluginDir, sessionName, id, bannerDirtyWarning(devPlan, willCreateWorktree), os.Stdout)
 
 	tmpFile, err := os.CreateTemp("", "yolo-prompt-*.md")
 	if err != nil {
@@ -542,7 +556,10 @@ func launchYoloContinue(extraArgs []string, resumeID string) error {
 	if err != nil {
 		return err
 	}
-	fmt.Println("Resuming last YOLO session...")
+	fmt.Println(launchtui.RenderLaunchBanner(nil, launchtui.BannerInput{
+		Headline:     "Resuming last YOLO session...",
+		PluginSource: pluginDir,
+	}))
 
 	return launchClaude(LaunchOpts{
 		Mode:           "yolo-continue",

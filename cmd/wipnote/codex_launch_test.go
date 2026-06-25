@@ -405,7 +405,7 @@ func TestRenderCodexWarningBanner_FormatsSandboxNotice(t *testing.T) {
 
 	for _, want := range []string{
 		"Codex launch notice",
-		"Warning: wipnote: Codex bubblewrap sandbox is unavailable",
+		"⚠ wipnote: Codex bubblewrap sandbox is unavailable",
 		"`--sandbox danger-full-access`",
 		"Approvals remain enabled",
 	} {

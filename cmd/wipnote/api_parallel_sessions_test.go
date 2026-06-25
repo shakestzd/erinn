@@ -496,3 +496,109 @@ func TestSessionsAPI_FilesArrayEmptyWhenNoFiles(t *testing.T) {
 		t.Errorf("expected 0 files for session with no feature_files, got %d", len(files))
 	}
 }
+
+// TestSessionsAPI_DotProjectDirVisible verifies bug-fc3b5559 fix #1: sessions
+// stored with project_dir='.' (SessionStart-hook path, via NormalizeProjectDir)
+// are included when querying by the absolute project dir. The DB is per-project
+// so '.' is unambiguous within it.
+func TestSessionsAPI_DotProjectDirVisible(t *testing.T) {
+	database, err := dbpkg.Open(filepath.Join(t.TempDir(), "test.db"))
+	if err != nil {
+		t.Fatalf("open db: %v", err)
+	}
+	defer database.Close()
+
+	projectDir := "/abs/path/to/project"
+
+	// Insert a session stored with project_dir='.' (as the hook does) with enough
+	// messages to pass the msg_count >= 5 threshold.
+	insertParallelSession(t, database, "sess-dot", "claude-code", ".", "fam-dot", "completed", "claude-sonnet-4-5")
+	for i := 0; i < 5; i++ {
+		_, _ = database.Exec(
+			`INSERT INTO messages (session_id, role, content, ordinal) VALUES (?, ?, ?, ?)`,
+			"sess-dot", "user", "hello", i+1,
+		)
+	}
+
+	req := httptest.NewRequest(http.MethodGet, "/api/sessions", nil)
+	w := httptest.NewRecorder()
+	sessionsHandler(database, projectDir, projectDir+"/.wipnote")(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("status %d, want 200", w.Code)
+	}
+	var sessions []map[string]any
+	if err := json.NewDecoder(w.Body).Decode(&sessions); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	found := false
+	for _, s := range sessions {
+		if s["session_id"] == "sess-dot" {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Errorf("session with project_dir='.' not returned by sessionsHandler for abs projectDir %q", projectDir)
+	}
+}
+
+// TestSessionsAPI_ActiveSessionUnderMsgThreshold verifies bug-fc3b5559 fix #2:
+// an active session with fewer than 5 messages is visible (msg_count threshold
+// must not exclude active sessions). A stale completed session with <5 msgs
+// remains hidden.
+func TestSessionsAPI_ActiveSessionUnderMsgThreshold(t *testing.T) {
+	database, err := dbpkg.Open(filepath.Join(t.TempDir(), "test.db"))
+	if err != nil {
+		t.Fatalf("open db: %v", err)
+	}
+	defer database.Close()
+
+	projectDir := "/proj/threshold-test"
+
+	// Active session with only 2 messages — should be visible.
+	insertParallelSession(t, database, "sess-active-few", "claude-code", projectDir, "fam-th", "active", "claude-haiku")
+	for i := 0; i < 2; i++ {
+		_, _ = database.Exec(
+			`INSERT INTO messages (session_id, role, content, ordinal) VALUES (?, ?, ?, ?)`,
+			"sess-active-few", "user", "hi", i+1,
+		)
+	}
+
+	// Completed session with 3 messages — should stay hidden (below threshold).
+	insertParallelSession(t, database, "sess-done-few", "claude-code", projectDir, "fam-th2", "completed", "claude-haiku")
+	for i := 0; i < 3; i++ {
+		_, _ = database.Exec(
+			`INSERT INTO messages (session_id, role, content, ordinal) VALUES (?, ?, ?, ?)`,
+			"sess-done-few", "user", "bye", i+1,
+		)
+	}
+
+	req := httptest.NewRequest(http.MethodGet, "/api/sessions", nil)
+	w := httptest.NewRecorder()
+	sessionsHandler(database, projectDir, projectDir+"/.wipnote")(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("status %d, want 200", w.Code)
+	}
+	var sessions []map[string]any
+	if err := json.NewDecoder(w.Body).Decode(&sessions); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+
+	foundActive, foundDone := false, false
+	for _, s := range sessions {
+		switch s["session_id"] {
+		case "sess-active-few":
+			foundActive = true
+		case "sess-done-few":
+			foundDone = true
+		}
+	}
+	if !foundActive {
+		t.Error("active session with <5 msgs should be visible but was not returned")
+	}
+	if foundDone {
+		t.Error("completed session with <5 msgs should be hidden but was returned")
+	}
+}

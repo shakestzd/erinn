@@ -76,9 +76,11 @@ func TestResumeViewPresentInHTML(t *testing.T) {
 	}
 	html := string(data)
 
-	// The standalone Resume tab (data-view="resume" / id="v-resume") was merged
-	// into the Sessions view (feat-021786c9); only the resumable-items content
-	// markers remain, now rendered inside the Sessions pane. Assert those.
+	// The standalone Resume tab (data-view="resume" nav button + id="v-resume"
+	// panel) was intentionally removed in feat-021786c9 (commit 213062732),
+	// which merged the resumable work-items surface into the Sessions tab as a
+	// "Resumable Work Items" section. The resume content markers still live in
+	// the HTML, now inside sessions-list-view — assert those remain present.
 	for _, want := range []string{
 		`id="resume-count"`,
 		`id="resume-body"`,
@@ -87,7 +89,7 @@ func TestResumeViewPresentInHTML(t *testing.T) {
 		`id="resume-error"`,
 	} {
 		if !strings.Contains(html, want) {
-			t.Errorf("dashboard HTML missing resumable-items marker %q", want)
+			t.Errorf("dashboard HTML missing resumable-section marker %q", want)
 		}
 	}
 }

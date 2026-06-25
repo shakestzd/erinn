@@ -18,6 +18,13 @@ type claudeLaunchContext struct {
 	// wipnoteRoot is the canonical main-repo root when childDir is a worktree.
 	// Empty when running in-place (no worktree).
 	wipnoteRoot string
+	// dirtyMainWarning carries the advisory dirty-protected-branch text when the
+	// launch proceeds in-place (no worktree created) on a dirty main/master.
+	// Empty otherwise. The caller folds it into its single boxless launch banner
+	// as Warning (amber) so exactly one block prints (bug-0f6af202). It is never
+	// set when a worktree is created (the carryover message covers that case) or
+	// on the refuse path (enforceLaunchPlan aborts before returning).
+	dirtyMainWarning string
 }
 
 // resolveClaudeIntentIsolation runs the full intent-chooser → isolation-planner
@@ -114,10 +121,11 @@ func resolveClaudeIntentIsolation(projectRoot, wipnoteRoot, resumeID, workItem s
 	}
 
 	return claudeLaunchContext{
-		intentResult: intentResult,
-		continueEnv:  continueCtx.ExtraEnv(),
-		childDir:     childDir,
-		wipnoteRoot:  wipnoteRoot,
+		intentResult:     intentResult,
+		continueEnv:      continueCtx.ExtraEnv(),
+		childDir:         childDir,
+		wipnoteRoot:      wipnoteRoot,
+		dirtyMainWarning: bannerDirtyWarning(launchPlan, willCreateWorktree),
 	}, nil
 }
 

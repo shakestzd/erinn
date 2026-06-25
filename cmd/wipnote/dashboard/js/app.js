@@ -37,8 +37,7 @@ document.querySelector('.nav').addEventListener('click', function(e) {
   document.querySelectorAll('.nav-btn').forEach(function(b) { b.classList.toggle('active', b === btn); });
   document.querySelectorAll('.view').forEach(function(v) { v.classList.toggle('active', v.id === 'v-' + view); });
   if (view === 'sessions' && sessions.length === 0) fetchSessions();
-  if (view === 'sessions') fetchSessionAdherenceTrend();
-  if (view === 'resume') fetchResumableSessions();
+  if (view === 'sessions') { fetchSessionAdherenceTrend(); fetchResumableSessions(); }
   if (view === 'work' && features.length === 0) fetchFeatures();
   if (view === 'plans') fetchPlans();
   if (view === 'recaps') fetchRecaps();
@@ -1942,7 +1941,8 @@ setInterval(function() {
   }
 }, SESSIONS_REFRESH_MS);
 setInterval(function() {
-  if (currentView === 'resume' && (!isDoorwayLanding() || window.wipnoteMode === 'single')) {
+  // Resumable data lives in the Sessions tab now — refresh alongside sessions.
+  if (currentView === 'sessions' && (!isDoorwayLanding() || window.wipnoteMode === 'single')) {
     fetchResumableSessions();
   }
 }, SESSIONS_REFRESH_MS);

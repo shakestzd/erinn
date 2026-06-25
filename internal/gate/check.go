@@ -47,6 +47,12 @@ const (
 	// DurabilityContentionFixtureTest is the test function that enforces the
 	// sub-second / zero-first-party-BUSY durability invariant under a held lock.
 	DurabilityContentionFixtureTest = "TestSQLiteContentionStress_MigratedHotHooksUnderHeldLock"
+
+	// GoTestTimeoutArg is the canonical -timeout flag for the Go quality gate.
+	// It is a single source of truth used by every Go test gate invocation
+	// (autodetect plan, runGoGates non-gate path) so all paths carry the same
+	// timeout and no path silently omits it (bug-a8ae8cd7).
+	GoTestTimeoutArg = "-timeout=300s"
 )
 
 // GoGateRunsDurabilityFixtureUnderShort reports whether the supplied gate
@@ -244,7 +250,7 @@ func DetectPlan(projectRoot, codeRoot, phase string) (Plan, error) {
 		plan.Commands = []Command{
 			{Name: "go build", Args: []string{"go", "build", "-buildvcs=false", "./..."}},
 			{Name: "go vet", Args: []string{"go", "vet", "./..."}},
-			{Name: "go test", Args: []string{"go", "test", "-buildvcs=false", "-short", "./..."}},
+			{Name: "go test", Args: []string{"go", "test", "-buildvcs=false", "-short", GoTestTimeoutArg, "./..."}},
 		}
 	case paths.ProjectTypeNode:
 		plan.Commands, err = NodeGateCommands(plan.Manifest)

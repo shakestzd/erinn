@@ -4,11 +4,13 @@ package main
 import (
 	"database/sql"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
 	"time"
 
+	"github.com/shakestzd/wipnote/cmd/wipnote/launchtui"
 	"github.com/shakestzd/wipnote/core/agent"
 	"github.com/shakestzd/wipnote/core/daemon/apply"
 	dbpkg "github.com/shakestzd/wipnote/core/db"
@@ -153,6 +155,7 @@ func buildRoot() *cobra.Command {
 			{GroupID: "data", Command: migrateTracksCmd()},
 			{GroupID: "data", Command: cleanCmd()},
 			{GroupID: "data", Command: cleanupCmd()},
+			{GroupID: "data", Command: archiveCmd()},
 			{GroupID: "data", Command: cacheCmd()},
 			{GroupID: "data", Command: syncCmd()},
 			{GroupID: "data", Command: pruneCmd()},
@@ -299,54 +302,29 @@ func persistentPreRunE(cmd *cobra.Command, _ []string) error {
 	// `wipnote cache prune --dry-run` reports the disk's actual state, and
 	// pass the active project's cache dir as protected so the LRU sweep can't
 	// pull the read-index out from under the very command that's about to run.
-	if !inCacheSubtree(cmd) {
+	// Also skip for launcher commands (yolo, claude, codex, gemini, antigravity):
+	// the 1-3s cache scan adds silent latency before the harness starts, and
+	// launchers are not the prune path of record (feat-caa02f9a Fix 2).
+	if !inCacheSubtree(cmd) && !isHarnessLauncherCmd(cmd) {
 		if cacheRoot, cerr := storage.CacheRoot(); cerr == nil {
 			storage.OpportunisticPrune(cacheRoot, projectDir, os.Stderr)
 		}
 	}
 	launchTiming("persistentPreRunE: before openDB+EnsureSession")
-	// slice-5 (feat-1ad54813): split-handle daemon-routed session ensure.
-	//   • Hot path (session exists): read-only SELECT — never acquires a write
-	//     lock. WAL readers and writers never block each other, so the launch
-	//     chooser renders <1s even under a held external write lock.
-	//   • Cold path (new session): routed through the per-project writer daemon
-	//     via agent.RouteSessionInsertFn (ENQUEUE-ONLY, bounded AsyncEnqueueBudget
-	//     — bug-d792aee6 finding 1: applied-ack stalled ~2.4s under a held lock).
-	//     No writable handle is opened when the daemon acks.
-	//   • Last-resort fallback: daemon unreachable → EnsureSessionWithTimeout on
-	//     the writable handle with ensureSessionPreRunTimeout, matching pre-slice-5
-	//     behaviour (busy_timeout-bounded, INSERT OR IGNORE idempotent).
-	{
-		dbPath, pathErr := storage.CanonicalDBPath(projectDir)
-		if pathErr == nil {
-			roDB, roErr := dbpkg.OpenReadOnly(dbPath)
-			if roErr == nil {
-				// Read-only open succeeded — warm DB. Use the routed path which
-				// opens NO writable handle when the daemon acks (hot or acked-cold).
-				//
-				// roborev-473 finding 2: pass a LAZY writable opener instead of
-				// eagerly opening the writable handle here. The warm/exists path and
-				// the daemon-acked cold path never invoke it, so we no longer pay a
-				// writable open + migration under contention for the common case;
-				// EnsureSessionRouted opens (and closes) the handle ONLY on a daemon
-				// miss where the direct fallback is actually needed.
-				_, _ = agent.EnsureSessionRouted(roDB, func() (*sql.DB, error) {
-					launchTiming("persistentPreRunE: lazy openDB (daemon-miss fallback)")
-					return openDB(hgDir)
-				}, projectDir, projectDir, ensureSessionPreRunTimeout)
-				roDB.Close()
-			} else {
-				// Read-only open failed (DB not yet created on first launch).
-				// Fall back to the original writable-open path so the schema is
-				// created and the session row is inserted.
-				if database, dberr := openDB(hgDir); dberr == nil {
-					launchTiming("persistentPreRunE: after openDB (before EnsureSession)")
-					_, _ = agent.EnsureSessionWithTimeout(database, projectDir, ensureSessionPreRunTimeout)
-					database.Close()
-				}
-			}
-		}
+
+	// For harness launcher commands, wrap the session init in a styled spinner step
+	// instead of plain stderr output (feat-caa02f9a Fix 4a). RunWithSpinner handles
+	// TTY detection internally: on TTY it animates and resolves to a checkmark; off TTY
+	// it degrades gracefully with no animation (passes through to fn).
+	if isHarnessLauncherCmd(cmd) {
+		_ = launchtui.RunWithSpinner(os.Stderr, "Initializing", func(_ io.Writer) error {
+			return initSessionWithDB(hgDir, projectDir, cmd)
+		})
+	} else {
+		// Non-launcher commands run session init without spinner.
+		_ = initSessionWithDB(hgDir, projectDir, cmd)
 	}
+
 	launchTiming("persistentPreRunE: after openDB+EnsureSession")
 	// Registry upsert — silent, cached git remote lookup.
 	if reg, regErr := registry.Load(defaultRegistryPath()); regErr == nil {
@@ -369,6 +347,76 @@ func persistentPreRunE(cmd *cobra.Command, _ []string) error {
 		// inside a linked worktree of a registered main repo.
 		reg.DropLinkedWorktrees(paths.ResolveViaGitCommonDir)
 		_ = reg.Save()
+	}
+	return nil
+}
+
+// initSessionWithDB performs the session initialization that was previously done
+// inline in persistentPreRunE. It opens the DB (read-only or writable as needed)
+// and ensures a session row exists. This is factored out so it can be wrapped
+// in a spinner for harness launcher commands (bug-b48c354f).
+func initSessionWithDB(hgDir, projectDir string, cmd *cobra.Command) error {
+	// slice-5 (feat-1ad54813): split-handle daemon-routed session ensure.
+	//   • Hot path (session exists): read-only SELECT — never acquires a write
+	//     lock. WAL readers and writers never block each other, so the launch
+	//     chooser renders <1s even under a held external write lock.
+	//   • Cold path (new session): routed through the per-project writer daemon
+	//     via agent.RouteSessionInsertFn (ENQUEUE-ONLY, bounded AsyncEnqueueBudget
+	//     — bug-d792aee6 finding 1: applied-ack stalled ~2.4s under a held lock).
+	//     No writable handle is opened when the daemon acks.
+	//   • Last-resort fallback: daemon unreachable → EnsureSessionWithTimeout on
+	//     the writable handle with ensureSessionPreRunTimeout, matching pre-slice-5
+	//     behaviour (busy_timeout-bounded, INSERT OR IGNORE idempotent).
+	//
+	// For harness launcher commands we open with a short 500ms busy_timeout so
+	// WAL contention from a running serve daemon never stalls the interactive
+	// launch path for the full 5s default (feat-caa02f9a Fix 1).
+	roOpenFn := func(dbPath string) (*sql.DB, error) {
+		if isHarnessLauncherCmd(cmd) {
+			return dbpkg.OpenReadOnlyFast(dbPath, 500)
+		}
+		return dbpkg.OpenReadOnly(dbPath)
+	}
+	dbPath, pathErr := storage.CanonicalDBPath(projectDir)
+	if pathErr == nil {
+		roDB, roErr := roOpenFn(dbPath)
+		if roErr == nil {
+			// Read-only open succeeded — warm DB. Use the routed path which
+			// opens NO writable handle when the daemon acks (hot or acked-cold).
+			//
+			// roborev-473 finding 2: pass a LAZY writable opener instead of
+			// eagerly opening the writable handle here. The warm/exists path and
+			// the daemon-acked cold path never invoke it, so we no longer pay a
+			// writable open + migration under contention for the common case;
+			// EnsureSessionRouted opens (and closes) the handle ONLY on a daemon
+			// miss where the direct fallback is actually needed.
+			_, _ = agent.EnsureSessionRouted(roDB, func() (*sql.DB, error) {
+				launchTiming("persistentPreRunE: lazy openDB (daemon-miss fallback)")
+				return openDB(hgDir)
+			}, projectDir, projectDir, ensureSessionPreRunTimeout)
+			roDB.Close()
+		} else {
+			// Read-only open failed. Distinguish a genuinely-missing DB (first
+			// launch — must create it) from a lock/contention error. For harness
+			// launchers the writable openDB uses the default 5s busy_timeout, so
+			// falling back on contention would reintroduce the launch stall the
+			// 500ms fast-fail just avoided (roborev-612). Only take the writable
+			// fallback when the DB is actually missing, or for non-launcher cmds.
+			_, statErr := os.Stat(dbPath)
+			dbMissing := os.IsNotExist(statErr)
+			if dbMissing || !isHarnessLauncherCmd(cmd) {
+				if database, dberr := openDB(hgDir); dberr == nil {
+					launchTiming("persistentPreRunE: after openDB (before EnsureSession)")
+					_, _ = agent.EnsureSessionWithTimeout(database, projectDir, ensureSessionPreRunTimeout)
+					database.Close()
+				}
+			} else {
+				// Launcher + DB exists but read-only open failed (lock/contention):
+				// skip best-effort writable session init to keep launch fast; the
+				// SessionStart hook / writer daemon still records the session.
+				launchTiming("persistentPreRunE: skip writable fallback under contention (launcher)")
+			}
+		}
 	}
 	return nil
 }
@@ -396,6 +444,20 @@ func isLauncherDiagnosticSubtree(cmd *cobra.Command) bool {
 		if p.Name() == "launcher" {
 			return true
 		}
+	}
+	return false
+}
+
+// isHarnessLauncherCmd reports whether cmd is one of the interactive harness
+// launcher commands (yolo, claude, codex, gemini, antigravity). These commands
+// run the prerun session-route and registry-upsert (they benefit from session
+// tracking), but skip the heavyweight OpportunisticPrune and use a short DB
+// open timeout so WAL contention from the serve daemon never stalls launch
+// (feat-caa02f9a Fix 1 + Fix 2).
+func isHarnessLauncherCmd(cmd *cobra.Command) bool {
+	switch cmd.Name() {
+	case "yolo", "claude", "codex", "gemini", "antigravity":
+		return true
 	}
 	return false
 }

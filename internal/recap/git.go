@@ -3,6 +3,7 @@ package recap
 import (
 	"fmt"
 	"os/exec"
+	"path/filepath"
 	"strconv"
 	"strings"
 )
@@ -152,9 +153,18 @@ func diffCommits(projectDir string, hashes []string) ([]FileChange, error) {
 	return files, nil
 }
 
+// isWipnotePath reports whether the given path is the wipnote bookkeeping directory
+// or nested under it. These paths are not code changes and must be excluded from
+// the recap's diff summary.
+func isWipnotePath(p string) bool {
+	p = filepath.ToSlash(p)
+	return p == ".wipnote" || strings.HasPrefix(p, ".wipnote/")
+}
+
 // parseUnifiedDiff parses `git diff --unified` output into FileChange entries.
 // It tracks the add/modify/delete classification from the file header lines and
-// accumulates before/after content per hunk.
+// accumulates before/after content per hunk. Wipnote bookkeeping paths (.wipnote/*)
+// are filtered out and not returned.
 func parseUnifiedDiff(diff string) []FileChange {
 	var (
 		files   []FileChange
@@ -171,7 +181,7 @@ func parseUnifiedDiff(diff string) []FileChange {
 		switch {
 		case strings.HasPrefix(line, "diff --git "):
 			flush()
-			if cur != nil {
+			if cur != nil && !isWipnotePath(cur.Path) {
 				files = append(files, *cur)
 			}
 			cur = &FileChange{Path: pathFromDiffHeader(line), Change: ChangeModify}
@@ -208,7 +218,7 @@ func parseUnifiedDiff(diff string) []FileChange {
 		}
 	}
 	flush()
-	if cur != nil {
+	if cur != nil && !isWipnotePath(cur.Path) {
 		files = append(files, *cur)
 	}
 	return files
@@ -266,4 +276,85 @@ func parseRange(tok string) (start, count int) {
 	}
 	start, _ = strconv.Atoi(tok)
 	return start, count
+}
+
+// TestIsWipnotePath verifies that isWipnotePath correctly filters .wipnote paths.
+func testIsWipnotePath() []string {
+	tests := []struct {
+		path     string
+		wantMask bool
+	}{
+		// Real code files should not be masked
+		{"internal/foo/bar.go", false},
+		{"README.md", false},
+		{"cmd/wipnote/main.go", false},
+		// .wipnote paths should be masked
+		{".wipnote", true},
+		{".wipnote/", true},
+		{".wipnote/bugs/bug-356321b6.html", true},
+		{".wipnote/bugs/bug-2fe649a4.html.lock", true},
+		{".wipnote/features/feat-abc123.html", true},
+		{".wipnote/spikes/spk-def456.html", true},
+		{".wipnote/sessions/sess-xyz789.html", true},
+		{".wipnote/architecture.html", true},
+	}
+	var failures []string
+	for _, tt := range tests {
+		got := isWipnotePath(tt.path)
+		if got != tt.wantMask {
+			failures = append(failures, fmt.Sprintf("isWipnotePath(%q): got %v, want %v", tt.path, got, tt.wantMask))
+		}
+	}
+	return failures
+}
+
+// TestParseUnifiedDiffFiltersWipnote verifies that parseUnifiedDiff excludes
+// .wipnote artifacts from the result. It tests a diff containing:
+// - A real code file (internal/foo/bar.go)
+// - A wipnote bug artifact (.wipnote/bugs/bug-x.html)
+// - A wipnote lock file (.wipnote/bugs/bug-x.html.lock)
+func testParseUnifiedDiffFiltersWipnote() []string {
+	diff := `diff --git a/internal/foo/bar.go b/internal/foo/bar.go
+new file mode 100644
+index 0000000..e69de29
+--- /dev/null
++++ b/internal/foo/bar.go
+@@ -0,0 +1,3 @@
++package foo
++
++func Bar() {}
+diff --git a/.wipnote/bugs/bug-x.html b/.wipnote/bugs/bug-x.html
+new file mode 100644
+index 0000000..abcdef1
+--- /dev/null
++++ b/.wipnote/bugs/bug-x.html
+@@ -0,0 +1,5 @@
++<html>
++<body>
++<h1>Bug X</h1>
++</body>
++</html>
+diff --git a/.wipnote/bugs/bug-x.html.lock b/.wipnote/bugs/bug-x.html.lock
+new file mode 100644
+index 0000000..1234567
+--- /dev/null
++++ b/.wipnote/bugs/bug-x.html.lock
+@@ -0,0 +1 @@
++locked
+`
+	files := parseUnifiedDiff(diff)
+
+	// Expected: only internal/foo/bar.go; wipnote artifacts filtered out
+	var failures []string
+	if len(files) != 1 {
+		failures = append(failures, fmt.Sprintf("parseUnifiedDiff: got %d files, want 1", len(files)))
+		return failures
+	}
+	if files[0].Path != "internal/foo/bar.go" {
+		failures = append(failures, fmt.Sprintf("parseUnifiedDiff: got path %q, want internal/foo/bar.go", files[0].Path))
+	}
+	if files[0].Change != ChangeAdd {
+		failures = append(failures, fmt.Sprintf("parseUnifiedDiff: got change %v, want %v", files[0].Change, ChangeAdd))
+	}
+	return failures
 }

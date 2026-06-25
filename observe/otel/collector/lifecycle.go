@@ -84,7 +84,7 @@ func (c *ProcessCollector) Spawn(binPath, sessionID, projectDir string) (int, fu
 	}
 
 	// maxAttempts=1: a single handshake attempt caps the launch-time wait at
-	// ~3s (readHandshake timeout) instead of up to ~4.4s with the 3-attempt
+	// ~1s (readHandshake timeout) instead of up to ~4.4s with the 3-attempt
 	// backoff (100ms+300ms+700ms+3×3s). A failed collector only means a few
 	// early spans are dropped; the watchdog covers respawn after launch.
 	port, proc, attempts, err := RetrySpawn(binPath, sessionID, projectDir, 0, 1, spawnFn, c.opts.Stderr)
@@ -144,7 +144,14 @@ func DefaultSpawnFn(binPath, sessionID, projectDir string, requestedPort int) (i
 	return port, cmd.Process, nil
 }
 
-// readHandshake scans stdout for the handshake line within 3s.
+// handshakeTimeout is the maximum time to wait for the otel-collect child to
+// print its "wipnote-otel-ready port=<N>" line. 1s is sufficient: the child
+// process starts quickly and failure here is non-fatal (the watchdog respawns).
+// Keeping it short prevents a stalled child from adding more than 1s to
+// interactive launch time (feat-caa02f9a).
+const handshakeTimeout = 1 * time.Second
+
+// readHandshake scans stdout for the handshake line within handshakeTimeout.
 func readHandshake(scanner *bufio.Scanner) (int, error) {
 	type result struct {
 		port int
@@ -166,8 +173,8 @@ func readHandshake(scanner *bufio.Scanner) (int, error) {
 	select {
 	case r := <-ch:
 		return r.port, r.err
-	case <-time.After(3 * time.Second):
-		return 0, fmt.Errorf("otel-collect: handshake timeout (3s)")
+	case <-time.After(handshakeTimeout):
+		return 0, fmt.Errorf("otel-collect: handshake timeout (%s)", handshakeTimeout)
 	}
 }
 

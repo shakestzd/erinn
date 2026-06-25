@@ -229,7 +229,7 @@ var approvedWriteSites = []writeSite{
 	},
 	{
 		File:           "internal/gate/check.go",
-		Line:           453,
+		Line:           459,
 		Function:       "PersistRecord",
 		OpenExpr:       "dbpkg.Open",
 		Classification: intentionalCLIMutation,
@@ -289,7 +289,7 @@ var approvedWriteSites = []writeSite{
 	},
 	{
 		File:           "cmd/wipnote/serve_child.go",
-		Line:           406,
+		Line:           411,
 		Function:       "runServeChild",
 		OpenExpr:       "dbpkg.OpenWritable",
 		Classification: intentionalCLIMutation,
@@ -357,7 +357,7 @@ var approvedWriteSites = []writeSite{
 	},
 	{
 		File:           "cmd/wipnote/lazy_reindex.go",
-		Line:           120,
+		Line:           126,
 		Function:       "runFullSyncReindex",
 		OpenExpr:       "dbpkg.Open",
 		Classification: reindexOnly,
@@ -373,7 +373,7 @@ var approvedWriteSites = []writeSite{
 	},
 	{
 		File:           "cmd/wipnote/reindex.go",
-		Line:           52,
+		Line:           54,
 		Function:       "runReindex",
 		OpenExpr:       "dbpkg.Open",
 		Classification: reindexOnly,

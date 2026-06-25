@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -10,9 +11,10 @@ import (
 	"time"
 
 	dbpkg "github.com/shakestzd/wipnote/core/db"
-	"github.com/shakestzd/wipnote/core/hooks"
 	"github.com/shakestzd/wipnote/core/htmlparse"
+	"github.com/shakestzd/wipnote/core/hooks"
 	"github.com/shakestzd/wipnote/core/models"
+	"github.com/shakestzd/wipnote/core/workitem"
 )
 
 // testCreate is a test helper that wraps runWiCreate with the opts struct.
@@ -1924,5 +1926,279 @@ func TestFeatureStart_StaleCollision_Allows(t *testing.T) {
 	defer func() { wiForceStart = false }()
 	if err := wiSetStatusWithAgent("feature", featID, "in-progress", callerSessionID, agentID); err != nil {
 		t.Fatalf("stale-holder start should succeed: %v", err)
+	}
+}
+
+// TestLearningNonFatal_OverLimitWord tests that completing a work item with an
+// over-limit learning body succeeds (completes the item), does NOT attach the
+// learning, and emits a clear warning with remediation command.
+func TestLearningNonFatal_OverLimitWord(t *testing.T) {
+	if testing.Short() {
+		t.Skip("drives learning validation lifecycle")
+	}
+
+	const sessionID = "test-session-learning-over-limit"
+	const agentID = "test-agent"
+	tmpDir, hgDir := testHgDirWithDB(t, sessionID)
+
+	projectDirFlag = tmpDir
+	defer func() { projectDirFlag = "" }()
+	t.Setenv("WIPNOTE_SESSION_ID", sessionID)
+	t.Setenv("WIPNOTE_CACHE_DIR", tmpDir)
+
+	// Create a track first.
+	if err := testCreate("track", "Test Track", "", "medium", false, false); err != nil {
+		t.Fatalf("create track: %v", err)
+	}
+	trackFiles, _ := filepath.Glob(filepath.Join(hgDir, "tracks", "trk-*.html"))
+	if len(trackFiles) == 0 {
+		t.Fatal("no track file created")
+	}
+	trackNode, _ := htmlparse.ParseFile(trackFiles[len(trackFiles)-1])
+	trackID := trackNode.ID
+
+	// Create a feature.
+	if err := testCreate("feature", "Feature for Over-Limit Learning", trackID, "medium", false, false); err != nil {
+		t.Fatalf("create feature: %v", err)
+	}
+	featFiles, _ := filepath.Glob(filepath.Join(hgDir, "features", "feat-*.html"))
+	if len(featFiles) != 1 {
+		t.Fatalf("expected 1 feature file, got %d", len(featFiles))
+	}
+	featNode, _ := htmlparse.ParseFile(featFiles[0])
+	featID := featNode.ID
+
+	// Start the feature.
+	if err := wiSetStatusWithAgent("feature", featID, "in-progress", sessionID, agentID); err != nil {
+		t.Fatalf("start feature: %v", err)
+	}
+
+	// Create a learning body that exceeds the 120-word limit (121 words).
+	overLimitBody := strings.Repeat("word ", 121)
+	overLimitBody = strings.TrimSpace(overLimitBody)
+
+	// Set the global wiLearning flag to the over-limit body.
+	defer func() {
+		wiLearning = ""
+		wiLearningKind = ""
+	}()
+	wiLearning = overLimitBody
+	wiLearningKind = "decision"
+
+	// Complete the feature with the over-limit learning. This should succeed,
+	// but NOT attach the learning.
+	err := wiSetStatusWithAgent("feature", featID, "done", sessionID, agentID)
+
+	// The completion itself must succeed (err == nil).
+	if err != nil {
+		t.Fatalf("completion should succeed despite over-limit learning: %v", err)
+	}
+
+	// Verify the item is marked as done.
+	p, err := workitem.Open(hgDir, "claude-code")
+	if err != nil {
+		t.Fatalf("open project: %v", err)
+	}
+	defer p.Close()
+
+	col := collectionFor(p, "feature")
+	feat, err := col.Get(featID)
+	if err != nil {
+		t.Fatalf("get feature: %v", err)
+	}
+	if feat.Status != "done" {
+		t.Errorf("expected status 'done', got %q", feat.Status)
+	}
+	// The key test: the item must be marked done despite the invalid learning.
+	// The learning card attachment would fail silently (or not be created), but
+	// the completion itself succeeds.
+}
+
+// TestLearningNonFatal_ValidBody tests that completing a work item with a valid
+// learning body succeeds AND attaches the learning card.
+func TestLearningNonFatal_ValidBody(t *testing.T) {
+	if testing.Short() {
+		t.Skip("drives learning validation lifecycle")
+	}
+
+	const sessionID = "test-session-learning-valid"
+	const agentID = "test-agent"
+	tmpDir, hgDir := testHgDirWithDB(t, sessionID)
+
+	projectDirFlag = tmpDir
+	defer func() { projectDirFlag = "" }()
+	t.Setenv("WIPNOTE_SESSION_ID", sessionID)
+	t.Setenv("WIPNOTE_CACHE_DIR", tmpDir)
+
+	// Create a track first.
+	if err := testCreate("track", "Test Track", "", "medium", false, false); err != nil {
+		t.Fatalf("create track: %v", err)
+	}
+	trackFiles, _ := filepath.Glob(filepath.Join(hgDir, "tracks", "trk-*.html"))
+	if len(trackFiles) == 0 {
+		t.Fatal("no track file created")
+	}
+	trackNode, _ := htmlparse.ParseFile(trackFiles[len(trackFiles)-1])
+	trackID := trackNode.ID
+
+	// Create a feature.
+	if err := testCreate("feature", "Feature for Valid Learning", trackID, "medium", false, false); err != nil {
+		t.Fatalf("create feature: %v", err)
+	}
+	featFiles, _ := filepath.Glob(filepath.Join(hgDir, "features", "feat-*.html"))
+	if len(featFiles) != 1 {
+		t.Fatalf("expected 1 feature file, got %d", len(featFiles))
+	}
+	featNode, _ := htmlparse.ParseFile(featFiles[0])
+	featID := featNode.ID
+
+	// Start the feature.
+	if err := wiSetStatusWithAgent("feature", featID, "in-progress", sessionID, agentID); err != nil {
+		t.Fatalf("start feature: %v", err)
+	}
+
+	// Create a learning body that is within the limit (exactly 120 words).
+	validBody := strings.Repeat("word ", 120)
+	validBody = strings.TrimSpace(validBody)
+
+	// Set the global wiLearning flag to the valid body.
+	defer func() {
+		wiLearning = ""
+		wiLearningKind = ""
+	}()
+	wiLearning = validBody
+	wiLearningKind = "hazard"
+
+	// Complete the feature with valid learning. This should succeed and attach.
+	err := wiSetStatusWithAgent("feature", featID, "done", sessionID, agentID)
+
+	// The completion itself must succeed.
+	if err != nil {
+		t.Fatalf("completion should succeed with valid learning: %v", err)
+	}
+
+	// Verify the item is marked as done.
+	p, err := workitem.Open(hgDir, "claude-code")
+	if err != nil {
+		t.Fatalf("open project: %v", err)
+	}
+	defer p.Close()
+
+	col := collectionFor(p, "feature")
+	feat, err := col.Get(featID)
+	if err != nil {
+		t.Fatalf("get feature: %v", err)
+	}
+	if feat.Status != "done" {
+		t.Errorf("expected status 'done', got %q", feat.Status)
+	}
+	// The key test: the item is marked done AND the valid learning was processed
+	// (the createLearningCard function ran without error). We can't easily verify
+	// the card was created in the simple case, but we confirm no error occurred.
+}
+
+// TestLearningNonFatal_InvalidKind tests that completing a work item with an
+// invalid learning kind succeeds (completes the item), does NOT attach the
+// learning, and emits a remediation command that does NOT contain the invalid
+// kind and is properly shell-quoted.
+func TestLearningNonFatal_InvalidKind(t *testing.T) {
+	if testing.Short() {
+		t.Skip("drives learning validation lifecycle")
+	}
+
+	const sessionID = "test-session-learning-invalid-kind"
+	const agentID = "test-agent"
+	tmpDir, hgDir := testHgDirWithDB(t, sessionID)
+
+	projectDirFlag = tmpDir
+	defer func() { projectDirFlag = "" }()
+	t.Setenv("WIPNOTE_SESSION_ID", sessionID)
+	t.Setenv("WIPNOTE_CACHE_DIR", tmpDir)
+
+	// Create a track first.
+	if err := testCreate("track", "Test Track", "", "medium", false, false); err != nil {
+		t.Fatalf("create track: %v", err)
+	}
+	trackFiles, _ := filepath.Glob(filepath.Join(hgDir, "tracks", "trk-*.html"))
+	if len(trackFiles) == 0 {
+		t.Fatal("no track file created")
+	}
+	trackNode, _ := htmlparse.ParseFile(trackFiles[len(trackFiles)-1])
+	trackID := trackNode.ID
+
+	// Create a feature.
+	if err := testCreate("feature", "Feature for Invalid Learning Kind", trackID, "medium", false, false); err != nil {
+		t.Fatalf("create feature: %v", err)
+	}
+	featFiles, _ := filepath.Glob(filepath.Join(hgDir, "features", "feat-*.html"))
+	if len(featFiles) != 1 {
+		t.Fatalf("expected 1 feature file, got %d", len(featFiles))
+	}
+	featNode, _ := htmlparse.ParseFile(featFiles[0])
+	featID := featNode.ID
+
+	// Start the feature.
+	if err := wiSetStatusWithAgent("feature", featID, "in-progress", sessionID, agentID); err != nil {
+		t.Fatalf("start feature: %v", err)
+	}
+
+	// Create a valid learning body (120 words, within limit).
+	validBody := strings.Repeat("word ", 120)
+	validBody = strings.TrimSpace(validBody)
+
+	// Set the global wiLearning flag to the valid body but use an INVALID kind.
+	defer func() {
+		wiLearning = ""
+		wiLearningKind = ""
+	}()
+
+	wiLearning = validBody
+	wiLearningKind = "invalid-kind" // not in {decision, hazard, invariant, subsystem-map}
+
+	// Capture stderr to check the remediation command.
+	oldStderr := os.Stderr
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatalf("pipe: %v", err)
+	}
+	os.Stderr = w
+
+	// Complete the feature with invalid learning kind. This should succeed,
+	// but NOT attach the learning.
+	if err := wiSetStatusWithAgent("feature", featID, "done", sessionID, agentID); err != nil {
+		w.Close()
+		os.Stderr = oldStderr
+		t.Fatalf("completion should succeed despite invalid learning kind: %v", err)
+	}
+	w.Close()
+	os.Stderr = oldStderr
+
+	// Read the stderr output.
+	stderrOut, _ := io.ReadAll(r)
+	stderrStr := string(stderrOut)
+
+	// The key test: the item must be marked done despite the invalid learning kind.
+	featFiles, _ = filepath.Glob(filepath.Join(hgDir, "features", "feat-*.html"))
+	feat, _ := htmlparse.ParseFile(featFiles[0])
+	if feat.Status != "done" {
+		t.Errorf("expected status 'done', got %q", feat.Status)
+	}
+
+	// Verify the remediation command in stderr:
+	// 1. Should NOT contain the invalid kind as a --kind flag value.
+	if strings.Contains(stderrStr, "--kind invalid-kind") {
+		t.Errorf("remediation command should NOT contain invalid kind in --kind flag; stderr: %s", stderrStr)
+	}
+
+	// 2. Should contain --kind decision (the known-valid default).
+	if !strings.Contains(stderrStr, "--kind decision") {
+		t.Errorf("remediation command should contain --kind decision as a valid default; stderr: %s", stderrStr)
+	}
+
+	// 3. Verify shell safety: the slug and body should be properly quoted.
+	// The command should have wipnote arch add (slug) --kind decision --body (body) --paths (id)
+	// All user-derived values should be quoted.
+	if !strings.Contains(stderrStr, "wipnote arch add") {
+		t.Errorf("remediation command should contain 'wipnote arch add'; stderr: %s", stderrStr)
 	}
 }

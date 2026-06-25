@@ -109,8 +109,14 @@ func runFullSyncReindex(wipnoteDir string) error {
 	for _, dir := range []string{"features", "bugs", "spikes"} {
 		reindexFeatureDir(database, wipnoteDir, projectDir, dir, validIDs, false)
 	}
+	// Archived work items (compacted into .wipnote/archive/*.html ledgers) are
+	// still canonical — index them too, or a cold rebuild (which runs on every
+	// container restart in this repo) silently drops every archived item from
+	// the read index. Mirrors the full-reindex ordering in runReindex.
+	reindexWorkitemLedgerNodes(database, wipnoteDir, projectDir, validIDs, false)
 	collectSessionIDs(database, validIDs)
 	reindexEdges(database, wipnoteDir, validIDs)
+	reindexWorkitemLedgerEdges(database, wipnoteDir, validIDs, false)
 	fixImplementedInEdges(database)
 
 	closeDB()

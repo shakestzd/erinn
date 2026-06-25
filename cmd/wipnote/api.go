@@ -106,6 +106,11 @@ func sessionsHandler(database *sql.DB, projectDir, wipnoteDir string) http.Handl
 		// (ingested from Claude Code transcripts without attribution) are
 		// hidden from the per-project dashboard. Tracked separately as a
 		// data-attribution bug — the fix here is purely display-side.
+		// The DB is per-project (path hashed by project root), so '.' is
+		// unambiguous within it. SessionStart-hook sessions store project_dir
+		// as '.' (repo-relative, via core/paths.NormalizeProjectDir), while
+		// sessions ingested from other paths may use the absolute project dir.
+		// Match both so active sessions are not excluded (bug-fc3b5559).
 		rows, err := database.Query(`
 			SELECT s.session_id, s.agent_assigned, s.status, s.created_at,
 			       COALESCE(s.completed_at, ''), s.total_events,
@@ -129,7 +134,7 @@ func sessionsHandler(database *sql.DB, projectDir, wipnoteDir string) http.Handl
 			       COALESCE(s.project_dir, '') AS canonical_project,
 			       COALESCE(s.parent_session_id, '') AS parent_session_id
 			FROM sessions s
-			WHERE s.project_dir = ?
+			WHERE s.project_dir IN (?, '.')
 			  AND (s.total_events > 0
 			   OR EXISTS (SELECT 1 FROM messages m WHERE m.session_id = s.session_id)
 			   OR s.status = 'active')
@@ -139,8 +144,8 @@ func sessionsHandler(database *sql.DB, projectDir, wipnoteDir string) http.Handl
 			       FROM messages m4
 			       WHERE m4.session_id = s.session_id AND m4.role = 'user'
 			       ORDER BY m4.ordinal LIMIT 1), '') NOT LIKE '[wipnote-titler]%'
-			  AND (SELECT COUNT(*) FROM messages m3
-			       WHERE m3.session_id = s.session_id) >= 5
+			  AND (s.status = 'active' OR (SELECT COUNT(*) FROM messages m3
+			       WHERE m3.session_id = s.session_id) >= 5)
 			ORDER BY s.created_at DESC
 			LIMIT 20`, projectDir)
 		if err != nil {

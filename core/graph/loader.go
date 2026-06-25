@@ -47,10 +47,17 @@ func LoadDir(dir string) ([]*models.Node, error) {
 	return nodes, nil
 }
 
-// LoadAll reads features, bugs, spikes, tracks, plans, and specs from a .wipnote root.
+// LoadAll reads features, bugs, spikes, tracks, plans, and specs from a .wipnote
+// root, PLUS any work items that have been compacted into archive ledgers under
+// .wipnote/archive/. Archived items are canonical and must remain visible to
+// every canonical-first reader (find/analytics/status/snapshot/recommend/track/
+// list) — merging them here is the single chokepoint that guarantees that
+// without touching each caller. Items still present as individual files win over
+// a stale ledger row of the same ID (de-dup by ID, file first).
 func LoadAll(wipnoteDir string) ([]*models.Node, error) {
 	subdirs := []string{"features", "bugs", "spikes", "tracks", "plans", "specs"}
 	var all []*models.Node
+	seen := make(map[string]bool)
 
 	for _, sub := range subdirs {
 		dir := filepath.Join(wipnoteDir, sub)
@@ -61,7 +68,22 @@ func LoadAll(wipnoteDir string) ([]*models.Node, error) {
 		if err != nil {
 			return nil, fmt.Errorf("loading %s: %w", sub, err)
 		}
+		for _, n := range nodes {
+			seen[n.ID] = true
+		}
 		all = append(all, nodes...)
+	}
+
+	archived, err := LoadArchivedNodes(wipnoteDir)
+	if err != nil {
+		return nil, fmt.Errorf("loading archive ledgers: %w", err)
+	}
+	for _, n := range archived {
+		if seen[n.ID] {
+			continue
+		}
+		seen[n.ID] = true
+		all = append(all, n)
 	}
 	return all, nil
 }

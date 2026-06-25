@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/shakestzd/wipnote/cmd/wipnote/launchtui"
 	"github.com/shakestzd/wipnote/internal/launcher"
 	"github.com/spf13/cobra"
 )
@@ -25,6 +26,19 @@ func geminiExtensionInstallDir() string {
 func isGeminiExtensionInstalled() bool {
 	_, err := os.Stat(geminiExtensionInstallDir())
 	return err == nil
+}
+
+// replacedExtensionNote returns a trailing note for post-uninstall failure
+// errors, telling the user the previous extension install was already removed
+// and how to reinstall. Returns "" when no replacement happened so callers can
+// append it unconditionally. Shared by the gemini/antigravity --init paths,
+// whose success-only setup banner would otherwise hide the removal on failure
+// (unit-tested; roborev 568).
+func replacedExtensionNote(replaced bool, harness, installDir, reinstallCmd string) string {
+	if !replaced {
+		return ""
+	}
+	return fmt.Sprintf("\n(the previous wipnote %s extension at %s was already removed; reinstall with: %s)", harness, installDir, reinstallCmd)
 }
 
 // resolveGeminiExtensionRef returns the --ref value to use when installing the
@@ -93,58 +107,86 @@ func runGeminiInit(ref string, force, dryRun bool) error {
 	// Check idempotency: if the extension is already linked to the bundled
 	// path, skip. `--force` re-links unconditionally.
 	if !force && isExtensionAlreadyLinkedToLocalPath(bundled) {
-		fmt.Printf("wipnote Gemini extension is already linked to bundled path: %s\n", bundled)
-		fmt.Println("To reinstall: wipnote gemini --init --force")
-		fmt.Println("To launch:    wipnote gemini")
+		fmt.Println(launchtui.RenderLaunchBanner(nil, launchtui.BannerInput{
+			Headline: "wipnote Gemini extension already linked (bundled)",
+			Details: []launchtui.BannerDetail{
+				{Label: "Bundled path", Value: bundled},
+				{Label: "Reinstall", Value: "wipnote gemini --init --force"},
+				{Label: "Launch", Value: "wipnote gemini"},
+			},
+		}))
 		return nil
 	}
+
+	// Accumulate setup actions as banner rows, mirroring codex --init's
+	// printCodexSetupSummary so all harnesses render one framed setup banner.
+	var setup []launchtui.BannerDetail
 
 	// If there is an existing install (GitHub-installed or linked elsewhere),
 	// uninstall it first so the link can take. Mirrors the launchGeminiDev
 	// logic that handles stale installs.
+	replaced := false
 	if isGeminiExtensionInstalled() && !dryRun {
 		geminiPath, gErr := exec.LookPath("gemini")
 		if gErr != nil {
 			return fmt.Errorf("gemini not found in PATH: %w\nInstall Gemini CLI first: https://github.com/google-gemini/gemini-cli", gErr)
 		}
-		fmt.Printf("Replacing existing wipnote Gemini extension install at %s\n", installDir)
 		if out, uErr := exec.Command(geminiPath, "extensions", "uninstall", "wipnote").CombinedOutput(); uErr != nil {
 			return fmt.Errorf("gemini extensions uninstall failed: %w\n%s", uErr, strings.TrimSpace(string(out)))
 		}
+		replaced = true
+		setup = append(setup, launchtui.BannerDetail{Label: "Replaced", Value: "existing install at " + installDir})
 	}
 
+	// replacedNote surfaces, on any post-uninstall failure, that the previous
+	// install was already removed — the setup banner is only rendered on success,
+	// so without this the user would never learn the extension is now gone.
+	replacedNote := replacedExtensionNote(replaced, "Gemini", installDir, "wipnote gemini --init --force")
+
 	linkArgs := buildGeminiLinkArgs(bundled)
-	fmt.Printf("Linking wipnote Gemini extension (bundled)...\n")
-	fmt.Printf("  path: %s\n", bundled)
 
 	if dryRun {
-		fmt.Printf("[dry-run] gemini %s\n", strings.Join(linkArgs, " "))
+		setup = append(setup,
+			launchtui.BannerDetail{Label: "Bundled path", Value: bundled},
+			launchtui.BannerDetail{Label: "Extension", Value: "[dry-run] gemini " + strings.Join(linkArgs, " ")},
+		)
+		fmt.Println(launchtui.RenderLaunchBanner(nil, launchtui.BannerInput{
+			Headline: "Linking wipnote Gemini extension (bundled, dry-run)...",
+			Details:  setup,
+		}))
 		return nil
 	}
 
 	geminiPath, err := exec.LookPath("gemini")
 	if err != nil {
-		return fmt.Errorf("gemini not found in PATH: %w\nInstall Gemini CLI first: https://github.com/google-gemini/gemini-cli", err)
+		return fmt.Errorf("gemini not found in PATH: %w\nInstall Gemini CLI first: https://github.com/google-gemini/gemini-cli%s", err, replacedNote)
 	}
 
 	out, runErr := exec.Command(geminiPath, linkArgs...).CombinedOutput()
 	if runErr != nil {
-		return fmt.Errorf("gemini extensions link failed: %w\n%s", runErr, strings.TrimSpace(string(out)))
+		return fmt.Errorf("gemini extensions link failed: %w\n%s%s", runErr, strings.TrimSpace(string(out)), replacedNote)
 	}
 
-	fmt.Println("wipnote Gemini extension linked (bundled).")
+	setup = append(setup,
+		launchtui.BannerDetail{Label: "Extension", Value: "linked (bundled)"},
+		launchtui.BannerDetail{Label: "Bundled path", Value: bundled},
+	)
 
 	// Install hooks into ~/.gemini/settings.json so they are picked up by
 	// Gemini CLI. The extension-dir hooks.json is not read by Gemini CLI;
 	// hooks must live in settings.json#hooks.
-	fmt.Println()
 	if err := installGeminiHooks("", dryRun); err != nil {
 		fmt.Fprintf(os.Stderr, "warning: could not install hooks into settings.json: %v\n", err)
 		fmt.Fprintln(os.Stderr, "  Run manually: wipnote gemini --init")
+	} else {
+		setup = append(setup, launchtui.BannerDetail{Label: "Hooks", Value: "installed in settings.json"})
 	}
 
-	fmt.Println()
-	fmt.Println("Setup complete. Run: wipnote gemini")
+	setup = append(setup, launchtui.BannerDetail{Label: "Next", Value: "wipnote gemini"})
+	fmt.Println(launchtui.RenderLaunchBanner(nil, launchtui.BannerInput{
+		Headline: "wipnote Gemini extension setup complete",
+		Details:  setup,
+	}))
 	return nil
 }
 
@@ -356,7 +398,11 @@ func launchGeminiDefault(trackID, featureID, worktreePath, workItem string, noWo
 		emitWorktreeCarryoverMessage(launchPlan, canonicalRoot, workDir, worktreeCreated, os.Stdout)
 	}
 
-	fmt.Println("Launching Gemini CLI with wipnote context...")
+	fmt.Println(launchtui.RenderLaunchBanner(nil, launchtui.BannerInput{
+		Headline:        "Launching Gemini CLI with wipnote context...",
+		Warning:         bannerDirtyWarning(launchPlan, willCreateWorktree),
+		WarningSeverity: "amber",
+	}))
 	return execGemini(geminiLaunchOpts{
 		ResumeLast:   intentResult.resumeLast,
 		ResumeIndex:  intentResult.resumeIndex,
@@ -406,7 +452,9 @@ func applyGeminiLaunchIntent(worktreePath, workItem, resumeIndex string, intent 
 func launchGeminiContinue(extraArgs []string, dryRun bool) error {
 	projectRoot, _ := resolveProjectRoot()
 	maybeEnsureGeminiExtensionOnLaunch(dryRun)
-	fmt.Println("Resuming latest Gemini session...")
+	fmt.Println(launchtui.RenderLaunchBanner(nil, launchtui.BannerInput{
+		Headline: "Resuming latest Gemini session...",
+	}))
 	return execGemini(geminiLaunchOpts{
 		ResumeLast:  true,
 		ExtraArgs:   extraArgs,
@@ -421,7 +469,9 @@ func launchGeminiContinue(extraArgs []string, dryRun bool) error {
 func launchGeminiResume(index string, extraArgs []string, dryRun bool) error {
 	projectRoot, _ := resolveProjectRoot()
 	maybeEnsureGeminiExtensionOnLaunch(dryRun)
-	fmt.Printf("Resuming Gemini session %s...\n", index)
+	fmt.Println(launchtui.RenderLaunchBanner(nil, launchtui.BannerInput{
+		Headline: fmt.Sprintf("Resuming Gemini session %s...", index),
+	}))
 	return execGemini(geminiLaunchOpts{
 		ResumeIndex: index,
 		ExtraArgs:   extraArgs,
@@ -475,8 +525,10 @@ func launchGeminiDev(isolate, dryRun bool, extraArgs []string) error {
 		return err
 	}
 
-	fmt.Printf("Launching Gemini CLI in dev mode...\n")
-	fmt.Printf("  Local extension: %s\n", localExtPath)
+	fmt.Println(launchtui.RenderLaunchBanner(nil, launchtui.BannerInput{
+		Headline: "Launching Gemini CLI in dev mode...",
+		Details:  []launchtui.BannerDetail{{Label: "Local extension", Value: localExtPath}},
+	}))
 
 	// Check idempotency: if already linked to this local path, skip the link exec.
 	// If linked elsewhere or installed from a different source, uninstall first.

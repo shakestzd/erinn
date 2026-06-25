@@ -324,3 +324,128 @@ func TestLauncherPlan_NoWorkItemSkipsWorktree(t *testing.T) {
 		t.Error("no work-item: must not select managed-worktree without an ID")
 	}
 }
+
+// writeFile creates (or overwrites) a file under dir, making parent dirs as
+// needed, and writes content to it.
+func writeFile(t *testing.T, dir, rel, content string) {
+	t.Helper()
+	full := filepath.Join(dir, rel)
+	if err := os.MkdirAll(filepath.Dir(full), 0o755); err != nil {
+		t.Fatalf("mkdir for %s: %v", rel, err)
+	}
+	if err := os.WriteFile(full, []byte(content), 0o644); err != nil {
+		t.Fatalf("write %s: %v", rel, err)
+	}
+}
+
+// gitIn runs a git subcommand inside dir and fails the test on error.
+func gitIn(t *testing.T, dir string, args ...string) {
+	t.Helper()
+	cmd := exec.Command("git", append([]string{"-C", dir}, args...)...)
+	if out, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("git %v failed: %s", args, out)
+	}
+}
+
+// TestLauncherPlan_DirtyCheckIgnoresWipnotePaths verifies the bug-0f6af202 fix:
+// the dirty-protected-branch guard must IGNORE changes confined to wipnote's own
+// .wipnote/ bookkeeping directory, while still firing for real code changes,
+// mixed change sets, and renames of non-.wipnote files. The guard surfaces via
+// DirtyMainWarning (set ⇔ the tree counts as dirty).
+func TestLauncherPlan_DirtyCheckIgnoresWipnotePaths(t *testing.T) {
+	dirtyFor := func(t *testing.T, setup func(t *testing.T, dir string)) bool {
+		t.Helper()
+		dir := setupGitRepo(t)
+		setup(t, dir)
+		p, err := plan.PlanLaunch(plan.Input{
+			RepoRoot:    dir,
+			WorkItemID:  "feat-abc12345",
+			RuntimeMode: mode.RuntimeHost,
+			InPlace:     false,
+		})
+		if err != nil {
+			t.Fatalf("PlanLaunch: %v", err)
+		}
+		return p.DirtyMainWarning != ""
+	}
+
+	t.Run("only .wipnote changes is NOT dirty", func(t *testing.T) {
+		got := dirtyFor(t, func(t *testing.T, dir string) {
+			// Untracked file under .wipnote/.
+			writeFile(t, dir, ".wipnote/sessions/abc.html", "<html></html>")
+			// Tracked-then-modified file under .wipnote/.
+			writeFile(t, dir, ".wipnote/state.json", "{}")
+			gitIn(t, dir, "add", ".wipnote/state.json")
+			gitIn(t, dir, "commit", "-m", "add wipnote state")
+			writeFile(t, dir, ".wipnote/state.json", "{\"changed\":true}")
+		})
+		if got {
+			t.Error("only-.wipnote changes: want NOT dirty, got dirty")
+		}
+	})
+
+	t.Run("real code change is dirty", func(t *testing.T) {
+		got := dirtyFor(t, func(t *testing.T, dir string) {
+			writeFile(t, dir, "main.go", "package main")
+		})
+		if !got {
+			t.Error("real code change: want dirty, got NOT dirty")
+		}
+	})
+
+	t.Run("mixed .wipnote + code change is dirty", func(t *testing.T) {
+		got := dirtyFor(t, func(t *testing.T, dir string) {
+			writeFile(t, dir, ".wipnote/sessions/abc.html", "<html></html>")
+			writeFile(t, dir, "feature.go", "package feature")
+		})
+		if !got {
+			t.Error("mixed change set: want dirty, got NOT dirty")
+		}
+	})
+
+	t.Run("rename of a non-.wipnote file is dirty", func(t *testing.T) {
+		got := dirtyFor(t, func(t *testing.T, dir string) {
+			writeFile(t, dir, "old.go", "package old")
+			gitIn(t, dir, "add", "old.go")
+			gitIn(t, dir, "commit", "-m", "add old.go")
+			// Rename via git so porcelain reports an "R" status line.
+			gitIn(t, dir, "mv", "old.go", "new.go")
+		})
+		if !got {
+			t.Error("rename of non-.wipnote file: want dirty, got NOT dirty")
+		}
+	})
+
+	t.Run("rename of non-.wipnote file INTO .wipnote/ is dirty", func(t *testing.T) {
+		got := dirtyFor(t, func(t *testing.T, dir string) {
+			writeFile(t, dir, "old.go", "package old")
+			gitIn(t, dir, "add", "old.go")
+			gitIn(t, dir, "commit", "-m", "add old.go")
+			// Ensure the .wipnote/ destination dir exists.
+			if err := os.MkdirAll(filepath.Join(dir, ".wipnote"), 0o755); err != nil {
+				t.Fatal(err)
+			}
+			// Rename a real code file into .wipnote/ — source is non-.wipnote.
+			gitIn(t, dir, "mv", "old.go", ".wipnote/old.go")
+		})
+		if !got {
+			t.Error("rename of non-.wipnote file into .wipnote/: want dirty, got NOT dirty")
+		}
+	})
+
+	t.Run("rename within .wipnote/ is NOT dirty", func(t *testing.T) {
+		got := dirtyFor(t, func(t *testing.T, dir string) {
+			if err := os.MkdirAll(filepath.Join(dir, ".wipnote"), 0o755); err != nil {
+				t.Fatal(err)
+			}
+			writeFile(t, dir, ".wipnote/a.html", "<html></html>")
+			gitIn(t, dir, "add", ".wipnote/a.html")
+			gitIn(t, dir, "commit", "-m", "add wipnote artifact")
+			// Rename entirely within .wipnote/ — both sides are internal.
+			gitIn(t, dir, "mv", ".wipnote/a.html", ".wipnote/b.html")
+		})
+		if got {
+			t.Error("rename within .wipnote/: want NOT dirty, got dirty")
+		}
+	})
+}

@@ -10,7 +10,21 @@ import (
 // openGraphTestDB opens an in-memory SQLite database with full schema applied.
 func openGraphTestDB(t *testing.T) *sql.DB {
 	t.Helper()
-	db, err := dbpkg.Open(":memory:")
+	// Shared-cache in-memory DSN (NOT plain ":memory:"): the graph helpers issue a
+	// nested query while an outer *sql.Rows is still open, so database/sql may open
+	// a second connection. With plain ":memory:" each connection gets its own private
+	// empty DB, dropping nodes/edges; "file::memory:?cache=shared" makes every
+	// connection share ONE in-memory DB. db.Open still routes it to the in-memory
+	// path because the DSN contains the ":memory:" substring. (roborev #599)
+	//
+	// SERIAL-ONLY: this DSN names a PROCESS-GLOBAL shared in-memory DB. It is safe
+	// here only because every caller runs serially (no t.Parallel) and registers a
+	// Close that tears the DB down before the next test opens it. Two tests holding
+	// this exact name open at the same time would share ONE DB and cross-contaminate
+	// — and openTreeTestDB uses the IDENTICAL name, so the collision spans files.
+	// Before slice-3 (feat-6ce99108) adds t.Parallel, give each test a UNIQUE
+	// shared-cache name, e.g. fmt.Sprintf("file:graphtest_%s?mode=memory&cache=shared", t.Name()).
+	db, err := dbpkg.Open("file::memory:?cache=shared")
 	if err != nil {
 		t.Fatalf("open in-memory db: %v", err)
 	}

@@ -175,13 +175,12 @@ func archiveCollection(wipnoteDir, collectionDir string, cutoff time.Time, apply
 	// silently dropped by a gitignore rule, even if the pattern reappears.
 	repoRoot := filepath.Dir(wipnoteDir)
 	if isGitRepo(repoRoot) && !isTestTmpPath(wipnoteDir) {
-		archiveDir := filepath.Join(wipnoteDir, graph.ArchiveDirName)
 		collectionPath := filepath.Join(wipnoteDir, collectionDir)
 		msg := fmt.Sprintf("wipnote: archive %d %s into ledger", len(candidates), collectionDir)
 		if _, cErr := runGitMutationBatch(repoRoot,
 			[]string{"add", "-f", ledgerPath},
-			[]string{"add", "--", archiveDir, collectionPath},
-			[]string{"commit", "-m", msg, "--", archiveDir, collectionPath},
+			[]string{"add", "--", collectionPath},
+			[]string{"commit", "-m", msg, "--", ledgerPath, collectionPath},
 		); cErr != nil {
 			fmt.Fprintf(stderr, "archive warning: git commit failed (changes persisted to disk — commit manually): %v\n", cErr)
 		}

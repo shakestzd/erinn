@@ -202,7 +202,8 @@ func checkDependencyResearchCommitGuard(event *CloudEvent, database *sql.DB, ctx
 		return ""
 	}
 	cmd := shellCommand(event.ToolInput)
-	if !gitCommitPattern.MatchString(cmd) {
+	commitSeg := gitCommitSegment(cmd) // codex P2: detect git commit anywhere in a chained command
+	if commitSeg == "" {
 		return ""
 	}
 	dir := event.CWD
@@ -222,7 +223,7 @@ func checkDependencyResearchCommitGuard(event *CloudEvent, database *sql.DB, ctx
 		return "" // fast pass: no dependency manifest staged
 	}
 	// Explicit, audited waiver recorded as a trailer in the commit message.
-	if commitMessageHasResearchWaiver(cmd) {
+	if commitMessageHasResearchWaiver(commitSeg) {
 		return ""
 	}
 	if ctx == nil {

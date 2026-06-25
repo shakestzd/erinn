@@ -396,13 +396,25 @@ func initSessionWithDB(hgDir, projectDir string, cmd *cobra.Command) error {
 			}, projectDir, projectDir, ensureSessionPreRunTimeout)
 			roDB.Close()
 		} else {
-			// Read-only open failed (DB not yet created on first launch).
-			// Fall back to the original writable-open path so the schema is
-			// created and the session row is inserted.
-			if database, dberr := openDB(hgDir); dberr == nil {
-				launchTiming("persistentPreRunE: after openDB (before EnsureSession)")
-				_, _ = agent.EnsureSessionWithTimeout(database, projectDir, ensureSessionPreRunTimeout)
-				database.Close()
+			// Read-only open failed. Distinguish a genuinely-missing DB (first
+			// launch — must create it) from a lock/contention error. For harness
+			// launchers the writable openDB uses the default 5s busy_timeout, so
+			// falling back on contention would reintroduce the launch stall the
+			// 500ms fast-fail just avoided (roborev-612). Only take the writable
+			// fallback when the DB is actually missing, or for non-launcher cmds.
+			_, statErr := os.Stat(dbPath)
+			dbMissing := os.IsNotExist(statErr)
+			if dbMissing || !isHarnessLauncherCmd(cmd) {
+				if database, dberr := openDB(hgDir); dberr == nil {
+					launchTiming("persistentPreRunE: after openDB (before EnsureSession)")
+					_, _ = agent.EnsureSessionWithTimeout(database, projectDir, ensureSessionPreRunTimeout)
+					database.Close()
+				}
+			} else {
+				// Launcher + DB exists but read-only open failed (lock/contention):
+				// skip best-effort writable session init to keep launch fast; the
+				// SessionStart hook / writer daemon still records the session.
+				launchTiming("persistentPreRunE: skip writable fallback under contention (launcher)")
 			}
 		}
 	}

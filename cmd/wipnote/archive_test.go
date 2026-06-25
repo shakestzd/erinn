@@ -36,6 +36,15 @@ func setupArchiveRepo(t *testing.T) (string, string) {
 		}
 	}
 	run("init")
+	// Persist identity to the repo's LOCAL git config. The PRODUCTION archive
+	// commit runs `git -C repo commit` WITHOUT the helper's inline `-c user.*`
+	// flags, so it relies on ambient config. CI has no global git identity, so
+	// without a persisted local identity the archive commit fails (exit 128),
+	// leaves .wipnote dirty, and breaks the idempotency / incremental-ledger
+	// tests. The inline -c flags above keep the test's own commits working.
+	run("config", "user.email", "test@test.com")
+	run("config", "user.name", "Test")
+	run("config", "commit.gpgsign", "false")
 	// Seed an initial commit so the tree has a clean baseline.
 	if err := os.WriteFile(filepath.Join(repoRoot, "README.md"), []byte("seed\n"), 0o644); err != nil {
 		t.Fatalf("write README: %v", err)

@@ -314,6 +314,11 @@ func startWriterMaintenance(ctx context.Context, writeDB *sql.DB, wipnoteDir str
 	// into remediation — marks heartbeat-stale+process-dead active sessions ended and
 	// reaps identity-verified orphaned collectors. Dedicated pass, NOT full Reconcile.
 	startReaperLoop(ctx, writeDB, projectRoot)
+	// Recap reindex (bug-95d2d493): populate the recaps SQLite table at startup
+	// and on a periodic tick so the dashboard Recap tab is never empty after a
+	// container or DB restart. Previously reindexRecaps was called only from
+	// manual `wipnote reindex` / `wipnote recap list`.
+	startRecapsReindexLoop(ctx, writeDB, wipnoteDir)
 }
 
 // writerIdleTimeout resolves the headless writer's idle-exit window. It honours

@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -280,9 +281,11 @@ func launchClaudeDev(extraArgs []string, auto bool, resumeID, name, workItem str
 		devHeadline += " + auto mode"
 	}
 	fmt.Println(launchtui.RenderLaunchBanner(nil, launchtui.BannerInput{
-		Headline:     devHeadline,
-		PluginSource: pluginDir,
-		Session:      sessionName,
+		Headline:        devHeadline,
+		PluginSource:    pluginDir,
+		Session:         sessionName,
+		Warning:         lctx.dirtyMainWarning,
+		WarningSeverity: "amber",
 	}))
 
 	// Remove any installed marketplace plugin after intent and isolation resolution
@@ -559,9 +562,11 @@ func launchClaudeDefault(extraArgs []string, resumeID, name, workItem string, in
 	}
 	sessionName := resolveSessionName(name, resumeID, false, projectRoot)
 	fmt.Println(launchtui.RenderLaunchBanner(nil, launchtui.BannerInput{
-		Headline:     fmt.Sprintf("Launching Claude Code (%s mode)...", lctx.intentResult.mode),
-		PluginSource: pluginDir,
-		Session:      sessionName,
+		Headline:        fmt.Sprintf("Launching Claude Code (%s mode)...", lctx.intentResult.mode),
+		PluginSource:    pluginDir,
+		Session:         sessionName,
+		Warning:         lctx.dirtyMainWarning,
+		WarningSeverity: "amber",
 	}))
 	return launchClaude(LaunchOpts{
 		Mode:               lctx.intentResult.mode,
@@ -685,10 +690,17 @@ func launchClaude(opts LaunchOpts) error {
 	// The collector writes NDJSON to .wipnote/sessions/<sid>/ and
 	// exposes an ephemeral OTLP HTTP port. Non-fatal: on failure, the
 	// existing serve-based receiver is used as fallback.
+	// On a TTY the spawn is wrapped in an animated spinner so the user sees
+	// live feedback during the handshake wait instead of a frozen static line
+	// (feat-caa02f9a Fix 4b). On non-TTY paths the static line is preserved.
 	var envOverrides otelEnvOverrides
 	if opts.ProjectRoot != "" && !isExplicitlyDisabled(os.Getenv("WIPNOTE_OTEL_ENABLED")) {
-		fmt.Fprintln(os.Stderr, "wipnote: starting session telemetry collector...")
-		envOverrides = spawnSessionCollector(opts.ProjectRoot)
+		const collectorLabel = "starting session telemetry collector"
+		projectRootCopy := opts.ProjectRoot
+		_ = launchtui.RunWithSpinner(os.Stderr, collectorLabel, func(_ io.Writer) error {
+			envOverrides = spawnSessionCollector(projectRootCopy)
+			return nil
+		})
 		if envOverrides.Cleanup != nil {
 			defer envOverrides.Cleanup()
 		}

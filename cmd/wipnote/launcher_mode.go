@@ -37,13 +37,18 @@ func computeLauncherMode(worktreePath string, devPlugin, generatedPort bool) Lau
 	return m
 }
 
-// applyLaunchPlanOpts is applyLaunchPlan with control over whether the
-// plan's generic DirtyMainWarning is printed. When suppressDirtyWarning is true
-// (yolo will create a managed worktree this launch), the generic
-// "use a managed worktree (--work-item <id>)" advisory is NOT printed — the
-// caller emits an accurate message reflecting the worktree+carryover behavior
-// instead (bug-7d4b6c63). The returned plan still carries DirtyMainWarning so
-// enforceLaunchPlan can use it.
+// applyLaunchPlanOpts computes the LaunchPlan for a launch. It NO LONGER prints
+// the dirty-main advisory as its own separate block — the warning now flows into
+// the single boxless launch banner emitted by each launcher (bug-0f6af202).
+//
+// The returned plan ALWAYS carries DirtyMainWarning when the protected branch is
+// dirty. Two consumers share it: emitWorktreeCarryoverMessage (when a worktree is
+// created) and the caller's launch banner (when launching in-place). Use
+// bannerDirtyWarning to pick the right one — it returns the advisory only when no
+// worktree will be created, so exactly one surface shows it and nothing
+// double-prints. The suppressDirtyWarning parameter is retained for
+// source-compatibility (callers pass willCreateWorktree) but no longer gates an
+// inline print.
 //
 // canonicalRoot must be the canonical main repository root (from canonicalProjectRoot),
 // not a linked worktree path. It is used to read the launch_isolation config from
@@ -77,12 +82,13 @@ func applyLaunchPlanOpts(canonicalRoot, repoRoot, workItemID string, inPlace, su
 	if err != nil {
 		return p
 	}
-	if p.DirtyMainWarning != "" && !suppressDirtyWarning {
-		fmt.Fprintln(w, launchtui.RenderLaunchBanner(nil, launchtui.BannerInput{
-			Warning:         p.DirtyMainWarning,
-			WarningSeverity: "red",
-		}))
-	}
+	// suppressDirtyWarning is retained for source-compatibility with callers that
+	// pass willCreateWorktree; it no longer gates an inline print (there is none).
+	// The returned plan ALWAYS carries DirtyMainWarning when the protected branch
+	// is dirty so both emitWorktreeCarryoverMessage (worktree path) and the
+	// caller's launch banner (in-place path) can consume it. Callers decide which
+	// surface shows it via bannerDirtyWarning(plan, willCreateWorktree).
+	_ = suppressDirtyWarning
 	if os.Getenv("WIPNOTE_DEBUG") != "" {
 		fmt.Fprintf(os.Stderr,
 			"wipnote [debug]: launch-plan isolation=%s worktree=%s refuse=%v\n",
@@ -90,6 +96,19 @@ func applyLaunchPlanOpts(canonicalRoot, repoRoot, workItemID string, inPlace, su
 		)
 	}
 	return p
+}
+
+// bannerDirtyWarning returns the dirty-main advisory to fold into a launcher's
+// single boxless launch banner, or "" when none should be shown. The advisory is
+// shown ONLY when no managed worktree will be created this launch: when a
+// worktree IS created, emitWorktreeCarryoverMessage prints an accurate
+// worktree+carryover advisory instead, so the banner must stay silent to avoid
+// double-messaging (bug-0f6af202 / bug-7d4b6c63).
+func bannerDirtyWarning(p plan.LaunchPlan, willCreateWorktree bool) string {
+	if willCreateWorktree {
+		return ""
+	}
+	return p.DirtyMainWarning
 }
 
 // enforceLaunchPlan honors the LaunchPlan returned by applyLaunchPlan. When the
@@ -105,16 +124,12 @@ func enforceLaunchPlan(p plan.LaunchPlan, w io.Writer) error {
 	if !p.RefuseLaunch {
 		return nil
 	}
-	if p.DirtyMainWarning != "" {
-		fmt.Fprintln(w, launchtui.RenderLaunchBanner(nil, launchtui.BannerInput{
-			Warning:         p.DirtyMainWarning,
-			WarningSeverity: "red",
-		}))
-	}
-	return fmt.Errorf(
-		"launch refused: WIPNOTE_ENFORCE_ISOLATION=true and the protected branch is dirty.\n"+
-			"  Commit or stash changes, or pass --in-place to opt out of isolation,\n"+
-			"  or rerun with a work item so a managed worktree can be created.")
+	refuseMsg := "launch refused: protected branch is dirty — pass --work-item <id> to isolate, --in-place to opt out, or commit your changes"
+	fmt.Fprintln(w, launchtui.RenderLaunchBanner(nil, launchtui.BannerInput{
+		Warning:         refuseMsg,
+		WarningSeverity: "red",
+	}))
+	return fmt.Errorf("%s", refuseMsg)
 }
 
 // resolveManagedWorktree honors the IsolationManagedWorktree decision in the

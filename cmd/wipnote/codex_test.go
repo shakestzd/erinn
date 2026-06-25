@@ -1308,12 +1308,15 @@ func TestRunCodexInit_RendersFramedSetupSummary(t *testing.T) {
 	<-done
 
 	got := out.String()
+	// The boxless session-thread layout renders detail labels without a trailing
+	// colon (the aligned value column is the separator), so assert on the bare
+	// label tokens (bug-0f6af202).
 	for _, want := range []string{
 		"Codex wipnote setup",
-		"Marketplace:",
-		"Plugin cache:",
-		"Mirrored hooks:",
-		"Agents:",
+		"Marketplace",
+		"Plugin cache",
+		"Mirrored hooks",
+		"Agents",
 		"Setup complete. Run: wipnote codex",
 	} {
 		if !strings.Contains(got, want) {

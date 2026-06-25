@@ -5,8 +5,11 @@
 package launchtui
 
 import (
+	"strings"
+
 	"github.com/charmbracelet/huh"
 	"github.com/charmbracelet/lipgloss"
+	colorful "github.com/lucasb-eyer/go-colorful"
 )
 
 // Palette hex constants — mirrored verbatim from plugin/static/has-styles.css.
@@ -22,7 +25,71 @@ const (
 	ColStatusBlue  = "#3b82f6" // --status-ip
 	ColStatusGreen = "#22c55e" // --status-done
 	ColStatusRed   = "#ef4444" // --status-blocked
+
+	// Light-terminal variants (feat-e97607b3). The dashboard palette is tuned
+	// for dark terminals; lime #CDFF00 and a #333338 border are unreadable on a
+	// light background. lipgloss.AdaptiveColor picks the right one at runtime
+	// from the detected terminal background so banners read on light AND dark.
+	ColAccentLight = "#4D7C0F" // lime-700 — accent on a light background
+	ColBorderLight = "#C8C8CE" // soft gray border on a light background
+
+	// Gradient endpoints for the headline title sheen (1D blend across runes).
+	// Both stay on-brand (lime → emerald); a light/dark pair keeps contrast.
+	ColGradFromDark  = "#CDFF00" // lime
+	ColGradToDark    = "#34D399" // emerald
+	ColGradFromLight = "#4D7C0F" // dark lime
+	ColGradToLight   = "#047857" // dark emerald
 )
+
+// accentAdaptive returns the accent foreground as an AdaptiveColor so a single
+// style reads on both light and dark terminals.
+func accentAdaptive() lipgloss.AdaptiveColor {
+	return lipgloss.AdaptiveColor{Light: ColAccentLight, Dark: ColAccent}
+}
+
+// borderAdaptive returns the frame border color as an AdaptiveColor.
+func borderAdaptive() lipgloss.AdaptiveColor {
+	return lipgloss.AdaptiveColor{Light: ColBorderLight, Dark: ColBorder}
+}
+
+// gradientText renders s with a per-rune 1D color blend (lime → emerald),
+// picking light/dark endpoints from the renderer's detected background. The
+// renderer also controls the color profile, so on a non-TTY / Ascii profile
+// lipgloss strips the per-rune ANSI and gradientText degrades to plain text
+// automatically. Pass r=nil to use the default global renderer.
+func gradientText(r *lipgloss.Renderer, s string) string {
+	newStyle := lipgloss.NewStyle
+	dark := lipgloss.HasDarkBackground()
+	if r != nil {
+		newStyle = r.NewStyle
+		dark = r.HasDarkBackground()
+	}
+
+	fromHex, toHex := ColGradFromDark, ColGradToDark
+	if !dark {
+		fromHex, toHex = ColGradFromLight, ColGradToLight
+	}
+	from, err1 := colorful.Hex(fromHex)
+	to, err2 := colorful.Hex(toHex)
+
+	runes := []rune(s)
+	// Fallback to a flat adaptive accent if blending is unavailable.
+	if err1 != nil || err2 != nil || len(runes) == 0 {
+		return newStyle().Foreground(accentAdaptive()).Bold(true).Render(s)
+	}
+
+	var b strings.Builder
+	n := len(runes)
+	for i, ru := range runes {
+		t := 0.0
+		if n > 1 {
+			t = float64(i) / float64(n-1)
+		}
+		hex := from.BlendLuv(to, t).Clamped().Hex()
+		b.WriteString(newStyle().Foreground(lipgloss.Color(hex)).Bold(true).Render(string(ru)))
+	}
+	return b.String()
+}
 
 // Styles carries the named lipgloss styles that make up the dashboard palette.
 // Use NewStyles() to obtain a populated instance.
@@ -55,12 +122,12 @@ func NewStyles() Styles {
 		BgSecondary: lipgloss.NewStyle().Background(lipgloss.Color(ColBgSecondary)),
 		Frame: lipgloss.NewStyle().
 			Border(lipgloss.RoundedBorder()).
-			BorderForeground(lipgloss.Color(ColBorder)).
+			BorderForeground(borderAdaptive()).
 			Background(lipgloss.Color(ColBgPrimary)).
 			Padding(0, 1),
 
 		Title: lipgloss.NewStyle().
-			Foreground(lipgloss.Color(ColAccent)).
+			Foreground(accentAdaptive()).
 			Bold(true),
 		SectionHeader: lipgloss.NewStyle().
 			Foreground(lipgloss.Color(ColTextPrimary)).
@@ -72,7 +139,7 @@ func NewStyles() Styles {
 			Foreground(lipgloss.Color(ColTextMuted)),
 
 		Accent: lipgloss.NewStyle().
-			Foreground(lipgloss.Color(ColAccent)),
+			Foreground(accentAdaptive()),
 		AccentText: lipgloss.NewStyle().
 			Foreground(lipgloss.Color(ColAccentText)),
 

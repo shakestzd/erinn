@@ -49,9 +49,11 @@ func TestGeminiWorktreeCarryover_DirtyMain(t *testing.T) {
 	if !strings.Contains(out, "managed worktree") {
 		t.Errorf("message should mention managed worktree; got %q", out)
 	}
-	// Must reassure main is unchanged.
-	if !strings.Contains(out, "main left unchanged") {
-		t.Errorf("message should say main left unchanged; got %q", out)
+	// Must reassure main is unchanged — exactly once. The duplicate core-layer
+	// carryover print was dropped in feat-f5fe2056, leaving the cmd advisory as
+	// the single source; assert the phrase is not double-announced.
+	if got := strings.Count(out, "main left unchanged"); got != 1 {
+		t.Errorf("carryover must say 'main left unchanged' exactly once (single source); got %d in %q", got, out)
 	}
 
 	// Tracked change must appear in the worktree.

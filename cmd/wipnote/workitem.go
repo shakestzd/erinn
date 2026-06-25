@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/url"
 	"os"
 	"path/filepath"
 	"sort"
@@ -17,6 +18,7 @@ import (
 	"github.com/shakestzd/wipnote/core/hooks"
 	"github.com/shakestzd/wipnote/core/htmlparse"
 	"github.com/shakestzd/wipnote/core/models"
+	"github.com/shakestzd/wipnote/core/paths"
 	"github.com/shakestzd/wipnote/core/provenance"
 	"github.com/shakestzd/wipnote/core/slug"
 	"github.com/shakestzd/wipnote/core/workitem"
@@ -125,18 +127,11 @@ func runWiShowWithFormat(id, format string) error {
 	if err != nil {
 		return err
 	}
-	resolved, err := resolveID(dir, id)
+	// resolveNodeByUnionID resolves against both live and archived IDs together,
+	// ensuring that ambiguous prefixes spanning both sources return an error.
+	node, err := resolveNodeByUnionID(dir, id)
 	if err != nil {
 		return err
-	}
-	path := resolveNodePath(dir, resolved)
-	if path == "" {
-		kind := kindFromPrefix(resolved)
-		return workitem.ErrNotFoundOnDisk(kind, resolved)
-	}
-	node, err := htmlparse.ParseFile(path)
-	if err != nil {
-		return fmt.Errorf("parse %s: %w", path, err)
 	}
 	switch format {
 	case "json":
@@ -195,6 +190,15 @@ var wiAcceptedAdvisory string
 // before any state change.
 var wiLearning string
 
+// wiResearchURL and wiResearchWaiver carry the --research-url / --research-waiver
+// completion flags. When a code-bearing item changes a dependency manifest, the
+// completion must cite at least one http(s) research URL OR record an explicit
+// waiver — mirroring the v4 plan research gate (plan/planyaml validate). The
+// cited evidence/waiver is persisted on the .wipnote artifact for audit
+// (feat-d1bcbf10).
+var wiResearchURL []string
+var wiResearchWaiver string
+
 // wiLearningKind is the --learning-kind flag value. Defaults to "decision"
 // when empty. Must be one of: subsystem-map, invariant, hazard, decision.
 var wiLearningKind string
@@ -240,9 +244,13 @@ func wiCompleteCmd(typeName string) *cobra.Command {
 			"bypass the uncommitted source gate; intended for intentional dirty-tree completion only")
 		cmd.Flags().StringVar(&wiAcceptedAdvisory, "accepted-advisory", "",
 			"audited override of the zero-commit provenance gate; records the rationale on the artifact")
+		cmd.Flags().StringArrayVar(&wiResearchURL, "research-url", nil,
+			"http(s) URL of the docs/changelog verifying a dependency change; required (or --research-waiver) when the item changes a dependency manifest. Repeatable.")
+		cmd.Flags().StringVar(&wiResearchWaiver, "research-waiver", "",
+			"explicit waiver of the dependency-research completion gate; records the rationale on the artifact")
 	}
 	cmd.Flags().StringVar(&wiLearning, "learning", "",
-		"arch card body text to capture as a durable learning; validation failure aborts completion")
+		"arch card body text to capture as a durable learning; validation failure warns and skips attaching (non-fatal; completion still succeeds)")
 	cmd.Flags().StringVar(&wiLearningKind, "learning-kind", "",
 		"arch card kind for --learning (default: decision); one of: subsystem-map, invariant, hazard, decision")
 	return cmd
@@ -284,18 +292,6 @@ func wiSetStatusWithAgent(typeName, id, status, sessionID, agentID string) error
 
 	col := collectionFor(p, typeName)
 
-	// --learning validation gate: MUST run before any other completion side effect.
-	// If the body fails arch card validation, OR the kind is invalid, abort immediately
-	// with a clear error. The work item must not end up half-completed with a silently
-	// lost learning.
-	if status == "done" && strings.TrimSpace(wiLearning) != "" {
-		if err := validateLearningKind(wiLearningKind); err != nil {
-			return fmt.Errorf("--learning-kind validation failed (completion aborted): %w", err)
-		}
-		if err := validateLearningBody(wiLearning); err != nil {
-			return fmt.Errorf("--learning validation failed (completion aborted): %w", err)
-		}
-	}
 
 	// CRISPI spec-enforcement gate: when completing a feature with the
 	// gate opted in via config, refuse if the feature HTML has no usable
@@ -321,6 +317,18 @@ func wiSetStatusWithAgent(typeName, id, status, sessionID, agentID string) error
 	// rationale on the .wipnote artifact for compliance/snapshot tooling.
 	if status == "done" && shouldAutocommitWorkitemArtifact(typeName) {
 		if err := checkProvenanceCompleteGate(p, col, typeName, id, wiAcceptedAdvisory); err != nil {
+			return err
+		}
+	}
+
+	// Dependency-research completion gate (feat-d1bcbf10). When the item's
+	// code-bearing paths include a dependency manifest (go.mod/package.json/…),
+	// completion must cite a research URL or record an explicit waiver — mirroring
+	// the v4 plan research gate. Runs after the provenance gate so it only fires
+	// for items that actually carry committed source. --accepted-advisory does
+	// NOT bypass it: research evidence and commit provenance are orthogonal.
+	if status == "done" && shouldAutocommitWorkitemArtifact(typeName) {
+		if err := checkDependencyResearchCompleteGate(p, col, typeName, id, wiResearchURL, wiResearchWaiver); err != nil {
 			return err
 		}
 	}
@@ -547,11 +555,37 @@ func wiSetStatusWithAgent(typeName, id, status, sessionID, agentID string) error
 	}
 
 	// Create the learning arch card after successful completion.
-	// Any error is non-fatal (logged to stderr) since the item is already done.
+	// Learning validation is NON-FATAL: the work item is already done (state changed),
+	// so an invalid learning must not block completion. Instead, warn and skip attaching.
 	if status == "done" && strings.TrimSpace(wiLearning) != "" {
-		touchedPaths, _ := resolveWorkItemPaths(id, dir)
-		if cerr := createLearningCard(dir, id, strings.TrimSpace(wiLearning), wiLearningKind, touchedPaths); cerr != nil {
-			fmt.Fprintf(os.Stderr, "warning: failed to create learning card: %v\n", cerr)
+		// Validate the learning body and kind (non-fatally, after state change).
+		learningBody := strings.TrimSpace(wiLearning)
+		validationErr := validateLearningKind(wiLearningKind)
+		if validationErr == nil {
+			validationErr = validateLearningBody(learningBody)
+		}
+
+		if validationErr == nil {
+			// Validation passed: create the learning card.
+			touchedPaths, _ := resolveWorkItemPaths(id, dir)
+			if cerr := createLearningCard(dir, id, learningBody, wiLearningKind, touchedPaths); cerr != nil {
+				fmt.Fprintf(os.Stderr, "warning: failed to create learning card: %v\n", cerr)
+			}
+		} else {
+			// Validation failed: emit warning and print remediation command.
+			// The correct way to attach a learning post-completion is via
+			// "wipnote arch add", not a non-existent "<type> edit --learning".
+			// Use a known-valid default kind (decision) in the remediation command.
+			slug := "learning-" + id
+			fmt.Fprintf(os.Stderr,
+				"warning: --learning validation failed (learning NOT attached): %v\n"+
+					"learning body was: %q\n"+
+					"to attach a valid learning, run:\n  wipnote arch add %s --kind decision --body %s --paths %s --created-by wipnote-completion\n",
+				validationErr,
+				learningBody,
+				shellQuote(slug),
+				shellQuote(learningBody),
+				shellQuote(id))
 		}
 	}
 
@@ -577,6 +611,12 @@ func wiSetStatusWithAgent(typeName, id, status, sessionID, agentID string) error
 	// Non-fatal, stderr only, consistent with the emitDriftNudge pattern above.
 	if status == "done" && shouldAutocommitWorkitemArtifact(typeName) {
 		fmt.Fprintf(os.Stderr, "  ! recap: wipnote recap %s   (grounded diff recap of this work)\n", id)
+	}
+
+	// Auto plan-rollup recap: when the last feature of a plan completes, generate
+	// the plan-rollup recap automatically. Best-effort, non-fatal.
+	if status == "done" && typeName == "feature" {
+		maybeAutoGeneratePlanRollupRecap(dir, node, p)
 	}
 
 	// On start, print a session-label hint tailored to the active harness.
@@ -816,6 +856,172 @@ func resolveNodePath(wipnoteDir, id string) string {
 	return ""
 }
 
+// resolveNodeByUnionID resolves a partial or full ID against both live files and
+// archived ledger entries. Exact matches (live or archived) win outright and are
+// never ambiguous, even if they are also a prefix of other IDs. Prefix matches
+// that span both live and archived sources return an ambiguity error. This ensures
+// that a prefix matching one live item and one archived item correctly reports
+// ambiguity rather than silently picking the live one.
+func resolveNodeByUnionID(wipnoteDir, id string) (*models.Node, error) {
+	// 1. Check for exact match in live files.
+	path := resolveNodePath(wipnoteDir, id)
+	if path != "" {
+		parsed, parseErr := htmlparse.ParseFile(path)
+		if parseErr != nil {
+			return nil, fmt.Errorf("parse %s: %w", path, parseErr)
+		}
+		return parsed, nil
+	}
+
+	// 2. Check for exact match in archived ledgers.
+	archived, archErr := resolveArchivedNode(wipnoteDir, id)
+	if archErr != nil {
+		return nil, archErr
+	}
+	if archived != nil {
+		return archived, nil
+	}
+
+	// 3. No exact match found. Collect all partial matches from live files.
+	liveMatches, liveErr := partialLiveMatches(wipnoteDir, id)
+	if liveErr != nil {
+		return nil, liveErr
+	}
+
+	// 4. Collect all partial matches from archived ledgers.
+	archivedMatches, archErr := partialArchivedMatches(wipnoteDir, id)
+	if archErr != nil {
+		return nil, archErr
+	}
+
+	// 5. Combine and deduplicate prefix matches.
+	allMatches := append(liveMatches, archivedMatches...)
+	sort.Strings(allMatches)
+	allMatches = dedupMatches(allMatches)
+
+	switch len(allMatches) {
+	case 0:
+		kind := kindFromPrefix(id)
+		return nil, workitem.ErrNotFoundOnDisk(kind, id)
+	case 1:
+		matched := allMatches[0]
+		// Try live file first, then archive.
+		path := resolveNodePath(wipnoteDir, matched)
+		if path != "" {
+			parsed, parseErr := htmlparse.ParseFile(path)
+			if parseErr != nil {
+				return nil, fmt.Errorf("parse %s: %w", path, parseErr)
+			}
+			return parsed, nil
+		}
+		// Not in live files, try archive.
+		archived, archErr := resolveArchivedNode(wipnoteDir, matched)
+		if archErr != nil {
+			return nil, archErr
+		}
+		if archived != nil {
+			return archived, nil
+		}
+		// Shouldn't happen, but handle gracefully.
+		kind := kindFromPrefix(matched)
+		return nil, workitem.ErrNotFoundOnDisk(kind, matched)
+	default:
+		return nil, fmt.Errorf("ambiguous ID %q — did you mean one of: %s",
+			id, strings.Join(allMatches, ", "))
+	}
+}
+
+// partialLiveMatches returns all live IDs that start with prefix, or an error
+// if a collection directory cannot be read (except for not-found directories,
+// which are skipped). This propagates unexpected scan failures so corruption
+// is surfaced rather than silently treated as no-match.
+func partialLiveMatches(wipnoteDir, prefix string) ([]string, error) {
+	var matches []string
+	dirs := []string{"features", "bugs", "spikes", "tracks", "plans", "specs"}
+	for _, sub := range dirs {
+		dir := filepath.Join(wipnoteDir, sub)
+		entries, err := os.ReadDir(dir)
+		if err != nil {
+			if os.IsNotExist(err) {
+				continue
+			}
+			return nil, fmt.Errorf("scan %s: %w", sub, err)
+		}
+		for _, entry := range entries {
+			if entry.IsDir() {
+				continue
+			}
+			name := entry.Name()
+			if !strings.HasSuffix(name, ".html") {
+				continue
+			}
+			stem := strings.TrimSuffix(name, ".html")
+			if strings.HasPrefix(stem, prefix) {
+				matches = append(matches, stem)
+			}
+		}
+	}
+	return matches, nil
+}
+
+// partialArchivedMatches returns all archived IDs that start with prefix.
+func partialArchivedMatches(wipnoteDir, prefix string) ([]string, error) {
+	var matches []string
+	for _, col := range graph.ArchiveLedgerCollections {
+		entries, err := graph.ReadLedger(graph.ArchiveLedgerPath(wipnoteDir, col))
+		if err != nil {
+			if os.IsNotExist(err) {
+				continue
+			}
+			return nil, err
+		}
+		for _, e := range entries {
+			if strings.HasPrefix(e.ID, prefix) {
+				matches = append(matches, e.ID)
+			}
+		}
+	}
+	return matches, nil
+}
+
+// dedupMatches removes consecutive duplicate strings from a sorted slice.
+func dedupMatches(matches []string) []string {
+	if len(matches) <= 1 {
+		return matches
+	}
+	unique := make([]string, 1, len(matches))
+	unique[0] = matches[0]
+	for i := 1; i < len(matches); i++ {
+		if matches[i] != matches[i-1] {
+			unique = append(unique, matches[i])
+		}
+	}
+	return unique
+}
+
+// kindFromPrefix determines the work item kind from an ID prefix.
+func kindFromPrefix(id string) string {
+	if strings.HasPrefix(id, "feat-") {
+		return "feature"
+	}
+	if strings.HasPrefix(id, "bug-") {
+		return "bug"
+	}
+	if strings.HasPrefix(id, "spk-") {
+		return "spike"
+	}
+	if strings.HasPrefix(id, "trk-") {
+		return "track"
+	}
+	if strings.HasPrefix(id, "pln-") {
+		return "plan"
+	}
+	if strings.HasPrefix(id, "spc-") {
+		return "spec"
+	}
+	return "work item"
+}
+
 func printNodeDetail(n *models.Node) {
 	sep := strings.Repeat("─", 60)
 	fmt.Println(sep)
@@ -884,29 +1090,6 @@ func printNodeDetail(n *models.Node) {
 	if n.Type == "plan" && string(n.Status) == "finalized" {
 		fmt.Printf("\nNext: wipnote plan finalize-yaml %s   (idempotent — creates features, embeds decisions, prints dispatch summary)\n", n.ID)
 	}
-}
-
-// kindFromPrefix determines the work item kind from an ID prefix.
-func kindFromPrefix(id string) string {
-	if strings.HasPrefix(id, "feat-") {
-		return "feature"
-	}
-	if strings.HasPrefix(id, "bug-") {
-		return "bug"
-	}
-	if strings.HasPrefix(id, "spk-") {
-		return "spike"
-	}
-	if strings.HasPrefix(id, "trk-") {
-		return "track"
-	}
-	if strings.HasPrefix(id, "pln-") {
-		return "plan"
-	}
-	if strings.HasPrefix(id, "spc-") {
-		return "spec"
-	}
-	return "work item"
 }
 
 // checkProvenanceCompleteGate is the type-agnostic provenance gate for
@@ -978,6 +1161,94 @@ func checkProvenanceCompleteGate(p *workitem.Project, col *workitem.Collection, 
 	fmt.Fprintf(os.Stderr,
 		"accepted-advisory warning: completing code-bearing %s %s with zero linked source commits.\n  reason: %s\n",
 		typeName, id, advisory)
+	return nil
+}
+
+// researchEvidenceMarker prefixes the content note recording the research URL(s)
+// / waiver supplied at completion, so audit tooling can surface it.
+const researchEvidenceMarker = "research-evidence: "
+
+// wiIsResearchURL reports whether u is a usable http(s) source URL — it must
+// parse, carry an http/https scheme, AND have a non-empty host. Mirrors
+// plan/planyaml.isResearchURL so the completion gate and the v4 plan gate apply
+// the same shape check.
+func wiIsResearchURL(u string) bool {
+	parsed, err := url.Parse(strings.TrimSpace(u))
+	if err != nil {
+		return false
+	}
+	return (parsed.Scheme == "http" || parsed.Scheme == "https") && parsed.Hostname() != ""
+}
+
+// checkDependencyResearchCompleteGate enforces the work-item analogue of the v4
+// plan research gate (plan/planyaml/validate.go:394-400). When the item's
+// code-bearing paths include a dependency manifest (go.mod/package.json/…) — i.e.
+// the work changed an external dependency — completion must cite at least one
+// http(s) research URL (--research-url) OR record an explicit --research-waiver.
+// The cited evidence is persisted on the .wipnote artifact for audit.
+//
+// Items that touch no dependency manifest are exempt (return nil), so ordinary
+// feature/bug completion is unaffected (feat-d1bcbf10 / spk-0a982f70).
+func checkDependencyResearchCompleteGate(p *workitem.Project, col *workitem.Collection, typeName, id string, researchURLs []string, researchWaiver string) error {
+	if p == nil || p.DB == nil {
+		// No read index — cannot inspect code paths; do not block (the canonical
+		// store stays authoritative, consistent with checkProvenanceCompleteGate).
+		return nil
+	}
+	// Shape-check EVERY supplied --research-url up front (mirrors the v4 plan
+	// validator, which validates the shape of every research URL regardless of
+	// enforcement). A single invalid entry is a hard error rather than being
+	// silently dropped when another valid URL or a waiver is present
+	// (roborev #580).
+	for _, u := range researchURLs {
+		if !wiIsResearchURL(u) {
+			return fmt.Errorf(
+				"refusing to complete %s %s: --research-url %q must be an http(s) URL with a host",
+				typeName, id, u)
+		}
+	}
+
+	codePaths, err := dbpkg.CodeBearingPaths(p.DB, id, filepath.Dir(p.ProjectDir))
+	if err != nil {
+		return fmt.Errorf("research gate: inspect code-bearing paths for %s: %w", id, err)
+	}
+	var manifests []string
+	for _, cp := range codePaths {
+		if paths.IsDependencyManifest(cp) {
+			manifests = append(manifests, cp)
+		}
+	}
+	if len(manifests) == 0 {
+		return nil // no dependency change → exempt
+	}
+
+	validURLs := researchURLs // all entries are valid (checked above)
+	waiver := strings.TrimSpace(researchWaiver)
+	if len(validURLs) == 0 && waiver == "" {
+		return fmt.Errorf(
+			"refusing to complete %s %s: it changes dependency manifest(s) (%s) but cites no web research.\n"+
+				"Pass --research-url <https://…> with the docs/changelog you verified, or --research-waiver \"<reason>\".",
+			typeName, id, strings.Join(manifests, ", "))
+	}
+
+	// Persist the cited evidence / waiver on the canonical artifact for audit,
+	// mirroring how --accepted-advisory records its rationale. Done BEFORE
+	// col.Complete so the note survives the completion flush.
+	var note string
+	if len(validURLs) > 0 {
+		note = researchEvidenceMarker + strings.Join(validURLs, ", ")
+	}
+	if waiver != "" {
+		if note != "" {
+			note += " | "
+		} else {
+			note = researchEvidenceMarker
+		}
+		note += "waiver: " + waiver
+	}
+	if err := col.Edit(id).AddNote(note).Save(); err != nil {
+		return fmt.Errorf("research gate: record research evidence on %s: %w", id, err)
+	}
 	return nil
 }
 

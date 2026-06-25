@@ -9,8 +9,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/shakestzd/wipnote/internal/launcher/plan"
 	"github.com/shakestzd/wipnote/core/worktree"
+	"github.com/shakestzd/wipnote/internal/launcher/plan"
 )
 
 // setupCarryRepo builds a git repo on branch "main" with a committed tracked file,
@@ -99,8 +99,10 @@ func TestEmitYoloDirtyMainMessage_DirtyWorktreeMessageNoWorkItem(t *testing.T) {
 	if !strings.Contains(out, "managed worktree") {
 		t.Errorf("message should mention the managed worktree; got %q", out)
 	}
-	if !strings.Contains(out, "main left unchanged") {
-		t.Errorf("message should reassure main is unchanged; got %q", out)
+	// Exactly once — the duplicate core-layer carryover print was dropped in
+	// feat-f5fe2056, leaving the cmd advisory as the single source.
+	if got := strings.Count(out, "main left unchanged"); got != 1 {
+		t.Errorf("carryover must reassure 'main left unchanged' exactly once (single source); got %d in %q", got, out)
 	}
 	// The edit was carried into the worktree, and main is still dirty.
 	wt, _ := os.ReadFile(filepath.Join(path, "README.md"))
@@ -135,10 +137,12 @@ func TestEmitYoloDirtyMainMessage_CleanMainNoMessage(t *testing.T) {
 	}
 }
 
-// TestApplyLaunchPlanOpts_SuppressesDirtyWarning verifies that
-// applyLaunchPlanOpts with suppressDirtyWarning=true does NOT print the generic
-// "--work-item" advisory (the worktree is being created), while the returned
-// plan still carries DirtyMainWarning for enforcement.
+// TestApplyLaunchPlanOpts_SuppressesDirtyWarning verifies the boxless-banner
+// contract (bug-0f6af202): applyLaunchPlanOpts NEVER prints a separate dirty-main
+// block (the advisory now folds into the single launch banner), and the returned
+// plan ALWAYS carries DirtyMainWarning so both the carryover path and the banner
+// can consume it. bannerDirtyWarning then decides where it surfaces: hidden when
+// a worktree will be created (carryover owns it), shown otherwise.
 func TestApplyLaunchPlanOpts_SuppressesDirtyWarning(t *testing.T) {
 	dir := setupCarryRepo(t)
 	// Dirty the protected branch.
@@ -146,19 +150,29 @@ func TestApplyLaunchPlanOpts_SuppressesDirtyWarning(t *testing.T) {
 		t.Fatalf("edit README: %v", err)
 	}
 
+	// Worktree-creating launch: no inline print, plan retains DirtyMainWarning,
+	// and bannerDirtyWarning hides it (carryover message will cover it).
 	var suppressed bytes.Buffer
 	p := applyLaunchPlanOpts(dir, dir, "trk-suppress01", false, true, &suppressed)
-	if strings.Contains(suppressed.String(), "--work-item") {
-		t.Errorf("suppressed path must not print the generic --work-item advisory; got %q", suppressed.String())
+	if suppressed.Len() != 0 {
+		t.Errorf("applyLaunchPlanOpts must not print any separate block; got %q", suppressed.String())
 	}
 	if p.DirtyMainWarning == "" {
-		t.Errorf("plan should still carry DirtyMainWarning for enforcement")
+		t.Errorf("plan should still carry DirtyMainWarning for the carryover/enforce paths")
+	}
+	if got := bannerDirtyWarning(p, true /* willCreateWorktree */); got != "" {
+		t.Errorf("worktree-creating launch: banner advisory must be hidden; got %q", got)
 	}
 
-	// And the non-suppressed path (e.g. --in-place dirty) still shows the original advisory.
+	// In-place launch: no inline print either, but bannerDirtyWarning surfaces the
+	// advisory so it folds into the single launch banner.
 	var shown bytes.Buffer
-	applyLaunchPlanOpts(dir, dir, "trk-suppress01", false, false, &shown)
-	if !strings.Contains(shown.String(), "--work-item") {
-		t.Errorf("non-suppressed dirty path should still show the original --work-item advisory; got %q", shown.String())
+	p2 := applyLaunchPlanOpts(dir, dir, "trk-suppress01", false, false, &shown)
+	if shown.Len() != 0 {
+		t.Errorf("applyLaunchPlanOpts must not print any separate block; got %q", shown.String())
+	}
+	advisory := bannerDirtyWarning(p2, false /* willCreateWorktree */)
+	if !strings.Contains(advisory, "--work-item") {
+		t.Errorf("in-place dirty launch: banner advisory should name --work-item; got %q", advisory)
 	}
 }

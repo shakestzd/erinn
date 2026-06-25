@@ -8,14 +8,18 @@ import (
 	"github.com/shakestzd/wipnote/cmd/wipnote/launchtui"
 )
 
-// fgHex extracts the hex string from a style's foreground color.
-// Returns "" if no foreground is set.
+// fgHex extracts the hex string from a style's foreground color. For an
+// AdaptiveColor (feat-e97607b3) it returns the Dark value, since the palette
+// tokens are the dark-terminal colors. Returns "" if no foreground is set.
 func fgHex(s lipgloss.Style) string {
-	c, ok := s.GetForeground().(lipgloss.Color)
-	if !ok {
+	switch c := s.GetForeground().(type) {
+	case lipgloss.Color:
+		return strings.ToLower(strings.TrimPrefix(string(c), "#"))
+	case lipgloss.AdaptiveColor:
+		return strings.ToLower(strings.TrimPrefix(c.Dark, "#"))
+	default:
 		return ""
 	}
-	return strings.ToLower(strings.TrimPrefix(string(c), "#"))
 }
 
 // bgHex extracts the hex string from a style's background color.
@@ -59,6 +63,25 @@ func TestWipnoteTheme_PaletteTokens(t *testing.T) {
 				t.Errorf("%s: got colour %q, want %q", tc.name, tc.got, tc.wantHex)
 			}
 		})
+	}
+}
+
+// TestStyles_AccentIsAdaptive verifies the banner accent is an AdaptiveColor so
+// it reads on light AND dark terminals (feat-e97607b3), with the dark value
+// preserving the lime palette token and the light value a readable dark lime.
+func TestStyles_AccentIsAdaptive(t *testing.T) {
+	t.Parallel()
+
+	s := launchtui.NewStyles()
+	ac, ok := s.Accent.GetForeground().(lipgloss.AdaptiveColor)
+	if !ok {
+		t.Fatalf("Accent foreground should be AdaptiveColor, got %T", s.Accent.GetForeground())
+	}
+	if strings.ToLower(strings.TrimPrefix(ac.Dark, "#")) != "cdff00" {
+		t.Errorf("adaptive accent Dark: got %q, want #cdff00", ac.Dark)
+	}
+	if strings.ToLower(strings.TrimPrefix(ac.Light, "#")) != "4d7c0f" {
+		t.Errorf("adaptive accent Light: got %q, want #4d7c0f", ac.Light)
 	}
 }
 

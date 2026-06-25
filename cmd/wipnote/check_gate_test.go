@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 	"os"
@@ -12,6 +13,7 @@ import (
 	"github.com/shakestzd/wipnote/core/guardprofile"
 	"github.com/shakestzd/wipnote/core/storage"
 	"github.com/shakestzd/wipnote/internal/commitqueue"
+	"github.com/shakestzd/wipnote/internal/gate"
 )
 
 func setupGateTestProject(t *testing.T) string {
@@ -48,14 +50,15 @@ func setupGateTestProject(t *testing.T) string {
 		t.Fatalf("write allowlist: %v", err)
 	}
 	tmpBase := execCapableBase(t)
-	for _, dir := range []string{"gotmp-exec", "gocache"} {
-		if err := os.MkdirAll(filepath.Join(tmpBase, dir), 0o755); err != nil {
-			t.Fatalf("mkdir external %s: %v", dir, err)
-		}
+	if err := os.MkdirAll(filepath.Join(tmpBase, "gotmp-exec"), 0o755); err != nil {
+		t.Fatalf("mkdir external gotmp-exec: %v", err)
 	}
 	t.Setenv("TMPDIR", filepath.Join(tmpBase, "gotmp-exec"))
 	t.Setenv("GOTMPDIR", filepath.Join(tmpBase, "gotmp-exec"))
-	t.Setenv("GOCACHE", filepath.Join(tmpBase, "gocache"))
+	// NOTE: GOCACHE is intentionally NOT overridden here. A per-test override
+	// gave each gate test a fresh, empty cache that recompiled stdlib (~35s).
+	// TestMain now exports one shared warm GOCACHE that the nested `go test`
+	// inherits, turning the nested build into a cache hit (~5s).
 	return root
 }
 
@@ -900,5 +903,49 @@ func TestValidateCompletionGateRecord_CrossSessionMatchByWorkItemID(t *testing.T
 	err := validateCompletionGateRecord(projectRoot, database, "sess-completing", "feat-cross-session-test")
 	if err != nil {
 		t.Fatalf("expected cross-session match to pass, got: %v", err)
+	}
+}
+
+// TestRunGoGates_GoTestIncludesTimeout verifies that runGoGates (the non-gate
+// wipnote check path) builds a go test command that includes -timeout=300s
+// (bug-a8ae8cd7). It does so by intercepting exec via a fake "go" script on
+// PATH that records its argv to a file, then inspects what was captured.
+func TestRunGoGates_GoTestIncludesTimeout(t *testing.T) {
+	// Set up a temporary directory for the fake "go" binary.
+	fakeDir := t.TempDir()
+	argsFile := filepath.Join(fakeDir, "recorded-args.txt")
+
+	// Write a fake "go" shell script that appends argv to argsFile and exits 0.
+	fakeGo := filepath.Join(fakeDir, "go")
+	script := "#!/bin/sh\nprintf '%s\\n' \"$@\" >> " + argsFile + "\nexit 0\n"
+	if err := os.WriteFile(fakeGo, []byte(script), 0o755); err != nil {
+		t.Fatalf("write fake go: %v", err)
+	}
+
+	// Prepend fakeDir to PATH so our fake "go" is found first.
+	origPath := os.Getenv("PATH")
+	t.Setenv("PATH", fakeDir+":"+origPath)
+
+	// runGoGates uses goDir = filepath.Join(root, "packages", "go"), so create it.
+	projectRoot := t.TempDir()
+	goDir := filepath.Join(projectRoot, "packages", "go")
+	if err := os.MkdirAll(goDir, 0o755); err != nil {
+		t.Fatalf("mkdir goDir: %v", err)
+	}
+
+	ctx := context.Background()
+	_ = runGoGates(ctx, projectRoot, false /* skipTests */)
+
+	// Read the recorded args.
+	argsData, err := os.ReadFile(argsFile)
+	if err != nil {
+		t.Fatalf("read recorded args: %v", err)
+	}
+	recorded := string(argsData)
+
+	// The go test invocation must include -timeout=300s.
+	if !strings.Contains(recorded, gate.GoTestTimeoutArg) {
+		t.Fatalf("runGoGates go test invocation missing %s. Recorded args:\n%s",
+			gate.GoTestTimeoutArg, recorded)
 	}
 }

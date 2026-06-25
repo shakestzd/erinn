@@ -16,6 +16,7 @@ import (
 	"github.com/shakestzd/wipnote/core/hooks"
 	"github.com/shakestzd/wipnote/core/models"
 	"github.com/shakestzd/wipnote/internal/commitqueue"
+	"github.com/shakestzd/wipnote/internal/gate"
 	"github.com/spf13/cobra"
 )
 
@@ -423,7 +424,7 @@ func runGoGates(ctx context.Context, root string, skipTests bool) []gateResult {
 		runGate(ctx, "go vet", goDir, "go", "vet", "./..."),
 	}
 	if !skipTests {
-		gates = append(gates, runGate(ctx, "go test", goDir, "go", "test", "-buildvcs=false", "-short", "./..."))
+		gates = append(gates, runGate(ctx, "go test", goDir, "go", "test", "-buildvcs=false", "-short", gate.GoTestTimeoutArg, "./..."))
 	}
 	return gates
 }

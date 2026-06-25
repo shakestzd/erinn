@@ -458,14 +458,15 @@ func TestPromptLaunchIntent_UserAbortCancels(t *testing.T) {
 // --- Slice 4 tests ---
 
 // TestYoloLaunch_ChooserWiring verifies the yolo decision:
-//   (b) yolo intentionally skips the interactive chooser (autonomous mode must
-//   not block on a prompt) but DOES emit the framed launch banner.
+//
+//	(b) yolo intentionally skips the interactive chooser (autonomous mode must
+//	not block on a prompt) but DOES emit the framed launch banner.
 //
 // Assertions:
-//   1. runSelectTUIFn is NOT called (no interactive TUI in yolo path).
-//   2. yoloEmitBannerFn IS called with a non-empty headline (banner fires).
-//   3. Non-TTY bypass: passing a non-char-device writer does not trigger the TUI
-//      even if shouldOfferLaunchIntentChooser were somehow true (belt-and-suspenders).
+//  1. runSelectTUIFn is NOT called (no interactive TUI in yolo path).
+//  2. yoloEmitBannerFn IS called with a non-empty headline (banner fires).
+//  3. Non-TTY bypass: passing a non-char-device writer does not trigger the TUI
+//     even if shouldOfferLaunchIntentChooser were somehow true (belt-and-suspenders).
 func TestYoloLaunch_ChooserWiring(t *testing.T) {
 	// 1. Confirm the interactive chooser is never invoked for yolo.
 	// shouldOfferLaunchIntentChooser with Yolo:true must return false.
@@ -490,7 +491,7 @@ func TestYoloLaunch_ChooserWiring(t *testing.T) {
 
 	bannerCalled := false
 	var capturedHeadline string
-	yoloEmitBannerFn = func(headline, session, workItem string, w io.Writer) {
+	yoloEmitBannerFn = func(headline, pluginSource, session, workItem, warning string, w io.Writer) {
 		bannerCalled = true
 		capturedHeadline = headline
 	}
@@ -498,7 +499,7 @@ func TestYoloLaunch_ChooserWiring(t *testing.T) {
 	// Drive emitYoloBanner directly — the full launch path requires a real git repo.
 	// emitYoloBanner is the thin wrapper around yoloEmitBannerFn that yolo.go calls.
 	var out strings.Builder
-	emitYoloBanner("Launching Claude Code in YOLO mode (bypassPermissions)...", "sess-abc", "feat-abc", &out)
+	emitYoloBanner("Launching Claude Code in YOLO mode (bypassPermissions)...", "/plugins/wipnote", "sess-abc", "feat-abc", "", &out)
 
 	if tuiCalled {
 		t.Fatal("runSelectTUIFn was called inside the yolo banner path; chooser must not block yolo")
@@ -513,7 +514,7 @@ func TestYoloLaunch_ChooserWiring(t *testing.T) {
 	// 3. Non-TTY bypass: emitYoloBanner must not invoke TUI even with a bytes.Buffer out.
 	tuiCalled = false
 	var bufOut bytes.Buffer
-	emitYoloBanner("Launching Claude Code in YOLO mode (bypassPermissions)...", "", "", &bufOut)
+	emitYoloBanner("Launching Claude Code in YOLO mode (bypassPermissions)...", "", "", "", "", &bufOut)
 	if tuiCalled {
 		t.Fatal("TUI called for non-TTY writer in yolo banner path")
 	}

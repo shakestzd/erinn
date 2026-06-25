@@ -170,3 +170,101 @@ func TestReportGuardProfileDrift_ReportsMismatch(t *testing.T) {
 		t.Fatalf("expected drift notice, got %q", buf.String())
 	}
 }
+
+// TestDetectPlan_ApprovedProfile_GoTestCommandIncludesTimeout asserts that when
+// an approved guard profile is present, the resolved quality plan's shell-form
+// go test command also includes -timeout=300s (bug-a8ae8cd7). DetectPlan renders
+// approved-profile guards as ["sh", "-c", g.Cmd], so the timeout must appear in
+// the shell command string, not as a separate argv element.
+func TestDetectPlan_ApprovedProfile_GoTestCommandIncludesTimeout(t *testing.T) {
+	projectRoot := setupGateTestProject(t)
+
+	// Write an approved profile whose go test command includes -timeout=300s.
+	prof := &guardprofile.Profile{
+		Guards: map[string][]guardprofile.Guard{
+			guardprofile.PhaseQuality: {
+				{Name: "go-build", Cmd: "go build ./..."},
+				{Name: "go-test", Cmd: "go test -buildvcs=false -short " + GoTestTimeoutArg + " ./..."},
+			},
+		},
+	}
+	sig := guardprofile.Signature(prof)
+	prof.Approved = guardprofile.Approval{Signature: sig, By: "test", At: "2026-01-01T00:00:00Z"}
+	yamlContent := "guards:\n  quality:\n    - name: go-build\n      cmd: go build ./...\n" +
+		"    - name: go-test\n      cmd: go test -buildvcs=false -short " + GoTestTimeoutArg + " ./...\napproved:\n  signature: " + sig + "\n"
+	if err := os.WriteFile(filepath.Join(projectRoot, ".wipnote", "guard-profile.yaml"), []byte(yamlContent), 0o644); err != nil {
+		t.Fatalf("write guard profile: %v", err)
+	}
+
+	plan, err := DetectPlan(projectRoot, projectRoot, guardprofile.PhaseQuality)
+	if err != nil {
+		t.Fatalf("DetectPlan: %v", err)
+	}
+	if !plan.UsedProfile {
+		t.Fatal("expected DetectPlan to use the approved profile")
+	}
+
+	// Approved-profile commands are shell-wrapped: ["sh", "-c", "<cmd>"].
+	// The timeout must appear in the shell command string.
+	var foundGoTest bool
+	for _, cmd := range plan.Commands {
+		if len(cmd.Args) >= 3 && cmd.Args[0] == "sh" && cmd.Args[1] == "-c" &&
+			strings.Contains(cmd.Args[2], "go test") {
+			foundGoTest = true
+			if !strings.Contains(cmd.Args[2], GoTestTimeoutArg) {
+				t.Fatalf("approved-profile go test shell command missing %s. Command: %q", GoTestTimeoutArg, cmd.Args[2])
+			}
+		}
+	}
+	if !foundGoTest {
+		t.Fatal("no go test command found in resolved approved-profile plan")
+	}
+}
+
+func TestDetectPlan_GoProject_TestCommandIncludesTimeout(t *testing.T) {
+	projectRoot := setupGateTestProject(t)
+	plan, err := DetectPlan(projectRoot, projectRoot, guardprofile.PhaseQuality)
+	if err != nil {
+		t.Fatalf("DetectPlan: %v", err)
+	}
+	if len(plan.Commands) == 0 {
+		t.Fatal("expected commands in plan")
+	}
+
+	// Find the go test command
+	var testCmd *Command
+	for i := range plan.Commands {
+		if plan.Commands[i].Name == "go test" {
+			testCmd = &plan.Commands[i]
+			break
+		}
+	}
+	if testCmd == nil {
+		t.Fatal("expected go test command in plan")
+	}
+
+	// Check that -timeout is present and has a value >= 300s
+	var hasTimeout bool
+	var timeoutValue string
+	for i, arg := range testCmd.Args {
+		if strings.HasPrefix(arg, "-timeout") {
+			hasTimeout = true
+			if arg == "-timeout" && i+1 < len(testCmd.Args) {
+				timeoutValue = testCmd.Args[i+1]
+			} else if strings.Contains(arg, "=") {
+				parts := strings.SplitN(arg, "=", 2)
+				timeoutValue = parts[1]
+			}
+			break
+		}
+	}
+	if !hasTimeout {
+		t.Fatalf("go test command missing -timeout flag. Args: %v", testCmd.Args)
+	}
+	if timeoutValue == "" {
+		t.Fatalf("go test command has -timeout but no value. Args: %v", testCmd.Args)
+	}
+	if timeoutValue != "300s" {
+		t.Fatalf("go test command timeout = %q, want 300s", timeoutValue)
+	}
+}

@@ -9,7 +9,9 @@ import (
 	"time"
 
 	dbpkg "github.com/shakestzd/wipnote/core/db"
+	"github.com/shakestzd/wipnote/core/graph"
 	"github.com/shakestzd/wipnote/core/htmlparse"
+	"github.com/shakestzd/wipnote/core/models"
 	"github.com/shakestzd/wipnote/core/storage"
 	"github.com/spf13/cobra"
 )
@@ -75,6 +77,17 @@ func runReindex(cmd *cobra.Command, _ []string) error {
 		}
 	}
 
+	// Force a full reindex when an archive ledger changed since lastCommit. The
+	// incremental path keys off per-node file paths; an archive ledger is a
+	// multi-row table (not a single-node file), and archiving DELETES the
+	// individual files (which the incremental path would purge) while only the
+	// ledger gains the rows. A full pass is the simplest correct response — it is
+	// ledger-aware end-to-end (nodes, edges, and validIDs completeness for edge
+	// targets that did not change this window).
+	if useIncremental && archiveLedgerChangedSince(projectDir, wipnoteDir, lastCommit) {
+		useIncremental = false
+	}
+
 	if useIncremental {
 		total, upserted, errCount = runIncrementalReindex(database, wipnoteDir, projectDir, lastCommit, validIDs, verboseFlag)
 		fmt.Printf("Reindexed (incremental): %d upserted, %d errors (of %d changed HTML files)\n",
@@ -92,9 +105,20 @@ func runReindex(cmd *cobra.Command, _ []string) error {
 			errCount += e
 		}
 
+		// Archived work items: compacted out of individual files into
+		// .wipnote/archive/<type>s.html ledgers. They are still canonical, so
+		// they index into the same features table and must register in validIDs
+		// BEFORE purgeStaleEntries — otherwise the purge would treat a compacted
+		// item as a deleted file and drop it (and its edges) from the index.
+		arcTotal, arcUpserted, arcErrs := reindexWorkitemLedgerNodes(database, wipnoteDir, projectDir, validIDs, verboseFlag)
+		total += arcTotal
+		upserted += arcUpserted
+		errCount += arcErrs
+
 		collectSessionIDs(database, validIDs)
 		purged, edgesPurged := purgeStaleEntries(database, validIDs)
 		reindexEdges(database, wipnoteDir, validIDs)
+		reindexWorkitemLedgerEdges(database, wipnoteDir, validIDs, verboseFlag)
 		fixImplementedInEdges(database)
 		fmt.Printf("Reindexed: %d upserted, %d errors (of %d HTML files)\n",
 			upserted, errCount, total)
@@ -332,6 +356,30 @@ func isRecapHTMLPath(path, wipnoteDir string) bool {
 	return rel != "." && !filepath.IsAbs(rel) && !strings.HasPrefix(rel, ".."+string(filepath.Separator)) && rel != ".." && strings.HasSuffix(path, ".html")
 }
 
+// isArchiveLedgerPath reports whether path is a work-item archive ledger
+// (.wipnote/archive/<type>s.html), as opposed to an individual work-item file.
+func isArchiveLedgerPath(path, wipnoteDir string) bool {
+	rel, err := filepath.Rel(filepath.Join(wipnoteDir, graph.ArchiveDirName), path)
+	if err != nil {
+		return false
+	}
+	return rel != "." && !filepath.IsAbs(rel) && !strings.HasPrefix(rel, ".."+string(filepath.Separator)) &&
+		rel != ".." && strings.HasSuffix(path, ".html")
+}
+
+// archiveLedgerChangedSince reports whether any archive ledger under
+// .wipnote/archive/ was added, modified, or deleted between fromCommit and HEAD.
+// When true, runReindex falls back to a full (ledger-aware) reindex.
+func archiveLedgerChangedSince(projectDir, wipnoteDir, fromCommit string) bool {
+	added, deleted := gitChangedFiles(projectDir, fromCommit, wipnoteDir)
+	for _, path := range append(append([]string{}, added...), deleted...) {
+		if isArchiveLedgerPath(path, wipnoteDir) {
+			return true
+		}
+	}
+	return false
+}
+
 func gitHeadCommit(projectDir string) string {
 	out, err := exec.Command("git", "-C", projectDir, "rev-parse", "HEAD").Output()
 	if err != nil {
@@ -553,48 +601,63 @@ func reindexFeatureDir(database *sql.DB, wipnoteDir, projectDir, dir string, val
 			}
 			continue
 		}
-
-		createdAt, updatedAt := normalizeTimes(node.CreatedAt, node.UpdatedAt)
-		createdAt, updatedAt = applyGitTimestamps(projectDir, f, createdAt, updatedAt)
-		desc := node.Content
-		if len([]rune(desc)) > 500 {
-			desc = string([]rune(desc)[:499]) + "\u2026"
-		}
-
-		stepsTotal := len(node.Steps)
-		stepsCompleted := 0
-		for _, s := range node.Steps {
-			if s.Completed {
-				stepsCompleted++
-			}
-		}
-
-		feat := &dbpkg.Feature{
-			ID:             node.ID,
-			Type:           mapNodeType(node.Type),
-			Title:          node.Title,
-			Description:    desc,
-			Status:         normalizeStatus(string(node.Status)),
-			Priority:       string(node.Priority),
-			AssignedTo:     node.AgentAssigned,
-			TrackID:        node.TrackID,
-			CreatedAt:      createdAt,
-			UpdatedAt:      updatedAt,
-			StepsTotal:     stepsTotal,
-			StepsCompleted: stepsCompleted,
-		}
-
-		if upsertErr := dbpkg.UpsertFeature(database, feat); upsertErr != nil {
+		if indexWorkitemNode(database, node, projectDir, f, validIDs, verbose) {
+			upserted++
+		} else {
 			errCount++
-			if verbose {
-				fmt.Printf("reindex: error: %s: %v\n", f, upsertErr)
-			}
-			continue
 		}
-		validIDs[node.ID] = true
-		upserted++
 	}
 	return total, upserted, errCount
+}
+
+// indexWorkitemNode upserts a single parsed work-item node into the features
+// read index. gitPath is the file the node came from (an individual .wipnote
+// HTML file, or "" for ledger-backed archived items that have no standalone
+// file) and is used only to refine timestamps from git history. Returns true on
+// a successful upsert. This is the shared indexing path used by both
+// reindexFeatureDir (file-backed) and reindexWorkitemLedger (archive-backed) so
+// archived rows index identically to live files.
+func indexWorkitemNode(database *sql.DB, node *models.Node, projectDir, gitPath string, validIDs map[string]bool, verbose bool) bool {
+	createdAt, updatedAt := normalizeTimes(node.CreatedAt, node.UpdatedAt)
+	if gitPath != "" {
+		createdAt, updatedAt = applyGitTimestamps(projectDir, gitPath, createdAt, updatedAt)
+	}
+	desc := node.Content
+	if len([]rune(desc)) > 500 {
+		desc = string([]rune(desc)[:499]) + "\u2026"
+	}
+
+	stepsTotal := len(node.Steps)
+	stepsCompleted := 0
+	for _, s := range node.Steps {
+		if s.Completed {
+			stepsCompleted++
+		}
+	}
+
+	feat := &dbpkg.Feature{
+		ID:             node.ID,
+		Type:           mapNodeType(node.Type),
+		Title:          node.Title,
+		Description:    desc,
+		Status:         normalizeStatus(string(node.Status)),
+		Priority:       string(node.Priority),
+		AssignedTo:     node.AgentAssigned,
+		TrackID:        node.TrackID,
+		CreatedAt:      createdAt,
+		UpdatedAt:      updatedAt,
+		StepsTotal:     stepsTotal,
+		StepsCompleted: stepsCompleted,
+	}
+
+	if upsertErr := dbpkg.UpsertFeature(database, feat); upsertErr != nil {
+		if verbose {
+			fmt.Printf("reindex: error: %s: %v\n", node.ID, upsertErr)
+		}
+		return false
+	}
+	validIDs[node.ID] = true
+	return true
 }
 
 func collectSessionIDs(database *sql.DB, validIDs map[string]bool) {
@@ -629,21 +692,29 @@ func reindexEdges(database *sql.DB, wipnoteDir string, validIDs map[string]bool)
 			if err != nil || !validIDs[node.ID] {
 				continue
 			}
-			for _, edges := range node.Edges {
-				for _, e := range edges {
-					if !validIDs[e.TargetID] {
-						continue
-					}
-					edgeID := fmt.Sprintf("%s-%s-%s", node.ID, string(e.Relationship), e.TargetID)
-					_ = dbpkg.InsertEdge(
-						database,
-						edgeID, node.ID, d.nodeType,
-						e.TargetID, inferNodeTypeFromID(e.TargetID),
-						string(e.Relationship),
-						e.Properties,
-					)
-				}
+			indexNodeEdges(database, node, d.nodeType, validIDs)
+		}
+	}
+}
+
+// indexNodeEdges inserts every graph edge declared by node whose target is a
+// known (valid) node. Shared by reindexEdges (file-backed) and
+// reindexWorkitemLedger (archive-backed) so archived items keep their lineage
+// edges in graph_edges and remain traversable by wipnote lineage/trace.
+func indexNodeEdges(database *sql.DB, node *models.Node, fromNodeType string, validIDs map[string]bool) {
+	for _, edges := range node.Edges {
+		for _, e := range edges {
+			if !validIDs[e.TargetID] {
+				continue
 			}
+			edgeID := fmt.Sprintf("%s-%s-%s", node.ID, string(e.Relationship), e.TargetID)
+			_ = dbpkg.InsertEdge(
+				database,
+				edgeID, node.ID, fromNodeType,
+				e.TargetID, inferNodeTypeFromID(e.TargetID),
+				string(e.Relationship),
+				e.Properties,
+			)
 		}
 	}
 }

@@ -535,6 +535,6 @@ func runReindexSubprocess(worktreeDir string, w io.Writer) {
 		fmt.Fprintf(w, "  Warning: reindex in worktree failed to start: %v\n", err)
 		return
 	}
-	fmt.Fprintf(w, "  Reindex started in background (pid %d); worktree index will populate shortly\n", reindexCmd.Process.Pid)
+	fmt.Fprintf(w, "  Reindex: started in background (pid %d) — worktree index will populate shortly\n", reindexCmd.Process.Pid)
 	go func() { _ = reindexCmd.Wait() }()
 }

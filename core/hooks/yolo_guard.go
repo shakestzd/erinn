@@ -497,6 +497,178 @@ func checkYoloResearchGuard(toolName string, _ bool, hasResearch bool, targetFil
 		"for external libraries, upstream tools, or unfamiliar error messages."
 }
 
+// isExternalTechEdit reports whether a Write/Edit target is a dependency
+// manifest — the durable, low-false-positive signal that the edit introduces or
+// changes an external technology dependency. Following the project's "prefer
+// durable file/diff state over brittle session/substring state" hook rule,
+// detection is keyed on the target file's basename rather than fuzzy
+// library-name matching against prompt text. The canonical manifest set lives in
+// paths.IsDependencyManifest, shared with the pre-commit and completion gates.
+func isExternalTechEdit(targetFile string) bool {
+	return paths.IsDependencyManifest(targetFile)
+}
+
+// applyPatchFileHeaderRe matches the file headers of a Codex apply_patch envelope
+// (`*** Add File: <path>`, `*** Update File: <path>`, `*** Delete File: <path>`).
+var applyPatchFileHeaderRe = regexp.MustCompile(`(?m)^\*\*\*\s+(?:Add|Update|Delete)\s+File:\s*(.+?)\s*$`)
+
+// applyPatchMoveRe matches the rename target of an apply_patch update
+// (`*** Move to: <path>`).
+var applyPatchMoveRe = regexp.MustCompile(`(?m)^\*\*\*\s+Move\s+to:\s*(.+?)\s*$`)
+
+// applyPatchTouchedPaths extracts every file path referenced by a Codex
+// apply_patch payload. Codex bundles multiple file edits in one call, so the
+// path lives in the patch body rather than a file_path field — without this the
+// research guards would see an empty target and silently skip apply_patch
+// manifest/harness edits (roborev #563/#566).
+func applyPatchTouchedPaths(patch string) []string {
+	if patch == "" {
+		return nil
+	}
+	var paths []string
+	for _, m := range applyPatchFileHeaderRe.FindAllStringSubmatch(patch, -1) {
+		if p := strings.TrimSpace(m[1]); p != "" {
+			paths = append(paths, p)
+		}
+	}
+	for _, m := range applyPatchMoveRe.FindAllStringSubmatch(patch, -1) {
+		if p := strings.TrimSpace(m[1]); p != "" {
+			paths = append(paths, p)
+		}
+	}
+	return paths
+}
+
+// editTargetPaths returns every file path a Write/Edit-class tool will modify.
+// For apply_patch it parses the patch payload (paths are not in a file_path
+// field); for Write/Edit/MultiEdit it returns the single extractFilePath result.
+// Returns nil for non-edit tools or when no path can be resolved.
+func editTargetPaths(event *CloudEvent) []string {
+	if event == nil {
+		return nil
+	}
+	if event.ToolName == "apply_patch" {
+		patch, _ := event.ToolInput["patch"].(string)
+		return applyPatchTouchedPaths(patch)
+	}
+	if p := extractFilePath(event.ToolInput); p != "" {
+		return []string{p}
+	}
+	return nil
+}
+
+// firstPathMatching returns the first path satisfying pred, or "" if none do.
+func firstPathMatching(paths []string, pred func(string) bool) string {
+	for _, p := range paths {
+		if pred(p) {
+			return p
+		}
+	}
+	return ""
+}
+
+// checkExternalTechResearchGuard requires at least one web/docs research call
+// (WebSearch/WebFetch or `gh ...`) before a Write/Edit that modifies a
+// dependency manifest. A plain local Read does NOT satisfy this gate: the
+// always-on research guard (checkYoloResearchGuard) accepts any read, but
+// external-technology changes demand current upstream docs/changelogs that a
+// local read cannot provide (spk-0a982f70 root cause: one `cat go.mod` cleared
+// the only always-on research gate, so web research was never actually
+// required).
+//
+// Non-dependency-manifest edits keep the existing any-read behavior (this guard
+// returns "" for them, so there is no regression). Writes outside the project
+// root are skipped, mirroring checkYoloResearchGuard. Always enforced — not
+// YOLO-gated.
+func checkExternalTechResearchGuard(toolName string, hasWebResearch bool, targetFile, projectRoot string) string {
+	switch toolName {
+	case "Write", "Edit", "MultiEdit", "apply_patch":
+	default:
+		return ""
+	}
+	if targetFile != "" && pathIsOutsideProject(targetFile, projectRoot) {
+		return ""
+	}
+	if !isExternalTechEdit(targetFile) {
+		return ""
+	}
+	if hasWebResearch {
+		return ""
+	}
+	return "Research is required before changing dependencies. Editing " +
+		filepath.Base(targetFile) + " adds or changes an external technology, so " +
+		"verify current official docs/changelogs via the web (WebSearch/WebFetch, " +
+		"`gh search`) this session before writing — a local file read does NOT " +
+		"satisfy this gate. Emergency override: WIPNOTE_GUARDS_OFF=1."
+}
+
+// harnessContractPathSignals are path substrings that mark a file as encoding an
+// AI-harness integration contract (Claude Code / Codex / Gemini). These schemas
+// drift silently across vendor releases — a field set in an agent manifest or
+// hook config may stop being honored with no error — so edits to them MUST be
+// preceded by web research against current provider docs (see the "Monitoring
+// Upstream Harnesses" mandate in CLAUDE.md). The list is intentionally narrow to
+// keep false-positives low: only genuine harness-contract source files match.
+var harnessContractPathSignals = []string{
+	"plugin/agents/",            // agent frontmatter — per-harness schema contract
+	"plugin/hooks/",             // hook event wiring
+	"plugin-core/manifest.json", // hook event matrix + per-target output paths
+	"pluginbuild/",              // per-harness plugin/agent generation logic
+	"/prompts/system-prompt",    // harness system prompt
+}
+
+// isHarnessContractEdit reports whether a Write/Edit target is a harness-contract
+// source file. Like isExternalTechEdit it keys on the durable target path rather
+// than fuzzy prompt/content substring matching, per the project's hook-state
+// rule (prefer file/diff state over brittle session/substring state).
+func isHarnessContractEdit(targetFile string) bool {
+	if targetFile == "" {
+		return false
+	}
+	p := filepath.ToSlash(targetFile)
+	for _, sig := range harnessContractPathSignals {
+		if strings.Contains(p, sig) {
+			return true
+		}
+	}
+	return false
+}
+
+// checkHarnessContractResearchGuard BLOCKS a Write/Edit to a harness-contract
+// file when no web/docs research has happened this session — the inverse of the
+// non-blocking checkOrchestratorResearchDelegationAdvisory. Harness contracts
+// (agent manifests, hook matrices, the plugin generator, system prompts) drift
+// silently across vendor releases, so contract-touching work is escalated from
+// an advisory nudge to a hard block until current provider docs are consulted
+// (feat-ff62b911 / spk-0a982f70).
+//
+// Non-harness-contract edits return "" (no regression). Writes outside the
+// project root are skipped, mirroring the other research guards. Always
+// enforced — not YOLO-gated. False-positives are kept low by matching only the
+// narrow harnessContractPathSignals set.
+func checkHarnessContractResearchGuard(toolName string, hasWebResearch bool, targetFile, projectRoot string) string {
+	switch toolName {
+	case "Write", "Edit", "MultiEdit", "apply_patch":
+	default:
+		return ""
+	}
+	if targetFile != "" && pathIsOutsideProject(targetFile, projectRoot) {
+		return ""
+	}
+	if !isHarnessContractEdit(targetFile) {
+		return ""
+	}
+	if hasWebResearch {
+		return ""
+	}
+	return "Web research is required before harness-contract work. Editing " +
+		filepath.Base(targetFile) + " changes a Claude Code / Codex / Gemini " +
+		"integration contract, which drifts silently across vendor releases — " +
+		"verify the current provider docs with WebSearch/WebFetch (or `gh search`) " +
+		"this session before writing. A local file read does NOT satisfy this gate. " +
+		"Emergency override: WIPNOTE_GUARDS_OFF=1."
+}
+
 // checkYoloBashResearchGuard extends the research guard to Bash file-write commands.
 // Always enforced. wipnote CLI commands are always exempt.
 //
@@ -872,6 +1044,49 @@ func hasRecentResearch(database *sql.DB, sessionID, agentID, projectDir string) 
 	return false
 }
 
+// hasRecentWebResearch reports whether web/docs research — WebSearch/WebFetch
+// (and harness equivalents) or a `gh ...` Bash command — ran in this session,
+// an ancestor session, or by the same agent. It is the web-only subset of
+// hasRecentResearch: local reads (Read/Grep/Glob/cat/head/…) are deliberately
+// EXCLUDED, so an external-technology edit cannot be satisfied by reading a
+// local file (feat-868c752b / spk-0a982f70).
+//
+// It mirrors hasRecentResearch's fail-open behavior: when the event-recording
+// pipeline is broken (zero tool_call events across all related IDs) it returns
+// true rather than false-blocking valid work.
+func hasRecentWebResearch(database *sql.DB, sessionID, agentID, projectDir string) bool {
+	if database == nil || sessionID == "" {
+		return true // fail-open: can't verify, don't block
+	}
+
+	relatedSIDs := collectRelatedSessionIDs(database, sessionID)
+	inClause, inArgs := buildInClause(relatedSIDs)
+	useAgentID := agentID != "" && !isGenericAgentID(agentID)
+
+	webQuery, webArgs := buildWebResearchQuery(inClause, inArgs, useAgentID, agentID, projectDir)
+	var webCount int
+	database.QueryRow(webQuery, webArgs...).Scan(&webCount)
+	if webCount > 0 {
+		return true
+	}
+
+	// No web research recorded — distinguish a recording gap (fail-open) from a
+	// genuine no-web-research case (block), using the same tool_call probe as
+	// hasRecentResearch.
+	toolCallQuery, toolCallArgs := buildToolCallQuery(inClause, inArgs, useAgentID, agentID, projectDir)
+	var toolCallCount int
+	database.QueryRow(toolCallQuery, toolCallArgs...).Scan(&toolCallCount)
+	if toolCallCount == 0 {
+		debugLog(projectDir,
+			"[wipnote] web-research-gate fail-open: no tool_call events recorded for session=%s agent=%s — recording pipeline may be broken",
+			sessionID, agentID)
+		return true
+	}
+
+	// Tool calls ran but none were web/docs research → block.
+	return false
+}
+
 // buildInClause returns a SQL fragment like "(?, ?, ?)" and the matching args
 // slice. If ids is empty the clause is "(NULL)" so the query is syntactically
 // valid but matches nothing.
@@ -922,6 +1137,37 @@ func buildResearchQuery(inClause string, inArgs []any, useAgentID bool, agentID,
 					OR input_summary LIKE 'stat %%'
 					OR input_summary LIKE 'gh %%'
 				)
+			)
+		  )
+		LIMIT 1`, sessionFilter)
+	return query, args
+}
+
+// buildWebResearchQuery builds the web/docs research detection SQL and its
+// argument slice. It matches ONLY upstream-research tools — WebSearch/WebFetch
+// (and the Codex/Gemini/Codex-browser equivalents) plus `gh ...` commands run
+// through any supported shell tool — and deliberately EXCLUDES local reads
+// (Read/Grep/Glob/cat/head/ls/find/…) so a dependency-manifest edit cannot be
+// cleared by reading a local file (feat-868c752b).
+//
+// The web tool-name list is kept in lockstep with isOrchestratorResearchTool
+// (which classifies the same tools as web/docs research), and the shell-tool
+// list with isShellTool, so a session that researched via Codex's web.* tools or
+// ran `gh search` through exec_command/functions.exec_command is not falsely
+// blocked (roborev #563/#566/#570).
+func buildWebResearchQuery(inClause string, inArgs []any, useAgentID bool, agentID, projectDir string) (string, []any) {
+	sessionFilter, args := sessionOrAgentFilter(inClause, inArgs, useAgentID, agentID, projectDir)
+	query := fmt.Sprintf(`
+		SELECT COUNT(*) FROM agent_events
+		WHERE %s
+		  AND (
+			tool_name IN (
+				'WebSearch', 'WebFetch',
+				'web_search', 'web_fetch', 'google_web_search',
+				'web.search_query', 'web.open', 'web.find', 'web.click'
+			) OR (
+				tool_name IN ('Bash', 'exec_command', 'functions.exec_command')
+				AND input_summary LIKE 'gh %%'
 			)
 		  )
 		LIMIT 1`, sessionFilter)

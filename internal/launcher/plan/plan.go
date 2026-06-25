@@ -106,10 +106,8 @@ func PlanLaunch(in Input) (LaunchPlan, error) {
 	// Dirty-main guard: warn (or refuse when enforcement is on).
 	if dirty {
 		p.DirtyMainWarning = fmt.Sprintf(
-			"Warning: launching on dirty protected branch %q.\n"+
-				"  Uncommitted changes detected in %s.\n"+
-				"  Recommendation: use a managed worktree (--work-item <id>) to isolate mutations.",
-			branch, in.RepoRoot,
+			"%s has uncommitted changes — pass --work-item <id> to isolate this session's writes",
+			branch,
 		)
 		if in.EnforceIsolation {
 			p.RefuseLaunch = true
@@ -162,7 +160,10 @@ func currentBranch(repoRoot string) string {
 }
 
 // isProtectedAndDirty returns true when branch is "main" or "master" and the
-// working tree has uncommitted changes (tracked or untracked files).
+// working tree has uncommitted changes to at least one path that is NOT under
+// wipnote's own bookkeeping directory (.wipnote/). Changes confined to
+// .wipnote/ are wipnote's autocommitted artifacts and must NOT trip the
+// dirty-branch warning (bug-0f6af202).
 func isProtectedAndDirty(repoRoot, branch string) bool {
 	if branch != "main" && branch != "master" {
 		return false
@@ -171,5 +172,57 @@ func isProtectedAndDirty(repoRoot, branch string) bool {
 	if err != nil {
 		return false
 	}
-	return strings.TrimSpace(string(out)) != ""
+	for _, line := range strings.Split(string(out), "\n") {
+		if line == "" {
+			continue
+		}
+		for _, path := range porcelainPaths(line) {
+			if path != "" && !isWipnoteInternalPath(path) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// porcelainPaths extracts all affected paths from a single `git status
+// --porcelain` line. The path section begins at byte index 3 (2-char status +
+// 1 space). For renames/copies ("R  old -> new", "C  …") BOTH the source and
+// destination are returned — a rename of a non-.wipnote file INTO .wipnote/
+// must still be treated as dirty because a real source file moved. For all
+// other line types a single-element slice is returned. Git quotes paths with
+// special characters in double quotes; surrounding quotes are stripped so the
+// prefix check sees the raw path.
+func porcelainPaths(line string) []string {
+	if len(line) < 3 {
+		return nil
+	}
+	statusCode := line[:2]
+	path := line[3:]
+	// For rename/copy porcelain lines (status starts with R or C in either
+	// position) parse BOTH source and destination.
+	if strings.ContainsAny(statusCode, "RC") {
+		if idx := strings.Index(path, " -> "); idx >= 0 {
+			src := unquotePorcelainPath(path[:idx])
+			dst := unquotePorcelainPath(path[idx+len(" -> "):])
+			return []string{src, dst}
+		}
+	}
+	return []string{unquotePorcelainPath(path)}
+}
+
+// unquotePorcelainPath strips the surrounding double quotes git adds around
+// paths containing special characters. It does not attempt full C-style
+// unescaping — the prefix check only needs the leading path component.
+func unquotePorcelainPath(path string) string {
+	if len(path) >= 2 && path[0] == '"' && path[len(path)-1] == '"' {
+		return path[1 : len(path)-1]
+	}
+	return path
+}
+
+// isWipnoteInternalPath reports whether path is wipnote's own bookkeeping
+// directory (.wipnote) or a file beneath it (.wipnote/...).
+func isWipnoteInternalPath(path string) bool {
+	return path == ".wipnote" || strings.HasPrefix(path, ".wipnote/")
 }

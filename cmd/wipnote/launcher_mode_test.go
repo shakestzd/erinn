@@ -29,8 +29,8 @@ func TestEnforceLaunchPlan_RefusesWhenRefuseLaunch(t *testing.T) {
 	if !strings.Contains(err.Error(), "launch refused") {
 		t.Errorf("error message should explain the refusal, got %q", err.Error())
 	}
-	if !strings.Contains(buf.String(), "dirty protected branch") {
-		t.Errorf("dirty-main warning should be echoed before aborting, got %q", buf.String())
+	if !strings.Contains(buf.String(), "protected branch is dirty") {
+		t.Errorf("refuse advisory should be echoed before aborting, got %q", buf.String())
 	}
 }
 

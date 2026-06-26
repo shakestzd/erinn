@@ -148,6 +148,76 @@ func TestResolveSessionID_GeneratesCLI(t *testing.T) {
 	_ = fmt.Sprintf("cli-PID-TS format: %q", result)
 }
 
+// --- HarnessNativeEnvSessionID tests ---
+
+// TestHarnessNativeEnvSessionID verifies the canonical harness-native session-id
+// resolver: WIPNOTE_HARNESS selects the right env var, and Claude / no-harness
+// both fall through to "" so callers can then consult WIPNOTE_SESSION_ID.
+func TestHarnessNativeEnvSessionID(t *testing.T) {
+	tests := []struct {
+		name         string
+		harness      string
+		codexThread  string
+		geminiSess   string
+		antigravSess string
+		want         string
+	}{
+		{
+			name:        "codex: CODEX_THREAD_ID returned",
+			harness:     "codex",
+			codexThread: "codex-thread-abc",
+			want:        "codex-thread-abc",
+		},
+		{
+			name:       "gemini: GEMINI_SESSION_ID returned",
+			harness:    "gemini",
+			geminiSess: "gemini-sess-xyz",
+			want:       "gemini-sess-xyz",
+		},
+		{
+			name:         "antigravity: ANTIGRAVITY_SESSION_ID returned",
+			harness:      "antigravity",
+			antigravSess: "antigravity-live-456",
+			want:         "antigravity-live-456",
+		},
+		{
+			name:    "claude harness: returns empty (falls through to WIPNOTE_SESSION_ID)",
+			harness: "claude",
+			want:    "",
+		},
+		{
+			name:    "no harness set: returns empty",
+			harness: "",
+			want:    "",
+		},
+		{
+			name:        "codex with empty CODEX_THREAD_ID: returns empty",
+			harness:     "codex",
+			codexThread: "",
+			want:        "",
+		},
+		{
+			name:        "whitespace-only CODEX_THREAD_ID is trimmed to empty",
+			harness:     "codex",
+			codexThread: "   ",
+			want:        "",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Setenv("WIPNOTE_HARNESS", tc.harness)
+			t.Setenv("CODEX_THREAD_ID", tc.codexThread)
+			t.Setenv("GEMINI_SESSION_ID", tc.geminiSess)
+			t.Setenv("ANTIGRAVITY_SESSION_ID", tc.antigravSess)
+			got := agent.HarnessNativeEnvSessionID()
+			if got != tc.want {
+				t.Errorf("HarnessNativeEnvSessionID() = %q, want %q", got, tc.want)
+			}
+		})
+	}
+}
+
 // --- NormaliseSessionID tests ---
 
 func TestNormaliseSessionID_PlainUUID(t *testing.T) {

@@ -99,8 +99,100 @@ func TestCheckSubagentCommitGuard_SubagentOnMain(t *testing.T) {
 		}
 	})
 
-	// Non-Bash tool → always allowed.
-	t.Run("non_bash_tool_is_allowed", func(t *testing.T) {
+	// Gemini run_shell_command → should be blocked (cross-harness coverage).
+	t.Run("gemini_run_shell_command_is_blocked", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		if err := initTestGitRepoOnBranch(t, tmpDir, "main"); err != nil {
+			t.Skipf("cannot init git repo: %v", err)
+		}
+		commitEvent := &CloudEvent{
+			ToolName:  "run_shell_command",
+			SessionID: "sub-sess-abc12345",
+			CWD:       tmpDir,
+			ToolInput: map[string]any{
+				"command": "git commit -m \"test commit\"",
+			},
+		}
+		reason := checkSubagentCommitGuard(commitEvent, "parent-sess-xyz", tmpDir)
+		if reason == "" {
+			t.Fatal("expected sub-agent commit via run_shell_command on main to be blocked, but it was allowed")
+		}
+		if !strings.Contains(reason, "blocked") {
+			t.Errorf("expected 'blocked' in reason, got: %q", reason)
+		}
+	})
+
+	// Antigravity run_command → should be blocked (cross-harness coverage).
+	t.Run("antigravity_run_command_is_blocked", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		if err := initTestGitRepoOnBranch(t, tmpDir, "main"); err != nil {
+			t.Skipf("cannot init git repo: %v", err)
+		}
+		commitEvent := &CloudEvent{
+			ToolName:  "run_command",
+			SessionID: "sub-sess-abc12345",
+			CWD:       tmpDir,
+			ToolInput: map[string]any{
+				"command": "git commit -m \"test commit\"",
+			},
+		}
+		reason := checkSubagentCommitGuard(commitEvent, "parent-sess-xyz", tmpDir)
+		if reason == "" {
+			t.Fatal("expected sub-agent commit via run_command on main to be blocked, but it was allowed")
+		}
+		if !strings.Contains(reason, "blocked") {
+			t.Errorf("expected 'blocked' in reason, got: %q", reason)
+		}
+	})
+
+	// Codex exec_command with "cmd" key → should be blocked (cross-harness coverage).
+	t.Run("codex_exec_command_is_blocked", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		if err := initTestGitRepoOnBranch(t, tmpDir, "main"); err != nil {
+			t.Skipf("cannot init git repo: %v", err)
+		}
+		commitEvent := &CloudEvent{
+			ToolName:  "exec_command",
+			SessionID: "sub-sess-abc12345",
+			CWD:       tmpDir,
+			ToolInput: map[string]any{
+				"cmd": "git commit -m \"test commit\"",
+			},
+		}
+		reason := checkSubagentCommitGuard(commitEvent, "parent-sess-xyz", tmpDir)
+		if reason == "" {
+			t.Fatal("expected sub-agent commit via exec_command on main to be blocked, but it was allowed")
+		}
+		if !strings.Contains(reason, "blocked") {
+			t.Errorf("expected 'blocked' in reason, got: %q", reason)
+		}
+	})
+
+	// Codex functions.exec_command with "cmd" key → should be blocked (cross-harness coverage).
+	t.Run("codex_functions_exec_command_is_blocked", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		if err := initTestGitRepoOnBranch(t, tmpDir, "main"); err != nil {
+			t.Skipf("cannot init git repo: %v", err)
+		}
+		commitEvent := &CloudEvent{
+			ToolName:  "functions.exec_command",
+			SessionID: "sub-sess-abc12345",
+			CWD:       tmpDir,
+			ToolInput: map[string]any{
+				"cmd": "git commit -m \"test commit\"",
+			},
+		}
+		reason := checkSubagentCommitGuard(commitEvent, "parent-sess-xyz", tmpDir)
+		if reason == "" {
+			t.Fatal("expected sub-agent commit via functions.exec_command on main to be blocked, but it was allowed")
+		}
+		if !strings.Contains(reason, "blocked") {
+			t.Errorf("expected 'blocked' in reason, got: %q", reason)
+		}
+	})
+
+	// Non-shell tool → always allowed.
+	t.Run("non_shell_tool_is_allowed", func(t *testing.T) {
 		tmpDir := t.TempDir()
 		if err := initTestGitRepoOnBranch(t, tmpDir, "main"); err != nil {
 			t.Skipf("cannot init git repo: %v", err)
@@ -116,7 +208,7 @@ func TestCheckSubagentCommitGuard_SubagentOnMain(t *testing.T) {
 		}
 		reason := checkSubagentCommitGuard(writeEvent, "parent-sess-xyz", tmpDir)
 		if reason != "" {
-			t.Errorf("expected non-Bash tool to be allowed, got: %q", reason)
+			t.Errorf("expected non-shell tool to be allowed, got: %q", reason)
 		}
 	})
 

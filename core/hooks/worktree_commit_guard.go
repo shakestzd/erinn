@@ -22,10 +22,10 @@ var agentBranchPrefixes = []string{"worktree-agent-", "subagent-"}
 //   - WIPNOTE_AGENT_BRANCH=1 env var is set → explicitly authorised → allow.
 //   - Branch is not main or master → allow.
 func checkSubagentCommitGuard(event *CloudEvent, parentSessionID string, projectDir string) string {
-	if event.ToolName != "Bash" {
+	if !isShellTool(event.ToolName) {
 		return ""
 	}
-	cmd, _ := event.ToolInput["command"].(string)
+	cmd := shellCommand(event.ToolInput)
 	if !gitCommitPattern.MatchString(cmd) {
 		return ""
 	}

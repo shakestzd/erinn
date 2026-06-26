@@ -1103,6 +1103,14 @@ func buildInClause(ids []string) (string, []any) {
 	return "(" + strings.Join(placeholders, ", ") + ")", args
 }
 
+// researchShellToolNamesSQL is the SQL IN-list fragment for all harness shell
+// tool names that can carry research reads: Bash (Claude Code), exec_command
+// and functions.exec_command (Codex), run_shell_command (Gemini),
+// run_command (Antigravity — Antigravity translates run_shell_command to
+// run_command in its agent manifests). Used in both buildResearchQuery and
+// buildWebResearchQuery so the two stay in lockstep (issue #144).
+const researchShellToolNamesSQL = `'Bash', 'exec_command', 'functions.exec_command', 'run_shell_command', 'run_command'`
+
 // buildResearchQuery builds the research detection SQL and its argument slice.
 // It matches Read/Grep/Glob (and equivalents) plus web/docs/GitHub research
 // (WebSearch/WebFetch and `gh ...`) under any of the related session IDs, and
@@ -1127,7 +1135,7 @@ func buildResearchQuery(inClause string, inArgs []any, useAgentID bool, agentID,
 				'read_file', 'grep_search', 'glob', 'list_directory',
 				'web_fetch', 'web_search', 'google_web_search'
 			) OR (
-				tool_name = 'Bash' AND (
+				tool_name IN (`+researchShellToolNamesSQL+`) AND (
 					input_summary LIKE 'ls %%' OR input_summary = 'ls'
 					OR input_summary LIKE 'find %%'
 					OR input_summary LIKE 'cat %%'
@@ -1136,6 +1144,9 @@ func buildResearchQuery(inClause string, inArgs []any, useAgentID bool, agentID,
 					OR input_summary LIKE 'tail %%'
 					OR input_summary LIKE 'stat %%'
 					OR input_summary LIKE 'gh %%'
+					OR input_summary LIKE 'curl %%'
+					OR input_summary LIKE 'wipnote sh %%'
+					OR input_summary LIKE 'wipnote search %%'
 				)
 			)
 		  )
@@ -1153,8 +1164,8 @@ func buildResearchQuery(inClause string, inArgs []any, useAgentID bool, agentID,
 // The web tool-name list is kept in lockstep with isOrchestratorResearchTool
 // (which classifies the same tools as web/docs research), and the shell-tool
 // list with isShellTool, so a session that researched via Codex's web.* tools or
-// ran `gh search` through exec_command/functions.exec_command is not falsely
-// blocked (roborev #563/#566/#570).
+// ran `gh search` through exec_command/functions.exec_command/run_shell_command
+// is not falsely blocked (roborev #563/#566/#570, issue #144).
 func buildWebResearchQuery(inClause string, inArgs []any, useAgentID bool, agentID, projectDir string) (string, []any) {
 	sessionFilter, args := sessionOrAgentFilter(inClause, inArgs, useAgentID, agentID, projectDir)
 	query := fmt.Sprintf(`
@@ -1166,7 +1177,7 @@ func buildWebResearchQuery(inClause string, inArgs []any, useAgentID bool, agent
 				'web_search', 'web_fetch', 'google_web_search',
 				'web.search_query', 'web.open', 'web.find', 'web.click'
 			) OR (
-				tool_name IN ('Bash', 'exec_command', 'functions.exec_command')
+				tool_name IN (`+researchShellToolNamesSQL+`)
 				AND input_summary LIKE 'gh %%'
 			)
 		  )

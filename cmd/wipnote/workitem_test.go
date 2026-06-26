@@ -2142,9 +2142,9 @@ func TestLearningNonFatal_InvalidKind(t *testing.T) {
 		t.Fatalf("start feature: %v", err)
 	}
 
-	// Create a valid learning body (120 words, within limit).
-	validBody := strings.Repeat("word ", 120)
-	validBody = strings.TrimSpace(validBody)
+	// Create a learning body with shell metacharacters to test proper quoting/escaping.
+	// This body will be quoted by shellQuote (unlike the safe slug and id).
+	validBody := `danger; rm -rf $HOME && echo "pwned"` // contains ; space $ & " which are unsafe
 
 	// Set the global wiLearning flag to the valid body but use an INVALID kind.
 	defer func() {
@@ -2195,10 +2195,38 @@ func TestLearningNonFatal_InvalidKind(t *testing.T) {
 		t.Errorf("remediation command should contain --kind decision as a valid default; stderr: %s", stderrStr)
 	}
 
-	// 3. Verify shell safety: the slug and body should be properly quoted.
-	// The command should have wipnote arch add (slug) --kind decision --body (body) --paths (id)
-	// All user-derived values should be quoted.
+	// 3. Should use --links for the work item ID (not --paths which is for file globs).
+	if strings.Contains(stderrStr, "--paths") {
+		t.Errorf("remediation command should NOT use --paths for work item ID; stderr: %s", stderrStr)
+	}
+	if !strings.Contains(stderrStr, "--links") {
+		t.Errorf("remediation command should use --links for work item ID; stderr: %s", stderrStr)
+	}
+
+	// 4. Verify shell safety: the body (which contains metacharacters) should be properly quoted.
+	// shellQuote only quotes when input contains unsafe characters; the slug and id are safe,
+	// so they appear unquoted. The body contains shell metacharacters and must be quoted/escaped.
 	if !strings.Contains(stderrStr, "wipnote arch add") {
 		t.Errorf("remediation command should contain 'wipnote arch add'; stderr: %s", stderrStr)
+	}
+
+	// Slug is "learning-" + featID (all safe chars) — should appear UNQUOTED.
+	expectedSlugUnquoted := "learning-" + featID
+	if !strings.Contains(stderrStr, expectedSlugUnquoted) {
+		t.Errorf("remediation command should contain unquoted slug %q; stderr: %s", expectedSlugUnquoted, stderrStr)
+	}
+
+	// Work item ID (all safe chars) should appear UNQUOTED after --links.
+	// (Verify it's there; we don't need to separately check it's unquoted since safe values are never quoted.)
+	if !strings.Contains(stderrStr, "--links "+featID) {
+		t.Errorf("remediation command should contain --links %s; stderr: %s", featID, stderrStr)
+	}
+
+	// The learning body contains shell metacharacters (;, $, &, ", spaces) and must be quoted.
+	// shellQuote wraps it in single quotes and escapes internal single quotes as '\"'\"'.
+	// Our test body contains no single quotes, so the expected form is simply single-quoted.
+	expectedBodyQuoted := `'danger; rm -rf $HOME && echo "pwned"'`
+	if !strings.Contains(stderrStr, expectedBodyQuoted) {
+		t.Errorf("remediation command should contain properly quoted body %q; stderr: %s", expectedBodyQuoted, stderrStr)
 	}
 }

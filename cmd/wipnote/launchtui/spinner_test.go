@@ -9,9 +9,9 @@ import (
 )
 
 // TestRunWithSpinner_NonTTYPassthrough verifies the graceful-degrade contract:
-// off a TTY, RunWithSpinner emits the label as a static line and calls fn with
-// the caller's writer directly. No animation or spinner glyphs are added, but the
-// label and fn output both appear (feat-e97607b3, bug-7be9b180).
+// off a TTY, RunWithSpinner calls fn, then emits a plain (no ANSI) ✓ or ✗
+// resolution line. fn's output and the resolution line both appear; no lipgloss
+// color codes are emitted (feat-e97607b3, bug-7be9b180, roborev-605).
 func TestRunWithSpinner_NonTTYPassthrough(t *testing.T) {
 	var buf bytes.Buffer
 	calls := 0
@@ -27,21 +27,25 @@ func TestRunWithSpinner_NonTTYPassthrough(t *testing.T) {
 		t.Fatalf("fn should be called exactly once, got %d", calls)
 	}
 	output := buf.String()
-	// The output should now contain both the label line and fn's output
+	// Both fn output and the resolution label must appear.
 	if !strings.Contains(output, "Preparing worktree") {
 		t.Errorf("off-TTY output must include the label; got %q", output)
 	}
 	if !strings.Contains(output, "Worktree: /tmp/wt (branch: feat-x)") {
 		t.Errorf("off-TTY output must include fn's output; got %q", output)
 	}
-	// The label should be prefixed with ✓ to match TTY resolution style
+	// Resolution label must be ✓ (success) and ANSI-free.
 	if !strings.Contains(output, "✓ Preparing worktree") {
-		t.Errorf("off-TTY label should be prefixed with ✓; got %q", output)
+		t.Errorf("off-TTY resolution label should be prefixed with ✓; got %q", output)
+	}
+	if strings.ContainsAny(output, "\x1b") {
+		t.Errorf("off-TTY output must not contain ANSI escape sequences; got %q", output)
 	}
 }
 
 // TestRunWithSpinner_NonTTYErrorPropagates verifies fn's error is returned
-// unchanged and fn's output still passes through.
+// unchanged, fn's output passes through, and a ✗ resolution line is emitted
+// (not ✓ — failed operations must not get a misleading success mark in CI logs).
 func TestRunWithSpinner_NonTTYErrorPropagates(t *testing.T) {
 	var buf bytes.Buffer
 	sentinel := errors.New("worktree add failed")
@@ -52,14 +56,21 @@ func TestRunWithSpinner_NonTTYErrorPropagates(t *testing.T) {
 	if !errors.Is(err, sentinel) {
 		t.Fatalf("expected sentinel error to propagate, got %v", err)
 	}
-	if !strings.Contains(buf.String(), "Warning: boom") {
-		t.Errorf("fn output should still pass through on error; got %q", buf.String())
+	output := buf.String()
+	if !strings.Contains(output, "Warning: boom") {
+		t.Errorf("fn output should still pass through on error; got %q", output)
+	}
+	if !strings.Contains(output, "✗ Preparing worktree") {
+		t.Errorf("off-TTY error path must emit ✗ resolution label; got %q", output)
+	}
+	if strings.Contains(output, "✓ Preparing worktree") {
+		t.Errorf("off-TTY error path must NOT emit ✓ (success) label; got %q", output)
 	}
 }
 
 // TestRunWithSpinner_NonTTYEmitsLabel verifies that on a non-TTY writer,
-// RunWithSpinner emits the label as a static line (with ✓ prefix) before
-// calling fn, even when fn produces no output (bug-7be9b180).
+// RunWithSpinner emits a plain ✓/✗ resolution line even when fn produces no
+// output, and that the output contains no ANSI escape sequences (roborev-605).
 func TestRunWithSpinner_NonTTYEmitsLabel(t *testing.T) {
 	tests := []struct {
 		name  string
@@ -84,6 +95,9 @@ func TestRunWithSpinner_NonTTYEmitsLabel(t *testing.T) {
 			expected := "✓ " + tt.label
 			if !strings.Contains(output, expected) {
 				t.Errorf("off-TTY output must contain label line %q; got %q", expected, output)
+			}
+			if strings.ContainsAny(output, "\x1b") {
+				t.Errorf("off-TTY output must not contain ANSI escape sequences; got %q", output)
 			}
 		})
 	}

@@ -313,16 +313,25 @@ func NormaliseSessionID(raw string) string {
 	return agent.NormaliseSessionID(raw)
 }
 
-// EnvSessionID returns the current session ID using a three-step fallback:
+// EnvSessionID returns the current session ID using a four-step fallback:
 //  1. CloudEvent session_id (always correct for hook invocations)
-//  2. WIPNOTE_SESSION_ID env var (for CLI commands without a CloudEvent)
-//  3. .wipnote/.active-session file (last resort for edge cases)
+//  2. Harness-native live ID (CODEX_THREAD_ID / GEMINI_SESSION_ID /
+//     ANTIGRAVITY_SESSION_ID), preferred over WIPNOTE_SESSION_ID when a
+//     non-Claude harness launcher is detected via WIPNOTE_HARNESS, because
+//     WIPNOTE_SESSION_ID may carry a stale ID inherited from a parent Claude
+//     orchestrator shell (issue #144). Delegates to agent.HarnessNativeEnvSessionID.
+//  3. WIPNOTE_SESSION_ID env var (for CLI commands without a CloudEvent)
+//  4. .wipnote/.active-session file (last resort for edge cases)
 func EnvSessionID(eventSessionID string) string {
 	// CloudEvent session_id is always correct for this hook invocation.
 	// It takes priority over the env var, which can be overwritten by a
 	// concurrent subagent's writeEnvVars call.
 	if sid := agent.NormaliseSessionID(eventSessionID); sid != "" {
 		return sid
+	}
+	// Prefer harness-native live ID over a (possibly stale) WIPNOTE_SESSION_ID.
+	if v := agent.HarnessNativeEnvSessionID(); v != "" {
+		return v
 	}
 	// Env var fallback — used by CLI commands that don't have a CloudEvent.
 	if v := os.Getenv("WIPNOTE_SESSION_ID"); v != "" {

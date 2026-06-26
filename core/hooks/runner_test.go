@@ -5,6 +5,86 @@ import (
 	"testing"
 )
 
+// TestEnvSessionID_HarnessAware verifies that EnvSessionID picks the
+// harness-native live session ID over a stale WIPNOTE_SESSION_ID when
+// WIPNOTE_HARNESS indicates a non-Claude harness (issue #144).
+func TestEnvSessionID_HarnessAware(t *testing.T) {
+	// Clear any leaked vars from the ambient test environment.
+	t.Setenv("CLAUDE_CODE_SESSION_ID", "")
+	t.Setenv("WIPNOTE_PARENT_SESSION", "")
+	t.Setenv("NESTING_DEPTH", "")
+
+	stale := "stale-wipnote-session"
+
+	tests := []struct {
+		name         string
+		harness      string
+		codexThread  string
+		geminiSess   string
+		antigravSess string
+		wipnoteID    string
+		explicitArg  string
+		want         string
+	}{
+		{
+			name:        "Codex: CODEX_THREAD_ID wins over stale WIPNOTE_SESSION_ID",
+			harness:     "codex",
+			codexThread: "codex-thread-live-abc123",
+			wipnoteID:   stale,
+			want:        "codex-thread-live-abc123",
+		},
+		{
+			name:       "Gemini: GEMINI_SESSION_ID wins over stale WIPNOTE_SESSION_ID",
+			harness:    "gemini",
+			geminiSess: "gemini-live-session-xyz",
+			wipnoteID:  stale,
+			want:       "gemini-live-session-xyz",
+		},
+		{
+			name:         "Antigravity: ANTIGRAVITY_SESSION_ID wins over stale WIPNOTE_SESSION_ID",
+			harness:      "antigravity",
+			antigravSess: "antigravity-live-456",
+			wipnoteID:    stale,
+			want:         "antigravity-live-456",
+		},
+		{
+			name:      "Claude (no harness marker): falls through to WIPNOTE_SESSION_ID",
+			harness:   "claude",
+			wipnoteID: "wipnote-claude-session",
+			want:      "wipnote-claude-session",
+		},
+		{
+			name:      "No harness set: falls through to WIPNOTE_SESSION_ID",
+			harness:   "",
+			wipnoteID: "wipnote-only-session",
+			want:      "wipnote-only-session",
+		},
+		{
+			name:        "Explicit arg always wins (hook-path invariant)",
+			harness:     "codex",
+			codexThread: "codex-thread-live",
+			wipnoteID:   stale,
+			explicitArg: "explicit-event-session",
+			want:        "explicit-event-session",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Setenv("WIPNOTE_HARNESS", tc.harness)
+			t.Setenv("CODEX_THREAD_ID", tc.codexThread)
+			t.Setenv("GEMINI_SESSION_ID", tc.geminiSess)
+			t.Setenv("ANTIGRAVITY_SESSION_ID", tc.antigravSess)
+			t.Setenv("WIPNOTE_SESSION_ID", tc.wipnoteID)
+
+			got := EnvSessionID(tc.explicitArg)
+			if got != tc.want {
+				t.Errorf("EnvSessionID(%q) = %q, want %q", tc.explicitArg, got, tc.want)
+			}
+		})
+	}
+}
+
 func TestCloudEvent_AgentTeamsPayload(t *testing.T) {
 	payload := `{
 		"session_id": "sess-001",

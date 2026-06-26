@@ -11,6 +11,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"strings"
 	"time"
 )
 
@@ -93,6 +94,29 @@ func NormaliseSessionID(raw string) string {
 		return m
 	}
 	return raw
+}
+
+// HarnessNativeEnvSessionID returns the live session/thread ID stamped by the
+// current harness launcher. WIPNOTE_HARNESS is set to the harness name by the
+// wipnote launcher (codex, gemini, antigravity). When a non-Claude harness is
+// detected, the harness-native ID is preferred over WIPNOTE_SESSION_ID because
+// the latter may be inherited (stale) from a parent Claude orchestrator shell
+// (issue #144). Returns "" when no harness-native ID is found, or when running
+// under Claude (where WIPNOTE_SESSION_ID is always current via writeEnvVars).
+//
+// Precedence: CODEX_THREAD_ID → GEMINI_SESSION_ID → ANTIGRAVITY_SESSION_ID
+// depending on the value of WIPNOTE_HARNESS.
+func HarnessNativeEnvSessionID() string {
+	harness := strings.ToLower(strings.TrimSpace(os.Getenv("WIPNOTE_HARNESS")))
+	switch harness {
+	case "codex":
+		return strings.TrimSpace(os.Getenv("CODEX_THREAD_ID"))
+	case "gemini":
+		return strings.TrimSpace(os.Getenv("GEMINI_SESSION_ID"))
+	case "antigravity":
+		return strings.TrimSpace(os.Getenv("ANTIGRAVITY_SESSION_ID"))
+	}
+	return ""
 }
 
 func containsSlash(s string) bool {

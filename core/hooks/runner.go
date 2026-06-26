@@ -14,7 +14,6 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"strings"
 
 	"github.com/shakestzd/wipnote/core/agent"
 	"github.com/shakestzd/wipnote/core/db/writequeue"
@@ -314,33 +313,13 @@ func NormaliseSessionID(raw string) string {
 	return agent.NormaliseSessionID(raw)
 }
 
-// harnessNativeEnvSessionID returns the live session/thread ID stamped by the
-// current harness launcher. WIPNOTE_HARNESS is set to the harness name by the
-// wipnote launcher (codex, gemini, antigravity). When present, the harness-
-// native ID is preferred over WIPNOTE_SESSION_ID because the latter may be
-// inherited (stale) from a parent Claude orchestrator shell (issue #144).
-// Returns "" when no harness-native ID is found or when running under Claude
-// (where WIPNOTE_SESSION_ID is always current via writeEnvVars).
-func harnessNativeEnvSessionID() string {
-	harness := strings.ToLower(strings.TrimSpace(os.Getenv("WIPNOTE_HARNESS")))
-	switch harness {
-	case "codex":
-		return strings.TrimSpace(os.Getenv("CODEX_THREAD_ID"))
-	case "gemini":
-		return strings.TrimSpace(os.Getenv("GEMINI_SESSION_ID"))
-	case "antigravity":
-		return strings.TrimSpace(os.Getenv("ANTIGRAVITY_SESSION_ID"))
-	}
-	return ""
-}
-
 // EnvSessionID returns the current session ID using a four-step fallback:
 //  1. CloudEvent session_id (always correct for hook invocations)
 //  2. Harness-native live ID (CODEX_THREAD_ID / GEMINI_SESSION_ID /
 //     ANTIGRAVITY_SESSION_ID), preferred over WIPNOTE_SESSION_ID when a
 //     non-Claude harness launcher is detected via WIPNOTE_HARNESS, because
 //     WIPNOTE_SESSION_ID may carry a stale ID inherited from a parent Claude
-//     orchestrator shell (issue #144).
+//     orchestrator shell (issue #144). Delegates to agent.HarnessNativeEnvSessionID.
 //  3. WIPNOTE_SESSION_ID env var (for CLI commands without a CloudEvent)
 //  4. .wipnote/.active-session file (last resort for edge cases)
 func EnvSessionID(eventSessionID string) string {
@@ -351,7 +330,7 @@ func EnvSessionID(eventSessionID string) string {
 		return sid
 	}
 	// Prefer harness-native live ID over a (possibly stale) WIPNOTE_SESSION_ID.
-	if v := harnessNativeEnvSessionID(); v != "" {
+	if v := agent.HarnessNativeEnvSessionID(); v != "" {
 		return v
 	}
 	// Env var fallback — used by CLI commands that don't have a CloudEvent.

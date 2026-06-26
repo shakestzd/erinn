@@ -175,16 +175,18 @@ func resolveCurrentSessionIDs(projectRoot string) []string {
 	// during nested launches (for example Claude -> `wipnote codex --dev`), so
 	// it is a fallback, not the primary identity, when a launcher stamps a
 	// more specific harness marker.
+	//
+	// agent.HarnessNativeEnvSessionID() is the canonical shared implementation
+	// (WIPNOTE_HARNESS=codex→CODEX_THREAD_ID, gemini→GEMINI_SESSION_ID,
+	// antigravity→ANTIGRAVITY_SESSION_ID). Chooser-specific secondary IDs
+	// (WIPNOTE_OTEL_SESSION, CLAUDE_CODE_SESSION_ID, CLAUDE_SESSION_ID) are
+	// handled in the residual switch below.
 	currentHarness := strings.ToLower(strings.TrimSpace(os.Getenv(harnessEnvKey)))
+	if primaryID := agent.HarnessNativeEnvSessionID(); primaryID != "" {
+		nativeIDFound = add(primaryID) || nativeIDFound
+	}
 	switch currentHarness {
-	case harnessCodex:
-		nativeIDFound = add(os.Getenv("CODEX_THREAD_ID")) || nativeIDFound
-		nativeIDFound = add(os.Getenv("WIPNOTE_OTEL_SESSION")) || nativeIDFound
-	case harnessGemini:
-		nativeIDFound = add(os.Getenv("GEMINI_SESSION_ID")) || nativeIDFound
-		nativeIDFound = add(os.Getenv("WIPNOTE_OTEL_SESSION")) || nativeIDFound
-	case harnessAntigravity:
-		nativeIDFound = add(os.Getenv("ANTIGRAVITY_SESSION_ID")) || nativeIDFound
+	case harnessCodex, harnessGemini, harnessAntigravity:
 		nativeIDFound = add(os.Getenv("WIPNOTE_OTEL_SESSION")) || nativeIDFound
 	case harnessClaude:
 		nativeIDFound = add(os.Getenv("CLAUDE_CODE_SESSION_ID")) || nativeIDFound

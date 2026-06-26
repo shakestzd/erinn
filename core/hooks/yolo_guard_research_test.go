@@ -1,6 +1,7 @@
 package hooks
 
 import (
+	"fmt"
 	"testing"
 	"time"
 
@@ -348,5 +349,117 @@ func TestHasRecentResearch_AgentIDFallbackStillWorksRecent(t *testing.T) {
 	// Calling with this agent_id should return true because the Read is recent and in the same project.
 	if !hasRecentResearch(tdb.DB, sessID, agentID, ".") {
 		t.Error("expected hasRecentResearch=true: agent_id fallback should find recent events in the same project")
+	}
+}
+
+// TestHasRecentResearch_CrossHarnessShellTools verifies that shell reads
+// performed via non-Bash harness tool names (exec_command for Codex,
+// run_shell_command for Gemini) are credited as research (issue #144).
+// Also verifies that curl and wipnote sh/search count in all harnesses, while
+// non-research commands (rm, echo) still do NOT count.
+func TestHasRecentResearch_CrossHarnessShellTools(t *testing.T) {
+	cases := []struct {
+		name         string
+		toolName     string
+		inputSummary string
+		wantResearch bool
+	}{
+		// Codex shell tool with a read-like command.
+		{
+			name:         "Codex exec_command cat counts as research",
+			toolName:     "exec_command",
+			inputSummary: "cat foo.md",
+			wantResearch: true,
+		},
+		{
+			name:         "Codex functions.exec_command cat counts as research",
+			toolName:     "functions.exec_command",
+			inputSummary: "cat README.md",
+			wantResearch: true,
+		},
+		// Gemini shell tool with a read-like command.
+		{
+			name:         "Gemini run_shell_command grep counts as research",
+			toolName:     "run_shell_command",
+			inputSummary: "grep -rn foo /bar",
+			wantResearch: true,
+		},
+		{
+			name:         "Gemini run_shell_command ls counts as research",
+			toolName:     "run_shell_command",
+			inputSummary: "ls -la",
+			wantResearch: true,
+		},
+		// curl and wipnote sh/search via standard Bash.
+		{
+			name:         "Bash curl counts as research",
+			toolName:     "Bash",
+			inputSummary: "curl https://example.com/api",
+			wantResearch: true,
+		},
+		{
+			name:         "Bash wipnote sh counts as research",
+			toolName:     "Bash",
+			inputSummary: `wipnote sh "grep -rn foo ."`,
+			wantResearch: true,
+		},
+		{
+			name:         "Bash wipnote search counts as research",
+			toolName:     "Bash",
+			inputSummary: "wipnote search 'fn foo'",
+			wantResearch: true,
+		},
+		// Non-research shell commands must NOT count.
+		{
+			name:         "Bash rm does NOT count as research",
+			toolName:     "Bash",
+			inputSummary: "rm -rf /tmp/stuff",
+			wantResearch: false,
+		},
+		{
+			name:         "Bash echo does NOT count as research",
+			toolName:     "Bash",
+			inputSummary: "echo hello",
+			wantResearch: false,
+		},
+		{
+			name:         "exec_command rm does NOT count as research",
+			toolName:     "exec_command",
+			inputSummary: "rm file.txt",
+			wantResearch: false,
+		},
+		{
+			name:         "run_shell_command echo does NOT count as research",
+			toolName:     "run_shell_command",
+			inputSummary: "echo done",
+			wantResearch: false,
+		},
+	}
+
+	for i, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			tdb := setupTestDB(t)
+			defer tdb.DB.Close()
+
+			sessID := fmt.Sprintf("cross-harness-test-sess-%02d", i)
+			agentID := fmt.Sprintf("cross-harness-agent-%02d", i)
+
+			insertResearchTestSessionWithProject(t, tdb, sessID, "", ".")
+
+			// Insert the shell read event.
+			insertAgentEventFull(t, tdb, fmt.Sprintf("evt-shell-%02d", i), sessID, agentID, "tool_call", tc.toolName, tc.inputSummary)
+
+			// When wantResearch=false we also need a second tool_call so
+			// fail-open (zero tool_calls) does not mask the false-positive.
+			if !tc.wantResearch {
+				insertAgentEventFull(t, tdb, fmt.Sprintf("evt-other-%02d", i), sessID, agentID, "tool_call", "Write", "out.txt")
+			}
+
+			got := hasRecentResearch(tdb.DB, sessID, agentID, "")
+			if got != tc.wantResearch {
+				t.Errorf("hasRecentResearch for tool=%q cmd=%q = %v, want %v",
+					tc.toolName, tc.inputSummary, got, tc.wantResearch)
+			}
+		})
 	}
 }

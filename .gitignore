@@ -204,6 +204,9 @@ chrome/*.zip
 .tmp-gotest/
 tmp/go-tmp/
 tmp/gotmp.*/
+.gotest/
+.gotest-tmp/
+tmp/Test*/
 .build-cache/
 # Compiled Go test binaries (go test -c output); covers db.test, hooks.test, etc.
 *.test

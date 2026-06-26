@@ -736,9 +736,21 @@ func isBashFileWrite(event *CloudEvent) bool {
 	return bashFileWritePattern.MatchString(cmd)
 }
 
+// isShellTool reports whether toolName is the harness-native shell invocation
+// tool. Each harness uses a different name:
+//   - Claude Code: "Bash"
+//   - Codex: "exec_command" / "functions.exec_command"
+//   - Gemini: "run_shell_command"
+//   - Antigravity: "run_command" (Antigravity translates run_shell_command →
+//     run_command in its generated agent manifests)
+//
+// This predicate gates shell-only guards (dependency-research check, YOLO commit
+// check, shell file-write protection). Keep in sync with researchShellToolNamesSQL
+// in yolo_guard.go (issue #144).
 func isShellTool(toolName string) bool {
 	switch toolName {
-	case "Bash", "exec_command", "functions.exec_command":
+	case "Bash", "exec_command", "functions.exec_command",
+		"run_shell_command", "run_command":
 		return true
 	}
 	return false

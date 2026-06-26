@@ -35,19 +35,26 @@ func isTTYWriter(w io.Writer) bool {
 //   - On a TTY: the spinner animates on one line while fn runs in a goroutine;
 //     fn's output is captured and rendered as a composed block beneath a final
 //     ✓ / ✗ resolution line once fn returns.
-//   - Off a TTY (pipe, file, io.Discard, tests): NO animation and NO extra
-//     chrome — a static label line is emitted before fn is called with w directly.
-//     fn's output then follows. This preserves the operational signal (the label)
-//     while keeping log/CI output plain and readable (feat-e97607b3, bug-7be9b180).
+//   - Off a TTY (pipe, file, io.Discard, tests): NO animation and NO ANSI color —
+//     fn is called with w directly, then a plain (no lipgloss, no ANSI) ✓ or ✗
+//     resolution line is emitted based on fn's actual return value. Emitting after
+//     fn means failed operations never get a premature success mark in CI logs
+//     (feat-e97607b3, bug-7be9b180, roborev-605).
 //
 // The spinner uses bubbles/spinner frame data driven by a plain ticker rather
 // than a full bubbletea program, so it never enters raw mode or the alternate
 // screen and cannot disturb the terminal state the launched harness inherits.
 func RunWithSpinner(w io.Writer, label string, fn func(io.Writer) error) error {
 	if !isTTYWriter(w) {
-		s := NewStyles()
-		fmt.Fprintln(w, s.StatusGreen.Render("✓ "+label))
-		return fn(w)
+		// Non-TTY: run fn first so its output appears before the status line,
+		// then emit a plain (no ANSI, no lipgloss) ✓/✗ line based on the result.
+		err := fn(w)
+		if err != nil {
+			fmt.Fprintln(w, "✗ "+label)
+		} else {
+			fmt.Fprintln(w, "✓ "+label)
+		}
+		return err
 	}
 
 	s := NewStyles()

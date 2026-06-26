@@ -409,6 +409,19 @@ func TestHasRecentResearch_CrossHarnessShellTools(t *testing.T) {
 			inputSummary: "wipnote search 'fn foo'",
 			wantResearch: true,
 		},
+		// Antigravity shell tool (run_command) with a read-like command.
+		{
+			name:         "Antigravity run_command cat counts as research",
+			toolName:     "run_command",
+			inputSummary: "cat AGENTS.md",
+			wantResearch: true,
+		},
+		{
+			name:         "Antigravity run_command grep counts as research",
+			toolName:     "run_command",
+			inputSummary: "grep -rn SessionID core/",
+			wantResearch: true,
+		},
 		// Non-research shell commands must NOT count.
 		{
 			name:         "Bash rm does NOT count as research",
@@ -432,6 +445,12 @@ func TestHasRecentResearch_CrossHarnessShellTools(t *testing.T) {
 			name:         "run_shell_command echo does NOT count as research",
 			toolName:     "run_shell_command",
 			inputSummary: "echo done",
+			wantResearch: false,
+		},
+		{
+			name:         "Antigravity run_command rm does NOT count as research",
+			toolName:     "run_command",
+			inputSummary: "rm -rf build/",
 			wantResearch: false,
 		},
 	}

@@ -1105,10 +1105,11 @@ func buildInClause(ids []string) (string, []any) {
 
 // researchShellToolNamesSQL is the SQL IN-list fragment for all harness shell
 // tool names that can carry research reads: Bash (Claude Code), exec_command
-// and functions.exec_command (Codex), run_shell_command (Gemini). Used in both
-// buildResearchQuery and buildWebResearchQuery so the two stay in lockstep
-// (issue #144).
-const researchShellToolNamesSQL = `'Bash', 'exec_command', 'functions.exec_command', 'run_shell_command'`
+// and functions.exec_command (Codex), run_shell_command (Gemini),
+// run_command (Antigravity — Antigravity translates run_shell_command to
+// run_command in its agent manifests). Used in both buildResearchQuery and
+// buildWebResearchQuery so the two stay in lockstep (issue #144).
+const researchShellToolNamesSQL = `'Bash', 'exec_command', 'functions.exec_command', 'run_shell_command', 'run_command'`
 
 // buildResearchQuery builds the research detection SQL and its argument slice.
 // It matches Read/Grep/Glob (and equivalents) plus web/docs/GitHub research

@@ -2195,10 +2195,27 @@ func TestLearningNonFatal_InvalidKind(t *testing.T) {
 		t.Errorf("remediation command should contain --kind decision as a valid default; stderr: %s", stderrStr)
 	}
 
-	// 3. Verify shell safety: the slug and body should be properly quoted.
-	// The command should have wipnote arch add (slug) --kind decision --body (body) --paths (id)
-	// All user-derived values should be quoted.
+	// 3. Should use --links for the work item ID (not --paths which is for file globs).
+	if strings.Contains(stderrStr, "--paths") {
+		t.Errorf("remediation command should NOT use --paths for work item ID; stderr: %s", stderrStr)
+	}
+	if !strings.Contains(stderrStr, "--links") {
+		t.Errorf("remediation command should use --links for work item ID; stderr: %s", stderrStr)
+	}
+
+	// 4. Verify shell safety: the slug and body should be properly quoted.
+	// shellQuote wraps values in single-quotes; check that the slug and id are quoted.
 	if !strings.Contains(stderrStr, "wipnote arch add") {
 		t.Errorf("remediation command should contain 'wipnote arch add'; stderr: %s", stderrStr)
+	}
+	// Slug is "learning-" + featID — verify it appears single-quoted.
+	expectedSlugQuoted := "'learning-" + featID + "'"
+	if !strings.Contains(stderrStr, expectedSlugQuoted) {
+		t.Errorf("remediation command should contain quoted slug %q; stderr: %s", expectedSlugQuoted, stderrStr)
+	}
+	// Work item ID should appear quoted via --links.
+	expectedIDQuoted := "'"+featID+"'"
+	if !strings.Contains(stderrStr, expectedIDQuoted) {
+		t.Errorf("remediation command should contain quoted id %q after --links; stderr: %s", expectedIDQuoted, stderrStr)
 	}
 }

@@ -576,11 +576,12 @@ func wiSetStatusWithAgent(typeName, id, status, sessionID, agentID string) error
 			// The correct way to attach a learning post-completion is via
 			// "wipnote arch add", not a non-existent "<type> edit --learning".
 			// Use a known-valid default kind (decision) in the remediation command.
+			// --links accepts work item IDs; --paths accepts file glob patterns.
 			slug := "learning-" + id
 			fmt.Fprintf(os.Stderr,
 				"warning: --learning validation failed (learning NOT attached): %v\n"+
 					"learning body was: %q\n"+
-					"to attach a valid learning, run:\n  wipnote arch add %s --kind decision --body %s --paths %s --created-by wipnote-completion\n",
+					"to attach a valid learning, run:\n  wipnote arch add %s --kind decision --body %s --links %s --created-by wipnote-completion\n",
 				validationErr,
 				learningBody,
 				shellQuote(slug),

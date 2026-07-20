@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>commit-queue accumulates dead-lettered items silently, no inspect/clear path (#155)</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="bug-fedc5d5c"
+             data-type="bug"
+             data-status="in-progress"
+             data-priority="medium"
+             data-created="2026-07-20T05:23:29.157356"
+             data-updated="2026-07-20T05:30:04.71278" data-agent-assigned="claude-code" data-track-id="trk-fae39e29" data-created-by-agent="claude-code" data-created-by-model="claude-opus-4-8[1m]" data-created-by-cli-version="0.67.1">
+
+        <header>
+            <h1>commit-queue accumulates dead-lettered items silently, no inspect/clear path (#155)</h1>
+            <div class="metadata">
+                <span class="badge status-in-progress">In Progress</span>
+                <span class="badge priority-medium">Medium Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="implemented_in">
+                <h3>Implemented In:</h3>
+                <ul>
+                    <li><a href="../sessions/e6cdc308-d376-4020-a12e-be4b261d1bd9.html" data-relationship="implemented_in" data-since="2026-07-20T05:30:04.712683">session e6cdc308-d376-4020-a12e-be4b261d1bd9</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="caused_by">
+                <h3>Caused By:</h3>
+                <ul>
+                    <li><a href="../features/feat-695bcab9.html" data-relationship="caused_by" data-since="2026-07-20T05:25:34.000881">Policy-aware deferred work-item artifact commits</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-fae39e29.html" data-relationship="part_of" data-since="2026-07-20T05:23:29.167859">trk-fae39e29</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="relates_to">
+                <h3>Relates To:</h3>
+                <ul>
+                    <li><a href="../features/feat-695bcab9.html" data-relationship="relates_to" data-since="2026-07-20T05:23:46.234736">Policy-aware deferred work-item artifact commits</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>GitHub #155: With defer policy, commit-queue flush reports a steady non-zero dead-letter-depth (e.g. 7) with no reason and no way to inspect/retry/clear. Provide inspect + retry/clear commands for the dead-letter queue and warn when depth is non-zero or growing.</p>
+        </section>
+    </article>
+</body>
+</html>

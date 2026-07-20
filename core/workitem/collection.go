@@ -508,6 +508,60 @@ func (c *Collection) CompleteTaskStep(id, taskID string) error {
 	return nil
 }
 
+// CompleteStep marks a manual step as completed by 1-based index, or completes the
+// next incomplete step if stepNum is 0. No-op if the step is already complete.
+// Returns a clean error if stepNum is out of range.
+// Also updates SQLite step counters (best-effort, HTML is canonical).
+func (c *Collection) CompleteStep(id string, stepNum int) error {
+	modified := false
+	var total, completed int
+	_, err := c.mutateNode(id, func(node *models.Node) error {
+		if len(node.Steps) == 0 {
+			return fmt.Errorf("no steps defined")
+		}
+
+		// If stepNum is 0, find the next incomplete step
+		targetIdx := stepNum
+		if stepNum == 0 {
+			targetIdx = -1
+			for i := range node.Steps {
+				if !node.Steps[i].Completed {
+					targetIdx = i + 1 // Convert to 1-based
+					break
+				}
+			}
+			if targetIdx == -1 {
+				return fmt.Errorf("all steps already complete")
+			}
+		}
+
+		// Validate step index (1-based)
+		if targetIdx < 1 || targetIdx > len(node.Steps) {
+			return fmt.Errorf("step %d out of range (1-%d)", targetIdx, len(node.Steps))
+		}
+
+		// Convert to 0-based index
+		idx := targetIdx - 1
+		if !node.Steps[idx].Completed {
+			node.Steps[idx].Completed = true
+			node.Steps[idx].Agent = c.base.Agent
+			node.Steps[idx].Timestamp = time.Now().UTC()
+			modified = true
+			node.UpdatedAt = time.Now().UTC()
+		}
+		total, completed = countSteps(node.Steps)
+		return nil
+	}, func(*models.Node) {
+		if modified && c.base.DB != nil {
+			_ = dbpkg.UpdateFeatureSteps(c.base.DB, id, total, completed)
+		}
+	})
+	if err != nil {
+		return fmt.Errorf("complete step %s: %w", id, err)
+	}
+	return nil
+}
+
 // countSteps returns the total and completed step counts for a step slice.
 func countSteps(steps []models.Step) (total, completed int) {
 	total = len(steps)

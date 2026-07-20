@@ -16,6 +16,7 @@ type WorkItemOptions struct {
 	AddStep          Factory
 	AddTaskStep      Factory
 	CompleteTaskStep Factory
+	CompleteStep     Factory
 	Update           Factory
 	SetDescription   Factory
 	Move             Factory
@@ -37,6 +38,7 @@ func BuildWorkItemCommand(opts WorkItemOptions) *cobra.Command {
 		opts.AddStep,
 		opts.AddTaskStep,
 		opts.CompleteTaskStep,
+		opts.CompleteStep,
 		opts.Update,
 		opts.SetDescription,
 	)

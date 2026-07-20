@@ -23,6 +23,7 @@ func TestBuildWorkItemCommand_AddsStandardSubcommands(t *testing.T) {
 		AddStep:          named("add-step"),
 		AddTaskStep:      named("add-task-step"),
 		CompleteTaskStep: named("complete-task-step"),
+		CompleteStep:     named("complete-step"),
 		Update:           named("update"),
 		SetDescription:   named("set-description"),
 		Move:             named("move"),
@@ -30,7 +31,7 @@ func TestBuildWorkItemCommand_AddsStandardSubcommands(t *testing.T) {
 
 	for _, sub := range []string{
 		"create", "list", "show", "start", "complete", "delete",
-		"add-step", "add-task-step", "complete-task-step", "update",
+		"add-step", "add-task-step", "complete-task-step", "complete-step", "update",
 		"set-description", "move",
 	} {
 		if findSubcommand(cmd, sub) == nil {

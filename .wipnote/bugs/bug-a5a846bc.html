@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>check --gate blocked by unrelated deferred commit intents (#150)</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="bug-a5a846bc"
+             data-type="bug"
+             data-status="in-progress"
+             data-priority="medium"
+             data-created="2026-07-20T05:23:28.929919"
+             data-updated="2026-07-20T05:29:41.755128" data-agent-assigned="claude-code" data-track-id="trk-fae39e29" data-created-by-agent="claude-code" data-created-by-model="claude-opus-4-8[1m]" data-created-by-cli-version="0.67.1">
+
+        <header>
+            <h1>check --gate blocked by unrelated deferred commit intents (#150)</h1>
+            <div class="metadata">
+                <span class="badge status-in-progress">In Progress</span>
+                <span class="badge priority-medium">Medium Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-fae39e29.html" data-relationship="part_of" data-since="2026-07-20T05:23:28.943741">trk-fae39e29</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="relates_to">
+                <h3>Relates To:</h3>
+                <ul>
+                    <li><a href="../features/feat-695bcab9.html" data-relationship="relates_to" data-since="2026-07-20T05:23:46.199137">Policy-aware deferred work-item artifact commits</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="caused_by">
+                <h3>Caused By:</h3>
+                <ul>
+                    <li><a href="../features/feat-723af8ef.html" data-relationship="caused_by" data-since="2026-07-20T05:25:33.797263">Extract quality and completion gate runners</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="implemented_in">
+                <h3>Implemented In:</h3>
+                <ul>
+                    <li><a href="../sessions/e6cdc308-d376-4020-a12e-be4b261d1bd9.html" data-relationship="implemented_in" data-since="2026-07-20T05:29:41.755031">session e6cdc308-d376-4020-a12e-be4b261d1bd9</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>GitHub #150: With defer artifact-commit policy, &#39;wipnote check --gate&#39; fails with &#39;quality gate blocked by N unresolved deferred work-item artifact commit intent(s)&#39; where the queue includes old unrelated items. Scope the gate to the current work item; report repo-wide queue health as separate advisory, not a blocker.</p>
+        </section>
+    </article>
+</body>
+</html>

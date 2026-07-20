@@ -278,7 +278,7 @@ func TestFailIfPendingDeferredArtifactCommits(t *testing.T) {
 		t.Fatalf("Append: %v", err)
 	}
 
-	err = failIfPendingDeferredArtifactCommits(projectRoot)
+	err = failIfPendingDeferredArtifactCommits(projectRoot, "feat-gate", &strings.Builder{})
 	if err == nil {
 		t.Fatal("expected pending deferred artifact commit to block the gate")
 	}
@@ -287,6 +287,79 @@ func TestFailIfPendingDeferredArtifactCommits(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "feat-gate") {
 		t.Fatalf("error should mention the pending work item, got: %v", err)
+	}
+}
+
+// TestFailIfPendingDeferredArtifactCommits_UnrelatedWorkItemDoesNotBlock is
+// the regression test for bug-a5a846bc (#150): a pending deferred artifact
+// commit intent that belongs to a DIFFERENT (unrelated, e.g. previously
+// completed) work item must not block the gate for the current item — it
+// should only surface as a non-blocking advisory.
+func TestFailIfPendingDeferredArtifactCommits_UnrelatedWorkItemDoesNotBlock(t *testing.T) {
+	projectRoot := setupGateTestProject(t)
+	tmpOutbox := t.TempDir()
+	origOutboxPath := commitOutboxPath
+	commitOutboxPath = func(string) (string, error) {
+		return filepath.Join(tmpOutbox, "commit-outbox.ndjson"), nil
+	}
+	t.Cleanup(func() { commitOutboxPath = origOutboxPath })
+
+	ob, err := openCommitOutbox(projectRoot)
+	if err != nil {
+		t.Fatalf("openCommitOutbox: %v", err)
+	}
+	if err := ob.Append(commitqueue.Intent{
+		RepoRoot:   projectRoot,
+		RelPaths:   []string{".wipnote/features/feat-old-unrelated.html"},
+		Message:    "wipnote: complete feat-old-unrelated",
+		WorkItemID: "feat-old-unrelated",
+		Action:     "complete",
+	}); err != nil {
+		t.Fatalf("Append: %v", err)
+	}
+
+	var advisory strings.Builder
+	err = failIfPendingDeferredArtifactCommits(projectRoot, "feat-current", &advisory)
+	if err != nil {
+		t.Fatalf("unrelated work item's deferred intent must not block the gate, got: %v", err)
+	}
+	if !strings.Contains(advisory.String(), "advisory:") {
+		t.Fatalf("expected non-blocking advisory line, got: %q", advisory.String())
+	}
+	if !strings.Contains(advisory.String(), "1 repo-wide pending") {
+		t.Fatalf("expected advisory to report repo-wide pending count, got: %q", advisory.String())
+	}
+}
+
+// TestFailIfPendingDeferredArtifactCommits_EmptyWorkItemDoesNotBlock verifies
+// that when no work item can be resolved for the current gate run (empty
+// workItemID), repo-wide backlog is reported as an advisory only, never as a
+// block — there is no current item to scope the check to.
+func TestFailIfPendingDeferredArtifactCommits_EmptyWorkItemDoesNotBlock(t *testing.T) {
+	projectRoot := setupGateTestProject(t)
+	tmpOutbox := t.TempDir()
+	origOutboxPath := commitOutboxPath
+	commitOutboxPath = func(string) (string, error) {
+		return filepath.Join(tmpOutbox, "commit-outbox.ndjson"), nil
+	}
+	t.Cleanup(func() { commitOutboxPath = origOutboxPath })
+
+	ob, err := openCommitOutbox(projectRoot)
+	if err != nil {
+		t.Fatalf("openCommitOutbox: %v", err)
+	}
+	if err := ob.Append(commitqueue.Intent{
+		RepoRoot:   projectRoot,
+		RelPaths:   []string{".wipnote/features/feat-gate.html"},
+		Message:    "wipnote: complete feat-gate",
+		WorkItemID: "feat-gate",
+		Action:     "complete",
+	}); err != nil {
+		t.Fatalf("Append: %v", err)
+	}
+
+	if err := failIfPendingDeferredArtifactCommits(projectRoot, "", &strings.Builder{}); err != nil {
+		t.Fatalf("empty work item id must not block on repo-wide backlog, got: %v", err)
 	}
 }
 
@@ -340,7 +413,7 @@ func TestFailIfPendingDeferredArtifactCommits_BlocksDeadLetteredArtifactIntent(t
 		t.Fatalf("DeadLettered = %d, want 1", res.DeadLettered)
 	}
 
-	err = failIfPendingDeferredArtifactCommits(projectRoot)
+	err = failIfPendingDeferredArtifactCommits(projectRoot, "feat-dead", &strings.Builder{})
 	if err == nil {
 		t.Fatal("expected dead-lettered deferred artifact commit to block the gate")
 	}
@@ -402,7 +475,7 @@ func TestFailIfPendingDeferredArtifactCommits_IgnoresCleanDeadLetteredArtifactIn
 		t.Fatalf("DeadLettered = %d, want 1", res.DeadLettered)
 	}
 
-	if err := failIfPendingDeferredArtifactCommits(projectRoot); err != nil {
+	if err := failIfPendingDeferredArtifactCommits(projectRoot, "feat-clean", &strings.Builder{}); err != nil {
 		t.Fatalf("clean dead-lettered artifact should not block the gate: %v", err)
 	}
 }
@@ -458,7 +531,7 @@ func TestFailIfPendingDeferredArtifactCommits_BlocksDeadLetteredArtifactIntentWi
 		t.Fatalf("DeadLettered = %d, want 1", res.DeadLettered)
 	}
 
-	err = failIfPendingDeferredArtifactCommits(projectRoot)
+	err = failIfPendingDeferredArtifactCommits(projectRoot, "feat-win", &strings.Builder{})
 	if err == nil {
 		t.Fatal("expected dirty slash-path artifact to block the dead-letter gate even when the intent path uses backslashes")
 	}
@@ -496,7 +569,10 @@ func TestCheckCmd_GateFailsWhenDeferredArtifactIntentPending(t *testing.T) {
 	var out strings.Builder
 	cmd.SetOut(&out)
 	cmd.SetErr(&out)
-	cmd.SetArgs([]string{"--gate"})
+	// #150 scopes the block to the resolved work item: pass --work-item
+	// explicitly so it matches the pending intent's WorkItemID and the
+	// expected block still occurs deterministically in this test.
+	cmd.SetArgs([]string{"--gate", "--work-item", "feat-gate"})
 	err = cmd.Execute()
 	if err == nil {
 		t.Fatal("expected --gate to fail when deferred artifact intents are pending")
@@ -527,7 +603,7 @@ func failIfPendingDeferredArtifactCommitsWithIntentForTest(t *testing.T, intent 
 	if err := ob.Append(intent); err != nil {
 		t.Fatalf("Append: %v", err)
 	}
-	return failIfPendingDeferredArtifactCommits(projectRoot)
+	return failIfPendingDeferredArtifactCommits(projectRoot, intent.WorkItemID, &strings.Builder{})
 }
 
 func TestCheckCompletionGateRecord_AcceptsMatchingSessionAfterRecheck(t *testing.T) {
@@ -590,23 +666,33 @@ func TestDetectGatePlan_NoManifest_IsNoOp(t *testing.T) {
 	}
 }
 
-// TestRunSessionGate_NoManifest_PassAndPersist verifies that runSessionGate on a
-// manifest-less directory: (a) returns no error, (b) returns a passing result,
-// and (c) writes a valid passing gate record to the DB (Fix 1).
-func TestRunSessionGate_NoManifest_PassAndPersist(t *testing.T) {
+// TestRunSessionGate_NoManifest_SkippedNotPassed is the regression test for
+// bug-1b2b1529 (#153): runSessionGate on a manifest-less directory must NOT
+// record a silent PASS. It should (a) return no error (recording state is
+// not itself a failure), (b) return a non-passing, Skipped result, and (c)
+// persist a "skipped" (not "pass") gate record to the DB, so a no-op gate run
+// can never be mistaken for a validated green gate.
+func TestRunSessionGate_NoManifest_SkippedNotPassed(t *testing.T) {
 	// Set up a project root that has .wipnote/ structure but NO go.mod /
-	// package.json / pyproject.toml / Cargo.toml.
+	// package.json / pyproject.toml / Cargo.toml / mix.exs.
 	projectRoot := t.TempDir()
 	if err := os.MkdirAll(filepath.Join(projectRoot, ".wipnote", "features"), 0o755); err != nil {
 		t.Fatal(err)
 	}
 
-	result, err := runSessionGate(projectRoot, "sess-noop-manifest", "feat-noop", "check", guardprofile.PhaseQuality, os.Stdout, os.Stderr)
+	var stderr strings.Builder
+	result, err := runSessionGate(projectRoot, "sess-noop-manifest", "feat-noop", "check", guardprofile.PhaseQuality, os.Stdout, &stderr)
 	if err != nil {
 		t.Fatalf("runSessionGate on manifest-less root: %v", err)
 	}
-	if !result.Passed {
-		t.Fatal("expected no-op plan to pass")
+	if result.Passed {
+		t.Fatal("expected manifest-less gate run to NOT pass")
+	}
+	if !result.Skipped {
+		t.Fatal("expected manifest-less gate run to be marked Skipped")
+	}
+	if !strings.Contains(stderr.String(), "WARN") {
+		t.Fatalf("expected a loud WARN on stderr, got: %q", stderr.String())
 	}
 
 	database := openGateTestDB(t, projectRoot)
@@ -619,14 +705,63 @@ func TestRunSessionGate_NoManifest_PassAndPersist(t *testing.T) {
 	if record == nil {
 		t.Fatal("expected gate record to be persisted")
 	}
-	if record.Status != "pass" {
-		t.Fatalf("gate record status = %q, want pass", record.Status)
+	// gate_records.status is DB-constrained to ('pass','fail'); a skipped run
+	// persists as "fail" — never "pass" — so it can't be mistaken for a
+	// validated green gate. The Skipped/WARN assertions above are what
+	// distinguish "nothing ran" from "something ran and failed" for callers
+	// inspecting the in-memory RunResult.
+	if record.Status != "fail" {
+		t.Fatalf("gate record status = %q, want fail", record.Status)
 	}
 	if !record.SignatureValid() {
 		t.Fatal("gate record signature invalid")
 	}
-	if !strings.Contains(record.OutputSummary, "no-op") {
-		t.Fatalf("output summary should indicate no-op, got %q", record.OutputSummary)
+	if !strings.Contains(record.OutputSummary, "skipped") {
+		t.Fatalf("output summary should indicate skipped, got %q", record.OutputSummary)
+	}
+}
+
+// TestRunSessionGate_ElixirProject_RunsMixGate is the regression test for
+// bug-1b2b1529 (#153): a project with mix.exs at its root must run the
+// Elixir mix gate (compile --warnings-as-errors, test, format
+// --check-formatted) rather than falling through to the no-manifest skip
+// path.
+func TestRunSessionGate_ElixirProject_RunsMixGate(t *testing.T) {
+	projectRoot := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(projectRoot, ".wipnote", "features"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(projectRoot, "mix.exs"), []byte("defmodule Test.MixProject do\nend\n"), 0o644); err != nil {
+		t.Fatalf("write mix.exs: %v", err)
+	}
+
+	plan, err := detectGatePlan(projectRoot, projectRoot, guardprofile.PhaseQuality)
+	if err != nil {
+		t.Fatalf("detectGatePlan: %v", err)
+	}
+	if plan.ProjectType != "elixir" {
+		t.Fatalf("project type = %q, want elixir", plan.ProjectType)
+	}
+	var names []string
+	for _, c := range plan.Commands {
+		names = append(names, c.Name)
+	}
+	wantAny := func(sub string) bool {
+		for _, n := range names {
+			if strings.Contains(n, sub) {
+				return true
+			}
+		}
+		return false
+	}
+	if !wantAny("mix compile") {
+		t.Errorf("expected mix compile in plan commands, got %v", names)
+	}
+	if !wantAny("mix test") {
+		t.Errorf("expected mix test in plan commands, got %v", names)
+	}
+	if !wantAny("mix format") {
+		t.Errorf("expected mix format --check-formatted in plan commands, got %v", names)
 	}
 }
 
@@ -947,5 +1082,68 @@ func TestRunGoGates_GoTestIncludesTimeout(t *testing.T) {
 	if !strings.Contains(recorded, gate.GoTestTimeoutArg) {
 		t.Fatalf("runGoGates go test invocation missing %s. Recorded args:\n%s",
 			gate.GoTestTimeoutArg, recorded)
+	}
+}
+
+// TestIsWipnoteSelfRepo_MatchesOwnModule and its sibling below are the
+// regression tests for bug-b3d49476 (#154): the internal launch-readiness
+// roster must only surface inside wipnote's own repository, detected by
+// comparing the project's go.mod module line against wipnote's own module
+// path.
+func TestIsWipnoteSelfRepo_MatchesOwnModule(t *testing.T) {
+	projectRoot := t.TempDir()
+	if err := os.WriteFile(filepath.Join(projectRoot, "go.mod"), []byte("module github.com/shakestzd/wipnote\n\ngo 1.24\n"), 0o644); err != nil {
+		t.Fatalf("write go.mod: %v", err)
+	}
+	if !isWipnoteSelfRepo(projectRoot) {
+		t.Fatal("expected wipnote's own module path to be recognised as the self repo")
+	}
+}
+
+func TestIsWipnoteSelfRepo_UnrelatedProjectIsFalse(t *testing.T) {
+	projectRoot := t.TempDir()
+	if err := os.WriteFile(filepath.Join(projectRoot, "go.mod"), []byte("module example.com/some-user-project\n\ngo 1.24\n"), 0o644); err != nil {
+		t.Fatalf("write go.mod: %v", err)
+	}
+	if isWipnoteSelfRepo(projectRoot) {
+		t.Fatal("expected unrelated user project module path to NOT be recognised as the self repo")
+	}
+}
+
+func TestIsWipnoteSelfRepo_NoGoModIsFalse(t *testing.T) {
+	projectRoot := t.TempDir()
+	if isWipnoteSelfRepo(projectRoot) {
+		t.Fatal("expected a directory with no go.mod to NOT be recognised as the self repo")
+	}
+}
+
+// TestCheckCmd_GatePassing_DoesNotLeakLaunchReadinessRosterInUnrelatedProject
+// is the end-to-end regression test for bug-b3d49476 (#154): a passing
+// `check --gate` run in an unrelated (non-wipnote) Go project must not print
+// wipnote's own internal launch-readiness roster (its plan-*, `go test
+// ./cmd/wipnote/` directive).
+func TestCheckCmd_GatePassing_DoesNotLeakLaunchReadinessRosterInUnrelatedProject(t *testing.T) {
+	if testing.Short() {
+		t.Skip("runs real Go gate commands")
+	}
+
+	projectRoot := setupGateTestProject(t) // module example.com/gatetest — NOT wipnote's own module
+	projectDirFlag = projectRoot
+	t.Cleanup(func() { projectDirFlag = "" })
+	cmd := checkCmd()
+	cmd.SetArgs([]string{"--gate"})
+
+	var execErr error
+	// printContentionGateReminder writes straight to os.Stdout (not the
+	// cobra-scoped writer), so it must be captured via a real stdout pipe to
+	// actually exercise the leak this test guards against.
+	captured := captureStdout(t, func() {
+		execErr = cmd.Execute()
+	})
+	if execErr != nil {
+		t.Fatalf("expected --gate to pass for a clean example.com project, got: %v", execErr)
+	}
+	if strings.Contains(captured, "Launch readiness") {
+		t.Fatalf("unrelated project's --gate output must not leak wipnote's internal launch-readiness roster, got: %q", captured)
 	}
 }

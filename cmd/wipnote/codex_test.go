@@ -1150,6 +1150,14 @@ func TestPrepareCodexDevMarketplace_RefreshesLocalCache(t *testing.T) {
 
 	t.Setenv("HOME", home)
 	t.Setenv("PATH", binDir+string(os.PathListSeparator)+os.Getenv("PATH"))
+	// Neutralize ambient session env: ResolveProjectDir trusts CLAUDE_PROJECT_DIR
+	// whenever WIPNOTE_SESSION_ID is also set (core/paths/resolve.go tier 3),
+	// which is exactly the case when this test runs inside a wipnote-launched
+	// Claude Code session on this repo — it would silently override the
+	// os.Chdir(repo) below and resolve to the real repo root instead of the
+	// test's temp repo, causing a flaky/order-dependent failure.
+	t.Setenv("CLAUDE_PROJECT_DIR", "")
+	t.Setenv("WIPNOTE_PROJECT_DIR", "")
 	oldWD, _ := os.Getwd()
 	if err := os.Chdir(repo); err != nil {
 		t.Fatalf("chdir repo: %v", err)
@@ -1198,6 +1206,14 @@ func TestPrepareCodexDevMarketplace_DryRunDoesNotMutateCache(t *testing.T) {
 
 	t.Setenv("HOME", home)
 	t.Setenv("PATH", binDir+string(os.PathListSeparator)+os.Getenv("PATH"))
+	// Neutralize ambient session env: ResolveProjectDir trusts CLAUDE_PROJECT_DIR
+	// whenever WIPNOTE_SESSION_ID is also set (core/paths/resolve.go tier 3),
+	// which is exactly the case when this test runs inside a wipnote-launched
+	// Claude Code session on this repo — it would silently override the
+	// os.Chdir(repo) below and resolve to the real repo root instead of the
+	// test's temp repo, causing a flaky/order-dependent failure.
+	t.Setenv("CLAUDE_PROJECT_DIR", "")
+	t.Setenv("WIPNOTE_PROJECT_DIR", "")
 	oldWD, _ := os.Getwd()
 	if err := os.Chdir(repo); err != nil {
 		t.Fatalf("chdir repo: %v", err)
@@ -1364,6 +1380,14 @@ func TestLaunchCodexDevDryRunDoesNotExec(t *testing.T) {
 
 	t.Setenv("HOME", home)
 	t.Setenv("PATH", binDir+string(os.PathListSeparator)+os.Getenv("PATH"))
+	// Neutralize ambient session env: ResolveProjectDir trusts CLAUDE_PROJECT_DIR
+	// whenever WIPNOTE_SESSION_ID is also set (core/paths/resolve.go tier 3),
+	// which is exactly the case when this test runs inside a wipnote-launched
+	// Claude Code session on this repo — it would silently override the
+	// os.Chdir(repo) below and resolve to the real repo root instead of the
+	// test's temp repo, causing a flaky/order-dependent failure.
+	t.Setenv("CLAUDE_PROJECT_DIR", "")
+	t.Setenv("WIPNOTE_PROJECT_DIR", "")
 	oldWD, _ := os.Getwd()
 	if err := os.Chdir(repo); err != nil {
 		t.Fatalf("chdir repo: %v", err)
@@ -1436,6 +1460,14 @@ func TestLaunchCodexDevDryRunSkipsWorkItemStart(t *testing.T) {
 
 	t.Setenv("HOME", home)
 	t.Setenv("PATH", binDir+string(os.PathListSeparator)+os.Getenv("PATH"))
+	// Neutralize ambient session env: ResolveProjectDir trusts CLAUDE_PROJECT_DIR
+	// whenever WIPNOTE_SESSION_ID is also set (core/paths/resolve.go tier 3),
+	// which is exactly the case when this test runs inside a wipnote-launched
+	// Claude Code session on this repo — it would silently override the
+	// os.Chdir(repo) below and resolve to the real repo root instead of the
+	// test's temp repo, causing a flaky/order-dependent failure.
+	t.Setenv("CLAUDE_PROJECT_DIR", "")
+	t.Setenv("WIPNOTE_PROJECT_DIR", "")
 	oldWD, _ := os.Getwd()
 	if err := os.Chdir(repo); err != nil {
 		t.Fatalf("chdir repo: %v", err)
@@ -1520,6 +1552,14 @@ func TestLaunchCodexDevDryRunSkipsWorktreeCreation(t *testing.T) {
 
 	t.Setenv("HOME", home)
 	t.Setenv("PATH", binDir+string(os.PathListSeparator)+os.Getenv("PATH"))
+	// Neutralize ambient session env: ResolveProjectDir trusts CLAUDE_PROJECT_DIR
+	// whenever WIPNOTE_SESSION_ID is also set (core/paths/resolve.go tier 3),
+	// which is exactly the case when this test runs inside a wipnote-launched
+	// Claude Code session on this repo — it would silently override the
+	// os.Chdir(repo) below and resolve to the real repo root instead of the
+	// test's temp repo, causing a flaky/order-dependent failure.
+	t.Setenv("CLAUDE_PROJECT_DIR", "")
+	t.Setenv("WIPNOTE_PROJECT_DIR", "")
 	oldWD, _ := os.Getwd()
 	if err := os.Chdir(repo); err != nil {
 		t.Fatalf("chdir repo: %v", err)

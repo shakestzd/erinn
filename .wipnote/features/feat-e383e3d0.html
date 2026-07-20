@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>Decouple .wipnote store from feature branches to stop working-tree churn (#159)</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="feat-e383e3d0"
+             data-type="feature"
+             data-status="todo"
+             data-priority="medium"
+             data-created="2026-07-20T05:23:39.743587"
+             data-updated="2026-07-20T05:23:46.301664" data-agent-assigned="claude-code" data-track-id="trk-fae39e29" data-created-by-agent="claude-code" data-created-by-model="claude-opus-4-8[1m]" data-created-by-cli-version="0.67.1">
+
+        <header>
+            <h1>Decouple .wipnote store from feature branches to stop working-tree churn (#159)</h1>
+            <div class="metadata">
+                <span class="badge status-todo">Todo</span>
+                <span class="badge priority-medium">Medium Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-fae39e29.html" data-relationship="part_of" data-since="2026-07-20T05:23:39.754261">trk-fae39e29</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="relates_to">
+                <h3>Relates To:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-b1d06a84.html" data-relationship="relates_to" data-since="2026-07-20T05:23:46.267599">Durable Git mutation serialization for multi-agent work</a></li>
+                    <li><a href="../spikes/spk-cb58f4c0.html" data-relationship="relates_to" data-since="2026-07-20T05:23:46.301568">Research durable commit policy for wipnote artifacts</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>GitHub #159: The canonical .wipnote HTML store lives in the working tree and churns on nearly every op, tangling bookkeeping with code commits and scattering work items across whichever branch was active. Consider keeping the store on a dedicated ref/orphan branch or its own worktree so code merges are not entangled and work items live in one canonical location.</p>
+        </section>
+    </article>
+</body>
+</html>

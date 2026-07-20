@@ -265,6 +265,13 @@ func TestNonCompleteCallerCommitNonFatalContractPreserved(t *testing.T) {
 		// next commit has no name/email from any scope.
 		exec.Command("git", "-C", mainRepo, "config", "--unset", "user.email").Run() //nolint:errcheck
 		exec.Command("git", "-C", mainRepo, "config", "--unset", "user.name").Run()  //nolint:errcheck
+		// Newer git (2.5x, notably Apple Git) falls back to guessing an
+		// identity from the OS username/hostname when no config is present at
+		// all, which would make the "no identity" commit silently succeed and
+		// this test flake against the git binary version. Disable that
+		// fallback so "no committer identity configured" is reproduced
+		// deterministically regardless of git version.
+		exec.Command("git", "-C", mainRepo, "config", "user.useConfigOnly", "true").Run() //nolint:errcheck
 
 		wipnoteDir = filepath.Join(mainRepo, ".wipnote")
 		if err := os.MkdirAll(filepath.Join(wipnoteDir, "features"), 0o755); err != nil {

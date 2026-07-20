@@ -1,7 +1,10 @@
 package main
 
 import (
+	"crypto/sha256"
 	"database/sql"
+	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"io"
 	"os"
@@ -396,6 +399,7 @@ func runArchResolve(forFlag string, budget int) error {
 
 	matched := iarch.MatchCards(cards, resolvedPaths)
 	if len(matched) == 0 {
+		nameHint := cardNameHint(forFlag, cards)
 		switch {
 		case pathsAttribMsg == noFilesAttributedLabel:
 			// A work-item ID resolved to zero attributed files: emit ONLY the
@@ -404,6 +408,12 @@ func runArchResolve(forFlag string, budget int) error {
 		case pathsAttribMsg != "":
 			// Paths were found but no cards matched them.
 			fmt.Printf("No arch cards matched for paths attributed to %s.\n", pathsAttribMsg)
+		case nameHint != "":
+			// bug-6c8d4731 (#158): --for only resolves by path/work-item, so a
+			// bare card name always misses. Without this hint the empty result
+			// reads as "the card does not exist" and can produce a false
+			// dangling-reference finding.
+			fmt.Println(nameHint)
 		default:
 			fmt.Println("No arch cards matched.")
 		}
@@ -416,6 +426,27 @@ func runArchResolve(forFlag string, budget int) error {
 	out := iarch.FormatOutput(matched, budget, driftMap)
 	fmt.Print(out)
 	return nil
+}
+
+// cardNameHint reports whether forFlag exactly matches an existing arch
+// card's name rather than a path or work-item ID. `--for` only resolves by
+// path or work-item ID; a bare card name always misses, and the resulting
+// bare "No arch cards matched." can be mistaken for a dangling reference
+// (bug-6c8d4731, #158). Returns an actionable remediation message, or "" when
+// forFlag looks like paths (comma-separated) or does not match a card name.
+func cardNameHint(forFlag string, cards []*corearch.Card) string {
+	trimmed := strings.TrimSpace(forFlag)
+	if trimmed == "" || strings.Contains(trimmed, ",") {
+		return ""
+	}
+	for _, c := range cards {
+		if c.Name == trimmed {
+			return fmt.Sprintf(
+				"--for expects a path or work-item id, not a card name. Did you mean: wipnote arch show %s",
+				trimmed)
+		}
+	}
+	return ""
 }
 
 // resolveInputPathsWithDiag derives the file paths to match against and also returns a
@@ -981,7 +1012,9 @@ func pathSetDiff(a, b []string) []string {
 
 // emitDriftNudge writes a stderr nudge listing arch cards that are drift-suspect
 // and whose globs overlap the given paths. It is purely advisory; any error is
-// silently swallowed.
+// silently swallowed. Cards already nudged for their current drift key
+// (card.VerifiedAt) are suppressed on subsequent calls — a card only
+// resurfaces once it is re-verified and drifts again (bug-e546fae0, #156).
 func emitDriftNudge(w io.Writer, touchedPaths []string, wipnoteDir string, runner iarch.DiffRunner) {
 	if len(touchedPaths) == 0 || wipnoteDir == "" {
 		return
@@ -1000,18 +1033,92 @@ func emitDriftNudge(w io.Writer, touchedPaths []string, wipnoteDir string, runne
 	}
 	repoRoot := filepath.Dir(wipnoteDir)
 	driftMap := iarch.DetectDrift(matched, repoRoot, runner)
-	var drifted []string
-	for _, c := range matched {
-		if _, ok := driftMap[c.Name]; ok {
-			drifted = append(drifted, c.Name)
-		}
-	}
-	if len(drifted) == 0 {
+
+	newlyDrifted, nextNudged := dedupDrift(matched, driftMap, loadDriftNudgeCache(wipnoteDir))
+	saveDriftNudgeCache(wipnoteDir, nextNudged)
+	if len(newlyDrifted) == 0 {
 		return
 	}
 	fmt.Fprintf(w, "\nArch cards may be drift-suspect (code changed since last verify):\n")
-	for _, slug := range drifted {
+	for _, slug := range newlyDrifted {
 		fmt.Fprintf(w, "  wipnote arch verify %s   # or: wipnote arch edit %s\n", slug, slug)
 	}
+}
+
+// dedupDrift splits matched cards' drift keys (from driftMap) against a
+// previously-nudged cache, returning the subset that is newly drift-suspect
+// (never nudged, or nudged under a different key — i.e. re-verified since)
+// alongside the full cache to persist for the next call. Cards absent from
+// driftMap are clean and are not carried forward into the returned cache, so
+// a resolved card's stale nudge entry is pruned automatically.
+func dedupDrift(matched []*corearch.Card, driftMap, prevNudged map[string]string) ([]string, map[string]string) {
+	nextNudged := make(map[string]string, len(driftMap))
+	var newlyDrifted []string
+	for _, c := range matched {
+		key, isDrifted := driftMap[c.Name]
+		if !isDrifted {
+			continue
+		}
+		nextNudged[c.Name] = key
+		if prevKey, hadPrev := prevNudged[c.Name]; !hadPrev || prevKey != key {
+			newlyDrifted = append(newlyDrifted, c.Name)
+		}
+	}
+	return newlyDrifted, nextNudged
+}
+
+// driftNudgeCachePath returns the project-scoped cache file recording which
+// arch cards have already been surfaced by emitDriftNudge, keyed by a hash of
+// wipnoteDir (mirrors statuslineCachePath so multiple projects never
+// collide). Honors WIPNOTE_CACHE_DIR for test isolation.
+func driftNudgeCachePath(wipnoteDir string) string {
+	cacheDir := os.Getenv("WIPNOTE_CACHE_DIR")
+	if cacheDir == "" {
+		home, err := os.UserHomeDir()
+		if err != nil {
+			return ""
+		}
+		cacheDir = home
+	}
+	if wipnoteDir == "" {
+		return ""
+	}
+	h := sha256.Sum256([]byte(filepath.Clean(wipnoteDir)))
+	suffix := hex.EncodeToString(h[:4]) // 8 hex chars
+	return filepath.Join(cacheDir, ".wipnote-drift-nudge-"+suffix)
+}
+
+// loadDriftNudgeCache reads the drift-nudge cache (card name -> drift key).
+// Best-effort: a missing or corrupt file yields an empty map rather than an
+// error, since the nudge is advisory only.
+func loadDriftNudgeCache(wipnoteDir string) map[string]string {
+	path := driftNudgeCachePath(wipnoteDir)
+	if path == "" {
+		return map[string]string{}
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return map[string]string{}
+	}
+	cache := map[string]string{}
+	if err := json.Unmarshal(data, &cache); err != nil {
+		return map[string]string{}
+	}
+	return cache
+}
+
+// saveDriftNudgeCache writes the drift-nudge cache. Best-effort: write
+// failures are silently swallowed, consistent with the advisory nature of
+// the nudge.
+func saveDriftNudgeCache(wipnoteDir string, cache map[string]string) {
+	path := driftNudgeCachePath(wipnoteDir)
+	if path == "" {
+		return
+	}
+	data, err := json.Marshal(cache)
+	if err != nil {
+		return
+	}
+	_ = atomicWriteFile(path, data, 0o644)
 }
 

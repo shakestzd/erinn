@@ -835,3 +835,141 @@ func TestArchDiffTreePaths_ValidateClean(t *testing.T) {
 		t.Errorf("diff-tree paths should produce no warnings, got: %v", warns)
 	}
 }
+
+// --- bug-6c8d4731 (#158): resolve-by-name hint ---
+
+// TestArchResolve_ForCardName_ReturnsHint verifies that passing an existing
+// card NAME (not a path or work-item ID) to `arch resolve --for` returns an
+// actionable hint instead of a bare "No arch cards matched." (bug-6c8d4731,
+// #158). A bare empty result previously read as "the card does not exist"
+// and produced a false dangling-reference finding in review.
+func TestArchResolve_ForCardName_ReturnsHint(t *testing.T) {
+	setupArchTestDir(t)
+
+	if err := runArch(t,
+		"add", "lulawrite-run-dir-artifacts",
+		"--kind", "invariant",
+		"--created-by", "agent",
+		"--paths", "internal/lulawrite/**",
+		"--body", "Run-dir artifacts must be written atomically.",
+	); err != nil {
+		t.Fatalf("arch add: %v", err)
+	}
+
+	out := captureStdout(t, func() {
+		if err := runArchResolve("lulawrite-run-dir-artifacts", 450); err != nil {
+			t.Fatalf("runArchResolve: %v", err)
+		}
+	})
+
+	if strings.Contains(out, "No arch cards matched.") {
+		t.Errorf("bare no-match message should be replaced by an actionable hint, got: %q", out)
+	}
+	if !strings.Contains(out, "not a card name") {
+		t.Errorf("expected hint explaining --for semantics, got: %q", out)
+	}
+	if !strings.Contains(out, "wipnote arch show lulawrite-run-dir-artifacts") {
+		t.Errorf("expected remediation command, got: %q", out)
+	}
+}
+
+// TestArchResolve_ForUnmatchedPath_StillBareMessage verifies the hint does
+// NOT fire for a genuine path miss (no card-name collision) — the original
+// bare message must still be preserved for that case.
+func TestArchResolve_ForUnmatchedPath_StillBareMessage(t *testing.T) {
+	setupArchTestDir(t)
+
+	if err := runArch(t,
+		"add", "unrelated-card",
+		"--kind", "decision",
+		"--created-by", "agent",
+		"--paths", "core/unrelated/**",
+		"--body", "Unrelated decision.",
+	); err != nil {
+		t.Fatalf("arch add: %v", err)
+	}
+
+	out := captureStdout(t, func() {
+		if err := runArchResolve("some/path/not/covered.go", 450); err != nil {
+			t.Fatalf("runArchResolve: %v", err)
+		}
+	})
+
+	if !strings.Contains(out, "No arch cards matched.") {
+		t.Errorf("expected bare no-match message for a genuine path miss, got: %q", out)
+	}
+}
+
+// --- bug-e546fae0 (#156): drift-suspect dedup ---
+
+// TestEmitDriftNudge_DedupsUnchangedDrift verifies that a card already
+// nudged for its current drift key (verified_at) is suppressed on
+// subsequent calls, and resurfaces only after it is re-verified and drifts
+// again — killing the "same card on nearly every completion" alert fatigue
+// (bug-e546fae0, #156) while preserving the genuine re-drift signal.
+func TestEmitDriftNudge_DedupsUnchangedDrift(t *testing.T) {
+	t.Setenv("WIPNOTE_CACHE_DIR", t.TempDir())
+	dir := setupArchTestDir(t)
+	wipnoteDir := filepath.Join(dir, ".wipnote")
+
+	if err := runArch(t,
+		"add", "hazard-card",
+		"--kind", "hazard",
+		"--created-by", "agent",
+		"--paths", "internal/arch/**",
+		"--verified-at", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+		"--body", "Watch the resolve engine closely.",
+	); err != nil {
+		t.Fatalf("arch add: %v", err)
+	}
+
+	touched := []string{"internal/arch/resolve.go"}
+	runner := func(_, _ string) ([]string, error) {
+		return []string{"internal/arch/resolve.go"}, nil
+	}
+
+	var first bytes.Buffer
+	emitDriftNudge(&first, touched, wipnoteDir, runner)
+	if !strings.Contains(first.String(), "hazard-card") {
+		t.Fatalf("first completion should nudge hazard-card, got: %q", first.String())
+	}
+
+	var second bytes.Buffer
+	emitDriftNudge(&second, touched, wipnoteDir, runner)
+	if strings.Contains(second.String(), "hazard-card") {
+		t.Errorf("repeat completion with unchanged drift should be suppressed, got: %q", second.String())
+	}
+
+	// Re-verify (verified_at changes) then drift again: the card must resurface.
+	if err := runArch(t, "edit", "hazard-card",
+		"--verified-at", "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"); err != nil {
+		t.Fatalf("arch edit: %v", err)
+	}
+	var third bytes.Buffer
+	emitDriftNudge(&third, touched, wipnoteDir, runner)
+	if !strings.Contains(third.String(), "hazard-card") {
+		t.Errorf("card should resurface after re-verify + new drift, got: %q", third.String())
+	}
+}
+
+// TestDedupDrift_NewCardAlwaysNewlyDrifted verifies dedupDrift treats a card
+// never seen before — including one whose current key is the empty
+// "never-verified" key — as newly drifted, so the very first nudge for a
+// card is never silently suppressed by a Go zero-value map lookup.
+func TestDedupDrift_NewCardAlwaysNewlyDrifted(t *testing.T) {
+	card := &corearch.Card{Name: "never-verified"}
+	driftMap := map[string]string{"never-verified": ""} // empty verified_at
+	newlyDrifted, nextCache := dedupDrift([]*corearch.Card{card}, driftMap, map[string]string{})
+	if len(newlyDrifted) != 1 || newlyDrifted[0] != "never-verified" {
+		t.Fatalf("expected first-ever unverified card to be newly drifted, got: %v", newlyDrifted)
+	}
+	if key, ok := nextCache["never-verified"]; !ok || key != "" {
+		t.Errorf("expected cache to record empty-key entry, got: %q (present=%v)", key, ok)
+	}
+
+	// Second call with the same prevNudged cache must suppress it.
+	newlyDrifted2, _ := dedupDrift([]*corearch.Card{card}, driftMap, nextCache)
+	if len(newlyDrifted2) != 0 {
+		t.Errorf("expected unchanged empty-key drift to be suppressed on repeat, got: %v", newlyDrifted2)
+	}
+}

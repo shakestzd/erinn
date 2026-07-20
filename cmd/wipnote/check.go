@@ -68,12 +68,17 @@ Returns exit code 0 if all gates pass, 1 if any fail.`,
 				if goOnly || pythonOnly || skipTests {
 					return fmt.Errorf("--gate runs the full project gate and cannot be combined with --go-only, --python-only, or --skip-tests")
 				}
-				if err := failIfPendingDeferredArtifactCommits(projectRoot); err != nil {
-					return err
-				}
 				sessionID := hooks.EnvSessionID("")
 				agentID := dbpkg.NormaliseAgentID(os.Getenv("WIPNOTE_AGENT_ID"))
 				workItemID := resolveGateWorkItem(projectRoot, sessionID, agentID, gateWorkItem, os.Stderr)
+				// Scoped to the resolved work item (bug-a5a846bc, #150): only
+				// THIS item's own unresolved deferred artifact-commit intents
+				// block the gate. Unrelated queue backlog from other,
+				// previously-completed items is reported as a non-blocking
+				// advisory below, not a hard failure.
+				if err := failIfPendingDeferredArtifactCommits(projectRoot, workItemID, os.Stderr); err != nil {
+					return err
+				}
 				result, err := runSessionGate(projectRoot, sessionID, workItemID, "check", guardprofile.PhaseQuality, os.Stdout, os.Stderr)
 				if err != nil {
 					return err
@@ -86,9 +91,18 @@ Returns exit code 0 if all gates pass, 1 if any fail.`,
 					fmt.Printf(" with signature %s\n", truncate(result.Record.Signature, 12))
 				}
 				if !result.Passed {
+					if result.Skipped {
+						return fmt.Errorf("quality gate skipped — no supported project manifest detected; see WARN above (this is not a pass)")
+					}
 					return fmt.Errorf("quality gates failed — no passing session-local gate record was written")
 				}
-				defer printContentionGateReminder()
+				// bug-b3d49476 (#154): wipnote's own internal launch-readiness
+				// roster must never leak into an unrelated user project's gate
+				// output — only surface it when the gate is running inside
+				// wipnote's own repository (dogfooding).
+				if isWipnoteSelfRepo(projectRoot) {
+					defer printContentionGateReminder()
+				}
 				return nil
 			}
 
@@ -121,7 +135,12 @@ Returns exit code 0 if all gates pass, 1 if any fail.`,
 			// routine gates, the contention stress fixture must be run
 			// before a release. We surface this as a soft reminder
 			// rather than a hard failure so iteration speed stays high.
-			defer printContentionGateReminder()
+			// bug-b3d49476 (#154): only wipnote's own repo cares about its
+			// internal launch-readiness roster — never leak it into an
+			// unrelated user project's `wipnote check` output.
+			if isWipnoteSelfRepo(projectRoot) {
+				defer printContentionGateReminder()
+			}
 
 			return printResults(results)
 		},
@@ -142,7 +161,15 @@ Returns exit code 0 if all gates pass, 1 if any fail.`,
 	return cmd
 }
 
-func failIfPendingDeferredArtifactCommits(projectRoot string) error {
+// failIfPendingDeferredArtifactCommits blocks the quality gate only on
+// unresolved deferred artifact-commit intents that belong to workItemID, the
+// item the current gate run is attributed to (bug-a5a846bc, #150). Intents
+// belonging to OTHER, unrelated work items (typically old, already-completed
+// items whose deferred commit was never flushed) no longer fail the gate —
+// they are surfaced separately as a non-blocking repo-wide advisory via
+// reportDeferredArtifactQueueHealth so the operator still sees the backlog
+// without every later item inheriting a stranger's failure state.
+func failIfPendingDeferredArtifactCommits(projectRoot, workItemID string, w io.Writer) error {
 	ob, err := openCommitOutbox(projectRoot)
 	if err != nil {
 		return err
@@ -155,18 +182,31 @@ func failIfPendingDeferredArtifactCommits(projectRoot string) error {
 	if err != nil {
 		return err
 	}
+
+	var repoWidePending, repoWideDeadLettered int
 	var pendingWorkItemIntents []commitqueue.Intent
 	for _, intent := range pending {
-		if isWorkitemArtifactCommitIntent(intent) {
+		if !isWorkitemArtifactCommitIntent(intent) {
+			continue
+		}
+		repoWidePending++
+		if workItemScopedIntent(intent, workItemID) {
 			pendingWorkItemIntents = append(pendingWorkItemIntents, intent)
 		}
 	}
 	var deadLetteredWorkItemIntents []commitqueue.Intent
 	for _, intent := range deadLettered {
-		if isWorkitemArtifactCommitIntent(intent) && !deadLetteredArtifactIntentResolved(projectRoot, intent) {
+		if !isWorkitemArtifactCommitIntent(intent) || deadLetteredArtifactIntentResolved(projectRoot, intent) {
+			continue
+		}
+		repoWideDeadLettered++
+		if workItemScopedIntent(intent, workItemID) {
 			deadLetteredWorkItemIntents = append(deadLetteredWorkItemIntents, intent)
 		}
 	}
+
+	reportDeferredArtifactQueueHealth(w, repoWidePending, repoWideDeadLettered)
+
 	workItemIntents := append([]commitqueue.Intent{}, pendingWorkItemIntents...)
 	workItemIntents = append(workItemIntents, deadLetteredWorkItemIntents...)
 	if len(workItemIntents) == 0 {
@@ -192,6 +232,53 @@ func failIfPendingDeferredArtifactCommits(projectRoot string) error {
 		len(workItemIntents), strings.Join(details, ", "), strings.Join(remediation, "; "),
 	)
 }
+
+// workItemScopedIntent reports whether intent belongs to workItemID. When
+// workItemID is empty (no active work item could be resolved for this gate
+// run) no intent is considered in-scope, so the gate cannot block on
+// unattributed repo-wide backlog it has no way to relate to the current run.
+func workItemScopedIntent(intent commitqueue.Intent, workItemID string) bool {
+	if strings.TrimSpace(workItemID) == "" {
+		return false
+	}
+	return intent.WorkItemID == workItemID
+}
+
+// reportDeferredArtifactQueueHealth prints a non-blocking advisory summarizing
+// repo-wide deferred artifact-commit queue backlog (bug-a5a846bc, #150). This
+// never fails the gate — it exists so an operator running WIPNOTE_ARTIFACT_COMMIT_POLICY=defer
+// still sees accumulating backlog from other work items without every later
+// gate inheriting a stranger's failure state.
+func reportDeferredArtifactQueueHealth(w io.Writer, pendingCount, deadLetteredCount int) {
+	if pendingCount == 0 && deadLetteredCount == 0 {
+		return
+	}
+	fmt.Fprintf(w, "advisory: %d repo-wide pending / %d dead-lettered deferred work-item artifact commit intent(s) queued (not blocking this gate — scoped to the current work item only). Run `wipnote commit-queue flush` to drain the backlog.\n", pendingCount, deadLetteredCount)
+}
+
+// isWipnoteSelfRepo reports whether projectRoot is wipnote's own repository
+// (dogfooding), detected by checking whether the module declared in its
+// go.mod matches wipnote's own module path. Used to gate output that only
+// makes sense inside wipnote's own dev/release workflow — e.g. the internal
+// launch-readiness roster (bug-b3d49476, #154) — from leaking into unrelated
+// user projects that happen to also be Go modules.
+func isWipnoteSelfRepo(projectRoot string) bool {
+	data, err := os.ReadFile(filepath.Join(projectRoot, "go.mod"))
+	if err != nil {
+		return false
+	}
+	for _, line := range strings.Split(string(data), "\n") {
+		if strings.TrimSpace(line) == "module "+wipnoteSelfModulePath {
+			return true
+		}
+	}
+	return false
+}
+
+// wipnoteSelfModulePath is wipnote's own Go module path (see go.mod at repo
+// root). It is the anchor isWipnoteSelfRepo uses to distinguish wipnote's own
+// dev tree from an unrelated user project (bug-b3d49476, #154).
+const wipnoteSelfModulePath = "github.com/shakestzd/wipnote"
 
 func isWorkitemArtifactCommitIntent(intent commitqueue.Intent) bool {
 	for _, rel := range intent.RelPaths {

@@ -115,6 +115,15 @@ func shellCmdRunsGoTestShortAll(args []string) bool {
 	return hasShort && hasAll
 }
 
+// ProjectTypeElixir identifies an Elixir/mix project for the quality gate
+// (bug-1b2b1529, #153). It is intentionally scoped to this package rather
+// than added to the shared core/paths.ProjectType marker table: the fix is
+// specific to `wipnote check --gate`, and adding it to the shared table would
+// also change behavior for unrelated paths.DetectProjectType consumers (the
+// yolo per-commit task-completion gate, `wipnote init`) which is out of scope
+// for this fix.
+const ProjectTypeElixir paths.ProjectType = "elixir"
+
 type Plan struct {
 	ProjectType      paths.ProjectType
 	ManifestDir      string
@@ -141,6 +150,13 @@ type RunResult struct {
 	Plan          Plan
 	Commands      []string
 	Passed        bool
+	// Skipped reports that no gate commands were run because no supported
+	// project manifest (or approved guard profile) was detected. A skipped
+	// run is NEVER recorded as a passing gate (bug-1b2b1529, #153): Passed is
+	// always false alongside Skipped=true, so gateStatus persists "fail" (the
+	// gate_records status column only allows pass/fail) and callers that care
+	// about the skip/fail distinction can inspect this in-memory field.
+	Skipped       bool
 	AllowlistHits []AllowlistHit
 	OutputSummary string
 	Record        *dbpkg.GateRecord
@@ -176,6 +192,24 @@ func gitWorktreeFacts(dir string) (top, common string) {
 		if abs, err := filepath.Abs(filepath.Join(dir, common)); err == nil {
 			common = abs
 		}
+	}
+	// Canonicalize both facts to their real (symlink-resolved) path. On
+	// macOS, TMPDIR — and therefore Go's testing.T.TempDir() — resolves
+	// through /var -> /private/var. `git rev-parse --git-common-dir` invoked
+	// from the MAIN worktree's own directory reports the plain relative
+	// ".git" (joined above onto the caller's possibly non-canonical `dir`
+	// argument), while the same query from a LINKED worktree comes back
+	// already resolved to the real absolute path. Left uncanonicalized, two
+	// semantically-identical common dirs compare unequal by literal string
+	// in ResolveCodeRoot — a pre-existing bug this fixes (surfaced by
+	// TestCodeRoot_LinkedWorktreeOverride flaking on macOS). EvalSymlinks is
+	// best-effort: a nonexistent/unreadable path (e.g. the non-repo test
+	// cases) silently falls back to the unresolved value.
+	if resolved, err := filepath.EvalSymlinks(top); err == nil && resolved != "" {
+		top = resolved
+	}
+	if resolved, err := filepath.EvalSymlinks(common); err == nil && resolved != "" {
+		common = resolved
 	}
 	return top, common
 }
@@ -268,6 +302,17 @@ func DetectPlan(projectRoot, codeRoot, phase string) (Plan, error) {
 			{Name: "cargo clippy", Args: []string{"cargo", "clippy"}},
 			{Name: "cargo test", Args: []string{"cargo", "test"}},
 		}
+	case ProjectTypeElixir:
+		// mix compile --warnings-as-errors / mix test / mix format
+		// --check-formatted are the standard Elixir CI trio (bug-1b2b1529,
+		// #153): compile fails the build on any warning, mix test runs the
+		// suite, and format --check-formatted fails if any source file is
+		// not `mix format`-clean. See https://hexdocs.pm/mix/Mix.Tasks.Format.html.
+		plan.Commands = []Command{
+			{Name: "mix compile", Args: []string{"mix", "compile", "--warnings-as-errors"}},
+			{Name: "mix test", Args: []string{"mix", "test"}},
+			{Name: "mix format --check-formatted", Args: []string{"mix", "format", "--check-formatted"}},
+		}
 	default:
 		return Plan{}, fmt.Errorf("unsupported project type %q", projectType)
 	}
@@ -312,6 +357,7 @@ func detectManifest(projectRoot string) (dir, file string, projectType paths.Pro
 		{"pyproject.toml", paths.ProjectTypePython},
 		{"requirements.txt", paths.ProjectTypePython},
 		{"Cargo.toml", paths.ProjectTypeRust},
+		{"mix.exs", ProjectTypeElixir},
 	}
 	dirs := []string{projectRoot}
 	for _, sub := range []string{"packages", "src"} {
@@ -357,8 +403,13 @@ func RunSession(opts RunOptions) (*RunResult, error) {
 		fmt.Fprintln(opts.Stderr, "hint: no approved guard profile found — gate ran via autodetection. Run `wipnote guard init` to define and approve a project guard profile.")
 	}
 	if !plan.UsedProfile && plan.ProjectType == paths.ProjectTypeUnknown {
-		fmt.Fprintln(opts.Stdout, "no supported project manifest detected — treating quality gate as a no-op pass")
-		result := &RunResult{Plan: plan, Passed: true, Commands: []string{}, OutputSummary: "no-op: no supported project manifest"}
+		// bug-1b2b1529 (#153): a manifest-less project used to record a
+		// silent PASS here, giving false confidence that the gate had
+		// checked something. WARN loudly and record a distinct "skipped"
+		// status instead — a no-op can no longer be mistaken for a green
+		// gate (gateStatus never maps Skipped to "pass").
+		fmt.Fprintln(opts.Stderr, "WARN: no supported project manifest detected (looked for go.mod, package.json, pyproject.toml, requirements.txt, Cargo.toml, mix.exs) — quality gate SKIPPED, not passed. Run `wipnote guard init` to define an explicit guard profile if this project uses an unsupported/custom build.")
+		result := &RunResult{Plan: plan, Passed: false, Skipped: true, Commands: []string{}, OutputSummary: "skipped: no supported project manifest detected"}
 		record, err := PersistRecord(opts.ProjectRoot, opts.SessionID, opts.WorkItemID, opts.Source, opts.Harness, result)
 		if err != nil {
 			return nil, err
@@ -480,7 +531,7 @@ func PersistRecord(projectRoot, sessionID, workItemID, source, harness string, r
 		Harness:           harness,
 		ProjectType:       string(result.Plan.ProjectType),
 		GateCommand:       strings.Join(result.Commands, " && "),
-		Status:            gateStatus(result.Passed),
+		Status:            gateStatus(result),
 		CheckedAt:         time.Now().UTC(),
 		AllowlistHitsJSON: string(hitsJSON),
 		AllowlistHitCount: len(result.AllowlistHits),
@@ -496,8 +547,17 @@ func PersistRecord(projectRoot, sessionID, workItemID, source, harness string, r
 	return record, nil
 }
 
-func gateStatus(passed bool) string {
-	if passed {
+// gateStatus derives the persisted DB status for a gate run. The gate_records
+// table's status column is constrained to ('pass','fail') (see
+// core/db/schema.go), so a Skipped result (no supported manifest / no
+// approved guard profile) persists as "fail" — this still satisfies
+// bug-1b2b1529 (#153): "fail" can never be mistaken for a passing gate, and
+// RunResult.Skipped plus the loud stderr WARN (see RunSession) preserve the
+// distinction between "the gate ran and found problems" and "the gate never
+// ran anything" for callers that inspect the in-memory RunResult (e.g. the
+// `check --gate` CLI's tailored error message) rather than only the DB row.
+func gateStatus(result *RunResult) string {
+	if result.Passed {
 		return "pass"
 	}
 	return "fail"

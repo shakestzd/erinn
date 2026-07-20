@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -42,6 +43,7 @@ func workitemCmd(typeName, dirName string) *cobra.Command {
 		AddStep:          func() *cobra.Command { return wiAddStepCmd(typeName) },
 		AddTaskStep:      func() *cobra.Command { return wiAddTaskStepCmd(typeName) },
 		CompleteTaskStep: func() *cobra.Command { return wiCompleteTaskStepCmd(typeName) },
+		CompleteStep:     func() *cobra.Command { return wiCompleteStepCmd(typeName) },
 		Update:           func() *cobra.Command { return wiUpdateCmd(typeName) },
 		SetDescription:   func() *cobra.Command { return setDescriptionCmd(typeName) },
 		Move:             func() *cobra.Command { return wiMoveCmd(typeName) },
@@ -817,6 +819,49 @@ func runWiCompleteTaskStep(typeName, id, taskID string) error {
 	col := collectionFor(p, typeName)
 	if err := col.CompleteTaskStep(id, taskID); err != nil {
 		return fmt.Errorf("complete task step: %w", err)
+	}
+	return nil
+}
+
+// wiCompleteStepCmd creates the complete-step subcommand for a work item type.
+func wiCompleteStepCmd(typeName string) *cobra.Command {
+	return &cobra.Command{
+		Use:   "complete-step <id> [step-number]",
+		Short: "Mark a manual step as completed",
+		Args:  cobra.RangeArgs(1, 2),
+		RunE: func(_ *cobra.Command, args []string) error {
+			stepNum := 0
+			if len(args) > 1 {
+				var err error
+				stepNum, err = strconv.Atoi(args[1])
+				if err != nil {
+					return fmt.Errorf("step number must be an integer, got %q", args[1])
+				}
+			}
+			return runWiCompleteStep(typeName, args[0], stepNum)
+		},
+	}
+}
+
+// runWiCompleteStep completes a manual step by index (1-based) or auto-completes the next incomplete step if stepNum is 0.
+func runWiCompleteStep(typeName, id string, stepNum int) error {
+	dir, err := findWipnoteDir()
+	if err != nil {
+		return err
+	}
+	id, err = resolveID(dir, id)
+	if err != nil {
+		return err
+	}
+	p, err := workitem.Open(dir, "claude-code")
+	if err != nil {
+		return fmt.Errorf("open project: %w", err)
+	}
+	defer p.Close()
+
+	col := collectionFor(p, typeName)
+	if err := col.CompleteStep(id, stepNum); err != nil {
+		return fmt.Errorf("complete step: %w", err)
 	}
 	return nil
 }

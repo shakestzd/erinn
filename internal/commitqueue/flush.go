@@ -69,6 +69,8 @@ func (o *Outbox) flushLocked(commit Committer, maxAttempts int, res *FlushResult
 	for idx, intent := range pending {
 		if err := intent.Validate(); err != nil {
 			intent.Attempts = maxAttempts
+			intent.Reason = err.Error()
+			intent.DeadLetteredAt = time.Now().UTC()
 			if dlErr := o.appendDeadLetter(intent); dlErr != nil {
 				remaining = append(remaining, intent)
 				remaining = append(remaining, pending[idx+1:]...)
@@ -78,13 +80,18 @@ func (o *Outbox) flushLocked(commit Committer, maxAttempts int, res *FlushResult
 			res.DeadLettered++
 			continue
 		}
-		if err := commit(intent); err == nil {
+		commitErr := commit(intent)
+		if commitErr == nil {
 			res.Committed++
 			continue
 		}
 		// Commit failed: count the attempt.
 		intent.Attempts++
 		if intent.Attempts >= maxAttempts {
+			// Capture why the commit kept failing so dead-letter list has
+			// something more useful than a bare count (GH#155).
+			intent.Reason = commitErr.Error()
+			intent.DeadLetteredAt = time.Now().UTC()
 			if dlErr := o.appendDeadLetter(intent); dlErr != nil {
 				// Could not dead-letter: don't lose data. Keep this intent and
 				// every intent we have not yet processed, persist, and abort so

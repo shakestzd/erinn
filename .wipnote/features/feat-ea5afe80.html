@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>Context- and wipnote-aware Oh My Posh statusline for Claude Code</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="feat-ea5afe80"
+             data-type="feature"
+             data-status="in-progress"
+             data-priority="medium"
+             data-created="2026-07-08T15:38:11.990008"
+             data-updated="2026-07-08T15:38:12.078892" data-agent-assigned="claude-code" data-created-by-agent="claude-code" data-created-by-model="claude-opus-4-8[1m]" data-created-by-cli-version="0.67.1">
+
+        <header>
+            <h1>Context- and wipnote-aware Oh My Posh statusline for Claude Code</h1>
+            <div class="metadata">
+                <span class="badge status-in-progress">In Progress</span>
+                <span class="badge priority-medium">Medium Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="implemented_in">
+                <h3>Implemented In:</h3>
+                <ul>
+                    <li><a href="../sessions/8ae1d173-3a2d-40c1-9856-ec95fd903c71.html" data-relationship="implemented_in" data-since="2026-07-08T15:38:12.078815">session 8ae1d173-3a2d-40c1-9856-ec95fd903c71</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>Two-line connected rounded-ribbon Claude Code statusline rendered via Oh My Posh. Line 1: path, git, active wipnote work item (WIPNOTE_ACTIVE). Line 2: model, context gauge + pct + token count, session duration, session cost. Wrapper omp-claude-wrapper.sh queries &#39;wipnote statusline --session&#39; and strips the OSC title escape; two single-block configs (line1/line2) render as two rows since OMP newline does not survive the claude renderer. VS Code terminal font set to JetBrainsMono Nerd Font.</p>
+        </section>
+    </article>
+</body>
+</html>

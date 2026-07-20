@@ -246,6 +246,28 @@ func TestRelevantResult_JSONShape(t *testing.T) {
 	}
 }
 
+// TestRunRelevantSearch_DegradesGracefullyWithoutRipgrep is the regression
+// for the rg-missing rabbit hole flagged in GH#151: without ripgrep on PATH,
+// runRelevantSearch used to hard-fail the whole command. It now degrades —
+// keyword queries return zero matches (no hard error) instead of erroring out.
+func TestRunRelevantSearch_DegradesGracefullyWithoutRipgrep(t *testing.T) {
+	hgDir := makeRelevantFixture(t)
+
+	oldPath := os.Getenv("PATH")
+	t.Cleanup(func() { os.Setenv("PATH", oldPath) })
+	if err := os.Setenv("PATH", t.TempDir()); err != nil {
+		t.Fatalf("setenv PATH: %v", err)
+	}
+
+	results, err := runRelevantSearch(hgDir, "retrieval", queryTypeKeyword)
+	if err != nil {
+		t.Fatalf("runRelevantSearch should degrade gracefully without rg, got error: %v", err)
+	}
+	if len(results) != 0 {
+		t.Errorf("expected 0 results in degraded mode (no rg, keyword query), got %d", len(results))
+	}
+}
+
 // --- No results ---
 
 func TestRunRelevantKeyword_NoMatch(t *testing.T) {
@@ -275,5 +297,231 @@ func TestRankResults_OrderByScore(t *testing.T) {
 	}
 	if ranked[1].ID != "feat-ccc" {
 		t.Errorf("second ranked item should be feat-ccc (score 3), got %s", ranked[1].ID)
+	}
+}
+
+// --- Bounded/scoped output (GH#151) ---
+
+func sampleRelevantResults() []relevantResult {
+	return []relevantResult{
+		{ID: "feat-aaa", Type: "feature", Status: "in-progress", Score: 5.0, Title: "First"},
+		{ID: "bug-bbb", Type: "bug", Status: "todo", Score: 4.0, Title: "Second"},
+		{ID: "spk-ccc", Type: "spike", Status: "done", Score: 3.0, Title: "Third"},
+		{ID: "feat-ddd", Type: "feature", Status: "todo", Score: 2.0, Title: "Fourth"},
+		{ID: "trk-eee", Type: "track", Status: "in-progress", Score: 1.0, Title: "Fifth"},
+	}
+}
+
+func TestApplyLimit_HonorsLimit(t *testing.T) {
+	got := applyLimit(sampleRelevantResults(), 2)
+	if len(got) != 2 {
+		t.Fatalf("applyLimit(_, 2) returned %d items, want 2", len(got))
+	}
+	if got[0].ID != "feat-aaa" || got[1].ID != "bug-bbb" {
+		t.Errorf("applyLimit did not preserve rank order: %+v", got)
+	}
+}
+
+func TestApplyLimit_ZeroMeansUnbounded(t *testing.T) {
+	items := sampleRelevantResults()
+	got := applyLimit(items, 0)
+	if len(got) != len(items) {
+		t.Fatalf("applyLimit(_, 0) returned %d items, want unbounded %d", len(got), len(items))
+	}
+}
+
+func TestApplyLimit_LimitGreaterThanLenReturnsAll(t *testing.T) {
+	items := sampleRelevantResults()
+	got := applyLimit(items, 100)
+	if len(got) != len(items) {
+		t.Fatalf("applyLimit(_, 100) returned %d items, want all %d", len(got), len(items))
+	}
+}
+
+func TestFilterResults_ByType(t *testing.T) {
+	got := filterResults(sampleRelevantResults(), "feature", "", 0)
+	if len(got) != 2 {
+		t.Fatalf("filterResults type=feature returned %d items, want 2", len(got))
+	}
+	for _, r := range got {
+		if r.Type != "feature" {
+			t.Errorf("filterResults type=feature leaked non-feature item %+v", r)
+		}
+	}
+}
+
+func TestFilterResults_ByStatus(t *testing.T) {
+	got := filterResults(sampleRelevantResults(), "", "todo", 0)
+	if len(got) != 2 {
+		t.Fatalf("filterResults status=todo returned %d items, want 2", len(got))
+	}
+	for _, r := range got {
+		if r.Status != "todo" {
+			t.Errorf("filterResults status=todo leaked non-todo item %+v", r)
+		}
+	}
+}
+
+func TestFilterResults_ByMinScore(t *testing.T) {
+	got := filterResults(sampleRelevantResults(), "", "", 3.5)
+	if len(got) != 2 {
+		t.Fatalf("filterResults minScore=3.5 returned %d items, want 2 (scores 5.0, 4.0)", len(got))
+	}
+	for _, r := range got {
+		if r.Score < 3.5 {
+			t.Errorf("filterResults minScore=3.5 leaked low-score item %+v", r)
+		}
+	}
+}
+
+func TestFilterResults_CombinedFilters(t *testing.T) {
+	got := filterResults(sampleRelevantResults(), "feature", "todo", 0)
+	if len(got) != 1 || got[0].ID != "feat-ddd" {
+		t.Fatalf("filterResults type=feature status=todo = %+v, want only feat-ddd", got)
+	}
+}
+
+func TestFilterResults_NoFiltersReturnsAll(t *testing.T) {
+	items := sampleRelevantResults()
+	got := filterResults(items, "", "", 0)
+	if len(got) != len(items) {
+		t.Fatalf("filterResults with no filters returned %d items, want %d", len(got), len(items))
+	}
+}
+
+func TestPrintRelevantCompact_OneLinePerItem(t *testing.T) {
+	items := sampleRelevantResults()[:2]
+	out := captureStdout(t, func() {
+		printRelevantCompact(items, len(items), len(items))
+	})
+	lines := strings.Split(strings.TrimRight(out, "\n"), "\n")
+	if len(lines) != 2 {
+		t.Fatalf("printRelevantCompact produced %d lines for 2 items, want 2 (no truncation summary): %q", len(lines), out)
+	}
+	for i, r := range items {
+		line := lines[i]
+		for _, want := range []string{r.ID, r.Type, r.Status, r.Title} {
+			if !strings.Contains(line, want) {
+				t.Errorf("compact line %q missing %q", line, want)
+			}
+		}
+	}
+}
+
+func TestPrintRelevantCompact_TruncationSummaryLine(t *testing.T) {
+	items := sampleRelevantResults()[:2]
+	out := captureStdout(t, func() {
+		printRelevantCompact(items, 2, 5)
+	})
+	if !strings.Contains(out, "showing 2 of 5") {
+		t.Errorf("expected truncation summary mentioning 'showing 2 of 5', got: %q", out)
+	}
+	if !strings.Contains(out, "--limit") {
+		t.Errorf("expected truncation summary to mention --limit, got: %q", out)
+	}
+}
+
+func TestPrintRelevantCompact_NoSummaryWhenNotTruncated(t *testing.T) {
+	items := sampleRelevantResults()
+	out := captureStdout(t, func() {
+		printRelevantCompact(items, len(items), len(items))
+	})
+	if strings.Contains(out, "--limit") {
+		t.Errorf("did not expect truncation summary when shown == total, got: %q", out)
+	}
+}
+
+func TestPrintRelevantText_TruncationSummaryLine(t *testing.T) {
+	items := sampleRelevantResults()[:2]
+	out := captureStdout(t, func() {
+		printRelevantText(items, 2, 5)
+	})
+	if !strings.Contains(out, "showing 2 of 5") {
+		t.Errorf("expected text output to include truncation summary, got: %q", out)
+	}
+}
+
+func TestPrintRelevantJSON_TruncatedField(t *testing.T) {
+	items := sampleRelevantResults()[:2]
+	out := captureStdout(t, func() {
+		if err := printRelevantJSON(items, 2, 5); err != nil {
+			t.Fatalf("printRelevantJSON: %v", err)
+		}
+	})
+	var resp relevantResponse
+	if err := json.Unmarshal([]byte(out), &resp); err != nil {
+		t.Fatalf("unmarshal: %v\noutput: %s", err, out)
+	}
+	if !resp.Truncated {
+		t.Error("expected Truncated=true when shown < total")
+	}
+	if resp.Shown != 2 || resp.Total != 5 {
+		t.Errorf("resp.Shown=%d resp.Total=%d, want 2, 5", resp.Shown, resp.Total)
+	}
+	if len(resp.Results) != 2 {
+		t.Errorf("resp.Results has %d items, want 2", len(resp.Results))
+	}
+}
+
+func TestPrintRelevantJSON_NotTruncatedField(t *testing.T) {
+	items := sampleRelevantResults()
+	out := captureStdout(t, func() {
+		if err := printRelevantJSON(items, len(items), len(items)); err != nil {
+			t.Fatalf("printRelevantJSON: %v", err)
+		}
+	})
+	var resp relevantResponse
+	if err := json.Unmarshal([]byte(out), &resp); err != nil {
+		t.Fatalf("unmarshal: %v\noutput: %s", err, out)
+	}
+	if resp.Truncated {
+		t.Error("expected Truncated=false when shown == total")
+	}
+}
+
+func TestRelevantCmd_HasBoundedScopedFlags(t *testing.T) {
+	cmd := relevantCmd()
+	for _, name := range []string{"limit", "compact", "type", "status", "min-score", "format"} {
+		if cmd.Flags().Lookup(name) == nil {
+			t.Errorf("relevant command missing --%s flag", name)
+		}
+	}
+}
+
+// TestEffectiveFormat_CompactOverridesDefaultJSON covers a piped (non-TTY)
+// invocation of `wipnote relevant <q> --compact`: the default format is
+// "json" there, but the user's explicit --compact must not be silently
+// discarded in favor of JSON.
+func TestEffectiveFormat_CompactOverridesDefaultJSON(t *testing.T) {
+	got := effectiveFormat("json", true, false)
+	if got != "text" {
+		t.Errorf("effectiveFormat(json, compact=true, formatExplicit=false) = %q, want text", got)
+	}
+}
+
+func TestEffectiveFormat_ExplicitFormatJSONWinsOverCompact(t *testing.T) {
+	got := effectiveFormat("json", true, true)
+	if got != "json" {
+		t.Errorf("effectiveFormat(json, compact=true, formatExplicit=true) = %q, want json (explicit --format wins)", got)
+	}
+}
+
+func TestEffectiveFormat_NoCompactUnaffected(t *testing.T) {
+	if got := effectiveFormat("json", false, false); got != "json" {
+		t.Errorf("effectiveFormat(json, compact=false, ...) = %q, want json", got)
+	}
+	if got := effectiveFormat("text", false, false); got != "text" {
+		t.Errorf("effectiveFormat(text, compact=false, ...) = %q, want text", got)
+	}
+}
+
+func TestRelevantCmd_DefaultLimitIsBounded(t *testing.T) {
+	cmd := relevantCmd()
+	f := cmd.Flags().Lookup("limit")
+	if f == nil {
+		t.Fatal("missing --limit flag")
+	}
+	if f.DefValue == "0" {
+		t.Error("--limit default must not be 0 (unbounded) — default output must be bounded per GH#151")
 	}
 }

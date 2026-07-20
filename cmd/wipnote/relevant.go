@@ -22,6 +22,11 @@ const (
 	weightStatusDone   = 0.2 // small weight for done items (still relevant as context)
 )
 
+// defaultRelevantLimit bounds the default result set so `wipnote relevant`
+// stays agent-context-friendly (GH#151). Unbounded output is opt-in via
+// --limit 0.
+const defaultRelevantLimit = 15
+
 // queryType classifies the user's query.
 type queryType int
 
@@ -61,8 +66,18 @@ type relevantResult struct {
 	Citations []citation `json:"citations"`
 }
 
+// relevantOptions holds the parsed CLI flags controlling output size/shape.
+type relevantOptions struct {
+	format       string
+	compact      bool
+	limit        int
+	typeFilter   string
+	statusFilter string
+	minScore     float64
+}
+
 func relevantCmd() *cobra.Command {
-	var format string
+	var opts relevantOptions
 
 	cmd := &cobra.Command{
 		Use:   "relevant <query>",
@@ -77,13 +92,20 @@ Query auto-detection:
 Reads directly from .wipnote/*.html via ripgrep + git log.
 SQLite is not consulted.
 
+Output is bounded by default (top-ranked matches only) to stay agent-context
+friendly. Pass --limit 0 to opt in to an unbounded dump.
+
 Examples:
   wipnote relevant cmd/wipnote/relevant.go
   wipnote relevant "retrieval"
-  wipnote relevant abc1234`,
+  wipnote relevant abc1234
+  wipnote relevant "retrieval" --compact --limit 5
+  wipnote relevant "retrieval" --type feature --status in-progress
+  wipnote relevant "retrieval" --min-score 2.5 --limit 0`,
 		Args: cobra.ExactArgs(1),
-		RunE: func(_ *cobra.Command, args []string) error {
-			return runRelevant(args[0], format)
+		RunE: func(cmd *cobra.Command, args []string) error {
+			opts.format = effectiveFormat(opts.format, opts.compact, cmd.Flags().Changed("format"))
+			return runRelevant(args[0], opts)
 		},
 	}
 
@@ -92,8 +114,26 @@ Examples:
 	if isTTY {
 		defaultFmt = "text"
 	}
-	cmd.Flags().StringVar(&format, "format", defaultFmt, "Output format: json or text")
+	cmd.Flags().StringVar(&opts.format, "format", defaultFmt, "Output format: json or text")
+	cmd.Flags().BoolVar(&opts.compact, "compact", false, "One line per item: id, type, status, score, title")
+	cmd.Flags().IntVar(&opts.limit, "limit", defaultRelevantLimit, "Max results to show (0 = unbounded)")
+	cmd.Flags().StringVar(&opts.typeFilter, "type", "", "Filter by work-item type (feature, bug, spike, track, plan, spec, recap)")
+	cmd.Flags().StringVar(&opts.statusFilter, "status", "", "Filter by status (e.g. todo, in-progress, done, blocked)")
+	cmd.Flags().Float64Var(&opts.minScore, "min-score", 0, "Minimum relevance score threshold")
 	return cmd
+}
+
+// effectiveFormat resolves the actual output format to use. When stdout is
+// not a TTY, --format defaults to "json" — but if the user explicitly passed
+// --compact and did NOT explicitly pass --format, a bare `--compact` in a
+// piped invocation would otherwise silently produce JSON instead of the
+// compact lines the user asked for. --compact only yields to an *explicit*
+// --format json.
+func effectiveFormat(format string, compact, formatExplicit bool) string {
+	if compact && !formatExplicit && format == "json" {
+		return "text"
+	}
+	return format
 }
 
 // isTerminal returns true when stdout is a TTY.
@@ -131,8 +171,10 @@ func detectQueryType(query string) queryType {
 	return queryTypeKeyword
 }
 
-// runRelevant is the main entry point for the relevant command.
-func runRelevant(query, format string) error {
+// runRelevant is the main entry point for the relevant command. Output is
+// bounded/scoped per GH#151: rank, filter by type/status/min-score, then cap
+// at opts.limit (0 = unbounded, an explicit opt-in to the full dump).
+func runRelevant(query string, opts relevantOptions) error {
 	hgDir, err := findWipnoteDir()
 	if err != nil {
 		return err
@@ -145,14 +187,62 @@ func runRelevant(query, format string) error {
 	}
 
 	results = rankResults(results)
+	results = filterResults(results, opts.typeFilter, opts.statusFilter, opts.minScore)
 
-	switch format {
-	case "json":
-		return printRelevantJSON(results)
+	total := len(results)
+	shown := applyLimit(results, opts.limit)
+
+	switch {
+	case opts.format == "json":
+		return printRelevantJSON(shown, len(shown), total)
+	case opts.compact:
+		printRelevantCompact(shown, len(shown), total)
+		return nil
 	default:
-		printRelevantText(results)
+		printRelevantText(shown, len(shown), total)
 		return nil
 	}
+}
+
+// filterResults returns the subset of results matching all active filters.
+// Empty typeFilter/statusFilter or a zero minScore skip that filter. Matches
+// are exact (case-sensitive), consistent with `wipnote find`'s --status filter.
+func filterResults(results []relevantResult, typeFilter, statusFilter string, minScore float64) []relevantResult {
+	if typeFilter == "" && statusFilter == "" && minScore == 0 {
+		return results
+	}
+	out := make([]relevantResult, 0, len(results))
+	for _, r := range results {
+		if typeFilter != "" && r.Type != typeFilter {
+			continue
+		}
+		if statusFilter != "" && r.Status != statusFilter {
+			continue
+		}
+		if r.Score < minScore {
+			continue
+		}
+		out = append(out, r)
+	}
+	return out
+}
+
+// applyLimit returns the top `limit` results. limit <= 0 means unbounded —
+// the explicit opt-in to a full dump (GH#151).
+func applyLimit(results []relevantResult, limit int) []relevantResult {
+	if limit <= 0 || limit >= len(results) {
+		return results
+	}
+	return results[:limit]
+}
+
+// truncationSummary returns a one-line, non-silent notice when shown < total,
+// or "" when nothing was truncated.
+func truncationSummary(shown, total int) string {
+	if shown >= total {
+		return ""
+	}
+	return fmt.Sprintf("showing %d of %d — raise --limit (or pass --limit 0) to see more", shown, total)
 }
 
 // runRelevantSearch performs the multi-source retrieval pipeline and returns
@@ -181,13 +271,20 @@ func runRelevantSearch(hgDir, query string, qType queryType) ([]relevantResult, 
 		rgTokens = tokenizeQuery(query)
 	}
 
+	// rgMissing degrades gracefully instead of hard-failing the whole command:
+	// once we know `rg` isn't on PATH, stop retrying per token, warn once on
+	// stderr, and fall through to step 2 (git log attribution), which still
+	// works for file/SHA queries without ripgrep.
+	rgMissing := false
 	for _, tok := range rgTokens {
-		if tok == "" {
+		if tok == "" || rgMissing {
 			continue
 		}
 		if err := searchWithRipgrep(hgDir, tok, scores); err != nil {
 			if isCommandNotFound(err) {
-				return nil, fmt.Errorf("ripgrep (rg) not found in PATH — install it: https://github.com/BurntSushi/ripgrep")
+				rgMissing = true
+				fmt.Fprintln(os.Stderr, "warning: ripgrep (rg) not found in PATH — degraded mode: results limited to git log attribution (file/SHA queries only). Install rg for full keyword search: https://github.com/BurntSushi/ripgrep")
+				continue
 			}
 			// Other errors are non-fatal: rg may have hit a transient issue. Continue with git-only attribution.
 		}
@@ -599,12 +696,28 @@ func min7(s string) int {
 	return 7
 }
 
-// printRelevantJSON outputs results as a JSON array.
-func printRelevantJSON(results []relevantResult) error {
+// relevantResponse is the top-level JSON payload. Wrapping (rather than a
+// bare array) lets callers see shown/total/truncated without parsing a
+// separate stderr notice — truncation is never silent (GH#151).
+type relevantResponse struct {
+	Results   []relevantResult `json:"results"`
+	Shown     int              `json:"shown"`
+	Total     int              `json:"total"`
+	Truncated bool             `json:"truncated"`
+}
+
+// printRelevantJSON outputs results as a JSON object with shown/total/truncated metadata.
+func printRelevantJSON(results []relevantResult, shown, total int) error {
 	if results == nil {
 		results = []relevantResult{}
 	}
-	data, err := json.MarshalIndent(results, "", "  ")
+	resp := relevantResponse{
+		Results:   results,
+		Shown:     shown,
+		Total:     total,
+		Truncated: shown < total,
+	}
+	data, err := json.MarshalIndent(resp, "", "  ")
 	if err != nil {
 		return fmt.Errorf("marshal json: %w", err)
 	}
@@ -612,8 +725,9 @@ func printRelevantJSON(results []relevantResult) error {
 	return nil
 }
 
-// printRelevantText outputs a human-readable ranked list.
-func printRelevantText(results []relevantResult) {
+// printRelevantText outputs a human-readable ranked list, followed by a
+// truncation summary line when shown < total (never silent — GH#151).
+func printRelevantText(results []relevantResult, shown, total int) {
 	if len(results) == 0 {
 		fmt.Println("No matching work items found.")
 		return
@@ -631,5 +745,26 @@ func printRelevantText(results []relevantResult) {
 			}
 		}
 	}
+	if summary := truncationSummary(shown, total); summary != "" {
+		fmt.Printf("\n%d item(s) — %s\n", len(results), summary)
+		return
+	}
 	fmt.Printf("\n%d item(s)\n", len(results))
+}
+
+// printRelevantCompact outputs one line per item — id, type, status, score,
+// title — with no citations, for the smallest possible agent-context
+// footprint. Prints a truncation summary line when shown < total.
+func printRelevantCompact(results []relevantResult, shown, total int) {
+	if len(results) == 0 {
+		fmt.Println("No matching work items found.")
+		return
+	}
+	for _, r := range results {
+		fmt.Printf("%s  %s  %s  %.1f  %s\n",
+			r.ID, r.Type, r.Status, r.Score, truncate(r.Title, 60))
+	}
+	if summary := truncationSummary(shown, total); summary != "" {
+		fmt.Println(summary)
+	}
 }

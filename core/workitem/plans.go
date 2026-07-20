@@ -385,6 +385,23 @@ func patchEdgesNav(content string, node *models.Node) string {
 	return content
 }
 
+// PatchGraphEdgesNav rewrites the <nav data-graph-edges> section of the HTML
+// file at path so it reflects edges, leaving everything else in the file
+// untouched. Exported for render pipelines outside this package that don't
+// go through PlanCollection.writeNode (e.g. the YAML-driven plan re-render in
+// cmd/wipnote, which fully regenerates the HTML from the plantmpl template and
+// has no concept of graph edges). Without this, edges — which live only in the
+// HTML and are never part of the plan YAML body — are silently dropped on
+// every re-render (bug-b12b537b, GH#157).
+func PatchGraphEdgesNav(path string, edges map[string][]models.Edge) error {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return fmt.Errorf("patch graph edges nav read %s: %w", path, err)
+	}
+	content := patchEdgesNav(string(data), &models.Node{Edges: edges})
+	return os.WriteFile(path, []byte(content), 0o644)
+}
+
 // buildEdgesNavHTML renders a <nav data-graph-edges> block from a node's edges.
 // Returns an empty string if the node has no edges.
 func buildEdgesNavHTML(node *models.Node) string {

@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/shakestzd/wipnote/core/htmlparse"
 	"github.com/shakestzd/wipnote/core/models"
 	"github.com/shakestzd/wipnote/core/workitem"
 	"github.com/shakestzd/wipnote/plan/plantmpl"
@@ -379,10 +380,23 @@ func runPlanRender(planID string) error {
 	return renderPlanToFile(wipnoteDir, planID)
 }
 
-// renderPlanToFileQuiet regenerates plan HTML from the YAML source without
-// printing to stdout. Used by commitPlanChange to re-render before staging so
-// the committed HTML is always in sync with the YAML (Fix 2 of bug-365a84d9).
-func renderPlanToFileQuiet(wipnoteDir, planID string) error {
+// loadPlanEdges reads the graph edges currently recorded in a plan's HTML
+// file, if any. Edges live only in the HTML <nav data-graph-edges> section —
+// they are never part of the plan YAML body — so a YAML-driven re-render must
+// snapshot them first or they are silently dropped (bug-b12b537b, GH#157).
+// Returns nil (not an error) when the file doesn't exist yet or has no edges.
+func loadPlanEdges(htmlPath string) map[string][]models.Edge {
+	node, err := htmlparse.ParseFile(htmlPath)
+	if err != nil {
+		return nil
+	}
+	return node.Edges
+}
+
+// renderPlanCore regenerates plan HTML from the YAML source, preserving any
+// graph edges already recorded in the existing HTML file across the rebuild
+// (bug-b12b537b, GH#157). Shared by renderPlanToFileQuiet and renderPlanToFile.
+func renderPlanCore(wipnoteDir, planID string) (*plantmpl.PlanPage, error) {
 	page := plantmpl.BuildFromTopic(planID, "", "", time.Now().UTC().Format("2006-01-02"))
 	enrichPageFromYAML(wipnoteDir, planID, page)
 
@@ -391,16 +405,40 @@ func renderPlanToFileQuiet(wipnoteDir, planID string) error {
 	}
 
 	outPath := filepath.Join(wipnoteDir, "plans", planID+".html")
+
+	// Snapshot existing edges BEFORE os.Create truncates the file. The
+	// plantmpl template has no concept of graph edges, so without this the
+	// rebuild below silently drops them.
+	existingEdges := loadPlanEdges(outPath)
+
 	f, err := os.Create(outPath)
 	if err != nil {
-		return fmt.Errorf("create HTML file: %w", err)
+		return nil, fmt.Errorf("create HTML file: %w", err)
 	}
-	defer f.Close()
+	renderErr := page.Render(f)
+	closeErr := f.Close()
+	if renderErr != nil {
+		return nil, fmt.Errorf("render plan: %w", renderErr)
+	}
+	if closeErr != nil {
+		return nil, fmt.Errorf("close HTML file: %w", closeErr)
+	}
 
-	if err := page.Render(f); err != nil {
-		return fmt.Errorf("render plan: %w", err)
+	if len(existingEdges) > 0 {
+		if err := workitem.PatchGraphEdgesNav(outPath, existingEdges); err != nil {
+			return nil, fmt.Errorf("restore graph edges: %w", err)
+		}
 	}
-	return nil
+
+	return page, nil
+}
+
+// renderPlanToFileQuiet regenerates plan HTML from the YAML source without
+// printing to stdout. Used by commitPlanChange to re-render before staging so
+// the committed HTML is always in sync with the YAML (Fix 2 of bug-365a84d9).
+func renderPlanToFileQuiet(wipnoteDir, planID string) error {
+	_, err := renderPlanCore(wipnoteDir, planID)
+	return err
 }
 
 // renderPlanToFile regenerates plan HTML from the YAML source using the
@@ -411,24 +449,12 @@ func renderPlanToFile(wipnoteDir, planID string) error {
 		return fmt.Errorf("YAML source not found: %s\nRun 'wipnote plan generate <track-id>' to create a plan", yamlPath)
 	}
 
-	page := plantmpl.BuildFromTopic(planID, "", "", time.Now().UTC().Format("2006-01-02"))
-	enrichPageFromYAML(wipnoteDir, planID, page)
-
-	if page.Title == "" {
-		page.Title = planID
+	page, err := renderPlanCore(wipnoteDir, planID)
+	if err != nil {
+		return err
 	}
 
 	outPath := filepath.Join(wipnoteDir, "plans", planID+".html")
-	f, err := os.Create(outPath)
-	if err != nil {
-		return fmt.Errorf("create HTML file: %w", err)
-	}
-	defer f.Close()
-
-	if err := page.Render(f); err != nil {
-		return fmt.Errorf("render plan: %w", err)
-	}
-
 	fmt.Printf("Rendered %s → %s (%d slices)\n", planID, outPath, len(page.Slices))
 	return nil
 }

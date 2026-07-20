@@ -45,15 +45,21 @@ const MaxAttempts = 5
 // artifact paths to stage/commit, relative to RepoRoot. Message is the full
 // commit subject. WorkItemID and Action are carried for observability/auditing.
 // EnqueuedAt records when the intent was appended; Attempts counts how many
-// times a flush has tried (and failed) to commit it.
+// times a flush has tried (and failed) to commit it. Reason and
+// DeadLetteredAt are populated only when an intent is moved to the
+// dead-letter log (GH#155) — they carry the last failure's error text and
+// the moment the intent gave up on retrying, so `dead-letter list` has
+// something to show besides a bare count.
 type Intent struct {
-	RepoRoot   string    `json:"repo_root"`
-	RelPaths   []string  `json:"rel_paths"`
-	Message    string    `json:"message"`
-	WorkItemID string    `json:"work_item_id,omitempty"`
-	Action     string    `json:"action,omitempty"`
-	EnqueuedAt time.Time `json:"enqueued_at"`
-	Attempts   int       `json:"attempts,omitempty"`
+	RepoRoot       string    `json:"repo_root"`
+	RelPaths       []string  `json:"rel_paths"`
+	Message        string    `json:"message"`
+	WorkItemID     string    `json:"work_item_id,omitempty"`
+	Action         string    `json:"action,omitempty"`
+	EnqueuedAt     time.Time `json:"enqueued_at"`
+	Attempts       int       `json:"attempts,omitempty"`
+	Reason         string    `json:"reason,omitempty"`
+	DeadLetteredAt time.Time `json:"dead_lettered_at,omitempty"`
 }
 
 // Validate reports the first structural problem with an intent, or nil. An

@@ -108,6 +108,10 @@ func runStatus(_ *cobra.Command, _ []string) error {
 
 	fmt.Printf("\nTotal: %d work items\n", len(nodes))
 
+	// Commit-queue dead-letter depth (GH#155) — loud, actionable warning
+	// instead of the caller having to know 'commit-queue status' exists.
+	printCommitQueueDeadLetterWarning(filepath.Dir(dir))
+
 	// Collector health — scan .wipnote/sessions/ for recent PID files.
 	printCollectorHealth(filepath.Dir(dir))
 
@@ -161,6 +165,24 @@ func printContentionStatus() {
 		queueStatus.State, queueStatus.Depth, queueStatus.Capacity,
 		queueStatus.Enqueued, queueStatus.Dequeued,
 		queueStatus.Rejected, queueStatus.Errors)
+}
+
+// printCommitQueueDeadLetterWarning surfaces a loud, actionable line in
+// `wipnote status` when the commit-queue dead-letter log is non-empty
+// (GH#155) — previously the only way to notice was a bare depth number
+// buried in 'commit-queue flush' output. Best-effort: any error opening the
+// outbox is silently swallowed since status must never fail because of queue
+// diagnostics.
+func printCommitQueueDeadLetterWarning(repoRoot string) {
+	ob, err := openCommitOutbox(repoRoot)
+	if err != nil {
+		return
+	}
+	dlDepth, err := ob.DeadLetterDepth()
+	if err != nil || dlDepth == 0 {
+		return
+	}
+	fmt.Printf("\n%s", deadLetterWarningLine(dlDepth))
 }
 
 // printCollectorHealth lists per-session collector status for any session

@@ -111,7 +111,18 @@ moved to a dead-letter log so one poison commit cannot freeze the queue.`,
 	}
 	cmd.AddCommand(commitQueueFlushCmd())
 	cmd.AddCommand(commitQueueStatusCmd())
+	cmd.AddCommand(commitQueueDeadLetterCmd())
 	return cmd
+}
+
+// deadLetterWarningLine formats the loud, actionable line printed by flush
+// and status whenever the dead-letter depth is non-zero (GH#155) — a bare
+// count previously gave no indication anything was remediable.
+func deadLetterWarningLine(dlDepth int) string {
+	return fmt.Sprintf(
+		"WARNING: %d commit-queue intent(s) stuck in dead-letter — inspect with "+
+			"'wipnote commit-queue dead-letter list', then 'retry' or 'clear'.\n",
+		dlDepth)
 }
 
 func commitQueueFlushCmd() *cobra.Command {
@@ -135,6 +146,9 @@ func commitQueueFlushCmd() *cobra.Command {
 			fmt.Fprintf(cmd.OutOrStdout(),
 				"commit-queue flush: committed=%d failed=%d dead-lettered=%d remaining=%d dead-letter-depth=%d\n",
 				res.Committed, res.Failed, res.DeadLettered, res.RemainingDepth, res.DeadLetterDepth)
+			if res.DeadLetterDepth > 0 {
+				fmt.Fprint(cmd.OutOrStdout(), deadLetterWarningLine(res.DeadLetterDepth))
+			}
 			return nil
 		},
 	}
@@ -167,6 +181,9 @@ func commitQueueStatusCmd() *cobra.Command {
 			fmt.Fprintf(cmd.OutOrStdout(),
 				"commit-queue: pending=%d dead-letter=%d\n  outbox: %s\n",
 				depth, dlDepth, ob.Path())
+			if dlDepth > 0 {
+				fmt.Fprint(cmd.OutOrStdout(), deadLetterWarningLine(dlDepth))
+			}
 			return nil
 		},
 	}

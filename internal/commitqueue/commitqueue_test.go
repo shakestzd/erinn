@@ -448,3 +448,230 @@ func TestValidate_RejectsUnsafeRelPaths(t *testing.T) {
 		}
 	}
 }
+
+// --- Step 6: dead-letter visibility + remediation (GH#155) ---
+
+// TestFlushRecordsReasonAndTimestampOnDeadLetter verifies that once an intent
+// is dead-lettered, the last commit error and the moment it happened are
+// captured on the intent — previously a dead-lettered intent carried no
+// indication of why it was stuck.
+func TestFlushRecordsReasonAndTimestampOnDeadLetter(t *testing.T) {
+	o := newTestOutbox(t)
+	_ = o.Append(sampleIntent("poison"))
+
+	before := time.Now().UTC()
+	const maxAttempts = 2
+	commit := func(Intent) error { return fmt.Errorf("index locked") }
+	if _, err := o.Flush(commit, maxAttempts); err != nil {
+		t.Fatalf("flush pass1: %v", err)
+	}
+	if _, err := o.Flush(commit, maxAttempts); err != nil {
+		t.Fatalf("flush pass2 (dead-letters): %v", err)
+	}
+
+	dl, err := o.DeadLettered()
+	if err != nil {
+		t.Fatalf("DeadLettered: %v", err)
+	}
+	if len(dl) != 1 {
+		t.Fatalf("expected 1 dead-lettered intent, got %d", len(dl))
+	}
+	if dl[0].Reason != "index locked" {
+		t.Fatalf("Reason = %q, want %q", dl[0].Reason, "index locked")
+	}
+	if dl[0].DeadLetteredAt.Before(before) {
+		t.Fatalf("DeadLetteredAt = %v, want >= %v", dl[0].DeadLetteredAt, before)
+	}
+}
+
+// TestFlushRecordsReasonOnInvalidIntent covers the other dead-letter path —
+// a structurally invalid intent found mid-flush — which must also carry a
+// reason rather than silently vanishing into the dead-letter log.
+func TestFlushRecordsReasonOnInvalidIntent(t *testing.T) {
+	o := newTestOutbox(t)
+	invalid := sampleIntent("invalid")
+	invalid.RelPaths = []string{"."}
+	if err := atomicWriteIntents(o.Path(), []Intent{invalid}); err != nil {
+		t.Fatalf("seed invalid pending intent: %v", err)
+	}
+
+	var committed []Intent
+	if _, err := o.Flush(okCommitter(&committed), MaxAttempts); err != nil {
+		t.Fatalf("Flush: %v", err)
+	}
+	dl, err := o.DeadLettered()
+	if err != nil {
+		t.Fatalf("DeadLettered: %v", err)
+	}
+	if len(dl) != 1 || dl[0].Reason == "" {
+		t.Fatalf("invalid intent must dead-letter with a non-empty Reason: %+v", dl)
+	}
+	if dl[0].DeadLetteredAt.IsZero() {
+		t.Fatal("DeadLetteredAt must be set for a dead-lettered invalid intent")
+	}
+}
+
+// TestRetryDeadLetterReEnqueuesAndResets is the round-trip: dead-letter an
+// intent, retry it by work-item-id, and verify it lands back on the pending
+// queue with Attempts/Reason/DeadLetteredAt reset for a fresh run.
+func TestRetryDeadLetterReEnqueuesAndResets(t *testing.T) {
+	o := newTestOutbox(t)
+	_ = o.Append(sampleIntent("poison"))
+	const maxAttempts = 1
+	commit := func(Intent) error { return fmt.Errorf("boom") }
+	if _, err := o.Flush(commit, maxAttempts); err != nil {
+		t.Fatalf("flush: %v", err)
+	}
+	if dlDepth, _ := o.DeadLetterDepth(); dlDepth != 1 {
+		t.Fatalf("expected 1 dead-lettered intent before retry, got %d", dlDepth)
+	}
+
+	n, err := o.RetryDeadLetter("poison")
+	if err != nil {
+		t.Fatalf("RetryDeadLetter: %v", err)
+	}
+	if n != 1 {
+		t.Fatalf("RetryDeadLetter returned %d, want 1", n)
+	}
+
+	if dlDepth, _ := o.DeadLetterDepth(); dlDepth != 0 {
+		t.Fatalf("dead-letter log not drained after retry, depth = %d", dlDepth)
+	}
+	pending, err := o.Pending()
+	if err != nil {
+		t.Fatalf("Pending: %v", err)
+	}
+	if len(pending) != 1 || pending[0].WorkItemID != "poison" {
+		t.Fatalf("retried intent not re-enqueued: %+v", pending)
+	}
+	if pending[0].Attempts != 0 || pending[0].Reason != "" || !pending[0].DeadLetteredAt.IsZero() {
+		t.Fatalf("retried intent must reset Attempts/Reason/DeadLetteredAt: %+v", pending[0])
+	}
+
+	// Now flushing with a working committer should drain it clean.
+	var committed []Intent
+	res, err := o.Flush(okCommitter(&committed), MaxAttempts)
+	if err != nil {
+		t.Fatalf("flush after retry: %v", err)
+	}
+	if res.Committed != 1 {
+		t.Fatalf("retried intent did not commit: res=%+v", res)
+	}
+}
+
+// TestRetryDeadLetterAllWhenIDEmpty verifies the --all path: an empty
+// workItemID retries every dead-lettered intent, not just one.
+func TestRetryDeadLetterAllWhenIDEmpty(t *testing.T) {
+	o := newTestOutbox(t)
+	_ = o.Append(sampleIntent("a"))
+	_ = o.Append(sampleIntent("b"))
+	const maxAttempts = 1
+	failAll := func(Intent) error { return fmt.Errorf("boom") }
+	if _, err := o.Flush(failAll, maxAttempts); err != nil {
+		t.Fatalf("flush: %v", err)
+	}
+	if dlDepth, _ := o.DeadLetterDepth(); dlDepth != 2 {
+		t.Fatalf("expected 2 dead-lettered intents, got %d", dlDepth)
+	}
+
+	n, err := o.RetryDeadLetter("")
+	if err != nil {
+		t.Fatalf("RetryDeadLetter(\"\"): %v", err)
+	}
+	if n != 2 {
+		t.Fatalf("RetryDeadLetter(\"\") = %d, want 2", n)
+	}
+	if dlDepth, _ := o.DeadLetterDepth(); dlDepth != 0 {
+		t.Fatalf("dead-letter log not fully drained, depth = %d", dlDepth)
+	}
+	pending, _ := o.Pending()
+	if len(pending) != 2 {
+		t.Fatalf("expected both intents re-enqueued, got %d", len(pending))
+	}
+}
+
+// TestRetryDeadLetterNoMatchIsNoOp verifies retrying a work-item-id with no
+// dead-lettered intents returns 0 and mutates nothing.
+func TestRetryDeadLetterNoMatchIsNoOp(t *testing.T) {
+	o := newTestOutbox(t)
+	_ = o.Append(sampleIntent("a"))
+	_, _ = o.Flush(func(Intent) error { return fmt.Errorf("boom") }, 1)
+
+	n, err := o.RetryDeadLetter("does-not-exist")
+	if err != nil {
+		t.Fatalf("RetryDeadLetter: %v", err)
+	}
+	if n != 0 {
+		t.Fatalf("RetryDeadLetter for unknown id = %d, want 0", n)
+	}
+	if dlDepth, _ := o.DeadLetterDepth(); dlDepth != 1 {
+		t.Fatalf("no-op retry must not touch the dead-letter log, depth = %d", dlDepth)
+	}
+}
+
+// TestClearDeadLetterDropsMatchingOnly verifies clearing by work-item-id only
+// removes the matching intent(s), leaving the rest of the dead-letter log
+// intact.
+func TestClearDeadLetterDropsMatchingOnly(t *testing.T) {
+	o := newTestOutbox(t)
+	_ = o.Append(sampleIntent("a"))
+	_ = o.Append(sampleIntent("b"))
+	_, _ = o.Flush(func(Intent) error { return fmt.Errorf("boom") }, 1)
+	if dlDepth, _ := o.DeadLetterDepth(); dlDepth != 2 {
+		t.Fatalf("setup: expected 2 dead-lettered intents, got %d", dlDepth)
+	}
+
+	n, err := o.ClearDeadLetter("a")
+	if err != nil {
+		t.Fatalf("ClearDeadLetter: %v", err)
+	}
+	if n != 1 {
+		t.Fatalf("ClearDeadLetter(\"a\") = %d, want 1", n)
+	}
+	dl, err := o.DeadLettered()
+	if err != nil {
+		t.Fatalf("DeadLettered: %v", err)
+	}
+	if len(dl) != 1 || dl[0].WorkItemID != "b" {
+		t.Fatalf("clear removed the wrong intent: %+v", dl)
+	}
+}
+
+// TestClearDeadLetterAllWhenIDEmpty verifies the --all path drops every
+// dead-lettered intent.
+func TestClearDeadLetterAllWhenIDEmpty(t *testing.T) {
+	o := newTestOutbox(t)
+	_ = o.Append(sampleIntent("a"))
+	_ = o.Append(sampleIntent("b"))
+	_, _ = o.Flush(func(Intent) error { return fmt.Errorf("boom") }, 1)
+
+	n, err := o.ClearDeadLetter("")
+	if err != nil {
+		t.Fatalf("ClearDeadLetter(\"\"): %v", err)
+	}
+	if n != 2 {
+		t.Fatalf("ClearDeadLetter(\"\") = %d, want 2", n)
+	}
+	if dlDepth, _ := o.DeadLetterDepth(); dlDepth != 0 {
+		t.Fatalf("dead-letter log not fully cleared, depth = %d", dlDepth)
+	}
+}
+
+// TestCountDeadLetterMatches verifies the read-only count used to size the
+// CLI confirmation prompt before a destructive clear.
+func TestCountDeadLetterMatches(t *testing.T) {
+	o := newTestOutbox(t)
+	_ = o.Append(sampleIntent("a"))
+	_ = o.Append(sampleIntent("b"))
+	_, _ = o.Flush(func(Intent) error { return fmt.Errorf("boom") }, 1)
+
+	if n, err := o.CountDeadLetterMatches("a"); err != nil || n != 1 {
+		t.Fatalf("CountDeadLetterMatches(\"a\") = (%d, %v), want (1, nil)", n, err)
+	}
+	if n, err := o.CountDeadLetterMatches(""); err != nil || n != 2 {
+		t.Fatalf("CountDeadLetterMatches(\"\") = (%d, %v), want (2, nil)", n, err)
+	}
+	if n, err := o.CountDeadLetterMatches("missing"); err != nil || n != 0 {
+		t.Fatalf("CountDeadLetterMatches(\"missing\") = (%d, %v), want (0, nil)", n, err)
+	}
+}

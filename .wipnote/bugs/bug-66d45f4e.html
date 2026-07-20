@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>Pre-existing env-specific test failures make check --gate unconditionally fail on sandboxed macOS</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="bug-66d45f4e"
+             data-type="bug"
+             data-status="todo"
+             data-priority="high"
+             data-created="2026-07-20T05:59:41.443473"
+             data-updated="2026-07-20T05:59:41.454651" data-agent-assigned="claude-code" data-track-id="trk-fae39e29" data-created-by-agent="claude-code" data-created-by-model="claude-opus-4-8[1m]" data-created-by-cli-version="0.67.1">
+
+        <header>
+            <h1>Pre-existing env-specific test failures make check --gate unconditionally fail on sandboxed macOS</h1>
+            <div class="metadata">
+                <span class="badge status-todo">Todo</span>
+                <span class="badge priority-high">High Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-fae39e29.html" data-relationship="part_of" data-since="2026-07-20T05:59:41.45454">trk-fae39e29</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>Discovered during trk-fae39e29 execution (not a GitHub issue; searched wipnote find sandbox / GOTMPDIR / environment — no existing item covers this baseline). Reproduced on pristine main: internal/migrate.TestNormalizePaths_* (3), internal/registry GOTMPDIR tests, and cmd/wipnote env-specific failures (TestLaunchCodexDevDryRunSkipsWorktreeCreation, TestIngestFilePathNormalization, TestLauncherDoctor_StaleWorktree, TestPruneTempdirOnly_RemovesTestPaths, TestRegistryPrune_GOTMPDIRPaths, TestStartRecapsReindexLoop_PopulatesTableAtStartup flaky, TestNonCompleteCallerCommitNonFatalContractPreserved per git-commit-gpg-sandbox arch hazard). NOTE: internal/gate.TestCodeRoot_LinkedWorktreeOverride was already fixed by the gate-fixes branch (symlink canonicalization). Causes: macOS var-folders symlink resolution, GOTMPDIR detection, missing git committer identity in sandboxed Bash. Impact: check --gate cannot record a passing session-local gate in this environment; every completion needs advisory acceptance. Fix: portable temp-root/symlink handling in tests, sandbox git identity, or a documented environmental-failure allowlist for the gate.</p>
+        </section>
+    </article>
+</body>
+</html>

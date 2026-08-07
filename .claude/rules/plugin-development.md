@@ -73,11 +73,20 @@ Keep shared agent source frontmatter in `plugin/agents/*.md` within those per-ha
 ## Hook Event Names Are Gated Per Harness
 
 No harness validates hook event names. Codex silently drops unrecognized names at
-dispatch (no warning, no error, no `codex doctor` diagnostic); the Antigravity generator
-skips names it cannot translate. A wrong name therefore produces a hook that never fires,
-forever, with no signal — the defect behind bug-e39d408f, where wipnote registered three
-phantom Codex events and Codex sessions consequently emitted no stop or session-end signal
-at all.
+dispatch; the Antigravity generator skips names it cannot translate. A wrong name
+therefore produces a hook that never fires, forever, with no signal — the defect behind
+bug-e39d408f, where wipnote registered three phantom Codex events and Codex sessions
+consequently emitted no stop or session-end signal at all.
+
+**There is no programmatic backstop, and the allowlist cannot be generated.** All three
+candidates were tested against Codex 0.147.0 and all three came back empty: `codex doctor`
+has no hooks diagnostic; unrecognized names are dropped silently at dispatch; and
+`--strict-config` validates neither hook event names nor even unknown top-level TOML keys
+supplied via file (verified with an isolated `CODEX_HOME` and a control nonsense key —
+`codex --strict-config doctor` and `... exec` both parsed clean). The list is
+hand-maintained and needs the same per-release re-verification discipline as the rest of
+the upstream-harness monitoring in CLAUDE.md. Re-verify on a cadence, not on suspicion —
+the failure mode is silent, so nothing will prompt you.
 
 `wipnote plugin build-ports` now **hard-fails** on any `(event name, target)` pair that the
 target harness does not dispatch. The source of truth is `hookEventNameSpecs` in

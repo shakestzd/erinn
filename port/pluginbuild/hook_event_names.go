@@ -24,12 +24,42 @@ import (
 // for this harness").
 //
 // WHY THIS EXISTS: no harness validates hook event names. Codex silently drops
-// unrecognized names at dispatch — no warning, no error, and `codex doctor` has
-// no hooks diagnostic. Antigravity's own generator (writeAntigravityHooks)
-// likewise skips names it cannot translate. A typo or a name invented from an
-// unverified source therefore produces a hook that never fires, forever, with
-// no signal. This table plus checkHookEventNames is the only place that failure
-// can be caught.
+// unrecognized names at dispatch — no warning, no error. Antigravity's own
+// generator (writeAntigravityHooks) likewise skips names it cannot translate. A
+// typo or a name invented from an unverified source therefore produces a hook
+// that never fires, forever, with no signal. This table plus checkHookEventNames
+// is the only place that failure can be caught.
+//
+// THIS LIST IS HAND-MAINTAINED AND CANNOT BE GENERATED. Do not go looking for
+// the automated version; it was searched for and does not exist. Against Codex
+// 0.147.0, all three plausible backstops were tested and all three came back
+// empty:
+//
+//   - `codex doctor` has no hooks diagnostic of any kind.
+//   - Unrecognized event names in hooks.json are dropped at dispatch, silently.
+//   - `--strict-config` does NOT validate hook event names, and in fact does not
+//     behave as its own help text claims for unknown TOML keys supplied via
+//     file. Tested with an isolated CODEX_HOME and a config.toml carrying both
+//     `[hooks.events] TaskStarted = true` and a control nonsense top-level key
+//     (`totally_bogus_top_level_key_xyz = true`), run through
+//     `codex --strict-config doctor` and `codex --strict-config exec`. Neither
+//     key produced an error — config parsed clean and exec proceeded as far as
+//     real API calls before failing on auth, i.e. validation was long past.
+//
+// There is consequently no programmatic way to make Codex validate or enumerate
+// its hook event names. This table does not get to be self-maintaining: it needs
+// the same per-release re-verification discipline as the rest of the
+// upstream-harness monitoring described in CLAUDE.md ("Monitoring Upstream
+// Harnesses"). Re-verify on a cadence, not on suspicion — the failure mode is
+// silent, so nothing will prompt you.
+//
+// CAUTIONARY TALE: the phantom registrations this gate was built to catch
+// (TaskStarted/TaskComplete/TurnAborted, bug-e39d408f) most likely originated in
+// someone reading Codex CLOUD's task-tracking vocabulary (`codex cloud`, whose
+// RawRecord schema carries task_id/task_subject) as if it were local hook
+// vocabulary. Two different Codex surfaces, two different vocabularies. When
+// adding an entry, confirm the name appears in the local hook dispatch path
+// specifically — plausibility is not provenance.
 type hookEventNameSpec struct {
 	// Name is the canonical event name as written in manifest.json.
 	Name string

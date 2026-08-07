@@ -36,7 +36,7 @@ type critiqueSlice struct {
 
 // planCritiqueCmd extracts plan content for AI critique.
 func planCritiqueCmd() *cobra.Command {
-	return &cobra.Command{
+	cmd := &cobra.Command{
 		Use:   "critique <plan-id>",
 		Short: "Extract plan content for AI review",
 		Long: `Read a plan and output structured JSON for AI critique.
@@ -55,6 +55,101 @@ Example:
 			return runPlanCritique(wipnoteDir, args[0])
 		},
 	}
+	cmd.AddCommand(planCritiqueReviseCmd())
+	return cmd
+}
+
+// planCritiqueReviseCmd registers `wipnote plan critique revise <plan-id>` —
+// the critique write path. It rewrites a slice's prose fields directly, in
+// place, instead of appending an entry to the now-deprecated
+// critic_revisions list (see planyaml.PlanSlice.CriticRevisions).
+//
+// Appending was the measured mechanism behind per-slice word inflation: 77%
+// growth in words-per-slice across 45 plans / 282 slices while
+// slices-per-plan fell 22%. Rewriting a plain string field in place cannot
+// accumulate the same way, and superseded wording is not lost — it stays
+// recoverable via `wipnote history <plan-id>`, which walks the plan YAML's
+// git history (see history.go — plan- ids resolve to .yaml, not .html).
+func planCritiqueReviseCmd() *cobra.Command {
+	var sliceNum int
+	var what, why, tests string
+
+	cmd := &cobra.Command{
+		Use:   "revise <plan-id>",
+		Short: "Rewrite a slice's prose fields in place (the critique write path)",
+		Long: `Rewrite one or more of a slice's prose fields (what/why/tests)
+directly, in place. Any flag left empty leaves that field unchanged.
+
+This replaces hand-editing the YAML to append a critic_revisions entry.
+critic_revisions is deprecated: it still parses and renders for plans written
+before this change, but this command never reads or writes it.
+
+Example:
+  wipnote plan critique revise plan-a1b2c3d4 --slice 3 --what "revised text"`,
+		Args: cobra.ExactArgs(1),
+		RunE: func(_ *cobra.Command, args []string) error {
+			wipnoteDir, err := findWipnoteDir()
+			if err != nil {
+				return err
+			}
+			return runPlanCritiqueRevise(wipnoteDir, args[0], sliceNum, what, why, tests)
+		},
+	}
+	cmd.Flags().IntVar(&sliceNum, "slice", 0, "slice number to revise (required)")
+	cmd.Flags().StringVar(&what, "what", "", "replacement text for the slice's what field")
+	cmd.Flags().StringVar(&why, "why", "", "replacement text for the slice's why field")
+	cmd.Flags().StringVar(&tests, "tests", "", "replacement text for the slice's tests field")
+	_ = cmd.MarkFlagRequired("slice")
+	return cmd
+}
+
+// runPlanCritiqueRevise loads the plan, rewrites the named slice's prose
+// fields in place, and saves + autocommits so the prior wording is preserved
+// in git history rather than accumulated in the YAML itself.
+func runPlanCritiqueRevise(wipnoteDir, planID string, sliceNum int, what, why, tests string) error {
+	planPath := filepath.Join(wipnoteDir, "plans", planID+".yaml")
+	plan, err := planyaml.Load(planPath)
+	if err != nil {
+		return fmt.Errorf("load plan %q: %w", planID, err)
+	}
+
+	if err := reviseSliceInPlace(plan, sliceNum, what, why, tests); err != nil {
+		return err
+	}
+
+	if err := planyaml.Save(planPath, plan); err != nil {
+		return fmt.Errorf("save plan: %w", err)
+	}
+
+	if err := commitPlanChange(planPath, fmt.Sprintf("plan(%s): critique revise slice %d", planID, sliceNum)); err != nil {
+		return fmt.Errorf("autocommit critique revise: %w", err)
+	}
+
+	fmt.Printf("Slice %d revised in place for %s\n", sliceNum, planID)
+	return nil
+}
+
+// reviseSliceInPlace overwrites the given prose fields on the slice numbered
+// sliceNum, leaving any field passed as "" unchanged. It never reads or
+// writes CriticRevisions — nothing in this write path appends to that
+// (deprecated) list. Returns an error if no slice with that number exists.
+func reviseSliceInPlace(plan *planyaml.PlanYAML, sliceNum int, what, why, tests string) error {
+	for i := range plan.Slices {
+		if plan.Slices[i].Num != sliceNum {
+			continue
+		}
+		if what != "" {
+			plan.Slices[i].What = what
+		}
+		if why != "" {
+			plan.Slices[i].Why = why
+		}
+		if tests != "" {
+			plan.Slices[i].Tests = tests
+		}
+		return nil
+	}
+	return fmt.Errorf("slice %d not found in plan %s", sliceNum, plan.Meta.ID)
 }
 
 func runPlanCritique(wipnoteDir, planID string) error {

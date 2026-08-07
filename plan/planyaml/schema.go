@@ -131,8 +131,23 @@ type PlanSlice struct {
 	ExecutionStatus string `yaml:"execution_status,omitempty"` // not_started | promoted | in_progress | done | blocked | superseded
 
 	// V2 slice-local spec fields.
-	Questions       []SliceQuestion  `yaml:"questions,omitempty"`        // slice-local open questions
-	CriticRevisions []CriticRevision `yaml:"critic_revisions,omitempty"` // critic feedback specific to this slice
+	Questions []SliceQuestion `yaml:"questions,omitempty"` // slice-local open questions
+
+	// CriticRevisions held critic feedback specific to this slice.
+	//
+	// Deprecated: appending one entry per critique round was measured to be
+	// the dominant driver of per-slice word growth (77% words-per-slice
+	// increase across 45 plans / 282 slices while slices-per-plan fell 22%;
+	// the worst slices reached 1,306 words from what + questions +
+	// critic_revisions stacked together). The critique write path now
+	// rewrites a slice's prose fields (e.g. What) directly instead of
+	// appending here — see cmd/wipnote/plan_critique.go's reviseSliceInPlace.
+	// The field is kept, still parses, and still renders so plans written
+	// before this change continue to load unchanged; nothing in the current
+	// write path appends to it going forward. Superseded wording is not
+	// lost — it stays recoverable via `wipnote history <plan-id>`, which
+	// walks the plan YAML's git history.
+	CriticRevisions []CriticRevision `yaml:"critic_revisions,omitempty"`
 
 	// DecisionsNotes is free-text Markdown captured by `wipnote plan
 	// elicit-decisions` (typically Scope/Decisions/Context). Slice 1's

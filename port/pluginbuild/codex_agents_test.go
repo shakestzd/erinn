@@ -43,7 +43,7 @@ Implement code changes.
 	if agent.Description != "Balanced code execution agent" {
 		t.Errorf("description = %q", agent.Description)
 	}
-	if agent.Model != "gpt-5.4" || agent.ModelReasoningEffort != "medium" {
+	if agent.Model != "gpt-5.6-terra" || agent.ModelReasoningEffort != "medium" {
 		t.Errorf("Claude model alias should map to Codex model, got model=%q effort=%q", agent.Model, agent.ModelReasoningEffort)
 	}
 	if agent.SandboxMode != "workspace-write" {
@@ -192,8 +192,8 @@ func TestMapCodexAgentModelAliases(t *testing.T) {
 		wantEffort string
 		wantErr    bool
 	}{
-		{name: "fast", model: "haiku", wantModel: "gpt-5.4-mini", wantEffort: "low", wantErr: false},
-		{name: "balanced", model: "sonnet", wantModel: "gpt-5.4", wantEffort: "medium", wantErr: false},
+		{name: "fast", model: "haiku", wantModel: "gpt-5.6-luna", wantEffort: "low", wantErr: false},
+		{name: "balanced", model: "sonnet", wantModel: "gpt-5.6-terra", wantEffort: "medium", wantErr: false},
 		{name: "deep", model: "opus", wantModel: "gpt-5.5", wantEffort: "high", wantErr: false},
 		{name: "native", model: "gpt-5.3-codex", wantModel: "gpt-5.3-codex", wantEffort: "", wantErr: false},
 		{name: "inherit", model: "", wantModel: "", wantEffort: "", wantErr: false},

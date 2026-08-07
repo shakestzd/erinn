@@ -1,6 +1,6 @@
 name = 'wipnote-researcher'
 description = 'Research, debug, and visual QA agent. Use for investigating unfamiliar systems, root cause analysis of errors, and visual quality assurance of web UIs. Enforces research-first philosophy — documentation before trial-and-error.'
-model = 'gpt-5.4'
+model = 'gpt-5.6-terra'
 model_reasoning_effort = 'medium'
 sandbox_mode = 'workspace-write'
 nickname_candidates = ['researcher']

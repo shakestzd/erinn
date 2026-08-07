@@ -1,6 +1,6 @@
 name = 'wipnote-test-runner'
 description = 'Quality assurance agent. Use after code changes to run tests, type checks, linting, and validate that quality gates pass.'
-model = 'gpt-5.4-mini'
+model = 'gpt-5.6-luna'
 model_reasoning_effort = 'low'
 sandbox_mode = 'workspace-write'
 nickname_candidates = ['test-runner']

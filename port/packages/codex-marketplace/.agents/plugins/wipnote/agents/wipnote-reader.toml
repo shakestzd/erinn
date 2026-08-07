@@ -1,6 +1,6 @@
 name = 'wipnote-reader'
 description = 'Zero-skill file retrieval agent. Use for multi-file reads, glob+read patterns, and structured data retrieval (YAML, JSON, HTML, logs, markdown). No skill injection overhead — boots in <5s. Does not analyze or modify files.'
-model = 'gpt-5.4-mini'
+model = 'gpt-5.6-luna'
 model_reasoning_effort = 'low'
 sandbox_mode = 'read-only'
 nickname_candidates = ['reader']

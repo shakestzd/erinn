@@ -178,9 +178,9 @@ func mapCodexAgentModel(model string) (string, string, error) {
 	}
 	switch model {
 	case "haiku":
-		return "gpt-5.4-mini", "low", nil
+		return "gpt-5.6-luna", "low", nil
 	case "sonnet":
-		return "gpt-5.4", "medium", nil
+		return "gpt-5.6-terra", "medium", nil
 	case "opus":
 		return "gpt-5.5", "high", nil
 	}

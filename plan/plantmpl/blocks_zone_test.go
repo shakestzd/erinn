@@ -22,7 +22,10 @@ func sliceWithBlocks() planyaml.PlanSlice {
 			{Type: "data-model", Fields: map[string]string{"name": "RecapData"}, Rows: []map[string]string{
 				{"name": "Outcome", "type": "string"},
 			}},
-			{Type: "api-endpoint", Fields: map[string]string{"method": "POST", "path": "/api/recaps/{id}"}},
+			{Type: "tabs", Title: "Steps", Rows: []map[string]string{
+				{"label": "Step 1", "body": "Initialize"},
+				{"label": "Step 2", "body": "Process"},
+			}},
 			{Type: "file-tree", Entries: []string{"plan/blocks/blocks.go", "plan/plantmpl/plantmpl.go"}},
 			{Type: "wireframe", Title: "After", Fields: map[string]string{
 				"html": `<div style="color:var(--wf-fg);background:var(--wf-surface)">Sidebar</div>`,
@@ -49,10 +52,10 @@ func TestPlanPage_BlocksZone(t *testing.T) {
 	}
 	for _, want := range []string{
 		`class="block block-data-model"`,
-		`class="block block-api-endpoint"`,
+		`class="block block-tabs"`,
 		`class="block block-file-tree"`,
 		`class="block block-wireframe"`,
-		"RecapData", "/api/recaps/{id}", "plan/blocks/blocks.go", "Sidebar",
+		"RecapData", "Steps", "plan/blocks/blocks.go", "Sidebar",
 	} {
 		if !strings.Contains(withBlocks, want) {
 			t.Errorf("Blocks zone missing %q\n%s", want, withBlocks)
@@ -74,7 +77,7 @@ func TestBlocksZone_AnchorContract(t *testing.T) {
 
 	wantAnchors := []string{
 		"slice-3-block-data-model-1",
-		"slice-3-block-api-endpoint-1",
+		"slice-3-block-tabs-1",
 		"slice-3-block-file-tree-1",
 		"slice-3-block-wireframe-1",
 	}

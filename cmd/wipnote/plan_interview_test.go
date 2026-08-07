@@ -100,7 +100,7 @@ func TestAttachBlockPrompts_BlocksFirstStagesCarryCatalogGroundedPrompts(t *test
 			t.Errorf("contract block %q missing catalog description", bp.Type)
 		}
 	}
-	wantContract := map[string]bool{"api-endpoint": false, "data-model": false}
+	wantContract := map[string]bool{"data-model": false}
 	for _, ty := range types {
 		if _, ok := wantContract[ty]; ok {
 			wantContract[ty] = true

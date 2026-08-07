@@ -16,17 +16,17 @@ func TestPlanBlocks_TextLists(t *testing.T) {
 	}
 	out := buf.String()
 
-	for _, typ := range []string{"data-model", "api-endpoint", "file-tree", "wireframe"} {
+	for _, typ := range []string{"data-model", "file-tree", "wireframe"} {
 		if !strings.Contains(out, typ) {
 			t.Errorf("expected block type %q in output:\n%s", typ, out)
 		}
 	}
-	// Required-field surfacing: data-model requires name; api-endpoint method/path.
+	// Required-field surfacing: data-model requires name; file-tree requires entries.
 	if !strings.Contains(out, "name") {
 		t.Errorf("expected required field 'name' in output:\n%s", out)
 	}
-	if !strings.Contains(out, "method") || !strings.Contains(out, "path") {
-		t.Errorf("expected api-endpoint required fields method/path in output:\n%s", out)
+	if !strings.Contains(out, "entries") {
+		t.Errorf("expected file-tree required field 'entries' in output:\n%s", out)
 	}
 	if !strings.Contains(out, "entries") {
 		t.Errorf("expected file-tree 'entries' requirement in output:\n%s", out)
@@ -45,8 +45,8 @@ func TestPlanBlocks_JSON(t *testing.T) {
 	if err := json.Unmarshal(buf.Bytes(), &entries); err != nil {
 		t.Fatalf("output is not valid JSON: %v\n%s", err, buf.String())
 	}
-	if len(entries) != 6 {
-		t.Fatalf("expected 6 catalog entries, got %d", len(entries))
+	if len(entries) != 5 {
+		t.Fatalf("expected 5 catalog entries, got %d", len(entries))
 	}
 
 	byType := map[string]blockCatalogEntry{}

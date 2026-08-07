@@ -22,8 +22,12 @@ func multiSlicePlan() []planyaml.PlanSlice {
 					Rows:   []map[string]string{{"name": "id", "type": "uuid"}},
 				},
 				{
-					Type:   "api-endpoint",
-					Fields: map[string]string{"method": "POST", "path": "/api/login"},
+					Type:  "tabs",
+					Title: "Auth Steps",
+					Rows: []map[string]string{
+						{"label": "Login", "body": "Step 1: User logs in"},
+						{"label": "Verify", "body": "Step 2: Verify credentials"},
+					},
 				},
 			},
 		},
@@ -75,9 +79,9 @@ func TestVisualOverviewZone_MultiSliceRendersBlocks(t *testing.T) {
 		t.Error("expected data-model 'Session' from slice 2")
 	}
 
-	// The api-endpoint from slice 1 must appear.
-	if !strings.Contains(html, "/api/login") {
-		t.Error("expected api-endpoint '/api/login' from slice 1")
+	// The tabs block from slice 1 must appear.
+	if !strings.Contains(html, "Auth Steps") {
+		t.Error("expected tabs 'Auth Steps' from slice 1")
 	}
 
 	// The file-tree from slice 2 must appear.
@@ -95,7 +99,7 @@ func TestVisualOverviewZone_AnchorContract(t *testing.T) {
 
 	wantAnchors := []string{
 		"slice-1-block-data-model-1",
-		"slice-1-block-api-endpoint-1",
+		"slice-1-block-tabs-1",
 		"slice-2-block-data-model-1",
 		"slice-2-block-file-tree-1",
 	}
@@ -137,7 +141,7 @@ func TestVisualOverviewZone_GroupByType(t *testing.T) {
 	z := &VisualOverviewZone{Slices: multiSlicePlan()}
 	html := renderOverview(t, z)
 
-	for _, header := range []string{"Data Models", "API Endpoints", "File Trees"} {
+	for _, header := range []string{"Data Models", "Tabs", "File Trees"} {
 		if !strings.Contains(html, header) {
 			t.Errorf("expected group header %q in overview:\n%s", header, html)
 		}

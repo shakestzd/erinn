@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>reindex_trailers caps commit scan at 500, holding file-to-work-item linkage at 27% when 86% is available</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="bug-9577013c"
+             data-type="bug"
+             data-status="todo"
+             data-priority="high"
+             data-created="2026-08-07T23:33:39.264265"
+             data-updated="2026-08-07T23:33:39.625108" data-agent-assigned="claude-code" data-track-id="trk-08dcbb33" data-created-by-agent="claude-code" data-created-by-model="claude-opus-5[1m]" data-created-by-cli-version="0.67.1">
+
+        <header>
+            <h1>reindex_trailers caps commit scan at 500, holding file-to-work-item linkage at 27% when 86% is available</h1>
+            <div class="metadata">
+                <span class="badge status-todo">Todo</span>
+                <span class="badge priority-high">High Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-08dcbb33.html" data-relationship="part_of" data-since="2026-08-07T23:33:39.624982">trk-08dcbb33</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>cmd/wipnote/reindex_trailers.go line 23 runs git log with a hard -500 limit, so git_commits.feature_id and everything downstream (reindexFeatureFiles) only ever sees the 500 most recent commits. Measured on an isolated clone: a full reindex as shipped links 122 of 457 test files (26.7%), which is actually WORSE than the live DB floor of 139. Parsing the full 5179-commit history with the exact same parenWorkItemRe regex, just without the cap, reaches 393 of 457 test files (86.0%) and 351 referenced work items. Loosening the regex to also match bare non-parenthesized IDs reaches 413 (90.4%). 90.7% of all commits already self-identify a work item; the code simply does not read past 500. Raising or removing the cap is close to a one-line change and unlocks retroactive linkage across the whole corpus with no new tables and no human curation.</p>
+        </section>
+    </article>
+</body>
+</html>

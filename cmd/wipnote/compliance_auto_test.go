@@ -288,6 +288,124 @@ func TestResolveGitRoot_NotGitRepo(t *testing.T) {
 	}
 }
 
+// --- Argv construction tests (bug-33348600) -----------------------------
+//
+// compliance_auto_test.go's other coverage only ever stubs headlessInvoker,
+// so realHeadlessInvoker's constructed argv was never asserted against
+// anything — that's how "--system" shipped instead of "--system-prompt"
+// undetected (fixed in commit 370781e3a). These two tests close that hole:
+// a golden test that always runs, plus a live test (skipped when `claude`
+// isn't installed) that validates the flags against the actual CLI parser.
+
+// TestBuildHeadlessArgs_GoldenFlags freezes the exact flag set and order that
+// realHeadlessInvoker sends to `claude -p`. It runs everywhere (no `claude`
+// binary required) and will catch any accidental change to wipnote's own
+// argv-construction code. It will NOT catch the claude CLI itself renaming or
+// removing a flag — see TestBuildHeadlessArgs_ValidatedAgainstInstalledCLI
+// for that.
+func TestBuildHeadlessArgs_GoldenFlags(t *testing.T) {
+	req := headlessRequest{
+		model:        "claude-sonnet-4-6",
+		effort:       "medium",
+		maxTurns:     5,
+		maxBudgetUSD: 0.50,
+		maxWallClock: 5 * time.Minute,
+		systemPrompt: "SYSTEM PROMPT TEXT",
+		userPrompt:   "USER PROMPT TEXT",
+	}
+
+	got := buildHeadlessArgs(req)
+	want := []string{
+		"-p",
+		"--output-format", "json",
+		"--model", "claude-sonnet-4-6",
+		"--effort", "medium",
+		"--max-budget-usd", "0.50",
+		"--max-turns", "5",
+		"--permission-mode", "dontAsk",
+		"--allowedTools", "Read",
+		"--system-prompt", "SYSTEM PROMPT TEXT",
+	}
+
+	if len(got) != len(want) {
+		t.Fatalf("arg count: got %d %v, want %d %v", len(got), got, len(want), want)
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Errorf("arg[%d]: got %q, want %q\nfull got:  %v\nfull want: %v", i, got[i], want[i], got, want)
+		}
+	}
+
+	// userPrompt must never appear in argv — it is piped via stdin by the
+	// caller (realHeadlessInvoker), not passed as a flag/positional arg.
+	for i, a := range got {
+		if a == req.userPrompt {
+			t.Errorf("arg[%d]: userPrompt leaked into argv; it must be sent via stdin", i)
+		}
+	}
+}
+
+// TestBuildHeadlessArgs_ValidatedAgainstInstalledCLI checks that every flag
+// buildHeadlessArgs constructs is still recognized by whatever `claude`
+// binary is actually installed in this environment.
+//
+// Technique: append a canary flag that can never be a real claude option,
+// then run the real args + canary through claude's own argument parser
+// (commander, based on its "error: unknown option '<flag>'" message shape).
+// Commander validates options left-to-right and fails on the FIRST one it
+// doesn't recognize:
+//   - if every real flag before the canary is still valid, the reported
+//     error names the canary specifically -> the real flags all still parse.
+//   - if any real flag has since been renamed/removed upstream, the error
+//     names THAT flag instead (before parsing even reaches the canary) -> fail,
+//     with the offending flag visible in the test output.
+//
+// This never reaches the network or spends budget: commander bails during
+// option parsing, before the print action (and any model call) ever runs —
+// confirmed empirically (see bug-33348600 investigation) by observing
+// "error: unknown option" on stderr with exit code 1, with no model output.
+//
+// Skipped when `claude` is not on PATH (e.g. most CI images); the golden test
+// above is the always-on baseline that still runs there.
+func TestBuildHeadlessArgs_ValidatedAgainstInstalledCLI(t *testing.T) {
+	claudePath, err := exec.LookPath("claude")
+	if err != nil {
+		t.Skip("claude CLI not found on PATH; skipping live argv validation")
+	}
+
+	req := headlessRequest{
+		model:        "claude-sonnet-4-6",
+		effort:       "medium",
+		maxTurns:     5,
+		maxBudgetUSD: 0.50,
+		systemPrompt: "test",
+	}
+	const canary = "--wipnote-argv-canary-zzz"
+	args := append(buildHeadlessArgs(req), canary)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+
+	cmd := exec.CommandContext(ctx, claudePath, args...)
+	cmd.Stdin = strings.NewReader("") // never reached if parsing fails first, as expected
+	var stderrBuf, stdoutBuf bytes.Buffer
+	cmd.Stderr = &stderrBuf
+	cmd.Stdout = &stdoutBuf
+
+	runErr := cmd.Run()
+	if runErr == nil {
+		t.Fatalf("expected claude to reject canary flag %q; it exited 0 instead (stdout: %q, stderr: %q)",
+			canary, stdoutBuf.String(), stderrBuf.String())
+	}
+
+	stderr := stderrBuf.String()
+	if !strings.Contains(stderr, canary) {
+		t.Errorf("expected the installed claude CLI to reject the canary flag %q specifically "+
+			"(meaning all real flags in buildHeadlessArgs still parse); got stderr: %q\nargs: %v",
+			canary, stderr, args)
+	}
+}
+
 // --- Tests that use stubbed headlessInvoker (no t.Parallel) ---
 
 // TestComplianceAuto_NoSpec verifies skip with "no spec" finding.

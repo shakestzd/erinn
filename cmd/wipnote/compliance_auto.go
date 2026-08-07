@@ -689,6 +689,39 @@ func truncateStr(s string, maxLen int) string {
 	return s[:maxLen] + "..."
 }
 
+// buildHeadlessArgs constructs the `claude` CLI argv for a headless
+// compliance-grading invocation (see realHeadlessInvoker). It is split out
+// from realHeadlessInvoker so the exact flag set and order can be asserted by
+// tests without spawning a process — see compliance_auto_test.go's
+// TestBuildHeadlessArgs_GoldenFlags (always-on) and
+// TestBuildHeadlessArgs_ValidatedAgainstInstalledCLI (live, skipped when
+// `claude` isn't on PATH).
+//
+// req.userPrompt is intentionally NOT included here: it is piped via stdin
+// by the caller, not passed as an argument.
+//
+// NOTE: this used to pass "--system" (not a recognized flag — `claude -p
+// --system ...` fails immediately with "error: unknown option '--system'")
+// until bug-33348600's predecessor fix; every real (non-stubbed) invocation
+// of this code path was failing before that correction. No existing test
+// caught it because all compliance_auto_test.go coverage stubbed
+// headlessInvoker rather than exercising realHeadlessInvoker's constructed
+// argv against the actual claude binary. The tests added for bug-33348600
+// close that hole.
+func buildHeadlessArgs(req headlessRequest) []string {
+	return []string{
+		"-p",
+		"--output-format", "json",
+		"--model", req.model,
+		"--effort", req.effort,
+		"--max-budget-usd", fmt.Sprintf("%.2f", req.maxBudgetUSD),
+		"--max-turns", strconv.Itoa(req.maxTurns),
+		"--permission-mode", "dontAsk",
+		"--allowedTools", "Read",
+		"--system-prompt", req.systemPrompt,
+	}
+}
+
 // realHeadlessInvoker spawns `claude -p` with the given request parameters,
 // captures stdout/stderr into buffers, honors context cancellation, and
 // self-enforces the wall-clock timeout via time.AfterFunc.
@@ -716,26 +749,7 @@ func truncateStr(s string, maxLen int) string {
 // watch Claude Code release notes for the -p default change and set
 // ANTHROPIC_API_KEY (or wire --bare explicitly) before it lands.
 func realHeadlessInvoker(ctx context.Context, req headlessRequest) (*headlessResult, error) {
-	args := []string{
-		"-p",
-		"--output-format", "json",
-		"--model", req.model,
-		"--effort", req.effort,
-		"--max-budget-usd", fmt.Sprintf("%.2f", req.maxBudgetUSD),
-		"--max-turns", strconv.Itoa(req.maxTurns),
-		"--permission-mode", "dontAsk",
-		"--allowedTools", "Read",
-	}
-
-	// Build the prompt argument (system + user combined via stdin or flag).
-	// We pass system prompt via --system-prompt and user prompt via stdin.
-	// NOTE: this was "--system" (not a recognized flag — `claude -p --system ...`
-	// fails immediately with "error: unknown option '--system'") until this fix;
-	// every real (non-stubbed) invocation of this code path was failing before
-	// this correction. No existing test caught it because all compliance_auto_test.go
-	// coverage stubs headlessInvoker rather than exercising realHeadlessInvoker
-	// against the actual claude binary.
-	args = append(args, "--system-prompt", req.systemPrompt)
+	args := buildHeadlessArgs(req)
 
 	cmd := exec.CommandContext(ctx, "claude", args...)
 	cmd.Stdin = strings.NewReader(req.userPrompt)

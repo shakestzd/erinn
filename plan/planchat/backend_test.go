@@ -1,9 +1,12 @@
 package planchat
 
 import (
+	"bytes"
 	"context"
 	"database/sql"
 	"encoding/json"
+	"os/exec"
+	"strings"
 	"testing"
 	"time"
 
@@ -191,21 +194,112 @@ func TestBuildSystemPrompt(t *testing.T) {
 	}
 }
 
-func TestBuildCmd_IncludesPartialMessages(t *testing.T) {
+// --- Argv construction tests (bug-33348600) -----------------------------
+//
+// buildCmd is the other headless `claude -p` consumer alongside
+// cmd/wipnote/compliance_auto.go's realHeadlessInvoker. It has a different
+// flag profile (--append-system-prompt instead of --system-prompt, no
+// --allowedTools/--permission-mode) with the same exposure: nothing asserted
+// the exact argv, so an upstream rename would go undetected until runtime.
+// These two tests close that hole the same way compliance_auto_test.go's do.
+
+// TestBuildCmd_GoldenFlags freezes the exact flag set and order buildCmd
+// produces for a fresh (no prior session) chat turn. Runs everywhere (no
+// `claude` binary required); catches accidental changes to wipnote's own
+// argv-construction code, not upstream flag renames — see
+// TestBuildCmd_ValidatedAgainstInstalledCLI for that.
+func TestBuildCmd_GoldenFlags(t *testing.T) {
 	database := openTestDB(t)
-	b := New(database, "plan-cmd-test", "ctx", "/tmp")
+	b := New(database, "plan-golden-test", "ctx", "/tmp")
+
+	args := b.buildCmd("/usr/bin/claude", "hello world")
+	want := []string{
+		"/usr/bin/claude",
+		"-p", "hello world",
+		"--output-format", "stream-json",
+		"--verbose",
+		"--include-partial-messages",
+		"--append-system-prompt", b.buildSystemPrompt(),
+	}
+
+	if len(args) != len(want) {
+		t.Fatalf("arg count: got %d %v, want %d %v", len(args), args, len(want), want)
+	}
+	for i := range want {
+		if args[i] != want[i] {
+			t.Errorf("arg[%d]: got %q, want %q\nfull got:  %v\nfull want: %v", i, args[i], want[i], args, want)
+		}
+	}
+}
+
+// TestBuildCmd_GoldenFlags_WithResume verifies --resume <session-id> is
+// appended, in that order, once a session ID has been established.
+func TestBuildCmd_GoldenFlags_WithResume(t *testing.T) {
+	database := openTestDB(t)
+	b := New(database, "plan-golden-resume-test", "ctx", "/tmp")
+	b.sessionID = "sess-abc-123"
 
 	args := b.buildCmd("/usr/bin/claude", "hello")
 
-	found := false
-	for _, arg := range args {
-		if arg == "--include-partial-messages" {
-			found = true
-			break
-		}
+	if len(args) < 2 || args[len(args)-2] != "--resume" || args[len(args)-1] != "sess-abc-123" {
+		t.Errorf("expected trailing [\"--resume\", \"sess-abc-123\"]; got %v", args)
 	}
-	if !found {
-		t.Errorf("buildCmd args missing --include-partial-messages: %v", args)
+}
+
+// TestBuildCmd_ValidatedAgainstInstalledCLI checks that every flag buildCmd
+// constructs is still recognized by whatever `claude` binary is actually
+// installed in this environment.
+//
+// Technique (shared with cmd/wipnote/compliance_auto_test.go's
+// TestBuildHeadlessArgs_ValidatedAgainstInstalledCLI): append a canary flag
+// that can never be a real claude option, then run the real args + canary
+// through claude's own argument parser (commander, based on its
+// "error: unknown option '<flag>'" message shape). Commander validates
+// options left-to-right and fails on the FIRST one it doesn't recognize, so:
+//   - if every real flag before the canary is still valid, the reported
+//     error names the canary specifically -> the real flags all still parse.
+//   - if any real flag has since been renamed/removed upstream, the error
+//     names THAT flag instead -> fail, with the offending flag in the output.
+//
+// This never reaches the network or invokes the model: commander bails
+// during option parsing, before the print action ever runs (confirmed
+// empirically during the bug-33348600 investigation: "error: unknown option"
+// on stderr with exit code 1, no model output).
+//
+// Skipped when `claude` is not on PATH (e.g. most CI images); the golden
+// tests above are the always-on baseline that still run there.
+func TestBuildCmd_ValidatedAgainstInstalledCLI(t *testing.T) {
+	claudePath, err := exec.LookPath("claude")
+	if err != nil {
+		t.Skip("claude CLI not found on PATH; skipping live argv validation")
+	}
+
+	database := openTestDB(t)
+	b := New(database, "plan-live-validate", "test plan context", "/tmp")
+
+	args := b.buildCmd(claudePath, "hello")
+	const canary = "--wipnote-argv-canary-zzz"
+	fullArgs := append(args[1:], canary) // args[0] is the binary path, not a CLI flag
+
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+
+	cmd := exec.CommandContext(ctx, claudePath, fullArgs...)
+	var stderrBuf, stdoutBuf bytes.Buffer
+	cmd.Stderr = &stderrBuf
+	cmd.Stdout = &stdoutBuf
+
+	runErr := cmd.Run()
+	if runErr == nil {
+		t.Fatalf("expected claude to reject canary flag %q; it exited 0 instead (stdout: %q, stderr: %q)",
+			canary, stdoutBuf.String(), stderrBuf.String())
+	}
+
+	stderr := stderrBuf.String()
+	if !strings.Contains(stderr, canary) {
+		t.Errorf("expected the installed claude CLI to reject the canary flag %q specifically "+
+			"(meaning all real flags in buildCmd still parse); got stderr: %q\nargs: %v",
+			canary, stderr, fullArgs)
 	}
 }
 

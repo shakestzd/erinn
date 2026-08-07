@@ -317,6 +317,112 @@ func TestParseCodexToolPayload(t *testing.T) {
 	}
 }
 
+// codexPostToolUseJSON matches the real captured payload shape from a live
+// codex-cli 0.147.0 PostToolUse hook (bug-9f49a375, captured 2026-08-07 via
+// an isolated CODEX_HOME + a hook command that dumped raw stdin to a file,
+// then `codex exec` running `printf 'line1\nline2\n'`). Field names and
+// values are unaltered from the capture; only cwd/transcript_path were
+// shortened from an absolute scratchpad path for readability. It shows the
+// real field is "tool_response" — never "tool_result" — and that its value
+// is a bare JSON string (the tool's raw stdout), not an object.
+const codexPostToolUseJSON = `{"session_id":"019fdd0e-0195-7683-8045-6eda04789f93","turn_id":"019fdd0e-01dd-7400-9c26-fa44052a22cc","transcript_path":"/tmp/codex-repro/codex_home/sessions/2026/08/07/rollout-2026-08-07T12-28-30-019fdd0e-0195-7683-8045-6eda04789f93.jsonl","cwd":"/tmp/codex-repro/project","hook_event_name":"PostToolUse","model":"gpt-5.6-sol","permission_mode":"bypassPermissions","tool_name":"Bash","tool_input":{"command":"printf 'line1\\nline2\\n'"},"tool_response":"line1\nline2\n","tool_use_id":"exec-2d018645-e9e1-4b08-8bc7-bf7e31e49f39"}`
+
+// codexPostToolUseEmptyOutputJSON matches a real captured payload from the
+// same live session for a command that produced no stdout (`echo ... >
+// out.txt`, redirected). tool_response is the empty string in this case, not
+// omitted and not null.
+const codexPostToolUseEmptyOutputJSON = `{"session_id":"019fdd0d-8fca-7523-b4e8-c6d8b22bc927","turn_id":"019fdd0d-9012-7493-8890-0941d8d34c59","transcript_path":"/tmp/codex-repro/codex_home/sessions/2026/08/07/rollout-2026-08-07T12-28-01-019fdd0d-8fca-7523-b4e8-c6d8b22bc927.jsonl","cwd":"/tmp/codex-repro/project","hook_event_name":"PostToolUse","model":"gpt-5.6-sol","permission_mode":"bypassPermissions","tool_name":"Bash","tool_input":{"command":"echo hello-wipnote-repro > out.txt"},"tool_response":"","tool_use_id":"exec-389d018c-aeff-4b92-b8bb-8d3c2a37c582"}`
+
+// codexPostToolUseUpdatePlanJSON matches a real captured payload from the
+// same live session for the update_plan tool, confirming the bare-string
+// tool_response shape holds across tool types, not just Bash.
+const codexPostToolUseUpdatePlanJSON = `{"session_id":"019fdd10-2ca5-7782-8466-2804471bbea4","turn_id":"019fdd10-2ce9-7cb0-9b54-07de7d5f1d26","transcript_path":"/tmp/codex-repro/codex_home/sessions/2026/08/07/rollout-2026-08-07T12-30-52-019fdd10-2ca5-7782-8466-2804471bbea4.jsonl","cwd":"/tmp/codex-repro/project","hook_event_name":"PostToolUse","model":"gpt-5.6-sol","permission_mode":"bypassPermissions","tool_name":"update_plan","tool_input":{"plan":[{"step":"Create hello.txt with content 'hi'","status":"in_progress"},{"step":"Verify hello.txt content","status":"pending"}]},"tool_response":"Plan updated","tool_use_id":"exec-6a416813-d7b0-4de6-8253-61a3d68730b0"}`
+
+// TestParseCodexPostToolUseUsesToolResponseField is the regression test for
+// bug-9f49a375: before the fix, codexPayload declared ToolResult with
+// `json:"tool_result"`, which the real "tool_response" key never matched, so
+// event.ToolResult was silently left nil for every Codex tool call.
+func TestParseCodexPostToolUseUsesToolResponseField(t *testing.T) {
+	ev, err := parseCodexEvent([]byte(codexPostToolUseJSON))
+	if err != nil {
+		t.Fatalf("parseCodexEvent: %v", err)
+	}
+	if ev.ToolResult == nil {
+		t.Fatal("ToolResult is nil — tool_response field was discarded")
+	}
+	if got, _ := ev.ToolResult["output"].(string); got != "line1\nline2\n" {
+		t.Errorf(`ToolResult["output"] = %q, want "line1\nline2\n"`, got)
+	}
+}
+
+// TestParseCodexPostToolUseUpdatePlanToolResponse confirms the bare-string
+// tool_response shape (and the fix) also holds for non-Bash tools.
+func TestParseCodexPostToolUseUpdatePlanToolResponse(t *testing.T) {
+	ev, err := parseCodexEvent([]byte(codexPostToolUseUpdatePlanJSON))
+	if err != nil {
+		t.Fatalf("parseCodexEvent: %v", err)
+	}
+	if got, _ := ev.ToolResult["output"].(string); got != "Plan updated" {
+		t.Errorf(`ToolResult["output"] = %q, want "Plan updated"`, got)
+	}
+}
+
+// TestParseCodexPostToolUseEmptyOutputIsNilNotError verifies an empty
+// tool_response string (a real, observed shape — not an error case) decodes
+// to a nil ToolResult rather than a decode error, matching how
+// isSuccess/summariseOutput treat nil today (success=true, no summary).
+func TestParseCodexPostToolUseEmptyOutputIsNilNotError(t *testing.T) {
+	ev, err := parseCodexEvent([]byte(codexPostToolUseEmptyOutputJSON))
+	if err != nil {
+		t.Fatalf("parseCodexEvent: %v", err)
+	}
+	if ev.ToolResult != nil {
+		t.Errorf("ToolResult = %v, want nil for empty tool_response", ev.ToolResult)
+	}
+}
+
+// TestParseCodexPostToolUseLegacyToolResultField is hand-written (no live
+// payload has ever been observed using "tool_result" — see the codexPayload
+// doc comment). It guards the fallback path in case a different Codex build
+// emits the other spelling, or an object shape rather than a bare string.
+func TestParseCodexPostToolUseLegacyToolResultField(t *testing.T) {
+	payload := []byte(`{
+		"session_id": "legacy-sess",
+		"hook_event_name": "PostToolUse",
+		"tool_name": "Bash",
+		"tool_result": {"output": "legacy shape", "is_error": false}
+	}`)
+
+	ev, err := parseCodexEvent(payload)
+	if err != nil {
+		t.Fatalf("parseCodexEvent: %v", err)
+	}
+	if got, _ := ev.ToolResult["output"].(string); got != "legacy shape" {
+		t.Errorf(`ToolResult["output"] = %q, want "legacy shape"`, got)
+	}
+}
+
+// TestParseCodexPostToolUsePrefersToolResponseOverToolResult is hand-written:
+// no live payload has ever sent both keys, but the merge order in
+// parseCodexEvent (tool_response wins, tool_result is the fallback) is a
+// deliberate choice worth locking in since tool_response is the confirmed
+// field.
+func TestParseCodexPostToolUsePrefersToolResponseOverToolResult(t *testing.T) {
+	payload := []byte(`{
+		"hook_event_name": "PostToolUse",
+		"tool_response": "current shape wins",
+		"tool_result": {"output": "should be ignored"}
+	}`)
+
+	ev, err := parseCodexEvent(payload)
+	if err != nil {
+		t.Fatalf("parseCodexEvent: %v", err)
+	}
+	if got, _ := ev.ToolResult["output"].(string); got != "current shape wins" {
+		t.Errorf(`ToolResult["output"] = %q, want "current shape wins"`, got)
+	}
+}
+
 func TestParseCodexStopPayloadCapturesAssistantFields(t *testing.T) {
 	payload := []byte(`{
 		"session_id": "019da445-8036-73c2-a8fc-dacdb57417a8",

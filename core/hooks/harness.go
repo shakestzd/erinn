@@ -40,28 +40,85 @@ func (h Harness) String() string {
 	}
 }
 
+// codexToolResult normalises a Codex PostToolUse tool-result payload into the
+// map[string]any shape the shared summariser/isSuccess helpers (posttooluse.go,
+// missing_events.go) expect — the same shape Claude Code's own tool_result
+// object uses.
+//
+// Live capture (codex-cli 0.147.0, 2026-08-07, bug-9f49a375) showed Codex
+// sends this value as a bare JSON string (the raw tool output text, e.g.
+// "line1\nline2\n" for Bash or "Plan updated" for update_plan) rather than an
+// object — across Bash, update_plan, and apply_patch tool calls, every
+// observed payload was a plain string, never an object. UnmarshalJSON accepts
+// either shape so a future Codex version that switches to an object (matching
+// Claude's convention) keeps working without another silent-discard bug: a
+// bare string is wrapped as {"output": <string>} so summariseOutput /
+// summariseToolOutput (which look for "output"/"content"/"result" keys) pick
+// it up unchanged.
+type codexToolResult map[string]any
+
+func (r *codexToolResult) UnmarshalJSON(data []byte) error {
+	if string(data) == "null" {
+		*r = nil
+		return nil
+	}
+	var obj map[string]any
+	if err := json.Unmarshal(data, &obj); err == nil {
+		*r = obj
+		return nil
+	}
+	var s string
+	if err := json.Unmarshal(data, &s); err != nil {
+		return fmt.Errorf("codexToolResult: value is neither an object nor a string: %w", err)
+	}
+	if s == "" {
+		*r = nil
+		return nil
+	}
+	*r = map[string]any{"output": s}
+	return nil
+}
+
 // codexPayload is used only for harness detection and input parsing.
 // It matches the flat top-level shape of a Codex CLI hook payload.
+//
+// ToolResponse/ToolResult: live capture (codex-cli 0.147.0, 2026-08-07,
+// bug-9f49a375) confirmed the real PostToolUse field is "tool_response", not
+// "tool_result" — the latter was never observed in any live payload (Bash,
+// update_plan, apply_patch all used "tool_response"). Both tags are kept and
+// merged in parseCodexEvent so an older/different Codex build that happens to
+// emit "tool_result" is still read rather than swapping one hardcoded
+// assumption for another.
+//
+// TaskID/TaskData/TaskSubject: also unconfirmed against live payloads — no
+// SessionStart/PreToolUse/PostToolUse capture ever populated them, and the
+// Codex-native TaskStarted/TaskComplete events (turn lifecycle, not a
+// Claude-style task board — see manifest.json's hook-event comment) could not
+// be triggered via `codex exec` to check directly. Left in place since an
+// absent field is harmless and removal would be speculative; flagged here so
+// a future investigation with a real TaskStarted/TaskComplete capture can
+// resolve it.
 type codexPayload struct {
-	SessionID            string         `json:"session_id"`
-	TurnID               string         `json:"turn_id"`
-	TranscriptPath       string         `json:"transcript_path"`
-	CWD                  string         `json:"cwd"`
-	HookEventName        string         `json:"hook_event_name"`
-	Model                string         `json:"model"`
-	PermissionMode       string         `json:"permission_mode"`
-	Timestamp            string         `json:"timestamp"`
-	Source               string         `json:"source"`
-	Prompt               string         `json:"prompt"`
-	LastAssistantMessage string         `json:"last_assistant_message"`
-	StopReason           string         `json:"stop_reason"`
-	ToolName             string         `json:"tool_name"`
-	ToolInput            map[string]any `json:"tool_input"`
-	ToolUseID            string         `json:"tool_use_id"`
-	ToolResult           map[string]any `json:"tool_result"`
-	TaskID               string         `json:"task_id"`
-	TaskData             map[string]any `json:"task"`
-	TaskSubject          string         `json:"task_subject"`
+	SessionID            string          `json:"session_id"`
+	TurnID               string          `json:"turn_id"`
+	TranscriptPath       string          `json:"transcript_path"`
+	CWD                  string          `json:"cwd"`
+	HookEventName        string          `json:"hook_event_name"`
+	Model                string          `json:"model"`
+	PermissionMode       string          `json:"permission_mode"`
+	Timestamp            string          `json:"timestamp"`
+	Source               string          `json:"source"`
+	Prompt               string          `json:"prompt"`
+	LastAssistantMessage string          `json:"last_assistant_message"`
+	StopReason           string          `json:"stop_reason"`
+	ToolName             string          `json:"tool_name"`
+	ToolInput            map[string]any  `json:"tool_input"`
+	ToolUseID            string          `json:"tool_use_id"`
+	ToolResponse         codexToolResult `json:"tool_response"`
+	ToolResult           codexToolResult `json:"tool_result"`
+	TaskID               string          `json:"task_id"`
+	TaskData             map[string]any  `json:"task"`
+	TaskSubject          string          `json:"task_subject"`
 }
 
 // geminiPayload is used only for harness detection and input parsing.
@@ -218,6 +275,14 @@ func parseCodexEvent(raw []byte) (*CloudEvent, error) {
 		agentID = parent
 	}
 
+	// Prefer the confirmed-live "tool_response" field; fall back to
+	// "tool_result" for any build that uses the other spelling rather than
+	// hardcoding a single field name (see codexPayload doc comment).
+	toolResult := map[string]any(p.ToolResponse)
+	if toolResult == nil {
+		toolResult = map[string]any(p.ToolResult)
+	}
+
 	ev := &CloudEvent{
 		AgentID:              agentID,
 		SessionID:            p.SessionID,
@@ -235,7 +300,7 @@ func parseCodexEvent(raw []byte) (*CloudEvent, error) {
 		ToolName:             p.ToolName,
 		ToolInput:            p.ToolInput,
 		ToolUseID:            p.ToolUseID,
-		ToolResult:           p.ToolResult,
+		ToolResult:           toolResult,
 		TaskID:               p.TaskID,
 		TaskData:             p.TaskData,
 		TaskSubject:          p.TaskSubject,

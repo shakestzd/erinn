@@ -120,11 +120,18 @@ a:hover{opacity:.8}
 /* ── Dependency graph ── */
 .dep-graph{background:var(--bg-card);border-radius:var(--radius);padding:28px;margin-bottom:28px;box-shadow:var(--shadow-card);overflow-x:auto}
 .dep-graph h2{margin-bottom:20px;padding-bottom:12px;border-bottom:1px solid var(--border)}
-.dep-graph svg{display:block;height:auto}
-#dep-graph-svg .node rect{rx:8;ry:8;fill:var(--bg-input);stroke:var(--border);stroke-width:2px}
-#dep-graph-svg .node text{fill:var(--text) !important;font-family:var(--sans);font-size:13px}
-#dep-graph-svg .edgePath path{stroke:var(--text-muted);stroke-dasharray:5 4;fill:none;stroke-width:1.5}
-#dep-graph-svg .edgePath marker path{fill:var(--text-muted)}
+.dep-graph svg{display:block;height:auto;max-width:100%}
+/* Static graph: geometry is baked into the markup by the Go renderer, so CSS
+   here only supplies theme-reactive paint and hover affordances. */
+#dep-graph-svg .dep-node-box{stroke-width:2}
+#dep-graph-svg .dep-edge{stroke-width:1.5;stroke-dasharray:5 4}
+/* Beats the marker's own fill presentation attribute, so arrowheads match the
+   muted edge stroke instead of the shared accent default. */
+#dep-graph-svg marker path{fill:var(--text-muted)}
+#dep-graph-svg a{cursor:pointer}
+#dep-graph-svg .dep-node{transition:opacity var(--transition)}
+#dep-graph-svg .dep-node:hover .dep-node-box{stroke-width:3}
+#dep-graph-svg .dep-node:hover .dep-node-label{fill:var(--accent)}
 
 /* ── Section cards ── */
 .section-card{background:var(--bg-card);border-radius:var(--radius);margin-bottom:14px;box-shadow:var(--shadow-card);overflow:hidden;transition:box-shadow var(--transition)}
@@ -338,11 +345,6 @@ textarea::placeholder{color:var(--text-muted)}
 .nav-triage-badge{font-size:.65rem;font-family:var(--mono);font-weight:700;border-radius:3px;padding:0 3px;line-height:1.4;flex-shrink:0}
 .nav-triage-issue{background:#7c2d12;color:#fde68a}
 .nav-triage-question{background:#1e3a5f;color:#bfdbfe}
-/* graph node highlight ring (added by JS on nav hover/click) */
-.graph-node-ring rect{stroke-width:4px !important;filter:drop-shadow(0 0 4px currentColor)}
-/* dep-chain dim/highlight */
-.dep-graph-dimmed{opacity:.25;transition:opacity .15s}
-.dep-graph-highlighted rect{stroke-width:3px !important}
 
 /* ── Amendments ── */
 .amendments-panel{margin-top:28px;background:var(--bg-card);border-radius:var(--radius);padding:20px;box-shadow:var(--shadow-card)}
@@ -617,9 +619,9 @@ body.right-rail-collapsed .sidebar-reopen{display:flex}
         </a>
         <div class="block-anchor" id="overview-slice-1-block-file-tree-1" data-block-anchor="slice-1-block-file-tree-1" data-block-kind="file-tree"><div class="block block-file-tree">
   <ul class="file-list">
-    <li class="file-entry"><code class="file-path">plan/blocks/svg/svg.go</code></li>
-    <li class="file-entry"><code class="file-path">plan/blocks/svg/metrics.go</code></li>
-    <li class="file-entry"><code class="file-path">plan/blocks/svg/svg_test.go</code></li>
+    <li class="file-entry"><svg xmlns="http://www.w3.org/2000/svg" width="42" height="18" viewBox="0 0 42 18" class="file-tree-gutter"><line x1="7" y1="0" x2="7" y2="18" stroke="var(--border)"/><line x1="21" y1="0" x2="21" y2="18" stroke="var(--border)"/><line x1="35" y1="0" x2="35" y2="18" stroke="var(--border)"/><line x1="35" y1="9" x2="42" y2="9" stroke="var(--border)"/></svg><code class="file-path">plan/blocks/svg/svg.go</code></li>
+    <li class="file-entry"><svg xmlns="http://www.w3.org/2000/svg" width="42" height="18" viewBox="0 0 42 18" class="file-tree-gutter"><line x1="7" y1="0" x2="7" y2="18" stroke="var(--border)"/><line x1="21" y1="0" x2="21" y2="18" stroke="var(--border)"/><line x1="35" y1="0" x2="35" y2="18" stroke="var(--border)"/><line x1="35" y1="9" x2="42" y2="9" stroke="var(--border)"/></svg><code class="file-path">plan/blocks/svg/metrics.go</code></li>
+    <li class="file-entry"><svg xmlns="http://www.w3.org/2000/svg" width="42" height="18" viewBox="0 0 42 18" class="file-tree-gutter"><line x1="35" y1="0" x2="35" y2="9" stroke="var(--border)"/><line x1="35" y1="9" x2="42" y2="9" stroke="var(--border)"/></svg><code class="file-path">plan/blocks/svg/svg_test.go</code></li>
     
   </ul>
 </div></div>
@@ -631,14 +633,14 @@ body.right-rail-collapsed .sidebar-reopen{display:flex}
         </a>
         <div class="block-anchor" id="overview-slice-2-block-file-tree-1" data-block-anchor="slice-2-block-file-tree-1" data-block-kind="file-tree"><div class="block block-file-tree">
   <ul class="file-list">
-    <li class="file-entry"><code class="file-path">plan/blocks/svg/layout.go</code></li>
-    <li class="file-entry"><code class="file-path">plan/blocks/svg/layout_test.go</code></li>
-    <li class="file-entry"><code class="file-path">plan/plantmpl/dependency_graph.go</code></li>
-    <li class="file-entry"><code class="file-path">plan/plantmpl/templates/dependency_graph.gohtml</code></li>
-    <li class="file-entry"><code class="file-path">plan/plantmpl/templates/plan_page.gohtml</code></li>
-    <li class="file-entry"><code class="file-path">plan/plantmpl/builder_test.go</code></li>
-    <li class="file-entry"><code class="file-path">cmd/wipnote/plan_validate.go</code></li>
-    <li class="file-entry"><code class="file-path">cmd/wipnote/plan_validate_test.go</code></li>
+    <li class="file-entry"><svg xmlns="http://www.w3.org/2000/svg" width="42" height="18" viewBox="0 0 42 18" class="file-tree-gutter"><line x1="7" y1="0" x2="7" y2="18" stroke="var(--border)"/><line x1="21" y1="0" x2="21" y2="18" stroke="var(--border)"/><line x1="35" y1="0" x2="35" y2="18" stroke="var(--border)"/><line x1="35" y1="9" x2="42" y2="9" stroke="var(--border)"/></svg><code class="file-path">plan/blocks/svg/layout.go</code></li>
+    <li class="file-entry"><svg xmlns="http://www.w3.org/2000/svg" width="42" height="18" viewBox="0 0 42 18" class="file-tree-gutter"><line x1="7" y1="0" x2="7" y2="18" stroke="var(--border)"/><line x1="35" y1="0" x2="35" y2="9" stroke="var(--border)"/><line x1="35" y1="9" x2="42" y2="9" stroke="var(--border)"/></svg><code class="file-path">plan/blocks/svg/layout_test.go</code></li>
+    <li class="file-entry"><svg xmlns="http://www.w3.org/2000/svg" width="28" height="18" viewBox="0 0 28 18" class="file-tree-gutter"><line x1="7" y1="0" x2="7" y2="18" stroke="var(--border)"/><line x1="21" y1="0" x2="21" y2="18" stroke="var(--border)"/><line x1="21" y1="9" x2="28" y2="9" stroke="var(--border)"/></svg><code class="file-path">plan/plantmpl/dependency_graph.go</code></li>
+    <li class="file-entry"><svg xmlns="http://www.w3.org/2000/svg" width="42" height="18" viewBox="0 0 42 18" class="file-tree-gutter"><line x1="7" y1="0" x2="7" y2="18" stroke="var(--border)"/><line x1="21" y1="0" x2="21" y2="18" stroke="var(--border)"/><line x1="35" y1="0" x2="35" y2="18" stroke="var(--border)"/><line x1="35" y1="9" x2="42" y2="9" stroke="var(--border)"/></svg><code class="file-path">plan/plantmpl/templates/dependency_graph.gohtml</code></li>
+    <li class="file-entry"><svg xmlns="http://www.w3.org/2000/svg" width="42" height="18" viewBox="0 0 42 18" class="file-tree-gutter"><line x1="7" y1="0" x2="7" y2="18" stroke="var(--border)"/><line x1="21" y1="0" x2="21" y2="18" stroke="var(--border)"/><line x1="35" y1="0" x2="35" y2="9" stroke="var(--border)"/><line x1="35" y1="9" x2="42" y2="9" stroke="var(--border)"/></svg><code class="file-path">plan/plantmpl/templates/plan_page.gohtml</code></li>
+    <li class="file-entry"><svg xmlns="http://www.w3.org/2000/svg" width="28" height="18" viewBox="0 0 28 18" class="file-tree-gutter"><line x1="21" y1="0" x2="21" y2="9" stroke="var(--border)"/><line x1="21" y1="9" x2="28" y2="9" stroke="var(--border)"/></svg><code class="file-path">plan/plantmpl/builder_test.go</code></li>
+    <li class="file-entry"><svg xmlns="http://www.w3.org/2000/svg" width="28" height="18" viewBox="0 0 28 18" class="file-tree-gutter"><line x1="7" y1="0" x2="7" y2="18" stroke="var(--border)"/><line x1="21" y1="0" x2="21" y2="18" stroke="var(--border)"/><line x1="21" y1="9" x2="28" y2="9" stroke="var(--border)"/></svg><code class="file-path">cmd/wipnote/plan_validate.go</code></li>
+    <li class="file-entry"><svg xmlns="http://www.w3.org/2000/svg" width="28" height="18" viewBox="0 0 28 18" class="file-tree-gutter"><line x1="21" y1="0" x2="21" y2="9" stroke="var(--border)"/><line x1="21" y1="9" x2="28" y2="9" stroke="var(--border)"/></svg><code class="file-path">cmd/wipnote/plan_validate_test.go</code></li>
     
   </ul>
 </div></div>
@@ -650,10 +652,10 @@ body.right-rail-collapsed .sidebar-reopen{display:flex}
         </a>
         <div class="block-anchor" id="overview-slice-3-block-file-tree-1" data-block-anchor="slice-3-block-file-tree-1" data-block-kind="file-tree"><div class="block block-file-tree">
   <ul class="file-list">
-    <li class="file-entry"><code class="file-path">plan/blocks/blocks.go</code></li>
-    <li class="file-entry"><code class="file-path">plan/blocks/diagram.go</code></li>
-    <li class="file-entry"><code class="file-path">plan/blocks/templates/file_tree.gohtml</code></li>
-    <li class="file-entry"><code class="file-path">plan/blocks/blocks_test.go</code></li>
+    <li class="file-entry"><svg xmlns="http://www.w3.org/2000/svg" width="28" height="18" viewBox="0 0 28 18" class="file-tree-gutter"><line x1="7" y1="0" x2="7" y2="18" stroke="var(--border)"/><line x1="21" y1="0" x2="21" y2="18" stroke="var(--border)"/><line x1="21" y1="9" x2="28" y2="9" stroke="var(--border)"/></svg><code class="file-path">plan/blocks/blocks.go</code></li>
+    <li class="file-entry"><svg xmlns="http://www.w3.org/2000/svg" width="28" height="18" viewBox="0 0 28 18" class="file-tree-gutter"><line x1="7" y1="0" x2="7" y2="18" stroke="var(--border)"/><line x1="21" y1="0" x2="21" y2="18" stroke="var(--border)"/><line x1="21" y1="9" x2="28" y2="9" stroke="var(--border)"/></svg><code class="file-path">plan/blocks/diagram.go</code></li>
+    <li class="file-entry"><svg xmlns="http://www.w3.org/2000/svg" width="42" height="18" viewBox="0 0 42 18" class="file-tree-gutter"><line x1="7" y1="0" x2="7" y2="18" stroke="var(--border)"/><line x1="21" y1="0" x2="21" y2="18" stroke="var(--border)"/><line x1="35" y1="0" x2="35" y2="9" stroke="var(--border)"/><line x1="35" y1="9" x2="42" y2="9" stroke="var(--border)"/></svg><code class="file-path">plan/blocks/templates/file_tree.gohtml</code></li>
+    <li class="file-entry"><svg xmlns="http://www.w3.org/2000/svg" width="28" height="18" viewBox="0 0 28 18" class="file-tree-gutter"><line x1="21" y1="0" x2="21" y2="9" stroke="var(--border)"/><line x1="21" y1="9" x2="28" y2="9" stroke="var(--border)"/></svg><code class="file-path">plan/blocks/blocks_test.go</code></li>
     
   </ul>
 </div></div>
@@ -665,9 +667,9 @@ body.right-rail-collapsed .sidebar-reopen{display:flex}
         </a>
         <div class="block-anchor" id="overview-slice-4-block-file-tree-1" data-block-anchor="slice-4-block-file-tree-1" data-block-kind="file-tree"><div class="block block-file-tree">
   <ul class="file-list">
-    <li class="file-entry"><code class="file-path">cmd/wipnote/plan_critique.go</code></li>
-    <li class="file-entry"><code class="file-path">plan/planyaml/schema.go</code></li>
-    <li class="file-entry"><code class="file-path">cmd/wipnote/plan_critique_test.go</code></li>
+    <li class="file-entry"><svg xmlns="http://www.w3.org/2000/svg" width="28" height="18" viewBox="0 0 28 18" class="file-tree-gutter"><line x1="7" y1="0" x2="7" y2="18" stroke="var(--border)"/><line x1="21" y1="0" x2="21" y2="18" stroke="var(--border)"/><line x1="21" y1="9" x2="28" y2="9" stroke="var(--border)"/></svg><code class="file-path">cmd/wipnote/plan_critique.go</code></li>
+    <li class="file-entry"><svg xmlns="http://www.w3.org/2000/svg" width="28" height="18" viewBox="0 0 28 18" class="file-tree-gutter"><line x1="21" y1="0" x2="21" y2="9" stroke="var(--border)"/><line x1="21" y1="9" x2="28" y2="9" stroke="var(--border)"/></svg><code class="file-path">plan/planyaml/schema.go</code></li>
+    <li class="file-entry"><svg xmlns="http://www.w3.org/2000/svg" width="28" height="18" viewBox="0 0 28 18" class="file-tree-gutter"><line x1="21" y1="0" x2="21" y2="9" stroke="var(--border)"/><line x1="21" y1="9" x2="28" y2="9" stroke="var(--border)"/></svg><code class="file-path">cmd/wipnote/plan_critique_test.go</code></li>
     
   </ul>
 </div></div>
@@ -679,9 +681,9 @@ body.right-rail-collapsed .sidebar-reopen{display:flex}
         </a>
         <div class="block-anchor" id="overview-slice-5-block-file-tree-1" data-block-anchor="slice-5-block-file-tree-1" data-block-kind="file-tree"><div class="block block-file-tree">
   <ul class="file-list">
-    <li class="file-entry"><code class="file-path">plan/planyaml/validate.go</code></li>
-    <li class="file-entry"><code class="file-path">plan/planyaml/validate_test.go</code></li>
-    <li class="file-entry"><code class="file-path">plugin/skills/plan/SKILL.md</code></li>
+    <li class="file-entry"><svg xmlns="http://www.w3.org/2000/svg" width="28" height="18" viewBox="0 0 28 18" class="file-tree-gutter"><line x1="7" y1="0" x2="7" y2="18" stroke="var(--border)"/><line x1="21" y1="0" x2="21" y2="18" stroke="var(--border)"/><line x1="21" y1="9" x2="28" y2="9" stroke="var(--border)"/></svg><code class="file-path">plan/planyaml/validate.go</code></li>
+    <li class="file-entry"><svg xmlns="http://www.w3.org/2000/svg" width="28" height="18" viewBox="0 0 28 18" class="file-tree-gutter"><line x1="21" y1="0" x2="21" y2="9" stroke="var(--border)"/><line x1="21" y1="9" x2="28" y2="9" stroke="var(--border)"/></svg><code class="file-path">plan/planyaml/validate_test.go</code></li>
+    <li class="file-entry"><svg xmlns="http://www.w3.org/2000/svg" width="42" height="18" viewBox="0 0 42 18" class="file-tree-gutter"><line x1="35" y1="0" x2="35" y2="9" stroke="var(--border)"/><line x1="35" y1="9" x2="42" y2="9" stroke="var(--border)"/></svg><code class="file-path">plugin/skills/plan/SKILL.md</code></li>
     
   </ul>
 </div></div>
@@ -693,9 +695,9 @@ body.right-rail-collapsed .sidebar-reopen{display:flex}
         </a>
         <div class="block-anchor" id="overview-slice-6-block-file-tree-1" data-block-anchor="slice-6-block-file-tree-1" data-block-kind="file-tree"><div class="block block-file-tree">
   <ul class="file-list">
-    <li class="file-entry"><code class="file-path">plan/planyaml/validate.go</code></li>
-    <li class="file-entry"><code class="file-path">plan/planyaml/validate_test.go</code></li>
-    <li class="file-entry"><code class="file-path">plugin/skills/plan/SKILL.md</code></li>
+    <li class="file-entry"><svg xmlns="http://www.w3.org/2000/svg" width="28" height="18" viewBox="0 0 28 18" class="file-tree-gutter"><line x1="7" y1="0" x2="7" y2="18" stroke="var(--border)"/><line x1="21" y1="0" x2="21" y2="18" stroke="var(--border)"/><line x1="21" y1="9" x2="28" y2="9" stroke="var(--border)"/></svg><code class="file-path">plan/planyaml/validate.go</code></li>
+    <li class="file-entry"><svg xmlns="http://www.w3.org/2000/svg" width="28" height="18" viewBox="0 0 28 18" class="file-tree-gutter"><line x1="21" y1="0" x2="21" y2="9" stroke="var(--border)"/><line x1="21" y1="9" x2="28" y2="9" stroke="var(--border)"/></svg><code class="file-path">plan/planyaml/validate_test.go</code></li>
+    <li class="file-entry"><svg xmlns="http://www.w3.org/2000/svg" width="42" height="18" viewBox="0 0 42 18" class="file-tree-gutter"><line x1="35" y1="0" x2="35" y2="9" stroke="var(--border)"/><line x1="35" y1="9" x2="42" y2="9" stroke="var(--border)"/></svg><code class="file-path">plugin/skills/plan/SKILL.md</code></li>
     
   </ul>
 </div></div>
@@ -707,10 +709,10 @@ body.right-rail-collapsed .sidebar-reopen{display:flex}
         </a>
         <div class="block-anchor" id="overview-slice-7-block-file-tree-1" data-block-anchor="slice-7-block-file-tree-1" data-block-kind="file-tree"><div class="block block-file-tree">
   <ul class="file-list">
-    <li class="file-entry"><code class="file-path">plan/planyaml/schema.go</code></li>
-    <li class="file-entry"><code class="file-path">plan/blocks/blocks.go</code></li>
-    <li class="file-entry"><code class="file-path">plan/blocks/templates/api_endpoint.gohtml</code></li>
-    <li class="file-entry"><code class="file-path">plan/blocks/blocks_test.go</code></li>
+    <li class="file-entry"><svg xmlns="http://www.w3.org/2000/svg" width="28" height="18" viewBox="0 0 28 18" class="file-tree-gutter"><line x1="7" y1="0" x2="7" y2="18" stroke="var(--border)"/><line x1="21" y1="0" x2="21" y2="9" stroke="var(--border)"/><line x1="21" y1="9" x2="28" y2="9" stroke="var(--border)"/></svg><code class="file-path">plan/planyaml/schema.go</code></li>
+    <li class="file-entry"><svg xmlns="http://www.w3.org/2000/svg" width="28" height="18" viewBox="0 0 28 18" class="file-tree-gutter"><line x1="7" y1="0" x2="7" y2="18" stroke="var(--border)"/><line x1="21" y1="0" x2="21" y2="18" stroke="var(--border)"/><line x1="21" y1="9" x2="28" y2="9" stroke="var(--border)"/></svg><code class="file-path">plan/blocks/blocks.go</code></li>
+    <li class="file-entry"><svg xmlns="http://www.w3.org/2000/svg" width="42" height="18" viewBox="0 0 42 18" class="file-tree-gutter"><line x1="7" y1="0" x2="7" y2="18" stroke="var(--border)"/><line x1="21" y1="0" x2="21" y2="18" stroke="var(--border)"/><line x1="35" y1="0" x2="35" y2="9" stroke="var(--border)"/><line x1="35" y1="9" x2="42" y2="9" stroke="var(--border)"/></svg><code class="file-path">plan/blocks/templates/api_endpoint.gohtml</code></li>
+    <li class="file-entry"><svg xmlns="http://www.w3.org/2000/svg" width="28" height="18" viewBox="0 0 28 18" class="file-tree-gutter"><line x1="21" y1="0" x2="21" y2="9" stroke="var(--border)"/><line x1="21" y1="9" x2="28" y2="9" stroke="var(--border)"/></svg><code class="file-path">plan/blocks/blocks_test.go</code></li>
     
   </ul>
 </div></div>
@@ -728,9 +730,7 @@ body.right-rail-collapsed .sidebar-reopen{display:flex}
         </a>
         <div class="block-anchor" id="overview-slice-1-block-diagram-1" data-block-anchor="slice-1-block-diagram-1" data-block-kind="diagram"><div class="block block-diagram">
   <div class="block-header"><span class="block-kind">diagram</span><span class="block-title">Render path once primitives exist</span></div>
-  <div class="diagram-flow diagram-lr">
-    <div class="diagram-node">slice data (Go structs)</div><span class="diagram-arrow" aria-hidden="true">&#8594;</span><div class="diagram-node">layout: assign coordinates</div><span class="diagram-arrow" aria-hidden="true">&#8594;</span><div class="diagram-node">svg primitives: emit elements</div><span class="diagram-arrow" aria-hidden="true">&#8594;</span><div class="diagram-node">inline &lt;svg&gt; in committed HTML</div>
-  </div>
+  <div class="diagram-flow diagram-lr"><svg xmlns="http://www.w3.org/2000/svg" width="1021.5999999999999" height="48" viewBox="0 0 1021.5999999999999 48" class="diagram-canvas"><defs><marker id="wipnote-arrowhead" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="var(--accent)"/></marker></defs><rect class="diagram-node-rect" x="6" y="6" width="193.6" height="36" rx="6" fill="var(--bg-input)" stroke="var(--border)"/><text class="diagram-node-label" x="102.8" y="28" text-anchor="middle" font-family="ui-monospace, &#34;SF Mono&#34;, &#34;JetBrains Mono&#34;, Menlo, Consolas, monospace" font-size="12" fill="var(--text)">slice data (Go structs)</text><path class="diagram-edge" d="M199.6 24 L239.6 24" stroke="var(--accent)" marker-end="url(#wipnote-arrowhead)"/><rect class="diagram-node-rect" x="239.6" y="6" width="215.2" height="36" rx="6" fill="var(--bg-input)" stroke="var(--border)"/><text class="diagram-node-label" x="347.2" y="28" text-anchor="middle" font-family="ui-monospace, &#34;SF Mono&#34;, &#34;JetBrains Mono&#34;, Menlo, Consolas, monospace" font-size="12" fill="var(--text)">layout: assign coordinates</text><path class="diagram-edge" d="M454.79999999999995 24 L494.79999999999995 24" stroke="var(--accent)" marker-end="url(#wipnote-arrowhead)"/><rect class="diagram-node-rect" x="494.79999999999995" y="6" width="236.79999999999998" height="36" rx="6" fill="var(--bg-input)" stroke="var(--border)"/><text class="diagram-node-label" x="613.1999999999999" y="28" text-anchor="middle" font-family="ui-monospace, &#34;SF Mono&#34;, &#34;JetBrains Mono&#34;, Menlo, Consolas, monospace" font-size="12" fill="var(--text)">svg primitives: emit elements</text><path class="diagram-edge" d="M731.5999999999999 24 L771.5999999999999 24" stroke="var(--accent)" marker-end="url(#wipnote-arrowhead)"/><rect class="diagram-node-rect" x="771.5999999999999" y="6" width="244" height="36" rx="6" fill="var(--bg-input)" stroke="var(--border)"/><text class="diagram-node-label" x="893.5999999999999" y="28" text-anchor="middle" font-family="ui-monospace, &#34;SF Mono&#34;, &#34;JetBrains Mono&#34;, Menlo, Consolas, monospace" font-size="12" fill="var(--text)">inline &lt;svg&gt; in committed HTML</text></svg></div>
 </div></div>
       </div>
       <div class="overview-block-entry">
@@ -740,9 +740,7 @@ body.right-rail-collapsed .sidebar-reopen{display:flex}
         </a>
         <div class="block-anchor" id="overview-slice-2-block-diagram-1" data-block-anchor="slice-2-block-diagram-1" data-block-kind="diagram"><div class="block block-diagram">
   <div class="block-header"><span class="block-kind">diagram</span><span class="block-title">Render path</span></div>
-  <div class="diagram-flow diagram-lr">
-    <div class="diagram-node">slice deps -&gt; graph JSON</div><span class="diagram-arrow" aria-hidden="true">&#8594;</span><div class="diagram-node">goja runs embedded dagre.js</div><span class="diagram-arrow" aria-hidden="true">&#8594;</span><div class="diagram-node">coordinates returned</div><span class="diagram-arrow" aria-hidden="true">&#8594;</span><div class="diagram-node">svg primitives emit static &lt;svg&gt;</div>
-  </div>
+  <div class="diagram-flow diagram-lr"><svg xmlns="http://www.w3.org/2000/svg" width="985.5999999999999" height="48" viewBox="0 0 985.5999999999999 48" class="diagram-canvas"><defs><marker id="wipnote-arrowhead" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="var(--accent)"/></marker></defs><rect class="diagram-node-rect" x="6" y="6" width="200.79999999999998" height="36" rx="6" fill="var(--bg-input)" stroke="var(--border)"/><text class="diagram-node-label" x="106.39999999999999" y="28" text-anchor="middle" font-family="ui-monospace, &#34;SF Mono&#34;, &#34;JetBrains Mono&#34;, Menlo, Consolas, monospace" font-size="12" fill="var(--text)">slice deps -&gt; graph JSON</text><path class="diagram-edge" d="M206.79999999999998 24 L246.79999999999998 24" stroke="var(--accent)" marker-end="url(#wipnote-arrowhead)"/><rect class="diagram-node-rect" x="246.79999999999998" y="6" width="222.4" height="36" rx="6" fill="var(--bg-input)" stroke="var(--border)"/><text class="diagram-node-label" x="358" y="28" text-anchor="middle" font-family="ui-monospace, &#34;SF Mono&#34;, &#34;JetBrains Mono&#34;, Menlo, Consolas, monospace" font-size="12" fill="var(--text)">goja runs embedded dagre.js</text><path class="diagram-edge" d="M469.2 24 L509.19999999999993 24" stroke="var(--accent)" marker-end="url(#wipnote-arrowhead)"/><rect class="diagram-node-rect" x="509.19999999999993" y="6" width="172" height="36" rx="6" fill="var(--bg-input)" stroke="var(--border)"/><text class="diagram-node-label" x="595.1999999999999" y="28" text-anchor="middle" font-family="ui-monospace, &#34;SF Mono&#34;, &#34;JetBrains Mono&#34;, Menlo, Consolas, monospace" font-size="12" fill="var(--text)">coordinates returned</text><path class="diagram-edge" d="M681.1999999999999 24 L721.1999999999999 24" stroke="var(--accent)" marker-end="url(#wipnote-arrowhead)"/><rect class="diagram-node-rect" x="721.1999999999999" y="6" width="258.4" height="36" rx="6" fill="var(--bg-input)" stroke="var(--border)"/><text class="diagram-node-label" x="850.3999999999999" y="28" text-anchor="middle" font-family="ui-monospace, &#34;SF Mono&#34;, &#34;JetBrains Mono&#34;, Menlo, Consolas, monospace" font-size="12" fill="var(--text)">svg primitives emit static &lt;svg&gt;</text></svg></div>
 </div></div>
       </div>
       
@@ -751,21 +749,21 @@ body.right-rail-collapsed .sidebar-reopen{display:flex}
   
 </section>
 
-<!-- ZONE 1: Dependency Graph -->
-<section class="dep-graph" data-zone="dependency-graph">
+<!-- ZONE 1: Dependency Graph (drawn at render time — no script, no CDN) -->
+<section class="dep-graph" data-zone="dependency-graph" data-graph-render="static">
   <h2>Dependency Graph</h2>
   <div id="graph-data" style="display:none">
-    <div data-node="1" data-name="SVG primitive package — emission helpers, arrowhead marker, deterministic text metrics" data-status="pending" data-deps="" data-files="3"></div>
-    <div data-node="2" data-name="Static dependency graph via embedded dagre.js, with dual-format validator support" data-status="pending" data-deps="1" data-files="8"></div>
-    <div data-node="3" data-name="Real file-tree indentation and drawn diagram edges" data-status="pending" data-deps="1" data-files="4"></div>
-    <div data-node="4" data-name="Critique revises slices in place instead of appending" data-status="pending" data-deps="" data-files="3"></div>
-    <div data-node="5" data-name="Prose caps in schema validation, with author-facing guidance" data-status="pending" data-deps="" data-files="3"></div>
-    <div data-node="6" data-name="Harden the default-tier block gate, with a legacy exemption" data-status="pending" data-deps="" data-files="3"></div>
-    <div data-node="7" data-name="Drop the never-used api-endpoint block type" data-status="pending" data-deps="" data-files="4"></div>
+    <div data-node="1" data-name="SVG primitive package — emission helpers, arrowhead marker, deterministic text metrics" data-status="pending" data-deps="" data-files="3" data-issues="3" data-questions="2"></div>
+    <div data-node="2" data-name="Static dependency graph via embedded dagre.js, with dual-format validator support" data-status="pending" data-deps="1" data-files="8" data-issues="6" data-questions="2"></div>
+    <div data-node="3" data-name="Real file-tree indentation and drawn diagram edges" data-status="pending" data-deps="1" data-files="4" data-issues="1"></div>
+    <div data-node="4" data-name="Critique revises slices in place instead of appending" data-status="pending" data-deps="" data-files="3" data-issues="2"></div>
+    <div data-node="5" data-name="Prose caps in schema validation, with author-facing guidance" data-status="pending" data-deps="" data-files="3" data-issues="2"></div>
+    <div data-node="6" data-name="Harden the default-tier block gate, with a legacy exemption" data-status="pending" data-deps="" data-files="3" data-issues="2"></div>
+    <div data-node="7" data-name="Drop the never-used api-endpoint block type" data-status="pending" data-deps="" data-files="4" data-issues="1"></div>
     
     <!--PLAN_GRAPH_NODES-->
   </div>
-  <svg id="dep-graph-svg" width="100%"></svg>
+  <svg id="dep-graph-svg" xmlns="http://www.w3.org/2000/svg" width="1883.2" height="216" viewBox="0 0 1883.2 216" class="dep-graph-static"><defs><marker id="wipnote-arrowhead" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="var(--accent)"/></marker></defs><g class="dep-edges"><path class="dep-edge" d="M272.8 80 L185.6 108 L185.6 136" stroke="var(--text-muted)" marker-end="url(#wipnote-arrowhead)"/><path class="dep-edge" d="M447.2 80 L534.4 108 L534.4 136" stroke="var(--text-muted)" marker-end="url(#wipnote-arrowhead)"/></g><g class="dep-nodes"><a href="#slice-1"><g id="graph-node-1" class="dep-node dep-node-pending"><rect class="dep-node-box" x="198.4" y="24" width="323.2" height="56" rx="6" fill="var(--bg-input)" stroke="var(--pending)"/><text class="dep-node-label" x="360" y="48" text-anchor="middle" font-family="ui-monospace, &#34;SF Mono&#34;, &#34;JetBrains Mono&#34;, Menlo, Consolas, monospace" font-size="12" fill="var(--text)">#1 SVG primitive package — emiss…  ⚠3  ?2</text><text class="dep-node-meta" x="360" y="62" text-anchor="middle" font-family="ui-monospace, &#34;SF Mono&#34;, &#34;JetBrains Mono&#34;, Menlo, Consolas, monospace" font-size="10" fill="var(--text-muted)">3 files</text></g></a><a href="#slice-2"><g id="graph-node-2" class="dep-node dep-node-pending"><rect class="dep-node-box" x="24" y="136" width="323.2" height="56" rx="6" fill="var(--bg-input)" stroke="var(--pending)"/><text class="dep-node-label" x="185.6" y="160" text-anchor="middle" font-family="ui-monospace, &#34;SF Mono&#34;, &#34;JetBrains Mono&#34;, Menlo, Consolas, monospace" font-size="12" fill="var(--text)">#2 Static dependency graph via e…  ⚠6  ?2</text><text class="dep-node-meta" x="185.6" y="174" text-anchor="middle" font-family="ui-monospace, &#34;SF Mono&#34;, &#34;JetBrains Mono&#34;, Menlo, Consolas, monospace" font-size="10" fill="var(--text-muted)">8 files</text></g></a><a href="#slice-3"><g id="graph-node-3" class="dep-node dep-node-pending"><rect class="dep-node-box" x="387.2" y="136" width="294.4" height="56" rx="6" fill="var(--bg-input)" stroke="var(--pending)"/><text class="dep-node-label" x="534.4" y="160" text-anchor="middle" font-family="ui-monospace, &#34;SF Mono&#34;, &#34;JetBrains Mono&#34;, Menlo, Consolas, monospace" font-size="12" fill="var(--text)">#3 Real file-tree indentation an…  ⚠1</text><text class="dep-node-meta" x="534.4" y="174" text-anchor="middle" font-family="ui-monospace, &#34;SF Mono&#34;, &#34;JetBrains Mono&#34;, Menlo, Consolas, monospace" font-size="10" fill="var(--text-muted)">4 files</text></g></a><a href="#slice-4"><g id="graph-node-4" class="dep-node dep-node-pending"><rect class="dep-node-box" x="561.5999999999999" y="24" width="294.4" height="56" rx="6" fill="var(--bg-input)" stroke="var(--pending)"/><text class="dep-node-label" x="708.8" y="48" text-anchor="middle" font-family="ui-monospace, &#34;SF Mono&#34;, &#34;JetBrains Mono&#34;, Menlo, Consolas, monospace" font-size="12" fill="var(--text)">#4 Critique revises slices in pl…  ⚠2</text><text class="dep-node-meta" x="708.8" y="62" text-anchor="middle" font-family="ui-monospace, &#34;SF Mono&#34;, &#34;JetBrains Mono&#34;, Menlo, Consolas, monospace" font-size="10" fill="var(--text-muted)">3 files</text></g></a><a href="#slice-5"><g id="graph-node-5" class="dep-node dep-node-pending"><rect class="dep-node-box" x="896" y="24" width="294.4" height="56" rx="6" fill="var(--bg-input)" stroke="var(--pending)"/><text class="dep-node-label" x="1043.2" y="48" text-anchor="middle" font-family="ui-monospace, &#34;SF Mono&#34;, &#34;JetBrains Mono&#34;, Menlo, Consolas, monospace" font-size="12" fill="var(--text)">#5 Prose caps in schema validati…  ⚠2</text><text class="dep-node-meta" x="1043.2" y="62" text-anchor="middle" font-family="ui-monospace, &#34;SF Mono&#34;, &#34;JetBrains Mono&#34;, Menlo, Consolas, monospace" font-size="10" fill="var(--text-muted)">3 files</text></g></a><a href="#slice-6"><g id="graph-node-6" class="dep-node dep-node-pending"><rect class="dep-node-box" x="1230.3999999999999" y="24" width="294.4" height="56" rx="6" fill="var(--bg-input)" stroke="var(--pending)"/><text class="dep-node-label" x="1377.6" y="48" text-anchor="middle" font-family="ui-monospace, &#34;SF Mono&#34;, &#34;JetBrains Mono&#34;, Menlo, Consolas, monospace" font-size="12" fill="var(--text)">#6 Harden the default-tier block…  ⚠2</text><text class="dep-node-meta" x="1377.6" y="62" text-anchor="middle" font-family="ui-monospace, &#34;SF Mono&#34;, &#34;JetBrains Mono&#34;, Menlo, Consolas, monospace" font-size="10" fill="var(--text-muted)">3 files</text></g></a><a href="#slice-7"><g id="graph-node-7" class="dep-node dep-node-pending"><rect class="dep-node-box" x="1564.8" y="24" width="294.4" height="56" rx="6" fill="var(--bg-input)" stroke="var(--pending)"/><text class="dep-node-label" x="1712" y="48" text-anchor="middle" font-family="ui-monospace, &#34;SF Mono&#34;, &#34;JetBrains Mono&#34;, Menlo, Consolas, monospace" font-size="12" fill="var(--text)">#7 Drop the never-used api-endpo…  ⚠1</text><text class="dep-node-meta" x="1712" y="62" text-anchor="middle" font-family="ui-monospace, &#34;SF Mono&#34;, &#34;JetBrains Mono&#34;, Menlo, Consolas, monospace" font-size="10" fill="var(--text-muted)">4 files</text></g></a></g></svg>
 </section>
 
 <!-- ZONE 2: Interactive Sections -->
@@ -940,17 +938,15 @@ the rendered HTML.</p>
   <div class="slice-field-value block-zone">
     <div class="block-anchor" id="slice-1-block-file-tree-1" data-block-anchor="slice-1-block-file-tree-1" data-block-kind="file-tree"><div class="block block-file-tree">
   <ul class="file-list">
-    <li class="file-entry"><code class="file-path">plan/blocks/svg/svg.go</code></li>
-    <li class="file-entry"><code class="file-path">plan/blocks/svg/metrics.go</code></li>
-    <li class="file-entry"><code class="file-path">plan/blocks/svg/svg_test.go</code></li>
+    <li class="file-entry"><svg xmlns="http://www.w3.org/2000/svg" width="42" height="18" viewBox="0 0 42 18" class="file-tree-gutter"><line x1="7" y1="0" x2="7" y2="18" stroke="var(--border)"/><line x1="21" y1="0" x2="21" y2="18" stroke="var(--border)"/><line x1="35" y1="0" x2="35" y2="18" stroke="var(--border)"/><line x1="35" y1="9" x2="42" y2="9" stroke="var(--border)"/></svg><code class="file-path">plan/blocks/svg/svg.go</code></li>
+    <li class="file-entry"><svg xmlns="http://www.w3.org/2000/svg" width="42" height="18" viewBox="0 0 42 18" class="file-tree-gutter"><line x1="7" y1="0" x2="7" y2="18" stroke="var(--border)"/><line x1="21" y1="0" x2="21" y2="18" stroke="var(--border)"/><line x1="35" y1="0" x2="35" y2="18" stroke="var(--border)"/><line x1="35" y1="9" x2="42" y2="9" stroke="var(--border)"/></svg><code class="file-path">plan/blocks/svg/metrics.go</code></li>
+    <li class="file-entry"><svg xmlns="http://www.w3.org/2000/svg" width="42" height="18" viewBox="0 0 42 18" class="file-tree-gutter"><line x1="35" y1="0" x2="35" y2="9" stroke="var(--border)"/><line x1="35" y1="9" x2="42" y2="9" stroke="var(--border)"/></svg><code class="file-path">plan/blocks/svg/svg_test.go</code></li>
     
   </ul>
 </div></div>
     <div class="block-anchor" id="slice-1-block-diagram-1" data-block-anchor="slice-1-block-diagram-1" data-block-kind="diagram"><div class="block block-diagram">
   <div class="block-header"><span class="block-kind">diagram</span><span class="block-title">Render path once primitives exist</span></div>
-  <div class="diagram-flow diagram-lr">
-    <div class="diagram-node">slice data (Go structs)</div><span class="diagram-arrow" aria-hidden="true">&#8594;</span><div class="diagram-node">layout: assign coordinates</div><span class="diagram-arrow" aria-hidden="true">&#8594;</span><div class="diagram-node">svg primitives: emit elements</div><span class="diagram-arrow" aria-hidden="true">&#8594;</span><div class="diagram-node">inline &lt;svg&gt; in committed HTML</div>
-  </div>
+  <div class="diagram-flow diagram-lr"><svg xmlns="http://www.w3.org/2000/svg" width="1021.5999999999999" height="48" viewBox="0 0 1021.5999999999999 48" class="diagram-canvas"><defs><marker id="wipnote-arrowhead" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="var(--accent)"/></marker></defs><rect class="diagram-node-rect" x="6" y="6" width="193.6" height="36" rx="6" fill="var(--bg-input)" stroke="var(--border)"/><text class="diagram-node-label" x="102.8" y="28" text-anchor="middle" font-family="ui-monospace, &#34;SF Mono&#34;, &#34;JetBrains Mono&#34;, Menlo, Consolas, monospace" font-size="12" fill="var(--text)">slice data (Go structs)</text><path class="diagram-edge" d="M199.6 24 L239.6 24" stroke="var(--accent)" marker-end="url(#wipnote-arrowhead)"/><rect class="diagram-node-rect" x="239.6" y="6" width="215.2" height="36" rx="6" fill="var(--bg-input)" stroke="var(--border)"/><text class="diagram-node-label" x="347.2" y="28" text-anchor="middle" font-family="ui-monospace, &#34;SF Mono&#34;, &#34;JetBrains Mono&#34;, Menlo, Consolas, monospace" font-size="12" fill="var(--text)">layout: assign coordinates</text><path class="diagram-edge" d="M454.79999999999995 24 L494.79999999999995 24" stroke="var(--accent)" marker-end="url(#wipnote-arrowhead)"/><rect class="diagram-node-rect" x="494.79999999999995" y="6" width="236.79999999999998" height="36" rx="6" fill="var(--bg-input)" stroke="var(--border)"/><text class="diagram-node-label" x="613.1999999999999" y="28" text-anchor="middle" font-family="ui-monospace, &#34;SF Mono&#34;, &#34;JetBrains Mono&#34;, Menlo, Consolas, monospace" font-size="12" fill="var(--text)">svg primitives: emit elements</text><path class="diagram-edge" d="M731.5999999999999 24 L771.5999999999999 24" stroke="var(--accent)" marker-end="url(#wipnote-arrowhead)"/><rect class="diagram-node-rect" x="771.5999999999999" y="6" width="244" height="36" rx="6" fill="var(--bg-input)" stroke="var(--border)"/><text class="diagram-node-label" x="893.5999999999999" y="28" text-anchor="middle" font-family="ui-monospace, &#34;SF Mono&#34;, &#34;JetBrains Mono&#34;, Menlo, Consolas, monospace" font-size="12" fill="var(--text)">inline &lt;svg&gt; in committed HTML</text></svg></div>
 </div></div>
     
   </div>
@@ -1168,22 +1164,20 @@ of 16, but disqualifying for a whole-project mega-graph.</p>
   <div class="slice-field-value block-zone">
     <div class="block-anchor" id="slice-2-block-file-tree-1" data-block-anchor="slice-2-block-file-tree-1" data-block-kind="file-tree"><div class="block block-file-tree">
   <ul class="file-list">
-    <li class="file-entry"><code class="file-path">plan/blocks/svg/layout.go</code></li>
-    <li class="file-entry"><code class="file-path">plan/blocks/svg/layout_test.go</code></li>
-    <li class="file-entry"><code class="file-path">plan/plantmpl/dependency_graph.go</code></li>
-    <li class="file-entry"><code class="file-path">plan/plantmpl/templates/dependency_graph.gohtml</code></li>
-    <li class="file-entry"><code class="file-path">plan/plantmpl/templates/plan_page.gohtml</code></li>
-    <li class="file-entry"><code class="file-path">plan/plantmpl/builder_test.go</code></li>
-    <li class="file-entry"><code class="file-path">cmd/wipnote/plan_validate.go</code></li>
-    <li class="file-entry"><code class="file-path">cmd/wipnote/plan_validate_test.go</code></li>
+    <li class="file-entry"><svg xmlns="http://www.w3.org/2000/svg" width="42" height="18" viewBox="0 0 42 18" class="file-tree-gutter"><line x1="7" y1="0" x2="7" y2="18" stroke="var(--border)"/><line x1="21" y1="0" x2="21" y2="18" stroke="var(--border)"/><line x1="35" y1="0" x2="35" y2="18" stroke="var(--border)"/><line x1="35" y1="9" x2="42" y2="9" stroke="var(--border)"/></svg><code class="file-path">plan/blocks/svg/layout.go</code></li>
+    <li class="file-entry"><svg xmlns="http://www.w3.org/2000/svg" width="42" height="18" viewBox="0 0 42 18" class="file-tree-gutter"><line x1="7" y1="0" x2="7" y2="18" stroke="var(--border)"/><line x1="35" y1="0" x2="35" y2="9" stroke="var(--border)"/><line x1="35" y1="9" x2="42" y2="9" stroke="var(--border)"/></svg><code class="file-path">plan/blocks/svg/layout_test.go</code></li>
+    <li class="file-entry"><svg xmlns="http://www.w3.org/2000/svg" width="28" height="18" viewBox="0 0 28 18" class="file-tree-gutter"><line x1="7" y1="0" x2="7" y2="18" stroke="var(--border)"/><line x1="21" y1="0" x2="21" y2="18" stroke="var(--border)"/><line x1="21" y1="9" x2="28" y2="9" stroke="var(--border)"/></svg><code class="file-path">plan/plantmpl/dependency_graph.go</code></li>
+    <li class="file-entry"><svg xmlns="http://www.w3.org/2000/svg" width="42" height="18" viewBox="0 0 42 18" class="file-tree-gutter"><line x1="7" y1="0" x2="7" y2="18" stroke="var(--border)"/><line x1="21" y1="0" x2="21" y2="18" stroke="var(--border)"/><line x1="35" y1="0" x2="35" y2="18" stroke="var(--border)"/><line x1="35" y1="9" x2="42" y2="9" stroke="var(--border)"/></svg><code class="file-path">plan/plantmpl/templates/dependency_graph.gohtml</code></li>
+    <li class="file-entry"><svg xmlns="http://www.w3.org/2000/svg" width="42" height="18" viewBox="0 0 42 18" class="file-tree-gutter"><line x1="7" y1="0" x2="7" y2="18" stroke="var(--border)"/><line x1="21" y1="0" x2="21" y2="18" stroke="var(--border)"/><line x1="35" y1="0" x2="35" y2="9" stroke="var(--border)"/><line x1="35" y1="9" x2="42" y2="9" stroke="var(--border)"/></svg><code class="file-path">plan/plantmpl/templates/plan_page.gohtml</code></li>
+    <li class="file-entry"><svg xmlns="http://www.w3.org/2000/svg" width="28" height="18" viewBox="0 0 28 18" class="file-tree-gutter"><line x1="21" y1="0" x2="21" y2="9" stroke="var(--border)"/><line x1="21" y1="9" x2="28" y2="9" stroke="var(--border)"/></svg><code class="file-path">plan/plantmpl/builder_test.go</code></li>
+    <li class="file-entry"><svg xmlns="http://www.w3.org/2000/svg" width="28" height="18" viewBox="0 0 28 18" class="file-tree-gutter"><line x1="7" y1="0" x2="7" y2="18" stroke="var(--border)"/><line x1="21" y1="0" x2="21" y2="18" stroke="var(--border)"/><line x1="21" y1="9" x2="28" y2="9" stroke="var(--border)"/></svg><code class="file-path">cmd/wipnote/plan_validate.go</code></li>
+    <li class="file-entry"><svg xmlns="http://www.w3.org/2000/svg" width="28" height="18" viewBox="0 0 28 18" class="file-tree-gutter"><line x1="21" y1="0" x2="21" y2="9" stroke="var(--border)"/><line x1="21" y1="9" x2="28" y2="9" stroke="var(--border)"/></svg><code class="file-path">cmd/wipnote/plan_validate_test.go</code></li>
     
   </ul>
 </div></div>
     <div class="block-anchor" id="slice-2-block-diagram-1" data-block-anchor="slice-2-block-diagram-1" data-block-kind="diagram"><div class="block block-diagram">
   <div class="block-header"><span class="block-kind">diagram</span><span class="block-title">Render path</span></div>
-  <div class="diagram-flow diagram-lr">
-    <div class="diagram-node">slice deps -&gt; graph JSON</div><span class="diagram-arrow" aria-hidden="true">&#8594;</span><div class="diagram-node">goja runs embedded dagre.js</div><span class="diagram-arrow" aria-hidden="true">&#8594;</span><div class="diagram-node">coordinates returned</div><span class="diagram-arrow" aria-hidden="true">&#8594;</span><div class="diagram-node">svg primitives emit static &lt;svg&gt;</div>
-  </div>
+  <div class="diagram-flow diagram-lr"><svg xmlns="http://www.w3.org/2000/svg" width="985.5999999999999" height="48" viewBox="0 0 985.5999999999999 48" class="diagram-canvas"><defs><marker id="wipnote-arrowhead" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="var(--accent)"/></marker></defs><rect class="diagram-node-rect" x="6" y="6" width="200.79999999999998" height="36" rx="6" fill="var(--bg-input)" stroke="var(--border)"/><text class="diagram-node-label" x="106.39999999999999" y="28" text-anchor="middle" font-family="ui-monospace, &#34;SF Mono&#34;, &#34;JetBrains Mono&#34;, Menlo, Consolas, monospace" font-size="12" fill="var(--text)">slice deps -&gt; graph JSON</text><path class="diagram-edge" d="M206.79999999999998 24 L246.79999999999998 24" stroke="var(--accent)" marker-end="url(#wipnote-arrowhead)"/><rect class="diagram-node-rect" x="246.79999999999998" y="6" width="222.4" height="36" rx="6" fill="var(--bg-input)" stroke="var(--border)"/><text class="diagram-node-label" x="358" y="28" text-anchor="middle" font-family="ui-monospace, &#34;SF Mono&#34;, &#34;JetBrains Mono&#34;, Menlo, Consolas, monospace" font-size="12" fill="var(--text)">goja runs embedded dagre.js</text><path class="diagram-edge" d="M469.2 24 L509.19999999999993 24" stroke="var(--accent)" marker-end="url(#wipnote-arrowhead)"/><rect class="diagram-node-rect" x="509.19999999999993" y="6" width="172" height="36" rx="6" fill="var(--bg-input)" stroke="var(--border)"/><text class="diagram-node-label" x="595.1999999999999" y="28" text-anchor="middle" font-family="ui-monospace, &#34;SF Mono&#34;, &#34;JetBrains Mono&#34;, Menlo, Consolas, monospace" font-size="12" fill="var(--text)">coordinates returned</text><path class="diagram-edge" d="M681.1999999999999 24 L721.1999999999999 24" stroke="var(--accent)" marker-end="url(#wipnote-arrowhead)"/><rect class="diagram-node-rect" x="721.1999999999999" y="6" width="258.4" height="36" rx="6" fill="var(--bg-input)" stroke="var(--border)"/><text class="diagram-node-label" x="850.3999999999999" y="28" text-anchor="middle" font-family="ui-monospace, &#34;SF Mono&#34;, &#34;JetBrains Mono&#34;, Menlo, Consolas, monospace" font-size="12" fill="var(--text)">svg primitives emit static &lt;svg&gt;</text></svg></div>
 </div></div>
     
   </div>
@@ -1421,10 +1415,10 @@ Those paths do not exist.</p>
   <div class="slice-field-value block-zone">
     <div class="block-anchor" id="slice-3-block-file-tree-1" data-block-anchor="slice-3-block-file-tree-1" data-block-kind="file-tree"><div class="block block-file-tree">
   <ul class="file-list">
-    <li class="file-entry"><code class="file-path">plan/blocks/blocks.go</code></li>
-    <li class="file-entry"><code class="file-path">plan/blocks/diagram.go</code></li>
-    <li class="file-entry"><code class="file-path">plan/blocks/templates/file_tree.gohtml</code></li>
-    <li class="file-entry"><code class="file-path">plan/blocks/blocks_test.go</code></li>
+    <li class="file-entry"><svg xmlns="http://www.w3.org/2000/svg" width="28" height="18" viewBox="0 0 28 18" class="file-tree-gutter"><line x1="7" y1="0" x2="7" y2="18" stroke="var(--border)"/><line x1="21" y1="0" x2="21" y2="18" stroke="var(--border)"/><line x1="21" y1="9" x2="28" y2="9" stroke="var(--border)"/></svg><code class="file-path">plan/blocks/blocks.go</code></li>
+    <li class="file-entry"><svg xmlns="http://www.w3.org/2000/svg" width="28" height="18" viewBox="0 0 28 18" class="file-tree-gutter"><line x1="7" y1="0" x2="7" y2="18" stroke="var(--border)"/><line x1="21" y1="0" x2="21" y2="18" stroke="var(--border)"/><line x1="21" y1="9" x2="28" y2="9" stroke="var(--border)"/></svg><code class="file-path">plan/blocks/diagram.go</code></li>
+    <li class="file-entry"><svg xmlns="http://www.w3.org/2000/svg" width="42" height="18" viewBox="0 0 42 18" class="file-tree-gutter"><line x1="7" y1="0" x2="7" y2="18" stroke="var(--border)"/><line x1="21" y1="0" x2="21" y2="18" stroke="var(--border)"/><line x1="35" y1="0" x2="35" y2="9" stroke="var(--border)"/><line x1="35" y1="9" x2="42" y2="9" stroke="var(--border)"/></svg><code class="file-path">plan/blocks/templates/file_tree.gohtml</code></li>
+    <li class="file-entry"><svg xmlns="http://www.w3.org/2000/svg" width="28" height="18" viewBox="0 0 28 18" class="file-tree-gutter"><line x1="21" y1="0" x2="21" y2="9" stroke="var(--border)"/><line x1="21" y1="9" x2="28" y2="9" stroke="var(--border)"/></svg><code class="file-path">plan/blocks/blocks_test.go</code></li>
     
   </ul>
 </div></div>
@@ -1597,9 +1591,9 @@ its own critique pass, making it the first real fixture for the compat test.</p>
   <div class="slice-field-value block-zone">
     <div class="block-anchor" id="slice-4-block-file-tree-1" data-block-anchor="slice-4-block-file-tree-1" data-block-kind="file-tree"><div class="block block-file-tree">
   <ul class="file-list">
-    <li class="file-entry"><code class="file-path">cmd/wipnote/plan_critique.go</code></li>
-    <li class="file-entry"><code class="file-path">plan/planyaml/schema.go</code></li>
-    <li class="file-entry"><code class="file-path">cmd/wipnote/plan_critique_test.go</code></li>
+    <li class="file-entry"><svg xmlns="http://www.w3.org/2000/svg" width="28" height="18" viewBox="0 0 28 18" class="file-tree-gutter"><line x1="7" y1="0" x2="7" y2="18" stroke="var(--border)"/><line x1="21" y1="0" x2="21" y2="18" stroke="var(--border)"/><line x1="21" y1="9" x2="28" y2="9" stroke="var(--border)"/></svg><code class="file-path">cmd/wipnote/plan_critique.go</code></li>
+    <li class="file-entry"><svg xmlns="http://www.w3.org/2000/svg" width="28" height="18" viewBox="0 0 28 18" class="file-tree-gutter"><line x1="21" y1="0" x2="21" y2="9" stroke="var(--border)"/><line x1="21" y1="9" x2="28" y2="9" stroke="var(--border)"/></svg><code class="file-path">plan/planyaml/schema.go</code></li>
+    <li class="file-entry"><svg xmlns="http://www.w3.org/2000/svg" width="28" height="18" viewBox="0 0 28 18" class="file-tree-gutter"><line x1="21" y1="0" x2="21" y2="9" stroke="var(--border)"/><line x1="21" y1="9" x2="28" y2="9" stroke="var(--border)"/></svg><code class="file-path">cmd/wipnote/plan_critique_test.go</code></li>
     
   </ul>
 </div></div>
@@ -1796,9 +1790,9 @@ partitioning.</p>
   <div class="slice-field-value block-zone">
     <div class="block-anchor" id="slice-5-block-file-tree-1" data-block-anchor="slice-5-block-file-tree-1" data-block-kind="file-tree"><div class="block block-file-tree">
   <ul class="file-list">
-    <li class="file-entry"><code class="file-path">plan/planyaml/validate.go</code></li>
-    <li class="file-entry"><code class="file-path">plan/planyaml/validate_test.go</code></li>
-    <li class="file-entry"><code class="file-path">plugin/skills/plan/SKILL.md</code></li>
+    <li class="file-entry"><svg xmlns="http://www.w3.org/2000/svg" width="28" height="18" viewBox="0 0 28 18" class="file-tree-gutter"><line x1="7" y1="0" x2="7" y2="18" stroke="var(--border)"/><line x1="21" y1="0" x2="21" y2="18" stroke="var(--border)"/><line x1="21" y1="9" x2="28" y2="9" stroke="var(--border)"/></svg><code class="file-path">plan/planyaml/validate.go</code></li>
+    <li class="file-entry"><svg xmlns="http://www.w3.org/2000/svg" width="28" height="18" viewBox="0 0 28 18" class="file-tree-gutter"><line x1="21" y1="0" x2="21" y2="9" stroke="var(--border)"/><line x1="21" y1="9" x2="28" y2="9" stroke="var(--border)"/></svg><code class="file-path">plan/planyaml/validate_test.go</code></li>
+    <li class="file-entry"><svg xmlns="http://www.w3.org/2000/svg" width="42" height="18" viewBox="0 0 42 18" class="file-tree-gutter"><line x1="35" y1="0" x2="35" y2="9" stroke="var(--border)"/><line x1="35" y1="9" x2="42" y2="9" stroke="var(--border)"/></svg><code class="file-path">plugin/skills/plan/SKILL.md</code></li>
     
   </ul>
 </div></div>
@@ -1986,9 +1980,9 @@ the next validate run.
   <div class="slice-field-value block-zone">
     <div class="block-anchor" id="slice-6-block-file-tree-1" data-block-anchor="slice-6-block-file-tree-1" data-block-kind="file-tree"><div class="block block-file-tree">
   <ul class="file-list">
-    <li class="file-entry"><code class="file-path">plan/planyaml/validate.go</code></li>
-    <li class="file-entry"><code class="file-path">plan/planyaml/validate_test.go</code></li>
-    <li class="file-entry"><code class="file-path">plugin/skills/plan/SKILL.md</code></li>
+    <li class="file-entry"><svg xmlns="http://www.w3.org/2000/svg" width="28" height="18" viewBox="0 0 28 18" class="file-tree-gutter"><line x1="7" y1="0" x2="7" y2="18" stroke="var(--border)"/><line x1="21" y1="0" x2="21" y2="18" stroke="var(--border)"/><line x1="21" y1="9" x2="28" y2="9" stroke="var(--border)"/></svg><code class="file-path">plan/planyaml/validate.go</code></li>
+    <li class="file-entry"><svg xmlns="http://www.w3.org/2000/svg" width="28" height="18" viewBox="0 0 28 18" class="file-tree-gutter"><line x1="21" y1="0" x2="21" y2="9" stroke="var(--border)"/><line x1="21" y1="9" x2="28" y2="9" stroke="var(--border)"/></svg><code class="file-path">plan/planyaml/validate_test.go</code></li>
+    <li class="file-entry"><svg xmlns="http://www.w3.org/2000/svg" width="42" height="18" viewBox="0 0 42 18" class="file-tree-gutter"><line x1="35" y1="0" x2="35" y2="9" stroke="var(--border)"/><line x1="35" y1="9" x2="42" y2="9" stroke="var(--border)"/></svg><code class="file-path">plugin/skills/plan/SKILL.md</code></li>
     
   </ul>
 </div></div>
@@ -2162,10 +2156,10 @@ standalone api_endpoint.go, which does not exist.</p>
   <div class="slice-field-value block-zone">
     <div class="block-anchor" id="slice-7-block-file-tree-1" data-block-anchor="slice-7-block-file-tree-1" data-block-kind="file-tree"><div class="block block-file-tree">
   <ul class="file-list">
-    <li class="file-entry"><code class="file-path">plan/planyaml/schema.go</code></li>
-    <li class="file-entry"><code class="file-path">plan/blocks/blocks.go</code></li>
-    <li class="file-entry"><code class="file-path">plan/blocks/templates/api_endpoint.gohtml</code></li>
-    <li class="file-entry"><code class="file-path">plan/blocks/blocks_test.go</code></li>
+    <li class="file-entry"><svg xmlns="http://www.w3.org/2000/svg" width="28" height="18" viewBox="0 0 28 18" class="file-tree-gutter"><line x1="7" y1="0" x2="7" y2="18" stroke="var(--border)"/><line x1="21" y1="0" x2="21" y2="9" stroke="var(--border)"/><line x1="21" y1="9" x2="28" y2="9" stroke="var(--border)"/></svg><code class="file-path">plan/planyaml/schema.go</code></li>
+    <li class="file-entry"><svg xmlns="http://www.w3.org/2000/svg" width="28" height="18" viewBox="0 0 28 18" class="file-tree-gutter"><line x1="7" y1="0" x2="7" y2="18" stroke="var(--border)"/><line x1="21" y1="0" x2="21" y2="18" stroke="var(--border)"/><line x1="21" y1="9" x2="28" y2="9" stroke="var(--border)"/></svg><code class="file-path">plan/blocks/blocks.go</code></li>
+    <li class="file-entry"><svg xmlns="http://www.w3.org/2000/svg" width="42" height="18" viewBox="0 0 42 18" class="file-tree-gutter"><line x1="7" y1="0" x2="7" y2="18" stroke="var(--border)"/><line x1="21" y1="0" x2="21" y2="18" stroke="var(--border)"/><line x1="35" y1="0" x2="35" y2="9" stroke="var(--border)"/><line x1="35" y1="9" x2="42" y2="9" stroke="var(--border)"/></svg><code class="file-path">plan/blocks/templates/api_endpoint.gohtml</code></li>
+    <li class="file-entry"><svg xmlns="http://www.w3.org/2000/svg" width="28" height="18" viewBox="0 0 28 18" class="file-tree-gutter"><line x1="21" y1="0" x2="21" y2="9" stroke="var(--border)"/><line x1="21" y1="9" x2="28" y2="9" stroke="var(--border)"/></svg><code class="file-path">plan/blocks/blocks_test.go</code></li>
     
   </ul>
 </div></div>
@@ -2260,6 +2254,16 @@ standalone api_endpoint.go, which does not exist.</p>
   </div>
 </section>
 
+
+<nav data-graph-edges>
+  <section data-edge-type="relates_to">
+    <h3>Relates To:</h3>
+    <ul>
+      <li><a href="recap-pln-plan-f8c02547.html" data-relationship="relates_to" data-since="2026-08-07T07:33:44.335149">recap</a></li>
+      <li><a href="b2dd9cea0d5683edc16f58d4531737348b7d2772.html" data-relationship="relates_to" data-since="2026-08-07T07:33:44.341513">introducing-commit</a></li>
+    </ul>
+  </section>
+</nav>
 </article>
 </div><!-- /.plan-content -->
 <aside class="chat-sidebar" id="chat-panel">
@@ -2276,8 +2280,11 @@ standalone api_endpoint.go, which does not exist.</p>
 </aside>
 </div><!-- /.plan-layout -->
 
-<script src="https://d3js.org/d3.v7.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/dagre-d3@0.6.4/dist/dagre-d3.min.js"></script>
+<!-- No d3 / dagre-d3 script tags: the dependency graph above is a static inline
+     SVG laid out by dagre at render time (plan/blocks/svg.Layout), so the graph
+     paints with zero JavaScript, zero CDN round-trips, and no blank-until-loaded
+     flash. Plan HTML rendered before this change still carries its own script
+     tags and keeps working — see the legacy CSS block in the stylesheet above. -->
 <script>
 // Plan base path — derived from window.location.pathname so the same
 // rendered HTML works whether the file is served at the legacy
@@ -2821,211 +2828,35 @@ var planId=(function(){var a=document.querySelector('article[id]');return a?a.id
 
   loadExistingFeedback();
 
+  // Recolor a graph node when its slice is approved/rejected in the browser.
+  // The committed SVG already carries the status the plan was rendered with;
+  // this only keeps the picture honest for edits made since the page loaded.
+  // Both the class and the rect's stroke are theme tokens, never literal
+  // colors, so the node stays correct if the reader flips light/dark.
+  var GRAPH_STATUS_TOKENS={pending:'var(--pending)',approved:'var(--approved)',revision:'var(--revision)',discuss:'var(--discuss)',blocked:'var(--blocked)'};
   document.querySelectorAll('input[data-action="approve"]').forEach(function(cb){
     cb.addEventListener('change',function(){
       var sec=this.dataset.section;
-      if(sec.startsWith('slice-')&&sec.split('-').length===2){
-        var n=sec.split('-')[1];
-        var nodeRect=d3.select('#dep-graph-svg .node[id="'+n+'"] rect');
-        if(!nodeRect.empty()){
-          var val=getApprovalValue(sec);
-          var SC={pending:'#6b7280',approved:'#16a34a',revision:'#f59e0b',discuss:'#8b5cf6',blocked:'#dc2626'};
-          var graphStatus=val==='approved'?'approved':val==='rejected'||val==='changes_requested'?'revision':val==='discuss'?'discuss':val==='blocked'?'blocked':'pending';
-          var color=SC[graphStatus]||SC.pending;
-          var cs=getComputedStyle(document.querySelector('.dep-graph')||document.documentElement);
-          nodeRect.style('stroke',color).style('fill',cs.getPropertyValue('--bg-input').trim()||'#222228');
-        }
-      }
+      if(!(sec.startsWith('slice-')&&sec.split('-').length===2)) return;
+      var n=sec.split('-')[1];
+      var group=document.getElementById('graph-node-'+n);
+      if(!group) return;
+      var rect=group.querySelector('.dep-node-box');
+      if(!rect) return;
+      var val=getApprovalValue(sec);
+      var graphStatus=val==='approved'?'approved':val==='rejected'||val==='changes_requested'?'revision':val==='discuss'?'discuss':val==='blocked'?'blocked':'pending';
+      group.setAttribute('class','dep-node dep-node-'+graphStatus);
+      rect.setAttribute('stroke',GRAPH_STATUS_TOKENS[graphStatus]||GRAPH_STATUS_TOKENS.pending);
     });
   });
 })();
 
-// Render dagre-d3 dependency graph
-(function(){
-  'use strict';
-
-  var STATUS_COLORS={pending:'#6b7280',approved:'#16a34a',revision:'#f59e0b',discuss:'#8b5cf6',blocked:'#dc2626'};
-
-  // nodeDataMap: id -> {status, issues, questions, deps:[]}  — populated during render
-  var nodeDataMap={};
-  // graphRef: the dagreD3 graph object — stored for dep-chain queries
-  var graphRef=null;
-
-  // Build ancestor set for a node (all transitive prerequisites)
-  function ancestors(g,id){
-    var visited={};
-    var queue=[id];
-    while(queue.length){
-      var cur=queue.shift();
-      (g.predecessors(cur)||[]).forEach(function(p){
-        if(!visited[p]){visited[p]=true;queue.push(p);}
-      });
-    }
-    return visited;
-  }
-
-  // Build descendant set for a node (all transitive dependents)
-  function descendants(g,id){
-    var visited={};
-    var queue=[id];
-    while(queue.length){
-      var cur=queue.shift();
-      (g.successors(cur)||[]).forEach(function(s){
-        if(!visited[s]){visited[s]=true;queue.push(s);}
-      });
-    }
-    return visited;
-  }
-
-  // Apply dep-chain highlight: dim unrelated nodes/edges, highlight related ones.
-  // Pass null to clear.
-  function applyDepHighlight(inner,g,focusId){
-    var allNodes=inner.selectAll('g.node');
-    var allEdges=inner.selectAll('g.edgePath');
-    if(!focusId){
-      allNodes.classed('dep-graph-dimmed',false).classed('dep-graph-highlighted',false);
-      allEdges.classed('dep-graph-dimmed',false);
-      return;
-    }
-    var anc=ancestors(g,focusId);
-    var desc=descendants(g,focusId);
-    allNodes.each(function(id){
-      var related=(id===focusId||anc[id]||desc[id]);
-      d3.select(this).classed('dep-graph-dimmed',!related).classed('dep-graph-highlighted',related);
-    });
-    allEdges.each(function(e){
-      var related=(anc[e.v]||e.v===focusId||desc[e.v])&&(anc[e.w]||e.w===focusId||desc[e.w]);
-      d3.select(this).classed('dep-graph-dimmed',!related);
-    });
-  }
-
-  function renderGraph(){
-    var container=document.getElementById('graph-data');
-    if(!container) return;
-
-    var g=new dagreD3.graphlib.Graph().setGraph({rankdir:'TB',marginx:24,marginy:24,ranksep:48,nodesep:32});
-    g.setDefaultEdgeLabel(function(){return{};});
-    graphRef=g;
-    nodeDataMap={};
-
-    var nodeEls=container.querySelectorAll('[data-node]');
-    nodeEls.forEach(function(el){
-      var id=el.dataset.node;
-      var name=el.dataset.name;
-      var files=el.dataset.files;
-      var status=el.dataset.status||'pending';
-      var issues=parseInt(el.dataset.issues||'0',10);
-      var questions=parseInt(el.dataset.questions||'0',10);
-      // Build badge suffix appended to node label
-      var badge='';
-      if(issues>0) badge+=' ⚠'+issues;
-      if(questions>0) badge+=' ?'+questions;
-      nodeDataMap[id]={status:status,issues:issues,questions:questions};
-      g.setNode(id,{
-        label: name+(badge?badge:'')+'\n'+(files||'0')+' files',
-        rx: 6,
-        ry: 6,
-        paddingX: 36,
-        paddingY: 16,
-        status: status,
-        issues: issues,
-        questions: questions
-      });
-    });
-
-    nodeEls.forEach(function(el){
-      var id=el.dataset.node;
-      var deps=el.dataset.deps?el.dataset.deps.split(',').map(function(d){return d.trim();}).filter(Boolean):[];
-      deps.forEach(function(dep){g.setEdge(dep,id);});
-    });
-
-    var svg=d3.select('#dep-graph-svg');
-    var inner=svg.append('g');
-    var render=new dagreD3.render();
-    render(inner,g);
-
-    // Read CSS vars from the plan container so graph respects light/dark theme
-    var cs=getComputedStyle(document.querySelector('.dep-graph')||document.documentElement);
-    var nodeFill=cs.getPropertyValue('--bg-input').trim()||'#222228';
-    var nodeText=cs.getPropertyValue('--text').trim()||'#ededea';
-    var edgeColor=cs.getPropertyValue('--text-muted').trim()||'#707070';
-
-    inner.selectAll('g.node').each(function(id){
-      var nodeData=g.node(id);
-      var status=nodeData?nodeData.status:'pending';
-      var color=STATUS_COLORS[status]||STATUS_COLORS.pending;
-      d3.select(this).select('rect')
-        .style('fill',nodeFill)
-        .style('stroke',color)
-        .style('stroke-width','2px');
-      d3.select(this).select('text').style('fill',nodeText).style('font-size','13px');
-    });
-
-    inner.selectAll('g.edgePath path')
-      .style('stroke',edgeColor)
-      .style('stroke-dasharray','4 3')
-      .style('fill','none');
-    inner.selectAll('g.edgePath marker path')
-      .style('fill','#707070');
-
-    var svgEl=document.getElementById('dep-graph-svg');
-    var graphWidth=g.graph().width;
-    var graphHeight=g.graph().height;
-    var pad=24;
-    inner.attr('transform','translate('+pad+','+pad+')');
-    svgEl.setAttribute('width',graphWidth+pad*2);
-    svgEl.setAttribute('height',graphHeight+pad*2);
-    svgEl.removeAttribute('viewBox');
-
-    // Improvement 3: click a graph node → scroll to + open its slice card
-    var selectedNode=null;
-    inner.selectAll('g.node').on('click',function(event,id){
-      // Dep-chain highlight toggle
-      if(selectedNode===id){
-        selectedNode=null;
-        applyDepHighlight(inner,g,null);
-      } else {
-        selectedNode=id;
-        applyDepHighlight(inner,g,id);
-      }
-      // Navigate to slice card
-      var target=document.getElementById('slice-'+id);
-      if(target){
-        target.setAttribute('open','');
-        target.scrollIntoView({behavior:'smooth',block:'start'});
-      }
-    });
-
-    // Improvement 4: hover highlights dep-chain (without overriding click selection)
-    inner.selectAll('g.node')
-      .on('mouseover',function(event,id){
-        if(!selectedNode) applyDepHighlight(inner,g,id);
-      })
-      .on('mouseout',function(event){
-        if(!selectedNode) applyDepHighlight(inner,g,null);
-      });
-
-    // Improvement 3 (reverse): clicking a slice nav item highlights the graph node
-    document.querySelectorAll('[data-slice-nav]').forEach(function(link){
-      link.addEventListener('mouseenter',function(){
-        var num=this.dataset.sliceNav;
-        var nodeEl=inner.select('g.node[id="'+num+'"]');
-        if(!nodeEl.empty()) nodeEl.classed('graph-node-ring',true);
-      });
-      link.addEventListener('mouseleave',function(){
-        var num=this.dataset.sliceNav;
-        var nodeEl=inner.select('g.node[id="'+num+'"]');
-        if(!nodeEl.empty()) nodeEl.classed('graph-node-ring',false);
-      });
-    });
-  }
-
-  if(document.readyState==='loading'){
-    document.addEventListener('DOMContentLoaded',renderGraph);
-  } else {
-    renderGraph();
-  }
-})();
+// The dependency graph is server-rendered as a static inline SVG (see the
+// dep-graph section above). The dagre-d3 client-side renderer that used to
+// live here — plus its d3/dagre-d3 CDN scripts and the hover/click dep-chain
+// highlighting it provided — is gone: navigation is now a plain <a href="#slice-N">
+// on each node and hover feedback is pure CSS, so the graph is visible with
+// scripting disabled and in any HTML viewer that will not run JS.
 
 // Chat panel
 // Global markdown renderer — shared by chat bubbles and data-markdown elements

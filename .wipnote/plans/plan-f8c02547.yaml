@@ -4,9 +4,9 @@ meta:
     title: 'Plans that read as maps: static SVG blocks, in-place critique, prose caps'
     description: ""
     created_at: ""
-    status: draft
+    status: active
     schema_version: v4
-    version: 1
+    version: 9
 design:
     problem: |
         Plan documents are not read. Measured over 45 plans and 282 slices: what,
@@ -113,6 +113,7 @@ slices:
         - url: https://pkg.go.dev/golang.org/x/image/font/basicfont
           claim: Self-contained public-domain bitmap face with Advance exactly 7 — the fallback if proportional measurement is ever needed. Not required while labels are monospace.
           accessed: "2026-08-06"
+      approval_status: approved
       questions:
         - id: q-escape
           text: Should label text be escaped in the primitive layer or by callers?
@@ -211,6 +212,7 @@ slices:
         - url: https://github.com/dop251/goja
           claim: Pure-Go ECMAScript interpreter, no cgo, no external binary — satisfies the no-cgo constraint while running embedded dagre.js. Runtime suitability to be confirmed in implementation.
           accessed: "2026-08-07"
+      approval_status: approved
       questions:
         - id: q-runtime
           text: Is goja confirmed able to execute dagre.js unmodified?
@@ -312,6 +314,7 @@ slices:
         - url: https://github.com/xlab/treeprint
           claim: 'Verified: an ASCII/Unicode box-drawing tree composer for terminal output, not coordinate-based SVG layout — not reusable for this renderer.'
           accessed: "2026-08-06"
+      approval_status: approved
       critic_revisions:
         - source: claude-feasibility
           severity: HIGH
@@ -369,6 +372,7 @@ slices:
       approved: false
       comment: ""
       research_waiver: Internal write-path and schema change against wipnote's own YAML; no external library, standard or API applies.
+      approval_status: approved
       critic_revisions:
         - source: claude-design
           severity: LOW
@@ -440,6 +444,7 @@ slices:
       approved: false
       comment: ""
       research_waiver: Validation rules over wipnote's own schema; the threshold is derived from wipnote's own corpus, so no external standard or dependency applies.
+      approval_status: approved
       critic_revisions:
         - source: claude-feasibility
           severity: MED
@@ -515,6 +520,7 @@ slices:
       approved: false
       comment: ""
       research_waiver: Internal validation policy against wipnote's own schema; no external dependency, standard or API applies.
+      approval_status: approved
       critic_revisions:
         - source: claude-design
           severity: HIGH
@@ -574,6 +580,7 @@ slices:
       approved: false
       comment: ""
       research_waiver: Catalog pruning of wipnote's own block vocabulary; no external dependency, standard or API applies.
+      approval_status: approved
       critic_revisions:
         - source: claude-feasibility
           severity: HIGH

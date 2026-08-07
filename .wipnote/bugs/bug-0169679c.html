@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>Project docs imply .claude/agent-memory is wiped by plugin sync when it is not</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="bug-0169679c"
+             data-type="bug"
+             data-status="todo"
+             data-priority="low"
+             data-created="2026-08-07T16:26:25.454015"
+             data-updated="2026-08-07T16:26:25.467277" data-agent-assigned="claude-code" data-track-id="trk-1db7bf72" data-created-by-agent="claude-code" data-created-by-model="claude-opus-5[1m]" data-created-by-cli-version="0.67.1">
+
+        <header>
+            <h1>Project docs imply .claude/agent-memory is wiped by plugin sync when it is not</h1>
+            <div class="metadata">
+                <span class="badge status-todo">Todo</span>
+                <span class="badge priority-low">Low Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-1db7bf72.html" data-relationship="part_of" data-since="2026-08-07T16:26:25.467169">trk-1db7bf72</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>The project instruction table says &#39;.claude/ (anything) — Auto-synced from plugin/ — changes are lost&#39;. That is accurate for the marketplace-installed copy under the user home tree and for generated files inside plugin/.claude-plugin/, but it reads as covering repo-root .claude/agent-memory/, which no build or launch code touches. The imprecision directly caused a false-alarm investigation (spk-2806f862). Fix is one clarifying line noting agent-memory directories are exempt. This is a description correction in a doc that describes rather than configures, not a behavioural change.</p>
+        </section>
+    </article>
+</body>
+</html>

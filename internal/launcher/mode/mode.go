@@ -1,5 +1,5 @@
 // Package mode provides a shared launcher-mode helper that computes execution,
-// runtime, and plugin modes for wipnote launchers (claude, codex, gemini, yolo).
+// runtime, and plugin modes for wipnote launchers (claude, codex, antigravity, yolo).
 // It is a read-only observer: it never mutates any repository state.
 package mode
 

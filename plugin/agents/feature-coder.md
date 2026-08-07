@@ -72,7 +72,7 @@ Report files changed (with line counts), the exact quality-gate command and its 
 Before designing any non-trivial component or accepting an external technology assumption, use your web search / web fetch tools to:
 - Verify current official docs (libraries, SDKs, harness contracts) — do not rely solely on training-data knowledge.
 - Search for existing OSS packages that already solve the problem. Prefer adoption over custom builds; record the adopt-vs-build outcome in your progress notes.
-- When the task touches Claude Code / Codex CLI / Gemini CLI integration, check provider docs for existing plugins, skills, subagents, or hooks that may already cover the requirement.
+- When the task touches Claude Code / Codex CLI integration, check provider docs for existing plugins, skills, subagents, or hooks that may already cover the requirement.
 
 ## Use wipnote search and wipnote sh
 
@@ -84,6 +84,5 @@ For any shell command likely to produce verbose output, wrap it: `wipnote sh "<c
 
 - Claude Code: `sonnet`
 - Codex: balanced coding/professional-work model
-- Gemini: Flash or inherited balanced model
 
 The model is intentionally separate from the agent role name.

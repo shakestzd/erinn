@@ -39,7 +39,7 @@ ENVIRONMENT VARIABLES
                      Set to a specific semver tag without the leading "v", e.g. "0.60.1".
   WIPNOTE_BIN_DIR    Directory to install the binary. Defaults to "$HOME/.local/bin".
   WIPNOTE_SHARE_DIR  Directory to install plugin trees (plugin/, codex-marketplace/,
-                     gemini-extension/). Defaults to "$HOME/.local/share/wipnote".
+                     antigravity-extension/). Defaults to "$HOME/.local/share/wipnote".
 
 SUPPORTED PLATFORMS
   darwin_amd64, darwin_arm64, linux_amd64, linux_arm64
@@ -193,7 +193,7 @@ chmod +x "${WIPNOTE_BIN_DIR}/wipnote"
 # ---------------------------------------------------------------------------
 mkdir -p "${WIPNOTE_SHARE_DIR}"
 
-for tree in plugin codex-marketplace gemini-extension antigravity-extension; do
+for tree in plugin codex-marketplace antigravity-extension; do
   SRC="${TMPDIR_INSTALL}/${tree}"
   DST="${WIPNOTE_SHARE_DIR}/${tree}"
 

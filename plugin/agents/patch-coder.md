@@ -72,7 +72,7 @@ Report the diff summary (files changed, line counts), the exact quality-gate com
 Before accepting an external technology assumption — even on a small patch — use your web search / web fetch tools to:
 - Verify current official docs (libraries, SDKs, harness contracts) — do not rely solely on training-data knowledge.
 - Search for an existing OSS package or stdlib facility that already solves the problem before writing custom code. Prefer adoption over custom builds.
-- When the task touches Claude Code / Codex CLI / Gemini CLI integration, check provider docs for existing plugins, skills, subagents, or hooks that may already cover the requirement.
+- When the task touches Claude Code / Codex CLI integration, check provider docs for existing plugins, skills, subagents, or hooks that may already cover the requirement.
 
 If the task is purely local (no external library, SDK, or harness contract involved), a codebase read is sufficient — don't web-search for its own sake.
 
@@ -86,6 +86,5 @@ For any shell command likely to produce verbose output, wrap it: `wipnote sh "<c
 
 - Claude Code: `haiku`
 - Codex: fast mini/subagent model
-- Gemini: Flash-Lite or inherited fast model
 
 The model is intentionally separate from the agent role name.

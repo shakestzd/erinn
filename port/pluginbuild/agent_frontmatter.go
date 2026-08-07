@@ -23,7 +23,6 @@ var agentFrontmatterFieldSpecs = []agentFrontmatterFieldSpec{
 		Harnesses: map[string]string{
 			"claude": "name",
 			"codex":  "name",
-			"gemini": "name",
 			"antigravity": "name",
 		},
 	},
@@ -33,7 +32,6 @@ var agentFrontmatterFieldSpecs = []agentFrontmatterFieldSpec{
 		Harnesses: map[string]string{
 			"claude": "description",
 			"codex":  "description",
-			"gemini": "description",
 			"antigravity": "description",
 		},
 	},
@@ -43,7 +41,6 @@ var agentFrontmatterFieldSpecs = []agentFrontmatterFieldSpec{
 		Harnesses: map[string]string{
 			"claude": "model",
 			"codex":  "model",
-			"gemini": "model",
 			"antigravity": "model",
 		},
 	},
@@ -59,7 +56,6 @@ var agentFrontmatterFieldSpecs = []agentFrontmatterFieldSpec{
 		DocURL: "https://code.claude.com/docs/en/sub-agents",
 		Harnesses: map[string]string{
 			"claude": "maxTurns",
-			"gemini": "max_turns",
 			"antigravity": "max_turns",
 		},
 	},
@@ -69,7 +65,6 @@ var agentFrontmatterFieldSpecs = []agentFrontmatterFieldSpec{
 		Harnesses: map[string]string{
 			"claude": "tools",
 			"codex":  "tools",
-			"gemini": "tools",
 			"antigravity": "tools",
 		},
 	},
@@ -98,10 +93,9 @@ var agentFrontmatterFieldSpecs = []agentFrontmatterFieldSpec{
 		},
 	},
 	{
-		Name:   "timeout_mins",
-		DocURL: "https://github.com/google-gemini/gemini-cli/blob/main/docs/core/subagents.md",
+		Name:       "timeout_mins",
+		Provenance: "Antigravity CLI (agy) per-agent timeout, in minutes. Inherited from the Gemini-CLI subagent schema that agy descends from.",
 		Harnesses: map[string]string{
-			"gemini": "timeout_mins",
 			"antigravity": "timeout_mins",
 		},
 	},
@@ -207,7 +201,6 @@ func agentFrontmatterAllowlists(specs []agentFrontmatterFieldSpec) map[string]ma
 	out := map[string]map[string]struct{}{
 		"claude":      {},
 		"codex":       {},
-		"gemini":      {},
 		"antigravity": {},
 	}
 	for _, spec := range specs {

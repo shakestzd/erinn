@@ -344,15 +344,6 @@ download_and_install() {
         log_info "Installed codex-marketplace tree to ${DEFAULT_DATA_DIR}/codex-marketplace"
     fi
 
-    # Same pattern for the Gemini CLI extension tree. Releases >= v0.59 ship
-    # gemini-extension/ at the archive root; older releases simply skip.
-    if [ -d "${_tmpdir}/gemini-extension" ]; then
-        mkdir -p "${DEFAULT_DATA_DIR}"
-        rm -rf "${DEFAULT_DATA_DIR}/gemini-extension"
-        mv "${_tmpdir}/gemini-extension" "${DEFAULT_DATA_DIR}/gemini-extension"
-        log_info "Installed gemini-extension tree to ${DEFAULT_DATA_DIR}/gemini-extension"
-    fi
-
     # Same pattern for the Antigravity extension tree. Releases with
     # antigravity-extension/ at the archive root install it for bundled init.
     if [ -d "${_tmpdir}/antigravity-extension" ]; then

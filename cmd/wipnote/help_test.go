@@ -247,7 +247,6 @@ var internalPlumbingAllowlist = map[string]bool{
 	"hook":          true,
 	"claude":        true,
 	"codex":         true,
-	"gemini":        true,
 	"antigravity":   true,
 	"orchestrator":  true,
 	"install-hooks": true,

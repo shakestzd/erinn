@@ -1,5 +1,5 @@
 // Package plan computes an isolation plan for wipnote launchers (claude, codex,
-// gemini, yolo) before any harness process is started.
+// antigravity, yolo) before any harness process is started.
 //
 // PlanLaunch is a pure-planning function: it reads git state and the caller's
 // flags, then returns a LaunchPlan describing which isolation strategy to use.

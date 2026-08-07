@@ -46,11 +46,11 @@ type Target struct {
 	HooksPath    string `json:"hooksPath"`
 	MCPPath      string `json:"mcpPath,omitempty"`
 	// ContextFile, when set, names a repo-relative file copied into the
-	// generated tree's root (e.g. Gemini's GEMINI.md). Empty means no copy.
+	// generated tree's root (e.g. Antigravity's context file). Empty means no copy.
 	ContextFile string `json:"contextFile,omitempty"`
 	// CommandNamespace, when set, wraps translated commands under
 	// commands/<namespace>/ so the slash-command resolves to /namespace:name
-	// (used by Gemini; Claude/Codex ignore this field).
+	// (used by Antigravity; Claude/Codex ignore this field).
 	CommandNamespace string `json:"commandNamespace,omitempty"`
 	// Marketplace metadata for targets that wrap the plugin in a marketplace
 	// container (e.g. Codex 0.121.0+). Empty values mean no marketplace wrapping.
@@ -82,19 +82,13 @@ type HookMatrix struct {
 // <handler>` subcommand (ignored when Command is set). Command is an escape
 // hatch for shell-only hooks like the Claude timestamp injector. Targets is
 // the list of target names for which this entry is emitted.
-// GeminiEventName, when set, overrides the Claude event name in the Gemini
-// output. When empty the Claude event name is used unchanged.
-// GeminiHandler, when set, overrides the handler for Gemini targets. When empty
-// the Handler field is used unchanged.
 type HookEvent struct {
-	Name            string   `json:"name"`
-	Handler         string   `json:"handler"`
-	Command         string   `json:"command,omitempty"`
-	Matcher         string   `json:"matcher,omitempty"`
-	Timeout         int      `json:"timeout,omitempty"`
-	Targets         []string `json:"targets"`
-	GeminiEventName string   `json:"geminiEventName,omitempty"`
-	GeminiHandler   string   `json:"geminiHandler,omitempty"`
+	Name    string   `json:"name"`
+	Handler string   `json:"handler"`
+	Command string   `json:"command,omitempty"`
+	Matcher string   `json:"matcher,omitempty"`
+	Timeout int      `json:"timeout,omitempty"`
+	Targets []string `json:"targets"`
 }
 
 // AppliesTo reports whether the event should be emitted for the named target.

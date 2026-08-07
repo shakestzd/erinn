@@ -51,10 +51,10 @@ func TestAgentFrontmatterHarnessSupportAndTranslations(t *testing.T) {
 	}{
 		{"color", "claude", true},
 		{"color", "codex", false},
-		{"timeout_mins", "gemini", true},
+		{"timeout_mins", "antigravity", true},
 		{"timeout_mins", "claude", false},
 		{"initialPrompt", "codex", true},
-		{"initialPrompt", "gemini", false},
+		{"initialPrompt", "antigravity", false},
 	}
 	for _, tt := range tests {
 		_, got := harnessAgentFrontmatterAllowlist[tt.harness][tt.field]
@@ -63,8 +63,8 @@ func TestAgentFrontmatterHarnessSupportAndTranslations(t *testing.T) {
 		}
 	}
 
-	if got := agentFrontmatterOutputName("maxTurns", "gemini"); got != "max_turns" {
-		t.Fatalf("Gemini maxTurns output name = %q, want max_turns", got)
+	if got := agentFrontmatterOutputName("maxTurns", "antigravity"); got != "max_turns" {
+		t.Fatalf("Antigravity maxTurns output name = %q, want max_turns", got)
 	}
 	if got := agentFrontmatterOutputName("maxTurns", "claude"); got != "maxTurns" {
 		t.Fatalf("Claude maxTurns output name = %q, want maxTurns", got)

@@ -25,7 +25,7 @@ import (
 //
 // projectDir and isResume let the caller signal resume intent. resumeID is the
 // concrete harness session ID being resumed when the caller knows it (""
-// otherwise — e.g. Gemini's numeric --resume index or "resume last").
+// otherwise — e.g. Antigravity's --continue or --conversation <id>).
 // newSessionID is the freshly-minted OTel session ID for this launch.
 func resolveSessionFamilyID(projectDir, newSessionID, resumeID string, isResume bool) string {
 	// 1. Inherit from environment (nested / re-launched within the same family).
@@ -56,7 +56,7 @@ func resolveSessionFamilyID(projectDir, newSessionID, resumeID string, isResume 
 // CONCRETE write path that survives even if the SessionStart hook never fires
 // (e.g. harness spawned without hooks configured).
 //
-// agentID is "codex" or "gemini" (the harness name).
+// agentID is "codex" or "antigravity" (the harness name).
 // Errors are silently ignored — this is a best-effort durability write;
 // hook handlers are the authoritative path for DB writes.
 func persistLauncherSessionFamily(projectDir, sessionID, agentID, familyID string) {

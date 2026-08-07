@@ -19,9 +19,6 @@ func makeFakePluginTree(t *testing.T, root, treeName string) string {
 	case "codex-marketplace":
 		mustMkdirAll(t, filepath.Join(dir, ".agents", "plugins"))
 		mustWriteFile(t, filepath.Join(dir, ".agents", "plugins", "marketplace.json"), `{"name":"wipnote"}`)
-	case "gemini-extension":
-		mustMkdirAll(t, dir)
-		mustWriteFile(t, filepath.Join(dir, "gemini-extension.json"), `{"name":"wipnote"}`)
 	case "antigravity-extension":
 		mustMkdirAll(t, dir)
 		mustWriteFile(t, filepath.Join(dir, "plugin.json"), `{"name":"wipnote"}`)
@@ -47,7 +44,7 @@ func mustWriteFile(t *testing.T, path, content string) {
 
 func TestResolveSharedTreePath_EnvOverride(t *testing.T) {
 	tmp := t.TempDir()
-	for _, tree := range []string{"plugin", "codex-marketplace", "gemini-extension", "antigravity-extension"} {
+	for _, tree := range []string{"plugin", "codex-marketplace", "antigravity-extension"} {
 		t.Run(tree, func(t *testing.T) {
 			got := makeFakePluginTree(t, tmp, tree)
 			envVar, _, _ := sharedTreeMetadata(tree)
@@ -126,10 +123,6 @@ func TestIsValidHarnessTree(t *testing.T) {
 			_ = os.MkdirAll(dir, 0o755)
 			_ = os.WriteFile(filepath.Join(dir, "marketplace.json"), []byte("{}"), 0o644)
 		}},
-		{"gemini-extension", true, func(dir string) {
-			_ = os.MkdirAll(dir, 0o755)
-			_ = os.WriteFile(filepath.Join(dir, "gemini-extension.json"), []byte("{}"), 0o644)
-		}},
 		{"antigravity-extension", true, func(dir string) {
 			_ = os.MkdirAll(dir, 0o755)
 			_ = os.WriteFile(filepath.Join(dir, "plugin.json"), []byte("{}"), 0o644)
@@ -169,7 +162,7 @@ func TestIsValidHarnessTree_CodexAcceptsDevDeepLayout(t *testing.T) {
 }
 
 func TestIsValidHarnessTree_RejectsEmptyTree(t *testing.T) {
-	for _, tree := range []string{"plugin", "codex-marketplace", "gemini-extension", "antigravity-extension"} {
+	for _, tree := range []string{"plugin", "codex-marketplace", "antigravity-extension"} {
 		dir := t.TempDir()
 		if isValidHarnessTree(dir, tree) {
 			t.Errorf("expected false for empty tree %q, got true", tree)

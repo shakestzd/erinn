@@ -20,11 +20,9 @@ func TestBuildShellCmd(t *testing.T) {
 		{"claude dev", "claude", "dev", "", "wipnote claude --dev"},
 		{"claude normal", "claude", "normal", "", "wipnote claude"},
 		{"codex dev", "codex", "dev", "", "wipnote codex --dev"},
-		{"gemini dev", "gemini", "dev", "", "wipnote gemini --dev"},
 		{"yolo bypasses wrapper", "yolo", "dev", "", "claude --permission-mode bypassPermissions"},
 		{"work item prefix claude", "claude", "dev", "feat-abc", "wipnote feature start feat-abc >/dev/null 2>&1; wipnote claude --dev"},
 		{"work item prefix codex", "codex", "dev", "feat-abc", "WIPNOTE_AGENT_ID=codex WIPNOTE_AGENT_TYPE=codex wipnote feature start feat-abc >/dev/null 2>&1; wipnote codex --dev"},
-		{"work item prefix gemini", "gemini", "dev", "feat-abc", "wipnote feature start feat-abc >/dev/null 2>&1; wipnote gemini --dev"},
 		{"work item prefix yolo", "yolo", "dev", "feat-abc", "wipnote feature start feat-abc >/dev/null 2>&1; claude --permission-mode bypassPermissions"},
 	}
 	for _, tc := range tests {

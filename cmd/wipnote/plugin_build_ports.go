@@ -95,7 +95,7 @@ func pluginBuildPortsCmd() *cobra.Command {
 		Short: "Generate Claude Code and Codex CLI plugin trees from plugin-core",
 		Long: "Regenerate the target plugin trees (plugin/ for Claude Code, " +
 			"packages/codex-marketplace/ for Codex CLI, " +
-			"packages/gemini-extension/ for Gemini CLI) from the shared manifest " +
+			"packages/antigravity-extension/ for Antigravity) from the shared manifest " +
 			"at packages/plugin-core/manifest.json. Use --target to limit output " +
 			"to a single target.",
 		RunE: func(cmd *cobra.Command, _ []string) error {

@@ -23,7 +23,7 @@ import (
 //
 // Decision (slice 4, option b): yolo intentionally SKIPS the interactive chooser
 // (autonomous mode must not block on a prompt) but ADOPTS the framed banner for
-// all launch output, consistent with the claude/codex/gemini launch paths.
+// all launch output, consistent with the claude/codex/antigravity launch paths.
 var yoloEmitBannerFn = func(headline, pluginSource, session, workItem, warning string, w io.Writer) {
 	in := launchtui.BannerInput{
 		Headline:     headline,

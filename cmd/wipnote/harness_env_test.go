@@ -12,7 +12,6 @@ func TestWithHarnessEnv_ReplacesInheritedParentHarness(t *testing.T) {
 		harness string
 	}{
 		{"codex", harnessCodex},
-		{"gemini", harnessGemini},
 		{"antigravity", harnessAntigravity},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -35,7 +34,6 @@ func TestNonClaudeLaunchersStampHarnessEnv(t *testing.T) {
 		want string
 	}{
 		{"codex.go", "withHarnessEnv(env, harnessCodex)"},
-		{"gemini_launch.go", "withHarnessEnv(env, harnessGemini)"},
 		{"antigravity_launch.go", "withHarnessEnv(env, harnessAntigravity)"},
 	}
 

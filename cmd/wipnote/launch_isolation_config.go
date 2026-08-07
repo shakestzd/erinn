@@ -9,7 +9,7 @@ import (
 )
 
 // LaunchIsolationMode is the value of the .wipnote/config.json "launch_isolation"
-// key. It controls how the launcher (claude/codex/gemini/antigravity/yolo)
+// key. It controls how the launcher (claude/codex/antigravity/yolo)
 // treats launches on a dirty protected branch.
 type LaunchIsolationMode string
 

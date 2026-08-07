@@ -159,7 +159,7 @@ else
 
     # Plugin port drift gate: regenerate every target tree into a tempdir and
     # diff against the committed trees. Shipping stale generated ports would
-    # push out-of-sync Codex/Gemini/Claude plugins. Run via 'go run' so this
+    # push out-of-sync Codex/Claude plugins. Run via 'go run' so this
     # works before the CLI binary is rebuilt later in the pipeline.
     echo "  Running plugin check-ports..."
     (cd "$GO_DIR" && go run ./cmd/wipnote plugin check-ports) \
@@ -194,7 +194,7 @@ fi
 # ── Regenerate port trees ─────────────────────────────────────
 
 if [[ -n "$VERSION" && "$VERSION" != "$CURRENT_VERSION" ]]; then
-    step "Regenerating codex/gemini/antigravity port trees"
+    step "Regenerating codex/antigravity port trees"
 
     if $DRY_RUN; then
         ok "[dry-run] Would run: wipnote plugin build-ports"
@@ -202,7 +202,7 @@ if [[ -n "$VERSION" && "$VERSION" != "$CURRENT_VERSION" ]]; then
         echo "  Running wipnote plugin build-ports..."
         (cd "$PROJECT_ROOT" && go run ./cmd/wipnote plugin build-ports) \
             || fail "plugin build-ports failed"
-        ok "Regenerated codex-marketplace, gemini-extension, and antigravity-extension trees"
+        ok "Regenerated codex-marketplace and antigravity-extension trees"
     fi
 fi
 
@@ -217,7 +217,7 @@ if $DRY_RUN; then
     fi
 else
     # Stage version files + regenerated port trees + any other tracked changes
-    git add "$PLUGIN_JSON" "$MANIFEST_JSON" port/packages/codex-marketplace port/packages/gemini-extension port/packages/antigravity-extension
+    git add "$PLUGIN_JSON" "$MANIFEST_JSON" port/packages/codex-marketplace port/packages/antigravity-extension
 
     if git diff --cached --quiet; then
         ok "No changes to commit"
@@ -270,14 +270,14 @@ if $DRY_RUN; then
     ok "[dry-run] Would rebuild CLI binary + mirror bundled plugin trees via 'wipnote build'"
 else
     # Phase B of the marketplace-to-bundled-plugin migration: `wipnote claude`,
-    # `wipnote codex`, and `wipnote gemini` now resolve the bundled harness
+    # `wipnote codex`, and `wipnote antigravity` now resolve the bundled harness
     # trees laid down by `wipnote build` (locally) or `brew install wipnote` /
     # the release tarball (production). There is no longer a separate
     # marketplace clone to pull or a marketplace plugin to uninstall/install.
     #
     # `wipnote build` does both: it compiles the new binary into ~/.local/bin
     # AND mirrors plugin/, port/packages/codex-marketplace/, and
-    # port/packages/gemini-extension/ into ~/.local/share/wipnote/. The launchers
+    # port/packages/antigravity-extension/ into ~/.local/share/wipnote/. The launchers
     # pick those up automatically on next invocation.
     #
     # Bootstrap from source via `go run` so we don't depend on a pre-existing

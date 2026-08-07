@@ -29,7 +29,6 @@ var validAgents = map[string]bool{
 	"":       true, // empty → claude default
 	"claude": true,
 	"codex":  true,
-	"gemini": true,
 	"yolo":   true,
 }
 
@@ -42,7 +41,7 @@ var workItemIDPattern = regexp.MustCompile(`^[a-zA-Z0-9_-]+$`)
 // Zero-valued fields fall back to MVP defaults: agent=claude, mode=dev,
 // cwd=server projectDir, workItem=empty.
 type StartRequest struct {
-	// Agent selects which AI tool to run (claude, codex, gemini, yolo).
+	// Agent selects which AI tool to run (claude, codex, yolo).
 	// Defaults to "claude" when empty.
 	Agent string
 	// Mode controls launch flags (dev, normal, auto).
@@ -141,7 +140,6 @@ func waitForPort(port int, timeout time.Duration) error {
 // Rules:
 //   - agent=claude (default) → wipnote claude [--dev]
 //   - agent=codex → wipnote codex [--dev]
-//   - agent=gemini → wipnote gemini [--dev]
 //   - agent=yolo → claude --permission-mode bypassPermissions (no wipnote yolo wrapper)
 //   - mode=dev (default) → --dev flag appended (not applicable to yolo)
 //   - mode=normal → no flag
@@ -204,7 +202,7 @@ func (m *Manager) Start(req StartRequest, defaultDir string) (id string, port in
 	// interpolated into the bash -lc command string, so anything outside
 	// a safe whitelist could allow shell injection.
 	if !validAgents[req.Agent] {
-		return "", 0, 0, fmt.Errorf("%w: agent %q must be one of claude, codex, gemini, yolo", ErrInvalidRequest, req.Agent)
+		return "", 0, 0, fmt.Errorf("%w: agent %q must be one of claude, codex, yolo", ErrInvalidRequest, req.Agent)
 	}
 	if req.WorkItem != "" && !workItemIDPattern.MatchString(req.WorkItem) {
 		return "", 0, 0, fmt.Errorf("%w: work_item %q must match [a-zA-Z0-9_-]+", ErrInvalidRequest, req.WorkItem)

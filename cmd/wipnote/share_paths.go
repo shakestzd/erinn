@@ -13,7 +13,7 @@ import (
 //
 // Resolution order:
 //  1. Per-tree env var override (WIPNOTE_PLUGIN_DIR / WIPNOTE_CODEX_DIR /
-//     WIPNOTE_GEMINI_DIR) — for advanced users and tests; usually unset.
+//     WIPNOTE_ANTIGRAVITY_DIR) — for advanced users and tests; usually unset.
 //  2. Standard local install: ~/.local/share/wipnote/<treeName>/ — used by
 //     `wipnote build` (dev mirror) and the curl-install script.
 //  3. Homebrew install: <prefix>/share/wipnote/<treeName>/, discovered by
@@ -23,7 +23,7 @@ import (
 //     <project-root>/<sourceSubpath>. This makes `wipnote claude` Just Work
 //     in a checked-out wipnote repo without explicit --dev.
 //
-// treeName is one of "plugin", "codex-marketplace", or "gemini-extension".
+// treeName is one of "plugin", "codex-marketplace", or "antigravity-extension".
 // Returns an absolute path on success, or a clear error if nothing is found.
 func sharedTreeRefreshHint() string {
 	ver := strings.TrimPrefix(version, "v")
@@ -115,8 +115,6 @@ func sharedTreeMetadata(treeName string) (string, string, bool) {
 		return "WIPNOTE_PLUGIN_DIR", "plugin", true
 	case "codex-marketplace":
 		return "WIPNOTE_CODEX_DIR", filepath.Join("port", "packages", "codex-marketplace"), true
-	case "gemini-extension":
-		return "WIPNOTE_GEMINI_DIR", filepath.Join("port", "packages", "gemini-extension"), true
 	case "antigravity-extension":
 		return "WIPNOTE_ANTIGRAVITY_DIR", filepath.Join("port", "packages", "antigravity-extension"), true
 	default:
@@ -144,8 +142,6 @@ func isValidHarnessTree(path, treeName string) bool {
 			"marketplace.json", // bundled tarball (GoReleaser flat layout)
 			filepath.Join(".agents", "plugins", "marketplace.json"), // dev source (deep layout)
 		}
-	case "gemini-extension":
-		sentinels = []string{"gemini-extension.json"}
 	case "antigravity-extension":
 		sentinels = []string{"plugin.json"}
 	default:

@@ -7,9 +7,9 @@
 // decisions_notes via the same path as `wipnote plan elicit-decisions`.
 //
 // Why a web form rather than a harness tool: it is the only renderer that
-// works identically on Claude Code, Codex CLI, and Gemini CLI — the agent
+// works identically on Claude Code, Codex CLI, and Antigravity CLI — the agent
 // just runs the command, prints the URL, and waits. Native ask-user tools
-// (Claude AskUserQuestion, Gemini ask_user) can later render the SAME
+// (Claude AskUserQuestion) can later render the SAME
 // interview model as an optional inline fast-path; Codex has no such tool, so
 // the web form is its only structured path.
 package main
@@ -72,7 +72,7 @@ func planInterviewCmd() *cobra.Command {
 		Use:   "interview <plan-id> [slice-num]",
 		Short: "Run the plan interview as a local web form (cross-harness)",
 		Long: "Two modes, both served as a local web form, portable across Claude Code,\n" +
-			"Codex CLI, and Gemini CLI:\n\n" +
+			"Codex CLI, and Antigravity CLI:\n\n" +
 			"  wipnote plan interview <plan-id>            UPFRONT INTAKE (no slice):\n" +
 			"     The interview at the beginning of a plan. Leads with triage to assess\n" +
 			"     complexity, then gathers problem/goals/constraints from limited info,\n" +
@@ -107,14 +107,14 @@ func planInterviewCmd() *cobra.Command {
 // planInterviewQuestionsCmd prints the canonical staged interview question set
 // (JSON) for a slice — the same model the web form renders. Any harness can
 // fetch this and render it via its native ask-user tool (Claude
-// AskUserQuestion, Gemini ask_user), so the questions are defined once.
+// AskUserQuestion), so the questions are defined once.
 func planInterviewQuestionsCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "interview-questions <plan-id> [slice-num]",
 		Short: "Print the canonical interview question set (JSON) for a plan or slice",
 		Long: "Emits the same staged question model the web form renders ({\"stages\":[…]}),\n" +
 			"so ANY harness can render it however it can — inline via a native ask-user\n" +
-			"tool (Claude AskUserQuestion, Gemini ask_user), as plain conversational\n" +
+			"tool (Claude AskUserQuestion), as plain conversational\n" +
 			"questions when the harness has no such tool (Codex), or piped to the web\n" +
 			"form. One source of truth; the agent picks the lowest-friction renderer.\n\n" +
 			"  interview-questions <plan>            upfront intake: triage + problem/\n" +

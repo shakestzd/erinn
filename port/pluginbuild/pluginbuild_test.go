@@ -35,7 +35,6 @@ func fixtureManifest() *Manifest {
 				MarketplaceCategory:    "Dev",
 				PluginSubdir:           ".agents/plugins/wipnote",
 			},
-			"gemini": {OutDir: "packages/gemini-extension", ManifestPath: "gemini-extension.json", HooksPath: "hooks/hooks.json", ContextFile: "GEMINI.md", CommandNamespace: "wipnote"},
 		},
 		AssetSources: AssetSources{
 			Commands: "plugin/commands",
@@ -198,49 +197,6 @@ func TestCodexAdapterEmitsManifestHooksAndMCP(t *testing.T) {
 	}
 }
 
-func TestGeminiAdapterEmitsSkeleton(t *testing.T) {
-	repoRoot := t.TempDir()
-	seedAssets(t, repoRoot)
-	// Phase 1 copies the repo-root context file when target.ContextFile is set.
-	// The skeleton test seeds a placeholder GEMINI.md so Emit succeeds; Phase 2
-	// and Phase 3 still populate commands/ and hooks/ respectively.
-	if err := os.WriteFile(filepath.Join(repoRoot, "GEMINI.md"), []byte("# ctx\n"), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	outDir := filepath.Join(repoRoot, "packages", "gemini-extension")
-
-	if err := (geminiAdapter{}).Emit(fixtureManifest(), repoRoot, outDir); err != nil {
-		t.Fatalf("Emit: %v", err)
-	}
-
-	// Manifest: required name/version/description plus contextFileName derived from target.ContextFile.
-	var manifest geminiExtensionJSON
-	readJSON(t, filepath.Join(outDir, "gemini-extension.json"), &manifest)
-	if manifest.Name != "wipnote" || manifest.Version != "0.0.0-test" {
-		t.Fatalf("gemini manifest wrong: %+v", manifest)
-	}
-	if manifest.ContextFileName != "GEMINI.md" {
-		t.Errorf("gemini contextFileName: %q", manifest.ContextFileName)
-	}
-
-	// All four skeleton dirs exist after Emit(). Populated content is asserted
-	// by the phase-specific tests: gemini_assets_test.go (agents, skills,
-	// GEMINI.md), gemini_commands_test.go (commands/), gemini_hooks_test.go
-	// (hooks/hooks.json). This test only guards the minimum-contract invariants
-	// — the manifest and the skeleton layout — so it doesn't churn whenever a
-	// phase adds populated state.
-	for _, dir := range []string{"commands", "agents", "skills", "hooks"} {
-		info, err := os.Stat(filepath.Join(outDir, dir))
-		if err != nil {
-			t.Errorf("expected dir %q: %v", dir, err)
-			continue
-		}
-		if !info.IsDir() {
-			t.Errorf("%q is not a directory", dir)
-		}
-	}
-}
-
 func TestLoadAndValidateRejectsBadManifest(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "manifest.json")
@@ -356,33 +312,7 @@ func TestCodexAdapterRemovesStaleFiles(t *testing.T) {
 	}
 }
 
-// TestGeminiAdapterRemovesStaleFiles seeds a fake stale file under an owned
-// subtree, runs Emit, and asserts the stale file is removed.
-func TestGeminiAdapterRemovesStaleFiles(t *testing.T) {
-	repoRoot := t.TempDir()
-	seedAssets(t, repoRoot)
-	// Gemini Phase 1 requires GEMINI.md at repo root when ContextFile is set.
-	if err := os.WriteFile(filepath.Join(repoRoot, "GEMINI.md"), []byte("# ctx\n"), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	outDir := filepath.Join(repoRoot, "packages", "gemini-extension")
-
-	// Seed a stale TOML under commands/ that will not be reproduced by Emit
-	// (the fixture manifest's commands dir contains hello.md → hello.toml,
-	// but not stale-removed.toml).
-	staleFile := filepath.Join(outDir, "commands", "wipnote", "stale-removed.toml")
-	if err := os.MkdirAll(filepath.Dir(staleFile), 0o755); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(staleFile, []byte("stale"), 0o644); err != nil {
-		t.Fatal(err)
-	}
-
-	if err := (geminiAdapter{}).Emit(fixtureManifest(), repoRoot, outDir); err != nil {
-		t.Fatalf("Emit: %v", err)
-	}
-
-	if _, err := os.Stat(staleFile); !os.IsNotExist(err) {
-		t.Errorf("expected stale file to be removed; stat error=%v", err)
-	}
-}
+// Stale-file removal for dedicated-tree adapters is covered generically by
+// TestCodexAdapterRemovesStaleFiles (cleanOwnedSubtrees is shared across
+// adapters). The Gemini-specific stale-file test was removed with the gemini
+// target (feat-02f25a24).

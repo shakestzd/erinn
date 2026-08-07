@@ -119,15 +119,6 @@ func runBuild() error {
 		return fmt.Errorf("mirror codex-marketplace tree: %w", err)
 	}
 
-	// Mirror the Gemini CLI extension tree alongside the plugin tree. Phase B
-	// will flip `wipnote gemini` to load from this bundled path; until then it
-	// just keeps dev and release layouts in sync.
-	srcGemini := filepath.Join(projectRoot, "port", "packages", "gemini-extension")
-	destGemini := filepath.Join(metaDir, "gemini-extension")
-	if err := mirrorPluginTree(srcGemini, destGemini); err != nil {
-		return fmt.Errorf("mirror gemini-extension tree: %w", err)
-	}
-
 	// Mirror the Antigravity CLI extension tree alongside the plugin tree. Phase B
 	// will flip `wipnote antigravity` to load from this bundled path; until then it
 	// just keeps dev and release layouts in sync.
@@ -141,7 +132,6 @@ func runBuild() error {
 	fmt.Printf("Alias:     %s -> wipnote\n", aliasPath)
 	fmt.Printf("Plugin:    %s\n", destPlugin)
 	fmt.Printf("Codex:     %s\n", destCodex)
-	fmt.Printf("Gemini:    %s\n", destGemini)
 	fmt.Printf("Antigravity: %s\n", destAntigravity)
 	return nil
 }

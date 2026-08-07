@@ -27,7 +27,7 @@ func pluginCheckPortsCmd() *cobra.Command {
 		Short: "Fail if any generated plugin tree is out of sync with plugin-core",
 		Long: "Regenerate every target plugin tree (plugin/ for Claude Code, " +
 			"packages/codex-marketplace/ for Codex CLI, " +
-			"packages/gemini-extension/ for Gemini CLI) into a tempdir and diff " +
+			"packages/antigravity-extension/ for Antigravity) into a tempdir and diff " +
 			"it against the committed trees. Exits non-zero on any drift, " +
 			"listing each drifted path. Run 'wipnote plugin build-ports' and " +
 			"commit the result to resolve drift.",

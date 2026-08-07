@@ -76,4 +76,3 @@ Plus a brief note on any unexpected behavior (test artifacts left in working tre
 
 - Claude Code: `haiku`
 - Codex: fast mini/subagent model
-- Gemini: Flash-Lite or inherited fast model

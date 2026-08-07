@@ -178,7 +178,6 @@ func buildRoot() *cobra.Command {
 			hookCmd(),
 			claudeCmd(),
 			codexCmd(),
-			geminiCmd(),
 			antigravityCmd(),
 			orchestratorCmd(),
 			installHooksCmd(),
@@ -302,7 +301,7 @@ func persistentPreRunE(cmd *cobra.Command, _ []string) error {
 	// `wipnote cache prune --dry-run` reports the disk's actual state, and
 	// pass the active project's cache dir as protected so the LRU sweep can't
 	// pull the read-index out from under the very command that's about to run.
-	// Also skip for launcher commands (yolo, claude, codex, gemini, antigravity):
+	// Also skip for launcher commands (yolo, claude, codex, antigravity):
 	// the 1-3s cache scan adds silent latency before the harness starts, and
 	// launchers are not the prune path of record (feat-caa02f9a Fix 2).
 	if !inCacheSubtree(cmd) && !isHarnessLauncherCmd(cmd) {
@@ -449,14 +448,14 @@ func isLauncherDiagnosticSubtree(cmd *cobra.Command) bool {
 }
 
 // isHarnessLauncherCmd reports whether cmd is one of the interactive harness
-// launcher commands (yolo, claude, codex, gemini, antigravity). These commands
+// launcher commands (yolo, claude, codex, antigravity). These commands
 // run the prerun session-route and registry-upsert (they benefit from session
 // tracking), but skip the heavyweight OpportunisticPrune and use a short DB
 // open timeout so WAL contention from the serve daemon never stalls launch
 // (feat-caa02f9a Fix 1 + Fix 2).
 func isHarnessLauncherCmd(cmd *cobra.Command) bool {
 	switch cmd.Name() {
-	case "yolo", "claude", "codex", "gemini", "antigravity":
+	case "yolo", "claude", "codex", "antigravity":
 		return true
 	}
 	return false

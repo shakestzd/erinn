@@ -16,7 +16,7 @@ import (
 
 // planElicitDecisionsCmd adds the cobra sub-command `plan elicit-decisions`.
 //
-// Cross-harness: this command works on Claude Code, Codex CLI, and Gemini CLI
+// Cross-harness: this command works on Claude Code and Codex CLI
 // without modification. The Claude-only convenience wrapper at
 // `plugin/skills/spec-from-slice/SKILL.md` calls into this same command.
 func planElicitDecisionsCmd() *cobra.Command {

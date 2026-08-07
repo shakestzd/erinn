@@ -164,18 +164,6 @@ func runUpgrade(out io.Writer, checkOnly bool, pinVersion string) error {
 		}
 	}
 
-	// Install the bundled Gemini CLI extension tree, if present. Same Phase A
-	// rationale: keep binary and harness assets in lockstep. Older archives
-	// (< v0.59) had no gemini-extension/ subdirectory; silently skip.
-	extractedGemini := filepath.Join(extractRoot, "gemini-extension")
-	if info, err := os.Stat(extractedGemini); err == nil && info.IsDir() {
-		if err := installGeminiTree(extractedGemini); err != nil {
-			fmt.Fprintf(out, "warning: failed to install bundled gemini-extension tree: %v\n", err)
-		} else {
-			fmt.Fprintln(out, "Installed bundled gemini-extension tree to ~/.local/share/wipnote/gemini-extension")
-		}
-	}
-
 	// Install the bundled Antigravity extension tree, if present. Older
 	// archives had no antigravity-extension/ subdirectory; silently skip.
 	extractedAntigravity := filepath.Join(extractRoot, "antigravity-extension")
@@ -408,30 +396,6 @@ func installCodexTree(srcCodexDir string) error {
 		return nil
 	}
 	return copyDirRecursive(srcCodexDir, destCodex)
-}
-
-// installGeminiTree replaces ~/.local/share/wipnote/gemini-extension atomically
-// by moving srcGeminiDir into place after removing any prior contents. Mirrors
-// installPluginTree so the upgrade and bootstrap paths leave identical on-disk
-// state across all three harness trees.
-func installGeminiTree(srcGeminiDir string) error {
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return fmt.Errorf("resolve home dir: %w", err)
-	}
-	metaDir := filepath.Join(home, ".local", "share", "wipnote")
-	destGemini := filepath.Join(metaDir, "gemini-extension")
-
-	if err := os.MkdirAll(metaDir, 0o755); err != nil {
-		return fmt.Errorf("create %s: %w", metaDir, err)
-	}
-	if err := os.RemoveAll(destGemini); err != nil {
-		return fmt.Errorf("remove existing %s: %w", destGemini, err)
-	}
-	if err := os.Rename(srcGeminiDir, destGemini); err == nil {
-		return nil
-	}
-	return copyDirRecursive(srcGeminiDir, destGemini)
 }
 
 // installAntigravityTree replaces ~/.local/share/wipnote/antigravity-extension

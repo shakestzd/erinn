@@ -39,9 +39,9 @@ archives:
         dst: plugin/hooks/bin
         info:
           mode: 0755
-      # Phase A also bundles the Codex CLI and Gemini CLI harness trees so
-      # all three harnesses ship in lockstep with the binary. Phase B will
-      # flip the `wipnote codex` and `wipnote gemini` launchers to load from
+      # Phase A also bundles the Codex CLI and Antigravity harness trees so
+      # every supported harness ships in lockstep with the binary. Phase B will
+      # flip the `wipnote codex` and `wipnote antigravity` launchers to load from
       # these bundled trees; until then this is purely additive.
       # Copy the whole codex-marketplace directory (not a `**/*` glob) so the
       # hidden `.agents/` dir and the nested `.agents/plugins/marketplace.json`
@@ -51,12 +51,6 @@ archives:
       # tarball-installed users with an unusable flat marketplace.json.
       - src: "port/packages/codex-marketplace"
         dst: codex-marketplace
-        info:
-          mode: 0644
-      # Copy the whole gemini-extension directory (not a `**/*` glob) to preserve
-      # hidden dotdirs such as `.archived` and ensure the full tree integrity.
-      - src: "port/packages/gemini-extension"
-        dst: gemini-extension
         info:
           mode: 0644
       # Copy the whole antigravity-extension directory so release-installed
@@ -116,7 +110,6 @@ brews:
       bin.install_symlink "wipnote" => "wn"
       (share/"wipnote").install "plugin"
       (share/"wipnote").install "codex-marketplace"
-      (share/"wipnote").install "gemini-extension"
       (share/"wipnote").install "antigravity-extension"
     test: |
       assert_match version.to_s, shell_output("#{bin}/wipnote version")

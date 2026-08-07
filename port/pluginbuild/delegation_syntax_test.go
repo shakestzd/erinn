@@ -18,24 +18,24 @@ func TestGeneratedNonClaudeOutputsAvoidClaudeDelegationSyntax(t *testing.T) {
 	if err := (codexAdapter{}).Emit(manifest, repoRoot, codexOut); err != nil {
 		t.Fatalf("emit codex: %v", err)
 	}
-	geminiOut := filepath.Join(outDir, "gemini")
-	if err := (geminiAdapter{}).Emit(manifest, repoRoot, geminiOut); err != nil {
-		t.Fatalf("emit gemini: %v", err)
+	antigravityOut := filepath.Join(outDir, "antigravity")
+	if err := (antigravityAdapter{}).Emit(manifest, repoRoot, antigravityOut); err != nil {
+		t.Fatalf("emit antigravity: %v", err)
 	}
 	activeRoots := []string{
 		filepath.Join(codexOut, ".agents", "plugins", "wipnote", "commands"),
 		filepath.Join(codexOut, ".agents", "plugins", "wipnote", "skills"),
-		filepath.Join(geminiOut, "commands"),
-		filepath.Join(geminiOut, "skills"),
-		filepath.Join(geminiOut, "agents"),
+		filepath.Join(antigravityOut, "commands"),
+		filepath.Join(antigravityOut, "skills"),
+		filepath.Join(antigravityOut, "agents"),
 	}
 	for _, root := range activeRoots {
 		assertNoClaudeDelegationSyntax(t, root)
 	}
 	knownRoles := codexKnownAgentRoles(manifest, repoRoot)
-	assertNoGeminiColonAgentIDs(t, filepath.Join(geminiOut, "commands"), knownRoles)
-	assertNoGeminiColonAgentIDs(t, filepath.Join(geminiOut, "skills"), knownRoles)
-	assertNoGeminiColonAgentIDs(t, filepath.Join(geminiOut, "agents"), knownRoles)
+	assertNoGeminiColonAgentIDs(t, filepath.Join(antigravityOut, "commands"), knownRoles)
+	assertNoGeminiColonAgentIDs(t, filepath.Join(antigravityOut, "skills"), knownRoles)
+	assertNoGeminiColonAgentIDs(t, filepath.Join(antigravityOut, "agents"), knownRoles)
 }
 
 func repositoryRootForTest(t *testing.T) string {

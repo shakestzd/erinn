@@ -86,7 +86,7 @@ func CheckPorts(m *Manifest, repoRoot string, targets []string) ([]Drift, error)
 // themselves — these are the ONLY paths a clean repo can be diffed against:
 // everything else under plugin/ is either hand-maintained (bootstrap scripts,
 // marketplace.json) or a copy-in-place asset where committed == source by
-// design. Returns nil for dedicated-tree targets (codex/gemini) so they use
+// design. Returns nil for dedicated-tree targets (codex/antigravity) so they use
 // the full owned-subtree diff instead.
 func generatedArtifacts(target Target) []string {
 	if isInPlaceTarget(target) {
@@ -101,7 +101,7 @@ func generatedArtifacts(target Target) []string {
 
 // isInPlaceTarget reports whether the target emits into the repo's own plugin/
 // tree (Claude) rather than a dedicated generated tree under packages/. Claude
-// is the only such target: it has no marketplace plugin subdir, no Gemini
+// is the only such target: it has no marketplace plugin subdir, no
 // command namespace, and no context file.
 func isInPlaceTarget(target Target) bool {
 	return target.PluginSubdir == "" &&
@@ -220,18 +220,18 @@ func diffTrees(repoRoot, genOut, committedOut string, target Target) ([]Drift, e
 }
 
 // ownedDiffSubtrees returns the committed-tree subdirectories whose contents
-// are fully generated for a dedicated-tree target (codex/gemini). A committed
+// are fully generated for a dedicated-tree target (codex/antigravity). A committed
 // file under one of these that the fresh regen no longer produces is stale and
 // reported as "extra". Only reached for non-in-place targets — Claude is
 // handled by generatedArtifacts/diffTrees before this is consulted. The lists
-// mirror codexOwnedSubtrees / geminiOwnedSubtrees in the adapters.
+// mirror codexOwnedSubtrees / antigravityOwnedSubtrees in the adapters.
 func ownedDiffSubtrees(target Target) []string {
 	if target.PluginSubdir != "" {
 		// Codex: everything under the plugin subdir is generated.
 		return []string{filepath.Dir(target.PluginSubdir)}
 	}
-	// Gemini: mirrors geminiOwnedSubtrees.
-	return []string{"commands", "agents", "skills", "templates", "static", "config", "hooks"}
+	// Antigravity: mirrors antigravityOwnedSubtrees.
+	return []string{"commands", "agents", "skills", "templates", "static", "config"}
 }
 
 // relTo renders p relative to root, falling back to p on error so output is

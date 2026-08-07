@@ -139,15 +139,15 @@ func TestGuardInit_DeclineDoesNotCommit(t *testing.T) {
 
 // TestLaunchers_InvokeEnsureGuardProfile is the launcher-coverage guard (plan
 // Medium-risk mitigation): every interactive exec entry point must invoke
-// ensureGuardProfile beside the OTel/serve bootstrap. The five launcher
-// commands (claude, yolo, dev, codex, gemini) all route through one of three
-// shared exec sites — launchClaude (claude/yolo/dev), execCodex, execGemini —
-// so asserting the wiring at those three sites covers all five.
+// ensureGuardProfile beside the OTel/serve bootstrap. The launcher commands
+// (claude, yolo, dev, codex, antigravity) all route through one of three
+// shared exec sites — launchClaude (claude/yolo/dev), execCodex, execAntigravity —
+// so asserting the wiring at those three sites covers them all.
 func TestLaunchers_InvokeEnsureGuardProfile(t *testing.T) {
 	cases := []struct{ file, anchor string }{
-		{"claude.go", "launchClaude"},   // claude, yolo, dev
-		{"codex.go", "execCodex"},       // codex
-		{"gemini_launch.go", "execGemini"}, // gemini
+		{"claude.go", "launchClaude"},                // claude, yolo, dev
+		{"codex.go", "execCodex"},                    // codex
+		{"antigravity_launch.go", "execAntigravity"}, // antigravity
 	}
 	for _, c := range cases {
 		t.Run(c.file, func(t *testing.T) {

@@ -137,4 +137,3 @@ If you genuinely need a write/build/test to answer the question, STOP and report
 
 - Claude Code: `sonnet`
 - Codex: balanced coding/professional-work model
-- Gemini: Flash or inherited balanced model

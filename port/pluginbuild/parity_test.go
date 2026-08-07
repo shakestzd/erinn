@@ -161,17 +161,6 @@ func TestLiveGeneratedPortSkillAndCommandParity(t *testing.T) {
 	assertSkillFilesPresent(t, filepath.Join(codexPluginDir, "skills"), skills)
 	assertCommandFilesPresent(t, filepath.Join(codexPluginDir, "commands"), commands, ".md")
 
-	geminiTarget, ok := m.Targets["gemini"]
-	if !ok {
-		t.Fatalf("manifest missing gemini target")
-	}
-	geminiOut := filepath.Join(outBase, "gemini")
-	if err := (geminiAdapter{}).Emit(m, repoRoot, geminiOut); err != nil {
-		t.Fatalf("emit gemini: %v", err)
-	}
-	assertSkillFilesPresent(t, filepath.Join(geminiOut, "skills"), skills)
-	assertCommandFilesPresent(t, filepath.Join(geminiOut, "commands", geminiTarget.CommandNamespace), commands, ".toml")
-
 	antigravityTarget, ok := m.Targets["antigravity"]
 	if !ok {
 		t.Fatalf("manifest missing antigravity target")

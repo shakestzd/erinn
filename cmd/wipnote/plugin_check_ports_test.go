@@ -39,14 +39,13 @@ func checkPortsManifest() *pluginbuild.Manifest {
 				MarketplaceCategory:    "Dev",
 				PluginSubdir:           ".agents/plugins/wipnote",
 			},
-			"gemini": {OutDir: "port/packages/gemini-extension", ManifestPath: "gemini-extension.json", HooksPath: "hooks/hooks.json", ContextFile: "GEMINI.md", CommandNamespace: "wipnote"},
 		},
 		AssetSources: pluginbuild.AssetSources{
 			Commands: "plugin/commands",
 			Agents:   "plugin/agents",
 		},
 		Hooks: pluginbuild.HookMatrix{Events: []pluginbuild.HookEvent{
-			{Name: "SessionStart", Handler: "session-start", Targets: []string{"claude", "codex", "gemini"}},
+			{Name: "SessionStart", Handler: "session-start", Targets: []string{"claude", "codex"}},
 			{Name: "UserPromptSubmit", Handler: "user-prompt", Targets: []string{"claude", "codex"}},
 			{Name: "Stop", Handler: "stop", Targets: []string{"claude"}},
 		}},
@@ -80,11 +79,6 @@ func seedCheckPortsRepo(t *testing.T) (string, *pluginbuild.Manifest) {
 	if err := os.WriteFile(filepath.Join(agDir, "x.md"), []byte("# x\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	// Gemini requires GEMINI.md at repo root when ContextFile is set.
-	if err := os.WriteFile(filepath.Join(repoRoot, "GEMINI.md"), []byte("# ctx\n"), 0o644); err != nil {
-		t.Fatal(err)
-	}
-
 	// Manifest at the canonical path so FindManifest locates it.
 	manifestDir := filepath.Join(repoRoot, "packages", "plugin-core")
 	if err := os.MkdirAll(manifestDir, 0o755); err != nil {
@@ -105,7 +99,7 @@ func seedCheckPortsRepo(t *testing.T) (string, *pluginbuild.Manifest) {
 	}
 
 	// Generate the committed trees so the starting point is in sync.
-	for _, name := range []string{"claude", "codex", "gemini"} {
+	for _, name := range []string{"claude", "codex"} {
 		adapter, err := pluginbuild.Get(name)
 		if err != nil {
 			t.Fatalf("get adapter %s: %v", name, err)

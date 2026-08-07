@@ -75,7 +75,7 @@ Report the design decisions made (with rationale), files changed (with line coun
 Architectural decisions depend on accurate external knowledge. Use your web search / web fetch tools:
 - Verify current official docs and standards for every technology the design touches. Do not anchor on training-data knowledge for version-sensitive contracts.
 - Search for existing OSS packages or tools before designing a custom solution. Prefer adoption where a maintained package covers the requirement; record the adopt-vs-build decision with rationale in your output.
-- When the design involves Claude Code / Codex CLI / Gemini CLI integration, check provider docs for existing plugins, skills, subagents, or hooks before specifying new ones.
+- When the design involves Claude Code / Codex CLI integration, check provider docs for existing plugins, skills, subagents, or hooks before specifying new ones.
 
 ## Use wipnote search and wipnote sh
 
@@ -87,6 +87,5 @@ For any shell command likely to produce verbose output, wrap it: `wipnote sh "<c
 
 - Claude Code: `opus`
 - Codex: flagship/high-reasoning coding model
-- Gemini: Pro or inherited deep reasoning model
 
 The model is intentionally separate from the agent role name.

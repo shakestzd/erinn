@@ -315,7 +315,7 @@ func TestHandleTerminalStart_CwdKindFieldInStruct(t *testing.T) {
 	mock := &mockTerminalManager{returnID: "uuid-ck", returnPort: 5555, returnPid: 5001}
 	handler := handleTerminalStart("/srv/project", mock)
 
-	body := `{"agent":"gemini","work_item":"feat-xyz","cwd_kind":"main"}`
+	body := `{"agent":"codex","work_item":"feat-xyz","cwd_kind":"main"}`
 	req := httptest.NewRequest(http.MethodPost, "/api/terminal/start", strings.NewReader(body))
 	rec := httptest.NewRecorder()
 	handler.ServeHTTP(rec, req)

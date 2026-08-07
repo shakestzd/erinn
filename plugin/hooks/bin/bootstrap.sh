@@ -213,20 +213,13 @@ download_binary() {
     fi
 
     # Same pattern for the Codex CLI marketplace tree. bootstrap.sh runs from
-    # the Claude hooks path so Codex/Gemini sessions don't normally trigger it,
-    # but extracting all three trees on Claude's first run is harmless (disk
-    # cost is negligible) and keeps the layout identical to install.sh.
+    # the Claude hooks path so Codex sessions don't normally trigger it, but
+    # extracting the trees on Claude's first run is harmless (disk cost is
+    # negligible) and keeps the layout identical to install.sh.
     if [ -d "${_tmpdir}/codex-marketplace" ]; then
         rm -rf "${META_DIR}/codex-marketplace"
         mv "${_tmpdir}/codex-marketplace" "${META_DIR}/codex-marketplace"
         log_err "Installed codex-marketplace tree v${_version} to ${META_DIR}/codex-marketplace."
-    fi
-
-    # Same pattern for the Gemini CLI extension tree.
-    if [ -d "${_tmpdir}/gemini-extension" ]; then
-        rm -rf "${META_DIR}/gemini-extension"
-        mv "${_tmpdir}/gemini-extension" "${META_DIR}/gemini-extension"
-        log_err "Installed gemini-extension tree v${_version} to ${META_DIR}/gemini-extension."
     fi
 
     rm -rf "${_tmpdir}"

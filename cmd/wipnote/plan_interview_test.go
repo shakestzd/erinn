@@ -75,8 +75,8 @@ func TestSliceOpenQuestions_MapsUnansweredOnly(t *testing.T) {
 
 func TestAttachBlockPrompts_BlocksFirstStagesCarryCatalogGroundedPrompts(t *testing.T) {
 	// Complex slice -> all four stages; blocks-first attaches authoring prompts
-	// to scope (file-tree), contract (api-endpoint + data-model), and
-	// requirements (wireframe). Descriptions come from BlockCatalog, not hardcode.
+	// to scope (file-tree), contract (data-model), and
+	// requirements (wireframe/diagram). Descriptions come from BlockCatalog, not hardcode.
 	stages := attachBlockPrompts(interview.BuildForSlice("complex", nil))
 
 	byKey := map[string]interview.Stage{}

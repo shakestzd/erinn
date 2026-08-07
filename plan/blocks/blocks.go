@@ -37,9 +37,8 @@ type Block interface {
 	Render(w io.Writer) error
 }
 
-// Column is one named, typed field in a data-model or one parameter of an
-// api-endpoint. Note is an optional free-form annotation (e.g. "sorted by path",
-// "nullable").
+// Column is one named, typed field in a data-model. Note is an optional
+// free-form annotation (e.g. "sorted by path", "nullable").
 type Column struct {
 	Name string
 	Type string

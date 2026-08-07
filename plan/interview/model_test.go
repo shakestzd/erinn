@@ -21,7 +21,7 @@ func TestForComplexity_StageCounts(t *testing.T) {
 func TestStageBlockPlan_MapsStagesToBlockTypes(t *testing.T) {
 	cases := map[string][]string{
 		"scope":        {"file-tree"},
-		"contract":     {"api-endpoint", "data-model"},
+		"contract":     {"data-model"},
 		"requirements": {"wireframe", "diagram"},
 		"donewhen":     nil,
 		"unknown":      nil,

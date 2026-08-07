@@ -300,10 +300,6 @@ func StageBlockPlan(stageKey string) []BlockPrompt {
 	case "contract":
 		return []BlockPrompt{
 			{
-				Type:   "api-endpoint",
-				Prompt: "If the slice exposes an HTTP route or CLI/command surface, author an api-endpoint block (method + path + request/response params) FIRST, then derive the contract half of `what` from it. Only for routes the slice actually implements.",
-			},
-			{
 				Type:   "data-model",
 				Prompt: "If the slice introduces or changes a stored entity, author a data-model block (named, typed columns) FIRST, then derive `what`/`done_when` from it. Columns must be real or will-exist fields — never invented schema.",
 			},

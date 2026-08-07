@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>codex --yolo does not pass --dangerously-bypass-hook-trust, so wipnote&#39;s own hooks stay trust-gated</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="bug-0854bffb"
+             data-type="bug"
+             data-status="done"
+             data-priority="high"
+             data-created="2026-08-07T15:17:53.133103"
+             data-updated="2026-08-07T15:24:53.556821" data-agent-assigned="claude-code" data-track-id="trk-1db7bf72" data-created-by-agent="claude-code" data-created-by-model="claude-opus-5[1m]" data-created-by-cli-version="0.67.1">
+
+        <header>
+            <h1>codex --yolo does not pass --dangerously-bypass-hook-trust, so wipnote&#39;s own hooks stay trust-gated</h1>
+            <div class="metadata">
+                <span class="badge status-done">Done</span>
+                <span class="badge priority-high">High Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-1db7bf72.html" data-relationship="part_of" data-since="2026-08-07T15:17:53.149014">trk-1db7bf72</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="implemented_in">
+                <h3>Implemented In:</h3>
+                <ul>
+                    <li><a href="../sessions/419cfccb-620d-4bb6-b2df-6b449496b630.html" data-relationship="implemented_in" data-since="2026-08-07T15:18:17.511213">session 419cfccb-620d-4bb6-b2df-6b449496b630</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>wipnote codex --yolo appends --dangerously-bypass-approvals-and-sandbox but never --dangerously-bypass-hook-trust. Codex 0.147.0 gates hook execution behind a separate persisted-trust mechanism, so a yolo session bypasses approvals and sandboxing while wipnote&#39;s own hooks - the entire work-tracking and observability layer - remain trust-gated. Codex&#39;s help text describes the flag as intended only for automation that already vets hook sources, which is exactly wipnote&#39;s position since it ships the hooks it is asking to trust. Verified against the installed binary: the flag exists, and grep finds no reference to it anywhere in the Go tree. Fix in buildCodexArgs alongside the existing yolo bypass flag, yolo-only - a non-yolo codex launch should still prompt.</p>
+        </section>
+    </article>
+</body>
+</html>

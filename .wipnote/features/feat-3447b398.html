@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>Promote agent_id and parent_agent_id to first-class UnifiedSignal fields</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="feat-3447b398"
+             data-type="feature"
+             data-status="todo"
+             data-priority="high"
+             data-created="2026-08-07T17:12:24.220825"
+             data-updated="2026-08-07T17:12:24.245037" data-agent-assigned="claude-code" data-track-id="trk-1db7bf72" data-created-by-agent="claude-code" data-created-by-model="claude-opus-5[1m]" data-created-by-cli-version="0.67.1">
+
+        <header>
+            <h1>Promote agent_id and parent_agent_id to first-class UnifiedSignal fields</h1>
+            <div class="metadata">
+                <span class="badge status-todo">Todo</span>
+                <span class="badge priority-high">High Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-1db7bf72.html" data-relationship="part_of" data-since="2026-08-07T17:12:24.244959">trk-1db7bf72</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>Claude Code emits agent_id on subagent llm_request spans and parent_agent_id at nesting depth greater than one, and wipnote already ingests those spans — it forces telemetry on by default and its ClaudeAdapter parses the span tree with real TraceID, SpanID and ParentSpan. But UnifiedSignal in observe/otel/signal.go has no AgentID or ParentAgentID field, so the adapter drops both into the untyped RawAttrs map and no downstream code reads them back. Promote them to typed fields. Cheap: the data is already arriving on every session.</p>
+        </section>
+    </article>
+</body>
+</html>

@@ -1,6 +1,6 @@
 {{define "file_tree"}}<div class="block block-file-tree">
   <ul class="file-list">
-    {{range .Entries}}<li class="file-entry">{{if .Change}}<span class="file-change file-change-{{.Change}}">{{.Change}}</span> {{end}}<code class="file-path">{{.Path}}</code></li>
+    {{range .Rows}}<li class="file-entry">{{.Gutter}}{{if .Change}}<span class="file-change file-change-{{.Change}}">{{.Change}}</span> {{end}}<code class="file-path">{{.Path}}</code></li>
     {{end}}
   </ul>
 </div>{{end}}

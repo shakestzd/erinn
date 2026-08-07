@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>Resolve the 5 v3 plans newly failing the hardened block gate</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="feat-35256f23"
+             data-type="feature"
+             data-status="todo"
+             data-priority="medium"
+             data-created="2026-08-07T07:14:33.955037"
+             data-updated="2026-08-07T07:14:33.974383" data-agent-assigned="claude-code" data-track-id="trk-a951e3c0" data-created-by-agent="claude-code" data-created-by-model="claude-opus-5[1m]" data-created-by-cli-version="0.67.1">
+
+        <header>
+            <h1>Resolve the 5 v3 plans newly failing the hardened block gate</h1>
+            <div class="metadata">
+                <span class="badge status-todo">Todo</span>
+                <span class="badge priority-medium">Medium Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="planned_in">
+                <h3>Planned In:</h3>
+                <ul>
+                    <li><a href="../plans/plan-f8c02547.html" data-relationship="planned_in" data-since="2026-08-07T07:14:33.970566">plan-f8c02547</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-a951e3c0.html" data-relationship="part_of" data-since="2026-08-07T07:14:33.97429">trk-a951e3c0</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>feat-d3bb4992 made the block advisory blocking for standard/complex slices. Exemption width was measured: an unconditional finalized-only exemption broke 21 of 22 non-finalized plans, so it was widened to the isStrictModel-or-explicit-complexity condition already precedented for decisions_notes. That leaves 5 plans failing validation, all schema_version v3: plan-1187cb00, plan-465c3b5b, plan-6d49f2df, plan-bb91616a, plan-ee999752. Each needs either real grounded blocks added or an explicit blocks_waiver marker with a genuine reason. Do not bulk-add waivers without reading each slice - the point of the gate is that a skip is a deliberate, audited decision.</p>
+        </section>
+    </article>
+</body>
+</html>

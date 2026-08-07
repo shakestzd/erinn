@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>Diagram blocks emit duplicate arrowhead marker defs when two diagrams share a page</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="bug-a6423600"
+             data-type="bug"
+             data-status="todo"
+             data-priority="low"
+             data-created="2026-08-07T06:49:06.452885"
+             data-updated="2026-08-07T06:49:06.466436" data-agent-assigned="claude-code" data-track-id="trk-a951e3c0" data-created-by-agent="claude-code" data-created-by-model="claude-opus-5[1m]" data-created-by-cli-version="0.67.1">
+
+        <header>
+            <h1>Diagram blocks emit duplicate arrowhead marker defs when two diagrams share a page</h1>
+            <div class="metadata">
+                <span class="badge status-todo">Todo</span>
+                <span class="badge priority-low">Low Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-a951e3c0.html" data-relationship="part_of" data-since="2026-08-07T06:49:06.466345">trk-a951e3c0</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>plan/blocks/diagram.go writes its own defs/marker per block while referencing the shared svg.ArrowheadMarkerRef id, so a page with 2+ diagram blocks emits duplicate element ids. Functionally harmless since the defs are identical and url(#id) resolves to the first, but it is invalid HTML and cuts against slice 1&#39;s intent that the marker be defined once and shared. Options: hoist the def to the page shell, or scope the id per block instance.</p>
+        </section>
+    </article>
+</body>
+</html>

@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>Harness integration correctness — Codex hook contract, model mapping, Claude observability</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="trk-1db7bf72"
+             data-type="track"
+             data-status="todo"
+             data-priority="high"
+             data-created="2026-08-07T15:12:35.710229"
+             data-updated="2026-08-07T17:47:00.305281" data-agent-assigned="claude-code" data-created-by-agent="claude-code" data-created-by-model="claude-opus-5[1m]" data-created-by-cli-version="0.67.1">
+
+        <header>
+            <h1>Harness integration correctness — Codex hook contract, model mapping, Claude observability</h1>
+            <div class="metadata">
+                <span class="badge status-todo">Todo</span>
+                <span class="badge priority-high">High Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="contains">
+                <h3>Contains:</h3>
+                <ul>
+                    <li><a href="../features/feat-775a4663.html" data-relationship="contains" data-since="2026-08-07T15:12:53.859854">Per-harness hook event-name allowlist enforced at build-ports time</a></li>
+                    <li><a href="../bugs/bug-9f49a375.html" data-relationship="contains" data-since="2026-08-07T15:12:53.956816">Codex PostToolUse payload parsed as tool_result but Codex emits tool_response</a></li>
+                    <li><a href="../bugs/bug-e39d408f.html" data-relationship="contains" data-since="2026-08-07T15:12:54.051899">Codex hook registrations: three phantom events registered, seven real lifecycle events missing</a></li>
+                    <li><a href="../bugs/bug-266dbdfb.html" data-relationship="contains" data-since="2026-08-07T15:12:54.143527">Unknown Codex model alias silently maps to an empty model string</a></li>
+                    <li><a href="../spikes/spk-c3e9e13b.html" data-relationship="contains" data-since="2026-08-07T15:13:12.834519">Verify Codex PreToolUse denials actually deny (report claim C5 was wrong about our output)</a></li>
+                    <li><a href="../spikes/spk-d62bd485.html" data-relationship="contains" data-since="2026-08-07T15:13:12.921508">Verify the Codex plugin install path actually loads (report claim C4 was overstated)</a></li>
+                    <li><a href="../spikes/spk-88a273d5.html" data-relationship="contains" data-since="2026-08-07T15:13:13.006469">Evaluate Claude Code distributed tracing as a native source for causal lineage</a></li>
+                    <li><a href="../bugs/bug-48b023e5.html" data-relationship="contains" data-since="2026-08-07T15:13:13.09327">wipnote flows riding claude -p will silently stop emitting when bare mode becomes the default</a></li>
+                    <li><a href="../spikes/spk-6d5857fb.html" data-relationship="contains" data-since="2026-08-07T15:13:32.710584">Establish a primary source for the claimed 2026-08-31 Codex model retirement before scheduling work</a></li>
+                    <li><a href="../bugs/bug-4b99fb13.html" data-relationship="contains" data-since="2026-08-07T15:13:32.798633">Codex doc URLs in the monitoring list now redirect, and a blind host swap breaks two of them</a></li>
+                    <li><a href="../spikes/spk-2806f862.html" data-relationship="contains" data-since="2026-08-07T15:13:32.895938">Confirm or dismiss: is subagent memory under .claude/agent-memory being silently wiped</a></li>
+                    <li><a href="../bugs/bug-0854bffb.html" data-relationship="contains" data-since="2026-08-07T15:17:53.149014">codex --yolo does not pass --dangerously-bypass-hook-trust, so wipnote&#39;s own hooks stay trust-gated</a></li>
+                    <li><a href="../bugs/bug-0169679c.html" data-relationship="contains" data-since="2026-08-07T16:26:25.467169">Project docs imply .claude/agent-memory is wiped by plugin sync when it is not</a></li>
+                    <li><a href="../features/feat-4948cfa5.html" data-relationship="contains" data-since="2026-08-07T16:27:14.756602">Remap Codex model aliases before the 2026-08-31 retirement</a></li>
+                    <li><a href="../bugs/bug-33348600.html" data-relationship="contains" data-since="2026-08-07T16:41:44.228169">realHeadlessInvoker is never exercised by tests, so an invalid claude flag shipped undetected</a></li>
+                    <li><a href="../bugs/bug-0cdfa8e5.html" data-relationship="contains" data-since="2026-08-07T16:41:44.326284">Headless flows have no API-key auth path, which --bare will require when it becomes the -p default</a></li>
+                    <li><a href="../bugs/bug-db68d62a.html" data-relationship="contains" data-since="2026-08-07T16:41:44.42112">Dead wipnote-titler session detection in serve.go with no remaining producer</a></li>
+                    <li><a href="../bugs/bug-e95cfc49.html" data-relationship="contains" data-since="2026-08-07T16:49:24.861462">Remove task_id and task_subject from the Codex hook payload struct — they belong to Codex Cloud</a></li>
+                    <li><a href="../features/feat-3447b398.html" data-relationship="contains" data-since="2026-08-07T17:12:24.244959">Promote agent_id and parent_agent_id to first-class UnifiedSignal fields</a></li>
+                    <li><a href="../spikes/spk-02fa2e35.html" data-relationship="contains" data-since="2026-08-07T17:12:24.345995">Prototype: can native span agent_id replace the wipnote.agent_id relay bridge?</a></li>
+                    <li><a href="../bugs/bug-040f0be8.html" data-relationship="contains" data-since="2026-08-07T17:16:34.750672">codex plugin add wipnote@wipnote fails: marketplace.json path is resolved differently by Codex and by wipnote</a></li>
+                    <li><a href="../bugs/bug-c6b550fa.html" data-relationship="contains" data-since="2026-08-07T17:16:34.853543">Codex hook deny fails open on schema mismatch and on exit 2 with empty stderr</a></li>
+                    <li><a href="../bugs/bug-70e5582e.html" data-relationship="contains" data-since="2026-08-07T17:16:34.963576">ensureCodexGlobalHooksInstalled is dead code and CLAUDE.md describes it as load-bearing</a></li>
+                    <li><a href="../features/feat-fb02d94d.html" data-relationship="contains" data-since="2026-08-07T17:47:00.29666">Retire the wipnote.agent_id relay; keep the staging table for agent_type and out-of-order spans</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>From the 2026-08-06 upstream harness survey (spk-7f2c72c9), regraded against a review that corrected several of its claims. Anchor: wipnote registers hook event names per harness with nothing validating them against the target harness&#39;s real vocabulary, so wrong names fail silently and forever. The same defect class already exists on two harnesses. Scope: a build-time event-name allowlist, the confirmed Codex parsing and registration defects, silent model-mapping failure, two live-runtime validations that were overstated as breaks, and the Claude Code tracing opportunity. Excluded until primary-sourced: the claimed 2026-08-31 model retirement deadline.</p>
+        </section>
+    </article>
+</body>
+</html>

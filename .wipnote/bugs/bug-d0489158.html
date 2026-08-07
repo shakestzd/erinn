@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>Plan slice deps are written as blocked_by edges, contaminating graph bottlenecks with plan authoring order</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="bug-d0489158"
+             data-type="bug"
+             data-status="todo"
+             data-priority="medium"
+             data-created="2026-08-07T21:30:50.950155"
+             data-updated="2026-08-07T21:30:50.962546" data-agent-assigned="claude-code" data-track-id="trk-08dcbb33" data-created-by-agent="claude-code" data-created-by-model="claude-opus-5[1m]" data-created-by-cli-version="0.67.1">
+
+        <header>
+            <h1>Plan slice deps are written as blocked_by edges, contaminating graph bottlenecks with plan authoring order</h1>
+            <div class="metadata">
+                <span class="badge status-todo">Todo</span>
+                <span class="badge priority-medium">Medium Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-08dcbb33.html" data-relationship="part_of" data-since="2026-08-07T21:30:50.962463">trk-08dcbb33</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>reindex_plan_edges.go writes every plan slice&#39;s deps entry into graph_edges as relationship_type=blocked_by — the same string a human uses via wipnote link add --rel blocks to assert a genuine cross-project dependency. This runs on every reindex, so it is live. graph bottlenecks (core/graph/pattern.go) then counts to_node_id appearances in blocked_by with zero type distinction, meaning a plan with one foundational slice and seven dependents makes that slice&#39;s feature appear as a top-line bottleneck blocking seven work items — when it is only that plan&#39;s authoring order. The strategic-planning skill explicitly activates for finding bottlenecks, so this is a path from data conflation to a wrong prioritisation decision, not a hypothetical. Fix by distinguishing plan-internal slice ordering from asserted project dependencies, either via a distinct relationship type or by populating the unused metadata column and filtering on it.</p>
+        </section>
+    </article>
+</body>
+</html>

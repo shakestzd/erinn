@@ -86,6 +86,7 @@ import (
 	"github.com/shakestzd/wipnote/core/db/writequeue"
 	"github.com/shakestzd/wipnote/core/hooks"
 	"github.com/shakestzd/wipnote/core/models"
+	"github.com/shakestzd/wipnote/core/paths"
 )
 
 // stressDuration is the per-run workload window. 30s is the floor the
@@ -693,6 +694,20 @@ const contentionRunCount = 3
 // (and internal/gate's Go gate plan) must exercise on every run.
 func TestSQLiteContentionStress_MigratedHotHooksUnderHeldLock(t *testing.T) {
 	clearContentionNestedEnv(t)
+
+	// Defensive removal: clear any stale session-hint files from previous test
+	// runs that may have left pointers to old daemon directories. If a hint file
+	// exists pointing to a defunct daemon dir, hooks will dial a non-existent
+	// socket and fall back to direct lock-contending writes, causing the test to
+	// timeout. See: bug-66d45f4e.
+	for run := 1; run <= contentionRunCount; run++ {
+		sess := fmt.Sprintf("durab-sess-%d", run)
+		hintPath := paths.SessionHintPath(sess)
+		_ = os.Remove(hintPath)
+		// Register cleanup to remove the hint file after this test run so
+		// subsequent runs don't inherit a stale pointer.
+		func(path string) { t.Cleanup(func() { _ = os.Remove(path) }) }(hintPath)
+	}
 
 	// Pin the canonical DB path to a WAL-safe file so the hooks' DBPath
 	// resolution, the daemon writer, and our lock-holder share one DB. On a

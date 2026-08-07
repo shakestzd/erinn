@@ -395,6 +395,36 @@ func emitClaudeResponse(w io.Writer, result *HookResult) error {
 	return json.NewEncoder(w).Encode(result)
 }
 
+// codexHookSpecificOutput is the wire-format shape of Codex's
+// hookSpecificOutput object. Its field set is Codex's declared schema —
+// verified live against codex-cli 0.147.0 (bug-c6b550fa). Codex's parser
+// fails CLOSED on schema mismatch in a way that fails hook enforcement OPEN:
+// a single field it does not recognise inside hookSpecificOutput causes
+// Codex to silently drop the entire deny (no error, no warning — the tool
+// just runs). Because the type is declared at package scope (not inline
+// inside emitCodexResponseForEvent), TestCodexHookSpecificOutput_SchemaFieldsPinned
+// in harness_test.go can reflect over it directly and fail loudly the moment
+// a field is added, renamed, or removed here — before it ever reaches a real
+// Codex session and silently disables gating. Do NOT add fields to this
+// struct without confirming against Codex's actual schema first; if you need
+// to carry wipnote-internal data through this path, do it out-of-band (e.g.
+// systemMessage) rather than growing this struct.
+type codexHookSpecificOutput struct {
+	HookEventName            string `json:"hookEventName,omitempty"`
+	AdditionalContext        string `json:"additionalContext,omitempty"`
+	PermissionDecision       string `json:"permissionDecision,omitempty"`
+	PermissionDecisionReason string `json:"permissionDecisionReason,omitempty"`
+}
+
+// codexResponse is the top-level wire-format shape of a Codex hook response.
+type codexResponse struct {
+	Continue           *bool                    `json:"continue,omitempty"`
+	SystemMessage      string                   `json:"systemMessage,omitempty"`
+	Decision           string                   `json:"decision,omitempty"`
+	Reason             string                   `json:"reason,omitempty"`
+	HookSpecificOutput *codexHookSpecificOutput `json:"hookSpecificOutput,omitempty"`
+}
+
 // emitCodexResponse writes the Codex CLI wire-format JSON to w.
 // Codex expects:
 //   - "continue": true/false for lifecycle events
@@ -406,20 +436,6 @@ func emitCodexResponse(w io.Writer, result *HookResult) error {
 }
 
 func emitCodexResponseForEvent(w io.Writer, hookEventName string, result *HookResult) error {
-	type codexHookSpecificOutput struct {
-		HookEventName            string `json:"hookEventName,omitempty"`
-		AdditionalContext        string `json:"additionalContext,omitempty"`
-		PermissionDecision       string `json:"permissionDecision,omitempty"`
-		PermissionDecisionReason string `json:"permissionDecisionReason,omitempty"`
-	}
-	type codexResponse struct {
-		Continue           *bool                    `json:"continue,omitempty"`
-		SystemMessage      string                   `json:"systemMessage,omitempty"`
-		Decision           string                   `json:"decision,omitempty"`
-		Reason             string                   `json:"reason,omitempty"`
-		HookSpecificOutput *codexHookSpecificOutput `json:"hookSpecificOutput,omitempty"`
-	}
-
 	continueTrue := true
 	resp := codexResponse{}
 	if result.Message != "" {

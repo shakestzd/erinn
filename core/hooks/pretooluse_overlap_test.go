@@ -139,6 +139,15 @@ func TestPreToolUseOverlapAdvisory(t *testing.T) {
 		if !strings.Contains(blockErr.Message, "sess-other") {
 			t.Fatalf("block message missing other session id: %q", blockErr.Message)
 		}
+		// PINNED (bug-c6b550fa): Codex treats exit code 2 with EMPTY stderr as
+		// ALLOW, not deny. runHookNamed writes blockErr.Message verbatim to
+		// stderr before exiting 2, so this checks the invariant directly
+		// (not just via the substrings above, which could both be removed
+		// independently without anyone noticing Message went empty). One of
+		// three audited BlockExit2Error call sites.
+		if strings.TrimSpace(blockErr.Message) == "" {
+			t.Fatal("expected non-empty block message (Codex fails open on exit-2 + empty stderr)")
+		}
 	})
 
 	t.Run("no overlap => no advisory", func(t *testing.T) {

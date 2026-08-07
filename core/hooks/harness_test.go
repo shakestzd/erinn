@@ -3,6 +3,8 @@ package hooks
 import (
 	"bytes"
 	"encoding/json"
+	"reflect"
+	"strings"
 	"testing"
 )
 
@@ -699,6 +701,51 @@ func TestEmitCodexEmptyResponse(t *testing.T) {
 	// Empty result → continue: true (non-blocking allow).
 	if got["continue"] != true {
 		t.Errorf("continue = %v, want true for empty result", got["continue"])
+	}
+}
+
+// TestCodexHookSpecificOutput_SchemaFieldsPinned pins codexHookSpecificOutput
+// (harness.go) to exactly the four fields Codex's hookSpecificOutput schema
+// declares.
+//
+// WHY this exists (bug-c6b550fa): live verification against codex-cli
+// 0.147.0 showed Codex fails OPEN on a schema mismatch — a single field it
+// does not recognise inside hookSpecificOutput causes it to silently drop
+// the entire deny (tool runs, no error, no warning). wipnote's struct is
+// schema-clean today, but that safety is only as durable as "nobody ever
+// adds a field" — e.g. a well-intentioned debug marker or wipnote-specific
+// annotation slipped in here would silently disable PreToolUse gating for
+// every Codex session, with zero signal.
+//
+// This test reflects over the live struct type (not a hand-copied literal
+// list) so it fails the moment a field is added, renamed, or removed —
+// before that change ever reaches a real Codex session. If this test fails
+// because you intentionally need a new field, that intent must be verified
+// against Codex's actual accepted schema first (see the struct doc comment)
+// — do not "fix" this test by just adding the new field to the allowlist.
+func TestCodexHookSpecificOutput_SchemaFieldsPinned(t *testing.T) {
+	wantFields := map[string]bool{
+		"hookEventName":            true,
+		"additionalContext":        true,
+		"permissionDecision":       true,
+		"permissionDecisionReason": true,
+	}
+
+	typ := reflect.TypeOf(codexHookSpecificOutput{})
+	if typ.NumField() != len(wantFields) {
+		t.Fatalf("codexHookSpecificOutput has %d fields, want exactly %d (Codex's declared schema) — "+
+			"a field was added or removed; see the struct's doc comment before changing this test",
+			typ.NumField(), len(wantFields))
+	}
+	for i := 0; i < typ.NumField(); i++ {
+		tag := typ.Field(i).Tag.Get("json")
+		name := strings.Split(tag, ",")[0]
+		if !wantFields[name] {
+			t.Fatalf("codexHookSpecificOutput has unexpected JSON field %q (go field %s) — "+
+				"Codex silently drops the whole deny when hookSpecificOutput contains a field "+
+				"it doesn't recognise (bug-c6b550fa); confirm this field exists in Codex's real "+
+				"schema before adding it", name, typ.Field(i).Name)
+		}
 	}
 }
 

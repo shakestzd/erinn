@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -126,8 +127,14 @@ func TestTaskCompleted_FlagOn_BlocksOnFailure(t *testing.T) {
 	if !ok {
 		t.Fatalf("expected *BlockExit2Error, got %T: %v", err, err)
 	}
-	if blockErr.Message == "" {
-		t.Error("expected non-empty block message")
+	// PINNED (bug-c6b550fa): Codex treats exit code 2 with EMPTY stderr as
+	// ALLOW, not deny — non-empty stderr is what actually blocks and carries
+	// the reason. runHookNamed (cmd/wipnote/hook.go) writes blockErr.Message
+	// verbatim to stderr before exiting 2, so an empty (or whitespace-only)
+	// Message here would silently fail this gate open on Codex. This is one
+	// of the three BlockExit2Error call sites audited for that invariant.
+	if strings.TrimSpace(blockErr.Message) == "" {
+		t.Error("expected non-empty block message (Codex fails open on exit-2 + empty stderr)")
 	}
 	if result != nil {
 		t.Errorf("expected nil result when blocking, got %+v", result)

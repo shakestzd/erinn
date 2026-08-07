@@ -115,6 +115,14 @@ func TestStopReconcile_ClaudeAmbiguousDrift_Blocks(t *testing.T) {
 	if !strings.Contains(blockErr.Message, "build-ports") {
 		t.Fatalf("block message should guide to build-ports, got %q", blockErr.Message)
 	}
+	// PINNED (bug-c6b550fa): Codex treats exit code 2 with EMPTY stderr as
+	// ALLOW, not deny. runHookNamed writes blockErr.Message verbatim to
+	// stderr before exiting 2, so this checks the invariant directly. Last
+	// of three audited BlockExit2Error call sites (missing_events.go,
+	// pretooluse.go, session_end.go).
+	if strings.TrimSpace(blockErr.Message) == "" {
+		t.Fatal("expected non-empty block message (Codex fails open on exit-2 + empty stderr)")
+	}
 
 	// Claude with NON-ambiguous classes (auto-commit / orphan only) must NOT
 	// block — the amendment is scoped to ambiguous generator drift only.

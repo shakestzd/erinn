@@ -6,7 +6,7 @@ meta:
     created_at: ""
     status: active
     schema_version: v4
-    version: 12
+    version: 13
 design:
     problem: |
         Plan documents are not read. Measured over 45 plans and 282 slices: what,
@@ -494,6 +494,7 @@ slices:
             - name: tests
               type: advisory
     - id: slice-6
+      feature_id: feat-d3bb4992
       num: 6
       title: Harden the default-tier block gate, with a legacy exemption
       what: |
@@ -527,6 +528,7 @@ slices:
       comment: ""
       research_waiver: Internal validation policy against wipnote's own schema; no external dependency, standard or API applies.
       approval_status: approved
+      execution_status: promoted
       critic_revisions:
         - source: claude-design
           severity: HIGH

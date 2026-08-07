@@ -40,6 +40,18 @@ find_module_root() {
     echo "$REPO_ROOT"
 }
 
+get_relative_path() {
+    local target="$1"
+    local base="$2"
+
+    # Prefer grealpath (GNU realpath) if available, fall back to Python for portability
+    if command -v grealpath >/dev/null 2>&1; then
+        grealpath --relative-to="$base" "$target"
+    else
+        python3 -c "import os; print(os.path.relpath('$target', '$base'))"
+    fi
+}
+
 FILES=()
 
 if [ -n "${WIPNOTE_WORKITEM_ID:-}" ]; then
@@ -97,7 +109,7 @@ for file in "${GO_FILES[@]}"; do
     dir=$(dirname "$file")
     if [ -d "$dir" ]; then
         mod_root=$(find_module_root "$dir")
-        rel_pkg="./$(realpath --relative-to="$mod_root" "$dir")"
+        rel_pkg="./$(get_relative_path "$dir" "$mod_root")"
         echo "$mod_root|$rel_pkg" >> "$TMP_LIST"
     fi
 done

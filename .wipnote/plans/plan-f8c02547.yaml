@@ -4,9 +4,9 @@ meta:
     title: 'Plans that read as maps: static SVG blocks, in-place critique, prose caps'
     description: ""
     created_at: ""
-    status: draft
+    status: completed
     schema_version: v4
-    version: 3
+    version: 4
 design:
     problem: |
         Plan documents are not read. Measured over 45 plans and 282 slices: what,

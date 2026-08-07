@@ -90,14 +90,16 @@ func (r *codexToolResult) UnmarshalJSON(data []byte) error {
 // emit "tool_result" is still read rather than swapping one hardcoded
 // assumption for another.
 //
-// TaskID/TaskData/TaskSubject: also unconfirmed against live payloads — no
-// SessionStart/PreToolUse/PostToolUse capture ever populated them, and the
-// Codex-native TaskStarted/TaskComplete events (turn lifecycle, not a
-// Claude-style task board — see manifest.json's hook-event comment) could not
-// be triggered via `codex exec` to check directly. Left in place since an
-// absent field is harmless and removal would be speculative; flagged here so
-// a future investigation with a real TaskStarted/TaskComplete capture can
-// resolve it.
+// REMOVED fields (bug-e95cfc49):
+// - TaskID and TaskSubject were removed because they belong to Codex Cloud's
+//   RawRecord task-tracking schema (alongside encrypted_task_id,
+//   max_concurrent_threads_per_session, job_max_runtime_seconds), not to the
+//   local hook dispatch vocabulary. Live payload captures (SessionStart,
+//   PreToolUse, PostToolUse) never populated them across codex-cli 0.147.0,
+//   and Codex-native TaskStarted/TaskComplete lifecycle events (distinct from
+//   Claude-style task boards) do not exist in hook payloads. Binary analysis of
+//   codex-cli 0.147.0 confirmed task_subject appears zero times in the binary.
+//   TaskCreated/TaskCompleted are Claude-only hooks with no Codex equivalent.
 type codexPayload struct {
 	SessionID            string          `json:"session_id"`
 	TurnID               string          `json:"turn_id"`
@@ -116,9 +118,7 @@ type codexPayload struct {
 	ToolUseID            string          `json:"tool_use_id"`
 	ToolResponse         codexToolResult `json:"tool_response"`
 	ToolResult           codexToolResult `json:"tool_result"`
-	TaskID               string          `json:"task_id"`
 	TaskData             map[string]any  `json:"task"`
-	TaskSubject          string          `json:"task_subject"`
 }
 
 // geminiPayload is used only for harness detection and input parsing.
@@ -301,9 +301,7 @@ func parseCodexEvent(raw []byte) (*CloudEvent, error) {
 		ToolInput:            p.ToolInput,
 		ToolUseID:            p.ToolUseID,
 		ToolResult:           toolResult,
-		TaskID:               p.TaskID,
 		TaskData:             p.TaskData,
-		TaskSubject:          p.TaskSubject,
 	}
 	return ev, nil
 }

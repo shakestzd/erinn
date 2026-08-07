@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>Prototype: can native span agent_id replace the wipnote.agent_id relay bridge?</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="spk-02fa2e35"
+             data-type="spike"
+             data-status="todo"
+             data-priority="medium"
+             data-created="2026-08-07T17:12:24.334512"
+             data-updated="2026-08-07T17:12:24.346132" data-agent-assigned="claude-code" data-track-id="trk-1db7bf72" data-created-by-agent="claude-code" data-created-by-model="claude-opus-5[1m]" data-created-by-cli-version="0.67.1">
+
+        <header>
+            <h1>Prototype: can native span agent_id replace the wipnote.agent_id relay bridge?</h1>
+            <div class="metadata">
+                <span class="badge status-todo">Todo</span>
+                <span class="badge priority-medium">Medium Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-1db7bf72.html" data-relationship="part_of" data-since="2026-08-07T17:12:24.345995">trk-1db7bf72</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>core/hooks/attribution.go relays hook-derived agent_id into subagent OTEL_RESOURCE_ATTRIBUTES as wipnote.agent_id, with a CLAUDE_ENV_FILE path plus a hint-file fallback for worktree subagents, matched against a pending_subagent_starts staging table in core/db/otel_schema.go — all to answer which span belongs to which subagent and avoid orphan tool-call spans rendering without a parent. Claude&#39;s native agent_id plus the true span-parent chain answers that with no hook involvement. Prototype whether keying off the native attribute eliminates the orphan-span race. Decisive test: does it hold under wipnote&#39;s real concurrency — parallel subagents and worktree isolation — which the hand-built bridge was specifically designed for? If not, the bridge earns its keep.</p>
+        </section>
+    </article>
+</body>
+</html>

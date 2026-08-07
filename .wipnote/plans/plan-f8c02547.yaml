@@ -120,6 +120,16 @@ slices:
         - id: q-greppable
           text: Does emitting SVG text risk the retrieval corpus?
           answer: Yes, and it is the crux of this slice. `wipnote relevant` runs rg --type html over plan HTML and `wipnote find plans` parses the DOM. Per-character tspan positioning would break phrase matching for all 42 plans silently. Contiguous text nodes are therefore a hard requirement, tested.
+      critic_revisions:
+        - source: claude-design
+          severity: HIGH
+          summary: Retrieval-corpus parseability was declared load-bearing in constraints but had no acceptance criteria in any slice. Added contiguous-<text> requirement plus TestEmit_GreppableLabels.
+        - source: claude-design
+          severity: MED
+          summary: Arrowhead primitive was absent while slices 2 and 3 both require drawn arrowheads — duplication risk against the repo's no-duplication rule. Added a shared marker def here.
+        - source: claude-feasibility
+          severity: LOW
+          summary: done_when for theme CSS custom properties had no named test. Added TestEmit_ThemeVariables.
       decisions_notes: |
         **Trigger:** called by the layout and block renderers at plan render time,
         never at request time — output is baked into the committed HTML.
@@ -208,6 +218,25 @@ slices:
         - id: q-legacy
           text: What happens to the 42 legacy plans during migration?
           answer: They keep the d3 format and keep working. Vendor assets stay on disk and the validator accepts both formats until the last plan is re-rendered lazily. Deleting the vendor files before migration completes would leave broken script tags in every un-migrated plan.
+      critic_revisions:
+        - source: claude-feasibility
+          severity: HIGH
+          summary: cmd/wipnote/plan_validate.go:352-359 hard-fails when d3/dagre-d3 CDN tags are absent, with plan_validate_test.go:164-179 asserting it, and plan/plantmpl/builder_test.go:190-196 asserts they must be present. None were in scope — the original slice would have broken every `wipnote plan validate` call. All three added.
+        - source: claude-feasibility
+          severity: HIGH
+          summary: plan/plantmpl/templates/dependency_graph.gohtml — the file actually containing the empty <svg> and display:none data island — was omitted from the file list. Added.
+        - source: claude-feasibility
+          severity: HIGH
+          summary: Corpus scan shows multi-rank-skipping deps are common, not hypothetical (plan-1670cacd slice 8 depends on slice 1, a seven-rank gap). Hand-rolled Sugiyama needed dummy-node insertion absent from the spec. Approach changed to embedded dagre.js, matching d2's own precedent.
+        - source: claude-design
+          severity: HIGH
+          summary: 'Vendor-asset handling was unstated: deleting d3/dagre-d3 while legacy plans re-render lazily would leave broken script tags in every un-migrated plan. Constraint added to retain assets until migration completes.'
+        - source: claude-design
+          severity: MED
+          summary: No criterion protected the data-section/anchor scheme despite the DOM contract being declared load-bearing, unlike slice 3 which had one. Added.
+        - source: claude-design
+          severity: MED
+          summary: The 16-node layout ceiling was the only quantitative claim in the plan not traceable to a corpus measurement. Removed — dagre handles the real distribution without asserting a bound.
       decisions_notes: |
         **Trigger:** invoked during renderPlanCore, once per plan render.
         **State:** none beyond the slice graph already in the YAML.
@@ -283,6 +312,10 @@ slices:
         - url: https://github.com/xlab/treeprint
           claim: 'Verified: an ASCII/Unicode box-drawing tree composer for terminal output, not coordinate-based SVG layout — not reusable for this renderer.'
           accessed: "2026-08-06"
+      critic_revisions:
+        - source: claude-feasibility
+          severity: HIGH
+          summary: plan/blocks/file_tree.go does not exist anywhere in the tree — FileTree is defined at plan/blocks/blocks.go:81. Path corrected.
       decisions_notes: |
         **Trigger:** block render time, per block instance.
         **State:** none — derived entirely from the block's entries.
@@ -336,6 +369,13 @@ slices:
       approved: false
       comment: ""
       research_waiver: Internal write-path and schema change against wipnote's own YAML; no external library, standard or API applies.
+      critic_revisions:
+        - source: claude-design
+          severity: LOW
+          summary: 'Ambiguity over whether `what` already rewrites in place or also accumulates determined whether slices 4 and 5 truly do not interact. Scope clarification added: only critic_revisions accumulates today.'
+        - source: claude-feasibility
+          severity: LOW
+          summary: done_when for `wipnote history` surfacing superseded wording had no corresponding test. Added TestHistory_SurfacesSuperseded.
       decisions_notes: |
         **Trigger:** the critique write path, after a critic proposes a change.
         **State:** the slice YAML itself; superseded wording lives only in git.
@@ -400,6 +440,13 @@ slices:
       approved: false
       comment: ""
       research_waiver: Validation rules over wipnote's own schema; the threshold is derived from wipnote's own corpus, so no external standard or dependency applies.
+      critic_revisions:
+        - source: claude-feasibility
+          severity: MED
+          summary: The ~40/~60 word thresholds were asserted round numbers with no corpus or readability basis — the weakest-grounded figures in an otherwise rigorously cited plan. Replaced with a done_when requiring the cap be derived from the measured distribution and its target percentile recorded.
+        - source: claude-design
+          severity: LOW
+          summary: plugin/skills/plan/SKILL.md was not updated, so authors would hit a hard validation failure with no prior warning during the interview. Added to scope.
       decisions_notes: |
         **Trigger:** `wipnote plan validate-yaml`, and the finalize path.
         **State:** none — pure validation over loaded YAML.
@@ -468,6 +515,13 @@ slices:
       approved: false
       comment: ""
       research_waiver: Internal validation policy against wipnote's own schema; no external dependency, standard or API applies.
+      critic_revisions:
+        - source: claude-design
+          severity: HIGH
+          summary: No legacy exemption here, unlike the near-identical slice 5 — as written, the next validate run would fail all 204 existing block-free slices. Exemption added.
+        - source: claude-design
+          severity: MED
+          summary: Bundled gate hardening with api-endpoint removal, forcing one approval for two unrelated policies. Split into slices 6 and 7.
       decisions_notes: |
         **Trigger:** `wipnote plan validate-yaml` and finalize.
         **State:** none — validation over loaded YAML.
@@ -520,6 +574,10 @@ slices:
       approved: false
       comment: ""
       research_waiver: Catalog pruning of wipnote's own block vocabulary; no external dependency, standard or API applies.
+      critic_revisions:
+        - source: claude-feasibility
+          severity: HIGH
+          summary: plan/blocks/api_endpoint.go does not exist — APIEndpoint is defined at plan/blocks/blocks.go:59. The template plan/blocks/templates/api_endpoint.gohtml and the tests at plan/blocks/blocks_test.go:58-89 also had to be removed and were missing from scope. All corrected.
       decisions_notes: |
         **Trigger:** catalog definition load and block render dispatch.
         **State:** none.
@@ -539,3 +597,126 @@ slices:
             - plan/blocks/templates/api_endpoint.gohtml
             - plan/blocks/blocks_test.go
 questions: []
+critique:
+    reviewed_at: "2026-08-07"
+    reviewers:
+        - 'claude-design (role: design critic; runner: Claude Code subagent, this session)'
+        - 'claude-feasibility (role: feasibility critic; runner: Claude Code subagent, this session; ran live repo checks and GitHub API verification)'
+    assumptions:
+        - id: A1
+          status: verified
+          text: gonum is absent from go.mod, so the no-new-dependency premise for rejecting it was factually true.
+          evidence: 'runtime: grep -c gonum go.mod -> 0'
+        - id: A2
+          status: verified
+          text: plan validate hard-fails when d3/dagre-d3 CDN tags are absent, directly contradicting the original slice 2 scope.
+          evidence: cmd/wipnote/plan_validate.go:352-359; test at cmd/wipnote/plan_validate_test.go:164-179; plan/plantmpl/builder_test.go:190-196
+        - id: A3
+          status: verified
+          text: Multi-rank-skipping dependency edges are common in the real corpus, so a hand-rolled layered layout would have needed dummy-node insertion.
+          evidence: 'runtime: corpus scan of deps across 45 plan YAMLs; plan-1670cacd slice 8 depends on slice 1 (seven-rank gap)'
+        - id: A4
+          status: verified
+          text: All eight cited research URLs resolve and substantiate their stated claims, including exact dates and counts.
+          evidence: gh api checks on ajstarks/svgo (pushed 2022-12-09, LICENSE is literal CC-BY-4.0), zkrebbekx/go-mermaid (created 2026-06-13, 2 stars), goccy/go-graphviz (v0.2.10, 2025-11-29); WebFetch on d2 layout.go confirming go:embed of dagre.js
+        - id: A5
+          status: falsified
+          text: The original design.problem figure of 34 block instances was wrong as stated — 22 are authored in YAML.
+          evidence: 'runtime: grep over .wipnote/plans/*.yaml -> 22 (12 file-tree, 4 diagram, 4 data-model, 1 wireframe, 1 tabs, 0 api-endpoint). Reconciled: 34 is the RENDERED count because visual_overview_zone emits blocks alongside blocks_zone. Text corrected to cite both.'
+        - id: A6
+          status: unverified
+          text: goja can execute dagre.js unmodified and return usable coordinates.
+          evidence: 'unverified: d2 uses its own jsrunner abstraction and may not use goja. Slice 2 carries this as an open question with goccy/go-graphviz as the researched fallback.'
+        - id: A7
+          status: plausible
+          text: wipnote:execute's file-overlap wave partitioning, not the declared deps, is what prevents validate.go and schema.go collisions among slices 5, 6 and 7.
+          evidence: plugin/skills/execute/SKILL.md documents file-overlap partitioning; noted in each slice's decisions_notes rather than relied on silently.
+        - id: A8
+          status: verified
+          text: FileTree and APIEndpoint are defined in plan/blocks/blocks.go, not in standalone per-type files.
+          evidence: 'plan/blocks/blocks.go:81 (FileTree), plan/blocks/blocks.go:59 (APIEndpoint); runtime: find plan -iname ''*file_tree*'' returns only the template'
+    critics:
+        - title: DESIGN CRITIC
+          sections:
+            - heading: Correctness gaps
+              items:
+                - badge: legacy exemption
+                  kind: danger
+                  text: Slice 6 hardened the block gate with no finalized-plan exemption while the near-identical slice 5 had one — would have failed all 204 existing block-free slices. Fixed.
+                - badge: retrieval untested
+                  kind: danger
+                  text: Retrieval-corpus parseability was declared a constraint then never covered by any acceptance criterion or test. Fixed in slice 1.
+                - badge: vendor assets
+                  kind: danger
+                  text: Removing d3/dagre-d3 references left it unstated whether the vendor files are deleted, which would break every un-re-rendered legacy plan. Constraint added.
+            - heading: Structure and ergonomics
+              items:
+                - badge: duplication
+                  kind: warn
+                  text: Arrowhead geometry would have been implemented twice across slices 2 and 3. Centralised in slice 1.
+                - badge: unsourced number
+                  kind: warn
+                  text: The 16-node ceiling was the only quantitative claim not traceable to the corpus. Removed.
+                - badge: bundling
+                  kind: warn
+                  text: Slice 6 bundled two unrelated policies into one approval unit. Split into 6 and 7.
+                - badge: no dependency
+                  kind: success
+                  text: The no-new-dependency constraint was honoured everywhere with real, checkable research trails.
+        - title: FEASIBILITY CRITIC
+          sections:
+            - heading: Scope defects
+              items:
+                - badge: build breaker
+                  kind: danger
+                  text: Three files enforcing the d3/dagre-d3 CDN tags were outside slice 2's scope; implementing as written would have broken every plan validate call. All added.
+                - badge: missing file
+                  kind: danger
+                  text: dependency_graph.gohtml, the file actually holding the empty <svg>, was absent from slice 2. Added.
+                - badge: invented paths
+                  kind: danger
+                  text: plan/blocks/file_tree.go and plan/blocks/api_endpoint.go do not exist. Corrected to plan/blocks/blocks.go, with the api_endpoint template and tests added to slice 7.
+                - badge: algorithm gap
+                  kind: danger
+                  text: Hand-rolled Sugiyama omitted dummy-node handling for multi-rank edges, which the corpus shows are the norm. Approach replaced with embedded dagre.js.
+            - heading: Evidence quality
+              items:
+                - badge: URLs verified
+                  kind: success
+                  text: All eight research URLs check out exactly, including precise dates and star counts that could easily have been misremembered.
+                - badge: block count
+                  kind: warn
+                  text: design.problem's 34-instance figure did not match a live corpus count of 22. Corrected and reconciled.
+                - badge: thresholds
+                  kind: warn
+                  text: The ~40/~60 word prose caps were asserted round numbers. Replaced with a requirement to derive the cap from the corpus distribution.
+    risks:
+        - risk: goja may not execute dagre.js unmodified, invalidating slice 2's chosen approach.
+          severity: High
+          mitigation: First implementation step is a spike proving dagre.js runs under goja and returns coordinates. goccy/go-graphviz (cgo-free, WASM-embedded, v0.2.10) is the pre-researched fallback.
+        - risk: 'Dual-format validator window: legacy d3-format plans and new inline-SVG plans must both validate until the last plan migrates lazily.'
+          severity: Medium
+          mitigation: TestPlanValidate_DualFormat is a required done_when on slice 2, and the vendor assets stay on disk until migration completes.
+        - risk: Slices 5, 6 and 7 all touch plan/planyaml/validate.go with no declared ordering.
+          severity: Low
+          mitigation: Noted explicitly in each slice's decisions_notes; execute via wipnote:execute so file-overlap partitioning serialises them.
+    synthesis: |
+        Both critics found real defects and the plan was rewritten rather than
+        annotated. The feasibility pass was the higher-yield of the two: it caught
+        three file paths that do not exist, one file omitted from the slice that
+        exists to fix it, and — most seriously — that cmd/wipnote/plan_validate.go
+        hard-fails when the d3/dagre-d3 CDN tags are absent, which the original
+        slice 2 would have triggered on every plan. It also proved from the corpus
+        that multi-rank-skipping dependency edges are the norm, which retired the
+        hand-rolled Sugiyama approach in favour of embedding dagre.js the way d2
+        does. The design pass caught the one outright correctness bug: slice 6
+        hardening validation with no legacy exemption would have failed 204
+        existing slices.
+
+        All HIGH findings are resolved in the current YAML. Two items remain open
+        for the human reviewer. First, A6 — goja executing dagre.js is unproven,
+        and slice 2 is explicitly gated on a spike with a researched fallback;
+        that is the single highest-risk decision in the plan. Second, slice 5's
+        prose cap now requires deriving its threshold from the corpus rather than
+        asserting one, so the actual number is deliberately not yet fixed. Review
+        slice 2 first.

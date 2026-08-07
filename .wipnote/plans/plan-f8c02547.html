@@ -470,7 +470,7 @@ body.right-rail-collapsed .sidebar-reopen{display:flex}
       <a href="#slice-1" class="slice-nav-item" data-slice-nav="1">
         <span class="slice-nav-dot" data-approval="pending" data-dot-for="1"></span>
         <span>#1 SVG primitive package — emission helpers, arrowhead marker, deterministic text metrics</span>
-        
+        <span class="nav-triage-badge nav-triage-issue" title="3 issue(s)">&#9888;3</span>
         <span class="nav-triage-badge nav-triage-question" title="2 open question(s)">?2</span>
       </a>
     </li>
@@ -479,7 +479,7 @@ body.right-rail-collapsed .sidebar-reopen{display:flex}
       <a href="#slice-2" class="slice-nav-item" data-slice-nav="2">
         <span class="slice-nav-dot" data-approval="pending" data-dot-for="2"></span>
         <span>#2 Static dependency graph via embedded dagre.js, with dual-format validator support</span>
-        
+        <span class="nav-triage-badge nav-triage-issue" title="6 issue(s)">&#9888;6</span>
         <span class="nav-triage-badge nav-triage-question" title="2 open question(s)">?2</span>
       </a>
     </li>
@@ -488,7 +488,7 @@ body.right-rail-collapsed .sidebar-reopen{display:flex}
       <a href="#slice-3" class="slice-nav-item" data-slice-nav="3">
         <span class="slice-nav-dot" data-approval="pending" data-dot-for="3"></span>
         <span>#3 Real file-tree indentation and drawn diagram edges</span>
-        
+        <span class="nav-triage-badge nav-triage-issue" title="1 issue(s)">&#9888;1</span>
         
       </a>
     </li>
@@ -497,7 +497,7 @@ body.right-rail-collapsed .sidebar-reopen{display:flex}
       <a href="#slice-4" class="slice-nav-item" data-slice-nav="4">
         <span class="slice-nav-dot" data-approval="pending" data-dot-for="4"></span>
         <span>#4 Critique revises slices in place instead of appending</span>
-        
+        <span class="nav-triage-badge nav-triage-issue" title="2 issue(s)">&#9888;2</span>
         
       </a>
     </li>
@@ -506,7 +506,7 @@ body.right-rail-collapsed .sidebar-reopen{display:flex}
       <a href="#slice-5" class="slice-nav-item" data-slice-nav="5">
         <span class="slice-nav-dot" data-approval="pending" data-dot-for="5"></span>
         <span>#5 Prose caps in schema validation, with author-facing guidance</span>
-        
+        <span class="nav-triage-badge nav-triage-issue" title="2 issue(s)">&#9888;2</span>
         
       </a>
     </li>
@@ -515,7 +515,7 @@ body.right-rail-collapsed .sidebar-reopen{display:flex}
       <a href="#slice-6" class="slice-nav-item" data-slice-nav="6">
         <span class="slice-nav-dot" data-approval="pending" data-dot-for="6"></span>
         <span>#6 Harden the default-tier block gate, with a legacy exemption</span>
-        
+        <span class="nav-triage-badge nav-triage-issue" title="2 issue(s)">&#9888;2</span>
         
       </a>
     </li>
@@ -524,7 +524,7 @@ body.right-rail-collapsed .sidebar-reopen{display:flex}
       <a href="#slice-7" class="slice-nav-item" data-slice-nav="7">
         <span class="slice-nav-dot" data-approval="pending" data-dot-for="7"></span>
         <span>#7 Drop the never-used api-endpoint block type</span>
-        
+        <span class="nav-triage-badge nav-triage-issue" title="1 issue(s)">&#9888;1</span>
         
       </a>
     </li>
@@ -846,7 +846,7 @@ produces text.
           <span class="badge badge-revision badge-sm badge-complexity" title="Complexity: complex">Complex</span>
           
           <span class="badge badge-pending badge-sm slice-approval-badge" data-badge-for="slice-1">Pending</span>
-          
+          <span class="badge badge-sm badge-issues" title="3 critic issue(s)">3 issues</span>
           <span class="badge badge-sm badge-questions" title="2 open question(s)">2 Q</span>
         </span>
         <span class="slice-actions" onclick="event.stopPropagation()">
@@ -981,6 +981,31 @@ the rendered HTML.</p>
     
 
     
+    <div class="slice-field slice-critic-revisions">
+      <div class="slice-field-label">Critic Revisions</div>
+      <div class="slice-field-value">
+        
+        <div class="critic-revision">
+          <span class="badge badge-blocked critic-revision-badge">HIGH</span>
+          <span class="critic-revision-source">claude-design</span>
+          <span class="critic-revision-summary">Retrieval-corpus parseability was declared load-bearing in constraints but had no acceptance criteria in any slice. Added contiguous-&lt;text&gt; requirement plus TestEmit_GreppableLabels.</span>
+        </div>
+        
+        <div class="critic-revision">
+          <span class="badge badge-revision critic-revision-badge">MED</span>
+          <span class="critic-revision-source">claude-design</span>
+          <span class="critic-revision-summary">Arrowhead primitive was absent while slices 2 and 3 both require drawn arrowheads — duplication risk against the repo&#39;s no-duplication rule. Added a shared marker def here.</span>
+        </div>
+        
+        <div class="critic-revision">
+          <span class="badge badge-pending critic-revision-badge">LOW</span>
+          <span class="critic-revision-source">claude-feasibility</span>
+          <span class="critic-revision-summary">done_when for theme CSS custom properties had no named test. Added TestEmit_ThemeVariables.</span>
+        </div>
+        
+      </div>
+    </div>
+    
 
     
     <div class="slice-field slice-questions">
@@ -1036,7 +1061,7 @@ the rendered HTML.</p>
           <span class="badge badge-revision badge-sm badge-complexity" title="Complexity: complex">Complex</span>
           
           <span class="badge badge-pending badge-sm slice-approval-badge" data-badge-for="slice-2">Pending</span>
-          
+          <span class="badge badge-sm badge-issues" title="6 critic issue(s)">6 issues</span>
           <span class="badge badge-sm badge-questions" title="2 open question(s)">2 Q</span>
         </span>
         <span class="slice-actions" onclick="event.stopPropagation()">
@@ -1192,6 +1217,49 @@ Both are in scope here; omitting them would break every plan validate call.</p>
     
 
     
+    <div class="slice-field slice-critic-revisions">
+      <div class="slice-field-label">Critic Revisions</div>
+      <div class="slice-field-value">
+        
+        <div class="critic-revision">
+          <span class="badge badge-blocked critic-revision-badge">HIGH</span>
+          <span class="critic-revision-source">claude-feasibility</span>
+          <span class="critic-revision-summary">cmd/wipnote/plan_validate.go:352-359 hard-fails when d3/dagre-d3 CDN tags are absent, with plan_validate_test.go:164-179 asserting it, and plan/plantmpl/builder_test.go:190-196 asserts they must be present. None were in scope — the original slice would have broken every `wipnote plan validate` call. All three added.</span>
+        </div>
+        
+        <div class="critic-revision">
+          <span class="badge badge-blocked critic-revision-badge">HIGH</span>
+          <span class="critic-revision-source">claude-feasibility</span>
+          <span class="critic-revision-summary">plan/plantmpl/templates/dependency_graph.gohtml — the file actually containing the empty &lt;svg&gt; and display:none data island — was omitted from the file list. Added.</span>
+        </div>
+        
+        <div class="critic-revision">
+          <span class="badge badge-blocked critic-revision-badge">HIGH</span>
+          <span class="critic-revision-source">claude-feasibility</span>
+          <span class="critic-revision-summary">Corpus scan shows multi-rank-skipping deps are common, not hypothetical (plan-1670cacd slice 8 depends on slice 1, a seven-rank gap). Hand-rolled Sugiyama needed dummy-node insertion absent from the spec. Approach changed to embedded dagre.js, matching d2&#39;s own precedent.</span>
+        </div>
+        
+        <div class="critic-revision">
+          <span class="badge badge-blocked critic-revision-badge">HIGH</span>
+          <span class="critic-revision-source">claude-design</span>
+          <span class="critic-revision-summary">Vendor-asset handling was unstated: deleting d3/dagre-d3 while legacy plans re-render lazily would leave broken script tags in every un-migrated plan. Constraint added to retain assets until migration completes.</span>
+        </div>
+        
+        <div class="critic-revision">
+          <span class="badge badge-revision critic-revision-badge">MED</span>
+          <span class="critic-revision-source">claude-design</span>
+          <span class="critic-revision-summary">No criterion protected the data-section/anchor scheme despite the DOM contract being declared load-bearing, unlike slice 3 which had one. Added.</span>
+        </div>
+        
+        <div class="critic-revision">
+          <span class="badge badge-revision critic-revision-badge">MED</span>
+          <span class="critic-revision-source">claude-design</span>
+          <span class="critic-revision-summary">The 16-node layout ceiling was the only quantitative claim in the plan not traceable to a corpus measurement. Removed — dagre handles the real distribution without asserting a bound.</span>
+        </div>
+        
+      </div>
+    </div>
+    
 
     
     <div class="slice-field slice-questions">
@@ -1247,7 +1315,7 @@ Both are in scope here; omitting them would break every plan validate call.</p>
           <span class="badge badge-discuss badge-sm badge-complexity" title="Complexity: standard">Standard</span>
           
           <span class="badge badge-pending badge-sm slice-approval-badge" data-badge-for="slice-3">Pending</span>
-          
+          <span class="badge badge-sm badge-issues" title="1 critic issue(s)">1 issue</span>
           
         </span>
         <span class="slice-actions" onclick="event.stopPropagation()">
@@ -1382,6 +1450,19 @@ Those paths do not exist.</p>
     
 
     
+    <div class="slice-field slice-critic-revisions">
+      <div class="slice-field-label">Critic Revisions</div>
+      <div class="slice-field-value">
+        
+        <div class="critic-revision">
+          <span class="badge badge-blocked critic-revision-badge">HIGH</span>
+          <span class="critic-revision-source">claude-feasibility</span>
+          <span class="critic-revision-summary">plan/blocks/file_tree.go does not exist anywhere in the tree — FileTree is defined at plan/blocks/blocks.go:81. Path corrected.</span>
+        </div>
+        
+      </div>
+    </div>
+    
 
     
 
@@ -1408,7 +1489,7 @@ Those paths do not exist.</p>
           <span class="badge badge-discuss badge-sm badge-complexity" title="Complexity: standard">Standard</span>
           
           <span class="badge badge-pending badge-sm slice-approval-badge" data-badge-for="slice-4">Pending</span>
-          
+          <span class="badge badge-sm badge-issues" title="2 critic issue(s)">2 issues</span>
           
         </span>
         <span class="slice-actions" onclick="event.stopPropagation()">
@@ -1560,6 +1641,25 @@ its own critique pass, making it the first real fixture for the compat test.</p>
     
 
     
+    <div class="slice-field slice-critic-revisions">
+      <div class="slice-field-label">Critic Revisions</div>
+      <div class="slice-field-value">
+        
+        <div class="critic-revision">
+          <span class="badge badge-pending critic-revision-badge">LOW</span>
+          <span class="critic-revision-source">claude-design</span>
+          <span class="critic-revision-summary">Ambiguity over whether `what` already rewrites in place or also accumulates determined whether slices 4 and 5 truly do not interact. Scope clarification added: only critic_revisions accumulates today.</span>
+        </div>
+        
+        <div class="critic-revision">
+          <span class="badge badge-pending critic-revision-badge">LOW</span>
+          <span class="critic-revision-source">claude-feasibility</span>
+          <span class="critic-revision-summary">done_when for `wipnote history` surfacing superseded wording had no corresponding test. Added TestHistory_SurfacesSuperseded.</span>
+        </div>
+        
+      </div>
+    </div>
+    
 
     
 
@@ -1586,7 +1686,7 @@ its own critique pass, making it the first real fixture for the compat test.</p>
           <span class="badge badge-discuss badge-sm badge-complexity" title="Complexity: standard">Standard</span>
           
           <span class="badge badge-pending badge-sm slice-approval-badge" data-badge-for="slice-5">Pending</span>
-          
+          <span class="badge badge-sm badge-issues" title="2 critic issue(s)">2 issues</span>
           
         </span>
         <span class="slice-actions" onclick="event.stopPropagation()">
@@ -1732,6 +1832,25 @@ partitioning.</p>
     
 
     
+    <div class="slice-field slice-critic-revisions">
+      <div class="slice-field-label">Critic Revisions</div>
+      <div class="slice-field-value">
+        
+        <div class="critic-revision">
+          <span class="badge badge-revision critic-revision-badge">MED</span>
+          <span class="critic-revision-source">claude-feasibility</span>
+          <span class="critic-revision-summary">The ~40/~60 word thresholds were asserted round numbers with no corpus or readability basis — the weakest-grounded figures in an otherwise rigorously cited plan. Replaced with a done_when requiring the cap be derived from the measured distribution and its target percentile recorded.</span>
+        </div>
+        
+        <div class="critic-revision">
+          <span class="badge badge-pending critic-revision-badge">LOW</span>
+          <span class="critic-revision-source">claude-design</span>
+          <span class="critic-revision-summary">plugin/skills/plan/SKILL.md was not updated, so authors would hit a hard validation failure with no prior warning during the interview. Added to scope.</span>
+        </div>
+        
+      </div>
+    </div>
+    
 
     
 
@@ -1758,7 +1877,7 @@ partitioning.</p>
           <span class="badge badge-discuss badge-sm badge-complexity" title="Complexity: standard">Standard</span>
           
           <span class="badge badge-pending badge-sm slice-approval-badge" data-badge-for="slice-6">Pending</span>
-          
+          <span class="badge badge-sm badge-issues" title="2 critic issue(s)">2 issues</span>
           
         </span>
         <span class="slice-actions" onclick="event.stopPropagation()">
@@ -1895,6 +2014,25 @@ the next validate run.
     
 
     
+    <div class="slice-field slice-critic-revisions">
+      <div class="slice-field-label">Critic Revisions</div>
+      <div class="slice-field-value">
+        
+        <div class="critic-revision">
+          <span class="badge badge-blocked critic-revision-badge">HIGH</span>
+          <span class="critic-revision-source">claude-design</span>
+          <span class="critic-revision-summary">No legacy exemption here, unlike the near-identical slice 5 — as written, the next validate run would fail all 204 existing block-free slices. Exemption added.</span>
+        </div>
+        
+        <div class="critic-revision">
+          <span class="badge badge-revision critic-revision-badge">MED</span>
+          <span class="critic-revision-source">claude-design</span>
+          <span class="critic-revision-summary">Bundled gate hardening with api-endpoint removal, forcing one approval for two unrelated policies. Split into slices 6 and 7.</span>
+        </div>
+        
+      </div>
+    </div>
+    
 
     
 
@@ -1921,7 +2059,7 @@ the next validate run.
           <span class="badge badge-discuss badge-sm badge-complexity" title="Complexity: standard">Standard</span>
           
           <span class="badge badge-pending badge-sm slice-approval-badge" data-badge-for="slice-7">Pending</span>
-          
+          <span class="badge badge-sm badge-issues" title="1 critic issue(s)">1 issue</span>
           
         </span>
         <span class="slice-actions" onclick="event.stopPropagation()">
@@ -2052,6 +2190,19 @@ standalone api_endpoint.go, which does not exist.</p>
     </div>
     
 
+    
+    <div class="slice-field slice-critic-revisions">
+      <div class="slice-field-label">Critic Revisions</div>
+      <div class="slice-field-value">
+        
+        <div class="critic-revision">
+          <span class="badge badge-blocked critic-revision-badge">HIGH</span>
+          <span class="critic-revision-source">claude-feasibility</span>
+          <span class="critic-revision-summary">plan/blocks/api_endpoint.go does not exist — APIEndpoint is defined at plan/blocks/blocks.go:59. The template plan/blocks/templates/api_endpoint.gohtml and the tests at plan/blocks/blocks_test.go:58-89 also had to be removed and were missing from scope. All corrected.</span>
+        </div>
+        
+      </div>
+    </div>
     
 
     

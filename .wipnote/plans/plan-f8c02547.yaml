@@ -1,0 +1,18 @@
+meta:
+    id: plan-f8c02547
+    track_id: trk-a951e3c0
+    title: 'Plans that read as maps: static SVG blocks, in-place critique, prose caps'
+    description: Redesign the plan document so it conveys structure visually instead of as prose. Add a real drawing primitive (static inline SVG generated in Go) covering the dependency graph, indented file-tree and drawn diagram edges; make critique revise slices in place rather than appending; cap slice prose and push detail to specs; harden the non-blocking block gate at the default complexity tier; drop the never-used api-endpoint block type. Grounded in spk-52c8a7a8 measurements over 45 plans and 282 slices.
+    created_at: "2026-08-07"
+    status: draft
+    priority: medium
+    schema_version: v4
+    version: 2
+design:
+    problem: ""
+    goals: []
+    constraints: []
+    approved: false
+    comment: ""
+slices: []
+questions: []

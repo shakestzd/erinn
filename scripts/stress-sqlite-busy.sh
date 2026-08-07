@@ -6,14 +6,13 @@
 # across parallel AI/CLI sessions. Run ONE instance per session/terminal.
 #
 # Usage:
-#   scripts/stress-sqlite-busy.sh <claude|codex|gemini|term> [iterations]
+#   scripts/stress-sqlite-busy.sh <claude|codex|term> [iterations]
 #
-# Run it the truest way (no AI needed) in three terminals at once:
+# Run it the truest way (no AI needed) in two terminals at once:
 #   scripts/stress-sqlite-busy.sh claude   &
 #   scripts/stress-sqlite-busy.sh codex    &
-#   scripts/stress-sqlite-busy.sh gemini   &
 # ...or paste "run scripts/stress-sqlite-busy.sh <name> and report the RESULT
-# block" into each wipnote claude/codex/gemini session.
+# block" into each wipnote claude/codex session.
 #
 # The dashboard is auto-started by any wipnote launcher (ensureServeForDashboard);
 # in a devcontainer it binds 0.0.0.0:8088. Override with WIPNOTE_STRESS_BASE.
@@ -30,7 +29,7 @@ set -u
 HARNESS="${1:-}"
 ITERS="${2:-25}"
 if [ -z "$HARNESS" ]; then
-  echo "usage: $0 <claude|codex|gemini|term> [iterations]" >&2
+  echo "usage: $0 <claude|codex|term> [iterations]" >&2
   exit 2
 fi
 

@@ -2,7 +2,7 @@
 
 A clean-room **source development** environment for working on wipnote
 itself, isolated from your laptop's installed wipnote release and from
-any host-side Claude/Gemini/Codex configuration.
+any host-side Claude/Codex configuration.
 
 ## Scope
 
@@ -22,7 +22,6 @@ work across other projects. The two are fully independent.
 | Node.js 22 | `ghcr.io/devcontainers/features/node` |
 | GitHub CLI | `ghcr.io/devcontainers/features/github-cli` |
 | Claude Code CLI | `npm install -g @anthropic-ai/claude-code` |
-| Gemini CLI | `npm install -g @google/gemini-cli` |
 | Codex CLI | `npm install -g @openai/codex` |
 | GitHub Copilot CLI | `npm install -g @github/copilot` |
 | Roborev CLI | `.devcontainer/post-create.sh` via official `roborev.io` installer |
@@ -58,12 +57,11 @@ configuration. On first boot, authenticate each CLI interactively:
 ```bash
 claude         # OAuth browser login (or API key if you prefer)
 codex          # OpenAI login
-gemini         # Google login
 copilot        # GitHub login
 ```
 
 Credentials persist across rebuilds via named Docker volumes mounted at
-`/home/vscode/.claude`, `/home/vscode/.codex`, `/home/vscode/.gemini`,
+`/home/vscode/.claude`, `/home/vscode/.codex`,
 and `/home/vscode/.copilot`. The source-built `wipnote` binary and
 locally installed helper tools persist in `/home/vscode/.local`. Roborev
 state persists in `/home/vscode/.roborev`, and `post-create.sh`

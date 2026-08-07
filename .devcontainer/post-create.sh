@@ -41,7 +41,6 @@ install_script_from_url() {
 sudo chown -R vscode:vscode \
     "${REPO_ROOT}/.wipnote" \
     /home/vscode/.codex \
-    /home/vscode/.gemini \
     /home/vscode/.copilot \
     /home/vscode/.roborev \
     2>/dev/null || true
@@ -65,7 +64,6 @@ retry npm install -g --no-fund --no-audit \
     --fetch-retry-mintimeout=5000 \
     --fetch-retry-maxtimeout=30000 \
     @anthropic-ai/claude-code \
-    @google/gemini-cli \
     @openai/codex \
     @github/copilot
 
@@ -228,7 +226,6 @@ node --version
 npm --version
 claude --version || true
 codex --version || true
-gemini --version || true
 copilot --version || true
 roborev version || true
 wipnote version || true
@@ -245,7 +242,6 @@ Next steps:
 - Authenticate the CLIs once (stored in persistent volumes):
     claude           # OAuth browser login (or API key)
     codex
-    gemini
     copilot
 - Launch Claude Code in dev mode so it loads the plugin from source:
     wipnote claude --dev
@@ -258,7 +254,6 @@ Next steps:
 Persistent volumes mounted:
   /home/vscode/.claude         — Claude Code credentials
   /home/vscode/.codex          — Codex credentials
-  /home/vscode/.gemini         — Gemini credentials
   /home/vscode/.copilot        — GitHub Copilot CLI credentials
   /home/vscode/.roborev        — roborev config, review database, and daemon state
   /home/vscode/.local          — wipnote binary + version metadata

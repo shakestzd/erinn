@@ -28,7 +28,6 @@
   "mounts": [
     "source=wipnote-claude-home,target=/home/vscode/.claude,type=volume",
     "source=wipnote-codex-home,target=/home/vscode/.codex,type=volume",
-    "source=wipnote-gemini-home,target=/home/vscode/.gemini,type=volume",
     "source=wipnote-copilot-home,target=/home/vscode/.copilot,type=volume",
     "source=wipnote-roborev-home,target=/home/vscode/.roborev,type=volume",
     "source=wipnote-local-bin,target=/home/vscode/.local,type=volume",

@@ -32,7 +32,7 @@ section "go test -short ./..."
 go test -short ./... -count=1
 
 section "required devcontainer tools"
-for tool in wipnote claude codex gemini copilot roborev uv mkdocs oh-my-posh ttyd bwrap tmux rg fd jq sqlite3 shellcheck zsh direnv; do
+for tool in wipnote claude codex copilot roborev uv mkdocs oh-my-posh ttyd bwrap tmux rg fd jq sqlite3 shellcheck zsh direnv; do
     if ! command -v "$tool" >/dev/null 2>&1; then
         echo "$tool is not on PATH. Rebuild the devcontainer or rerun .devcontainer/post-create.sh." >&2
         exit 1

@@ -294,6 +294,12 @@ func runValidateYAML(planID string) error {
 	for _, a := range planyaml.ValidateBlockAdvisories(plan) {
 		fmt.Fprintf(os.Stderr, "  ! blocks advisory: %s\n", a)
 	}
+	// Non-fatal prose-length advisories: nudge why/tests/done_when back toward
+	// their corpus norms. Unlike `what` (a hard cap in Validate above), these
+	// only warn. Never fails validation.
+	for _, a := range planyaml.ValidateProseAdvisories(plan) {
+		fmt.Fprintf(os.Stderr, "  ! prose advisory: %s\n", a)
+	}
 	fmt.Printf("Plan valid: %d slices, %d questions\n", len(plan.Slices), len(plan.Questions))
 	return nil
 }

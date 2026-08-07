@@ -30,15 +30,20 @@ func wordCount(s string) int {
 // Full `what` distribution: p10=33 p25=56 p45=91 p50(median)=96 p60=115
 // p75=144 p90=198 p95=224 words (n=289).
 //
-// The cap is set at 91 words — the corpus's 45th percentile:
-//   - 131/289 = 45.3% of EXISTING slices already comply without being
-//     rewritten, proving the target is achievable rather than aspirational
-//     (a prior draft asserting "~40 words" with no basis was rejected for
-//     exactly this reason).
-//   - It sits just below the measured median (96), so the median-length slice
-//     from the audit itself fails the check — the cap has real teeth, not
-//     just theoretical ones.
-const whatWordCap = 91
+// The cap is set at 56 words — the corpus's 25th percentile. An earlier draft
+// of this cap used 91 (p45, "45% of existing slices already comply") — that
+// was the wrong achievability metric: the cap only ever applies to
+// non-finalized plans (see the finalized exemption below), so EXISTING-corpus
+// compliance is a non-constraint — most of that corpus is legacy prose this
+// cap will never touch. The metric that matters is whether a well-written NEW
+// slice can comply, and there's direct evidence: plan-f8c02547's own 7 slices
+// (written after blocks-first planning, never flagged as unclear by any
+// reviewer) run 14-32 words. 56 sits comfortably above that demonstrated
+// working range while still being a real, non-round percentile break (not a
+// number pulled from thin air like the previously-rejected "~40 words"), and
+// it forces genuine compaction on the corpus's median-length slices (96
+// words) and everything above.
+const whatWordCap = 56
 
 // Advisory-only prose-length norms for why/tests/done_when, derived the same
 // way as whatWordCap (each field's own 75th percentile across the same

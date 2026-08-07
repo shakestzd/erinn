@@ -1100,7 +1100,7 @@ func proseCapPlan(whatWords int) *PlanYAML {
 
 func TestValidate_WhatCapFails(t *testing.T) {
 	// The corpus median (measured across .wipnote/plans/*.yaml) is 96 words —
-	// that exact length must fail against the derived 91-word cap, with the
+	// that exact length must fail against the derived 56-word cap, with the
 	// actual count named in the message.
 	plan := proseCapPlan(96)
 	errs := Validate(plan)
@@ -1118,7 +1118,7 @@ func TestValidate_WhatCapFails(t *testing.T) {
 }
 
 func TestValidate_WhatAtCapPasses(t *testing.T) {
-	// Boundary check: exactly at the cap (91 words) must not fail.
+	// Boundary check: exactly at the cap (56 words) must not fail.
 	plan := proseCapPlan(whatWordCap)
 	errs := Validate(plan)
 	for _, e := range errs {

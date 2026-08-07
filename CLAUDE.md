@@ -107,7 +107,16 @@ Gemini CLI session data via the retained ingest read path.)
 | `plugin/.claude-plugin/plugin.json`, `plugin/hooks/hooks.json` | Generated Claude Code tree | NO — regenerate |
 | `port/packages/codex-marketplace/` | Generated Codex CLI tree | NO — regenerate |
 | `port/packages/antigravity-extension/` | Generated Antigravity tree | NO — regenerate |
-| `.claude/` (anything) | Auto-synced from `plugin/` — changes are lost | NO |
+| `~/.claude/plugins/marketplaces/` (user home, legacy install) | Wiped by `removeMarketplaceWipnote` before every `--dev` launch so it can't shadow the local `plugin/` tree | NO — don't hand-install here |
+
+**Repo-root `.claude/` is not a build output.** The Claude target's `outDir` is `plugin/`
+itself — `build-ports --target claude` writes only the two generated files above
+(`plugin/.claude-plugin/plugin.json`, `plugin/hooks/hooks.json`). This repo's own `.claude/`
+(rules, skills, settings, `agent-memory/`) is separate, hand-maintained dev tooling that no
+wipnote code path syncs or deletes — in particular `.claude/agent-memory/` (subagent
+cross-session memory, namespaced `<plugin>-<agent>`, e.g. `wipnote-researcher/`) is untouched.
+The only delete-on-sync logic, `removeMarketplaceWipnote` (`cmd/wipnote/claude.go:157-233`),
+targets the user's HOME `~/.claude/plugins/marketplaces/` tree, never the repo.
 
 **Regenerate after every manifest or asset edit:**
 

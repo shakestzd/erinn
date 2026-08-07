@@ -696,6 +696,25 @@ func truncateStr(s string, maxLen int) string {
 // Stderr is never leaked to the caller's stderr — it is captured into a buffer.
 // WIPNOTE_AUTO_COMPLIANCE_RUNNING=1 is set in the spawned process env
 // (forward-compat fork-bomb guard for a future hook plan).
+//
+// Bare-mode exposure (bug-48b023e5): Claude Code's `--bare` flag (skips
+// auto-discovery of hooks/skills/plugins/MCP servers/CLAUDE.md, and restricts
+// auth to ANTHROPIC_API_KEY/apiKeyHelper only — OAuth and keychain are never
+// read in bare mode) is documented as "the recommended mode for scripted and
+// SDK calls, and will become the default for -p in a future release"
+// (code.claude.com/docs/en/headless, verified against Claude Code v2.1.224).
+// This call is intentionally NOT passing --bare today, and is safe either way
+// with respect to *discovery*: the system prompt is fully replaced via
+// --system-prompt below, --allowedTools is pinned to "Read" only, and the
+// prompt never references skills or relies on CLAUDE.md/plugin/hook state —
+// so losing auto-discovery when the default flips changes nothing about the
+// grading result. The unresolved risk is auth, not discovery: bare mode's
+// OAuth/keychain lockout is bundled into the same flag, and there is currently
+// no documented --no-bare opt-out to keep today's ambient-login behavior once
+// -p defaults to bare. If that flip also flips the default auth mode, this
+// call starts failing for any environment without ANTHROPIC_API_KEY set —
+// watch Claude Code release notes for the -p default change and set
+// ANTHROPIC_API_KEY (or wire --bare explicitly) before it lands.
 func realHeadlessInvoker(ctx context.Context, req headlessRequest) (*headlessResult, error) {
 	args := []string{
 		"-p",
@@ -709,8 +728,14 @@ func realHeadlessInvoker(ctx context.Context, req headlessRequest) (*headlessRes
 	}
 
 	// Build the prompt argument (system + user combined via stdin or flag).
-	// We pass system prompt via --system and user prompt via stdin.
-	args = append(args, "--system", req.systemPrompt)
+	// We pass system prompt via --system-prompt and user prompt via stdin.
+	// NOTE: this was "--system" (not a recognized flag — `claude -p --system ...`
+	// fails immediately with "error: unknown option '--system'") until this fix;
+	// every real (non-stubbed) invocation of this code path was failing before
+	// this correction. No existing test caught it because all compliance_auto_test.go
+	// coverage stubs headlessInvoker rather than exercising realHeadlessInvoker
+	// against the actual claude binary.
+	args = append(args, "--system-prompt", req.systemPrompt)
 
 	cmd := exec.CommandContext(ctx, "claude", args...)
 	cmd.Stdin = strings.NewReader(req.userPrompt)

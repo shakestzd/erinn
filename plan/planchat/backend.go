@@ -150,6 +150,21 @@ func (b *Backend) buildSystemPrompt() string {
 }
 
 // buildCmd constructs the claude CLI command arguments.
+//
+// Bare-mode exposure (bug-48b023e5): unlike cmd/wipnote/compliance_auto.go's
+// headless grading call, this backend uses --append-system-prompt (not
+// --system-prompt) specifically to ADD to Claude Code's default system prompt
+// rather than replace it, and sets neither --allowedTools nor --permission-mode,
+// so it relies on whatever hooks/skills/plugins/CLAUDE.md/tool defaults the
+// invoking environment normally provides — that is the point of a plan-review
+// assistant that should understand the project. Claude Code's docs state
+// --bare "will become the default for -p in a future release" with no
+// documented --no-bare opt-out (verified against v2.1.224). If/when that
+// default flip lands, this flow would silently lose CLAUDE.md/hook/skill/plugin
+// context (degraded but not crashing) and would also need ANTHROPIC_API_KEY
+// set, since bare mode never reads OAuth or the keychain. Track alongside
+// bug-48b023e5 rather than fixing here — there is nothing to pin against
+// today given the missing opt-out flag.
 func (b *Backend) buildCmd(claudePath, message string) []string {
 	args := []string{
 		claudePath,

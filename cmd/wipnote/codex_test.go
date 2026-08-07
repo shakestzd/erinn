@@ -1468,6 +1468,11 @@ func TestLaunchCodexDevDryRunSkipsWorkItemStart(t *testing.T) {
 	// test's temp repo, causing a flaky/order-dependent failure.
 	t.Setenv("CLAUDE_PROJECT_DIR", "")
 	t.Setenv("WIPNOTE_PROJECT_DIR", "")
+	// See TestLaunchCodexDevDryRunSkipsWorktreeCreation: this test's "would
+	// create a managed worktree" assertion only holds unconditionally on
+	// RuntimeDevcontainer/RuntimeCI; force enforcement so it's deterministic
+	// on every runtime (e.g. a bare macOS host).
+	t.Setenv("WIPNOTE_ENFORCE_ISOLATION", "true")
 	oldWD, _ := os.Getwd()
 	if err := os.Chdir(repo); err != nil {
 		t.Fatalf("chdir repo: %v", err)
@@ -1560,6 +1565,17 @@ func TestLaunchCodexDevDryRunSkipsWorktreeCreation(t *testing.T) {
 	// test's temp repo, causing a flaky/order-dependent failure.
 	t.Setenv("CLAUDE_PROJECT_DIR", "")
 	t.Setenv("WIPNOTE_PROJECT_DIR", "")
+	// This test asserts on the "would create a managed worktree" preview, but
+	// plan.PlanLaunch only plans a managed worktree unconditionally on
+	// RuntimeDevcontainer/RuntimeCI (internal/launcher/plan/plan.go); on
+	// RuntimeHost it stays warn-only unless isolation is explicitly enforced.
+	// mode.Compute's devcontainer/CI detectors read ambient signals
+	// (/.dockerenv, CODESPACES, REMOTE_CONTAINERS, CI, GITHUB_ACTIONS), so
+	// this test previously only passed by accident of running inside a
+	// devcontainer/CI shell and failed deterministically on a bare host
+	// (e.g. sandboxed macOS). Force enforcement explicitly so the assertion
+	// holds on every runtime.
+	t.Setenv("WIPNOTE_ENFORCE_ISOLATION", "true")
 	oldWD, _ := os.Getwd()
 	if err := os.Chdir(repo); err != nil {
 		t.Fatalf("chdir repo: %v", err)

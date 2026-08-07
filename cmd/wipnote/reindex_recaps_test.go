@@ -182,8 +182,15 @@ func TestStartRecapsReindexLoop_PopulatesTableAtStartup(t *testing.T) {
 		close(done)
 	}()
 
-	// Wait for startup reindex to land.
-	deadline := time.Now().Add(2 * time.Second)
+	// Wait for startup reindex to land. startRecapsReindexLoop hands off to
+	// startDrainLoop, which itself spawns the goroutine that actually runs
+	// reindexRecaps — two goroutine hops from here. 2s was tight enough to
+	// flake under the full test suite's parallel load (hundreds of tests,
+	// many spawning git subprocesses, contending for OS threads/CPU); 10s
+	// keeps this a bounded poll — it still returns as soon as the row
+	// lands — while tolerating scheduler contention instead of assuming a
+	// lightly-loaded machine.
+	deadline := time.Now().Add(10 * time.Second)
 	for time.Now().Before(deadline) {
 		row, _ := dbpkg.GetRecap(db, "recap-feat-startloop")
 		if row != nil {

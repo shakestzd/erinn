@@ -33,6 +33,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/shakestzd/wipnote/core/paths"
 	_ "modernc.org/sqlite"
 )
 
@@ -271,6 +272,12 @@ func ShouldSkipRegistration(projectDir string) bool {
 // os.TempDir() (which honours TMPDIR on Unix), and also GOTMPDIR when set —
 // that environment variable redirects where 'go test' places t.TempDir()
 // subtrees (e.g. /home/vscode/.gotest-tmp in devcontainer setups).
+//
+// Each candidate is resolved with paths.EvalSymlinksBestEffort so that
+// platforms where the temp root is itself a symlink (macOS: os.TempDir()
+// returns /var/folders/... which resolves to /private/var/folders/...)
+// compare correctly against paths checked by isGoTestTempDirPath /
+// pathInsideTempDir, which resolve the same way.
 func effectiveTempDirs() []string {
 	seen := map[string]bool{}
 	var dirs []string
@@ -278,11 +285,7 @@ func effectiveTempDirs() []string {
 		if raw == "" {
 			return
 		}
-		resolved, err := filepath.EvalSymlinks(raw)
-		if err != nil {
-			resolved = raw
-		}
-		resolved = filepath.Clean(resolved)
+		resolved := filepath.Clean(paths.EvalSymlinksBestEffort(raw))
 		if !seen[resolved] {
 			seen[resolved] = true
 			dirs = append(dirs, resolved)
@@ -307,6 +310,11 @@ func isGoTestTempDirPath(projectDir string) bool {
 	if err != nil {
 		return false
 	}
+	// Resolve symlinks best-effort so this compares in the same address
+	// space as effectiveTempDirs' resolved candidates (see its doc comment
+	// for why: macOS os.TempDir()/GOTMPDIR values are symlinks, and
+	// projectDir here is frequently a synthetic or not-yet-created path).
+	abs = filepath.Clean(paths.EvalSymlinksBestEffort(abs))
 	for _, tempDir := range effectiveTempDirs() {
 		if matchesTestTempDirUnder(abs, tempDir) {
 			return true
@@ -363,6 +371,7 @@ func pathInsideTempDir(path string) bool {
 	if err != nil {
 		return false
 	}
+	abs = filepath.Clean(paths.EvalSymlinksBestEffort(abs))
 	for _, tempDir := range effectiveTempDirs() {
 		if abs == tempDir || strings.HasPrefix(abs, tempDir+string(filepath.Separator)) {
 			return true

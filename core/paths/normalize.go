@@ -219,8 +219,8 @@ func NormalizeWithResolver(absPath, repoRoot string, resolver func(dir string) s
 
 	// Apply EvalSymlinks to both sides. Failures are tolerated — tool_input
 	// regularly references files that have not yet been created on disk.
-	evaledRoot := evalSymlinksOrRaw(canonicalRoot)
-	evaledAbs := evalSymlinksOrRaw(absPath)
+	evaledRoot := EvalSymlinksBestEffort(canonicalRoot)
+	evaledAbs := EvalSymlinksBestEffort(absPath)
 
 	rel, err := filepath.Rel(evaledRoot, evaledAbs)
 	if err != nil {
@@ -290,14 +290,38 @@ func nearestExistingDir(dir string) string {
 	return ""
 }
 
-// evalSymlinksOrRaw returns EvalSymlinks(p) when it succeeds, otherwise p
-// unchanged. Used because tool_input often points at not-yet-created files
-// and an ENOENT must not abort normalisation.
-func evalSymlinksOrRaw(p string) string {
-	if e, err := filepath.EvalSymlinks(p); err == nil {
-		return e
+// EvalSymlinksBestEffort resolves symlinks in p, walking up to the nearest
+// existing ancestor when p (or a trailing portion of it) does not exist on
+// disk, then re-appending the missing suffix. Used because tool_input often
+// points at not-yet-created files and an ENOENT must not abort
+// normalisation — but a bare "fall back to raw on any failure" leaves the
+// path completely unresolved even when a real ancestor could be resolved.
+//
+// This matters cross-platform: on macOS, os.TempDir() returns a path under
+// /var/folders/... that is itself a symlink to /private/var/folders/...
+// (the same is true of GOTMPDIR values derived from t.TempDir(), which live
+// under os.TempDir()). If one side of a comparison is fully resolved (an
+// existing repo root) and the other is left raw because its leaf component
+// doesn't exist yet, /var/folders/... vs /private/var/folders/... never
+// match on a straight EvalSymlinks-or-raw fallback. Resolving the nearest
+// existing ancestor keeps both sides in the same (resolved) address space
+// regardless of how much of the path exists. On paths with no symlink
+// indirection (typical Linux /tmp), this is a no-op — EvalSymlinks succeeds
+// immediately on the first attempt.
+func EvalSymlinksBestEffort(p string) string {
+	if p == "" {
+		return p
 	}
-	return p
+	if resolved, err := filepath.EvalSymlinks(p); err == nil {
+		return resolved
+	}
+	parent := filepath.Dir(p)
+	if parent == p {
+		// Reached the root (or a relative path with no further parent)
+		// without success; nothing more can be resolved.
+		return p
+	}
+	return filepath.Join(EvalSymlinksBestEffort(parent), filepath.Base(p))
 }
 
 // debugLog writes a message to stderr only when WIPNOTE_DEBUG is set.

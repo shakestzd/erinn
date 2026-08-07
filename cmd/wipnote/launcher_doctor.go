@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/shakestzd/wipnote/core/paths"
 	"github.com/spf13/cobra"
 )
 
@@ -175,7 +176,16 @@ type worktreeEntry struct {
 
 // doctorListWorktrees returns managed wipnote worktrees, flagging stale ones.
 func doctorListWorktrees(repoRoot string) []worktreeEntry {
-	managedDir := filepath.Join(repoRoot, ".claude", "worktrees")
+	// git resolves symlinks when it registers a worktree (`worktree add`
+	// stores the realpath at add time), so `git worktree list --porcelain`
+	// reports the canonical path even after the worktree directory itself
+	// has been removed. On macOS, repoRoot is frequently an unresolved
+	// symlink path (t.TempDir() and os.TempDir() both live under
+	// /var/folders/..., which resolves to /private/var/folders/...), so
+	// comparing a raw repoRoot-derived managedDir against git's resolved
+	// paths would silently miss every entry. Resolve both sides the same
+	// way so the prefix match holds regardless of platform.
+	managedDir := filepath.Join(paths.EvalSymlinksBestEffort(repoRoot), ".claude", "worktrees")
 	out, err := exec.Command("git", "-C", repoRoot, "worktree", "list", "--porcelain").Output()
 	if err != nil {
 		return nil
@@ -185,7 +195,7 @@ func doctorListWorktrees(repoRoot string) []worktreeEntry {
 	for _, line := range strings.Split(string(out), "\n") {
 		switch {
 		case strings.HasPrefix(line, "worktree "):
-			cur = worktreeEntry{Path: strings.TrimPrefix(line, "worktree ")}
+			cur = worktreeEntry{Path: paths.EvalSymlinksBestEffort(strings.TrimPrefix(line, "worktree "))}
 		case strings.HasPrefix(line, "branch "):
 			cur.Branch = strings.TrimPrefix(strings.TrimPrefix(line, "branch "), "refs/heads/")
 		case line == "":

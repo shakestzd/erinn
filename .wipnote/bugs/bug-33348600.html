@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>realHeadlessInvoker is never exercised by tests, so an invalid claude flag shipped undetected</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="bug-33348600"
+             data-type="bug"
+             data-status="todo"
+             data-priority="high"
+             data-created="2026-08-07T16:41:44.216211"
+             data-updated="2026-08-07T16:41:44.22826" data-agent-assigned="claude-code" data-track-id="trk-1db7bf72" data-created-by-agent="claude-code" data-created-by-model="claude-opus-5[1m]" data-created-by-cli-version="0.67.1">
+
+        <header>
+            <h1>realHeadlessInvoker is never exercised by tests, so an invalid claude flag shipped undetected</h1>
+            <div class="metadata">
+                <span class="badge status-todo">Todo</span>
+                <span class="badge priority-high">High Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-1db7bf72.html" data-relationship="part_of" data-since="2026-08-07T16:41:44.228169">trk-1db7bf72</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>compliance_auto.go was passing --system to claude, which is not a recognized flag (only --system-prompt exists); every real non-stubbed headless grading invocation failed with &#39;unknown option&#39;. Fixed under bug-48b023e5, but the reason it shipped is the durable problem: compliance_auto_test.go only ever stubs the headlessInvoker variable and never exercises realHeadlessInvoker against the real binary, so the constructed argv is untested. Any flag drift in the harness CLI is invisible. Add a test that asserts the built argv against the installed binary&#39;s accepted flags, or at minimum a golden-argv test so a rename is caught at CI rather than at runtime.</p>
+        </section>
+    </article>
+</body>
+</html>

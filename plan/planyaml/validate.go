@@ -124,6 +124,33 @@ func effectiveComplexity(s PlanSlice) string {
 	return s.Complexity
 }
 
+// blocksWaiverRe matches an explicit, machine-checkable opt-out from the
+// blocks gate (see the Validate doc comment): a "blocks_waiver: <reason>"
+// marker line inside a slice's decisions_notes. Case-insensitive, tolerant of
+// leading whitespace (decisions_notes is often a YAML literal block with
+// indentation carried over).
+var blocksWaiverRe = regexp.MustCompile(`(?im)^\s*blocks_waiver:\s*(.+?)\s*$`)
+
+// blocksWaiverReason extracts the reason recorded by a "blocks_waiver:"
+// marker line in s.DecisionsNotes, or "" if no such marker is present.
+//
+// This is the skip-reason mechanism for the blocks gate: blocks-first
+// planning deliberately allows skipping a visual block when a slice is
+// genuinely underspecified (e.g. a pure refactor with no new file, route, or
+// schema surface) — forcing block invention in that case would violate the
+// grounding rule (never invent file paths, routes, or columns just to fill a
+// block). A marker line mirrors the existing research_waiver field's
+// contract (an explicit, audited reason, not a silent skip) without adding a
+// new PlanSlice field, since decisions_notes is already the free-text
+// rationale slot required alongside blocks for the same slices.
+func blocksWaiverReason(s PlanSlice) string {
+	m := blocksWaiverRe.FindStringSubmatch(s.DecisionsNotes)
+	if m == nil {
+		return ""
+	}
+	return strings.TrimSpace(m[1])
+}
+
 // hasAnsweredQuestion reports whether any slice-local question has a
 // non-empty answer (after TrimSpace).
 func hasAnsweredQuestion(qs []SliceQuestion) bool {
@@ -150,12 +177,25 @@ func hasAnsweredQuestion(qs []SliceQuestion) bool {
 //	done_when         | optional | >=1      | >=2
 //	tests             | optional | required | required
 //	decisions_notes   | optional | required | required  (>=50 chars after TrimSpace)
+//	blocks (or waiver)| optional | required | required
 //	>=1 answered Q    | optional | optional | required
 //
 // title/why/files/effort/risk are unconditionally required regardless of
 // complexity. The decisions_notes requirement is gated on
 // plan.Meta.Status != "finalized" so historical finalized plans (which
 // never carried decisions_notes) continue to validate clean.
+//
+// Blocks gate: a standard/complex slice with zero Blocks fails unless it
+// carries an explicit "blocks_waiver: <reason>" marker in decisions_notes
+// (see blocksWaiverReason). This promotes what was previously only
+// ValidateBlockAdvisories (non-blocking) to a hard gate: that advisory
+// demonstrably went unheeded — 204 of 282 corpus slices default to
+// "standard" complexity with 0% block usage among them, so a non-blocking
+// nudge does not bind at the tier that carries most authoring volume.
+// Trivial slices stay exempt; they have no design surface worth visualising.
+// Exempt like decisions_notes (same isStrictModel/explicit-Complexity
+// condition, plus finalized) — see the gate's inline comment below for the
+// measured blast-radius comparison that set this width.
 //
 // Prose-length gate: `what` fails when it exceeds whatWordCap words, gated
 // the same way as decisions_notes (plan.Meta.Status != "finalized") so
@@ -217,6 +257,14 @@ func Validate(plan *PlanYAML) []string {
 
 		complexity := effectiveComplexity(s)
 
+		// isStrictModel identifies plans authored under the triage-gated
+		// interview model (v3 introduced decisions_notes as the rationale
+		// spine; v4 additionally enforces research). It gates back-compat
+		// exemptions below (decisions_notes, blocks) alongside an explicitly-set
+		// Complexity, so the pre-triage legacy corpus (empty schema_version AND
+		// empty Complexity) is never retroactively broken by a new requirement.
+		isStrictModel := plan.Meta.SchemaVersion == "v3" || plan.Meta.SchemaVersion == "v4"
+
 		// Unconditional: title/why/files/effort/risk are required regardless
 		// of complexity. (Title was previously not enforced; preserve that
 		// behavior — only why/files are checked here, plus effort/risk below.)
@@ -264,7 +312,6 @@ func Validate(plan *PlanYAML) []string {
 			//   - schema_version == "v3" (strict model: catches omitted Complexity
 			//     which defaults to "standard"), OR
 			//   - slice.Complexity is explicitly set (legacy behaviour).
-			isStrictModel := plan.Meta.SchemaVersion == "v3" || plan.Meta.SchemaVersion == "v4"
 			requiresDecisionsNotes := plan.Meta.Status != "finalized" &&
 				(isStrictModel || s.Complexity != "")
 			if requiresDecisionsNotes {
@@ -281,6 +328,33 @@ func Validate(plan *PlanYAML) []string {
 		if plan.Meta.Status != "finalized" {
 			if wc := wordCount(s.What); wc > whatWordCap {
 				errs = append(errs, fmt.Sprintf("%s.what is %d words, exceeds the %d-word cap (trim into decisions_notes, or split the slice)", prefix, wc, whatWordCap))
+			}
+		}
+
+		// Blocks gate: standard/complex slices must carry >=1 visual block, or
+		// record an explicit skip reason via a "blocks_waiver: <reason>" marker
+		// in decisions_notes. See the Validate doc comment for the measured
+		// rationale and blocksWaiverReason for the marker contract.
+		//
+		// Exemption width (measured, not assumed): gating this unconditionally
+		// on plan.Meta.Status != "finalized" — the same width as the whatWordCap
+		// gate — was tried first and measured against the live .wipnote/plans
+		// corpus (46 plans): it broke 21 of 22 non-finalized plans, i.e. almost
+		// the entire active/draft backlog, because most predate blocks-first
+		// planning entirely. That is too wide a break for a mechanical rule with
+		// no way to bulk-satisfy it. Instead this gate reuses the SAME
+		// back-compat condition as decisions_notes above (isStrictModel ||
+		// explicit Complexity) for the standard tier, and applies unconditionally
+		// for complex (which is always explicitly triaged, so that condition is
+		// already true). Re-measured with this width: 5 of 22 non-finalized
+		// plans newly fail, all schema_version=v3 — i.e. plans already authored
+		// under the triage-gated interview model, which is exactly where 0%
+		// block usage at the "standard" tier is a live regression rather than
+		// pre-existing legacy debt.
+		if complexity != "trivial" && plan.Meta.Status != "finalized" {
+			requiresBlocks := complexity == "complex" || isStrictModel || s.Complexity != ""
+			if requiresBlocks && len(s.Blocks) == 0 && blocksWaiverReason(s) == "" {
+				errs = append(errs, fmt.Sprintf("%s.blocks must have at least 1 visual block for %s slices (or record a `blocks_waiver: <reason>` marker in decisions_notes if the slice is genuinely underspecified)", prefix, complexity))
 			}
 		}
 
@@ -500,8 +574,17 @@ func ValidateResearchAdvisories(plan *PlanYAML) []string {
 // is authored INLINE during the plan interview and the prose is derived from it,
 // so a qualifying slice with zero blocks signals the blocks-first interview was
 // skipped or compressed for that slice. Trivial slices are always exempt — they
-// have minimal field requirements and no design surface worth visualising. The
-// advisory is informational only and never fails validation.
+// have minimal field requirements and no design surface worth visualising. A
+// slice carrying an explicit "blocks_waiver: <reason>" marker in
+// decisions_notes (see blocksWaiverReason) is also exempt, mirroring how
+// ValidateResearchAdvisories respects ResearchWaiver.
+//
+// This advisory has been superseded by a hard gate in Validate for
+// non-finalized plans (a non-blocking signal was measured to go unheeded at
+// the "standard" tier — see the Validate doc comment). It remains here,
+// unconditional on Meta.Status, so finalized plans — exempt from the hard
+// gate — still get a nudge, and so the critique pass keeps a channel for
+// this signal that doesn't fail the build.
 //
 // Callers surface these the same way research advisories are surfaced: as
 // warnings in the validate-yaml / validate CLI paths.
@@ -515,7 +598,7 @@ func ValidateBlockAdvisories(plan *PlanYAML) []string {
 		if complexity == "trivial" {
 			continue
 		}
-		if len(s.Blocks) == 0 {
+		if len(s.Blocks) == 0 && blocksWaiverReason(s) == "" {
 			id := s.ID
 			if id == "" {
 				id = fmt.Sprintf("num=%d", s.Num)

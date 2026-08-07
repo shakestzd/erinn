@@ -6,8 +6,17 @@ import (
 )
 
 // fiftyCharsNotes is a >=50 char placeholder used to satisfy the
-// triage-gated decisions_notes requirement in test fixtures.
-const fiftyCharsNotes = "Rationale captured during the staged interview phase."
+// triage-gated decisions_notes requirement in test fixtures. It also carries
+// a blocks_waiver marker so validPlan()'s slices (which set no Blocks) keep
+// satisfying the blocks gate added in TestValidate_BlocksRequiredAtDefaultTier
+// et al. — tests that want to exercise the gate itself override DecisionsNotes
+// or ResearchWaiver-style fields directly on the slice under test.
+const fiftyCharsNotes = "Rationale captured during the staged interview phase.\nblocks_waiver: fixture slice — no visual design surface to author here."
+
+// fiftyCharsNotesNoWaiver is the same >=50 char placeholder WITHOUT a
+// blocks_waiver marker, for tests that specifically exercise the
+// no-blocks/no-waiver path of the blocks gate and ValidateBlockAdvisories.
+const fiftyCharsNotesNoWaiver = "Rationale captured during the staged interview phase, with no blocks waiver recorded."
 
 // validPlan returns a fully-populated valid plan for use in tests.
 func validPlan() *PlanYAML {
@@ -749,6 +758,12 @@ func TestValidate_LegacyDraftPlan_NoComplexity_NoDecisionsNotes(t *testing.T) {
 				Risk:     "High",
 				Deps:     []int{},
 				// Complexity and DecisionsNotes intentionally absent — legacy plan.
+				// A block is supplied so this test isolates the decisions_notes
+				// back-compat behavior under test, unaffected by the separate
+				// blocks gate (see TestValidate_BlocksRequiredAtDefaultTier).
+				Blocks: []SliceBlock{
+					{Type: "file-tree", Entries: []string{"internal/legacy/foo.go"}},
+				},
 			},
 		},
 		Questions: []PlanQuestion{},
@@ -925,7 +940,7 @@ func blockAdvisoryPlan(complexity string, blocks []SliceBlock) *PlanYAML {
 		Risk:           "Med",
 		Complexity:     complexity,
 		Blocks:         blocks,
-		DecisionsNotes: fiftyCharsNotes,
+		DecisionsNotes: fiftyCharsNotesNoWaiver,
 	}
 	// Complex slices also require >=2 done_when and >=1 answered question.
 	if complexity == "complex" {
@@ -1041,7 +1056,7 @@ func TestValidateBlockAdvisories_EmptyComplexityDefaultsToStandard_EmitsAdvisory
 				Tests:          "Unit: works",
 				Effort:         "S",
 				Risk:           "Low",
-				DecisionsNotes: fiftyCharsNotes,
+				DecisionsNotes: fiftyCharsNotesNoWaiver,
 				// Complexity intentionally empty — defaults to "standard".
 			},
 		},
@@ -1194,6 +1209,88 @@ func TestValidate_FinalizedExempt(t *testing.T) {
 	for _, e := range errs {
 		if strings.Contains(e, "what") {
 			t.Errorf("finalized plan with long what should not fail, got error: %s", e)
+		}
+	}
+}
+
+// ---- blocks gate: standard/complex tier hard-fails with no blocks/waiver ----
+
+func TestValidate_BlocksRequiredAtDefaultTier(t *testing.T) {
+	// A draft slice with unset complexity (defaults to "standard") and no
+	// blocks must fail — this is the default-tier gate promoted from
+	// ValidateBlockAdvisories (non-blocking) to a hard gate in Validate.
+	//
+	// Uses v3MinimalPlan (schema_version=v3, Complexity intentionally left
+	// empty) rather than the bare pre-triage minimalPlan helper: the gate's
+	// exemption width mirrors decisions_notes (isStrictModel || explicit
+	// Complexity), measured against the live .wipnote/plans corpus — see the
+	// blocks-gate comment in validate.go. A plan with NEITHER schema_version
+	// NOR an explicit Complexity is pre-triage legacy and stays exempt (see
+	// TestValidate_LegacyDraftPlan_NoComplexity_NoDecisionsNotes); v3MinimalPlan
+	// represents the "authored under the triage-gated model" case that IS
+	// gated, matching the 5 real corpus plans this gate newly catches.
+	plan := v3MinimalPlan(fiftyCharsNotesNoWaiver)
+	errs := Validate(plan)
+	assertContainsError(t, errs, "slices[0].blocks")
+}
+
+func TestValidate_SkipReasonAccepted(t *testing.T) {
+	// Same fixture as TestValidate_BlocksRequiredAtDefaultTier (schema_version
+	// v3, so the gate actually binds), but decisions_notes now carries an
+	// explicit "blocks_waiver: <reason>" marker — that must satisfy the gate.
+	plan := v3MinimalPlan("Rationale captured during the staged interview phase.\n" +
+		"blocks_waiver: pure refactor, no new file/route/schema surface to visualise.")
+	errs := Validate(plan)
+	for _, e := range errs {
+		if strings.Contains(e, "blocks") {
+			t.Errorf("an explicit blocks_waiver marker must satisfy the gate; got error: %s", e)
+		}
+	}
+}
+
+func TestValidate_LegacyCorpusExempt(t *testing.T) {
+	// A finalized plan from the existing block-free corpus must still
+	// validate clean — the blocks gate is exempt for finalized plans, same
+	// as the decisions_notes and what-cap gates.
+	plan, err := Load("../../.wipnote/plans/plan-1c14d560.yaml")
+	if err != nil {
+		t.Fatalf("failed to load plan-1c14d560.yaml: %v", err)
+	}
+	if len(plan.Slices) == 0 {
+		t.Fatal("expected plan-1c14d560.yaml to have at least one slice")
+	}
+	hasBlocks := false
+	for _, s := range plan.Slices {
+		if len(s.Blocks) > 0 {
+			hasBlocks = true
+			break
+		}
+	}
+	if hasBlocks {
+		t.Fatal("expected plan-1c14d560.yaml to be block-free (fixture assumption for this regression test)")
+	}
+	errs := Validate(plan)
+	if len(errs) != 0 {
+		t.Errorf("finalized, block-free legacy plan must validate clean, got: %v", errs)
+	}
+}
+
+func TestValidate_TrivialExempt(t *testing.T) {
+	// A trivial slice with no blocks still passes — no design surface worth
+	// visualising at that tier.
+	plan := minimalPlan("trivial", PlanSlice{
+		Num:        1,
+		Title:      "Trivial change",
+		Why:        "Quick polish.",
+		Files:      []string{"internal/foo/bar.go"},
+		Effort:     "S",
+		Risk:       "Low",
+		Complexity: "trivial",
+	})
+	errs := Validate(plan)
+	for _, e := range errs {
+		if strings.Contains(e, "blocks") {
+			t.Errorf("trivial slice should not require blocks, got error: %s", e)
 		}
 	}
 }

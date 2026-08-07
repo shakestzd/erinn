@@ -19,13 +19,13 @@ Before any slice content, classify the work. The classification drives both the 
 
 | Complexity | Interview stages | Mandatory deltas vs default |
 |---|---|---|
-| `trivial` | 0 stages | `what`/`done_when`/`tests`/`decisions_notes` all optional |
-| `standard` | 3 stages (Requirements, Scope & state, Done-when) | `what`, `decisions_notes` >=50 chars |
-| `complex`  | 4 stages (all) | `decisions_notes` >=50 chars; >=2 `done_when` entries; >=1 slice-local question with an answer |
+| `trivial` | 0 stages | `what`/`done_when`/`tests`/`decisions_notes`/`blocks` all optional |
+| `standard` | 3 stages (Requirements, Scope & state, Done-when) | `what`, `decisions_notes` >=50 chars, >=1 visual block **or** an explicit `blocks_waiver:` |
+| `complex`  | 4 stages (all) | `decisions_notes` >=50 chars; >=2 `done_when` entries; >=1 slice-local question with an answer; >=1 visual block **or** an explicit `blocks_waiver:` |
 
 Set `complexity: trivial|standard|complex` on each slice card. The field is read by `plan/planyaml/validate.go` via `effectiveComplexity`; an unset value defaults to `standard` for back-compat.
 
-Every plan you create must include `meta.schema_version: v4`. This enables strict validation including the decisions_notes requirement for standard/complex slices (even when `complexity` is omitted, which defaults to standard) **and the research gate** (below): every standard/complex slice must carry cited `research:` or an explicit `research_waiver:`, and `design.research` must cite at least one source. `v3` plans are still accepted (strict validation, research only advisory) for back-compat, but new plans must be `v4` so research is enforced, not optional.
+Every plan you create must include `meta.schema_version: v4`. This enables strict validation including the decisions_notes requirement for standard/complex slices (even when `complexity` is omitted, which defaults to standard), **the blocks gate** (below): every standard/complex slice must carry >=1 visual block or an explicit `blocks_waiver:`, and **the research gate** (below): every standard/complex slice must carry cited `research:` or an explicit `research_waiver:`, and `design.research` must cite at least one source. `v3` plans are still accepted for back-compat and get the same strict decisions_notes/blocks enforcement, but research stays advisory-only until `v4` — new plans must be `v4` so research is enforced too, not optional.
 
 ### Triage question template
 
@@ -135,7 +135,19 @@ A block is grounded when every field, route, and file path it names either ALREA
 | `standard` | Blocks expected when the slice is concrete enough to ground them (a real file-tree at minimum; api-endpoint/data-model where a contract exists). If the slice is genuinely underspecified, note the skip rather than invent. |
 | `complex` | Blocks expected — author every block type the slice justifies (file-tree always; api-endpoint/data-model/wireframe/diagram as the design warrants). |
 
-`wipnote plan validate-yaml` emits a NON-BLOCKING advisory for any standard/complex slice that still has no blocks — a signal the blocks-first interview was skipped or compressed for that slice, not a gate.
+**This is schema-enforced, not just advisory.** `wipnote plan validate-yaml` FAILS any standard/complex slice with zero blocks, unless `decisions_notes` carries an explicit `blocks_waiver: <reason>` marker line — the machine-checkable opt-out for a slice that is genuinely underspecified (never invent a block to satisfy the gate; see the grounding rule above). Trivial slices stay exempt. This gate applies whenever `meta.schema_version` is `v3` or `v4`, or the slice sets `complexity:` explicitly — i.e. any plan authored under this triage-gated model, per Step 0 above. (It does NOT retroactively apply to pre-triage legacy plans that carry neither `schema_version` nor an explicit `complexity:` — see `plan/planyaml/validate.go`'s blocks-gate comment for the measured back-compat rationale.) A superseded, purely-advisory version of this same signal remains available as `ValidateBlockAdvisories` for finalized plans, which the hard gate does not cover.
+
+```yaml
+slices:
+  - num: 4
+    complexity: standard
+    decisions_notes: |
+      Pure refactor of the retry loop's backoff constant — no new file, route,
+      or schema surface to visualise.
+      blocks_waiver: refactor-only slice, nothing to ground a block against.
+```
+
+If the skip reason is genuine, `blocks_waiver:` on its own line inside `decisions_notes` satisfies the gate — never leave blocks silently empty.
 
 ### Rendering the interview (cross-harness)
 
@@ -381,7 +393,7 @@ Note the returned plan ID. Write the YAML to `.wipnote/plans/<plan-id>.yaml` via
 wipnote plan validate-yaml <plan-id>
 ```
 
-Fix schema errors before continuing. Because blocks were authored inline during the interview (Step 0/the interview above), the YAML you wrote already carries grounded `blocks:` for qualifying slices — there is **no separate visual pass**. `validate-yaml` will emit a non-blocking advisory for any standard/complex slice that still has no blocks; treat it as a prompt to revisit the blocks-first interview for that slice (or, for a legacy/already-drafted plan, run `wipnote:visual-plan` to enrich it after the fact).
+Fix schema errors before continuing. Because blocks were authored inline during the interview (Step 0/the interview above), the YAML you wrote already carries grounded `blocks:` for qualifying slices — there is **no separate visual pass**. `validate-yaml` FAILS any standard/complex slice that still has no blocks (see "The blocks gate" above) unless `decisions_notes` carries a `blocks_waiver: <reason>` marker; treat a failure as a prompt to revisit the blocks-first interview for that slice (or, for a legacy/already-drafted plan, run `wipnote:visual-plan` to enrich it after the fact, or record the waiver if the slice is genuinely underspecified).
 
 After the plan is drafted, run `/wipnote:plan-critique <plan-id>` for the dual role-based design/feasibility review pass. See `plugin/skills/plan-critique/SKILL.md`. If critique changes a slice's design, update its blocks-first in the same edit (re-author the block, then re-derive the prose) so blocks and prose stay consistent.
 

@@ -25,8 +25,9 @@ Delegate tactical work to specialized subagents while you focus on strategic dec
 
 **Basic pattern:**
 ```python
-Call spawn_agent with:
-Use the gemini workflow described here with: agent_type="gemini",  # FREE - use for exploration; description="Find auth patterns"; prompt="Search codebase for authentication patterns...".
+# Exploration/research: try the free agy research sidecar first
+Bash('agy -p "Search codebase for authentication patterns..." --dangerously-skip-permissions 2>&1')
+# fallback → call spawn_agent with agent_type "wipnote-patch-coder"
 ```
 
 **When to use:** ALWAYS use for complex tasks requiring research, code generation, git operations, or any work that could fail and require retries.
@@ -44,7 +45,7 @@ Before starting research, inspect the available dispatch surface in the active h
 - **Claude Code** — use `Task` / subagent dispatch when exposed.
 - **Codex** — when `multi_agent_v1` or native `wipnote-*` custom agents are exposed, prefer native subagents such as `wipnote-researcher`, `wipnote-patch-coder`, `wipnote-feature-coder`, and `wipnote-test-runner`. Use nested `codex exec` only when those native subagents are unavailable.
 - **Antigravity** — use harness-native multi-agent or custom-agent spawn when exposed.
-- **External CLI sidecar** — use `gemini`, `codex exec`, or another documented sidecar CLI when native or harness-local dispatch is unavailable and the sidecar is appropriate.
+- **External CLI sidecar** — use `agy`, `codex exec`, or another documented sidecar CLI when native or harness-local dispatch is unavailable and the sidecar is appropriate.
 - **No dispatch surface available** — stop and report `delegation unavailable in this harness/session`; do not silently convert broad research into main-context work.
 
 Do not use main-context `web.search_query`, `web.open`, or broad local glob/search loops for docs gathering or repository exploration when a researcher sidecar is expected. Narrow exceptions are allowed only when:
@@ -124,8 +125,8 @@ Verify via `wipnote feature show <id>` — `Steps: N/M complete` should reflect 
 
 Ask these questions IN ORDER:
 
-1. **Can Gemini do this?** → Exploration, research, batch ops, file analysis
-   - YES = MUST try `Bash("gemini ...")` first (FREE - 2M tokens/min), fallback to patch-coder
+1. **Can agy do this?** → Exploration, research, batch ops, file analysis
+   - YES = MUST try `Bash("agy ...")` first (FREE), fallback to patch-coder
 
 2. **Is this code work?** → Implementation, fixes, tests, refactoring
    - YES = In Codex, prefer native `wipnote-patch-coder` / `wipnote-feature-coder` / `wipnote-test-runner` when available; otherwise try `Bash("codex ...")` first (70% cheaper than Claude), fallback to feature-coder
@@ -145,7 +146,7 @@ Ask these questions IN ORDER:
 
 | Task | WRONG (Cost) | CORRECT (Cost) | Savings |
 |------|-------------|----------------|---------|
-| Search 100 files | call spawn_agent with the appropriate agent_type ($15-25) | Gemini spawner (FREE) | 100% |
+| Search 100 files | call spawn_agent with the appropriate agent_type ($15-25) | agy sidecar (FREE) | 100% |
 | Generate code | call spawn_agent with the appropriate agent_type ($10) | Codex spawner ($3) | 70% |
 | Git commit | call spawn_agent with the appropriate agent_type ($5) | Copilot spawner ($2) | 60% |
 | Strategic decision | Direct task ($20) | Claude Opus ($50) | Must pay for quality |
@@ -156,14 +157,14 @@ Ask these questions IN ORDER:
 WRONG (wastes Claude quota):
 - Code implementation → call spawn_agent with the appropriate agent_type               # USE Bash("codex ..."), fallback feature-coder
 - Git commits → call spawn_agent with the appropriate agent_type                       # USE Bash("copilot ..."), fallback patch-coder
-- File search → call spawn_agent with the appropriate agent_type                       # USE Bash("gemini ...") (FREE!)
-- Research → call spawn_agent with the appropriate agent_type                          # USE Bash("gemini ...") (FREE!)
+- File search → call spawn_agent with the appropriate agent_type                       # USE Bash("agy ...") (FREE!)
+- Research → call spawn_agent with the appropriate agent_type                          # USE Bash("agy ...") (FREE!)
 
 CORRECT (cost-optimized):
 - Code implementation → Codex native `wipnote-feature-coder` when available; else Bash("codex ...")
 - Git commits → Bash("copilot ...")               # Cheap, GitHub-native; fallback patch-coder
-- File search → Bash("gemini ...")                # FREE!; fallback patch-coder
-- Research → Bash("gemini ...")                   # FREE!; fallback patch-coder
+- File search → Bash("agy ...")                # FREE!; fallback patch-coder
+- Research → Bash("agy ...")                   # FREE!; fallback patch-coder
 - Strategic decisions → Claude Opus               # Expensive, but needed
 - Coder agents → Primary in Codex native multi-agent sessions; fallback elsewhere when CLI tools fail or aren't installed
 ```
@@ -319,10 +320,10 @@ Everything else MUST be delegated.
 **Decision tree (check each in order):**
 
 1. **Is this exploration/research/analysis?**
-   - Files search: YES → Gemini spawner (FREE)
-   - Pattern analysis: YES → Gemini spawner (FREE)
-   - Documentation reading: YES → Gemini spawner (FREE)
-   - Learning unfamiliar system: YES → Gemini spawner (FREE)
+   - Files search: YES → agy sidecar (FREE)
+   - Pattern analysis: YES → agy sidecar (FREE)
+   - Documentation reading: YES → agy sidecar (FREE)
+   - Learning unfamiliar system: YES → agy sidecar (FREE)
 
 2. **Is this code implementation/testing?**
    - Generate code: YES → Codex spawner (70% cheaper)
@@ -348,7 +349,7 @@ Everything else MUST be delegated.
 6. **All else fails** → call spawn_agent with the appropriate agent_type with Haiku (fallback)
 
 **Delegation Pattern:**
-- `Bash("gemini ...")` - FREE, 2M tokens/min, exploration & research → fallback: patch-coder
+- `Bash("agy ...")` - FREE, exploration & research → fallback: patch-coder
 - `Bash("codex ...")` - Cheap code specialist, implementation & testing → fallback: feature-coder
 - `Bash("copilot ...")` - Cheap git specialist, GitHub integration → fallback: patch-coder
 - Coder agents (`patch-coder`, `feature-coder`) - Fallback only when CLI tools fail
@@ -358,16 +359,16 @@ Everything else MUST be delegated.
 <details>
 <summary><strong>Spawner Details & Configuration</strong></summary>
 
-### Gemini CLI (FREE - Exploration)
+### Antigravity CLI — agy (FREE - Exploration)
 ```bash
-gemini -p "Analyze codebase for:
+agy -p "Analyze codebase for:
 - All authentication patterns
 - OAuth implementations
 - Session management
-- JWT usage" --output-format json --yolo --include-directories . 2>&1
+- JWT usage" --dangerously-skip-permissions 2>&1
 ```
 
-**If gemini fails/unavailable → fallback to patch-coder**
+**If agy fails/unavailable → fallback to patch-coder**
 
 **Best for:**
 - File searching (FREE!)
@@ -437,8 +438,8 @@ Use the feature-coder workflow described here with: prompt="Design authenticatio
 
 **Simple exploration (try CLI first):**
 ```bash
-gemini -p "Search codebase for authentication patterns and summarize findings" \
-  --output-format json --yolo --include-directories . 2>&1
+agy -p "Search codebase for authentication patterns and summarize findings" \
+  --dangerously-skip-permissions 2>&1
 # fallback → call spawn_agent with agent_type "wipnote-patch-coder"
 ```
 
@@ -512,12 +513,12 @@ Always use `-m gpt-4.1-mini` for nested `codex exec` (never expensive gpt-5.4 de
 **For codebase exploration, documentation research, and large-context analysis:**
 
 ```bash
-# Priority 1: Bash-gemini (preferred — FREE, 2M context)
-gemini -p "TASK_DESCRIPTION" --output-format json --yolo --include-directories . 2>&1
+# Priority 1: Bash-agy (preferred — FREE)
+agy -p "TASK_DESCRIPTION" --dangerously-skip-permissions 2>&1
 ```
 
 ```python
-# Priority 2: patch-coder fallback (if gemini fails or not installed)
+# Priority 2: patch-coder fallback (if agy fails or not installed)
 Call spawn_agent with:
 Call spawn_agent with agent_type "wipnote-patch-coder" and message containing: description="Research auth patterns"; prompt="Analyze all authentication patterns in this codebase. Find security gaps.".
 ```
@@ -576,9 +577,9 @@ Call spawn_agent with agent_type "wipnote-patch-coder" and message containing: d
 **Pattern: Chain dependent tasks in sequence**
 
 ```python
-# 1. Research existing patterns
-Call spawn_agent with:
-Use the gemini workflow described here with: description="Research OAuth patterns"; prompt="Find all OAuth implementations in codebase...".
+# 1. Research existing patterns (free agy research sidecar)
+Bash('agy -p "Find all OAuth implementations in codebase..." --dangerously-skip-permissions 2>&1')
+# fallback → call spawn_agent with agent_type "wipnote-patch-coder"
 
 # 2. Wait for research, then implement
 # (In next message after reading result)
@@ -613,8 +614,8 @@ wipnote spike show <id>
 **Pattern: Read findings after Task completes**
 
 ```bash
-# 1. Delegate exploration (try gemini CLI first)
-gemini -p "Find all authentication patterns..." --output-format json --yolo --include-directories . 2>&1
+# 1. Delegate exploration (try the agy CLI first)
+agy -p "Find all authentication patterns..." --dangerously-skip-permissions 2>&1
 # fallback → call spawn_agent with agent_type "wipnote-patch-coder"
 ```
 
@@ -637,7 +638,7 @@ gemini -p "Find all authentication patterns..." --output-format json --yolo --in
 When debugging third-party library issues, enforce this order:
 
 1. **Reproduce the failure** — run Bash commands to confirm the error message
-2. **Delegate doc search to researcher** — WebSearch for official docs (FREE via gemini or researcher agent)
+2. **Delegate doc search to researcher** — WebSearch for official docs (FREE via agy or researcher agent)
 3. **Delegate GitHub issues search to researcher** — check for known issues or recent changes
 4. **Only THEN delegate source code reading** — last resort if docs and issues didn't resolve it
 
@@ -648,9 +649,9 @@ Do NOT delegate source code reading as the first debugging step.
 # Step 1: Reproduce (direct Bash)
 Bash("run command that triggers the error")
 
-# Step 2 & 3: Delegate research (try gemini CLI first — FREE)
-gemini -p "Search official docs and GitHub issues for: <library> <error message>" \
-  --output-format json --yolo 2>&1
+# Step 2 & 3: Delegate research (try the agy CLI first — FREE)
+agy -p "Search official docs and GitHub issues for: <library> <error message>" \
+  --dangerously-skip-permissions 2>&1
 # fallback → researcher agent with WebSearch
 ```
 
@@ -915,8 +916,8 @@ output under `## Architectural context` in every subagent prompt instead.
 - Delegation isolates failures to subagent context
 
 **Principle 2: Cost-First > Capability-First**
-- Use FREE/cheap AIs (Gemini, Codex, Copilot) before expensive Claude Code
-- Gemini: FREE (exploration)
+- Use FREE/cheap AIs (Antigravity/agy, Codex, Copilot) before expensive Claude Code
+- agy: FREE (exploration)
 - Codex: 70% cheaper (code)
 - Copilot: 60% cheaper (git)
 - Claude: Expensive (strategic only)
@@ -955,9 +956,9 @@ output under `## Architectural context` in every subagent prompt instead.
 
 | Operation | MUST Use | Cost | Fallback |
 |-----------|----------|------|----------|
-| Search files | `Bash("gemini ...")` | FREE | patch-coder |
-| Pattern analysis | `Bash("gemini ...")` | FREE | patch-coder |
-| Documentation research | `Bash("gemini ...")` | FREE | patch-coder |
+| Search files | `Bash("agy ...")` | FREE | patch-coder |
+| Pattern analysis | `Bash("agy ...")` | FREE | patch-coder |
+| Documentation research | `Bash("agy ...")` | FREE | patch-coder |
 | Code generation | `Bash("codex ...")` | $ (70% off) | feature-coder |
 | Bug fixes | `Bash("codex ...")` | $ (70% off) | patch-coder |
 | Write tests | `Bash("codex ...")` | $ (70% off) | patch-coder |
@@ -1108,7 +1109,7 @@ wipnote arch edit <slug> --body "Updated body."   # update stale content then ve
 ## Quick Summary
 
 **Cost-First Orchestration:**
-1. `Bash("gemini ...")` (FREE) → exploration, research, analysis → fallback: patch-coder
+1. `Bash("agy ...")` (FREE) → exploration, research, analysis → fallback: patch-coder
 2. `Bash("codex ...")` (70% off) → code implementation, fixes, tests → fallback: feature-coder
 3. `Bash("copilot ...")` (60% off) → git operations, PRs → fallback: patch-coder
 4. Claude Opus → deep reasoning, strategy only

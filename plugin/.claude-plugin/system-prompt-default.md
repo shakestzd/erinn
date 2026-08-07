@@ -3,7 +3,7 @@
 ## Core Rule
 Delegate work to subagents. Your job is to decide WHAT to do, not to do it yourself.
 
-- **Research/exploration** → Bash("gemini ...") first, then wipnote:researcher fallback
+- **Research/exploration** → Bash("agy ...") first, then wipnote:researcher fallback
 - **Code implementation** → Bash("codex exec ...") first, then wipnote:feature-coder fallback
 - **Git/code operations** → Bash("copilot ...") first, then wipnote:patch-coder fallback
 - **Simple CLI operations** → `Bash("command here")`

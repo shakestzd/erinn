@@ -178,8 +178,8 @@ wipnote feature start <feat-id>
 
 ```bash
 # Try CLI tools directly first
-gemini -p "Find all auth-related code in src/: What library is used? Where is validation?" \
-  --output-format json --yolo --include-directories . 2>&1
+agy -p "Find all auth-related code in src/: What library is used? Where is validation?" \
+  --dangerously-skip-permissions 2>&1
 # fallback → use @patch-coder
 ```
 ```text
@@ -215,7 +215,7 @@ codex exec "Write unit + integration tests for auth endpoints..." --full-auto --
 # fallback → use @patch-coder
 ```
 ```bash
-gemini -p "Update API documentation for auth endpoints..." --output-format json --yolo --include-directories . 2>&1
+agy -p "Update API documentation for auth endpoints..." --dangerously-skip-permissions 2>&1
 # fallback → use @patch-coder
 ```
 # All three run in parallel; each reports results independently
@@ -277,9 +277,9 @@ wipnote feature start <feat-id>
 ```
 
 ```bash
-# 2. Research (try gemini CLI first)
-gemini -p "Research existing auth patterns: What library is used? Where is validation? What OAuth providers are supported?" \
-  --output-format json --yolo --include-directories . 2>&1
+# 2. Research (try the agy CLI first)
+agy -p "Research existing auth patterns: What library is used? Where is validation? What OAuth providers are supported?" \
+  --dangerously-skip-permissions 2>&1
 # fallback → use @patch-coder
 ```
 
@@ -309,9 +309,9 @@ wipnote bug create "Session timeout not working" --track <trk-id>
 ```
 
 ```bash
-# 2. Investigate (try gemini CLI first)
-gemini -p "Debug session timeout: expected 30min, observed ~5min. Find config, check middleware, review logs, identify root cause." \
-  --output-format json --yolo --include-directories . 2>&1
+# 2. Investigate (try the agy CLI first)
+agy -p "Debug session timeout: expected 30min, observed ~5min. Find config, check middleware, review logs, identify root cause." \
+  --dangerously-skip-permissions 2>&1
 # fallback → use @patch-coder
 ```
 
@@ -342,7 +342,7 @@ wipnote feature create "Refactor API layer" --track <trk-id>
 
 ```bash
 # Dispatch 3 parallel delegations in a single message
-gemini -p "Update API documentation to reflect new endpoints" --output-format json --yolo --include-directories . 2>&1
+agy -p "Update API documentation to reflect new endpoints" --dangerously-skip-permissions 2>&1
 # fallback → use @patch-coder
 ```
 ```text
@@ -354,7 +354,7 @@ codex exec "Update test suite for refactored API endpoints" --full-auto --json -
 # fallback → use @feature-coder
 ```
 ```bash
-gemini -p "Create migration guide for API changes" --output-format json --yolo --include-directories . 2>&1
+agy -p "Create migration guide for API changes" --dangerously-skip-permissions 2>&1
 # fallback → use @patch-coder
 ```
 

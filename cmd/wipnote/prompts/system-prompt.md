@@ -74,7 +74,7 @@ Do NOT use Read, Edit, Write, Grep, or Glob directly. Delegate to wipnote subage
 | Complex architecture | `wipnote:architect-coder` | 10+ files, design decisions, ambiguous requirements |
 | Testing / quality | `wipnote:test-runner` | Running tests, quality gates, validation |
 | External AI (code gen) | `Bash("codex exec ...")` | Try Codex CLI first, patch-coder fallback |
-| External AI (research) | `Bash("gemini ...")` | Try Gemini CLI first, patch-coder fallback |
+| External AI (research) | `Bash("agy ...")` | Try Antigravity CLI (agy) first, patch-coder fallback |
 | External AI (git/PRs) | `Bash("copilot ...")` | Try Copilot CLI first, patch-coder fallback |
 | Simple CLI commands | `Bash("command")` | Git operations, build commands, quick checks |
 | Clarify requirements | `AskUserQuestion()` | When requirements are unclear |
@@ -83,7 +83,7 @@ Do NOT use Read, Edit, Write, Grep, or Glob directly. Delegate to wipnote subage
 
 Try external CLIs directly via Bash before spawning agents:
 
-1. `Bash("copilot ...")` / `Bash("codex exec ...")` / `Bash("gemini ...")` — try first
+1. `Bash("copilot ...")` / `Bash("codex exec ...")` / `Bash("agy ...")` — try first
 2. If CLI not found or fails → delegate to `wipnote:patch-coder` (or `feature-coder` for code gen)
 3. Sandbox wrapper failures are PERMANENT, not transient: if the failure output contains "bwrap", "bubblewrap", "sandbox", "Operation not permitted", or "cannot create namespace", the environment (e.g. a devcontainer without bwrap privileges) cannot run nested `codex exec` at all. Do NOT retry codex exec for the rest of the session — go straight to the in-harness agent fallback.
 4. Never spawn operator agents — they don't exist

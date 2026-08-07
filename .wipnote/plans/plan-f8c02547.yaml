@@ -6,7 +6,7 @@ meta:
     created_at: ""
     status: draft
     schema_version: v4
-    version: 1
+    version: 2
 design:
     problem: |
         Plan documents are not read. Measured over 45 plans and 282 slices: what,
@@ -158,6 +158,7 @@ slices:
             - 'svg primitives: emit elements'
             - inline <svg> in committed HTML
     - id: slice-2
+      feature_id: feat-f8644765
       num: 2
       title: Static dependency graph via embedded dagre.js, with dual-format validator support
       what: |
@@ -214,6 +215,7 @@ slices:
         - url: https://github.com/dop251/goja
           claim: Pure-Go ECMAScript interpreter, no cgo, no external binary — satisfies the no-cgo constraint while running embedded dagre.js. Runtime suitability to be confirmed in implementation.
           accessed: "2026-08-07"
+      execution_status: promoted
       questions:
         - id: q-runtime
           text: Is goja confirmed able to execute dagre.js unmodified?

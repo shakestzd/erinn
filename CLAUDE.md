@@ -168,9 +168,11 @@ wipnote ships to three independently-evolving CLIs: Claude Code, Codex CLI, and 
 - Claude Code release notes / changelog
 
 **Codex CLI (OpenAI):**
-- https://developers.openai.com/codex/subagents — custom agent TOML schema and native lookup paths (~/.codex/agents/, .codex/agents/)
-- https://developers.openai.com/codex/config-reference — config keys including [agents] section (max_threads, max_depth, job_max_runtime_seconds; note: NO per-agent interactive turn cap)
-- https://developers.openai.com/codex/config-advanced — advanced configuration options
+- https://learn.chatgpt.com/docs/agent-configuration/subagents — custom agent TOML schema and native lookup paths (~/.codex/agents/, .codex/agents/)
+- https://learn.chatgpt.com/docs/config-file/config-reference — config keys including [agents] section (max_threads, max_depth, job_max_runtime_seconds; note: NO per-agent interactive turn cap)
+- https://learn.chatgpt.com/docs/config-file/config-advanced — advanced configuration options
+- https://learn.chatgpt.com/docs/hooks — hook events and payload shapes for Codex CLI
+- https://learn.chatgpt.com/docs/changelog — Codex CLI changelog; where model retirements are announced
 
 **Antigravity (Google):**
 - No verified canonical upstream doc set yet — Antigravity is a newly-added target (feat-02f25a24) and currently inherits Gemini-CLI's extension/plugin conventions (agent frontmatter, TOML slash commands, tool-name vocabulary) via the retained compat helpers in `port/pluginbuild/gemini_compat.go` rather than an independently-verified contract. Until a dedicated doc audit establishes canonical Antigravity sources, treat `port/pluginbuild/antigravity.go` as the executable spec and re-derive from Google's official Antigravity docs when auditing.

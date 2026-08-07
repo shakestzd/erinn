@@ -4,9 +4,9 @@ meta:
     title: 'Plans that read as maps: static SVG blocks, in-place critique, prose caps'
     description: ""
     created_at: ""
-    status: active
+    status: draft
     schema_version: v4
-    version: 14
+    version: 1
 design:
     problem: |
         Plan documents are not read. Measured over 45 plans and 282 slices: what,
@@ -66,7 +66,6 @@ design:
           accessed: "2026-08-06"
 slices:
     - id: slice-1
-      feature_id: feat-b7fdd8d9
       num: 1
       title: SVG primitive package — emission helpers, arrowhead marker, deterministic text metrics
       what: |
@@ -114,8 +113,6 @@ slices:
         - url: https://pkg.go.dev/golang.org/x/image/font/basicfont
           claim: Self-contained public-domain bitmap face with Advance exactly 7 — the fallback if proportional measurement is ever needed. Not required while labels are monospace.
           accessed: "2026-08-06"
-      approval_status: approved
-      execution_status: promoted
       questions:
         - id: q-escape
           text: Should label text be escaped in the primitive layer or by callers?
@@ -169,9 +166,9 @@ slices:
         to accept both formats during migration.
       why: |
         The dependency graph is an empty svg in every committed plan. Corpus deps
-        routinely skip many ranks — plan-1670cacd has a seven-rank edge — so a
-        hand-rolled layout would need dummy-node insertion that dagre already
-        solves correctly.
+        skip ranks — plan-1670cacd routes an edge across two intervening ranks —
+        so a hand-rolled layout would need the virtual-node insertion dagre
+        already does correctly.
       files:
         - plan/blocks/svg/layout.go
         - plan/blocks/svg/layout_test.go
@@ -185,7 +182,8 @@ slices:
         - 1
       done_when:
         - A committed plan HTML contains a drawn dependency graph with no JavaScript executed.
-        - A seven-rank-skipping edge from the real corpus (plan-1670cacd) routes without overlapping intervening nodes.
+        - The real rank-skipping edge from plan-1670cacd (slice 1 to slice 8, crossing two intervening ranks) routes clear of their bounding boxes.
+        - dagre.js is compiled once via goja.Compile and reused; it is not re-parsed per render.
         - '`wipnote plan validate` passes on BOTH a legacy d3-format plan and a new inline-SVG plan.'
         - The d3 and dagre-d3 vendor assets remain on disk; only the new template stops referencing them.
         - Graph node and edge markup preserves the existing data-section and anchor scheme so review still resolves.
@@ -195,8 +193,10 @@ slices:
       tests: |
         Unit: TestLayout_DagreCoordinates — a known DAG yields stable coordinates
         from the embedded engine.
-        Unit: TestLayout_MultiRankEdge — the plan-1670cacd seven-rank case routes
-        without node overlap.
+        Unit: TestLayout_MultiRankEdge — the plan-1670cacd rank-skipping case
+        routes clear of intervening node bounding boxes.
+        Bench: BenchmarkLayout_16Nodes — guards the ~106ms measured ceiling at
+        the corpus maximum.
         Golden: TestRenderGraph_Static — rendered SVG matches a golden file and
         contains no <script>.
         Regression: TestPlanValidate_DualFormat — legacy d3 plans and new SVG plans
@@ -214,11 +214,10 @@ slices:
         - url: https://github.com/dop251/goja
           claim: Pure-Go ECMAScript interpreter, no cgo, no external binary — satisfies the no-cgo constraint while running embedded dagre.js. Runtime suitability to be confirmed in implementation.
           accessed: "2026-08-07"
-      approval_status: approved
       questions:
         - id: q-runtime
           text: Is goja confirmed able to execute dagre.js unmodified?
-          answer: Not yet — d2 uses its own jsrunner abstraction and may not use goja specifically. The first implementation step is a spike proving dagre.js runs under goja and returns coordinates; if it does not, goccy/go-graphviz is the fallback, since it is already researched and cgo-free.
+          answer: 'RESOLVED — yes, spiked and confirmed. d2''s lib/jsrunner/goja.go IS backed by dop251/goja on the non-wasm build tag, so this is direct precedent rather than a similar architecture. The unmodified 283KB dagre.js bundle runs with only d2''s 7-line setup.js plus a console shim — no window or document scaffolding. Verified against plan-1670cacd''s real graph with a programmatic bbox-overlap check. Timings: one-time goja.Compile 10.9ms, fresh runtime plus precompiled program 1.3-2ms, layout 16.6ms at 5 nodes and 106ms at 16 (the corpus maximum). CGO_ENABLED=0 builds clean; 4 transitive deps.'
         - id: q-legacy
           text: What happens to the 42 legacy plans during migration?
           answer: They keep the d3 format and keep working. Vendor assets stay on disk and the validator accepts both formats until the last plan is re-rendered lazily. Deleting the vendor files before migration completes would leave broken script tags in every un-migrated plan.
@@ -257,6 +256,13 @@ slices:
         dagre-d3 CDN tags are absent (lines 352-359, with a test asserting it), and
         plan/plantmpl/builder_test.go asserts those substrings must be present.
         Both are in scope here; omitting them would break every plan validate call.
+        **Spike outcome (GO):** precompile dagre.js once with goja.Compile behind a
+        sync.Once and spin a cheap runtime per render. Batch result extraction into
+        two Array.map calls rather than copying d2's per-node JSON.stringify
+        round-trips, which are wasteful at scale. Scope single-render graphs to one
+        plan or track: measured cost is superlinear (~O(n^1.3), goja has no JIT)
+        and crosses one second around 100 nodes — irrelevant at the corpus maximum
+        of 16, but disqualifying for a whole-project mega-graph.
       blocks:
         - type: file-tree
           title: Files this slice touches
@@ -316,7 +322,6 @@ slices:
         - url: https://github.com/xlab/treeprint
           claim: 'Verified: an ASCII/Unicode box-drawing tree composer for terminal output, not coordinate-based SVG layout — not reusable for this renderer.'
           accessed: "2026-08-06"
-      approval_status: approved
       critic_revisions:
         - source: claude-feasibility
           severity: HIGH
@@ -341,7 +346,6 @@ slices:
             - plan/blocks/templates/file_tree.gohtml
             - plan/blocks/blocks_test.go
     - id: slice-4
-      feature_id: feat-0281c774
       num: 4
       title: Critique revises slices in place instead of appending
       what: |
@@ -375,8 +379,6 @@ slices:
       approved: false
       comment: ""
       research_waiver: Internal write-path and schema change against wipnote's own YAML; no external library, standard or API applies.
-      approval_status: approved
-      execution_status: promoted
       critic_revisions:
         - source: claude-design
           severity: LOW
@@ -414,7 +416,6 @@ slices:
             - name: critic_revisions
               type: deprecated — read for compat, never appended
     - id: slice-5
-      feature_id: feat-affb268c
       num: 5
       title: Prose caps in schema validation, with author-facing guidance
       what: |
@@ -449,8 +450,6 @@ slices:
       approved: false
       comment: ""
       research_waiver: Validation rules over wipnote's own schema; the threshold is derived from wipnote's own corpus, so no external standard or dependency applies.
-      approval_status: approved
-      execution_status: promoted
       critic_revisions:
         - source: claude-feasibility
           severity: MED
@@ -494,7 +493,6 @@ slices:
             - name: tests
               type: advisory
     - id: slice-6
-      feature_id: feat-d3bb4992
       num: 6
       title: Harden the default-tier block gate, with a legacy exemption
       what: |
@@ -527,8 +525,6 @@ slices:
       approved: false
       comment: ""
       research_waiver: Internal validation policy against wipnote's own schema; no external dependency, standard or API applies.
-      approval_status: approved
-      execution_status: promoted
       critic_revisions:
         - source: claude-design
           severity: HIGH
@@ -558,7 +554,6 @@ slices:
             - plan/planyaml/validate_test.go
             - plugin/skills/plan/SKILL.md
     - id: slice-7
-      feature_id: feat-0fde8687
       num: 7
       title: Drop the never-used api-endpoint block type
       what: |
@@ -589,8 +584,6 @@ slices:
       approved: false
       comment: ""
       research_waiver: Catalog pruning of wipnote's own block vocabulary; no external dependency, standard or API applies.
-      approval_status: approved
-      execution_status: promoted
       critic_revisions:
         - source: claude-feasibility
           severity: HIGH

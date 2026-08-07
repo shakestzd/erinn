@@ -398,13 +398,11 @@ func translateAntigravityAgentFrontmatter(filename string, raw []byte) ([]byte, 
 //	PreToolUse    -> PreToolUse
 //	PostToolUse   -> PostToolUse
 //	Stop          -> Stop
-var antigravityEventNames = map[string]string{
-	"UserPromptSubmit": "PreInvocation",
-	"AfterAgent":       "PostInvocation",
-	"PreToolUse":       "PreToolUse",
-	"PostToolUse":      "PostToolUse",
-	"Stop":             "Stop",
-}
+//
+// Derived from hookEventNameSpecs rather than hand-maintained: that table is the
+// single source of truth for which names each harness dispatches, and a second
+// copy here could drift out of agreement with the build-time gate.
+var antigravityEventNames = harnessHookEventNames["antigravity"]
 
 // writeAntigravityHooks emits hooks.json in the schema agy's jsonhook parser
 // requires (verified live against agy v1.0.8): a top-level map of named hooks,

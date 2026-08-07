@@ -13,7 +13,8 @@ import (
 // manifest.json) to geminiEventName "SessionEnd" with geminiHandler
 // "session-end", so a Gemini session exit reaches THIS exact SessionEnd
 // handler. The handler must release all active claims for the session — the
-// same path Codex reaches via its TaskComplete -> session-end manifest wiring.
+// same path Codex reaches via its SessionEnd -> session-end manifest wiring
+// (repointed from the phantom TaskComplete event in bug-e39d408f).
 func TestGeminiSessionEndRelease(t *testing.T) {
 	td := setupTestDB(t)
 	database := td.DB

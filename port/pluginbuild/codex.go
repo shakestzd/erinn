@@ -23,10 +23,12 @@ func init() { Register(codexAdapter{}) }
 // Codex expects the marketplace root to contain `.agents/plugins/marketplace.json`
 // and plugin content to live under `.agents/plugins/<plugin-name>/`.
 //
-// Codex hook event names differ from Claude in a few places (TaskStarted,
-// TaskComplete, TurnAborted) — the manifest's `targets` field controls which
-// events are emitted here. Business logic stays in `wipnote hook <handler>`
-// so the Codex plugin is a thin wrapper just like the Claude one.
+// Codex 0.147.0 dispatches exactly 11 hook events, all of which share Claude's
+// spelling — the vocabulary is a strict subset, not a different naming scheme
+// (see hookEventNameSpecs). The manifest's `targets` field controls which events
+// are emitted here, and the build-time gate rejects any name Codex does not
+// dispatch. Business logic stays in `wipnote hook <handler>` so the Codex plugin
+// is a thin wrapper just like the Claude one.
 type codexAdapter struct{}
 
 func (codexAdapter) Name() string { return "codex" }

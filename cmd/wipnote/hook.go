@@ -83,11 +83,23 @@ Usage in hooks.json:
 		hookSubcmd("teammate-idle", "Handle TeammateIdle event", continueResult, hooks.TeammateIdle),
 		hookSubcmd("task-completed", "Handle TaskCompleted event", continueResult, hooks.TaskCompleted),
 		hookSubcmd("task-created", "Handle TaskCreated event", continueResult, hooks.TaskCreated),
-		hookSubcmd("task-started", "Handle TaskStarted event", continueResult,
+		// task-started / task-aborted are NOT registered for any harness in
+		// packages/plugin-core/manifest.json and never were reachable: they were
+		// bound to the Codex names TaskStarted and TurnAborted, neither of which
+		// Codex dispatches (bug-e39d408f — TaskStarted appears zero times in the
+		// 0.147.0 binary; TurnAborted is an internal ThreadEvent telemetry
+		// variant, not a hook). Both bodies are generic TrackEvent checkpoints
+		// with no side effect the registered handlers lack, so nothing was lost
+		// when the registrations were dropped. Kept as manually-invocable
+		// subcommands (a user's own hooks.json can call them, and a future
+		// harness may supply a real turn-lifecycle event to repoint them at);
+		// the build-time gate in port/pluginbuild/hook_event_names.go is what
+		// prevents them being re-registered against a name nothing fires.
+		hookSubcmd("task-started", "Record a turn-start checkpoint (not wired to any harness event)", continueResult,
 			func(event *hooks.CloudEvent, database *sql.DB) (*hooks.HookResult, error) {
 				return hooks.TrackEvent("TaskStarted", event, database)
 			}),
-		hookSubcmd("task-aborted", "Handle TurnAborted event", continueResult,
+		hookSubcmd("task-aborted", "Record a turn-abort checkpoint (not wired to any harness event)", continueResult,
 			func(event *hooks.CloudEvent, database *sql.DB) (*hooks.HookResult, error) {
 				return hooks.TrackEvent("TurnAborted", event, database)
 			}),

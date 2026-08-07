@@ -62,11 +62,11 @@
   },
 
   "hooks": {
-    "_comment": "Canonical event names follow Claude Code conventions. Each entry declares the CLI handler (a thin wrapper over `wipnote hook <name>`) and per-target availability. Events unsupported by a target are omitted from that target's hooks.json. Target-specific events (e.g. Codex TaskStarted/TurnAborted) are declared with `targets: [codex]`.",
+    "_comment": "Canonical event names follow Claude Code conventions. Each entry declares the CLI handler (a thin wrapper over `wipnote hook <name>`) and per-target availability. Events unsupported by a target are omitted from that target's hooks.json. Target-specific events are declared by listing only that target (e.g. `targets: [antigravity]` for AfterAgent). Every (name, target) pair is validated at build time against hookEventNameSpecs in port/pluginbuild/hook_event_names.go — no harness validates hook event names at dispatch, so an unlisted name is a silent permanent no-op and `wipnote plugin build-ports` refuses to emit it.",
     "events": [
       { "name": "SessionStart",       "handler": "session-start",       "targets": ["claude", "codex"] },
       { "name": "SessionStart",       "handler": "session-resume",      "targets": ["claude"], "matcher": "resume" },
-      { "name": "SessionEnd",         "handler": "session-end",         "targets": ["claude"], "timeout": 90 },
+      { "name": "SessionEnd",         "handler": "session-end",         "targets": ["claude", "codex"], "timeout": 90 },
       { "name": "UserPromptSubmit",   "handler": "user-prompt",         "targets": ["claude", "codex", "antigravity"] },
       { "name": "AfterAgent",         "handler": "after-agent",         "targets": ["antigravity"] },
       { "name": "UserPromptSubmit",   "handler": "timestamp",           "targets": ["claude"], "command": "date '+Current time: %Y-%m-%dT%H:%M:%S%z (%Z)'", "timeout": 2 },
@@ -75,7 +75,7 @@
       { "name": "PostToolUse",        "handler": "exit-plan-mode",      "targets": ["claude"], "matcher": "ExitPlanMode", "timeout": 30 },
       { "name": "SubagentStart",      "handler": "subagent-start",      "targets": ["claude"] },
       { "name": "SubagentStop",       "handler": "subagent-stop",       "targets": ["claude"] },
-      { "name": "Stop",               "handler": "stop",                "targets": ["claude", "antigravity"], "timeout": 90 },
+      { "name": "Stop",               "handler": "stop",                "targets": ["claude", "codex", "antigravity"], "timeout": 90 },
       { "name": "PostToolUseFailure", "handler": "posttooluse-failure", "targets": ["claude"] },
       { "name": "PreCompact",         "handler": "pre-compact",         "targets": ["claude"] },
       { "name": "TeammateIdle",       "handler": "teammate-idle",       "targets": ["claude"] },
@@ -86,11 +86,7 @@
       { "name": "PostCompact",        "handler": "post-compact",        "targets": ["claude"] },
       { "name": "TaskCreated",        "handler": "task-created",        "targets": ["claude"] },
       { "name": "PermissionRequest",  "handler": "permission-request",  "targets": ["claude"] },
-      { "name": "ConfigChange",       "handler": "config-change",       "targets": ["claude"] },
-      { "name": "TaskStarted",        "handler": "task-started",        "targets": ["codex"] },
-      { "name": "TaskComplete",       "handler": "stop",                "targets": ["codex"], "timeout": 90 },
-      { "name": "TaskComplete",       "handler": "session-end",         "targets": ["codex"], "timeout": 90 },
-      { "name": "TurnAborted",        "handler": "task-aborted",        "targets": ["codex"] }
+      { "name": "ConfigChange",       "handler": "config-change",       "targets": ["claude"] }
     ]
   }
 }

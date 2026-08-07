@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 // ManifestPath is the conventional location of the shared manifest relative to
@@ -164,6 +165,13 @@ func (m *Manifest) validate() error {
 		if len(e.Targets) == 0 {
 			return fmt.Errorf("manifest.hooks.events[%d].targets must list at least one target", i)
 		}
+	}
+	// Per-harness hook event-name gate. No harness validates event names at
+	// dispatch — an unknown name is a silent, permanent no-op — so this is the
+	// only place the mistake can surface. Hard error, all violations at once.
+	if violations := checkHookEventNames(m); len(violations) > 0 {
+		return fmt.Errorf("manifest registers hook events the target harness does not dispatch:\n  - %s",
+			strings.Join(violations, "\n  - "))
 	}
 	return nil
 }

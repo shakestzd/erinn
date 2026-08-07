@@ -40,13 +40,18 @@ func fixtureManifest() *Manifest {
 			Commands: "plugin/commands",
 			Agents:   "plugin/agents",
 		},
+		// Every name here must be real vocabulary for the targets it lists —
+		// TestFixtureManifestPassesHookEventGate enforces that. A fixture built
+		// on invented event names would quietly model the exact bug the gate
+		// exists to catch (bug-e39d408f).
 		Hooks: HookMatrix{Events: []HookEvent{
 			{Name: "SessionStart", Handler: "session-start", Targets: []string{"claude", "codex"}},
 			{Name: "UserPromptSubmit", Handler: "user-prompt", Targets: []string{"claude", "codex"}},
+			// Registered for claude only although codex also dispatches Stop —
+			// proves `targets` controls emission independently of validity.
 			{Name: "Stop", Handler: "stop", Targets: []string{"claude"}},
-			{Name: "TaskStarted", Handler: "task-started", Targets: []string{"codex"}},
-			{Name: "TaskComplete", Handler: "stop", Targets: []string{"codex"}, Timeout: 90},
-			{Name: "TaskComplete", Handler: "session-end", Targets: []string{"codex"}, Timeout: 90},
+			{Name: "SessionEnd", Handler: "session-end", Targets: []string{"codex"}, Timeout: 90},
+			{Name: "PreToolUse", Handler: "pretooluse", Targets: []string{"codex"}},
 			{Name: "SessionStart", Command: "date", Timeout: 2, Targets: []string{"claude"}, Matcher: "resume"},
 		}},
 	}
@@ -178,17 +183,19 @@ func TestCodexAdapterEmitsManifestHooksAndMCP(t *testing.T) {
 		t.Fatalf("read hooks.json: %v", err)
 	}
 	s := string(hooksRaw)
-	// Codex-only events present, Claude-only absent.
+	// Codex-targeted events present; events registered for claude only absent.
 	for _, want := range []string{
-		`"SessionStart"`, `"UserPromptSubmit"`, `"TaskStarted"`, `"wipnote hook task-started"`,
-		`"TaskComplete"`, `"wipnote hook stop"`, `"wipnote hook session-end"`,
+		`"SessionStart"`, `"UserPromptSubmit"`, `"SessionEnd"`, `"wipnote hook session-end"`,
+		`"PreToolUse"`, `"wipnote hook pretooluse"`,
 	} {
 		if !contains(s, want) {
 			t.Errorf("codex hooks missing %q:\n%s", want, s)
 		}
 	}
+	// Stop is valid codex vocabulary but the fixture registers it for claude
+	// only, so it must not appear here.
 	if contains(s, `"Stop"`) {
-		t.Errorf("codex hooks should not contain Claude-only Stop event")
+		t.Errorf("codex hooks contain Stop, which the fixture registers for claude only")
 	}
 
 	// .mcp.json stub written under plugin subdir.

@@ -11,6 +11,18 @@
         ]
       }
     ],
+    "SessionEnd": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "wipnote hook session-end",
+            "timeout": 90
+          }
+        ]
+      }
+    ],
     "UserPromptSubmit": [
       {
         "matcher": "",
@@ -44,18 +56,7 @@
         ]
       }
     ],
-    "TaskStarted": [
-      {
-        "matcher": "",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "wipnote hook task-started"
-          }
-        ]
-      }
-    ],
-    "TaskComplete": [
+    "Stop": [
       {
         "matcher": "",
         "hooks": [
@@ -63,27 +64,6 @@
             "type": "command",
             "command": "wipnote hook stop",
             "timeout": 90
-          }
-        ]
-      },
-      {
-        "matcher": "",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "wipnote hook session-end",
-            "timeout": 90
-          }
-        ]
-      }
-    ],
-    "TurnAborted": [
-      {
-        "matcher": "",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "wipnote hook task-aborted"
           }
         ]
       }

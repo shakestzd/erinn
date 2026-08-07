@@ -37,12 +37,16 @@ func selfBinary() string {
 //
 //   - Claude:  TaskCreated → addTaskStep, TaskCompleted → completeTaskStep.
 //     A create/complete pair exists, so steps are honestly LIVE.
-//   - Codex:   TaskStarted → TrackEvent (generic checkpoint agent_event only,
-//     never addTaskStep); TaskComplete → stop/session-end (a SESSION
-//     lifecycle event, NOT a per-task completion). There is no Codex
-//     TaskCreate analog to pair with, so mapping TaskComplete to
-//     completeTaskStep would tick steps that were never created as
-//     steps — a dishonest "live steps" state. Deliberately NOT mapped.
+//   - Codex:   no task lifecycle hooks exist at all. Codex 0.147.0 dispatches
+//     exactly 11 events (SessionStart, SessionEnd, UserPromptSubmit,
+//     PreToolUse, PostToolUse, PermissionRequest, PreCompact, PostCompact,
+//     SubagentStart, SubagentStop, Stop) — none of them per-task. wipnote
+//     once registered TaskStarted/TaskComplete for Codex; those names are
+//     phantom and never fired (bug-e39d408f). Session termination now binds
+//     to the real SessionEnd and Stop events, which are SESSION lifecycle
+//     events, NOT per-task completions: mapping either to completeTaskStep
+//     would tick steps that were never created as steps — a dishonest "live
+//     steps" state. Deliberately NOT mapped.
 //   - Gemini:  emits no task lifecycle hooks at all (manifest.json declares
 //     none with targets:[gemini]). Nothing to map.
 //

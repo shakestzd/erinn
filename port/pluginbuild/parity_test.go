@@ -65,10 +65,13 @@ func TestClaudeParityFromLiveManifest(t *testing.T) {
 		}
 	}
 
-	// Codex-only events must not leak into the Claude output.
-	for _, notWant := range []string{`"TaskStarted"`, `"TurnAborted"`} {
+	// Events belonging to another harness's vocabulary must not leak into the
+	// Claude output. AfterAgent is antigravity-only canonical vocabulary;
+	// PreInvocation/PostInvocation are agy-native names produced by the
+	// antigravity translation layer and are meaningless to Claude Code.
+	for _, notWant := range []string{`"AfterAgent"`, `"PreInvocation"`, `"PostInvocation"`} {
 		if strings.Contains(hooks, notWant) {
-			t.Errorf("hooks.json contains codex-only event %s", notWant)
+			t.Errorf("hooks.json contains non-Claude event %s", notWant)
 		}
 	}
 

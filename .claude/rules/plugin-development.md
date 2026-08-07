@@ -62,13 +62,44 @@ Per the [Claude Code subagent docs](https://code.claude.com/docs/en/sub-agents),
 
 **Honored frontmatter fields for plugin-loaded subagents:** `name`, `description`, `model`, `color`, `tools`, `maxTurns`, `memory`, and the markdown body (system prompt).
 
-`wipnote plugin build-ports` enforces per-harness frontmatter allowlists during agent generation and logs a build-time warning for any stripped field. The source of truth is `agentFrontmatterFieldSpecs` in `internal/pluginbuild/agent_frontmatter.go`; it records supported harnesses, output-name translations, and upstream doc provenance for every shared source field. Current derived allowlists:
+`wipnote plugin build-ports` enforces per-harness frontmatter allowlists during agent generation and logs a build-time warning for any stripped field. The source of truth is `agentFrontmatterFieldSpecs` in `port/pluginbuild/agent_frontmatter.go`; it records supported harnesses, output-name translations, and upstream doc provenance for every shared source field. Current derived allowlists:
 
 - Claude: `name`, `description`, `model`, `color`, `tools`, `maxTurns`, `memory`
 - Codex: `name`, `description`, `model`, `tools`, `initialPrompt`
 - Antigravity: `name`, `description`, `model`, `tools`, `max_turns`, `timeout_mins`
 
-Keep shared agent source frontmatter in `plugin/agents/*.md` within those per-harness allowlists. If you add a new source field intentionally, update `agentFrontmatterFieldSpecs` and the tests in `internal/pluginbuild/*_test.go` in the same change; do not add a separate prose-only allowlist.
+Keep shared agent source frontmatter in `plugin/agents/*.md` within those per-harness allowlists. If you add a new source field intentionally, update `agentFrontmatterFieldSpecs` and the tests in `port/pluginbuild/*_test.go` in the same change; do not add a separate prose-only allowlist.
+
+## Hook Event Names Are Gated Per Harness
+
+No harness validates hook event names. Codex silently drops unrecognized names at
+dispatch (no warning, no error, no `codex doctor` diagnostic); the Antigravity generator
+skips names it cannot translate. A wrong name therefore produces a hook that never fires,
+forever, with no signal — the defect behind bug-e39d408f, where wipnote registered three
+phantom Codex events and Codex sessions consequently emitted no stop or session-end signal
+at all.
+
+`wipnote plugin build-ports` now **hard-fails** on any `(event name, target)` pair that the
+target harness does not dispatch. The source of truth is `hookEventNameSpecs` in
+`port/pluginbuild/hook_event_names.go`, which records each canonical name, the harnesses
+that dispatch it, the harness-native spelling where it differs, and the provenance of the
+verification. Verified vocabularies:
+
+- **Claude**: `SessionStart`, `SessionEnd`, `UserPromptSubmit`, `PreToolUse`, `PostToolUse`,
+  `PostToolUseFailure`, `Stop`, `SubagentStart`, `SubagentStop`, `PreCompact`, `PostCompact`,
+  `PermissionRequest`, `TeammateIdle`, `TaskCreated`, `TaskCompleted`, `InstructionsLoaded`,
+  `ConfigChange`, `WorktreeCreate`, `WorktreeRemove`
+- **Codex** (0.147.0 — exactly 11): `SessionStart`, `SessionEnd`, `UserPromptSubmit`,
+  `PreToolUse`, `PostToolUse`, `PermissionRequest`, `PreCompact`, `PostCompact`,
+  `SubagentStart`, `SubagentStop`, `Stop`
+- **Antigravity** (agy v1.0.8 — 5, translated on emit): `UserPromptSubmit`→`PreInvocation`,
+  `AfterAgent`→`PostInvocation`, `PreToolUse`, `PostToolUse`, `Stop`
+
+Registering a name for only some targets is normal and never an error — that is what
+`targets` is for. The gate fires only when a name is registered against a harness that
+cannot dispatch it. To add a harness or an event, add a verified entry with provenance;
+never add one from an unverified source, since an unverifiable name is precisely the
+failure the gate exists to prevent.
 
 ## Hook State: Prefer File/Branch State Over Session State
 

@@ -6,7 +6,7 @@ meta:
     created_at: ""
     status: active
     schema_version: v4
-    version: 13
+    version: 14
 design:
     problem: |
         Plan documents are not read. Measured over 45 plans and 282 slices: what,
@@ -558,6 +558,7 @@ slices:
             - plan/planyaml/validate_test.go
             - plugin/skills/plan/SKILL.md
     - id: slice-7
+      feature_id: feat-0fde8687
       num: 7
       title: Drop the never-used api-endpoint block type
       what: |
@@ -589,6 +590,7 @@ slices:
       comment: ""
       research_waiver: Catalog pruning of wipnote's own block vocabulary; no external dependency, standard or API applies.
       approval_status: approved
+      execution_status: promoted
       critic_revisions:
         - source: claude-feasibility
           severity: HIGH

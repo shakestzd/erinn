@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>Migrate free-research sidecar from Gemini CLI to Antigravity (agy)</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="feat-abb9529b"
+             data-type="feature"
+             data-status="todo"
+             data-priority="medium"
+             data-created="2026-08-07T04:00:07.883605"
+             data-updated="2026-08-07T04:00:29.417735" data-agent-assigned="claude-code" data-track-id="trk-83603ac7" data-created-by-agent="claude-code" data-created-by-model="claude-opus-4-8[1m]" data-created-by-cli-version="0.67.1">
+
+        <header>
+            <h1>Migrate free-research sidecar from Gemini CLI to Antigravity (agy)</h1>
+            <div class="metadata">
+                <span class="badge status-todo">Todo</span>
+                <span class="badge priority-medium">Medium Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="caused_by">
+                <h3>Caused By:</h3>
+                <ul>
+                    <li><a href="../features/feat-02f25a24.html" data-relationship="caused_by" data-since="2026-08-07T04:00:29.417527">Retire Gemini CLI harness — remove target, launcher, and all references (Antigravity supersedes)</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-83603ac7.html" data-relationship="part_of" data-since="2026-08-07T04:00:07.895825">trk-83603ac7</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>orchestrator-directives skill (SKILL.md + reference.md) and the embedded system prompt (cmd/wipnote/prompts/system-prompt.md) still instruct agents to shell out to Bash(gemini ...) as a free research/exploration sidecar (~50+ occurrences, gemini-specific flags -p/--output-format json/--yolo/--include-directories). Gemini CLI is retired (feat-02f25a24). Migrate to agy (Antigravity) after verifying agy&#39;s actual research invocation flags (--print/--prompt/--sandbox/--add-dir/--continue/--conversation/--dangerously-skip-permissions per agy --help). Behavioral migration: must NOT ship broken example commands into the live skill + embedded prompt. Deferred from feat-02f25a24 docs pass as out-of-scope for a docs-only sweep.</p>
+        </section>
+    </article>
+</body>
+</html>

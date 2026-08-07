@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>Codex hook deny fails open on schema mismatch and on exit 2 with empty stderr</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="bug-c6b550fa"
+             data-type="bug"
+             data-status="todo"
+             data-priority="high"
+             data-created="2026-08-07T17:16:34.84393"
+             data-updated="2026-08-07T17:16:34.853633" data-agent-assigned="claude-code" data-track-id="trk-1db7bf72" data-created-by-agent="claude-code" data-created-by-model="claude-opus-5[1m]" data-created-by-cli-version="0.67.1">
+
+        <header>
+            <h1>Codex hook deny fails open on schema mismatch and on exit 2 with empty stderr</h1>
+            <div class="metadata">
+                <span class="badge status-todo">Todo</span>
+                <span class="badge priority-high">High Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-1db7bf72.html" data-relationship="part_of" data-since="2026-08-07T17:16:34.853543">trk-1db7bf72</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>Two confirmed fail-open edges in Codex 0.147.0 hook responses, both verified live. First: a single UNKNOWN field inside hookSpecificOutput silently defeats a deny — the block is dropped with no error. wipnote&#39;s struct is schema-clean today (only the four fields Codex declares) but any future field addition silently disables gating. Second: exit code 2 with EMPTY stderr is silently treated as ALLOW, not deny; non-empty stderr blocks and supplies the reason. All three BlockExit2Error call sites currently format non-empty messages, so this is latent rather than live. Both need pinned regression tests, since either would disable enforcement with zero signal.</p>
+        </section>
+    </article>
+</body>
+</html>

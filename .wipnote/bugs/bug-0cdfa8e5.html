@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>Headless flows have no API-key auth path, which --bare will require when it becomes the -p default</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="bug-0cdfa8e5"
+             data-type="bug"
+             data-status="todo"
+             data-priority="medium"
+             data-created="2026-08-07T16:41:44.317132"
+             data-updated="2026-08-07T16:41:44.326391" data-agent-assigned="claude-code" data-track-id="trk-1db7bf72" data-created-by-agent="claude-code" data-created-by-model="claude-opus-5[1m]" data-created-by-cli-version="0.67.1">
+
+        <header>
+            <h1>Headless flows have no API-key auth path, which --bare will require when it becomes the -p default</h1>
+            <div class="metadata">
+                <span class="badge status-todo">Todo</span>
+                <span class="badge priority-medium">Medium Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-1db7bf72.html" data-relationship="part_of" data-since="2026-08-07T16:41:44.326284">trk-1db7bf72</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>Claude Code docs state --bare will become the default for -p in a future release. --bare strictly disables OAuth and keychain reads: auth becomes ANTHROPIC_API_KEY or apiKeyHelper only. wipnote has no ANTHROPIC_API_KEY wiring for its headless flows (compliance_auto.go, plan/planchat/backend.go), so when the default flips those flows lose authentication, not just discovery. Adding --bare proactively today would cause that breakage immediately for subscription/OAuth users, which is why bug-48b023e5 deliberately did not. The real work is an auth path for headless invocations. No opt-out flag exists, so pinning current behaviour is not available.</p>
+        </section>
+    </article>
+</body>
+</html>

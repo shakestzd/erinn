@@ -120,10 +120,16 @@ if [ ! -s "$TMP_LIST" ]; then
 fi
 
 sort -u "$TMP_LIST" -o "$TMP_LIST"
-mapfile -t MOD_ROOTS < <(cut -d"|" -f1 "$TMP_LIST" | sort -u)
+MOD_ROOTS=()
+while IFS= read -r line; do
+    MOD_ROOTS+=("$line")
+done < <(cut -d"|" -f1 "$TMP_LIST" | sort -u)
 
 for mod in "${MOD_ROOTS[@]}"; do
-    mapfile -t changed_pkgs < <(awk -F"|" -v mod="$mod" "\$1 == mod {print \$2}" "$TMP_LIST")
+    changed_pkgs=()
+    while IFS= read -r line; do
+        changed_pkgs+=("$line")
+    done < <(awk -F"|" -v mod="$mod" "\$1 == mod {print \$2}" "$TMP_LIST")
 
     mod_name=$(basename "$mod")
     if [ "$mod" = "$REPO_ROOT" ]; then
@@ -131,7 +137,10 @@ for mod in "${MOD_ROOTS[@]}"; do
     fi
 
     cd "$mod"
-    mapfile -t changed_imports < <(go list -f "{{.ImportPath}}" "${changed_pkgs[@]}")
+    changed_imports=()
+    while IFS= read -r line; do
+        changed_imports+=("$line")
+    done < <(go list -f "{{.ImportPath}}" "${changed_pkgs[@]}")
     pkgs=("${changed_pkgs[@]}")
 
     while IFS='|' read -r pkg target deps; do
@@ -149,7 +158,11 @@ for mod in "${MOD_ROOTS[@]}"; do
         done
     done < <(go list -test -f "{{.ImportPath}}|{{if .ForTest}}{{.ForTest}}{{else}}{{.ImportPath}}{{end}}|{{join .Deps \" \"}}" ./...)
 
-    mapfile -t pkgs < <(printf "%s\n" "${pkgs[@]}" | sort -u)
+    pkgs_sorted=()
+    while IFS= read -r line; do
+        pkgs_sorted+=("$line")
+    done < <(printf "%s\n" "${pkgs[@]}" | sort -u)
+    pkgs=("${pkgs_sorted[@]}")
     echo "selective-test: running tests in module [${mod_name}] for packages: ${pkgs[*]}"
     go test -short "${pkgs[@]}"
     cd "$REPO_ROOT"

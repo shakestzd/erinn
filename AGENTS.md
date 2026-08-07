@@ -21,7 +21,14 @@ wipnote currently ships the same plugin to three AI coding harnesses:
 
 - **Claude Code** — plugin tree at `plugin/`
 - **Codex CLI** — marketplace tree at `port/packages/codex-marketplace/`
-- **Gemini CLI** — extension tree at `port/packages/gemini-extension/`
+- **Antigravity** — extension tree at `port/packages/antigravity-extension/`
+
+Gemini CLI was retired as a launch/generation target (feat-02f25a24); Antigravity, a
+Gemini-CLI descendant, supersedes it and reuses much of the same translation
+vocabulary (agent frontmatter, TOML slash commands). wipnote still reads historical
+Gemini CLI session data — the ingest/classification read path (`core/ingest/gemini_parser.go`,
+`cmd/wipnote/ingest_gemini.go`, `core/harness/registry_gemini.go`) is retained — but
+`wipnote gemini` is no longer a launcher and no `gemini-extension` tree is generated.
 
 All three trees are **generated** from the same source of truth at
 `packages/plugin-core/manifest.json` by `wipnote plugin build-ports`. Shared
@@ -35,7 +42,7 @@ details.
 
 Agent role names are capability-based across harnesses. Use names like
 `patch-coder`, `feature-coder`, and `architect-coder`; model choices such as
-Claude `haiku`/`sonnet`/`opus`, Codex `gpt-*`, or Gemini `flash`/`pro` belong in
+Claude `haiku`/`sonnet`/`opus`, Codex `gpt-*`, or Antigravity `flash`/`pro` belong in
 the per-harness model configuration, not in the role name.
 
 ## Dogfooding

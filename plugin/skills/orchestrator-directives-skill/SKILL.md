@@ -912,7 +912,7 @@ When delegating to ANY coder agent, include these requirements in the prompt:
 ### Research First
 - **Web research is a default phase, not a debugging fallback.** Route web research into planning and pre-implementation by default: latest docs, OSS alternatives, and provider plugin/hook ecosystems should be checked before design decisions are locked, not only when debugging.
 - Search for existing OSS packages/libraries/tools before approving custom implementations — if a maintained package covers the requirement, adopt it. Record the outcome (adopt or build-custom with rationale) in the work item.
-- When work touches agent harnesses (Claude Code, Codex CLI, Gemini CLI), check Anthropic/OpenAI/Google CLI docs for existing plugins, skills, subagents, or hooks that may already cover the requirement before building new ones.
+- When work touches agent harnesses (Claude Code, Codex CLI, Antigravity), check Anthropic/OpenAI/Google CLI docs for existing plugins, skills, subagents, or hooks that may already cover the requirement before building new ones.
 - Check `go.mod` before adding new dependencies
 - Prefer well-maintained packages over custom implementations
 

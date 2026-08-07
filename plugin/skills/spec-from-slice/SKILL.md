@@ -12,7 +12,7 @@ into its HTML — in a single guided pass.
 
 This skill is a Claude-only convenience layer. The canonical interface is the
 cross-harness CLI command `wipnote plan elicit-decisions`, which works on
-Codex CLI and Gemini CLI without any of the steps below.
+Codex CLI and Antigravity without any of the steps below.
 
 ## When to invoke
 
@@ -54,7 +54,7 @@ user at `wipnote plan promote-slice` first.
 
    Render with the lowest-friction mechanism the harness has (all write the
    same `decisions_notes`) — prefer staying in place over a context switch:
-   - **Native ask-user tool** — Claude `AskUserQuestion` / Gemini `ask_user`,
+   - **Native ask-user tool** — Claude `AskUserQuestion` / Antigravity `ask_user`,
      one grouped block.
    - **No such tool (e.g. Codex)** — just ask the three questions as text;
      the user answers in their reply.
@@ -98,7 +98,7 @@ user at `wipnote plan promote-slice` first.
 
 - The CLI command `wipnote plan elicit-decisions` is the source of truth.
   This skill exists to make the interview ergonomic on Claude Code via
-  `AskUserQuestion`. Other harnesses (Codex CLI, Gemini CLI) call the CLI
+  `AskUserQuestion`. Other harnesses (Codex CLI, Antigravity) call the CLI
   directly — they do not need this skill.
 - `decisions_notes` is free text, not a typed schema. The renderer in
   `wipnote spec generate` weaves it verbatim into the generated spec's

@@ -1,32 +1,35 @@
 # plugin-core — DRY source of truth for wipnote plugin ports
 
-All wipnote plugin ports (Claude Code, Codex CLI, Gemini CLI) are generated from the
-files in this directory so we never edit the same logic twice.
+All wipnote plugin ports (Claude Code, Codex CLI, Antigravity) are generated from the
+files in this directory so we never edit the same logic twice. (Gemini CLI was retired
+as a launch/generation target — feat-02f25a24 — but wipnote still reads historical
+Gemini CLI session data via the retained ingest read path; see `AGENTS.md`.)
 
 ## Source of truth
 
 - **`manifest.json`** — plugin metadata, per-target output paths, hook event
   matrix. `plugin/.claude-plugin/plugin.json`,
   `port/packages/codex-marketplace/.agents/plugins/wipnote/.codex-plugin/plugin.json`, and
-  `port/packages/gemini-extension/gemini-extension.json` are all generated from it.
+  `port/packages/antigravity-extension/plugin.json` are all generated from it.
 - **Assets** (commands, agents, skills, templates, static, config) live in
   `plugin/…/`. Codex skills and commands are copied in their native markdown
   form, while Codex agents are translated from `plugin/agents/*.md` into
   custom-agent TOML under the generated marketplace plugin's `agents/` directory.
-  Gemini CLI requires TOML slash commands, so a sub-emitter translates the
-  markdown on the way out.
+  Antigravity requires TOML slash commands, so a sub-emitter translates the
+  markdown on the way out (reusing the same Gemini-CLI-derived translation
+  helpers Antigravity's tool vocabulary shares — see `port/pluginbuild/gemini_compat.go`).
 - **Generated trees** — `plugin/` (Claude), `port/packages/codex-marketplace/` (Codex),
-  and `port/packages/gemini-extension/` (Gemini) are output directories. Treat them
+  and `port/packages/antigravity-extension/` (Antigravity) are output directories. Treat them
   as build artifacts: do not hand-edit anything under `plugin/.claude-plugin/`,
   `plugin/hooks/hooks.json`, `port/packages/codex-marketplace/`, or
-  `port/packages/gemini-extension/`. Regenerate instead.
+  `port/packages/antigravity-extension/`. Regenerate instead.
 
 ## Build
 
     wipnote plugin build-ports              # regenerate all targets
     wipnote plugin build-ports --target codex
     wipnote plugin build-ports --target claude
-    wipnote plugin build-ports --target gemini
+    wipnote plugin build-ports --target antigravity
 
 The command writes each target's tree under the `outDir` declared in
 `manifest.json → targets.<name>`.
@@ -52,7 +55,7 @@ model choices in frontmatter or target-specific emitters.
 
 Current mapping:
 
-| Role | Purpose | Claude model alias | Codex model | Gemini model |
+| Role | Purpose | Claude model alias | Codex model | Antigravity model |
 |------|---------|--------------------|-------------|--------------|
 | `patch-coder` | Small, clear edits | `haiku` | `gpt-5.4-mini`, low effort | `flash-lite` |
 | `feature-coder` | Moderate implementation | `sonnet` | `gpt-5.4`, medium effort | `flash` |
@@ -60,8 +63,10 @@ Current mapping:
 
 This follows each harness's documented shape: Claude subagents use a role `name`
 plus separate model configuration, Codex custom-agent TOML identifies agents by
-`name` and supports separate `model` / `model_reasoning_effort`, and Gemini
-subagents use role slugs with optional model overrides.
+`name` and supports separate `model` / `model_reasoning_effort`, and Antigravity
+subagents use role slugs with optional model overrides (inherited from the
+Gemini-CLI convention it descends from — see `mapGeminiAgentModel` in
+`port/pluginbuild/gemini_compat.go`).
 
 ## Hooks — thin wrappers
 
@@ -75,32 +80,34 @@ target are not emitted to that target's hooks file.
 Derived from `manifest.json → hooks.events`. Update this table whenever you
 edit the manifest.
 
-| Event | Handler | Claude | Codex | Gemini | Notes |
+| Event | Handler | Claude | Codex | Antigravity | Notes |
 |-------|---------|:---:|:---:|:---:|-------|
-| `SessionStart` | `session-start` | x | x | x | |
+| `SessionStart` | `session-start` | x | x | | |
 | `SessionStart` | `session-resume` | x | | | matcher: `resume` |
-| `SessionEnd` | `session-end` | x | | | |
+| `SessionEnd` | `session-end` | x | | | timeout 90s |
 | `UserPromptSubmit` | `user-prompt` | x | x | x | |
+| `AfterAgent` | `after-agent` | | | x | Antigravity-specific |
 | `UserPromptSubmit` | `timestamp` | x | | | shell `command:` only — injects local timestamp |
 | `PreToolUse` | `pretooluse` | x | x | x | |
 | `PostToolUse` | `posttooluse` | x | x | x | |
 | `PostToolUse` | `exit-plan-mode` | x | | | matcher: `ExitPlanMode` |
-| `PostToolUseFailure` | `posttooluse-failure` | x | | | |
 | `SubagentStart` | `subagent-start` | x | | | |
 | `SubagentStop` | `subagent-stop` | x | | | |
-| `Stop` | `stop` | x | | x | |
+| `Stop` | `stop` | x | | x | timeout 90s |
+| `PostToolUseFailure` | `posttooluse-failure` | x | | | |
 | `PreCompact` | `pre-compact` | x | | | |
-| `PostCompact` | `post-compact` | x | | | |
 | `TeammateIdle` | `teammate-idle` | x | | | |
 | `TaskCompleted` | `task-completed` | x | | | |
-| `TaskCreated` | `task-created` | x | | | |
 | `InstructionsLoaded` | `instructions-loaded` | x | | | |
 | `WorktreeCreate` | `worktree-create` | x | | | |
 | `WorktreeRemove` | `worktree-remove` | x | | | |
+| `PostCompact` | `post-compact` | x | | | |
+| `TaskCreated` | `task-created` | x | | | |
 | `PermissionRequest` | `permission-request` | x | | | |
 | `ConfigChange` | `config-change` | x | | | |
 | `TaskStarted` | `task-started` | | x | | Codex-specific |
-| `TaskComplete` | `stop` | | x | | Codex-specific — reuses `stop` handler |
+| `TaskComplete` | `stop` | | x | | Codex-specific — reuses `stop` handler; timeout 90s |
+| `TaskComplete` | `session-end` | | x | | Codex-specific — reuses `session-end` handler; timeout 90s |
 | `TurnAborted` | `task-aborted` | | x | | Codex-specific |
 
 ## Recipes
@@ -165,8 +172,11 @@ Then run `wipnote plugin build-ports && wipnote build` and update the
 A new harness requires changes in both the plugin build layer (steps 1–3) and
 the Go runtime layer (steps 4–6). Follow the steps in order; validate at the end.
 
-Gemini CLI is the current reference for the plugin build layer —
-see `port/pluginbuild/gemini.go` for the canonical sub-emitter pattern.
+Antigravity is the current reference for the plugin build layer —
+see `port/pluginbuild/antigravity.go` for the canonical adapter pattern (it reuses
+translation helpers from the retired Gemini CLI adapter, kept at
+`port/pluginbuild/gemini_compat.go`, since Antigravity descends from Gemini CLI's
+extension conventions).
 
 **Plugin build layer**
 
@@ -175,11 +185,11 @@ see `port/pluginbuild/gemini.go` for the canonical sub-emitter pattern.
    `hooksPath`, and the optional `mcpPath`, the schema also supports:
 
    - `contextFile` — path (relative to the repo root) of a context/instruction
-     file that should be copied into the target tree. Gemini uses this for its
-     `GEMINI.md` file.
+     file that should be copied into the target tree. Antigravity uses this for
+     its `plugin/contexts/ANTIGRAVITY.md` file.
    - `commandNamespace` — sub-directory under `commands/` that holds the
-     target's slash commands. Gemini groups its translated TOML commands under
-     a namespace so they don't collide with other extensions.
+     target's slash commands. Antigravity groups its translated TOML commands
+     under a namespace so they don't collide with other extensions.
 
    Example:
 
@@ -200,7 +210,7 @@ see `port/pluginbuild/gemini.go` for the canonical sub-emitter pattern.
    target name in their `targets` list so the build emits hook configs for it.
 
 3. **Plugin adapter** — implement the `Adapter` interface in a new file under
-   `port/pluginbuild/` (model it on `claude.go` / `codex.go` / `gemini.go`):
+   `port/pluginbuild/` (model it on `claude.go` / `codex.go` / `antigravity.go`):
 
    ```go
    package pluginbuild
@@ -230,13 +240,13 @@ see `port/pluginbuild/gemini.go` for the canonical sub-emitter pattern.
    `wipnote plugin build-ports --target <name>`. Duplicate registrations panic.
 
    **Sub-emitters for format translation.** If the target needs per-asset
-   translation (e.g. Gemini's markdown-to-TOML slash commands), do **not**
-   extend `copyAssetTree` — add a sub-emitter file instead (for example,
-   `gemini_commands.go`, `gemini_assets.go`, `gemini_hooks.go`) that registers
-   a callback in `init()`. The parent adapter iterates its sub-emitter slice,
-   so each phase or format converter can land independently. See
-   `port/pluginbuild/gemini.go` for the canonical registration pattern
-   (the `geminiSubEmitters` slice and `GeminiSubEmitter` signature).
+   translation (e.g. Antigravity's markdown-to-TOML slash commands), do **not**
+   extend `copyAssetTree` — add a sub-emitter function instead that registers
+   a callback in the adapter's sub-emitter slice. The parent adapter iterates
+   its sub-emitter slice, so each phase or format converter can land
+   independently. See `port/pluginbuild/antigravity.go` for the canonical
+   registration pattern (the `antigravitySubEmitters` slice and
+   `AntigravitySubEmitter` signature).
 
 **Go runtime layer**
 
@@ -250,13 +260,16 @@ see `port/pluginbuild/gemini.go` for the canonical sub-emitter pattern.
    - `ServiceNames` — OTel `resource.service.name` values emitted by this
      harness. Use a slice if the harness has multiple variants.
    - `SessionAttr` — OTel attribute key whose value becomes `SessionID` in
-     `UnifiedSignal`. Claude and Gemini use `"session.id"`; Codex uses
+     `UnifiedSignal`. Claude and Antigravity use `"session.id"`; Codex uses
      `"conversation.id"`.
    - `HookEventNames` — native `hook_event_name` values emitted by this
-     harness. Non-empty for Gemini only; Claude and Codex leave it nil.
+     harness. Non-empty for Antigravity only (inherited from the Gemini-CLI
+     hook vocabulary it descends from); Claude and Codex leave it nil.
    - `HooksHarness` — a new iota constant added to
-     `internal/harness/registry.go`. The ordering MUST match
-     `hooks.HarnessClaude/Codex/Gemini` exactly; verified by
+     `core/harness/registry.go`. The ordering MUST match
+     `hooks.HarnessClaude/Codex/Gemini/Antigravity` exactly (Gemini's iota slot
+     is retained for index stability even though it's no longer an active
+     launch target — see feat-02f25a24); verified by
      `TestRegistry_HooksHarnessMatchesHooksConst`.
    - `OtelEnv` — func returning OTel env vars to inject at launch time; must
      be non-nil for every harness except Claude.

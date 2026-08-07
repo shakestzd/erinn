@@ -105,7 +105,7 @@ but changing any guard field does.
 
 ## Launch-time setup and `wipnote guard init`
 
-Every interactive launch (`wipnote claude/yolo/dev/codex/gemini`) auto-runs setup:
+Every interactive launch (`wipnote claude/yolo/dev/codex/antigravity`) auto-runs setup:
 if no approved profile exists and the launch is interactive, it proposes guards from
 manifests, prompts `[y/N]`, and on `y` signs + commits the profile. Non-interactive
 launches skip silently.

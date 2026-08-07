@@ -51,53 +51,45 @@ wipnote claude --resume <session-id>   # resume a specific session by UUID
 
 ---
 
-## Gemini CLI Integration
+## Antigravity Integration
 
-The wipnote Gemini extension is distributed via the `gemini-extension-dist` branch of
-this repository, published automatically on every release as a `gemini-extension-v<version>`
-tag.
+> Antigravity supersedes the Gemini CLI harness, which was retired as a launch/generation
+> target (feat-02f25a24). wipnote still reads historical Gemini CLI session data (the
+> ingest/classification read path is retained), but `wipnote gemini` is no longer a command.
+
+The wipnote Antigravity extension is bundled with each release tarball
+(`antigravity-extension/`, installed to `~/.local/share/wipnote/antigravity-extension/`)
+and installed locally via the `agy` CLI's own plugin mechanism — there is no separate
+git-ref/tag download step.
 
 ### Install
 
 ```bash
-wipnote gemini --init     # installs the extension matching the wipnote binary version
-wipnote gemini            # launch Gemini CLI with wipnote context
+wipnote antigravity --init          # installs the bundled extension via `agy plugin install`
+wipnote antigravity                 # launch Antigravity with wipnote context
 ```
-
-The `--init` command runs:
-
-```
-gemini extensions install shakestzd/wipnote --ref gemini-extension-v<version> --consent --skip-settings
-```
-
-Where `<version>` matches the currently installed `wipnote` binary. Pass `--ref` to
-override:
 
 ```bash
-wipnote gemini --init --ref gemini-extension-v0.55.6   # pin a specific version
-wipnote gemini --init --force                          # reinstall over existing
+wipnote antigravity --init --force  # reinstall over an existing install
 ```
 
 ### Resume sessions
 
-Gemini uses session **indices** (integers), not UUIDs. List sessions to find the index:
-
 ```bash
-wipnote gemini --list-sessions    # gemini --list-sessions
-wipnote gemini --continue         # gemini --resume latest
-wipnote gemini --resume 3         # gemini --resume 3
+wipnote antigravity --continue          # agy --continue (resume the most recent conversation)
+wipnote antigravity --resume <id>       # agy --conversation <id> (resume a specific conversation)
 ```
 
 ### Dev mode (dogfooding from source)
 
 ```bash
-wipnote gemini --dev              # links packages/gemini-extension/ as a live pointer
-wipnote gemini --dev --isolate    # also passes -e wipnote to suppress other extensions
+wipnote antigravity --dev               # links port/packages/antigravity-extension/ and launches
 ```
 
-Dev mode runs `gemini extensions link /abs/path/to/packages/gemini-extension` (idempotent)
-before launching. The live link means changes to `packages/gemini-extension/` are picked
-up immediately without reinstalling.
+Dev mode links the in-tree `port/packages/antigravity-extension/` (idempotent) before
+launching, so changes to the generated tree are picked up without reinstalling. Regenerate
+it with `wipnote plugin build-ports --target antigravity` after editing shared `plugin/`
+assets or `packages/plugin-core/manifest.json`.
 
 ---
 

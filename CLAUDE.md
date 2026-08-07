@@ -92,19 +92,21 @@ First run creates a tmux session named `wipnote-yolo`. On disconnect, detach ins
 
 ## Plugin Source — Single Source of Truth
 
-wipnote ships one plugin to multiple AI-tool targets (Claude Code, Codex CLI, Gemini CLI) from
-a single source. Each target's plugin tree is **generated** — never hand-edit it.
+wipnote ships one plugin to multiple AI-tool targets (Claude Code, Codex CLI, Antigravity) from
+a single source. Each target's plugin tree is **generated** — never hand-edit it. (Gemini CLI
+was retired as a launch/generation target — see `AGENTS.md` — but wipnote still reads historical
+Gemini CLI session data via the retained ingest read path.)
 
 **Layering (edit the left column only):**
 
 | Layer | What lives there | Edit? |
 |-------|------------------|-------|
-| `packages/plugin-core/manifest.json` | Canonical plugin metadata + per-target output paths + hook event matrix (which events target Claude, Codex, Gemini, or any combination) | YES |
+| `packages/plugin-core/manifest.json` | Canonical plugin metadata + per-target output paths + hook event matrix (which events target Claude, Codex, Antigravity, or any combination) | YES |
 | `plugin/commands/`, `plugin/agents/`, `plugin/skills/`, `plugin/templates/`, `plugin/static/`, `plugin/config/` | Shared markdown/static assets — copied verbatim into every target tree | YES |
 | `cmd/`, `internal/` | Go CLI + hook handlers (all hooks are thin wrappers over `wipnote hook <handler>`) | YES |
 | `plugin/.claude-plugin/plugin.json`, `plugin/hooks/hooks.json` | Generated Claude Code tree | NO — regenerate |
 | `port/packages/codex-marketplace/` | Generated Codex CLI tree | NO — regenerate |
-| `port/packages/gemini-extension/` | Generated Gemini CLI tree | NO — regenerate |
+| `port/packages/antigravity-extension/` | Generated Antigravity tree | NO — regenerate |
 | `.claude/` (anything) | Auto-synced from `plugin/` — changes are lost | NO |
 
 **Regenerate after every manifest or asset edit:**
@@ -113,7 +115,7 @@ a single source. Each target's plugin tree is **generated** — never hand-edit 
 wipnote plugin build-ports              # all targets
 wipnote plugin build-ports --target codex
 wipnote plugin build-ports --target claude
-wipnote plugin build-ports --target gemini
+wipnote plugin build-ports --target antigravity
 ```
 
 See `packages/plugin-core/README.md` for the per-task recipes (new command, new hook,
@@ -143,9 +145,9 @@ Use `/wipnote:orchestrator-directives-skill` for delegation patterns and model s
 
 ---
 
-## Monitoring Upstream Harnesses (Claude Code / Codex / Gemini)
+## Monitoring Upstream Harnesses (Claude Code / Codex / Antigravity)
 
-wipnote ships to three independently-evolving CLIs: Claude Code, Codex CLI, and Gemini CLI. Each harness is an integration surface; plugins, hooks, skills, agents, and observability all have harness-specific contracts that change on different vendor release cadences. A doc audit on 2026-05-15 found silent-failure drift in all three — fields set in your agent config may stop being honored with no error. Continuous monitoring is non-negotiable.
+wipnote ships to three independently-evolving CLIs: Claude Code, Codex CLI, and Antigravity (Gemini CLI was retired as a launch/generation target — feat-02f25a24). Each harness is an integration surface; plugins, hooks, skills, agents, and observability all have harness-specific contracts that change on different vendor release cadences. A doc audit on 2026-05-15 found silent-failure drift in all three harnesses shipped at that time (Claude Code, Codex, Gemini) — fields set in your agent config may stop being honored with no error. Continuous monitoring is non-negotiable.
 
 **Periodically review the upstream docs for changes to:**
 
@@ -154,7 +156,7 @@ wipnote ships to three independently-evolving CLIs: Claude Code, Codex CLI, and 
 - **Skills** — frontmatter fields, activation triggers, invocation patterns (Claude Code only)
 - **Agent configuration** — frontmatter schema (name, description, model, color, tools, timeout/maxTurns, memory, max_depth)
 - **Observability** — session metadata, telemetry, cost/token reporting, transcript format
-- **Tool interfaces** — available tools per harness (Claude Code ≠ Codex ≠ Gemini), invocation signatures
+- **Tool interfaces** — available tools per harness (Claude Code ≠ Codex ≠ Antigravity), invocation signatures
 
 **Upstream sources to monitor:**
 
@@ -170,10 +172,8 @@ wipnote ships to three independently-evolving CLIs: Claude Code, Codex CLI, and 
 - https://developers.openai.com/codex/config-reference — config keys including [agents] section (max_threads, max_depth, job_max_runtime_seconds; note: NO per-agent interactive turn cap)
 - https://developers.openai.com/codex/config-advanced — advanced configuration options
 
-**Gemini CLI (Google):**
-- https://github.com/google-gemini/gemini-cli — repo; see docs/core/subagents.md and docs/extensions/reference.md
-- Gemini agent .md frontmatter: max_turns (snake_case), tools (Gemini tool names like run_shell_command/read_file), timeout_mins (documented, default 10min), model (full IDs e.g. gemini-3-flash-preview)
-- https://ai.google.dev/gemini-api/docs/models — current model identifiers
+**Antigravity (Google):**
+- No verified canonical upstream doc set yet — Antigravity is a newly-added target (feat-02f25a24) and currently inherits Gemini-CLI's extension/plugin conventions (agent frontmatter, TOML slash commands, tool-name vocabulary) via the retained compat helpers in `port/pluginbuild/gemini_compat.go` rather than an independently-verified contract. Until a dedicated doc audit establishes canonical Antigravity sources, treat `port/pluginbuild/antigravity.go` as the executable spec and re-derive from Google's official Antigravity docs when auditing.
 
 **Re-verify on a cadence, not just on suspicion.** These schemas drift silently — a field you set may stop being honored with no error. Re-run the cross-harness doc-verification audit at least every release cycle (or via a scheduled routine), using `agentFrontmatterFieldSpecs` in `port/pluginbuild/agent_frontmatter.go` as the checklist for agent frontmatter fields, supported harnesses, output-name translations, and provenance links. When a contract changes, the fix lands in `plugin/agents/*.md`, `packages/plugin-core/manifest.json`, `port/pluginbuild/`, or `cmd/wipnote/prompts/system-prompt.md` — never in user-facing docs like AGENTS.md or CLAUDE.md (those describe, they don't configure).
 

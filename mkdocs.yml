@@ -15,7 +15,6 @@ exclude_docs: |
   commit-outbox-design.md
   arch-measurement-protocol.md
   codex-cli-integration-plan.md
-  GEMINI_INTEGRATION_PLAN.md
   security-review-2026-04-15.md
   adr-001-harness-agnostic-collector.md
   research/

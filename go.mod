@@ -87,7 +87,7 @@ replace github.com/shakestzd/wipnote/plan => ./plan
 
 // Interim multi-module wiring: port/ is the plugin-porting product lifted out of
 // the monolith (trk-1ea27426). It houses the pluginbuild generator plus the
-// generated Codex/Gemini target trees. Same local-replace rationale as core/ and
+// generated Codex/Antigravity target trees. Same local-replace rationale as core/ and
 // plan/ above; swap for a real version require when port is tagged and released.
 replace github.com/shakestzd/wipnote/port => ./port
 

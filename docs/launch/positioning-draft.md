@@ -8,7 +8,7 @@
 
 ### One-line value prop
 
-**wipnote** — local-first causal-lineage and coordination layer for AI-assisted dev: know *why* every commit exists, across Claude Code, Codex, and Gemini.
+**wipnote** — local-first causal-lineage and coordination layer for AI-assisted dev: know *why* every commit exists, across Claude Code, Codex, and Antigravity.
 
 ### Elevator (2-3 lines)
 
@@ -38,7 +38,7 @@ No server. No external service. One HTML file per work item, committed alongside
 | **Control plane** | Coordination layer — work items, sessions, agent spawns | Orchestration spec — routes tasks between agents | Third-party CLI wrapping upstream Symphony spec |
 | **Causal lineage** | First-class: work item → commit → session → agent-spawn chain | None | None |
 | **Local-first store** | `.wipnote/*.html` in your repo; no cloud dependency | Not scoped | Not scoped |
-| **Cross-harness** | Claude Code + Codex + Gemini session capture | Codex/app-server-protocol only | Extends Symphony; same lock-in |
+| **Cross-harness** | Claude Code + Codex + Antigravity session capture | Codex/app-server-protocol only | Extends Symphony; same lock-in |
 | **Tracker** | Any (wipnote is tracker-agnostic) | Linear only (non-Linear is a documented upstream TODO) | Inherits Symphony's Linear lock |
 | **Model-agnostic** | Yes — harness-level, not claim | No — upstream Symphony is Codex-locked | Yes — Kata adds this; it is NOT upstream Symphony |
 | **Composes with Symphony** | Yes — wipnote is the provenance layer Symphony lacks | N/A | N/A |
@@ -50,13 +50,13 @@ No server. No external service. One HTML file per work item, committed alongside
 ## 3. Show-HN Submission Titles
 
 **Top pick:**
-> Show HN: wipnote – local-first causal lineage for AI-assisted dev (Claude/Codex/Gemini)
+> Show HN: wipnote – local-first causal lineage for AI-assisted dev (Claude/Codex/Antigravity)
 
 **Candidate 2:**
 > Show HN: wipnote – know why every commit exists across AI coding agents
 
 **Candidate 3:**
-> Show HN: wipnote – provenance + coordination layer for Claude Code, Codex, Gemini
+> Show HN: wipnote – provenance + coordination layer for Claude Code, Codex, Antigravity
 
 Constraints applied: all ≤80 chars, no "revolutionary"/"game-changing", HN Show-HN prefix, no trailing period.
 
@@ -68,7 +68,7 @@ Constraints applied: all ≤80 chars, no "revolutionary"/"game-changing", HN Sho
 >
 > wipnote captures the causal chain — work item → session → agent spawns → commits — in plain `.wipnote/*.html` files committed alongside your code. Nothing leaves your machine. The store is just HTML so it's readable without any tooling and survives forever.
 >
-> It ships a plugin to Claude Code, Codex CLI, and Gemini CLI. Honest scope note: the Claude Code integration is production-stable; Codex and Gemini are experimental and I'd call them early-access. Cross-harness session capture works but the rough edges show.
+> It ships a plugin to Claude Code, Codex CLI, and Antigravity. Honest scope note: the Claude Code integration is production-stable; Codex and Antigravity are experimental and I'd call them early-access. Cross-harness session capture works but the rough edges show.
 >
 > On Symphony: wipnote is not an orchestrator and is not trying to be. Symphony is an OpenAI spec for routing tasks between agents; wipnote is the provenance layer that sits beneath that. They compose. If you use Symphony today, wipnote gives you the lineage graph Symphony doesn't provide.
 >
@@ -82,5 +82,5 @@ Word count: ~210. Adjust the personal voice as needed.
 
 - [ ] **Positioning locked** — README first-screen matches the "provenance/coordination layer, not orchestrator" frame; remove or demote any language that positions wipnote as an orchestrator.
 - [ ] **Cold-clone aha works** — `git clone <repo> && wipnote install && wipnote feature start test-001 && echo "done"` succeeds on a clean machine in under 2 minutes; the lineage output is non-empty and readable.
-- [ ] **Honest scope labels** — Codex and Gemini integrations are visibly marked experimental in README, CLI help, and any demo GIF; no screenshot implies production parity with Claude Code.
+- [ ] **Honest scope labels** — Codex and Antigravity integrations are visibly marked experimental in README, CLI help, and any demo GIF; no screenshot implies production parity with Claude Code.
 - [ ] **2-session concurrency sane** — run two `wipnote feature start` calls against the same item in parallel; verify no corrupt HTML, no silent data loss, and the second claim either wins cleanly or returns a clear error.

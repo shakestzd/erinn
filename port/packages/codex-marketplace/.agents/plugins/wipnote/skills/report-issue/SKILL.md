@@ -14,7 +14,7 @@ Use this skill to help the user file a concise, safe issue for `shakestzd/wipnot
    - `wipnote version`
    - `go version`
    - OS via `uname -s -r` or the platform equivalent
-   - active harness version, such as `claude --version`, `codex --version`, `gemini --version`, or `agy --version`
+   - active harness version, such as `claude --version`, `codex --version`, or `agy --version`
 3. Ask whether to include steps to reproduce, expected behavior, actual behavior, and any error text.
 4. Scrub secrets, API keys, tokens, private file contents, and personal data before drafting or submitting.
 5. If `gh` is authenticated and the user wants you to submit it, create the issue:

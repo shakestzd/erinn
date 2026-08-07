@@ -28,7 +28,7 @@ curl -fsSL https://raw.githubusercontent.com/shakestzd/wipnote/main/scripts/inst
 
 Supported platforms: `darwin_amd64`, `darwin_arm64`, `linux_amd64`, `linux_arm64`.
 
-The installer places the `wipnote` binary in `~/.local/bin/` and the bundled plugin trees (`plugin/`, `codex-marketplace/`, `gemini-extension/`) in `~/.local/share/wipnote/`. Both locations can be customized via environment variables.
+The installer places the `wipnote` binary in `~/.local/bin/` and the bundled plugin trees (`plugin/`, `codex-marketplace/`, `antigravity-extension/`) in `~/.local/share/wipnote/`. Both locations can be customized via environment variables.
 
 **Pinned to a specific version:**
 
@@ -64,7 +64,7 @@ The `install.sh` script:
 3. Downloads `wipnote_${VERSION}_${OS}_${ARCH}.tar.gz` and `wipnote_${VERSION}_checksums.txt` to a temp dir (cleaned up via `trap … EXIT`).
 4. Verifies the sha256 checksum via `sha256sum` (Linux) or `shasum -a 256` (macOS). Hard-fails on mismatch; prints a clear warning if neither tool is available and skips (does NOT silently bypass).
 5. Extracts the tarball, `mkdir -p`s the binary dir (`WIPNOTE_BIN_DIR`, default `$HOME/.local/bin`), moves the binary, `chmod +x`.
-6. Installs the bundled plugin trees (`plugin/`, `codex-marketplace/`, `gemini-extension/`) to the share dir (`WIPNOTE_SHARE_DIR`, default `$HOME/.local/share/wipnote/`).
+6. Installs the bundled plugin trees (`plugin/`, `codex-marketplace/`, `antigravity-extension/`) to the share dir (`WIPNOTE_SHARE_DIR`, default `$HOME/.local/share/wipnote/`).
 7. On macOS: removes the quarantine attribute (`xattr -d com.apple.quarantine`) to avoid Gatekeeper blocking.
 8. Checks whether the binary dir is on your `PATH`. If not, prints instructions — it does NOT mutate your shell rc files.
 9. Prints `==> Installed wipnote vX.Y.Z` and runs `wipnote version`.
@@ -88,7 +88,7 @@ mkdir -p "$HOME/.local/bin" "$HOME/.local/share/wipnote"
 mv "$TMPD/wipnote" "$HOME/.local/bin/wipnote"
 chmod +x "$HOME/.local/bin/wipnote"
 # Install bundled plugin trees
-for tree in plugin codex-marketplace gemini-extension; do
+for tree in plugin codex-marketplace antigravity-extension; do
   [[ -d "$TMPD/$tree" ]] && mv "$TMPD/$tree" "$HOME/.local/share/wipnote/$tree"
 done
 xattr -d com.apple.quarantine "$HOME/.local/bin/wipnote" 2>/dev/null || true  # macOS only
@@ -105,23 +105,23 @@ git clone https://github.com/shakestzd/wipnote && cd wipnote && go build -o ~/.l
 </details>
 
 The release tarball bundles the plugin trees for Claude Code, Codex CLI, and
-Gemini CLI alongside the `wipnote` binary. There is no separate
+Antigravity alongside the `wipnote` binary. There is no separate
 `claude plugin install` step — `wipnote claude` loads the bundled plugin via
 `--plugin-dir` automatically.
 
 ### Using wipnote with each harness
 
 ```bash
-wipnote claude   # Claude Code with bundled plugin
-wipnote codex    # Codex CLI with bundled marketplace
-wipnote gemini   # Gemini CLI with bundled extension
+wipnote claude       # Claude Code with bundled plugin
+wipnote codex        # Codex CLI with bundled marketplace
+wipnote antigravity  # Antigravity with bundled extension
 ```
 
 Each launcher resolves the bundled tree (from `~/.local/share/wipnote/` for the
 curl/dev install) and points the harness at it. Override the resolved path
-per-tree with `WIPNOTE_PLUGIN_DIR`, `WIPNOTE_CODEX_DIR`, or `WIPNOTE_GEMINI_DIR`.
+per-tree with `WIPNOTE_PLUGIN_DIR`, `WIPNOTE_CODEX_DIR`, or `WIPNOTE_ANTIGRAVITY_DIR`.
 
-For users who want the bare `claude` / `codex` / `gemini` commands to route
+For users who want the bare `claude` / `codex` / `agy` commands to route
 through wipnote, opt in via shell aliases:
 
 ```bash
@@ -173,7 +173,7 @@ wipnote history feat-abc1234
 
 **Real-time dashboard** — Activity feed, kanban board, session viewer, and work item detail — served locally by `wipnote serve`.
 
-**Multi-agent attribution and observation** — Claude Code, Gemini CLI, Codex, and GitHub Copilot all read from and write to the same work items via the CLI. Every tool call, file edit, and session is attributed to a work item so you can see what each agent actually did. (Session transcript ingestion currently supports Claude Code JSONL format.)
+**Multi-agent attribution and observation** — Claude Code, Codex, Antigravity, and GitHub Copilot all read from and write to the same work items via the CLI. Every tool call, file edit, and session is attributed to a work item so you can see what each agent actually did. (Session transcript ingestion currently supports Claude Code JSONL format.)
 
 **Plans & specifications** — CRISPI plans break initiatives into trackable steps. Feature specs define acceptance criteria. Agents execute against the plan and report progress.
 

@@ -6,601 +6,421 @@ _depends on local feature_files state that the canonical `.wipnote/*.html` does 
 
 ## Track: (untracked) ((untracked))
 
-72 features, 308 files, 498 total touches
+29 features, 218 files, 301 total touches
 
 | File | Features | Touches |
 |------|----------|---------|
 | .claude-plugin/plugin.json | 1 | 1 |
-| .claude/rules/plugin-development.md | 3 | 3 |
-| .claude/settings.json | 1 | 1 |
-| .claude/settings.local.json | 2 | 2 |
-| .devcontainer/claude.omp.json | 1 | 1 |
-| .devcontainer/devcontainer.json | 1 | 1 |
-| .devcontainer/post-create.sh | 2 | 2 |
-| .github/workflows/ci.yml | 1 | 1 |
-| .gitignore | 2 | 2 |
-| AGENTS.md | 3 | 3 |
-| CHANGELOG.md | 1 | 1 |
-| CLAUDE.md | 5 | 5 |
-| GEMINI.md | 1 | 1 |
-| README.md | 5 | 11 |
+| .gitattributes | 1 | 1 |
+| .gitignore | 1 | 1 |
+| .goreleaser.yml | 1 | 1 |
+| AGENTS.md | 1 | 1 |
+| CLAUDE.md | 1 | 1 |
+| README.md | 1 | 2 |
+| cmd/wipnote/antigravity.go | 1 | 1 |
 | cmd/wipnote/api.go | 1 | 1 |
-| cmd/wipnote/api_busy_test.go | 1 | 1 |
-| cmd/wipnote/api_collector_status.go | 2 | 2 |
-| cmd/wipnote/api_collector_status_test.go | 2 | 2 |
-| cmd/wipnote/api_graph.go | 8 | 8 |
-| cmd/wipnote/api_graph_agent_test.go | 2 | 2 |
-| cmd/wipnote/api_graph_commit_file_test.go | 3 | 3 |
-| cmd/wipnote/api_graph_filter_test.go | 2 | 2 |
-| cmd/wipnote/api_graph_session_hierarchy_test.go | 1 | 1 |
-| cmd/wipnote/api_ingest.go | 1 | 1 |
-| cmd/wipnote/api_plans.go | 1 | 1 |
-| cmd/wipnote/api_plans_test.go | 1 | 1 |
-| cmd/wipnote/api_preview.go | 2 | 2 |
-| cmd/wipnote/api_preview_test.go | 1 | 1 |
-| cmd/wipnote/api_provenance.go | 3 | 3 |
-| cmd/wipnote/api_provenance_test.go | 2 | 2 |
-| cmd/wipnote/api_tree.go | 1 | 1 |
+| cmd/wipnote/api_graph_commit_file_test.go | 1 | 1 |
+| cmd/wipnote/api_parallel_sessions_test.go | 1 | 1 |
 | cmd/wipnote/api_tree_test.go | 1 | 1 |
-| cmd/wipnote/backfill_ai_title.go | 2 | 2 |
-| cmd/wipnote/backfill_ai_title_test.go | 1 | 1 |
-| cmd/wipnote/claim.go | 1 | 1 |
+| cmd/wipnote/arch_cmds_test.go | 1 | 1 |
+| cmd/wipnote/archive.go | 1 | 1 |
+| cmd/wipnote/archive_completeness_test.go | 1 | 1 |
+| cmd/wipnote/archive_test.go | 1 | 1 |
+| cmd/wipnote/build.go | 1 | 1 |
+| cmd/wipnote/check.go | 1 | 1 |
+| cmd/wipnote/check_gate_test.go | 1 | 1 |
 | cmd/wipnote/claude.go | 1 | 1 |
-| cmd/wipnote/claude_otel_collect_spawn.go | 5 | 5 |
-| cmd/wipnote/claude_otel_collect_spawn_test.go | 4 | 4 |
+| cmd/wipnote/claude_carryover_test.go | 1 | 1 |
+| cmd/wipnote/claude_chooser.go | 2 | 2 |
+| cmd/wipnote/claude_chooser_current_test.go | 1 | 1 |
+| cmd/wipnote/claude_chooser_test.go | 2 | 2 |
+| cmd/wipnote/claude_launch_intent.go | 1 | 1 |
+| cmd/wipnote/claude_launch_timing.go | 1 | 1 |
 | cmd/wipnote/codex.go | 2 | 2 |
-| cmd/wipnote/codex_launch.go | 1 | 1 |
+| cmd/wipnote/codex_carryover_test.go | 1 | 1 |
 | cmd/wipnote/codex_launch_test.go | 1 | 1 |
-| cmd/wipnote/dashboard/css/components.css | 4 | 4 |
-| cmd/wipnote/dashboard/css/tokens.css | 3 | 3 |
-| cmd/wipnote/dashboard/index.html | 7 | 7 |
-| cmd/wipnote/dashboard/js/app.js | 20 | 20 |
-| cmd/wipnote/feature_reopen.go | 1 | 1 |
-| cmd/wipnote/feature_reopen_test.go | 1 | 1 |
-| cmd/wipnote/gemini.go | 3 | 3 |
-| cmd/wipnote/gemini_launch.go | 1 | 1 |
-| cmd/wipnote/gemini_launch_test.go | 1 | 1 |
-| cmd/wipnote/gemini_test.go | 1 | 1 |
-| cmd/wipnote/health.go | 1 | 1 |
-| cmd/wipnote/help.go | 1 | 1 |
+| cmd/wipnote/codex_test.go | 2 | 2 |
+| cmd/wipnote/config.go | 4 | 4 |
+| cmd/wipnote/dashboard/index.html | 1 | 1 |
+| cmd/wipnote/dashboard/js/app.js | 1 | 1 |
+| cmd/wipnote/dashboard_pane_test.go | 2 | 2 |
+| cmd/wipnote/extension_note.go | 1 | 1 |
+| cmd/wipnote/extension_note_test.go | 1 | 1 |
+| cmd/wipnote/find.go | 1 | 1 |
+| cmd/wipnote/gemini_prompt.go | 1 | 1 |
+| cmd/wipnote/guard_init_test.go | 1 | 1 |
+| cmd/wipnote/harness_env_test.go | 1 | 1 |
 | cmd/wipnote/help_test.go | 1 | 1 |
-| cmd/wipnote/history.go | 1 | 1 |
-| cmd/wipnote/history_test.go | 1 | 1 |
-| cmd/wipnote/hook.go | 3 | 3 |
-| cmd/wipnote/hook_exit_plan_mode.go | 1 | 1 |
-| cmd/wipnote/ingest.go | 2 | 2 |
-| cmd/wipnote/ingest_title_test.go | 1 | 1 |
-| cmd/wipnote/launch_run.go | 1 | 1 |
-| cmd/wipnote/launch_run_test.go | 1 | 1 |
-| cmd/wipnote/lineage.go | 1 | 1 |
-| cmd/wipnote/lineage_test.go | 1 | 1 |
-| cmd/wipnote/lineage_tree.go | 1 | 1 |
-| cmd/wipnote/lineage_tree_test.go | 1 | 1 |
-| cmd/wipnote/main.go | 8 | 8 |
-| cmd/wipnote/main_test.go | 1 | 1 |
-| cmd/wipnote/multiharness_test.go | 1 | 1 |
-| cmd/wipnote/otel_collect.go | 1 | 1 |
-| cmd/wipnote/plan_cmds.go | 4 | 4 |
-| cmd/wipnote/plan_create.go | 2 | 2 |
-| cmd/wipnote/plan_finalize.go | 2 | 2 |
-| cmd/wipnote/plan_finalize_test.go | 1 | 1 |
-| cmd/wipnote/plan_finalize_yaml.go | 1 | 1 |
-| cmd/wipnote/plan_migrate_orphans.go | 1 | 1 |
-| cmd/wipnote/plan_mutations.go | 3 | 3 |
-| cmd/wipnote/plan_promote_slice.go | 1 | 1 |
-| cmd/wipnote/plan_promote_slice_test.go | 1 | 1 |
-| cmd/wipnote/plan_reopen.go | 2 | 2 |
-| cmd/wipnote/plan_show.go | 1 | 1 |
-| cmd/wipnote/plan_show_test.go | 1 | 1 |
-| cmd/wipnote/plan_validate.go | 1 | 1 |
-| cmd/wipnote/plan_wire.go | 1 | 1 |
-| cmd/wipnote/plan_yaml_cmds.go | 3 | 3 |
-| cmd/wipnote/plan_yaml_cmds_test.go | 2 | 2 |
-| cmd/wipnote/plan_yaml_extras.go | 1 | 1 |
-| cmd/wipnote/plugin.go | 1 | 1 |
+| cmd/wipnote/hook.go | 4 | 4 |
+| cmd/wipnote/launch_isolation_config.go | 1 | 1 |
+| cmd/wipnote/launcher_mode.go | 1 | 1 |
+| cmd/wipnote/launcher_mode_test.go | 1 | 1 |
+| cmd/wipnote/launchtui/banner.go | 1 | 1 |
+| cmd/wipnote/launchtui/banner_test.go | 1 | 1 |
+| cmd/wipnote/launchtui/spinner.go | 2 | 2 |
+| cmd/wipnote/launchtui/spinner_test.go | 2 | 2 |
+| cmd/wipnote/launchtui/theme.go | 1 | 1 |
+| cmd/wipnote/launchtui/theme_test.go | 1 | 1 |
+| cmd/wipnote/lazy_reindex.go | 1 | 1 |
+| cmd/wipnote/main.go | 4 | 4 |
+| cmd/wipnote/plan_auto_recap.go | 1 | 1 |
+| cmd/wipnote/plan_auto_recap_test.go | 1 | 1 |
+| cmd/wipnote/plan_create.go | 1 | 1 |
+| cmd/wipnote/plan_elicit_decisions.go | 1 | 1 |
+| cmd/wipnote/plan_interview.go | 2 | 2 |
+| cmd/wipnote/plan_interview_test.go | 1 | 1 |
 | cmd/wipnote/plugin_build_ports.go | 1 | 1 |
-| cmd/wipnote/plugin_ensure.go | 1 | 1 |
-| cmd/wipnote/prompts/system-prompt.md | 3 | 3 |
-| cmd/wipnote/related.go | 1 | 1 |
-| cmd/wipnote/relevant.go | 2 | 2 |
-| cmd/wipnote/relevant_test.go | 2 | 2 |
-| cmd/wipnote/serve.go | 6 | 6 |
-| cmd/wipnote/serve_child.go | 2 | 2 |
-| cmd/wipnote/serve_parent.go | 1 | 1 |
-| cmd/wipnote/serve_test.go | 1 | 1 |
-| cmd/wipnote/session.go | 1 | 1 |
-| cmd/wipnote/status.go | 1 | 1 |
-| cmd/wipnote/statusline.go | 1 | 1 |
-| cmd/wipnote/terminal_handlers.go | 1 | 1 |
-| cmd/wipnote/tmux.go | 1 | 1 |
-| cmd/wipnote/tmux_test.go | 1 | 1 |
-| cmd/wipnote/trace.go | 1 | 1 |
-| cmd/wipnote/trace_test.go | 1 | 1 |
-| cmd/wipnote/track.go | 1 | 1 |
-| cmd/wipnote/track_pr.go | 1 | 1 |
-| cmd/wipnote/upgrade_cmd.go | 1 | 1 |
-| cmd/wipnote/upgrade_cmd_test.go | 1 | 1 |
+| cmd/wipnote/plugin_check_ports.go | 1 | 1 |
+| cmd/wipnote/plugin_check_ports_test.go | 1 | 1 |
+| cmd/wipnote/reaper_loop_test.go | 2 | 2 |
+| cmd/wipnote/reindex.go | 1 | 1 |
+| cmd/wipnote/reindex_recaps_test.go | 1 | 1 |
+| cmd/wipnote/reindex_workitem_ledger.go | 1 | 1 |
+| cmd/wipnote/research_gate_test.go | 1 | 1 |
+| cmd/wipnote/serve_child.go | 3 | 3 |
+| cmd/wipnote/session_family_launcher.go | 1 | 1 |
+| cmd/wipnote/share_paths.go | 1 | 1 |
+| cmd/wipnote/share_paths_test.go | 1 | 1 |
+| cmd/wipnote/shell_alias.go | 1 | 1 |
+| cmd/wipnote/shell_alias_test.go | 1 | 1 |
+| cmd/wipnote/sqlite_contention_test.go | 4 | 4 |
+| cmd/wipnote/sqlite_write_boundary_test.go | 7 | 7 |
+| cmd/wipnote/terminal_handlers_test.go | 1 | 1 |
+| cmd/wipnote/testmain_test.go | 1 | 1 |
+| cmd/wipnote/upgrade_cmd.go | 2 | 2 |
+| cmd/wipnote/upgrade_extract_test.go | 1 | 1 |
 | cmd/wipnote/workitem.go | 2 | 2 |
-| cmd/wipnote/workitem_create.go | 2 | 2 |
-| cmd/wipnote/workitem_edges.go | 2 | 2 |
-| cmd/wipnote/workitem_modify.go | 1 | 1 |
-| cmd/wipnote/workitem_test.go | 1 | 1 |
-| cmd/wipnote/worktree_helpers_test.go | 1 | 1 |
-| cmd/wipnote/yolo.go | 1 | 1 |
+| cmd/wipnote/workitem_test.go | 2 | 2 |
+| cmd/wipnote/worktree_helpers.go | 2 | 2 |
+| cmd/wipnote/yolo.go | 2 | 2 |
+| cmd/wipnote/yolo_carryover_test.go | 1 | 1 |
+| core/agent/detect.go | 1 | 1 |
+| core/agent/detect_test.go | 1 | 1 |
+| core/agent/ensure.go | 2 | 2 |
+| core/agent/ensure_test.go | 1 | 1 |
+| core/daemon/apply/apply.go | 2 | 2 |
+| core/daemon/apply/cli_route.go | 4 | 4 |
+| core/daemon/apply/mvp4_test.go | 1 | 1 |
+| core/daemon/apply/sql_envelope_test.go | 2 | 2 |
+| core/daemon/apply/version_skew_test.go | 1 | 1 |
+| core/daemon/async_dedup_test.go | 2 | 2 |
+| core/daemon/lru.go | 1 | 1 |
+| core/daemon/socket.go | 2 | 2 |
+| core/daemon/wire.go | 1 | 1 |
+| core/db/claim_collision.go | 1 | 1 |
+| core/db/claim_repo.go | 1 | 1 |
+| core/db/claim_stmt_test.go | 1 | 1 |
+| core/db/current_session_resumable.go | 1 | 1 |
+| core/db/current_session_resumable_test.go | 1 | 1 |
+| core/db/dbtest/dbtest.go | 1 | 1 |
+| core/db/dbtest/dbtest_test.go | 1 | 1 |
+| core/db/event_repo.go | 1 | 1 |
+| core/db/family_attribution.go | 1 | 1 |
+| core/db/family_attribution_test.go | 1 | 1 |
+| core/db/feature_repo.go | 1 | 1 |
+| core/db/lineage_repo.go | 2 | 2 |
+| core/db/open_modes.go | 2 | 2 |
+| core/db/open_modes_test.go | 1 | 1 |
+| core/db/otel_schema.go | 1 | 1 |
+| core/db/session_adherence.go | 1 | 1 |
+| core/db/session_repo.go | 2 | 2 |
+| core/db/subagent_stmt_test.go | 1 | 1 |
+| core/graph/ledger.go | 1 | 1 |
+| core/graph/ledger_test.go | 1 | 1 |
+| core/graph/loader.go | 1 | 1 |
+| core/hooks/commit_research_guard.go | 1 | 1 |
+| core/hooks/commit_research_guard_test.go | 1 | 1 |
+| core/hooks/cwd_normalize_test.go | 1 | 1 |
+| core/hooks/dbgate.go | 5 | 5 |
+| core/hooks/hook_contention_test.go | 1 | 1 |
+| core/hooks/lifecycle_injection.go | 1 | 1 |
+| core/hooks/lifecycle_test.go | 2 | 2 |
+| core/hooks/missing_events.go | 1 | 1 |
+| core/hooks/pretooluse.go | 4 | 4 |
+| core/hooks/pretooluse_test.go | 1 | 1 |
+| core/hooks/reaper_config_test.go | 1 | 1 |
+| core/hooks/reaper_pass_test.go | 2 | 2 |
+| core/hooks/roundtrip_regression_test.go | 1 | 1 |
+| core/hooks/runner.go | 2 | 2 |
+| core/hooks/runner_test.go | 1 | 1 |
+| core/hooks/session_end.go | 6 | 6 |
+| core/hooks/session_end_reconcile_drain_cap_test.go | 1 | 1 |
+| core/hooks/session_end_reconcile_test.go | 1 | 1 |
+| core/hooks/session_family_hook_test.go | 1 | 1 |
+| core/hooks/session_liveness.go | 2 | 2 |
+| core/hooks/session_liveness_test.go | 2 | 2 |
+| core/hooks/session_start.go | 8 | 8 |
+| core/hooks/session_start_contention_test.go | 2 | 2 |
+| core/hooks/session_start_daemon_roundtrip_test.go | 1 | 1 |
+| core/hooks/session_start_exec_context_test.go | 1 | 1 |
+| core/hooks/session_start_reaper_test.go | 1 | 1 |
+| core/hooks/session_start_test.go | 1 | 1 |
+| core/hooks/stop_hotpath_test.go | 1 | 1 |
+| core/hooks/subagent_roborev473_test.go | 1 | 1 |
+| core/hooks/subagent_start.go | 3 | 3 |
+| core/hooks/user_prompt.go | 1 | 1 |
+| core/hooks/user_prompt_test.go | 1 | 1 |
+| core/hooks/worktree_commit_guard.go | 1 | 1 |
+| core/hooks/worktree_commit_guard_test.go | 1 | 1 |
+| core/hooks/yolo_guard.go | 4 | 4 |
+| core/hooks/yolo_guard_harness_research_test.go | 1 | 1 |
+| core/hooks/yolo_guard_research_test.go | 2 | 2 |
+| core/hooks/yolo_guard_webresearch_test.go | 1 | 1 |
+| core/paths/manifests.go | 1 | 1 |
+| core/paths/manifests_test.go | 1 | 1 |
+| core/worktree/carryover.go | 1 | 1 |
+| core/worktree/worktree.go | 1 | 1 |
 | docs/INSTALL.md | 1 | 1 |
-| docs/adr-001-harness-agnostic-collector.md | 2 | 2 |
-| docs/blog/posts/plan-mode-crispi.md | 1 | 1 |
+| docs/guard-profiles.md | 1 | 1 |
 | docs/index.md | 1 | 1 |
-| docs/reference/cli.md | 2 | 2 |
+| docs/runbook/launcher-isolation.md | 1 | 1 |
 | go.mod | 1 | 1 |
-| go.sum | 1 | 1 |
-| internal/childproc/childproc_test.go | 1 | 1 |
-| internal/db/plan_feedback.go | 1 | 1 |
-| internal/db/plan_feedback_test.go | 1 | 1 |
-| internal/db/schema.go | 2 | 2 |
-| internal/db/session_repo.go | 1 | 1 |
-| internal/db/session_repo_test.go | 1 | 1 |
-| internal/graph/dsl.go | 4 | 4 |
-| internal/graph/dsl_commit_file_test.go | 3 | 3 |
-| internal/graph/querybuilder.go | 3 | 3 |
-| internal/hooks/missing_events.go | 3 | 3 |
-| internal/hooks/missing_events_test.go | 2 | 2 |
-| internal/hooks/posttooluse.go | 1 | 1 |
-| internal/hooks/runner.go | 2 | 2 |
-| internal/hooks/runner_test.go | 1 | 1 |
-| internal/hooks/session_start.go | 2 | 2 |
-| internal/hooks/subagent_start.go | 1 | 1 |
-| internal/hooks/subagent_start_test.go | 1 | 1 |
-| internal/hooks/task_completion_gate.go | 1 | 1 |
-| internal/hooks/task_completion_gate_test.go | 2 | 2 |
-| internal/hooks/task_tracking.go | 1 | 1 |
-| internal/hooks/task_tracking_test.go | 2 | 2 |
-| internal/hooks/tooluse_shared.go | 2 | 2 |
-| internal/hooks/tracer.go | 1 | 1 |
-| internal/ingest/parser.go | 2 | 2 |
-| internal/ingest/parser_test.go | 2 | 2 |
-| internal/models/enums.go | 2 | 2 |
-| internal/otel/adapter/adapter.go | 1 | 1 |
-| internal/otel/adapter/claude.go | 1 | 1 |
-| internal/otel/adapter/codex.go | 2 | 2 |
-| internal/otel/adapter/conformance_test.go | 1 | 1 |
-| internal/otel/adapter/gemini.go | 2 | 2 |
-| internal/otel/collector/lifecycle.go | 2 | 2 |
-| internal/otel/collector/lifecycle_test.go | 2 | 2 |
-| internal/otel/receiver/receiver.go | 1 | 1 |
-| internal/otel/signal.go | 2 | 2 |
-| internal/paths/resolve.go | 1 | 1 |
-| internal/plantmpl/plantmpl.go | 1 | 1 |
-| internal/plantmpl/plantmpl_test.go | 1 | 1 |
-| internal/plantmpl/slice_card.go | 1 | 1 |
-| internal/plantmpl/slice_card_test.go | 1 | 1 |
-| internal/plantmpl/templates/plan_page.gohtml | 1 | 1 |
-| internal/plantmpl/templates/slice_card.gohtml | 1 | 1 |
-| internal/planyaml/schema.go | 2 | 2 |
-| internal/planyaml/schema_test.go | 1 | 1 |
-| internal/planyaml/validate.go | 1 | 1 |
-| internal/planyaml/validate_test.go | 1 | 1 |
-| internal/pluginbuild/adapter.go | 1 | 1 |
-| internal/pluginbuild/assets.go | 1 | 1 |
-| internal/pluginbuild/claude.go | 1 | 1 |
-| internal/pluginbuild/codex.go | 2 | 2 |
-| internal/pluginbuild/codex_test.go | 1 | 1 |
-| internal/pluginbuild/core.go | 4 | 4 |
-| internal/pluginbuild/gemini.go | 1 | 1 |
-| internal/pluginbuild/gemini_agents.go | 1 | 1 |
-| internal/pluginbuild/gemini_agents_test.go | 1 | 1 |
-| internal/pluginbuild/gemini_assets.go | 2 | 2 |
-| internal/pluginbuild/gemini_assets_test.go | 1 | 1 |
-| internal/pluginbuild/gemini_commands.go | 1 | 1 |
-| internal/pluginbuild/gemini_commands_test.go | 1 | 1 |
-| internal/pluginbuild/gemini_hooks.go | 2 | 2 |
-| internal/pluginbuild/gemini_hooks_test.go | 2 | 2 |
-| internal/pluginbuild/json.go | 1 | 1 |
-| internal/pluginbuild/json_marshal.go | 1 | 1 |
-| internal/pluginbuild/parity_test.go | 1 | 1 |
-| internal/pluginbuild/pluginbuild_test.go | 3 | 3 |
-| internal/storage/dbpath.go | 1 | 1 |
-| internal/storage/dbpath_test.go | 1 | 1 |
+| install.sh | 1 | 2 |
+| internal/gate/check.go | 2 | 2 |
+| internal/gate/check_test.go | 1 | 1 |
+| internal/gate/gate_durability_test.go | 1 | 1 |
+| internal/launcher/mode/mode.go | 1 | 1 |
+| internal/launcher/plan/plan.go | 2 | 2 |
+| internal/launcher/plan/plan_test.go | 1 | 1 |
+| internal/recap/git.go | 1 | 1 |
+| internal/recap/git_test.go | 1 | 1 |
 | internal/terminal/terminal.go | 1 | 1 |
-| internal/worktree/worktree.go | 1 | 1 |
-| packages/codex-marketplace/.agents/plugins/wipnote/.codex-plugin/plugin.json | 1 | 1 |
-| packages/codex-marketplace/.agents/plugins/wipnote/.mcp.json | 1 | 1 |
-| packages/codex-marketplace/.agents/plugins/wipnote/agents/patch-coder.md | 1 | 1 |
-| packages/codex-marketplace/.agents/plugins/wipnote/agents/architect-coder.md | 1 | 1 |
-| packages/codex-marketplace/.agents/plugins/wipnote/agents/reader.md | 1 | 1 |
-| packages/codex-marketplace/.agents/plugins/wipnote/agents/researcher.md | 1 | 1 |
-| packages/codex-marketplace/.agents/plugins/wipnote/agents/feature-coder.md | 1 | 1 |
-| packages/codex-marketplace/.agents/plugins/wipnote/agents/test-runner.md | 1 | 1 |
-| packages/codex-marketplace/.agents/plugins/wipnote/commands/deploy.md | 1 | 1 |
-| packages/codex-marketplace/.agents/plugins/wipnote/commands/end.md | 1 | 1 |
-| packages/codex-marketplace/.agents/plugins/wipnote/commands/error-analysis.md | 1 | 1 |
-| packages/codex-marketplace/.agents/plugins/wipnote/commands/feature-add.md | 1 | 1 |
-| packages/codex-marketplace/.agents/plugins/wipnote/commands/feature-complete.md | 1 | 1 |
-| packages/codex-marketplace/.agents/plugins/wipnote/commands/feature-primary.md | 1 | 1 |
-| packages/codex-marketplace/.agents/plugins/wipnote/commands/feature-start.md | 1 | 1 |
-| packages/codex-marketplace/.agents/plugins/wipnote/commands/git-commit.md | 2 | 2 |
-| packages/codex-marketplace/.agents/plugins/wipnote/commands/help.md | 1 | 1 |
-| packages/codex-marketplace/.agents/plugins/wipnote/commands/init.md | 1 | 1 |
-| packages/codex-marketplace/.agents/plugins/wipnote/commands/plan-list.md | 1 | 1 |
-| packages/codex-marketplace/.agents/plugins/wipnote/commands/plan-review.md | 1 | 1 |
-| packages/codex-marketplace/.agents/plugins/wipnote/commands/recommend.md | 1 | 1 |
-| packages/codex-marketplace/.agents/plugins/wipnote/commands/report-issue.md | 1 | 1 |
-| packages/codex-marketplace/.agents/plugins/wipnote/commands/research.md | 1 | 1 |
-| packages/codex-marketplace/.agents/plugins/wipnote/commands/serve.md | 1 | 1 |
-| packages/codex-marketplace/.agents/plugins/wipnote/commands/setup-statusline.md | 1 | 1 |
-| packages/codex-marketplace/.agents/plugins/wipnote/commands/spike.md | 1 | 1 |
-| packages/codex-marketplace/.agents/plugins/wipnote/commands/start.md | 1 | 1 |
-| packages/codex-marketplace/.agents/plugins/wipnote/commands/status.md | 1 | 1 |
-| packages/codex-marketplace/.agents/plugins/wipnote/config/classification-prompt.md | 1 | 1 |
-| packages/codex-marketplace/.agents/plugins/wipnote/config/drift-config.json | 1 | 1 |
-| packages/codex-marketplace/.agents/plugins/wipnote/config/validation-config.json | 1 | 1 |
-| packages/codex-marketplace/.agents/plugins/wipnote/hooks.json | 1 | 1 |
-| packages/codex-marketplace/.agents/plugins/wipnote/skills/.archived/README.md | 1 | 1 |
-| packages/codex-marketplace/.agents/plugins/wipnote/skills/.archived/wipnote-tracker/SKILL.md | 1 | 1 |
-| packages/codex-marketplace/.agents/plugins/wipnote/skills/.archived/parallel-orchestrator/SKILL.md | 1 | 1 |
-| packages/codex-marketplace/.agents/plugins/wipnote/skills/agent-context/SKILL.md | 1 | 1 |
-| packages/codex-marketplace/.agents/plugins/wipnote/skills/code-quality-skill/SKILL.md | 1 | 1 |
-| packages/codex-marketplace/.agents/plugins/wipnote/skills/deploy/SKILL.md | 1 | 1 |
-| packages/codex-marketplace/.agents/plugins/wipnote/skills/diagnose/SKILL.md | 1 | 1 |
-| packages/codex-marketplace/.agents/plugins/wipnote/skills/execute/SKILL.md | 2 | 2 |
-| packages/codex-marketplace/.agents/plugins/wipnote/skills/orchestrator-directives-skill/SKILL.md | 1 | 1 |
-| packages/codex-marketplace/.agents/plugins/wipnote/skills/orchestrator-directives-skill/reference.md | 1 | 1 |
-| packages/codex-marketplace/.agents/plugins/wipnote/skills/plan/SKILL.md | 2 | 2 |
-| packages/codex-marketplace/.agents/plugins/wipnote/skills/strategic-planning/SKILL.md | 1 | 1 |
-| packages/codex-marketplace/.agents/plugins/wipnote/static/components.js | 2 | 2 |
-| packages/codex-marketplace/.agents/plugins/wipnote/static/has-styles.css | 1 | 1 |
-| packages/codex-marketplace/.agents/plugins/wipnote/templates/bug-template.html | 1 | 1 |
-| packages/codex-marketplace/.agents/plugins/wipnote/templates/chore-template.html | 1 | 1 |
-| packages/codex-marketplace/.agents/plugins/wipnote/templates/feature-template.html | 1 | 1 |
-| packages/codex-marketplace/.agents/plugins/wipnote/templates/spike-template.html | 1 | 1 |
-| packages/codex-marketplace/.agents/plugins/marketplace.json | 1 | 1 |
-| packages/gemini-extension/GEMINI.md | 1 | 1 |
-| packages/gemini-extension/README.md | 1 | 1 |
-| packages/gemini-extension/agents/patch-coder.md | 2 | 2 |
-| packages/gemini-extension/agents/architect-coder.md | 2 | 2 |
-| packages/gemini-extension/agents/reader.md | 2 | 2 |
-| packages/gemini-extension/agents/researcher.md | 2 | 2 |
-| packages/gemini-extension/agents/feature-coder.md | 2 | 2 |
-| packages/gemini-extension/agents/test-runner.md | 2 | 2 |
-| packages/gemini-extension/commands/wipnote/deploy.toml | 2 | 2 |
-| packages/gemini-extension/commands/wipnote/end.toml | 2 | 2 |
-| packages/gemini-extension/commands/wipnote/error-analysis.toml | 2 | 2 |
-| packages/gemini-extension/commands/wipnote/feature-add.toml | 2 | 2 |
-| packages/gemini-extension/commands/wipnote/feature-complete.toml | 2 | 2 |
-| packages/gemini-extension/commands/wipnote/feature-primary.toml | 2 | 2 |
-| packages/gemini-extension/commands/wipnote/feature-start.toml | 2 | 2 |
-| packages/gemini-extension/commands/wipnote/git-commit.toml | 3 | 3 |
-| packages/gemini-extension/commands/wipnote/help.toml | 2 | 2 |
-| packages/gemini-extension/commands/wipnote/init.toml | 2 | 2 |
-| packages/gemini-extension/commands/wipnote/plan-list.toml | 2 | 2 |
-| packages/gemini-extension/commands/wipnote/plan-review.toml | 2 | 2 |
-| packages/gemini-extension/commands/wipnote/recommend.toml | 2 | 2 |
-| packages/gemini-extension/commands/wipnote/report-issue.toml | 2 | 2 |
-| packages/gemini-extension/commands/wipnote/research.toml | 2 | 2 |
-| packages/gemini-extension/commands/wipnote/serve.toml | 2 | 2 |
-| packages/gemini-extension/commands/wipnote/setup-statusline.toml | 2 | 2 |
-| packages/gemini-extension/commands/wipnote/spike.toml | 2 | 2 |
-| packages/gemini-extension/commands/wipnote/start.toml | 2 | 2 |
-| packages/gemini-extension/commands/wipnote/status.toml | 2 | 2 |
-| packages/gemini-extension/config/classification-prompt.md | 1 | 1 |
-| packages/gemini-extension/config/drift-config.json | 1 | 1 |
-| packages/gemini-extension/config/validation-config.json | 1 | 1 |
-| packages/gemini-extension/gemini-extension.json | 1 | 1 |
-| packages/gemini-extension/hooks/hooks.json | 2 | 2 |
-| packages/gemini-extension/skills/.archived/README.md | 1 | 1 |
-| packages/gemini-extension/skills/.archived/wipnote-tracker/SKILL.md | 1 | 1 |
-| packages/gemini-extension/skills/.archived/parallel-orchestrator/SKILL.md | 1 | 1 |
-| packages/gemini-extension/skills/agent-context/SKILL.md | 1 | 1 |
-| packages/gemini-extension/skills/code-quality-skill/SKILL.md | 1 | 1 |
-| packages/gemini-extension/skills/deploy/SKILL.md | 1 | 1 |
-| packages/gemini-extension/skills/diagnose/SKILL.md | 1 | 1 |
-| packages/gemini-extension/skills/execute/SKILL.md | 2 | 2 |
-| packages/gemini-extension/skills/orchestrator-directives-skill/SKILL.md | 1 | 1 |
-| packages/gemini-extension/skills/orchestrator-directives-skill/reference.md | 1 | 1 |
-| packages/gemini-extension/skills/plan/SKILL.md | 2 | 2 |
-| packages/gemini-extension/skills/strategic-planning/SKILL.md | 1 | 1 |
-| packages/gemini-extension/static/components.js | 2 | 2 |
-| packages/gemini-extension/static/has-styles.css | 1 | 1 |
-| packages/gemini-extension/templates/bug-template.html | 1 | 1 |
-| packages/gemini-extension/templates/chore-template.html | 1 | 1 |
-| packages/gemini-extension/templates/feature-template.html | 1 | 1 |
-| packages/gemini-extension/templates/spike-template.html | 1 | 1 |
-| packages/plugin-core/README.md | 2 | 2 |
-| packages/plugin-core/manifest.json | 4 | 4 |
+| internal/terminal/terminal_test.go | 1 | 1 |
+| mkdocs.yml | 1 | 1 |
+| observe/otel/collector/lifecycle.go | 2 | 2 |
+| observe/otel/collector/reap_test.go | 1 | 1 |
+| observe/register/observe.go | 1 | 1 |
+| packages/plugin-core/README.md | 1 | 1 |
+| packages/plugin-core/manifest.json | 2 | 2 |
+| plan/interview/model.go | 1 | 1 |
+| plan/interview/model_test.go | 1 | 1 |
+| plan/plantmpl/plantmpl.go | 1 | 1 |
+| plan/plantmpl/templates/plan_page.gohtml | 1 | 1 |
+| plan/plantmpl/templates/visual_overview_zone.gohtml | 1 | 1 |
+| plan/plantmpl/visual_overview_zone.go | 1 | 1 |
+| plan/plantmpl/visual_overview_zone_test.go | 1 | 1 |
+| plan/planyaml/validate.go | 1 | 1 |
 | plugin/.claude-plugin/plugin.json | 1 | 1 |
+| plugin/agents/architect-coder.md | 1 | 1 |
+| plugin/agents/feature-coder.md | 1 | 1 |
+| plugin/agents/patch-coder.md | 2 | 2 |
 | plugin/agents/researcher.md | 1 | 1 |
 | plugin/agents/test-runner.md | 1 | 1 |
-| plugin/commands/setup-statusline.md | 1 | 1 |
 | plugin/hooks/bin/bootstrap.sh | 1 | 1 |
-| plugin/skills/agent-context/SKILL.md | 1 | 1 |
-| plugin/skills/execute/SKILL.md | 1 | 1 |
-| plugin/skills/orchestrator-directives-skill/SKILL.md | 3 | 3 |
 | plugin/skills/plan/SKILL.md | 1 | 1 |
-| scripts/check-host-paths.sh | 1 | 1 |
+| plugin/skills/visual-plan/SKILL.md | 1 | 1 |
+| port/packages/antigravity-extension/agents/patch-coder.md | 1 | 1 |
+| port/packages/antigravity-extension/plugin.json | 1 | 1 |
+| port/packages/antigravity-extension/skills/plan/SKILL.md | 1 | 1 |
+| port/packages/antigravity-extension/skills/visual-plan/SKILL.md | 1 | 1 |
+| port/packages/codex-marketplace/.agents/plugins/wipnote/.codex-plugin/plugin.json | 1 | 1 |
+| port/packages/codex-marketplace/.agents/plugins/wipnote/agents/wipnote-patch-coder.toml | 1 | 1 |
+| port/packages/codex-marketplace/.agents/plugins/wipnote/skills/plan/SKILL.md | 1 | 1 |
+| port/packages/codex-marketplace/.agents/plugins/wipnote/skills/visual-plan/SKILL.md | 1 | 1 |
+| port/pluginbuild/agent_frontmatter.go | 1 | 1 |
+| port/pluginbuild/agent_frontmatter_test.go | 1 | 1 |
+| port/pluginbuild/checkports.go | 1 | 1 |
+| port/pluginbuild/core.go | 1 | 1 |
+| port/pluginbuild/delegation_syntax_test.go | 1 | 1 |
+| port/pluginbuild/gemini_compat.go | 1 | 1 |
+| port/pluginbuild/gemini_compat_test.go | 1 | 1 |
+| port/pluginbuild/parity_test.go | 1 | 1 |
+| port/pluginbuild/pluginbuild_test.go | 1 | 1 |
 | scripts/deploy-all.sh | 1 | 1 |
+| scripts/install.sh | 1 | 1 |
 
-## Track: OTel Integration — telemetry capture, span hierarchy, cost attribution (trk-c4615ad2)
+## Track: Visual planning & recap — native port of BuilderIO visual-plan/visual-recap concepts (trk-a951e3c0)
 
-8 features, 60 files, 74 total touches
+9 features, 71 files, 79 total touches
 
 | File | Features | Touches |
 |------|----------|---------|
-| .claude/settings.local.json | 1 | 1 |
-| cmd/wipnote/api_feed.go | 1 | 1 |
-| cmd/wipnote/api_otel.go | 1 | 1 |
-| cmd/wipnote/api_tree.go | 1 | 1 |
-| cmd/wipnote/api_tree_test.go | 1 | 1 |
-| cmd/wipnote/claude.go | 2 | 2 |
-| cmd/wipnote/claude_env.go | 2 | 2 |
-| cmd/wipnote/claude_env_test.go | 2 | 2 |
-| cmd/wipnote/claude_serve_autostart.go | 2 | 2 |
-| cmd/wipnote/dashboard/components/event-tree.js | 2 | 2 |
+| cmd/wipnote/api_recaps.go | 1 | 1 |
+| cmd/wipnote/api_recaps_test.go | 1 | 1 |
 | cmd/wipnote/dashboard/css/components.css | 1 | 1 |
+| cmd/wipnote/dashboard/index.html | 1 | 1 |
 | cmd/wipnote/dashboard/js/app.js | 1 | 1 |
 | cmd/wipnote/main.go | 1 | 1 |
-| cmd/wipnote/otel_collect.go | 1 | 1 |
-| cmd/wipnote/otel_collect_handler.go | 1 | 1 |
-| cmd/wipnote/otel_collect_test.go | 1 | 1 |
-| cmd/wipnote/serve.go | 2 | 2 |
-| cmd/wipnote/serve_child.go | 5 | 5 |
-| cmd/wipnote/session.go | 1 | 1 |
-| cmd/wipnote/session_restore.go | 1 | 1 |
-| internal/db/event_repo.go | 1 | 1 |
-| internal/db/otel_schema.go | 1 | 1 |
-| internal/db/schema.go | 1 | 1 |
-| internal/hooks/attribution.go | 1 | 1 |
-| internal/hooks/lifecycle_test.go | 1 | 1 |
-| internal/hooks/missing_events.go | 1 | 1 |
-| internal/hooks/pretooluse.go | 1 | 1 |
-| internal/hooks/runner.go | 1 | 1 |
-| internal/hooks/session_end.go | 1 | 1 |
-| internal/hooks/session_end_collector_test.go | 1 | 1 |
-| internal/hooks/session_start.go | 1 | 1 |
-| internal/hooks/subagent_start.go | 1 | 1 |
-| internal/hooks/subagent_start_test.go | 1 | 1 |
-| internal/hooks/tooluse_shared.go | 1 | 1 |
-| internal/hooks/transcript_assistant.go | 1 | 1 |
-| internal/hooks/transcript_assistant_test.go | 1 | 1 |
-| internal/hooks/version_check.go | 1 | 1 |
-| internal/hooks/version_check_test.go | 1 | 1 |
-| internal/otel/indexer/checkpoint.go | 1 | 1 |
-| internal/otel/indexer/checkpoint_test.go | 1 | 1 |
-| internal/otel/indexer/indexer.go | 2 | 2 |
-| internal/otel/indexer/indexer_test.go | 1 | 1 |
-| internal/otel/indexer/parse.go | 1 | 1 |
-| internal/otel/indexer/parse_test.go | 1 | 1 |
-| internal/otel/indexer/watch_fallback.go | 1 | 1 |
-| internal/otel/receiver/http.go | 2 | 2 |
-| internal/otel/receiver/http_test.go | 1 | 1 |
-| internal/otel/receiver/receiver.go | 2 | 2 |
-| internal/otel/receiver/receiver_test.go | 2 | 2 |
-| internal/otel/receiver/writer.go | 1 | 1 |
-| internal/otel/receiver/writer_test.go | 1 | 1 |
-| internal/otel/retention/retention.go | 1 | 1 |
-| internal/otel/retention/retention_test.go | 1 | 1 |
-| internal/otel/sink/ndjson/ndjson.go | 1 | 1 |
-| internal/otel/sink/ndjson/ndjson_test.go | 1 | 1 |
-| internal/otel/sink/ndjson/overflow.go | 1 | 1 |
-| internal/otel/sink/sink.go | 1 | 1 |
-| internal/otel/sink/sink_test.go | 1 | 1 |
-| internal/otel/sink/sqlite/sqlite.go | 1 | 1 |
-| plugin/static/components.js | 1 | 1 |
-
-## Track: Execute workflow efficiency and cross-environment tooling (trk-787f57d3)
-
-13 features, 40 files, 51 total touches
-
-| File | Features | Touches |
-|------|----------|---------|
-| .claude-plugin/plugin.json | 1 | 1 |
-| cmd/wipnote/check.go | 1 | 1 |
-| cmd/wipnote/check_host_paths.go | 2 | 2 |
-| cmd/wipnote/check_host_paths_test.go | 1 | 1 |
-| cmd/wipnote/execute_preview.go | 3 | 3 |
-| cmd/wipnote/execute_preview_test.go | 2 | 2 |
-| cmd/wipnote/ingest_events_test.go | 1 | 1 |
-| cmd/wipnote/main.go | 1 | 1 |
-| cmd/wipnote/migrate_test.go | 1 | 1 |
-| cmd/wipnote/plan_show.go | 1 | 1 |
-| cmd/wipnote/session_roundtrip_test.go | 1 | 1 |
-| cmd/wipnote/show_format_test.go | 1 | 1 |
-| cmd/wipnote/skill_flags_test.go | 1 | 1 |
-| cmd/wipnote/statusline_test.go | 1 | 1 |
-| cmd/wipnote/terminal_handlers_test.go | 1 | 1 |
-| cmd/wipnote/testdata/bad-path-sample.html | 1 | 1 |
-| cmd/wipnote/testdata/clean-sample.html | 1 | 1 |
-| cmd/wipnote/testdata/skill_flag_bad.md | 1 | 1 |
-| cmd/wipnote/testdata/skill_flag_good.md | 1 | 1 |
-| cmd/wipnote/track.go | 1 | 1 |
-| cmd/wipnote/workitem.go | 1 | 1 |
-| docs/cross-env-path-drift-audit.md | 1 | 1 |
-| internal/agent/detect.go | 1 | 1 |
-| internal/agent/detect_test.go | 1 | 1 |
-| internal/hooks/harness_test.go | 1 | 1 |
-| internal/hooks/session_html_test.go | 1 | 1 |
-| internal/hooks/session_start.go | 1 | 1 |
-| internal/ingest/discover.go | 1 | 1 |
-| internal/ingest/discover_test.go | 1 | 1 |
-| internal/ingest/parser_test.go | 1 | 1 |
-| internal/otel/receiver/writer_test.go | 1 | 1 |
-| internal/terminal/terminal_test.go | 1 | 1 |
-| internal/worktree/repair.go | 2 | 2 |
-| internal/worktree/repair_test.go | 2 | 2 |
-| internal/worktree/worktree.go | 2 | 2 |
-| internal/worktree/worktree_test.go | 2 | 2 |
-| plugin/.claude-plugin/plugin.json | 1 | 1 |
-| plugin/commands/git-commit.md | 2 | 2 |
-| plugin/skills/execute/SKILL.md | 3 | 3 |
-| scripts/check-host-paths.sh | 1 | 1 |
-
-## Track: Local cockpit — embedded parallel AI sessions in dashboard (trk-cd61bbae)
-
-13 features, 29 files, 51 total touches
-
-| File | Features | Touches |
-|------|----------|---------|
-| .githooks/pre-commit | 2 | 2 |
-| cmd/wipnote/codex.go | 1 | 1 |
-| cmd/wipnote/codex_test.go | 2 | 2 |
-| cmd/wipnote/dashboard/css/components.css | 3 | 3 |
-| cmd/wipnote/dashboard/index.html | 2 | 2 |
-| cmd/wipnote/dashboard/js/app.js | 5 | 5 |
-| cmd/wipnote/dashboard_launcher_test.go | 1 | 1 |
-| cmd/wipnote/dashboard_pane_test.go | 1 | 1 |
-| cmd/wipnote/gemini.go | 1 | 1 |
-| cmd/wipnote/gemini_test.go | 1 | 1 |
-| cmd/wipnote/main.go | 1 | 1 |
+| cmd/wipnote/plan_blocks_test.go | 1 | 1 |
+| cmd/wipnote/plan_validate.go | 1 | 1 |
+| cmd/wipnote/plan_yaml_extras.go | 1 | 1 |
+| cmd/wipnote/recap.go | 2 | 2 |
+| cmd/wipnote/recap_commit.go | 1 | 1 |
+| cmd/wipnote/recap_list.go | 1 | 1 |
+| cmd/wipnote/recap_list_test.go | 1 | 1 |
+| cmd/wipnote/recap_test.go | 1 | 1 |
+| cmd/wipnote/reindex.go | 1 | 1 |
+| cmd/wipnote/reindex_recaps.go | 1 | 1 |
+| cmd/wipnote/reindex_recaps_test.go | 1 | 1 |
+| cmd/wipnote/relevant.go | 1 | 1 |
 | cmd/wipnote/serve.go | 1 | 1 |
-| cmd/wipnote/statusline.go | 1 | 1 |
-| cmd/wipnote/statusline_test.go | 1 | 1 |
-| cmd/wipnote/terminal_handlers.go | 6 | 6 |
-| cmd/wipnote/terminal_handlers_test.go | 3 | 3 |
+| cmd/wipnote/skill_flags_test.go | 2 | 2 |
+| cmd/wipnote/sqlite_write_boundary_test.go | 1 | 1 |
+| core/db/migrations.go | 1 | 1 |
+| core/db/migrations_test.go | 1 | 1 |
+| core/db/recaps_repo.go | 1 | 1 |
+| core/db/schema.go | 1 | 1 |
+| go.mod | 1 | 1 |
+| internal/lineage/walk.go | 1 | 1 |
+| internal/recap/collect.go | 1 | 1 |
+| internal/recap/git.go | 1 | 1 |
+| internal/recap/types.go | 1 | 1 |
+| plan/blocks/diagram.go | 1 | 1 |
+| plan/blocks/diagram_test.go | 1 | 1 |
+| plan/blocks/tabs.go | 1 | 1 |
+| plan/blocks/tabs_test.go | 1 | 1 |
+| plan/blocks/templates/diagram.gohtml | 1 | 1 |
+| plan/blocks/templates/tabs.gohtml | 1 | 1 |
+| plan/blocks/templates/wireframe.gohtml | 1 | 1 |
+| plan/blocks/wireframe.go | 2 | 2 |
+| plan/blocks/wireframe_test.go | 2 | 2 |
+| plan/plantmpl/blocks_zone.go | 2 | 2 |
+| plan/plantmpl/blocks_zone_test.go | 1 | 1 |
+| plan/plantmpl/slice_card.go | 1 | 1 |
+| plan/plantmpl/templates/blocks_zone.gohtml | 1 | 1 |
+| plan/plantmpl/templates/plan_page.gohtml | 2 | 2 |
+| plan/plantmpl/templates/slice_card.gohtml | 1 | 1 |
+| plan/planyaml/blocks_test.go | 1 | 1 |
+| plan/planyaml/io.go | 1 | 1 |
+| plan/planyaml/research_test.go | 1 | 1 |
+| plan/planyaml/schema.go | 1 | 1 |
+| plan/planyaml/validate.go | 1 | 1 |
+| plugin/skills/plan-critique/SKILL.md | 1 | 1 |
+| plugin/skills/plan/SKILL.md | 1 | 1 |
+| plugin/skills/visual-plan/SKILL.md | 1 | 1 |
+| plugin/skills/visual-recap/SKILL.md | 1 | 1 |
+| port/packages/antigravity-extension/skills/plan-critique/SKILL.md | 1 | 1 |
+| port/packages/antigravity-extension/skills/plan/SKILL.md | 1 | 1 |
+| port/packages/antigravity-extension/skills/visual-plan/SKILL.md | 1 | 1 |
+| port/packages/antigravity-extension/skills/visual-recap/SKILL.md | 1 | 1 |
+| port/packages/codex-marketplace/.agents/plugins/wipnote/skills/plan-critique/SKILL.md | 1 | 1 |
+| port/packages/codex-marketplace/.agents/plugins/wipnote/skills/plan/SKILL.md | 1 | 1 |
+| port/packages/codex-marketplace/.agents/plugins/wipnote/skills/visual-plan/SKILL.md | 1 | 1 |
+| port/packages/codex-marketplace/.agents/plugins/wipnote/skills/visual-recap/SKILL.md | 1 | 1 |
+| recap/recaptmpl/annotated_diff.go | 1 | 1 |
+| recap/recaptmpl/annotated_diff_test.go | 1 | 1 |
+| recap/recaptmpl/builder.go | 1 | 1 |
+| recap/recaptmpl/recaptmpl.go | 1 | 1 |
+| recap/recaptmpl/recaptmpl_test.go | 1 | 1 |
+| recap/recaptmpl/spine.go | 1 | 1 |
+| recap/recaptmpl/templates/annotated_diff.gohtml | 1 | 1 |
+| recap/recaptmpl/templates/lineage_spine.gohtml | 1 | 1 |
+| recap/recaptmpl/templates/recap_page.gohtml | 3 | 3 |
+
+## Track: Antigravity parity — leverage unused extensibility (system-prompt, hooks, statusLine, MCP, launcher) (trk-6a1f5362)
+
+19 features, 49 files, 77 total touches
+
+| File | Features | Touches |
+|------|----------|---------|
+| cmd/wipnote/claude.go | 2 | 2 |
+| cmd/wipnote/claude_chooser.go | 8 | 8 |
+| cmd/wipnote/claude_chooser_current_test.go | 5 | 5 |
+| cmd/wipnote/claude_chooser_test.go | 5 | 5 |
+| cmd/wipnote/claude_launch_intent.go | 1 | 1 |
+| cmd/wipnote/claude_launch_timing.go | 1 | 1 |
+| cmd/wipnote/config.go | 1 | 1 |
+| cmd/wipnote/hook.go | 1 | 1 |
+| cmd/wipnote/launcher_continue.go | 2 | 2 |
+| cmd/wipnote/launcher_continue_test.go | 1 | 1 |
+| cmd/wipnote/launcher_mode.go | 1 | 1 |
+| cmd/wipnote/launchtui/banner.go | 2 | 2 |
+| cmd/wipnote/launchtui/banner_test.go | 2 | 2 |
+| cmd/wipnote/launchtui/theme.go | 1 | 1 |
+| cmd/wipnote/launchtui/theme_test.go | 1 | 1 |
+| cmd/wipnote/main.go | 2 | 2 |
+| cmd/wipnote/serve_child.go | 1 | 1 |
+| cmd/wipnote/sessions_resumable_test.go | 1 | 1 |
+| cmd/wipnote/sqlite_contention_test.go | 1 | 1 |
+| cmd/wipnote/sqlite_write_boundary_test.go | 2 | 2 |
+| cmd/wipnote/yolo.go | 1 | 1 |
+| core/agent/ensure.go | 2 | 2 |
+| core/agent/ensure_test.go | 2 | 2 |
+| core/daemon/apply/apply.go | 1 | 1 |
+| core/daemon/apply/cli_route.go | 1 | 1 |
+| core/daemon/apply/sql_envelope_test.go | 1 | 1 |
+| core/daemon/async_ack_test.go | 1 | 1 |
+| core/daemon/socket.go | 1 | 1 |
+| core/daemon/wire.go | 1 | 1 |
+| core/db/current_session_resumable.go | 1 | 1 |
+| core/db/current_session_resumable_test.go | 1 | 1 |
+| core/db/event_repo.go | 1 | 1 |
+| core/db/event_repo_test.go | 1 | 1 |
+| core/db/family_attribution.go | 2 | 2 |
+| core/db/family_attribution_test.go | 2 | 2 |
+| core/db/open_modes.go | 1 | 1 |
+| core/db/session_prompt_label_test.go | 1 | 1 |
+| core/db/session_repo.go | 2 | 2 |
+| core/db/session_repo_test.go | 1 | 1 |
+| core/hooks/dbgate.go | 2 | 2 |
+| core/hooks/dbgate_test.go | 1 | 1 |
+| core/hooks/session_start.go | 1 | 1 |
+| core/hooks/session_start_contention_test.go | 1 | 1 |
+| core/hooks/session_sweep.go | 1 | 1 |
+| core/hooks/session_sweep_test.go | 1 | 1 |
+| go.mod | 2 | 2 |
+| go.sum | 1 | 1 |
+| internal/gate/check.go | 1 | 1 |
+| internal/gate/gate_durability_test.go | 1 | 1 |
+
+## Track: GitHub issue triage — batch #150–159 (Jul 2026) (trk-fae39e29)
+
+2 features, 24 files, 25 total touches
+
+| File | Features | Touches |
+|------|----------|---------|
+| cmd/wipnote/arch_cmds.go | 1 | 1 |
+| cmd/wipnote/arch_cmds_test.go | 1 | 1 |
+| cmd/wipnote/check.go | 2 | 2 |
+| cmd/wipnote/check_gate_scope.go | 1 | 1 |
+| cmd/wipnote/check_gate_test.go | 1 | 1 |
+| cmd/wipnote/codex_test.go | 1 | 1 |
+| cmd/wipnote/commit_queue.go | 1 | 1 |
+| cmd/wipnote/commit_queue_deadletter_test.go | 1 | 1 |
+| cmd/wipnote/plan_create.go | 1 | 1 |
+| cmd/wipnote/plan_rewrite_yaml_edges_test.go | 1 | 1 |
+| cmd/wipnote/relevant.go | 1 | 1 |
+| cmd/wipnote/relevant_test.go | 1 | 1 |
+| cmd/wipnote/sqlite_write_boundary_test.go | 1 | 1 |
+| cmd/wipnote/status.go | 1 | 1 |
 | cmd/wipnote/workitem.go | 1 | 1 |
-| cmd/wipnote/workitem_test.go | 1 | 1 |
-| docs/cross-env-path-drift-audit.md | 1 | 1 |
-| internal/db/claim_repo.go | 1 | 1 |
-| internal/hooks/harness.go | 1 | 1 |
-| internal/hooks/harness_test.go | 1 | 1 |
-| internal/hooks/pretooluse.go | 1 | 1 |
-| internal/hooks/pretooluse_test.go | 1 | 1 |
-| internal/terminal/terminal.go | 4 | 4 |
-| internal/terminal/terminal_test.go | 3 | 3 |
-| internal/worktree/worktree.go | 2 | 2 |
-| internal/worktree/worktree_internal_test.go | 1 | 1 |
-| scripts/stress-launch.sh | 1 | 1 |
+| cmd/wipnote/workitem_commit_test.go | 1 | 1 |
+| core/workitem/collection.go | 1 | 1 |
+| core/workitem/plans.go | 1 | 1 |
+| internal/commands/workitem.go | 1 | 1 |
+| internal/commitqueue/commitqueue_test.go | 1 | 1 |
+| internal/commitqueue/deadletter.go | 1 | 1 |
+| internal/commitqueue/flush.go | 1 | 1 |
+| internal/commitqueue/intent.go | 1 | 1 |
+| internal/gate/check.go | 1 | 1 |
 
 ## Track: Launch Readiness — close pitch/reality gaps before LinkedIn launch (trk-0677c709)
 
-7 features, 25 files, 30 total touches
+1 features, 4 files, 4 total touches
 
 | File | Features | Touches |
 |------|----------|---------|
-| .devcontainer/Dockerfile | 1 | 1 |
-| cmd/wipnote/cache.go | 1 | 1 |
-| cmd/wipnote/cache_pollution_test.go | 1 | 1 |
-| cmd/wipnote/main.go | 2 | 3 |
-| cmd/wipnote/main_test.go | 1 | 1 |
-| cmd/wipnote/multiharness_test.go | 1 | 1 |
-| cmd/wipnote/otel_collect.go | 1 | 1 |
-| cmd/wipnote/projects.go | 1 | 1 |
-| cmd/wipnote/projects_test.go | 1 | 1 |
-| cmd/wipnote/serve_global.go | 1 | 1 |
-| cmd/wipnote/serve_global_test.go | 1 | 1 |
-| cmd/wipnote/serve_parent.go | 1 | 1 |
-| cmd/wipnote/worktree_helpers_test.go | 2 | 2 |
-| internal/agent/detect.go | 1 | 1 |
-| internal/agent/detect_test.go | 1 | 1 |
-| internal/otel/sink/ndjson/ndjson.go | 1 | 1 |
-| internal/otel/sink/ndjson/ndjson_test.go | 1 | 1 |
-| internal/otel/sink/sink_test.go | 1 | 1 |
-| internal/registry/registry.go | 1 | 1 |
-| internal/registry/registry_test.go | 1 | 1 |
-| internal/storage/dbpath.go | 2 | 2 |
-| internal/storage/dbpath_test.go | 1 | 1 |
-| internal/storage/evict.go | 1 | 2 |
-| internal/storage/evict_test.go | 1 | 1 |
-| scripts/devcontainer.sh | 1 | 1 |
-
-## Track: Yolo Mode — autonomous feature execution (trk-be293476)
-
-3 features, 15 files, 15 total touches
-
-| File | Features | Touches |
-|------|----------|---------|
-| cmd/wipnote/agent_worktree_test.go | 1 | 1 |
 | cmd/wipnote/claude.go | 1 | 1 |
-| cmd/wipnote/claude_env.go | 1 | 1 |
-| cmd/wipnote/claude_env_test.go | 1 | 1 |
-| cmd/wipnote/claude_otel_collect_spawn.go | 1 | 1 |
-| cmd/wipnote/claude_otel_collect_spawn_test.go | 1 | 1 |
-| cmd/wipnote/worktree_helpers.go | 1 | 1 |
-| cmd/wipnote/worktree_helpers_test.go | 1 | 1 |
+| cmd/wipnote/claude_launch_intent.go | 1 | 1 |
+| cmd/wipnote/plugin_ensure_test.go | 1 | 1 |
 | cmd/wipnote/yolo.go | 1 | 1 |
-| cmd/wipnote/yolo_test.go | 1 | 1 |
-| internal/hooks/pretooluse.go | 1 | 1 |
-| internal/hooks/yolo_guard.go | 1 | 1 |
-| internal/hooks/yolo_guard_test.go | 1 | 1 |
-| internal/worktree/worktree.go | 1 | 1 |
-| internal/worktree/worktree_test.go | 1 | 1 |
-
-## Track: Plan Mode (trk-a30e8df4)
-
-1 features, 11 files, 11 total touches
-
-| File | Features | Touches |
-|------|----------|---------|
-| cmd/wipnote/api_plans.go | 1 | 1 |
-| cmd/wipnote/dashboard/js/app.js | 1 | 1 |
-| cmd/wipnote/dashboard/js/helpers.js | 1 | 1 |
-| cmd/wipnote/plan_promote_slice.go | 1 | 1 |
-| cmd/wipnote/plan_yaml_cmds.go | 1 | 1 |
-| internal/db/plan_feedback.go | 1 | 1 |
-| internal/hooks/yolo_guard.go | 1 | 1 |
-| internal/plantmpl/templates/plan_page.gohtml | 1 | 1 |
-| internal/plantmpl/templates/slice_card.gohtml | 1 | 1 |
-| internal/planyaml/schema.go | 1 | 1 |
-| plugin/static/components.js | 1 | 1 |
-
-## Track: Port wipnote plugin to Codex (trk-2c3cbe63)
-
-1 features, 8 files, 8 total touches
-
-| File | Features | Touches |
-|------|----------|---------|
-| .claude/settings.local.json | 1 | 1 |
-| cmd/wipnote/plugin_build_ports.go | 1 | 1 |
-| internal/pluginbuild/adapter.go | 1 | 1 |
-| internal/pluginbuild/codex.go | 1 | 1 |
-| internal/pluginbuild/gemini.go | 1 | 1 |
-| internal/pluginbuild/gemini_commands.go | 1 | 1 |
-| internal/pluginbuild/gemini_commands_test.go | 1 | 1 |
-| internal/pluginbuild/pluginbuild_test.go | 1 | 1 |
-
-## Track: Workitem Attribution & Lineage (trk-08dcbb33)
-
-4 features, 7 files, 9 total touches
-
-| File | Features | Touches |
-|------|----------|---------|
-| .github/workflows/ci.yml | 1 | 1 |
-| cmd/wipnote/api_otel.go | 1 | 1 |
-| cmd/wipnote/dashboard/components/event-tree.js | 1 | 1 |
-| cmd/wipnote/dashboard/css/components.css | 1 | 1 |
-| cmd/wipnote/main.go | 3 | 3 |
-| internal/db/otel_schema.go | 1 | 1 |
-| internal/otel/receiver/writer.go | 1 | 1 |
-
-## Track: Passive Session Ingestion (AgentsView-inspired) (trk-97f85b3b)
-
-1 features, 7 files, 7 total touches
-
-| File | Features | Touches |
-|------|----------|---------|
-| cmd/wipnote/api_otel.go | 1 | 1 |
-| cmd/wipnote/dashboard/components/event-tree.js | 1 | 1 |
-| cmd/wipnote/serve.go | 1 | 1 |
-| internal/hooks/missing_events.go | 1 | 1 |
-| internal/hooks/session_end.go | 1 | 1 |
-| internal/hooks/transcript_user_prompt.go | 1 | 1 |
-| internal/hooks/transcript_user_prompt_test.go | 1 | 1 |
 
 ## Untracked
 
-1199 files with no feature attribution.
+1533 files with no feature attribution.
 
 - .claude-plugin/marketplace.json
 - .claude/README.md
-- .claude/agent-memory/wipnote-researcher/MEMORY.md
-- .claude/agent-memory/wipnote-researcher/project_multi_ai_plan_critique.md
-- .claude/agent-memory/wipnote-researcher/reference_external_cli_integration.md
 - .claude/config/classification-prompt.md
 - .claude/config/drift-config.json
 - .claude/config/validation-config.json
-- .claude/projects/-Users-shakes-DevProjects-wipnote/memory/feedback_plan_yaml_writable.md
+- .claude/projects/-Users-shakes-DevProjects-htmlgraph/memory/feedback_plan_yaml_writable.md
 - .claude/rules/code-hygiene.md
 - .claude/rules/debugging.md
 - .claude/rules/deployment.md
+- .claude/rules/plugin-development.md
 - .claude/rules/version-sync.md
+- .claude/settings.json
 - .claude/skills/.archived/README.md
 - .claude/skills/.archived/memory-sync-skill/SKILL.md
 - .claude/skills/.archived/memory-sync-skill/reference.md
@@ -611,331 +431,73 @@ _depends on local feature_files state that the canonical `.wipnote/*.html` does 
 - .claude/skills/deployment-automation-skill/reference.md
 - .claude/skills/wipnote-dogfooding-skill/SKILL.md
 - .claude/skills/wipnote-dogfooding-skill/reference.md
+- .codex
+- .devcontainer/Dockerfile
 - .devcontainer/README.md
+- .devcontainer/claude.omp.json
+- .devcontainer/devcontainer-lock.json
+- .devcontainer/devcontainer.json
 - .devcontainer/dotfiles/.p10k.zsh
 - .devcontainer/dotfiles/.zshrc
-- .gitattributes
+- .devcontainer/post-create.sh
 - .githooks/post-commit
 - .githooks/post-rewrite
+- .githooks/pre-commit
 - .githooks/pre-commit-systematic-check.py
 - .githooks/pre-commit-systematic-check.sh
 - .github/BRANCH_PROTECTION.md
 - .github/ISSUE_TEMPLATE/bug_report.md
 - .github/ISSUE_TEMPLATE/feature_request.md
-- .github/workflows/gemini-subtree.yml
+- .github/workflows/bootstrap-smoke-test.yml
+- .github/workflows/ci.yml
 - .github/workflows/release-go.yml
-- .goreleaser.yml
+- .gotmp-exec/TestAddSliceYAML_NoPrintsFakeFeatureID2509401678/001/plans/plan-043a4002.html
+- .gotmp-exec/TestAddSliceYAML_NoPrintsFakeFeatureID2509401678/001/plans/plan-043a4002.yaml
+- .gotmp-exec/TestCritique_ComplexityGateLow3174932813/001/plans/plan-98770376.html
+- .gotmp-exec/TestCritique_ComplexityGateLow3174932813/001/plans/plan-98770376.yaml
+- .gotmp-exec/TestCritique_ComplexityGateMedium4194359380/001/plans/plan-953304a1.html
+- .gotmp-exec/TestCritique_ComplexityGateMedium4194359380/001/plans/plan-953304a1.yaml
+- .gotmp-exec/TestPlanFinalizeFromYAML_AlreadyFinalized230817995/001/plans/plan-a9ca7e59.html
+- .gotmp-exec/TestPlanFinalizeFromYAML_AlreadyFinalized230817995/001/plans/plan-a9ca7e59.yaml
+- .gotmp-exec/TestPlanFinalizeFromYAML_FeatureIDWrittenBack3480228027/001/plans/plan-03f29f81.html
+- .gotmp-exec/TestPlanFinalizeFromYAML_FeatureIDWrittenBack3480228027/001/plans/plan-03f29f81.yaml
+- .gotmp-exec/TestPlanFinalizeFromYAML_HappyPath3539130932/001/plans/plan-441ac2d5.html
+- .gotmp-exec/TestPlanFinalizeFromYAML_HappyPath3539130932/001/plans/plan-441ac2d5.yaml
+- .gotmp-exec/TestPlanFinalizeFromYAML_Reopen3171713583/001/plans/plan-5e0b74a9.html
+- .gotmp-exec/TestPlanFinalizeFromYAML_Reopen3171713583/001/plans/plan-5e0b74a9.yaml
+- .gotmp-exec/TestPlanFinalizeFromYAML_ReopenRefinalizeIdempotent3792737616/001/plans/plan-3e9b8e10.html
+- .gotmp-exec/TestPlanFinalizeFromYAML_ReopenRefinalizeIdempotent3792737616/001/plans/plan-3e9b8e10.yaml
+- .gotmp-exec/TestPlanFinalizeFromYAML_ReopenRefinalize_DoesNotMutateExistingFeature3585060522/001/plans/plan-4a5e1b7c.html
+- .gotmp-exec/TestPlanFinalizeFromYAML_ReopenRefinalize_DoesNotMutateExistingFeature3585060522/001/plans/plan-4a5e1b7c.yaml
+- .gotmp-exec/TestPlanFirstLifecycle3352942533/001/plans/plan-09e4d41a.html
+- .gotmp-exec/TestPlanFirstLifecycle3352942533/001/plans/plan-09e4d41a.yaml
+- .gotmp-exec/TestPromoteSlice_Approved_CreatesFeature1403444317/001/plans/plan-b377f52d.html
+- .gotmp-exec/TestPromoteSlice_Approved_CreatesFeature1403444317/001/plans/plan-b377f52d.yaml
+- .gotmp-exec/TestPromoteSlice_BlockedByPendingDeps_Refuses2657841867/001/plans/plan-5f445398.html
+- .gotmp-exec/TestPromoteSlice_BlockedByPendingDeps_Refuses2657841867/001/plans/plan-5f445398.yaml
+- .gotmp-exec/TestPromoteSlice_DepDoneViaSetSliceStatus_NoWaiveNeeded3478908081/001/plans/plan-60133757.html
+- .gotmp-exec/TestPromoteSlice_DepDoneViaSetSliceStatus_NoWaiveNeeded3478908081/001/plans/plan-60133757.yaml
+- .gotmp-exec/TestPromoteSlice_Idempotent3172978634/001/plans/plan-4c026962.html
+- .gotmp-exec/TestPromoteSlice_Idempotent3172978634/001/plans/plan-4c026962.yaml
+- .gotmp-exec/TestPromoteSlice_PlanRemainsActive478998953/001/plans/plan-43ac3b36.html
+- .gotmp-exec/TestPromoteSlice_PlanRemainsActive478998953/001/plans/plan-43ac3b36.yaml
+- .gotmp-exec/TestPromoteSlice_SetsExecutionStatusPromoted1142016723/001/plans/plan-7847b46f.html
+- .gotmp-exec/TestPromoteSlice_SetsExecutionStatusPromoted1142016723/001/plans/plan-7847b46f.yaml
+- .gotmp-exec/TestRunPlanAddSlice2912177768/001/plans/plan-c6006ff1.html
+- .gotmp-exec/TestRunPlanAddSlice2912177768/001/plans/plan-c6006ff1.yaml
+- .gotmp-exec/TestValidatePlan_ValidPlan1849790448/001/plans/plan-25d8b039.html
+- .gotmp-exec/TestValidatePlan_ValidPlan1849790448/001/plans/plan-25d8b039.yaml
+- .gotmp-exec/TestWirePlan_BasicWiring1957065813/001/plans/plan-testwire1.html
+- .gotmp-exec/TestWirePlan_BasicWiring1957065813/001/plans/plan-testwire1.yaml
+- .gotmp-exec/TestWirePlan_NoApprovedSlicesTreatsAllAsApproved2438699365/001/plans/plan-testwire2.html
+- .gotmp-exec/TestWirePlan_NoApprovedSlicesTreatsAllAsApproved2438699365/001/plans/plan-testwire2.yaml
 - .mailmap
-- .playwright-mcp/01-dashboard-load.png
-- .playwright-mcp/01-dashboard-loaded.png
-- .playwright-mcp/01-work-tab-phase1.png
-- .playwright-mcp/02-activity-feed-loaded.png
-- .playwright-mcp/02-websocket-connected.png
-- .playwright-mcp/03-current-session-events.png
-- .playwright-mcp/04-event-ordering.png
-- .playwright-mcp/05-event-details.png
-- .playwright-mcp/06-realtime-update.png
-- .playwright-mcp/07-full-dashboard.png
-- .playwright-mcp/activity-feed-after-fix.png
-- .playwright-mcp/activity-feed-all-activity.png
-- .playwright-mcp/activity-feed-before-fix.png
-- .playwright-mcp/activity-feed-child-events-fixed.png
-- .playwright-mcp/activity-feed-current.png
-- .playwright-mcp/activity-feed-filter-error.png
-- .playwright-mcp/activity-feed-fixed.png
-- .playwright-mcp/activity-feed-flat-structure.png
-- .playwright-mcp/activity-feed-indentation-adjusted.png
-- .playwright-mcp/activity-feed-indentation-reduced.png
-- .playwright-mcp/activity-feed-model-test.png
-- .playwright-mcp/activity-feed-reordered.png
-- .playwright-mcp/activity-feed-scrolled.png
-- .playwright-mcp/activity-feed-spawner-filter.png
-- .playwright-mcp/activity-feed-spawner-test.png
-- .playwright-mcp/activity-feed-tab.png
-- .playwright-mcp/activity-feed-task-delegation.png
-- .playwright-mcp/activity-feed-view.png
-- .playwright-mcp/activity-feed.png
-- .playwright-mcp/after-expand-all.png
-- .playwright-mcp/after-expand-click.png
-- .playwright-mcp/after-task-expand-click.png
-- .playwright-mcp/agent_fleet_status_fixed.png
-- .playwright-mcp/agents-tab-error.png
-- .playwright-mcp/agents-tab-populated.png
-- .playwright-mcp/agents-view-error.png
-- .playwright-mcp/analytics-tab-populated.png
-- .playwright-mcp/analytics-view.png
-- .playwright-mcp/child-events-fixed.png
-- .playwright-mcp/child-events-indentation-final.png
-- .playwright-mcp/child-indentation-check.png
-- .playwright-mcp/child-indentation-fixed.png
-- .playwright-mcp/commit-dag-visualization.png
-- .playwright-mcp/comparison-modal-fixed.png
-- .playwright-mcp/comparison-modal-visible.png
-- .playwright-mcp/comparison-modal-with-correct-counts.png
-- .playwright-mcp/comparison-working.png
-- .playwright-mcp/console-2026-02-05T12-13-33-098Z.log
-- .playwright-mcp/console-2026-02-05T13-29-57-462Z.log
-- .playwright-mcp/console-2026-02-05T13-41-16-349Z.log
-- .playwright-mcp/console-2026-02-05T13-48-03-022Z.log
-- .playwright-mcp/console-2026-02-05T13-51-36-975Z.log
-- .playwright-mcp/console-2026-02-05T14-00-21-032Z.log
-- .playwright-mcp/console-2026-02-09T14-26-10-434Z.log
-- .playwright-mcp/console-2026-02-09T14-45-03-050Z.log
-- .playwright-mcp/console-2026-02-09T20-19-57-338Z.log
-- .playwright-mcp/console-2026-02-09T20-25-30-322Z.log
-- .playwright-mcp/console-2026-02-09T21-30-20-425Z.log
-- .playwright-mcp/console-2026-02-10T19-15-37-738Z.log
-- .playwright-mcp/console-2026-02-10T20-53-28-974Z.log
-- .playwright-mcp/console-2026-02-10T20-55-55-994Z.log
-- .playwright-mcp/console-2026-02-10T21-31-13-224Z.log
-- .playwright-mcp/console-2026-02-10T22-05-02-573Z.log
-- .playwright-mcp/console-2026-02-10T22-06-49-803Z.log
-- .playwright-mcp/console-2026-03-07T01-08-13-549Z.log
-- .playwright-mcp/console-2026-03-07T01-54-50-066Z.log
-- .playwright-mcp/console-2026-03-07T21-25-58-495Z.log
-- .playwright-mcp/console-2026-03-07T21-36-15-881Z.log
-- .playwright-mcp/console-2026-03-07T21-40-17-329Z.log
-- .playwright-mcp/console-2026-03-07T21-55-27-064Z.log
-- .playwright-mcp/console-2026-03-08T19-01-57-214Z.log
-- .playwright-mcp/console-2026-03-08T19-11-36-687Z.log
-- .playwright-mcp/console-2026-03-08T19-35-11-261Z.log
-- .playwright-mcp/console-2026-03-08T19-52-13-960Z.log
-- .playwright-mcp/console-2026-03-08T20-28-10-601Z.log
-- .playwright-mcp/console-2026-03-08T22-42-56-986Z.log
-- .playwright-mcp/console-2026-03-10T16-59-11-410Z.log
-- .playwright-mcp/console-2026-03-14T08-42-00-483Z.log
-- .playwright-mcp/console-2026-03-14T08-49-02-496Z.log
-- .playwright-mcp/console-2026-03-14T08-50-36-506Z.log
-- .playwright-mcp/console-2026-03-14T09-06-41-251Z.log
-- .playwright-mcp/console-2026-03-14T09-08-39-469Z.log
-- .playwright-mcp/console-2026-03-14T09-11-01-089Z.log
-- .playwright-mcp/console-2026-03-14T09-31-23-431Z.log
-- .playwright-mcp/console-2026-03-14T10-37-03-047Z.log
-- .playwright-mcp/console-2026-03-14T10-56-21-942Z.log
-- .playwright-mcp/console-2026-03-19T18-09-41-914Z.log
-- .playwright-mcp/console-2026-03-20T22-21-18-420Z.log
-- .playwright-mcp/console-2026-03-20T22-43-40-265Z.log
-- .playwright-mcp/console-2026-03-28T04-12-24-899Z.log
-- .playwright-mcp/console-2026-03-28T04-15-33-699Z.log
-- .playwright-mcp/console-2026-03-28T04-17-14-417Z.log
-- .playwright-mcp/console-2026-03-28T04-20-12-846Z.log
-- .playwright-mcp/console-2026-03-29T12-07-24-508Z.log
-- .playwright-mcp/console-2026-03-29T23-43-18-761Z.log
-- .playwright-mcp/current-activity-feed.png
-- .playwright-mcp/current-graph-view.png
-- .playwright-mcp/current-view.md
-- .playwright-mcp/dashboard-activity-feed-full.png
-- .playwright-mcp/dashboard-activity-feed-integration.md
-- .playwright-mcp/dashboard-activity-feed.md
-- .playwright-mcp/dashboard-activity-feed.png
-- .playwright-mcp/dashboard-after-api-fix.png
-- .playwright-mcp/dashboard-after-event.png
-- .playwright-mcp/dashboard-after-fix.png
-- .playwright-mcp/dashboard-after-live-event.png
-- .playwright-mcp/dashboard-after-spawner-15s.png
-- .playwright-mcp/dashboard-agents-tab.png
-- .playwright-mcp/dashboard-agents-test.png
-- .playwright-mcp/dashboard-before-expand.png
-- .playwright-mcp/dashboard-before-new-event.png
-- .playwright-mcp/dashboard-before-sessions.png
-- .playwright-mcp/dashboard-before-spawner.png
-- .playwright-mcp/dashboard-current-state.png
-- .playwright-mcp/dashboard-current.png
-- .playwright-mcp/dashboard-during-spawner.png
-- .playwright-mcp/dashboard-event-attribution.png
-- .playwright-mcp/dashboard-event-tree-expanded.png
-- .playwright-mcp/dashboard-expanded-conversation.png
-- .playwright-mcp/dashboard-expanded-events.png
-- .playwright-mcp/dashboard-expanded-nested.png
-- .playwright-mcp/dashboard-features-tab.png
-- .playwright-mcp/dashboard-filtered-direct-actions.png
-- .playwright-mcp/dashboard-filtered-websocket-agent.png
-- .playwright-mcp/dashboard-final-all-tabs-working.png
-- .playwright-mcp/dashboard-final-test.png
-- .playwright-mcp/dashboard-final.png
-- .playwright-mcp/dashboard-fixed-final.png
-- .playwright-mcp/dashboard-fixed.png
-- .playwright-mcp/dashboard-home.png
-- .playwright-mcp/dashboard-initial-load.png
-- .playwright-mcp/dashboard-initial-state.png
-- .playwright-mcp/dashboard-initial.png
-- .playwright-mcp/dashboard-kanban-smart-collapse.png
-- .playwright-mcp/dashboard-live-event.png
-- .playwright-mcp/dashboard-live-streaming-complete.png
-- .playwright-mcp/dashboard-live-updates-working.png
-- .playwright-mcp/dashboard-loaded.png
-- .playwright-mcp/dashboard-loading.md
-- .playwright-mcp/dashboard-main.png
-- .playwright-mcp/dashboard-mobile-view.png
-- .playwright-mcp/dashboard-nested-events-fixed.png
-- .playwright-mcp/dashboard-nested-events-under-task.png
-- .playwright-mcp/dashboard-nested-events-working.png
-- .playwright-mcp/dashboard-no-child-events.png
-- .playwright-mcp/dashboard-orchestration-tab.png
-- .playwright-mcp/dashboard-orchestration-view.png
-- .playwright-mcp/dashboard-orchestration.png
-- .playwright-mcp/dashboard-phase1-3-complete.png
-- .playwright-mcp/dashboard-phase3-complete.png
-- .playwright-mcp/dashboard-redesign-spike.png
-- .playwright-mcp/dashboard-screenshot.png
-- .playwright-mcp/dashboard-scrolled-bottom.png
-- .playwright-mcp/dashboard-scrolled-far.png
-- .playwright-mcp/dashboard-scrolled.png
-- .playwright-mcp/dashboard-session-id-fix.png
-- .playwright-mcp/dashboard-snapshot-1.md
-- .playwright-mcp/dashboard-snapshot.md
-- .playwright-mcp/dashboard-spawner-badges.png
-- .playwright-mcp/dashboard-spawner-delegations.png
-- .playwright-mcp/dashboard-spawner-filter-test.png
-- .playwright-mcp/dashboard-state.png
-- .playwright-mcp/dashboard-tablet-view.png
-- .playwright-mcp/dashboard-test.md
-- .playwright-mcp/dashboard-test.png
-- .playwright-mcp/dashboard-top-after-fix.png
-- .playwright-mcp/dashboard-wip-after-fix.png
-- .playwright-mcp/dashboard-wip-before-fix.png
-- .playwright-mcp/dashboard-with-live-events.png
-- .playwright-mcp/dashboard-working.png
-- .playwright-mcp/dashboard_initial.md
-- .playwright-mcp/dashboard_live_events.png
-- .playwright-mcp/dashboard_loaded.png
-- .playwright-mcp/dashboard_with_spawner_events.png
-- .playwright-mcp/detail-panel.png
-- .playwright-mcp/events-after-monitoring.png
-- .playwright-mcp/events-baseline.png
-- .playwright-mcp/events-count-13-realtime.png
-- .playwright-mcp/events-final-count-16.png
-- .playwright-mcp/events-updated-count-10.png
-- .playwright-mcp/expandable-tracing-activity-feed.png
-- .playwright-mcp/expandable-tracing-children-visible.png
-- .playwright-mcp/expandable-tracing-collapsed.png
-- .playwright-mcp/expandable-tracing-complete.png
-- .playwright-mcp/expandable-tracing-expanded.png
-- .playwright-mcp/expanded-turn-view.png
-- .playwright-mcp/features-kanban-view.png
-- .playwright-mcp/features-tab.png
-- .playwright-mcp/final-dashboard-state.png
-- .playwright-mcp/fix-verified-parent-child-linking.png
-- .playwright-mcp/gemini-expanded-hierarchy.png
-- .playwright-mcp/gemini-filter-current.png
-- .playwright-mcp/gemini-spawner-hierarchy.png
-- .playwright-mcp/graph-final-v2.png
-- .playwright-mcp/graph-final.png
-- .playwright-mcp/graph-fitted-text.png
-- .playwright-mcp/graph-full.png
-- .playwright-mcp/graph-larger-nodes-v3.png
-- .playwright-mcp/graph-larger-nodes.png
-- .playwright-mcp/graph-rendered.png
-- .playwright-mcp/graph-sized.png
-- .playwright-mcp/graph-visualization.png
-- .playwright-mcp/graph-wrapped-text.png
-- .playwright-mcp/home.png
-- .playwright-mcp/wipnote-dashboard.png
-- .playwright-mcp/wipnote-final.png
-- .playwright-mcp/wipnote-session-tracking-verified.png
-- .playwright-mcp/wipnote-text-rendering-fixed.png
-- .playwright-mcp/jaeger-nesting-scrolled.png
-- .playwright-mcp/jaeger-nesting-test.png
-- .playwright-mcp/jaeger-nesting-with-test-rows.png
-- .playwright-mcp/jaeger-style-complete.png
-- .playwright-mcp/jaeger-style-trace-view.png
-- .playwright-mcp/jaeger-trace-breadcrumbs-visible.png
-- .playwright-mcp/jaeger-trace-expanded-children.png
-- .playwright-mcp/jaeger-trace-view-implementation.png
-- .playwright-mcp/jaeger-verification.png
-- .playwright-mcp/jaeger-with-expand-arrows.png
-- .playwright-mcp/live-updates-fixed-final.png
-- .playwright-mcp/metrics-tab-error.png
-- .playwright-mcp/metrics_view_error.png
-- .playwright-mcp/metrics_view_still_broken.png
-- .playwright-mcp/model-detection-working.png
-- .playwright-mcp/multiple-nested-tasks.png
-- .playwright-mcp/observability-baseline.png
-- .playwright-mcp/orchestration-compact.png
-- .playwright-mcp/orchestration-dashboard.png
-- .playwright-mcp/orchestration-final-check.png
-- .playwright-mcp/orchestration-no-gap.png
-- .playwright-mcp/orchestration-redesign-verified.png
-- .playwright-mcp/orchestration-tab-error.png
-- .playwright-mcp/orchestration-view.png
-- .playwright-mcp/orchestration-with-delegations.png
-- .playwright-mcp/page-2025-12-16T10-27-46-690Z.png
-- .playwright-mcp/page-2025-12-16T10-31-16-361Z.png
-- .playwright-mcp/page-2025-12-16T10-32-24-728Z.png
-- .playwright-mcp/page-2025-12-16T10-32-55-729Z.png
-- .playwright-mcp/page-2025-12-16T10-33-24-119Z.png
-- .playwright-mcp/page-2025-12-16T10-33-55-953Z.png
-- .playwright-mcp/page-2025-12-16T10-34-24-802Z.png
-- .playwright-mcp/page-2025-12-16T10-35-38-802Z.png
-- .playwright-mcp/page-2025-12-16T10-36-08-959Z.png
-- .playwright-mcp/page-2025-12-16T10-36-40-525Z.png
-- .playwright-mcp/page-2025-12-16T10-37-36-022Z.png
-- .playwright-mcp/page-2025-12-16T10-44-13-880Z.png
-- .playwright-mcp/page-2025-12-16T10-44-39-155Z.png
-- .playwright-mcp/page-2025-12-16T10-45-05-146Z.png
-- .playwright-mcp/page-2025-12-16T10-50-46-615Z.png
-- .playwright-mcp/page-2025-12-16T10-51-21-555Z.png
-- .playwright-mcp/page-2025-12-16T10-53-57-308Z.png
-- .playwright-mcp/page-2025-12-16T10-54-33-159Z.png
-- .playwright-mcp/page-2025-12-16T10-55-27-906Z.png
-- .playwright-mcp/page-2025-12-16T10-59-11-906Z.png
-- .playwright-mcp/page-2025-12-16T11-01-25-467Z.png
-- .playwright-mcp/page-2025-12-16T11-07-16-092Z.png
-- .playwright-mcp/page-2025-12-16T11-10-34-362Z.png
-- .playwright-mcp/page-2025-12-16T11-17-16-597Z.png
-- .playwright-mcp/page-2025-12-16T11-17-57-221Z.png
-- .playwright-mcp/page-2025-12-16T11-18-43-083Z.png
-- .playwright-mcp/page-2025-12-16T11-25-18-990Z.png
-- .playwright-mcp/page-2025-12-16T11-26-13-075Z.png
-- .playwright-mcp/page-2026-01-06T09-47-41-752Z.png
-- .playwright-mcp/page-2026-01-06T09-48-01-559Z.png
-- .playwright-mcp/page-2026-01-12T22-27-09-035Z.png
-- .playwright-mcp/page-2026-02-10T22-05-06-830Z.png
-- .playwright-mcp/page-2026-03-07T01-13-03-955Z.png
-- .playwright-mcp/page-2026-03-07T01-13-21-365Z.png
-- .playwright-mcp/page-2026-03-07T01-48-32-167Z.png
-- .playwright-mcp/page-2026-03-07T01-54-57-874Z.png
-- .playwright-mcp/page-2026-03-07T01-56-57-449Z.png
-- .playwright-mcp/page-2026-03-07T01-57-52-985Z.png
-- .playwright-mcp/page-2026-03-20T22-21-54-318Z.png
-- .playwright-mcp/page-2026-03-20T22-30-32-402Z.png
-- .playwright-mcp/page-2026-03-20T22-35-22-194Z.png
-- .playwright-mcp/page-2026-03-20T22-44-23-393Z.png
-- .playwright-mcp/page-2026-03-28T04-15-36-578Z.png
-- .playwright-mcp/reduced-indentation.png
-- .playwright-mcp/rendered-specification.png
-- .playwright-mcp/session-comparison-view.png
-- .playwright-mcp/session-feature-linked.png
-- .playwright-mcp/session-preview-demo.png
-- .playwright-mcp/session-with-activity-log.png
-- .playwright-mcp/sessions-tab-populated.png
-- .playwright-mcp/sessions-table-fixed.png
-- .playwright-mcp/sessions-view-complete.png
-- .playwright-mcp/sessions-view-final.png
-- .playwright-mcp/spawner-chain-current-view.png
-- .playwright-mcp/spawner-delegation-events.png
-- .playwright-mcp/spawner-hierarchy-test.png
-- .playwright-mcp/spawner-subprocess-nesting-final.png
-- .playwright-mcp/spike-view.png
-- .playwright-mcp/step1-dashboard.png
-- .playwright-mcp/step2-sessions-view.png
-- .playwright-mcp/step3-compare-button-appeared.png
-- .playwright-mcp/step4-comparison-modal.png
-- .playwright-mcp/subprocess-nesting-after-fix.png
-- .playwright-mcp/subprocess-nesting-detailed.png
-- .playwright-mcp/tab-01-work.png
-- .playwright-mcp/tab-02-analytics.png
-- .playwright-mcp/tab-03-agents.png
-- .playwright-mcp/tab-04-sessions.png
-- .playwright-mcp/websocket-realtime-test.png
-- .playwright-mcp/with-close-button.png
-- .playwright-mcp/work-tab-current.png
-- .playwright-mcp/work-tab-fixed.png
-- .playwright-mcp/work-tab-populated.png
 - .pre-commit-config.yaml
+- CHANGELOG.md
 - CONTRIBUTING.md
-- Formula/wipnote.rb
+- LICENSE
 - PRD.md
+- THIRD-PARTY-NOTICES.md
 - _build/esbuild-darwin-arm64
 - archive/python-dashboard/README.md
 - archive/python-dashboard/api/__init__.py
@@ -1018,106 +580,547 @@ _depends on local feature_files state that the canonical `.wipnote/*.html` does 
 - archive/python-dashboard/tests/unit/api/conftest.py
 - benchmarks/query_benchmarks.py
 - cmd/wipnote/agent_init.go
+- cmd/wipnote/agent_worktree_test.go
 - cmd/wipnote/analytics.go
+- cmd/wipnote/antigravity_launch.go
+- cmd/wipnote/antigravity_launch_test.go
+- cmd/wipnote/antigravity_statusline.go
+- cmd/wipnote/antigravity_statusline_test.go
+- cmd/wipnote/antigravity_test.go
+- cmd/wipnote/api_busy_test.go
+- cmd/wipnote/api_collector_status.go
+- cmd/wipnote/api_collector_status_test.go
 - cmd/wipnote/api_feature_activity.go
+- cmd/wipnote/api_feed.go
+- cmd/wipnote/api_feed_test.go
+- cmd/wipnote/api_graph.go
+- cmd/wipnote/api_graph_agent_test.go
+- cmd/wipnote/api_graph_filter_test.go
+- cmd/wipnote/api_graph_session_hierarchy_test.go
 - cmd/wipnote/api_graph_test.go
+- cmd/wipnote/api_ingest.go
+- cmd/wipnote/api_otel.go
 - cmd/wipnote/api_otel_test.go
+- cmd/wipnote/api_parallel_sessions.go
+- cmd/wipnote/api_plans.go
+- cmd/wipnote/api_plans_test.go
+- cmd/wipnote/api_preview.go
+- cmd/wipnote/api_preview_test.go
+- cmd/wipnote/api_provenance.go
+- cmd/wipnote/api_provenance_test.go
+- cmd/wipnote/api_resumable_sessions.go
+- cmd/wipnote/api_session_family.go
 - cmd/wipnote/api_timeline.go
 - cmd/wipnote/api_transcript.go
+- cmd/wipnote/api_tree.go
+- cmd/wipnote/api_workboard_test.go
+- cmd/wipnote/arch_bootstrap.go
+- cmd/wipnote/arch_bootstrap_test.go
 - cmd/wipnote/backfill.go
+- cmd/wipnote/backfill_ai_title.go
+- cmd/wipnote/backfill_ai_title_test.go
 - cmd/wipnote/batch.go
 - cmd/wipnote/batch_test.go
+- cmd/wipnote/blame.go
+- cmd/wipnote/blame_test.go
 - cmd/wipnote/bootstrap_test.go
 - cmd/wipnote/budget.go
-- cmd/wipnote/build.go
+- cmd/wipnote/bug_reset.go
+- cmd/wipnote/bug_reset_test.go
+- cmd/wipnote/build_mirror_test.go
+- cmd/wipnote/busy_filesystem_agnostic_test.go
+- cmd/wipnote/cache.go
+- cmd/wipnote/cache_pollution_test.go
+- cmd/wipnote/canonical_command_audit_test.go
 - cmd/wipnote/check_cross_project.go
 - cmd/wipnote/check_cross_project_test.go
+- cmd/wipnote/check_dups_test.go
+- cmd/wipnote/check_gate_profile_test.go
+- cmd/wipnote/check_gate_support.go
+- cmd/wipnote/check_host_paths.go
+- cmd/wipnote/check_host_paths_test.go
 - cmd/wipnote/check_incomplete.go
 - cmd/wipnote/check_orphans.go
 - cmd/wipnote/check_orphans_test.go
 - cmd/wipnote/ci.go
 - cmd/wipnote/ci_test.go
+- cmd/wipnote/claim.go
+- cmd/wipnote/claude_dev_test.go
+- cmd/wipnote/claude_env.go
+- cmd/wipnote/claude_env_test.go
+- cmd/wipnote/claude_otel_collect_spawn.go
+- cmd/wipnote/claude_otel_collect_spawn_test.go
+- cmd/wipnote/claude_serve_autostart.go
 - cmd/wipnote/claude_serve_autostart_test.go
+- cmd/wipnote/claude_session_name_test.go
+- cmd/wipnote/clean.go
+- cmd/wipnote/clean_test.go
 - cmd/wipnote/cleanup.go
+- cmd/wipnote/cleanup_orphan_sessions.go
 - cmd/wipnote/cleanup_test.go
+- cmd/wipnote/code_areas.go
+- cmd/wipnote/code_areas_test.go
+- cmd/wipnote/codex_launch.go
+- cmd/wipnote/commit_queue_deadletter.go
+- cmd/wipnote/commit_queue_test.go
 - cmd/wipnote/compliance.go
+- cmd/wipnote/compliance_auto.go
+- cmd/wipnote/compliance_auto_test.go
+- cmd/wipnote/compliance_test.go
+- cmd/wipnote/concurrency_test.go
+- cmd/wipnote/context_pack.go
+- cmd/wipnote/context_pack_test.go
 - cmd/wipnote/dashboard.go
+- cmd/wipnote/dashboard/components/event-tree.js
 - cmd/wipnote/dashboard/components/transcript-view.js
 - cmd/wipnote/dashboard/css/layout.css
+- cmd/wipnote/dashboard/css/tokens.css
+- cmd/wipnote/dashboard/js/helpers.js
+- cmd/wipnote/dashboard_launcher_test.go
 - cmd/wipnote/dev.go
 - cmd/wipnote/errors_test.go
-- cmd/wipnote/find.go
+- cmd/wipnote/execute_preview.go
+- cmd/wipnote/execute_preview_test.go
+- cmd/wipnote/feature_reopen.go
+- cmd/wipnote/feature_reopen_test.go
+- cmd/wipnote/feature_reset.go
+- cmd/wipnote/feature_reset_test.go
+- cmd/wipnote/gate_coderoot_test.go
+- cmd/wipnote/gate_exec.go
+- cmd/wipnote/gate_exec_test.go
+- cmd/wipnote/git_lock_repair.go
+- cmd/wipnote/git_lock_repair_test.go
+- cmd/wipnote/git_lock_retry.go
+- cmd/wipnote/git_lock_retry_test.go
+- cmd/wipnote/git_mutation_lock.go
+- cmd/wipnote/git_mutation_lock_test.go
 - cmd/wipnote/git_timestamps.go
 - cmd/wipnote/git_timestamps_test.go
 - cmd/wipnote/graph.go
-- cmd/wipnote/homebrew_test.go
+- cmd/wipnote/guard_init.go
+- cmd/wipnote/harness_cmd.go
+- cmd/wipnote/harness_cmd_test.go
+- cmd/wipnote/health.go
+- cmd/wipnote/help.go
+- cmd/wipnote/history.go
+- cmd/wipnote/history_test.go
+- cmd/wipnote/hook_canonical_first_test.go
+- cmd/wipnote/hook_event_name_test.go
+- cmd/wipnote/hook_exit_plan_mode.go
 - cmd/wipnote/hook_exit_plan_mode_test.go
+- cmd/wipnote/hook_worktree_create_test.go
+- cmd/wipnote/ingest.go
+- cmd/wipnote/ingest_commits_all_test.go
+- cmd/wipnote/ingest_events_test.go
 - cmd/wipnote/ingest_gemini.go
+- cmd/wipnote/ingest_title_test.go
 - cmd/wipnote/init.go
 - cmd/wipnote/install_hooks.go
 - cmd/wipnote/install_script_test.go
+- cmd/wipnote/launch_isolation_config_test.go
+- cmd/wipnote/launch_run.go
+- cmd/wipnote/launch_run_test.go
+- cmd/wipnote/launcher_doctor.go
+- cmd/wipnote/launcher_doctor_test.go
+- cmd/wipnote/launcher_isolation.go
+- cmd/wipnote/launcher_isolation_test.go
+- cmd/wipnote/launcher_worktree_test.go
+- cmd/wipnote/lazy_reindex_test.go
+- cmd/wipnote/lineage.go
+- cmd/wipnote/lineage_busy_test.go
+- cmd/wipnote/lineage_test.go
+- cmd/wipnote/lineage_tree.go
+- cmd/wipnote/lineage_tree_test.go
 - cmd/wipnote/link.go
+- cmd/wipnote/link_commit.go
+- cmd/wipnote/link_commit_test.go
 - cmd/wipnote/link_test.go
+- cmd/wipnote/main_test.go
 - cmd/wipnote/migrate.go
+- cmd/wipnote/migrate_arch_cards_test.go
 - cmd/wipnote/migrate_attribution.go
+- cmd/wipnote/migrate_normalize.go
+- cmd/wipnote/migrate_normalize_test.go
+- cmd/wipnote/migrate_restore.go
+- cmd/wipnote/migrate_test.go
+- cmd/wipnote/migrate_tracks.go
+- cmd/wipnote/migrate_tracks_test.go
+- cmd/wipnote/multiharness_test.go
+- cmd/wipnote/mux_readonly_topology_test.go
 - cmd/wipnote/orchestrator.go
+- cmd/wipnote/otel_collect.go
+- cmd/wipnote/otel_collect_handler.go
+- cmd/wipnote/otel_collect_test.go
+- cmd/wipnote/plan_blocks.go
+- cmd/wipnote/plan_cmds.go
 - cmd/wipnote/plan_create_test.go
 - cmd/wipnote/plan_critique.go
 - cmd/wipnote/plan_critique_test.go
+- cmd/wipnote/plan_css_scope.go
+- cmd/wipnote/plan_css_scope_test.go
+- cmd/wipnote/plan_elicit_decisions_test.go
 - cmd/wipnote/plan_feedback_cmd.go
 - cmd/wipnote/plan_feedback_cmd_test.go
 - cmd/wipnote/plan_feedback_read.go
+- cmd/wipnote/plan_finalize.go
+- cmd/wipnote/plan_finalize_test.go
+- cmd/wipnote/plan_finalize_yaml.go
 - cmd/wipnote/plan_finalize_yaml_test.go
 - cmd/wipnote/plan_generate_test.go
 - cmd/wipnote/plan_lifecycle_test.go
+- cmd/wipnote/plan_migrate_orphans.go
 - cmd/wipnote/plan_migrate_orphans_test.go
+- cmd/wipnote/plan_mutations.go
+- cmd/wipnote/plan_promote_slice.go
+- cmd/wipnote/plan_promote_slice_test.go
+- cmd/wipnote/plan_reopen.go
+- cmd/wipnote/plan_rewrite_track_test.go
+- cmd/wipnote/plan_show.go
+- cmd/wipnote/plan_show_test.go
 - cmd/wipnote/plan_template.go
 - cmd/wipnote/plan_typed_sections.go
 - cmd/wipnote/plan_validate_test.go
+- cmd/wipnote/plan_wire.go
 - cmd/wipnote/plan_wire_test.go
-- cmd/wipnote/plugin_ensure_test.go
+- cmd/wipnote/plan_yaml_cmds.go
+- cmd/wipnote/plan_yaml_cmds_test.go
+- cmd/wipnote/plugin.go
+- cmd/wipnote/plugin_ensure.go
 - cmd/wipnote/plugin_test.go
 - cmd/wipnote/pricing_cmd.go
 - cmd/wipnote/project_header_test.go
+- cmd/wipnote/projects.go
+- cmd/wipnote/projects_test.go
 - cmd/wipnote/prompts.go
 - cmd/wipnote/prompts/gemini-system.md
+- cmd/wipnote/prompts/research-routing.md
+- cmd/wipnote/prompts/system-prompt.md
 - cmd/wipnote/prompts/yolo-prompt.md
+- cmd/wipnote/provenance_gate_test.go
+- cmd/wipnote/prune.go
 - cmd/wipnote/purge_spikes.go
 - cmd/wipnote/query.go
 - cmd/wipnote/recommend.go
-- cmd/wipnote/reindex.go
+- cmd/wipnote/reconcile.go
+- cmd/wipnote/reconcile_test.go
+- cmd/wipnote/registry_cmd.go
+- cmd/wipnote/registry_cmd_test.go
+- cmd/wipnote/reindex_arch.go
+- cmd/wipnote/reindex_arch_test.go
 - cmd/wipnote/reindex_feature_files_test.go
 - cmd/wipnote/reindex_files.go
 - cmd/wipnote/reindex_helpers.go
 - cmd/wipnote/reindex_incremental_test.go
+- cmd/wipnote/reindex_orphans.go
+- cmd/wipnote/reindex_orphans_test.go
+- cmd/wipnote/reindex_otel_events.go
+- cmd/wipnote/reindex_plan_approvals.go
+- cmd/wipnote/reindex_plan_approvals_test.go
+- cmd/wipnote/reindex_plan_edges.go
+- cmd/wipnote/reindex_rebuild_test.go
 - cmd/wipnote/reindex_sessions.go
 - cmd/wipnote/reindex_sessions_test.go
 - cmd/wipnote/reindex_test.go
 - cmd/wipnote/reindex_trailers.go
 - cmd/wipnote/reindex_trailers_test.go
+- cmd/wipnote/related.go
 - cmd/wipnote/report.go
 - cmd/wipnote/resolve_plugin_dir_test.go
 - cmd/wipnote/review.go
+- cmd/wipnote/search.go
+- cmd/wipnote/search_test.go
+- cmd/wipnote/serve_child_plan_write_test.go
+- cmd/wipnote/serve_child_writer_test.go
+- cmd/wipnote/serve_global.go
 - cmd/wipnote/serve_global_proxy_test.go
+- cmd/wipnote/serve_global_test.go
+- cmd/wipnote/serve_parent.go
 - cmd/wipnote/serve_parent_test.go
 - cmd/wipnote/serve_terminal_gate_test.go
+- cmd/wipnote/serve_test.go
+- cmd/wipnote/session.go
+- cmd/wipnote/session_adherence_test.go
+- cmd/wipnote/session_family_launcher_test.go
+- cmd/wipnote/session_prune_archive.go
+- cmd/wipnote/session_prune_archive_test.go
+- cmd/wipnote/session_restore.go
+- cmd/wipnote/session_roundtrip_test.go
+- cmd/wipnote/session_stale_schema_test.go
+- cmd/wipnote/sessions.go
 - cmd/wipnote/set_description_test.go
 - cmd/wipnote/setup.go
 - cmd/wipnote/setup_cli.go
 - cmd/wipnote/setup_cli_test.go
+- cmd/wipnote/sh.go
+- cmd/wipnote/sh_test.go
+- cmd/wipnote/show_format_test.go
 - cmd/wipnote/snapshot.go
 - cmd/wipnote/spec.go
+- cmd/wipnote/spec_test.go
+- cmd/wipnote/spike_reset.go
+- cmd/wipnote/spike_reset_test.go
+- cmd/wipnote/status_fstype_test.go
+- cmd/wipnote/statusline.go
+- cmd/wipnote/statusline_cache_test.go
+- cmd/wipnote/statusline_test.go
 - cmd/wipnote/sweep.go
+- cmd/wipnote/sync.go
+- cmd/wipnote/sync_test.go
 - cmd/wipnote/tdd.go
+- cmd/wipnote/tdd_test.go
+- cmd/wipnote/templates/interview.gohtml
 - cmd/wipnote/templates/plan-template.html
+- cmd/wipnote/terminal_handlers.go
+- cmd/wipnote/testdata/bad-path-sample.html
+- cmd/wipnote/testdata/clean-sample.html
+- cmd/wipnote/testdata/skill_flag_bad.md
+- cmd/wipnote/testdata/skill_flag_good.md
+- cmd/wipnote/tmux.go
+- cmd/wipnote/tmux_test.go
+- cmd/wipnote/trace.go
+- cmd/wipnote/trace_test.go
+- cmd/wipnote/track.go
+- cmd/wipnote/track_pr.go
 - cmd/wipnote/track_pr_test.go
 - cmd/wipnote/track_status.go
 - cmd/wipnote/track_status_test.go
+- cmd/wipnote/upgrade_cmd_test.go
+- cmd/wipnote/who.go
 - cmd/wipnote/wip.go
 - cmd/wipnote/wip_test.go
+- cmd/wipnote/wipnote
+- cmd/wipnote/workitem_commit.go
+- cmd/wipnote/workitem_create.go
+- cmd/wipnote/workitem_create_provenance_test.go
+- cmd/wipnote/workitem_create_test.go
+- cmd/wipnote/workitem_edges.go
+- cmd/wipnote/workitem_modify.go
+- cmd/wipnote/worktree_gc_test.go
+- cmd/wipnote/worktree_helpers_test.go
+- cmd/wipnote/writer_transport_test.go
+- cmd/wipnote/yolo_test.go
+- core/agent/session_family.go
+- core/agent/session_family_concurrency_test.go
+- core/agent/session_family_test.go
+- core/arch/card.go
+- core/arch/card_test.go
+- core/arch/ledger.go
+- core/arch/lock_unix.go
+- core/arch/lock_windows.go
+- core/arch/store.go
+- core/daemon/apply/apply_test.go
+- core/daemon/client.go
+- core/daemon/daemon_test.go
+- core/daemon/lease.go
+- core/daemon/lease_linux.go
+- core/daemon/lease_other.go
+- core/daemon/lifecycle_test.go
+- core/daemon/spawn.go
+- core/daemon/spawn_test.go
+- core/db/active_work_items.go
+- core/db/active_work_items_test.go
+- core/db/arch_repo.go
+- core/db/busy_counter.go
+- core/db/busy_counter_test.go
+- core/db/busy_retry.go
+- core/db/busy_retry_test.go
+- core/db/claim_collision_test.go
+- core/db/claim_repo_test.go
+- core/db/edge_repo.go
+- core/db/edge_repo_test.go
+- core/db/feature_files_overlap_test.go
+- core/db/feature_files_repo.go
+- core/db/feature_files_repo_test.go
+- core/db/feature_repo_dedup_test.go
+- core/db/fstype_linux.go
+- core/db/fstype_other.go
+- core/db/fstype_test.go
+- core/db/gate_records.go
+- core/db/gate_records_profile_test.go
+- core/db/gate_records_workitem_test.go
+- core/db/liveness_test.go
+- core/db/message_repo.go
+- core/db/metadata_repo.go
+- core/db/otel_schema_test.go
+- core/db/plan_feedback.go
+- core/db/plan_feedback_test.go
+- core/db/pragmas.go
+- core/db/pragmas_busy_whitebox_test.go
+- core/db/pragmas_test.go
+- core/db/schema_test.go
+- core/db/session_adherence_test.go
+- core/db/session_exec_context_migration_test.go
+- core/db/session_family_migration_test.go
+- core/db/session_family_repo_test.go
+- core/db/session_files_test.go
+- core/db/session_show_test.go
+- core/db/track_repo.go
+- core/db/track_repo_test.go
+- core/db/writequeue/op.go
+- core/db/writequeue/queue.go
+- core/db/writequeue/queue_test.go
+- core/eventsink/eventsink.go
+- core/eventsink/eventsink_test.go
+- core/go.mod
+- core/go.sum
+- core/graph/algorithms.go
+- core/graph/algorithms_test.go
+- core/graph/dsl.go
+- core/graph/dsl_commit_file_test.go
+- core/graph/dsl_test.go
+- core/graph/pattern.go
+- core/graph/pattern_test.go
+- core/graph/query.go
+- core/graph/query_test.go
+- core/graph/querybuilder.go
+- core/graph/querybuilder_test.go
+- core/graph/sessions.go
+- core/graph/sessions_test.go
+- core/guardprofile/discover.go
+- core/guardprofile/discover_test.go
+- core/guardprofile/profile.go
+- core/guardprofile/profile_test.go
+- core/guardprofile/resolve.go
+- core/guardprofile/resolve_test.go
+- core/guardprofile/signature.go
+- core/harness/registry.go
+- core/harness/registry_antigravity.go
+- core/harness/registry_claude.go
+- core/harness/registry_codex.go
+- core/harness/registry_gemini.go
+- core/harness/registry_test.go
+- core/hooks/attribution.go
+- core/hooks/commit_portdrift_guard.go
+- core/hooks/commit_portdrift_guard_test.go
+- core/hooks/constants.go
+- core/hooks/cross_harness_liveness_test.go
+- core/hooks/cross_harness_step_contract_test.go
+- core/hooks/dbgate_daemon_test.go
+- core/hooks/gemini_model.go
+- core/hooks/gemini_model_test.go
+- core/hooks/harness.go
+- core/hooks/harness_antigravity_test.go
+- core/hooks/harness_registry_test.go
+- core/hooks/harness_test.go
+- core/hooks/lifecycle_injection_test.go
+- core/hooks/log.go
+- core/hooks/metadata_capture_test.go
+- core/hooks/missing_events_test.go
+- core/hooks/permission_allowlist.go
+- core/hooks/permission_allowlist_test.go
+- core/hooks/posttooluse.go
+- core/hooks/posttooluse_test.go
+- core/hooks/pretooluse_delegation_test.go
+- core/hooks/pretooluse_overlap_test.go
+- core/hooks/prompt_classifier.go
+- core/hooks/prompt_classifier_test.go
+- core/hooks/quality_gate.go
+- core/hooks/quality_gate_test.go
+- core/hooks/session_end_collector_test.go
+- core/hooks/session_end_slim_test.go
+- core/hooks/session_html.go
+- core/hooks/session_html_provenance_test.go
+- core/hooks/session_html_test.go
+- core/hooks/spike_policy_test.go
+- core/hooks/subagent_start_test.go
+- core/hooks/task_completion_gate.go
+- core/hooks/task_completion_gate_profile_test.go
+- core/hooks/task_completion_gate_test.go
+- core/hooks/task_tracking.go
+- core/hooks/task_tracking_test.go
+- core/hooks/toolinput_normalize.go
+- core/hooks/toolinput_normalize_test.go
+- core/hooks/tooluse_shared.go
+- core/hooks/tooluse_shared_test.go
+- core/hooks/tracer.go
+- core/hooks/track_event.go
+- core/hooks/transcript_assistant.go
+- core/hooks/transcript_assistant_test.go
+- core/hooks/transcript_user_prompt.go
+- core/hooks/transcript_user_prompt_test.go
+- core/hooks/version_check.go
+- core/hooks/version_check_test.go
+- core/hooks/worktree_autocomplete_test.go
+- core/hooks/worktree_normalize_test.go
+- core/hooks/yolo_guard_roborev_test.go
+- core/hooks/yolo_guard_test.go
+- core/htmlparse/parser.go
+- core/htmlparse/parser_provenance_test.go
+- core/htmlparse/parser_test.go
+- core/ingest/discover.go
+- core/ingest/discover_test.go
+- core/ingest/gemini_discover.go
+- core/ingest/gemini_parser.go
+- core/ingest/gemini_parser_test.go
+- core/ingest/parser.go
+- core/ingest/parser_test.go
+- core/ingest/system_message.go
+- core/models/claim.go
+- core/models/commit.go
+- core/models/enums.go
+- core/models/enums_test.go
+- core/models/event.go
+- core/models/feature_file.go
+- core/models/lineage.go
+- core/models/message.go
+- core/models/node.go
+- core/models/node_test.go
+- core/models/session.go
+- core/paths/hostpattern.go
+- core/paths/hostpattern_test.go
+- core/paths/normalize.go
+- core/paths/normalize_test.go
+- core/paths/projecttype.go
+- core/paths/projecttype_test.go
+- core/paths/resolve.go
+- core/paths/resolve_test.go
+- core/provenance/provenance.go
+- core/provenance/provenance_test.go
+- core/slug/slug.go
+- core/slug/slug_test.go
+- core/storage/dbpath.go
+- core/storage/dbpath_test.go
+- core/storage/evict.go
+- core/storage/evict_test.go
+- core/workitem/analytics.go
+- core/workitem/analytics_test.go
+- core/workitem/bugs.go
+- core/workitem/claim_test.go
+- core/workitem/concurrency_test.go
+- core/workitem/crud_test.go
+- core/workitem/edit.go
+- core/workitem/edit_test.go
+- core/workitem/errors.go
+- core/workitem/errors_test.go
+- core/workitem/features.go
+- core/workitem/generate_id_test.go
+- core/workitem/htmlwriter.go
+- core/workitem/htmlwriter_edgehref_test.go
+- core/workitem/htmlwriter_provenance_test.go
+- core/workitem/plan_patch_test.go
+- core/workitem/project.go
+- core/workitem/project_test.go
+- core/workitem/query.go
+- core/workitem/resolve.go
+- core/workitem/resolve_test.go
+- core/workitem/sessions.go
+- core/workitem/specs.go
+- core/workitem/spikes.go
+- core/workitem/templates/node.gohtml
+- core/workitem/tracks.go
+- core/worktree/carryover_test.go
+- core/worktree/cleanup.go
+- core/worktree/gitignore.go
+- core/worktree/gitignore_test.go
+- core/worktree/repair.go
+- core/worktree/repair_test.go
+- core/worktree/worktree_internal_test.go
+- core/worktree/worktree_test.go
 - docker-compose.yml
 - docs/.mkdocsignore
-- docs/GEMINI_INTEGRATION_PLAN.md
+- docs/adr-001-harness-agnostic-collector.md
+- docs/arch-measurement-protocol.md
+- docs/architecture-review-2026-06-12.md
 - docs/archive/ACTIVITY_FEED_EVENT_REPORT.md
 - docs/archive/AGENT_STRATEGIC_PLANNING.md
 - docs/archive/API_REFERENCE.md
@@ -1409,20 +1412,32 @@ _depends on local feature_files state that the canonical `.wipnote/*.html` does 
 - docs/assets/graph-hero.png
 - docs/assets/logo.jpg
 - docs/assets/logo.png
+- docs/assets/octopyx.svg
 - docs/blog/.authors.yml
 - docs/blog/index.md
 - docs/blog/posts/introducing-wipnote.md
+- docs/blog/posts/plan-mode-crispi.md
 - docs/blog/posts/python-to-go.md
 - docs/blog/posts/sub-agent-orchestration.md
 - docs/blog/posts/yolo-mode.md
+- docs/cli/blame.md
+- docs/cli/migrate-tracks.md
+- docs/code-areas.md
 - docs/codex-cli-integration-plan.md
 - docs/codex-interoperability-review.md
+- docs/commit-outbox-design.md
+- docs/cross-env-path-drift-audit.md
 - docs/internal-plan-system-analysis.md
+- docs/launch/positioning-draft.md
+- docs/reference/cli.md
 - docs/research/claude_feedback.md
 - docs/research/git_native_features.md
+- docs/research/local-first-architecture-for-wipnote.md
 - docs/research/reference-site-snapshot.md
 - docs/security-review-2026-04-15.md
+- docs/spikes/dispatch-hardening-spike.md
 - docs/stylesheets/extra.css
+- docs/track-attribution-rules.yaml
 - examples/agent-coordination/README.md
 - examples/agent-coordination/demo.py
 - examples/create_auth_track_demo.py
@@ -1450,8 +1465,8 @@ _depends on local feature_files state that the canonical `.wipnote/*.html` does 
 - examples/knowledge-base/features/feat-7a6f797d.html
 - examples/knowledge-base/features/note-ai-agents.html
 - examples/knowledge-base/features/note-graph-db.html
-- examples/knowledge-base/features/note-wipnote.html
 - examples/knowledge-base/features/note-web-standards.html
+- examples/knowledge-base/features/note-wipnote.html
 - examples/parallel_task_coordination.py
 - examples/pattern_learning_demo.py
 - examples/retry_decorator_examples.py
@@ -1467,78 +1482,43 @@ _depends on local feature_files state that the canonical `.wipnote/*.html` does 
 - examples/todo-list/task-004.html
 - examples/todo-list/task-005.html
 - examples/todo-list/task-006.html
-- hooks/bin/wipnote
-- wipnote-aliases.sh
-- wipnote-deploy.toml
-- install.sh
-- internal/agent/ensure.go
-- internal/agent/ensure_test.go
+- hooks/bin/htmlgraph
+- internal/arch/resolve.go
+- internal/arch/resolve_test.go
+- internal/blame/areas.go
+- internal/blame/areas_test.go
+- internal/blame/blame.go
+- internal/blame/blame_test.go
 - internal/childproc/childproc.go
-- internal/db/active_work_items.go
-- internal/db/active_work_items_test.go
-- internal/db/claim_repo_test.go
-- internal/db/edge_repo.go
-- internal/db/edge_repo_test.go
-- internal/db/event_repo_test.go
-- internal/db/feature_files_repo.go
-- internal/db/feature_files_repo_test.go
-- internal/db/feature_repo.go
-- internal/db/fstype_linux.go
-- internal/db/fstype_other.go
-- internal/db/fstype_test.go
-- internal/db/lineage_repo.go
-- internal/db/message_repo.go
-- internal/db/metadata_repo.go
-- internal/db/otel_schema_test.go
-- internal/db/pragmas.go
-- internal/db/schema_test.go
-- internal/db/session_show_test.go
-- internal/db/track_repo.go
-- internal/db/track_repo_test.go
-- internal/graph/algorithms.go
-- internal/graph/algorithms_test.go
-- internal/graph/dsl_test.go
-- internal/graph/loader.go
-- internal/graph/pattern.go
-- internal/graph/pattern_test.go
-- internal/graph/query.go
-- internal/graph/query_test.go
-- internal/graph/querybuilder_test.go
-- internal/graph/sessions.go
-- internal/graph/sessions_test.go
-- internal/hooks/constants.go
-- internal/hooks/log.go
-- internal/hooks/metadata_capture_test.go
-- internal/hooks/posttooluse_test.go
-- internal/hooks/prompt_classifier.go
-- internal/hooks/prompt_classifier_test.go
-- internal/hooks/quality_gate.go
-- internal/hooks/quality_gate_test.go
-- internal/hooks/session_html.go
-- internal/hooks/session_start_test.go
-- internal/hooks/session_sweep.go
-- internal/hooks/session_sweep_test.go
-- internal/hooks/spike_policy_test.go
-- internal/hooks/track_event.go
-- internal/hooks/user_prompt.go
-- internal/hooks/user_prompt_test.go
-- internal/hooks/worktree_autocomplete_test.go
-- internal/hooks/yolo_guard_roborev_test.go
-- internal/htmlparse/parser.go
-- internal/htmlparse/parser_test.go
-- internal/ingest/gemini_discover.go
-- internal/ingest/gemini_parser.go
-- internal/ingest/gemini_parser_test.go
-- internal/models/claim.go
-- internal/models/commit.go
-- internal/models/enums_test.go
-- internal/models/event.go
-- internal/models/feature_file.go
-- internal/models/lineage.go
-- internal/models/message.go
-- internal/models/node.go
-- internal/models/node_test.go
-- internal/models/session.go
+- internal/childproc/childproc_test.go
+- internal/childproc/orphan_reap_linux_test.go
+- internal/childproc/orphan_reap_test.go
+- internal/childproc/proccheck_linux.go
+- internal/childproc/proccheck_other.go
+- internal/childproc/sysproc_linux.go
+- internal/childproc/sysproc_other.go
+- internal/cli/root.go
+- internal/cli/root_test.go
+- internal/commands/workitem_test.go
+- internal/commitqueue/outbox.go
+- internal/daemon/serve.go
+- internal/daemon/serve_test.go
+- internal/gate/exec.go
+- internal/gate/exec_linux.go
+- internal/gate/exec_other.go
+- internal/gate/exec_test.go
+- internal/launcher/intent.go
+- internal/launcher/launcher.go
+- internal/launcher/launcher_test.go
+- internal/launcher/mode/mode_test.go
+- internal/launcher/profile/profile.go
+- internal/launcher/profile/profile_test.go
+- internal/lineage/walk_test.go
+- internal/migrate/normalize.go
+- internal/migrate/normalize_apply.go
+- internal/migrate/normalize_test.go
+- internal/migrate/tracks.go
+- internal/migrate/tracks_test.go
 - internal/notebook/embed.go
 - internal/notebook/files/amendment_parser.py
 - internal/notebook/files/chat_widget.py
@@ -1548,95 +1528,122 @@ _depends on local feature_files state that the canonical `.wipnote/*.html` does 
 - internal/notebook/files/plan_notebook.py
 - internal/notebook/files/plan_persistence.py
 - internal/notebook/files/plan_ui.py
-- internal/otel/adapter/adapter_test.go
-- internal/otel/adapter/claude_test.go
-- internal/otel/materialize/materialize.go
-- internal/otel/materialize/materialize_test.go
-- internal/otel/otlp/decode.go
-- internal/otel/otlp/decode_test.go
-- internal/otel/otlp/hex.go
-- internal/otel/otlp/hex_test.go
-- internal/otel/receiver/signalid.go
-- internal/otel/receiver/signalid_test.go
-- internal/paths/projecttype.go
-- internal/paths/projecttype_test.go
-- internal/paths/resolve_test.go
-- internal/planamend/parser.go
-- internal/planamend/parser_test.go
-- internal/planchat/backend.go
-- internal/planchat/backend_test.go
-- internal/plantmpl/builder.go
-- internal/plantmpl/builder_test.go
-- internal/plantmpl/critique_zone.go
-- internal/plantmpl/critique_zone_test.go
-- internal/plantmpl/dependency_graph.go
-- internal/plantmpl/dependency_graph_test.go
-- internal/plantmpl/design_section.go
-- internal/plantmpl/design_section_test.go
-- internal/plantmpl/finalize_preview.go
-- internal/plantmpl/finalize_preview_test.go
-- internal/plantmpl/outline_section.go
-- internal/plantmpl/outline_section_test.go
-- internal/plantmpl/progress_bar.go
-- internal/plantmpl/progress_bar_test.go
-- internal/plantmpl/questions_section.go
-- internal/plantmpl/questions_section_test.go
-- internal/plantmpl/templates/critique_zone.gohtml
-- internal/plantmpl/templates/dependency_graph.gohtml
-- internal/plantmpl/templates/design_section.gohtml
-- internal/plantmpl/templates/finalize_preview.gohtml
-- internal/plantmpl/templates/outline_section.gohtml
-- internal/plantmpl/templates/progress_bar.gohtml
-- internal/plantmpl/templates/questions_section.gohtml
-- internal/planyaml/io.go
-- internal/pricing/models.json
-- internal/pricing/pricing.go
-- internal/pricing/pricing_test.go
-- internal/slug/slug.go
-- internal/slug/slug_test.go
+- internal/recap/collect_test.go
+- internal/recap/shared_walk_test.go
+- internal/registry/registry.go
+- internal/registry/registry_test.go
 - internal/templates/plan-hook-noise-audit.html
 - internal/templates/plan-template.html
 - internal/version/check.go
 - internal/version/check_test.go
-- internal/workitem/analytics.go
-- internal/workitem/analytics_test.go
-- internal/workitem/bugs.go
-- internal/workitem/claim_test.go
-- internal/workitem/collection.go
-- internal/workitem/crud_test.go
-- internal/workitem/edit.go
-- internal/workitem/edit_test.go
-- internal/workitem/errors.go
-- internal/workitem/errors_test.go
-- internal/workitem/features.go
-- internal/workitem/generate_id_test.go
-- internal/workitem/htmlwriter.go
-- internal/workitem/plan_patch_test.go
-- internal/workitem/plans.go
-- internal/workitem/project.go
-- internal/workitem/project_test.go
-- internal/workitem/query.go
-- internal/workitem/resolve.go
-- internal/workitem/resolve_test.go
-- internal/workitem/sessions.go
-- internal/workitem/specs.go
-- internal/workitem/spikes.go
-- internal/workitem/templates/node.gohtml
-- internal/workitem/tracks.go
 - internal/workowners/workowners.go
 - internal/workowners/workowners_test.go
 - memory/MEMORY.md
-- mkdocs.yml
-- packages/homebrew/README.md
-- packages/homebrew/wipnote.rb
-- packages/homebrew/update-formula.sh
+- observe/go.mod
+- observe/go.sum
+- observe/otel/adapter/adapter.go
+- observe/otel/adapter/adapter_test.go
+- observe/otel/adapter/antigravity.go
+- observe/otel/adapter/claude.go
+- observe/otel/adapter/claude_test.go
+- observe/otel/adapter/codex.go
+- observe/otel/adapter/codex_test.go
+- observe/otel/adapter/conformance_test.go
+- observe/otel/adapter/gemini.go
+- observe/otel/adapter/registry_test.go
+- observe/otel/collector/lifecycle_test.go
+- observe/otel/convert/convert.go
+- observe/otel/eventsink/adapter.go
+- observe/otel/eventsink/adapter_test.go
+- observe/otel/harness_bridge_test.go
+- observe/otel/indexer/checkpoint.go
+- observe/otel/indexer/checkpoint_test.go
+- observe/otel/indexer/indexer.go
+- observe/otel/indexer/indexer_sync_test.go
+- observe/otel/indexer/indexer_test.go
+- observe/otel/indexer/orphans.go
+- observe/otel/indexer/orphans_test.go
+- observe/otel/indexer/parse.go
+- observe/otel/indexer/parse_test.go
+- observe/otel/indexer/prompt_id_routing_test.go
+- observe/otel/indexer/watch_fallback.go
+- observe/otel/materialize/materialize.go
+- observe/otel/materialize/materialize_test.go
+- observe/otel/otlp/decode.go
+- observe/otel/otlp/decode_test.go
+- observe/otel/otlp/hex.go
+- observe/otel/otlp/hex_test.go
+- observe/otel/receiver/http.go
+- observe/otel/receiver/http_test.go
+- observe/otel/receiver/receiver.go
+- observe/otel/receiver/receiver_test.go
+- observe/otel/receiver/signalid.go
+- observe/otel/receiver/signalid_test.go
+- observe/otel/receiver/writer.go
+- observe/otel/receiver/writer_busy_retry_test.go
+- observe/otel/receiver/writer_test.go
+- observe/otel/retention/config.go
+- observe/otel/retention/disk_retention_test.go
+- observe/otel/retention/logrotate.go
+- observe/otel/retention/ndjson_sweep.go
+- observe/otel/retention/retention.go
+- observe/otel/retention/retention_test.go
+- observe/otel/signal.go
+- observe/otel/sink/ndjson/ndjson.go
+- observe/otel/sink/ndjson/ndjson_test.go
+- observe/otel/sink/ndjson/overflow.go
+- observe/otel/sink/sink.go
+- observe/otel/sink/sink_test.go
+- observe/otel/sink/sqlite/queued.go
+- observe/otel/sink/sqlite/sqlite.go
+- observe/otel/sink/sqlite/writer.go
+- observe/otel/sink/sqlite/writer_busy_retry_test.go
+- observe/otel/sink/sqlite/writer_test.go
+- observe/pricing/models.json
+- observe/pricing/pricing.go
+- observe/pricing/pricing_test.go
+- observe/register/observe_test.go
+- plan/blocks/blocks.go
+- plan/blocks/blocks_test.go
+- plan/blocks/templates/api_endpoint.gohtml
+- plan/blocks/templates/data_model.gohtml
+- plan/blocks/templates/file_tree.gohtml
+- plan/go.mod
+- plan/go.sum
+- plan/planamend/parser.go
+- plan/planamend/parser_test.go
+- plan/planchat/backend.go
+- plan/planchat/backend_test.go
+- plan/plantmpl/builder.go
+- plan/plantmpl/builder_test.go
+- plan/plantmpl/critique_zone.go
+- plan/plantmpl/critique_zone_test.go
+- plan/plantmpl/dependency_graph.go
+- plan/plantmpl/dependency_graph_test.go
+- plan/plantmpl/design_section.go
+- plan/plantmpl/design_section_test.go
+- plan/plantmpl/finalize_preview.go
+- plan/plantmpl/finalize_preview_test.go
+- plan/plantmpl/outline_section.go
+- plan/plantmpl/outline_section_test.go
+- plan/plantmpl/plantmpl_test.go
+- plan/plantmpl/progress_bar.go
+- plan/plantmpl/progress_bar_test.go
+- plan/plantmpl/questions_section.go
+- plan/plantmpl/questions_section_test.go
+- plan/plantmpl/slice_card_test.go
+- plan/plantmpl/templates/critique_zone.gohtml
+- plan/plantmpl/templates/dependency_graph.gohtml
+- plan/plantmpl/templates/design_section.gohtml
+- plan/plantmpl/templates/finalize_preview.gohtml
+- plan/plantmpl/templates/outline_section.gohtml
+- plan/plantmpl/templates/progress_bar.gohtml
+- plan/plantmpl/templates/questions_section.gohtml
+- plan/planyaml/schema_test.go
+- plan/planyaml/validate_test.go
 - plugin/.claude-plugin/marketplace.json
 - plugin/.claude-plugin/system-prompt-default.md
-- plugin/agents/patch-coder.md
-- plugin/agents/architect-coder.md
 - plugin/agents/reader.md
-- plugin/agents/feature-coder.md
-- plugin/build.sh
 - plugin/commands/deploy.md
 - plugin/commands/end.md
 - plugin/commands/error-analysis.md
@@ -1644,6 +1651,7 @@ _depends on local feature_files state that the canonical `.wipnote/*.html` does 
 - plugin/commands/feature-complete.md
 - plugin/commands/feature-primary.md
 - plugin/commands/feature-start.md
+- plugin/commands/git-commit.md
 - plugin/commands/help.md
 - plugin/commands/init.md
 - plugin/commands/plan-list.md
@@ -1652,30 +1660,170 @@ _depends on local feature_files state that the canonical `.wipnote/*.html` does 
 - plugin/commands/report-issue.md
 - plugin/commands/research.md
 - plugin/commands/serve.md
+- plugin/commands/setup-statusline.md
 - plugin/commands/spike.md
 - plugin/commands/start.md
 - plugin/commands/status.md
 - plugin/config/classification-prompt.md
 - plugin/config/drift-config.json
+- plugin/config/quality-gate-flake-allowlist.json
 - plugin/config/validation-config.json
+- plugin/contexts/ANTIGRAVITY.md
 - plugin/hooks/bin/.binary-version
 - plugin/hooks/bin/.gitignore
-- plugin/hooks/bin/wipnote-dev
 - plugin/hooks/bin/install-binary.sh
 - plugin/hooks/hooks.json
 - plugin/skills/.archived/README.md
-- plugin/skills/.archived/wipnote-tracker/SKILL.md
 - plugin/skills/.archived/parallel-orchestrator/SKILL.md
+- plugin/skills/.archived/wipnote-tracker/SKILL.md
+- plugin/skills/agent-context/SKILL.md
+- plugin/skills/arch-bootstrap/SKILL.md
 - plugin/skills/code-quality-skill/SKILL.md
 - plugin/skills/deploy/SKILL.md
 - plugin/skills/diagnose/SKILL.md
+- plugin/skills/execute/SKILL.codex.md
+- plugin/skills/execute/SKILL.md
+- plugin/skills/guard-authoring/SKILL.md
+- plugin/skills/orchestrator-directives-skill/SKILL.md
 - plugin/skills/orchestrator-directives-skill/reference.md
+- plugin/skills/plan/LEGACY.md
+- plugin/skills/report-issue/SKILL.md
+- plugin/skills/spec-from-slice/SKILL.md
 - plugin/skills/strategic-planning/SKILL.md
+- plugin/skills/tdd-protocol/SKILL.md
+- plugin/static/components.js
 - plugin/static/has-styles.css
 - plugin/templates/bug-template.html
 - plugin/templates/chore-template.html
 - plugin/templates/feature-template.html
+- plugin/templates/spec-template.md
 - plugin/templates/spike-template.html
+- port/go.mod
+- port/go.sum
+- port/packages/antigravity-extension/GEMINI.md
+- port/packages/antigravity-extension/agents/architect-coder.md
+- port/packages/antigravity-extension/agents/feature-coder.md
+- port/packages/antigravity-extension/agents/reader.md
+- port/packages/antigravity-extension/agents/researcher.md
+- port/packages/antigravity-extension/agents/test-runner.md
+- port/packages/antigravity-extension/commands/wipnote/deploy.toml
+- port/packages/antigravity-extension/commands/wipnote/end.toml
+- port/packages/antigravity-extension/commands/wipnote/error-analysis.toml
+- port/packages/antigravity-extension/commands/wipnote/feature-add.toml
+- port/packages/antigravity-extension/commands/wipnote/feature-complete.toml
+- port/packages/antigravity-extension/commands/wipnote/feature-primary.toml
+- port/packages/antigravity-extension/commands/wipnote/feature-start.toml
+- port/packages/antigravity-extension/commands/wipnote/git-commit.toml
+- port/packages/antigravity-extension/commands/wipnote/help.toml
+- port/packages/antigravity-extension/commands/wipnote/init.toml
+- port/packages/antigravity-extension/commands/wipnote/plan-list.toml
+- port/packages/antigravity-extension/commands/wipnote/plan-review.toml
+- port/packages/antigravity-extension/commands/wipnote/recommend.toml
+- port/packages/antigravity-extension/commands/wipnote/report-issue.toml
+- port/packages/antigravity-extension/commands/wipnote/research.toml
+- port/packages/antigravity-extension/commands/wipnote/serve.toml
+- port/packages/antigravity-extension/commands/wipnote/setup-statusline.toml
+- port/packages/antigravity-extension/commands/wipnote/spike.toml
+- port/packages/antigravity-extension/commands/wipnote/start.toml
+- port/packages/antigravity-extension/commands/wipnote/status.toml
+- port/packages/antigravity-extension/config/classification-prompt.md
+- port/packages/antigravity-extension/config/drift-config.json
+- port/packages/antigravity-extension/config/quality-gate-flake-allowlist.json
+- port/packages/antigravity-extension/config/validation-config.json
+- port/packages/antigravity-extension/hooks.json
+- port/packages/antigravity-extension/mcp_config.json
+- port/packages/antigravity-extension/skills/.archived/README.md
+- port/packages/antigravity-extension/skills/.archived/parallel-orchestrator/SKILL.md
+- port/packages/antigravity-extension/skills/.archived/wipnote-tracker/SKILL.md
+- port/packages/antigravity-extension/skills/agent-context/SKILL.md
+- port/packages/antigravity-extension/skills/arch-bootstrap/SKILL.md
+- port/packages/antigravity-extension/skills/code-quality-skill/SKILL.md
+- port/packages/antigravity-extension/skills/deploy/SKILL.md
+- port/packages/antigravity-extension/skills/diagnose/SKILL.md
+- port/packages/antigravity-extension/skills/execute/SKILL.md
+- port/packages/antigravity-extension/skills/guard-authoring/SKILL.md
+- port/packages/antigravity-extension/skills/orchestrator-directives-skill/SKILL.md
+- port/packages/antigravity-extension/skills/orchestrator-directives-skill/reference.md
+- port/packages/antigravity-extension/skills/plan/LEGACY.md
+- port/packages/antigravity-extension/skills/report-issue/SKILL.md
+- port/packages/antigravity-extension/skills/spec-from-slice/SKILL.md
+- port/packages/antigravity-extension/skills/strategic-planning/SKILL.md
+- port/packages/antigravity-extension/skills/tdd-protocol/SKILL.md
+- port/packages/antigravity-extension/static/components.js
+- port/packages/antigravity-extension/static/has-styles.css
+- port/packages/antigravity-extension/templates/bug-template.html
+- port/packages/antigravity-extension/templates/chore-template.html
+- port/packages/antigravity-extension/templates/feature-template.html
+- port/packages/antigravity-extension/templates/spec-template.md
+- port/packages/antigravity-extension/templates/spike-template.html
+- port/packages/codex-marketplace/.agents/plugins/marketplace.json
+- port/packages/codex-marketplace/.agents/plugins/wipnote/.mcp.json
+- port/packages/codex-marketplace/.agents/plugins/wipnote/agents/wipnote-architect-coder.toml
+- port/packages/codex-marketplace/.agents/plugins/wipnote/agents/wipnote-feature-coder.toml
+- port/packages/codex-marketplace/.agents/plugins/wipnote/agents/wipnote-reader.toml
+- port/packages/codex-marketplace/.agents/plugins/wipnote/agents/wipnote-researcher.toml
+- port/packages/codex-marketplace/.agents/plugins/wipnote/agents/wipnote-test-runner.toml
+- port/packages/codex-marketplace/.agents/plugins/wipnote/commands/deploy.md
+- port/packages/codex-marketplace/.agents/plugins/wipnote/commands/end.md
+- port/packages/codex-marketplace/.agents/plugins/wipnote/commands/error-analysis.md
+- port/packages/codex-marketplace/.agents/plugins/wipnote/commands/feature-add.md
+- port/packages/codex-marketplace/.agents/plugins/wipnote/commands/feature-complete.md
+- port/packages/codex-marketplace/.agents/plugins/wipnote/commands/feature-primary.md
+- port/packages/codex-marketplace/.agents/plugins/wipnote/commands/feature-start.md
+- port/packages/codex-marketplace/.agents/plugins/wipnote/commands/git-commit.md
+- port/packages/codex-marketplace/.agents/plugins/wipnote/commands/help.md
+- port/packages/codex-marketplace/.agents/plugins/wipnote/commands/init.md
+- port/packages/codex-marketplace/.agents/plugins/wipnote/commands/plan-list.md
+- port/packages/codex-marketplace/.agents/plugins/wipnote/commands/plan-review.md
+- port/packages/codex-marketplace/.agents/plugins/wipnote/commands/recommend.md
+- port/packages/codex-marketplace/.agents/plugins/wipnote/commands/report-issue.md
+- port/packages/codex-marketplace/.agents/plugins/wipnote/commands/research.md
+- port/packages/codex-marketplace/.agents/plugins/wipnote/commands/serve.md
+- port/packages/codex-marketplace/.agents/plugins/wipnote/commands/setup-statusline.md
+- port/packages/codex-marketplace/.agents/plugins/wipnote/commands/spike.md
+- port/packages/codex-marketplace/.agents/plugins/wipnote/commands/start.md
+- port/packages/codex-marketplace/.agents/plugins/wipnote/commands/status.md
+- port/packages/codex-marketplace/.agents/plugins/wipnote/config/classification-prompt.md
+- port/packages/codex-marketplace/.agents/plugins/wipnote/config/drift-config.json
+- port/packages/codex-marketplace/.agents/plugins/wipnote/config/quality-gate-flake-allowlist.json
+- port/packages/codex-marketplace/.agents/plugins/wipnote/config/validation-config.json
+- port/packages/codex-marketplace/.agents/plugins/wipnote/hooks.json
+- port/packages/codex-marketplace/.agents/plugins/wipnote/skills/.archived/README.md
+- port/packages/codex-marketplace/.agents/plugins/wipnote/skills/.archived/parallel-orchestrator/SKILL.md
+- port/packages/codex-marketplace/.agents/plugins/wipnote/skills/.archived/wipnote-tracker/SKILL.md
+- port/packages/codex-marketplace/.agents/plugins/wipnote/skills/agent-context/SKILL.md
+- port/packages/codex-marketplace/.agents/plugins/wipnote/skills/arch-bootstrap/SKILL.md
+- port/packages/codex-marketplace/.agents/plugins/wipnote/skills/code-quality-skill/SKILL.md
+- port/packages/codex-marketplace/.agents/plugins/wipnote/skills/deploy/SKILL.md
+- port/packages/codex-marketplace/.agents/plugins/wipnote/skills/diagnose/SKILL.md
+- port/packages/codex-marketplace/.agents/plugins/wipnote/skills/execute/SKILL.md
+- port/packages/codex-marketplace/.agents/plugins/wipnote/skills/guard-authoring/SKILL.md
+- port/packages/codex-marketplace/.agents/plugins/wipnote/skills/orchestrator-directives-skill/SKILL.md
+- port/packages/codex-marketplace/.agents/plugins/wipnote/skills/orchestrator-directives-skill/reference.md
+- port/packages/codex-marketplace/.agents/plugins/wipnote/skills/plan/LEGACY.md
+- port/packages/codex-marketplace/.agents/plugins/wipnote/skills/report-issue/SKILL.md
+- port/packages/codex-marketplace/.agents/plugins/wipnote/skills/spec-from-slice/SKILL.md
+- port/packages/codex-marketplace/.agents/plugins/wipnote/skills/strategic-planning/SKILL.md
+- port/packages/codex-marketplace/.agents/plugins/wipnote/skills/tdd-protocol/SKILL.md
+- port/packages/codex-marketplace/.agents/plugins/wipnote/static/components.js
+- port/packages/codex-marketplace/.agents/plugins/wipnote/static/has-styles.css
+- port/packages/codex-marketplace/.agents/plugins/wipnote/templates/bug-template.html
+- port/packages/codex-marketplace/.agents/plugins/wipnote/templates/chore-template.html
+- port/packages/codex-marketplace/.agents/plugins/wipnote/templates/feature-template.html
+- port/packages/codex-marketplace/.agents/plugins/wipnote/templates/spec-template.md
+- port/packages/codex-marketplace/.agents/plugins/wipnote/templates/spike-template.html
+- port/pluginbuild/adapter.go
+- port/pluginbuild/antigravity.go
+- port/pluginbuild/assets.go
+- port/pluginbuild/claude.go
+- port/pluginbuild/codex.go
+- port/pluginbuild/codex_agents.go
+- port/pluginbuild/codex_agents_test.go
+- port/pluginbuild/codex_test.go
+- port/pluginbuild/hook_event_contracts.go
+- port/pluginbuild/hook_event_contracts_test.go
+- port/pluginbuild/json.go
+- port/pluginbuild/json_marshal.go
 - prototypes/amendment_parser.py
 - prototypes/chat_widget.py
 - prototypes/claude_chat.py
@@ -1685,10 +1833,15 @@ _depends on local feature_files state that the canonical `.wipnote/*.html` does 
 - prototypes/sample_plan.yaml
 - pytest.ini
 - scripts/README.md
+- scripts/check-host-paths.sh
 - scripts/devcontainer-verify.sh
-- scripts/gemini-subtree-split.sh
+- scripts/devcontainer.sh
 - scripts/git-commit-push.sh
+- scripts/git-test-selective.sh
 - scripts/host-paths-allowlist-patterns.conf
+- scripts/stress-launch.sh
+- scripts/stress-sqlite-busy.sh
+- scripts/verify-versions.sh
 - scripts/worktree-cleanup.sh
 - scripts/worktree-status.sh
 - site/404.html
@@ -1787,4 +1940,6 @@ _depends on local feature_files state that the canonical `.wipnote/*.html` does 
 - ui-review/ui-review-subagent-expanded-working.png
 - ui-review/ui-review-subagent-expanded.png
 - ui-review/ui-review-transcript.png
+- wipnote-aliases.sh
+- wipnote-deploy.toml
 

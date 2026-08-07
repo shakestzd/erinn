@@ -57,7 +57,7 @@ Before drafting slices, run live web research using your web search / web fetch 
 
 1. **Latest official docs and standards** — for every technology the plan touches (libraries, protocols, APIs), fetch or search current documentation.
 2. **Existing OSS packages and tools** — before designing a custom implementation for any non-trivial component, search for well-maintained packages that already solve the problem (pkg.go.dev, npm, PyPI, crates.io). Capture the adopt-vs-build decision: if adopting, cite the package; if building custom, cite what you evaluated and why it was rejected. The goal is **no reinventing the wheel**.
-3. **Provider docs for harness integration** — for agent/hook/skill/plugin work against Claude Code, Codex CLI, or Gemini CLI, check the provider docs for existing primitives that may already cover the requirement.
+3. **Provider docs for harness integration** — for agent/hook/skill/plugin work against Claude Code, Codex CLI, or Antigravity, check the provider docs for existing primitives that may already cover the requirement.
 
 ### The research gate (schema-enforced)
 

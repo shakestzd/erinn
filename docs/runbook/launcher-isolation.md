@@ -8,7 +8,7 @@ isolation — and the gate conditions that must pass before advancing.
 
 ## Background
 
-wipnote launchers (claude, codex, gemini, yolo) can run either in-place (in
+wipnote launchers (claude, codex, antigravity, yolo) can run either in-place (in
 the main worktree) or inside a managed git worktree isolated per work item.
 Slice-8 (plan-1670cacd) defined four deployment profiles:
 

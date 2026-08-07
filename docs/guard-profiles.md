@@ -102,7 +102,7 @@ against a since-changed profile is reported as stale.
 ### Launch-time proposal (automatic)
 
 Every interactive `wipnote claude`, `wipnote yolo`, `wipnote dev`, `wipnote codex`, and
-`wipnote gemini` launch calls `ensureGuardProfile`:
+`wipnote antigravity` launch calls `ensureGuardProfile`:
 
 1. Approved profile exists → no-op.
 2. Non-interactive (no TTY) → skip silently, never block.

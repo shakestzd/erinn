@@ -54,7 +54,7 @@ jobs:
       # The port/ module is separate (its own go.mod), so the root `./...`
       # above does not include it. Run its gates explicitly so the lifted
       # pluginbuild generator packages/tests stay covered in CI and release
-      # gates. (port/ also houses the generated Codex/Gemini target trees.)
+      # gates. (port/ also houses the generated Codex/Antigravity target trees.)
       - name: Build (port module)
         working-directory: port
         run: go build ./...

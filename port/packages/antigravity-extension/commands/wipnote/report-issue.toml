@@ -27,7 +27,7 @@ When the user invokes this command:
    - wipnote version: `wipnote version`
    - Go version: `go version`
    - OS: `uname -s -r`
-   - Harness version: check the active CLI version when available, such as `claude --version`, `codex --version`, `gemini --version`, or `agy --version`
+   - Harness version: check the active CLI version when available, such as `claude --version`, `codex --version`, or `agy --version`
    - Recent errors: check last 20 lines of any relevant error output the user shared
 3. Ask the user if they want to include:
    - Steps to reproduce

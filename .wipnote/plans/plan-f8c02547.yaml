@@ -6,7 +6,7 @@ meta:
     created_at: ""
     status: active
     schema_version: v4
-    version: 9
+    version: 10
 design:
     problem: |
         Plan documents are not read. Measured over 45 plans and 282 slices: what,
@@ -66,6 +66,7 @@ design:
           accessed: "2026-08-06"
 slices:
     - id: slice-1
+      feature_id: feat-b7fdd8d9
       num: 1
       title: SVG primitive package — emission helpers, arrowhead marker, deterministic text metrics
       what: |
@@ -114,6 +115,7 @@ slices:
           claim: Self-contained public-domain bitmap face with Advance exactly 7 — the fallback if proportional measurement is ever needed. Not required while labels are monospace.
           accessed: "2026-08-06"
       approval_status: approved
+      execution_status: promoted
       questions:
         - id: q-escape
           text: Should label text be escaped in the primitive layer or by callers?

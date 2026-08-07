@@ -469,18 +469,18 @@ body.right-rail-collapsed .sidebar-reopen{display:flex}
     <li>
       <a href="#slice-1" class="slice-nav-item" data-slice-nav="1">
         <span class="slice-nav-dot" data-approval="pending" data-dot-for="1"></span>
-        <span>#1 SVG primitive package — emission helpers and deterministic text metrics</span>
+        <span>#1 SVG primitive package — emission helpers, arrowhead marker, deterministic text metrics</span>
         
-        <span class="nav-triage-badge nav-triage-question" title="1 open question(s)">?1</span>
+        <span class="nav-triage-badge nav-triage-question" title="2 open question(s)">?2</span>
       </a>
     </li>
     
     <li>
       <a href="#slice-2" class="slice-nav-item" data-slice-nav="2">
         <span class="slice-nav-dot" data-approval="pending" data-dot-for="2"></span>
-        <span>#2 Layered DAG layout and static dependency graph, replacing d3 and dagre-d3</span>
+        <span>#2 Static dependency graph via embedded dagre.js, with dual-format validator support</span>
         
-        <span class="nav-triage-badge nav-triage-question" title="1 open question(s)">?1</span>
+        <span class="nav-triage-badge nav-triage-question" title="2 open question(s)">?2</span>
       </a>
     </li>
     
@@ -505,7 +505,7 @@ body.right-rail-collapsed .sidebar-reopen{display:flex}
     <li>
       <a href="#slice-5" class="slice-nav-item" data-slice-nav="5">
         <span class="slice-nav-dot" data-approval="pending" data-dot-for="5"></span>
-        <span>#5 Prose caps in schema validation</span>
+        <span>#5 Prose caps in schema validation, with author-facing guidance</span>
         
         
       </a>
@@ -514,7 +514,16 @@ body.right-rail-collapsed .sidebar-reopen{display:flex}
     <li>
       <a href="#slice-6" class="slice-nav-item" data-slice-nav="6">
         <span class="slice-nav-dot" data-approval="pending" data-dot-for="6"></span>
-        <span>#6 Harden the default-tier block gate and drop api-endpoint</span>
+        <span>#6 Harden the default-tier block gate, with a legacy exemption</span>
+        
+        
+      </a>
+    </li>
+    
+    <li>
+      <a href="#slice-7" class="slice-nav-item" data-slice-nav="7">
+        <span class="slice-nav-dot" data-approval="pending" data-dot-for="7"></span>
+        <span>#7 Drop the never-used api-endpoint block type</span>
         
         
       </a>
@@ -537,7 +546,7 @@ body.right-rail-collapsed .sidebar-reopen{display:flex}
   
   <div class="meta">
     <span class="badge badge-pending">Draft</span>
-    <span style="font-size:.75rem;color:var(--text-muted)">v1 · 6 slices · Created 2026-08-07</span>
+    <span style="font-size:.75rem;color:var(--text-muted)">v1 · 7 slices · Created 2026-08-07</span>
   </div>
 </header>
 <button id="themeToggle" style="position:fixed;top:16px;right:16px;z-index:100;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:6px 12px;color:var(--text);font-family:var(--mono);font-size:0.75rem;cursor:pointer;">
@@ -570,7 +579,7 @@ body.right-rail-collapsed .sidebar-reopen{display:flex}
     <thead><tr><th>Field</th><th>Type</th><th>Note</th></tr></thead>
     <tbody>
       <tr><td><code>what</code></td><td><code>rewritten in place by critique</code></td><td>&mdash;</td></tr>
-      <tr><td><code>critic_revisions</code></td><td><code>deprecated — no longer appended</code></td><td>&mdash;</td></tr>
+      <tr><td><code>critic_revisions</code></td><td><code>deprecated — read for compat, never appended</code></td><td>&mdash;</td></tr>
       
     </tbody>
   </table>
@@ -579,17 +588,17 @@ body.right-rail-collapsed .sidebar-reopen{display:flex}
       <div class="overview-block-entry">
         <a class="overview-slice-label" href="#slice-5-block-data-model-1" title="Jump to slice 5">
           <span class="slice-num">#5</span>
-          <span class="overview-slice-title">Prose caps in schema validation</span>
+          <span class="overview-slice-title">Prose caps in schema validation, with author-facing guidance</span>
         </a>
         <div class="block-anchor" id="overview-slice-5-block-data-model-1" data-block-anchor="slice-5-block-data-model-1" data-block-kind="data-model"><div class="block block-data-model">
   <div class="block-header"><span class="block-kind">data-model</span><span class="block-title">ProseCaps</span></div>
   <table class="block-table">
     <thead><tr><th>Field</th><th>Type</th><th>Note</th></tr></thead>
     <tbody>
-      <tr><td><code>what</code></td><td><code>hard fail above ~40 words</code></td><td>&mdash;</td></tr>
-      <tr><td><code>why</code></td><td><code>advisory above ~40 words</code></td><td>&mdash;</td></tr>
-      <tr><td><code>done_when</code></td><td><code>advisory above ~60 words</code></td><td>&mdash;</td></tr>
-      <tr><td><code>tests</code></td><td><code>advisory above ~40 words</code></td><td>&mdash;</td></tr>
+      <tr><td><code>what</code></td><td><code>hard fail above corpus-derived threshold</code></td><td>&mdash;</td></tr>
+      <tr><td><code>why</code></td><td><code>advisory</code></td><td>&mdash;</td></tr>
+      <tr><td><code>done_when</code></td><td><code>advisory</code></td><td>&mdash;</td></tr>
+      <tr><td><code>tests</code></td><td><code>advisory</code></td><td>&mdash;</td></tr>
       
     </tbody>
   </table>
@@ -604,7 +613,7 @@ body.right-rail-collapsed .sidebar-reopen{display:flex}
       <div class="overview-block-entry">
         <a class="overview-slice-label" href="#slice-1-block-file-tree-1" title="Jump to slice 1">
           <span class="slice-num">#1</span>
-          <span class="overview-slice-title">SVG primitive package — emission helpers and deterministic text metrics</span>
+          <span class="overview-slice-title">SVG primitive package — emission helpers, arrowhead marker, deterministic text metrics</span>
         </a>
         <div class="block-anchor" id="overview-slice-1-block-file-tree-1" data-block-anchor="slice-1-block-file-tree-1" data-block-kind="file-tree"><div class="block block-file-tree">
   <ul class="file-list">
@@ -618,14 +627,18 @@ body.right-rail-collapsed .sidebar-reopen{display:flex}
       <div class="overview-block-entry">
         <a class="overview-slice-label" href="#slice-2-block-file-tree-1" title="Jump to slice 2">
           <span class="slice-num">#2</span>
-          <span class="overview-slice-title">Layered DAG layout and static dependency graph, replacing d3 and dagre-d3</span>
+          <span class="overview-slice-title">Static dependency graph via embedded dagre.js, with dual-format validator support</span>
         </a>
         <div class="block-anchor" id="overview-slice-2-block-file-tree-1" data-block-anchor="slice-2-block-file-tree-1" data-block-kind="file-tree"><div class="block block-file-tree">
   <ul class="file-list">
     <li class="file-entry"><code class="file-path">plan/blocks/svg/layout.go</code></li>
     <li class="file-entry"><code class="file-path">plan/blocks/svg/layout_test.go</code></li>
     <li class="file-entry"><code class="file-path">plan/plantmpl/dependency_graph.go</code></li>
+    <li class="file-entry"><code class="file-path">plan/plantmpl/templates/dependency_graph.gohtml</code></li>
     <li class="file-entry"><code class="file-path">plan/plantmpl/templates/plan_page.gohtml</code></li>
+    <li class="file-entry"><code class="file-path">plan/plantmpl/builder_test.go</code></li>
+    <li class="file-entry"><code class="file-path">cmd/wipnote/plan_validate.go</code></li>
+    <li class="file-entry"><code class="file-path">cmd/wipnote/plan_validate_test.go</code></li>
     
   </ul>
 </div></div>
@@ -637,7 +650,7 @@ body.right-rail-collapsed .sidebar-reopen{display:flex}
         </a>
         <div class="block-anchor" id="overview-slice-3-block-file-tree-1" data-block-anchor="slice-3-block-file-tree-1" data-block-kind="file-tree"><div class="block block-file-tree">
   <ul class="file-list">
-    <li class="file-entry"><code class="file-path">plan/blocks/file_tree.go</code></li>
+    <li class="file-entry"><code class="file-path">plan/blocks/blocks.go</code></li>
     <li class="file-entry"><code class="file-path">plan/blocks/diagram.go</code></li>
     <li class="file-entry"><code class="file-path">plan/blocks/templates/file_tree.gohtml</code></li>
     <li class="file-entry"><code class="file-path">plan/blocks/blocks_test.go</code></li>
@@ -662,12 +675,13 @@ body.right-rail-collapsed .sidebar-reopen{display:flex}
       <div class="overview-block-entry">
         <a class="overview-slice-label" href="#slice-5-block-file-tree-1" title="Jump to slice 5">
           <span class="slice-num">#5</span>
-          <span class="overview-slice-title">Prose caps in schema validation</span>
+          <span class="overview-slice-title">Prose caps in schema validation, with author-facing guidance</span>
         </a>
         <div class="block-anchor" id="overview-slice-5-block-file-tree-1" data-block-anchor="slice-5-block-file-tree-1" data-block-kind="file-tree"><div class="block block-file-tree">
   <ul class="file-list">
     <li class="file-entry"><code class="file-path">plan/planyaml/validate.go</code></li>
     <li class="file-entry"><code class="file-path">plan/planyaml/validate_test.go</code></li>
+    <li class="file-entry"><code class="file-path">plugin/skills/plan/SKILL.md</code></li>
     
   </ul>
 </div></div>
@@ -675,14 +689,28 @@ body.right-rail-collapsed .sidebar-reopen{display:flex}
       <div class="overview-block-entry">
         <a class="overview-slice-label" href="#slice-6-block-file-tree-1" title="Jump to slice 6">
           <span class="slice-num">#6</span>
-          <span class="overview-slice-title">Harden the default-tier block gate and drop api-endpoint</span>
+          <span class="overview-slice-title">Harden the default-tier block gate, with a legacy exemption</span>
         </a>
         <div class="block-anchor" id="overview-slice-6-block-file-tree-1" data-block-anchor="slice-6-block-file-tree-1" data-block-kind="file-tree"><div class="block block-file-tree">
   <ul class="file-list">
     <li class="file-entry"><code class="file-path">plan/planyaml/validate.go</code></li>
-    <li class="file-entry"><code class="file-path">plan/planyaml/schema.go</code></li>
-    <li class="file-entry"><code class="file-path">plan/blocks/api_endpoint.go</code></li>
+    <li class="file-entry"><code class="file-path">plan/planyaml/validate_test.go</code></li>
     <li class="file-entry"><code class="file-path">plugin/skills/plan/SKILL.md</code></li>
+    
+  </ul>
+</div></div>
+      </div>
+      <div class="overview-block-entry">
+        <a class="overview-slice-label" href="#slice-7-block-file-tree-1" title="Jump to slice 7">
+          <span class="slice-num">#7</span>
+          <span class="overview-slice-title">Drop the never-used api-endpoint block type</span>
+        </a>
+        <div class="block-anchor" id="overview-slice-7-block-file-tree-1" data-block-anchor="slice-7-block-file-tree-1" data-block-kind="file-tree"><div class="block block-file-tree">
+  <ul class="file-list">
+    <li class="file-entry"><code class="file-path">plan/planyaml/schema.go</code></li>
+    <li class="file-entry"><code class="file-path">plan/blocks/blocks.go</code></li>
+    <li class="file-entry"><code class="file-path">plan/blocks/templates/api_endpoint.gohtml</code></li>
+    <li class="file-entry"><code class="file-path">plan/blocks/blocks_test.go</code></li>
     
   </ul>
 </div></div>
@@ -696,7 +724,7 @@ body.right-rail-collapsed .sidebar-reopen{display:flex}
       <div class="overview-block-entry">
         <a class="overview-slice-label" href="#slice-1-block-diagram-1" title="Jump to slice 1">
           <span class="slice-num">#1</span>
-          <span class="overview-slice-title">SVG primitive package — emission helpers and deterministic text metrics</span>
+          <span class="overview-slice-title">SVG primitive package — emission helpers, arrowhead marker, deterministic text metrics</span>
         </a>
         <div class="block-anchor" id="overview-slice-1-block-diagram-1" data-block-anchor="slice-1-block-diagram-1" data-block-kind="diagram"><div class="block block-diagram">
   <div class="block-header"><span class="block-kind">diagram</span><span class="block-title">Render path once primitives exist</span></div>
@@ -708,12 +736,12 @@ body.right-rail-collapsed .sidebar-reopen{display:flex}
       <div class="overview-block-entry">
         <a class="overview-slice-label" href="#slice-2-block-diagram-1" title="Jump to slice 2">
           <span class="slice-num">#2</span>
-          <span class="overview-slice-title">Layered DAG layout and static dependency graph, replacing d3 and dagre-d3</span>
+          <span class="overview-slice-title">Static dependency graph via embedded dagre.js, with dual-format validator support</span>
         </a>
         <div class="block-anchor" id="overview-slice-2-block-diagram-1" data-block-anchor="slice-2-block-diagram-1" data-block-kind="diagram"><div class="block block-diagram">
-  <div class="block-header"><span class="block-kind">diagram</span><span class="block-title">Layout phases</span></div>
+  <div class="block-header"><span class="block-kind">diagram</span><span class="block-title">Render path</span></div>
   <div class="diagram-flow diagram-lr">
-    <div class="diagram-node">topological rank (Kahn)</div><span class="diagram-arrow" aria-hidden="true">&#8594;</span><div class="diagram-node">defensive cycle break</div><span class="diagram-arrow" aria-hidden="true">&#8594;</span><div class="diagram-node">barycenter sweeps</div><span class="diagram-arrow" aria-hidden="true">&#8594;</span><div class="diagram-node">coordinate assignment</div><span class="diagram-arrow" aria-hidden="true">&#8594;</span><div class="diagram-node">edge routing &#43; emit</div>
+    <div class="diagram-node">slice deps -&gt; graph JSON</div><span class="diagram-arrow" aria-hidden="true">&#8594;</span><div class="diagram-node">goja runs embedded dagre.js</div><span class="diagram-arrow" aria-hidden="true">&#8594;</span><div class="diagram-node">coordinates returned</div><span class="diagram-arrow" aria-hidden="true">&#8594;</span><div class="diagram-node">svg primitives emit static &lt;svg&gt;</div>
   </div>
 </div></div>
       </div>
@@ -727,12 +755,13 @@ body.right-rail-collapsed .sidebar-reopen{display:flex}
 <section class="dep-graph" data-zone="dependency-graph">
   <h2>Dependency Graph</h2>
   <div id="graph-data" style="display:none">
-    <div data-node="1" data-name="SVG primitive package — emission helpers and deterministic text metrics" data-status="pending" data-deps="" data-files="3"></div>
-    <div data-node="2" data-name="Layered DAG layout and static dependency graph, replacing d3 and dagre-d3" data-status="pending" data-deps="1" data-files="4"></div>
+    <div data-node="1" data-name="SVG primitive package — emission helpers, arrowhead marker, deterministic text metrics" data-status="pending" data-deps="" data-files="3"></div>
+    <div data-node="2" data-name="Static dependency graph via embedded dagre.js, with dual-format validator support" data-status="pending" data-deps="1" data-files="8"></div>
     <div data-node="3" data-name="Real file-tree indentation and drawn diagram edges" data-status="pending" data-deps="1" data-files="4"></div>
     <div data-node="4" data-name="Critique revises slices in place instead of appending" data-status="pending" data-deps="" data-files="3"></div>
-    <div data-node="5" data-name="Prose caps in schema validation" data-status="pending" data-deps="" data-files="2"></div>
-    <div data-node="6" data-name="Harden the default-tier block gate and drop api-endpoint" data-status="pending" data-deps="" data-files="4"></div>
+    <div data-node="5" data-name="Prose caps in schema validation, with author-facing guidance" data-status="pending" data-deps="" data-files="3"></div>
+    <div data-node="6" data-name="Harden the default-tier block gate, with a legacy exemption" data-status="pending" data-deps="" data-files="3"></div>
+    <div data-node="7" data-name="Drop the never-used api-endpoint block type" data-status="pending" data-deps="" data-files="4"></div>
     
     <!--PLAN_GRAPH_NODES-->
   </div>
@@ -752,15 +781,19 @@ of reading and the worst is 27. Words per slice rose 77% while slices per
 plan fell 22% — plans are not getting structurally complex, individual
 slices are getting verbose, because critique appends instead of revising.
 
-The &#34;visual&#34; block catalog does not draw. All 34 rendered block instances in
-the corpus contain zero svg or canvas elements, by explicit design
-(plan/blocks/diagram.go: &#34;deliberately Mermaid-free... no SVG
-text-measurement&#34;). file-tree has no indentation logic at all, so 3 files and
-30 files render identically flat; diagram joins bordered divs with a Unicode
-arrow glyph rather than a drawn edge. The one component with real rendering
-machinery — the dependency graph — emits an EMPTY svg and is built
-client-side by d3 plus dagre-d3 from a display:none data island, so it is
-invisible in archived, offline and no-JS views.
+The &#34;visual&#34; block catalog does not draw. 22 block instances are authored
+across the corpus (12 file-tree, 4 diagram, 4 data-model, 1 wireframe, 1
+tabs, 0 api-endpoint); they render as 34 instances because blocks are
+emitted by both blocks_zone and visual_overview_zone. Zero of either figure
+contain an svg or canvas element, by explicit design — plan/blocks/diagram.go
+states it is &#34;deliberately Mermaid-free and uses pure HTML/CSS (no
+client-side layout engine, no SVG text-measurement)&#34;. file-tree has no
+indentation logic at all, so 3 files and 30 files render identically flat;
+diagram joins bordered divs with a Unicode arrow glyph rather than a drawn
+edge. The one component with real rendering machinery — the dependency graph
+— emits an EMPTY svg and is built client-side by d3 plus dagre-d3 from a
+display:none data island, so it is invisible in archived, offline and no-JS
+views.
 
 Block adoption is NOT the problem: blocks-first shipped 2026-06-21 and 43 of
 45 plans predate it; the single organic post-launch plan reached 8 of 8
@@ -772,16 +805,17 @@ produces text.
 <li data-markdown>Give the block catalog a real drawing primitive: static inline SVG generated in Go at render time.</li>
 <li data-markdown>Make the dependency graph exist in the committed artifact, readable with no JavaScript.</li>
 <li data-markdown>Stop per-slice prose inflation at its source: critique revises in place, and `what` is capped.</li>
-<li data-markdown>Close the default-tier block gap without breaking in-flight drafts.</li>
+<li data-markdown>Close the default-tier block gap without breaking in-flight drafts or the 42 legacy plans.</li>
 <li data-markdown>Remove catalog dead weight: api-endpoint has never been used in 282 slices.</li>
 </ol>
 <h4>Constraints</h4>
 <ul>
-<li data-markdown>No new runtime dependency. gonum is not in go.mod; adding it for a topological sort is disproportionate.</li>
-<li data-markdown>Output must be self-contained: no external font, script, stylesheet or network fetch.</li>
-<li data-markdown>Legacy plans re-render lazily on next mutation — no flag-day batch rewrite of the 42 existing files.</li>
+<li data-markdown>No cgo, no external binary, no network fetch at render time. A pure-Go embedded dependency is acceptable where it removes custom-algorithm risk.</li>
+<li data-markdown>Rendered output must be self-contained: no external font, script, stylesheet or runtime fetch.</li>
+<li data-markdown>Legacy plans re-render lazily on next mutation. The d3/dagre-d3 vendor assets stay on disk until the last legacy plan is migrated.</li>
+<li data-markdown>`wipnote plan validate` must accept BOTH the legacy d3 format and the new inline-SVG format for the whole migration window.</li>
 <li data-markdown>Must not break plan review: the feedback DOM contract (data-section, data-block-anchor, anchor scheme) is load-bearing.</li>
-<li data-markdown>Generated plan HTML is also the retrieval corpus for `wipnote relevant` and `wipnote find` — parseability must be preserved.</li>
+<li data-markdown>Plan HTML is the retrieval corpus for `wipnote relevant` (rg --type html) and `wipnote find plans`. Emitted labels must stay greppable as contiguous text.</li>
 </ul>
 
     <div class="approval-row">
@@ -800,11 +834,11 @@ produces text.
   <summary><span>Slices</span><span class="badge badge-pending" data-badge-for="slices">Pending</span></summary>
   <div class="section-body">
     <details class="slice-card" id="slice-1" data-slice="1" data-slice-name="slice-1" data-status="pending" data-approval="pending">
-  <summary class="slice-summary" aria-label="Slice 1: SVG primitive package — emission helpers and deterministic text metrics">
+  <summary class="slice-summary" aria-label="Slice 1: SVG primitive package — emission helpers, arrowhead marker, deterministic text metrics">
     <span class="slice-num">#1</span>
     <span class="slice-title-col">
-      <span class="slice-name">SVG primitive package — emission helpers and deterministic text metrics</span>
-      <span class="slice-preview">New plan/blocks/svg package: typed helpers emitting rect, text, line, path</span>
+      <span class="slice-name">SVG primitive package — emission helpers, arrowhead marker, deterministic text metrics</span>
+      <span class="slice-preview">New plan/blocks/svg package: helpers emitting rect, text, line, path,</span>
       <span class="slice-meta-row">
         <span class="slice-summary-badges">
           <span class="badge badge-revision badge-sm">M</span>
@@ -813,7 +847,7 @@ produces text.
           
           <span class="badge badge-pending badge-sm slice-approval-badge" data-badge-for="slice-1">Pending</span>
           
-          <span class="badge badge-sm badge-questions" title="1 open question(s)">1 Q</span>
+          <span class="badge badge-sm badge-questions" title="2 open question(s)">2 Q</span>
         </span>
         <span class="slice-actions" onclick="event.stopPropagation()">
           <span class="approval-segmented" role="group" aria-label="Approval action">
@@ -843,9 +877,9 @@ produces text.
         <div class="slice-field-label">What</div>
         <div class="slice-field-value">
           
-          <div class="markdown-block serif-prose"><p>New plan/blocks/svg package: typed helpers emitting rect, text, line, path
-and group elements into an io.Writer, plus exact label-width arithmetic
-from a monospace face. No new dependency.</p>
+          <div class="markdown-block serif-prose"><p>New plan/blocks/svg package: helpers emitting rect, text, line, path,
+group and a shared arrowhead marker def, plus exact label-width arithmetic
+from a monospace face.</p>
 </div>
           
         </div>
@@ -856,9 +890,9 @@ from a monospace face. No new dependency.</p>
         <div class="slice-field-label">Why</div>
         <div class="slice-field-value">
           
-          <div class="markdown-block serif-prose"><p>Every other slice needs a drawing primitive. Today none exists — the block
-catalog can only emit tables, lists and bordered divs, which is the root
-cause of plans reading as text.</p>
+          <div class="markdown-block serif-prose"><p>Every drawing slice needs these primitives. Slices 2 and 3 both draw
+arrowed edges, so the marker def must live here or it gets implemented
+twice, against the repo&#39;s no-duplication rule.</p>
 </div>
           
         </div>
@@ -873,7 +907,7 @@ cause of plans reading as text.</p>
       
       <div class="slice-field">
         <div class="slice-field-label">Done when</div>
-        <ul class="slice-done-list"><li>Helpers emit well-formed SVG with all label text passed through html.EscapeString.</li><li>Label width is computed as charCount times a fixed advance, exact for the chosen monospace family.</li><li>Output contains no external font, script, stylesheet or network reference.</li><li>Colors are emitted as CSS custom properties so both themes work without duplicate markup.</li></ul>
+        <ul class="slice-done-list slice-done-list--grid"><li>Helpers emit well-formed SVG with all label text passed through html.EscapeString.</li><li>A single reusable arrowhead marker def is exported, consumed by both the graph and diagram renderers.</li><li>Labels emit as single contiguous &lt;text&gt; nodes, never per-character tspans, so ripgrep phrase matching over plan HTML still resolves.</li><li>Label width is computed as charCount times a fixed advance, exact for the chosen monospace family.</li><li>Output contains no external font, script, stylesheet or network reference.</li><li>Colors are emitted as CSS custom properties so both themes work without duplicate markup.</li></ul>
       </div>
       
     
@@ -888,12 +922,12 @@ cause of plans reading as text.</p>
 never at request time — output is baked into the committed HTML.
 <strong>State:</strong> none. Pure functions from data to markup.
 <strong>Payload:</strong> SVG element fragments written to an io.Writer, composed by callers.
-<strong>Rejected:</strong> ajstarks/svgo — unmaintained since 2022 and CC-BY-4.0, an
-attribution-encumbered license for what is fmt.Fprintf underneath.
+<strong>Rejected:</strong> ajstarks/svgo — unmaintained since 2022-12-09 and CC-BY-4.0,
+an attribution-encumbered license for what is fmt.Fprintf underneath.
 twpayne/go-svg — actively maintained but only maps structs to XML, which
-text/template already does. Proportional-font metrics via
-golang.org/x/image/font — real and self-contained via basicfont, but
-unnecessary once labels are monospace, where width is exact arithmetic.</p>
+text/template already does. Per-character tspan positioning — rejected
+explicitly because it would silently break <code>wipnote relevant</code>, which greps
+the rendered HTML.</p>
 </div>
         <label for="slice-1-decisions-reveal" class="reveal-label">Show full decisions</label>
         
@@ -931,13 +965,13 @@ unnecessary once labels are monospace, where width is exact arithmetic.</p>
         <div class="test-strategy">
           
           <div class="test-group" data-kind="unit">
-            <span class="test-chip">UNIT &middot; 3</span>
-            <ul><li>TestEmit_EscapesLabels — angle brackets and ampersands in node labels</li><li>TestMeasure_MonospaceExact — width of an n-character label equals</li><li>TestEmit_NoExternalRefs — golden output contains no http, @import or</li></ul>
+            <span class="test-chip">UNIT &middot; 6</span>
+            <ul><li>TestEmit_EscapesLabels — angle brackets and ampersands render as</li><li>TestEmit_GreppableLabels — a multi-word label appears as one</li><li>TestEmit_ArrowheadMarkerShared — the marker def is emitted once and</li><li>TestMeasure_MonospaceExact — width of an n-character label equals n</li><li>TestEmit_ThemeVariables — emitted fills and strokes reference CSS</li><li>TestEmit_NoExternalRefs — golden output contains no http, @import or</li></ul>
           </div>
           
           <div class="test-group" data-kind="other">
-            <span class="test-chip">OTHER &middot; 3</span>
-            <ul><li>render as entities, not raw markup.</li><li>n times the advance constant.</li><li>&lt;script&gt;.</li></ul>
+            <span class="test-chip">OTHER &middot; 6</span>
+            <ul><li>entities, not raw markup.</li><li>contiguous text node; asserts no per-character tspan splitting.</li><li>referenced by id.</li><li>times the advance constant.</li><li>custom properties, not literal hex.</li><li>&lt;script&gt;.</li></ul>
           </div>
           
         </div>
@@ -964,6 +998,17 @@ unnecessary once labels are monospace, where width is exact arithmetic.</p>
           
         </div>
         
+        <div class="question-block slice-question-block">
+          <p>Does emitting SVG text risk the retrieval corpus?</p>
+          
+          
+          <textarea
+            data-section="slice-1-question-q-greppable"
+            data-comment-for="slice-1-question-q-greppable"
+            placeholder="Answer question q-greppable...">Yes, and it is the crux of this slice. `wipnote relevant` runs rg --type html over plan HTML and `wipnote find plans` parses the DOM. Per-character tspan positioning would break phrase matching for all 42 plans silently. Contiguous text nodes are therefore a hard requirement, tested.</textarea>
+          
+        </div>
+        
       </div>
     </div>
     
@@ -979,11 +1024,11 @@ unnecessary once labels are monospace, where width is exact arithmetic.</p>
   </div>
 </details>
 <details class="slice-card" id="slice-2" data-slice="2" data-slice-name="slice-2" data-status="pending" data-approval="pending">
-  <summary class="slice-summary" aria-label="Slice 2: Layered DAG layout and static dependency graph, replacing d3 and dagre-d3">
+  <summary class="slice-summary" aria-label="Slice 2: Static dependency graph via embedded dagre.js, with dual-format validator support">
     <span class="slice-num">#2</span>
     <span class="slice-title-col">
-      <span class="slice-name">Layered DAG layout and static dependency graph, replacing d3 and dagre-d3</span>
-      <span class="slice-preview">Hand-written Sugiyama-style layout: rank by dependency depth, barycenter</span>
+      <span class="slice-name">Static dependency graph via embedded dagre.js, with dual-format validator support</span>
+      <span class="slice-preview">Embed dagre.js and run it in a pure-Go JS interpreter at render time to</span>
       <span class="slice-meta-row">
         <span class="slice-summary-badges">
           <span class="badge badge-blocked badge-sm">L</span>
@@ -992,7 +1037,7 @@ unnecessary once labels are monospace, where width is exact arithmetic.</p>
           
           <span class="badge badge-pending badge-sm slice-approval-badge" data-badge-for="slice-2">Pending</span>
           
-          <span class="badge badge-sm badge-questions" title="1 open question(s)">1 Q</span>
+          <span class="badge badge-sm badge-questions" title="2 open question(s)">2 Q</span>
         </span>
         <span class="slice-actions" onclick="event.stopPropagation()">
           <span class="approval-segmented" role="group" aria-label="Approval action">
@@ -1022,9 +1067,9 @@ unnecessary once labels are monospace, where width is exact arithmetic.</p>
         <div class="slice-field-label">What</div>
         <div class="slice-field-value">
           
-          <div class="markdown-block serif-prose"><p>Hand-written Sugiyama-style layout: rank by dependency depth, barycenter
-crossing reduction, coordinate assignment. Renders the dependency graph as
-inline SVG in the committed file; optional JS adds hover and zoom.</p>
+          <div class="markdown-block serif-prose"><p>Embed dagre.js and run it in a pure-Go JS interpreter at render time to
+get node coordinates, then emit a static inline SVG. Teach plan validate
+to accept both formats during migration.</p>
 </div>
           
         </div>
@@ -1035,9 +1080,10 @@ inline SVG in the committed file; optional JS adds hover and zoom.</p>
         <div class="slice-field-label">Why</div>
         <div class="slice-field-value">
           
-          <div class="markdown-block serif-prose"><p>The dependency graph is the one genuinely structural element on the page,
-and it is an empty svg in every committed plan — invisible when archived,
-offline, or audited. It is also the highest-value visual per unit of work.</p>
+          <div class="markdown-block serif-prose"><p>The dependency graph is an empty svg in every committed plan. Corpus deps
+routinely skip many ranks — plan-1670cacd has a seven-rank edge — so a
+hand-rolled layout would need dummy-node insertion that dagre already
+solves correctly.</p>
 </div>
           
         </div>
@@ -1046,13 +1092,13 @@ offline, or audited. It is also the highest-value visual per unit of work.</p>
       
       <div class="slice-field">
         <div class="slice-field-label">Files</div>
-        <div class="slice-field-value"><code>plan/blocks/svg/layout.go, plan/blocks/svg/layout_test.go, plan/plantmpl/dependency_graph.go, plan/plantmpl/templates/plan_page.gohtml</code></div>
+        <div class="slice-field-value"><code>plan/blocks/svg/layout.go, plan/blocks/svg/layout_test.go, plan/plantmpl/dependency_graph.go, plan/plantmpl/templates/dependency_graph.gohtml, plan/plantmpl/templates/plan_page.gohtml, plan/plantmpl/builder_test.go, cmd/wipnote/plan_validate.go, cmd/wipnote/plan_validate_test.go</code></div>
       </div>
       
       
       <div class="slice-field">
         <div class="slice-field-label">Done when</div>
-        <ul class="slice-done-list"><li>A committed plan HTML contains a drawn dependency graph with no JavaScript executed.</li><li>d3 and dagre-d3 script references are removed from the page template.</li><li>Graphs up to 16 nodes lay out without overlapping nodes or unroutable edges.</li><li>A cyclic blocked_by input renders with the cycle broken and flagged rather than hanging or panicking.</li><li>With JS enabled, hover and zoom still work as progressive enhancement over the same SVG.</li></ul>
+        <ul class="slice-done-list slice-done-list--grid"><li>A committed plan HTML contains a drawn dependency graph with no JavaScript executed.</li><li>A seven-rank-skipping edge from the real corpus (plan-1670cacd) routes without overlapping intervening nodes.</li><li>`wipnote plan validate` passes on BOTH a legacy d3-format plan and a new inline-SVG plan.</li><li>The d3 and dagre-d3 vendor assets remain on disk; only the new template stops referencing them.</li><li>Graph node and edge markup preserves the existing data-section and anchor scheme so review still resolves.</li><li>A known slice title in the graph is still found by ripgrep over the rendered file.</li></ul>
       </div>
       
     
@@ -1065,18 +1111,19 @@ offline, or audited. It is also the highest-value visual per unit of work.</p>
         <input type="checkbox" id="slice-2-decisions-reveal" class="reveal-toggle">
         <div class="markdown-block reveal-content serif-prose"><p><strong>Trigger:</strong> invoked during renderPlanCore, once per plan render.
 <strong>State:</strong> none beyond the slice graph already in the YAML.
-<strong>Payload:</strong> an inline &lt;svg&gt; element embedded in the plan page, plus an
-optional data attribute for the enhancement layer to bind to.
-<strong>Rejected:</strong> gonum/graph/layout — only offers force-directed and MDS
-layouts, neither of which conveys dependency depth. gonum/graph/topo for
-topological sort — sound, but gonum is not in go.mod and a full numerical
-library for roughly 25 lines of Kahn&#39;s algorithm is disproportionate given
-the no-new-dependency constraint. goccy/go-graphviz — genuinely cgo-free
-via embedded WASM and actively maintained, but ships a WASM runtime and
-Graphviz-styled output needing re-theming, for a graph that peaks at 16
-nodes. dot subprocess — breaks self-containment and adds PATH fragility.
-A from-scratch dagre port — d2&#39;s authors embed dagre.js rather than port
-it, which is decisive at this scale.</p>
+<strong>Payload:</strong> an inline &lt;svg&gt; embedded in the plan page.
+<strong>Rejected:</strong> hand-rolled Sugiyama layout — the original plan. Rejected on
+critic evidence: multi-rank-skipping edges are common in the real corpus,
+so correct layout requires dummy-node insertion, crossing reduction and
+edge routing built from scratch, on the highest-risk slice, with no
+battle-testing. d2 solves the identical problem by embedding dagre.js
+rather than porting it. gonum/graph/layout — only force-directed and MDS,
+neither conveys dependency depth. goccy/go-graphviz — mature and cgo-free
+via WASM, but its Graphviz-styled output needs full re-theming.
+<strong>Note:</strong> cmd/wipnote/plan_validate.go currently HARD-FAILS when d3 and
+dagre-d3 CDN tags are absent (lines 352-359, with a test asserting it), and
+plan/plantmpl/builder_test.go asserts those substrings must be present.
+Both are in scope here; omitting them would break every plan validate call.</p>
 </div>
         <label for="slice-2-decisions-reveal" class="reveal-label">Show full decisions</label>
         
@@ -1092,14 +1139,18 @@ it, which is decisive at this scale.</p>
     <li class="file-entry"><code class="file-path">plan/blocks/svg/layout.go</code></li>
     <li class="file-entry"><code class="file-path">plan/blocks/svg/layout_test.go</code></li>
     <li class="file-entry"><code class="file-path">plan/plantmpl/dependency_graph.go</code></li>
+    <li class="file-entry"><code class="file-path">plan/plantmpl/templates/dependency_graph.gohtml</code></li>
     <li class="file-entry"><code class="file-path">plan/plantmpl/templates/plan_page.gohtml</code></li>
+    <li class="file-entry"><code class="file-path">plan/plantmpl/builder_test.go</code></li>
+    <li class="file-entry"><code class="file-path">cmd/wipnote/plan_validate.go</code></li>
+    <li class="file-entry"><code class="file-path">cmd/wipnote/plan_validate_test.go</code></li>
     
   </ul>
 </div></div>
     <div class="block-anchor" id="slice-2-block-diagram-1" data-block-anchor="slice-2-block-diagram-1" data-block-kind="diagram"><div class="block block-diagram">
-  <div class="block-header"><span class="block-kind">diagram</span><span class="block-title">Layout phases</span></div>
+  <div class="block-header"><span class="block-kind">diagram</span><span class="block-title">Render path</span></div>
   <div class="diagram-flow diagram-lr">
-    <div class="diagram-node">topological rank (Kahn)</div><span class="diagram-arrow" aria-hidden="true">&#8594;</span><div class="diagram-node">defensive cycle break</div><span class="diagram-arrow" aria-hidden="true">&#8594;</span><div class="diagram-node">barycenter sweeps</div><span class="diagram-arrow" aria-hidden="true">&#8594;</span><div class="diagram-node">coordinate assignment</div><span class="diagram-arrow" aria-hidden="true">&#8594;</span><div class="diagram-node">edge routing &#43; emit</div>
+    <div class="diagram-node">slice deps -&gt; graph JSON</div><span class="diagram-arrow" aria-hidden="true">&#8594;</span><div class="diagram-node">goja runs embedded dagre.js</div><span class="diagram-arrow" aria-hidden="true">&#8594;</span><div class="diagram-node">coordinates returned</div><span class="diagram-arrow" aria-hidden="true">&#8594;</span><div class="diagram-node">svg primitives emit static &lt;svg&gt;</div>
   </div>
 </div></div>
     
@@ -1115,18 +1166,23 @@ it, which is decisive at this scale.</p>
         <div class="test-strategy">
           
           <div class="test-group" data-kind="unit">
-            <span class="test-chip">UNIT &middot; 3</span>
-            <ul><li>TestRank_LongestPath — a known DAG produces expected rank per node.</li><li>TestLayout_NoOverlap — for corpus-realistic shapes (5, 11, 16 nodes)</li><li>TestLayout_CycleDefensive — a cyclic input terminates and reports the</li></ul>
+            <span class="test-chip">UNIT &middot; 2</span>
+            <ul><li>TestLayout_DagreCoordinates — a known DAG yields stable coordinates</li><li>TestLayout_MultiRankEdge — the plan-1670cacd seven-rank case routes</li></ul>
           </div>
           
           <div class="test-group" data-kind="other">
-            <span class="test-chip">OTHER &middot; 3</span>
-            <ul><li>no two node boxes intersect.</li><li>broken edge rather than looping.</li><li>contains no &lt;script&gt;.</li></ul>
+            <span class="test-chip">OTHER &middot; 5</span>
+            <ul><li>from the embedded engine.</li><li>without node overlap.</li><li>contains no &lt;script&gt;.</li><li>both validate; replaces the current assertion that CDN tags must exist.</li><li>requires d3.v7.min.js and dagre-d3 substrings.</li></ul>
           </div>
           
           <div class="test-group" data-kind="golden">
             <span class="test-chip">GOLDEN &middot; 1</span>
             <ul><li>TestRenderGraph_Static — rendered SVG matches a golden file and</li></ul>
+          </div>
+          
+          <div class="test-group" data-kind="regression">
+            <span class="test-chip">REGRESSION &middot; 3</span>
+            <ul><li>TestPlanValidate_DualFormat — legacy d3 plans and new SVG plans</li><li>TestPlanPageRenderCRISPIStructure — updated so it no longer</li><li>TestGraph_Greppable — rg finds a slice title in the output.</li></ul>
           </div>
           
         </div>
@@ -1143,13 +1199,24 @@ it, which is decisive at this scale.</p>
       <div class="slice-field-value">
         
         <div class="question-block slice-question-block">
-          <p>If the enhancement JS fails to load, must the graph remain fully legible?</p>
+          <p>Is goja confirmed able to execute dagre.js unmodified?</p>
           
           
           <textarea
-            data-section="slice-2-question-q-enhance"
-            data-comment-for="slice-2-question-q-enhance"
-            placeholder="Answer question q-enhance...">Yes. That is the entire point of the change — the graph must be readable in the committed file, in archives, and in `wipnote relevant` style static audits. JS may only add hover and zoom, never layout or labels.</textarea>
+            data-section="slice-2-question-q-runtime"
+            data-comment-for="slice-2-question-q-runtime"
+            placeholder="Answer question q-runtime...">Not yet — d2 uses its own jsrunner abstraction and may not use goja specifically. The first implementation step is a spike proving dagre.js runs under goja and returns coordinates; if it does not, goccy/go-graphviz is the fallback, since it is already researched and cgo-free.</textarea>
+          
+        </div>
+        
+        <div class="question-block slice-question-block">
+          <p>What happens to the 42 legacy plans during migration?</p>
+          
+          
+          <textarea
+            data-section="slice-2-question-q-legacy"
+            data-comment-for="slice-2-question-q-legacy"
+            placeholder="Answer question q-legacy...">They keep the d3 format and keep working. Vendor assets stay on disk and the validator accepts both formats until the last plan is re-rendered lazily. Deleting the vendor files before migration completes would leave broken script tags in every un-migrated plan.</textarea>
           
         </div>
         
@@ -1172,7 +1239,7 @@ it, which is decisive at this scale.</p>
     <span class="slice-num">#3</span>
     <span class="slice-title-col">
       <span class="slice-name">Real file-tree indentation and drawn diagram edges</span>
-      <span class="slice-preview">Rewrite the file-tree renderer to indent by path depth with connector</span>
+      <span class="slice-preview">Rewrite the FileTree renderer to indent by path depth with connector</span>
       <span class="slice-meta-row">
         <span class="slice-summary-badges">
           <span class="badge badge-revision badge-sm">M</span>
@@ -1211,9 +1278,9 @@ it, which is decisive at this scale.</p>
         <div class="slice-field-label">What</div>
         <div class="slice-field-value">
           
-          <div class="markdown-block serif-prose"><p>Rewrite the file-tree renderer to indent by path depth with connector
-lines, and the diagram renderer to draw real edges between laid-out nodes,
-both on the slice-1 primitives.</p>
+          <div class="markdown-block serif-prose"><p>Rewrite the FileTree renderer to indent by path depth with connector
+lines, and the Diagram renderer to draw real edges using slice 1&#39;s shared
+arrowhead marker.</p>
 </div>
           
         </div>
@@ -1224,9 +1291,9 @@ both on the slice-1 primitives.</p>
         <div class="slice-field-label">Why</div>
         <div class="slice-field-value">
           
-          <div class="markdown-block serif-prose"><p>These are the two most-used block types (20 and 7 instances). file-tree
-currently has no indentation logic anywhere, so hierarchy is invisible;
-diagram uses a Unicode arrow instead of a drawn line.</p>
+          <div class="markdown-block serif-prose"><p>These are the two most-used block types (12 and 4 authored instances).
+file-tree has no indentation logic anywhere, so hierarchy is invisible;
+diagram uses a Unicode arrow glyph instead of a drawn line.</p>
 </div>
           
         </div>
@@ -1235,13 +1302,13 @@ diagram uses a Unicode arrow instead of a drawn line.</p>
       
       <div class="slice-field">
         <div class="slice-field-label">Files</div>
-        <div class="slice-field-value"><code>plan/blocks/file_tree.go, plan/blocks/diagram.go, plan/blocks/templates/file_tree.gohtml, plan/blocks/blocks_test.go</code></div>
+        <div class="slice-field-value"><code>plan/blocks/blocks.go, plan/blocks/diagram.go, plan/blocks/templates/file_tree.gohtml, plan/blocks/blocks_test.go</code></div>
       </div>
       
       
       <div class="slice-field">
         <div class="slice-field-label">Done when</div>
-        <ul class="slice-done-list"><li>A file-tree of nested paths renders with visible depth; a flat list and a nested list no longer look identical.</li><li>Diagram edges are drawn paths with arrowheads, not text glyphs.</li><li>Both renderers keep their existing block-anchor id scheme so annotations still resolve.</li></ul>
+        <ul class="slice-done-list"><li>A file-tree of nested paths renders with visible depth; a flat list and a nested list no longer look identical.</li><li>Diagram edges are drawn paths with arrowheads from slice 1&#39;s shared marker, not text glyphs.</li><li>Both renderers keep their existing block-anchor id scheme so annotations still resolve.</li></ul>
       </div>
       
     
@@ -1256,10 +1323,12 @@ diagram uses a Unicode arrow instead of a drawn line.</p>
 <strong>State:</strong> none — derived entirely from the block&#39;s entries.
 <strong>Payload:</strong> inline SVG replacing the current ul and div markup.
 <strong>Rejected:</strong> xlab/treeprint and similar — they target character-based
-terminal output, not coordinate-based SVG layout, so they solve an
-adjacent problem and are not reusable here. Keeping the Unicode arrow —
-rejected because it is precisely the thing that makes diagram blocks read
-as text in a box.</p>
+terminal output, not coordinate-based SVG layout. Keeping the Unicode
+arrow — rejected because it is precisely what makes diagram blocks read as
+text in a box.
+<strong>Note:</strong> FileTree and APIEndpoint are defined in plan/blocks/blocks.go
+(lines 81 and 59), NOT in standalone file_tree.go / api_endpoint.go files.
+Those paths do not exist.</p>
 </div>
         <label for="slice-3-decisions-reveal" class="reveal-label">Show full decisions</label>
         
@@ -1272,7 +1341,7 @@ as text in a box.</p>
   <div class="slice-field-value block-zone">
     <div class="block-anchor" id="slice-3-block-file-tree-1" data-block-anchor="slice-3-block-file-tree-1" data-block-kind="file-tree"><div class="block block-file-tree">
   <ul class="file-list">
-    <li class="file-entry"><code class="file-path">plan/blocks/file_tree.go</code></li>
+    <li class="file-entry"><code class="file-path">plan/blocks/blocks.go</code></li>
     <li class="file-entry"><code class="file-path">plan/blocks/diagram.go</code></li>
     <li class="file-entry"><code class="file-path">plan/blocks/templates/file_tree.gohtml</code></li>
     <li class="file-entry"><code class="file-path">plan/blocks/blocks_test.go</code></li>
@@ -1293,12 +1362,12 @@ as text in a box.</p>
           
           <div class="test-group" data-kind="unit">
             <span class="test-chip">UNIT &middot; 2</span>
-            <ul><li>TestFileTree_Indents — paths at differing depths receive differing x</li><li>TestDiagram_DrawsEdges — output contains path or line elements and no</li></ul>
+            <ul><li>TestFileTree_Indents — paths at differing depths receive differing x</li><li>TestDiagram_DrawsEdges — output contains path elements referencing</li></ul>
           </div>
           
           <div class="test-group" data-kind="other">
             <span class="test-chip">OTHER &middot; 3</span>
-            <ul><li>offsets; a previously-flat corpus sample now varies.</li><li>arrow glyph characters.</li><li>slice-N-block-type-idx scheme byte for byte.</li></ul>
+            <ul><li>offsets; a previously-flat corpus sample now varies.</li><li>the shared marker and no arrow glyph characters.</li><li>slice-N-block-type-idx scheme byte for byte.</li></ul>
           </div>
           
           <div class="test-group" data-kind="regression">
@@ -1371,8 +1440,8 @@ as text in a box.</p>
         <div class="slice-field-value">
           
           <div class="markdown-block serif-prose"><p>Change the critique write path so revisions rewrite the slice fields and
-drop the accumulated critic_revisions entries. Prior wording stays
-recoverable through git.</p>
+stop appending critic_revisions entries. Prior wording stays recoverable
+through git.</p>
 </div>
           
         </div>
@@ -1415,11 +1484,14 @@ words from what plus questions plus critic_revisions stacked together.</p>
 <strong>State:</strong> the slice YAML itself; superseded wording lives only in git.
 <strong>Payload:</strong> a rewritten slice, not an appended revision record.
 <strong>Rejected:</strong> a superseded field inside the YAML — keeps the weight in the
-document and in anything that reads it, including spec generate.
+document and in anything reading it, including spec generate.
 Renderer-only collapsing — the YAML would keep growing and specs would
-still inherit the bloat, so it treats the symptom. Note git is a sound
-home here specifically because <code>wipnote history</code> already resolves plans to
-their YAML rather than their HTML.</p>
+still inherit the bloat.
+<strong>Scope clarification:</strong> today only critic_revisions accumulates; <code>what</code> is
+already rewritten in place. This slice therefore does not interact with
+slice 5&#39;s cap on <code>what</code>.
+<strong>Bootstrapping note:</strong> this plan will itself carry critic_revisions from
+its own critique pass, making it the first real fixture for the compat test.</p>
 </div>
         <label for="slice-4-decisions-reveal" class="reveal-label">Show full decisions</label>
         
@@ -1444,7 +1516,7 @@ their YAML rather than their HTML.</p>
     <thead><tr><th>Field</th><th>Type</th><th>Note</th></tr></thead>
     <tbody>
       <tr><td><code>what</code></td><td><code>rewritten in place by critique</code></td><td>&mdash;</td></tr>
-      <tr><td><code>critic_revisions</code></td><td><code>deprecated — no longer appended</code></td><td>&mdash;</td></tr>
+      <tr><td><code>critic_revisions</code></td><td><code>deprecated — read for compat, never appended</code></td><td>&mdash;</td></tr>
       
     </tbody>
   </table>
@@ -1467,13 +1539,18 @@ their YAML rather than their HTML.</p>
           </div>
           
           <div class="test-group" data-kind="other">
-            <span class="test-chip">OTHER &middot; 2</span>
-            <ul><li>holds one what value and no accumulated revisions.</li><li>critic_revisions parses and renders unchanged.</li></ul>
+            <span class="test-chip">OTHER &middot; 4</span>
+            <ul><li>holds one what value and no accumulated revisions.</li><li>critic_revisions parses and renders unchanged. This plan is itself the</li><li>first live fixture, having carried critic_revisions from its own pass.</li><li>rewritten plan shows the prior wording from git.</li></ul>
           </div>
           
           <div class="test-group" data-kind="compat">
             <span class="test-chip">COMPAT &middot; 1</span>
-            <ul><li>TestLoad_LegacyCriticRevisions — a v3 plan with populated</li></ul>
+            <ul><li>TestLoad_LegacyCriticRevisions — a plan with populated</li></ul>
+          </div>
+          
+          <div class="test-group" data-kind="integration">
+            <span class="test-chip">INTEGRATION &middot; 1</span>
+            <ul><li>TestHistory_SurfacesSuperseded — `wipnote history` on a</li></ul>
           </div>
           
         </div>
@@ -1497,11 +1574,11 @@ their YAML rather than their HTML.</p>
   </div>
 </details>
 <details class="slice-card" id="slice-5" data-slice="5" data-slice-name="slice-5" data-status="pending" data-approval="pending">
-  <summary class="slice-summary" aria-label="Slice 5: Prose caps in schema validation">
+  <summary class="slice-summary" aria-label="Slice 5: Prose caps in schema validation, with author-facing guidance">
     <span class="slice-num">#5</span>
     <span class="slice-title-col">
-      <span class="slice-name">Prose caps in schema validation</span>
-      <span class="slice-preview">Add word-count validation to plan slices: what fails past roughly 40</span>
+      <span class="slice-name">Prose caps in schema validation, with author-facing guidance</span>
+      <span class="slice-preview">Add word-count validation to plan slices: what fails past a</span>
       <span class="slice-meta-row">
         <span class="slice-summary-badges">
           <span class="badge badge-pending badge-sm">S</span>
@@ -1540,9 +1617,9 @@ their YAML rather than their HTML.</p>
         <div class="slice-field-label">What</div>
         <div class="slice-field-value">
           
-          <div class="markdown-block serif-prose"><p>Add word-count validation to plan slices: <code>what</code> fails past roughly 40
-words, while why, done_when and tests emit advisories. Detail belongs in
-the generated spec, not the plan.</p>
+          <div class="markdown-block serif-prose"><p>Add word-count validation to plan slices: <code>what</code> fails past a
+corpus-derived threshold, while why, done_when and tests emit advisories.
+Update the plan skill so authors learn the cap before hitting it.</p>
 </div>
           
         </div>
@@ -1564,13 +1641,13 @@ territory.</p>
       
       <div class="slice-field">
         <div class="slice-field-label">Files</div>
-        <div class="slice-field-value"><code>plan/planyaml/validate.go, plan/planyaml/validate_test.go</code></div>
+        <div class="slice-field-value"><code>plan/planyaml/validate.go, plan/planyaml/validate_test.go, plugin/skills/plan/SKILL.md</code></div>
       </div>
       
       
       <div class="slice-field">
         <div class="slice-field-label">Done when</div>
-        <ul class="slice-done-list"><li>A slice whose `what` exceeds the cap fails `wipnote plan validate-yaml` with a message naming the field and count.</li><li>Advisory fields report over-length without failing the command.</li><li>Finalized plans are exempt so the 42 legacy plans do not retroactively fail.</li></ul>
+        <ul class="slice-done-list"><li>The hard cap value is derived from the measured corpus distribution and documented with the percentile it targets, not chosen as a round number.</li><li>A slice whose `what` exceeds the cap fails `wipnote plan validate-yaml` with a message naming the field and count.</li><li>Advisory fields report over-length without failing the command.</li><li>Finalized plans are exempt so the 42 legacy plans do not retroactively fail.</li><li>plugin/skills/plan/SKILL.md states the cap so authors see it during the interview.</li></ul>
       </div>
       
     
@@ -1588,7 +1665,13 @@ territory.</p>
 and fight the author mid-interview. Advisory-only everywhere — rejected on
 measured evidence: ValidateBlockAdvisories is already advisory-only and the
 default complexity tier sits at 0% block usage across 204 slices, so a
-non-blocking signal demonstrably does not bind.</p>
+non-blocking signal demonstrably does not bind.
+<strong>Open on the threshold:</strong> the earlier draft asserted ~40 words with no
+basis. The cap must instead be computed from the corpus so it fails the
+long tail rather than the median, and the chosen percentile recorded.
+<strong>File overlap:</strong> shares plan/planyaml/validate.go with slice 7. No logical
+dependency, but do not execute them concurrently without file-overlap
+partitioning.</p>
 </div>
         <label for="slice-5-decisions-reveal" class="reveal-label">Show full decisions</label>
         
@@ -1603,6 +1686,7 @@ non-blocking signal demonstrably does not bind.</p>
   <ul class="file-list">
     <li class="file-entry"><code class="file-path">plan/planyaml/validate.go</code></li>
     <li class="file-entry"><code class="file-path">plan/planyaml/validate_test.go</code></li>
+    <li class="file-entry"><code class="file-path">plugin/skills/plan/SKILL.md</code></li>
     
   </ul>
 </div></div>
@@ -1611,10 +1695,10 @@ non-blocking signal demonstrably does not bind.</p>
   <table class="block-table">
     <thead><tr><th>Field</th><th>Type</th><th>Note</th></tr></thead>
     <tbody>
-      <tr><td><code>what</code></td><td><code>hard fail above ~40 words</code></td><td>&mdash;</td></tr>
-      <tr><td><code>why</code></td><td><code>advisory above ~40 words</code></td><td>&mdash;</td></tr>
-      <tr><td><code>done_when</code></td><td><code>advisory above ~60 words</code></td><td>&mdash;</td></tr>
-      <tr><td><code>tests</code></td><td><code>advisory above ~40 words</code></td><td>&mdash;</td></tr>
+      <tr><td><code>what</code></td><td><code>hard fail above corpus-derived threshold</code></td><td>&mdash;</td></tr>
+      <tr><td><code>why</code></td><td><code>advisory</code></td><td>&mdash;</td></tr>
+      <tr><td><code>done_when</code></td><td><code>advisory</code></td><td>&mdash;</td></tr>
+      <tr><td><code>tests</code></td><td><code>advisory</code></td><td>&mdash;</td></tr>
       
     </tbody>
   </table>
@@ -1662,10 +1746,10 @@ non-blocking signal demonstrably does not bind.</p>
   </div>
 </details>
 <details class="slice-card" id="slice-6" data-slice="6" data-slice-name="slice-6" data-status="pending" data-approval="pending">
-  <summary class="slice-summary" aria-label="Slice 6: Harden the default-tier block gate and drop api-endpoint">
+  <summary class="slice-summary" aria-label="Slice 6: Harden the default-tier block gate, with a legacy exemption">
     <span class="slice-num">#6</span>
     <span class="slice-title-col">
-      <span class="slice-name">Harden the default-tier block gate and drop api-endpoint</span>
+      <span class="slice-name">Harden the default-tier block gate, with a legacy exemption</span>
       <span class="slice-preview">Make the block advisory blocking for slices whose complexity resolves to</span>
       <span class="slice-meta-row">
         <span class="slice-summary-badges">
@@ -1706,7 +1790,8 @@ non-blocking signal demonstrably does not bind.</p>
         <div class="slice-field-value">
           
           <div class="markdown-block serif-prose"><p>Make the block advisory blocking for slices whose complexity resolves to
-standard, and remove api-endpoint from the catalog, schema and renderers.</p>
+standard, exempting finalized plans so the existing corpus does not
+retroactively fail.</p>
 </div>
           
         </div>
@@ -1718,8 +1803,8 @@ standard, and remove api-endpoint from the catalog, schema and renderers.</p>
         <div class="slice-field-value">
           
           <div class="markdown-block serif-prose"><p>Unset complexity defaults to standard and covers 204 of 282 slices with 0%
-block usage — the gap where the regression will appear. api-endpoint has
-never been authored once.</p>
+block usage — the gap where the regression will appear once volume picks
+up.</p>
 </div>
           
         </div>
@@ -1728,13 +1813,13 @@ never been authored once.</p>
       
       <div class="slice-field">
         <div class="slice-field-label">Files</div>
-        <div class="slice-field-value"><code>plan/planyaml/validate.go, plan/planyaml/schema.go, plan/blocks/api_endpoint.go, plugin/skills/plan/SKILL.md</code></div>
+        <div class="slice-field-value"><code>plan/planyaml/validate.go, plan/planyaml/validate_test.go, plugin/skills/plan/SKILL.md</code></div>
       </div>
       
       
       <div class="slice-field">
         <div class="slice-field-label">Done when</div>
-        <ul class="slice-done-list"><li>A standard or complex slice with no blocks fails validation unless it carries an explicit skip reason.</li><li>api-endpoint no longer appears in `wipnote plan blocks` output.</li><li>The two existing block-carrying plans still validate and render.</li></ul>
+        <ul class="slice-done-list"><li>A standard or complex slice with no blocks fails validation unless it carries an explicit skip reason.</li><li>Finalized plans are exempt, so none of the 204 existing block-free slices retroactively fail.</li><li>The two existing block-carrying plans still validate and render.</li></ul>
       </div>
       
     
@@ -1746,15 +1831,18 @@ never been authored once.</p>
         
         <input type="checkbox" id="slice-6-decisions-reveal" class="reveal-toggle">
         <div class="markdown-block reveal-content serif-prose"><p><strong>Trigger:</strong> <code>wipnote plan validate-yaml</code> and finalize.
-<strong>State:</strong> none — validation over loaded YAML plus the catalog definition.
+<strong>State:</strong> none — validation over loaded YAML.
 <strong>Payload:</strong> a blocking error naming the slice, or a pass when a skip
 reason is recorded.
 <strong>Rejected:</strong> leaving the advisory non-blocking — measured to produce 0%
-uptake at the default tier. Removing the skip escape hatch entirely —
-rejected because the blocks-first skill explicitly allows noting a skip
-when a slice is genuinely underspecified, and forcing invention would
-violate the grounding rule. Keeping api-endpoint for future use — YAGNI,
-and it can be restored from git if a real need appears.</p>
+uptake at the default tier. Removing the skip escape hatch — rejected
+because the blocks-first skill explicitly allows noting a skip when a slice
+is genuinely underspecified, and forcing invention would violate the
+grounding rule.
+<strong>Critic fix:</strong> the earlier draft had no legacy exemption here while slice
+5 had one, which would have failed all 204 existing block-free slices on
+the next validate run.
+<strong>File overlap:</strong> shares validate.go with slice 5 and SKILL.md with slice 5.</p>
 </div>
         <label for="slice-6-decisions-reveal" class="reveal-label">Show full decisions</label>
         
@@ -1768,8 +1856,7 @@ and it can be restored from git if a real need appears.</p>
     <div class="block-anchor" id="slice-6-block-file-tree-1" data-block-anchor="slice-6-block-file-tree-1" data-block-kind="file-tree"><div class="block block-file-tree">
   <ul class="file-list">
     <li class="file-entry"><code class="file-path">plan/planyaml/validate.go</code></li>
-    <li class="file-entry"><code class="file-path">plan/planyaml/schema.go</code></li>
-    <li class="file-entry"><code class="file-path">plan/blocks/api_endpoint.go</code></li>
+    <li class="file-entry"><code class="file-path">plan/planyaml/validate_test.go</code></li>
     <li class="file-entry"><code class="file-path">plugin/skills/plan/SKILL.md</code></li>
     
   </ul>
@@ -1788,17 +1875,17 @@ and it can be restored from git if a real need appears.</p>
           
           <div class="test-group" data-kind="unit">
             <span class="test-chip">UNIT &middot; 2</span>
-            <ul><li>TestValidate_BlocksRequiredAtDefaultTier — a slice with unset</li><li>TestValidate_SkipReasonAccepted — the same slice passes when it</li></ul>
+            <ul><li>TestValidate_BlocksRequiredAtDefaultTier — a draft slice with unset</li><li>TestValidate_SkipReasonAccepted — the same slice passes when it</li></ul>
           </div>
           
           <div class="test-group" data-kind="other">
             <span class="test-chip">OTHER &middot; 3</span>
-            <ul><li>complexity and no blocks fails.</li><li>records why blocks were skipped.</li><li>catalog and from the JSON output.</li></ul>
+            <ul><li>complexity and no blocks fails.</li><li>records why blocks were skipped.</li><li>existing 204-slice population still validates.</li></ul>
           </div>
           
-          <div class="test-group" data-kind="catalog">
-            <span class="test-chip">CATALOG &middot; 1</span>
-            <ul><li>TestBlockCatalog_NoAPIEndpoint — the type is absent from the</li></ul>
+          <div class="test-group" data-kind="regression">
+            <span class="test-chip">REGRESSION &middot; 1</span>
+            <ul><li>TestValidate_LegacyCorpusExempt — a finalized plan from the</li></ul>
           </div>
           
         </div>
@@ -1821,6 +1908,164 @@ and it can be restored from git if a real need appears.</p>
     </details>
   </div>
 </details>
+<details class="slice-card" id="slice-7" data-slice="7" data-slice-name="slice-7" data-status="pending" data-approval="pending">
+  <summary class="slice-summary" aria-label="Slice 7: Drop the never-used api-endpoint block type">
+    <span class="slice-num">#7</span>
+    <span class="slice-title-col">
+      <span class="slice-name">Drop the never-used api-endpoint block type</span>
+      <span class="slice-preview">Remove APIEndpoint from the block catalog, schema and renderers, including</span>
+      <span class="slice-meta-row">
+        <span class="slice-summary-badges">
+          <span class="badge badge-pending badge-sm">S</span>
+          <span class="badge badge-pending badge-sm">Low</span>
+          <span class="badge badge-discuss badge-sm badge-complexity" title="Complexity: standard">Standard</span>
+          
+          <span class="badge badge-pending badge-sm slice-approval-badge" data-badge-for="slice-7">Pending</span>
+          
+          
+        </span>
+        <span class="slice-actions" onclick="event.stopPropagation()">
+          <span class="approval-segmented" role="group" aria-label="Approval action">
+            <label class="seg-btn seg-approve" title="Approve">
+              <input type="radio" name="slice-7-approval" value="approved" data-section="slice-7" data-action="approve" aria-label="Approve slice 7">
+              &#10003;
+            </label>
+            <label class="seg-btn seg-changes" title="Request changes">
+              <input type="radio" name="slice-7-approval" value="changes_requested" data-section="slice-7" data-action="approve" aria-label="Request changes for slice 7">
+              &#8635;
+            </label>
+            <label class="seg-btn seg-reject" title="Reject">
+              <input type="radio" name="slice-7-approval" value="rejected" data-section="slice-7" data-action="approve" aria-label="Reject slice 7">
+              &#10005;
+            </label>
+          </span>
+        </span>
+      </span>
+    </span>
+    <span class="slice-chevron" aria-hidden="true"></span>
+  </summary>
+
+  <div class="slice-body">
+    
+      
+      <div class="slice-field slice-what">
+        <div class="slice-field-label">What</div>
+        <div class="slice-field-value">
+          
+          <div class="markdown-block serif-prose"><p>Remove APIEndpoint from the block catalog, schema and renderers, including
+its template and tests.</p>
+</div>
+          
+        </div>
+      </div>
+      
+      
+      <div class="slice-field slice-why">
+        <div class="slice-field-label">Why</div>
+        <div class="slice-field-value">
+          
+          <div class="markdown-block serif-prose"><p>Zero instances authored across 282 slices. Carrying a catalog entry nobody
+uses costs interview attention and validator surface for no return.</p>
+</div>
+          
+        </div>
+      </div>
+      
+      
+      <div class="slice-field">
+        <div class="slice-field-label">Files</div>
+        <div class="slice-field-value"><code>plan/planyaml/schema.go, plan/blocks/blocks.go, plan/blocks/templates/api_endpoint.gohtml, plan/blocks/blocks_test.go</code></div>
+      </div>
+      
+      
+      <div class="slice-field">
+        <div class="slice-field-label">Done when</div>
+        <ul class="slice-done-list"><li>api-endpoint no longer appears in `wipnote plan blocks` output or its JSON form.</li><li>The api_endpoint template is deleted and its tests removed or repurposed.</li><li>No existing plan fails to load, since no plan authors the type.</li></ul>
+      </div>
+      
+    
+
+    
+    <div class="slice-field slice-decisions-notes">
+      <div class="slice-field-label">Decisions</div>
+      <div class="slice-field-value">
+        
+        <input type="checkbox" id="slice-7-decisions-reveal" class="reveal-toggle">
+        <div class="markdown-block reveal-content serif-prose"><p><strong>Trigger:</strong> catalog definition load and block render dispatch.
+<strong>State:</strong> none.
+<strong>Payload:</strong> a smaller catalog; unknown type errors if ever authored.
+<strong>Rejected:</strong> keeping api-endpoint for future use — YAGNI, and it is
+restorable from git if a real need appears. Bundling this with the gate
+hardening — split out on critic advice so a reviewer can approve the policy
+change and the catalog pruning independently.
+<strong>Note:</strong> APIEndpoint is defined in plan/blocks/blocks.go:59, not in a
+standalone api_endpoint.go, which does not exist.</p>
+</div>
+        <label for="slice-7-decisions-reveal" class="reveal-label">Show full decisions</label>
+        
+      </div>
+    </div>
+    
+
+    <div class="slice-field slice-blocks">
+  <div class="slice-field-label">Blocks</div>
+  <div class="slice-field-value block-zone">
+    <div class="block-anchor" id="slice-7-block-file-tree-1" data-block-anchor="slice-7-block-file-tree-1" data-block-kind="file-tree"><div class="block block-file-tree">
+  <ul class="file-list">
+    <li class="file-entry"><code class="file-path">plan/planyaml/schema.go</code></li>
+    <li class="file-entry"><code class="file-path">plan/blocks/blocks.go</code></li>
+    <li class="file-entry"><code class="file-path">plan/blocks/templates/api_endpoint.gohtml</code></li>
+    <li class="file-entry"><code class="file-path">plan/blocks/blocks_test.go</code></li>
+    
+  </ul>
+</div></div>
+    
+  </div>
+</div>
+
+    
+    <div class="slice-field slice-tests-field">
+      <div class="slice-field-label">Test Strategy</div>
+      <div class="slice-field-value">
+        
+        
+        <div class="test-strategy">
+          
+          <div class="test-group" data-kind="catalog">
+            <span class="test-chip">CATALOG &middot; 1</span>
+            <ul><li>TestBlockCatalog_NoAPIEndpoint — the type is absent from the</li></ul>
+          </div>
+          
+          <div class="test-group" data-kind="other">
+            <span class="test-chip">OTHER &middot; 3</span>
+            <ul><li>catalog and from --json output.</li><li>TestBlocks_APIEndpoint_NoParams in plan/blocks/blocks_test.go are removed</li><li>alongside the type.</li></ul>
+          </div>
+          
+          <div class="test-group" data-kind="regression">
+            <span class="test-chip">REGRESSION &middot; 1</span>
+            <ul><li>existing TestBlocks_APIEndpoint and</li></ul>
+          </div>
+          
+        </div>
+        
+      </div>
+    </div>
+    
+
+    
+
+    
+
+    <div class="slice-deps">Dependencies: none</div>
+
+    <details class="comment-collapse">
+      <summary class="comment-collapse-trigger">+ Leave a comment</summary>
+      <div class="comment-collapse-body">
+        <textarea data-section="slice-7" data-comment-for="slice-7" placeholder="Comments on slice 7..."></textarea>
+      </div>
+    </details>
+  </div>
+</details>
 
     <!--PLAN_SLICE_CARDS-->
   </div>
@@ -1838,8 +2083,8 @@ and it can be restored from git if a real need appears.</p>
   <h2>Feedback Summary</h2>
   <div class="progress-stats">
     <div class="progress-stat"><strong id="approvedCount">0</strong> approved</div>
-    <div class="progress-stat"><strong id="totalSections">7</strong> sections</div>
-    <div class="progress-stat"><strong id="pendingCount">7</strong> pending</div>
+    <div class="progress-stat"><strong id="totalSections">8</strong> sections</div>
+    <div class="progress-stat"><strong id="pendingCount">8</strong> pending</div>
   </div>
   <div class="progress-bar-track"><div class="progress-bar-fill" id="progressFill" style="width:0%"></div></div>
   <div class="comments-summary">
@@ -1931,7 +2176,7 @@ var planId=(function(){var a=document.querySelector('article[id]');return a?a.id
 
 (function(){
   'use strict';
-  var SECTIONS=/*PLAN_SECTIONS_JSON*/["design","slice-1","slice-2","slice-3","slice-4","slice-5","slice-6"]/*END_PLAN_SECTIONS_JSON*/;
+  var SECTIONS=/*PLAN_SECTIONS_JSON*/["design","slice-1","slice-2","slice-3","slice-4","slice-5","slice-6","slice-7"]/*END_PLAN_SECTIONS_JSON*/;
 
   function setBadge(el,ok){
     el.className='badge badge-'+(ok?'approved':'pending');

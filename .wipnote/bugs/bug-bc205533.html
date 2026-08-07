@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>blocks_waiver is a decisions_notes regex marker while research_waiver is a typed field</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="bug-bc205533"
+             data-type="bug"
+             data-status="todo"
+             data-priority="low"
+             data-created="2026-08-07T07:14:34.068302"
+             data-updated="2026-08-07T07:14:34.07912" data-agent-assigned="claude-code" data-track-id="trk-a951e3c0" data-created-by-agent="claude-code" data-created-by-model="claude-opus-5[1m]" data-created-by-cli-version="0.67.1">
+
+        <header>
+            <h1>blocks_waiver is a decisions_notes regex marker while research_waiver is a typed field</h1>
+            <div class="metadata">
+                <span class="badge status-todo">Todo</span>
+                <span class="badge priority-low">Low Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-a951e3c0.html" data-relationship="part_of" data-since="2026-08-07T07:14:34.079031">trk-a951e3c0</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>feat-d3bb4992 implemented the block-gate skip as a &#39;blocks_waiver: &lt;reason&gt;&#39; marker parsed by regex out of decisions_notes free text, rather than a typed PlanSlice field. The choice was driven by scope (schema.go was outside the slice&#39;s three assigned files in a shared tree), not by design. research_waiver is already a typed field validated the same way, so the asymmetry is a wart: a regex over prose is weaker to validate, invisible to schema consumers, and easy to typo. Promote blocks_waiver to a real optional field mirroring research_waiver, keeping the marker readable for back-compat.</p>
+        </section>
+    </article>
+</body>
+</html>

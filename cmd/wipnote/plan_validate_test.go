@@ -158,6 +158,65 @@ func TestValidatePlanHTML_MissingSliceCards(t *testing.T) {
 	}
 }
 
+// TestPlanValidate_DualFormat verifies that both dependency-graph formats
+// validate clean. Plans re-render lazily, so the committed corpus holds
+// legacy d3/dagre-d3 plans and new static-SVG plans side by side for the whole
+// migration window — the validator must not force a flag day.
+func TestPlanValidate_DualFormat(t *testing.T) {
+	t.Run("legacy d3 plan", func(t *testing.T) {
+		html := buildMinimalCRISPIHTML(1)
+		// Sanity: the legacy fixture really is the old shape.
+		if !strings.Contains(html, "d3js.org/d3") {
+			t.Fatal("fixture is not a legacy d3 plan")
+		}
+		if strings.Contains(html, `data-graph-render="static"`) {
+			t.Fatal("legacy fixture must not carry the static marker")
+		}
+
+		errors, _, _ := validatePlanHTML(writeTempHTML(t, html))
+		for _, sub := range []string{"d3.js", "dagre-d3", "dependency graph"} {
+			if containsSubstr(errors, sub) {
+				t.Errorf("legacy plan should validate clean, got error mentioning %q: %v", sub, errors)
+			}
+		}
+	})
+
+	t.Run("static SVG plan", func(t *testing.T) {
+		html := buildStaticGraphCRISPIHTML(1)
+		// Sanity: no d3, no dagre-d3, no CDN script for either.
+		if strings.Contains(html, "d3js.org") || strings.Contains(html, "dagre-d3") {
+			t.Fatal("static fixture must not reference d3 or dagre-d3")
+		}
+
+		errors, _, _ := validatePlanHTML(writeTempHTML(t, html))
+		for _, sub := range []string{"d3.js", "dagre-d3", "dependency graph"} {
+			if containsSubstr(errors, sub) {
+				t.Errorf("static-graph plan should validate clean, got error mentioning %q: %v", sub, errors)
+			}
+		}
+		if len(errors) != 0 {
+			t.Errorf("static-graph plan produced errors: %v", errors)
+		}
+	})
+
+	t.Run("static marker but empty graph", func(t *testing.T) {
+		// A plan that claims a static graph but drew nothing has no script
+		// left to rescue it, so the blank zone is a hard error.
+		html := buildStaticGraphCRISPIHTML(1)
+		start := strings.Index(html, `<svg id="dep-graph-svg"`)
+		end := strings.Index(html, "</svg>")
+		if start < 0 || end < 0 {
+			t.Fatal("fixture is missing its inline SVG")
+		}
+		html = html[:start] + `<svg id="dep-graph-svg" class="dep-graph-static">` + html[end:]
+
+		errors, _, _ := validatePlanHTML(writeTempHTML(t, html))
+		if !containsSubstr(errors, "no drawn nodes or edges") {
+			t.Errorf("expected an error about an empty static graph, got: %v", errors)
+		}
+	})
+}
+
 // TestValidatePlanHTML_MissingCDNScripts verifies that missing CDN scripts trigger errors.
 func TestValidatePlanHTML_MissingCDNScripts(t *testing.T) {
 	html := buildMinimalCRISPIHTML(1)
@@ -359,6 +418,35 @@ var SECTIONS=/*PLAN_SECTIONS_JSON*/` + sectionsJSON + `/*END_PLAN_SECTIONS_JSON*
 </div>
 </body>
 </html>`
+}
+
+// buildStaticGraphCRISPIHTML is buildMinimalCRISPIHTML in the new format: the
+// dependency zone is stamped data-graph-render="static", the <svg> holds a
+// complete drawn graph, and neither d3 nor dagre-d3 is loaded. It mirrors what
+// plan/plantmpl emits today — see plan/plantmpl/testdata/dependency_graph_static.svg
+// for the real renderer's output.
+func buildStaticGraphCRISPIHTML(sliceCount int) string {
+	legacy := buildMinimalCRISPIHTML(sliceCount)
+
+	staticZone := `<section class="dep-graph" data-zone="dependency-graph" data-graph-render="static">
+  <div id="graph-data" style="display:none">` +
+		`<div data-node="1" data-name="Slice One" data-status="pending" data-deps=""></div>` +
+		`  </div>
+  <svg id="dep-graph-svg" xmlns="http://www.w3.org/2000/svg" width="176" height="104" viewBox="0 0 176 104" class="dep-graph-static">` +
+		`<g class="dep-nodes"><a href="#slice-1"><g id="graph-node-1" class="dep-node dep-node-pending">` +
+		`<rect class="dep-node-box" x="24" y="24" width="128" height="56" rx="6" fill="var(--bg-input)" stroke="var(--pending)"/>` +
+		`<text class="dep-node-label" x="88" y="48" text-anchor="middle" font-size="12" fill="var(--text)">#1 Slice One</text>` +
+		`</g></a></g></svg>
+</section>`
+
+	start := strings.Index(legacy, `<section class="dep-graph"`)
+	end := strings.Index(legacy, "</section>")
+	out := legacy[:start] + staticZone + legacy[end+len("</section>"):]
+
+	// Drop the graph's CDN script tags; the static graph needs neither.
+	out = strings.ReplaceAll(out, `<script src="https://d3js.org/d3.v7.min.js"></script>`, "")
+	out = strings.ReplaceAll(out, `<script src="https://cdn.jsdelivr.net/npm/dagre-d3@0.6.4/dist/dagre-d3.min.js"></script>`, "")
+	return out
 }
 
 // writeTempHTML writes html content to a temp file and returns its path.

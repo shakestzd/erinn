@@ -2,6 +2,7 @@ package plantmpl_test
 
 import (
 	"bytes"
+	"fmt"
 	"html/template"
 	"strings"
 	"testing"
@@ -185,12 +186,13 @@ func TestPlanPageRenderCRISPIStructure(t *testing.T) {
 
 	html := buf.String()
 
-	// Must have CDN links.
+	// Must have CDN links. d3 and dagre-d3 are deliberately NOT in this list:
+	// the dependency graph is laid out by dagre in Go at render time and
+	// emitted as a static inline SVG, so the page no longer loads either
+	// library. See TestPlanPageRenderNoGraphScripts.
 	for _, cdn := range []string{
 		"fonts.googleapis.com",
 		"highlight.min.js",
-		"d3.v7.min.js",
-		"dagre-d3",
 	} {
 		if !strings.Contains(html, cdn) {
 			t.Errorf("output missing CDN link for %q", cdn)
@@ -276,6 +278,119 @@ func TestPlanPageRenderWithAllZones(t *testing.T) {
 	} {
 		if !strings.Contains(html, want) {
 			t.Errorf("output missing %q", want)
+		}
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Static dependency graph on the assembled page
+// ---------------------------------------------------------------------------
+
+// planPageWithGraph renders a plan whose dependency graph has a rank-skipping
+// edge (slice 3 depends on slice 1 as well as slice 2).
+func planPageWithGraph(t *testing.T) string {
+	t.Helper()
+	page := &plantmpl.PlanPage{
+		PlanID:    "plan-graph001",
+		FeatureID: "trk-graph",
+		Title:     "Graph Plan",
+		Date:      "2026-04-04",
+		Status:    "draft",
+		Graph: &plantmpl.DependencyGraph{
+			Nodes: []plantmpl.GraphNode{
+				{Num: 1, Name: "Shared SVG primitives", Status: "approved", Files: 2},
+				{Num: 2, Name: "Static dependency graph", Status: "pending", Deps: "1", Files: 6},
+				{Num: 3, Name: "Dual-format validator", Status: "pending", Deps: "1,2", Files: 2},
+			},
+		},
+		Slices: []plantmpl.SliceCard{
+			{Num: 1, ID: "feat-s1", Title: "Shared SVG primitives", Status: "done"},
+			{Num: 2, ID: "feat-s2", Title: "Static dependency graph", Status: "pending"},
+			{Num: 3, ID: "feat-s3", Title: "Dual-format validator", Status: "pending"},
+		},
+	}
+	var buf bytes.Buffer
+	if err := page.Render(&buf); err != nil {
+		t.Fatalf("Render: %v", err)
+	}
+	return buf.String()
+}
+
+// TestPlanPageRenderNoGraphScripts is the point of the static graph: a
+// committed plan page shows its dependency graph with no script executed and
+// no CDN reachable. It replaces the old assertion that the page must load
+// d3 and dagre-d3.
+func TestPlanPageRenderNoGraphScripts(t *testing.T) {
+	html := planPageWithGraph(t)
+
+	for _, forbidden := range []string{
+		"d3js.org",
+		"cdn.jsdelivr.net/npm/dagre-d3",
+		"dagreD3",
+		"renderGraph",
+	} {
+		if strings.Contains(html, forbidden) {
+			t.Errorf("plan page still references %q — the dependency graph must render without JavaScript", forbidden)
+		}
+	}
+
+	// The graph is really drawn, not an empty placeholder waiting for script.
+	if !strings.Contains(html, `data-graph-render="static"`) {
+		t.Error(`output missing data-graph-render="static" marker`)
+	}
+	if !strings.Contains(html, `class="dep-node-box"`) {
+		t.Error("output has no drawn node boxes")
+	}
+	if !strings.Contains(html, `class="dep-edge"`) {
+		t.Error("output has no drawn edges")
+	}
+	if strings.Contains(html, `<svg id="dep-graph-svg" width="100%"></svg>`) {
+		t.Error("output still contains the empty client-rendered <svg> placeholder")
+	}
+}
+
+// TestPlanPageGraphAnchorsAndData verifies the two contracts other tools
+// resolve against survive the rewrite: the #graph-data bridge divs the
+// dashboard reads, and the #slice-N anchors plan review and the sidebar nav
+// share with the graph nodes.
+func TestPlanPageGraphAnchorsAndData(t *testing.T) {
+	html := planPageWithGraph(t)
+
+	for _, want := range []string{
+		`id="graph-data"`,
+		`data-node="1"`, `data-name="Shared SVG primitives"`,
+		`data-status="approved"`, `data-deps="1,2"`, `data-files="6"`,
+	} {
+		if !strings.Contains(html, want) {
+			t.Errorf("output missing graph-data attribute %q", want)
+		}
+	}
+
+	for n := 1; n <= 3; n++ {
+		anchor := fmt.Sprintf(`<a href="#slice-%d">`, n)
+		if !strings.Contains(html, anchor) {
+			t.Errorf("graph node %d is not linked to its slice card (%s)", n, anchor)
+		}
+		target := fmt.Sprintf(`id="slice-%d"`, n)
+		if !strings.Contains(html, target) {
+			t.Errorf("anchor target %s has no matching slice card", target)
+		}
+	}
+}
+
+// TestPlanPageGraphGreppable guards `wipnote relevant`, which finds work by
+// running ripgrep over rendered plan HTML: a known slice title must still be
+// a plain contiguous match in the assembled page.
+func TestPlanPageGraphGreppable(t *testing.T) {
+	html := planPageWithGraph(t)
+
+	for _, title := range []string{
+		"Shared SVG primitives",
+		"Static dependency graph",
+		"Dual-format validator",
+	} {
+		if !strings.Contains(html, title) {
+			t.Errorf("slice title %q is not findable in the rendered plan page", title)
 		}
 	}
 }

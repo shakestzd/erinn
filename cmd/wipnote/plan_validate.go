@@ -349,14 +349,34 @@ func validatePlanHTML(path string) (errors, warnings []string, stats htmlStats) 
 		}
 	}
 
-	// 6. CDN script tags — d3 and dagre-d3 are required for the graph.
-	if !strings.Contains(content, "d3js.org/d3") {
-		addErr("missing CDN script tag for d3.js")
-	}
-	// Check for the dagre-d3 CDN script src (not just the string "dagre-d3" which
-	// also appears in inline JavaScript comments and variable names).
-	if !strings.Contains(content, `src="https://cdn.jsdelivr.net/npm/dagre-d3`) {
-		addErr("missing CDN script tag for dagre-d3")
+	// 6. The dependency graph must be renderable, in either of the two formats
+	//    that coexist during the migration window.
+	//
+	//    Plans render lazily, so the committed corpus holds both indefinitely:
+	//    plans written before the static graph landed still carry an empty
+	//    <svg> plus d3/dagre-d3 CDN script tags and draw themselves in the
+	//    browser, while newly rendered plans carry a complete inline SVG laid
+	//    out by dagre at render time and load neither library. Requiring the
+	//    CDN tags unconditionally would fail every new plan; requiring the
+	//    static marker unconditionally would fail all 42 existing ones. Accept
+	//    both, and only complain when a plan has neither.
+	if isStaticGraphPlan(content) {
+		// A static graph must actually contain drawn geometry. An <svg> with
+		// no <rect> and no <path> means the layout produced nothing and the
+		// zone would render blank with no script left to rescue it.
+		if graphNodeCount := countOccurrences(content, `class="dep-node`); graphNodeCount == 0 &&
+			!strings.Contains(content, "<rect") && !strings.Contains(content, "<path") {
+			addErr("dependency graph is marked static but contains no drawn nodes or edges")
+		}
+	} else {
+		if !strings.Contains(content, "d3js.org/d3") {
+			addErr("missing CDN script tag for d3.js")
+		}
+		// Check for the dagre-d3 CDN script src (not just the string "dagre-d3"
+		// which also appears in inline JavaScript comments and variable names).
+		if !strings.Contains(content, `src="https://cdn.jsdelivr.net/npm/dagre-d3`) {
+			addErr("missing CDN script tag for dagre-d3")
+		}
 	}
 
 	// 7. No broken HTML comments (unclosed placeholders left behind).
@@ -366,6 +386,15 @@ func validatePlanHTML(path string) (errors, warnings []string, stats htmlStats) 
 	}
 
 	return errors, warnings, stats
+}
+
+// isStaticGraphPlan reports whether a plan's dependency graph was drawn
+// server-side. The dependency zone stamps data-graph-render="static" (see
+// plan/plantmpl/templates/dependency_graph.gohtml); plans predating the static
+// renderer carry no such marker and are validated against the legacy
+// d3/dagre-d3 contract instead.
+func isStaticGraphPlan(content string) bool {
+	return strings.Contains(content, `data-graph-render="static"`)
 }
 
 // extractSectionsJSON finds and returns the JSON array between

@@ -86,6 +86,7 @@ type Root struct {
 	Width, Height float64
 	ViewBox       string
 	Class         string
+	ID            string
 }
 
 // WriteOpen writes the root <svg> open tag, including the xmlns namespace
@@ -97,7 +98,12 @@ func WriteOpen(w io.Writer, r Root) error {
 		vb = fmt.Sprintf("0 0 %s %s", formatNum(r.Width), formatNum(r.Height))
 	}
 	var b strings.Builder
-	b.WriteString(`<svg xmlns="http://www.w3.org/2000/svg"`)
+	// id leads, ahead of the namespace: host pages and validators match on
+	// the literal `<svg id="…"` prefix, and attribute order is otherwise
+	// meaningless to an SVG parser.
+	b.WriteString("<svg")
+	writeAttr(&b, "id", r.ID)
+	b.WriteString(` xmlns="http://www.w3.org/2000/svg"`)
 	writeNumAttr(&b, "width", r.Width)
 	writeNumAttr(&b, "height", r.Height)
 	writeAttr(&b, "viewBox", vb)

@@ -120,11 +120,24 @@ a:hover{opacity:.8}
 /* ── Dependency graph ── */
 .dep-graph{background:var(--bg-card);border-radius:var(--radius);padding:28px;margin-bottom:28px;box-shadow:var(--shadow-card);overflow-x:auto}
 .dep-graph h2{margin-bottom:20px;padding-bottom:12px;border-bottom:1px solid var(--border)}
+/* No max-width: a wide graph scrolls inside .dep-graph (overflow-x:auto)
+   rather than scaling down until its labels are unreadable. */
 .dep-graph svg{display:block;height:auto}
-#dep-graph-svg .node rect{rx:8;ry:8;fill:var(--bg-input);stroke:var(--border);stroke-width:2px}
-#dep-graph-svg .node text{fill:var(--text) !important;font-family:var(--sans);font-size:13px}
-#dep-graph-svg .edgePath path{stroke:var(--text-muted);stroke-dasharray:5 4;fill:none;stroke-width:1.5}
-#dep-graph-svg .edgePath marker path{fill:var(--text-muted)}
+/* Static graph: geometry is baked into the markup by the Go renderer, so CSS
+   here only supplies theme-reactive paint and hover affordances. */
+#dep-graph-svg .dep-node-box{stroke-width:2}
+#dep-graph-svg .dep-edge{stroke-width:1.5;stroke-dasharray:5 4}
+/* Beats the fill presentation attribute on the shared arrowhead marker, so
+   arrowheads match the muted edge stroke instead of the accent default.
+   NOTE: keep every quote character in this stylesheet balanced, comments
+   included. The dashboard embed scoper (cmd/wipnote/plan_css_scope.go) reads
+   an unpaired quote as the start of a string literal and stops scoping every
+   rule after it, which silently unscopes half the embedded plan CSS. */
+#dep-graph-svg marker path{fill:var(--text-muted)}
+#dep-graph-svg a{cursor:pointer}
+#dep-graph-svg .dep-node{transition:opacity var(--transition)}
+#dep-graph-svg .dep-node:hover .dep-node-box{stroke-width:3}
+#dep-graph-svg .dep-node:hover .dep-node-label{fill:var(--accent)}
 
 /* ── Section cards ── */
 .section-card{background:var(--bg-card);border-radius:var(--radius);margin-bottom:14px;box-shadow:var(--shadow-card);overflow:hidden;transition:box-shadow var(--transition)}
@@ -338,11 +351,6 @@ textarea::placeholder{color:var(--text-muted)}
 .nav-triage-badge{font-size:.65rem;font-family:var(--mono);font-weight:700;border-radius:3px;padding:0 3px;line-height:1.4;flex-shrink:0}
 .nav-triage-issue{background:#7c2d12;color:#fde68a}
 .nav-triage-question{background:#1e3a5f;color:#bfdbfe}
-/* graph node highlight ring (added by JS on nav hover/click) */
-.graph-node-ring rect{stroke-width:4px !important;filter:drop-shadow(0 0 4px currentColor)}
-/* dep-chain dim/highlight */
-.dep-graph-dimmed{opacity:.25;transition:opacity .15s}
-.dep-graph-highlighted rect{stroke-width:3px !important}
 
 /* ── Amendments ── */
 .amendments-panel{margin-top:28px;background:var(--bg-card);border-radius:var(--radius);padding:20px;box-shadow:var(--shadow-card)}
@@ -538,15 +546,15 @@ body.right-rail-collapsed .sidebar-reopen{display:flex}
 <!-- ZONE 0: Visual Overview (blocks-first headline — expanded, above dependency graph) -->
 {{if .VisualOverview}}{{renderZone .VisualOverview}}{{end}}
 
-<!-- ZONE 1: Dependency Graph -->
-<section class="dep-graph" data-zone="dependency-graph">
+<!-- ZONE 1: Dependency Graph (drawn at render time — no script, no CDN) -->
+<section class="dep-graph" data-zone="dependency-graph" data-graph-render="static">
   <h2>Dependency Graph</h2>
   <div id="graph-data" style="display:none">
-    {{if .Graph}}{{range .Graph.Nodes}}<div data-node="{{.Num}}" data-name="{{htmlEscape .Name}}" data-status="{{if .Status}}{{htmlEscape .Status}}{{else}}pending{{end}}" data-deps="{{htmlEscape .Deps}}"{{if .Files}} data-files="{{.Files}}"{{end}}></div>
+    {{if .Graph}}{{range .Graph.Nodes}}<div data-node="{{.Num}}" data-name="{{htmlEscape .Name}}" data-status="{{if .Status}}{{htmlEscape .Status}}{{else}}pending{{end}}" data-deps="{{htmlEscape .Deps}}"{{if .Files}} data-files="{{.Files}}"{{end}}{{if .Issues}} data-issues="{{.Issues}}"{{end}}{{if .Questions}} data-questions="{{.Questions}}"{{end}}></div>
     {{end}}{{end}}
     <!--PLAN_GRAPH_NODES-->
   </div>
-  <svg id="dep-graph-svg" width="100%"></svg>
+  {{if .Graph}}{{.Graph.SVG}}{{else}}<svg id="dep-graph-svg" class="dep-graph-static"></svg>{{end}}
 </section>
 
 <!-- ZONE 2: Interactive Sections -->
@@ -635,8 +643,8 @@ body.right-rail-collapsed .sidebar-reopen{display:flex}
 </aside>
 </div><!-- /.plan-layout -->
 
-<script src="https://d3js.org/d3.v7.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/dagre-d3@0.6.4/dist/dagre-d3.min.js"></script>
+<!-- The dependency graph above is a static inline SVG, laid out server-side by
+     plan/blocks/svg.Layout, so it needs no graph library and no CDN round-trip. -->
 <script>
 // Plan base path — derived from window.location.pathname so the same
 // rendered HTML works whether the file is served at the legacy
@@ -1180,211 +1188,33 @@ var planId=(function(){var a=document.querySelector('article[id]');return a?a.id
 
   loadExistingFeedback();
 
+  // Recolor a graph node when its slice is approved/rejected in the browser.
+  // The committed SVG already carries the status the plan was rendered with;
+  // this only keeps the picture honest for edits made since the page loaded.
+  // Both the class and the rect's stroke are theme tokens, never literal
+  // colors, so the node stays correct if the reader flips light/dark.
+  var GRAPH_STATUS_TOKENS={pending:'var(--pending)',approved:'var(--approved)',revision:'var(--revision)',discuss:'var(--discuss)',blocked:'var(--blocked)'};
   document.querySelectorAll('input[data-action="approve"]').forEach(function(cb){
     cb.addEventListener('change',function(){
       var sec=this.dataset.section;
-      if(sec.startsWith('slice-')&&sec.split('-').length===2){
-        var n=sec.split('-')[1];
-        var nodeRect=d3.select('#dep-graph-svg .node[id="'+n+'"] rect');
-        if(!nodeRect.empty()){
-          var val=getApprovalValue(sec);
-          var SC={pending:'#6b7280',approved:'#16a34a',revision:'#f59e0b',discuss:'#8b5cf6',blocked:'#dc2626'};
-          var graphStatus=val==='approved'?'approved':val==='rejected'||val==='changes_requested'?'revision':val==='discuss'?'discuss':val==='blocked'?'blocked':'pending';
-          var color=SC[graphStatus]||SC.pending;
-          var cs=getComputedStyle(document.querySelector('.dep-graph')||document.documentElement);
-          nodeRect.style('stroke',color).style('fill',cs.getPropertyValue('--bg-input').trim()||'#222228');
-        }
-      }
+      if(!(sec.startsWith('slice-')&&sec.split('-').length===2)) return;
+      var n=sec.split('-')[1];
+      var group=document.getElementById('graph-node-'+n);
+      if(!group) return;
+      var rect=group.querySelector('.dep-node-box');
+      if(!rect) return;
+      var val=getApprovalValue(sec);
+      var graphStatus=val==='approved'?'approved':val==='rejected'||val==='changes_requested'?'revision':val==='discuss'?'discuss':val==='blocked'?'blocked':'pending';
+      group.setAttribute('class','dep-node dep-node-'+graphStatus);
+      rect.setAttribute('stroke',GRAPH_STATUS_TOKENS[graphStatus]||GRAPH_STATUS_TOKENS.pending);
     });
   });
 })();
 
-// Render dagre-d3 dependency graph
-(function(){
-  'use strict';
-
-  var STATUS_COLORS={pending:'#6b7280',approved:'#16a34a',revision:'#f59e0b',discuss:'#8b5cf6',blocked:'#dc2626'};
-
-  // nodeDataMap: id -> {status, issues, questions, deps:[]}  — populated during render
-  var nodeDataMap={};
-  // graphRef: the dagreD3 graph object — stored for dep-chain queries
-  var graphRef=null;
-
-  // Build ancestor set for a node (all transitive prerequisites)
-  function ancestors(g,id){
-    var visited={};
-    var queue=[id];
-    while(queue.length){
-      var cur=queue.shift();
-      (g.predecessors(cur)||[]).forEach(function(p){
-        if(!visited[p]){visited[p]=true;queue.push(p);}
-      });
-    }
-    return visited;
-  }
-
-  // Build descendant set for a node (all transitive dependents)
-  function descendants(g,id){
-    var visited={};
-    var queue=[id];
-    while(queue.length){
-      var cur=queue.shift();
-      (g.successors(cur)||[]).forEach(function(s){
-        if(!visited[s]){visited[s]=true;queue.push(s);}
-      });
-    }
-    return visited;
-  }
-
-  // Apply dep-chain highlight: dim unrelated nodes/edges, highlight related ones.
-  // Pass null to clear.
-  function applyDepHighlight(inner,g,focusId){
-    var allNodes=inner.selectAll('g.node');
-    var allEdges=inner.selectAll('g.edgePath');
-    if(!focusId){
-      allNodes.classed('dep-graph-dimmed',false).classed('dep-graph-highlighted',false);
-      allEdges.classed('dep-graph-dimmed',false);
-      return;
-    }
-    var anc=ancestors(g,focusId);
-    var desc=descendants(g,focusId);
-    allNodes.each(function(id){
-      var related=(id===focusId||anc[id]||desc[id]);
-      d3.select(this).classed('dep-graph-dimmed',!related).classed('dep-graph-highlighted',related);
-    });
-    allEdges.each(function(e){
-      var related=(anc[e.v]||e.v===focusId||desc[e.v])&&(anc[e.w]||e.w===focusId||desc[e.w]);
-      d3.select(this).classed('dep-graph-dimmed',!related);
-    });
-  }
-
-  function renderGraph(){
-    var container=document.getElementById('graph-data');
-    if(!container) return;
-
-    var g=new dagreD3.graphlib.Graph().setGraph({rankdir:'TB',marginx:24,marginy:24,ranksep:48,nodesep:32});
-    g.setDefaultEdgeLabel(function(){return{};});
-    graphRef=g;
-    nodeDataMap={};
-
-    var nodeEls=container.querySelectorAll('[data-node]');
-    nodeEls.forEach(function(el){
-      var id=el.dataset.node;
-      var name=el.dataset.name;
-      var files=el.dataset.files;
-      var status=el.dataset.status||'pending';
-      var issues=parseInt(el.dataset.issues||'0',10);
-      var questions=parseInt(el.dataset.questions||'0',10);
-      // Build badge suffix appended to node label
-      var badge='';
-      if(issues>0) badge+=' ⚠'+issues;
-      if(questions>0) badge+=' ?'+questions;
-      nodeDataMap[id]={status:status,issues:issues,questions:questions};
-      g.setNode(id,{
-        label: name+(badge?badge:'')+'\n'+(files||'0')+' files',
-        rx: 6,
-        ry: 6,
-        paddingX: 36,
-        paddingY: 16,
-        status: status,
-        issues: issues,
-        questions: questions
-      });
-    });
-
-    nodeEls.forEach(function(el){
-      var id=el.dataset.node;
-      var deps=el.dataset.deps?el.dataset.deps.split(',').map(function(d){return d.trim();}).filter(Boolean):[];
-      deps.forEach(function(dep){g.setEdge(dep,id);});
-    });
-
-    var svg=d3.select('#dep-graph-svg');
-    var inner=svg.append('g');
-    var render=new dagreD3.render();
-    render(inner,g);
-
-    // Read CSS vars from the plan container so graph respects light/dark theme
-    var cs=getComputedStyle(document.querySelector('.dep-graph')||document.documentElement);
-    var nodeFill=cs.getPropertyValue('--bg-input').trim()||'#222228';
-    var nodeText=cs.getPropertyValue('--text').trim()||'#ededea';
-    var edgeColor=cs.getPropertyValue('--text-muted').trim()||'#707070';
-
-    inner.selectAll('g.node').each(function(id){
-      var nodeData=g.node(id);
-      var status=nodeData?nodeData.status:'pending';
-      var color=STATUS_COLORS[status]||STATUS_COLORS.pending;
-      d3.select(this).select('rect')
-        .style('fill',nodeFill)
-        .style('stroke',color)
-        .style('stroke-width','2px');
-      d3.select(this).select('text').style('fill',nodeText).style('font-size','13px');
-    });
-
-    inner.selectAll('g.edgePath path')
-      .style('stroke',edgeColor)
-      .style('stroke-dasharray','4 3')
-      .style('fill','none');
-    inner.selectAll('g.edgePath marker path')
-      .style('fill','#707070');
-
-    var svgEl=document.getElementById('dep-graph-svg');
-    var graphWidth=g.graph().width;
-    var graphHeight=g.graph().height;
-    var pad=24;
-    inner.attr('transform','translate('+pad+','+pad+')');
-    svgEl.setAttribute('width',graphWidth+pad*2);
-    svgEl.setAttribute('height',graphHeight+pad*2);
-    svgEl.removeAttribute('viewBox');
-
-    // Improvement 3: click a graph node → scroll to + open its slice card
-    var selectedNode=null;
-    inner.selectAll('g.node').on('click',function(event,id){
-      // Dep-chain highlight toggle
-      if(selectedNode===id){
-        selectedNode=null;
-        applyDepHighlight(inner,g,null);
-      } else {
-        selectedNode=id;
-        applyDepHighlight(inner,g,id);
-      }
-      // Navigate to slice card
-      var target=document.getElementById('slice-'+id);
-      if(target){
-        target.setAttribute('open','');
-        target.scrollIntoView({behavior:'smooth',block:'start'});
-      }
-    });
-
-    // Improvement 4: hover highlights dep-chain (without overriding click selection)
-    inner.selectAll('g.node')
-      .on('mouseover',function(event,id){
-        if(!selectedNode) applyDepHighlight(inner,g,id);
-      })
-      .on('mouseout',function(event){
-        if(!selectedNode) applyDepHighlight(inner,g,null);
-      });
-
-    // Improvement 3 (reverse): clicking a slice nav item highlights the graph node
-    document.querySelectorAll('[data-slice-nav]').forEach(function(link){
-      link.addEventListener('mouseenter',function(){
-        var num=this.dataset.sliceNav;
-        var nodeEl=inner.select('g.node[id="'+num+'"]');
-        if(!nodeEl.empty()) nodeEl.classed('graph-node-ring',true);
-      });
-      link.addEventListener('mouseleave',function(){
-        var num=this.dataset.sliceNav;
-        var nodeEl=inner.select('g.node[id="'+num+'"]');
-        if(!nodeEl.empty()) nodeEl.classed('graph-node-ring',false);
-      });
-    });
-  }
-
-  if(document.readyState==='loading'){
-    document.addEventListener('DOMContentLoaded',renderGraph);
-  } else {
-    renderGraph();
-  }
-})();
+// The client-side graph renderer that used to live here is gone; the graph is
+// server-rendered as a static inline SVG. Node navigation is a plain
+// <a href="#slice-N"> and hover feedback is pure CSS, so the graph works with
+// scripting disabled and in any viewer that will not run JS.
 
 // Chat panel
 // Global markdown renderer — shared by chat bubbles and data-markdown elements

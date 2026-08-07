@@ -930,6 +930,27 @@ func TestAPI_PostFeedback_SliceLevel_Returns200(t *testing.T) {
 	}
 }
 
+// extractStyleBlocks returns the contents of every <style>...</style> block in
+// html, so CSS-specific assertions can be made against the stylesheet without
+// also matching the document markup around it.
+func extractStyleBlocks(html string) []string {
+	var blocks []string
+	rest := html
+	for {
+		open := strings.Index(rest, "<style>")
+		if open < 0 {
+			return blocks
+		}
+		rest = rest[open+len("<style>"):]
+		close := strings.Index(rest, "</style>")
+		if close < 0 {
+			return append(blocks, rest)
+		}
+		blocks = append(blocks, rest[:close])
+		rest = rest[close+len("</style>"):]
+	}
+}
+
 // TestPlanRenderHandler_CSSQuotedSelectorsUnescaped tests that rendered plan CSS
 // contains literal double-quotes in attribute selectors (feat-801f2273 fix).
 // The bug was: .Html() HTML-entity-escapes CSS text, turning input[type="radio"]
@@ -956,10 +977,19 @@ func TestPlanRenderHandler_CSSQuotedSelectorsUnescaped(t *testing.T) {
 		t.Error("CSS should contain literal [type=\"radio\"] selector (double-quote unescaped)")
 	}
 
-	// The output MUST NOT contain HTML-escaped quote entities.
-	// This would indicate .Html() was used instead of .Text().
-	if strings.Contains(out, `&#34;`) || strings.Contains(out, `[type=&#34;radio&#34;]`) {
-		t.Error("CSS should NOT contain HTML-escaped quotes (&#34;) — indicates .Html() bug not fixed")
+	// The CSS MUST NOT contain HTML-escaped quote entities. That would
+	// indicate .Html() was used instead of .Text().
+	//
+	// Scoped to the <style> blocks on purpose: &#34; is correct and expected
+	// elsewhere in the embed. The dependency graph is a static inline SVG
+	// whose <text> elements carry a font-family attribute naming quoted font
+	// families ("SF Mono", "JetBrains Mono"), and those quotes are escaped as
+	// &#34; exactly as an HTML attribute value should be. Asserting over the
+	// whole document would flag that correct markup as the CSS bug.
+	for _, css := range extractStyleBlocks(out) {
+		if strings.Contains(css, `&#34;`) {
+			t.Errorf("CSS should NOT contain HTML-escaped quotes (&#34;) — indicates .Html() bug not fixed; block: %.200s", css)
+		}
 	}
 
 	// Also check for other common double-quoted selectors.

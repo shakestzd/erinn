@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>Hand a plan-review question back to the CLI session instead of chatting in the dashboard</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="feat-e6293f69"
+             data-type="feature"
+             data-status="todo"
+             data-priority="medium"
+             data-created="2026-08-07T21:11:02.965458"
+             data-updated="2026-08-07T21:11:11.119385" data-agent-assigned="claude-code" data-track-id="trk-a951e3c0" data-created-by-agent="claude-code" data-created-by-model="claude-opus-5[1m]" data-created-by-cli-version="0.67.1">
+
+        <header>
+            <h1>Hand a plan-review question back to the CLI session instead of chatting in the dashboard</h1>
+            <div class="metadata">
+                <span class="badge status-todo">Todo</span>
+                <span class="badge priority-medium">Medium Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-a951e3c0.html" data-relationship="part_of" data-since="2026-08-07T21:11:02.980746">trk-a951e3c0</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="caused_by">
+                <h3>Caused By:</h3>
+                <ul>
+                    <li><a href="../features/feat-75580e24.html" data-relationship="caused_by" data-since="2026-08-07T21:11:11.119292">Deprecate the plan-review chat backend</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>Replaces the deprecated Claude-only chat backend. When a reviewer hits a question on a slice, the useful move is returning to their live CLI session to discuss it — not talking to a separate headless model with no session context. Likely substrate already exists: slices carry questions with answers, plan_feedback stores dashboard-side state, and wipnote plan read-feedback-yaml already pipes dashboard feedback back. What is missing is the return affordance — making it obvious and cheap to bounce a specific slice question into the session that is actually doing the work. Harness-agnostic by construction, since the CLI session is whatever harness the user is running.</p>
+        </section>
+    </article>
+</body>
+</html>

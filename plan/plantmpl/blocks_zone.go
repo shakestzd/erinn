@@ -57,12 +57,6 @@ func adapt(b planyaml.SliceBlock) blocks.Block {
 	switch b.Type {
 	case "data-model":
 		return &blocks.DataModel{Name: b.Fields["name"], Columns: rowsToColumns(b.Rows)}
-	case "api-endpoint":
-		return &blocks.APIEndpoint{
-			Method: b.Fields["method"],
-			Path:   b.Fields["path"],
-			Params: rowsToColumns(b.Rows),
-		}
 	case "file-tree":
 		entries := make([]blocks.FileNode, 0, len(b.Entries))
 		for _, e := range b.Entries {
@@ -85,7 +79,7 @@ func adapt(b planyaml.SliceBlock) blocks.Block {
 }
 
 // rowsToColumns maps the generic Rows (name/type/note maps) into the shared
-// Column value used by data-model and api-endpoint renderers.
+// Column value used by data-model renderer.
 func rowsToColumns(rows []map[string]string) []blocks.Column {
 	if len(rows) == 0 {
 		return nil

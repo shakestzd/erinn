@@ -58,19 +58,6 @@ func (d *DataModel) Render(w io.Writer) error {
 	return blockTmpl.ExecuteTemplate(w, "data_model", d)
 }
 
-// APIEndpoint renders an HTTP route (method + path) with optional request /
-// response parameters. It is the wipnote-native "api-endpoint" block.
-type APIEndpoint struct {
-	Method string
-	Path   string
-	Params []Column
-}
-
-// Render writes the api-endpoint block HTML to w.
-func (a *APIEndpoint) Render(w io.Writer) error {
-	return blockTmpl.ExecuteTemplate(w, "api_endpoint", a)
-}
-
 // FileNode is one entry in a FileTree. Change is optional: when empty (plan-time
 // file lists) no change badge is rendered; when set (recap diffs) it carries a
 // "add" / "modify" / "delete" classification that drives a colored badge.

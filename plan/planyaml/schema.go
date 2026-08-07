@@ -245,7 +245,6 @@ type BlockSpec struct {
 // Block types (the wipnote-native vocabulary):
 //
 //	data-model   — an entity/table with named typed columns (Rows: name/type)
-//	api-endpoint — an HTTP route with method+path and request/response params
 //	file-tree    — an ordered list of file paths touched by the slice
 //	wireframe    — an HTML/CSS sketch using design tokens (no raw colors)
 func BlockCatalog() []BlockSpec {
@@ -256,13 +255,6 @@ func BlockCatalog() []BlockSpec {
 			Fields:       []string{"name"},
 			RowKeys:      []string{"name", "type"},
 			RequiresRows: true,
-		},
-		{
-			Type:         "api-endpoint",
-			Description:  "An HTTP route (method + path) with request/response params.",
-			Fields:       []string{"method", "path"},
-			RowKeys:      []string{"name", "type"},
-			RequiresRows: false,
 		},
 		{
 			Type:            "file-tree",

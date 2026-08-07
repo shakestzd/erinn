@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/shakestzd/wipnote/plan/blocks"
+	"github.com/shakestzd/wipnote/plan/planyaml"
 )
 
 func render(t *testing.T, c blocks.Block) string {
@@ -53,38 +54,6 @@ func TestBlocks_DataModel_EscapesInput(t *testing.T) {
 	}
 	if !strings.Contains(html, "&lt;script&gt;") {
 		t.Errorf("expected escaped name, got:\n%s", html)
-	}
-}
-
-func TestBlocks_APIEndpoint(t *testing.T) {
-	ep := &blocks.APIEndpoint{
-		Method: "POST",
-		Path:   "/api/recaps/{id}/render",
-		Params: []blocks.Column{
-			{Name: "id", Type: "string", Note: "recap id"},
-		},
-	}
-	html := render(t, ep)
-	for _, want := range []string{
-		`class="block block-api-endpoint"`,
-		"POST",
-		"/api/recaps/{id}/render",
-		"recap id",
-	} {
-		if !strings.Contains(html, want) {
-			t.Errorf("api-endpoint output missing %q\n%s", want, html)
-		}
-	}
-}
-
-func TestBlocks_APIEndpoint_NoParams(t *testing.T) {
-	ep := &blocks.APIEndpoint{Method: "GET", Path: "/health"}
-	html := render(t, ep)
-	if !strings.Contains(html, "/health") {
-		t.Errorf("expected path in output:\n%s", html)
-	}
-	if strings.Contains(html, "<table") {
-		t.Errorf("expected no params table when Params empty:\n%s", html)
 	}
 }
 
@@ -197,12 +166,42 @@ func TestBlocks_Render_AllImplementBlock(t *testing.T) {
 	// Compile-time + run-time guarantee that all renderers satisfy Block.
 	bs := []blocks.Block{
 		&blocks.DataModel{Name: "X"},
-		&blocks.APIEndpoint{Method: "GET", Path: "/x"},
 		&blocks.FileTree{Entries: []blocks.FileNode{{Path: "a"}}},
 	}
 	for _, b := range bs {
 		if got := render(t, b); got == "" {
 			t.Errorf("%T rendered empty", b)
+		}
+	}
+}
+
+func TestBlockCatalog_NoAPIEndpoint(t *testing.T) {
+	// Verify that api-endpoint is no longer in the block catalog.
+	catalog := planyaml.BlockCatalog()
+
+	// Check that api-endpoint is not in the catalog.
+	for _, spec := range catalog {
+		if spec.Type == "api-endpoint" {
+			t.Errorf("api-endpoint should not be in BlockCatalog, but found: %+v", spec)
+		}
+	}
+
+	// Verify the catalog has the expected remaining types.
+	expectedTypes := map[string]bool{
+		"data-model": false,
+		"file-tree":  false,
+		"wireframe":  false,
+		"diagram":    false,
+		"tabs":       false,
+	}
+	for _, spec := range catalog {
+		if _, ok := expectedTypes[spec.Type]; ok {
+			expectedTypes[spec.Type] = true
+		}
+	}
+	for typeName, found := range expectedTypes {
+		if !found {
+			t.Errorf("expected type %q not found in BlockCatalog", typeName)
 		}
 	}
 }

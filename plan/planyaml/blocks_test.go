@@ -80,17 +80,6 @@ func TestValidate_BlockShapes(t *testing.T) {
 			wantError: false,
 		},
 		{
-			name:      "api-endpoint missing method",
-			block:     SliceBlock{Type: "api-endpoint", Fields: map[string]string{"path": "/users"}},
-			wantError: true,
-			errSubstr: "fields.method is required",
-		},
-		{
-			name:      "valid api-endpoint without rows",
-			block:     SliceBlock{Type: "api-endpoint", Fields: map[string]string{"method": "GET", "path": "/users"}},
-			wantError: false,
-		},
-		{
 			name:      "file-tree missing entries",
 			block:     SliceBlock{Type: "file-tree"},
 			wantError: true,
@@ -249,7 +238,7 @@ func TestBlocks_OmitEmptyWhenAbsent(t *testing.T) {
 // TestBlockCatalog_CoversVocabulary confirms the catalog enumerates the
 // supported block types with stable descriptions.
 func TestBlockCatalog_CoversVocabulary(t *testing.T) {
-	want := map[string]bool{"data-model": false, "api-endpoint": false, "file-tree": false, "wireframe": false, "diagram": false, "tabs": false}
+	want := map[string]bool{"data-model": false, "file-tree": false, "wireframe": false, "diagram": false, "tabs": false}
 	for _, spec := range BlockCatalog() {
 		if _, ok := want[spec.Type]; !ok {
 			t.Errorf("unexpected catalog type %q", spec.Type)

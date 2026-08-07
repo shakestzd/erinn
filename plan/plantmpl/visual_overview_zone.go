@@ -21,7 +21,7 @@ type overviewBlock struct {
 	// Anchor is the stable slice-<num>-block-<type>-<idx> id (same id used by
 	// the per-slice BlocksZone), so the overview anchor links to the owning block.
 	Anchor string
-	// Kind is the block type (e.g. "data-model", "api-endpoint").
+	// Kind is the block type (e.g. "data-model", "file-tree").
 	Kind string
 	// SliceNum is the ordinal number of the owning slice.
 	SliceNum int
@@ -45,8 +45,6 @@ func typeLabel(kind string) string {
 	switch kind {
 	case "data-model":
 		return "Data Models"
-	case "api-endpoint":
-		return "API Endpoints"
 	case "file-tree":
 		return "File Trees"
 	case "wireframe":
@@ -64,8 +62,8 @@ func typeLabel(kind string) string {
 // "headline" zone grouped by block type. It renders ABOVE the dependency graph
 // so blocks are the first thing a reviewer sees when opening the plan.
 //
-// Grouping choice: by block type (all data-models together, all api-endpoints
-// together, etc.). This lets reviewers scan the full API surface or entity
+// Grouping choice: by block type (all data-models together, all file-trees
+// together, etc.). This lets reviewers scan the full block content or entity
 // catalog at a glance — a cross-slice concern that complements the per-slice
 // detail view below.
 //

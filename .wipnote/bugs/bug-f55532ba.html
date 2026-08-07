@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>plan_wire.go and batch.go are two further blocked_by writers that set no metadata, making derived edges indistinguishable from human assertions</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="bug-f55532ba"
+             data-type="bug"
+             data-status="todo"
+             data-priority="low"
+             data-created="2026-08-07T21:39:21.097346"
+             data-updated="2026-08-07T21:39:21.111998" data-agent-assigned="claude-code" data-track-id="trk-08dcbb33" data-created-by-agent="claude-code" data-created-by-model="claude-opus-5[1m]" data-created-by-cli-version="0.67.1">
+
+        <header>
+            <h1>plan_wire.go and batch.go are two further blocked_by writers that set no metadata, making derived edges indistinguishable from human assertions</h1>
+            <div class="metadata">
+                <span class="badge status-todo">Todo</span>
+                <span class="badge priority-low">Low Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-08dcbb33.html" data-relationship="part_of" data-since="2026-08-07T21:39:21.111896">trk-08dcbb33</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>Follow-on to bug-d0489158. A live census of 350 blocked_by edges found 138 (39.4%) confirmed plan-slice artifacts, identifiable because reindex_plan_edges writes a plan_id into metadata. The other 212 are a three-way mix that the schema cannot separate: interactive link add, plus plan_wire.go around lines 140-160 and batch.go around lines 180-198, both of which build a bare models.Edge with no Properties set and so land in the same NULL-metadata bucket as genuine human assertions. Consequence: the true share of non-causal scheduling noise in blocked_by is higher than 39.4% and is not measurable from the data. Fix by having every mechanical writer stamp its origin into metadata, which is already plumbed through collection.go, plans.go and reindex.go but populated by almost nothing.</p>
+        </section>
+    </article>
+</body>
+</html>

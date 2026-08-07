@@ -462,9 +462,14 @@ func TestIsCodexPluginInstalledAt(t *testing.T) {
 	}
 }
 
+// TestCodexPluginDirFromMarketplace verifies source.path resolves relative to
+// the marketplace ROOT (treeRoot), matching real Codex CLI behaviour — see
+// bug-040f0be8. The fixture path "./.agents/plugins/wipnote" is root-relative,
+// mirroring what the codex adapter (port/pluginbuild/codex.go) now emits.
 func TestCodexPluginDirFromMarketplace(t *testing.T) {
 	tmpdir := t.TempDir()
-	marketplaceDir := filepath.Join(tmpdir, "packages", "codex-marketplace", ".agents", "plugins")
+	treeRoot := filepath.Join(tmpdir, "packages", "codex-marketplace")
+	marketplaceDir := filepath.Join(treeRoot, ".agents", "plugins")
 	pluginDir := filepath.Join(marketplaceDir, "wipnote")
 	if err := os.MkdirAll(filepath.Join(pluginDir, ".codex-plugin"), 0755); err != nil {
 		t.Fatalf("MkdirAll plugin: %v", err)
@@ -473,12 +478,12 @@ func TestCodexPluginDirFromMarketplace(t *testing.T) {
 		t.Fatalf("WriteFile plugin manifest: %v", err)
 	}
 	marketplaceJSON := filepath.Join(marketplaceDir, "marketplace.json")
-	body := `{"plugins":[{"name":"wipnote","source":{"source":"local","path":"./wipnote"}}]}`
+	body := `{"plugins":[{"name":"wipnote","source":{"source":"local","path":"./.agents/plugins/wipnote"}}]}`
 	if err := os.WriteFile(marketplaceJSON, []byte(body), 0644); err != nil {
 		t.Fatalf("WriteFile marketplace: %v", err)
 	}
 
-	got, err := codexPluginDirFromMarketplace(marketplaceJSON)
+	got, err := codexPluginDirFromMarketplace(marketplaceJSON, treeRoot)
 	if err != nil {
 		t.Fatalf("codexPluginDirFromMarketplace: %v", err)
 	}
@@ -505,7 +510,7 @@ func TestEnsureCodexLocalPluginInstalled(t *testing.T) {
 		t.Fatalf("WriteFile hooks: %v", err)
 	}
 	marketplaceJSON := filepath.Join(marketplaceDir, "marketplace.json")
-	body := `{"plugins":[{"name":"wipnote","source":{"source":"local","path":"./wipnote"}}]}`
+	body := `{"plugins":[{"name":"wipnote","source":{"source":"local","path":"./.agents/plugins/wipnote"}}]}`
 	if err := os.WriteFile(marketplaceJSON, []byte(body), 0644); err != nil {
 		t.Fatalf("WriteFile marketplace: %v", err)
 	}
@@ -552,7 +557,7 @@ func TestEnsureCodexLocalPluginInstalledFilePathBranch(t *testing.T) {
 		t.Fatalf("WriteFile hooks: %v", err)
 	}
 	marketplaceJSON := filepath.Join(marketplaceDir, "marketplace.json")
-	body := `{"plugins":[{"name":"wipnote","source":{"source":"local","path":"./wipnote"}}]}`
+	body := `{"plugins":[{"name":"wipnote","source":{"source":"local","path":"./.agents/plugins/wipnote"}}]}`
 	if err := os.WriteFile(marketplaceJSON, []byte(body), 0644); err != nil {
 		t.Fatalf("WriteFile marketplace: %v", err)
 	}
@@ -596,7 +601,7 @@ func TestEnsureCodexLocalPluginInstalledDirBranchStillWorks(t *testing.T) {
 		t.Fatalf("WriteFile hooks: %v", err)
 	}
 	marketplaceJSON := filepath.Join(marketplaceDir, "marketplace.json")
-	body := `{"plugins":[{"name":"wipnote","source":{"source":"local","path":"./wipnote"}}]}`
+	body := `{"plugins":[{"name":"wipnote","source":{"source":"local","path":"./.agents/plugins/wipnote"}}]}`
 	if err := os.WriteFile(marketplaceJSON, []byte(body), 0644); err != nil {
 		t.Fatalf("WriteFile marketplace: %v", err)
 	}

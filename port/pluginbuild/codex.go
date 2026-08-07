@@ -62,9 +62,18 @@ func (c codexAdapter) Emit(m *Manifest, repoRoot, outDir string) error {
 	}
 
 	mktPath := filepath.Join(outDir, ".agents", "plugins", "marketplace.json")
-	// source.path is relative to the directory containing marketplace.json.
-	mktDir := filepath.Dir(mktPath)
-	rel, err := filepath.Rel(mktDir, pluginDir)
+	// source.path is relative to the marketplace ROOT directory (outDir) —
+	// i.e. the directory passed to `codex plugin marketplace add`/registered
+	// under [marketplaces.<name>] — NOT the directory containing
+	// marketplace.json. Verified live against codex-cli 0.147.0 (bug-040f0be8):
+	// with a manifest-relative path of "./wipnote", `codex plugin add
+	// wipnote@wipnote` failed with "plugin source path is not a directory:
+	// <root>/wipnote" because Codex joined the declared path onto the
+	// registered marketplace root, not onto .agents/plugins/. Resolving
+	// against outDir here keeps this generator and Codex's own resolution in
+	// agreement; codexPluginDirFromMarketplace (cmd/wipnote/codex.go) must be
+	// kept in agreement with this too.
+	rel, err := filepath.Rel(outDir, pluginDir)
 	if err != nil {
 		return fmt.Errorf("compute relative path for source.path: %w", err)
 	}
@@ -122,7 +131,8 @@ type codexMktPolicyJSON struct {
 }
 
 // writeCodexMarketplace writes marketplace.json to path. sourcePath is the
-// relative path from the marketplace.json directory to the plugin directory.
+// relative path from the marketplace ROOT directory (not the marketplace.json
+// directory — see the Emit doc comment, bug-040f0be8) to the plugin directory.
 func writeCodexMarketplace(m *Manifest, target Target, path, sourcePath string) error {
 	name := target.MarketplaceName
 	if name == "" {

@@ -11,7 +11,7 @@ import (
 // TestCodexMarketplaceJSONEmitted checks that marketplace.json is written at
 // <outDir>/.agents/plugins/marketplace.json with the required fields: non-empty
 // name, non-empty plugins[], and source.path starting with "./" relative to the
-// marketplace.json directory.
+// marketplace ROOT directory (outDir) — see bug-040f0be8.
 func TestCodexMarketplaceJSONEmitted(t *testing.T) {
 	repoRoot := t.TempDir()
 	seedAssets(t, repoRoot)
@@ -170,8 +170,9 @@ func TestCodexAdapterRemovesStaleFilesMarketplace(t *testing.T) {
 
 // TestCodexMarketplaceSourcePathForNestedSubdir verifies that source.path is
 // computed correctly when pluginSubdir is nested deeper than the default
-// .agents/plugins/wipnote. The path should be relative to marketplace.json and
-// use forward slashes.
+// .agents/plugins/wipnote. The path is relative to the marketplace ROOT
+// (outDir) — NOT the marketplace.json directory, see bug-040f0be8 — and uses
+// forward slashes.
 func TestCodexMarketplaceSourcePathForNestedSubdir(t *testing.T) {
 	repoRoot := t.TempDir()
 	seedAssets(t, repoRoot)
@@ -204,7 +205,7 @@ func TestCodexMarketplaceSourcePathForNestedSubdir(t *testing.T) {
 		t.Fatal("marketplace.json: plugins[] must not be empty")
 	}
 	plug := mkt.Plugins[0]
-	expected := "./nested/wipnote"
+	expected := "./.agents/plugins/nested/wipnote"
 	if plug.Source.Path != expected {
 		t.Errorf("plugins[0].source.path = %q, want %q", plug.Source.Path, expected)
 	}

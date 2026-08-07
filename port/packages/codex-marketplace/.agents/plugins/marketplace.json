@@ -8,7 +8,7 @@
       "name": "wipnote",
       "source": {
         "source": "local",
-        "path": "./wipnote"
+        "path": "./.agents/plugins/wipnote"
       },
       "policy": {
         "installation": "AVAILABLE",

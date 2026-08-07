@@ -415,11 +415,16 @@ func ensureCodexLocalPluginInstalled(configPath string, force bool) (bool, error
 
 	// Support both: legacy directory-root registration (manifest under
 	// .agents/plugins/marketplace.json) and new manifest-file registration.
+	// Either way we need the marketplace ROOT (not just the manifest path) —
+	// see codexPluginDirFromMarketplace for why.
 	mktPath := marketplacePath
+	treeRoot := marketplacePath
 	if info, err := os.Stat(mktPath); err == nil && info.IsDir() {
 		mktPath = codexManifestPath(marketplacePath)
+	} else {
+		treeRoot = codexTreeRootFromManifestPath(mktPath)
 	}
-	pluginDir, err := codexPluginDirFromMarketplace(mktPath)
+	pluginDir, err := codexPluginDirFromMarketplace(mktPath, treeRoot)
 	if err != nil {
 		return false, nil
 	}
@@ -429,7 +434,32 @@ func ensureCodexLocalPluginInstalled(configPath string, force bool) (bool, error
 	return true, nil
 }
 
-func codexPluginDirFromMarketplace(marketplaceJSONPath string) (string, error) {
+// codexTreeRootFromManifestPath inverts codexManifestPath: given a
+// marketplace.json path, it returns the marketplace tree root. Handles both
+// the nested layout (<root>/.agents/plugins/marketplace.json) and the legacy
+// flat layout (<root>/marketplace.json).
+func codexTreeRootFromManifestPath(manifestPath string) string {
+	dir := filepath.Dir(manifestPath)
+	if filepath.Base(dir) == "plugins" && filepath.Base(filepath.Dir(dir)) == ".agents" {
+		return filepath.Dir(filepath.Dir(dir))
+	}
+	return dir
+}
+
+// codexPluginDirFromMarketplace resolves a marketplace.json's declared
+// plugin source.path to an actual directory on disk. treeRoot is the
+// marketplace ROOT directory (the directory registered under
+// [marketplaces.<name>], NOT the directory containing marketplace.json).
+//
+// source.path is resolved relative to treeRoot, matching Codex's own
+// resolution — verified live against codex-cli 0.147.0 (bug-040f0be8):
+// `codex plugin add` joins the declared path onto the registered marketplace
+// root, not onto the manifest's own directory. Resolving relative to
+// filepath.Dir(marketplaceJSONPath) instead (as this function used to)
+// silently disagreed with Codex whenever the manifest is nested (e.g. under
+// .agents/plugins/), and must be kept in agreement with the codex adapter's
+// Emit function in port/pluginbuild/codex.go.
+func codexPluginDirFromMarketplace(marketplaceJSONPath, treeRoot string) (string, error) {
 	data, err := os.ReadFile(marketplaceJSONPath)
 	if err != nil {
 		return "", err
@@ -450,7 +480,7 @@ func codexPluginDirFromMarketplace(marketplaceJSONPath string) (string, error) {
 		if plugin.Name != "wipnote" || plugin.Source.Source != "local" || plugin.Source.Path == "" {
 			continue
 		}
-		pluginDir := filepath.Clean(filepath.Join(filepath.Dir(marketplaceJSONPath), plugin.Source.Path))
+		pluginDir := filepath.Clean(filepath.Join(treeRoot, plugin.Source.Path))
 		if _, err := os.Stat(filepath.Join(pluginDir, ".codex-plugin", "plugin.json")); err == nil {
 			return pluginDir, nil
 		}

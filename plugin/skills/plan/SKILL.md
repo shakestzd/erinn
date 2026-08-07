@@ -104,6 +104,8 @@ Each stage elicits the VISUAL block FIRST, then derives prose from it. The block
 
 **Derivation, not duplication:** the prose fields restate the block in narrative form for the slice card; they must stay consistent with the block. If a stage has no natural visual artifact (e.g. a pure non-visual standard slice), say so and proceed to prose directly — do not invent a block to satisfy the form.
 
+**Keep `what` under 91 words** as you accumulate it across stages 1–3 — it's a hard cap in `wipnote plan validate-yaml` (see Prose-Length Caps below). Read straight off the blocks and stop; push elaboration and rejected alternatives into `decisions_notes` instead of padding `what`.
+
 Each stage = the block authoring step + 1-3 questions, in a single native ask-user call where available, or one compact chat question set where it is not.
 
 ### Block-authoring prep (read the live catalog ONCE, up front)
@@ -268,6 +270,16 @@ In each stage, lead with the block-authoring step (per `wipnote plan interview-q
 Write `decisions_notes` inline as the Q&A unfolds — don't retrofit at the end. Capture both the chosen option AND the rejected ones, with a one-line reason for each rejection. Structure with `**Trigger:**` / `**State:**` / `**Payload:**` / `**Rejected:**` headings so `wipnote spec generate --insert` can weave the prose into the spec's `## Decisions` section verbatim.
 
 For standard and complex slices, the validator requires `decisions_notes` >= 50 characters (after `TrimSpace`) when `meta.status != "finalized"`. Empty/short decisions_notes fail `wipnote plan validate-yaml`.
+
+---
+
+## Prose-Length Caps
+
+A corpus audit found `what` alone accounted for 33% of all slice-prose words across every plan in `.wipnote/plans/*.yaml`, at a median of 96 words/slice — prose was inflating instead of staying scannable. `wipnote plan validate-yaml` now enforces a **91-word hard cap on `what`** (`plan/planyaml/validate.go`): over the cap fails validation with the field and actual word count in the message, unless `meta.status == "finalized"` (historical plans are exempt).
+
+Write `what` tight: state the change and where it lands, then move rationale, rejected alternatives, and elaboration into `decisions_notes` — that field has no length cap and is exactly where that detail belongs.
+
+`why`, `done_when`, and `tests` are **advisory only** — `wipnote plan validate-yaml` warns when they run unusually long (each field's own 75th-percentile norm in the same corpus audit: `why` > 48 words, `tests` > 53 words, `done_when` > 77 words summed across its entries) but never fails the build. Treat the warning as a prompt to trim, not a gate.
 
 ---
 

@@ -1052,3 +1052,148 @@ func TestValidateBlockAdvisories_EmptyComplexityDefaultsToStandard_EmitsAdvisory
 		t.Fatal("expected block advisory for slice with empty complexity (defaults to standard) and no blocks, got none")
 	}
 }
+
+// ---- prose-length cap tests (what: hard gate; why/tests/done_when: advisory) ----
+
+// nWords returns a string of n space-separated words, for building fixtures
+// at an exact word count.
+func nWords(n int) string {
+	words := make([]string, n)
+	for i := range words {
+		words[i] = "word"
+	}
+	return strings.Join(words, " ")
+}
+
+// proseCapPlan returns a minimal non-finalized plan with a single standard
+// slice whose `what` is the given word count. All other mandatory fields are
+// populated so only the prose-cap check under test can fire.
+func proseCapPlan(whatWords int) *PlanYAML {
+	return &PlanYAML{
+		Meta: PlanMeta{
+			ID:     "plan-prosecap1",
+			Title:  "Prose Cap Test Plan",
+			Status: "draft",
+		},
+		Design: PlanDesign{
+			Problem:     "A problem.",
+			Goals:       []string{"Goal 1"},
+			Constraints: []string{"Constraint 1"},
+		},
+		Slices: []PlanSlice{
+			{
+				Num:            1,
+				What:           nWords(whatWords),
+				Why:            "Because it matters.",
+				Files:          []string{"internal/foo/bar.go"},
+				DoneWhen:       []string{"It works"},
+				Tests:          "Unit: works",
+				Effort:         "M",
+				Risk:           "Med",
+				Complexity:     "standard",
+				DecisionsNotes: fiftyCharsNotes,
+			},
+		},
+		Questions: []PlanQuestion{},
+	}
+}
+
+func TestValidate_WhatCapFails(t *testing.T) {
+	// The corpus median (measured across .wipnote/plans/*.yaml) is 96 words —
+	// that exact length must fail against the derived 91-word cap, with the
+	// actual count named in the message.
+	plan := proseCapPlan(96)
+	errs := Validate(plan)
+	assertContainsError(t, errs, "slices[0].what")
+	found := false
+	for _, e := range errs {
+		if strings.Contains(e, "slices[0].what") && strings.Contains(e, "96") {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Errorf("expected an error naming slices[0].what and the actual word count (96), got: %v", errs)
+	}
+}
+
+func TestValidate_WhatAtCapPasses(t *testing.T) {
+	// Boundary check: exactly at the cap (91 words) must not fail.
+	plan := proseCapPlan(whatWordCap)
+	errs := Validate(plan)
+	for _, e := range errs {
+		if strings.Contains(e, "slices[0].what") {
+			t.Errorf("what at exactly the cap (%d words) should not fail, got error: %s", whatWordCap, e)
+		}
+	}
+}
+
+func TestValidate_AdvisoryDoesNotFail(t *testing.T) {
+	// An over-length `why` should surface as a non-blocking advisory, and
+	// must never appear in Validate()'s hard-error list (exits zero).
+	plan := proseCapPlan(20)
+	plan.Slices[0].Why = nWords(whyWordAdvisoryCap + 10)
+
+	adv := ValidateProseAdvisories(plan)
+	found := false
+	for _, a := range adv {
+		if strings.Contains(a, "why") {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Errorf("expected a why advisory for over-length prose, got: %v", adv)
+	}
+
+	errs := Validate(plan)
+	for _, e := range errs {
+		if strings.Contains(e, "why") {
+			t.Errorf("over-length why must not fail Validate(), got error: %s", e)
+		}
+	}
+}
+
+func TestValidate_TestsAndDoneWhenAdvisories(t *testing.T) {
+	// tests and done_when follow the same advisory-only pattern as why.
+	plan := proseCapPlan(20)
+	plan.Slices[0].Tests = nWords(testsWordAdvisoryCap + 10)
+	plan.Slices[0].DoneWhen = []string{nWords(doneWhenWordAdvisoryCap + 10)}
+
+	adv := ValidateProseAdvisories(plan)
+	var sawTests, sawDone bool
+	for _, a := range adv {
+		if strings.Contains(a, "tests") {
+			sawTests = true
+		}
+		if strings.Contains(a, "done_when") {
+			sawDone = true
+		}
+	}
+	if !sawTests {
+		t.Errorf("expected a tests advisory for over-length prose, got: %v", adv)
+	}
+	if !sawDone {
+		t.Errorf("expected a done_when advisory for over-length prose, got: %v", adv)
+	}
+
+	errs := Validate(plan)
+	for _, e := range errs {
+		if strings.Contains(e, "tests") || strings.Contains(e, "done_when") {
+			t.Errorf("over-length tests/done_when must not fail Validate(), got error: %s", e)
+		}
+	}
+}
+
+func TestValidate_FinalizedExempt(t *testing.T) {
+	// Finalized plans are exempt from the what cap — without this, the 42
+	// existing legacy finalized plans would retroactively fail validation.
+	plan := proseCapPlan(300)
+	plan.Meta.Status = "finalized"
+	errs := Validate(plan)
+	for _, e := range errs {
+		if strings.Contains(e, "what") {
+			t.Errorf("finalized plan with long what should not fail, got error: %s", e)
+		}
+	}
+}

@@ -13,6 +13,45 @@ import (
 // properties like var(--color-fg)) instead — see validateWireframeBlock.
 var rawColorRe = regexp.MustCompile(`(?i)#[0-9a-f]{3,8}\b|\brgba?\(|\bhsla?\(`)
 
+// wordCount returns the number of whitespace-delimited words in s. Backs the
+// prose-length checks below: the whatWordCap hard gate and the advisory caps
+// for why/tests/done_when.
+func wordCount(s string) int {
+	return len(strings.Fields(s))
+}
+
+// whatWordCap is the maximum word count for a slice's `what` field before
+// wipnote plan validate-yaml rejects it.
+//
+// Derivation (not asserted — measured): a prose audit of every slice across
+// .wipnote/plans/*.yaml (46 plans, 289 slices, 2026-08-07) found `what`
+// word-counted to 33% of all slice-prose words in the corpus, at a median of
+// 96 words/slice — plans were inflating narrative well past scannable length.
+// Full `what` distribution: p10=33 p25=56 p45=91 p50(median)=96 p60=115
+// p75=144 p90=198 p95=224 words (n=289).
+//
+// The cap is set at 91 words — the corpus's 45th percentile:
+//   - 131/289 = 45.3% of EXISTING slices already comply without being
+//     rewritten, proving the target is achievable rather than aspirational
+//     (a prior draft asserting "~40 words" with no basis was rejected for
+//     exactly this reason).
+//   - It sits just below the measured median (96), so the median-length slice
+//     from the audit itself fails the check — the cap has real teeth, not
+//     just theoretical ones.
+const whatWordCap = 91
+
+// Advisory-only prose-length norms for why/tests/done_when, derived the same
+// way as whatWordCap (each field's own 75th percentile across the same
+// .wipnote/plans/*.yaml corpus audit; done_when is summed across its entries
+// per slice). These fields were not the ones flagged as disproportionately
+// inflating plan prose, so they only warn via ValidateProseAdvisories — they
+// never fail wipnote plan validate-yaml.
+const (
+	whyWordAdvisoryCap      = 48 // p75 of why word counts (n=289)
+	testsWordAdvisoryCap    = 53 // p75 of tests word counts (n=279, empty tests excluded)
+	doneWhenWordAdvisoryCap = 77 // p75 of per-slice done_when total word counts (n=289)
+)
+
 // validateBlock checks one SliceBlock's shape against BlockCatalog. The block's
 // type must be a known catalog entry; required scalar fields, row keys, and
 // entries are enforced per the spec. Returns a (possibly empty) error slice.
@@ -112,6 +151,12 @@ func hasAnsweredQuestion(qs []SliceQuestion) bool {
 // complexity. The decisions_notes requirement is gated on
 // plan.Meta.Status != "finalized" so historical finalized plans (which
 // never carried decisions_notes) continue to validate clean.
+//
+// Prose-length gate: `what` fails when it exceeds whatWordCap words, gated
+// the same way as decisions_notes (plan.Meta.Status != "finalized") so
+// legacy finalized plans are exempt. See whatWordCap's doc comment for the
+// empirical basis. why/tests/done_when are never hard-failed for length —
+// see ValidateProseAdvisories for their non-blocking equivalent.
 func Validate(plan *PlanYAML) []string {
 	var errs []string
 	if plan.Meta.ID == "" {
@@ -221,6 +266,16 @@ func Validate(plan *PlanYAML) []string {
 				if len(strings.TrimSpace(s.DecisionsNotes)) < 50 {
 					errs = append(errs, prefix+".decisions_notes is required (>=50 chars) for standard slices")
 				}
+			}
+		}
+
+		// Prose-length gate: `what` was measured to be 33% of all slice-prose
+		// words in the corpus (see whatWordCap doc comment). Enforced only on
+		// non-finalized plans — the 42 historical finalized plans pre-date the
+		// cap and must not retroactively fail validation.
+		if plan.Meta.Status != "finalized" {
+			if wc := wordCount(s.What); wc > whatWordCap {
+				errs = append(errs, fmt.Sprintf("%s.what is %d words, exceeds the %d-word cap (trim into decisions_notes, or split the slice)", prefix, wc, whatWordCap))
 			}
 		}
 
@@ -463,6 +518,50 @@ func ValidateBlockAdvisories(plan *PlanYAML) []string {
 			adv = append(adv, fmt.Sprintf(
 				"slices[%d] (%s, %s) has no visual blocks — blocks should be authored during the interview (blocks-first): add grounded data-model/api-endpoint/file-tree/wireframe blocks, or run `wipnote:visual-plan` to enrich this slice after the fact",
 				i, id, complexity,
+			))
+		}
+	}
+	return adv
+}
+
+// ValidateProseAdvisories returns NON-BLOCKING advisories for slices whose
+// why/tests/done_when prose runs unusually long — over that field's own
+// 75th-percentile norm in the .wipnote/plans/*.yaml corpus audit (see
+// whyWordAdvisoryCap/testsWordAdvisoryCap/doneWhenWordAdvisoryCap). Unlike
+// whatWordCap, these never fail wipnote plan validate-yaml — `what` was the
+// field measured to be disproportionately inflating plan prose (33% of all
+// slice-prose words); why/tests/done_when only warn, mirroring the pattern
+// established by ValidateBlockAdvisories/ValidateResearchAdvisories.
+func ValidateProseAdvisories(plan *PlanYAML) []string {
+	if plan == nil {
+		return nil
+	}
+	var adv []string
+	for i, s := range plan.Slices {
+		id := s.ID
+		if id == "" {
+			id = fmt.Sprintf("num=%d", s.Num)
+		}
+		if wc := wordCount(s.Why); wc > whyWordAdvisoryCap {
+			adv = append(adv, fmt.Sprintf(
+				"slices[%d] (%s): why is %d words — over the %d-word norm; consider trimming into decisions_notes",
+				i, id, wc, whyWordAdvisoryCap,
+			))
+		}
+		if wc := wordCount(s.Tests); wc > testsWordAdvisoryCap {
+			adv = append(adv, fmt.Sprintf(
+				"slices[%d] (%s): tests is %d words — over the %d-word norm; consider trimming",
+				i, id, wc, testsWordAdvisoryCap,
+			))
+		}
+		doneWC := 0
+		for _, d := range s.DoneWhen {
+			doneWC += wordCount(d)
+		}
+		if doneWC > doneWhenWordAdvisoryCap {
+			adv = append(adv, fmt.Sprintf(
+				"slices[%d] (%s): done_when is %d words total — over the %d-word norm; consider trimming or splitting criteria",
+				i, id, doneWC, doneWhenWordAdvisoryCap,
 			))
 		}
 	}

@@ -60,6 +60,24 @@ type candidateRoot struct {
 	label string
 }
 
+// userCacheBase returns the base directory that holds wipnote's per-project
+// cache (the parent of the "wipnote/" subdir).
+//
+// os.UserCacheDir already honors XDG_CACHE_HOME on Unix, but on macOS it
+// returns ~/Library/Caches and ignores XDG_CACHE_HOME entirely. Honor an
+// absolute XDG_CACHE_HOME explicitly so the cache location is overridable on
+// every platform, mirroring how the local-share root honors XDG_DATA_HOME in
+// candidateRoots. This keeps behavior identical on Linux (where os.UserCacheDir
+// already returns an absolute XDG_CACHE_HOME) while making the cache root
+// injectable on macOS. A relative XDG_CACHE_HOME is ignored — os.UserCacheDir
+// treats it as an error, and we match that by falling through to it.
+func userCacheBase() (string, error) {
+	if xdg := os.Getenv("XDG_CACHE_HOME"); xdg != "" && filepath.IsAbs(xdg) {
+		return xdg, nil
+	}
+	return os.UserCacheDir()
+}
+
 // candidateRoots returns the ordered list of candidate root directories for
 // the DB cache. Priority:
 //  1. os.UserCacheDir()  (persistent, managed by `wipnote cache prune`)
@@ -70,7 +88,7 @@ type candidateRoot struct {
 func candidateRoots() []candidateRoot {
 	var roots []candidateRoot
 
-	if cacheDir, err := os.UserCacheDir(); err == nil {
+	if cacheDir, err := userCacheBase(); err == nil {
 		roots = append(roots, candidateRoot{dir: cacheDir, label: "user-cache"})
 	}
 
@@ -175,7 +193,7 @@ func CanonicalDBPathWithInfo(projectDir string) (DBPathInfo, error) {
 
 	// 3. No WAL-safe candidate found. Use UserCacheDir or /tmp as deterministic
 	// fallback with DELETE-mode diagnostics.
-	fallbackDir, err := os.UserCacheDir()
+	fallbackDir, err := userCacheBase()
 	if err != nil {
 		if tmpDir := os.Getenv("TMPDIR"); tmpDir != "" {
 			fallbackDir = tmpDir

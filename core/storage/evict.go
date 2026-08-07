@@ -40,7 +40,7 @@ type CacheEntry struct {
 // <UserCacheDir>/wipnote. The WIPNOTE_DB_PATH override is intentionally
 // ignored — it points at a single DB file, not a project-keyed cache root.
 func CacheRoot() (string, error) {
-	cache, err := os.UserCacheDir()
+	cache, err := userCacheBase()
 	if err != nil {
 		return "", fmt.Errorf("locate user cache dir: %w", err)
 	}

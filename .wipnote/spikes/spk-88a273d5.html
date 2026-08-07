@@ -10,37 +10,38 @@
 <body>
     <article id="spk-88a273d5"
              data-type="spike"
-             data-status="in-progress"
+             data-status="done"
              data-priority="high"
              data-created="2026-08-07T15:13:12.997208"
-             data-updated="2026-08-07T16:59:12.022583" data-agent-assigned="claude-code" data-track-id="trk-1db7bf72" data-created-by-agent="claude-code" data-created-by-model="claude-opus-5[1m]" data-created-by-cli-version="0.67.1">
+             data-updated="2026-08-07T17:10:17.13109" data-agent-assigned="claude-code" data-track-id="trk-1db7bf72" data-created-by-agent="claude-code" data-created-by-model="claude-opus-5[1m]" data-created-by-cli-version="0.67.1">
 
         <header>
             <h1>Evaluate Claude Code distributed tracing as a native source for causal lineage</h1>
             <div class="metadata">
-                <span class="badge status-in-progress">In Progress</span>
+                <span class="badge status-done">Done</span>
                 <span class="badge priority-high">High Priority</span>
             </div>
         </header>
 
         <nav data-graph-edges>
-            <section data-edge-type="part_of">
-                <h3>Part Of:</h3>
-                <ul>
-                    <li><a href="../tracks/trk-1db7bf72.html" data-relationship="part_of" data-since="2026-08-07T15:13:13.006469">trk-1db7bf72</a></li>
-                </ul>
-            </section>
             <section data-edge-type="implemented_in">
                 <h3>Implemented In:</h3>
                 <ul>
                     <li><a href="../sessions/419cfccb-620d-4bb6-b2df-6b449496b630.html" data-relationship="implemented_in" data-since="2026-08-07T16:59:12.022489">session 419cfccb-620d-4bb6-b2df-6b449496b630</a></li>
                 </ul>
             </section>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-1db7bf72.html" data-relationship="part_of" data-since="2026-08-07T15:13:13.006469">trk-1db7bf72</a></li>
+                </ul>
+            </section>
         </nav>
 
         <section data-content>
             <h3>Description</h3>
-            <p>The strongest strategic find in the survey. Claude Code&#39;s tracing beta emits a root interaction span per prompt, with tool and llm_request spans carrying agent_id AND parent_agent_id, nesting to any depth — a complete agent spawn tree emitted by the harness with no correlation work. That is wipnote&#39;s headline capability, upstream. Also: the active tool execution&#39;s W3C TRACEPARENT is inherited by Bash subprocesses, so every wipnote CLI call from a hook already has trace context in its environment. And hook spans report hook_event, duration_ms and num_blocking — direct instrumentation for write-lock contention. Evaluate what wipnote should consume versus keep deriving itself.</p>
+            <p>The strongest strategic find in the survey. Claude Code&#39;s tracing beta emits a root interaction span per prompt, with tool and llm_request spans carrying agent_id AND parent_agent_id, nesting to any depth — a complete agent spawn tree emitted by the harness with no correlation work. That is wipnote&#39;s headline capability, upstream. Also: the active tool execution&#39;s W3C TRACEPARENT is inherited by Bash subprocesses, so every wipnote CLI call from a hook already has trace context in its environment. And hook spans report hook_event, duration_ms and num_blocking — direct instrumentation for write-lock contention. Evaluate what wipnote should consume versus keep deriving itself.
+[2026-08-07 17:10 claude-code] accepted-advisory (provenance override): research spike, no source changes</p>
         </section>
     </article>
 </body>

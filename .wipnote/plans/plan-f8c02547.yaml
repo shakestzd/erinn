@@ -6,7 +6,7 @@ meta:
     created_at: ""
     status: active
     schema_version: v4
-    version: 11
+    version: 12
 design:
     problem: |
         Plan documents are not read. Measured over 45 plans and 282 slices: what,
@@ -414,6 +414,7 @@ slices:
             - name: critic_revisions
               type: deprecated — read for compat, never appended
     - id: slice-5
+      feature_id: feat-affb268c
       num: 5
       title: Prose caps in schema validation, with author-facing guidance
       what: |
@@ -449,6 +450,7 @@ slices:
       comment: ""
       research_waiver: Validation rules over wipnote's own schema; the threshold is derived from wipnote's own corpus, so no external standard or dependency applies.
       approval_status: approved
+      execution_status: promoted
       critic_revisions:
         - source: claude-feasibility
           severity: MED

@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>Retire the wipnote.agent_id relay; keep the staging table for agent_type and out-of-order spans</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="feat-fb02d94d"
+             data-type="feature"
+             data-status="todo"
+             data-priority="medium"
+             data-created="2026-08-07T17:47:00.26923"
+             data-updated="2026-08-07T17:47:00.296752" data-agent-assigned="claude-code" data-track-id="trk-1db7bf72" data-created-by-agent="claude-code" data-created-by-model="claude-opus-5[1m]" data-created-by-cli-version="0.67.1">
+
+        <header>
+            <h1>Retire the wipnote.agent_id relay; keep the staging table for agent_type and out-of-order spans</h1>
+            <div class="metadata">
+                <span class="badge status-todo">Todo</span>
+                <span class="badge priority-medium">Medium Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-1db7bf72.html" data-relationship="part_of" data-since="2026-08-07T17:47:00.29666">trk-1db7bf72</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>spk-02fa2e35 verdict was PARTIAL. Native Claude span agent_id is byte-identical to the SubagentStart hook&#39;s own agent_id, stays correctly distinct across three concurrent subagents, survives claude --worktree, and carries a correct parent_agent_id at nesting depth 2 (previously doc-only, now empirically confirmed). So the OTEL_RESOURCE_ATTRIBUTES relay in core/hooks/attribution.go — the CLAUDE_ENV_FILE path plus the worktree hint-file fallback — can be retired. Do NOT remove pending_subagent_starts or the orphan-placeholder logic in observe/otel/receiver/writer.go: a captured 4-batch OTLP export showed a subagent&#39;s agent_id-bearing span arriving before its own parent tool span, with the root interaction span last, and no span ever carries agent_type, so the staging table remains the only source of that field. Pairs with feat-3447b398, which promotes the attributes to typed UnifiedSignal fields — do that first.</p>
+        </section>
+    </article>
+</body>
+</html>

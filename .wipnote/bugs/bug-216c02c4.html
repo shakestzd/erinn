@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>session implements edge is written only to SQLite with no HTML representation — 43 edges wiped on rebuild</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="bug-216c02c4"
+             data-type="bug"
+             data-status="todo"
+             data-priority="high"
+             data-created="2026-08-07T23:39:41.838594"
+             data-updated="2026-08-07T23:39:41.849349" data-agent-assigned="claude-code" data-track-id="trk-08dcbb33" data-created-by-agent="claude-code" data-created-by-model="claude-opus-5[1m]" data-created-by-cli-version="0.67.1">
+
+        <header>
+            <h1>session implements edge is written only to SQLite with no HTML representation — 43 edges wiped on rebuild</h1>
+            <div class="metadata">
+                <span class="badge status-todo">Todo</span>
+                <span class="badge priority-high">High Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-08dcbb33.html" data-relationship="part_of" data-since="2026-08-07T23:39:41.849261">trk-08dcbb33</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>autoImplementedInEdge in cmd/wipnote/workitem_edges.go writes the forward implemented_in edge through the normal Collection path (HTML plus SQLite), but the reverse implements edge is written with a bare dbpkg.InsertEdge call and no session-HTML mutation. Session HTML files carry a nav data-graph-edges block that is a permanently empty template placeholder. This is a genuine born-in-SQLite edge with no canonical representation, directly violating the stated architecture. Empirically confirmed: session implements went 43 to 0 after a full reindex on unchanged HTML — the entire category wiped, unrecoverable. Either write the edge into session HTML, or stop treating the session nav block as a placeholder.</p>
+        </section>
+    </article>
+</body>
+</html>

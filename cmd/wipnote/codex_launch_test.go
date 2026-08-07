@@ -215,6 +215,46 @@ func TestBuildCodexArgs_PutsYoloBeforeResume(t *testing.T) {
 	}
 }
 
+func TestBuildCodexArgs_YoloPassesBothBypassFlags(t *testing.T) {
+	got := buildCodexArgs(codexLaunchOpts{
+		Yolo: true,
+	}, 0, nil)
+
+	approvalsIdx := indexOf(got, "--dangerously-bypass-approvals-and-sandbox")
+	trustIdx := indexOf(got, "--dangerously-bypass-hook-trust")
+
+	if approvalsIdx < 0 {
+		t.Fatalf("expected --dangerously-bypass-approvals-and-sandbox flag in %v", got)
+	}
+	if trustIdx < 0 {
+		t.Fatalf("expected --dangerously-bypass-hook-trust flag in %v", got)
+	}
+	// Both flags should be present before any subcommand
+	for i, arg := range got {
+		if arg == "resume" || arg == "exec" {
+			if i < approvalsIdx || i < trustIdx {
+				t.Fatalf("expected both bypass flags before subcommands, got %v", got)
+			}
+		}
+	}
+}
+
+func TestBuildCodexArgs_NonYoloOmitsBypassFlags(t *testing.T) {
+	got := buildCodexArgs(codexLaunchOpts{
+		ResumeLast: true,
+	}, 0, nil)
+
+	approvalsIdx := indexOf(got, "--dangerously-bypass-approvals-and-sandbox")
+	trustIdx := indexOf(got, "--dangerously-bypass-hook-trust")
+
+	if approvalsIdx >= 0 {
+		t.Fatalf("expected no --dangerously-bypass-approvals-and-sandbox flag in non-yolo mode, got %v", got)
+	}
+	if trustIdx >= 0 {
+		t.Fatalf("expected no --dangerously-bypass-hook-trust flag in non-yolo mode, got %v", got)
+	}
+}
+
 func TestBuildCodexArgs_PutsSandboxOverrideBeforeResume(t *testing.T) {
 	got := buildCodexArgs(codexLaunchOpts{
 		ResumeLast:  true,

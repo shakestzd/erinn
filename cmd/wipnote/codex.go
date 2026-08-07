@@ -1723,6 +1723,7 @@ func buildCodexArgs(opts codexLaunchOpts, otelPort int, instructionArgs []string
 	args = append(args, instructionArgs...)
 	if opts.Yolo {
 		args = append(args, "--dangerously-bypass-approvals-and-sandbox")
+		args = append(args, "--dangerously-bypass-hook-trust")
 	} else if opts.SandboxMode != "" {
 		args = append(args, "--sandbox", opts.SandboxMode)
 	}

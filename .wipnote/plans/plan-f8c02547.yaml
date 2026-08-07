@@ -6,7 +6,7 @@ meta:
     created_at: ""
     status: active
     schema_version: v4
-    version: 10
+    version: 11
 design:
     problem: |
         Plan documents are not read. Measured over 45 plans and 282 slices: what,
@@ -341,6 +341,7 @@ slices:
             - plan/blocks/templates/file_tree.gohtml
             - plan/blocks/blocks_test.go
     - id: slice-4
+      feature_id: feat-0281c774
       num: 4
       title: Critique revises slices in place instead of appending
       what: |
@@ -375,6 +376,7 @@ slices:
       comment: ""
       research_waiver: Internal write-path and schema change against wipnote's own YAML; no external library, standard or API applies.
       approval_status: approved
+      execution_status: promoted
       critic_revisions:
         - source: claude-design
           severity: LOW

@@ -119,7 +119,10 @@ func translateCodexAgent(filename string, raw []byte) (codexAgentTOML, error) {
 		return codexAgentTOML{}, fmt.Errorf("description is required")
 	}
 
-	model, effort := mapCodexAgentModel(asset.Model)
+	model, effort, err := mapCodexAgentModel(asset.Model)
+	if err != nil {
+		return codexAgentTOML{}, fmt.Errorf("map model %q: %w", asset.Model, err)
+	}
 	return codexAgentTOML{
 		Name:                  codexAgentName(asset.Name),
 		Description:           asset.Description,
@@ -167,18 +170,23 @@ func codexSandboxMode(asset AgentAsset) string {
 	return "read-only"
 }
 
-func mapCodexAgentModel(model string) (string, string) {
+func mapCodexAgentModel(model string) (string, string, error) {
 	model = strings.TrimSpace(model)
+	// Empty model means the field was absent; inherit harness default
+	if model == "" {
+		return "", "", nil
+	}
 	switch model {
 	case "haiku":
-		return "gpt-5.4-mini", "low"
+		return "gpt-5.4-mini", "low", nil
 	case "sonnet":
-		return "gpt-5.4", "medium"
+		return "gpt-5.4", "medium", nil
 	case "opus":
-		return "gpt-5.5", "high"
+		return "gpt-5.5", "high", nil
 	}
 	if strings.HasPrefix(model, "gpt-") {
-		return model, ""
+		return model, "", nil
 	}
-	return "", ""
+	// Present but unrecognized alias is an error
+	return "", "", fmt.Errorf("unknown model alias %q; use one of: haiku, sonnet, opus, or a gpt-* model ID", model)
 }

@@ -141,23 +141,72 @@ maxTurns: 20
 	}
 }
 
+func TestTranslateCodexAgentUnknownModelFails(t *testing.T) {
+	raw := []byte(`---
+name: feature-coder
+description: Balanced code execution agent
+model: claude
+tools:
+  - Read
+  - Edit
+---
+
+# Feature Coder Agent
+`)
+
+	_, err := translateCodexAgent("feature-coder.md", raw)
+	if err == nil {
+		t.Fatalf("translateCodexAgent should fail with unknown model alias")
+	}
+	if !strings.Contains(err.Error(), "unknown model alias") {
+		t.Errorf("error message doesn't mention unknown model alias: %v", err)
+	}
+}
+
+func TestTranslateCodexAgentAbsentModelSucceeds(t *testing.T) {
+	raw := []byte(`---
+name: feature-coder
+description: Balanced code execution agent
+tools:
+  - Read
+  - Edit
+---
+
+# Feature Coder Agent
+`)
+
+	agent, err := translateCodexAgent("feature-coder.md", raw)
+	if err != nil {
+		t.Fatalf("translateCodexAgent with absent model should succeed: %v", err)
+	}
+	if agent.Model != "" {
+		t.Errorf("absent model should remain empty, got %q", agent.Model)
+	}
+}
+
 func TestMapCodexAgentModelAliases(t *testing.T) {
 	tests := []struct {
 		name       string
 		model      string
 		wantModel  string
 		wantEffort string
+		wantErr    bool
 	}{
-		{name: "fast", model: "haiku", wantModel: "gpt-5.4-mini", wantEffort: "low"},
-		{name: "balanced", model: "sonnet", wantModel: "gpt-5.4", wantEffort: "medium"},
-		{name: "deep", model: "opus", wantModel: "gpt-5.5", wantEffort: "high"},
-		{name: "native", model: "gpt-5.3-codex", wantModel: "gpt-5.3-codex", wantEffort: ""},
-		{name: "inherit", model: "", wantModel: "", wantEffort: ""},
+		{name: "fast", model: "haiku", wantModel: "gpt-5.4-mini", wantEffort: "low", wantErr: false},
+		{name: "balanced", model: "sonnet", wantModel: "gpt-5.4", wantEffort: "medium", wantErr: false},
+		{name: "deep", model: "opus", wantModel: "gpt-5.5", wantEffort: "high", wantErr: false},
+		{name: "native", model: "gpt-5.3-codex", wantModel: "gpt-5.3-codex", wantEffort: "", wantErr: false},
+		{name: "inherit", model: "", wantModel: "", wantEffort: "", wantErr: false},
+		{name: "unknown", model: "claude", wantModel: "", wantEffort: "", wantErr: true},
+		{name: "invalid", model: "invalid-alias", wantModel: "", wantEffort: "", wantErr: true},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			gotModel, gotEffort := mapCodexAgentModel(tt.model)
-			if gotModel != tt.wantModel || gotEffort != tt.wantEffort {
+			gotModel, gotEffort, gotErr := mapCodexAgentModel(tt.model)
+			if (gotErr != nil) != tt.wantErr {
+				t.Fatalf("mapCodexAgentModel(%q) error = %v, want error=%v", tt.model, gotErr, tt.wantErr)
+			}
+			if gotErr == nil && (gotModel != tt.wantModel || gotEffort != tt.wantEffort) {
 				t.Fatalf("mapCodexAgentModel(%q) = (%q, %q), want (%q, %q)", tt.model, gotModel, gotEffort, tt.wantModel, tt.wantEffort)
 			}
 		})

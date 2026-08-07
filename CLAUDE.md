@@ -49,6 +49,16 @@ For users who want bare `claude` to route through wipnote globally, opt-in via `
 
 ---
 
+## Launching Codex with wipnote
+
+```bash
+wipnote codex   # launches Codex CLI with wipnote plugin
+```
+
+Codex hooks (such as `SessionStart`, `UserPromptSubmit`, etc.) are delivered via the wipnote plugin's bundled `hooks.json` file. The plugin registration process (`wipnote codex --init`) also mirrors wipnote's agent definitions into Codex's user config directory (`~/.codex/agents/`). On every launch, `pruneCodexGlobalHooksFromCache` removes any legacy hook mirror entries from `~/.codex/hooks.json` that may have been installed by older wipnote versions, ensuring the plugin's hooks are the single source of truth.
+
+---
+
 ## Dev Mode
 
 ```bash

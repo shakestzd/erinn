@@ -2,17 +2,438 @@ meta:
     id: plan-f8c02547
     track_id: trk-a951e3c0
     title: 'Plans that read as maps: static SVG blocks, in-place critique, prose caps'
-    description: Redesign the plan document so it conveys structure visually instead of as prose. Add a real drawing primitive (static inline SVG generated in Go) covering the dependency graph, indented file-tree and drawn diagram edges; make critique revise slices in place rather than appending; cap slice prose and push detail to specs; harden the non-blocking block gate at the default complexity tier; drop the never-used api-endpoint block type. Grounded in spk-52c8a7a8 measurements over 45 plans and 282 slices.
-    created_at: "2026-08-07"
+    description: ""
+    created_at: ""
     status: draft
-    priority: medium
     schema_version: v4
-    version: 2
+    version: 1
 design:
-    problem: ""
-    goals: []
-    constraints: []
+    problem: |
+        Plan documents are not read. Measured over 45 plans and 282 slices: what,
+        done_when, why and tests are 74.8% of all words; median plan is 9.3 minutes
+        of reading and the worst is 27. Words per slice rose 77% while slices per
+        plan fell 22% — plans are not getting structurally complex, individual
+        slices are getting verbose, because critique appends instead of revising.
+
+        The "visual" block catalog does not draw. All 34 rendered block instances in
+        the corpus contain zero svg or canvas elements, by explicit design
+        (plan/blocks/diagram.go: "deliberately Mermaid-free... no SVG
+        text-measurement"). file-tree has no indentation logic at all, so 3 files and
+        30 files render identically flat; diagram joins bordered divs with a Unicode
+        arrow glyph rather than a drawn edge. The one component with real rendering
+        machinery — the dependency graph — emits an EMPTY svg and is built
+        client-side by d3 plus dagre-d3 from a display:none data island, so it is
+        invisible in archived, offline and no-JS views.
+
+        Block adoption is NOT the problem: blocks-first shipped 2026-06-21 and 43 of
+        45 plans predate it; the single organic post-launch plan reached 8 of 8
+        block coverage unenforced. The feature works as designed. The design
+        produces text.
+    goals:
+        - 'Give the block catalog a real drawing primitive: static inline SVG generated in Go at render time.'
+        - Make the dependency graph exist in the committed artifact, readable with no JavaScript.
+        - 'Stop per-slice prose inflation at its source: critique revises in place, and `what` is capped.'
+        - Close the default-tier block gap without breaking in-flight drafts.
+        - 'Remove catalog dead weight: api-endpoint has never been used in 282 slices.'
+    constraints:
+        - No new runtime dependency. gonum is not in go.mod; adding it for a topological sort is disproportionate.
+        - 'Output must be self-contained: no external font, script, stylesheet or network fetch.'
+        - Legacy plans re-render lazily on next mutation — no flag-day batch rewrite of the 42 existing files.
+        - 'Must not break plan review: the feedback DOM contract (data-section, data-block-anchor, anchor scheme) is load-bearing.'
+        - Generated plan HTML is also the retrieval corpus for `wipnote relevant` and `wipnote find` — parseability must be preserved.
     approved: false
     comment: ""
-slices: []
+    research:
+        - url: https://github.com/terrastruct/d2/blob/master/d2layouts/d2dagrelayout/layout.go
+          claim: terrastruct/d2 does not port dagre to Go — it go:embeds dagre.js and runs it in a JS runtime. Strong evidence against attempting a full dagre port; favours a small hand-written layered layout at wipnote's scale.
+          accessed: "2026-08-06"
+        - url: https://pkg.go.dev/gonum.org/v1/gonum/graph/layout
+          claim: gonum's only layout algorithms are EadesR2 (force-directed) and IsomapR2 (MDS). Neither is a layered/hierarchical DAG layout, so gonum cannot render dependency depth legibly. Rejected.
+          accessed: "2026-08-06"
+        - url: https://github.com/ajstarks/svgo
+          claim: The most popular Go SVG library is unmaintained since 2022-12-09 and is CC-BY-4.0 licensed — an attribution-encumbered license atypical for a code dependency. Under the hood it is fmt.Fprintf tag writing, adding no capability over text/template.
+          accessed: "2026-08-06"
+        - url: https://github.com/zkrebbekx/go-mermaid
+          claim: The only pure-Go Mermaid renderer found is under two months old (created 2026-06-13), pre-1.0, 2 stars, single maintainer. Not a responsible dependency for canonical committed artifacts; revisit in 6-12 months.
+          accessed: "2026-08-06"
+slices:
+    - id: slice-1
+      num: 1
+      title: SVG primitive package — emission helpers and deterministic text metrics
+      what: |
+        New plan/blocks/svg package: typed helpers emitting rect, text, line, path
+        and group elements into an io.Writer, plus exact label-width arithmetic
+        from a monospace face. No new dependency.
+      why: |
+        Every other slice needs a drawing primitive. Today none exists — the block
+        catalog can only emit tables, lists and bordered divs, which is the root
+        cause of plans reading as text.
+      files:
+        - plan/blocks/svg/svg.go
+        - plan/blocks/svg/metrics.go
+        - plan/blocks/svg/svg_test.go
+      deps: []
+      done_when:
+        - Helpers emit well-formed SVG with all label text passed through html.EscapeString.
+        - Label width is computed as charCount times a fixed advance, exact for the chosen monospace family.
+        - Output contains no external font, script, stylesheet or network reference.
+        - Colors are emitted as CSS custom properties so both themes work without duplicate markup.
+      effort: M
+      risk: Low
+      tests: |
+        Unit: TestEmit_EscapesLabels — angle brackets and ampersands in node labels
+        render as entities, not raw markup.
+        Unit: TestMeasure_MonospaceExact — width of an n-character label equals
+        n times the advance constant.
+        Unit: TestEmit_NoExternalRefs — golden output contains no http, @import or
+        <script>.
+      complexity: complex
+      approved: false
+      comment: ""
+      research:
+        - url: https://github.com/ajstarks/svgo
+          claim: 'Rejected: last push 2022-12-09, CC-BY-4.0 license, and implemented as fmt.Fprintf tag writing — no capability over text/template.'
+          accessed: "2026-08-06"
+        - url: https://pkg.go.dev/golang.org/x/image/font/basicfont
+          claim: Self-contained public-domain bitmap face with fixed 7px advance — the fallback if proportional measurement is ever needed. Not required while labels are monospace.
+          accessed: "2026-08-06"
+      questions:
+        - id: q-escape
+          text: Should label text be escaped in the primitive layer or by callers?
+          answer: In the primitive layer. Slice titles are author-controlled prose and have already caused a real bug — bug-37801e41, 'Plan renderer strips literal angle-brackets'. Escaping once at the boundary prevents every caller from having to remember.
+      decisions_notes: |
+        **Trigger:** called by the layout and block renderers at plan render time,
+        never at request time — output is baked into the committed HTML.
+        **State:** none. Pure functions from data to markup.
+        **Payload:** SVG element fragments written to an io.Writer, composed by callers.
+        **Rejected:** ajstarks/svgo — unmaintained since 2022 and CC-BY-4.0, an
+        attribution-encumbered license for what is fmt.Fprintf underneath.
+        twpayne/go-svg — actively maintained but only maps structs to XML, which
+        text/template already does. Proportional-font metrics via
+        golang.org/x/image/font — real and self-contained via basicfont, but
+        unnecessary once labels are monospace, where width is exact arithmetic.
+      blocks:
+        - type: file-tree
+          title: Files this slice creates
+          entries:
+            - plan/blocks/svg/svg.go
+            - plan/blocks/svg/metrics.go
+            - plan/blocks/svg/svg_test.go
+        - type: diagram
+          title: Render path once primitives exist
+          fields:
+            direction: lr
+          entries:
+            - slice data (Go structs)
+            - 'layout: assign coordinates'
+            - 'svg primitives: emit elements'
+            - inline <svg> in committed HTML
+    - id: slice-2
+      num: 2
+      title: Layered DAG layout and static dependency graph, replacing d3 and dagre-d3
+      what: |
+        Hand-written Sugiyama-style layout: rank by dependency depth, barycenter
+        crossing reduction, coordinate assignment. Renders the dependency graph as
+        inline SVG in the committed file; optional JS adds hover and zoom.
+      why: |
+        The dependency graph is the one genuinely structural element on the page,
+        and it is an empty svg in every committed plan — invisible when archived,
+        offline, or audited. It is also the highest-value visual per unit of work.
+      files:
+        - plan/blocks/svg/layout.go
+        - plan/blocks/svg/layout_test.go
+        - plan/plantmpl/dependency_graph.go
+        - plan/plantmpl/templates/plan_page.gohtml
+      deps:
+        - 1
+      done_when:
+        - A committed plan HTML contains a drawn dependency graph with no JavaScript executed.
+        - d3 and dagre-d3 script references are removed from the page template.
+        - Graphs up to 16 nodes lay out without overlapping nodes or unroutable edges.
+        - A cyclic blocked_by input renders with the cycle broken and flagged rather than hanging or panicking.
+        - With JS enabled, hover and zoom still work as progressive enhancement over the same SVG.
+      effort: L
+      risk: Med
+      tests: |
+        Unit: TestRank_LongestPath — a known DAG produces expected rank per node.
+        Unit: TestLayout_NoOverlap — for corpus-realistic shapes (5, 11, 16 nodes)
+        no two node boxes intersect.
+        Unit: TestLayout_CycleDefensive — a cyclic input terminates and reports the
+        broken edge rather than looping.
+        Golden: TestRenderGraph_Static — rendered SVG matches a golden file and
+        contains no <script>.
+      complexity: complex
+      approved: false
+      comment: ""
+      research:
+        - url: https://github.com/terrastruct/d2/blob/master/d2layouts/d2dagrelayout/layout.go
+          claim: d2 embeds dagre.js via go:embed and executes it in a JS runtime rather than porting the algorithm — evidence that a Go dagre port is not worth attempting.
+          accessed: "2026-08-06"
+        - url: https://pkg.go.dev/gonum.org/v1/gonum/graph/topo
+          claim: Provides Sort and TarjanSCC for topological ordering and cycle detection. Evaluated and rejected only because gonum is absent from go.mod; the algorithm is small enough to implement directly.
+          accessed: "2026-08-06"
+        - url: https://github.com/goccy/go-graphviz
+          claim: Embeds the Graphviz core as WASM so requires no cgo or system binary, latest release v0.2.10 (2025-11-29). Rejected as disproportionate for a max-16-node graph needing wipnote-specific theming.
+          accessed: "2026-08-06"
+      questions:
+        - id: q-enhance
+          text: If the enhancement JS fails to load, must the graph remain fully legible?
+          answer: Yes. That is the entire point of the change — the graph must be readable in the committed file, in archives, and in `wipnote relevant` style static audits. JS may only add hover and zoom, never layout or labels.
+      decisions_notes: |
+        **Trigger:** invoked during renderPlanCore, once per plan render.
+        **State:** none beyond the slice graph already in the YAML.
+        **Payload:** an inline <svg> element embedded in the plan page, plus an
+        optional data attribute for the enhancement layer to bind to.
+        **Rejected:** gonum/graph/layout — only offers force-directed and MDS
+        layouts, neither of which conveys dependency depth. gonum/graph/topo for
+        topological sort — sound, but gonum is not in go.mod and a full numerical
+        library for roughly 25 lines of Kahn's algorithm is disproportionate given
+        the no-new-dependency constraint. goccy/go-graphviz — genuinely cgo-free
+        via embedded WASM and actively maintained, but ships a WASM runtime and
+        Graphviz-styled output needing re-theming, for a graph that peaks at 16
+        nodes. dot subprocess — breaks self-containment and adds PATH fragility.
+        A from-scratch dagre port — d2's authors embed dagre.js rather than port
+        it, which is decisive at this scale.
+      blocks:
+        - type: file-tree
+          title: Files this slice touches
+          entries:
+            - plan/blocks/svg/layout.go
+            - plan/blocks/svg/layout_test.go
+            - plan/plantmpl/dependency_graph.go
+            - plan/plantmpl/templates/plan_page.gohtml
+        - type: diagram
+          title: Layout phases
+          fields:
+            direction: lr
+          entries:
+            - topological rank (Kahn)
+            - defensive cycle break
+            - barycenter sweeps
+            - coordinate assignment
+            - edge routing + emit
+    - id: slice-3
+      num: 3
+      title: Real file-tree indentation and drawn diagram edges
+      what: |
+        Rewrite the file-tree renderer to indent by path depth with connector
+        lines, and the diagram renderer to draw real edges between laid-out nodes,
+        both on the slice-1 primitives.
+      why: |
+        These are the two most-used block types (20 and 7 instances). file-tree
+        currently has no indentation logic anywhere, so hierarchy is invisible;
+        diagram uses a Unicode arrow instead of a drawn line.
+      files:
+        - plan/blocks/file_tree.go
+        - plan/blocks/diagram.go
+        - plan/blocks/templates/file_tree.gohtml
+        - plan/blocks/blocks_test.go
+      deps:
+        - 1
+      done_when:
+        - A file-tree of nested paths renders with visible depth; a flat list and a nested list no longer look identical.
+        - Diagram edges are drawn paths with arrowheads, not text glyphs.
+        - Both renderers keep their existing block-anchor id scheme so annotations still resolve.
+      effort: M
+      risk: Low
+      tests: |
+        Unit: TestFileTree_Indents — paths at differing depths receive differing x
+        offsets; a previously-flat corpus sample now varies.
+        Unit: TestDiagram_DrawsEdges — output contains path or line elements and no
+        arrow glyph characters.
+        Regression: TestBlockAnchors_Unchanged — anchor ids match the
+        slice-N-block-type-idx scheme byte for byte.
+      complexity: standard
+      approved: false
+      comment: ""
+      research:
+        - url: https://github.com/xlab/treeprint
+          claim: Go tree-rendering libraries target terminal character output rather than coordinate-based SVG layout, so none are reusable for this renderer.
+          accessed: "2026-08-06"
+      decisions_notes: |
+        **Trigger:** block render time, per block instance.
+        **State:** none — derived entirely from the block's entries.
+        **Payload:** inline SVG replacing the current ul and div markup.
+        **Rejected:** xlab/treeprint and similar — they target character-based
+        terminal output, not coordinate-based SVG layout, so they solve an
+        adjacent problem and are not reusable here. Keeping the Unicode arrow —
+        rejected because it is precisely the thing that makes diagram blocks read
+        as text in a box.
+      blocks:
+        - type: file-tree
+          title: Files this slice touches
+          entries:
+            - plan/blocks/file_tree.go
+            - plan/blocks/diagram.go
+            - plan/blocks/templates/file_tree.gohtml
+            - plan/blocks/blocks_test.go
+    - id: slice-4
+      num: 4
+      title: Critique revises slices in place instead of appending
+      what: |
+        Change the critique write path so revisions rewrite the slice fields and
+        drop the accumulated critic_revisions entries. Prior wording stays
+        recoverable through git.
+      why: |
+        Appending is the measured mechanism behind slice inflation: words per slice
+        rose 77% while slices per plan fell, with the worst slices reaching 1,306
+        words from what plus questions plus critic_revisions stacked together.
+      files:
+        - cmd/wipnote/plan_critique.go
+        - plan/planyaml/schema.go
+        - cmd/wipnote/plan_critique_test.go
+      deps: []
+      done_when:
+        - A critique pass that changes a slice leaves exactly one version of each prose field.
+        - '`wipnote history <plan-id>` still surfaces the superseded wording from git.'
+        - Existing plans carrying critic_revisions still load and render without error.
+      effort: M
+      risk: Med
+      tests: |
+        Unit: TestCritique_RewritesInPlace — after two critique rounds the slice
+        holds one what value and no accumulated revisions.
+        Compat: TestLoad_LegacyCriticRevisions — a v3 plan with populated
+        critic_revisions parses and renders unchanged.
+      complexity: standard
+      approved: false
+      comment: ""
+      research_waiver: Internal write-path and schema change against wipnote's own YAML; no external library, standard or API applies.
+      decisions_notes: |
+        **Trigger:** the critique write path, after a critic proposes a change.
+        **State:** the slice YAML itself; superseded wording lives only in git.
+        **Payload:** a rewritten slice, not an appended revision record.
+        **Rejected:** a superseded field inside the YAML — keeps the weight in the
+        document and in anything that reads it, including spec generate.
+        Renderer-only collapsing — the YAML would keep growing and specs would
+        still inherit the bloat, so it treats the symptom. Note git is a sound
+        home here specifically because `wipnote history` already resolves plans to
+        their YAML rather than their HTML.
+      blocks:
+        - type: file-tree
+          title: Files this slice touches
+          entries:
+            - cmd/wipnote/plan_critique.go
+            - plan/planyaml/schema.go
+            - cmd/wipnote/plan_critique_test.go
+        - type: data-model
+          title: PlanSlice field change
+          fields:
+            name: PlanSlice
+          rows:
+            - name: what
+              type: rewritten in place by critique
+            - name: critic_revisions
+              type: deprecated — no longer appended
+    - id: slice-5
+      num: 5
+      title: Prose caps in schema validation
+      what: |
+        Add word-count validation to plan slices: `what` fails past roughly 40
+        words, while why, done_when and tests emit advisories. Detail belongs in
+        the generated spec, not the plan.
+      why: |
+        `what` alone is 33% of all corpus words at a median of 96 per slice. The
+        plan should be the map; `wipnote spec generate` already exists to hold the
+        territory.
+      files:
+        - plan/planyaml/validate.go
+        - plan/planyaml/validate_test.go
+      deps: []
+      done_when:
+        - A slice whose `what` exceeds the cap fails `wipnote plan validate-yaml` with a message naming the field and count.
+        - Advisory fields report over-length without failing the command.
+        - Finalized plans are exempt so the 42 legacy plans do not retroactively fail.
+      effort: S
+      risk: Med
+      tests: |
+        Unit: TestValidate_WhatCapFails — a 96-word what (the corpus median) fails
+        with a count in the message.
+        Unit: TestValidate_AdvisoryDoesNotFail — an over-length why produces a
+        warning and a zero exit.
+        Unit: TestValidate_FinalizedExempt — a finalized legacy plan with long
+        prose still validates.
+      complexity: standard
+      approved: false
+      comment: ""
+      research_waiver: Validation rules over wipnote's own schema; no external standard or dependency involved.
+      decisions_notes: |
+        **Trigger:** `wipnote plan validate-yaml`, and the finalize path.
+        **State:** none — pure validation over loaded YAML.
+        **Payload:** a validation error naming field and word count, or an advisory.
+        **Rejected:** hard caps on every prose field — would fail in-flight drafts
+        and fight the author mid-interview. Advisory-only everywhere — rejected on
+        measured evidence: ValidateBlockAdvisories is already advisory-only and the
+        default complexity tier sits at 0% block usage across 204 slices, so a
+        non-blocking signal demonstrably does not bind.
+      blocks:
+        - type: file-tree
+          title: Files this slice touches
+          entries:
+            - plan/planyaml/validate.go
+            - plan/planyaml/validate_test.go
+        - type: data-model
+          title: Cap table
+          fields:
+            name: ProseCaps
+          rows:
+            - name: what
+              type: hard fail above ~40 words
+            - name: why
+              type: advisory above ~40 words
+            - name: done_when
+              type: advisory above ~60 words
+            - name: tests
+              type: advisory above ~40 words
+    - id: slice-6
+      num: 6
+      title: Harden the default-tier block gate and drop api-endpoint
+      what: |
+        Make the block advisory blocking for slices whose complexity resolves to
+        standard, and remove api-endpoint from the catalog, schema and renderers.
+      why: |
+        Unset complexity defaults to standard and covers 204 of 282 slices with 0%
+        block usage — the gap where the regression will appear. api-endpoint has
+        never been authored once.
+      files:
+        - plan/planyaml/validate.go
+        - plan/planyaml/schema.go
+        - plan/blocks/api_endpoint.go
+        - plugin/skills/plan/SKILL.md
+      deps: []
+      done_when:
+        - A standard or complex slice with no blocks fails validation unless it carries an explicit skip reason.
+        - api-endpoint no longer appears in `wipnote plan blocks` output.
+        - The two existing block-carrying plans still validate and render.
+      effort: S
+      risk: Med
+      tests: |
+        Unit: TestValidate_BlocksRequiredAtDefaultTier — a slice with unset
+        complexity and no blocks fails.
+        Unit: TestValidate_SkipReasonAccepted — the same slice passes when it
+        records why blocks were skipped.
+        Catalog: TestBlockCatalog_NoAPIEndpoint — the type is absent from the
+        catalog and from the JSON output.
+      complexity: standard
+      approved: false
+      comment: ""
+      research_waiver: Internal validation policy and catalog pruning; no external dependency, standard or API applies.
+      decisions_notes: |
+        **Trigger:** `wipnote plan validate-yaml` and finalize.
+        **State:** none — validation over loaded YAML plus the catalog definition.
+        **Payload:** a blocking error naming the slice, or a pass when a skip
+        reason is recorded.
+        **Rejected:** leaving the advisory non-blocking — measured to produce 0%
+        uptake at the default tier. Removing the skip escape hatch entirely —
+        rejected because the blocks-first skill explicitly allows noting a skip
+        when a slice is genuinely underspecified, and forcing invention would
+        violate the grounding rule. Keeping api-endpoint for future use — YAGNI,
+        and it can be restored from git if a real need appears.
+      blocks:
+        - type: file-tree
+          title: Files this slice touches
+          entries:
+            - plan/planyaml/validate.go
+            - plan/planyaml/schema.go
+            - plan/blocks/api_endpoint.go
+            - plugin/skills/plan/SKILL.md
 questions: []

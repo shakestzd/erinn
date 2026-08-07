@@ -10,37 +10,45 @@
 <body>
     <article id="feat-02f25a24"
              data-type="feature"
-             data-status="in-progress"
+             data-status="done"
              data-priority="high"
              data-created="2026-07-20T05:33:40.395423"
-             data-updated="2026-08-07T03:38:25.224047" data-agent-assigned="claude-code" data-track-id="trk-83603ac7" data-created-by-agent="claude-code" data-created-by-model="claude-opus-4-8[1m]" data-created-by-cli-version="0.67.1">
+             data-updated="2026-08-07T16:44:34.909637" data-agent-assigned="claude-code" data-track-id="trk-83603ac7" data-created-by-agent="claude-code" data-created-by-model="claude-opus-4-8[1m]" data-created-by-cli-version="0.67.1">
 
         <header>
             <h1>Retire Gemini CLI harness — remove target, launcher, and all references (Antigravity supersedes)</h1>
             <div class="metadata">
-                <span class="badge status-in-progress">In Progress</span>
+                <span class="badge status-done">Done</span>
                 <span class="badge priority-high">High Priority</span>
             </div>
         </header>
 
         <nav data-graph-edges>
-            <section data-edge-type="part_of">
-                <h3>Part Of:</h3>
-                <ul>
-                    <li><a href="../tracks/trk-83603ac7.html" data-relationship="part_of" data-since="2026-07-20T05:33:40.407739">trk-83603ac7</a></li>
-                </ul>
-            </section>
             <section data-edge-type="implemented_in">
                 <h3>Implemented In:</h3>
                 <ul>
                     <li><a href="../sessions/e6cdc308-d376-4020-a12e-be4b261d1bd9.html" data-relationship="implemented_in" data-since="2026-08-07T01:43:57.48361">session e6cdc308-d376-4020-a12e-be4b261d1bd9</a></li>
                 </ul>
             </section>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-83603ac7.html" data-relationship="part_of" data-since="2026-07-20T05:33:40.407739">trk-83603ac7</a></li>
+                </ul>
+            </section>
         </nav>
 
         <section data-content>
             <h3>Description</h3>
-            <p>Google retired Gemini CLI on 2026-06-18 (announced at I/O 2026-05-19; consolidated under Antigravity CLI — see developers.googleblog.com transition post). Remove the gemini target end-to-end: manifest target + hook matrix entries in packages/plugin-core/manifest.json, pluginbuild generation code in port/pluginbuild, generated port/packages/gemini-extension tree, gemini launcher/ingest/hook surface in cmd/wipnote (gemini.go, gemini_launch.go, ingest_gemini.go, chooser/shell-alias/yolo wiring), agent frontmatter gemini fields, dashboard mentions, docs (AGENTS.md/CLAUDE.md harness sections, plugin-core README), and tests. Antigravity harness support already exists (antigravity_launch.go) and stays. ~2814 files reference gemini, mostly the generated tree — regenerate ports after manifest edit. Preserve historical .wipnote items and ingest compatibility for EXISTING gemini session data (read-path stays, launch/gen paths go).</p>
+            <p>Google retired Gemini CLI on 2026-06-18 (announced at I/O 2026-05-19; consolidated under Antigravity CLI — see developers.googleblog.com transition post). Remove the gemini target end-to-end: manifest target + hook matrix entries in packages/plugin-core/manifest.json, pluginbuild generation code in port/pluginbuild, generated port/packages/gemini-extension tree, gemini launcher/ingest/hook surface in cmd/wipnote (gemini.go, gemini_launch.go, ingest_gemini.go, chooser/shell-alias/yolo wiring), agent frontmatter gemini fields, dashboard mentions, docs (AGENTS.md/CLAUDE.md harness sections, plugin-core README), and tests. Antigravity harness support already exists (antigravity_launch.go) and stays. ~2814 files reference gemini, mostly the generated tree — regenerate ports after manifest edit. Preserve historical .wipnote items and ingest compatibility for EXISTING gemini session data (read-path stays, launch/gen paths go).
+[2026-08-07 04:03 claude-code] research-evidence: waiver: go.mod change is a single-word comment edit in the port replace-directive (generated &#39;Codex/Gemini target trees&#39; -&gt; &#39;Codex/Antigravity target trees&#39;) reflecting the harness rename; no dependency added, removed, or upgraded — no upstream docs to verify.
+[2026-08-07 05:46 claude-code] research-evidence: waiver: go.mod change is a single-word comment edit in the port replace-directive (generated &#39;Codex/Gemini target trees&#39; -&gt; &#39;Codex/Antigravity target trees&#39;) reflecting the harness rename; no dependency added, removed, or upgraded — no upstream docs to verify.
+[2026-08-07 05:55 claude-code] research-evidence: waiver: go.mod change is a single-word comment edit in the port replace-directive (generated &#39;Codex/Gemini target trees&#39; -&gt; &#39;Codex/Antigravity target trees&#39;) reflecting the harness rename; no dependency added, removed, or upgraded — no upstream docs to verify.
+[2026-08-07 06:05 claude-code] research-evidence: waiver: go.mod change is a single-word comment edit in the port replace-directive (generated &#39;Codex/Gemini target trees&#39; -&gt; &#39;Codex/Antigravity target trees&#39;) reflecting the harness rename; no dependency added, removed, or upgraded — no upstream docs to verify.
+[2026-08-07 06:11 claude-code] research-evidence: waiver: go.mod change is a single-word comment edit in the port replace-directive (generated &#39;Codex/Gemini target trees&#39; -&gt; &#39;Codex/Antigravity target trees&#39;) reflecting the harness rename; no dependency added, removed, or upgraded — no upstream docs to verify.
+[2026-08-07 15:58 claude-code] research-evidence: waiver: go.mod change is a single-word comment edit in the port replace-directive (generated &#39;Codex/Gemini target trees&#39; -&gt; &#39;Codex/Antigravity target trees&#39;) reflecting the harness rename; no dependency added, removed, or upgraded.
+[2026-08-07 16:01 claude-code] research-evidence: waiver: go.mod change is a single-word comment edit in the port replace-directive (generated &#39;Codex/Gemini target trees&#39; -&gt; &#39;Codex/Antigravity target trees&#39;) reflecting the harness rename; no dependency added, removed, or upgraded.
+[2026-08-07 16:42 claude-code] research-evidence: waiver: go.mod change is a single-word comment edit in the port replace-directive (generated &#39;Codex/Gemini target trees&#39; -&gt; &#39;Codex/Antigravity target trees&#39;) reflecting the harness rename; no dependency added, removed, or upgraded.</p>
         </section>
     </article>
 </body>

@@ -7,6 +7,9 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+
+	"github.com/shakestzd/wipnote/core/ingest"
+	"github.com/shakestzd/wipnote/core/models"
 )
 
 // TestBuildSingleProjectMuxRegistersMode verifies that the factory returns a
@@ -85,5 +88,46 @@ func TestServeCmdBindFlag(t *testing.T) {
 	}
 	if portStr == "0" {
 		t.Error("expected ephemeral port to be resolved, got 0")
+	}
+}
+
+// TestIsHeadlessSession_TitlerMarker verifies the legacy htmlgraph-titler
+// detection (bug-db68d62a) still recognizes both known forms of the
+// titler's first user message. There is no live producer of these
+// sessions anymore (the titler was deleted in commit 74a9071f1) — this
+// locks in behavior kept for defense-in-depth against historical JSONL
+// transcripts that predate the removal. See isHeadlessSession's doc
+// comment in serve.go for the full rationale.
+func TestIsHeadlessSession_TitlerMarker(t *testing.T) {
+	cases := []struct {
+		name    string
+		content string
+		want    bool
+	}{
+		{"sentinel marker", "[wipnote-titler] please summarize", true},
+		{"legacy generation prompt", "Generate a concise 4-8 word title for this AI coding session.", true},
+		{"ordinary coding session", "Please fix the bug in serve.go", false},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			result := &ingest.ParseResult{
+				Messages: []models.Message{{Role: "user", Content: tc.content}},
+			}
+			if got := isHeadlessSession(result); got != tc.want {
+				t.Errorf("isHeadlessSession(%q) = %v, want %v", tc.content, got, tc.want)
+			}
+		})
+	}
+}
+
+// TestIsHeadlessSession_NoMessages verifies a session with no user message
+// (e.g. an empty or assistant-only transcript) is never misclassified as
+// a titler session.
+func TestIsHeadlessSession_NoMessages(t *testing.T) {
+	result := &ingest.ParseResult{
+		Messages: []models.Message{{Role: "assistant", Content: "[wipnote-titler] should not match on assistant role"}},
+	}
+	if isHeadlessSession(result) {
+		t.Error("expected false: marker in an assistant message must not trigger the gate")
 	}
 }

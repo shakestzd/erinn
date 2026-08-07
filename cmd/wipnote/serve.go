@@ -412,8 +412,26 @@ func autoIngestOnce(database *sql.DB, wipnoteDir string) {
 }
 
 // isHeadlessSession returns true if the session was created by the
-// wipnote titler (claude -p calls). Detected by the [wipnote-titler]
-// marker in the first user message.
+// htmlgraph/wipnote titler — a background `claude -p` call whose prompt
+// asked for a short session title. Detected by the [wipnote-titler] marker
+// (or the literal generation prompt) in the first user message.
+//
+// The titler itself (cmd/htmlgraph/titler.go) was deleted in commit
+// 74a9071f1 ("delete htmlgraph-titler subsystem"); sessions now get their
+// title from the `ai-title` event emitted inline into the transcript
+// (core/ingest/parser.go), not from a separately spawned claude -p session.
+// No code in cmd/, internal/, plugin/, or packages/ spawns a titler session
+// anymore (verified bug-db68d62a) — this check has no live producer to catch.
+//
+// It is intentionally kept anyway, per that same commit's message ("Keep
+// isHeadlessSession gate for defense-in-depth on historical JSONL files"):
+// any project whose Claude Code session logs predate the removal can still
+// contain a real titler-call transcript on disk. Without this filter,
+// re-ingesting such a legacy JSONL (e.g. on first sync, or after a DB reset)
+// would import the titler's own throwaway session as if it were a normal
+// coding session. Do not delete this without also confirming no supported
+// wipnote version could still produce or be re-ingesting pre-74a9071f1
+// session logs.
 func isHeadlessSession(result *ingest.ParseResult) bool {
 	for _, m := range result.Messages {
 		if m.Role == "user" {

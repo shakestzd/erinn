@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>Subagent git commits are not linked to work items in real time, forcing manual link-commit or ingest</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="bug-6bfec440"
+             data-type="bug"
+             data-status="todo"
+             data-priority="medium"
+             data-created="2026-08-07T17:53:13.795252"
+             data-updated="2026-08-07T17:53:13.8078" data-agent-assigned="claude-code" data-track-id="trk-08dcbb33" data-created-by-agent="claude-code" data-created-by-model="claude-opus-5[1m]" data-created-by-cli-version="0.67.1">
+
+        <header>
+            <h1>Subagent git commits are not linked to work items in real time, forcing manual link-commit or ingest</h1>
+            <div class="metadata">
+                <span class="badge status-todo">Todo</span>
+                <span class="badge priority-medium">Medium Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-08dcbb33.html" data-relationship="part_of" data-since="2026-08-07T17:53:13.807718">trk-08dcbb33</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>Observed repeatedly across a multi-agent session on 2026-08-07. Subagent git commit calls do not land in the git_commits table as they happen, so wipnote bug/feature complete refuses with &#39;zero linked source commits&#39; even when the work is genuinely committed. Agents worked around it two ways: running wipnote ingest commits to backfill, or calling wipnote {bug,feature} link-commit manually. At least five separate agents hit this in one session, and the orchestrator had to link commits by hand for most completions. Either the commit ingestion should fire on subagent commits, or the completion gate should attempt a backfill ingest before refusing. Cost today is silent friction that reads as a provenance failure rather than a plumbing gap.</p>
+        </section>
+    </article>
+</body>
+</html>

@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>Telemetry tables grow unbounded — no retention reaches SQLite rows, about 66MB per month</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="bug-6d88be21"
+             data-type="bug"
+             data-status="todo"
+             data-priority="high"
+             data-created="2026-08-08T10:22:02.059029"
+             data-updated="2026-08-08T10:22:02.071921" data-agent-assigned="claude-code" data-track-id="trk-2c55adea" data-created-by-agent="claude-code" data-created-by-model="claude-opus-5[1m]" data-created-by-cli-version="0.67.1">
+
+        <header>
+            <h1>Telemetry tables grow unbounded — no retention reaches SQLite rows, about 66MB per month</h1>
+            <div class="metadata">
+                <span class="badge status-todo">Todo</span>
+                <span class="badge priority-high">High Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-2c55adea.html" data-relationship="part_of" data-since="2026-08-08T10:22:02.071817">trk-2c55adea</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>otel_signals, agent_events, messages and tool_calls have no age or TTL based deletion anywhere. Measured over a 31-day window: otel_signals grows about 1196 rows/day at roughly 1510 bytes/row, or 54MB/month; agent_events about 8.4MB/month; messages and tool_calls about 3.4MB/month. Total near 66MB/month unbounded, extrapolating to roughly 800MB/year for a local-first tool. Telemetry is 80 percent of the current 86MB file (otel_signals alone 65.4 percent, dominated by attrs_json averaging 740 bytes/row). The retention concept already exists — observe/otel/retention defines a 30-day default — but it only archives on-disk events.ndjson files and never touches DB rows. The only cap in the writer applies to metric-kind rows at 5000 per session, leaving log and span rows uncapped. Extend the existing retention mechanism to the telemetry tables. Note this is an 80 percent problem with a small fix, and worth doing before any larger question about replacing SQLite.</p>
+        </section>
+    </article>
+</body>
+</html>

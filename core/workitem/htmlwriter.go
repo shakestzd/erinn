@@ -289,6 +289,14 @@ type nodeTemplateData struct {
 	CreatedByRole       string
 	CreatedByCLIVersion string
 
+	// PropAttrs carries models.Node.Properties as pre-rendered, pre-escaped
+	// HTML attributes with a leading space (empty when the node has none).
+	// Attribute *names* are dynamic, and html/template cannot compute an
+	// output context for an action in attribute-name position, so the whole
+	// attribute run is built by nodePropAttrs and injected as HTMLAttr — same
+	// approach as edgeData.PropAttrs (defined below) uses for edges.
+	PropAttrs template.HTMLAttr
+
 	StatusLabel   string
 	PriorityLabel string
 
@@ -326,22 +334,33 @@ type edgeData struct {
 	PropAttrs template.HTMLAttr
 }
 
-// edgePropAttrs renders an edge's properties as the attribute run that goes
-// inside the edge's <a> tag, using the wire format defined in
-// core/htmlparse/edge_props.go. Returns "" for an edge with no properties.
+// renderPropAttrs renders a property map as the attribute run that goes
+// inside an element's opening tag, sharing the wire format defined in
+// core/htmlparse/edge_props.go (and, for nodes, core/htmlparse/node_props.go).
+// isAttrSafe supplies the caller's own key-charset/reserved-name rules (edge
+// vs node), and overflowAttr is the JSON escape-hatch attribute name to use
+// for anything isAttrSafe rejects.
+//
+// props is map[string]any rather than map[string]string so this same core
+// serves both edge properties (always strings) and node properties (any Go
+// value SetProperty was called with). A key only gets the readable
+// data-<key> form when BOTH isAttrSafe(key) and the value is a string —
+// anything else (attr-unsafe key, or a non-string value that would lose its
+// type if flattened to an attribute string) folds into the JSON payload,
+// which preserves the value's shape across a parse round-trip.
 //
 // Injection safety: the returned string is marked HTMLAttr, so it bypasses
 // html/template's contextual escaping and must therefore be self-escaping.
-// Attribute names are only ever emitted for keys htmlparse.EdgePropKeyIsAttrSafe
-// accepts (lowercase [a-z0-9_-], no reserved names — nothing that can close a
-// tag or start another attribute), and every value, including the JSON payload,
-// goes through template.HTMLEscapeString, which escapes the double quote that
-// delimits it.
+// Attribute names are only ever emitted for keys isAttrSafe accepts
+// (lowercase [a-z0-9_-], no reserved names — nothing that can close a tag or
+// start another attribute), and every value, including the JSON payload,
+// goes through template.HTMLEscapeString, which escapes the double quote
+// that delimits it.
 //
 // Keys are sorted, and encoding/json sorts map keys of its own accord, so a
 // given property map always renders to the same bytes — a rewrite of an
 // unchanged node produces no diff.
-func edgePropAttrs(props map[string]string) template.HTMLAttr {
+func renderPropAttrs(props map[string]any, isAttrSafe func(string) bool, overflowAttr string) template.HTMLAttr {
 	if len(props) == 0 {
 		return ""
 	}
@@ -353,23 +372,46 @@ func edgePropAttrs(props map[string]string) template.HTMLAttr {
 	sort.Strings(keys)
 
 	var sb strings.Builder
-	overflow := make(map[string]string)
+	overflow := make(map[string]any)
 	for _, k := range keys {
-		if !htmlparse.EdgePropKeyIsAttrSafe(k) {
-			overflow[k] = props[k]
+		v := props[k]
+		if s, ok := v.(string); ok && isAttrSafe(k) {
+			fmt.Fprintf(&sb, ` data-%s="%s"`, k, template.HTMLEscapeString(s))
 			continue
 		}
-		fmt.Fprintf(&sb, ` data-%s="%s"`, k, template.HTMLEscapeString(props[k]))
+		overflow[k] = v
 	}
 
 	if len(overflow) > 0 {
 		if payload, err := json.Marshal(overflow); err == nil {
-			fmt.Fprintf(&sb, ` %s="%s"`, htmlparse.EdgePropsAttr,
+			fmt.Fprintf(&sb, ` %s="%s"`, overflowAttr,
 				template.HTMLEscapeString(string(payload)))
 		}
 	}
 
 	return template.HTMLAttr(sb.String()) // #nosec G203: escaped above
+}
+
+// edgePropAttrs renders an edge's properties as the attribute run that goes
+// inside the edge's <a> tag. Edge.Properties is map[string]string (every
+// value is already a string), so this is a thin adapter over the shared
+// renderPropAttrs core. Returns "" for an edge with no properties.
+func edgePropAttrs(props map[string]string) template.HTMLAttr {
+	if len(props) == 0 {
+		return ""
+	}
+	anyProps := make(map[string]any, len(props))
+	for k, v := range props {
+		anyProps[k] = v
+	}
+	return renderPropAttrs(anyProps, htmlparse.EdgePropKeyIsAttrSafe, htmlparse.EdgePropsAttr)
+}
+
+// nodePropAttrs renders a node's properties as the attribute run that goes
+// inside <article>, using the wire format defined in
+// core/htmlparse/node_props.go. Returns "" for a node with no properties.
+func nodePropAttrs(props map[string]any) template.HTMLAttr {
+	return renderPropAttrs(props, htmlparse.NodePropKeyIsAttrSafe, htmlparse.NodePropsAttr)
 }
 
 // edgeHref returns a collection-aware relative href for a link to targetID.
@@ -504,6 +546,8 @@ func newNodeTemplateData(n *models.Node) *nodeTemplateData {
 		CreatedByModel:      n.CreatedByModel,
 		CreatedByRole:       n.CreatedByRole,
 		CreatedByCLIVersion: n.CreatedByCLIVersion,
+
+		PropAttrs: nodePropAttrs(n.Properties),
 
 		StatusLabel:   titleCase(strings.ReplaceAll(string(n.Status), "-", " ")),
 		PriorityLabel: titleCase(string(n.Priority)),

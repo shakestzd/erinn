@@ -1,9 +1,13 @@
 package main
 
 import (
+	"os"
+	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/shakestzd/wipnote/core/models"
+	"github.com/shakestzd/wipnote/core/workitem"
 )
 
 func TestIsOrphanFeature(t *testing.T) {
@@ -89,5 +93,63 @@ func TestIsOrphanFeature(t *testing.T) {
 				t.Errorf("isOrphanFeature() = %v, want %v", got, tt.want)
 			}
 		})
+	}
+}
+
+// TestExecuteMigrateOrphans_ApplyIsIdempotent is the disk round-trip
+// regression test for bug-c65a5f4e. isOrphanFeature's standalone_reason check
+// only means anything if that property actually survives a write+re-parse —
+// before the fix, Node.Properties was never rendered to HTML, so
+// `--apply` re-marked (and re-printed) the same "orphan" on every run.
+func TestExecuteMigrateOrphans_ApplyIsIdempotent(t *testing.T) {
+	dir := t.TempDir()
+	for _, sub := range []string{"features", "tracks"} {
+		if err := os.MkdirAll(filepath.Join(dir, sub), 0o755); err != nil {
+			t.Fatalf("mkdir %s: %v", sub, err)
+		}
+	}
+	p, err := workitem.Open(dir, "test-agent")
+	if err != nil {
+		t.Fatalf("workitem.Open: %v", err)
+	}
+	defer p.Close()
+
+	feat, err := p.Features.Create("Orphan feature")
+	if err != nil {
+		t.Fatalf("create: %v", err)
+	}
+
+	// First apply: the feature has no plan linkage, so it gets marked
+	// standalone.
+	first := captureStdout(t, func() {
+		if applyErr := executeMigrateOrphans(p, true); applyErr != nil {
+			t.Fatalf("first apply: %v", applyErr)
+		}
+	})
+	if !strings.Contains(first, "Marked 1 of 1") {
+		t.Fatalf("first apply did not mark the orphan feature:\n%s", first)
+	}
+
+	// The marker must survive a disk round-trip — refetch from HTML (not the
+	// stale in-memory node) to prove Properties actually persisted.
+	refetched, err := p.Features.Get(feat.ID)
+	if err != nil {
+		t.Fatalf("refetch: %v", err)
+	}
+	if got := refetched.Properties["standalone_reason"]; got != "pre-enforcement" {
+		t.Fatalf("standalone_reason did not round-trip through disk: got %#v", got)
+	}
+
+	// Second apply: with the marker now visible on disk, isOrphanFeature must
+	// exclude the feature. This is the idempotency the bug report calls out
+	// as broken: "wipnote plan migrate-orphans --apply will re-mark the same
+	// features on every run."
+	second := captureStdout(t, func() {
+		if applyErr := executeMigrateOrphans(p, true); applyErr != nil {
+			t.Fatalf("second apply: %v", applyErr)
+		}
+	})
+	if !strings.Contains(second, "No orphan features found.") {
+		t.Fatalf("second apply was not a no-op:\n%s", second)
 	}
 }

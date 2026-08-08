@@ -102,6 +102,12 @@ func parseDocument(doc *goquery.Document) (*models.Node, error) {
 	// Content
 	node.Content = parseContent(doc)
 
+	// Properties — arbitrary key/value metadata set via EditBuilder.SetProperty
+	// (e.g. standalone_reason, created_in_session). See node_props.go for the
+	// wire format. Absent on all pre-existing HTML, which parses as no
+	// properties.
+	node.Properties = parseNodeProps(article)
+
 	return node, nil
 }
 

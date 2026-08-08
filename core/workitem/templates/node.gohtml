@@ -22,7 +22,7 @@
 {{- if .CreatedByAgent}} data-created-by-agent="{{.CreatedByAgent}}"{{end}}
 {{- if .CreatedByModel}} data-created-by-model="{{.CreatedByModel}}"{{end}}
 {{- if .CreatedByRole}} data-created-by-role="{{.CreatedByRole}}"{{end}}
-{{- if .CreatedByCLIVersion}} data-created-by-cli-version="{{.CreatedByCLIVersion}}"{{end}}>
+{{- if .CreatedByCLIVersion}} data-created-by-cli-version="{{.CreatedByCLIVersion}}"{{end}}{{.PropAttrs}}>
 
         <header>
             <h1>{{.Title}}</h1>

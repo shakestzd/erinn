@@ -10,7 +10,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/shakestzd/wipnote/core/db"
+	dbpkg "github.com/shakestzd/wipnote/core/db"
 	"github.com/shakestzd/wipnote/observe/otel"
 )
 
@@ -80,7 +80,7 @@ type batchStmts struct {
 // NewWriter opens a writer-mode DB handle on dbPath. The handle is
 // separate from whatever read pool the caller may already have open:
 //
-//	readers := db.Open(path)             // existing read pool
+//	readers := dbpkg.Open(path)          // existing read pool
 //	writer  := receiver.NewWriter(path)  // dedicated single-conn writer
 //
 // Both are fine because SQLite WAL mode allows concurrent readers with
@@ -105,6 +105,24 @@ func NewWriter(dbPath string) (*Writer, error) {
 	db.SetMaxOpenConns(3)
 	db.SetMaxIdleConns(1)
 	db.SetConnMaxIdleTime(0)
+
+	// bug-286ce8f7: this constructor used to open its own DB handle via the
+	// raw sql.Open above and never run schema migrations at all, silently
+	// depending on some OTHER writer (serve_child's dbpkg.Open, a hook) having
+	// already migrated the same file first. cmd/wipnote/reindex_otel_events.go
+	// calls NewWriter directly, with no such guarantee — a fresh install or a
+	// DB that fell behind gets a writer with a stale schema and every insert
+	// referencing a missing column fails from then on. Run migrations here so
+	// this constructor gives the same guarantee every dbpkg.Open caller already
+	// gets, regardless of which entry point opens the writer first.
+	if err := dbpkg.RunMigrations(db); err != nil {
+		db.Close()
+		return nil, fmt.Errorf("open writer: run migrations: %w", err)
+	}
+	if err := verifyOtelSignalsSchema(db); err != nil {
+		db.Close()
+		return nil, fmt.Errorf("open writer: %w", err)
+	}
 
 	// Acquire the pinned connection before preparing statements so that
 	// all prepared statements and BEGIN IMMEDIATE calls share the exact
@@ -162,7 +180,84 @@ func NewWriterFromDB(database *sql.DB) (*Writer, error) {
 	if database == nil {
 		return nil, fmt.Errorf("NewWriterFromDB: nil *sql.DB")
 	}
+	// The doc comment above promises migrations already ran (the caller's
+	// dbpkg.Open did it) — verify that promise rather than trust it blindly.
+	// Cheap (one PRAGMA, once, not per batch) and it is exactly this
+	// assumption bug-286ce8f7 showed can go quietly wrong.
+	if err := verifyOtelSignalsSchema(database); err != nil {
+		return nil, fmt.Errorf("NewWriterFromDB: %w", err)
+	}
 	return &Writer{db: database, shared: true, ownDB: false}, nil
+}
+
+// requiredOtelSignalsColumns lists every otel_signals column sqlInsertSignal
+// references, kept as an explicit list (rather than parsed out of the SQL
+// string) so a future column addition is a deliberate two-place edit, not an
+// implicit one. TestRequiredOtelSignalsColumnsMatchInsert asserts this list
+// and sqlInsertSignal's own column list stay in sync.
+var requiredOtelSignalsColumns = []string{
+	"signal_id", "harness", "session_id", "prompt_id",
+	"trace_id", "span_id", "parent_span",
+	"kind", "canonical", "native", "ts_micros",
+	"tool_name", "tool_use_id", "model", "decision", "decision_source",
+	"tokens_in", "tokens_out", "tokens_cache_read", "tokens_cache_creation",
+	"tokens_thought", "tokens_tool", "tokens_reasoning",
+	"cost_usd", "cost_source",
+	"duration_ms", "success", "error_msg", "attempt", "status_code",
+	"attrs_json", "feature_id", "agent_id",
+}
+
+// verifyOtelSignalsSchema is the fail-loudly backstop for bug-286ce8f7: a
+// schema-versioning gap silently left otel_signals.agent_id missing on an
+// already-migrated database, and the resulting error surfaced only as one
+// swallowed-and-logged failure per WriteBatch call — effectively per signal,
+// since the reindex path batches one signal at a time — thousands of times,
+// with the overall process completing "successfully" throughout. Whatever
+// the cause (a versioning gap like this one, a downgrade, manual DB surgery),
+// a writer that depends on a column it does not have should say so once,
+// here, at construction, and refuse to start — not degrade silently row by
+// row. This runs once per Writer, not per batch, so it does not sit in the
+// hot path RunMigrations/prepare already dominate.
+func verifyOtelSignalsSchema(db *sql.DB) error {
+	rows, err := db.Query(`PRAGMA table_info(otel_signals)`)
+	if err != nil {
+		return fmt.Errorf("verify otel_signals schema: %w", err)
+	}
+	defer rows.Close()
+
+	have := make(map[string]bool, len(requiredOtelSignalsColumns))
+	for rows.Next() {
+		var (
+			cid       int
+			name      string
+			ctype     string
+			notNull   int
+			dfltValue sql.NullString
+			pk        int
+		)
+		if err := rows.Scan(&cid, &name, &ctype, &notNull, &dfltValue, &pk); err != nil {
+			return fmt.Errorf("verify otel_signals schema: scan table_info: %w", err)
+		}
+		have[name] = true
+	}
+	if err := rows.Err(); err != nil {
+		return fmt.Errorf("verify otel_signals schema: %w", err)
+	}
+
+	var missing []string
+	for _, col := range requiredOtelSignalsColumns {
+		if !have[col] {
+			missing = append(missing, col)
+		}
+	}
+	if len(missing) > 0 {
+		return fmt.Errorf(
+			"otel_signals is missing column(s) %v that every INSERT depends on — "+
+				"a schema migration did not apply (see core/db/migrations.go); "+
+				"refusing to start rather than fail silently on every write",
+			missing)
+	}
+	return nil
 }
 
 // assertWriterJournalMode promotes a fresh DB from the SQLite default
@@ -180,7 +275,7 @@ func assertWriterJournalMode(conn *sql.Conn, dbPath string) {
 	if strings.EqualFold(mode, "wal") {
 		return // already WAL — nothing to do
 	}
-	if _, walSafe := db.ProbeFsType(dbPath); !walSafe {
+	if _, walSafe := dbpkg.ProbeFsType(dbPath); !walSafe {
 		return // WAL-unsafe FS (overlayfs/FUSE/9p/NFS): DELETE is correct
 	}
 	// WAL-safe filesystem sitting in DELETE only because this writer is the
@@ -376,13 +471,13 @@ func (w *Writer) WriteBatch(
 	// asserts this counter remains zero across the contention stress
 	// fixture. See internal/db/busy_counter.go for the subsystem taxonomy.
 	defer func() {
-		db.Record(db.SubsystemWriterService, err)
+		dbpkg.Record(dbpkg.SubsystemWriterService, err)
 	}()
 
 	w.mu.Lock()
 	defer w.mu.Unlock()
 
-	err = db.RetryOnBusy(db.DefaultBusyBackoff, func() error {
+	err = dbpkg.RetryOnBusy(dbpkg.DefaultBusyBackoff, func() error {
 		var attemptInserted int
 		attemptInserted, err = w.writeBatchAttempt(ctx, harness, resourceAttrs, signals)
 		if err != nil {
@@ -739,7 +834,7 @@ func (w *Writer) maybeCreatePlaceholder(
 
 	// Look up the pending row using the live conn (MaxOpenConns=1 — we MUST
 	// use conn, not w.db, to avoid a deadlock on the single connection).
-	var pending db.PendingSubagentStart
+	var pending dbpkg.PendingSubagentStart
 	var cwd sql.NullString
 	err := conn.QueryRowContext(ctx, `
 		SELECT agent_id, agent_type, session_id, cwd, created_at
@@ -999,7 +1094,7 @@ func resolveSignalAgentID(ctx context.Context, conn dbExecer, s *otel.UnifiedSig
 // cache is keyed per (sessionID, agentID) so a batch spanning many
 // concurrently active agents issues at most one SELECT per distinct pair.
 func resolveFeatureID(ctx context.Context, conn dbExecer, sessionID, agentID string, cache map[string]string) string {
-	lookupID := db.NormaliseAgentID(agentID)
+	lookupID := dbpkg.NormaliseAgentID(agentID)
 	key := sessionID + "\x00" + lookupID
 	if v, ok := cache[key]; ok {
 		return v
@@ -1010,8 +1105,8 @@ func resolveFeatureID(ctx context.Context, conn dbExecer, sessionID, agentID str
 		sessionID, lookupID,
 	).Scan(&fid)
 	result := fid.String
-	if result == "" && lookupID != db.AgentRootSentinel {
-		result = resolveFeatureID(ctx, conn, sessionID, db.AgentRootSentinel, cache)
+	if result == "" && lookupID != dbpkg.AgentRootSentinel {
+		result = resolveFeatureID(ctx, conn, sessionID, dbpkg.AgentRootSentinel, cache)
 	}
 	cache[key] = result
 	return result
@@ -1020,7 +1115,7 @@ func resolveFeatureID(ctx context.Context, conn dbExecer, sessionID, agentID str
 // PurgeStaleSubagentStarts removes pending_subagent_starts rows older than 24 h.
 // Called on Writer startup and periodically to bound table growth.
 func (w *Writer) PurgeStaleSubagentStarts() {
-	db.PurgeStalePendingSubagentStarts(w.db)
+	dbpkg.PurgeStalePendingSubagentStarts(w.db)
 }
 
 // DB returns the underlying handle. Tests use this to assert row counts

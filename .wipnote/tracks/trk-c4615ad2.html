@@ -13,7 +13,7 @@
              data-status="todo"
              data-priority="high"
              data-created="2026-04-21T00:01:38.30447"
-             data-updated="2026-05-24T03:49:05.308296" data-agent-assigned="claude-code">
+             data-updated="2026-08-08T19:46:04.616401" data-agent-assigned="claude-code">
 
         <header>
             <h1>OTel Integration — telemetry capture, span hierarchy, cost attribution</h1>
@@ -27,64 +27,92 @@
             <section data-edge-type="contains">
                 <h3>Contains:</h3>
                 <ul>
-                    <li><a href="feat-4b4be3ec.html" data-relationship="contains" data-since="2026-04-21T00:01:38.412114">Render OTel spans as primary turn children (Phase 5)</a></li>
-                    <li><a href="feat-afbb4dc9.html" data-relationship="contains" data-since="2026-04-21T00:01:38.514365">Manage OTel env vars in htmlgraph launchers (default-on &#43; first-launch notice)</a></li>
-                    <li><a href="feat-82e11bbb.html" data-relationship="contains" data-since="2026-04-21T00:01:38.616978">Work item attribution on OTel span rows</a></li>
-                    <li><a href="feat-292f87fe.html" data-relationship="contains" data-since="2026-04-21T00:01:38.719443">OTel span detail: code preview with syntax highlighting for Edit/Write</a></li>
-                    <li><a href="feat-26b8a5db.html" data-relationship="contains" data-since="2026-04-21T00:01:38.823012">Deepen subagent tool-call indent in activity feed</a></li>
-                    <li><a href="feat-7aade9d4.html" data-relationship="contains" data-since="2026-04-21T00:01:38.927168">Activity feed noise reduction: inherit badges, relative paths, drop api_request footer, gate chevron</a></li>
-                    <li><a href="bug-d0fa005b.html" data-relationship="contains" data-since="2026-04-21T00:06:51.680906">Subagent tool-call spans not nested under Agent span in activity feed</a></li>
-                    <li><a href="feat-14eb64d5.html" data-relationship="contains" data-since="2026-04-21T00:34:03.579777">Surface MCP tool inputs in span detail panel</a></li>
-                    <li><a href="feat-ebefd886.html" data-relationship="contains" data-since="2026-04-21T00:34:03.846889">Bundle consecutive same-server MCP tool calls into a collapsible group</a></li>
-                    <li><a href="feat-378817e2.html" data-relationship="contains" data-since="2026-04-21T00:34:04.125463">Expose window.htmlgraphProjectRoot so absolute paths strip reliably</a></li>
-                    <li><a href="feat-79f99a81.html" data-relationship="contains" data-since="2026-04-21T00:34:04.51201">Drop exec &#43; auto-approve permission rows from tool children</a></li>
-                    <li><a href="bug-73eb8412.html" data-relationship="contains" data-since="2026-04-21T00:47:09.672354">Subagent tool calls flash as roots before nesting under Agent span (OTel arrival race)</a></li>
-                    <li><a href="feat-e1efb972.html" data-relationship="contains" data-since="2026-04-21T01:07:16.050515">SubagentStart &#43; orphan-span placeholder to eliminate Agent-span arrival flash</a></li>
-                    <li><a href="bug-3c4acb55.html" data-relationship="contains" data-since="2026-04-21T01:13:51.261231">Text-only turns not shown in activity feed — assistant text response missing</a></li>
-                    <li><a href="bug-049df2a4.html" data-relationship="contains" data-since="2026-04-21T02:57:27.713836">Subagent tool spans occasionally emit with parent_span=interaction instead of parent_span=Agent (TRACEPARENT propagation gap)</a></li>
-                    <li><a href="bug-6ab963d3.html" data-relationship="contains" data-since="2026-04-21T09:58:32.174515">OTel silently drops spans on SQLITE_BUSY &#43; parallel launcher spawns collide on :8080</a></li>
-                    <li><a href="bug-f4b7dbc8.html" data-relationship="contains" data-since="2026-04-21T09:58:32.284187">assistant_text rows fail to render: _assistantTextsForTurn returns 0 despite data present</a></li>
-                    <li><a href="bug-f6575739.html" data-relationship="contains" data-since="2026-04-21T10:56:57.883825">assistant_text parent_span uses transcript parentUuid verbatim — points at tool_result on turns with tool calls</a></li>
-                    <li><a href="feat-28b62b51.html" data-relationship="contains" data-since="2026-04-21T11:12:45.225773">Assistant text: render at top of turn &#43; apply markdown</a></li>
-                    <li><a href="bug-dda7cc2b.html" data-relationship="contains" data-since="2026-04-21T11:35:28.771645">Receiver gate in serve-child uses isTruthy while launcher defaults on — receiver skipped when HTMLGRAPH_OTEL_ENABLED is unset</a></li>
-                    <li><a href="bug-d2ba2a82.html" data-relationship="contains" data-since="2026-04-21T11:35:28.877055">Hardcoded :4318 causes cross-project OTel data leakage when multiple projects are open</a></li>
-                    <li><a href="feat-3a65c5ca.html" data-relationship="contains" data-since="2026-04-24T22:29:21.247387">Extract SignalSink interface; add NDJSONSink implementation</a></li>
-                    <li><a href="feat-56aa1d48.html" data-relationship="contains" data-since="2026-04-24T22:29:21.254105">htmlgraph otel-collect subcommand</a></li>
-                    <li><a href="feat-4d3a2b5d.html" data-relationship="contains" data-since="2026-04-24T22:29:21.259987">Launcher spawns per-session collector child</a></li>
-                    <li><a href="feat-f0f893a3.html" data-relationship="contains" data-since="2026-04-24T22:29:21.267266">Session-start Rosetta event &#43; env-leak fix</a></li>
-                    <li><a href="feat-b6479241.html" data-relationship="contains" data-since="2026-04-24T22:29:21.274687">NDJSON to SQLite indexer loop inside serve</a></li>
-                    <li><a href="feat-2377191e.html" data-relationship="contains" data-since="2026-04-24T22:29:21.282222">Strip OTLP receiver from serve; rename ensureServeForOtel</a></li>
-                    <li><a href="feat-ed1a1f2c.html" data-relationship="contains" data-since="2026-04-24T22:29:21.28781">Session cleanup: graceful drain &#43; retention hygiene</a></li>
-                    <li><a href="bug-7d105494.html" data-relationship="contains" data-since="2026-04-25T04:04:29.81638">Activity feed misattributes tool calls to wrong user prompt</a></li>
-                    <li><a href="feat-17ed3fd7.html" data-relationship="contains" data-since="2026-04-25T04:11:38.641604">Fix PreToolUse parent event ID race in resolveParentEventID</a></li>
-                    <li><a href="feat-e25b40a0.html" data-relationship="contains" data-since="2026-04-25T04:11:39.068895">Bridge OTel prompt_id into agent_events for stable turn attribution</a></li>
-                    <li><a href="feat-56cddb0f.html" data-relationship="contains" data-since="2026-04-25T04:34:44.52333">Switch activity feed to OTel-primary with hook fallback</a></li>
-                    <li><a href="feat-c87a1fd8.html" data-relationship="contains" data-since="2026-04-25T05:00:04.426933">Migrate app.js main activity feed to OTel-primary /api/events/feed endpoint</a></li>
-                    <li><a href="bug-a312db4d.html" data-relationship="contains" data-since="2026-04-25T21:30:18.740073">Dual SQLite DB paths: serve writes .db/htmlgraph.db, CLI hits htmlgraph.db</a></li>
-                    <li><a href="bug-d035a6c3.html" data-relationship="contains" data-since="2026-04-26T01:34:27.045244">Stale work items accumulate — no auto-stale detection or enforced WIP cleanup</a></li>
-                    <li><a href="bug-62f14f8c.html" data-relationship="contains" data-since="2026-04-26T07:53:36.463707">Yolo PreToolUse gate reads stale DB after cache-dir migration (commit 809336a7)</a></li>
-                    <li><a href="bug-c58ab226.html" data-relationship="contains" data-since="2026-04-26T08:21:46.975142">roborev job 4 fixes</a></li>
-                    <li><a href="bug-1ebcad6b.html" data-relationship="contains" data-since="2026-04-26T12:03:23.907943">Subagent tool calls not nested under parent Agent span in activity feed</a></li>
-                    <li><a href="bug-28a9d7a7.html" data-relationship="contains" data-since="2026-04-26T12:39:31.292788">Session OTel collector dies mid-session and is duplicated by _serve-child receiver</a></li>
-                    <li><a href="feat-65432141.html" data-relationship="contains" data-since="2026-04-26T20:02:40.81234">Mount indexer goroutine inside otel-collect</a></li>
-                    <li><a href="feat-03deaa60.html" data-relationship="contains" data-since="2026-04-26T20:02:40.82467">Extend gracefulShutdown to drain the indexer</a></li>
-                    <li><a href="feat-0fe674d9.html" data-relationship="contains" data-since="2026-04-26T20:02:40.83296">Migrate hook direct-writes to NDJSON</a></li>
-                    <li><a href="feat-7837411f.html" data-relationship="contains" data-since="2026-04-26T20:02:40.843874">Batch indexer WriteBatch calls</a></li>
-                    <li><a href="feat-5144acc8.html" data-relationship="contains" data-since="2026-04-26T20:02:40.8539">Apply WAL pragma to registry.OpenReadOnly path</a></li>
-                    <li><a href="feat-d1f3b2a6.html" data-relationship="contains" data-since="2026-04-26T20:02:40.864522">Document NDJSON-canonical, SQLite-derived contract</a></li>
-                    <li><a href="feat-9772ba80.html" data-relationship="contains" data-since="2026-04-26T20:02:40.874593">End-to-end smoke test for live span visibility</a></li>
-                    <li><a href="feat-605aaaac.html" data-relationship="contains" data-since="2026-04-26T20:02:40.88437">PREREQ: Fix stale internal/otel/receiver import in indexer_test</a></li>
-                    <li><a href="bug-f9de355d.html" data-relationship="contains" data-since="2026-04-27T10:19:07.987876">OTel collect test leaks /tmp/otel-collect-test-* dirs</a></li>
-                    <li><a href="bug-ab377859.html" data-relationship="contains" data-since="2026-05-01T22:53:54.609334">[P1] otel-collect handshake timeout blocks htmlgraph claude --dev startup</a></li>
-                    <li><a href="bug-56b686aa.html" data-relationship="contains" data-since="2026-05-01T22:56:26.278155">Sporadic SQLITE_BUSY: &#39;database is locked&#39; during routine CLI calls (PRAGMA journal_mode)</a></li>
-                    <li><a href="bug-979a8bb0.html" data-relationship="contains" data-since="2026-05-08T12:19:59.35584">Codex events missing from dashboard</a></li>
-                    <li><a href="bug-57c86318.html" data-relationship="contains" data-since="2026-05-09T17:42:21.463151">Gemini sessions recorded as codex — invocation_id check must precede hook_event_name in detectHarnessWithEnv</a></li>
-                    <li><a href="feat-7295fd01.html" data-relationship="contains" data-since="2026-05-10T02:34:19.638387">HarnessConfig registry — identity constants and hooks Harness int mapping</a></li>
-                    <li><a href="feat-e7920796.html" data-relationship="contains" data-since="2026-05-10T02:34:24.375805">Launcher OTel config from registry — eliminate per-launcher env var hardcoding</a></li>
-                    <li><a href="feat-ea949327.html" data-relationship="contains" data-since="2026-05-10T02:34:24.561436">Detection and adapter Identify() from registry — data-driven, no hardcoded event names</a></li>
-                    <li><a href="feat-f5ec4554.html" data-relationship="contains" data-since="2026-05-10T02:34:24.81632">Complete add-a-harness recipe — README &#43; wipnote harness list command</a></li>
-                    <li><a href="bug-a31c489b.html" data-relationship="contains" data-since="2026-05-17T07:14:04.600721">GitHub #111: Internal system messages displayed as user queries</a></li>
-                    <li><a href="bug-4d9ed982.html" data-relationship="contains" data-since="2026-05-24T03:49:05.233805">wipnote accumulates unbounded session events.ndjson &#43; serve logs on disk (no retention/rotation) — multi-GB per project</a></li>
+                    <li><a href="../features/feat-4b4be3ec.html" data-relationship="contains" data-since="2026-04-21T00:01:38.412114">Render OTel spans as primary turn children (Phase 5)</a></li>
+                    <li><a href="../features/feat-afbb4dc9.html" data-relationship="contains" data-since="2026-04-21T00:01:38.514365">Manage OTel env vars in htmlgraph launchers (default-on &#43; first-launch notice)</a></li>
+                    <li><a href="../features/feat-82e11bbb.html" data-relationship="contains" data-since="2026-04-21T00:01:38.616978">Work item attribution on OTel span rows</a></li>
+                    <li><a href="../features/feat-292f87fe.html" data-relationship="contains" data-since="2026-04-21T00:01:38.719443">OTel span detail: code preview with syntax highlighting for Edit/Write</a></li>
+                    <li><a href="../features/feat-26b8a5db.html" data-relationship="contains" data-since="2026-04-21T00:01:38.823012">Deepen subagent tool-call indent in activity feed</a></li>
+                    <li><a href="../features/feat-7aade9d4.html" data-relationship="contains" data-since="2026-04-21T00:01:38.927168">Activity feed noise reduction: inherit badges, relative paths, drop api_request footer, gate chevron</a></li>
+                    <li><a href="../bugs/bug-d0fa005b.html" data-relationship="contains" data-since="2026-04-21T00:06:51.680906">Subagent tool-call spans not nested under Agent span in activity feed</a></li>
+                    <li><a href="../features/feat-14eb64d5.html" data-relationship="contains" data-since="2026-04-21T00:34:03.579777">Surface MCP tool inputs in span detail panel</a></li>
+                    <li><a href="../features/feat-ebefd886.html" data-relationship="contains" data-since="2026-04-21T00:34:03.846889">Bundle consecutive same-server MCP tool calls into a collapsible group</a></li>
+                    <li><a href="../features/feat-378817e2.html" data-relationship="contains" data-since="2026-04-21T00:34:04.125463">Expose window.htmlgraphProjectRoot so absolute paths strip reliably</a></li>
+                    <li><a href="../features/feat-79f99a81.html" data-relationship="contains" data-since="2026-04-21T00:34:04.51201">Drop exec &#43; auto-approve permission rows from tool children</a></li>
+                    <li><a href="../bugs/bug-73eb8412.html" data-relationship="contains" data-since="2026-04-21T00:47:09.672354">Subagent tool calls flash as roots before nesting under Agent span (OTel arrival race)</a></li>
+                    <li><a href="../features/feat-e1efb972.html" data-relationship="contains" data-since="2026-04-21T01:07:16.050515">SubagentStart &#43; orphan-span placeholder to eliminate Agent-span arrival flash</a></li>
+                    <li><a href="../bugs/bug-3c4acb55.html" data-relationship="contains" data-since="2026-04-21T01:13:51.261231">Text-only turns not shown in activity feed — assistant text response missing</a></li>
+                    <li><a href="../bugs/bug-049df2a4.html" data-relationship="contains" data-since="2026-04-21T02:57:27.713836">Subagent tool spans occasionally emit with parent_span=interaction instead of parent_span=Agent (TRACEPARENT propagation gap)</a></li>
+                    <li><a href="../bugs/bug-6ab963d3.html" data-relationship="contains" data-since="2026-04-21T09:58:32.174515">OTel silently drops spans on SQLITE_BUSY &#43; parallel launcher spawns collide on :8080</a></li>
+                    <li><a href="../bugs/bug-f4b7dbc8.html" data-relationship="contains" data-since="2026-04-21T09:58:32.284187">assistant_text rows fail to render: _assistantTextsForTurn returns 0 despite data present</a></li>
+                    <li><a href="../bugs/bug-f6575739.html" data-relationship="contains" data-since="2026-04-21T10:56:57.883825">assistant_text parent_span uses transcript parentUuid verbatim — points at tool_result on turns with tool calls</a></li>
+                    <li><a href="../features/feat-28b62b51.html" data-relationship="contains" data-since="2026-04-21T11:12:45.225773">Assistant text: render at top of turn &#43; apply markdown</a></li>
+                    <li><a href="../bugs/bug-dda7cc2b.html" data-relationship="contains" data-since="2026-04-21T11:35:28.771645">Receiver gate in serve-child uses isTruthy while launcher defaults on — receiver skipped when HTMLGRAPH_OTEL_ENABLED is unset</a></li>
+                    <li><a href="../bugs/bug-d2ba2a82.html" data-relationship="contains" data-since="2026-04-21T11:35:28.877055">Hardcoded :4318 causes cross-project OTel data leakage when multiple projects are open</a></li>
+                    <li><a href="../features/feat-3a65c5ca.html" data-relationship="contains" data-since="2026-04-24T22:29:21.247387">Extract SignalSink interface; add NDJSONSink implementation</a></li>
+                    <li><a href="../features/feat-56aa1d48.html" data-relationship="contains" data-since="2026-04-24T22:29:21.254105">htmlgraph otel-collect subcommand</a></li>
+                    <li><a href="../features/feat-4d3a2b5d.html" data-relationship="contains" data-since="2026-04-24T22:29:21.259987">Launcher spawns per-session collector child</a></li>
+                    <li><a href="../features/feat-f0f893a3.html" data-relationship="contains" data-since="2026-04-24T22:29:21.267266">Session-start Rosetta event &#43; env-leak fix</a></li>
+                    <li><a href="../features/feat-b6479241.html" data-relationship="contains" data-since="2026-04-24T22:29:21.274687">NDJSON to SQLite indexer loop inside serve</a></li>
+                    <li><a href="../features/feat-2377191e.html" data-relationship="contains" data-since="2026-04-24T22:29:21.282222">Strip OTLP receiver from serve; rename ensureServeForOtel</a></li>
+                    <li><a href="../features/feat-ed1a1f2c.html" data-relationship="contains" data-since="2026-04-24T22:29:21.28781">Session cleanup: graceful drain &#43; retention hygiene</a></li>
+                    <li><a href="../bugs/bug-7d105494.html" data-relationship="contains" data-since="2026-04-25T04:04:29.81638">Activity feed misattributes tool calls to wrong user prompt</a></li>
+                    <li><a href="../features/feat-17ed3fd7.html" data-relationship="contains" data-since="2026-04-25T04:11:38.641604">Fix PreToolUse parent event ID race in resolveParentEventID</a></li>
+                    <li><a href="../features/feat-e25b40a0.html" data-relationship="contains" data-since="2026-04-25T04:11:39.068895">Bridge OTel prompt_id into agent_events for stable turn attribution</a></li>
+                    <li><a href="../features/feat-56cddb0f.html" data-relationship="contains" data-since="2026-04-25T04:34:44.52333">Switch activity feed to OTel-primary with hook fallback</a></li>
+                    <li><a href="../features/feat-c87a1fd8.html" data-relationship="contains" data-since="2026-04-25T05:00:04.426933">Migrate app.js main activity feed to OTel-primary /api/events/feed endpoint</a></li>
+                    <li><a href="../bugs/bug-a312db4d.html" data-relationship="contains" data-since="2026-04-25T21:30:18.740073">Dual SQLite DB paths: serve writes .db/htmlgraph.db, CLI hits htmlgraph.db</a></li>
+                    <li><a href="../bugs/bug-d035a6c3.html" data-relationship="contains" data-since="2026-04-26T01:34:27.045244">Stale work items accumulate — no auto-stale detection or enforced WIP cleanup</a></li>
+                    <li><a href="../bugs/bug-62f14f8c.html" data-relationship="contains" data-since="2026-04-26T07:53:36.463707">Yolo PreToolUse gate reads stale DB after cache-dir migration (commit 809336a7)</a></li>
+                    <li><a href="../bugs/bug-c58ab226.html" data-relationship="contains" data-since="2026-04-26T08:21:46.975142">roborev job 4 fixes</a></li>
+                    <li><a href="../bugs/bug-1ebcad6b.html" data-relationship="contains" data-since="2026-04-26T12:03:23.907943">Subagent tool calls not nested under parent Agent span in activity feed</a></li>
+                    <li><a href="../bugs/bug-28a9d7a7.html" data-relationship="contains" data-since="2026-04-26T12:39:31.292788">Session OTel collector dies mid-session and is duplicated by _serve-child receiver</a></li>
+                    <li><a href="../features/feat-65432141.html" data-relationship="contains" data-since="2026-04-26T20:02:40.81234">Mount indexer goroutine inside otel-collect</a></li>
+                    <li><a href="../features/feat-03deaa60.html" data-relationship="contains" data-since="2026-04-26T20:02:40.82467">Extend gracefulShutdown to drain the indexer</a></li>
+                    <li><a href="../features/feat-0fe674d9.html" data-relationship="contains" data-since="2026-04-26T20:02:40.83296">Migrate hook direct-writes to NDJSON</a></li>
+                    <li><a href="../features/feat-7837411f.html" data-relationship="contains" data-since="2026-04-26T20:02:40.843874">Batch indexer WriteBatch calls</a></li>
+                    <li><a href="../features/feat-5144acc8.html" data-relationship="contains" data-since="2026-04-26T20:02:40.8539">Apply WAL pragma to registry.OpenReadOnly path</a></li>
+                    <li><a href="../features/feat-d1f3b2a6.html" data-relationship="contains" data-since="2026-04-26T20:02:40.864522">Document NDJSON-canonical, SQLite-derived contract</a></li>
+                    <li><a href="../features/feat-9772ba80.html" data-relationship="contains" data-since="2026-04-26T20:02:40.874593">End-to-end smoke test for live span visibility</a></li>
+                    <li><a href="../features/feat-605aaaac.html" data-relationship="contains" data-since="2026-04-26T20:02:40.88437">PREREQ: Fix stale internal/otel/receiver import in indexer_test</a></li>
+                    <li><a href="../bugs/bug-f9de355d.html" data-relationship="contains" data-since="2026-04-27T10:19:07.987876">OTel collect test leaks /tmp/otel-collect-test-* dirs</a></li>
+                    <li><a href="../bugs/bug-ab377859.html" data-relationship="contains" data-since="2026-05-01T22:53:54.609334">[P1] otel-collect handshake timeout blocks htmlgraph claude --dev startup</a></li>
+                    <li><a href="../bugs/bug-56b686aa.html" data-relationship="contains" data-since="2026-05-01T22:56:26.278155">Sporadic SQLITE_BUSY: &#39;database is locked&#39; during routine CLI calls (PRAGMA journal_mode)</a></li>
+                    <li><a href="../bugs/bug-979a8bb0.html" data-relationship="contains" data-since="2026-05-08T12:19:59.35584">Codex events missing from dashboard</a></li>
+                    <li><a href="../bugs/bug-57c86318.html" data-relationship="contains" data-since="2026-05-09T17:42:21.463151">Gemini sessions recorded as codex — invocation_id check must precede hook_event_name in detectHarnessWithEnv</a></li>
+                    <li><a href="../features/feat-7295fd01.html" data-relationship="contains" data-since="2026-05-10T02:34:19.638387">HarnessConfig registry — identity constants and hooks Harness int mapping</a></li>
+                    <li><a href="../features/feat-e7920796.html" data-relationship="contains" data-since="2026-05-10T02:34:24.375805">Launcher OTel config from registry — eliminate per-launcher env var hardcoding</a></li>
+                    <li><a href="../features/feat-ea949327.html" data-relationship="contains" data-since="2026-05-10T02:34:24.561436">Detection and adapter Identify() from registry — data-driven, no hardcoded event names</a></li>
+                    <li><a href="../features/feat-f5ec4554.html" data-relationship="contains" data-since="2026-05-10T02:34:24.81632">Complete add-a-harness recipe — README &#43; wipnote harness list command</a></li>
+                    <li><a href="../bugs/bug-a31c489b.html" data-relationship="contains" data-since="2026-05-17T07:14:04.600721">GitHub #111: Internal system messages displayed as user queries</a></li>
+                    <li><a href="../bugs/bug-4d9ed982.html" data-relationship="contains" data-since="2026-05-24T03:49:05.233805">wipnote accumulates unbounded session events.ndjson &#43; serve logs on disk (no retention/rotation) — multi-GB per project</a></li>
+                    <li><a href="../features/feat-7ee73444.html" data-relationship="contains" data-since="2026-08-08T10:50:15.085885">Per-work-item telemetry rollups: failure rate, cost, thrash</a></li>
+                    <li><a href="../features/feat-f9118b9c.html" data-relationship="contains" data-since="2026-08-08T10:50:15.216723">Feed real outcome data into compliance auto and recommend</a></li>
+                    <li><a href="../bugs/bug-79606e3d.html" data-relationship="contains" data-since="2026-08-08T11:25:45.847122">otel success column not persisted on tool_result/tool_execution/api_request spans</a></li>
+                    <li><a href="../bugs/bug-38e3c06f.html" data-relationship="contains" data-since="2026-08-08T11:25:45.979803">cost_usd populated on only 20 percent of token_usage signals</a></li>
+                    <li><a href="../features/feat-be696acc.html" data-relationship="contains" data-since="2026-08-08T11:28:19.539077">Per-signal agent attribution for OTel signals (the unfiled feat-82e11bbb follow-up)</a></li>
+                    <li><a href="../bugs/bug-5652a5ba.html" data-relationship="contains" data-since="2026-08-08T11:33:30.724117">tool_use_id column populated on zero rows while attrs_json carries it on half</a></li>
+                    <li><a href="../features/feat-21d12cdb.html" data-relationship="contains" data-since="2026-08-08T11:33:30.866666">Durable per-agent claim history to replace single-slot current-state tables</a></li>
+                    <li><a href="../bugs/bug-190950e0.html" data-relationship="contains" data-since="2026-08-08T11:40:48.578558">WIPNOTE_AGENT_ID not propagated to dispatched subagents, collapsing every claim to __root__</a></li>
+                    <li><a href="../bugs/bug-739f3710.html" data-relationship="contains" data-since="2026-08-08T11:42:23.439139">ReadSubagentHint returns the most recently started subagent, not the caller</a></li>
+                    <li><a href="../bugs/bug-60210598.html" data-relationship="contains" data-since="2026-08-08T11:51:21.560639">sink/sqlite writer duplicates receiver logic but is dead code</a></li>
+                    <li><a href="../bugs/bug-ae08c3e1.html" data-relationship="contains" data-since="2026-08-08T11:51:34.447318">success derivation fixed only for Claude adapter; other harnesses unverified</a></li>
+                    <li><a href="../bugs/bug-6882ecaa.html" data-relationship="contains" data-since="2026-08-08T11:51:40.230758">Two pre-existing observe test failures, one date-sensitive</a></li>
+                    <li><a href="../features/feat-bdf86d69.html" data-relationship="contains" data-since="2026-08-08T12:03:05.097697">Inherit tool_execution child success onto its tool_result parent span</a></li>
+                    <li><a href="../features/feat-82bc318d.html" data-relationship="contains" data-since="2026-08-08T12:10:41.785395">Agent identity acquisition must be a per-harness seam, not a Claude-specific path</a></li>
+                    <li><a href="../bugs/bug-735806ff.html" data-relationship="contains" data-since="2026-08-08T12:14:17.256259">Adapter tests use synthetic spans, so upstream attribute drift is undetectable</a></li>
+                    <li><a href="../spikes/spk-97c97940.html" data-relationship="contains" data-since="2026-08-08T12:30:10.53167">Verify success/tool_use_id attribute contracts against Claude Code and Codex docs</a></li>
+                    <li><a href="../features/feat-b7bc4267.html" data-relationship="contains" data-since="2026-08-08T12:33:04.067548">Wire Codex per-subagent identity end to end</a></li>
+                    <li><a href="../bugs/bug-b65b82bd.html" data-relationship="contains" data-since="2026-08-08T12:33:19.552495">Completion gate attributes other agents&#39; files to the work item being completed</a></li>
+                    <li><a href="../bugs/bug-e8c481cb.html" data-relationship="contains" data-since="2026-08-08T12:34:02.08159">Antigravity docs now exist upstream; AGENTS.md and the port translator are stale</a></li>
+                    <li><a href="../bugs/bug-a0143c2c.html" data-relationship="contains" data-since="2026-08-08T12:38:34.550756">success is read from a beta span attribute when a non-beta source exists</a></li>
+                    <li><a href="../bugs/bug-53941397.html" data-relationship="contains" data-since="2026-08-08T12:38:50.037936">api_request implies success is an inference, not a documented contract</a></li>
+                    <li><a href="../bugs/bug-d7741c8f.html" data-relationship="contains" data-since="2026-08-08T12:39:05.518705">Transcript ingest parsers are tested only against hand-built fixtures</a></li>
+                    <li><a href="../bugs/bug-c9850377.html" data-relationship="contains" data-since="2026-08-08T12:39:49.408811">Codex PromptID: stale conformance claim and zero test coverage</a></li>
+                    <li><a href="../bugs/bug-d1ecdb88.html" data-relationship="contains" data-since="2026-08-08T12:49:45.689915">Codex agent identity may be gated behind a disabled under-development feature flag</a></li>
+                    <li><a href="../bugs/bug-fa036758.html" data-relationship="contains" data-since="2026-08-08T13:12:27.373019">Codex subagent assistant text is mislabeled as Claude Code</a></li>
+                    <li><a href="../bugs/bug-5078a415.html" data-relationship="contains" data-since="2026-08-08T14:33:19.214086">OTLP http/json decode expects hex trace and span IDs but protojson emits base64</a></li>
+                    <li><a href="../bugs/bug-dc189eae.html" data-relationship="contains" data-since="2026-08-08T19:33:35.060312">Schema migration only runs on serve, while writers depend on the column unconditionally</a></li>
+                    <li><a href="../bugs/bug-286ce8f7.html" data-relationship="contains" data-since="2026-08-08T19:46:04.610969">OTel agent_id schema migration gated behind serve; writer swallows resulting write errors</a></li>
                 </ul>
             </section>
         </nav>

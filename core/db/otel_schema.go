@@ -116,32 +116,25 @@ func CreateOtelTables(db *sql.DB) error {
 		}
 	}
 
-	// Idempotent migration: feature_id column added after initial schema
-	// so existing DBs pick it up on the next `wipnote serve`. Duplicate
-	// column errors are expected on re-runs and are silently swallowed,
-	// matching the convention used elsewhere in internal/db/schema.go.
-	if _, err := db.Exec(`ALTER TABLE otel_signals ADD COLUMN feature_id TEXT`); err != nil {
-		// Ignore "duplicate column" errors — the column is already there.
-	}
-	if _, err := db.Exec(`CREATE INDEX IF NOT EXISTS idx_otel_feature_ts ON otel_signals(feature_id, ts_micros) WHERE feature_id IS NOT NULL`); err != nil {
-		// Index creation is non-critical; continue.
-	}
-
-	// Idempotent migration: agent_id column added after initial schema so
-	// existing DBs pick it up on the next `wipnote serve` (feat-be696acc).
-	// Populated at write time by the OTLP writers (observe/otel/receiver and
+	// feature_id and agent_id are added by migrations.go's versioned step
+	// 019_otel_signals_attribution_columns (bug-286ce8f7), not here. They
+	// used to be idempotent ALTERs bolted directly onto this function, which
+	// is WRONG for any column added after a database's first bootstrap:
+	// CreateOtelTables is only reachable from migration step version 1, and
+	// step 1 runs exactly once per database (the first time user_version
+	// advances from 0), never again once a database reaches
+	// currentSchemaVersion. A column added here after that point silently
+	// never applies to any already-migrated database, regardless of which
+	// binary or entry point (serve, hooks, reindex) opens it. See
+	// stepOtelSignalsAttributionColumns in migrations.go for the fix and the
+	// full incident writeup. agent_id (feat-be696acc) is populated at write
+	// time by the OTLP writers (observe/otel/receiver and
 	// observe/otel/sink/sqlite): a signal's own native "agent_id" attribute
 	// (Claude Code's per-span attribution — present on claude_code.llm_request
 	// and claude_code.tool spans) when present, else its immediate parent
 	// span's resolved agent_id (one hop only), else NULL for root. This is a
 	// forward-only migration: existing rows are NOT backfilled, so agent_id
 	// is NULL on every signal written before this column existed.
-	if _, err := db.Exec(`ALTER TABLE otel_signals ADD COLUMN agent_id TEXT`); err != nil {
-		// Ignore "duplicate column" errors — the column is already there.
-	}
-	if _, err := db.Exec(`CREATE INDEX IF NOT EXISTS idx_otel_agent_ts ON otel_signals(agent_id, ts_micros) WHERE agent_id IS NOT NULL`); err != nil {
-		// Index creation is non-critical; continue.
-	}
 
 	// pending_subagent_starts: staging table written by the SubagentStart hook.
 	// The OTLP receiver reads this to synthesize a placeholder otel_signals row

@@ -918,6 +918,81 @@ func TestNewWriter_DoesNotForceWAL(t *testing.T) {
 	}
 }
 
+// TestNewWriter_AppliesPendingMigrations reproduces bug-286ce8f7 (filed
+// against team-lead's bug-6f0f0b3a): NewWriter used to open its DB handle via
+// a raw sql.Open and never ran schema migrations at all, silently depending
+// on some OTHER writer (serve_child's db.Open, a hook) having already
+// migrated the same file first. cmd/wipnote/reindex_otel_events.go calls
+// NewWriter directly with no such guarantee, so a DB that fell behind (or a
+// fresh file nothing else has touched yet) got a writer whose INSERT
+// referenced a column — otel_signals.agent_id — the physical schema did not
+// have, failing on every single insert.
+//
+// This seeds a DB missing that column (the same setup
+// core/db.TestMigrateFromAlreadyCurrentDB_MissingLaterColumn uses), then
+// confirms NewWriter itself repairs the schema before returning, with no
+// other writer or `wipnote serve` needing to have opened the file first.
+func TestNewWriter_AppliesPendingMigrations(t *testing.T) {
+	dbPath := filepath.Join(t.TempDir(), "missing_agent_id.db")
+
+	seed, err := db.Open(dbPath)
+	if err != nil {
+		t.Fatalf("seed db.Open: %v", err)
+	}
+	current := db.CurrentSchemaVersion()
+	if _, err := seed.Exec(`DROP INDEX IF EXISTS idx_otel_agent_ts`); err != nil {
+		t.Fatalf("drop idx_otel_agent_ts: %v", err)
+	}
+	if _, err := seed.Exec(`ALTER TABLE otel_signals DROP COLUMN agent_id`); err != nil {
+		t.Fatalf("drop agent_id to simulate a DB that fell behind: %v", err)
+	}
+	if _, err := seed.Exec(fmt.Sprintf("PRAGMA user_version = %d", current-1)); err != nil {
+		t.Fatalf("rewind user_version: %v", err)
+	}
+	seed.Close()
+
+	// The real regression check: NewWriter (own-pool mode, exactly what
+	// reindex_otel_events.go calls) must repair the schema itself.
+	w, err := receiver.NewWriter(dbPath)
+	if err != nil {
+		t.Fatalf("NewWriter did not repair a DB with a pending migration: %v", err)
+	}
+	defer w.Close()
+
+	ctx := context.Background()
+	sig := sigFixture("sess-migrated-writer", "prompt-migrated-writer", func(s *otel.UnifiedSignal) {
+		s.SignalID = "sig-migrated-writer"
+		s.RawAttrs = map[string]any{"agent_id": "otel-success@sess-migrated-writer"}
+	})
+	if _, err := w.WriteBatch(ctx, otel.HarnessClaude, map[string]any{"service.name": "claude-code"}, []otel.UnifiedSignal{sig}); err != nil {
+		t.Fatalf("WriteBatch after repair: %v", err)
+	}
+
+	probe, err := sql.Open("sqlite", dbPath)
+	if err != nil {
+		t.Fatalf("probe open: %v", err)
+	}
+	defer probe.Close()
+
+	var version int
+	if err := probe.QueryRow("PRAGMA user_version").Scan(&version); err != nil {
+		t.Fatalf("PRAGMA user_version: %v", err)
+	}
+	if version != current {
+		t.Errorf("user_version after NewWriter = %d, want %d", version, current)
+	}
+
+	var agentID sql.NullString
+	if err := probe.QueryRow(
+		`SELECT agent_id FROM otel_signals WHERE signal_id = ?`, "sig-migrated-writer",
+	).Scan(&agentID); err != nil {
+		t.Fatalf("select agent_id: %v", err)
+	}
+	if !agentID.Valid || agentID.String == "" {
+		t.Error("agent_id is NULL/empty after WriteBatch on a repaired writer — migration did not actually apply before inserts started")
+	}
+}
+
 // TestWriter_OrphanSpanNoAgentIDGracefulDegrade verifies that an orphan span
 // without wipnote.agent_id in resource attrs does NOT synthesise a placeholder
 // (graceful degradation for pre-upgrade sessions).

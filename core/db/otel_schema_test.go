@@ -95,8 +95,9 @@ func TestOtelSignalsAgentIDColumn(t *testing.T) {
 		t.Errorf("agent_id = %q, want %q", got, "otel-success@session-abc")
 	}
 
-	// Re-running the migration (as happens on every `wipnote serve` startup
-	// against an existing DB) must not error on the duplicate ALTER TABLE.
+	// Re-running CreateOtelTables directly (bug-286ce8f7: it no longer owns
+	// the agent_id/feature_id ALTERs, but its CREATE TABLE IF NOT EXISTS
+	// statements must still tolerate being called again) must not error.
 	if err := db.CreateOtelTables(database); err != nil {
 		t.Fatalf("re-run CreateOtelTables: %v", err)
 	}

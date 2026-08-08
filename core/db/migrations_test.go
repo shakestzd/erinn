@@ -193,6 +193,86 @@ func TestMigrateFromUserVersionNMinus1(t *testing.T) {
 	}
 }
 
+// TestMigrateFromAlreadyCurrentDB_MissingLaterColumn reproduces bug-286ce8f7
+// (filed against team-lead's bug-6f0f0b3a): a database that reached
+// currentSchemaVersion BEFORE a new column was added to a step-1-only
+// function (CreateOtelTables) never receives that column, because
+// runMigrations short-circuits entirely once user_version >= currentSchemaVersion
+// and step 1 (stepCreateBaseTables) never runs again. This is exactly what
+// happened live to otel_signals.agent_id: present in source, absent from any
+// database that had already finished migrating before the column existed in
+// CreateOtelTables.
+//
+// The fix moved agent_id (and feature_id) into their own versioned step
+// (019_otel_signals_attribution_columns), so this test seeds a DB that is
+// fully current EXCEPT it is missing the column that step is responsible
+// for and one version behind, then confirms a normal db.Open repairs it —
+// proving the fix applies through the same entry point every writer (hooks,
+// serve, reindex) already uses, with no new mechanism required.
+func TestMigrateFromAlreadyCurrentDB_MissingLaterColumn(t *testing.T) {
+	current := db.CurrentSchemaVersion()
+	if current < 2 {
+		t.Skipf("currentSchemaVersion=%d < 2; cannot test N-1 migration", current)
+	}
+
+	path := fileDBPath(t, "missing_agent_id.db")
+
+	// Cold-migrate to pick up every table, then strip the column the newest
+	// step is responsible for and rewind user_version by one — simulating a
+	// database that finished migrating to "current" on an OLDER binary,
+	// before that step's column existed at all.
+	cold, err := db.Open(path)
+	if err != nil {
+		t.Fatalf("cold seed Open: %v", err)
+	}
+	if _, err := cold.Exec(`DROP INDEX IF EXISTS idx_otel_agent_ts`); err != nil {
+		t.Fatalf("drop idx_otel_agent_ts before dropping its column: %v", err)
+	}
+	if _, err := cold.Exec(`ALTER TABLE otel_signals DROP COLUMN agent_id`); err != nil {
+		t.Fatalf("drop agent_id to simulate pre-migration DB: %v", err)
+	}
+	if _, err := cold.Exec(fmt.Sprintf("PRAGMA user_version = %d", current-1)); err != nil {
+		t.Fatalf("rewind user_version: %v", err)
+	}
+	cold.Close()
+
+	// Confirm the column is genuinely gone before the real assertion, so a
+	// failure below can't be misread as "the column was never dropped."
+	verify := openRaw(t, path)
+	if _, err := verify.Exec(`SELECT agent_id FROM otel_signals LIMIT 1`); err == nil {
+		verify.Close()
+		t.Fatal("agent_id still queryable after DROP COLUMN — test setup did not simulate the bug")
+	}
+	verify.Close()
+
+	warm, err := db.Open(path)
+	if err != nil {
+		t.Fatalf("warm Open at N-1 with missing column: %v", err)
+	}
+	defer warm.Close()
+
+	if v := queryUserVersion(t, warm); v != current {
+		t.Fatalf("user_version after repair = %d, want %d", v, current)
+	}
+
+	// The real regression check: agent_id must be insertable again, through
+	// the exact same db.Open every production writer calls.
+	if _, err := warm.Exec(
+		`INSERT INTO sessions (session_id, agent_assigned) VALUES (?, ?)`,
+		"sess-missing-col", "claude-code"); err != nil {
+		t.Fatalf("insert session: %v", err)
+	}
+	if _, err := warm.Exec(`
+		INSERT INTO otel_signals (
+			signal_id, harness, session_id, kind, canonical, native, ts_micros, attrs_json, agent_id
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		"sig-missing-col", "claude_code", "sess-missing-col", "span", "tool_result", "claude_code.tool",
+		time.Now().UnixMicro(), "{}", "otel-repaired@session-abc",
+	); err != nil {
+		t.Fatalf("insert into repaired agent_id column: %v", err)
+	}
+}
+
 // TestMigrateFromPreCopySwap simulates a legacy DB whose agent_events table
 // was created WITHOUT the CHECK constraint and WITH the self-referential
 // parent_event_id foreign key. After Open runs migrations, the table must have
@@ -712,7 +792,7 @@ func TestRepairTrigger_AlreadyMigratedDB_TriggerDropped(t *testing.T) {
 	// Steps 10, 11 and 12 should have run (trigger repair + total_events
 	// backfill + gate_records profile columns).
 	calls := recorder.Calls()
-	want := []string{"010_repair_trigger_increment_total_events", "011_backfill_total_events", "012_gate_records_profile_signature", "013_arch_cards", "014_session_exec_context", "015_session_handoff_fields", "016_plan_feedback_annotation_state", "017_recaps_table", "018_git_commits_composite_key"}
+	want := []string{"010_repair_trigger_increment_total_events", "011_backfill_total_events", "012_gate_records_profile_signature", "013_arch_cards", "014_session_exec_context", "015_session_handoff_fields", "016_plan_feedback_annotation_state", "017_recaps_table", "018_git_commits_composite_key", "019_otel_signals_attribution_columns"}
 	if !slices.Equal(calls, want) {
 		t.Fatalf("expected steps %v, got %v", want, calls)
 	}
@@ -861,7 +941,7 @@ func TestBackfillTotalEvents_StaleCountsRepaired(t *testing.T) {
 
 	// Steps 11, 12 and 13 should have run (backfill + gate_records profile columns + arch_cards).
 	calls := recorder.Calls()
-	want := []string{"011_backfill_total_events", "012_gate_records_profile_signature", "013_arch_cards", "014_session_exec_context", "015_session_handoff_fields", "016_plan_feedback_annotation_state", "017_recaps_table", "018_git_commits_composite_key"}
+	want := []string{"011_backfill_total_events", "012_gate_records_profile_signature", "013_arch_cards", "014_session_exec_context", "015_session_handoff_fields", "016_plan_feedback_annotation_state", "017_recaps_table", "018_git_commits_composite_key", "019_otel_signals_attribution_columns"}
 	if !slices.Equal(calls, want) {
 		t.Fatalf("expected steps %v, got %v", want, calls)
 	}

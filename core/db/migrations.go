@@ -15,7 +15,7 @@ import (
 // executes ZERO CREATE / ALTER / DROP / trigger / normalisation statements —
 // avoiding the write-lock acquisition that caused SQLITE_BUSY in short-lived
 // hook processes.
-const currentSchemaVersion = 18
+const currentSchemaVersion = 19
 
 // copySwapStepName is the name of the agent_events copy-and-swap migration
 // step. Exposed via CopySwapStepName() so tests can assert it runs at most
@@ -133,6 +133,11 @@ var migrations = []migrationStep{
 		name:    "018_git_commits_composite_key",
 		apply:   stepGitCommitsCompositeKey,
 	},
+	{
+		version: 19,
+		name:    "019_otel_signals_attribution_columns",
+		apply:   stepOtelSignalsAttributionColumns,
+	},
 }
 
 // CurrentSchemaVersion returns the highest migration step version. Exposed for
@@ -180,6 +185,22 @@ func writeUserVersion(db *sql.DB, v int) error {
 		return fmt.Errorf("write user_version=%d: %w", v, err)
 	}
 	return nil
+}
+
+// RunMigrations applies any pending schema migrations to an ALREADY-OPEN
+// *sql.DB, without going through Open's own connection/pragma setup. It
+// exists for callers that must own their own connection-opening logic (their
+// own DSN pragmas, pool sizing, or pinned-connection semantics) but still
+// need the same version-gated migration guarantee every db.Open caller gets
+// for free — see receiver.NewWriter (bug-286ce8f7), which used to open its
+// DB handle via a raw sql.Open and never ran migrations at all, silently
+// depending on some OTHER writer having already migrated the same file
+// first. Safe to call on every open: version-gated and idempotent, exactly
+// like the internal runMigrations Open wraps.
+func RunMigrations(db *sql.DB) error {
+	return RetryOnBusy(DefaultBusyBackoff, func() error {
+		return runMigrations(db)
+	})
 }
 
 // runMigrations applies every migration step whose version is greater than the
@@ -773,6 +794,69 @@ func stepGitCommitsCompositeKey(db *sql.DB) error {
 	// Reinstall idx_git_commits_feature, dropped by DROP TABLE above.
 	if err := CreateAllIndexes(db); err != nil {
 		return fmt.Errorf("reinstall indexes after git_commits migration: %w", err)
+	}
+	return nil
+}
+
+// stepOtelSignalsAttributionColumns adds the otel_signals.feature_id and
+// otel_signals.agent_id columns (and their partial indexes) as a properly
+// versioned step, correcting bug-286ce8f7 (filed against team-lead's
+// bug-6f0f0b3a): both columns used to be added via an idempotent ALTER
+// embedded directly in CreateOtelTables, which core/db is only reachable
+// from step version 1 (stepCreateBaseTables). A step at version 1 runs
+// exactly once -- the first time a database goes from user_version 0 to
+// current -- and never again once a database has reached
+// currentSchemaVersion. Any column added inside CreateOtelTables AFTER a
+// given database was already fully migrated therefore never applies to
+// that database, no matter which binary or which entry point (serve,
+// hooks, reindex) opens it afterward. This bit feature_id for roughly four
+// months before an incidental full-DB rebuild happened to apply it, and bit
+// agent_id (feat-be696acc) immediately, because no such rebuild had
+// happened yet -- confirmed live against this repo's own dev database
+// (user_version already at 18, feature_id present, agent_id absent).
+//
+// Both ALTERs are safe to re-run here even on a database that already has
+// one or both columns (from an incidental full rebuild, as above): duplicate
+// column errors are swallowed the same way every other column-migration step
+// in this file does it.
+//
+// Legacy/partial DBs may not have otel_signals at all yet (a hand-seeded test
+// fixture that jumps straight to a mid-chain user_version, skipping step 1).
+// The base schema (CreateOtelTables, step 1) creates the table WITH these
+// columns for any database that runs the full chain, so when the table is
+// absent here there is nothing to ALTER — skip rather than fail, matching
+// stepPlanFeedbackAnnotationState and stepGitCommitsCompositeKey.
+func stepOtelSignalsAttributionColumns(db *sql.DB) error {
+	var name string
+	err := db.QueryRow(
+		`SELECT name FROM sqlite_master WHERE type='table' AND name='otel_signals'`,
+	).Scan(&name)
+	if err == sql.ErrNoRows {
+		return nil
+	}
+	if err != nil {
+		return fmt.Errorf("check otel_signals existence: %w", err)
+	}
+
+	addCols := []string{
+		`ALTER TABLE otel_signals ADD COLUMN feature_id TEXT`,
+		`ALTER TABLE otel_signals ADD COLUMN agent_id TEXT`,
+	}
+	for _, stmt := range addCols {
+		if _, err := db.Exec(stmt); err != nil {
+			if !isDuplicateColumnError(err) {
+				return fmt.Errorf("add column (%s): %w", stmt, err)
+			}
+		}
+	}
+	indexes := []string{
+		`CREATE INDEX IF NOT EXISTS idx_otel_feature_ts ON otel_signals(feature_id, ts_micros) WHERE feature_id IS NOT NULL`,
+		`CREATE INDEX IF NOT EXISTS idx_otel_agent_ts ON otel_signals(agent_id, ts_micros) WHERE agent_id IS NOT NULL`,
+	}
+	for _, stmt := range indexes {
+		if _, err := db.Exec(stmt); err != nil {
+			return fmt.Errorf("create index (%s): %w", stmt, err)
+		}
 	}
 	return nil
 }

@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>Enforce the adopt-vs-build rule at the moment it matters</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="feat-36d713e2"
+             data-type="feature"
+             data-status="todo"
+             data-priority="high"
+             data-created="2026-08-08T12:29:25.213047"
+             data-updated="2026-08-08T12:30:11.510636" data-agent-assigned="claude-code" data-track-id="trk-fae39e29" data-created-by-agent="claude-code" data-created-by-model="claude-opus-5[1m]" data-created-by-cli-version="0.67.1" data-created_in_session="419cfccb-620d-4bb6-b2df-6b449496b630">
+
+        <header>
+            <h1>Enforce the adopt-vs-build rule at the moment it matters</h1>
+            <div class="metadata">
+                <span class="badge status-todo">Todo</span>
+                <span class="badge priority-high">High Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-fae39e29.html" data-relationship="part_of" data-since="2026-08-08T12:29:30.333098">trk-fae39e29</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="relates_to">
+                <h3>Relates To:</h3>
+                <ul>
+                    <li><a href="../features/feat-21d12cdb.html" data-relationship="relates_to" data-since="2026-08-08T12:30:06.309001">Durable per-agent claim history to replace single-slot current-state tables</a></li>
+                    <li><a href="../bugs/bug-735806ff.html" data-relationship="relates_to" data-since="2026-08-08T12:30:11.510516">Adapter tests use synthetic spans, so upstream attribute drift is undetectable</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>The reinvent-the-wheel rule is well written but purely advisory, and nothing checks it when a new component is designed. Documented consequence in GitHub issue 171: a prior session hand-rolled a roughly 280 line SSE frame parser when a maintained crate implementing the same WHATWG algorithm had 17.5 million downloads, and a later session then defended the hand-rolled code in a written architectural recommendation without searching. The cost was not line count — CRLF framing was the one thing the parser existed to get right, its JavaScript twin split on the wrong terminator so no events ever dispatched, and that masked three separate misdiagnoses. Three enforcement options were proposed. The plan gate is the most promising because the machinery already exists: the v4 validator enforces per-slice research citations, so extend it so a slice creating a new non-trivial module must carry a named adopt-vs-build decision citing either the adopted package or the evaluated and rejected candidates. Second option is a completion check that flags a work item adding a new module above a size threshold with no recorded decision. Third is a dedicated arch card kind so the decision becomes a first-class greppable artifact rather than prose buried in a slice. The third is cheap and complements either gate.</p>
+        </section>
+    </article>
+</body>
+</html>

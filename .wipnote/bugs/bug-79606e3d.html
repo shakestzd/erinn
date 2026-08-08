@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>otel success column not persisted on tool_result/tool_execution/api_request spans</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="bug-79606e3d"
+             data-type="bug"
+             data-status="in-progress"
+             data-priority="high"
+             data-created="2026-08-08T11:25:45.834799"
+             data-updated="2026-08-08T11:28:42.810193" data-agent-assigned="claude-code" data-track-id="trk-c4615ad2" data-created-by-agent="claude-code" data-created-by-model="claude-opus-5[1m]" data-created-by-cli-version="0.67.1">
+
+        <header>
+            <h1>otel success column not persisted on tool_result/tool_execution/api_request spans</h1>
+            <div class="metadata">
+                <span class="badge status-in-progress">In Progress</span>
+                <span class="badge priority-high">High Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="blocks">
+                <h3>Blocks:</h3>
+                <ul>
+                    <li><a href="../features/feat-7ee73444.html" data-relationship="blocks" data-since="2026-08-08T11:25:51.989608">Per-work-item telemetry rollups: failure rate, cost, thrash</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="caused_by">
+                <h3>Caused By:</h3>
+                <ul>
+                    <li><a href="../spikes/spk-badb1d4a.html" data-relationship="caused_by" data-since="2026-08-08T11:25:52.173522">Can wipnote drop SQLite entirely? Local-first patterns for a file-canonical graph plus telemetry</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="implemented_in">
+                <h3>Implemented In:</h3>
+                <ul>
+                    <li><a href="../sessions/419cfccb-620d-4bb6-b2df-6b449496b630.html" data-relationship="implemented_in" data-since="2026-08-08T11:26:37.539311">session 419cfccb-620d-4bb6-b2df-6b449496b630</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-c4615ad2.html" data-relationship="part_of" data-since="2026-08-08T11:25:45.847122">trk-c4615ad2</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-steps>
+            <h3>Implementation Steps</h3>
+            <ol>
+                <li data-completed="false" data-step-id="task-13" data-agent="claude-code" data-created-by-agent="claude-code">⏳ Fix Node.Properties round-trip and add generic node data-* mechanism (bug-c65a5f4e)</li>
+                <li data-completed="false" data-step-id="task-14" data-agent="claude-code" data-created-by-agent="claude-code">⏳ Research per-signal agent attribution via parent_span (feat-be696acc)</li>
+            </ol>
+        </section>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>The success column on otel_signals is populated on 461 of 39476 rows (1.2 percent), but it is semantically defined on nearly all of them. Breakdown from the live index: tool_result 332 of 7033, tool_execution 125 of 6352, api_request 3 of 7103. Every tool result is either a success or an error, so this is a writer bug, not sparse-by-design. The plumbing works when it fires — populated rows split 327 success and 134 failure — so the column and its readers are fine; the common write path simply drops it. This blocks per-work-item failure rate, which was the headline fact the rollup feature exists to produce. By contrast duration_ms is dense where applicable (api_request 100 percent, tool_result 98.8, tool_execution 94.6) and attempt is 90 percent on api_request, so those facts are viable today. Investigate the receiver write path that maps harness-native spans onto these canonical kinds.</p>
+        </section>
+    </article>
+</body>
+</html>

@@ -10,15 +10,15 @@
 <body>
     <article id="bug-dc189eae"
              data-type="bug"
-             data-status="todo"
+             data-status="done"
              data-priority="high"
              data-created="2026-08-08T19:33:35.046037"
-             data-updated="2026-08-08T19:33:35.060451" data-agent-assigned="claude-code" data-track-id="trk-c4615ad2" data-created-by-agent="claude-code" data-created-by-model="claude-opus-5[1m]" data-created-by-cli-version="0.67.1" data-created_in_session="419cfccb-620d-4bb6-b2df-6b449496b630">
+             data-updated="2026-08-08T20:05:51.961707" data-agent-assigned="claude-code" data-track-id="trk-c4615ad2" data-created-by-agent="claude-code" data-created-by-model="claude-opus-5[1m]" data-created-by-cli-version="0.67.1" data-created_in_session="419cfccb-620d-4bb6-b2df-6b449496b630">
 
         <header>
             <h1>Schema migration only runs on serve, while writers depend on the column unconditionally</h1>
             <div class="metadata">
-                <span class="badge status-todo">Todo</span>
+                <span class="badge status-done">Done</span>
                 <span class="badge priority-high">High Priority</span>
             </div>
         </header>
@@ -30,11 +30,31 @@
                     <li><a href="../tracks/trk-c4615ad2.html" data-relationship="part_of" data-since="2026-08-08T19:33:35.060312">trk-c4615ad2</a></li>
                 </ul>
             </section>
+            <section data-edge-type="relates_to">
+                <h3>Relates To:</h3>
+                <ul>
+                    <li><a href="../bugs/bug-286ce8f7.html" data-relationship="relates_to" data-since="2026-08-08T20:04:33.236569">OTel agent_id schema migration gated behind serve; writer swallows resulting write errors</a></li>
+                </ul>
+            </section>
         </nav>
 
         <section data-content>
             <h3>Description</h3>
-            <p>The agent id column added to the telemetry signals table tonight does not exist in the live database, confirmed by a direct schema query, while signals continue to be written. A full reindex threw thousands of repeated errors reporting the missing column. The migration itself is correct and sits immediately beside an earlier one for the feature id column that did apply — the difference is only that the earlier one has had a dashboard launch since it landed. The schema function&#39;s own comment states that existing databases pick the change up on the next serve invocation, so the migration is gated behind an optional command while the write path depends on the column unconditionally. Anyone who never starts the dashboard never gets the column, and the per-signal agent attribution shipped tonight is silently inert for them while generating error spam. Two things to fix: apply schema migrations wherever the database is opened for writing rather than only on serve, and make the writer&#39;s dependency explicit so a missing column fails loudly at startup instead of once per insert. Note this also caps confidence in the reindex, since thousands of swallowed write errors during a rebuild mean the resulting index is incomplete in ways nothing reports.</p>
+            <p>SUPERSEDED BY bug-286ce8f7 (same defect, filed independently before this ticket&#39;s real ID reached me -- team-lead&#39;s brief cited a fabricated ID, bug-6f0f0b3a, twice before this one; content below is the corrected record).
+
+Fixed in commit 4e5f7d7ca. Two independent root causes, both closed:
+
+1. core/db/otel_schema.go&#39;s CreateOtelTables added otel_signals.feature_id and .agent_id via idempotent ALTERs embedded in its own body. CreateOtelTables is reachable only from migration step version 1, which runs exactly once -- the first time a database advances from user_version 0 to current -- never again once a database has reached currentSchemaVersion. This ticket&#39;s own prior note (&#39;the versioned migration chain... runs on every database open, and the schema version constant confirms it&#39;) was the diagnosis BEFORE realizing step 1 does not re-run on an already-current DB; that is exactly the gap. Fix: promoted both columns into a real versioned step, 019_otel_signals_attribution_columns, and bumped currentSchemaVersion 18 -&gt; 19.
+
+2. observe/otel/receiver.NewWriter (own-pool mode, the constructor cmd/wipnote/reindex_otel_events.go calls for &#39;wipnote reindex&#39;) opened its DB handle via a raw sql.Open and never ran schema migrations at all -- unlike NewWriterFromDB, whose caller (serve_child) passes in a handle dbpkg.Open already migrated. This is the &#39;two open paths that differ on whether they migrate&#39; this ticket predicted. Fix: added an exported db.RunMigrations and call it in NewWriter before preparing statements.
+
+The &#39;self-resolved 25 minutes later, nothing deliberately run&#39; observation in the original filing was not a mystery: that window was this fix landing and a normal wipnote invocation applying it, not an unexplained recovery.
+
+FAIL LOUDLY (this ticket&#39;s second acceptance criterion): both Writer constructors now call verifyOtelSignalsSchema once, at construction, which PRAGMA table_info(otel_signals)s and fails immediately and by name if a column the INSERT depends on is missing. Both call sites (reindex_otel_events.go, serve_child.go) already treat a constructor error as fatal, closing the &#39;hardcoded zero error count&#39; hole this ticket named as the durable part of the defect.
+
+Verified non-vacuous by three separate deliberate reversions (each reproduced the exact original failure in a dedicated test, then was reverted) and against this repo&#39;s actual shared dev DB post-rebuild, not just isolated fixtures. Full detail in bug-286ce8f7 and commit 4e5f7d7ca&#39;s message.
+Acceptance Criteria
+Both criteria met: (1) the versioned migration chain now owns otel_signals.feature_id/agent_id as step 019, applied on every db.Open regardless of entry point, confirmed live against this repo&#39;s dev DB (user_version=19, agent_id present); (2) both Writer constructors fail once, immediately, by name via verifyOtelSignalsSchema, and both call sites already treat that as fatal -- no more per-batch swallowed errors or hardcoded zero error counts.</p>
         </section>
     </article>
 </body>

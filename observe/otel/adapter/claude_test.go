@@ -674,3 +674,70 @@ func TestClaudeAdapter_CrossValidateToolOutcomes(t *testing.T) {
 		}
 	})
 }
+
+// TestClaudeAdapter_ToolUseIDPromoted_AllObservedCarriers is the closing test
+// for bug-5652a5ba: the tool_use_id column was writer-wired (writer.go binds
+// nullStr(s.ToolUseID) into it correctly) but populated on zero of ~39,700
+// live rows because no adapter conversion ever set the typed field, despite
+// the attribute sitting in attrs_json on every one of the five canonical/kind
+// combinations a live capture actually carries it on: tool_result (both log
+// and span), tool_execution (span), tool_decision (log), and
+// subagent_invocation (span — claude_code.tool with tool_name=Agent/Task).
+// Each case here is a live-capture-shaped native name, so a live signal that
+// carries the attribute but leaves ToolUseID empty would be a real
+// regression of the exact bug this closes, not a hypothetical.
+func TestClaudeAdapter_ToolUseIDPromoted_AllObservedCarriers(t *testing.T) {
+	a := adapter.NewClaudeAdapter()
+	res := claudeRes("2.1.42")
+
+	t.Run("tool_result log", func(t *testing.T) {
+		log := adapter.OTLPLog{Name: "claude_code.tool_result", Timestamp: time.Now(),
+			Attrs: map[string]any{"session.id": "s1", "success": "true", "tool_use_id": "toolu_1"}}
+		sigs := a.ConvertLog(res, adapter.OTLPScope{}, log)
+		if sigs[0].ToolUseID != "toolu_1" {
+			t.Errorf("ToolUseID = %q, want toolu_1", sigs[0].ToolUseID)
+		}
+	})
+
+	t.Run("tool_decision log", func(t *testing.T) {
+		log := adapter.OTLPLog{Name: "claude_code.tool_decision", Timestamp: time.Now(),
+			Attrs: map[string]any{"session.id": "s1", "tool_name": "Edit", "decision": "accept", "tool_use_id": "toolu_2"}}
+		sigs := a.ConvertLog(res, adapter.OTLPScope{}, log)
+		if sigs[0].ToolUseID != "toolu_2" {
+			t.Errorf("ToolUseID = %q, want toolu_2", sigs[0].ToolUseID)
+		}
+	})
+
+	t.Run("tool_execution span", func(t *testing.T) {
+		span := adapter.OTLPSpan{Name: "claude_code.tool.execution", SpanID: "s",
+			StartTime: time.Now(), EndTime: time.Now().Add(time.Millisecond),
+			Attrs: map[string]any{"session.id": "s1", "success": true, "tool_use_id": "toolu_3"}}
+		sigs := a.ConvertSpan(res, adapter.OTLPScope{}, span)
+		if sigs[0].ToolUseID != "toolu_3" {
+			t.Errorf("ToolUseID = %q, want toolu_3", sigs[0].ToolUseID)
+		}
+	})
+
+	t.Run("subagent_invocation span (claude_code.tool, tool_name=Agent)", func(t *testing.T) {
+		span := adapter.OTLPSpan{Name: "claude_code.tool", SpanID: "s",
+			StartTime: time.Now(), EndTime: time.Now().Add(time.Second),
+			Attrs: map[string]any{"session.id": "s1", "tool_name": "Agent", "tool_use_id": "toolu_4"}}
+		sigs := a.ConvertSpan(res, adapter.OTLPScope{}, span)
+		if sigs[0].CanonicalName != otel.CanonicalSubagent {
+			t.Fatalf("canonical = %q, want subagent_invocation", sigs[0].CanonicalName)
+		}
+		if sigs[0].ToolUseID != "toolu_4" {
+			t.Errorf("ToolUseID = %q, want toolu_4", sigs[0].ToolUseID)
+		}
+	})
+
+	t.Run("claude_code.tool span (non-Agent) also carries it", func(t *testing.T) {
+		span := adapter.OTLPSpan{Name: "claude_code.tool", SpanID: "s",
+			StartTime: time.Now(), EndTime: time.Now().Add(time.Second),
+			Attrs: map[string]any{"session.id": "s1", "tool_name": "Bash", "tool_use_id": "toolu_5"}}
+		sigs := a.ConvertSpan(res, adapter.OTLPScope{}, span)
+		if sigs[0].ToolUseID != "toolu_5" {
+			t.Errorf("ToolUseID = %q, want toolu_5", sigs[0].ToolUseID)
+		}
+	})
+}

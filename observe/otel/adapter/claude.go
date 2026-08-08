@@ -192,6 +192,7 @@ func (c *ClaudeAdapter) ConvertLog(res OTLPResource, scope OTLPScope, l OTLPLog)
 	case "tool_decision", "claude_code.tool_decision":
 		base.CanonicalName = otel.CanonicalToolDecision
 		base.ToolName = AttrString(l.Attrs, "tool_name")
+		base.ToolUseID = AttrString(l.Attrs, "tool_use_id")
 		base.Decision = AttrString(l.Attrs, "decision")
 		base.DecisionSource = normalizeDecisionSource(AttrString(l.Attrs, "source"))
 	case "plugin_installed", "claude_code.plugin_installed":

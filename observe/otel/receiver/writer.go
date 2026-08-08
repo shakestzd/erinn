@@ -454,6 +454,24 @@ func (w *Writer) writeBatchAttempt(
 	// Track sessions we've already upserted this batch so we don't
 	// fire a redundant INSERT per signal.
 	seen := map[string]bool{}
+	// metricSessions tracks which sessions had at least one metric-kind
+	// signal actually written in this batch (bug-e764997c): pruneMetricSignals
+	// only needs to run for a session when its metric row count could have
+	// grown, so a batch containing only span/log signals for a session must
+	// not pay for it. Before this guard, pruneMetricSignals ran unconditionally
+	// once per session per WriteBatch call regardless of signal kind -- and
+	// since production calls WriteBatch once per signal (see
+	// indexer.writeParsedBatch), that meant the query ran on EVERY signal
+	// write, not just metric ones. Its own cost scales with the session's
+	// accumulated metric row count (a DELETE with an ORDER BY/LIMIT
+	// subquery, re-sorted on every call): measured at ~13ms/call even at
+	// steady state (pruned back to the 5000-row keep limit), and much worse
+	// before that limit is first reached. On this repo's real corpus one
+	// session alone has 7,715 metric-kind signals out of 86,761 total, so
+	// the vast majority of those unconditional prune calls were pure waste
+	// -- this was the dominant cost behind reindexOtelEvents' real-corpus
+	// 48m28s, not per-signal transaction overhead or resolution logic.
+	metricSessions := map[string]bool{}
 	// Cache of active work item per (session_id, agent_id) pair, keyed
 	// internally by resolveFeatureID. Populated lazily so a batch touching
 	// many agents issues at most one SELECT per distinct pair, regardless
@@ -492,6 +510,9 @@ func (w *Writer) writeBatchAttempt(
 		}
 		if !shouldPersistSignal(s) {
 			continue
+		}
+		if s.Kind == otel.KindMetric {
+			metricSessions[s.SessionID] = true
 		}
 		if !seen[s.SessionID] {
 			agent := string(harness)
@@ -610,6 +631,9 @@ func (w *Writer) writeBatchAttempt(
 	}
 
 	for sessionID := range seen {
+		if !metricSessions[sessionID] {
+			continue
+		}
 		if err = pruneMetricSignals(ctx, conn, sessionID, metricRowsPerSessionLimit); err != nil {
 			return inserted, fmt.Errorf("prune metric signals for session %s: %w", sessionID, err)
 		}

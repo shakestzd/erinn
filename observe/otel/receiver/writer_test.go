@@ -212,6 +212,98 @@ func TestWriter_PrunesMetricsPerSession(t *testing.T) {
 	}
 }
 
+// seedOverLimitMetrics creates the session (via one real WriteBatch call so
+// the sessions FK row exists) then inserts metric rows directly, bypassing
+// WriteBatch/pruneMetricSignals entirely, so the session can be pushed
+// artificially over metricRowsPerSessionLimit without the writer's own
+// pruning intervening during setup.
+func seedOverLimitMetrics(t *testing.T, w *receiver.Writer, sessionID string, n int) {
+	t.Helper()
+	ctx := context.Background()
+	if _, err := w.WriteBatch(ctx, otel.HarnessClaude, nil,
+		[]otel.UnifiedSignal{sigFixture(sessionID, "seed-log")}); err != nil {
+		t.Fatalf("seed session via WriteBatch: %v", err)
+	}
+	for i := 0; i < n; i++ {
+		if _, err := w.DB().Exec(`
+			INSERT INTO otel_signals (signal_id, harness, session_id, kind, canonical, native, ts_micros, attrs_json)
+			VALUES (?, 'claude_code', ?, 'metric', 'token_usage', 'claude_code.token.usage', ?, '{}')`,
+			fmt.Sprintf("seed-metric-%s-%d", sessionID, i), sessionID, i+1,
+		); err != nil {
+			t.Fatalf("seed metric row %d: %v", i, err)
+		}
+	}
+}
+
+func countMetricRows(t *testing.T, w *receiver.Writer, sessionID string) int {
+	t.Helper()
+	var n int
+	if err := w.DB().QueryRow(
+		`SELECT COUNT(*) FROM otel_signals WHERE session_id = ? AND kind = 'metric'`, sessionID,
+	).Scan(&n); err != nil {
+		t.Fatalf("count metric rows: %v", err)
+	}
+	return n
+}
+
+// TestWriter_SkipsPruneWhenBatchHasNoMetricSignal is the regression guard for
+// bug-e764997c: pruneMetricSignals used to run unconditionally once per
+// session per WriteBatch call, regardless of what kind of signal was being
+// written. On the real corpus that meant an expensive DELETE+ORDER BY/LIMIT
+// query ran on every single non-metric signal too, dominating a full
+// reindexOtelEvents run. A batch containing only a log signal for a session
+// that is already over the metric cap must leave the over-limit metric rows
+// untouched -- nothing metric-shaped changed, so there is nothing to prune.
+func TestWriter_SkipsPruneWhenBatchHasNoMetricSignal(t *testing.T) {
+	w, _ := newWriter(t)
+	const sessionID = "sess-no-metric-in-batch"
+	const overLimitBy = 37
+	seedOverLimitMetrics(t, w, sessionID, 5000+overLimitBy)
+
+	before := countMetricRows(t, w, sessionID)
+	if before != 5000+overLimitBy {
+		t.Fatalf("setup: metric rows = %d, want %d", before, 5000+overLimitBy)
+	}
+
+	ctx := context.Background()
+	if _, err := w.WriteBatch(ctx, otel.HarnessClaude, nil,
+		[]otel.UnifiedSignal{sigFixture(sessionID, "log-only")}); err != nil {
+		t.Fatalf("WriteBatch (log signal): %v", err)
+	}
+
+	after := countMetricRows(t, w, sessionID)
+	if after != before {
+		t.Errorf("metric rows after log-only batch = %d, want unchanged %d (prune should have been skipped)", after, before)
+	}
+}
+
+// TestWriter_PrunesWhenBatchHasMetricSignal proves the guard added for
+// bug-e764997c doesn't just skip pruning unconditionally: a batch that DOES
+// write a metric-kind signal for an over-limit session must still trigger
+// pruneMetricSignals and bring the session back down to the cap, exactly as
+// before the fix.
+func TestWriter_PrunesWhenBatchHasMetricSignal(t *testing.T) {
+	w, _ := newWriter(t)
+	const sessionID = "sess-metric-in-batch"
+	seedOverLimitMetrics(t, w, sessionID, 5000+37)
+
+	ctx := context.Background()
+	if _, err := w.WriteBatch(ctx, otel.HarnessClaude, nil,
+		[]otel.UnifiedSignal{sigFixture(sessionID, "p-new", func(s *otel.UnifiedSignal) {
+			s.SignalID = "sig-" + sessionID + "-new-metric"
+			s.Kind = otel.KindMetric
+			s.CanonicalName = otel.CanonicalTokenUsage
+			s.Timestamp = time.UnixMicro(999999)
+		})}); err != nil {
+		t.Fatalf("WriteBatch (metric signal): %v", err)
+	}
+
+	after := countMetricRows(t, w, sessionID)
+	if after != 5000 {
+		t.Errorf("metric rows after metric-bearing batch = %d, want 5000 (pruned to cap)", after)
+	}
+}
+
 func TestWriter_BatchMultipleSessions(t *testing.T) {
 	w, _ := newWriter(t)
 	ctx := context.Background()

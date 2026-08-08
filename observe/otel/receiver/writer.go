@@ -471,6 +471,24 @@ func (w *Writer) writeBatchAttempt(
 	// the vast majority of those unconditional prune calls were pure waste
 	// -- this was the dominant cost behind reindexOtelEvents' real-corpus
 	// 48m28s, not per-signal transaction overhead or resolution logic.
+	//
+	// CONCURRENCY NOTE: skipping the prune when this call adds no metric
+	// signal is only a no-op for the keep-limit invariant if THIS Writer is
+	// the only thing that can add metric rows for the session. That is not
+	// universally true: a `wipnote reindex` invocation (own-pool Writer,
+	// receiver.NewWriter) and the dashboard daemon's indexer (shared-mode
+	// Writer, receiver.NewWriterFromDB) are separate Writer instances with
+	// no mutex between them if both run against the same project
+	// concurrently -- the same structural gap tracked in bug-fd595769 for
+	// the NDJSON checkpoint. In that scenario the OTHER writer's metric
+	// insert could push a session over the keep limit while THIS writer's
+	// non-metric batch skips its own prune call, so the limit is enforced
+	// eventually (by whichever writer next processes a metric signal for
+	// that session), not instantaneously. This was already true before this
+	// guard: two Writer instances each running their own unconditional
+	// pruneMetricSignals call were never coordinated either, so this change
+	// does not introduce a new correctness gap, only makes explicit that the
+	// keep limit was already a converging target, not a hard invariant.
 	metricSessions := map[string]bool{}
 	// Cache of active work item per (session_id, agent_id) pair, keyed
 	// internally by resolveFeatureID. Populated lazily so a batch touching

@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>success is read from a beta span attribute when a non-beta source exists</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="bug-a0143c2c"
+             data-type="bug"
+             data-status="todo"
+             data-priority="medium"
+             data-created="2026-08-08T12:38:29.432291"
+             data-updated="2026-08-08T12:40:07.310078" data-agent-assigned="claude-code" data-track-id="trk-c4615ad2" data-created-by-agent="claude-code" data-created-by-model="claude-opus-5[1m]" data-created-by-cli-version="0.67.1" data-created_in_session="419cfccb-620d-4bb6-b2df-6b449496b630">
+
+        <header>
+            <h1>success is read from a beta span attribute when a non-beta source exists</h1>
+            <div class="metadata">
+                <span class="badge status-todo">Todo</span>
+                <span class="badge priority-medium">Medium Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="caused_by">
+                <h3>Caused By:</h3>
+                <ul>
+                    <li><a href="../bugs/bug-79606e3d.html" data-relationship="caused_by" data-since="2026-08-08T12:39:55.097993">otel success column not persisted on tool_result/tool_execution/api_request spans</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-c4615ad2.html" data-relationship="part_of" data-since="2026-08-08T12:38:34.550756">trk-c4615ad2</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="relates_to">
+                <h3>Relates To:</h3>
+                <ul>
+                    <li><a href="../bugs/bug-735806ff.html" data-relationship="relates_to" data-since="2026-08-08T12:40:07.309917">Adapter tests use synthetic spans, so upstream attribute drift is undetectable</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>The shipped success derivation reads the success boolean from claude_code.llm_request and claude_code.tool.execution spans. Doc audit confirms the attribute name and type are documented exactly as used, so the fix is correct — but those spans live under the Traces feature, which is explicitly beta and carries a documented warning that span names and attributes may change between releases. That is a stated instability, not a hypothetical one. A non-beta equivalent exists for tool outcomes: the claude_code.tool_result log event is part of the standard log signal, is not gated behind the beta flag, and carries both success as a string and tool_use_id. Prefer that source for tool outcomes, or read both and cross-validate so a divergence surfaces as a signal rather than silently picking a loser. No non-beta path exists for llm_request success — that field is beta-only, making it the single highest-risk input in the current derivation, and it should be marked as such wherever it is consumed.</p>
+        </section>
+    </article>
+</body>
+</html>

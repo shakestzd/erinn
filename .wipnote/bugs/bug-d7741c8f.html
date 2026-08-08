@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>Transcript ingest parsers are tested only against hand-built fixtures</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="bug-d7741c8f"
+             data-type="bug"
+             data-status="todo"
+             data-priority="medium"
+             data-created="2026-08-08T12:39:00.394334"
+             data-updated="2026-08-08T12:40:02.091032" data-agent-assigned="claude-code" data-track-id="trk-c4615ad2" data-created-by-agent="claude-code" data-created-by-model="claude-opus-5[1m]" data-created-by-cli-version="0.67.1" data-created_in_session="419cfccb-620d-4bb6-b2df-6b449496b630">
+
+        <header>
+            <h1>Transcript ingest parsers are tested only against hand-built fixtures</h1>
+            <div class="metadata">
+                <span class="badge status-todo">Todo</span>
+                <span class="badge priority-medium">Medium Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-c4615ad2.html" data-relationship="part_of" data-since="2026-08-08T12:39:05.518705">trk-c4615ad2</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="relates_to">
+                <h3>Relates To:</h3>
+                <ul>
+                    <li><a href="../bugs/bug-735806ff.html" data-relationship="relates_to" data-since="2026-08-08T12:40:02.09091">Adapter tests use synthetic spans, so upstream attribute drift is undetectable</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>The transcript ingest parser tests construct every fixture by hand to match what the parser already expects, with none captured from or grounded in a real transcript. This is the same defect class as the adapter tests, on a different pipeline: a renamed or restructured field in a future harness release would silently zero out token and model attribution for every ingested session, with a fully green suite throughout. It feeds the same cost and token rollup, so it deserves the same remedy. The retired-harness parser has the identical shape but lower priority, since that format is frozen and cannot drift further — though a fixture that was always subtly wrong would still be invisible. Note the discriminator that makes this a defect here and not elsewhere: it applies where an external vendor owns the schema on the other side. Tests that construct fixtures for wipnote&#39;s own writer and parser are fine, because there is no upstream to drift out from under them.</p>
+        </section>
+    </article>
+</body>
+</html>

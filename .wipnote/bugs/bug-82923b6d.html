@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>Concurrent agents on one working tree make the completion gate unreliable</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="bug-82923b6d"
+             data-type="bug"
+             data-status="todo"
+             data-priority="high"
+             data-created="2026-08-08T11:53:24.291795"
+             data-updated="2026-08-08T11:53:29.411828" data-agent-assigned="claude-code" data-track-id="trk-2c55adea" data-created-by-agent="claude-code" data-created-by-model="claude-opus-5[1m]" data-created-by-cli-version="0.67.1" data-created_in_session="419cfccb-620d-4bb6-b2df-6b449496b630">
+
+        <header>
+            <h1>Concurrent agents on one working tree make the completion gate unreliable</h1>
+            <div class="metadata">
+                <span class="badge status-todo">Todo</span>
+                <span class="badge priority-high">High Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-2c55adea.html" data-relationship="part_of" data-since="2026-08-08T11:53:29.411686">trk-2c55adea</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>Work item completion re-runs the quality gate, but in a multi-agent session every agent shares one working tree and one derived index. Observed live with three agents mid-edit: a completion attempt reported a build failure in the root package that did not exist moments later — the gate had simply sampled a half-written tree — and two consecutive attempts failed to record a gate result at all with database is locked, SQLITE_BUSY, because the single-writer index was contended by roughly thirty concurrent agents. Both symptoms come from the same cause and neither indicates a real defect in the work being completed. Consequences: agents cannot complete their own work items and either give up or force past the gate with allow-dirty, which is exactly the escape hatch the gate exists to prevent. This also means a red gate in a shared tree carries no information, which erodes the gate generally. Options worth weighing: isolate agents in worktrees so each gates its own tree, make gate-record insertion retry on lock contention rather than failing, or decouple completion bookkeeping from gate execution so a committed and linked change can be completed without re-running a suite that another agent is concurrently invalidating.</p>
+        </section>
+    </article>
+</body>
+</html>

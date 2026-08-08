@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>sink/sqlite writer duplicates receiver logic but is dead code</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="bug-60210598"
+             data-type="bug"
+             data-status="todo"
+             data-priority="medium"
+             data-created="2026-08-08T11:51:16.432174"
+             data-updated="2026-08-08T11:53:39.806913" data-agent-assigned="claude-code" data-track-id="trk-c4615ad2" data-created-by-agent="claude-code" data-created-by-model="claude-opus-5[1m]" data-created-by-cli-version="0.67.1" data-created_in_session="419cfccb-620d-4bb6-b2df-6b449496b630">
+
+        <header>
+            <h1>sink/sqlite writer duplicates receiver logic but is dead code</h1>
+            <div class="metadata">
+                <span class="badge status-todo">Todo</span>
+                <span class="badge priority-medium">Medium Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-c4615ad2.html" data-relationship="part_of" data-since="2026-08-08T11:51:21.560639">trk-c4615ad2</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="relates_to">
+                <h3>Relates To:</h3>
+                <ul>
+                    <li><a href="../features/feat-be696acc.html" data-relationship="relates_to" data-since="2026-08-08T11:53:39.806528">Per-signal agent attribution for OTel signals (the unfiled feat-82e11bbb follow-up)</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>The sqlite sink writer duplicates signal-write logic including the inline active_work_items lookup, but is exercised only by its own test file — the live path is the receiver writer via NewWriterFromDB. Duplicated dead code is a maintenance hazard: two investigations independently flagged the sink twin as needing the same fix, which would have been wasted work, and any future divergence between the two is invisible because only one runs. Decide deliberately: delete it, or keep it and document why it exists with a test that proves it stays in sync. Do not leave it as an unmarked copy.</p>
+        </section>
+    </article>
+</body>
+</html>

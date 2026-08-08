@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>Amortize pruneMetricSignals: only prune when over the keep limit by a margin</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="bug-177708b3"
+             data-type="bug"
+             data-status="todo"
+             data-priority="medium"
+             data-created="2026-08-08T19:03:08.332609"
+             data-updated="2026-08-08T19:03:08.34798" data-agent-assigned="claude-code" data-track-id="trk-2c55adea" data-created-by-agent="claude-code" data-created-by-model="claude-opus-5[1m]" data-created-by-cli-version="0.67.1" data-created_in_session="419cfccb-620d-4bb6-b2df-6b449496b630">
+
+        <header>
+            <h1>Amortize pruneMetricSignals: only prune when over the keep limit by a margin</h1>
+            <div class="metadata">
+                <span class="badge status-todo">Todo</span>
+                <span class="badge priority-medium">Medium Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-2c55adea.html" data-relationship="part_of" data-since="2026-08-08T19:03:08.347897">trk-2c55adea</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>Follow-up to bug-e764997c. The guard added there (only call pruneMetricSignals when the current WriteBatch call actually adds a metric-kind signal) cut one real session&#39;s prune-call count from ~86,000 to ~7,715 (its metric-signal count). But in steady state, once a session&#39;s metric row count sits at the 5000-row keep limit, EVERY new metric write pushes it to 5001 and re-triggers a full DELETE+ORDER BY/LIMIT re-sort of the session&#39;s entire metric set to prune back to 5000 -- measured directly at ~12.9ms/call even at steady state. For that one session, 7715 remaining prune calls x ~13ms is roughly 100 seconds of residual cost, on top of whatever the bug-e764997c fix already removed. Proposed fix: only prune when the session&#39;s metric count exceeds the keep limit by some margin (e.g. keep+500), then delete the excess down to the keep limit in one pass -- amortizing the expensive re-sort across many writes instead of paying it on every single one. Needs its own equivalence proof against the real corpus and a measured before/after, same standard as bug-e764997c. Not folded into that fix intentionally, per team-lead direction, to keep that commit small and provable.</p>
+        </section>
+    </article>
+</body>
+</html>

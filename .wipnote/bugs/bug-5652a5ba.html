@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>tool_use_id column populated on zero rows while attrs_json carries it on half</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="bug-5652a5ba"
+             data-type="bug"
+             data-status="todo"
+             data-priority="medium"
+             data-created="2026-08-08T11:33:30.711943"
+             data-updated="2026-08-08T12:03:15.460599" data-agent-assigned="claude-code" data-track-id="trk-c4615ad2" data-created-by-agent="claude-code" data-created-by-model="claude-opus-5[1m]" data-created-by-cli-version="0.67.1">
+
+        <header>
+            <h1>tool_use_id column populated on zero rows while attrs_json carries it on half</h1>
+            <div class="metadata">
+                <span class="badge status-todo">Todo</span>
+                <span class="badge priority-medium">Medium Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="caused_by">
+                <h3>Caused By:</h3>
+                <ul>
+                    <li><a href="../spikes/spk-badb1d4a.html" data-relationship="caused_by" data-since="2026-08-08T11:33:40.463719">Can wipnote drop SQLite entirely? Local-first patterns for a file-canonical graph plus telemetry</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-c4615ad2.html" data-relationship="part_of" data-since="2026-08-08T11:33:30.724117">trk-c4615ad2</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="relates_to">
+                <h3>Relates To:</h3>
+                <ul>
+                    <li><a href="../bugs/bug-79606e3d.html" data-relationship="relates_to" data-since="2026-08-08T12:03:15.460461">otel success column not persisted on tool_result/tool_execution/api_request spans</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>The dedicated tool_use_id column on otel_signals is populated on ZERO of 39724 rows, while json_extract of attrs_json for tool_use_id returns a value on 19768 rows, about 50 percent. The data arrives from the harness and reaches the row as raw JSON, but the column extraction never fires. This is the fourth instance this session of the same pattern: a field that exists in the schema or model, is fed by real upstream data, and is silently dropped at a write or parse boundary. The prior three were plan edges never scanned by reindexEdges, edge properties never rendered, and node Properties never rendered or parsed. Practical impact is that joining otel_signals to tool_calls on tool_use_id is impossible via the column, and doing it through attrs_json recovers only 891 rows because tool_calls is itself a thin table of 675 rows. Fix the extraction and add an assertion that the column is populated wherever the JSON carries it.</p>
+        </section>
+    </article>
+</body>
+</html>

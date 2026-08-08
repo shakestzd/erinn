@@ -221,8 +221,22 @@ func runLinkList(id string) error {
 	return nil
 }
 
-// resolveCollection returns the Collection for a node ID based on its prefix.
-func resolveCollection(p *workitem.Project, id string) *workitem.Collection {
+// edgeCollection is the subset of collection behavior link add/remove need.
+// resolveCollection returns this interface (rather than the concrete
+// *workitem.Collection) so that type-specific collections whose AddEdge/
+// RemoveEdge are overridden — e.g. *workitem.PlanCollection, which preserves
+// rich CRISPI plan HTML instead of regenerating it from the generic template
+// — actually get dispatched to their override. Returning the embedded
+// *workitem.Collection field directly (the pre-fix behavior) always invoked
+// the generic base implementation and could silently clobber plan content
+// (bug-38c2e0ad).
+type edgeCollection interface {
+	AddEdge(id string, e models.Edge) (*models.Node, error)
+	RemoveEdge(id, targetID string, relType models.RelationshipType) (*models.Node, bool, error)
+}
+
+// resolveCollection returns the edgeCollection for a node ID based on its prefix.
+func resolveCollection(p *workitem.Project, id string) edgeCollection {
 	switch {
 	case strings.HasPrefix(id, "feat-"):
 		return p.Features.Collection
@@ -233,7 +247,7 @@ func resolveCollection(p *workitem.Project, id string) *workitem.Collection {
 	case strings.HasPrefix(id, "trk-"):
 		return p.Tracks.Collection
 	case strings.HasPrefix(id, "plan-"):
-		return p.Plans.Collection
+		return p.Plans
 	case strings.HasPrefix(id, "spec-"):
 		return p.Specs.Collection
 	default:

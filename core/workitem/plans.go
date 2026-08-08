@@ -163,6 +163,28 @@ func (pc *PlanCollection) AddEdge(id string, e models.Edge) (*models.Node, error
 	return node, nil
 }
 
+// RemoveEdge overrides Collection.RemoveEdge for plans to preserve CRISPI HTML.
+func (pc *PlanCollection) RemoveEdge(id, targetID string, relType models.RelationshipType) (*models.Node, bool, error) {
+	path := filepath.Join(pc.Dir(), id+".html")
+	release := LockFeatureForWrite(path)
+	defer release()
+
+	node, err := pc.Get(id)
+	if err != nil {
+		return nil, false, fmt.Errorf("remove edge %s: %w", id, err)
+	}
+	removed := node.RemoveEdge(targetID, relType)
+	if _, err := pc.writeNodeUnlocked(node); err != nil {
+		return nil, false, fmt.Errorf("remove edge %s: %w", id, err)
+	}
+
+	if removed && pc.base.DB != nil {
+		_ = dbpkg.DeleteEdge(pc.base.DB, id, targetID, string(relType))
+	}
+
+	return node, removed, nil
+}
+
 // Start overrides Collection.Start for plans to preserve CRISPI HTML.
 func (pc *PlanCollection) Start(id string) (*models.Node, error) {
 	path := filepath.Join(pc.Dir(), id+".html")

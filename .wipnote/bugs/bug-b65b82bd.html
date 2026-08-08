@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>Completion gate attributes other agents&#39; files to the work item being completed</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="bug-b65b82bd"
+             data-type="bug"
+             data-status="done"
+             data-priority="high"
+             data-created="2026-08-08T12:33:14.432708"
+             data-updated="2026-08-08T13:20:21.936029" data-agent-assigned="claude-code" data-track-id="trk-c4615ad2" data-created-by-agent="claude-code" data-created-by-model="claude-opus-5[1m]" data-created-by-cli-version="0.67.1" data-created_in_session="419cfccb-620d-4bb6-b2df-6b449496b630">
+
+        <header>
+            <h1>Completion gate attributes other agents&#39; files to the work item being completed</h1>
+            <div class="metadata">
+                <span class="badge status-done">Done</span>
+                <span class="badge priority-high">High Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="implemented_in">
+                <h3>Implemented In:</h3>
+                <ul>
+                    <li><a href="../sessions/419cfccb-620d-4bb6-b2df-6b449496b630.html" data-relationship="implemented_in" data-since="2026-08-08T12:35:57.95646">session 419cfccb-620d-4bb6-b2df-6b449496b630</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-c4615ad2.html" data-relationship="part_of" data-since="2026-08-08T12:33:19.552495">trk-c4615ad2</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="relates_to">
+                <h3>Relates To:</h3>
+                <ul>
+                    <li><a href="../bugs/bug-190950e0.html" data-relationship="relates_to" data-since="2026-08-08T12:34:10.804481">WIPNOTE_AGENT_ID not propagated to dispatched subagents, collapsing every claim to __root__</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>CONFIRMED ROOT CAUSE, and it is NOT the telemetry attribution defect — it is a separate priority inversion. Feature-file attribution never reads the active work items table at all. The tool-use context resolver composes two sources in Go: the session-wide active feature column, and the per-agent claims row. The composition assigns the session-wide value first and only falls back to the per-agent claim when that is empty. So the shared root value wins unconditionally regardless of which agent is asking, which is backwards — it is root-first with agent-specific as fallback, the inverse of what correct attribution requires. The write side already encodes the right intent: the function controlling who may write the session-wide column restricts it to root and codex only, with a comment stating that subagents rely on per-agent claims for their own attribution. The read side never conditions on the agent at all. The correct pattern also already exists a few lines away in the pre-tool-use guard, which uses the agent-scoped value when the event is a subagent — but it was never applied where the shared context field itself is computed, so every other consumer inherits the wrong value. Blast radius is larger than feature files: it also feeds git-commit attribution, session activity logging, the always-on work-item guard, and the yolo guard. The identity propagation fix does not resolve this — that corrected the claims write path, while this is a read-ordering defect that fires regardless. Recommended shape: when the event is from a subagent, prefer the agent&#39;s own claim and fall back to the session-wide value only when the agent has no claim.
+Acceptance Criteria
+A subagent&#39;s tool calls attribute to that subagent&#39;s own claimed work item, not to whatever the root session last claimed. Verified with two concurrent agents holding distinct claims.
+[2026-08-08 13:20 claude-code] accepted-advisory (provenance override): Actual implementation is commit becf58347 (core/hooks/tooluse_shared.go, tooluse_shared_test.go, pretooluse_test.go), which fixes the exact bug this work item describes: the completion gate&#39;s feature_files inventory conflating other agents&#39; work with the claiming agent&#39;s session. This completion itself demonstrates the bug pre-fix: cmd/wipnote/git_timestamps.go and core/hooks/agent_identity_test.go belong to other concurrent agents&#39; unrelated work (reindex-perf&#39;s bug-4e5816f4, the Codex identity-seam work), not mine -- attributed here only because my own &#39;wipnote bug start bug-b65b82bd&#39; set the session-wide active_feature_id column and the CURRENTLY-RUNNING hook binary has not yet been rebuilt from the source fix just committed (wipnote build/deploy is a separate, coordinated step I&#39;m not taking unilaterally mid-session with other agents&#39; concurrent work in flight). Allow-dirty is required for the same reason: those files are other agents&#39; active, uncommitted tasks, not mine to commit.</p>
+        </section>
+    </article>
+</body>
+</html>

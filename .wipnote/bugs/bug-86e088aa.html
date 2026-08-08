@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>yolo_guard gates on session-scoped agent_events, violating the project&#39;s own gate-reproducibility rule</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="bug-86e088aa"
+             data-type="bug"
+             data-status="todo"
+             data-priority="medium"
+             data-created="2026-08-08T10:37:47.635708"
+             data-updated="2026-08-08T10:50:22.310525" data-agent-assigned="claude-code" data-track-id="trk-2c55adea" data-created-by-agent="claude-code" data-created-by-model="claude-opus-5[1m]" data-created-by-cli-version="0.67.1">
+
+        <header>
+            <h1>yolo_guard gates on session-scoped agent_events, violating the project&#39;s own gate-reproducibility rule</h1>
+            <div class="metadata">
+                <span class="badge status-todo">Todo</span>
+                <span class="badge priority-medium">Medium Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="caused_by">
+                <h3>Caused By:</h3>
+                <ul>
+                    <li><a href="../spikes/spk-badb1d4a.html" data-relationship="caused_by" data-since="2026-08-08T10:50:22.310415">Can wipnote drop SQLite entirely? Local-first patterns for a file-canonical graph plus telemetry</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-2c55adea.html" data-relationship="part_of" data-since="2026-08-08T10:37:47.650075">trk-2c55adea</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>The project&#39;s debugging rules state that session state is fine for attribution and telemetry but not for gates, because gates must be reproducible across session restarts. The yolo-mode guards break this: hasRecentResearch, hasRecentWebResearch, hasRecentTestRun, hasRecentDiffReview and the UI validation guard all block tool calls based on COUNT queries over agent_events scoped to the current session plus a 24-hour fallback window. A restarted session therefore sees a different gate outcome for identical work, and the enforcement silently weakens whenever event history is absent. Either derive these signals from a reproducible source, or document the exception explicitly. Flagged during the telemetry value audit; independent of the retention question.</p>
+        </section>
+    </article>
+</body>
+</html>

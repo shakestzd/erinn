@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>Dead index idx_otel_feature_ts serves a per-feature query nothing performs</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="bug-80dd5c4f"
+             data-type="bug"
+             data-status="todo"
+             data-priority="low"
+             data-created="2026-08-08T10:37:47.775354"
+             data-updated="2026-08-08T10:50:22.393974" data-agent-assigned="claude-code" data-track-id="trk-2c55adea" data-created-by-agent="claude-code" data-created-by-model="claude-opus-5[1m]" data-created-by-cli-version="0.67.1">
+
+        <header>
+            <h1>Dead index idx_otel_feature_ts serves a per-feature query nothing performs</h1>
+            <div class="metadata">
+                <span class="badge status-todo">Todo</span>
+                <span class="badge priority-low">Low Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="caused_by">
+                <h3>Caused By:</h3>
+                <ul>
+                    <li><a href="../spikes/spk-badb1d4a.html" data-relationship="caused_by" data-since="2026-08-08T10:50:22.393877">Can wipnote drop SQLite entirely? Local-first patterns for a file-canonical graph plus telemetry</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-2c55adea.html" data-relationship="part_of" data-since="2026-08-08T10:37:47.78654">trk-2c55adea</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>core/db/otel_schema.go defines idx_otel_feature_ts on otel_signals(feature_id, ts_micros). feature_id is written on those rows and selected for display, but a tree-wide grep finds zero queries filtering on it — every reference is either a display pass-through or a correlated subquery keyed the other way, on the small features table. The index was evidently built for per-feature OTel rollups that were never implemented. otel_signals carries nine indexes totalling about 14MB. Either drop the index, or build the per-feature failure-rate and cost rollups it was intended for, which the schema already supports.</p>
+        </section>
+    </article>
+</body>
+</html>

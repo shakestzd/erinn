@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>Codex agent identity may be gated behind a disabled under-development feature flag</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="bug-d1ecdb88"
+             data-type="bug"
+             data-status="todo"
+             data-priority="high"
+             data-created="2026-08-08T12:49:40.559787"
+             data-updated="2026-08-08T13:13:08.335138" data-agent-assigned="claude-code" data-track-id="trk-c4615ad2" data-created-by-agent="claude-code" data-created-by-model="claude-opus-5[1m]" data-created-by-cli-version="0.67.1" data-created_in_session="419cfccb-620d-4bb6-b2df-6b449496b630">
+
+        <header>
+            <h1>Codex agent identity may be gated behind a disabled under-development feature flag</h1>
+            <div class="metadata">
+                <span class="badge status-todo">Todo</span>
+                <span class="badge priority-high">High Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="blocks">
+                <h3>Blocks:</h3>
+                <ul>
+                    <li><a href="../features/feat-b7bc4267.html" data-relationship="blocks" data-since="2026-08-08T12:50:44.309857">Wire Codex per-subagent identity end to end</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-c4615ad2.html" data-relationship="part_of" data-since="2026-08-08T12:49:45.689915">trk-c4615ad2</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="relates_to">
+                <h3>Relates To:</h3>
+                <ul>
+                    <li><a href="../bugs/bug-fa036758.html" data-relationship="relates_to" data-since="2026-08-08T13:13:08.334826">Codex subagent assistant text is mislabeled as Claude Code</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>A runtime check of the installed Codex CLI 0.147.0 lists 104 feature flags with stage and effective state, including one named use agent identity at stage under development with effective state false. The cross-harness audit concluded Codex exposes per-subagent identity because the generated JSON Schema declares the fields on five hook events — but those are optional properties, which is exactly what fields gated behind a disabled flag look like. Neither the prose documentation nor the schema surfaced the flag; a single command did. Before wiring the Codex arm of the identity seam, capture a real hook payload and confirm whether the fields are populated with the flag off, populated only with it on, or never populated in this version. Each outcome implies a different plan, and the worst case is shipping an adapter that claims a capability the binary does not have. Related flags for context: multi agent is stable and enabled, multi agent v2 is stable but disabled, hooks is stable and enabled.</p>
+        </section>
+    </article>
+</body>
+</html>

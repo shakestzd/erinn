@@ -10,15 +10,15 @@
 <body>
     <article id="bug-f55532ba"
              data-type="bug"
-             data-status="todo"
+             data-status="done"
              data-priority="low"
              data-created="2026-08-07T21:39:21.097346"
-             data-updated="2026-08-07T21:39:21.111998" data-agent-assigned="claude-code" data-track-id="trk-08dcbb33" data-created-by-agent="claude-code" data-created-by-model="claude-opus-5[1m]" data-created-by-cli-version="0.67.1">
+             data-updated="2026-08-08T08:44:29.97848" data-agent-assigned="claude-code" data-track-id="trk-08dcbb33" data-created-by-agent="claude-code" data-created-by-model="claude-opus-5[1m]" data-created-by-cli-version="0.67.1">
 
         <header>
             <h1>plan_wire.go and batch.go are two further blocked_by writers that set no metadata, making derived edges indistinguishable from human assertions</h1>
             <div class="metadata">
-                <span class="badge status-todo">Todo</span>
+                <span class="badge status-done">Done</span>
                 <span class="badge priority-low">Low Priority</span>
             </div>
         </header>
@@ -30,11 +30,18 @@
                     <li><a href="../tracks/trk-08dcbb33.html" data-relationship="part_of" data-since="2026-08-07T21:39:21.111896">trk-08dcbb33</a></li>
                 </ul>
             </section>
+            <section data-edge-type="implemented_in">
+                <h3>Implemented In:</h3>
+                <ul>
+                    <li><a href="../sessions/419cfccb-620d-4bb6-b2df-6b449496b630.html" data-relationship="implemented_in" data-since="2026-08-08T03:04:37.435699">session 419cfccb-620d-4bb6-b2df-6b449496b630</a></li>
+                </ul>
+            </section>
         </nav>
 
         <section data-content>
             <h3>Description</h3>
-            <p>Follow-on to bug-d0489158. A live census of 350 blocked_by edges found 138 (39.4%) confirmed plan-slice artifacts, identifiable because reindex_plan_edges writes a plan_id into metadata. The other 212 are a three-way mix that the schema cannot separate: interactive link add, plus plan_wire.go around lines 140-160 and batch.go around lines 180-198, both of which build a bare models.Edge with no Properties set and so land in the same NULL-metadata bucket as genuine human assertions. Consequence: the true share of non-causal scheduling noise in blocked_by is higher than 39.4% and is not measurable from the data. Fix by having every mechanical writer stamp its origin into metadata, which is already plumbed through collection.go, plans.go and reindex.go but populated by almost nothing.</p>
+            <p>Follow-on to bug-d0489158. A live census of 350 blocked_by edges found 138 (39.4%) confirmed plan-slice artifacts, identifiable because reindex_plan_edges writes a plan_id into metadata. The other 212 are a three-way mix that the schema cannot separate: interactive link add, plus plan_wire.go around lines 140-160 and batch.go around lines 180-198, both of which build a bare models.Edge with no Properties set and so land in the same NULL-metadata bucket as genuine human assertions. Consequence: the true share of non-causal scheduling noise in blocked_by is higher than 39.4% and is not measurable from the data. Fix by having every mechanical writer stamp its origin into metadata, which is already plumbed through collection.go, plans.go and reindex.go but populated by almost nothing.
+[2026-08-08 08:44 claude-code] accepted-advisory (provenance override): Fixed together with bug-d0489158 in the same commit (8bda117d9) — same 4 files (reindex_plan_edges.go, plan_wire.go, batch.go, core/graph/pattern.go), same origin-stamping design, sequenced together per team-lead direction so plan-slice contamination and the NULL-metadata measurability gap land as one coherent fix rather than two half-applied commits.</p>
         </section>
     </article>
 </body>

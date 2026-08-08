@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>Adapter tests use synthetic spans, so upstream attribute drift is undetectable</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="bug-735806ff"
+             data-type="bug"
+             data-status="todo"
+             data-priority="high"
+             data-created="2026-08-08T12:14:13.642504"
+             data-updated="2026-08-08T12:14:41.758349" data-agent-assigned="claude-code" data-track-id="trk-c4615ad2" data-created-by-agent="claude-code" data-created-by-model="claude-opus-5[1m]" data-created-by-cli-version="0.67.1" data-created_in_session="419cfccb-620d-4bb6-b2df-6b449496b630">
+
+        <header>
+            <h1>Adapter tests use synthetic spans, so upstream attribute drift is undetectable</h1>
+            <div class="metadata">
+                <span class="badge status-todo">Todo</span>
+                <span class="badge priority-high">High Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="caused_by">
+                <h3>Caused By:</h3>
+                <ul>
+                    <li><a href="../bugs/bug-79606e3d.html" data-relationship="caused_by" data-since="2026-08-08T12:14:31.298546">otel success column not persisted on tool_result/tool_execution/api_request spans</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-c4615ad2.html" data-relationship="part_of" data-since="2026-08-08T12:14:17.256259">trk-c4615ad2</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="relates_to">
+                <h3>Relates To:</h3>
+                <ul>
+                    <li><a href="../bugs/bug-5652a5ba.html" data-relationship="relates_to" data-since="2026-08-08T12:14:36.537467">tool_use_id column populated on zero rows while attrs_json carries it on half</a></li>
+                    <li><a href="../features/feat-82bc318d.html" data-relationship="relates_to" data-since="2026-08-08T12:14:41.758236">Agent identity acquisition must be a per-harness seam, not a Claude-specific path</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>The tests covering harness signal conversion assert against spans the tests themselves construct. They therefore pass regardless of what the harness actually emits, which means a renamed or removed upstream attribute causes silent data loss with a fully green suite. This is not hypothetical: the success derivation fix reads an attribute found empirically in captured traffic, with no documented contract confirming the name, and the tool_use_id column is already populated on zero rows while the same value sits in attrs_json on about half of them — an existing instance of exactly this failure mode that went unnoticed for the life of the table. The project&#39;s own guidance states these schemas drift silently and that a prior audit found silent-failure drift across all shipped harnesses. Needed is a mechanism that observes real traffic rather than synthetic fixtures: a density assertion over recent rows, a canary that fails when a field&#39;s population rate falls below a threshold, or a periodic contract check against captured samples. Whatever the mechanism, the requirement is that a field going missing upstream produces a loud failure rather than a quiet column of NULLs.</p>
+        </section>
+    </article>
+</body>
+</html>

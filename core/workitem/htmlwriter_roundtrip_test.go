@@ -2,6 +2,7 @@ package workitem
 
 import (
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 
@@ -20,12 +21,21 @@ import (
 // setter but no writer/parser wiring — exactly the shape of this bug) fails
 // loudly here instead of silently dropping data on first rewrite.
 //
-// Deliberately excluded: PlanTaskID, SpecRequirements, the Handoff* fields,
-// RequiredCapabilities, CapabilityTags, and the Context* fields. None of
-// these has ANY writer or parser support today (verified by grep across
-// htmlwriter.go, node.gohtml, and parser.go) — that is a separate,
-// pre-existing gap unrelated to this bug, not something to paper over by
-// leaving them unset and calling it coverage.
+// Deliberately excluded — each with a documented reason on its field in
+// core/models/node.go, audited in bug-e5c04997: SpecRequirements (the live
+// spec-generation path computes its own requirements elsewhere and never
+// reads or writes this field), the Handoff* fields (superseded by the
+// working handoff mechanism on models.Session), RequiredCapabilities and
+// CapabilityTags (no routing logic exists yet to consume them), and the
+// Context* fields (superseded by the observe/otel/* pipeline's per-signal
+// tracking). None of these has ANY writer or reader anywhere in the
+// codebase — wiring HTML persistence for them now would be speculative
+// plumbing with nothing to round-trip. This exclusion list should only ever
+// shrink, and only when a field gains a real producer or consumer.
+//
+// PlanTaskID is NOT excluded (fixed in bug-e5c04997, alongside this test):
+// it already had a parser half with no writer half — the same shape of bug
+// as Properties — so it now round-trips like TrackID.
 func TestWriteNodeHTML_FullRoundTrip(t *testing.T) {
 	ts := time.Date(2026, 8, 6, 12, 0, 0, 0, time.UTC)
 
@@ -86,6 +96,7 @@ func TestWriteNodeHTML_FullRoundTrip(t *testing.T) {
 		ClaimedBySession: "019ebc63ba7ae905adb1f8db7504",
 
 		TrackID:      "trk-fullroundtrip",
+		PlanTaskID:   "plan-fullroundtrip",
 		SpikeSubtype: "research",
 
 		CreatedByAgent:      "claude-code",
@@ -106,5 +117,58 @@ func TestWriteNodeHTML_FullRoundTrip(t *testing.T) {
 
 	if !reflect.DeepEqual(parsed, node) {
 		t.Errorf("round-trip mismatch:\n got  %#v\nwant %#v", parsed, node)
+	}
+}
+
+// TestWriteNodeHTML_PlanTaskID pins the specific fix in bug-e5c04997: the
+// parser has read data-plan-task-id since it was added, but nothing ever
+// wrote it — so it always came back empty. This checks both the positive
+// (rendered and parsed back) and negative (omitted, not a stray empty
+// attribute) cases, matching the pattern already pinned for TrackID.
+func TestWriteNodeHTML_PlanTaskID(t *testing.T) {
+	base := func(planTaskID string) *models.Node {
+		return &models.Node{
+			ID:         "feat-plantask",
+			Title:      "Plan task ID round-trip",
+			Type:       "feature",
+			Status:     models.StatusTodo,
+			Priority:   models.PriorityMedium,
+			CreatedAt:  time.Date(2026, 8, 8, 0, 0, 0, 0, time.UTC),
+			UpdatedAt:  time.Date(2026, 8, 8, 0, 0, 0, 0, time.UTC),
+			PlanTaskID: planTaskID,
+		}
+	}
+
+	dir := t.TempDir()
+	path, err := WriteNodeHTML(dir, base("plan-1a2b3c4d"))
+	if err != nil {
+		t.Fatalf("WriteNodeHTML: %v", err)
+	}
+	html, err := readFile(path)
+	if err != nil {
+		t.Fatalf("read: %v", err)
+	}
+	if !strings.Contains(html, `data-plan-task-id="plan-1a2b3c4d"`) {
+		t.Errorf("output missing data-plan-task-id\n--- html ---\n%s", html)
+	}
+	parsed, err := htmlparse.ParseFile(path)
+	if err != nil {
+		t.Fatalf("ParseFile: %v", err)
+	}
+	if parsed.PlanTaskID != "plan-1a2b3c4d" {
+		t.Errorf("PlanTaskID lost on round-trip: got %q", parsed.PlanTaskID)
+	}
+
+	dir2 := t.TempDir()
+	path2, err := WriteNodeHTML(dir2, base(""))
+	if err != nil {
+		t.Fatalf("WriteNodeHTML (empty): %v", err)
+	}
+	html2, err := readFile(path2)
+	if err != nil {
+		t.Fatalf("read: %v", err)
+	}
+	if strings.Contains(html2, "data-plan-task-id") {
+		t.Errorf("empty PlanTaskID should omit the attribute entirely\n--- html ---\n%s", html2)
 	}
 }

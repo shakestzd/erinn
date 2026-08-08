@@ -16,6 +16,7 @@
              data-updated="{{.UpdatedAt}}"
 {{- if .AgentAssigned}} data-agent-assigned="{{.AgentAssigned}}"{{end}}
 {{- if .TrackID}} data-track-id="{{.TrackID}}"{{end}}
+{{- if .PlanTaskID}} data-plan-task-id="{{.PlanTaskID}}"{{end}}
 {{- if .SpikeSubtype}} data-spike-subtype="{{.SpikeSubtype}}"{{end}}
 {{- if .ClaimedAt}} data-claimed-at="{{.ClaimedAt}}"{{end}}
 {{- if .ClaimedBySession}} data-claimed-by-session="{{.ClaimedBySession}}"{{end}}

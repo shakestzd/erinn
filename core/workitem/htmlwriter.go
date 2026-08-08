@@ -279,6 +279,7 @@ type nodeTemplateData struct {
 	UpdatedAt        string
 	AgentAssigned    string
 	TrackID          string
+	PlanTaskID       string
 	SpikeSubtype     string
 	ClaimedAt        string
 	ClaimedBySession string
@@ -538,6 +539,7 @@ func newNodeTemplateData(n *models.Node) *nodeTemplateData {
 		UpdatedAt:        fmtTime(n.UpdatedAt),
 		AgentAssigned:    n.AgentAssigned,
 		TrackID:          n.TrackID,
+		PlanTaskID:       n.PlanTaskID,
 		SpikeSubtype:     n.SpikeSubtype,
 		ClaimedAt:        n.ClaimedAt,
 		ClaimedBySession: n.ClaimedBySession,

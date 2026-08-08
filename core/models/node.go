@@ -54,22 +54,56 @@ type Node struct {
 	ClaimedBySession string `json:"claimed_by_session,omitempty"`
 
 	// Vertical integration
-	TrackID          string   `json:"track_id,omitempty"`
-	PlanTaskID       string   `json:"plan_task_id,omitempty"`
+	TrackID string `json:"track_id,omitempty"`
+	// PlanTaskID mirrors TrackID's round-trip (rendered as data-plan-task-id
+	// on <article>, parsed back by name). No CLI path sets it yet, but it
+	// carries the same shape as TrackID and had already grown a parser half
+	// with no writer half — the exact asymmetry bug-c65a5f4e fixed for
+	// Properties — so it was completed here (bug-e5c04997) rather than left
+	// as a dangling read of an attribute nothing ever emits.
+	PlanTaskID string `json:"plan_task_id,omitempty"`
+
+	// SpecRequirements has no writer or reader anywhere in the codebase
+	// (audited bug-e5c04997). The live spec-generation path
+	// (cmd/wipnote/spec.go) computes its own requirements list from the
+	// plan slice's DoneWhen/Tests at generation time and stores it on the
+	// spec document, not on the feature Node — so this field currently
+	// duplicates nothing and nothing depends on it. Not wired to HTML;
+	// wiring persistence for a field nothing sets would be speculative.
+	// Revisit only alongside an actual design for snapshotting requirements
+	// onto the Node itself.
 	SpecRequirements []string `json:"spec_requirements,omitempty"`
 
-	// Handoff context
+	// Handoff context has no writer or reader anywhere in the codebase
+	// (audited bug-e5c04997). The handoff mechanism that IS implemented and
+	// used end-to-end lives on models.Session (core/db/session_repo.go,
+	// core/hooks/session_end.go, cmd/wipnote/launcher_continue.go) — these
+	// Node-level fields appear to be an earlier, superseded design. Not
+	// wired to HTML; resurrecting a second, unused handoff surface would
+	// duplicate a mechanism that already works at the session level.
 	HandoffRequired  bool   `json:"handoff_required,omitempty"`
 	PreviousAgent    string `json:"previous_agent,omitempty"`
 	HandoffReason    string `json:"handoff_reason,omitempty"`
 	HandoffNotes     string `json:"handoff_notes,omitempty"`
 	HandoffTimestamp string `json:"handoff_timestamp,omitempty"`
 
-	// Capability-based routing
+	// Capability-based routing fields have no writer or reader anywhere in
+	// the codebase (audited bug-e5c04997) — no CLI flag sets them and no
+	// routing logic consults them. Not wired to HTML: this would be
+	// speculative plumbing for a feature that doesn't exist yet, the same
+	// YAGNI call bug-c65a5f4e made for a SQL properties column. Wire these
+	// only alongside the routing logic that would actually read them.
 	RequiredCapabilities []string `json:"required_capabilities,omitempty"`
 	CapabilityTags       []string `json:"capability_tags,omitempty"`
 
-	// Context tracking
+	// Context tracking fields have no writer or reader anywhere in the
+	// codebase (audited bug-e5c04997). Token/cost tracking is now owned by
+	// the observe/otel/* pipeline (core/db/otel_schema.go,
+	// observe/otel/materialize) at per-signal granularity in SQLite — a
+	// coarser Node-level cache would be a second, easily-stale source of
+	// truth for the same numbers. Not wired to HTML; a per-Node rollup, if
+	// ever wanted, should be computed on demand from OTel data rather than
+	// hand-maintained here.
 	ContextTokensUsed int      `json:"context_tokens_used,omitempty"`
 	ContextPeakTokens int      `json:"context_peak_tokens,omitempty"`
 	ContextCostUSD    float64  `json:"context_cost_usd,omitempty"`

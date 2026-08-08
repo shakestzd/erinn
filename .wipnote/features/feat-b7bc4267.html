@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>Wire Codex per-subagent identity end to end</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="feat-b7bc4267"
+             data-type="feature"
+             data-status="in-progress"
+             data-priority="high"
+             data-created="2026-08-08T12:32:58.941153"
+             data-updated="2026-08-08T12:39:36.364815" data-agent-assigned="claude-code" data-track-id="trk-c4615ad2" data-created-by-agent="claude-code" data-created-by-model="claude-opus-5[1m]" data-created-by-cli-version="0.67.1" data-created_in_session="419cfccb-620d-4bb6-b2df-6b449496b630">
+
+        <header>
+            <h1>Wire Codex per-subagent identity end to end</h1>
+            <div class="metadata">
+                <span class="badge status-in-progress">In Progress</span>
+                <span class="badge priority-high">High Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="caused_by">
+                <h3>Caused By:</h3>
+                <ul>
+                    <li><a href="../features/feat-82bc318d.html" data-relationship="caused_by" data-since="2026-08-08T12:34:05.594673">Agent identity acquisition must be a per-harness seam, not a Claude-specific path</a></li>
+                    <li><a href="../bugs/bug-190950e0.html" data-relationship="caused_by" data-since="2026-08-08T12:34:12.074558">WIPNOTE_AGENT_ID not propagated to dispatched subagents, collapsing every claim to __root__</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="implemented_in">
+                <h3>Implemented In:</h3>
+                <ul>
+                    <li><a href="../sessions/419cfccb-620d-4bb6-b2df-6b449496b630.html" data-relationship="implemented_in" data-since="2026-08-08T12:39:36.364692">session 419cfccb-620d-4bb6-b2df-6b449496b630</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-c4615ad2.html" data-relationship="part_of" data-since="2026-08-08T12:33:04.067548">trk-c4615ad2</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>Codex sends per-subagent identity and wipnote discards it. Verified against the authoritative generated JSON Schema in the openai/codex repository, which is ground truth because it is generated from the Rust wire types: agent_id and agent_type are declared on PreToolUse, PostToolUse, PermissionRequest, SubagentStart and SubagentStop. Note the prose documentation is inconsistent with its own schema, listing those fields only for the subagent lifecycle events — trust the schema. Codex also supports the same permissionDecision allow plus updatedInput output shape as Claude, and its shell tool is literally named Bash, the same string, so the existing rewrite mechanics apply unchanged. What blocks it today: the codexPayload struct carries no agent id field at all, and parseCodexEvent hardcodes the event agent id to a static per-harness constant for every event, silently throwing away the real value. Separately the plugin manifest registers the subagent lifecycle events for the Claude target only, so Codex is not wired to receive events it already dispatches. Three changes: add the fields to the payload struct and parser, register a Codex adapter against the existing agent identity seam, and add the subagent events to the Codex target in the manifest.</p>
+        </section>
+    </article>
+</body>
+</html>

@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>Per-signal agent attribution for OTel signals (the unfiled feat-82e11bbb follow-up)</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="feat-be696acc"
+             data-type="feature"
+             data-status="in-progress"
+             data-priority="high"
+             data-created="2026-08-08T11:28:19.524359"
+             data-updated="2026-08-08T11:29:40.431299" data-agent-assigned="claude-code" data-track-id="trk-c4615ad2" data-created-by-agent="claude-code" data-created-by-model="claude-opus-5[1m]" data-created-by-cli-version="0.67.1">
+
+        <header>
+            <h1>Per-signal agent attribution for OTel signals (the unfiled feat-82e11bbb follow-up)</h1>
+            <div class="metadata">
+                <span class="badge status-in-progress">In Progress</span>
+                <span class="badge priority-high">High Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="blocks">
+                <h3>Blocks:</h3>
+                <ul>
+                    <li><a href="../features/feat-7ee73444.html" data-relationship="blocks" data-since="2026-08-08T11:28:26.09542">Per-work-item telemetry rollups: failure rate, cost, thrash</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="caused_by">
+                <h3>Caused By:</h3>
+                <ul>
+                    <li><a href="../features/feat-82e11bbb.html" data-relationship="caused_by" data-since="2026-08-08T11:28:26.191631">Work item attribution on OTel span rows</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="implemented_in">
+                <h3>Implemented In:</h3>
+                <ul>
+                    <li><a href="../sessions/419cfccb-620d-4bb6-b2df-6b449496b630.html" data-relationship="implemented_in" data-since="2026-08-08T11:29:40.431192">session 419cfccb-620d-4bb6-b2df-6b449496b630</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-c4615ad2.html" data-relationship="part_of" data-since="2026-08-08T11:28:19.539077">trk-c4615ad2</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>feat-82e11bbb shipped work-item attribution on OTel rows using a hardcoded agent_id of __root__, and explicitly documented subagent-level attribution as a follow-up that was never filed. The consequence is now measured: the writer resolves feature_id from active_work_items for (session_id, __root__), and SetActiveWorkItem is INSERT OR REPLACE, so a session has exactly one mutable claim slot. In a multi-agent session every subagent signal is stamped with whatever the root claimed at that instant. Verified live: a session running roughly 40 named parallel subagents holds one active_work_items row, so all of their telemetry attributes to a single work item. Adjacent claim windows were observed overlapping by about 97 seconds. This produces confidently wrong numbers rather than visibly missing ones, which is worse than sparsity, and it is the normal orchestration pattern for this project. Lead hypothesis to test first: otel_signals already has parent_span, and subagent_invocation is an existing canonical kind, so the span tree may already encode which subagent emitted a signal without needing a new agent_id field. Walk parent_span up to the nearest subagent_invocation and attribute from there. Second requirement: active_work_items is current-state-only, so there is no historical claim log to recompute attribution retroactively. Making claims append-only with timestamps is what would make any backfill correct rather than inheriting the same error.</p>
+        </section>
+    </article>
+</body>
+</html>

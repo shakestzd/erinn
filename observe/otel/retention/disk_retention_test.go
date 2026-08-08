@@ -192,8 +192,15 @@ func TestRotateLog_UnderCapNoOp(t *testing.T) {
 }
 
 func TestRotateProjectLogs_IncludesLegacyCacheServeLog(t *testing.T) {
+	// Override the cache-dir resolution seam directly rather than setting
+	// $XDG_CACHE_HOME: os.UserCacheDir() only consults that env var on
+	// Linux — on Darwin it unconditionally returns $HOME/Library/Caches,
+	// so an env-var-based redirect silently no-ops on macOS and the test
+	// would spuriously fail to find its fixture file (bug-6882ecaa).
 	cacheRoot := t.TempDir()
-	t.Setenv("XDG_CACHE_HOME", cacheRoot)
+	origUserCacheDir := userCacheDir
+	userCacheDir = func() (string, error) { return cacheRoot, nil }
+	t.Cleanup(func() { userCacheDir = origUserCacheDir })
 
 	wipnoteDir := filepath.Join(t.TempDir(), ".wipnote")
 	if err := os.MkdirAll(wipnoteDir, 0o755); err != nil {

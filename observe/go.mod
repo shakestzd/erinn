@@ -8,6 +8,7 @@ require (
 	github.com/shakestzd/wipnote/core v0.0.0
 	github.com/shakestzd/wipnote/port v0.0.0
 	go.opentelemetry.io/proto/otlp v1.10.0
+	golang.org/x/sys v0.41.0
 	google.golang.org/protobuf v1.36.11
 	modernc.org/sqlite v1.37.1
 )
@@ -26,7 +27,6 @@ require (
 	github.com/tidwall/pretty v1.2.0 // indirect
 	golang.org/x/exp v0.0.0-20250408133849-7e4ce0ab07d0 // indirect
 	golang.org/x/net v0.50.0 // indirect
-	golang.org/x/sys v0.41.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	modernc.org/libc v1.65.7 // indirect
 	modernc.org/mathutil v1.7.1 // indirect

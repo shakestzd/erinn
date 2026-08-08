@@ -92,6 +92,14 @@ func copyFileTail(src, dst string, maxBytes int64) error {
 	return out.Close()
 }
 
+// userCacheDir resolves the platform user cache directory. A package-level
+// var (rather than a direct os.UserCacheDir() call) so tests can override it
+// cross-platform: os.UserCacheDir() honors $XDG_CACHE_HOME only on Linux —
+// on Darwin it always returns $HOME/Library/Caches regardless of the env
+// var — so a test that wants to redirect the cache root must swap this func,
+// not set XDG_CACHE_HOME (bug-6882ecaa).
+var userCacheDir = os.UserCacheDir
+
 // rotateProjectLogs applies RotateLog to every known wipnote log file under
 // wipnoteDir/logs and wipnoteDir/debug.log. Errors on individual files are
 // returned joined-best-effort: the sweep continues past a single failure.
@@ -108,7 +116,7 @@ func rotateProjectLogs(wipnoteDir string, cfg Config) (int64, error) {
 
 	// debug.log lives directly under .wipnote/.
 	note(rotateLogSafe(filepath.Join(wipnoteDir, "debug.log"), cfg))
-	if cacheDir, err := os.UserCacheDir(); err == nil {
+	if cacheDir, err := userCacheDir(); err == nil {
 		// Older/dev launcher paths wrote a process-level serve.log directly
 		// under the XDG cache root. It is outside .wipnote/logs, so include it
 		// here until all long-lived environments have aged past that behavior.

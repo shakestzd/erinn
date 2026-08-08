@@ -394,33 +394,15 @@ func readCollectorPIDFile(pidPath string) (pid int, starttime uint64, hasStart b
 	return pid, 0, false, nil
 }
 
-// readProcStartTime returns the process start time from /proc/<pid>/stat
-// field 22 (clock ticks since boot). Returns ok=false on non-Linux systems
-// or when the proc entry is unreadable. Used for PID-reuse detection.
-func readProcStartTime(pid int) (uint64, bool) {
-	data, err := os.ReadFile(fmt.Sprintf("/proc/%d/stat", pid))
-	if err != nil {
-		return 0, false
-	}
-	s := string(data)
-	// Field 2 (comm) is wrapped in parens and may itself contain spaces or
-	// parens. Split after the LAST closing paren.
-	idx := strings.LastIndex(s, ")")
-	if idx < 0 || idx+1 >= len(s) {
-		return 0, false
-	}
-	fields := strings.Fields(s[idx+1:])
-	// Index 0 here corresponds to field 3 (state); field 22 (starttime) is
-	// at index 19 of this slice.
-	if len(fields) < 20 {
-		return 0, false
-	}
-	st, err := strconv.ParseUint(fields[19], 10, 64)
-	if err != nil {
-		return 0, false
-	}
-	return st, true
-}
+// readProcStartTime returns a value that uniquely identifies the given pid's
+// current process instance (not just the pid number, which the kernel can
+// recycle), used for PID-reuse detection in IsCollectorAlive. Returns
+// ok=false when the platform has no implementation or the process entry is
+// unreadable. Implemented per-platform: see procstart_linux.go (reads
+// /proc/<pid>/stat field 22, clock ticks since boot) and procstart_darwin.go
+// (reads KERN_PROC start time via sysctl). Platforms with neither get the
+// procstart_other.go stub, which always returns ok=false — see IsCollectorAlive's
+// doc comment for what that means for the identity guard on those platforms.
 
 // IsCollectorAlive verifies the recorded collector PID is alive AND that
 // its process start time matches the value recorded at write-time, when

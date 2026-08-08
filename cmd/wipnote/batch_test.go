@@ -5,6 +5,9 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/shakestzd/wipnote/core/graph"
+	"github.com/shakestzd/wipnote/core/workitem"
 )
 
 func TestParseBatchSpec(t *testing.T) {
@@ -138,6 +141,64 @@ links:
 	// Verify links count
 	if result.LinksCreated != 2 { // 1 blocked_by + 1 explicit link
 		t.Errorf("links created = %d, want 2", result.LinksCreated)
+	}
+}
+
+// TestRunBatchApply_BlockedByCarriesBatchApplyOrigin is the bug-f55532ba
+// regression check for batch.go: its blocked_by edges must stamp
+// graph.EdgeOriginBatchApply into metadata so they are distinguishable from
+// a NULL-metadata human `link add` assertion. Unlike plan-slice edges, batch
+// blocked_by edges represent a genuine intended dependency (the spec author
+// wrote it deliberately) so they must NOT match graph.EdgeOriginPlanSlice —
+// FindBottlenecks must keep counting them.
+func TestRunBatchApply_BlockedByCarriesBatchApplyOrigin(t *testing.T) {
+	tmpDir := t.TempDir()
+	hgDir := filepath.Join(tmpDir, ".wipnote")
+	for _, sub := range []string{"features", "bugs", "spikes", "tracks", "plans", "specs"} {
+		if err := os.MkdirAll(filepath.Join(hgDir, sub), 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	yaml := `
+track:
+  title: "Origin Track"
+  priority: high
+
+features:
+  - title: "First Feature"
+    priority: high
+  - title: "Second Feature"
+    priority: medium
+    blocked_by: ["First Feature"]
+`
+	projectDirFlag = tmpDir
+	defer func() { projectDirFlag = "" }()
+
+	result, err := executeBatchApply([]byte(yaml), false)
+	if err != nil {
+		t.Fatalf("executeBatchApply: %v", err)
+	}
+	if len(result.FeatureIDs) != 2 {
+		t.Fatalf("features created = %d, want 2", len(result.FeatureIDs))
+	}
+	firstID, secondID := result.FeatureIDs[0], result.FeatureIDs[1]
+
+	p, err := workitem.Open(hgDir, "test-agent")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer p.Close()
+
+	meta := edgeMetadata(t, p.DB, secondID, firstID, "blocked_by")
+	if meta == nil {
+		t.Fatalf("expected metadata on batch-apply blocked_by edge, got none")
+	}
+	if meta["origin"] != graph.EdgeOriginBatchApply {
+		t.Errorf("origin = %q, want %q", meta["origin"], graph.EdgeOriginBatchApply)
+	}
+	if meta["origin"] == graph.EdgeOriginPlanSlice {
+		t.Errorf("batch-apply edge must not carry the plan-slice origin tag")
 	}
 }
 

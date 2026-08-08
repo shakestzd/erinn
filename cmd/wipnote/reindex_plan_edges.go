@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 
 	dbpkg "github.com/shakestzd/wipnote/core/db"
+	"github.com/shakestzd/wipnote/core/graph"
 	"github.com/shakestzd/wipnote/plan/planyaml"
 )
 
@@ -20,6 +21,13 @@ import (
 // matching the canonical-first guarantee of slice 9 (feat-229f3333): the YAML
 // file is the source of truth, the SQLite graph_edges row is a derived index
 // row that can be destroyed and rebuilt at will.
+//
+// The blocked_by edges are tagged with metadata.origin = graph.EdgeOriginPlanSlice
+// because they encode plan authoring order, not an asserted cross-project
+// dependency — the same relationship_type a human uses via `wipnote link add
+// --rel blocks`. graph.FindBottlenecks filters on that tag so a plan's
+// foundational slice does not read as a project-wide bottleneck merely
+// because seven later slices declared it as a dep (bug-d0489158).
 //
 // Returns (planFiles, edgesUpserted, errors).
 func reindexPlanEdges(database *sql.DB, wipnoteDir string) (int, int, int) {
@@ -74,6 +82,7 @@ func reindexPlanEdges(database *sql.DB, wipnoteDir string) (int, int, int) {
 					depID, inferNodeTypeFromID(depID),
 					string("blocked_by"),
 					map[string]string{
+						"origin":        graph.EdgeOriginPlanSlice,
 						"plan_id":       plan.Meta.ID,
 						"slice_num":     fmt.Sprintf("%d", s.Num),
 						"dep_slice_num": fmt.Sprintf("%d", depNum),

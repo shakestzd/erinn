@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/shakestzd/wipnote/core/graph"
 	"github.com/shakestzd/wipnote/core/workitem"
 	"github.com/shakestzd/wipnote/plan/planyaml"
 )
@@ -116,6 +117,98 @@ func TestWirePlan_BasicWiring(t *testing.T) {
 	}
 	if !foundDep {
 		t.Errorf("feat2 missing blocked_by edge to feat1")
+	}
+}
+
+// TestWirePlan_BlockedByCarriesPlanSliceOrigin is the bug-f55532ba regression
+// check: plan_wire.go's blocked_by edges must stamp the same
+// graph.EdgeOriginPlanSlice metadata that reindex_plan_edges.go stamps on
+// the equivalent edge it later rebuilds from the same slice.deps field, so
+// that (a) the two writers agree and (b) graph.FindBottlenecks can exclude
+// this authoring-order signal (bug-d0489158) regardless of which writer
+// created the row.
+func TestWirePlan_BlockedByCarriesPlanSliceOrigin(t *testing.T) {
+	dir := t.TempDir()
+	plansDir := filepath.Join(dir, "plans")
+	if err := os.MkdirAll(plansDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	p, err := workitem.Open(dir, "test-agent")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	track, err := p.Tracks.Create("Origin Track")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	feat1, err := p.Features.Create("Slice Alpha", workitem.FeatWithTrack(track.ID))
+	if err != nil {
+		t.Fatal(err)
+	}
+	feat2, err := p.Features.Create("Slice Beta", workitem.FeatWithTrack(track.ID))
+	if err != nil {
+		t.Fatal(err)
+	}
+	p.Close()
+
+	planID := "plan-testorigin"
+	plan := &planyaml.PlanYAML{}
+	plan.Meta.ID = planID
+	plan.Meta.Title = "Origin Test Plan"
+	plan.Meta.Status = "ready"
+	plan.Meta.Version = 1
+	plan.Slices = []planyaml.PlanSlice{
+		{Num: 1, ID: "s1", Title: "Slice Alpha", Approved: true},
+		{Num: 2, ID: "s2", Title: "Slice Beta", Approved: true, Deps: []int{1}},
+	}
+	planPath := filepath.Join(plansDir, planID+".yaml")
+	if err := planyaml.Save(planPath, plan); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := wirePlan(dir, planID, track.ID); err != nil {
+		t.Fatalf("wirePlan: %v", err)
+	}
+
+	p2, err := workitem.Open(dir, "test-agent")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer p2.Close()
+
+	// Verify the canonical (HTML) edge exists...
+	feat2Node, err := p2.Features.Get(feat2.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	found := false
+	for _, e := range feat2Node.Edges["blocked_by"] {
+		if e.TargetID == feat1.ID {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Fatalf("feat2 missing blocked_by edge to feat1")
+	}
+
+	// ...and that the SQLite dual-write (what graph.FindBottlenecks actually
+	// queries) carries the origin tag. Edge.Properties does not round-trip
+	// through canonical HTML (edgeData in htmlwriter.go has no properties
+	// field), so the SQLite row — populated at AddEdge time via
+	// Collection.AddEdge's dual-write — is the only place this is checkable.
+	meta := edgeMetadata(t, p2.DB, feat2.ID, feat1.ID, "blocked_by")
+	if meta == nil {
+		t.Fatalf("expected metadata on plan_wire blocked_by edge, got none")
+	}
+	if meta["origin"] != graph.EdgeOriginPlanSlice {
+		t.Errorf("origin = %q, want %q", meta["origin"], graph.EdgeOriginPlanSlice)
+	}
+	if meta["plan_id"] != planID {
+		t.Errorf("plan_id = %q, want %q", meta["plan_id"], planID)
 	}
 }
 

@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/shakestzd/wipnote/core/graph"
 	"github.com/shakestzd/wipnote/core/models"
 	"github.com/shakestzd/wipnote/core/workitem"
 	"github.com/shakestzd/wipnote/plan/planyaml"
@@ -138,6 +139,10 @@ func wirePlan(wipnoteDir, planID, trackID string) error {
 	}
 
 	// Wire blocked_by edges based on slice deps (match by slice num → feature).
+	// These encode plan authoring order, not an asserted cross-project
+	// dependency, so they carry the same origin tag reindex_plan_edges.go
+	// stamps on the equivalent edge it rebuilds from the same slice.deps
+	// field — graph.FindBottlenecks excludes both (bug-d0489158).
 	numToFeat := map[int]wiredFeat{}
 	for _, wf := range titleToFeat {
 		numToFeat[wf.slice.Num] = wf
@@ -154,6 +159,12 @@ func wirePlan(wipnoteDir, planID, trackID string) error {
 				TargetID:     depFeat.id,
 				Relationship: models.RelBlockedBy,
 				Since:        now,
+				Properties: map[string]string{
+					"origin":        graph.EdgeOriginPlanSlice,
+					"plan_id":       planID,
+					"slice_num":     fmt.Sprintf("%d", wf.slice.Num),
+					"dep_slice_num": fmt.Sprintf("%d", depNum),
+				},
 			})
 			depsWired++
 		}

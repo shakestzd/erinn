@@ -5,6 +5,29 @@ import (
 	"fmt"
 )
 
+// Edge origin tags. Mechanical writers that synthesize graph_edges rows from
+// some other source of truth (a plan YAML's slice.deps, a batch-apply spec,
+// …) stamp one of these into the edge's metadata JSON under the "origin" key
+// so that consumers can tell a derived edge apart from a human-asserted one
+// (e.g. via `wipnote link add --rel blocks`, which leaves metadata NULL).
+//
+// EdgeOriginPlanSlice specifically marks blocked_by edges that encode a plan
+// slice's authoring order (slice N declared "deps: [M]" in the plan YAML).
+// That ordering is not an asserted cross-project dependency, so it must be
+// excluded from FindBottlenecks — see bug-d0489158. It is written by both
+// reindex_plan_edges.go (rebuilt on every reindex) and plan_wire.go (written
+// once when a plan is wired to a track), since both derive from the same
+// slice.deps field.
+const EdgeOriginPlanSlice = "plan_slice_deps"
+
+// EdgeOriginBatchApply marks blocked_by edges created by `wipnote batch
+// apply` from a batch spec's inline `blocked_by:` declarations. Unlike
+// EdgeOriginPlanSlice these represent a genuine asserted dependency between
+// sibling features in the batch (equivalent in intent to `link add`, just
+// authored in bulk) — so they are NOT excluded from FindBottlenecks. The tag
+// exists purely for measurability: see bug-f55532ba.
+const EdgeOriginBatchApply = "batch_apply"
+
 // FindOrphans returns node IDs that have zero edges (neither source nor target).
 // Checks both features and tracks tables against graph_edges.
 func FindOrphans(db *sql.DB) ([]string, error) {
@@ -81,13 +104,19 @@ func FindHubs(db *sql.DB, minEdges int) ([]NodeResult, error) {
 // FindBottlenecks returns nodes that block the most other nodes via
 // "blocked_by" edges (i.e., nodes that appear as to_node_id in blocked_by
 // edges). Ordered by block count descending.
+//
+// Edges tagged with EdgeOriginPlanSlice are excluded: they encode a plan's
+// slice authoring order, not an asserted cross-project dependency, and
+// counting them would make a plan's foundational slice look like a
+// project-wide bottleneck (bug-d0489158).
 func FindBottlenecks(db *sql.DB) ([]BottleneckResult, error) {
 	rows, err := db.Query(`
 		SELECT to_node_id, COUNT(*) as block_count
 		FROM graph_edges
 		WHERE relationship_type = 'blocked_by'
+		  AND COALESCE(json_extract(metadata, '$.origin'), '') != ?
 		GROUP BY to_node_id
-		ORDER BY block_count DESC`)
+		ORDER BY block_count DESC`, EdgeOriginPlanSlice)
 	if err != nil {
 		return nil, fmt.Errorf("find bottlenecks: %w", err)
 	}

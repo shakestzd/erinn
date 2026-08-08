@@ -6,6 +6,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/shakestzd/wipnote/core/graph"
 	"github.com/shakestzd/wipnote/core/htmlparse"
 	"github.com/shakestzd/wipnote/core/models"
 	"github.com/shakestzd/wipnote/core/workitem"
@@ -176,7 +177,13 @@ func executeBatchApply(data []byte, dryRun bool) (*batchResult, error) {
 		result.FeatureIDs = append(result.FeatureIDs, node.ID)
 	}
 
-	// 3. Create blocked_by edges from inline declarations
+	// 3. Create blocked_by edges from inline declarations. These are a
+	// genuine asserted dependency between sibling features in the batch
+	// (the spec author wrote "blocked_by: [...]" deliberately) — equivalent
+	// in intent to `link add`, just authored in bulk — so, unlike plan-slice
+	// edges, they are not excluded from graph.FindBottlenecks. The origin
+	// tag exists purely so this batch-apply provenance is distinguishable
+	// from a NULL-metadata human `link add` assertion (bug-f55532ba).
 	for _, fi := range spec.Features {
 		fromID := titleToID[fi.Title]
 		for _, blockerTitle := range fi.BlockedBy {
@@ -189,6 +196,9 @@ func executeBatchApply(data []byte, dryRun bool) (*batchResult, error) {
 				Relationship: models.RelBlockedBy,
 				Title:        blockerTitle,
 				Since:        time.Now().UTC(),
+				Properties: map[string]string{
+					"origin": graph.EdgeOriginBatchApply,
+				},
 			}
 			if _, err := p.Features.AddEdge(fromID, edge); err != nil {
 				return nil, fmt.Errorf("add blocked_by edge %s->%s: %w", fromID, blockerID, err)

@@ -13,7 +13,7 @@
              data-status="todo"
              data-priority="medium"
              data-created="2026-05-01T06:02:36.349197"
-             data-updated="2026-08-07T17:53:13.815405" data-agent-assigned="claude-code">
+             data-updated="2026-08-08T08:45:59.772085" data-agent-assigned="claude-code">
 
         <header>
             <h1>Workitem Attribution &amp; Lineage</h1>
@@ -42,6 +42,20 @@
                     <li><a href="../features/feat-02158923.html" data-relationship="contains" data-since="2026-06-23T22:42:29.422198">Architecture memory as an HTML ledger with lineage edges</a></li>
                     <li><a href="../bugs/bug-cd10350e.html" data-relationship="contains" data-since="2026-06-23T22:51:54.842005">Roborev: arch nodes missing from graph API/DSL and dead-letter paths need normalization</a></li>
                     <li><a href="../bugs/bug-6bfec440.html" data-relationship="contains" data-since="2026-08-07T17:53:13.807718">Subagent git commits are not linked to work items in real time, forcing manual link-commit or ingest</a></li>
+                    <li><a href="../spikes/spk-3375caf7.html" data-relationship="contains" data-since="2026-08-07T21:18:17.522722">Investigate prospective causal planning: can wipnote&#39;s lineage graph become a forward-looking reasoning substrate?</a></li>
+                    <li><a href="../bugs/bug-d0489158.html" data-relationship="contains" data-since="2026-08-07T21:30:50.962463">Plan slice deps are written as blocked_by edges, contaminating graph bottlenecks with plan authoring order</a></li>
+                    <li><a href="../bugs/bug-b4458e51.html" data-relationship="contains" data-since="2026-08-07T21:30:51.063595">lineage discards the similarity_score and needs-triage-dup tag, rendering a heuristic guess identically to an asserted causal claim</a></li>
+                    <li><a href="../bugs/bug-f55532ba.html" data-relationship="contains" data-since="2026-08-07T21:39:21.111896">plan_wire.go and batch.go are two further blocked_by writers that set no metadata, making derived edges indistinguishable from human assertions</a></li>
+                    <li><a href="../spikes/spk-df1ba14f.html" data-relationship="contains" data-since="2026-08-07T23:10:11.718713">Edge taxonomy, behaviour nodes, tests as first-class citizens — and whether HTML is actually the edge source of truth</a></li>
+                    <li><a href="../bugs/bug-9577013c.html" data-relationship="contains" data-since="2026-08-07T23:33:39.624982">reindex_trailers caps commit scan at 500, holding file-to-work-item linkage at 27% when 86% is available</a></li>
+                    <li><a href="../bugs/bug-3bf05d49.html" data-relationship="contains" data-since="2026-08-07T23:33:39.748808">git_commits primary key collision drops all but the first work item on multi-item commits</a></li>
+                    <li><a href="../bugs/bug-38c2e0ad.html" data-relationship="contains" data-since="2026-08-07T23:39:41.640147">link add on a plan ID bypasses PlanCollection and can clobber rich CRISPI plan content</a></li>
+                    <li><a href="../bugs/bug-d5eaf6a4.html" data-relationship="contains" data-since="2026-08-07T23:39:41.744116">reindexEdges never scans plans/ and plan IDs never enter validIDs, so plan-sourced edges are permanently lost on rebuild</a></li>
+                    <li><a href="../bugs/bug-216c02c4.html" data-relationship="contains" data-since="2026-08-07T23:39:41.849261">session implements edge is written only to SQLite with no HTML representation — 43 edges wiped on rebuild</a></li>
+                    <li><a href="../bugs/bug-6ec28063.html" data-relationship="contains" data-since="2026-08-07T23:39:41.958066">collectSessionIDs runs before reindexSessions on a from-scratch rebuild, dropping implemented_in edges</a></li>
+                    <li><a href="../bugs/bug-eb141e88.html" data-relationship="contains" data-since="2026-08-08T03:07:58.112826">Edge properties cannot round-trip through canonical HTML, so all edge metadata is SQLite-only</a></li>
+                    <li><a href="../bugs/bug-d71b7b0c.html" data-relationship="contains" data-since="2026-08-08T03:28:12.214057">ingest-commits linking regex is stricter than the commit convention agents actually produce</a></li>
+                    <li><a href="../bugs/bug-4857550d.html" data-relationship="contains" data-since="2026-08-08T08:45:59.765746">Commit linking extracts only the first work-item ID, so a commit fixing two bugs links only one</a></li>
                 </ul>
             </section>
         </nav>

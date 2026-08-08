@@ -160,8 +160,25 @@ type CloudEvent struct {
 	// Not part of any harness's wire payload (json:"-") — it is stamped by
 	// ParseEventForHarness from the value runHookNamed already resolved via
 	// DetectHarness, so every handler downstream of parsing can consult it
-	// without redetecting or being told which harness called it. Zero value
-	// is HarnessClaude, matching ParseEventForHarness's own default branch.
+	// without redetecting or being told which harness called it.
+	//
+	// DELIBERATE BACK-COMPAT DEFAULT (bug-190950e0 review): the zero value
+	// of Harness is HarnessClaude, so any CloudEvent built without going
+	// through ParseEventForHarness — a hand-built struct literal, most
+	// commonly in tests — silently reads as Claude rather than "unknown."
+	// This is safe ONLY because ParseEventForHarness (core/hooks/harness.go)
+	// is the sole production path that constructs a *CloudEvent consumed by
+	// a hook handler; verified by grepping cmd/, internal/, and core/hooks
+	// itself for any other CloudEvent{} construction or json.Unmarshal into
+	// one, 2026-08-08. The two other call sites found were both harmless:
+	// ParseClaudeWorktreeCreateEvent passes HarnessClaude explicitly (never
+	// relies on the zero value), and ReadInput/ReadInputRaw's bare
+	// &CloudEvent{} have zero production callers anywhere in this repo.
+	// If a future production path ever constructs a CloudEvent without
+	// ParseEventForHarness, this default means a non-Claude event would
+	// silently resolve through the Claude AgentIdentityAdapter
+	// (agent_identity_claude.go) once other harnesses register their own —
+	// re-run that grep before trusting this default again.
 	Harness Harness `json:"-"`
 }
 

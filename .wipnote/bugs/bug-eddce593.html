@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>Parsed HTML yields about 80 more edges than the SQLite index holds, unreconciled</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="bug-eddce593"
+             data-type="bug"
+             data-status="todo"
+             data-priority="high"
+             data-created="2026-08-08T10:27:40.768034"
+             data-updated="2026-08-08T10:27:40.923822" data-agent-assigned="claude-code" data-track-id="trk-08dcbb33" data-created-by-agent="claude-code" data-created-by-model="claude-opus-5[1m]" data-created-by-cli-version="0.67.1">
+
+        <header>
+            <h1>Parsed HTML yields about 80 more edges than the SQLite index holds, unreconciled</h1>
+            <div class="metadata">
+                <span class="badge status-todo">Todo</span>
+                <span class="badge priority-high">High Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-08dcbb33.html" data-relationship="part_of" data-since="2026-08-08T10:27:40.923718">trk-08dcbb33</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>Two independent benchmark programs parsing the canonical HTML with core/htmlparse counted 3178 edges (excluding the stale pre-merge-backup directory) and 3211 (including it), while graph_edges held 3096 to 3099 at the same time. The roughly 80-edge gap excluding the backup directory is unexplained. Candidate causes: edges on archived or purged work items that the reindex drops by design, direction double-counting in the benchmark&#39;s sum-over-map, or edges the reindex still fails to persist. This matters because TestReindex_EdgeCensusIdenticalOnRebuildFromUnchangedHTML now asserts a rebuild is lossless, and a standing 2.5 percent discrepancy between canonical HTML and the index suggests that invariant may hold only for the synthetic fixture and not for the live corpus. Reconcile edge-by-edge and either fix the loss or document why those edges are legitimately excluded.</p>
+        </section>
+    </article>
+</body>
+</html>

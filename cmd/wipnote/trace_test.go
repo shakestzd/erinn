@@ -366,6 +366,150 @@ func TestTraceFile_MultipleFeatures(t *testing.T) {
 	}
 }
 
+// TestIsTestFilePath covers the naming conventions recognized across the
+// languages present in this repo.
+func TestIsTestFilePath(t *testing.T) {
+	tests := []struct {
+		path string
+		want bool
+	}{
+		{"cmd/wipnote/trace_test.go", true},
+		{"trace_test.go", true},
+		{"tests/cli/test_cli_models.py", true},
+		{"test_cli_models.py", true},
+		{"core/db/foo_test.py", true},
+		{"web/src/App.test.ts", true},
+		{"web/src/App.spec.jsx", true},
+		{"cmd/wipnote/trace.go", false},
+		{"internal/db/schema.go", false},
+		{"README.md", false},
+	}
+	for _, tt := range tests {
+		if got := isTestFilePath(tt.path); got != tt.want {
+			t.Errorf("isTestFilePath(%q) = %v, want %v", tt.path, got, tt.want)
+		}
+	}
+}
+
+// TestRunTraceFeatureTests_FiltersToTestFiles seeds a feature with both a
+// test file and a non-test file, and asserts --tests lists only the former
+// while still surfacing the touched-by-not-owned-by semantics note.
+func TestRunTraceFeatureTests_FiltersToTestFiles(t *testing.T) {
+	database, featureID, _, filePath := seedTraceFeatureDB(t)
+	defer database.Close()
+
+	testPath := "internal/db/trace_me_test.go"
+	if err := dbpkg.UpsertFeatureFile(database, &models.FeatureFile{
+		ID:        "ff-trace-test",
+		FeatureID: featureID,
+		FilePath:  testPath,
+		Operation: "write",
+		SessionID: "sess-trace-test",
+	}); err != nil {
+		t.Fatalf("upsert test feature file: %v", err)
+	}
+
+	var buf bytes.Buffer
+	if err := runTraceFeatureTests(&buf, database, featureID); err != nil {
+		t.Fatalf("runTraceFeatureTests: %v", err)
+	}
+	out := buf.String()
+
+	if !strings.Contains(out, testPath) {
+		t.Errorf("output should contain test file %q\ngot:\n%s", testPath, out)
+	}
+	if strings.Contains(out, filePath) {
+		t.Errorf("output should NOT contain non-test file %q\ngot:\n%s", filePath, out)
+	}
+	if !strings.Contains(out, "touched-by, not owned-by") {
+		t.Errorf("output should carry the touched-by-not-owned-by semantics note\ngot:\n%s", out)
+	}
+}
+
+// TestRunTraceFeatureTestsJSON_Schema exercises the --tests --json contract,
+// including the semantics field automation relies on to see the caveat.
+func TestRunTraceFeatureTestsJSON_Schema(t *testing.T) {
+	database, featureID, _, _ := seedTraceFeatureDB(t)
+	defer database.Close()
+
+	testPath := "internal/db/trace_me_test.go"
+	if err := dbpkg.UpsertFeatureFile(database, &models.FeatureFile{
+		ID:        "ff-trace-test-json",
+		FeatureID: featureID,
+		FilePath:  testPath,
+		Operation: "edit",
+		SessionID: "sess-trace-test",
+	}); err != nil {
+		t.Fatalf("upsert test feature file: %v", err)
+	}
+
+	var buf bytes.Buffer
+	if err := runTraceFeatureTestsJSON(&buf, database, featureID); err != nil {
+		t.Fatalf("runTraceFeatureTestsJSON: %v", err)
+	}
+
+	var result traceFeatureTestsJSON
+	if err := json.Unmarshal(buf.Bytes(), &result); err != nil {
+		t.Fatalf("json.Unmarshal: %v\noutput:\n%s", err, buf.String())
+	}
+	if result.Feature != featureID {
+		t.Errorf("JSON feature = %q, want %q", result.Feature, featureID)
+	}
+	if result.Semantics == "" || !strings.Contains(result.Semantics, "touched-by") {
+		t.Errorf("JSON semantics should carry the touched-by-not-owned-by caveat, got %q", result.Semantics)
+	}
+	if len(result.TestFiles) != 1 || result.TestFiles[0].FilePath != testPath {
+		t.Errorf("JSON test_files = %+v, want single entry for %q", result.TestFiles, testPath)
+	}
+	if result.TestFiles[0].Operation != "edit" {
+		t.Errorf("JSON test_files[0].Operation = %q, want %q", result.TestFiles[0].Operation, "edit")
+	}
+}
+
+// TestRunTrace_TestsFlagRejectsNonWorkItem guards --tests being scoped to
+// work-item IDs only; a file path or commit SHA has no feature_files rows of
+// its own to filter.
+func TestRunTrace_TestsFlagRejectsNonWorkItem(t *testing.T) {
+	err := runTrace("internal/db/schema.go", false, true)
+	if err == nil {
+		t.Fatal("expected error when --tests is combined with a file path")
+	}
+	if !strings.Contains(err.Error(), "--tests") {
+		t.Errorf("error should mention --tests, got: %v", err)
+	}
+}
+
+// TestRunTraceFile_MarksTestFile guards the cheap inverse: tracing a test
+// file's path (the existing file-path route, unchanged) should annotate that
+// the file is a test file, both in text and JSON output.
+func TestRunTraceFile_MarksTestFile(t *testing.T) {
+	database, featureID, _, _ := seedTraceFeatureDB(t)
+	defer database.Close()
+
+	testPath := "internal/db/trace_me_test.go"
+	if err := dbpkg.UpsertFeatureFile(database, &models.FeatureFile{
+		ID:        "ff-inverse-test",
+		FeatureID: featureID,
+		FilePath:  testPath,
+		Operation: "write",
+	}); err != nil {
+		t.Fatalf("upsert test feature file: %v", err)
+	}
+
+	results, err := dbpkg.TraceFile(database, testPath)
+	if err != nil {
+		t.Fatalf("TraceFile: %v", err)
+	}
+	if len(results) != 1 || results[0].FeatureID != featureID {
+		t.Fatalf("TraceFile(%q) = %+v, want single hit for %q", testPath, results, featureID)
+	}
+
+	out := traceFileJSON{Query: testPath, IsTest: isTestFilePath(testPath)}
+	if !out.IsTest {
+		t.Errorf("IsTest should be true for %q", testPath)
+	}
+}
+
 // setupStaleSchemaDB creates a fresh, schema-less DB and configures the test
 // environment to use it via WIPNOTE_DB_PATH and projectDirFlag. It registers
 // cleanup via t.Cleanup so callers don't manage cleanup manually.
@@ -434,7 +578,7 @@ func TestTraceStaleSchemaRegressions(t *testing.T) {
 				// dbpkg.OpenReadOnlyMigrated at line 78 in the looksLikeWorkItemID branch.
 				// Against a fresh, schema-bootstrapped-but-empty DB, it returns nil
 				// (prints empty results to stdout).
-				return runTrace("feat-deadbeef", false)
+				return runTrace("feat-deadbeef", false, false)
 			},
 			wantErrorMsg: "", // expects nil on success
 		},

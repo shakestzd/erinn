@@ -946,7 +946,7 @@ func TestParseCodexEvent_RealSubagentAgentIDNotOverwritten(t *testing.T) {
 // back to the generic per-harness constant, preserving isSubagentEvent's and
 // resolveSessionIDWithHarness's invariant that a root-level Codex event's
 // AgentID equals that constant, not an empty string. (assistantTextHarness/
-// assistantTextNativeName no longer depend on this — bug-08ef82ea switched
+// assistantTextNativeName no longer depend on this — bug-fa036758 switched
 // them to event.Harness, which is unaffected by AgentID's value either way.)
 func TestParseCodexEvent_RootSessionKeepsGenericAgentID(t *testing.T) {
 	ev, err := ParseEventForHarness(HarnessCodex, []byte(codexSessionStartJSON))

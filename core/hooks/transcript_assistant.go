@@ -309,7 +309,7 @@ func assistantTextHash(text string) string {
 }
 
 // assistantTextHarness and assistantTextNativeName classify which harness
-// produced this assistant-text record. bug-08ef82ea: these used to switch on
+// produced this assistant-text record. bug-fa036758: these used to switch on
 // event.AgentID, which was a safe discriminator only because every Codex
 // event's AgentID was hardcoded to the generic "codex" constant regardless
 // of subagent status (feat-b7bc4267 fixed that hardcoding — see harness.go's

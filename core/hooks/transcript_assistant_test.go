@@ -326,7 +326,7 @@ func TestInsertAssistantTextSignalFromHookPayload_CodexStop(t *testing.T) {
 	projectDir := t.TempDir()
 
 	event := &CloudEvent{
-		// bug-08ef82ea: Harness, not AgentID, is the discriminator
+		// bug-fa036758: Harness, not AgentID, is the discriminator
 		// assistantTextHarness/assistantTextNativeName now switch on — a
 		// real Codex event's AgentID may be a genuine per-subagent identity
 		// rather than the literal string "codex" (feat-b7bc4267), so this
@@ -560,7 +560,7 @@ func TestAssistantTextSignalID_Deterministic(t *testing.T) {
 }
 
 // TestAssistantTextHarness_CodexSubagentNotMisclassifiedAsClaude is
-// bug-08ef82ea's direct regression test. Before this fix, a genuine Codex
+// bug-fa036758's direct regression test. Before this fix, a genuine Codex
 // subagent's real per-subagent AgentID (anything other than the literal
 // string "codex" — now possible since feat-b7bc4267 stopped hardcoding it)
 // fell through the AgentID switch's default case and was mislabeled

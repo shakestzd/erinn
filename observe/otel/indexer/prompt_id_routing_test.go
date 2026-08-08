@@ -41,7 +41,7 @@ import (
 
 func TestIndexer_PromptIDRoutingThroughQueue(t *testing.T) {
 	// ── DB setup ─────────────────────────────────────────────────────────
-	// setupIndexerDB opens+migrates, then builds a sqls.Writer (which we
+	// setupIndexerDB opens+migrates, then builds a receiver.Writer (which we
 	// need so we can also use it as the QueuedSink's underlying writer for
 	// the WriteBatchSync batch path).
 	w, dbPath := setupIndexerDB(t)

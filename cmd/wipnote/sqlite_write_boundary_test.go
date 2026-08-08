@@ -184,14 +184,6 @@ var approvedWriteSites = []writeSite{
 		Classification: daemonRoutedWriterService,
 		Note:           "Slice 6 writer service (feat-f3bcbcef): the single writable SQLite handle owned by the writequeue worker inside `wipnote serve`. Indexer + OTLP receiver no longer open writable handles directly — they submit batches through internal/db/writequeue to this writer.",
 	},
-	{
-		File:           "observe/otel/sink/sqlite/writer.go",
-		Function:       "NewWriter",
-		OpenExpr:       "sql.Open",
-		Ordinal:        1,
-		Classification: daemonRoutedWriterService,
-		Note:           "OTel sink SQLite writer (companion to feat-f3bcbcef slice 6): structured sink for the OTel signal write path, owns the single writable handle for the otel_signals table family.",
-	},
 
 	// ----------------------------------------------------------------------
 	// intentional-cli-mutation (CLI commands that mutate work items)

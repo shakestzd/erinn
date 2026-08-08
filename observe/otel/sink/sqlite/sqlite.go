@@ -1,6 +1,10 @@
 // Package sqlite provides a SignalSink that delegates to the existing
 // receiver.Writer. All placeholder/upgrade span re-parenting logic remains
-// in writer.go untouched — this is a thin adapter, not a rewrite.
+// in observe/otel/receiver/writer.go untouched — this is a thin adapter,
+// not a rewrite. This package deliberately has no writer.go of its own
+// (bug-60210598 deleted a since-removed standalone duplicate of the
+// receiver's write logic that was never wired into any production path —
+// see git history if you need it) — receiver.Writer is the only writer.
 //
 // To avoid an import cycle (receiver → sink/sqlite → receiver), this package
 // accepts a writerBatch interface rather than *receiver.Writer directly.

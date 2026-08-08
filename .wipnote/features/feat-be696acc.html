@@ -10,15 +10,15 @@
 <body>
     <article id="feat-be696acc"
              data-type="feature"
-             data-status="in-progress"
+             data-status="done"
              data-priority="high"
              data-created="2026-08-08T11:28:19.524359"
-             data-updated="2026-08-08T11:29:40.431299" data-agent-assigned="claude-code" data-track-id="trk-c4615ad2" data-created-by-agent="claude-code" data-created-by-model="claude-opus-5[1m]" data-created-by-cli-version="0.67.1">
+             data-updated="2026-08-08T12:23:28.973919" data-agent-assigned="claude-code" data-track-id="trk-c4615ad2" data-created-by-agent="claude-code" data-created-by-model="claude-opus-5[1m]" data-created-by-cli-version="0.67.1">
 
         <header>
             <h1>Per-signal agent attribution for OTel signals (the unfiled feat-82e11bbb follow-up)</h1>
             <div class="metadata">
-                <span class="badge status-in-progress">In Progress</span>
+                <span class="badge status-done">Done</span>
                 <span class="badge priority-high">High Priority</span>
             </div>
         </header>
@@ -50,9 +50,17 @@
             </section>
         </nav>
 
+        <section data-steps>
+            <h3>Implementation Steps</h3>
+            <ol>
+                <li data-completed="true" data-step-id="task-15" data-agent="claude-code" data-created-by-agent="claude-code">✅ Profile full reindex to find the real dominant cost (bug-4e5816f4)</li>
+            </ol>
+        </section>
+
         <section data-content>
             <h3>Description</h3>
-            <p>feat-82e11bbb shipped work-item attribution on OTel rows using a hardcoded agent_id of __root__, and explicitly documented subagent-level attribution as a follow-up that was never filed. The consequence is now measured: the writer resolves feature_id from active_work_items for (session_id, __root__), and SetActiveWorkItem is INSERT OR REPLACE, so a session has exactly one mutable claim slot. In a multi-agent session every subagent signal is stamped with whatever the root claimed at that instant. Verified live: a session running roughly 40 named parallel subagents holds one active_work_items row, so all of their telemetry attributes to a single work item. Adjacent claim windows were observed overlapping by about 97 seconds. This produces confidently wrong numbers rather than visibly missing ones, which is worse than sparsity, and it is the normal orchestration pattern for this project. Lead hypothesis to test first: otel_signals already has parent_span, and subagent_invocation is an existing canonical kind, so the span tree may already encode which subagent emitted a signal without needing a new agent_id field. Walk parent_span up to the nearest subagent_invocation and attribute from there. Second requirement: active_work_items is current-state-only, so there is no historical claim log to recompute attribution retroactively. Making claims append-only with timestamps is what would make any backfill correct rather than inheriting the same error.</p>
+            <p>feat-82e11bbb shipped work-item attribution on OTel rows using a hardcoded agent_id of __root__, and explicitly documented subagent-level attribution as a follow-up that was never filed. The consequence is now measured: the writer resolves feature_id from active_work_items for (session_id, __root__), and SetActiveWorkItem is INSERT OR REPLACE, so a session has exactly one mutable claim slot. In a multi-agent session every subagent signal is stamped with whatever the root claimed at that instant. Verified live: a session running roughly 40 named parallel subagents holds one active_work_items row, so all of their telemetry attributes to a single work item. Adjacent claim windows were observed overlapping by about 97 seconds. This produces confidently wrong numbers rather than visibly missing ones, which is worse than sparsity, and it is the normal orchestration pattern for this project. Lead hypothesis to test first: otel_signals already has parent_span, and subagent_invocation is an existing canonical kind, so the span tree may already encode which subagent emitted a signal without needing a new agent_id field. Walk parent_span up to the nearest subagent_invocation and attribute from there. Second requirement: active_work_items is current-state-only, so there is no historical claim log to recompute attribution retroactively. Making claims append-only with timestamps is what would make any backfill correct rather than inheriting the same error.
+[2026-08-08 12:23 claude-code] accepted-advisory (provenance override): Actual implementation is commit aa5eb511c (core/db/otel_schema.go, observe/otel/receiver/writer.go, observe/otel/sink/sqlite/writer.go + tests), which does reference feat-be696acc in its message. The code-bearing paths this gate lists (e.g. core/htmlparse/node_props.go, cmd/wipnote/plan_migrate_orphans_test.go) belong to other concurrent agents&#39; unrelated work in this shared multi-agent session; they were almost certainly recorded under feat-be696acc&#39;s feature_files tracking only because __root__&#39;s active-work-item claim collapsed onto this feature at the time those other agents&#39; edits landed -- the exact single-claim-slot misattribution bug feat-be696acc&#39;s own research diagnosed. Allow-dirty is also required for the same reason: those files are other agents&#39; active, uncommitted tasks (bug-4e5816f4, bug-190950e0, bug-6882ecaa) that I must not commit or interfere with.</p>
         </section>
     </article>
 </body>

@@ -906,6 +906,60 @@ func TestParseEventForHarnessCodex(t *testing.T) {
 	}
 }
 
+// TestParseCodexEvent_RealSubagentAgentIDNotOverwritten is feat-b7bc4267's
+// direct test of the fix: Codex declares a real per-subagent agent_id/
+// agent_type on PreToolUse (verified against Codex's own generated JSON
+// Schema, codex-rs/hooks/schema/generated/pre-tool-use.command.input.schema.json).
+// Before this fix, parseCodexEvent unconditionally overwrote AgentID with
+// the generic per-harness constant, silently discarding this value for
+// every event, subagent or not.
+func TestParseCodexEvent_RealSubagentAgentIDNotOverwritten(t *testing.T) {
+	payload := `{
+		"session_id": "019da445-8036-73c2-a8fc-dacdb57417a8",
+		"turn_id": "019da445-a255-77e1-98c4-9d456711f47b",
+		"transcript_path": "/tmp/rollout.jsonl",
+		"cwd": "/repo",
+		"hook_event_name": "PreToolUse",
+		"model": "gpt-5.4",
+		"permission_mode": "default",
+		"agent_id": "codex-subagent-1",
+		"agent_type": "worker",
+		"tool_name": "Bash",
+		"tool_use_id": "call_abc123",
+		"tool_input": {"command": "wipnote feature start feat-1234"}
+	}`
+	ev, err := ParseEventForHarness(HarnessCodex, []byte(payload))
+	if err != nil {
+		t.Fatalf("ParseEventForHarness(codex): %v", err)
+	}
+	if ev.AgentID != "codex-subagent-1" {
+		t.Fatalf("AgentID = %q, want %q (must not be overwritten with the generic harness constant)", ev.AgentID, "codex-subagent-1")
+	}
+	if ev.AgentType != "worker" {
+		t.Fatalf("AgentType = %q, want %q", ev.AgentType, "worker")
+	}
+}
+
+// TestParseCodexEvent_RootSessionKeepsGenericAgentID asserts the
+// orchestrator/root case (no agent_id in the payload — Codex's Rust source
+// models this as subagent: Option<SubagentHookContext> = None) still falls
+// back to the generic per-harness constant, preserving every existing
+// caller's invariant (isSubagentEvent, resolveSessionIDWithHarness,
+// assistantTextHarness) that a root-level Codex event's AgentID equals that
+// constant, not an empty string.
+func TestParseCodexEvent_RootSessionKeepsGenericAgentID(t *testing.T) {
+	ev, err := ParseEventForHarness(HarnessCodex, []byte(codexSessionStartJSON))
+	if err != nil {
+		t.Fatalf("ParseEventForHarness(codex): %v", err)
+	}
+	if ev.AgentID != codexGenericAgentID {
+		t.Fatalf("AgentID = %q, want the generic harness constant %q", ev.AgentID, codexGenericAgentID)
+	}
+	if ev.AgentID == "" {
+		t.Fatalf("root-session AgentID must not be empty — several callers (isSubagentEvent, resolveSessionIDWithHarness) depend on it being the generic constant")
+	}
+}
+
 func TestParseEventForHarnessGemini(t *testing.T) {
 	ev, err := ParseEventForHarness(HarnessGemini, []byte(geminiSessionStartJSON))
 	if err != nil {

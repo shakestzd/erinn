@@ -41,11 +41,66 @@ func TestClaudeAgentIdentityAdapter_RewriteCommandForAgent_NonBashToolRejected(t
 	}
 }
 
+func TestCodexAgentIdentityAdapter_Identify(t *testing.T) {
+	codex := codexAgentIdentityAdapter{}
+	if !codex.Identify(&CloudEvent{Harness: HarnessCodex}) {
+		t.Fatalf("expected the Codex adapter to identify a HarnessCodex event")
+	}
+	if codex.Identify(&CloudEvent{Harness: HarnessClaude}) {
+		t.Fatalf("expected the Codex adapter to reject a HarnessClaude event")
+	}
+	if codex.Identify(nil) {
+		t.Fatalf("expected the Codex adapter to reject a nil event")
+	}
+}
+
+func TestCodexAgentIdentityAdapter_ResolveAgentIdentity(t *testing.T) {
+	codex := codexAgentIdentityAdapter{}
+
+	agentID, source := codex.ResolveAgentIdentity(&CloudEvent{AgentID: "codex-subagent-1"})
+	if agentID != "codex-subagent-1" || source != AgentIdentityFromHarness {
+		t.Fatalf("got (%q, %v), want (\"codex-subagent-1\", AgentIdentityFromHarness)", agentID, source)
+	}
+
+	// parseCodexEvent's root/orchestrator case: no real payload agent_id, so
+	// AgentID carries the generic per-harness placeholder. Verified against
+	// Codex's own Rust source (subagent: Option<SubagentHookContext>) and a
+	// dedicated schema unit test that the root case has NO agent_id key at
+	// all — the same "present only inside a subagent call" contract Claude
+	// documents — so this must classify as AgentIdentityRootSession, not
+	// AgentIdentityUnsupported.
+	agentID, source = codex.ResolveAgentIdentity(&CloudEvent{AgentID: codexGenericAgentID})
+	if agentID != "" || source != AgentIdentityRootSession {
+		t.Fatalf("got (%q, %v), want (\"\", AgentIdentityRootSession)", agentID, source)
+	}
+
+	// Defensive: an entirely empty AgentID (shouldn't happen in practice —
+	// parseCodexEvent always sets at least the generic placeholder — but the
+	// adapter must not treat it as a real identity either) also classifies
+	// as root, never as a real, empty-string identity.
+	agentID, source = codex.ResolveAgentIdentity(&CloudEvent{AgentID: ""})
+	if agentID != "" || source != AgentIdentityRootSession {
+		t.Fatalf("got (%q, %v), want (\"\", AgentIdentityRootSession)", agentID, source)
+	}
+}
+
+func TestCodexAgentIdentityAdapter_RewriteCommandForAgent_NonBashToolRejected(t *testing.T) {
+	codex := codexAgentIdentityAdapter{}
+	_, ok := codex.RewriteCommandForAgent(&CloudEvent{ToolName: "update_plan"}, "wipnote feature start feat-1234", "codex-subagent-1")
+	if ok {
+		t.Fatalf("expected no rewrite for a non-Bash tool")
+	}
+}
+
 func TestAgentIdentityRegistry_ResolveReturnsNilForUnregisteredHarness(t *testing.T) {
 	// This is the concrete proof that the seam is harness-neutral by
-	// construction: an event from a harness with no registered adapter
-	// (Codex/Antigravity, pending their own audit) finds nothing here, and
-	// the shared caller must not invent a fallback identity of its own.
+	// construction: a locally-scoped registry with only Claude registered
+	// finds nothing for a Codex event, and the shared caller must not
+	// invent a fallback identity of its own. (Production now registers a
+	// real Codex adapter too — see
+	// TestApplyClaimAgentPropagation_CodexHarnessResolvesRealAdapter and
+	// TestApplyClaimAgentPropagation_AntigravityHarnessNoOp below for the
+	// production-registry versions of "registered" and "not registered.")
 	r := &AgentIdentityRegistry{}
 	r.Register(claudeAgentIdentityAdapter{})
 
@@ -57,23 +112,72 @@ func TestAgentIdentityRegistry_ResolveReturnsNilForUnregisteredHarness(t *testin
 	}
 }
 
-// TestApplyClaimAgentPropagation_UnregisteredHarnessNoOp asserts the
+// TestApplyClaimAgentPropagation_AntigravityHarnessNoOp asserts the
 // harness-neutral call site does nothing for a harness with no registered
 // adapter, using the SAME package-level defaultAgentIdentityRegistry
-// applyClaimAgentPropagation actually consults (not a private stand-in),
-// so this fails if a future default-registry change accidentally widens
-// what gets treated as Claude.
-func TestApplyClaimAgentPropagation_UnregisteredHarnessNoOp(t *testing.T) {
+// applyClaimAgentPropagation actually consults (not a private stand-in), so
+// this fails if a future default-registry change accidentally widens what
+// gets treated as identifiable. Antigravity is the correct harness to use
+// here — its own audit (bug-e8c481cb, blocked upstream) found no
+// per-subagent identity in hooks, no input-rewrite mechanism, and no
+// telemetry emission at all, so it must never be registered.
+func TestApplyClaimAgentPropagation_AntigravityHarnessNoOp(t *testing.T) {
 	event := &CloudEvent{
-		Harness:   HarnessCodex,
-		ToolName:  "exec_command",
-		AgentID:   "some-codex-subagent",
+		Harness:   HarnessAntigravity,
+		ToolName:  "run_command",
+		AgentID:   "some-antigravity-subagent",
 		ToolInput: map[string]any{"command": "wipnote feature start feat-1234"},
 	}
 	result := &HookResult{}
 	applyClaimAgentPropagation(event, result)
 	if result.HookSpecificOutput != nil {
 		t.Fatalf("expected no HookSpecificOutput for a harness with no registered adapter, got %+v", result.HookSpecificOutput)
+	}
+}
+
+// TestApplyClaimAgentPropagation_CodexHarnessResolvesRealAdapter is the test
+// of the seam feat-b7bc4267 asked for: adding Codex required registering
+// codexAgentIdentityAdapter in newAgentIdentityRegistry and nothing else —
+// this test exercises the real production defaultAgentIdentityRegistry
+// end-to-end and would fail if that registration were ever missing or if
+// applyClaimAgentPropagation had grown any Claude-specific assumption that
+// silently excluded Codex.
+func TestApplyClaimAgentPropagation_CodexHarnessResolvesRealAdapter(t *testing.T) {
+	event := &CloudEvent{
+		Harness:   HarnessCodex,
+		ToolName:  "Bash", // verified: Codex's shell tool name is literally "Bash"
+		AgentID:   "codex-subagent-1",
+		ToolInput: map[string]any{"command": "wipnote feature start feat-1234"},
+	}
+	result := &HookResult{}
+	applyClaimAgentPropagation(event, result)
+	if result.HookSpecificOutput == nil || result.HookSpecificOutput.UpdatedInput == nil {
+		t.Fatalf("expected a rewrite for a Codex event carrying a real agent id")
+	}
+	want := "WIPNOTE_AGENT_ID=codex-subagent-1 wipnote feature start feat-1234"
+	if got := result.HookSpecificOutput.UpdatedInput["command"]; got != want {
+		t.Fatalf("command = %v, want %v", got, want)
+	}
+}
+
+// TestApplyClaimAgentPropagation_CodexRootSessionNoRewrite asserts a Codex
+// event carrying only the generic per-harness placeholder (no real
+// per-subagent agent_id — parseCodexEvent's root/orchestrator case) does NOT
+// get rewritten, exactly like Claude's own root case. If this ever rewrote,
+// every orchestrator-level `wipnote feature start` on Codex would silently
+// claim under the string "codex" instead of __root__ — a regression, not an
+// improvement.
+func TestApplyClaimAgentPropagation_CodexRootSessionNoRewrite(t *testing.T) {
+	event := &CloudEvent{
+		Harness:   HarnessCodex,
+		ToolName:  "Bash",
+		AgentID:   codexGenericAgentID,
+		ToolInput: map[string]any{"command": "wipnote feature start feat-1234"},
+	}
+	result := &HookResult{}
+	applyClaimAgentPropagation(event, result)
+	if result.HookSpecificOutput != nil {
+		t.Fatalf("expected no rewrite for Codex's root/orchestrator case, got %+v", result.HookSpecificOutput)
 	}
 }
 

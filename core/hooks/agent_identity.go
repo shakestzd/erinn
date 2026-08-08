@@ -93,18 +93,25 @@ func (r *AgentIdentityRegistry) Resolve(event *CloudEvent) AgentIdentityAdapter 
 // at init is the equivalent of the OTel receiver's per-request Registry
 // construction — there is no concurrent-request lifetime to manage here.
 //
-// Only Claude Code is registered today. Codex and Antigravity are under a
-// separate audit (2026-08-08) of whether either harness exposes any
-// per-subagent identity mechanism at all; until that lands, an event from
-// either one simply finds no adapter here and applyClaimAgentPropagation is
-// a no-op for it — which is the correct, harness-neutral behavior, not a
-// stopgap. When that audit completes, its adapter registers itself in this
-// list; no other file in this package should need to change.
+// Claude Code and Codex are registered (feat-b7bc4267's audit found Codex
+// has the same shape: agent_id/agent_type on the same event set, the same
+// updatedInput mechanism, the same "Bash" shell tool name). Adding Codex
+// required registering codexAgentIdentityAdapter here and nothing else in
+// this package — pretooluse.go was not touched, confirming the seam holds.
+//
+// Antigravity is deliberately NOT registered: its own audit
+// (bug-e8c481cb, blocked upstream) found no per-subagent identity in hooks,
+// no input-rewrite mechanism, and no telemetry emission at all — there is
+// nothing to adapt, and a mechanism that would silently no-op is worse than
+// no mechanism. An Antigravity event simply finds no adapter here and
+// applyClaimAgentPropagation is a no-op for it, which is the correct,
+// harness-neutral behavior for "nothing to plug in," not a stopgap.
 var defaultAgentIdentityRegistry = newAgentIdentityRegistry()
 
 func newAgentIdentityRegistry() *AgentIdentityRegistry {
 	r := &AgentIdentityRegistry{}
 	r.Register(claudeAgentIdentityAdapter{})
+	r.Register(codexAgentIdentityAdapter{})
 	return r
 }
 

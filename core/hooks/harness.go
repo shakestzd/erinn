@@ -101,6 +101,21 @@ func (r *codexToolResult) UnmarshalJSON(data []byte) error {
 //   codex-cli 0.147.0 confirmed task_subject appears zero times in the binary.
 //   TaskCreated/TaskCompleted are Claude-only hooks with no Codex equivalent.
 type codexPayload struct {
+	// AgentID/AgentType: declared as optional string properties on
+	// PreToolUse, PostToolUse, and PermissionRequest, and as REQUIRED
+	// properties on SubagentStart/SubagentStop, per Codex's own generated
+	// JSON Schema (codex-rs/hooks/schema/generated/*.command.input.schema.json,
+	// openai/codex @ main, verified 2026-08-08 — the schema is generated from
+	// the Rust wire types and is ground truth; the prose docs incorrectly
+	// list these fields as subagent-lifecycle-only). Absence on
+	// PreToolUse/PostToolUse/PermissionRequest is itself meaningful: Codex's
+	// Rust source models the field as `subagent: Option<SubagentHookContext>`
+	// (codex-rs/hooks/src/events/pre_tool_use.rs), and codex-rs/hooks/src/
+	// schema.rs has a dedicated unit test asserting the root/orchestrator
+	// case serializes with NO agent_id/agent_type keys at all — the same
+	// "present only inside a subagent call" contract Claude Code documents.
+	AgentID              string          `json:"agent_id"`
+	AgentType            string          `json:"agent_type"`
 	SessionID            string          `json:"session_id"`
 	TurnID               string          `json:"turn_id"`
 	TranscriptPath       string          `json:"transcript_path"`
@@ -274,6 +289,16 @@ func parseCodexEvent(raw []byte) (*CloudEvent, error) {
 	if parent := strings.TrimSpace(os.Getenv("WIPNOTE_PARENT_AGENT")); parent != "" && parent != agentID {
 		agentID = parent
 	}
+	// bug-190950e0 / feat-b7bc4267: when the payload carries a real
+	// per-subagent agent_id (see codexPayload doc comment), it is ground
+	// truth from the harness and must win over both the generic harness
+	// default and the WIPNOTE_PARENT_AGENT hardening override above.
+	// Previously this value was silently discarded here and every Codex
+	// event — subagent or not — was stamped with the same generic "codex"
+	// identity, collapsing every subagent claim onto __root__ downstream.
+	if p.AgentID != "" {
+		agentID = p.AgentID
+	}
 
 	// Prefer the confirmed-live "tool_response" field; fall back to
 	// "tool_result" for any build that uses the other spelling rather than
@@ -285,6 +310,7 @@ func parseCodexEvent(raw []byte) (*CloudEvent, error) {
 
 	ev := &CloudEvent{
 		AgentID:              agentID,
+		AgentType:            p.AgentType,
 		SessionID:            p.SessionID,
 		CWD:                  p.CWD,
 		HookEventName:        p.HookEventName,

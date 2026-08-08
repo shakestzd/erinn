@@ -54,6 +54,40 @@ type toolUseContext struct {
 	ClaimedItem      string    // work_item_id of agent's active claim, or ""
 }
 
+// resolveFeatureIDForContext picks which of the two feature_id sources a
+// tool-use context should report (bug-b65b82bd): activeFeatureID is the
+// session-wide sessions.active_feature_id column, writable only by root/codex
+// (see writesLegacyActiveFeature in cmd/wipnote/workitem.go); claimedItem is
+// the calling agent's own claim, resolved by db.GetToolUseContext's
+// claimed_by_agent_id-first lookup against the claims table.
+//
+// For a subagent, the agent's own claim wins, falling back to the session-wide
+// value only when the agent has no claim of its own. This mirrors the pattern
+// pretooluse.go's hasAgentClaim already uses for guard purposes (`if
+// ctx.IsSubagent { hasAgentClaim = claimedItem != "" }`) — that pattern was
+// never applied where ctx.FeatureID itself gets computed, so every other
+// consumer (feature_files attribution, git-commit attribution, session
+// activity logging, claim-lease heartbeating) inherited root's claim instead
+// of the actual acting agent's, even though the write side already restricts
+// the shared column to root/codex specifically so subagents would rely on
+// their own per-agent claims.
+//
+// Root/orchestrator resolution is UNCHANGED: the session-wide value still
+// wins there, with the claim as fallback — exactly the prior behavior for
+// every non-subagent caller.
+func resolveFeatureIDForContext(isSubagent bool, activeFeatureID, claimedItem string) string {
+	if isSubagent {
+		if claimedItem != "" {
+			return claimedItem
+		}
+		return activeFeatureID
+	}
+	if activeFeatureID != "" {
+		return activeFeatureID
+	}
+	return claimedItem
+}
+
 // resolveToolUseContext resolves session, feature, agent identifiers, project
 // directory, YOLO mode, and parent event ID from a CloudEvent and database.
 // Returns nil when no active session is found, indicating the caller should
@@ -89,23 +123,17 @@ func resolveToolUseContext(event *CloudEvent, database *sql.DB, trustParentEnvVa
 		claimedItem      string
 	)
 	if row, err := db.GetToolUseContext(database, sessionID, agentID); err == nil && row != nil {
-		featureID = row.ActiveFeatureID
 		parentSessionID = row.ParentSessionID
 		sessionCreatedAt = row.CreatedAt
 		claimedItem = row.ClaimedItem
-		if featureID == "" {
-			featureID = claimedItem
-		}
+		featureID = resolveFeatureIDForContext(isSubagent, row.ActiveFeatureID, claimedItem)
 		if featureID == "" {
 			if fallbackSessionID, fallback := projectClaimedToolUseContext(database, projectDir, agentID, sessionID); fallback != nil {
 				sessionID = fallbackSessionID
-				featureID = fallback.ActiveFeatureID
 				parentSessionID = fallback.ParentSessionID
 				sessionCreatedAt = fallback.CreatedAt
 				claimedItem = fallback.ClaimedItem
-				if featureID == "" {
-					featureID = claimedItem
-				}
+				featureID = resolveFeatureIDForContext(isSubagent, fallback.ActiveFeatureID, claimedItem)
 			}
 		}
 		// Keep the process-level cache warm for other callers (missing_events etc.)
@@ -122,13 +150,10 @@ func resolveToolUseContext(event *CloudEvent, database *sql.DB, trustParentEnvVa
 		// session family. Never use an arbitrary project-level claim here.
 		if fallbackSessionID, row := projectClaimedToolUseContext(database, projectDir, agentID, sessionID); row != nil {
 			sessionID = fallbackSessionID
-			featureID = row.ActiveFeatureID
 			parentSessionID = row.ParentSessionID
 			sessionCreatedAt = row.CreatedAt
 			claimedItem = row.ClaimedItem
-			if featureID == "" {
-				featureID = claimedItem
-			}
+			featureID = resolveFeatureIDForContext(isSubagent, row.ActiveFeatureID, claimedItem)
 			featureIDCache = featureIDCacheEntry{
 				sessionID: sessionID,
 				featureID: featureID,

@@ -898,6 +898,107 @@ func TestResolveToolUseContext_DoesNotUseUnrelatedProjectClaim(t *testing.T) {
 	}
 }
 
+// TestResolveToolUseContext_SubagentPrefersOwnClaimOverRootFeature is the
+// load-bearing test for bug-b65b82bd: two concurrent agents hold distinct
+// claims in the SAME session — the case that actually fails today, since
+// Agent-Teams/Task-tool subagents share session_id with the orchestrator
+// (bug-cb4918d8). It proves the subagent's OWN claim wins for feature_id
+// resolution rather than root's session-wide sessions.active_feature_id, and
+// that root's own resolution is unchanged.
+func TestResolveToolUseContext_SubagentPrefersOwnClaimOverRootFeature(t *testing.T) {
+	tdb := setupTestDB(t)
+
+	tdb.addFeature("bug-root-item", "bug", "Root's own work", "in-progress")
+	tdb.addFeature("bug-agent-item", "bug", "Subagent's own work", "in-progress")
+
+	// Root claims bug-root-item via the session-wide column — writable only by
+	// root/codex per writesLegacyActiveFeature (cmd/wipnote/workitem.go).
+	if _, err := tdb.DB.Exec(
+		`UPDATE sessions SET active_feature_id = ? WHERE session_id = ?`,
+		"bug-root-item", "test-sess",
+	); err != nil {
+		t.Fatalf("set root active_feature_id: %v", err)
+	}
+
+	// A concurrent subagent, sharing the SAME session_id, claims a DIFFERENT
+	// work item under its own agent identity.
+	subagentID := "subagent-xyz"
+	if err := db.ClaimItemOrRenew(tdb.DB, &models.Claim{
+		ClaimID:          "clm-agent-item",
+		WorkItemID:       "bug-agent-item",
+		OwnerSessionID:   "test-sess",
+		OwnerAgent:       "claude-code",
+		ClaimedByAgentID: subagentID,
+		Status:           models.ClaimInProgress,
+	}, 30*time.Minute); err != nil {
+		t.Fatalf("ClaimItemOrRenew: %v", err)
+	}
+
+	// The subagent's own tool-use event must resolve to ITS OWN claim, not root's.
+	ctx := resolveToolUseContext(&CloudEvent{
+		AgentID:   subagentID,
+		SessionID: "test-sess",
+		CWD:       t.TempDir(),
+		ToolName:  "Edit",
+		ToolInput: map[string]any{"file_path": "some/file.go"},
+	}, tdb.DB, false)
+	if ctx == nil {
+		t.Fatal("resolveToolUseContext (subagent) returned nil")
+	}
+	if ctx.FeatureID != "bug-agent-item" {
+		t.Errorf("subagent FeatureID = %q, want %q (its own claim, not root's %q)",
+			ctx.FeatureID, "bug-agent-item", "bug-root-item")
+	}
+
+	// Root's own tool-use event must be UNCHANGED: the session-wide value still
+	// wins for the orchestrator.
+	rootCtx := resolveToolUseContext(&CloudEvent{
+		AgentID:   "claude-code",
+		SessionID: "test-sess",
+		CWD:       t.TempDir(),
+		ToolName:  "Edit",
+		ToolInput: map[string]any{"file_path": "some/other-file.go"},
+	}, tdb.DB, false)
+	if rootCtx == nil {
+		t.Fatal("resolveToolUseContext (root) returned nil")
+	}
+	if rootCtx.FeatureID != "bug-root-item" {
+		t.Errorf("root FeatureID = %q, want unchanged %q", rootCtx.FeatureID, "bug-root-item")
+	}
+}
+
+// TestResolveToolUseContext_SubagentFallsBackToRootFeatureWithoutOwnClaim
+// proves the other half of the fix: a subagent with NO claim of its own still
+// inherits root's session-wide active_feature_id — the bug is specifically
+// about a subagent's OWN claim being shadowed, not about removing the
+// fallback used when the subagent has nothing of its own to fall back on.
+func TestResolveToolUseContext_SubagentFallsBackToRootFeatureWithoutOwnClaim(t *testing.T) {
+	tdb := setupTestDB(t)
+
+	tdb.addFeature("bug-root-only", "bug", "Root's own work", "in-progress")
+	if _, err := tdb.DB.Exec(
+		`UPDATE sessions SET active_feature_id = ? WHERE session_id = ?`,
+		"bug-root-only", "test-sess",
+	); err != nil {
+		t.Fatalf("set root active_feature_id: %v", err)
+	}
+
+	// subagent-no-claim never ran `wipnote <type> start` — no row in claims.
+	ctx := resolveToolUseContext(&CloudEvent{
+		AgentID:   "subagent-no-claim",
+		SessionID: "test-sess",
+		CWD:       t.TempDir(),
+		ToolName:  "Edit",
+		ToolInput: map[string]any{"file_path": "some/file.go"},
+	}, tdb.DB, false)
+	if ctx == nil {
+		t.Fatal("resolveToolUseContext returned nil")
+	}
+	if ctx.FeatureID != "bug-root-only" {
+		t.Errorf("FeatureID = %q, want fallback to root's %q", ctx.FeatureID, "bug-root-only")
+	}
+}
+
 func TestCheckYoloWorkItemGuard_DiagnosticsIncludeCheckedAndNearestClaim(t *testing.T) {
 	tdb := setupTestDB(t)
 	projectDir := t.TempDir()

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 
@@ -431,9 +432,18 @@ func buildEdgesNavHTML(node *models.Node) string {
 		return ""
 	}
 
+	// Sorted for the same reason as buildEdgeGroups: map order would reshuffle
+	// the nav on every rewrite of an unchanged plan.
+	relTypes := make([]string, 0, len(node.Edges))
+	for relType := range node.Edges {
+		relTypes = append(relTypes, relType)
+	}
+	sort.Strings(relTypes)
+
 	var sb strings.Builder
 	sb.WriteString("<nav data-graph-edges>\n")
-	for relType, edges := range node.Edges {
+	for _, relType := range relTypes {
+		edges := node.Edges[relType]
 		if len(edges) == 0 {
 			continue
 		}
@@ -450,9 +460,14 @@ func buildEdgesNavHTML(node *models.Node) string {
 			if !e.Since.IsZero() {
 				since = fmt.Sprintf(` data-since=%q`, fmtTime(e.Since))
 			}
+			// Plan HTML is patched rather than re-rendered from the template,
+			// so it needs the same property markup emitted by hand — a plan's
+			// own edges must round-trip through a rebuild like any other
+			// node's (bug-eb141e88).
 			sb.WriteString(fmt.Sprintf(
-				"      <li><a href=%q data-relationship=%q%s>%s</a></li>\n",
-				e.TargetID+".html", string(e.Relationship), since, label,
+				"      <li><a href=%q data-relationship=%q%s%s>%s</a></li>\n",
+				e.TargetID+".html", string(e.Relationship), since,
+				string(edgePropAttrs(e.Properties)), label,
 			))
 		}
 		sb.WriteString("    </ul>\n")

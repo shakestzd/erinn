@@ -10,6 +10,9 @@
 //	  <section data-steps><ol><li data-completed="true">...</li></ol></section>
 //	  <section data-content><p>Body text</p></section>
 //	</article>
+//
+// Edge anchors may additionally carry edge properties; see edge_props.go for
+// that format.
 package htmlparse
 
 import (
@@ -129,18 +132,9 @@ func parseEdges(doc *goquery.Document) map[string][]models.Edge {
 				edge.Since = parseTime(since)
 			}
 
-			// Collect extra data-* attributes as properties.
-			props := make(map[string]string)
-			for _, attr := range link.Get(0).Attr {
-				if strings.HasPrefix(attr.Key, "data-") &&
-					attr.Key != "data-relationship" &&
-					attr.Key != "data-since" {
-					props[strings.TrimPrefix(attr.Key, "data-")] = attr.Val
-				}
-			}
-			if len(props) > 0 {
-				edge.Properties = props
-			}
+			// Edge properties — see edge_props.go for the wire format.
+			// Absent on all pre-existing HTML, which parses as no properties.
+			edge.Properties = parseEdgeProps(link)
 
 			edges[relType] = append(edges[relType], edge)
 		})

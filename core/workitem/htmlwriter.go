@@ -5,16 +5,19 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"embed"
+	"encoding/json"
 	"fmt"
 	"html/template"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"sync"
 	"sync/atomic"
 	"syscall"
 	"time"
 
+	"github.com/shakestzd/wipnote/core/htmlparse"
 	"github.com/shakestzd/wipnote/core/models"
 	"github.com/shakestzd/wipnote/core/paths"
 )
@@ -314,6 +317,59 @@ type edgeData struct {
 	Label        string
 	HasSince     bool
 	Since        string
+
+	// PropAttrs carries models.Edge.Properties as pre-rendered, pre-escaped
+	// HTML attributes with a leading space (empty when the edge has none).
+	// Attribute *names* are dynamic, and html/template cannot compute an
+	// output context for an action in attribute-name position, so the whole
+	// attribute run is built by edgePropAttrs and injected as HTMLAttr.
+	PropAttrs template.HTMLAttr
+}
+
+// edgePropAttrs renders an edge's properties as the attribute run that goes
+// inside the edge's <a> tag, using the wire format defined in
+// core/htmlparse/edge_props.go. Returns "" for an edge with no properties.
+//
+// Injection safety: the returned string is marked HTMLAttr, so it bypasses
+// html/template's contextual escaping and must therefore be self-escaping.
+// Attribute names are only ever emitted for keys htmlparse.EdgePropKeyIsAttrSafe
+// accepts (lowercase [a-z0-9_-], no reserved names — nothing that can close a
+// tag or start another attribute), and every value, including the JSON payload,
+// goes through template.HTMLEscapeString, which escapes the double quote that
+// delimits it.
+//
+// Keys are sorted, and encoding/json sorts map keys of its own accord, so a
+// given property map always renders to the same bytes — a rewrite of an
+// unchanged node produces no diff.
+func edgePropAttrs(props map[string]string) template.HTMLAttr {
+	if len(props) == 0 {
+		return ""
+	}
+
+	keys := make([]string, 0, len(props))
+	for k := range props {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+
+	var sb strings.Builder
+	overflow := make(map[string]string)
+	for _, k := range keys {
+		if !htmlparse.EdgePropKeyIsAttrSafe(k) {
+			overflow[k] = props[k]
+			continue
+		}
+		fmt.Fprintf(&sb, ` data-%s="%s"`, k, template.HTMLEscapeString(props[k]))
+	}
+
+	if len(overflow) > 0 {
+		if payload, err := json.Marshal(overflow); err == nil {
+			fmt.Fprintf(&sb, ` %s="%s"`, htmlparse.EdgePropsAttr,
+				template.HTMLEscapeString(string(payload)))
+		}
+	}
+
+	return template.HTMLAttr(sb.String()) // #nosec G203: escaped above
 }
 
 // edgeHref returns a collection-aware relative href for a link to targetID.
@@ -484,8 +540,18 @@ func buildEdgeGroups(n *models.Node) []edgeGroupData {
 	if len(n.Edges) == 0 {
 		return nil
 	}
+	// Relationship types are sorted so a rewrite of an unchanged node emits
+	// byte-identical HTML — Go map iteration order would otherwise reshuffle
+	// the nav on every write and churn the committed artifact.
+	relTypes := make([]string, 0, len(n.Edges))
+	for relType := range n.Edges {
+		relTypes = append(relTypes, relType)
+	}
+	sort.Strings(relTypes)
+
 	groups := make([]edgeGroupData, 0, len(n.Edges))
-	for relType, edges := range n.Edges {
+	for _, relType := range relTypes {
+		edges := n.Edges[relType]
 		if len(edges) == 0 {
 			continue
 		}
@@ -504,6 +570,7 @@ func buildEdgeGroups(n *models.Node) []edgeGroupData {
 				Href:         edgeHref(e.TargetID),
 				Relationship: string(e.Relationship),
 				Label:        label,
+				PropAttrs:    edgePropAttrs(e.Properties),
 			}
 			if !e.Since.IsZero() {
 				ed.HasSince = true

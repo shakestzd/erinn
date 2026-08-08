@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>Two pre-existing observe test failures, one date-sensitive</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="bug-6882ecaa"
+             data-type="bug"
+             data-status="in-progress"
+             data-priority="medium"
+             data-created="2026-08-08T11:51:39.361654"
+             data-updated="2026-08-08T12:04:42.516745" data-agent-assigned="claude-code" data-track-id="trk-c4615ad2" data-created-by-agent="claude-code" data-created-by-model="claude-opus-5[1m]" data-created-by-cli-version="0.67.1" data-created_in_session="419cfccb-620d-4bb6-b2df-6b449496b630">
+
+        <header>
+            <h1>Two pre-existing observe test failures, one date-sensitive</h1>
+            <div class="metadata">
+                <span class="badge status-in-progress">In Progress</span>
+                <span class="badge priority-medium">Medium Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="implemented_in">
+                <h3>Implemented In:</h3>
+                <ul>
+                    <li><a href="../sessions/419cfccb-620d-4bb6-b2df-6b449496b630.html" data-relationship="implemented_in" data-since="2026-08-08T12:04:42.516637">session 419cfccb-620d-4bb6-b2df-6b449496b630</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-c4615ad2.html" data-relationship="part_of" data-since="2026-08-08T11:51:40.230758">trk-c4615ad2</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>The observe module has two failing tests that reproduce identically on a clean tree, so they predate current work: a collector timeout and a retention test that is date-sensitive. A date-sensitive test is the more serious of the two because it fails by calendar rather than by code, which trains everyone to ignore a red suite and erodes the quality gate it exists to enforce. Fix the retention test to control its own clock rather than depending on the current date, and diagnose whether the collector timeout is a genuine race or an under-tuned bound.</p>
+        </section>
+    </article>
+</body>
+</html>

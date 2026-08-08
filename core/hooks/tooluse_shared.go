@@ -254,8 +254,37 @@ func sessionFamilyForToolUse(database *sql.DB, projectDir, sessionID string) str
 }
 
 // isSubagentEvent returns true when the event originates from a subagent.
-// Generic harness agent IDs mark top-level activity; Claude Code sets other
-// non-empty agent_id values for subagent hooks.
+// The listed values are the generic per-harness root/orchestrator markers —
+// "" for Claude's own root case, and the harness-name constants each
+// harness's parser falls back to when a payload carries no real per-subagent
+// identity (see parseCodexEvent's default in harness.go). Any other value —
+// a real per-subagent identity — means a subagent produced the event.
+//
+// bug-fa036758 / feat-b7bc4267: before feat-b7bc4267, parseCodexEvent
+// unconditionally overwrote AgentID with the literal "codex" for every Codex
+// event, subagent or not, so this function always returned false for Codex —
+// no Codex event was ever detected as a subagent. Once parseCodexEvent
+// started threading through the real payload agent_id when one is present,
+// this function started correctly returning true for genuine Codex
+// subagents, with NO code change needed here — the fix was entirely
+// upstream, in what value AgentID carries.
+//
+// This is intended behavior, not an incidental side effect: it makes YOLO's
+// subagent-scoped guards apply to Codex subagents the same way they already
+// apply to Claude's (see the launcher comment at cmd/wipnote/codex.go's
+// WIPNOTE_YOLO=1 injection — "so the worktree source-isolation guard fires
+// under Codex just as it does under Claude Code's bypassPermissions path").
+// Concretely: a Codex subagent under `wipnote codex --yolo` is now subject
+// to checkSubagentWorkItemGuard (pretooluse.go — requires its OWN claimed
+// work item, not just the orchestrator's session-wide one) and the
+// worktree-isolation guard (checkYoloWorktreeGuard/checkYoloBashWorktreeGuard
+// via the anyParentSessionYolo widening), where it previously was not.
+// Both have a working path: feat-b7bc4267's PreToolUse rewrite lets a Codex
+// subagent successfully claim a work item under its own identity, and
+// WIPNOTE_YOLO=1 is already set on the whole launch environment, so a
+// subagent's own yolo detection is normally already true — the widening
+// only newly matters for a subagent whose own detection says no while its
+// parent session is in yolo, which is exactly the gap it exists to close.
 func isSubagentEvent(event *CloudEvent) bool {
 	switch event.AgentID {
 	case "", "claude-code", "claude", "codex", "gemini", "antigravity":

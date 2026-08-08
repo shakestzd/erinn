@@ -10,15 +10,15 @@
 <body>
     <article id="bug-6ec28063"
              data-type="bug"
-             data-status="todo"
+             data-status="done"
              data-priority="medium"
              data-created="2026-08-07T23:39:41.947635"
-             data-updated="2026-08-07T23:39:41.958152" data-agent-assigned="claude-code" data-track-id="trk-08dcbb33" data-created-by-agent="claude-code" data-created-by-model="claude-opus-5[1m]" data-created-by-cli-version="0.67.1">
+             data-updated="2026-08-08T03:22:47.547017" data-agent-assigned="claude-code" data-track-id="trk-08dcbb33" data-created-by-agent="claude-code" data-created-by-model="claude-opus-5[1m]" data-created-by-cli-version="0.67.1">
 
         <header>
             <h1>collectSessionIDs runs before reindexSessions on a from-scratch rebuild, dropping implemented_in edges</h1>
             <div class="metadata">
-                <span class="badge status-todo">Todo</span>
+                <span class="badge status-done">Done</span>
                 <span class="badge priority-medium">Medium Priority</span>
             </div>
         </header>
@@ -30,11 +30,18 @@
                     <li><a href="../tracks/trk-08dcbb33.html" data-relationship="part_of" data-since="2026-08-07T23:39:41.958066">trk-08dcbb33</a></li>
                 </ul>
             </section>
+            <section data-edge-type="implemented_in">
+                <h3>Implemented In:</h3>
+                <ul>
+                    <li><a href="../sessions/419cfccb-620d-4bb6-b2df-6b449496b630.html" data-relationship="implemented_in" data-since="2026-08-08T02:48:40.545203">session 419cfccb-620d-4bb6-b2df-6b449496b630</a></li>
+                </ul>
+            </section>
         </nav>
 
         <section data-content>
             <h3>Description</h3>
-            <p>On a from-scratch database, collectSessionIDs executes before reindexSessions has populated the sessions table, so session IDs are not yet valid targets and implemented_in edges pointing at them are dropped by the validity gate. Measured on an isolated full reindex: 5 feature and 8 bug implemented_in edges lost this way. Distinct from the plans-directory gap filed alongside this — same symptom, different cause, and this one only manifests when the index is rebuilt from nothing rather than incrementally.</p>
+            <p>On a from-scratch database, collectSessionIDs executes before reindexSessions has populated the sessions table, so session IDs are not yet valid targets and implemented_in edges pointing at them are dropped by the validity gate. Measured on an isolated full reindex: 5 feature and 8 bug implemented_in edges lost this way. Distinct from the plans-directory gap filed alongside this — same symptom, different cause, and this one only manifests when the index is rebuilt from nothing rather than incrementally.
+[2026-08-08 03:22 claude-code] accepted-advisory (provenance override): Implemented in commit 3cc0a8613 together with bug-d5eaf6a4 (single edge-layer repair in cmd/wipnote/reindex.go + reindex_edge_census_test.go). Trailer auto-link missed it because both &#39;Fixes:&#39; lines sit in a non-final paragraph of that commit message, so git&#39;s trailer parser skips them; amending was declined because a later commit already builds on it.</p>
         </section>
     </article>
 </body>

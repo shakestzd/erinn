@@ -571,6 +571,7 @@ func reindexTracks(database *sql.DB, wipnoteDir, projectDir string, validIDs map
 
 	seen := make(map[string]bool)
 	var total, upserted, errCount int
+	var allFiles []string
 
 	for _, pattern := range patterns {
 		files, _ := filepath.Glob(pattern)
@@ -579,39 +580,52 @@ func reindexTracks(database *sql.DB, wipnoteDir, projectDir string, validIDs map
 				continue
 			}
 			seen[f] = true
-			total++
-
-			node, parseErr := htmlparse.ParseFile(f)
-			if parseErr != nil {
-				errCount++
-				if verbose {
-					fmt.Printf("reindex: error: %s: %v\n", f, parseErr)
-				}
-				continue
-			}
-
-			createdAt, updatedAt := normalizeTimes(node.CreatedAt, node.UpdatedAt)
-			createdAt, updatedAt = applyGitTimestamps(projectDir, f, createdAt, updatedAt)
-			track := &dbpkg.Track{
-				ID:        node.ID,
-				Type:      "track",
-				Title:     node.Title,
-				Priority:  string(node.Priority),
-				Status:    normalizeStatus(string(node.Status)),
-				CreatedAt: createdAt,
-				UpdatedAt: updatedAt,
-			}
-
-			if upsertErr := dbpkg.UpsertTrack(database, track); upsertErr != nil {
-				errCount++
-				if verbose {
-					fmt.Printf("reindex: error: %s: %v\n", f, upsertErr)
-				}
-				continue
-			}
-			validIDs[node.ID] = true
-			upserted++
+			allFiles = append(allFiles, f)
 		}
+	}
+
+	// One batched git-log walk for every track file instead of two `git log`
+	// subprocesses per file (bug-4e5816f4).
+	batch := batchGitFileTimestamps(projectDir, allFiles)
+
+	for _, f := range allFiles {
+		total++
+
+		node, parseErr := htmlparse.ParseFile(f)
+		if parseErr != nil {
+			errCount++
+			if verbose {
+				fmt.Printf("reindex: error: %s: %v\n", f, parseErr)
+			}
+			continue
+		}
+
+		htmlCreated, htmlUpdated := normalizeTimes(node.CreatedAt, node.UpdatedAt)
+		var createdAt, updatedAt time.Time
+		if c, u, ok := timestampsFromBatch(batch, f, htmlCreated, htmlUpdated); ok {
+			createdAt, updatedAt = c, u
+		} else {
+			createdAt, updatedAt = applyGitTimestamps(projectDir, f, htmlCreated, htmlUpdated)
+		}
+		track := &dbpkg.Track{
+			ID:        node.ID,
+			Type:      "track",
+			Title:     node.Title,
+			Priority:  string(node.Priority),
+			Status:    normalizeStatus(string(node.Status)),
+			CreatedAt: createdAt,
+			UpdatedAt: updatedAt,
+		}
+
+		if upsertErr := dbpkg.UpsertTrack(database, track); upsertErr != nil {
+			errCount++
+			if verbose {
+				fmt.Printf("reindex: error: %s: %v\n", f, upsertErr)
+			}
+			continue
+		}
+		validIDs[node.ID] = true
+		upserted++
 	}
 	return total, upserted, errCount
 }
@@ -619,6 +633,10 @@ func reindexTracks(database *sql.DB, wipnoteDir, projectDir string, validIDs map
 func reindexFeatureDir(database *sql.DB, wipnoteDir, projectDir, dir string, validIDs map[string]bool, verbose bool) (int, int, int) {
 	pattern := filepath.Join(wipnoteDir, dir, "*.html")
 	files, _ := filepath.Glob(pattern)
+
+	// One batched git-log walk for every file in this directory instead of
+	// two `git log` subprocesses per file (bug-4e5816f4).
+	batch := batchGitFileTimestamps(projectDir, files)
 
 	var total, upserted, errCount int
 	for _, f := range files {
@@ -631,7 +649,7 @@ func reindexFeatureDir(database *sql.DB, wipnoteDir, projectDir, dir string, val
 			}
 			continue
 		}
-		if indexWorkitemNode(database, node, projectDir, f, validIDs, verbose) {
+		if indexWorkitemNode(database, node, projectDir, f, batch, validIDs, verbose) {
 			upserted++
 		} else {
 			errCount++
@@ -643,14 +661,21 @@ func reindexFeatureDir(database *sql.DB, wipnoteDir, projectDir, dir string, val
 // indexWorkitemNode upserts a single parsed work-item node into the features
 // read index. gitPath is the file the node came from (an individual .wipnote
 // HTML file, or "" for ledger-backed archived items that have no standalone
-// file) and is used only to refine timestamps from git history. Returns true on
-// a successful upsert. This is the shared indexing path used by both
+// file) and is used only to refine timestamps from git history. batch is an
+// optional pre-computed lookup from batchGitFileTimestamps (nil is fine —
+// callers that don't have one, or whose gitPath is "", simply fall back to
+// applyGitTimestamps's own per-file `git log` calls). Returns true on a
+// successful upsert. This is the shared indexing path used by both
 // reindexFeatureDir (file-backed) and reindexWorkitemLedger (archive-backed) so
 // archived rows index identically to live files.
-func indexWorkitemNode(database *sql.DB, node *models.Node, projectDir, gitPath string, validIDs map[string]bool, verbose bool) bool {
+func indexWorkitemNode(database *sql.DB, node *models.Node, projectDir, gitPath string, batch map[string]fileTimestamps, validIDs map[string]bool, verbose bool) bool {
 	createdAt, updatedAt := normalizeTimes(node.CreatedAt, node.UpdatedAt)
 	if gitPath != "" {
-		createdAt, updatedAt = applyGitTimestamps(projectDir, gitPath, createdAt, updatedAt)
+		if c, u, ok := timestampsFromBatch(batch, gitPath, createdAt, updatedAt); ok {
+			createdAt, updatedAt = c, u
+		} else {
+			createdAt, updatedAt = applyGitTimestamps(projectDir, gitPath, createdAt, updatedAt)
+		}
 	}
 	desc := node.Content
 	if len([]rune(desc)) > 500 {

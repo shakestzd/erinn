@@ -79,7 +79,7 @@ func reindexWorkitemLedgerNodes(database *sql.DB, wipnoteDir, projectDir string,
 	total, upserted, errCount := 0, 0, loadErrs
 	for _, an := range nodes {
 		total++
-		if indexWorkitemNode(database, an.node, projectDir, "", validIDs, verbose) {
+		if indexWorkitemNode(database, an.node, projectDir, "", nil, validIDs, verbose) {
 			upserted++
 		} else {
 			errCount++

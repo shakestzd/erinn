@@ -10,15 +10,15 @@
 <body>
     <article id="bug-a0143c2c"
              data-type="bug"
-             data-status="todo"
+             data-status="done"
              data-priority="medium"
              data-created="2026-08-08T12:38:29.432291"
-             data-updated="2026-08-08T12:40:07.310078" data-agent-assigned="claude-code" data-track-id="trk-c4615ad2" data-created-by-agent="claude-code" data-created-by-model="claude-opus-5[1m]" data-created-by-cli-version="0.67.1" data-created_in_session="419cfccb-620d-4bb6-b2df-6b449496b630">
+             data-updated="2026-08-08T13:41:40.746546" data-agent-assigned="claude-code" data-track-id="trk-c4615ad2" data-created-by-agent="claude-code" data-created-by-model="claude-opus-5[1m]" data-created-by-cli-version="0.67.1" data-created_in_session="419cfccb-620d-4bb6-b2df-6b449496b630">
 
         <header>
             <h1>success is read from a beta span attribute when a non-beta source exists</h1>
             <div class="metadata">
-                <span class="badge status-todo">Todo</span>
+                <span class="badge status-done">Done</span>
                 <span class="badge priority-medium">Medium Priority</span>
             </div>
         </header>
@@ -28,6 +28,12 @@
                 <h3>Caused By:</h3>
                 <ul>
                     <li><a href="../bugs/bug-79606e3d.html" data-relationship="caused_by" data-since="2026-08-08T12:39:55.097993">otel success column not persisted on tool_result/tool_execution/api_request spans</a></li>
+                </ul>
+            </section>
+            <section data-edge-type="implemented_in">
+                <h3>Implemented In:</h3>
+                <ul>
+                    <li><a href="../sessions/419cfccb-620d-4bb6-b2df-6b449496b630.html" data-relationship="implemented_in" data-since="2026-08-08T13:22:15.810302">session 419cfccb-620d-4bb6-b2df-6b449496b630</a></li>
                 </ul>
             </section>
             <section data-edge-type="part_of">
@@ -46,7 +52,8 @@
 
         <section data-content>
             <h3>Description</h3>
-            <p>The shipped success derivation reads the success boolean from claude_code.llm_request and claude_code.tool.execution spans. Doc audit confirms the attribute name and type are documented exactly as used, so the fix is correct — but those spans live under the Traces feature, which is explicitly beta and carries a documented warning that span names and attributes may change between releases. That is a stated instability, not a hypothetical one. A non-beta equivalent exists for tool outcomes: the claude_code.tool_result log event is part of the standard log signal, is not gated behind the beta flag, and carries both success as a string and tool_use_id. Prefer that source for tool outcomes, or read both and cross-validate so a divergence surfaces as a signal rather than silently picking a loser. No non-beta path exists for llm_request success — that field is beta-only, making it the single highest-risk input in the current derivation, and it should be marked as such wherever it is consumed.</p>
+            <p>The shipped success derivation reads the success boolean from claude_code.llm_request and claude_code.tool.execution spans. Doc audit confirms the attribute name and type are documented exactly as used, so the fix is correct — but those spans live under the Traces feature, which is explicitly beta and carries a documented warning that span names and attributes may change between releases. That is a stated instability, not a hypothetical one. A non-beta equivalent exists for tool outcomes: the claude_code.tool_result log event is part of the standard log signal, is not gated behind the beta flag, and carries both success as a string and tool_use_id. Prefer that source for tool outcomes, or read both and cross-validate so a divergence surfaces as a signal rather than silently picking a loser. No non-beta path exists for llm_request success — that field is beta-only, making it the single highest-risk input in the current derivation, and it should be marked as such wherever it is consumed.
+[2026-08-08 13:41 claude-code] accepted-advisory (provenance override): Actual implementation is commit f5783685f (observe/otel/adapter/claude.go, claude_test.go, observe/otel/receiver/http.go, observe/otel/convert/convert.go). The code-bearing paths this gate lists (e.g. core/hooks/transcript_assistant.go, cmd/wipnote/zz_bench_tracks_featuredir_test.go) belong to other concurrent agents&#39; unrelated work, not mine -- this is the exact feature_files/active_feature_id misattribution bug-b65b82bd fixed at the source, but that fix has not yet been rebuilt into the currently-running hook binary (a deploy step I am not taking unilaterally mid-session with several agents&#39; work still in flight). Allow-dirty is required for the same reason: those uncommitted files are other agents&#39; active tasks (reindex-perf&#39;s bug-4e5816f4, the Codex identity-seam work), not mine to commit.</p>
         </section>
     </article>
 </body>

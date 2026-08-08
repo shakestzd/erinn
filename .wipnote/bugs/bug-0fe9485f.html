@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="wipnote-version" content="1.0">
+    <title>Dashboard track title join is structurally dead</title>
+    <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+    <article id="bug-0fe9485f"
+             data-type="bug"
+             data-status="todo"
+             data-priority="medium"
+             data-created="2026-08-08T19:47:12.167328"
+             data-updated="2026-08-08T19:47:12.180763" data-agent-assigned="claude-code" data-track-id="trk-2c55adea" data-created-by-agent="claude-code" data-created-by-model="claude-opus-5[1m]" data-created-by-cli-version="0.67.1" data-created_in_session="419cfccb-620d-4bb6-b2df-6b449496b630">
+
+        <header>
+            <h1>Dashboard track title join is structurally dead</h1>
+            <div class="metadata">
+                <span class="badge status-todo">Todo</span>
+                <span class="badge priority-medium">Medium Priority</span>
+            </div>
+        </header>
+
+        <nav data-graph-edges>
+            <section data-edge-type="part_of">
+                <h3>Part Of:</h3>
+                <ul>
+                    <li><a href="../tracks/trk-2c55adea.html" data-relationship="part_of" data-since="2026-08-08T19:47:12.180621">trk-2c55adea</a></li>
+                </ul>
+            </section>
+        </nav>
+
+        <section data-content>
+            <h3>Description</h3>
+            <p>The board&#39;s feature query self-joins the features table on a track id — matching a track identifier against the features table&#39;s own primary key. Track ids and work item ids come from different namespaces and never collide, so the joined title is empty for every row in production today. The column is selected and returned to the client, which renders nothing rather than erroring, so the failure is invisible. Found incidentally while enumerating dashboard joins for the graph-index scoping. Pre-existing and unrelated to that proposal. Fix by joining the tracks table instead, or resolve the title in memory. Worth noting the shape: a join that cannot ever match is indistinguishable at runtime from one that matches nothing yet, which is why it survived.</p>
+        </section>
+    </article>
+</body>
+</html>

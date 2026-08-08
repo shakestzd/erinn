@@ -10,15 +10,15 @@
 <body>
     <article id="bug-4e5816f4"
              data-type="bug"
-             data-status="in-progress"
+             data-status="done"
              data-priority="medium"
              data-created="2026-08-08T11:34:53.118962"
-             data-updated="2026-08-08T12:18:56.100242" data-agent-assigned="claude-code" data-track-id="trk-2c55adea" data-created-by-agent="claude-code" data-created-by-model="claude-opus-5[1m]" data-created-by-cli-version="0.67.1">
+             data-updated="2026-08-08T13:50:29.748203" data-agent-assigned="claude-code" data-track-id="trk-2c55adea" data-created-by-agent="claude-code" data-created-by-model="claude-opus-5[1m]" data-created-by-cli-version="0.67.1">
 
         <header>
             <h1>Profile full wipnote reindex — the dominant cost is not reindexFeatureFiles</h1>
             <div class="metadata">
-                <span class="badge status-in-progress">In Progress</span>
+                <span class="badge status-done">Done</span>
                 <span class="badge priority-medium">Medium Priority</span>
             </div>
         </header>
@@ -49,14 +49,15 @@
             <ol>
                 <li data-completed="true" data-step-id="task-16" data-agent="claude-code" data-created-by-agent="claude-code">✅ Implement WIPNOTE_AGENT_ID propagation via PreToolUse updatedInput (bug-190950e0)</li>
                 <li data-completed="true" data-step-id="task-17" data-agent="claude-code" data-created-by-agent="claude-code">✅ Wire the unwired Node field cluster and shrink the exclusion list (bug-e5c04997)</li>
-                <li data-completed="false" data-step-id="task-18" data-agent="claude-code" data-created-by-agent="claude-code">⏳ [span-attribution] Implement per-signal agent_id read path (feat-be696acc)</li>
-                <li data-completed="false" data-step-id="task-19" data-agent="claude-code" data-created-by-agent="claude-code">⏳ Audit Codex and Antigravity agent-identity contracts</li>
+                <li data-completed="true" data-step-id="task-18" data-agent="claude-code" data-created-by-agent="claude-code">✅ [span-attribution] Implement per-signal agent_id read path (feat-be696acc)</li>
+                <li data-completed="true" data-step-id="task-19" data-agent="claude-code" data-created-by-agent="claude-code">✅ Audit Codex and Antigravity agent-identity contracts</li>
             </ol>
         </section>
 
         <section data-content>
             <h3>Description</h3>
-            <p>A full reindex on this corpus was observed taking roughly 70 minutes, and that was attributed to the per-commit git diff-tree subprocess storm in reindexFeatureFiles. That diagnosis is now measured and wrong about magnitude: benchmarked in isolation against the real corpus of 3549 feature-commit pairs and 3486 distinct commits, the pre-fix function took 45.8 seconds, not tens of minutes. The batching fix cut it to 0.81 seconds, a genuine 56x win on a real hot path, but it cannot account for the reported wall-clock. Something else dominates the pipeline. Profile the full reindex end to end and identify where the time actually goes before anyone attributes slowness to a specific stage again. Candidates worth timing first: the trailer scan, edge reindexing across all collections, HTML parsing of the full store, and per-item SQLite upsert patterns. Re-measure the end-to-end figure after the batching fix landed, since the baseline may also have shifted.</p>
+            <p>A full reindex on this corpus was observed taking roughly 70 minutes, and that was attributed to the per-commit git diff-tree subprocess storm in reindexFeatureFiles. That diagnosis is now measured and wrong about magnitude: benchmarked in isolation against the real corpus of 3549 feature-commit pairs and 3486 distinct commits, the pre-fix function took 45.8 seconds, not tens of minutes. The batching fix cut it to 0.81 seconds, a genuine 56x win on a real hot path, but it cannot account for the reported wall-clock. Something else dominates the pipeline. Profile the full reindex end to end and identify where the time actually goes before anyone attributes slowness to a specific stage again. Candidates worth timing first: the trailer scan, edge reindexing across all collections, HTML parsing of the full store, and per-item SQLite upsert patterns. Re-measure the end-to-end figure after the batching fix landed, since the baseline may also have shifted.
+[2026-08-08 13:50 claude-code] accepted-advisory (provenance override): Shared concurrent-agent session: touched-file attribution swept in other agents&#39; in-flight work on the same working tree (e.g. core/hooks/agent_identity.go, core/db/otel_schema_test.go from unrelated concurrent bugs) and cmd/wipnote/sqlite_write_boundary_test.go is another agent&#39;s uncommitted WIP, not mine. The actual fix commit (3bb071eca) is scoped to exactly 4 files: cmd/wipnote/git_timestamps.go, git_timestamps_batch_test.go, reindex.go, reindex_workitem_ledger.go.</p>
         </section>
     </article>
 </body>

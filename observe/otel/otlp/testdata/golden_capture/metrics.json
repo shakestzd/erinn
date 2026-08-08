@@ -1,0 +1,432 @@
+{
+    "resourceMetrics": [
+        {
+            "resource": {
+                "attributes": [
+                    {
+                        "key": "host.arch",
+                        "value": {
+                            "stringValue": "arm64"
+                        }
+                    },
+                    {
+                        "key": "os.type",
+                        "value": {
+                            "stringValue": "darwin"
+                        }
+                    },
+                    {
+                        "key": "os.version",
+                        "value": {
+                            "stringValue": "25.5.0"
+                        }
+                    },
+                    {
+                        "key": "service.name",
+                        "value": {
+                            "stringValue": "claude-code"
+                        }
+                    },
+                    {
+                        "key": "service.version",
+                        "value": {
+                            "stringValue": "2.1.224"
+                        }
+                    }
+                ],
+                "droppedAttributesCount": 0
+            },
+            "scopeMetrics": [
+                {
+                    "scope": {
+                        "name": "com.anthropic.claude_code",
+                        "version": "2.1.224"
+                    },
+                    "metrics": [
+                        {
+                            "name": "claude_code.cost.usage",
+                            "description": "Cost of the Claude Code session",
+                            "unit": "USD",
+                            "sum": {
+                                "aggregationTemporality": 1,
+                                "isMonotonic": true,
+                                "dataPoints": [
+                                    {
+                                        "attributes": [
+                                            {
+                                                "key": "user.id",
+                                                "value": {
+                                                    "stringValue": "0000000000000000000000000000000000000000000000000000000000000000"
+                                                }
+                                            },
+                                            {
+                                                "key": "session.id",
+                                                "value": {
+                                                    "stringValue": "00000000-0000-0000-0000-000000000000"
+                                                }
+                                            },
+                                            {
+                                                "key": "organization.id",
+                                                "value": {
+                                                    "stringValue": "00000000-0000-0000-0000-000000000001"
+                                                }
+                                            },
+                                            {
+                                                "key": "user.email",
+                                                "value": {
+                                                    "stringValue": "redacted@example.com"
+                                                }
+                                            },
+                                            {
+                                                "key": "user.account_uuid",
+                                                "value": {
+                                                    "stringValue": "00000000-0000-0000-0000-000000000002"
+                                                }
+                                            },
+                                            {
+                                                "key": "user.account_id",
+                                                "value": {
+                                                    "stringValue": "user_000000000000000000000000"
+                                                }
+                                            },
+                                            {
+                                                "key": "terminal.type",
+                                                "value": {
+                                                    "stringValue": "Apple_Terminal"
+                                                }
+                                            },
+                                            {
+                                                "key": "model",
+                                                "value": {
+                                                    "stringValue": "claude-opus-5[1m]"
+                                                }
+                                            },
+                                            {
+                                                "key": "query_source",
+                                                "value": {
+                                                    "stringValue": "main"
+                                                }
+                                            },
+                                            {
+                                                "key": "effort",
+                                                "value": {
+                                                    "stringValue": "xhigh"
+                                                }
+                                            }
+                                        ],
+                                        "startTimeUnixNano": "1786197748350000000",
+                                        "timeUnixNano": "1786197748870000000",
+                                        "asDouble": 0.068859
+                                    }
+                                ]
+                            }
+                        },
+                        {
+                            "name": "claude_code.token.usage",
+                            "description": "Number of tokens used",
+                            "unit": "tokens",
+                            "sum": {
+                                "aggregationTemporality": 1,
+                                "isMonotonic": true,
+                                "dataPoints": [
+                                    {
+                                        "attributes": [
+                                            {
+                                                "key": "user.id",
+                                                "value": {
+                                                    "stringValue": "0000000000000000000000000000000000000000000000000000000000000000"
+                                                }
+                                            },
+                                            {
+                                                "key": "session.id",
+                                                "value": {
+                                                    "stringValue": "00000000-0000-0000-0000-000000000000"
+                                                }
+                                            },
+                                            {
+                                                "key": "organization.id",
+                                                "value": {
+                                                    "stringValue": "00000000-0000-0000-0000-000000000001"
+                                                }
+                                            },
+                                            {
+                                                "key": "user.email",
+                                                "value": {
+                                                    "stringValue": "redacted@example.com"
+                                                }
+                                            },
+                                            {
+                                                "key": "user.account_uuid",
+                                                "value": {
+                                                    "stringValue": "00000000-0000-0000-0000-000000000002"
+                                                }
+                                            },
+                                            {
+                                                "key": "user.account_id",
+                                                "value": {
+                                                    "stringValue": "user_000000000000000000000000"
+                                                }
+                                            },
+                                            {
+                                                "key": "terminal.type",
+                                                "value": {
+                                                    "stringValue": "Apple_Terminal"
+                                                }
+                                            },
+                                            {
+                                                "key": "model",
+                                                "value": {
+                                                    "stringValue": "claude-opus-5[1m]"
+                                                }
+                                            },
+                                            {
+                                                "key": "query_source",
+                                                "value": {
+                                                    "stringValue": "main"
+                                                }
+                                            },
+                                            {
+                                                "key": "effort",
+                                                "value": {
+                                                    "stringValue": "xhigh"
+                                                }
+                                            },
+                                            {
+                                                "key": "type",
+                                                "value": {
+                                                    "stringValue": "input"
+                                                }
+                                            }
+                                        ],
+                                        "startTimeUnixNano": "1786197748350000000",
+                                        "timeUnixNano": "1786197748870000000",
+                                        "asDouble": 2
+                                    },
+                                    {
+                                        "attributes": [
+                                            {
+                                                "key": "user.id",
+                                                "value": {
+                                                    "stringValue": "0000000000000000000000000000000000000000000000000000000000000000"
+                                                }
+                                            },
+                                            {
+                                                "key": "session.id",
+                                                "value": {
+                                                    "stringValue": "00000000-0000-0000-0000-000000000000"
+                                                }
+                                            },
+                                            {
+                                                "key": "organization.id",
+                                                "value": {
+                                                    "stringValue": "00000000-0000-0000-0000-000000000001"
+                                                }
+                                            },
+                                            {
+                                                "key": "user.email",
+                                                "value": {
+                                                    "stringValue": "redacted@example.com"
+                                                }
+                                            },
+                                            {
+                                                "key": "user.account_uuid",
+                                                "value": {
+                                                    "stringValue": "00000000-0000-0000-0000-000000000002"
+                                                }
+                                            },
+                                            {
+                                                "key": "user.account_id",
+                                                "value": {
+                                                    "stringValue": "user_000000000000000000000000"
+                                                }
+                                            },
+                                            {
+                                                "key": "terminal.type",
+                                                "value": {
+                                                    "stringValue": "Apple_Terminal"
+                                                }
+                                            },
+                                            {
+                                                "key": "model",
+                                                "value": {
+                                                    "stringValue": "claude-opus-5[1m]"
+                                                }
+                                            },
+                                            {
+                                                "key": "query_source",
+                                                "value": {
+                                                    "stringValue": "main"
+                                                }
+                                            },
+                                            {
+                                                "key": "effort",
+                                                "value": {
+                                                    "stringValue": "xhigh"
+                                                }
+                                            },
+                                            {
+                                                "key": "type",
+                                                "value": {
+                                                    "stringValue": "output"
+                                                }
+                                            }
+                                        ],
+                                        "startTimeUnixNano": "1786197748350000000",
+                                        "timeUnixNano": "1786197748870000000",
+                                        "asDouble": 128
+                                    },
+                                    {
+                                        "attributes": [
+                                            {
+                                                "key": "user.id",
+                                                "value": {
+                                                    "stringValue": "0000000000000000000000000000000000000000000000000000000000000000"
+                                                }
+                                            },
+                                            {
+                                                "key": "session.id",
+                                                "value": {
+                                                    "stringValue": "00000000-0000-0000-0000-000000000000"
+                                                }
+                                            },
+                                            {
+                                                "key": "organization.id",
+                                                "value": {
+                                                    "stringValue": "00000000-0000-0000-0000-000000000001"
+                                                }
+                                            },
+                                            {
+                                                "key": "user.email",
+                                                "value": {
+                                                    "stringValue": "redacted@example.com"
+                                                }
+                                            },
+                                            {
+                                                "key": "user.account_uuid",
+                                                "value": {
+                                                    "stringValue": "00000000-0000-0000-0000-000000000002"
+                                                }
+                                            },
+                                            {
+                                                "key": "user.account_id",
+                                                "value": {
+                                                    "stringValue": "user_000000000000000000000000"
+                                                }
+                                            },
+                                            {
+                                                "key": "terminal.type",
+                                                "value": {
+                                                    "stringValue": "Apple_Terminal"
+                                                }
+                                            },
+                                            {
+                                                "key": "model",
+                                                "value": {
+                                                    "stringValue": "claude-opus-5[1m]"
+                                                }
+                                            },
+                                            {
+                                                "key": "query_source",
+                                                "value": {
+                                                    "stringValue": "main"
+                                                }
+                                            },
+                                            {
+                                                "key": "effort",
+                                                "value": {
+                                                    "stringValue": "xhigh"
+                                                }
+                                            },
+                                            {
+                                                "key": "type",
+                                                "value": {
+                                                    "stringValue": "cacheRead"
+                                                }
+                                            }
+                                        ],
+                                        "startTimeUnixNano": "1786197748350000000",
+                                        "timeUnixNano": "1786197748870000000",
+                                        "asDouble": 15498
+                                    },
+                                    {
+                                        "attributes": [
+                                            {
+                                                "key": "user.id",
+                                                "value": {
+                                                    "stringValue": "0000000000000000000000000000000000000000000000000000000000000000"
+                                                }
+                                            },
+                                            {
+                                                "key": "session.id",
+                                                "value": {
+                                                    "stringValue": "00000000-0000-0000-0000-000000000000"
+                                                }
+                                            },
+                                            {
+                                                "key": "organization.id",
+                                                "value": {
+                                                    "stringValue": "00000000-0000-0000-0000-000000000001"
+                                                }
+                                            },
+                                            {
+                                                "key": "user.email",
+                                                "value": {
+                                                    "stringValue": "redacted@example.com"
+                                                }
+                                            },
+                                            {
+                                                "key": "user.account_uuid",
+                                                "value": {
+                                                    "stringValue": "00000000-0000-0000-0000-000000000002"
+                                                }
+                                            },
+                                            {
+                                                "key": "user.account_id",
+                                                "value": {
+                                                    "stringValue": "user_000000000000000000000000"
+                                                }
+                                            },
+                                            {
+                                                "key": "terminal.type",
+                                                "value": {
+                                                    "stringValue": "Apple_Terminal"
+                                                }
+                                            },
+                                            {
+                                                "key": "model",
+                                                "value": {
+                                                    "stringValue": "claude-opus-5[1m]"
+                                                }
+                                            },
+                                            {
+                                                "key": "query_source",
+                                                "value": {
+                                                    "stringValue": "main"
+                                                }
+                                            },
+                                            {
+                                                "key": "effort",
+                                                "value": {
+                                                    "stringValue": "xhigh"
+                                                }
+                                            },
+                                            {
+                                                "key": "type",
+                                                "value": {
+                                                    "stringValue": "cacheCreation"
+                                                }
+                                            }
+                                        ],
+                                        "startTimeUnixNano": "1786197748350000000",
+                                        "timeUnixNano": "1786197748870000000",
+                                        "asDouble": 5790
+                                    }
+                                ]
+                            }
+                        }
+                    ]
+                }
+            ]
+        }
+    ]
+}

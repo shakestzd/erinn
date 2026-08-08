@@ -267,3 +267,71 @@ func TestReindexCommitTrailers_Idempotent(t *testing.T) {
 		t.Errorf("second run: expected 0 (idempotent), got %d", count2)
 	}
 }
+
+// TestReindexCommitTrailers_IncrementalBookmark guards against a regression
+// of bug-9577013c in the other direction: a high-water mark that never
+// advances (or that gets stuck and re-scans forever) would either miss new
+// commits or re-pay the full-history cost on every run. This verifies both:
+// the bookmark advances past already-scanned commits, and new commits made
+// after the bookmark are still picked up.
+func TestReindexCommitTrailers_IncrementalBookmark(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	run := func(args ...string) {
+		t.Helper()
+		cmd := exec.Command("git", args...)
+		cmd.Dir = tmpDir
+		if out, err := cmd.CombinedOutput(); err != nil {
+			t.Fatalf("git %s: %v\n%s", strings.Join(args, " "), err, out)
+		}
+	}
+
+	run("init", "-b", "main")
+	run("config", "user.email", "test@test.com")
+	run("config", "user.name", "Test")
+	if err := os.WriteFile(filepath.Join(tmpDir, "file.go"), []byte("package x"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	run("add", "file.go")
+	run("commit", "-m", "fix: first (feat-aaaa1111)")
+	run("commit", "--allow-empty", "-m", "fix: second (feat-bbbb2222)")
+
+	database, err := dbpkg.Open(":memory:")
+	if err != nil {
+		t.Fatalf("open db: %v", err)
+	}
+	defer database.Close()
+
+	count1, err := reindexCommitTrailers(database, tmpDir)
+	if err != nil {
+		t.Fatalf("first reindexCommitTrailers: %v", err)
+	}
+	if count1 != 2 {
+		t.Fatalf("first run: expected 2 links, got %d", count1)
+	}
+
+	bookmark, _ := dbpkg.GetMetadata(database, metaKeyLastTrailerScanCommit)
+	head := gitHeadCommit(tmpDir)
+	if bookmark != head {
+		t.Fatalf("bookmark = %q, want HEAD %q", bookmark, head)
+	}
+
+	// A third commit lands after the bookmark; it must still be picked up.
+	run("commit", "--allow-empty", "-m", "fix: third (feat-cccc3333)")
+
+	count2, err := reindexCommitTrailers(database, tmpDir)
+	if err != nil {
+		t.Fatalf("second reindexCommitTrailers: %v", err)
+	}
+	if count2 != 1 {
+		t.Fatalf("incremental run: expected 1 new link (third commit only), got %d", count2)
+	}
+
+	var total int
+	if err := database.QueryRow(`SELECT COUNT(*) FROM git_commits WHERE session_id = ?`, trailerSessionID).Scan(&total); err != nil {
+		t.Fatalf("count git_commits: %v", err)
+	}
+	if total != 3 {
+		t.Errorf("expected 3 total linked commits, got %d", total)
+	}
+}

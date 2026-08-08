@@ -7,19 +7,41 @@ import (
 	"regexp"
 	"strings"
 	"time"
+
+	dbpkg "github.com/shakestzd/wipnote/core/db"
 )
 
 const trailerSessionID = "trailer-ingest"
 
+// metaKeyLastTrailerScanCommit is the high-water mark for commit-trailer
+// ingestion, distinct from metaKeyLastIndexedCommit (which tracks HTML
+// work-item files). Trailer scanning walks the *entire* commit graph rather
+// than a wipnote-dir-scoped diff, so it needs its own bookmark.
+const metaKeyLastTrailerScanCommit = "last_trailer_scan_commit"
+
 // reindexCommitTrailers walks git log and parses Refs:/Fixes: trailers to
 // populate git_commits.feature_id for commits made outside of Claude Code
 // sessions. Returns the count of new rows inserted.
+//
+// Commit history is immutable, so once a commit has been scanned its trailers
+// never change. The first run (no bookmark yet, or the bookmarked commit was
+// rewritten/GC'd away) does a one-time full-history scan; every run after
+// that only scans commits added since the last scan (see bug-9577013c — a
+// flat "-500" cap silently held linkage at 27% forever because it never
+// looked further back).
 func reindexCommitTrailers(database *sql.DB, projectDir string) (int, error) {
-	// Get recent commits (limit to 500 to avoid scanning entire history).
-	out, err := exec.Command(
-		"git", "-C", projectDir,
-		"log", "--format=%H %s%n%b%n---TRAILER-SEP---", "-500",
-	).Output()
+	currentCommit := gitHeadCommit(projectDir)
+
+	logRange := ""
+	if lastScanned, _ := dbpkg.GetMetadata(database, metaKeyLastTrailerScanCommit); lastScanned != "" && gitCommitExists(projectDir, lastScanned) {
+		logRange = lastScanned + "..HEAD"
+	}
+
+	args := []string{"-C", projectDir, "log", "--format=%H %s%n%b%n---TRAILER-SEP---"}
+	if logRange != "" {
+		args = append(args, logRange)
+	}
+	out, err := exec.Command("git", args...).Output()
 	if err != nil {
 		return 0, fmt.Errorf("git log: %w", err)
 	}
@@ -47,6 +69,13 @@ func reindexCommitTrailers(database *sql.DB, projectDir string) (int, error) {
 				}
 			}
 		}
+	}
+
+	// Advance the bookmark so the next run only scans new commits. Skipped
+	// when HEAD is unresolvable so a transient git failure doesn't silently
+	// mark unscanned history as scanned.
+	if currentCommit != "" {
+		_ = dbpkg.SetMetadata(database, metaKeyLastTrailerScanCommit, currentCommit)
 	}
 	return total, nil
 }

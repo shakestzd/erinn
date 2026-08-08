@@ -326,6 +326,13 @@ func TestInsertAssistantTextSignalFromHookPayload_CodexStop(t *testing.T) {
 	projectDir := t.TempDir()
 
 	event := &CloudEvent{
+		// bug-08ef82ea: Harness, not AgentID, is the discriminator
+		// assistantTextHarness/assistantTextNativeName now switch on — a
+		// real Codex event's AgentID may be a genuine per-subagent identity
+		// rather than the literal string "codex" (feat-b7bc4267), so this
+		// must be set explicitly the way ParseEventForHarness would stamp
+		// it, not inferred from AgentID.
+		Harness:              HarnessCodex,
 		AgentID:              "codex",
 		SessionID:            sessionID,
 		TurnID:               "turn-1",
@@ -549,5 +556,42 @@ func TestAssistantTextSignalID_Deterministic(t *testing.T) {
 			t.Errorf("signal_id contains non-hex char %q", c)
 			break
 		}
+	}
+}
+
+// TestAssistantTextHarness_CodexSubagentNotMisclassifiedAsClaude is
+// bug-08ef82ea's direct regression test. Before this fix, a genuine Codex
+// subagent's real per-subagent AgentID (anything other than the literal
+// string "codex" — now possible since feat-b7bc4267 stopped hardcoding it)
+// fell through the AgentID switch's default case and was mislabeled
+// "claude_code". event.Harness is the correct, AgentID-independent
+// discriminator.
+func TestAssistantTextHarness_CodexSubagentNotMisclassifiedAsClaude(t *testing.T) {
+	event := &CloudEvent{Harness: HarnessCodex, AgentID: "019fe188-03aa-7b92-83dc-0b4dc62e0014"}
+	if got := assistantTextHarness(event); got != "codex" {
+		t.Fatalf("assistantTextHarness = %q, want %q (a real Codex subagent AgentID must not fall to the default branch)", got, "codex")
+	}
+	if got := assistantTextNativeName(event); got != "codex.assistant_turn" {
+		t.Fatalf("assistantTextNativeName = %q, want %q", got, "codex.assistant_turn")
+	}
+}
+
+func TestAssistantTextHarness_GeminiSubagentNotMisclassifiedAsClaude(t *testing.T) {
+	event := &CloudEvent{Harness: HarnessGemini, AgentID: "some-gemini-subagent-id"}
+	if got := assistantTextHarness(event); got != "gemini_cli" {
+		t.Fatalf("assistantTextHarness = %q, want %q", got, "gemini_cli")
+	}
+	if got := assistantTextNativeName(event); got != "gemini_cli.assistant_turn" {
+		t.Fatalf("assistantTextNativeName = %q, want %q", got, "gemini_cli.assistant_turn")
+	}
+}
+
+func TestAssistantTextHarness_ClaudeRootUnaffected(t *testing.T) {
+	event := &CloudEvent{} // zero value: Harness == HarnessClaude, AgentID == ""
+	if got := assistantTextHarness(event); got != "claude_code" {
+		t.Fatalf("assistantTextHarness = %q, want %q", got, "claude_code")
+	}
+	if got := assistantTextNativeName(event); got != "claude_code.assistant_turn" {
+		t.Fatalf("assistantTextNativeName = %q, want %q", got, "claude_code.assistant_turn")
 	}
 }

@@ -159,6 +159,9 @@ func TestStop_PrefersLastAssistantMessageOverTranscript(t *testing.T) {
 	td, sessionID := setupMissingEventsDB(t)
 
 	event := &CloudEvent{
+		// bug-08ef82ea: Harness, not AgentID, now discriminates
+		// assistant-text harness attribution.
+		Harness:              HarnessCodex,
 		AgentID:              "codex",
 		SessionID:            sessionID,
 		CWD:                  t.TempDir(),
@@ -204,6 +207,9 @@ func TestAfterAgent_InsertsGeminiPromptResponse(t *testing.T) {
 	td, sessionID := setupMissingEventsDB(t)
 
 	event := &CloudEvent{
+		// bug-08ef82ea: Harness, not AgentID, now discriminates
+		// assistant-text harness attribution.
+		Harness:        HarnessGemini,
 		AgentID:        "gemini",
 		SessionID:      sessionID,
 		CWD:            t.TempDir(),

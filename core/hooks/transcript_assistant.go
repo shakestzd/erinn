@@ -308,11 +308,22 @@ func assistantTextHash(text string) string {
 	return fmt.Sprintf("%x", sum[:])[:12]
 }
 
+// assistantTextHarness and assistantTextNativeName classify which harness
+// produced this assistant-text record. bug-08ef82ea: these used to switch on
+// event.AgentID, which was a safe discriminator only because every Codex
+// event's AgentID was hardcoded to the generic "codex" constant regardless
+// of subagent status (feat-b7bc4267 fixed that hardcoding — see harness.go's
+// parseCodexEvent — so a genuine Codex subagent's AgentID is now its real
+// per-subagent identity, e.g. a thread ID, not the literal string "codex").
+// Switching on AgentID here would silently mislabel every Codex subagent's
+// assistant-text record as claude_code. event.Harness is stamped centrally
+// by ParseEventForHarness independent of AgentID and is the correct
+// discriminator regardless of subagent status.
 func assistantTextHarness(event *CloudEvent) string {
-	switch event.AgentID {
-	case "codex":
+	switch event.Harness {
+	case HarnessCodex:
 		return "codex"
-	case "gemini":
+	case HarnessGemini:
 		return "gemini_cli"
 	default:
 		return "claude_code"
@@ -320,10 +331,10 @@ func assistantTextHarness(event *CloudEvent) string {
 }
 
 func assistantTextNativeName(event *CloudEvent) string {
-	switch event.AgentID {
-	case "codex":
+	switch event.Harness {
+	case HarnessCodex:
 		return "codex.assistant_turn"
-	case "gemini":
+	case HarnessGemini:
 		return "gemini_cli.assistant_turn"
 	default:
 		return "claude_code.assistant_turn"
